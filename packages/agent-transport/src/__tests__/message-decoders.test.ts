@@ -425,6 +425,38 @@ describe('decodeServerMessage (issue #2045)', () => {
       message: { type: 'pending', pending: null },
     });
   });
+
+  it('accepts an error frame carrying its classification (#3289 §3), and one without it', () => {
+    const classified = {
+      type: 'error',
+      message: 'Authentication Error: invalid x-api-key',
+      code: 'rate_limit',
+      provider: 'anthropic',
+      retryAfterSeconds: 30,
+    };
+    expect(decodeServerMessage(classified)).toEqual({ ok: true, message: classified });
+    expect(decodeServerMessage({ type: 'error', message: 'boom' })).toEqual({
+      ok: true,
+      message: { type: 'error', message: 'boom' },
+    });
+  });
+
+  it('accepts an error frame naming the model a model_unavailable failure tried', () => {
+    const classified = {
+      type: 'error',
+      message: 'No model available for provider "anthropic"',
+      code: 'model_unavailable',
+      provider: 'anthropic',
+      model: 'claude-x',
+    };
+    expect(decodeServerMessage(classified)).toEqual({ ok: true, message: classified });
+  });
+
+  it('refuses an error frame with an unrecognized code', () => {
+    expect(
+      decodeServerMessage({ type: 'error', message: 'm', code: 'not-a-real-code' }).ok,
+    ).toBe(false);
+  });
 });
 
 describe('decodeFrame — the one carrier path', () => {

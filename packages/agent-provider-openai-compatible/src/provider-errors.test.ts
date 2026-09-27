@@ -3,7 +3,12 @@
  * on every provider and API surface here, instead of collapsing into a bare `Error`.
  */
 
-import { ProviderError, RateLimitError } from '@robota-sdk/agent-core';
+import {
+  AuthenticationError,
+  ModelNotAvailableError,
+  ProviderError,
+  RateLimitError,
+} from '@robota-sdk/agent-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DeepSeekProvider, GemmaProvider, QwenProvider } from './index';
@@ -73,7 +78,6 @@ describe('OpenAI-compatible provider errors', () => {
       [529, 'overloaded_error'],
       [503, 'server_error'],
       [500, 'server_error'],
-      [401, 'invalid_api_key'],
     ])(`${label} chat keeps HTTP %i`, async (status, type) => {
       create.mockRejectedValue(httpError(status, type));
       const error = await failure(() => makeProvider().chat(messages, { model }));
@@ -93,6 +97,31 @@ describe('OpenAI-compatible provider errors', () => {
       create.mockRejectedValue(httpError(429, 'rate_limit_exceeded'));
       const error = await failure(() => makeProvider().chat(messages, { model }));
       expect(error).toBeInstanceOf(RateLimitError);
+    });
+
+    it(`${label} chat maps 401 to AuthenticationError, carrying the provider name`, async () => {
+      create.mockRejectedValue(httpError(401, 'invalid_api_key'));
+      const error = await failure(() => makeProvider().chat(messages, { model }));
+      expect(error).toBeInstanceOf(AuthenticationError);
+      expect((error as AuthenticationError).provider).toBe(label.split(' ')[0]);
+    });
+
+    // A mistyped self-hosted baseURL (the motivating case: a gateway 404ing on the wrong path)
+    // returns a bare 404 that names no model. It must stay a generic ProviderError with the vendor's
+    // real text, not be misread as "no such model" the way any bare 404 used to be.
+    it(`${label} chat keeps a bare 404 with no model-not-found signal as a generic ProviderError`, async () => {
+      create.mockRejectedValue(
+        APIError.generate(
+          404,
+          { error: { type: 'not_found', message: 'Cannot POST /wrong/path/chat/completions' } },
+          undefined,
+          {},
+        ),
+      );
+      const error = await failure(() => makeProvider().chat(messages, { model }));
+      expect(error).toBeInstanceOf(ProviderError);
+      expect(error).not.toBeInstanceOf(ModelNotAvailableError);
+      expect(error.message).toContain('Cannot POST /wrong/path/chat/completions');
     });
   }
 });

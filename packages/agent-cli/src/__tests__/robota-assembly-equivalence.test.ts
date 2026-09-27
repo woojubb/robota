@@ -247,7 +247,11 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
 
     expect(options.providerErrorGuidance?.authentication).toContain('/provider');
     expect(options.providerErrorGuidance?.authentication).toContain('~/.robota/settings.json');
-    expect(options.providerErrorGuidance?.rateLimit).toContain('/model');
+    // #3275/#3289: the rate-limit guidance used to name a `/model` command that was never
+    // registered — the real command is `/provider`.
+    expect(options.providerErrorGuidance?.rateLimit).toContain('/provider');
+    expect(options.providerErrorGuidance?.rateLimit).not.toContain('/model');
+    expect(options.providerErrorGuidance?.modelUnavailable).toContain('/provider');
   });
 
   it('assembles exactly the same command-module SET (no module gained or lost)', () => {

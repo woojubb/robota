@@ -85,6 +85,21 @@ export interface ISessionNotice {
   /** `session-change-refused`: the host refused a new or switch this surface asked for. */
   kind: 'session-error' | 'protocol-error' | 'session-change-refused';
   message: string;
+  /**
+   * A `session-error` classified at the wire boundary (#3289 §3) — present only when the host could
+   * tell what kind of failure this was. `SessionNotices` maps it to one plain sentence and keeps
+   * `message` behind a "Details" disclosure; absent, it shows `message` as before.
+   */
+  code?: 'auth' | 'rate_limit' | 'model_unavailable' | 'network' | 'provider';
+  provider?: string;
+  retryAfterSeconds?: number;
+  /**
+   * For `code: 'model_unavailable'`, the model the failed request tried — captured when the notice
+   * was created (from the wire frame's own `model`, or `sessionStatus` at that moment), never read
+   * live off the CURRENT session status. The person may switch models before dismissing the notice,
+   * and a live read would then blame the new model for the old failure.
+   */
+  model?: string;
 }
 
 export interface ISessionClientHandle {

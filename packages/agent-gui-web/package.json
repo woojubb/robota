@@ -23,6 +23,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-transport-ws": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/react": "^16.1.0",

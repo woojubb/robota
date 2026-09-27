@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { RobotaWordmark } from './Brand.js';
 
+import type { ISessionNotice } from '../hooks/session-client-types.js';
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
 
 const STATUS: Record<string, { dot: string; label: string }> = {
@@ -160,36 +161,96 @@ export function ConnectionBanner({
   );
 }
 
+/** The built-in providers whose id does not just-capitalize into their real name (`openai` → `OpenAI`). */
+const PROVIDER_DISPLAY_NAMES: Readonly<Record<string, string>> = {
+  openai: 'OpenAI',
+  deepseek: 'DeepSeek',
+};
+
+/** `anthropic` → `Anthropic`; a name with its own casing (`openai` → `OpenAI`) uses that instead. */
+function displayProvider(provider: string | undefined): string {
+  if (provider === undefined || provider.length === 0) return 'The provider';
+  return PROVIDER_DISPLAY_NAMES[provider] ?? provider[0].toUpperCase() + provider.slice(1);
+}
+
+/**
+ * A provider/session error classified at the wire boundary (#3289 §3) as one plain sentence naming
+ * what happened and, where there is one, the next step — `null` for a notice this classification does
+ * not cover, which keeps showing its own `message` instead.
+ *
+ * `model_unavailable` names `notice.model` — captured on the notice when it was created — and never
+ * the session's current model: a still-open notice must keep blaming the model that actually failed
+ * even after the person switches to a different one (the very fix the notice suggests).
+ */
+function noticeSentence(notice: ISessionNotice): string | null {
+  const provider = displayProvider(notice.provider);
+  switch (notice.code) {
+    case 'auth':
+      return `${provider} rejected the API key. Check the key for this provider.`;
+    case 'rate_limit': {
+      const wait =
+        notice.retryAfterSeconds !== undefined
+          ? `${notice.retryAfterSeconds} second${notice.retryAfterSeconds === 1 ? '' : 's'}`
+          : 'a moment';
+      return `${provider} is limiting requests. Try again in ${wait}.`;
+    }
+    case 'model_unavailable':
+      return notice.model
+        ? `The model "${notice.model}" isn't available with this key.`
+        : "The model isn't available with this key.";
+    case 'network':
+      return `Can't reach ${provider}. Check your connection.`;
+    case 'provider':
+      return `${provider} returned an error.`;
+    default:
+      return null;
+  }
+}
+
 /**
  * Session and protocol failures, as dismissible toasts over the top-right corner: they stay until
  * dismissed, and never push the conversation or the composer out of view. Command output is not
- * here — it belongs to the conversation.
+ * here — it belongs to the conversation. A provider error classified at the wire boundary shows one
+ * plain sentence with the next step; its raw text sits behind "Details" rather than as the headline.
  */
 export function SessionNotices({ state }: { state: IWsSessionState }): React.ReactElement | null {
   const notices = state.sessionNotices ?? [];
   if (notices.length === 0) return null;
   return (
     <div className="pointer-events-none absolute right-4 top-16 z-40 flex w-[min(400px,calc(100%-32px))] flex-col gap-2">
-      {notices.slice(-3).map((notice) => (
-        <div
-          key={notice.id}
-          role="alert"
-          className="gui-rise pointer-events-auto flex items-start gap-3 rounded-xl bg-popover px-4 py-3 text-[14px] leading-snug text-popover-foreground shadow-xl shadow-black/30"
-        >
-          <span className="mt-[7px] h-2 w-2 flex-shrink-0 rounded-full bg-destructive" />
-          <span className="max-h-40 flex-1 overflow-y-auto whitespace-pre-wrap break-words">
-            {notice.message}
-          </span>
-          <button
-            type="button"
-            aria-label="Dismiss notice"
-            onClick={() => state.dismissSessionNotice?.(notice.id)}
-            className="-mr-1 rounded-md p-1 text-muted-foreground hover:bg-hover hover:text-foreground"
+      {notices.slice(-3).map((notice) => {
+        const sentence = noticeSentence(notice);
+        return (
+          <div
+            key={notice.id}
+            role="alert"
+            className="gui-rise pointer-events-auto flex items-start gap-3 rounded-xl bg-popover px-4 py-3 text-[14px] leading-snug text-popover-foreground shadow-xl shadow-black/30"
           >
-            <X size={15} />
-          </button>
-        </div>
-      ))}
+            <span className="mt-[7px] h-2 w-2 flex-shrink-0 rounded-full bg-destructive" />
+            <span className="max-h-40 flex-1 overflow-y-auto whitespace-pre-wrap break-words">
+              {sentence ?? notice.message}
+              {sentence && (
+                <details className="mt-1.5">
+                  <summary className="cursor-pointer text-[12.5px] text-muted-foreground hover:text-foreground">
+                    Details
+                  </summary>
+                  <p className="mt-1 whitespace-pre-wrap break-words text-[12.5px] text-muted-foreground">
+                    {notice.message}
+                  </p>
+                </details>
+              )}
+            </span>
+            <button
+              type="button"
+              aria-label="Dismiss notice"
+              onClick={() => state.dismissSessionNotice?.(notice.id)}
+              className="-mr-1 rounded-md p-1 text-muted-foreground hover:bg-hover hover:text-foreground"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }

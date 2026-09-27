@@ -88,6 +88,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   // A screen this surface's command asked for: it answers the command in place of the command's own
   // reply — with the "not available" line (`text`), or with nothing when the screen opened (null).
   const pendingIntentRef = useRef<{ name: string; text: string | null } | null>(null);
+  // The latest `session_status`, read (not `sessionStatus` state) when a `model_unavailable` notice
+  // is created, so the model it names is a snapshot from that moment — never the live status, which
+  // `case 'error'` itself just asked the host to refresh and which the person may since have changed.
+  const sessionStatusRef = useRef<TSessionStatus | null>(null);
   const updateActiveTools = useCallback((next: (previous: IActiveTool[]) => IActiveTool[]): void => {
     activeToolsRef.current = next(activeToolsRef.current);
     setActiveTools(activeToolsRef.current);
@@ -259,6 +263,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         case 'session_switched': {
           settleSessionChange();
           // Nothing of the old session stays on screen until the new one's answers arrive.
+          sessionStatusRef.current = null;
           setSessionStatus(null);
           streamingTextRef.current = '';
           streamingIdRef.current = null;
@@ -287,11 +292,25 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'error': {
+          // The `model_unavailable` notice's model is captured NOW, from the wire frame when it
+          // named one or else the status this ref already holds — never read live later from
+          // render, which would race the `get-status` below (and any model switch after it).
+          const model = msg.model ?? sessionStatusRef.current?.model;
           send({ type: 'get-status' });
           finishTurn((tool) => (tool.status === 'running' ? 'error' : tool.status));
           setSessionNotices((previous) => [
             ...previous,
-            { id: nextId(), kind: 'session-error', message: msg.message },
+            {
+              id: nextId(),
+              kind: 'session-error',
+              message: msg.message,
+              ...(msg.code !== undefined && { code: msg.code }),
+              ...(msg.provider !== undefined && { provider: msg.provider }),
+              ...(model !== undefined && { model }),
+              ...(msg.retryAfterSeconds !== undefined && {
+                retryAfterSeconds: msg.retryAfterSeconds,
+              }),
+            },
           ]);
           break;
         }
@@ -339,6 +358,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'session_status': {
+          sessionStatusRef.current = msg.status;
           setSessionStatus(msg.status);
           break;
         }

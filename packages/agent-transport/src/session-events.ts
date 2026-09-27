@@ -7,6 +7,7 @@
  */
 
 import { holdOpenPrompts } from './open-prompts.js';
+import { classifySessionErrorForWire } from './session-error-classification.js';
 
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession } from './protocol-session.js';
@@ -131,7 +132,12 @@ export function subscribeSessionEvents(
   const onInterrupted = (result: IExecutionResult): void =>
     deliver({ type: 'interrupted', result: withoutHistory(result), ...attr() });
   const onError = (error: Error): void =>
-    deliver({ type: 'error', message: error.message, ...attr() });
+    deliver({
+      type: 'error',
+      message: error.message,
+      ...classifySessionErrorForWire(error),
+      ...attr(),
+    });
   const onBackgroundTaskEvent = (event: TBackgroundTaskEvent): void =>
     deliver({ type: 'background_task_event', event });
   const onBackgroundJobGroupEvent = (event: TBackgroundJobGroupEvent): void =>
