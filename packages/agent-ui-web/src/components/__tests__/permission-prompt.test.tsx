@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import React, { useRef } from 'react';
+import { flushSync } from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PermissionPrompt, PROMPT_ARM_DELAY_MS } from '../PermissionPrompt.js';
@@ -256,6 +258,33 @@ describe('the docked prompt arms before its keys answer it', () => {
 });
 
 /**
+ * RTL's own `render`/`rerender` wrap every call in `act()`, which flushes pending `useEffect`s
+ * before returning — including the very effect a leaked-secret regression must catch in the act of
+ * NOT having run yet. Asserting through `rerender` would flush that effect first and pass even
+ * against the bug it exists to catch. `flushSync` forces the synchronous commit (so the DOM reflects
+ * the new prompt) without the `act`-only step of also draining the passive-effect queue, which is
+ * exactly the gap a `useEffect`-based reset relies on and a same-commit fix does not need.
+ */
+function renderWithoutEffectFlush(ui: React.ReactElement): {
+  container: HTMLDivElement;
+  rerender: (next: React.ReactElement) => void;
+  cleanup: () => void;
+} {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  flushSync(() => root.render(ui));
+  return {
+    container,
+    rerender: (next) => flushSync(() => root.render(next)),
+    cleanup: () => {
+      flushSync(() => root.unmount());
+      container.remove();
+    },
+  };
+}
+
+/**
  * #3280 §3: a question with `allowFreeText` showed only its title and Cancel — nothing to type an
  * answer into. `values: []` alongside `text` is the same shape the terminal renderer already sends
  * for free text (`PendingActionPrompt.tsx`'s `TextPrompt` path), not a new one.
@@ -438,6 +467,148 @@ describe("the ask prompt's free-text field", () => {
     const field = screen.getByRole('textbox', { name: 'answer' });
     fireEvent.keyDown(field, { key: 'Escape' });
     expect(onAnswerAsk).toHaveBeenCalledWith('a9', { type: 'cancelled' });
+  });
+
+  /**
+   * A masked question (an API key) cancelled mid-type must never let that text reach the field of
+   * the next question, even for a single frame — the risk being an unmasked field, where it would
+   * render in plaintext. The fix is a per-prompt field whose state is remounted (not merely reset)
+   * on the next `prompt.id`, so there is no render in which the old value and the new prompt coexist.
+   */
+  it('cancelling a masked answer (Cancel button) never carries it into the next, unmasked field', () => {
+    const onAnswerAsk = vi.fn();
+    const secretAsk = {
+      kind: 'ask',
+      id: 'secret-cancel',
+      request: {
+        title: 'Anthropic API key',
+        allowFreeText: true,
+        masked: true,
+        allowEmpty: true,
+        placeholder: '(unchanged)',
+      },
+    } as unknown as TPendingPrompt;
+    const nextAsk = {
+      kind: 'ask',
+      id: 'after-cancel',
+      request: { title: 'Name the profile', allowFreeText: true, placeholder: 'profile name' },
+    } as unknown as TPendingPrompt;
+
+    const view = renderWithoutEffectFlush(
+      <Surface prompts={[secretAsk]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />,
+    );
+    try {
+      const secretField = screen.getByPlaceholderText('(unchanged)') as HTMLInputElement;
+      expect(secretField.type).toBe('password');
+      flushSync(() => fireEvent.change(secretField, { target: { value: 'sk-super-secret' } }));
+      expect(secretField.value).toBe('sk-super-secret');
+
+      const cancelButton = screen.getByRole('button', { name: 'Cancel' });
+      flushSync(() => fireEvent.click(cancelButton, { detail: 1 }));
+      expect(onAnswerAsk).toHaveBeenCalledWith('secret-cancel', { type: 'cancelled' });
+
+      // The caller drops the cancelled prompt and shows the next one in the same synchronous commit.
+      view.rerender(
+        <Surface prompts={[nextAsk]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />,
+      );
+      const nextField = screen.getByPlaceholderText('profile name') as HTMLInputElement;
+      expect(nextField.type).toBe('text');
+      expect(nextField.value).toBe('');
+      expect(view.container.innerHTML).not.toContain('sk-super-secret');
+    } finally {
+      view.cleanup();
+    }
+  });
+
+  it('Esc inside a masked field never carries its text into the next, unmasked field', () => {
+    const onAnswerAsk = vi.fn();
+    const secretAsk = {
+      kind: 'ask',
+      id: 'secret-esc',
+      request: {
+        title: 'Anthropic API key',
+        allowFreeText: true,
+        masked: true,
+        allowEmpty: true,
+        placeholder: '(unchanged)',
+      },
+    } as unknown as TPendingPrompt;
+    const nextAsk = {
+      kind: 'ask',
+      id: 'after-esc',
+      request: { title: 'Name the profile', allowFreeText: true, placeholder: 'profile name' },
+    } as unknown as TPendingPrompt;
+
+    const view = renderWithoutEffectFlush(
+      <Surface prompts={[secretAsk]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />,
+    );
+    try {
+      const secretField = screen.getByPlaceholderText('(unchanged)') as HTMLInputElement;
+      flushSync(() => fireEvent.change(secretField, { target: { value: 'sk-super-secret' } }));
+      expect(secretField.value).toBe('sk-super-secret');
+
+      flushSync(() => fireEvent.keyDown(secretField, { key: 'Escape' }));
+      expect(onAnswerAsk).toHaveBeenCalledWith('secret-esc', { type: 'cancelled' });
+
+      view.rerender(
+        <Surface prompts={[nextAsk]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />,
+      );
+      const nextField = screen.getByPlaceholderText('profile name') as HTMLInputElement;
+      expect(nextField.type).toBe('text');
+      expect(nextField.value).toBe('');
+      expect(view.container.innerHTML).not.toContain('sk-super-secret');
+    } finally {
+      view.cleanup();
+    }
+  });
+
+  /**
+   * The free-text field is now its own component, remounted (not merely updated) on every new
+   * `prompt.id` — the fix above for the leaked-secret defect. Removing a focused DOM node drops
+   * `document.activeElement` to `<body>` as an intrinsic side effect (verified in both jsdom and
+   * Chromium): a reused button never triggered this, since answering left it in place for the
+   * existing container-refocus effect to find. A remounted field must be caught the same way, or the
+   * dock's Esc and the arm timer's takeover both go dead until the person clicks something.
+   */
+  it('focus returns to the prompt, not lost to document.body, when the next prompt also has a free-text field', () => {
+    const onAnswerAsk = vi.fn();
+    const askA = {
+      kind: 'ask',
+      id: 'field-to-field-a',
+      request: { title: 'First question', allowFreeText: true, allowEmpty: true, placeholder: 'a' },
+    } as unknown as TPendingPrompt;
+    const askB = {
+      kind: 'ask',
+      id: 'field-to-field-b',
+      request: { title: 'Second question', allowFreeText: true, allowEmpty: true, placeholder: 'b' },
+    } as unknown as TPendingPrompt;
+    const view = render(
+      <Surface prompts={[askA]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />,
+    );
+    const fieldA = screen.getByPlaceholderText('a') as HTMLInputElement;
+    act(() => {
+      fieldA.focus();
+    });
+    expect(document.activeElement).toBe(fieldA);
+
+    fireEvent.keyDown(fieldA, { key: 'Enter' });
+    expect(onAnswerAsk).toHaveBeenCalledWith('field-to-field-a', {
+      type: 'answer',
+      values: [],
+      text: '',
+    });
+
+    view.rerender(
+      <Surface prompts={[askB]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />,
+    );
+    const dialog = screen.getByRole('dialog', { name: 'pending question' });
+    expect(document.activeElement).toBe(dialog);
+    expect(document.activeElement).not.toBe(document.body);
+
+    act(() => {
+      vi.advanceTimersByTime(PROMPT_ARM_DELAY_MS);
+    });
+    expect(document.activeElement).toBe(screen.getByPlaceholderText('b'));
   });
 
   it('hints "Enter to submit" while focus is in the field, and "1–9 choose" once it moves to an option', () => {
