@@ -8,6 +8,7 @@ import { PermissionPrompt } from './PermissionPrompt.js';
 import { PersonalUsageDashboard } from './PersonalUsageDashboard.js';
 import { SessionSidebar, SessionSidebarRail, sessionTitle } from './SessionSidebar.js';
 import { ConnectionBanner, SessionNotices, SessionTitleBar } from './SessionSurfaceChrome.js';
+import { SettingsScreen } from './SettingsScreen.js';
 
 import type { IComposerHandle, IPickedFile } from './Composer.js';
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
@@ -271,6 +272,7 @@ export function SessionSurface({
       </div>
 
       <SessionNotices state={state} />
+      <SettingsScreen state={state} />
     </div>
   );
 }

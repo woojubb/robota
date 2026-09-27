@@ -1,7 +1,8 @@
 /**
  * CMD-004 Stage D (TC-05) — every `ui_intent` this surface asked for is answered with an explicit
  * "not available on this surface" line — NEVER a silent no-op — unless the GUI has a screen for it.
- * The session picker is the session sidebar (#3189); every other kind names the screen it could not open.
+ * The session picker is the session sidebar (#3189) and settings is the Settings modal (#3282 §4a);
+ * every other kind names the screen it could not open.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -10,19 +11,18 @@ import { describeUiIntentForGui, guiScreenForUiIntent } from '../ui-intent-state
 
 import type { TCommandUiIntent } from '@robota-sdk/agent-interface-command';
 
-const ALL_INTENTS: readonly TCommandUiIntent[] = [
+/** Intents with no GUI screen — `show-session-picker` and `show-settings` are asserted separately. */
+const UNSUPPORTED_INTENTS: readonly TCommandUiIntent[] = [
   { type: 'show-plugin-manager' },
-  { type: 'show-settings' },
-  { type: 'show-session-picker' },
   { type: 'show-agent-switcher' },
   { type: 'show-theme-picker' },
 ];
 
 describe('CMD-004 TC-05 — ui_intent description (explicit, never silent)', () => {
-  it('every intent kind names its own screen and says it is unavailable here', () => {
-    const lines = ALL_INTENTS.map((intent) => describeUiIntentForGui(intent));
+  it('every unsupported intent kind names its own screen and says it is unavailable here', () => {
+    const lines = UNSUPPORTED_INTENTS.map((intent) => describeUiIntentForGui(intent));
     for (const line of lines) expect(line).toMatch(/is not available on this surface/);
-    expect(new Set(lines).size).toBe(ALL_INTENTS.length);
+    expect(new Set(lines).size).toBe(UNSUPPORTED_INTENTS.length);
     expect(describeUiIntentForGui({ type: 'show-theme-picker' })).toMatch(/theme picker/);
   });
 
@@ -33,10 +33,16 @@ describe('CMD-004 TC-05 — ui_intent description (explicit, never silent)', () 
 });
 
 describe('#3189 — the session picker opens the GUI session sidebar', () => {
-  it('show-session-picker has a GUI screen; the other intents have none', () => {
+  it('show-session-picker has a GUI screen; the unsupported intents have none', () => {
     expect(guiScreenForUiIntent({ type: 'show-session-picker' })).toBe('session-sidebar');
-    for (const intent of ALL_INTENTS.filter((i) => i.type !== 'show-session-picker')) {
+    for (const intent of UNSUPPORTED_INTENTS) {
       expect(guiScreenForUiIntent(intent)).toBeNull();
     }
+  });
+});
+
+describe('#3282 §4a — settings opens the GUI Settings screen', () => {
+  it('show-settings has a GUI screen, distinct from the session sidebar', () => {
+    expect(guiScreenForUiIntent({ type: 'show-settings' })).toBe('settings');
   });
 });

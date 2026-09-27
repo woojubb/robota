@@ -33,11 +33,13 @@ import type {
   IPromptResolvedEvent,
   IPlanApprovalEvent,
   ISessionRenamedEvent,
+  ISettingsSnapshot,
   IToolState,
   ISessionListing,
   ISessionStatusSnapshot,
   ISessionSwitchedEvent,
   TSessionChangeRefusalCode,
+  TSettingsPatch,
   IUiIntentEvent,
   TPermissionResultValue,
   TWaitingLoopStopOutcome,
@@ -136,7 +138,12 @@ export type TClientMessage =
   // REMOTE-013 E4 session-resume: `resume` asks the host to replay the tail after `lastSeq` (the last seq the
   // client applied); `ack` lets the host free its un-acked buffer up to `seq`. Only meaningful post-E3-accept.
   | { type: 'resume'; lastSeq: number }
-  | { type: 'ack'; seq: number };
+  | { type: 'ack'; seq: number }
+  // #3282 §4a: the GUI Settings screen. A snapshot fetch and a discriminated single-field patch,
+  // never command text — the server applies a patch through the same function its slash command
+  // uses, so the two paths cannot drift. Answered by `settings` or `settings_error`.
+  | { type: 'get-settings'; requestId: string }
+  | { type: 'update-settings'; requestId: string; patch: TSettingsPatch };
 
 /** Outbound message from server to client. */
 export type TServerMessage =
@@ -296,7 +303,16 @@ export type TServerMessage =
   | { type: 'protocol_error'; message: string; requestId?: string }
   // REMOTE-013 E4: sent instead of a replay when the client's `lastSeq` predates the host's retained buffer
   // (overrun) — the client must do a full `get-messages` refresh rather than accept a silent gap.
-  | { type: 'resume_gap' };
+  | { type: 'resume_gap' }
+  // #3282 §4a: the Settings screen's snapshot, in reply to `get-settings` or `update-settings`. The
+  // same type answers both, the way `session_status` answers `get-status` and a status change alike.
+  | { type: 'settings'; requestId: string; settings: ISettingsSnapshot }
+  | {
+      type: 'settings_error';
+      requestId: string;
+      code: 'not_available' | 'invalid' | 'refused' | 'update_failed';
+      message: string;
+    };
 
 /**
  * REMOTE-013 E4: a server message stamped with its monotonic session sequence number (added by the

@@ -68,6 +68,7 @@ import {
   selectProductCommandModules,
   createChannelReadyHandler,
 } from './product/robota-plumbing.js';
+import { createSettingsReporter } from './product/settings-reporter.js';
 import { createRemoteControlController } from './remote-control/index.js';
 import { createDeviceMeshHost, startDeviceListReissue } from './devices/index.js';
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
@@ -499,6 +500,14 @@ async function runCliCore(
     args.serve && !args.noSessionPersistence
       ? createServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>()
       : undefined;
+  // #3282 §4a: built from the SAME `commandHostAdapters`/`workspaceComposition` objects the rest of
+  // this function keeps mutating (e.g. `commandHostAdapters.sandbox` below) — safe because the
+  // reporter reads them lazily, per connection, long after startup finishes populating them.
+  const settingsReporter = createSettingsReporter({
+    commandHostAdapters,
+    settingsSources: workspaceComposition.settingsSources,
+    settingsStores: workspaceComposition.settingsStores,
+  });
   // REMOTE-008: the shell owns/injects transport wiring; `/remote-control` is its declarative trigger.
   const {
     registry: transportRegistry,
@@ -511,6 +520,7 @@ async function runCliCore(
     args.open,
     serveSessionDirectory,
     args.daemon === true,
+    settingsReporter,
   );
   // External-event grants (TUI only; the parser refuses them elsewhere): every file is valid, or the
   // TUI does not start. Each session the TUI binds opens them, and a refusal fails that bind.

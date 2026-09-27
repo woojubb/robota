@@ -67,4 +67,7 @@ export const SERVER_MESSAGE_HANDLING = {
   background_task_control_result: 'intentionally-not-rendered',
   protocol_error: 'visible-notice',
   resume_gap: 'transport-control',
+  // #3282 §4a: the Settings screen's own correlated request/response state (`useSettingsState`).
+  settings: 'reducer-state',
+  settings_error: 'reducer-state',
 } as const satisfies Readonly<Record<TServerMessage['type'], TServerMessageHandling>>;

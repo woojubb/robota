@@ -151,3 +151,15 @@ export type {
   TContextReferenceStatus,
 } from './event-contracts.js';
 export type { IPlanApprovalEvent } from './session-event-map.js';
+// ── Settings-screen contracts (#3282 §4a) ────────────────────
+export type {
+  ISettingsChoice,
+  ISettingsLanguageSection,
+  ISettingsOutputStyleSection,
+  ISettingsPermissionModeSection,
+  ISettingsPermissionRule,
+  ISettingsPresetSection,
+  ISettingsSandboxSection,
+  ISettingsSnapshot,
+  TSettingsPatch,
+} from './settings-contracts.js';

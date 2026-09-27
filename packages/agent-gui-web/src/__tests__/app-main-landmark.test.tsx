@@ -27,6 +27,7 @@ function hostThatStops(): { host: IGuiHost; stop: () => void } {
       listener = next;
       return () => {};
     },
+    onOpenSettings: () => () => {},
   };
   return { host, stop: () => listener?.('fatal') };
 }
@@ -37,6 +38,7 @@ function desktopHostAwaitingEndpoint(): IGuiHost {
     getEndpoint: vi.fn(() => new Promise<string | null>(() => {})),
     signalReady: () => {},
     onState: () => () => {},
+    onOpenSettings: () => () => {},
   };
 }
 
@@ -50,6 +52,7 @@ function desktopHostWithTrustQuestion(): IGuiHost {
     onState: () => () => {},
     trustQuestion: vi.fn(async () => QUESTION),
     answerTrust: vi.fn(async () => ({})),
+    onOpenSettings: () => () => {},
   };
 }
 

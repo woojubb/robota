@@ -41,6 +41,12 @@ const api = {
     ipcRenderer.on('agent-gui:state', listener);
     return () => ipcRenderer.removeListener('agent-gui:state', listener);
   },
+  /** #3282 §4a: the App menu's "Settings…" (⌘,/Ctrl+,) asked the page to open the Settings screen. */
+  onOpenSettings: (cb: () => void): (() => void) => {
+    const listener = (): void => cb();
+    ipcRenderer.on('agent-gui:open-settings', listener);
+    return () => ipcRenderer.removeListener('agent-gui:open-settings', listener);
+  },
 };
 
 // The page reads this as `IDesktopBridge` (packages/agent-gui-web/src/gui-host.ts); keep the two in step.

@@ -42,5 +42,10 @@ export { SessionSurface, CenteredChrome } from './components/SessionSurface.js';
 export type { IComposerHandle, IPickedFile } from './components/Composer.js';
 export { SessionSidebar } from './components/SessionSidebar.js';
 export { SessionMonitor } from './components/SessionMonitor.js';
+// #3282 §4a: the shared modal-shell primitive (also consumed by #3282 §2's mode-change confirmation)
+// and the Settings screen it backs.
+export { Dialog, ConfirmDialog } from './components/Dialog.js';
+export type { IDialogProps, IConfirmDialogProps } from './components/Dialog.js';
+export { SettingsScreen } from './components/SettingsScreen.js';
 // Pieces of a surface's chrome, not roots: render them inside a `robota-ui` scope.
 export { RobotaMark, RobotaWordmark } from './components/Brand.js';

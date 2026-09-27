@@ -1,4 +1,4 @@
-import { PanelLeftClose, PanelLeftOpen, SquarePen } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, Settings, SquarePen } from 'lucide-react';
 
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
 
@@ -188,6 +188,19 @@ export function SessionSidebar({
           )}
         </ul>
       </div>
+
+      <div className="flex-shrink-0 border-t border-border/60 px-2.5 py-2">
+        <button
+          type="button"
+          aria-label="Settings"
+          title="Settings"
+          onClick={() => state.openSettings()}
+          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] text-muted-foreground hover:bg-hover hover:text-foreground"
+        >
+          <Settings size={16} strokeWidth={1.75} />
+          Settings
+        </button>
+      </div>
     </aside>
   );
 }
@@ -213,6 +226,15 @@ export function SessionSidebarRail({ state }: { state: IWsSessionState }): React
         className="rounded-md p-1.5 text-muted-foreground hover:bg-hover hover:text-foreground"
       >
         <SquarePen size={16} strokeWidth={1.75} />
+      </button>
+      <button
+        type="button"
+        aria-label="Settings"
+        title="Settings"
+        onClick={() => state.openSettings()}
+        className="mt-auto rounded-md p-1.5 text-muted-foreground hover:bg-hover hover:text-foreground"
+      >
+        <Settings size={16} strokeWidth={1.75} />
       </button>
     </div>
   );

@@ -29,6 +29,9 @@ export const OBSERVER_MESSAGES: ReadonlySet<TClientMessage['type']> = new Set<
   'get-background-job-group',
   'wait-background-job-group',
   'read-background-task-log',
+  // #3282 §4a: reading the Settings snapshot is a pure read of this session's own configuration.
+  // `update-settings` stays out — an observer never writes.
+  'get-settings',
 ]);
 
 /** Whether an observer may send a message of this type. */

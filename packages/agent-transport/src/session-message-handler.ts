@@ -25,10 +25,12 @@ import {
   isSessionQueryMessage,
   pendingFrame,
 } from './session-query-messages.js';
+import { handleSettingsMessage, isSettingsMessage } from './settings-messages.js';
 import { handleUsageQueryMessage } from './usage-messages.js';
 
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession } from './protocol-session.js';
+import type { ISettingsReporter } from './settings-messages.js';
 import type { IUsageQueryReporters } from './usage-messages.js';
 import type { TClientMessage } from './wire-messages.js';
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
@@ -76,6 +78,8 @@ export interface ISessionMessageHandlerOptions {
   storedSessionUsageReporter?: NonNullable<IUsageQueryReporters['storedSessionUsageReporter']>;
   /** Host-owned session directory (#3189): list, start and switch the host's sessions. */
   sessionDirectory?: ISessionDirectory;
+  /** #3282 §4a: host-owned read/write for the GUI Settings screen. */
+  settingsReporter?: ISettingsReporter;
 }
 
 /**
@@ -118,6 +122,7 @@ export function createSessionMessageHandler(options: ISessionMessageHandlerOptio
     options.surface,
     role,
     options.sessionDirectory,
+    options.settingsReporter,
   );
 
   return { onMessage, cleanup };
@@ -131,6 +136,7 @@ function createMessageHandler(
   surface?: TUsageSurface,
   role: TSessionSurfaceRole = 'drive',
   sessionDirectory?: ISessionDirectory,
+  settingsReporter?: ISettingsReporter,
 ): (data: string) => void {
   return (data: string): void => {
     const msg = parseClientMessage(data, deliver);
@@ -139,7 +145,16 @@ function createMessageHandler(
       deliver({ type: 'protocol_error', message: `Not permitted for an observer: ${msg.type}` });
       return;
     }
-    handleClientMessage(session, deliver, msg, driverId, reporters, surface, sessionDirectory);
+    handleClientMessage(
+      session,
+      deliver,
+      msg,
+      driverId,
+      reporters,
+      surface,
+      sessionDirectory,
+      settingsReporter,
+    );
   };
 }
 
@@ -161,12 +176,17 @@ export function handleClientMessage(
   reporters: IUsageQueryReporters = EMPTY_USAGE_REPORTERS,
   surface?: TUsageSurface,
   sessionDirectory?: ISessionDirectory,
+  settingsReporter?: ISettingsReporter,
 ): void {
   if (handleUsageQueryMessage(session, deliver, msg, reporters)) {
     return;
   }
   if (isSessionDirectoryMessage(msg)) {
     handleSessionDirectoryMessage(deliver, msg, sessionDirectory);
+    return;
+  }
+  if (isSettingsMessage(msg)) {
+    handleSettingsMessage(session, deliver, msg, settingsReporter);
     return;
   }
   if (isSessionControlMessage(msg)) {

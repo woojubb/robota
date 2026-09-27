@@ -3,9 +3,10 @@
  *
  * The server requester-routes `ui_intent`, so everything that arrives here was asked for by THIS
  * surface and must be answered visibly. An intent with a GUI screen opens it (the session picker is
- * the session sidebar, #3189); every other one becomes an explicit "not available on this surface"
- * line in the conversation — in place of the command's own "Opening …" reply when this surface's
- * command is awaiting it, at once otherwise (a model-run command, a broadcast) — never a silent drop.
+ * the session sidebar, #3189; settings is the Settings modal, #3282 §4a); every other one becomes an
+ * explicit "not available on this surface" line in the conversation — in place of the command's own
+ * "Opening …" reply when this surface's command is awaiting it, at once otherwise (a model-run
+ * command, a broadcast) — never a silent drop.
  */
 
 import type { TCommandUiIntent } from '@robota-sdk/agent-interface-command';
@@ -31,21 +32,26 @@ export function uiIntentCommandName(intent: TCommandUiIntent): string {
 }
 
 /** The GUI screen an intent opens, or null when this surface has none for it. */
-export function guiScreenForUiIntent(intent: TCommandUiIntent): 'session-sidebar' | null {
-  return intent.type === 'show-session-picker' ? 'session-sidebar' : null;
+export function guiScreenForUiIntent(
+  intent: TCommandUiIntent,
+): 'session-sidebar' | 'settings' | null {
+  if (intent.type === 'show-session-picker') return 'session-sidebar';
+  if (intent.type === 'show-settings') return 'settings';
+  return null;
 }
 
 /**
  * Describe one intent for this surface: the explicit unsupported line, for an intent with no GUI
- * screen (or whose screen the host cannot back, such as a session picker without a session list). An unknown wire-level kind (a newer host) still yields an explicit
- * notice naming the raw kind — the "never a silent no-op" floor holds for future intents too.
+ * screen (or whose screen the host cannot back, such as a session picker without a session list).
+ * Never called for `show-settings` — it always has a screen now (#3282 §4a) — but the case is left
+ * out of this switch rather than kept as a dead branch that would claim otherwise; an unknown
+ * wire-level kind (a newer host) still yields an explicit notice naming the raw kind, so the "never
+ * a silent no-op" floor holds for future intents too.
  */
 export function describeUiIntentForGui(intent: TCommandUiIntent): string {
   switch (intent.type) {
     case 'show-plugin-manager':
       return `The plugin manager ${UNAVAILABLE}`;
-    case 'show-settings':
-      return `The settings screen ${UNAVAILABLE}`;
     case 'show-session-picker':
       return `The session picker ${UNAVAILABLE}`;
     case 'show-agent-switcher':

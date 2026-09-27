@@ -571,6 +571,107 @@ const sessionDirectory = {
     session.becomeSession(stored);
   },
 };
+/**
+ * #3282 §4a: an in-memory settings document the Settings screen reads and writes, the same way
+ * `storedSessions` gives the session-directory scenarios durable, in-process state a test can
+ * observe across a close-then-reopen. `scope: 'user'` matches the one writable store the real CLI
+ * wires for the demo settings this fixture models.
+ */
+const scriptedSettings = { language: 'en', outputStyle: 'default', preset: 'default', permissionMode: 'default', sandboxEnabled: true };
+const OUTPUT_STYLES = [
+  { id: 'default', label: 'Default', description: 'The ordinary response style.' },
+  { id: 'concise', label: 'Concise', description: 'Shorter, to-the-point replies.' },
+];
+const PRESETS = [
+  { id: 'default', label: 'Default', description: 'Neutral baseline — no overrides.' },
+  { id: 'careful-reviewer', label: 'Careful Reviewer', description: 'Ask-first, review-oriented posture.' },
+];
+const PERMISSION_MODE_CHOICES = [
+  { id: 'default', label: 'Ask first', description: 'Ask before risky actions' },
+  { id: 'acceptEdits', label: 'Accept edits', description: 'Auto-approve file edits' },
+  { id: 'bypassPermissions', label: 'Skip all checks', description: 'Skip all permission checks' },
+];
+let permissionRules = [
+  { scope: 'user', source: '~/.robota/settings.json', kind: 'allow', pattern: 'Bash(git status:*)' },
+];
+
+function buildSettingsSnapshot() {
+  return {
+    language: {
+      current: scriptedSettings.language,
+      recommended: [
+        { id: 'ko', label: 'Korean', description: 'ko' },
+        { id: 'en', label: 'English', description: 'en' },
+        { id: 'ja', label: 'Japanese', description: 'ja' },
+      ],
+      appliesNote: 'Takes effect the next time Robota starts — changing it here never restarts it.',
+    },
+    outputStyle: { current: scriptedSettings.outputStyle, choices: OUTPUT_STYLES },
+    preset: { current: scriptedSettings.preset, choices: PRESETS, skipsAllChecksPresetIds: [] },
+    permissionMode: {
+      current: scriptedSettings.permissionMode,
+      choices: PERMISSION_MODE_CHOICES,
+      skipsAllChecksMode: 'bypassPermissions',
+    },
+    permissionRules: permissionRules.map((rule) => ({
+      id: `${rule.scope}:${rule.kind}:${rule.pattern}`,
+      ...rule,
+      removable: true,
+    })),
+    sandbox: {
+      enabled: scriptedSettings.sandboxEnabled,
+      available: true,
+      description: 'Confines shell commands to the workspace and temp directories, without a prompt for each one.',
+    },
+  };
+}
+
+const settingsReporter = {
+  getSettings: () => buildSettingsSnapshot(),
+  updateSettings: (_session, patch) => {
+    switch (patch.field) {
+      case 'language':
+        scriptedSettings.language = patch.language;
+        break;
+      case 'outputStyle':
+        if (!OUTPUT_STYLES.some((choice) => choice.id === patch.styleId)) {
+          return { ok: false, code: 'invalid', message: `Unknown output style "${patch.styleId}".` };
+        }
+        scriptedSettings.outputStyle = patch.styleId;
+        break;
+      case 'preset':
+        if (!PRESETS.some((choice) => choice.id === patch.presetId)) {
+          return { ok: false, code: 'invalid', message: `Unknown preset "${patch.presetId}".` };
+        }
+        scriptedSettings.preset = patch.presetId;
+        break;
+      case 'permissionMode':
+        if (!PERMISSION_MODE_CHOICES.some((choice) => choice.id === patch.mode)) {
+          return { ok: false, code: 'invalid', message: `Unknown permission mode "${patch.mode}".` };
+        }
+        scriptedSettings.permissionMode = patch.mode;
+        break;
+      case 'sandbox':
+        scriptedSettings.sandboxEnabled = patch.enabled;
+        break;
+      case 'removePermissionRule': {
+        const before = permissionRules.length;
+        permissionRules = permissionRules.filter(
+          (rule) =>
+            !(rule.scope === patch.scope && rule.kind === patch.kind && rule.pattern === patch.pattern),
+        );
+        if (permissionRules.length === before) {
+          return { ok: false, code: 'invalid', message: 'That rule was already gone.' };
+        }
+        break;
+      }
+      default:
+        return { ok: false, code: 'invalid', message: 'Unknown settings field.' };
+    }
+    return { ok: true, settings: buildSettingsSnapshot() };
+  },
+};
+
 const usageBySource = {
   sessionId: 'usage-e2e-session',
   totalTokens: 42,
@@ -687,6 +788,7 @@ const transport = new WsTransport({
   usageReporter: () => usageBySource,
   storedSessionUsageReporter: () => usageBySource,
   sessionDirectory,
+  settingsReporter,
 });
 transport.attach(session);
 await transport.start();

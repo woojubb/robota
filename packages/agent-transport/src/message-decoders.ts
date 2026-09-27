@@ -96,6 +96,28 @@ const isActionResponse: TFieldCheck = (v) =>
     isOptional(isString)(v['text'])) ||
     (v['type'] === 'cancelled' && v['values'] === undefined && v['text'] === undefined));
 
+type TSettingsPatch = Extract<TClientMessage, { type: 'update-settings' }>['patch'];
+/** Keyed by `field`, so a patch variant added to the union without a shape here fails to compile. */
+const SETTINGS_PATCH_SHAPES: Readonly<Record<TSettingsPatch['field'], TVariantShape>> = {
+  language: { language: isNonEmptyString },
+  outputStyle: { styleId: isNonEmptyString },
+  preset: { presetId: isNonEmptyString },
+  permissionMode: { mode: isNonEmptyString },
+  sandbox: { enabled: isBoolean },
+  removePermissionRule: {
+    scope: isNonEmptyString,
+    kind: oneOf(['allow', 'deny', 'ask']),
+    pattern: isNonEmptyString,
+  },
+};
+const isSettingsPatch: TFieldCheck = (v) => {
+  if (!isRecord(v) || !isString(v['field'])) return false;
+  const field = v['field'];
+  if (!Object.prototype.hasOwnProperty.call(SETTINGS_PATCH_SHAPES, field)) return false;
+  const shape = SETTINGS_PATCH_SHAPES[field as TSettingsPatch['field']];
+  return Object.entries(shape).every(([key, check]) => check(v[key]));
+};
+
 type TWaitingLoopStopOutcome = Extract<TServerMessage, { type: 'waiting_loop_stop' }>['outcome'];
 /** Keyed by `kind`, so an outcome added to the union without a shape here fails to compile. */
 const WAITING_LOOP_STOP_OUTCOME_SHAPES: Readonly<
@@ -169,6 +191,8 @@ export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVar
   'ask-response': { id: isNonEmptyString, response: isActionResponse },
   resume: { lastSeq: isFiniteNumber },
   ack: { seq: isFiniteNumber },
+  'get-settings': { requestId: isNonEmptyString },
+  'update-settings': { requestId: isNonEmptyString, patch: isSettingsPatch },
 };
 
 const authored: TVariantShape = { driverId: isOptional(isString) };
@@ -270,6 +294,12 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
   },
   protocol_error: { message: isString, requestId: isOptional(isString) },
   resume_gap: {},
+  settings: { requestId: isNonEmptyString, settings: isRecord },
+  settings_error: {
+    requestId: isNonEmptyString,
+    code: oneOf(['not_available', 'invalid', 'refused', 'update_failed']),
+    message: isString,
+  },
 };
 
 function decodeVariant<TMessage extends { type: string }>(

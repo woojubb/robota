@@ -26,6 +26,7 @@ function hostThatStops(
       listener = next;
       return () => {};
     },
+    onOpenSettings: () => () => {},
     ...(restartRuntime ? { restartRuntime } : {}),
   };
   return { host, stop: () => listener?.('fatal', detail) };

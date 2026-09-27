@@ -95,6 +95,26 @@ try {
     await page.getByLabel('message').press('Enter');
     await page.getByText('Hello from the scripted agent.').waitFor({ timeout: 10_000 });
     check('TC-01: a turn round-trips through the desktop shell', true);
+
+    // #3282 §4a: the App menu's "Settings…" (id `open-settings`, ⌘,/Ctrl+,) — clicked through the
+    // main process rather than a synthetic key event, the reliable path in headless/CI Linux.
+    await app.evaluate(({ Menu }) =>
+      Menu.getApplicationMenu()?.getMenuItemById('open-settings')?.click(),
+    );
+    await page.getByRole('dialog', { name: 'Settings' }).waitFor({ timeout: 10_000 });
+    check('#3282 §4a: the Settings… menu item opens the Settings screen', true);
+    await page.getByRole('button', { name: 'Close Settings' }).click();
+    await page.getByRole('dialog', { name: 'Settings' }).waitFor({ state: 'detached' });
+
+    // Setting an application menu at all replaces Electron's built-in one; confirm Edit's Copy role
+    // is still there, so the composer keeps its normal cut/copy/paste shortcuts.
+    const hasCopyRole = await app.evaluate(({ Menu }) => {
+      const walk = (items) =>
+        items.some((item) => item.role === 'copy' || (item.submenu && walk(item.submenu.items)));
+      const menu = Menu.getApplicationMenu();
+      return menu ? walk(menu.items) : false;
+    });
+    check('#3282 §4a: the Edit menu still offers Copy (composer shortcuts keep working)', hasCopyRole);
   } catch (err) {
     check(`first launch threw: ${err?.message ?? err}`, false);
   } finally {

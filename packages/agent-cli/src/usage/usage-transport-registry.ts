@@ -5,7 +5,7 @@ import type {
   IInteractiveSessionStore,
   ISessionBinder,
 } from '@robota-sdk/agent-interface-session';
-import type { IProtocolSession } from '@robota-sdk/agent-transport';
+import type { IProtocolSession, ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
 import type { TDriverId } from '@robota-sdk/agent-interface-session';
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 
@@ -16,6 +16,7 @@ function createDefaultUsageTransportRegistry(
   driverId: TDriverId,
   surface: TUsageSurface,
   sessionBinder: ISessionBinder<IProtocolSession> | undefined,
+  settingsReporter: ISessionMessageHandlerOptions['settingsReporter'] | undefined,
 ): ReturnType<typeof createDefaultTransportRegistry> {
   const admittedProjectStore = projectTrusted ? projectStore : undefined;
   const personalUsageReporter = createPersonalUsageReporter(admittedProjectStore);
@@ -26,6 +27,7 @@ function createDefaultUsageTransportRegistry(
     driverId,
     surface,
     sessionBinder,
+    settingsReporter,
   );
 }
 
@@ -52,10 +54,19 @@ export function createCliUsageTransportRegistry(
   /** #3189: binds each client to the sessions it lists, starts and switches (serve mode only). */
   sessionBinder?: ISessionBinder<IProtocolSession>,
   daemon = false,
+  /** #3282 §4a: host-owned read/write for the GUI Settings screen. */
+  settingsReporter?: ISessionMessageHandlerOptions['settingsReporter'],
 ): ReturnType<typeof createDefaultTransportRegistry> {
   // Read before the registry takes the token out of the environment.
   const { driverId, surface } = resolveCliUsageAttribution({
     desktopToken: Boolean(process.env['ROBOTA_WS_TOKEN']), open, daemon,
   });
-  return createDefaultUsageTransportRegistry(projectStore, projectTrusted, driverId, surface, sessionBinder);
+  return createDefaultUsageTransportRegistry(
+    projectStore,
+    projectTrusted,
+    driverId,
+    surface,
+    sessionBinder,
+    settingsReporter,
+  );
 }

@@ -17,6 +17,7 @@ export type {
   ICommandSandboxStatus,
   TSandboxCommandMode,
   IPermissionRuleLayer,
+  IPermissionRuleRemoval,
   ICommandPickerAdapter,
   ICommandPluginAdapter,
   ICommandProcessAdapter,
