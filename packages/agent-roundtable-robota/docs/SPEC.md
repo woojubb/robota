@@ -17,9 +17,9 @@ A conversation's purpose is announced to a runtime once, on the turn that opens 
 
 Every provider call a wrapped runtime makes is admitted and reported through that turn's own bound
 services before it reaches the provider; a call an admission rejects is never dispatched, so a spent
-limit stops a runtime before it produces a result nothing asked for. A cache hit is admitted under its
-own identity when the record carries one, rather than resting on the ledger's admission-free path for a
-report that arrives with none.
+limit stops a runtime before it produces a result nothing asked for. A cache hit costs nothing to
+serve, so it is reported through the ledger's admission-free cache-hit path instead, carrying its own
+identity — never spending a call-limit allowance a free hit did not need.
 
 A `Session` participant understands exactly one shape of suspended request — the one its own
 permission gate produces for a tool awaiting approval — and maps it to a roundtable wait under the
