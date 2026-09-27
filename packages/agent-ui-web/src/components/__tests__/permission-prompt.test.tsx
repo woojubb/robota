@@ -867,7 +867,7 @@ describe('PermissionPrompt names a different kind of surface, never a raw id (#3
     expect(screen.queryByText(/session-abc123/)).toBeNull();
   });
 
-  it('says "automatic" for the agent\'s own wake-up, not "from automatic"', () => {
+  it('says "Automatic — loop" (#3288 §1) for the agent\'s own wake-up, not "from automatic"', () => {
     render(
       <PermissionPrompt
         prompts={[withRequester('agent')]}
@@ -875,7 +875,7 @@ describe('PermissionPrompt names a different kind of surface, never a raw id (#3
         onAnswerAsk={vi.fn()}
       />,
     );
-    expect(screen.getByText('automatic')).toBeTruthy();
+    expect(screen.getByText('Automatic — loop')).toBeTruthy();
     expect(screen.queryByText(/from automatic/)).toBeNull();
   });
 });

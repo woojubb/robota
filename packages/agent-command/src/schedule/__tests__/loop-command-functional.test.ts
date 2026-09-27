@@ -10,6 +10,15 @@ afterEach(async () => {
   harness = undefined;
 });
 
+/**
+ * #3288 §1: a bare/interval-only loop now asks before it falls back to the default prompt, even in
+ * this harness's "typed the command" (`source: 'user'`) path — subscribing an `askHandler` gives
+ * `getUserInteraction()` a live port (REMOTE-007 D4a), so these functional tests stay interactive
+ * rather than hitting the new headless refusal. Always answers "Start".
+ */
+const confirmDefaultStart = async (): Promise<{ type: 'answer'; values: readonly string[] }> =>
+  ({ type: 'answer', values: ['start'] });
+
 describe('/loop command in a real interactive session', () => {
   it('re-reads an omitted self-paced prompt before each iteration without changing explicit prompts', async () => {
     let prompt = 'project first';
@@ -18,6 +27,7 @@ describe('/loop command in a real interactive session', () => {
       turns: [{ text: 'first' }, { text: 'second' }],
       commandModules: [createScheduleCommandModule({ defaultPrompt: 'fallback', resolveDefaultPrompt })],
       resolveDefaultLoopPrompt: resolveDefaultPrompt,
+      askHandler: confirmDefaultStart,
       backgroundTasks: true,
       persistence: true,
     });
@@ -51,6 +61,7 @@ describe('/loop command in a real interactive session', () => {
       turns: [{ text: 'first' }, { text: 'second' }],
       commandModules: [createScheduleCommandModule({ defaultPrompt: 'fallback', resolveDefaultPrompt })],
       resolveDefaultLoopPrompt: resolveDefaultPrompt,
+      askHandler: confirmDefaultStart,
       backgroundTasks: true,
       persistence: true,
     });
@@ -109,6 +120,7 @@ describe('/loop command in a real interactive session', () => {
       turns: [{ text: 'done' }],
       commandModules: [createScheduleCommandModule({ defaultPrompt: 'fallback', resolveDefaultPrompt })],
       resolveDefaultLoopPrompt: resolveDefaultPrompt,
+      askHandler: confirmDefaultStart,
       backgroundTasks: true,
       persistence: true,
     });
@@ -297,6 +309,7 @@ describe('/loop command in a real interactive session', () => {
     harness = scriptedSession({
       turns: [{ text: 'unused' }],
       commandModules: [createScheduleCommandModule({ defaultPrompt: maintenancePrompt })],
+      askHandler: confirmDefaultStart,
       backgroundTasks: true,
       persistence: true,
     });

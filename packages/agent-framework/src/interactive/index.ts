@@ -17,6 +17,7 @@ export {
 } from './session-persistence.js';
 export type { IHostToolResultSpillStore } from './session-persistence.js';
 export { generateSessionName } from './session-naming.js';
+export { isLoopStopVerb } from './session-loop-stop-verb.js';
 // CLI-1994: the one restore a subagent runner in ANY process performs for a fork job — the id it
 // received becomes the copied conversation here, so no runner re-derives the injection.
 export { restoreSessionRecordIntoSession } from './interactive-session-restore.js';

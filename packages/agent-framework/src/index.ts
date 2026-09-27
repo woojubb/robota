@@ -83,6 +83,7 @@ export {
   ExternalEventIngress,
   ExternalEventGrantHistory,
   createExternalEventGrantHistory,
+  isLoopStopVerb,
 } from './interactive/index.js';
 export { withUniqueSessionName } from './interactive/interactive-session-fork-record.js';
 // TERM-001: a client attached to a runtime in another process hands its own terminal to the

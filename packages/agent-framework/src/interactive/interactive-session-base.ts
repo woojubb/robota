@@ -37,6 +37,7 @@ import type {
   IExecutionDetailPage,
   IExecutionOrigin,
   IExecutionPendingRequest,
+  IExecutionSelfPacedLoopSummary,
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceFilter,
   IExecutionWorkspaceSnapshot,
@@ -77,7 +78,7 @@ import type {
   IBackgroundTaskState,
   ISubagentJobState,
 } from '@robota-sdk/agent-interface-execution';
-import type { TDriverId } from '@robota-sdk/agent-interface-session';
+import type { ISessionLoopState, TDriverId } from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
 
 export abstract class InteractiveSessionBase {
@@ -276,9 +277,27 @@ export abstract class InteractiveSessionBase {
         histTracker: this.histTracker,
         bgTracker: this.bgTracker,
         pendingRequest: () => this.getPendingRequest(),
+        selfPacedLoops: () => this.getSelfPacedLoopWorkspaceSummaries(),
       },
       options,
     );
+  }
+  /**
+   * #3288 §1: this session's self-paced loops, summarized for the execution workspace. Overridden
+   * by {@link InteractiveSession} (the only subclass with self-paced loops at all); the default
+   * here keeps a hypothetical other subclass working with none, rather than requiring one.
+   */
+  protected getSelfPacedLoopWorkspaceSummaries(): readonly IExecutionSelfPacedLoopSummary[] {
+    return [];
+  }
+  /**
+   * #3288 §1: a single self-paced loop's own durable state, for its detail page (`readWorkspaceDetail`
+   * — its entry has no `IBackgroundTaskState` of its own to read). Overridden by
+   * {@link InteractiveSession}; the default here keeps a hypothetical other subclass working with
+   * none, matching {@link getSelfPacedLoopWorkspaceSummaries}.
+   */
+  protected getSelfPacedLoopDetail(_loopId: string): ISessionLoopState | undefined {
+    return undefined;
   }
   listExecutionWorkspaceEntries(filter?: IExecutionWorkspaceFilter): IExecutionWorkspaceEntry[] {
     return [...this.getExecutionWorkspaceSnapshot({ filter }).entries];
@@ -298,6 +317,7 @@ export abstract class InteractiveSessionBase {
       this.getSessionOrThrow().getSessionId(),
       cursor,
       this.getPendingRequest(),
+      (loopId) => this.getSelfPacedLoopDetail(loopId),
     );
   }
   createExecutionWorkspaceTaskSpawner(origin: IExecutionOrigin): IExecutionWorkspaceTaskSpawner {

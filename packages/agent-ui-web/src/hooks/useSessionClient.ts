@@ -21,6 +21,7 @@ import {
 } from './ui-intent-state.js';
 import { createWsSessionClient } from '../client/ws-session-client.js';
 import { SERVER_MESSAGE_HANDLING } from './server-message-handling.js';
+import { useExecutionDetailState } from './use-execution-detail.js';
 import { usePersonalUsageState } from './use-personal-usage.js';
 import { useSessionDirectoryState } from './use-session-directory.js';
 import { useSettingsState } from './use-settings-state.js';
@@ -264,6 +265,11 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     if (requestId !== undefined) sessionChangeRequestIdsRef.current.delete(requestId);
   }, []);
   const { handleUsageMessage, ...personalUsageState } = usePersonalUsageState(send);
+  const {
+    handleExecutionDetailMessage,
+    closeExecutionDetail,
+    ...executionDetailState
+  } = useExecutionDetailState(send);
   const { handleSessionsMessage, canListSessions, markCurrent, armRestore, ...sessionDirectoryState } =
     useSessionDirectoryState(send);
   const { requestSessions, setSessionSidebarOpen } = sessionDirectoryState;
@@ -275,6 +281,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       // explicit GUI ownership decision, including variants intentionally handled by focused views.
       void SERVER_MESSAGE_HANDLING[msg.type];
       if (handleUsageMessage(msg)) return;
+      if (handleExecutionDetailMessage(msg)) return;
       if (handleSessionsMessage(msg)) return;
       if (handleSettingsMessage(msg)) return;
       switch (msg.type) {
@@ -348,6 +355,21 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           setExecutionWorkspace(msg.snapshot);
           break;
         }
+        // #3288 §1: a Stop that did not take effect (e.g. the task/loop had already finished) is
+        // worth telling the operator; a success shows itself through the snapshot update above.
+        case 'background_task_control_result': {
+          if (!msg.success) {
+            setSessionNotices((previous) => [
+              ...previous,
+              {
+                id: nextId(),
+                kind: 'background-task-control-failed',
+                message: msg.message ?? `Could not stop ${msg.taskId}.`,
+              },
+            ]);
+          }
+          break;
+        }
         // #3280 §2: the prompt queued behind a running turn — shown above the composer, editable
         // and removable (`cancel-queue`). `pending: null` means nothing waits; the row disappears.
         case 'pending': {
@@ -418,6 +440,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           setQueuedPrompt(null);
           setSessionName(null);
           setExecutionWorkspace(null);
+          closeExecutionDetail();
           markCurrent(msg.event.sessionId);
           send({ type: 'get-messages' });
           send({ type: 'get-status' });
@@ -547,7 +570,9 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     [
       appendEntry,
       canListSessions,
+      closeExecutionDetail,
       finishTurn,
+      handleExecutionDetailMessage,
       handleSessionsMessage,
       handleSettingsMessage,
       handleUsageMessage,
@@ -623,6 +648,8 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     answerPermission,
     answerAsk,
     ...personalUsageState,
+    ...executionDetailState,
+    closeExecutionDetail,
     ...sessionDirectoryState,
     sessionNotices,
     dismissSessionNotice,

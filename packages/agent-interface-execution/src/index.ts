@@ -85,6 +85,7 @@ export type {
   ICreateMainThreadEntryInput,
   IExecutionHeadline,
   IExecutionPendingRequest,
+  IExecutionSelfPacedLoopSummary,
   TExecutionAttention,
   TExecutionControl,
   TExecutionDetailRecordKind,

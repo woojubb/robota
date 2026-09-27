@@ -75,10 +75,14 @@ export function humanDriverLabel(driverId: TDriverId): string {
 }
 
 /**
- * The ready-to-render attribution phrase: "from <label>" for a co-driver, or the bare word
- * "automatic" for the agent's own wake-ups — "from automatic" reads as a typo, not a source.
+ * The ready-to-render attribution phrase: "from <label>" for a co-driver, or "Automatic — loop"
+ * for the agent's own wake-ups — "from automatic" reads as a typo, not a source. #3288 §1: every
+ * `AGENT_DRIVER_ID` turn is, today, a loop's own injected iteration (fixed or self-paced —
+ * `requestWakeup` in `interactive-session.ts` is the one place that stamps this id); if a
+ * differently-sourced agent-wakeup turn is ever added, this label needs to name that source
+ * instead of assuming "loop".
  */
 export function driverAttributionText(driverId: TDriverId): string {
-  if (driverId === AGENT_DRIVER_ID) return 'automatic';
+  if (driverId === AGENT_DRIVER_ID) return 'Automatic — loop';
   return `from ${humanDriverLabel(driverId)}`;
 }

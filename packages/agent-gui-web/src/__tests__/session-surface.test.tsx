@@ -162,7 +162,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
 
   it('#3186: the activity rail stays closed while only the main thread exists', () => {
     const mainOnly = {
-      entries: [{ id: 'main', kind: 'main_thread', title: 'Main thread' }],
+      entries: [{ id: 'main', kind: 'main_thread', title: 'Main thread', controls: ['select'] }],
     } as unknown as IWsSessionState['executionWorkspace'];
     const { rerender } = render(
       <SessionSurface state={stubState({ executionWorkspace: mainOnly })} />,
@@ -170,7 +170,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(screen.queryByText('Main thread')).toBeNull();
     const withTask = {
       entries: [
-        { id: 'main', kind: 'main_thread', title: 'Main thread' },
+        { id: 'main', kind: 'main_thread', title: 'Main thread', controls: ['select'] },
         { id: 't', kind: 'background_task', title: 'Build', status: 'running', controls: [] },
       ],
     } as unknown as IWsSessionState['executionWorkspace'];

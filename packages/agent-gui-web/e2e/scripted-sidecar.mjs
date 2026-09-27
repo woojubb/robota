@@ -200,6 +200,61 @@ const storedSessions = [
 ];
 const unreadableSessionIds = ['damaged-session'];
 
+/**
+ * #3288 §1: the Agents panel's two fixture entries, appearing only once "show background work" is
+ * sent (so every other scenario's session starts, and stays, with none — never interfering with an
+ * unrelated selector elsewhere in this file, e.g. the composer's own "Stop" button). One is an
+ * ordinary background task; the other is a `/loop`-managed entry (carries `loopId`), so the e2e can
+ * exercise BOTH Stop routes — `cancel-background-task` and `/loop stop <id>`.
+ */
+function backgroundTaskEntry() {
+  return {
+    id: 'task:e2e-task-1',
+    sourceId: 'e2e-task-1',
+    kind: 'background_task',
+    origin: { kind: 'tool_call', sessionId: 'scripted-session' },
+    taskKind: 'agent',
+    status: 'running',
+    title: 'Reviewing the auth module',
+    // Deliberately distinct from the transcript records below: the detail sheet shows this AND
+    // the transcript together, and a real host would never hand both the same text.
+    headline: { kind: 'activity', text: 'Checking the auth module for issues' },
+    unread: false,
+    attention: 'none',
+    visibility: 'default',
+    updatedAt: new Date().toISOString(),
+    controls: ['select', 'cancel'],
+    state: 'working',
+  };
+}
+function loopEntry() {
+  return {
+    id: 'task:loop-e2e-1',
+    sourceId: 'loop-e2e-1',
+    kind: 'background_task',
+    origin: { kind: 'slash_command', sessionId: 'scripted-session', commandName: 'loop' },
+    taskKind: 'scheduled',
+    status: 'sleeping',
+    title: 'Loop: check the deploy',
+    // Deliberately distinct from the transcript records below (see the task entry's own note).
+    headline: { kind: 'activity', text: 'Waiting to check the deploy again' },
+    unread: false,
+    attention: 'none',
+    visibility: 'default',
+    updatedAt: new Date().toISOString(),
+    controls: ['select', 'cancel'],
+    state: 'working',
+    loopId: 'loop-e2e-1',
+  };
+}
+const executionDetailRecords = {
+  'task:e2e-task-1': [
+    { id: 'r1', kind: 'message', text: 'Reviewing packages/auth/login.ts' },
+    { id: 'r2', kind: 'tool_activity', text: 'Read login.ts' },
+  ],
+  'task:loop-e2e-1': [{ id: 'l1', kind: 'message', text: 'check the deploy' }],
+};
+
 /** A scripted IInteractiveSession: EventEmitter for on/off/emit, deterministic submit + permission. */
 class ScriptedSession extends EventEmitter {
   #pendingPermission = null;
@@ -210,6 +265,7 @@ class ScriptedSession extends EventEmitter {
   #setupRequired = process.env.ROBOTA_E2E_SETUP_REQUIRED === '1';
   #pendingSetupAsk = null;
   #resolveSetupCommand = null;
+  #executionWorkspaceEntries = [];
 
   get currentId() {
     return this.#current.id;
@@ -236,7 +292,37 @@ class ScriptedSession extends EventEmitter {
     return this.#current.messages.map((message) => ({ ...message }));
   }
   getExecutionWorkspaceSnapshot() {
-    return { entries: [] };
+    return {
+      sessionId: this.#current.id,
+      updatedAt: new Date().toISOString(),
+      entries: this.#executionWorkspaceEntries,
+    };
+  }
+  #emitExecutionWorkspaceUpdated() {
+    this.emit('execution_workspace_event', {
+      type: 'execution_workspace_updated',
+      cause: 'background_task',
+      snapshot: this.getExecutionWorkspaceSnapshot(),
+    });
+  }
+  readExecutionWorkspaceDetail(entryId) {
+    const records = executionDetailRecords[entryId];
+    if (!records) return Promise.reject(new Error(`Unknown execution entry: ${entryId}`));
+    return Promise.resolve({ entryId, records });
+  }
+  // #3288 §1: a task's own Stop — never a loop's (that always goes through /loop stop <id> below,
+  // even for a loop's own disposable wake timer, which this fixture never separately models).
+  cancelBackgroundTask(taskId) {
+    const entry = this.#executionWorkspaceEntries.find((candidate) => candidate.sourceId === taskId);
+    if (!entry || entry.loopId !== undefined) {
+      return Promise.reject(new Error(`No stoppable task: ${taskId}`));
+    }
+    entry.status = 'cancelled';
+    entry.updatedAt = new Date().toISOString();
+    // Terminal now — 'cancel' is no longer offered (a stopped task does not still offer Stop).
+    entry.controls = ['select', 'close'];
+    this.#emitExecutionWorkspaceUpdated();
+    return Promise.resolve();
   }
   getContextState() {
     return { usedPercentage: 0, usedTokens: 0, maxTokens: 200000 };
@@ -270,6 +356,19 @@ class ScriptedSession extends EventEmitter {
     this.emit('user_message', input);
     this.#record('user', String(input));
     const lower = String(input).toLowerCase();
+    // #3288 §1: populate the Agents panel's two fixture entries (a background task and a loop) —
+    // only on this explicit trigger, so every other scenario's session keeps none, ever.
+    if (lower.includes('show background work')) {
+      this.#executionWorkspaceEntries = [backgroundTaskEntry(), loopEntry()];
+      this.#emitExecutionWorkspaceUpdated();
+      await tick();
+      this.emit('thinking', true);
+      this.emit('text_delta', 'Started background work.');
+      await tick();
+      this.emit('thinking', false);
+      this.#complete('Started background work.');
+      return;
+    }
     if (lower.includes('stay busy')) {
       // A turn that keeps running until "all done" — a switch meanwhile is refused.
       this.#busy = true;
@@ -469,6 +568,27 @@ class ScriptedSession extends EventEmitter {
     if (name === 'settings') {
       this.emit('ui_intent', { intent: { type: 'show-settings' } });
       return Promise.resolve({ message: 'Opening settings...', success: true });
+    }
+    // #3288 §1: `/loop stop <id>` — a loop always stops this way, never cancel-background-task
+    // (its own disposable wake timer, when it has one, is not the loop itself).
+    if (name === 'loop') {
+      const stopMatch = /^stop\s+(\S+)$/.exec(args);
+      if (stopMatch) {
+        const loopId = stopMatch[1];
+        const before = this.#executionWorkspaceEntries.length;
+        // A stopped loop does not linger — it leaves the list on the next snapshot (#3288 §1).
+        this.#executionWorkspaceEntries = this.#executionWorkspaceEntries.filter(
+          (entry) => entry.loopId !== loopId,
+        );
+        if (this.#executionWorkspaceEntries.length === before) {
+          return Promise.resolve({ success: false, message: `Active loop not found: ${loopId}` });
+        }
+        this.#emitExecutionWorkspaceUpdated();
+        return Promise.resolve({
+          success: true,
+          message: `Loop stopped: ${loopId}. An already-running turn may finish.`,
+        });
+      }
     }
     return Promise.resolve({ message: 'ok', success: true });
   }

@@ -120,8 +120,18 @@ not the registered one: a tool that declares deferred loading and that the model
 is not sent with the request and is therefore not counted. The resulting number can fall as a direct,
 observable consequence of deferral.
 
-**`/loop` (in-session repeat).** A bare or prompt-only invocation starts a self-paced loop; an
-explicit interval keeps a fixed schedule. In self-paced mode the model chooses each delay, within a
+**`/loop` (in-session repeat).** A prompt-only invocation — self-paced or on an explicit interval —
+starts unconfirmed: it is the operator's own instruction. Any form that instead falls back to the
+host's default maintenance prompt — bare `/loop`, or an interval alone (`/loop <N><s|m|h|d>`, self-
+paced or fixed cadence) — is gated the same way, because it is the same standing commitment (running
+unattended for up to the loop's lifetime) whichever form reached it: an interactive invocation (an
+ask port attached) asks the operator to confirm, naming the prompt's first line, how long it can run
+unattended, and other active loops — never the internal "default prompt" wording, nor a raw
+timestamp; a headless one (no ask port — a print-mode or scheduled run) is refused with
+a plain message rather than starting unconfirmed, since a loop that can run for a week must not start
+with nobody there to say yes; a model-invoked one is always refused outright, never silently asked or
+blocked, so the model cannot start one on its own — only ever its own explicit prompt. In self-paced
+mode the model chooses each delay, within a
 bounded maximum, and a short reason, or stops the loop; a missing decision falls back once rather than
 looping unbounded. The session record, not the disposable timer, owns resumption for either mode.
 Fixed requested intervals are positive and bounded. Calendar-aligned steps only divide the
@@ -131,17 +141,20 @@ can make the actual elapsed gap shorter or longer than the nominal step. Repeate
 from the same loop coalesce in the bounded session queue rather than queuing a catch-up burst after
 a gap. A loop's stable identity is separate from its editable display label and the underlying
 scheduler's runtime task id, so renaming or a schedule restore cannot hide a loop from `/loop
-list`/`/loop stop` or break the stop path. A session allows a bounded number of active loops (including
-paused ones); creation beyond it is refused. New loops carry an absolute expiry; an expired
-loop is terminal and refuses to fire again even after a restore. Creation and stop are strictly
-persisted before they report success; ordinary turn snapshots remain best-effort. A host kill switch
-can block firing/re-arming while preserving paused records for a later restart, and separately
-refuses new-loop creation while still allowing `list`/`stop` so existing loops stay manageable.
-Autocomplete offers `list` and `stop` with `list` first, so selecting `/loop` cannot start the
-host-default loop on the first Enter; directly submitting bare `/loop` still creates one.
-Fixed loops carry a small stable per-loop offset to avoid synchronized wake bursts; self-paced loops
-keep the model-selected delay without added jitter. Omitted prompts use the host's live default at
-each iteration; an explicit schedule edit replaces that default for the edited fixed loop.
+list`/`/loop stop` or break the stop path. `/loop stop <id>` reaches the loop even while a turn is
+running — that loop's own iteration or any other — without aborting it: an already-running iteration
+finishes, and only the loop's future ones stop. A session allows a bounded number of active loops
+(including paused ones); creation beyond it is refused. New loops carry an absolute expiry; an
+expired loop is terminal and refuses to fire again even after a restore. Creation and stop are
+strictly persisted before they report success; ordinary turn snapshots remain best-effort. A host
+kill switch can block firing/re-arming while preserving paused records for a later restart, and
+separately refuses new-loop creation while still allowing `list`/`stop` so existing loops stay
+manageable. Autocomplete offers `list` and `stop` with `list` first, so selecting `/loop` cannot
+start the host-default loop on the first Enter; directly submitting bare `/loop` still asks first
+rather than creating one outright. Fixed loops carry a small stable per-loop offset to avoid
+synchronized wake bursts; self-paced loops keep the model-selected delay without added jitter.
+Omitted prompts use the host's live default at each iteration; an explicit schedule edit replaces
+that default for the edited fixed loop.
 
 **`orgPolicy` in `/provider`.** When an `IOrgPolicy` is supplied: a switch to a profile outside
 `allowedProviders` is rejected before any settings write; a completed provider setup whose API key is

@@ -36,6 +36,7 @@ import { SessionTerminalHandoffGate } from './interactive-session-terminal-hando
 import { SessionTurnMemory } from './interactive-session-turn-memory.js';
 import { ExternalEventIngress } from './external-event-ingress.js';
 import type { ExternalEventGrantHistory } from './external-event-ingress.js';
+import type { IExecutionSelfPacedLoopSummary } from '../background-tasks/index.js';
 import { PeerTurnRateLimiter } from './peer-turn-rate-limit.js';
 import { DurableSessionLoopStore } from './session-loop-durable-store.js';
 import { extractSelfPacedLoopDecision } from './session-loop-decision-tool.js';
@@ -60,6 +61,7 @@ import {
 } from './session-loop-lifecycle.js';
 import { SessionPromptRegistry } from './session-prompt-registry.js';
 import { SessionAutoNaming } from './session-auto-naming.js';
+import { isLoopStopVerb } from './session-loop-stop-verb.js';
 import { SessionStatusPush, STATUS_CHANGING_EVENTS } from './session-status-push.js';
 import { stopWaitingSelfPacedLoop } from './session-waiting-loop.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
@@ -1063,6 +1065,21 @@ export class InteractiveSession
     return this.selfPacedLoops.list();
   }
 
+  protected override getSelfPacedLoopWorkspaceSummaries(): readonly IExecutionSelfPacedLoopSummary[] {
+    return this.selfPacedLoops.list().map((loop) => ({
+      loopId: loop.loopId,
+      instruction: loop.instruction,
+      phase: loop.phase,
+      createdAt: loop.createdAt,
+      ...(loop.delaySeconds === undefined ? {} : { delaySeconds: loop.delaySeconds }),
+      ...(loop.reason === undefined ? {} : { reason: loop.reason }),
+    }));
+  }
+
+  protected override getSelfPacedLoopDetail(loopId: string): ISessionLoopState | undefined {
+    return this.selfPacedLoops.get(loopId);
+  }
+
   async createSelfPacedLoop(
     instruction: string,
     options: { useDefaultPrompt?: boolean } = {},
@@ -2015,7 +2032,17 @@ export class InteractiveSession
         ? { message: `Goal cancelled: ${stopped.objective}`, success: true }
         : { message: 'No active goal to cancel.', success: false };
     }
-    const result = await super.executeCommand(name, args, source, originDriverId);
+    // #3288 §1: `/loop stop <id>` is a CONTROL action too — it must reach the loop mid-turn, since a
+    // runaway loop is exactly when stopping it matters (the base class's mid-turn gate below would
+    // otherwise refuse it with "Another prompt or command is already running"). Unlike `/goal
+    // cancel`, this does NOT abort the running turn: `stopSelfPacedLoop`/`cancelBackgroundTask` (the
+    // command's own logic, reached the ordinary way below) already let an already-running turn
+    // finish — only its FUTURE iterations stop. Any other `/loop` invocation, or a "stop" with no
+    // turn running, keeps the unchanged path.
+    const bypassMidTurnGate = name === 'loop' && isLoopStopVerb(args) && this.execCtrl.executing;
+    const result = bypassMidTurnGate
+      ? await this.skillRouter.executeCommand(name, args, source, originDriverId)
+      : await super.executeCommand(name, args, source, originDriverId);
     if (result === null) return null;
     const application = await applyCommandHostActions(result, {
       getAdapters: () => this.getCommandHostAdapters(),

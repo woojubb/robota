@@ -44,10 +44,14 @@ export const SERVER_MESSAGE_HANDLING = {
   // #3280 §2: the prompt queued behind a running turn — shown above the composer with Edit/Remove.
   pending: 'reducer-state',
   execution_workspace_event: 'reducer-state',
-  // #3189: replies to requests only a terminal client sends (a detail page, Esc's loop stop).
-  execution_detail: 'intentionally-not-rendered',
-  execution_detail_error: 'intentionally-not-rendered',
+  // #3288 §1: the Agents panel's detail sheet reads a page at a time.
+  execution_detail: 'reducer-state',
+  execution_detail_error: 'reducer-state',
+  // Esc's loop stop is a TUI-only shortcut; this surface's loops stop through the Agents panel
+  // instead (`/loop stop <id>`, or `stop-waiting-loop` is simply never sent here).
   waiting_loop_stop: 'intentionally-not-rendered',
+  // The Agents panel already reflects a task's cancel/close/send through `execution_workspace_event`;
+  // nothing here renders this narrower, task-only event on its own.
   background_task_event: 'intentionally-not-rendered',
   background_job_group_event: 'intentionally-not-rendered',
   plan_event: 'intentionally-not-rendered',
@@ -64,7 +68,9 @@ export const SERVER_MESSAGE_HANDLING = {
   ui_intent: 'reducer-state',
   session_renamed: 'reducer-state',
   history_cleared: 'reducer-state',
-  background_task_control_result: 'intentionally-not-rendered',
+  // #3288 §1: a failed Stop (e.g. a task that finished a moment before it arrived) is worth telling
+  // the operator; a success shows itself through the workspace snapshot's own update.
+  background_task_control_result: 'visible-notice',
   protocol_error: 'visible-notice',
   resume_gap: 'transport-control',
   // #3282 §4a: the Settings screen's own correlated request/response state (`useSettingsState`).

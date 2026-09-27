@@ -9,7 +9,10 @@ import type {
   TPermissionResultValue,
   TSettingsPatch,
 } from '@robota-sdk/agent-interface-session';
-import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
+import type {
+  IExecutionDetailRecord,
+  IExecutionWorkspaceSnapshot,
+} from '@robota-sdk/agent-interface-execution';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 export type TPersonalUsageReport = Extract<
@@ -118,8 +121,9 @@ export interface IQueuedPrompt {
 
 export interface ISessionNotice {
   id: string;
-  /** `session-change-refused`: the host refused a new or switch this surface asked for. */
-  kind: 'session-error' | 'protocol-error' | 'session-change-refused';
+  /** `session-change-refused`: the host refused a new or switch this surface asked for.
+   *  `background-task-control-failed`: a Stop in the Agents panel did not take effect. */
+  kind: 'session-error' | 'protocol-error' | 'session-change-refused' | 'background-task-control-failed';
   message: string;
   /**
    * A `session-error` classified at the wire boundary (#3289 §3) — present only when the host could
@@ -213,4 +217,14 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   closeSettings: () => void;
   /** A failed write leaves `settingsSnapshot` at its previous value; `settingsError` names why. */
   updateSettings: (patch: TSettingsPatch) => void;
+  /** #3288 §1: the id of the execution-workspace entry open in the detail sheet, or null when closed. */
+  openEntryId: string | null;
+  executionDetailStatus: 'idle' | 'loading' | 'ready' | 'error';
+  executionDetailRecords: readonly IExecutionDetailRecord[];
+  executionDetailError: string | null;
+  /** True once the last page read had no further cursor — nothing more to load. */
+  executionDetailComplete: boolean;
+  openExecutionDetail: (entryId: string) => void;
+  loadMoreExecutionDetail: () => void;
+  closeExecutionDetail: () => void;
 }

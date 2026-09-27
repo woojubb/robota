@@ -125,7 +125,9 @@ function UserBlock({
   ownDriverId: TDriverId | null;
 }): React.ReactElement {
   // REMOTE-014 E5 (display-only, OWNER PRINCIPLE): show WHO drove this turn when it wasn't this
-  // connection's own — in plain words, never the raw server-assigned id.
+  // connection's own — in plain words, never the raw server-assigned id. #3288 §1: AGENT_DRIVER_ID
+  // (never "the same surface" — see isSameSurface) reads "Automatic — loop": today it is only ever
+  // a loop's own injected turn (requestWakeup in interactive-session.ts).
   const coDriver =
     author && !isSameSurface(author, ownDriverId) ? driverAttributionText(author) : undefined;
   return (

@@ -64,6 +64,7 @@ export type {
   ICreateMainThreadDetailPageInput,
   IExecutionHeadline,
   IExecutionPendingRequest,
+  IExecutionSelfPacedLoopSummary,
   TExecutionHeadlineKind,
   TExecutionNormalizedState,
   ICreateMainThreadEntryInput,
