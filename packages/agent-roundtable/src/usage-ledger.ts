@@ -191,15 +191,39 @@ export function settleUsage(
   else usage[index] = settled;
 }
 
-/** The remaining allowance in this run, or `null` when the run has no per-run limit. */
-export function remainingRunAllowance(
+/**
+ * Whether a limit leaves these principals fewer calls than one each. Work that could not admit its
+ * first call is refused before it starts, and a group is refused whole because it commits only whole.
+ */
+export function modelCallsSpent(
   state: ConversationState,
   runId: string,
-  maxModelCallsPerRun: number | null,
-): number | null {
-  if (maxModelCallsPerRun === null) return null;
-  const used = state.snapshot.usage.filter((record) => record.runId === runId).length;
-  return maxModelCallsPerRun - used;
+  principals: readonly UsagePrincipal[],
+): boolean {
+  const { limits } = state.definition;
+  const usage = state.snapshot.usage;
+  const needed = principals.length;
+  if (needed === 0) return false;
+  const runUsed = usage.filter((record) => record.runId === runId).length;
+  if (limits.maxModelCallsPerRun !== null && limits.maxModelCallsPerRun - runUsed < needed)
+    return true;
+  if (
+    limits.maxModelCallsPerConversation !== null &&
+    limits.maxModelCallsPerConversation - usage.length < needed
+  )
+    return true;
+  const perParticipant = limits.maxModelCallsPerParticipant;
+  return (
+    perParticipant !== null &&
+    principals.some(
+      (principal) =>
+        principal.kind === 'participant' &&
+        usage.filter(
+          (record) =>
+            record.principal.kind === 'participant' && record.principal.id === principal.id,
+        ).length >= perParticipant,
+    )
+  );
 }
 
 /**

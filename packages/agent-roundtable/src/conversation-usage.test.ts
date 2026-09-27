@@ -294,6 +294,128 @@ describe('per-turn usage services and the admission ledger', () => {
     await room.dispose();
   });
 
+  describe('a spent conversation or participant limit refuses work before dispatch', () => {
+    /** Each turn admits one call; the selector script picks the next selection by turn count. */
+    function metered(id: string) {
+      const run = vi.fn(async (turn: ParticipantTurn, options: ParticipantExecutionOptions) => {
+        await options.services.admitModelCall({
+          callId: `${turn.attemptId}-call`,
+          providerId: 'p',
+          modelId: 'm',
+        });
+        return { kind: 'speak' as const, content: id };
+      });
+      return { participant: agent(id, run), run };
+    }
+
+    it('an exhausted conversation limit refuses the next group before any runtime is called', async () => {
+      const store = new MemoryConversationStore();
+      const a = metered('a');
+      const room = createRoundtable({
+        conversationId: 'precheck-conversation',
+        store,
+        participants: [a.participant],
+        limits: { maxTurnsPerRun: 2, maxModelCallsPerConversation: 1 },
+      });
+      expect(await room.run()).toMatchObject({ status: 'limited', reason: 'model-calls' });
+      expect(room.snapshot().messages.map((message) => message.content)).toEqual(['a']);
+      expect(a.run).toHaveBeenCalledOnce();
+      expect((await store.load('precheck-conversation'))?.state).toMatchObject({ terminal: null });
+      expect(await room.run()).toMatchObject({ status: 'limited', reason: 'model-calls' });
+      expect(a.run).toHaveBeenCalledOnce();
+      await room.dispose();
+    });
+
+    it('an exhausted participant limit refuses the whole group containing that participant before dispatch', async () => {
+      const a = metered('a');
+      const b = metered('b');
+      const room = createRoundtable({
+        conversationId: 'precheck-participant-group',
+        participants: [a.participant, b.participant],
+        maxConcurrentParticipants: 2,
+        limits: { maxTurnsPerRun: 3, maxModelCallsPerParticipant: 1 },
+        selector: {
+          modelCalls: 'none',
+          select: ({ turns }) =>
+            turns.length
+              ? { kind: 'parallel', participantIds: ['a', 'b'] }
+              : { kind: 'speak', participantId: 'a' },
+        },
+      });
+      expect(await room.run()).toMatchObject({ status: 'limited', reason: 'model-calls' });
+      expect(a.run).toHaveBeenCalledOnce();
+      expect(b.run).not.toHaveBeenCalled();
+      expect(room.snapshot().messages.map((message) => message.content)).toEqual(['a']);
+      await room.dispose();
+    });
+
+    it('a group without the exhausted participant still runs', async () => {
+      const a = metered('a');
+      const b = metered('b');
+      const room = createRoundtable({
+        conversationId: 'precheck-participant-other',
+        participants: [a.participant, b.participant],
+        limits: { maxTurnsPerRun: 3, maxModelCallsPerParticipant: 1 },
+        selector: {
+          modelCalls: 'none',
+          select: ({ turns }) =>
+            turns.length === 0
+              ? { kind: 'speak', participantId: 'a' }
+              : turns.length === 1
+                ? { kind: 'speak', participantId: 'b' }
+                : { kind: 'finish', reason: 'done' },
+        },
+      });
+      expect(await room.run()).toMatchObject({ status: 'completed', reason: 'done' });
+      expect(room.snapshot().messages.map((message) => message.content)).toEqual(['a', 'b']);
+      await room.dispose();
+    });
+
+    it('a member stopped by a spent participant limit is not dispatched again while it stays spent', async () => {
+      const run = vi.fn(async (turn: ParticipantTurn, options: ParticipantExecutionOptions) => {
+        for (let call = 0; call < 2; call++)
+          await options.services.admitModelCall({
+            callId: `${turn.attemptId}-${call}`,
+            providerId: 'p',
+            modelId: 'm',
+          });
+        return { kind: 'speak' as const, content: 'a' };
+      });
+      const room = createRoundtable({
+        conversationId: 'precheck-restored',
+        participants: [agent('a', run)],
+        limits: { maxTurnsPerRun: 1, maxModelCallsPerParticipant: 1 },
+      });
+      expect(await room.run()).toMatchObject({ status: 'limited', reason: 'model-calls' });
+      expect(await room.run()).toMatchObject({ status: 'limited', reason: 'model-calls' });
+      expect(run).toHaveBeenCalledOnce();
+      await room.dispose();
+    });
+
+    it('a metered selector is not called when the conversation limit is exhausted', async () => {
+      const a = metered('a');
+      const select = vi.fn(async (_context: unknown, options: { services: TurnServices }) => {
+        await options.services.admitModelCall({
+          callId: crypto.randomUUID(),
+          providerId: 'p',
+          modelId: 'm',
+        });
+        return { kind: 'speak' as const, participantId: 'a' };
+      });
+      const room = createRoundtable({
+        conversationId: 'precheck-selector',
+        participants: [a.participant],
+        selector: { modelCalls: 'metered', select },
+        limits: { maxTurnsPerRun: 2, maxModelCallsPerConversation: 2 },
+      });
+      expect(await room.run()).toMatchObject({ status: 'limited', reason: 'model-calls' });
+      expect(select).toHaveBeenCalledOnce();
+      expect(a.run).toHaveBeenCalledOnce();
+      expect(room.snapshot().usage).toHaveLength(2);
+      await room.dispose();
+    });
+  });
+
   it('absorbs an identical settled report replay; a final report cannot be replaced', async () => {
     const room = createRoundtable({
       conversationId: 'dup-report',
