@@ -85,6 +85,9 @@ export function SessionSidebar({
   const current = listing?.currentSessionId ?? null;
   const unreadable = listing?.unreadableSessionIds ?? [];
   const failed = state.sessionsError?.code === 'list_failed' ? state.sessionsError.message : null;
+  // #3282 §2 (part 2): session switching is disabled while disconnected, like the status chips and
+  // the `/` command menu — a switch could not reach the host either.
+  const connected = state.status === 'connected';
 
   const [menu, setMenu] = useState<IMenuAnchor | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -163,8 +166,10 @@ export function SessionSidebar({
       <div className="flex-shrink-0 px-2.5 pt-1">
         <button
           type="button"
+          disabled={!connected}
+          title={connected ? undefined : 'Reconnecting…'}
           onClick={() => state.newSession?.()}
-          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] font-medium text-foreground hover:bg-hover"
+          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] font-medium text-foreground hover:bg-hover disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent"
         >
           <SquarePen size={16} strokeWidth={1.75} className="text-muted-foreground" />
           New session
@@ -224,7 +229,9 @@ export function SessionSidebar({
                     // string ("Title validation fixjust now") to a screen reader.
                     aria-label={sessionTitle(session)}
                     aria-describedby={describedBy}
-                    title={session.preview || session.id}
+                    // #3282 §2 (part 2): while disconnected, the tooltip says why instead of previewing.
+                    title={connected ? session.preview || session.id : 'Reconnecting…'}
+                    disabled={!connected}
                     onClick={() => {
                       if (!isCurrent) state.switchSession?.(session.id);
                     }}
@@ -232,7 +239,7 @@ export function SessionSidebar({
                       event.preventDefault();
                       openMenuAt(session.id, event.clientX, event.clientY);
                     }}
-                    className={`w-full rounded-lg py-2 pl-2.5 pr-8 text-left transition-colors ${
+                    className={`w-full rounded-lg py-2 pl-2.5 pr-8 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                       isCurrent ? 'bg-raised' : 'hover:bg-hover'
                     }`}
                   >
@@ -385,6 +392,8 @@ export function SessionSidebar({
 
 /** The collapsed sidebar: a narrow rail that opens it again. */
 export function SessionSidebarRail({ state }: { state: IWsSessionState }): React.ReactElement {
+  // #3282 §2 (part 2): starting a session is disabled while disconnected, matching the open sidebar.
+  const connected = state.status === 'connected';
   return (
     <div className="flex w-12 flex-shrink-0 flex-col items-center gap-1 bg-sidebar py-2.5">
       <button
@@ -399,9 +408,10 @@ export function SessionSidebarRail({ state }: { state: IWsSessionState }): React
       <button
         type="button"
         aria-label="New session"
-        title="New session"
+        title={connected ? 'New session' : 'Reconnecting…'}
+        disabled={!connected}
         onClick={() => state.newSession?.()}
-        className="rounded-md p-1.5 text-muted-foreground hover:bg-hover hover:text-foreground"
+        className="rounded-md p-1.5 text-muted-foreground hover:bg-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent"
       >
         <SquarePen size={16} strokeWidth={1.75} />
       </button>

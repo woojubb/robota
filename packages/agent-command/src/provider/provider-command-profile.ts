@@ -23,7 +23,6 @@ const ACTION_EDIT = 'edit';
 const ACTION_TEST = 'test';
 const ACTION_DUPLICATE = 'duplicate';
 const ACTION_DELETE = 'delete';
-const ACTION_CANCEL = 'cancel';
 
 /**
  * Ask the user to pick a provider profile, then drive its action menu (CMD-004 inline ask). Replaces
@@ -58,6 +57,13 @@ async function askProviderProfileAction(
   if (!settings.providers?.[profileName]) {
     return { message: `Provider profile "${profileName}" was not found.`, success: false };
   }
+  // #3282 §2: no separate 'cancel' option here — the picker's own persistent Cancel affordance
+  // (every ask renderer offers one, e.g. `PermissionPrompt`'s ghost Cancel button in agent-ui-web)
+  // is the only Cancel a person sees. A second one, indistinguishable from Switch/Edit/Test/Duplicate
+  // in a flat list, was the audited bug (#3282 issue text): "Delete looks the same as Switch... plus
+  // a second Cancel." Order matters too — Switch first as the primary action, then Edit/Test/
+  // Duplicate, with Delete last: a client (the GUI's provider-action menu) that wants Delete
+  // separated and styled destructive can rely on it always being the final entry.
   const response = await ui.ask(
     selectAction('provider-profile-action', `Provider profile: ${profileName}`, [
       { value: ACTION_SWITCH, label: 'Switch' },
@@ -65,7 +71,6 @@ async function askProviderProfileAction(
       { value: ACTION_TEST, label: 'Test' },
       { value: ACTION_DUPLICATE, label: 'Duplicate' },
       { value: ACTION_DELETE, label: 'Delete' },
-      { value: ACTION_CANCEL, label: 'Cancel' },
     ]),
   );
   if (response.type !== 'answer' || response.values[0] === undefined) {
@@ -97,8 +102,6 @@ async function executeProviderProfileAction(
       return buildProviderDuplicate(ui, profileName, options);
     case ACTION_DELETE:
       return buildProviderDelete(ui, profileName, options);
-    case ACTION_CANCEL:
-      return { message: 'Provider profile action cancelled.', success: true };
     default:
       return { message: `Unknown provider profile action "${action}".`, success: false };
   }

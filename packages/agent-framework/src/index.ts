@@ -272,7 +272,7 @@ export type {
   TAdvisorTargetResolver,
 } from './advisor/index.js';
 export type { ISessionUsageRecord } from './command-api/session/session-usage.js';
-export { parseModelEffort, resolveModelEffort } from './effort/index.js';
+export { EFFORT_LEVEL_LABELS, parseModelEffort, resolveModelEffort } from './effort/index.js';
 export type {
   IModelEffortInputs,
   IModelEffortResolution,

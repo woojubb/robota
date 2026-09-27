@@ -256,11 +256,19 @@ const executionDetailRecords = {
   'task:loop-e2e-1': [{ id: 'l1', kind: 'message', text: 'check the deploy' }],
 };
 
+/** #3282 §2 (part 2): the two models the status row's model control switches between. */
+const SCRIPTED_MODELS = [
+  { id: 'scripted-model', label: 'Scripted Model' },
+  { id: 'scripted-model-2', label: 'Scripted Model 2' },
+];
+
 /** A scripted IInteractiveSession: EventEmitter for on/off/emit, deterministic submit + permission. */
 class ScriptedSession extends EventEmitter {
   #pendingPermission = null;
   #pendingAsk = null;
   #mode = 'default';
+  // #3282 §2 (part 2): the model the status row's model control switches between.
+  #model = 'scripted-model';
   #current = storedSessions[0];
   #busy = false;
   #setupRequired = process.env.ROBOTA_E2E_SETUP_REQUIRED === '1';
@@ -490,10 +498,13 @@ class ScriptedSession extends EventEmitter {
     }
     await tick();
     this.emit('thinking', true);
-    this.emit('text_delta', 'Hello from the scripted agent.');
+    // #3282 §2 (part 2): names the model that answered, so an e2e that switches models via the
+    // status row's model control can confirm the NEXT reply actually used the new one.
+    const reply = `Hello from the scripted agent. (model: ${this.#model})`;
+    this.emit('text_delta', reply);
     await tick();
     this.emit('thinking', false);
-    this.#complete('Hello from the scripted agent.');
+    this.#complete(reply);
   }
 
   resolvePermission(id, result) {
@@ -562,6 +573,21 @@ class ScriptedSession extends EventEmitter {
       this.#mode = 'acceptEdits';
       return Promise.resolve({ message: 'Permission mode: acceptEdits', success: true });
     }
+    // #3282 §2 (part 2): the model control sends `/model <id>` directly (no picker round trip) —
+    // mirrors the real command's shape closely enough for the e2e to switch models and check the
+    // next reply used the new one.
+    if (name === 'model') {
+      const id = args.trim();
+      const found = SCRIPTED_MODELS.find((candidate) => candidate.id === id);
+      if (!found) {
+        return Promise.resolve({
+          message: `Unknown model "${id}". Run /model to see the choices.`,
+          success: false,
+        });
+      }
+      this.#model = found.id;
+      return Promise.resolve({ message: `Model: ${found.label}`, success: true });
+    }
     if (name === 'resume') {
       this.emit('ui_intent', { intent: { type: 'show-session-picker' } });
       return Promise.resolve({ message: 'Opening session picker...', success: true });
@@ -624,10 +650,18 @@ class ScriptedSession extends EventEmitter {
       { name: 'parity-demo', description: 'Replies with a fixed phrase', source: 'project', modelInvocable: true, userInvocable: true },
     ];
   }
+  // #3282 §2 (part 2): backs `list-models` -> `model_list`, the model control's pop-up menu.
+  listModels() {
+    return {
+      groups: [{ profileName: 'scripted', providerLabel: 'Scripted', models: SCRIPTED_MODELS }],
+      currentProfile: 'scripted',
+      currentModel: this.#model,
+    };
+  }
   getStatusSnapshot() {
     return {
       sessionId: this.#current.id,
-      model: this.#setupRequired ? 'setup-required' : 'scripted-model',
+      model: this.#setupRequired ? 'setup-required' : this.#model,
       permissionMode: this.#mode,
       effort: 'auto',
       context: { usedPercentage: 12, usedTokens: 24000, maxTokens: 200000, remainingPercentage: 88 },

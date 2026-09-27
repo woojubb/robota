@@ -169,6 +169,31 @@ describe('createProviderCommandModule', () => {
     expect(requests[1]?.title).toBe('Provider profile: anthropic');
   });
 
+  it('#3282 §2: the profile action menu offers Switch, Edit, Test, Duplicate and Delete — no separate Cancel option (the picker\'s own Cancel affordance is the only one)', async () => {
+    const { adapter } = createSettingsAdapter({
+      currentProvider: 'openai',
+      providers: {
+        openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+        anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+      },
+    });
+
+    const { context, requests } = scriptedContext([
+      { type: 'answer', values: ['anthropic'] },
+      { type: 'cancelled' },
+    ]);
+    await createExecutor(adapter).execute('provider', context, '');
+
+    const actionMenu = requests[1];
+    expect(actionMenu?.options?.map((option) => option.value)).toEqual([
+      'switch',
+      'edit',
+      'test',
+      'duplicate',
+      'delete',
+    ]);
+  });
+
   it('switches provider immediately via /provider switch without confirmation dialog', async () => {
     const { adapter, readTarget } = createSettingsAdapter(
       {

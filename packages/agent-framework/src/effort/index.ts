@@ -1,4 +1,4 @@
-export { parseModelEffort, resolveModelEffort } from './effort-resolution.js';
+export { EFFORT_LEVEL_LABELS, parseModelEffort, resolveModelEffort } from './effort-resolution.js';
 export type {
   IModelEffortInputs,
   IModelEffortResolution,

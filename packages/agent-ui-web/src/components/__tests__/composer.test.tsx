@@ -177,6 +177,14 @@ describe('Composer — refuses to send while not connected', () => {
     expect(screen.getByRole('button', { name: 'Send' }).getAttribute('aria-description')).toBeNull();
   });
 
+  // #3282 §2 (part 2): the `/` command menu is one of the controls disabled while disconnected.
+  it('the slash command menu does not open while disconnected', () => {
+    render(<Composer {...baseProps()} connected={false} />);
+    fireEvent.change(screen.getByLabelText('message'), { target: { value: '/' } });
+
+    expect(screen.queryByRole('listbox', { name: 'commands' })).toBeNull();
+  });
+
   it('Stop is unavailable while disconnected too: an abort could not be delivered either', () => {
     const onStop = vi.fn();
     render(<Composer {...baseProps()} running onStop={onStop} connected={false} />);

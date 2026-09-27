@@ -172,6 +172,28 @@ try {
     },
   );
 
+  await scenario(
+    'switching model from the model control (#3282 §2) changes the next reply\'s model',
+    async () => {
+      await page.getByRole('button', { name: 'model: scripted-model' }).click();
+      const menu = page.getByRole('menu', { name: 'Model' });
+      await menu.waitFor();
+      await menu.getByRole('menuitemradio', { name: 'Scripted Model 2' }).click();
+      await page.getByRole('button', { name: 'model: scripted-model-2' }).waitFor();
+
+      await send('hi there');
+      await page.getByText('(model: scripted-model-2)').waitFor({ timeout: 10_000 });
+
+      // Restore for every scenario below that assumes the original scripted model.
+      await page.getByRole('button', { name: 'model: scripted-model-2' }).click();
+      await page
+        .getByRole('menu', { name: 'Model' })
+        .getByRole('menuitemradio', { name: 'Scripted Model' })
+        .click();
+      await page.getByRole('button', { name: 'model: scripted-model' }).waitFor();
+    },
+  );
+
   await scenario('a long command result is a folded card and the composer stays usable', async () => {
     await send('/help');
     const card = page.getByTestId('command-output').last();
@@ -473,6 +495,47 @@ try {
     await page.getByLabel('message').press('Escape');
     await page.getByRole('button', { name: 'Send' }).waitFor();
   });
+
+  await scenario(
+    '#3289 §2: at 390×800 the status chips collapse without overflow, and the composer stays uncovered',
+    async () => {
+      await page.setViewportSize({ width: 390, height: 800 });
+      try {
+        const viewport = page.viewportSize();
+        const modelChip = page.getByRole('button', { name: 'model: scripted-model' });
+        const modeChip = page.getByRole('button', { name: 'mode: acceptEdits' });
+        const composer = page.getByLabel('message');
+        await modelChip.waitFor();
+        await composer.waitFor();
+
+        // Nothing truncated to "d…"/"claude-…" (#3289 §2's exact bug): the icon-only chip is narrow
+        // and its box stays fully inside the viewport width, on both sides.
+        for (const chip of [modelChip, modeChip]) {
+          const box = await chip.boundingBox();
+          if (!box) throw new Error('a status chip has no layout box at 390px');
+          if (box.x < 0 || box.x + box.width > viewport.width) {
+            throw new Error(`a status chip overflows the 390px viewport: ${JSON.stringify(box)}`);
+          }
+        }
+        // The composer is not covered by the session list or anything else at this width.
+        const composerBox = await composer.boundingBox();
+        if (!composerBox) throw new Error('the composer has no layout box at 390px');
+        if (composerBox.x < 0 || composerBox.x + composerBox.width > viewport.width) {
+          throw new Error(`the composer overflows the 390px viewport: ${JSON.stringify(composerBox)}`);
+        }
+        // A real click reaches it — proof nothing else sits visually on top of it.
+        await composer.click();
+        await composer.fill('typed at 390px');
+        if ((await composer.inputValue()) !== 'typed at 390px') {
+          throw new Error('the composer did not receive input at 390px — something covers it');
+        }
+        await composer.fill('');
+      } finally {
+        // Every later scenario assumes the desktop viewport this suite opened with.
+        await page.setViewportSize({ width: 1100, height: 780 });
+      }
+    },
+  );
 
   // Truly last: a reload drops every other scenario's assumed UI state (view, sidebar, transcript).
   await scenario('#3280: a draft survives a Chat -> Usage -> Chat switch and a reload', async () => {
