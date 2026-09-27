@@ -28,13 +28,14 @@ authority; the runtime remains responsible for current authorization and effect 
 Cancellation, disposal and time limits stop new dispatch and wait for running work to settle. They end
 a run, not the conversation: only failure and semantic completion are final, so a host can stop work
 and continue it later without losing settled results. A result a participant returned is kept, and an
-attempt stopped without one runs again on the next run, as does a selector whose decision was not
-saved. Only a turn stored as running, which no process saw settle, requires reconciliation before the
-conversation continues. Cancellation does not establish that an external effect never happened;
-reporting an effect of an abandoned attempt remains the runtime's responsibility. A group commits only
-when every member has prepared; failure or cancellation never publishes provisional output as a
-completed contribution. Session release belongs to the factory, so borrowed resources remain under
-their owner's control.
+attempt stopped without one runs again on the next run from the participant's saved private checkpoint,
+as loading would, so private state never depends on whether the process restarted; a selector whose
+decision was not saved is asked again. Only a turn stored as running, which no process saw settle,
+requires reconciliation before the conversation continues. Cancellation does not establish that an
+external effect never happened; reporting an effect of an abandoned attempt remains the runtime's
+responsibility. A group commits only when every member has prepared; failure or cancellation never
+publishes provisional output as a completed contribution. Session release belongs to the factory, so
+borrowed resources remain under their owner's control.
 
 ## Invariants
 

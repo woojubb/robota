@@ -42,13 +42,13 @@ function untilAborted(signal: AbortSignal): Promise<never> {
   );
 }
 
-function setup(
+function setup<T extends { participant: AgentParticipant } = ReturnType<typeof agent>>(
   select: TurnSelector['select'],
   options: Partial<Pick<RoundtableOptions, 'limits' | 'onEvent' | 'maxConcurrentParticipants'>> & {
-    agents?: ReturnType<typeof agent>[];
+    agents?: T[];
   } = {},
 ) {
-  const agents = options.agents ?? [agent('a')];
+  const agents = options.agents ?? ([agent('a')] as unknown as T[]);
   const store = new MemoryConversationStore();
   const selector: TurnSelector = { reference: { id: 'scripted', version: '1' }, select };
   const room = createRoundtable({
@@ -286,6 +286,121 @@ describe('cancelling a running participant', () => {
     vi.spyOn(f.store, 'load').mockResolvedValue(crashed);
     await expect(f.load()).rejects.toMatchObject({ code: 'recovery-required' });
     expect(f.agents[0].run).toHaveBeenCalledOnce();
+  });
+});
+
+/** A runtime with private history exported by checkpoint(); its `stopAt` turn meets the abort. */
+function historyAgent(id: string, stopAt: number, completesAfterAbort = false) {
+  let calls = 0;
+  let entered!: () => void;
+  const running = new Promise<void>((resolve) => (entered = resolve));
+  const opened = vi.fn();
+  const release = vi.fn(async () => {});
+  const participant: AgentParticipant = {
+    kind: 'agent',
+    id,
+    runtime: { id, version: '1' },
+    factory: {
+      checkpointVersions: ['1'],
+      openSession: async ({ checkpoint }) => {
+        opened(checkpoint?.data);
+        const history = [...((checkpoint?.data as string[] | undefined) ?? [])];
+        return {
+          session: {
+            runTurn: async (_turn, { signal }) => {
+              history.push('input');
+              if (++calls === stopAt) {
+                entered();
+                if (completesAfterAbort) await untilAborted(signal).catch(() => {});
+                else await untilAborted(signal);
+              }
+              history.push('answer');
+              return { kind: 'speak', content: `${id}:${calls}` };
+            },
+            checkpoint: async () => ({ version: '1', data: [...history] }),
+          },
+          release,
+        };
+      },
+    },
+  };
+  return { participant, opened, release, running };
+}
+
+describe('retrying a participant after cancellation', () => {
+  it.each(['in process', 'after a reload'] as const)(
+    'a retried participant reopens from its saved checkpoint and its private history holds the turn once (%s)',
+    async (path) => {
+      const a = historyAgent('a', 2);
+      const f = setup(
+        ({ turns }) =>
+          turns.length < 2
+            ? { kind: 'speak', participantId: 'a' }
+            : { kind: 'finish', reason: 'done' },
+        { agents: [a] },
+      );
+      const abort = new AbortController();
+      const result = f.room.run({ signal: abort.signal });
+      await a.running;
+      abort.abort();
+      expect(await result).toMatchObject({ status: 'cancelled' });
+      let room = f.room;
+      if (path === 'after a reload') {
+        await f.room.dispose();
+        room = await f.load();
+      }
+      expect(await room.run()).toMatchObject({ status: 'completed', reason: 'done' });
+      expect(a.opened.mock.calls).toEqual([[undefined], [['input', 'answer']]]);
+      expect((await f.stored()).participants[0].checkpoint?.data).toEqual([
+        'input',
+        'answer',
+        'input',
+        'answer',
+      ]);
+    },
+  );
+
+  it("the discarded attempt's lease is released exactly once", async () => {
+    const a = historyAgent('a', 1);
+    const b = historyAgent('b', 1, true);
+    const f = setup(
+      ({ turns }) =>
+        turns.length
+          ? { kind: 'finish', reason: 'done' }
+          : { kind: 'parallel', participantIds: ['a', 'b'] },
+      { agents: [a, b], maxConcurrentParticipants: 2 },
+    );
+    const abort = new AbortController();
+    const result = f.room.run({ signal: abort.signal });
+    await Promise.all([a.running, b.running]);
+    abort.abort();
+    expect(await result).toMatchObject({ status: 'cancelled' });
+    // Only the discarded member's lease goes; the sibling that finished keeps its session.
+    expect(a.release).toHaveBeenCalledOnce();
+    expect(b.release).not.toHaveBeenCalled();
+    expect(await f.room.run()).toMatchObject({ status: 'completed', reason: 'done' });
+    expect(f.room.snapshot().messages.map((m) => m.content)).toEqual(['a:2', 'b:1']);
+    expect(a.opened).toHaveBeenCalledTimes(2);
+    expect(b.opened).toHaveBeenCalledOnce();
+    await f.room.dispose();
+    expect(a.release).toHaveBeenCalledTimes(2);
+    expect(b.release).toHaveBeenCalledOnce();
+  });
+  it('a failed release of the discarded lease is reported by dispose()', async () => {
+    const a = historyAgent('a', 1);
+    a.release.mockRejectedValueOnce(new Error('release failed'));
+    const f = setup(speakThenFinish, { agents: [a] });
+    rooms.splice(rooms.indexOf(f.room), 1);
+    const abort = new AbortController();
+    const result = f.room.run({ signal: abort.signal });
+    await a.running;
+    abort.abort();
+    expect(await result).toMatchObject({ status: 'cancelled' });
+    expect(await f.room.run()).toMatchObject({ status: 'completed', reason: 'done' });
+    await expect(f.room.dispose()).rejects.toMatchObject({
+      errors: [expect.objectContaining({ message: 'release failed' })],
+    });
+    expect(a.release).toHaveBeenCalledTimes(2);
   });
 });
 
