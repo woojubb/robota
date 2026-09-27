@@ -63,6 +63,15 @@ process.on('message', (message) => {
       process.send?.({ type: 'permission_request', requestId: 'r1', toolName: 'Glob' });
       return;
     }
+    // Issue #3288 §1 (review item 3): sends the request, then — without waiting for an answer —
+    // immediately reports a result too, simulating the child settling while a request is still
+    // outstanding on the parent side.
+    if (process.env.ROBOTA_FIXTURE_MODE === 'permission-request-then-result') {
+      process.send?.({ type: 'permission_request', requestId: 'r1', toolName: 'Glob' });
+      process.send?.({ type: 'result', output: 'raced' });
+      setTimeout(() => process.exit(0), 0);
+      return;
+    }
     if (process.env.ROBOTA_FIXTURE_MODE === 'progress') {
       process.send?.({ type: 'tool_start', toolName: 'Read', toolArgs: { file_path: 'file.ts' } });
       process.send?.({ type: 'text_delta', delta: 'partial ' });

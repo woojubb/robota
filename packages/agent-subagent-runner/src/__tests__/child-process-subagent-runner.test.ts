@@ -478,7 +478,12 @@ describe('ChildProcessSubagentRunner forwards a child permission request to the 
       expect(result.output).toBe('permission:r1:false');
       expect(result.deniedToolCalls).toEqual({
         total: 1,
-        byReason: { 'denied-by-person': 1, 'no-approver': 0 },
+        byReason: {
+          'denied-by-person': 1,
+          'no-approver': 0,
+          'approver-error': 0,
+          cancelled: 0,
+        },
       });
     },
     TEST_TIMEOUT_MS,
@@ -500,7 +505,12 @@ describe('ChildProcessSubagentRunner forwards a child permission request to the 
       expect(result.output).toBe('permission:r1:false');
       expect(result.deniedToolCalls).toEqual({
         total: 1,
-        byReason: { 'denied-by-person': 0, 'no-approver': 1 },
+        byReason: {
+          'denied-by-person': 0,
+          'no-approver': 1,
+          'approver-error': 0,
+          cancelled: 0,
+        },
       });
     },
     TEST_TIMEOUT_MS,
@@ -542,6 +552,86 @@ describe('ChildProcessSubagentRunner forwards a child permission request to the 
 
       await expect(handle.result).rejects.toThrow('stop requested');
       expect(capturedSignal?.aborted).toBe(true);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'an approver that throws denies the call rather than hanging it, and is counted separately (review item 2)',
+    async () => {
+      const deps: IInProcessSubagentRunnerDeps = {
+        ...createDeps(),
+        permissionHandler: async () => {
+          throw new Error('approver is broken');
+        },
+      };
+      const runner = new ChildProcessSubagentRunner(deps, {
+        workerEntry: FIXTURE_WORKER_ENTRY,
+        env: { ROBOTA_FIXTURE_MODE: 'permission-request' },
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+      });
+
+      const handle = runner.start(createJob());
+      const result = await handle.result;
+
+      // The child still gets an answer — denied, not left waiting forever on a broken approver.
+      expect(result.output).toBe('permission:r1:false');
+      expect(result.deniedToolCalls).toEqual({
+        total: 1,
+        byReason: {
+          'denied-by-person': 0,
+          'no-approver': 0,
+          'approver-error': 1,
+          cancelled: 0,
+        },
+      });
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'a request still pending when the child reports its result is counted before the result is built (review item 3)',
+    async () => {
+      let requestSeen: (() => void) | undefined;
+      const seenPromise = new Promise<void>((resolve) => {
+        requestSeen = resolve;
+      });
+      const deps: IInProcessSubagentRunnerDeps = {
+        ...createDeps(),
+        permissionHandler: (_toolName, _toolArgs, context) => {
+          requestSeen?.();
+          // Never resolves on its own: the only way this settles is the runner's OWN abort, fired
+          // when the child's `result` arrives while this request is still outstanding — exactly the
+          // race the result-controller must wait out before reading `deniedToolCalls`.
+          return new Promise((resolve) => {
+            context?.signal?.addEventListener('abort', () => resolve(false));
+          });
+        },
+      };
+      const runner = new ChildProcessSubagentRunner(deps, {
+        workerEntry: FIXTURE_WORKER_ENTRY,
+        env: { ROBOTA_FIXTURE_MODE: 'permission-request-then-result' },
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+      });
+
+      const handle = runner.start(createJob());
+      await seenPromise;
+      const result = await handle.result;
+
+      expect(result.output).toBe('raced');
+      // Denied because the TASK ended while this was still parked — never a person's own answer, and
+      // never silently dropped from the count either.
+      expect(result.deniedToolCalls).toEqual({
+        total: 1,
+        byReason: {
+          'denied-by-person': 0,
+          'no-approver': 0,
+          'approver-error': 0,
+          cancelled: 1,
+        },
+      });
     },
     TEST_TIMEOUT_MS,
   );

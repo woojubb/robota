@@ -195,9 +195,16 @@ export type IBackgroundTaskUsage = ITokenUsage;
  * enforcer already records for its own denials (`hasApprover ? 'user' : 'no-approver'`), named here for
  * a task's result rather than a live session's denial log: `'no-approver'` when no approver was
  * attached at all (print mode, a truly headless run); `'denied-by-person'` when one was attached and
- * answered no.
+ * answered no; `'approver-error'` when it threw or rejected instead of answering — a broken approver
+ * still fails the call closed rather than hanging it; `'cancelled'` when the task ended (finished,
+ * failed, or was stopped) before an attached approver's answer arrived — a `false` produced by that
+ * cutoff is not the same fact as a person's own denial, so it is never counted as one.
  */
-export type TBackgroundTaskPermissionDenialReason = 'denied-by-person' | 'no-approver';
+export type TBackgroundTaskPermissionDenialReason =
+  | 'denied-by-person'
+  | 'no-approver'
+  | 'approver-error'
+  | 'cancelled';
 
 /**
  * How many of a task's tool calls were refused, and why. Additive: a caller only reads this when at
