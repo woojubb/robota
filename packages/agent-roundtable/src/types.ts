@@ -7,9 +7,25 @@ import type {
   ResumeRequest,
   ResponseReceipt,
 } from './request-types';
+import type { ModelCallCapability, PricePolicy, TurnServices, UsageRecord } from './usage-types';
 
 export type { JsonValue } from './json-value';
 export type * from './request-types';
+export type {
+  ModelCallCapability,
+  ModelCallIntent,
+  Money,
+  PricePolicy,
+  TurnServices,
+  UsageOutcome,
+  UsagePrincipal,
+  UsageProvenance,
+  UsageRecord,
+  UsageReport,
+  UsageSummary,
+  UsageTokens,
+} from './usage-types';
+export { summarizeUsage } from './usage-types';
 
 export interface ParticipantCheckpoint {
   version: string;
@@ -49,6 +65,8 @@ export type ParticipantOutcome =
 export interface ParticipantExecutionOptions {
   signal: AbortSignal;
   onDelta: (text: string) => Promise<void>;
+  /** Bound to this turn's participant; a participant that makes no model calls can ignore it. */
+  services: TurnServices;
 }
 
 export interface ParticipantSession {
@@ -73,6 +91,8 @@ export interface ParticipantFactory {
   supportsContinuation?: boolean;
   /** Checkpoint formats this factory can restore without migration. */
   checkpointVersions?: readonly string[];
+  /** Declared so model-call limits and pricing can be enforced; required to configure either. */
+  modelCalls?: ModelCallCapability;
   openSession(context: {
     conversationId: string;
     participantId: string;
@@ -119,11 +139,13 @@ export interface SelectionContext {
 export interface TurnSelector {
   /** A version covers policy and configuration. Unversioned selectors cannot be loaded. */
   reference?: RuntimeReference;
+  /** Declared so model-call limits and pricing can be enforced; required to configure either. */
+  modelCalls?: ModelCallCapability;
   /** Omit only for a stateless policy whose progress is derived from the selection context. */
   checkpoint?(): Promise<ParticipantCheckpoint>;
   select(
     context: SelectionContext,
-    options: { signal: AbortSignal },
+    options: { signal: AbortSignal; services: TurnServices },
   ): Selection | Promise<Selection>;
 }
 
@@ -149,6 +171,8 @@ export interface LoadRoundtableOptions {
   conversationId: string;
   store: ConversationStore;
   registry: RoundtableRegistry;
+  /** Must match the version the conversation was created or last loaded with. */
+  pricing?: PricePolicy;
   onEvent?: RoundtableOptions['onEvent'];
   onEventError?: RoundtableOptions['onEventError'];
 }
@@ -159,11 +183,12 @@ export interface ConversationSnapshot {
   messages: SharedMessage[];
   turns: CompletedTurn[];
   requests: ConversationRequest[];
+  usage: UsageRecord[];
 }
 
 export type RunResult = { revision: number } & (
   | { status: 'completed'; reason: string }
-  | { status: 'limited'; reason: 'turns' | 'time' }
+  | { status: 'limited'; reason: 'turns' | 'time' | 'model-calls' }
   | { status: 'cancelled' }
   | { status: 'failed'; message: string }
   | { status: 'waiting'; requests: ConversationRequest[] }
@@ -173,18 +198,27 @@ export type RoundtableEvent =
   | { type: 'group-started'; groupId: string; participantIds: string[]; baseRevision: number }
   | { type: 'delta'; groupId: string; turnId: string; participantId: string; text: string }
   | { type: 'prepared'; groupId: string; turnId: string; participantId: string }
-  | { type: 'published'; groupId: string; messages: SharedMessage[] };
+  | { type: 'published'; groupId: string; messages: SharedMessage[] }
+  | { type: 'usage'; record: UsageRecord };
 
 export interface RoundtableOptions {
   conversationId: string;
   purpose?: string;
   participants: readonly ParticipantDefinition[];
   selector?: TurnSelector;
-  limits: { maxTurnsPerRun: number; timeoutMs?: number };
+  limits: {
+    maxTurnsPerRun: number;
+    timeoutMs?: number;
+    maxModelCallsPerRun?: number;
+    maxModelCallsPerConversation?: number;
+    maxModelCallsPerParticipant?: number;
+  };
   maxConcurrentParticipants?: number;
   store?: ConversationStore;
   recovery?: 'none' | 'durable';
   leaseMs?: number;
+  /** Requires every agent factory and the selector to declare `modelCalls`. */
+  pricing?: PricePolicy;
   onEvent?: (event: RoundtableEvent) => void | Promise<void>;
   onEventError?: (error: unknown, event: RoundtableEvent) => void | Promise<void>;
 }

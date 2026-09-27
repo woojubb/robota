@@ -17,6 +17,11 @@ import {
 import { MemoryConversationStore } from './memory-store';
 import { roundRobin } from './policies';
 import type { StoreOwner } from './store-owner';
+import {
+  createTurnServices,
+  remainingRunAllowance,
+  requireModelCallCapabilities,
+} from './usage-ledger';
 import type {
   AgentParticipant,
   ConversationSnapshot,
@@ -30,6 +35,7 @@ import type {
   RunResult,
   Selection,
   TurnSelector,
+  TurnServices,
   ResumeRequest,
   ResponseReceipt,
 } from './types';
@@ -57,9 +63,9 @@ export class Conversation implements Roundtable {
       ),
     };
     this.concurrency = options.maxConcurrentParticipants ?? 1;
+    this.selector = options.selector ?? roundRobin();
     this.validate();
     this.participants = new Map(this.options.participants.map((p) => [p.id, p]));
-    this.selector = options.selector ?? roundRobin();
     this.persistence = new ConversationPersistence(
       options.store ?? new MemoryConversationStore(),
       restored ?? {
@@ -69,12 +75,16 @@ export class Conversation implements Roundtable {
           limits: {
             maxTurnsPerRun: options.limits.maxTurnsPerRun,
             timeoutMs: options.limits.timeoutMs ?? null,
+            maxModelCallsPerRun: options.limits.maxModelCallsPerRun ?? null,
+            maxModelCallsPerConversation: options.limits.maxModelCallsPerConversation ?? null,
+            maxModelCallsPerParticipant: options.limits.maxModelCallsPerParticipant ?? null,
           },
           maxConcurrentParticipants: this.concurrency,
           recovery: options.recovery ?? 'none',
           leaseMs: options.leaseMs ?? 30_000,
           selector: this.selector.reference ?? null,
           contextPolicy: { id: 'roundtable/increments', version: '1' },
+          pricingVersion: options.pricing?.version ?? null,
         },
         selectorCheckpoint: null,
         snapshot: {
@@ -83,6 +93,7 @@ export class Conversation implements Roundtable {
           messages: [],
           turns: [],
           requests: [],
+          usage: [],
         },
         participants: this.options.participants.map((p) => ({
           id: p.id,
@@ -125,7 +136,8 @@ export class Conversation implements Roundtable {
         abort.abort();
       }, this.options.limits.timeoutMs);
     }
-    const running = this.executeOwned(signal, () => timedOut).finally(() => {
+    const runId = crypto.randomUUID();
+    const running = this.executeOwned(signal, () => timedOut, runId).finally(() => {
       clearTimeout(timeout);
       this.active = undefined;
       this.abort = undefined;
@@ -270,19 +282,27 @@ export class Conversation implements Roundtable {
     return this.disposing;
   }
 
-  private async executeOwned(signal: AbortSignal, timedOut: () => boolean): Promise<RunResult> {
+  private async executeOwned(
+    signal: AbortSignal,
+    timedOut: () => boolean,
+    runId: string,
+  ): Promise<RunResult> {
     const owner = await this.persistence.begin();
     try {
-      return await this.execute(AbortSignal.any([signal, owner.signal]), owner);
+      return await this.execute(AbortSignal.any([signal, owner.signal]), owner, runId);
     } catch (error) {
-      let result: RunResult = signal.aborted
-        ? {
-            revision: this.snapshot().revision,
-            ...(timedOut()
-              ? { status: 'limited' as const, reason: 'time' as const }
-              : { status: 'cancelled' as const }),
-          }
-        : { status: 'failed', revision: this.snapshot().revision, message: errorMessage(error) };
+      const modelCallsLimited =
+        error instanceof RoundtableError && error.code === 'model-call-limit';
+      let result: RunResult = modelCallsLimited
+        ? { status: 'limited', reason: 'model-calls', revision: this.snapshot().revision }
+        : signal.aborted
+          ? {
+              revision: this.snapshot().revision,
+              ...(timedOut()
+                ? { status: 'limited' as const, reason: 'time' as const }
+                : { status: 'cancelled' as const }),
+            }
+          : { status: 'failed', revision: this.snapshot().revision, message: errorMessage(error) };
       if (!owner.signal.aborted) {
         try {
           await this.persistence.update((draft, revision) => {
@@ -304,7 +324,7 @@ export class Conversation implements Roundtable {
     }
   }
 
-  private async execute(signal: AbortSignal, owner: StoreOwner): Promise<RunResult> {
+  private async execute(signal: AbortSignal, owner: StoreOwner, runId: string): Promise<RunResult> {
     let attempted = 0;
     for (;;) {
       signal.throwIfAborted();
@@ -314,7 +334,7 @@ export class Conversation implements Roundtable {
         attempted += phase.members.filter(
           (member) => member.status === 'pending' || member.status === 'resumable',
         ).length;
-        await this.continueGroup(signal, owner);
+        await this.continueGroup(signal, owner, runId);
         view = this.snapshot();
         if (view.requests.length)
           return { status: 'waiting', revision: view.revision, requests: view.requests };
@@ -345,7 +365,17 @@ export class Conversation implements Roundtable {
             turns: view.turns,
             remainingTurns: this.options.limits.maxTurnsPerRun - attempted,
           },
-          { signal },
+          {
+            signal,
+            services: this.turnServices(
+              { kind: 'selector', id: this.selector.reference?.id ?? 'selector' },
+              null,
+              null,
+              attemptId,
+              signal,
+              runId,
+            ),
+          },
         );
         const checkpoint = (await this.selector.checkpoint?.()) ?? null;
         await this.persistence.update((draft) => {
@@ -385,9 +415,17 @@ export class Conversation implements Roundtable {
         });
         continue;
       }
-      attempted += selected.length;
       const agents = selected.filter((p): p is AgentParticipant => p.kind === 'agent');
-      await this.executeParticipants(agents, groupId, signal, owner);
+      const allowance = remainingRunAllowance(
+        this.persistence.snapshot(),
+        runId,
+        this.options.limits.maxModelCallsPerRun ?? null,
+      );
+      if (allowance !== null && agents.length > allowance) {
+        return { status: 'limited', reason: 'model-calls', revision: this.snapshot().revision };
+      }
+      attempted += selected.length;
+      await this.executeParticipants(agents, groupId, signal, owner, runId);
     }
   }
 
@@ -396,6 +434,7 @@ export class Conversation implements Roundtable {
     groupId: string,
     signal: AbortSignal,
     owner: StoreOwner,
+    runId: string,
   ): Promise<void> {
     const state = this.persistence.snapshot();
     const baseRevision = state.snapshot.revision;
@@ -436,10 +475,14 @@ export class Conversation implements Roundtable {
       { type: 'group-started', groupId, participantIds: selected.map((p) => p.id), baseRevision },
       signal,
     );
-    await this.continueGroup(signal, owner);
+    await this.continueGroup(signal, owner, runId);
   }
 
-  private async continueGroup(signal: AbortSignal, owner: StoreOwner): Promise<void> {
+  private async continueGroup(
+    signal: AbortSignal,
+    owner: StoreOwner,
+    runId: string,
+  ): Promise<void> {
     const phase = this.persistence.snapshot().phase;
     if (phase.kind !== 'group') throw new RoundtableError('conflict', 'Active group is missing');
     if (
@@ -467,6 +510,15 @@ export class Conversation implements Roundtable {
       session: (p) => this.session(p),
       emit: (event, eventSignal) => this.emit(event, eventSignal),
       admit: () => owner.admit(),
+      services: (turn) =>
+        this.turnServices(
+          { kind: 'participant', id: turn.participantId },
+          turn.turnId,
+          turn.groupId,
+          turn.attemptId,
+          signal,
+          runId,
+        ),
       responses: (turn) => {
         const member = pending.find((candidate) => candidate.turn.turnId === turn.turnId)!;
         return member.status === 'resumable' ? memberResponses(resumeState, member) : undefined;
@@ -613,6 +665,30 @@ export class Conversation implements Roundtable {
     return member;
   }
 
+  private turnServices(
+    principal: { kind: 'participant' | 'selector'; id: string },
+    turnId: string | null,
+    groupId: string | null,
+    attemptId: string,
+    signal: AbortSignal,
+    runId: string,
+  ): TurnServices {
+    return createTurnServices({
+      persistence: this.persistence,
+      emit: (event, eventSignal) => this.emit(event, eventSignal),
+      signal,
+      ctx: {
+        conversationId: this.options.conversationId,
+        runId,
+        principal,
+        turnId,
+        groupId,
+        attemptId,
+      },
+      pricing: this.options.pricing,
+    });
+  }
+
   private session(participant: AgentParticipant): Promise<ParticipantLease> {
     let opened = this.sessions.get(participant.id);
     if (!opened) {
@@ -703,6 +779,9 @@ export class Conversation implements Roundtable {
       this.options.limits.maxTurnsPerRun,
       this.options.limits.timeoutMs ?? 1,
       this.options.leaseMs ?? 30_000,
+      this.options.limits.maxModelCallsPerRun ?? 1,
+      this.options.limits.maxModelCallsPerConversation ?? 1,
+      this.options.limits.maxModelCallsPerParticipant ?? 1,
     ]) {
       if (!Number.isSafeInteger(value) || value <= 0)
         throw new RoundtableError(
@@ -710,5 +789,16 @@ export class Conversation implements Roundtable {
           'Execution limits must be positive safe integers',
         );
     }
+    if (this.options.pricing && !this.options.pricing.version)
+      throw new RoundtableError('invalid-config', 'A pricing policy requires a version');
+    requireModelCallCapabilities({
+      participants: this.options.participants,
+      selector: this.selector,
+      governed:
+        this.options.limits.maxModelCallsPerRun !== undefined ||
+        this.options.limits.maxModelCallsPerConversation !== undefined ||
+        this.options.limits.maxModelCallsPerParticipant !== undefined ||
+        this.options.pricing !== undefined,
+    });
   }
 }

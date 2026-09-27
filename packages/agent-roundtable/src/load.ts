@@ -19,6 +19,15 @@ function sameReference(actual: RuntimeReference, expected: RuntimeReference): vo
   }
 }
 
+function samePricingVersion(actual: string | null, expected: string | null): void {
+  if (actual !== expected) {
+    throw new RoundtableError(
+      'invalid-config',
+      'Pricing policy version changed; explicit migration is required',
+    );
+  }
+}
+
 function compatible(checkpoint: ParticipantCheckpoint | null, versions?: readonly string[]): void {
   if (checkpoint && !versions?.includes(checkpoint.version)) {
     throw new RoundtableError(
@@ -34,6 +43,7 @@ export async function loadRoundtable(options: LoadRoundtableOptions): Promise<Ro
   const state = decodeConversation(envelope, options.conversationId);
   const { definition, phase } = state;
   sameReference(definition.contextPolicy, { id: 'roundtable/increments', version: '1' });
+  samePricingVersion(definition.pricingVersion, options.pricing?.version ?? null);
   if (
     !state.terminal &&
     (phase.kind === 'selecting' ||
@@ -125,7 +135,17 @@ export async function loadRoundtable(options: LoadRoundtableOptions): Promise<Ro
       limits: {
         maxTurnsPerRun: definition.limits.maxTurnsPerRun,
         ...(definition.limits.timeoutMs === null ? {} : { timeoutMs: definition.limits.timeoutMs }),
+        ...(definition.limits.maxModelCallsPerRun === null
+          ? {}
+          : { maxModelCallsPerRun: definition.limits.maxModelCallsPerRun }),
+        ...(definition.limits.maxModelCallsPerConversation === null
+          ? {}
+          : { maxModelCallsPerConversation: definition.limits.maxModelCallsPerConversation }),
+        ...(definition.limits.maxModelCallsPerParticipant === null
+          ? {}
+          : { maxModelCallsPerParticipant: definition.limits.maxModelCallsPerParticipant }),
       },
+      ...(options.pricing ? { pricing: options.pricing } : {}),
       maxConcurrentParticipants: definition.maxConcurrentParticipants,
       recovery: definition.recovery,
       leaseMs: definition.leaseMs,

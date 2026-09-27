@@ -25,12 +25,20 @@ export interface ConversationState {
   schemaVersion: 1;
   definition: {
     purpose: string | null;
-    limits: { maxTurnsPerRun: number; timeoutMs: number | null };
+    limits: {
+      maxTurnsPerRun: number;
+      timeoutMs: number | null;
+      maxModelCallsPerRun: number | null;
+      maxModelCallsPerConversation: number | null;
+      maxModelCallsPerParticipant: number | null;
+    };
     maxConcurrentParticipants: number;
     recovery: 'none' | 'durable';
     leaseMs: number;
     selector: RuntimeReference | null;
     contextPolicy: RuntimeReference;
+    /** Null until a pricing policy is first configured; then immutable without explicit migration. */
+    pricingVersion: string | null;
   };
   selectorCheckpoint: ParticipantCheckpoint | null;
   snapshot: ConversationSnapshot;

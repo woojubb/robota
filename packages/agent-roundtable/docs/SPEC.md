@@ -10,7 +10,8 @@ progress and the distinction between private participant state and published mes
 
 A participant factory opens a distinct logical session for each conversation. A session is exclusive to
 one running turn, while independent sessions may run concurrently. One scheduler owns a conversation;
-that ownership protects state transitions without serializing independent participant execution.
+that ownership protects state transitions, including a participant's or the selector's model-call
+admission and usage reporting, without serializing independent participant execution.
 
 Parallel participants observe the same shared snapshot through their own context views. Their outputs
 remain provisional until the group commits. Publication order follows the selection, rather than
@@ -50,4 +51,5 @@ Uncertain external effects require reconciliation before they can be attempted a
 This package implements neither a model/tool runtime nor a permission engine. It does not discover
 credentials, project files or storage locations, import a concrete provider, or prescribe media,
 persona, billing or user-interface policy. It does not guarantee exactly-once effects at external
-services or a provider's eventual invoice amount.
+services, and a recorded call count, token count or cost reflects what a participant or selector
+reported rather than a provider's eventual invoice amount.
