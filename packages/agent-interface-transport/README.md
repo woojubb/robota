@@ -1,6 +1,14 @@
-# Agent Interface Transport
+# @robota-sdk/agent-interface-transport
 
-Transport contract interfaces for the Robota SDK. This package contains TypeScript type contracts plus a small set of pure, dependency-free derivation accessors over its own event union types (`readAssistantReplies`, `readLastAssistantText`, `readToolCalls`, `readErrors`) and the co-drive driver-id constants — no classes, no I/O, no side effects.
+The transport contracts of the Robota SDK: the lifecycle every transport adapter follows (HTTP,
+WebSocket, MCP, WebRTC, headless), how transports are configured and registered, the payload
+channels a transport can carry beside its own protocol, and the shape of the admission decisions
+that say who may reach a session.
+
+The package is type declarations plus two pure helpers, `createTransportFailedOutcome` and
+`isTransportRunOutcome`. It has no classes and no I/O, and it depends only on
+`@robota-sdk/agent-core`, for types. Transport implementations depend on this package for their
+contracts, not on `@robota-sdk/agent-framework`.
 
 ## Installation
 
@@ -8,100 +16,133 @@ Transport contract interfaces for the Robota SDK. This package contains TypeScri
 npm install @robota-sdk/agent-interface-transport
 ```
 
-## Overview
+## Usage
 
-This package defines the standard protocol for transport adapters (headless, HTTP, WebSocket, MCP, WebRTC). TUI is a session-owning presentation channel rather than a borrowed-session adapter. Transport implementations depend on this package, not on `agent-framework`, for interface types.
+A transport is an adapter with a unique name, a frozen lifecycle kind, and `attach` / `start` /
+`stop`. A **service** (a server that keeps running) resolves `start()` once it is ready. A
+**runner** (work that ends, such as a headless prompt) launches from `start()` and reports its
+exit outcome through `waitForCompletion()`.
 
-`IInteractionChannel` is the narrower in-process port used by `createInteractiveRuntime`; it is not the
-universal transport contract. Full session surfaces consume the shared interactive event vocabulary
-directly. Prompt surfaces receive `permission_request` / `ask_request`, settle through the corresponding
-`resolve*` capability, and dismiss on the single canonical `prompt_resolved` event. Checkpoint transitions
-are represented by serializable `branch_event` payloads after persistence succeeds.
-
-## Public API
-
-```typescript
+```ts
 import type {
-  ITransportAdapter,
+  ITransportLifecycleError,
   ITransportServiceAdapter,
-  ITransportRunnerAdapter,
-  ITransportCompletionRecord,
-  ITransportFailureRecord,
-  IConfigurableTransport,
-  ITransportConfig,
-  ITransportLifecycleRegistryView,
-  ITransportSettingsRegistryView,
-  ITransportRegistryView,
 } from '@robota-sdk/agent-interface-transport';
-```
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
-### `ITransportAdapter`
+export interface ILogTransport extends ITransportServiceAdapter<IInteractiveSession> {
+  isServing(): boolean;
+}
 
-Core transport lifecycle:
+export function createLogTransport(): ILogTransport {
+  let session: IInteractiveSession | null = null;
+  let serving = false;
+  const lifecycleError = (code: ITransportLifecycleError['code']): ITransportLifecycleError =>
+    Object.assign(new Error(`log transport: ${code}`), {
+      name: 'TransportLifecycleError' as const,
+      code,
+      transportName: 'log',
+    });
 
-```typescript
-interface ITransportAdapter<TSession = unknown> {
-  readonly name: string;
-  readonly lifecycle: Readonly<{ kind: 'service' | 'runner' }>;
-  attach(session: TSession): void;
-  start(): Promise<void>;
-  stop(): Promise<void>;
+  return {
+    name: 'log',
+    lifecycle: Object.freeze({ kind: 'service' }),
+    attach(s) {
+      session = s;
+    },
+    async start() {
+      if (!session) throw lifecycleError('not-attached');
+      if (serving) throw lifecycleError('already-started');
+      serving = true; // bind a port, subscribe to session events, ...
+    },
+    async stop() {
+      serving = false; // safe to call repeatedly
+    },
+    isServing: () => serving,
+  };
 }
 ```
 
-`start()` resolves at the adapter's documented readiness boundary. A runner launches from `start()`
-and reports its exact `succeeded | failed` exit-code outcome separately through
-`ITransportRunnerAdapter.waitForCompletion()`. Starting before attach or while already active is a
-typed lifecycle error; stop during pending start prevents late readiness; repeated `stop()` is safe.
+Starting before `attach()` or starting twice rejects with a `TransportLifecycleError`; `stop()` is
+safe to repeat, and a stopped adapter can be attached and started again.
 
-The registry's ordered `ITransportCompletionRecord` is wider than an adapter result: normal stop or
-startup rollback fills a pending runner slot with `abandoned: stopped | startup-rollback`. The
-separate `ITransportFailureRecord` contains only a validated failed runner result, so normal shutdown
-does not become process failure.
+## What it defines
 
-The registry views are interface-segregated: lifecycle registration accepts any base adapter, while
-the settings view lists and mutates only adapters that also implement
-`ITransportSettingsCapability`. `TConfigurableTransport` composes that capability with either
-lifecycle kind; the legacy `IConfigurableTransport` name remains the configurable-service shape.
+| Area              | Main types                                                                                                                                                                    |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Adapter lifecycle | `ITransportAdapter`, `ITransportServiceAdapter`, `ITransportRunnerAdapter`, `TTransportAdapter`, `TTransportRunOutcome`, `ITransportLifecycleError`, `ITransportStartupError` |
+| Bound adapters    | `IBoundTransportAdapter`, `TBoundTransportAdapter` — an adapter already bound to its session by the composition root; a registry only holds these                             |
+| Configuration     | `ITransportConfig`, `ITransportSettingsCapability`, `IConfigurableTransport`, `TConfigurableTransport`, `ITransportSettingsRepository`, `ITransportConfigurationError`        |
+| Registry views    | `ITransportLifecycleRegistryView` (register, start all, wait, stop all), `ITransportSettingsRegistryView` (list, enable, set options), `ITransportRegistryView`               |
+| Payload channels  | `IPayloadChannelHost`, `IPayloadChannel`, `IChannelDescriptor`, `TChannelFrame`, `IBinaryFrame`, `IChannelEventFrame`                                                         |
+| Admission         | `ITransportAdmission`, `ITransportAdmissionConfig`                                                                                                                            |
+| Access tokens     | `IAccessTokenVerifier`, `IAccessTokenVerifierConfig`, `TAccessTokenAdmission`, `TAccessTokenRefusal`                                                                          |
+| External events   | `IExternalEventGrant`, `IExternalMessageEvent`, `TExternalEventAdmission`, `TExternalEventAuditRecord`                                                                        |
+| Prompt answers    | `TActionResponse` (re-exported from `@robota-sdk/agent-core`)                                                                                                                 |
 
-### `IConfigurableTransport`
+A configurable transport adds settings to the lifecycle:
 
-Extends the service adapter with enable/disable and options schema:
-
-```typescript
-import type { ITransportServiceAdapter } from '@robota-sdk/agent-interface-transport';
-
-interface IConfigurableTransport<TSession = unknown> extends ITransportServiceAdapter<TSession> {
+```ts
+interface ITransportSettingsCapability {
   readonly defaultEnabled: boolean;
   readonly optionsSchema?: Record<string, { type: string; description: string; default?: unknown }>;
   validateOptions?(options: Record<string, unknown>): boolean;
+  configure?(options: Record<string, unknown>): void; // receives saved options before attach/start
 }
 ```
 
-### `ITransportConfig`
+A transport that declares an `optionsSchema` but no `configure` is refused when non-empty options
+are saved for it, so a saved option is never silently ignored.
 
-Persisted transport configuration shape:
+Admission is secure by default: an explicit token wins, otherwise one is minted, and a transport
+runs open only when told so with a written reason. This package declares the decision's shape; the
+functions that make it (`resolveAdmission`, `createAccessTokenVerifier`) live in
+`@robota-sdk/agent-transport/node`.
 
-```typescript
-interface ITransportConfig {
-  enabled: boolean;
-  options?: Record<string, unknown>;
-}
+## Conformance suite: `@robota-sdk/agent-interface-transport/testing`
+
+The `./testing` subpath exports `runTransportLifecycleConformance` and its
+`ITransportLifecycleConformanceFixture`. It drives an adapter through the lifecycle contract
+(start before attach, double start, repeated stop, restart, stop during start) and throws on the
+first violation. It imports no test framework, so it runs inside any test runner:
+
+```ts
+import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+
+await runTransportLifecycleConformance({
+  subjectId: 'my-package#createLogTransport',
+  kind: 'service',
+  createAdapter: () => createLogTransport(),
+  createSession: () => createTestInteractiveSession(),
+  assertReady: (transport) => {
+    if (!transport.isServing()) throw new Error('not serving');
+  },
+  assertStopped: (transport) => {
+    if (transport.isServing()) throw new Error('still serving');
+  },
+});
 ```
 
-## Dependency Position
+A runner fixture also supplies `completeRunner`, which releases the runner's pending work.
 
-```
-agent-core
-    ↑
-agent-interface-transport   ← this package (contracts only)
-    ↑
-agent-transport / agent-ui-terminal / ...   ← transport and UI implementations
-```
+## Where it sits
 
-This package must not depend on `agent-framework` or any implementation package.
+- Depends on `@robota-sdk/agent-core` (types only) and on no other `agent-interface-*` package.
+- Adapters: `@robota-sdk/agent-transport-http`, `@robota-sdk/agent-transport-ws`,
+  `@robota-sdk/agent-transport-mcp`, `@robota-sdk/agent-transport-webrtc`, and the headless runner
+  in `@robota-sdk/agent-framework` (`createHeadlessTransport`). Each runs the conformance suite.
+- `@robota-sdk/agent-framework`'s `TransportRegistry` implements the registry views;
+  `@robota-sdk/agent-transport` implements admission and the payload-channel wire codec.
+- `@robota-sdk/agent-ui-terminal` shows and edits transport settings through the registry views,
+  and `@robota-sdk/agent-product` takes an `ITransportRegistryView` in a product profile. The
+  reference CLI, `@robota-sdk/agent-cli`, creates and registers the transports.
 
-## Links
+## Documentation
 
-- [npm](https://www.npmjs.com/package/@robota-sdk/agent-interface-transport)
-- [GitHub](https://github.com/woojubb/robota)
+- [`docs/SPEC.md`](docs/SPEC.md) — the contract: adapter lifecycle, configuration, registry views,
+  payload channels, and transport admission.
+
+## License
+
+Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

@@ -1,59 +1,66 @@
 # @robota-sdk/agent-interface-tui
 
-TUI interaction contracts for the Robota SDK. This package contains only type contracts and type guards — no implementation, no React, no Ink.
+Terminal UI interaction contracts for the Robota SDK. A command can declare what the terminal UI
+should do when the user runs it without arguments: show a picker, run a wizard, or ask for
+confirmation. This package declares the shape of that declaration, so command code can describe
+the interaction without depending on the UI that renders it.
+
+The package contains type declarations only: no runtime functions, no React, no Ink, and no
+dependencies.
 
 ## Installation
 
 ```bash
-pnpm add @robota-sdk/agent-interface-tui
+npm install @robota-sdk/agent-interface-tui
 ```
 
-## Overview
+## Usage
 
-Defines the interaction protocol between command handlers (which may run at any layer) and TUI renderers (which live in `@robota-sdk/agent-transport`).
+```ts
+import type {
+  ITuiPickerInteraction,
+  TAnyTuiCommandInteraction,
+} from '@robota-sdk/agent-interface-tui';
 
-```
-agent-interface-tui            ← this package (contracts only)
-  ├── ITuiCommandInteraction   ← base: optional onMissingArgs action
-  ├── ITuiPickerInteraction    ← requires picker UI
-  ├── ITuiConfirmInteraction   ← requires confirm UI
-  └── TAnyTuiCommandInteraction ← union of all interaction shapes
+const languagePicker: ITuiPickerInteraction = {
+  onMissingArgs: 'picker',
+  getItems: () => [
+    { label: 'English', value: 'en' },
+    { label: 'Korean', value: 'ko', description: '한국어' },
+  ],
+};
 
-agent-ui-terminal
-  └── useSideEffects           ← renders interactions via ITuiCliAdapter
-
-agent-command/*
-  └── command descriptors      ← annotate onMissingArgs to trigger interaction
+function prompt(interaction: TAnyTuiCommandInteraction): string {
+  // A discriminated union: narrow on the `onMissingArgs` literal.
+  return interaction.onMissingArgs === 'picker'
+    ? `Choose one of ${interaction.getItems().length} options`
+    : interaction.message;
+}
 ```
 
 ## API
 
-### Interfaces
+| Export                      | Description                                              |
+| --------------------------- | -------------------------------------------------------- |
+| `TOnMissingArgsAction`      | `'picker' \| 'wizard' \| 'confirm'`                      |
+| `ITuiCommandInteraction`    | Base shape: an optional `onMissingArgs` action           |
+| `ITuiPickerInteraction`     | Picker variant: `getItems()` returns `ITuiPickerItem[]`  |
+| `ITuiPickerItem`            | One picker row: `label`, `value`, optional `description` |
+| `ITuiConfirmInteraction`    | Confirm variant: a `message` to confirm                  |
+| `TAnyTuiCommandInteraction` | Union of the picker and confirm variants                 |
 
-| Export                   | Description                                               |
-| ------------------------ | --------------------------------------------------------- |
-| `ITuiCommandInteraction` | Base interaction: optional `onMissingArgs`                |
-| `ITuiPickerInteraction`  | Picker variant: `getItems()` returning `ITuiPickerItem[]` |
-| `ITuiPickerItem`         | Item in a picker list: `label`, `value`, `description?`   |
-| `ITuiConfirmInteraction` | Confirm variant: `message` string prompt                  |
+`'wizard'` is part of the action vocabulary but has no dedicated variant; a renderer may leave it
+unimplemented.
 
-### Types
+## Where it sits
 
-| Export                      | Description                         |
-| --------------------------- | ----------------------------------- |
-| `TAnyTuiCommandInteraction` | Union of all interaction variants   |
-| `TOnMissingArgsAction`      | `'picker' \| 'wizard' \| 'confirm'` |
+- Depends on nothing, and must never gain runtime dependencies.
+- Rendering belongs to the terminal UI, `@robota-sdk/agent-ui-terminal`, which re-exports these
+  types from its own entry point.
 
-### Narrowing
+## Documentation
 
-This package exports no runtime functions. `TAnyTuiCommandInteraction` is a discriminated union —
-narrow it directly on the `onMissingArgs` literal (`if (x.onMissingArgs === 'picker')`).
-
-## Boundaries
-
-- **No runtime dependencies** — this package must never gain runtime dependencies.
-- No framework or provider knowledge may enter this package.
-- Rendering implementation lives in `@robota-sdk/agent-transport`.
+- [`docs/SPEC.md`](docs/SPEC.md) — the contract, boundaries and invariants.
 
 ## License
 
