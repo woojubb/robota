@@ -50,8 +50,27 @@ if (result.ok) {
 }
 ```
 
-Image methods return a result object (`{ ok: true, value }` or `{ ok: false, error }`) instead of
-throwing.
+`editImage` takes one input image and `composeImage` two or more, each with a prompt and a model.
+Image methods return a result object instead of throwing (see Errors).
+
+### Reasoning effort and web tools
+
+A reasoning-effort selection (`defaultModel.effort` on a `Robota` agent, or `effort` on a chat call)
+is sent as Gemini's `thinkingConfig.thinkingLevel` for models in the provider's verified effort
+table; other models report the effort as not applied. Other `thinkingConfig` fields are kept. When a
+call selects an effort, a static `thinkingConfig.thinkingLevel` must equal the level sent and a static
+`thinkingBudget` is rejected; if the selection sends no native effort (`auto`, or a model outside
+the table), either static field is rejected.
+
+Gemini offers no native web search or web fetch through this provider. A request that asks for them
+(`nativeWebTools`) fails with an error instead of being silently ignored.
+
+### Endpoint
+
+There is no `baseURL` option: the `@google/genai` client is created from `apiKey` alone. The SDK
+reads its own environment variables to choose where it connects, such as `GOOGLE_GENAI_USE_VERTEXAI`,
+`GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_GEMINI_BASE_URL` and `GOOGLE_VERTEX_BASE_URL`,
+so set those to reach Vertex AI or another endpoint.
 
 ## Options
 
@@ -70,6 +89,16 @@ throwing.
 | `defaultResponseModalities` | `Array<'TEXT' \| 'IMAGE'>`                   | Default response modalities.                                                                     |
 | `imageCapableModels`        | `string[]`                                   | When set, a request for image output is rejected unless its model is in this list.               |
 | `executor`                  | `IExecutor`                                  | Delegates chat calls to an executor instead of calling the API directly.                         |
+
+## Errors
+
+A failed chat or stream call throws a typed error from `@robota-sdk/agent-core`: a `RateLimitError`
+for a rate limit, otherwise a `ProviderError` that carries the HTTP `status` and keeps the SDK error
+as `originalError`. An aborted call rethrows the abort unchanged.
+
+Image methods never throw. A request with missing input (empty prompt or model, too few images for
+`composeImage`, an unusable image source) returns `PROVIDER_INVALID_REQUEST`; a failed call, or a
+response without an image, returns `PROVIDER_UPSTREAM_ERROR`.
 
 ## Exports
 

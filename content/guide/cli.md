@@ -1,175 +1,150 @@
 # CLI Reference
 
-`@robota-sdk/agent-cli` is a purely CLI entry point that wires providers, transports, and commands into a terminal experience. `InteractiveSession` (from `@robota-sdk/agent-framework`) drives all session logic. The CLI has no session logic of its own: `TuiStateManager` (in `agent-ui-terminal`) receives session events and produces an immutable state snapshot consumed by the Ink React component tree. All session logic — command handling, prompt queuing, system commands, skill discovery — lives in the framework layer.
+`robota` is the command-line coding assistant in `@robota-sdk/agent-cli`. It is a reference app built
+from the same Robota libraries you can use in your own code: `@robota-sdk/agent-framework` runs the
+session, `@robota-sdk/agent-command` supplies the slash commands, and `@robota-sdk/agent-ui-terminal`
+draws the terminal UI. It reads Claude Code conventions where they exist (`CLAUDE.md`, `.claude/`
+settings, skills, commands and plugins), so much of a project's Claude Code setup carries over.
 
-State is managed by `TuiStateManager`, a pure TypeScript class (no React dependency) that receives SDK events and produces an immutable state snapshot. `TuiInteractionChannel` (in `agent-ui-terminal`) owns the session lifecycle and drives `TuiStateManager`. The `useTuiChannel` hook bridges channel state into the React component tree.
+This page is the reference for the whole CLI: how to start it, every option, every subcommand and
+every slash command. Topics with their own guide get a short summary here and a link.
 
-## Installation
+## Install and first run
 
-```bash
-# Try it now — no install needed
-npx @robota-sdk/agent-cli
-
-# Install globally for persistent use
-npm install -g @robota-sdk/agent-cli
-```
-
-## Usage
+`robota` needs Node.js 22.12.0 or newer.
 
 ```bash
-robota                              # Interactive TUI
-robota "initial prompt"             # TUI with initial message
-robota -p "prompt"                  # Print mode (one-shot, exits after response)
-robota -c                           # Continue last session
-robota -r <session-id>              # Resume specific session
-robota --permission-mode plan       # Permission mode override
-robota --max-turns 10               # Limit agentic turns
-robota --goal "ship the feature"    # Autonomous goal: pursue across turns until satisfied or a bound
-robota --output-format json         # Output format (text/json/stream-json)
-robota --effort high                # Model effort: auto | none | minimal | low | medium | high | xhigh | max
-robota --advisor strong             # Let the main model consult another profile (or profile:model); "off" disables
-robota --append-system-prompt "..." # Append to system prompt
-robota --configure                  # Interactive provider setup
-robota --provider qwen              # Run with a configured provider profile
-robota --serve                      # Run as a headless runtime host over a loopback WS sidecar (used by the desktop GUI)
-robota usage                        # Show the last 7 days of personal usage from local session history
-robota usage --period 30d           # Show the last 30 complete calendar-day buckets
-robota usage --timezone UTC --format json # Emit the versioned JSON projection
-robota --safe-mode                  # Start with every customization off (see below)
-robota --reset                      # Delete user settings and exit
-robota --check-update               # Check npm for a newer CLI version and exit
-robota --disable-update-check        # Skip startup update check for this run
-robota --version                    # Show version
+npx @robota-sdk/agent-cli             # try it without installing
+npm install -g @robota-sdk/agent-cli  # install the `robota` command
 ```
 
-### When something misbehaves: `--safe-mode`
+### Connect a provider
 
-Start with `robota --safe-mode` first. It runs a session with every customization off: project and
-user instruction files (`AGENTS.md`, `CLAUDE.md`), skills, custom commands, agent definitions,
-output styles, external presets, plugins, hooks from every settings layer, and MCP servers. Themes
-and keybindings still apply. Your provider, model,
-built-in tools and permission rules work as usual, and nothing on disk changes. If the problem goes
-away, one of those customizations is the cause; turn them back on one at a time to find it.
+On the first start in an interactive terminal, `robota` asks whether you have an API key, want a
+free Gemini key, or want to use a local model (it walks you through LM Studio; Ollama and llama.cpp
+are set up as in [Local LLMs](./local-llm.md)), then asks for the
+provider's settings and a response language, and saves a provider profile to
+`~/.robota/settings.json`. If `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `DASHSCOPE_API_KEY` or
+`DEEPSEEK_API_KEY` is set and no profile exists, it starts with that provider's default model and
+skips setup.
 
-Safe mode starts the project Restricted whatever its trust decision, so it also runs in print and
-serve mode without `robota trust`. `robota doctor` checks your configuration without starting a
-session.
-
-## Personal Usage
-
-Run `robota usage` before starting a session to summarize local user and trusted-project history. The
-report includes sessions, started turns, tokens, cost confidence, daily buckets, attribution
-breakdowns, privacy-safe activity counts, and coverage warnings. It does not send data to a provider
-or print stored prompts, responses, paths, or tool payloads.
+To set up a provider without the prompts (for example in a script):
 
 ```bash
-robota usage
-robota usage --period 30d --timezone Asia/Seoul
-robota usage --period 30d --timezone UTC --format json
+robota --configure                    # the interactive setup, at any time
+robota --configure-provider work --type anthropic --model claude-sonnet-4-6 \
+  --api-key-env ANTHROPIC_API_KEY --set-current
+robota --configure-provider local --type gemma --base-url http://localhost:1234/v1 \
+  --model <model> --api-key lm-studio --set-current
 ```
 
-The JSON form is a stable external projection with `schemaVersion: 1`. The desktop app exposes the
-same shared report under **Usage**, including 7/30-day controls, model/surface breakdowns, coverage
-states, and links back to contributing session details.
+`--type` is one of `anthropic`, `openai`, `gemini` (alias `google`), `gemma` (any OpenAI-compatible
+local server), `qwen` or `deepseek`. `--api-key-env` stores a reference to an environment variable
+instead of the key itself. `--settings-scope user|project-local` chooses which settings file receives
+the profile. See [Local LLM Setup](./local-llm.md) for local servers and
+[Providers](./providers.md) for what each provider supports.
 
-## CLI Updates
-
-Robota checks npm package metadata for newer `@robota-sdk/agent-cli` versions and uses npm itself for updates. It does not include a self-updater.
+### Set up a project
 
 ```bash
-robota --check-update
+robota init            # write AGENTS.md and .robota/settings.json (never overwrites a file)
+robota trust --yes     # trust this folder so its settings, hooks, skills and plugins load
 ```
 
-When a newer version is available, the CLI prints:
+`robota` loads a project's own configuration only from a folder you trust. Starting the terminal UI in
+a folder you have not decided about asks first: trust it, start Restricted (project content not
+loaded), or cancel. Print mode, `--goal`, `--serve`, `robota daemon` and background sessions cannot
+ask, so they refuse an untrusted folder with a message that names `robota trust --yes`;
+`robota daemon start --restricted-workspace` starts the daemon Restricted instead, and the desktop app
+asks in its window before it starts the daemon. Use `robota trust` (or `robota trust status`, with
+`--json` for one JSON line) to see the current decision and `robota trust revoke` to withdraw it.
 
-```bash
-npm install -g '@robota-sdk/agent-cli@latest'
-```
+## Ways to run it
 
-Startup checks are rate-limited by a user-level cache at `~/.robota/update-check.json`. They do not create or modify `~/.robota/settings.json`, and they can be skipped for one invocation with `--disable-update-check`.
+| Invocation                          | What it does                                                                 |
+| ----------------------------------- | ---------------------------------------------------------------------------- |
+| `robota`                            | Interactive terminal UI                                                      |
+| `robota -p "prompt"`                | Print mode: one prompt, the answer on stdout, then exit                      |
+| `robota --goal "objective"`         | Pursue an objective across turns without a person, then exit                 |
+| `robota --serve [--open]`           | Headless runtime over a loopback WebSocket; `--open` also serves the web GUI |
+| `robota --attach`                   | Full terminal UI on this folder's running daemon                             |
+| `robota session start --background` | A supervised session that outlives the terminal                              |
+| `robota mcp serve`                  | Serve one session to an MCP client                                           |
 
-## Non-Interactive (Headless) Mode
+### Print mode
 
-Print mode (`-p`) runs a single prompt without the interactive TUI and exits. It delegates to `@robota-sdk/agent-framework` for output formatting. When the prompt starts with `/skill-name`, headless mode calls `InteractiveSession.executeCommand()`, and the SDK normalizes the virtual skill alias to command `skills` with args `<skill-name> [args]`.
-
-### Output Formats
-
-Use `--output-format` to control how the response is written to stdout:
-
-**Text (default):**
+Print mode (`-p`) runs one prompt without the terminal UI and exits. stdout carries only the answer
+(or JSON), so it is safe to capture.
 
 ```bash
 robota -p "Explain this error"
-# Prints plain text response to stdout
-```
-
-**JSON:**
-
-```bash
 robota -p "Summarize the project" --output-format json
-# Output: { "type": "result", "result": "...", "session_id": "...", "subtype": "success" }
-```
-
-**Stream JSON (newline-delimited):**
-
-```bash
 robota -p "Write a function" --output-format stream-json
-# Each line is a JSON object: content_block_delta events followed by a final result
+robota -p "Review this diff" --bare          # raw text, no status line
 ```
 
-### Stdin Pipe
+`--output-format json` prints one object such as
+`{ "type": "result", "result": "...", "session_id": "...", "subtype": "success" }`.
+`stream-json` prints one JSON object per line as the answer streams, then the result.
 
-When `-p` is specified without a positional argument and stdin is piped, the CLI reads from stdin:
+With `-p` and no prompt argument, the whole prompt is read from stdin. A prompt argument takes
+precedence and stdin is then not read, so put the instruction and the input on stdin together:
 
 ```bash
-echo "Explain this code" | robota -p
-cat error.log | robota -p "What went wrong?"
-git diff | robota -p "Review this diff" --output-format json
+echo "Explain what a monorepo is" | robota -p
+{ echo "What went wrong in this log?"; cat error.log; } | robota -p
+{ echo "Review this diff:"; git diff; } | robota -p --output-format json
 ```
 
-### System Prompt Append
+Other print-mode options:
 
 ```bash
-robota -p "query" --append-system-prompt "Focus on security issues"
-robota -p "query" --json-schema '{"type":"object"}'
+robota -p "..." --append-system-prompt "Focus on security issues"
+robota -p "..." --system-prompt "You are a release-notes writer."
+robota -p "..." --json-schema '{"type":"object","properties":{"ok":{"type":"boolean"}}}'
+robota --task-file task.md                 # append a task file to the system prompt
+robota -p "Refactor the auth module" --dry-run   # plan only (same as --permission-mode plan)
 ```
 
-### Autonomous Goals
+A prompt that starts with `/` runs that slash command or skill instead (`robota -p "/audit src"`).
+Print mode has no one to ask for permission, so a call that would ask is refused unless you pick a
+permission mode that allows it (see [Permissions](#permissions)). To resume a session in print mode,
+name it: `-r <id|name>`; `-c` continues the most recent one.
 
-Assign a high-level objective and let the agent pursue it on its own across multiple turns until
-it is achieved or a bound fires:
+Exit codes:
+
+| Code | Meaning                                                                           |
+| ---- | --------------------------------------------------------------------------------- |
+| 0    | Success, or the user interrupted                                                  |
+| 1    | Error: bad arguments, a provider failure, a failed command                        |
+| 2    | `--goal` only: stopped cleanly at its iteration budget or when progress stalled   |
+| 3    | Provider configuration error at print-mode start (fix the settings, do not retry) |
+| 130  | Terminal UI force-quit: a second Ctrl+C during shutdown                           |
+
+### Autonomous goals
+
+`--goal` gives the agent an objective and lets it work turn after turn without further input until it
+reports the goal done, reaches the iteration budget (`--goal-max-iterations`, default 25), or stops
+making progress.
 
 ```bash
 robota --goal "add a health-check endpoint and a test, then stop"
 robota --goal "refactor the utils module" --goal-max-iterations 10
 ```
 
-The agent works toward the goal turn after turn without further input, reporting completion through a
-structured signal. It stops when the goal is satisfied, the iteration budget (`--goal-max-iterations`,
-default 25) is reached, or it detects no further progress. Interactively, use `/goal <objective>`
-(and `/goal status` / `/goal cancel`).
+In the terminal UI the same feature is `/goal <objective>`, with `/goal status` and `/goal cancel`.
 
-Headless exit codes for `--goal`: `0` when satisfied, `2` when it stopped cleanly at a bound, `1` on
-an error.
+### CI and scripts
 
-### Exit Codes
-
-| Code | Meaning |
-| ---- | ------- |
-| 0    | Success |
-| 1    | Error   |
-
-## CI/CD Integration
-
-`robota -p` headless mode is designed for unattended script and pipeline use.
-No TUI is rendered; stdout carries only the response (or structured JSON), making it safe to capture.
-
-### GitHub Actions
+For unattended runs, pick a permission mode that does not need a person, send the prompt on stdin,
+and use JSON output. A fresh checkout is untrusted, and `robota -p` exits with an error there until
+you either trust it with `robota trust --yes` (the project's instruction files, skills, plugins, hooks
+and MCP servers then load, so only do this for code you trust) or run with `--safe-mode` (all of those
+stay off and the folder stays Restricted):
 
 ```yaml
 # .github/workflows/ai-review.yml
 name: AI Code Review
-
 on:
   pull_request:
 
@@ -180,577 +155,588 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-
-      - name: Install Robota CLI
-        run: npm install -g @robota-sdk/agent-cli
-
-      - name: AI Diff Review
+      - run: npm install -g @robota-sdk/agent-cli
+      - run: robota trust --yes
+      - name: AI diff review
         run: |
-          git diff HEAD~1 | robota -p "Review this diff and list any issues" \
-            --permission-mode bypassPermissions \
+          { echo "Review this diff and list any issues:"; git diff HEAD~1; } | robota -p \
+            --permission-mode plan \
             --no-session-persistence \
-            --output-format json
+            --output-format json | jq -r '.result'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
-### Piping Input
-
-Feed context from any command directly into Robota:
-
-```bash
-# Review a git diff
-git diff HEAD~1 | robota -p "Review this diff"
-
-# Summarise test output
-pnpm test 2>&1 | robota -p "Summarise failures and suggest fixes"
-
-# Analyse a file
-cat src/index.ts | robota -p "Find security issues"
-```
-
-### CI-Specific Flags
-
-| Flag                                  | Purpose                                                      |
+| Option                                | Use                                                          |
 | ------------------------------------- | ------------------------------------------------------------ |
-| `--permission-mode bypassPermissions` | Skip all confirmation prompts — required for unattended runs |
-| `--no-session-persistence`            | Do not write session files to disk                           |
-| `--output-format json`                | Machine-readable output; parse with `jq`                     |
-| `--output-format stream-json`         | Newline-delimited JSON for streaming pipelines               |
-| `--max-turns <n>`                     | Limit agentic loops to prevent runaway costs                 |
+| `--permission-mode plan`              | Review only: nothing is written; only read-only commands run |
+| `--permission-mode bypassPermissions` | Let the agent edit and run commands without asking           |
+| `--no-session-persistence`            | Do not save the session                                      |
+| `--output-format json`                | One JSON result; check `.subtype` for `success` or `error`   |
+| `--max-turns <n>`                     | Cap the number of agent turns                                |
 
-### Parsing JSON Output
+## Session management
 
-```bash
-# Extract just the text result
-robota -p "Summarise the project" --output-format json | jq -r '.result'
-
-# Check success
-result=$(robota -p "Run checks" --output-format json)
-if [ "$(echo "$result" | jq -r '.subtype')" = "success" ]; then
-  echo "AI review passed"
-fi
-```
-
-### Environment Variables in CI
-
-Store provider API keys as encrypted secrets and inject them as environment variables.
-Robota reads them using the same names as in local development:
+Every conversation is a saved session you can come back to.
 
 ```bash
-ANTHROPIC_API_KEY=...   # Claude (default)
-OPENAI_API_KEY=...      # OpenAI
-GEMINI_API_KEY=...      # Gemini
+robota -c                              # continue the most recent session in this folder
+robota -r <id-or-name>                 # resume a session
+robota -c --fork-session               # continue as a new session; the original is untouched
+robota -n "my-task"                    # name the new session
+robota --no-session-persistence        # do not save this run
 ```
 
-## Interactive TUI
-
-The TUI (built with React + Ink) provides:
-
-- **Message list** — Conversation history with markdown rendering
-- **Input area** — Text input with slash command autocomplete
-- **Status bar** — Permission mode, model, context usage %, and activity state
-- **Permission prompts** — Arrow-key Allow/Deny selection for tool calls
-- **Streaming** — Real-time text output as the model responds
-- **Usage summaries** — Provider usage and cost metadata when available
-- **Background work tree** — Running and completed background jobs grouped for quick scanning
-- **ESC abort** — Press ESC during streaming to cancel. Partial response is saved with interrupted state
-- **History SSOT** — Renders from `IHistoryEntry[]` — the universal timeline of chat messages and session events
-
-### Recent TUI Behavior
-
-The CLI is intentionally a thin TUI over SDK-owned session state. Recent updates focus on making long agentic runs readable:
-
-- Command output transcripts collapse automatically so long shell output does not dominate the conversation.
-- Edit tool results render as context hunks with markdown-friendly diff blocks.
-- Provider usage summaries appear in the primary scan path when token/cost metadata is present.
-- Background subagent work renders as tree rows with status activity instead of a flat list.
-- Print/headless mode skips startup update checks so scripted stdout/stderr remain deterministic.
-
-### Screen Reader Mode
-
-The TUI draws boxes, repaints a live region, and asks for menu answers with arrow keys — none of
-which a screen reader can follow. `--screen-reader` replaces all three: borders, rules, the banner
-and the spinners are omitted, every message carries a role label (`you:`, `assistant:`, `tool:`),
-menus render as `1. option` lines answered by typing the number, markdown tables are flattened to
-`Header: value`, word and line deletions are announced, and the terminal bell rings when a reply or
-a long tool finishes. The mode is off by default and is never enabled by detection.
-
-Three ways to turn it on, and a flag beats the environment, which beats the settings file:
-
-| Channel                        | Value                                                               |
-| ------------------------------ | ------------------------------------------------------------------- |
-| `--screen-reader`              | on for this run — wins over both channels below                     |
-| `--no-screen-reader`           | off for this run — wins over both channels below                    |
-| `ROBOTA_SCREEN_READER=1`, `=0` | on / off for the environment; `INK_SCREEN_READER=true` also enables |
-| `"screenReader": true`         | on, in `~/.robota/settings.json`                                    |
-
-The precedence is deliberately the opposite of `ROBOTA_MEMORY`'s: a per-invocation flag has to be
-able to turn the mode on for one run on a machine whose environment says otherwise, which is the
-remote-shell case this exists for. The first line the TUI prints names the mode and the channel that
-set it: `[Screen reader mode: on via flag]`.
-
-`ROBOTA_SCREEN_READER_STARTUP_QUIET_MS` (default `900`) is how long the CLI waits after that line
-before drawing the first prompt, so the reader can finish speaking it; any keypress ends the wait
-early and `0` skips it.
-
-### TuiInteractionChannel and useTuiChannel
-
-`TuiInteractionChannel` (in `agent-ui-terminal`) is the owner of the `InteractiveSession` lifecycle in TUI mode. It:
-
-1. Creates `InteractiveSession` and `CommandRegistry` once (not recreated on re-render).
-2. Subscribes to the exhaustive TUI-classified SDK event set and drives a `TuiStateManager` instance.
-3. Exposes actions (`submit`, `abort`, `cancelQueue`, `shutdown`) and state via an `onChange` subscription.
-
-The `useTuiChannel` React hook subscribes to `TuiInteractionChannel.onChange` and feeds the immutable state snapshot into the React component tree.
-
-The state shape exposed to components includes `history: IHistoryEntry[]` — the canonical conversation
-timeline. Conversation components render from this single list; there is no separate `messages` array.
-
-Plan lifecycle, context-file refresh, and checkpoint/branch transitions appear in a separate bounded notice
-list so history synchronization cannot erase them. If the TUI cannot project one of these events, it reports
-the delivery error to the embedding owner or renders a visible fallback notice; the committed SDK operation
-remains successful.
-
-`TuiStateManager` is a pure TypeScript class with no React dependency. It can be instantiated and tested independently of the component tree, making state transition logic fully unit-testable.
-
-The CLI contains no session management logic. Session execution lives in `InteractiveSession`, and command discovery uses SDK-owned command registry/source classes.
-
-## Slash Commands
-
-Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Tab to insert into input (without executing), Enter to execute immediately.
-
-The available command list is built from the consolidated `@robota-sdk/agent-command` package, which bundles the core command modules, plus the separate `@robota-sdk/agent-command-workflows` package that contributes `/workflows`. Both are compiled into the CLI's self-contained bundle. The CLI renders this list but does not own the command definitions.
-
-| Command                   | Description                                         |
-| ------------------------- | --------------------------------------------------- |
-| `/help`                   | Show available commands                             |
-| `/clear`                  | Clear conversation history                          |
-| `/compact [instructions]` | Compress context window                             |
-| `/cost`                   | Show session info                                   |
-| `/effort [level]`         | Show or change active model effort                  |
-| `/advisor [model\|off]`   | Show, change, or turn off the advisor               |
-| `/context`                | Context window details                              |
-| `/permissions [mode]`     | Show permission rules or change mode                |
-| `/sandbox [mode]`         | Show or change how shell commands are confined      |
-| `/memory`                 | Inspect and manage project memory                   |
-| `/rewind`                 | List and restore edit checkpoints                   |
-| `/provider`               | Manage provider profiles                            |
-| `/resume`                 | Resume a previous session                           |
-| `/background`             | List and control background tasks                   |
-| `/schedule`               | Schedule a later or recurring session wake          |
-| `/monitor`                | Wake on matching process output                     |
-| `/loop`                   | Repeat a prompt within this session                 |
-| `/goal`                   | Work toward an objective until done or bounded      |
-| `/agent`                  | Run and manage background subagent jobs             |
-| `/rename`                 | Rename the current session                          |
-| `/cd <directory>`         | Continue this conversation in another directory     |
-| `/validate-session`       | Validate replay-grade session log data              |
-| `/exit`                   | Exit CLI                                            |
-| `/plugin`                 | Plugin management                                   |
-| `/reload-plugins`         | Reload all plugin resources                         |
-| `/language [lang]`        | Show or change UI language                          |
-| `/settings`               | Open transport settings (enable/disable transports) |
-| `/statusline`             | Show, hide, or reset status line fields             |
-| `/workflows`              | Author, list, validate, and run DAG workflows       |
-| `/reset`                  | Delete settings and exit                            |
-
-`/permissions` shows a nested submenu for permission mode selection. Run without an argument, it
-shows the allow, deny and ask rules the session enforces, each under the settings file it comes from
-(rules added by a flag, preset or command appear under "this session"), the "allow always" approvals,
-and the calls refused recently with the reason: a rule or the mode, the user declining, no one
-available to approve, or the auto-mode classifier. `/permissions retry <n>` lets a call the classifier
-blocked run once when the agent tries it again.
-
-### Repeating work with `/loop`
-
-Use `/loop 5m check the build` for a fixed local-clock cadence, `/loop check the build` to let the
-agent choose its next delay (1–60 minutes), or bare `/loop` for bounded maintenance of the current
-work. `/loop 5m` uses the same maintenance prompt on a fixed cadence. `/loop list` shows active loop
-IDs and `/loop stop <id>` stops one; in the TUI, Esc also stops a waiting self-paced loop when it is
-the only one waiting. Loops expire after seven days and no more than three may be active per session.
-
-For an omitted prompt, a trusted project's `.robota/loop.md` takes precedence over
-`~/.robota/loop.md`; edits apply on the next iteration. An explicit prompt is not replaced by these
-files. The prompt file is limited to 4096 UTF-8 bytes and does not grant permissions.
-
-Prefer `/monitor` or another event notification for changes that can be pushed instead of polling.
-Use `/goal` when the task is to make continuous progress toward an objective, not to sample
-periodically. External-event session ingress is tracked separately and is not yet a `/loop` feature.
-
-`/provider` and `/provider list` show configured provider profiles. In the interactive TUI, selecting a profile opens provider actions for switch, edit, test, duplicate, delete, and cancel. `/provider switch <profile>` hot-swaps the provider immediately without restarting — conversation history is preserved. In print/headless mode, provider commands keep deterministic text output and do not wait for interactive prompts.
-
-### Model effort (`--effort`, `/effort`)
-
-Model effort is selected in this order: `--effort` flag, `ROBOTA_EFFORT` environment variable,
-settings, selected preset, and the active model default. Supported selections are `auto`, `none`,
-`minimal`, `low`, `medium`, `high`, `xhigh`, and `max`. `auto` remains a provider-default selection
-until the provider adapter resolves its source-dated model table; `max` is session-only, while a named
-level may be persisted by `/effort` when the settings adapter permits it.
-
-`/effort` reports the selected value, provisional display value, source, and disposition. Print JSON
-includes the same record under `data.effort`; text mode prints a compact status line after the response.
-`--bare` keeps raw text output. The TUI status bar shows the active selection when available. Thinking
-display settings and ordinary prompt wording are independent from model effort.
-
-### Advisor (`--advisor`, `/advisor`)
-
-The advisor lets a cheaper main model ask a stronger one for a second opinion at the moments that
-matter, instead of running the strong model for the whole session. When an advisor is configured,
-the main model gets an `Advisor` tool whose description tells it when to use it: before committing to
-an approach, when the same error keeps coming back, and before declaring the work done. You can also
-simply ask it to consult the advisor.
-
-The advisor reads the whole conversation — the system prompt, your messages, the tool calls and
-their results — and answers with guidance. The main model is told to check that guidance against its
-own evidence rather than follow it blindly. The call and its answer appear in the transcript as the
-tool's line, `Advisor(<model>)`, with the guidance as its result; an empty or refusing answer reads
-as declined. If the conversation is larger than the advisor's context window, the oldest messages
-are left out (the system prompt is always kept); if it still does not fit, the advisor declines.
-
-Choose the advisor with `--advisor` for one run or `/advisor` to change it and save it as the
-default (`advisorModel` in `~/.robota/settings.json`); the flag wins over the setting. The value is a
-provider profile or `profile:model`, and any configured model may advise, including the one you are
-already using. The saved advisor stays when you switch the main model with `/provider`.
-`/advisor off` turns it off; `ROBOTA_DISABLE_ADVISOR=1` turns it off completely and cannot be
-overridden from inside a session. Safe mode ignores the saved advisor.
-
-- **Limits.** At most two advisor calls per turn and a fixed number per session. Asking the same
-  question twice in one turn returns the earlier answer without another call.
-- **Prompt cache.** The `Advisor` tool is added only when a session starts with an advisor, and
-  `/advisor off` or `/advisor <model>` later changes only where calls go, never the tool list, so the
-  main model's cached prompt is not invalidated mid-session. Setting an advisor in a session that
-  started without one takes effect in the next session.
-- **Cost.** Advisor usage is saved with the session like each turn's usage, under the advisor's own
-  model, so `/cost`, `robota usage` and resumed sessions include it; calls made by in-process
-  subagents are counted too. `/cost` prices each part on its own model and says "mixed" when more
-  than one model was priced. Each call is one request with no tools, so a few calls to a strong model
-  cost far less than running that model for every turn, while the cheap model does the reading,
-  editing and tool work. A call declined before anything was sent (no consent, the conversation does
-  not fit) does not use up a call; a request the provider failed does, and asking the same question
-  again in that turn returns the same decline.
-- **Privacy.** Sending the conversation anywhere the main model does not already send it needs your
-  consent once per destination — a provider type together with its endpoint, so a local server and
-  the vendor's cloud are asked about separately. It is asked the first time and remembered in
-  `~/.robota/settings.json`; if you say no, you are not asked again in that session. The advisor is told that the conversation is data, not instructions, and
-  each message reaches it as a single encoded line, so text in a message cannot pose as another. Without an
-  interactive prompt (print mode) such a call is declined until consent is given. The organization's
-  `allowedProviders` policy applies to the advisor as it does to `/provider`.
-- **Subagents.** Subagents that run in the same process inherit the advisor and read their own
-  conversation; subagents in a child process do not get it.
-
-How it compares: a **subagent** does work in its own context and reports back, but does not see your
-conversation; **`/provider`** replaces the main model for everything that follows; **plan mode** stops
-the main model from changing anything until you approve a plan. The advisor changes nothing and does
-no work — it only reads the conversation and gives the main model an opinion at a decision point.
-
-### Workflows (`/workflows`)
-
-`/workflows` authors and runs DAG workflows. It ships in the separate
-`@robota-sdk/agent-command-workflows` package, bundled into the CLI (the DAG/workflow subsystem is
-private and not published on its own).
-
-```bash
-/workflows create "<description>" [--input key=value] [--name <name>]
-/workflows list                # List available workflow node kinds
-/workflows catalog             # List saved workflow files in .workflows/
-/workflows validate <file.json>
-/workflows run <file.json>
-```
-
-`create` is the natural-language authoring path: it asks the **active provider** to design a workflow
-from your description, saves it as a reusable `.workflows/<name>.json` file (with any prompt-backed
-nodes written under `.workflows/nodes/`), then runs it immediately and reports the saved path and
-outputs. `create` is model-invocable, so the agent can build and run a workflow on your behalf during
-a conversation; `list`, `catalog`, `validate`, and `run` are user-invoked only.
-
-### Plugin Management
-
-Plugins extend the CLI with additional skills, hooks, and tools. They are stored in `~/.robota/plugins/` (user scope) or `.robota/plugins/` (project scope).
-
-**Interactive TUI (`/plugin`):**
-
-Typing `/plugin` opens an interactive menu with arrow-key navigation:
-
-```
-Plugin Management
-│
-├─ Marketplace
-│    ├─ Add Marketplace      → enter source (owner/repo or git URL)
-│    └─ <marketplace-name>   → Browse plugins / Update / Remove
-│         └─ Browse          → plugin list → Install (scope) or Uninstall
-│
-└─ Installed Plugins
-     └─ <plugin-name>       → Uninstall (with confirmation)
-```
-
-Navigate with arrow keys, Enter to select, Esc to go back.
-
-**Text subcommands** (also available when typed directly):
-
-```bash
-/plugin install <name>@<marketplace>   # Install plugin
-/plugin uninstall <name>@<marketplace> # Uninstall plugin
-/plugin enable <name>@<marketplace>    # Enable plugin
-/plugin disable <name>@<marketplace>   # Disable plugin
-/plugin marketplace add <source>       # Add marketplace source
-/plugin marketplace remove <name>      # Remove marketplace
-/plugin marketplace update <name>      # Update marketplace
-/plugin marketplace list               # List registered marketplaces
-```
-
-Use `/reload-plugins` to reload plugin resources and refresh plugin-provided slash commands without restarting the CLI.
-
-### Built-in Plugins
-
-The 8 first-party plugins ship consolidated in a single package, `@robota-sdk/agent-plugin`. They are
-cross-cutting lifecycle plugins (not third-party service integrations), registered via the `Robota`
-constructor `plugins` array — there is no `agent.use()` method.
-
-| Plugin class                | Concern                                          |
-| --------------------------- | ------------------------------------------------ |
-| `ConversationHistoryPlugin` | Persist / restore conversation history           |
-| `ErrorHandlingPlugin`       | Typed error classification, retry/recovery stats |
-| `ExecutionAnalyticsPlugin`  | Per-execution analytics                          |
-| `LimitsPlugin`              | Token / turn / cost limits                       |
-| `LoggingPlugin`             | Structured logging of agent activity             |
-| `PerformancePlugin`         | Timing and performance metrics                   |
-| `UsagePlugin`               | Token usage accounting                           |
-| `WebhookPlugin`             | Emit lifecycle events to a webhook               |
-
-```bash
-npm install @robota-sdk/agent-plugin
-```
-
-```typescript
-import { Robota, type IAIProvider } from '@robota-sdk/agent-core';
-import { LoggingPlugin, UsagePlugin, LimitsPlugin } from '@robota-sdk/agent-plugin';
-
-declare const provider: IAIProvider;
-
-const agent = new Robota({
-  name: 'my-agent',
-  aiProviders: [provider],
-  defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  plugins: [
-    new LoggingPlugin({ strategy: 'console' }),
-    new UsagePlugin({ strategy: 'memory' }),
-    new LimitsPlugin({ strategy: 'token-bucket', maxTokens: 100_000 }),
-  ],
-});
-```
-
-Third-party service integrations (GitHub, Slack, etc.) are not first-party packages; add them as your
-own tools/plugins or via MCP. See [Plugins](./plugins.md) for the full plugin API.
-
-### Provider Switch (`/provider switch`)
-
-`/provider switch <profile>` hot-swaps the active provider without restarting the session. The provider is replaced in-place and conversation history is preserved. The profile name must already exist in settings (configured via `--configure-provider` or `/provider add`).
-
-From the interactive TUI, selecting a provider profile from `/provider list` and choosing **switch** performs the same hot-swap.
-
-### Skill Commands
-
-Skills are activated through the `skills` built-in command module, rendered as `/skills` by the CLI. The CLI only parses the leading slash and calls `InteractiveSession.executeCommand()`: `/audit src/index.ts` is a virtual alias that the SDK normalizes to command `skills` with args `audit src/index.ts`. `.agents/` is the primary Robota convention; `.claude/` paths provide Claude Code compatibility. At runtime, higher-priority paths override lower ones:
-
-1. `.agents/skills/` (project, Robota primary)
-2. `.claude/skills/` (project, Claude Code compatible)
-3. `.claude/commands/` (project, Claude Code legacy)
-4. `~/.robota/skills/` (user)
-
-Skills appear as additional slash commands below the built-in commands.
-
-Plugin skills appear with a hint showing their source: `/audit (rulebased-harness) Run audit checks`
-Plugin commands use colon format: `/rulebased-harness:audit`
-
-### Skill Frontmatter
-
-Each skill is a markdown file with YAML frontmatter controlling its behavior:
-
-| Field                      | Type    | Description                                            |
-| -------------------------- | ------- | ------------------------------------------------------ |
-| `name`                     | string  | Display name for the slash command                     |
-| `description`              | string  | One-line description shown in autocomplete             |
-| `argument-hint`            | string  | Placeholder text for the argument (e.g., `<file>`)     |
-| `disable-model-invocation` | boolean | If true, model cannot auto-invoke this skill           |
-| `user-invocable`           | boolean | If false, only the model can invoke (not via `/` menu) |
-| `allowed-tools`            | array   | Tool allowlist for the skill's execution context       |
-| `model`                    | string  | Model override for skill execution                     |
-| `effort`                   | string  | Reasoning effort level                                 |
-| `context`                  | string  | Execution context; `fork` spawns a subagent            |
-| `agent`                    | string  | Agent definition name for subagent execution           |
-
-### Variable Substitution
-
-Skill markdown bodies support variable substitution before execution:
-
-- `$ARGUMENTS` / `$ARGUMENTS[N]` — Full argument string or Nth argument
-- `$N` — Shorthand for Nth positional argument
-- `${CLAUDE_SESSION_ID}` — Current session ID
-- `${CLAUDE_SKILL_DIR}` — Directory containing the skill file
-
-### Shell Preprocessing
-
-Use the `` !`command` `` syntax to embed shell command output into the skill body at invocation time. The command runs in the project working directory.
-
-### Invocation Methods
-
-- **User direct**: Type `/skill-name` in the input area, or pass `/skill-name ...` to print/headless mode
-- **Natural-language request**: Prompts such as `Use the repo-writing skill ...` remain normal model input; the model must activate the skill through the projected `robota_command_skills` tool with `args: "<skill-name> [args]"`
-- **Skill discovery**: Use `/skills` to list registered skills and show the activation contract. Model-side selection uses the system prompt `## Skills` metadata when `skills` is model-invocable.
-- **Model command invocation**: The model activates a matching skill through the standard projected command tool `robota_command_skills` with `args: "<skill-name> [args]"`.
-- **Model-only**: Skills with `user-invocable: false` are invisible in the `/` menu but available to the model
-
-Skill descriptions are metadata only. Mentioning or recommending a skill in ordinary assistant text
-does not activate that skill; activation is recorded only when `/skills` or an explicit virtual
-`/skill-name` invocation loads the full `SKILL.md` through SDK skill activation.
-
-When `context: fork` is set, the skill runs in a spawned subagent session rather than the main conversation. See [agent-framework SPEC.md](../../packages/agent-framework/docs/SPEC.md) for details.
-
-## Session Management
-
-The CLI supports continuing, resuming, forking, and naming sessions for workflow continuity across invocations.
-
-### Continue and Resume
-
-```bash
-robota -c                    # Continue the most recent session
-robota -r <session-id>       # Resume a specific session by ID
-robota -r <session-id> --fork-session # Fork a session (new session with copied history)
-robota --name "my-task"      # Assign a name to the session at startup
-```
-
-Within the TUI, use `/resume` to list recent sessions and select one to resume. Use `/rename <name>` to rename the current session. Use `/validate-session` to validate the current JSONL session log for replay-grade provider/tool coverage.
-
-### Session Names
-
-When a session has a name, it is displayed in the input area border, the terminal title bar, and the status bar. Names make it easy to identify sessions when resuming later.
-
-## Permission Modes
-
-| Mode                | Read | Write  | Bash   |
-| ------------------- | ---- | ------ | ------ |
-| `plan`              | auto | deny   | deny   |
-| `default`           | auto | prompt | prompt |
-| `acceptEdits`       | auto | auto   | prompt |
-| `bypassPermissions` | auto | auto   | auto   |
-| `auto`              | auto | auto   | model  |
-
-In `auto` mode, a model classifier approves or blocks the commands that would otherwise prompt. It
-blocks actions such as a force push, a deploy or piping a download into a shell, and it tells the
-agent why. `ask` rules still ask. See [Permissions and Hooks](permissions-and-hooks.md#auto-mode).
-
-When a tool requires approval, the TUI shows a permission prompt with arrow-key selection.
-
-The status bar hides `default` permission mode because it is the baseline. Non-default permission
-modes remain visible as `Mode: plan`, `Mode: acceptEdits`, or `Mode: bypassPermissions`.
-
-## Context Window
-
-The status bar shows context usage with color coding:
-
-| Range  | Color  | Meaning                         |
-| ------ | ------ | ------------------------------- |
-| 0–69%  | Green  | Healthy                         |
-| 70–89% | Yellow | Approaching limit               |
-| 90%+   | Red    | Near limit, compaction imminent |
-
-Auto-compaction triggers at ~83.5% of the model's context window. A separate hard-capacity guard blocks only when effective usage is near the actual model limit and includes diagnostic values in the resulting message. Use `/compact` with optional instructions for manual compaction:
-
-```
-/compact focus on the API design decisions
-```
-
-## Prompt Queue
-
-If you submit a prompt while the model is still executing (thinking), `InteractiveSession` queues the new prompt automatically. The input area border turns cyan to indicate a prompt is waiting. As soon as the current execution completes, the queued prompt is submitted automatically. Press Backspace while a prompt is queued to cancel it (calls `cancelQueue()` on the session).
-
-## Input Navigation
-
-The input area supports multi-line cursor movement. When input spans multiple rows, press Up/Down arrows to move the cursor to the previous or next display row within the input. This lets you navigate and edit long prompts without the cursor jumping out of the input box.
-
-## Paste Handling
-
-When pasting multiline text into the input area, the CLI collapses the content into a compact label:
-
-```
-[Pasted text #1 +42 lines]
-```
-
-Multiple pastes are numbered sequentially (`#1`, `#2`, etc.). The full pasted content is expanded when the prompt is submitted, so the AI receives the complete text. This keeps the input area readable while supporting large code blocks and log excerpts.
-
-## Tool Display
-
-Tool invocations in the TUI use a unified display format with status indicators:
-
-| Status  | Symbol | Color                        | Meaning            |
-| ------- | ------ | ---------------------------- | ------------------ |
-| Running | ⟳      | Yellow                       | Tool is executing  |
-| Success | ✓      | Green                        | Completed normally |
-| Error   | ✗      | Red + strikethrough          | Execution failed   |
-| Denied  | ⊘      | YellowBright + strikethrough | Permission denied  |
-
-Long tool arguments are middle-truncated, keeping the last 30 characters visible for context.
-
-### Edit Diff Display
-
-When the Edit tool completes, the CLI renders a `DiffBlock` showing the change. The display format consists of a file path header followed by removal (`-`) rows with red foreground plus dark red background and addition (`+`) rows with green foreground plus dark green background. Diff row backgrounds fill the rendered row, including padding, so additions and removals remain scannable in dense edits. A maximum of 10 lines are displayed; larger diffs are truncated with an `... and N more lines` indicator. No-op edits (where old and new strings are identical) are suppressed entirely.
-
-### Subagent Execution
-
-The AI can spawn subagents through the `/agent` built-in command module using the projected `robota_command_agent` tool with `args: ...`. Subagents run in isolated sessions with their own tool access and inherit the parent session's hooks and permissions. Built-in agent types include `Explore`, `Plan`, and a general-purpose agent.
-
-For explicit multi-agent or parallel-agent requests, `/agent` supports a batch jobs shape. A single command invocation starts all valid jobs before waiting for terminal summaries and returns structured per-job results with a shared group identifier.
-
-## Session Logging
-
-Events are logged to `.robota/logs/{sessionId}.jsonl` in JSONL format. Events include `session_init`, `pre_run`, `text_delta`, `assistant`, `server_tool`, `context`, and `background_task_event`.
-
-The session log also records execution-boundary events emitted by the core run loop: `provider_request`, `provider_native_raw_payload`, `provider_response_raw`, `provider_response_normalized`, `assistant_message_committed`, `tool_batch_started`, `tool_execution_request`, and `tool_execution_result`. Provider packages own the exact native SDK request, response, and stream payload objects; the core routes them through provider-neutral events, and the session logger redacts or externalizes large payloads before writing JSONL.
-
-Use `/validate-session` to check that the current session log has replay-grade provider/tool coverage, including provider-native raw response or stream payload events paired with each provider request.
-
-Background subagents write append-only transcripts to `.robota/logs/{sessionId}/subagents/{agentId}.jsonl`. These transcripts include streaming deltas, tool calls/results, final output, and errors as they occur. The resumable `.robota/sessions/{sessionId}.json` file stores background task snapshots and transcript paths, not every token chunk.
-
-## First-Run Setup
-
-When no usable settings file exists, the CLI prompts for an Anthropic API key (input is masked with asterisks) and creates `~/.robota/settings.json` with a minimal config. Use `robota --reset` to delete the settings file and return to the first-run state. OpenAI-compatible local profiles can be configured manually without using the first-run Anthropic prompt.
+Inside the terminal UI: `/resume` opens the session picker, `/rename <name>` renames the session,
+`/fork [name] [--same-dir]` copies the conversation into a background session and keeps you here, and
+`/cd <directory>` continues the conversation as a new session in another folder.
+
+Sessions can also run without a terminal. `robota session start --background` starts a supervised
+session that keeps running after you close the terminal; `robota session list`, `view`, `attach`,
+`stop`, `rename`, `link-pr` and `unlink-pr` manage them. `robota daemon start` keeps one long-lived
+runtime per folder that the desktop app, `robota --attach` and `robota --serve --open` all connect to.
+See [Sessions, Background Sessions and the Daemon](./sessions-and-daemon.md).
 
 ## Configuration
 
-The CLI uses a layered configuration system. `.robota/` is the primary configuration convention; `.claude/` paths are supported as a Claude Code compatibility layer. Later layers override earlier ones:
+### Settings files
 
-1. `~/.robota/settings.json` (user global)
-2. `~/.claude/settings.json` (user global, Claude Code compatible)
-3. `.robota/settings.json` (project, primary)
-4. `.robota/settings.local.json` (local override, gitignored)
+Settings are JSON files merged in this order, later files winning:
+
+1. `~/.robota/settings.json` (user)
+2. `~/.claude/settings.json` (user, Claude Code compatible)
+3. `.robota/settings.json` (project)
+4. `.robota/settings.local.json` (project, not committed)
 5. `.claude/settings.json` (project, Claude Code compatible)
-6. `.claude/settings.local.json` (local override, gitignored, Claude Code compatible)
+6. `.claude/settings.local.json` (project, not committed)
 
-The `.claude/` paths take higher runtime priority so that Claude Code settings override `.robota/` defaults.
+Project files load only in a trusted folder. Most command-line options apply to one run and win over
+the settings files; where an environment variable is also involved, the order is given with the
+option below. An organization can add a policy file at `~/.robota/org-policy.json` (for example
+`allowedProviders`, `disableAutoMode`). `robota --reset` deletes `~/.robota/settings.json` after
+asking (`--yes` skips the question; it is required without a terminal).
 
-See [Using the SDK — Configuration](./sdk.md#configuration) for the full config format.
+### Providers and models
 
-## Tool Output Limits
+| Want to                                | Use                                                                             |
+| -------------------------------------- | ------------------------------------------------------------------------------- |
+| Use another saved profile for one run  | `robota --provider <profile>`                                                   |
+| Make a profile the default             | `robota --provider <profile> --set-current`, or `/provider switch <profile>`    |
+| Use another model for one run          | `robota --model <model>`                                                        |
+| Fall back when the model is overloaded | `robota --fallback-model a,b` (up to three; setting `fallbackModel`)            |
+| Manage profiles in a session           | `/provider current \| list \| switch <profile> \| add [type] \| test [profile]` |
 
-- Tool output is capped at 30,000 characters (middle-truncated)
-- Glob tool defaults to a maximum of 1,000 entries per invocation
+`/provider switch` replaces the model in the running session and keeps the conversation. In the
+terminal UI, `/provider list` lets you pick a profile and then switch, edit, test, duplicate or delete
+it. `--fallback-model` takes model names or `profile:model` entries and moves a turn to the next one
+when the current model is overloaded, unavailable or failing.
 
-## Memory Management
+### Model effort
 
-The TUI applies several optimizations to keep memory usage bounded during long sessions:
+`--effort` (or `/effort`) sets how hard the model thinks: `auto`, `none`, `minimal`, `low`, `medium`,
+`high`, `xhigh` or `max`. The value comes from, in order: `--effort`, the `ROBOTA_EFFORT` environment
+variable, settings, the active preset, then the model's default. `auto` leaves the choice to the
+provider. `max` lasts for the session only; `/effort <level>` can save a named level. `/effort` alone
+reports the level in use and where it came from; print mode's JSON output carries the same record
+under `data.effort`.
 
-- **Message windowing**: Only the most recent `MAX_RENDERED_MESSAGES` (100) messages are rendered in the React tree. Older messages are removed from the DOM but retained in session state.
-- **Tool state cleanup**: Completed tool results beyond `MAX_COMPLETED_TOOLS` (50) have their detailed state cleared to reduce memory pressure.
-- **React.memo**: `MessageItem` components are wrapped with `React.memo` to prevent unnecessary re-renders when new messages arrive.
+### Advisor
 
-See [agent-cli SPEC.md](../../packages/agent-cli/docs/SPEC.md) for implementation details.
+The advisor lets a cheaper main model ask a stronger model for a second opinion at the moments that
+matter, instead of running the strong model for the whole session. With an advisor configured, the
+main model gets an `Advisor` tool and is told to use it before committing to an approach, when the
+same error keeps coming back, and before declaring the work done. You can also ask it to consult the
+advisor.
 
-## Known Limitations
+```bash
+robota --advisor strong              # a provider profile
+robota --advisor strong:<model>      # a profile and a model
+robota --advisor off
+```
 
-- **Korean IME + macOS Terminal.app crash**: Korean/CJK IME input may crash macOS Terminal.app due to an Ink raw mode + Terminal.app IME interaction bug. **Use [iTerm2](https://iterm2.com/) instead.** This is a known industry-wide issue shared with Claude Code (issues #22732, #3045). A custom `CjkTextInput` component mitigates common issues but cannot prevent the Terminal.app crash.
-- **Abort propagation**: `session.abort()` triggers an AbortSignal that flows through the entire chain (Session -> Robota -> Provider). The provider returns partial content with `state: 'interrupted'`. Streaming renders are debounced at 16ms. Interrupted responses display "Interrupted by user." and failed requests display "Request failed:" messages. The "Thinking..." indicator has been removed; a "Waiting for response... (ESC to interrupt)" message is shown instead.
+`/advisor <profile>[:<model>]` changes it and saves it as `advisorModel` in `~/.robota/settings.json`;
+the flag wins over the setting, and `ROBOTA_DISABLE_ADVISOR=1` turns the advisor off entirely. Safe
+mode ignores the saved advisor.
+
+- **What it sees.** The whole conversation: the system prompt, your messages, the tool calls and
+  their results. It answers with guidance, and the main model is told to check that guidance against
+  its own evidence. The call shows in the transcript as `Advisor(<model>)`. If the conversation does
+  not fit the advisor's context window, the oldest messages are left out (the system prompt is always
+  kept); if it still does not fit, the advisor declines.
+- **Limits.** At most two advisor calls per turn and a fixed number per session. The same question
+  twice in one turn returns the earlier answer.
+- **Prompt cache.** The `Advisor` tool is added only when a session starts with an advisor.
+  `/advisor off` or `/advisor <model>` later changes where calls go, never the tool list, so the main
+  model's cached prompt stays valid. An advisor set in a session that started without one takes effect
+  in the next session.
+- **Cost.** Advisor usage is saved with the session under the advisor's own model, so `/cost`,
+  `robota usage` and resumed sessions include it.
+- **Privacy.** Sending the conversation to a destination the main model does not already use needs
+  your consent once per destination (provider type and endpoint); the answer is remembered in
+  `~/.robota/settings.json`. Print mode cannot ask, so such a call is declined until consent exists.
+  The organization's `allowedProviders` policy applies to the advisor.
+- **Subagents.** Subagents in the same process inherit the advisor; subagents in a child process do
+  not.
+
+A subagent does work in its own context; `/provider` replaces the main model; plan mode blocks changes
+until you approve a plan. The advisor changes nothing and does no work: it reads the conversation and
+gives the main model an opinion.
+
+### Presets, output styles and language
+
+- **Presets** bundle a work style (effort, autonomy, subagent use). `--preset <id>` or `/preset <id>`
+  picks one; the default comes from the `preset` setting, else `default`. Built-in presets are
+  `default`, `autonomous-builder`, `careful-reviewer` and `neutral-executor`; more can be added as
+  files under `~/.robota/presets/`. `/preset` lists them.
+- **Output styles** shape how answers are written: `--output-style <id>` or `/output-style <id>`
+  with `default`, `concise`, `proactive`, `explanatory` or `learning`, plus your own styles from
+  `.robota/output-styles/`. The choice is saved as `outputStyle`.
+- **Language.** `--language <code>` or `/language <code>` (`ko`, `en`, `ja`, `zh`) sets the response
+  language.
+
+### Durable memory
+
+Memory keeps facts worth reusing across sessions (preferences, project conventions, references). It
+is off by default. `--memory` or `--no-memory` decides for one run and overrides the
+`memory.enabled` setting; the `ROBOTA_MEMORY=1|0` environment variable overrides both. Captured facts
+wait in an approval queue unless you pass `--memory-autosave`. In a session, `/memory` lists, shows,
+adds and reviews items (`/memory pending`, `/memory approve <id>`, `/memory reject <id>`).
+
+### Terminal appearance
+
+| Setting             | How                                                                                                                           |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Theme               | `/theme` lists and previews themes; `/theme <id>`; custom themes in `~/.robota/themes/`                                       |
+| Syntax highlighting | `/theme syntax on\|off`                                                                                                       |
+| Animation           | `--reduced-motion` / `--no-reduced-motion`, `ROBOTA_REDUCED_MOTION=1\|0`, setting `reducedMotion`, or `/theme motion on\|off` |
+| Status line         | `/statusline on \| off \| reset \| git on \| git off`                                                                         |
+| Keyboard shortcuts  | `/keybindings` opens `~/.robota/keybindings.json`; see [TUI Keybindings](./keybindings.md)                                    |
+| Screen reader       | see below                                                                                                                     |
+
+For animation and screen-reader mode, the flag wins over the environment variable, which wins over
+the setting.
+
+**Screen reader mode.** The terminal UI draws boxes, repaints a live region and answers menus with
+arrow keys, which a screen reader cannot follow. `--screen-reader` removes all three: no borders,
+rules, banner or spinners; every message carries a role label (`you:`, `assistant:`, `tool:`); menus
+are numbered lines answered by typing the number; markdown tables are flattened to `Header: value`;
+word and line deletions are announced; and the terminal bell rings when a reply or a long tool
+finishes. It is never turned on by detection.
+
+| Channel                        | Value                                                                   |
+| ------------------------------ | ----------------------------------------------------------------------- |
+| `--screen-reader`              | on for this run                                                         |
+| `--no-screen-reader`           | off for this run                                                        |
+| `ROBOTA_SCREEN_READER=1`, `=0` | on / off for the environment; `INK_SCREEN_READER=true` also turns it on |
+| `"screenReader": true`         | on, in `~/.robota/settings.json`                                        |
+
+The first line the UI prints names the mode and what set it, for example
+`[Screen reader mode: on via flag]`. `ROBOTA_SCREEN_READER_STARTUP_QUIET_MS` (default `900`) is how
+long the CLI waits after that line before drawing the prompt; any key ends the wait and `0` skips it.
+
+### Updates
+
+`robota` checks npm for a newer `@robota-sdk/agent-cli` at startup (not in print mode) and prints the
+`npm install -g '@robota-sdk/agent-cli@latest'` command when one exists. It never updates itself. The
+check is cached in `~/.robota/update-check.json`; `--disable-update-check` skips it for one run and
+`--check-update` checks now and exits.
+
+### When something misbehaves
+
+- `robota doctor` (also `checkup`, `diagnose`) checks the configuration and runtime without starting
+  a session, including how shell commands are contained. `robota doctor --repair <check-id> [-y]`
+  applies one allowlisted fix. In a session, `/doctor` runs the same checks.
+- `robota --safe-mode` starts with every customization off: project and user instruction files
+  (`AGENTS.md`, `CLAUDE.md`), skills, custom commands, agent definitions, output styles, external
+  presets, plugins, hooks from every settings layer, and MCP servers. Your provider, model, built-in
+  tools, permission rules, themes and keybindings still apply, and nothing on disk changes. If the
+  problem goes away, turn the customizations back on one at a time. Safe mode starts the folder
+  Restricted whatever its trust decision, so it also works in print and serve mode.
+
+## Permissions
+
+Every tool call is checked against the permission mode and your allow, deny and ask rules.
+
+| Mode                | Reads | File edits | Shell commands   |
+| ------------------- | ----- | ---------- | ---------------- |
+| `plan`              | yes   | refused    | refused          |
+| `default`           | yes   | ask        | ask              |
+| `acceptEdits`       | yes   | yes        | ask              |
+| `bypassPermissions` | yes   | yes        | yes              |
+| `auto`              | yes   | yes        | model classifier |
+
+- Choose the mode with `--permission-mode <mode>` (`--dry-run` means `plan`), or in a session with
+  `/mode <mode>` or `/permissions <mode>`.
+- `--allowed-tools a,b` adds tools that run without asking; `--denied-tools a,b` removes tools.
+- `/permissions` shows the rules in force by settings file, the "allow always" approvals, and recent
+  refusals with their reason. `/permissions retry <n>` lets one call the `auto` classifier blocked run
+  when the agent tries it again.
+- `/sandbox auto-allow | regular | off` controls the OS sandbox for shell commands.
+- Built-in read-only commands (`ls`, `cat`, `grep`, `git status`, `git diff` and similar) run
+  without asking in every mode, `plan` included.
+- `ask` rules, removing a critical path, and writes into protected paths such as `.git`, `.robota`,
+  `.claude` or `.agents` never run without asking, even under `bypassPermissions`.
+
+The full rules, the `auto` classifier, the sandbox and hooks are in
+[Permissions and Hooks](./permissions-and-hooks.md).
+
+## Skills
+
+A skill is a folder with a `SKILL.md` file that the agent loads when needed. `robota` discovers skills
+in a trusted project and then in your home folder, checking these paths in each, first match per name
+winning:
+
+1. `.robota/skills/<name>/SKILL.md`
+2. `.claude/skills/<name>/SKILL.md` (Claude Code compatible)
+3. `.claude/commands/<name>.md` (Claude Code's older command format)
+4. `.agents/skills/<name>/SKILL.md`
+
+Each skill becomes a slash command: `/audit src/index.ts` runs the `audit` skill with arguments.
+`/skills` lists them. Skills from plugins show their plugin (`/audit (my-plugin) ...`), and plugin
+commands use `plugin:command` (`/my-plugin:audit`).
+
+The agent activates a skill through the `/skills` command tool (`robota_command_skills` with
+`args: "<skill-name> [args]"`), guided by the skill descriptions in its system prompt. Mentioning a
+skill in text does not activate it.
+
+| Frontmatter field          | Type    | Meaning                                                   |
+| -------------------------- | ------- | --------------------------------------------------------- |
+| `name`                     | string  | Command name (defaults to the folder or file name)        |
+| `description`              | string  | One line shown in autocomplete and to the model           |
+| `argument-hint`            | string  | Placeholder for the arguments, e.g. `<file>`              |
+| `disable-model-invocation` | boolean | `true`: only a person can run it                          |
+| `user-invocable`           | boolean | `false`: hidden from the `/` menu, only the model runs it |
+| `allowed-tools`            | list    | Tools the skill may use                                   |
+| `model`                    | string  | Model to run the skill with                               |
+| `effort`                   | string  | Effort level to run the skill with                        |
+| `context`                  | string  | `fork` runs the skill in a subagent                       |
+| `agent`                    | string  | Agent definition for that subagent                        |
+
+Before a skill runs, its body is expanded: `$ARGUMENTS` (all arguments), `$ARGUMENTS[N]` or `$N`
+(one argument, from 0) and `${CLAUDE_SESSION_ID}` (the session id). `${CLAUDE_SKILL_DIR}` is
+recognized but currently replaced with an empty string, so a skill cannot use it to find its own
+folder. A `` !`command` `` in the body is replaced by that command's output, run in the project
+folder.
+
+Agent definitions for subagents are discovered in `.robota/agents/`, `.agents/agents/` and
+`.claude/agents/`; the built-in ones are `general-purpose`, `Explore` and `Plan`.
+
+## Plugins
+
+A CLI plugin is a folder that adds skills, commands, agent definitions, hooks (`hooks/hooks.json`) and
+MCP servers (`.mcp.json`) at once. Plugins come from marketplaces (a GitHub `owner/repo` or git URL)
+and are installed under `~/.robota/plugins/` (user) or `.robota/plugins/` (project).
+
+`/plugin` opens a menu to add marketplaces, browse and install plugins, and uninstall them. The same
+actions as text:
+
+```bash
+/plugin install <name>@<marketplace>
+/plugin uninstall <name>@<marketplace>
+/plugin enable <name>@<marketplace>
+/plugin disable <name>@<marketplace>
+/plugin marketplace add <source>
+/plugin marketplace remove <name>
+/plugin marketplace update <name>
+/plugin marketplace list
+```
+
+`/reload-plugins` reloads plugin skills, commands and hooks without restarting. These CLI plugins are
+different from the SDK's runtime plugins for the `Robota` class; both are covered in
+[Plugins](./plugins.md).
+
+## Background work and automation
+
+- **Subagents.** `/agent` starts and manages background subagent jobs: `/agent <prompt>`,
+  `/agent <agent-name> <prompt>`, `list`, `parallel`, `wait <group-id>`, `read <agent-id> [offset]`,
+  `send <agent-id> <prompt>`, `stop <agent-id>`, `close <agent-id>`. The agent uses the same command
+  to delegate work. Subagents get their own conversation and tools and inherit the session's hooks and
+  permissions.
+- **Background tasks.** `/background list | read <task-id> [offset] | cancel <task-id> | close <task-id>`
+  covers every background job, including a `/fork`.
+- **Repeat a prompt.** `/loop 5m check the build` repeats on a fixed cadence; `/loop check the build`
+  lets each iteration choose its next delay (1 to 60 minutes); bare `/loop` does bounded maintenance of
+  the current work. `/loop list` and `/loop stop <id>` manage loops; Esc also stops a waiting
+  self-paced loop when it is the only one. Loops expire after seven days, and a session has at most
+  three. For a bare `/loop`, a trusted project's `.robota/loop.md` is used, else `~/.robota/loop.md`
+  (at most 4096 bytes; it grants no permissions).
+- **Wake later.** `/schedule in <N><s|m|h|d> <instruction>` or `/schedule cron "<expr>" <instruction>`
+  wakes the agent later; `list`, `pause <id>`, `resume <id>` and `edit <id> <spec>` manage schedules.
+  `/monitor "<command>" "<pattern>" <instruction>` wakes it when a line of the command's output
+  matches. Prefer `/monitor` over polling with `/loop` when something can notify you.
+- **Plans.** `/plan <objective>` drafts a plan and keeps the session read-only until you
+  `/plan approve`; `/plan status` and `/plan revert` go with it.
+- **Terminal helpers.** `/shell [command]` drops to an interactive shell and returns, `/editor [text]`
+  composes a message in `$EDITOR`, and `/git status | diff [...] | commit [<subject>]` shows status and
+  diffs or commits staged changes after confirming.
+
+### Workflows (`/workflows`)
+
+`/workflows` authors and runs DAG workflows saved as JSON files under `.workflows/`:
+
+```bash
+/workflows create "<description>" [--input key=value] [--name <name>]  # design with the model, save, run
+/workflows build "<description>" [--input key=value] [--name <name>]   # design and save, do not run
+/workflows list                   # node kinds available (built-in and saved in this workspace)
+/workflows catalog                # saved workflow files
+/workflows validate <file.json>
+/workflows run <file.json> [--detach]
+/workflows status <run-id>        # a detached run
+/workflows cancel <run-id>
+```
+
+`create` asks the active model to design a workflow from your description, saves it as
+`.workflows/<name>.json` (prompt-backed nodes go under `.workflows/nodes/`), runs it, and reports the
+saved path and outputs. The agent can run `create` and `build` itself; the other subcommands are
+yours.
+
+## Context, checkpoints and cost
+
+- The status bar shows how full the model's context window is (warning color from 70%, error color
+  from 90%). The session compacts automatically at about 83.5%. `/compact [instructions]` compacts
+  now, for example `/compact focus on the API design decisions`.
+- `/context` shows the context window and the files loaded as references; `/context add <path>`,
+  `remove <path>` and `clear` manage references, and `/context auto` inspects or changes the
+  auto-compact policy. See [Context Management](./context-management.md).
+- `/rewind` lists edit checkpoints; `inspect`, `restore` (or `code`), `rollback`, `fork`, `switch` and
+  `branches` work with them. Checkpoints need a trusted folder.
+- `/cost` shows the session's token usage and estimated cost; `/cost budget [<amount>|clear]` manages a
+  monthly budget.
+
+## Usage, logs and evals
+
+`robota usage` summarizes your local session history without calling a provider or printing prompts,
+responses, paths or tool payloads: sessions, turns, tokens, cost (with how confident the estimate is),
+daily totals and breakdowns by model and surface.
+
+```bash
+robota usage                                   # last 7 days
+robota usage --period 30d --timezone Asia/Seoul
+robota usage --format json                     # versioned JSON (schemaVersion: 1)
+robota usage export --endpoint http://127.0.0.1:4318              # metrics to a local OTLP collector
+robota usage export --signal traces --endpoint http://127.0.0.1:4318
+```
+
+`usage export` sends content-free OTLP/HTTP JSON (`--signal metrics`, `traces` or `logs`) to a
+loopback collector only. `robota session analyze` reports timing for the latest session
+(`--session <id>`, `--last <n>`, or `--usage` for tokens by agent and background task). The desktop app
+shows the same usage report.
+
+Each session keeps a JSONL event log (provider requests and responses, tool calls and results,
+background task events) with its saved record: in the trusted project's `.robota/` folder on Linux,
+under `~/.robota/` otherwise. Background subagents write their own transcripts next to it. `/validate-session` checks that the
+current log is complete enough to replay.
+
+`robota eval <definition.mjs> [--threshold <0..1>]` runs an evals-as-code definition (cases, metrics
+and a threshold) against the configured provider and exits `1` when the score falls below the
+threshold, so it can gate CI.
+
+## MCP servers and external events
+
+MCP servers are defined under `mcpServers` in the settings files, and none is used until you approve
+it. `/mcp` shows every server's approval and sign-in state; `/mcp approve|reject|revoke <server>`
+decides trust, and `/mcp login <server>` signs in to an OAuth server from inside the session. Outside
+a session, `robota mcp login <name>` and `robota mcp logout <name>` do the same. In the `robota`
+executable, approvals last for the session and a remote server that signs in with OAuth connects once
+approved and signed in; a stdio server needs an authority that a host embedding the CLI supplies.
+
+`robota mcp serve` turns `robota` into an MCP server for one session, over stdio, authenticated
+loopback HTTP (`--http-token-file`, `--http-port`), or remote HTTP as an OAuth resource server
+(`--http-public-url`, `--http-host`, `--oauth-issuer`, `--oauth-scopes`, `--oauth-allowed-subjects`,
+`--trusted-proxy`).
+
+`--external-event-grant <file>` lets a verified outside service send text events into a terminal
+session (with `--external-event-port` and `--external-event-trusted-proxy`); `/events` lists and
+revokes the grants.
+
+See [Model Context Protocol (MCP)](./mcp.md).
+
+## Devices and remote control
+
+`/remote-control enable` pairs a phone or another browser to co-drive the running session over
+WebRTC. `/devices` manages this device's identity among your devices, `/peers` lists other live
+sessions and linked devices and sends them messages or files, and `/handoff` moves the conversation to
+another session or device. All four are user-only. See [Devices, Peers and Remote Control](./devices-and-remote.md).
+
+## Command reference
+
+### Options
+
+| Option                                                                                                                                                    | Meaning                                                                   |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `-p`                                                                                                                                                      | Print mode: run the prompt argument (or stdin) and exit                   |
+| `--output-format text\|json\|stream-json`                                                                                                                 | Print-mode output format (default `text`)                                 |
+| `--bare`                                                                                                                                                  | Print mode: raw text only                                                 |
+| `--json-schema <schema>`                                                                                                                                  | Print mode: ask for JSON matching this schema                             |
+| `--system-prompt <text>`                                                                                                                                  | Replace the system prompt                                                 |
+| `--append-system-prompt <text>`                                                                                                                           | Add to the system prompt                                                  |
+| `--task-file <path>`                                                                                                                                      | Append a task file to the system prompt                                   |
+| `--language <code>`                                                                                                                                       | Response language                                                         |
+| `--max-turns <n>`                                                                                                                                         | Stop after this many agent turns                                          |
+| `--goal <objective>`                                                                                                                                      | Pursue an objective autonomously, then exit                               |
+| `--goal-max-iterations <n>`                                                                                                                               | Turn budget for `--goal` (default 25)                                     |
+| `-c`, `--continue`                                                                                                                                        | Continue the most recent session                                          |
+| `-r`, `--resume <id\|name>`                                                                                                                               | Resume a session                                                          |
+| `-n`, `--name <name>`                                                                                                                                     | Name the new session                                                      |
+| `--fork-session`                                                                                                                                          | With `-c`/`-r`: continue as a new session, leaving the original untouched |
+| `--no-session-persistence`                                                                                                                                | Do not save this run                                                      |
+| `--permission-mode <mode>`                                                                                                                                | `plan`, `default`, `acceptEdits`, `bypassPermissions` or `auto`           |
+| `--dry-run`                                                                                                                                               | Same as `--permission-mode plan`                                          |
+| `--allowed-tools <list>`                                                                                                                                  | Tools that run without asking (comma-separated)                           |
+| `--denied-tools <list>`                                                                                                                                   | Tools to remove (comma-separated)                                         |
+| `--safe-mode`                                                                                                                                             | Start with every customization off                                        |
+| `--provider <profile>`                                                                                                                                    | Use this provider profile for the run                                     |
+| `--set-current`                                                                                                                                           | With `--provider` or `--configure-provider`: save it as the default       |
+| `--model <model>`                                                                                                                                         | Model for this run                                                        |
+| `--fallback-model <list>`                                                                                                                                 | Models to move a turn to when the model is overloaded                     |
+| `--effort <level>`                                                                                                                                        | Model effort                                                              |
+| `--advisor <profile[:model]>\|off`                                                                                                                        | Model the main model may consult                                          |
+| `--preset <id>`                                                                                                                                           | Preset to apply                                                           |
+| `--output-style <id>`                                                                                                                                     | Response style                                                            |
+| `--memory`, `--no-memory`                                                                                                                                 | Turn durable memory on or off for this run                                |
+| `--memory-autosave`                                                                                                                                       | Save captured memory without the approval queue                           |
+| `--screen-reader`, `--no-screen-reader`                                                                                                                   | Plain-text screen-reader mode on or off                                   |
+| `--reduced-motion`, `--no-reduced-motion`                                                                                                                 | Animation off or on                                                       |
+| `--configure`                                                                                                                                             | Interactive provider setup                                                |
+| `--configure-provider <profile>`                                                                                                                          | Save a provider profile from flags                                        |
+| `--type`, `--model`, `--base-url`, `--api-key`, `--api-key-env`                                                                                           | Profile fields for `--configure-provider`                                 |
+| `--settings-scope user\|project-local`                                                                                                                    | Which settings file provider setup writes                                 |
+| `--session-log <path>`                                                                                                                                    | Replay a recorded session log instead of calling a model                  |
+| `--serve`                                                                                                                                                 | Run the headless runtime over a loopback WebSocket                        |
+| `--open`                                                                                                                                                  | With `--serve`: also serve the web GUI on localhost and open a browser    |
+| `--attach [--screen-reader\|--no-screen-reader]`                                                                                                          | Open the terminal UI on this folder's running daemon                      |
+| `--external-event-grant <file>`                                                                                                                           | Admit verified external events into this terminal session (repeatable)    |
+| `--external-event-port <port>`                                                                                                                            | Loopback port for external events                                         |
+| `--external-event-trusted-proxy <ip>`                                                                                                                     | Proxy whose `X-Forwarded-For` is believed (repeatable)                    |
+| `--http-token-file`, `--http-port`, `--http-host`, `--http-public-url`, `--oauth-issuer`, `--oauth-scopes`, `--oauth-allowed-subjects`, `--trusted-proxy` | Transport options for `robota mcp serve`                                  |
+| `--reset`                                                                                                                                                 | Delete `~/.robota/settings.json` after confirming                         |
+| `-y`, `--yes`                                                                                                                                             | Skip confirmations (required for `--reset` without a terminal)            |
+| `--check-update`                                                                                                                                          | Check npm for a newer version and exit                                    |
+| `--disable-update-check`                                                                                                                                  | Skip the startup update check                                             |
+| `--version`                                                                                                                                               | Print the version                                                         |
+| `-h`, `--help`                                                                                                                                            | Print help                                                                |
+
+### Subcommands
+
+| Command                                                                          | Meaning                                                                                                                                        |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `robota init`                                                                    | Write `AGENTS.md` and `.robota/settings.json`                                                                                                  |
+| `robota trust [status\|grant\|revoke] [--yes]`                                   | Show or change this folder's trust decision                                                                                                    |
+| `robota doctor [--repair <check-id>] [-y]`                                       | Diagnose configuration and runtime readiness (aliases `checkup`, `diagnose`)                                                                   |
+| `robota open '<robota://open?v=1&prompt=...&cwd=...>'`                           | Start a session in a trusted folder with the prompt filled in, unsent                                                                          |
+| `robota usage [--period 7d\|30d] [--timezone <IANA>] [--format text\|json]`      | Personal usage report                                                                                                                          |
+| `robota usage export [--signal metrics\|traces\|logs] --endpoint <url>`          | Export content-free usage to a loopback OTLP collector                                                                                         |
+| `robota session list [--format text\|json]`                                      | Live processes, saved sessions and supervised sessions                                                                                         |
+| `robota session view [--cwd <dir>] [--name <text>] [--pr <n>] [--state <state>]` | Browse live supervised sessions (terminal only)                                                                                                |
+| `robota session start --background [--name <name>] [event-grant options]`        | Start a supervised session that outlives the terminal                                                                                          |
+| `robota session attach <id> [--observe]`                                         | Drive or watch a supervised session                                                                                                            |
+| `robota session stop <id>`                                                       | Stop a supervised session                                                                                                                      |
+| `robota session rename <id> <name>`                                              | Rename a supervised session                                                                                                                    |
+| `robota session link-pr <id> <https-pr-url>` / `unlink-pr <id>`                  | Set or clear a supervised session's PR link                                                                                                    |
+| `robota session events list <id> [--json]` / `events revoke <id> <grant-id>`     | External-event grants of a supervised session                                                                                                  |
+| `robota session analyze [--session <id>\|--last <n>\|--usage]`                   | Timing and token analysis of saved sessions                                                                                                    |
+| `robota daemon start [--json] [--restricted-workspace]`                          | Start or reuse this folder's daemon; `--json` prints its id and URL; `--restricted-workspace` starts it Restricted in a folder not trusted yet |
+| `robota daemon status [--json]` / `stop` / `unlock`                              | Check, stop, or clear a stale start lock                                                                                                       |
+| `robota mcp serve [options]`                                                     | Serve one session as an MCP server                                                                                                             |
+| `robota mcp login <name> [--client-secret] [--no-browser]`                       | Sign in to an OAuth MCP server                                                                                                                 |
+| `robota mcp logout <name>`                                                       | Sign out and revoke its tokens                                                                                                                 |
+| `robota eval <definition> [--threshold <0..1>]`                                  | Run an eval definition; exit 1 below the threshold                                                                                             |
+| `robota user-local storage list \| memory ...`                                   | The `/user-local` command outside a session                                                                                                    |
+
+### Slash commands
+
+Type `/` for the command menu: arrow keys move, Tab inserts the command without running it, Enter
+runs it. Skills and plugin commands appear below the built-in commands. `/help` lists everything
+available in the current session.
+
+| Command                                                                    | What it does                                                          |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **Session**                                                                |                                                                       |
+| `/help`                                                                    | List available commands                                               |
+| `/clear`                                                                   | Clear the conversation                                                |
+| `/resume`                                                                  | Pick a previous session to resume                                     |
+| `/rename <name>`                                                           | Rename the session                                                    |
+| `/fork [name] [--same-dir]`                                                | Copy the conversation into a background session and keep working here |
+| `/cd <directory>`                                                          | Continue as a new session in another folder                           |
+| `/cost [budget [<amount>\|clear]]`                                         | Token usage and cost; monthly budget                                  |
+| `/validate-session`                                                        | Check the session log is replay-complete                              |
+| `/exit`                                                                    | Exit                                                                  |
+| **Model**                                                                  |                                                                       |
+| `/provider [current\|list\|switch\|add\|test]`                             | Manage provider profiles                                              |
+| `/effort [level]`                                                          | Show or change model effort                                           |
+| `/advisor [<profile>[:<model>]\|off]`                                      | Show, set or turn off the advisor                                     |
+| `/preset [list\|<id>]`                                                     | List or switch presets                                                |
+| `/output-style [list\|<id>]`                                               | List or switch response styles                                        |
+| `/language <code>`                                                         | Set the response language                                             |
+| **Permissions**                                                            |                                                                       |
+| `/permissions [mode\|retry <n>]`                                           | Rules, recent refusals, or change mode                                |
+| `/mode [mode]`                                                             | Show or change the permission mode                                    |
+| `/sandbox [auto-allow\|regular\|off]`                                      | How shell commands are confined                                       |
+| **Context and memory**                                                     |                                                                       |
+| `/compact [instructions]`                                                  | Compact the context now                                               |
+| `/context [list\|add\|remove\|clear\|auto]`                                | Context window, references, auto-compact policy                       |
+| `/memory [list\|show\|add\|pending\|approve\|reject\|used]`                | Durable project memory                                                |
+| `/user-local [storage\|memory]`                                            | Inspect user-local storage and memory                                 |
+| `/rewind [list\|inspect\|restore\|code\|rollback\|fork\|switch\|branches]` | Edit checkpoints                                                      |
+| **Work**                                                                   |                                                                       |
+| `/skills [list\|<skill> [args]]`                                           | List or run skills                                                    |
+| `/agent ...`                                                               | Background subagent jobs                                              |
+| `/background [list\|read\|cancel\|close]`                                  | Background tasks                                                      |
+| `/goal <objective>\|status\|cancel`                                        | Autonomous goal                                                       |
+| `/plan <objective>\|status\|approve\|revert`                               | Plan, review, approve, act                                            |
+| `/loop ...`                                                                | Repeat a prompt                                                       |
+| `/schedule ...`                                                            | Wake the agent on a timer                                             |
+| `/monitor "<command>" "<pattern>" <instruction>`                           | Wake the agent on matching output                                     |
+| `/workflows ...`                                                           | Author and run DAG workflows                                          |
+| `/shell [command]`                                                         | Interactive shell, then return (terminal only)                        |
+| `/editor [text]`                                                           | Compose a message in `$EDITOR` (terminal only)                        |
+| `/git status\|diff\|commit`                                                | Git status, diffs, commit staged changes                              |
+| **Extensions and connections**                                             |                                                                       |
+| `/plugin ...`                                                              | Manage plugins and marketplaces                                       |
+| `/reload-plugins`                                                          | Reload plugin resources                                               |
+| `/mcp [status\|approve\|reject\|revoke\|login\|logout]`                    | MCP server trust and sign-in                                          |
+| `/events [revoke <grant-id>]`                                              | External-event grants                                                 |
+| `/settings`                                                                | Enable or disable transports and set their options                    |
+| `/remote-control [enable\|stop\|status\|devices\|revoke]`                  | Pair a device to co-drive this session                                |
+| `/devices [list\|init\|add\|join\|revoke\|recover]`                        | This device's identity among your devices                             |
+| `/peers [send\|send-file]`                                                 | Other live sessions and linked devices                                |
+| `/handoff [session-id]`                                                    | Move this conversation to another session or device                   |
+| **Setup and appearance**                                                   |                                                                       |
+| `/doctor [repair <check-id>]`                                              | Diagnose configuration                                                |
+| `/theme [list\|<id>\|syntax on\|off\|motion on\|off]`                      | Terminal theme (terminal only)                                        |
+| `/keybindings`                                                             | Edit keyboard shortcuts (terminal only)                               |
+| `/statusline [on\|off\|reset\|git on\|git off]`                            | Status line fields                                                    |
+| `/reset`                                                                   | Delete settings and exit                                              |
+
+The agent can run some commands itself through a command tool: `/skills`, `/agent`, `/compact`,
+`/context` (reading), `/cost` (the report), `/memory` (except `approve` and `reject`), `/mcp status`,
+`/schedule`, `/monitor`, `/loop`, and `/workflows create` and `build`. Every other command, and every
+trust, credential or pairing action, runs only when you type it.
+
+## The terminal UI
+
+- **Input.** Up and Down move between the rows of a long prompt; Ctrl+R searches prompt history.
+  Pasted multi-line text collapses to a label such as `[Pasted text #1 +42 lines]` and is expanded
+  when you send it.
+- **Queue.** A prompt sent while the agent is working waits in a queue (the input border changes
+  color) and is sent when the turn ends; Backspace cancels it.
+- **Interrupt.** Esc stops the current response; the partial answer is kept and marked interrupted.
+  Ctrl+C exits after saving the session; a second Ctrl+C during that shutdown quits at once.
+- **Permission prompts.** A call that needs approval shows a prompt with allow once, allow for the
+  session, allow for the project, and deny. A key pressed just as the prompt appears does not answer
+  it.
+- **Transcript.** Tool calls show their status with a symbol and a color; edits show as diffs; long
+  command output is collapsed; background jobs show as a tree.
+- **Session name.** A named session shows its name in the input border, the terminal title and the
+  status bar.
+
+Known limitation: Korean and other CJK input methods can crash macOS Terminal.app because of how the
+terminal handles raw-mode input. Use another terminal such as [iTerm2](https://iterm2.com/).
+
+The CLI keeps no session logic of its own: `InteractiveSession` in `@robota-sdk/agent-framework` owns
+the session, and the terminal UI renders its events. See the
+[agent-cli SPEC](../../packages/agent-cli/docs/SPEC.md) for the CLI's contract and the
+[agent-framework SPEC](../../packages/agent-framework/docs/SPEC.md) for the session it drives.

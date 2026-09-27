@@ -6,7 +6,7 @@ Parallel batch document processor that uses AI to summarize, extract keywords, a
 
 - Discovers all `.md` files in `sample-docs/` automatically
 - Processes documents in parallel (max 3 concurrent) using `p-limit`
-- Each document gets its own `createQuery` instance
+- Each document gets its own `createQuery` instance (`maxTurns: 1`)
 - Writes `output/report.json` and `output/report.md` on completion
 
 ## Setup
@@ -15,9 +15,12 @@ Parallel batch document processor that uses AI to summarize, extract keywords, a
 cd examples/batch-processor
 npm install          # or pnpm install
 
-cp .env.example .env
-# Edit .env and set ANTHROPIC_API_KEY
+export ANTHROPIC_API_KEY=your-key
 ```
+
+The script reads `ANTHROPIC_API_KEY` from the environment and does not load `.env` itself. To keep the key in
+a file, copy `.env.example` to `.env` and run with Node's `--env-file` flag instead:
+`npx tsx --env-file=.env src/index.ts`.
 
 ## Run
 
@@ -41,6 +44,8 @@ Found 3 document(s). Processing with concurrency=3…
 
 Report written to output/report.json and output/report.md
 ```
+
+`output/` is created in the directory you run the command from.
 
 ## Output
 

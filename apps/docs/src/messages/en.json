@@ -10,10 +10,10 @@
     "backToSite": "← robota.io"
   },
   "home": {
-    "badge": "open-source · AGPL-3.0 & commercial",
+    "badge": "open source · AGPL-3.0 or commercial",
     "title": "Robota SDK",
     "titleHighlight": "Documentation",
-    "description": "Multi-provider AI agent SDK and CLI — TypeScript-native, self-hostable. Supports Anthropic, OpenAI, DeepSeek, Gemini, and local models.",
+    "description": "Composable TypeScript libraries for building AI agents: strict types, tool calling, a plugin and event architecture, and one provider interface for Anthropic, OpenAI, Gemini and any OpenAI-compatible endpoint, local models included.",
     "getStarted": "Get Started →",
     "readGuide": "Read the Guide",
     "quickInstall": "Quick Install"

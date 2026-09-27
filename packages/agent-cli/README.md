@@ -1,404 +1,232 @@
 **Language:** [English](README.md) | [한국어](docs/README-KO.md)
 
-> **Beta software** — currently `3.0.0-beta`. APIs and behavior may change before stable release.
-> Please [report issues](https://github.com/woojubb/robota/issues) to help us improve.
-
 # @robota-sdk/agent-cli
 
-AI coding assistant CLI built on Robota SDK. Loads AGENTS.md/CLAUDE.md for project context and provides a tool-calling REPL with Claude Code-compatible permission modes.
+`robota` is an AI coding assistant for the terminal, and the reference app of Robota — a collection
+of TypeScript libraries for building AI agents. It reads your project, edits files and runs commands
+under a permission system you control, and works with Anthropic, OpenAI, Gemini, DeepSeek, Qwen and
+local OpenAI-compatible models.
 
-## Why Robota?
+The CLI is assembled from the same packages you can use in your own app: `@robota-sdk/agent-framework`
+for the session, `@robota-sdk/agent-ui-terminal` for the terminal UI, and one package per model
+provider. To build your own agent rather than use this one, start with the
+[SDK guide](../../content/guide/sdk.md).
 
-|                                                   | Robota | Claude Code | Aider |
-| ------------------------------------------------- | :----: | :---------: | :---: |
-| Multi-provider (Anthropic, OpenAI, Gemini, Qwen…) |   ✅   |     ❌      |  ✅   |
-| Embed SDK in your own app                         |   ✅   |     ❌      |  ❌   |
-| Local models (LM Studio, Ollama via OpenAI API)   |   ✅   |     ❌      |  ✅   |
-| Open source (AGPL-3.0)                            |   ✅   |   partial   |  ✅   |
-| Claude Code config compatible (CLAUDE.md, modes)  |   ✅   |      —      |  ❌   |
-
-## Embed in Your App
-
-```typescript
-import { createAgentRuntime } from '@robota-sdk/agent-framework';
-import { createAnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-
-const runtime = createAgentRuntime({
-  cwd: process.cwd(),
-  provider: createAnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
-  // projectAccess: hostWorkspaceDecision,
-});
-const session = runtime.createSession({ permissionMode: 'bypassPermissions' });
-
-// submit() is event-driven and resolves to void — drive output via listeners
-session.on('text_delta', (delta) => process.stdout.write(delta));
-session.on('complete', (result) => console.log(result.response));
-
-await session.submit('Explain this codebase');
-```
-
-A bare `cwd` is provenance, not project authority. Without a host-issued
-`TWorkspaceProjectAccess` decision the runtime is observably Restricted and does not load project
-context, settings, memory, sessions, or logs. Embedders establish that decision through the
-framework `WorkspaceTrustService`; a path, boolean, or generic filesystem cannot substitute for it.
-Trusted composition is rejected when `cwd` resolves outside that authority's frozen workspace root.
-
-## Prerequisites
-
-Node.js **22 or higher** is required. The TUI renderer ([ink 7.x](https://github.com/vadimdemedes/ink)) requires Node.js 22+.
-
-```bash
-node --version  # Must output v22.x.x or higher
-```
-
-If your version is below 22, upgrade using one of:
-
-```bash
-# nvm
-nvm install 22 && nvm use 22
-
-# Volta
-volta install node@22
-```
-
-## Demo
+> **Beta.** Behavior may change before the stable release. Please
+> [report issues](https://github.com/woojubb/robota/issues).
 
 ![robota reading a project file and explaining its entry point in the terminal](./docs/demo.gif)
 
-Recorded from the real CLI with `pnpm --filter @robota-sdk/agent-cli demo:record`. The tools run for
-real; the model turns are replayed from a recorded session log so the recording needs no API key —
-see [docs/DEMO-SCRIPT.md](./docs/DEMO-SCRIPT.md).
+## Install
 
-## Installation
+Requires Node.js 22.12.0 or later.
 
 ```bash
-# Try it now — no install needed
-npx @robota-sdk/agent-cli
-
-# Install globally for persistent use
-npm install -g @robota-sdk/agent-cli
+npm install -g @robota-sdk/agent-cli   # installs the `robota` command
+npx @robota-sdk/agent-cli              # or run it once without installing
 ```
 
-> **macOS users**: Korean/CJK IME input may crash macOS Terminal.app. Use **[iTerm2](https://iterm2.com/)** instead. This is a known Ink + Terminal.app issue shared with Claude Code.
+On macOS, Korean and other CJK input methods can crash inside Terminal.app; use a terminal such as
+[iTerm2](https://iterm2.com/) instead.
 
-After installing globally, the `robota` command is available system-wide:
+## First run
+
+Run `robota` inside a Git repository. It first asks whether to trust the folder: only a trusted
+workspace can load the project's own settings, hooks, skills, plugins and MCP servers. Answer no and
+the session starts **Restricted**, with your user settings and the built-in tools only. The first
+time, it then walks you through choosing a provider and filling in its fields (model, base URL, API
+key), and saves the profile to `~/.robota/settings.json`.
 
 ```bash
-robota                        # Interactive REPL
-robota "prompt"               # REPL with initial prompt
-robota -p "List all files"    # Print mode (one-shot, exit after response)
+cd my-project
+robota
 ```
 
-Loaded as a library (`startCli`), the package is ESM-only: use `import` or `import()`. It has no
-`require()` entry, because the Ink TUI it bundles loads `yoga-layout`, which starts with a top-level
-`await` that `require()` cannot run.
-
-### Environment Variables
-
-| Variable            | Description                                              | Provider  |
-| ------------------- | -------------------------------------------------------- | --------- |
-| `ANTHROPIC_API_KEY` | Anthropic API key                                        | Anthropic |
-| `OPENAI_API_KEY`    | OpenAI API key                                           | OpenAI    |
-| `GEMINI_API_KEY`    | Google Gemini API key                                    | Gemini    |
-| `DEEPSEEK_API_KEY`  | DeepSeek API key                                         | DeepSeek  |
-| `DASHSCOPE_API_KEY` | Alibaba Cloud Model Studio key                           | Qwen      |
-| `BRAVE_API_KEY`     | Brave Search API key (optional — enables WebSearch tool) | WebSearch |
-
-Set your key before running:
+To set up without prompts (for example on a server), create the profile and trust the workspace
+with flags. The profile stores a reference to the environment variable, not the key itself, and the
+variable must be set when you run the command:
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
+robota --configure-provider anthropic --type anthropic --model claude-sonnet-4-6 \
+  --api-key-env ANTHROPIC_API_KEY --set-current
+robota trust --yes
 ```
 
-## Development Setup (Monorepo)
+`robota init` writes a starter `AGENTS.md` and `.robota/settings.json` for the current project.
+`robota --configure` reruns the interactive provider setup, and `robota --reset` deletes
+`~/.robota/settings.json`.
+
+## What you can do
+
+### Work in the terminal UI
+
+`robota` starts an interactive session. Type a request, or `/` to open the command menu (`/help`
+lists every command). `Esc` stops the current response, `Ctrl+R` searches the prompts you have typed
+before, and every key can be rebound in `~/.robota/keybindings.json` (see the
+[keybindings guide](../../content/guide/keybindings.md)).
+
+The agent works with file and shell tools (`Read`, `Write`, `Edit`, `Glob`, `Grep`, `Bash`),
+`WebFetch`, `WebSearch` (needs a `BRAVE_API_KEY`) and `AskUserQuestion`, and can hand work to
+subagents and background tasks. Your project's `AGENTS.md` and `CLAUDE.md` are loaded as context
+in a trusted workspace, and `@path` in a prompt attaches a project file.
 
 ```bash
-# Build all packages, including the CLI and its web monitor
-pnpm build
+robota                              # new session
+robota --permission-mode acceptEdits
+robota --screen-reader              # plain-text mode for screen readers
 ```
 
-`pnpm build` runs each package's own build in dependency order. The CLI build runs `tsdown` and then
-copies the GUI web app (`agent-gui-web/dist`) into `dist/web`. To see the published tarball, run
-`pnpm --filter @robota-sdk/agent-cli pack`.
+### Run one prompt from a script
 
-Standalone Bun binaries are written to `dist-bun` (`pnpm --filter @robota-sdk/agent-cli build:bun`) and
-`dist-bun-headless` (`build:bun:headless`). Native dependencies make these builds exact-host: each
-supported Linux x64/arm64, macOS x64/arm64, or Windows x64 binary must be compiled on its matching host,
-and a mismatched target is refused.
-
-## Usage (Monorepo)
+Print mode (`-p`) runs a single prompt without the terminal UI and exits. With no prompt argument it
+reads the prompt from piped stdin.
 
 ```bash
-# From monorepo root
-cd packages/agent-cli
-
-# Development mode (no build needed)
-pnpm dev
-
-# Production mode (requires build)
-pnpm start
-
-# With arguments
-pnpm dev -- --version
-pnpm dev -- --permission-mode plan
-pnpm dev -- -p "List all TypeScript files in src/"
+robota -p "List the TypeScript files in src/"
+robota -p "Summarize this repository" --output-format json   # one JSON object: result, session_id
+cat task.md | robota -p                                      # prompt from stdin
+robota -p "Review this diff" --bare                          # raw text for pipelines
+robota --goal "make the failing tests pass"                  # work toward a goal over several turns
 ```
 
-## CLI Flags
+`--output-format` is `text` (default), `json` or `stream-json`. `--json-schema` asks for JSON matching
+a schema, and `--system-prompt` / `--append-system-prompt` change the system prompt for the run. The
+exit code is `0` on success and `1` on an error; `-p` exits `3` when no usable provider is
+configured, and a `--goal` run that stops without reaching its goal exits `2`. In a Git repository
+you have not trusted, print mode, `--goal`, `--serve`, `robota mcp serve`, `robota daemon start` and
+`robota session start` refuse to start; with `--safe-mode` the first four run Restricted instead, and
+`robota daemon start --restricted-workspace` starts the daemon Restricted.
 
-```
-robota                              # Interactive REPL (default mode)
-robota "prompt"                     # REPL with initial prompt
-robota -p "prompt"                  # Print mode (one-shot, exit after response)
-robota -c                           # Continue last session
-robota -r <session-id>              # Resume session by ID
-robota --language <lang>            # Response language (ko, en, ja, zh)
-robota --permission-mode <mode>     # plan | default | acceptEdits | bypassPermissions
-robota --max-turns <n>              # Limit agentic turns per interaction
-robota --goal "<objective>"         # Pursue an autonomous goal headlessly until satisfied or a bound
-robota --goal-max-iterations <n>    # Per-goal turn budget (default 25)
-robota --output-format <fmt>        # text | json | stream-json (print mode)
-robota --effort <level>             # auto | none | minimal | low | medium | high | xhigh | max
-robota --system-prompt <text>       # Replace system prompt (print mode)
-robota --append-system-prompt <text> # Append to system prompt (print mode)
-robota --model claude-sonnet-4-6     # Override provider model for this session
-robota --allowed-tools "Bash,Read"  # Whitelist specific tools
-robota --denied-tools "Bash,Write"  # Blacklist specific tools (denied > allowed)
-robota --screen-reader              # Screen-reader mode: no chrome, no motion, numbered menus, role labels
-robota --no-screen-reader           # Force it off for this run, whatever the env or settings say
-# Pacing (ms): ROBOTA_SCREEN_READER_STARTUP_QUIET_MS=900  ROBOTA_SCREEN_READER_PREPARK_MS=50  (0 disables either)
-robota --serve                      # Run as a headless runtime host over a loopback WS sidecar (used by the desktop GUI)
-robota mcp serve                   # Serve one session to a local MCP client over stdio
-robota mcp serve --http-token-file /absolute/private/path/mcp-token --http-port 8765
-                                  # Serve Streamable HTTP on 127.0.0.1; the token file must not exist
-robota mcp serve --http-public-url https://agents.example.com/robota/mcp --oauth-issuer https://auth.example.com \
-  --oauth-scopes mcp:use --oauth-allowed-subjects alice@example.com
-                                  # Serve remote HTTP behind a proxy, admitting OAuth access tokens
-robota trust status                 # Inspect canonical workspace trust
-robota trust --yes                  # Grant trust for the current Git workspace
-robota trust revoke --yes           # Revoke the current workspace grant
-robota usage                        # Show the last 7 days of personal usage from local session history
-robota usage --period 30d           # Show complete buckets for the last 30 calendar days
-robota usage --timezone UTC --format json # Emit the versioned JSON projection
-robota usage export --endpoint http://127.0.0.1:4318 # Send stored-usage Gauges to a loopback OTLP collector
-robota usage export --signal traces --endpoint http://127.0.0.1:4318 # Send recorded prompt/provider/tool spans
-robota usage export --signal logs --endpoint http://127.0.0.1:4318 # Send content-free completion events
-robota --safe-mode                  # Every customization off, to rule one out
-robota --reset                      # Delete user settings and exit
-robota --check-update               # Check npm for a newer CLI version and exit
-robota --disable-update-check        # Skip interactive startup update check for this run
-robota --version                    # Show version
-robota --reduced-motion             # Suppress animation for this run (colour is unaffected)
-robota --no-reduced-motion          # Allow animation, overriding a persisted reducedMotion
-```
+### Keep sessions, run them in the background, share a daemon
 
-### Personal Usage
-
-`robota usage` reads local user and trusted-project session stores without starting a provider or
-requiring network access. It reports sessions, started turns, tokens, cost confidence, model/provider/
-surface/source breakdowns, privacy-safe activity counts, and coverage diagnostics. The project copy
-wins when the same session ID exists in both stores. Stored prompts, responses, paths, and tool
-payloads are never printed.
-
-Use `--period 7d` (the default) or `--period 30d`, choose an IANA timezone with `--timezone`, and use
-`--format json` for the external `schemaVersion: 1` projection. An empty store produces an empty
-report; a supplied store set containing no readable records exits with an error instead of silently
-reporting zero usage.
-
-`robota usage export` is a separate, explicit, one-shot network action over OTLP/HTTP JSON to a
-loopback collector (`127.0.0.1` or `[::1]`) only. The default `metrics` signal sends a current
-**Gauge snapshot** of stored session/turn counts, tokens, estimated known USD cost, and unknown-cost
-counts to `/v1/metrics`. Repeated exports are snapshots, not new usage to add together. Select
-`--signal traces` to send recorded prompt-root, provider-call, and tool spans to `/v1/traces`, or
-`--signal logs` to send recorded content-free completion events to `/v1/logs`. Repeating a logs export
-can resend the same events; a collector may retain duplicates. These signals use stored records;
-they are not live tracing, and legacy records may lack span/event coverage. No signal
-exports prompt or tool bodies, credentials, or a remote destination. An unreadable stored session,
-collector rejection, or network error fails the command without reporting success.
-
-Live prompt telemetry is a separate, opt-in Node CLI feature (interactive, print, serve, and MCP serve). Set
-`ROBOTA_TELEMETRY_ENABLED=1`, `ROBOTA_TELEMETRY_TRACES=otlp`,
-`ROBOTA_TELEMETRY_OTLP_PROTOCOL=http/protobuf`, and
-`ROBOTA_TELEMETRY_OTLP_ENDPOINT=https://collector.example` to send content-free prompt/provider/tool
-spans to the base URL's `/v1/traces`. `ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT` overrides the base with
-an exact traces URL. Select `ROBOTA_TELEMETRY_METRICS=otlp` independently to send per-invoked-call
-delta counts, complete-usage token totals and price-table-estimated USD cost, plus observed prompt and
-tool-completion counts, to `/v1/metrics`;
-`ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT` overrides that destination. Missing usage or prices are
-counted separately, never treated as zero cost. A truncated provider-event batch reports omissions
-and does not claim a complete usage/cost total. Metric datapoints omit session, turn, provider and
-model labels by default; set `ROBOTA_TELEMETRY_METRIC_ATTRIBUTES` to a comma list drawn from
-`session`, `provider` and `model` (canonical lower case, no duplicates) to add them, and only when
-metrics export over `otlp` or `console` — the setting is refused otherwise, and startup is refused
-for any token that is not exactly one of the three. `session` adds `robota.session.id` (the same key
-the trace spans use) to every metric datapoint of the batch. `provider`/`model` add
-`robota.provider.id`/`robota.model.id` only to provider-derived metrics (calls, tokens, cost, and the
-unpriced/usage-unavailable counts), splitting them into one datapoint per distinct id (or pair); a
-call with no id gets its own datapoint without that attribute. In `--serve`/`robota mcp serve`, how
-many distinct session ids appear is set by the connecting clients, not by the CLI; provider and model
-values come from whatever the host's provider configuration reports, not from a fixed catalog. Select
-`ROBOTA_TELEMETRY_LOGS=otlp` independently for content-free
-prompt/provider/tool completion events, plus a tool's own permission decision (allowed, denied, or
-hook-blocked), at `/v1/logs`; `ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT`
-overrides that destination. Tool spans and logs carry a validated opaque call ID when available, and an
-invoked provider-call span and its completion log carry the provider's own request ID the same way when
-the adapter attested one; metric datapoints never use either as a label, though a permission-decision
-count by decision value is still reported on `/v1/metrics`. A permission decision has no duration of
-its own and never produces a trace span. Only confirmed invocations produce provider-completion events;
-omitted child counts remain visible on the prompt event. Plain HTTP is allowed only for loopback; URL credentials and query parameters
-are rejected. Export is bounded, best-effort, and does not delay or fail a turn; delivery failures
-produce a content-free stderr warning. These switches do not enable content capture,
-additional event kinds, or replay of stored traces. Ambient `OTEL_*` values alone do not enable them.
-
-Prompt, response and tool content is a separate opt-in on top of `ROBOTA_TELEMETRY_LOGS=otlp`.
-`ROBOTA_TELEMETRY_LOG_USER_PROMPTS=1` sends what you typed (never the expanded model input, such as
-`@file` contents), and `ROBOTA_TELEMETRY_LOG_ASSISTANT_RESPONSES=1` sends the assistant's final answer
-for the turn. `ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS=1` sends the arguments of the turn's tool calls,
-allowed or denied, and `ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT=1` sends the output of its allowed calls
-(empty for a tool that crashed). Tool arguments carry whatever the model passed: a `Write` or `Edit`
-call's arguments are the file content it writes. Each setting accepts exactly `0` or `1`.
-`ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES` bounds each item (an integer from 256 to 16384, default 2048)
-and is refused unless one of them is `1`. Content is captured only in the interactive terminal and
-only for turns you type yourself, the same turns prompt history records: goal and loop wakeups, peer
-and external messages, remote co-drivers, subagents and background work are never captured, and
-tool content covers only the calls that turn made itself — never a subagent's, a forked skill's or
-background work's, even through a tool they share. A hook-blocked call, an unknown tool, or a call
-stopped before its tool ran sends nothing. Print (`-p`, `--goal`), `--serve` and
-`robota mcp serve` refuse to start with a content setting at `1` rather than ignore it. It goes only to OTLP log records (`robota.content.captured`, joined to the prompt's trace and
-root span, with `robota.content.kind`, `robota.content.truncated`, `robota.content.original_bytes` and,
-for an interrupted turn's response, `robota.content.partial`) — never to spans, metrics or console
-output, so a content setting with `ROBOTA_TELEMETRY_LOGS=console` is refused. A tool item is joined to
-the call's tool span when the trace kept one (else the root span) and adds `robota.tool.call_id`,
-`robota.tool.name` and `robota.tool.outcome` (`success`, `failure` or `denied`). Arguments are
-rendered with values under secret-looking keys (`password`, `apiKey`, `accessTokens`, …) masked
-whole, and binary or base64 payloads replaced by their size. It is sent to the logs
-destination with its headers but in its own requests and queue: a content failure never delays or
-drops the content-free logs, and is reported on stderr like any other delivery failure. One turn's
-content is bounded in item count and total size, with room kept for the prompt and response, and is
-sent as a few requests of bounded size; what does not fit is dropped and counted by kind in a
-content-free `robota.content.omitted` record, sent last. When a request fails, the rest of that turn's
-content and every queued turn are dropped, so that count is lost too. Queued content can hold about
-12 MB in the worst case. Before sending, the CLI masks known credential shapes (vendor API keys, AWS keys, private-key blocks,
-JWTs, GitHub, Stripe, npm and GitLab tokens, bearer tokens, URL and `-u user:pass` credentials,
-`*_KEY`/`*_TOKEN`/`*_SECRET`/`*_PASSWORD=` values, JSON values whose name looks secret, and
-`Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie` and `X-…-Token`/`-Key`/`-Secret`/`-Auth`
-header lines, including indented ones and the `> ` lines `curl -v` prints), the literal secrets it knows of (settings keys and
-`env` values, every resolved provider key including one switched to mid-session, and collector header
-values), your workspace path (`<workspace>`, also inside `file://` URLs) and home directory (`~`),
-control characters, and a partial token left at the size cut. This
-masking is best effort: anything it does not recognise as a secret is sent as written — file
-contents, command output and a response that repeats them included. If the secrets cannot be
-read, that request carries no content at all.
-
-Static collector headers (for example an `Authorization` token) use
-`ROBOTA_TELEMETRY_OTLP_HEADERS` for the generic endpoint and `ROBOTA_TELEMETRY_OTLP_TRACES_HEADERS`,
-`ROBOTA_TELEMETRY_OTLP_METRICS_HEADERS` or `ROBOTA_TELEMETRY_OTLP_LOGS_HEADERS` for one signal, in
-OpenTelemetry's `name=value,name2=value2` form with percent-encoded values
-(`Authorization=Bearer%20abc123`). Headers are scoped to their destination: a signal that uses
-`ROBOTA_TELEMETRY_OTLP_ENDPOINT` sends the generic headers merged with its own, its own winning on the
-same name, while a signal with its own `ROBOTA_TELEMETRY_OTLP_<SIGNAL>_ENDPOINT` sends only its own
-headers. Unlike OpenTelemetry, generic headers are never sent to a per-signal endpoint. Startup is
-refused for malformed entries, empty names or values, duplicate names, reserved transport,
-content-negotiation, proxy, `sec-` or trace-propagation names, control characters other than tab, non-ASCII characters,
-oversized settings, headers no OTLP signal would send, and a per-signal endpoint without its own
-headers while another signal sends the generic ones. Header helpers and refresh are not supported.
-Console output, logs and resource attributes never contain headers, and errors name only the setting
-and entry position. The CLI removes every `ROBOTA_TELEMETRY_*` setting from its environment at
-startup, so shells, hooks, subagents and other child processes do not inherit them; the only
-handover is the supervised runtime that `session start` or `session view` launches, which receives
-them in its spawn environment. While telemetry is enabled, any other `ROBOTA_TELEMETRY_*` setting
-(for example client certificates, a locked destination or other content capture) stops startup with an
-error that names the setting but never prints its value, rather than exporting without it.
-Each signal also accepts `console` instead of `otlp` to write a content-free JSON diagnostic to stderr;
-console needs neither an endpoint nor a protocol and never includes collector credentials. Signals
-remain independent, and the Robota enable switch is still required.
-All enabled signals use the same per-process `service.instance.id` and the CLI's version and
-presentation mode as resource attributes. Ambient `OTEL_SERVICE_NAME` and other `OTEL_*` values
-cannot replace these fields.
-
-Trace context propagation is a further opt-in. `ROBOTA_TELEMETRY_PROPAGATE_TO` is a comma list of
-exact origins (`https://api.anthropic.com,https://gateway.example.com:8443`) that may receive a
-W3C `traceparent` on provider requests: `00-<prompt trace id>-<provider-call span id>-01`, where the
-span ID is the one the exported `robota.provider_call` span carries. The same list covers MCP servers
-reached over Streamable HTTP: a tool call to a server whose URL has a listed origin carries
-`00-<prompt trace id>-<tool span id>-01`, where the span ID is the one the exported tool span
-carries. Only the `tools/call` request and its cancellation carry it — never initialization,
-listing, list refreshes, notifications or the server's event stream — and stdio MCP servers receive
-nothing. It needs
-`ROBOTA_TELEMETRY_ENABLED=1` and `ROBOTA_TELEMETRY_TRACES=otlp` or `console`, and is inert while
-telemetry is off. Each entry must be exactly its own origin: `https`, or `http` only on loopback, with no
-path, trailing slash, query, credentials, wildcard or spelled-out default port; a scheme, port or
-subdomain difference is a different origin and gets nothing. An internationalized host must be listed
-in its punycode (`xn--`) form, and an origin with a trailing dot never matches; both fail closed
-(refused at startup or sent nothing). Malformed, duplicate or too many entries
-stop startup with an error that names only the setting and entry position. `tracestate` and `baggage`
-are never sent, the collector's origin is never trusted implicitly, and collector headers are never
-reused for provider requests. The Anthropic and OpenAI (Responses and Chat Completions) adapters
-propagate to their client's effective base URL, as do the OpenAI-compatible DeepSeek, Qwen (both its
-Chat Completions and Responses surfaces), and Gemma adapters, and Gemini propagates to
-`https://generativelanguage.googleapis.com` only — not with `GOOGLE_GEMINI_BASE_URL`,
-`GOOGLE_VERTEX_BASE_URL` or Vertex mode. Nothing is sent through a provider executor. When
-propagation is configured but the round's provider cannot propagate — an executor, or a client
-whose base URL cannot be read — the CLI writes one stderr line per provider naming only that
-provider. Only a prompt's own provider calls carry it: subagents, workers and background
-tasks do not inherit it.
-
-Listing a vendor's origin lets that vendor link its own request logs to your trace ID. A redirect
-followed by the SDK carries the header to the redirect target. A provider call whose span was omitted or
-dropped from export still sent its `traceparent`, so the vendor's parent span may be missing from your
-trace; `robota.omitted.provider_count` on the prompt span shows when that happened. Ambient
-`TRACEPARENT` and `OTEL_*` values are never adopted.
-
-`ROBOTA_TELEMETRY_PROPAGATE_TO_SUBPROCESSES` hands the prompt's trace to child processes through the
-`TRACEPARENT` environment variable. It is a comma list drawn from exactly `shell` and `hooks`, each at
-most once; it needs the same `ROBOTA_TELEMETRY_ENABLED=1` and exported traces, is inert while
-telemetry is off, works with or without `ROBOTA_TELEMETRY_PROPAGATE_TO`, and a malformed entry stops
-startup naming only the setting and entry position. With `shell`, each foreground `Bash`/`Shell`
-command runs with `00-<prompt trace id>-<tool span id>-01`, where the span ID is the one that call's
-exported tool span carries. With `hooks`, command hooks fired during a prompt — `UserPromptSubmit`,
-`PreToolUse`, `PostToolUse`, `PermissionDecision`, the model-call hooks, `Stop`, `StopFailure` and
-the `PreCompact` and `PostCompact` of an automatic compaction — run with `00-<prompt trace id>-<prompt span id>-01`, so
-their spans sit beside the provider and tool spans; a hook fired outside a prompt (`SessionStart`,
-`SessionEnd`, both hooks of `/compact`, background tasks, subagent worktrees) gets nothing. The value
-is only ever in the child's environment, never in a hook's stdin JSON. A `TRACEPARENT` that a hook
-group's own `env` sets wins, and the child then sees its environment unchanged; otherwise the ambient
-`TRACESTATE` is removed, because it belonged to a different parent. The `!` shell passthrough,
-background, managed and scheduled shells, the monitor UI launcher, a sandboxed shell, stdio MCP
-servers, and HTTP, prompt and agent hooks never receive it. Robota never modifies its own process
-environment, so while the setting is off every child sees exactly the ambient `TRACEPARENT` and
-`TRACESTATE` it would have seen anyway.
-
-Upgrading: an origin already listed for a provider now also sends `traceparent` to an MCP HTTP server
-at that exact origin. Remove the origin, or move the MCP server to a different origin, if that server
-should not link its logs to your trace.
-
-### Doctor
-
-`robota doctor` (aliases: `checkup`, `diagnose`) diagnoses configuration and runtime readiness
-before any session exists, so a broken configuration cannot make the diagnostic unreachable. It reports
-every settings layer in precedence order with its state and cause, the merged keys with the layer that
-contributed each, provider resolution and endpoint reachability, workspace trust, storage, plugins,
-skills, hooks and MCP declarations — naming the exact file and cause, never a credential. Exit code
-`0` means no check failed (warnings allowed); `1` means at least one did.
+Sessions are saved, so you can come back to them.
 
 ```bash
-robota doctor                                   # full report
-robota doctor --repair settings.user.robota     # one allowlisted repair, asks [y/N] first
-robota doctor --repair storage.user --yes       # no prompt (required in a non-interactive shell)
+robota -c                           # continue the most recent session
+robota -r <id-or-name>              # resume a session
+robota -r <id> --fork-session       # continue a copy, leaving the original as it was
+robota -n "refactor auth"           # name a new session
 ```
 
-Repairs are limited to an empty user settings file (rewritten as `{}`) and a missing or too-open
-user storage directory; everything else is reported with the path to fix. `/doctor` runs the same
-report inside a session, and `/doctor repair <check-id>` asks before writing.
+Inside a session, `/resume` switches sessions, `/rename` names this one, `/fork` copies the
+conversation into a background session, and `/cd <directory>` moves the conversation to another
+directory.
 
-### MCP Servers
+A supervised session keeps running after you close the terminal, and a workspace daemon is one
+long-lived runtime that terminals and the desktop app share. In a folder not trusted yet, the desktop
+app asks in its window whether to trust it, start Restricted, or quit before it starts the daemon:
 
-#### Serve Robota to an MCP host
+```bash
+robota session start --background --name nightly
+robota session list
+robota session attach <supervised-id>          # add --observe to watch read-only
+robota daemon start                            # then: robota --attach
+robota daemon stop
+```
 
-Install `@robota-sdk/agent-cli`, configure a provider with `robota --configure`, and grant the
-intended project with `robota trust --yes` before starting a headless server. Resolve the actual
-executable (`command -v robota`) and use its **absolute path** in the host configuration. For an
-MCP client that supports a child-process working directory, configure:
+See [Sessions and the daemon](../../content/guide/sessions-and-daemon.md).
+
+### Control what the agent may do
+
+Every tool call passes through deny rules, ask rules, allow rules and then the permission mode.
+
+| Mode                | Reads | File edits | Shell commands                           |
+| ------------------- | ----- | ---------- | ---------------------------------------- |
+| `plan`              | yes   | refused    | refused (except built-in read-only ones) |
+| `default`           | yes   | asks       | asks                                     |
+| `acceptEdits`       | yes   | yes        | asks                                     |
+| `auto`              | yes   | yes        | decided by a model classifier            |
+| `bypassPermissions` | yes   | yes        | yes                                      |
+
+Set the mode with `--permission-mode <mode>` (`--dry-run` is `plan`) or change it in a session with
+`/permissions <mode>`. `/permissions` alone lists the rules in force and recent denials. Rules live in
+any settings file:
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(pnpm *)", "Bash(git status)"],
+    "ask": ["Bash(git push *)"],
+    "deny": ["Bash(rm -rf *)", "Write(.env)"]
+  }
+}
+```
+
+An `ask` rule asks even in `bypassPermissions`, and a few actions are never approved automatically
+in any mode: `rm` on the root, home or working directory, and writes into `.git`, `.robota`,
+`.claude`, `.agents` or shell and tool configuration files.
+
+Shell commands can also run inside an OS sandbox (bubblewrap on Linux, Seatbelt on macOS): `/sandbox`
+switches between `auto-allow`, `regular` and `off`, and the `sandbox` settings key configures it.
+When something misbehaves, `robota --safe-mode` starts with instruction files, skills, plugins, hooks
+and MCP servers all off.
+
+Workspace trust is granted per Git worktree and kept in `~/.robota/workspace-trust.json`:
+
+```bash
+robota trust status    # is this workspace trusted, and what would trust load? (--json: one line)
+robota trust --yes     # trust the Git workspace you are in
+robota trust revoke --yes
+```
+
+See [Permissions and hooks](../../content/guide/permissions-and-hooks.md).
+
+### Choose providers and models
+
+Each provider profile in `providers` names a `type` (`anthropic`, `openai`, `gemini`, `deepseek`,
+`qwen`, `gemma`), a model, and optionally a base URL and API key; `currentProvider` picks the one to
+use. Setup fills the key in as a reference to an environment variable:
+
+| Provider type | Default key variable | Notes                                                                                |
+| ------------- | -------------------- | ------------------------------------------------------------------------------------ |
+| `anthropic`   | `ANTHROPIC_API_KEY`  |                                                                                      |
+| `openai`      | `OPENAI_API_KEY`     | also other OpenAI-compatible endpoints, through `baseURL`                            |
+| `gemini`      | `GEMINI_API_KEY`     |                                                                                      |
+| `deepseek`    | `DEEPSEEK_API_KEY`   |                                                                                      |
+| `qwen`        | `DASHSCOPE_API_KEY`  | Alibaba Cloud Model Studio                                                           |
+| `gemma`       | none                 | a local Gemma model; the base URL defaults to LM Studio's `http://localhost:1234/v1` |
+
+```json
+{
+  "currentProvider": "claude",
+  "providers": {
+    "claude": {
+      "type": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "apiKey": "$ENV:ANTHROPIC_API_KEY"
+    }
+  }
+}
+```
+
+In a session, `/provider list`, `/provider switch <profile>`, `/provider add` and `/provider test`
+manage profiles. For one run, `--provider <profile>` picks a profile (add `--set-current` to make it
+the default), `--model` overrides the model, `--fallback-model a,b` continues a turn on another model
+when the first is overloaded, `--effort <level>` sets model effort, and `--advisor <profile[:model]>`
+lets the model consult a second model. See [Providers](../../content/guide/providers.md) and
+[Local LLM setup](../../content/guide/local-llm.md).
+
+### Connect MCP servers, or serve Robota over MCP
+
+Declare remote MCP servers under `mcpServers` in a settings file. A declared server is not connected
+until you approve it: `/mcp` shows each server's state and `/mcp approve <server>` records your
+approval. The `robota` executable keeps approvals in memory only, so they do not carry over to the
+next start. A server that uses OAuth also needs a sign-in — `/mcp login <server>` in a session, or
+`robota mcp login <server>` in a terminal — and an approved server connects in the running session
+once you sign in.
+
+```json
+{
+  "mcpServers": {
+    "docs": { "type": "http", "url": "https://mcp.example.com/mcp", "oauth": {} }
+  }
+}
+```
+
+`robota mcp serve` does the reverse: it serves one Robota session to an MCP host over stdio (or over
+authenticated HTTP with the `--http-*` and `--oauth-*` flags). Trust the project first, and give the
+host the absolute path of `robota` and the project directory:
 
 ```json
 {
@@ -412,894 +240,101 @@ MCP client that supports a child-process working directory, configure:
 }
 ```
 
-The host must launch the process in the intended project directory. Robota uses that inherited
-directory for its normal project-root, access and trust decision; an MCP `roots/list` value or an
-environment variable does not silently change it. For Claude Code, whose stdio server environment
-includes `CLAUDE_PROJECT_DIR`, a project-scoped launch command can select that directory explicitly:
+See [MCP](../../content/guide/mcp.md).
 
-```sh
-claude mcp add --scope project --transport stdio robota -- \
-  /bin/sh -c 'cd "$CLAUDE_PROJECT_DIR" && exec /absolute/path/to/robota mcp serve'
+### Add skills, commands, agents and plugins
+
+Skills and commands are Markdown files the CLI finds in `.robota/skills/`, `.claude/skills/`,
+`.claude/commands/` and `.agents/skills/` — in a trusted project and under your home directory. Each
+one becomes a slash command (`/<name>`), and `/skills` lists them. Agent definitions are read from
+`.robota/agents/`, `.agents/agents/` and `.claude/agents/`. Plugins bundle these together with hooks,
+themes and MCP servers:
+
+```text
+/plugin marketplace add <source>
+/plugin install <name>@<marketplace>
+/plugin                              # open the plugin manager
 ```
 
-The host receives the canonical runtime tool catalog plus `robota_submit`. Model-invocable commands
-appear only through their canonical `robota_command_*` names. Tools run through the session's normal
-permission and hook policy; denied or approval-requiring calls return MCP tool errors, never an
-interactive prompt on the protocol stream. The peer is a local process started by the user and can
-request actions within that session's admitted workspace and permissions. This mode starts no web
-server, WebSocket sidecar or TUI. Stdout carries only MCP messages; startup notices and failures go
-to stderr. Closing the host's stdin or sending SIGINT/SIGTERM shuts down the carrier and session.
-If the host reports a connection failure, run `robota trust status` and `robota doctor` separately in
-the same project directory, then inspect the host's captured stderr for configuration errors.
+See the [CLI guide](../../content/guide/cli.md) for skill frontmatter and plugin management.
 
-The same session can also use an admitted external MCP tool while it serves the host. Its connected
-client tools appear in the served catalog under canonical names such as `probe__echo`; they still
-run through the session's normal permission policy. The server carrier and outbound client close
-independently. An embedding host can supply its own `IMCPActivationApprovalStore` through
-`startCli({ mcpApprovalStore })` before startup, along with an explicitly approved
-`mcpHttpTransportDeps` egress policy when needed. Neither capability comes from MCP settings or the
-remote caller. The ordinary `robota` executable supplies neither automatically.
+### Use the graphical interface
 
-#### Serve Robota to a remote MCP client
+`robota --serve --open` starts a headless runtime for the current workspace, serves the Robota GUI
+on `127.0.0.1` and opens it in your browser. The Electron desktop app in this repository
+([`apps/agent-app`](../../apps/agent-app/docs/README.md)) shows the same GUI over the workspace
+daemon; it is not published to npm.
 
-`--http-token-file` is for clients on the same machine: it binds only `127.0.0.1`, and its bearer
-is never accepted beyond loopback. To serve a client elsewhere, run Robota as an OAuth resource
-server behind an HTTPS reverse proxy. An authorization server you already run issues the access
-tokens; Robota only verifies them.
+### Reach other sessions and your other devices
 
-```sh
-robota mcp serve \
-  --http-public-url https://agents.example.com/robota/mcp \
-  --oauth-issuer https://auth.example.com \
-  --oauth-scopes mcp:use \
-  --oauth-allowed-subjects alice@example.com \
-  --http-host 127.0.0.1 --http-port 8765 \
-  --trusted-proxy 127.0.0.1
-```
+`/peers` lists the other live `robota` sessions on this machine, and `/peers send <session-id>
+<message>` sends one a message; the receiving session handles it under its own permissions, like
+its own work. `/handoff <session-id>` moves this conversation to another session once both sides
+confirm. To reach your other devices too, create a device identity with `/devices init`, link each
+new device with `/devices add` and `/devices join`, and set `transports.mesh.enabled` to `true` in
+your user settings. `/remote-control enable` pairs a browser to co-drive the current session.
 
-- `--http-public-url` is the `https` address clients use. It is also the token audience and the
-  `resource` Robota advertises. Robota serves MCP at its path (`/robota/mcp` above) and the RFC 9728
-  protected-resource metadata at `/.well-known/oauth-protected-resource` followed by that path. The
-  proxy must forward both paths unchanged (do not strip the prefix) and must preserve the client's
-  `Host` header. Robota checks `Host` and `Origin` against the public URL, not the address it binds.
-- `--oauth-issuer`, `--oauth-scopes` and `--oauth-allowed-subjects` are all required. A token must
-  be an RFC 9068 access token from that issuer, addressed to the public URL, carrying every listed
-  scope, and issued to a listed subject. Every admitted client drives the same session, so name only
-  the people you would hand this terminal to.
-- `--http-host` defaults to `127.0.0.1`, which suits a proxy on the same machine. Robota binds any
-  other address only when all the flags above are present.
-- A request without a valid token receives `401` with
-  `WWW-Authenticate: Bearer resource_metadata="…"`, and a token missing a scope receives `403`
-  with `insufficient_scope`. The body is always empty. MCP clients that support authorization
-  use that challenge to discover the authorization server.
-- Failed requests are counted per client address. After too many failures in a minute, that
-  address receives `429`; a valid token is never throttled. The client address is read from
-  `X-Forwarded-For` only when the connection comes from a `--trusted-proxy` address (repeatable).
-- Each refusal is logged on stderr as a reason and an address class (`loopback`, `private`,
-  `public`), never the token or the address itself.
-- The server is stateless: it issues no `Mcp-Session-Id`, so there are no sessions to enumerate or
-  hijack.
+See [Devices and remote control](../../content/guide/devices-and-remote.md).
 
-The settings described below configure Robota as an MCP **client**.
-
-Declare remote MCP servers under an `mcpServers` key in any layered settings file (managed, user, or
-project `.robota`/`.claude` settings) — the same precedence order every other setting uses. Each
-entry names a `"type": "http"` transport and a `url`; `${VAR}`/`${VAR:-default}` references in `url`,
-`headers`, and `env` are resolved from the process environment. Every declared server is
-**deny-by-default**: a server must be explicitly approved with `/mcp approve <serverId>` before its
-tools are connected. Use `/mcp` (or `/mcp list`) to see every declared server's admission status,
-and `/mcp reject`/`/mcp revoke` to withdraw approval. Only approved servers already known at startup
-are connected. Approval is in-memory for the ordinary executable, so `/mcp approve` mid-session
-records a decision for that session but does not connect the server in the running session or
-persist it across a restart. An embedding host can preserve approval state across starts by
-supplying the same store; it remains responsible for when to reconnect approved definitions.
-
-A remote server that declares `"oauth": {}` (optionally with `clientId`, `callbackPort`,
-`authServerMetadataUrl` and `scopes`) needs its own sign-in before a session can use it. Sign-in is
-per server, naming the server — inside a session with `/mcp login <server>`, or from a terminal:
+### Check your setup and usage
 
 ```bash
-robota mcp login files                 # opens your browser; tokens kept owner-only in ~/.robota/mcp-credentials
-robota mcp login files --no-browser    # prints the URL; paste back the address your browser was sent to
-robota mcp login files --client-secret # a pre-registered confidential client: asks for the secret
-robota mcp logout files                # deletes the stored tokens, then revokes them where the server allows
+robota doctor            # settings layers, provider, trust, storage, plugins, hooks, MCP
+robota usage             # sessions, turns, tokens and cost for the last 7 days (--period 30d)
+robota --check-update    # is a newer version on npm?
+robota eval <definition> # run an evals-as-code definition; exits 1 on a metric breach
 ```
 
-Use `--no-browser` when the browser runs on another machine (for example over SSH). After you
-approve, the browser is sent to a `http://127.0.0.1:<port>/callback` address that may not load; copy
-that full address and paste it at the prompt (the input is not echoed). It is accepted only if it is
-this sign-in's redirect address and carries its `state`, and only within the same five minutes the
-browser flow allows.
+## Configuration files
 
-`robota mcp logout <server>` always deletes that server's local credential, even when the
-authorization server cannot be reached or refuses to revoke the tokens; it then says, per token,
-whether it was revoked, and otherwise why not (by a short reason) or that the server offers no
-revocation. `/mcp` shows each OAuth server's sign-in state — `signed in`, `token expired, will
-refresh`, `sign-in required` or `signed out` — never a token, and for a server that needs a sign-in
-it names `/mcp login <server>` and `robota mcp login <server>` (the server's name appears in them
-only when it is a plain name that is safe to paste into any shell). `/mcp logout <serverId>` signs
-out of that one server from inside a session and stops the session sending the token it holds.
+Settings are merged from these files, lowest priority first. The two user files always apply; the
+four project files apply only in a trusted workspace.
 
-`/mcp login <server>` signs in without leaving the session: it first shows the authorization URL,
-where you can choose to open your browser, paste the redirect instead, or cancel. When no browser
-can be opened — or with `/mcp login <server> --no-browser` — it asks for the redirect address in the
-session's own prompt (the input is not shown). Once signed
-in, a server that could not connect at startup is admitted as usual (it must be approved) and
-connected, and its tools are available from your next message; a server whose sign-in lapsed
-mid-session works again. A failed or cancelled sign-in changes nothing. A client secret is never
-typed into a session: for a pre-registered client that needs one, run
-`robota mcp login <server> --client-secret` in a terminal.
+| File                          | Scope                                   |
+| ----------------------------- | --------------------------------------- |
+| `~/.robota/settings.json`     | user                                    |
+| `~/.claude/settings.json`     | user (Claude Code-compatible)           |
+| `.robota/settings.json`       | project, committed                      |
+| `.robota/settings.local.json` | project, local to this machine          |
+| `.claude/settings.json`       | project (Claude Code-compatible)        |
+| `.claude/settings.local.json` | project, local (Claude Code-compatible) |
 
-### MCP Background Handoff
+Other files the CLI keeps under `~/.robota/`:
 
-A slow MCP tool call can be handed to a background task instead of blocking the turn. Configure it
-under an `mcp` key (beside `mcpServers`, in the same layered settings files):
+| Path                   | Contents                                                                |
+| ---------------------- | ----------------------------------------------------------------------- |
+| `workspace-trust.json` | workspaces you have trusted                                             |
+| `sessions/`            | saved sessions (a trusted project may keep them in `.robota/sessions/`) |
+| `history.jsonl`        | prompts you typed, for `Ctrl+R` (`"promptHistory": false` turns it off) |
+| `keybindings.json`     | key bindings                                                            |
+| `themes/`              | your own `/theme` themes                                                |
+| `plugins/`             | installed plugins (a project may have its own `.robota/plugins/`)       |
+| `mcp-credentials/`     | OAuth tokens for MCP servers, readable by you only                      |
 
-```json
-{
-  "mcp": {
-    "autoBackgroundMs": 120000,
-    "callTimeoutMs": 600000
-  }
-}
-```
+## Use it from code
 
-- `autoBackgroundMs` (default 120000 ms): a tool call still running at this point is handed to a
-  `tool-invocation` background task; `/tasks` shows it like any other background task. `0` disables
-  the handoff.
-- `callTimeoutMs` (default 600000 ms): the tool call's own budget, enforced by the MCP client in
-  every mode — including print. `autoBackgroundMs` must be less than `callTimeoutMs`, or the handoff
-  is disabled with a warning.
-- The handoff applies to the interactive TUI and `robota --serve`. In print mode (`-p`) a slow MCP call always runs to completion in the
-  foreground, bounded by `callTimeoutMs`; a positive `autoBackgroundMs` is reported as ignored there.
+The package also exports `startCli`, the function the `robota` executable runs, and its options
+type `IStartCliOptions`. The package is ESM-only: load it with `import`, not `require()`.
 
-### CLI Updates
-
-Robota can check npm for a newer `@robota-sdk/agent-cli` version:
+## Work on the CLI in this repository
 
 ```bash
-robota --check-update
+pnpm install && pnpm build
+pnpm cli:dev          # run the CLI from source
+pnpm cli:trust        # trust this repository for the source CLI
 ```
-
-When an update is available, Robota prints the npm global install command:
-
-```bash
-npm install -g '@robota-sdk/agent-cli@latest'
-```
-
-Robota does not implement its own updater and does not modify `~/.robota/settings.json` for update checks. Interactive startup checks use a user-level operational cache at `~/.robota/update-check.json` and can be skipped for one run with `--disable-update-check`. Print/headless mode (`robota -p`) does not perform automatic startup update checks so scripted stdout and stderr remain deterministic.
-
-### Print Mode Output Formats
-
-Print mode (`-p`) supports three output formats via `--output-format`:
-
-| Format        | Description                                                        |
-| ------------- | ------------------------------------------------------------------ |
-| `text`        | Plain text response to stdout (default)                            |
-| `json`        | Single JSON object: `{ type, result, session_id, subtype }`        |
-| `stream-json` | Newline-delimited JSON with `content_block_delta` streaming events |
-
-### Exit Codes (print mode)
-
-| Code | Meaning                                        |
-| ---- | ---------------------------------------------- |
-| 0    | Success                                        |
-| 1    | General error                                  |
-| 2    | Argument error                                 |
-| 3    | Configuration error (missing provider/API key) |
-| 4    | API error                                      |
-| 5    | Tool execution error                           |
-
-### Stdin Pipe
-
-When stdin is piped, the CLI reads it automatically. If a positional prompt is also given, the piped content is appended inside `<stdin>` tags:
-
-```bash
-echo "Explain this error" | robota -p
-cat file.ts | robota -p "Review this code" --output-format json
-git diff | robota -p "Summarize changes" --output-format stream-json
-```
-
-## First-Run Setup
-
-When no usable settings file exists, the CLI prompts for:
-
-1. **Provider selection** from the providers assembled into the CLI binary
-2. **Provider-specific setup fields** such as model, base URL, and masked API key
-3. **Response language** (ko/en/ja/zh, default: en)
-
-Creates `~/.robota/settings.json`. Use `robota --reset` to return to first-run state.
-
-Provider setup is generated from provider definitions. The default CLI build includes Anthropic,
-OpenAI-compatible, DeepSeek, Gemma, and Qwen providers; other embeddings can inject their own
-provider definitions.
-Interactive setup creates a readable profile key from the selected model id, such as
-`claude-sonnet-4-6` or `gpt-4o`, and appends `-2`, `-3`, etc. when that key already exists. Generated
-profile keys never include API keys or credential hints.
-
-Inside the TUI, `/provider` and `/provider list` show configured profiles as an interactive picker. Selecting a profile opens command-owned actions for switch, edit, test, duplicate, delete, and cancel. Headless mode prints the same profile list text without opening prompts.
-
-Non-interactive/headless mode never prompts. Configure a provider ahead of time with `robota --configure` in an interactive terminal, or use `robota --configure-provider <profile> --type <type> ... --set-current`.
-
-## Built-in Tools
-
-The AI agent can invoke 9 distinct local tools (the runtime registers 10 tool names — `Bash` is the model-familiar alias of `Shell`):
-
-| Tool              | Description                                    | Primary Argument |
-| ----------------- | ---------------------------------------------- | ---------------- |
-| `Bash`            | Execute shell commands                         | `command`        |
-| `Read`            | Read file contents with line numbers           | `filePath`       |
-| `Write`           | Write content to a file                        | `filePath`       |
-| `Edit`            | Replace a string in a file                     | `filePath`       |
-| `Glob`            | Find files matching a pattern                  | `pattern`        |
-| `Grep`            | Search file contents with regex                | `pattern`        |
-| `WebFetch`        | Fetch URL content as text                      | `url`            |
-| `WebSearch`       | Search the internet (requires `BRAVE_API_KEY`) | `query`          |
-| `AskUserQuestion` | Ask the user structured questions mid-task     | `questions`      |
-
-> **WebSearch** requires a `BRAVE_API_KEY` environment variable. Without it, the tool returns a setup message instead of results. Get a free key at [brave.com/search/api](https://brave.com/search/api/) (2,000 queries/month free tier).
-
-## Recent TUI Capabilities
-
-- Provider setup and profile management are generated from provider definitions, so the default CLI
-  build can configure, switch, edit, test, duplicate, and delete Anthropic, OpenAI-compatible,
-  DeepSeek, Gemma, and Qwen profiles without provider-specific UI branches.
-- Interactive startup can check npm for newer CLI versions; print/headless mode skips startup update checks to keep scripted output deterministic.
-- Long-running sessions show provider usage summaries, status activity, background job tree rows, and collapsed command-output transcripts.
-- Edit results render as context hunks with markdown-friendly diff blocks.
-- Background subagents are real runtime jobs with transcripts and resumable task snapshots.
-- Explicit multi-agent requests use the `/agent` command module batch path through the SDK runtime.
-
-### Recap when you come back
-
-The TUI notices when you leave the terminal — by focus, where the terminal reports it (iTerm2,
-Kitty, WezTerm, Alacritty, Ghostty, VS Code, Windows Terminal, tmux with `focus-events on`), or
-after five minutes without a keystroke elsewhere — and on your return prints one line for the
-interval, or nothing if nothing happened:
-
-```
-While away 12m: 2 turns finished (1 wake) · 1 needs input · 1 failed
-```
-
-Every background row carries its state word beside the glyph (`working`, `needs-input`,
-`completed`, `failed`, `stopped`), the one-line headline, and for a sleeping `/schedule` a live
-`in 59s` countdown. `ROBOTA_FOCUS_EVENTS=0` turns focus reporting off (idle detection remains);
-`=1` requests it even where the TUI would not.
-
-### Prompt history
-
-`Ctrl+R` searches every prompt you have typed — in this session, in this project, or anywhere —
-the way a shell's reverse search does. Type to narrow the list (newest first, matches highlighted),
-`Ctrl+S` cycles the scope `all → session → project`, `Enter` or `Tab` puts the highlighted prompt back
-in the input, `Ctrl+E` runs it, `Esc` returns you to exactly the draft you had. Every key is
-rebindable in `~/.robota/keybindings.json` (context `history-search`, and `chat-input.history-search`
-for the opener).
-
-What is written, where, and how to turn it off: the interactive TUI appends each prompt you submit
-to `~/.robota/history.jsonl` (one JSON line — timestamp, session id, project root, text; readable by
-you only). Prompts are already kept verbatim in the session record; this file is a searchable index
-of them across sessions. `--serve` and print mode never write it. Set `"promptHistory": false` in
-`~/.robota/settings.json` to turn it off, or `ROBOTA_PROMPT_HISTORY=0` for one run (`=1` overrides
-the setting). Delete the file to forget everything.
-
-Searching the conversation itself needs no viewer: the TUI never switches to the alternate screen,
-so every message of a resumed session is in your terminal's own scrollback and search.
-
-### Themes
-
-`/theme` opens a picker: moving the highlight previews that theme in the live region — the input
-frame, the status bar and the overlay itself — so you judge a colour scheme against the thing it
-applies to rather than a swatch. `Enter` applies it, `Esc` leaves the previous one in place. The
-transcript above keeps the colours it was written in, because the terminal owns those lines once
-they are printed.
-
-Four built-ins ship: `dark` (what Robota has always looked like), `light`, and `dark-daltonized` /
-`light-daltonized`, which avoid the red/green distinction entirely — blue for "good", orange for
-"bad" — for the roughly 1 in 12 men with a colour-vision deficiency. The daltonized pair is checked
-mechanically: a test simulates protanopia and deuteranopia over the pairs whose difference in colour
-carries meaning and fails if any of them come too close.
-
-Without the picker: `/theme list` shows what is installed and what is active, `/theme <id>` switches,
-`/theme syntax on|off` toggles code-block highlighting, and `/theme motion on|off` toggles animation.
-All three persist to `~/.robota/settings.json` as the flat keys `theme`, `syntaxHighlighting` and
-`reducedMotion`.
-
-#### Writing your own
-
-Drop a `.json` file in `~/.robota/themes/` and it appears in the list as `custom:<file-name>`. The
-name becomes part of an id you type, so it may use up to 24 characters from letters, digits, `.`,
-`-` and `_` — a file named anything else is skipped with a line saying so, rather than listed as a theme no command can apply:
-
-```json
-{
-  "name": "Mine",
-  "base": "light",
-  "overrides": { "colors": { "text": { "accent": "#56b4e9" } } }
-}
-```
-
-`base` is any built-in and `overrides` is a sparse map over the same token paths the built-ins use —
-`colors`, `markdown`, `syntax` and `motion` — so you change the colours you care about and inherit
-the rest. Values use Ink's colour grammar: a chalk colour name, `#rgb`, `#rrggbb`, `ansi256(n)` or
-`rgb(r,g,b)`. A raw escape sequence is not in that grammar, so it cannot enter through a theme.
-
-A plugin ships themes the same way, in its own `themes/` directory; they are listed as
-`custom:<plugin>:<file-name>`, and the plugin's own name has to satisfy the same rule for the same
-reason. Both namespaces start with `custom:`, so a file can never take a
-built-in's name whatever it is called.
-
-A file is applied whole or not at all. An unknown token, a value that is not a colour, or JSON that
-does not parse skips the WHOLE file with the path that refused it — printed once at startup as
-`Skipped theme "mine.json": $.overrides.colors.text.accent: "nope" is not a colour …`, and shown in
-the picker as a row that carries the same reason and cannot be chosen. Its neighbours still load.
-
-Motion can also be decided per run: `--reduced-motion` / `--no-reduced-motion` beat
-`ROBOTA_REDUCED_MOTION=1|0`, which beats the setting. A run that pins it says so — `/theme motion on`
-reports that it saved the setting and that this run keeps what pinned it, rather than appearing to
-do nothing. `NO_COLOR`, `FORCE_COLOR=0`, a non-TTY stdout and screen-reader mode still win over
-every theme: no colour and no animation, exactly as before.
-
-## Workspace Trust
-
-Robota loads a project's own configuration only from a workspace you have trusted. That covers the
-project's settings, hooks, plugins, skills, agent definitions, provider overrides and MCP servers.
-In a workspace you have not trusted:
-
-- starting a new TUI session asks whether to trust the folder before loading anything from it, and
-  lists what trust would load. A yes records the grant and starts normally. A no, or a resumed session,
-  starts **Restricted**: your own user settings, built-in tools and permission rules work, and nothing
-  the repository contributes is loaded;
-- starting a session from `robota session view` asks too: `y` trusts the folder and starts, `r` starts
-  it Restricted, `n` cancels;
-- the desktop app asks in its window before it starts the workspace daemon: trust the folder, start
-  Restricted, or quit;
-- headless startup refuses with `Workspace trust is required before headless startup (state: …)`.
-  That covers print mode (`-p`), `--goal`, `--serve`, `robota mcp serve`, `robota daemon start` and
-  `robota session start`.
-
-There are three exceptions. `--safe-mode` always starts Restricted, so `-p`, `--goal`, `--serve` and
-`robota mcp serve` run with it without trust. `robota daemon start --restricted-workspace` starts the
-daemon Restricted in a folder not trusted yet, for a front end whose person chose that. It reuses a
-running daemon only when that one runs Restricted too; a plain `daemon start` in a folder you have
-trusted since does not reuse a Restricted one. Either refusal names `robota daemon stop`.
-A directory that is not in a Git repository cannot be trusted at all, and every mode runs Restricted
-there.
-
-```bash
-robota trust status        # Is this workspace trusted? Lists what trust would load when it is not
-robota trust status --json # The same as one JSON line, for a front end that asks the person
-robota trust --yes         # Trust the Git workspace you are in
-robota trust revoke --yes  # Take the grant back
-```
-
-Run these from inside the workspace. A grant covers that Git worktree:
-
-- any directory inside it resolves to the same workspace, and a symlinked path resolves to the real
-  one;
-- a nested repository or submodule is a workspace of its own, and so is each linked worktree.
-
-Grants are stored in `~/.robota/workspace-trust.json` and survive restarts. Without a TTY, `grant` and
-`revoke` require `--yes`.
-
-A grant is tied to the repository, not only to its path:
-
-- It **holds** through git commands that rewrite `.git/config` (`push -u`, renaming or deleting a
-  branch, `remote add`, `git config`) on a filesystem that records a creation time (APFS, ext4,
-  NTFS, …). On one that does not, such a command can drop it; run `robota trust --yes` again. A
-  volume that macOS renumbers never drops it.
-- It is **not inherited**: a repository deleted and recreated, or a different clone put at the same
-  path, is untrusted until you trust it. Moving or renaming the repository also needs a new grant.
-- MCP server approvals are tied to the grant only where they are stored, which means in a host that
-  embeds Robota with a persistent approval store. There, revoking, re-trusting, or a grant that
-  changes as above asks for them again. The `robota` executable keeps them in memory and asks on each
-  run.
-
-**After upgrading**, if a workspace you had trusted shows as untrusted, run `robota trust --yes` in
-it once. Grants are now keyed differently, so a grant made by an earlier version no longer matches.
-
-**In this monorepo**, use the source CLI, since a globally installed `robota` may be older than the
-source you are working on:
-
-```bash
-pnpm cli:trust       # Trust this repository
-pnpm cli:dev         # Run the CLI from source
-pnpm cli:dev:trust   # Trust it if it is not yet, then run the CLI (arguments go to the run)
-```
-
-To trust another repository with the source CLI, run the launcher from inside that repository:
-`/path/to/robota/scripts/dev/robota trust --yes`.
-
-## Permission System
-
-Every tool call passes through a three-step permission gate:
-
-1. **Deny list** — if any deny pattern matches, the action is blocked
-2. **Allow list** — if any allow pattern matches, the action is auto-approved
-3. **Mode policy** — the active permission mode determines the decision
-
-### Permission Modes
-
-| Mode                | Read/Glob/Grep | Write/Edit |  Bash   |
-| ------------------- | :------------: | :--------: | :-----: |
-| `plan`              |      auto      |    deny    |  deny   |
-| `default`           |      auto      |  approve   | approve |
-| `acceptEdits`       |      auto      |    auto    | approve |
-| `bypassPermissions` |      auto      |    auto    |  auto   |
-
-### Changing Mode at Runtime
-
-Use the `/permissions` slash command:
-
-```
-> /permissions                    # Show mode, rules by settings file, approvals, recent denials
-> /permissions plan               # Switch to plan (read-only)
-> /permissions bypassPermissions  # Skip all prompts
-```
-
-Or set it at startup:
-
-```bash
-robota --permission-mode plan
-```
-
-### Permission Patterns
-
-Configure in `.robota/settings.json` or `.robota/settings.local.json`:
-
-```json
-{
-  "permissions": {
-    "allow": ["Bash(pnpm *)", "Bash(git status)", "Read(/src/**)"],
-    "deny": ["Bash(rm -rf *)", "Write(.env)"]
-  }
-}
-```
-
-Pattern syntax: `ToolName` matches any invocation; `ToolName(pattern)` matches on the primary argument with shell-style globs (`*`, `**`).
-
-## Keyboard Controls
-
-| Key        | Action                                                      |
-| ---------- | ----------------------------------------------------------- |
-| Enter      | Submit input                                                |
-| Ctrl+R     | Search prompt history (see "Prompt history")                |
-| ESC        | Abort current execution (graceful — saves partial response) |
-| Ctrl+C     | Exit process immediately                                    |
-| Up/Down    | Navigate visual lines in wrapped multi-line input           |
-| Arrow keys | Navigate slash command autocomplete, permission prompt      |
-
-## Paste Handling
-
-Bracketed paste mode (DECSET 2004) is enabled on startup. When pasting multiline text, the input area collapses it into a label: `[Pasted text #1 +42 lines]`. Multiple pastes are numbered sequentially. The full content is expanded on submit.
-
-Single-line paste is inserted directly as typed text. Terminals without bracketed paste fall back to heuristic detection.
-
-## Edit Diff Display
-
-After the Edit tool runs, a `DiffBlock` component renders the change inline:
-
-```
-  ✓ Edit(src/provider.ts)
-    │ src/provider.ts
-    │ - const DEFAULT_MAX_TOKENS = 4096;
-    │ + const maxTokens = getModelMaxOutput(modelId);
-```
-
-Removed lines appear in red with `-`, added lines in green with `+`. Diffs longer than 10 lines show the first 8 + a `... and N more lines` summary.
-
-## Session Management
-
-The CLI supports continuing, resuming, forking, and naming sessions.
-
-### CLI Flags
-
-| Flag                  | Description                                      |
-| --------------------- | ------------------------------------------------ |
-| `-c`, `--continue`    | Continue the most recent session                 |
-| `-r`, `--resume <id>` | Resume a specific session by ID                  |
-| `--fork-session <id>` | Fork a session (new session with copied history) |
-| `--name <name>`       | Assign a name to the session at startup          |
-
-### TUI Commands
-
-| Command          | Description                         |
-| ---------------- | ----------------------------------- |
-| `/resume`        | List recent sessions and resume one |
-| `/rename <name>` | Rename the current session          |
-
-### Moving to another directory (`/cd`)
-
-`/cd <directory>` continues the conversation in another directory. Robota starts again there, as if
-launched in that directory: its settings, trust decision, tools, skills and `AGENTS.md` apply, and the
-conversation resumes. The system prompt is kept as it was, so a provider's prompt cache survives. One
-message tells the model about the new directory and its project instructions.
-
-- `/cd` is refused while a turn is running or a background task is still running, and in a session
-  started with `--no-session-persistence`, which has no saved conversation to carry.
-- A restricted (untrusted) session stays restricted after a move. A trusted session takes the target
-  directory's own trust decision.
-- A `Cd(...)` deny rule keeps sessions out of a directory, for example
-  `"deny": ["Cd(/secrets/**)"]`.
-
-### Session Name Display
-
-When a session has a name, it appears in three places:
-
-- **Input border** — session name shown in the input area border
-- **Terminal title** — updated via ANSI escape sequences
-- **StatusBar** — displayed alongside activity, model, and context usage
-
-## Deep Links
-
-A `robota://open` link starts a session in a directory you have already trusted, with a prompt
-already in the composer and **not** submitted — you read it and press Enter, or clear it.
-
-```bash
-robota open 'robota://open?v=1&prompt=Summarize%20the%20README&cwd=/absolute/path/to/repo'
-```
-
-| Key      | Meaning                                                                                                              |
-| -------- | -------------------------------------------------------------------------------------------------------------------- |
-| `v`      | Contract version. Required, and must be `1`.                                                                         |
-| `prompt` | The text to prefill. At most 5,000 characters; it may not begin with `/`.                                            |
-| `cwd`    | Absolute path of the directory to open.                                                                              |
-| `repo`   | `owner/name` of an already-trusted local clone, when you do not want to name a path. `cwd` wins if both are present. |
-
-Everything else is refused, and a refusal discards the whole link, says which rule it broke, writes
-to stderr and exits non-zero without starting a session: an unknown key (so a link cannot carry
-`provider=`, `permission-mode=`, `plugin=` or any other configuration), a duplicate key, a missing
-or different `v`, a link over 8,192 characters, a prompt over 5,000, a prompt beginning with `/`
-(one Enter would otherwise run it as a command), a relative, UNC or `..`-bearing path, and a second
-link appended after the first (the argv shape a desktop handler can be made to produce). Your own
-flags still apply after the link; a trailing token that is neither a link nor a flag is currently
-discarded rather than refused — a CLI-wide gap tracked separately, not specific to links.
-
-The target must already be trusted — `robota trust --yes` in that directory — for `cwd=` exactly as
-for `repo=`. A link opens only what you have already approved; it never clones, never fetches, and
-never reads a repository you have not trusted. While the composer still holds exactly what the link
-supplied, the line `Prompt from an external link` sits below the input, and above 1,000 characters it
-adds the character count and asks you to read the whole thing before sending. Edit that text and the
-line goes: what is in the composer is then yours, and the label would be claiming otherwise.
-
-**Known limitations.** No URL scheme is registered with the operating system yet, so a browser
-cannot hand the link over: pass it to `robota open` yourself, or point your own handler at that
-command. Registering the scheme on macOS, Linux and Windows, and the HTTPS launcher that works
-around chat clients stripping custom schemes, are tracked separately.
-
-## Slash Commands
-
-Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inserts without executing, Enter executes. Subcommands (e.g., `/provider list`) show a nested submenu.
-
-### Session & Context
-
-| Command                   | Description                                                                                      |
-| ------------------------- | ------------------------------------------------------------------------------------------------ |
-| `/clear`                  | Clear conversation history                                                                       |
-| `/compact [instructions]` | Compress context window                                                                          |
-| `/context`                | Context window details, reference inventory, and auto-compact controls                           |
-| `/cost`                   | Show session token usage and cost                                                                |
-| `/effort [level]`         | Show or change model effort (`auto`, `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`) |
-| `/resume`                 | List recent sessions and resume one                                                              |
-| `/rename <name>`          | Rename the current session                                                                       |
-| `/cd <directory>`         | Move this conversation to another directory (see below)                                          |
-| `/rewind`                 | List, inspect, restore, or rollback edit checkpoints                                             |
-
-### Providers & Settings
-
-| Command | Description |
-| ------------------------ | -------------------------------------------------------------------- | ------- | -------------------------------------------------- |
-| `/provider [subcommand]` | Manage provider profiles: `list`, `switch`, `add`, `test`, `current` |
-| `/mode [mode]` | Show or switch permission mode |
-| `/permissions [mode]` | Show permission rules or change permission mode |
-| `/sandbox [mode]` | Show or change how shell commands are confined |
-| `/settings` | Open transport settings (enable/disable transports) |
-| `/language [lang]` | Set response language (ko, en, ja, zh), saves and restarts |
-| `/statusline [on         | off                                                                  | reset]` | Configure status-line fields (model, context, git) |
-
-### Tools & Memory
-
-| Command                | Description                                                          |
-| ---------------------- | -------------------------------------------------------------------- |
-| `/memory [subcommand]` | Inspect, add, or review project memory entries                       |
-| `/background`          | List and control background tasks                                    |
-| `/goal <objective>`    | Assign an autonomous goal pursued across turns (`status` / `cancel`) |
-| `/agent`               | Run and manage background subagent jobs                              |
-| `/skills [name]`       | List registered skills or activate one by name                       |
-| `/plugin [subcommand]` | Plugin management                                                    |
-
-### Git
-
-| Command                                                     | Description                                                                                          |
-| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `/git status`                                               | Branch plus the staged, unstaged and untracked paths                                                 |
-| `/git diff [--staged \| <rev> \| <a>..<b>] [-- <path> ...]` | Unstaged diff, staged diff, or a diff against one or two revisions (each revision is verified first) |
-| `/git commit [<subject>]`                                   | Commit the staged changes after a confirmation listing the message and the staged files              |
-
-`/git commit` operates on the staged set only — no `-a`, no paths. The subject must follow the
-Conventional Commits form `<type>[(scope)][!]: <description>`; the type list, the 72-character limit
-and a trailing period are warnings, not refusals. With nothing staged it says so, with the unstaged and
-untracked counts. Headless (`-p`) runs cancel the commit because no confirmation can be asked for.
-Other git flags are not accepted — `/shell git ...` remains the way to run arbitrary git.
-
-### Sessions on this host
-
-| Command                              | Description                               |
-| ------------------------------------ | ----------------------------------------- |
-| `/peers`                             | List the other live sessions on this host |
-| `/peers send <session-id> <message>` | Send a message to one of them             |
-
-See [Talking to another session](#talking-to-another-session) for the flow and what happens when the
-other session is busy.
-
-### Utility
-
-| Command  | Description                                        |
-| -------- | -------------------------------------------------- |
-| `/help`  | Show available commands                            |
-| `/reset` | Delete user settings and return to first-run state |
-| `/exit`  | Exit CLI                                           |
-
-Skill commands from the CLI's ordered `.robota/skills/`, `.claude/skills/`, `.claude/commands/`, and
-`.agents/skills/` roots appear alongside built-in commands.
-
-## Talking to another session
-
-Two `robota` sessions running on the same host, as the same user, can see and address each other.
-Nothing crosses a machine boundary and nothing is configured — a session becomes discoverable by
-being alive and stops being discoverable when it exits.
-
-### Seeing who is there
-
-```
-/peers
-```
-
-With nothing else running:
-
-```
-No other live session is announced. Start a second session on this host, as this user,
-and it appears here.
-```
-
-That is a sentence rather than an empty list on purpose: "no one is there" and "discovery is not
-working" are different answers, and an empty list cannot tell you which one you got.
-
-With a second session up:
-
-```
-Live sessions:
-  b8319b98-bb7b-486c-a499-cf1585b39e61  (this session)
-  97ffafe3-f770-4877-90a4-bd86df6be010
-
-Send to one: /peers send <session-id> <message>
-```
-
-### Sending
-
-```
-/peers send 97ffafe3-f770-4877-90a4-bd86df6be010 rerun the failing suite
-```
-
-The message becomes a **turn** in the other session — the agent there answers it as if the operator
-had typed it. The sender is told which of four things happened, as a sentence:
-
-| Outcome                                                                  | What it means                                                                     |
-| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| `Delivered to <id>.`                                                     | It arrived and started.                                                           |
-| `<id> has the message; it is waiting behind work already running there.` | It arrived and is queued. Deliberately **not** reported as delivered.             |
-| `<id> had already seen that message.`                                    | A retry that the receiver recognised; it does not run twice.                      |
-| `Not delivered to <id>. <reason>`                                        | Nothing ran. The reason names the target, e.g. that no such session is announced. |
-
-The second row is the one worth knowing. Reporting a queued message as delivered would hide a wait
-the operator can otherwise see and act on.
-
-### What the receiving operator sees
-
-The message is attributed to the sender, not to whoever is sitting at the receiving terminal:
-
-```
-peer:b8319b98-bb7b-486c-a499-cf1585b39e61:
-  rerun the failing suite
-Robota:
-  …
-```
-
-Your own turns still read `You:`. The name in the label is **derived from the peer's session id** —
-it is not a display name the sender chose, because a name the transcript's reader trusts must not be
-picked by the party being named. It is display attribution only: nothing anywhere uses it to decide
-what a turn is allowed to do.
-
-### When the other session is busy
-
-A message arriving mid-turn joins that session's existing pending queue rather than interrupting or
-opening a second one. Three things follow from how that queue works:
-
-- **Consecutive messages from the same sender coalesce**, last one wins. That is right for a person
-  retyping and wrong for a peer saying two separate things. The replaced one is not swallowed: it
-  settles as refused with the reason `coalesced`, so the sender learns it never ran rather than
-  assuming both did. Tracked as `PEER-003`.
-- **Messages from different senders do not coalesce** — they queue in arrival order.
-- **The queue holds 32.** Beyond that a message settles as refused with the reason `dropped`.
-- **A cleared queue** — abort, cancel, or shutdown — settles the waiting entries with `cancelled`.
-
-In every case the submission that never became a turn says so. A message that arrived and was then
-displaced is a different thing from one that ran, and the sender is told which it got.
-
-### Limits
-
-- Same host, same user. There is no network path here.
-- A session that exits removes its own entry; a crashed one is reaped by the next session that looks.
-- Session ids are what you address. There are no aliases.
-
-## Plugin Management
-
-The `/plugin` command opens an interactive TUI or runs plugin operations through the injected plugin command module:
-
-| Subcommand                               | Description                           |
-| ---------------------------------------- | ------------------------------------- |
-| `/plugin` or `/plugin manage`            | Open the plugin manager TUI           |
-| `/plugin install <name>@<marketplace>`   | Install a plugin from a marketplace   |
-| `/plugin uninstall <name>@<marketplace>` | Remove an installed plugin            |
-| `/plugin enable <name>@<marketplace>`    | Enable a disabled plugin              |
-| `/plugin disable <name>@<marketplace>`   | Disable a plugin without uninstalling |
-| `/plugin marketplace add <source>`       | Add a marketplace source              |
-| `/plugin marketplace remove <name>`      | Remove a marketplace source           |
-| `/plugin marketplace update <name>`      | Update a marketplace source           |
-| `/plugin marketplace list`               | List configured marketplace sources   |
-
-## Configuration
-
-Settings are merged in this order, from lowest to highest priority:
-
-1. `~/.robota/settings.json` (user global)
-2. `~/.claude/settings.json` (user global, Claude Code compatible)
-3. `.robota/settings.json` (project, shared)
-4. `.robota/settings.local.json` (local, gitignored)
-5. `.claude/settings.json` (project, Claude Code compatible)
-6. `.claude/settings.local.json` (local, gitignored, Claude Code compatible)
-
-The two user layers are always host-owned. The four project layers participate only when the CLI host
-supplies trusted project access; Restricted composition does not probe them. Project writes require a
-separately approved settings writer for the same authority.
-
-### Provider endpoints and trust
-
-Project settings apply only in a trusted workspace (see [Workspace Trust](#workspace-trust)).
-`robota doctor` reports trust and endpoint provenance without printing credentials. If a lower-trust
-settings layer changes a provider endpoint without providing its own key, Robota removes the inherited
-key and reports `provider endpoint quarantined`.
-
-```json
-{
-  "defaultMode": "default",
-  "language": "en",
-  "currentProvider": "qwen-plus",
-  "providers": {
-    "qwen-plus": {
-      "type": "qwen",
-      "model": "qwen-plus",
-      "apiKey": "$ENV:DASHSCOPE_API_KEY",
-      "baseURL": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
-    },
-    "supergemma4-26b-uncensored-v2": {
-      "type": "gemma",
-      "model": "supergemma4-26b-uncensored-v2",
-      "apiKey": "lm-studio",
-      "baseURL": "http://localhost:1234/v1"
-    },
-    "gpt-4o": {
-      "type": "openai",
-      "model": "gpt-4o",
-      "apiKey": "$ENV:OPENAI_API_KEY"
-    },
-    "claude-sonnet-4-6": {
-      "type": "anthropic",
-      "model": "claude-sonnet-4-6",
-      "apiKey": "$ENV:ANTHROPIC_API_KEY"
-    }
-  },
-  "permissions": {
-    "allow": ["Bash(pnpm *)"],
-    "deny": ["Bash(rm -rf *)"]
-  }
-}
-```
-
-`currentProvider` selects a profile key from `providers`. The key is the stable profile identity, not
-the provider type; multiple profile keys may use the same provider type and model when they represent
-different credentials, endpoints, accounts, or operational defaults. Qwen Model Studio profiles use
-`type: "qwen"` with a DashScope-compatible `baseURL`; the API key is usually stored as
-`$ENV:DASHSCOPE_API_KEY`. DeepSeek profiles use `type: "deepseek"` with
-`https://api.deepseek.com` and `$ENV:DEEPSEEK_API_KEY`. Gemma-family LM Studio models use
-`type: "gemma"` so Robota can apply Gemma-specific channel-marker projection while still talking to
-the OpenAI-compatible `/v1/chat/completions` API through `baseURL`. Generic OpenAI-compatible profiles use
-`type: "openai"` and do not apply provider-specific projection. Use `--provider <profile>` for a
-one-shot invocation override; add `--set-current` only when the selected profile should become the
-persisted default. The legacy single-provider shape remains supported:
-
-```json
-{
-  "provider": {
-    "name": "anthropic",
-    "model": "claude-sonnet-4-6",
-    "apiKey": "$ENV:ANTHROPIC_API_KEY"
-  }
-}
-```
-
-## Context Discovery
-
-With trusted project access, the CLI discovers and loads:
-
-- **AGENTS.md** — walking only within the authenticated worktree root
-- **CLAUDE.md** — the same root-bounded discovery
-- **Project metadata** — from `package.json`, `tsconfig.json`
-
-All context is assembled into the system prompt.
-
-Ordinary prompts may also reference workspace-local files with path-like `@file` tokens, for
-example `@AGENTS.md` or `@docs/SPEC.md`. The CLI passes those prompts through unchanged; the SDK
-resolves bounded file content through the accepted project reader, sends the enriched prompt to the model, and
-records a structured file-reference event in the session history.
-
-## Memory Management
-
-- **Message windowing** — React state keeps the most recent 100 messages. Older messages are dropped from the render tree; full history remains in the session store.
-- **Tool state cleanup** — Completed tool execution states are trimmed to the most recent 50 entries.
-- **React.memo** — `MessageItem` uses `React.memo` to skip redundant re-renders.
-
-## Session Logging
-
-Trusted composition writes project session logs and resumable records through authority-backed
-`session-logs` and `sessions` state facets. Restricted composition opens no project log path and uses
-the user session store instead. Session records include messages, UI history, the exact system prompt,
-registered tool schemas, and background task snapshots; high-frequency streaming chunks remain in
-the separately injected JSONL sink.
-
-## Architecture
-
-The CLI is a pure TUI layer. All business logic lives in `@robota-sdk/agent-framework`'s `InteractiveSession`. `useInteractiveSession` is the sole React↔SDK bridge, converting SDK events to React state.
-
-```
-bin.ts → cli.ts (arg parsing)
-              └── ui/render.tsx → App.tsx (thin JSX shell)
-                    ├── useInteractiveSession  (ONLY React↔SDK bridge)
-                    │   ├── InteractiveSession (SDK)
-                    │   ├── CommandRegistry    (SDK, re-exported by CLI)
-                    │   │   ├── BuiltinCommandSource  (SDK, empty by default)
-                    │   │   ├── agent-command (./skills)  (/skills command + virtual skill aliases)
-                    │   │   ├── PluginCommandSource   (SDK, plugin skills)
-                    │   │   └── ICommandModule sources (/help, /compact, ...)
-                    │   └── SystemCommandExecutor (SDK)
-                    ├── plugin-hooks-merger.ts (merges plugin hooks into SDK config)
-                    ├── MessageList.tsx
-                    ├── InputArea.tsx          (CjkTextInput, bracketed paste, slash detection)
-                    ├── StatusBar.tsx          (activity, conditional mode, model, context %)
-                    ├── PermissionPrompt.tsx   (arrow-key Allow/Deny)
-                    ├── SlashAutocomplete.tsx  (command popup with scroll)
-                    ├── DiffBlock.tsx          (Edit tool diff display)
-                    ├── MenuSelect.tsx         (arrow-key menu, Plugin TUI)
-                    ├── PluginTUI.tsx          (plugin management screen stack)
-                    ├── TextPrompt.tsx         (text input for Plugin TUI)
-                    └── ConfirmPrompt.tsx      (reusable yes/no prompt)
-```
-
-## Dependencies
-
-| Package                       | Purpose                                                                       |
-| ----------------------------- | ----------------------------------------------------------------------------- |
-| `@robota-sdk/agent-framework` | Session factory, query, config, context                                       |
-| `@robota-sdk/agent-core`      | Types (TPermissionMode, TToolArgs)                                            |
-| `@robota-sdk/agent-framework` | Headless runner and registry for print mode (`-p`); terminal I/O is CLI-local |
-| `ink` 7, `react` 19.2+        | TUI rendering                                                                 |
-| `chalk`                       | Terminal colors                                                               |
-| `marked`, `marked-terminal`   | Markdown parsing and terminal rendering                                       |
-| `string-width`                | Unicode-aware string width (CJK support)                                      |
 
 ## Documentation
 
-See [docs/SPEC.md](./docs/SPEC.md) for the full specification, architecture details, and design decisions.
+- [CLI guide](../../content/guide/cli.md) — every command, flag and setting
+- [Sessions and the daemon](../../content/guide/sessions-and-daemon.md)
+- [Permissions and hooks](../../content/guide/permissions-and-hooks.md)
+- [Providers](../../content/guide/providers.md) and [Local LLM setup](../../content/guide/local-llm.md)
+- [MCP](../../content/guide/mcp.md)
+- [Devices and remote control](../../content/guide/devices-and-remote.md)
+- [SPEC.md](./docs/SPEC.md) — what this package owns and guarantees
 
 ## License
 
-Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a
+[commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

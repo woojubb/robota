@@ -31,21 +31,32 @@ Open http://localhost:3000 — you should see a streaming chat UI.
 
 ```
 Client (fetch + ReadableStream)
-  └─ POST /api/chat
-       └─ createAgentRuntime({ provider })
+  └─ POST /api/chat { message }
+       └─ createAgentRuntime({ cwd, provider }).createSession({ permissionMode, bare: true })
             └─ session.submit(message)
-                 ├─ text_delta  → data: { type: "text_delta", text: "..." }
-                 └─ done        → data: { type: "done" }
+                 ├─ text_delta            → data: { type: "text_delta", text: "..." }
+                 ├─ complete/interrupted  → data: { type: "done" }
+                 └─ error                 → data: { type: "error", message: "..." }
 ```
+
+Each request builds a new runtime and session, and the client sends only the latest message, so the model
+does not see earlier turns of the chat. The session runs with `permissionMode: 'bypassPermissions'` and the
+default tool set in the server's working directory, so anyone who can reach `/api/chat` can have the agent
+read, write and run shell commands there. Keep the app local, or pass `deniedTools` to `createSession()`.
 
 ## Swap provider
 
-Change `AnthropicProvider` in `app/api/chat/route.ts` to any supported provider:
+Install the provider package (`npm install @robota-sdk/agent-provider-openai`) and change
+`AnthropicProvider` in `app/api/chat/route.ts`:
 
 ```ts
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
-provider: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
+const agentRuntime = createAgentRuntime({
+  cwd: process.cwd(),
+  provider: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
+});
 ```
 
-Set the corresponding env var (`OPENAI_API_KEY`) in `.env.local`.
+Set the corresponding env var (`OPENAI_API_KEY`) in `.env.local`, and update the handler's
+`ANTHROPIC_API_KEY` check to the new variable.

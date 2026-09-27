@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-plugin",
   "version": "3.0.0-beta.83",
-  "description": "Consolidated plugin implementations for Robota SDK",
+  "description": "Lifecycle plugins for the Robota SDK: history, logging, usage, limits, performance, errors, analytics and webhooks",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -66,6 +66,7 @@
     "url": "https://github.com/woojubb/robota.git",
     "directory": "packages/agent-plugin"
   },
+  "homepage": "https://docs.robota.io/en/packages/agent-plugin/",
   "publishConfig": {
     "access": "public"
   },

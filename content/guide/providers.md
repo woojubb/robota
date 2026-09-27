@@ -5,8 +5,9 @@ description: All supported AI providers, their configuration options, and how to
 
 # Providers Reference
 
-All providers implement the same `IAIProvider` interface. You can pass any provider to
-`Robota`, `createQuery`, or `createAgentRuntime` — the calling code never needs to change.
+Every chat provider implements the same `IAIProvider` interface from `@robota-sdk/agent-core`.
+You can pass any of them to `Robota`, `createQuery()` or `createAgentRuntime()`, and the calling code
+does not change.
 
 > **Swap with zero code changes.** The only thing you change when switching providers is
 > which provider object you construct and pass in. All agent logic, tools, and session
@@ -28,7 +29,7 @@ OpenRouter), Azure, vLLM, Ollama, LM Studio. Model slugs pass through verbatim, 
 | Gemini                    | `@robota-sdk/agent-provider-gemini`            | Google GenAI API                                                                | `GEMINI_API_KEY`                  |
 | DeepSeek                  | `@robota-sdk/agent-provider-openai-compatible` | OpenAI-compatible (DeepSeek endpoint default)                                   | `DEEPSEEK_API_KEY`                |
 | Qwen (Alibaba)            | `@robota-sdk/agent-provider-openai-compatible` | OpenAI-compatible (DashScope endpoint default)                                  | `DASHSCOPE_API_KEY`               |
-| Gemma / OpenAI-compatible | `@robota-sdk/agent-provider-openai-compatible` | OpenAI-compatible (bring your own endpoint)                                     | varies                            |
+| Gemma / OpenAI-compatible | `@robota-sdk/agent-provider-openai-compatible` | OpenAI-compatible (bring your own endpoint)                                     | none for local servers            |
 
 > **AI gateways (Vercel AI Gateway, LiteLLM, OpenRouter):** Use the `OpenAIProvider` with the
 > gateway's `baseURL` and a gateway model slug — see [Through an AI gateway](#through-an-ai-gateway).
@@ -45,8 +46,11 @@ Claude models. Best for long-context tasks, code generation, and nuanced reasoni
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider-anthropic @anthropic-ai/sdk
+npm install @robota-sdk/agent-provider-anthropic
 ```
+
+The package depends on the Anthropic SDK itself; install `@anthropic-ai/sdk` in your project only if
+you build the client yourself (below).
 
 ### Basic usage
 
@@ -95,7 +99,7 @@ AI gateways, Azure OpenAI, vLLM, Ollama, LM Studio.
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider-openai openai
+npm install @robota-sdk/agent-provider-openai
 ```
 
 ### Basic usage
@@ -110,18 +114,26 @@ const provider = new OpenAIProvider({
 
 ### Configuration options
 
-| Option           | Type                                       | Required                       | Description                                                                                   |
-| ---------------- | ------------------------------------------ | ------------------------------ | --------------------------------------------------------------------------------------------- |
-| `apiKey`         | `string`                                   | Yes (unless `client` provided) | OpenAI API key                                                                                |
-| `client`         | `OpenAI`                                   | No                             | Pre-built OpenAI SDK client                                                                   |
-| `organization`   | `string`                                   | No                             | OpenAI organization ID                                                                        |
-| `baseURL`        | `string`                                   | No                             | Any OpenAI-compatible endpoint — gateways, Azure, vLLM, local                                 |
-| `timeout`        | `number`                                   | No                             | Request timeout in milliseconds                                                               |
-| `apiSurface`     | `'responses' \| 'chat-completions'`        | No                             | API surface to use (default: `responses` for OpenAI, `chat-completions` for custom endpoints) |
-| `responseFormat` | `'text' \| 'json_object' \| 'json_schema'` | No                             | Response format                                                                               |
-| `reasoning`      | `IOpenAIResponsesReasoningOptions`         | No                             | Reasoning effort for o-series models                                                          |
-| `strictTools`    | `boolean`                                  | No                             | Enable strict function parameter validation                                                   |
-| `executor`       | `IExecutor`                                | No                             | Remote or local executor override                                                             |
+| Option                      | Type                                       | Required                       | Description                                                                                          |
+| --------------------------- | ------------------------------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `apiKey`                    | `string`                                   | Yes (unless `client` provided) | OpenAI API key                                                                                       |
+| `client`                    | `OpenAI`                                   | No                             | Pre-built OpenAI SDK client                                                                          |
+| `organization`              | `string`                                   | No                             | OpenAI organization ID                                                                               |
+| `baseURL`                   | `string`                                   | No                             | Any OpenAI-compatible endpoint — gateways, Azure, vLLM, local                                        |
+| `defaultModel`              | `string`                                   | No                             | Model used when a request names none                                                                 |
+| `timeout`                   | `number`                                   | No                             | Request timeout in milliseconds                                                                      |
+| `apiSurface`                | `'responses' \| 'chat-completions'`        | No                             | API surface (default: `responses` for OpenAI, `chat-completions` when `baseURL` is set)              |
+| `responseFormat`            | `'text' \| 'json_object' \| 'json_schema'` | No                             | Response format                                                                                      |
+| `jsonSchema`                | `IOpenAIJsonSchemaDefinition`              | No                             | Schema for `responseFormat: 'json_schema'`                                                           |
+| `reasoning`                 | `IOpenAIResponsesReasoningOptions`         | No                             | Reasoning `effort` and `summary` for reasoning models (Responses API)                                |
+| `store`                     | `boolean`                                  | No                             | Whether OpenAI stores Responses API results                                                          |
+| `includeEncryptedReasoning` | `boolean`                                  | No                             | Include encrypted reasoning items for stateless continuation                                         |
+| `strictTools`               | `boolean`                                  | No                             | Strict function-parameter validation (rewrites tool schemas for strict mode)                         |
+| `nativeWebTools`            | `IOpenAINativeWebToolsOptions`             | No                             | OpenAI's hosted `webSearch` / `webFetch` tools (not available on custom endpoints)                   |
+| `includeStreamUsage`        | `boolean`                                  | No                             | Request token usage on streaming turns (default `true`; turn off for endpoints that reject it)       |
+| `payloadLogger`             | `IPayloadLogger`                           | No                             | Receives a summary of each Chat Completions request (loggers in `.../agent-provider-openai/loggers`) |
+| `executor`                  | `IExecutor`                                | No                             | Remote or local executor override                                                                    |
+| `logger`                    | `ILogger`                                  | No                             | Internal logger (default: silent)                                                                    |
 
 ### Through an AI gateway
 
@@ -176,7 +188,7 @@ multimodal inputs.
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider-gemini @google/genai
+npm install @robota-sdk/agent-provider-gemini
 ```
 
 ### Basic usage
@@ -191,14 +203,19 @@ const provider = new GeminiProvider({
 
 ### Configuration options
 
-| Option             | Type                                 | Required | Description                       |
-| ------------------ | ------------------------------------ | -------- | --------------------------------- |
-| `apiKey`           | `string`                             | Yes      | Google AI API key                 |
-| `defaultModel`     | `string`                             | No       | Default model name                |
-| `responseMimeType` | `'text/plain' \| 'application/json'` | No       | Response format                   |
-| `thinkingConfig`   | `IGeminiThinkingConfig`              | No       | Thinking mode settings            |
-| `safetySettings`   | `IGeminiSafetySetting[]`             | No       | Per-category safety thresholds    |
-| `executor`         | `IExecutor`                          | No       | Remote or local executor override |
+| Option                      | Type                                 | Required | Description                                                     |
+| --------------------------- | ------------------------------------ | -------- | --------------------------------------------------------------- |
+| `apiKey`                    | `string`                             | Yes      | Google AI API key                                               |
+| `defaultModel`              | `string`                             | No       | Model used when a request names none                            |
+| `responseMimeType`          | `'text/plain' \| 'application/json'` | No       | Response format                                                 |
+| `responseSchema`            | object                               | No       | Schema for JSON output                                          |
+| `responseJsonSchema`        | object                               | No       | JSON Schema for structured output (instead of `responseSchema`) |
+| `thinkingConfig`            | `IGeminiThinkingConfig`              | No       | Thinking mode settings                                          |
+| `safetySettings`            | `IGeminiSafetySetting[]`             | No       | Per-category safety thresholds                                  |
+| `toolConfig`                | object                               | No       | Function-calling config passed to Gemini                        |
+| `defaultResponseModalities` | `Array<'TEXT' \| 'IMAGE'>`           | No       | Default response modalities, e.g. text and image                |
+| `imageCapableModels`        | `string[]`                           | No       | Models allowed to return images; others are refused             |
+| `executor`                  | `IExecutor`                          | No       | Remote or local executor override                               |
 
 ### Thinking mode
 
@@ -227,7 +244,7 @@ API under the hood.
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider-openai-compatible openai
+npm install @robota-sdk/agent-provider-openai-compatible
 ```
 
 ### Basic usage
@@ -252,6 +269,7 @@ const provider = new DeepSeekProvider({
 | `reasoningEffort` | `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'` | No                             | Reasoning depth                                 |
 | `timeout`         | `number`                                          | No                             | Request timeout in milliseconds                 |
 | `executor`        | `IExecutor`                                       | No                             | Remote or local executor override               |
+| `logger`          | `ILogger`                                         | No                             | Internal logger                                 |
 
 ### Reasoning model with extended thinking
 
@@ -275,7 +293,7 @@ web extraction tools.
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider-openai-compatible openai
+npm install @robota-sdk/agent-provider-openai-compatible
 ```
 
 ### Basic usage
@@ -290,19 +308,23 @@ const provider = new QwenProvider({
 
 ### Configuration options
 
-| Option            | Type                          | Required                       | Description                               |
-| ----------------- | ----------------------------- | ------------------------------ | ----------------------------------------- |
-| `apiKey`          | `string`                      | Yes (unless `client` provided) | DashScope API key                         |
-| `baseURL`         | `string`                      | No                             | Regional endpoint (see below)             |
-| `defaultModel`    | `string`                      | No                             | Default: `qwen-plus`                      |
-| `builtInWebTools` | `IQwenBuiltInWebToolsOptions` | No                             | Enable Qwen-native web search / web fetch |
-| `timeout`         | `number`                      | No                             | Request timeout in milliseconds           |
-| `executor`        | `IExecutor`                   | No                             | Remote or local executor override         |
+| Option             | Type                          | Required                       | Description                                       |
+| ------------------ | ----------------------------- | ------------------------------ | ------------------------------------------------- |
+| `apiKey`           | `string`                      | Yes (unless `client` provided) | DashScope API key                                 |
+| `client`           | `OpenAI`                      | No                             | Pre-built OpenAI SDK client pointed at DashScope  |
+| `baseURL`          | `string`                      | No                             | Regional endpoint (see below)                     |
+| `responsesBaseURL` | `string`                      | No                             | Endpoint for DashScope's Responses-compatible API |
+| `defaultModel`     | `string`                      | No                             | Default: `qwen-plus`                              |
+| `builtInWebTools`  | `IQwenBuiltInWebToolsOptions` | No                             | Qwen-native web search / web fetch                |
+| `timeout`          | `number`                      | No                             | Request timeout in milliseconds                   |
+| `executor`         | `IExecutor`                   | No                             | Remote or local executor override                 |
+| `logger`           | `ILogger`                     | No                             | Internal logger                                   |
 
 ### Regional endpoints
 
 DashScope has region-specific endpoints. The default is Singapore
-(`https://dashscope-intl.aliyuncs.com/compatible-mode/v1`). For other regions:
+(`https://dashscope-intl.aliyuncs.com/compatible-mode/v1`). `QWEN_PROVIDER_BASE_URLS` holds the
+endpoints for `singapore`, `usVirginia`, `beijing` and `hongKong`:
 
 ```typescript
 import { QwenProvider } from '@robota-sdk/agent-provider-openai-compatible';
@@ -329,18 +351,19 @@ const provider = new QwenProvider({
 
 ## Gemma / OpenAI-Compatible
 
-A generic OpenAI-compatible provider. Use this for:
+A generic OpenAI-compatible provider. Use it for:
 
-- **Gemma** models via Google AI
-- **Ollama** (local)
-- **LM Studio** (local)
-- **llama.cpp** server
+- **Ollama**, **LM Studio** and the **llama.cpp** server (local)
 - Any other endpoint that implements the OpenAI Chat Completions API
+
+In the `robota` CLI this is the provider type `gemma`, listed in setup as
+"Ollama / LM Studio / llama.cpp"; its setup defaults are LM Studio's `http://localhost:1234/v1` and
+the placeholder key `lm-studio`.
 
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider-openai-compatible openai
+npm install @robota-sdk/agent-provider-openai-compatible
 ```
 
 ### Basic usage
@@ -365,6 +388,7 @@ const provider = new GemmaProvider({
 | `timeout`      | `number`    | No       | Request timeout in milliseconds                                       |
 | `client`       | `OpenAI`    | No       | Pre-built OpenAI SDK client                                           |
 | `executor`     | `IExecutor` | No       | Remote or local executor override                                     |
+| `logger`       | `ILogger`   | No       | Internal logger                                                       |
 
 ### LM Studio
 
@@ -374,12 +398,25 @@ import { GemmaProvider } from '@robota-sdk/agent-provider-openai-compatible';
 const provider = new GemmaProvider({
   apiKey: 'lm-studio',
   baseURL: 'http://localhost:1234/v1',
-  defaultModel: 'gemma-3-12b', // match name shown in LM Studio Local Server tab
+  defaultModel: 'gemma-3-12b', // the model name LM Studio shows for the loaded model
 });
 ```
 
 See the [Local LLM Setup guide](./local-llm.md) for Ollama, LM Studio, and
 llama.cpp configuration details.
+
+---
+
+## Other provider packages
+
+- **`@robota-sdk/agent-provider-bytedance`** — `BytedanceProvider`, a video-generation provider for
+  ByteDance ModelArk (Seedance). It implements `IVideoGenerationProvider` (`createVideo`,
+  `getVideoJob`, `cancelVideoJob`) rather than the chat `IAIProvider`, so it is not an agent's chat
+  model.
+- **`@robota-sdk/agent-builtin-providers`** — `createDefaultProviderDefinitions()`, the provider
+  definitions (setup steps, defaults, model catalogs) the `robota` CLI offers for `anthropic`,
+  `openai`, `gemini`, `gemma`, `qwen` and `deepseek`. Use it when your own host wants the same
+  settings-driven provider selection.
 
 ---
 
@@ -427,6 +464,6 @@ a different provider object at construction time.
 
 ## Related
 
-- [Local LLM Setup](./local-llm.md) — run models locally with Ollama or LM Studio
-- [Getting Started](../getting-started/README.md) — first agent in 5 lines
+- [Local LLM Setup](./local-llm.md) — run models locally with Ollama, LM Studio or llama.cpp
+- [Getting Started](../getting-started/README.md) — your first agent
 - [Embedding agent-framework](./embedding.md) — server, bot, and serverless patterns

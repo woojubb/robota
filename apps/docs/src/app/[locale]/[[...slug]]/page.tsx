@@ -7,12 +7,20 @@ import rehypeSlug from 'rehype-slug';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
-import { getAllSlugs, getPageContent, extractTitle } from '@/lib/content';
+import {
+  getAllSlugs,
+  getPageContent,
+  extractTitle,
+  MONOREPO_ROOT,
+  PACKAGES_DIR,
+} from '@/lib/content';
+import { buildPackageIndex } from '@/lib/packages-index';
 import { buildSidebar } from '@/lib/sidebar';
 import { extractToc } from '@/lib/toc';
 import { remarkMermaid } from '@/lib/remark-mermaid';
 import { remarkFixLinks } from '@/lib/remark-fix-links';
 import { DocsLayout } from '@/components/DocsLayout';
+import { PackagesIndex } from '@/components/PackagesIndex';
 import { CodeBlock } from '@/components/mdx/CodeBlock';
 import { MermaidDiagram } from '@/components/mdx/MermaidDiagram';
 import { Callout } from '@/components/mdx/Callout';
@@ -26,6 +34,10 @@ const components = {
   Callout,
   PackageManagerTabs,
 };
+
+function isPackagesIndex(slug: string[]): boolean {
+  return slug.length === 1 && slug[0] === 'packages';
+}
 
 interface PageParams {
   locale: string;
@@ -51,6 +63,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug, locale } = await params;
   const resolvedSlug = slug ?? [];
+  if (isPackagesIndex(resolvedSlug)) {
+    return { title: 'Packages', description: 'Every Robota SDK package and its documentation.' };
+  }
   const page = await getPageContent(resolvedSlug, locale);
   if (!page) return { title: 'Not Found' };
 
@@ -63,10 +78,10 @@ export async function generateMetadata({
 }
 
 const QUICK_LINK_DESCS: Record<string, string> = {
-  'getting-started': 'CLI quick start — first agent in 5 lines',
-  guide: 'Architecture, SDK, CLI, plugins, and more',
-  examples: 'Real-world code examples for common use cases',
-  packages: 'API reference for every SDK package',
+  'getting-started': 'Install, configure a provider and run your first agent',
+  guide: 'Architecture, SDK, CLI, sessions, MCP, permissions and more',
+  examples: 'Focused walkthroughs for common tasks',
+  packages: 'Every package, its role and its contract',
   changelog: 'Release notes and version history',
   development: 'Contributing guide and development setup',
 };
@@ -174,15 +189,21 @@ function HomePage({
         </p>
         <pre className="overflow-x-auto rounded-[0.375rem] border border-[var(--border-strong)] border-t-[var(--primary)] bg-[#020207] px-[1.375rem] py-[1.125rem] [font-family:var(--font-code)] text-[0.825rem] leading-[1.65] text-[#d4d4d8]">
           <code>
-            <span className="text-[#52525b]"># Install the CLI globally</span>
+            <span className="text-[#52525b]">
+              # Build an agent in your app: core + one provider + tools
+            </span>
+            {'\n'}
+            <span className="text-primary opacity-85">pnpm</span>
+            {
+              ' add @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic @robota-sdk/agent-tools'
+            }
+            {'\n\n'}
+            <span className="text-[#52525b]">
+              # Or try the reference CLI built from the same libraries
+            </span>
             {'\n'}
             <span className="text-primary opacity-85">pnpm</span>
             {' add -g @robota-sdk/agent-cli'}
-            {'\n\n'}
-            <span className="text-[#52525b]"># Or install SDK packages for your app</span>
-            {'\n'}
-            <span className="text-primary opacity-85">pnpm</span>
-            {' add @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic'}
           </code>
         </pre>
       </div>
@@ -223,6 +244,14 @@ export default async function DocsPage({ params }: { params: Promise<PageParams>
     );
   }
 
+  if (isPackagesIndex(resolvedSlug)) {
+    return (
+      <DocsLayout sidebar={sidebar} toc={[]}>
+        <PackagesIndex locale={locale} entries={buildPackageIndex(PACKAGES_DIR)} />
+      </DocsLayout>
+    );
+  }
+
   const page = await getPageContent(resolvedSlug, locale);
   if (!page) notFound();
 
@@ -236,7 +265,11 @@ export default async function DocsPage({ params }: { params: Promise<PageParams>
         options={{
           mdxOptions: {
             format: 'md',
-            remarkPlugins: [remarkMermaid, remarkFixLinks, remarkGfm],
+            remarkPlugins: [
+              remarkMermaid,
+              [remarkFixLinks, { sourcePath: page.filePath, locale, repoRoot: MONOREPO_ROOT }],
+              remarkGfm,
+            ],
             rehypePlugins: [
               rehypeSlug,
               [

@@ -1,118 +1,175 @@
-# Hook Event Catalog (SSOT)
+# Hook Event Catalog
 
-This catalog documents the lifecycle hook events declared in `THookEvent`
-(`packages/agent-core/src/hooks/types.ts`) and their `runHooks` firing sites. The `THookEvent` union
-is the single source of truth for event names; the source call sites define where they fire. Update
-this table when either changes.
+Hooks let a user or host run their own checks and notifications at points in a session's
+lifecycle: before a tool runs, after a turn completes, when a subagent starts, and so on. This
+catalog lists every event in `THookEvent` (`packages/agent-core/src/hooks/types.ts`), what each one
+receives, where it fires, and whether it can block.
 
-Every event is a member of the `THookEvent` union and is dispatched through the **one** `runHooks`
-engine (`packages/agent-core/src/hooks/hook-runner.ts`). There is no second hook tier or parallel
-registry.
+The `THookEvent` union is the single source of truth for event names, and the fire sites in source
+define the timing. Update this catalog when either changes.
+
+Every event is dispatched through the one `runHooks` engine
+(`packages/agent-core/src/hooks/hook-runner.ts`). There is no second hook tier or parallel registry.
+
+## Configuration
+
+A hooks configuration (`THooksConfig`) maps an event name to a list of hook groups. Each group
+(`IHookGroup`) has:
+
+- `matcher` — a regular expression tested against the event's matcher target (see the Events
+  table). An empty matcher matches everything; a group with a non-empty matcher does not run for an
+  event that has no matcher target. A matcher that is not a valid regular expression is compared as
+  an exact string.
+- `hooks` — the hook definitions to run, in order.
+- `env` — optional environment variables added to the hook input's `env` for this group.
+
+A hook definition (`THookDefinition`) has one of five types. Each type needs a registered executor
+(`IHookTypeExecutor`):
+
+| Type        | What it does                                                              | Executor                                                                                  |
+| ----------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `command`   | Runs a shell command with the hook input as JSON on stdin                 | `CommandExecutor` (`@robota-sdk/agent-core/node`); a default when no executors are passed |
+| `http`      | POSTs the hook input as JSON to a URL                                     | `HttpExecutor` (`@robota-sdk/agent-core/node`); a default when no executors are passed    |
+| `prompt`    | Asks a model to judge the hook input                                      | `PromptExecutor` (`@robota-sdk/agent-framework`), which needs a provider factory          |
+| `agent`     | Runs a subagent session on the hook input                                 | `AgentExecutor` (`@robota-sdk/agent-framework`), which needs a session factory            |
+| `guardrail` | Runs registered guardrail functions in parallel; the first failure blocks | `GuardrailExecutor` (`@robota-sdk/agent-core`), which needs the guardrails registered     |
+
+## How a hook answers
+
+Each execution produces one outcome (`THookOutcome`):
+
+- **`allow`** — the hook approved. For a `command` hook this is exit code `0`; for `http`, `prompt`
+  and `agent` hooks it is a JSON response `{ "ok": true }`.
+- **`deny`** — the hook refused, with a reason. For a `command` hook this is exit code `2` (stderr
+  is the reason); for the other types it is `{ "ok": false, "reason": "..." }`.
+- **`error`** — the hook reached no verdict: a timeout, a process or connection that never started,
+  a transport failure, a non-2xx HTTP status, a response that cannot be decoded, or any other exit
+  code. `runHooks` reports every one on `IRunHooksResult.errors` and never treats it as approval.
+
+A response whose `ok` field is not exactly `true` or `false` is an `error`, unless the same body
+carries an explicit block directive (below), in which case it is a `deny`.
+
+The output of an `allow` (a command's stdout, or the response body for the other types) is read with
+the Claude Code compatible response protocol:
+
+- Plain text (not a JSON object) is collected as output.
+- `{ "continue": false }` blocks on every event; `stopReason` is used as the reason.
+- On `PreToolUse`, `hookSpecificOutput.permissionDecision` may be `allow`, `ask`, `defer` or
+  `deny`; `deny` blocks. With several hooks, the highest-priority decision wins
+  (`deny` > `defer` > `ask` > `allow`), and `hookSpecificOutput.updatedInput` travels with it.
+- On `UserPromptSubmit`, `{ "decision": "block" }` blocks, and
+  `hookSpecificOutput.additionalContext` is collected as output.
+- `systemMessage` is collected as output.
+
+"Blocks" here means `runHooks` returns `blocked: true`. Whether that stops anything depends on the
+event: see the next section.
 
 ## Blocking semantics
 
-The **only** blocking event is `PreToolUse`. **This document is the owner of the deny-cause list;
-anything else that needs the count cites this section rather than recounting it.** Four causes deny
-there, enumerated here in full rather than promised and delivered in pieces:
+The **only** blocking event is `PreToolUse`. This section is the one place that lists the causes
+that deny a tool call there; anything else that needs them links here. There are four:
 
 1. a hook whose executor returns the `deny` outcome;
 2. an `allow` whose stdout carries `hookSpecificOutput.permissionDecision: "deny"` or
-   `continue: false` — a deny directive in a non-deny outcome;
-3. **(SEC-016)** a hook that returns `error` — timeout, spawn failure, transport failure, HTTP
-   status, malformed response, non-zero exit — because a hook that reached no verdict is not a hook
-   that approved;
-4. **(SEC-016)** a configured hook type with **no registered executor**, because a gate nothing
-   evaluated denies rather than allowing silently.
+   `continue: false`;
+3. a hook that returns `error` (timeout, spawn failure, transport failure, HTTP status, malformed
+   response, unexpected exit code), because a hook that reached no verdict has not approved;
+4. a configured hook type with **no registered executor**, because a gate that nothing evaluated
+   must not allow silently.
 
-Causes 1 and 2 set `IRunHooksResult.blocked`; causes 3 and 4 are decided at the boundary from
-`errors` and `unknownHookTypes`, read per event through `isEnforcing`. In every case the turn
-owner's `runPreToolHook` → `PermissionEnforcer` path turns the decision into a denial `IToolResult`
-so the tool's `execute` never runs.
+Causes 1 and 2 set `IRunHooksResult.blocked`. Causes 3 and 4 are read from `errors` and
+`unknownHookTypes` at the gate (`agent-session/src/tool-hook-helpers.ts : runPreToolHook`), which
+checks `isEnforcing('PreToolUse')`. In every case the tool's `execute` never runs; the model
+receives a failed tool result whose reason names the cause, and for an `error` it names the failure
+kind and the executor type.
 
-Note the grouping, because two counts were in circulation: causes 1 and 2 were previously described
-as one thing, which is defensible — they are both an executor-supplied verdict — and produced a
-count of three against this section's four. Neither was wrong; they were counting different
-groupings without saying so. Four, split as above, is the count this document now owns.
+`HOOK_ENFORCEMENT_POLICY` (`packages/agent-core/src/hooks/enforcement-policy.ts`) records which
+events enforce. `PreToolUse` is the only event whose fire site awaits `runHooks` and consults the
+result, so every other event is `advisory`: each row's `enforcementReachable` field records that its
+fire site could not honour an enforcing posture. Review the fire sites when that field changes.
 
-Every other event is **informational-only**: its
-`runHooks` result is not awaited or consulted for gating, so it cannot veto or mutate the action it
-observes.
+Every other event is **informational**: its result cannot veto or change the action it observes. In
+particular:
 
-In particular `PreModelCall`, `PostModelCall`, and `PermissionDecision` (SELFHOST-009) are
-**informational-only despite the "Pre"/"Decision" naming**. They are fired fire-and-forget from
-points the turn owner already observes (a void, un-awaited `onExecutionEvent` callback, and
-post-`evaluatePermission`), so they cannot block or mutate `provider.chat()` or the permission
-outcome.
+- `PreModelCall`, `PostModelCall` and `PermissionDecision` are informational despite their names.
+  They fire without being awaited, so they cannot block or change the provider call or the
+  permission outcome.
+- `UserPromptSubmit` is awaited, but only its collected output is used: it is added to the prompt
+  inside a `<system-reminder>` block. A `{ "decision": "block" }` or `continue: false` response
+  does not stop the prompt.
+- `SessionStart` output is added the same way to the session's first prompt.
+- On `PreToolUse`, a `permissionDecision` of `allow`, `ask` or `defer` and any `updatedInput` are
+  reported on the result but not applied: they do not change the permission decision or the tool's
+  input. Only a denial has an effect.
 
-**A hook that FAILS is not a hook that approved (SEC-015).** An executor that could not reach a verdict —
-timeout, spawn failure, HTTP status, unreachable endpoint, undecodable body, unexpected exit code —
-returns the `error` outcome, and `runHooks` reports every one on `IRunHooksResult.errors`.
+The block directives are scoped by event in both the runner and the `{ ok }` verdict decoder
+(`decodeHookVerdict`): `continue: false` on every event, `decision: "block"` only on
+`UserPromptSubmit`, `permissionDecision: "deny"` only on `PreToolUse`.
 
-**Whether that blocks is per-event policy, and `PreToolUse` fails closed (SEC-016).** A `PreToolUse`
-hook that reached no verdict — or a configured hook type with no registered executor — now denies the
-tool call, with the failure `kind` and the `source` executor named in the reason.
-`HOOK_ENFORCEMENT_POLICY` (`packages/agent-core/src/hooks/enforcement-policy.ts`) is the SSOT for
-which events enforce. Every other event is `advisory`, and each records WHY: measured across the
-tree, `PreToolUse` is the only event whose fire site awaits `runHooks` and consults `blocked`, so the
-other fifteen could not honour an enforcing posture even if one were declared. That is what each
-row's `enforcementReachable` field records. Review the fire sites when that field changes. A body
-whose `{ ok }` verdict is undecodable but which carries an explicit block directive is a `deny`, not an
-`error` — the hook said so outright. Which directives count is scoped by event, and the decoder
-(`decodeHookVerdict`) and the runner apply the SAME scoping (issue #2196): `continue: false` on every
-event, `decision: "block"` only on `UserPromptSubmit`, `permissionDecision: "deny"` only on
-`PreToolUse`.
+## Common input fields
+
+Every hook receives `session_id`, `cwd` and `hook_event_name`. Most events also carry
+`permission_mode` and `transcript_path` when the session has them. Command hooks get the input as
+JSON on stdin; HTTP hooks get it as the request body.
+
+`env` holds environment variables for command hook processes. The session, stop, prompt,
+model-call, permission and subagent events set `CLAUDE_PROJECT_DIR` and `CLAUDE_SESSION_ID`;
+`PreToolUse`, `PostToolUse`, `PreCompact`, `PostCompact`, `WorktreeCreate` and `WorktreeRemove` do
+not. A group's `env` is merged on top.
 
 ## Events
 
-| Event                | Timing                                                | Fire-site (file : function)                                                         | Key input fields                                         | Blocking            |
-| -------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------- | ------------------- |
-| `PreToolUse`         | Before a tool executes                                | `agent-session/src/tool-hook-helpers.ts : runPreToolHook`                           | `tool_name`, `tool_input`, `permission_mode`             | **BLOCKING** (gate) |
-| `PostToolUse`        | After a tool executes                                 | `agent-session/src/tool-hook-helpers.ts : firePostToolHook`                         | `tool_name`, `tool_input`, `tool_output`                 | Informational       |
-| `SessionStart`       | Session initialization                                | `agent-session/src/session-lifecycle.ts : fireSessionStartHook`                     | `prompt`, `permission_mode`                              | Informational       |
-| `SessionEnd`         | Session teardown                                      | `agent-session/src/session-lifecycle.ts : fireSessionEndHook`                       | `reason`, `transcript_path`                              | Informational       |
-| `Stop`               | After a turn's response completes                     | `agent-session/src/session-run.ts : executeRun`                                     | `response`, `last_assistant_message`, `stop_hook_active` | Informational       |
-| `StopFailure`        | When a turn errors                                    | `agent-session/src/session-run.ts : executeRun`                                     | `reason`, `stop_hook_active`                             | Informational       |
-| `PreCompact`         | Before context compaction                             | `agent-session/src/compaction-orchestrator.ts`                                      | `trigger`                                                | Informational       |
-| `PostCompact`        | After context compaction                              | `agent-session/src/session-history-ops.ts`                                          | `trigger`, `compact_summary`                             | Informational       |
-| `UserPromptSubmit`   | Before the user prompt is sent to the model           | `agent-session/src/session-run.ts : executeRun`                                     | `user_message`, `prompt`                                 | Informational\*     |
-| `SubagentStart`      | When a subagent (background `agent` task) starts      | `agent-framework/src/assembly/background-task-hooks.ts : fireSubagentLifecycleHook` | `agent_id`, `agent_type`                                 | Informational       |
-| `SubagentStop`       | When a subagent finishes / fails / is cancelled       | `agent-framework/src/assembly/background-task-hooks.ts : fireSubagentLifecycleHook` | `agent_id`, `agent_type`, `last_assistant_message`       | Informational       |
-| `WorktreeCreate`     | When an isolated worktree is created for a subagent   | `agent-executor/src/subagents/worktree-subagent-runner.ts : fireWorktreeHook`       | `tool_input` (taskId, worktreePath, branchName)          | Informational       |
-| `WorktreeRemove`     | When a subagent's worktree is removed                 | `agent-executor/src/subagents/worktree-subagent-runner.ts : fireWorktreeHook`       | `tool_input` (taskId, worktreePath, branchName, removed) | Informational       |
-| `PreModelCall`       | As a provider request goes out (per round)            | `agent-session/src/session-run.ts : fireModelCallHook`                              | `model`, `provider`, `effort`, `round`                   | Informational       |
-| `PostModelCall`      | After the provider response is normalized (per round) | `agent-session/src/session-run.ts : fireModelCallHook`                              | `model`, `provider`, `effort`, `round`                   | Informational       |
-| `PermissionDecision` | Right after `evaluatePermission` decides a tool call  | `agent-session/src/permission-enforcer.ts : firePermissionDecisionHook`             | `tool_name`, `tool_input`, `permission_decision`         | Informational       |
+| Event                | Timing                                                 | Fire site (file : function)                                                         | Event-specific input fields                                                                                   | Matcher target | Blocking            |
+| -------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------- | ------------------- |
+| `PreToolUse`         | Before a tool executes                                 | `agent-session/src/tool-hook-helpers.ts : runPreToolHook`                           | `tool_name`, `tool_input`                                                                                     | `tool_name`    | **BLOCKING** (gate) |
+| `PostToolUse`        | After a tool executes                                  | `agent-session/src/tool-hook-helpers.ts : firePostToolHook`                         | `tool_name`, `tool_input`, `tool_output`                                                                      | `tool_name`    | Informational       |
+| `SessionStart`       | When a `Session` is constructed                        | `agent-session/src/session-lifecycle.ts : fireSessionStartHook`                     | (common fields only)                                                                                          | none           | Informational       |
+| `SessionEnd`         | Session shutdown                                       | `agent-session/src/session-lifecycle.ts : fireSessionEndHook`                       | `reason`                                                                                                      | `reason`       | Informational       |
+| `Stop`               | After a turn's response completes                      | `agent-session/src/session-run.ts : executeRun`                                     | `response` (first 500 characters), `last_assistant_message`, `stop_hook_active`                               | none           | Informational       |
+| `StopFailure`        | When a turn fails                                      | `agent-session/src/session-run.ts : executeRun`                                     | `reason` (the error message), `stop_hook_active`                                                              | none           | Informational       |
+| `PreCompact`         | Before context compaction                              | `agent-session/src/compaction-orchestrator.ts : compact`                            | `trigger` (`auto` or `manual`)                                                                                | none           | Informational       |
+| `PostCompact`        | After the history is replaced by the summary           | `agent-session/src/session-history-ops.ts : compact`                                | `trigger`, `compact_summary`                                                                                  | none           | Informational       |
+| `UserPromptSubmit`   | Before the user prompt is sent to the model            | `agent-session/src/session-run.ts : executeRun`                                     | `user_message`, `prompt` (the same text)                                                                      | none           | Informational       |
+| `SubagentStart`      | When a subagent (background `agent` task) starts       | `agent-framework/src/assembly/background-task-hooks.ts : fireSubagentLifecycleHook` | `agent_id`, `agent_type`, `agent_transcript_path` (when known)                                                | `agent_type`   | Informational       |
+| `SubagentStop`       | When a subagent completes, fails or is cancelled       | `agent-framework/src/assembly/background-task-hooks.ts : fireSubagentLifecycleHook` | `agent_id`, `agent_type`, `agent_transcript_path`, `last_assistant_message`, `reason` (on failure or timeout) | `agent_type`   | Informational       |
+| `WorktreeCreate`     | When an isolated worktree is created for a subagent    | `agent-executor/src/subagents/worktree-subagent-runner.ts : fireWorktreeHook`       | `tool_name` (`Agent`), `tool_input` (`taskId`, `agentType`, `worktreePath`, `branchName`, `removed: false`)   | `tool_name`    | Informational       |
+| `WorktreeRemove`     | When a subagent's worktree is removed                  | `agent-executor/src/subagents/worktree-subagent-runner.ts : fireWorktreeHook`       | `tool_name` (`Agent`), `tool_input` (`taskId`, `agentType`, `worktreePath`, `branchName`, `removed: true`)    | `tool_name`    | Informational       |
+| `PreModelCall`       | As a provider request goes out (each round)            | `agent-session/src/session-run.ts : fireModelCallHook`                              | `model`, `provider`, `effort`, `round`                                                                        | none           | Informational       |
+| `PostModelCall`      | After the provider response is normalized (each round) | `agent-session/src/session-run.ts : fireModelCallHook`                              | `model`, `provider`, `effort`, `round`                                                                        | none           | Informational       |
+| `PermissionDecision` | Right after `evaluatePermission` decides a tool call   | `agent-session/src/permission-enforcer.ts : firePermissionDecisionHook`             | `tool_name`, `tool_input`, `permission_decision` (`auto`, `approve` or `deny`)                                | `tool_name`    | Informational       |
 
-\* `UserPromptSubmit` is **informational-only at the turn owner**: its hook stdout is injected into the model
-context as a `<system-reminder>` (`session-run.ts : executeRun` reads only `hookResult.stdout`). The turn owner
-does **not** consult its `IRunHooksResult.blocked` — so a `{ decision: "block" }` / `continue: false` response
-does **not** halt the prompt today. The ONLY event whose `blocked` result gates execution is `PreToolUse`
-(`tool-hook-helpers.ts : runPreToolHook`). (If halting the prompt from `UserPromptSubmit` is ever wanted, the turn
-owner must be wired to consult `blocked` there — that is not the case now.)
+Notes on specific fields:
 
-## Fire-site dispatch note (for the drift-guard scan)
+- `SubagentStart`/`SubagentStop`: `session_id` is the parent session's ID, `agent_type` is the
+  task's agent type (or its label when it has none), and `transcript_path` is set to the subagent's
+  transcript when one exists. A host can also pass the agent ID and type to command hooks under
+  environment variable names it chooses (`subagentHookEnvironmentNames`).
+- `WorktreeCreate`/`WorktreeRemove`: `session_id` is the parent session's ID and `cwd` is the
+  repository root.
+- `PreModelCall`/`PostModelCall`: `effort` is the selection for that call (`auto` when none is set);
+  `round` is present when the execution loop reports it.
+- `UserPromptSubmit`: `user_message` and `prompt` carry the raw input when the caller supplied one,
+  otherwise the submitted message.
 
-Most events pass their name as a **string literal** to `runHooks('<Event>', …)`. **Six** are
-dispatched through a **variable**, so the name never appears as a literal first argument:
+## Fire-site dispatch note
 
-- `SubagentStart` / `SubagentStop` — `runHooks(hooks, hookEventName, …)` where `hookEventName` comes
-  from the `getSubagentHookEvent` mapping table
-  (`agent-framework/src/assembly/background-task-hooks.ts`).
-- `WorktreeCreate` / `WorktreeRemove` — `runHooks(options.hooks, event, …)` where `event` is a
-  `fireWorktreeHook` parameter passed the string literal at each call-site
+Most events pass their name to `runHooks('<Event>', …)` as a string literal. Six are dispatched
+through a variable, so the name never appears as a literal first argument. Check their helper
+mappings and call sites when this catalog changes:
+
+- `SubagentStart` / `SubagentStop` — `runHooks(hooks, hookEventName, …)`, where `hookEventName`
+  comes from the `getSubagentHookEvent` mapping (`agent-framework/src/assembly/background-task-hooks.ts`).
+- `WorktreeCreate` / `WorktreeRemove` — `runHooks(options.hooks, event, …)`, where `event` is a
+  `fireWorktreeHook` parameter given the literal at each call site
   (`agent-executor/src/subagents/worktree-subagent-runner.ts`).
-- `PreModelCall` / `PostModelCall` — `void runHooks(…, hookEvent, …)` where `hookEvent` is a
-  `fireModelCallHook` parameter passed the string literal at each call-site
+- `PreModelCall` / `PostModelCall` — `runHooks(…, hookEvent, …)`, where `hookEvent` is a
+  `fireModelCallHook` parameter given the literal at each call site
   (`agent-session/src/session-run.ts`).
-
-Six events are dispatched through a variable rather than a literal: `SubagentStart`,
-`SubagentStop`, `WorktreeCreate`, `WorktreeRemove`, `PreModelCall`, and `PostModelCall`. Their
-helper mappings and call sites must be checked when this catalog changes.
 
 ## Naming note
 
 The `PermissionDecision` **hook event** (a `THookEvent` member that _reports_ a decision) is distinct
-from — and does not extend — (a) the `TPermissionDecision` permissions enum
-`'auto' | 'approve' | 'deny'` (`packages/agent-core/src/permissions/types.ts`), and (b) the internal
-`IRunHooksResult.permissionDecision` field `'allow' | 'deny' | 'ask' | 'defer'`
-(`packages/agent-core/src/hooks/hook-runner.ts`, the highest-priority PreToolUse decision).
+from, and does not extend, (a) the `TPermissionDecision` type `'auto' | 'approve' | 'deny'`
+(`packages/agent-core/src/permissions/types.ts`), and (b) the `IRunHooksResult.permissionDecision`
+field `'allow' | 'deny' | 'ask' | 'defer'` (`packages/agent-core/src/hooks/hook-runner.ts`), the
+highest-priority `PreToolUse` decision.

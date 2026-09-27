@@ -56,9 +56,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/woojubb/robota.git"
+    "url": "https://github.com/woojubb/robota.git",
+    "directory": "packages/agent-framework"
   },
-  "homepage": "https://robota.io/",
+  "homepage": "https://docs.robota.io/en/packages/agent-framework/",
   "bugs": {
     "url": "https://github.com/woojubb/robota/issues"
   },

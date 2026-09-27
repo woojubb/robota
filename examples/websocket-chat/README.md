@@ -15,9 +15,12 @@ Real-time AI chat over WebSocket using Robota SDK with streaming text deltas.
 cd examples/websocket-chat
 npm install          # or pnpm install
 
-cp .env.example .env
-# Edit .env and set ANTHROPIC_API_KEY
+export ANTHROPIC_API_KEY=your-key
 ```
+
+The server reads `ANTHROPIC_API_KEY` and `PORT` from the environment and does not load `.env` itself. To keep
+them in a file, copy `.env.example` to `.env` and pass Node's `--env-file` flag:
+`npx tsx --env-file=.env src/server.ts`.
 
 ## Run
 
@@ -30,7 +33,8 @@ npm run build
 npm start
 ```
 
-The server starts on `ws://localhost:8080` (override with `PORT=` env var).
+The server starts on `ws://localhost:8080` (override with the `PORT` env var; the browser client connects to
+`ws://localhost:8080`, so change `src/client.html` to match).
 
 ## Use the browser client
 
@@ -61,3 +65,10 @@ Click **Stop** to abort the current generation mid-stream.
 | `{ "type": "delta", "text": "..." }`    | Streaming text chunk |
 | `{ "type": "done", "response": "..." }` | Generation complete  |
 | `{ "type": "error", "message": "..." }` | Error occurred       |
+
+An aborted generation also ends with `done`, carrying the partial response. Each connection keeps its session
+for its lifetime, so the conversation continues across messages until the client disconnects.
+
+The session runs with `permissionMode: 'bypassPermissions'` and the default tool set in the server's working
+directory, so anyone who can connect can have the agent read, write and run shell commands there. Keep the
+server local, or pass `deniedTools` to `runtime.createSession()` in `src/server.ts`.

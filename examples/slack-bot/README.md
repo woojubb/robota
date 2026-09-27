@@ -4,7 +4,7 @@ A Slack bot powered by `@robota-sdk/agent-framework` and Anthropic. Uses Socket 
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 22.12 or later
 - A Slack workspace where you can create apps
 - An Anthropic API key
 
@@ -32,7 +32,7 @@ A Slack bot powered by `@robota-sdk/agent-framework` and Anthropic. Uses Socket 
 cp .env.example .env
 ```
 
-Fill in `.env`:
+Fill in `.env` (the app loads it with `dotenv`):
 
 | Variable               | Description                                           |
 | ---------------------- | ----------------------------------------------------- |
@@ -56,12 +56,23 @@ Mention the bot in any channel it has been invited to:
 @YourBot explain how async/await works in JavaScript
 ```
 
-Reply in a thread to continue the conversation — session context is preserved per thread.
+The bot answers in a thread under your message.
 
 ## How It Works
 
-- `@slack/bolt` in Socket Mode handles inbound events without requiring a public HTTPS endpoint.
-- Each `app_mention` event immediately calls `ack()` to satisfy Slack's 3-second acknowledgement requirement.
-- A new or resumed `InteractiveSession` is created for each Slack thread (`thread_ts`).
-- Streaming text deltas update the reply message in real time via `client.chat.update()`.
-- Completed sessions store their `sessionId` keyed by `thread_ts` so follow-up mentions resume the same conversation history.
+- `@slack/bolt` in Socket Mode handles inbound events without requiring a public HTTPS endpoint; Bolt
+  acknowledges each event itself.
+- For each `app_mention`, the bot posts a `...` placeholder in the thread (`thread_ts`, or the mention's own
+  `ts`), then creates a session with `runtime.createSession()`.
+- Streaming text deltas update the placeholder in real time via `client.chat.update()`, and the final response
+  replaces it when the turn completes.
+- Session records are written to `.robota/sessions/` in the working directory.
+
+The code is written to resume one session per thread: it keeps a map from `thread_ts` to a session ID and
+passes it as `resumeSessionId`. It reads that ID from the `complete` event's result, which does not carry one,
+so the map stays empty and every mention currently starts a new session with no memory of the thread. The
+running session's ID is available as `session.sessionId`.
+
+The session runs with `permissionMode: 'bypassPermissions'` and the default tool set in the bot's working
+directory, so anyone who can mention the bot can have the agent read, write and run shell commands there. Run
+it on a machine you control, or pass `deniedTools` to `runtime.createSession()` in `src/app.ts`.

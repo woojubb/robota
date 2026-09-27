@@ -91,6 +91,7 @@
     "url": "https://github.com/woojubb/robota.git",
     "directory": "packages/agent-provider-openai"
   },
+  "homepage": "https://docs.robota.io/en/packages/agent-provider-openai/",
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-provider-openai-compatible": "workspace:*",

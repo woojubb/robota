@@ -10,10 +10,10 @@
     "backToSite": "← robota.io"
   },
   "home": {
-    "badge": "오픈소스 · AGPL-3.0 및 상업용",
+    "badge": "오픈소스 · AGPL-3.0 또는 상용",
     "title": "Robota SDK",
     "titleHighlight": "문서",
-    "description": "멀티 프로바이더 AI 에이전트 SDK 및 CLI — TypeScript 네이티브, 자체 호스팅 가능. Anthropic, OpenAI, DeepSeek, Gemini, 로컬 모델을 지원합니다.",
+    "description": "AI 에이전트를 만들기 위한 조합형 TypeScript 라이브러리입니다. 엄격한 타입, 도구 호출, 플러그인·이벤트 아키텍처, 그리고 Anthropic, OpenAI, Gemini와 로컬 모델을 포함한 모든 OpenAI 호환 엔드포인트를 하나로 다루는 프로바이더 인터페이스를 제공합니다.",
     "getStarted": "시작하기 →",
     "readGuide": "가이드 읽기",
     "quickInstall": "빠른 설치"

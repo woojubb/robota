@@ -1,61 +1,123 @@
-# agent-cli — session ownership in TuiInteractionChannel
+# agent-cli — session ownership in the terminal UI
 
 > Whitebox design for `@robota-sdk/agent-cli`. The blackbox contract lives in
-> [`../SPEC.md`](../SPEC.md); nothing here is a promise to a consumer. Placement follows the
-> consumer-impact test in
-> [`design-doc-authoring`](../../../../.agents/skills/design-doc-authoring/SKILL.md).
+> [`../SPEC.md`](../SPEC.md); nothing here is a promise to a consumer.
 
 ## Context & Goal
 
-Which object holds the live `InteractiveSession`, and how the TUI reaches it. A user cannot observe
-this; changing it changes no command, key binding, or output.
+Which object holds the live `InteractiveSession` in TUI mode, and how React reaches it. These objects
+live in `@robota-sdk/agent-ui-terminal`; the CLI only builds the options and calls `renderApp()`. A
+user cannot observe this; changing it changes no command, key binding or output.
 
 ## Constraints
 
 - The CLI owns no session lifecycle logic — `InteractiveSession` in `@robota-sdk/agent-framework`
-  does. The channel is a holder, not a manager.
-- React components must not reach the session except through the channel.
+  does. A `TuiInteractionChannel` holds one session for its whole life.
+- React components never reach the session directly. `App.tsx` receives the channel only as the
+  narrowed `ITuiAppChannelPort`, and the controller hooks turn it into a view model.
+- In-process, a session switch stops the channel and builds a new one; an existing channel is never
+  pointed at another session.
 
 ## Internal Structure
 
-`TuiInteractionChannel` (owned by `@robota-sdk/agent-ui-terminal`) is the single owner of the SDK session lifecycle in TUI mode. It:
+```mermaid
+flowchart TD
+    CLI["startCliCore (agent-cli)"] -->|"renderApp(options)"| R["renderApp"]
+    R --> F["createInProcessChannelFactory"]
+    F -->|"createChannel(resumeSessionId)"| CH["TuiInteractionChannel"]
+    CH --> S["InteractiveSession (buildRuntimeSession)"]
+    CH --> REG["CommandRegistry"]
+    CH --> SM["TuiStateManager"]
+    CH --> P["TuiSessionEventProjector"]
+    R --> APP["App.tsx: active channel"]
+    APP -->|"ITuiAppChannelPort"| V["AppView → useAppController → useTuiChannel"]
+```
 
-1. Creates `InteractiveSession({ cwd, provider, commandModules, commandHostAdapters })` and `CommandRegistry` once (in the constructor — never recreated). The provider instance is passed in from the caller; `InteractiveSession` handles config/context loading internally. Host adapters are thin CLI-owned services such as settings read/write, not command implementations.
-2. Creates a `TuiStateManager` instance that holds `history: IHistoryEntry[]` as the primary state for the message list and the latest SDK execution workspace snapshot for background/workspace rendering. On each execution update (when `thinking` transitions to `false`, or on `complete`/`interrupted`), delegates to `TuiStateManager` to sync state from `interactiveSession.getFullHistory()` and `interactiveSession.getExecutionWorkspaceSnapshot()`.
-3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`, `execution_workspace_event`) and converts them to channel state.
-4. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue`, and `handleShutdown` as stable callbacks to the TUI via `useTuiChannel`.
-5. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI. Commands that need input ask inline via the CMD-004 seam (rendered by the channel's `askUser` → `PendingActionPrompt`); command-specific host actions are typed `TCommandHostAction` values the SESSION executes via `ICommandHostAdapters` (CMD-004; the legacy `TCommandEffect` union is deleted).
-6. Manages the permission queue (serialises concurrent permission requests).
+### TuiInteractionChannel
 
-`useTuiChannel` is the React hook that subscribes to `TuiInteractionChannel.onChange` and exposes its state/callbacks to `App.tsx`. No component interacts with `InteractiveSession` directly.
+`packages/agent-ui-terminal/src/TuiInteractionChannel.ts`. Its constructor builds, once:
 
-### Plugin Hook Merging
+1. The session: `buildRuntimeSession(buildTuiSessionOptions(opts))` from agent-framework, which
+   constructs `InteractiveSession` from the options the CLI passed to `renderApp()` (provider,
+   command modules, host adapters, runners, subagent factory, settings sources and so on).
+2. A `CommandRegistry` over the same command modules plus the plugin command source. The UI queries
+   it for autocomplete and command lists (`getCommandQueryPort()`); execution always goes through
+   the session.
+3. A `TuiStateManager` for render state (see [`message-architecture.md`](message-architecture.md)).
+4. A `TuiSessionEventProjector`, which subscribes to the session's events when the channel starts
+   and unsubscribes when it stops. It feeds streaming, tool, turn, history and execution-workspace
+   events into the state manager, and routes `permission_request` and `ask_request` to the channel's
+   queues.
 
-Plugin hook merging (resolving `${CLAUDE_PLUGIN_ROOT}` and merging hook groups) is handled internally by `@robota-sdk/agent-framework`. The CLI does not perform hook merging.
+At runtime the channel:
 
-### App.tsx
+- **Starts** by wiring the projector, restoring the history of a resumed session, polling for
+  session initialization, then binding and starting the transports (see
+  [`composition.md`](composition.md)).
+- **Handles input** in `handleInput()`: plain text goes to `session.submit()`; a `/command` goes to
+  `session.executeCommand(name, args)` and its result is applied by `applySystemCommandResult()`; an
+  unknown command adds a local notice. No `SystemCommandExecutor` is created by the CLI or the UI.
+- **Serializes prompts**: `TuiPermissionQueue` holds permission requests and `TuiUserActionQueue`
+  holds `askUser` requests, which `PendingActionPrompt` renders. Host actions that a command result
+  carries (exit, settings changes, remote control) are executed by the session through
+  `ICommandHostAdapters`, not by the channel.
+- **Stops** through `TuiChannelLifecycleCoordinator`: graceful session shutdown with a timeout,
+  then unwiring, cancelling queued prompts, disposing the state manager and stopping transports.
 
-`App.tsx` is owned by `@robota-sdk/agent-ui-terminal` (`packages/agent-ui-terminal/src/App.tsx`). It is a thin JSX shell that:
+### App.tsx and the hooks
 
-- Calls `useTuiChannel` and `usePluginCallbacks`.
-- Renders host-shell state via `ITuiCliAdapter` (injected by `startCli()`; read-only toward settings since CMD-004 — host actions are session-executed).
-- Contains no queue logic, no abort logic, no session business logic.
+`App.tsx` owns which channel is active. It creates the first channel for the resumed session id; on a
+session switch it stops the current channel and creates a new one, and keys `AppView` by session id
+so the view starts fresh. `AppView` calls `useAppController()`, which calls `useTuiChannel(channel)`.
+That hook subscribes to channel changes and returns a snapshot plus stable callbacks such as
+`handleSubmit`, `handleAbort`, `handleCancelQueue`, `handleStopWaitingLoop` and `handleShutdown`.
 
-### Tool List Visibility
+The CLI's host services reach components through context: `createRobotaTuiCliAdapter()`
+(`src/startup/tui-presentation.ts`) builds the `ITuiCliAdapter`, and `App.tsx` provides it with
+`TuiCliAdapterProvider`. The CLI also passes `createChannelReadyHandler()`
+(`src/product/robota-plumbing.ts`), which receives every channel as it is created — including after a
+switch — and points the process guards, the remote-control controller and peer messaging at it.
 
-The `StreamingIndicator` (showing active tools) is rendered when `isThinking || activeTools.length > 0`. Streaming state (`streamBuf`, `activeTools`) is cleared at the **start** of a new execution (when `thinking: true`), not at the end. This means the tool list stays visible after execution completes or is aborted, until the next execution begins.
+### Attached terminals
 
-### Streaming Text Debounce
+When the terminal attaches to a session that runs in another process (`robota --attach`,
+`robota session attach`), `renderAttachedApp()` uses a `WireTuiChannel` that speaks the session
+protocol to that host instead. The session lives in the host, and a session switch is the host's.
+Both channel types implement `ITuiAppChannelPort`, so the React tree is the same.
 
-`TuiStateManager.onTextDelta` debounces `notify()` calls to reduce React re-render and markdown rendering frequency. Text deltas are accumulated in `streamBuf` immediately (no data loss), but `notify()` fires at most once per `STREAMING_DEBOUNCE_MS` (default 300ms). This limits `renderMarkdown()` invocations to ~3/second instead of per-token (hundreds/second). A `createDebouncedNotify` utility manages the timer lifecycle; `flush()` is called on completion/interruption/error to clean up.
+### Streaming indicator
+
+`StreamingIndicator` is shown while `isThinking || activeTools.length > 0`. The state manager clears
+the streaming text and active tools when a turn starts and again when it ends; after the turn, the
+`tool-summary` entry in the transcript lists the tools that ran.
+
+### Plugin hooks
+
+Merging plugin hooks (resolving `${CLAUDE_PLUGIN_ROOT}`, combining hook groups) happens inside
+agent-framework (`plugin-hooks-merger.ts`). Neither the CLI nor the terminal UI merges hooks.
 
 ## Key Flows
 
-A turn enters through the channel, is forwarded to the session, and its events are converted to React
-state. The user-visible result — display order, abort semantics — is contract and lives in
-[`../SPEC.md`](../SPEC.md) under `User-Facing Contract`.
+```mermaid
+sequenceDiagram
+    participant U as InputArea
+    participant H as useTuiChannel
+    participant C as TuiInteractionChannel
+    participant S as InteractiveSession
+    participant P as TuiSessionEventProjector
+    U->>H: handleSubmit(text)
+    H->>C: handleInput(text)
+    C->>S: submit(text) or executeCommand(name, args)
+    S-->>P: text_delta, tool_start, tool_end, complete, ...
+    P->>C: update TuiStateManager
+    C-->>H: onChange → re-render
+```
+
+The user-visible result — display order, abort behaviour — is contract; see
+[`../SPEC.md`](../SPEC.md).
 
 ## Test Approach
 
-Channel-level unit tests in `packages/agent-cli/src/**/__tests__`; the user-visible ordering guarantee
-is asserted separately against the SPEC.
+In `packages/agent-ui-terminal/src/__tests__/`: `TuiInteractionChannel.lifecycle.test.ts`,
+`TuiInteractionChannel.askUser.test.ts`, `tui-channel-lifecycle-coordinator.test.ts` and
+`session-switch-channel.test.tsx`.

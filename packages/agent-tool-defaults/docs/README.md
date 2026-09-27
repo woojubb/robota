@@ -1,3 +1,12 @@
-# agent-tool-defaults Docs Index
+# agent-tool-defaults Docs
 
-- `SPEC.md`: Composition leaf that aggregates the built-in tool set. `createDefaultTools()` returns ten always-present tools — eight when a `sandboxClient` with its own filesystem is supplied, since `Glob` / `Grep` are then withheld — and gates `CodebaseRetrieval` / `Computer` on the adapters supplied. ARCH-035 moved it out of `agent-framework` so a neutral runner cannot reach the product's tool surface.
+`@robota-sdk/agent-tool-defaults` owns the Robota SDK's default tool set. `createDefaultTools()`
+returns ten tools, or eight when a `sandboxClient` with its own file system is supplied (`Glob` and
+`Grep` are then left out), and adds `CodebaseRetrieval` or the computer-use tools only when their
+adapters are supplied. It is a separate leaf so that the tool set is chosen at a composition root;
+`@robota-sdk/agent-framework` loads it only when a session is built without a tool list of its own.
+
+## Documents
+
+- [Package README](../README.md) — usage, the tool table and the options.
+- [SPEC.md](./SPEC.md) — package contract and design decisions.

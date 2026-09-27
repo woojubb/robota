@@ -1,32 +1,39 @@
 # @robota-sdk/agent-transport-webrtc-web
 
-The **browser** WebRTC transport peer for a robota session (REMOTE-009 Stage D) — the browser mirror of the
-node-side host transport [`@robota-sdk/agent-transport-webrtc`](../agent-transport-webrtc). It answers the
-host's WebRTC offer over a native `RTCPeerConnection`, runs the directional-HMAC pairing handshake as RESPONDER
-behind a fail-closed gate, and co-drives the SAME session over an `RTCDataChannel`, reusing the shared session
-reducer + view components from [`@robota-sdk/agent-ui-web`](../agent-ui-web).
+The **browser** WebRTC transport peer for a Robota session — the browser mirror of the Node host transport
+[`@robota-sdk/agent-transport-webrtc`](../../agent-transport-webrtc/docs/README.md). It answers the host's
+WebRTC offer over a native `RTCPeerConnection`, runs the directional-HMAC pairing handshake as the
+responder behind a fail-closed gate, and co-drives the same session over an `RTCDataChannel`, reusing the
+shared session reducer and view components from
+[`@robota-sdk/agent-ui-web`](../../agent-ui-web/docs/README.md).
 
-> Private, browser-only, React 18+.
+> Internal (private, not published to npm), browser-only, React 18+.
 
 ## What it owns
 
-- `useRtcSession({relayUrl,rendezvous,secret})` — binds the shared reducer to the WebRTC client.
-- `RemoteClient` — the Stage-D page root (reads the pairing URL, pairs, renders the session).
-- `createRtcSessionClient` / `createRtcSignalingClient` / `parseRemoteClientLocation` — the RTC client stack.
-- `TRtcConnectionStatus` / `TSessionStatus` — the WebRTC-widened status union.
+- `useRtcSession({ relayUrl, rendezvous, secret, iceServers?, forceTurn? })` — binds the shared session
+  reducer to the WebRTC client.
+- `RemoteClient` — the remote page root: reads the pairing URL, pairs, and renders the session.
+- `createRtcSessionClient` / `createRtcSignalingClient` / `parseRemoteClientLocation` — the RTC client
+  stack.
+- `TRtcConnectionStatus` / `TSessionStatus` — the connection status, widened with the `pairing`,
+  `awaiting-approval`, `refused` and `failed` states.
 
 ## Using it
 
 ```tsx
 import { RemoteClient } from '@robota-sdk/agent-transport-webrtc-web/client';
 
-// remote.html entry — connection inputs come from THIS page's URL (relay ← query, secret ← fragment).
+// Page entry — connection inputs come from this page's URL (`?relay=` query, pairing secret in the fragment).
 export function App() {
   return <RemoteClient />;
 }
 ```
 
-The shared conversation view / prompt components come from `@robota-sdk/agent-ui-web`. This package does
-NOT re-export the core (no pass-through re-exports).
+`./client` is the browser build of the same exports. The shared conversation view and prompt components
+come from `@robota-sdk/agent-ui-web`; this package does not re-export them.
 
-See [SPEC.md](./SPEC.md) for the full contract.
+## Documents
+
+- [SPEC.md](./SPEC.md) — the contract: admission, fail-closed pairing and the single-fingerprint rule.
+- [README](../README.md) — where the package sits.

@@ -1,15 +1,18 @@
 # Multi-Provider
 
-Register multiple providers and switch between them dynamically.
+Register several providers on one agent and switch the model between runs. Each provider lives in its
+own package; DeepSeek, Qwen and Gemma share `@robota-sdk/agent-provider-openai-compatible`.
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
 import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
-import { GemmaProvider } from '@robota-sdk/agent-provider-openai-compatible';
-import { QwenProvider } from '@robota-sdk/agent-provider-openai-compatible';
+import {
+  DeepSeekProvider,
+  GemmaProvider,
+  QwenProvider,
+} from '@robota-sdk/agent-provider-openai-compatible';
 
 const agent = new Robota({
   name: 'MultiAgent',
@@ -24,6 +27,7 @@ const agent = new Robota({
       apiKey: process.env.GEMINI_API_KEY!,
       defaultModel: 'gemini-3-flash-preview',
     }),
+    // A local OpenAI-compatible server such as LM Studio
     new GemmaProvider({
       apiKey: 'lm-studio',
       baseURL: 'http://localhost:1234/v1',
@@ -45,13 +49,13 @@ const agent = new Robota({
 let response = await agent.run('Hello!');
 console.log('Claude:', response);
 
-// Switch to GPT-4
-agent.setModel({ provider: 'openai', model: 'gpt-4o' });
-response = await agent.run('Now you are GPT-4. What model are you?');
-console.log('GPT-4:', response);
+// Switch to OpenAI
+agent.setModel({ provider: 'openai', model: 'gpt-5.1' });
+response = await agent.run('Which model are you?');
+console.log('OpenAI:', response);
 
 // Switch to Gemini
-agent.setModel({ provider: 'gemini', model: 'gemini-2.5-pro' });
+agent.setModel({ provider: 'gemini', model: 'gemini-3-pro-preview' });
 response = await agent.run('And now?');
 console.log('Gemini:', response);
 
@@ -71,5 +75,12 @@ response = await agent.run('Give one concise implementation risk.');
 console.log('DeepSeek:', response);
 ```
 
-Conversation history is preserved across provider switches. The new provider sees the full context.
-For Gemini, Robota system messages are sent as Gemini `systemInstruction`; tool results are sent as Gemini `functionResponse` parts.
+`setModel()` takes the provider's `name` (`anthropic`, `openai`, `deepseek`, `gemini`, `gemma`,
+`qwen`) and a model id. The conversation history stays with the agent, so the next provider receives
+the full context. Each provider converts it to its own wire format; for Gemini, for example, the
+system message becomes `systemInstruction` and tool results become `functionResponse` parts.
+
+To reach any other OpenAI-compatible endpoint (a gateway, Azure, vLLM, Ollama), give
+`OpenAIProvider` a `baseURL`;
+[examples/capabilities/openai-compatible-gateway](../../examples/capabilities/openai-compatible-gateway/README.md)
+shows it. The [providers guide](../guide/providers.md) covers each provider's options.

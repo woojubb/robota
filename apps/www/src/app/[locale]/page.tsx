@@ -52,7 +52,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <a
-              href="https://docs.robota.io/getting-started/"
+              href={`https://docs.robota.io/${locale}/getting-started/`}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-lg bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
@@ -159,7 +159,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             </p>
           </div>
           <a
-            href="https://docs.robota.io/getting-started/"
+            href={`https://docs.robota.io/${locale}/getting-started/`}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-6 inline-block rounded-lg bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
