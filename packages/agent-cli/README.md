@@ -739,6 +739,51 @@ reports that it saved the setting and that this run keeps what pinned it, rather
 do nothing. `NO_COLOR`, `FORCE_COLOR=0`, a non-TTY stdout and screen-reader mode still win over
 every theme: no colour and no animation, exactly as before.
 
+## Workspace Trust
+
+Robota loads a project's own configuration only from a workspace you have trusted. The project
+configuration is its settings, hooks, plugins, skills, agent definitions, provider overrides and
+MCP servers. In a workspace you have not trusted:
+
+- the interactive TUI starts **Restricted**: your own user settings, built-in tools and permission
+  rules work, and nothing the repository contributes is loaded;
+- print mode (`-p`), `--goal`, `--serve`, `robota mcp serve` and the desktop daemon refuse to start
+  with `Workspace trust is required before headless startup`.
+
+```bash
+robota trust status        # Is this workspace trusted? Lists what trust would load when it is not
+robota trust --yes         # Trust the Git workspace you are in
+robota trust revoke --yes  # Take the grant back
+```
+
+Run these from inside the workspace. A grant covers that Git worktree: any directory inside it
+resolves to the same workspace, and each linked worktree is trusted on its own. Grants are stored in
+`~/.robota/workspace-trust.json`. Without a TTY, `grant` and `revoke` require `--yes`.
+
+A grant is tied to the repository, not only to its path:
+
+- It **holds** through normal use: git commands that rewrite `.git/config` (`push -u`, renaming or
+  deleting a branch, `remote add`, `git config`), and macOS renumbering the volume. This needs a
+  filesystem that records a creation time (APFS, ext4, NTFS, …). On one that does not, a grant can
+  still drop after such a command; run `robota trust --yes` again.
+- It is **not inherited**: a repository deleted and recreated, or a different clone put at the same
+  path, is untrusted until you trust it.
+- After `robota trust revoke`, approvals you gave in that workspace, such as project MCP servers,
+  are asked for again once you trust it again.
+
+**After upgrading**, if a workspace you had trusted shows as untrusted, run `robota trust --yes` in
+it once. Grants are now keyed differently, so a grant made by an earlier version no longer matches.
+
+**In this monorepo**, trust it with the source CLI, since a globally installed `robota` may be older
+than the source you are working on:
+
+```bash
+pnpm trust:dev
+```
+
+To trust another repository with the source CLI, run the launcher from inside that repository:
+`/path/to/robota/scripts/dev/robota trust --yes`.
+
 ## Permission System
 
 Every tool call passes through a three-step permission gate:
