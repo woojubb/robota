@@ -2,7 +2,6 @@
 '@robota-sdk/agent-core': minor
 '@robota-sdk/agent-session': minor
 '@robota-sdk/agent-framework': minor
-'@robota-sdk/agent-remote-client': minor
 '@robota-sdk/agent-cli': minor
 '@robota-sdk/agent-interface-analytics': minor
 '@robota-sdk/agent-session-analytics': minor

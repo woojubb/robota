@@ -1,5 +1,5 @@
 /**
- * The remote client is embedded by hosts with design tokens of their own (agent-web's playground). Its
+ * The remote client is embedded by hosts with design tokens of their own (agent-web's Studio palette). Its
  * root carries the GUI surface's `robota-ui` scope, so the surface's tokens and type apply inside it and
  * the host's stay outside.
  */
