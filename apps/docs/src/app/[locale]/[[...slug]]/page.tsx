@@ -72,10 +72,10 @@ export async function generateMetadata({
 }
 
 const QUICK_LINK_DESCS: Record<string, string> = {
-  'getting-started': 'CLI quick start — first agent in 5 lines',
-  guide: 'Architecture, SDK, CLI, plugins, and more',
-  examples: 'Real-world code examples for common use cases',
-  packages: 'API reference for every SDK package',
+  'getting-started': 'Install, configure a provider and run your first agent',
+  guide: 'Architecture, SDK, CLI, sessions, MCP, permissions and more',
+  examples: 'Focused walkthroughs for common tasks',
+  packages: 'Every package, its role and its contract',
   changelog: 'Release notes and version history',
   development: 'Contributing guide and development setup',
 };
@@ -183,15 +183,15 @@ function HomePage({
         </p>
         <pre className="overflow-x-auto rounded-[0.375rem] border border-[var(--border-strong)] border-t-[var(--primary)] bg-[#020207] px-[1.375rem] py-[1.125rem] [font-family:var(--font-code)] text-[0.825rem] leading-[1.65] text-[#d4d4d8]">
           <code>
-            <span className="text-[#52525b]"># Install the CLI globally</span>
+            <span className="text-[#52525b]"># Build an agent in your app: core + one provider + tools</span>
+            {'\n'}
+            <span className="text-primary opacity-85">pnpm</span>
+            {' add @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic @robota-sdk/agent-tools'}
+            {'\n\n'}
+            <span className="text-[#52525b]"># Or try the reference CLI built from the same libraries</span>
             {'\n'}
             <span className="text-primary opacity-85">pnpm</span>
             {' add -g @robota-sdk/agent-cli'}
-            {'\n\n'}
-            <span className="text-[#52525b]"># Or install SDK packages for your app</span>
-            {'\n'}
-            <span className="text-primary opacity-85">pnpm</span>
-            {' add @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic'}
           </code>
         </pre>
       </div>
