@@ -185,7 +185,7 @@ describe('/effort', () => {
             }),
             apply: async (selection) => ({
               requested: selection,
-              effective: selection,
+              effective: selection === 'auto' ? 'high' : selection,
               source: 'command',
               disposition: 'applied',
               modelDefault: 'high',

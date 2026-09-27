@@ -97,6 +97,15 @@ describe('createModeCommandModule', () => {
       'bypassPermissions',
       'auto',
     ]);
+    // #3282 §2: a plain label beside every description, so a client never shows the raw id.
+    expect(entry?.subcommands?.map((subcommand) => subcommand.displayName)).toEqual([
+      'Plan only',
+      'Ask first',
+      'Accept edits',
+      'Skip all checks',
+      'Auto',
+    ]);
+    expect(entry?.subcommands?.every((subcommand) => subcommand.description.length > 0)).toBe(true);
     expect(command).toEqual(
       expect.objectContaining({
         name: 'mode',
@@ -148,6 +157,37 @@ describe('createModeCommandModule', () => {
       'Invalid mode. Valid: plan | default | acceptEdits | bypassPermissions | auto',
     );
     expect(context.setPermissionMode).not.toHaveBeenCalled();
+  });
+
+  it('#3282 §2: the picker shows plain labels with their descriptions, never a raw id', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createModeCommandModule().systemCommands ?? []),
+    ]);
+    const context = createCommandHostContext();
+    const ask = vi.fn().mockResolvedValue({ type: 'answer', values: ['plan'] });
+    const contextWithAsk = createTestCommandHost({
+      overrides: { ...context, getUserInteraction: () => ({ ask }) },
+    });
+
+    await executor.execute('mode', contextWithAsk, '');
+
+    expect(ask).toHaveBeenCalledTimes(1);
+    const request = ask.mock.calls[0]![0];
+    expect(request.options).toEqual([
+      { value: 'plan', label: 'Plan only', description: 'Plan only, no execution' },
+      { value: 'default', label: 'Ask first', description: 'Ask before risky actions' },
+      { value: 'acceptEdits', label: 'Accept edits', description: 'Auto-approve file edits' },
+      {
+        value: 'bypassPermissions',
+        label: 'Skip all checks',
+        description: 'Skip all permission checks',
+      },
+      {
+        value: 'auto',
+        label: 'Auto',
+        description: 'A model classifier approves or blocks risky actions',
+      },
+    ]);
   });
 
   it('asks the user to pick a mode when no arg is given and a renderer is attached (CMD-004)', async () => {
