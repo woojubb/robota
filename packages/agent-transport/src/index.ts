@@ -57,6 +57,7 @@ export { isObserverMessageType } from './observer-messages.js';
 export type { TProtocolSessionEventClassification } from './session-events.js';
 export type { IProtocolSession } from './protocol-session.js';
 export type {
+  IWireAgentDefinitionSummary,
   IWireHistoryEntry,
   TClientMessage,
   TServerMessage,

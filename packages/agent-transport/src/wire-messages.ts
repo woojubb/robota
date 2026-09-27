@@ -60,6 +60,16 @@ export type TBackgroundControlAction = 'cancel' | 'close' | 'send';
 type THistoryEntry = ReturnType<ISessionConversationRead['getFullHistory']>[number];
 
 /**
+ * #3282 §4: one agent the switcher can offer. `definedIn` is a plain-words location — a discovered
+ * file's path, or "Built-in" — never a raw internal id.
+ */
+export interface IWireAgentDefinitionSummary {
+  name: string;
+  description: string;
+  definedIn: string;
+}
+
+/**
  * #3189: one entry of the session's full history as it crosses the wire. The same record the session
  * keeps, except that `timestamp` is an ISO 8601 string: a `Date` does not survive JSON, and a
  * declared `Date` that arrives as a string would let a client call `Date` methods on a string.
@@ -100,6 +110,10 @@ export type TClientMessage =
   // the GUI never scrapes `/model`'s picker text. Choosing one sends `command` with `name: 'model'`,
   // the SAME path `/model <id>` runs; this message only reads the choices.
   | { type: 'list-models'; requestId: string }
+  // #3282 §4: the agent switcher's roster and its currently-selected default — so the GUI never
+  // scrapes `/agent`'s text. Choosing one sends `command` with `name: 'agent'`, the SAME path
+  // `/agent <name>` runs; this message only reads the roster and the current selection.
+  | { type: 'get-agent-definitions'; requestId: string }
   // #3189: the host's sessions — list them, start a new one, make another current. A refused change
   // answers `session_change_failed` with the same `requestId`.
   | { type: 'list-sessions'; requestId: string }
@@ -247,6 +261,14 @@ export type TServerMessage =
       groups: readonly IModelListGroup[];
       currentProfile?: string;
       currentModel: string;
+    }
+  // #3282 §4: reply to `get-agent-definitions`, echoing its `requestId`. `current` is always one of
+  // `agents`' names (the fallback default when nothing was ever selected).
+  | {
+      type: 'agent_definitions';
+      requestId: string;
+      agents: readonly IWireAgentDefinitionSummary[];
+      current: string;
     }
   | { type: 'sessions'; requestId: string; listing: ISessionListing }
   | {

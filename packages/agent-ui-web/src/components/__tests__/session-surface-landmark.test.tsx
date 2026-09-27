@@ -47,6 +47,10 @@ function baseState(overrides: Record<string, unknown> = {}): IWsSessionState {
     answerAsk: () => {},
     sessionNotices: [],
     dismissSessionNotice: () => {},
+    scheduledTasks: [],
+    pauseSchedule: () => {},
+    resumeSchedule: () => {},
+    deleteSchedule: () => {},
     ...overrides,
   } as unknown as IWsSessionState;
 }

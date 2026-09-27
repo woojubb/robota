@@ -10,6 +10,8 @@ import { MONITOR_SHELL_TOOL, MonitorCommandRefusedError } from '../command-api/a
 import { readSessionUsageRecords } from '../command-api/session/session-usage.js';
 import {
   listAgentDefinitionsFromSession,
+  getDefaultAgentTypeFromSession,
+  setDefaultAgentTypeFromSession,
   listAgentJobsFromSession,
   spawnAgentJobFromSession,
   waitAgentJobFromSession,
@@ -345,8 +347,14 @@ export abstract class InteractiveSessionBase {
       origin,
     );
   }
-  listAgentDefinitions(): Array<{ name: string; description: string }> {
+  listAgentDefinitions(): Array<{ name: string; description: string; definedIn: string }> {
     return listAgentDefinitionsFromSession(this.getSessionOrThrow());
+  }
+  getDefaultAgentType(): string {
+    return getDefaultAgentTypeFromSession(this.getSessionOrThrow());
+  }
+  setDefaultAgentType(agentType: string): void {
+    setDefaultAgentTypeFromSession(this.getSessionOrThrow(), agentType);
   }
   listAgentJobs(): ISubagentJobState[] {
     return listAgentJobsFromSession(this.getSessionOrThrow());

@@ -115,6 +115,34 @@ You are a security code reviewer. Analyze the provided code for vulnerabilities.
     );
   });
 
+  it('#3282 §4: a discovered agent carries its file path as definedIn, plain words a person can read', () => {
+    const cwd = makeTempDir();
+    const agentsDir = join(cwd, '.claude', 'agents');
+    writeAgentFile(
+      agentsDir,
+      'reviewer.md',
+      `---
+name: security-reviewer
+description: Reviews code for security vulnerabilities
+---
+
+Review the code.`,
+    );
+
+    const loader = new AgentDefinitionLoader(
+      createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
+    );
+    const agent = loader.getAgent('security-reviewer');
+
+    expect(agent?.definedIn).toContain(join('.claude', 'agents', 'reviewer.md'));
+  });
+
+  it('#3282 §4: a built-in agent carries no definedIn of its own', () => {
+    for (const agent of BUILT_IN_AGENTS) {
+      expect(agent.definedIn).toBeUndefined();
+    }
+  });
+
   it('should use filename as name fallback', () => {
     const cwd = makeTempDir();
     const agentsDir = join(cwd, '.claude', 'agents');

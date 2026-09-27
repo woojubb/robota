@@ -31,6 +31,8 @@ export const SERVER_MESSAGE_HANDLING = {
   // #3282 §2 part 2: the reply to `list-models`, fed into `modelList` state by the model control's
   // pop-up menu (`useModelListState`).
   model_list: 'reducer-state',
+  // #3282 §4 part b-3: the agent switcher sheet's own correlated request/response state (`useAgentSwitcherState`).
+  agent_definitions: 'reducer-state',
   sessions: 'reducer-state',
   sessions_error: 'reducer-state',
   session_switched: 'reducer-state',
@@ -65,7 +67,8 @@ export const SERVER_MESSAGE_HANDLING = {
   plan_event: 'intentionally-not-rendered',
   context_file_refreshed: 'intentionally-not-rendered',
   branch_event: 'intentionally-not-rendered',
-  background_tasks: 'intentionally-not-rendered',
+  // #3282 §4 part b-3: the Agents panel's "Scheduled" group's own roster (`useSchedulesState`).
+  background_tasks: 'reducer-state',
   background_task: 'intentionally-not-rendered',
   background_job_groups: 'intentionally-not-rendered',
   background_job_group: 'intentionally-not-rendered',
@@ -77,7 +80,9 @@ export const SERVER_MESSAGE_HANDLING = {
   session_renamed: 'reducer-state',
   history_cleared: 'reducer-state',
   // #3288 §1: a failed Stop (e.g. a task that finished a moment before it arrived) is worth telling
-  // the operator; a success shows itself through the workspace snapshot's own update.
+  // the operator; a success shows itself through the workspace snapshot's own update. #3282 §4 part
+  // b-3: a schedule's Delete uses this same `cancel-background-task` write — `useSchedulesState`
+  // refreshes the roster on a successful cancel, and a failure gets the same visible notice as Stop.
   background_task_control_result: 'visible-notice',
   protocol_error: 'visible-notice',
   resume_gap: 'transport-control',

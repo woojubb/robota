@@ -37,4 +37,18 @@ export interface IAgentDefinition {
 
   /** Denylist of tool names. These tools are removed from the inherited set. */
   disallowedTools?: string[];
+
+  /**
+   * #3282 §4: where this definition came from, in plain words a person picking an agent can read —
+   * a discovered file's path (`AgentDefinitionLoader`), or absent for the built-in tier (a pack
+   * injection composed ahead of `BUILT_IN_AGENTS` included — see `buildAgentRuntime`). A reader that
+   * wants a label for every agent, built-in included, falls back to `DEFAULT_AGENT_DEFINED_IN`.
+   */
+  definedIn?: string;
 }
+
+/** The plain-words source shown for an agent definition that carries no `definedIn` of its own. */
+export const DEFAULT_AGENT_DEFINED_IN = 'Built-in';
+
+/** The agent type `/agent <prompt>` falls back to when none is named or selected as default. */
+export const DEFAULT_AGENT_TYPE = 'general-purpose';

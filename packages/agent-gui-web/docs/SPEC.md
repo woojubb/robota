@@ -48,3 +48,9 @@ importable library.
   has no command path that writes an MCP server's own configuration — `/mcp` only approves, rejects,
   revokes or signs a server in and out, never adds or edits one — so there is no function such a form
   could call without inventing a second, GUI-only way to change that file.
+- The Agents panel's Scheduled group and Goal row read, pause/resume, delete and cancel — the same
+  functions `/schedule` and `/goal` already run — but neither gets a GUI *creation* form: a recurring
+  schedule's only path takes a raw cron expression with no structured alternative, and `/goal`'s only
+  argument is the free-text objective, with no separate field for its optional iteration/no-progress
+  limits. A form would have to either surface that raw syntax or quietly drop capability the command
+  line keeps, so creating either stays text-only until the command itself takes structured arguments.

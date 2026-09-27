@@ -21,6 +21,7 @@ export const OBSERVER_MESSAGES: ReadonlySet<TClientMessage['type']> = new Set<
   'get-pending',
   'get-execution-workspace',
   'read-execution-detail',
+  'get-agent-definitions',
   'get-usage-report',
   'list-sessions',
   'get-background-tasks',

@@ -10,10 +10,11 @@ import type {
   TSettingsPatch,
 } from '@robota-sdk/agent-interface-session';
 import type {
+  IBackgroundTaskState,
   IExecutionDetailRecord,
   IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-execution';
-import type { TServerMessage } from '@robota-sdk/agent-transport';
+import type { IWireAgentDefinitionSummary, TServerMessage } from '@robota-sdk/agent-transport';
 
 export type TPersonalUsageReport = Extract<
   TServerMessage,
@@ -288,4 +289,35 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   projectMemoryState: 'idle' | 'loading' | 'ready' | 'error';
   projectMemory: TProjectMemoryRead | null;
   requestProjectMemory: () => void;
+  /**
+   * #3282 §4 part b-3: whether the agent switcher sheet is shown. `/agent` (bare) and this surface's
+   * own control both open it.
+   */
+  agentSwitcherOpen: boolean;
+  agentSwitcherStatus: 'idle' | 'loading' | 'ready' | 'error';
+  /** The available agents: name, one-line description, and where each is defined in plain words. */
+  agentDefinitions: readonly IWireAgentDefinitionSummary[];
+  /** The agent type `/agent <name>` (no prompt) currently selects — the checked row. */
+  currentAgentType: string | null;
+  /** The plain confirmation of the last selection's result, shown in the sheet — never a conversation card. */
+  agentSwitchMessage: string | null;
+  /** Opens the sheet and (re-)fetches its roster. */
+  openAgentSwitcher: () => void;
+  closeAgentSwitcher: () => void;
+  /** Runs the same path as `/agent <name>`. */
+  selectAgent: (agentType: string) => void;
+  /**
+   * #3282 §4 part b-3: the schedules shown in the Agents panel's "Scheduled" group — every
+   * `IBackgroundTaskState` of `kind: 'scheduled'`, refreshed on connect and after a write.
+   */
+  scheduledTasks: readonly IBackgroundTaskState<'scheduled'>[];
+  /** Runs the same path as `/schedule pause <id>` / `/schedule resume <id>`. */
+  pauseSchedule: (taskId: string) => void;
+  resumeSchedule: (taskId: string) => void;
+  /**
+   * Permanently stops a schedule — the same `cancel-background-task` write Stop already uses. A
+   * failure surfaces the same way a failed Stop does (#3288 §1's `background-task-control-failed`
+   * session notice) — no separate error state here.
+   */
+  deleteSchedule: (taskId: string) => void;
 }

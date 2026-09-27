@@ -75,6 +75,8 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
       'get-status',
       'get-pending',
       'list-sessions',
+      // #3282 §4 part b-3: the Agents panel's Scheduled group also loads on connect.
+      'get-background-tasks',
     ]);
   });
 
@@ -149,6 +151,8 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
       // #3280 §2: the queued-message row is per-session state too — a switch re-reads it.
       'get-pending',
       'list-sessions',
+      // #3282 §4 part b-3: schedules are per-session state too — a switch re-reads it.
+      'get-background-tasks',
     ]);
   });
 
@@ -207,7 +211,10 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
   it('a refused switch is its own answer: it leaves a command in flight paired with its screen', () => {
     const { result, deliver } = setup();
     act(() => result.current.send({ type: 'command', name: 'agent' }));
-    deliver({ type: 'ui_intent', event: { intent: { type: 'show-agent-switcher' } } } as TServerMessage);
+    // A still-genuinely-unsupported intent: every intent with a real GUI screen (session picker,
+    // settings, plugin manager, agent switcher) now suppresses the reply's conversation card by
+    // design (#3282 §4), so this generic in-flight-pairing test needs one that still does not.
+    deliver({ type: 'ui_intent', event: { intent: { type: 'show-theme-picker' } } } as TServerMessage);
     act(() => result.current.switchSession('b'));
     deliver({ type: 'protocol_error', message: 'Stop the running turn first.' });
     // The refusal is a toast; the agent command still awaits its own reply.
@@ -250,7 +257,10 @@ describe('#3189 step 5 — a refused session change and a pool-capable host', ()
   it('session_change_failed shows the reason and answers the change, not a command', () => {
     const { result, wire, deliver } = setup();
     act(() => result.current.send({ type: 'command', name: 'agent' }));
-    deliver({ type: 'ui_intent', event: { intent: { type: 'show-agent-switcher' } } } as TServerMessage);
+    // A still-genuinely-unsupported intent: every intent with a real GUI screen (session picker,
+    // settings, plugin manager, agent switcher) now suppresses the reply's conversation card by
+    // design (#3282 §4), so this generic in-flight-pairing test needs one that still does not.
+    deliver({ type: 'ui_intent', event: { intent: { type: 'show-theme-picker' } } } as TServerMessage);
     act(() => result.current.switchSession('b'));
     deliver({
       type: 'session_change_failed',
@@ -264,7 +274,7 @@ describe('#3189 step 5 — a refused session change and a pool-capable host', ()
     // The in-flight change is answered: a later protocol error belongs to the command again.
     deliver({ type: 'protocol_error', message: 'agent failed' });
     expect(result.current.messages).toEqual([
-      expect.objectContaining({ role: 'command', name: 'agent', tone: 'info' }),
+      expect.objectContaining({ role: 'command', name: 'theme', tone: 'info' }),
     ]);
   });
 

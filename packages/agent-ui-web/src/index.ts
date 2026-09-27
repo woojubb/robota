@@ -35,6 +35,7 @@ export { describeUiIntentForGui, guiScreenForUiIntent } from './hooks/ui-intent-
 // ── Presentation components ─────────────────────────────────
 export { ConversationView } from './components/ConversationView.js';
 export { AgentActivityPanel } from './components/AgentActivityPanel.js';
+export { AgentSwitcherSheet } from './components/AgentSwitcherSheet.js';
 export { PermissionPrompt } from './components/PermissionPrompt.js';
 export { PersonalUsageDashboard } from './components/PersonalUsageDashboard.js';
 export type { TPersonalUsageDashboardState } from './components/personal-usage-dashboard-types.js';

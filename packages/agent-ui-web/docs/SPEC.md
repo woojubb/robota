@@ -36,11 +36,12 @@ does not own session lifecycle, conversation history, or agent runtime state.
   never buried behind a truncated path or argument; an internal signal tool never renders as a call,
   and a projected `/command` tool shows the command it ran, not the provider-facing tool name.
 - A UI-intent opens its GUI screen when there is one — the session picker is the session sidebar
-  (unless the host cannot list sessions), and settings and the plugin manager both open the Settings
-  modal (the plugin manager on its Plugins section). Any other (e.g. agent switcher) answers with an
-  explicit "not available on this surface" line in the conversation — in place of the command's own
-  reply when this surface's command awaits one, at once otherwise — never a silent no-op, including
-  intent kinds not yet known when this package was written.
+  (unless the host cannot list sessions), settings and the plugin manager both open the Settings
+  modal (the plugin manager on its Plugins section), and the agent switcher is a sheet listing the
+  session's agent definitions with the current one checked. Any other answers with an explicit "not
+  available on this surface" line in the conversation — in place of the command's own reply when
+  this surface's command awaits one, at once otherwise — never a silent no-op, including intent
+  kinds not yet known when this package was written.
 - The session sidebar lists the host's sessions by a stable title — never the latest reply, which
   changes every turn — and never loses one silently: a record unreadable and belonging to this
   workspace is folded into one plain line rather than shown as a row; a record belonging to another
@@ -48,6 +49,14 @@ does not own session lifecycle, conversation history, or agent runtime state.
   list entirely. A switch replaces everything the surface shows with what the new session holds; a
   refused switch shows the host's reason. A row can be renamed or deleted from the list itself,
   without switching to it first; a refusal states why.
+- The agent switcher's roster and current selection are a typed read (`get-agent-definitions`), but
+  choosing a row is not a dedicated write: it sends `/agent <name>` through the same `command` path
+  typing it would, and the sheet shows that command's own reply as a plain line — never a
+  conversation card, unlike every other command result this reducer renders.
+- The Agents panel's Scheduled group and Goal row are additive to the execution-workspace rail:
+  a schedule or a goal alone (no running background task or loop) still opens the rail, and a
+  schedule's Pause/Resume and Delete, and a goal's Cancel, run the same command/control paths their
+  slash commands already use — the panel adds no write this package did not already expose.
 - The title bar and the page title both name the workspace folder the session works in, once the
   host has said one; the desktop window follows the page title.
 - A pending permission or ask prompt is visible whatever view is open, because a gated turn waits

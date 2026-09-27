@@ -97,6 +97,8 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
     readExecutionWorkspaceDetail: vi.fn().mockResolvedValue({ items: [] }),
     stopWaitingSelfPacedLoop: vi.fn().mockResolvedValue({ kind: 'none' }),
     listAgentDefinitions: vi.fn().mockReturnValue([]),
+    getDefaultAgentType: vi.fn().mockReturnValue('general-purpose'),
+    setDefaultAgentType: vi.fn(),
     listAgentJobs: vi.fn().mockReturnValue([]),
     spawnAgentJob: vi.fn().mockResolvedValue({ jobId: 'j1' }),
     sendAgentJob: vi.fn().mockResolvedValue(undefined),

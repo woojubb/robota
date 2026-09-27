@@ -178,6 +178,8 @@ export function createTestInteractiveSession(
     // No self-paced loop is waiting in a fresh double.
     stopWaitingSelfPacedLoop: () => Promise.resolve({ kind: 'none' as const }),
     listAgentDefinitions: () => [],
+    getDefaultAgentType: () => 'general-purpose',
+    setDefaultAgentType: () => {},
     listAgentJobs: () => [],
     spawnAgentJob: () =>
       Promise.resolve({

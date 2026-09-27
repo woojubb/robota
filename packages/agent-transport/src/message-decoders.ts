@@ -61,6 +61,11 @@ const isWireHistoryEntry = (v: unknown): boolean =>
   isString(v['type']);
 const isWireHistoryEntries = (v: unknown): boolean =>
   Array.isArray(v) && v.every(isWireHistoryEntry);
+/** #3282 §4: one row of `agent_definitions` — name, one-line description, plain-words location. */
+const isWireAgentDefinition = (v: unknown): boolean =>
+  isRecord(v) && isString(v['name']) && isString(v['description']) && isString(v['definedIn']);
+const isWireAgentDefinitions = (v: unknown): boolean =>
+  Array.isArray(v) && v.every(isWireAgentDefinition);
 
 type TFieldCheck = (value: unknown) => boolean;
 type TVariantShape = Readonly<Record<string, TFieldCheck>>;
@@ -228,6 +233,7 @@ export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVar
   'get-commands': {},
   'get-status': {},
   'list-models': { requestId: isNonEmptyString },
+  'get-agent-definitions': { requestId: isNonEmptyString },
   'list-sessions': { requestId: isNonEmptyString },
   'new-session': { requestId: isOptional(isNonEmptyString) },
   'switch-session': { sessionId: isNonEmptyString, requestId: isOptional(isNonEmptyString) },
@@ -316,6 +322,11 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
     groups: isRecordArray,
     currentProfile: isOptional(isString),
     currentModel: isString,
+  },
+  agent_definitions: {
+    requestId: isNonEmptyString,
+    agents: isWireAgentDefinitions,
+    current: isNonEmptyString,
   },
   sessions: { requestId: isNonEmptyString, listing: isRecord },
   sessions_error: {

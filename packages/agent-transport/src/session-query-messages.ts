@@ -15,6 +15,7 @@ type TSessionQueryMessage = Extract<
       | 'get-commands'
       | 'get-status'
       | 'list-models'
+      | 'get-agent-definitions'
       | 'get-executing'
       | 'get-pending'
       | 'get-execution-workspace'
@@ -40,6 +41,7 @@ export function isSessionQueryMessage(msg: TClientMessage): msg is TSessionQuery
     msg.type === 'get-commands' ||
     msg.type === 'get-status' ||
     msg.type === 'list-models' ||
+    msg.type === 'get-agent-definitions' ||
     msg.type === 'get-executing' ||
     msg.type === 'get-pending' ||
     msg.type === 'get-execution-workspace' ||
@@ -70,6 +72,13 @@ export function handleSessionQueryMessage(
   } else if (msg.type === 'list-models') {
     const snapshot = session.listModels();
     deliver({ type: 'model_list', requestId: msg.requestId, ...snapshot });
+  } else if (msg.type === 'get-agent-definitions') {
+    deliver({
+      type: 'agent_definitions',
+      requestId: msg.requestId,
+      agents: session.listAgentDefinitions(),
+      current: session.getDefaultAgentType(),
+    });
   } else if (msg.type === 'get-executing') {
     deliver({ type: 'executing', executing: session.isExecuting() });
   } else if (msg.type === 'get-execution-workspace') {

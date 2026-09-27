@@ -1,4 +1,5 @@
 import type {
+  ISessionAgentJobs,
   ISessionBackgroundGroups,
   ISessionBackgroundTasks,
   ISessionCommands,
@@ -32,7 +33,11 @@ export interface IProtocolSession
     ISessionBackgroundGroups,
     ISessionExecutionWorkspace,
     ISessionExecutionDetail,
-    ISessionSelfPacedLoopControl {}
+    ISessionSelfPacedLoopControl,
+    // #3282 §4: the agent switcher's read (`listAgentDefinitions`/`getDefaultAgentType`) — the
+    // group's write members (`spawnAgentJob` and friends) stay unused by any wire handler; they run
+    // only through `executeCommand`, same as every other command-only write.
+    ISessionAgentJobs {}
 
 /**
  * #3282 §4c: a protocol session that ALSO answers the Project panel's reads. `Partial` (not a fourth

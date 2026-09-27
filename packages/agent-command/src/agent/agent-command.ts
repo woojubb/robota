@@ -44,6 +44,21 @@ function executeOpenSwitcher(): ICommandResult {
   return { message: '', uiIntents: [{ type: 'show-agent-switcher' }], success: true };
 }
 
+/**
+ * #3282 §4: `/agent <name>` with nothing after the name sets the session's default agent type —
+ * the one `/agent <prompt>` falls back to, and the one the agent switcher shows checked. Distinct
+ * from `executeRun`, which a name FOLLOWED by a prompt still reaches (a prompt makes it a run, not
+ * a selection).
+ */
+function executeSelectDefaultAgent(session: IAgentJobHostContext, agentType: string): ICommandResult {
+  session.setDefaultAgentType(agentType);
+  return {
+    message: `Default agent: ${agentType}`,
+    success: true,
+    data: { agentType },
+  };
+}
+
 async function executeList(session: IAgentJobHostContext): Promise<ICommandResult> {
   const agents = session.listAgentDefinitions();
   const jobs = session.listAgentJobs();
@@ -223,6 +238,11 @@ export async function executeAgentCommand(
     if (action === 'send') return executeSend(session, tokens);
     if (action === 'stop' || action === 'cancel') return executeStop(session, tokens);
     if (action === 'close') return executeClose(session, tokens);
+    // `/agent <name>` alone (a known agent, nothing after it) selects a default rather than failing
+    // the "run" parse for want of a prompt — the same one-token shape the switcher sends.
+    if (tokens.length === 0 && getAvailableAgentNames(session).has(action)) {
+      return executeSelectDefaultAgent(session, action);
+    }
     return executeRun(session, [action, ...tokens]);
   } catch (error) {
     return { message: formatError(error), success: false };

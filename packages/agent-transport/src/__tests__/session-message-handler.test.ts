@@ -207,6 +207,24 @@ describe('WebSocket Transport Handler', () => {
     expect(sent).toEqual([{ type: 'model_list', requestId: 'req-models-1', ...snapshot }]);
   });
 
+  it('#3282 §4: get-agent-definitions sends the roster and the current default, echoing requestId', () => {
+    const { onMessage, session, sent } = setup();
+    const agents = [
+      { name: 'general-purpose', description: 'General-purpose task execution agent.', definedIn: 'Built-in' },
+      { name: 'Explore', description: 'Read-only codebase exploration agent.', definedIn: 'Built-in' },
+    ];
+    Object.assign(session, {
+      listAgentDefinitions: vi.fn().mockReturnValue(agents),
+      getDefaultAgentType: vi.fn().mockReturnValue('Explore'),
+    });
+
+    onMessage(JSON.stringify({ type: 'get-agent-definitions', requestId: 'req-agents-1' }));
+
+    expect(sent).toEqual([
+      { type: 'agent_definitions', requestId: 'req-agents-1', agents, current: 'Explore' },
+    ]);
+  });
+
   it('get-executing sends executing status', () => {
     const { onMessage, sent } = setup();
     onMessage(JSON.stringify({ type: 'get-executing' }));

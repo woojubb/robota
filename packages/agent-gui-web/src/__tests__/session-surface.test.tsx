@@ -65,6 +65,18 @@ function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
     modelList: null,
     requestModelList: vi.fn(),
     sendCommandSilently: vi.fn(),
+    agentSwitcherOpen: false,
+    agentSwitcherStatus: 'idle',
+    agentDefinitions: [],
+    currentAgentType: null,
+    agentSwitchMessage: null,
+    openAgentSwitcher: vi.fn(),
+    closeAgentSwitcher: vi.fn(),
+    selectAgent: vi.fn(),
+    scheduledTasks: [],
+    pauseSchedule: vi.fn(),
+    resumeSchedule: vi.fn(),
+    deleteSchedule: vi.fn(),
     ...over,
   } as unknown as IWsSessionState;
 }
