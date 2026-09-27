@@ -1,28 +1,35 @@
 # @robota-sdk/agent-mcp
 
-The MCP (Model Context Protocol) client-side owner for Robota SDK. It owns three things that stay
-deliberately separate:
+The Model Context Protocol (MCP) client for the Robota SDK: everything needed to let an agent use tools
+from external MCP servers. It keeps three concerns separate:
 
-- **Definitions** (MCP-001) — what an MCP server IS: decoding, environment templates, whole-entry
-  precedence, disable overlays, redacted projections, activation identity.
-- **Activation** (MCP-2520) — whether a definition may be used: the admission port and a
-  replaceable approval/audit store.
-- **Client, catalog and supervision** (MCP-002, absorbing MCP-003) — the official
-  `@modelcontextprotocol/sdk` client behind an admit-then-construct transport seam, the canonical
-  tools/prompts/resources catalog, and the connection/catalog lifecycle supervisor.
+- **Definitions** — what an MCP server is: decoding configuration entries, environment templates,
+  precedence between configuration sources, disable overlays, redacted projections for display, and the
+  identity and fingerprint an approval is tied to. Pure; nothing here connects or spawns.
+- **Activation** — whether a definition may be used: a deny-by-default admission port, exact identity
+  matching, and a replaceable approval and audit store. The host decides workspace trust.
+- **Client, catalog and supervision** — the official `@modelcontextprotocol/sdk` client behind an
+  admit-then-construct transport seam, the canonical catalog of discovered tools, prompts and resources,
+  and a supervisor for the connection and catalog lifecycle.
 
-Published as `@robota-sdk/agent-mcp`. Renamed from `@robota-sdk/agent-tool-mcp` by MCP-001. The
-transport set is Streamable HTTP and host-authorized stdio.
+Transports are Streamable HTTP and host-authorized stdio. Discovered tools enter the agent through the
+ordinary tool slot, so there is no MCP-specific runtime path. The Robota CLI uses this package for its
+`mcpServers` configuration; see the [MCP guide](../../content/guide/mcp.md) for that side. To expose a
+Robota session _as_ an MCP server, use
+[`@robota-sdk/agent-transport-mcp`](../agent-transport-mcp/README.md).
 
-See [`docs/SPEC.md`](docs/SPEC.md) for the package contract.
+## Installation
+
+```bash
+npm install @robota-sdk/agent-mcp @robota-sdk/agent-core
+```
+
+Requires Node.js 22.12 or later. `@robota-sdk/agent-core` is a peer dependency.
 
 ## Usage
 
 Admit a transport, open a session inside a connection supervisor, discover the server, build the
-catalog, and expose a discovered tool to the runtime:
-
-`openMcpSession()` identifies itself as `mcp-client` unless the host supplies `clientInfo`. Hosts
-that previously relied on the implicit `robota-agent-mcp` name can pass that name explicitly.
+catalog, and turn each discovered tool into a runtime tool:
 
 ```ts
 import {
@@ -70,13 +77,47 @@ const tools = catalog.adopted
   .map((entry) => createDiscoveredTool(entry, supervisor));
 ```
 
-See [docs/README.md](docs/README.md) and [docs/SPEC.md](docs/SPEC.md) for the full package contract.
+`admit` runs the shared egress policy before any connection: plain `http:` outside loopback, private
+address ranges and cloud-metadata addresses are refused, and redirects are refused rather than followed.
+`openMcpSession()` identifies itself to the server as `mcp-client` unless you pass `clientInfo`.
 
-Stdio requires a host-owned `IMCPStdioAuthority` with an allowed root, absolute executable, exact
-argument vectors, explicitly selected child environment, and a generation. Pass a resolved definition
-and its activation request to `createStdioAdapter({ admission, authority }).admit(...)` before opening
-a session. The adapter rechecks activation and authority before every spawn. See the runnable
-[`--allowed` / `--denied` example](examples/verify-stdio-transport.ts). The SDK's default environment
-keys are present with host-selected values or empty strings; no ambient values are inherited. A
-cancelled or timed-out active stdio request closes the direct child because the SDK provides no
-cancellation acknowledgment. Termination of grandchildren is outside this transport's guarantee.
+The catalog sorts everything the server disclosed into `adopted`, `adapted` and `rejected` entries, with
+stable, collision-safe tool names. The supervisor retries only transient failures, with bounded backoff,
+and keeps a catalog marked stale rather than emptying it when a refresh fails.
+
+### stdio
+
+Stdio needs a host-owned `IMCPStdioAuthority`: an allowed root directory, an absolute executable, exact
+argument vectors, an explicitly selected child environment, and a generation. Pass a resolved definition
+and its activation request to `createStdioAdapter({ admission, authority }).admit(...)` before opening a
+session; the adapter rechecks activation and authority before every spawn. The child inherits no ambient
+environment values: the SDK's default environment keys are present only with host-selected values or
+empty strings. Cancelling or timing out an active stdio request closes the direct child, because the
+SDK provides no cancellation acknowledgment; grandchild processes are outside this transport's
+guarantee. See the runnable [`--allowed` / `--denied` example](examples/verify-stdio-transport.ts).
+
+### Authentication
+
+A host registers an authenticator for one server identity, and the HTTP transport asks it for headers on
+every request to that server only. The package provides:
+
+- OAuth sign-in for servers that declare `oauth`: `runMCPOAuthLogin`, `runMCPOAuthLogout`,
+  `createOAuthAuthenticator`, with storage (`createFileOAuthCredentialStore`) and a cross-process refresh
+  lock (`createFileOAuthRefreshLock`) as replaceable ports.
+- A headers helper (`createHeadersHelperAuthenticator`): an exact argv the host allows and runs, whose
+  output is parsed strictly into request headers.
+
+A definition that asks for authentication the host cannot provide stays listed and is refused by name;
+it is never connected with its static headers alone.
+
+## Where it sits
+
+Depends only on `@robota-sdk/agent-core` (peer) and `@modelcontextprotocol/sdk`. It owns no tool
+registry and no product identity: the composition root (for example the CLI) chooses the client identity
+and wires the discovered tools in.
+
+## Documentation
+
+- [docs/SPEC.md](docs/SPEC.md) — the full contract: admission, precedence, secrecy, OAuth, stdio
+  authority and supervision.
+- [docs/README.md](docs/README.md) — documentation index.

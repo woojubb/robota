@@ -1,16 +1,18 @@
 # @robota-sdk/agent-remote-client
 
-Client-side remote execution layer for Robota SDK. Provides `RemoteExecutor` (implements `IExecutor`) to proxy AI provider calls to a remote Robota agent server over HTTP.
+A client-side executor that sends AI provider calls to a remote provider-proxy server over HTTP instead of
+calling the vendor API directly. `RemoteExecutor` implements `IExecutor` from `@robota-sdk/agent-core`,
+so a provider configured with it (`new AnthropicProvider({ executor })`, for example) keeps working
+unchanged while the server holds the vendor API keys.
 
-Streaming uses `POST /api/v1/remote/chat/stream`. The server assembles the provider message and the
-client forwards text deltas to `onTextDelta`, then yields one message event and one terminal event.
-The client does not assemble provider fragments.
-
-> This package is **private** and not published to npm. Server-side hosting is handled by separate packages (`agent-transport-http`, `agent-transport-ws`).
+It is not the client for `@robota-sdk/agent-transport-http` or `@robota-sdk/agent-transport-ws`: those
+serve a running agent _session_ over a different, session-oriented protocol. This package speaks a
+per-call provider protocol: one chat request in, one assistant message out.
 
 ## Installation
 
-This package is used internally within the Robota monorepo via workspace references.
+This package is internal to the Robota monorepo (`private: true`, not published to npm). Use it through a
+workspace reference.
 
 ## Usage
 
@@ -19,8 +21,8 @@ import { RemoteExecutor } from '@robota-sdk/agent-remote-client';
 import { createUserMessage } from '@robota-sdk/agent-core';
 
 const executor = new RemoteExecutor({
-  serverUrl: 'https://my-agent-server.example.com',
-  userApiKey: 'my-api-key',
+  serverUrl: 'https://agent-server.example.com/api/v1/remote',
+  userApiKey: 'token-issued-by-the-server',
   timeout: 30000, // optional, default 30 000 ms
 });
 
@@ -28,10 +30,8 @@ const { message, modelEffortOutcome } = await executor.executeChat({
   provider: 'anthropic',
   model: 'claude-opus-4-5',
   messages: [createUserMessage('Hello')],
-  // Per-call options travel to the server as one object and are forwarded into the
-  // provider call there (CORE-044). Tools are sent alongside them.
+  // Serializable per-call options travel to the server and are applied to the provider call there.
   options: {
-    model: 'claude-opus-4-5',
     toolChoice: 'required',
     maxTokens: 1024,
     effort: 'auto',
@@ -41,34 +41,71 @@ const { message, modelEffortOutcome } = await executor.executeChat({
 console.log(message.content, modelEffortOutcome);
 ```
 
+## Wire protocol
+
+The client appends a fixed path to `serverUrl` and sends `Authorization: Bearer <userApiKey>` with every
+request:
+
+| Call                | Request                              | Response                                                                   |
+| ------------------- | ------------------------------------ | -------------------------------------------------------------------------- |
+| `executeChat`       | `POST <serverUrl>/chat`              | JSON: the assistant message, plus the effort outcome when one was selected |
+| `executeChatStream` | `POST <serverUrl>/chat/stream` (SSE) | Text-delta frames, then one terminal assembled message                     |
+
+Of the per-call options, the serializable ones (`maxTokens`, `temperature`, `effort`, `toolChoice`,
+`responseFormat`, `nativeWebTools` and the provider-specific `openai` / `anthropic` / `google` blocks)
+travel as one `options` object, with `tools` beside it. Callbacks and the abort signal stay local.
+
+The server assembles the streamed message; the client never stitches provider fragments together. It
+forwards each text delta to the caller's `onTextDelta`, then yields exactly one `{ kind: 'message' }`
+event and one `{ kind: 'terminal' }` event. A stream that ends without a terminal message is an error,
+not a short answer.
+
+The repository's `apps/agent-server` app serves this protocol under `/api/v1/remote`, which is why the
+example's `serverUrl` ends with that prefix.
+
+For a selected model-effort tier only the selection crosses the wire. The server resolves it and returns
+one outcome, which the client passes to `onModelEffortOutcome` exactly once. The run's `AbortSignal` is
+threaded into `fetch`, so cancelling the run cancels the HTTP request, and the abort surfaces as an
+`AbortError` rather than a generic transport failure.
+
 ## API
 
 ### `RemoteExecutor`
 
-Implements `IExecutor` from `@robota-sdk/agent-core`. It proxies `executeChat` to a remote server via HTTP POST and returns `{ message, modelEffortOutcome? }`. `executeChatStream` uses SSE, forwarding text deltas to the local callback before yielding one `{ kind: 'message' }` event and one `{ kind: 'terminal' }` event. The wire sends only an effort selection; the server adapter supplies the serializable outcome and the local executor invokes `onModelEffortOutcome` exactly once.
+Constructor options:
 
-The run's `AbortSignal` cannot be serialized, so it is threaded into `fetch`: cancelling the HTTP request IS the cancellation on this seam, and an abort surfaces as an `AbortError` rather than a generic transport failure.
+| Option       | Type                     | Required | Description                                       |
+| ------------ | ------------------------ | -------- | ------------------------------------------------- |
+| `serverUrl`  | `string`                 | Yes      | Base URL; `/chat` and `/chat/stream` are appended |
+| `userApiKey` | `string`                 | Yes      | Sent as the bearer token on every request         |
+| `timeout`    | `number`                 | No       | Request timeout in ms (default: 30 000)           |
+| `headers`    | `Record<string, string>` | No       | Additional HTTP headers                           |
+| `logger`     | `ILogger`                | No       | Injected logger (default: silent)                 |
 
-| Config option | Type                     | Required | Description                             |
-| ------------- | ------------------------ | -------- | --------------------------------------- |
-| `serverUrl`   | `string`                 | Yes      | Base URL of the remote agent server     |
-| `userApiKey`  | `string`                 | Yes      | API key sent with every request         |
-| `timeout`     | `number`                 | No       | Request timeout in ms (default: 30 000) |
-| `headers`     | `Record<string, string>` | No       | Additional HTTP headers                 |
-| `logger`      | `ILogger`                | No       | Injected logger instance                |
+The options type itself is not exported. `IRemoteExecutorConfig`, re-exported from
+`@robota-sdk/agent-core`, is a different shape (it has `maxRetries` and no `logger`) and does not
+describe these options.
+
+Methods: `executeChat(request)` returns `{ message, modelEffortOutcome? }`; `executeChatStream(request)`
+is an async iterable of the two stream events above. Invalid requests (no messages, no provider or model,
+malformed messages) and a missing `serverUrl` or `userApiKey` throw with a specific message.
 
 ### `HttpClient`
 
-Low-level HTTP client used internally by `RemoteExecutor`. Provides a typed `chat` method. Accepts an injected `ILogger` via `IHttpClientConfig`.
+The low-level client `RemoteExecutor` is built on: `post`, `get`, `chat` and `chatStream` against a base
+URL, with an injected `ILogger`.
 
-## Exported Types
+### Other exports
 
-| Type                                                         | Description            |
-| ------------------------------------------------------------ | ---------------------- |
-| `IBasicMessage`, `IRequestMessage`, `IResponseMessage`       | Message contract types |
-| `ITokenUsage`                                                | Token usage shape      |
-| `IHttpRequest`, `IHttpResponse`, `IHttpError`, `THttpMethod` | HTTP contract types    |
+- Message and HTTP types: `IBasicMessage`, `IRequestMessage`, `IResponseMessage`, `ITokenUsage`,
+  `IHttpRequest`, `IHttpResponse`, `IHttpError`, `THttpMethod`, `TDefaultRequestData`.
+- Helpers: `toRequestMessage`, `toResponseMessage`, `createHttpRequest`, `createHttpResponse`,
+  `extractContent`, `generateId`, `normalizeHeaders`, `safeJsonParse`.
+- Re-exported from `@robota-sdk/agent-core` for convenience: `IExecutor`, `IChatExecutionRequest`,
+  `IStreamExecutionRequest`, `TUniversalMessage`, `IAssistantMessage`, `IRemoteExecutorConfig`.
 
 ## Dependencies
 
-- `@robota-sdk/agent-core` — `IExecutor`, `ILogger`, core message types
+- `@robota-sdk/agent-core` — `IExecutor`, `ILogger`, message types.
+
+See [docs/SPEC.md](./docs/SPEC.md) for the contract.
