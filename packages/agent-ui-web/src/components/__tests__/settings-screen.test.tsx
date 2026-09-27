@@ -679,7 +679,8 @@ describe('SettingsScreen — Providers & Models section (#3282 §4b)', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Delete…' })[1]!); // backup
     expect(state.updateSettings).not.toHaveBeenCalled();
-    expect(screen.getByRole('dialog', { name: 'Delete profile "backup"?' })).toBeTruthy();
+    // A destructive ConfirmDialog is 'alertdialog', not 'dialog' (#3282 §4e).
+    expect(screen.getByRole('alertdialog', { name: 'Delete profile "backup"?' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({
@@ -696,7 +697,7 @@ describe('SettingsScreen — Providers & Models section (#3282 §4b)', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Delete…' })[1]!);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(state.updateSettings).not.toHaveBeenCalled();
-    expect(screen.queryByRole('dialog', { name: 'Delete profile "backup"?' })).toBeNull();
+    expect(screen.queryByRole('alertdialog', { name: 'Delete profile "backup"?' })).toBeNull();
   });
 
   it('"Add provider…" runs the same /provider add flow the first-run setup panel uses', () => {
