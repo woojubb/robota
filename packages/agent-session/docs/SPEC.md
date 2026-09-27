@@ -178,12 +178,13 @@ A session runs one turn at a time:
   for its effective arguments. A checkpointed approval answers one exact action and its arguments
   and grants no session consent; a saved denial stays binding even if policy has since become
   more permissive.
-- An execution parked on saved waits blocks new input, because input added behind it would make
-  the conversation diverge from the checkpoint it must continue. The session exposes it — also
-  after a cancellation that ended the turn once the wait was saved — so the host can resume or
-  abandon it. It stays pending while its waits can still be answered, including after a resume
-  refused before continuing; once a continuation has settled the saved round into history, a
-  later failure or cancellation ends it like an ordinary turn.
+- A journaled execution whose last round is open in history — parked on saved waits, or stopped
+  by a failure after its tool calls were committed — blocks new input, because input added behind
+  it would follow unanswered calls and diverge from the checkpoint it must continue. The session
+  exposes it — also after a cancellation that ended the turn once a wait was saved — so the host
+  can resume or abandon it, and offers only waits whose effect was never admitted for an answer.
+  Once its rounds have settled into history, a later failure or cancellation ends it like an
+  ordinary turn.
 - Abandoning runs nothing and writes nothing to the journal: the open calls are closed in history
   as failed, so the conversation stays well-formed and can no longer resume that execution. Its
   journal records remain the host's to keep or discard. Abandonment must never become a route to

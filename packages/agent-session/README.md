@@ -99,11 +99,13 @@ ordinary `resume`.
 
 While an execution waits, `run` refuses new input. `getPendingExecution()` returns its
 `executionId` and `requests`, including after a cancellation that ended the turn once the wait was
-saved. A resume refused before continuing (a stale response, a storage failure) leaves it pending
-for another attempt; once a continuation has resumed the saved round, a later failure ends it like
-an ordinary turn. `abandonPendingExecution(executionId)` gives it up without running anything or
-writing to the journal: its open tool calls are closed as failed in history, the journal records
-are left for you to keep or discard, and this Session can no longer resume that execution.
+saved. A journaled `run`, `runRecoverable` or resume that fails (a storage failure, an unreconciled
+effect) while its tool calls are open in history also leaves the execution pending, with only the
+waits whose effect never started in `requests`; resume it once the journal is readable, or abandon
+it. A failure after its rounds settled ends it like an ordinary turn.
+`abandonPendingExecution(executionId)` gives it up without running anything or writing to the
+journal: its open tool calls are closed as failed in history, the journal records are left for you
+to keep or discard, and this Session can no longer resume that execution.
 
 Waiting is returned only after request writes are durable and tools already running beside the
 waiting one finish; calls not yet started stay pending. Cancellation interrupts running tools but

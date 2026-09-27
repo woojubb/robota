@@ -65,6 +65,22 @@ function journalFixture() {
     },
   };
 }
+/** Reject the `nth` write of `kind` from now on, once; every other write is saved as usual. */
+function failWrite(
+  saved: ReturnType<typeof journalFixture>,
+  kind: TExecutionJournalRecord['kind'],
+  nth = 1,
+) {
+  const append = saved.journal.append.getMockImplementation()!;
+  let seen = 0;
+  saved.journal.append.mockImplementation(async (record) => {
+    if (record.kind === kind && ++seen === nth) throw new Error(`${kind} write failed`);
+    await append(record);
+  });
+}
+const allowed: Partial<ISessionOptions> = {
+  permissions: { allow: ['act'], deny: [], ask: [] },
+};
 async function waiting() {
   const source = fixture([action, { text: 'must not run' }]);
   const saved = journalFixture();
@@ -529,5 +545,108 @@ describe('checkpointed Session approval', () => {
     expect(await f.session.run('next input')).toBe('ordinary result');
     expect(f.approval).toHaveBeenCalledOnce();
     expect(f.effect).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('a journaled round left open by a failure', () => {
+  it('stays pending and resumes when no effect had started', async () => {
+    const f = fixture([action, { text: 'continued' }], allowed);
+    const saved = journalFixture();
+    failWrite(saved, 'tool-intent');
+    await expect(
+      f.session.runRecoverable('input', { executionJournal: saved.journal }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_JOURNAL_FAILED', kind: 'tool-intent' });
+    const executionId = saved.records[0].executionId;
+    expect(f.session.getPendingExecution()).toEqual({ executionId, requests: [] });
+    await expect(f.session.run('unrelated input')).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_REQUIRED',
+    });
+    expect(f.requests).toHaveLength(1);
+    expect(f.effect).not.toHaveBeenCalled();
+    expect(
+      await f.session.resumeRecoverable({ executionId, journal: saved.journal, toolResponses: [] }),
+    ).toEqual({ status: 'completed', response: 'continued' });
+    expect(f.session.getPendingExecution()).toBeUndefined();
+    expect(f.effect).toHaveBeenCalledOnce();
+  });
+
+  it('never replays an effect whose result was not saved, and abandons it as unknown', async () => {
+    const f = fixture([action, { text: 'fresh answer' }], allowed);
+    const saved = journalFixture();
+    failWrite(saved, 'tool-result');
+    await expect(
+      f.session.runRecoverable('input', { executionJournal: saved.journal }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_JOURNAL_FAILED', kind: 'tool-result' });
+    expect(f.effect).toHaveBeenCalledOnce();
+    const executionId = saved.records[0].executionId;
+    expect(f.session.getPendingExecution()).toEqual({ executionId, requests: [] });
+    await expect(
+      f.session.resumeRecoverable({ executionId, journal: saved.journal, toolResponses: [] }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
+    expect(f.session.getPendingExecution()).toEqual({ executionId, requests: [] });
+    f.session.abandonPendingExecution(executionId);
+    expect(await f.session.run('new input')).toBe('fresh answer');
+    expect(f.requests[1].at(-2)).toMatchObject({
+      role: 'tool',
+      content: expect.stringContaining('outcome is unknown'),
+    });
+    expect(f.effect).toHaveBeenCalledOnce();
+  });
+
+  it('stays pending when a later round of its continuation fails mid-batch', async () => {
+    const f = fixture([action, action, { text: 'must not run' }]);
+    const saved = journalFixture();
+    const first = await f.session.runRecoverable('input', { executionJournal: saved.journal });
+    if (first.status !== 'waiting') throw new Error('Expected wait');
+    const request = first.requests[0];
+    failWrite(saved, 'tool-intent');
+    await expect(
+      f.session.resumeRecoverable({
+        executionId: request.executionId,
+        journal: saved.journal,
+        toolResponses: [
+          { requestId: request.requestId, responseId: 'reply', response: { approved: true } },
+        ],
+      }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_JOURNAL_FAILED', kind: 'tool-intent' });
+    expect(f.effect).toHaveBeenCalledOnce();
+    expect(f.session.getPendingExecution()).toEqual({
+      executionId: request.executionId,
+      requests: [],
+    });
+    await expect(f.session.run('unrelated input')).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_REQUIRED',
+    });
+    expect(f.requests).toHaveLength(2);
+  });
+
+  it('stops reporting a wait as unstarted once a resume admitted its effect', async () => {
+    const f = fixture([action, { text: 'fresh answer' }]);
+    const saved = journalFixture();
+    const first = await f.session.runRecoverable('input', { executionJournal: saved.journal });
+    if (first.status !== 'waiting') throw new Error('Expected wait');
+    const request = first.requests[0];
+    failWrite(saved, 'tool-result');
+    await expect(
+      f.session.resumeRecoverable({
+        executionId: request.executionId,
+        journal: saved.journal,
+        toolResponses: [
+          { requestId: request.requestId, responseId: 'reply', response: { approved: true } },
+        ],
+      }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_JOURNAL_FAILED', kind: 'tool-result' });
+    expect(f.effect).toHaveBeenCalledOnce();
+    expect(f.session.getPendingExecution()).toEqual({
+      executionId: request.executionId,
+      requests: [],
+    });
+    f.session.abandonPendingExecution(request.executionId);
+    expect(await f.session.run('new input')).toBe('fresh answer');
+    expect(f.requests[1].at(-2)).toMatchObject({
+      role: 'tool',
+      toolCallId: request.toolCallId,
+      content: expect.stringContaining('outcome is unknown'),
+    });
   });
 });

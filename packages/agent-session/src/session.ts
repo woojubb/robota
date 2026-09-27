@@ -25,8 +25,10 @@ import { sessionExecutionJournal, sessionRecoveryJournal } from './session-execu
 import { executeRun } from './session-run.js';
 import {
   abandonedRoundResults,
+  noteEffectAdmissions,
   pendingExecution,
   recoverableSessionExecution,
+  unfinishedExecution,
 } from './session-recoverable.js';
 import type {
   ISessionPendingExecution,
@@ -121,7 +123,7 @@ export class Session extends SessionBase {
   /** The last tool change; the next one waits for it. */
   private toolChange: Promise<void> = Promise.resolve();
   private shuttingDown = false;
-  /** Set while an execution is parked on saved waits; cleared once it continues past them or is abandoned. */
+  /** Set while a journaled execution's round is open in history; cleared once it settles or is abandoned. */
   private pendingExecution?: ISessionPendingExecution;
   private shutdownPromise: Promise<void> | null = null;
   /** Stdout collected from SessionStart hooks, injected on first run(). */
@@ -273,6 +275,8 @@ export class Session extends SessionBase {
       if (error instanceof ExecutionSuspendedError) {
         this.pendingExecution = pendingExecution(error);
         signal.throwIfAborted();
+      } else if (options?.executionJournal) {
+        this.pendingExecution = unfinishedExecution(this.agent.getHistory(), undefined, new Set());
       }
       throw error;
     } finally {
@@ -305,12 +309,12 @@ export class Session extends SessionBase {
       );
     const controller = this.turnClaim.claim();
     const unlink = linkCancellation(controller, options.signal);
-    const parkedLength = this.agent.getHistory().length;
+    const admitted = new Set<string>();
     try {
       controller.signal.throwIfAborted();
       await this.serializeToolChange(() => this.applyPendingTools());
       const journal = sessionRecoveryJournal(
-        options.journal,
+        noteEffectAdmissions(options.journal, admitted),
         this.sessionId,
         this.cwd,
         (peerTurn) => this.permissionEnforcer.beginTurn(peerTurn, checkpointedApprovals),
@@ -326,9 +330,13 @@ export class Session extends SessionBase {
       if (error instanceof ExecutionSuspendedError) {
         this.pendingExecution = pendingExecution(error);
         controller.signal.throwIfAborted();
-      } else if (this.agent.getHistory().length !== parkedLength) {
-        // The saved round reached history, so this failure ends the execution like an ordinary turn.
-        this.pendingExecution = undefined;
+      } else {
+        // Settled rounds end the execution like an ordinary turn; a round left open keeps it pending.
+        this.pendingExecution = unfinishedExecution(
+          this.agent.getHistory(),
+          this.pendingExecution,
+          admitted,
+        );
       }
       throw error;
     } finally {
@@ -338,7 +346,7 @@ export class Session extends SessionBase {
     }
   }
 
-  /** The execution whose saved waits block new input, if any — also after a cancelled turn saved them. */
+  /** The execution blocking new input, if any: parked on saved waits, or left open by a failure. */
   getPendingExecution(): ISessionPendingExecution | undefined {
     return structuredClone(this.pendingExecution);
   }

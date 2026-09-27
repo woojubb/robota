@@ -452,6 +452,48 @@ describe('Session execution journal', () => {
     },
   );
 
+  it('refuses new input over a tool round a journal failure left open until it is abandoned', async () => {
+    const scripted = createScriptedProvider([
+      { toolCalls: [{ name: 'act', args: {} }] },
+      { text: 'after abandon' },
+    ]);
+    const effect = vi.fn(async () => 'effect');
+    const { session } = fixture({
+      provider: scripted.provider,
+      permissions: { allow: ['act'], deny: [], ask: [] },
+      tools: [
+        new FunctionTool(
+          { name: 'act', description: 'Act', parameters: { type: 'object', properties: {} } },
+          effect,
+        ),
+      ],
+    });
+    const records: TExecutionJournalRecord[] = [];
+    await expect(
+      session.run('act', undefined, {
+        executionJournal: {
+          append: async (record) => {
+            if (record.kind === 'tool-result') throw new Error('result write failed');
+            records.push(record);
+          },
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_JOURNAL_FAILED', kind: 'tool-result' });
+    const executionId = records[0].executionId;
+    expect(session.getPendingExecution()).toEqual({ executionId, requests: [] });
+    await expect(session.run('next')).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_REQUIRED',
+    });
+    expect(scripted.requests).toHaveLength(1);
+    session.abandonPendingExecution(executionId);
+    expect(await session.run('next')).toBe('after abandon');
+    expect(scripted.requests[1].at(-2)).toMatchObject({
+      role: 'tool',
+      content: expect.stringContaining('outcome is unknown'),
+    });
+    expect(effect).toHaveBeenCalledOnce();
+  });
+
   it('journals manual compaction before replacing history', async () => {
     const { session } = fixture();
     session.injectMessage('user', 'Something to summarize.');
