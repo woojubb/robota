@@ -83,7 +83,7 @@ Omitting `store` uses the same in-memory store. A durable `ConversationStore` to
 | Status      | Meaning                                                                                       |
 | ----------- | --------------------------------------------------------------------------------------------- |
 | `waiting`   | Requests need answers: `submitInput` answers input, `resume` answers any request.             |
-| `limited`   | This run used its `maxTurnsPerRun` or `timeoutMs`; call `run()` again to continue.            |
+| `limited`   | This run used its `maxTurnsPerRun` or `timeoutMs`; the next run continues.                    |
 | `cancelled` | The `signal` fired or `dispose()` was called; the next run or a loaded handle continues.      |
 | `completed` | The selector finished the conversation. Every later `run()` returns the same result.          |
 | `failed`    | A participant, the selector or the store failed. Every later `run()` returns the same result. |
@@ -111,12 +111,14 @@ a group or needs more turns than one run allows is not saved; the run ends `fail
 ## Cancellation
 
 Passing a `signal` to `run()`, a `timeoutMs` limit and `dispose()` stop new turns and wait for running
-participants to settle; they end the run, not the conversation. Results a participant already
-returned are kept and published when its group completes on a later run. A participant stopped
-while inside its own runtime may have acted outside the conversation, so the roundtable neither
-runs it again nor finishes the conversation: later `run()` calls and `loadRoundtable` reject with
-`recovery-required`, and this package has no step yet that reconciles such a participant. A group
-with a failed member is never published or run again automatically.
+participants to settle; they end the run, not the conversation. A result a participant returned is
+kept, even one that arrives after the abort, and is published when its group completes on a later
+run. An attempt stopped without one, for example a `runTurn` that rejects with the signal's reason,
+runs again on the next run for the same turn with a new `attemptId`; if it already acted outside the
+conversation, the participant's runtime must report that. `run()` and `loadRoundtable` reject with
+`recovery-required` only when stored state holds a turn that was never seen to settle, such as after
+the process stopped mid-turn. A group with a failed member is never published or run again
+automatically.
 
 ## Supported environments
 

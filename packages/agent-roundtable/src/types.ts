@@ -209,8 +209,10 @@ export interface ExternalInput {
 export interface Roundtable {
   /**
    * Advance until the conversation waits, finishes or reaches a limit. Cancellation, disposal and
-   * limits end only this run; failure and completion are final and are returned by every later run.
-   * Rejects with `recovery-required` when an interrupted participant must be reconciled first.
+   * limits end only this run: a result a participant returned is kept, and an attempt stopped
+   * without one runs again on the next run. Failure and completion are final and are returned by
+   * every later run. Rejects with `recovery-required` only when stored state holds a turn that was
+   * never seen to settle, such as after the process stopped mid-turn.
    */
   run(options?: { signal?: AbortSignal }): Promise<RunResult>;
   submitInput(input: ExternalInput): Promise<{ revision: number; messageId: string }>;

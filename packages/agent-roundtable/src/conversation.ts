@@ -276,9 +276,14 @@ export class Conversation implements Roundtable {
     try {
       return await this.execute(AbortSignal.any([signal, owner.signal]), owner);
     } catch (error) {
-      // Unsettled runtime work is neither rerun nor finished; the host must reconcile it first.
+      // A turn stored as running was never seen to settle (the process stopped mid-turn), so it is
+      // neither rerun nor finished until the host reconciles it.
       if (error instanceof RoundtableError && error.code === 'recovery-required') throw error;
-      if (signal.aborted) return await this.stop(owner, timedOut());
+      // A member failure that settled before cancellation stays final.
+      const { phase } = this.persistence.snapshot();
+      const memberFailed =
+        phase.kind === 'group' && phase.members.some((member) => member.status === 'failed');
+      if (signal.aborted && !memberFailed) return await this.stop(owner, timedOut());
       return await this.fail(owner, error);
     } finally {
       await this.persistence.end();
@@ -504,8 +509,13 @@ export class Conversation implements Roundtable {
         }),
       restore: (turn) =>
         this.persistence.update((draft) => {
+          const member = this.member(draft, turn);
+          // A result prepared or parked before the abort was settled work; keep it.
+          if (member.status === 'prepared' || member.status === 'waiting') return;
           const saved = pending.find((candidate) => candidate.turn.turnId === turn.turnId)!;
-          this.member(draft, turn).status = saved.status;
+          Object.assign(member, structuredClone(saved), {
+            turn: { ...saved.turn, attemptId: crypto.randomUUID() },
+          });
         }),
       settle: (turn, outcome) =>
         this.persistence.update((draft) => {

@@ -103,9 +103,10 @@ saved. A journaled `run`, `runRecoverable` or resume that fails (a storage failu
 effect) while its tool calls are open in history also leaves the execution pending, with only the
 waits whose effect never started in `requests`; resume it once the journal is readable, or abandon
 it. A failure after its rounds settled ends it like an ordinary turn.
-`abandonPendingExecution(executionId)` gives it up without running anything or writing to the
-journal: its open tool calls are closed as failed in history, the journal records are left for you
-to keep or discard, and this Session can no longer resume that execution.
+`abandonPendingExecution(executionId)` gives it up without running anything: its open tool calls
+are closed as failed in this Session's history and this Session can no longer resume it, but the
+journal is left untouched. Discard that execution's journal records yourself; otherwise a Session
+without this history, such as a fresh one, can still resume the execution from them.
 
 Waiting is returned only after request writes are durable and tools already running beside the
 waiting one finish; calls not yet started stay pending. Cancellation interrupts running tools but

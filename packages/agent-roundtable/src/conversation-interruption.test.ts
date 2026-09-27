@@ -167,25 +167,125 @@ describe('cancellation and time limits end the run, not the conversation', () =>
     expect(a.run).toHaveBeenCalledOnce();
     expect(b.run).toHaveBeenCalledOnce();
   });
+});
 
-  it('requires reconciliation instead of finishing when cancellation interrupts a running participant', async () => {
-    let entered!: () => void;
-    const running = new Promise<void>((resolve) => (entered = resolve));
-    const a = agent('a', async (_turn, { signal }) => {
-      entered();
-      return untilAborted(signal);
-    });
+/** The first turn waits and honours the abort by rejecting with its reason; later turns speak. */
+function stoppable(id: string, late?: string) {
+  let entered!: () => void;
+  const running = new Promise<void>((resolve) => (entered = resolve));
+  let calls = 0;
+  const member = agent(id, async (_turn, { signal }) => {
+    if (calls++ > 0) return { kind: 'speak', content: id };
+    entered();
+    if (late === undefined) return untilAborted(signal);
+    await untilAborted(signal).catch(() => {});
+    return { kind: 'speak', content: late };
+  });
+  return { ...member, running };
+}
+
+describe('cancelling a running participant', () => {
+  it('a participant that honours the abort is dispatched again on the next run', async () => {
+    const a = stoppable('a');
     const f = setup(speakThenFinish, { agents: [a] });
     const abort = new AbortController();
     const result = f.room.run({ signal: abort.signal });
-    await running;
+    await a.running;
     abort.abort();
     expect(await result).toMatchObject({ status: 'cancelled' });
-    await expect(f.room.run()).rejects.toMatchObject({ code: 'recovery-required' });
-    expect(await f.stored()).toMatchObject({ terminal: null });
+    expect(f.room.snapshot().requests).toEqual([]);
+    expect(await f.room.run()).toMatchObject({ status: 'completed', reason: 'done' });
+    expect(f.room.snapshot().messages.map((m) => m.content)).toEqual(['a']);
+    const [first, second] = a.run.mock.calls.map(([turn]) => turn);
+    expect(second.turnId).toBe(first.turnId);
+    expect(second.attemptId).not.toBe(first.attemptId);
+  });
+
+  it('timeoutMs firing mid-turn leaves the conversation resumable', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const a = stoppable('a');
+    const f = setup(speakThenFinish, {
+      agents: [a],
+      limits: { maxTurnsPerRun: 2, timeoutMs: 1_000 },
+    });
+    const first = f.room.run();
+    await a.running;
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(await first).toMatchObject({ status: 'limited', reason: 'time' });
+    expect(await f.room.run()).toMatchObject({ status: 'completed', reason: 'done' });
+    expect(f.room.snapshot().messages.map((m) => m.content)).toEqual(['a']);
+    expect(a.run).toHaveBeenCalledTimes(2);
+  });
+
+  it('dispose() mid-turn keeps a store-backed conversation loadable and resumable', async () => {
+    const a = stoppable('a');
+    const f = setup(speakThenFinish, { agents: [a] });
+    const result = f.room.run();
+    await a.running;
     await f.room.dispose();
-    await expect(f.load()).rejects.toMatchObject({ code: 'recovery-required' });
+    expect(await result).toMatchObject({ status: 'cancelled' });
+    const loaded = await f.load();
+    expect(await loaded.run()).toMatchObject({ status: 'completed', reason: 'done' });
+    expect(loaded.snapshot().messages.map((m) => m.content)).toEqual(['a']);
+    expect(a.run).toHaveBeenCalledTimes(2);
+  });
+
+  it('a participant that completes after the abort keeps its prepared result', async () => {
+    const a = stoppable('a', 'finished anyway');
+    const f = setup(speakThenFinish, { agents: [a] });
+    const abort = new AbortController();
+    const result = f.room.run({ signal: abort.signal });
+    await a.running;
+    abort.abort();
+    expect(await result).toMatchObject({ status: 'cancelled' });
+    expect(f.room.snapshot().messages).toEqual([]);
+    expect(await f.room.run()).toMatchObject({ status: 'completed', reason: 'done' });
+    expect(f.room.snapshot().messages.map((m) => m.content)).toEqual(['finished anyway']);
     expect(a.run).toHaveBeenCalledOnce();
+  });
+
+  it('a participant failure stays final when cancellation races it', async () => {
+    const abort = new AbortController();
+    let bRunning!: () => void;
+    const running = new Promise<void>((resolve) => (bRunning = resolve));
+    const a = agent('a', async () => {
+      await running;
+      return { kind: 'failed', message: 'a failed' };
+    });
+    const b = agent('b', async (_turn, { signal }) => {
+      bRunning();
+      await untilAborted(signal).catch(() => {}); // The sibling failure stops b...
+      abort.abort(); // ...and the caller cancels before the group has settled.
+      throw signal.reason;
+    });
+    const f = setup(() => ({ kind: 'parallel', participantIds: ['a', 'b'] }), {
+      agents: [a, b],
+      maxConcurrentParticipants: 2,
+    });
+    const result = await f.room.run({ signal: abort.signal });
+    expect(result).toMatchObject({ status: 'failed', message: 'a failed' });
+    expect(await f.room.run()).toEqual(result);
+    expect(await f.stored()).toMatchObject({ terminal: { status: 'failed' } });
+    expect(a.run).toHaveBeenCalledOnce();
+  });
+
+  it('a member persisted as running at load time requires recovery', async () => {
+    const f = setup(speakThenFinish);
+    let crashed: Awaited<ReturnType<typeof f.store.load>>;
+    const commit = f.store.commit.bind(f.store);
+    vi.spyOn(f.store, 'commit').mockImplementation(async (change) => {
+      const envelope = await commit(change);
+      const state = envelope.state as unknown as ConversationState;
+      if (state.phase.kind === 'group' && state.phase.members[0].status === 'running')
+        crashed = structuredClone(envelope);
+      return envelope;
+    });
+    expect(await f.room.run()).toMatchObject({ status: 'completed' });
+    await f.room.dispose();
+    // The process stopped mid-turn: the store still holds the member it last saw running.
+    vi.spyOn(f.store, 'load').mockResolvedValue(crashed);
+    await expect(f.load()).rejects.toMatchObject({ code: 'recovery-required' });
+    expect(f.agents[0].run).toHaveBeenCalledOnce();
   });
 });
 
