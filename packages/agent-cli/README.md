@@ -751,7 +751,8 @@ In a workspace you have not trusted:
   That covers print mode (`-p`), `--goal`, `--serve`, `robota mcp serve`, `robota daemon start`,
   `robota session start` and a session that `robota session view` starts.
 
-There are two exceptions. `--safe-mode` always starts Restricted, so it runs headless without trust.
+There are two exceptions. `--safe-mode` always starts Restricted, so `-p`, `--goal`, `--serve` and
+`robota mcp serve` run with it without trust.
 A directory that is not in a Git repository cannot be trusted at all, and every mode runs Restricted
 there.
 
