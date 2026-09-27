@@ -1076,6 +1076,10 @@ export class InteractiveSession
     }));
   }
 
+  protected override getSelfPacedLoopDetail(loopId: string): ISessionLoopState | undefined {
+    return this.selfPacedLoops.get(loopId);
+  }
+
   async createSelfPacedLoop(
     instruction: string,
     options: { useDefaultPrompt?: boolean } = {},

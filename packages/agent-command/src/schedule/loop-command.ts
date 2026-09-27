@@ -194,13 +194,21 @@ function describeActiveLoops(
   ].join('\n');
 }
 
+/** The plain refusal for a default-prompt loop with no one to ask — never a silent, unconfirmed start. */
+const HEADLESS_REFUSAL =
+  'A loop with the default maintenance prompt needs someone to confirm it. Start it from an ' +
+  'interactive session, or give the loop its own prompt: /loop <prompt>';
+
 /**
- * #3288 §1: a bare `/loop` falls back to the host's default maintenance prompt and keeps working on
- * its own for up to 7 days — a standing commitment the operator never typed, so it needs a person to
- * confirm it before it starts. Returns the refusal/decline result to return in place of creating the
- * loop, or `undefined` to proceed. A `source: 'model'` call is refused outright and never asks — the
- * model must give its own prompt, or name `/loop` to the user (AGENTS.md: trust and
- * permission-widening actions stay user-only, and a refusal names the command to suggest).
+ * #3288 §1: every form that falls back to the host's default maintenance prompt — bare `/loop` or an
+ * interval-only `/loop <N><s|m|h|d>` — keeps working on its own for up to 7 days: a standing
+ * commitment the operator never typed, gated the same way regardless of which form reached it.
+ * Returns the refusal/decline result to return in place of creating the loop, or `undefined` to
+ * proceed. A `source: 'model'` call is refused outright and never asks — the model must give its own
+ * prompt, or name `/loop` to the user (AGENTS.md: trust and permission-widening actions stay
+ * user-only, and a refusal names the command to suggest). A headless/automation host (no ask port —
+ * print mode, a scheduled run) is refused too, the same reason: a loop that can run for a week must
+ * not start without a person saying yes, and there is no one here to ask.
  */
 async function confirmDefaultLoopStart(
   host: Pick<IAgentJobHostContext, 'listSchedules' | 'listSelfPacedLoops'>,
@@ -211,18 +219,18 @@ async function confirmDefaultLoopStart(
     return {
       success: false,
       message:
-        'Starting a self-paced loop with the default prompt needs a person to confirm it — ' +
+        'Starting a loop with the default prompt needs a person to confirm it — ' +
         'ask the user to run /loop, or give your own prompt with /loop <prompt>.',
     };
   }
   const { ui } = invocation;
-  if (!ui) return undefined; // Headless/automation host: proceed unconfirmed, as /loop always has.
+  if (!ui) return { success: false, message: HEADLESS_REFUSAL };
   const expiresAt = new Date(Date.now() + LOOP_LIFETIME_MS).toISOString();
   const firstLine = instruction.split('\n')[0]!.trim() || instruction;
   const response = await ui.ask(
     selectAction(
       'loop-start-default',
-      `Start a self-paced loop that keeps working on its own until ${expiresAt}? It will: ${firstLine}`,
+      `Start a loop with the default prompt that keeps working on its own until ${expiresAt}? It will: ${firstLine}`,
       [
         { value: 'start', label: 'Start' },
         { value: 'cancel', label: 'Cancel' },
@@ -354,6 +362,14 @@ async function createLoop(
       if (remaining === 0) pendingCreates.delete(host);
       else pendingCreates.set(host, remaining);
     }
+  }
+  // #3288 §1: an interval-only form (`/loop 5m`) that fell back to the host's default prompt is
+  // gated exactly like the bare form — it is the SAME standing commitment (up to 7 days, unattended),
+  // only on a fixed cadence instead of self-paced. An explicit prompt (`/loop 5m check the build`)
+  // never reaches here with `useDefaultPrompt` true, so it is never gated.
+  if (useDefaultPrompt) {
+    const declined = await confirmDefaultLoopStart(host, invocation, parsed.instruction);
+    if (declined) return declined;
   }
   const pending = pendingCreates.get(host) ?? 0;
   if (activeLoops(host).length + activeSelfPacedLoops(host).length + pending >= MAX_ACTIVE_LOOPS) {

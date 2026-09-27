@@ -120,13 +120,17 @@ not the registered one: a tool that declares deferred loading and that the model
 is not sent with the request and is therefore not counted. The resulting number can fall as a direct,
 observable consequence of deferral.
 
-**`/loop` (in-session repeat).** A prompt-only invocation starts a self-paced loop unconfirmed; an
-explicit interval keeps a fixed schedule. A bare invocation — no prompt, so the host's default
-maintenance prompt would run unattended for up to the loop's lifetime — asks the operator to confirm
-(naming the default prompt's first line, the expiry, and other active loops) through the ordinary ask
-port before it starts; with no ask port attached it proceeds unconfirmed, the same as an explicit
-prompt, but a model-invoked bare call is always refused outright, never silently asked or blocked, so
-the model cannot start one on its own. In self-paced mode the model chooses each delay, within a
+**`/loop` (in-session repeat).** A prompt-only invocation — self-paced or on an explicit interval —
+starts unconfirmed: it is the operator's own instruction. Any form that instead falls back to the
+host's default maintenance prompt — bare `/loop`, or an interval alone (`/loop <N><s|m|h|d>`, self-
+paced or fixed cadence) — is gated the same way, because it is the same standing commitment (running
+unattended for up to the loop's lifetime) whichever form reached it: an interactive invocation (an
+ask port attached) asks the operator to confirm, naming the default prompt's first line, the expiry
+and other active loops; a headless one (no ask port — a print-mode or scheduled run) is refused with
+a plain message rather than starting unconfirmed, since a loop that can run for a week must not start
+with nobody there to say yes; a model-invoked one is always refused outright, never silently asked or
+blocked, so the model cannot start one on its own — only ever its own explicit prompt. In self-paced
+mode the model chooses each delay, within a
 bounded maximum, and a short reason, or stops the loop; a missing decision falls back once rather than
 looping unbounded. The session record, not the disposable timer, owns resumption for either mode.
 Fixed requested intervals are positive and bounded. Calendar-aligned steps only divide the
