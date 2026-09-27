@@ -61,13 +61,70 @@ function hasExited(child: ChildProcess): boolean {
  * screen — could act on. Bounded so one runaway child cannot grow this without limit.
  */
 const STDERR_TAIL_LIMIT = 4_000;
+/** Keeps the reported message readable — the failing line is almost always near the end. */
+const STDERR_TAIL_MAX_LINES = 20;
 
 function trackStderrTail(child: ChildProcess): () => string {
   let tail = '';
   child.stderr?.on('data', (chunk: Buffer | string) => {
     tail = (tail + String(chunk)).slice(-STDERR_TAIL_LIMIT);
   });
-  return () => tail.trim();
+  return () => tail;
+}
+
+/** A complete ANSI CSI sequence (color/cursor codes) or OSC sequence (titles/hyperlinks). */
+// eslint-disable-next-line no-control-regex -- matching control bytes IS the point: stripping them.
+const ANSI_SEQUENCE = /\x1b\[[0-9;]*[A-Za-z]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/gu;
+/** Any remaining control character except tab and newline — including a lone, unmatched ESC. */
+// eslint-disable-next-line no-control-regex -- matching control bytes IS the point: stripping them.
+const STRAY_CONTROL_CHARS = /[\x00-\x08\x0B-\x1F\x7F]/gu;
+
+/** (a) Strip ANSI escapes and control characters, keeping newline and tab — see `sanitizeStderrTail`. */
+function stripAnsiAndControlChars(text: string): string {
+  return text.replace(ANSI_SEQUENCE, '').replace(STRAY_CONTROL_CHARS, '');
+}
+
+/**
+ * (b) Exact-value redaction: this process handed the child its own env, so anything shaped like a
+ * credential in there (name matches, value long enough to not be a false positive on something like
+ * a short flag) is replaced everywhere it appears verbatim. `split`/`join`, not a constructed RegExp:
+ * a credential value routinely contains characters (`+`, `/`, `=`, …) that would need escaping first.
+ */
+const CREDENTIAL_ENV_NAME = /KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|AUTH/iu;
+const MIN_CREDENTIAL_VALUE_LENGTH = 8;
+
+function redactEnvCredentialValues(text: string, env: NodeJS.ProcessEnv): string {
+  let result = text;
+  for (const [name, value] of Object.entries(env)) {
+    if (value === undefined || value.length < MIN_CREDENTIAL_VALUE_LENGTH) continue;
+    if (!CREDENTIAL_ENV_NAME.test(name)) continue;
+    if (!result.includes(value)) continue;
+    result = result.split(value).join('[REDACTED]');
+  }
+  return result;
+}
+
+/** (d) The failure is almost always in the last few lines; a long stack trace should not crowd it out. */
+function lastLines(text: string, maxLines: number): string {
+  const lines = text.split('\n');
+  return lines.length <= maxLines ? text : lines.slice(-maxLines).join('\n');
+}
+
+/**
+ * Before a captured stderr tail leaves this process (`robota daemon start --json`, the desktop fatal
+ * screen) it is never shown raw: (a) ANSI/control characters, (b) this process's own env-credential
+ * values, and (c) `scrubSecrets`'s known secret patterns (agent-core) are stripped, in that order, then
+ * (d) only the last ~20 lines are kept. The child inherits this process's full environment, so (a)+(b)
+ * alone cover a value it never should have echoed; (c) catches a secret the child saw over the wire
+ * (an API response, a `Bearer` header) that was never this process's own to redact by value.
+ */
+function sanitizeStderrTail(raw: string, env: NodeJS.ProcessEnv): string {
+  const withoutAnsi = stripAnsiAndControlChars(raw);
+  const withoutEnvSecrets = redactEnvCredentialValues(withoutAnsi, env);
+  // TODO(#3313): apply agent-core's `scrubSecrets` here once it is exported from its public index —
+  // pattern-based redaction (API keys, Bearer tokens) a child could echo that this process's own env
+  // never held verbatim.
+  return lastLines(withoutEnvSecrets.trim(), STDERR_TAIL_MAX_LINES).trim();
 }
 
 /**
@@ -170,6 +227,9 @@ export async function launchSupervisedSession(
     if (root !== undefined) discardSupervisedGrantHandoff(root, id);
   };
   if (root !== undefined) writeSupervisedGrantHandoff(root, id, grants);
+  // #3282 §3: the same env handed to the child — reused to redact its own credential values out of
+  // whatever the child echoes back on stderr, in `sanitizeStderrTail`.
+  const childEnv = options.env ?? process.env;
   let child: ChildProcess;
   try {
     child = spawn(self.execPath, [
@@ -192,7 +252,7 @@ export async function launchSupervisedSession(
       // #3282 §3: stderr is piped (was 'ignore') so a death before readiness can report why —
       // otherwise discarded exactly as before, and released on every exit path below.
       stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
-      env: options.env ?? process.env,
+      env: childEnv,
     });
   } catch (error) {
     discardHandoff();
@@ -242,7 +302,7 @@ export async function launchSupervisedSession(
     // reason and are never replaced by incidental stderr output.
     const failFromChild = (fallback: string): void => {
       void stderrFlushed(child).then(() => {
-        const said = readStderrTail();
+        const said = sanitizeStderrTail(readStderrTail(), childEnv);
         fail(said.length > 0 ? said : fallback);
       });
     };
