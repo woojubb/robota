@@ -1,4 +1,5 @@
-import { resolve } from 'node:path';
+import { open, readlink, realpath, type FileHandle } from 'node:fs/promises';
+import { resolve, sep } from 'node:path';
 
 import { isPathInside } from '@robota-sdk/agent-core/node';
 
@@ -89,6 +90,58 @@ export function checkPathWithinCwd(filePath: string, cwd: string | undefined): s
   }
 
   return undefined;
+}
+
+/** The opened file is not inside the containment root, or the path changed while it was opened. */
+export class ContainmentEscapeError extends Error {}
+
+/** macOS `O_NOFOLLOW_ANY`: the open fails with `ELOOP` if ANY component of the path is a symlink. */
+const DARWIN_O_NOFOLLOW_ANY = 0x20000000;
+
+/**
+ * Open a host file so that containment is decided on the file actually opened, not on a path checked
+ * before the open — a path swapped for a link between the two would otherwise be followed out of the
+ * root (issue #3252).
+ *
+ * - macOS opens the canonical path with `O_NOFOLLOW_ANY`: a canonical path contains no links, so a
+ *   link appearing anywhere along it after canonicalisation makes the open fail instead of follow.
+ * - Linux reads the kernel's path for the opened descriptor (`/proc/self/fd/N`) and compares it
+ *   lexically with the canonical root; re-canonicalising it would consult the filesystem again.
+ *   Without procfs the answer cannot be confirmed, so the open is refused.
+ * - Elsewhere the containment check before the open is the only check.
+ *
+ * Throws {@link ContainmentEscapeError} on an escape; any other open error propagates as thrown.
+ */
+export async function openWithinCwd(
+  filePath: string,
+  cwd: string | undefined,
+  flags: number,
+): Promise<FileHandle> {
+  if (cwd === undefined) throw new ContainmentEscapeError();
+  // The mode is a no-op without O_CREAT; it is passed so the open states an owner-only mode, which is
+  // what static analysis looks for on an open.
+  if (process.platform === 'darwin') {
+    const canonical = await realpath(filePath);
+    if (!isWithinCwd(canonical, cwd)) throw new ContainmentEscapeError();
+    try {
+      return await open(canonical, flags | DARWIN_O_NOFOLLOW_ANY, 0o600);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ELOOP') throw new ContainmentEscapeError();
+      throw err;
+    }
+  }
+  const handle = await open(filePath, flags, 0o600);
+  if (process.platform !== 'linux') return handle;
+  try {
+    const opened = await readlink(`/proc/self/fd/${handle.fd}`);
+    const root = await realpath(cwd);
+    if (opened === root || opened.startsWith(root + sep)) return handle;
+  } catch {
+    // allow-fallback: no procfs means containment of the opened file cannot be confirmed — refused
+    // below as an escape, never read unconfirmed.
+  }
+  await handle.close();
+  throw new ContainmentEscapeError();
 }
 
 /**
