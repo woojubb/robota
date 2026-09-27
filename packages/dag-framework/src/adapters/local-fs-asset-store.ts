@@ -111,10 +111,18 @@ const pinnedLookup: LookupFunction = (hostname, options, callback) => {
   });
 };
 
+/**
+ * One request on a fresh socket (`agent: false`): a pooled keep-alive socket or an environment proxy
+ * would reach the host without running {@link pinnedLookup}.
+ */
 function requestSourceUri(url: URL, signal: AbortSignal): Promise<IncomingMessage> {
   const send = url.protocol === 'https:' ? httpsRequest : httpRequest;
   return new Promise((resolve, reject) => {
-    const request = send(url, { lookup: pinnedLookup, signal }, resolve);
+    const request = send(
+      url,
+      { agent: false, lookup: pinnedLookup, signal, headers: { 'user-agent': 'node' } },
+      resolve,
+    );
     request.on('error', reject);
     request.end();
   });

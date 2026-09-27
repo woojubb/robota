@@ -335,16 +335,32 @@ describe('LocalFsAssetStore.getContent SSRF guard', () => {
     await expect(store.getContent(assetId)).resolves.toBeUndefined();
   });
 
-  it('bounds the exchange with a deadline so a hung remote cannot pin the request open', async () => {
+  it('bounds the body with the deadline: a stall mid-body errors instead of truncating', async () => {
     publicHost('cdn.example');
-    respond = () => ({ status: 200, body: 'late' });
+    server.removeAllListeners('request');
+    server.on('request', (_req, res) => {
+      res.writeHead(200);
+      res.write('partial');
+    });
     const deadline = new AbortController();
     vi.spyOn(AbortSignal, 'timeout').mockReturnValue(deadline.signal);
-    deadline.abort(new Error('deadline reached'));
     const assetId = await saveRef(`http://cdn.example:${port}/image.jpg`);
 
-    await expect(store.getContent(assetId)).rejects.toThrow();
-    expect(hits).toEqual([]);
+    const result = await store.getContent(assetId);
+    deadline.abort(new Error('deadline reached'));
+    await expect(drain(result!.stream)).rejects.toThrow();
+  });
+
+  it('judges every request on its own connection: an earlier approved socket is not reused', async () => {
+    publicHost('cdn.example');
+    const first = await store.getContent(await saveRef(`http://cdn.example:${port}/first.jpg`));
+    await drain(first!.stream);
+
+    // The same host and port are now private: a pooled keep-alive socket would skip the lookup.
+    net.publicStandIn = undefined;
+    const assetId = await saveRef(`http://cdn.example:${port}/second.jpg`);
+    await expect(store.getContent(assetId)).rejects.toThrow(/host is not allowed/);
+    expect(hits).toEqual(['/first.jpg']);
   });
 
   it('does not follow a redirect that lands on a private address', async () => {
