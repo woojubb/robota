@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { askToTrustWorkspace } from '../interactive-trust-prompt.js';
+import { askToTrustWorkspace, startsNewTuiSession } from '../interactive-trust-prompt.js';
 import { resolveInitialCliWorkspaceProjectAccess } from '../workspace-project-composition.js';
 
 const cleanup: Array<() => void> = [];
@@ -110,5 +110,64 @@ describe('askToTrustWorkspace', () => {
       });
     }
     expect(confirm).not.toHaveBeenCalled();
+  });
+});
+
+describe('startsNewTuiSession', () => {
+  const tui = {
+    printMode: false,
+    goal: undefined,
+    serve: false,
+    positional: [] as string[],
+    configure: false,
+    configureProvider: undefined,
+    setCurrent: false,
+    continueMode: false,
+    resumeId: undefined,
+  };
+
+  it('is a new TUI session, with or without an initial prompt', () => {
+    expect(startsNewTuiSession(tui)).toBe(true);
+    expect(startsNewTuiSession({ ...tui, positional: ['explain the build'] })).toBe(true);
+  });
+
+  it.each([
+    ['print mode', { printMode: true }],
+    ['--goal', { goal: 'ship it' }],
+    ['--serve', { serve: true }],
+    ['init', { positional: ['init'] }],
+    ['mcp serve', { positional: ['mcp', 'serve'] }],
+    ['--configure', { configure: true }],
+    ['--configure-provider', { configureProvider: 'anthropic' }],
+    ['--set-current', { setCurrent: true }],
+    // A resumed session must stay in the store it was saved in; a grant would move it out of reach.
+    ['--continue', { continueMode: true }],
+    ['--resume <id>', { resumeId: 'abc' }],
+    ['--resume (picker)', { resumeId: '' }],
+  ])('is not one for %s', (_case, change) => {
+    expect(startsNewTuiSession({ ...tui, ...change })).toBe(false);
+  });
+});
+
+describe('askToTrustWorkspace when the grant fails', () => {
+  it('says so and starts Restricted rather than failing the start', async () => {
+    const repo = untrustedRepository();
+    const access = await resolveInitialCliWorkspaceProjectAccess(repo);
+    const written: string[] = [];
+
+    const result = await askToTrustWorkspace(access, repo, {
+      interactive: true,
+      accessFixed: false,
+      confirm: async () => true,
+      write: (text) => written.push(text),
+      grant: async () => {
+        throw new Error('store is read-only');
+      },
+    });
+
+    expect(result).toBe(access);
+    expect(written.join('')).toContain(
+      'Could not record trust (store is read-only). Starting Restricted.',
+    );
   });
 });

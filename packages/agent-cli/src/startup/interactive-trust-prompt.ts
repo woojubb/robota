@@ -11,16 +11,47 @@ import { userPaths } from '../product/user-paths.js';
 import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../product/robota-project-state-directories.js';
 import { formatProjectContributionPreview } from './project-contribution-preview.js';
 
+import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 
 /** States a grant can change. A directory outside Git has no identity to grant, and a store that
  * cannot be read cannot record one. */
 const ASKABLE_STATES = new Set(['untrusted', 'revoked', 'stale/replaced']);
 
+/**
+ * Whether this run starts a new TUI session, the one start the question is for. A setup command runs
+ * no session. A resumed or continued one must keep the store it was saved in: a Restricted
+ * session is kept in the user store, and a grant would send the resume to the project store instead.
+ */
+export function startsNewTuiSession(
+  args: Pick<
+    IParsedCliArgs,
+    | 'printMode'
+    | 'goal'
+    | 'serve'
+    | 'positional'
+    | 'configure'
+    | 'configureProvider'
+    | 'setCurrent'
+    | 'continueMode'
+    | 'resumeId'
+  >,
+): boolean {
+  const headless = args.printMode || args.goal !== undefined || args.serve;
+  const setup =
+    args.positional[0] === 'init' ||
+    args.positional[0] === 'mcp' ||
+    args.configure ||
+    args.configureProvider !== undefined ||
+    args.setCurrent;
+  const resumes = args.continueMode || args.resumeId !== undefined;
+  return !headless && !setup && !resumes;
+}
+
 export interface IInteractiveTrustPromptOptions {
-  /** A person is at this run: an interactive TUI start on a terminal. */
+  /** A person is at this run: a new TUI session ({@link startsNewTuiSession}) on a terminal. */
   readonly interactive: boolean;
-  /** Access decided for this run and not to be reopened: safe mode, a Restricted `/cd`, an embedder's. */
+  /** Access decided for this run and not to be reopened: safe mode, a `/cd` into a Restricted folder, an embedder's. */
   readonly accessFixed: boolean;
   readonly confirm?: (question: string) => Promise<boolean>;
   readonly write?: (text: string) => void;
@@ -66,5 +97,14 @@ export async function askToTrustWorkspace(
     write('Starting Restricted. Trust it later with: robota trust --yes\n');
     return access;
   }
-  return (options.grant ?? grantWithTrustStore)(cwd);
+  try {
+    return await (options.grant ?? grantWithTrustStore)(cwd);
+  } catch (error) {
+    // The person said yes and it did not take: say so and start as a no would, not crash the start.
+    write(
+      `Could not record trust (${error instanceof Error ? error.message : String(error)}). ` +
+        'Starting Restricted.\n',
+    );
+    return access;
+  }
 }

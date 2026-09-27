@@ -102,6 +102,22 @@ describe('the trust question at an interactive start (issue #3268)', () => {
     CASE_TIMEOUT_MS,
   );
 
+  it.each([
+    ['--safe-mode', ['--safe-mode']],
+    // A resumed or continued session keeps the store it was saved in, so it is not asked.
+    ['--continue', ['--continue']],
+  ])(
+    'does not ask with %s',
+    async (_case, args) => {
+      fixture = makeFixture();
+      session = spawnTui({ projectDir: fixture.repo, homeDir: fixture.home, args: [...args] });
+      await session.waitFor(READY, WAIT_MS);
+      expect(session.snapshot()).not.toMatch(QUESTION);
+      expect(trustedGrants(fixture)).toBe(0);
+    },
+    CASE_TIMEOUT_MS,
+  );
+
   it(
     'a no starts Restricted, records nothing, and the next start asks again',
     async () => {

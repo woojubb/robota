@@ -100,7 +100,7 @@ import {
   SAFE_MODE_FLAG,
   SAFE_MODE_NOTICE,
 } from './startup/workspace-project-composition.js';
-import { askToTrustWorkspace } from './startup/interactive-trust-prompt.js';
+import { askToTrustWorkspace, startsNewTuiSession } from './startup/interactive-trust-prompt.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
@@ -308,20 +308,6 @@ async function runCliCore(
     return;
   }
 
-  // Issue #3268: a person at an interactive start is asked, before the project is composed, rather
-  // than left in a Restricted session no one mentioned.
-  projectAccess = await askToTrustWorkspace(projectAccess, cwd, {
-    interactive:
-      !(args.printMode || args.goal !== undefined || args.serve || mcpServe) &&
-      process.stdin.isTTY === true &&
-      process.stdout.isTTY === true,
-    accessFixed:
-      safeMode ||
-      process.argv.includes(RESTRICTED_WORKSPACE_FLAG) ||
-      options.projectAccess !== undefined,
-  });
-  startupOptions.projectAccess = projectAccess;
-
   if (args.positional[0] === 'eval') {
     // Normally unreachable — the pre-parse interceptor above handles `eval`.
     // Kept as a defensive fallthrough for non-argv invocations.
@@ -351,6 +337,18 @@ async function runCliCore(
     terminal.writeError(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
+
+  // Issue #3268: a person starting a TUI session is asked, before the project is composed, rather
+  // than left in a Restricted session no one mentioned.
+  projectAccess = await askToTrustWorkspace(projectAccess, cwd, {
+    interactive:
+      startsNewTuiSession(args) && process.stdin.isTTY === true && process.stdout.isTTY === true,
+    accessFixed:
+      safeMode ||
+      process.argv.includes(RESTRICTED_WORKSPACE_FLAG) ||
+      options.projectAccess !== undefined,
+  });
+  startupOptions.projectAccess = projectAccess;
 
   // The shell's ONE preset resolution — see `resolveShellPreset` for why it is one. Resolved before
   // command setup so the preset's module-selection delta can reach `createDefaultCommandModules`.
