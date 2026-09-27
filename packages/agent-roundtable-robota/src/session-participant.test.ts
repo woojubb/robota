@@ -253,12 +253,12 @@ describe('sessionParticipant: speak path', () => {
     await lease.release();
   });
 
-  // MUST 3: the run underneath RESOLVES on abort (agent-core CORE-027) with the text it had
-  // committed so far, marked `interrupted` — it never rejects on its own, so a check only in
-  // `catch` (the test above) misses this path entirely. A tool call combined with real text in the
-  // SAME assistant message, whose own effect aborts mid round, reproduces exactly that: the round
-  // loop stops after the tool with no further round, so that committed text resolves as the
-  // execution's response while `signal.aborted` is already true.
+  // A plain Robota agent's `agent.run()` always RESOLVES on abort (agent-core CORE-027) with
+  // the text it had committed so far, marked `interrupted`, rather than rejecting — the same tool
+  // round shape reproduces that here, but `Session`'s own executeRun already turns an aborted,
+  // resolved execution into a rejection before it ever reaches sessionParticipant, so this asserts
+  // the turn still rejects rather than exercising the `signal.aborted` check inside `catch` that
+  // closes this same gap for a call that resolves instead.
   it('MUST 3: throws the abort reason instead of publishing text committed during a cancelled tool round', async () => {
     const controller = new AbortController();
     const provider: IAIProvider = {
