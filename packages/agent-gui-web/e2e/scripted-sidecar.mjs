@@ -17,7 +17,9 @@
  * reuses the daemon recorded in `$ROBOTA_E2E_DAEMON_STATE` while that process lives, or starts itself
  * detached as a new one, and prints the `{id,url}` line. `ROBOTA_E2E_DAEMON_FAIL=1` makes it refuse the way
  * an untrusted workspace does, as does the file `$ROBOTA_E2E_DAEMON_FAIL_FILE` once it exists (so a start
- * the app asks for later can fail while the first succeeded).
+ * the app asks for later can fail while the first succeeded). With `$ROBOTA_E2E_TRUST_FILE` set it also
+ * plays `trust status --json` (askable until the file says `trusted`) and `trust --yes` (writes it), and a
+ * `daemon start --json --restricted-workspace` records that choice in the daemon state.
  */
 
 import { spawn } from 'node:child_process';
@@ -67,7 +69,7 @@ const isAlive = (pid) => {
 };
 
 /** `daemon start --json`: reuse the recorded live daemon, or start one detached, then print its line. */
-async function daemonStart() {
+async function daemonStart(restricted) {
   const failFile = process.env.ROBOTA_E2E_DAEMON_FAIL_FILE;
   if (process.env.ROBOTA_E2E_DAEMON_FAIL === '1' || (failFile && existsSync(failFile))) {
     process.stderr.write(line('Workspace is not trusted. Run: robota trust --yes'));
@@ -108,15 +110,49 @@ async function daemonStart() {
   }
   const url = `ws://127.0.0.1:${daemonPort}?token=${daemonToken}`;
   // The URL carries the daemon's token, so a state file this creates is owner-only.
-  writeFileSync(statePath, JSON.stringify({ pid: child.pid, id: 'scripted-daemon', url }), {
+  writeFileSync(statePath, JSON.stringify({ pid: child.pid, id: 'scripted-daemon', url, restricted }), {
     mode: 0o600,
   });
   process.stdout.write(line(JSON.stringify({ id: 'scripted-daemon', url })));
   process.exit(0);
 }
 
+/** `trust status --json` / `trust --yes`, when the test gives the folder's trust a file to live in. */
+function trust(command) {
+  const trustFile = process.env.ROBOTA_E2E_TRUST_FILE;
+  if (!trustFile) {
+    process.stderr.write(line('scripted-sidecar: ROBOTA_E2E_TRUST_FILE required for trust'));
+    process.exit(1);
+  }
+  if (command === 'trust --yes') {
+    writeFileSync(trustFile, 'trusted');
+    process.stdout.write(line('Workspace trust: trusted'));
+    process.exit(0);
+  }
+  const trusted = existsSync(trustFile) && readFileSync(trustFile, 'utf8') === 'trusted';
+  const workspace = process.cwd();
+  process.stdout.write(
+    line(
+      JSON.stringify(
+        trusted
+          ? { state: 'trusted', workspace, askable: false, loads: [] }
+          : {
+              state: 'untrusted',
+              workspace,
+              askable: true,
+              loads: ['  [file] AGENTS.md — Agent instructions'],
+            },
+      ),
+    ),
+  );
+  process.exit(0);
+}
+
 const argv = process.argv.slice(2);
-if (argv.join(' ') === 'daemon start --json') await daemonStart();
+const command = argv.join(' ');
+if (command === 'daemon start --json') await daemonStart(false);
+if (command === 'daemon start --json --restricted-workspace') await daemonStart(true);
+if (command === 'trust status --json' || command === 'trust --yes') trust(command);
 
 const token = process.env.ROBOTA_WS_TOKEN;
 const port = Number.parseInt(process.env.ROBOTA_WS_PORT ?? '0', 10);

@@ -4,7 +4,8 @@ An **Electron desktop app** (macOS / Linux / Windows) that drives a live `robota
 the graphical mirror of the terminal TUI (`agent-ui-terminal`).
 
 `agent-app` is a **thin shell**: it runs `robota daemon start --json`, which starts this workspace's headless
-runtime daemon (**not** the terminal TUI) or reuses the live one, and loads the GUI web app
+runtime daemon (**not** the terminal TUI) or reuses the live one — in a folder not trusted yet, after asking
+whether to trust it, start it Restricted, or quit — and loads the GUI web app
 (`packages/agent-gui-web`), handing it the daemon's loopback address through the preload bridge. The daemon
 outlives the window: closing the app leaves it running, and the next launch reattaches to it. The page is the same one the CLI serves on
 `robota --serve --open`; design work and the user scenarios run in a browser there (`pnpm gui:dev`, `test:e2e`). The GUI drives a
@@ -25,7 +26,8 @@ pnpm app:dev   # builds the shell and the page it loads, opens the window on the
 
 `app:dev` sets `ROBOTA_GUI_SIDECAR_CMD` to `scripts/dev/robota`; outside it, an unpackaged shell runs PATH
 `robota`. Set the variable yourself to use another command **binary** (the e2e uses the scripted sidecar); the
-shell always runs it as `daemon start --json`. The other ways to run from source are in the
+shell runs it as `trust status --json`, `trust --yes` when the person trusts the folder, and
+`daemon start --json` (with `--restricted-workspace` when they chose Restricted). The other ways to run from source are in the
 [development guide](../../../content/development/README.md#run-from-source).
 
 ## Status (Stage 1 — GUI-002)

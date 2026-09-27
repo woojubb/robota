@@ -751,6 +751,8 @@ In a workspace you have not trusted:
   the repository contributes is loaded;
 - starting a session from `robota session view` asks too: `y` trusts the folder and starts, `r` starts
   it Restricted, `n` cancels;
+- the desktop app asks in its window before it starts the workspace daemon: trust the folder, start
+  Restricted, or quit;
 - headless startup refuses with `Workspace trust is required before headless startup (state: …)`.
   That covers print mode (`-p`), `--goal`, `--serve`, `robota mcp serve`, `robota daemon start` and
   `robota session start`.

@@ -44,17 +44,76 @@ export interface IDaemonStartSpawn {
 /**
  * Build the `daemon start` invocation. The shell adds nothing to the environment: the CLI mints the
  * daemon's token itself and hands it back on stdout, so no secret travels on argv or through this process's
- * environment.
+ * environment. `restricted` is the person's answer to the trust question: run the folder without its own
+ * configuration.
  */
 export function buildDaemonStartSpawn(
   command: string,
   baseEnv: Readonly<Record<string, string | undefined>> = {},
+  options: { readonly restricted?: boolean } = {},
 ): IDaemonStartSpawn {
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(baseEnv)) {
     if (typeof v === 'string') env[k] = v;
   }
-  return { command, args: ['daemon', 'start', '--json'], env };
+  const args = [
+    'daemon',
+    'start',
+    '--json',
+    ...(options.restricted === true ? ['--restricted-workspace'] : []),
+  ];
+  return { command, args, env };
+}
+
+/** What the window asks before a daemon starts in a folder not trusted yet (issue #3268). */
+export interface ITrustQuestion {
+  /** The workspace a grant would cover. */
+  readonly folder: string;
+  /** The project sources trust would load, one row each. */
+  readonly loads: readonly string[];
+}
+
+/** The person's answer: trust the folder and start, start it Restricted, or quit the app. */
+export type TTrustChoice = 'trust' | 'restricted' | 'quit';
+
+export function isTrustChoice(value: unknown): value is TTrustChoice {
+  return value === 'trust' || value === 'restricted' || value === 'quit';
+}
+
+/** How many source rows the question carries; the rest are counted, not listed. */
+const MAX_TRUST_LOADS = 64;
+
+/**
+ * Read `robota trust status --json`. A question comes back only when the CLI says a person can be asked
+ * (the folder is not trusted and a grant could change that); anything else — trusted, not a Git
+ * repository, an answer that is not that one line — asks nothing, and the daemon start decides.
+ */
+export function parseTrustStatusOutput(stdout: string): ITrustQuestion | undefined {
+  const lines = stdout.split(/\r?\n/).filter((l) => l.trim() !== '');
+  if (lines.length !== 1) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(lines[0] ?? '');
+  } catch {
+    return undefined;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return undefined;
+  const { askable, workspace, loads } = parsed as {
+    askable?: unknown;
+    workspace?: unknown;
+    loads?: unknown;
+  };
+  if (askable !== true || typeof workspace !== 'string' || workspace.trim() === '')
+    return undefined;
+  const rows = Array.isArray(loads)
+    ? loads.filter((row): row is string => typeof row === 'string')
+    : [];
+  const shown = rows.slice(0, MAX_TRUST_LOADS);
+  return {
+    folder: workspace,
+    loads:
+      rows.length > shown.length ? [...shown, `  … ${rows.length - shown.length} more`] : shown,
+  };
 }
 
 /** The daemon the CLI started or reused: its id, the renderer's WS URL (token included), and its port. */
