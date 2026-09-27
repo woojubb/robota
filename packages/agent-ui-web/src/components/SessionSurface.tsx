@@ -265,9 +265,9 @@ export function SessionSurface({
                     onCommand={(name, args) =>
                       state.send({ type: 'command', name, ...(args ? { args } : {}) })
                     }
-                    modelList={state.modelList ?? null}
-                    onRequestModelList={() => state.requestModelList?.()}
-                    onSilentCommand={(name, args) => state.sendCommandSilently?.(name, args)}
+                    modelList={state.modelList}
+                    onRequestModelList={() => state.requestModelList()}
+                    onSilentCommand={(name, args) => state.sendCommandSilently(name, args)}
                     onSubmit={(prompt) => {
                       if (!prompt.startsWith('/')) {
                         state.send({ type: 'submit', prompt });

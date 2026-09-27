@@ -247,18 +247,24 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   );
   // Commands this surface sent whose result has not come back — a screen request pairs with one.
   const commandsInFlightRef = useRef(0);
-  // #3282 §2 (part 2): commands sent via `sendCommandSilently` whose `command_result` has not come
-  // back — a counter (not per-name) for the same reason `commandsInFlightRef` is one: this surface's
-  // commands settle in the order they were sent, so the NEXT `command_result` is always the oldest
-  // one still in flight, silent or not.
-  const silentCommandsInFlightRef = useRef(0);
+  // #3282 §2 (part 2): whether each command still in flight was sent via `sendCommandSilently`,
+  // oldest first — shifted (not counted) in `command_result`, because a plain `send` command and a
+  // `sendCommandSilently` command can be outstanding at once (nothing gates one on the other), and a
+  // COUNT of "how many silent are outstanding" cannot tell which of several in-flight commands the
+  // next reply answers. This queue can, because this surface's commands settle in the order they were
+  // sent (the same assumption `commandsInFlightRef` already relies on): the front entry is always the
+  // oldest command still awaiting a reply.
+  const commandSilenceQueueRef = useRef<boolean[]>([]);
   // Session changes this surface asked for; a refusal answers one of them, not a command.
   const sessionChangesInFlightRef = useRef(0);
   // Their request ids, for this connection: a refusal names the request it answers. A switch
   // answers with no id, so an id that succeeded stays here until the connection is replaced.
   const sessionChangeRequestIdsRef = useRef(new Set<string>());
   const send = useCallback((msg: TClientMessage): void => {
-    if (msg.type === 'command') commandsInFlightRef.current += 1;
+    if (msg.type === 'command') {
+      commandsInFlightRef.current += 1;
+      commandSilenceQueueRef.current.push(false);
+    }
     if (msg.type === 'switch-session' || msg.type === 'new-session') {
       sessionChangesInFlightRef.current += 1;
       if (msg.requestId !== undefined) sessionChangeRequestIdsRef.current.add(msg.requestId);
@@ -278,8 +284,12 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
    */
   const sendCommandSilently = useCallback(
     (name: string, args?: string): void => {
-      silentCommandsInFlightRef.current += 1;
       send({ type: 'command', name, ...(args ? { args } : {}) });
+      // `send` just pushed `false` (not silent) for the command it queued above — correct that
+      // entry to `true`. Safe to mutate the queue's tail synchronously here: `send`'s websocket
+      // write is the only async step, so no `command_result` can have shifted the queue yet.
+      const queue = commandSilenceQueueRef.current;
+      if (queue.length > 0) queue[queue.length - 1] = true;
     },
     [send],
   );
@@ -581,10 +591,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           send({ type: 'get-status' });
           send({ type: 'get-commands' });
           commandsInFlightRef.current = Math.max(0, commandsInFlightRef.current - 1);
-          // #3282 §2 (part 2): this surface's commands settle in send order, so the oldest still-in-
-          // flight silent command is always the one this result answers.
-          const silent = silentCommandsInFlightRef.current > 0;
-          if (silent) silentCommandsInFlightRef.current -= 1;
+          // #3282 §2 (part 2): shift the queue's front, not a category count — see
+          // `commandSilenceQueueRef` above for why a count misattributes silence when a typed
+          // command and a status-control change are simultaneously in flight.
+          const silent = commandSilenceQueueRef.current.shift() ?? false;
           const unavailable = pendingIntentRef.current;
           pendingIntentRef.current = null;
           if (unavailable !== null && msg.success) {
@@ -674,6 +684,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       if (next === 'connected') {
         // A reply lost with the old connection never arrives; stop waiting for it.
         commandsInFlightRef.current = 0;
+        commandSilenceQueueRef.current = [];
         sessionChangesInFlightRef.current = 0;
         sessionChangeRequestIdsRef.current.clear();
         pendingIntentRef.current = null;

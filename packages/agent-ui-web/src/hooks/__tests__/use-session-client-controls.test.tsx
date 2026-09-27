@@ -126,13 +126,35 @@ describe('#3282 §2 (part 2) — sendCommandSilently suppresses the conversation
     expect(card && 'content' in card ? card.content : undefined).toBe('Permission mode set to: plan');
   });
 
-  it('silent and typed commands in flight are each resolved by their own command_result, independently', () => {
+  it('silent and typed commands resolved one after the other are each attributed correctly', () => {
     const { result, deliver } = setup();
 
     act(() => result.current.sendCommandSilently('effort', 'high'));
     deliver({ type: 'command_result', name: 'effort', message: 'Effort: High', success: true });
     act(() => result.current.send({ type: 'command', name: 'help' }));
     deliver({ type: 'command_result', name: 'help', message: 'Available commands: ...', success: true });
+
+    const cards = result.current.messages.filter((m) => m.role === 'command');
+    expect(cards).toHaveLength(1);
+    expect(cards[0] && 'name' in cards[0] ? cards[0].name : undefined).toBe('help');
+  });
+
+  it('a typed command and a silent command BOTH outstanding at once are still attributed correctly', () => {
+    // The case a plain in-flight COUNT of "how many silent commands are outstanding" cannot answer:
+    // when two commands of different silence are in flight together, a count only says how many are
+    // silent overall — not which of the two the next reply belongs to. A queue, shifted in send
+    // order, can. Without that fix this reproduces the bug: `help`'s reply arrives while the silent
+    // `effort` command is still outstanding, so a count-based check sees "1 silent still in flight"
+    // and wrongly swallows `help`'s own card.
+    const { result, deliver } = setup();
+
+    act(() => result.current.send({ type: 'command', name: 'help' }));
+    act(() => result.current.sendCommandSilently('effort', 'high'));
+
+    // Replies land in send order — the typed command's result resolves first, while the silent
+    // command is still in flight.
+    deliver({ type: 'command_result', name: 'help', message: 'Available commands: ...', success: true });
+    deliver({ type: 'command_result', name: 'effort', message: 'Effort: High', success: true });
 
     const cards = result.current.messages.filter((m) => m.role === 'command');
     expect(cards).toHaveLength(1);
