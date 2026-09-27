@@ -139,6 +139,11 @@ package can verify. A decision that never calls the tool, calls it more than onc
 the conversation's current participants, or names the same participant twice, fails the selection; the
 roundtable's own run then fails too, with no retry from inside the selector.
 
+The `robotaSelector` a call to this function returns is one conversation's selector: its reused agent's
+history and tools are private, mutable state a second, overlapping `select()` call on the same instance
+would corrupt, so a second such call is rejected outright (`resource-reused`) rather than left to race
+the first. Give each conversation its own instance instead of sharing one across conversations.
+
 Every decision is shown the conversation's whole shared transcript, not a bounded window — no context
 policy trims a selector's own view the way one trims what a participant receives — so the cost of each
 decision grows with the conversation rather than staying flat.

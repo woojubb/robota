@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { FunctionTool, Robota, clearRegisteredToolProfiles } from '@robota-sdk/agent-core';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { SelectionContext, TurnServices } from '@robota-sdk/agent-roundtable';
 import { robotaSelector, robotaSelectorRegistration } from './robota-selector';
 import { SelectorDecisionError } from './errors';
@@ -331,5 +332,40 @@ describe('robotaSelector', () => {
     const secondRequest = scripted.requests[1]!;
     expect(secondRequest.filter((m) => m.role === 'user')).toHaveLength(1);
     expect(secondRequest.some((m) => m.role === 'assistant')).toBe(false);
+  });
+
+  it('rejects a second select() call that overlaps an in-flight one on the same instance', async () => {
+    const blocking: IAIProvider = {
+      name: 'blocking',
+      version: 'test',
+      chat: () => new Promise(() => {}),
+      generateResponse: async () => ({ content: '' }),
+      supportsTools: () => true,
+      validateConfig: () => true,
+    };
+    const agent = new Robota({
+      name: 'selector',
+      aiProviders: [blocking],
+      defaultModel: { provider: blocking.name, model: 'test-model' },
+    });
+    const selector = robotaSelector({
+      reference: { id: 'fixture/selector', version: '1' },
+      createAgent: async () => agent,
+    });
+    const firstController = new AbortController();
+    // Never awaited before the second call starts: select() runs synchronously up to its first
+    // `await`, so the guard it sets is already in place by the time this line returns.
+    const first = selector.select(context(), {
+      signal: firstController.signal,
+      services: noServices(),
+    });
+    await expect(
+      selector.select(context(), {
+        signal: new AbortController().signal,
+        services: noServices(),
+      }),
+    ).rejects.toMatchObject({ code: 'resource-reused' });
+    firstController.abort(new Error('cleanup'));
+    await Promise.resolve(first).catch(() => {});
   });
 });
