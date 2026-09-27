@@ -20,6 +20,8 @@ afterEach(() => window.localStorage.clear());
 const catalog: TCommandCatalog = {
   commands: [
     { name: 'help', description: 'Show commands', modelInvocable: false, runner: 'runtime' },
+    { name: 'settings', description: 'Open settings', modelInvocable: false, runner: 'runtime' },
+    { name: 'resume', description: 'Resume another session', modelInvocable: false, runner: 'runtime' },
     { name: 'share', description: 'Share the session', modelInvocable: false, runner: 'runtime' },
     {
       name: 'shell',
@@ -156,16 +158,19 @@ describe('Composer command menu (#3282 §4e)', () => {
     expect(options[10]?.getAttribute('aria-selected')).toBe('true');
   });
 
-  it('choosing (or Tab-completing) a command that opens a GUI screen runs it at once, not filling the draft', () => {
-    const onCommand = vi.fn();
-    render(<Composer {...baseProps()} onCommand={onCommand} />);
-    const input = screen.getByLabelText('message') as HTMLTextAreaElement;
-    fireEvent.change(input, { target: { value: '/help' } });
-    fireEvent.keyDown(input, { key: 'Tab' });
+  it.each(['help', 'settings', 'resume'])(
+    'choosing (or Tab-completing) /%s — a command that opens a GUI screen — runs it at once, not filling the draft',
+    (name) => {
+      const onCommand = vi.fn();
+      render(<Composer {...baseProps()} onCommand={onCommand} />);
+      const input = screen.getByLabelText('message') as HTMLTextAreaElement;
+      fireEvent.change(input, { target: { value: `/${name}` } });
+      fireEvent.keyDown(input, { key: 'Tab' });
 
-    expect(onCommand).toHaveBeenCalledWith('help');
-    expect(input.value).toBe(''); // not "/help " — there is nothing useful to type after it
-  });
+      expect(onCommand).toHaveBeenCalledWith(name);
+      expect(input.value).toBe(''); // not "/{name} " — there is nothing useful to type after it
+    },
+  );
 
   it('choosing an ordinary command still fills the draft, waiting for its arguments', () => {
     const onCommand = vi.fn();

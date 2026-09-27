@@ -142,6 +142,39 @@ describe('#3282 §4e — an excluded command is caught before the session sees i
 
     expect(wire).toContainEqual(expect.objectContaining({ type: 'command', name: 'context' }));
   });
+
+  it('a client-only command excluded only by its catalog declaration (no curated name yet) is caught the same way', () => {
+    // Regression: the exclusion check must read the SAME catalog entry `command-menu.ts` reads to
+    // filter the `/` menu — a command left out only because of `runner`/`surfaces`, not yet given a
+    // name in `excluded-commands.ts`, must still be caught here, or a hand-typed instance of it would
+    // sail past this interception straight to the session (exactly what this mechanism exists to stop).
+    const { result, deliver, wire } = setup();
+    deliver({
+      type: 'commands',
+      commands: [
+        {
+          name: 'future-terminal-command',
+          description: 'Not yet named in excluded-commands.ts',
+          modelInvocable: false,
+          runner: 'client',
+          surfaces: ['terminal'],
+        },
+      ],
+      skills: [],
+    });
+
+    act(() => result.current.send({ type: 'command', name: 'future-terminal-command' }));
+
+    expect(wire).toEqual([]);
+    expect(result.current.messages).toEqual([
+      expect.objectContaining({
+        role: 'command',
+        name: 'future-terminal-command',
+        content: 'This command runs in the robota terminal.',
+        tone: 'info',
+      }),
+    ]);
+  });
 });
 
 describe('#3282 §2 (part 2) — sendCommandSilently suppresses the conversation card', () => {

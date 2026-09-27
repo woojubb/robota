@@ -269,6 +269,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const [sessionName, setSessionName] = useState<string | null>(null);
   const [sessionNotices, setSessionNotices] = useState<readonly ISessionNotice[]>([]);
   const [commandCatalog, setCommandCatalog] = useState<TCommandCatalog | null>(null);
+  // #3282 §4e: `send` (below) reads this on every `command` message to catch an excluded command —
+  // a ref (not the state above) so `send`'s identity never changes as the catalog arrives or is
+  // refreshed, matching every other value a stable callback in this file reads this way.
+  const commandCatalogRef = useRef<TCommandCatalog | null>(null);
   const [sessionStatus, setSessionStatus] = useState<TSessionStatus | null>(null);
   // #3289 §3: learned from the first frame the server sends this connection, so its own messages and
   // prompts never carry a "from" label — only ANOTHER driver's do.
@@ -356,8 +360,12 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         }
         // #3282 §4e: a command the GUI leaves out on purpose is caught here, before the session ever
         // sees it — its own plain sentence answers in place of the session's refusal, exactly like a
-        // typed command's own result would (same entry shape, same place in the conversation).
-        if (isExcludedCommand({ name: msg.name })) {
+        // typed command's own result would (same entry shape, same place in the conversation). The
+        // catalog entry (when known) carries `runner`/`surfaces`, so a client-only command excluded
+        // only by declaration — not yet given its own curated name below — is still caught here, not
+        // just filtered from the `/` menu (`command-menu.ts` checks the same way, catalog in hand).
+        const catalogEntry = commandCatalogRef.current?.commands.find((c) => c.name === msg.name);
+        if (isExcludedCommand(catalogEntry ?? { name: msg.name })) {
           appendEntry({
             id: nextId(),
             role: 'command',
@@ -391,6 +399,12 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
    * is generated here, not read back off `msg`, because `send`'s parameter type is the public
    * `TClientMessage` — giving `command` a `requestId` there would let ANY caller of `send` opt a typed
    * command into silence, which is exactly what this must not allow.
+   *
+   * #3282 §4e: `send` also intercepts `help` and an excluded command before either reaches the wire —
+   * for `help` that opens the sheet regardless of how it was asked for, but an excluded command's
+   * interception adds a VISIBLE info card, defeating the silence this function promises. Every current
+   * caller (model/mode/effort) names neither, so this is dormant, not exercised — a future caller must
+   * not pass one of those two through here.
    */
   const sendCommandSilently = useCallback(
     (name: string, args?: string): void => {
@@ -716,7 +730,9 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'commands': {
-          setCommandCatalog({ commands: msg.commands, skills: msg.skills });
+          const catalog = { commands: msg.commands, skills: msg.skills };
+          commandCatalogRef.current = catalog;
+          setCommandCatalog(catalog);
           break;
         }
         case 'session_status': {

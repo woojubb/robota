@@ -831,7 +831,8 @@ class ScriptedSession extends EventEmitter {
       { name: 'resume', description: 'Resume another session', modelInvocable: false, runner: 'runtime' },
       { name: 'context', description: 'Show context window usage', modelInvocable: false, runner: 'runtime' },
       { name: 'theme', description: 'Change the terminal colour theme', modelInvocable: false, runner: 'client', surfaces: ['terminal'] },
-      // A command the terminal runs itself: the GUI's menu marks it rather than running it.
+      // #3282 §4e: a command the terminal runs itself — the GUI's `/` menu leaves it out entirely
+      // now (it used to show with a "terminal" badge; that badge is gone).
       {
         name: 'shell',
         description: 'Open an interactive shell',
