@@ -341,6 +341,45 @@ try {
   });
 
   await scenario(
+    '#3288 §2: after a reload, an earlier turn\'s Edit diff and Shell output are still expandable',
+    async () => {
+      // A fresh page load re-requests the transcript from scratch — no live stream to rebuild these
+      // rows from, only the server's history-display projection (`getMessagesDisplay`). Proves the
+      // #3288 §2 gap this closes: before it, a reload showed the same replies as plain text bubbles,
+      // with every tool row, diff and "Changed files" line gone.
+      await page.reload();
+      await page.locator('.agent-gui-status[data-status="connected"]').waitFor({ timeout: 20_000 });
+      await page.getByText('Edited the title.').waitFor();
+      await page.getByText('Tests passed.').waitFor();
+
+      // Each of the three earlier turns (Read, Edit, Bash, submitted in that order) kept its OWN
+      // "N tool call" group, all three now rendering at once instead of one at a time as the live
+      // conversation grew — matched by POSITION (Edit is the 2nd, 0-indexed), since `.last()` no
+      // longer picks out a single turn once every turn is on screen simultaneously.
+      const editGroup = page.getByRole('button', { name: /1 tool call/ }).nth(1);
+      await editGroup.waitFor();
+      await editGroup.click();
+      const editRow = page.getByRole('button', { name: /Edit src\/task-title\.ts/ });
+      await editRow.waitFor();
+      await editRow.click();
+      await page.getByText(/const title = 'new';/).waitFor();
+      await page.getByText(/const title = 'old';/).waitFor();
+
+      const shellGroup = page.getByRole('button', { name: /1 tool call/ }).nth(2);
+      await shellGroup.waitFor();
+      await shellGroup.click();
+      const shellRow = page.getByRole('button', { name: /pnpm test/ });
+      await shellRow.waitFor();
+      await shellRow.click();
+      await page.getByText(/Test Files\s+1 passed/).waitFor();
+      await page.getByText(/exit 0/).waitFor();
+
+      // The Edit turn's "Changed files" row survived too (built from the SAME replayed diff).
+      await page.getByRole('button', { name: /src\/task-title\.ts/ }).first().waitFor();
+    },
+  );
+
+  await scenario(
     'a permission prompt docks above the composer; typing stays safe, Shift+Tab then 1 allows it',
     async () => {
       await send('please ask permission');

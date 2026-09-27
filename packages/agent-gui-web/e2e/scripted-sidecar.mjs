@@ -290,7 +290,17 @@ class ScriptedSession extends EventEmitter {
   }
   #record(role, content) {
     this.#current.messages.push({ role, content });
+    // #3288 §2: `display` mirrors what the REAL server's `getMessagesDisplay()` projects from stored
+    // history — a text segment per role-run, plus one 'tool' segment per finished call (recorded by
+    // `#recordToolEnd`, below, at the same point a real `tool_end` would be persisted). Kept beside
+    // `messages`, never derived from it — `messages` alone cannot tell a Read from an Edit.
+    this.#current.display ??= [];
+    if (content) this.#current.display.push({ type: 'text', role, content });
     this.#current.updatedAt = new Date().toISOString();
+  }
+  #recordToolEnd(state) {
+    this.#current.display ??= [];
+    this.#current.display.push({ type: 'tool', tool: { ...state, isRunning: false } });
   }
   #complete(content) {
     this.#record('assistant', content);
@@ -299,6 +309,19 @@ class ScriptedSession extends EventEmitter {
 
   getMessages() {
     return this.#current.messages.map((message) => ({ ...message }));
+  }
+  /** #3288 §2: a reload/reconnect replay renders THIS — the same projection the real server sends. */
+  getMessagesDisplay() {
+    if (this.#current.display) {
+      return this.#current.display.map((segment) =>
+        segment.type === 'tool' ? { type: 'tool', tool: { ...segment.tool } } : { ...segment },
+      );
+    }
+    // A session whose transcript is fixture SEED DATA (module-scope `storedSessions`, never touched
+    // by `#record`/`#recordToolEnd`) has no `display` array yet. None of the seed data includes a
+    // tool call, so a straight text-segment map is exact, not an approximation — and avoids keeping
+    // two parallel copies of the same seed content in sync by hand.
+    return this.#current.messages.map((m) => ({ type: 'text', role: m.role, content: m.content }));
   }
   getExecutionWorkspaceSnapshot() {
     return {
@@ -455,7 +478,9 @@ class ScriptedSession extends EventEmitter {
       await tick();
       this.emit('tool_start', { toolName: 'Read', firstArg: 'src/a.ts', isRunning: true });
       await tick();
-      this.emit('tool_end', { toolName: 'Read', firstArg: 'src/a.ts', isRunning: false });
+      const readEnd = { toolName: 'Read', firstArg: 'src/a.ts', isRunning: false };
+      this.emit('tool_end', readEnd);
+      this.#recordToolEnd(readEnd);
       this.emit('text_delta', 'Read the file.');
       await tick();
       this.#complete('Read the file.');
@@ -475,7 +500,7 @@ class ScriptedSession extends EventEmitter {
         displayPath: 'src/task-title.ts',
       });
       await tick();
-      this.emit('tool_end', {
+      const editEnd = {
         toolName: 'Edit',
         firstArg: '/workspace/src/task-title.ts',
         isRunning: false,
@@ -487,7 +512,15 @@ class ScriptedSession extends EventEmitter {
           { type: 'remove', text: "const title = 'old';", lineNumber: 1 },
           { type: 'add', text: "const title = 'new';", lineNumber: 1 },
         ],
-      });
+      };
+      this.emit('tool_end', editEnd);
+      // #3288 §2: the LIVE `tool_end` never repeats `displayPath` (see the `tool_start` comment
+      // above — real servers set it only once, at start), but a REPLAYED row has no earlier
+      // `tool_start` frame to have kept it from — the real projector (`interactive-session-history-
+      // projection.ts`) recomputes it fresh from the call's own `file_path` argument and the
+      // session's cwd, every time. This fixture has no such argument/cwd machinery, so it captures
+      // the SAME value here instead, for the one thing `#recordToolEnd` needs it to survive.
+      this.#recordToolEnd({ ...editEnd, displayPath: 'src/task-title.ts' });
       this.emit('text_delta', 'Edited the title.');
       await tick();
       this.#complete('Edited the title.');
@@ -502,7 +535,7 @@ class ScriptedSession extends EventEmitter {
         executionId: 'exec-shell-1',
       });
       await tick();
-      this.emit('tool_end', {
+      const shellEnd = {
         toolName: 'Bash',
         firstArg: 'pnpm test',
         isRunning: false,
@@ -513,7 +546,9 @@ class ScriptedSession extends EventEmitter {
           output: 'Test Files  1 passed (1)\nTests  3 passed (3)',
           exitCode: 0,
         }),
-      });
+      };
+      this.emit('tool_end', shellEnd);
+      this.#recordToolEnd(shellEnd);
       this.emit('text_delta', 'Tests passed.');
       await tick();
       this.#complete('Tests passed.');

@@ -199,6 +199,14 @@ export type TServerMessage =
       type: 'messages';
       messages: ReturnType<ISessionConversationRead['getMessages']>;
       /**
+       * #3288 §2: the SAME history, projected into display segments (text runs and finished tool
+       * calls, diffs included) — so a reload/reconnect/resume replay shows tool rows instead of bare
+       * text. Optional so an older host that has not grown `getMessagesDisplay()` yet still sends a
+       * valid frame; a client without this field falls back to `messages`-only (text bubbles), the
+       * same as before this existed.
+       */
+      display?: ReturnType<ISessionConversationRead['getMessagesDisplay']>;
+      /**
        * #3289 §3: this connection's own server-assigned driver id, carried on the first frame every
        * connection already gets — so a client can tell its OWN turns from a co-driver's instead of
        * treating everything but the literal `'owner'` id as someone else (REMOTE-014 E5 display-only).

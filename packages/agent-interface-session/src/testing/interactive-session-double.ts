@@ -115,6 +115,7 @@ export function createTestInteractiveSession(
     getPendingPrompt: () => null,
     getMessages: () => [],
     getFullHistory: () => [],
+    getMessagesDisplay: () => [],
     getContextState: () => ({ ...EMPTY_CONTEXT_STATE }),
     getSession: () => ({
       // DISTINCT per double, because a session id IDENTIFIES a session. A fixed literal made every

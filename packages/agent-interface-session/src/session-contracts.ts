@@ -98,6 +98,7 @@ export type {
   TPermissionResultValue,
   IDiffLine,
   IToolState,
+  IHistoryDisplaySegment,
   TInteractivePermissionHandler,
   IPermissionRequestEvent,
   IBackgroundAgentPermissionRequester,

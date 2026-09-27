@@ -164,6 +164,8 @@ export class SessionSlot<
     this.currentSession.getMessages(...args);
   getFullHistory: IInteractiveSession['getFullHistory'] = (...args) =>
     this.currentSession.getFullHistory(...args);
+  getMessagesDisplay: IInteractiveSession['getMessagesDisplay'] = (...args) =>
+    this.currentSession.getMessagesDisplay(...args);
   getContextState: IInteractiveSession['getContextState'] = (...args) =>
     this.currentSession.getContextState(...args);
   getSession: IInteractiveSession['getSession'] = (...args) =>

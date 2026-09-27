@@ -106,7 +106,8 @@ describe('observe role', () => {
     observer.send({ type: 'get-messages' });
     observer.send({ type: 'get-executing' });
     expect(observer.sent).toEqual([
-      { type: 'messages', messages: [{ role: 'user', content: 'hi' }] },
+      // #3288 §2: `display` rides the same frame (the test double's default projects to `[]`).
+      { type: 'messages', messages: [{ role: 'user', content: 'hi' }], display: [] },
       { type: 'executing', executing: true },
     ]);
   });

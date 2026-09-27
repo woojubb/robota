@@ -23,6 +23,7 @@ import {
   buildWorkspaceTaskSpawner,
   readWorkspaceDetail,
 } from './interactive-session-workspace.js';
+import { projectHistoryForDisplay } from './interactive-session-history-projection.js';
 import { validateWorkspaceSessionReplayLog as validateReplay } from './workspace-session-replay-validation.js';
 
 import type { ISessionUsageRecord } from '../command-api/session/session-usage.js';
@@ -78,7 +79,11 @@ import type {
   IBackgroundTaskState,
   ISubagentJobState,
 } from '@robota-sdk/agent-interface-execution';
-import type { ISessionLoopState, TDriverId } from '@robota-sdk/agent-interface-session';
+import type {
+  IHistoryDisplaySegment,
+  ISessionLoopState,
+  TDriverId,
+} from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
 
 export abstract class InteractiveSessionBase {
@@ -179,6 +184,13 @@ export abstract class InteractiveSessionBase {
       .getHistory()
       .filter((e) => e.category === 'chat')
       .map((e) => e.data as TUniversalMessage);
+  }
+  /** #3288 §2: `getMessages()`'s chat entries, projected for a reload/reconnect/resume replay. */
+  getMessagesDisplay(): IHistoryDisplaySegment[] {
+    return projectHistoryForDisplay(this.histTracker.getHistory(), {
+      cwd: this.getCwd(),
+      modelCommandToolNames: this.execCtrl.modelCommandToolNames,
+    });
   }
   listEditCheckpoints(): IEditCheckpointSummary[] {
     return this.histTracker.listEditCheckpoints();

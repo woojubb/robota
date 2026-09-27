@@ -42,6 +42,7 @@ import type {
 import type { TConnectionStatus, TClientMessage } from '../client/ws-session-client.js';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
 import type {
+  IHistoryDisplaySegment,
   IToolState,
   TDriverId,
   TPermissionResultValue,
@@ -125,6 +126,24 @@ function findRunningToolIndex(
     : tools.findIndex((t) => t.name === state.toolName && t.status === 'running');
 }
 
+/**
+ * The fields an `IToolState` contributes to a FRESH `IActiveTool` — shared by live `tool_start` (which
+ * adds `status: 'running'` itself) and history replay (which merges `toolEndFields` on top, since a
+ * replayed call is always already finished). Factored out so the two paths cannot drift on what a
+ * tool row's identity fields are.
+ */
+function baseActiveToolFrom(state: IToolState): Omit<IActiveTool, 'status'> {
+  return {
+    id: nextId(),
+    name: state.toolName,
+    input: state.firstArg,
+    ...(state.executionId ? { executionId: state.executionId } : {}),
+    ...(state.displayPath ? { displayPath: state.displayPath } : {}),
+    ...(state.commandName ? { commandName: state.commandName } : {}),
+    ...(state.internal ? { internal: true } : {}),
+  };
+}
+
 /** The fields a `tool_end` state contributes to the matched `IActiveTool`. */
 function toolEndFields(
   state: IToolState,
@@ -177,6 +196,57 @@ function collectChangedFiles(segments: readonly TTurnSegment[]): IChangedFileSum
     }
   }
   return [...byPath.values()];
+}
+
+/** A replayed call's `IActiveTool`: `baseActiveToolFrom`'s identity fields plus `tool_end`'s result
+ * fields — a replayed call is always already finished, so `toolEndFields` always yields `status`
+ * `'done'`/`'error'`, never `'running'`. */
+function activeToolFromHistoricalState(state: IToolState): IActiveTool {
+  return { ...baseActiveToolFrom(state), ...toolEndFields(state) };
+}
+
+/**
+ * #3288 §2: turns the server's chronological `IHistoryDisplaySegment[]` (a reload/reconnect/resume
+ * replay) into the SAME `TConversationEntry[]` shape a live turn's `finishTurn` produces — reusing its
+ * exact segment-accumulation and "Changed files" logic, so the two paths cannot draw the turn/grouping
+ * boundary differently. A `'text', role: 'user'` segment is both its own entry AND the turn boundary:
+ * everything accumulated since the previous one (the assistant's reply, its tool calls in between, and
+ * one "Changed files" row when any of those touched a file) flushes immediately before it.
+ */
+function buildConversationEntriesFromDisplaySegments(
+  displaySegments: readonly IHistoryDisplaySegment[],
+): TConversationEntry[] {
+  const entries: TConversationEntry[] = [];
+  let turnSegments: TTurnSegment[] = [];
+
+  const flushTurn = (): void => {
+    for (const segment of turnSegments) {
+      entries.push(
+        segment.type === 'tools'
+          ? { id: segment.id, role: 'tools', tools: segment.tools }
+          : { id: segment.id, role: 'assistant', content: segment.text },
+      );
+    }
+    const changedFiles = collectChangedFiles(turnSegments);
+    if (changedFiles.length > 0) {
+      entries.push({ id: nextId(), role: 'changed-files', files: changedFiles });
+    }
+    turnSegments = [];
+  };
+
+  for (const segment of displaySegments) {
+    if (segment.type === 'text' && segment.role === 'user') {
+      flushTurn();
+      entries.push({ id: nextId(), role: 'user', content: segment.content });
+    } else if (segment.type === 'text') {
+      turnSegments = appendTextDeltaToSegments(turnSegments, segment.content);
+    } else {
+      turnSegments = pushToolStartSegment(turnSegments, activeToolFromHistoricalState(segment.tool));
+    }
+  }
+  flushTurn();
+
+  return entries;
 }
 
 export function useSessionClient<TStatus extends string = TConnectionStatus>(
@@ -322,11 +392,17 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       if (handleSettingsMessage(msg)) return;
       switch (msg.type) {
         case 'messages': {
-          const reconstructed: TConversationEntry[] = msg.messages.flatMap((m) => {
-            if (m.role !== 'user' && m.role !== 'assistant') return [];
-            const content = m.content ?? '';
-            return [{ id: nextId(), role: m.role as 'user' | 'assistant', content }];
-          });
+          // #3288 §2: `display` is the server's projection of this same history into tool rows,
+          // diffs and "Changed files" — a reload/reconnect/resume replay renders THAT. `display` is
+          // absent only for a host that predates it; that host still gets a working (text-only)
+          // transcript, exactly what this branch always did.
+          const reconstructed: TConversationEntry[] = msg.display
+            ? buildConversationEntriesFromDisplaySegments(msg.display)
+            : msg.messages.flatMap((m) => {
+                if (m.role !== 'user' && m.role !== 'assistant') return [];
+                const content = m.content ?? '';
+                return [{ id: nextId(), role: m.role as 'user' | 'assistant', content }];
+              });
           setMessages(reconstructed);
           if (msg.driverId) setOwnDriverId(msg.driverId);
           break;
@@ -359,16 +435,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         }
         case 'tool_start': {
           const { state } = msg;
-          const tool: IActiveTool = {
-            id: nextId(),
-            name: state.toolName,
-            status: 'running',
-            input: state.firstArg,
-            ...(state.executionId ? { executionId: state.executionId } : {}),
-            ...(state.displayPath ? { displayPath: state.displayPath } : {}),
-            ...(state.commandName ? { commandName: state.commandName } : {}),
-            ...(state.internal ? { internal: true } : {}),
-          };
+          const tool: IActiveTool = { ...baseActiveToolFrom(state), status: 'running' };
           updateActiveTools((prev) => [...prev, tool]);
           turnSegmentsRef.current = pushToolStartSegment(turnSegmentsRef.current, tool);
           break;
