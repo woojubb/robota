@@ -774,11 +774,13 @@ A grant is tied to the repository, not only to its path:
 **After upgrading**, if a workspace you had trusted shows as untrusted, run `robota trust --yes` in
 it once. Grants are now keyed differently, so a grant made by an earlier version no longer matches.
 
-**In this monorepo**, trust it with the source CLI, since a globally installed `robota` may be older
-than the source you are working on:
+**In this monorepo**, use the source CLI, since a globally installed `robota` may be older than the
+source you are working on:
 
 ```bash
-pnpm trust:dev
+pnpm cli:trust       # Trust this repository
+pnpm cli:dev         # Run the CLI from source
+pnpm cli:dev:trust   # Trust it, then run the CLI (arguments go to the run: pnpm cli:dev:trust -p "…")
 ```
 
 To trust another repository with the source CLI, run the launcher from inside that repository:
