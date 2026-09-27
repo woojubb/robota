@@ -184,6 +184,12 @@ export interface ISessionStatusSnapshot {
   readonly context: IContextWindowState;
   /** The goal being pursued (`/goal`), or null; a client shows its progress beside the composer. */
   readonly goal: IGoalState | null;
+  /**
+   * Issue #3282 §3: true while `model` is a placeholder because no provider is configured yet — a
+   * served runtime's first run. A client shows a setup screen instead of a composer. Absent (never
+   * `false`) once a provider is configured, which is every session before this existed.
+   */
+  readonly setupRequired?: boolean;
 }
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;

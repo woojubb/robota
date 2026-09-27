@@ -31,6 +31,7 @@ import { assembleProduct } from '@robota-sdk/agent-product';
 
 import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';
 import { applyModelFallbackChain } from './startup/model-fallback-startup.js';
+import { createSetupPlaceholderProvider } from './startup/setup-placeholder-provider.js';
 import { checkForCliUpdate, formatCliUpdateCheckMessage } from './update-check/update-check.js';
 import { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
 import { parseCliArgs, printHelp, type IParsedCliArgs } from './utils/cli-args.js';
@@ -573,26 +574,28 @@ async function runCliCore(
     resolvedPreset,
   );
 
-  if (
-    await routeProjectSetup({
-      cwd,
-      args,
-      startOptions: startupOptions,
-      terminal,
-      providerDefinitions,
-      workspace: workspaceComposition,
-    })
-  ) {
+  const projectSetup = await routeProjectSetup({
+    cwd,
+    args,
+    startOptions: startupOptions,
+    terminal,
+    providerDefinitions,
+    workspace: workspaceComposition,
+  });
+  if (projectSetup.handled) {
     return;
   }
+  // #3282 §3: no usable provider, but this is `--serve` (a daemon's child is too) — continue with a
+  // placeholder that never calls a model instead of the normal, validated settings read below, which
+  // would throw the same "No provider configuration found" this run already tolerated.
+  const setupRequired = projectSetup.setupRequired !== undefined;
 
   const providerOptions = args.provider
     ? { providerOverride: args.provider, providerDefinitions }
     : { providerDefinitions };
-  const providerSettings = readProviderSettings(
-    workspaceComposition.settingsSources,
-    providerOptions,
-  );
+  const providerSettings = setupRequired
+    ? { name: 'setup-placeholder', model: 'setup-required' }
+    : readProviderSettings(workspaceComposition.settingsSources, providerOptions);
   const modelId = resolvedPreset.model ?? providerSettings.model;
   let effortResolution;
   try {
@@ -651,6 +654,9 @@ async function runCliCore(
       providerDefinitions,
       providerSettings: { ...providerSettings, model: modelId },
       ...(args.sessionLog ? { provider: loadReplayProvider(args.sessionLog) } : {}),
+      // #3282 §3: setup mode overrides with the same seam `--session-log` replay uses — the
+      // placeholder never calls a model, so nothing below needs to construct a real one.
+      ...(setupRequired ? { provider: createSetupPlaceholderProvider() } : {}),
       preset,
       baseCommandModules,
       packs,
@@ -659,9 +665,10 @@ async function runCliCore(
       transports: transportRegistry,
     }),
   );
-  // A replayed session answers from its log, so there is nothing to fall back from.
+  // A replayed session answers from its log, so there is nothing to fall back from; a setup-mode
+  // placeholder is not a provider a fallback chain could validate either.
   const provider =
-    product.provider === undefined || args.sessionLog !== undefined
+    product.provider === undefined || args.sessionLog !== undefined || setupRequired
       ? product.provider
       : applyModelFallbackChain({
           provider: product.provider,
@@ -964,6 +971,7 @@ async function runCliCore(
       model: modelId,
       preset: presetSurface,
       memorySessionOptions,
+      ...(setupRequired ? { setupRequired: true } : {}),
     });
     try {
       await serveRun;
