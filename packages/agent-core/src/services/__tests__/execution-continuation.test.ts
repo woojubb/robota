@@ -233,7 +233,7 @@ describe('no-input execution continuation', () => {
     expect(fresh.requests).toHaveLength(0);
     expect(fresh.effect).not.toHaveBeenCalled();
   });
-  it('restores loaded deferred tools after reusing a settled search result', async () => {
+  it('restores loaded deferred tools from a settled search and refuses one no longer registered', async () => {
     const search = vi.fn(async (_parameters, context) => {
       context.deferredTools.loadDeferredTools(['Hidden']);
       return 'loaded Hidden';
@@ -285,6 +285,14 @@ describe('no-input execution continuation', () => {
     expect(search).toHaveBeenCalledOnce();
     expect(hidden).toHaveBeenCalledOnce();
     expect(fresh.chatOptions[0]?.tools?.map((tool) => tool.name)).toContain('Hidden');
+    const missing = fixture([{ text: 'must not call' }], {
+      tools: tools().filter((tool) => tool.schema.name !== 'Hidden'),
+      toolSearch: 'on',
+    });
+    await expect(
+      missing.agent.resume({ executionId: records[0].executionId, journal }),
+    ).rejects.toMatchObject({ name: 'ExecutionRecoveryError', code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(missing.requests).toHaveLength(0);
   });
 
   it('restores a recorded cache hit without invoking a provider or lifecycle hooks', async () => {

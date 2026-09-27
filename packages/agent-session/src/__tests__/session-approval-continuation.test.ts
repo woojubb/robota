@@ -245,7 +245,7 @@ describe('checkpointed Session approval', () => {
   });
 
   it('holds the turn until pending request persistence drains after cancellation', async () => {
-    const f = fixture([action]);
+    const f = fixture([action, { text: 'resumed after cancellation' }]);
     const saved = journalFixture();
     let entered!: () => void;
     const writing = new Promise<void>((resolve) => {
@@ -286,6 +286,118 @@ describe('checkpointed Session approval', () => {
     await expect(f.session.run('new input')).rejects.toMatchObject({
       code: 'EXECUTION_RECOVERY_REQUIRED',
     });
+    const pending = f.session.getPendingExecution();
+    const request = saved.records.find((record) => record.kind === 'tool-wait');
+    if (!pending || request?.kind !== 'tool-wait') throw new Error('Expected a discoverable wait');
+    expect(pending).toEqual({
+      executionId: request.executionId,
+      requests: [expect.objectContaining({ requestId: request.request.requestId })],
+    });
+    expect(
+      await f.session.resumeRecoverable({
+        executionId: pending.executionId,
+        journal: saved.journal,
+        toolResponses: [
+          {
+            requestId: pending.requests[0].requestId,
+            responseId: 'after-cancel',
+            response: { approved: true },
+          },
+        ],
+      }),
+    ).toEqual({ status: 'completed', response: 'resumed after cancellation' });
+    expect(f.session.getPendingExecution()).toBeUndefined();
+    expect(f.effect).toHaveBeenCalledOnce();
+  });
+
+  it('accepts new input after a resumed execution fails in a later provider call', async () => {
+    const f = fixture([action, { text: 'next answer' }]);
+    const chat = f.provider.chat.bind(f.provider);
+    let calls = 0;
+    f.provider.chat = async (messages, options) => {
+      if (++calls === 2) throw new Error('provider offline');
+      return chat(messages, options);
+    };
+    const saved = journalFixture();
+    const first = await f.session.runRecoverable('input', { executionJournal: saved.journal });
+    if (first.status !== 'waiting') throw new Error('Expected wait');
+    const request = first.requests[0];
+    const resume = {
+      executionId: request.executionId,
+      journal: saved.journal,
+      toolResponses: [
+        { requestId: request.requestId, responseId: 'reply', response: { approved: true } },
+      ],
+    };
+    await expect(f.session.resumeRecoverable(resume)).rejects.toThrow('provider offline');
+    expect(await f.session.run('next input')).toBe('next answer');
+    expect(f.effect).toHaveBeenCalledOnce();
+  });
+
+  it('keeps a saved wait pending when a resume is refused before continuing', async () => {
+    const f = fixture([action, { text: 'continued' }]);
+    const saved = journalFixture();
+    const first = await f.session.runRecoverable('input', { executionJournal: saved.journal });
+    if (first.status !== 'waiting') throw new Error('Expected wait');
+    const request = first.requests[0];
+    await expect(
+      f.session.resumeRecoverable({
+        executionId: request.executionId,
+        journal: saved.journal,
+        toolResponses: [
+          { requestId: 'unknown', responseId: 'stray', response: { approved: true } },
+        ],
+      }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_CONFLICT' });
+    expect(f.session.getPendingExecution()).toEqual({
+      executionId: request.executionId,
+      requests: [request],
+    });
+    await expect(f.session.run('unrelated input')).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_REQUIRED',
+    });
+    expect(
+      await f.session.resumeRecoverable({
+        executionId: request.executionId,
+        journal: saved.journal,
+        toolResponses: [
+          { requestId: request.requestId, responseId: 'reply', response: { approved: true } },
+        ],
+      }),
+    ).toEqual({ status: 'completed', response: 'continued' });
+    expect(f.effect).toHaveBeenCalledOnce();
+  });
+
+  it('abandons a saved wait without running its effect or writing the journal', async () => {
+    const f = fixture([action, { text: 'fresh answer' }]);
+    const saved = journalFixture();
+    const first = await f.session.runRecoverable('input', { executionJournal: saved.journal });
+    if (first.status !== 'waiting') throw new Error('Expected wait');
+    const request = first.requests[0];
+    const recorded = structuredClone(saved.records);
+    expect(() => f.session.abandonPendingExecution('another-execution')).toThrow(
+      expect.objectContaining({ code: 'EXECUTION_RECOVERY_CONFLICT' }),
+    );
+    f.session.abandonPendingExecution(request.executionId);
+    expect(f.session.getPendingExecution()).toBeUndefined();
+    expect(await f.session.run('new input')).toBe('fresh answer');
+    expect(f.requests[1].at(-2)).toMatchObject({
+      role: 'tool',
+      toolCallId: request.toolCallId,
+      content: expect.stringContaining('abandoned'),
+    });
+    await expect(
+      f.session.resumeRecoverable({
+        executionId: request.executionId,
+        journal: saved.journal,
+        toolResponses: [
+          { requestId: request.requestId, responseId: 'late', response: { approved: true } },
+        ],
+      }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_CONFLICT' });
+    expect(saved.records).toEqual(recorded);
+    expect(f.effect).not.toHaveBeenCalled();
+    expect(f.approval).not.toHaveBeenCalled();
   });
 
   it('honors a durably accepted denial through ordinary resume after interrupted response acceptance', async () => {

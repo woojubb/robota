@@ -2,6 +2,7 @@ import { executeBatch } from './tool-execution-batch';
 import { TOOL_SEARCH_TOOL_NAME } from '../interfaces/tool-search';
 import { ValidationError } from '../utils/errors';
 import { isExecutionControlError } from '../utils/execution-control-error';
+import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
 import { SilentLogger, type ILogger } from '../utils/logger';
 
 import type { IOwnerPathSegment, IToolEventData } from '../interfaces/event-service';
@@ -54,7 +55,10 @@ export class ToolExecutionService {
   restoreLoadedDeferredTools(names: readonly string[]): void {
     for (const name of names) {
       if (!this.tools.hasTool(name))
-        throw new Error(`Recovery tool is no longer registered: ${name}`);
+        throw new ExecutionRecoveryError(
+          'EXECUTION_RECOVERY_INVALID',
+          `Recovery tool is no longer registered: ${name}`,
+        );
     }
     const visible = new Set(this.tools.getTools().map((tool) => tool.name));
     this.tools.loadDeferredTools(names.filter((name) => visible.has(name)));

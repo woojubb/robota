@@ -95,11 +95,20 @@ if (result.status === 'waiting') {
 must use the same session ID, canonical workspace, provider and model. Current hooks, permissions,
 task restrictions and peer restrictions are checked again; approval never grants session-wide consent.
 A response with a reused ID and different content is refused. Existing saved decisions also bind
-ordinary `resume`. Do not submit unrelated input while an execution is pending.
+ordinary `resume`.
 
-Waiting is returned only after request writes and active sibling effects settle. Cancellation can
-therefore take longer than the request to stop. Storage failures propagate, and uncertain effects
-raise a reconciliation error rather than being replayed. Turn-level lifecycle hooks are omitted on
+While an execution waits, `run` refuses new input. `getPendingExecution()` returns its
+`executionId` and `requests`, including after a cancellation that ended the turn once the wait was
+saved. A resume refused before continuing (a stale response, a storage failure) leaves it pending
+for another attempt; once a continuation has resumed the saved round, a later failure ends it like
+an ordinary turn. `abandonPendingExecution(executionId)` gives it up without running anything or
+writing to the journal: its open tool calls are closed as failed in history, the journal records
+are left for you to keep or discard, and this Session can no longer resume that execution.
+
+Waiting is returned only after request writes are durable and tools already running beside the
+waiting one finish; calls not yet started stay pending. Cancellation interrupts running tools but
+still waits for them to settle. Storage failures propagate, and uncertain effects raise a
+reconciliation error rather than being replayed. Turn-level lifecycle hooks are omitted on
 continuation because their effects lack durable receipts; structured-output recovery is unsupported.
 This API alone does not provide arbitrary-effect recovery or durable Roundtable execution.
 
@@ -126,6 +135,8 @@ This API alone does not provide arbitrary-effect recovery or durable Roundtable 
 | `run(message)`                                            | Send a message and return the response                                          |
 | `runRecoverable(message, options)`                        | Run with a recovery journal; returns a completed response or saved waits        |
 | `resumeRecoverable(options)`                              | Answer saved waits and continue that execution without new input                |
+| `getPendingExecution()`                                   | The execution whose saved waits block new input, if any                         |
+| `abandonPendingExecution(executionId)`                    | Give up that execution without running it, so new input is accepted             |
 | `injectMessage(role, content)`                            | Add a message to the history without running the agent                          |
 | `compact(instructions?)`                                  | Summarize the conversation to free context space                                |
 | `getContextState()`                                       | `{ usedTokens, maxTokens, usedPercentage, remainingPercentage }`                |
