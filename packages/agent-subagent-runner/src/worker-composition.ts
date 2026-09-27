@@ -142,6 +142,12 @@ export type TParentSandboxSettings = Readonly<Record<string, unknown>>;
 export interface ISubagentComposedSandbox {
   readonly client: TProjectedSandboxClient;
   readonly commandSandbox?: ISubagentOptions['commandSandbox'];
+  /**
+   * Take the parent's settings after a change it made while this child runs (`/sandbox`), so the
+   * next command is confined and approved as the parent's would be. Throws on settings it cannot
+   * read: the worker then fails the job rather than run on settings the user has replaced.
+   */
+  readonly applyParentSettings?: (settings: TParentSandboxSettings) => void;
 }
 
 /**

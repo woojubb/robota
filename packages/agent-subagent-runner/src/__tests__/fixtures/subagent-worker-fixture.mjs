@@ -12,9 +12,34 @@ if (process.send === undefined) {
 
 process.send({ type: 'ready' });
 
+// Issue #3256: records the settings the start payload carried and every change sent afterwards, in
+// whatever order they arrive, and answers once it has the start and two changes.
+const sandboxEcho = { payloadSettings: null, updates: [], started: false };
+function answerSandboxEcho() {
+  if (!sandboxEcho.started || sandboxEcho.updates.length < 2) return;
+  process.send?.({
+    type: 'result',
+    output: JSON.stringify({
+      payloadSettings: sandboxEcho.payloadSettings,
+      updates: sandboxEcho.updates,
+    }),
+  });
+  setTimeout(() => process.exit(0), 0);
+}
+
 process.on('message', (message) => {
   if (!message || typeof message !== 'object') {
     process.send?.({ type: 'error', message: 'malformed' });
+    return;
+  }
+
+  if (process.env.ROBOTA_FIXTURE_MODE === 'echo-sandbox-updates') {
+    if (message.type === 'sandbox_settings') sandboxEcho.updates.push(message.settings);
+    if (message.type === 'start') {
+      sandboxEcho.started = true;
+      sandboxEcho.payloadSettings = message.payload?.parentSandboxSettings ?? null;
+    }
+    answerSandboxEcho();
     return;
   }
 

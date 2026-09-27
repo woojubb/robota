@@ -17,6 +17,37 @@ function record(event) {
   appendFileSync(RECORD_PATH, `${JSON.stringify(event)}\n`, 'utf8');
 }
 
+// Issue #3256: in this mode the first model call waits for a `/sandbox` change sent while the child
+// runs. It asks for one with a text delta, once the sandbox is composed, so the change lands after it.
+const WAIT_FOR_CHANGE = process.env.SANDBOX_FIXTURE_WAIT_FOR_CHANGE === '1';
+let changeArrived;
+const changed = new Promise((resolve) => {
+  changeArrived = resolve;
+});
+process.on('message', (message) => {
+  if (message?.type === 'sandbox_settings') changeArrived();
+});
+
+function scriptedProvider() {
+  const scripted = createScriptedProvider([
+    { toolCalls: [{ name: 'Bash', args: { command: 'npm test' } }] },
+    { text: 'finished' },
+    { text: 'finished' },
+  ]).provider;
+  let first = true;
+  return {
+    ...scripted,
+    chat: async (messages, options) => {
+      if (first && WAIT_FOR_CHANGE) {
+        first = false;
+        process.send?.({ type: 'text_delta', delta: 'awaiting-sandbox-change' });
+        await changed;
+      }
+      return scripted.chat(messages, options);
+    },
+  };
+}
+
 runSubagentWorkerMain({
   createTools: ({ sandboxClient }) => {
     record({ toolsGotComposedSandbox: sandboxClient === SANDBOX });
@@ -43,10 +74,14 @@ runSubagentWorkerMain({
     ? {
         createSandbox: ({ parentSettings }) => {
           record({ parentSettings: parentSettings ?? null });
-          const autoAllow = parentSettings?.autoAllowBashIfSandboxed ?? true;
+          let autoAllow = parentSettings?.autoAllowBashIfSandboxed ?? true;
           return {
             client: SANDBOX,
             commandSandbox: { autoApproves: (toolName) => autoAllow && toolName === 'Bash' },
+            applyParentSettings: (settings) => {
+              record({ applied: settings });
+              autoAllow = settings.autoAllowBashIfSandboxed;
+            },
           };
         },
       }
@@ -55,12 +90,7 @@ runSubagentWorkerMain({
     {
       type: 'sandbox-fixture-provider',
       // Without the sandbox the call goes to the auto-mode classifier, which gets prose, not a verdict.
-      createProvider: () =>
-        createScriptedProvider([
-          { toolCalls: [{ name: 'Bash', args: { command: 'npm test' } }] },
-          { text: 'finished' },
-          { text: 'finished' },
-        ]).provider,
+      createProvider: scriptedProvider,
     },
   ],
 });

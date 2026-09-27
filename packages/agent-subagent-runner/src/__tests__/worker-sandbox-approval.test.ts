@@ -24,11 +24,14 @@ interface IRecord {
   toolsGotComposedSandbox?: boolean;
   bashRan?: string;
   parentSettings?: Record<string, unknown> | null;
+  applied?: Record<string, unknown>;
 }
 
 function runWorker(
   composesSandbox: boolean,
   parentSandboxSettings?: Record<string, unknown>,
+  /** Sent once the running child asks for it, after its sandbox is composed (issue #3256). */
+  changeWhileRunning?: Record<string, unknown>,
 ): Promise<IRecord[]> {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-worker-sandbox-')));
   const recordPath = join(dir, 'records.jsonl');
@@ -39,6 +42,7 @@ function runWorker(
         ...process.env,
         SANDBOX_RECORD_PATH: recordPath,
         SANDBOX_FIXTURE_COMPOSES: composesSandbox ? '1' : '0',
+        SANDBOX_FIXTURE_WAIT_FOR_CHANGE: changeWhileRunning !== undefined ? '1' : '0',
       },
     });
     let stderr = '';
@@ -48,7 +52,11 @@ function runWorker(
       child.kill('SIGKILL');
       reject(new Error(`worker never finished; stderr: ${stderr.slice(0, 600)}`));
     }, TEST_TIMEOUT_MS - 5_000);
-    child.on('message', (message: { type?: string }) => {
+    child.on('message', (message: { type?: string; delta?: string }) => {
+      if (message.type === 'text_delta' && message.delta === 'awaiting-sandbox-change') {
+        child.send({ type: 'sandbox_settings', settings: changeWhileRunning });
+        return;
+      }
       if (message.type !== 'ready') return;
       child.send({
         type: 'start',
@@ -119,6 +127,35 @@ describe.skipIf(!existsSync(DIST))('a child-process subagent and its composed sa
 
       expect(records).toContainEqual({ parentSettings: { autoAllowBashIfSandboxed: false } });
       expect(records.some((record) => record.bashRan !== undefined)).toBe(false);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'follows a /sandbox change made while it runs, on the next command (#3256)',
+    async () => {
+      const records = await runWorker(
+        true,
+        { autoAllowBashIfSandboxed: true },
+        { autoAllowBashIfSandboxed: false },
+      );
+
+      expect(records).toContainEqual({ applied: { autoAllowBashIfSandboxed: false } });
+      expect(records.some((record) => record.bashRan !== undefined)).toBe(false);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'still runs the command after a change that keeps auto-allow on, so the wait is not what stops it',
+    async () => {
+      const records = await runWorker(
+        true,
+        { autoAllowBashIfSandboxed: false },
+        { autoAllowBashIfSandboxed: true },
+      );
+
+      expect(records).toContainEqual({ bashRan: 'npm test' });
     },
     TEST_TIMEOUT_MS,
   );

@@ -629,6 +629,44 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
   );
 
   it(
+    'forwards each later change to the running child, one made during startup included (#3256)',
+    async () => {
+      let live: Record<string, unknown> = { autoAllowBashIfSandboxed: true };
+      const listeners = new Set<(settings: Record<string, unknown>) => void>();
+      const change = (settings: Record<string, unknown>): void => {
+        live = settings;
+        for (const listener of listeners) listener(settings);
+      };
+      const runner = new ChildProcessSubagentRunner(createDeps(), {
+        workerEntry: FIXTURE_WORKER_ENTRY,
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+        env: { ROBOTA_FIXTURE_MODE: 'echo-sandbox-updates' },
+        parentSandboxSettings: () => live,
+        watchParentSandboxSettings: (listener) => {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+      });
+
+      const handle = runner.start(createJob());
+      // Before the child has even been sent its start: a change here must not fall between the two.
+      change({ autoAllowBashIfSandboxed: false });
+      setTimeout(() => change({ autoAllowBashIfSandboxed: true, enabled: false }), 200);
+      const result = await handle.result;
+
+      expect(JSON.parse((result as { output: string }).output)).toEqual({
+        payloadSettings: { autoAllowBashIfSandboxed: true },
+        updates: [{ autoAllowBashIfSandboxed: false }, { autoAllowBashIfSandboxed: true, enabled: false }],
+      });
+      // The child is gone, so nothing is left watching the parent's sandbox.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(listeners.size).toBe(0);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
     'carries no sandbox settings when the parent has none to send',
     async () => {
       const seen = await projectionSeenByChild({});

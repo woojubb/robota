@@ -16,7 +16,11 @@ import { openResumeSessionStore, resumeRequestedRecord } from './child-process-s
 import { restoreAgentDefinition, restoreParentContext } from './subagent-worker-start-dto.js';
 import { restoreProjectedSandbox } from './worker-composition.js';
 
-import type { ISubagentWorkerComposition } from './worker-composition.js';
+import type {
+  ISubagentComposedSandbox,
+  ISubagentWorkerComposition,
+  TParentSandboxSettings,
+} from './worker-composition.js';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
 const CANCEL_EXIT_CODE = 130;
@@ -41,6 +45,9 @@ type TSubagentSessionToolEvent = Parameters<
 
 let session: ReturnType<typeof createSubagentSession> | null = null;
 let cancelled = false;
+/** The parent's sandbox settings most recently sent after a change, newer than the start payload's. */
+let latestParentSandboxSettings: TParentSandboxSettings | undefined;
+let composedSandbox: ISubagentComposedSandbox | undefined;
 let running: Promise<void> = Promise.resolve();
 
 function sendChildMessage(message: TSubagentWorkerChildMessage): void {
@@ -118,13 +125,12 @@ async function runInitialPrompt(
     // A sandbox restored from the parent's snapshot, or else one the child composes at its own root.
     // Only a composed sandbox approves commands, from the instance its tools run under; a restored one
     // approves none, so the child asks where the parent might not: stricter, never looser.
-    const composedSandbox =
+    const parentSettings = latestParentSandboxSettings ?? payload.parentSandboxSettings;
+    composedSandbox =
       restoredSandbox === undefined
         ? composition.createSandbox?.({
             cwd: subagentExecutionRoot(payload),
-            ...(payload.parentSandboxSettings !== undefined
-              ? { parentSettings: payload.parentSandboxSettings }
-              : {}),
+            ...(parentSettings !== undefined ? { parentSettings } : {}),
           })
         : undefined;
     const toolSandbox = restoredSandbox ?? composedSandbox?.client;
@@ -269,6 +275,24 @@ function composedToolNames(composition: ISubagentWorkerComposition): readonly st
  * defaults would reinstate the exact defect this seam removes — and at this line conventions have a
  * measured failure rate of 100% (ARCH-010 and ARCH-006 are both findings here).
  */
+/**
+ * The parent changed its sandbox settings (`/sandbox`) while this child runs. A child that cannot take
+ * them stops: running on settings the user has replaced is what this message exists to prevent.
+ */
+function followParentSandboxSettings(settings: TParentSandboxSettings): void {
+  latestParentSandboxSettings = settings;
+  try {
+    composedSandbox?.applyParentSettings?.(settings);
+  } catch (error) {
+    cancelled = true;
+    session?.abort();
+    sendTerminalMessageAndExit(
+      { type: 'error', message: error instanceof Error ? error.message : String(error) },
+      0,
+    );
+  }
+}
+
 export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): void {
   if (process.send === undefined) {
     // "Silence is not success": a worker without an IPC channel can never report anything, so it
@@ -294,6 +318,9 @@ export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): 
         break;
       case 'cancel':
         void cancelWorker(message.reason);
+        break;
+      case 'sandbox_settings':
+        followParentSandboxSettings(message.settings);
         break;
       default:
         sendChildMessage({ type: 'error', message: 'Unhandled subagent worker parent message' });

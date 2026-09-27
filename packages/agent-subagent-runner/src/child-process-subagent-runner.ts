@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -76,6 +77,12 @@ export interface IChildProcessSubagentRunnerOptions {
    * The child's `createSandbox` receives the value. Absent ⇒ the child reads its root's settings.
    */
   parentSandboxSettings?: () => TParentSandboxSettings | undefined;
+  /**
+   * Be told the parent's sandbox settings after each change (`/sandbox`); returns the way to stop.
+   * The runner forwards each change to every running child, so a child started before the change
+   * follows it too.
+   */
+  watchParentSandboxSettings?: (listener: (settings: TParentSandboxSettings) => void) => () => void;
 }
 
 export function createChildProcessSubagentRunnerFactory(
@@ -102,6 +109,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   private readonly env?: NodeJS.ProcessEnv;
   private readonly logsDir?: string;
   private readonly parentSandboxSettings?: () => TParentSandboxSettings | undefined;
+  private readonly watchParentSandboxSettings?: IChildProcessSubagentRunnerOptions['watchParentSandboxSettings'];
 
   constructor(
     private readonly deps: IInProcessSubagentRunnerDeps,
@@ -115,6 +123,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     this.env = options.env;
     this.logsDir = options.logsDir;
     this.parentSandboxSettings = options.parentSandboxSettings;
+    this.watchParentSandboxSettings = options.watchParentSandboxSettings;
   }
 
   start(job: ISubagentJobStart): ISubagentJobHandle {
@@ -153,6 +162,9 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       },
     );
     captureChildStderr(child);
+    // Watch BEFORE the payload reads the settings: a change made while the child starts is then either
+    // in the payload or sent after it, never lost between the two.
+    this.forwardSandboxSettingChanges(child);
     const runtime: IChildProcessRuntime = {
       job,
       child,
@@ -214,6 +226,14 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       ...(this.logsDir !== undefined ? { logsDir: this.logsDir } : {}),
       ...(parentSandboxSettings !== undefined ? { parentSandboxSettings } : {}),
     });
+  }
+
+  private forwardSandboxSettingChanges(child: ChildProcess): void {
+    const unwatch = this.watchParentSandboxSettings?.((settings) => {
+      if (!child.connected) return;
+      void sendWorkerMessage(child, { type: 'sandbox_settings', settings }).catch(() => undefined);
+    });
+    if (unwatch !== undefined) child.once('exit', unwatch);
   }
 
   private resolveTranscriptPath(job: ISubagentJobStart): string | undefined {

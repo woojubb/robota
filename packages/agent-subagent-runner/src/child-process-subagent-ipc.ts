@@ -109,8 +109,17 @@ export interface ISubagentWorkerCancelMessage {
   reason?: string;
 }
 
+/** The parent's sandbox settings changed while the child runs (`/sandbox`); the child follows. */
+export interface ISubagentWorkerSandboxSettingsMessage {
+  type: 'sandbox_settings';
+  settings: TParentSandboxSettings;
+}
+
 export type TSubagentWorkerParentMessage =
-  ISubagentWorkerStartMessage | ISubagentWorkerSendMessage | ISubagentWorkerCancelMessage;
+  | ISubagentWorkerStartMessage
+  | ISubagentWorkerSendMessage
+  | ISubagentWorkerCancelMessage
+  | ISubagentWorkerSandboxSettingsMessage;
 
 export interface ISubagentWorkerReadyMessage {
   type: 'ready';
@@ -291,6 +300,8 @@ export function isSubagentWorkerParentMessage(
       return hasString(value, 'prompt');
     case 'cancel':
       return value.reason === undefined || typeof value.reason === 'string';
+    case 'sandbox_settings':
+      return isRecord(value.settings);
     default:
       return false;
   }
