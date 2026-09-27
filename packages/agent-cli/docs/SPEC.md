@@ -424,9 +424,11 @@ writes the project's files back, are not composed; `/rewind` then says which of 
 stands in the way. Print mode,
 `--goal`, and `--serve` fail closed for `untrusted`/`revoked`/`stale`/`store-unavailable` decisions
 before provider construction, because no one is there to ask, unless the run was asked to start
-Restricted (safe mode, or a run a person chose to start Restricted); an interactive
-start asks the person before the project is composed and continues Restricted when they decline,
-because a Restricted session no one mentioned hides why the project's own configuration is missing.
+Restricted (safe mode, or a run a person chose to start Restricted) or is `--serve --open` at a TTY,
+where someone is: it asks the same trust/Restricted/quit question there instead of refusing; an
+interactive start asks the person before the project is composed and continues Restricted when they
+decline, because a Restricted session no one mentioned hides why the project's own configuration is
+missing.
 All trust diagnostics expose only state and canonical display path — credentials and
 project-controlled content are never printed.
 
@@ -575,8 +577,10 @@ commands without explicit user confirmation.
 
 - `robota trust status` previews the project sources that trusting the current workspace would enable,
   using metadata only: it never follows links, never reads file content and never prints credentials
-  or project-controlled content. Where safe metadata is unavailable it lists candidate names with
-  metadata marked unavailable.
+  or project-controlled content. Where safe metadata is unavailable, the plain-text preview and the
+  TUI's own interactive ask list the candidate with its metadata marked unavailable; `--json` (and the
+  desktop trust dialog that reads it) omits that candidate instead, since a state it could not
+  determine says nothing worth showing there.
 
 ## Known limitations
 

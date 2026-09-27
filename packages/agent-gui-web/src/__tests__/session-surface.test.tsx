@@ -712,3 +712,75 @@ describe('#3280 §5 — a lost connection keeps the conversation and the draft',
     expect(within(alert).queryByRole('button')).toBeNull();
   });
 });
+
+describe('#3282 §3 — first run: setup mode', () => {
+  const setupStatus: NonNullable<IWsSessionState['sessionStatus']> = {
+    sessionId: 's',
+    model: 'setup-required',
+    permissionMode: 'default',
+    effort: 'auto',
+    context: { usedPercentage: 0, usedTokens: 0, maxTokens: 0, remainingPercentage: 100 },
+    goal: null,
+    setupRequired: true,
+  };
+
+  it('shows the setup panel instead of the conversation, and hides the composer', () => {
+    const state = stubState({ sessionStatus: setupStatus });
+    render(<SessionSurface state={state} />);
+
+    expect(screen.getByRole('heading', { name: 'Connect a model provider to start.' })).toBeTruthy();
+    // The conversation (and its default fixture message) is not shown while setup is required.
+    expect(screen.queryByText('hello')).toBeNull();
+    expect(screen.queryByLabelText('message')).toBeNull();
+  });
+
+  it('"Set up provider" sends /provider add as a command', () => {
+    const state = stubState({ sessionStatus: setupStatus });
+    render(<SessionSurface state={state} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set up provider' }));
+
+    expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'provider', args: 'add' });
+  });
+
+  it('"Set up provider" is disabled while disconnected', () => {
+    const state = stubState({ status: 'disconnected', sessionStatus: setupStatus });
+    render(<SessionSurface state={state} />);
+
+    const button = screen.getByRole('button', { name: 'Set up provider' });
+    expect(button.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(button);
+    expect(state.send).not.toHaveBeenCalled();
+  });
+
+  it('the setup flow\'s questions dock where the composer would be (PermissionPrompt keeps rendering)', () => {
+    const state = stubState({
+      sessionStatus: setupStatus,
+      pendingPrompts: [
+        {
+          kind: 'ask',
+          id: 'a1',
+          request: { title: 'Select provider', options: [{ value: 'anthropic', label: 'anthropic' }] },
+        },
+      ] as unknown as IWsSessionState['pendingPrompts'],
+    });
+    render(<SessionSurface state={state} />);
+
+    expect(screen.getByRole('dialog', { name: 'pending question' })).toBeTruthy();
+  });
+
+  it('clears once setupRequired turns false: the composer and conversation return, live, no reload', () => {
+    const { rerender } = render(<SessionSurface state={stubState({ sessionStatus: setupStatus })} />);
+    expect(screen.queryByLabelText('message')).toBeNull();
+
+    rerender(
+      <SessionSurface
+        state={stubState({ sessionStatus: { ...setupStatus, setupRequired: undefined, model: 'claude' } })}
+      />,
+    );
+
+    expect(screen.getByLabelText('message')).toBeTruthy();
+    expect(screen.getByText('hello')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Connect a model provider to start.' })).toBeNull();
+  });
+});

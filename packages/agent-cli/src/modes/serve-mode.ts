@@ -180,6 +180,12 @@ export interface IServeModeOptions {
    * start; absent ⇒ one session, and clients are told sessions are not available.
    */
   sessionDirectory?: IServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>;
+  /**
+   * #3282 §3: `provider` is a placeholder (never calls a model) because no provider was configured.
+   * The session refuses a submitted turn and reports it in `session_status`, instead of the process
+   * exiting the way a served runtime with a missing provider used to.
+   */
+  setupRequired?: boolean;
 }
 
 /**
@@ -295,6 +301,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(preset.systemPrompt !== undefined ? { presetSystemPrompt: preset.systemPrompt } : {}),
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...(opts.memorySessionOptions ?? {}),
+    ...(opts.setupRequired === true ? { setupRequired: true } : {}),
   };
 }
 

@@ -24,8 +24,21 @@ export interface IProjectSetupRoutingOptions {
   workspace: ICliWorkspaceComposition;
 }
 
+/**
+ * The result of routing: `handled` means the caller returns immediately (init/`--configure` ran, or a
+ * hard provider-configuration failure already reported itself and exited). `setupRequired` (issue
+ * #3282 §3) means startup continues, but with no usable provider — set only for `--serve` (which a
+ * daemon-launched child also is), never for the TUI or print mode, which keep exiting as before.
+ */
+export interface IProjectSetupRoutingResult {
+  readonly handled: boolean;
+  readonly setupRequired?: string;
+}
+
 /** Handle init/configuration routes and establish usable provider settings for normal startup. */
-export async function routeProjectSetup(options: IProjectSetupRoutingOptions): Promise<boolean> {
+export async function routeProjectSetup(
+  options: IProjectSetupRoutingOptions,
+): Promise<IProjectSetupRoutingResult> {
   const { cwd, args, terminal, providerDefinitions, workspace } = options;
   const settingsAccess = {
     settingsSources: workspace.settingsSources,
@@ -33,7 +46,7 @@ export async function routeProjectSetup(options: IProjectSetupRoutingOptions): P
   };
   if (args.positional[0] === 'init') {
     await runProjectInit(options, settingsAccess);
-    return true;
+    return { handled: true };
   }
   if (args.configure) {
     await runInteractiveProviderSetup(
@@ -44,10 +57,10 @@ export async function routeProjectSetup(options: IProjectSetupRoutingOptions): P
       providerDefinitions,
       settingsAccess,
     );
-    return true;
+    return { handled: true };
   }
   if (handleProviderConfigurationArgs(cwd, args, terminal, providerDefinitions, settingsAccess)) {
-    return true;
+    return { handled: true };
   }
   try {
     await ensureConfig(
@@ -60,6 +73,13 @@ export async function routeProjectSetup(options: IProjectSetupRoutingOptions): P
       settingsAccess,
     );
   } catch (error) {
+    // #3282 §3: a served runtime (including a daemon's child, which is also `--serve`) starts in
+    // setup mode instead of exiting — the GUI walks a first-run person through configuring a
+    // provider. The TUI and print mode are unchanged: a person with no GUI still needs the terminal
+    // message to know what happened.
+    if (error instanceof ProviderConfigError && args.serve) {
+      return { handled: false, setupRequired: error.message };
+    }
     // allow-fallback: provider configuration failure is terminal and reported to the host
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(
@@ -68,7 +88,7 @@ export async function routeProjectSetup(options: IProjectSetupRoutingOptions): P
         : 1,
     );
   }
-  return false;
+  return { handled: false };
 }
 
 async function runProjectInit(

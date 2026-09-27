@@ -222,6 +222,8 @@ export class InteractiveSession
   private providerDefinitions: readonly IProviderDefinition[] = [];
   private activeOutputStyleId = 'default';
   private orgPolicy: IOrgPolicy | null = null;
+  /** #3282 §3 — see the option doc comment on `IInteractiveSessionStandardOptions.setupRequired`. */
+  private setupRequired = false;
   /** The model fallback chain the session started with, re-read for each primary a switch picks. */
   private modelFallback?: {
     entries: readonly string[];
@@ -449,6 +451,7 @@ export class InteractiveSession
     if ('orgPolicy' in options) {
       this.orgPolicy = (options as IInteractiveSessionStandardOptions).orgPolicy ?? null;
     }
+    this.setupRequired = options.setupRequired ?? false;
     if ('provider' in options) {
       const provider = (options as IInteractiveSessionStandardOptions).provider;
       if (provider instanceof FallbackProvider && provider.chainOptions.entries !== undefined) {
@@ -737,6 +740,12 @@ export class InteractiveSession
     rawInput?: string,
     options: ISubmitOptions = {},
   ): Promise<ITurnHandle> {
+    // #3282 §3: no provider is configured yet — refuse the turn outright rather than reaching the
+    // placeholder provider. A client shows a setup screen instead of a composer while this holds
+    // (see `getStatusSnapshot().setupRequired`); this is the backstop for one that submits anyway.
+    if (this.setupRequired) {
+      throw new Error('Connect a model provider to start.');
+    }
     // This public attribution surface is not source admission. Reserve the namespace so an SDK
     // caller cannot replace an authenticated external sender's pending queue entry by id collision.
     if (options.turnSource === 'external' || options.driverId?.startsWith('external:')) {
@@ -1666,6 +1675,7 @@ export class InteractiveSession
       effort: session.getModelEffort(),
       context: session.getContextState(),
       goal: this.getGoalState(),
+      ...(this.setupRequired ? { setupRequired: true } : {}),
     };
   }
 
@@ -1903,6 +1913,10 @@ export class InteractiveSession
       this.providerDefinitions,
       this.userSettingsSources,
     );
+    // #3282 §3: a real provider resolved — whether this switch came from `/provider switch` (already
+    // configured, a no-op here) or from the setup flow's own hot-swap onto the first profile ever
+    // added, the session is no longer waiting on setup.
+    this.setupRequired = false;
     if (this.modelFallback === undefined) {
       session.swapProvider(provider, settings.model);
       return;

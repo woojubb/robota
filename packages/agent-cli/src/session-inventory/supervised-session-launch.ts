@@ -53,6 +53,46 @@ function hasExited(child: ChildProcess): boolean {
   return child.exitCode !== null || child.signalCode !== null;
 }
 
+/**
+ * Issue #3282 §3: the tail of what the child wrote to stderr before it died — the real reason (e.g.
+ * "No provider configuration found...", before setup mode existed to avoid it entirely; still the
+ * reason for anything else that kills the child early), where a plain "the readiness channel closed"
+ * or "the process exited" said nothing a caller — `robota daemon start --json`, the desktop fatal
+ * screen — could act on. Bounded so one runaway child cannot grow this without limit.
+ */
+const STDERR_TAIL_LIMIT = 4_000;
+
+function trackStderrTail(child: ChildProcess): () => string {
+  let tail = '';
+  child.stderr?.on('data', (chunk: Buffer | string) => {
+    tail = (tail + String(chunk)).slice(-STDERR_TAIL_LIMIT);
+  });
+  return () => tail.trim();
+}
+
+/**
+ * `exit`/`disconnect` can fire before a piped stream's last `data` event is delivered — Node's own
+ * documented reason `close` exists. A brief, bounded wait for the stream to actually end (never the
+ * full 20s readiness budget) makes "the child wrote a reason right before dying" land reliably
+ * without switching the failure signal itself to `close` (which can arrive later still, and this
+ * function's callers need to fail promptly either way).
+ */
+function stderrFlushed(child: ChildProcess): Promise<void> {
+  const stderr = child.stderr;
+  if (!stderr || stderr.readableEnded || stderr.destroyed) return Promise.resolve();
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (): void => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    stderr.once('end', done);
+    stderr.once('close', done);
+    setTimeout(done, 200);
+  });
+}
+
 async function waitForExit(child: ChildProcess, timeoutMs: number): Promise<boolean> {
   if (hasExited(child)) return true;
   return new Promise<boolean>((resolve) => {
@@ -149,13 +189,16 @@ export async function launchSupervisedSession(
     ], {
       cwd,
       detached: true,
-      stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+      // #3282 §3: stderr is piped (was 'ignore') so a death before readiness can report why —
+      // otherwise discarded exactly as before, and released on every exit path below.
+      stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
       env: options.env ?? process.env,
     });
   } catch (error) {
     discardHandoff();
     throw error;
   }
+  const readStderrTail = trackStderrTail(child);
   try {
     options.onSpawn?.(child);
   } catch {
@@ -167,11 +210,15 @@ export async function launchSupervisedSession(
   return new Promise<string>((resolve, reject) => {
     let done = false;
     let ready = false;
-    const timer = setTimeout(() => fail('Supervised session did not become ready in time.'), 20_000);
+    const timer = setTimeout(
+      () => failFromChild('Supervised session did not become ready in time.'),
+      20_000,
+    );
     const finish = (result: { ok: true } | { ok: false; message: string }): void => {
       if (done) return;
       done = true;
       clearTimeout(timer);
+      child.stderr?.destroy();
       if (result.ok) {
         try {
           child.disconnect();
@@ -189,9 +236,21 @@ export async function launchSupervisedSession(
       }
     };
     const fail = (message: string): void => finish({ ok: false, message });
-    child.once('error', () => fail('Supervised session process could not start.'));
-    child.once('exit', () => fail('Supervised session process exited before it was ready.'));
-    child.once('disconnect', () => fail('Supervised session readiness channel closed before acknowledgement.'));
+    // #3282 §3: these three are generic — "something killed the child before it said why". The
+    // child's own stderr tail, when it wrote one, IS why; a fallback text stands in only when it
+    // wrote nothing. The handshake's own structured errors below already know their own precise
+    // reason and are never replaced by incidental stderr output.
+    const failFromChild = (fallback: string): void => {
+      void stderrFlushed(child).then(() => {
+        const said = readStderrTail();
+        fail(said.length > 0 ? said : fallback);
+      });
+    };
+    child.once('error', () => failFromChild('Supervised session process could not start.'));
+    child.once('exit', () => failFromChild('Supervised session process exited before it was ready.'));
+    child.once('disconnect', () =>
+      failFromChild('Supervised session readiness channel closed before acknowledgement.'),
+    );
     child.on('message', (message: unknown) => {
       if (!isHandshakeMessage(message, id)) return fail('Supervised session sent an invalid readiness message.');
       if (message.kind === 'error') {

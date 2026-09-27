@@ -85,10 +85,16 @@ describe('session view background start route', () => {
     const previousExitCode = process.exitCode;
     vi.mocked(launchSupervisedSession).mockResolvedValue('8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4');
     vi.mocked(runSessionViewCommand).mockImplementation(async (_argv, options) => {
-      // The question names the folder and what trust would load.
+      // The question names the folder and what trust would load. #3282 §3: a row appears only when
+      // its state is known — only Linux's pinned handle-walk can tell a not-yet-created
+      // `.robota/settings.json` apart from one it cannot describe safely, so elsewhere `loads`
+      // reports none of the candidate paths before trust.
       await expect(options?.startTrustQuestion?.(cwd)).resolves.toMatchObject({
         folder: expect.any(String),
-        loads: expect.arrayContaining([expect.stringContaining('.robota/settings.json')]),
+        loads:
+          process.platform === 'linux'
+            ? expect.arrayContaining([expect.stringContaining('.robota/settings.json')])
+            : [],
       });
       // Without an answer an untrusted folder is still refused.
       await expect(options?.start?.(cwd)).rejects.toThrow(/Workspace trust is required/);

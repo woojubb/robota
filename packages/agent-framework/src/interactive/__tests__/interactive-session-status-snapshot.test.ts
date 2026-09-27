@@ -64,4 +64,18 @@ describe('InteractiveSession.getStatusSnapshot', () => {
     const session = new InteractiveSession({ session: mockSession() as never, cwd: '/tmp' });
     expect(session.getStatusSnapshot()).not.toHaveProperty('sessionName');
   });
+
+  it('#3282 §3: reports setupRequired when constructed with it, so a client shows a setup screen', () => {
+    const session = new InteractiveSession({
+      session: mockSession() as never,
+      cwd: '/tmp',
+      setupRequired: true,
+    });
+    expect(session.getStatusSnapshot().setupRequired).toBe(true);
+  });
+
+  it('#3282 §3: leaves setupRequired out for every ordinary session (absent, never false)', () => {
+    const session = new InteractiveSession({ session: mockSession() as never, cwd: '/tmp' });
+    expect(session.getStatusSnapshot()).not.toHaveProperty('setupRequired');
+  });
 });
