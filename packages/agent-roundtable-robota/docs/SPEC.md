@@ -72,4 +72,11 @@ admitting and reporting what a runtime already reports, and it does not implemen
   history once there is a boundary safe to restore from.
 - A selector's agent must carry no tool of its own before the decision tool is added, and the check
   runs before any provider call: a decision an agent could reach two ways can never be trusted to have
-  been reached through the one this package can verify.
+  been reached through the one this package can verify. Its own decision tool never counts against
+  that check, and is always removed again once the decision is made or the attempt fails, so a
+  cancelled or failed decision never disables every later one on the same reused agent.
+- A selector's agent has its history cleared before every decision and is shown the shared
+  conversation itself, rendered the same way a participant's turn is: reused with no checkpoint of
+  its own, it would otherwise accumulate private history a freshly reloaded selector never sees, so a
+  live selector's judgment — and its cost — would drift from a reloaded one deciding from the same
+  `SelectionContext`.
