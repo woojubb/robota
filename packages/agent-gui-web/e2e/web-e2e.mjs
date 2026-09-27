@@ -176,10 +176,16 @@ try {
     await page.getByRole('button', { name: 'Usage' }).click();
     await page.getByRole('heading', { name: 'Personal usage' }).waitFor();
     await page.getByText('scripted-model').waitFor();
-    await page.getByRole('button', { name: 'Open session usage-e2e-session' }).click();
-    await page.getByRole('region', { name: 'Session usage detail' }).getByText('42').waitFor();
+    // The session button shows the report's own readable name, never the raw session id.
+    await page.getByRole('button', { name: 'Open session Usage e2e session' }).click();
+    const detail = page.getByRole('region', { name: 'Session usage detail' });
+    await detail.getByText('42').waitFor();
+    await detail.getByRole('heading', { name: 'Usage e2e session' }).waitFor();
     if ((await page.getByText('PROMPT_CONTENT_MUST_NOT_APPEAR').count()) !== 0) {
       throw new Error('dashboard rendered raw persisted content');
+    }
+    if ((await page.getByText('usage-e2e-session').count()) !== 0) {
+      throw new Error('dashboard rendered the raw session id as visible text');
     }
   });
 

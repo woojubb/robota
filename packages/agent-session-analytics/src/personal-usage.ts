@@ -4,6 +4,7 @@ import {
   type INormalizedActivity,
   type INormalizedObservation,
 } from './personal-usage-decode.js';
+import { buildSessionLabels } from './personal-usage-labels.js';
 
 import type {
   IPersonalUsageDimension,
@@ -37,6 +38,8 @@ interface IMutableTotals {
   costUsd: number;
   hasUnknownCost: boolean;
   hasEstimatedCost: boolean;
+  /** Turns (not advisor/tool shares) whose cost could not be priced; a subset of `hasUnknownCost`. */
+  unpricedTurns: number;
 }
 
 function createMutableTotals(): IMutableTotals {
@@ -50,6 +53,7 @@ function createMutableTotals(): IMutableTotals {
     costUsd: 0,
     hasUnknownCost: false,
     hasEstimatedCost: false,
+    unpricedTurns: 0,
   };
 }
 
@@ -100,13 +104,18 @@ function addObservation(target: IMutableTotals, item: INormalizedObservation): v
   target.observations += 1;
   // A consulted model's usage (the advisor, a tool source) belongs to the turn that consulted it;
   // it adds tokens and cost, not a turn.
-  if (!item.legacy && item.observation.source?.scope !== 'tool') target.turns += 1;
+  const isTurn = !item.legacy && item.observation.source?.scope !== 'tool';
+  if (isTurn) target.turns += 1;
   target.promptTokens += usage?.promptTokens ?? 0;
   target.completionTokens += usage?.completionTokens ?? 0;
   target.totalTokens += usage?.totalTokens ?? 0;
   target.costUsd += usage?.costUsd ?? 0;
-  if (!usage || usage.costStatus === 'unknown') target.hasUnknownCost = true;
-  if (usage?.costStatus === 'estimated') target.hasEstimatedCost = true;
+  if (usage?.costStatus === 'estimated') {
+    target.hasEstimatedCost = true;
+  } else {
+    target.hasUnknownCost = true;
+    if (isTurn) target.unpricedTurns += 1;
+  }
 }
 
 /**
@@ -169,12 +178,11 @@ function freezeTotals(totals: IMutableTotals): IPersonalUsageTotals {
     completionTokens: totals.completionTokens,
     totalTokens: totals.totalTokens,
     costUsd: totals.costUsd,
-    costStatus:
-      totals.observations === 0 || totals.hasUnknownCost
-        ? 'unknown'
-        : totals.hasEstimatedCost
-          ? 'estimated'
-          : 'exact',
+    // `costUsd` already sums every priced turn regardless of what else in the aggregate is unpriced,
+    // so one unpriced observation (a legacy row, an unknown model, an unpriced advisor call) must never
+    // by itself turn an otherwise-priced total into `unknown` — only the absence of ANY priced turn does.
+    costStatus: totals.hasEstimatedCost ? 'estimated' : 'unknown',
+    ...(totals.unpricedTurns > 0 ? { unpricedTurns: totals.unpricedTurns } : {}),
   };
 }
 
@@ -297,6 +305,7 @@ export function summarizePersonalUsage(input: IPersonalUsageSnapshot): IPersonal
     bySource: dimensions(selected, (item) => sourceKey(item.observation.source)),
     byActivity: activityDimensions(selection.activities),
     sessionIds: [...totals.sessions].sort(),
+    sessionLabels: buildSessionLabels(input.records, totals.sessions),
     coverage: {
       validSessions: input.records.length,
       corruptSessions: input.corruptSessionIds?.length ?? 0,

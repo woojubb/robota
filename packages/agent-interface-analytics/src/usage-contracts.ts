@@ -171,8 +171,12 @@ export interface IPersonalUsageTotals {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  /** Sum of every turn's known `costUsd`; unpriced turns contribute 0, so this is never `unknown`'s cause. */
   costUsd: number;
+  /** `unknown` iff nothing in this aggregate could be priced; otherwise this is a sum of what could be. */
   costStatus: 'unknown' | 'estimated' | 'exact';
+  /** Count of turns that could not be priced and so are excluded from `costUsd`; omitted when 0. */
+  unpricedTurns?: number;
 }
 
 export interface IPersonalUsageDimension extends Omit<IPersonalUsageTotals, 'sessions'> {
@@ -210,7 +214,19 @@ export interface IPersonalUsageCoverage {
   unsupportedSessionIds: string[];
 }
 
-/** OBSERVABILITY-2577: stable, content-free cross-session report consumed by CLI and GUI. */
+/** A person's own session, named for their own dashboard: never sent unless that session contributed usage. */
+export interface IPersonalUsageSessionLabel {
+  /** The session's own name, else a short one-line lead from its first request, else "Untitled session". */
+  title: string;
+  /** Basename of the session's working directory, when recorded. */
+  workspace?: string;
+}
+
+/**
+ * OBSERVABILITY-2577: stable cross-session report consumed by CLI and GUI. Every field is content-free
+ * EXCEPT `sessionLabels`, a deliberate, short, one-line exception so a person can recognize their own
+ * sessions on their own local dashboard.
+ */
 export interface IPersonalUsageReport {
   schemaVersion: 1;
   generatedAt: string;
@@ -226,6 +242,8 @@ export interface IPersonalUsageReport {
   byActivity: IPersonalUsageActivity[];
   sessionIds: string[];
   coverage: IPersonalUsageCoverage;
+  /** Keyed by session id, for every session in `sessionIds` a label could be derived for. */
+  sessionLabels?: Record<string, IPersonalUsageSessionLabel>;
 }
 
 /**

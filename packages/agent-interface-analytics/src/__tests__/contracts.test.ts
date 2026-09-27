@@ -5,6 +5,8 @@ import type {
   IPersonalUsageReport,
   IPersonalUsageActivity,
   IPersonalUsageRequest,
+  IPersonalUsageSessionLabel,
+  IPersonalUsageTotals,
   IUsageObservation,
   IUsageBySourceReport,
   IUsageSnapshot,
@@ -44,5 +46,11 @@ describe('analytics contract surface', () => {
     expectTypeOf<IPersonalUsageReport>().toHaveProperty('coverage');
     expectTypeOf<IPersonalUsageReport>().toHaveProperty('byActivity');
     expectTypeOf<IPersonalUsageActivity>().toHaveProperty('count');
+  });
+
+  it('names sessions for a person\'s own dashboard, and counts what a total left unpriced', () => {
+    expectTypeOf<IPersonalUsageReport>().toHaveProperty('sessionLabels');
+    expectTypeOf<IPersonalUsageSessionLabel>().toHaveProperty('title');
+    expectTypeOf<IPersonalUsageTotals>().toHaveProperty('unpricedTurns');
   });
 });

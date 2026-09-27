@@ -21,3 +21,7 @@ export type TPersonalUsageDashboardState = Pick<
 export type TPersonalUsageReport = NonNullable<TPersonalUsageDashboardState['personalUsageReport']>;
 
 export type TPersonalUsageDimension = TPersonalUsageReport['byModel'][number];
+
+export type TPersonalUsageSessionLabel = NonNullable<
+  TPersonalUsageReport['sessionLabels']
+>[string];

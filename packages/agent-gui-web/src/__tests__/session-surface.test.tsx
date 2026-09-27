@@ -396,6 +396,11 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
       bySource: [],
       byActivity: [],
       sessionIds: ['a', 'b', 'c'],
+      sessionLabels: {
+        a: { title: 'Session A' },
+        b: { title: 'Session B' },
+        c: { title: 'Session C' },
+      },
       coverage: {
         validSessions: 3,
         corruptSessions: 0,
@@ -422,7 +427,8 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(screen.getByText('1,200')).toBeTruthy();
     expect(screen.getByText('gpt-test')).toBeTruthy();
     expect(screen.getByText(/partial day/i)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Open session a' }));
+    // The button shows the session's readable name, never the raw id (#3289 §4).
+    fireEvent.click(screen.getByRole('button', { name: 'Open session Session A' }));
     expect(state.requestStoredSessionUsage).toHaveBeenCalledWith('a');
   });
 

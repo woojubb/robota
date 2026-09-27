@@ -512,6 +512,11 @@ const transport = new WsTransport({
       bySource: [],
       byActivity: [{ key: 'tool:Read', label: 'Read', kind: 'tool', count: 2 }],
       sessionIds: ['usage-e2e-session'],
+      // A readable name, given directly rather than derived from prompt content: the dashboard must
+      // never fall back to raw session content for its label, so this session gets a name of its own.
+      sessionLabels: {
+        'usage-e2e-session': { title: 'Usage e2e session', workspace: 'scripted-workspace' },
+      },
       coverage: {
         validSessions: 1,
         corruptSessions: 0,

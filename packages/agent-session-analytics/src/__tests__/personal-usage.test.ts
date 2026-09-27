@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { calculateModelCost } from '@robota-sdk/agent-core';
 
 import { summarizePersonalUsage } from '../personal-usage.js';
 
@@ -411,5 +412,283 @@ describe('summarizePersonalUsage', () => {
       ],
     });
     expect(report.bySurface.map((entry) => entry.key)).toEqual(['attach']);
+  });
+
+  describe('cost: one unpriced observation never hides an otherwise-priced total', () => {
+    const advisorSource = { scope: 'tool', id: 'advisor:big-model', label: 'Advisor (big-model)' };
+
+    function priced(
+      turnId: string,
+      promptTokens: number,
+      completionTokens: number,
+      costUsd: number,
+      extra: Record<string, unknown> = {},
+    ) {
+      return {
+        usageObservationId: turnId,
+        turnId,
+        outcome: 'success',
+        usage: {
+          kind: 'estimated',
+          scope: 'turn',
+          totalTokens: promptTokens + completionTokens,
+          promptTokens,
+          completionTokens,
+          contextUsedTokens: 0,
+          contextMaxTokens: 0,
+          contextUsedPercentage: 0,
+          costStatus: 'estimated',
+          costUsd,
+        },
+        ...extra,
+      };
+    }
+
+    function unpriced(
+      turnId: string,
+      tokens: number,
+      extra: Record<string, unknown> = {},
+    ) {
+      return {
+        usageObservationId: turnId,
+        turnId,
+        outcome: 'success',
+        usage: {
+          kind: 'estimated',
+          scope: 'turn',
+          totalTokens: tokens,
+          contextUsedTokens: 0,
+          contextMaxTokens: 0,
+          contextUsedPercentage: 0,
+          costStatus: 'unknown',
+        },
+        ...extra,
+      };
+    }
+
+    it('does not poison the total when an advisor call could not be priced (was: costStatus unknown)', () => {
+      const report = summarizePersonalUsage({
+        request: { period: '7d', timezone: 'UTC' },
+        now: new Date('2026-09-06T12:00:00.000Z'),
+        records: [
+          record('s1', [
+            { id: 'e1', at: '2026-09-05T10:00:00.000Z', data: priced('turn-1', 100, 50, 0.5) },
+            { id: 'e2', at: '2026-09-05T10:01:00.000Z', data: priced('turn-2', 100, 50, 0.75) },
+            {
+              id: 'e3',
+              at: '2026-09-05T10:02:00.000Z',
+              data: unpriced('advisor-1', 500, { source: advisorSource }),
+            },
+          ]),
+        ],
+      });
+
+      expect(report.totals.costStatus).toBe('estimated');
+      expect(report.totals.costUsd).toBeCloseTo(1.25, 10);
+      // The unpriced observation was an advisor/tool call, not a turn of its own, so it never counts
+      // toward "turns without a price".
+      expect(report.totals.unpricedTurns).toBeUndefined();
+    });
+
+    it('counts a turn that could not be priced, and keeps summing what could be', () => {
+      const report = summarizePersonalUsage({
+        request: { period: '7d', timezone: 'UTC' },
+        now: new Date('2026-09-06T12:00:00.000Z'),
+        records: [
+          record('s1', [
+            { id: 'e1', at: '2026-09-05T10:00:00.000Z', data: priced('turn-1', 100, 50, 0.5) },
+            { id: 'e2', at: '2026-09-05T10:01:00.000Z', data: priced('turn-2', 100, 50, 0.75) },
+            { id: 'e3', at: '2026-09-05T10:02:00.000Z', data: unpriced('turn-3', 500) },
+          ]),
+        ],
+      });
+
+      expect(report.totals).toMatchObject({ turns: 3, costStatus: 'estimated', unpricedTurns: 1 });
+      expect(report.totals.costUsd).toBeCloseTo(1.25, 10);
+    });
+
+    it('shows unknown only when nothing in the aggregate could be priced', () => {
+      const report = summarizePersonalUsage({
+        request: { period: '7d', timezone: 'UTC' },
+        now: new Date('2026-09-06T12:00:00.000Z'),
+        records: [
+          record('s1', [{ id: 'e1', at: '2026-09-05T10:00:00.000Z', data: unpriced('turn-1', 500) }]),
+        ],
+      });
+
+      expect(report.totals.costStatus).toBe('unknown');
+      expect(report.totals.costUsd).toBe(0);
+      expect(report.totals.unpricedTurns).toBe(1);
+    });
+
+    /**
+     * Mirrors the fixture in `packages/agent-command/src/session/__tests__/session-command-module.test.ts`
+     * ("totals main and advisor usage, pricing the advisor on its own model" / "does not price an
+     * unpriced advisor model at the main rate"): the same main-turn tokens/model, the same priced
+     * advisor call, and the same unpriced advisor call. `/cost` sums the main turn's own price plus the
+     * priced advisor's, and leaves the unpriced advisor out entirely — never repricing it at the main
+     * model's rate. The personal-usage report must land on the exact same total for a period holding
+     * only this one session, since both readers are summing the same recorded per-turn prices.
+     */
+    it('matches what /cost reports for the same session (built from the same per-turn records)', () => {
+      const own = calculateModelCost('claude-sonnet-4-5', 40_000, 10_000)!;
+      const report = summarizePersonalUsage({
+        request: { period: '7d', timezone: 'UTC' },
+        now: new Date('2026-09-06T12:00:00.000Z'),
+        records: [
+          record('current-session', [
+            {
+              id: 'e1',
+              at: '2026-09-05T10:00:00.000Z',
+              data: priced('turn-1', 40_000, 10_000, own, {
+                modelId: 'claude-sonnet-4-5',
+                providerId: 'anthropic',
+              }),
+            },
+            {
+              id: 'e2',
+              at: '2026-09-05T10:01:00.000Z',
+              data: priced('advisor-priced', 5_000, 2_000, 1.5, {
+                modelId: 'big-model',
+                providerId: 'vendor-b',
+                source: advisorSource,
+              }),
+            },
+            {
+              id: 'e3',
+              at: '2026-09-05T10:02:00.000Z',
+              data: unpriced('advisor-unpriced', 4_000, {
+                modelId: 'big-model',
+                providerId: 'vendor-b',
+                source: advisorSource,
+              }),
+            },
+          ]),
+        ],
+      });
+
+      expect(report.totals.costStatus).toBe('estimated');
+      expect(report.totals.costUsd).toBeCloseTo(own + 1.5, 10);
+    });
+  });
+
+  describe('sessionLabels: a readable name for a person\'s own dashboard', () => {
+    it('prefers the session\'s own name, truncated to a short label', () => {
+      const long = 'x'.repeat(120);
+      const named: IInteractiveSessionRecord = {
+        id: 'named',
+        name: long,
+        cwd: '/Users/me/projects/robota',
+        createdAt: '2026-09-05T00:00:00.000Z',
+        updatedAt: '2026-09-05T01:00:00.000Z',
+        messages: [],
+        history: [
+          {
+            id: 'e1',
+            timestamp: new Date('2026-09-05T01:00:00.000Z'),
+            category: 'event',
+            type: 'usage-observation',
+            data: { usageObservationId: 't1', turnId: 't1', outcome: 'success' },
+          },
+        ],
+      };
+
+      const report = summarizePersonalUsage({
+        request: { period: '7d', timezone: 'UTC' },
+        now: new Date('2026-09-06T12:00:00.000Z'),
+        records: [named],
+      });
+
+      const label = report.sessionLabels?.['named'];
+      expect(label?.title.length).toBeLessThanOrEqual(60);
+      expect(label?.title.endsWith('…')).toBe(true);
+      expect(label?.workspace).toBe('robota');
+    });
+
+    it('falls back to a short first line of the first user message when there is no name', () => {
+      const firstMessage: IInteractiveSessionRecord = {
+        id: 'first-msg',
+        cwd: '/work/app',
+        createdAt: '2026-09-05T00:00:00.000Z',
+        updatedAt: '2026-09-05T01:00:00.000Z',
+        messages: [
+          {
+            id: 'm1',
+            timestamp: new Date('2026-09-05T00:00:00.000Z'),
+            state: 'complete',
+            role: 'user',
+            content: 'Fix the login bug\nHere are the repro steps...',
+          },
+        ],
+        history: [
+          {
+            id: 'e1',
+            timestamp: new Date('2026-09-05T01:00:00.000Z'),
+            category: 'event',
+            type: 'usage-observation',
+            data: { usageObservationId: 't1', turnId: 't1', outcome: 'success' },
+          },
+        ],
+      };
+
+      const report = summarizePersonalUsage({
+        request: { period: '7d', timezone: 'UTC' },
+        now: new Date('2026-09-06T12:00:00.000Z'),
+        records: [firstMessage],
+      });
+
+      expect(report.sessionLabels?.['first-msg']).toEqual({
+        title: 'Fix the login bug',
+        workspace: 'app',
+      });
+    });
+
+    it('falls back to "Untitled session" and omits workspace when cwd is empty', () => {
+      const blank: IInteractiveSessionRecord = {
+        id: 'blank',
+        cwd: '',
+        createdAt: '2026-09-05T00:00:00.000Z',
+        updatedAt: '2026-09-05T01:00:00.000Z',
+        messages: [],
+        history: [
+          {
+            id: 'e1',
+            timestamp: new Date('2026-09-05T01:00:00.000Z'),
+            category: 'event',
+            type: 'usage-observation',
+            data: { usageObservationId: 't1', turnId: 't1', outcome: 'success' },
+          },
+        ],
+      };
+
+      const report = summarizePersonalUsage({
+        request: { period: '7d', timezone: 'UTC' },
+        now: new Date('2026-09-06T12:00:00.000Z'),
+        records: [blank],
+      });
+
+      expect(report.sessionLabels?.['blank']).toEqual({ title: 'Untitled session' });
+    });
+
+    it('never labels a session outside the reported period', () => {
+      const outOfRange: IInteractiveSessionRecord = {
+        id: 'stale',
+        name: 'Should not appear',
+        cwd: '/should/not-appear',
+        createdAt: '2020-01-01T00:00:00.000Z',
+        updatedAt: '2020-01-01T00:00:00.000Z',
+        messages: [],
+        history: [],
+      };
+
+      const report = summarizePersonalUsage({
+        request: { period: '7d', timezone: 'UTC' },
+        now: new Date('2026-09-06T12:00:00.000Z'),
+        records: [outOfRange],
+      });
+
+      expect(report.sessionLabels).toEqual({});
+      expect(JSON.stringify(report)).not.toContain('not-appear');
+    });
   });
 });
