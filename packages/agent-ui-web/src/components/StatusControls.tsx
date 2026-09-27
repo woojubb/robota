@@ -3,6 +3,7 @@
 import { Gauge, Shield, Sparkles } from 'lucide-react';
 import { useRef, useState } from 'react';
 
+import { ConfirmDialog } from './Dialog.js';
 import { PopupMenu } from './PopupMenu.js';
 
 import type { IPopupMenuItem, IPopupMenuSection } from './PopupMenu.js';
@@ -135,6 +136,9 @@ export function StatusRow({
   connected: boolean;
 }): React.ReactElement {
   const used = status ? Math.round(status.context.usedPercentage) : null;
+  // #3282 §2: "Skip all checks" asks for confirmation on the shared `ConfirmDialog` (#3331) before
+  // applying — every other mode applies at once. `true` while that confirmation is open.
+  const [pendingBypassConfirm, setPendingBypassConfirm] = useState(false);
 
   const modelSections: IPopupMenuSection[] = [
     ...(modelList?.groups ?? []).map((group) => ({
@@ -172,13 +176,11 @@ export function StatusRow({
           label: sub.displayName ?? sub.name,
           description: sub.description,
           checked: sub.name === status?.permissionMode,
-          // #3282 §2: every mode but "Skip all checks" applies at once — the same seam the request
-          // for that mode alone (still applied directly, unconfirmed, pending #3282 §2's bypass
-          // confirmation — tracked separately, see the PR description) uses `onCommand` instead so
-          // its outcome (currently the only mode with no confirmation) keeps its own card.
+          // #3282 §2: every mode but "Skip all checks" applies at once; that one opens a
+          // confirmation first (rendered below) instead of applying here directly.
           onSelect:
             sub.name === 'bypassPermissions'
-              ? () => onCommand('mode', sub.name)
+              ? () => setPendingBypassConfirm(true)
               : () => onSilentCommand('mode', sub.name),
         }),
       ),
@@ -252,6 +254,21 @@ export function StatusRow({
         <ContextRing percent={used ?? 0} />
         {used === null ? '' : `${used}%`}
       </span>
+      {/* #3282 §2: matches the wording the Settings screen's own permission-mode picker already
+          ships for the identical action (#3331's `SettingsScreen.tsx`), so switching to "Skip all
+          checks" reads the same warning regardless of which control was used. */}
+      <ConfirmDialog
+        open={pendingBypassConfirm}
+        title="Skip all permission checks?"
+        body="Every action runs without asking first — file edits, shell commands and network access included. You can turn this back on at any time."
+        confirmLabel="Skip all checks"
+        destructive
+        onCancel={() => setPendingBypassConfirm(false)}
+        onConfirm={() => {
+          setPendingBypassConfirm(false);
+          onSilentCommand('mode', 'bypassPermissions');
+        }}
+      />
     </div>
   );
 }

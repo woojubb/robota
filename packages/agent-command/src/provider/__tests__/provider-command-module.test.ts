@@ -348,7 +348,7 @@ describe('createProviderCommandModule', () => {
 
     // The confirm prompt must actually be issued — guards against a silent drop of the
     // confirmation step that would still "delete and pass".
-    expect(requests[2]?.title).toBe('Delete provider profile anthropic?');
+    expect(requests[2]?.title).toBe('Delete profile "anthropic"?');
     expect(completed?.message).toBe('Provider profile deleted: anthropic.');
     expect(readTarget()).toEqual({
       currentProvider: 'openai',
@@ -385,7 +385,7 @@ describe('createProviderCommandModule', () => {
     const completed = await createExecutor(adapter).execute('provider', context, 'list');
 
     // The confirm precedes the replacement picker — assert both so neither step can be dropped silently.
-    expect(requests[2]?.title).toBe('Delete provider profile anthropic?');
+    expect(requests[2]?.title).toBe('Delete profile "anthropic"?');
     expect(requests[3]?.title).toBe('Replacement provider for anthropic');
     expect(readTarget()).toEqual({
       currentProvider: 'openai',

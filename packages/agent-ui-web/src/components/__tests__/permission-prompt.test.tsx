@@ -1028,3 +1028,74 @@ describe('#3282 §2: the provider profile action menu separates Delete', () => {
     expect(screen.getByRole('button', { name: 'en' }).getAttribute('aria-keyshortcuts')).toBe('2');
   });
 });
+
+/**
+ * #3282 §2 (part 2) — profile deletion is confirmed on the shared `ConfirmDialog` (#3331), now that
+ * it exists, instead of the generic Yes/No ask grid: a destructive-styled "Delete" button, Cancel
+ * focused by default, and no accidental backdrop-click dismissal.
+ */
+describe('#3282 §2: profile delete is confirmed on ConfirmDialog', () => {
+  afterEach(cleanup);
+
+  function providerDeleteConfirmAsk(): TPendingPrompt {
+    return {
+      kind: 'ask',
+      id: 'confirm-1',
+      request: {
+        id: 'provider-delete',
+        title: 'Delete profile "anthropic"?',
+        options: [
+          { value: 'yes', label: 'Yes' },
+          { value: 'no', label: 'No' },
+        ],
+      },
+    } as unknown as TPendingPrompt;
+  }
+
+  it('renders as a ConfirmDialog with a destructive Delete button, not the generic ask grid', () => {
+    render(
+      <Surface
+        prompts={[providerDeleteConfirmAsk()]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('dialog', { name: 'Delete profile "anthropic"?' })).toBeTruthy();
+    const deleteButton = screen.getByRole('button', { name: 'Delete' });
+    expect(deleteButton.className).toContain('destructive');
+    // Not the old generic Yes/No grid.
+    expect(screen.queryByRole('button', { name: 'Yes' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'No' })).toBeNull();
+  });
+
+  it('Cancel is present and answers the ask as cancelled', () => {
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface
+        prompts={[providerDeleteConfirmAsk()]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={onAnswerAsk}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(onAnswerAsk).toHaveBeenCalledWith('confirm-1', { type: 'cancelled' });
+  });
+
+  it('confirming Delete answers the ask with the same "yes" value the server-side confirmAction expects', () => {
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface
+        prompts={[providerDeleteConfirmAsk()]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={onAnswerAsk}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    expect(onAnswerAsk).toHaveBeenCalledWith('confirm-1', { type: 'answer', values: ['yes'] });
+  });
+});

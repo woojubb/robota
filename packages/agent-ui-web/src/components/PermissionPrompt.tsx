@@ -11,6 +11,7 @@ import React, {
 } from 'react';
 
 import { driverAttributionText, isSameSurface } from '../driver-labels.js';
+import { ConfirmDialog } from './Dialog.js';
 import { DiffLines } from './DiffLines.js';
 
 import type { TPendingPrompt } from '../hooks/prompt-state.js';
@@ -150,6 +151,27 @@ export function PermissionPrompt({
     }
   }, [promptId, onFocusReturn]);
   if (!prompt) return null;
+
+  // #3282 §2 (part 2): the provider-delete confirmation (`buildProviderDelete` in agent-command's
+  // `provider-command-profile-lifecycle.ts`) is now built on the shared `ConfirmDialog` (#3331)
+  // instead of the generic ask grid — a destructive-styled "Delete", Cancel focused by default, and
+  // no accidental backdrop-click dismissal. `confirmAction`'s own `CONFIRM_YES`/`CONFIRM_NO` values
+  // ('yes'/'no', from `@robota-sdk/agent-core`) are answered directly; this bypasses the rest of this
+  // component's dock/modal chrome and digit-shortcut machinery entirely, since `Dialog` already owns
+  // its own focus trap, Esc handling and focus restore.
+  if (prompt.kind === 'ask' && prompt.request.id === 'provider-delete') {
+    return (
+      <ConfirmDialog
+        open
+        title={prompt.request.title}
+        body="This removes it from your provider profiles. This can't be undone."
+        confirmLabel="Delete"
+        destructive
+        onCancel={() => onAnswerAsk(prompt.id, { type: 'cancelled' })}
+        onConfirm={() => onAnswerAsk(prompt.id, { type: 'answer', values: ['yes'] })}
+      />
+    );
+  }
 
   // REMOTE-014 E5 (display-only): the prompt belongs to the driver whose turn raised it. Shown so the owner
   // can tell a co-driver's tool-gate from their own — it NEVER changes who is authorized to answer (owner).
