@@ -52,7 +52,7 @@ import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
 import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from '../startup/loop-options.js';
 import { homedir } from 'node:os';
 import { realpathSync } from 'node:fs';
-import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
+import type { IAIProvider, IProviderDefinition, IToolWithEventService } from '@robota-sdk/agent-core';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type {
   EditCheckpointStore,
@@ -90,6 +90,15 @@ export interface IServeModeOptions {
   supervisedRoot?: string;
   args: IParsedCliArgs;
   provider: IAIProvider;
+  /**
+   * #3282: forwarded to the session so `/provider switch` can construct the provider it switches TO.
+   *
+   * Not optional-by-accident: without it the session holds an empty list, and the hot-swap fails with
+   * "Unknown provider: <name>. Currently supported: " — an empty supported-list, which is both wrong
+   * and unactionable. The TUI has carried this since #1844 (see the comment on `providerDefinitions`
+   * in `packages/agent-ui-terminal/src/tui-channel-options.ts`); a served session never had it.
+   */
+  providerDefinitions?: readonly IProviderDefinition[];
   providerErrorGuidance?: IProviderErrorGuidance;
   promptFileReferenceTag?: string;
   modelCommandToolPrefix?: string;
@@ -190,6 +199,9 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     cwd: opts.cwd,
     ...(opts.livePromptTrace ? { livePromptTrace: opts.livePromptTrace } : {}),
     provider: opts.provider,
+    // #3282: the session reads these when `/provider switch` hot-swaps. Absent, the switch throws
+    // "Unknown provider: <name>. Currently supported: " with an EMPTY list — measured, not inferred.
+    ...(opts.providerDefinitions ? { providerDefinitions: opts.providerDefinitions } : {}),
     ...(opts.providerErrorGuidance !== undefined
       ? { providerErrorGuidance: opts.providerErrorGuidance }
       : {}),

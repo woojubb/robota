@@ -97,6 +97,10 @@ describe('org policy enforcement in provider commands', () => {
   });
 
   it('allows /provider switch when target is in allowedProviders', async () => {
+    // #3282: the switch now validates the target profile against `providerDefinitions` before
+    // writing anything, the same way the hot-swap it triggers would build the provider — so the
+    // profile needs a resolvable credential, same as a real one would.
+    vi.stubEnv('OPENAI_API_KEY', 'sk-test');
     const { adapter } = createSettingsAdapter({
       currentProvider: 'anthropic',
       providers: {
