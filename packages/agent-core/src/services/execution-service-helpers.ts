@@ -276,6 +276,7 @@ export function buildFullExecutionContext(
     awaitProviderSettlement: context?.awaitProviderSettlement,
     ...(context?.onTextDelta && { onTextDelta: context.onTextDelta }),
     ...(context?.onExecutionEvent && { onExecutionEvent: context.onExecutionEvent }),
+    ...(context?.executionJournal && { executionJournal: context.executionJournal }),
     ...(context?.maxExecutionRounds !== undefined && {
       maxExecutionRounds: context.maxExecutionRounds,
     }),

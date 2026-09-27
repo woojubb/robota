@@ -7,6 +7,11 @@ import {
 import { type IExecutionRoundState } from './execution-types';
 import { getModelContextWindow } from '../context/models';
 import { SameToolInputLoopError } from '../utils/errors';
+import { randomId } from '../utils/random-id';
+import { appendExecutionRecord } from './execution-journal';
+import type { IExecutionJournal } from '../interfaces/execution-journal';
+import type { IRecoveredToolBatch } from './execution-recovery-state';
+import { toolContinuation } from './execution-tool-waits';
 
 import type { IRoundDependencies } from './execution-round-types';
 import type { IToolExecutionBatchContext } from './tool-execution-service';
@@ -60,6 +65,11 @@ export async function executeAndRecordToolCalls(
   onExecutionEvent?: TExecutionEventCallback,
   maxSameToolInputs?: number,
   traceContext?: IRunTraceContext,
+  journalContext?: {
+    journal: IExecutionJournal;
+    parentCallId: string;
+    recovery?: IRecoveredToolBatch;
+  },
 ): Promise<IToolResultsOutcome> {
   const { toolExecutionService, logger, eventEmitter } = deps;
 
@@ -114,6 +124,73 @@ export async function executeAndRecordToolCalls(
     continueOnError: true,
     signal,
   };
+  if (journalContext) {
+    const { journal, parentCallId } = journalContext;
+    const recovered = toolRequests.map((request) =>
+      journalContext.recovery?.actions.get(request.executionId ?? ''),
+    );
+    const actions = toolRequests.map((request) => ({
+      actionId:
+        journalContext.recovery?.actions.get(request.executionId ?? '')?.actionId ?? randomId(),
+      parentCallId,
+      executionId,
+      toolCallId: request.executionId ?? '',
+      toolName: request.toolName,
+    }));
+    const continuations = actions.map((action, index) =>
+      toolContinuation(journal, action, recovered[index]?.waits),
+    );
+    // Every decoded intent must be durable before ANY member of the batch is dispatched.
+    for (let index = 0; index < toolRequests.length; index++) {
+      const request = toolRequests[index];
+      if (
+        request.argumentDecodeError !== undefined ||
+        recovered[index]?.intent ||
+        recovered[index]?.result
+      )
+        continue;
+      await appendExecutionRecord(journal, {
+        kind: 'tool-intent',
+        recordId: `${actions[index].actionId}:intent`,
+        ...actions[index],
+        parameters: request.parameters,
+      });
+    }
+    toolContext.journal = {
+      continuation: (index) => continuations[index].continuation,
+      settle: (index) => continuations[index].settle(),
+      beforeDispatch: (index) =>
+        recovered[index]?.dispatched
+          ? Promise.resolve()
+          : appendExecutionRecord(journal, {
+              kind: 'tool-dispatch',
+              recordId: `${actions[index].actionId}:dispatch`,
+              ...actions[index],
+            }),
+      onResult: (index, result) =>
+        appendExecutionRecord(journal, {
+          kind: 'tool-result',
+          recordId: `${actions[index].actionId}:result`,
+          ...actions[index],
+          result,
+          loadedDeferredTools: toolExecutionService.getLoadedDeferredTools(),
+        }),
+      beforeEffect: (index, parameters) =>
+        continuations[index].admit(() =>
+          appendExecutionRecord(journal, {
+            kind: 'tool-effect-start',
+            recordId: `${actions[index].actionId}:effect-start`,
+            ...actions[index],
+            parameters,
+          }),
+        ),
+    };
+    toolContext.recoveredResults = new Map(
+      recovered.flatMap((action, index) =>
+        action?.result ? [[index, action.result] as const] : [],
+      ),
+    );
+  }
 
   onExecutionEvent?.('tool_batch_started', {
     executionId,
@@ -169,7 +246,9 @@ export async function executeAndRecordToolCalls(
 
   roundState.toolsExecuted.push(
     ...toolSummary.results
-      .filter((result) => !isUnknownToolExecutionResult(result) && !isArgumentDecodeErrorResult(result))
+      .filter(
+        (result) => !isUnknownToolExecutionResult(result) && !isArgumentDecodeErrorResult(result),
+      )
       .map((r) => {
         if (!r.toolName || r.toolName.length === 0) {
           throw new Error('[EXECUTION] Tool result missing toolName');
@@ -178,7 +257,9 @@ export async function executeAndRecordToolCalls(
       }),
   );
 
-  const contextLimit = getModelContextWindow(config?.defaultModel?.model ?? '');
+  const contextLimit =
+    journalContext?.recovery?.checkpoint.contextLimit ??
+    getModelContextWindow(config?.defaultModel?.model ?? '');
   const messageCountBeforeToolResults = conversationStore.getMessages().length;
   const toolResultsOutcome = addToolResultsToHistory(
     assistantToolCalls,

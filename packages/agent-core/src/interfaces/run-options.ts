@@ -2,6 +2,7 @@ import type { TTextDeltaCallback, TToolChoice } from './provider';
 import type { IRunTraceContext } from './trace-context';
 import type { TMetadata } from './types';
 import type { TStructuredOutputSchema } from '../schema/structured-output';
+import type { IExecutionJournal } from './execution-journal';
 
 /**
  * The per-RUN contract: what one `run()` may override or observe, as distinct from the agent's
@@ -55,8 +56,9 @@ export interface IRunOptions {
   metadata?: TMetadata;
   /**
    * Run-scoped EPHEMERAL system context (SELFHOST-008 P3). A transient system-role block included in THIS
-   * run's provider request(s) only — it is **never written to the conversation store** and never persisted,
-   * so it does not bloat history or force a static-system-prompt rebuild. Content-free neutral channel: the
+   * run's provider request(s) only — it is **never written to the conversation store**. An explicitly
+   * configured execution journal records it as request/recovery state. It does not bloat conversation
+   * history or force a static-system-prompt rebuild. Content-free neutral channel: the
    * caller decides what to put here (e.g. per-turn recalled memory). Absent ⇒ no change.
    */
   ephemeralSystemContext?: string;
@@ -79,6 +81,8 @@ export interface IRunOptions {
   onTextDelta?: TTextDeltaCallback;
   /** Per-run replay event callback for provider/tool execution boundaries. */
   onExecutionEvent?: TExecutionEventCallback;
+  /** Awaited model/tool admission and result records. Failures terminate this run. */
+  executionJournal?: IExecutionJournal;
   /**
    * Maximum execution rounds for this run. A **round** is one provider (model) call plus the
    * execution of every tool call that reply requested; a reply with no tool calls ends the loop,

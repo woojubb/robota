@@ -5,6 +5,15 @@ import type { TExecutionEventCallback, TExecutionEventData } from '../interfaces
 import type { IEventContext, IOwnerPathSegment } from '../interfaces/event-service';
 import type { TUniversalMessage } from '../interfaces/messages';
 
+/** A cleanup observer cannot replace a failure already leaving the execution boundary. */
+export function observeExecutionCleanup(observe: () => void, primaryFailure?: unknown): void {
+  try {
+    observe();
+  } catch (error) {
+    if (primaryFailure === undefined) throw error;
+  }
+}
+
 /**
  * Build the owner path from an optional IExecutionContextInjection.
  */

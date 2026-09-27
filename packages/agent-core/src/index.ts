@@ -7,6 +7,7 @@
 export * from './interfaces';
 export * from './abstracts';
 export * from './utils';
+export { callJournaledProvider } from './services/execution-journal';
 
 // Schema utilities: Zod→JSON-schema conversion (SSOT), structured output (CORE-015), closure (PROV-007)
 export * from './schema/index';

@@ -1,4 +1,7 @@
-import { announceAppend } from './execution-event-helpers';
+import { announceAppend, observeExecutionCleanup } from './execution-event-helpers';
+import { captureExecutionCheckpoint } from './execution-checkpoint';
+import { callJournaledProvider } from './execution-journal';
+import { ExecutionJournalError } from '../utils/execution-journal-error';
 import { callProviderWithIdleTimeout } from './execution-round-provider';
 import { PROVIDER_CALL_EVENTS, PROVIDER_FALLBACK_EVENTS } from '../event-service/span-events';
 import {
@@ -51,6 +54,7 @@ export async function forceSummaryCall(
   fullContext: IExecutionContext,
   logger: ILogger,
   maxRounds: number = DEFAULT_MAX_EXECUTION_ROUNDS,
+  loadedDeferredTools?: string[],
 ): Promise<void> {
   logger.warn('No final text response — forcing summary call', {
     maxRounds: maxRounds === UNLIMITED_EXECUTION_ROUNDS ? 'unlimited' : maxRounds,
@@ -158,58 +162,94 @@ export async function forceSummaryCall(
     const dispatch: { invoked: boolean; startedAtMs?: number } = { invoked: false };
     let providerOutcome: 'success' | 'failure' | 'interrupted' = 'failure';
     let forceResponse: TUniversalMessage | undefined;
+    let journalFailure: ExecutionJournalError | undefined;
     try {
       forceResponse = await callProviderWithIdleTimeout(
-        (messages, options) => {
-          // The same adapter-invocation boundary as normal rounds; internal retries stay opaque.
-          dispatch.invoked = true;
-          dispatch.startedAtMs = Date.now();
-          const outbound = resolveProviderCallTraceContext(
-            fullContext.traceContext,
-            resolved.provider,
-            resolved.currentInfo.provider,
-            callId,
-          );
-          return resolved.provider.chat(messages, withOutboundTraceContext(options, outbound));
-        },
+        (messages, options) =>
+          callJournaledProvider(
+            (admittedMessages, admittedOptions) => {
+              // The same adapter-invocation boundary as normal rounds; internal retries stay opaque.
+              dispatch.invoked = true;
+              dispatch.startedAtMs = Date.now();
+              const outbound = resolveProviderCallTraceContext(
+                fullContext.traceContext,
+                resolved.provider,
+                resolved.currentInfo.provider,
+                callId,
+              );
+              return resolved.provider.chat(
+                admittedMessages,
+                withOutboundTraceContext(admittedOptions, outbound),
+              );
+            },
+            messages,
+            options,
+            fullContext.executionJournal
+              ? {
+                  journal: fullContext.executionJournal,
+                  executionId,
+                  callId,
+                  checkpoint: captureExecutionCheckpoint(
+                    conversationStore.getMessages(),
+                    roundState,
+                    fullContext,
+                    config,
+                    maxRounds,
+                    loadedDeferredTools,
+                    'summary',
+                  ),
+                  route: () => ({
+                    providerId: routeProvider(route, resolved),
+                    modelId: routeModel(route, resolved.aiProviderInfo.model),
+                  }),
+                }
+              : undefined,
+          ),
         messagesForProvider,
         chatOptions,
         config.timeout,
-        fullContext.awaitProviderSettlement,
+        fullContext.awaitProviderSettlement || !!fullContext.executionJournal,
       );
       providerOutcome = 'success';
     } catch (error) {
-      if (isAbortFailure(error, fullContext.signal)) providerOutcome = 'interrupted';
+      if (error instanceof ExecutionJournalError) journalFailure = error;
+      else if (isAbortFailure(error, fullContext.signal)) providerOutcome = 'interrupted';
       throw error;
     } finally {
       const usage = dispatch.invoked
         ? verifiedProviderCallUsage(forceResponse)
         : { provenance: 'absent' as const };
-      fullContext.onExecutionEvent?.(PROVIDER_CALL_EVENTS.COMPLETED, {
-        executionId,
-        conversationId,
-        round: roundState.currentRound,
-        startedAt: new Date(dispatch.startedAtMs ?? startedAtMs).toISOString(),
-        endedAt: new Date(Math.max(Date.now(), dispatch.startedAtMs ?? startedAtMs)).toISOString(),
-        outcome: providerOutcome,
-        callId,
-        disposition: dispatch.invoked ? 'invoked' : 'preflight-refused',
-        ...(dispatch.invoked && {
-          providerId: routeProvider(route, resolved),
-          modelId: routeModel(route, resolved.aiProviderInfo.model),
-          ...(typeof forceResponse?.metadata?.['providerRequestId'] === 'string' && {
-            providerRequestId: forceResponse.metadata['providerRequestId'],
+      observeExecutionCleanup(() => {
+        fullContext.onExecutionEvent?.(PROVIDER_CALL_EVENTS.COMPLETED, {
+          executionId,
+          conversationId,
+          round: roundState.currentRound,
+          startedAt: new Date(dispatch.startedAtMs ?? startedAtMs).toISOString(),
+          endedAt: new Date(
+            Math.max(Date.now(), dispatch.startedAtMs ?? startedAtMs),
+          ).toISOString(),
+          outcome: providerOutcome,
+          callId,
+          disposition: dispatch.invoked ? 'invoked' : 'preflight-refused',
+          ...(dispatch.invoked && {
+            providerId: routeProvider(route, resolved),
+            modelId: routeModel(route, resolved.aiProviderInfo.model),
+            ...(typeof forceResponse?.metadata?.['providerRequestId'] === 'string' && {
+              providerRequestId: forceResponse.metadata['providerRequestId'],
+            }),
           }),
-        }),
-        usageProvenance: usage.provenance,
-        ...('promptTokens' in usage &&
-          usage.promptTokens !== undefined && {
-            promptTokens: usage.promptTokens,
-            completionTokens: usage.completionTokens,
-            totalTokens: usage.totalTokens,
-            ...(usage.cacheReadTokens !== undefined && { cacheReadTokens: usage.cacheReadTokens }),
-          }),
-      } as TExecutionEventData);
+          usageProvenance: usage.provenance,
+          ...('promptTokens' in usage &&
+            usage.promptTokens !== undefined && {
+              promptTokens: usage.promptTokens,
+              completionTokens: usage.completionTokens,
+              totalTokens: usage.totalTokens,
+              ...(usage.cacheReadTokens !== undefined && {
+                cacheReadTokens: usage.cacheReadTokens,
+              }),
+            }),
+        } as TExecutionEventData);
+      }, journalFailure);
     }
 
     if (!forceResponse) throw new Error('Forced summary provider returned no response.');
@@ -220,6 +260,8 @@ export async function forceSummaryCall(
     const summaryMetadata = {
       ...(forceResponse.metadata ?? {}),
       round: roundState.currentRound,
+      executionId,
+      providerCallId: callId,
       providerId: routeProvider(route, resolved),
       modelId: routeModel(route, resolved.aiProviderInfo.model),
       ...collectCommittedUsageMetadata(forceResponse),
@@ -238,6 +280,7 @@ export async function forceSummaryCall(
       round: roundState.currentRound,
     });
   } catch (forceErr) {
+    if (forceErr instanceof ExecutionJournalError) throw forceErr;
     // The summary is already the turn's answer; only announcing it failed.
     if (committed) {
       logger.warn('Forced summary announcement failed', {

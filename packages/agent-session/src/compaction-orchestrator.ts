@@ -7,13 +7,14 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { runHooks } from '@robota-sdk/agent-core';
+import { callJournaledProvider, runHooks } from '@robota-sdk/agent-core';
 
 import { formatConversationEntries } from './conversation-transcript.js';
 
 import type { TCompactTrigger } from './session-types.js';
 import type {
   IAIProvider,
+  IExecutionJournal,
   TUniversalMessage,
   THooksConfig,
   IHookInput,
@@ -105,6 +106,7 @@ export class CompactionOrchestrator {
     signal?: AbortSignal,
     trigger: TCompactTrigger = 'manual',
     hookTraceEnv?: ISubprocessTraceEnv,
+    executionJournal?: IExecutionJournal,
   ): Promise<string> {
     // RUNTIME-004: FIRST, before the emptiness check. Review found that ordering the other way
     // returned a summary for an already-cancelled turn — and the caller replaces the conversation
@@ -140,7 +142,14 @@ export class CompactionOrchestrator {
     const compactPrompt = this.buildCompactionPrompt(history, instructions);
 
     // Call provider to generate summary
-    const summaryMessage = await provider.chat(
+    const callId = randomUUID();
+    const executionId = randomUUID();
+    let route = provider.resolveModelRoute?.(this.model, executionId) ?? {
+      provider: provider.name,
+      model: this.model,
+    };
+    const summaryMessage = await callJournaledProvider(
+      (messages, options) => provider.chat(messages, options),
       [
         {
           id: randomUUID(),
@@ -152,11 +161,23 @@ export class CompactionOrchestrator {
       ],
       {
         model: this.model,
+        executionId,
+        onModelFallback: (notice) => {
+          route = { ...notice.to };
+        },
         toolChoice: 'none',
         // The history was sized to this model's window; a smaller one could not read it all.
         preserveContextWindow: true,
         ...(signal !== undefined ? { signal } : {}),
       },
+      executionJournal
+        ? {
+            journal: executionJournal,
+            executionId,
+            callId,
+            route: () => ({ providerId: route.provider, modelId: route.model }),
+          }
+        : undefined,
     );
     // RUNTIME-004: the caller REPLACES the whole conversation with what this returns, so returning a
     // summary after a cancel is what destroyed it. Throwing puts an abort on the same path CORE-019

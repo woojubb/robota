@@ -61,10 +61,15 @@ export async function runExecutionLoop(
   roundState: IExecutionRoundState,
   signal: AbortSignal | undefined,
   deps: IExecutionRoundDeps,
+  skipRounds = false,
 ): Promise<void> {
   const maxRounds = resolveMaxExecutionRounds(config, fullContext);
 
-  while (hasRoundCapacity(roundState.currentRound, maxRounds)) {
+  while (
+    !skipRounds &&
+    !roundState.forcedSummaryInstruction &&
+    hasRoundCapacity(roundState.currentRound, maxRounds)
+  ) {
     if (signal?.aborted) break;
     roundState.currentRound++;
     const shouldBreak = await executeRound(
@@ -109,6 +114,7 @@ export async function runExecutionLoop(
       fullContext,
       deps.logger,
       maxRounds,
+      fullContext.executionJournal ? deps.toolExecutionService.getLoadedDeferredTools() : undefined,
     );
   }
 }

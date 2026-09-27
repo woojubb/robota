@@ -12,6 +12,7 @@ import type {
   IToolExecutionContext,
   IParameterValidationResult,
   TToolParameters,
+  TToolEffectAdmission,
 } from '../interfaces/tool';
 import type { ILogger } from '../utils/logger';
 
@@ -66,6 +67,15 @@ export interface IAbstractTool<TParams = TToolParameters, TResult = IToolResult>
 export interface IToolContract<TParameters = TToolParameters, TResult = IToolResult> {
   readonly schema: IToolSchema;
   execute(parameters: TParameters, context: IToolExecutionContext): Promise<TResult>;
+  /**
+   * Wrappers await admission exactly once with final canonical arguments after preconditions and before
+   * the body. Denial returns without admission. Admission failures propagate unchanged.
+   */
+  executeWithAdmission?(
+    parameters: TParameters,
+    context: IToolExecutionContext,
+    admit: TToolEffectAdmission<TParameters>,
+  ): Promise<TResult>;
   validate(parameters: TParameters): boolean;
   validateParameters(parameters: TParameters): IParameterValidationResult;
   getDescription(): string;

@@ -166,6 +166,33 @@ A session runs one turn at a time:
 - Concurrency _across transports_ (e.g. correlating requests from multiple external callers) is
   explicitly out of scope for this contract; it is owned by a different object one layer up.
 
+### Recoverable execution and checkpointed approval
+
+- An execution journal supplied to a turn is awaited by the agent and by session compaction
+  before their results change history, and a rejected write stays a persistence failure even when
+  cancellation was also requested. Observer logging is never a persistence barrier.
+- A saved execution continues without new input only in the same session and workspace, named by
+  its saved checkpoint rather than by transcript attribution, which is display-only; a peer
+  turn's restrictions are restored from that checkpoint.
+- Saved identity never authorizes an effect: each is admitted under current permissions and hooks
+  for its effective arguments. A checkpointed approval answers one exact action and its arguments
+  and grants no session consent; a saved denial stays binding even if policy has since become
+  more permissive.
+- A journaled execution whose last round is open in history — parked on saved waits, or stopped
+  by a failure after its tool calls were committed — blocks new input, because input added behind
+  it would follow unanswered calls and diverge from the checkpoint it must continue. The session
+  exposes it — also after a cancellation that ended the turn once a wait was saved — so the host
+  can resume or abandon it, and offers only waits whose effect was never admitted for an answer.
+  Once its rounds have settled into history, a later failure or cancellation ends it like an
+  ordinary turn.
+- Abandoning runs nothing and writes nothing to the journal: the open calls are closed in history
+  as failed, so the conversation stays well-formed and can no longer resume that execution. Its
+  journal records remain the host's to keep or discard. Abandonment must never become a route to
+  replay an effect or to claim an outcome nobody recorded.
+- A wait holds no live approver. The turn claim is held until the execution and its pending writes
+  settle. Injected classifiers, hooks and tools own their own model calls and must declare their
+  journal integration separately.
+
 ### Execution root
 
 A session's working directory is a required construction input, not derived from the process's
@@ -202,8 +229,10 @@ that session actually uses instead of re-deriving one that could disagree.
 
 `SessionStart` fires once at construction; `UserPromptSubmit` before each turn; `Stop` after each
 successful response; `StopFailure` on a model-turn error; `SessionEnd` exactly once from
-`shutdown()`, after local persistence and before the wrapped agent is destroyed (so no
-session-owned timers or listeners survive shutdown). Each shutdown step is best-effort.
+`shutdown()`, after active execution has drained and local persistence has captured its settled
+history, before the wrapped agent is destroyed (so no session-owned timers or listeners survive
+shutdown). No-input continuation omits prompt submission and turn-level completion hooks because those hook effects have no durable receipts.
+Each shutdown step is best-effort.
 
 When a turn's trace context enables hooks, only a hook fired on that turn's own path hands its
 command children the prompt root's `TRACEPARENT`, so their spans sit beside the turn's provider and
@@ -295,9 +324,10 @@ person is never shown "no history" when history could not actually be read.
 
 ### Abort behavior
 
-A running turn's partial response is always committed to history on abort (marked interrupted;
-text is never stripped). The underlying run always returns normally on abort — it never throws —
-and the session's post-run check is the sole source of the abort error surfaced to the caller.
+A running turn's committed partial response is preserved on abort and marked interrupted.
+The underlying run normally returns on abort, and the session's post-run check surfaces the abort
+error. A concurrent execution-journal failure remains a persistence error; unpersisted output must
+not become a committed response merely because cancellation was also requested.
 
 ### Tool-result spill store
 
