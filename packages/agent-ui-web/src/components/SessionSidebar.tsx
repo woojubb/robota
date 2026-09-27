@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { ConfirmDialog } from './Dialog.js';
+
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
 
 type TListedSession = NonNullable<IWsSessionState['sessionListing']>['sessions'][number];
@@ -89,6 +91,10 @@ export function SessionSidebar({
   const [renameValue, setRenameValue] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  // Each row's own "More" button, kept live across re-renders so the delete dialog can send focus
+  // back to the exact control that opened it — even though the menu item that was actually clicked
+  // is gone by the time the dialog mounts (see `Dialog`'s `restoreFocusTo`).
+  const moreButtonRefs = useRef(new Map<string, HTMLButtonElement>());
 
   // A menu closes on Escape or a click outside it — the usual context-menu contract.
   useEffect(() => {
@@ -106,16 +112,6 @@ export function SessionSidebar({
       document.removeEventListener('mousedown', onPointerDown);
     };
   }, [menu]);
-
-  // The delete confirmation is also Esc-to-cancel, like every other dialog on this surface.
-  useEffect(() => {
-    if (confirmDeleteId === null) return undefined;
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setConfirmDeleteId(null);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [confirmDeleteId]);
 
   // A keyboard user who opened the menu lands on its first item, not nowhere.
   useEffect(() => {
@@ -369,43 +365,19 @@ export function SessionSidebar({
         : null}
 
       {confirmingSession !== null ? (
-        <div
-          role="presentation"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-        >
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="delete-session-title"
-            className="gui-rise w-full max-w-[380px] rounded-xl bg-popover p-5 text-popover-foreground shadow-2xl"
-          >
-            <h2 id="delete-session-title" className="text-[15px] font-medium">
-              Delete &ldquo;{sessionTitle(confirmingSession)}&rdquo;?
-            </h2>
-            <p className="mt-2 text-[13.5px] leading-relaxed text-muted-foreground">
-              This removes its conversation from this computer.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmDeleteId(null)}
-                className="rounded-lg px-3 py-1.5 text-[13.5px] font-medium text-foreground hover:bg-hover"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  state.deleteSession?.(confirmingSession.id);
-                  setConfirmDeleteId(null);
-                }}
-                className="rounded-lg bg-destructive/12 px-3 py-1.5 text-[13.5px] font-medium text-destructive hover:bg-destructive/20"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          open
+          title={`Delete "${sessionTitle(confirmingSession)}"?`}
+          body="This removes its conversation from this computer."
+          confirmLabel="Delete"
+          destructive
+          restoreFocusTo={moreButtonRefs.current.get(confirmingSession.id) ?? null}
+          onCancel={() => setConfirmDeleteId(null)}
+          onConfirm={() => {
+            state.deleteSession?.(confirmingSession.id);
+            setConfirmDeleteId(null);
+          }}
+        />
       ) : null}
     </aside>
   );

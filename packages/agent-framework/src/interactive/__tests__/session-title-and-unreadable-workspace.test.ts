@@ -165,4 +165,24 @@ describe('resolveReusableEmptySessionId (#3289 §1)', () => {
     store.save(record({ id: 'session_full', messages: [createUserMessage('hi')] }));
     expect(resolveReusableEmptySessionId(store, '/work/project')).toBeUndefined();
   });
+
+  it('skips an empty session that is busy, even with no client on it', () => {
+    // A background task or a self-paced loop outlives the client that started it — a live session
+    // with zero clients can still have work of its own in progress.
+    const store = new NodeSessionStore(newStoreDir());
+    store.save(record({ id: 'session_empty', messages: [] }));
+    const reused = resolveReusableEmptySessionId(store, '/work/project', {
+      isBusy: (id) => id === 'session_empty',
+    });
+    expect(reused).toBeUndefined();
+  });
+
+  it('reuses an empty session that is live but not busy', () => {
+    const store = new NodeSessionStore(newStoreDir());
+    store.save(record({ id: 'session_empty', messages: [] }));
+    const reused = resolveReusableEmptySessionId(store, '/work/project', {
+      isBusy: () => false,
+    });
+    expect(reused).toBe('session_empty');
+  });
 });

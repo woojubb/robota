@@ -166,14 +166,19 @@ export function resolveLatestSessionId(
 }
 
 /**
- * An existing session of this workspace with no messages yet, that no OTHER client is on — the one a
- * fresh "New session" (a serve/daemon start, or the button) should reuse instead of adding another
- * empty row to the list (#3289 §1). `excludeSessionId` lets a caller leaving a session (e.g. deleting
- * it) ask "reuse some OTHER empty session" without that one answering its own question.
+ * An existing session of this workspace with no messages yet, that no OTHER client is on and has no
+ * work of its own in progress — the one a fresh "New session" (a serve/daemon start, or the button)
+ * should reuse instead of adding another empty row to the list (#3289 §1). `excludeSessionId` lets a
+ * caller leaving a session (e.g. deleting it) ask "reuse some OTHER empty session" without that one
+ * answering its own question.
  *
- * `liveClientsOf` reports how many clients are on a session besides the one asking, when the caller
+ * `otherClientsOf` reports how many clients are on a session besides the one asking, when the caller
  * knows; omitted, every candidate is treated as free (the common case: nothing is live yet, as at a
- * serve/daemon start, when nothing could be bound to anything).
+ * serve/daemon start, when nothing could be bound to anything). `isBusy` reports whether a candidate
+ * has work of its own in progress even with no client on it — a background task or a self-paced loop
+ * outlives the client that started it, and "New session" landing someone there would join that work
+ * mid-flight rather than starting fresh. Omitted, no candidate is treated as busy, for the same
+ * "nothing is live yet" reason `otherClientsOf` is omittable.
  */
 export function resolveReusableEmptySessionId(
   sessionStore: IInteractiveSessionStore | undefined,
@@ -181,13 +186,15 @@ export function resolveReusableEmptySessionId(
   options: {
     readonly excludeSessionId?: string;
     readonly otherClientsOf?: (sessionId: string) => number;
+    readonly isBusy?: (sessionId: string) => boolean;
   } = {},
 ): string | undefined {
   const candidate = listResumableSessionSummaries(sessionStore, cwd).find(
     (session) =>
       session.messageCount === 0 &&
       session.id !== options.excludeSessionId &&
-      (options.otherClientsOf?.(session.id) ?? 0) <= 0,
+      (options.otherClientsOf?.(session.id) ?? 0) <= 0 &&
+      (options.isBusy?.(session.id) ?? false) === false,
   );
   return candidate?.id;
 }

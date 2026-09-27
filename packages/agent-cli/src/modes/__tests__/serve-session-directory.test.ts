@@ -471,6 +471,32 @@ describe('serve session directory (#3189)', () => {
       expect(buildSession).toHaveBeenCalledWith(undefined);
       expect(binding.session.current.id).toBe('fresh');
     });
+
+    it('skips an empty session that is busy, even with no client left on it, and builds fresh', async () => {
+      // A background task outlives the client that started it: switch onto the empty session, give
+      // it a running task, then release — the pool keeps it live with zero clients, exactly the
+      // "/clear then disconnect while a background task runs" scenario.
+      const store = storeOf([
+        {
+          id: 'empty',
+          outcome: {
+            status: 'valid',
+            record: { ...record('empty', '2026-09-02T00:00:00Z'), messages: [] },
+          },
+        },
+      ]);
+      const { directory, buildSession } = served(fakeSession('a'), store);
+      const onEmpty = directory.bind('drive');
+      await onEmpty.directory.switchSession('empty');
+      onEmpty.session.current.tasks = [{ id: 't', status: 'running' }];
+      onEmpty.release();
+
+      const binding = directory.bind('drive');
+      await binding.directory.newSession();
+
+      expect(buildSession).toHaveBeenCalledWith(undefined);
+      expect(binding.session.current.id).toBe('fresh');
+    });
   });
 
   describe('renaming a session from the list (#3289 §1)', () => {

@@ -130,7 +130,7 @@ describe('SessionSidebar delete confirmation (#3289 §1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'More for another one' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete…' }));
 
-    const dialog = screen.getByRole('alertdialog');
+    const dialog = screen.getByRole('dialog');
     expect(dialog.textContent).toContain('Delete');
     expect(dialog.textContent).toContain('another one');
     expect(within(dialog).getByText(/removes its conversation from this computer/)).toBeTruthy();
@@ -138,7 +138,7 @@ describe('SessionSidebar delete confirmation (#3289 §1)', () => {
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
     expect(deleteSession).toHaveBeenCalledWith('other');
-    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('does nothing when Cancel is clicked', () => {
@@ -150,20 +150,61 @@ describe('SessionSidebar delete confirmation (#3289 §1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(deleteSession).not.toHaveBeenCalled();
-    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('closes on Escape without deleting, like every other dialog', () => {
+  it('closes on Escape without deleting, and restores focus to the row\'s More button', () => {
+    const deleteSession = vi.fn();
+    render(<SessionSidebar state={makeState({ deleteSession })} />);
+
+    const moreButton = screen.getByRole('button', { name: 'More for another one' });
+    fireEvent.click(moreButton);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete…' }));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    // The menu item that opened the dialog is already gone by the time it mounts — focus must
+    // return to the row's own "More" button, not to whatever the browser fell back to (the body).
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(deleteSession).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(moreButton);
+  });
+
+  it('focuses Cancel when the dialog opens', () => {
+    render(<SessionSidebar state={makeState()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'More for another one' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete…' }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' }));
+  });
+
+  it('a backdrop click does not delete', () => {
     const deleteSession = vi.fn();
     render(<SessionSidebar state={makeState({ deleteSession })} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'More for another one' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete…' }));
-    expect(screen.getByRole('alertdialog')).toBeTruthy();
-    fireEvent.keyDown(document, { key: 'Escape' });
+    // The dialog shell listens for a mousedown directly on its backdrop (the dialog panel's parent).
+    fireEvent.mouseDown(screen.getByRole('dialog').parentElement!);
 
     expect(deleteSession).not.toHaveBeenCalled();
-    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+
+  it('Tab cycles between Cancel and Delete without leaving the dialog', () => {
+    render(<SessionSidebar state={makeState()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'More for another one' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete…' }));
+
+    const cancel = screen.getByRole('button', { name: 'Cancel' });
+    const del = screen.getByRole('button', { name: 'Delete' });
+    expect(document.activeElement).toBe(cancel);
+
+    del.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(document.activeElement).toBe(cancel);
+
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(del);
   });
 });
 

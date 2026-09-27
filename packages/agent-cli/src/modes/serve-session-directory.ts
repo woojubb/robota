@@ -157,6 +157,22 @@ export function createServeSessionDirectory<
     };
   };
 
+  /**
+   * Whether a session id, if it is currently live, has work of its own in progress — never true for
+   * a non-live id, since nothing is running for a session that is not even loaded. A background task
+   * or a self-paced loop outlives the client that started it, so a session can be busy with zero
+   * clients on it; "New session" reusing that row would land someone in the middle of that work.
+   */
+  const isLiveSessionBusy = (
+    target: IServeSessionDirectoryHost<TSession, TSlot>,
+  ): ((sessionId: string) => boolean) => {
+    const live = new Map(target.pool.listLive().map((row) => [row.sessionId, row.session]));
+    return (sessionId) => {
+      const session = live.get(sessionId);
+      return session !== undefined && isSessionBusy(session);
+    };
+  };
+
   const bindTo = (
     target: IServeSessionDirectoryHost<TSession, TSlot>,
     role: TSessionBindingRole,
@@ -231,10 +247,12 @@ export function createServeSessionDirectory<
         await changeTo(sessionId);
       },
       async newSession() {
-        // #3289 §1: reuse an existing empty session of this workspace that no other client is on,
-        // rather than adding another one to the list every time this is pressed.
+        // #3289 §1: reuse an existing empty session of this workspace that no other client is on and
+        // has no work of its own in progress, rather than adding another one to the list every time
+        // this is pressed, or joining someone into a background task/loop still running on it.
         const reusable = resolveReusableEmptySessionId(target.store, target.cwd, {
           otherClientsOf: otherClientsOn(target, binding),
+          isBusy: isLiveSessionBusy(target),
         });
         await changeTo(reusable);
       },
