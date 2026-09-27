@@ -1061,7 +1061,7 @@ describe('#3282 §2: profile delete is confirmed on ConfirmDialog', () => {
       />,
     );
 
-    expect(screen.getByRole('dialog', { name: 'Delete profile "anthropic"?' })).toBeTruthy();
+    expect(screen.getByRole('alertdialog', { name: 'Delete profile "anthropic"?' })).toBeTruthy();
     const deleteButton = screen.getByRole('button', { name: 'Delete' });
     expect(deleteButton.className).toContain('destructive');
     // Not the old generic Yes/No grid.

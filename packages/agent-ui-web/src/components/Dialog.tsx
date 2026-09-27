@@ -7,10 +7,11 @@ import React, { useEffect, useId, useRef } from 'react';
  * which also need a confirmation dialog). Whichever of the two lands first defines this file; the
  * other rebases onto it rather than shipping a second copy.
  *
- * `role="dialog"`, `aria-modal`, a labelled title, focus moved inside on open, a focus trap while
- * open, Esc to close, and focus restored to whatever had it before the dialog opened. A backdrop
- * click closes the dialog UNLESS `destructive` is set — a destructive dialog (e.g. "Remove this
- * rule?") is dismissed only by an explicit choice, never an accidental outside click.
+ * `role="dialog"` (or `"alertdialog"`, see `role` below), `aria-modal`, a labelled title, focus moved
+ * inside on open, a focus trap while open, Esc to close, and focus restored to whatever had it before
+ * the dialog opened. A backdrop click closes the dialog UNLESS `destructive` is set — a destructive
+ * dialog (e.g. "Remove this rule?") is dismissed only by an explicit choice, never an accidental
+ * outside click.
  */
 export interface IDialogProps {
   open: boolean;
@@ -32,6 +33,12 @@ export interface IDialogProps {
    * moved focus to `document.body`. Such a caller passes the stable element focus should return to.
    */
   restoreFocusTo?: HTMLElement | null;
+  /**
+   * #3282 §4e: `'alertdialog'` for a dialog that interrupts to demand a decision before anything else
+   * can happen (a destructive confirmation) — WAI-ARIA's distinction from a dialog the user can set
+   * aside. Default `'dialog'`.
+   */
+  role?: 'dialog' | 'alertdialog';
 }
 
 const FOCUSABLE_SELECTOR =
@@ -57,6 +64,7 @@ export function Dialog({
   panelClassName,
   describedById,
   restoreFocusTo,
+  role = 'dialog',
 }: IDialogProps): React.ReactElement | null {
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
@@ -133,7 +141,7 @@ export function Dialog({
     >
       <div
         ref={panelRef}
-        role="dialog"
+        role={role}
         aria-modal="true"
         aria-labelledby={titleId}
         {...(describedById ? { 'aria-describedby': describedById } : {})}
@@ -172,7 +180,11 @@ export interface IConfirmDialogProps {
   restoreFocusTo?: HTMLElement | null;
 }
 
-/** A title, a body, Cancel focused by default, and a confirm button that can be styled destructive. */
+/**
+ * A title, a body, Cancel focused by default, and a confirm button that can be styled destructive.
+ * #3282 §4e: `destructive` also picks the dialog's ARIA role — `"alertdialog"` when it is (an action
+ * that demands a decision before anything else, e.g. deleting a session), `"dialog"` otherwise.
+ */
 export function ConfirmDialog({
   open,
   title,
@@ -191,6 +203,7 @@ export function ConfirmDialog({
       onClose={onCancel}
       title={title}
       destructive={destructive}
+      role={destructive ? 'alertdialog' : 'dialog'}
       describedById={bodyId}
       restoreFocusTo={restoreFocusTo}
       panelClassName="w-full max-w-sm rounded-2xl bg-card p-5 text-card-foreground shadow-[0_8px_30px_-12px_rgb(0_0_0/0.45)] focus:outline-none"

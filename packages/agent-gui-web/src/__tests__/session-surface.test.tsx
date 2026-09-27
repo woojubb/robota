@@ -77,6 +77,10 @@ function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
     pauseSchedule: vi.fn(),
     resumeSchedule: vi.fn(),
     deleteSchedule: vi.fn(),
+    // #3282 §4e: the Help sheet.
+    helpOpen: false,
+    openHelp: vi.fn(),
+    closeHelp: vi.fn(),
     ...over,
   } as unknown as IWsSessionState;
 }
@@ -115,11 +119,11 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
   it('ARCH-2164: routes slash input to the command wire path', () => {
     const state = stubState();
     render(<SessionSurface state={state} />);
-    fireEvent.change(screen.getByLabelText('message'), { target: { value: '/help providers' } });
+    fireEvent.change(screen.getByLabelText('message'), { target: { value: '/memory providers' } });
     fireEvent.click(screen.getByText('Send'));
     expect(state.send).toHaveBeenCalledWith({
       type: 'command',
-      name: 'help',
+      name: 'memory',
       args: 'providers',
     });
   });
@@ -230,7 +234,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'mode' });
   });
 
-  it('#3189: a command the terminal runs is marked "terminal" in the menu; a session command is not', () => {
+  it('#3282 §4e: a command the GUI cannot run at all is left out of the menu entirely', () => {
     const state = stubState({
       commandCatalog: {
         commands: [
@@ -255,12 +259,9 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     render(<SessionSurface state={state} />);
     const input = screen.getByLabelText('message') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: '/sh' } });
-    const shell = screen.getByRole('option', { name: /\/shell/ });
-    const badge = within(shell).getByText('terminal');
-    expect(badge.getAttribute('title')).toBe('Runs in the robota terminal');
-    expect(shell.getAttribute('aria-description')).toBe('Runs in the robota terminal');
-    const share = screen.getByRole('option', { name: /\/share/ });
-    expect(within(share).queryByText('terminal')).toBeNull();
+    expect(screen.queryByRole('option', { name: /\/shell/ })).toBeNull();
+    expect(screen.queryByText('Open a shell')).toBeNull();
+    expect(screen.getByRole('option', { name: /\/share/ })).toBeTruthy();
   });
 
   it('#3186 / #3282 §2: the status row shows the session status and its pop-up menus apply through the wire', () => {
@@ -728,6 +729,26 @@ describe('#3189 — the session sidebar', () => {
     render(<SessionSurface state={state} />);
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(state.openSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('#3282 §4e: the Help sheet renders when helpOpen is true, and Close calls closeHelp', () => {
+    const state = stubState({
+      helpOpen: true,
+      commandCatalog: {
+        commands: [{ name: 'mode', description: 'Change the permission mode', modelInvocable: false, runner: 'runtime' }],
+        skills: [],
+      },
+    });
+    render(<SessionSurface state={state} />);
+    const sheet = screen.getByRole('dialog', { name: 'Help' });
+    expect(within(sheet).getByText('/mode')).toBeTruthy();
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Close Help' }));
+    expect(state.closeHelp).toHaveBeenCalledTimes(1);
+  });
+
+  it('#3282 §4e: the Help sheet is absent while helpOpen is false', () => {
+    render(<SessionSurface state={stubState({ helpOpen: false })} />);
+    expect(screen.queryByRole('dialog', { name: 'Help' })).toBeNull();
   });
 
   it('a failed listing says why inside the sidebar', () => {

@@ -131,7 +131,7 @@ describe('ConfirmDialog', () => {
         onConfirm={vi.fn()}
       />,
     );
-    const dialog = screen.getByRole('dialog');
+    const dialog = screen.getByRole('alertdialog');
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' }));
     expect(dialog.textContent).toContain('This cannot be undone.');
   });
@@ -150,13 +150,29 @@ describe('ConfirmDialog', () => {
         onConfirm={onConfirm}
       />,
     );
-    fireEvent.mouseDown(screen.getByRole('dialog').parentElement!);
+    fireEvent.mouseDown(screen.getByRole('alertdialog').parentElement!);
     expect(onCancel).not.toHaveBeenCalled();
     expect(onConfirm).not.toHaveBeenCalled();
-    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(screen.getByRole('alertdialog')).toBeTruthy();
   });
 
-  it('a non-destructive confirm IS dismissed by a backdrop click', () => {
+  it('#3282 §4e: a destructive confirm is an alertdialog, never a plain dialog', () => {
+    render(
+      <ConfirmDialog
+        open
+        title="Delete it?"
+        body="This cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('alertdialog')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('a non-destructive confirm IS dismissed by a backdrop click, and is a plain dialog, not an alertdialog', () => {
     const onCancel = vi.fn();
     render(
       <ConfirmDialog
@@ -168,6 +184,8 @@ describe('ConfirmDialog', () => {
         onConfirm={vi.fn()}
       />,
     );
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
     fireEvent.mouseDown(screen.getByRole('dialog').parentElement!);
     expect(onCancel).toHaveBeenCalledTimes(1);
   });

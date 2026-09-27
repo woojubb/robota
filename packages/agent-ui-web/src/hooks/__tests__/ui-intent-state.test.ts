@@ -1,9 +1,11 @@
 /**
- * CMD-004 Stage D (TC-05) — every `ui_intent` this surface asked for is answered with an explicit
- * "not available on this surface" line — NEVER a silent no-op — unless the GUI has a screen for it.
- * The session picker is the session sidebar (#3189), settings is the Settings modal (#3282 §4a), the
- * plugin manager opens that same modal on its Plugins section (#3282 §4 part b-2), and the agent
- * switcher is a sheet (#3282 §4 part b-3); every other kind names the screen it could not open.
+ * CMD-004 Stage D (TC-05) — every `ui_intent` this surface asked for is answered visibly, never a
+ * silent no-op, and never with the literal "not available on this surface" line. The session picker
+ * is the session sidebar (#3189), settings is the Settings modal (#3282 §4a), the plugin manager
+ * opens that same modal on its Plugins section (#3282 §4 part b-2), and the agent switcher is a sheet
+ * (#3282 §4 part b-3) — all four always have a screen. #3282 §4e: a screen this HOST cannot back
+ * right now (a session picker with no session list) gets its own honest sentence instead, and so does
+ * an intent kind this build does not know at all.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -20,17 +22,29 @@ const UNSUPPORTED_INTENTS: readonly TCommandUiIntent[] = [
   { type: 'show-theme-picker' },
 ];
 
-describe('CMD-004 TC-05 — ui_intent description (explicit, never silent)', () => {
-  it('every unsupported intent kind names its own screen and says it is unavailable here', () => {
+describe('CMD-004 TC-05 — ui_intent description (explicit, never silent, never "not available")', () => {
+  it('every unsupported intent kind gets its own plain sentence, never the banned phrase', () => {
     const lines = UNSUPPORTED_INTENTS.map((intent) => describeUiIntentForGui(intent));
-    for (const line of lines) expect(line).toMatch(/is not available on this surface/);
+    for (const line of lines) expect(line).not.toMatch(/not available on this surface/);
     expect(new Set(lines).size).toBe(UNSUPPORTED_INTENTS.length);
-    expect(describeUiIntentForGui({ type: 'show-theme-picker' })).toMatch(/theme picker/);
   });
 
-  it('an intent kind this build does not know is still named, not dropped', () => {
+  it('the theme picker reuses the exclusion sentence — the GUI follows system appearance', () => {
+    expect(describeUiIntentForGui({ type: 'show-theme-picker' })).toBe(
+      'Robota follows your system appearance.',
+    );
+  });
+
+  it('a session picker this HOST cannot back names the host, not a missing GUI feature', () => {
+    const line = describeUiIntentForGui({ type: 'show-session-picker' });
+    expect(line).toMatch(/cannot list sessions/);
+    expect(line).not.toMatch(/not available on this surface/);
+  });
+
+  it('an intent kind this build does not know is still named, not dropped, and not the banned phrase', () => {
     const line = describeUiIntentForGui({ type: 'show-future-screen' } as unknown as TCommandUiIntent);
-    expect(line).toMatch(/'show-future-screen' is not available on this surface/);
+    expect(line).toMatch(/'show-future-screen'/);
+    expect(line).not.toMatch(/not available on this surface/);
   });
 });
 

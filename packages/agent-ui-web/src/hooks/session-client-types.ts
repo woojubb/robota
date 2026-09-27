@@ -266,6 +266,10 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   closeSettings: () => void;
   /** A failed write leaves `settingsSnapshot` at its previous value; `settingsError` names why. */
   updateSettings: (patch: TSettingsPatch) => void;
+  /** #3282 §4e: whether the Help sheet is shown. `/help` opens it instead of reaching the session. */
+  helpOpen: boolean;
+  openHelp: () => void;
+  closeHelp: () => void;
   /** #3288 §1: the id of the execution-workspace entry open in the detail sheet, or null when closed. */
   openEntryId: string | null;
   executionDetailStatus: 'idle' | 'loading' | 'ready' | 'error';

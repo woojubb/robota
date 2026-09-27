@@ -2,6 +2,7 @@ import { ArrowUp, Paperclip, Square, Target, X } from 'lucide-react';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import { commandMenuFor } from '../hooks/command-menu.js';
+import type { ICommandMenuItem } from '../hooks/command-menu.js';
 import {
   buildPromptWithAttachments,
   evaluateCandidateFile,
@@ -33,6 +34,24 @@ interface IStoredDraft {
 }
 
 const EMPTY_DRAFT: IStoredDraft = { text: '', attachments: [] };
+
+/**
+ * #3282 §4e: a command whose whole job is opening a GUI screen — choosing it from the `/` menu runs
+ * it at once (its `ui_intent` opens the screen the normal way) instead of filling the draft and
+ * waiting for Enter, since there is nothing useful to type after it. `help` never reaches the
+ * session at all (`useSessionClient.ts`'s `send` opens the Help sheet locally). Every other command
+ * still "runs as today": chosen or Tab-completed, it fills the draft for its arguments.
+ */
+const IMMEDIATE_SCREEN_COMMANDS: ReadonlySet<string> = new Set(['settings', 'resume', 'help']);
+
+function isImmediateScreenCommand(item: ICommandMenuItem): boolean {
+  return item.kind === 'command' && IMMEDIATE_SCREEN_COMMANDS.has(item.name);
+}
+
+/** The group a menu row falls under — shown as a header above the first row of each. */
+function menuGroupLabel(item: ICommandMenuItem): 'Commands' | 'Skills' {
+  return item.kind === 'skill' ? 'Skills' : 'Commands';
+}
 
 /**
  * #3280 §4: the unsent draft survives a Chat → Usage → Chat switch (the composer unmounts), a page
@@ -201,6 +220,12 @@ export const Composer = forwardRef<
     setSelected(0);
     setDismissed(false);
   }, [draft]);
+  // #3282 §4e: the menu can hold more rows than fit in its scroll area — keyboard navigation (below)
+  // must keep the highlighted row in view, not just move the highlight off-screen.
+  const menuOptionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  useEffect(() => {
+    menuOptionRefs.current[selected]?.scrollIntoView?.({ block: 'nearest' });
+  }, [selected, menu]);
   /** #3280 §4: every draft change is persisted at once, so a reload or relaunch loses nothing. */
   const setDraft = (value: string): void => {
     stateRef.current = { ...stateRef.current, text: value };
@@ -330,11 +355,22 @@ export const Composer = forwardRef<
     setIsDraggingFiles(false);
     addCandidates(Array.from(event.dataTransfer?.files ?? []).map(toCandidateFromFile));
   };
-  /** Complete the highlighted name; a draft that already names it is sent instead. */
+  /** Choosing a command from the menu, by mouse or by keyboard (`acceptMenu` below). */
+  const chooseMenuItem = (item: ICommandMenuItem): void => {
+    if (isImmediateScreenCommand(item)) {
+      setDraft('');
+      onCommand(item.name);
+      return;
+    }
+    setDraft(`/${item.name} `);
+  };
+  /** Complete the highlighted name; a draft that already names it is sent instead. A command whose
+   *  whole job is opening a screen runs at once either way — see `IMMEDIATE_SCREEN_COMMANDS`. */
   const acceptMenu = (): boolean => {
     const item = menu?.[selected];
-    if (!item || draft === `/${item.name}`) return false;
-    setDraft(`/${item.name} `);
+    if (!item) return false;
+    if (!isImmediateScreenCommand(item) && draft === `/${item.name}`) return false;
+    chooseMenuItem(item);
     return true;
   };
   /** #3280 §2: Edit puts the queued text back in the draft and cancels the queue behind it (the wire
@@ -417,40 +453,44 @@ export const Composer = forwardRef<
           className="gui-rise absolute bottom-full left-0 right-0 mb-2 max-h-[320px] overflow-y-auto rounded-2xl bg-popover p-1.5 shadow-2xl shadow-black/35"
         >
           {menu.map((item, index) => {
-            const runsElsewhere = item.runsIn ? runsInDescription(item.runsIn) : undefined;
+            // #3282 §4e: "Commands" then "Skills" — a header appears once, above the first row of
+            // its group (the menu always lists every command before every skill, so a group's rows
+            // are contiguous).
+            const showGroupHeader = index === 0 || menuGroupLabel(menu[index - 1]!) !== menuGroupLabel(item);
             return (
-              <button
-                key={`${item.kind}:${item.name}`}
-                type="button"
-                role="option"
-                aria-selected={index === selected}
-                aria-description={runsElsewhere}
-                onMouseEnter={() => setSelected(index)}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  setDraft(`/${item.name} `);
-                }}
-                className={`flex w-full items-baseline gap-3 rounded-xl px-3 py-2 text-left text-[14px] ${
-                  index === selected ? 'bg-hover' : ''
-                }`}
-              >
-                {/* A command that runs elsewhere dims its name and description by text colour only —
-                    an opacity on the row would also fade its badge and the selected highlight. */}
-                <span
-                  className={`flex-shrink-0 font-mono text-[13.5px] ${runsElsewhere ? 'text-subtle' : 'text-foreground'}`}
-                >
-                  /{item.name}
-                </span>
-                <span
-                  className={`min-w-0 flex-1 truncate ${runsElsewhere ? 'text-subtle' : 'text-muted-foreground'}`}
-                >
-                  {item.description}
-                </span>
-                {item.kind === 'skill' && <MenuBadge label="skill" />}
-                {item.runsIn && (
-                  <MenuBadge label={item.runsIn.join(' · ') || 'client'} title={runsElsewhere} />
+              <div key={`${item.kind}:${item.name}`}>
+                {showGroupHeader && (
+                  <div
+                    role="presentation"
+                    className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-subtle first:pt-1"
+                  >
+                    {menuGroupLabel(item)}
+                  </div>
                 )}
-              </button>
+                <button
+                  ref={(el) => {
+                    menuOptionRefs.current[index] = el;
+                  }}
+                  type="button"
+                  role="option"
+                  aria-selected={index === selected}
+                  onMouseEnter={() => setSelected(index)}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    chooseMenuItem(item);
+                  }}
+                  className={`flex w-full items-baseline gap-3 rounded-xl px-3 py-2 text-left text-[14px] ${
+                    index === selected ? 'bg-hover' : ''
+                  }`}
+                >
+                  <span className="flex-shrink-0 font-mono text-[13.5px] text-foreground">
+                    /{item.name}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                    {item.description}
+                  </span>
+                </button>
+              </div>
             );
           })}
         </div>
@@ -589,27 +629,6 @@ export const Composer = forwardRef<
     </div>
   );
 });
-
-/**
- * Where a command the session does not run is run instead. The GUI runs no client command, so its
- * row stays offered — choosing it inserts the command and the session answers with its refusal —
- * but says where it works.
- */
-function runsInDescription(runsIn: readonly string[]): string {
-  return `Runs in the robota ${runsIn.join(' or ') || 'client'}`;
-}
-
-/** Solid muted text, never an opacity, so a small badge stays legible on a plain or selected row. */
-function MenuBadge({ label, title }: { label: string; title?: string }): React.ReactElement {
-  return (
-    <span
-      title={title}
-      className="flex-shrink-0 rounded-md bg-raised px-1.5 py-px text-[12px] text-muted-foreground"
-    >
-      {label}
-    </span>
-  );
-}
 
 /**
  * The goal being pursued (`/goal`), above the composer while it is active — the objective, how far

@@ -193,7 +193,7 @@ describe('StatusRow — mode control', () => {
       fireEvent.click(screen.getByRole('menuitemradio', { name: 'Skip all checks' }));
 
       expect(onSilentCommand).not.toHaveBeenCalled();
-      expect(screen.getByRole('dialog', { name: 'Skip all permission checks?' })).toBeTruthy();
+      expect(screen.getByRole('alertdialog', { name: 'Skip all permission checks?' })).toBeTruthy();
     });
 
     it('Cancel keeps the mode unchanged', () => {
@@ -205,7 +205,7 @@ describe('StatusRow — mode control', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
       expect(onSilentCommand).not.toHaveBeenCalled();
-      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.queryByRole('alertdialog')).toBeNull();
     });
 
     it('confirming applies bypassPermissions silently and marks the chip', () => {
@@ -217,7 +217,7 @@ describe('StatusRow — mode control', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Skip all checks' }));
 
       expect(onSilentCommand).toHaveBeenCalledWith('mode', 'bypassPermissions');
-      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.queryByRole('alertdialog')).toBeNull();
       // The label itself confirms the change once `session_status` reflects it — simulated here by
       // re-rendering with the new status, as the real chip does after its `get-status` refresh.
       rerender(<StatusRow {...baseProps({ onSilentCommand, status: statusFor({ permissionMode: 'bypassPermissions' }) })} />);

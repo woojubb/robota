@@ -98,6 +98,85 @@ function lastSentRequestId(wire: TClientMessage[]): string | undefined {
   return sent && sent.type === 'command' ? sent.requestId : undefined;
 }
 
+describe('#3282 §4e — /help opens the Help sheet locally, never the session', () => {
+  it('send({type:"command", name:"help"}) opens the sheet and never touches the wire', () => {
+    const { result, wire } = setup();
+
+    expect(result.current.helpOpen).toBe(false);
+    act(() => result.current.send({ type: 'command', name: 'help' }));
+
+    expect(result.current.helpOpen).toBe(true);
+    expect(wire).toEqual([]);
+    expect(result.current.messages).toEqual([]);
+  });
+
+  it('closeHelp closes it again', () => {
+    const { result } = setup();
+    act(() => result.current.send({ type: 'command', name: 'help' }));
+    act(() => result.current.closeHelp());
+    expect(result.current.helpOpen).toBe(false);
+  });
+});
+
+describe('#3282 §4e — an excluded command is caught before the session sees it', () => {
+  it('typing an excluded command answers with its plain sentence, never the raw refusal, and never reaches the wire', () => {
+    const { result, wire } = setup();
+
+    act(() => result.current.send({ type: 'command', name: 'theme', args: 'dark' }));
+
+    expect(wire).toEqual([]);
+    expect(result.current.messages).toEqual([
+      expect.objectContaining({
+        role: 'command',
+        name: 'theme',
+        content: 'Robota follows your system appearance.',
+        tone: 'info',
+      }),
+    ]);
+  });
+
+  it('an ordinary command is unaffected — it still reaches the wire', () => {
+    const { result, wire } = setup();
+
+    act(() => result.current.send({ type: 'command', name: 'context' }));
+
+    expect(wire).toContainEqual(expect.objectContaining({ type: 'command', name: 'context' }));
+  });
+
+  it('a client-only command excluded only by its catalog declaration (no curated name yet) is caught the same way', () => {
+    // Regression: the exclusion check must read the SAME catalog entry `command-menu.ts` reads to
+    // filter the `/` menu — a command left out only because of `runner`/`surfaces`, not yet given a
+    // name in `excluded-commands.ts`, must still be caught here, or a hand-typed instance of it would
+    // sail past this interception straight to the session (exactly what this mechanism exists to stop).
+    const { result, deliver, wire } = setup();
+    deliver({
+      type: 'commands',
+      commands: [
+        {
+          name: 'future-terminal-command',
+          description: 'Not yet named in excluded-commands.ts',
+          modelInvocable: false,
+          runner: 'client',
+          surfaces: ['terminal'],
+        },
+      ],
+      skills: [],
+    });
+
+    act(() => result.current.send({ type: 'command', name: 'future-terminal-command' }));
+
+    expect(wire).toEqual([]);
+    expect(result.current.messages).toEqual([
+      expect.objectContaining({
+        role: 'command',
+        name: 'future-terminal-command',
+        content: 'This command runs in the robota terminal.',
+        tone: 'info',
+      }),
+    ]);
+  });
+});
+
 describe('#3282 §2 (part 2) — sendCommandSilently suppresses the conversation card', () => {
   it('a successful silent command adds no conversation card, but still refreshes status', () => {
     const { result, deliver, wire } = setup();
@@ -143,12 +222,13 @@ describe('#3282 §2 (part 2) — sendCommandSilently suppresses the conversation
 
     act(() => result.current.sendCommandSilently('effort', 'high'));
     deliver({ type: 'command_result', name: 'effort', message: 'Effort: High', success: true, requestId: lastSentRequestId(wire) });
-    act(() => result.current.send({ type: 'command', name: 'help' }));
-    deliver({ type: 'command_result', name: 'help', message: 'Available commands: ...', success: true });
+    // Not `/help` — #3282 §4e made that one the GUI's own Help sheet, never sent to the session.
+    act(() => result.current.send({ type: 'command', name: 'cost' }));
+    deliver({ type: 'command_result', name: 'cost', message: 'Available commands: ...', success: true });
 
     const cards = result.current.messages.filter((m) => m.role === 'command');
     expect(cards).toHaveLength(1);
-    expect(cards[0] && 'name' in cards[0] ? cards[0].name : undefined).toBe('help');
+    expect(cards[0] && 'name' in cards[0] ? cards[0].name : undefined).toBe('cost');
   });
 
   it('attributes by requestId, not arrival order: a later-sent silent reply landing FIRST does not swallow the earlier typed command', () => {
@@ -163,17 +243,18 @@ describe('#3282 §2 (part 2) — sendCommandSilently suppresses the conversation
     // card). requestId correlation gets both right regardless of arrival order.
     const { result, deliver, wire } = setup();
 
-    act(() => result.current.send({ type: 'command', name: 'help' }));
+    // Not `/help` — #3282 §4e made that one the GUI's own Help sheet, never sent to the session.
+    act(() => result.current.send({ type: 'command', name: 'cost' }));
     act(() => result.current.sendCommandSilently('effort', 'high'));
     const silentRequestId = lastSentRequestId(wire);
     expect(silentRequestId).toBeDefined();
 
     deliver({ type: 'command_result', name: 'effort', message: 'Effort: High', success: true, requestId: silentRequestId });
-    deliver({ type: 'command_result', name: 'help', message: 'Available commands: ...', success: true });
+    deliver({ type: 'command_result', name: 'cost', message: 'Available commands: ...', success: true });
 
     const cards = result.current.messages.filter((m) => m.role === 'command');
     expect(cards).toHaveLength(1);
-    expect(cards[0] && 'name' in cards[0] ? cards[0].name : undefined).toBe('help');
+    expect(cards[0] && 'name' in cards[0] ? cards[0].name : undefined).toBe('cost');
   });
 
   it('a silent command whose reply carries no requestId (an older host) falls back to showing the card, never hiding it', () => {

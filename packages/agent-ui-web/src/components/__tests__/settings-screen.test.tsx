@@ -256,9 +256,9 @@ describe('SettingsScreen — Esc closes and returns focus to the opener', () => 
     fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
     openPermissions();
     fireEvent.click(screen.getByRole('button', { name: /Remove rule/ }));
-    expect(screen.getByRole('dialog', { name: 'Remove this rule?' })).toBeTruthy();
+    expect(screen.getByRole('alertdialog', { name: 'Remove this rule?' })).toBeTruthy();
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: 'Remove this rule?' })).toBeNull();
+    expect(screen.queryByRole('alertdialog', { name: 'Remove this rule?' })).toBeNull();
     expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
   });
 });
@@ -272,7 +272,7 @@ describe('SettingsScreen — "Skip all checks" needs confirmation', () => {
       target: { value: 'bypassPermissions' },
     });
     expect(state.updateSettings).not.toHaveBeenCalled();
-    expect(screen.getByRole('dialog', { name: 'Skip all permission checks?' })).toBeTruthy();
+    expect(screen.getByRole('alertdialog', { name: 'Skip all permission checks?' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Skip all checks' }));
     expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({
       field: 'permissionMode',
@@ -289,7 +289,7 @@ describe('SettingsScreen — "Skip all checks" needs confirmation', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(state.updateSettings).not.toHaveBeenCalled();
-    expect(screen.queryByRole('dialog', { name: 'Skip all permission checks?' })).toBeNull();
+    expect(screen.queryByRole('alertdialog', { name: 'Skip all permission checks?' })).toBeNull();
   });
 
   it('a preset that would set the same mode is confirmed the same way', () => {
@@ -309,7 +309,7 @@ describe('SettingsScreen — "Skip all checks" needs confirmation', () => {
     render(<SettingsScreen state={state} />);
     fireEvent.change(screen.getByLabelText('Preset'), { target: { value: 'yolo' } });
     expect(state.updateSettings).not.toHaveBeenCalled();
-    expect(screen.getByRole('dialog', { name: 'Skip all permission checks?' })).toBeTruthy();
+    expect(screen.getByRole('alertdialog', { name: 'Skip all permission checks?' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Skip all checks' }));
     expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({ field: 'preset', presetId: 'yolo' });
   });
@@ -322,7 +322,7 @@ describe('SettingsScreen — removing a permission rule needs confirmation', () 
     openPermissions();
     fireEvent.click(screen.getByRole('button', { name: /Remove rule/ }));
     expect(state.updateSettings).not.toHaveBeenCalled();
-    expect(screen.getByRole('dialog', { name: 'Remove this rule?' })).toBeTruthy();
+    expect(screen.getByRole('alertdialog', { name: 'Remove this rule?' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
     expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({
       field: 'removePermissionRule',
@@ -499,7 +499,7 @@ describe('SettingsScreen — Plugins section (#3282 §4 part b-2)', () => {
       });
       fireEvent.click(screen.getByRole('button', { name: 'Install' }));
       expect(state.updateSettings).not.toHaveBeenCalled();
-      expect(screen.getByRole('dialog', { name: 'Install this plugin?' })).toBeTruthy();
+      expect(screen.getByRole('alertdialog', { name: 'Install this plugin?' })).toBeTruthy();
       expect(screen.getByText(/"linter"/)).toBeTruthy();
       expect(screen.getByText(/from robota/)).toBeTruthy();
       expect(screen.getByText(/It can run code on this computer\./)).toBeTruthy();
@@ -529,7 +529,7 @@ describe('SettingsScreen — Plugins section (#3282 §4 part b-2)', () => {
     openPlugins();
     fireEvent.click(screen.getByRole('button', { name: 'Uninstall formatter@robota' }));
     expect(state.updateSettings).not.toHaveBeenCalled();
-    expect(screen.getByRole('dialog', { name: 'Uninstall this plugin?' })).toBeTruthy();
+    expect(screen.getByRole('alertdialog', { name: 'Uninstall this plugin?' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
     expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({
       field: 'uninstallPlugin',

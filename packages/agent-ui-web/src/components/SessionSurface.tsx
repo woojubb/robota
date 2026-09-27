@@ -7,6 +7,7 @@ import { Composer, GoalBar } from './Composer.js';
 import { ConversationView } from './ConversationView.js';
 import { Dialog } from './Dialog.js';
 import { ExecutionDetailSheet } from './ExecutionDetailSheet.js';
+import { HelpSheet } from './HelpSheet.js';
 import { PermissionPrompt } from './PermissionPrompt.js';
 import { PersonalUsageDashboard } from './PersonalUsageDashboard.js';
 import { ProjectPanel } from './ProjectPanel.js';
@@ -406,6 +407,7 @@ export function SessionSurface({
       <SessionNotices state={state} />
       <SettingsScreen state={state} />
       <AgentSwitcherSheet state={state} />
+      <HelpSheet open={state.helpOpen} onClose={() => state.closeHelp()} catalog={state.commandCatalog} />
     </div>
   );
 }

@@ -229,7 +229,7 @@ describe('AgentActivityPanel — Scheduled group', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete…' }));
     // The write has not happened yet — a confirmation dialog stands between the click and the call.
     expect(onDeleteSchedule).not.toHaveBeenCalled();
-    expect(screen.getByRole('dialog', { name: 'Delete this schedule?' })).toBeTruthy();
+    expect(screen.getByRole('alertdialog', { name: 'Delete this schedule?' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     expect(onDeleteSchedule).toHaveBeenCalledExactlyOnceWith('sched_1');
   });
