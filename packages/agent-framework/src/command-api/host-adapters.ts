@@ -339,12 +339,23 @@ export interface ICommandMCPActivationAdapter {
     readonly tools: readonly IToolWithEventService[];
     readonly connectedServerIds: readonly string[];
     readonly failedServerIds: readonly string[];
+    /**
+     * Identifies this call's staged tool provenance for `reloadToolsAdded`; absent when there is
+     * nothing to acknowledge (no server newly connected). Two `reload()` calls outstanding at once
+     * — `/mcp reload` runs inline, unblocked by the mid-turn gate, and an `update-settings` write
+     * is fire-and-forget, so this is reachable, not hypothetical — join the same connection pass
+     * and get the same token back; a fresh call started only after the last one's token was
+     * acknowledged gets a new one.
+     */
+    readonly reloadToken?: string;
   }>;
   /**
-   * Which of the tools `reload` returned the session actually took; any other was left out for a
-   * name it already had. Called once per `reload` that returned tools — mirrors `oauthToolsAdded`.
+   * Which of `reload`'s tools the session actually took, keyed to the `reloadToken` it returned;
+   * any other was left out for a name it already had. `token` not matching the currently staged
+   * reload — already committed, or superseded by a later call — makes this a no-op, so a late or
+   * duplicate acknowledgement can never clear or corrupt a different reload's provenance.
    */
-  reloadToolsAdded?(added: readonly string[]): void;
+  reloadToolsAdded?(token: string, added: readonly string[]): void;
 }
 
 /**

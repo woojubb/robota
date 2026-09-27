@@ -849,11 +849,26 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   /** A sign-in's tools, by server, until the session says which it took. */
   const pendingProvenance = new Map<string, Map<string, IMcpConnectedToolProvenance>>();
   /**
-   * #3282 §4 part b-2: a `reload()`'s tools, until the session says which it took — the same
-   * staging `pendingProvenance`/`toolsAdded` does for a sign-in, so a tool name collision never
-   * leaks a dropped tool into `connectedToolProvenance` (and so `/mcp status`'s `toolNames`).
+   * #3282 §4 part b-2: a `reload()`'s tools, staged under its own token until the session says
+   * (`reloadToolsAdded`) which it took — the same staging `pendingProvenance`/`toolsAdded` does for
+   * a sign-in. Tokened, not a bare value, because a reload is not scoped to one server the way a
+   * sign-in is: `/mcp reload` runs inline (unblocked by the mid-turn gate) and an `update-settings`
+   * write is fire-and-forget, so a second `reload()` can start before the first's token is
+   * acknowledged, and an ack naming the wrong token must never clear or corrupt the other's
+   * provenance (caught in review — the untokened first version let exactly this happen).
    */
-  let pendingReloadProvenance: ReadonlyMap<string, IMcpConnectedToolProvenance> | undefined;
+  let pendingReload:
+    | { readonly token: string; readonly provenance: ReadonlyMap<string, IMcpConnectedToolProvenance> }
+    | undefined;
+  let reloadTokenSeq = 0;
+  /**
+   * Set for the lifetime of one `reload()` call — from its start until its provenance (if any) is
+   * acknowledged, not merely until its connection pass finishes — so a caller that arrives while
+   * one is outstanding joins it and gets its exact result, instead of racing it to connect the same
+   * not-yet-connected server twice or starting a second pass that would overwrite `pendingReload`
+   * before the first is acknowledged.
+   */
+  let inFlightReload: ReturnType<typeof performReload> | undefined;
   let resultSpillStore:
     | (IToolResultSpillStore & {
         read(reference: string): Promise<string>;
@@ -1062,16 +1077,49 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   }
 
   /**
-   * #3282 §4 part b-2: the Settings screen's "Reload servers" button and `/mcp reload`. Retries
-   * every ADMITTED server not currently connected — one whose config was just fixed, or that was
-   * just enabled — reusing the exact per-server connection `connect()` already uses. A server that
-   * is already connected is left alone: no teardown, no risk to a tool call already using it. Never
-   * throws: a server that still cannot connect keeps its recorded reason for the next read.
+   * #3282 §4 part b-2: the Settings screen's "Reload servers" button and `/mcp reload`. Single-
+   * flight: a call that arrives while one is outstanding — its connection pass still running, or
+   * its provenance still unacknowledged — joins it and gets its exact result, rather than starting
+   * a second connection pass (which could connect the same not-yet-connected server twice, and race
+   * the first pass on the shared `connectedByServerId`/`openConnections`/`connectionFailures` maps)
+   * or overwriting `pendingReload` before `reloadToolsAdded` reads it (review finding on the first,
+   * untokened version of this staging).
    */
-  async function reloadServers(): Promise<{
+  function reloadServers(): Promise<{
     readonly tools: readonly IToolWithEventService[];
     readonly connectedServerIds: readonly string[];
     readonly failedServerIds: readonly string[];
+    readonly reloadToken?: string;
+  }> {
+    if (inFlightReload !== undefined) return inFlightReload;
+    const promise = performReload();
+    inFlightReload = promise;
+    promise.then(
+      (result) => {
+        // Nothing staged to acknowledge: release the slot now. Otherwise it stays held — even
+        // though the connection pass below has already finished — until `reloadToolsAdded` matches
+        // this call's token, so a call arriving in that window still joins instead of racing ahead.
+        if (result.reloadToken === undefined) inFlightReload = undefined;
+      },
+      () => {
+        inFlightReload = undefined;
+      },
+    );
+    return promise;
+  }
+
+  /**
+   * Retries every ADMITTED server not currently connected — one whose config was just fixed, or
+   * that was just enabled — reusing the exact per-server connection `connect()` already uses. A
+   * server that is already connected is left alone: no teardown, no risk to a tool call already
+   * using it. Never throws: a server that still cannot connect keeps its recorded reason for the
+   * next read. Always called through `reloadServers()`'s single-flight guard, never directly.
+   */
+  async function performReload(): Promise<{
+    readonly tools: readonly IToolWithEventService[];
+    readonly connectedServerIds: readonly string[];
+    readonly failedServerIds: readonly string[];
+    readonly reloadToken?: string;
   }> {
     const context = connectContext(undefined);
     const connectedServerIds: string[] = [];
@@ -1133,18 +1181,27 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       resultAdmission,
       authFailureNoticeByServerId,
     );
-    // Recorded once the session says which of these it took (`reloadToolsAdded`) — never committed
-    // here, so a tool name collision with one the session already has never leaks into
-    // `connectedToolProvenance` (and so `/mcp status`'s `toolNames`) as though it were live.
-    pendingReloadProvenance = provenance;
-    return { tools: withResultReadTool(tools), connectedServerIds, failedServerIds };
+    // Recorded once the session says which of these it took (`reloadToolsAdded`), keyed to this
+    // call's own token — never committed here, so a tool name collision with one the session
+    // already has never leaks into `connectedToolProvenance` (and so `/mcp status`'s `toolNames`)
+    // as though it were live, and an ack meant for a different reload can never land here instead.
+    const reloadToken = `reload-${++reloadTokenSeq}`;
+    pendingReload = { token: reloadToken, provenance };
+    return { tools: withResultReadTool(tools), connectedServerIds, failedServerIds, reloadToken };
   }
 
-  /** The session took `added` of the tools a `reload()` returned; the rest collided with its own. */
-  function reloadToolsAdded(added: readonly string[]): void {
-    const provenance = pendingReloadProvenance;
-    pendingReloadProvenance = undefined;
-    if (provenance === undefined) return;
+  /**
+   * The session took `added` of the tools the `reload()` identified by `token` returned; the rest
+   * collided with its own. A `token` that does not match the currently staged reload — already
+   * committed, or superseded by a later call that started once this one's connection pass finished
+   * — is a no-op: a late or duplicate acknowledgement must never clear or corrupt a different
+   * reload's provenance.
+   */
+  function reloadToolsAdded(token: string, added: readonly string[]): void {
+    if (pendingReload === undefined || pendingReload.token !== token) return;
+    const { provenance } = pendingReload;
+    pendingReload = undefined;
+    inFlightReload = undefined;
     const taken = new Set(added);
     for (const [name, entry] of provenance) {
       if (taken.has(name)) {

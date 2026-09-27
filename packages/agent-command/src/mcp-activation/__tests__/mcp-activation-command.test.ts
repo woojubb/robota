@@ -661,14 +661,14 @@ describe('/mcp reload (#3282 §4 part b-2)', () => {
     taken: (names: string[]) => string[] = (names) => names,
   ) {
     const added: IToolWithEventService[][] = [];
-    const reloadToolsAddedCalls: (readonly string[])[] = [];
+    const reloadToolsAddedCalls: { token: string; added: readonly string[] }[] = [];
     const port: ICommandMCPActivationAdapter = {
       list: () => [],
       approve: async () => summary(),
       reject: async () => summary(),
       revoke: async () => summary(),
       reload,
-      reloadToolsAdded: (names) => reloadToolsAddedCalls.push(names),
+      reloadToolsAdded: (token, names) => reloadToolsAddedCalls.push({ token, added: names }),
     };
     const host = createTestCommandHost({
       overrides: { getCommandHostAdapters: () => ({ mcpActivation: port }) },
@@ -698,6 +698,7 @@ describe('/mcp reload (#3282 §4 part b-2)', () => {
       tools: [forecast],
       connectedServerIds: ['weather'],
       failedServerIds: ['flaky'],
+      reloadToken: 'token-1',
     }));
 
     const result = await h.run('reload');
@@ -727,12 +728,13 @@ describe('/mcp reload (#3282 §4 part b-2)', () => {
     expect(result.message).toBe('Reloading MCP servers is not available in this environment.');
   });
 
-  it('tells the port which reloaded tools the session actually took', async () => {
+  it('tells the port which reloaded tools the session actually took, keyed to the reload it came from', async () => {
     const h = harness(
       async () => ({
         tools: [forecast],
         connectedServerIds: ['weather'],
         failedServerIds: [],
+        reloadToken: 'token-1',
       }),
       (names) => names,
     );
@@ -740,7 +742,7 @@ describe('/mcp reload (#3282 §4 part b-2)', () => {
     const result = await h.run('reload');
 
     expect(result.success).toBe(true);
-    expect(h.reloadToolsAddedCalls).toEqual([['weather__forecast']]);
+    expect(h.reloadToolsAddedCalls).toEqual([{ token: 'token-1', added: ['weather__forecast'] }]);
   });
 
   it('tells the port when a reloaded tool collided and was dropped', async () => {
@@ -749,6 +751,7 @@ describe('/mcp reload (#3282 §4 part b-2)', () => {
         tools: [forecast],
         connectedServerIds: ['weather'],
         failedServerIds: [],
+        reloadToken: 'token-1',
       }),
       () => [],
     );
@@ -756,7 +759,22 @@ describe('/mcp reload (#3282 §4 part b-2)', () => {
     const result = await h.run('reload');
 
     expect(result.success).toBe(true);
-    expect(h.reloadToolsAddedCalls).toEqual([[]]);
+    expect(h.reloadToolsAddedCalls).toEqual([{ token: 'token-1', added: [] }]);
+  });
+
+  it('never calls it when the reload has no token to acknowledge (nothing staged)', async () => {
+    // A defensive case: a host that returned tools without a token (should not happen in practice,
+    // since the composition only omits one when there is nothing to stage) must not be acknowledged
+    // — there would be nothing for the token to correlate to.
+    const h = harness(async () => ({
+      tools: [forecast],
+      connectedServerIds: ['weather'],
+      failedServerIds: [],
+    }));
+
+    await h.run('reload');
+
+    expect(h.reloadToolsAddedCalls).toEqual([]);
   });
 
   it('never calls it when nothing newly connected', async () => {
