@@ -28,8 +28,8 @@ import {
   createComputerTool,
   createGlobTool,
   createGrepTool,
-  webFetchTool,
-  webSearchTool,
+  createWebFetchTool,
+  createWebSearchTool,
   routesFilesThroughSandbox,
 } from '@robota-sdk/agent-tools';
 
@@ -91,8 +91,12 @@ export function createDefaultTools(options: ICreateDefaultToolsOptions): Functio
     // construction, so registering one meant `Glob`/`Grep` could enumerate outside the session's
     // working directory while `Read`/`Write`/`Edit` were contained.
     ...(separate ? [] : [createGlobTool(options), createGrepTool(options)]),
-    webFetchTool,
-    webSearchTool,
+    // MUST 4: also built per call, for the same reason — `webFetchTool`/`webSearchTool` are
+    // module-level singletons in `agent-tools`, so two concurrently open sessions built from this
+    // set (e.g. two `sessionParticipant`s) shared them and tripped `resource-reused` even though
+    // nothing about a WebFetch/WebSearch tool actually needs to be shared across sessions.
+    createWebFetchTool(),
+    createWebSearchTool(),
     createAskUserQuestionTool(),
     // Retrieval is adapter-gated: absent when no adapter is supplied (there is no host fallback).
     ...(options.retrievalAdapter

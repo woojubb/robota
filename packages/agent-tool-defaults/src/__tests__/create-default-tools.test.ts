@@ -89,6 +89,23 @@ describe('createDefaultTools', () => {
     }
   });
 
+  // MUST 4: `WebFetch`/`WebSearch` used to be the module-level singletons `webFetchTool` /
+  // `webSearchTool` from `@robota-sdk/agent-tools` — the SAME object on every call. Two
+  // concurrently open sessions each built from `createDefaultTools({cwd})` then shared them and
+  // tripped a resource guard's `resource-reused` even though nothing about either tool needs
+  // sharing across sessions. A fresh instance per call is the fix, mirroring Glob/Grep (SEC-007).
+  it('MUST 4: WebFetch and WebSearch are fresh instances per call, not context-free singletons', () => {
+    const first = createDefaultTools({ cwd: ASSEMBLY_ROOT });
+    const second = createDefaultTools({ cwd: ASSEMBLY_ROOT });
+    for (const name of ['WebFetch', 'WebSearch']) {
+      const a = first.find((tool) => tool.getName() === name);
+      const b = second.find((tool) => tool.getName() === name);
+      expect(a, `${name} must be part of the default set`).toBeDefined();
+      expect(b).toBeDefined();
+      expect(a).not.toBe(b);
+    }
+  });
+
   // SELFHOST-003 TC-03: the retrieval adapter is threaded through assembly and the tool is
   // adapter-gated — absent with no adapter, present (and only then) when an adapter is supplied.
   it('TC-03: CodebaseRetrieval joins the default set only when a retrieval adapter is supplied', () => {
