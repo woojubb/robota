@@ -51,6 +51,13 @@ does not own session lifecycle, conversation history, or agent runtime state.
   state, so co-driving surfaces stay in sync.
 - The personal usage dashboard is opt-in per surface (browser/remote consumers stay opted out by
   default) and correlates its own requests, keeping latest-request-wins semantics on responses.
+- A background-activity entry opens a detail sheet (status, what it was asked, its paginated
+  transcript, its result) on click — except the main-thread entry, which instead returns to the
+  conversation already shown beside it. A stoppable entry's Stop is routed by whether the entry
+  carries a loop id, never guessed from its name or task kind: a `/loop`-managed entry (fixed or
+  self-paced) sends `/loop stop <id>`, because a self-paced loop's own background-task
+  representation, when it has one, is only its disposable wake timer — cancelling that would leave
+  the loop itself running. Every other entry sends `cancel-background-task`.
 - A session error finalizes any partial streamed text and clears thinking/running-tool state
   before the next turn begins.
 - Malformed server frames are surfaced through the client's callback path and never thrown inside

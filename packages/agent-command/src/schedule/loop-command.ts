@@ -2,10 +2,14 @@
 
 import { randomUUID } from 'node:crypto';
 
+import { selectAction } from '@robota-sdk/agent-core';
+import { isLoopStopVerb } from '@robota-sdk/agent-framework';
+
 import { jitterFixedLoop } from './loop-jitter.js';
 
+import type { IUserInteraction } from '@robota-sdk/agent-core';
 import type { IAgentJobHostContext } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult, TCommandInvocationSource } from '@robota-sdk/agent-interface-command';
 import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
 
 const LOOP_LABEL = 'Loop: ';
@@ -30,6 +34,20 @@ export interface ILoopCommandOptions {
   /** Host kill switch; listing and stopping existing loops remain available. */
   disabled?: boolean;
 }
+
+/**
+ * #3288 §1: who invoked `/loop`, and how to ask them. `ui` is the injected "ask the user" port
+ * (absent for a headless/automation host — see `ICommandHostUserInteraction`); `source` is the
+ * command's own invocation source. Defaults to `{ ui: undefined, source: 'user' }` when the caller
+ * omits it, matching every pre-existing (headless) call site: proceed unconfirmed, the same as
+ * before this gate existed.
+ */
+export interface ILoopInvocationContext {
+  readonly ui: IUserInteraction | undefined;
+  readonly source: TCommandInvocationSource;
+}
+
+const DEFAULT_INVOCATION: ILoopInvocationContext = { ui: undefined, source: 'user' };
 
 const UNIT_MS: Record<string, number> = {
   s: 1_000,
@@ -164,20 +182,73 @@ function loopIdOf(task: IBackgroundTaskState): string {
   return typeof id === 'string' && id.length > 0 ? id : task.id;
 }
 
+function describeActiveLoops(
+  host: Pick<IAgentJobHostContext, 'listSchedules' | 'listSelfPacedLoops'>,
+): string {
+  const loops = activeLoops(host);
+  const selfPaced = activeSelfPacedLoops(host);
+  if (loops.length + selfPaced.length === 0) return 'No other active loops.';
+  return [
+    ...loops.map((task) => `- ${loopIdOf(task)} [${task.status}] ${task.label}`),
+    ...selfPaced.map((loop) => `- ${loop.loopId} [${loop.phase}] Loop: ${loop.instruction}`),
+  ].join('\n');
+}
+
+/**
+ * #3288 §1: a bare `/loop` falls back to the host's default maintenance prompt and keeps working on
+ * its own for up to 7 days — a standing commitment the operator never typed, so it needs a person to
+ * confirm it before it starts. Returns the refusal/decline result to return in place of creating the
+ * loop, or `undefined` to proceed. A `source: 'model'` call is refused outright and never asks — the
+ * model must give its own prompt, or name `/loop` to the user (AGENTS.md: trust and
+ * permission-widening actions stay user-only, and a refusal names the command to suggest).
+ */
+async function confirmDefaultLoopStart(
+  host: Pick<IAgentJobHostContext, 'listSchedules' | 'listSelfPacedLoops'>,
+  invocation: ILoopInvocationContext,
+  instruction: string,
+): Promise<ICommandResult | undefined> {
+  if (invocation.source === 'model') {
+    return {
+      success: false,
+      message:
+        'Starting a self-paced loop with the default prompt needs a person to confirm it — ' +
+        'ask the user to run /loop, or give your own prompt with /loop <prompt>.',
+    };
+  }
+  const { ui } = invocation;
+  if (!ui) return undefined; // Headless/automation host: proceed unconfirmed, as /loop always has.
+  const expiresAt = new Date(Date.now() + LOOP_LIFETIME_MS).toISOString();
+  const firstLine = instruction.split('\n')[0]!.trim() || instruction;
+  const response = await ui.ask(
+    selectAction(
+      'loop-start-default',
+      `Start a self-paced loop that keeps working on its own until ${expiresAt}? It will: ${firstLine}`,
+      [
+        { value: 'start', label: 'Start' },
+        { value: 'cancel', label: 'Cancel' },
+      ],
+      { description: describeActiveLoops(host) },
+    ),
+  );
+  if (response.type === 'answer' && response.values.includes('start')) return undefined;
+  return { success: true, message: 'Loop not started.' };
+}
+
 export async function executeLoopCommand(
   host: Pick<IAgentJobHostContext, 'spawnScheduledWake' | 'listSchedules' | 'createSelfPacedLoop' | 'listSelfPacedLoops' | 'stopSelfPacedLoop'>,
   cancelBackgroundTask: (taskId: string, reason: string) => Promise<void>,
   args: string,
   options: ILoopCommandOptions = {},
+  invocation: ILoopInvocationContext = DEFAULT_INVOCATION,
 ): Promise<ICommandResult> {
   const trimmed = args.trim();
   if (trimmed === 'list') return listLoops(host, options);
-  if (/^stop(?:\s|$)/.test(trimmed)) return stopLoop(host, cancelBackgroundTask, trimmed);
+  if (isLoopStopVerb(trimmed)) return stopLoop(host, cancelBackgroundTask, trimmed);
 
   if (options.disabled) {
     return { success: false, message: 'Session loops are disabled by the host.' };
   }
-  return createLoop(host, trimmed, options);
+  return createLoop(host, trimmed, options, invocation);
 }
 
 function listLoops(
@@ -237,6 +308,7 @@ async function createLoop(
   host: Pick<IAgentJobHostContext, 'spawnScheduledWake' | 'listSchedules' | 'createSelfPacedLoop' | 'listSelfPacedLoops'>,
   args: string,
   options: ILoopCommandOptions,
+  invocation: ILoopInvocationContext = DEFAULT_INVOCATION,
 ): Promise<ICommandResult> {
   const useDefaultPrompt = args === '' || /^\d+(s|m|h|d)$/i.test(args);
   let defaultPrompt = options.defaultPrompt;
@@ -258,6 +330,10 @@ async function createLoop(
     }
     if (!host.createSelfPacedLoop) {
       return { success: false, message: 'Self-paced loops require a persistent interactive session.' };
+    }
+    if (useDefaultPrompt) {
+      const declined = await confirmDefaultLoopStart(host, invocation, instruction);
+      if (declined) return declined;
     }
     const pending = pendingCreates.get(host) ?? 0;
     if (activeLoops(host).length + activeSelfPacedLoops(host).length + pending >= MAX_ACTIVE_LOOPS) {

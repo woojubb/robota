@@ -1,6 +1,8 @@
 import { CircleCheck, CircleDashed, CircleX, LoaderCircle, ShieldAlert } from 'lucide-react';
 import React from 'react';
 
+import { describeExecutionStatus, hadDeniedToolCalls } from '../execution-entry-status.js';
+
 import type {
   IExecutionWorkspaceEntry,
   TExecutionAttention,
@@ -10,11 +12,23 @@ import type {
 interface IAgentActivityPanelProps {
   tasks: readonly IExecutionWorkspaceEntry[];
   className?: string;
+  /** #3288 §1: open a non-main-thread entry's detail sheet. */
+  onSelect?: (entry: IExecutionWorkspaceEntry) => void;
+  /** #3288 §1: the main thread entry was clicked — the conversation beside this panel is it. */
+  onReturnToConversation?: () => void;
+  /** #3288 §1: Stop was clicked on a running/queued entry. */
+  onStop?: (entry: IExecutionWorkspaceEntry) => void;
+  /** #3288 §1: the entry whose detail sheet is currently open, for a highlighted row. */
+  selectedEntryId?: string;
 }
 
 export function AgentActivityPanel({
   tasks,
   className,
+  onSelect,
+  onReturnToConversation,
+  onStop,
+  selectedEntryId,
 }: IAgentActivityPanelProps): React.ReactElement {
   const runningCount = tasks.filter((t) => t.status === 'running').length;
 
@@ -31,28 +45,77 @@ export function AgentActivityPanel({
 
       <div className="flex-1 space-y-2 overflow-y-auto px-3 pb-3">
         {tasks.map((entry) => (
-          <AgentCard key={entry.id} entry={entry} />
+          <AgentCard
+            key={entry.id}
+            entry={entry}
+            selected={entry.id === selectedEntryId}
+            onOpen={
+              entry.kind === 'main_thread'
+                ? onReturnToConversation
+                : onSelect && (() => onSelect(entry))
+            }
+            onStop={onStop && entry.controls.includes('cancel') ? () => onStop(entry) : undefined}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function AgentCard({ entry }: { entry: IExecutionWorkspaceEntry }): React.ReactElement {
+function AgentCard({
+  entry,
+  selected,
+  onOpen,
+  onStop,
+}: {
+  entry: IExecutionWorkspaceEntry;
+  selected: boolean;
+  onOpen?: () => void;
+  onStop?: () => void;
+}): React.ReactElement {
   const needsYou = entry.attention === 'permission' || entry.status === 'waiting_permission';
   const failed = entry.attention === 'failed' || entry.status === 'failed';
   return (
     <div
+      role={onOpen ? 'button' : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onClick={onOpen}
+      onKeyDown={
+        onOpen
+          ? (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onOpen();
+              }
+            }
+          : undefined
+      }
+      aria-label={onOpen ? entry.title : undefined}
       className={`rounded-xl px-3.5 py-3 transition-opacity duration-500 ${
         needsYou ? 'bg-warning/10' : failed ? 'bg-destructive/10' : 'bg-card'
-      } ${entry.status === 'completed' ? 'opacity-60' : ''}`}
+      } ${entry.status === 'completed' ? 'opacity-60' : ''} ${
+        selected ? 'ring-1 ring-inset ring-accent' : ''
+      } ${onOpen ? 'cursor-pointer' : ''}`}
     >
       <div className="flex items-center gap-2.5">
-        <StatusIcon status={entry.status} attention={entry.attention} />
+        <StatusIcon status={entry.status} attention={entry.attention} deniedToolCalls={entry.deniedToolCalls} />
         <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-foreground">
           {entry.title}
         </span>
-        <AttentionTag attention={entry.attention} status={entry.status} />
+        <AttentionTag status={entry.status} attention={entry.attention} deniedToolCalls={entry.deniedToolCalls} />
+        {onStop && (
+          <button
+            type="button"
+            aria-label="Stop"
+            onClick={(event) => {
+              event.stopPropagation();
+              onStop();
+            }}
+            className="flex-shrink-0 rounded-md px-1.5 py-px text-[12px] text-subtle hover:bg-destructive/10 hover:text-destructive"
+          >
+            Stop
+          </button>
+        )}
       </div>
       {entry.currentAction && (
         <p className="mt-1.5 truncate pl-[26px] text-[13px] leading-snug text-muted-foreground">
@@ -71,9 +134,11 @@ function AgentCard({ entry }: { entry: IExecutionWorkspaceEntry }): React.ReactE
 function StatusIcon({
   status,
   attention,
+  deniedToolCalls,
 }: {
   status: TExecutionWorkspaceStatus;
   attention: TExecutionAttention;
+  deniedToolCalls?: number;
 }): React.ReactElement {
   const props = { size: 16, strokeWidth: 1.9, className: 'flex-shrink-0' } as const;
   if (attention === 'permission' || status === 'waiting_permission') {
@@ -81,6 +146,9 @@ function StatusIcon({
   }
   if (attention === 'failed' || status === 'failed') {
     return <CircleX {...props} className={`${props.className} text-destructive`} />;
+  }
+  if (hadDeniedToolCalls(status, deniedToolCalls)) {
+    return <ShieldAlert {...props} className={`${props.className} text-warning`} />;
   }
   if (status === 'running') {
     return (
@@ -93,26 +161,33 @@ function StatusIcon({
   if (status === 'completed') {
     return <CircleCheck {...props} className={`${props.className} text-success`} />;
   }
+  if (status === 'cancelled') {
+    return <CircleX {...props} className={`${props.className} text-subtle`} />;
+  }
   return <CircleDashed {...props} className={`${props.className} text-subtle`} />;
 }
+
+const STATUS_TAG_TONE: Record<string, string> = {
+  warning: 'bg-warning/15 text-warning',
+  destructive: 'bg-destructive/12 text-destructive',
+  muted: 'text-subtle',
+};
 
 function AttentionTag({
   attention,
   status,
+  deniedToolCalls,
 }: {
   attention: TExecutionAttention;
   status: TExecutionWorkspaceStatus;
+  deniedToolCalls?: number;
 }): React.ReactElement | null {
-  const tag = (label: string, tone: string): React.ReactElement => (
-    <span className={`flex-shrink-0 rounded-md px-1.5 py-px text-[12px] ${tone}`}>{label}</span>
+  const described = describeExecutionStatus(status, attention, deniedToolCalls);
+  // A running row already has its spinner; no text tag repeats that.
+  if (!described || described.label === 'Running') return null;
+  return (
+    <span className={`flex-shrink-0 rounded-md px-1.5 py-px text-[12px] ${STATUS_TAG_TONE[described.tone]}`}>
+      {described.label}
+    </span>
   );
-  if (attention === 'permission' || status === 'waiting_permission') {
-    return tag('Needs you', 'bg-warning/15 text-warning');
-  }
-  if (attention === 'failed' || status === 'failed') {
-    return tag('Failed', 'bg-destructive/12 text-destructive');
-  }
-  if (status === 'completed') return tag('Done', 'text-subtle');
-  if (status === 'queued') return tag('Queued', 'text-subtle');
-  return null;
 }

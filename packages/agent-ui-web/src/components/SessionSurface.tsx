@@ -4,6 +4,7 @@ import { AgentActivityPanel } from './AgentActivityPanel.js';
 import { RobotaMark, RobotaWordmark } from './Brand.js';
 import { Composer, GoalBar } from './Composer.js';
 import { ConversationView } from './ConversationView.js';
+import { ExecutionDetailSheet } from './ExecutionDetailSheet.js';
 import { PermissionPrompt } from './PermissionPrompt.js';
 import { PersonalUsageDashboard } from './PersonalUsageDashboard.js';
 import { SessionSidebar, SessionSidebarRail, sessionTitle } from './SessionSidebar.js';
@@ -119,6 +120,19 @@ export function SessionSurface({
   const tasks = state.executionWorkspace?.entries ?? [];
   // The main thread alone is this conversation; the rail earns its width only for work beside it.
   const hasTasks = tasks.some((entry) => entry.kind !== 'main_thread');
+  // #3288 §1: the entry open in the detail sheet, resolved fresh from the live snapshot each render
+  // (so it reflects the entry's own updates, e.g. a Stop taking effect) rather than a stale copy.
+  const openEntry = tasks.find((entry) => entry.id === state.openEntryId) ?? null;
+  // A loop's `cancel` means "stop the loop" (`/loop stop <id>`) — never cancel-background-task,
+  // which for a self-paced loop would only cancel its disposable wake timer, leaving the loop
+  // itself active (see IExecutionWorkspaceEntry.loopId).
+  const stopExecutionEntry = (entry: { loopId?: string; sourceId: string }): void => {
+    if (entry.loopId !== undefined) {
+      state.send({ type: 'command', name: 'loop', args: `stop ${entry.loopId}` });
+    } else {
+      state.send({ type: 'cancel-background-task', taskId: entry.sourceId });
+    }
+  };
   const isEmpty =
     state.messages.length === 0 &&
     !state.streamingText &&
@@ -264,9 +278,27 @@ export function SessionSurface({
 
             {hasTasks && (
               <aside className="flex w-72 flex-shrink-0 overflow-hidden bg-sidebar">
-                <AgentActivityPanel tasks={tasks} className="flex-1" />
+                <AgentActivityPanel
+                  tasks={tasks}
+                  className="flex-1"
+                  selectedEntryId={state.openEntryId ?? undefined}
+                  onSelect={(entry) => state.openExecutionDetail(entry.id)}
+                  onReturnToConversation={() => state.closeExecutionDetail()}
+                  onStop={stopExecutionEntry}
+                />
               </aside>
             )}
+
+            <ExecutionDetailSheet
+              entry={openEntry}
+              status={state.executionDetailStatus}
+              records={state.executionDetailRecords}
+              error={state.executionDetailError}
+              complete={state.executionDetailComplete}
+              onClose={() => state.closeExecutionDetail()}
+              onLoadMore={() => state.loadMoreExecutionDetail()}
+              onStop={openEntry ? () => stopExecutionEntry(openEntry) : undefined}
+            />
           </div>
         )}
       </div>

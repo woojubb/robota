@@ -37,6 +37,7 @@ import type {
   IExecutionDetailPage,
   IExecutionOrigin,
   IExecutionPendingRequest,
+  IExecutionSelfPacedLoopSummary,
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceFilter,
   IExecutionWorkspaceSnapshot,
@@ -276,9 +277,18 @@ export abstract class InteractiveSessionBase {
         histTracker: this.histTracker,
         bgTracker: this.bgTracker,
         pendingRequest: () => this.getPendingRequest(),
+        selfPacedLoops: () => this.getSelfPacedLoopWorkspaceSummaries(),
       },
       options,
     );
+  }
+  /**
+   * #3288 §1: this session's self-paced loops, summarized for the execution workspace. Overridden
+   * by {@link InteractiveSession} (the only subclass with self-paced loops at all); the default
+   * here keeps a hypothetical other subclass working with none, rather than requiring one.
+   */
+  protected getSelfPacedLoopWorkspaceSummaries(): readonly IExecutionSelfPacedLoopSummary[] {
+    return [];
   }
   listExecutionWorkspaceEntries(filter?: IExecutionWorkspaceFilter): IExecutionWorkspaceEntry[] {
     return [...this.getExecutionWorkspaceSnapshot({ filter }).entries];

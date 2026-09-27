@@ -21,6 +21,7 @@ import type {
   IExecutionDetailPage,
   IExecutionOrigin,
   IExecutionPendingRequest,
+  IExecutionSelfPacedLoopSummary,
   IExecutionWorkspaceSnapshot,
   IExecutionWorkspaceSnapshotOptions,
   IExecutionWorkspaceTaskSpawner,
@@ -36,6 +37,8 @@ export interface IWorkspaceSnapshotDeps {
   bgTracker: Pick<SessionBackgroundTaskTracker, 'getTaskSnapshots' | 'getGroupSnapshots'>;
   /** SCREEN-1992: the parked permission/ask the main thread waits on, when the session has one. */
   pendingRequest?: () => IExecutionPendingRequest | undefined;
+  /** #3288 §1: this session's self-paced loops, for the `pending`/`running` ones' own entries. */
+  selfPacedLoops?: () => readonly IExecutionSelfPacedLoopSummary[];
 }
 
 export function buildExecutionWorkspaceSnapshot(
@@ -61,6 +64,7 @@ export function buildExecutionWorkspaceSnapshot(
     },
     tasks: bgTracker.getTaskSnapshots(),
     groups: bgTracker.getGroupSnapshots(),
+    selfPacedLoops: deps.selfPacedLoops?.(),
     selectedEntryId: options.selectedEntryId,
     filter: options.filter,
   });

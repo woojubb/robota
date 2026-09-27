@@ -17,6 +17,7 @@ import {
   type ICreateExecutionWorkspaceSnapshotInput,
   type ICreateMainThreadEntryInput,
   type IExecutionOrigin,
+  type IExecutionSelfPacedLoopSummary,
   type IExecutionWorkspaceEntry,
   type IExecutionWorkspaceFilter,
   type IExecutionWorkspaceSnapshot,
@@ -54,9 +55,20 @@ export function createExecutionWorkspaceSnapshot(
   const entries = [
     createMainThreadEntry(input.mainThread),
     ...sortGroups(input.groups).map((group) => createBackgroundGroupEntry(group)),
-    ...sortTasks(input.tasks).map((task) =>
-      createBackgroundTaskEntry(task, taskGroupIds.get(task.id)),
-    ),
+    ...sortTasks(input.tasks)
+      // #3288 §1: a stopped loop does not linger — cancel() only flips status, it never removes the
+      // record (only close() does), so without this an operator-stopped loop would sit in the
+      // workspace forever (surviving even a restart, since the cancelled record persists). An
+      // ordinary (non-loop) cancelled task is unaffected: it stays listed and queryable, as before.
+      .filter((task) => !isLingeringCancelledLoopTask(task))
+      .map((task) => createBackgroundTaskEntry(task, taskGroupIds.get(task.id))),
+    ...sortSelfPacedLoops(input.selfPacedLoops ?? [])
+      // Only `pending`/`running` need a projection of their own: `waiting` already has one (the
+      // disposable wake timer `armSelfPacedTimer` spawns is itself a task above, carrying the same
+      // `loopId`); `stopped`/`expired` must not linger, for the same reason a cancelled task above
+      // does not.
+      .filter((loop) => loop.phase === 'pending' || loop.phase === 'running')
+      .map((loop) => createSelfPacedLoopEntry(loop, input.sessionId)),
   ].filter((entry) => matchesExecutionWorkspaceFilter(entry, input.filter));
   return {
     sessionId: input.sessionId,
@@ -126,7 +138,88 @@ function createBackgroundTaskEntry(
     ...(state.kind === 'scheduled' && state.status === 'sleeping' && state.nextFireAt !== undefined
       ? { nextFireAt: state.nextFireAt }
       : {}),
+    // #3288 §1: the stable /loop stop <id> handle, present on any /loop-managed task — a fixed
+    // cadence loop, or a self-paced loop's own disposable wake timer (metadata.sessionLoop is set
+    // on both; see loopIdFromTaskMetadata).
+    ...(() => {
+      const loopId = loopIdFromTaskMetadata(state);
+      return loopId === undefined ? {} : { loopId };
+    })(),
+    ...(() => {
+      const deniedToolCalls = deniedToolCallsFromResult(state);
+      return deniedToolCalls === undefined ? {} : { deniedToolCalls };
+    })(),
   };
+}
+
+/**
+ * #3288 §1: an agent task's own denied-tool-call count, read defensively — `deniedToolCalls` does
+ * not exist on every host's `IAgentBackgroundTaskResult` yet (PEER/#3312 adds it), so this reads it
+ * as an unknown field rather than a typed one, and is a no-op wherever it is absent.
+ */
+function deniedToolCallsFromResult(state: IBackgroundTaskState): number | undefined {
+  if (state.kind !== 'agent' || state.result?.kind !== 'agent') return undefined;
+  const raw = (state.result as unknown as { deniedToolCalls?: unknown }).deniedToolCalls;
+  return typeof raw === 'number' && raw > 0 ? raw : undefined;
+}
+
+/**
+ * #3288 §1: a `/loop`-managed task's stable loop id (`loopIdOf` in agent-command's loop-command.ts
+ * computes the identical answer server-side, for `/loop stop` itself — the two must never drift, so
+ * this mirrors it exactly). Absent on any task `/loop` did not create.
+ */
+function loopIdFromTaskMetadata(state: IBackgroundTaskState): string | undefined {
+  if (state.metadata?.['sessionLoop'] !== true) return undefined;
+  const stableId = state.metadata['sessionLoopId'];
+  return typeof stableId === 'string' && stableId.length > 0 ? stableId : state.id;
+}
+
+/**
+ * #3288 §1: whether a loop task's own record should stop appearing — the record itself is never
+ * deleted by `cancel()` (only `close()` does that), so this is a snapshot-time filter, not a mutation.
+ */
+function isLingeringCancelledLoopTask(task: IBackgroundTaskState): boolean {
+  return task.metadata?.['sessionLoop'] === true && task.status === 'cancelled';
+}
+
+const SELF_PACED_LOOP_LABEL = 'Loop: ';
+const SELF_PACED_LOOP_TITLE_LENGTH = 48;
+
+/** #3288 §1: a `pending`/`running` self-paced loop, projected with no `IBackgroundTaskState` of its
+ * own to draw from — see the module-level note on `createExecutionWorkspaceSnapshot`. */
+function createSelfPacedLoopEntry(
+  loop: IExecutionSelfPacedLoopSummary,
+  sessionId: string,
+): IExecutionWorkspaceEntry {
+  const status = loop.phase === 'running' ? 'running' : 'queued';
+  return {
+    id: createBackgroundTaskExecutionEntryId(loop.loopId),
+    sourceId: loop.loopId,
+    kind: 'background_task',
+    parentId: createMainThreadExecutionEntryId(sessionId),
+    origin: { kind: 'slash_command', sessionId, commandName: 'loop' },
+    taskKind: 'scheduled',
+    status,
+    title: `${SELF_PACED_LOOP_LABEL}${loop.instruction.slice(0, SELF_PACED_LOOP_TITLE_LENGTH)}`,
+    subtitle: 'self-paced',
+    preview: trimPreview(loop.instruction),
+    unread: false,
+    attention: 'none',
+    visibility: 'default',
+    updatedAt: loop.createdAt,
+    controls: ['select', 'cancel'],
+    state: 'working',
+    loopId: loop.loopId,
+  };
+}
+
+function sortSelfPacedLoops(
+  loops: readonly IExecutionSelfPacedLoopSummary[],
+): readonly IExecutionSelfPacedLoopSummary[] {
+  // SCREEN-010: the same stable-order rule as sortTasks — no per-loop start time is available here,
+  // so order by id (deterministic, and matches the "loops in `/loop list`" ordering closely enough
+  // for the small, occasional set of concurrently-active loops).
+  return [...loops].sort((left, right) => left.loopId.localeCompare(right.loopId));
 }
 
 function createBackgroundGroupEntry(group: IBackgroundJobGroupState): IExecutionWorkspaceEntry {

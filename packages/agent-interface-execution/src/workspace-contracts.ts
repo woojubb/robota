@@ -99,6 +99,21 @@ export interface IExecutionWorkspaceEntry {
   readonly headline?: IExecutionHeadline;
   /** SCREEN-1992: ISO time of a sleeping schedule's next fire, for a surface-side countdown. */
   readonly nextFireAt?: string;
+  /**
+   * #3288 §1: present on a `/loop`-managed entry (fixed cadence or self-paced) — its stable loop
+   * id. A `cancel` control on this entry means "stop the loop" (`/loop stop <loopId>`), never the
+   * generic `cancel-background-task`: for a self-paced loop, the background task backing the entry
+   * (when there is one) is only its disposable wake timer, and cancelling THAT would leave the loop
+   * itself still active. Absent on an ordinary (non-loop) task or group.
+   */
+  readonly loopId?: string;
+  /**
+   * #3288 §1: an agent task's own count of tool calls its result reports as refused, when its
+   * result carries one — read defensively (the field may not exist on an older host's result), so a
+   * surface can show "Needs permission" instead of a plain "Done" for a task that finished with
+   * something still refused, rather than losing that fact once the task is no longer running.
+   */
+  readonly deniedToolCalls?: number;
 }
 
 export interface IExecutionWorkspaceFilter {
@@ -156,11 +171,30 @@ export interface ICreateMainThreadEntryInput {
   readonly pendingRequest?: IExecutionPendingRequest;
 }
 
+/**
+ * #3288 §1: the minimal self-paced-loop shape the projection needs to show a `pending`/`running`
+ * iteration that has no background-task representation of its own (its `waiting` phase does have
+ * one — see {@link IExecutionWorkspaceEntry.loopId} — so is never included here). A structural
+ * subset of `ISessionLoopState`, owned by `agent-interface-session`, which depends on THIS package
+ * (not the other way around) so that richer contract cannot be imported here; every real
+ * `ISessionLoopState` satisfies this shape already.
+ */
+export interface IExecutionSelfPacedLoopSummary {
+  readonly loopId: string;
+  readonly instruction: string;
+  readonly phase: 'waiting' | 'pending' | 'running' | 'stopped' | 'expired';
+  readonly createdAt: string;
+  readonly delaySeconds?: number;
+  readonly reason?: string;
+}
+
 export interface ICreateExecutionWorkspaceSnapshotInput {
   readonly sessionId: string;
   readonly mainThread: ICreateMainThreadEntryInput;
   readonly tasks: readonly IBackgroundTaskState[];
   readonly groups: readonly IBackgroundJobGroupState[];
+  /** #3288 §1: optional — omitted by a caller that has none (or predates this field). */
+  readonly selfPacedLoops?: readonly IExecutionSelfPacedLoopSummary[];
   readonly selectedEntryId?: string;
   readonly filter?: IExecutionWorkspaceFilter;
 }
