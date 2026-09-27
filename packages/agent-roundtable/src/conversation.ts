@@ -1,6 +1,6 @@
 import { ConversationPersistence } from './conversation-persistence';
 import { abortableWait } from './abortable-wait';
-import type { ConversationState, StoredMember } from './conversation-state';
+import type { ConversationState, StoredMember, TerminalResult } from './conversation-state';
 import { errorMessage, RoundtableError } from './errors';
 import { executeGroup } from './group';
 import {
@@ -16,6 +16,7 @@ import {
 } from './conversation-requests';
 import { MemoryConversationStore } from './memory-store';
 import { roundRobin } from './policies';
+import { resolveSelection, validateSelection } from './selection';
 import type { StoreOwner } from './store-owner';
 import type {
   AgentParticipant,
@@ -45,7 +46,7 @@ export class Conversation implements Roundtable {
   private disposing?: Promise<void>;
   private disposed = false;
   private busy = false;
-  private terminal?: RunResult;
+  private terminal?: TerminalResult;
   private readonly options: RoundtableOptions;
 
   constructor(options: RoundtableOptions, restored?: ConversationState) {
@@ -275,33 +276,54 @@ export class Conversation implements Roundtable {
     try {
       return await this.execute(AbortSignal.any([signal, owner.signal]), owner);
     } catch (error) {
-      let result: RunResult = signal.aborted
-        ? {
-            revision: this.snapshot().revision,
-            ...(timedOut()
-              ? { status: 'limited' as const, reason: 'time' as const }
-              : { status: 'cancelled' as const }),
-          }
-        : { status: 'failed', revision: this.snapshot().revision, message: errorMessage(error) };
-      if (!owner.signal.aborted) {
-        try {
-          await this.persistence.update((draft, revision) => {
-            draft.terminal = { ...result, revision };
-          });
-          result = { ...result, revision: this.snapshot().revision };
-        } catch (persistError) {
-          result = {
-            status: 'failed',
-            revision: this.snapshot().revision,
-            message: `Could not save execution failure: ${errorMessage(persistError)}`,
-          };
-        }
-      }
-      this.terminal = result;
-      return structuredClone(result);
+      // Unsettled runtime work is neither rerun nor finished; the host must reconcile it first.
+      if (error instanceof RoundtableError && error.code === 'recovery-required') throw error;
+      if (signal.aborted) return await this.stop(owner, timedOut());
+      return await this.fail(owner, error);
     } finally {
       await this.persistence.end();
     }
+  }
+
+  /** Cancellation, disposal and time limits end this run at a safe point, never the conversation. */
+  private async stop(owner: StoreOwner, timedOut: boolean): Promise<RunResult> {
+    if (!owner.signal.aborted && this.persistence.snapshot().phase.kind === 'selecting') {
+      // The selector call settled without a saved decision, so the next run asks again. If this
+      // write fails, the stored attempt stays and loading requires reconciliation.
+      await this.persistence
+        .update((draft) => {
+          draft.phase = { kind: 'ready' };
+        })
+        .catch(() => {});
+    }
+    const revision = this.snapshot().revision;
+    return timedOut
+      ? { status: 'limited', reason: 'time', revision }
+      : { status: 'cancelled', revision };
+  }
+
+  private async fail(owner: StoreOwner, error: unknown): Promise<RunResult> {
+    let result: TerminalResult = {
+      status: 'failed',
+      revision: this.snapshot().revision,
+      message: errorMessage(error),
+    };
+    if (!owner.signal.aborted) {
+      try {
+        await this.persistence.update((draft, revision) => {
+          draft.terminal = { ...result, revision };
+        });
+        result = { ...result, revision: this.snapshot().revision };
+      } catch (persistError) {
+        result = {
+          status: 'failed',
+          revision: this.snapshot().revision,
+          message: `Could not save execution failure: ${errorMessage(persistError)}`,
+        };
+      }
+    }
+    this.terminal = result;
+    return structuredClone(result);
   }
 
   private async execute(signal: AbortSignal, owner: StoreOwner): Promise<RunResult> {
@@ -334,7 +356,7 @@ export class Conversation implements Roundtable {
         await owner.admit();
         signal.throwIfAborted();
         view = this.snapshot();
-        selection = await this.selector.select(
+        const decision = await this.selector.select(
           {
             participants: [...this.participants.values()].map(({ id, kind, description }) => ({
               id,
@@ -346,6 +368,11 @@ export class Conversation implements Roundtable {
             remainingTurns: this.options.limits.maxTurnsPerRun - attempted,
           },
           { signal },
+        );
+        selection = validateSelection(
+          decision,
+          this.participants,
+          this.options.limits.maxTurnsPerRun,
         );
         const checkpoint = (await this.selector.checkpoint?.()) ?? null;
         await this.persistence.update((draft) => {
@@ -366,7 +393,7 @@ export class Conversation implements Roundtable {
         };
         return structuredClone(this.terminal);
       }
-      const selected = this.resolveSelection(selection);
+      const selected = resolveSelection(selection, this.participants);
       if (selected.length > this.options.limits.maxTurnsPerRun - attempted) {
         return { status: 'limited', reason: 'turns', revision: this.snapshot().revision };
       }
@@ -474,6 +501,11 @@ export class Conversation implements Roundtable {
       start: (turn) =>
         this.persistence.update((draft) => {
           this.member(draft, turn).status = 'running';
+        }),
+      restore: (turn) =>
+        this.persistence.update((draft) => {
+          const saved = pending.find((candidate) => candidate.turn.turnId === turn.turnId)!;
+          this.member(draft, turn).status = saved.status;
         }),
       settle: (turn, outcome) =>
         this.persistence.update((draft) => {
@@ -632,31 +664,6 @@ export class Conversation implements Roundtable {
       this.sessions.set(participant.id, opened);
     }
     return opened;
-  }
-
-  private resolveSelection(
-    selection: Exclude<Selection, { kind: 'finish' }>,
-  ): ParticipantDefinition[] {
-    const ids =
-      selection.kind === 'parallel' ? [...selection.participantIds] : [selection.participantId];
-    if (!ids.length || new Set(ids).size !== ids.length)
-      throw new RoundtableError('invalid-selection', 'Selection requires unique participants');
-    return ids.map((id) => {
-      const participant = this.participants.get(id);
-      if (!participant)
-        throw new RoundtableError('invalid-selection', `Unknown participant: ${id}`);
-      if (selection.kind === 'parallel' && participant.kind !== 'agent')
-        throw new RoundtableError(
-          'invalid-selection',
-          'Parallel selection requires agent participants',
-        );
-      if (selection.kind === 'wait' && participant.kind !== 'external')
-        throw new RoundtableError(
-          'invalid-selection',
-          'Input wait requires an external participant',
-        );
-      return participant;
-    });
   }
 
   private async emit(event: RoundtableEvent, signal: AbortSignal): Promise<void> {

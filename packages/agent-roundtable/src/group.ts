@@ -24,6 +24,8 @@ export async function executeGroup(options: {
   session: (participant: AgentParticipant) => Promise<ParticipantLease>;
   emit: (event: RoundtableEvent, signal: AbortSignal) => Promise<void>;
   start: (turn: ParticipantTurn) => Promise<void>;
+  /** Return a member that never entered its runtime to its dispatchable state. */
+  restore: (turn: ParticipantTurn) => Promise<void>;
   settle: (turn: ParticipantTurn, outcome: PreparedMember['outcome']) => Promise<void>;
   prepare: (member: PreparedMember) => Promise<void>;
   fail: (turn: ParticipantTurn, error: unknown) => Promise<void>;
@@ -42,6 +44,7 @@ export async function executeGroup(options: {
       const index = cursor++;
       const participant = options.participants[index];
       const turn = options.turns[index];
+      let stage: 'queued' | 'running' | 'returned' = 'queued';
       try {
         await options.start(turn);
         await options.admit();
@@ -68,11 +71,13 @@ export async function executeGroup(options: {
         const responses = options.responses?.(turn);
         if (responses && (!participant.factory.supportsContinuation || !lease.session.resumeTurn))
           throw new Error(`Participant cannot continue a checkpointed wait: ${participant.id}`);
+        stage = 'running';
         const outcome = structuredClone(
           responses
             ? await lease.session.resumeTurn!(structuredClone(turn), responses, executionOptions)
             : await lease.session.runTurn(structuredClone(turn), executionOptions),
         );
+        stage = 'returned';
         if (outcome.kind === 'failed') throw new Error(outcome.message);
         if (
           outcome.kind !== 'wait' &&
@@ -112,12 +117,17 @@ export async function executeGroup(options: {
             signal,
           );
       } catch (error) {
+        const interrupted = signal.aborted;
         if (!failed) {
           failed = true;
           failure = error;
         }
         groupAbort.abort(error);
-        await options.fail(turn, error).catch(() => {});
+        // A member stopped before its runtime stays dispatchable. One stopped inside its runtime stays
+        // unsettled: its effects are unknown, so it must be reconciled rather than rerun or failed.
+        if (interrupted && stage === 'queued') await options.restore(turn).catch(() => {});
+        else if (!interrupted || stage === 'returned')
+          await options.fail(turn, error).catch(() => {});
       }
     }
   }

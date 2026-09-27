@@ -10,6 +10,9 @@ import type {
   ResponseReceipt,
 } from './types';
 
+/** Only failure and semantic completion end a conversation; other run results leave it resumable. */
+export type TerminalResult = Extract<RunResult, { status: 'completed' | 'failed' }>;
+
 export interface StoredMember {
   participantId: string;
   turn: ParticipantTurn;
@@ -54,5 +57,5 @@ export interface ConversationState {
     | { kind: 'selecting'; attemptId: string }
     | { kind: 'selected'; attemptId: string; selection: Selection }
     | { kind: 'group'; groupId: string; baseRevision: number; members: StoredMember[] };
-  terminal: RunResult | null;
+  terminal: TerminalResult | null;
 }

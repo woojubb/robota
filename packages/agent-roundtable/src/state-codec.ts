@@ -113,10 +113,8 @@ export function decodeConversation(
     const terminal = record(state.terminal);
     requireState(terminal.revision === envelope.revision);
     requireState(
-      terminal.status === 'cancelled' ||
-        (terminal.status === 'failed' && typeof terminal.message === 'string') ||
-        (terminal.status === 'completed' && typeof terminal.reason === 'string') ||
-        (terminal.status === 'limited' && terminal.reason === 'time'),
+      (terminal.status === 'failed' && typeof terminal.message === 'string') ||
+        (terminal.status === 'completed' && typeof terminal.reason === 'string'),
     );
   }
 
@@ -129,7 +127,9 @@ export function decodeConversation(
       const ids = list(selection.participantIds);
       unique(ids);
       requireState(
-        ids.length > 0 && ids.every((id) => byId.has(id) && byId.get(id)?.runtime !== null),
+        ids.length > 0 &&
+          ids.length <= Number(limits.maxTurnsPerRun) &&
+          ids.every((id) => byId.has(id) && byId.get(id)?.runtime !== null),
       );
     } else if (selection.kind === 'finish') requireState(typeof selection.reason === 'string');
     else {

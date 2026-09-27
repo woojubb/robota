@@ -25,16 +25,23 @@ peers retain their results. Its input replies remain provisional until the group
 consumed in its private view. Participant text and approval responses carry provenance, not host
 authority; the runtime remains responsible for current authorization and effect reconciliation.
 
-Cancellation stops new dispatch and waits for running work to settle. It does not establish that an
-external effect never happened. A failed or cancelled group must not publish provisional output as a
-completed contribution. Session release belongs to the factory, so borrowed resources remain under
-their owner's control.
+Cancellation, disposal and time limits stop new dispatch and wait for running work to settle. They end
+a run, not the conversation: only failure and semantic completion are final, so a host can stop work
+and continue it later without losing settled results. Work stopped before a participant's runtime
+entered it remains dispatchable, and a selector whose decision was not saved is asked again. A
+participant stopped inside its runtime has an unknown outcome, so the conversation requires
+reconciliation instead of rerunning or finishing it. Cancellation does not establish that an external
+effect never happened. A group commits only when every member has prepared; failure or cancellation
+never publishes provisional output as a completed contribution. Session release belongs to the factory,
+so borrowed resources remain under their owner's control.
 
 ## Invariants
 
 Private history and tool traces are never automatically published. Limits, waiting, cancellation,
 failure and semantic completion remain distinct outcomes. Optional execution guarantees require the
 capabilities that enforce them; unsupported guarantees are rejected rather than silently weakened.
+A selector's decision is checked before it becomes saved progress, because later runs reuse it: one
+that no run could execute would leave state that can neither load nor advance.
 
 Recovery preserves the causal connection between a selected group, model responses, tool actions and
 published messages. Loading binds saved runtime, configuration and policy versions through a host

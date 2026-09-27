@@ -9,7 +9,16 @@ import type {
 } from './request-types';
 
 export type { JsonValue } from './json-value';
-export type * from './request-types';
+export type {
+  ActionRequest,
+  ConversationRequest,
+  InputRequest,
+  ParticipantRequest,
+  ParticipantResponse,
+  RequestResponse,
+  ResponseReceipt,
+  ResumeRequest,
+} from './request-types';
 
 export interface ParticipantCheckpoint {
   version: string;
@@ -198,6 +207,11 @@ export interface ExternalInput {
 }
 
 export interface Roundtable {
+  /**
+   * Advance until the conversation waits, finishes or reaches a limit. Cancellation, disposal and
+   * limits end only this run; failure and completion are final and are returned by every later run.
+   * Rejects with `recovery-required` when an interrupted participant must be reconciled first.
+   */
   run(options?: { signal?: AbortSignal }): Promise<RunResult>;
   submitInput(input: ExternalInput): Promise<{ revision: number; messageId: string }>;
   /** Accept a correlated response; execution advances only on a later run(). */
