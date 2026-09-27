@@ -14,6 +14,7 @@ type TSessionQueryMessage = Extract<
       | 'get-context'
       | 'get-commands'
       | 'get-status'
+      | 'list-models'
       | 'get-executing'
       | 'get-pending'
       | 'get-execution-workspace'
@@ -38,6 +39,7 @@ export function isSessionQueryMessage(msg: TClientMessage): msg is TSessionQuery
     msg.type === 'get-context' ||
     msg.type === 'get-commands' ||
     msg.type === 'get-status' ||
+    msg.type === 'list-models' ||
     msg.type === 'get-executing' ||
     msg.type === 'get-pending' ||
     msg.type === 'get-execution-workspace' ||
@@ -62,6 +64,9 @@ export function handleSessionQueryMessage(
     deliver({ type: 'commands', commands: session.listCommands(), skills: session.listSkills() });
   } else if (msg.type === 'get-status') {
     deliver({ type: 'session_status', status: session.getStatusSnapshot() });
+  } else if (msg.type === 'list-models') {
+    const snapshot = session.listModels();
+    deliver({ type: 'model_list', requestId: msg.requestId, ...snapshot });
   } else if (msg.type === 'get-executing') {
     deliver({ type: 'executing', executing: session.isExecuting() });
   } else if (msg.type === 'get-execution-workspace') {

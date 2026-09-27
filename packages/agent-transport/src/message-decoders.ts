@@ -130,6 +130,7 @@ export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVar
   'get-context': {},
   'get-commands': {},
   'get-status': {},
+  'list-models': { requestId: isNonEmptyString },
   'list-sessions': { requestId: isNonEmptyString },
   'new-session': { requestId: isOptional(isNonEmptyString) },
   'switch-session': { sessionId: isNonEmptyString, requestId: isOptional(isNonEmptyString) },
@@ -195,6 +196,12 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
   turn_source: { source: oneOf(Object.keys(TURN_SOURCES)) },
   commands: { commands: isRecordArray, skills: isRecordArray },
   session_status: { status: isRecord },
+  model_list: {
+    requestId: isNonEmptyString,
+    groups: isRecordArray,
+    currentProfile: isOptional(isString),
+    currentModel: isString,
+  },
   sessions: { requestId: isNonEmptyString, listing: isRecord },
   sessions_error: {
     requestId: isNonEmptyString,

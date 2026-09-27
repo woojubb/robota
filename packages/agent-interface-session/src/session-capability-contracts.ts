@@ -237,7 +237,7 @@ export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
   conversationRead: Object.freeze(['getMessages', 'getFullHistory', 'getContextState'] as const),
   identity: Object.freeze(['getSession'] as const),
   workspaceLocation: Object.freeze(['getCwd'] as const),
-  commands: Object.freeze(['executeCommand', 'listCommands', 'listSkills'] as const),
+  commands: Object.freeze(['executeCommand', 'listCommands', 'listSkills', 'listModels'] as const),
   statusRead: Object.freeze(['getStatusSnapshot'] as const),
   runtimeTools: Object.freeze(['listRuntimeTools', 'invokeRuntimeTool'] as const),
   events: Object.freeze(['on', 'off'] as const),

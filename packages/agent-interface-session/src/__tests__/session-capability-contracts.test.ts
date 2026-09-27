@@ -51,7 +51,8 @@ describe('session capability contracts (ARCH-012)', () => {
     };
 
     expect(Object.keys(exactRows)).toHaveLength(20);
-    expect(Object.values(SESSION_CAPABILITY_MEMBER_KEYS).flat()).toHaveLength(46);
+    // #3282 §2 added `listModels` to the `commands` role (47 = 46 + 1).
+    expect(Object.values(SESSION_CAPABILITY_MEMBER_KEYS).flat()).toHaveLength(47);
     expect(Object.isFrozen(SESSION_CAPABILITY_MEMBER_KEYS)).toBe(true);
     for (const keys of Object.values(SESSION_CAPABILITY_MEMBER_KEYS)) {
       expect(Object.isFrozen(keys)).toBe(true);

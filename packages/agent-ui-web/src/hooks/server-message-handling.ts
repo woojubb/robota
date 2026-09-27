@@ -28,6 +28,9 @@ export const SERVER_MESSAGE_HANDLING = {
   turn_source: 'intentionally-not-rendered',
   commands: 'reducer-state',
   session_status: 'reducer-state',
+  // #3282 §2 part 1: the reply to `list-models`. No surface sends that request yet — the model
+  // control that will is #3282 §2 part 2 — so there is nothing to reduce into state until then.
+  model_list: 'intentionally-not-rendered',
   sessions: 'reducer-state',
   sessions_error: 'reducer-state',
   session_switched: 'reducer-state',
