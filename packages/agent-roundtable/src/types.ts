@@ -1,7 +1,15 @@
 import type { ConversationStore } from './store-types';
 import type { JsonValue } from './json-value';
+import type {
+  ConversationRequest,
+  ParticipantRequest,
+  ParticipantResponse,
+  ResumeRequest,
+  ResponseReceipt,
+} from './request-types';
 
 export type { JsonValue } from './json-value';
+export type * from './request-types';
 
 export interface ParticipantCheckpoint {
   version: string;
@@ -33,17 +41,25 @@ export interface ParticipantTurn {
 }
 
 export type ParticipantOutcome =
-  { kind: 'speak'; content: string } | { kind: 'yield' } | { kind: 'failed'; message: string };
+  | { kind: 'speak'; content: string }
+  | { kind: 'yield' }
+  | { kind: 'failed'; message: string }
+  | { kind: 'wait'; requests: readonly ParticipantRequest[] };
+
+export interface ParticipantExecutionOptions {
+  signal: AbortSignal;
+  onDelta: (text: string) => Promise<void>;
+}
 
 export interface ParticipantSession {
   /** Exports private state at a settled runtime boundary; never enters the shared transcript. */
   checkpoint?(): Promise<ParticipantCheckpoint>;
-  runTurn(
+  runTurn(turn: ParticipantTurn, options: ParticipantExecutionOptions): Promise<ParticipantOutcome>;
+  /** Continue the same turn from a settled wait; never submit its original input again. */
+  resumeTurn?(
     turn: ParticipantTurn,
-    options: {
-      signal: AbortSignal;
-      onDelta: (text: string) => Promise<void>;
-    },
+    responses: readonly ParticipantResponse[],
+    options: ParticipantExecutionOptions,
   ): Promise<ParticipantOutcome>;
 }
 
@@ -53,6 +69,8 @@ export interface ParticipantLease {
 }
 
 export interface ParticipantFactory {
+  /** Every opened session supports checkpointed waits and resumeTurn. */
+  supportsContinuation?: boolean;
   /** Checkpoint formats this factory can restore without migration. */
   checkpointVersions?: readonly string[];
   openSession(context: {
@@ -135,21 +153,12 @@ export interface LoadRoundtableOptions {
   onEventError?: RoundtableOptions['onEventError'];
 }
 
-export interface InputRequest {
-  id: string;
-  kind: 'input';
-  participantId: string;
-  reason: string;
-  groupId: string;
-  turnId: string;
-}
-
 export interface ConversationSnapshot {
   conversationId: string;
   revision: number;
   messages: SharedMessage[];
   turns: CompletedTurn[];
-  requests: InputRequest[];
+  requests: ConversationRequest[];
 }
 
 export type RunResult = { revision: number } & (
@@ -157,7 +166,7 @@ export type RunResult = { revision: number } & (
   | { status: 'limited'; reason: 'turns' | 'time' }
   | { status: 'cancelled' }
   | { status: 'failed'; message: string }
-  | { status: 'waiting'; requests: InputRequest[] }
+  | { status: 'waiting'; requests: ConversationRequest[] }
 );
 
 export type RoundtableEvent =
@@ -191,6 +200,8 @@ export interface ExternalInput {
 export interface Roundtable {
   run(options?: { signal?: AbortSignal }): Promise<RunResult>;
   submitInput(input: ExternalInput): Promise<{ revision: number; messageId: string }>;
+  /** Accept a correlated response; execution advances only on a later run(). */
+  resume(input: ResumeRequest): Promise<ResponseReceipt>;
   snapshot(): ConversationSnapshot;
   dispose(): Promise<void>;
 }

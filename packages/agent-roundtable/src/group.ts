@@ -4,6 +4,8 @@ import type {
   ParticipantLease,
   ParticipantOutcome,
   ParticipantTurn,
+  ParticipantResponse,
+  ParticipantExecutionOptions,
   RoundtableEvent,
 } from './types';
 
@@ -26,6 +28,7 @@ export async function executeGroup(options: {
   prepare: (member: PreparedMember) => Promise<void>;
   fail: (turn: ParticipantTurn, error: unknown) => Promise<void>;
   admit: () => Promise<void>;
+  responses?: (turn: ParticipantTurn) => ParticipantResponse[] | undefined;
 }): Promise<PreparedMember[]> {
   const groupAbort = new AbortController();
   const signal = AbortSignal.any([options.signal, groupAbort.signal]);
@@ -46,7 +49,7 @@ export async function executeGroup(options: {
         const lease = await options.session(participant);
         await options.admit();
         signal.throwIfAborted();
-        const outcome = await lease.session.runTurn(structuredClone(turn), {
+        const executionOptions: ParticipantExecutionOptions = {
           signal,
           onDelta: async (text) => {
             signal.throwIfAborted();
@@ -61,29 +64,53 @@ export async function executeGroup(options: {
               signal,
             );
           },
-        });
+        };
+        const responses = options.responses?.(turn);
+        if (responses && (!participant.factory.supportsContinuation || !lease.session.resumeTurn))
+          throw new Error(`Participant cannot continue a checkpointed wait: ${participant.id}`);
+        const outcome = structuredClone(
+          responses
+            ? await lease.session.resumeTurn!(structuredClone(turn), responses, executionOptions)
+            : await lease.session.runTurn(structuredClone(turn), executionOptions),
+        );
         if (outcome.kind === 'failed') throw new Error(outcome.message);
         if (
+          outcome.kind !== 'wait' &&
           outcome.kind !== 'yield' &&
           (outcome.kind !== 'speak' || typeof outcome.content !== 'string')
         ) {
           throw new Error(`Invalid turn result from ${participant.id}`);
         }
         await options.settle(turn, outcome);
-        const member = { turn, outcome, checkpoint: (await lease.session.checkpoint?.()) ?? null };
+        const member = {
+          turn,
+          outcome,
+          checkpoint: structuredClone((await lease.session.checkpoint?.()) ?? null),
+        };
+        if (
+          outcome.kind === 'wait' &&
+          (!participant.factory.supportsContinuation ||
+            !lease.session.resumeTurn ||
+            !member.checkpoint ||
+            !participant.factory.checkpointVersions?.includes(member.checkpoint.version))
+        )
+          throw new Error(
+            `Participant wait requires compatible checkpoint continuation: ${participant.id}`,
+          );
         // Save settled results even when a sibling or the caller cancelled during this call.
         await options.prepare(member);
         prepared[index] = member;
         signal.throwIfAborted();
-        await options.emit(
-          {
-            type: 'prepared',
-            groupId: turn.groupId,
-            turnId: turn.turnId,
-            participantId: participant.id,
-          },
-          signal,
-        );
+        if (outcome.kind !== 'wait')
+          await options.emit(
+            {
+              type: 'prepared',
+              groupId: turn.groupId,
+              turnId: turn.turnId,
+              participantId: participant.id,
+            },
+            signal,
+          );
       } catch (error) {
         if (!failed) {
           failed = true;

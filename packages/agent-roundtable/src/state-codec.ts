@@ -1,43 +1,17 @@
 import type { ConversationState } from './conversation-state';
-import { RoundtableError } from './errors';
+import {
+  requireState,
+  record,
+  list,
+  text,
+  integer,
+  unique,
+  reference,
+  checkpoint,
+} from './state-codec-values';
+import { validateRequestState } from './state-codec-requests';
 import { assertJsonValue, canonicalJson } from './json';
 import type { ConversationEnvelope } from './store-types';
-
-function requireState(condition: unknown): asserts condition {
-  if (!condition)
-    throw new RoundtableError(
-      'invalid-config',
-      'Stored conversation state is invalid or incompatible',
-    );
-}
-
-function record(value: unknown): Record<string, unknown> {
-  requireState(value !== null && typeof value === 'object' && !Array.isArray(value));
-  return value as Record<string, unknown>;
-}
-
-function list(value: unknown): unknown[] {
-  requireState(Array.isArray(value));
-  return value;
-}
-function text(value: unknown): value is string {
-  return typeof value === 'string' && value.length > 0;
-}
-function integer(value: unknown, minimum = 0): value is number {
-  return Number.isSafeInteger(value) && Number(value) >= minimum;
-}
-function unique(values: unknown[]): void {
-  requireState(values.every(text) && new Set(values).size === values.length);
-}
-function reference(value: unknown): void {
-  const ref = record(value);
-  requireState(text(ref.id) && text(ref.version));
-}
-function checkpoint(value: unknown): void {
-  if (value === null) return;
-  const saved = record(value);
-  requireState(text(saved.version) && Object.hasOwn(saved, 'data'));
-}
 
 /** Decode untrusted store data before a registry or participant can act on it. */
 export function decodeConversation(
@@ -134,28 +108,7 @@ export function decodeConversation(
         ),
       );
   }
-  const requests = list(snapshot.requests).map(record);
-  unique(requests.map((request) => request.id));
-  for (const request of requests) {
-    requireState(
-      request.kind === 'input' &&
-        byId.get(request.participantId)?.runtime === null &&
-        typeof request.reason === 'string' &&
-        text(request.groupId) &&
-        text(request.turnId),
-    );
-  }
-  const inputs = list(state.inputs).map(record);
-  unique(inputs.map((input) => input.id));
-  for (const input of inputs) {
-    const result = record(input.result);
-    requireState(
-      text(input.fingerprint) &&
-        byMessage.has(result.messageId) &&
-        integer(result.revision, 1) &&
-        byMessage.get(result.messageId)?.revision === result.revision,
-    );
-  }
+  validateRequestState(state, snapshot, byId, byMessage, turns, envelope.revision);
   if (state.terminal !== null) {
     const terminal = record(state.terminal);
     requireState(terminal.revision === envelope.revision);
@@ -193,10 +146,7 @@ export function decodeConversation(
   }
   if (phase.kind === 'group') {
     requireState(
-      text(phase.groupId) &&
-        integer(phase.baseRevision) &&
-        phase.baseRevision <= envelope.revision &&
-        requests.length === 0,
+      text(phase.groupId) && integer(phase.baseRevision) && phase.baseRevision <= envelope.revision,
     );
     const members = list(phase.members).map(record);
     requireState(members.length > 0);
@@ -209,7 +159,9 @@ export function decodeConversation(
       );
       requireState(
         !byMessage.has(member.messageId) &&
-          ['pending', 'running', 'settled', 'prepared', 'failed'].includes(String(member.status)),
+          ['pending', 'running', 'settled', 'prepared', 'waiting', 'resumable', 'failed'].includes(
+            String(member.status),
+          ),
       );
       requireState(member.error === null || typeof member.error === 'string');
       checkpoint(member.checkpoint);
@@ -240,11 +192,15 @@ export function decodeConversation(
         const outcome = record(member.outcome);
         requireState(
           outcome.kind === 'yield' ||
-            (outcome.kind === 'speak' && typeof outcome.content === 'string'),
+            (outcome.kind === 'speak' && typeof outcome.content === 'string') ||
+            (outcome.kind === 'wait' &&
+              Array.isArray(outcome.requests) &&
+              outcome.requests.length > 0),
         );
       }
       if (member.status === 'prepared' || member.status === 'settled')
         requireState(member.outcome !== null);
+      if (member.status === 'prepared') requireState(record(member.outcome).kind !== 'wait');
       if (member.status === 'pending')
         requireState(member.outcome === null && member.checkpoint === null);
     }

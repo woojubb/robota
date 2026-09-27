@@ -6,13 +6,16 @@ import type {
   RunResult,
   RuntimeReference,
   Selection,
+  ParticipantResponse,
+  ResponseReceipt,
 } from './types';
 
 export interface StoredMember {
   participantId: string;
   turn: ParticipantTurn;
   messageId: string;
-  status: 'pending' | 'running' | 'settled' | 'prepared' | 'failed';
+  status: 'pending' | 'running' | 'settled' | 'prepared' | 'waiting' | 'resumable' | 'failed';
+  requestIds: string[];
   checkpoint: ParticipantCheckpoint | null;
   outcome: Exclude<ParticipantOutcome, { kind: 'failed' }> | null;
   error: string | null;
@@ -39,6 +42,13 @@ export interface ConversationState {
     delivered: string[];
   }[];
   inputs: { id: string; fingerprint: string; result: { revision: number; messageId: string } }[];
+  responses: {
+    value: ParticipantResponse;
+    fingerprint: string;
+    result: ResponseReceipt;
+    inputMessageId: string | null;
+    inputTurnId: string | null;
+  }[];
   phase:
     | { kind: 'ready' }
     | { kind: 'selecting'; attemptId: string }

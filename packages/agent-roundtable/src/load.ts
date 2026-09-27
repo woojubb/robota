@@ -39,7 +39,7 @@ export async function loadRoundtable(options: LoadRoundtableOptions): Promise<Ro
     (phase.kind === 'selecting' ||
       (phase.kind === 'group' &&
         phase.members.some(
-          (member) => member.status !== 'pending' && member.status !== 'prepared',
+          (member) => !['pending', 'prepared', 'waiting', 'resumable'].includes(member.status),
         )))
   ) {
     throw new RoundtableError(
@@ -63,10 +63,21 @@ export async function loadRoundtable(options: LoadRoundtableOptions): Promise<Ro
     const prepared =
       phase.kind === 'group'
         ? phase.members.find(
-            (member) => member.participantId === saved.id && member.status === 'prepared',
+            (member) =>
+              member.participantId === saved.id &&
+              ['prepared', 'waiting', 'resumable'].includes(member.status),
           )
         : undefined;
     if (prepared) compatible(prepared.checkpoint, registered.factory.checkpointVersions);
+    if (
+      prepared &&
+      (prepared.status === 'waiting' || prepared.status === 'resumable') &&
+      !registered.factory.supportsContinuation
+    )
+      throw new RoundtableError(
+        'invalid-config',
+        `Participant does not support wait continuation: ${saved.id}`,
+      );
     if (
       !state.terminal &&
       ((!saved.checkpoint &&

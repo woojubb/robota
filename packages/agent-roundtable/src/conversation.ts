@@ -3,6 +3,17 @@ import { abortableWait } from './abortable-wait';
 import type { ConversationState, StoredMember } from './conversation-state';
 import { errorMessage, RoundtableError } from './errors';
 import { executeGroup } from './group';
+import {
+  acceptMemberResponse,
+  inputFingerprint,
+  memberResponses,
+  parkMember,
+  publishMemberInputs,
+  recordResponse,
+  responseFingerprint,
+  validateInput,
+  validateResponse,
+} from './conversation-requests';
 import { MemoryConversationStore } from './memory-store';
 import { roundRobin } from './policies';
 import type { StoreOwner } from './store-owner';
@@ -19,6 +30,8 @@ import type {
   RunResult,
   Selection,
   TurnSelector,
+  ResumeRequest,
+  ResponseReceipt,
 } from './types';
 
 export class Conversation implements Roundtable {
@@ -79,6 +92,7 @@ export class Conversation implements Roundtable {
           delivered: [],
         })),
         inputs: [],
+        responses: [],
         phase: { kind: 'ready' },
         terminal: null,
       },
@@ -121,20 +135,45 @@ export class Conversation implements Roundtable {
     return running;
   }
 
-  submitInput(input: ExternalInput): Promise<{ revision: number; messageId: string }> {
+  submitInput(value: ExternalInput): Promise<{ revision: number; messageId: string }> {
+    let input: ExternalInput;
     try {
+      input = structuredClone(value);
+      validateInput(input);
       if (this.disposed) throw new RoundtableError('disposed', 'Conversation has been disposed');
       const previous = this.persistence
         .snapshot()
         .inputs.find((receipt) => receipt.id === input.inputId);
       if (previous) {
-        if (previous.fingerprint !== this.inputFingerprint(input))
+        if (previous.fingerprint !== inputFingerprint(input))
           throw new RoundtableError('conflict', 'Input id was used with different content');
         return Promise.resolve(previous.result);
       }
       this.assertIdle();
       if (this.terminal) throw new RoundtableError('conflict', 'Conversation has terminated');
       if (this.persistence.snapshot().phase.kind !== 'ready') {
+        const request = this.snapshot().requests.find(
+          (pending) => pending.id === input.replyToRequestId,
+        );
+        if (
+          request?.kind === 'input' &&
+          request.memberId &&
+          request.participantId === input.participantId
+        ) {
+          return this.resume({
+            requestId: request.id,
+            responseId: input.inputId,
+            expectedRevision: input.expectedRevision,
+            response: { kind: 'input', content: input.content },
+          }).then(() => {
+            const receipt = this.persistence
+              .snapshot()
+              .inputs.find((saved) => saved.id === input.inputId);
+            if (!receipt)
+              throw new RoundtableError('conflict', 'Input response receipt is missing');
+            return receipt.result;
+          });
+        }
         throw new RoundtableError(
           'conflict',
           'Resolve the saved execution before submitting new input',
@@ -150,6 +189,67 @@ export class Conversation implements Roundtable {
     });
     this.active = submitted;
     return submitted;
+  }
+
+  resume(value: ResumeRequest): Promise<ResponseReceipt> {
+    let input: ResumeRequest;
+    try {
+      input = structuredClone(value);
+      validateResponse(input);
+      if (this.disposed) throw new RoundtableError('disposed', 'Conversation has been disposed');
+      const previous = this.persistence
+        .snapshot()
+        .responses.find((entry) => entry.value.responseId === input.responseId);
+      if (previous) {
+        if (previous.fingerprint !== responseFingerprint(input))
+          throw new RoundtableError('conflict', 'Response id was used with different content');
+        return Promise.resolve(previous.result);
+      }
+      this.assertIdle();
+      if (this.terminal) throw new RoundtableError('conflict', 'Conversation has terminated');
+      const request = this.snapshot().requests.find((pending) => pending.id === input.requestId);
+      if (!request) throw new RoundtableError('conflict', 'Request is absent or already consumed');
+      if (request.kind !== input.response.kind)
+        throw new RoundtableError('conflict', 'Response kind differs from its request');
+      if (request.kind === 'input' && !request.memberId && input.response.kind === 'input') {
+        return this.submitInput({
+          participantId: request.participantId,
+          inputId: input.responseId,
+          expectedRevision: input.expectedRevision,
+          replyToRequestId: request.id,
+          content: input.response.content,
+        }).then(() => {
+          const receipt = this.persistence
+            .snapshot()
+            .responses.find((entry) => entry.value.responseId === input.responseId);
+          if (!receipt) throw new RoundtableError('conflict', 'Input response receipt is missing');
+          return receipt.result;
+        });
+      }
+    } catch (error) {
+      return Promise.reject(error);
+    }
+    this.busy = true;
+    const submitted = this.acceptResponse(input).finally(() => {
+      this.busy = false;
+      this.active = undefined;
+    });
+    this.active = submitted;
+    return submitted;
+  }
+
+  private async acceptResponse(input: ResumeRequest): Promise<ResponseReceipt> {
+    await this.persistence.begin();
+    try {
+      await this.persistence.update((draft, revision) => {
+        acceptMemberResponse(draft, input, revision);
+      });
+      return this.persistence
+        .snapshot()
+        .responses.find((entry) => entry.value.responseId === input.responseId)!.result;
+    } finally {
+      await this.persistence.end();
+    }
   }
 
   dispose(): Promise<void> {
@@ -209,14 +309,19 @@ export class Conversation implements Roundtable {
     for (;;) {
       signal.throwIfAborted();
       let view = this.snapshot();
-      if (view.requests.length)
-        return { status: 'waiting', revision: view.revision, requests: view.requests };
       const phase = this.persistence.snapshot().phase;
       if (phase.kind === 'group') {
-        attempted += phase.members.filter((member) => member.status === 'pending').length;
+        attempted += phase.members.filter(
+          (member) => member.status === 'pending' || member.status === 'resumable',
+        ).length;
         await this.continueGroup(signal, owner);
+        view = this.snapshot();
+        if (view.requests.length)
+          return { status: 'waiting', revision: view.revision, requests: view.requests };
         continue;
       }
+      if (view.requests.length)
+        return { status: 'waiting', revision: view.revision, requests: view.requests };
       if (attempted >= this.options.limits.maxTurnsPerRun)
         return { status: 'limited', reason: 'turns', revision: view.revision };
       let selection: Selection;
@@ -320,6 +425,7 @@ export class Conversation implements Roundtable {
           turn,
           messageId: crypto.randomUUID(),
           status: 'pending',
+          requestIds: [],
           checkpoint: null,
           outcome: null,
           error: null,
@@ -337,14 +443,19 @@ export class Conversation implements Roundtable {
     const phase = this.persistence.snapshot().phase;
     if (phase.kind !== 'group') throw new RoundtableError('conflict', 'Active group is missing');
     if (
-      phase.members.some((member) => member.status !== 'pending' && member.status !== 'prepared')
+      phase.members.some(
+        (member) => !['pending', 'prepared', 'waiting', 'resumable'].includes(member.status),
+      )
     ) {
       throw new RoundtableError(
         'recovery-required',
         'Unsettled execution requires runtime reconciliation',
       );
     }
-    const pending = phase.members.filter((member) => member.status === 'pending');
+    const pending = phase.members.filter(
+      (member) => member.status === 'pending' || member.status === 'resumable',
+    );
+    const resumeState = this.persistence.snapshot();
     const selected = pending.map((member) => this.participants.get(member.participantId));
     if (selected.some((participant) => participant?.kind !== 'agent'))
       throw new RoundtableError('conflict', 'Group participant is missing');
@@ -356,6 +467,10 @@ export class Conversation implements Roundtable {
       session: (p) => this.session(p),
       emit: (event, eventSignal) => this.emit(event, eventSignal),
       admit: () => owner.admit(),
+      responses: (turn) => {
+        const member = pending.find((candidate) => candidate.turn.turnId === turn.turnId)!;
+        return member.status === 'resumable' ? memberResponses(resumeState, member) : undefined;
+      },
       start: (turn) =>
         this.persistence.update((draft) => {
           this.member(draft, turn).status = 'running';
@@ -366,25 +481,29 @@ export class Conversation implements Roundtable {
         }),
       prepare: ({ turn, outcome, checkpoint }) =>
         this.persistence.update((draft) => {
-          Object.assign(this.member(draft, turn), { status: 'prepared', outcome, checkpoint });
+          const member = this.member(draft, turn);
+          if (outcome.kind === 'wait') parkMember(draft, member, outcome.requests, checkpoint);
+          else Object.assign(member, { status: 'prepared', outcome, checkpoint, requestIds: [] });
         }),
       fail: (turn, error) =>
         this.persistence.update((draft) => {
           const member = this.member(draft, turn);
-          if (member.status !== 'prepared') {
+          if (member.status !== 'prepared' && member.status !== 'waiting') {
             member.status = 'failed';
             member.error = errorMessage(error);
           }
         }),
     });
     signal.throwIfAborted();
+    if (this.snapshot().requests.length) return;
     await this.persistence.update((draft, revision) => {
       if (draft.phase.kind !== 'group')
         throw new RoundtableError('conflict', 'Active group changed');
       for (const member of draft.phase.members) {
         const { turn, outcome } = member;
-        if (member.status !== 'prepared' || !outcome)
+        if (member.status !== 'prepared' || !outcome || outcome.kind === 'wait')
           throw new RoundtableError('conflict', 'Group is not prepared');
+        const inputIds = publishMemberInputs(draft, member, revision);
         if (outcome.kind === 'speak')
           draft.snapshot.messages.push({
             id: member.messageId,
@@ -397,7 +516,7 @@ export class Conversation implements Roundtable {
         const participant = draft.participants.find((p) => p.id === member.participantId);
         if (!participant) throw new RoundtableError('conflict', 'Participant state is missing');
         participant.checkpoint = member.checkpoint;
-        participant.delivered.push(...turn.context.messages.map((m) => m.id));
+        participant.delivered.push(...turn.context.messages.map((m) => m.id), ...inputIds);
         draft.snapshot.turns.push({
           id: turn.turnId,
           groupId: phase.groupId,
@@ -429,7 +548,7 @@ export class Conversation implements Roundtable {
           'conflict',
           'Input must belong to a registered external participant',
         );
-      const fingerprint = this.inputFingerprint(input);
+      const fingerprint = inputFingerprint(input);
       const messageId = crypto.randomUUID();
       await this.persistence.update((draft, revision) => {
         if (input.expectedRevision !== draft.snapshot.revision)
@@ -460,7 +579,24 @@ export class Conversation implements Roundtable {
             outcome: 'speak',
           });
         }
-        draft.inputs.push({ id: input.inputId, fingerprint, result: { revision, messageId } });
+        if (request) {
+          recordResponse(
+            draft,
+            request,
+            {
+              requestId: request.id,
+              responseId: input.inputId,
+              expectedRevision: input.expectedRevision,
+              response: { kind: 'input', content: input.content },
+            },
+            revision,
+            { messageId, turnId },
+          );
+        } else {
+          if (draft.responses.some((entry) => entry.value.responseId === input.inputId))
+            throw new RoundtableError('conflict', 'Input id was already used for a response');
+          draft.inputs.push({ id: input.inputId, fingerprint, result: { revision, messageId } });
+        }
       });
       return { revision: this.snapshot().revision, messageId };
     } finally {
@@ -480,9 +616,14 @@ export class Conversation implements Roundtable {
   private session(participant: AgentParticipant): Promise<ParticipantLease> {
     let opened = this.sessions.get(participant.id);
     if (!opened) {
-      const checkpoint = this.persistence
-        .snapshot()
-        .participants.find((p) => p.id === participant.id)?.checkpoint;
+      const state = this.persistence.snapshot();
+      const member =
+        state.phase.kind === 'group'
+          ? state.phase.members.find((candidate) => candidate.participantId === participant.id)
+          : undefined;
+      const checkpoint = member?.requestIds.length
+        ? member.checkpoint
+        : state.participants.find((p) => p.id === participant.id)?.checkpoint;
       opened = participant.factory.openSession({
         conversationId: this.options.conversationId,
         participantId: participant.id,
@@ -516,10 +657,6 @@ export class Conversation implements Roundtable {
         );
       return participant;
     });
-  }
-
-  private inputFingerprint(input: ExternalInput): string {
-    return JSON.stringify([input.participantId, input.replyToRequestId ?? null, input.content]);
   }
 
   private async emit(event: RoundtableEvent, signal: AbortSignal): Promise<void> {

@@ -18,9 +18,12 @@ completion timing, because later participants need a stable, replayable conversa
 delivery cursor represents what it actually consumed, never messages that concurrent peers published
 after it started. Its own output is not delivered back as new input.
 
-External input is attributed to an explicitly registered participant. Satisfying a pending request and
-advancing the conversation is atomic and idempotent; replaying an identifier with different content is
-a conflict. Participant text carries provenance, not host authority.
+External input is attributed to an explicitly registered participant. Accepting a response consumes its
+exact request atomically and idempotently without executing the participant; replaying an identifier
+with different content is a conflict. A waiting participant releases execution capacity while completed
+peers retain their results. Its input replies remain provisional until the group commits and are already
+consumed in its private view. Participant text and approval responses carry provenance, not host
+authority; the runtime remains responsible for current authorization and effect reconciliation.
 
 Cancellation stops new dispatch and waits for running work to settle. It does not establish that an
 external effect never happened. A failed or cancelled group must not publish provisional output as a
@@ -38,8 +41,9 @@ published messages. Loading binds saved runtime, configuration and policy versio
 registry; incompatible versions require explicit migration. Private checkpoints and the original
 delivery cursors are restored together. A stored transcript alone is not a durable runtime checkpoint.
 Prepared contributions retain their identity and are published without executing them again. A saved
-execution keeps its original shared view, so unrelated input cannot enter before it resolves. Uncertain
-external effects require reconciliation before they can be attempted again.
+wait binds the original request, correlated response and private checkpoint to the same participant and
+turn. That execution keeps its original shared view, so unrelated input cannot enter before it resolves.
+Uncertain external effects require reconciliation before they can be attempted again.
 
 ## Non-goals
 

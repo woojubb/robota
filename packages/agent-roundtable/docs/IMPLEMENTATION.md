@@ -6,7 +6,7 @@ This checklist tracks the full issue; passing one slice is not completion of the
 | Workstream | Weight | Evidence |
 | --- | ---: | --- |
 | Reviewed contracts and ownership | 5% | Issue design and package SPEC |
-| Independent sessions, parallel groups, input and context | 20% | Barrier-tested parallel dispatch, ordered publication, session isolation, external input receipts; context policy and member waits remain |
+| Independent sessions, parallel groups, input and context | 20% | Barrier-tested parallel dispatch, ordered publication, session isolation, checkpointed member waits and shared input/response receipts; context policy remains |
 | Store, checkpoints, fencing and effect recovery | 20% | Memory store and scheduler integration, fenced ownership, renewal, CAS, operation receipts, versioned loading, private checkpoints and prepared-group recovery tested; effect reconciliation and durable recovery remain |
 | Awaited SDK execution/approval boundaries | 15% | Core request/response/tool journals, Session forwarding, compaction and permission-aware tool-effect barriers tested; provider-free tool-batch recovery and no-input Core/Session continuation verified; serializable approval continuation remains |
 | Robota/Session/selector adapters and usage/budgets | 10% | Pending |
@@ -20,12 +20,12 @@ the issue, including real providers, browser/audio verification, all repository 
 Public evidence contains only publishable SDK and integration results. Private consumer identities,
 repository details, and product plans are maintained outside this repository.
 
-Roundtable passes 47 tests, including 21 loader tests, plus type checking, lint, scoped dependency
+Roundtable passes 77 tests, including 21 loader tests and 30 member-wait tests, plus type checking, lint, repository dependency
 validation and ESM/CJS/declaration builds. Core's full suite passes 1,878 tests. Session's full suite
 passes 609 tests with one skipped. Core and Session builds and type checks also pass. The
 unsupported durable mode is rejected before execution. Current loading preserves committed state,
-validates registry/checkpoint versions, reuses prepared members and dispatches only members that have
-not started. Interrupted selector or runtime execution still requires reconciliation and is rejected.
+validates registry/checkpoint versions, reuses prepared members and dispatches pending or explicitly
+resumable members. Interrupted selector or runtime execution still requires reconciliation and is rejected.
 Defects found during implementation and
 existing SDK gaps are tracked together in the issue's
 [consolidated findings comment](https://github.com/woojubb/robota/issues/3273#issuecomment-5854469605).
@@ -43,6 +43,13 @@ reused; canonical restored history remains available and follows the existing lo
 Shutdown drains ordinary and resumed turns before persisting their final history. Review regressions
 cover empty summaries, stateless rejection, reused provider IDs and failing/mutating observers.
 
+Member waits persist a compatible private checkpoint and exact requests before returning. Accepting
+a response does not execute effects; the next run continues that member under the original turn.
+Multiple requests and repeated wait cycles preserve prepared peers. Member input is published at group
+commit and marked consumed by the requesting member. Restored request payloads, publication identities
+and delivery cursors are checked before runtime resolution. Retry and lost-acknowledgement tests pass.
+
 Turn-level lifecycle hooks are omitted during continuation because their effects have no durable
 receipts. Structured-output validators and unknown model/tool effects remain unsupported recovery
-states. Serializable approval waits, reconciliation and durable Roundtable mode remain open.
+states. Session approval continuation, authoritative effect reconciliation and durable Roundtable mode
+remain open. Neutral request transport alone does not establish these runtime guarantees.
