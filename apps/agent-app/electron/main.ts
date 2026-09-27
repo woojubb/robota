@@ -173,6 +173,8 @@ ipcMain.handle('agent-gui:endpoint', async (event): Promise<string | null> => {
  * asks for are the new daemon's. A start that fails reloads too, into the fatal screen with the reason.
  */
 ipcMain.handle('agent-gui:restart', async (event): Promise<void> => {
+  // Nothing starts before the trust question is answered.
+  if (pendingTrust !== undefined) return;
   await daemon.start();
   if (!event.sender.isDestroyed()) event.sender.reload();
 });
@@ -202,6 +204,7 @@ ipcMain.handle(
           return {
             error:
               granted.stderr.trim() ||
+              granted.stdout.trim() ||
               `robota trust --yes failed (exit ${granted.exitCode ?? 'signal'}).`,
           };
         }

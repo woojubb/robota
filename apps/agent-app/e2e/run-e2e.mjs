@@ -166,6 +166,10 @@ try {
     await connected(page);
     check('#3268: Start Restricted starts the daemon Restricted and connects', readDaemon()?.restricted === true);
     check('#3268: Start Restricted leaves the folder untrusted', !existsSync(trustFile));
+    const { reconnect } = await stopDaemonAndAwaitReconnect(page);
+    await reconnect.click();
+    await connected(page);
+    check('#3268: Reconnect after Start Restricted starts the daemon Restricted again', readDaemon()?.restricted === true);
   } catch (err) {
     check(`restricted-answer check threw: ${err?.message ?? err}`, false);
   } finally {
