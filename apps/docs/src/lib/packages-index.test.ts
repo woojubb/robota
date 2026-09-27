@@ -25,6 +25,7 @@ beforeAll(() => {
   write('dag-builder/package.json', JSON.stringify({ name: '@robota-sdk/dag-builder', private: true }));
   write('dag-builder/docs/README.md', '# DAG Builder\n\nBuilds DAG definitions.\n');
   write('no-docs/package.json', JSON.stringify({ name: '@robota-sdk/no-docs' }));
+  write('node-folder/docs/README.md', '# Nodes\n\nA folder of node packages.\n');
 });
 
 afterAll(() => {
@@ -41,6 +42,7 @@ describe('buildPackageIndex', () => {
         internal: false,
       },
       { dir: 'dag-builder', name: '@robota-sdk/dag-builder', summary: 'Builds DAG definitions.', internal: true },
+      { dir: 'node-folder', name: 'node-folder', summary: 'A folder of node packages.', internal: true },
     ]);
   });
 

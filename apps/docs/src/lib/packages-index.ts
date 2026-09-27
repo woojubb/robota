@@ -9,7 +9,7 @@ export interface IPackageIndexEntry {
   name: string;
   /** First paragraph of docs/README.md, as plain text. */
   summary: string;
-  /** `private: true` in package.json — not published to npm. */
+  /** Not published to npm: `private: true`, or a folder of packages with no package.json. */
   internal: boolean;
 }
 
@@ -33,7 +33,7 @@ export function buildPackageIndex(packagesDir: string): IPackageIndexEntry[] {
         dir,
         name: manifest.name ?? dir,
         summary: firstParagraph(matter(readme).content),
-        internal: manifest.private === true,
+        internal: !fs.existsSync(manifestPath) || manifest.private === true,
       };
     });
 }
