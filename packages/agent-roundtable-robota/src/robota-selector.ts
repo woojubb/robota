@@ -52,9 +52,11 @@ function renderContext(context: SelectionContext): string {
   const roster = context.participants
     .map((p) => `- ${p.id} (${p.kind}${p.description ? `: ${p.description}` : ''})`)
     .join('\n');
-  // SHOULD 10: the model used to decide on ids and outcome kinds alone, never what was actually
-  // said. Rendered with the same per-message escaping `render.ts` uses, and bounded to exactly
-  // what `context.messages` already provides — no further truncation of the core's own bound.
+  // The model used to decide on ids and outcome kinds alone, never what was actually said.
+  // Rendered with the same per-message escaping `render.ts` uses. `context.messages` is the
+  // conversation's whole shared transcript, not a bounded window — no context policy limits a
+  // selector's own view the way `contextPolicy` limits a participant's; every decision resends
+  // everything sent so far, so its cost grows with the conversation (see the package README).
   const shared = context.messages
     .map((m) => `### From ${m.participantId}\n${quoteContent(m.content)}`)
     .join('\n\n');

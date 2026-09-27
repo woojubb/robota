@@ -136,6 +136,10 @@ package can verify. A decision that never calls the tool, calls it more than onc
 the conversation's current participants, or names the same participant twice, fails the selection; the
 roundtable's own run then fails too, with no retry from inside the selector.
 
+Every decision is shown the conversation's whole shared transcript, not a bounded window — no context
+policy trims a selector's own view the way one trims what a participant receives — so the cost of each
+decision grows with the conversation rather than staying flat.
+
 ## Rendering a turn's shared increment
 
 Both participants render a turn's `context.messages` — never the participant's own prior output or
