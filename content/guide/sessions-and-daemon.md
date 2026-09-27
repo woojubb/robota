@@ -24,19 +24,20 @@ Continuing, resuming, forking and naming saved sessions from the command line (`
 - The `robota` CLI installed (Node.js 22.12 or later) — see [Getting Started](../getting-started/README.md).
 - A **trusted workspace**. Background sessions, the daemon and `robota --serve` refuse to start in a
   Git repository that is not trusted, before anything is spawned. Run `robota trust --yes` in the
-  repository first (see [Workspace trust](#workspace-trust)).
+  repository first (see [Workspace trust](#workspace-trust)), or start the daemon Restricted with
+  `robota daemon start --restricted-workspace`.
 - An **interactive terminal** to attach. Attaching asks for your confirmation on the terminal itself,
   so a script or an agent cannot attach; it can only print the command for you to run.
 
 ## Concepts
 
-| Term                     | Meaning                                                                                                                                                                         |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Session                  | One conversation and its history, saved as a record you can resume.                                                                                                             |
-| Background session       | A `robota` runtime process started with `robota session start --background`. It outlives the terminal and has an id (a UUID). The CLI output calls these _supervised sessions_. |
-| Daemon                   | The one background session marked as a workspace's daemon. `robota daemon start` reuses it if it is already running. The desktop app connects to it.                            |
-| Client                   | Anything that shows a session: an attached terminal, the browser GUI, the desktop app. One runtime can serve several clients at once.                                           |
-| Workspace (for a daemon) | The real path of the directory you ran the command in. It is not the repository root: a subdirectory is a different workspace with its own daemon.                              |
+| Term                     | Meaning                                                                                                                                                                                                                            |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Session                  | One conversation and its history, saved as a record you can resume.                                                                                                                                                                |
+| Background session       | A `robota` runtime process started with `robota session start --background`. It outlives the terminal and has an id (a UUID). The CLI output calls these _supervised sessions_.                                                    |
+| Daemon                   | The one background session marked as a workspace's daemon. `robota daemon start` reuses it if it is already running. The desktop app connects to it, and in a folder not trusted yet asks first: trust, start Restricted, or quit. |
+| Client                   | Anything that shows a session: an attached terminal, the browser GUI, the desktop app. One runtime can serve several clients at once.                                                                                              |
+| Workspace (for a daemon) | The real path of the directory you ran the command in. It is not the repository root: a subdirectory is a different workspace with its own daemon.                                                                                 |
 
 ## Workspace trust
 
@@ -66,7 +67,12 @@ in an untrusted repository asks `Trust this folder? [y/N]` first; answering no s
 Headless starts — a background session, the daemon, `--serve`, `robota mcp serve` and print mode
 (`-p`) — refuse the `untrusted`, `revoked`, `stale/replaced` and `store-unavailable` states with
 `Workspace trust is required before headless startup`, so an untrusted project never runs silently
-without its configuration. `--safe-mode` starts Restricted on purpose and is not refused.
+without its configuration. `--safe-mode` starts Restricted on purpose and is not refused, and so does
+`robota daemon start --restricted-workspace`, for a front end whose person chose Restricted. That start
+reuses a running daemon only when it runs Restricted too, and a plain `daemon start` in a folder you
+have trusted since does not reuse a Restricted daemon; either refusal names `robota daemon stop`.
+`robota trust status --json` prints the trust state as one JSON line for a front end that asks the
+person.
 
 ## Walkthrough: a background session
 
@@ -202,23 +208,23 @@ These limits are fixed in code, not settings.
 
 ### Commands
 
-| Command                                                                          | What it does                                                                                                                |
-| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `robota trust [status\|grant\|revoke] [--yes]`                                   | Show or change this repository's trust. Bare `--yes` grants.                                                                |
-| `robota daemon start [--json]`                                                   | Start this workspace's daemon, or reuse the running one. `--json` prints `{"id","url"}`.                                    |
-| `robota daemon status [--json]`                                                  | Whether this workspace's daemon runs. `--json` prints `{"running":false}` or `{"running":true,"id","url"}`.                 |
-| `robota daemon stop`                                                             | Stop this workspace's daemon.                                                                                               |
-| `robota daemon unlock`                                                           | Remove a start lock left by a `daemon start` that is gone. Refuses while the start is still running.                        |
-| `robota --attach [--screen-reader\|--no-screen-reader]`                          | Open the full terminal UI on this workspace's running daemon. TTY and confirmation required.                                |
-| `robota --serve --open`                                                          | Serve the GUI web app on localhost and open it in a browser.                                                                |
-| `robota session list [--format text\|json]`                                      | List live processes on this machine, saved sessions, and background sessions, in separate groups.                           |
-| `robota session view [--cwd <dir>] [--name <text>] [--pr <n>] [--state <state>]` | Live view of background sessions across projects (TTY only).                                                                |
-| `robota session start --background [--name <name>]`                              | Start a background session that outlives this terminal. Prints its id.                                                      |
-| `robota session attach <id> [--observe]`                                         | Attach this terminal to drive a background session, or observe it read-only.                                                |
-| `robota session stop <id>`                                                       | Stop a background session you own.                                                                                          |
-| `robota session rename <id> <name>`                                              | Rename a live background session.                                                                                           |
-| `robota session link-pr <id> <https-url>` / `unlink-pr <id>`                     | Link or clear a pull/merge request URL shown in the session view.                                                           |
-| `robota session events list <id> [--json]` / `events revoke <id> <grant-id>`     | Inspect or withdraw a background session's external-event grants — see [MCP and external events](./mcp.md#external-events). |
+| Command                                                                          | What it does                                                                                                                                                        |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `robota trust [status\|grant\|revoke] [--yes]`                                   | Show or change this repository's trust. Bare `--yes` grants.                                                                                                        |
+| `robota daemon start [--json] [--restricted-workspace]`                          | Start this workspace's daemon, or reuse the running one. `--json` prints `{"id","url"}`; `--restricted-workspace` starts it Restricted in a folder not trusted yet. |
+| `robota daemon status [--json]`                                                  | Whether this workspace's daemon runs. `--json` prints `{"running":false}` or `{"running":true,"id","url"}`.                                                         |
+| `robota daemon stop`                                                             | Stop this workspace's daemon.                                                                                                                                       |
+| `robota daemon unlock`                                                           | Remove a start lock left by a `daemon start` that is gone. Refuses while the start is still running.                                                                |
+| `robota --attach [--screen-reader\|--no-screen-reader]`                          | Open the full terminal UI on this workspace's running daemon. TTY and confirmation required.                                                                        |
+| `robota --serve --open`                                                          | Serve the GUI web app on localhost and open it in a browser.                                                                                                        |
+| `robota session list [--format text\|json]`                                      | List live processes on this machine, saved sessions, and background sessions, in separate groups.                                                                   |
+| `robota session view [--cwd <dir>] [--name <text>] [--pr <n>] [--state <state>]` | Live view of background sessions across projects (TTY only).                                                                                                        |
+| `robota session start --background [--name <name>]`                              | Start a background session that outlives this terminal. Prints its id.                                                                                              |
+| `robota session attach <id> [--observe]`                                         | Attach this terminal to drive a background session, or observe it read-only.                                                                                        |
+| `robota session stop <id>`                                                       | Stop a background session you own.                                                                                                                                  |
+| `robota session rename <id> <name>`                                              | Rename a live background session.                                                                                                                                   |
+| `robota session link-pr <id> <https-url>` / `unlink-pr <id>`                     | Link or clear a pull/merge request URL shown in the session view.                                                                                                   |
+| `robota session events list <id> [--json]` / `events revoke <id> <grant-id>`     | Inspect or withdraw a background session's external-event grants — see [MCP and external events](./mcp.md#external-events).                                         |
 
 `session attach`, `session view` and `--attach` also accept `--screen-reader` / `--no-screen-reader`.
 
@@ -277,7 +283,7 @@ the project root.
 
 | Message or symptom                                                           | Cause and fix                                                                                                                           |
 | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `Workspace trust is required before headless startup (state: …)`             | Run `robota trust --yes` in the repository.                                                                                             |
+| `Workspace trust is required before headless startup (state: …)`             | Run `robota trust --yes` in the repository, or start the daemon with `--restricted-workspace`.                                          |
 | `Attaching needs an interactive terminal and the user's confirmation.`       | The command ran without a TTY (a script or an agent). Run the printed command yourself.                                                 |
 | `No daemon is running in <dir>. Start one with: robota daemon start`         | `--attach` looks for the daemon of the exact directory; run it where the daemon was started.                                            |
 | `If no daemon start is running, remove it with: robota daemon unlock`        | A previous start died holding the lock. Run `robota daemon unlock`, then start again.                                                   |

@@ -78,6 +78,7 @@ interface ISupervisedCall {
   readonly getActivity: () => string | undefined;
   readonly getNextLoopAt: () => string | undefined;
   readonly attachTarget: unknown;
+  readonly daemon: unknown;
   readonly proceed: () => void;
 }
 let supervised: ISupervisedCall | undefined;
@@ -97,7 +98,7 @@ vi.mock('../../session-inventory/supervised-session-control.js', () => ({
     ...rest: unknown[]
   ) => {
     await new Promise<void>((proceed) => {
-      supervised = { onStop, getActivity, getNextLoopAt, attachTarget: rest[4], proceed };
+      supervised = { onStop, getActivity, getNextLoopAt, attachTarget: rest[4], daemon: rest[5], proceed };
     });
     return { close: async () => undefined };
   },
@@ -277,6 +278,33 @@ describe('serve mode session pool wiring (#3189)', () => {
       process.send = originalSend;
       rmSync(cwd, { recursive: true, force: true });
     }
+  });
+
+  it('tells its owner whether the daemon runs Restricted (#3268)', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'serve-daemon-'));
+    for (const restricted of [true, false]) {
+      const directory = createServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>();
+      const options: IServeModeOptions = {
+        ...serveOptions(directory, vi.fn(), {
+          cwd,
+          args: { supervisedSessionId: '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4', daemon: true },
+        }),
+        getMonitorWsUrl: () => 'ws://127.0.0.1:1?token=t',
+        ...(restricted ? { projectAccess: { status: 'restricted' } as IServeModeOptions['projectAccess'] } : {}),
+      };
+      const settled = runServeMode(options).then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+      await vi.waitFor(() => expect(supervised).toBeDefined());
+      const control = supervised!;
+      expect(control.daemon).toMatchObject({ restricted });
+      control.onStop();
+      control.proceed();
+      await settled;
+      supervised = undefined;
+    }
+    rmSync(cwd, { recursive: true, force: true });
   });
 
   it('builds each session it switches to with an edit checkpoint store of its own', async () => {

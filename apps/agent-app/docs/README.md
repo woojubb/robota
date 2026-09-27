@@ -5,7 +5,8 @@ the graphical counterpart of the terminal UI (`agent-ui-terminal`). It is intern
 published to npm.
 
 `agent-app` is a **thin shell**: it runs `robota daemon start --json`, which starts this workspace's headless
-runtime daemon (**not** the terminal UI) or reuses the live one, and loads the GUI web app
+runtime daemon (**not** the terminal UI) or reuses the live one — in a folder not trusted yet, after asking
+whether to trust it, start it Restricted, or quit — and loads the GUI web app
 (`packages/agent-gui-web`), handing it the daemon's loopback address through the preload bridge. The daemon
 outlives the window: closing the app leaves it running, and the next launch reattaches to it. The page is the
 same one the CLI serves on `robota --serve --open`; design work and the user scenarios run in a browser there
@@ -25,13 +26,15 @@ page.
 pnpm app:dev   # builds the shell and the page it loads, opens the window on the CLI from source
 ```
 
-The daemon serves the directory `app:dev` was started from (or `ROBOTA_DEV_CWD`), which must be a trusted
-workspace (`robota trust grant`).
+The daemon serves the directory `app:dev` was started from (or `ROBOTA_DEV_CWD`). If that folder is not
+trusted yet, the window asks whether to trust it, start Restricted, or quit; `robota trust grant` trusts it
+ahead of time.
 
 `app:dev` sets `ROBOTA_GUI_SIDECAR_CMD` to `scripts/dev/robota`; outside it, an unpackaged shell runs PATH
 `robota`. Set the variable yourself to use another command **binary** (the e2e uses the scripted sidecar); the
-shell always runs it as `daemon start --json`. A packaged app ignores the variable and runs the `robota`
-runtime bundled inside it. The other ways to run from source are in the
+shell runs it as `trust status --json`, `trust --yes` when the person trusts the folder, and
+`daemon start --json` (with `--restricted-workspace` when they chose Restricted). A packaged app ignores the
+variable and runs the `robota` runtime bundled inside it. The other ways to run from source are in the
 [development guide](../../../content/development/README.md#run-from-source).
 
 ## Packaging

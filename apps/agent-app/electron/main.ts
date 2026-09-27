@@ -16,30 +16,42 @@ import {
   buildDaemonStartSpawn,
   createDaemonAttachment,
   describeDaemonStartFailure,
+  isTrustChoice,
   parseDaemonStartOutput,
+  parseTrustStatusOutput,
   resolveSidecarCommand,
+  type ITrustQuestion,
   type TDaemonStart,
 } from './sidecar.js';
 
-/** Run `robota daemon start --json` in this process's cwd and env, and read its answer. */
-function startDaemon(): Promise<TDaemonStart> {
-  const invocation = buildDaemonStartSpawn(
-    // GUI-003: packaged → the bundled runtime under process.resourcesPath; dev/e2e → $ROBOTA_GUI_SIDECAR_CMD / PATH.
-    resolveSidecarCommand({
-      isPackaged: app.isPackaged,
-      resourcesPath: process.resourcesPath,
-      platform: process.platform,
-      env: process.env,
-    }),
-    process.env,
-  );
+// GUI-003: packaged → the bundled runtime under process.resourcesPath; dev/e2e → $ROBOTA_GUI_SIDECAR_CMD / PATH.
+const robota = (): string =>
+  resolveSidecarCommand({
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    platform: process.platform,
+    env: process.env,
+  });
+
+type TCliRun =
+  | {
+      readonly spawned: true;
+      readonly exitCode: number | null;
+      readonly stdout: string;
+      readonly stderr: string;
+    }
+  | { readonly spawned: false; readonly detail: string };
+
+/** Run the CLI in this process's cwd and env, and read what it said. */
+function runCli(
+  command: string,
+  args: readonly string[],
+  env: Readonly<Record<string, string>>,
+): Promise<TCliRun> {
   return new Promise((resolve) => {
     let stdout = '';
     let stderr = '';
-    const child = spawn(invocation.command, [...invocation.args], {
-      env: invocation.env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    const child = spawn(command, [...args], { env, stdio: ['ignore', 'pipe', 'pipe'] });
     child.stdout.on('data', (chunk: Buffer) => {
       stdout = appendOutputTail(stdout, chunk.toString('utf8'));
     });
@@ -48,19 +60,42 @@ function startDaemon(): Promise<TDaemonStart> {
       stderr = appendOutputTail(stderr, chunk.toString('utf8'));
     });
     child.once('error', (error) => {
-      resolve({ ok: false, detail: `Could not run ${invocation.command}: ${error.message}` });
+      resolve({ spawned: false, detail: `Could not run ${command}: ${error.message}` });
     });
     // `close` (not `exit`) fires after both output streams have drained.
-    child.once('close', (exitCode) => {
-      const endpoint = exitCode === 0 ? parseDaemonStartOutput(stdout) : undefined;
-      resolve(
-        endpoint
-          ? { ok: true, endpoint }
-          : { ok: false, detail: describeDaemonStartFailure({ exitCode, stderr, stdout }) },
-      );
-    });
+    child.once('close', (exitCode) => resolve({ spawned: true, exitCode, stdout, stderr }));
   });
 }
+
+const cliEnv = (): Record<string, string> => buildDaemonStartSpawn('', process.env).env;
+
+/**
+ * A person chose to run this folder Restricted: every daemon start this window asks for says so, the
+ * one after Reconnect included.
+ */
+let restricted = false;
+
+/** Run `robota daemon start --json` and read its answer. */
+async function startDaemon(): Promise<TDaemonStart> {
+  const invocation = buildDaemonStartSpawn(robota(), process.env, { restricted });
+  const run = await runCli(invocation.command, invocation.args, invocation.env);
+  if (!run.spawned) return { ok: false, detail: run.detail };
+  const endpoint = run.exitCode === 0 ? parseDaemonStartOutput(run.stdout) : undefined;
+  return endpoint ? { ok: true, endpoint } : { ok: false, detail: describeDaemonStartFailure(run) };
+}
+
+/**
+ * The question to ask before a daemon starts, when the folder is not trusted and a grant could change
+ * that. The CLI decides; when it cannot say, nothing is asked and the daemon start gives its reason.
+ */
+async function readTrustQuestion(): Promise<ITrustQuestion | undefined> {
+  const run = await runCli(robota(), ['trust', 'status', '--json'], cliEnv());
+  return run.spawned && run.exitCode === 0 ? parseTrustStatusOutput(run.stdout) : undefined;
+}
+
+/** Asked and not answered yet: no daemon starts until the person answers (issue #3268). */
+let pendingTrust: ITrustQuestion | undefined;
+let answering = false;
 
 /**
  * Started once the app is ready, and again when the page asks to reconnect after the daemon stopped. The
@@ -91,7 +126,11 @@ function lockNavigation(win: BrowserWindow): void {
 }
 
 async function createWindow(): Promise<void> {
-  const started = daemon.start();
+  // In a folder not trusted yet the daemon would be refused; the person in front is asked first.
+  const started = readTrustQuestion().then((question) => {
+    pendingTrust = question;
+    return question === undefined ? daemon.start() : undefined;
+  });
 
   const win = new BrowserWindow({
     width: 1100,
@@ -108,7 +147,8 @@ async function createWindow(): Promise<void> {
   win.once('ready-to-show', () => win.show());
 
   // The CSP is fixed when the page loads, so the page loads once the daemon's port is known. A failed
-  // start still loads the page: it shows the fatal screen with the CLI's reason.
+  // start still loads the page: it shows the fatal screen with the CLI's reason. A pending trust
+  // question loads it with no socket reachable; the answer reloads it.
   await started;
   installCsp();
   await win.loadFile(join(__dirname, '../renderer/index.html'));
@@ -119,6 +159,7 @@ async function createWindow(): Promise<void> {
  * subscribed to state. A failed start answers `null` and reports `fatal` with the reason to that page.
  */
 ipcMain.handle('agent-gui:endpoint', async (event): Promise<string | null> => {
+  if (pendingTrust !== undefined) return null;
   const current = daemon.current();
   const started = current ? await current : null;
   if (started?.ok) return started.endpoint.url;
@@ -132,9 +173,53 @@ ipcMain.handle('agent-gui:endpoint', async (event): Promise<string | null> => {
  * asks for are the new daemon's. A start that fails reloads too, into the fatal screen with the reason.
  */
 ipcMain.handle('agent-gui:restart', async (event): Promise<void> => {
+  // Nothing starts before the trust question is answered.
+  if (pendingTrust !== undefined) return;
   await daemon.start();
   if (!event.sender.isDestroyed()) event.sender.reload();
 });
+
+/** The question the page shows before anything starts, or `null` when there is none. */
+ipcMain.handle('agent-gui:trust-question', (): ITrustQuestion | null => pendingTrust ?? null);
+
+/**
+ * The person answered. Trust records the grant (a grant the CLI refuses keeps the question up, with
+ * its reason); Restricted starts the daemon without the project's own configuration; quit closes the
+ * app. Once a daemon is asked for, the page reloads to attach to it, as after Reconnect.
+ */
+ipcMain.handle(
+  'agent-gui:trust-answer',
+  async (event, choice: unknown): Promise<{ error?: string }> => {
+    if (pendingTrust === undefined || answering || !isTrustChoice(choice)) return {};
+    if (choice === 'quit') {
+      app.quit();
+      return {};
+    }
+    answering = true;
+    try {
+      if (choice === 'trust') {
+        const granted = await runCli(robota(), ['trust', '--yes'], cliEnv());
+        if (!granted.spawned) return { error: granted.detail };
+        if (granted.exitCode !== 0) {
+          return {
+            error:
+              granted.stderr.trim() ||
+              granted.stdout.trim() ||
+              `robota trust --yes failed (exit ${granted.exitCode ?? 'signal'}).`,
+          };
+        }
+      } else {
+        restricted = true;
+      }
+      pendingTrust = undefined;
+      await daemon.start();
+      if (!event.sender.isDestroyed()) event.sender.reload();
+      return {};
+    } finally {
+      answering = false;
+    }
+  },
+);
 
 function reportFatal(sender: WebContents, detail: string | undefined): void {
   if (!sender.isDestroyed()) sender.send('agent-gui:state', 'fatal', detail);

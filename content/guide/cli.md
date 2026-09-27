@@ -53,9 +53,10 @@ robota trust --yes     # trust this folder so its settings, hooks, skills and pl
 `robota` loads a project's own configuration only from a folder you trust. Starting the terminal UI in
 a folder you have not decided about asks first: trust it, start Restricted (project content not
 loaded), or cancel. Print mode, `--goal`, `--serve`, `robota daemon` and background sessions cannot
-ask, so they refuse an untrusted folder with a message that names `robota trust --yes`. Use
-`robota trust` (or `robota trust status`) to see the current decision and `robota trust revoke` to
-withdraw it.
+ask, so they refuse an untrusted folder with a message that names `robota trust --yes`;
+`robota daemon start --restricted-workspace` starts the daemon Restricted instead, and the desktop app
+asks in its window before it starts the daemon. Use `robota trust` (or `robota trust status`, with
+`--json` for one JSON line) to see the current decision and `robota trust revoke` to withdraw it.
 
 ## Ways to run it
 
@@ -619,30 +620,30 @@ another session or device. All four are user-only. See [Devices, Peers and Remot
 
 ### Subcommands
 
-| Command                                                                          | Meaning                                                                      |
-| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `robota init`                                                                    | Write `AGENTS.md` and `.robota/settings.json`                                |
-| `robota trust [status\|grant\|revoke] [--yes]`                                   | Show or change this folder's trust decision                                  |
-| `robota doctor [--repair <check-id>] [-y]`                                       | Diagnose configuration and runtime readiness (aliases `checkup`, `diagnose`) |
-| `robota open '<robota://open?v=1&prompt=...&cwd=...>'`                           | Start a session in a trusted folder with the prompt filled in, unsent        |
-| `robota usage [--period 7d\|30d] [--timezone <IANA>] [--format text\|json]`      | Personal usage report                                                        |
-| `robota usage export [--signal metrics\|traces\|logs] --endpoint <url>`          | Export content-free usage to a loopback OTLP collector                       |
-| `robota session list [--format text\|json]`                                      | Live processes, saved sessions and supervised sessions                       |
-| `robota session view [--cwd <dir>] [--name <text>] [--pr <n>] [--state <state>]` | Browse live supervised sessions (terminal only)                              |
-| `robota session start --background [--name <name>] [event-grant options]`        | Start a supervised session that outlives the terminal                        |
-| `robota session attach <id> [--observe]`                                         | Drive or watch a supervised session                                          |
-| `robota session stop <id>`                                                       | Stop a supervised session                                                    |
-| `robota session rename <id> <name>`                                              | Rename a supervised session                                                  |
-| `robota session link-pr <id> <https-pr-url>` / `unlink-pr <id>`                  | Set or clear a supervised session's PR link                                  |
-| `robota session events list <id> [--json]` / `events revoke <id> <grant-id>`     | External-event grants of a supervised session                                |
-| `robota session analyze [--session <id>\|--last <n>\|--usage]`                   | Timing and token analysis of saved sessions                                  |
-| `robota daemon start [--json]`                                                   | Start or reuse this folder's daemon; `--json` prints its id and URL          |
-| `robota daemon status [--json]` / `stop` / `unlock`                              | Check, stop, or clear a stale start lock                                     |
-| `robota mcp serve [options]`                                                     | Serve one session as an MCP server                                           |
-| `robota mcp login <name> [--client-secret] [--no-browser]`                       | Sign in to an OAuth MCP server                                               |
-| `robota mcp logout <name>`                                                       | Sign out and revoke its tokens                                               |
-| `robota eval <definition> [--threshold <0..1>]`                                  | Run an eval definition; exit 1 below the threshold                           |
-| `robota user-local storage list \| memory ...`                                   | The `/user-local` command outside a session                                  |
+| Command                                                                          | Meaning                                                                                                                                        |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `robota init`                                                                    | Write `AGENTS.md` and `.robota/settings.json`                                                                                                  |
+| `robota trust [status\|grant\|revoke] [--yes]`                                   | Show or change this folder's trust decision                                                                                                    |
+| `robota doctor [--repair <check-id>] [-y]`                                       | Diagnose configuration and runtime readiness (aliases `checkup`, `diagnose`)                                                                   |
+| `robota open '<robota://open?v=1&prompt=...&cwd=...>'`                           | Start a session in a trusted folder with the prompt filled in, unsent                                                                          |
+| `robota usage [--period 7d\|30d] [--timezone <IANA>] [--format text\|json]`      | Personal usage report                                                                                                                          |
+| `robota usage export [--signal metrics\|traces\|logs] --endpoint <url>`          | Export content-free usage to a loopback OTLP collector                                                                                         |
+| `robota session list [--format text\|json]`                                      | Live processes, saved sessions and supervised sessions                                                                                         |
+| `robota session view [--cwd <dir>] [--name <text>] [--pr <n>] [--state <state>]` | Browse live supervised sessions (terminal only)                                                                                                |
+| `robota session start --background [--name <name>] [event-grant options]`        | Start a supervised session that outlives the terminal                                                                                          |
+| `robota session attach <id> [--observe]`                                         | Drive or watch a supervised session                                                                                                            |
+| `robota session stop <id>`                                                       | Stop a supervised session                                                                                                                      |
+| `robota session rename <id> <name>`                                              | Rename a supervised session                                                                                                                    |
+| `robota session link-pr <id> <https-pr-url>` / `unlink-pr <id>`                  | Set or clear a supervised session's PR link                                                                                                    |
+| `robota session events list <id> [--json]` / `events revoke <id> <grant-id>`     | External-event grants of a supervised session                                                                                                  |
+| `robota session analyze [--session <id>\|--last <n>\|--usage]`                   | Timing and token analysis of saved sessions                                                                                                    |
+| `robota daemon start [--json] [--restricted-workspace]`                          | Start or reuse this folder's daemon; `--json` prints its id and URL; `--restricted-workspace` starts it Restricted in a folder not trusted yet |
+| `robota daemon status [--json]` / `stop` / `unlock`                              | Check, stop, or clear a stale start lock                                                                                                       |
+| `robota mcp serve [options]`                                                     | Serve one session as an MCP server                                                                                                             |
+| `robota mcp login <name> [--client-secret] [--no-browser]`                       | Sign in to an OAuth MCP server                                                                                                                 |
+| `robota mcp logout <name>`                                                       | Sign out and revoke its tokens                                                                                                                 |
+| `robota eval <definition> [--threshold <0..1>]`                                  | Run an eval definition; exit 1 below the threshold                                                                                             |
+| `robota user-local storage list \| memory ...`                                   | The `/user-local` command outside a session                                                                                                    |
 
 ### Slash commands
 

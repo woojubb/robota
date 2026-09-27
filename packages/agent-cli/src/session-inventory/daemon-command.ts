@@ -12,7 +12,7 @@ import {
 import { launchSupervisedSession } from './supervised-session-launch.js';
 
 export const DAEMON_USAGE =
-  'Usage: robota daemon start [--json]\n' +
+  'Usage: robota daemon start [--json] [--restricted-workspace]\n' +
   '       robota daemon status [--json]\n' +
   '       robota daemon stop\n' +
   '       robota daemon unlock\n';
@@ -22,8 +22,13 @@ export interface IDaemonCommandOptions {
   readonly cwd: string;
   /** The environment a started daemon inherits; the transport token is added to it here. */
   readonly env: () => NodeJS.ProcessEnv;
-  /** Throws, with the message to show, when a daemon may not start in this workspace. */
-  readonly admit: (workspace: string) => Promise<void>;
+  /**
+   * Throws, with the message to show, when a daemon may not start in this workspace. `restricted` is
+   * a person's choice to start it without the project's own configuration.
+   */
+  readonly admit: (workspace: string, start: { readonly restricted: boolean }) => Promise<void>;
+  /** Whether the workspace is trusted now, so a daemon started in it would load the project's configuration. */
+  readonly trusted: (workspace: string) => Promise<boolean>;
   readonly stdout: (text: string) => void;
   readonly stderr: (text: string) => void;
   readonly root?: string;
@@ -36,17 +41,23 @@ export interface IDaemonCommandOptions {
 }
 
 type TAction =
-  | { readonly action: 'start'; readonly json: boolean }
+  | { readonly action: 'start'; readonly json: boolean; readonly restricted: boolean }
   | { readonly action: 'status'; readonly json: boolean }
   | { readonly action: 'stop' }
   | { readonly action: 'unlock' };
 
+const START_FLAGS: ReadonlySet<string> = new Set(['--json', '--restricted-workspace']);
+
 function parseDaemonArgs(args: readonly string[]): TAction | undefined {
-  const [action, flag, extra] = args;
+  const [action, ...flags] = args;
   if (action === 'stop' || action === 'unlock') return args.length === 1 ? { action } : undefined;
+  const allowed = action === 'start' ? START_FLAGS : new Set(['--json']);
   if (action !== 'start' && action !== 'status') return undefined;
-  if (extra !== undefined || (flag !== undefined && flag !== '--json')) return undefined;
-  return { action, json: flag === '--json' };
+  if (flags.some((flag) => !allowed.has(flag)) || new Set(flags).size !== flags.length) return undefined;
+  const json = flags.includes('--json');
+  return action === 'start'
+    ? { action, json, restricted: flags.includes('--restricted-workspace') }
+    : { action, json };
 }
 
 /** A workspace's live daemon, bound to the process start it was listed with. */
@@ -91,14 +102,19 @@ async function connectRunning(
 async function launchDaemon(
   options: IDaemonCommandOptions,
   workspace: string,
+  restricted: boolean,
 ): Promise<{ readonly id: string; readonly url: string }> {
-  await options.admit(workspace);
+  await options.admit(workspace, { restricted });
   // The token reaches the child only through its environment, never its command line. With a
   // token the transport also accepts the desktop app's `file://` origin. The port is left to
   // the transport's default so a busy one is retried.
   const env: NodeJS.ProcessEnv = { ...options.env(), ROBOTA_WS_TOKEN: randomBytes(32).toString('hex') };
   delete env['ROBOTA_WS_PORT'];
-  const id = await (options.launch ?? launchSupervisedSession)(workspace, { env, daemon: true });
+  const id = await (options.launch ?? launchSupervisedSession)(workspace, {
+    env,
+    daemon: true,
+    ...(restricted ? { restricted: true } : {}),
+  });
   try {
     return { id, url: await (options.connect ?? connectSupervisedDaemon)(id, options.root) };
   } catch (error) {
@@ -166,7 +182,24 @@ export async function runDaemonCommand(
     let started = false;
     let id: string;
     let url: string;
+    // A Restricted start was a person's choice and never gets a daemon with the project's
+    // configuration. A plain start takes a Restricted daemon unless the folder is trusted now: the
+    // person who trusted it expects that configuration, and anywhere else a new daemon would not
+    // have it either.
+    const refuseMismatch = async (daemon: TWorkspaceDaemon): Promise<void> => {
+      if (parsed.restricted && daemon.restricted !== true) {
+        throw new Error(
+          `Daemon ${daemon.id} is running in ${workspace} with the project's configuration, so it cannot be started Restricted. Run: robota daemon stop`,
+        );
+      }
+      if (!parsed.restricted && daemon.restricted === true && await options.trusted(workspace)) {
+        throw new Error(
+          `Daemon ${daemon.id} is running Restricted in ${workspace}, which is trusted now. To start it with the project's configuration, run: robota daemon stop`,
+        );
+      }
+    };
     if (running !== undefined) {
+      await refuseMismatch(running);
       id = running.id;
       url = await connectRunning(options, running);
     } else {
@@ -175,10 +208,11 @@ export async function runDaemonCommand(
       try {
         const winner = await findDaemon(options, workspace);
         if (winner !== undefined) {
+          await refuseMismatch(winner);
           id = winner.id;
           url = await connectRunning(options, winner);
         } else {
-          ({ id, url } = await launchDaemon(options, workspace));
+          ({ id, url } = await launchDaemon(options, workspace, parsed.restricted));
           started = true;
         }
       } finally {

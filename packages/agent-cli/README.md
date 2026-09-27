@@ -94,8 +94,9 @@ robota --goal "make the failing tests pass"                  # work toward a goa
 a schema, and `--system-prompt` / `--append-system-prompt` change the system prompt for the run. The
 exit code is `0` on success and `1` on an error; `-p` exits `3` when no usable provider is
 configured, and a `--goal` run that stops without reaching its goal exits `2`. In a Git repository
-you have not trusted, print mode, `--goal`, `--serve` and `robota mcp serve` refuse to start; with
-`--safe-mode` they run Restricted instead.
+you have not trusted, print mode, `--goal`, `--serve`, `robota mcp serve`, `robota daemon start` and
+`robota session start` refuse to start; with `--safe-mode` the first four run Restricted instead, and
+`robota daemon start --restricted-workspace` starts the daemon Restricted.
 
 ### Keep sessions, run them in the background, share a daemon
 
@@ -113,7 +114,8 @@ conversation into a background session, and `/cd <directory>` moves the conversa
 directory.
 
 A supervised session keeps running after you close the terminal, and a workspace daemon is one
-long-lived runtime that terminals and the desktop app share:
+long-lived runtime that terminals and the desktop app share. In a folder not trusted yet, the desktop
+app asks in its window whether to trust it, start Restricted, or quit before it starts the daemon:
 
 ```bash
 robota session start --background --name nightly
@@ -163,7 +165,7 @@ and MCP servers all off.
 Workspace trust is granted per Git worktree and kept in `~/.robota/workspace-trust.json`:
 
 ```bash
-robota trust status    # is this workspace trusted, and what would trust load?
+robota trust status    # is this workspace trusted, and what would trust load? (--json: one line)
 robota trust --yes     # trust the Git workspace you are in
 robota trust revoke --yes
 ```

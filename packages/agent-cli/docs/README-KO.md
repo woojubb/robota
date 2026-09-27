@@ -94,8 +94,9 @@ robota --goal "make the failing tests pass"                  # 여러 턴에 걸
 맞는 JSON 응답을 요청하고, `--system-prompt` / `--append-system-prompt`는 이번 실행의 시스템
 프롬프트를 바꿉니다. 종료 코드는 성공이면 `0`, 오류면 `1`입니다. 사용할 수 있는 제공자 설정이
 없으면 `-p`는 `3`으로 끝나고, 목표에 도달하지 못하고 멈춘 `--goal` 실행은 `2`로 끝납니다. 신뢰하지
-않은 Git 저장소에서는 프린트 모드, `--goal`, `--serve`, `robota mcp serve`가 시작을 거부하며,
-`--safe-mode`를 붙이면 대신 Restricted 상태로 실행됩니다.
+않은 Git 저장소에서는 프린트 모드, `--goal`, `--serve`, `robota mcp serve`, `robota daemon start`,
+`robota session start`가 시작을 거부합니다. 앞의 네 가지는 `--safe-mode`를 붙이면 대신 Restricted
+상태로 실행되고, `robota daemon start --restricted-workspace`는 데몬을 Restricted로 시작합니다.
 
 ### 세션 이어 가기, 백그라운드 실행, 데몬 공유
 
@@ -112,7 +113,8 @@ robota -n "refactor auth"           # 새 세션에 이름 붙이기
 백그라운드 세션에 복사하고, `/cd <directory>`로 대화를 다른 디렉터리로 옮깁니다.
 
 감독(supervised) 세션은 터미널을 닫아도 계속 실행되고, 워크스페이스 데몬은 터미널과 데스크톱 앱이
-함께 쓰는 오래 사는 런타임 하나입니다.
+함께 쓰는 오래 사는 런타임 하나입니다. 아직 신뢰하지 않은 폴더에서는 데스크톱 앱이 데몬을 시작하기 전에
+창에서 신뢰할지, Restricted로 시작할지, 종료할지 묻습니다.
 
 ```bash
 robota session start --background --name nightly
@@ -162,7 +164,7 @@ robota daemon stop
 워크스페이스 신뢰는 Git 워크트리 단위로 부여되며 `~/.robota/workspace-trust.json`에 저장됩니다.
 
 ```bash
-robota trust status    # 이 워크스페이스를 신뢰하는가? 신뢰하면 무엇을 불러오는가?
+robota trust status    # 이 워크스페이스를 신뢰하는가? 신뢰하면 무엇을 불러오는가? (--json: 한 줄 JSON)
 robota trust --yes     # 지금 있는 Git 워크스페이스를 신뢰
 robota trust revoke --yes
 ```

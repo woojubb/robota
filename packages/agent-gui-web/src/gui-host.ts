@@ -12,12 +12,24 @@ import { readInjectedWsUrl, resolveWsUrl } from './ws-url.js';
 /** The runtime's state as the desktop host reports it. A browser host has no process to report. */
 export type TGuiHostState = 'starting' | 'ready' | 'fatal';
 
+/** What a person is asked before anything starts in a folder not trusted yet (issue #3268). */
+export interface IGuiTrustQuestion {
+  readonly folder: string;
+  /** The project sources trust would load, one row each. */
+  readonly loads: readonly string[];
+}
+
+/** Trust the folder and start, start it Restricted, or quit. */
+export type TGuiTrustChoice = 'trust' | 'restricted' | 'quit';
+
 /** What the Electron preload exposes as `window.agentGui` (apps/agent-app/electron/preload.ts). */
 export interface IDesktopBridge {
   getEndpoint(): Promise<string | null>;
   signalReady(): void;
   onState(listener: (state: TGuiHostState, detail?: string) => void): () => void;
   restartRuntime(): Promise<void>;
+  trustQuestion(): Promise<IGuiTrustQuestion | null>;
+  answerTrust(choice: TGuiTrustChoice): Promise<{ error?: string }>;
 }
 
 export interface IGuiHost {
@@ -33,6 +45,13 @@ export interface IGuiHost {
    * which asks the CLI to start or reuse the daemon and then reloads the page). A browser host cannot.
    */
   readonly restartRuntime?: () => Promise<void>;
+  /**
+   * Present when the host starts the runtime itself and can ask about the folder first (the desktop
+   * app). `null` means nothing to ask; ask before reading the endpoint.
+   */
+  readonly trustQuestion?: () => Promise<IGuiTrustQuestion | null>;
+  /** The person's answer; the host reloads the page once the runtime is asked for. */
+  readonly answerTrust?: (choice: TGuiTrustChoice) => Promise<{ error?: string }>;
 }
 
 export interface IGuiHostEnvironment {
@@ -61,6 +80,8 @@ export function resolveGuiHost(environment: IGuiHostEnvironment): IGuiHost {
       signalReady: () => bridge.signalReady(),
       onState: (listener) => bridge.onState(listener),
       restartRuntime: () => bridge.restartRuntime(),
+      trustQuestion: () => bridge.trustQuestion(),
+      answerTrust: (choice) => bridge.answerTrust(choice),
     };
   }
   const endpoint = browserEndpoint(environment);
