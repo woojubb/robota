@@ -177,6 +177,8 @@ export class SessionSlot<
     this.currentSession.listSkills(...args);
   getStatusSnapshot: IInteractiveSession['getStatusSnapshot'] = (...args) =>
     this.currentSession.getStatusSnapshot(...args);
+  listModels: IInteractiveSession['listModels'] = (...args) =>
+    this.currentSession.listModels(...args);
   listRuntimeTools: IInteractiveSession['listRuntimeTools'] = (...args) =>
     this.currentSession.listRuntimeTools(...args);
   invokeRuntimeTool: IInteractiveSession['invokeRuntimeTool'] = (...args) =>

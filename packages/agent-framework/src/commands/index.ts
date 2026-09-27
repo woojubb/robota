@@ -96,6 +96,11 @@ export {
   readProviderSettings,
   resolveEnvDefaultProvider,
 } from '../command-api/provider/provider-factory.js';
+export type { IModelListSelection } from '../command-api/provider/provider-model-catalog.js';
+export {
+  buildModelListSnapshot,
+  resolveModelListSelection,
+} from '../command-api/provider/provider-model-catalog.js';
 export { commandToCapabilityDescriptor } from './capability-descriptors.js';
 export { SkillCommandSource, inspectSkillSources } from './skill-source.js';
 export type {
@@ -196,6 +201,7 @@ export {
   parseLanguageArgument,
   RECOMMENDED_RESPONSE_LANGUAGES,
 } from '../command-api/language/language-command-api.js';
+export { PERMISSION_MODE_LABELS } from '../command-api/permissions/permission-mode-command-api.js';
 export {
   buildPermissionModeSubcommands,
   formatCommandPermissionsMessage,

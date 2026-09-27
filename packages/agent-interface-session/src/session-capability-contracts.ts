@@ -3,6 +3,7 @@ import type { TWaitingLoopStopOutcome } from './session-loop-contracts.js';
 import type {
   IGoalState,
   IInteractiveSessionEvents,
+  IModelListSnapshot,
   ISessionStatusSnapshot,
   TInteractiveEventName,
   TPermissionResultValue,
@@ -120,6 +121,12 @@ export interface ISessionCommands {
   listCommands(): ICommandListEntry[];
   /** The skills a client can offer beside the commands (`/<skill>` activates one). */
   listSkills(): ICommandSkillListEntry[];
+  /**
+   * The models a client may switch to (#3282 §2), grouped by configured provider profile — so the
+   * GUI's model menu never scrapes `/model`'s picker text. Choosing one sends `/model <id>` through
+   * `executeCommand`, the same path the command itself uses.
+   */
+  listModels(): IModelListSnapshot;
 }
 
 export type { ISessionStatusSnapshot } from './session-event-map.js';

@@ -5,6 +5,37 @@ import { executeEffortCommand } from './effort-command.js';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 describe('/effort', () => {
+  it('#3282 §2: reports plainly when the model has no matching effort control at all', async () => {
+    const host = createTestCommandHost({
+      overrides: {
+        getCommandHostAdapters: () => ({
+          settings: { read: () => ({}), write: vi.fn() },
+          effort: {
+            getResolution: () => ({
+              requested: 'low',
+              effective: 'low',
+              source: 'command',
+              disposition: 'not-applied',
+              modelDefault: 'high',
+            }),
+            apply: async () => ({
+              requested: 'low',
+              effective: 'low',
+              source: 'command',
+              disposition: 'not-applied',
+              modelDefault: 'high',
+            }),
+          },
+        }),
+      },
+    });
+
+    const result = await executeEffortCommand(host, 'low');
+
+    expect(result.success).toBe(true);
+    expect(result.message).toBe("This model doesn't support effort levels, so it will use its default.");
+  });
+
   it('applies a requested level and returns the complete resolution', async () => {
     const applyModelOptions = vi.fn();
     const writeSettings = vi.fn();
@@ -36,6 +67,7 @@ describe('/effort', () => {
     const result = await executeEffortCommand(host, 'low');
 
     expect(result.success).toBe(true);
+    expect(result.message).toBe('Effort: Low');
     expect(result.data).toMatchObject({
       effort: { requested: 'low', effective: 'low', source: 'command', disposition: 'applied' },
     });
@@ -50,7 +82,7 @@ describe('/effort', () => {
     const result = await executeEffortCommand(host, '');
 
     expect(result.success).toBe(true);
-    expect(result.message).toContain('high');
+    expect(result.message).toBe('Effort: High');
     expect(applyModelOptions).not.toHaveBeenCalled();
   });
 
@@ -133,8 +165,39 @@ describe('/effort', () => {
     const result = await executeEffortCommand(host, '');
 
     expect(result.success).toBe(true);
-    expect(result.message).toContain('effective=medium');
+    expect(result.message).toBe('Effort: Medium');
     expect(applyModelOptions).not.toHaveBeenCalled();
     expect(writeSettings).not.toHaveBeenCalled();
+  });
+
+  it('#3282 §2: uses the full plain word for xhigh, not the internal id', async () => {
+    const host = createTestCommandHost({
+      overrides: {
+        getCommandHostAdapters: () => ({
+          settings: { read: () => ({}), write: vi.fn() },
+          effort: {
+            getResolution: () => ({
+              requested: 'auto',
+              effective: 'high',
+              source: 'model-default',
+              disposition: 'model-default',
+              modelDefault: 'high',
+            }),
+            apply: async (selection) => ({
+              requested: selection,
+              effective: selection,
+              source: 'command',
+              disposition: 'applied',
+              modelDefault: 'high',
+            }),
+          },
+        }),
+      },
+    });
+
+    const result = await executeEffortCommand(host, 'xhigh');
+
+    expect(result.success).toBe(true);
+    expect(result.message).toBe('Effort: Extra high');
   });
 });

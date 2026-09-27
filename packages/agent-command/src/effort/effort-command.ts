@@ -14,13 +14,35 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 const EFFORT_SELECTIONS: readonly TEffortSelection[] = ['auto', ...MODEL_EFFORT_VALUES];
 
+/**
+ * #3282 §2 — the plain label for each effort selection, shared by the outcome text below and the
+ * TUI/GUI pickers, so `/effort xhigh` and a person reading "Extra high" agree on what happened.
+ */
+export const EFFORT_LEVEL_LABELS: Readonly<Record<TEffortSelection, string>> = {
+  auto: 'Auto',
+  none: 'None',
+  minimal: 'Minimal',
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  xhigh: 'Extra high',
+  max: 'Maximum',
+};
+
+/**
+ * Plain outcome text (#3282 §2), replacing the earlier `Model effort: requested=…, effective=…,
+ * source=…, disposition=…` internal-field dump. `not-applied` means the model has no matching native
+ * control at all — the earlier fields carried no information a person could act on for that case, so
+ * it gets its own plain sentence instead of a label.
+ */
 function formatEffortMessage(resolution: {
   requested: TEffortSelection;
-  effective: string;
-  source: string;
   disposition: string;
 }): string {
-  return `Model effort: requested=${resolution.requested}, effective=${resolution.effective}, source=${resolution.source}, disposition=${resolution.disposition}.`;
+  if (resolution.disposition === 'not-applied') {
+    return "This model doesn't support effort levels, so it will use its default.";
+  }
+  return `Effort: ${EFFORT_LEVEL_LABELS[resolution.requested]}`;
 }
 
 async function askForEffort(
@@ -32,7 +54,7 @@ async function askForEffort(
     selectAction(
       'effort',
       'Select model effort',
-      EFFORT_SELECTIONS.map((value) => ({ value, label: value })),
+      EFFORT_SELECTIONS.map((value) => ({ value, label: EFFORT_LEVEL_LABELS[value] })),
     ),
   );
   const selected = response.type === 'answer' ? response.values[0] : undefined;
