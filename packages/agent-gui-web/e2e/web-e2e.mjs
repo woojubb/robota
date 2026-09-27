@@ -165,6 +165,20 @@ try {
     },
   );
 
+  await scenario(
+    'a free-text question shows a field; typing an answer and Enter answers it',
+    async () => {
+      await send('please duplicate the profile');
+      await page.locator('[role="dialog"][aria-label="pending question"]').waitFor();
+      await page.getByText('Duplicate anthropic as').waitFor();
+      const field = page.getByPlaceholder('anthropic-copy');
+      await field.waitFor();
+      await field.fill('anthropic-copy-2');
+      await field.press('Enter');
+      await page.getByText('Duplicated as anthropic-copy-2.').waitFor();
+    },
+  );
+
   await scenario('a provider failure keeps the partial reply and raises a toast', async () => {
     await send('please fail');
     await page.getByRole('alert').getByText('Scripted provider failure').waitFor();

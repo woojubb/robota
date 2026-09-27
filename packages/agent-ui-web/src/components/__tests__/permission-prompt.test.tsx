@@ -255,6 +255,186 @@ describe('the docked prompt arms before its keys answer it', () => {
   });
 });
 
+/**
+ * #3280 §3: a question with `allowFreeText` showed only its title and Cancel — nothing to type an
+ * answer into. `values: []` alongside `text` is the same shape the terminal renderer already sends
+ * for free text (`PendingActionPrompt.tsx`'s `TextPrompt` path), not a new one.
+ */
+describe("the ask prompt's free-text field", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
+
+  it('renders the field with its placeholder, and Enter submits the typed value', () => {
+    const onAnswerAsk = vi.fn();
+    const ask = {
+      kind: 'ask',
+      id: 'a1',
+      request: {
+        title: 'Duplicate anthropic as',
+        allowFreeText: true,
+        placeholder: 'anthropic-copy',
+      },
+    } as unknown as TPendingPrompt;
+    render(<Surface prompts={[ask]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />);
+
+    const field = screen.getByPlaceholderText('anthropic-copy') as HTMLInputElement;
+    expect(field.type).toBe('text');
+    fireEvent.change(field, { target: { value: 'anthropic-copy-2' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+
+    expect(onAnswerAsk).toHaveBeenCalledWith('a1', {
+      type: 'answer',
+      values: [],
+      text: 'anthropic-copy-2',
+    });
+  });
+
+  it('blocks an empty submit unless allowEmpty is set', () => {
+    const onAnswerAsk = vi.fn();
+    const request = { title: 'Name the profile', allowFreeText: true };
+    const ask = { kind: 'ask', id: 'a2', request } as unknown as TPendingPrompt;
+    const view = render(
+      <Surface prompts={[ask]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />,
+    );
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'answer' }), { key: 'Enter' });
+    expect(onAnswerAsk).not.toHaveBeenCalled();
+    expect(
+      (screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+
+    const askAllowingEmpty = {
+      kind: 'ask',
+      id: 'a3',
+      request: { ...request, allowEmpty: true },
+    } as unknown as TPendingPrompt;
+    view.rerender(
+      <Surface
+        prompts={[askAllowingEmpty]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={onAnswerAsk}
+      />,
+    );
+    expect(
+      (screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'answer' }), { key: 'Enter' });
+    expect(onAnswerAsk).toHaveBeenCalledWith('a3', { type: 'answer', values: [], text: '' });
+  });
+
+  it('masks the field for a secret answer, and the value is gone from the DOM once submitted', () => {
+    const onAnswerAsk = vi.fn();
+    const ask = {
+      kind: 'ask',
+      id: 'a4',
+      request: {
+        title: 'Anthropic API key',
+        allowFreeText: true,
+        masked: true,
+        allowEmpty: true,
+        placeholder: '(unchanged)',
+      },
+    } as unknown as TPendingPrompt;
+    const view = render(
+      <Surface prompts={[ask]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />,
+    );
+    const field = screen.getByPlaceholderText('(unchanged)') as HTMLInputElement;
+    expect(field.type).toBe('password');
+
+    fireEvent.change(field, { target: { value: 'sk-super-secret' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    expect(onAnswerAsk).toHaveBeenCalledWith('a4', {
+      type: 'answer',
+      values: [],
+      text: 'sk-super-secret',
+    });
+    // Cleared from this component's own state — not left behind for a later render to pick up.
+    expect(field.value).toBe('');
+
+    // The caller drops the answered prompt; nothing of the secret survives in the markup.
+    view.rerender(
+      <Surface prompts={[]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />,
+    );
+    expect(view.container.innerHTML).not.toContain('sk-super-secret');
+  });
+
+  it('shows each option next to a free-text field, with "or type an answer" between them', () => {
+    const ask = {
+      kind: 'ask',
+      id: 'a5',
+      request: {
+        title: 'Pick a mode or type one',
+        allowFreeText: true,
+        allowEmpty: true,
+        options: [
+          { value: 'default', label: 'default' },
+          { value: 'plan', label: 'plan' },
+        ],
+      },
+    } as unknown as TPendingPrompt;
+    render(<Surface prompts={[ask]} onAnswerPermission={vi.fn()} onAnswerAsk={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: 'default' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'plan' })).toBeTruthy();
+    expect(screen.getByRole('textbox', { name: 'answer' })).toBeTruthy();
+    expect(screen.getByText('or type an answer')).toBeTruthy();
+  });
+
+  it("shows each option's description as small, plain secondary text", () => {
+    const ask = {
+      kind: 'ask',
+      id: 'a6',
+      request: {
+        title: 'Choose a permission mode',
+        options: [
+          { value: 'default', label: 'default', description: 'Confirms risky actions' },
+          { value: 'plan', label: 'plan', description: 'Plans without changing files' },
+        ],
+      },
+    } as unknown as TPendingPrompt;
+    render(<Surface prompts={[ask]} onAnswerPermission={vi.fn()} onAnswerAsk={vi.fn()} />);
+
+    expect(screen.getByText('Confirms risky actions')).toBeTruthy();
+    expect(screen.getByText('Plans without changing files')).toBeTruthy();
+  });
+
+  it('typing a digit in the field types it there instead of picking that numbered option', () => {
+    const onAnswerAsk = vi.fn();
+    const ask = {
+      kind: 'ask',
+      id: 'a7',
+      request: {
+        title: 'Pick a mode or type one',
+        allowFreeText: true,
+        allowEmpty: true,
+        options: [
+          { value: 'default', label: 'default' },
+          { value: 'plan', label: 'plan' },
+        ],
+      },
+    } as unknown as TPendingPrompt;
+    render(<Surface prompts={[ask]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />);
+
+    const field = screen.getByRole('textbox', { name: 'answer' }) as HTMLInputElement;
+    field.focus();
+    act(() => {
+      vi.advanceTimersByTime(PROMPT_ARM_DELAY_MS);
+    });
+    expect(screen.getByRole('dialog', { name: 'pending question' }).getAttribute('data-armed')).toBe(
+      'true',
+    );
+    fireEvent.change(field, { target: { value: '1' } });
+    fireEvent.keyDown(field, { key: '1' });
+
+    expect(onAnswerAsk).not.toHaveBeenCalled();
+    expect(field.value).toBe('1');
+  });
+});
+
 describe('PermissionPrompt shows what the tool was asked to do', () => {
   afterEach(cleanup);
 
