@@ -135,7 +135,29 @@ describe('Composer — drag-and-drop (#3282 §4d)', () => {
 
     fireEvent.change(input, { target: { value: 'look at this' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(onSubmit).toHaveBeenCalledWith('look at this\n\n@src/a.ts');
+    expect(onSubmit).toHaveBeenCalledWith('look at this\n\n@./src/a.ts');
+  });
+
+  // Follow-up: a dotless filename (Makefile, Dockerfile, LICENSE, …) attaches and sends the same way
+  // as any other file — the runtime parser only recognizes it as a reference because of the ./
+  // prefix `buildPromptWithAttachments` always adds now (packages/agent-framework's
+  // prompt-file-references.test.ts covers the real parser + resolver resolving it end to end).
+  it('a dotless filename (Makefile) attaches and sends as an @./ reference', () => {
+    const onSubmit = vi.fn();
+    render(
+      <Composer
+        {...baseProps()}
+        onSubmit={onSubmit}
+        status={statusWithWorkspace('s1', '/repo')}
+        getPathForFile={() => '/repo/Makefile'}
+      />,
+    );
+    const input = screen.getByLabelText('message') as HTMLTextAreaElement;
+    drop(input, [new File(['build:\n\techo hi\n'], 'Makefile')]);
+    expect(screen.getByText('Makefile')).toBeTruthy();
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onSubmit).toHaveBeenCalledWith('@./Makefile');
   });
 
   it('a browser drop with no real path shows the plain sentence and adds no chip (rule 3)', () => {
@@ -238,8 +260,57 @@ describe('Composer — remove and persist attachments (#3282 §4d)', () => {
 
     // A message consisting only of an attachment (no typed text) still sends.
     fireEvent.keyDown(screen.getByLabelText('message'), { key: 'Enter' });
-    expect(onSubmit).toHaveBeenCalledWith('@a.ts');
+    expect(onSubmit).toHaveBeenCalledWith('@./a.ts');
     expect(screen.queryByText('a.ts')).toBeNull();
     expect(window.localStorage.getItem('robota.draft.s1')).toBeNull();
+  });
+
+  // Cheap hardening: a stored draft is `localStorage`, not this component's own state — it can be
+  // edited by hand, or left over from a future version with a different attachment shape. A
+  // malformed entry (missing relativePath here) must be dropped, not shown as a broken chip or sent
+  // as a broken/empty @-reference.
+  it('drops a malformed stored attachment instead of showing a broken chip', () => {
+    window.localStorage.setItem(
+      'robota.draft.s1',
+      JSON.stringify({
+        text: '',
+        attachments: [
+          { id: '1', name: 'good.ts', relativePath: 'good.ts', size: 1 },
+          { id: '2', name: 'bad.ts' }, // missing relativePath/size — malformed
+          { name: 'no-id.ts', relativePath: 'no-id.ts', size: 1 }, // missing id — malformed
+          'not even an object',
+        ],
+      }),
+    );
+    render(<Composer {...baseProps()} status={statusWithWorkspace('s1', '/repo')} />);
+    expect(screen.getByText('good.ts')).toBeTruthy();
+    expect(screen.queryByText('bad.ts')).toBeNull();
+    expect(screen.queryByText('no-id.ts')).toBeNull();
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+  });
+});
+
+describe('Composer — attachment count limit (cheap hardening, #3282 §4d follow-up)', () => {
+  afterEach(cleanup);
+
+  it('a 9th file is refused with a plain message; the first 8 stay attached', () => {
+    render(
+      <Composer
+        {...baseProps()}
+        status={statusWithWorkspace('s1', '/repo')}
+        getPathForFile={(file) => `/repo/${file.name}`}
+      />,
+    );
+    const input = screen.getByLabelText('message');
+    for (let index = 1; index <= 8; index += 1) {
+      drop(input, [new File(['x'], `f${index}.ts`)]);
+    }
+    for (let index = 1; index <= 8; index += 1) {
+      expect(screen.getByText(`f${index}.ts`)).toBeTruthy();
+    }
+
+    drop(input, [new File(['x'], 'f9.ts')]);
+    expect(screen.queryByText('f9.ts')).toBeNull();
+    expect(screen.getByText('You can attach up to 8 files to one message.')).toBeTruthy();
   });
 });
