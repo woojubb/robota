@@ -93,7 +93,7 @@ describe('AgentActivityPanel — open, and true status (#3288 §1)', () => {
     const task = createEntry({ status: 'running', controls: ['select', 'cancel'] });
     render(<AgentActivityPanel tasks={[task]} onSelect={onSelect} onStop={onStop} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Stop / }));
 
     expect(onStop).toHaveBeenCalledExactlyOnceWith(task);
     expect(onSelect).not.toHaveBeenCalled();
@@ -103,7 +103,7 @@ describe('AgentActivityPanel — open, and true status (#3288 §1)', () => {
     const task = createEntry({ status: 'completed', controls: ['select', 'close'] });
     render(<AgentActivityPanel tasks={[task]} onStop={vi.fn()} />);
 
-    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Stop / })).toBeNull();
   });
 
   it('labels a clean completion "Done"', () => {

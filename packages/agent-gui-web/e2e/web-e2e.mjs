@@ -462,6 +462,48 @@ try {
       throw new Error('the draft did not survive a reload');
     }
   });
+
+  // #3288 §1: the Agents panel — open a task's detail sheet and its transcript, then close it.
+  await scenario('the Agents panel opens a task, showing its transcript', async () => {
+    await send('show background work');
+    await page.getByText('Started background work.').waitFor();
+    const panel = page.getByRole('complementary', { name: 'Agents' });
+    await panel.getByText('Reviewing the auth module').waitFor();
+    await panel.getByText('Loop: check the deploy').waitFor();
+
+    await panel.getByText('Reviewing the auth module').click();
+    const sheet = page.getByRole('dialog', { name: 'Reviewing the auth module' });
+    await sheet.waitFor();
+    await sheet.getByText('Checking the auth module for issues').waitFor();
+    await sheet.getByText('Reviewing packages/auth/login.ts').waitFor();
+    await sheet.getByText('Read login.ts').waitFor();
+
+    await sheet.getByRole('button', { name: 'Close' }).click();
+    await sheet.waitFor({ state: 'detached' });
+  });
+
+  // #3288 §1: Stop on an ordinary task sends cancel-background-task and its true status replaces
+  // "Done"/silence — it shows "Stopped", never lingering unlabeled.
+  await scenario('Stop on a task sends cancel-background-task and shows "Stopped"', async () => {
+    const panel = page.getByRole('complementary', { name: 'Agents' });
+    await panel.getByRole('button', { name: 'Stop Reviewing the auth module' }).click();
+    await panel.getByText('Stopped').waitFor();
+    // Still there (an ordinary task stays listed, unlike a loop) but no longer stoppable.
+    await panel.getByText('Reviewing the auth module').waitFor();
+    if ((await panel.getByRole('button', { name: /^Stop Reviewing/ }).count()) !== 0) {
+      throw new Error('a stopped task still offers Stop');
+    }
+  });
+
+  // #3288 §1: Stop on a loop sends `/loop stop <id>` — never cancel-background-task, which would
+  // only cancel its disposable wake timer, not the loop — and the loop leaves the list, not
+  // lingering the way a stopped ordinary task's row does.
+  await scenario('Stop on a loop sends /loop stop <id>, and the loop leaves the list', async () => {
+    const panel = page.getByRole('complementary', { name: 'Agents' });
+    await panel.getByRole('button', { name: 'Stop Loop: check the deploy' }).click();
+    await page.getByText(/Loop stopped: loop-e2e-1/).waitFor();
+    await panel.getByText('Loop: check the deploy').waitFor({ state: 'detached' });
+  });
 } finally {
   if (process.env.CAPTURE_OUT) await page.screenshot({ path: join(process.env.CAPTURE_OUT, 'web-e2e.png') });
   await browser.close();

@@ -180,7 +180,7 @@ describe('ExecutionDetailSheet', () => {
         onStop={onStop}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Stop / }));
     expect(onStop).toHaveBeenCalledTimes(1);
   });
 
@@ -197,7 +197,7 @@ describe('ExecutionDetailSheet', () => {
         onStop={vi.fn()}
       />,
     );
-    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Stop / })).toBeNull();
   });
 
   it('shows the true status label ("Needs permission"), not a blanket "Done"', () => {

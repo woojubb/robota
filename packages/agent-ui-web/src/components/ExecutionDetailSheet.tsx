@@ -80,7 +80,7 @@ export function ExecutionDetailSheet({
         {canStop && (
           <button
             type="button"
-            aria-label="Stop"
+            aria-label={`Stop ${entry.title}`}
             onClick={onStop}
             className="flex-shrink-0 rounded-md px-1.5 py-px text-[12px] text-subtle hover:bg-destructive/10 hover:text-destructive"
           >

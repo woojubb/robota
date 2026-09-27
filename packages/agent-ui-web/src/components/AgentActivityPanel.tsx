@@ -54,7 +54,7 @@ export function AgentActivityPanel({
                 ? onReturnToConversation
                 : onSelect && (() => onSelect(entry))
             }
-            onStop={onStop && entry.controls.includes('cancel') ? () => onStop(entry) : undefined}
+            onStop={onStop && entry.controls?.includes('cancel') ? () => onStop(entry) : undefined}
           />
         ))}
       </div>
@@ -106,7 +106,7 @@ function AgentCard({
         {onStop && (
           <button
             type="button"
-            aria-label="Stop"
+            aria-label={`Stop ${entry.title}`}
             onClick={(event) => {
               event.stopPropagation();
               onStop();

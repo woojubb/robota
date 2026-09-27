@@ -277,7 +277,7 @@ export function SessionSurface({
             </div>
 
             {hasTasks && (
-              <aside className="flex w-72 flex-shrink-0 overflow-hidden bg-sidebar">
+              <aside aria-label="Agents" className="flex w-72 flex-shrink-0 overflow-hidden bg-sidebar">
                 <AgentActivityPanel
                   tasks={tasks}
                   className="flex-1"
