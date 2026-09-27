@@ -399,14 +399,20 @@ describe('createProviderCommandModule', () => {
     expect(result?.message).toContain('not stored in the active write target');
   });
 
-  it('owns provider setup flow, writes settings, and hot-swaps the first provider ever configured (#3282 §3)', async () => {
+  it('owns provider setup flow, writes settings, and hot-swaps a session actually in setup mode (#3282 §3)', async () => {
     const { adapter, readTarget } = createSettingsAdapter({}, {});
 
-    const { context, requests } = scriptedContext([
-      { type: 'answer', values: [], text: '' },
-      { type: 'answer', values: [], text: '' },
-      { type: 'answer', values: [], text: '' },
-    ]);
+    // #3282 §3: the session's own live `isSetupRequired()` says so — a served runtime's setup mode has
+    // no session to restart into, so this hot-swaps a running placeholder instead. Restarting a live
+    // session that already has a provider (adding a second profile, below) is unaffected.
+    const { context, requests } = scriptedContext(
+      [
+        { type: 'answer', values: [], text: '' },
+        { type: 'answer', values: [], text: '' },
+        { type: 'answer', values: [], text: '' },
+      ],
+      true,
+    );
     const completed = await createExecutor(adapter).execute('provider', context, 'add openai');
 
     expect(requests[0]?.title).toBe('OpenAI-compatible base URL');
@@ -434,10 +440,27 @@ describe('createProviderCommandModule', () => {
         },
       },
     });
-    // #3282 §3: nothing was configured before this — a served runtime's setup mode has no session to
-    // restart into, so this hot-swaps a running placeholder instead. Restarting a live session that
-    // already has a provider (adding a second profile, below) is unaffected.
     expect(completed?.hostActions).toEqual([{ type: 'provider-hot-swap', profileName: 'openai' }]);
+  });
+
+  it('restarts (never hot-swaps) an env-default session with no persisted provider either (#3282 §3)', async () => {
+    // A session that started from a recognized provider env key (zero-config) has no `currentProvider`
+    // persisted, exactly like a served runtime's setup-mode session — but it is NOT in setup mode.
+    // Inferring "first ever" from settings alone would hot-swap it silently; only the session's own
+    // `isSetupRequired()` (false here, the default) tells the two apart.
+    const { adapter, readTarget } = createSettingsAdapter({}, {});
+
+    const { context } = scriptedContext([
+      { type: 'answer', values: [], text: '' },
+      { type: 'answer', values: [], text: '' },
+      { type: 'answer', values: [], text: '' },
+    ]);
+    const completed = await createExecutor(adapter).execute('provider', context, 'add openai');
+
+    expect(readTarget()).toMatchObject({ currentProvider: 'openai' });
+    expect(completed?.hostActions).toEqual([
+      { type: 'session-restart', reason: 'other', message: 'Provider setup restart' },
+    ]);
   });
 
   it('asks the user to pick a provider type when /provider add is called without one', async () => {
@@ -492,8 +515,8 @@ describe('createProviderCommandModule', () => {
     ]);
     const completed = await createExecutor(adapter).execute('provider', context, 'add openai');
 
-    // #3282 §3: a provider was already active (in the merged view, even though this profile lands in
-    // an empty target layer) — a session already running one still restarts to pick up the new profile.
+    // #3282 §3: this session is not in setup mode (scriptedContext's isSetupRequired default, false) —
+    // it restarts to pick up the new profile, exactly as an ordinary session with one already active.
     expect(completed?.hostActions).toEqual([
       { type: 'session-restart', reason: 'other', message: 'Provider setup restart' },
     ]);
