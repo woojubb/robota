@@ -1,8 +1,50 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LocalFsAssetStore } from '../adapters/local-fs-asset-store.js';
+
+/**
+ * The network the SSRF tests see. `answers` is the resolver's table (a list per call, the last one
+ * repeating); `publicStandIn` is the one address the classifier treats as public, so a test can reach
+ * a local server as if it were a public host. Unset, every loopback address is private as in production.
+ */
+const net = vi.hoisted(() => ({
+  answers: new Map<string, string[][]>(),
+  lookups: [] as string[],
+  publicStandIn: undefined as string | undefined,
+}));
+
+vi.mock('node:dns', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:dns')>();
+  const lookup = (
+    hostname: string,
+    options: { all?: boolean },
+    callback: (err: Error | null, address: unknown, family?: number) => void,
+  ): void => {
+    net.lookups.push(hostname);
+    const calls = net.answers.get(hostname);
+    const answer = calls?.length === 1 ? calls[0] : calls?.shift();
+    if (answer === undefined) {
+      callback(Object.assign(new Error(`getaddrinfo ENOTFOUND ${hostname}`), { code: 'ENOTFOUND' }), '');
+      return;
+    }
+    const entries = answer.map((address) => ({ address, family: address.includes(':') ? 6 : 4 }));
+    if (options.all === true) callback(null, entries);
+    else callback(null, entries[0]?.address, entries[0]?.family);
+  };
+  return { ...actual, lookup };
+});
+
+vi.mock('@robota-sdk/agent-core/node', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@robota-sdk/agent-core/node')>();
+  return {
+    ...actual,
+    isPrivateAddress: (ip: string) => ip !== net.publicStandIn && actual.isPrivateAddress(ip),
+  };
+});
 
 let tmpDir: string;
 let store: LocalFsAssetStore;
@@ -161,8 +203,31 @@ describe('LocalFsAssetStore.getContent', () => {
  * executor read cloud-metadata credentials, loopback admin ports, or local files through this store.
  */
 describe('LocalFsAssetStore.getContent SSRF guard', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
+  let server: Server;
+  let port: number;
+  let hits: string[];
+  let respond: (url: string) => { status: number; headers?: Record<string, string>; body?: string };
+
+  beforeEach(async () => {
+    hits = [];
+    respond = () => ({ status: 200, body: 'remote payload' });
+    server = createServer((req, res) => {
+      hits.push(req.url ?? '');
+      const { status, headers, body } = respond(req.url ?? '');
+      res.writeHead(status, headers);
+      res.end(body);
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    port = (server.address() as AddressInfo).port;
+  });
+
+  afterEach(async () => {
+    net.answers.clear();
+    net.lookups = [];
+    net.publicStandIn = undefined;
+    vi.restoreAllMocks();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
   async function saveRef(sourceUri: string): Promise<string> {
@@ -183,15 +248,19 @@ describe('LocalFsAssetStore.getContent SSRF guard', () => {
     return Buffer.concat(chunks.map((c) => Buffer.from(c)));
   }
 
+  /** `name` resolves to the local server, which the classifier treats as a public address. */
+  function publicHost(name: string): void {
+    net.publicStandIn = '127.0.0.1';
+    net.answers.set(name, [['127.0.0.1']]);
+  }
+
   it.each([['file:///etc/passwd'], ['data:text/plain;base64,c2VjcmV0'], ['ftp://example.com/x']])(
     'rejects the non-http scheme %s without issuing a request',
     async (uri) => {
-      const fetchSpy = vi.fn();
-      vi.stubGlobal('fetch', fetchSpy);
       const assetId = await saveRef(uri);
 
       await expect(store.getContent(assetId)).rejects.toThrow(/scheme is not allowed/);
-      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(net.lookups).toEqual([]);
     },
   );
 
@@ -199,6 +268,7 @@ describe('LocalFsAssetStore.getContent SSRF guard', () => {
     ['http://127.0.0.1:8080/admin'],
     ['http://127.1.2.3/admin'],
     ['http://localhost:8080/admin'],
+    ['http://metadata.google.internal/computeMetadata/v1/'],
     ['http://169.254.169.254/latest/meta-data/iam/security-credentials/'],
     ['http://10.0.0.1/internal'],
     ['http://192.168.0.5/internal'],
@@ -213,64 +283,108 @@ describe('LocalFsAssetStore.getContent SSRF guard', () => {
     ['http://0177.0.0.1/admin'],
     ['http://127.1/admin'],
   ])('rejects the private/loopback host %s without issuing a request', async (uri) => {
-    const fetchSpy = vi.fn();
-    vi.stubGlobal('fetch', fetchSpy);
     const assetId = await saveRef(uri);
 
     await expect(store.getContent(assetId)).rejects.toThrow(/host is not allowed/);
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(net.lookups).toEqual([]);
   });
 
-  it('allows a public https URI and streams the response body', async () => {
-    const fetchSpy = vi.fn(() => Promise.resolve(new Response('remote payload')));
-    vi.stubGlobal('fetch', fetchSpy);
-    const assetId = await saveRef('https://example.com/image.jpg');
+  it('refuses a DNS name that resolves to a private address, without connecting', async () => {
+    net.answers.set('internal.example', [['127.0.0.1']]);
+    const assetId = await saveRef(`http://internal.example:${port}/admin`);
+
+    await expect(store.getContent(assetId)).rejects.toThrow(/host is not allowed.*127\.0\.0\.1/);
+    expect(hits).toEqual([]);
+  });
+
+  it('refuses a DNS name when any of its addresses is private', async () => {
+    net.publicStandIn = '127.0.0.1';
+    net.answers.set('mixed.example', [['127.0.0.1', '10.0.0.7']]);
+    const assetId = await saveRef(`http://mixed.example:${port}/`);
+
+    await expect(store.getContent(assetId)).rejects.toThrow(/host is not allowed.*10\.0\.0\.7/);
+    expect(hits).toEqual([]);
+  });
+
+  it('connects to the address it judged: a later private answer is never consulted', async () => {
+    publicHost('rebind.example');
+    net.answers.set('rebind.example', [['127.0.0.1'], ['169.254.169.254']]);
+    const assetId = await saveRef(`http://rebind.example:${port}/image.jpg`);
+
+    const result = await store.getContent(assetId);
+    expect((await drain(result!.stream)).toString('utf-8')).toBe('remote payload');
+    expect(net.lookups).toEqual(['rebind.example']);
+    expect(hits).toEqual(['/image.jpg']);
+  });
+
+  it('allows a public http URI and streams the response body', async () => {
+    publicHost('cdn.example');
+    const assetId = await saveRef(`http://cdn.example:${port}/image.jpg`);
 
     const result = await store.getContent(assetId);
     expect(result).not.toBeUndefined();
     expect((await drain(result!.stream)).toString('utf-8')).toBe('remote payload');
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(hits).toEqual(['/image.jpg']);
   });
 
-  it('passes an abort signal so a hung remote cannot pin the request open', async () => {
-    const fetchSpy = vi.fn((_input: URL | string, _init?: RequestInit) =>
-      Promise.resolve(new Response('ok')),
-    );
-    vi.stubGlobal('fetch', fetchSpy);
-    const assetId = await saveRef('https://example.com/image.jpg');
+  it('returns undefined for a non-2xx response', async () => {
+    publicHost('cdn.example');
+    respond = () => ({ status: 404, body: 'missing' });
+    const assetId = await saveRef(`http://cdn.example:${port}/absent.jpg`);
 
-    await store.getContent(assetId);
-    expect(fetchSpy.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
+    await expect(store.getContent(assetId)).resolves.toBeUndefined();
+  });
+
+  it('bounds the body with the deadline: a stall mid-body errors instead of truncating', async () => {
+    publicHost('cdn.example');
+    server.removeAllListeners('request');
+    server.on('request', (_req, res) => {
+      res.writeHead(200);
+      res.write('partial');
+    });
+    const deadline = new AbortController();
+    vi.spyOn(AbortSignal, 'timeout').mockReturnValue(deadline.signal);
+    const assetId = await saveRef(`http://cdn.example:${port}/image.jpg`);
+
+    const result = await store.getContent(assetId);
+    deadline.abort(new Error('deadline reached'));
+    await expect(drain(result!.stream)).rejects.toThrow();
+  });
+
+  it('judges every request on its own connection: an earlier approved socket is not reused', async () => {
+    publicHost('cdn.example');
+    const first = await store.getContent(await saveRef(`http://cdn.example:${port}/first.jpg`));
+    await drain(first!.stream);
+
+    // The same host and port are now private: a pooled keep-alive socket would skip the lookup.
+    net.publicStandIn = undefined;
+    const assetId = await saveRef(`http://cdn.example:${port}/second.jpg`);
+    await expect(store.getContent(assetId)).rejects.toThrow(/host is not allowed/);
+    expect(hits).toEqual(['/first.jpg']);
   });
 
   it('does not follow a redirect that lands on a private address', async () => {
-    const fetchSpy = vi.fn(() =>
-      Promise.resolve(
-        new Response(null, {
-          status: 302,
-          headers: { location: 'http://169.254.169.254/latest/meta-data/' },
-        }),
-      ),
-    );
-    vi.stubGlobal('fetch', fetchSpy);
-    const assetId = await saveRef('https://example.com/image.jpg');
+    publicHost('cdn.example');
+    respond = () => ({
+      status: 302,
+      headers: { location: 'http://169.254.169.254/latest/meta-data/' },
+    });
+    const assetId = await saveRef(`http://cdn.example:${port}/image.jpg`);
 
     await expect(store.getContent(assetId)).rejects.toThrow(/host is not allowed/);
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(hits).toEqual(['/image.jpg']);
   });
 
   it('follows a redirect that stays on a public host', async () => {
-    const fetchSpy = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(null, { status: 302, headers: { location: 'https://cdn.example.com/i.jpg' } }),
-      )
-      .mockResolvedValueOnce(new Response('redirected payload'));
-    vi.stubGlobal('fetch', fetchSpy);
-    const assetId = await saveRef('https://example.com/image.jpg');
+    publicHost('cdn.example');
+    respond = (url) =>
+      url === '/image.jpg'
+        ? { status: 302, headers: { location: `http://cdn.example:${port}/i.jpg` } }
+        : { status: 200, body: 'redirected payload' };
+    const assetId = await saveRef(`http://cdn.example:${port}/image.jpg`);
 
     const result = await store.getContent(assetId);
     expect((await drain(result!.stream)).toString('utf-8')).toBe('redirected payload');
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(hits).toEqual(['/image.jpg', '/i.jpg']);
   });
 });
