@@ -99,7 +99,10 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
                 ownDriverId={ownDriverId}
               />
             ) : (
-              <div className="flex h-full items-center justify-center">
+              // #3289 §3 review: this renders in the same slot as `ConversationView` (never
+              // together), so it carries this page's `main` landmark here too — nothing above this
+              // slot supplies one.
+              <main className="flex h-full items-center justify-center" aria-label="Conversation">
                 <div className="flex flex-col items-center gap-3 text-center px-8">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-card">
                     <span className={`h-2.5 w-2.5 rounded-full ${cfg.dot}`} />
@@ -112,7 +115,7 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
                         : `Run robota to start the CLI (WS transport starts automatically).`}
                   </p>
                 </div>
-              </div>
+              </main>
             )}
           </div>
 

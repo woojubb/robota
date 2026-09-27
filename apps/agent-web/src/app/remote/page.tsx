@@ -17,7 +17,7 @@ const RemoteClient = dynamic(
     })),
   {
     ssr: false,
-    loading: () => <div className="p-6 text-sm text-gray-500">Loading remote client…</div>,
+    loading: () => <main className="p-6 text-sm text-gray-500">Loading remote client…</main>,
   },
 );
 
