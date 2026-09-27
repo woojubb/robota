@@ -61,6 +61,9 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
     cursor: { offset: 20 },
   },
   'stop-waiting-loop': { type: 'stop-waiting-loop', requestId: 'loop-1' },
+  'project-status': { type: 'project-status', requestId: 'project-status-1' },
+  'project-diff': { type: 'project-diff', requestId: 'project-diff-1', path: 'a.txt' },
+  'project-memory': { type: 'project-memory', requestId: 'project-memory-1' },
   'get-background-tasks': {
     type: 'get-background-tasks',
     filter: { kind: 'agent', includeClosed: true },
@@ -208,6 +211,31 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
     type: 'waiting_loop_stop',
     requestId: 'loop-1',
     outcome: { kind: 'stopped', loopId: 'loop-a', message: 'Stopped loop-a.' },
+  },
+  project_status: {
+    type: 'project_status',
+    requestId: 'project-status-1',
+    result: {
+      kind: 'status',
+      branch: 'main',
+      unborn: false,
+      files: [{ path: 'a.txt', status: 'Modified', added: 1, removed: 2 }],
+      truncated: false,
+    },
+  },
+  project_diff: {
+    type: 'project_diff',
+    requestId: 'project-diff-1',
+    result: {
+      kind: 'diff',
+      diffLines: [{ type: 'add', text: 'new line', lineNumber: 3 }],
+      truncated: false,
+    },
+  },
+  project_memory: {
+    type: 'project_memory',
+    requestId: 'project-memory-1',
+    result: { kind: 'memory', content: '# Memory', path: '.robota/memory/MEMORY.md', truncated: false },
   },
   background_task_event: { type: 'background_task_event', event: {} as never },
   background_job_group_event: { type: 'background_job_group_event', event: {} as never },

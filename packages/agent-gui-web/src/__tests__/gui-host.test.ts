@@ -37,6 +37,7 @@ describe('resolveGuiHost', () => {
       pickFiles: vi.fn(async () => [{ path: '/repo/a.ts', name: 'a.ts', size: 10 }]),
       getPathForFile: vi.fn(() => '/repo/dropped.ts'),
       onOpenSettings: vi.fn(() => () => {}),
+      openPath: vi.fn(async () => ({})),
     };
     const host = resolveGuiHost({ ...page(), bridge });
     expect(host.kind).toBe('desktop');
@@ -56,6 +57,9 @@ describe('resolveGuiHost', () => {
     const listener = vi.fn();
     host.onOpenSettings(listener);
     expect(bridge.onOpenSettings).toHaveBeenCalledWith(listener);
+    // #3282 §4c: the Project panel's Memory "Open in editor" reaches the bridge's openPath.
+    host.openMemoryInEditor?.('.robota/memory/MEMORY.md');
+    expect(bridge.openPath).toHaveBeenCalledWith('.robota/memory/MEMORY.md');
   });
 
   it('in a browser, prefers the address the CLI injected into the page', async () => {
@@ -69,6 +73,9 @@ describe('resolveGuiHost', () => {
     // composer reads the absence of these two as "attach only shows the plain sentence".
     expect(host.pickFiles).toBeUndefined();
     expect(host.getPathForFile).toBeUndefined();
+    // #3282 §4c: a plain browser cannot open a file in an external editor — the Project panel's
+    // Memory section reads this absence as "hide 'Open in editor' entirely".
+    expect(host.openMemoryInEditor).toBeUndefined();
   });
 
   it('in a browser without an injected address, takes ?ws= from the page URL', async () => {

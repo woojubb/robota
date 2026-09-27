@@ -36,6 +36,24 @@ function formatError(error: Error | string): ICommandResult {
   };
 }
 
+/**
+ * `context.getMemoryStore()` throws `WorkspaceAuthorityRequiredError` when the host composed no
+ * memory store — off by default, or unavailable on this host (mirrors `EditCheckpointsUnavailableError`
+ * for `/rewind`, `rewind-command.ts`'s `formatError`). Uncaught, that throw reaches the GUI as a raw
+ * `protocol_error` (a red toast) instead of the SAME plain `command_result` every other unavailable-
+ * command case gets — this is the one call in the command that can throw before any subcommand branch
+ * runs, so it is guarded once, here, rather than in each branch below.
+ */
+function getMemoryStoreOrError(
+  context: ICommandHostMemory,
+): { ok: true; store: IMemoryStore } | { ok: false; result: ICommandResult } {
+  try {
+    return { ok: true, store: createCommandMemoryStores(context) };
+  } catch (error) {
+    return { ok: false, result: formatError(error instanceof Error ? error : String(error)) };
+  }
+}
+
 async function formatList(store: IMemoryStore): Promise<ICommandResult> {
   const summary = await store.list();
   const topics =
@@ -198,7 +216,9 @@ export async function executeMemoryCommand(
   const subcommand = args[SUBCOMMAND_INDEX] ?? 'list';
   // SELFHOST-008 P1R: the single injected durable-memory port (or fs default) — authoritative for all
   // `/memory` operations, so a surface that swaps the store is honored here too (no split-brain).
-  const store = createCommandMemoryStores(context);
+  const resolved = getMemoryStoreOrError(context);
+  if (!resolved.ok) return resolved.result;
+  const store = resolved.store;
 
   if (subcommand === 'list') return formatList(store);
   if (subcommand === 'show') return formatShow(store, args[TYPE_INDEX]);

@@ -717,6 +717,38 @@ class ScriptedSession extends EventEmitter {
     this.emit('interrupted', { success: false, content: 'Working on it...' });
   }
   cancelQueue() {}
+
+  // #3282 §4c: the Project panel — one modified file's status, its diff on request, and project
+  // memory (unavailable in this fixture, the common case: off by default).
+  readProjectStatus() {
+    return Promise.resolve({
+      kind: 'status',
+      branch: 'main',
+      unborn: false,
+      files: [{ path: 'src/task-title.ts', status: 'Modified', added: 1, removed: 1 }],
+      truncated: false,
+    });
+  }
+  readProjectDiff(path) {
+    if (path !== 'src/task-title.ts') {
+      return Promise.resolve({ kind: 'failed', message: `Unknown path: ${path}` });
+    }
+    return Promise.resolve({
+      kind: 'diff',
+      diffLines: [
+        { type: 'hunk', text: '@@ -1,2 +1,2 @@', lineNumber: 1 },
+        { type: 'remove', text: "const title = 'old';", lineNumber: 1 },
+        { type: 'add', text: "const title = 'new';", lineNumber: 1 },
+      ],
+      truncated: false,
+    });
+  }
+  readProjectMemory() {
+    return Promise.resolve({
+      kind: 'unavailable',
+      message: "Project memory isn't available for this folder.",
+    });
+  }
 }
 
 const session = new ScriptedSession();

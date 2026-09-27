@@ -76,6 +76,7 @@ import {
   WorkspaceAuthorityRequiredError,
   createRestrictedWorkspaceProjectAccess,
 } from '../workspace-trust/index.js';
+import { createGitProcess, readProjectGitDiff, readProjectGitStatus } from '../git/index.js';
 
 import type { IInteractiveSession } from './i-interactive-session.js';
 import type {
@@ -141,8 +142,12 @@ import type {
   TDriverId,
   TPermissionResultValue,
   ISessionLoopState,
+  ISessionProjectRead,
   ISessionStatusSnapshot,
   IModelListSnapshot,
+  TProjectDiffRead,
+  TProjectMemoryRead,
+  TProjectStatusRead,
   TWaitingLoopStopOutcome,
 } from '@robota-sdk/agent-interface-session';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
@@ -161,7 +166,12 @@ const PROMPT_BACKSTOP_MS = 30 * 60 * 1000;
 
 export class InteractiveSession
   extends InteractiveSessionBase
-  implements ISession, IAgentJobHostContext, IInteractiveSession, ICommandHostContext
+  implements
+    ISession,
+    IAgentJobHostContext,
+    IInteractiveSession,
+    ICommandHostContext,
+    ISessionProjectRead
 {
   private session: Session | null = null;
   private readonly listeners = new Map<string, Set<(...args: unknown[]) => void>>();
@@ -713,6 +723,54 @@ export class InteractiveSession
   getMemoryStore(): IMemoryStore {
     if (this.injectedMemoryStore) return this.injectedMemoryStore;
     throw new WorkspaceAuthorityRequiredError("Project memory isn't available for this folder.");
+  }
+
+  /**
+   * #3282 §4c — the Project panel's "Changes" section. The SAME reader `/git status` runs
+   * (`readProjectGitStatus`, `agent-framework/src/git`), over this session's own `cwd` — a
+   * `not-a-repository` result is the panel's one plain sentence, never a thrown error.
+   */
+  async readProjectStatus(): Promise<TProjectStatusRead> {
+    const result = await readProjectGitStatus(createGitProcess(), this.getCwd());
+    if (!result.ok) return { kind: 'failed', message: result.message };
+    if (!result.repository) return { kind: 'not-a-repository' };
+    return {
+      kind: 'status',
+      ...(result.branch !== undefined ? { branch: result.branch } : {}),
+      unborn: result.unborn,
+      files: result.files,
+      truncated: result.truncated,
+    };
+  }
+
+  /**
+   * #3282 §4c — the Project panel's "File diff" section, for one file `readProjectStatus` reported.
+   * `readProjectGitDiff` checks workspace containment itself (`isPathInside`, SEC-006) before any git
+   * or filesystem call.
+   */
+  async readProjectDiff(path: string): Promise<TProjectDiffRead> {
+    const result = await readProjectGitDiff(createGitProcess(), this.getCwd(), path);
+    if (result.ok) return { kind: 'diff', diffLines: result.diffLines, truncated: result.truncated };
+    if (result.code === 'not_a_repository') return { kind: 'not-a-repository' };
+    if (result.code === 'outside_workspace') return { kind: 'outside-workspace' };
+    return { kind: 'failed', message: result.message };
+  }
+
+  /**
+   * #3282 §4c — the Project panel's "Memory" section: the SAME store `/memory show` reads
+   * (`getMemoryStore()`), read-only. `getMemoryStore()` throwing (memory off by default, or
+   * unavailable on this host — `WorkspaceAuthorityRequiredError`) becomes the panel's plain message,
+   * never a thrown error — the same fix `executeMemoryCommand` needed for the red toast.
+   */
+  async readProjectMemory(): Promise<TProjectMemoryRead> {
+    let store: IMemoryStore;
+    try {
+      store = this.getMemoryStore();
+    } catch (error) {
+      return { kind: 'unavailable', message: error instanceof Error ? error.message : String(error) };
+    }
+    const memory = await store.loadStartupMemory();
+    return { kind: 'memory', content: memory.content, path: memory.path, truncated: memory.truncated };
   }
 
   get sessionId(): string {

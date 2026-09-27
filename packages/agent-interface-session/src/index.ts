@@ -36,6 +36,17 @@ export type {
   TSessionLoopPhase,
   TWaitingLoopStopOutcome,
 } from './session-loop-contracts.js';
+// #3282 §4c — the Project panel's read contracts (git status, one file's diff, project memory). Not
+// part of `IInteractiveSession`'s composed aggregate below (see `ISessionProjectRead`'s own doc
+// comment).
+export type {
+  IProjectStatusFile,
+  TProjectDiffRead,
+  TProjectFileStatus,
+  TProjectMemoryRead,
+  TProjectStatusRead,
+} from './session-project-contracts.js';
+export type { ISessionProjectRead } from './session-capability-contracts.js';
 // ── Interactive-session contracts ────────────────────────────
 export type {
   IInteractiveSession,

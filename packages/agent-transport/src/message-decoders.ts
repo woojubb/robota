@@ -139,6 +139,72 @@ const isWaitingLoopStopOutcome: TFieldCheck = (v) => {
   return Object.entries(shape).every(([field, check]) => check(v[field]));
 };
 
+/** Decode a `kind`-discriminated result union (the `TWaitingLoopStopOutcome` convention) from a shape
+ *  map keyed by `kind`. */
+function isKindDiscriminated(shapes: Readonly<Record<string, TVariantShape>>): TFieldCheck {
+  return (v) => {
+    if (!isRecord(v) || !isString(v['kind'])) return false;
+    const shape = Object.prototype.hasOwnProperty.call(shapes, v['kind']) ? shapes[v['kind']] : undefined;
+    if (shape === undefined) return false;
+    return Object.entries(shape).every(([field, check]) => check(v[field]));
+  };
+}
+
+// #3282 §4c: the Project panel's reads. Each result is the session method's own return value, crossing
+// the wire unchanged (the `TWaitingLoopStopOutcome` convention above) — decoded from a `kind`-keyed
+// shape map the same way.
+const PROJECT_FILE_STATUSES = [
+  'Added',
+  'Modified',
+  'Deleted',
+  'Renamed',
+  'Copied',
+  'Untracked',
+  'Conflicted',
+] as const;
+const isProjectStatusFile: TFieldCheck = (v) =>
+  isRecord(v) &&
+  isNonEmptyString(v['path']) &&
+  oneOf(PROJECT_FILE_STATUSES)(v['status']) &&
+  isOptional(isNonEmptyString)(v['renamedFrom']) &&
+  isOptional(isFiniteNumber)(v['added']) &&
+  isOptional(isFiniteNumber)(v['removed']);
+const isProjectStatusFiles: TFieldCheck = (v) => Array.isArray(v) && v.every(isProjectStatusFile);
+
+type TProjectStatusReadResult = Extract<TServerMessage, { type: 'project_status' }>['result'];
+const PROJECT_STATUS_READ_SHAPES: Readonly<Record<TProjectStatusReadResult['kind'], TVariantShape>> = {
+  status: {
+    branch: isOptional(isString),
+    unborn: isBoolean,
+    files: isProjectStatusFiles,
+    truncated: isBoolean,
+  },
+  'not-a-repository': {},
+  failed: { message: isString },
+};
+const isProjectStatusRead = isKindDiscriminated(PROJECT_STATUS_READ_SHAPES);
+
+const DIFF_LINE_TYPES = ['add', 'remove', 'context', 'hunk'] as const;
+const isDiffLine: TFieldCheck = (v) =>
+  isRecord(v) && oneOf(DIFF_LINE_TYPES)(v['type']) && isString(v['text']) && isFiniteNumber(v['lineNumber']);
+const isDiffLines: TFieldCheck = (v) => Array.isArray(v) && v.every(isDiffLine);
+
+type TProjectDiffReadResult = Extract<TServerMessage, { type: 'project_diff' }>['result'];
+const PROJECT_DIFF_READ_SHAPES: Readonly<Record<TProjectDiffReadResult['kind'], TVariantShape>> = {
+  diff: { diffLines: isDiffLines, truncated: isBoolean },
+  'not-a-repository': {},
+  'outside-workspace': {},
+  failed: { message: isString },
+};
+const isProjectDiffRead = isKindDiscriminated(PROJECT_DIFF_READ_SHAPES);
+
+type TProjectMemoryReadResult = Extract<TServerMessage, { type: 'project_memory' }>['result'];
+const PROJECT_MEMORY_READ_SHAPES: Readonly<Record<TProjectMemoryReadResult['kind'], TVariantShape>> = {
+  memory: { content: isString, path: isNonEmptyString, truncated: isBoolean },
+  unavailable: { message: isString },
+};
+const isProjectMemoryRead = isKindDiscriminated(PROJECT_MEMORY_READ_SHAPES);
+
 /** One entry per `TClientMessage` variant — a variant added to the union without one fails the test. */
 export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVariantShape>> = {
   submit: { prompt: isNonEmptyString },
@@ -184,6 +250,9 @@ export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVar
     cursor: isOptional(isExecutionDetailCursor),
   },
   'stop-waiting-loop': { requestId: isNonEmptyString },
+  'project-status': { requestId: isNonEmptyString },
+  'project-diff': { requestId: isNonEmptyString, path: isNonEmptyString },
+  'project-memory': { requestId: isNonEmptyString },
   'get-background-tasks': { filter: isOptional(isBackgroundTaskListFilter) },
   'get-background-task': { taskId: isNonEmptyString },
   'get-background-job-groups': {},
@@ -287,6 +356,9 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
   execution_detail: { requestId: isNonEmptyString, page: isRecord },
   execution_detail_error: { requestId: isNonEmptyString, message: isString },
   waiting_loop_stop: { requestId: isNonEmptyString, outcome: isWaitingLoopStopOutcome },
+  project_status: { requestId: isNonEmptyString, result: isProjectStatusRead },
+  project_diff: { requestId: isNonEmptyString, result: isProjectDiffRead },
+  project_memory: { requestId: isNonEmptyString, result: isProjectMemoryRead },
   background_task_event: { event: isRecord },
   background_job_group_event: { event: isRecord },
   plan_event: { event: isRecord },

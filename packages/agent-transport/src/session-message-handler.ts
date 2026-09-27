@@ -15,6 +15,7 @@ import {
 import { handleLoopControlMessage, isLoopControlMessage } from './loop-control-messages.js';
 import { parseClientMessage } from './message-parser.js';
 import { isObserverMessageType } from './observer-messages.js';
+import { handleProjectReadMessage, isProjectReadMessage } from './project-read-messages.js';
 import {
   handleSessionDeleteMessage,
   handleSessionDirectoryMessage,
@@ -33,7 +34,7 @@ import { handleSettingsMessage, isSettingsMessage } from './settings-messages.js
 import { handleUsageQueryMessage } from './usage-messages.js';
 
 import type { TOutboundDeliver } from './outbound-delivery.js';
-import type { IProtocolSession } from './protocol-session.js';
+import type { IProtocolSession, TProjectReadCapableSession } from './protocol-session.js';
 import type { ISettingsReporter } from './settings-messages.js';
 import type { IUsageQueryReporters } from './usage-messages.js';
 import type { TClientMessage } from './wire-messages.js';
@@ -54,8 +55,8 @@ export { parseClientMessage } from './message-parser.js';
 export type TSessionSurfaceRole = 'drive' | 'observe';
 
 export interface ISessionMessageHandlerOptions {
-  /** IProtocolSession to expose. */
-  session: IProtocolSession;
+  /** IProtocolSession to expose — `Partial<ISessionProjectRead>` is probed, not assumed (#3282 §4c). */
+  session: TProjectReadCapableSession;
   /**
    * ARCH-030: the CARRIER's connection-scoped outbound delivery boundary — not a raw `send`, and not a
    * `send` plus an error callback for this handler to assemble into one. The carrier owns both the sink
@@ -133,7 +134,7 @@ export function createSessionMessageHandler(options: ISessionMessageHandlerOptio
 }
 
 function createMessageHandler(
-  session: IProtocolSession,
+  session: TProjectReadCapableSession,
   deliver: TOutboundDeliver,
   driverId?: TDriverId,
   reporters: IUsageQueryReporters = EMPTY_USAGE_REPORTERS,
@@ -173,7 +174,7 @@ const EMPTY_USAGE_REPORTERS: IUsageQueryReporters = {
  * the {@link SessionResumeBridge} intercepts `resume`/`ack` itself and delegates everything else here.
  */
 export function handleClientMessage(
-  session: IProtocolSession,
+  session: TProjectReadCapableSession,
   deliver: TOutboundDeliver,
   msg: TClientMessage,
   driverId?: TDriverId,
@@ -211,6 +212,10 @@ export function handleClientMessage(
   }
   if (isSessionQueryMessage(msg)) {
     handleSessionQueryMessage(session, deliver, msg);
+    return;
+  }
+  if (isProjectReadMessage(msg)) {
+    handleProjectReadMessage(session, deliver, msg);
     return;
   }
   if (isBackgroundQueryMessage(msg)) {

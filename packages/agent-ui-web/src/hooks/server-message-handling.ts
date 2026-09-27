@@ -56,6 +56,10 @@ export const SERVER_MESSAGE_HANDLING = {
   waiting_loop_stop: 'intentionally-not-rendered',
   // The Agents panel already reflects a task's cancel/close/send through `execution_workspace_event`;
   // nothing here renders this narrower, task-only event on its own.
+  // #3282 §4c: the Project panel's reads — reduced into state by `useProjectPanelState`.
+  project_status: 'reducer-state',
+  project_diff: 'reducer-state',
+  project_memory: 'reducer-state',
   background_task_event: 'intentionally-not-rendered',
   background_job_group_event: 'intentionally-not-rendered',
   plan_event: 'intentionally-not-rendered',

@@ -20,6 +20,9 @@ type TListener = (...args: unknown[]) => void;
 function createSession(): IInteractiveSession & {
   emit: (event: string, ...args: unknown[]) => void;
   listenerCount: (event: string) => number;
+  // #3282 §4c: `Partial<ISessionProjectRead>` — not part of `IInteractiveSession`, so it is assigned
+  // ad hoc (below) rather than passed to `createTestInteractiveSession`'s strict literal.
+  readProjectStatus: ReturnType<typeof vi.fn>;
 } {
   const listeners = new Map<string, Set<TListener>>();
   const session = createTestInteractiveSession({
@@ -43,6 +46,7 @@ function createSession(): IInteractiveSession & {
     }) as IInteractiveSession['off'],
   });
   return Object.assign(session, {
+    readProjectStatus: vi.fn().mockResolvedValue({ kind: 'not-a-repository' }),
     emit: (event: string, ...args: unknown[]) => {
       listeners.get(event)?.forEach((handler) => handler(...args));
     },
@@ -108,6 +112,16 @@ describe('observe role', () => {
     expect(observer.sent).toEqual([
       { type: 'messages', messages: [{ role: 'user', content: 'hi' }] },
       { type: 'executing', executing: true },
+    ]);
+  });
+
+  it('#3282 §4c: reads the Project panel status — read-only, so an observer may too', async () => {
+    const session = createSession();
+    const observer = attach(session, 'observe');
+    observer.send({ type: 'project-status', requestId: 'ps-1' });
+    await Promise.resolve();
+    expect(observer.sent).toEqual([
+      { type: 'project_status', requestId: 'ps-1', result: { kind: 'not-a-repository' } },
     ]);
   });
 
