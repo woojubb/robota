@@ -22,6 +22,7 @@ afterEach(() => {
 function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
   return {
     status: 'connected',
+    connectionLost: false,
     messages: [{ id: 'm1', role: 'user', content: 'hello' }],
     activeTools: [],
     streamingText: '',
@@ -49,6 +50,7 @@ function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
     sessionSidebarOpen: true,
     setSessionSidebarOpen: vi.fn(),
     pendingPrompts: [],
+    queuedPrompt: null,
     send: vi.fn(),
     answerPermission: vi.fn(),
     answerAsk: vi.fn(),
@@ -289,6 +291,49 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(screen.queryByRole('status', { name: 'goal' })).toBeNull();
   });
 
+  it('#3280 §2: Send becomes Stop while a turn runs, and Stop sends abort', () => {
+    const state = stubState({ isThinking: true });
+    render(<SessionSurface state={state} />);
+    expect(screen.queryByRole('button', { name: 'Send' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    expect(state.send).toHaveBeenCalledWith({ type: 'abort' });
+  });
+
+  it('#3280 §2: Esc in the composer stops a running turn', () => {
+    const state = stubState({ isThinking: true });
+    render(<SessionSurface state={state} />);
+    fireEvent.keyDown(screen.getByLabelText('message'), { key: 'Escape' });
+    expect(state.send).toHaveBeenCalledWith({ type: 'abort' });
+  });
+
+  it('#3280 §2: a message queued behind the turn shows above the composer, with Edit and Remove', () => {
+    const state = stubState({
+      isThinking: true,
+      queuedPrompt: { text: 'ping the team when done', count: 2 },
+    } as Partial<IWsSessionState>);
+    render(<SessionSurface state={state} />);
+    const row = screen.getByRole('status', { name: 'queued prompt' });
+    expect(row.textContent).toContain('Queued: ping the team when done');
+    expect(row.textContent).toContain('and 1 more');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    expect(state.send).toHaveBeenCalledWith({ type: 'cancel-queue' });
+    expect(state.send).toHaveBeenCalledWith({ type: 'get-pending' });
+  });
+
+  it('#3280 §2: Edit cancels the queue and puts the queued text back in the draft', () => {
+    const state = stubState({
+      isThinking: true,
+      queuedPrompt: { text: 'ping the team when done', count: 1 },
+    } as Partial<IWsSessionState>);
+    render(<SessionSurface state={state} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(state.send).toHaveBeenCalledWith({ type: 'cancel-queue' });
+    expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe(
+      'ping the team when done',
+    );
+  });
+
   it('#3186 review: a pending question stays visible while the Usage view is open', () => {
     const state = stubState({
       pendingPrompts: [
@@ -409,10 +454,22 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
         unsupportedSessionIds: [],
       },
     };
+    // The report itself is content-free; a session's readable name comes from this workspace's own
+    // local session-directory listing (#3289 §4), not from the report.
+    const listing: NonNullable<IWsSessionState['sessionListing']> = {
+      currentSessionId: 'a',
+      sessions: [
+        { id: 'a', name: 'Session A', cwd: '/w', updatedAt: report.generatedAt, messageCount: 1, preview: '' },
+        { id: 'b', name: 'Session B', cwd: '/w', updatedAt: report.generatedAt, messageCount: 1, preview: '' },
+        { id: 'c', name: 'Session C', cwd: '/w', updatedAt: report.generatedAt, messageCount: 1, preview: '' },
+      ],
+      unreadableSessionIds: [],
+    };
     const state = stubState({
       personalUsageStatus: 'ready',
       personalUsageReport: report,
       requestPersonalUsage: vi.fn(),
+      sessionListing: listing,
     });
 
     render(<SessionSurface state={state} personalUsageEnabled />);
@@ -422,7 +479,8 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(screen.getByText('1,200')).toBeTruthy();
     expect(screen.getByText('gpt-test')).toBeTruthy();
     expect(screen.getByText(/partial day/i)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Open session a' }));
+    // The button shows the session's readable name, never the raw id (#3289 §4).
+    fireEvent.click(screen.getByRole('button', { name: 'Open session Session A' }));
     expect(state.requestStoredSessionUsage).toHaveBeenCalledWith('a');
   });
 
@@ -601,5 +659,54 @@ describe('#3189 — the session sidebar', () => {
     );
     const sidebar = screen.getByRole('complementary', { name: 'Sessions' });
     expect(sidebar.textContent).toContain('Could not read the store.');
+  });
+});
+
+describe('#3280 §5 — a lost connection keeps the conversation and the draft', () => {
+  it('the composer refuses to send while not connected, and keeps the draft', () => {
+    const state = stubState({ status: 'disconnected' });
+    render(<SessionSurface state={state} />);
+    const input = screen.getByLabelText('message') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: 'are you there' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(state.send).not.toHaveBeenCalled();
+    expect(input.value).toBe('are you there');
+    const send = screen.getByRole('button', { name: 'Send' });
+    expect(send.hasAttribute('disabled')).toBe(true);
+    expect(send.getAttribute('aria-description')).toBe('Not connected');
+  });
+
+  it('reconnecting after a drop shows a banner above the conversation, which stays visible', () => {
+    const { rerender } = render(<SessionSurface state={stubState({ status: 'connected' })} />);
+    expect(screen.getByText('hello')).toBeTruthy();
+
+    rerender(<SessionSurface state={stubState({ status: 'connecting' })} />);
+
+    expect(screen.getByRole('status').textContent).toContain('Reconnecting…');
+    expect(screen.getByText('hello')).toBeTruthy();
+  });
+
+  it('once retries give up, a desktop host shows "Robota stopped." with a working Reconnect; the conversation stays', () => {
+    const onReconnect = vi.fn(() => new Promise<void>(() => {}));
+    render(
+      <SessionSurface
+        state={stubState({ status: 'disconnected', connectionLost: true })}
+        onReconnect={onReconnect}
+      />,
+    );
+    expect(screen.getByText('hello')).toBeTruthy();
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('Robota stopped.');
+
+    fireEvent.click(within(alert).getByRole('button', { name: 'Reconnect' }));
+    expect(onReconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('once retries give up, a browser host (no onReconnect) shows the restart instruction and no button', () => {
+    render(<SessionSurface state={stubState({ status: 'disconnected', connectionLost: true })} />);
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('robota --serve --open');
+    expect(within(alert).queryByRole('button')).toBeNull();
   });
 });

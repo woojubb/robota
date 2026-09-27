@@ -139,13 +139,45 @@ try {
     await page.getByText('src/a.ts').waitFor();
   });
 
-  await scenario('a permission prompt docks above the composer; 1 allows it', async () => {
-    await send('please ask permission');
-    // Its keys answer only once it is armed, so a key typed for the composer as it appears cannot.
-    await page.locator('[role="dialog"][data-armed="true"]').waitFor();
-    await page.keyboard.press('1');
-    await page.getByText('Wrote the file.').waitFor();
-  });
+  await scenario(
+    'a permission prompt docks above the composer; typing stays safe, Shift+Tab then 1 allows it',
+    async () => {
+      await send('please ask permission');
+      const dialog = page.locator('[role="dialog"][aria-label="pending question"]');
+      await dialog.waitFor();
+      // One uninterrupted keystroke stream, slow enough to run well past the arm delay — the composer
+      // kept focus when the prompt appeared, so the prompt must never take it away, however long it
+      // stays, and the 1 and 2 typed along the way must never reach it either.
+      const typed = 'typing along for a while, then 1 and 2 more';
+      await page.getByLabel('message').pressSequentially(typed, { delay: 40 });
+      if ((await page.getByText('Wrote the file.').count()) !== 0) {
+        throw new Error('typing in the composer answered the permission prompt');
+      }
+      if ((await page.getByLabel('message').inputValue()) !== typed) {
+        throw new Error('the composer lost text while the permission prompt was up');
+      }
+      await page.getByLabel('message').fill('');
+      // The person reaches the prompt deliberately — Shift+Tab from the composer — and only then do
+      // its keys answer it.
+      await page.getByLabel('message').press('Shift+Tab');
+      await page.keyboard.press('1');
+      await page.getByText('Wrote the file.').waitFor();
+    },
+  );
+
+  await scenario(
+    'a free-text question shows a field; typing an answer and Enter answers it',
+    async () => {
+      await send('please duplicate the profile');
+      await page.locator('[role="dialog"][aria-label="pending question"]').waitFor();
+      await page.getByText('Duplicate anthropic as').waitFor();
+      const field = page.getByPlaceholder('anthropic-copy');
+      await field.waitFor();
+      await field.fill('anthropic-copy-2');
+      await field.press('Enter');
+      await page.getByText('Duplicated as anthropic-copy-2.').waitFor();
+    },
+  );
 
   await scenario('a provider failure keeps the partial reply and raises a toast', async () => {
     await send('please fail');
@@ -155,13 +187,22 @@ try {
   });
 
   await scenario('the usage dashboard renders the sidecar report without raw content', async () => {
-    await page.getByRole('button', { name: 'Usage' }).click();
+    // Exact: the sidebar also lists a stored session named "Usage e2e session" (below), whose row
+    // text otherwise substring-matches this nav button too.
+    await page.getByRole('button', { name: 'Usage', exact: true }).click();
     await page.getByRole('heading', { name: 'Personal usage' }).waitFor();
     await page.getByText('scripted-model').waitFor();
-    await page.getByRole('button', { name: 'Open session usage-e2e-session' }).click();
-    await page.getByRole('region', { name: 'Session usage detail' }).getByText('42').waitFor();
+    // The report itself is content-free; the session button is named from this workspace's own
+    // local session-directory listing (the scripted sidecar's fake directory), never a raw id.
+    await page.getByRole('button', { name: 'Open session Usage e2e session' }).click();
+    const detail = page.getByRole('region', { name: 'Session usage detail' });
+    await detail.getByText('42').waitFor();
+    await detail.getByRole('heading', { name: 'Usage e2e session' }).waitFor();
     if ((await page.getByText('PROMPT_CONTENT_MUST_NOT_APPEAR').count()) !== 0) {
       throw new Error('dashboard rendered raw persisted content');
+    }
+    if ((await page.getByText('usage-e2e-session').count()) !== 0) {
+      throw new Error('dashboard rendered the raw session id as visible text');
     }
   });
 
@@ -232,6 +273,26 @@ try {
     await sidebar.getByRole('button', { name: /New session/ }).first().click();
     await page.getByText(/Session connected\. Send a message/).waitFor();
     await sidebar.locator('[aria-current="true"]', { hasText: 'New session' }).waitFor();
+  });
+
+  // Last: these leave "Working on it..." in the transcript, which an earlier scenario's strict
+  // `getByText('Working on it...')` would otherwise match twice (this fresh session is not read again).
+  await scenario('#3280: Send becomes Stop while a turn runs; Stop ends it and keeps the partial reply', async () => {
+    await send('stay busy');
+    await page.getByText('Working on it...').waitFor();
+    if ((await page.getByRole('button', { name: 'Send' }).count()) !== 0) {
+      throw new Error('Send is still shown while the turn runs');
+    }
+    await page.getByRole('button', { name: 'Stop' }).click();
+    await page.getByRole('button', { name: 'Send' }).waitFor();
+    await page.getByText('Working on it...').last().waitFor();
+  });
+
+  await scenario('#3280: Esc in the composer stops a running turn', async () => {
+    await send('stay busy');
+    await page.getByRole('button', { name: 'Stop' }).waitFor();
+    await page.getByLabel('message').press('Escape');
+    await page.getByRole('button', { name: 'Send' }).waitFor();
   });
 } finally {
   if (process.env.CAPTURE_OUT) await page.screenshot({ path: join(process.env.CAPTURE_OUT, 'web-e2e.png') });

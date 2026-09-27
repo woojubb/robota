@@ -63,7 +63,7 @@ import { SessionStatusPush, STATUS_CHANGING_EVENTS } from './session-status-push
 import { stopWaitingSelfPacedLoop } from './session-waiting-loop.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
-import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
+import { GoalController, buildGoalContinuationPrompt, isGoalCancelVerb } from '../goal/index.js';
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
 import { PlanController } from '../plan/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
@@ -1940,6 +1940,20 @@ export class InteractiveSession
         ),
         success: false,
       };
+    }
+    // #3280 §2: `/goal cancel` is a CONTROL action, not an ordinary command — like abort or
+    // cancel-queue, it must work WHILE the goal's own turn is running, exactly when a runaway goal
+    // needs stopping (the base class's mid-turn gate below would otherwise refuse it with "Another
+    // prompt or command is already running"). Cancel the goal FIRST, so the still-running turn's
+    // `handleGoalTurnComplete` sees it inactive and schedules no further iteration, THEN abort the
+    // turn. A goal cancel with no active goal, or any other command, keeps the unchanged refusal.
+    if (name === 'goal' && isGoalCancelVerb(args) && this.execCtrl.executing && this.goalController.isActive()) {
+      const stopped = this.cancelGoal();
+      this.abort();
+      this.statusPush.push();
+      return stopped
+        ? { message: `Goal cancelled: ${stopped.objective}`, success: true }
+        : { message: 'No active goal to cancel.', success: false };
     }
     const result = await super.executeCommand(name, args, source, originDriverId);
     if (result === null) return null;

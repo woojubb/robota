@@ -66,6 +66,16 @@ export interface IActiveTool {
   result?: IToolState['result'];
 }
 
+/**
+ * #3280 §2: a prompt the host queued behind the running turn — the server has already taken it, so it
+ * is not lost, but it will not run until the turn ends. `count` is the TOTAL number waiting (the shown
+ * `text` plus any behind it), matching the wire's `pendingCount`.
+ */
+export interface IQueuedPrompt {
+  text: string;
+  count: number;
+}
+
 export interface ISessionNotice {
   id: string;
   /** `session-change-refused`: the host refused a new or switch this surface asked for. */
@@ -86,6 +96,12 @@ export type TMakeSessionClient<TStatus extends string = TConnectionStatus> = (ca
 
 export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   status: TStatus;
+  /**
+   * Set by `useWsSession` once its reconnect retries give up (issue #3280 §5): the runtime is not
+   * coming back by itself. Cleared again once `status` reaches `connected`. Undefined for a reducer
+   * with no such concept (e.g. the WebRTC surface, which has its own `failed`/`refused` statuses).
+   */
+  connectionLost?: boolean;
   messages: TConversationEntry[];
   activeTools: IActiveTool[];
   streamingText: string;
@@ -110,6 +126,8 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   setSessionSidebarOpen: (open: boolean) => void;
   send: (msg: TClientMessage) => void;
   pendingPrompts: readonly TPendingPrompt[];
+  /** #3280 §2: the prompt queued behind a running turn, or null when none is queued. */
+  queuedPrompt: IQueuedPrompt | null;
   answerPermission: (id: string, result: TPermissionResultValue) => void;
   answerAsk: (id: string, response: TActionResponse) => void;
   personalUsageStatus: 'idle' | 'loading' | 'ready' | 'error';

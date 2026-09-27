@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { AgentActivityPanel } from './AgentActivityPanel.js';
 import { RobotaMark, RobotaWordmark } from './Brand.js';
@@ -7,8 +7,9 @@ import { ConversationView } from './ConversationView.js';
 import { PermissionPrompt } from './PermissionPrompt.js';
 import { PersonalUsageDashboard } from './PersonalUsageDashboard.js';
 import { SessionSidebar, SessionSidebarRail, sessionTitle } from './SessionSidebar.js';
-import { SessionNotices, SessionTitleBar } from './SessionSurfaceChrome.js';
+import { ConnectionBanner, SessionNotices, SessionTitleBar } from './SessionSurfaceChrome.js';
 
+import type { IComposerHandle } from './Composer.js';
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
 
 /**
@@ -49,13 +50,20 @@ export function SessionSurface({
   state,
   surface,
   personalUsageEnabled = false,
+  onReconnect,
 }: {
   state: IWsSessionState;
   surface?: string;
   /** Desktop shells opt in; embedded/session-only surfaces keep their existing chat-only contract. */
   personalUsageEnabled?: boolean;
+  /**
+   * Present only when the host can restart the runtime after the connection is lost for good (issue
+   * #3280 §5, the desktop app); absent in the browser, where the banner says how to reopen it instead.
+   */
+  onReconnect?: () => Promise<void>;
 }): React.ReactElement {
   const [view, setView] = useState<'chat' | 'usage'>('chat');
+  const composerRef = useRef<IComposerHandle>(null);
   const tasks = state.executionWorkspace?.entries ?? [];
   // The main thread alone is this conversation; the rail earns its width only for work beside it.
   const hasTasks = tasks.some((entry) => entry.kind !== 'main_thread');
@@ -125,6 +133,11 @@ export function SessionSurface({
         ) : (
           <div className="flex min-h-0 flex-1">
             <div className="flex min-w-0 flex-1 flex-col">
+              <ConnectionBanner
+                status={state.status}
+                connectionLost={state.connectionLost ?? false}
+                onReconnect={onReconnect}
+              />
               <div className="min-h-0 flex-1 overflow-hidden">
                 {isEmpty ? (
                   <EmptyState />
@@ -149,10 +162,22 @@ export function SessionSurface({
                   prompts={state.pendingPrompts}
                   onAnswerPermission={state.answerPermission}
                   onAnswerAsk={state.answerAsk}
+                  onFocusReturn={() => composerRef.current?.focus()}
                 />
                 <Composer
+                  ref={composerRef}
                   catalog={state.commandCatalog ?? null}
                   status={state.sessionStatus ?? null}
+                  connected={state.status === 'connected'}
+                  running={state.isThinking}
+                  onStop={() => state.send({ type: 'abort' })}
+                  queued={state.queuedPrompt}
+                  onCancelQueue={() => {
+                    state.send({ type: 'cancel-queue' });
+                    // No push confirms a cleared queue (unlike a resolved prompt); ask, so the row
+                    // reliably disappears instead of trusting the clear went through.
+                    state.send({ type: 'get-pending' });
+                  }}
                   onCommand={(name) => state.send({ type: 'command', name })}
                   onSubmit={(prompt) => {
                     if (!prompt.startsWith('/')) {

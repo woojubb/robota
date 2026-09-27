@@ -5,6 +5,7 @@ import type {
   IPersonalUsageReport,
   IPersonalUsageActivity,
   IPersonalUsageRequest,
+  IPersonalUsageTotals,
   IUsageObservation,
   IUsageBySourceReport,
   IUsageSnapshot,
@@ -44,5 +45,10 @@ describe('analytics contract surface', () => {
     expectTypeOf<IPersonalUsageReport>().toHaveProperty('coverage');
     expectTypeOf<IPersonalUsageReport>().toHaveProperty('byActivity');
     expectTypeOf<IPersonalUsageActivity>().toHaveProperty('count');
+  });
+
+  it('counts what a total left unpriced, and carries a content-free first-seen timestamp per session', () => {
+    expectTypeOf<IPersonalUsageReport>().toHaveProperty('sessionFirstSeen');
+    expectTypeOf<IPersonalUsageTotals>().toHaveProperty('unpricedTurns');
   });
 });

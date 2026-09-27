@@ -182,12 +182,16 @@ const storedSessions = [
     updatedAt: minutesAgo(3 * 24 * 60),
     messages: [{ role: 'user', content: 'Set up the release checklist' }],
   },
+  // The personal-usage report itself is content-free; the dashboard names this session from this
+  // workspace's own local directory listing (its `name`), never from the report (#3289 §4).
+  { id: 'usage-e2e-session', name: 'Usage e2e session', updatedAt: minutesAgo(2), messages: [] },
 ];
 const unreadableSessionIds = ['damaged-session'];
 
 /** A scripted IInteractiveSession: EventEmitter for on/off/emit, deterministic submit + permission. */
 class ScriptedSession extends EventEmitter {
   #pendingPermission = null;
+  #pendingAsk = null;
   #mode = 'default';
   #current = storedSessions[0];
   #busy = false;
@@ -222,8 +226,11 @@ class ScriptedSession extends EventEmitter {
   getContextState() {
     return { usedPercentage: 0, usedTokens: 0, maxTokens: 200000 };
   }
+  // #3280 §2: the QUEUED-MESSAGE the host has taken but not yet run (a submit behind a running turn)
+  // — unrelated to a pending PERMISSION prompt (`#pendingPermission`, above). This fixture never queues
+  // a second submit behind a running one, so there is never a next prompt to report.
   getPendingPrompt() {
-    return this.#pendingPermission ? 'permission' : null;
+    return null;
   }
   isExecuting() {
     return false;
@@ -268,6 +275,21 @@ class ScriptedSession extends EventEmitter {
       });
       return;
     }
+    if (String(input).toLowerCase().includes('duplicate')) {
+      // A free-text ask (#3280 §3), mirroring `/provider` → a profile → Duplicate.
+      this.#pendingAsk = 'ask-1';
+      await tick();
+      this.emit('ask_request', {
+        id: 'ask-1',
+        request: {
+          id: 'ask-1',
+          title: 'Duplicate anthropic as',
+          allowFreeText: true,
+          placeholder: 'anthropic-copy',
+        },
+      });
+      return;
+    }
     if (String(input).toLowerCase().includes('read')) {
       await tick();
       this.emit('tool_start', { toolName: 'Read', firstArg: 'src/a.ts', isRunning: true });
@@ -307,7 +329,19 @@ class ScriptedSession extends EventEmitter {
     })();
   }
 
-  resolveAsk() {}
+  resolveAsk(id, response) {
+    if (id !== this.#pendingAsk) return;
+    this.#pendingAsk = null;
+    this.emit('prompt_resolved', { id });
+    const outcome =
+      response.type === 'answer' ? `Duplicated as ${response.text ?? ''}.` : 'Duplicate cancelled.';
+    void (async () => {
+      await tick();
+      this.emit('text_delta', outcome);
+      await tick();
+      this.#complete(outcome);
+    })();
+  }
   executeCommand(name) {
     if (name === 'help') {
       const lines = Array.from({ length: 30 }, (_, i) => `Command ${i + 1} (/c${i + 1}) — does thing ${i + 1}`);
@@ -358,7 +392,15 @@ class ScriptedSession extends EventEmitter {
       goal: null,
     };
   }
-  abort() {}
+  // #3280 §2: Stop (button or Esc) sends `abort` — end a "stay busy" turn the same way a real one
+  // interrupts: the partial reply already streamed (`text_delta`) stays, as `interrupted` keeps it.
+  abort() {
+    if (!this.#busy) return;
+    this.#busy = false;
+    this.#record('assistant', 'Working on it...');
+    this.emit('thinking', false);
+    this.emit('interrupted', { success: false, content: 'Working on it...' });
+  }
   cancelQueue() {}
 }
 
@@ -512,6 +554,8 @@ const transport = new WsTransport({
       bySource: [],
       byActivity: [{ key: 'tool:Read', label: 'Read', kind: 'tool', count: 2 }],
       sessionIds: ['usage-e2e-session'],
+      // The report carries no name for this session — the dashboard reads "Usage e2e session" from
+      // this workspace's own local session-directory listing above, never from the report (#3289 §4).
       coverage: {
         validSessions: 1,
         corruptSessions: 0,

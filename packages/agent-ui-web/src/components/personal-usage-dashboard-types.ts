@@ -16,6 +16,9 @@ export type TPersonalUsageDashboardState = Pick<
   | 'currentSessionUsageStatus'
   | 'currentSessionUsageReport'
   | 'requestCurrentSessionUsage'
+  // The dashboard names a session from this workspace's own local listing (see `sessionTitle()` in
+  // `SessionSidebar.tsx`) instead of any content carried in the report itself.
+  | 'sessionListing'
 >;
 
 export type TPersonalUsageReport = NonNullable<TPersonalUsageDashboardState['personalUsageReport']>;
