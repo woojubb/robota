@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 /**
- * #3289 §3 — the error screen `ErrorBoundary` shows in place of everything below it renders exactly
- * one `main` landmark, same as every other pre-session/fatal screen this issue covers. Nothing above
- * `ErrorBoundary` (agent-gui-web's `main.tsx`, the desktop app) supplies one.
+ * #3289 §3 — the error screen `ErrorBoundary` shows, in place of everything below it, renders
+ * exactly one `main` landmark, same as every other pre-session/fatal screen this issue covers.
+ * Nothing above `ErrorBoundary` (agent-gui-web's `main.tsx`, the desktop app) supplies one.
  */
 
 import { cleanup, render } from '@testing-library/react';
