@@ -40,29 +40,41 @@ describe('interactive-session-streaming edit diffs', () => {
     const filePath = makeTempFile(
       ['line four', 'line five', 'line six', 'line one', 'line eight', 'line nine'].join('\n'),
     );
+    // #3288 review MUST 1: cwd must name the file's REAL containing directory — a diff preview
+    // now only reads a file whose canonical path resolves inside it (see interactive-session-streaming.ts's
+    // `isSafeToReadForDiff`), so context lines are read here only because `tmpDir` genuinely contains it.
     const state = createState();
-    applyToolStart(state, {
-      toolName: 'Edit',
-      toolArgs: {
-        filePath,
-        oldString: 'line one\nline two\nline three',
-        newString: 'line one',
+    applyToolStart(
+      state,
+      {
+        toolName: 'Edit',
+        toolArgs: {
+          filePath,
+          oldString: 'line one\nline two\nline three',
+          newString: 'line one',
+        },
       },
-    });
+      undefined,
+      tmpDir,
+    );
 
-    const finished = applyToolEnd(state, {
-      type: 'end',
-      toolName: 'Edit',
-      toolArgs: {
-        filePath,
-        oldString: 'line one\nline two\nline three',
-        newString: 'line one',
+    const finished = applyToolEnd(
+      state,
+      {
+        type: 'end',
+        toolName: 'Edit',
+        toolArgs: {
+          filePath,
+          oldString: 'line one\nline two\nline three',
+          newString: 'line one',
+        },
+        success: true,
+        toolResultData: JSON.stringify({ success: true, startLine: 7 }),
       },
-      success: true,
-      toolResultData: JSON.stringify({ success: true, startLine: 7 }),
-    });
+      tmpDir,
+    );
 
-    expect(finished?.diffFile).toBe(filePath);
+    expect(finished?.diffFile).toBe('example.md');
     expect(finished?.diffLines).toEqual(
       expect.arrayContaining([
         { type: 'hunk', text: '@@ -4,6 +4,4 @@', lineNumber: 4 },
@@ -177,6 +189,35 @@ describe('#3288: extending the diff builder to Write', () => {
     const addLines = diffLines.filter((l) => l.type === 'add');
     expect(addLines.length).toBeLessThan(520);
     expect(diffLines.at(-1)?.text).toMatch(/more lines truncated/);
+  });
+});
+
+describe('#3288 review SHOULD 3: Edit diffs are capped like Write', () => {
+  it('caps a large Edit with a truncated marker rather than emitting every line', () => {
+    const state = createState();
+    const bigOld = Array.from({ length: 520 }, (_, i) => `old ${i}`).join('\n');
+    const bigNew = Array.from({ length: 520 }, (_, i) => `new ${i}`).join('\n');
+    applyToolStart(state, {
+      toolName: 'Edit',
+      toolArgs: { filePath: '/tmp/big-edit.md', oldString: bigOld, newString: bigNew },
+    });
+    const finished = applyToolEnd(state, {
+      type: 'end',
+      toolName: 'Edit',
+      toolArgs: { filePath: '/tmp/big-edit.md', oldString: bigOld, newString: bigNew },
+      success: true,
+    });
+    const diffLines = finished?.diffLines ?? [];
+    const removeLines = diffLines.filter((l) => l.type === 'remove');
+    const addLines = diffLines.filter((l) => l.type === 'add');
+    expect(removeLines.length).toBeLessThan(520);
+    expect(addLines.length).toBeLessThan(520);
+    expect(diffLines.some((l) => l.type === 'hunk' && /more removed lines truncated/.test(l.text))).toBe(
+      true,
+    );
+    expect(diffLines.some((l) => l.type === 'hunk' && /more added lines truncated/.test(l.text))).toBe(
+      true,
+    );
   });
 });
 

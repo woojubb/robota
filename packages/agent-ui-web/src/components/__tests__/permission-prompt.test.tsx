@@ -904,4 +904,25 @@ describe('issue #3288 §1: a background agent names itself on its own permission
     expect(dialog.textContent).toContain('to run?');
     expect(dialog.textContent).not.toContain('Background agent');
   });
+
+  it('#3288 review MUST 2: still names the background agent when the request also carries a diff', () => {
+    const prompt = {
+      kind: 'permission',
+      id: 'p6',
+      toolName: 'Edit',
+      toolArgs: { file_path: 'src/task-title.ts', old_string: 'a', new_string: 'b' },
+      requester: { kind: 'background-agent', label: 'general-purpose', taskId: 'agent_1' },
+      diffFile: 'src/task-title.ts',
+      diffLines: [
+        { type: 'remove', text: 'a', lineNumber: 1 },
+        { type: 'add', text: 'b', lineNumber: 1 },
+      ],
+    } as TPendingPrompt;
+    render(<Surface prompts={[prompt]} onAnswerPermission={vi.fn()} />);
+
+    expect(screen.getByText(/Background agent/)).toBeTruthy();
+    expect(screen.getByText('general-purpose')).toBeTruthy();
+    expect(screen.getByText(/- a/)).toBeTruthy();
+    expect(screen.getByText(/\+ b/)).toBeTruthy();
+  });
 });

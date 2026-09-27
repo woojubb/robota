@@ -256,18 +256,30 @@ export function PermissionPrompt({
                   )}
                 </p>
                 {/* #3288 §2: an Edit/Write request with a server-built diff preview shows "Edit
-                    <path>" and the diff, in place of "Allow <tool> to run?" and raw arguments.
-                    Issue #3288 §1: short of that, a background agent's own request names it, so
-                    this reads as a question about someone else's action, not an unattributed ask. */}
-                {hasDiff ? (
+                    <path>" (or "Background agent <label> wants to edit <path>") and the diff, in
+                    place of "Allow <tool> to run?" and raw arguments.
+                    Issue #3288 §1: a background agent's own request ALWAYS names it — whether or
+                    not there's a diff to show — so this never reads as an unattributed ask for
+                    exactly the riskiest calls (a diff-bearing Edit/Write). */}
+                {prompt.requester?.kind === 'background-agent' ? (
+                  <p className="mt-0.5 text-[15px] font-medium text-foreground">
+                    Background agent <span className="font-semibold">{prompt.requester.label}</span>{' '}
+                    wants to{' '}
+                    {hasDiff ? (
+                      <>
+                        {prompt.toolName.toLowerCase()}{' '}
+                        <span className="font-mono font-semibold">{prompt.diffFile}</span>
+                      </>
+                    ) : (
+                      <>
+                        run <span className="font-semibold">{prompt.toolName}</span>
+                      </>
+                    )}
+                  </p>
+                ) : hasDiff ? (
                   <p className="mt-0.5 text-[15px] font-medium text-foreground">
                     {prompt.toolName}{' '}
                     <span className="font-mono font-semibold">{prompt.diffFile}</span>
-                  </p>
-                ) : prompt.requester?.kind === 'background-agent' ? (
-                  <p className="mt-0.5 text-[15px] font-medium text-foreground">
-                    Background agent <span className="font-semibold">{prompt.requester.label}</span>{' '}
-                    wants to run <span className="font-semibold">{prompt.toolName}</span>
                   </p>
                 ) : (
                   <p className="mt-0.5 text-[15px] font-medium text-foreground">
