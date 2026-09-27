@@ -65,6 +65,9 @@ export function PermissionPrompt({
   const hasFreeText = prompt?.kind === 'ask' && prompt.request.allowFreeText === true;
   const [armedId, setArmedId] = useState<string | undefined>(undefined);
   const [hasFocus, setHasFocus] = useState(false);
+  // Whether the field itself (not just some part of the prompt) currently holds focus — digits typed
+  // there type into the field rather than choosing a numbered option, so the hint must say so.
+  const [fieldFocused, setFieldFocused] = useState(false);
   const [freeText, setFreeText] = useState('');
   // Set at the moment of an answer if focus was inside the prompt then; consumed once the prompt list
   // empties (see below) or cleared once a next prompt shows it was not needed after all.
@@ -149,11 +152,17 @@ export function PermissionPrompt({
     if ((event.target as HTMLElement).closest('button, input')) return;
     fieldRef.current?.focus();
   };
-  /** A key that reaches the field types into it — the prompt's own shortcuts never see it (#3280 §3). */
+  /**
+   * A key that reaches the field types into it — the prompt's own shortcuts never see it (#3280 §3).
+   * The Enter that only finishes an IME composition (Korean/Japanese/Chinese) must not submit the
+   * still-uncommitted text — `isComposing` (or `keyCode` 229, on browsers that predate it) marks that
+   * Enter; the keystroke is left alone so the browser can commit the composition normally.
+   */
   const onFieldKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
     event.stopPropagation();
     if (prompt.kind !== 'ask') return;
     if (event.key === 'Enter') {
+      if (event.nativeEvent.isComposing || event.keyCode === 229) return;
       event.preventDefault();
       submitFreeText();
     } else if (event.key === 'Escape') {
@@ -187,14 +196,14 @@ export function PermissionPrompt({
     if (option) answerAsk(prompt.id, { type: 'answer', values: [option.value] });
   };
   const askOptions = prompt.kind === 'ask' ? (prompt.request.options ?? []) : [];
+  // Digits choose an option only while focus is on the prompt itself, not the field — a hint promising
+  // "1–9 choose" while the field holds focus would be wrong, since digits type there instead.
   const askArmedHint =
-    askOptions.length > 0 && hasFreeText
-      ? '1–9 choose, or type · Esc cancel'
+    hasFreeText && fieldFocused
+      ? 'Enter to submit · Esc to cancel'
       : askOptions.length > 0
         ? '1–9 choose · Esc cancel'
-        : hasFreeText
-          ? 'Enter submits · Esc cancels'
-          : 'Esc cancels';
+        : 'Esc cancels';
   return (
     <div
       className={
@@ -324,6 +333,8 @@ export function PermissionPrompt({
                       value={freeText}
                       onChange={(event) => setFreeText(event.target.value)}
                       onKeyDown={onFieldKeyDown}
+                      onFocus={() => setFieldFocused(true)}
+                      onBlur={() => setFieldFocused(false)}
                       className="min-w-0 flex-1 rounded-lg bg-sidebar px-3 py-1.5 text-[14px] text-foreground placeholder:text-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                     <button

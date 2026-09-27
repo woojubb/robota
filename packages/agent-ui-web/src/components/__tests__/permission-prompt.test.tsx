@@ -402,6 +402,75 @@ describe("the ask prompt's free-text field", () => {
     expect(screen.getByText('Plans without changing files')).toBeTruthy();
   });
 
+  it('an Enter that only finishes an IME composition does not submit the unfinished text', () => {
+    const onAnswerAsk = vi.fn();
+    const ask = {
+      kind: 'ask',
+      id: 'a8',
+      request: { title: 'Name the profile', allowFreeText: true },
+    } as unknown as TPendingPrompt;
+    render(<Surface prompts={[ask]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />);
+
+    const field = screen.getByRole('textbox', { name: 'answer' }) as HTMLInputElement;
+    fireEvent.change(field, { target: { value: '한글' } });
+    // The IME's own Enter, confirming the composed text — not the person submitting the answer.
+    fireEvent.keyDown(field, { key: 'Enter', isComposing: true });
+    expect(onAnswerAsk).not.toHaveBeenCalled();
+
+    // A plain Enter afterwards (composition already finished) submits normally.
+    fireEvent.keyDown(field, { key: 'Enter' });
+    expect(onAnswerAsk).toHaveBeenCalledWith('a8', {
+      type: 'answer',
+      values: [],
+      text: '한글',
+    });
+  });
+
+  it('Escape inside the field cancels the ask', () => {
+    const onAnswerAsk = vi.fn();
+    const ask = {
+      kind: 'ask',
+      id: 'a9',
+      request: { title: 'Name the profile', allowFreeText: true },
+    } as unknown as TPendingPrompt;
+    render(<Surface prompts={[ask]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />);
+
+    const field = screen.getByRole('textbox', { name: 'answer' });
+    fireEvent.keyDown(field, { key: 'Escape' });
+    expect(onAnswerAsk).toHaveBeenCalledWith('a9', { type: 'cancelled' });
+  });
+
+  it('hints "Enter to submit" while focus is in the field, and "1–9 choose" once it moves to an option', () => {
+    const ask = {
+      kind: 'ask',
+      id: 'a10',
+      request: {
+        title: 'Pick a mode or type one',
+        allowFreeText: true,
+        allowEmpty: true,
+        options: [
+          { value: 'default', label: 'default' },
+          { value: 'plan', label: 'plan' },
+        ],
+      },
+    } as unknown as TPendingPrompt;
+    render(<Surface prompts={[ask]} onAnswerPermission={vi.fn()} onAnswerAsk={vi.fn()} />);
+
+    act(() => {
+      vi.advanceTimersByTime(PROMPT_ARM_DELAY_MS);
+    });
+    // Once armed, nothing editable already had focus, so the field (the prompt's primary control) gets it.
+    expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'answer' }));
+    expect(screen.getByText('Enter to submit · Esc to cancel')).toBeTruthy();
+
+    // The person tabs (or clicks) to an option button — focus leaves the field.
+    act(() => {
+      screen.getByRole('button', { name: 'default' }).focus();
+    });
+    expect(screen.getByText('1–9 choose · Esc cancel')).toBeTruthy();
+    expect(screen.queryByText('Enter to submit · Esc to cancel')).toBeNull();
+  });
+
   it('typing a digit in the field types it there instead of picking that numbered option', () => {
     const onAnswerAsk = vi.fn();
     const ask = {
