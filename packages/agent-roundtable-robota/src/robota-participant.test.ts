@@ -187,12 +187,12 @@ describe('robotaParticipant: speak path', () => {
     expect(participant.factory.modelCalls).toBe('metered');
   });
 
-  // MUST 3: `agent.run()` RESOLVES on abort (agent-core CORE-027) with the text it had committed so
-  // far, marked `interrupted` — never rejects on its own. A tool call combined with real text in
-  // the SAME assistant message, where the tool's own effect aborts mid round, reproduces exactly
+  // `agent.run()` RESOLVES on abort (agent-core CORE-027) with the text it had committed so far,
+  // marked `interrupted` — never rejects on its own. A tool call combined with real text in the
+  // SAME assistant message, where the tool's own effect aborts mid round, reproduces exactly
   // that: the round loop stops after the tool (no further round runs the forced summary), so the
   // committed text from round 1 becomes `result.response`, resolved, while `signal.aborted` is true.
-  it('MUST 3: throws the abort reason instead of publishing text committed during a cancelled tool round', async () => {
+  it('throws the abort reason instead of publishing text committed during a cancelled tool round', async () => {
     const controller = new AbortController();
     const provider: IAIProvider = {
       name: 'abort-mid-tool-round',
@@ -247,9 +247,9 @@ describe('robotaParticipant: speak path', () => {
     await lease.release();
   });
 
-  // SHOULD 6: leasing only the Robota object let two participants share the SAME provider or
-  // tool undetected; `agent.destroy()` on release then closed it under the other participant.
-  it('SHOULD 6: rejects a second participant whose agent shares a provider with a still-open lease', async () => {
+  // Leasing only the Robota object let two participants share the SAME provider or tool
+  // undetected; `agent.destroy()` on release then closed it under the other participant.
+  it('rejects a second participant whose agent shares a provider with a still-open lease', async () => {
     const scripted = createScriptedProvider([{ text: 'ok' }]);
     const participant = robotaParticipant({
       id: 'p',
@@ -275,7 +275,7 @@ describe('robotaParticipant: speak path', () => {
     ).resolves.toBeDefined();
   });
 
-  it('SHOULD 6: rejects a second participant whose agent shares a tool with a still-open lease', async () => {
+  it('rejects a second participant whose agent shares a tool with a still-open lease', async () => {
     const scriptedA = createScriptedProvider([{ text: 'ok a' }]);
     const scriptedB = createScriptedProvider([{ text: 'ok b' }]);
     const sharedTool = new FunctionTool(

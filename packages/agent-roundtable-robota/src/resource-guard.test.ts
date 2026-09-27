@@ -40,8 +40,8 @@ describe('claimLease', () => {
     expect(() => claimLease([tool])).not.toThrow();
   });
 
-  // MUST 4 (addendum): a bare "This session, provider or tool is already held" told a host
-  // NOTHING about which of possibly many leased resources collided.
+  // A bare "This session, provider or tool is already held" told a host NOTHING about which
+  // of possibly many leased resources collided.
   it('names the reused resource by getName() when it has one, over a bare "resource"', () => {
     const tool = { getName: () => 'WebFetch' };
     claimLease([tool]);

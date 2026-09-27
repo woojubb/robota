@@ -59,8 +59,8 @@ describe('renderSharedIncrement', () => {
     expect(rendered.match(/hello there/g)).toHaveLength(1);
   });
 
-  // SHOULD 8: an Anthropic-shaped provider rejects an empty user message outright, and a first
-  // turn with no purpose, or a turn where every peer yielded, would otherwise render one.
+  // An Anthropic-shaped provider rejects an empty user message outright, and a first turn with
+  // no purpose, or a turn where every peer yielded, would otherwise render one.
   it('renders a neutral notice instead of an empty increment when there is nothing to say', () => {
     const rendered = renderSharedIncrement(turn(), { firstTurn: false });
     expect(rendered.trim()).not.toBe('');

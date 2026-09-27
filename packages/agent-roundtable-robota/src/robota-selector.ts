@@ -163,9 +163,9 @@ export function robotaSelector(options: RobotaSelectorOptions): TurnSelector {
           );
         if (!agentPromise) agentPromise = Promise.resolve(options.createAgent());
         const agent = await agentPromise;
-        // MUST 2: a tool left behind by a cancelled or failed PREVIOUS decision (before the
-        // `finally` below existed, or if it too were ever interrupted) must not permanently lock
-        // out every later decision — only a tool genuinely foreign to this selector should.
+        // A tool left behind by a cancelled or failed PREVIOUS decision (before the `finally`
+        // below existed, or if it too were ever interrupted) must not permanently lock out
+        // every later decision — only a tool genuinely foreign to this selector should.
         const existingTools = (agent.getConfig().tools ?? []).filter(
           (tool) => tool.getName() !== DECISION_TOOL_NAME,
         );

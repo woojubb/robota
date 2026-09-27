@@ -227,12 +227,12 @@ describe('robotaSelector', () => {
     expect(scripted.requests).toHaveLength(1);
   });
 
-  // MUST 2: a cancelled selection used to leave the decision tool on the reused agent forever,
-  // because `updateTools([])` never ran once `agent.run` rejected. The realistic way a run rejects
-  // while cancelled is agent-core's own hardening (CORE-027 / ExecutionJournalError): a rejected
+  // A cancelled selection used to leave the decision tool on the reused agent forever, because
+  // `updateTools([])` never ran once `agent.run` rejected. The realistic way a run rejects while
+  // cancelled is agent-core's own hardening (CORE-027 / ExecutionJournalError): a rejected
   // admission is wrapped in an error that is rethrown even though the signal is aborted, exactly
   // what a real ledger does once a run has been cancelled.
-  it('MUST 2: resets the decision tool after a cancelled selection, so the next select succeeds', async () => {
+  it('resets the decision tool after a cancelled selection, so the next select succeeds', async () => {
     const scripted = createScriptedProvider([
       {
         toolCalls: [
@@ -266,8 +266,8 @@ describe('robotaSelector', () => {
     expect(selection).toEqual({ kind: 'speak', participantId: 'a' });
   });
 
-  // SHOULD 10: the selector used to decide purely from ids and outcome kinds, never what was said.
-  it('SHOULD 10: renders the shared conversation into the decision prompt', async () => {
+  // The selector used to decide purely from ids and outcome kinds, never what was said.
+  it('renders the shared conversation into the decision prompt', async () => {
     const scripted = createScriptedProvider([
       {
         toolCalls: [
@@ -299,10 +299,10 @@ describe('robotaSelector', () => {
     expect(sent?.content).toContain('From a');
   });
 
-  // SHOULD 10: the reused agent accumulated private history across decisions with no checkpoint,
-  // so a live selector and a freshly reloaded one (which starts with no history at all) could
+  // The reused agent accumulated private history across decisions with no checkpoint, so a
+  // live selector and a freshly reloaded one (which starts with no history at all) could
   // decide differently from the same SelectionContext, and cost grew unbounded across a whole run.
-  it('SHOULD 10: clears the reused agent history before each decision', async () => {
+  it('clears the reused agent history before each decision', async () => {
     const scripted = createScriptedProvider([
       {
         toolCalls: [

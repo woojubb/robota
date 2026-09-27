@@ -259,7 +259,7 @@ describe('sessionParticipant: speak path', () => {
   // resolved execution into a rejection before it ever reaches sessionParticipant, so this asserts
   // the turn still rejects rather than exercising the `signal.aborted` check inside `catch` that
   // closes this same gap for a call that resolves instead.
-  it('MUST 3: throws the abort reason instead of publishing text committed during a cancelled tool round', async () => {
+  it('throws the abort reason instead of publishing text committed during a cancelled tool round', async () => {
     const controller = new AbortController();
     const provider: IAIProvider = {
       name: 'abort-mid-tool-round',
@@ -427,11 +427,11 @@ describe('sessionParticipant: speak path', () => {
     await lease.release();
   });
 
-  // MUST 4: `createDefaultTools` used to return the SAME `webFetchTool`/`webSearchTool` module
+  // `createDefaultTools` used to return the SAME `webFetchTool`/`webSearchTool` module
   // singletons on every call, so two sessionParticipants each built from it — even from two
   // entirely separate `createDefaultTools({cwd})` calls, sharing nothing on purpose — collided in
   // the resource guard the moment both were open at once.
-  it('MUST 4: two participants each built from a separate createDefaultTools({cwd}) open together', async () => {
+  it('two participants each built from a separate createDefaultTools({cwd}) open together', async () => {
     const base = mkdtempSync(join(tmpdir(), 'roundtable-robota-default-tools-'));
     mkdirSync(join(base, 'A'));
     mkdirSync(join(base, 'B'));
@@ -559,10 +559,10 @@ describe('sessionParticipant: approval waits and checkpoints', () => {
     await lease.release();
   });
 
-  // SHOULD 7: the default in-process journal never freed a settled execution's records. Once this
+  // The default in-process journal never freed a settled execution's records. Once this
   // resume settles with no wait parked, the parked execution's records (message arrays included)
   // must be gone from the module-level store the default journal used underneath.
-  it('SHOULD 7: drops the parked execution journal records once the resume settles', async () => {
+  it('drops the parked execution journal records once the resume settles', async () => {
     const f = approvalFixture();
     const lease = await f.participant.factory.openSession({
       conversationId: 'c',

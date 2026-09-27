@@ -216,9 +216,9 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
             }
             firstTurnDone = true;
             pendingWait = null;
-            // SHOULD 7: the default in-process journal never freed a settled execution's records
-            // (full message arrays included) — safe exactly here, because nothing reads them back
-            // once this turn settled with no wait parked; a journal a host supplied is left alone,
+            // The default in-process journal never freed a settled execution's records (full
+            // message arrays included) — safe exactly here, because nothing reads them back once
+            // this turn settled with no wait parked; a journal a host supplied is left alone,
             // since its lifecycle is the host's to manage.
             if (usingDefaultJournal) clearInProcessJournal(state.sessionId);
             return toCompletionOutcome(result.response);
@@ -303,9 +303,9 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
             if (released) return;
             released = true;
             releaseLease();
-            // SHOULD 7: free the module-level map entry itself once this lease ends, unless a
-            // wait is still parked — a resumed lease later needs exactly those records, and
-            // `settle` above never got to clear them because this execution never settled.
+            // Free the module-level map entry itself once this lease ends, unless a wait is
+            // still parked — a resumed lease later needs exactly those records, and `settle`
+            // above never got to clear them because this execution never settled.
             if (usingDefaultJournal && !pendingWait) forgetInProcessJournal(state.sessionId);
             await session.shutdown();
           },

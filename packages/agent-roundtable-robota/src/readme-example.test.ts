@@ -11,8 +11,8 @@ describe('README quickstart example', () => {
     const { result, messages } = await runQuickstart();
     expect(result.status === 'limited' || result.status === 'completed').toBe(true);
     expect(messages).toHaveLength(1);
-    // SHOULD 8: the sole participant's first turn has no purpose and no shared messages, so the
-    // rendered increment is the neutral "no new messages" notice rather than an empty string.
+    // The sole participant's first turn has no purpose and no shared messages, so the rendered
+    // increment is the neutral "no new messages" notice rather than an empty string.
     expect(messages[0]).toMatchObject({
       participantId: 'assistant',
       content:
