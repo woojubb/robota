@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-transport-webrtc",
   "version": "3.0.0-beta.83",
-  "description": "WebRTC P2P transport for the Robota SDK (data-channel session bridge; REMOTE-001)",
+  "description": "Peer-to-peer WebRTC transport for the Robota SDK (data-channel session bridge for remote control and the device mesh)",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
