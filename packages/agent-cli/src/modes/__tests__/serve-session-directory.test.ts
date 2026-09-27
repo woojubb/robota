@@ -500,6 +500,30 @@ describe('serve session directory (#3189)', () => {
         'No session elsewhere in this workspace.',
       );
     });
+
+    it('refuses to rename a session that is live, so its own next persist cannot undo the rename', async () => {
+      const store = STORED();
+      const { directory } = served(fakeSession('a'), store);
+      const onB = directory.bind('drive');
+      await onB.directory.switchSession('b');
+      const binding = directory.bind('drive');
+
+      await expect(binding.directory.renameSession('b', 'Renamed')).rejects.toThrow(
+        /Session b is open now/,
+      );
+      const outcome = store.load('b');
+      if (outcome.status !== 'valid') throw new Error('expected b to still be readable');
+      expect(outcome.record.name).toBeUndefined();
+    });
+
+    it('refuses to rename the current session through this path too', async () => {
+      const { directory } = served(fakeSession('a'), STORED());
+      const binding = directory.bind('drive');
+
+      await expect(binding.directory.renameSession('a', 'Renamed')).rejects.toThrow(
+        /Session a is open now/,
+      );
+    });
   });
 
   describe('deleting a session from the list (#3289 §1)', () => {
@@ -527,7 +551,18 @@ describe('serve session directory (#3189)', () => {
       const { directory } = served(fakeSession('a'), STORED());
       const onB = directory.bind('drive');
       await onB.directory.switchSession('b');
-      onB.session.current.activity = 'working';
+      onB.session.current.executing = true;
+
+      expect(await deleteRefusalOf(onB.directory.deleteSession('b'))).toBe('running');
+    });
+
+    it('refuses to delete a session with a live background task, even though nothing is "executing"', async () => {
+      // The same completeness `SessionPool` itself uses (isSessionBusy): a background task counts
+      // as work in progress even when the local activity status is idle and nothing is executing.
+      const { directory } = served(fakeSession('a'), STORED());
+      const onB = directory.bind('drive');
+      await onB.directory.switchSession('b');
+      onB.session.current.tasks = [{ id: 't', status: 'running' }];
 
       expect(await deleteRefusalOf(onB.directory.deleteSession('b'))).toBe('running');
     });

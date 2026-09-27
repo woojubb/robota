@@ -107,6 +107,22 @@ export function SessionSidebar({
     };
   }, [menu]);
 
+  // The delete confirmation is also Esc-to-cancel, like every other dialog on this surface.
+  useEffect(() => {
+    if (confirmDeleteId === null) return undefined;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setConfirmDeleteId(null);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [confirmDeleteId]);
+
+  // A keyboard user who opened the menu lands on its first item, not nowhere.
+  useEffect(() => {
+    if (menu === null) return;
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [menu]);
+
   const openMenuAt = (sessionId: string, x: number, y: number): void => setMenu({ sessionId, x, y });
 
   const startRename = (session: TListedSession): void => {

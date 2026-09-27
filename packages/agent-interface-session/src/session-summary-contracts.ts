@@ -56,9 +56,11 @@ export interface ISessionDirectory {
    */
   newSession(): Promise<void>;
   /**
-   * Persist a new name onto a stored session, current or not. The current session's own rename path
-   * (the `/rename` command) also updates its live in-memory name and broadcasts the change to every
-   * client on it; this one writes the record directly, for a row in the list that is not current.
+   * Persist a new name onto a stored session that is not live. The current session's own rename path
+   * (the `/rename` command) updates its live in-memory name and broadcasts the change to every client
+   * on it; this one writes the record directly, for a row in the list that is not the one this caller
+   * is on — and is refused, with an Error whose message says why, for a session that IS live (current
+   * or not), because a live session's next persist would overwrite a rename made only on disk.
    */
   renameSession(sessionId: string, name: string): Promise<void>;
   /**

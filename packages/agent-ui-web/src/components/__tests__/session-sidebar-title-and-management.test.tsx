@@ -152,6 +152,35 @@ describe('SessionSidebar delete confirmation (#3289 §1)', () => {
     expect(deleteSession).not.toHaveBeenCalled();
     expect(screen.queryByRole('alertdialog')).toBeNull();
   });
+
+  it('closes on Escape without deleting, like every other dialog', () => {
+    const deleteSession = vi.fn();
+    render(<SessionSidebar state={makeState({ deleteSession })} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'More for another one' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete…' }));
+    expect(screen.getByRole('alertdialog')).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(deleteSession).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+});
+
+describe('SessionSidebar row menu accessibility (#3289 §1)', () => {
+  it('marks the "More" trigger as a menu popup, expanded only while its menu is open', () => {
+    render(<SessionSidebar state={makeState()} />);
+    const trigger = screen.getByRole('button', { name: 'More for first request' });
+    expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Rename' }));
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+  });
 });
 
 describe('SessionSidebar unreadable sessions wording (#3289 §1)', () => {

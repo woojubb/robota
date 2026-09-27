@@ -12,6 +12,7 @@
 import {
   SessionChangeRefusal,
   SessionDeleteRefusal,
+  isSessionBusy,
   listResumableSessionSummaries,
   listUnreadableSessionsForWorkspace,
   persistSessionRename,
@@ -26,13 +27,24 @@ import type {
   ISessionDirectory,
   ISessionListing,
   ISessionListingEntry,
+  ISessionLoopState,
   TSessionBindingRole,
 } from '@robota-sdk/agent-interface-session';
 
-/** The members of a session the directory reads: its id, and whether a prompt waits on it. */
-export type TServeDirectorySession = Pick<IInteractiveSession, 'getSession'> & {
+/**
+ * The members of a session the directory reads: its id, whether a prompt waits on it, and — #3289
+ * §1 — everything {@link isSessionBusy} needs to tell a session with work in progress (a running
+ * turn, a pending prompt, a live background task, an unexpired self-paced loop) from one it may
+ * delete. `listSelfPacedLoops` stays optional, exactly as `isSessionBusy` itself takes it, because it
+ * is not part of the base session capability set.
+ */
+export type TServeDirectorySession = Pick<
+  IInteractiveSession,
+  'getSession' | 'isExecuting' | 'getPendingPrompt' | 'getPendingCount' | 'listBackgroundTasks'
+> & {
   /** `needs-input` while a permission or ask prompt waits for an answer. */
   getLocalActivityStatus(): 'working' | 'needs-input' | 'idle' | undefined;
+  listSelfPacedLoops?(): readonly ISessionLoopState[];
 };
 
 /** A session the pool holds for one client until the client moves onto it or lets it go. */
@@ -233,9 +245,18 @@ export function createServeSessionDirectory<
         if (!known) {
           throw new Error(`No session ${sessionId} in this workspace.`);
         }
-        // Writes the stored record directly. The CURRENT session's own rename path (the `/rename`
-        // command) goes through the live session instead, so its in-memory name and broadcast stay
-        // correct; this path is for a row in the list that is not the one this binding is on.
+        // A live session keeps its own name in memory and writes it back on every persist (a turn,
+        // a background task, a goal step, …), which would silently undo a rename made only on disk —
+        // this path is for a row that is not live. The CURRENT session's own rename path (the
+        // `/rename` command) goes through the live session instead, so its in-memory name and
+        // broadcast stay correct; a session live for some OTHER client has no such path available to
+        // this binding, so it is refused rather than risked.
+        if (target.pool.listLive().some((row) => row.sessionId === sessionId)) {
+          throw new Error(
+            `Session ${sessionId} is open now; renaming it here would be overwritten the next ` +
+              'time it saves. Switch to it to rename it, or wait for it to close.',
+          );
+        }
         persistSessionRename(target.store, sessionId, name);
       },
       async deleteSession(sessionId) {
@@ -261,10 +282,13 @@ export function createServeSessionDirectory<
               'Another client is on this session; it cannot be deleted while someone else is using it.',
             );
           }
-          if (liveEntry.session.getLocalActivityStatus() === 'working') {
+          // The same completeness `SessionPool` itself uses to decide whether a session may be
+          // closed: a running turn, a pending prompt, a live background task, or an unexpired
+          // self-paced loop — not only "mid-turn", which missed the other three.
+          if (isSessionBusy(liveEntry.session)) {
             throw new SessionDeleteRefusal(
               'running',
-              'This session is running a turn; wait for it to finish, then delete it.',
+              'This session has work in progress; wait for it to finish, then delete it.',
             );
           }
         }
