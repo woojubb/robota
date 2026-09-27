@@ -305,7 +305,7 @@ describe('session view command', () => {
           start,
         }),
       ).toBe(0);
-      expect(start).toHaveBeenCalledExactlyOnceWith(realpathSync(project));
+      expect(start).toHaveBeenCalledExactlyOnceWith(realpathSync(project), undefined);
     } finally {
       rmSync(scratch, { recursive: true, force: true });
     }

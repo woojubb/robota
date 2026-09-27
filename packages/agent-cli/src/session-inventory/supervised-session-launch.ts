@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
 
 import { resolveSelfForkWorkerEntry } from '../subagents/self-fork-worker-entry.js';
+import { RESTRICTED_WORKSPACE_FLAG } from '../startup/workspace-project-composition.js';
 import {
   discardSupervisedGrantHandoff,
   isSupervisedSessionName,
@@ -108,6 +109,8 @@ export async function launchSupervisedSession(
      * puts the transport token in `env`, never on the command line.
      */
     readonly daemon?: boolean;
+    /** Start it Restricted: a person chose to run this untrusted folder without its own configuration. */
+    readonly restricted?: boolean;
   } = {},
 ): Promise<string> {
   if (options.name !== undefined && !isSupervisedSessionName(options.name)) {
@@ -134,6 +137,7 @@ export async function launchSupervisedSession(
       ...(options.name === undefined ? [] : [`--name=${options.name}`]),
       ...(grants.length > 0 ? ['--supervised-external-event-grants'] : []),
       ...(options.daemon === true ? ['--daemon'] : []),
+      ...(options.restricted === true ? [RESTRICTED_WORKSPACE_FLAG] : []),
       ...(grants.length > 0 && options.eventEndpoint !== undefined
         ? [
             `--external-event-port=${options.eventEndpoint.port}`,

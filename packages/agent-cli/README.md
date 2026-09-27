@@ -749,9 +749,11 @@ In a workspace you have not trusted:
   lists what trust would load. A yes records the grant and starts normally. A no, or a resumed session,
   starts **Restricted**: your own user settings, built-in tools and permission rules work, and nothing
   the repository contributes is loaded;
+- starting a session from `robota session view` asks too: `y` trusts the folder and starts, `r` starts
+  it Restricted, `n` cancels;
 - headless startup refuses with `Workspace trust is required before headless startup (state: …)`.
-  That covers print mode (`-p`), `--goal`, `--serve`, `robota mcp serve`, `robota daemon start`,
-  `robota session start` and a session that `robota session view` starts.
+  That covers print mode (`-p`), `--goal`, `--serve`, `robota mcp serve`, `robota daemon start` and
+  `robota session start`.
 
 There are two exceptions. `--safe-mode` always starts Restricted, so `-p`, `--goal`, `--serve` and
 `robota mcp serve` run with it without trust.

@@ -49,13 +49,28 @@ const ROLE: Readonly<Record<ISupervisedAttachRequest['mode'], string>> = {
   observe: 'observe (read only)',
 };
 
+/**
+ * How a new session starts in a folder that is not trusted: trusted first (`trust` records the grant),
+ * or `restricted`, without the project's own configuration. A person chose it in the view.
+ */
+export type TSupervisedStartTrustChoice = 'trust' | 'restricted';
+
+/** What the person is asked about: the folder a new session would start in, and what trust loads. */
+export interface ISupervisedStartTrustQuestion {
+  readonly folder: string;
+  /** What trusting it would load, one line each. */
+  readonly loads: readonly string[];
+}
+
 export interface ISupervisedSessionViewProps {
   readonly loadRows: (signal: AbortSignal) => Promise<readonly ISupervisedViewRow[]>;
   /** Called once the user confirmed; the view then closes so the host can attach this terminal. */
   readonly onAttach?: (request: ISupervisedAttachRequest) => void;
   /** Receives the generation the row displayed, so a session restarted under the same id is refused. */
   readonly onStop?: (id: string, generation: string) => Promise<void>;
-  readonly onStart?: () => Promise<string>;
+  readonly onStart?: (choice?: TSupervisedStartTrustChoice) => Promise<string>;
+  /** The question to ask when the folder a new session starts in is not trusted yet; none otherwise. */
+  readonly startTrustQuestion?: () => Promise<ISupervisedStartTrustQuestion | undefined>;
   readonly onOpenPr?: (id: string, url: string, generation: string) => Promise<void>;
   readonly filteredByCwd?: boolean;
   readonly filteredByName?: boolean;
@@ -68,6 +83,17 @@ export interface ISupervisedSessionViewProps {
 }
 
 const GROUP_ORDER = ['needs-input', 'working', 'idle', 'unknown', 'unverified', 'dead'] as const;
+
+const TRUST_CHOICES = 'y Trust and start / r Start Restricted / n Cancel';
+const TRUST_SUMMARY =
+  "Trusting it loads the project's own settings, hooks, plugins, skills and MCP servers:";
+
+/** `lines` in at most `room` lines, the last one saying how many more there are. */
+function fitLines(lines: readonly string[], room: number): readonly string[] {
+  if (lines.length <= room) return lines;
+  const shown = Math.max(1, room - 1);
+  return [...lines.slice(0, shown), `… ${lines.length - shown} more — see robota trust status`];
+}
 type TGroup = (typeof GROUP_ORDER)[number];
 type TDisplayLine =
   | { readonly kind: 'group'; readonly label: string }
@@ -200,6 +226,7 @@ export default function SupervisedSessionView({
   loadRows,
   onStop,
   onStart,
+  startTrustQuestion,
   onOpenPr,
   onAttach,
   filteredByCwd = false,
@@ -241,12 +268,32 @@ export default function SupervisedSessionView({
     'idle',
   );
   const [lastStartedId, setLastStartedId] = useState<string | undefined>();
+  const [trustQuestion, setTrustQuestion] = useState<ISupervisedStartTrustQuestion | undefined>();
   const startingRef = useRef(false);
   const [prOpenStatus, setPrOpenStatus] = useState<
     'idle' | 'opening' | 'opened' | 'failed' | 'unavailable'
   >('idle');
   const openingPrRef = useRef(false);
   const mountedRef = useRef(true);
+  const runStart = (choice?: TSupervisedStartTrustChoice): void => {
+    if (onStart === undefined) return;
+    startingRef.current = true;
+    setStartStatus('starting');
+    void Promise.resolve()
+      .then(() => onStart(choice))
+      .then((id) => {
+        if (!mountedRef.current) return;
+        setLastStartedId(id);
+        setStartStatus('started');
+      })
+      .catch(() => {
+        // A launch error can carry private paths, so the view shows none of it.
+        if (mountedRef.current) setStartStatus('failed');
+      })
+      .finally(() => {
+        startingRef.current = false;
+      });
+  };
   const ordered = useMemo(() => {
     const filtered = rows.filter(
       (row) => stateFilter === undefined || groupOf(row) === stateFilter,
@@ -362,6 +409,15 @@ export default function SupervisedSessionView({
       !(key.ctrl && input === 'c')
     )
       return;
+    if (trustQuestion !== undefined) {
+      if (input === 'y' || input === 'r') {
+        setTrustQuestion(undefined);
+        runStart(input === 'y' ? 'trust' : 'restricted');
+      } else if (input === 'n' || key.escape) {
+        setTrustQuestion(undefined);
+      }
+      return;
+    }
     if (confirmStopId !== undefined) {
       if (input === 'n' || key.escape) {
         setConfirmStop(undefined);
@@ -431,20 +487,22 @@ export default function SupervisedSessionView({
       return;
     }
     if (input === 'n' && onStart !== undefined) {
+      if (startTrustQuestion === undefined) {
+        runStart();
+        return;
+      }
+      // A folder not trusted yet is asked about first: the person chooses trust or Restricted.
       startingRef.current = true;
-      setStartStatus('starting');
-      void Promise.resolve()
-        .then(onStart)
-        .then((id) => {
+      void startTrustQuestion()
+        .then((question) => {
+          startingRef.current = false;
           if (!mountedRef.current) return;
-          setLastStartedId(id);
-          setStartStatus('started');
+          if (question !== undefined) setTrustQuestion(question);
+          else runStart();
         })
         .catch(() => {
-          if (mountedRef.current) setStartStatus('failed');
-        })
-        .finally(() => {
           startingRef.current = false;
+          if (mountedRef.current) setStartStatus('failed');
         });
       return;
     }
@@ -507,7 +565,11 @@ export default function SupervisedSessionView({
   });
 
   const numbered = useNumberedSelection({
-    enabled: screenReader && confirmStopId === undefined && stopStatus !== 'stopping',
+    enabled:
+      screenReader &&
+      confirmStopId === undefined &&
+      trustQuestion === undefined &&
+      stopStatus !== 'stopping',
     itemCount: ordered.length,
     cancellable: true,
     repeatable: true,
@@ -565,6 +627,7 @@ export default function SupervisedSessionView({
     (selectedLoopStatus ? 1 : 0) +
     (prOpenStatus === 'idle' ? 0 : 1) +
     (startStatus === 'idle' ? 0 : 1) +
+    (trustQuestion === undefined ? 0 : 1) +
     (confirmStopId !== undefined ? (screenReader ? 1 : 2) : stopStatus !== 'idle' ? 1 : 0) +
     (confirmStopId === undefined && attachStatus !== 'idle' ? 1 : 0) +
     1 +
@@ -580,12 +643,23 @@ export default function SupervisedSessionView({
     Math.max(0, displayLines.length - viewport),
   );
   const visible = screenReader ? displayLines : displayLines.slice(start, start + viewport);
+  // While the trust question is open it takes the rows' place, fitted to the rows' height, so the
+  // folder it names and the choices always show whole.
+  const questionLines =
+    trustQuestion === undefined
+      ? []
+      : fitLines(
+          [`Not trusted: ${trustQuestion.folder}`, TRUST_SUMMARY, ...trustQuestion.loads],
+          screenReader ? Number.POSITIVE_INFINITY : viewport,
+        );
   const chromeWrap = screenReader ? {} : { wrap: 'truncate-end' as const };
   // Attach and peek are offered only for a row this terminal could actually attach to.
   const attachable = onAttach !== undefined && status === 'ready' && isControllable(selectedRow);
   const footer =
     stopStatus === 'stopping'
       ? 'Stop in progress; wait for result.'
+      : trustQuestion !== undefined
+        ? 'Answer the trust question or cancel before closing.'
       : confirmStopId !== undefined
         ? `Confirm ${confirmStop?.action === 'attach' ? 'attach' : 'stop'} or cancel before closing.`
         : screenReader
@@ -617,8 +691,15 @@ export default function SupervisedSessionView({
       {status === 'ready' && ordered.length === 0 && (
         <Text {...chromeWrap}>No supervised sessions.</Text>
       )}
-      {start > 0 && !screenReader && <Text>{start} more above</Text>}
-      {visible.map((line) =>
+      {questionLines.map((line, index) => (
+        <Text key={`trust-${index}`} {...chromeWrap}>
+          {line}
+        </Text>
+      ))}
+      {trustQuestion === undefined && start > 0 && !screenReader && (
+        <Text>{start} more above</Text>
+      )}
+      {(trustQuestion === undefined ? visible : []).map((line) =>
         line.kind === 'group' ? (
           <Text key={`group-${line.label}`} {...chromeWrap}>
             {line.label}
@@ -652,9 +733,11 @@ export default function SupervisedSessionView({
           </Text>
         ),
       )}
-      {!screenReader && start + visible.length < displayLines.length && (
-        <Text>{displayLines.length - start - visible.length} more below</Text>
-      )}
+      {trustQuestion === undefined &&
+        !screenReader &&
+        start + visible.length < displayLines.length && (
+          <Text>{displayLines.length - start - visible.length} more below</Text>
+        )}
       {selectedId !== undefined && <Text {...chromeWrap}>Selected {selectedId}</Text>}
       {selectedName !== undefined && <Text {...chromeWrap}>Name: {selectedName}</Text>}
       {selectedPr !== undefined && (
@@ -685,6 +768,7 @@ export default function SupervisedSessionView({
           Start failed; check workspace trust or run session start --background for details.
         </Text>
       )}
+      {trustQuestion !== undefined && <Text {...chromeWrap}>{TRUST_CHOICES}</Text>}
       {confirmStopId !== undefined &&
         (screenReader ? (
           <Text>{confirmQuestion(confirmStopId)} y Yes / n No</Text>
@@ -751,6 +835,7 @@ export async function renderSupervisedSessionView(
         loadRows={options.loadRows}
         onStop={options.onStop}
         onStart={options.onStart}
+        startTrustQuestion={options.startTrustQuestion}
         onOpenPr={options.onOpenPr}
         onAttach={(request) => {
           attach = request;

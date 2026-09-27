@@ -19,7 +19,12 @@ import {
 } from './session-attach-command.js';
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';
-import type { renderSupervisedSessionView, TSupervisedViewExit } from '@robota-sdk/agent-ui-terminal';
+import type {
+  ISupervisedStartTrustQuestion,
+  renderSupervisedSessionView,
+  TSupervisedStartTrustChoice,
+  TSupervisedViewExit,
+} from '@robota-sdk/agent-ui-terminal';
 
 const VIEW_STATES = ['needs-input', 'working', 'idle', 'unknown', 'unverified', 'dead'] as const;
 type TViewState = (typeof VIEW_STATES)[number];
@@ -46,7 +51,10 @@ export interface ISessionViewCommandOptions {
   /** Renders the terminal UI on an attached session; without it the view lists, but refuses to attach. */
   readonly renderAttached?: TAttachedAppRender;
   readonly stop?: typeof stopSupervisedSession;
-  readonly start?: (cwd: string) => Promise<string>;
+  /** Starts a background session; `choice` is the person's answer for a folder not trusted yet. */
+  readonly start?: (cwd: string, choice?: TSupervisedStartTrustChoice) => Promise<string>;
+  /** The question to ask first when `cwd` is not trusted yet; none when it needs no answer. */
+  readonly startTrustQuestion?: (cwd: string) => Promise<ISupervisedStartTrustQuestion | undefined>;
   readonly launchCwd?: string;
   readonly openUrl?: (url: string) => Promise<unknown>;
 }
@@ -130,6 +138,8 @@ export async function runSessionViewCommand(
   try {
     const root = options.root ?? resolveSupervisedDirectory();
     const start = options.start;
+    const startTrustQuestion = options.startTrustQuestion;
+    const startCwd = cwd ?? options.launchCwd ?? process.cwd();
     const render = options.render;
     // After the first render this process has printed its screen-reader line, and a view that
     // comes back from an attach reopens on the row and grouping it was left with.
@@ -155,9 +165,10 @@ export async function runSessionViewCommand(
           throw new Error('Supervised session PR link changed or is stale.');
         await (options.openUrl ?? open)(url);
       },
-      ...(start === undefined
+      ...(start === undefined ? {} : { onStart: (choice) => start(startCwd, choice) }),
+      ...(startTrustQuestion === undefined
         ? {}
-        : { onStart: () => start(cwd ?? options.launchCwd ?? process.cwd()) }),
+        : { startTrustQuestion: () => startTrustQuestion(startCwd) }),
       filteredByCwd: cwd !== undefined,
       filteredByName: nameFilter !== undefined,
       filteredByPr: prFilter !== undefined,

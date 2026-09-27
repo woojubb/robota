@@ -68,7 +68,30 @@ async function confirmOnTerminal(question: string): Promise<boolean> {
   }
 }
 
-function grantWithTrustStore(cwd: string): Promise<TWorkspaceProjectAccess> {
+/** Whether a person can be asked about this workspace: it is not trusted, and a grant could change that. */
+export function canAskToTrust(
+  access: TWorkspaceProjectAccess,
+): access is Extract<TWorkspaceProjectAccess, { readonly status: 'restricted' }> {
+  return access.status === 'restricted' && ASKABLE_STATES.has(access.trustState);
+}
+
+/** What a person is asked about a workspace not trusted yet: its folder and what trust would load. */
+export function trustQuestionFor(
+  access: TWorkspaceProjectAccess,
+  cwd: string,
+): { readonly folder: string; readonly loads: readonly string[] } | undefined {
+  if (!canAskToTrust(access)) return undefined;
+  return {
+    folder: access.displayPath ?? cwd,
+    // The source rows only: the header and the closing note describe the listing, not the folder.
+    loads: formatProjectContributionPreview(access.identity, cwd)
+      .split('\n')
+      .filter((line) => line.startsWith('  [')),
+  };
+}
+
+/** Record the grant a person just gave, in the user's trust store. */
+export function grantWorkspaceTrust(cwd: string): Promise<TWorkspaceProjectAccess> {
   return createNodeWorkspaceTrustService(
     userPaths().workspaceTrust,
     ROBOTA_PROJECT_STATE_DIRECTORIES,
@@ -82,7 +105,7 @@ export async function askToTrustWorkspace(
   options: IInteractiveTrustPromptOptions,
 ): Promise<TWorkspaceProjectAccess> {
   if (!options.interactive || options.accessFixed) return access;
-  if (access.status !== 'restricted' || !ASKABLE_STATES.has(access.trustState)) return access;
+  if (!canAskToTrust(access)) return access;
   const write = options.write ?? ((text: string) => void process.stdout.write(text));
   write(
     [
@@ -98,7 +121,7 @@ export async function askToTrustWorkspace(
     return access;
   }
   try {
-    return await (options.grant ?? grantWithTrustStore)(cwd);
+    return await (options.grant ?? grantWorkspaceTrust)(cwd);
   } catch (error) {
     // The person said yes and it did not take: say so and start as a no would, not crash the start.
     write(

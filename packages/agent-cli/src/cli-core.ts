@@ -298,9 +298,11 @@ async function runCliCore(
 
   if (
     (args.printMode || args.goal !== undefined || args.serve || mcpServe) &&
-    // Safe mode asks for a Restricted start; the refusal exists so an untrusted project is never
-    // silently run without its sources, which is exactly what safe mode requests.
+    // Safe mode, and a Restricted start a person chose (a background session started Restricted from
+    // the session view), ask for one; the refusal exists so an untrusted project is never silently
+    // run without its sources, which is exactly what they request.
     !safeMode &&
+    !process.argv.includes(RESTRICTED_WORKSPACE_FLAG) &&
     requiresHeadlessWorkspaceTrust(projectAccess)
   ) {
     process.stderr.write(`${formatHeadlessWorkspaceTrustError(projectAccess, cwd)}\n`);
