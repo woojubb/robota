@@ -431,7 +431,8 @@ try {
   await scenario('the row menu deletes a session after a confirmation', async () => {
     await sidebar.getByRole('button', { name: 'More for Scripted e2e session' }).click();
     await page.getByRole('menuitem', { name: 'Delete…' }).click();
-    const dialog = page.getByRole('alertdialog');
+    // The shared Dialog primitive (#3282 §4a) names the panel via aria-labelledby, not visible text.
+    const dialog = page.getByRole('dialog', { name: /Delete/ });
     await dialog.getByText('This removes its conversation from this computer.').waitFor();
     await dialog.getByRole('button', { name: 'Delete' }).click();
     await row(/Scripted e2e session/).waitFor({ state: 'detached' });
