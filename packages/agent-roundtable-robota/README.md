@@ -11,13 +11,15 @@ exported from the `/session` subpath instead — see below.
 ## Installation
 
 ```bash
-npm install @robota-sdk/agent-roundtable-robota @robota-sdk/agent-core @robota-sdk/agent-session
+npm install @robota-sdk/agent-roundtable-robota @robota-sdk/agent-core
+# only if you use sessionParticipant from the /session subpath:
+npm install @robota-sdk/agent-session
 ```
 
 `@robota-sdk/agent-roundtable` comes along automatically as a regular dependency.
-`@robota-sdk/agent-core` and `@robota-sdk/agent-session` are peer dependencies — this package runs the
-`Robota`/`Session` instances the host constructs with them, so the host's copies and this package's
-must be the same install. See "Version and compatibility" below for what version range that peer
+`@robota-sdk/agent-core` is a peer dependency, and `@robota-sdk/agent-session` an optional one needed
+only by the `/session` subpath. This package runs the `Robota`/`Session` instances the host
+constructs with them, so the host's copies and this package's must be the same install. See "Version and compatibility" below for what version range that peer
 dependency actually pins to.
 
 ## Supported environments
