@@ -92,11 +92,16 @@ export function checkPathWithinCwd(filePath: string, cwd: string | undefined): s
   return undefined;
 }
 
-/** The opened file is not inside the containment root, or the path changed while it was opened. */
+/** The opened file is not confirmed inside the containment root; the message words why. */
 export class ContainmentEscapeError extends Error {}
 
 /** macOS `O_NOFOLLOW_ANY`: the open fails with `ELOOP` if ANY component of the path is a symlink. */
 const DARWIN_O_NOFOLLOW_ANY = 0x20000000;
+
+/** Whether canonical `candidate` is canonical `root` or beneath it, compared as text only. */
+function isCanonicalInside(root: string, candidate: string): boolean {
+  return candidate === root || candidate.startsWith(root + sep);
+}
 
 /**
  * Open a host file so that containment is decided on the file actually opened, not on a path checked
@@ -105,10 +110,13 @@ const DARWIN_O_NOFOLLOW_ANY = 0x20000000;
  *
  * - macOS opens the canonical path with `O_NOFOLLOW_ANY`: a canonical path contains no links, so a
  *   link appearing anywhere along it after canonicalisation makes the open fail instead of follow.
- * - Linux reads the kernel's path for the opened descriptor (`/proc/self/fd/N`) and compares it
- *   lexically with the canonical root; re-canonicalising it would consult the filesystem again.
- *   Without procfs the answer cannot be confirmed, so the open is refused.
+ * - Linux reads the kernel's path for the opened descriptor (`/proc/self/fd/N`); re-canonicalising it
+ *   would consult the filesystem again. Without procfs the answer cannot be confirmed, so the open is
+ *   refused.
  * - Elsewhere the containment check before the open is the only check.
+ *
+ * Both sides of the comparison come from the native `realpath`, which spells a path as it is on disk;
+ * a root typed in another letter case or Unicode normalization still names the same directory.
  *
  * Throws {@link ContainmentEscapeError} on an escape; any other open error propagates as thrown.
  */
@@ -117,31 +125,38 @@ export async function openWithinCwd(
   cwd: string | undefined,
   flags: number,
 ): Promise<FileHandle> {
-  if (cwd === undefined) throw new ContainmentEscapeError();
-  // The mode is a no-op without O_CREAT; it is passed so the open states an owner-only mode, which is
-  // what static analysis looks for on an open.
+  const outside = (): ContainmentEscapeError =>
+    new ContainmentEscapeError(`Access denied: "${filePath}" is outside the working directory`);
+  if (cwd === undefined) throw outside();
+  const root = await realpath(cwd);
   if (process.platform === 'darwin') {
     const canonical = await realpath(filePath);
-    if (!isWithinCwd(canonical, cwd)) throw new ContainmentEscapeError();
+    if (!isCanonicalInside(root, canonical)) throw outside();
     try {
+      // The mode is a no-op without O_CREAT; it is passed so the open states an owner-only mode,
+      // which is what static analysis looks for on an open.
       return await open(canonical, flags | DARWIN_O_NOFOLLOW_ANY, 0o600);
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ELOOP') throw new ContainmentEscapeError();
+      if ((err as NodeJS.ErrnoException).code === 'ELOOP') throw outside();
       throw err;
     }
   }
   const handle = await open(filePath, flags, 0o600);
   if (process.platform !== 'linux') return handle;
+  let opened: string;
   try {
-    const opened = await readlink(`/proc/self/fd/${handle.fd}`);
-    const root = await realpath(cwd);
-    if (opened === root || opened.startsWith(root + sep)) return handle;
+    opened = await readlink(`/proc/self/fd/${handle.fd}`);
   } catch {
-    // allow-fallback: no procfs means containment of the opened file cannot be confirmed — refused
-    // below as an escape, never read unconfirmed.
+    // allow-fallback: no procfs means containment of the opened file cannot be confirmed — refused,
+    // never read unconfirmed.
+    await handle.close();
+    throw new ContainmentEscapeError(
+      `Access denied: "${filePath}" cannot be confirmed inside the working directory without /proc`,
+    );
   }
+  if (isCanonicalInside(root, opened)) return handle;
   await handle.close();
-  throw new ContainmentEscapeError();
+  throw outside();
 }
 
 /**

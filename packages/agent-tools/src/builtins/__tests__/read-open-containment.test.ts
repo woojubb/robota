@@ -1,4 +1,5 @@
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   realpathSync,
@@ -112,5 +113,17 @@ describe('Read decides containment on the file it opened', () => {
     const viaRootAlias = await read(rootAlias, join(rootAlias, 'alias.txt'));
     expect(viaRootAlias).toMatchObject({ success: true });
     expect(viaRootAlias.output).toContain('linked content');
+  });
+
+  it('reads under a root spelled in another letter case, where the filesystem ignores case', async (ctx) => {
+    const cased = join(base, 'CaseRoot');
+    mkdirSync(cased);
+    const typed = join(base, 'caseroot');
+    if (!existsSync(typed)) ctx.skip();
+    writeFileSync(join(cased, 'notes.txt'), 'cased content');
+
+    const result = await read(typed, join(typed, 'notes.txt'));
+    expect(result).toMatchObject({ success: true });
+    expect(result.output).toContain('cased content');
   });
 });

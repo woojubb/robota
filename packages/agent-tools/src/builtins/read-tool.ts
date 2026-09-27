@@ -182,9 +182,7 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Prom
   try {
     handle = await openWithinCwd(filePath, options.cwd, constants.O_RDONLY | constants.O_NONBLOCK);
   } catch (err) {
-    if (err instanceof ContainmentEscapeError) {
-      return failure(`Access denied: "${filePath}" is outside the working directory`);
-    }
+    if (err instanceof ContainmentEscapeError) return failure(err.message);
     // allow-fallback: open failure → IToolInvocationResult error. The path is looked at again only
     // to word the refusal; nothing is read through it.
     const found = await stat(filePath).catch(() => undefined);
