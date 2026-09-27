@@ -423,6 +423,31 @@ describe('supervised session view', () => {
     }
   });
 
+  it('fits a long trust question in a 24-row terminal, the folder and the choices whole', async () => {
+    const loads = Array.from({ length: 32 }, (_, index) => `  [absent] source-${index} — a source`);
+    const view = render(
+      <SupervisedSessionView
+        loadRows={async () => [FIRST]}
+        onStart={async () => SECOND.id}
+        startTrustQuestion={async () => ({ folder: '/work/repo', loads })}
+      />,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('n');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('r Start Restricted'));
+      const frame = view.lastFrame() ?? '';
+      const lines = frame.split('\n');
+      expect(lines.length).toBeLessThanOrEqual(24);
+      expect(lines).toContain('Not trusted: /work/repo');
+      expect(lines).toContain('y Trust and start / r Start Restricted / n Cancel');
+      expect(frame).toMatch(/… \d+ more — see robota trust status/);
+      expect(frame).toContain('source-0 — a source');
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('cancels the trust question on Escape in screen-reader mode, and keeps the view open', async () => {
     const start = vi.fn(async () => SECOND.id);
     const view = render(

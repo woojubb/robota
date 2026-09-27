@@ -83,9 +83,10 @@ export function trustQuestionFor(
   if (!canAskToTrust(access)) return undefined;
   return {
     folder: access.displayPath ?? cwd,
+    // The source rows only: the header and the closing note describe the listing, not the folder.
     loads: formatProjectContributionPreview(access.identity, cwd)
       .split('\n')
-      .filter((line) => line.trim() !== ''),
+      .filter((line) => line.startsWith('  [')),
   };
 }
 

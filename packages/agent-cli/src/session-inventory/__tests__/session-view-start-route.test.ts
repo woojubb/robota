@@ -88,7 +88,7 @@ describe('session view background start route', () => {
       // The question names the folder and what trust would load.
       await expect(options?.startTrustQuestion?.(cwd)).resolves.toMatchObject({
         folder: expect.any(String),
-        loads: expect.arrayContaining([expect.stringContaining('Project sources')]),
+        loads: expect.arrayContaining([expect.stringContaining('.robota/settings.json')]),
       });
       // Without an answer an untrusted folder is still refused.
       await expect(options?.start?.(cwd)).rejects.toThrow(/Workspace trust is required/);

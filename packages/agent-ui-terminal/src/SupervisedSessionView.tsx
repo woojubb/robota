@@ -85,6 +85,15 @@ export interface ISupervisedSessionViewProps {
 const GROUP_ORDER = ['needs-input', 'working', 'idle', 'unknown', 'unverified', 'dead'] as const;
 
 const TRUST_CHOICES = 'y Trust and start / r Start Restricted / n Cancel';
+const TRUST_SUMMARY =
+  "Trusting it loads the project's own settings, hooks, plugins, skills and MCP servers:";
+
+/** `lines` in at most `room` lines, the last one saying how many more there are. */
+function fitLines(lines: readonly string[], room: number): readonly string[] {
+  if (lines.length <= room) return lines;
+  const shown = Math.max(1, room - 1);
+  return [...lines.slice(0, shown), `… ${lines.length - shown} more — see robota trust status`];
+}
 type TGroup = (typeof GROUP_ORDER)[number];
 type TDisplayLine =
   | { readonly kind: 'group'; readonly label: string }
@@ -618,7 +627,7 @@ export default function SupervisedSessionView({
     (selectedLoopStatus ? 1 : 0) +
     (prOpenStatus === 'idle' ? 0 : 1) +
     (startStatus === 'idle' ? 0 : 1) +
-    (trustQuestion === undefined ? 0 : trustQuestion.loads.length + 2) +
+    (trustQuestion === undefined ? 0 : 1) +
     (confirmStopId !== undefined ? (screenReader ? 1 : 2) : stopStatus !== 'idle' ? 1 : 0) +
     (confirmStopId === undefined && attachStatus !== 'idle' ? 1 : 0) +
     1 +
@@ -634,6 +643,15 @@ export default function SupervisedSessionView({
     Math.max(0, displayLines.length - viewport),
   );
   const visible = screenReader ? displayLines : displayLines.slice(start, start + viewport);
+  // While the trust question is open it takes the rows' place, fitted to the rows' height, so the
+  // folder it names and the choices always show whole.
+  const questionLines =
+    trustQuestion === undefined
+      ? []
+      : fitLines(
+          [`Not trusted: ${trustQuestion.folder}`, TRUST_SUMMARY, ...trustQuestion.loads],
+          screenReader ? Number.POSITIVE_INFINITY : viewport,
+        );
   const chromeWrap = screenReader ? {} : { wrap: 'truncate-end' as const };
   // Attach and peek are offered only for a row this terminal could actually attach to.
   const attachable = onAttach !== undefined && status === 'ready' && isControllable(selectedRow);
@@ -673,8 +691,15 @@ export default function SupervisedSessionView({
       {status === 'ready' && ordered.length === 0 && (
         <Text {...chromeWrap}>No supervised sessions.</Text>
       )}
-      {start > 0 && !screenReader && <Text>{start} more above</Text>}
-      {visible.map((line) =>
+      {questionLines.map((line, index) => (
+        <Text key={`trust-${index}`} {...chromeWrap}>
+          {line}
+        </Text>
+      ))}
+      {trustQuestion === undefined && start > 0 && !screenReader && (
+        <Text>{start} more above</Text>
+      )}
+      {(trustQuestion === undefined ? visible : []).map((line) =>
         line.kind === 'group' ? (
           <Text key={`group-${line.label}`} {...chromeWrap}>
             {line.label}
@@ -708,9 +733,11 @@ export default function SupervisedSessionView({
           </Text>
         ),
       )}
-      {!screenReader && start + visible.length < displayLines.length && (
-        <Text>{displayLines.length - start - visible.length} more below</Text>
-      )}
+      {trustQuestion === undefined &&
+        !screenReader &&
+        start + visible.length < displayLines.length && (
+          <Text>{displayLines.length - start - visible.length} more below</Text>
+        )}
       {selectedId !== undefined && <Text {...chromeWrap}>Selected {selectedId}</Text>}
       {selectedName !== undefined && <Text {...chromeWrap}>Name: {selectedName}</Text>}
       {selectedPr !== undefined && (
@@ -741,17 +768,7 @@ export default function SupervisedSessionView({
           Start failed; check workspace trust or run session start --background for details.
         </Text>
       )}
-      {trustQuestion !== undefined && (
-        <>
-          <Text {...chromeWrap}>Not trusted: {trustQuestion.folder}</Text>
-          {trustQuestion.loads.map((line) => (
-            <Text key={line} {...chromeWrap}>
-              {line}
-            </Text>
-          ))}
-          <Text {...chromeWrap}>{TRUST_CHOICES}</Text>
-        </>
-      )}
+      {trustQuestion !== undefined && <Text {...chromeWrap}>{TRUST_CHOICES}</Text>}
       {confirmStopId !== undefined &&
         (screenReader ? (
           <Text>{confirmQuestion(confirmStopId)} y Yes / n No</Text>
