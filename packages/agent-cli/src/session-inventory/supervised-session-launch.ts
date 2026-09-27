@@ -2,6 +2,8 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
 
+import { scrubSecrets } from '@robota-sdk/agent-core';
+
 import { resolveSelfForkWorkerEntry } from '../subagents/self-fork-worker-entry.js';
 import { RESTRICTED_WORKSPACE_FLAG } from '../startup/workspace-project-composition.js';
 import {
@@ -121,10 +123,8 @@ function lastLines(text: string, maxLines: number): string {
 function sanitizeStderrTail(raw: string, env: NodeJS.ProcessEnv): string {
   const withoutAnsi = stripAnsiAndControlChars(raw);
   const withoutEnvSecrets = redactEnvCredentialValues(withoutAnsi, env);
-  // TODO(#3313): apply agent-core's `scrubSecrets` here once it is exported from its public index —
-  // pattern-based redaction (API keys, Bearer tokens) a child could echo that this process's own env
-  // never held verbatim.
-  return lastLines(withoutEnvSecrets.trim(), STDERR_TAIL_MAX_LINES).trim();
+  const withoutKnownPatterns = scrubSecrets(withoutEnvSecrets);
+  return lastLines(withoutKnownPatterns.trim(), STDERR_TAIL_MAX_LINES).trim();
 }
 
 /**
