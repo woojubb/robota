@@ -155,6 +155,47 @@ describe('scrubSecrets', () => {
     const benign = 'This risky, ask-first, desk-based task-runner workflow needs a review.';
     expect(scrubSecrets(benign)).toBe(benign);
   });
+
+  // Built at runtime, not spelled out contiguously here: gitleaks' gcp-api-key rule matches the
+  // AIza… shape by pattern alone, with no allowance for "fake"/"example" context, so a literal test
+  // fixture of this shape is indistinguishable from a real leaked key to that scanner.
+  const FAKE_GOOGLE_KEY = ['AI', 'za', 'SyD', 'x'.repeat(32)].join('');
+
+  // A gateway that echoes the request back as JSON quotes both the header name and its value — the
+  // closing quote right after the key name (`"x-goog-api-key":`) broke the plain `\s*[:=]` match, so
+  // a non-`sk-` key (a Google `AIza...` key, or any quoted `Authorization` value) survived untouched.
+  it('redacts a quoted x-goog-api-key value in a JSON-echoed request', () => {
+    expect(scrubSecrets(`"x-goog-api-key": "${FAKE_GOOGLE_KEY}"`)).toBe(
+      '"x-goog-api-key": "[REDACTED]"',
+    );
+  });
+
+  it('redacts a quoted api_key value with no spaces around the colon', () => {
+    expect(scrubSecrets('"api_key":"abc123secret"')).toBe('"api_key": "[REDACTED]"');
+  });
+
+  it('redacts a quoted Authorization value using a non-Bearer scheme', () => {
+    expect(scrubSecrets('"Authorization": "Basic dXNlcjpwYXNz"')).toBe(
+      '"Authorization": "[REDACTED]"',
+    );
+  });
+
+  it('redacts only the JSON-quoted secret in a mixed message, leaving the rest untouched', () => {
+    const message =
+      'Gateway error: {"error":{"code":401,"message":"Invalid credentials",' +
+      `"x-goog-api-key":"${FAKE_GOOGLE_KEY}"}} — please rotate your key ` +
+      'and retry the request.';
+    expect(scrubSecrets(message)).toBe(
+      'Gateway error: {"error":{"code":401,"message":"Invalid credentials",' +
+        '"x-goog-api-key": "[REDACTED]"}} — please rotate your key and retry the request.',
+    );
+  });
+
+  it('redacts a bare Google API key token with no api_key/key= label around it', () => {
+    expect(scrubSecrets(`token leaked: ${FAKE_GOOGLE_KEY} in the log`)).toBe(
+      'token leaked: [REDACTED] in the log',
+    );
+  });
 });
 
 describe('toProviderError', () => {

@@ -77,40 +77,56 @@ function messageNamesUnavailableModel(message: string): boolean {
 }
 
 /**
- * Value characters a credential token is made of — stops at whitespace and at the punctuation that
- * ends a sentence or closes a parenthetical around it, so only the token itself is replaced and
- * whatever comes after it (a closing paren, a comma, the rest of the sentence) survives untouched.
+ * Value characters a credential token is made of — stops at whitespace, a closing quote, and at the
+ * punctuation that ends a sentence or closes a parenthetical around it, so only the token itself is
+ * replaced and whatever comes after it (a closing quote or paren, a comma, the rest of the sentence)
+ * survives untouched.
  */
-const SECRET_VALUE = '[^\\s,;)]+';
+const SECRET_VALUE = '[^\\s,;)"]+';
 
 /**
  * Strip anything that reads like a credential out of vendor text before it is kept on a typed error.
  * A vendor's error body is not supposed to echo request headers, but a misconfigured self-hosted
- * gateway can bounce the raw request back (an `Authorization` header, a `Bearer` token, or an
- * `api_key=` query parameter) — this runs once, ahead of every classification below, so nothing built
- * from `message` (the wire frame's `message`, a GUI "Details" disclosure) can leak one.
+ * gateway can bounce the raw request back (an `Authorization` header, a `Bearer` token, an `api_key=`
+ * query parameter, or the whole request re-serialized as JSON) — this runs once, ahead of every
+ * classification below, so nothing built from `message` (the wire frame's `message`, a GUI "Details"
+ * disclosure) can leak one.
  *
  * Each pattern gets its own fixed replacement, bounded to the credential token — never a shared
  * callback keyed on "does this match have a capture group", which for a pattern with none receives
  * the match's numeric offset instead of `undefined` and silently prints that number.
+ *
+ * The key-name and value quotes are each optional and captured (`(")?`) rather than matched and
+ * dropped: JSON re-serializes a header as `"Authorization": "Bearer sk-..."`, and the closing quote
+ * right after the key name breaks a match that only expects `\s*[:=]` next — capturing it lets the
+ * replacement echo it back (`Authorization$1: $2[REDACTED]`) so quoted and unquoted text both read
+ * naturally, and `SECRET_VALUE` excluding `"` leaves a closing value quote alone to survive untouched.
  */
 export function scrubSecrets(text: string): string {
   return text
     .replace(
-      new RegExp(`\\bauthorization\\s*:\\s*(?:bearer\\s+)?${SECRET_VALUE}`, 'gi'),
-      'Authorization: [REDACTED]',
+      new RegExp(
+        `\\bauthorization(")?\\s*[:=]\\s*(")?(?:(?:bearer|basic)\\s+)?${SECRET_VALUE}`,
+        'gi',
+      ),
+      'Authorization$1: $2[REDACTED]',
     )
     // A bare `Bearer <token>` with no `Authorization:` prefix — the pattern above already consumed
     // that combined form, so this only fires standalone.
     .replace(new RegExp(`\\bbearer\\s+${SECRET_VALUE}`, 'gi'), 'Bearer [REDACTED]')
     // api_key / api-key / apikey / x-api-key / x-goog-api-key: the `\b` boundary lets an `x-` or
     // `x-goog-` prefix stay as literal, untouched text ahead of the match, so it survives in the
-    // output exactly as written (`x-goog-` + `api-key: [REDACTED]` reads as `x-goog-api-key: [REDACTED]`).
-    .replace(new RegExp(`\\b(api[-_]?key)\\s*[:=]\\s*${SECRET_VALUE}`, 'gi'), '$1: [REDACTED]')
+    // output exactly as written (`x-goog-` + `api-key": "[REDACTED]` reads as `x-goog-api-key": "[REDACTED]`).
+    .replace(
+      new RegExp(`\\b(api[-_]?key)(")?\\s*[:=]\\s*(")?${SECRET_VALUE}`, 'gi'),
+      '$1$2: $3[REDACTED]',
+    )
     // A `key=` query parameter (e.g. a Google-style `?key=AIza...`) not already covered above.
     .replace(new RegExp(`\\bkey=${SECRET_VALUE}`, 'gi'), 'key=[REDACTED]')
     // A bare secret key token, Anthropic's `sk-ant-...` included.
-    .replace(/\bsk-[A-Za-z0-9_-]{8,}/gi, '[REDACTED]');
+    .replace(/\bsk-[A-Za-z0-9_-]{8,}/gi, '[REDACTED]')
+    // A bare Google API key token, e.g. one echoed back with no "api_key"/"key=" label around it.
+    .replace(/\bAIza[0-9A-Za-z_-]{35}\b/g, '[REDACTED]');
 }
 
 /** Why a provider call failed, as far as switching models is concerned. */
