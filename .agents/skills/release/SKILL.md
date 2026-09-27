@@ -6,7 +6,7 @@ description: Bump versions, promote develop to main, and publish the @robota-sdk
 # Release
 
 When the owner asks for a release, the agent carries out every step below, merging each PR itself once CI is
-green on its head and `pr-review-reviewer` has approved.
+green on its head and every MUST/SHOULD from `pr-review-reviewer` is resolved.
 
 1. **Bump** on a branch from fresh `origin/develop`: make sure every changed package has a changeset, run
    `pnpm run version` (changesets; bare `pnpm version` is pnpm's own command), then `pnpm install` so the
@@ -17,9 +17,11 @@ green on its head and `pr-review-reviewer` has approved.
    from that tag.
 3. **Publish** by running the _Publish to npm_ workflow on `main` (`gh workflow run publish.yml --ref main`).
    It waits on the `npm-publish` environment, whose one required reviewer is the owner's account — the one the
-   agent's `gh` runs as — so the agent approves it:
+   agent's `gh` runs as — so the agent approves it. Approve only the run just dispatched: its `headSha` is
+   `origin/main` and its status is `waiting`.
 
    ```bash
+   gh run list --workflow publish.yml --branch main --limit 1 --json databaseId,headSha,status
    gh api -X POST repos/woojubb/robota/actions/runs/<run-id>/pending_deployments -f state=approved \
      -F "environment_ids[]=$(gh api repos/woojubb/robota/environments/npm-publish --jq .id)" -f comment='<release>'
    ```
