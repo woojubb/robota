@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 import { RobotaWordmark } from './Brand.js';
 
@@ -74,6 +75,88 @@ export function SessionTitleBar({
         </span>
       </div>
     </header>
+  );
+}
+
+/** The column every part of the conversation shares (matches `SessionSurface`'s `COLUMN`). */
+const BANNER_COLUMN = 'mx-auto w-full max-w-[760px] px-6';
+
+/**
+ * A connection that drops after a working session (issue #3280 §5): a banner directly above the
+ * conversation — never a full-screen replacement — so the conversation and its history stay visible
+ * and scrollable throughout. Shown as soon as the drop happens; says nothing on the very first
+ * connect, because nothing has been lost yet.
+ */
+export function ConnectionBanner({
+  status,
+  connectionLost,
+  onReconnect,
+}: {
+  status: string;
+  /** Retries ran out: the runtime is not coming back by itself (`useWsSession`'s `connectionLost`). */
+  connectionLost: boolean;
+  /** Present only when the host can restart the runtime (desktop); absent in the browser. */
+  onReconnect?: () => Promise<void>;
+}): React.ReactElement | null {
+  const everConnectedRef = useRef(false);
+  useEffect(() => {
+    if (status === 'connected') everConnectedRef.current = true;
+  }, [status]);
+  const [reconnecting, setReconnecting] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+
+  if (status === 'connected') return null;
+  if (!connectionLost && !everConnectedRef.current) return null;
+
+  if (!connectionLost) {
+    return (
+      <div role="status" className={`${BANNER_COLUMN} flex-shrink-0 pt-3`}>
+        <div className="flex items-center gap-2.5 rounded-xl bg-warning/15 px-4 py-2.5 text-[13.5px] text-foreground">
+          <span className="h-2 w-2 flex-shrink-0 animate-pulse rounded-full bg-warning" aria-hidden="true" />
+          Connection lost. Reconnecting…
+        </div>
+      </div>
+    );
+  }
+
+  const reconnect = (): void => {
+    if (!onReconnect) return;
+    setReconnecting(true);
+    setFailed(null);
+    onReconnect().catch((error: unknown) => {
+      setReconnecting(false);
+      setFailed(error instanceof Error ? error.message : String(error));
+    });
+  };
+
+  return (
+    <div role="alert" className={`${BANNER_COLUMN} flex-shrink-0 pt-3`}>
+      <div className="flex flex-col gap-2 rounded-xl bg-destructive/15 px-4 py-3 text-[13.5px] text-foreground">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="h-2 w-2 flex-shrink-0 rounded-full bg-destructive" aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            Robota stopped.
+            {!onReconnect && (
+              <>
+                {' '}
+                Run <code className="font-mono">robota --serve --open</code> again to reopen it.
+              </>
+            )}
+          </span>
+          {onReconnect ? (
+            <button
+              type="button"
+              onClick={reconnect}
+              disabled={reconnecting}
+              className="flex-shrink-0 rounded-lg bg-primary px-3 py-1.5 text-[13px] font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
+            >
+              {reconnecting ? 'Reconnecting…' : 'Reconnect'}
+            </button>
+          ) : null}
+        </div>
+        {failed ? <p className="text-destructive">{failed}</p> : null}
+      </div>
+    </div>
   );
 }
 

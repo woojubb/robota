@@ -27,9 +27,10 @@ that package's build output.
   asks the person before any daemon starts (trust it, start Restricted, or quit), because the daemon has
   no one to ask and would be refused; whether to ask is the CLI's answer, never the shell's guess. When
   the daemon cannot be started, the window still opens and shows the CLI's reason (which names the fix)
-  instead of hanging. When the daemon
-  stops while the window is open, the window says so rather than sitting disconnected, and offers to
-  reconnect: the shell asks the CLI again and re-points the page at whatever daemon it answers with.
+  instead of hanging. When the daemon stops while the window is open, the window keeps the conversation
+  visible and says so in a banner above it rather than sitting disconnected or hiding the conversation,
+  and offers to reconnect: the shell asks the CLI again, re-points the page at whatever daemon it
+  answers with, and returns to the session the person was in.
 
 ## Non-goals
 

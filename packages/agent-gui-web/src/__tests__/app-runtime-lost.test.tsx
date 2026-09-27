@@ -1,32 +1,55 @@
 // @vitest-environment jsdom
 /**
- * #3189 — the daemon can stop while the window is open (`robota daemon stop`, a crash). Once the page's
- * connection runs out of retries, a desktop host says the runtime stopped and offers to reconnect; a
- * browser host, which cannot restart it, keeps the session surface with its disconnected status.
+ * #3280 §5 — a lost connection must not take the person out of their session. The banner and its
+ * Reconnect button are `SessionSurface`'s own concern (tested in `agent-ui-web` and in
+ * `session-surface.test.tsx`); this file tests only what `App`/`SessionView` are responsible for: the
+ * conversation stays mounted through a connection loss (no full-screen replacement, no branch here),
+ * a desktop host's `onReconnect` remembers the current session before restarting the runtime, and a
+ * browser host (no `restartRuntime`) gets no `onReconnect` at all.
  */
 
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from '../App.js';
 
 import type { IGuiHost } from '../gui-host.js';
 
-const connection = vi.hoisted(() => ({ lose: (): void => {} }));
+const connection = vi.hoisted(() => ({ giveUp: (): void => {} }));
 
 vi.mock('@robota-sdk/agent-ui-web/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@robota-sdk/agent-ui-web/client')>();
   return {
     ...actual,
-    useWsSession: (_url: string, options: { onConnectionLost?: () => void } = {}) => {
-      connection.lose = () => options.onConnectionLost?.();
-      return { status: 'disconnected' };
+    // A stand-in reducer: it tracks its own `connectionLost` bit (as the real `useWsSession` does)
+    // so a test can drive it, and reports a fixed current session for `onReconnect` to remember.
+    useWsSession: (_url: string) => {
+      const [connectionLost, setConnectionLost] = React.useState(false);
+      connection.giveUp = () => setConnectionLost(true);
+      return {
+        status: connectionLost ? 'disconnected' : 'connected',
+        connectionLost,
+        sessionListing: { currentSessionId: 'sess-1', sessions: [{ id: 'sess-1' }] },
+      };
     },
-    SessionSurface: () => <div>session surface</div>,
+    // A stand-in surface: renders what App gave it, so a test can see + drive `onReconnect` without
+    // depending on the real banner's markup (that markup is `agent-ui-web`'s own test surface).
+    SessionSurface: ({ onReconnect }: { onReconnect?: () => Promise<void> }) => (
+      <div>
+        session surface
+        {onReconnect ? (
+          <button onClick={() => void onReconnect()}>Reconnect</button>
+        ) : null}
+      </div>
+    ),
   };
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  window.sessionStorage.clear();
+});
 
 function host(kind: IGuiHost['kind'], restartRuntime?: () => Promise<void>): IGuiHost {
   return {
@@ -38,42 +61,35 @@ function host(kind: IGuiHost['kind'], restartRuntime?: () => Promise<void>): IGu
   };
 }
 
-describe('a runtime lost while attached', () => {
-  it('desktop: shows that the runtime stopped, and Reconnect asks the host to restart it', async () => {
+describe('#3280 §5 — a connection lost while attached', () => {
+  it('the session surface stays mounted through a connection loss (no full-screen replacement)', async () => {
+    render(<App host={host('desktop', vi.fn())} />);
+    await screen.findByText('session surface');
+
+    act(() => connection.giveUp());
+
+    expect(screen.getByText('session surface')).toBeTruthy();
+  });
+
+  it('desktop: passes a Reconnect action that remembers the current session, then restarts the runtime', async () => {
     const restartRuntime = vi.fn(() => new Promise<void>(() => {}));
     render(<App host={host('desktop', restartRuntime)} />);
     await screen.findByText('session surface');
+    act(() => connection.giveUp());
 
-    act(() => connection.lose());
-
-    const alert = screen.getByRole('alert');
-    expect(alert.textContent).toContain('The agent process stopped');
+    expect(window.sessionStorage.getItem('robota.restoreSessionId')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Reconnect' }));
+
+    expect(window.sessionStorage.getItem('robota.restoreSessionId')).toBe('sess-1');
     expect(restartRuntime).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('button', { name: 'Reconnecting…' }).hasAttribute('disabled')).toBe(true);
   });
 
-  it('desktop: a restart the host could not ask for lets the owner try again', async () => {
-    const restartRuntime = vi.fn(async () => {
-      throw new Error('the shell did not answer');
-    });
-    render(<App host={host('desktop', restartRuntime)} />);
-    await screen.findByText('session surface');
-    act(() => connection.lose());
-
-    fireEvent.click(screen.getByRole('button', { name: 'Reconnect' }));
-
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('the shell did not answer'));
-    expect(screen.getByRole('button', { name: 'Reconnect' }).hasAttribute('disabled')).toBe(false);
-  });
-
-  it('browser: keeps the session surface, with no reconnect action', async () => {
+  it('browser: no restartRuntime means no Reconnect action at all', async () => {
     render(<App host={host('browser')} />);
     await screen.findByText('session surface');
 
-    act(() => connection.lose());
+    act(() => connection.giveUp());
 
-    expect(screen.getByText('session surface')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Reconnect' })).toBeNull();
   });
 });

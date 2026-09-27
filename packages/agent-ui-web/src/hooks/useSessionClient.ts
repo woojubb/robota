@@ -436,24 +436,20 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   };
 }
 
-/** Options for {@link useWsSession}. */
-export interface IWsSessionOptions {
-  /** The connection is gone for good: reconnecting ran out of retries. */
-  readonly onConnectionLost?: () => void;
-}
-
 /** Connect to a `robota` sidecar over WebSocket (loopback / localhost path). */
 export function useWsSession(
   url: string,
-  options: IWsSessionOptions = {},
-): IWsSessionState<TConnectionStatus> {
-  // Held in a ref so a new callback identity does not tear down and reopen the connection.
-  const onConnectionLostRef = useRef(options.onConnectionLost);
-  onConnectionLostRef.current = options.onConnectionLost;
+): IWsSessionState<TConnectionStatus> & { connectionLost: boolean } {
+  // Issue #3280 §5: retries gave up — the runtime is not coming back by itself. A presentation layer
+  // (e.g. `SessionSurface`) reads this to show a banner instead of a callback-driven screen swap.
+  const [connectionLost, setConnectionLost] = useState(false);
   const makeClient = useCallback<TMakeSessionClient<TConnectionStatus>>(
-    (cb) =>
-      createWsSessionClient(url, { ...cb, onGiveUp: () => onConnectionLostRef.current?.() }),
+    (cb) => createWsSessionClient(url, { ...cb, onGiveUp: () => setConnectionLost(true) }),
     [url],
   );
-  return useSessionClient(makeClient);
+  const state = useSessionClient(makeClient);
+  useEffect(() => {
+    if (state.status === 'connected') setConnectionLost(false);
+  }, [state.status]);
+  return { ...state, connectionLost };
 }

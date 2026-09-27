@@ -7,7 +7,7 @@ import { ConversationView } from './ConversationView.js';
 import { PermissionPrompt } from './PermissionPrompt.js';
 import { PersonalUsageDashboard } from './PersonalUsageDashboard.js';
 import { SessionSidebar, SessionSidebarRail, sessionTitle } from './SessionSidebar.js';
-import { SessionNotices, SessionTitleBar } from './SessionSurfaceChrome.js';
+import { ConnectionBanner, SessionNotices, SessionTitleBar } from './SessionSurfaceChrome.js';
 
 import type { IComposerHandle } from './Composer.js';
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
@@ -50,11 +50,17 @@ export function SessionSurface({
   state,
   surface,
   personalUsageEnabled = false,
+  onReconnect,
 }: {
   state: IWsSessionState;
   surface?: string;
   /** Desktop shells opt in; embedded/session-only surfaces keep their existing chat-only contract. */
   personalUsageEnabled?: boolean;
+  /**
+   * Present only when the host can restart the runtime after the connection is lost for good (issue
+   * #3280 §5, the desktop app); absent in the browser, where the banner says how to reopen it instead.
+   */
+  onReconnect?: () => Promise<void>;
 }): React.ReactElement {
   const [view, setView] = useState<'chat' | 'usage'>('chat');
   const composerRef = useRef<IComposerHandle>(null);
@@ -127,6 +133,11 @@ export function SessionSurface({
         ) : (
           <div className="flex min-h-0 flex-1">
             <div className="flex min-w-0 flex-1 flex-col">
+              <ConnectionBanner
+                status={state.status}
+                connectionLost={state.connectionLost ?? false}
+                onReconnect={onReconnect}
+              />
               <div className="min-h-0 flex-1 overflow-hidden">
                 {isEmpty ? (
                   <EmptyState />
@@ -157,6 +168,7 @@ export function SessionSurface({
                   ref={composerRef}
                   catalog={state.commandCatalog ?? null}
                   status={state.sessionStatus ?? null}
+                  connected={state.status === 'connected'}
                   onCommand={(name) => state.send({ type: 'command', name })}
                   onSubmit={(prompt) => {
                     if (!prompt.startsWith('/')) {

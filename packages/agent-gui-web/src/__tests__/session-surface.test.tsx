@@ -22,6 +22,7 @@ afterEach(() => {
 function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
   return {
     status: 'connected',
+    connectionLost: false,
     messages: [{ id: 'm1', role: 'user', content: 'hello' }],
     activeTools: [],
     streamingText: '',
@@ -601,5 +602,54 @@ describe('#3189 — the session sidebar', () => {
     );
     const sidebar = screen.getByRole('complementary', { name: 'Sessions' });
     expect(sidebar.textContent).toContain('Could not read the store.');
+  });
+});
+
+describe('#3280 §5 — a lost connection keeps the conversation and the draft', () => {
+  it('the composer refuses to send while not connected, and keeps the draft', () => {
+    const state = stubState({ status: 'disconnected' });
+    render(<SessionSurface state={state} />);
+    const input = screen.getByLabelText('message') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: 'are you there' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(state.send).not.toHaveBeenCalled();
+    expect(input.value).toBe('are you there');
+    const send = screen.getByRole('button', { name: 'Send' });
+    expect(send.hasAttribute('disabled')).toBe(true);
+    expect(send.getAttribute('aria-description')).toBe('Not connected');
+  });
+
+  it('reconnecting after a drop shows a banner above the conversation, which stays visible', () => {
+    const { rerender } = render(<SessionSurface state={stubState({ status: 'connected' })} />);
+    expect(screen.getByText('hello')).toBeTruthy();
+
+    rerender(<SessionSurface state={stubState({ status: 'connecting' })} />);
+
+    expect(screen.getByRole('status').textContent).toContain('Reconnecting…');
+    expect(screen.getByText('hello')).toBeTruthy();
+  });
+
+  it('once retries give up, a desktop host shows "Robota stopped." with a working Reconnect; the conversation stays', () => {
+    const onReconnect = vi.fn(() => new Promise<void>(() => {}));
+    render(
+      <SessionSurface
+        state={stubState({ status: 'disconnected', connectionLost: true })}
+        onReconnect={onReconnect}
+      />,
+    );
+    expect(screen.getByText('hello')).toBeTruthy();
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('Robota stopped.');
+
+    fireEvent.click(within(alert).getByRole('button', { name: 'Reconnect' }));
+    expect(onReconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('once retries give up, a browser host (no onReconnect) shows the restart instruction and no button', () => {
+    render(<SessionSurface state={stubState({ status: 'disconnected', connectionLost: true })} />);
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('robota --serve --open');
+    expect(within(alert).queryByRole('button')).toBeNull();
   });
 });

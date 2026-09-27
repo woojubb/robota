@@ -86,6 +86,12 @@ export type TMakeSessionClient<TStatus extends string = TConnectionStatus> = (ca
 
 export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   status: TStatus;
+  /**
+   * Set by `useWsSession` once its reconnect retries give up (issue #3280 §5): the runtime is not
+   * coming back by itself. Cleared again once `status` reaches `connected`. Undefined for a reducer
+   * with no such concept (e.g. the WebRTC surface, which has its own `failed`/`refused` statuses).
+   */
+  connectionLost?: boolean;
   messages: TConversationEntry[];
   activeTools: IActiveTool[];
   streamingText: string;

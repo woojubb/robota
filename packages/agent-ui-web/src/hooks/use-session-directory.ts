@@ -26,6 +26,44 @@ function keepsSessionsLive(listing: TSessionListing): boolean {
   return listing.sessions.some((row) => typeof row.live === 'boolean');
 }
 
+/**
+ * Issue #3280 §5: a desktop Reconnect reloads the page, which loses every bit of JS state — so the
+ * session to go back to cannot live in a ref like `lastSwitchedIdRef` below. `sessionStorage` survives
+ * the reload (and only that tab), so it carries the id across it. Namespaced so a page hosting other
+ * state under the same origin does not collide.
+ */
+const RESTORE_SESSION_STORAGE_KEY = 'robota.restoreSessionId';
+
+/**
+ * Remember `sessionId` so the reload a desktop Reconnect triggers can switch back to it once the
+ * first session listing arrives (see {@link useSessionDirectoryState}). Best-effort: a host whose
+ * storage is unavailable simply lands on whatever session the daemon puts a fresh connection on, same
+ * as before this existed.
+ */
+export function rememberSessionForRestore(sessionId: string): void {
+  try {
+    window.sessionStorage.setItem(RESTORE_SESSION_STORAGE_KEY, sessionId);
+  } catch {
+    /* storage unavailable — nothing to restore after the reload */
+  }
+}
+
+function readStoredRestoreId(): string | null {
+  try {
+    return window.sessionStorage.getItem(RESTORE_SESSION_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function clearStoredRestoreId(): void {
+  try {
+    window.sessionStorage.removeItem(RESTORE_SESSION_STORAGE_KEY);
+  } catch {
+    /* noop — nothing was readable to begin with */
+  }
+}
+
 /** A wide window starts with the sidebar open; a narrow one keeps the conversation in view. */
 function initialSidebarOpen(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
@@ -80,13 +118,19 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
   const lastSwitchedIdRef = useRef<string | null>(null);
   const restoreTargetRef = useRef<string | null>(null);
   const armRestore = useCallback((): void => {
-    restoreTargetRef.current = lastSwitchedIdRef.current;
+    // A remembered id (issue #3280 §5, a desktop Reconnect's reload) wins over the same-page target:
+    // on a fresh page, `lastSwitchedIdRef` is always null anyway, so this only ever adds a source.
+    restoreTargetRef.current = readStoredRestoreId() ?? lastSwitchedIdRef.current;
   }, []);
   const restoreAfterReconnect = useCallback(
     (listing: TSessionListing): void => {
       const target = restoreTargetRef.current;
       restoreTargetRef.current = null;
-      if (target === null || target === listing.currentSessionId) return;
+      if (target === null) return;
+      // Spent on this first listing whether or not the switch below actually happens — a fresh
+      // launch with no remembered id never reaches here (target stays null), so nothing switches.
+      clearStoredRestoreId();
+      if (target === listing.currentSessionId) return;
       if (!keepsSessionsLive(listing)) return;
       // A session the host no longer lists (an empty one it never saved) is nothing to go back to.
       if (!listing.sessions.some((row) => row.id === target)) return;
