@@ -1,23 +1,34 @@
 # @robota-sdk/agent-framework
 
-Runtime hosts are owned by this package: import `createHeadlessTransport`,
-`HeadlessInteractionChannel`, `createProgrammaticAgent`, `ProgrammaticInteractionChannel`,
-`TransportRegistry`, and its file/memory settings repositories from the root. Their implementation
-lives in `src/transport-host/`; terminal `PrintTerminal` and `promptInput` are local to the CLI.
+The assembly layer of the Robota SDK. It composes `@robota-sdk/agent-core`,
+`@robota-sdk/agent-session`, `@robota-sdk/agent-tools`, `@robota-sdk/agent-tool-defaults` and
+`@robota-sdk/agent-executor` into one provider-neutral SDK for building agents: sessions with
+tools, permissions, hooks, streaming, context loading, commands, subagents and persistence.
 
-Programmatic SDK for building AI agents with Robota. Provides `InteractiveSession` as the central client-facing API, `createQuery()` for one-shot use, `createAgentRuntime()` as a composition factory for headless and multi-session consumers, session management, SDK-owned command/common APIs, permissions, hooks, streaming, context loading, bounded prompt file references, and context reference inventory.
+It has three main entry points:
 
-This is the **assembly layer** of the Robota ecosystem — it composes lower-level packages (`agent-core`, `agent-tools`, `agent-session`, `agent-provider-*`) into a cohesive SDK.
+- **`InteractiveSession`** — an event-driven session that any client (terminal UI, web app, API
+  server, worker) drives by submitting prompts and listening to events.
+- **`createQuery()`** — a one-shot function: prompt in, response text out.
+- **`createAgentRuntime()`** — a composition root that creates many `InteractiveSession`s sharing
+  one configuration, for headless and multi-session hosts.
+
+The package has no React dependency, and it never imports a concrete provider: you create the
+provider (for example from `@robota-sdk/agent-provider-anthropic`) and pass it in. The `robota` CLI
+(`@robota-sdk/agent-cli`) is a reference app built on this package.
+
+For walkthroughs, see the [SDK guide](../../content/guide/sdk.md) and
+[Building agents](../../content/guide/building-agents.md).
 
 ## Installation
 
 ```bash
-npm install @robota-sdk/agent-framework
-# or
-pnpm add @robota-sdk/agent-framework
+npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic
 ```
 
-## Quick Start
+Requires Node.js 22.12 or later. Any Robota provider package works in place of the Anthropic one.
+
+## Quick start
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
@@ -26,28 +37,177 @@ import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 const query = createQuery({ provider });
 
-// Simple one-shot query
-const response = await query('Show me the file list');
+const response = await query('List the TypeScript files in this directory');
 
 // With options
-const queryWithOptions = createQuery({
+const verboseQuery = createQuery({
   provider,
   cwd: '/path/to/project',
-  // A bare cwd is provenance only. Pass a host-issued TWorkspaceProjectAccess decision
-  // when this query may consume project context or settings.
   permissionMode: 'acceptEdits',
   maxTurns: 10,
   onTextDelta: (delta) => process.stdout.write(delta),
 });
-
-const detailedResponse = await queryWithOptions('Analyze the code');
+const analysis = await verboseQuery('Analyze the code');
+console.log(response, analysis);
 ```
 
-### Headless / multi-session runtime
+`createQuery()` uses the `default` permission mode. With no `permissionHandler`, a tool call that
+would ask for approval is denied, so an unattended run only does what the mode allows without asking.
+Pass `permissionMode: 'bypassPermissions'` explicitly if the run should approve everything, or pass a
+`permissionHandler` to decide each request.
 
-For headless or multi-session consumers, `createAgentRuntime()` builds a composition root that
-spawns `InteractiveSession`s sharing one configuration (provider, cwd, command modules, session
-store, transports):
+Without `projectAccess`, a query runs **Restricted**: it can use its tools in `cwd`, but it loads
+no project context, settings, memory or session files. See [Project access](#project-access).
+
+## InteractiveSession
+
+`InteractiveSession` wraps an `agent-session` `Session` and turns it into an event stream. It keeps
+the prompt queue, streaming text, running-tool state, abort handling and message history, so a
+client only renders events and forwards user input.
+
+```typescript
+import { InteractiveSession } from '@robota-sdk/agent-framework';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
+declare const provider: IAIProvider;
+
+const session = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
+  permissionMode: 'default',
+  maxTurns: 10,
+});
+
+session.on('text_delta', (delta) => process.stdout.write(delta));
+session.on('tool_start', (state) => console.log(`Running: ${state.toolName}`));
+session.on('tool_end', (state) => console.log(`Done: ${state.toolName} (${state.result})`));
+session.on('permission_request', ({ id, toolName }) => {
+  // Ask the user, then answer. The first answer wins, from any attached surface.
+  session.resolvePermission(id, toolName === 'Read');
+});
+session.on('complete', (result) => console.log('\n', result.response));
+session.on('error', (error) => console.error(error));
+
+// submit() resolves once the prompt is accepted; the handle identifies this turn
+// even if it waits in the queue behind another one.
+const handle = await session.submit('Explain the code in src/');
+const result = await handle.completed;
+console.log(result.toolSummaries.length, 'tool calls');
+
+await session.shutdown();
+```
+
+### Common options
+
+| Option                                                      | Purpose                                                                                         |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `cwd`, `provider`                                           | Required. The working directory and the provider instance.                                      |
+| `projectAccess`                                             | The host's trust decision for the project. Absent means Restricted.                             |
+| `permissionMode`                                            | `plan`, `default`, `acceptEdits`, `bypassPermissions` or `auto`.                                |
+| `maxTurns`                                                  | Cap on agentic rounds per prompt.                                                               |
+| `model`, `effort`, `temperature`                            | Model selection for this session.                                                               |
+| `systemPrompt`, `appendSystemPrompt`                        | Replace or extend the assembled system prompt.                                                  |
+| `additionalTools`                                           | Tools added to the default set.                                                                 |
+| `defaultTools`                                              | Replaces the default tool set from `@robota-sdk/agent-tool-defaults`; `[]` removes it.          |
+| `allowedTools`, `deniedTools`                               | Tool name patterns to allow or deny for this session.                                           |
+| `commandModules`                                            | Command modules the session can execute (for example from `@robota-sdk/agent-command`).         |
+| `sessionStore`, `resumeSessionId`, `forkSession`            | Persistence, and resuming or forking a stored session.                                          |
+| `userSettingsSources`, `projectSettingsPaths`               | Settings files to read. Absent means no settings file is read.                                  |
+| `contributionSources`, `skillRoots`, `agentDefinitionRoots` | Where to discover skills and agent definitions. Absent means no discovery.                      |
+| `sandboxClient`, `workspaceManifest`                        | Run tools in a sandbox, prepared from a manifest (see [Sandbox execution](#sandbox-execution)). |
+| `guardrails`                                                | Named guardrail functions for `guardrail` hooks.                                                |
+| `responseFormat`                                            | Request structured output.                                                                      |
+
+Every location the framework reads or writes (settings files, skill and agent roots, plugin
+directories, storage roots) is supplied by the host. The framework never falls back to a default
+path; an omitted location means that feature is off.
+
+### Events
+
+| Event                                                      | Payload                                                                              |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `text_delta`                                               | A streamed text chunk                                                                |
+| `thinking`                                                 | `true` when a turn starts, `false` when it ends                                      |
+| `tool_start`, `tool_end`                                   | `IToolState` (`toolName`, `firstArg`, `isRunning`, `result`, …)                      |
+| `complete`, `interrupted`                                  | `IExecutionResult` (`response`, `history`, `toolSummaries`, `contextState`, `usage`) |
+| `error`                                                    | `Error`                                                                              |
+| `context_update`                                           | `IContextWindowState` (token usage)                                                  |
+| `compact`                                                  | Compaction trigger and before/after context state                                    |
+| `permission_request`, `ask_request`, `prompt_resolved`     | A pending approval or question, and its settlement                                   |
+| `background_task_event`, `background_job_group_event`      | Subagent and background task lifecycle                                               |
+| `goal_event`, `plan_event`, `branch_event`, `memory_event` | Goal, plan, checkpoint-branch and memory changes                                     |
+| `session_renamed`, `history_cleared`, `status_changed`     | Session state changes                                                                |
+
+### Main methods
+
+- `submit(input, displayInput?, rawInput?, options?)` returns a turn handle (`{ turnId, completed }`).
+  `completed` rejects with an error that `isTurnNotRunError()` (from
+  `@robota-sdk/agent-interface-session`) recognizes if the queued prompt never ran: replaced by a
+  later prompt, dropped from a full queue, or cleared by abort, cancel or shutdown.
+- `abort()` stops the running turn and clears the queue; `cancelQueue()` drops queued prompts only.
+- `executeCommand(name, args)` runs a command; `listCommands()` lists them.
+- `resolvePermission(id, result)` and `resolveAsk(id, response)` answer pending requests.
+- `getMessages()`, `getContextState()`, `getStreamingText()`, `getActiveTools()`, `isExecuting()`.
+- `compactContext(instructions?)` summarizes the conversation to free context space.
+- `setGoal(objective)` pursues an objective over several turns; `setPlan(objective)` and
+  `approvePlan()` drive explicit plan mode.
+- `getName()` / `setName(name)`, `getSession()` (the underlying `Session`), `shutdown()`.
+
+In a trusted project, path-like `@file` references in a prompt are read (bounded in size and
+recursion), added to the model's input, and recorded in history as a structured event.
+
+## Project access
+
+A `cwd` alone gives the session no access to project content. Project context files
+(`AGENTS.md`, `CLAUDE.md`), project settings, memory, checkpoints and stored sessions are reachable
+only through a trusted `TWorkspaceProjectAccess` decision that the host obtains from a
+`WorkspaceTrustService`. Without one the session is Restricted.
+
+```typescript
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import {
+  InteractiveSession,
+  createNodeWorkspaceTrustService,
+  createProjectSessionStore,
+  getWorkspaceProjectStateStorage,
+} from '@robota-sdk/agent-framework';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
+declare const provider: IAIProvider;
+const cwd = process.cwd();
+
+// The host chooses where trust grants are stored and where project state lives
+// (directories relative to the project root).
+const trust = createNodeWorkspaceTrustService(join(homedir(), '.my-app', 'workspace-trust.json'), {
+  sessions: '.my-app/sessions',
+  'session-logs': '.my-app/logs',
+  memory: '.my-app/memory',
+  checkpoints: '.my-app/checkpoints',
+});
+
+// inspect() reports the current decision; grant() trusts the project after the user agrees.
+const projectAccess = await trust.inspect(cwd);
+
+const sessionStore =
+  projectAccess.status === 'trusted'
+    ? createProjectSessionStore(
+        getWorkspaceProjectStateStorage(projectAccess.authority, 'sessions'),
+        getWorkspaceProjectStateStorage(projectAccess.authority, 'session-logs'),
+      )
+    : undefined;
+
+const session = new InteractiveSession({ cwd, provider, projectAccess, sessionStore });
+```
+
+Trust is bound to the Git worktree and repository identity. Non-Git paths, a replaced repository,
+a revoked grant or a trust-store error all resolve to Restricted, and a revoked authority stops
+working immediately. The `cwd` must be the trusted root or inside it.
+
+## Headless and multi-session runtime
+
+`createAgentRuntime()` holds one configuration (provider, `cwd`, project access, command modules,
+session store, transports) and creates `InteractiveSession`s from it:
 
 ```typescript
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
@@ -58,418 +218,123 @@ const runtime = createAgentRuntime({
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
 });
 
-// Each call composes a fresh InteractiveSession that inherits the runtime config.
-const session = runtime.createSession({});
+// Each call creates a new InteractiveSession that inherits the runtime configuration.
+const session = runtime.createSession({ permissionMode: 'plan' });
 ```
 
-Without `projectAccess`, the runtime exposes an observable Restricted decision and does not construct
-project context, settings, memory, session, or log adapters. A host that has inspected or granted a
-workspace through `WorkspaceTrustService` passes that exact `TWorkspaceProjectAccess` decision.
-Project persistence is then composed explicitly from its named state facets; a bare `cwd` never
-creates a project store. A per-session `sessionStore` replaces the runtime store, while an explicit
-`sessionStore: undefined` disables persistence. Trusted runtime/query construction accepts the frozen
-workspace root and its real descendants while rejecting a working directory outside that identity; a
-completed revoke makes the previously issued authority and all of its facets unusable. Explicit host
-contribution sources also remain root-bounded and refuse links at every path component.
-
-Authority-backed project mutations share one stable-root boundary: on Linux, open root and parent
-directory descriptors prevent parent renames or symlink swaps from redirecting writes, replacements,
-appends, or deletes. Hosts without equivalent stable handle semantics fail closed with
-`WorkspaceAuthorityRequiredError` instead of falling back to pathname mutation.
-
-Replay-only project recovery validates the versioned JSONL before reconstructing a session. Loads and
-listings report malformed logs as `corrupt` and unsupported versions as `unsupported`, rather than
-hiding them as missing sessions. Snapshot encoding is unchanged; unversioned legacy logs are not replayed.
-
-The maintained offline examples verify explicit persist→resume composition and the workspace
-authority boundary with no provider credentials:
-
-```bash
-pnpm --filter @robota-sdk/agent-framework scenario:verify
-```
-
-### Runtime host (`robota --serve`)
-
-`buildRuntimeSession()` is the single session-construction seam: every presentation — the TUI channel
-and the headless `robota --serve` entry — builds its `InteractiveSession` from resolved options through
-it, instead of calling `new InteractiveSession` directly. `startRuntimeHost()` adds the transport
-`startAll`/`stopAll` lifecycle plus a bounded shutdown handle on top, and is used by the headless
-`--serve` path (which the desktop GUI spawns as a loopback-WS sidecar). It lives in `agent-framework`,
-not the product shell — it takes already-resolved options and is presentation-neutral (RUNTIME-001).
-
-```typescript
-import { startRuntimeHost } from '@robota-sdk/agent-framework';
-import type { IRuntimeHostOptions, IRuntimeHostHandle } from '@robota-sdk/agent-framework';
-
-// `session` holds the resolved session options; `transportRegistry` is the loopback WS sidecar.
-declare const options: IRuntimeHostOptions;
-const host: IRuntimeHostHandle = await startRuntimeHost(options);
-// host.session — a SessionSlot: the live session every presentation drives, stable across a switch
-// host.session.current — the session it currently forwards to
-// await host.shutdown() — bounded transport teardown + session shutdown
-```
-
-## Features
-
-- **InteractiveSession** — Event-driven session wrapper (composition over Session). Central client-facing API for CLI, web, API server, or any other client
-- **SystemCommandExecutor + ISystemCommand** — SDK-level command execution infrastructure for product-composed command modules
-- **CommandRegistry, BuiltinCommandSource, SkillCommandSource** — Command registry and SDK common discovery APIs. User-visible built-ins are composed through `agent-command` packages.
-- **Model Command Common APIs** — Provider-neutral `/model` helpers that resolve active provider catalogs and optionally invoke provider-owned refresh hooks
-- **Model effort selection** — A typed provider-neutral selection record and command-host adapter keep source and provisional display state consistent across startup, live commands, and headless output; `auto` remains unpinned until the provider adapter reports its outcome
-- **createQuery()** — Provider-bound factory for one-shot AI agent interactions with streaming support
-- **Runtime host (RUNTIME-001)** — `startRuntimeHost()` builds and serves a headless session over a loopback WS (used by `robota --serve` and the desktop GUI sidecar); `buildRuntimeSession()` is the shared session-construction seam every presentation builds its `InteractiveSession` through
-- **Session assembly** — Internal factory wires tools, provider, config, and context for `InteractiveSession`
-- **Built-in Tools** — Shell/Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, AskUserQuestion are assembled for SDK sessions. The set itself lives in `@robota-sdk/agent-tool-defaults` (a composition leaf, ARCH-035) and is loaded lazily; import it from there to compose your own tier, or `@robota-sdk/agent-tools` for individual tools
-- **Sandbox Execution** — Optional `sandboxClient` injection routes Bash and core file tools through a provider-backed execution plane; `workspaceManifest` can prepare a fresh sandbox workspace before session creation
-- **Sandbox Hydration** — Snapshot-capable sandbox clients persist `sandboxSnapshotId` on shutdown and restore it before saved message replay on non-fork resume
-- **Agent Tool** — Sub-agent session creation for multi-agent workflows
-- **Permissions** — one evaluation order for every caller (deny, ask and allow lists, never-auto-approved calls, mode policy) with four modes: `plan`, `default`, `acceptEdits`, `bypassPermissions`
-- **Hooks** — `PreToolUse`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `UserPromptSubmit`, `Stop` events with shell command execution
-- **Streaming** — Real-time text delta callbacks via `onTextDelta`
-- **Context Loading** — AGENTS.md / CLAUDE.md walk-up discovery and system prompt assembly
-- **Prompt File References** — Path-like `@file` prompt references are resolved by the SDK under the session `cwd`, bounded by size/recursion limits, recorded as structured history events, and registered as observed context references
-- **Stable Project Reads** — Project byte and text reads use a bounded retained-root authority on qualified Linux, macOS, and Windows hosts; unsafe link/reparse replacement fails closed while project purpose, liveness, generation, and identity checks remain framework-owned
-- **Context Reference Inventory** — Manual `/context add` references are stored by `InteractiveSession`, included in future prompt model input, and exposed through SDK command common APIs
-- **Config Loading** — 6-file settings merge with provider profiles, legacy provider compatibility, and `$ENV:VAR` substitution for provider credentials
-- **Context Window Management** — Token tracking, configurable auto-compaction (default ~83.5%), manual `session.compact()`
-- **Background Jobs** — Runtime-managed subagent tasks with transcripts and task snapshots
-- **Agent Batch Jobs** — the model-facing Agent tool's `jobs` argument (`Agent` invoked with `{ jobs: [...] }`) starts explicit parallel subagent requests deterministically
-- **Edit Checkpoints** — Checkpoint/rewind support for safer edit workflows
-- **Project Memory** — Command-driven memory capture and retrieval surfaces
-- **Replay Events** — Session execution can forward provider/tool boundary events and provider-native raw payload events into append-only logs
-- **Usage observations** — Each accepted top-level turn records one content-free outcome observation, including the active model and driver surface when known, even when token usage is absent
-- **Bundle Plugin System** — Install and manage reusable extensions packaged as bundle plugins
-
-## Architecture
-
-```
-agent-framework (assembly layer)
-  ├── InteractiveSession  ← central client-facing API (event-driven)
-  │     └── Session       ← generic session (agent-session)
-  ├── SystemCommandExecutor ← SDK-level command execution
-  ├── CommandRegistry / BuiltinCommandSource / SkillCommandSource
-  ├── Agent runtime dependencies and background orchestration
-  ├── Edit checkpoints and command-driven memory
-  ├── createQuery()       ← one-shot entry point factory
-  ├── createSession()     ← internal assembly factory
-  └── deps:
-        agent-session   (Session, neutral session ports, explicit Node host adapters)
-        agent-file-authority (stable bounded project byte reads over retained native handles)
-        agent-tools     (tool infrastructure + 9 built-in tools)
-        agent-provider-* (per-vendor AI providers: -anthropic, -openai, -gemini, …)
-        agent-core      (Robota engine, providers, permissions, hooks)
-
-agent-cli (TUI layer — bridges InteractiveSession events to React/Ink state)
-  → agent-framework
-```
-
-The SDK is **pure TypeScript with no React dependency**. The CLI is a thin presentation layer (TUI, plus the `--serve` runtime host) that consumes `InteractiveSession` events and maps them to React state. Any other client (web app, API server, worker) can do the same.
-
-## API
-
-### InteractiveSession — Central Client-Facing API
-
-`InteractiveSession` wraps `Session` (composition over inheritance) to provide event-driven interaction for any client. It manages streaming text accumulation, tool execution state tracking, prompt queuing, abort orchestration, and message history. Logic that was previously embedded in CLI React hooks now lives here.
-
-```typescript
-import {
-  InteractiveSession,
-  createProjectSessionStore,
-  getWorkspaceProjectStateStorage,
-} from '@robota-sdk/agent-framework';
-import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
-
-declare const provider: IAIProvider;
-// Supplied by a host-owned WorkspaceTrustService configured with projectStateDirectories
-// after identity/trust validation.
-declare const projectAccess: TWorkspaceProjectAccess;
-const cwd = process.cwd();
-
-const sessionStore =
-  projectAccess.status === 'trusted'
-    ? createProjectSessionStore(
-        getWorkspaceProjectStateStorage(projectAccess.authority, 'sessions'),
-        getWorkspaceProjectStateStorage(projectAccess.authority, 'session-logs'),
-      )
-    : undefined;
-
-const session = new InteractiveSession({
-  cwd,
-  provider,
-  projectAccess,
-  sessionStore,
-  resumeSessionId: 'sess_123', // Session ID to restore, incl. sandbox snapshot (optional)
-  forkSession: false, // Fork the resumed session into a new one (optional)
-  permissionMode: 'default',
-  maxTurns: 10,
-});
-
-// Subscribe to events
-session.on('text_delta', (delta: string) => {
-  process.stdout.write(delta); // streaming text chunk
-});
-session.on('tool_start', (state) => {
-  console.log(`Running: ${state.toolName}`);
-});
-session.on('tool_end', (state) => {
-  console.log(`Done: ${state.toolName} — ${state.result}`);
-});
-session.on('thinking', (isThinking: boolean) => {
-  // show/hide spinner
-});
-session.on('complete', (result) => {
-  console.log(result.response);
-});
-session.on('error', (error: Error) => {
-  console.error(error);
-});
-session.on('context_update', (state) => {
-  // token usage updated
-});
-session.on('interrupted', (result) => {
-  // abort completed
-});
-
-// Submit a prompt. The handle identifies this accepted turn even if it waits in the queue.
-const handle = await session.submit('Explain this code', undefined, undefined, {
-  driverId: 'owner',
-});
-await handle.completed;
-
-// Path-like @file references are expanded into model-only prompt context by the SDK.
-// The user-visible history keeps the original prompt plus a structured file-reference event.
-await session.submit('Explain @AGENTS.md and @docs/SPEC.md');
-
-// Submit with display override (shown in UI) and raw input (for hook matching)
-await session.submit('full expanded prompt…', '/audit', '/rulebased-harness:audit');
-
-// Execute slash commands through the command layer. With the skills command module composed,
-// `/audit src/index.ts` is normalized by SDK to command "skills" with args "audit src/index.ts".
-await session.executeCommand('audit', 'src/index.ts');
-
-// Abort current execution and clear queue
-session.abort();
-
-// Cancel queued prompt without aborting current execution
-session.cancelQueue();
-
-// Execute system commands
-const result = await session.executeCommand('context', '');
-// result.message, result.success, result.data
-
-// List all registered system commands
-session.listCommands(); // Array<{ name, description }>
-
-// State queries
-session.isExecuting(); // boolean
-session.getPendingPrompt(); // string | null
-session.getMessages(); // TUniversalMessage[]
-session.getContextState(); // IContextWindowState
-session.getStreamingText(); // string (accumulated so far)
-session.getActiveTools(); // IToolState[]
-
-// Session naming
-session.getName(); // string | undefined
-session.setName('my-task'); // sets the session name
-
-// Access underlying Session for advanced use
-session.getSession(); // Session
-```
-
-`WorkspaceTrustService` accepts host-owned identity and trust-store adapters. Its authority is opaque,
-runtime-registered, root-bound, and cannot be reconstructed from a path or serialized marker. See the
-maintained offline `verify-workspace-project-authority.ts` example for a complete inspect/grant/revoke
-composition and Restricted-versus-trusted observable.
-
-The Node host supplies the production lifecycle through
-`createNodeWorkspaceTrustService(trustStorePath, projectStateDirectories)`. The caller chooses the
-user-owned store path and all four project-state directories; the Robota CLI uses
-`~/.robota/workspace-trust.json` for the trust store. Omitting project-state directories still permits
-trust inspection, but deriving project-state storage then fails closed.
-The service binds grants to the canonical Git worktree and repository common-directory identity,
-stores only owner-readable generation records, and treats non-Git paths, repository replacement,
-revocation, and trust-store errors as Restricted. A later provider settings layer that changes `baseURL`
-without its own credential also clears inherited `apiKey` and `apiKeyEnv` fields; endpoint provenance
-diagnostics can report the quarantine without exposing the credential.
-
-### SystemCommandExecutor — SDK-Level Commands
-
-`SystemCommandExecutor` executes named system commands against an `InteractiveSession`. Commands are pure TypeScript — no React, no TUI dependency. The CLI wraps them as slash commands with UI chrome.
-
-```typescript
-import { SystemCommandExecutor, createSystemCommands } from '@robota-sdk/agent-framework';
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
-
-declare const session: ICommandHostContext;
-const executor = new SystemCommandExecutor(); // starts empty unless commands are supplied
-
-// Execute a command
-const result: ICommandResult | null = await executor.execute('status', session, '');
-if (result) {
-  console.log(result.message); // "OK"
-}
-
-// Register a custom command
-executor.register({
-  name: 'status',
-  description: 'Show agent status',
-  execute: (session, args) => ({ message: 'OK', success: true }),
-});
-
-// List all commands
-executor.listCommands(); // ISystemCommand[]
-executor.hasCommand('permissions'); // boolean
-```
-
-SDK core does not own user-visible built-in commands. Product built-ins are supplied as `agent-command` modules. SDK command identity is slash-free (`skills`, `help`, `compact`); UI shells render and parse those commands as slash syntax such as `/skills`, `/help`, and `/compact`.
-
-Command modules may use SDK common APIs for shared provider-neutral behavior. For `/model`, the SDK
-resolves the active provider from settings, reads provider-owned fallback metadata from injected
-`IProviderDefinition` records, and can invoke provider-owned catalog refresh hooks. The CLI/TUI must
-only render command results and must not own provider model lists.
-
-For provider setup, the SDK projects provider-owned setup help links from `IProviderDefinition`
-records into generic prompt descriptions. The CLI/TUI renders those descriptions without owning
-provider-specific API key or console URLs.
-
-For `/permissions`, the SDK owns permission-mode constants, subcommand descriptors, validation,
-state formatting, and command-host adapter access. The command module owns user-visible behavior and
-keeps permission-mode changes under `/permissions [mode]`.
-
-For `/validate-session`, the session command module calls SDK session command APIs to locate and
-validate the current JSONL session log. Hosts may override `validateCurrentSessionReplayLog()` in
-`ICommandHostContext` when they own a non-file-backed session log store.
-
-### CommandRegistry, BuiltinCommandSource, SkillCommandSource
-
-These classes provide slash command discovery and aggregation for clients that expose a command palette or autocomplete UI.
-
-```typescript
-import { CommandRegistry, createNodeHostContributionSource } from '@robota-sdk/agent-framework';
-import { createSkillsCommandModule } from '@robota-sdk/agent-command';
-
-const registry = new CommandRegistry();
-registry.addModule(
-  createSkillsCommandModule({
-    contributionSources: [createNodeHostContributionSource(process.cwd())],
-  }),
-);
-
-// Get all commands (returns ICommand[])
-const commands = registry.getCommands();
-
-// Filter by prefix (for autocomplete)
-const filtered = registry.getCommands('mod'); // matches "mode", "model"
-
-// Resolve short plugin name to fully qualified form
-registry.resolveQualifiedName('audit'); // "my-plugin:audit"
-```
-
-`SkillCommandSource` is the SDK common API used by the skills command module. The host supplies both
-the contribution sources and ordered root descriptors; absent sources or roots means no skill file
-discovery. This keeps product directory choices out of the framework and lets inspection use the same
-roots as activation.
-
-Model-invocable skills are exposed to the model as metadata only when the session has a composed
-model-invocable `skills` command descriptor. `@robota-sdk/agent-command` owns `skills` and
-activates skills through the SDK host API. Models use the SDK-projected `command_skills`
-tool by default, with skill arguments in `args`. A product host can set
-`modelCommandToolPrefix` on its session options to choose another prefix; Robota sets
-`robota_command_`. Mentioning a skill in ordinary prose,
-recommending a skill in assistant text, or matching a natural-language phrase in SDK/TUI code does
-not activate the skill.
-
-The framework's default prompt enclosure for attached `@file` content is
-`<file_references>`. Product hosts can set `promptFileReferenceTag` on session options to
-choose a different enclosure; Robota sets `robota_file_references`. SDK consumers that
-need the previous identifiers should pass `modelCommandToolPrefix: 'robota_command_'`
-and `promptFileReferenceTag: 'robota_file_references'` explicitly. Direct calls to
-`createProviderSafeModelCommandToolName`, `createModelCommandToolProjection`, and
-`buildPromptWithFileReferences` can pass the same values as their optional arguments.
-
-### createQuery()
-
-```typescript
-import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-
-const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
-const query = createQuery({ provider });
-
-const response = await query('Show me the file list');
-
-const queryWithOptions = createQuery({
-  provider,
-  cwd: '/path/to/project',
-  permissionMode: 'acceptEdits',
-  maxTurns: 10,
-  onTextDelta: (delta) => process.stdout.write(delta),
-});
-
-const detailedResponse = await queryWithOptions('Analyze the code');
-```
-
-### Session Assembly
-
-`createSession()`, `loadConfig()`, `loadContext()`, and `detectProject()` are internal SDK assembly
-details. Use `InteractiveSession` for event-driven sessions or `createQuery()` for prompt-only
-one-shot calls.
-
-### Built-in Tools
-
-`@robota-sdk/agent-framework` assembles built-in tools for SDK sessions, but direct tool usage imports
-from the owner package:
-
-Each file tool is a FACTORY that requires the containment root it operates in (ARCH-010) — there is
-no ready-made instance, because one bound at import time can carry no root, and a file tool without a
-root has no boundary:
-
-```typescript
-import {
-  createShellTool,
-  createBashTool,
-  createEditTool,
-  createGlobTool,
-  createGrepTool,
-  createReadTool,
-  createWriteTool,
-  webFetchTool,
-  webSearchTool,
-  askUserQuestionTool,
-} from '@robota-sdk/agent-tools';
-
-const cwd = process.cwd();
-const fileTools = [
-  createShellTool({ cwd }),
-  createBashTool({ cwd }),
-  createEditTool({ cwd }),
-  createGlobTool({ cwd }),
-  createGrepTool({ cwd }),
-  createReadTool({ cwd }),
-  createWriteTool({ cwd }),
-];
-```
-
-`webFetchTool`, `webSearchTool` and `askUserQuestionTool` remain instances: they touch no filesystem,
-so there is no root for them to be contained by.
-
-### Sandbox Execution
-
-SDK sessions can receive a provider-neutral sandbox client. When provided, Bash, Read, Write, and Edit use the sandbox execution plane instead of the host process/filesystem:
-
-<!-- doc-example-skip: requires the optional e2b dependency -->
+`buildRuntimeSession()` is the one place a session is built from resolved options, and
+`startRuntimeHost()` adds transport start/stop and a bounded shutdown on top of it; the CLI's
+`robota --serve` uses both. `SessionPool` keeps several live sessions for a runtime that serves more
+than one client. Headless output is available through `createHeadlessRunner` and
+`createHeadlessTransport`, and `createProgrammaticAgent` drives a session from code.
+
+## Permissions
+
+Every tool call is decided by `evaluatePermission` from `@robota-sdk/agent-core`: deny rules first,
+then ask rules and the protections that are never auto-approved (such as deleting the workspace or
+writing into `.git`), then allow rules (skipped in `bypassPermissions`, which approves everything
+that got this far), then what the mode says about the kind of action:
+
+| Mode                | Read-only tools (Read, Glob, Grep) | Edits (Write, Edit) | Commands (Shell, Bash) |
+| ------------------- | :--------------------------------: | :-----------------: | :--------------------: |
+| `plan`              |                auto                |        deny         |          deny          |
+| `default`           |                auto                |         ask         |          ask           |
+| `acceptEdits`       |                auto                |        auto         |          ask           |
+| `bypassPermissions` |                auto                |        auto         |          auto          |
+| `auto`              |                auto                |        auto         |    model classifier    |
+
+A shell command that only reads (such as `ls`, `cat` or `git status`) with every path inside the
+workspace counts as read-only. In `auto` mode a model classifier approves or blocks what the mode
+leaves open, and after repeated
+refusals the session falls back to asking a person. `ask` rules ask even in `bypassPermissions`; in
+`plan` mode anything that would change something is refused instead of asked. See the
+[permissions and hooks guide](../../content/guide/permissions-and-hooks.md).
+
+## Hooks
+
+Sessions run the hooks configured in settings (or passed by the host) at lifecycle events such as
+`PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SessionStart`, `SessionEnd`,
+`PreCompact`, `SubagentStart` and `PreModelCall`. Only `PreToolUse` can block. The full list, input
+fields and blocking rules are in the [hook event catalog](../agent-core/docs/HOOK-CATALOG.md).
+
+This package adds two hook executors to the `command` and `http` executors from `agent-core`:
+
+| Executor         | Hook type | What it does                                                                      |
+| ---------------- | --------- | --------------------------------------------------------------------------------- |
+| `PromptExecutor` | `prompt`  | Asks a model (from a provider factory you supply) for an `{ ok, reason }` verdict |
+| `AgentExecutor`  | `agent`   | Runs a subagent session (from a session factory you supply) for a verdict         |
+
+## Commands
+
+The framework owns the command infrastructure: `SystemCommandExecutor`, `CommandRegistry`, command
+sources (`BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`) and the common APIs
+command modules use. It does not own the user-visible built-in commands; those are command modules
+from `@robota-sdk/agent-command` that the host composes. Command names are slash-free (`help`,
+`compact`); a UI renders them as `/help`, `/compact`.
+
+A command module is a plain object:
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { E2BSandboxClient } from '@robota-sdk/agent-tools';
-import type { IWorkspaceManifest } from '@robota-sdk/agent-tools';
-import { Sandbox } from 'e2b';
+import type { ICommandModule } from '@robota-sdk/agent-framework';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 
-const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
-const sandbox = await Sandbox.create();
+declare const provider: IAIProvider;
+
+const statusModule: ICommandModule = {
+  name: 'status',
+  systemCommands: [
+    {
+      name: 'status',
+      description: 'Show agent status',
+      execute: (context, args) => ({ message: `OK ${args}`, success: true }),
+    },
+  ],
+};
+
+const session = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
+  commandModules: [statusModule],
+});
+const result = await session.executeCommand('status', '');
+console.log(result?.message);
+```
+
+Skills are discovered only from the contribution sources and roots the host passes. A model can run
+a model-invocable command through a projected tool named `command_<name>` by default;
+`modelCommandToolPrefix` changes the prefix.
+
+## Subagents
+
+- `IAgentDefinition` describes a reusable agent: `name`, `description`, `systemPrompt`, and
+  optionally `model`, `effort`, `role`, `maxTurns`, `tools` and `disallowedTools`.
+- `BUILT_IN_AGENTS` holds `general-purpose`, `Explore` and `Plan`; `Explore` and `Plan` cannot use
+  `Write` or `Edit`.
+- Custom definitions come from `agentDefinitions` or from the host-supplied `agentDefinitionRoots`.
+  The CLI chooses which directories those are.
+- `createAgentTool()` gives the model an `Agent` tool that starts subagents, including several in
+  parallel through its `jobs` argument. Subagents run as background tasks managed by
+  `@robota-sdk/agent-executor`; `createSubagentSession()` builds the child session from the
+  parent's resolved configuration.
+- `runSequential`, `runParallel`, `runHandoff`, `runHierarchical` and `runGroupChat` run multi-agent
+  orchestration patterns over the contracts in `agent-core`.
+
+## Sandbox execution
+
+A session can run its commands and file tools in a sandbox through a provider-neutral
+`ISandboxClient` from `@robota-sdk/agent-tools`. `E2BSandboxClient` adapts an E2B sandbox that your
+application creates; `@robota-sdk/agent-framework` does not depend on E2B.
+
+```typescript
+import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { E2BSandboxClient } from '@robota-sdk/agent-tools';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IE2BSandboxAdapter, IWorkspaceManifest } from '@robota-sdk/agent-tools';
+
+declare const provider: IAIProvider;
+declare const sandbox: IE2BSandboxAdapter; // e.g. `await Sandbox.create()` from the `e2b` package
+
 const workspaceManifest: IWorkspaceManifest = {
   entries: {
     'task.md': { type: 'file', content: 'Review this repository.\n' },
@@ -483,154 +348,43 @@ const session = new InteractiveSession({
   provider,
   sandboxClient: new E2BSandboxClient({ sandbox }),
   workspaceManifest,
-  reversibleExecution: { mode: 'local-first' },
 });
 ```
 
-`E2BSandboxClient` is a structural adapter owned by `agent-tools`, and it does not make `e2b` a dependency of `agent-framework`. Install and create the concrete provider SDK in the application layer, then pass the adapter into `InteractiveSession`. `workspaceManifest` also uses the `agent-tools` contract; SDK applies it once before constructing the underlying `Session`.
+The manifest is applied once before the session starts. With a `sessionStore` and a sandbox client
+that supports snapshots, `shutdown()` stores the sandbox snapshot ID, and resuming the session
+(without forking) restores the sandbox before the saved messages are replayed.
 
-When `sessionStore` and a snapshot-capable `sandboxClient` are both provided, `InteractiveSession.shutdown()` stores `sandboxSnapshotId` in the session record. A later non-fork `resumeSessionId` restore calls `sandboxClient.restore(snapshotId)` before saved messages are injected back into the `Session`. Forked sessions intentionally do not hydrate the previous sandbox reference because provider pause/resume references can be one-to-one.
+## More capabilities
 
-## Subagent Sessions
+| Capability                  | Exports                                                                                               |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Model fallback              | `FallbackProvider`, `resolveModelFallbackChain`, `applyModelFallback`                                 |
+| Advisor (second-model tool) | `AdvisorController`, `createAdvisorTool`                                                              |
+| Edit checkpoints and rewind | `EditCheckpointStore`, `wrapEditCheckpointTools`                                                      |
+| Reversible execution        | `evaluateReversibleToolSafety`, `wrapReversibleExecutionTools` (session option `reversibleExecution`) |
+| Project and user memory     | `ProjectMemoryStore`, `WorkspaceMemoryStore`, `SemanticMemoryStore`, `listUserLocalMemoryItems`       |
+| Evals                       | `defineEval`, `runEval`, `createSessionRunFn`, matchers such as `exactMatch` and `usedTool`           |
+| Bundle plugins              | `BundlePluginLoader`, `BundlePluginInstaller`, `MarketplaceClient`                                    |
+| Settings                    | `readSettings`, `writeSettings`, `inspectSettingsLayers`, `createNodeHostSettingsSource`              |
+| Self-hosting verification   | `planSelfHostingVerification`, `transitionSelfHostingLoop`                                            |
 
-`createSubagentSession()` creates an isolated child session for delegating subtasks. The subagent receives pre-resolved config and context from the parent — it does not load config files or context from disk. Callers may provide a stable `sessionId`, `sessionLogger`, and `sessionStore` so the child session writes durable state.
+Bundle plugins use the Claude Code plugin layout: a directory with `.claude-plugin/plugin.json`
+(`name`, `version`, `description`, `features`) that can contribute skills, commands, hooks, MCP
+server configuration and agent definitions.
 
-```typescript
-import { createSubagentSession } from '@robota-sdk/agent-framework';
-import type { ISubagentOptions } from '@robota-sdk/agent-framework';
+## Settings
 
-// agentDefinition, parentConfig/parentContext/parentTools, provider, terminal, …
-declare const options: ISubagentOptions;
-const subSession = createSubagentSession(options);
-const result = await subSession.run('Analyze the test coverage gaps');
-```
-
-### Agent Definitions
-
-`IAgentDefinition` describes a reusable agent configuration (system prompt, allowed tools, permission mode). Custom agents are discovered from `.robota/agents/` (project), `.claude/agents/` (Claude Code compatible), and `~/.robota/agents/` (user). `AgentDefinitionLoader` is an internal class — it is not part of the public API.
-
-Built-in agents: `general-purpose` (full tool access), `Explore` (read-only, Haiku model), `Plan` (read-only planning).
-
-### createAgentTool()
-
-`createAgentTool()` wraps subagent creation into a tool the AI can invoke directly. The parent session's hooks, permissions, and context are forwarded to the child.
-
-When a background job resumes a forked record, the runner passes the record's `resumeSessionId` as
-both the child session ID and the persistence key, together with the same session store that holds
-the copied record. Each completed child turn then updates that copied record, so `attach` sees the
-conversation after the fork as well as the conversation copied at fork time. Ordinary subagent jobs
-remain transient when they do not carry `resumeSessionId`; attaching is still a view switch, never a
-merge with the parent record.
-
-Background subagent lifecycle events are persisted through `InteractiveSession` when an SDK session persistence facade is configured. Streaming chunks are written to append-only JSONL logs/transcripts rather than rewriting the main session JSON per token.
-
-## Replay-Grade Session Events
-
-`Session.run()` forwards core execution events through the session logger. Current events include provider request envelopes, provider-native raw request/response/stream payloads, provider-normalized responses, assistant message commits, tool batch starts, tool execution requests, and tool execution results.
-
-Provider-native payload events are emitted by concrete provider packages through `IChatOptions.onProviderNativeRawPayload`, then redacted and externalized by the session logger before they are written to disk. The SDK exposes session command APIs so command modules such as `/validate-session` can validate replay coverage without adding file-log logic to CLI/TUI hosts.
-
-## Interactive Prompt Settlement
-
-`InteractiveSession` emits transport-neutral `permission_request` and `ask_request` events. Attached
-surfaces answer through `resolvePermission()` and `resolveAsk()`; the first answer wins and produces one
-`prompt_resolved` event. Session construction does not expose parallel `permissionHandler` or `askHandler`
-options, so local and remote surfaces share the same request/settlement path.
-
-Persisted checkpoint operations emit `branch_event` only after the transition and session save succeed.
-Transport-owned listeners must isolate their own delivery failures without changing arbitrary SDK listener
-exception behavior.
-
-## Hook Executors (SDK-Specific)
-
-`agent-framework` provides two `IHookTypeExecutor` implementations beyond the `command` and `http` executors in `agent-core`:
-
-| Executor         | Hook Type | Description                                                               |
-| ---------------- | --------- | ------------------------------------------------------------------------- |
-| `PromptExecutor` | `prompt`  | Injects the hook's prompt text into the session as a system instruction   |
-| `AgentExecutor`  | `agent`   | Creates a sub-agent session to process the hook input and return a result |
-
-## Bundle Plugin System
-
-Bundle plugins package reusable extensions (tools, hooks, permissions, system prompt additions) into installable units.
-
-### Types
-
-| Type                    | Description                                                     |
-| ----------------------- | --------------------------------------------------------------- |
-| `IBundlePluginManifest` | Plugin metadata: name, version, description, author, keywords   |
-| `ILoadedBundlePlugin`   | Full bundle: manifest + tools, hooks, permissions, systemPrompt |
-
-### BundlePluginLoader
-
-Loads a bundle plugin from a directory path. Reads the manifest, resolves tool/hook definitions, and validates the bundle structure.
-
-### BundlePluginInstaller
-
-Manages plugin installation and uninstallation:
-
-- Installs bundles to `~/.robota/plugins/` (user) or `.robota/plugins/` (project)
-- Tracks installed plugins in a registry file
-- Handles enable/disable state per plugin
-
-## Plugins
-
-`@robota-sdk/agent-plugin` plugins are **consumer opt-in** — they are not built into the CLI or SDK by default. Application consumers register plugins at composition time by passing plugin instances to the SDK assembly API.
-
-```typescript
-import { Robota } from '@robota-sdk/agent-core';
-import { ConversationHistoryPlugin, LoggingPlugin } from '@robota-sdk/agent-plugin';
-import type { IAgentConfig } from '@robota-sdk/agent-core';
-
-declare const base: IAgentConfig;
-const agent = new Robota({
-  ...base,
-  plugins: [
-    new ConversationHistoryPlugin({ storage: 'memory' }),
-    new LoggingPlugin({ strategy: 'console', level: 'info' }),
-  ],
-});
-```
-
-Each plugin implements `AbstractPlugin` from `@robota-sdk/agent-core` and depends only on `agent-core`. The 8 plugins ship consolidated in a single package, `@robota-sdk/agent-plugin`: `ConversationHistoryPlugin`, `ErrorHandlingPlugin`, `ExecutionAnalyticsPlugin`, `LimitsPlugin`, `LoggingPlugin`, `PerformancePlugin`, `UsagePlugin`, `WebhookPlugin`.
-
-## Configuration
-
-Settings are merged from lowest to highest priority:
-
-| Layer | Path                          | Scope                                   |
-| ----- | ----------------------------- | --------------------------------------- |
-| 1     | `~/.robota/settings.json`     | User global                             |
-| 2     | `~/.claude/settings.json`     | User global (Claude Code compatible)    |
-| 3     | `.robota/settings.json`       | Project                                 |
-| 4     | `.robota/settings.local.json` | Project (local)                         |
-| 5     | `.claude/settings.json`       | Project (Claude Code compatible)        |
-| 6     | `.claude/settings.local.json` | Project (local, Claude Code compatible) |
-
-`$ENV:VAR` substitution is applied after merge for provider API keys.
+Settings are JSON files merged in the order the host gives them, later layers winning.
+`$ENV:NAME` values in provider credentials are replaced with the environment variable. The Robota
+CLI reads `~/.robota/settings.json`, `~/.claude/settings.json`, `.robota/settings.json`,
+`.robota/settings.local.json`, `.claude/settings.json` and `.claude/settings.local.json`, in that
+order; project files are read only in a trusted project.
 
 ```json
 {
-  "defaultMode": "default",
-  "currentProvider": "qwen",
+  "currentProvider": "anthropic",
   "providers": {
-    "qwen": {
-      "type": "qwen",
-      "model": "qwen-plus",
-      "apiKey": "$ENV:DASHSCOPE_API_KEY",
-      "baseURL": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
-    },
-    "gemma": {
-      "type": "gemma",
-      "model": "supergemma4-26b-uncensored-v2",
-      "apiKey": "lm-studio",
-      "baseURL": "http://localhost:1234/v1"
-    },
-    "openai": {
-      "type": "openai",
-      "model": "<openai-compatible-model>",
-      "apiKey": "$ENV:OPENAI_API_KEY"
-    },
     "anthropic": {
       "type": "anthropic",
       "model": "claude-sonnet-4-6",
@@ -644,37 +398,30 @@ Settings are merged from lowest to highest priority:
 }
 ```
 
-`currentProvider` selects the active entry from `providers`. Qwen Model Studio profiles use `type: "qwen"` with the documented DashScope OpenAI-compatible `baseURL`. DeepSeek API profiles use `type: "deepseek"` with the documented DeepSeek OpenAI-compatible `baseURL`. Gemma-family local models should use a `type: "gemma"` profile so provider-specific stream projection is applied. The resolved SDK config normalizes the active profile into `provider.name`, `provider.model`, `provider.apiKey`, optional `provider.baseURL`, and optional `provider.timeout`. The legacy `provider` object remains supported when `currentProvider` is not configured.
-
-## Permission Modes
-
-| Mode                | Read/Glob/Grep | Write/Edit |  Bash   |
-| ------------------- | :------------: | :--------: | :-----: |
-| `plan`              |      auto      |    deny    |  deny   |
-| `default`           |      auto      |  approve   | approve |
-| `acceptEdits`       |      auto      |    auto    | approve |
-| `bypassPermissions` |      auto      |    auto    |  auto   |
+`currentProvider` selects the active entry in `providers`. Other keys include `hooks`, `env`,
+`language`, `preset`, `autoCompactThreshold`, `sandbox` and `enabledPlugins`.
 
 ## Dependencies
 
-| Package                                | Purpose                                                       |
-| -------------------------------------- | ------------------------------------------------------------- |
-| `@robota-sdk/agent-core`               | Engine, providers, permissions, hooks                         |
-| `@robota-sdk/agent-session`            | Session, neutral log/store ports, explicit Node host adapters |
-| `@robota-sdk/agent-tools`              | Tool infrastructure + built-in tools                          |
-| `@robota-sdk/agent-provider-anthropic` | Anthropic LLM provider                                        |
-| `chalk`                                | Terminal colors (permission prompt)                           |
-| `zod`                                  | Settings schema validation                                    |
+| Package                                                                                               | Used for                                            |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `@robota-sdk/agent-core`                                                                              | Agent engine, provider contract, permissions, hooks |
+| `@robota-sdk/agent-session`                                                                           | `Session`, logging and persistence ports            |
+| `@robota-sdk/agent-tools`                                                                             | Tool factories and sandbox clients                  |
+| `@robota-sdk/agent-tool-defaults`                                                                     | The default tool set (loaded on first use)          |
+| `@robota-sdk/agent-executor`                                                                          | Background tasks and subagent managers              |
+| `@robota-sdk/agent-file-authority`                                                                    | Bounded, root-relative project file reads           |
+| `@robota-sdk/agent-interface-*` (analytics, command, execution, session, session-mobility, transport) | Shared contracts                                    |
+| `yaml`, `zod`                                                                                         | Frontmatter parsing and settings validation         |
 
 ## Documentation
 
-See [docs/SPEC.md](./docs/SPEC.md) for the full specification, architecture details, and design decisions.
+- [docs/SPEC.md](./docs/SPEC.md) — package contract, boundaries and design decisions
+- [SDK guide](../../content/guide/sdk.md) and [Building agents](../../content/guide/building-agents.md)
+- [Hook event catalog](../agent-core/docs/HOOK-CATALOG.md)
 
-From `packages/agent-framework` in a built repository, run
-`pnpm exec tsx examples/verify-goal-cassette-replay.mts` for offline goal replay through the public
-testing SDK. The credentialed recorder now lives at `scripts/record-goal-cassette.mts`; it is
-non-published development tooling, not a runtime provider dependency. Recording is an explicit
-live-provider operation; replay needs no credentials and preserves the committed cassette.
+From `packages/agent-framework` in the repository, `pnpm scenario:verify` runs the offline
+examples (no provider credentials needed).
 
 ## License
 

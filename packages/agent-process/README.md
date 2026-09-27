@@ -1,8 +1,16 @@
-# Agent Process
+# @robota-sdk/agent-process
 
-Domain-free child-process termination primitives for the Robota SDK — currently
-`killProcessTree`, which terminates a spawned process **and its descendants** with a
-SIGTERM → grace → SIGKILL escalation and resolves only once the process has actually exited.
+Domain-free child-process termination for the Robota SDK: `killProcessTree` terminates a spawned
+process **and its descendants** with a SIGTERM → grace → SIGKILL escalation, and resolves only once
+the process has actually exited.
+
+## Installation
+
+```bash
+npm install @robota-sdk/agent-process
+```
+
+Requires Node.js 22.12 or later.
 
 ## Why this exists
 
@@ -13,8 +21,8 @@ another kills only the direct child (leaving grandchildren orphaned), a third re
 before the process has exited. This package is the single source of truth so those bugs are fixed
 once.
 
-Zero `@robota-sdk` dependencies, so `agent-executor`, `agent-tools`, `agent-subagent-runner`, and
-any external consumer can depend down onto it without a cycle.
+It has no `@robota-sdk` dependencies, so `agent-executor`, `agent-tools`, `agent-subagent-runner`
+and any external consumer can depend on it without a cycle.
 
 ## Usage
 
@@ -48,7 +56,10 @@ await killProcessTree(child, {
 | `DEFAULT_KILL_GRACE_MS` | Shared grace window in ms (2000) between the initial signal and the forced SIGKILL      |
 | `IKillProcessOptions`   | `{ graceMs?, signal?, processGroup?, preKill? }`                                        |
 
+On Windows the forced step after the grace window uses `taskkill /T /F`, which ends the whole tree.
+
 See [`docs/SPEC.md`](./docs/SPEC.md) for the full termination contract.
 
-The TUI owns its separate internal PTY test driver. Its `node-pty` process abstraction is not
-Node's `ChildProcess`; sharing the escalation pattern does not make those drivers interchangeable.
+## License
+
+Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
