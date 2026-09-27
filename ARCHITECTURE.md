@@ -53,7 +53,8 @@ DAG / workflow subsystem (private; depends on the SDK packages, never the revers
   dag-framework, dag-nodes-default ← agent-command-workflows (/workflows in agent-cli)
   (A ← B: B depends on A)
 
-App support (private; used by apps/agent-server and apps/agent-web)
+App support (private; depends on the SDK packages, never the reverse; used by apps/agent-server and
+apps/agent-web)
   agent-playground · agent-remote-client
 ```
 
