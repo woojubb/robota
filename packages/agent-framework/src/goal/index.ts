@@ -9,6 +9,7 @@
 export {
   GoalController,
   extractGoalSignal,
+  isGoalCancelVerb,
   DEFAULT_GOAL_MAX_ITERATIONS,
   DEFAULT_GOAL_NO_PROGRESS_LIMIT,
   type IGoalSignal,

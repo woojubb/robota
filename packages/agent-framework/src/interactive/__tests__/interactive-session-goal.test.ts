@@ -92,3 +92,77 @@ describe('InteractiveSession goal wiring (GOAL-001)', () => {
     await expect(session.setGoal('   ')).rejects.toThrow(/non-empty/);
   });
 });
+
+/**
+ * #3280 §2: `/goal cancel` (or `stop`) is a CONTROL action — like abort or cancel-queue — so it must
+ * work while a turn is running, exactly when a runaway goal needs stopping. Every other command keeps
+ * the unchanged mid-turn refusal ("Another prompt or command is already running...").
+ */
+describe('InteractiveSession goal cancel as a mid-turn control action (#3280 §2)', () => {
+  it('cancels the goal, aborts the turn, and drops the already-queued next iteration', async () => {
+    const session = new InteractiveSession({
+      session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
+    });
+    const execCtrl = getExecCtrl(session);
+    // Stands in for the goal's own turn currently running: the executeCommand gate below only ever
+    // sees `execCtrl.executing`, not WHICH claim holds it.
+    holdExecution(execCtrl);
+    expect(execCtrl.executing).toBe(true);
+
+    await session.setGoal('write a file', { maxIterations: 5 });
+    await tick(); // the next iteration cannot run yet (the claim above holds it) — it queues instead
+    expect(execCtrl.pending.contents).toHaveLength(1);
+
+    const result = await session.executeCommand('goal', 'cancel');
+
+    expect(result).toMatchObject({ success: true, message: 'Goal cancelled: write a file' });
+    expect(session.getGoalState()?.status).toBe('stopped');
+    expect(session.getGoalState()?.stopReason).toBe('cancelled');
+    // No further iteration starts: the queued one was flushed by abort()'s whole-queue clear.
+    expect(execCtrl.pending.contents).toHaveLength(0);
+  });
+
+  it('cancels via the "stop" spelling too', async () => {
+    const session = new InteractiveSession({
+      session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
+    });
+    const execCtrl = getExecCtrl(session);
+    holdExecution(execCtrl);
+    await session.setGoal('write a file');
+
+    const result = await session.executeCommand('goal', 'stop');
+
+    expect(result).toMatchObject({ success: true });
+    expect(session.getGoalState()?.status).toBe('stopped');
+  });
+
+  it('a goal cancel with no active goal keeps the ordinary mid-turn refusal', async () => {
+    const session = new InteractiveSession({
+      session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
+    });
+    holdExecution(getExecCtrl(session));
+
+    const result = await session.executeCommand('goal', 'cancel');
+
+    expect(result).toMatchObject({
+      success: false,
+      message: expect.stringContaining('Another prompt or command is already running'),
+    });
+  });
+
+  it('an ordinary command is still refused while a turn runs', async () => {
+    const session = new InteractiveSession({
+      session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
+    });
+    const execCtrl = getExecCtrl(session);
+    await session.setGoal('write a file');
+    holdExecution(execCtrl);
+
+    const result = await session.executeCommand('help', '');
+
+    expect(result).toMatchObject({
+      success: false,
+      message: expect.stringContaining('Another prompt or command is already running'),
+    });
+  });
+});

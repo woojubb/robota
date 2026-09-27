@@ -4,6 +4,8 @@
  * command host context; all loop logic lives in agent-framework.
  */
 
+import { isGoalCancelVerb } from '@robota-sdk/agent-framework';
+
 import type { ICommandHostGoal } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type { IGoalState } from '@robota-sdk/agent-interface-session';
@@ -45,7 +47,7 @@ export async function executeGoalCommand(
       : { message: 'No goal is set.', success: true };
   }
 
-  if (verb === 'cancel' || verb === 'stop') {
+  if (isGoalCancelVerb(trimmed)) {
     const stopped = context.cancelGoal();
     return stopped
       ? { message: `Goal cancelled: ${stopped.objective}`, success: true }

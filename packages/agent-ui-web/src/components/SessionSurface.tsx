@@ -169,6 +169,15 @@ export function SessionSurface({
                   catalog={state.commandCatalog ?? null}
                   status={state.sessionStatus ?? null}
                   connected={state.status === 'connected'}
+                  running={state.isThinking}
+                  onStop={() => state.send({ type: 'abort' })}
+                  queued={state.queuedPrompt}
+                  onCancelQueue={() => {
+                    state.send({ type: 'cancel-queue' });
+                    // No push confirms a cleared queue (unlike a resolved prompt); ask, so the row
+                    // reliably disappears instead of trusting the clear went through.
+                    state.send({ type: 'get-pending' });
+                  }}
                   onCommand={(name) => state.send({ type: 'command', name })}
                   onSubmit={(prompt) => {
                     if (!prompt.startsWith('/')) {

@@ -3,7 +3,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 
 import { commandMenuFor } from '../hooks/command-menu.js';
 
-import type { TCommandCatalog, TSessionStatus } from '../hooks/session-client-types.js';
+import type { IQueuedPrompt, TCommandCatalog, TSessionStatus } from '../hooks/session-client-types.js';
 
 /** What a caller can do to the composer from outside it — currently just reclaiming focus. */
 export interface IComposerHandle {
@@ -29,9 +29,15 @@ export const Composer = forwardRef<
      * and nothing typed is cleared or lost — the composer never sends into a socket that is not there.
      */
     connected?: boolean;
+    /** #3280 §2: a turn (or a blocking command) is running — Send becomes Stop and Esc stops it too. */
+    running: boolean;
+    onStop: () => void;
+    /** #3280 §2: the prompt queued behind the running turn, or null when none is queued. */
+    queued: IQueuedPrompt | null;
+    onCancelQueue: () => void;
   }
 >(function Composer(
-  { onSubmit, onCommand, catalog, status, connected = true },
+  { onSubmit, onCommand, catalog, status, connected = true, running, onStop, queued, onCancelQueue },
   ref,
 ): React.ReactElement {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -59,9 +65,45 @@ export const Composer = forwardRef<
     setDraft(`/${item.name} `);
     return true;
   };
+  /** #3280 §2: Edit puts the queued text back in the draft — Remove just drops it. Either way the
+   *  whole queue is cancelled (the wire has no per-message cancel), so a second queued message would
+   *  go with it too; the "and N more" count on the row says so before either button is pressed. */
+  const editQueued = (): void => {
+    if (!queued) return;
+    setDraft(queued.text);
+    onCancelQueue();
+  };
 
   return (
     <div className="relative flex-shrink-0">
+      {queued && (
+        <div
+          role="status"
+          aria-label="queued prompt"
+          className="gui-rise mb-2 flex items-center gap-3 rounded-2xl bg-card px-4 py-2 text-[13px]"
+        >
+          <span className="min-w-0 flex-1 truncate text-muted-foreground">
+            Queued: {queued.text}
+            {queued.count > 1 && (
+              <span className="text-subtle"> and {queued.count - 1} more</span>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={editQueued}
+            className="flex-shrink-0 rounded-lg px-2 py-1 text-muted-foreground hover:bg-hover hover:text-foreground"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={onCancelQueue}
+            className="flex-shrink-0 rounded-lg px-2 py-1 text-muted-foreground hover:bg-hover hover:text-foreground"
+          >
+            Remove
+          </button>
+        </div>
+      )}
       {menu && (
         <div
           role="listbox"
@@ -138,6 +180,14 @@ export const Composer = forwardRef<
                 return;
               }
             }
+            // #3280 §2: Esc stops a running turn — but only once the menu (handled above) is out of
+            // the way, so dismissing the `/` menu never doubles as an abort. Not while disconnected:
+            // an abort could not reach the host either (issue #3280 §5).
+            if (e.key === 'Escape' && running && connected) {
+              e.preventDefault();
+              onStop();
+              return;
+            }
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               submit();
@@ -149,13 +199,19 @@ export const Composer = forwardRef<
         <div className="mt-1 flex items-center gap-1">
           <StatusRow status={status} onCommand={onCommand} />
           <button
-            type="submit"
-            disabled={!draft.trim() || !connected}
+            type={running ? 'button' : 'submit'}
+            onClick={running ? onStop : undefined}
+            // Stop is unavailable while disconnected too: an abort could not reach the host either.
+            disabled={!connected || (!running && !draft.trim())}
             aria-description={connected ? undefined : 'Not connected'}
             className="ml-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-all hover:opacity-85 disabled:bg-raised disabled:text-subtle"
           >
-            <ArrowUp size={17} strokeWidth={2.25} aria-hidden="true" />
-            <span className="sr-only">Send</span>
+            {running ? (
+              <Square size={13} strokeWidth={2} fill="currentColor" aria-hidden="true" />
+            ) : (
+              <ArrowUp size={17} strokeWidth={2.25} aria-hidden="true" />
+            )}
+            <span className="sr-only">{running ? 'Stop' : 'Send'}</span>
           </button>
         </div>
       </form>

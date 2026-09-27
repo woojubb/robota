@@ -68,7 +68,14 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
   it('asks for the session list on connect, beside the commands and status', () => {
     const { wire, connect } = setup();
     connect();
-    expect(wire.map((m) => m.type)).toEqual(['get-commands', 'get-status', 'list-sessions']);
+    // #3280 §2: also asks for the queue — a reconnect to the same session gets no `session_switched`
+    // to trigger that ask otherwise, so a stale `queuedPrompt` from before a drop would linger.
+    expect(wire.map((m) => m.type)).toEqual([
+      'get-commands',
+      'get-status',
+      'get-pending',
+      'list-sessions',
+    ]);
   });
 
   it('keeps the latest listing answer and ignores a stale one', () => {
@@ -139,6 +146,8 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
       'get-status',
       'get-commands',
       'get-execution-workspace',
+      // #3280 §2: the queued-message row is per-session state too — a switch re-reads it.
+      'get-pending',
       'list-sessions',
     ]);
   });

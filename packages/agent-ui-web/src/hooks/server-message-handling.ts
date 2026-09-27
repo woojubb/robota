@@ -38,7 +38,8 @@ export const SERVER_MESSAGE_HANDLING = {
   stored_session_usage_report: 'reducer-state',
   stored_session_usage_report_error: 'visible-notice',
   executing: 'intentionally-not-rendered',
-  pending: 'intentionally-not-rendered',
+  // #3280 §2: the prompt queued behind a running turn — shown above the composer with Edit/Remove.
+  pending: 'reducer-state',
   execution_workspace_event: 'reducer-state',
   // #3189: replies to requests only a terminal client sends (a detail page, Esc's loop stop).
   execution_detail: 'intentionally-not-rendered',

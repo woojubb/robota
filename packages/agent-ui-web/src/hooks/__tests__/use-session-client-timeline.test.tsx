@@ -111,6 +111,18 @@ describe('#3186 — the GUI conversation timeline', () => {
     );
   });
 
+  it('#3280 §2: an interrupted (stopped) turn keeps its partial reply, not just a completed one', () => {
+    const { result, deliver } = setup();
+    deliver({ type: 'text_delta', delta: 'partial resu' });
+    deliver({ type: 'interrupted', result: { response: 'partial resu' } } as TServerMessage);
+
+    expect(result.current.messages.at(-1)).toEqual(
+      expect.objectContaining({ role: 'assistant', content: 'partial resu' }),
+    );
+    expect(result.current.streamingText).toBe('');
+    expect(result.current.isThinking).toBe(false);
+  });
+
   it("a finished turn keeps its tool calls in the conversation, before the agent's reply", () => {
     const { result, deliver } = setup();
     deliver({ type: 'user_message', content: 'read it' });
@@ -180,6 +192,16 @@ describe('#3186 — commands and status for the composer', () => {
     expect(result.current.sessionStatus).toEqual(status);
   });
 
+  it('#3280 §2: a (re)connect also asks for the queue, so a reconnect to the same session refreshes it', () => {
+    const { wire, connect } = connectedSetup();
+    connect();
+    expect(wire.filter((m) => (m as { type: string }).type === 'get-pending')).toHaveLength(1);
+    // A drop and reconnect to the SAME session fires no `session_switched` — the connect handler's
+    // own `get-pending` is the only thing that refreshes a `queuedPrompt` left over from before it.
+    connect();
+    expect(wire.filter((m) => (m as { type: string }).type === 'get-pending')).toHaveLength(2);
+  });
+
   it('#3186 review: a reconnect forgets a command whose reply was lost with the connection', () => {
     const { result, deliver, connect } = connectedSetup();
     act(() => result.current.send({ type: 'command', name: 'settings' }));
@@ -196,5 +218,12 @@ describe('#3186 — commands and status for the composer', () => {
     deliver({ type: 'complete', result: { response: '' } } as TServerMessage);
     expect(wire.filter((m) => (m as { type: string }).type === 'get-status')).toHaveLength(2);
     expect(wire).toContainEqual({ type: 'get-commands' });
+  });
+
+  it('#3280 §2: a finished turn (complete or interrupted) re-asks for the queue', () => {
+    const { wire, deliver } = connectedSetup();
+    deliver({ type: 'complete', result: { response: '' } } as TServerMessage);
+    deliver({ type: 'interrupted', result: { response: '' } } as TServerMessage);
+    expect(wire.filter((m) => (m as { type: string }).type === 'get-pending')).toHaveLength(2);
   });
 });
