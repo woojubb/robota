@@ -1,7 +1,14 @@
 'use client';
 
 import { MessageCircleQuestion, ShieldAlert } from 'lucide-react';
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import type { TPendingPrompt } from '../hooks/prompt-state.js';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
@@ -16,7 +23,10 @@ import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
  * an option, Esc cancels a question or denies a permission — but it never takes that focus away from
  * a field the person is typing in (#3280 §1). A click on a button always answers at once. An ask whose
  * request sets `allowFreeText` also shows a text field (masked when `masked` is set); Enter there
- * submits it, and its own keys never reach the prompt's shortcuts (#3280 §3).
+ * submits it, and its own keys never reach the prompt's shortcuts (#3280 §3). The field's typed value
+ * lives only in `FreeTextField`, keyed by `prompt.id`: a cancelled or answered prompt's text can
+ * never reach the next prompt's render, masked or not, because the field is a fresh component
+ * instance rather than a value carried over in this component's own state (#3280 §3 follow-up).
  */
 interface IPermissionPromptProps {
   prompts: readonly TPendingPrompt[];
@@ -66,9 +76,13 @@ export function PermissionPrompt({
   const [armedId, setArmedId] = useState<string | undefined>(undefined);
   const [hasFocus, setHasFocus] = useState(false);
   // Whether the field itself (not just some part of the prompt) currently holds focus — digits typed
-  // there type into the field rather than choosing a numbered option, so the hint must say so.
+  // there type into the field rather than choosing a numbered option, so the hint must say so. Lifted
+  // from `FreeTextField` via `onFocusChange`, since the hint text is rendered up here.
   const [fieldFocused, setFieldFocused] = useState(false);
-  const [freeText, setFreeText] = useState('');
+  // Imperative escape hatch onto the field's own state (see `FreeTextField`): every path that ends
+  // this prompt clears it explicitly, rather than relying on the field ever being asked to render a
+  // value that belongs to a prompt other than the one it was mounted for.
+  const fieldHandleRef = useRef<IFreeTextFieldHandle>(null);
   // Set at the moment of an answer if focus was inside the prompt then; consumed once the prompt list
   // empties (see below) or cleared once a next prompt shows it was not needed after all.
   const pendingFocusReturnRef = useRef(false);
@@ -78,17 +92,21 @@ export function PermissionPrompt({
     return () => clearTimeout(timer);
   }, [promptId, armDelayMs]);
   const armed = promptId !== undefined && (armDelayMs <= 0 || armedId === promptId);
-  // A new prompt starts with an empty field, whatever the last one's typed (or masked) value was.
-  useEffect(() => {
-    setFreeText('');
-  }, [promptId]);
   // Answering one prompt renders the next into the same buttons, so a button focused to answer the
   // last one would take Enter, Space or a held key as an answer to this one. Focus goes back to the
-  // prompt itself, whose keys wait for the prompt to arm.
+  // prompt itself, whose keys wait for the prompt to arm. A reused button is still there to find this
+  // way — but the free-text field is its own component, remounted (not updated) for the new prompt.id
+  // (#3280 §3 follow-up), and removing a focused DOM node drops focus to <body> as an intrinsic side
+  // effect, before this effect ever runs. `pendingFocusReturnRef` (set at answer time, and not yet
+  // cleared — the effect that clears it is a passive one, ordered after this layout effect) still
+  // remembers that focus was in this prompt, so that case is reclaimed too.
   useLayoutEffect(() => {
     const container = containerRef.current;
+    if (!container) return;
     const active = document.activeElement;
-    if (container && active && active !== container && container.contains(active)) {
+    const focusStillInside = !!(active && active !== container && container.contains(active));
+    const focusJustLeftOnRemount = pendingFocusReturnRef.current && active === document.body;
+    if (focusStillInside || focusJustLeftOnRemount) {
       container.focus();
     }
   }, [promptId]);
@@ -134,41 +152,20 @@ export function PermissionPrompt({
     rememberFocus();
     onAnswerPermission(id, result);
   };
+  // Every ask answer — submit, Cancel, Esc (in the field or at the dock), or picking an option while
+  // text sits untyped in the field — clears whatever the field holds first. `FreeTextField` also
+  // clears itself on its own submit/Esc paths; this is the single choke point that covers the rest
+  // (the Cancel button, the dock's Esc, and answering by option) without every call site repeating it.
   const answerAsk = (id: string, response: TActionResponse): void => {
     rememberFocus();
+    fieldHandleRef.current?.clear();
     onAnswerAsk(id, response);
-  };
-  /** The typed value, trimmed as the runtime's own text-prompt renderers do; blocked while empty. */
-  const submitFreeText = (): void => {
-    if (prompt.kind !== 'ask') return;
-    const value = freeText.trim();
-    if (!value && prompt.request.allowEmpty !== true) return;
-    answerAsk(prompt.id, { type: 'answer', values: [], text: value });
-    setFreeText('');
   };
   /** A click anywhere in the prompt that isn't on a button or the field itself focuses the field. */
   const onContainerClick = (event: React.MouseEvent<HTMLDivElement>): void => {
     if (!hasFreeText) return;
     if ((event.target as HTMLElement).closest('button, input')) return;
     fieldRef.current?.focus();
-  };
-  /**
-   * A key that reaches the field types into it — the prompt's own shortcuts never see it (#3280 §3).
-   * The Enter that only finishes an IME composition (Korean/Japanese/Chinese) must not submit the
-   * still-uncommitted text — `isComposing` (or `keyCode` 229, on browsers that predate it) marks that
-   * Enter; the keystroke is left alone so the browser can commit the composition normally.
-   */
-  const onFieldKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
-    event.stopPropagation();
-    if (prompt.kind !== 'ask') return;
-    if (event.key === 'Enter') {
-      if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-      event.preventDefault();
-      submitFreeText();
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      answerAsk(prompt.id, { type: 'cancelled' });
-    }
   };
   /** A mouse click answers at once; a keyboard click (`detail` 0) waits for the prompt to arm. */
   const onButton =
@@ -323,29 +320,23 @@ export function PermissionPrompt({
                   {askOptions.length > 0 && (
                     <p className="text-[12.5px] text-subtle">or type an answer</p>
                   )}
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={fieldRef}
-                      type={prompt.request.masked ? 'password' : 'text'}
-                      autoComplete="off"
-                      aria-label="answer"
-                      placeholder={prompt.request.placeholder}
-                      value={freeText}
-                      onChange={(event) => setFreeText(event.target.value)}
-                      onKeyDown={onFieldKeyDown}
-                      onFocus={() => setFieldFocused(true)}
-                      onBlur={() => setFieldFocused(false)}
-                      className="min-w-0 flex-1 rounded-lg bg-sidebar px-3 py-1.5 text-[14px] text-foreground placeholder:text-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    />
-                    <button
-                      type="button"
-                      className={PRIMARY_BUTTON}
-                      disabled={!freeText.trim() && prompt.request.allowEmpty !== true}
-                      onClick={onButton(submitFreeText)}
-                    >
-                      Continue
-                    </button>
-                  </div>
+                  <FreeTextField
+                    // Remounts on every new prompt — no value typed for one question can ever appear
+                    // in the DOM for another, masked or not, since this is a fresh component instance
+                    // with its own fresh `useState('')`, not a value this component reset in an effect.
+                    key={prompt.id}
+                    ref={fieldHandleRef}
+                    inputRef={fieldRef}
+                    masked={prompt.request.masked === true}
+                    placeholder={prompt.request.placeholder}
+                    allowEmpty={prompt.request.allowEmpty === true}
+                    wrapClick={onButton}
+                    onSubmit={(value) =>
+                      answerAsk(prompt.id, { type: 'answer', values: [], text: value })
+                    }
+                    onCancel={() => answerAsk(prompt.id, { type: 'cancelled' })}
+                    onFocusChange={setFieldFocused}
+                  />
                 </div>
               )}
               <div className="flex flex-wrap items-center gap-2">
@@ -373,6 +364,95 @@ const BUTTON =
 const PRIMARY_BUTTON = `${BUTTON} bg-primary text-primary-foreground hover:opacity-90`;
 const SECONDARY_BUTTON = `${BUTTON} bg-raised text-foreground hover:bg-hover`;
 const GHOST_BUTTON = `${BUTTON} text-muted-foreground hover:bg-hover hover:text-foreground`;
+
+/** Imperative escape hatch a parent can use to wipe the field's value without owning it. */
+interface IFreeTextFieldHandle {
+  clear: () => void;
+}
+
+interface IFreeTextFieldProps {
+  masked: boolean;
+  placeholder?: string;
+  /** An empty answer is otherwise blocked, mirroring the runtime's own text-prompt renderers. */
+  allowEmpty: boolean;
+  /** The field's own DOM node, so the parent can move focus onto it once the prompt arms. */
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  /** The parent's mouse-vs-keyboard-click gate (`armed`), applied to this field's own button. */
+  wrapClick: (answer: () => void) => (event: React.MouseEvent) => void;
+  onSubmit: (value: string) => void;
+  onCancel: () => void;
+  onFocusChange: (focused: boolean) => void;
+}
+
+/**
+ * The free-text answer to one ask prompt. Its value lives ONLY here, in a component the parent
+ * mounts with `key={prompt.id}` — so a cancelled or answered prompt's typed (possibly masked, e.g.
+ * an API key) text cannot survive into another prompt's render: there is no shared state to carry it,
+ * only a fresh `useState('')` on the next prompt's fresh instance. `clear` is exposed via `ref` as a
+ * second line of defense, so the parent can wipe the value at the moment ANY answer is given (Cancel,
+ * an option pick, the dock's Esc) and not only from the paths already local to this component (submit,
+ * Esc-in-field) — belt and suspenders, not a substitute for the remount.
+ */
+const FreeTextField = forwardRef<IFreeTextFieldHandle, IFreeTextFieldProps>(function FreeTextField(
+  { masked, placeholder, allowEmpty, inputRef, wrapClick, onSubmit, onCancel, onFocusChange },
+  ref,
+) {
+  const [value, setValue] = useState('');
+  useImperativeHandle(ref, () => ({ clear: () => setValue('') }), []);
+  /** The typed value, trimmed as the runtime's own text-prompt renderers do; blocked while empty. */
+  const submit = (): void => {
+    const trimmed = value.trim();
+    if (!trimmed && !allowEmpty) return;
+    setValue('');
+    onSubmit(trimmed);
+  };
+  const cancel = (): void => {
+    setValue('');
+    onCancel();
+  };
+  /**
+   * A key that reaches the field types into it — the prompt's own shortcuts never see it (#3280 §3).
+   * The Enter that only finishes an IME composition (Korean/Japanese/Chinese) must not submit the
+   * still-uncommitted text — `isComposing` (or `keyCode` 229, on browsers that predate it) marks that
+   * Enter; the keystroke is left alone so the browser can commit the composition normally.
+   */
+  const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
+    event.stopPropagation();
+    if (event.key === 'Enter') {
+      if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+      event.preventDefault();
+      submit();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      cancel();
+    }
+  };
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        ref={inputRef}
+        type={masked ? 'password' : 'text'}
+        autoComplete="off"
+        aria-label="answer"
+        placeholder={placeholder}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        onKeyDown={onKeyDown}
+        onFocus={() => onFocusChange(true)}
+        onBlur={() => onFocusChange(false)}
+        className="min-w-0 flex-1 rounded-lg bg-sidebar px-3 py-1.5 text-[14px] text-foreground placeholder:text-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      />
+      <button
+        type="button"
+        className={PRIMARY_BUTTON}
+        disabled={!value.trim() && !allowEmpty}
+        onClick={wrapClick(submit)}
+      >
+        Continue
+      </button>
+    </div>
+  );
+});
 
 function Kbd({ children }: { children: React.ReactNode }): React.ReactElement {
   return (
