@@ -1,11 +1,17 @@
 import {
+  confirmAction,
   findProviderDefinition,
   formatSupportedProviderTypes,
+  isConfirmed,
   selectAction,
 } from '@robota-sdk/agent-core';
 import { testProviderProfileCommand } from '@robota-sdk/agent-framework';
 
-import { buildProviderSwitch } from './provider-command-profile-operations.js';
+import {
+  buildProviderDuplicate,
+  buildProviderProfileDelete,
+} from './provider-command-profile-lifecycle.js';
+import { buildProviderEdit, buildProviderSwitch } from './provider-command-profile-operations.js';
 import { askProviderProfileSelection } from './provider-command-profile.js';
 import { createSetupFlow, runProviderAddSetup } from './provider-command-setup.js';
 import { formatProviderSetupChoiceLabel } from './provider-setup-flow.js';
@@ -33,7 +39,8 @@ export async function executeProviderCommand(
   if (trimmedArgs.length === 0) {
     return buildProviderProfilePicker(ui, settings.currentProvider, settings.providers, options);
   }
-  const [subcommand = 'current', profileArg] = trimmedArgs.split(/\s+/);
+  const argTokens = trimmedArgs.split(/\s+/);
+  const [subcommand = 'current', profileArg] = argTokens;
 
   if (subcommand === 'list') {
     return buildProviderProfilePicker(ui, settings.currentProvider, settings.providers, options);
@@ -55,12 +62,45 @@ export async function executeProviderCommand(
       options,
     );
   }
+  // #3282 §4b: direct, non-interactive forms of what the profile-action menu otherwise reaches
+  // through two asks (`askProviderProfileSelection` then `askProviderProfileAction`) — for a caller
+  // (the Settings screen, or a typed command) that already names the profile and does not want the
+  // "which profile" ask repeated. `edit`/`duplicate` still ask their own follow-up questions (the
+  // new name, the changed fields) exactly as the menu's Edit/Duplicate do.
+  if (subcommand === 'edit') {
+    if (!ui) return { message: 'Provider edit requires an interactive session.', success: false };
+    if (!profileArg) return { message: 'Usage: provider edit <profile>', success: false };
+    return buildProviderEdit(ui, profileArg, options);
+  }
+  if (subcommand === 'duplicate') {
+    if (!ui) return { message: 'Provider duplicate requires an interactive session.', success: false };
+    if (!profileArg) return { message: 'Usage: provider duplicate <profile>', success: false };
+    return buildProviderDuplicate(ui, profileArg, options);
+  }
+  if (subcommand === 'delete') {
+    // #3282 §4b: `--confirmed` is set ONLY by the Settings screen's own write (`settings-reporter.ts`)
+    // — its "Delete…" button already confirmed through its own ConfirmDialog before sending this, and
+    // a modal write has nowhere to ask a follow-up question. A plainly-typed `delete <profile>` never
+    // carries it, so it confirms here first when a human can answer (matching `/clear`'s "confirm only
+    // when interactive; with no human the explicit form proceeds") — deleting a profile also deletes
+    // its stored key, unlike `switch`, which this direct-form family otherwise mirrors.
+    if (!profileArg) return { message: 'Usage: provider delete <profile>', success: false };
+    const preConfirmed = argTokens.includes('--confirmed');
+    if (!preConfirmed && ui) {
+      const response = await ui.ask(confirmAction('provider-delete', `Delete profile "${profileArg}"?`));
+      if (!isConfirmed(response)) {
+        return { message: 'Provider delete cancelled.', success: true };
+      }
+    }
+    return buildProviderProfileDelete(settings.providers, settings.currentProvider, profileArg, options);
+  }
   if (subcommand === 'add') {
     return buildProviderSetup(ui, profileArg, options, isSetupRequired);
   }
 
   return {
-    message: 'Usage: provider [current|list|switch <profile>|add <type>|test [profile]]',
+    message:
+      'Usage: provider [current|list|switch <profile>|edit <profile>|duplicate <profile>|delete <profile>|add <type>|test [profile]]',
     success: false,
   };
 }

@@ -1,14 +1,24 @@
 /**
- * #3282 §4a: the Settings screen's server-side read/write. Every field but `language` applies
- * through `session.executeCommand` — the exact call a `/mode`, `/output-style`, `/preset` or
- * `/sandbox` command would make — so a refusal a command gives is the refusal the Settings screen
- * gives. `language` writes the same settings document `/language` writes, without its restart.
+ * #3282 §4a/§4b: the Settings screen's server-side read/write. Every field but `language` applies
+ * through `session.executeCommand` — the exact call a `/mode`, `/output-style`, `/preset`,
+ * `/sandbox`, `/provider` or `/model` command would make — so a refusal a command gives is the
+ * refusal the Settings screen gives. `language` writes the same settings document `/language` writes,
+ * without its restart.
  *
- * Pure unit tests: every adapter is an in-memory fake, so nothing here touches a real filesystem or
- * `~/.robota` — there is nothing to point HOME at.
+ * Every adapter but one is an in-memory fake, so nothing here touches `~/.robota` — there is nothing
+ * to point HOME at. The one exception: the `providers` section is read through
+ * `readMergedProviderSettings(settingsSources)`, the same merged, multi-layer read `/provider` itself
+ * uses, and `TSettingsSource`'s "host" kind can only be backed by a real file (ARCH-042 gives its
+ * "project" kind no fakeable constructor from outside `agent-framework`) — those tests alone use an
+ * isolated temp file, cleaned up with `onTestFinished`, never `~/.robota`.
  */
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { createSettingsReporter } from '../settings-reporter.js';
 
@@ -17,10 +27,30 @@ import type {
   ICommandHostAdapters,
   ICommandSettingsAdapter,
   ISettingsDocumentStore,
+  TProviderSettingsDocument,
   TSettingsData,
 } from '@robota-sdk/agent-framework';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
+
+/** An isolated temp-file-backed provider settings source, cleaned up when the test ends. */
+function tempProviderSettingsSource(document: TProviderSettingsDocument): ICreateSettingsReporterOptions['settingsSources'][number] {
+  const dir = mkdtempSync(join(tmpdir(), 'robota-settings-reporter-test-'));
+  onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
+  const path = join(dir, 'settings.json');
+  writeFileSync(path, JSON.stringify(document));
+  return createNodeHostSettingsSource('user', path);
+}
+
+const ANTHROPIC: IProviderDefinition = {
+  type: 'anthropic',
+  displayName: 'Anthropic',
+  credentialRequirement: { anyOf: ['apiKey'] },
+  createProvider: () => {
+    throw new Error('not used');
+  },
+};
 
 function fakeSettingsAdapter(initial: TSettingsData = {}): ICommandSettingsAdapter {
   let data = initial;
@@ -55,6 +85,8 @@ function setup(options: {
   commandHostAdapters?: Partial<ICommandHostAdapters>;
   settingsSources?: ICreateSettingsReporterOptions['settingsSources'];
   settingsStores?: ICreateSettingsReporterOptions['settingsStores'];
+  providerDefinitions?: ICreateSettingsReporterOptions['providerDefinitions'];
+  orgPolicy?: ICreateSettingsReporterOptions['orgPolicy'];
 }): {
   session: IProtocolSession;
   reporter: ReturnType<typeof createSettingsReporter>;
@@ -81,6 +113,8 @@ function setup(options: {
     commandHostAdapters,
     settingsSources: options.settingsSources ?? [],
     settingsStores: options.settingsStores ?? [],
+    ...(options.providerDefinitions ? { providerDefinitions: options.providerDefinitions } : {}),
+    ...(options.orgPolicy ? { orgPolicy: options.orgPolicy } : {}),
   });
   return { session, reporter, commandHostAdapters };
 }
@@ -693,5 +727,256 @@ describe('createSettingsReporter (#3282 §4a)', () => {
     expect(settings.sandbox.enabled).toBe(true);
     expect(settings.sandbox.description).not.toMatch(/without a prompt/);
     expect(settings.sandbox.description).toMatch(/prompts still appear/);
+  });
+
+  describe('Providers & Models section (#3282 §4b)', () => {
+    it('lists configured profiles, built from the same merged read /provider itself uses', async () => {
+      const executeCommand = vi.fn(async (name: string, args: string) => {
+        if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+        if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+        return null;
+      });
+      const settingsSources = [
+        tempProviderSettingsSource({
+          currentProvider: 'anthropic',
+          providers: {
+            anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6', apiKey: 'sk-test' },
+          },
+        }),
+      ];
+      const { session, reporter } = setup({
+        executeCommand,
+        settingsSources,
+        providerDefinitions: [ANTHROPIC],
+      });
+
+      const settings = await reporter.getSettings(session);
+
+      expect(settings.providers.profiles).toEqual([
+        {
+          name: 'anthropic',
+          providerLabel: 'Anthropic',
+          model: { id: 'claude-sonnet-4-6', label: 'claude-sonnet-4-6' },
+          current: true,
+        },
+      ]);
+    });
+
+    it('never puts a key value in the snapshot — only a plain connection state', async () => {
+      const executeCommand = vi.fn(async (name: string, args: string) => {
+        if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+        if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+        return null;
+      });
+      const settingsSources = [
+        tempProviderSettingsSource({
+          currentProvider: 'anthropic',
+          providers: { anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' } }, // no apiKey
+        }),
+      ];
+      const { session, reporter } = setup({
+        executeCommand,
+        settingsSources,
+        providerDefinitions: [ANTHROPIC],
+      });
+
+      const settings = await reporter.getSettings(session);
+      const serialized = JSON.stringify(settings);
+
+      expect(settings.providers.profiles[0]!.connectionState).toBe('Key missing');
+      expect(serialized).not.toMatch(/sk-|apiKey/i);
+    });
+
+    it('omits a profile an org policy allowlist excludes', async () => {
+      const executeCommand = vi.fn(async (name: string, args: string) => {
+        if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+        if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+        return null;
+      });
+      const settingsSources = [
+        tempProviderSettingsSource({
+          currentProvider: 'anthropic',
+          providers: {
+            anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6', apiKey: 'sk-test' },
+            backup: { type: 'anthropic', model: 'claude-sonnet-4-6', apiKey: 'sk-test-2' },
+          },
+        }),
+      ];
+      const { session, reporter } = setup({
+        executeCommand,
+        settingsSources,
+        providerDefinitions: [ANTHROPIC],
+        orgPolicy: { allowedProviders: ['anthropic'] },
+      });
+
+      const settings = await reporter.getSettings(session);
+
+      expect(settings.providers.profiles.map((p) => p.name)).toEqual(['anthropic']);
+    });
+
+    it('"Use" switches through the same /provider switch path (validate, hot-swap, persist)', async () => {
+      const executeCommand = vi.fn(async (name: string, args: string) => {
+        if (name === 'provider' && args === 'switch backup') {
+          return { success: true, message: 'Switched to backup (claude-haiku-4-5). History preserved.' };
+        }
+        if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+        if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+        return null;
+      });
+      const { session, reporter } = setup({ executeCommand });
+
+      const outcome = await reporter.updateSettings(session, {
+        field: 'providerProfile',
+        profileName: 'backup',
+      });
+
+      expect(executeCommand).toHaveBeenCalledWith('provider', 'switch backup', 'remote');
+      expect(outcome.ok).toBe(true);
+    });
+
+    it('reports a failed switch as a refusal, applying nothing', async () => {
+      const executeCommand = vi.fn(async (name: string, args: string) => {
+        if (name === 'provider' && args === 'switch ghost') {
+          return { success: false, message: 'Provider profile "ghost" was not found.' };
+        }
+        if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+        if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+        return null;
+      });
+      const { session, reporter } = setup({ executeCommand });
+
+      const outcome = await reporter.updateSettings(session, {
+        field: 'providerProfile',
+        profileName: 'ghost',
+      });
+
+      expect(outcome).toEqual({
+        ok: false,
+        code: 'refused',
+        message: 'Provider profile "ghost" was not found.',
+      });
+    });
+
+    it('"Model" switches to the named profile first, then through the same /model <id> path', async () => {
+      const executeCommand = vi.fn(async (name: string, args: string) => {
+        if (name === 'provider' && args === 'switch backup') {
+          return { success: true, message: 'Switched to backup (claude-haiku-4-5). History preserved.' };
+        }
+        if (name === 'model' && args === 'claude-haiku-4-5') {
+          return { success: true, message: 'Model: Claude Haiku 4.5' };
+        }
+        if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+        if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+        return null;
+      });
+      const { session, reporter } = setup({ executeCommand });
+
+      const outcome = await reporter.updateSettings(session, {
+        field: 'providerModel',
+        profileName: 'backup',
+        modelId: 'claude-haiku-4-5',
+      });
+
+      expect(executeCommand).toHaveBeenCalledWith('provider', 'switch backup', 'remote');
+      expect(executeCommand).toHaveBeenCalledWith('model', 'claude-haiku-4-5', 'remote');
+      expect(outcome.ok).toBe(true);
+    });
+
+    it('"Model" never runs /model when switching to the named profile is refused', async () => {
+      const executeCommand = vi.fn(async (name: string, args: string) => {
+        if (name === 'provider' && args === 'switch ghost') {
+          return { success: false, message: 'Provider profile "ghost" was not found.' };
+        }
+        if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+        if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+        return null;
+      });
+      const { session, reporter } = setup({ executeCommand });
+
+      const outcome = await reporter.updateSettings(session, {
+        field: 'providerModel',
+        profileName: 'ghost',
+        modelId: 'claude-haiku-4-5',
+      });
+
+      expect(outcome).toEqual({
+        ok: false,
+        code: 'refused',
+        message: 'Provider profile "ghost" was not found.',
+      });
+      expect(executeCommand).not.toHaveBeenCalledWith('model', expect.anything(), expect.anything());
+    });
+
+    it('"Model" on the already-current profile is a no-op switch, then /model <id>', async () => {
+      const executeCommand = vi.fn(async (name: string, args: string) => {
+        if (name === 'provider' && args === 'switch anthropic') {
+          return { success: true, message: 'Already using provider "anthropic".' };
+        }
+        if (name === 'model' && args === 'claude-haiku-4-5') {
+          return { success: true, message: 'Model: Claude Haiku 4.5' };
+        }
+        if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+        if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+        return null;
+      });
+      const { session, reporter } = setup({ executeCommand });
+
+      const outcome = await reporter.updateSettings(session, {
+        field: 'providerModel',
+        profileName: 'anthropic',
+        modelId: 'claude-haiku-4-5',
+      });
+
+      expect(outcome.ok).toBe(true);
+    });
+
+    it('"Delete" goes through /provider delete <profile> --confirmed, refused when it is the profile in use', async () => {
+      const executeCommand = vi.fn(async (name: string, args: string) => {
+        if (name === 'provider' && args === 'delete anthropic --confirmed') {
+          return {
+            success: false,
+            message: 'Cannot delete the profile in use. Switch to another profile first.',
+          };
+        }
+        if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+        if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+        return null;
+      });
+      const { session, reporter } = setup({ executeCommand });
+
+      const outcome = await reporter.updateSettings(session, {
+        field: 'deleteProviderProfile',
+        profileName: 'anthropic',
+      });
+
+      // `--confirmed`: this write already went through the GUI's own ConfirmDialog before reaching
+      // here — a modal write has nowhere to render a follow-up ask, unlike a plainly-typed
+      // `/provider delete <profile>`, which confirms interactively first (agent-command's own tests).
+      expect(executeCommand).toHaveBeenCalledWith('provider', 'delete anthropic --confirmed', 'remote');
+      expect(outcome).toEqual({
+        ok: false,
+        code: 'refused',
+        message: 'Cannot delete the profile in use. Switch to another profile first.',
+      });
+    });
+
+    it('"Delete" succeeds for an inactive profile, through the same command path', async () => {
+      const executeCommand = vi.fn(async (name: string, args: string) => {
+        if (name === 'provider' && args === 'delete backup --confirmed') {
+          return { success: true, message: 'Provider profile deleted: backup.' };
+        }
+        if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+        if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+        return null;
+      });
+      const { session, reporter } = setup({ executeCommand });
+
+      const outcome = await reporter.updateSettings(session, {
+        field: 'deleteProviderProfile',
+        profileName: 'backup',
+      });
+
+      expect(outcome.ok).toBe(true);
+    });
   });
 });

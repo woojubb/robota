@@ -4,7 +4,8 @@
  * per control, grouped/labelled per the decided design, with a checkmark on the current value.
  * Choosing a model/mode/effort runs the same path the equivalent typed command would (`onSilentCommand`
  * for a plain apply — the label itself confirms the change, no conversation card); "Manage providers…"
- * (the model menu's last item) opens the existing profile flow instead (`onCommand`, unchanged/carded).
+ * (the model menu's last item) opens Settings at the Providers & Models section instead (#3282 §4b,
+ * `onManageProviders`).
  */
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -80,7 +81,7 @@ function baseProps(overrides: Partial<React.ComponentProps<typeof StatusRow>> = 
     catalog,
     modelList,
     onRequestModelList: vi.fn(),
-    onCommand: vi.fn(),
+    onManageProviders: vi.fn(),
     onSilentCommand: vi.fn(),
     connected: true,
     ...overrides,
@@ -112,27 +113,27 @@ describe('StatusRow — model control', () => {
     ).toBe('false');
   });
 
-  it('choosing a model runs the same path as /model <id> — sent silently, not through onCommand', () => {
+  it('choosing a model runs the same path as /model <id> — sent silently, never opening Settings', () => {
     const onSilentCommand = vi.fn();
-    const onCommand = vi.fn();
-    render(<StatusRow {...baseProps({ onSilentCommand, onCommand })} />);
+    const onManageProviders = vi.fn();
+    render(<StatusRow {...baseProps({ onSilentCommand, onManageProviders })} />);
     fireEvent.click(screen.getByRole('button', { name: 'model: claude-sonnet-4-6' }));
 
     fireEvent.click(screen.getByRole('menuitemradio', { name: 'Claude Haiku 4.5' }));
 
     expect(onSilentCommand).toHaveBeenCalledWith('model', 'claude-haiku-4-5');
-    expect(onCommand).not.toHaveBeenCalled();
+    expect(onManageProviders).not.toHaveBeenCalled();
   });
 
-  it('the last item is "Manage providers…", which opens the existing profile flow via onCommand', () => {
-    const onCommand = vi.fn();
+  it('the last item is "Manage providers…", which opens Settings at the Providers & Models section', () => {
+    const onManageProviders = vi.fn();
     const onSilentCommand = vi.fn();
-    render(<StatusRow {...baseProps({ onCommand, onSilentCommand })} />);
+    render(<StatusRow {...baseProps({ onManageProviders, onSilentCommand })} />);
     fireEvent.click(screen.getByRole('button', { name: 'model: claude-sonnet-4-6' }));
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Manage providers…' }));
 
-    expect(onCommand).toHaveBeenCalledWith('provider');
+    expect(onManageProviders).toHaveBeenCalledWith();
     expect(onSilentCommand).not.toHaveBeenCalled();
   });
 

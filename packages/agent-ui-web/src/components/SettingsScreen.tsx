@@ -8,6 +8,7 @@ import { SettingsGeneralSection } from './SettingsGeneralSection.js';
 import { SettingsMcpSection } from './SettingsMcpSection.js';
 import { describePermissionRuleRemoval, SettingsPermissionsSection } from './SettingsPermissionsSection.js';
 import { SettingsPluginsSection } from './SettingsPluginsSection.js';
+import { SettingsProvidersSection } from './SettingsProvidersSection.js';
 
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
 import type { ISettingsPermissionRule, ISettingsPlugin } from '@robota-sdk/agent-interface-session';
@@ -18,14 +19,15 @@ interface ISettingsSectionDefinition {
 }
 
 /**
- * The Settings screen's sections (#3282 §4). Adding a later section (Providers & Models, Advisor)
- * is one entry here plus one component in the switch below — nothing else in this file changes.
+ * The Settings screen's sections (#3282 §4). Adding a later section (Advisor) is one entry here plus
+ * one component in the switch below — nothing else in this file changes.
  */
 const SECTIONS: readonly ISettingsSectionDefinition[] = [
   { id: 'general', label: 'General' },
   { id: 'permissions', label: 'Permissions' },
   { id: 'mcp', label: 'MCP Servers' },
   { id: 'plugins', label: 'Plugins' },
+  { id: 'providers', label: 'Providers & Models' },
 ];
 
 type TPendingSkipAllChecks = { kind: 'mode' } | { kind: 'preset'; presetId: string };
@@ -54,10 +56,12 @@ export function SettingsScreen({ state }: { state: IWsSessionState }): React.Rea
   const [pendingPluginAction, setPendingPluginAction] = useState<TPendingPluginAction | null>(null);
   const [mcpReloading, setMcpReloading] = useState(false);
   const [pluginsReloading, setPluginsReloading] = useState(false);
+  // #3282 §4b: the profile a pending "Delete…" confirms, or null when none is pending.
+  const [pendingProviderDelete, setPendingProviderDelete] = useState<string | null>(null);
 
-  // Each time the screen opens, land on the section the opener asked for (`/plugin` → Plugins;
-  // the gear and `/settings` ask for none, which lands on General) and, for narrow windows, on the
-  // section list.
+  // Each time the screen opens, land on the section the opener asked for (`/plugin` → Plugins,
+  // "Manage providers…" → Providers & Models; the gear and `/settings` ask for none, which lands on
+  // General) and, for narrow windows, on the section list.
   useEffect(() => {
     if (!state.settingsOpen) return;
     setActiveSectionId(state.settingsInitialSectionId ?? 'general');
@@ -230,6 +234,18 @@ export function SettingsScreen({ state }: { state: IWsSessionState }): React.Rea
                     onRequestInstall={(pluginId) => setPendingPluginAction({ kind: 'install', pluginId })}
                     onRequestUninstall={(plugin) => setPendingPluginAction({ kind: 'uninstall', plugin })}
                   />
+                ) : activeSection.id === 'providers' ? (
+                  <SettingsProvidersSection
+                    snapshot={snapshot}
+                    modelList={state.modelList}
+                    onRequestModelList={state.requestModelList}
+                    onUse={(profileName) => state.updateSettings({ field: 'providerProfile', profileName })}
+                    onModelChange={(profileName, modelId) =>
+                      state.updateSettings({ field: 'providerModel', profileName, modelId })
+                    }
+                    onCommand={(args) => state.send({ type: 'command', name: 'provider', args })}
+                    onRequestDelete={(profileName) => setPendingProviderDelete(profileName)}
+                  />
                 ) : (
                   <SettingsPermissionsSection
                     snapshot={snapshot}
@@ -292,6 +308,21 @@ export function SettingsScreen({ state }: { state: IWsSessionState }): React.Rea
         destructive
         onCancel={() => setPendingPluginAction(null)}
         onConfirm={confirmPluginAction}
+      />
+
+      <ConfirmDialog
+        open={pendingProviderDelete !== null}
+        title={pendingProviderDelete ? `Delete profile "${pendingProviderDelete}"?` : ''}
+        body="This removes the profile and its stored key. This cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        onCancel={() => setPendingProviderDelete(null)}
+        onConfirm={() => {
+          if (pendingProviderDelete) {
+            state.updateSettings({ field: 'deleteProviderProfile', profileName: pendingProviderDelete });
+          }
+          setPendingProviderDelete(null);
+        }}
       />
     </>
   );

@@ -307,6 +307,59 @@ try {
   );
 
   await scenario(
+    'Settings → Providers & Models: switching the active profile\'s model changes the next reply (#3282 §4b)',
+    async () => {
+      // Scoped to the dialog throughout: the status row's own "model: …" chip sits underneath the
+      // modal, still in the DOM, and its accessible name also contains "Model" — an unscoped
+      // getByRole('button', { name: 'Model' }) would match both and fail Playwright's strict mode.
+      // `exact: true` on the "Model" button itself for the same reason: the section nav button
+      // "Providers & Models" also contains "Model" as a substring.
+      const settingsDialog = page.getByRole('dialog', { name: 'Settings' });
+
+      await page.getByRole('button', { name: 'Settings' }).click();
+      await settingsDialog.waitFor();
+      await settingsDialog.getByRole('button', { name: 'Providers & Models' }).click();
+      await settingsDialog.getByText('Scripted · Scripted Model', { exact: true }).waitFor();
+
+      await settingsDialog.getByRole('button', { name: 'Model', exact: true }).click();
+      const modelMenu = page.getByRole('menu', { name: 'Models for scripted' });
+      await modelMenu.waitFor();
+      await modelMenu.getByRole('menuitemradio', { name: 'Scripted Model 2' }).click();
+      // Settings applies at once — the row reflects the fresh snapshot without closing the dialog.
+      await settingsDialog.getByText('Scripted · Scripted Model 2', { exact: true }).waitFor();
+
+      await settingsDialog.getByRole('button', { name: 'Close Settings' }).click();
+      await settingsDialog.waitFor({ state: 'detached' });
+
+      await send('hi there');
+      // .last(): an earlier scenario already produced one "(model: scripted-model-2)" reply.
+      await page.getByText('(model: scripted-model-2)').last().waitFor({ timeout: 10_000 });
+
+      // Restore for every scenario below that assumes the original scripted model, through Settings
+      // again (not the status row) — proof the two controls stay in agreement either way. A Settings
+      // change alone never refreshes the status chip (only a command sent through the composer does,
+      // via the `command_result` -> `get-status` refresh) — a second reply is what proves the restore
+      // reached the session, and it is what brings the chip back in step for later scenarios.
+      await page.getByRole('button', { name: 'Settings' }).click();
+      await settingsDialog.waitFor();
+      await settingsDialog.getByRole('button', { name: 'Providers & Models' }).click();
+      await settingsDialog.getByRole('button', { name: 'Model', exact: true }).click();
+      await modelMenu.waitFor();
+      await modelMenu
+        // exact: 'Scripted Model' is a substring of 'Scripted Model 2', both present in this menu.
+        .getByRole('menuitemradio', { name: 'Scripted Model', exact: true })
+        .click();
+      await settingsDialog.getByText('Scripted · Scripted Model', { exact: true }).waitFor();
+      await settingsDialog.getByRole('button', { name: 'Close Settings' }).click();
+      await settingsDialog.waitFor({ state: 'detached' });
+
+      await send('hi again');
+      await page.getByText('(model: scripted-model)').last().waitFor({ timeout: 10_000 });
+      await page.getByRole('button', { name: 'model: scripted-model' }).waitFor();
+    },
+  );
+
+  await scenario(
     'Settings → MCP Servers: lists the scripted server and its switch sends a typed update (#3282 §4 part b-2)',
     async () => {
       await page.getByRole('button', { name: 'Settings' }).click();

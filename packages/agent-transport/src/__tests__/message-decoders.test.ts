@@ -441,6 +441,26 @@ const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
     'update-settings uninstallPlugin patch with a numeric pluginId',
     { type: 'update-settings', requestId: 'r', patch: { field: 'uninstallPlugin', pluginId: 1 } },
   ],
+  [
+    'update-settings providerProfile patch missing profileName',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'providerProfile' } },
+  ],
+  [
+    'update-settings providerProfile patch with an empty profileName',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'providerProfile', profileName: '' } },
+  ],
+  [
+    'update-settings providerModel patch missing modelId',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'providerModel', profileName: 'anthropic' } },
+  ],
+  [
+    'update-settings providerModel patch missing profileName',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'providerModel', modelId: 'claude-haiku-4-5' } },
+  ],
+  [
+    'update-settings deleteProviderProfile patch missing profileName',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'deleteProviderProfile' } },
+  ],
 ];
 
 const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
@@ -582,6 +602,21 @@ describe('decodeClientMessage (issue #2045)', () => {
 
   it.each(MALFORMED_CLIENT)('refuses %s', (_label, value) => {
     expect(decodeClientMessage(value).ok).toBe(false);
+  });
+
+  // #3282 §4b: "Providers & Models" — Use, Model and Delete each add one `update-settings` patch
+  // field; `CLIENT_SAMPLES` above only round-trips one field (`outputStyle`) per variant, so these
+  // three get their own explicit round trip.
+  it.each([
+    { field: 'providerProfile', profileName: 'backup' },
+    { field: 'providerModel', profileName: 'backup', modelId: 'claude-haiku-4-5' },
+    { field: 'deleteProviderProfile', profileName: 'backup' },
+  ])('decodes an update-settings patch with field %j', (patch) => {
+    const message = { type: 'update-settings', requestId: 'r', patch };
+    expect(decodeClientMessage(JSON.parse(JSON.stringify(message)))).toEqual({
+      ok: true,
+      message,
+    });
   });
 
   it('keeps the protocol wording for a bad submit prompt', () => {

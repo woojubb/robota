@@ -508,6 +508,10 @@ async function runCliCore(
     commandHostAdapters,
     settingsSources: workspaceComposition.settingsSources,
     settingsStores: workspaceComposition.settingsStores,
+    // #3282 §4b: the "Providers & Models" section reads/filters the same way `/model`'s wire
+    // projection does — same provider definitions, same org-policy allowlist.
+    providerDefinitions,
+    orgPolicy,
   });
   // REMOTE-008: the shell owns/injects transport wiring; `/remote-control` is its declarative trigger.
   const {

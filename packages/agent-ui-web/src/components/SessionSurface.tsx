@@ -356,6 +356,9 @@ export function SessionSurface({
                     modelList={state.modelList}
                     onRequestModelList={() => state.requestModelList()}
                     onSilentCommand={(name, args) => state.sendCommandSilently(name, args)}
+                    // #3282 §4b: "Manage providers…" now opens Settings at the Providers & Models
+                    // section, replacing the model menu's former server-driven profile flow.
+                    onManageProviders={() => state.openSettings('providers')}
                     onSubmit={(prompt) => {
                       if (!prompt.startsWith('/')) {
                         state.send({ type: 'submit', prompt });

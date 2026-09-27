@@ -121,7 +121,7 @@ export function StatusRow({
   catalog,
   modelList,
   onRequestModelList,
-  onCommand,
+  onManageProviders,
   onSilentCommand,
   connected,
 }: {
@@ -129,8 +129,8 @@ export function StatusRow({
   catalog: TCommandCatalog | null;
   modelList: TModelListSnapshot | null;
   onRequestModelList: () => void;
-  /** The existing (unchanged) bare-command path — used only by "Manage providers…" today. */
-  onCommand: (name: string, args?: string) => void;
+  /** #3282 §4b: "Manage providers…" opens Settings at the Providers & Models section. */
+  onManageProviders: () => void;
   /** Applies a model/mode/effort choice without a conversation card (see the module doc). */
   onSilentCommand: (name: string, args?: string) => void;
   connected: boolean;
@@ -158,11 +158,10 @@ export function StatusRow({
           key: 'manage-providers',
           label: 'Manage providers…',
           kind: 'action',
-          // #3282 §2: opens the existing (server-driven) profile flow, unchanged — moves to Settings
-          // later. Never silenced: Switch/Edit/Test/Duplicate/Delete each already say their own
-          // outcome, which is not redundant with a chip label the way a plain model/mode/effort
-          // apply's outcome is.
-          onSelect: () => onCommand('provider'),
+          // #3282 §4b: opens Settings at the "Providers & Models" section — the same list, Use/Model/
+          // Edit/Test/Duplicate/Delete actions and "Add provider…" flow now live there instead of in
+          // this menu's own server-driven picker.
+          onSelect: onManageProviders,
         },
       ],
     },

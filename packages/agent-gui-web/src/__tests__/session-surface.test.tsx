@@ -55,6 +55,7 @@ function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
     answerPermission: vi.fn(),
     answerAsk: vi.fn(),
     settingsOpen: false,
+    settingsInitialSectionId: null,
     settingsStatus: 'idle',
     settingsSnapshot: null,
     settingsError: null,
@@ -317,11 +318,11 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.sendCommandSilently).toHaveBeenCalledWith('mode', 'plan');
 
     // The model chip's menu, fed by `modelList`, requests a fresh list on open and its last item
-    // ("Manage providers…") still opens the existing profile flow through the ordinary command path.
+    // ("Manage providers…") opens Settings at the Providers & Models section (#3282 §4b).
     fireEvent.click(screen.getByRole('button', { name: 'model: claude-sonnet-5' }));
     expect(state.requestModelList).toHaveBeenCalled();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Manage providers…' }));
-    expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'provider' });
+    expect(state.openSettings).toHaveBeenCalledWith('providers');
   });
 
   it('#3186: a goal in progress shows above the composer and can be stopped', () => {

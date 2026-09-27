@@ -182,6 +182,8 @@ export type {
   ISettingsPlugin,
   ISettingsPluginsSection,
   ISettingsPresetSection,
+  ISettingsProviderProfile,
+  ISettingsProvidersSection,
   ISettingsSandboxSection,
   ISettingsSnapshot,
   TSettingsPatch,

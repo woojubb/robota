@@ -169,6 +169,12 @@ export const Composer = forwardRef<
     onRequestModelList?: () => void;
     /** Applies a model/mode/effort choice without a conversation card (the control's label confirms it). */
     onSilentCommand?: (name: string, args?: string) => void;
+    /**
+     * #3282 §4b: "Manage providers…" opens Settings at the Providers & Models section. Defaults to
+     * dispatching the bare `/provider` command (the pre-#3282-§4b behavior) for a caller that has not
+     * wired Settings — every shipped caller passes its own `state.openSettings('providers')`.
+     */
+    onManageProviders?: () => void;
   }
 >(function Composer(
   {
@@ -186,6 +192,7 @@ export const Composer = forwardRef<
     modelList = null,
     onRequestModelList = () => {},
     onSilentCommand = onCommand,
+    onManageProviders = () => onCommand('provider'),
   },
   ref,
 ): React.ReactElement {
@@ -605,7 +612,7 @@ export const Composer = forwardRef<
             catalog={catalog}
             modelList={modelList}
             onRequestModelList={onRequestModelList}
-            onCommand={onCommand}
+            onManageProviders={onManageProviders}
             onSilentCommand={onSilentCommand}
             connected={connected}
           />
