@@ -41,6 +41,52 @@ console.log(`${state.usedPercentage.toFixed(1)}% context used`);
 await session.compact('Focus on the API changes');
 ```
 
+## Checkpointed approval
+
+Use `runRecoverable` when the host must save an approval request and answer it after reopening the
+same Session. Supply an `IRecoverableExecutionJournal` from `@robota-sdk/agent-core`; the host owns
+exclusive access and durable, idempotent record storage. Ordinary `run` keeps live approval handling.
+
+```typescript
+import type { IRecoverableExecutionJournal } from '@robota-sdk/agent-core';
+
+declare const journal: IRecoverableExecutionJournal;
+declare const approvedByHost: boolean;
+declare const hostResponseId: string; // Persist this ID and reuse it for redelivery.
+
+const result = await session.runRecoverable('Perform the requested task', {
+  executionJournal: journal,
+});
+if (result.status === 'waiting') {
+  const request = result.requests.find((value) => value.kind === 'robota-session/approval');
+  if (request) {
+    // Authenticate the responder and show the exact request.data.arguments before answering.
+    const continued = await session.resumeRecoverable({
+      executionId: request.executionId,
+      journal,
+      toolResponses: [{
+        requestId: request.requestId,
+        responseId: hostResponseId,
+        response: { approved: approvedByHost },
+      }],
+    });
+    // continued may wait again, including for another action with identical arguments.
+  }
+}
+```
+
+`resumeRecoverable` continues execution without adding another user message. A recreated Session
+must use the same session ID, canonical workspace, provider and model. Current hooks, permissions,
+task restrictions and peer restrictions are checked again; approval never grants session-wide consent.
+A response with a reused ID and different content is refused. Existing saved decisions also bind
+ordinary `resume`. Do not submit unrelated input while an execution is pending.
+
+Waiting is returned only after request writes and active sibling effects settle. Cancellation can
+therefore take longer than the request to stop. Storage failures propagate, and uncertain effects
+raise a reconciliation error rather than being replayed. Turn-level lifecycle hooks are omitted on
+continuation because their effects lack durable receipts; structured-output recovery is unsupported.
+This API alone does not provide arbitrary-effect recovery or durable Roundtable execution.
+
 ## Replay log validation
 
 `FileSessionLogger` writes versioned JSONL. `loadSessionLogEntries` and

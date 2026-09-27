@@ -10,6 +10,8 @@ export * from './validation';
 export * from './error-utils';
 export * from './errors';
 export { ExecutionJournalError } from './execution-journal-error';
+export { ExecutionSuspendedError } from './execution-suspended-error';
+export { isExecutionControlError } from './execution-control-error';
 export {
   classifyProviderFailure,
   readProviderFailureDetails,

@@ -1,7 +1,7 @@
 import { PERMISSION_DENIED_RESULT, reportToolCrash, toolFailure } from './permission-types.js';
 import {
   createLogger,
-  ExecutionJournalError,
+  isExecutionControlError,
   DEFAULT_ABSTRACT_EVENT_SERVICE,
   isAbortFailure,
   TOOL_BODY_EVENTS,
@@ -73,6 +73,7 @@ export interface IToolWrapperDeps {
     signal?: AbortSignal,
     interaction?: IToolExecutionContext['permissionInteraction'],
     hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
+    continuation?: IToolExecutionContext['continuation'],
   ): Promise<boolean | IPermissionRefusal>;
 }
 
@@ -148,6 +149,7 @@ export function wrapToolWithPermission(
         context?.signal,
         context?.permissionInteraction,
         context?.hookTraceEnv,
+        context?.continuation,
       );
       if (verdict !== true) {
         enforcer.log('tool_denied', { tool: toolName, reason: 'permission' });
@@ -212,6 +214,7 @@ export function wrapToolWithPermission(
             context?.signal,
             context?.permissionInteraction,
             context?.hookTraceEnv,
+            context?.continuation,
           );
           if (effectiveVerdict !== true)
             throw new DeferredPermissionRefusal(
@@ -311,7 +314,7 @@ export function wrapToolWithPermission(
       );
       return truncatedResult;
     } catch (err) {
-      if (err instanceof ExecutionJournalError) throw err;
+      if (isExecutionControlError(err)) throw err;
       if (err instanceof DeferredPermissionRefusal) return err.result;
       // CORE-027 — beside the envelope it returns, in `permission-types.ts`.
       return reportToolCrash(err, enforcer.onToolExecution, {

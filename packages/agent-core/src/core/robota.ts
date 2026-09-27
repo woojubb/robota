@@ -187,7 +187,8 @@ export class Robota
    * Resume a compatible journaled execution without adding input or repeating settled calls.
    * Retain restored history for the host to checkpoint or discard, including on interruption.
    */
-  async resume(options: IResumeExecutionOptions): Promise<string> {
+  async resume(value: IResumeExecutionOptions): Promise<string> {
+    const options = { ...value, toolResponses: structuredClone(value.toolResponses) };
     this.assertNotDestroyed();
     return this.runQueue.run(options.signal, async () => {
       await this.ensureFullyInitialized();
@@ -201,7 +202,8 @@ export class Robota
    * Restore the latest journaled tool batch without a model call or new user input.
    * The host must own the journal exclusively and settle the previous runtime first.
    */
-  async resumeToolCalls(options: IResumeToolCallsOptions): Promise<IResumeToolCallsResult> {
+  async resumeToolCalls(value: IResumeToolCallsOptions): Promise<IResumeToolCallsResult> {
+    const options = { ...value, toolResponses: structuredClone(value.toolResponses) };
     this.assertNotDestroyed();
     return this.runQueue.run(options.signal, async () => {
       await this.ensureFullyInitialized();

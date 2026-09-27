@@ -4,6 +4,7 @@ import type { IToolExecutionResult, TToolParameters } from './tool';
 import type { TToolSearchSetting } from './tool-search';
 import type { IRunTraceContext } from './trace-context';
 import type { TMetadata } from './types';
+import type { IToolContinuationPrompt, IToolWaitResponse } from './tool-continuation';
 
 /** Data-only provider options; callbacks, signals, tracing and adapter credentials are excluded. */
 export type TJournalModelOptions = Pick<
@@ -98,6 +99,11 @@ export type TExecutionJournalRecord = IJournalIdentity &
     | (IJournalActionIdentity & { kind: 'tool-dispatch' })
     | (IJournalActionIdentity & { kind: 'tool-effect-start'; parameters: TToolParameters })
     | (IJournalActionIdentity & {
+        kind: 'tool-wait';
+        request: IToolContinuationPrompt & { requestId: string };
+      })
+    | (IJournalActionIdentity & { kind: 'tool-response'; response: IToolWaitResponse })
+    | (IJournalActionIdentity & {
         kind: 'tool-result';
         result: IToolExecutionResult;
         loadedDeferredTools?: string[];
@@ -127,6 +133,8 @@ export interface IResumeToolCallsOptions {
   executionId: string;
   callId: string;
   journal: IRecoverableExecutionJournal;
+  /** Exact replies to saved requests; receipts are persisted before further execution. */
+  toolResponses?: readonly IToolWaitResponse[];
   signal?: AbortSignal;
   /** Observe newly committed recovery history using the ordinary history-mutation contract. */
   onExecutionEvent?: (event: string, data: Record<string, unknown>) => void;

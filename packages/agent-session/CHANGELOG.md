@@ -1,5 +1,9 @@
 # @robota-sdk/agent-session
 
+## Unreleased
+
+- Add opt-in recoverable runs and approval continuation. Responses bind the original action and effective arguments, preserve current permission checks and saved denials, and do not grant session consent.
+
 ## 3.0.0-beta.83
 
 ### Minor Changes

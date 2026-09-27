@@ -28,7 +28,7 @@ import { userMessageMetadata } from './execution-user-message';
 import { callPluginHook, type TPluginWithHooks } from './plugin-hook-dispatcher';
 import { ToolExecutionService } from './tool-execution-service';
 import { isAbortFailure } from '../utils/abort-classification';
-import { ExecutionJournalError } from '../utils/execution-journal-error';
+import { isExecutionControlError } from '../utils/execution-control-error';
 import { createLogger, type ILogger } from '../utils/logger';
 
 import type {
@@ -318,7 +318,7 @@ export class ExecutionService {
         this.eventEmitter,
       );
     } catch (error) {
-      if (error instanceof ExecutionJournalError) throw error;
+      if (isExecutionControlError(error)) throw error;
       // CORE-027: classified from the SIGNAL and the error's own name, never from its prose. The
       // substring test that stood here returned `success: true, interrupted: true` for any provider
       // failure whose message happened to contain "abort".

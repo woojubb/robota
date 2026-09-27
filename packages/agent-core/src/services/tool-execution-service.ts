@@ -1,7 +1,7 @@
 import { executeBatch } from './tool-execution-batch';
 import { TOOL_SEARCH_TOOL_NAME } from '../interfaces/tool-search';
 import { ValidationError } from '../utils/errors';
-import { ExecutionJournalError } from '../utils/execution-journal-error';
+import { isExecutionControlError } from '../utils/execution-control-error';
 import { SilentLogger, type ILogger } from '../utils/logger';
 
 import type { IOwnerPathSegment, IToolEventData } from '../interfaces/event-service';
@@ -177,7 +177,7 @@ export class ToolExecutionService {
         executionId: executionContext.executionId!,
       };
     } catch (error) {
-      if (error instanceof ExecutionJournalError) throw error;
+      if (isExecutionControlError(error)) throw error;
       this.logger.error(`Tool execution failed: ${toolName}`);
 
       const toolError = error instanceof Error ? error : new Error(String(error));

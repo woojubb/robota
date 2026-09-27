@@ -1,5 +1,11 @@
 import { ValidationError } from '../utils/errors';
-import { ExecutionJournalError } from '../utils/execution-journal-error';
+import type { ExecutionJournalError } from '../utils/execution-journal-error';
+import {
+  isExecutionControlError,
+  prioritizeExecutionError,
+} from '../utils/execution-control-error';
+import { ExecutionSuspendedError } from '../utils/execution-suspended-error';
+import type { ExecutionRecoveryError } from '../utils/execution-recovery-error';
 import { randomId } from '../utils/random-id.js';
 import { spanIdFromMintedId, toolTraceContextFor, traceEnvFor } from '../utils/trace-context';
 
@@ -32,7 +38,7 @@ interface IParallelExecutionState {
   resultsByIndex: Array<IToolExecutionResult | undefined>;
   errorsByIndex: Array<Error | undefined>;
   nextRequestIndex: number;
-  fatalError?: ExecutionJournalError;
+  fatalError?: ExecutionJournalError | ExecutionSuspendedError | ExecutionRecoveryError;
   abort: AbortController;
 }
 
@@ -195,8 +201,9 @@ async function executeParallelRequest(
       state.errorsByIndex[index] = createToolFailureError(result);
     }
   } catch (error) {
-    if (error instanceof ExecutionJournalError) {
-      state.fatalError ??= error;
+    if (isExecutionControlError(error)) {
+      const selected = prioritizeExecutionError(state.fatalError, error);
+      if (isExecutionControlError(selected)) state.fatalError = selected;
       state.abort.abort(error);
       return;
     }
@@ -283,7 +290,7 @@ async function executeSequential(
         break;
       }
     } catch (error) {
-      if (error instanceof ExecutionJournalError) throw error;
+      if (isExecutionControlError(error)) throw error;
       const err = error instanceof Error ? error : new Error(String(error));
       errors.push(err);
       if (!batchContext.continueOnError) {
@@ -315,25 +322,33 @@ async function executeRequest(
           );
   }
   let result: IToolExecutionResult;
+  const journal = context.journal;
+  let effectStarted = false;
   if (context.signal?.aborted) result = createInterruptedResult(request);
   else if (request.argumentDecodeError !== undefined)
     result = createArgumentDecodeErrorResult(request);
   else {
-    await context.journal?.beforeDispatch(index);
+    await journal.beforeDispatch(index);
     // The admission wait can outlive a sibling's failure or caller cancellation.
     if (context.signal?.aborted) result = createInterruptedResult(request);
     else {
       try {
-        result = await executor.executeTool(request.toolName, request.parameters, {
-          ...createExecutionContext(request, context.signal),
-          ...(context.journal.beforeEffect
-            ? {
-                beforeToolEffect: (parameters) => context.journal!.beforeEffect!(index, parameters),
-              }
-            : {}),
-        });
+        result = await executeAndDrain(context, index, () =>
+          executor.executeTool(request.toolName, request.parameters, {
+            ...createExecutionContext(request, context.signal),
+            ...(journal.continuation ? { continuation: journal.continuation(index) } : {}),
+            ...(journal.beforeEffect
+              ? {
+                  beforeToolEffect: async (parameters) => {
+                    await journal.beforeEffect!(index, parameters);
+                    effectStarted = true;
+                  },
+                }
+              : {}),
+          }),
+        );
       } catch (error) {
-        if (error instanceof ExecutionJournalError) throw error;
+        if (isExecutionControlError(error)) throw error;
         result = createErrorResult(
           request,
           error instanceof Error ? error : new Error(String(error)),
@@ -341,9 +356,34 @@ async function executeRequest(
       }
     }
   }
+  // A pause cannot settle work which never entered an effect. It remains pending on resume.
+  if (!effectStarted && context.signal?.reason instanceof ExecutionSuspendedError)
+    throw context.signal.reason;
   // Persist a settled sibling even after cancellation; this wait is not a new external effect.
   await context.journal?.onResult(index, result);
   return result;
+}
+
+async function executeAndDrain(
+  context: IToolExecutionBatchContext,
+  index: number,
+  execute: () => Promise<IToolExecutionResult>,
+): Promise<IToolExecutionResult> {
+  let outcome: { result: IToolExecutionResult } | { error: unknown };
+  try {
+    outcome = { result: await execute() };
+  } catch (error) {
+    outcome = { error };
+  }
+  try {
+    await context.journal?.settle?.(index);
+  } catch (error) {
+    outcome = {
+      error: 'error' in outcome ? prioritizeExecutionError(outcome.error, error) : error,
+    };
+  }
+  if ('error' in outcome) throw outcome.error;
+  return outcome.result;
 }
 
 /**

@@ -1,5 +1,6 @@
 // Interface exports - centralized types first
 export * from './types';
+export type * from './tool-continuation';
 export type {
   IExecutionJournal,
   IRecoverableExecutionJournal,

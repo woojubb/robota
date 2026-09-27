@@ -6,6 +6,7 @@
  * @internal
  */
 import type { IToolExecutionRequest } from '../interfaces/service';
+import type { IToolContinuation } from '../interfaces/tool-continuation';
 import type {
   IToolExecutionContext,
   IToolExecutionResult,
@@ -25,6 +26,9 @@ export interface IToolExecutionBatchContext {
   recoveredResults?: ReadonlyMap<number, IToolExecutionResult>;
   /** Awaited per-action boundaries, supplied by the execution owner rather than tool bodies. */
   journal?: {
+    continuation?(index: number): IToolContinuation;
+    /** Drain pre-effect requests and preserve control flow even if a wrapper normalized its error. */
+    settle?(index: number): Promise<void>;
     beforeDispatch(index: number): Promise<void>;
     beforeEffect?(index: number, parameters: TToolParameters): Promise<void>;
     onResult(index: number, result: IToolExecutionResult): Promise<void>;

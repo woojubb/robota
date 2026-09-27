@@ -3,6 +3,7 @@
  *
  * Extracted from robota.ts to keep the main class under 300 lines.
  */
+import { ExecutionSuspendedError } from '../utils/execution-suspended-error';
 import { AGENT_EVENTS } from '../agents/constants';
 
 import type { TUniversalMessage, IAgentConfig, IRunOptions } from '../interfaces/agent';
@@ -109,6 +110,7 @@ export async function robotaRun(
     deps.emitAgentEvent(AGENT_EVENTS.EXECUTION_COMPLETE, {});
     return result.response;
   } catch (error) {
+    if (error instanceof ExecutionSuspendedError) throw error;
     deps.logger.error('Robota execution failed', {
       error: error instanceof Error ? error.message : String(error),
       conversationId: deps.conversationId,
@@ -127,6 +129,7 @@ export async function* robotaRunStream(
   options: IRunOptions = {},
   configOverrides?: Partial<IAgentConfig>,
 ): AsyncGenerator<string, string, undefined> {
+  let suspended = false;
   try {
     deps.emitAgentEvent(AGENT_EVENTS.EXECUTION_START, {});
 
@@ -168,6 +171,10 @@ export async function* robotaRunStream(
     }
     return result.response;
   } catch (error) {
+    if (error instanceof ExecutionSuspendedError) {
+      suspended = true;
+      throw error;
+    }
     deps.logger.error('Robota streaming execution failed', {
       error: error instanceof Error ? error.message : String(error),
       conversationId: deps.conversationId,
@@ -177,6 +184,6 @@ export async function* robotaRunStream(
     });
     throw error;
   } finally {
-    deps.emitAgentEvent(AGENT_EVENTS.EXECUTION_COMPLETE, {});
+    if (!suspended) deps.emitAgentEvent(AGENT_EVENTS.EXECUTION_COMPLETE, {});
   }
 }

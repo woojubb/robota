@@ -11,6 +11,7 @@ import { randomId } from '../utils/random-id';
 import { appendExecutionRecord } from './execution-journal';
 import type { IExecutionJournal } from '../interfaces/execution-journal';
 import type { IRecoveredToolBatch } from './execution-recovery-state';
+import { toolContinuation } from './execution-tool-waits';
 
 import type { IRoundDependencies } from './execution-round-types';
 import type { IToolExecutionBatchContext } from './tool-execution-service';
@@ -136,6 +137,9 @@ export async function executeAndRecordToolCalls(
       toolCallId: request.executionId ?? '',
       toolName: request.toolName,
     }));
+    const continuations = actions.map((action, index) =>
+      toolContinuation(journal, action, recovered[index]?.waits),
+    );
     // Every decoded intent must be durable before ANY member of the batch is dispatched.
     for (let index = 0; index < toolRequests.length; index++) {
       const request = toolRequests[index];
@@ -153,6 +157,8 @@ export async function executeAndRecordToolCalls(
       });
     }
     toolContext.journal = {
+      continuation: (index) => continuations[index].continuation,
+      settle: (index) => continuations[index].settle(),
       beforeDispatch: (index) =>
         recovered[index]?.dispatched
           ? Promise.resolve()
@@ -170,12 +176,14 @@ export async function executeAndRecordToolCalls(
           loadedDeferredTools: toolExecutionService.getLoadedDeferredTools(),
         }),
       beforeEffect: (index, parameters) =>
-        appendExecutionRecord(journal, {
-          kind: 'tool-effect-start',
-          recordId: `${actions[index].actionId}:effect-start`,
-          ...actions[index],
-          parameters,
-        }),
+        continuations[index].admit(() =>
+          appendExecutionRecord(journal, {
+            kind: 'tool-effect-start',
+            recordId: `${actions[index].actionId}:effect-start`,
+            ...actions[index],
+            parameters,
+          }),
+        ),
     };
     toolContext.recoveredResults = new Map(
       recovered.flatMap((action, index) =>

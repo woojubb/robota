@@ -52,7 +52,7 @@ persistence paths that consume it (the store, the artifact envelope, the replay 
   wrappers, so saved execution identity cannot substitute for authorization. No-input continuation
   requires a compatible owner checkpoint for the same session and workspace, restores peer-turn
   restrictions independently of transcript attribution, and checks pending effects under current
-  permissions. It holds the ordinary turn claim while restoring and executing. Injected classifiers,
+  permissions. Checkpointed approval binds its exact action and effective arguments without granting session consent; saved denial remains binding even when current policy becomes permissive. Waiting holds no live approver, and pending execution must resume before unrelated input is accepted. It holds the ordinary turn claim until execution and pending persistence settle. Injected classifiers,
   hooks, and tools own additional model calls and must declare their integration separately.
 - Memory-event and used-reference fields are audit/debug data, not baseline user-local
   preferences. Session records must not become a command source or a hidden preference store.

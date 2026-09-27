@@ -1,7 +1,7 @@
 import { AbstractManager } from '../abstracts/abstract-manager';
 import { ToolRegistry, FunctionTool, isDeferredTool, projectOfferedTools } from '../tool-registry';
 import { ToolExecutionError } from '../utils/errors';
-import { ExecutionJournalError } from '../utils/execution-journal-error';
+import { isExecutionControlError } from '../utils/execution-control-error';
 import { logger } from '../utils/logger';
 
 import type { IToolManager } from '../interfaces/manager';
@@ -202,7 +202,7 @@ export class Tools extends AbstractManager implements IToolManager {
     try {
       result = await tool.execute(parameters, context);
     } catch (error) {
-      if (error instanceof ExecutionJournalError) throw error;
+      if (isExecutionControlError(error)) throw error;
       // Re-wrap errors thrown by tools to ensure instanceof checks work
       // when tools are loaded from dist packages
       if (error instanceof Error) {

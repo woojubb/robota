@@ -6,12 +6,15 @@ import type { IAssistantMessage } from '../interfaces/messages';
 import type { IToolExecutionResult } from '../interfaces/tool';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
 import { ARGUMENT_DECODE_ERROR_CODE } from './tool-execution-constants';
+import type { IToolWaitState } from '../interfaces/tool-continuation';
+import { continuationObject } from '../utils/continuation-json';
 
 export interface IRecoveredAction {
   actionId: string;
   intent: boolean;
   dispatched: boolean;
   effectStarted: boolean;
+  waits: IToolWaitState[];
   result?: IToolExecutionResult;
   loadedDeferredTools?: string[];
 }
@@ -68,6 +71,9 @@ function validateBatch(
   const seen = new Map<string, string>();
   let latestCall: string | undefined;
   const actionOwners = new Map<string, string>();
+  const waits = new Map<string, Extract<TExecutionJournalRecord, { kind: 'tool-wait' }>>();
+  const answered = new Set<string>();
+  const responseIds = new Set<string>();
   for (const record of source) {
     if (!record || record.executionId !== executionId || !nonempty(record.recordId))
       invalid('Journal execution identity mismatch');
@@ -91,6 +97,35 @@ function validateBatch(
       const binding = recoveryValueKey([record.parentCallId, record.toolCallId, record.toolName]);
       if (owner && owner !== binding) invalid('Action identity belongs to multiple calls');
       actionOwners.set(record.actionId, binding);
+      if (record.kind === 'tool-wait') {
+        if (
+          !record.request ||
+          !nonempty(record.request.requestId) ||
+          !nonempty(record.request.kind) ||
+          waits.has(record.request.requestId)
+        )
+          invalid('Invalid or duplicate tool wait');
+        continuationObject(record.request.data);
+        waits.set(record.request.requestId, record);
+      }
+      if (record.kind === 'tool-response') {
+        const response = record.response;
+        const wait = response && waits.get(response.requestId);
+        if (
+          !wait ||
+          !nonempty(response.responseId) ||
+          answered.has(response.requestId) ||
+          responseIds.has(response.responseId) ||
+          wait.actionId !== record.actionId ||
+          wait.parentCallId !== record.parentCallId ||
+          wait.toolCallId !== record.toolCallId ||
+          wait.toolName !== record.toolName
+        )
+          invalid('Tool response does not belong to an unanswered request');
+        continuationObject(response.response);
+        answered.add(response.requestId);
+        responseIds.add(response.responseId);
+      }
     } else invalid('Unknown journal record');
   }
   if (latestCall !== callId) invalid('Only the latest model invocation can be recovered');
@@ -130,6 +165,7 @@ function validateBatch(
         intent: false,
         dispatched: false,
         effectStarted: false,
+        waits: [],
       };
       actions.set(record.toolCallId, action);
     }
@@ -149,7 +185,28 @@ function validateBatch(
       action.dispatched = true;
     } else if (record.kind === 'tool-effect-start') {
       if (!action.dispatched || action.effectStarted) invalid('Out-of-order effect admission');
+      if (action.waits.some((wait) => !wait.response))
+        invalid('Tool effect precedes a required response');
       action.effectStarted = true;
+    } else if (record.kind === 'tool-wait') {
+      if (!action.dispatched || action.effectStarted)
+        invalid('Tool wait is outside pre-effect dispatch');
+      action.waits.push({
+        request: {
+          ...record.request,
+          executionId,
+          actionId: record.actionId,
+          parentCallId: record.parentCallId,
+          toolCallId: record.toolCallId,
+          toolName: record.toolName,
+        },
+      });
+    } else if (record.kind === 'tool-response') {
+      const wait = action.waits.find(
+        (entry) => entry.request.requestId === record.response.requestId,
+      );
+      if (!wait || wait.response || action.effectStarted) invalid('Out-of-order tool response');
+      wait.response = record.response;
     } else if (record.kind === 'tool-result') {
       const result = record.result;
       if (

@@ -10,7 +10,7 @@ export type TSessionResumeOptions = Pick<
 /** Continue without replaying input, compaction or completed lifecycle hooks. */
 export async function executeResume(
   ctx: IRunContext,
-  options: TSessionResumeOptions,
+  options: TSessionResumeOptions & Pick<IResumeExecutionOptions, 'toolResponses'>,
 ): Promise<string> {
   const response = await ctx.agent.resume({
     ...options,

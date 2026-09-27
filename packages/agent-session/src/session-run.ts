@@ -12,6 +12,7 @@ import {
   getProviderCapabilities,
   runHooks,
   traceEnvFor,
+  ExecutionSuspendedError,
 } from '@robota-sdk/agent-core';
 
 import { perTurnRunOptions } from './session-run-options.js';
@@ -134,6 +135,7 @@ export async function executeRun(
       throw new DOMException('Aborted', 'AbortError');
     }
   } catch (error) {
+    if (error instanceof ExecutionSuspendedError) throw error;
     try {
       ctx.log('error', {
         message: error instanceof Error ? error.message : String(error),

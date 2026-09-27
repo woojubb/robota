@@ -2,6 +2,7 @@ import { applyToolOutcome } from './execution-tool-outcome';
 import type {
   IResumeToolCallsOptions,
   IResumeToolCallsResult,
+  TExecutionJournalRecord,
 } from '../interfaces/execution-journal';
 import type { TUniversalMessage } from '../interfaces/messages';
 import { ConversationStore } from '../managers/conversation-history-manager';
@@ -17,6 +18,7 @@ import { addToolResultsToHistory } from './execution-round-tool-results';
 import { executeAndRecordToolCalls } from './execution-round-tools';
 import type { IRoundDependencies } from './execution-round-types';
 import type { IExecutionRoundState } from './execution-types';
+import { acceptToolResponses } from './execution-tool-waits';
 
 function conflict(message: string): never {
   throw new ExecutionRecoveryError('EXECUTION_RECOVERY_CONFLICT', message);
@@ -142,7 +144,7 @@ export async function restoreJournaledRound(
   conversationId: string,
   options: IResumeToolCallsOptions,
   deps: IRoundDependencies,
-  prepared?: IRecoveredToolBatch,
+  prepared?: { batch: IRecoveredToolBatch; records: readonly TExecutionJournalRecord[] },
 ): Promise<IRestoredExecutionRound> {
   const before = recoveryValueKey(store.getMessages());
   const unchanged = (): void => {
@@ -150,17 +152,17 @@ export async function restoreJournaledRound(
       conflict('History changed during execution recovery');
   };
   unchanged();
-  const batch =
-    prepared ??
-    recoverToolBatch(
-      await options.journal.read(options.executionId),
-      options.executionId,
-      options.callId,
-    );
+  const records = prepared?.records ?? (await options.journal.read(options.executionId));
+  let batch = prepared?.batch ?? recoverToolBatch(records, options.executionId, options.callId);
   options.signal?.throwIfAborted();
   unchanged();
   const existing = structuredClone(store.getMessages());
   validateHistory(existing, batch, options, deps);
+  const accepted = await acceptToolResponses(records, options);
+  if (accepted.length !== records.length)
+    batch = recoverToolBatch(accepted, options.executionId, options.callId, false);
+  options.signal?.throwIfAborted();
+  unchanged();
   const loaded = new Set([
     ...(batch.checkpoint.continuation?.loadedDeferredTools ?? []),
     ...batch.offeredDeferredTools,
