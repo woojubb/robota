@@ -41,10 +41,14 @@ runSubagentWorkerMain({
   },
   ...(WITH_SANDBOX
     ? {
-        createSandbox: () => ({
-          client: SANDBOX,
-          commandSandbox: { autoApproves: (toolName) => toolName === 'Bash' },
-        }),
+        createSandbox: ({ parentSettings }) => {
+          record({ parentSettings: parentSettings ?? null });
+          const autoAllow = parentSettings?.autoAllowBashIfSandboxed ?? true;
+          return {
+            client: SANDBOX,
+            commandSandbox: { autoApproves: (toolName) => autoAllow && toolName === 'Bash' },
+          };
+        },
       }
     : {}),
   providerDefinitions: [

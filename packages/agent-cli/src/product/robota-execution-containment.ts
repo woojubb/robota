@@ -22,7 +22,11 @@ import type {
   TSettingsData,
   TSettingsSource,
 } from '@robota-sdk/agent-framework';
-import type { IOsSandboxAvailability, IOsSandboxSettings } from '@robota-sdk/agent-tools';
+import type {
+  IOsSandboxAvailability,
+  IOsSandboxSettings,
+  ISandboxClient,
+} from '@robota-sdk/agent-tools';
 
 export interface IRobotaSandbox {
   /** Absent where the platform has no backend. */
@@ -49,11 +53,16 @@ export interface ICreateRobotaSandboxOptions {
   readonly cwd: string;
   readonly settingsSources: readonly TSettingsSource[];
   readonly detect?: () => IOsSandboxAvailability;
+  /**
+   * Settings already in force elsewhere, in place of the files': a subagent's sandbox takes its
+   * parent's live settings, which `/sandbox` may have changed since the files were read.
+   */
+  readonly settings?: IOsSandboxSettings;
 }
 
 export function createRobotaSandbox(options: ICreateRobotaSandboxOptions): IRobotaSandbox {
   const configured = inspectSettingsLayers(options.settingsSources).merged.sandbox;
-  const settings = toOsSandboxSettings(configured);
+  const settings = options.settings ?? toOsSandboxSettings(configured);
   const availability = (options.detect ?? detectOsSandbox)();
   const failIfUnavailable = configured?.failIfUnavailable === true;
   if (availability.backend === undefined) return { availability, settings, failIfUnavailable };
@@ -62,6 +71,39 @@ export function createRobotaSandbox(options: ICreateRobotaSandboxOptions): IRobo
     availability,
     settings,
     failIfUnavailable,
+  };
+}
+
+/** The settings a live robota sandbox holds now, `/sandbox` changes included; none for another client. */
+export function liveSandboxSettings(client: ISandboxClient | undefined): IOsSandboxSettings | undefined {
+  return client instanceof OsSandboxClient ? client.status().settings : undefined;
+}
+
+/**
+ * Settings a parent sent across the process boundary. A value that is not whole is refused rather
+ * than replaced by the files: a child that ignores its parent's settings is the defect this carries
+ * them to prevent.
+ */
+export function decodeOsSandboxSettings(value: Readonly<Record<string, unknown>>): IOsSandboxSettings {
+  const flag = (key: keyof IOsSandboxSettings): boolean => {
+    const field = value[key];
+    if (typeof field !== 'boolean') throw new Error(`The parent's sandbox settings have no ${key}.`);
+    return field;
+  };
+  const list = (key: keyof IOsSandboxSettings): readonly string[] => {
+    const field = value[key];
+    if (!Array.isArray(field) || !field.every((entry) => typeof entry === 'string')) {
+      throw new Error(`The parent's sandbox settings have no ${key} list.`);
+    }
+    return field;
+  };
+  return {
+    enabled: flag('enabled'),
+    autoAllowBashIfSandboxed: flag('autoAllowBashIfSandboxed'),
+    excludedCommands: list('excludedCommands'),
+    allowWrite: list('allowWrite'),
+    denyRead: list('denyRead'),
+    network: flag('network'),
   };
 }
 

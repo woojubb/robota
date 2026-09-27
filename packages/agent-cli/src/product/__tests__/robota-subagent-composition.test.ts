@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
+import { createRobotaSandbox, liveSandboxSettings } from '../robota-execution-containment.js';
 import { createRobotaPacks } from '../robota-profile.js';
 import {
   assertChildProcessSubagentsCanReproduce,
@@ -12,6 +13,7 @@ import {
   nonReproducibleCapabilities,
   ROBOTA_OS_SANDBOX_TYPE,
   packTools,
+  parentSandboxSettingsOf,
   type IRobotaPackContext,
 } from '../robota-subagent-composition.js';
 
@@ -276,5 +278,76 @@ describe('issue #3248 — a child builds one sandbox for its tools and its sessi
     expect(createRobotaSubagentComposition().createSandbox).toBeDefined();
     // A host with no backend composes none; one with a backend hands over both halves together.
     if (composed !== undefined) expect(composed.commandSandbox).toBeDefined();
+  });
+});
+
+describe('issue #3254 — a child builds its sandbox from the parent’s live settings', () => {
+  const PARENT_SETTINGS = {
+    enabled: true,
+    autoAllowBashIfSandboxed: false,
+    excludedCommands: ['docker'],
+    allowWrite: [],
+    denyRead: [],
+    network: false,
+  };
+
+  it('reads the parent’s live client, a /sandbox change included', () => {
+    const parent = createRobotaSandbox({
+      cwd: CWD,
+      settingsSources: [],
+      settings: { ...PARENT_SETTINGS, autoAllowBashIfSandboxed: true },
+    }).client;
+    parent?.configure({ autoAllowBashIfSandboxed: false });
+
+    if (parent !== undefined) expect(liveSandboxSettings(parent)).toEqual(PARENT_SETTINGS);
+    expect(liveSandboxSettings(undefined)).toBeUndefined();
+  });
+
+  it('composes the child sandbox from the settings the parent sent, not the files', () => {
+    const composed = createRobotaSubagentComposition().createSandbox?.({
+      cwd: CWD,
+      parentSettings: PARENT_SETTINGS,
+    });
+
+    if (composed !== undefined) {
+      expect(liveSandboxSettings(composed.client as never)).toEqual(PARENT_SETTINGS);
+    }
+  });
+
+  it('refuses settings it cannot read rather than falling back to the files', () => {
+    expect(() =>
+      createRobotaSubagentComposition().createSandbox?.({
+        cwd: CWD,
+        parentSettings: { enabled: 'yes' },
+      }),
+    ).toThrow(/sandbox settings/);
+  });
+});
+
+describe('issue #3254 — robota tells each spawn what the parent sandbox holds now', () => {
+  it('reads the live client at every call, so a /sandbox change reaches the next child', () => {
+    const client = createRobotaSandbox({
+      cwd: CWD,
+      settingsSources: [],
+      // A backend is named so the client exists on every host; nothing here runs a command.
+      detect: () => ({ backend: 'bubblewrap', missing: [] }),
+      settings: {
+        enabled: true,
+        autoAllowBashIfSandboxed: true,
+        excludedCommands: [],
+        allowWrite: [],
+        denyRead: [],
+        network: false,
+      },
+    }).client;
+    const read = parentSandboxSettingsOf({ cwd: CWD, sandboxClient: client });
+
+    expect(read()).toMatchObject({ autoAllowBashIfSandboxed: true });
+    client?.configure({ autoAllowBashIfSandboxed: false });
+    expect(read()).toMatchObject({ autoAllowBashIfSandboxed: false });
+  });
+
+  it('tells a child nothing when the parent holds no OS sandbox', () => {
+    expect(parentSandboxSettingsOf({ cwd: CWD })()).toBeUndefined();
   });
 });

@@ -531,11 +531,7 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
   // parent-side assertion on the builder would still pass if the value never reached `send`.
   const projectionSeenByChild = async (
     extra: Partial<IInProcessSubagentRunnerDeps>,
-  ): Promise<{
-    sessionTiers: { includeGoalTool?: boolean } | null;
-    sandboxProjection: { type: string; snapshotId: string } | null;
-  }> => {
-    const runner = new ChildProcessSubagentRunner(
+    runner = new ChildProcessSubagentRunner(
       { ...createDeps(), ...extra },
       {
         workerEntry: FIXTURE_WORKER_ENTRY,
@@ -543,7 +539,12 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
         env: { ROBOTA_FIXTURE_MODE: 'echo-projection' },
       },
-    );
+    ),
+  ): Promise<{
+    sessionTiers: { includeGoalTool?: boolean } | null;
+    sandboxProjection: { type: string; snapshotId: string } | null;
+    parentSandboxSettings: Record<string, unknown> | null;
+  }> => {
     const result = await runner.start(createJob()).result;
     return JSON.parse((result as { output: string }).output);
   };
@@ -599,6 +600,39 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
       // sandboxed while sharing none of the parent's state.
       const seen = await projectionSeenByChild(extra as Partial<IInProcessSubagentRunnerDeps>);
       expect(seen.sandboxProjection).toBeNull();
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'carries the parent’s sandbox settings as they stand at each spawn (issue #3254)',
+    async () => {
+      // `/sandbox` changes the parent's live client between spawns; a value read once, or never
+      // sent, leaves the child on the settings files the user just overrode.
+      let live = { autoAllowBashIfSandboxed: true };
+      const runner = new ChildProcessSubagentRunner(createDeps(), {
+        workerEntry: FIXTURE_WORKER_ENTRY,
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+        env: { ROBOTA_FIXTURE_MODE: 'echo-projection' },
+        parentSandboxSettings: () => live,
+      });
+
+      const first = await projectionSeenByChild({}, runner);
+      live = { autoAllowBashIfSandboxed: false };
+      const second = await projectionSeenByChild({}, runner);
+
+      expect(first.parentSandboxSettings).toEqual({ autoAllowBashIfSandboxed: true });
+      expect(second.parentSandboxSettings).toEqual({ autoAllowBashIfSandboxed: false });
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'carries no sandbox settings when the parent has none to send',
+    async () => {
+      const seen = await projectionSeenByChild({});
+      expect(seen.parentSandboxSettings).toBeNull();
     },
     TEST_TIMEOUT_MS,
   );

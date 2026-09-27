@@ -121,14 +121,22 @@ export interface ISubagentWorkerComposition {
 
   /**
    * A sandbox the child composes itself at its execution root, rather than restoring one from a
-   * snapshot: the OS sandbox is a function of the root and the settings files, so nothing crosses.
+   * snapshot: the OS sandbox is a function of the root and its settings, and the settings cross as
+   * data (`parentSettings`, the parent's as they stood at spawn) where a live handle cannot.
    *
    * The worker builds it once and hands the SAME instance to `createTools` (as `sandboxClient`) and to
    * the session (as `commandSandbox`), so the approval a confined command gets comes from the instance
    * the command runs under. Absent ⇒ the child's session approves no command on a sandbox's say-so.
    */
-  readonly createSandbox?: (context: { readonly cwd: string }) => ISubagentComposedSandbox | undefined;
+  readonly createSandbox?: (context: {
+    readonly cwd: string;
+    /** The parent's sandbox settings at spawn, when its composition root sent them. */
+    readonly parentSettings?: TParentSandboxSettings;
+  }) => ISubagentComposedSandbox | undefined;
 }
+
+/** A composition root's sandbox settings, as plain data that crosses the process boundary. */
+export type TParentSandboxSettings = Readonly<Record<string, unknown>>;
 
 /** A sandbox the child composed itself: the client its tools run under and the approval it gives. */
 export interface ISubagentComposedSandbox {

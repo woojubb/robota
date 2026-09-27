@@ -46,6 +46,7 @@ process.on('message', (message) => {
         output: JSON.stringify({
           sessionTiers: message.payload?.sessionTiers ?? null,
           sandboxProjection: message.payload?.sandboxProjection ?? null,
+          parentSandboxSettings: message.payload?.parentSandboxSettings ?? null,
         }),
       });
       setTimeout(() => process.exit(0), 0);
