@@ -20,6 +20,12 @@
  * the app asks for later can fail while the first succeeded). With `$ROBOTA_E2E_TRUST_FILE` set it also
  * plays `trust status --json` (askable until the file says `trusted`) and `trust --yes` (writes it), and a
  * `daemon start --json --restricted-workspace` records that choice in the daemon state.
+ *
+ * With `ROBOTA_E2E_SETUP_REQUIRED=1` (issue #3282 §3) the session starts as a served runtime with no
+ * provider configured would: `getStatusSnapshot()` reports `setupRequired: true` and `submit()` refuses,
+ * until `/provider add` (the GUI setup panel's one button) runs, asks one question the same way the
+ * real wizard does, and clears the flag on an answer — proving the setup panel, its docked ask, and the
+ * composer's return all work over the real wire, without a real provider or settings file.
  */
 
 import { spawn } from 'node:child_process';
@@ -195,6 +201,9 @@ class ScriptedSession extends EventEmitter {
   #mode = 'default';
   #current = storedSessions[0];
   #busy = false;
+  #setupRequired = process.env.ROBOTA_E2E_SETUP_REQUIRED === '1';
+  #pendingSetupAsk = null;
+  #resolveSetupCommand = null;
 
   get currentId() {
     return this.#current.id;
@@ -243,6 +252,11 @@ class ScriptedSession extends EventEmitter {
   }
 
   async submit(input) {
+    // #3282 §3: a backstop, unreachable through the GUI itself — the composer is hidden while setup is
+    // required, exactly like the real InteractiveSession.submit() guard this mirrors.
+    if (this.#setupRequired) {
+      throw new Error('Connect a model provider to start.');
+    }
     // Echo the user's turn, then reply. A prompt containing "permission" raises a gated tool prompt.
     // Space the emits across ticks: a real LLM streams `text_delta` over time BEFORE `complete`, so the
     // renderer's streaming-text ref is populated by the time `complete` moves it into a message. Emitting
@@ -330,6 +344,17 @@ class ScriptedSession extends EventEmitter {
   }
 
   resolveAsk(id, response) {
+    if (id === this.#pendingSetupAsk) {
+      // #3282 §3: the setup wizard's one question, answered — a real provider profile now "exists",
+      // so the panel's job is done and the composer is the way in again.
+      this.#pendingSetupAsk = null;
+      this.#setupRequired = false;
+      this.emit('prompt_resolved', { id });
+      const model = response.type === 'answer' && response.text ? response.text : 'scripted-model';
+      this.#resolveSetupCommand?.({ message: `Provider configured (${model}).`, success: true });
+      this.#resolveSetupCommand = null;
+      return;
+    }
     if (id !== this.#pendingAsk) return;
     this.#pendingAsk = null;
     this.emit('prompt_resolved', { id });
@@ -342,7 +367,27 @@ class ScriptedSession extends EventEmitter {
       this.#complete(outcome);
     })();
   }
-  executeCommand(name) {
+  executeCommand(name, args = '') {
+    if (name === 'provider' && args.trim() === 'add') {
+      // #3282 §3: mirrors the real `/provider add` wizard closely enough for the e2e — it asks (at
+      // least) one question through the same ask channel any other command uses, and does not
+      // resolve until it is answered, exactly like the real setup flow's own blocking prompt.
+      return new Promise((resolve) => {
+        this.#resolveSetupCommand = resolve;
+        this.#pendingSetupAsk = 'setup-ask-provider';
+        void tick().then(() => {
+          this.emit('ask_request', {
+            id: 'setup-ask-provider',
+            request: {
+              id: 'setup-ask-provider',
+              title: 'Provider model',
+              allowFreeText: true,
+              placeholder: 'scripted-model',
+            },
+          });
+        });
+      });
+    }
     if (name === 'help') {
       const lines = Array.from({ length: 30 }, (_, i) => `Command ${i + 1} (/c${i + 1}) — does thing ${i + 1}`);
       return Promise.resolve({ message: ['Available commands:', ...lines].join('\n'), success: true });
@@ -385,11 +430,13 @@ class ScriptedSession extends EventEmitter {
   getStatusSnapshot() {
     return {
       sessionId: this.#current.id,
-      model: 'scripted-model',
+      model: this.#setupRequired ? 'setup-required' : 'scripted-model',
       permissionMode: this.#mode,
       effort: 'auto',
       context: { usedPercentage: 12, usedTokens: 24000, maxTokens: 200000, remainingPercentage: 88 },
       goal: null,
+      // Absent (never `false`) once set up, exactly like the real ISessionStatusSnapshot field.
+      ...(this.#setupRequired ? { setupRequired: true } : {}),
     };
   }
   // #3280 §2: Stop (button or Esc) sends `abort` — end a "stay busy" turn the same way a real one

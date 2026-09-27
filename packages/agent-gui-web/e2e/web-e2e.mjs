@@ -49,7 +49,10 @@ async function scenario(label, run) {
 const port = await freePort();
 const token = randomBytes(32).toString('hex');
 const sidecar = spawn(process.execPath, [join(packageRoot, 'e2e', 'scripted-sidecar.mjs')], {
-  env: { ...process.env, ROBOTA_WS_TOKEN: token, ROBOTA_WS_PORT: String(port) },
+  // #3282 §3: starts as a served runtime with no provider configured would — the first scenario below
+  // exercises the setup panel and clears it via /provider add, then every later scenario runs exactly
+  // as it did before setup mode existed.
+  env: { ...process.env, ROBOTA_WS_TOKEN: token, ROBOTA_WS_PORT: String(port), ROBOTA_E2E_SETUP_REQUIRED: '1' },
   stdio: ['ignore', 'ignore', 'pipe'],
 });
 await new Promise((resolve) => sidecar.stderr.once('data', resolve));
@@ -78,6 +81,30 @@ const send = async (text) => {
 
 try {
   await page.goto(pageUrl.href);
+
+  await scenario(
+    'first run: the setup panel replaces the composer until /provider add configures one (#3282 §3)',
+    async () => {
+      await page.locator('.agent-gui-status[data-status="connected"]').waitFor({ timeout: 20_000 });
+      await page.getByRole('heading', { name: 'Connect a model provider to start.' }).waitFor();
+      if ((await page.getByLabel('message').count()) !== 0) {
+        throw new Error('the composer is present while setup is required');
+      }
+      await page.getByRole('button', { name: 'Set up provider' }).click();
+      // The question docks where the composer would be — there is no composer yet to dock above.
+      const dialog = page.locator('[role="dialog"][aria-label="pending question"]');
+      await dialog.waitFor();
+      await page.getByText('Provider model').waitFor();
+      const field = page.getByPlaceholder('scripted-model');
+      await field.fill('scripted-provider-model');
+      await field.press('Enter');
+      await page
+        .getByRole('heading', { name: 'Connect a model provider to start.' })
+        .waitFor({ state: 'detached' });
+      // Setup is over: the composer is how a turn starts again, live, with no restart or reload.
+      await page.getByLabel('message').waitFor();
+    },
+  );
 
   await scenario('connects to the token-gated sidecar and streams a reply', async () => {
     await page.locator('.agent-gui-status[data-status="connected"]').waitFor({ timeout: 20_000 });
