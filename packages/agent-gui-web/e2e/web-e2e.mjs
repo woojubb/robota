@@ -66,6 +66,8 @@ const browser = await chromium.launch(
   process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {},
 );
 const page = await browser.newPage({ viewport: { width: 1100, height: 780 } });
+// #3289 §2: the copy-code-block scenario reads the clipboard back to check what was copied.
+await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: pageUrl.origin });
 // The server frames the page receives, by type: a refusal must arrive as its own frame.
 const receivedFrameTypes = [];
 page.on('websocket', (socket) => {
@@ -86,6 +88,27 @@ const waitForSelectValue = async (locator, value, timeoutMs = 5000) => {
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error(`select never reached value "${value}"`);
+};
+
+/**
+ * #3289 §2 — the composer's own center point must resolve to the composer itself, not the narrow
+ * session sheet (or its backdrop) sitting over it. `CAPTURE_OUT`, when set, gets a screenshot per
+ * label for the PR to point at.
+ */
+const expectComposerUncovered = async (label) => {
+  const composer = page.getByLabel('message');
+  await composer.waitFor();
+  const box = await composer.boundingBox();
+  if (!box) throw new Error(`${label}: the composer has no bounding box`);
+  const point = { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) };
+  const covered = await page.evaluate(({ x, y }) => {
+    const el = document.elementFromPoint(x, y);
+    return !el || !el.closest('[aria-label="message"]');
+  }, point);
+  if (covered) throw new Error(`${label}: the composer is covered at its own center point`);
+  if (process.env.CAPTURE_OUT) {
+    await page.screenshot({ path: join(process.env.CAPTURE_OUT, `composer-${label}.png`) });
+  }
 };
 
 try {
@@ -269,6 +292,52 @@ try {
     await toolRow.click();
     await page.getByText(/Test Files\s+1 passed/).waitFor();
     await page.getByText(/exit 0/).waitFor();
+  });
+
+  await scenario(
+    '#3289 §2: wheel-scrolling up mid-stream stops auto-scroll, and "Jump to latest" returns to it',
+    async () => {
+      await send('give me a long reply');
+      await page.getByText('Paragraph 3 of the long reply').waitFor();
+
+      const conversation = page.getByRole('main', { name: 'Conversation' });
+      await conversation.hover();
+      await page.mouse.wheel(0, -4000);
+      await page.waitForTimeout(150); // let the scroll (and its handler) settle before measuring it
+
+      const scrolledTo = await conversation.evaluate((el) => el.scrollTop);
+      await page.getByRole('button', { name: 'Jump to latest' }).waitFor();
+
+      // More of the reply streams in while scrolled away — the view must stay exactly there.
+      await page.getByText('Paragraph 12 of the long reply').waitFor({ timeout: 10_000 });
+      const stillAt = await conversation.evaluate((el) => el.scrollTop);
+      if (Math.abs(stillAt - scrolledTo) > 2) {
+        throw new Error(
+          `the view moved on its own while streaming after a manual scroll (${scrolledTo} -> ${stillAt})`,
+        );
+      }
+
+      await page.getByRole('button', { name: 'Jump to latest' }).click();
+      // Pinning resumed: the rest of the reply keeps the view at the bottom, and the button goes away
+      // once it finishes there.
+      await page.getByText('Paragraph 20 of the long reply').waitFor({ timeout: 10_000 });
+      await page.getByRole('button', { name: 'Jump to latest' }).waitFor({ state: 'detached' });
+    },
+  );
+
+  await scenario('#3289 §2: copying a code block puts its text on the clipboard', async () => {
+    await send('show code please');
+    await page.getByText('Here you go:').waitFor();
+    const copyButton = page.getByRole('button', { name: 'Copy code' });
+    await copyButton.hover();
+    await copyButton.click();
+    // The "Copied" feedback lives in a visually-hidden aria-live region (not the button's own visible,
+    // constant label) — attached, not "visible", is the right wait here.
+    await page.locator('[role="status"]', { hasText: 'Copied' }).waitFor({ state: 'attached' });
+    const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
+    if (!clipboardText.includes('function greet(name)')) {
+      throw new Error(`clipboard did not hold the code block's own text: ${JSON.stringify(clipboardText)}`);
+    }
   });
 
   await scenario(
@@ -611,6 +680,30 @@ try {
     await panel.getByRole('button', { name: 'Stop Loop: check the deploy' }).click();
     await page.getByText(/Loop stopped: loop-e2e-1/).waitFor();
     await panel.getByText('Loop: check the deploy').waitFor({ state: 'detached' });
+  });
+
+  // #3289 §2 — a fresh reload at each size, so `initialSidebarOpen()` sees the real viewport: below
+  // `md` the sheet starts closed (as a person opening the app at that size would see it), which is
+  // exactly the "composer never covered while the sheet is closed" case the issue calls out.
+  await scenario('1280×800: the composer is visible and uncovered', async () => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.reload();
+    await page.locator('.agent-gui-status[data-status="connected"]').waitFor({ timeout: 20_000 });
+    await expectComposerUncovered('1280x800');
+  });
+
+  await scenario('640×400: the sheet starts closed at this width; the composer is visible and uncovered', async () => {
+    await page.setViewportSize({ width: 640, height: 400 });
+    await page.reload();
+    await page.locator('.agent-gui-status[data-status="connected"]').waitFor({ timeout: 20_000 });
+    await expectComposerUncovered('640x400');
+  });
+
+  await scenario('390×800: the sheet starts closed at this width too; the composer is visible and uncovered', async () => {
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.reload();
+    await page.locator('.agent-gui-status[data-status="connected"]').waitFor({ timeout: 20_000 });
+    await expectComposerUncovered('390x800');
   });
 } finally {
   if (process.env.CAPTURE_OUT) await page.screenshot({ path: join(process.env.CAPTURE_OUT, 'web-e2e.png') });

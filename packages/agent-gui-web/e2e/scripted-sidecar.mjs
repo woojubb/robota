@@ -418,6 +418,39 @@ class ScriptedSession extends EventEmitter {
       });
       return;
     }
+    if (lower.includes('long reply')) {
+      // #3289 §2 — many chunks over real time, long enough to scroll several screens: the e2e wheel-
+      // scrolls up mid-stream and checks the view stays put, then uses "Jump to latest". Kept short
+      // per paragraph and to a bounded count on purpose: `AgentMarkdown` re-parses every settled
+      // message on each later render, so a needlessly large one here would slow down every scenario
+      // that follows it, not just this one.
+      this.#busy = true;
+      await tick();
+      this.emit('thinking', true);
+      let acc = '';
+      for (let i = 1; i <= 20; i += 1) {
+        const chunk = `Paragraph ${i} of the long reply, on its own line so there is real distance to scroll.\n\n`;
+        acc += chunk;
+        this.emit('text_delta', chunk);
+        await tick(60);
+      }
+      this.#busy = false;
+      this.emit('thinking', false);
+      this.#complete(acc);
+      return;
+    }
+    if (lower.includes('show code')) {
+      // #3289 §2 — a fenced code block, for the copy-code e2e.
+      await tick();
+      this.emit('thinking', true);
+      const code = ['function greet(name) {', "  return `Hello, ${name}!`;", '}'].join('\n');
+      const reply = ['Here you go:', '', '```js', code, '```'].join('\n');
+      this.emit('text_delta', reply);
+      await tick();
+      this.emit('thinking', false);
+      this.#complete(reply);
+      return;
+    }
     if (String(input).toLowerCase().includes('read')) {
       await tick();
       this.emit('tool_start', { toolName: 'Read', firstArg: 'src/a.ts', isRunning: true });

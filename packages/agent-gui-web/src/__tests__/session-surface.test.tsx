@@ -860,3 +860,129 @@ describe('#3282 §3 — first run: setup mode', () => {
     expect(screen.queryByRole('heading', { name: 'Connect a model provider to start.' })).toBeNull();
   });
 });
+
+describe('#3289 §2 — below md, the open sidebar is a sheet over the conversation', () => {
+  const listing: NonNullable<IWsSessionState['sessionListing']> = {
+    currentSessionId: 'cur',
+    sessions: [
+      { id: 'cur', name: 'Current session', cwd: '/w', updatedAt: new Date().toISOString(), messageCount: 1, preview: '' },
+      { id: 'old', name: 'Older session', cwd: '/w', updatedAt: new Date().toISOString(), messageCount: 1, preview: '' },
+    ],
+    unreadableSessionIds: [],
+  };
+  const sessionRowButton = (name: RegExp): HTMLElement =>
+    screen.getAllByRole('button', { name }).filter((el) => el.tagName === 'BUTTON' && !(el.getAttribute('aria-label') ?? '').startsWith('More for'))[0]!;
+
+  /** `matches` fixed for every query — good enough for a test that only cares about one breakpoint. */
+  function mockViewport(matches: boolean): void {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })) as unknown as typeof window.matchMedia;
+  }
+
+  afterEach(() => {
+    // @ts-expect-error -- test-only cleanup of the global stub `mockViewport` sets.
+    delete window.matchMedia;
+  });
+
+  it('a wide window shows the sidebar as a plain column, with no backdrop', () => {
+    mockViewport(false);
+    render(<SessionSurface state={stubState({ sessionListing: listing })} />);
+    expect(screen.getByRole('complementary', { name: 'Sessions' })).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: 'Sessions' })).toBeNull();
+  });
+
+  it('a narrow window shows the sheet in a dialog with a dimmed backdrop, which closes it on an outside click', () => {
+    mockViewport(true);
+    const state = stubState({ sessionListing: listing });
+    render(<SessionSurface state={state} />);
+
+    const dialog = screen.getByRole('dialog', { name: 'Sessions' });
+    expect(dialog).toBeTruthy();
+    // The backdrop is `Dialog`'s own outer element, the dialog panel's parent; `Dialog` listens for
+    // `mousedown` there (not `click`) and closes only when the event's target is the backdrop itself.
+    fireEvent.mouseDown(dialog.parentElement!);
+
+    expect(state.setSessionSidebarOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('Esc closes the narrow sheet', () => {
+    mockViewport(true);
+    const state = stubState({ sessionListing: listing });
+    render(<SessionSurface state={state} />);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(state.setSessionSidebarOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('choosing a session closes the narrow sheet too', () => {
+    mockViewport(true);
+    const state = stubState({ sessionListing: listing });
+    render(<SessionSurface state={state} />);
+
+    fireEvent.click(sessionRowButton(/Older session/));
+
+    expect(state.switchSession).toHaveBeenCalledWith('old');
+    expect(state.setSessionSidebarOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('a wide window never closes on Esc or a session choice — it is a column, not a sheet', () => {
+    mockViewport(false);
+    const state = stubState({ sessionListing: listing });
+    render(<SessionSurface state={state} />);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(state.setSessionSidebarOpen).not.toHaveBeenCalled();
+
+    fireEvent.click(sessionRowButton(/Older session/));
+    expect(state.switchSession).toHaveBeenCalledWith('old');
+    expect(state.setSessionSidebarOpen).not.toHaveBeenCalled();
+  });
+
+  it('moves focus into the open sheet, and traps Tab inside it', () => {
+    mockViewport(true);
+    render(<SessionSurface state={stubState({ sessionListing: listing })} />);
+    const dialog = screen.getByRole('dialog', { name: 'Sessions' });
+
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    const focusable = dialog.querySelectorAll('button');
+    const first = focusable[0] as HTMLElement;
+    const last = focusable[focusable.length - 1] as HTMLElement;
+    first.focus();
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(last);
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(document.activeElement).toBe(first);
+  });
+
+  it('returns focus to the control that opened the sheet, once it closes', () => {
+    mockViewport(true);
+    const state = stubState({ sessionListing: listing, sessionSidebarOpen: false });
+    const { rerender } = render(<SessionSurface state={state} />);
+
+    const opener = screen.getByRole('button', { name: 'Show sessions' });
+    opener.focus();
+    fireEvent.click(opener);
+    expect(state.setSessionSidebarOpen).toHaveBeenCalledWith(true);
+
+    // The rail's own button is replaced by the sheet it opens, so this simulates the host applying
+    // that state change (as the earlier "collapses to a rail and opens again" test does).
+    rerender(<SessionSurface state={{ ...state, sessionSidebarOpen: true }} />);
+    expect(screen.getByRole('dialog', { name: 'Sessions' }).contains(document.activeElement)).toBe(true);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    rerender(<SessionSurface state={{ ...state, sessionSidebarOpen: false }} />);
+
+    // A fresh "Show sessions" button remounted under the same name — that is the return address.
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show sessions' }));
+  });
+});

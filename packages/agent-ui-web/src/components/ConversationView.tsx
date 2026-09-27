@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useRef, useEffect, useLayoutEffect, useState } from 'react';
+import React, { useRef, useLayoutEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
+  ArrowDown,
   Bot,
   Check,
   ChevronDown,
   ChevronRight,
+  Copy,
   FileText,
   Globe,
   LoaderCircle,
@@ -17,6 +19,7 @@ import {
   Wrench,
 } from 'lucide-react';
 
+import { useCopyFeedback } from '../clipboard.js';
 import { driverAttributionText, isSameSurface } from '../driver-labels.js';
 import { DiffLines } from './DiffLines.js';
 
@@ -27,6 +30,92 @@ import type {
   TConversationEntry,
 } from '../hooks/useSessionClient.js';
 import type { TDriverId } from '@robota-sdk/agent-interface-session';
+
+/** The plain text of a react-markdown children tree — used to copy a code block's real source. */
+function nodeText(node: React.ReactNode): string {
+  if (node === null || node === undefined || typeof node === 'boolean') return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(nodeText).join('');
+  if (React.isValidElement(node)) {
+    return nodeText((node.props as { children?: React.ReactNode }).children);
+  }
+  return '';
+}
+
+/**
+ * "Copy code" / "Copy message" (#3289 §2): shows on hover and keyboard focus, always on touch (no
+ * `hover` capability to gate on there). The transient "Copied" / "Couldn't copy" feedback lives in a
+ * visually hidden `aria-live` region that is a SIBLING of the button, not a descendant of it — ARIA
+ * name computation only ever looks at an element's own subtree, so a live region placed anywhere
+ * inside the button would still contribute its (mutating) text to the button's accessible name even
+ * while merely `sr-only`-clipped rather than `aria-hidden`, silently turning a constant name like
+ * "Copy code" into a moving target such as "Copy code Copied". Keeping the two siblings instead gives
+ * the button a name computed purely from its own constant visible label, and lets the live region
+ * announce without touching that name or moving focus off the button. (An explicit `aria-label` on the
+ * button would also pin the name, but collides here: Playwright's `getByLabel` matches on the
+ * `aria-label` attribute by substring, and "Copy message" would then match any lookup for the
+ * composer's own `aria-label="message"`.) A live region doubling as the button's own sole
+ * name-contributing content is the most fragile shape of all: it held the label text itself here at
+ * first, and Chromium's accessibility tree then failed to expose that name at all after the button
+ * remounted (streaming text settling into a message) under load — caught by the browser e2e, not the
+ * jsdom unit tests, which never touch the real accessibility tree.
+ */
+function CopyButton({
+  label,
+  getText,
+  className = '',
+}: {
+  label: string;
+  getText: () => string;
+  className?: string;
+}): React.ReactElement {
+  const { status, copy } = useCopyFeedback();
+  const feedback = status === 'copied' ? 'Copied' : status === 'error' ? "Couldn't copy" : '';
+  return (
+    <span className={`inline-flex items-center ${className}`}>
+      <button
+        type="button"
+        onClick={() => copy(getText())}
+        className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card px-2 py-1 text-[12px] font-medium text-muted-foreground shadow-sm shadow-black/5 transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {status === 'copied' ? (
+          <Check size={13} strokeWidth={2} />
+        ) : (
+          <Copy size={13} strokeWidth={1.9} />
+        )}
+        <span>{label}</span>
+      </button>
+      <span className="sr-only" role="status" aria-live="polite">
+        {feedback}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * A fenced code block: unwrapped and horizontally scrollable (a visible scrollbar via
+ * `.gui-code-scroll`, `tabIndex=0` and a name so a keyboard user without a mouse wheel can still reach
+ * the rest of a long line), with its own "Copy code" button revealed on hover/focus (#3289 §2).
+ */
+function CodeBlockRenderer({ children }: { children?: React.ReactNode }): React.ReactElement {
+  const text = nodeText(children).replace(/\n$/, '');
+  return (
+    <div className="group/code relative my-1">
+      <pre
+        tabIndex={0}
+        aria-label="Code block, horizontally scrollable"
+        className="gui-code-scroll overflow-x-auto rounded-xl bg-sidebar px-4 py-3.5 font-mono text-[13px] leading-[1.65] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {children}
+      </pre>
+      <CopyButton
+        label="Copy code"
+        getText={() => text}
+        className="absolute right-2 top-2 opacity-0 transition-opacity group-hover/code:opacity-100 group-focus-within/code:opacity-100 [@media(hover:none)]:opacity-100"
+      />
+    </div>
+  );
+}
 
 interface IConversationViewProps {
   messages: readonly TConversationEntry[];
@@ -57,11 +146,7 @@ function AgentMarkdown({ children }: { children: string }): React.ReactElement {
           <h3 className="mt-5 text-[15px] font-semibold leading-snug first:mt-0">{c}</h3>
         ),
         p: ({ children: c }) => <p>{c}</p>,
-        pre: ({ children: c }) => (
-          <pre className="overflow-x-auto rounded-xl bg-sidebar px-4 py-3.5 font-mono text-[13px] leading-[1.65]">
-            {c}
-          </pre>
-        ),
+        pre: CodeBlockRenderer,
         code: ({ className, children: c }) => {
           const isBlock = Boolean(className);
           return isBlock ? (
@@ -148,10 +233,17 @@ function AgentBlock({
   isStreaming?: boolean;
 }): React.ReactElement {
   return (
-    <div className="gui-prose">
+    <div className="group/message gui-prose">
       <AgentMarkdown>{content}</AgentMarkdown>
       {isStreaming && (
         <span className="ml-1 inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-foreground/70 align-middle" />
+      )}
+      {/* #3289 §2: every assistant message can copy its own Markdown source; a still-streaming one
+          has nothing settled yet to copy, so the button waits for it to finish. */}
+      {!isStreaming && (
+        <div className="flex opacity-0 transition-opacity focus-within:opacity-100 group-hover/message:opacity-100 group-focus-within/message:opacity-100 [@media(hover:none)]:opacity-100">
+          <CopyButton label="Copy message" getText={() => content} />
+        </div>
       )}
     </div>
   );
@@ -333,7 +425,13 @@ const COMMAND_TONE: Record<ICommandOutputEntry['tone'], { dot: string; text: str
   info: { dot: 'bg-subtle', text: 'text-muted-foreground' },
 };
 
-/** A slash command's outcome, where it was typed: monospace, line breaks kept, long output folded. */
+/**
+ * A slash command's outcome, where it was typed: line breaks kept, long output folded. #3289 §2 — the
+ * card itself still marks the command (the `/name` header stays monospace, a fixed-width label rather
+ * than prose), but its BODY reads as normal text — proportional, normal size — unless it is actually a
+ * long listing (the same measure that decides whether to fold it: many raw lines, or tall once
+ * rendered), which stays monospace so columns of a real dump still line up.
+ */
 function CommandCard({ entry }: { entry: ICommandOutputEntry }): React.ReactElement {
   const lines = entry.content.split('\n');
   const bodyRef = useRef<HTMLPreElement>(null);
@@ -362,7 +460,9 @@ function CommandCard({ entry }: { entry: ICommandOutputEntry }): React.ReactElem
         <pre
           ref={bodyRef}
           style={folded ? { maxHeight: COMMAND_FOLD_HEIGHT_PX } : undefined}
-          className={`overflow-hidden whitespace-pre-wrap break-words px-4 pb-3 pt-1.5 font-mono text-[13px] leading-[1.65] ${tone.text}`}
+          className={`overflow-hidden whitespace-pre-wrap break-words px-4 pb-3 pt-1.5 leading-[1.65] ${
+            foldable ? 'font-mono text-[13px]' : 'font-sans text-[14.5px]'
+          } ${tone.text}`}
         >
           {shown}
         </pre>
@@ -469,6 +569,9 @@ function ThinkingIndicator(): React.ReactElement {
   return <p className="gui-shimmer w-fit text-[15px] font-medium">Thinking…</p>;
 }
 
+/** "At the bottom" for auto-scroll purposes — within this many px of the true bottom. */
+const NEAR_BOTTOM_PX = 80;
+
 export function ConversationView({
   messages,
   activeTools,
@@ -476,62 +579,128 @@ export function ConversationView({
   isThinking,
   ownDriverId,
 }: IConversationViewProps): React.ReactElement {
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLElement>(null);
+  // The source of truth `handleScroll` and the follow effect both read synchronously (a ref, so
+  // neither sees a stale value from its own last render); mirrored into state to re-render the "Jump
+  // to latest" button.
+  const isAtBottomRef = useRef(true);
+  const [isAtBottom, setIsAtBottomState] = useState(true);
+  // New content arrived while the person was scrolled away from the bottom — cleared the moment they
+  // return to it, by hand or via "Jump to latest".
+  const [hasNewBelow, setHasNewBelow] = useState(false);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const setIsAtBottom = (value: boolean): void => {
+    isAtBottomRef.current = value;
+    setIsAtBottomState(value);
+  };
+
+  /**
+   * #3289 §2 — follows new content only while the person is already at the bottom: streaming text, a
+   * finished message, a tool starting or finishing. Expanding something already on screen (a tool row,
+   * a folded command card) touches none of these, so it never causes a jump — the effect simply does
+   * not run for it. An instant jump rather than a smooth one, so it can never itself be mistaken by
+   * `handleScroll` below for the person scrolling away mid-animation.
+   */
+  useLayoutEffect(() => {
+    if (isAtBottomRef.current) {
+      const el = containerRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+      setIsAtBottom(true);
+      setHasNewBelow(false);
+    } else {
+      setHasNewBelow(true);
+    }
   }, [messages.length, streamingText, isThinking, activeTools.length]);
+
+  const handleScroll = (): void => {
+    const el = containerRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
+    setIsAtBottom(atBottom);
+    // Returning to the bottom by hand (not just via "Jump to latest") also clears the "new content
+    // below" flag — otherwise it stays stale and re-shows the button on a later scroll-up even though
+    // nothing new has arrived since.
+    if (atBottom) setHasNewBelow(false);
+  };
+
+  const jumpToLatest = (): void => {
+    const el = containerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+    setIsAtBottom(true);
+    setHasNewBelow(false);
+  };
 
   const isEmpty =
     messages.length === 0 && !isThinking && activeTools.length === 0 && !streamingText;
+  const isReplyStreaming =
+    isThinking || streamingText.length > 0 || activeTools.some((tool) => tool.status === 'running');
+  const showJumpToLatest = !isAtBottom && (hasNewBelow || isReplyStreaming);
 
   return (
-    <main className="robota-ui h-full overflow-y-auto" aria-label="Conversation">
-      <div className="mx-auto flex w-full max-w-[760px] flex-col gap-6 px-6 pb-6 pt-8">
-        {isEmpty && (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-[14px] text-subtle">No messages yet</p>
-          </div>
-        )}
+    <div className="robota-ui relative flex h-full min-h-0 flex-col">
+      <main
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="min-h-0 flex-1 overflow-y-auto"
+        aria-label="Conversation"
+      >
+        <div className="mx-auto flex w-full max-w-[760px] flex-col gap-6 px-6 pb-6 pt-8">
+          {isEmpty && (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-[14px] text-subtle">No messages yet</p>
+            </div>
+          )}
 
-        {messages.map((entry) => {
-          switch (entry.role) {
-            case 'user':
-              return (
-                <UserBlock
-                  key={entry.id}
-                  content={entry.content}
-                  author={entry.author}
-                  ownDriverId={ownDriverId}
-                />
-              );
-            case 'assistant':
-              return <AgentBlock key={entry.id} content={entry.content} />;
-            case 'command':
-              return <CommandCard key={entry.id} entry={entry} />;
-            case 'tools':
-              return <ToolGroup key={entry.id} tools={entry.tools} />;
-            case 'changed-files':
-              return <ChangedFilesRow key={entry.id} files={entry.files} />;
-          }
-        })}
+          {messages.map((entry) => {
+            switch (entry.role) {
+              case 'user':
+                return (
+                  <UserBlock
+                    key={entry.id}
+                    content={entry.content}
+                    author={entry.author}
+                    ownDriverId={ownDriverId}
+                  />
+                );
+              case 'assistant':
+                return <AgentBlock key={entry.id} content={entry.content} />;
+              case 'command':
+                return <CommandCard key={entry.id} entry={entry} />;
+              case 'tools':
+                return <ToolGroup key={entry.id} tools={entry.tools} />;
+              case 'changed-files':
+                return <ChangedFilesRow key={entry.id} files={entry.files} />;
+            }
+          })}
 
-        {isThinking && !streamingText && <ThinkingIndicator />}
+          {isThinking && !streamingText && <ThinkingIndicator />}
 
-        {activeTools.some((tool) => !tool.internal) && (
-          <div className="flex flex-col">
-            {activeTools
-              .filter((tool) => !tool.internal)
-              .map((tool) => (
-                <ToolCard key={tool.id} tool={tool} />
-              ))}
-          </div>
-        )}
+          {activeTools.some((tool) => !tool.internal) && (
+            <div className="flex flex-col">
+              {activeTools
+                .filter((tool) => !tool.internal)
+                .map((tool) => (
+                  <ToolCard key={tool.id} tool={tool} />
+                ))}
+            </div>
+          )}
 
-        {streamingText && <AgentBlock content={streamingText} isStreaming />}
+          {streamingText && <AgentBlock content={streamingText} isStreaming />}
+        </div>
+      </main>
 
-        <div ref={bottomRef} />
-      </div>
-    </main>
+      {showJumpToLatest && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
+          <button
+            type="button"
+            onClick={jumpToLatest}
+            className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-2 text-[13px] font-medium text-primary-foreground shadow-lg shadow-black/25 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <ArrowDown size={14} strokeWidth={2.25} />
+            Jump to latest
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

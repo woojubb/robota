@@ -1,15 +1,17 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { AgentActivityPanel } from './AgentActivityPanel.js';
 import { RobotaMark, RobotaWordmark } from './Brand.js';
 import { Composer, GoalBar } from './Composer.js';
 import { ConversationView } from './ConversationView.js';
+import { Dialog } from './Dialog.js';
 import { ExecutionDetailSheet } from './ExecutionDetailSheet.js';
 import { PermissionPrompt } from './PermissionPrompt.js';
 import { PersonalUsageDashboard } from './PersonalUsageDashboard.js';
 import { SessionSidebar, SessionSidebarRail, sessionTitle } from './SessionSidebar.js';
 import { ConnectionBanner, SessionNotices, SessionTitleBar } from './SessionSurfaceChrome.js';
 import { SettingsScreen } from './SettingsScreen.js';
+import { NARROW_WINDOW_QUERY, useMediaQuery } from '../hooks/use-media-query.js';
 
 import type { IComposerHandle, IPickedFile } from './Composer.js';
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
@@ -149,29 +151,87 @@ export function SessionSurface({
   const currentRow = listing?.sessions.find((session) => session.id === listing.currentSessionId);
   // A rename seen on this page wins; otherwise the host's listing names the current session.
   const title = state.sessionName ?? (currentRow ? sessionTitle(currentRow) : null);
-  // Choosing a session from the sidebar shows its conversation, whichever view was open.
+  // #3289 §2 — below `md` the open sidebar is a sheet over the conversation (the shared `Dialog`,
+  // #3331) rather than a column beside it: a dimmed backdrop, Esc, an outside click or choosing a
+  // session all close it again, and it traps Tab inside it while open.
+  const isNarrow = useMediaQuery(NARROW_WINDOW_QUERY);
+  const sheetActive = sidebarOpen && isNarrow;
+  const closeSidebar = (): void => state.setSessionSidebarOpen?.(false);
+  // The sheet's own opener — the rail's "Show sessions" button — unmounts in the SAME update that
+  // mounts the sheet (the ternary below swaps `SessionSidebarRail` for `Dialog`), so passing it as
+  // `Dialog`'s `restoreFocusTo` would only hand back a node already detached from the document by the
+  // time `Dialog` reads it — a `.focus()` on that node is a harmless no-op, not a restore. This effect
+  // does the real work instead: a `focusin` listener captures the opener the moment it actually had
+  // focus, while the sheet is closed; on close, a control that reappeared under the same `aria-label`
+  // (the rail's button, remounted) is as good a return address as the original node.
+  const sheetOpenerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (sheetActive) return undefined;
+    const onFocusIn = (event: FocusEvent): void => {
+      if (event.target instanceof HTMLElement) sheetOpenerRef.current = event.target;
+    };
+    document.addEventListener('focusin', onFocusIn);
+    return () => document.removeEventListener('focusin', onFocusIn);
+  }, [sheetActive]);
+  const wasSheetActiveRef = useRef(false);
+  useEffect(() => {
+    if (wasSheetActiveRef.current && !sheetActive) {
+      const opener = sheetOpenerRef.current;
+      const label = opener?.getAttribute('aria-label');
+      const target =
+        opener && document.contains(opener)
+          ? opener
+          : label
+            ? document.querySelector<HTMLElement>(`[aria-label="${label}"]`)
+            : null;
+      target?.focus();
+    }
+    wasSheetActiveRef.current = sheetActive;
+  }, [sheetActive]);
+  // Choosing a session from the sidebar shows its conversation, whichever view was open — and, while
+  // it is a narrow-window sheet, closes it too, exactly as a backdrop click or Esc would.
   const sidebarState: IWsSessionState = {
     ...state,
     switchSession: (sessionId) => {
       setView('chat');
       state.switchSession?.(sessionId);
+      if (sheetActive) closeSidebar();
     },
     newSession: () => {
       setView('chat');
       state.newSession?.();
+      if (sheetActive) closeSidebar();
     },
   };
+  const sidebarPanel = (
+    <SessionSidebar
+      state={sidebarState}
+      brand={<RobotaWordmark surface={surface} />}
+      className={
+        sheetActive
+          ? 'h-full'
+          : 'absolute inset-y-0 left-0 z-30 shadow-2xl shadow-black/40 md:static md:z-auto md:shadow-none'
+      }
+    />
+  );
 
   return (
     <div className="robota-ui relative flex h-full bg-background text-foreground">
       {hasSessionList ? (
         sidebarOpen ? (
-          // Narrow windows lay it over the conversation instead of squeezing it.
-          <SessionSidebar
-            state={sidebarState}
-            brand={<RobotaWordmark surface={surface} />}
-            className="absolute inset-y-0 left-0 z-30 shadow-2xl shadow-black/40 md:static md:z-auto md:shadow-none"
-          />
+          isNarrow ? (
+            <Dialog
+              open={sheetActive}
+              onClose={closeSidebar}
+              title="Sessions"
+              panelClassName="mr-auto flex h-full w-[272px] max-w-[85vw] flex-col self-stretch overflow-hidden rounded-2xl bg-sidebar shadow-2xl shadow-black/40 focus:outline-none"
+            >
+              {sidebarPanel}
+            </Dialog>
+          ) : (
+            // Wide windows keep it as a static column beside the conversation.
+            sidebarPanel
+          )
         ) : (
           <SessionSidebarRail state={sidebarState} />
         )
