@@ -10,6 +10,7 @@
 import {
   openInBrowser,
   resolveWebRoot,
+  servedAtMessage,
   startMonitorUiServer,
   type IMonitorUiServer,
 } from './serve-monitor-ui.js';
@@ -453,10 +454,10 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     const webRoot = resolveWebRoot();
     if (wsUrl && webRoot) {
       monitorUi = await startMonitorUiServer(webRoot, wsUrl);
-      process.stdout.write(`Web monitor: ${monitorUi.url}\n`);
+      process.stdout.write(servedAtMessage(monitorUi.url));
       openInBrowser(monitorUi.url);
     } else if (!webRoot) {
-      process.stderr.write('Web monitor assets not found (dist/web) — run a full CLI build.\n');
+      process.stderr.write('Robota web assets not found (dist/web) — run a full CLI build.\n');
     }
   }
 

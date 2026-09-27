@@ -690,9 +690,7 @@ export class InteractiveSession
    */
   getMemoryStore(): IMemoryStore {
     if (this.injectedMemoryStore) return this.injectedMemoryStore;
-    throw new WorkspaceAuthorityRequiredError(
-      'Project memory is unavailable without a workspace project authority.',
-    );
+    throw new WorkspaceAuthorityRequiredError("Project memory isn't available for this folder.");
   }
 
   get sessionId(): string {

@@ -32,7 +32,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body className={`h-full ${ibmPlexSans.variable} ${ibmPlexMono.variable}`}>
-        <main className="h-full">{children}</main>
+        {/* #3289 §3 review: every route mounted here already renders its own `main` landmark
+            (`ConversationView` on /remote, `PlaygroundApp` on /playground) — a `main` here too would
+            nest one `main` inside another, which a shared root layout has no way to know is safe for
+            a given route. Layout stays a plain, unlandmarked wrapper. */}
+        <div className="h-full">{children}</div>
       </body>
     </html>
   );

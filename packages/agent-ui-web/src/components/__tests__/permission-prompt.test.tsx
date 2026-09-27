@@ -716,6 +716,100 @@ describe('PermissionPrompt shows what the tool was asked to do', () => {
     expect(screen.getByRole('button', { name: 'Allow' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Deny' })).toBeTruthy();
   });
+
+  it('exposes the digit shortcut through aria-keyshortcuts, without it reaching the name', () => {
+    render(<Surface prompts={[permission('p4')]} onAnswerPermission={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Allow' }).getAttribute('aria-keyshortcuts')).toBe(
+      '1',
+    );
+    expect(screen.getByRole('button', { name: 'Deny' }).getAttribute('aria-keyshortcuts')).toBe(
+      '2',
+    );
+  });
+});
+
+describe('PermissionPrompt names a different kind of surface, never a raw id (#3289 §3)', () => {
+  afterEach(cleanup);
+
+  function withRequester(requesterDriverId: string | undefined): TPendingPrompt {
+    return { ...permission('p1'), requesterDriverId } as TPendingPrompt;
+  }
+
+  it('shows no requester when the prompt is this connection\'s own turn', () => {
+    render(
+      <PermissionPrompt
+        prompts={[withRequester('owner')]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Permission request')).toBeTruthy();
+    expect(screen.queryByText(/from/)).toBeNull();
+  });
+
+  it('shows no requester for a turn from the same kind of surface as this connection\'s own', () => {
+    // Every WS connection of one `--serve` process learns the SAME driver id, so a co-driver's turn
+    // can arrive with this connection's own literal id too — same kind, no requester shown.
+    render(
+      <PermissionPrompt
+        prompts={[withRequester('remote:ws')]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={vi.fn()}
+        ownDriverId="remote:ws"
+      />,
+    );
+    expect(screen.queryByText(/from/)).toBeNull();
+  });
+
+  it('shows a human phrase for a different kind of surface, never the raw id', () => {
+    render(
+      <PermissionPrompt
+        prompts={[withRequester('browser')]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={vi.fn()}
+        ownDriverId="app"
+      />,
+    );
+    expect(screen.getByText('from the browser')).toBeTruthy();
+    expect(screen.queryByText('browser')).toBeNull();
+  });
+
+  it('names the terminal while this window is the browser, in plain words', () => {
+    render(
+      <PermissionPrompt
+        prompts={[withRequester('attach:1')]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={vi.fn()}
+        ownDriverId="browser"
+      />,
+    );
+    expect(screen.getByText('from the terminal')).toBeTruthy();
+    expect(screen.queryByText(/attach:/)).toBeNull();
+  });
+
+  it('names a remote mesh peer as a remote device, never its raw id', () => {
+    render(
+      <PermissionPrompt
+        prompts={[withRequester('peer:session-abc123')]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('from a remote device')).toBeTruthy();
+    expect(screen.queryByText(/session-abc123/)).toBeNull();
+  });
+
+  it('says "automatic" for the agent\'s own wake-up, not "from automatic"', () => {
+    render(
+      <PermissionPrompt
+        prompts={[withRequester('agent')]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('automatic')).toBeTruthy();
+    expect(screen.queryByText(/from automatic/)).toBeNull();
+  });
 });
 
 describe('issue #3288 §1: a background agent names itself on its own permission request', () => {

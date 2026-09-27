@@ -34,8 +34,16 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
   const [url, setUrl] = useState(wsUrl);
   const [inputUrl, setInputUrl] = useState(wsUrl);
 
-  const { status, messages, activeTools, streamingText, isThinking, executionWorkspace, send } =
-    useWsSession(url);
+  const {
+    status,
+    messages,
+    activeTools,
+    streamingText,
+    isThinking,
+    executionWorkspace,
+    ownDriverId,
+    send,
+  } = useWsSession(url);
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.disconnected;
 
   const backgroundTasks =
@@ -88,6 +96,7 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
                 activeTools={activeTools}
                 streamingText={streamingText}
                 isThinking={isThinking}
+                ownDriverId={ownDriverId}
               />
             ) : (
               <div className="flex h-full items-center justify-center">

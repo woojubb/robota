@@ -66,7 +66,7 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --reset                    Delete ~/.robota/settings.json (provider profiles and preferences).
                              Asks for confirmation; use --yes to skip
   --yes                      Skip confirmation prompts (required for --reset in non-TTY)
-  --serve --open             Serve the web monitor over localhost and open it in a browser
+  --serve --open             Serve Robota over localhost and open it in a browser
   --attach [--screen-reader|--no-screen-reader]
                              Open the full terminal UI on this workspace's running daemon
                              (robota daemon start) instead of starting a session: its

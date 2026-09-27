@@ -10,8 +10,11 @@ import React, {
   useState,
 } from 'react';
 
+import { driverAttributionText, isSameSurface } from '../driver-labels.js';
+
 import type { TPendingPrompt } from '../hooks/prompt-state.js';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId } from '@robota-sdk/agent-interface-session';
 
 /**
  * Renders the owner's pending permission/ask prompts (REMOTE-007/009). Under local == remote the paired
@@ -32,6 +35,8 @@ interface IPermissionPromptProps {
   prompts: readonly TPendingPrompt[];
   onAnswerPermission: (id: string, result: boolean) => void;
   onAnswerAsk: (id: string, response: TActionResponse) => void;
+  /** This connection's own driver id (§3289 §3): a prompt raised by its own turn shows no requester. */
+  ownDriverId?: TDriverId | null;
   layout?: 'modal' | 'dock';
   /** How long a new prompt waits before its keys answer it; tests pass their own. */
   armDelayMs?: number;
@@ -62,6 +67,7 @@ export function PermissionPrompt({
   prompts,
   onAnswerPermission,
   onAnswerAsk,
+  ownDriverId = null,
   layout = 'modal',
   armDelayMs = PROMPT_ARM_DELAY_MS,
   onFocusReturn,
@@ -134,12 +140,10 @@ export function PermissionPrompt({
 
   // REMOTE-014 E5 (display-only): the prompt belongs to the driver whose turn raised it. Shown so the owner
   // can tell a co-driver's tool-gate from their own — it NEVER changes who is authorized to answer (owner).
-  const requester =
-    prompt.requesterDriverId && prompt.requesterDriverId !== 'owner'
-      ? prompt.requesterDriverId
+  const requesterLabel =
+    prompt.requesterDriverId && !isSameSurface(prompt.requesterDriverId, ownDriverId)
+      ? driverAttributionText(prompt.requesterDriverId)
       : undefined;
-  const shortRequester =
-    requester && requester.length > 12 ? `${requester.slice(0, 8)}…` : requester;
 
   const dock = layout === 'dock';
   /** Records whether the answer being given leaves the prompt able to hand focus back afterwards. */
@@ -236,10 +240,10 @@ export function PermissionPrompt({
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] text-muted-foreground">
                   Permission request
-                  {shortRequester && (
+                  {requesterLabel && (
                     <>
                       {' '}
-                      · from driver <span className="text-foreground">{shortRequester}</span>
+                      · <span className="text-foreground">{requesterLabel}</span>
                     </>
                   )}
                 </p>
@@ -263,6 +267,7 @@ export function PermissionPrompt({
             <div className="mt-4 flex flex-wrap items-center gap-2 pl-11">
               <button
                 type="button"
+                aria-keyshortcuts={dock ? '1' : undefined}
                 className={PRIMARY_BUTTON}
                 onClick={onButton(() => answerPermission(prompt.id, true))}
               >
@@ -271,6 +276,7 @@ export function PermissionPrompt({
               </button>
               <button
                 type="button"
+                aria-keyshortcuts={dock ? '2' : undefined}
                 className={SECONDARY_BUTTON}
                 onClick={onButton(() => answerPermission(prompt.id, false))}
               >
@@ -289,9 +295,9 @@ export function PermissionPrompt({
                 <MessageCircleQuestion size={17} strokeWidth={1.9} />
               </span>
               <div className="min-w-0 flex-1">
-                {shortRequester && (
+                {requesterLabel && (
                   <p className="text-[13px] text-muted-foreground">
-                    from driver <span className="text-foreground">{shortRequester}</span>
+                    <span className="text-foreground">{requesterLabel}</span>
                   </p>
                 )}
                 <p className="text-[15px] font-medium text-foreground">{prompt.request.title}</p>
@@ -309,6 +315,7 @@ export function PermissionPrompt({
                     <div key={opt.value} className="flex flex-col items-start gap-0.5">
                       <button
                         type="button"
+                        aria-keyshortcuts={dock && index < 9 ? String(index + 1) : undefined}
                         className={index === 0 ? PRIMARY_BUTTON : SECONDARY_BUTTON}
                         onClick={onButton(() =>
                           answerAsk(prompt.id, { type: 'answer', values: [opt.value] }),
