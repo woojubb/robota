@@ -10,6 +10,7 @@ import {
 import {
   classifyProviderFailure,
   readProviderFailureDetails,
+  scrubSecrets,
   toProviderError,
 } from './provider-failure';
 
@@ -86,6 +87,73 @@ describe('readProviderFailureDetails', () => {
 
   it('does not mistake a socket error code for a vendor type', () => {
     expect(readProviderFailureDetails(withCode('reset', 'ECONNRESET'))).toEqual({});
+  });
+});
+
+describe('scrubSecrets', () => {
+  // The previous implementation shared one replace callback across every pattern and keyed its
+  // output on whether `group` was `undefined` — but for a pattern with no capture group, `replace`
+  // passes the match's numeric OFFSET as that argument, not `undefined`, so the check was always
+  // true and the offset itself leaked into the output (e.g. `"...(25: [REDACTED]"`, dropping the
+  // rest of the line as well since the `authorization` pattern also read to the end of the string).
+  it('redacts only the credential in an Authorization header, keeping what comes after it', () => {
+    expect(
+      scrubSecrets('Cannot POST /wrong/path (Authorization: Bearer sk-live-should-not-leak)'),
+    ).toBe('Cannot POST /wrong/path (Authorization: [REDACTED])');
+  });
+
+  it('keeps the rest of the sentence after a mid-message Authorization header', () => {
+    expect(
+      scrubSecrets(
+        'Request failed: Authorization: Bearer sk-live-abcd1234, but also note … ' +
+          'Please update your integration.',
+      ),
+    ).toBe(
+      'Request failed: Authorization: [REDACTED], but also note … Please update your integration.',
+    );
+  });
+
+  it('redacts a standalone Bearer token with no Authorization: prefix', () => {
+    expect(scrubSecrets('token used: Bearer sk-live-standalone-token here')).toBe(
+      'token used: Bearer [REDACTED] here',
+    );
+  });
+
+  it('redacts api_key / api-key / apikey / x-api-key / x-goog-api-key, keeping the header name', () => {
+    expect(scrubSecrets('Gateway rejected api_key=sk-proj-abc123 for this request.')).toBe(
+      'Gateway rejected api_key: [REDACTED] for this request.',
+    );
+    expect(scrubSecrets('header apikey: abc.def.ghi denied')).toBe(
+      'header apikey: [REDACTED] denied',
+    );
+    expect(scrubSecrets('curl error: x-goog-api-key: AIzaSyABCDEF1234567890 was rejected')).toBe(
+      'curl error: x-goog-api-key: [REDACTED] was rejected',
+    );
+    expect(scrubSecrets('refused: x-api-key=abcdef123456')).toBe('refused: x-api-key: [REDACTED]');
+  });
+
+  it('redacts a key= query parameter', () => {
+    expect(scrubSecrets('Blocked request to /v1/models?key=AIzaSyDEMOKEY1234 from client')).toBe(
+      'Blocked request to /v1/models?key=[REDACTED] from client',
+    );
+  });
+
+  it('redacts a bare secret key token, including sk-ant-...', () => {
+    expect(scrubSecrets('Leaked token sk-live-abcdefgh1234 in log line')).toBe(
+      'Leaked token [REDACTED] in log line',
+    );
+    expect(scrubSecrets('Leaked token sk-ant-api03-abcdefgh in log line')).toBe(
+      'Leaked token [REDACTED] in log line',
+    );
+  });
+
+  it('leaves an ordinary message with no secrets unchanged', () => {
+    expect(scrubSecrets('503 Service Unavailable')).toBe('503 Service Unavailable');
+  });
+
+  it('does not hit ordinary hyphenated words that merely contain "sk"', () => {
+    const benign = 'This risky, ask-first, desk-based task-runner workflow needs a review.';
+    expect(scrubSecrets(benign)).toBe(benign);
   });
 });
 

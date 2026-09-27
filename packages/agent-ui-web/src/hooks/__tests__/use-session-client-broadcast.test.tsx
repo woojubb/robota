@@ -108,6 +108,53 @@ describe('CMD-004 Stage E — GUI folds the broadcast session events', () => {
     expect(notice?.retryAfterSeconds).toBeUndefined();
   });
 
+  function statusWithModel(model: string): Extract<TServerMessage, { type: 'session_status' }> {
+    return {
+      type: 'session_status',
+      status: {
+        sessionId: 's',
+        model,
+        permissionMode: 'default',
+        effort: 'auto',
+        context: { usedPercentage: 3, usedTokens: 3, maxTokens: 100, remainingPercentage: 97 },
+        goal: null,
+      },
+    };
+  }
+
+  it('a model_unavailable notice captures the model from session status at creation time, not live later', () => {
+    const { result, deliver } = setup();
+    deliver(statusWithModel('model-a'));
+    deliver({
+      type: 'error',
+      code: 'model_unavailable',
+      message: 'No model available for provider "anthropic"',
+      provider: 'anthropic',
+    });
+
+    expect(result.current.sessionNotices.at(-1)).toMatchObject({ model: 'model-a' });
+
+    // The failure's own `get-status` reply (or the person switching models afterward) must not
+    // rewrite an already-created notice — it would then blame the NEW model for the OLD failure.
+    deliver(statusWithModel('model-b'));
+
+    expect(result.current.sessionNotices.at(-1)).toMatchObject({ model: 'model-a' });
+  });
+
+  it('an error frame that names its own model wins over the session status', () => {
+    const { result, deliver } = setup();
+    deliver(statusWithModel('model-a'));
+    deliver({
+      type: 'error',
+      code: 'model_unavailable',
+      message: 'No model available for provider "anthropic"',
+      provider: 'anthropic',
+      model: 'model-x',
+    });
+
+    expect(result.current.sessionNotices.at(-1)).toMatchObject({ model: 'model-x' });
+  });
+
   it('ARCH-2164: requests and receives the existing current-session usage report', () => {
     let onMessage: ((msg: TServerMessage) => void) | null = null;
     const wire: import('@robota-sdk/agent-transport').TClientMessage[] = [];
