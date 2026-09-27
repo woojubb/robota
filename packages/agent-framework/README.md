@@ -322,7 +322,9 @@ a model-invocable command through a projected tool named `command_<name>` by def
   `@robota-sdk/agent-executor`; `createSubagentSession()` builds the child session from the
   parent's resolved configuration.
 - `runSequential`, `runParallel`, `runHandoff`, `runHierarchical` and `runGroupChat` run multi-agent
-  orchestration patterns over the contracts in `agent-core`.
+  orchestration patterns over the contracts in `agent-core`. `runGroupChat` is a facade over
+  `@robota-sdk/agent-roundtable`'s `Roundtable`: the core runs the only turn loop, one participant per
+  step id, while the neutral contract (`IGroupChatOrchestrationSpec`, `SelectNextStep`) is unchanged.
 
 ## Sandbox execution
 

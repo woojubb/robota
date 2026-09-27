@@ -340,6 +340,10 @@ These are behaviors a caller cannot infer from a type signature alone.
   A skipped candidate is never persisted anywhere, including the pending queue. Approval accepts only a
   `pending` candidate and re-runs the check, so nothing flagged reaches durable memory. This is a
   heuristic, not a secret scanner: a secret that reads like prose can still pass.
+- **`group-chat`'s only turn loop is the Roundtable core's.** `runGroupChat` is a facade over
+  `@robota-sdk/agent-roundtable`: each step id becomes one participant and the caller's turn-selection
+  policy is adapted into a `TurnSelector`, but the facade itself keeps no transcript, turn counter or
+  loop — every turn is driven by exactly one `Roundtable` created and run once per call.
 
 ## Error taxonomy (shape, not enumeration)
 
