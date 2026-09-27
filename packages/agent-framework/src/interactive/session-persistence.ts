@@ -100,14 +100,18 @@ export function listResumableSessionSummaries(
     .flatMap((entry) => (entry.outcome.status === 'valid' ? [entry.outcome.record] : []))
     .filter((session) => session.cwd === cwd)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    .map((session) => ({
-      id: session.id,
-      ...(session.name !== undefined ? { name: session.name } : {}),
-      cwd: session.cwd,
-      updatedAt: session.updatedAt,
-      messageCount: session.messages.length,
-      preview: getLastAssistantPreview(session.messages),
-    }));
+    .map((session) => {
+      const title = getFirstUserMessageTitle(session.messages);
+      return {
+        id: session.id,
+        ...(session.name !== undefined ? { name: session.name } : {}),
+        cwd: session.cwd,
+        updatedAt: session.updatedAt,
+        messageCount: session.messages.length,
+        preview: getLastAssistantPreview(session.messages),
+        ...(title !== undefined ? { title } : {}),
+      };
+    });
 }
 
 /**
@@ -119,7 +123,9 @@ export function listResumableSessionSummaries(
  * older-format session read as gone rather than as unreadable. A surface that wants to say "3
  * sessions here were written by a different build" asks this.
  *
- * Not filtered by `cwd`: an unreadable entry has no record, so it has no `cwd` to compare.
+ * Not filtered by `cwd`: an unreadable entry has no record, so it has no `cwd` to compare in general
+ * — {@link listUnreadableSessionsForWorkspace} answers that question for the entries that DO carry
+ * one.
  */
 export function listUnreadableSessions(
   sessionStore: IInteractiveSessionStore | undefined,
@@ -127,11 +133,63 @@ export function listUnreadableSessions(
   return (sessionStore?.list() ?? []).filter((entry) => entry.outcome.status !== 'valid');
 }
 
+/**
+ * The unreadable sessions of ONE workspace (#3289 §1).
+ *
+ * A store shared across workspaces (the user-level `~/.robota/sessions`) holds unreadable records
+ * from every folder ever worked in there, and a brand-new folder used to be told about all of them —
+ * "191 sessions could not be read" on a folder that had never seen one. An unreadable record still
+ * carries its raw `cwd` when the bytes are readable enough for that (TRANS-007's best-effort peek);
+ * this asks only for the ones whose peeked `cwd` is THIS workspace. A record whose workspace cannot
+ * be told at all is left out here — it is not lost, it simply is not this workspace's business.
+ */
+export function listUnreadableSessionsForWorkspace(
+  sessionStore: IInteractiveSessionStore | undefined,
+  cwd: string,
+): readonly { readonly id: string }[] {
+  return listUnreadableSessions(sessionStore)
+    .filter((entry) => unreadableOutcomeCwd(entry.outcome) === cwd)
+    .map((entry) => ({ id: entry.id }));
+}
+
+function unreadableOutcomeCwd(outcome: TSessionLoadOutcome): string | undefined {
+  return outcome.status === 'corrupt' || outcome.status === 'unsupported'
+    ? outcome.cwd
+    : undefined;
+}
+
 export function resolveLatestSessionId(
   sessionStore: IInteractiveSessionStore | undefined,
   cwd: string,
 ): string | undefined {
   return listResumableSessionSummaries(sessionStore, cwd)[0]?.id;
+}
+
+/**
+ * An existing session of this workspace with no messages yet, that no OTHER client is on — the one a
+ * fresh "New session" (a serve/daemon start, or the button) should reuse instead of adding another
+ * empty row to the list (#3289 §1). `excludeSessionId` lets a caller leaving a session (e.g. deleting
+ * it) ask "reuse some OTHER empty session" without that one answering its own question.
+ *
+ * `liveClientsOf` reports how many clients are on a session besides the one asking, when the caller
+ * knows; omitted, every candidate is treated as free (the common case: nothing is live yet, as at a
+ * serve/daemon start, when nothing could be bound to anything).
+ */
+export function resolveReusableEmptySessionId(
+  sessionStore: IInteractiveSessionStore | undefined,
+  cwd: string,
+  options: {
+    readonly excludeSessionId?: string;
+    readonly otherClientsOf?: (sessionId: string) => number;
+  } = {},
+): string | undefined {
+  const candidate = listResumableSessionSummaries(sessionStore, cwd).find(
+    (session) =>
+      session.messageCount === 0 &&
+      session.id !== options.excludeSessionId &&
+      (options.otherClientsOf?.(session.id) ?? 0) <= 0,
+  );
+  return candidate?.id;
 }
 
 export function resolveSessionIdByIdOrName(
@@ -155,4 +213,36 @@ function getLastAssistantPreview(messages: readonly TUniversalMessage[]): string
     return message.content.replace(/[\n\r]+/g, ' ').trim();
   }
   return '';
+}
+
+/** A title never runs past this many characters before the ellipsis. */
+const TITLE_MAX_LENGTH = 60;
+
+/**
+ * A stable session title (#3289 §1): the first user request, one line, Markdown syntax markers
+ * stripped, whitespace collapsed, and capped at {@link TITLE_MAX_LENGTH} characters. Unlike
+ * {@link getLastAssistantPreview} — the raw latest reply, which is what the resume picker wants — this
+ * reads the FIRST user message and nothing later, so it never changes as the conversation continues:
+ * a session titled from its first question does not retitle itself to `##`, a code fence, or "OK." on
+ * the next turn.
+ */
+function getFirstUserMessageTitle(messages: readonly TUniversalMessage[]): string | undefined {
+  for (const message of messages) {
+    if (message.role !== 'user') continue;
+    if (typeof message.content !== 'string') continue;
+    const title = titleFromText(message.content);
+    if (title.length > 0) return title;
+  }
+  return undefined;
+}
+
+/** One line, common Markdown syntax characters removed (not their content), collapsed and capped. */
+function titleFromText(text: string): string {
+  const stripped = text
+    .replace(/[#*_~`]/g, ' ')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (stripped.length <= TITLE_MAX_LENGTH) return stripped;
+  return `${stripped.slice(0, TITLE_MAX_LENGTH).trimEnd()}…`;
 }

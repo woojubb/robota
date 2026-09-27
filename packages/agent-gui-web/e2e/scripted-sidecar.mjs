@@ -11,7 +11,8 @@
  * A fake session directory lists a few stored sessions and switches between them; a switch while a
  * scripted turn is still running ("stay busy" until "all done") is refused with the host's reason,
  * which the transport answers as `session_change_failed`. Its rows say which sessions are live and
- * how many clients are on each, as a daemon that keeps several sessions live does.
+ * how many clients are on each, as a daemon that keeps several sessions live does. It also renames
+ * and deletes a stored session (#3289 §1), and its status snapshot carries a workspace folder.
  *
  * Run as `daemon start --json` (how the desktop app attaches) it plays the CLI's daemon starter instead: it
  * reuses the daemon recorded in `$ROBOTA_E2E_DAEMON_STATE` while that process lives, or starts itself
@@ -623,6 +624,9 @@ class ScriptedSession extends EventEmitter {
       goal: null,
       // Absent (never `false`) once set up, exactly like the real ISessionStatusSnapshot field.
       ...(this.#setupRequired ? { setupRequired: true } : {}),
+      // #3289 §1: the folder the title bar and document.title show; #3282 §4d resolves attached
+      // files' paths against it, so it defaults to the same '/scripted/workspace' but can be pointed
+      // at a real temp directory via ROBOTA_E2E_WORKSPACE_CWD.
       workspace: { name: basename(workspaceCwd), path: workspaceCwd },
     };
   }
@@ -663,6 +667,9 @@ const sessionDirectory = {
         .map(({ id, name, updatedAt, messages }) => {
           // The e2e page is the one client on the current session.
           const clients = id === session.currentId ? 1 : (liveElsewhere.get(id) ?? 0);
+          // #3289 §1: a stable title from the first user message — `preview` (the last reply) stays
+          // beside it unchanged, for a consumer that still wants that.
+          const firstUser = messages.find((message) => message.role === 'user');
           return {
             id,
             ...(name ? { name } : {}),
@@ -670,6 +677,7 @@ const sessionDirectory = {
             updatedAt,
             messageCount: messages.length,
             preview: messages[0]?.content ?? '',
+            ...(firstUser ? { title: firstUser.content } : {}),
             live: clients > 0,
             clients,
           };
@@ -689,6 +697,41 @@ const sessionDirectory = {
     const stored = { id: `new-session-${newSessionCount}`, updatedAt: new Date().toISOString(), messages: [] };
     storedSessions.push(stored);
     session.becomeSession(stored);
+  },
+  // #3289 §1: rename any stored session — current or not — by writing its record directly, as the
+  // real directory does for a row that is not the one this client is on.
+  async renameSession(sessionId, name) {
+    const stored = storedSessions.find((candidate) => candidate.id === sessionId);
+    if (!stored) throw new Error(`No session ${sessionId} in this workspace.`);
+    stored.name = name;
+  },
+  // #3289 §1: delete a stored session; deleting the current one switches away first, exactly like
+  // the real directory.
+  async deleteSession(sessionId) {
+    const index = storedSessions.findIndex((candidate) => candidate.id === sessionId);
+    if (index === -1) {
+      throw Object.assign(new Error(`No session ${sessionId} in this workspace.`), {
+        name: 'SessionDeleteRefusal',
+        code: 'unknown_session',
+      });
+    }
+    const isCurrent = sessionId === session.currentId;
+    storedSessions.splice(index, 1);
+    if (isCurrent) {
+      const next = storedSessions[0];
+      if (next) {
+        session.becomeSession(next);
+      } else {
+        newSessionCount += 1;
+        const fresh = {
+          id: `new-session-${newSessionCount}`,
+          updatedAt: new Date().toISOString(),
+          messages: [],
+        };
+        storedSessions.push(fresh);
+        session.becomeSession(fresh);
+      }
+    }
   },
 };
 /**

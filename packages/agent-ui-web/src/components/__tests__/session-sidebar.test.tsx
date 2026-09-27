@@ -18,7 +18,9 @@ function row(
   extra: { live?: boolean; clients?: number } = {},
   updatedAt = '2026-09-26T00:00:00.000Z',
 ) {
-  return { id, cwd: '/w', updatedAt, messageCount: 1, preview, ...extra };
+  // `title` (#3289 §1) is what the row now shows; `preview` still rides along on the wire but is no
+  // longer what the sidebar renders, so it is set to the same text here for these count-focused tests.
+  return { id, cwd: '/w', updatedAt, messageCount: 1, preview, title: preview, ...extra };
 }
 
 function renderSidebar(
@@ -32,14 +34,26 @@ function renderSidebar(
     newSession: () => undefined,
     switchSession: () => undefined,
     openSettings: () => undefined,
+    renameSessionInList: () => undefined,
+    deleteSession: () => undefined,
+    send: () => undefined,
     ...overrides,
   } as unknown as IWsSessionState;
   render(<SessionSidebar state={state} />);
   return state;
 }
 
-const sessionRow = (name: RegExp): HTMLElement =>
-  within(screen.getByRole('complementary', { name: 'Sessions' })).getByRole('button', { name });
+// A row's "More" button is also named after its title ("More for <title>"), so a plain accessible-name
+// match finds both; this picks the row button itself, never the "More" trigger beside it.
+const sessionRow = (name: RegExp): HTMLElement => {
+  const candidates = within(screen.getByRole('complementary', { name: 'Sessions' })).getAllByRole(
+    'button',
+    { name },
+  );
+  const found = candidates.find((el) => !(el.getAttribute('aria-label') ?? '').startsWith('More for'));
+  if (!found) throw new Error(`no session row button matching ${String(name)}`);
+  return found;
+};
 
 afterEach(cleanup);
 

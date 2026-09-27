@@ -11,8 +11,11 @@
 
 import {
   SessionChangeRefusal,
+  SessionDeleteRefusal,
   listResumableSessionSummaries,
-  listUnreadableSessions,
+  listUnreadableSessionsForWorkspace,
+  persistSessionRename,
+  resolveReusableEmptySessionId,
 } from '@robota-sdk/agent-framework';
 
 import type {
@@ -52,7 +55,8 @@ export interface IServeSessionPoolBinding<TSession, TSlot extends { readonly cur
 export interface IServeSessionPool<TSession, TSlot extends { readonly current: TSession }> {
   bind(role: TSessionBindingRole): IServeSessionPoolBinding<TSession, TSlot>;
   acquire(sessionId?: string): Promise<IServeSessionLease<TSession>>;
-  listLive(): readonly { readonly sessionId: string; readonly clients: number }[];
+  /** `session` is the live instance itself — the directory reads it to tell "busy" from "idle". */
+  listLive(): readonly { readonly sessionId: string; readonly clients: number; readonly session: TSession }[];
 }
 
 /** What the served runtime lends the directory once its host has started. */
@@ -109,7 +113,35 @@ export function createServeSessionDirectory<
     return {
       currentSessionId: current.getSession().getSessionId(),
       sessions,
-      unreadableSessionIds: listUnreadableSessions(target.store).map((entry) => entry.id),
+      // #3289 §1: only unreadable records this workspace can claim as its own — a store shared
+      // across workspaces (the user-level store) holds legacy records from every folder ever worked
+      // in there, and a brand-new folder must not be told about all of them.
+      unreadableSessionIds: listUnreadableSessionsForWorkspace(target.store, target.cwd).map(
+        (entry) => entry.id,
+      ),
+    };
+  };
+
+  /** This binding's own session id, or `undefined` while it has not named itself yet. */
+  const currentSessionIdOf = (binding: IServeSessionPoolBinding<TSession, TSlot>): string | undefined => {
+    try {
+      return binding.slot.current.getSession().getSessionId();
+    } catch {
+      return undefined;
+    }
+  };
+
+  /** How many clients BESIDES this binding are on a session, from the pool's live rows. */
+  const otherClientsOn = (
+    target: IServeSessionDirectoryHost<TSession, TSlot>,
+    binding: IServeSessionPoolBinding<TSession, TSlot>,
+  ): ((sessionId: string) => number) => {
+    const live = new Map(target.pool.listLive().map((row) => [row.sessionId, row.clients]));
+    const currentId = currentSessionIdOf(binding);
+    return (sessionId) => {
+      const clients = live.get(sessionId);
+      if (clients === undefined) return 0;
+      return clients - (sessionId === currentId ? 1 : 0);
     };
   };
 
@@ -169,7 +201,7 @@ export function createServeSessionDirectory<
       listSessions: () => listFor(target, binding.slot.current),
       async switchSession(sessionId) {
         if (sessionId === binding.slot.current.getSession().getSessionId()) return;
-        if (listUnreadableSessions(target.store).some((entry) => entry.id === sessionId)) {
+        if (listUnreadableSessionsForWorkspace(target.store, target.cwd).some((entry) => entry.id === sessionId)) {
           throw new SessionChangeRefusal(
             'unreadable',
             `Session ${sessionId} was saved in a form this version cannot read.`,
@@ -187,7 +219,64 @@ export function createServeSessionDirectory<
         await changeTo(sessionId);
       },
       async newSession() {
-        await changeTo(undefined);
+        // #3289 §1: reuse an existing empty session of this workspace that no other client is on,
+        // rather than adding another one to the list every time this is pressed.
+        const reusable = resolveReusableEmptySessionId(target.store, target.cwd, {
+          otherClientsOf: otherClientsOn(target, binding),
+        });
+        await changeTo(reusable);
+      },
+      async renameSession(sessionId, name) {
+        const known = listResumableSessionSummaries(target.store, target.cwd).some(
+          (summary) => summary.id === sessionId,
+        );
+        if (!known) {
+          throw new Error(`No session ${sessionId} in this workspace.`);
+        }
+        // Writes the stored record directly. The CURRENT session's own rename path (the `/rename`
+        // command) goes through the live session instead, so its in-memory name and broadcast stay
+        // correct; this path is for a row in the list that is not the one this binding is on.
+        persistSessionRename(target.store, sessionId, name);
+      },
+      async deleteSession(sessionId) {
+        if (target.isStopping?.() === true) {
+          throw new SessionDeleteRefusal('stopping', STOPPING_MESSAGE);
+        }
+        const known = listResumableSessionSummaries(target.store, target.cwd).some(
+          (summary) => summary.id === sessionId,
+        );
+        if (!known) {
+          throw new SessionDeleteRefusal(
+            'unknown_session',
+            `No session ${sessionId} in this workspace.`,
+          );
+        }
+        const isCurrent = sessionId === currentSessionIdOf(binding);
+        const liveEntry = target.pool.listLive().find((row) => row.sessionId === sessionId);
+        if (liveEntry !== undefined) {
+          const others = liveEntry.clients - (isCurrent ? 1 : 0);
+          if (others > 0) {
+            throw new SessionDeleteRefusal(
+              'live_elsewhere',
+              'Another client is on this session; it cannot be deleted while someone else is using it.',
+            );
+          }
+          if (liveEntry.session.getLocalActivityStatus() === 'working') {
+            throw new SessionDeleteRefusal(
+              'running',
+              'This session is running a turn; wait for it to finish, then delete it.',
+            );
+          }
+        }
+        if (isCurrent) {
+          // Switch this binding away before the record it is on disappears: to another session of
+          // this workspace when one exists, newest first, or a fresh one when this was the only one.
+          const nextExisting = listResumableSessionSummaries(target.store, target.cwd).find(
+            (summary) => summary.id !== sessionId,
+          )?.id;
+          await changeTo(nextExisting);
+        }
+        target.store.delete(sessionId);
       },
     };
 

@@ -37,9 +37,15 @@ does not own session lifecycle, conversation history, or agent runtime state.
   conversation — in place of the command's own reply when this surface's command awaits one, at once
   otherwise — never a silent no-op, including intent kinds not yet known when this package was
   written.
-- The session sidebar lists the host's sessions and never loses one silently: a record the host could
-  not read is shown disabled. A switch replaces everything the surface shows with what the new
-  session holds; a refused switch shows the host's reason.
+- The session sidebar lists the host's sessions by a stable title — never the latest reply, which
+  changes every turn — and never loses one silently: a record unreadable and belonging to this
+  workspace is folded into one plain line rather than shown as a row; a record belonging to another
+  workspace, or whose workspace cannot be told, is not this surface's business and is left off the
+  list entirely. A switch replaces everything the surface shows with what the new session holds; a
+  refused switch shows the host's reason. A row can be renamed or deleted from the list itself,
+  without switching to it first; a refusal states why.
+- The title bar and the page title both name the workspace folder the session works in, once the
+  host has said one; the desktop window follows the page title.
 - A pending permission or ask prompt is visible whatever view is open, because a gated turn waits
   on it. It never takes focus from a field the person is typing in, and its keys answer it only once
   it has that focus; a click answers at once.

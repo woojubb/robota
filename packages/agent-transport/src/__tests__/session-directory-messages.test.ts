@@ -14,6 +14,7 @@ import type {
   ISessionDirectory,
   ISessionListing,
   TSessionChangeRefusalCode,
+  TSessionDeleteRefusalCode,
 } from '@robota-sdk/agent-interface-session';
 
 const listing: ISessionListing = {
@@ -35,6 +36,8 @@ function createDirectory(overrides: Partial<ISessionDirectory> = {}): ISessionDi
     listSessions: vi.fn(() => listing),
     switchSession: vi.fn(async () => undefined),
     newSession: vi.fn(async () => undefined),
+    renameSession: vi.fn(async () => undefined),
+    deleteSession: vi.fn(async () => undefined),
     ...overrides,
   };
 }
@@ -56,6 +59,11 @@ function attach(options: { directory?: ISessionDirectory; role?: 'drive' | 'obse
 /** The shape `SessionChangeRefusal` (agent-framework) has; this package cannot import the class. */
 function refusal(code: TSessionChangeRefusalCode, message: string): Error {
   return Object.assign(new Error(message), { name: 'SessionChangeRefusal', code });
+}
+
+/** The shape `SessionDeleteRefusal` (agent-framework) has; this package cannot import the class. */
+function deleteRefusal(code: TSessionDeleteRefusalCode, message: string): Error {
+  return Object.assign(new Error(message), { name: 'SessionDeleteRefusal', code });
 }
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -188,5 +196,127 @@ describe('session directory messages (#3189)', () => {
     ]);
     expect(directory.switchSession).not.toHaveBeenCalled();
     expect(directory.newSession).not.toHaveBeenCalled();
+  });
+});
+
+describe('rename-session (#3289 §1)', () => {
+  it('renames and answers session_renamed_in_list, correlated by requestId', async () => {
+    const directory = createDirectory();
+    const client = attach({ directory });
+    client.send({ type: 'rename-session', sessionId: 'session-2', name: 'Renamed', requestId: 'r1' });
+    await flush();
+    expect(directory.renameSession).toHaveBeenCalledExactlyOnceWith('session-2', 'Renamed');
+    expect(client.sent).toEqual([
+      { type: 'session_renamed_in_list', requestId: 'r1', sessionId: 'session-2', name: 'Renamed' },
+    ]);
+  });
+
+  it('answers session_rename_failed with the reason when the directory refuses', async () => {
+    const directory = createDirectory({
+      renameSession: vi.fn(async () => {
+        throw new Error('No session session-2 in this workspace.');
+      }),
+    });
+    const client = attach({ directory });
+    client.send({ type: 'rename-session', sessionId: 'session-2', name: 'x', requestId: 'r1' });
+    await flush();
+    expect(client.sent).toEqual([
+      {
+        type: 'session_rename_failed',
+        requestId: 'r1',
+        message: 'No session session-2 in this workspace.',
+      },
+    ]);
+  });
+
+  it('answers not_available on a host without a directory', () => {
+    const client = attach({});
+    client.send({ type: 'rename-session', sessionId: 'session-2', name: 'x', requestId: 'r1' });
+    expect(client.sent).toEqual([
+      {
+        type: 'session_rename_failed',
+        requestId: 'r1',
+        message: 'Sessions cannot be renamed on this host.',
+      },
+    ]);
+  });
+
+  it('refuses an observer', async () => {
+    const directory = createDirectory();
+    const observer = attach({ directory, role: 'observe' });
+    observer.send({ type: 'rename-session', sessionId: 'session-2', name: 'x', requestId: 'r1' });
+    expect(observer.sent).toEqual([
+      { type: 'protocol_error', message: 'Not permitted for an observer: rename-session' },
+    ]);
+    expect(directory.renameSession).not.toHaveBeenCalled();
+  });
+});
+
+describe('delete-session round-trip (#3289 §1)', () => {
+  it('deletes and answers session_deleted, correlated by requestId', async () => {
+    const directory = createDirectory();
+    const client = attach({ directory });
+    client.send({ type: 'delete-session', sessionId: 'session-2', requestId: 'r1' });
+    await flush();
+    expect(directory.deleteSession).toHaveBeenCalledExactlyOnceWith('session-2');
+    expect(client.sent).toEqual([
+      { type: 'session_deleted', requestId: 'r1', sessionId: 'session-2' },
+    ]);
+  });
+
+  it('answers session_delete_failed with the refusal code and reason', async () => {
+    const directory = createDirectory({
+      deleteSession: vi.fn(async () => {
+        throw deleteRefusal('live_elsewhere', 'Another client is on this session.');
+      }),
+    });
+    const client = attach({ directory });
+    client.send({ type: 'delete-session', sessionId: 'session-2', requestId: 'r1' });
+    await flush();
+    expect(client.sent).toEqual([
+      {
+        type: 'session_delete_failed',
+        requestId: 'r1',
+        code: 'live_elsewhere',
+        message: 'Another client is on this session.',
+      },
+    ]);
+  });
+
+  it('reports code failed for an error that is not a declared delete refusal', async () => {
+    const directory = createDirectory({
+      deleteSession: vi.fn(async () => {
+        throw new Error('disk full');
+      }),
+    });
+    const client = attach({ directory });
+    client.send({ type: 'delete-session', sessionId: 'session-2', requestId: 'r1' });
+    await flush();
+    expect(client.sent).toEqual([
+      { type: 'session_delete_failed', requestId: 'r1', code: 'failed', message: 'disk full' },
+    ]);
+  });
+
+  it('answers not_available on a host without a directory', () => {
+    const client = attach({});
+    client.send({ type: 'delete-session', sessionId: 'session-2', requestId: 'r1' });
+    expect(client.sent).toEqual([
+      {
+        type: 'session_delete_failed',
+        requestId: 'r1',
+        code: 'not_available',
+        message: 'Sessions cannot be deleted on this host.',
+      },
+    ]);
+  });
+
+  it('refuses an observer', async () => {
+    const directory = createDirectory();
+    const observer = attach({ directory, role: 'observe' });
+    observer.send({ type: 'delete-session', sessionId: 'session-2', requestId: 'r1' });
+    expect(observer.sent).toEqual([
+      { type: 'protocol_error', message: 'Not permitted for an observer: delete-session' },
+    ]);
+    expect(directory.deleteSession).not.toHaveBeenCalled();
   });
 });

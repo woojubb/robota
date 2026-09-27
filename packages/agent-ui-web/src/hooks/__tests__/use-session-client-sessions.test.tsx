@@ -407,3 +407,77 @@ describe("#3280 §5 — remembering the session across a desktop Reconnect's rel
     }
   });
 });
+
+describe('#3289 §1 — renaming and deleting a row from the list', () => {
+  it('sends rename-session on the wire and refreshes the listing once it lands', () => {
+    const { result, wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: listing('a') });
+    const before = wire.filter((m) => m.type === 'list-sessions').length;
+
+    act(() => result.current.renameSessionInList('b', 'New name'));
+    const rename = wire.filter((m) => m.type === 'rename-session').at(-1);
+    if (rename?.type !== 'rename-session') throw new Error('expected a rename-session message');
+    expect(rename).toEqual({ type: 'rename-session', sessionId: 'b', name: 'New name', requestId: rename.requestId });
+
+    deliver({
+      type: 'session_renamed_in_list',
+      requestId: rename.requestId,
+      sessionId: 'b',
+      name: 'New name',
+    });
+    expect(wire.filter((m) => m.type === 'list-sessions').length).toBe(before + 1);
+  });
+
+  it('raises a notice when a rename is refused', () => {
+    const { result, wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: listing('a') });
+    act(() => result.current.renameSessionInList('nope', 'x'));
+    const rename = wire.filter((m) => m.type === 'rename-session').at(-1);
+    if (rename?.type !== 'rename-session') throw new Error('expected a rename-session message');
+
+    deliver({
+      type: 'session_rename_failed',
+      requestId: rename.requestId,
+      message: 'No session nope in this workspace.',
+    });
+    expect(result.current.sessionNotices.at(-1)).toMatchObject({
+      message: 'No session nope in this workspace.',
+    });
+  });
+
+  it('sends delete-session on the wire and refreshes the listing once it lands', () => {
+    const { result, wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: listing('a') });
+    const before = wire.filter((m) => m.type === 'list-sessions').length;
+
+    act(() => result.current.deleteSession('b'));
+    const del = wire.filter((m) => m.type === 'delete-session').at(-1);
+    if (del?.type !== 'delete-session') throw new Error('expected a delete-session message');
+    expect(del).toEqual({ type: 'delete-session', sessionId: 'b', requestId: del.requestId });
+
+    deliver({ type: 'session_deleted', requestId: del.requestId, sessionId: 'b' });
+    expect(wire.filter((m) => m.type === 'list-sessions').length).toBe(before + 1);
+  });
+
+  it('raises a notice with the refusal code’s reason when a delete is refused', () => {
+    const { result, wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: listing('a') });
+    act(() => result.current.deleteSession('b'));
+    const del = wire.filter((m) => m.type === 'delete-session').at(-1);
+    if (del?.type !== 'delete-session') throw new Error('expected a delete-session message');
+
+    deliver({
+      type: 'session_delete_failed',
+      requestId: del.requestId,
+      code: 'live_elsewhere',
+      message: 'Another client is on this session.',
+    });
+    expect(result.current.sessionNotices.at(-1)).toMatchObject({
+      message: 'Another client is on this session.',
+    });
+  });
+});

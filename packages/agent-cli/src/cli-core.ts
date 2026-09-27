@@ -17,6 +17,7 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
 import {
   resolveLatestSessionId,
+  resolveReusableEmptySessionId,
   resolveSessionIdByIdOrName,
   InteractiveSession,
   createExternalEventGrantHistory,
@@ -804,6 +805,11 @@ async function runCliCore(
         process.exit(1);
       }
     }
+  } else if (args.serve && !args.noSessionPersistence) {
+    // #3289 §1: a served/daemon runtime's own launch reuses an existing empty session of this
+    // workspace instead of adding another one — nothing else can be bound to anything yet at
+    // startup, so every empty session found here is free.
+    resumeSessionId = resolveReusableEmptySessionId(sessionStore, cwd);
   }
 
   // SELFHOST-008 P6: one memory switch (default OFF), resolved once and threaded into print/serve/TUI.

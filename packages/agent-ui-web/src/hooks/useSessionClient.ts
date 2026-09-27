@@ -496,6 +496,33 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           ]);
           break;
         }
+        // #3289 §1: a row's rename landed — refresh the listing so its title (or the live one, if it
+        // was current) is current everywhere it shows.
+        case 'session_renamed_in_list': {
+          requestSessions();
+          break;
+        }
+        case 'session_rename_failed': {
+          setSessionNotices((previous) => [
+            ...previous,
+            { id: nextId(), kind: 'session-change-refused', message: msg.message },
+          ]);
+          break;
+        }
+        // #3289 §1: a row was deleted. If it was this surface's own session, `session_switched`
+        // already arrived (the host switches away before answering) and reset the conversation; this
+        // only needs the listing refreshed so the row is gone everywhere it shows.
+        case 'session_deleted': {
+          requestSessions();
+          break;
+        }
+        case 'session_delete_failed': {
+          setSessionNotices((previous) => [
+            ...previous,
+            { id: nextId(), kind: 'session-change-refused', message: msg.message },
+          ]);
+          break;
+        }
         case 'protocol_error': {
           if (sessionChangesInFlightRef.current > 0) {
             // A host older than `session_change_failed` refuses a session change with this.

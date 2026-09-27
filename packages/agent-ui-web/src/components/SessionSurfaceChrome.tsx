@@ -14,14 +14,29 @@ const STATUS: Record<string, { dot: string; label: string }> = {
 };
 
 /**
- * The bar over the conversation: the app's name when no sidebar carries it, the current session's
- * title, the desktop-only Chat / Usage switch, and the connection state. The state is a dot while all
- * is well and says itself in words once it is not.
+ * #3289 §1 — the folder this session works in, wherever `document.title` is settable: a page (the
+ * browser tab) and the desktop window that loads it (Electron follows the page's title unless told
+ * otherwise, and nothing in `apps/agent-app/electron/main.ts` overrides it — see its own SPEC note).
+ * Absent while the host has not said, so a not-yet-connected surface keeps whatever title it loaded
+ * with rather than announcing "undefined — Robota".
+ */
+function useWorkspaceDocumentTitle(workspace: { readonly name: string } | undefined): void {
+  useEffect(() => {
+    if (typeof document === 'undefined' || workspace === undefined) return;
+    document.title = `${workspace.name} — Robota`;
+  }, [workspace]);
+}
+
+/**
+ * The bar over the conversation: the app's name when no sidebar carries it, the workspace folder and
+ * the current session's title, the desktop-only Chat / Usage switch, and the connection state. The
+ * state is a dot while all is well and says itself in words once it is not.
  */
 export function SessionTitleBar({
   status,
   surface,
   title,
+  workspace,
   showBrand,
   view,
   onView,
@@ -30,21 +45,32 @@ export function SessionTitleBar({
   status: string;
   surface?: string;
   title?: string | null;
+  /** The folder this session works in (#3289 §1); absent when the host has not said. */
+  workspace?: { readonly name: string; readonly path: string };
   showBrand: boolean;
   view: 'chat' | 'usage';
   onView: (view: 'chat' | 'usage') => void;
   personalUsageEnabled: boolean;
 }): React.ReactElement {
   const state = STATUS[status] ?? STATUS.disconnected;
+  useWorkspaceDocumentTitle(workspace);
   return (
     <header
       className="agent-gui-status flex h-12 flex-shrink-0 items-center gap-3 px-5"
       data-status={status}
     >
       {showBrand ? <RobotaWordmark surface={surface} /> : null}
-      {/* The usage view titles itself; the chat view is titled by its session. */}
+      {/* The usage view titles itself; the chat view is titled by its session and workspace. */}
       {view === 'chat' && title ? (
         <h1 className="min-w-0 truncate text-[14px] font-medium text-foreground/90">{title}</h1>
+      ) : null}
+      {view === 'chat' && workspace ? (
+        <span
+          title={workspace.path}
+          className="min-w-0 flex-shrink truncate text-[13px] text-muted-foreground"
+        >
+          {workspace.name}
+        </span>
       ) : null}
       <div className="ml-auto flex items-center gap-3">
         {personalUsageEnabled ? (

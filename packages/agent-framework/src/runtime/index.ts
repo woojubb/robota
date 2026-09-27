@@ -25,4 +25,4 @@ export type {
   TPoolBusySession,
   TSessionPoolRole,
 } from './session-pool.js';
-export { SessionChangeRefusal } from './session-change-refusal.js';
+export { SessionChangeRefusal, SessionDeleteRefusal } from './session-change-refusal.js';

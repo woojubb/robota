@@ -328,7 +328,9 @@ try {
   });
 
   const sidebar = page.getByRole('complementary', { name: 'Sessions' });
-  const row = (name) => sidebar.getByRole('button', { name });
+  // A row's "More" button is also named after its title ("More for <title>"), so an unanchored name
+  // match finds both; the row button itself is always first in the DOM, the "More" trigger beside it.
+  const row = (name) => sidebar.getByRole('button', { name }).first();
 
   await scenario('the sidebar lists this workspace\'s sessions, the current one marked', async () => {
     await page.getByRole('button', { name: 'Chat' }).click();
@@ -338,9 +340,16 @@ try {
     }
     await row(/What did we decide about the parser\?/).waitFor();
     await row(/Set up the release checklist/).waitFor();
-    await sidebar.getByText(/1 session could not be read/).waitFor();
+    await sidebar.getByText(/1 older session in this folder can't be opened/).waitFor();
     if ((await sidebar.getByRole('button', { name: /damaged-session/ }).count()) !== 0) {
       throw new Error('an unreadable session is a clickable row');
+    }
+  });
+
+  await scenario('the title bar and the page title show the workspace folder', async () => {
+    await page.getByText('scripted-workspace').waitFor();
+    if ((await page.title()) !== 'scripted-workspace — Robota') {
+      throw new Error(`unexpected page title: ${await page.title()}`);
     }
   });
 
@@ -403,6 +412,27 @@ try {
     if ((await page.getByLabel('message').inputValue()) !== 'draft for the release-checklist session') {
       throw new Error('the release-checklist session lost its own draft');
     }
+  });
+
+  await scenario('the row menu renames a session and the new title replaces the old one', async () => {
+    await sidebar.getByRole('button', { name: 'More for Set up the release checklist' }).click();
+    await page.getByRole('menuitem', { name: 'Rename' }).click();
+    const input = sidebar.getByRole('textbox', { name: 'Rename Set up the release checklist' });
+    await input.fill('Renamed from the row menu');
+    await input.press('Enter');
+    await row(/Renamed from the row menu/).waitFor();
+    if ((await sidebar.getByText('Set up the release checklist').count()) !== 0) {
+      throw new Error('the old title is still shown after renaming');
+    }
+  });
+
+  await scenario('the row menu deletes a session after a confirmation', async () => {
+    await sidebar.getByRole('button', { name: 'More for Scripted e2e session' }).click();
+    await page.getByRole('menuitem', { name: 'Delete…' }).click();
+    const dialog = page.getByRole('alertdialog');
+    await dialog.getByText('This removes its conversation from this computer.').waitFor();
+    await dialog.getByRole('button', { name: 'Delete' }).click();
+    await row(/Scripted e2e session/).waitFor({ state: 'detached' });
   });
 
   await scenario('/resume opens the collapsed sidebar instead of a "not available" line', async () => {
