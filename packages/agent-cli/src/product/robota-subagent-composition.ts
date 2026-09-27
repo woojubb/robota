@@ -1,4 +1,8 @@
-import { createRobotaSandbox } from './robota-execution-containment.js';
+import {
+  createRobotaSandbox,
+  decodeOsSandboxSettings,
+  liveSandboxSettings,
+} from './robota-execution-containment.js';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -20,7 +24,7 @@ import type { ISubagentWorkerComposition } from '@robota-sdk/agent-subagent-runn
 import type { TSubagentRunnerFactory } from '@robota-sdk/agent-framework';
 import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
 import type { ICodingPackOptions } from '@robota-sdk/pack-coding';
-import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import type { IOsSandboxSettings, ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IProviderDefinition, IToolWithEventService } from '@robota-sdk/agent-core';
 
 type TRobotaPack = ReturnType<typeof createRobotaPacks>[number];
@@ -184,20 +188,30 @@ export function createRobotaSubagentComposition(
     // it every fork job dies in the worker with "this composition opens no session store".
     openSessionStore: (context: { readonly cwd: string }) =>
       createCliWorkspaceComposition({ cwd: context.cwd, userHome: homedir() }).sessionStore,
-    // The child confines its commands exactly as the parent does, from the same settings files, and
-    // its session lets a confined command skip the prompt exactly as the parent's does.
-    createSandbox: (context: { readonly cwd: string }) => {
-      const client = robotaSandboxAt(context.cwd);
+    // The child confines its commands exactly as the parent does NOW: from the parent's live settings,
+    // which `/sandbox` may have changed, and from its root's settings files only when none came. Its
+    // session lets a confined command skip the prompt exactly as the parent's does.
+    createSandbox: (context: {
+      readonly cwd: string;
+      readonly parentSettings?: Readonly<Record<string, unknown>>;
+    }) => {
+      const client = robotaSandboxAt(
+        context.cwd,
+        context.parentSettings === undefined
+          ? undefined
+          : decodeOsSandboxSettings(context.parentSettings),
+      );
       return client === undefined ? undefined : { client, commandSandbox: sandboxApprovalFor(client) };
     },
   };
 }
 
-/** robota's OS sandbox for one execution root, from that root's settings files. */
-function robotaSandboxAt(cwd: string): ISandboxClient | undefined {
+/** robota's OS sandbox for one execution root, from the given settings or else that root's files. */
+function robotaSandboxAt(cwd: string, settings?: IOsSandboxSettings): ISandboxClient | undefined {
   return createRobotaSandbox({
     cwd,
     settingsSources: createCliWorkspaceComposition({ cwd, userHome: homedir() }).settingsSources,
+    ...(settings !== undefined ? { settings } : {}),
   }).client;
 }
 
@@ -232,7 +246,13 @@ function createRobotaChildProcessSubagentRunner(options: {
   // ARCH-021: fail closed. A capability the child cannot reproduce must stop the spawn rather than
   // be silently dropped — a sandboxed parent with a host-tool child is ARCH-010's measured shape.
   assertChildProcessSubagentsCanReproduce(options.packContext);
+  const parentSandbox = options.packContext.sandboxClient;
   return createChildProcessSubagentRunnerFactory({
+    // Read at each spawn: `/sandbox` changes the parent's live client, not the files a child reads.
+    parentSandboxSettings: () => {
+      const settings = liveSandboxSettings(parentSandbox);
+      return settings === undefined ? undefined : { ...settings };
+    },
     workerEntry: options.workerEntry,
     providerConfig: options.providerConfig,
     providerDefinitions: options.providerDefinitions,

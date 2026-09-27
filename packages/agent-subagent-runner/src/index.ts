@@ -40,5 +40,6 @@ export { runSubagentWorkerMain } from './child-process-subagent-worker.js';
 export type {
   ISubagentComposedSandbox,
   ISubagentWorkerComposition,
+  TParentSandboxSettings,
   TResumeSessionStore,
 } from './worker-composition.js';

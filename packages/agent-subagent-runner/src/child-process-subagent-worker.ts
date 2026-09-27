@@ -120,7 +120,12 @@ async function runInitialPrompt(
     // approves none, so the child asks where the parent might not: stricter, never looser.
     const composedSandbox =
       restoredSandbox === undefined
-        ? composition.createSandbox?.({ cwd: subagentExecutionRoot(payload) })
+        ? composition.createSandbox?.({
+            cwd: subagentExecutionRoot(payload),
+            ...(payload.parentSandboxSettings !== undefined
+              ? { parentSettings: payload.parentSandboxSettings }
+              : {}),
+          })
         : undefined;
     const toolSandbox = restoredSandbox ?? composedSandbox?.client;
     session = createSubagentSession({

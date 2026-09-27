@@ -5,6 +5,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { ISubagentOptions, restoreSessionRecordIntoSession } from '@robota-sdk/agent-framework';
 
+
 /**
  * The session record store a fork job's `resumeSessionId` names a record in, typed FROM the one
  * function that reads it (`restoreSessionRecordIntoSession`, agent-framework) rather than from the
@@ -127,8 +128,15 @@ export interface ISubagentWorkerComposition {
    * the session (as `commandSandbox`), so the approval a confined command gets comes from the instance
    * the command runs under. Absent ⇒ the child's session approves no command on a sandbox's say-so.
    */
-  readonly createSandbox?: (context: { readonly cwd: string }) => ISubagentComposedSandbox | undefined;
+  readonly createSandbox?: (context: {
+    readonly cwd: string;
+    /** The parent's sandbox settings at spawn, when its composition root sent them. */
+    readonly parentSettings?: TParentSandboxSettings;
+  }) => ISubagentComposedSandbox | undefined;
 }
+
+/** A composition root's sandbox settings, as plain data that crosses the process boundary. */
+export type TParentSandboxSettings = Readonly<Record<string, unknown>>;
 
 /** A sandbox the child composed itself: the client its tools run under and the approval it gives. */
 export interface ISubagentComposedSandbox {

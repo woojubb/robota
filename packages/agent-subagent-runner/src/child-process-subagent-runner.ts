@@ -31,6 +31,7 @@ import {
 import { SUBAGENT_WORKER_MODE_FLAG, type ISubagentWorkerEntry } from './worker-entry.js';
 
 import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
+import type { TParentSandboxSettings } from './worker-composition.js';
 import type { IProviderDefinition, IProviderDefinitionConfig } from '@robota-sdk/agent-core';
 import type {
   IInProcessSubagentRunnerDeps,
@@ -69,6 +70,12 @@ export interface IChildProcessSubagentRunnerOptions {
   worktreeIsolation?: boolean;
   worktreeAdapter: ISubagentWorktreeAdapter;
   logsDir?: string;
+  /**
+   * The parent's sandbox settings as they stand now, read at EACH spawn: a setting the user changed
+   * this session (`/sandbox`) lives on the parent's live client, not in the files a child would read.
+   * The child's `createSandbox` receives the value. Absent ⇒ the child reads its root's settings.
+   */
+  parentSandboxSettings?: () => TParentSandboxSettings | undefined;
 }
 
 export function createChildProcessSubagentRunnerFactory(
@@ -94,6 +101,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   private readonly providerDefinitions: readonly IProviderDefinition[];
   private readonly env?: NodeJS.ProcessEnv;
   private readonly logsDir?: string;
+  private readonly parentSandboxSettings?: () => TParentSandboxSettings | undefined;
 
   constructor(
     private readonly deps: IInProcessSubagentRunnerDeps,
@@ -106,6 +114,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     this.providerDefinitions = options.providerDefinitions;
     this.env = options.env;
     this.logsDir = options.logsDir;
+    this.parentSandboxSettings = options.parentSandboxSettings;
   }
 
   start(job: ISubagentJobStart): ISubagentJobHandle {
@@ -198,10 +207,12 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     job: ISubagentJobStart,
     connection: IProjectedConnection,
   ): Promise<ISubagentWorkerStartPayload> {
+    const parentSandboxSettings = this.parentSandboxSettings?.();
     return projectStartPayload(job, this.deps, {
       connection,
       providerDefinitions: this.providerDefinitions,
       ...(this.logsDir !== undefined ? { logsDir: this.logsDir } : {}),
+      ...(parentSandboxSettings !== undefined ? { parentSandboxSettings } : {}),
     });
   }
 

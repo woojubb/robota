@@ -23,9 +23,13 @@ const TEST_TIMEOUT_MS = 30_000;
 interface IRecord {
   toolsGotComposedSandbox?: boolean;
   bashRan?: string;
+  parentSettings?: Record<string, unknown> | null;
 }
 
-function runWorker(composesSandbox: boolean): Promise<IRecord[]> {
+function runWorker(
+  composesSandbox: boolean,
+  parentSandboxSettings?: Record<string, unknown>,
+): Promise<IRecord[]> {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-worker-sandbox-')));
   const recordPath = join(dir, 'records.jsonl');
   return new Promise<IRecord[]>((resolve, reject) => {
@@ -72,6 +76,7 @@ function runWorker(composesSandbox: boolean): Promise<IRecord[]> {
           },
           parentContext: { agentsMd: '', projectNotesMd: '' },
           permissionMode: 'auto',
+          ...(parentSandboxSettings !== undefined ? { parentSandboxSettings } : {}),
           providerProfile: { type: 'sandbox-fixture-provider', model: 'scripted' },
           connectionCheck: sealConnectionEnvironment([], {}),
         },
@@ -103,6 +108,17 @@ describe.skipIf(!existsSync(DIST))('a child-process subagent and its composed sa
 
       expect(records).toContainEqual({ toolsGotComposedSandbox: true });
       expect(records).toContainEqual({ bashRan: 'npm test' });
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'builds the sandbox from the parent’s settings, so a /sandbox change reaches the child (#3254)',
+    async () => {
+      const records = await runWorker(true, { autoAllowBashIfSandboxed: false });
+
+      expect(records).toContainEqual({ parentSettings: { autoAllowBashIfSandboxed: false } });
+      expect(records.some((record) => record.bashRan !== undefined)).toBe(false);
     },
     TEST_TIMEOUT_MS,
   );
