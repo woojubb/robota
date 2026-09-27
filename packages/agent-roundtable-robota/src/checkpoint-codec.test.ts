@@ -87,6 +87,57 @@ describe('session checkpoint codec (robota-session/1)', () => {
     ).toThrowError(RobotaParticipantError);
   });
 
+  // Optional: `{ "$date": "..." }` is also a value a tool's saved arguments could genuinely
+  // contain — the codec's own Date marker must not swallow it. Cast past `TUniversalMessageMetadata`
+  // deliberately: this shape (a nested arbitrary object) is exactly what a real tool call's
+  // recorded arguments can carry, even though metadata's own declared type is narrower.
+  it('round-trips a plain object holding a $date key without mistaking it for an encoded Date', () => {
+    const withCollision = {
+      id: 'm1',
+      role: 'assistant',
+      content: 'hello',
+      state: 'complete',
+      timestamp: new Date('2024-03-01T12:00:00.000Z'),
+      metadata: { toolArguments: { $date: 'not-a-real-date' } },
+    } as unknown as TUniversalMessage;
+    const checkpoint = encodeAgentCheckpoint([withCollision]);
+    expect(decodeAgentCheckpoint(checkpoint)).toEqual([withCollision]);
+  });
+
+  it('round-trips a plain object that collides with the $escaped envelope itself', () => {
+    const withCollision = {
+      id: 'm1',
+      role: 'assistant',
+      content: 'hello',
+      state: 'complete',
+      timestamp: new Date('2024-03-01T12:00:00.000Z'),
+      metadata: { toolArguments: { $escaped: 'literal, not an envelope' } },
+    } as unknown as TUniversalMessage;
+    const checkpoint = encodeAgentCheckpoint([withCollision]);
+    expect(decodeAgentCheckpoint(checkpoint)).toEqual([withCollision]);
+  });
+
+  it('round-trips a real Date nested beside a $date-shaped collision in the same message', () => {
+    const withBoth = {
+      id: 'm1',
+      role: 'assistant',
+      content: 'hello',
+      state: 'complete',
+      timestamp: new Date('2024-03-01T12:00:00.000Z'),
+      metadata: {
+        toolArguments: { $date: 'not-a-real-date' },
+        real: new Date('2024-01-01T00:00:00.000Z'),
+      },
+    } as unknown as TUniversalMessage;
+    const checkpoint = encodeAgentCheckpoint([withBoth]);
+    const decoded = decodeAgentCheckpoint(checkpoint);
+    expect(decoded).toEqual([withBoth]);
+    expect(
+      ((decoded[0] as unknown as { metadata: { real: unknown } }).metadata.real as Date) instanceof
+        Date,
+    ).toBe(true);
+  });
+
   it('never carries a provider credential field a live provider object might have held', () => {
     const checkpoint = encodeSessionCheckpoint({
       sessionId: 'sess-3',
