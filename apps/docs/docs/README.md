@@ -47,7 +47,7 @@ The Cloudflare Pages project `robota-docs` is connected to the GitHub repository
 deploys production (`docs.robota.io`). Other branches get no usable preview, so check a change
 locally: `pnpm --filter robota-docs dev` while writing, or build and serve the static export the way
 production does (search and `_redirects` included) with
-`pnpm --filter robota-docs build && pnpm --filter robota-docs exec wrangler pages dev out` — opening
+`pnpm --filter robota-docs build && pnpm --filter robota-docs exec wrangler pages dev out --compatibility-date=2026-08-01` — opening
 `out/` straight from disk does not work, because pages load their assets from root paths.
 
 `pnpm --filter robota-docs run deploy` (build, then
