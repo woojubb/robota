@@ -9,7 +9,7 @@ import { PersonalUsageDashboard } from './PersonalUsageDashboard.js';
 import { SessionSidebar, SessionSidebarRail, sessionTitle } from './SessionSidebar.js';
 import { ConnectionBanner, SessionNotices, SessionTitleBar } from './SessionSurfaceChrome.js';
 
-import type { IComposerHandle } from './Composer.js';
+import type { IComposerHandle, IPickedFile } from './Composer.js';
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
 
 /**
@@ -89,6 +89,8 @@ export function SessionSurface({
   surface,
   personalUsageEnabled = false,
   onReconnect,
+  pickFiles,
+  getPathForFile,
 }: {
   state: IWsSessionState;
   surface?: string;
@@ -99,6 +101,10 @@ export function SessionSurface({
    * #3280 §5, the desktop app); absent in the browser, where the banner says how to reopen it instead.
    */
   onReconnect?: () => Promise<void>;
+  /** Forwarded to the composer's attach button — present only on the desktop app (#3282 §4d). */
+  pickFiles?: () => Promise<readonly IPickedFile[]>;
+  /** Forwarded to the composer's drag-and-drop — present only on the desktop app (#3282 §4d). */
+  getPathForFile?: (file: File) => string;
 }): React.ReactElement {
   const [view, setView] = useState<'chat' | 'usage'>('chat');
   const composerRef = useRef<IComposerHandle>(null);
@@ -224,6 +230,8 @@ export function SessionSurface({
                     running={state.isThinking}
                     onStop={() => state.send({ type: 'abort' })}
                     queued={state.queuedPrompt}
+                    pickFiles={pickFiles}
+                    getPathForFile={getPathForFile}
                     onCancelQueue={() => {
                       state.send({ type: 'cancel-queue' });
                       // No push confirms a cleared queue (unlike a resolved prompt); ask, so the row

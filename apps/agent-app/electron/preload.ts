@@ -5,9 +5,9 @@
  * off a global before the bridge is set up.
  */
 
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 
-import type { ITrustQuestion, TSidecarState, TTrustChoice } from './sidecar.js';
+import type { IPickedFile, ITrustQuestion, TSidecarState, TTrustChoice } from './sidecar.js';
 
 const api = {
   /** Resolve the loopback WS URL (with the token) the renderer connects to. */
@@ -25,6 +25,13 @@ const api = {
     ipcRenderer.invoke('agent-gui:trust-answer', choice),
   /** Tell the main process the session is live. The daemon is the CLI's to supervise, so nothing acts on it yet. */
   signalReady: (): void => ipcRenderer.send('agent-gui:ready'),
+  /** The composer's attach button (#3282 §4d): a native multi-file dialog with real paths. */
+  pickFiles: (): Promise<IPickedFile[]> => ipcRenderer.invoke('agent-gui:pick-files'),
+  /**
+   * The real filesystem path a dropped or picked `File` represents (#3282 §4d) — empty when the
+   * object is not backed by one. A plain browser page has no equivalent; only this bridge does.
+   */
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   /** Subscribe to lifecycle state (`starting`/`ready`/`fatal`). Returns an unsubscribe fn. */
   /** `detail` accompanies `fatal`: what the CLI said when the daemon could not be started. */
   onState: (cb: (state: TSidecarState, detail?: string) => void): (() => void) => {

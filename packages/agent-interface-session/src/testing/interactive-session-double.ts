@@ -140,6 +140,7 @@ export function createTestInteractiveSession(
       effort: 'auto',
       context: { ...EMPTY_CONTEXT_STATE },
       goal: null,
+      cwd: '/workspace',
     }),
     listRuntimeTools: async () => [],
     invokeRuntimeTool: async (name) => ({

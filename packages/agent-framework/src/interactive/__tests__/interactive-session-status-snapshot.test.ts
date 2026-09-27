@@ -42,7 +42,13 @@ describe('InteractiveSession.getStatusSnapshot', () => {
       effort: 'high',
       context: { usedPercentage: 12, usedTokens: 1200, maxTokens: 10000, remainingPercentage: 88 },
       goal: null,
+      cwd: '/tmp',
     });
+  });
+
+  it('leaves cwd out when the session has none (#3282 §4d)', () => {
+    const session = new InteractiveSession({ session: mockSession() as never, cwd: '' });
+    expect(session.getStatusSnapshot()).not.toHaveProperty('cwd');
   });
 
   it('carries the goal being pursued, so every client can show its progress', () => {

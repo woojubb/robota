@@ -208,6 +208,12 @@ export interface ISessionStatusSnapshot {
    * `false`) once a provider is configured, which is every session before this existed.
    */
   readonly setupRequired?: boolean;
+  /**
+   * The session's workspace root, when the runtime has one (#3282 §4d). A client resolves a
+   * dropped or picked file's real filesystem path against it to decide whether the file is inside
+   * the workspace and, if so, what `@`-reference path names it.
+   */
+  readonly cwd?: string;
 }
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;

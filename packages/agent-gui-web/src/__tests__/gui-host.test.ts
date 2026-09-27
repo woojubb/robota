@@ -34,6 +34,8 @@ describe('resolveGuiHost', () => {
       restartRuntime: vi.fn(async () => {}),
       trustQuestion: vi.fn(async () => null),
       answerTrust: vi.fn(async () => ({})),
+      pickFiles: vi.fn(async () => [{ path: '/repo/a.ts', name: 'a.ts', size: 10 }]),
+      getPathForFile: vi.fn(() => '/repo/dropped.ts'),
     };
     const host = resolveGuiHost({ ...page(), bridge });
     expect(host.kind).toBe('desktop');
@@ -45,6 +47,11 @@ describe('resolveGuiHost', () => {
     await expect(host.trustQuestion?.()).resolves.toBeNull();
     await host.answerTrust?.('restricted');
     expect(bridge.answerTrust).toHaveBeenCalledWith('restricted');
+    // #3282 §4d: the composer's attach button and drop handler reach the bridge through these two.
+    await expect(host.pickFiles?.()).resolves.toEqual([{ path: '/repo/a.ts', name: 'a.ts', size: 10 }]);
+    const file = new File(['x'], 'dropped.ts');
+    expect(host.getPathForFile?.(file)).toBe('/repo/dropped.ts');
+    expect(bridge.getPathForFile).toHaveBeenCalledWith(file);
   });
 
   it('in a browser, prefers the address the CLI injected into the page', async () => {
@@ -54,6 +61,10 @@ describe('resolveGuiHost', () => {
     // A browser page is served by a runtime that already started; there is nothing to ask first.
     expect(host.trustQuestion).toBeUndefined();
     await expect(host.getEndpoint()).resolves.toBe('ws://127.0.0.1:4321?token=a');
+    // #3282 §4d: a plain browser has no native picker and no way to resolve a File's real path — the
+    // composer reads the absence of these two as "attach only shows the plain sentence".
+    expect(host.pickFiles).toBeUndefined();
+    expect(host.getPathForFile).toBeUndefined();
   });
 
   it('in a browser without an injected address, takes ?ws= from the page URL', async () => {

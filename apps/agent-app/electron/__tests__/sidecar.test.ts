@@ -4,6 +4,7 @@ import {
   appendOutputTail,
   buildContentSecurityPolicy,
   buildDaemonStartSpawn,
+  buildPickedFiles,
   createDaemonAttachment,
   describeDaemonStartFailure,
   isTrustChoice,
@@ -243,6 +244,30 @@ describe('createDaemonAttachment (#3189)', () => {
     await first;
     void attachment.start();
     expect(runs).toBe(2);
+  });
+});
+
+describe('buildPickedFiles (#3282 §4d — the composer attach dialog)', () => {
+  it('pairs each chosen path with its basename and injected size', () => {
+    const sizes: Record<string, number> = {
+      '/repo/src/a.ts': 120,
+      '/repo/README.md': 4096,
+    };
+    expect(buildPickedFiles(Object.keys(sizes), (path) => sizes[path])).toEqual([
+      { path: '/repo/src/a.ts', name: 'a.ts', size: 120 },
+      { path: '/repo/README.md', name: 'README.md', size: 4096 },
+    ]);
+  });
+
+  it('drops a path whose size cannot be read, instead of throwing', () => {
+    const files = buildPickedFiles(['/repo/gone.txt', '/repo/here.txt'], (path) =>
+      path.endsWith('here.txt') ? 10 : undefined,
+    );
+    expect(files).toEqual([{ path: '/repo/here.txt', name: 'here.txt', size: 10 }]);
+  });
+
+  it('answers an empty list for no paths', () => {
+    expect(buildPickedFiles([], () => 0)).toEqual([]);
   });
 });
 

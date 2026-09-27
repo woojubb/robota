@@ -1676,6 +1676,10 @@ export class InteractiveSession
       context: session.getContextState(),
       goal: this.getGoalState(),
       ...(this.setupRequired ? { setupRequired: true } : {}),
+      // #3282 §4d: `this.workspace.cwd` defaults to '' when no cwd was provided (see the options
+      // handling above) — omit the field rather than send an empty string a client would treat as
+      // a real (root) workspace.
+      ...(this.workspace.cwd ? { cwd: this.workspace.cwd } : {}),
     };
   }
 

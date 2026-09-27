@@ -195,6 +195,35 @@ try {
     await askedTrust.close();
   }
 
+  // #3282 §4d: the composer's attach button through the REAL Electron bridge — preload -> IPC ->
+  // `dialog.showOpenDialog` -> `fs.statSync`. Stubs only the dialog (via `evaluate`, in the main
+  // process); everything downstream of the picked path is the real preload/main/gui-host/Composer
+  // code. A fresh daemon reports a real temp directory as its `cwd` so the picked file resolves as
+  // "inside the workspace" the same way a real project would.
+  stopRecordedDaemon();
+  const attachDir = mkdtempSync(join(tmpdir(), 'agent-app-e2e-attach-'));
+  const attachFilePath = join(attachDir, 'notes.txt');
+  writeFileSync(attachFilePath, 'scripted attachment contents');
+  const attach = await launch({ ROBOTA_E2E_WORKSPACE_CWD: attachDir });
+  try {
+    const page = await attach.firstWindow();
+    await connected(page);
+    await attach.evaluate(({ dialog: electronDialog }, filePath) => {
+      electronDialog.showOpenDialog = async () => ({ canceled: false, filePaths: [filePath] });
+    }, attachFilePath);
+    await page.getByRole('button', { name: 'Attach files' }).click();
+    await page
+      .getByRole('list', { name: 'attachments' })
+      .getByText('notes.txt')
+      .waitFor({ timeout: 10_000 });
+    check('#3282 §4d: the attach button opens the native dialog and adds a chip for the picked file', true);
+  } catch (err) {
+    check(`attach check threw: ${err?.message ?? err}`, false);
+  } finally {
+    await attach.close();
+    rmSync(attachDir, { recursive: true, force: true });
+  }
+
   const refused = await launch({ ROBOTA_E2E_DAEMON_FAIL: '1' });
   try {
     const page = await refused.firstWindow();

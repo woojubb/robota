@@ -162,6 +162,10 @@ if (command === 'trust status --json' || command === 'trust --yes') trust(comman
 
 const token = process.env.ROBOTA_WS_TOKEN;
 const port = Number.parseInt(process.env.ROBOTA_WS_PORT ?? '0', 10);
+// #3282 §4d: the composer resolves a picked/dropped file's path against this. A real absolute
+// directory only when a test needs a real on-disk file to attach; the placeholder otherwise, matching
+// the fake `cwd` the session-directory listing already uses below.
+const workspaceCwd = process.env.ROBOTA_E2E_WORKSPACE_CWD ?? '/scripted/workspace';
 if (!token || !port) {
   process.stderr.write(line('scripted-sidecar: ROBOTA_WS_TOKEN + ROBOTA_WS_PORT required'));
   process.exit(1);
@@ -437,6 +441,7 @@ class ScriptedSession extends EventEmitter {
       goal: null,
       // Absent (never `false`) once set up, exactly like the real ISessionStatusSnapshot field.
       ...(this.#setupRequired ? { setupRequired: true } : {}),
+      cwd: workspaceCwd,
     };
   }
   // #3280 §2: Stop (button or Esc) sends `abort` — end a "stay busy" turn the same way a real one
