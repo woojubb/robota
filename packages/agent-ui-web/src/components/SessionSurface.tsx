@@ -24,10 +24,14 @@ import type { IWsSessionState } from '../hooks/useSessionClient.js';
 /** The column every part of the conversation shares, so messages, prompt and composer line up. */
 const COLUMN = 'mx-auto w-full max-w-[760px] px-6';
 
-/** Designed empty state shown before the first turn. */
+/**
+ * Designed empty state shown before the first turn. Renders in the same slot as `ConversationView`
+ * (never together), so it carries the same `main` landmark and label (#3289 §3 review) — nothing
+ * above this slot supplies one.
+ */
 function EmptyState(): React.ReactElement {
   return (
-    <div className="flex h-full items-center justify-center">
+    <main className="flex h-full items-center justify-center" aria-label="Conversation">
       <div className="gui-rise flex max-w-[440px] flex-col items-center gap-4 px-8 text-center">
         <RobotaMark size={40} />
         <h2 className="text-[26px] font-semibold tracking-[-0.02em] text-foreground">
@@ -38,7 +42,7 @@ function EmptyState(): React.ReactElement {
           asks you here before anything that needs your permission.
         </p>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -48,6 +52,9 @@ function EmptyState(): React.ReactElement {
  * provider" runs `/provider add` as a command; its questions dock above where the composer would be
  * (the same `PermissionPrompt` any ask uses), and the panel clears itself once the session reports a
  * real provider, live — no restart, no reload.
+ *
+ * Renders in the same slot as `ConversationView`/`EmptyState` (never together), so it carries the
+ * page's `main` landmark here too (#3289 §3 review) — nothing above this slot supplies one.
  */
 function SetupPanel({
   onSetUp,
@@ -57,7 +64,7 @@ function SetupPanel({
   disabled: boolean;
 }): React.ReactElement {
   return (
-    <div className="flex h-full items-center justify-center">
+    <main className="flex h-full items-center justify-center" aria-label="Set up a provider">
       <div className="gui-rise flex max-w-[440px] flex-col items-center gap-4 px-8 text-center">
         <RobotaMark size={40} />
         <h2 className="text-[26px] font-semibold tracking-[-0.02em] text-foreground">
@@ -76,7 +83,7 @@ function SetupPanel({
           Set up provider
         </button>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -260,7 +267,13 @@ export function SessionSurface({
   );
 }
 
-/** A centered chrome frame for the pre-session (loading) and fatal states — reused by app shells. */
+/**
+ * A centered chrome frame for the pre-session (loading) and fatal states — reused by app shells. Its
+ * content area is this page's `main` landmark (#3289 §3 review): nothing above `CenteredChrome`'s
+ * three call sites (starting, fatal, the trust question) supplies one, and none of the three ever
+ * render alongside `SessionSurface`'s own. `header` stays a sibling of `main`, not inside it, so it
+ * keeps its own implicit `banner` role.
+ */
 export function CenteredChrome({
   tone,
   children,
@@ -273,7 +286,7 @@ export function CenteredChrome({
       <header className="flex h-12 flex-shrink-0 items-center px-5">
         <RobotaWordmark />
       </header>
-      <div className="flex flex-1 items-center justify-center">
+      <main className="flex flex-1 items-center justify-center">
         <div className="gui-rise flex max-w-[520px] flex-col items-center gap-4 px-8 text-center">
           <span
             className={`h-2.5 w-2.5 rounded-full ${
@@ -288,7 +301,7 @@ export function CenteredChrome({
             {children}
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
