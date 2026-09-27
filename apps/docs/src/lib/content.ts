@@ -4,9 +4,9 @@ import matter from 'gray-matter';
 
 // process.cwd() in Next.js build = apps/docs/
 // monorepo root is 2 levels up
-const MONOREPO_ROOT = path.join(process.cwd(), '..', '..');
+export const MONOREPO_ROOT = path.join(process.cwd(), '..', '..');
 const CONTENT_DIR = path.join(MONOREPO_ROOT, 'content');
-const PACKAGES_DIR = path.join(MONOREPO_ROOT, 'packages');
+export const PACKAGES_DIR = path.join(MONOREPO_ROOT, 'packages');
 
 const EXCLUDED_DIRS = new Set(['v2.0.0', 'images', 'ko']);
 
@@ -55,8 +55,9 @@ export function getAllSlugs(): string[][] {
     slugs.push(slug);
   }
 
-  // packages/*/docs/ files — route as packages/<pkgname>/<file>
+  // packages/*/docs/ files — route as packages/<pkgname>/<file>, plus the generated packages index
   if (fs.existsSync(PACKAGES_DIR)) {
+    slugs.push(['packages']);
     const pkgDirs = fs
       .readdirSync(PACKAGES_DIR, { withFileTypes: true })
       .filter((e) => e.isDirectory())

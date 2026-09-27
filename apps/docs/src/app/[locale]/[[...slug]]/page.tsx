@@ -7,12 +7,14 @@ import rehypeSlug from 'rehype-slug';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
-import { getAllSlugs, getPageContent, extractTitle } from '@/lib/content';
+import { getAllSlugs, getPageContent, extractTitle, MONOREPO_ROOT, PACKAGES_DIR } from '@/lib/content';
+import { buildPackageIndex } from '@/lib/packages-index';
 import { buildSidebar } from '@/lib/sidebar';
 import { extractToc } from '@/lib/toc';
 import { remarkMermaid } from '@/lib/remark-mermaid';
 import { remarkFixLinks } from '@/lib/remark-fix-links';
 import { DocsLayout } from '@/components/DocsLayout';
+import { PackagesIndex } from '@/components/PackagesIndex';
 import { CodeBlock } from '@/components/mdx/CodeBlock';
 import { MermaidDiagram } from '@/components/mdx/MermaidDiagram';
 import { Callout } from '@/components/mdx/Callout';
@@ -26,6 +28,10 @@ const components = {
   Callout,
   PackageManagerTabs,
 };
+
+function isPackagesIndex(slug: string[]): boolean {
+  return slug.length === 1 && slug[0] === 'packages';
+}
 
 interface PageParams {
   locale: string;
@@ -51,6 +57,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug, locale } = await params;
   const resolvedSlug = slug ?? [];
+  if (isPackagesIndex(resolvedSlug)) {
+    return { title: 'Packages', description: 'Every Robota SDK package and its documentation.' };
+  }
   const page = await getPageContent(resolvedSlug, locale);
   if (!page) return { title: 'Not Found' };
 
@@ -223,6 +232,14 @@ export default async function DocsPage({ params }: { params: Promise<PageParams>
     );
   }
 
+  if (isPackagesIndex(resolvedSlug)) {
+    return (
+      <DocsLayout sidebar={sidebar} toc={[]}>
+        <PackagesIndex locale={locale} entries={buildPackageIndex(PACKAGES_DIR)} />
+      </DocsLayout>
+    );
+  }
+
   const page = await getPageContent(resolvedSlug, locale);
   if (!page) notFound();
 
@@ -236,7 +253,11 @@ export default async function DocsPage({ params }: { params: Promise<PageParams>
         options={{
           mdxOptions: {
             format: 'md',
-            remarkPlugins: [remarkMermaid, remarkFixLinks, remarkGfm],
+            remarkPlugins: [
+              remarkMermaid,
+              [remarkFixLinks, { sourcePath: page.filePath, locale, repoRoot: MONOREPO_ROOT }],
+              remarkGfm,
+            ],
             rehypePlugins: [
               rehypeSlug,
               [
