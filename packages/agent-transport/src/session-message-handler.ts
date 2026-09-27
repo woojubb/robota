@@ -38,6 +38,7 @@ import type { IProtocolSession, TProjectReadCapableSession } from './protocol-se
 import type { ISettingsReporter } from './settings-messages.js';
 import type { IUsageQueryReporters } from './usage-messages.js';
 import type { TClientMessage } from './wire-messages.js';
+import type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface-command';
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 import type { ISessionDirectory, TDriverId } from '@robota-sdk/agent-interface-session';
 
@@ -85,6 +86,13 @@ export interface ISessionMessageHandlerOptions {
   sessionDirectory?: ISessionDirectory;
   /** #3282 §4a: host-owned read/write for the GUI Settings screen. */
   settingsReporter?: ISettingsReporter;
+  /**
+   * #3282 §4 part b-2: carrier-decided, like `role` — whether THIS carrier's connections are
+   * provably on this machine. The loopback WS carrier is `'local'`; the device-mesh/WebRTC carrier
+   * sets `'remote'`. Absent → `'local'`, forwarded to `executeCommand` and the settings reporter so a
+   * command that runs code from outside the session (installing a plugin) can refuse a remote device.
+   */
+  commandSurfaceLocality?: TCommandSurfaceLocality;
 }
 
 /**
@@ -128,6 +136,7 @@ export function createSessionMessageHandler(options: ISessionMessageHandlerOptio
     role,
     options.sessionDirectory,
     options.settingsReporter,
+    options.commandSurfaceLocality,
   );
 
   return { onMessage, cleanup };
@@ -142,6 +151,7 @@ function createMessageHandler(
   role: TSessionSurfaceRole = 'drive',
   sessionDirectory?: ISessionDirectory,
   settingsReporter?: ISettingsReporter,
+  commandSurfaceLocality?: TCommandSurfaceLocality,
 ): (data: string) => void {
   return (data: string): void => {
     const msg = parseClientMessage(data, deliver);
@@ -159,6 +169,7 @@ function createMessageHandler(
       surface,
       sessionDirectory,
       settingsReporter,
+      commandSurfaceLocality,
     );
   };
 }
@@ -182,6 +193,7 @@ export function handleClientMessage(
   surface?: TUsageSurface,
   sessionDirectory?: ISessionDirectory,
   settingsReporter?: ISettingsReporter,
+  commandSurfaceLocality?: TCommandSurfaceLocality,
 ): void {
   if (handleUsageQueryMessage(session, deliver, msg, reporters)) {
     return;
@@ -191,7 +203,7 @@ export function handleClientMessage(
     return;
   }
   if (isSettingsMessage(msg)) {
-    handleSettingsMessage(session, deliver, msg, settingsReporter);
+    handleSettingsMessage(session, deliver, msg, settingsReporter, commandSurfaceLocality);
     return;
   }
   if (isSessionRenameMessage(msg)) {
@@ -203,7 +215,7 @@ export function handleClientMessage(
     return;
   }
   if (isSessionControlMessage(msg)) {
-    handleSessionControlMessage(session, deliver, msg, driverId, surface);
+    handleSessionControlMessage(session, deliver, msg, driverId, surface, commandSurfaceLocality);
     return;
   }
   if (isLoopControlMessage(msg)) {
@@ -305,6 +317,7 @@ function handleSessionControlMessage(
   msg: Extract<TClientMessage, { type: 'submit' | 'command' | 'abort' | 'cancel-queue' }>,
   driverId?: TDriverId,
   surface?: TUsageSurface,
+  commandSurfaceLocality?: TCommandSurfaceLocality,
 ): void {
   if (msg.type === 'submit') {
     // TRANS-008 (issue #2045). A TYPE check, not a falsy one: `{}`, `[]`, `42` and `true` are truthy
@@ -341,7 +354,7 @@ function handleSessionControlMessage(
     }
     // REMOTE-003: a transport-origin command is tagged `'remote'` (optional policy, allow-by-default;
     // REMOTE-006). CMD-004: the SERVER-ASSIGNED driver id (E5) is the command origin — intents route back here.
-    session.executeCommand(msg.name, msg.args ?? '', 'remote', driverId).then(
+    session.executeCommand(msg.name, msg.args ?? '', 'remote', driverId, commandSurfaceLocality).then(
       (result) => {
         deliver({
           type: 'command_result',

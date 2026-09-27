@@ -206,16 +206,16 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
 
   it('a refused switch is its own answer: it leaves a command in flight paired with its screen', () => {
     const { result, deliver } = setup();
-    act(() => result.current.send({ type: 'command', name: 'plugin' }));
-    deliver({ type: 'ui_intent', event: { intent: { type: 'show-plugin-manager' } } } as TServerMessage);
+    act(() => result.current.send({ type: 'command', name: 'agent' }));
+    deliver({ type: 'ui_intent', event: { intent: { type: 'show-agent-switcher' } } } as TServerMessage);
     act(() => result.current.switchSession('b'));
     deliver({ type: 'protocol_error', message: 'Stop the running turn first.' });
-    // The refusal is a toast; the plugin command still awaits its own reply.
+    // The refusal is a toast; the agent command still awaits its own reply.
     expect(result.current.sessionNotices.at(-1)).toMatchObject({ message: 'Stop the running turn first.' });
     expect(result.current.messages).toEqual([]);
-    deliver({ type: 'command_result', name: 'plugin', message: 'Opening plugin manager...', success: true });
+    deliver({ type: 'command_result', name: 'agent', message: 'Opening agent switcher...', success: true });
     expect(result.current.messages).toEqual([
-      expect.objectContaining({ role: 'command', name: 'plugin', tone: 'info' }),
+      expect.objectContaining({ role: 'command', name: 'agent', tone: 'info' }),
     ]);
   });
 
@@ -249,8 +249,8 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
 describe('#3189 step 5 — a refused session change and a pool-capable host', () => {
   it('session_change_failed shows the reason and answers the change, not a command', () => {
     const { result, wire, deliver } = setup();
-    act(() => result.current.send({ type: 'command', name: 'plugin' }));
-    deliver({ type: 'ui_intent', event: { intent: { type: 'show-plugin-manager' } } } as TServerMessage);
+    act(() => result.current.send({ type: 'command', name: 'agent' }));
+    deliver({ type: 'ui_intent', event: { intent: { type: 'show-agent-switcher' } } } as TServerMessage);
     act(() => result.current.switchSession('b'));
     deliver({
       type: 'session_change_failed',
@@ -262,9 +262,9 @@ describe('#3189 step 5 — a refused session change and a pool-capable host', ()
       message: 'Four sessions are live; close one first.',
     });
     // The in-flight change is answered: a later protocol error belongs to the command again.
-    deliver({ type: 'protocol_error', message: 'plugin failed' });
+    deliver({ type: 'protocol_error', message: 'agent failed' });
     expect(result.current.messages).toEqual([
-      expect.objectContaining({ role: 'command', name: 'plugin', tone: 'info' }),
+      expect.objectContaining({ role: 'command', name: 'agent', tone: 'info' }),
     ]);
   });
 

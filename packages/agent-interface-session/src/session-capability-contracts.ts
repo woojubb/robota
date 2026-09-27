@@ -29,6 +29,7 @@ import type {
   ICommandResult,
   ICommandSkillListEntry,
   TCommandInvocationSource,
+  TCommandSurfaceLocality,
 } from '@robota-sdk/agent-interface-command';
 import type { ISubagentJobState } from '@robota-sdk/agent-interface-execution';
 import type {
@@ -130,6 +131,8 @@ export interface ISessionCommands {
     args: string,
     source?: TCommandInvocationSource,
     originDriverId?: TDriverId,
+    /** #3282 §4 part b-2: whether this invocation is provably on this machine. Absent → `'local'`. */
+    locality?: TCommandSurfaceLocality,
   ): Promise<ICommandResult | null>;
   listCommands(): ICommandListEntry[];
   /** The skills a client can offer beside the commands (`/<skill>` activates one). */

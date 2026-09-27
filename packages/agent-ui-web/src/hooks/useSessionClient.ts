@@ -509,6 +509,15 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
             }
             break;
           }
+          // #3282 §4 part b-2: `/plugin` asks for the plugin manager — the Settings screen's
+          // Plugins section, the way `show-settings` opens the screen itself above.
+          if (guiScreenForUiIntent(msg.event.intent) === 'settings-plugins') {
+            openSettings('plugins');
+            if (commandsInFlightRef.current > 0) {
+              pendingIntentRef.current = { name: uiIntentCommandName(msg.event.intent), text: null };
+            }
+            break;
+          }
           // CMD-004 Stage D: a command this surface issued requested a screen the GUI does not have.
           // The command's result follows; the unavailable line answers it (TC-05, never silent).
           const unavailable = {

@@ -59,6 +59,7 @@ export type {
   ICommandHostUserInteraction,
   ICommandHostWorkspace,
 } from './host-roles.js';
+export type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface-command';
 
 export type {
   IAgentJobDispatch,

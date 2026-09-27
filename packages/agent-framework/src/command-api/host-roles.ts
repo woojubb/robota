@@ -36,6 +36,7 @@ import type { IContextWindowState, IUserInteraction } from '@robota-sdk/agent-co
 import type {
   ICommandListEntry,
   TCommandInvocationSource,
+  TCommandSurfaceLocality,
 } from '@robota-sdk/agent-interface-command';
 import type {
   IBackgroundTaskListFilter,
@@ -147,6 +148,12 @@ export interface ICommandHostContextReferences {
 export interface ICommandHostWorkspace {
   getCwd(): string;
   getCommandInvocationSource(): TCommandInvocationSource;
+  /**
+   * #3282 §4 part b-2: whether THIS invocation is provably on this machine. Optional so an older or
+   * narrower host still satisfies this interface; a caller that needs it treats a missing method the
+   * same as `'local'` (allow-by-default, matching the rest of the command layer).
+   */
+  getCommandSurfaceLocality?(): TCommandSurfaceLocality;
 }
 
 /** What commands and skills this host can dispatch. */

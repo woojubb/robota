@@ -55,6 +55,33 @@ const snapshot: ISettingsSnapshot = {
     },
   ],
   sandbox: { enabled: true, available: true, description: 'Confines shell commands.' },
+  mcp: {
+    servers: [
+      {
+        id: 'docs',
+        name: 'docs',
+        scopeLabel: 'This project',
+        status: 'connected',
+        toolNames: ['search_docs', 'read_doc'],
+        enabled: true,
+      },
+      {
+        id: 'flaky',
+        name: 'flaky',
+        scopeLabel: 'All projects',
+        status: 'failed',
+        statusReason: 'stdio connection failed',
+        toolNames: [],
+        enabled: true,
+      },
+    ],
+  },
+  plugins: {
+    plugins: [
+      { id: 'formatter@robota', name: 'formatter@robota', description: 'Formats code.', enabled: true },
+    ],
+    canInstall: true,
+  },
 };
 
 function buildState(overrides: Partial<IWsSessionState> = {}): IWsSessionState {
@@ -63,6 +90,7 @@ function buildState(overrides: Partial<IWsSessionState> = {}): IWsSessionState {
     settingsStatus: 'ready',
     settingsSnapshot: snapshot,
     settingsError: null,
+    settingsInitialSectionId: null,
     openSettings: vi.fn(),
     closeSettings: vi.fn(),
     updateSettings: vi.fn(),
@@ -72,6 +100,14 @@ function buildState(overrides: Partial<IWsSessionState> = {}): IWsSessionState {
 
 function openPermissions(): void {
   fireEvent.click(screen.getByRole('button', { name: 'Permissions' }));
+}
+
+function openMcp(): void {
+  fireEvent.click(screen.getByRole('button', { name: 'MCP Servers' }));
+}
+
+function openPlugins(): void {
+  fireEvent.click(screen.getByRole('button', { name: 'Plugins' }));
 }
 
 describe('SettingsScreen — presentation', () => {
@@ -306,5 +342,212 @@ describe('SettingsScreen — removing a permission rule needs confirmation', () 
     render(<SettingsScreen state={state} />);
     openPermissions();
     expect(screen.queryByRole('button', { name: /Remove rule/ })).toBeNull();
+  });
+});
+
+describe('SettingsScreen — MCP Servers section (#3282 §4 part b-2)', () => {
+  it('lists every server with plain labels: name, scope, status and tool count', () => {
+    render(<SettingsScreen state={buildState()} />);
+    openMcp();
+    expect(screen.getByText('docs')).toBeTruthy();
+    expect(screen.getByText(/This project/)).toBeTruthy();
+    expect(screen.getByText(/Connected/)).toBeTruthy();
+    expect(screen.getByText(/2 tools/)).toBeTruthy();
+    expect(screen.getByText('flaky')).toBeTruthy();
+    expect(screen.getByText(/All projects/)).toBeTruthy();
+    expect(screen.getByText('Failed')).toBeTruthy();
+    expect(screen.getByText(/stdio connection failed/)).toBeTruthy();
+  });
+
+  it('the switch sends a typed mcpServerEnabled update', () => {
+    const state = buildState();
+    render(<SettingsScreen state={state} />);
+    openMcp();
+    fireEvent.click(screen.getByRole('switch', { name: 'docs' }));
+    expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({
+      field: 'mcpServerEnabled',
+      serverId: 'docs',
+      enabled: false,
+    });
+  });
+
+  it('a failed toggle leaves the switch at its previous state and shows a plain message', () => {
+    const { rerender } = render(<SettingsScreen state={buildState()} />);
+    openMcp();
+    fireEvent.click(screen.getByRole('switch', { name: 'docs' }));
+    rerender(
+      <SettingsScreen state={buildState({ settingsError: 'Could not change that MCP server.' })} />,
+    );
+    expect(screen.getByRole('switch', { name: 'docs' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByText('Could not change that MCP server.')).toBeTruthy();
+  });
+
+  it('expanding a server shows its tool names', () => {
+    render(<SettingsScreen state={buildState()} />);
+    openMcp();
+    fireEvent.click(screen.getByText('docs'));
+    expect(screen.getByText('search_docs')).toBeTruthy();
+    expect(screen.getByText('read_doc')).toBeTruthy();
+  });
+
+  it('Reload servers sends reloadMcpServers', () => {
+    const state = buildState();
+    render(<SettingsScreen state={state} />);
+    openMcp();
+    fireEvent.click(screen.getByRole('button', { name: /Reload servers/ }));
+    expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({ field: 'reloadMcpServers' });
+  });
+
+  it('no servers configured shows a plain empty state', () => {
+    render(
+      <SettingsScreen
+        state={buildState({ settingsSnapshot: { ...snapshot, mcp: { servers: [] } } })}
+      />,
+    );
+    openMcp();
+    expect(screen.getByText('No MCP servers are configured.')).toBeTruthy();
+  });
+
+  it('a failed reload stops the spinner too, not only a fresh snapshot (PR review)', () => {
+    const { rerender } = render(<SettingsScreen state={buildState()} />);
+    openMcp();
+    fireEvent.click(screen.getByRole('button', { name: /Reload servers/ }));
+    expect(screen.getByRole('button', { name: /Reload servers/ }).hasAttribute('disabled')).toBe(
+      true,
+    );
+
+    // The reload's reply is a settingsError, not a new snapshot — the spinner must still clear.
+    rerender(
+      <SettingsScreen
+        state={buildState({ settingsError: 'MCP servers could not be reloaded.' })}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /Reload servers/ }).hasAttribute('disabled')).toBe(
+      false,
+    );
+  });
+});
+
+describe('SettingsScreen — Plugins section (#3282 §4 part b-2)', () => {
+  it('lists every plugin with plain labels: name, description and enabled state', () => {
+    render(<SettingsScreen state={buildState()} />);
+    openPlugins();
+    expect(screen.getByText('formatter@robota')).toBeTruthy();
+    expect(screen.getByText('Formats code.')).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'formatter@robota' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
+  });
+
+  it('the switch sends a typed pluginEnabled update', () => {
+    const state = buildState();
+    render(<SettingsScreen state={state} />);
+    openPlugins();
+    fireEvent.click(screen.getByRole('switch', { name: 'formatter@robota' }));
+    expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({
+      field: 'pluginEnabled',
+      pluginId: 'formatter@robota',
+      enabled: false,
+    });
+  });
+
+  it('a failed toggle leaves the switch at its previous state and shows a plain message', () => {
+    const { rerender } = render(<SettingsScreen state={buildState()} />);
+    openPlugins();
+    fireEvent.click(screen.getByRole('switch', { name: 'formatter@robota' }));
+    rerender(<SettingsScreen state={buildState({ settingsError: 'Could not change that plugin.' })} />);
+    expect(
+      screen.getByRole('switch', { name: 'formatter@robota' }).getAttribute('aria-checked'),
+    ).toBe('true');
+    expect(screen.getByText('Could not change that plugin.')).toBeTruthy();
+  });
+
+  it('Reload plugins sends reloadPlugins', () => {
+    const state = buildState();
+    render(<SettingsScreen state={state} />);
+    openPlugins();
+    fireEvent.click(screen.getByRole('button', { name: /Reload plugins/ }));
+    expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({ field: 'reloadPlugins' });
+  });
+
+  it('no plugins installed shows a plain empty state', () => {
+    render(
+      <SettingsScreen
+        state={buildState({
+          settingsSnapshot: { ...snapshot, plugins: { plugins: [], canInstall: true } },
+        })}
+      />,
+    );
+    openPlugins();
+    expect(screen.getByText('No plugins are installed.')).toBeTruthy();
+  });
+
+  it('opens straight to Plugins when settingsInitialSectionId is "plugins" (the /plugin path)', () => {
+    render(<SettingsScreen state={buildState({ settingsInitialSectionId: 'plugins' })} />);
+    expect(screen.getByRole('button', { name: 'Plugins' }).getAttribute('aria-current')).toBe('true');
+    expect(screen.getByText('formatter@robota')).toBeTruthy();
+  });
+
+  describe('installing a plugin needs confirmation and names the plugin and its source', () => {
+    it('asks first, sends nothing until confirmed', () => {
+      const state = buildState();
+      render(<SettingsScreen state={state} />);
+      openPlugins();
+      fireEvent.change(screen.getByLabelText('Install a plugin'), {
+        target: { value: 'linter@robota' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Install' }));
+      expect(state.updateSettings).not.toHaveBeenCalled();
+      expect(screen.getByRole('dialog', { name: 'Install this plugin?' })).toBeTruthy();
+      expect(screen.getByText(/"linter"/)).toBeTruthy();
+      expect(screen.getByText(/from robota/)).toBeTruthy();
+      expect(screen.getByText(/It can run code on this computer\./)).toBeTruthy();
+      fireEvent.click(screen.getAllByRole('button', { name: 'Install' })[1]!);
+      expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({
+        field: 'installPlugin',
+        pluginId: 'linter@robota',
+      });
+    });
+
+    it('cancelling sends nothing', () => {
+      const state = buildState();
+      render(<SettingsScreen state={state} />);
+      openPlugins();
+      fireEvent.change(screen.getByLabelText('Install a plugin'), {
+        target: { value: 'linter@robota' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Install' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      expect(state.updateSettings).not.toHaveBeenCalled();
+    });
+  });
+
+  it('uninstalling asks first and is destructive', () => {
+    const state = buildState();
+    render(<SettingsScreen state={state} />);
+    openPlugins();
+    fireEvent.click(screen.getByRole('button', { name: 'Uninstall formatter@robota' }));
+    expect(state.updateSettings).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Uninstall this plugin?' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
+    expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({
+      field: 'uninstallPlugin',
+      pluginId: 'formatter@robota',
+    });
+  });
+
+  it('on a remote surface (canInstall false) there is no install field and no uninstall button', () => {
+    const state = buildState({
+      settingsSnapshot: {
+        ...snapshot,
+        plugins: { plugins: snapshot.plugins.plugins, canInstall: false },
+      },
+    });
+    render(<SettingsScreen state={state} />);
+    openPlugins();
+    expect(screen.queryByLabelText('Install a plugin')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Uninstall/ })).toBeNull();
+    expect(screen.getByText(/not from a remote device/)).toBeTruthy();
   });
 });

@@ -89,6 +89,15 @@ const waitForSelectValue = async (locator, value, timeoutMs = 5000) => {
   }
   throw new Error(`select never reached value "${value}"`);
 };
+/** Same idea as {@link waitForSelectValue}, for a `role="switch"` control's `aria-checked`. */
+const waitForSwitchChecked = async (locator, checked, timeoutMs = 5000) => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if ((await locator.getAttribute('aria-checked')) === String(checked)) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`switch never reached aria-checked="${checked}"`);
+};
 
 /**
  * #3289 §2 — the composer's own center point must resolve to the composer itself, not the narrow
@@ -262,6 +271,49 @@ try {
       await page.getByRole('dialog', { name: 'Settings' }).waitFor({ state: 'detached' });
     },
   );
+
+  await scenario(
+    'Settings → MCP Servers: lists the scripted server and its switch sends a typed update (#3282 §4 part b-2)',
+    async () => {
+      await page.getByRole('button', { name: 'Settings' }).click();
+      await page.getByRole('dialog', { name: 'Settings' }).waitFor();
+      await page.getByRole('button', { name: 'MCP Servers' }).click();
+      await page.getByText('docs').waitFor();
+      await page.getByText(/This project/).waitFor();
+      const serverSwitch = page.getByRole('switch', { name: 'docs' });
+      if ((await serverSwitch.getAttribute('aria-checked')) !== 'true') {
+        throw new Error('the docs server did not start enabled');
+      }
+      await serverSwitch.click();
+      await waitForSwitchChecked(serverSwitch, false);
+
+      await page.getByRole('button', { name: 'Close Settings' }).click();
+      await page.getByRole('dialog', { name: 'Settings' }).waitFor({ state: 'detached' });
+    },
+  );
+
+  await scenario('Settings → Plugins: shows the one installed plugin (#3282 §4 part b-2)', async () => {
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('dialog', { name: 'Settings' }).waitFor();
+    await page.getByRole('button', { name: 'Plugins' }).click();
+    await page.getByText('formatter@robota').waitFor();
+    await page.getByText('Formats code on save.').waitFor();
+
+    await page.getByRole('button', { name: 'Close Settings' }).click();
+    await page.getByRole('dialog', { name: 'Settings' }).waitFor({ state: 'detached' });
+  });
+
+  await scenario('/plugin opens the Settings screen on Plugins, not the "not available" line', async () => {
+    await send('/plugin');
+    await page.getByRole('dialog', { name: 'Settings' }).waitFor();
+    if ((await page.getByText(/plugin manager is not available/).count()) !== 0) {
+      throw new Error('/plugin still printed the unavailable line');
+    }
+    await page.getByText('formatter@robota').waitFor();
+
+    await page.getByRole('button', { name: 'Close Settings' }).click();
+    await page.getByRole('dialog', { name: 'Settings' }).waitFor({ state: 'detached' });
+  });
 
   await scenario('a finished turn keeps its tool calls as one line that opens', async () => {
     await send('read the file');

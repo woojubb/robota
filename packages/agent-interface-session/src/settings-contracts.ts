@@ -68,6 +68,43 @@ export interface ISettingsSandboxSection {
   readonly description: string;
 }
 
+/** One configured MCP server, as the MCP Servers section shows it (#3282 §4 part b-2). */
+export interface ISettingsMcpServer {
+  readonly id: string;
+  readonly name: string;
+  /** Where it is configured, in plain words: "This project" or "All projects". */
+  readonly scopeLabel: string;
+  /** `disabled` mirrors the switch (rejected/revoked/not yet approved); otherwise the live connection. */
+  readonly status: 'connected' | 'failed' | 'disabled';
+  /** A plain reason, present only when `status` is `'failed'`. */
+  readonly statusReason?: string;
+  readonly toolNames: readonly string[];
+  /** Whether the switch would enable it (`true`) or disable it (`false`) on the next toggle. */
+  readonly enabled: boolean;
+}
+
+export interface ISettingsMcpSection {
+  readonly servers: readonly ISettingsMcpServer[];
+}
+
+/** One installed plugin, as the Plugins section shows it (#3282 §4 part b-2). */
+export interface ISettingsPlugin {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly enabled: boolean;
+}
+
+export interface ISettingsPluginsSection {
+  readonly plugins: readonly ISettingsPlugin[];
+  /**
+   * Whether install/uninstall are available from THIS connection. Installing runs third-party code,
+   * so both stay local-surface-only (the desktop app and the local served browser page) — false for
+   * a remote device or an observer, matching the refusal `/plugin install|uninstall` itself gives.
+   */
+  readonly canInstall: boolean;
+}
+
 /** A full read of every Settings section this part of #3282 §4 covers. */
 export interface ISettingsSnapshot {
   readonly language: ISettingsLanguageSection;
@@ -76,6 +113,8 @@ export interface ISettingsSnapshot {
   readonly permissionMode: ISettingsPermissionModeSection;
   readonly permissionRules: readonly ISettingsPermissionRule[];
   readonly sandbox: ISettingsSandboxSection;
+  readonly mcp: ISettingsMcpSection;
+  readonly plugins: ISettingsPluginsSection;
 }
 
 /**
@@ -94,4 +133,11 @@ export type TSettingsPatch =
       readonly scope: string;
       readonly kind: 'allow' | 'deny' | 'ask';
       readonly pattern: string;
-    };
+    }
+  | { readonly field: 'mcpServerEnabled'; readonly serverId: string; readonly enabled: boolean }
+  | { readonly field: 'reloadMcpServers' }
+  | { readonly field: 'pluginEnabled'; readonly pluginId: string; readonly enabled: boolean }
+  | { readonly field: 'reloadPlugins' }
+  /** `pluginId` is `<name>@<marketplace>`, the same argument `/plugin install` takes. */
+  | { readonly field: 'installPlugin'; readonly pluginId: string }
+  | { readonly field: 'uninstallPlugin'; readonly pluginId: string };

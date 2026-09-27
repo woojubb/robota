@@ -34,24 +34,25 @@ export function uiIntentCommandName(intent: TCommandUiIntent): string {
 /** The GUI screen an intent opens, or null when this surface has none for it. */
 export function guiScreenForUiIntent(
   intent: TCommandUiIntent,
-): 'session-sidebar' | 'settings' | null {
+): 'session-sidebar' | 'settings' | 'settings-plugins' | null {
   if (intent.type === 'show-session-picker') return 'session-sidebar';
   if (intent.type === 'show-settings') return 'settings';
+  // #3282 §4 part b-2: `/plugin` opens the Settings screen's Plugins section, the way #3331 mapped
+  // `show-settings` — replacing the "not available on this surface" line this intent used to get.
+  if (intent.type === 'show-plugin-manager') return 'settings-plugins';
   return null;
 }
 
 /**
  * Describe one intent for this surface: the explicit unsupported line, for an intent with no GUI
  * screen (or whose screen the host cannot back, such as a session picker without a session list).
- * Never called for `show-settings` — it always has a screen now (#3282 §4a) — but the case is left
- * out of this switch rather than kept as a dead branch that would claim otherwise; an unknown
- * wire-level kind (a newer host) still yields an explicit notice naming the raw kind, so the "never
- * a silent no-op" floor holds for future intents too.
+ * Never called for `show-settings` or `show-plugin-manager` — both always have a screen now (#3282
+ * §4a, §4 part b-2) — but their cases are left out of this switch rather than kept as dead branches
+ * that would claim otherwise; an unknown wire-level kind (a newer host) still yields an explicit
+ * notice naming the raw kind, so the "never a silent no-op" floor holds for future intents too.
  */
 export function describeUiIntentForGui(intent: TCommandUiIntent): string {
   switch (intent.type) {
-    case 'show-plugin-manager':
-      return `The plugin manager ${UNAVAILABLE}`;
     case 'show-session-picker':
       return `The session picker ${UNAVAILABLE}`;
     case 'show-agent-switcher':

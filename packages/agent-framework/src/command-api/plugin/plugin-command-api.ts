@@ -15,7 +15,7 @@ export type {
 
 export const PLUGIN_COMMAND_DESCRIPTION = 'Manage plugins';
 export const PLUGIN_COMMAND_ARGUMENT_HINT =
-  'manage | install <name@marketplace> | uninstall <name@marketplace> | enable <name@marketplace> | disable <name@marketplace> | marketplace <action>';
+  'manage | list | install <name@marketplace> | uninstall <name@marketplace> | enable <name@marketplace> | disable <name@marketplace> | marketplace <action>';
 export const RELOAD_PLUGINS_COMMAND_DESCRIPTION = 'Reload all plugin resources';
 
 /** CMD-004: `/plugin manage` asks the REQUESTING surface to open its plugin manager (UI intent). */
@@ -32,6 +32,7 @@ export function resolvePluginCommandAdapter(
 export function buildPluginCommandSubcommands(): ICommand[] {
   return [
     { name: 'manage', description: 'Open plugin manager', source: 'plugin-manager' },
+    { name: 'list', description: 'List installed plugins', source: 'plugin-manager' },
     { name: 'install', description: 'Install a plugin', source: 'plugin-manager' },
     { name: 'uninstall', description: 'Uninstall a plugin', source: 'plugin-manager' },
     { name: 'enable', description: 'Enable a plugin', source: 'plugin-manager' },

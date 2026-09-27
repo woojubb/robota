@@ -1,8 +1,9 @@
 /**
  * CMD-004 Stage D (TC-05) — every `ui_intent` this surface asked for is answered with an explicit
  * "not available on this surface" line — NEVER a silent no-op — unless the GUI has a screen for it.
- * The session picker is the session sidebar (#3189) and settings is the Settings modal (#3282 §4a);
- * every other kind names the screen it could not open.
+ * The session picker is the session sidebar (#3189), settings is the Settings modal (#3282 §4a), and
+ * the plugin manager opens that same modal on its Plugins section (#3282 §4 part b-2); every other
+ * kind names the screen it could not open.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -11,9 +12,11 @@ import { describeUiIntentForGui, guiScreenForUiIntent } from '../ui-intent-state
 
 import type { TCommandUiIntent } from '@robota-sdk/agent-interface-command';
 
-/** Intents with no GUI screen — `show-session-picker` and `show-settings` are asserted separately. */
+/**
+ * Intents with no GUI screen — `show-session-picker`, `show-settings` and `show-plugin-manager` are
+ * asserted separately.
+ */
 const UNSUPPORTED_INTENTS: readonly TCommandUiIntent[] = [
-  { type: 'show-plugin-manager' },
   { type: 'show-agent-switcher' },
   { type: 'show-theme-picker' },
 ];
@@ -44,5 +47,11 @@ describe('#3189 — the session picker opens the GUI session sidebar', () => {
 describe('#3282 §4a — settings opens the GUI Settings screen', () => {
   it('show-settings has a GUI screen, distinct from the session sidebar', () => {
     expect(guiScreenForUiIntent({ type: 'show-settings' })).toBe('settings');
+  });
+});
+
+describe('#3282 §4 part b-2 — the plugin manager opens the Settings screen, on Plugins', () => {
+  it('show-plugin-manager has a GUI screen, distinct from settings itself and the session sidebar', () => {
+    expect(guiScreenForUiIntent({ type: 'show-plugin-manager' })).toBe('settings-plugins');
   });
 });

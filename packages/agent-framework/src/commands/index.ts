@@ -48,6 +48,7 @@ export type {
   ISystemCommandSemanticRoles,
   TAutoCompactThresholdSource,
   TCommandInvocationSource,
+  TCommandSurfaceLocality,
   TCommandHostAction,
   TCommandUiIntent,
   TCommandModuleSessionRequirement,
