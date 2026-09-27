@@ -85,7 +85,11 @@ describe('session view background start route', () => {
     const previousExitCode = process.exitCode;
     vi.mocked(launchSupervisedSession).mockResolvedValue('8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4');
     vi.mocked(runSessionViewCommand).mockImplementation(async (_argv, options) => {
-      await expect(options?.startNeedsTrust?.(cwd)).resolves.toBe(true);
+      // The question names the folder and what trust would load.
+      await expect(options?.startTrustQuestion?.(cwd)).resolves.toMatchObject({
+        folder: expect.any(String),
+        loads: expect.arrayContaining([expect.stringContaining('Project sources')]),
+      });
       // Without an answer an untrusted folder is still refused.
       await expect(options?.start?.(cwd)).rejects.toThrow(/Workspace trust is required/);
       // Restricted: started without a grant, and told to stay Restricted.
@@ -94,11 +98,17 @@ describe('session view background start route', () => {
         env: expect.any(Object),
         restricted: true,
       });
-      await expect(options?.startNeedsTrust?.(cwd)).resolves.toBe(true);
+      await expect(options?.startTrustQuestion?.(cwd)).resolves.toBeDefined();
       // Trust: the grant is recorded, and the session starts Trusted.
       await options?.start?.(cwd, 'trust');
       expect(launchSupervisedSession).toHaveBeenLastCalledWith(cwd, { env: expect.any(Object) });
-      await expect(options?.startNeedsTrust?.(cwd)).resolves.toBe(false);
+      await expect(options?.startTrustQuestion?.(cwd)).resolves.toBeUndefined();
+      // A Restricted answer holds though the folder is trusted now: it never widens.
+      await options?.start?.(cwd, 'restricted');
+      expect(launchSupervisedSession).toHaveBeenLastCalledWith(cwd, {
+        env: expect.any(Object),
+        restricted: true,
+      });
       return 0;
     });
     try {
@@ -112,7 +122,7 @@ describe('session view background start route', () => {
         ),
       ).toBe(true);
       expect(process.exitCode).toBe(0);
-      expect(launchSupervisedSession).toHaveBeenCalledTimes(2);
+      expect(launchSupervisedSession).toHaveBeenCalledTimes(3);
     } finally {
       vi.unstubAllEnvs();
       process.exitCode = previousExitCode;

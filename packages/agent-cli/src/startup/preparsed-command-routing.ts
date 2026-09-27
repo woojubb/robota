@@ -45,7 +45,11 @@ import {
   formatHeadlessWorkspaceTrustError,
   requiresHeadlessWorkspaceTrust,
 } from './workspace-trust-admission.js';
-import { canAskToTrust, grantWorkspaceTrust } from './interactive-trust-prompt.js';
+import {
+  canAskToTrust,
+  grantWorkspaceTrust,
+  trustQuestionFor,
+} from './interactive-trust-prompt.js';
 
 import type { IStartCliOptions } from './command-setup.js';
 
@@ -301,14 +305,18 @@ export async function runPreparsedCliCommand(
       launchCwd: cwd,
       render: renderSessionView,
       ...(renderAttached === undefined ? {} : { renderAttached }),
-      startNeedsTrust: async (targetCwd) =>
-        canAskToTrust(await resolveInitialCliWorkspaceProjectAccess(targetCwd)),
+      startTrustQuestion: async (targetCwd) =>
+        trustQuestionFor(await resolveInitialCliWorkspaceProjectAccess(targetCwd), targetCwd),
       start: async (targetCwd, choice) => {
         let access = await resolveInitialCliWorkspaceProjectAccess(targetCwd);
         // A person in the view answered for a folder not trusted yet: trust it, or run it Restricted.
-        const restricted = choice === 'restricted' && canAskToTrust(access);
+        // A Restricted answer holds even if the folder became trusted meanwhile; it never widens.
+        const restricted = choice === 'restricted';
         if (choice === 'trust' && canAskToTrust(access)) access = await grantWorkspaceTrust(targetCwd);
-        if (!restricted && requiresHeadlessWorkspaceTrust(access)) {
+        if (
+          requiresHeadlessWorkspaceTrust(access) &&
+          !(restricted && canAskToTrust(access))
+        ) {
           throw new Error(formatHeadlessWorkspaceTrustError(access, targetCwd));
         }
         // The child validates the very same settings when it starts; asking here first avoids

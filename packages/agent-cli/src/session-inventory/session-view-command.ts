@@ -20,6 +20,7 @@ import {
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';
 import type {
+  ISupervisedStartTrustQuestion,
   renderSupervisedSessionView,
   TSupervisedStartTrustChoice,
   TSupervisedViewExit,
@@ -52,8 +53,8 @@ export interface ISessionViewCommandOptions {
   readonly stop?: typeof stopSupervisedSession;
   /** Starts a background session; `choice` is the person's answer for a folder not trusted yet. */
   readonly start?: (cwd: string, choice?: TSupervisedStartTrustChoice) => Promise<string>;
-  /** Whether a new session in `cwd` needs that answer first. */
-  readonly startNeedsTrust?: (cwd: string) => Promise<boolean>;
+  /** The question to ask first when `cwd` is not trusted yet; none when it needs no answer. */
+  readonly startTrustQuestion?: (cwd: string) => Promise<ISupervisedStartTrustQuestion | undefined>;
   readonly launchCwd?: string;
   readonly openUrl?: (url: string) => Promise<unknown>;
 }
@@ -137,7 +138,7 @@ export async function runSessionViewCommand(
   try {
     const root = options.root ?? resolveSupervisedDirectory();
     const start = options.start;
-    const startNeedsTrust = options.startNeedsTrust;
+    const startTrustQuestion = options.startTrustQuestion;
     const startCwd = cwd ?? options.launchCwd ?? process.cwd();
     const render = options.render;
     // After the first render this process has printed its screen-reader line, and a view that
@@ -165,9 +166,9 @@ export async function runSessionViewCommand(
         await (options.openUrl ?? open)(url);
       },
       ...(start === undefined ? {} : { onStart: (choice) => start(startCwd, choice) }),
-      ...(startNeedsTrust === undefined
+      ...(startTrustQuestion === undefined
         ? {}
-        : { startNeedsTrust: () => startNeedsTrust(startCwd) }),
+        : { startTrustQuestion: () => startTrustQuestion(startCwd) }),
       filteredByCwd: cwd !== undefined,
       filteredByName: nameFilter !== undefined,
       filteredByPr: prFilter !== undefined,

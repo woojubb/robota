@@ -75,6 +75,20 @@ export function canAskToTrust(
   return access.status === 'restricted' && ASKABLE_STATES.has(access.trustState);
 }
 
+/** What a person is asked about a workspace not trusted yet: its folder and what trust would load. */
+export function trustQuestionFor(
+  access: TWorkspaceProjectAccess,
+  cwd: string,
+): { readonly folder: string; readonly loads: readonly string[] } | undefined {
+  if (!canAskToTrust(access)) return undefined;
+  return {
+    folder: access.displayPath ?? cwd,
+    loads: formatProjectContributionPreview(access.identity, cwd)
+      .split('\n')
+      .filter((line) => line.trim() !== ''),
+  };
+}
+
 /** Record the grant a person just gave, in the user's trust store. */
 export function grantWorkspaceTrust(cwd: string): Promise<TWorkspaceProjectAccess> {
   return createNodeWorkspaceTrustService(

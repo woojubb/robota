@@ -423,8 +423,9 @@ stands in the way. Print mode,
 before provider construction, because no one is there to ask, unless the run was asked to start
 Restricted (safe mode, or a background session a person chose to start Restricted); an interactive
 start asks the person before the project is composed and continues Restricted when they decline,
-because a Restricted session no one mentioned hides why the project's own configuration is missing. All trust diagnostics expose
-only state and canonical display path — credentials and project-controlled content are never printed.
+because a Restricted session no one mentioned hides why the project's own configuration is missing.
+All trust diagnostics expose only state and canonical display path — credentials and
+project-controlled content are never printed.
 
 ### Destination-scoped telemetry headers
 

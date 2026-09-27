@@ -55,6 +55,13 @@ const ROLE: Readonly<Record<ISupervisedAttachRequest['mode'], string>> = {
  */
 export type TSupervisedStartTrustChoice = 'trust' | 'restricted';
 
+/** What the person is asked about: the folder a new session would start in, and what trust loads. */
+export interface ISupervisedStartTrustQuestion {
+  readonly folder: string;
+  /** What trusting it would load, one line each. */
+  readonly loads: readonly string[];
+}
+
 export interface ISupervisedSessionViewProps {
   readonly loadRows: (signal: AbortSignal) => Promise<readonly ISupervisedViewRow[]>;
   /** Called once the user confirmed; the view then closes so the host can attach this terminal. */
@@ -62,8 +69,8 @@ export interface ISupervisedSessionViewProps {
   /** Receives the generation the row displayed, so a session restarted under the same id is refused. */
   readonly onStop?: (id: string, generation: string) => Promise<void>;
   readonly onStart?: (choice?: TSupervisedStartTrustChoice) => Promise<string>;
-  /** Whether the folder a new session starts in is not trusted yet, so the view asks first. */
-  readonly startNeedsTrust?: () => Promise<boolean>;
+  /** The question to ask when the folder a new session starts in is not trusted yet; none otherwise. */
+  readonly startTrustQuestion?: () => Promise<ISupervisedStartTrustQuestion | undefined>;
   readonly onOpenPr?: (id: string, url: string, generation: string) => Promise<void>;
   readonly filteredByCwd?: boolean;
   readonly filteredByName?: boolean;
@@ -77,8 +84,6 @@ export interface ISupervisedSessionViewProps {
 
 const GROUP_ORDER = ['needs-input', 'working', 'idle', 'unknown', 'unverified', 'dead'] as const;
 
-const TRUST_QUESTION =
-  "This folder is not trusted. Trusting it lets the session load the project's own settings, hooks, skills and MCP servers.";
 const TRUST_CHOICES = 'y Trust and start / r Start Restricted / n Cancel';
 type TGroup = (typeof GROUP_ORDER)[number];
 type TDisplayLine =
@@ -212,7 +217,7 @@ export default function SupervisedSessionView({
   loadRows,
   onStop,
   onStart,
-  startNeedsTrust,
+  startTrustQuestion,
   onOpenPr,
   onAttach,
   filteredByCwd = false,
@@ -254,7 +259,7 @@ export default function SupervisedSessionView({
     'idle',
   );
   const [lastStartedId, setLastStartedId] = useState<string | undefined>();
-  const [trustQuestion, setTrustQuestion] = useState(false);
+  const [trustQuestion, setTrustQuestion] = useState<ISupervisedStartTrustQuestion | undefined>();
   const startingRef = useRef(false);
   const [prOpenStatus, setPrOpenStatus] = useState<
     'idle' | 'opening' | 'opened' | 'failed' | 'unavailable'
@@ -395,12 +400,12 @@ export default function SupervisedSessionView({
       !(key.ctrl && input === 'c')
     )
       return;
-    if (trustQuestion) {
+    if (trustQuestion !== undefined) {
       if (input === 'y' || input === 'r') {
-        setTrustQuestion(false);
+        setTrustQuestion(undefined);
         runStart(input === 'y' ? 'trust' : 'restricted');
       } else if (input === 'n' || key.escape) {
-        setTrustQuestion(false);
+        setTrustQuestion(undefined);
       }
       return;
     }
@@ -473,17 +478,17 @@ export default function SupervisedSessionView({
       return;
     }
     if (input === 'n' && onStart !== undefined) {
-      if (startNeedsTrust === undefined) {
+      if (startTrustQuestion === undefined) {
         runStart();
         return;
       }
       // A folder not trusted yet is asked about first: the person chooses trust or Restricted.
       startingRef.current = true;
-      void startNeedsTrust()
-        .then((needsTrust) => {
+      void startTrustQuestion()
+        .then((question) => {
           startingRef.current = false;
           if (!mountedRef.current) return;
-          if (needsTrust) setTrustQuestion(true);
+          if (question !== undefined) setTrustQuestion(question);
           else runStart();
         })
         .catch(() => {
@@ -551,7 +556,11 @@ export default function SupervisedSessionView({
   });
 
   const numbered = useNumberedSelection({
-    enabled: screenReader && confirmStopId === undefined && stopStatus !== 'stopping',
+    enabled:
+      screenReader &&
+      confirmStopId === undefined &&
+      trustQuestion === undefined &&
+      stopStatus !== 'stopping',
     itemCount: ordered.length,
     cancellable: true,
     repeatable: true,
@@ -609,7 +618,7 @@ export default function SupervisedSessionView({
     (selectedLoopStatus ? 1 : 0) +
     (prOpenStatus === 'idle' ? 0 : 1) +
     (startStatus === 'idle' ? 0 : 1) +
-    (trustQuestion ? (screenReader ? 1 : 2) : 0) +
+    (trustQuestion === undefined ? 0 : trustQuestion.loads.length + 2) +
     (confirmStopId !== undefined ? (screenReader ? 1 : 2) : stopStatus !== 'idle' ? 1 : 0) +
     (confirmStopId === undefined && attachStatus !== 'idle' ? 1 : 0) +
     1 +
@@ -631,7 +640,7 @@ export default function SupervisedSessionView({
   const footer =
     stopStatus === 'stopping'
       ? 'Stop in progress; wait for result.'
-      : trustQuestion
+      : trustQuestion !== undefined
         ? 'Answer the trust question or cancel before closing.'
       : confirmStopId !== undefined
         ? `Confirm ${confirmStop?.action === 'attach' ? 'attach' : 'stop'} or cancel before closing.`
@@ -732,15 +741,17 @@ export default function SupervisedSessionView({
           Start failed; check workspace trust or run session start --background for details.
         </Text>
       )}
-      {trustQuestion &&
-        (screenReader ? (
-          <Text>{TRUST_QUESTION} {TRUST_CHOICES}</Text>
-        ) : (
-          <>
-            <Text {...chromeWrap}>{TRUST_QUESTION}</Text>
-            <Text {...chromeWrap}>{TRUST_CHOICES}</Text>
-          </>
-        ))}
+      {trustQuestion !== undefined && (
+        <>
+          <Text {...chromeWrap}>Not trusted: {trustQuestion.folder}</Text>
+          {trustQuestion.loads.map((line) => (
+            <Text key={line} {...chromeWrap}>
+              {line}
+            </Text>
+          ))}
+          <Text {...chromeWrap}>{TRUST_CHOICES}</Text>
+        </>
+      )}
       {confirmStopId !== undefined &&
         (screenReader ? (
           <Text>{confirmQuestion(confirmStopId)} y Yes / n No</Text>
@@ -807,7 +818,7 @@ export async function renderSupervisedSessionView(
         loadRows={options.loadRows}
         onStop={options.onStop}
         onStart={options.onStart}
-        startNeedsTrust={options.startNeedsTrust}
+        startTrustQuestion={options.startTrustQuestion}
         onOpenPr={options.onOpenPr}
         onAttach={(request) => {
           attach = request;

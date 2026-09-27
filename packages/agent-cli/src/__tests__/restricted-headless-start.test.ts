@@ -43,5 +43,6 @@ describe('a headless start in an untrusted repository', () => {
     const run = printRun(['--restricted-workspace']);
     // It gets past the trust gate; with no provider configured it stops at that instead.
     expect(run.stderr).not.toContain('Workspace trust is required');
+    expect(run.stderr).toContain('No provider configuration found');
   }, 70_000);
 });

@@ -26,6 +26,11 @@ const THIRD: ISupervisedViewRow = {
   generation: 'thirdGenerationValue01',
 };
 
+const QUESTION = {
+  folder: '/work/repo',
+  loads: ['Project sources (metadata only; content not read):', '  [file] .robota/settings.json — settings'],
+};
+
 describe('supervised session view', () => {
   it('shows a linked PR only while verified and opens it only on explicit keypress', async () => {
     const url = 'https://github.com/team/repo/pull/123';
@@ -389,13 +394,16 @@ describe('supervised session view', () => {
       <SupervisedSessionView
         loadRows={async () => [FIRST]}
         onStart={start}
-        startNeedsTrust={async () => true}
+        startTrustQuestion={async () => QUESTION}
       />,
     );
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
       view.stdin.write('n');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('r Start Restricted'));
+      // It names the folder and what trusting it would load.
+      expect(view.lastFrame()).toContain('Not trusted: /work/repo');
+      expect(view.lastFrame()).toContain('.robota/settings.json');
       expect(start).not.toHaveBeenCalled();
       // n cancels: nothing starts.
       view.stdin.write('n');
@@ -415,13 +423,37 @@ describe('supervised session view', () => {
     }
   });
 
+  it('cancels the trust question on Escape in screen-reader mode, and keeps the view open', async () => {
+    const start = vi.fn(async () => SECOND.id);
+    const view = render(
+      <ScreenReaderProvider enabled>
+        <SupervisedSessionView
+          loadRows={async () => [FIRST]}
+          onStart={start}
+          startTrustQuestion={async () => QUESTION}
+        />
+      </ScreenReaderProvider>,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(FIRST.id));
+      view.stdin.write('n');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('r Start Restricted'));
+      view.stdin.write('\u001b');
+      await vi.waitFor(() => expect(view.lastFrame()).not.toContain('r Start Restricted'));
+      expect(view.lastFrame()).toContain(FIRST.id);
+      expect(start).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('starts at once where the folder needs no answer', async () => {
     const start = vi.fn(async () => SECOND.id);
     const view = render(
       <SupervisedSessionView
         loadRows={async () => [FIRST]}
         onStart={start}
-        startNeedsTrust={async () => false}
+        startTrustQuestion={async () => undefined}
       />,
     );
     try {
