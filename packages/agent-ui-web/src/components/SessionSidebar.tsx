@@ -105,6 +105,11 @@ export function SessionSidebar({
                 <button
                   type="button"
                   aria-current={isCurrent ? 'true' : undefined}
+                  // #3289 §3: an explicit name + description — the row's own visible text has no
+                  // whitespace between its parts, so an unlabelled button reads as one run-together
+                  // string ("Title validation fixjust now39 msgs") to a screen reader.
+                  aria-label={sessionTitle(session)}
+                  aria-describedby={`session-updated-${session.id}`}
                   title={session.preview || session.id}
                   onClick={() => {
                     if (!isCurrent) state.switchSession?.(session.id);
@@ -129,7 +134,9 @@ export function SessionSidebar({
                         <span className="sr-only">live</span>
                       </span>
                     ) : null}
-                    <span>{formatUpdatedAt(session.updatedAt)}</span>
+                    <span id={`session-updated-${session.id}`}>
+                      {formatUpdatedAt(session.updatedAt)}
+                    </span>
                     {others !== null ? (
                       <>
                         <span aria-hidden="true">·</span>

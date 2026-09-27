@@ -1,7 +1,11 @@
 import type { TConnectionStatus, TClientMessage } from '../client/ws-session-client.js';
 import type { TPendingPrompt } from './prompt-state.js';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
-import type { IToolState, TPermissionResultValue } from '@robota-sdk/agent-interface-session';
+import type {
+  IToolState,
+  TDriverId,
+  TPermissionResultValue,
+} from '@robota-sdk/agent-interface-session';
 import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
@@ -108,6 +112,8 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   isThinking: boolean;
   executionWorkspace: IExecutionWorkspaceSnapshot | null;
   sessionName: string | null;
+  /** This connection's own driver id, learned from the server's first frame; null until then. */
+  ownDriverId: TDriverId | null;
   /** Null until the session has answered; refreshed after every command. */
   commandCatalog: TCommandCatalog | null;
   /** Null until the session has answered; refreshed after every command and turn. */

@@ -12,8 +12,13 @@ import type { IWsSessionState, TSessionListing } from '../../hooks/session-clien
  * on each. The count on this surface's own row leaves this surface out: it reads "others".
  */
 
-function row(id: string, preview: string, extra: { live?: boolean; clients?: number } = {}) {
-  return { id, cwd: '/w', updatedAt: '2026-09-26T00:00:00.000Z', messageCount: 1, preview, ...extra };
+function row(
+  id: string,
+  preview: string,
+  extra: { live?: boolean; clients?: number } = {},
+  updatedAt = '2026-09-26T00:00:00.000Z',
+) {
+  return { id, cwd: '/w', updatedAt, messageCount: 1, preview, ...extra };
 }
 
 function renderSidebar(listing: TSessionListing): void {
@@ -71,5 +76,34 @@ describe('SessionSidebar — live sessions and their clients', () => {
     });
     expect(screen.queryByTitle('Live in the host')).toBeNull();
     expect(screen.queryByText(/other/)).toBeNull();
+  });
+});
+
+describe('SessionSidebar rows have a clean accessible name and a description (#3289 §3)', () => {
+  it('names the row by its title alone, not the run-together visible text', () => {
+    renderSidebar({
+      currentSessionId: 'x',
+      sessions: [row('x', 'Title validation fix', {}, new Date().toISOString())],
+      unreadableSessionIds: [],
+    });
+    const button = sessionRow(/Title validation fix/);
+    expect(button.getAttribute('aria-label')).toBe('Title validation fix');
+    // The row's own visible text runs its title straight into the relative time with no separating
+    // space (jsdom's `textContent`, like a browser's naive accessible-name computation, inserts
+    // none) — exactly why the button needs an explicit `aria-label` instead of leaving its name to
+    // that computation.
+    expect(button.textContent).toContain('Title validation fixjust now');
+  });
+
+  it('describes the row with its relative time, reachable via aria-describedby', () => {
+    renderSidebar({
+      currentSessionId: 'y',
+      sessions: [row('y', 'plain session', {}, new Date().toISOString())],
+      unreadableSessionIds: [],
+    });
+    const button = sessionRow(/plain session/);
+    const describedBy = button.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy!)?.textContent).toBe('just now');
   });
 });

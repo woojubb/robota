@@ -545,4 +545,95 @@ describe('PermissionPrompt shows what the tool was asked to do', () => {
     expect(screen.getByRole('button', { name: 'Allow' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Deny' })).toBeTruthy();
   });
+
+  it('exposes the digit shortcut through aria-keyshortcuts, without it reaching the name', () => {
+    render(<Surface prompts={[permission('p4')]} onAnswerPermission={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Allow' }).getAttribute('aria-keyshortcuts')).toBe(
+      '1',
+    );
+    expect(screen.getByRole('button', { name: 'Deny' }).getAttribute('aria-keyshortcuts')).toBe(
+      '2',
+    );
+  });
+});
+
+describe('PermissionPrompt names who else is driving, never a raw id (#3289 §3)', () => {
+  afterEach(cleanup);
+
+  function withRequester(requesterDriverId: string | undefined): TPendingPrompt {
+    return { ...permission('p1'), requesterDriverId } as TPendingPrompt;
+  }
+
+  it('shows no requester when the prompt is this connection\'s own turn', () => {
+    render(
+      <PermissionPrompt
+        prompts={[withRequester('owner')]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Permission request')).toBeTruthy();
+    expect(screen.queryByText(/from/)).toBeNull();
+  });
+
+  it('shows no requester when the raised turn is this connection\'s own learned driver id', () => {
+    render(
+      <PermissionPrompt
+        prompts={[withRequester('remote:ws')]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={vi.fn()}
+        ownDriverId="remote:ws"
+      />,
+    );
+    expect(screen.queryByText(/from/)).toBeNull();
+  });
+
+  it('shows a human phrase for another window, never the raw id', () => {
+    render(
+      <PermissionPrompt
+        prompts={[withRequester('browser')]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={vi.fn()}
+        ownDriverId="app"
+      />,
+    );
+    expect(screen.getByText('from another window')).toBeTruthy();
+    expect(screen.queryByText('browser')).toBeNull();
+  });
+
+  it('names the attached terminal in plain words', () => {
+    render(
+      <PermissionPrompt
+        prompts={[withRequester('attach:1')]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('from the terminal')).toBeTruthy();
+    expect(screen.queryByText(/attach:/)).toBeNull();
+  });
+
+  it('names a paired device in plain words, never its raw id', () => {
+    render(
+      <PermissionPrompt
+        prompts={[withRequester('peer:session-abc123')]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('from a paired device')).toBeTruthy();
+    expect(screen.queryByText(/session-abc123/)).toBeNull();
+  });
+
+  it('says "automatic" for the agent\'s own wake-up, not "from automatic"', () => {
+    render(
+      <PermissionPrompt
+        prompts={[withRequester('agent')]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('automatic')).toBeTruthy();
+    expect(screen.queryByText(/from automatic/)).toBeNull();
+  });
 });

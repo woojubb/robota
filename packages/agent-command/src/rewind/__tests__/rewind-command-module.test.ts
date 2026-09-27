@@ -278,7 +278,8 @@ describe('executeRewindCommand', () => {
       const result = await session.executeCommand('rewind', 'list');
 
       expect(result?.success).toBe(false);
-      expect(result?.message).toContain('cannot prove a write stays inside the project');
+      // #3289 §3: plain words naming the feature ("Rewind"), not the internal write-containment reason.
+      expect(result?.message).toBe("Rewind isn't available on this computer yet.");
       expect(result?.message).not.toContain('trust');
     });
   });

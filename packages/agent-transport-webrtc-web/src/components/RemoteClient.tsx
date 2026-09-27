@@ -99,13 +99,16 @@ function RemoteClientConnected({
           <span role="status">{STATUS_LABEL[session.status]}</span>
         </span>
       </header>
-      <main className="min-h-0 flex-1">
+      {/* ConversationView is itself a `main` landmark once rendered (#3289 §3); this wrapper stays a
+          plain div so the two are never nested. */}
+      <div className="min-h-0 flex-1">
         {hasConversation || tone === 'live' ? (
           <ConversationView
             messages={session.messages}
             activeTools={session.activeTools}
             streamingText={session.streamingText}
             isThinking={session.isThinking}
+            ownDriverId={session.ownDriverId}
           />
         ) : (
           <div className="flex h-full items-center justify-center p-8">
@@ -121,11 +124,12 @@ function RemoteClientConnected({
             </div>
           </div>
         )}
-      </main>
+      </div>
       <PermissionPrompt
         prompts={session.pendingPrompts}
         onAnswerPermission={session.answerPermission}
         onAnswerAsk={session.answerAsk}
+        ownDriverId={session.ownDriverId}
       />
     </div>
   );

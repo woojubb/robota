@@ -128,6 +128,7 @@ export function SessionSurface({
               prompts={state.pendingPrompts}
               onAnswerPermission={state.answerPermission}
               onAnswerAsk={state.answerAsk}
+              ownDriverId={state.ownDriverId}
             />
           </div>
         ) : (
@@ -147,6 +148,7 @@ export function SessionSurface({
                     activeTools={state.activeTools}
                     streamingText={state.streamingText}
                     isThinking={state.isThinking}
+                    ownDriverId={state.ownDriverId}
                   />
                 )}
               </div>
@@ -162,6 +164,7 @@ export function SessionSurface({
                   prompts={state.pendingPrompts}
                   onAnswerPermission={state.answerPermission}
                   onAnswerAsk={state.answerAsk}
+                  ownDriverId={state.ownDriverId}
                   onFocusReturn={() => composerRef.current?.focus()}
                 />
                 <Composer

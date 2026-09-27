@@ -37,7 +37,7 @@ import type {
 } from './session-client-types.js';
 import type { TConnectionStatus, TClientMessage } from '../client/ws-session-client.js';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
-import type { TPermissionResultValue } from '@robota-sdk/agent-interface-session';
+import type { TDriverId, TPermissionResultValue } from '@robota-sdk/agent-interface-session';
 import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
@@ -76,6 +76,9 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const [sessionNotices, setSessionNotices] = useState<readonly ISessionNotice[]>([]);
   const [commandCatalog, setCommandCatalog] = useState<TCommandCatalog | null>(null);
   const [sessionStatus, setSessionStatus] = useState<TSessionStatus | null>(null);
+  // #3289 §3: learned from the first frame the server sends this connection, so its own messages and
+  // prompts never carry a "from" label — only ANOTHER driver's do.
+  const [ownDriverId, setOwnDriverId] = useState<TDriverId | null>(null);
 
   const clientRef = useRef<ISessionClientHandle | null>(null);
   const streamingIdRef = useRef<string | null>(null);
@@ -154,6 +157,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
             return [{ id: nextId(), role: m.role as 'user' | 'assistant', content }];
           });
           setMessages(reconstructed);
+          if (msg.driverId) setOwnDriverId(msg.driverId);
           break;
         }
         case 'user_message': {
@@ -447,6 +451,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     sessionName,
     commandCatalog,
     sessionStatus,
+    ownDriverId,
     send,
     pendingPrompts,
     queuedPrompt,

@@ -17,17 +17,22 @@ import {
   Wrench,
 } from 'lucide-react';
 
+import { driverAttributionText, isOwnDriver } from '../driver-labels.js';
+
 import type {
   IActiveTool,
   ICommandOutputEntry,
   TConversationEntry,
 } from '../hooks/useSessionClient.js';
+import type { TDriverId } from '@robota-sdk/agent-interface-session';
 
 interface IConversationViewProps {
   messages: readonly TConversationEntry[];
   activeTools: IActiveTool[];
   streamingText: string;
   isThinking: boolean;
+  /** This connection's own driver id (§3289 §3), threaded to every message it renders. */
+  ownDriverId: TDriverId | null;
 }
 
 /** Agent markdown, set as reading prose: headings step down gently, code sits on its own quiet surface. */
@@ -107,19 +112,23 @@ function AgentMarkdown({ children }: { children: string }): React.ReactElement {
   );
 }
 
-/** Shorten a driver id for a compact co-drive attribution chip (device ids are long SHA-256 hashes). */
-function shortDriver(author: string): string {
-  return author.length > 12 ? `${author.slice(0, 8)}…` : author;
-}
-
-function UserBlock({ content, author }: { content: string; author?: string }): React.ReactElement {
-  // REMOTE-014 E5 (display-only, OWNER PRINCIPLE): show WHO drove this turn when it wasn't the local owner.
-  const coDriver = author && author !== 'owner' ? author : undefined;
+function UserBlock({
+  content,
+  author,
+  ownDriverId,
+}: {
+  content: string;
+  author?: string;
+  /** This connection's own driver id (§3289 §3): its own turns never carry a "from" label. */
+  ownDriverId: TDriverId | null;
+}): React.ReactElement {
+  // REMOTE-014 E5 (display-only, OWNER PRINCIPLE): show WHO drove this turn when it wasn't this
+  // connection's own — in plain words, never the raw server-assigned id.
+  const coDriver =
+    author && !isOwnDriver(author, ownDriverId) ? driverAttributionText(author) : undefined;
   return (
     <div className="flex flex-col items-end gap-1.5 pl-12">
-      {coDriver && (
-        <span className="px-1 text-[12.5px] text-subtle">from {shortDriver(coDriver)}</span>
-      )}
+      {coDriver && <span className="px-1 text-[12.5px] text-subtle">{coDriver}</span>}
       <div className="max-w-full whitespace-pre-wrap break-words rounded-[20px] bg-raised px-4 py-2.5 text-[15px] leading-relaxed text-foreground">
         {content}
       </div>
@@ -302,6 +311,7 @@ export function ConversationView({
   activeTools,
   streamingText,
   isThinking,
+  ownDriverId,
 }: IConversationViewProps): React.ReactElement {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -313,7 +323,7 @@ export function ConversationView({
     messages.length === 0 && !isThinking && activeTools.length === 0 && !streamingText;
 
   return (
-    <div className="robota-ui h-full overflow-y-auto">
+    <main className="robota-ui h-full overflow-y-auto" aria-label="Conversation">
       <div className="mx-auto flex w-full max-w-[760px] flex-col gap-6 px-6 pb-6 pt-8">
         {isEmpty && (
           <div className="flex h-full items-center justify-center">
@@ -324,7 +334,14 @@ export function ConversationView({
         {messages.map((entry) => {
           switch (entry.role) {
             case 'user':
-              return <UserBlock key={entry.id} content={entry.content} author={entry.author} />;
+              return (
+                <UserBlock
+                  key={entry.id}
+                  content={entry.content}
+                  author={entry.author}
+                  ownDriverId={ownDriverId}
+                />
+              );
             case 'assistant':
               return <AgentBlock key={entry.id} content={entry.content} />;
             case 'command':
@@ -348,6 +365,6 @@ export function ConversationView({
 
         <div ref={bottomRef} />
       </div>
-    </div>
+    </main>
   );
 }
