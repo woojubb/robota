@@ -6,12 +6,15 @@
  */
 
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
+import { rememberSessionForRestore } from '../use-session-directory.js';
 import { useSessionClient } from '../useSessionClient.js';
 
 import type { TMakeSessionClient } from '../useSessionClient.js';
 import type { TClientMessage, TServerMessage } from '@robota-sdk/agent-transport';
+
+afterEach(() => window.sessionStorage.clear());
 
 function setup(): {
   result: { current: ReturnType<typeof useSessionClient> };
@@ -325,5 +328,73 @@ describe('#3189 step 5 — a refused session change and a pool-capable host', ()
     connect();
     deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: liveListing('a') });
     expect(wire.some((m) => m.type === 'switch-session')).toBe(false);
+  });
+});
+
+describe("#3280 §5 — remembering the session across a desktop Reconnect's reload", () => {
+  const liveListing = (currentSessionId: string) => ({
+    ...listing(currentSessionId),
+    sessions: listing(currentSessionId).sessions.map((row) => ({
+      ...row,
+      live: row.id === currentSessionId,
+      clients: row.id === currentSessionId ? 1 : 0,
+    })),
+  });
+  const RESTORE_KEY = 'robota.restoreSessionId';
+
+  it('a remembered id switches to it once the first listing lists it, then forgets it', () => {
+    rememberSessionForRestore('b');
+    const { result, wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: liveListing('a') });
+
+    expect(wire.filter((m) => m.type === 'switch-session')).toEqual([
+      { type: 'switch-session', sessionId: 'b', requestId: expect.any(String) },
+    ]);
+    expect(window.sessionStorage.getItem(RESTORE_KEY)).toBeNull();
+
+    // Spent on the first listing only: a later one does not switch again.
+    act(() => result.current.requestSessions());
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: liveListing('a') });
+    expect(wire.filter((m) => m.type === 'switch-session')).toHaveLength(1);
+  });
+
+  it('a remembered id the listing does not include is not switched to, and is still forgotten', () => {
+    rememberSessionForRestore('ghost');
+    const { wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: liveListing('a') });
+
+    expect(wire.some((m) => m.type === 'switch-session')).toBe(false);
+    expect(window.sessionStorage.getItem(RESTORE_KEY)).toBeNull();
+  });
+
+  it('a remembered id already current is not switched to, and is still forgotten', () => {
+    rememberSessionForRestore('a');
+    const { wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: liveListing('a') });
+
+    expect(wire.some((m) => m.type === 'switch-session')).toBe(false);
+    expect(window.sessionStorage.getItem(RESTORE_KEY)).toBeNull();
+  });
+
+  it('a fresh launch with no remembered id switches nowhere', () => {
+    const { wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: liveListing('a') });
+    expect(wire.some((m) => m.type === 'switch-session')).toBe(false);
+  });
+
+  it('rememberSessionForRestore is best-effort: a storage failure does not throw', () => {
+    const original = window.sessionStorage.setItem;
+    window.sessionStorage.setItem = () => {
+      throw new Error('storage disabled');
+    };
+    try {
+      expect(() => rememberSessionForRestore('b')).not.toThrow();
+    } finally {
+      window.sessionStorage.setItem = original;
+    }
   });
 });

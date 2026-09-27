@@ -39,6 +39,10 @@ does not own session lifecycle, conversation history, or agent runtime state.
 - A pending permission or ask prompt is visible whatever view is open, because a gated turn waits
   on it. It never takes focus from a field the person is typing in, and its keys answer it only once
   it has that focus; a click answers at once.
+- Nothing typed is lost to a lost connection: while the transport is not `connected`, the composer
+  keeps its draft and refuses to submit it, and a banner above the conversation — never a full-screen
+  replacement — says so: retrying while attempts continue, and once they give up, either the
+  host-supplied reconnect action or how to reopen the page.
 - A session-rename or history-clear broadcast from any other surface is folded into this reducer's
   state, so co-driving surfaces stay in sync.
 - The personal usage dashboard is opt-in per surface (browser/remote consumers stay opted out by

@@ -24,8 +24,16 @@ export const Composer = forwardRef<
     onCommand: (name: string) => void;
     catalog: TCommandCatalog | null;
     status: TSessionStatus | null;
+    /**
+     * False while the transport is not `connected` (issue #3280 §5): Enter and Send refuse to submit,
+     * and nothing typed is cleared or lost — the composer never sends into a socket that is not there.
+     */
+    connected?: boolean;
   }
->(function Composer({ onSubmit, onCommand, catalog, status }, ref): React.ReactElement {
+>(function Composer(
+  { onSubmit, onCommand, catalog, status, connected = true },
+  ref,
+): React.ReactElement {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   useImperativeHandle(ref, () => ({ focus: () => textareaRef.current?.focus() }), []);
   const [draft, setDraft] = useState('');
@@ -38,6 +46,7 @@ export const Composer = forwardRef<
   }, [draft]);
 
   const submit = (): void => {
+    if (!connected) return;
     const prompt = draft.trim();
     if (!prompt) return;
     onSubmit(prompt);
@@ -141,7 +150,8 @@ export const Composer = forwardRef<
           <StatusRow status={status} onCommand={onCommand} />
           <button
             type="submit"
-            disabled={!draft.trim()}
+            disabled={!draft.trim() || !connected}
+            aria-description={connected ? undefined : 'Not connected'}
             className="ml-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-all hover:opacity-85 disabled:bg-raised disabled:text-subtle"
           >
             <ArrowUp size={17} strokeWidth={2.25} aria-hidden="true" />
