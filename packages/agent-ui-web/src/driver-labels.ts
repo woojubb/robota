@@ -15,7 +15,14 @@ import { AGENT_DRIVER_ID, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-se
 
 import type { TDriverId } from '@robota-sdk/agent-interface-session';
 
-type TSurfaceKind = 'terminal' | 'desktop-app' | 'browser' | 'remote';
+/**
+ * `remote` (a plain WS remote connection's own id, `'remote:ws'`) and `peer` (an unrelated REMOTE-014
+ * mesh peer's turn, `'peer:<sessionId>'`) are kept as DIFFERENT kinds even though both render the same
+ * label text: a plain WS viewer's own id is `'remote:ws'`, and folding a peer's turn into that same
+ * kind would make `isSameSurface` treat a co-driver's turn as this connection's own and hide it — the
+ * exact class of bug this module exists to prevent.
+ */
+type TSurfaceKind = 'terminal' | 'desktop-app' | 'browser' | 'remote' | 'peer';
 
 /**
  * The kind of surface a driver id names. `null` for an id this function does not recognize — it still
@@ -25,7 +32,8 @@ function surfaceKindOf(driverId: TDriverId): TSurfaceKind | null {
   if (driverId.startsWith('attach:')) return 'terminal';
   if (driverId === 'app') return 'desktop-app';
   if (driverId === 'browser') return 'browser';
-  if (driverId === 'remote:ws' || driverId.startsWith('peer:')) return 'remote';
+  if (driverId === 'remote:ws') return 'remote';
+  if (driverId.startsWith('peer:')) return 'peer';
   return null;
 }
 
@@ -59,6 +67,7 @@ export function humanDriverLabel(driverId: TDriverId): string {
     case 'browser':
       return 'the browser';
     case 'remote':
+    case 'peer':
       return 'a remote device';
     default:
       return 'another surface';

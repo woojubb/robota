@@ -106,4 +106,34 @@ describe('SessionSidebar rows have a clean accessible name and a description (#3
     expect(describedBy).toBeTruthy();
     expect(document.getElementById(describedBy!)?.textContent).toBe('just now');
   });
+
+  it('REGRESSION: a live row with other clients keeps that status reachable via aria-describedby, not just in the (now name-overridden) visible text', () => {
+    // The explicit aria-label above replaces name-from-content outright, so the live dot's and "N
+    // other(s)" span's own text stopped reaching the accessible name — this asserts they are folded
+    // back in as a description instead, alongside the relative time.
+    renderSidebar({
+      currentSessionId: 'shared',
+      sessions: [
+        row('shared', 'shared session', { live: true, clients: 3 }, new Date().toISOString()),
+      ],
+      unreadableSessionIds: [],
+    });
+    const button = sessionRow(/shared session/);
+    const ids = button.getAttribute('aria-describedby')?.split(' ') ?? [];
+    expect(ids.length).toBe(2);
+    const description = ids.map((id) => document.getElementById(id)?.textContent).join(' ');
+    expect(description).toContain('just now');
+    expect(description).toContain('Live');
+    expect(description).toContain('2 others');
+  });
+
+  it('a row with no live/other status describes only the relative time (one id, not two)', () => {
+    renderSidebar({
+      currentSessionId: 'stored',
+      sessions: [row('stored', 'stored only', { live: false, clients: 0 })],
+      unreadableSessionIds: [],
+    });
+    const button = sessionRow(/stored only/);
+    expect(button.getAttribute('aria-describedby')?.split(' ').length).toBe(1);
+  });
 });

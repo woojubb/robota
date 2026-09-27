@@ -100,7 +100,9 @@ function RemoteClientConnected({
         </span>
       </header>
       {/* ConversationView is itself a `main` landmark once rendered (#3289 §3); this wrapper stays a
-          plain div so the two are never nested. */}
+          plain div so the two are never nested HERE. A host that mounts `RemoteClient` must, in turn,
+          not wrap it in a `main` of its own — that landmark belongs to whichever piece of the page
+          renders last and lowest, which for this component is `ConversationView`. */}
       <div className="min-h-0 flex-1">
         {hasConversation || tone === 'live' ? (
           <ConversationView
