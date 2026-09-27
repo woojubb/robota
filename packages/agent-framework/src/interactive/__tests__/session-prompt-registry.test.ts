@@ -438,6 +438,28 @@ describe('#3288 review MUST 1: a diff preview never reads a file outside the wor
     h.registry.resolvePermission(event.id, false);
     await pending;
   });
+
+  it('a RELATIVE in-workspace Edit path is anchored to the session cwd, not process.cwd(), and still gets context lines', async () => {
+    // #3288 review follow-up: a relative filePath must be resolved against the session's `cwd`
+    // (the containment root) for BOTH the containment check and the actual read — never against
+    // the server process's own working directory, which has nothing to do with this session's
+    // workspace and is very unlikely to contain a file named `inside.md`.
+    tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'prompt-registry-workspace-')));
+    writeFileSync(join(tmpDir, 'inside.md'), 'before line\nold line\nafter line\n', 'utf8');
+
+    const h = harness(undefined, tmpDir);
+    const pending = h.registry.requestPermission('Edit', {
+      filePath: 'inside.md',
+      oldString: 'old line',
+      newString: 'new line',
+    });
+    const event = h.permissionEvents[0]!;
+    expect((event.diffLines ?? []).some((l) => l.type === 'context')).toBe(true);
+    const text = (event.diffLines ?? []).map((l) => l.text).join('\n');
+    expect(text).toContain('before line');
+    h.registry.resolvePermission(event.id, false);
+    await pending;
+  });
 });
 
 describe('SCREEN-1992 pending request (TC-05)', () => {

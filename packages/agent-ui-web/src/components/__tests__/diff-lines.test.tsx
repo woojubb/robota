@@ -36,4 +36,17 @@ describe('DiffLines folds a long diff', () => {
     fireEvent.click(button);
     expect(screen.getByText(/line 119/)).toBeTruthy();
   });
+
+  it('labels "Show more" with what expanding actually reveals, not the whole diff', () => {
+    // A server-capped Edit diff can carry more than DIFF_EXPANDED_CAP_LINES (500) lines — the
+    // label must promise only the 460 lines (500 - 40 folded) that clicking through produces,
+    // never the full 600.
+    render(<DiffLines diffLines={addLines(600)} />);
+    expect(screen.getByRole('button', { name: /show more \(460 more lines\)/i })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /show more/i }));
+    expect(screen.getByText(/line 499/)).toBeTruthy();
+    expect(screen.queryByText(/line 500/)).toBeNull();
+    expect(screen.getByText(/100 more lines not shown/)).toBeTruthy();
+  });
 });

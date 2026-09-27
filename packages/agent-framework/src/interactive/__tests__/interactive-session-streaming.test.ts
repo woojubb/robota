@@ -187,7 +187,9 @@ describe('#3288: extending the diff builder to Write', () => {
     });
     const diffLines = finished?.diffLines ?? [];
     const addLines = diffLines.filter((l) => l.type === 'add');
-    expect(addLines.length).toBeLessThan(520);
+    // Exactly MAX_DIFF_LINES (500, not exported) — a `toBeLessThan` here would also pass a builder
+    // that forgot to cap at all and just happened to drop a handful of lines for some other reason.
+    expect(addLines.length).toBe(500);
     expect(diffLines.at(-1)?.text).toMatch(/more lines truncated/);
   });
 });
@@ -210,8 +212,10 @@ describe('#3288 review SHOULD 3: Edit diffs are capped like Write', () => {
     const diffLines = finished?.diffLines ?? [];
     const removeLines = diffLines.filter((l) => l.type === 'remove');
     const addLines = diffLines.filter((l) => l.type === 'add');
-    expect(removeLines.length).toBeLessThan(520);
-    expect(addLines.length).toBeLessThan(520);
+    // Exactly MAX_DIFF_LINES (500, not exported) on EACH side independently — `toBeLessThan` would
+    // also pass a builder that capped only one side, or capped at some other, wrong length.
+    expect(removeLines.length).toBe(500);
+    expect(addLines.length).toBe(500);
     expect(diffLines.some((l) => l.type === 'hunk' && /more removed lines truncated/.test(l.text))).toBe(
       true,
     );

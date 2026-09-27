@@ -52,6 +52,10 @@ export function DiffLines({ diffLines }: { diffLines: readonly IDiffLine[] }): R
 
   const capped = diffLines.slice(0, DIFF_EXPANDED_CAP_LINES);
   const shown = open ? capped : diffLines.slice(0, DIFF_FOLD_LINES);
+  // Expanding reveals up to DIFF_EXPANDED_CAP_LINES, not the whole diff — the label must promise
+  // only what "Show more" actually shows, or a capped Edit (each side capped at 500 on the server)
+  // can claim more lines than clicking through ever produces.
+  const revealedByExpanding = Math.min(diffLines.length, DIFF_EXPANDED_CAP_LINES) - DIFF_FOLD_LINES;
   return (
     <div className="flex flex-col gap-1">
       <pre className="overflow-x-auto rounded-lg bg-sidebar px-3 py-2 font-mono text-[12.5px] leading-relaxed">
@@ -62,7 +66,7 @@ export function DiffLines({ diffLines }: { diffLines: readonly IDiffLine[] }): R
       </pre>
       {open && diffLines.length > DIFF_EXPANDED_CAP_LINES && (
         <p className="text-[12px] text-subtle">
-          {diffLines.length - DIFF_EXPANDED_CAP_LINES} more lines
+          {diffLines.length - DIFF_EXPANDED_CAP_LINES} more lines not shown
         </p>
       )}
       <button
@@ -70,7 +74,7 @@ export function DiffLines({ diffLines }: { diffLines: readonly IDiffLine[] }): R
         onClick={() => setOpen((value) => !value)}
         className="self-start text-[12.5px] text-accent hover:underline"
       >
-        {open ? 'Show less' : `Show more (${diffLines.length - DIFF_FOLD_LINES} more lines)`}
+        {open ? 'Show less' : `Show more (${revealedByExpanding} more lines)`}
       </button>
     </div>
   );

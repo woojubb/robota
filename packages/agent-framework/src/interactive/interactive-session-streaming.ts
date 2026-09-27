@@ -133,8 +133,23 @@ function resolveEditStartLine(
  * inside the workspace but POINTING outside it through, exactly the defect that SSOT exists to close.
  * A model-supplied Edit path is exactly the untrusted input that check is for.
  */
-function isSafeToReadForDiff(cwd: string | undefined, filePath: string): boolean {
-  return cwd !== undefined && isPathInside(cwd, filePath);
+function isSafeToReadForDiff(cwd: string | undefined, resolvedFilePath: string): boolean {
+  return cwd !== undefined && isPathInside(cwd, resolvedFilePath);
+}
+
+/**
+ * Where a RELATIVE `filePath` the model supplied is anchored, for BOTH the containment check AND the
+ * actual read — the containment root (`cwd`), never `process.cwd()`. `isPathInside` and
+ * `fs.readFileSync` each canonicalize a relative candidate against the PROCESS's own directory when
+ * given one on their own, so passing the raw (possibly relative) `filePath` straight to both checked
+ * it against one root while reading it from another — the same #2429 defect
+ * `agent-tools/path-guard.ts`'s `resolveHostPath` exists to close. Resolving once, here, and reusing
+ * the result for every downstream call keeps the two decisions from disagreeing. With no `cwd` there
+ * is nothing to anchor to; the path is returned as written, and `isSafeToReadForDiff` then refuses it
+ * (ARCH-010 fail-closed).
+ */
+function resolveFilePathForDiffRead(cwd: string | undefined, filePath: string): string {
+  return cwd === undefined ? filePath : resolve(cwd, filePath);
 }
 
 function buildEditDiffState(
@@ -147,11 +162,18 @@ function buildEditDiffState(
   const newString = getStringArg(event.toolArgs, 'new_string', 'newString');
   if (!filePath || oldString === null || newString === null || oldString === newString) return {};
 
-  const readableFs = isSafeToReadForDiff(cwd, filePath) ? fs : undefined;
-  const startLine = resolveEditStartLine(event.toolResultData, filePath, oldString, readableFs);
+  const resolvedFilePath = resolveFilePathForDiffRead(cwd, filePath);
+  const readableFs = isSafeToReadForDiff(cwd, resolvedFilePath) ? fs : undefined;
+  const startLine = resolveEditStartLine(event.toolResultData, resolvedFilePath, oldString, readableFs);
   return {
     diffFile: cwd ? toWorkspaceRelativeDisplayPath(cwd, filePath) : filePath,
-    diffLines: buildEditDiffLinesWithContext(oldString, newString, startLine, filePath, readableFs),
+    diffLines: buildEditDiffLinesWithContext(
+      oldString,
+      newString,
+      startLine,
+      resolvedFilePath,
+      readableFs,
+    ),
   };
 }
 
