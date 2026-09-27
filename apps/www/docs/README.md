@@ -19,8 +19,8 @@ pnpm --filter robota-www lint      # ESLint
 ## Deploy
 
 The Cloudflare Pages project `robota-www` is connected to the GitHub repository: a push to `main` deploys
-production (`robota.io`, `www.robota.io`), and a push to any other branch builds a preview at
-`<branch>.robota-www.pages.dev`.
+production (`robota.io`, `www.robota.io`). Other branches get no usable preview, so check a change with
+a local build (`pnpm --filter robota-www build`).
 
 The `deploy` script is a manual fallback that uploads a local build straight to production and needs a
 Wrangler login:

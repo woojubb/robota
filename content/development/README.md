@@ -144,8 +144,8 @@ pnpm docs:build   # static export to apps/docs/out, then the Pagefind search ind
 ```
 
 The docs site deploys itself: its Cloudflare Pages project is connected to the GitHub repository, a
-push to `main` updates docs.robota.io, and a push to any other branch builds a preview at
-`<branch>.robota-docs.pages.dev`. The marketing site (`apps/www`, robota.io) and the blog
+push to `main` updates docs.robota.io. Other branches get no usable preview, so check a docs change
+with `pnpm docs:build` locally. The marketing site (`apps/www`, robota.io) and the blog
 (`apps/blog`, blog.robota.io) deploy the same way from their own projects. See
 [apps/docs/docs/README.md](../../apps/docs/docs/README.md) for the details.
 
