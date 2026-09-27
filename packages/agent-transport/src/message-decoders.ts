@@ -14,7 +14,10 @@
  * owner and is tracked there, not duplicated in a transport package.
  */
 
-import { SESSION_CHANGE_REFUSAL_CODES } from '@robota-sdk/agent-interface-session';
+import {
+  SESSION_CHANGE_REFUSAL_CODES,
+  SESSION_DELETE_REFUSAL_CODES,
+} from '@robota-sdk/agent-interface-session';
 
 import type { TBackgroundControlAction, TClientMessage, TServerMessage } from './wire-messages.js';
 
@@ -156,6 +159,12 @@ export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVar
   'list-sessions': { requestId: isNonEmptyString },
   'new-session': { requestId: isOptional(isNonEmptyString) },
   'switch-session': { sessionId: isNonEmptyString, requestId: isOptional(isNonEmptyString) },
+  'rename-session': {
+    sessionId: isNonEmptyString,
+    name: isNonEmptyString,
+    requestId: isNonEmptyString,
+  },
+  'delete-session': { sessionId: isNonEmptyString, requestId: isNonEmptyString },
   'get-usage-report': {},
   'get-personal-usage-report': {
     requestId: isNonEmptyString,
@@ -244,6 +253,14 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
     code: oneOf(SESSION_CHANGE_REFUSAL_CODES),
     message: isString,
     requestId: isOptional(isString),
+  },
+  session_renamed_in_list: { requestId: isNonEmptyString, sessionId: isString, name: isString },
+  session_rename_failed: { requestId: isNonEmptyString, message: isString },
+  session_deleted: { requestId: isNonEmptyString, sessionId: isString },
+  session_delete_failed: {
+    requestId: isNonEmptyString,
+    code: oneOf(SESSION_DELETE_REFUSAL_CODES),
+    message: isString,
   },
   usage_report: { report: isRecord },
   personal_usage_report: { requestId: isNonEmptyString, report: isRecord },

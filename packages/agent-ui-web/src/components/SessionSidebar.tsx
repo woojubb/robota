@@ -1,4 +1,15 @@
-import { PanelLeftClose, PanelLeftOpen, Settings, SquarePen } from 'lucide-react';
+import {
+  MoreHorizontal,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Pencil,
+  Settings,
+  SquarePen,
+  Trash2,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+
+import { ConfirmDialog } from './Dialog.js';
 
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
 
@@ -20,12 +31,17 @@ export function formatUpdatedAt(updatedAt: string, now: number = Date.now()): st
   return new Date(at).toISOString().slice(0, 10);
 }
 
-/** A session's title: its name, else its first message, else "New session". */
+/**
+ * A session's title (#3289 §1): its name, else its stable first-message title, else "New session".
+ * Never `preview` — that field is the raw latest reply, which is what changes every turn and is what
+ * this title exists to stop showing.
+ */
 export function sessionTitle(session: TListedSession): string {
   const name = session.name?.trim();
   if (name) return name;
-  const preview = session.preview.trim();
-  return preview.length > 0 ? preview : 'New session';
+  const title = session.title?.trim();
+  if (title) return title;
+  return 'New session';
 }
 
 /**
@@ -38,11 +54,22 @@ export function otherClients(session: TListedSession, isCurrent: boolean): numbe
   return others >= 1 ? others : null;
 }
 
+/** Where a row's context menu opens: the point the mouse or the "More" button gave it. */
+interface IMenuAnchor {
+  readonly sessionId: string;
+  readonly x: number;
+  readonly y: number;
+}
+
 /**
  * #3189 — this workspace's sessions on the left of the conversation, as in Claude Code Desktop:
  * start a new one, or click another to make it current. Rows the host could not read are listed,
  * disabled, so a damaged session never looks deleted. A refused switch comes back as a notice.
  * A host that keeps several sessions live marks the rows running now and counts who else is on them.
+ *
+ * #3289 §1 — each row also carries a "More" menu (or right-click) with Rename (inline) and Delete
+ * (confirmed). Rename on the current row reuses the `/rename` command, which also updates the live
+ * session's own name and title bar; rename on any other row writes the stored record directly.
  */
 export function SessionSidebar({
   state,
@@ -58,6 +85,62 @@ export function SessionSidebar({
   const current = listing?.currentSessionId ?? null;
   const unreadable = listing?.unreadableSessionIds ?? [];
   const failed = state.sessionsError?.code === 'list_failed' ? state.sessionsError.message : null;
+
+  const [menu, setMenu] = useState<IMenuAnchor | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  // Each row's own "More" button, kept live across re-renders so the delete dialog can send focus
+  // back to the exact control that opened it — even though the menu item that was actually clicked
+  // is gone by the time the dialog mounts (see `Dialog`'s `restoreFocusTo`).
+  const moreButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+
+  // A menu closes on Escape or a click outside it — the usual context-menu contract.
+  useEffect(() => {
+    if (menu === null) return undefined;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setMenu(null);
+    };
+    const onPointerDown = (event: MouseEvent): void => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenu(null);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('mousedown', onPointerDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('mousedown', onPointerDown);
+    };
+  }, [menu]);
+
+  // A keyboard user who opened the menu lands on its first item, not nowhere.
+  useEffect(() => {
+    if (menu === null) return;
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [menu]);
+
+  const openMenuAt = (sessionId: string, x: number, y: number): void => setMenu({ sessionId, x, y });
+
+  const startRename = (session: TListedSession): void => {
+    setMenu(null);
+    setRenamingId(session.id);
+    setRenameValue(sessionTitle(session));
+  };
+
+  const saveRename = (session: TListedSession): void => {
+    const name = renameValue.trim();
+    setRenamingId(null);
+    if (name.length === 0 || name === sessionTitle(session)) return;
+    if (session.id === current) {
+      // The current session's own rename path: it also updates the live name and title bar.
+      state.send({ type: 'command', name: 'rename', args: name });
+    } else {
+      state.renameSessionInList?.(session.id, name);
+    }
+  };
+
+  const rows = listing?.sessions ?? [];
+  const confirmingSession = rows.find((row) => row.id === confirmDeleteId) ?? null;
 
   return (
     <aside
@@ -97,9 +180,10 @@ export function SessionSidebar({
           <p className="px-2.5 py-1 text-[13px] text-subtle">Loading sessions…</p>
         ) : null}
         <ul className="space-y-px">
-          {(listing?.sessions ?? []).map((session) => {
+          {rows.map((session) => {
             const isCurrent = session.id === current;
             const others = otherClients(session, isCurrent);
+            const isRenaming = renamingId === session.id;
             // #3289 §3 review: the explicit `aria-label` below replaces name-from-content outright, so
             // the live dot's and "N other(s)" span's own text no longer reaches the accessible name —
             // folded back in here as a description instead, alongside the relative time.
@@ -112,58 +196,98 @@ export function SessionSidebar({
             const describedBy =
               statusParts.length > 0 ? `${updatedId} ${statusId}` : updatedId;
             return (
-              <li key={session.id}>
-                <button
-                  type="button"
-                  aria-current={isCurrent ? 'true' : undefined}
-                  // #3289 §3: an explicit name + description — the row's own visible text has no
-                  // whitespace between its parts, so an unlabelled button reads as one run-together
-                  // string ("Title validation fixjust now39 msgs") to a screen reader.
-                  aria-label={sessionTitle(session)}
-                  aria-describedby={describedBy}
-                  title={session.preview || session.id}
-                  onClick={() => {
-                    if (!isCurrent) state.switchSession?.(session.id);
-                  }}
-                  className={`w-full rounded-lg px-2.5 py-2 text-left transition-colors ${
-                    isCurrent ? 'bg-raised' : 'hover:bg-hover'
-                  }`}
-                >
-                  <span
-                    className={`block truncate text-[14px] leading-snug ${
-                      isCurrent ? 'font-medium text-foreground' : 'text-foreground/85'
+              <li key={session.id} className="group relative">
+                {isRenaming ? (
+                  <input
+                    autoFocus
+                    aria-label={`Rename ${sessionTitle(session)}`}
+                    value={renameValue}
+                    onChange={(event) => setRenameValue(event.target.value)}
+                    onBlur={() => saveRename(session)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        saveRename(session);
+                      } else if (event.key === 'Escape') {
+                        event.preventDefault();
+                        setRenamingId(null);
+                      }
+                    }}
+                    className="w-full rounded-lg border border-accent bg-raised px-2.5 py-2 text-[14px] text-foreground outline-none"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    aria-current={isCurrent ? 'true' : undefined}
+                    // #3289 §3: an explicit name + description — the row's own visible text has no
+                    // whitespace between its parts, so an unlabelled button reads as one run-together
+                    // string ("Title validation fixjust now") to a screen reader.
+                    aria-label={sessionTitle(session)}
+                    aria-describedby={describedBy}
+                    title={session.preview || session.id}
+                    onClick={() => {
+                      if (!isCurrent) state.switchSession?.(session.id);
+                    }}
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      openMenuAt(session.id, event.clientX, event.clientY);
+                    }}
+                    className={`w-full rounded-lg py-2 pl-2.5 pr-8 text-left transition-colors ${
+                      isCurrent ? 'bg-raised' : 'hover:bg-hover'
                     }`}
                   >
-                    {sessionTitle(session)}
-                  </span>
-                  <span className="mt-0.5 flex items-center gap-1.5 text-[12.5px] tabular-nums text-subtle">
-                    {session.live === true ? (
-                      <span
-                        title="Live in the host"
-                        className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-accent"
-                      >
-                        <span className="sr-only">live</span>
-                      </span>
-                    ) : null}
-                    <span id={updatedId}>{formatUpdatedAt(session.updatedAt)}</span>
-                    {others !== null ? (
-                      <>
-                        <span aria-hidden="true">·</span>
-                        <span className="text-muted-foreground">
-                          {others} {others === 1 ? 'other' : 'others'}
-                        </span>
-                      </>
-                    ) : null}
-                    <span className="ml-auto">
-                      {session.messageCount} {session.messageCount === 1 ? 'msg' : 'msgs'}
+                    <span
+                      className={`block truncate text-[14px] leading-snug ${
+                        isCurrent ? 'font-medium text-foreground' : 'text-foreground/85'
+                      }`}
+                    >
+                      {sessionTitle(session)}
                     </span>
-                    {statusParts.length > 0 ? (
-                      <span id={statusId} className="sr-only">
-                        {statusParts.join(', ')}
-                      </span>
-                    ) : null}
-                  </span>
-                </button>
+                    <span className="mt-0.5 flex items-center gap-1.5 text-[12.5px] tabular-nums text-subtle">
+                      {session.live === true ? (
+                        <span
+                          title="Live in the host"
+                          className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-accent"
+                        >
+                          <span className="sr-only">live</span>
+                        </span>
+                      ) : null}
+                      <span id={updatedId}>{formatUpdatedAt(session.updatedAt)}</span>
+                      {others !== null ? (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span className="text-muted-foreground">
+                            {others} {others === 1 ? 'other' : 'others'}
+                          </span>
+                        </>
+                      ) : null}
+                      {statusParts.length > 0 ? (
+                        <span id={statusId} className="sr-only">
+                          {statusParts.join(', ')}
+                        </span>
+                      ) : null}
+                    </span>
+                  </button>
+                )}
+                {!isRenaming ? (
+                  <button
+                    type="button"
+                    ref={(el) => {
+                      if (el) moreButtonRefs.current.set(session.id, el);
+                      else moreButtonRefs.current.delete(session.id);
+                    }}
+                    aria-label={`More for ${sessionTitle(session)}`}
+                    aria-haspopup="menu"
+                    aria-expanded={menu?.sessionId === session.id}
+                    onClick={(event) => {
+                      const rect = event.currentTarget.getBoundingClientRect();
+                      openMenuAt(session.id, rect.left, rect.bottom);
+                    }}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground opacity-0 hover:bg-hover hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+                  >
+                    <MoreHorizontal size={15} strokeWidth={1.75} />
+                  </button>
+                ) : null}
               </li>
             );
           })}
@@ -173,8 +297,8 @@ export function SessionSidebar({
             <li>
               <details className="px-2.5 py-2 text-[12.5px] text-subtle">
                 <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                  {unreadable.length} {unreadable.length === 1 ? 'session' : 'sessions'} could not
-                  be read
+                  {unreadable.length} older {unreadable.length === 1 ? 'session' : 'sessions'} in
+                  this folder can&apos;t be opened
                 </summary>
                 <ul className="mt-1.5 space-y-0.5 font-mono text-[11.5px]">
                   {unreadable.map((id) => (
@@ -201,6 +325,60 @@ export function SessionSidebar({
           Settings
         </button>
       </div>
+
+      {menu !== null
+        ? (() => {
+            const session = rows.find((row) => row.id === menu.sessionId);
+            if (!session) return null;
+            return (
+              <div
+                ref={menuRef}
+                role="menu"
+                aria-label={`Actions for ${sessionTitle(session)}`}
+                style={{ position: 'fixed', left: menu.x, top: menu.y }}
+                className="gui-rise z-40 min-w-[140px] overflow-hidden rounded-lg bg-popover py-1 text-popover-foreground shadow-xl shadow-black/30"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => startRename(session)}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13.5px] hover:bg-hover"
+                >
+                  <Pencil size={14} strokeWidth={1.75} />
+                  Rename
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenu(null);
+                    setConfirmDeleteId(session.id);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13.5px] text-destructive hover:bg-hover"
+                >
+                  <Trash2 size={14} strokeWidth={1.75} />
+                  Delete…
+                </button>
+              </div>
+            );
+          })()
+        : null}
+
+      {confirmingSession !== null ? (
+        <ConfirmDialog
+          open
+          title={`Delete "${sessionTitle(confirmingSession)}"?`}
+          body="This removes its conversation from this computer."
+          confirmLabel="Delete"
+          destructive
+          restoreFocusTo={moreButtonRefs.current.get(confirmingSession.id) ?? null}
+          onCancel={() => setConfirmDeleteId(null)}
+          onConfirm={() => {
+            state.deleteSession?.(confirmingSession.id);
+            setConfirmDeleteId(null);
+          }}
+        />
+      ) : null}
     </aside>
   );
 }

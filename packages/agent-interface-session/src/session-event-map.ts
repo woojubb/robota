@@ -229,9 +229,10 @@ export interface ISessionStatusSnapshot {
    */
   readonly setupRequired?: boolean;
   /**
-   * The folder this session works in; absent when the host cannot say. A client resolves a dropped
-   * or picked file's real filesystem path against `workspace.path` (#3282 §4d) to decide whether the
-   * file is inside the workspace and, if so, what `@`-reference path names it.
+   * The folder this session works in; absent when the host cannot say. A client shows `name` in its
+   * title bar and `document.title` (#3289 §1), and resolves a dropped or picked file's real
+   * filesystem path against `workspace.path` (#3282 §4d) to decide whether the file is inside the
+   * workspace and, if so, what `@`-reference path names it.
    */
   readonly workspace?: { readonly name: string; readonly path: string };
 }

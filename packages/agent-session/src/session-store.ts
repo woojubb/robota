@@ -43,9 +43,17 @@ function decodeStoredSession(raw: string): TSessionLoadOutcome {
   const outcome = decodeVersionedInteractiveSessionRecord(parsed);
   if (outcome.status === 'valid') return { status: 'valid', record: outcome.record };
   if (outcome.status === 'unsupported') {
-    return { status: 'unsupported', schemaVersion: outcome.schemaVersion };
+    return {
+      status: 'unsupported',
+      schemaVersion: outcome.schemaVersion,
+      ...(outcome.cwd !== undefined ? { cwd: outcome.cwd } : {}),
+    };
   }
-  return { status: 'corrupt', issues: outcome.issues };
+  return {
+    status: 'corrupt',
+    issues: outcome.issues,
+    ...(outcome.cwd !== undefined ? { cwd: outcome.cwd } : {}),
+  };
 }
 
 /**

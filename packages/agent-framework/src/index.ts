@@ -123,10 +123,14 @@ export {
   isSafeSessionId,
   listResumableSessionSummaries,
   listUnreadableSessions,
+  listUnreadableSessionsForWorkspace,
   resolveLatestSessionId,
+  resolveReusableEmptySessionId,
   resolveSessionIdByIdOrName,
   generateSessionName,
   restoreSessionRecordIntoSession,
+  SessionRenameUnavailableError,
+  persistSessionRename,
   WorkspaceProjectSessionStore,
   WorkspaceSessionLogSink,
   WorkspaceSessionLogSource,
@@ -906,6 +910,7 @@ export {
   SESSION_POOL_MAX_LIVE,
   SESSION_POOL_IDLE_GRACE_MS,
   SessionChangeRefusal,
+  SessionDeleteRefusal,
 } from './runtime/index.js';
 export type {
   ISessionPoolOptions,

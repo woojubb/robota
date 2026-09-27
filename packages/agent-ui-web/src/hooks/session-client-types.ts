@@ -182,6 +182,10 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   switchSession: (sessionId: string) => void;
   /** Start a fresh session and make it current. */
   newSession: () => void;
+  /** Rename a row in the list — current or not. A refusal arrives as a notice saying why. */
+  renameSessionInList: (sessionId: string, name: string) => void;
+  /** Delete a stored session for good. A refusal arrives as a notice saying why. */
+  deleteSession: (sessionId: string) => void;
   /** Whether the session sidebar is shown; `/resume` opens it. */
   sessionSidebarOpen: boolean;
   setSessionSidebarOpen: (open: boolean) => void;

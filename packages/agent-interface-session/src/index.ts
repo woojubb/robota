@@ -20,10 +20,17 @@ export type {
   ISessionBinder,
   ISessionBinding,
   ISessionChangeRefusal,
+  ISessionDeleteRefusal,
   TSessionBindingRole,
   TSessionChangeRefusalCode,
+  TSessionDeleteRefusalCode,
 } from './session-binding-contracts.js';
-export { isSessionChangeRefusal, SESSION_CHANGE_REFUSAL_CODES } from './session-binding-contracts.js';
+export {
+  isSessionChangeRefusal,
+  isSessionDeleteRefusal,
+  SESSION_CHANGE_REFUSAL_CODES,
+  SESSION_DELETE_REFUSAL_CODES,
+} from './session-binding-contracts.js';
 export type {
   ISessionLoopState,
   TSessionLoopPhase,

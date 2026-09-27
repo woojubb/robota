@@ -105,7 +105,13 @@ describe('TC-03: a file from an earlier build is unsupported', () => {
     // case every existing session file is in — which is the case every beta user meets on their
     // first resume after this lands.
     writeFileSync(path.join(dir, `${SESSION_ID}.json`), JSON.stringify(record(), null, 2), 'utf-8');
-    expect(store.load(SESSION_ID)).toEqual({ status: 'unsupported', schemaVersion: undefined });
+    // #3289 §1: the bytes still carry a plain `cwd`, read despite the missing envelope, so a caller
+    // that only wants to know which workspace this legacy record belongs to gets an answer.
+    expect(store.load(SESSION_ID)).toEqual({
+      status: 'unsupported',
+      schemaVersion: undefined,
+      cwd: '/work',
+    });
   });
 
   it('reports unsupported, carrying the version it saw, for a future envelope', () => {
@@ -116,7 +122,7 @@ describe('TC-03: a file from an earlier build is unsupported', () => {
       JSON.stringify({ schemaVersion: 99, record: record() }),
       'utf-8',
     );
-    expect(store.load(SESSION_ID)).toEqual({ status: 'unsupported', schemaVersion: 99 });
+    expect(store.load(SESSION_ID)).toEqual({ status: 'unsupported', schemaVersion: 99, cwd: '/work' });
   });
 });
 

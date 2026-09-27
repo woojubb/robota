@@ -571,35 +571,43 @@ describe('#3189 — the session sidebar', () => {
         cwd: '/w',
         updatedAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
         messageCount: 1,
-        preview: 'Fix the flaky test',
+        preview: '## Fix the flaky test (raw reply, not the title)',
+        // #3289 §1: a stable title (the first request), distinct from the raw `preview` above.
+        title: 'Fix the flaky test',
       },
     ],
     unreadableSessionIds: ['broken-1'],
   };
 
-  it('lists the sessions with name or preview, time and count, the current one marked', () => {
+  // A row's "More" button is also named after its title ("More for <title>"), so an unanchored
+  // name match finds both; the row button itself is always first in the DOM.
+  const sessionRowButton = (name: RegExp): HTMLElement =>
+    screen.getAllByRole('button', { name }).filter((el) => el.tagName === 'BUTTON' && !(el.getAttribute('aria-label') ?? '').startsWith('More for'))[0]!;
+
+  it('lists the sessions by their stable title, time, the current one marked, no message count', () => {
     render(<SessionSurface state={stubState({ sessionListing: listing })} />);
     const sidebar = screen.getByRole('complementary', { name: 'Sessions' });
-    const current = screen.getByRole('button', { name: /Refactor the parser/ });
+    const current = sessionRowButton(/Refactor the parser/);
     expect(current.getAttribute('aria-current')).toBe('true');
     expect(current.textContent).toContain('5m ago');
-    expect(current.textContent).toContain('12 msgs');
-    const other = screen.getByRole('button', { name: /Fix the flaky test/ });
+    expect(current.textContent).not.toMatch(/msg/);
+    const other = sessionRowButton(/Fix the flaky test/);
     expect(other.getAttribute('aria-current')).toBeNull();
     expect(other.textContent).toContain('3h ago');
-    expect(other.textContent).toContain('1 msg');
+    expect(other.textContent).not.toMatch(/msg/);
+    expect(other.textContent).not.toContain('## Fix the flaky test');
     // Unreadable records are listed as one folded line, never as rows to click.
     expect(screen.queryByRole('button', { name: /broken-1/ })).toBeNull();
-    expect(sidebar.textContent).toContain('1 session could not be read');
+    expect(sidebar.textContent).toContain("1 older session in this folder can't be opened");
     expect(sidebar.textContent).toContain('broken-1');
   });
 
   it('clicking another session switches to it; the current one does nothing', () => {
     const state = stubState({ sessionListing: listing });
     render(<SessionSurface state={state} />);
-    fireEvent.click(screen.getByRole('button', { name: /Refactor the parser/ }));
+    fireEvent.click(sessionRowButton(/Refactor the parser/));
     expect(state.switchSession).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: /Fix the flaky test/ }));
+    fireEvent.click(sessionRowButton(/Fix the flaky test/));
     expect(state.switchSession).toHaveBeenCalledWith('old');
   });
 
@@ -608,7 +616,7 @@ describe('#3189 — the session sidebar', () => {
     expect(screen.getByRole('heading', { name: 'Refactor the parser' })).toBeTruthy();
   });
 
-  it('an unnamed current session is titled by its first message', () => {
+  it('an unnamed current session is titled by its stable title, not the raw preview', () => {
     render(
       <SessionSurface
         state={stubState({ sessionListing: { ...listing, currentSessionId: 'old' } })}
@@ -623,7 +631,7 @@ describe('#3189 — the session sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Usage' }));
     expect(screen.getByRole('main', { name: 'Personal usage' })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: /Fix the flaky test/ }));
+    fireEvent.click(sessionRowButton(/Fix the flaky test/));
 
     expect(state.switchSession).toHaveBeenCalledWith('old');
     expect(screen.queryByRole('main', { name: 'Personal usage' })).toBeNull();
@@ -633,7 +641,7 @@ describe('#3189 — the session sidebar', () => {
   it('+ New session starts one', () => {
     const state = stubState({ sessionListing: listing });
     render(<SessionSurface state={state} />);
-    fireEvent.click(screen.getByRole('button', { name: /New session/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'New session' }));
     expect(state.newSession).toHaveBeenCalledTimes(1);
   });
 

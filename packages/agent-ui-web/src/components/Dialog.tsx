@@ -24,6 +24,14 @@ export interface IDialogProps {
   panelClassName?: string;
   /** Id of an element describing the dialog, wired to `aria-describedby`. */
   describedById?: string;
+  /**
+   * Overrides what focus returns to when the dialog closes (#3289 §1). Default behavior captures
+   * `document.activeElement` when the dialog opens — which fails for a caller whose opener element
+   * is removed from the DOM in the SAME update that opens this dialog (e.g. a menu item whose menu
+   * closes as this dialog opens): by the time this dialog's open-effect runs, the browser has already
+   * moved focus to `document.body`. Such a caller passes the stable element focus should return to.
+   */
+  restoreFocusTo?: HTMLElement | null;
 }
 
 const FOCUSABLE_SELECTOR =
@@ -48,16 +56,18 @@ export function Dialog({
   destructive = false,
   panelClassName,
   describedById,
+  restoreFocusTo,
 }: IDialogProps): React.ReactElement | null {
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const dialogToken = useRef<symbol>(Symbol('dialog'));
 
-  // Move focus in on open, and restore it to the opener once the dialog goes away.
+  // Move focus in on open, and restore it to the opener once the dialog goes away. `restoreFocusTo`,
+  // given, overrides the ambient `document.activeElement` this would otherwise capture.
   useEffect(() => {
     if (!open) return undefined;
-    previouslyFocused.current = document.activeElement as HTMLElement | null;
+    previouslyFocused.current = restoreFocusTo ?? (document.activeElement as HTMLElement | null);
     const panel = panelRef.current;
     const firstFocusable = panel?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
     (firstFocusable ?? panel)?.focus();
@@ -158,6 +168,8 @@ export interface IConfirmDialogProps {
   destructive?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  /** Forwarded to `Dialog` — see its doc comment. */
+  restoreFocusTo?: HTMLElement | null;
 }
 
 /** A title, a body, Cancel focused by default, and a confirm button that can be styled destructive. */
@@ -170,6 +182,7 @@ export function ConfirmDialog({
   destructive = false,
   onConfirm,
   onCancel,
+  restoreFocusTo,
 }: IConfirmDialogProps): React.ReactElement | null {
   const bodyId = useId();
   return (
@@ -179,6 +192,7 @@ export function ConfirmDialog({
       title={title}
       destructive={destructive}
       describedById={bodyId}
+      restoreFocusTo={restoreFocusTo}
       panelClassName="w-full max-w-sm rounded-2xl bg-card p-5 text-card-foreground shadow-[0_8px_30px_-12px_rgb(0_0_0/0.45)] focus:outline-none"
     >
       <p className="text-[15px] font-medium text-foreground">{title}</p>

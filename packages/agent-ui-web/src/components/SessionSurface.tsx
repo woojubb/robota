@@ -182,6 +182,7 @@ export function SessionSurface({
           status={state.status}
           surface={surface}
           title={title}
+          workspace={state.sessionStatus?.workspace}
           showBrand={!sidebarOpen}
           view={view}
           onView={setView}

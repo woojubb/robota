@@ -39,6 +39,7 @@ import type {
   ISessionStatusSnapshot,
   ISessionSwitchedEvent,
   TSessionChangeRefusalCode,
+  TSessionDeleteRefusalCode,
   TSettingsPatch,
   IUiIntentEvent,
   TPermissionResultValue,
@@ -101,6 +102,12 @@ export type TClientMessage =
   | { type: 'list-sessions'; requestId: string }
   | { type: 'new-session'; requestId?: string }
   | { type: 'switch-session'; sessionId: string; requestId?: string }
+  // #3289 §1: rename a session from the list — current or not. Answered by `session_renamed_in_list`
+  // or `session_rename_failed`, both carrying the same `requestId`.
+  | { type: 'rename-session'; sessionId: string; name: string; requestId: string }
+  // #3289 §1: remove a stored session's record for good. Answered by `session_deleted` or
+  // `session_delete_failed`, both carrying the same `requestId`.
+  | { type: 'delete-session'; sessionId: string; requestId: string }
   // SELFHOST-004: request the assembled trace/cost read-model (spans + cost-by-source) for the run.
   | { type: 'get-usage-report' }
   | {
@@ -236,6 +243,18 @@ export type TServerMessage =
       code: TSessionChangeRefusalCode;
       message: string;
       requestId?: string;
+    }
+  // #3289 §1: a `rename-session` succeeded (current session or not); the client refreshes its listing.
+  | { type: 'session_renamed_in_list'; requestId: string; sessionId: string; name: string }
+  | { type: 'session_rename_failed'; requestId: string; message: string }
+  // #3289 §1: a `delete-session` succeeded; the client refreshes its listing and, if it was showing
+  // the deleted session, re-reads what it now shows (the host has already switched it away).
+  | { type: 'session_deleted'; requestId: string; sessionId: string }
+  | {
+      type: 'session_delete_failed';
+      requestId: string;
+      code: TSessionDeleteRefusalCode;
+      message: string;
     }
   // SELFHOST-004 (P5, TC-08): carry the assembled trace/cost read-model (per-op span timeline +
   // cost-by-source) across the sidecar boundary — no existing variant carries per-op `durationMs` or

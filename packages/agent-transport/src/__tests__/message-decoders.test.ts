@@ -32,6 +32,13 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
   'list-sessions': { type: 'list-sessions', requestId: 'request-3' },
   'new-session': { type: 'new-session', requestId: 'request-4' },
   'switch-session': { type: 'switch-session', sessionId: 'session-2', requestId: 'request-5' },
+  'rename-session': {
+    type: 'rename-session',
+    sessionId: 'session-2',
+    name: 'Renamed',
+    requestId: 'request-6',
+  },
+  'delete-session': { type: 'delete-session', sessionId: 'session-2', requestId: 'request-7' },
   'get-usage-report': { type: 'get-usage-report' },
   'get-personal-usage-report': {
     type: 'get-personal-usage-report',
@@ -140,6 +147,24 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
     code: 'prompt_pending',
     message: 'Answer the pending prompt first.',
     requestId: 'request-5',
+  },
+  session_renamed_in_list: {
+    type: 'session_renamed_in_list',
+    requestId: 'request-6',
+    sessionId: 'session-2',
+    name: 'Renamed',
+  },
+  session_rename_failed: {
+    type: 'session_rename_failed',
+    requestId: 'request-6',
+    message: 'No session session-2 in this workspace.',
+  },
+  session_deleted: { type: 'session_deleted', requestId: 'request-7', sessionId: 'session-2' },
+  session_delete_failed: {
+    type: 'session_delete_failed',
+    requestId: 'request-7',
+    code: 'live_elsewhere',
+    message: 'Another client is on this session.',
   },
   usage_report: { type: 'usage_report', report: {} as never },
   personal_usage_report: {

@@ -16,8 +16,12 @@ import { handleLoopControlMessage, isLoopControlMessage } from './loop-control-m
 import { parseClientMessage } from './message-parser.js';
 import { isObserverMessageType } from './observer-messages.js';
 import {
+  handleSessionDeleteMessage,
   handleSessionDirectoryMessage,
+  handleSessionRenameMessage,
+  isSessionDeleteMessage,
   isSessionDirectoryMessage,
+  isSessionRenameMessage,
 } from './session-directory-messages.js';
 import { subscribeSessionEvents } from './session-events.js';
 import {
@@ -187,6 +191,14 @@ export function handleClientMessage(
   }
   if (isSettingsMessage(msg)) {
     handleSettingsMessage(session, deliver, msg, settingsReporter);
+    return;
+  }
+  if (isSessionRenameMessage(msg)) {
+    handleSessionRenameMessage(deliver, msg, sessionDirectory);
+    return;
+  }
+  if (isSessionDeleteMessage(msg)) {
+    handleSessionDeleteMessage(deliver, msg, sessionDirectory);
     return;
   }
   if (isSessionControlMessage(msg)) {

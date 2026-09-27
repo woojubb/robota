@@ -154,7 +154,17 @@ function serveOptions(
               cwd: overrides.cwd ?? '/work/project',
               createdAt: '2026-09-01T00:00:00Z',
               updatedAt: '2026-09-01T00:00:00Z',
-              messages: [],
+              // Non-empty (#3289 §1): an EMPTY stored session is what `newSession()` now reuses
+              // instead of building fresh, which is a different scenario than this one covers.
+              messages: [
+                {
+                  id: 'stored-m',
+                  role: 'user',
+                  content: 'hi',
+                  state: 'complete',
+                  timestamp: new Date('2026-09-01T00:00:00Z'),
+                },
+              ],
             },
           },
         },
