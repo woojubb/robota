@@ -31,11 +31,11 @@ platform-neutral — only this adapter, and the runtimes it wraps, are Node-only
 
 ## Capabilities by participant kind
 
-| Kind                            | Wait continuation                                            | Checkpoint            | Model calls        |
-| -------------------------------- | -------------------------------------------------------------- | ---------------------- | -------------------- |
-| `sessionParticipant`             | Yes — a tool call awaiting approval (`robota-session/approval`) | `robota-session/1`    | Metered (`'metered'`) |
-| `robotaParticipant`              | No — a suspended execution fails the turn outright              | `robota-agent/1`      | Metered (`'metered'`) |
-| Custom (write your own `AgentParticipant` against `@robota-sdk/agent-roundtable`) | Whatever you implement                    | Whatever you implement | Declare `factory.modelCalls` yourself, or omit it (`'none'`) |
+| Kind                                                                              | Wait continuation                                               | Checkpoint             | Model calls                                                  |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------ |
+| `sessionParticipant`                                                              | Yes — a tool call awaiting approval (`robota-session/approval`) | `robota-session/1`     | Metered (`'metered'`)                                        |
+| `robotaParticipant`                                                               | No — a suspended execution fails the turn outright              | `robota-agent/1`       | Metered (`'metered'`)                                        |
+| Custom (write your own `AgentParticipant` against `@robota-sdk/agent-roundtable`) | Whatever you implement                                          | Whatever you implement | Declare `factory.modelCalls` yourself, or omit it (`'none'`) |
 
 A custom participant needs neither this package nor Robota at all — `@robota-sdk/agent-roundtable`'s
 own README shows one wrapping plain code. Use `sessionParticipant` when the turn needs tools,
