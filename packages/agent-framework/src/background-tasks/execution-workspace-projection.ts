@@ -56,11 +56,11 @@ export function createExecutionWorkspaceSnapshot(
     createMainThreadEntry(input.mainThread),
     ...sortGroups(input.groups).map((group) => createBackgroundGroupEntry(group)),
     ...sortTasks(input.tasks)
-      // #3288 §1: a stopped loop does not linger — cancel() only flips status, it never removes the
-      // record (only close() does), so without this an operator-stopped loop would sit in the
-      // workspace forever (surviving even a restart, since the cancelled record persists). An
-      // ordinary (non-loop) cancelled task is unaffected: it stays listed and queryable, as before.
-      .filter((task) => !isLingeringCancelledLoopTask(task))
+      // #3288 §1: a stopped loop's task does not linger (cancel() only flips status, never removes
+      // the record), and neither does a self-paced loop's fired one-shot wake timer, which the
+      // manager moves to `completed` on its own — see `isLingeringTerminalLoopTask`. An ordinary
+      // (non-loop) cancelled or completed task is unaffected: it stays listed and queryable.
+      .filter((task) => !isLingeringTerminalLoopTask(task))
       .map((task) => createBackgroundTaskEntry(task, taskGroupIds.get(task.id))),
     ...sortSelfPacedLoops(input.selfPacedLoops ?? [])
       // Only `pending`/`running` need a projection of their own: `waiting` already has one (the
@@ -177,9 +177,21 @@ function loopIdFromTaskMetadata(state: IBackgroundTaskState): string | undefined
 /**
  * #3288 §1: whether a loop task's own record should stop appearing — the record itself is never
  * deleted by `cancel()` (only `close()` does that), so this is a snapshot-time filter, not a mutation.
+ *
+ * Two terminal statuses reach this, for different reasons: an operator-stopped loop's task is
+ * `cancelled` (see above); a self-paced loop's disposable one-shot wake timer (`armSelfPacedTimer`)
+ * fires and — having no next cron occurrence — is moved to `completed` by the manager on its own,
+ * while the LIVE loop keeps going under its own `pending`/`running`/`waiting` entry (see
+ * `createSelfPacedLoopEntry`). Without dropping the fired timer too, every iteration would leave a
+ * second "Loop: …" row stuck at "Done" beside the real one. A fixed-cadence loop's own recurring
+ * task always has a next occurrence, so it never reaches `completed` this way — only this filter's
+ * `cancelled` half ever applies to it.
  */
-function isLingeringCancelledLoopTask(task: IBackgroundTaskState): boolean {
-  return task.metadata?.['sessionLoop'] === true && task.status === 'cancelled';
+function isLingeringTerminalLoopTask(task: IBackgroundTaskState): boolean {
+  return (
+    task.metadata?.['sessionLoop'] === true &&
+    (task.status === 'cancelled' || task.status === 'completed')
+  );
 }
 
 const SELF_PACED_LOOP_LABEL = 'Loop: ';

@@ -583,6 +583,48 @@ describe('#3288 §1 — loop visibility and stop routing', () => {
     expect(ids).toContain('agent_cancelled');
   });
 
+  it('drops a completed self-paced wake timer too, leaving exactly one row for the live loop', () => {
+    // MUST 3 (review on PR #3332): armSelfPacedTimer's one-shot wake timer has no next cron
+    // occurrence, so the manager moves it to `completed` on its own when it fires — one per
+    // iteration. Without also filtering `completed`, this fired timer's row would sit beside the
+    // live loop's own `pending`/`running` projection forever, duplicating "Loop: …" on every wake.
+    const snapshot = createExecutionWorkspaceSnapshot({
+      sessionId: 'session_parent',
+      mainThread: idleMainThread,
+      groups: [],
+      tasks: [
+        createTask({
+          id: 'timer_fired',
+          kind: 'scheduled',
+          status: 'completed',
+          label: 'Loop: check the deploy',
+          metadata: { sessionLoop: true, sessionLoopSelfPaced: true, sessionLoopId: 'loop_self' },
+        }),
+      ],
+      selfPacedLoops: [
+        {
+          loopId: 'loop_self',
+          instruction: 'check the deploy',
+          phase: 'pending',
+          createdAt: '2026-05-09T00:00:00.000Z',
+        },
+      ],
+    });
+    const loopEntries = snapshot.entries.filter((entry) => entry.kind === 'background_task');
+    expect(loopEntries).toHaveLength(1);
+    expect(loopEntries[0]).toMatchObject({ sourceId: 'loop_self', status: 'queued' });
+  });
+
+  it('leaves an ordinary (non-loop) completed task listed, unlike a completed loop timer', () => {
+    const snapshot = createExecutionWorkspaceSnapshot({
+      sessionId: 'session_parent',
+      mainThread: idleMainThread,
+      groups: [],
+      tasks: [createTask({ id: 'agent_done', status: 'completed' })],
+    });
+    expect(snapshot.entries.map((entry) => entry.sourceId)).toContain('agent_done');
+  });
+
   it('projects a running self-paced loop with no background-task representation of its own', () => {
     const snapshot = createExecutionWorkspaceSnapshot({
       sessionId: 'session_parent',
