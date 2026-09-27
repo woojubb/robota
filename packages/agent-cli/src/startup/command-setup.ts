@@ -204,7 +204,12 @@ export function buildCommandSetup(
       delete: () => deleteSettings(robotaUserSettingsPath()),
     },
     plugin: createDefaultPluginCommandAdapter(cwd),
-    permissionRules: createSettingsPermissionRulesAdapter(workspaceComposition.settingsSources),
+    // #3282 §4a: `settingsStores` gives the adapter a WRITE target per scope, so the Settings
+    // screen's rule Remove button rewrites the same file `/permissions` reads the rule from.
+    permissionRules: createSettingsPermissionRulesAdapter(
+      workspaceComposition.settingsSources,
+      workspaceComposition.settingsStores,
+    ),
     ...(options.mcpActivationAdapter === undefined
       ? {}
       : { mcpActivation: options.mcpActivationAdapter }),

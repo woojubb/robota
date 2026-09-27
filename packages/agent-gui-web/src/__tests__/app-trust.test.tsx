@@ -27,6 +27,7 @@ function desktopHost(overrides: Partial<IGuiHost> = {}): IGuiHost {
     getEndpoint: vi.fn(() => new Promise<string | null>(() => {})),
     signalReady: () => {},
     onState: () => () => {},
+    onOpenSettings: () => () => {},
     restartRuntime: async () => {},
     trustQuestion: vi.fn(async () => QUESTION),
     answerTrust: vi.fn(async () => ({})),

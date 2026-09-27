@@ -74,6 +74,12 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
   'ask-response': { type: 'ask-response', id: 'a1', response: { type: 'answer', values: ['y'] } },
   resume: { type: 'resume', lastSeq: 4 },
   ack: { type: 'ack', seq: 9 },
+  'get-settings': { type: 'get-settings', requestId: 'settings-1' },
+  'update-settings': {
+    type: 'update-settings',
+    requestId: 'settings-2',
+    patch: { field: 'outputStyle', styleId: 'concise' },
+  },
 };
 
 const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> = {
@@ -202,6 +208,13 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
   },
   protocol_error: { type: 'protocol_error', message: 'm', requestId: 'command-1' },
   resume_gap: { type: 'resume_gap' },
+  settings: { type: 'settings', requestId: 'settings-1', settings: {} as never },
+  settings_error: {
+    type: 'settings_error',
+    requestId: 'settings-1',
+    code: 'not_available',
+    message: 'Settings are not available on this host.',
+  },
 };
 
 const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
@@ -275,6 +288,53 @@ const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
   ],
   ['stop-waiting-loop without requestId', { type: 'stop-waiting-loop' }],
   ['stop-waiting-loop with an empty requestId', { type: 'stop-waiting-loop', requestId: '' }],
+  ['get-settings without requestId', { type: 'get-settings' }],
+  ['get-settings with an empty requestId', { type: 'get-settings', requestId: '' }],
+  ['update-settings without a patch', { type: 'update-settings', requestId: 'r' }],
+  [
+    'update-settings with an unknown patch field',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'nope' } },
+  ],
+  [
+    'update-settings with a prototype-only patch field',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'toString' } },
+  ],
+  [
+    'update-settings language patch with a numeric language',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'language', language: 1 } },
+  ],
+  [
+    'update-settings outputStyle patch missing styleId',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'outputStyle' } },
+  ],
+  [
+    'update-settings preset patch with an empty presetId',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'preset', presetId: '' } },
+  ],
+  [
+    'update-settings permissionMode patch missing mode',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'permissionMode' } },
+  ],
+  [
+    'update-settings sandbox patch with a string enabled',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'sandbox', enabled: 'true' } },
+  ],
+  [
+    'update-settings removePermissionRule patch with an unknown kind',
+    {
+      type: 'update-settings',
+      requestId: 'r',
+      patch: { field: 'removePermissionRule', scope: 'user', kind: 'nope', pattern: 'Bash(*)' },
+    },
+  ],
+  [
+    'update-settings removePermissionRule patch missing pattern',
+    {
+      type: 'update-settings',
+      requestId: 'r',
+      patch: { field: 'removePermissionRule', scope: 'user', kind: 'allow' },
+    },
+  ],
 ];
 
 const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
@@ -374,6 +434,13 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
     'waiting_loop_stop with a prototype-only kind',
     { type: 'waiting_loop_stop', requestId: 'r', outcome: { kind: 'toString' } },
   ],
+  ['settings without requestId', { type: 'settings', settings: {} }],
+  ['settings with an array settings', { type: 'settings', requestId: 'r', settings: [] }],
+  [
+    'settings_error with an unknown code',
+    { type: 'settings_error', requestId: 'r', code: 'nope', message: 'm' },
+  ],
+  ['settings_error without message', { type: 'settings_error', requestId: 'r', code: 'invalid' }],
 ];
 
 describe('decodeClientMessage (issue #2045)', () => {

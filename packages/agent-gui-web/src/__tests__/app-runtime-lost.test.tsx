@@ -57,6 +57,7 @@ function host(kind: IGuiHost['kind'], restartRuntime?: () => Promise<void>): IGu
     getEndpoint: async () => 'ws://127.0.0.1:1?token=t',
     signalReady: () => {},
     onState: () => () => {},
+    onOpenSettings: () => () => {},
     ...(restartRuntime ? { restartRuntime } : {}),
   };
 }

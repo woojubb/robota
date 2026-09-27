@@ -71,6 +71,7 @@ export type {
   ICommandExternalEventsAdapter,
   TSandboxCommandMode,
   IPermissionRuleLayer,
+  IPermissionRuleRemoval,
   ICommandPickerAdapter,
   ICommandProcessAdapter,
   ICommandLocalPeersAdapter,

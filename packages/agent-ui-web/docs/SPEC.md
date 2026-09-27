@@ -31,11 +31,12 @@ does not own session lifecycle, conversation history, or agent runtime state.
 - A tool call's diff or output is server-computed and shown on demand, never recomputed here and
   never buried behind a truncated path or argument; an internal signal tool never renders as a call,
   and a projected `/command` tool shows the command it ran, not the provider-facing tool name.
-- A UI-intent opens its GUI screen when there is one — the session picker is the session sidebar,
-  unless the host cannot list sessions. Any other (e.g. settings, plugin manager, agent switcher)
-  answers with an explicit "not available on this surface" line in the conversation — in place of
-  the command's own reply when this surface's command awaits one, at once otherwise — never a silent
-  no-op, including intent kinds not yet known when this package was written.
+- A UI-intent opens its GUI screen when there is one — the session picker is the session sidebar
+  (unless the host cannot list sessions) and settings is the Settings modal. Any other (e.g. plugin
+  manager, agent switcher) answers with an explicit "not available on this surface" line in the
+  conversation — in place of the command's own reply when this surface's command awaits one, at once
+  otherwise — never a silent no-op, including intent kinds not yet known when this package was
+  written.
 - The session sidebar lists the host's sessions and never loses one silently: a record the host could
   not read is shown disabled. A switch replaces everything the surface shows with what the new
   session holds; a refused switch shows the host's reason.

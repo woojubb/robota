@@ -67,9 +67,23 @@ export interface IPermissionRuleLayer {
   readonly ask: readonly string[];
 }
 
+/** One rule to remove from the settings layer it was declared in (#3282 §4a). */
+export interface IPermissionRuleRemoval {
+  /** The `scope` of the {@link IPermissionRuleLayer} the rule was read from. */
+  readonly scope: string;
+  readonly kind: 'allow' | 'deny' | 'ask';
+  readonly pattern: string;
+}
+
 /** Where each configured permission rule comes from, read fresh on every call. */
 export interface ICommandPermissionRulesAdapter {
   readLayers(): readonly IPermissionRuleLayer[];
+  /**
+   * #3282 §4a: remove one declared rule from its settings layer. Optional — a host with no write
+   * target for any layer (read-only rule discovery) makes rule removal fail EXPLICITLY wherever it
+   * is offered, never a silent no-op. Returns `false` when no writable layer matched the removal.
+   */
+  removeRule?(removal: IPermissionRuleRemoval): boolean;
 }
 
 /** How shell commands are confined: not at all, confined without prompts, or confined and asked. */

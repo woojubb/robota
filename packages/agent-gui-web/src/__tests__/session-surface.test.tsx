@@ -54,6 +54,13 @@ function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
     send: vi.fn(),
     answerPermission: vi.fn(),
     answerAsk: vi.fn(),
+    settingsOpen: false,
+    settingsStatus: 'idle',
+    settingsSnapshot: null,
+    settingsError: null,
+    openSettings: vi.fn(),
+    closeSettings: vi.fn(),
+    updateSettings: vi.fn(),
     ...over,
   } as unknown as IWsSessionState;
 }
@@ -649,6 +656,13 @@ describe('#3189 — the session sidebar', () => {
     );
     expect(screen.queryByRole('complementary', { name: 'Sessions' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Show sessions' })).toBeNull();
+  });
+
+  it('#3282 §4a: the footer gear opens the Settings screen', () => {
+    const state = stubState({ sessionListing: listing });
+    render(<SessionSurface state={state} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(state.openSettings).toHaveBeenCalledTimes(1);
   });
 
   it('a failed listing says why inside the sidebar', () => {

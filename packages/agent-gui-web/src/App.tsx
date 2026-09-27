@@ -25,6 +25,10 @@ function SessionView({ url, host }: { url: string; host: IGuiHost }): React.Reac
   useEffect(() => {
     if (state.status === 'connected') host.signalReady();
   }, [state.status, host]);
+  // #3282 §4a: the desktop app's ⌘,/Ctrl+, menu item, beside the gear button `SessionSurface`
+  // already renders — both call the same `openSettings`.
+  const { openSettings } = state;
+  useEffect(() => host.onOpenSettings(openSettings), [host, openSettings]);
   const restart = host.restartRuntime;
   const currentSessionId = state.sessionListing?.currentSessionId ?? null;
   const onReconnect = restart

@@ -36,6 +36,7 @@ describe('resolveGuiHost', () => {
       answerTrust: vi.fn(async () => ({})),
       pickFiles: vi.fn(async () => [{ path: '/repo/a.ts', name: 'a.ts', size: 10 }]),
       getPathForFile: vi.fn(() => '/repo/dropped.ts'),
+      onOpenSettings: vi.fn(() => () => {}),
     };
     const host = resolveGuiHost({ ...page(), bridge });
     expect(host.kind).toBe('desktop');
@@ -52,6 +53,9 @@ describe('resolveGuiHost', () => {
     const file = new File(['x'], 'dropped.ts');
     expect(host.getPathForFile?.(file)).toBe('/repo/dropped.ts');
     expect(bridge.getPathForFile).toHaveBeenCalledWith(file);
+    const listener = vi.fn();
+    host.onOpenSettings(listener);
+    expect(bridge.onOpenSettings).toHaveBeenCalledWith(listener);
   });
 
   it('in a browser, prefers the address the CLI injected into the page', async () => {
@@ -83,6 +87,14 @@ describe('resolveGuiHost', () => {
     const listener = vi.fn();
     const off = host.onState(listener);
     host.signalReady();
+    off();
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('a browser host has no menu: onOpenSettings is a harmless no-op', () => {
+    const host = resolveGuiHost(page());
+    const listener = vi.fn();
+    const off = host.onOpenSettings(listener);
     off();
     expect(listener).not.toHaveBeenCalled();
   });

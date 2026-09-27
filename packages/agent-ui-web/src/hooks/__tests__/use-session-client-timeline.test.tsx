@@ -52,18 +52,29 @@ describe('#3186 — the GUI conversation timeline', () => {
 
   it('a ui_intent and its command result make ONE info entry naming what is unavailable', () => {
     const { result, deliver } = setup();
+    act(() => result.current.send({ type: 'command', name: 'plugin' }));
+    deliver({ type: 'ui_intent', event: { intent: { type: 'show-plugin-manager' } } } as TServerMessage);
+    deliver({ type: 'command_result', name: 'plugin', message: 'Opening plugin manager...', success: true });
+
+    expect(result.current.messages).toHaveLength(1);
+    expect(result.current.messages[0]).toEqual(
+      expect.objectContaining({ role: 'command', name: 'plugin', tone: 'info' }),
+    );
+    expect(result.current.messages[0]).toHaveProperty(
+      'content',
+      expect.stringMatching(/plugin manager is not available/i),
+    );
+  });
+
+  it('#3282 §4a: a ui_intent for settings opens the Settings screen instead of an info entry', () => {
+    const { result, deliver } = setup();
     act(() => result.current.send({ type: 'command', name: 'settings' }));
     deliver({ type: 'ui_intent', event: { intent: { type: 'show-settings' } } } as TServerMessage);
     deliver({ type: 'command_result', name: 'settings', message: 'Opening settings...', success: true });
 
-    expect(result.current.messages).toHaveLength(1);
-    expect(result.current.messages[0]).toEqual(
-      expect.objectContaining({ role: 'command', name: 'settings', tone: 'info' }),
-    );
-    expect(result.current.messages[0]).toHaveProperty(
-      'content',
-      expect.stringMatching(/settings screen is not available/i),
-    );
+    expect(result.current.settingsOpen).toBe(true);
+    // The screen opening is the answer — no info line, exactly like `show-session-picker`.
+    expect(result.current.messages).toEqual([]);
   });
 
   it('#3186 review: a screen request with no command of ours in flight shows at once', () => {
@@ -83,11 +94,11 @@ describe('#3186 — the GUI conversation timeline', () => {
 
   it('#3186 review: a protocol error in place of the reply still shows the screen request', () => {
     const { result, deliver } = setup();
-    act(() => result.current.send({ type: 'command', name: 'settings' }));
-    deliver({ type: 'ui_intent', event: { intent: { type: 'show-settings' } } } as TServerMessage);
+    act(() => result.current.send({ type: 'command', name: 'plugin' }));
+    deliver({ type: 'ui_intent', event: { intent: { type: 'show-plugin-manager' } } } as TServerMessage);
     deliver({ type: 'protocol_error', message: 'boom' });
     expect(result.current.messages).toEqual([
-      expect.objectContaining({ role: 'command', name: 'settings', tone: 'info' }),
+      expect.objectContaining({ role: 'command', name: 'plugin', tone: 'info' }),
     ]);
     deliver({ type: 'command_result', name: 'help', message: 'Available commands', success: true });
     expect(result.current.messages.at(-1)).toEqual(expect.objectContaining({ tone: 'success' }));

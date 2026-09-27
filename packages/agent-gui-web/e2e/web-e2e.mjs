@@ -78,6 +78,15 @@ const send = async (text) => {
   await page.getByLabel('message').fill(text);
   await page.getByLabel('message').press('Enter');
 };
+/** Settings applies at once (no Save) — poll until the server's fresh snapshot lands. */
+const waitForSelectValue = async (locator, value, timeoutMs = 5000) => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if ((await locator.inputValue()) === value) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`select never reached value "${value}"`);
+};
 
 try {
   await page.goto(pageUrl.href);
@@ -172,14 +181,40 @@ try {
     await page.getByLabel('message').fill('');
   });
 
-  await scenario('a screen the GUI lacks answers its command once, as an info card', async () => {
+  await scenario('/settings opens the Settings screen instead of the "not available" line', async () => {
     await send('/settings');
-    const card = page.locator('[data-testid="command-output"][data-tone="info"]').last();
-    await card.getByText(/settings screen is not available/).waitFor();
-    if ((await page.getByText('Opening settings...').count()) !== 0) {
-      throw new Error('the command reply showed beside the unavailable line');
+    await page.getByRole('dialog', { name: 'Settings' }).waitFor();
+    if ((await page.getByText(/settings screen is not available/).count()) !== 0) {
+      throw new Error('/settings still printed the unavailable line');
     }
+    await page.getByRole('button', { name: 'Close Settings' }).click();
+    await page.getByRole('dialog', { name: 'Settings' }).waitFor({ state: 'detached' });
   });
+
+  await scenario(
+    'the gear opens Settings; a change to the output style persists across close and reopen',
+    async () => {
+      await page.getByRole('button', { name: 'Settings' }).click();
+      await page.getByRole('dialog', { name: 'Settings' }).waitFor();
+      const outputStyle = page.getByLabel('Output style');
+      if ((await outputStyle.inputValue()) !== 'default') {
+        throw new Error('the output style did not start at its current value');
+      }
+      await outputStyle.selectOption('concise');
+      await waitForSelectValue(outputStyle, 'concise');
+
+      await page.getByRole('button', { name: 'Close Settings' }).click();
+      await page.getByRole('dialog', { name: 'Settings' }).waitFor({ state: 'detached' });
+
+      await page.getByRole('button', { name: 'Settings' }).click();
+      await page.getByRole('dialog', { name: 'Settings' }).waitFor();
+      if ((await page.getByLabel('Output style').inputValue()) !== 'concise') {
+        throw new Error('the output style did not persist across reopen');
+      }
+      await page.getByRole('button', { name: 'Close Settings' }).click();
+      await page.getByRole('dialog', { name: 'Settings' }).waitFor({ state: 'detached' });
+    },
+  );
 
   await scenario('a finished turn keeps its tool calls as one line that opens', async () => {
     await send('read the file');

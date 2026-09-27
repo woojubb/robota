@@ -204,6 +204,7 @@ export type {
   ICommandExternalEventsAdapter,
   TSandboxCommandMode,
   IPermissionRuleLayer,
+  IPermissionRuleRemoval,
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
   ICommandMCPSourceProblem,
@@ -851,6 +852,7 @@ export { inspectSettingsLayers } from './config/settings-inspection.js';
 export {
   createSettingsPermissionRulesAdapter,
   readPermissionRuleLayers,
+  removePermissionRule,
 } from './config/permission-rule-layers.js';
 export type {
   ISettingsInspection,

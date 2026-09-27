@@ -43,6 +43,8 @@ export interface IDesktopBridge {
   answerTrust(choice: TGuiTrustChoice): Promise<{ error?: string }>;
   pickFiles(): Promise<IPickedFile[]>;
   getPathForFile(file: File): string;
+  /** #3282 §4a: the App menu's "Settings…" (⌘,/Ctrl+,) asked to open the Settings screen. */
+  onOpenSettings(listener: () => void): () => void;
 }
 
 export interface IGuiHost {
@@ -78,6 +80,12 @@ export interface IGuiHost {
    * files can never become `@`-references either — only the button's native dialog can, on desktop.
    */
   readonly getPathForFile?: (file: File) => string;
+  /**
+   * #3282 §4a: the host's own entry point for Settings, beside the gear button every surface has
+   * (the desktop app's ⌘,/Ctrl+, menu item). A browser host has none — its no-op still returns an
+   * unsubscribe function, so a caller never has to branch on whether this host offers one.
+   */
+  onOpenSettings(listener: () => void): () => void;
 }
 
 export interface IGuiHostEnvironment {
@@ -110,6 +118,7 @@ export function resolveGuiHost(environment: IGuiHostEnvironment): IGuiHost {
       answerTrust: (choice) => bridge.answerTrust(choice),
       pickFiles: () => bridge.pickFiles(),
       getPathForFile: (file) => bridge.getPathForFile(file),
+      onOpenSettings: (listener) => bridge.onOpenSettings(listener),
     };
   }
   const endpoint = browserEndpoint(environment);
@@ -118,5 +127,6 @@ export function resolveGuiHost(environment: IGuiHostEnvironment): IGuiHost {
     getEndpoint: async () => endpoint,
     signalReady: () => {},
     onState: () => () => {},
+    onOpenSettings: () => () => {},
   };
 }

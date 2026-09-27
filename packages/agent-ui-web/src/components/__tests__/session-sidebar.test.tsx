@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import React from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { SessionSidebar } from '../SessionSidebar.js';
+import { SessionSidebar, SessionSidebarRail } from '../SessionSidebar.js';
 
 import type { IWsSessionState, TSessionListing } from '../../hooks/session-client-types.js';
 
@@ -21,15 +21,21 @@ function row(
   return { id, cwd: '/w', updatedAt, messageCount: 1, preview, ...extra };
 }
 
-function renderSidebar(listing: TSessionListing): void {
+function renderSidebar(
+  listing: TSessionListing,
+  overrides: Partial<IWsSessionState> = {},
+): IWsSessionState {
   const state = {
     sessionListing: listing,
     sessionsError: null,
     setSessionSidebarOpen: () => undefined,
     newSession: () => undefined,
     switchSession: () => undefined,
+    openSettings: () => undefined,
+    ...overrides,
   } as unknown as IWsSessionState;
   render(<SessionSidebar state={state} />);
+  return state;
 }
 
 const sessionRow = (name: RegExp): HTMLElement =>
@@ -135,5 +141,31 @@ describe('SessionSidebar rows have a clean accessible name and a description (#3
     });
     const button = sessionRow(/stored only/);
     expect(button.getAttribute('aria-describedby')?.split(' ').length).toBe(1);
+  });
+});
+
+describe('#3282 §4a — the sidebar footer opens Settings', () => {
+  afterEach(cleanup);
+
+  it('the footer gear has an accessible name "Settings" and opens the screen', () => {
+    const openSettings = vi.fn();
+    renderSidebar(
+      { currentSessionId: 'a', sessions: [row('a', 'plain')], unreadableSessionIds: [] },
+      { openSettings },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(openSettings).toHaveBeenCalledOnce();
+  });
+
+  it('the collapsed rail also offers a Settings button', () => {
+    const openSettings = vi.fn();
+    const state = {
+      setSessionSidebarOpen: () => undefined,
+      newSession: () => undefined,
+      openSettings,
+    } as unknown as IWsSessionState;
+    render(<SessionSidebarRail state={state} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(openSettings).toHaveBeenCalledOnce();
   });
 });

@@ -23,6 +23,7 @@ import { createWsSessionClient } from '../client/ws-session-client.js';
 import { SERVER_MESSAGE_HANDLING } from './server-message-handling.js';
 import { usePersonalUsageState } from './use-personal-usage.js';
 import { useSessionDirectoryState } from './use-session-directory.js';
+import { useSettingsState } from './use-settings-state.js';
 
 import type {
   IActiveTool,
@@ -266,6 +267,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const { handleSessionsMessage, canListSessions, markCurrent, armRestore, ...sessionDirectoryState } =
     useSessionDirectoryState(send);
   const { requestSessions, setSessionSidebarOpen } = sessionDirectoryState;
+  const { handleSettingsMessage, openSettings, ...settingsState } = useSettingsState(send);
 
   const handleMessage = useCallback(
     (msg: TServerMessage): void => {
@@ -274,6 +276,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       void SERVER_MESSAGE_HANDLING[msg.type];
       if (handleUsageMessage(msg)) return;
       if (handleSessionsMessage(msg)) return;
+      if (handleSettingsMessage(msg)) return;
       switch (msg.type) {
         case 'messages': {
           const reconstructed: TConversationEntry[] = msg.messages.flatMap((m) => {
@@ -365,6 +368,14 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           if (guiScreenForUiIntent(msg.event.intent) === 'session-sidebar' && canListSessions()) {
             setSessionSidebarOpen(true);
             requestSessions();
+            if (commandsInFlightRef.current > 0) {
+              pendingIntentRef.current = { name: uiIntentCommandName(msg.event.intent), text: null };
+            }
+            break;
+          }
+          // #3282 §4a: `/settings` asks for the Settings screen — always available on this surface.
+          if (guiScreenForUiIntent(msg.event.intent) === 'settings') {
+            openSettings();
             if (commandsInFlightRef.current > 0) {
               pendingIntentRef.current = { name: uiIntentCommandName(msg.event.intent), text: null };
             }
@@ -538,8 +549,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       canListSessions,
       finishTurn,
       handleSessionsMessage,
+      handleSettingsMessage,
       handleUsageMessage,
       markCurrent,
+      openSettings,
       requestSessions,
       send,
       setSessionSidebarOpen,
@@ -613,6 +626,8 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     ...sessionDirectoryState,
     sessionNotices,
     dismissSessionNotice,
+    openSettings,
+    ...settingsState,
   };
 }
 
