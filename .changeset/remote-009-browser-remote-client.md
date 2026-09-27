@@ -13,4 +13,4 @@ reuses the isomorphic `@robota-sdk/agent-remote-pairing` leaf and takes no node/
 `agent-cli` removes the fabricated `robota-remote://pair` client-URL default and fails closed when
 `transports.webrtc.options.clientUrl` is unset (no dead link).
 
-(Bump targets corrected during REL-023 triage: `@robota-sdk/agent-web-ui` was dissolved by GUI-006 (#1141, 2026-07-12) before this work was ever published; the browser client described here now lives in `@robota-sdk/agent-transport-webrtc-web` + `@robota-sdk/agent-remote-client`.)
+(Bump targets corrected during REL-023 triage: `@robota-sdk/agent-web-ui` was dissolved by GUI-006 (#1141, 2026-07-12) before this work was ever published; the browser client described here now lives in `@robota-sdk/agent-transport-webrtc-web`.)

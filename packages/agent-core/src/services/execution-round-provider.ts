@@ -170,14 +170,12 @@ export async function callProviderWithCache(
   };
   // DATA-007/API-001: the SESSION's effort selection is the cache identity — never a locally resolved
   // effective value. An earlier version of this fix resolved the effort against
-  // `resolved.provider.effortTable()` before touching the cache, but that table is only ever
-  // populated for a NATIVE provider verified in-process; an `IExecutor`-backed provider never has
-  // one (the remote side resolves against its OWN table and never serializes the resolution back),
-  // and a local table can simply be
-  // missing an entry for this exact model (version skew, a `baseURL`/API-surface variant). Both cases
-  // report the same "not applied" outcome regardless of the actual selection, which would let
+  // `resolved.provider.effortTable()` before touching the cache, but `effortTable` is optional: a
+  // provider may declare none or return none (a gateway `baseURL`, another API surface), and a
+  // table can simply be missing an entry for this exact model (version skew). Every such case
+  // reports the same "not applied" outcome regardless of the actual selection, which would let
   // different selections collide. Keying on the raw selection sidesteps that entirely: it is known
-  // upfront, is identical across every executor shape, and is exactly what the caller asked for.
+  // upfront, is identical for every provider, and is exactly what the caller asked for.
   // `undefined` normalizes to `'auto'`, matching `buildRoundChatOptions`'s own default. This replaces
   // the former API-001 bypass (which unconditionally skipped the cache for any explicit selection
   // because the key could not tell efforts apart) — the cache is now always consulted.
