@@ -270,9 +270,10 @@ describe('execution-round helpers', () => {
     // designs were tried and dropped: keying purely on `resolveModelEffort(...).effective` let an
     // explicit selection collide with an unrelated `auto` call that happened to resolve to the same
     // model default, and keying on a "not-applied:<selection>" fallback for an unresolvable effort
-    // still depended on a table lookup, and `effortTable` is optional — a provider may declare none,
-    // or have no entry for the model. Keying on the raw selection avoids all of that: it needs no
-    // table, behaves identically for every provider, and is exactly what the caller asked for. `lookup` and `store` receive the identical value either way.
+    // still depended on a table lookup, and `effortTable` is optional — a provider may declare
+    // none, or have no entry for the model. Keying on the raw selection avoids all of that: it needs
+    // no table, behaves identically for every provider, and is exactly what the caller asked for.
+    // `lookup` and `store` receive the identical value either way.
     it('passes the session effort selection (never a resolved value) as the identical identity to lookup and store', async () => {
       const chat = vi.fn().mockResolvedValue({
         role: 'assistant',
