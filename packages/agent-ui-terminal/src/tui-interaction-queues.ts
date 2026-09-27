@@ -1,6 +1,9 @@
 import type { IPendingPermissionRequest } from './types.js';
 import type { IActionRequest, TActionResponse, TToolArgs } from '@robota-sdk/agent-core';
-import type { TPermissionResultValue } from '@robota-sdk/agent-interface-session';
+import type {
+  TPermissionRequester,
+  TPermissionResultValue,
+} from '@robota-sdk/agent-interface-session';
 
 interface IUserActionQueueEntry {
   presentedRequest: IActionRequest;
@@ -13,6 +16,8 @@ interface IPermissionQueueEntry {
   toolArgs: TToolArgs;
   canPersistProjectPermission?: boolean;
   requestedByPeer?: string;
+  /** Issue #3288 §1: a background agent's own request, forwarded to the person. */
+  requester?: TPermissionRequester;
   resolve: (result: TPermissionResultValue) => void;
   id?: string;
 }
@@ -96,6 +101,7 @@ export class TuiPermissionQueue {
     id?: string,
     canPersistProjectPermission?: boolean,
     requestedByPeer?: string,
+    requester?: TPermissionRequester,
   ): Promise<TPermissionResultValue> {
     return new Promise<TPermissionResultValue>((resolve) => {
       this.entries.push({
@@ -105,6 +111,7 @@ export class TuiPermissionQueue {
         ...(id !== undefined ? { id } : {}),
         ...(canPersistProjectPermission !== undefined ? { canPersistProjectPermission } : {}),
         ...(requestedByPeer !== undefined ? { requestedByPeer } : {}),
+        ...(requester !== undefined ? { requester } : {}),
       });
       this.processNext();
     });
@@ -149,6 +156,7 @@ export class TuiPermissionQueue {
         ? { canPersistProjectPermission: next.canPersistProjectPermission }
         : {}),
       ...(next.requestedByPeer !== undefined ? { requestedByPeer: next.requestedByPeer } : {}),
+      ...(next.requester !== undefined ? { requester: next.requester } : {}),
       resolve: (result) => {
         if (this.entries[0] !== next) return;
         this.entries.shift();

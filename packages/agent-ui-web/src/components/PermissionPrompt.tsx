@@ -244,7 +244,18 @@ export function PermissionPrompt({
                   )}
                 </p>
                 <p className="mt-0.5 text-[15px] font-medium text-foreground">
-                  Allow <span className="font-semibold">{prompt.toolName}</span> to run?
+                  {/* Issue #3288 §1: a background agent's own request names it, so this reads as a
+                      question about someone else's action rather than an unattributed ask. */}
+                  {prompt.requester?.kind === 'background-agent' ? (
+                    <>
+                      Background agent <span className="font-semibold">{prompt.requester.label}</span>{' '}
+                      wants to run <span className="font-semibold">{prompt.toolName}</span>
+                    </>
+                  ) : (
+                    <>
+                      Allow <span className="font-semibold">{prompt.toolName}</span> to run?
+                    </>
+                  )}
                 </p>
                 <ToolArgs args={prompt.toolArgs} />
               </div>

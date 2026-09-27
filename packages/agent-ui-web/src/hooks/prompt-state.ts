@@ -32,8 +32,9 @@ export function applyPromptEvent(
 ): readonly TPendingPrompt[] {
   switch (msg.type) {
     case 'permission_request': {
-      // REMOTE-014 E5: keep requesterDriverId so the surface can show WHICH driver's turn raised the prompt.
-      const { id, toolName, toolArgs, requesterDriverId } = msg.event;
+      // REMOTE-014 E5: keep requesterDriverId so the surface can show WHICH driver's turn raised the
+      // prompt. Issue #3288 §1: keep `requester` too, so it can show WHICH background agent did.
+      const { id, toolName, toolArgs, requesterDriverId, requester } = msg.event;
       if (prompts.some((p) => p.id === id)) return prompts;
       return [
         ...prompts,
@@ -43,6 +44,7 @@ export function applyPromptEvent(
           toolName,
           toolArgs,
           ...(requesterDriverId ? { requesterDriverId } : {}),
+          ...(requester ? { requester } : {}),
         },
       ];
     }

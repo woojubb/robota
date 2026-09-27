@@ -48,6 +48,30 @@ process.on('message', (message) => {
     if (process.env.ROBOTA_FIXTURE_MODE === 'wait') {
       return;
     }
+    // Issue #3288 §1: a tool call needing approval. Sends the request once, then reports whatever
+    // answer arrives (or never resolves, for a test that cancels the job while it is outstanding).
+    if (process.env.ROBOTA_FIXTURE_MODE === 'permission-request') {
+      process.send?.({
+        type: 'permission_request',
+        requestId: 'r1',
+        toolName: 'Glob',
+        toolArgs: { pattern: '**/*' },
+      });
+      return;
+    }
+    if (process.env.ROBOTA_FIXTURE_MODE === 'permission-request-wait') {
+      process.send?.({ type: 'permission_request', requestId: 'r1', toolName: 'Glob' });
+      return;
+    }
+    // Issue #3288 §1 (review item 3): sends the request, then — without waiting for an answer —
+    // immediately reports a result too, simulating the child settling while a request is still
+    // outstanding on the parent side.
+    if (process.env.ROBOTA_FIXTURE_MODE === 'permission-request-then-result') {
+      process.send?.({ type: 'permission_request', requestId: 'r1', toolName: 'Glob' });
+      process.send?.({ type: 'result', output: 'raced' });
+      setTimeout(() => process.exit(0), 0);
+      return;
+    }
     if (process.env.ROBOTA_FIXTURE_MODE === 'progress') {
       process.send?.({ type: 'tool_start', toolName: 'Read', toolArgs: { file_path: 'file.ts' } });
       process.send?.({ type: 'text_delta', delta: 'partial ' });
@@ -106,6 +130,12 @@ process.on('message', (message) => {
 
   if (message.type === 'cancel') {
     process.send?.({ type: 'cancelled', reason: message.reason });
+    setTimeout(() => process.exit(0), 0);
+    return;
+  }
+
+  if (message.type === 'permission_response') {
+    process.send?.({ type: 'result', output: `permission:${message.requestId}:${message.result}` });
     setTimeout(() => process.exit(0), 0);
     return;
   }

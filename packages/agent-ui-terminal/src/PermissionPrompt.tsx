@@ -153,11 +153,19 @@ export default function PermissionPrompt({
     ['confirm', 'Confirm'],
   ]);
 
+  // Issue #3288 §1: a background agent's own request, read out/shown before the tool name.
+  const backgroundAgentLabel =
+    request.requester?.kind === 'background-agent' ? request.requester.label : undefined;
+
   if (screenReader) {
     return (
       <NumberedList
         title={SCREEN_READER_LABELS.permissionRequired}
-        description={`${request.toolName} — ${formatArgs(request.toolArgs)}${
+        description={`${
+          backgroundAgentLabel !== undefined
+            ? `Background agent ${backgroundAgentLabel} wants to run `
+            : ''
+        }${request.toolName} — ${formatArgs(request.toolArgs)}${
           request.requestedByPeer !== undefined
             ? ` (requested by another session: ${request.requestedByPeer})`
             : ''
@@ -182,12 +190,21 @@ export default function PermissionPrompt({
         </Text>
         {armed ? null : <Text dimColor> keys answer in a moment</Text>}
       </Box>
-      <Text>
-        Tool:{' '}
-        <Text color={palette.text.accent} bold>
-          {request.toolName}
+      {backgroundAgentLabel !== undefined ? (
+        <Text color={palette.text.warning}>
+          Background agent <Text bold>{backgroundAgentLabel}</Text> wants to run{' '}
+          <Text color={palette.text.accent} bold>
+            {request.toolName}
+          </Text>
         </Text>
-      </Text>
+      ) : (
+        <Text>
+          Tool:{' '}
+          <Text color={palette.text.accent} bold>
+            {request.toolName}
+          </Text>
+        </Text>
+      )}
       <Text dimColor> {formatArgs(request.toolArgs)}</Text>
       {request.requestedByPeer !== undefined ? (
         <Text color={palette.text.warning}>

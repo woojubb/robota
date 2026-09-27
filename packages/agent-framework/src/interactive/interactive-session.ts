@@ -119,6 +119,7 @@ import type {
   TActionResponse,
   IToolSchema,
   IToolExecutionResult,
+  TToolArgs,
   TToolParameters,
 } from '@robota-sdk/agent-core';
 import type { ISession } from '@robota-sdk/agent-core';
@@ -140,7 +141,7 @@ import type {
   TWaitingLoopStopOutcome,
 } from '@robota-sdk/agent-interface-session';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
-import type { Session } from '@robota-sdk/agent-session';
+import type { IPermissionAskContext, Session } from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IWorkspaceMoveInstructions } from './interactive-session-workspace-move.js';
 export type { TInteractiveSessionOptions } from './interactive-session-options.js';
@@ -572,8 +573,12 @@ export class InteractiveSession
       resumeSessionId: this.resumeSessionId,
       pendingRestoreMessages: this.pendingRestoreMessages,
       restoredSystemPrompt: this.restoredSystemPrompt,
-      permissionHandler: (toolName, toolArgs) =>
-        this.promptRegistry.requestPermission(toolName, toolArgs, canPersistProjectPermission),
+      // Issue #3288 §1: `context` is optional here so this stays assignable to the narrower
+      // `TInteractivePermissionHandler` this deps field is typed as (2 args) — the caller that
+      // actually supplies a `requester`/`signal` (the child-process subagent runner) holds this same
+      // function through the session-layer's own, wider `TPermissionHandler` and calls it with three.
+      permissionHandler: (toolName: string, toolArgs: TToolArgs, context?: IPermissionAskContext) =>
+        this.promptRegistry.requestPermission(toolName, toolArgs, canPersistProjectPermission, context),
       askHandler: this.askHandler,
       onTextDelta: (delta) => this.execCtrl.handleTextDelta(delta),
       onContextUpdate: (state) => this.emit('context_update', state),

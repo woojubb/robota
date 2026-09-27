@@ -22,6 +22,7 @@ import type { TDecodeIssues } from './decode-outcome.js';
 import type { ITokenUsage } from '@robota-sdk/agent-core';
 import type {
   IAgentBackgroundTaskResult,
+  IBackgroundTaskDeniedToolCalls,
   IBackgroundTaskError,
   IBackgroundTaskResult,
   IBackgroundTaskSchedule,
@@ -33,6 +34,7 @@ import type {
   TBackgroundTaskIsolation,
   TBackgroundTaskKind,
   TBackgroundTaskMode,
+  TBackgroundTaskPermissionDenialReason,
   TBackgroundTaskStatus,
   TBackgroundTaskTimeoutReason,
 } from '@robota-sdk/agent-interface-execution';
@@ -79,6 +81,13 @@ const TASK_ERROR_CATEGORIES = [
   'provider',
   'process',
 ] as const satisfies readonly TBackgroundTaskErrorCategory[];
+/** Issue #3288 §1: mirrors the SSOT `TBackgroundTaskPermissionDenialReason` (`agent-interface-execution`). */
+const TASK_PERMISSION_DENIAL_REASONS = [
+  'denied-by-person',
+  'no-approver',
+  'approver-error',
+  'cancelled',
+] as const satisfies readonly TBackgroundTaskPermissionDenialReason[];
 
 export function decodePrimitiveMap(
   value: unknown,
@@ -140,6 +149,41 @@ function decodeTokenUsage(
   return { promptTokens, completionTokens, totalTokens };
 }
 
+/**
+ * Issue #3288 §1: how many of a task's tool calls were refused, and why. Every reason key is
+ * required — `child-process-subagent-runner-result.ts` always serializes the full count map, zeros
+ * included, so a persisted `deniedToolCalls` missing one is drift, not an author's choice to omit it.
+ */
+function decodeDeniedToolCalls(
+  value: unknown,
+  path: string,
+  issues: TDecodeIssues,
+): IBackgroundTaskDeniedToolCalls | undefined {
+  const raw = decodeDeclaredObject(value, path, issues, ['total', 'byReason']);
+  if (raw === undefined) return undefined;
+  const total = decodeInteger(raw['total'], atKey(path, 'total'), issues);
+  const byReasonPath = atKey(path, 'byReason');
+  const byReasonRaw = decodeDeclaredObject(
+    raw['byReason'],
+    byReasonPath,
+    issues,
+    TASK_PERMISSION_DENIAL_REASONS,
+  );
+  if (total === undefined || byReasonRaw === undefined) return undefined;
+  const byReason = {} as Record<TBackgroundTaskPermissionDenialReason, number>;
+  let byReasonOk = true;
+  for (const reason of TASK_PERMISSION_DENIAL_REASONS) {
+    const count = decodeInteger(byReasonRaw[reason], atKey(byReasonPath, reason), issues);
+    if (count === undefined) {
+      byReasonOk = false;
+      continue;
+    }
+    byReason[reason] = count;
+  }
+  if (!byReasonOk) return undefined;
+  return { total, byReason };
+}
+
 export function decodeBackgroundTaskResult(
   value: unknown,
   path: string,
@@ -153,6 +197,7 @@ export function decodeBackgroundTaskResult(
     'signalCode',
     'metadata',
     'usage',
+    'deniedToolCalls',
   ]);
   if (raw === undefined) return undefined;
   const taskId = decodeString(raw['taskId'], atKey(path, 'taskId'), issues);
@@ -173,11 +218,17 @@ export function decodeBackgroundTaskResult(
     decodePrimitiveMap,
   );
   const usage = decodeOptional(raw['usage'], atKey(path, 'usage'), issues, decodeTokenUsage);
-  // #2079: `exitCode`/`signalCode` are process-only and `usage` is agent-only — a persisted result
-  // carrying a field outside its own kind is corrupt, reported the same way the #3041 taskId/kind
-  // identity check is: an issue at the offending field's own path, not a thrown error. The switch
-  // below then builds only the fields that belong to the decoded `kind`, so a foreign field never
-  // reaches the returned object even though it was read (and flagged) above.
+  const deniedToolCalls = decodeOptional(
+    raw['deniedToolCalls'],
+    atKey(path, 'deniedToolCalls'),
+    issues,
+    decodeDeniedToolCalls,
+  );
+  // #2079: `exitCode`/`signalCode` are process-only and `usage`/`deniedToolCalls` are agent-only — a
+  // persisted result carrying a field outside its own kind is corrupt, reported the same way the
+  // #3041 taskId/kind identity check is: an issue at the offending field's own path, not a thrown
+  // error. The switch below then builds only the fields that belong to the decoded `kind`, so a
+  // foreign field never reaches the returned object even though it was read (and flagged) above.
   if (kind !== 'process' && exitCode !== undefined) {
     addIssue(issues, atKey(path, 'exitCode'), `must not be set for a '${kind}' result`);
   }
@@ -186,6 +237,9 @@ export function decodeBackgroundTaskResult(
   }
   if (kind !== 'agent' && usage !== undefined) {
     addIssue(issues, atKey(path, 'usage'), `must not be set for a '${kind}' result`);
+  }
+  if (kind !== 'agent' && deniedToolCalls !== undefined) {
+    addIssue(issues, atKey(path, 'deniedToolCalls'), `must not be set for a '${kind}' result`);
   }
   switch (kind) {
     case 'process': {
@@ -199,6 +253,7 @@ export function decodeBackgroundTaskResult(
       const result: IAgentBackgroundTaskResult = { taskId, kind, output };
       setOptional(result, 'metadata', metadata);
       setOptional(result, 'usage', usage);
+      setOptional(result, 'deniedToolCalls', deniedToolCalls);
       return result;
     }
     case 'scheduled': {

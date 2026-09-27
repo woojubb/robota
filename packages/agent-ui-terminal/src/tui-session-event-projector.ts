@@ -13,6 +13,7 @@ import type {
   IExecutionResult,
   IInteractiveSessionEvents,
   TInteractiveEventName,
+  TPermissionRequester,
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-session';
 
@@ -25,6 +26,8 @@ export interface ITuiSessionEventProjectorOptions {
     id: string,
     canPersistProjectPermission?: boolean,
     requestedByPeer?: string,
+    /** Issue #3288 §1: a background agent's own request, forwarded to the person. */
+    requester?: TPermissionRequester,
   ) => Promise<TPermissionResultValue>;
   askUser: (request: IActionRequest, id: string) => Promise<TActionResponse>;
   dismissPrompt: (id: string) => void;
@@ -86,6 +89,7 @@ export class TuiSessionEventProjector {
       toolArgs,
       canPersistProjectPermission,
       requesterDriverId,
+      requester,
     }) => {
       attention?.onNeedsInput();
       // A peer turn's ask names the peer, printed only as a plain identifier.
@@ -93,7 +97,14 @@ export class TuiSessionEventProjector {
         ? printablePeerDriver(requesterDriverId)
         : undefined;
       void this.options
-        .requestPermission(toolName, toolArgs, id, canPersistProjectPermission, requestedByPeer)
+        .requestPermission(
+          toolName,
+          toolArgs,
+          id,
+          canPersistProjectPermission,
+          requestedByPeer,
+          requester,
+        )
         .then((result) => session.resolvePermission(id, result))
         .catch(() => session.resolvePermission(id, false));
     };
