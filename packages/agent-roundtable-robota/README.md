@@ -180,7 +180,9 @@ it settles. A `Session`-backed, checkpoint-resumable journal uses `meterRecovera
 `RobotaParticipantError` (`unsupported-wait`, `identity-mismatch`, `checkpoint-invalid`,
 `journal-missing`, `resource-reused`) is thrown by a participant's `runTurn`/`resumeTurn`/`openSession`.
 `SelectorDecisionError` (`no-candidates`, `no-decision`, `multiple-decisions`, `invalid-decision`,
-`unknown-participant`) is thrown by `robotaSelector`'s `select`.
+`unknown-participant`) is thrown by `robotaSelector`'s `select`, which also throws
+`RobotaParticipantError('resource-reused')` if one selector instance is asked to decide for two
+conversations at the same time.
 
 ## Provider SDK retries
 
