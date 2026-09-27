@@ -254,9 +254,14 @@ export const Composer = forwardRef<
   const handleAttachClick = (): void => {
     if (!connected) return;
     if (pickFiles) {
-      void pickFiles().then((picked) =>
-        addCandidates(picked.map((f) => ({ name: f.name, size: f.size, absolutePath: f.path }))),
-      );
+      pickFiles()
+        .then((picked) =>
+          addCandidates(picked.map((f) => ({ name: f.name, size: f.size, absolutePath: f.path }))),
+        )
+        // The host's dialog IPC can reject (e.g. the window closed mid-pick) — say so rather than
+        // leaving an unhandled rejection and a button that silently did nothing (rule 5: never fail
+        // silently).
+        .catch(() => setAttachmentNotice('Could not open the file picker. Try again.'));
       return;
     }
     fileInputRef.current?.click();

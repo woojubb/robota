@@ -154,6 +154,27 @@ describe('evaluateCandidateFile', () => {
     expect(outcome.kind).toBe('rejected');
     if (outcome.kind === 'rejected') expect(outcome.message).toContain('my file.txt');
   });
+
+  // The runtime's @-reference parser strips a trailing .,:;!? off every captured token
+  // (`stripTrailingPunctuation` in prompt-file-reference-parser.ts) before resolving it — a chip for
+  // a file whose name ends in one of those would otherwise promise a reference the runtime silently
+  // truncates and then can't find.
+  it.each(['notes.', 'todo:', 'important!', 'maybe?'])(
+    'rejects a workspace file whose name ends in trailing punctuation the parser would strip (%s)',
+    (name) => {
+      const outcome = evaluateCandidateFile({ name, size: 10, absolutePath: `/repo/${name}` }, cwd, 0);
+      expect(outcome.kind).toBe('rejected');
+    },
+  );
+
+  it('does not reject an ordinary file with a "." in the middle (an extension)', () => {
+    const outcome = evaluateCandidateFile(
+      { name: 'notes.txt', size: 10, absolutePath: '/repo/notes.txt' },
+      cwd,
+      0,
+    );
+    expect(outcome.kind).toBe('attached');
+  });
 });
 
 describe('buildPromptWithAttachments', () => {

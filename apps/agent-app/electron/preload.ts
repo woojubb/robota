@@ -1,8 +1,9 @@
 /**
- * GUI-002 — Electron preload (runs in an isolated context). Exposes ONLY the loopback endpoint + lifecycle
- * signals to the renderer via `contextBridge` — no Node APIs leak into the GUI web app (agent-gui-web), and the endpoint
- * (which carries the auth nonce) is never placed on `window` as a plain value that page script could read
- * off a global before the bridge is set up.
+ * GUI-002 — Electron preload (runs in an isolated context). Exposes a narrow, named surface to the
+ * renderer via `contextBridge`, never a raw Node API: the loopback endpoint and lifecycle signals, the
+ * trust question/answer, and (#3282 §4d) the composer's native "Attach files" dialog and resolving a
+ * dropped/picked `File` to its real path. The endpoint (which carries the auth nonce) is never placed
+ * on `window` as a plain value that page script could read off a global before the bridge is set up.
  */
 
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';

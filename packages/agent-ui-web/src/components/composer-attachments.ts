@@ -103,6 +103,14 @@ export function looksBinary(name: string, mimeType: string | undefined): boolean
 
 /** The same terminator set `prompt-file-reference-parser.ts` stops an `@`-reference token at. */
 const UNSAFE_REFERENCE_CHARS = /[\s)\]}>,;"'`]/u;
+/**
+ * `prompt-file-reference-parser.ts`'s `stripTrailingPunctuation` also trims a trailing `.,:;!?` off
+ * every captured `@token` — `,`/`;` are already covered above (they can appear anywhere in that
+ * set), but a path merely *ending* in `.`/`:`/`!`/`?` (fine mid-string — most files have a `.`) would
+ * otherwise be silently truncated by the runtime, so the chip would name a file the reference can
+ * never actually resolve.
+ */
+const UNSAFE_TRAILING_CHAR = /[.,:;!?]$/u;
 
 function formatBytes(bytes: number): string {
   return bytes >= 1024 ? `${Math.round(bytes / 1024)} KB` : `${bytes} B`;
@@ -127,10 +135,10 @@ export function evaluateCandidateFile(
   if (!file.absolutePath) return { kind: 'rejected', message: ATTACHMENT_NO_PATH_NOTICE };
   const relativePath = relativeWorkspacePath(cwd, file.absolutePath);
   if (relativePath === null) return { kind: 'rejected', message: ATTACHMENT_NO_PATH_NOTICE };
-  if (UNSAFE_REFERENCE_CHARS.test(relativePath)) {
+  if (UNSAFE_REFERENCE_CHARS.test(relativePath) || UNSAFE_TRAILING_CHAR.test(relativePath)) {
     return {
       kind: 'rejected',
-      message: `"${file.name}" has a character (such as a space) the @file syntax can't carry — rename it to attach it.`,
+      message: `"${file.name}" has a character (such as a space, or a period/punctuation mark at the end) the @file syntax can't carry — rename it to attach it.`,
     };
   }
   if (file.size > MAX_ATTACHMENT_FILE_BYTES) {
