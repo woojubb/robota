@@ -24,7 +24,7 @@ packages are optional assembly on top of them. Published packages need Node.js >
 - **Streaming** — `runStream()` or per-run `onTextDelta`: [content/guide/building-agents.md](content/guide/building-agents.md)
 - **Schema-enforced structured output** — `run(prompt, { output: zodSchema })` returns a validated typed object with provider-native mapping + bounded retry: [packages/agent-core/docs/SPEC.md](packages/agent-core/docs/SPEC.md) § Structured Output Contract
 - **Runtime tool validation** — zod schemas validate tool args before executors run: [packages/agent-tools/README.md](packages/agent-tools/README.md)
-- **Step control** — `maxExecutionRounds` (a round = one model call + its requested tool executions): [content/guide/building-agents.md](content/guide/building-agents.md) § Execution Contracts
+- **Step control** — `maxExecutionRounds` (a round = one model call + its requested tool executions): [content/guide/building-agents.md](content/guide/building-agents.md) § Execution contracts
 - **Model fallback** — `FallbackProvider` (`@robota-sdk/agent-framework`) moves a request to the next model of a chain when the primary fails in a way another model could serve, never after text has streamed. Owner JSDoc: [packages/agent-framework/src/routing/fallback-provider.ts](packages/agent-framework/src/routing/fallback-provider.ts); contract: [packages/agent-framework/docs/SPEC.md](packages/agent-framework/docs/SPEC.md) § Guarantees and invariants
 - **Sessions, permissions, `createQuery()`** — `InteractiveSession`, permission modes and rules, hooks, config/context loading: [packages/agent-framework/README.md](packages/agent-framework/README.md); [content/guide/permissions-and-hooks.md](content/guide/permissions-and-hooks.md)
 - **MCP** — client (`@robota-sdk/agent-mcp`): [packages/agent-mcp/README.md](packages/agent-mcp/README.md); serve a session as an MCP server (`@robota-sdk/agent-transport-mcp`): [packages/agent-transport-mcp/README.md](packages/agent-transport-mcp/README.md)
@@ -33,8 +33,8 @@ packages are optional assembly on top of them. Published packages need Node.js >
 ## Behavior contracts
 
 - **Run concurrency** — per-instance FIFO serialization; concurrent `run()` calls never interleave history: [packages/agent-core/docs/SPEC.md](packages/agent-core/docs/SPEC.md) § Run Concurrency Contract
-- **History lifetime & cost** — append-only, full history sent every call; `clearHistory()` resets, systemMessage re-applies; `retainHistory: false` = run-isolated (stateless) mode: [content/guide/building-agents.md](content/guide/building-agents.md) § History lifetime & cost
-- **`destroy()`** — best-effort: never rejects, safe to fire-and-forget, failures returned as `{ errors }`: [content/guide/building-agents.md](content/guide/building-agents.md) § Execution Contracts
+- **History lifetime & cost** — append-only, full history sent every call; `clearHistory()` resets, systemMessage re-applies; `retainHistory: false` = run-isolated (stateless) mode: [content/guide/building-agents.md](content/guide/building-agents.md) § History lifetime and cost
+- **`destroy()`** — best-effort: never rejects, safe to fire-and-forget, failures returned as `{ errors }`: [content/guide/building-agents.md](content/guide/building-agents.md) § Execution contracts
 - **Tool-only turns** — `allowToolOnlyCompletion: true` makes a tool call a valid completion (decision agents, no summary-call tax): [content/guide/building-agents.md](content/guide/building-agents.md) § Decision agents
 - **Unattended permission default** — `createQuery()` runs in the `default` permission mode: with no approver, a call that would ask is denied unless you pass another `permissionMode`: [packages/agent-framework/README.md](packages/agent-framework/README.md)
 

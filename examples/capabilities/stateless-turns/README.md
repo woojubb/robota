@@ -13,4 +13,4 @@ pnpm install
 ANTHROPIC_API_KEY=your-key pnpm dev
 ```
 
-See [Building Agents — History lifetime & cost](../../../content/guide/building-agents.md#history-lifetime--cost).
+See [Building Agents — History lifetime and cost](../../../content/guide/building-agents.md#history-lifetime-and-cost).
