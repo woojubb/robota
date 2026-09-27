@@ -1,5 +1,591 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.83
+
+### Minor Changes
+
+- 3c81769: A supervised session accepts attach connections on its control socket.
+
+  - A terminal of the same user sends `{"command":"attach","id","generation","mode":"drive"|"observe","protocol":1}`.
+    The session compares the generation with its own. It refuses another generation, an unknown mode or
+    protocol, or a fifth concurrent attach. Otherwise it answers `{"status":"attached","driverId":"attach:<n>"}`
+    and carries the ordinary session protocol as newline-delimited JSON on the same connection.
+  - The driver id is assigned by the session and a client-sent one is ignored. Turns submitted from an
+    attached terminal are attributed to it and counted under the new `attach` usage surface.
+  - `drive` sends prompts and answers the session's questions under the usual co-drive rules. `observe`
+    is read-only and never counts as a surface that can answer, so an unattended session still denies
+    its prompts at once.
+  - Detaching or crashing ends only that connection: a turn in progress keeps running, a prompt no other
+    surface can answer is denied, and the session returns to its unattached posture. A reader that falls
+    1 MiB behind is disconnected, and an oversize frame closes only its own connection. Stopping the
+    session ends attached connections with it.
+  - Commands from an attached terminal carry the remote origin, so pairing, revoking and reading the
+    pairing link stay refused. An attached terminal is never an operator approver; supervised sessions
+    keep refusing mesh connections that need one.
+  - A client may send its first frames in the same write as the handshake; only the handshake line
+    itself is held to the control endpoint's line limit.
+  - `agent-framework`: the surface a turn was submitted on now reaches its usage observation. It was
+    dropped before, so remote-control turns were counted as `unknown`.
+  - The terminal client (`robota session attach`) and the view keys come separately.
+
+- 617b795: `robota session attach <id> [--observe]` puts this terminal on a live supervised session.
+
+  - It asks first, on the controlling terminal, naming the session and the role: drive (send prompts,
+    answer its questions) or observe (read only). The yes holds only for the process start it named: if
+    the session restarted meanwhile, the attach is refused.
+  - It needs an interactive terminal. Without one (a script, or an agent running shell commands) it is
+    refused and prints the command for the user to run. It is not available as a slash command or a
+    model tool.
+  - The terminal view shows the conversation so far, then follows the session live: streaming replies,
+    tools, other terminals' prompts, queued input and questions. In drive mode it sends prompts and
+    `/commands` and answers permission prompts and questions; a question answered on another surface is
+    dismissed. Observe mode is labelled read-only and sends nothing but reads.
+  - `/exit`, `/quit`, Ctrl-C and Ctrl-] detach. Nothing is sent to the session, so its turn continues and
+    it keeps running; stop it with `robota session stop` or from `robota session view`.
+  - The attached terminal is the full terminal UI (`renderAttachedApp` in `agent-ui-terminal`).
+  - A handshake from a connection that already closed no longer holds one of the session's attach slots.
+
+- 724fabb: External-event grants are given at start, carried exactly to a background session, listed without their
+  principal, and revoked by the owner.
+
+  - `agent-framework` (breaking) — `openExternalEventSource` and `ExternalEventIngress.open` take only
+    `{ grant, audit? }`: the session builds each grant's verifier from `grant.verifier` with the
+    `externalEventVerifierFactory` its host passed when the session was built (without one, no grant opens), and an
+    open that supplies a verifier or a factory is refused. `IExternalEventSource.revoke()` stops the grant's queued and running turns,
+    refuses its later events as `grant-revoked`, and keeps the label from being opened again. A submission the
+    session refuses is `shutting-down` only while it shuts down, and `session-unavailable` otherwise. New command
+    host adapter `externalEvents` (`ICommandExternalEventsAdapter`).
+  - `agent-ui-terminal` — forwards `externalEventVerifierFactory` from the render options to the session.
+  - `agent-interface-transport` — `TExternalEventRefusal` gains `session-unavailable`.
+  - `agent-command` — `/events` lists the session's grants (label, principal kind, state, counts) and
+    `/events revoke <grant-id>` withdraws one. User-only.
+  - `agent-cli` — a grant file (`grantId`, `issuer`, `resource` ending in `/events/<grantId>`, exactly one of
+    `subject` or `client`, `scopes`, optional `algorithms` and `rate`) is validated before anything starts, with a
+    reason that names the grant and no configured value. `robota --external-event-grant <file>` (TUI) and
+    `robota session start --background --external-event-grant <file>` open every grant or fail the start; a
+    background session receives its grants through a private file, opens them before it reports ready, and the
+    launcher refuses a readiness that names other grants. `robota session events list <id> [--json]` and
+    `robota session events revoke <id> <grant-id>` work over the generation-bound control socket, and
+    `robota session list --format json` shows each grant's counts. The retired `--external-event-allow` now points
+    at `--external-event-grant`.
+
+- d877de2: External events arrive over HTTP: `POST <public-url>/events/<grant-id>`, on a loopback port behind the owner's own
+  HTTPS proxy or tunnel.
+
+  - `agent-transport` — `./node` exports the resource-server gate every token-admitted HTTP carrier shares:
+    `createBearerResourceServer` (Host and Origin checked against the public URL, trusted-proxy `X-Forwarded-For`,
+    a failure-only throttle per address, coarse address classes), `describeProtectedResource` (RFC 9728 metadata
+    path and body, RFC 6750 challenges), `serveProtectedResourceMetadata`, `refuseBearerToken` and
+    `parsePublicHttpsUrl`.
+  - `agent-transport-mcp` — the remote MCP gate is composed from that shared gate; its answers are unchanged.
+  - `agent-cli` — each grant is its own endpoint and audience (its resource is `<public-url>/events/<grant-id>`).
+    An admitted event answers `202 {"turnId"}`; refusals have an empty body: 401 with the `invalid_token` or
+    missing-token challenge, 403 `insufficient_scope` or a revoked grant, 400 a malformed event, 404 an unknown
+    grant, 413 a body over 16 KiB, 429 over the grant's rate or the address's failure budget, 503 when the issuer
+    or the session cannot take it. `--external-event-port <port>` (required with grants) and
+    `--external-event-trusted-proxy <ip>` work on the TUI and on `robota session start --background`. A background
+    session writes an owner-only, bounded JSONL trail of refusals and settlements under its supervised directory;
+    the TUI reports them on one line each.
+
+- 0d78a17: An MCP server is no longer a carrier for external events: a server connection proves nothing about who wrote a
+  message, and external events are now admitted only by a verified access token.
+
+  - `agent-mcp` (breaking) — `MCP_EXTERNAL_EVENT_CAPABILITY`, `MCP_EXTERNAL_EVENT_METHOD`, `IMCPExternalEvent` and
+    `TMCPExternalEventListener` are removed, as are `IMCPSession.externalEventsDeclared`,
+    `IMCPSession.onExternalEvent`, `IMCPSession.onClose` and `MCPConnectionSupervisor.onExternalEvent`. A server
+    that declares `com.robota.external-event` or sends its notification is served as any other server and the
+    notification is ignored. The `zod` dependency is dropped.
+  - `agent-cli` (breaking) — `IMcpClientComposition.subscribeExternalEvent` and
+    `IMcpServerConnection.onExternalEvent` are removed.
+
+- bfe8ed5: An external event is admitted only by a bearer access token the session verifies itself, and its sender is the
+  grant that token matched, never a name in the event.
+
+  - `agent-interface-transport` — `IExternalEventGrant` (a label, an access-token verifier configuration that pins
+    exactly one subject or client, the `message` kind, optional turn-rate windows), `IExternalEventDelivery` (the
+    token and the event as a carrier received them), the closed `TExternalEventRefusal` set, `TExternalEventAdmission`
+    and the content-free `TExternalEventAuditRecord`.
+  - `agent-framework` (breaking) — `ExternalEventIngress.open` and `InteractiveSession.openExternalEventSource` take
+    `{ grant, verifier, audit? }` instead of `{ id, allowedSenders, authenticate }`, and `receive` takes
+    `{ token, event }`. A delivery is refused with a stable word when the token is missing or the verifier refuses
+    it, when the token was already spent on an event (`jti`), when the event is malformed or oversize, or when the
+    grant is over its rate; nothing refused reaches the queue. An admitted event is attributed
+    `external:<grant>:<conversation>`, a payload display name appears in the envelope only as `claimed-name`, and the
+    receipt (`TExternalEventReceipt`) answers at acceptance with the turn id. Every refusal and settlement is
+    reported to the `audit` sink without content, conversation, name or token. `IAuthenticatedExternalEvent` and
+    `IExternalEventReceipt` are removed.
+  - `agent-cli` (breaking) — `--external-event-allow` is refused with the reason: a sender name relayed by an MCP
+    server does not prove who sent an event.
+
+- 1706d29: `robota session view` attaches to and peeks at sessions.
+
+  - `a` attaches to the selected session to drive it, and `p` peeks at it read-only. Both are offered, in
+    the footer and in help, only on a row that is alive, controllable and verified. The view asks first,
+    naming the role. The yes is held to the process start the row showed: if the session restarted or
+    lost control meanwhile, the attach is refused. Detaching returns to the view, on the same row and
+    grouping, without printing the screen-reader line again.
+  - **Breaking:** opening a row's linked PR moves from `p` to `o`.
+  - The attached view shows the keys for what is on screen: sending, answering a permission, or
+    answering a question. With a screen reader it words every line ("Prompt from attach:2: …",
+    "Tool started: …", "Permission needed: …") and uses no symbols.
+  - Questions wait their turn: a second permission request or question no longer replaces the one on
+    screen, and one settled elsewhere leaves the queue.
+  - Line breaks inside pasted text become spaces instead of sending the text. In a masked answer they are
+    dropped, so a copied key that ends with a line break is kept exactly.
+  - `robota session attach` accepts `--screen-reader` and `--no-screen-reader`.
+  - The attach client closes a connection that sends more frames than it can hold before the view reads
+    them.
+
+- 28fa8a7: `/devices add` and `/devices join` enrol a new device into your devices.
+
+  - On a device that holds the signing key, `/devices add` shows a one-time code on the terminal. It
+    works once, for five minutes.
+  - On the new device, `/devices join [name]` asks for the code on the terminal, creates the device's
+    keys, and meets the other device through the signaling relay in
+    `transports.webrtc.options.relayUrl`. Both devices need that setting.
+  - The new device proves the code over the WebRTC connection's DTLS fingerprints before anything else
+    crosses, so a relay in the middle cannot enrol anyone.
+  - Both devices then show the same six digits, and both operators compare them and confirm. Someone
+    who saw the code cannot choose the digits: the new device commits to its part before it sees the
+    existing device's.
+  - Only when both operators say yes does the existing device certify the new one and issue a new
+    roster. The new device keeps its identity only once the chain it receives verifies.
+  - A wrong, expired or already used code is refused. So is a code after a few failed attempts. When
+    either operator declines, nothing is issued or kept.
+  - The code appears only on the two terminals. It never reaches history, transcripts or the model. A
+    code typed as a command argument is refused. Both commands stay user-only and refuse remote
+    surfaces.
+  - `agent-remote-pairing`: enrollment codes, the enrollment proof, the signed request with its
+    commitment, the short authentication string and the frame decoder.
+  - `agent-transport-webrtc`: `dialEnrollment` and `listenForEnrollment` provide a data channel bound to
+    the negotiated fingerprints.
+
+- 4f49d14: The device mesh can be turned on, and `/peers`, `/handoff` and `/devices` reach the user's other devices.
+
+  - New user setting `transports.mesh.enabled` (default `false`). When it is `true`, an interactive
+    session opens the device mesh at startup and closes it on exit. Only the user settings count; a
+    project's settings cannot turn it on. Print and serve runs never open it, and a device without an
+    identity is told to run `/devices init`. Only one session of a device opens it at a time; another
+    session on the same device says so in `/devices` and links nothing.
+  - By default a linked device may send messages, files and sessions. Each file and each session still
+    waits for the operator's yes on this machine's terminal; with no terminal the answer is no.
+    Delegating, observing and driving stay off unless `transports.mesh.options.capabilities` lists
+    them.
+  - A message from a linked device arrives like one from a session on this host: a peer turn with no
+    authority, attributed to the device the handshake proved, under the same rate limit and
+    conversation limits.
+  - `/peers` lists linked devices beside the sessions on this host; `/peers send` and
+    `/peers send-file` take a device id. `/handoff` lists linked devices and pushes the session to one.
+    Files arrive in the usual place aside, and sessions are saved without starting.
+  - `/devices` shows whether the mesh is on, how this device finds the others, and which are linked.
+  - The mesh uses the relay at `transports.webrtc.options.relayUrl` when one is set. Without one it
+    finds devices on the local network and over the public ways in `transports.mesh.options`.
+  - `/peers`, `/handoff` and `/devices` stay user-only. Their descriptions tell the model they cover
+    linked devices.
+  - `agent-framework`: the `/peers` port can list linked devices (`listDevices`, `ILinkedDeviceSummary`).
+  - `agent-command`: the `/devices` port can report the mesh (`meshStatus`, `IDevicesMeshStatus`).
+
+- 963a4e0: Where no direct path joins two of one user's devices, a TURN relay on one of the user's own devices carries the
+  connection.
+
+  - `agent-transport-webrtc` — `TurnServer`, a pure-JavaScript TURN server over UDP (Allocate, Refresh,
+    CreatePermission, ChannelBind, Send/Data indications, ChannelData, long-term credentials) with quotas for
+    allocations per owner and in all, relayed bytes per second per owner, and allocation lifetime, and an optional
+    relayed-port range for a relay behind a NAT. Only what MESSAGE-INTEGRITY covers is read. Requests nobody has
+    authenticated are answered at a limited rate (per source and in all) and never with more bytes than they
+    carried, and forwarding into private ranges can be turned off (`allowPrivatePeers`). `MeshTurnRelay` runs it
+    for the devices of the roster: each pair derives a short-lived credential of its own (`meshRelayCredential`), a
+    device the lists drop or revoke can no longer allocate and loses its allocations. `DeviceMeshNode` takes
+    `relays` (the relays paired devices advertise, then configured TURN servers, and `relayOnly`) and
+    `relayServer`; a connection that needs a relay and has none is refused with `MeshRelayNeededError`, which says
+    why a relay was needed and carries the direct attempt's failure. `MeshDht` publishes this device's relay
+    endpoints in the sealed hints records (`relayEndpoints`) and reads the peers' (`relayAdverts`). DTLS stays end
+    to end; the relay only forwards it.
+  - `agent-remote-pairing` — the pair rendezvous derives a `relay-user` tag and `relayPassword`, the relay
+    credential's password for one direction and username.
+  - `agent-cli` — `transports.mesh.options` takes `relay` (`serve`, `port`, `host`, `publicAddress`, `relayPorts`,
+    `allowPrivatePeers`), `turnServers` and `relayOnly`. When the mesh is on, the session's mesh runs the relay,
+    advertises it to paired devices only, and uses the fallback order; `/devices` names the relays, and a device
+    that needs a relay is reported once with why. Running a relay, or relay-only without TURN servers, needs the
+    DHT or pkarr relays, which carry a relay's address to the other devices; a setting that could not work is
+    refused, naming it.
+
+- 7b72344: Every client can offer the session's commands and skills and show its status. The GUI uses them as a
+  desktop-style composer.
+
+  - `agent-interface-session` is **`major` because `IInteractiveSession` gains required members**:
+    `ISessionCommands.listSkills()` and a `statusRead` capability, `getStatusSnapshot()`. The snapshot
+    holds session, model, permission mode, effort, context and goal. An external implementation stops
+    compiling until it adds both.
+  - `agent-transport` is **`major` for the same reason on `IProtocolSession`**. It also gains the wire
+    messages `get-commands` → `commands` and `get-status` → `session_status`. Both are reads that the
+    observe role may send.
+  - `agent-interface-command` gains `ICommandSkillListEntry`, moved from `agent-framework`, which
+    re-exports it unchanged.
+  - `agent-ui-web` is **`major` because its state changes shape**:
+    - A command's outcome and a finished turn's tool calls are now conversation entries: `messages` is
+      `TConversationEntry[]`.
+    - The `uiIntentNotices` list, `dismissUiIntentNotice`, `applyUiIntentEvent`,
+      `removeUiIntentNotice` and `IUiIntentNotice` are removed. An intent now answers with an info
+      line in the conversation.
+    - Session notices keep only `session-error` and `protocol-error`.
+    - The state gains `commandCatalog` and `sessionStatus`.
+  - `agent-command` registers `/theme` and `/keybindings` even without a terminal. They then answer
+    that they belong to the robota terminal, instead of being unknown.
+  - `agent-framework`:
+    - `InteractiveSession.getStatusSnapshot()`.
+    - The main-thread row previews the last chat message instead of the last record's type.
+  - `agent-cli` serves the full GUI web app, renamed from `agent-cli-web` to `agent-gui-web`, on
+    `robota --serve --open`.
+
+- 9ecffed: `robota daemon start | status | stop | unlock` runs one long-lived runtime per workspace for clients to attach to.
+
+  - **What a daemon is.** A supervised session marked as the workspace's daemon.
+    - Its control socket answers `connect` with the loopback WebSocket address, and only to a caller that names the daemon's current start.
+    - The token never touches disk or argv. The daemon removes it from its own environment, so its tools do not inherit it.
+  - **Starting.** `daemon start --json` prints one line, `{"id","url"}`, for a client host to read.
+    - Starts in one workspace take turns through a lock.
+    - A lock left behind by a start that is gone is never removed automatically. The start refuses and names `robota daemon unlock`.
+    - A daemon that cannot hand over its address fails its start and is not left running.
+  - **The desktop app attaches** to the workspace daemon and starts one only when none is running.
+    - Closing the window leaves the daemon running.
+    - If the daemon stops while the window is open, the window says so and offers Reconnect.
+  - **`agent-ui-web`.** The WebSocket session client reports when its retries are exhausted (`onGiveUp`, and `onConnectionLost` in `useWsSession`).
+
+- 6ae3f28: A served runtime can list its workspace's sessions, start a new one and switch to another without the
+  process or any client connection restarting. The GUI shows them in a sessions sidebar.
+
+  - `agent-interface-session` is **`major`** for two reasons:
+    - It adds `ISessionListing`, `ISessionDirectory` and `ISessionSwitchedEvent`.
+    - `IInteractiveSessionEvents` gains a required `session_switched` event. An exhaustive map over the
+      event names stops compiling until it classifies the new event.
+  - `agent-transport` is **`major`** for the same kind of reason:
+    - It adds the wire messages `list-sessions` → `sessions`/`sessions_error`, `new-session`,
+      `switch-session`, and the broadcast `session_switched`.
+    - It adds a `sessionDirectory` handler option. A refusal to switch comes back as a
+      `protocol_error` carrying the reason.
+    - An exhaustive map over message types must add the new variants.
+  - `agent-transport-ws` passes a configured `sessionDirectory` to every connection.
+  - `agent-framework` is **`major` because `IRuntimeHostHandle.session` is now a `SessionSlot`**, not the
+    `InteractiveSession`, and `bindTransports` receives the slot.
+    - The slot is an `IInteractiveSession` that forwards to the current session. Members outside that
+      interface are read through `host.session.current`, which changes on a switch.
+    - Adds `InteractiveSession.whenInitialized()`.
+    - Exports `listUnreadableSessions`.
+  - `agent-ui-web` is **`major`**:
+    - `IWsSessionState` gains session listing state and actions.
+    - It adds a `SessionSidebar`.
+    - `/resume` opens the sidebar.
+  - `agent-cli`: `robota --serve` provides the session directory, and refuses a switch that would lose
+    work in progress. External-event grants belong to the run: a switch reopens them on the new session,
+    as the TUI already does.
+  - External-event grant history (spent tokens, rate windows, revocations) belongs to the run. The new
+    option `externalEventGrantHistory` (from `createExternalEventGrantHistory()`) is shared by every
+    session that a served runtime or the TUI builds. A session switch therefore replays no spent token
+    and resets no rate limit. The TUI previously had this gap when it switched sessions.
+
+- 57f57f5: A daemon keeps several sessions live, and each client is bound to its own: one client's switch moves
+  only that client.
+
+  - `agent-interface-session`: `ISessionBinder`/`ISessionBinding`, the session-change refusal codes with
+    `isSessionChangeRefusal`, and listing rows that may say `live` and `clients`.
+  - `agent-framework`: `SessionPool` and `SessionChangeRefusal`.
+  - `agent-transport` (**major**): a new server frame, `session_change_failed`, which an exhaustive
+    consumer must handle. A refused `new-session` or `switch-session` now answers with it, carrying a
+    `code`, instead of `protocol_error`; both requests take an optional `requestId` that it echoes.
+  - `agent-transport-ws`: the `sessionBinder` option binds each connection to its own session and
+    releases the binding when the connection closes.
+  - `agent-cli`: `robota --serve` and the daemon keep up to four sessions live. Each WebSocket client and
+    attached terminal is bound to its own session; leaving a busy session is no longer refused, and only
+    the last driver of a session with a pending prompt is kept from leaving it. Grants and the supervised
+    name stay on the runtime's first session, and its reported activity covers every live session.
+  - `agent-ui-web`: a refused new or switch shows the host's reason as a notice (an older host's
+    `protocol_error` still does); the session sidebar marks live sessions and counts the other clients
+    on each; after a reconnect to a host that keeps sessions live, the GUI returns to the session it was on.
+  - `agent-ui-terminal`: an attached terminal shows why a switch was refused, and the picker's switch
+    stays pending until the host answers; the session picker marks live sessions and their clients.
+
+- ba822c1: An attached client reads a workspace entry's detail, stops a waiting self-paced loop, completes
+  subcommands, and sees status changes another client made.
+
+  - `agent-interface-session` (major): `IInteractiveSession` gains the required roles
+    `ISessionExecutionDetail` and `ISessionSelfPacedLoopControl` (`TWaitingLoopStopOutcome`), and the
+    exhaustively mapped event map gains `status_changed`.
+  - `agent-transport` (major): `IProtocolSession` gains both roles; the wire unions gain
+    `read-execution-detail`, `stop-waiting-loop`, `execution_detail`, `execution_detail_error` and
+    `waiting_loop_stop`; `status_changed` is pushed as `session_status`; `isObserverMessageType` is
+    exported from the root and `./client`.
+  - `agent-interface-command` (minor): `ICommandListEntry` gains optional `argumentHint` and
+    `subcommands` (`ICommandSubcommandEntry`).
+  - `agent-cli` (minor):
+    - `robota session attach` and an attach from `robota session view` open the full terminal UI,
+      the one `robota --attach` opens, in drive mode or, with `--observe`, read-only. The reduced
+      attached view is gone.
+    - A served runtime names each of its sessions after the session's first real turn.
+  - `agent-framework` (minor):
+    - `InteractiveSession` gains `stopWaitingSelfPacedLoop(reason?)`: it stops the one waiting loop,
+      or stops none and names `/loop stop` when several wait. `SessionSlot` forwards it and
+      `readExecutionWorkspaceDetail`.
+    - The session emits `status_changed` when its mode, model, effort, goal or name changes, after a
+      command, a turn, a rename or a goal or plan transition.
+    - A new option `autoName: true` makes the session name itself once, after its first turn, with its
+      current provider; it keeps a name it already has and lets a rename made meanwhile win. Off by
+      default.
+    - The command catalog carries each command's `argumentHint` and `subcommands`.
+  - `agent-ui-terminal` (major):
+    - The full terminal UI attached to a host's session reads a workspace entry's detail, sends input
+      to a background task, stops a waiting self-paced loop on Esc, and completes subcommands.
+    - `renderAttachedApp` takes `mode: 'drive' | 'observe'` (default `'drive'`) and `announce`. In
+      observe mode the terminal sends only what an observer may send, refuses prompts, host commands,
+      abort and loop stop with a read-only notice, still runs `/exit` and its own commands, and its
+      status bar says it is observing. `ITuiChannelSnapshot` gains `readOnly`.
+    - The in-process terminal no longer names sessions; it builds its session with `autoName: true`.
+      `ITuiInteractionChannelOptions.onAutoNamed` is removed.
+
+- 6e6b06b: `robota --attach` puts the full terminal UI on this workspace's running daemon.
+
+  - **`agent-ui-terminal`:**
+    - `renderAttachedApp` renders the same App over a wire connection, through `WireTuiChannel`, a second implementation of the TUI's channel port.
+    - Leaving detaches; the daemon keeps running.
+    - The session picker lists and switches the daemon's sessions. It opens on the daemon's answer to `/resume`; a daemon that cannot list its sessions says why instead.
+    - With no saved sessions to resume, `/resume` says so and keeps the prompt, instead of opening an empty picker that blocks input. This applies to the in-process TUI too.
+    - The session picker lists an unnamed session by the part of its id that differs, not by the `session_` prefix every id shares. This applies to the in-process TUI too.
+    - The status bar names the daemon's current session: its name, or else its short id.
+    - A question already open when the terminal attaches is shown, and a long session's history reaches the terminal without the daemon cutting it off.
+    - Features that belong to the runtime process say they are unavailable while attached: the plugin manager, background task details and sending to an agent job.
+  - **`agent-cli`:**
+    - `robota --attach` finds the workspace daemon and asks the user to confirm on the terminal, as `robota session attach` does, then attaches.
+    - Options that shape a session are refused, because the daemon shapes its session.
+    - A terminal attached over the supervised socket can now list, start and switch sessions.
+    - A client's command no longer stops or restarts the workspace daemon. `/language`, `/reset`, `/exit` and provider setup or switch keep their saved change, and the client is told to run `robota daemon stop`, then `robota daemon start`.
+    - `robota --attach` installs the plain TUI's process guards, so an error the plain TUI survives no longer ends the attached terminal.
+    - A client's command no longer stops or restarts any supervised session either; the client is told to run `robota session stop <id>`, and the saved change applies to a new session from `robota session start --background`.
+
+### Patch Changes
+
+- d61e159: The session protocol gains a read-only `observe` role.
+
+  - `createSessionMessageHandler({ role: 'observe' })` follows the session's conversation, streaming,
+    tool, background, usage and workspace events and answers reads of this session. The default role
+    stays `drive`, which is unchanged.
+  - An observer never subscribes to `permission_request` or `ask_request`. A session with only observers
+    attached therefore still denies a permission and cancels a question at once instead of waiting for a
+    surface that may not answer. Observers still see `prompt_resolved`.
+  - An observer cannot submit, run commands, abort, cancel the queue, control background tasks, answer
+    prompts, or read personal or other sessions' usage reports. Each such message is answered with a
+    `protocol_error` and changes nothing. Only an explicit list of reads is accepted, so a message type
+    added later is refused to observers until it is classified.
+  - `ATTACHED_SURFACE_MAX_PENDING_BYTES` (1 MiB) is the backpressure budget a carrier passes to
+    `createOutboundDelivery` for a terminal attached on the same host. A reader that falls that far
+    behind is cut off and reported to the carrier, and other surfaces keep streaming. No carrier uses it
+    yet.
+  - `agent-cli`: a supervised session's control endpoint no longer includes its generation in a
+    refusal to a caller that did not present it.
+
+- 8625a14: Supervised session control is bound to one process start.
+
+  - Each supervised session start writes a fresh random generation into its private registration. Its
+    control endpoint echoes that generation in every reply and refuses any request that carries a
+    different one, or none.
+  - `session view` keeps the generation each row was verified with. Stop and linked-PR opening send it,
+    so a session that restarted under the same id since the row was shown is refused instead of acted
+    on. A stop confirmation also refuses when the row's generation changed while it was open.
+  - `session stop`, `rename`, `link-pr` and `unlink-pr` read the generation at request time and the
+    session itself checks it, closing the window between the liveness check and the action.
+  - A registration without a generation (written by an earlier version) is listed but never
+    controllable; restart that session to control it again.
+  - The generation is never printed by `session list` in text or JSON.
+
+- 997f2fb: A revoked or closed external-event grant checks the token before it answers, so only a caller holding a valid
+  token for that grant learns it was revoked; anyone else gets exactly the refusal a live grant gives. The TUI keeps
+  revoked grants open-and-revoked on each session it binds so their tokens are still checked. The per-grant counters
+  now also count the refusals the HTTP endpoint decides itself (a missing token, an oversize body).
+- e689c8e: Follow-ups to connection approval and `/handoff`.
+
+  - `agent-transport-webrtc-web` — the browser remote client says `Waiting for the host to approve this connection…`
+    (`awaiting-approval`) after pairing, and `Connected` only once the host's session answers. A host that closes the
+    channel instead is shown as `refused` and is not retried, since a retry would only ask the operator again; a
+    first connection lost before the host answered is `failed`. Reconnect attempts count until the host admits a
+    connection, so a link that keeps dropping while approval is pending gives up instead of asking again and again.
+  - `agent-core`, `agent-session`, `agent-framework` — a turn that did not come from the operator stores its
+    `turnSource` (`peer`, `external`, `agent-wakeup`) beside `driverId` on the user message and in the display
+    history (`IRunOptions.turnSource`), so a session handed off keeps where each turn came from.
+  - `agent-cli` — a `/handoff` resent after a lost confirmation reports what stays behind as it is now, not as it was
+    at the first attempt, and after refusing to resend a session that changed, the hand-off status shows that refusal
+    instead of the earlier lost confirmation.
+
+- 6e4c6ee: Device mesh discovery holds up better against endpoints and peers that misbehave.
+
+  - A direct path's admission deadline starts only from a `hello`, `offer` or `answer`, so ICE candidates
+    that trail an admitted connection no longer set a working path aside.
+  - An endpoint or signaling carrier that keeps failing is set aside for longer each time it fails
+    again, until a connection over it is admitted.
+  - An mDNS lookup keeps listening briefly after the first matching answer, so a faster answer from
+    another host cannot hide the peer's own.
+  - The device lists read from public records are bounded per paired device, each device's newest
+    before any device's next, and the chunks of one list carry a shared version, so a read that finds
+    chunks of two versions yields no list. Records written before this change are not read as lists.
+  - CLI processes that share `~/.robota/devices/address-cache.json` apply each change to the file as it
+    is on disk, so one process no longer overwrites what another learned.
+
+- 4241fc5: Device mesh follow-ups.
+
+  - A device with no identity is pointed to `/devices add` on one of the user's devices and `/devices join`
+    here, as well as to `/devices init`. The message says that `init` is for the first device only,
+    because it creates a separate identity that can never link to the user's other devices. The `/devices`
+    description and the `init` subcommand say the same.
+  - An identity created mid-session (`/devices init`, or a successful `/devices join`) opens the mesh
+    without a restart when `transports.mesh.enabled` is on.
+  - If a session stalls for longer than the mesh lock's stale window (for example while the machine
+    sleeps), another session can take the mesh over. The stalled session now notices this on its next
+    lock refresh, closes its own mesh, and says why. Two sessions no longer run it together.
+    `holdExclusiveFileLock` has a new `onLost` option for this.
+  - `/peers` and `/handoff` still list and reach linked mesh devices when local same-host peer discovery
+    fails. `/peers` says why sessions on this host are not listed. `ICommandLocalPeersAdapter` has a new
+    optional `localDiscoveryOff` field for this.
+  - `agent-transport-webrtc`: when lists become newer on a node (reissued, revoked, or adopted from a
+    peer), the node sends them over every admitted connection instead of waiting for the next handshake.
+    Reissues, revocations and enrolments in the CLI take effect this way at once. A receiver adopts a
+    pushed list only if it is newer, issued by this user's signing key, and verifies. The push does not
+    depend on the peer's capabilities, and it never reaches the application's message handlers.
+
+- 05d5391: The embedded TURN relay says why it cannot listen — the port is taken, the host is not an address of
+  this machine, or the port needs privileges — and keeps the bind error as `cause`; the CLI names the
+  relay setting that cause asks you to change. Mesh options are no longer checked while
+  `transports.mesh.enabled` is off, so a mistake in them does not report that the mesh could not start.
+- bbe9689: On a host that cannot prove a project write stays inside the project (every platform but Linux), a
+  trusted workspace no longer composes project memory, whose every save would be refused there. Memory
+  is shared through the repository, so it is not moved to a per-user store: turning it on prints once
+  that it stays off and why, and the run continues instead of failing on the first capture. Linux is
+  unchanged.
+- 9721162: A trusted workspace saves its sessions on macOS and other hosts without Linux's project-write guarantee.
+
+  - **`agent-framework`:** `supportsWorkspaceProjectMutation(platform?)` tells a host in advance whether project writes can be proven to stay under the trusted root. The project writer uses the same answer, so the two cannot disagree.
+  - **`agent-cli`:**
+    - Where project writes cannot be proven safe, a trusted workspace keeps its sessions in the user session store (`~/.robota/sessions`). They are listed for that workspace by their working directory, so `/resume`, the sessions sidebar, `--continue` and `robota session list` find them. Nothing is written under the project root.
+    - Before this, every save in a trusted git workspace on macOS was refused, and those surfaces listed nothing.
+    - Linux keeps trusted sessions in the project, as before.
+    - `robota session list`, `robota usage` and `robota session analyze` report such sessions as user sessions, never as project sessions.
+
+- 57280bf: Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
+  packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
+  `agent-session` and `agent-file-authority` declared `>=20.19.0`, and the other nine declared
+  `>=22.0.0`, so a consumer on Node 20 saw at most a warning from a transitive dependency.
+
+  Why 22.12: `agent-cli` and `agent-ui-terminal` need Node 22 through `ink` 7, and the CommonJS entries
+  of `agent-tools` and its dependents, `agent-transport`/`node` and its dependents, and
+  `agent-ui-terminal` `require()` ESM-only dependencies (`p-limit`, `jose`, `chalk`), which Node 22
+  supports unflagged only from 22.12. `engines` is advisory unless the consumer enables `engine-strict`.
+
+  No code changes: `tsdown` now reads `node22.12.0` as its build target from the field.
+
+- 1efb124: `@robota-sdk/agent-cli` and `@robota-sdk/agent-ui-terminal` are now ESM-only. Their CommonJS entry
+  could never load: it pulls in Ink, whose `yoga-layout` dependency starts with a top-level `await`, so
+  `require()` failed on every Node version with `ERR_REQUIRE_ASYNC_MODULE`. The packages no longer
+  declare a `require` condition or ship `index.cjs`/`index.d.cts`, so `require()` now fails at resolution
+  with `ERR_PACKAGE_PATH_NOT_EXPORTED`. Load them with `import` or `import()`, which is unchanged. The
+  `robota` executable is unaffected.
+- 18c0d5c: Every published package now exports `./package.json`, so `require('<package>/package.json')` and
+  `import('<package>/package.json', { with: { type: 'json' } })` work instead of failing with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, and each tarball now ships the package's `CHANGELOG.md`.
+- caaab20: `/rewind` works again. Every session the CLI builds for a trusted workspace captures edit
+  checkpoints; before, none did, and `/rewind` failed everywhere with "Edit checkpoints require
+  project authority."
+
+  - `agent-cli` (patch): a trusted workspace composes an edit checkpoint store for the terminal UI, a
+    print run, a served runtime and each session a daemon keeps live. Every session gets its own
+    store, pooled or switched to in the terminal UI, since two can run turns at the same time. On a host that cannot prove a project write
+    stays inside the project (every platform but Linux), none is composed: a checkpoint could be
+    neither saved nor restored there.
+  - `agent-command` (patch): where a session has no checkpoints, `/rewind` says why: a restricted
+    workspace is told to run `robota trust --yes` and restart robota, and a host that cannot write
+    the project safely says so. `/rewind list` reports this as a failed command instead of throwing.
+  - `agent-framework` (minor): a checkpoint operation on a session without a store throws
+    `EditCheckpointsUnavailableError`, whose `reason` is `host-cannot-write-project`,
+    `restricted-workspace` or `no-checkpoint-store`. It is a `WorkspaceAuthorityRequiredError`, as
+    before, named `EditCheckpointsUnavailableError`. `HeadlessInteractionChannel` takes an
+    `editCheckpointStore` option.
+  - `agent-ui-terminal` (minor): `renderApp` takes `createEditCheckpointStore` in place of
+    `editCheckpointStore`, and builds each session its own store, since a session switch can build the
+    next session before the old one's turn ends. `TuiInteractionChannel` keeps `editCheckpointStore`:
+    a channel runs one session.
+
+- 227ff3a: The GUI session surface (desktop app, `robota --serve --open`) is redesigned as a calm desktop app: readable
+  type in a bundled Pretendard, monospace only for code and paths, surfaces separated by tone instead of
+  outlines, and light and dark themes that follow the system. Agent replies read as prose, your messages sit
+  in bubbles, tool calls are single quiet lines, and the composer carries the model, mode and effort. The
+  permission prompt now shows what the tool was asked to run, and the title bar names the current session.
+- f01868f: `sandbox.autoAllowBashIfSandboxed` takes effect. The CLI confined shell commands in the OS sandbox,
+  but no session learned about the sandbox, so a confined command still asked for approval in the
+  terminal UI, a served runtime and MCP serve, and a print run with no one to approve it refused it.
+
+  - `agent-cli` (patch): a served session, and each session a daemon keeps live, receives the sandbox
+    the shell tools run under.
+  - `agent-framework` (minor): `HeadlessInteractionChannel` takes a `sandboxClient` option and hands it
+    to the session.
+  - `agent-ui-terminal` (minor): `renderApp` and `TuiInteractionChannel` take a `sandboxClient` option
+    and hand it to each session they build.
+
+- e8779c9: A subagent consults the sandbox its shell tools run under, as its parent does. With
+  `autoAllowBashIfSandboxed` on, a confined command the subagent's gate leaves to the mode now runs
+  without a prompt. Before, a `context: fork` skill asked for approval, and a print run refused it.
+  An Agent-tool subagent in `auto` mode sent a command allowed by a broad rule like `Bash(npm *)` to
+  its classifier instead. A background policy's ceiling is still checked first: nothing outside it
+  runs.
+
+  - `agent-framework` (minor): `createSubagentSession` takes a `commandSandbox` option. The fork and the
+    in-process runner derive it from the parent's sandbox, the instance their inherited tools run
+    under. `sandboxApprovalFor` is exported.
+  - `agent-subagent-runner` (minor): `ISubagentWorkerComposition` takes an optional `createSandbox`. The
+    worker builds that sandbox once and hands the same instance to `createTools` and to the session.
+  - `agent-cli` (patch): robota's worker composition builds the OS sandbox through `createSandbox`, so
+    a child-process subagent approves what its parent approves.
+
+- f8a8a4d: The GUI surface's design now applies inside a `robota-ui` scope that each of its root components opens,
+  so an app with design tokens of its own can embed the surface without either overriding the other. Such
+  an app imports `@robota-sdk/agent-ui-web/styles/surface.css` into its Tailwind entry; a page that is only
+  the surface keeps importing `styles/theme.css` and puts `robota-ui` on its `<html>`. `RobotaMark` and
+  `RobotaWordmark` are exported. The browser remote client (`RemoteClient`) follows the same design, with
+  its pairing states centred on the page.
+- 122e82b: A child-process subagent confines and approves commands with its parent's sandbox settings as they
+  stand when it starts. Before, it read its root's settings files, so a `/sandbox` change made in the
+  session did not reach it. `/sandbox` changes the live sandbox and only the user settings file, which
+  project settings outrank. A worktree child also missed the parent's untracked local settings.
+
+  - `agent-subagent-runner` (minor): the runner factory takes `parentSandboxSettings`, read at each
+    spawn. The start payload carries it, the IPC guard checks it is a record, and the worker hands it to
+    `createSandbox` as `parentSettings`.
+  - `agent-cli` (patch): robota sends its live sandbox's settings, and a child builds its sandbox from
+    them. It refuses settings it cannot read rather than falling back to the files.
+
+- 0368058: A running child-process subagent follows a `/sandbox` change made in its parent session. Before, it
+  kept the settings it started with until it ended, so a long-running `auto`-mode subagent went on
+  auto-approving confined commands after the user turned auto-allow off.
+
+  - `agent-tools` (minor): `OsSandboxClient.watchSettings(watcher)` reports each `configure`, until
+    its returned function is called.
+  - `agent-subagent-runner` (minor): the runner factory takes `watchParentSandboxSettings`, and
+    forwards each change to every running child as a `sandbox_settings` message. It watches before
+    reading the start payload, so no change is lost while a child starts, and stops when the child
+    exits or fails to start. A composed sandbox may define `applyParentSettings`. The worker applies
+    each change through it. On settings it cannot take, it aborts the run, lets a running command
+    finish, and ends the run with that error.
+  - `agent-cli` (patch): robota watches its live sandbox, and a child applies each change to the
+    instance its tools and approval read.
+
+- 5a0ee96: Workspace trust no longer drops on its own. A grant was keyed by the repository config file and the
+  volume's device number, so `git push -u`, a branch rename or delete, `git remote add`, or macOS
+  renumbering a volume left a trusted workspace untrusted. Where the filesystem records a birth time
+  (APFS, ext4, NTFS, …), the key is now the git directory's own inode and birth time, which hold through
+  all of these while a repository recreated at the same path still does not inherit the grant; elsewhere
+  the stricter config-based key stays. Granting or revoking also retires a trusted record left for the
+  same worktree under an earlier key, so it no longer counts as a second trusted repository; it is
+  marked revoked rather than deleted, so a repository that returns to that path never regains a
+  generation an approval (such as a project MCP server's) was recorded against.
+
+  Grants made before this change are keyed the old way: run `robota trust --yes` once more in each
+  workspace. A workspace revoked before shows as untrusted until it is trusted or revoked again.
+
 ## 3.0.0-beta.82
 
 ### Minor Changes

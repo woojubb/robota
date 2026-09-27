@@ -1,5 +1,99 @@
 # @robota-sdk/agent-subagent-runner
 
+## 3.0.0-beta.83
+
+### Minor Changes
+
+- e8779c9: A subagent consults the sandbox its shell tools run under, as its parent does. With
+  `autoAllowBashIfSandboxed` on, a confined command the subagent's gate leaves to the mode now runs
+  without a prompt. Before, a `context: fork` skill asked for approval, and a print run refused it.
+  An Agent-tool subagent in `auto` mode sent a command allowed by a broad rule like `Bash(npm *)` to
+  its classifier instead. A background policy's ceiling is still checked first: nothing outside it
+  runs.
+
+  - `agent-framework` (minor): `createSubagentSession` takes a `commandSandbox` option. The fork and the
+    in-process runner derive it from the parent's sandbox, the instance their inherited tools run
+    under. `sandboxApprovalFor` is exported.
+  - `agent-subagent-runner` (minor): `ISubagentWorkerComposition` takes an optional `createSandbox`. The
+    worker builds that sandbox once and hands the same instance to `createTools` and to the session.
+  - `agent-cli` (patch): robota's worker composition builds the OS sandbox through `createSandbox`, so
+    a child-process subagent approves what its parent approves.
+
+- 122e82b: A child-process subagent confines and approves commands with its parent's sandbox settings as they
+  stand when it starts. Before, it read its root's settings files, so a `/sandbox` change made in the
+  session did not reach it. `/sandbox` changes the live sandbox and only the user settings file, which
+  project settings outrank. A worktree child also missed the parent's untracked local settings.
+
+  - `agent-subagent-runner` (minor): the runner factory takes `parentSandboxSettings`, read at each
+    spawn. The start payload carries it, the IPC guard checks it is a record, and the worker hands it to
+    `createSandbox` as `parentSettings`.
+  - `agent-cli` (patch): robota sends its live sandbox's settings, and a child builds its sandbox from
+    them. It refuses settings it cannot read rather than falling back to the files.
+
+- 0368058: A running child-process subagent follows a `/sandbox` change made in its parent session. Before, it
+  kept the settings it started with until it ended, so a long-running `auto`-mode subagent went on
+  auto-approving confined commands after the user turned auto-allow off.
+
+  - `agent-tools` (minor): `OsSandboxClient.watchSettings(watcher)` reports each `configure`, until
+    its returned function is called.
+  - `agent-subagent-runner` (minor): the runner factory takes `watchParentSandboxSettings`, and
+    forwards each change to every running child as a `sandbox_settings` message. It watches before
+    reading the start payload, so no change is lost while a child starts, and stops when the child
+    exits or fails to start. A composed sandbox may define `applyParentSettings`. The worker applies
+    each change through it. On settings it cannot take, it aborts the run, lets a running command
+    finish, and ends the run with that error.
+  - `agent-cli` (patch): robota watches its live sandbox, and a child applies each change to the
+    instance its tools and approval read.
+
+### Patch Changes
+
+- 57280bf: Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
+  packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
+  `agent-session` and `agent-file-authority` declared `>=20.19.0`, and the other nine declared
+  `>=22.0.0`, so a consumer on Node 20 saw at most a warning from a transitive dependency.
+
+  Why 22.12: `agent-cli` and `agent-ui-terminal` need Node 22 through `ink` 7, and the CommonJS entries
+  of `agent-tools` and its dependents, `agent-transport`/`node` and its dependents, and
+  `agent-ui-terminal` `require()` ESM-only dependencies (`p-limit`, `jose`, `chalk`), which Node 22
+  supports unflagged only from 22.12. `engines` is advisory unless the consumer enables `engine-strict`.
+
+  No code changes: `tsdown` now reads `node22.12.0` as its build target from the field.
+
+- 18c0d5c: Every published package now exports `./package.json`, so `require('<package>/package.json')` and
+  `import('<package>/package.json', { with: { type: 'json' } })` work instead of failing with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, and each tarball now ships the package's `CHANGELOG.md`.
+- Updated dependencies [3c81769]
+- Updated dependencies [724fabb]
+- Updated dependencies [997f2fb]
+- Updated dependencies [bfe8ed5]
+- Updated dependencies [e689c8e]
+- Updated dependencies [4241fc5]
+- Updated dependencies [4f49d14]
+- Updated dependencies [7b72344]
+- Updated dependencies [6ae3f28]
+- Updated dependencies [9721162]
+- Updated dependencies [be0e53c]
+- Updated dependencies [57f57f5]
+- Updated dependencies [ba822c1]
+- Updated dependencies [9721162]
+- Updated dependencies [6e6b06b]
+- Updated dependencies [7d77ce4]
+- Updated dependencies [8bd5fac]
+- Updated dependencies [57280bf]
+- Updated dependencies [5033dd9]
+- Updated dependencies [18c0d5c]
+- Updated dependencies [dbd888d]
+- Updated dependencies [1887e54]
+- Updated dependencies [caaab20]
+- Updated dependencies [f01868f]
+- Updated dependencies [e8779c9]
+- Updated dependencies [5a0ee96]
+  - @robota-sdk/agent-framework@3.0.0-beta.83
+  - @robota-sdk/agent-core@3.0.0-beta.83
+  - @robota-sdk/agent-executor@3.0.0-beta.83
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.83
+  - @robota-sdk/agent-process@3.0.0-beta.83
+
 ## 3.0.0-beta.82
 
 ### Patch Changes

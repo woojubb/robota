@@ -1,5 +1,54 @@
 # @robota-sdk/agent-transport-webrtc-web
 
+## 3.0.0-beta.83
+
+### Minor Changes
+
+- e689c8e: Follow-ups to connection approval and `/handoff`.
+
+  - `agent-transport-webrtc-web` — the browser remote client says `Waiting for the host to approve this connection…`
+    (`awaiting-approval`) after pairing, and `Connected` only once the host's session answers. A host that closes the
+    channel instead is shown as `refused` and is not retried, since a retry would only ask the operator again; a
+    first connection lost before the host answered is `failed`. Reconnect attempts count until the host admits a
+    connection, so a link that keeps dropping while approval is pending gives up instead of asking again and again.
+  - `agent-core`, `agent-session`, `agent-framework` — a turn that did not come from the operator stores its
+    `turnSource` (`peer`, `external`, `agent-wakeup`) beside `driverId` on the user message and in the display
+    history (`IRunOptions.turnSource`), so a session handed off keeps where each turn came from.
+  - `agent-cli` — a `/handoff` resent after a lost confirmation reports what stays behind as it is now, not as it was
+    at the first attempt, and after refusing to resend a session that changed, the hand-off status shows that refusal
+    instead of the earlier lost confirmation.
+
+### Patch Changes
+
+- eb16da8: The browser remote client runs one warm-reconnect loop at a time. When a reconnected link drops again while the
+  previous loop is still waiting on a room, that older loop stops instead of moving on and tearing down the new
+  loop's connection.
+- f8a8a4d: The GUI surface's design now applies inside a `robota-ui` scope that each of its root components opens,
+  so an app with design tokens of its own can embed the surface without either overriding the other. Such
+  an app imports `@robota-sdk/agent-ui-web/styles/surface.css` into its Tailwind entry; a page that is only
+  the surface keeps importing `styles/theme.css` and puts `robota-ui` on its `<html>`. `RobotaMark` and
+  `RobotaWordmark` are exported. The browser remote client (`RemoteClient`) follows the same design, with
+  its pairing states centred on the page.
+- Updated dependencies [d877de2]
+- Updated dependencies [d61e159]
+- Updated dependencies [28fa8a7]
+- Updated dependencies [963a4e0]
+- Updated dependencies [7b72344]
+- Updated dependencies [9ecffed]
+- Updated dependencies [6ae3f28]
+- Updated dependencies [9721162]
+- Updated dependencies [57f57f5]
+- Updated dependencies [ba822c1]
+- Updated dependencies [9721162]
+- Updated dependencies [6e6b06b]
+- Updated dependencies [57280bf]
+- Updated dependencies [18c0d5c]
+- Updated dependencies [227ff3a]
+- Updated dependencies [f8a8a4d]
+  - @robota-sdk/agent-transport@3.0.0-beta.83
+  - @robota-sdk/agent-remote-pairing@3.0.0-beta.83
+  - @robota-sdk/agent-ui-web@3.0.0-beta.83
+
 ## 3.0.0-beta.82
 
 ### Patch Changes
