@@ -139,13 +139,31 @@ try {
     await page.getByText('src/a.ts').waitFor();
   });
 
-  await scenario('a permission prompt docks above the composer; 1 allows it', async () => {
-    await send('please ask permission');
-    // Its keys answer only once it is armed, so a key typed for the composer as it appears cannot.
-    await page.locator('[role="dialog"][data-armed="true"]').waitFor();
-    await page.keyboard.press('1');
-    await page.getByText('Wrote the file.').waitFor();
-  });
+  await scenario(
+    'a permission prompt docks above the composer; typing stays safe, Shift+Tab then 1 allows it',
+    async () => {
+      await send('please ask permission');
+      const dialog = page.locator('[role="dialog"][aria-label="pending question"]');
+      await dialog.waitFor();
+      // One uninterrupted keystroke stream, slow enough to run well past the arm delay — the composer
+      // kept focus when the prompt appeared, so the prompt must never take it away, however long it
+      // stays, and the 1 and 2 typed along the way must never reach it either.
+      const typed = 'typing along for a while, then 1 and 2 more';
+      await page.getByLabel('message').pressSequentially(typed, { delay: 40 });
+      if ((await page.getByText('Wrote the file.').count()) !== 0) {
+        throw new Error('typing in the composer answered the permission prompt');
+      }
+      if ((await page.getByLabel('message').inputValue()) !== typed) {
+        throw new Error('the composer lost text while the permission prompt was up');
+      }
+      await page.getByLabel('message').fill('');
+      // The person reaches the prompt deliberately — Shift+Tab from the composer — and only then do
+      // its keys answer it.
+      await page.getByLabel('message').press('Shift+Tab');
+      await page.keyboard.press('1');
+      await page.getByText('Wrote the file.').waitFor();
+    },
+  );
 
   await scenario('a provider failure keeps the partial reply and raises a toast', async () => {
     await send('please fail');

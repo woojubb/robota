@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { AgentActivityPanel } from './AgentActivityPanel.js';
 import { RobotaMark, RobotaWordmark } from './Brand.js';
@@ -9,6 +9,7 @@ import { PersonalUsageDashboard } from './PersonalUsageDashboard.js';
 import { SessionSidebar, SessionSidebarRail, sessionTitle } from './SessionSidebar.js';
 import { SessionNotices, SessionTitleBar } from './SessionSurfaceChrome.js';
 
+import type { IComposerHandle } from './Composer.js';
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
 
 /**
@@ -56,6 +57,7 @@ export function SessionSurface({
   personalUsageEnabled?: boolean;
 }): React.ReactElement {
   const [view, setView] = useState<'chat' | 'usage'>('chat');
+  const composerRef = useRef<IComposerHandle>(null);
   const tasks = state.executionWorkspace?.entries ?? [];
   // The main thread alone is this conversation; the rail earns its width only for work beside it.
   const hasTasks = tasks.some((entry) => entry.kind !== 'main_thread');
@@ -149,8 +151,10 @@ export function SessionSurface({
                   prompts={state.pendingPrompts}
                   onAnswerPermission={state.answerPermission}
                   onAnswerAsk={state.answerAsk}
+                  onFocusReturn={() => composerRef.current?.focus()}
                 />
                 <Composer
+                  ref={composerRef}
                   catalog={state.commandCatalog ?? null}
                   status={state.sessionStatus ?? null}
                   onCommand={(name) => state.send({ type: 'command', name })}
