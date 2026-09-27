@@ -28,7 +28,8 @@
       },
       "default": "./dist/browser/index.js"
     },
-    "./styles/theme.css": "./src/styles/theme.css"
+    "./styles/theme.css": "./src/styles/theme.css",
+    "./styles/surface.css": "./src/styles/surface.css"
   },
   "files": [
     "dist",

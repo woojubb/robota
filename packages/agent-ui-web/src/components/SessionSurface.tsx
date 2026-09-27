@@ -86,7 +86,7 @@ export function SessionSurface({
   };
 
   return (
-    <div className="relative flex h-full bg-background text-foreground">
+    <div className="robota-ui relative flex h-full bg-background text-foreground">
       {hasSessionList ? (
         sidebarOpen ? (
           // Narrow windows lay it over the conversation instead of squeezing it.
@@ -191,7 +191,7 @@ export function CenteredChrome({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <div className="flex h-full flex-col bg-background text-foreground">
+    <div className="robota-ui flex h-full flex-col bg-background text-foreground">
       <header className="flex h-12 flex-shrink-0 items-center px-5">
         <RobotaWordmark />
       </header>

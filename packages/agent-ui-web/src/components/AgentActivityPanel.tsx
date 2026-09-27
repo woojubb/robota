@@ -19,7 +19,7 @@ export function AgentActivityPanel({
   const runningCount = tasks.filter((t) => t.status === 'running').length;
 
   return (
-    <div className={`flex flex-col overflow-hidden ${className ?? ''}`}>
+    <div className={`robota-ui flex flex-col overflow-hidden ${className ?? ''}`}>
       <div className="flex h-12 flex-shrink-0 items-center gap-2 px-4">
         <span className="text-[14px] font-medium text-foreground">Agents</span>
         {runningCount > 0 && (
