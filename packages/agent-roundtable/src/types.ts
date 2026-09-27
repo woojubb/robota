@@ -10,7 +10,16 @@ import type {
 import type { ModelCallCapability, PricePolicy, TurnServices, UsageRecord } from './usage-types';
 
 export type { JsonValue } from './json-value';
-export type * from './request-types';
+export type {
+  ActionRequest,
+  ConversationRequest,
+  InputRequest,
+  ParticipantRequest,
+  ParticipantResponse,
+  RequestResponse,
+  ResponseReceipt,
+  ResumeRequest,
+} from './request-types';
 export type {
   ModelCallCapability,
   ModelCallIntent,
@@ -232,6 +241,13 @@ export interface ExternalInput {
 }
 
 export interface Roundtable {
+  /**
+   * Advance until the conversation waits, finishes or reaches a limit. Cancellation, disposal and
+   * limits end only this run: a result a participant returned is kept, and an attempt stopped
+   * without one runs again on the next run. Failure and completion are final and are returned by
+   * every later run. Rejects with `recovery-required` only when stored state holds a turn that was
+   * never seen to settle, such as after the process stopped mid-turn.
+   */
   run(options?: { signal?: AbortSignal }): Promise<RunResult>;
   submitInput(input: ExternalInput): Promise<{ revision: number; messageId: string }>;
   /** Accept a correlated response; execution advances only on a later run(). */

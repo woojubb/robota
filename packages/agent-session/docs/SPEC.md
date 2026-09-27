@@ -45,15 +45,6 @@ persistence paths that consume it (the store, the artifact envelope, the replay 
   the previous record.
 - `IHistoryEntry.timestamp` is `Date`-typed at compile time but round-trips through JSON as an
   ISO string; consumers of a loaded record must not assume a live `Date` instance.
-- An explicitly supplied execution journal is awaited by the underlying agent and by session
-  compaction before their results change history. Rejection remains fatal across cancellation;
-  observer logging is not an admission or persistence barrier. Tool-effect admission follows current
-  permission and hook decisions for the effective arguments, including changes made by nested
-  wrappers, so saved execution identity cannot substitute for authorization. No-input continuation
-  requires a compatible owner checkpoint for the same session and workspace, restores peer-turn
-  restrictions independently of transcript attribution, and checks pending effects under current
-  permissions. Checkpointed approval binds its exact action and effective arguments without granting session consent; saved denial remains binding even when current policy becomes permissive. Waiting holds no live approver, and pending execution must resume before unrelated input is accepted. It holds the ordinary turn claim until execution and pending persistence settle. Injected classifiers,
-  hooks, and tools own additional model calls and must declare their integration separately.
 - Memory-event and used-reference fields are audit/debug data, not baseline user-local
   preferences. Session records must not become a command source or a hidden preference store.
 
@@ -174,6 +165,33 @@ A session runs one turn at a time:
   require interaction fails closed rather than blocking.
 - Concurrency _across transports_ (e.g. correlating requests from multiple external callers) is
   explicitly out of scope for this contract; it is owned by a different object one layer up.
+
+### Recoverable execution and checkpointed approval
+
+- An execution journal supplied to a turn is awaited by the agent and by session compaction
+  before their results change history, and a rejected write stays a persistence failure even when
+  cancellation was also requested. Observer logging is never a persistence barrier.
+- A saved execution continues without new input only in the same session and workspace, named by
+  its saved checkpoint rather than by transcript attribution, which is display-only; a peer
+  turn's restrictions are restored from that checkpoint.
+- Saved identity never authorizes an effect: each is admitted under current permissions and hooks
+  for its effective arguments. A checkpointed approval answers one exact action and its arguments
+  and grants no session consent; a saved denial stays binding even if policy has since become
+  more permissive.
+- A journaled execution whose last round is open in history — parked on saved waits, or stopped
+  by a failure after its tool calls were committed — blocks new input, because input added behind
+  it would follow unanswered calls and diverge from the checkpoint it must continue. The session
+  exposes it — also after a cancellation that ended the turn once a wait was saved — so the host
+  can resume or abandon it, and offers only waits whose effect was never admitted for an answer.
+  Once its rounds have settled into history, a later failure or cancellation ends it like an
+  ordinary turn.
+- Abandoning runs nothing and writes nothing to the journal: the open calls are closed in history
+  as failed, so the conversation stays well-formed and can no longer resume that execution. Its
+  journal records remain the host's to keep or discard. Abandonment must never become a route to
+  replay an effect or to claim an outcome nobody recorded.
+- A wait holds no live approver. The turn claim is held until the execution and its pending writes
+  settle. Injected classifiers, hooks and tools own their own model calls and must declare their
+  journal integration separately.
 
 ### Execution root
 

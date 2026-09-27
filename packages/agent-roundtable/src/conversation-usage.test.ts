@@ -109,23 +109,148 @@ describe('per-turn usage services and the admission ledger', () => {
     await room.dispose();
   });
 
-  it('a rejected admission mid-turn ends the run terminal with model-calls, publishing nothing', async () => {
+  it('a rejected admission mid-turn ends only the run; the next run dispatches the member again', async () => {
+    const store = new MemoryConversationStore();
+    const turns: ParticipantTurn[] = [];
     const room = createRoundtable({
-      conversationId: 'limit-terminal',
+      conversationId: 'limit-mid-turn',
+      store,
       participants: [
-        agent('a', async (_turn, options) => {
-          await options.services.admitModelCall({ callId: 'c1', providerId: 'p', modelId: 'm' });
-          await options.services.admitModelCall({ callId: 'c2', providerId: 'p', modelId: 'm' });
-          return { kind: 'speak', content: 'unreachable' };
+        agent('a', async (turn, options) => {
+          turns.push(turn);
+          const calls = turns.length === 1 ? 2 : 1;
+          for (let call = 0; call < calls; call++)
+            await options.services.admitModelCall({
+              callId: `${turn.attemptId}-${call}`,
+              providerId: 'p',
+              modelId: 'm',
+            });
+          return { kind: 'speak', content: 'spoke' };
         }),
       ],
-      limits: { maxTurnsPerRun: 5, maxModelCallsPerRun: 1 },
+      limits: { maxTurnsPerRun: 1, maxModelCallsPerRun: 1 },
+    });
+    expect(await room.run()).toMatchObject({ status: 'limited', reason: 'model-calls' });
+    expect(room.snapshot().messages).toEqual([]);
+    expect((await store.load('limit-mid-turn'))?.state).toMatchObject({ terminal: null });
+
+    // A new run has a fresh per-run allowance, so the stopped attempt runs again for the same turn.
+    expect(await room.run()).toMatchObject({ status: 'limited', reason: 'turns' });
+    expect(room.snapshot().messages.map((message) => message.content)).toEqual(['spoke']);
+    expect(turns).toHaveLength(2);
+    expect(turns[1].turnId).toBe(turns[0].turnId);
+    expect(turns[1].attemptId).not.toBe(turns[0].attemptId);
+    expect(room.snapshot().usage).toHaveLength(2);
+    await room.dispose();
+  });
+
+  it('a rejected admission stops running siblings, and the next run dispatches them again', async () => {
+    const store = new MemoryConversationStore();
+    const bRunning = deferred<void>();
+    const runs = { a: 0, b: 0 };
+    const room = createRoundtable({
+      conversationId: 'limit-siblings',
+      store,
+      participants: [
+        agent('a', async (turn, options) => {
+          const calls = ++runs.a === 1 ? 3 : 1;
+          await bRunning.promise;
+          for (let call = 0; call < calls; call++)
+            await options.services.admitModelCall({
+              callId: `${turn.attemptId}-${call}`,
+              providerId: 'p',
+              modelId: 'm',
+            });
+          return { kind: 'speak', content: 'a' };
+        }),
+        agent('b', async (_turn, { signal }) => {
+          if (++runs.b > 1) return { kind: 'speak', content: 'b' };
+          bRunning.resolve();
+          return new Promise<never>((_, reject) =>
+            signal.addEventListener('abort', () => reject(signal.reason), { once: true }),
+          );
+        }),
+      ],
+      maxConcurrentParticipants: 2,
+      limits: { maxTurnsPerRun: 3, maxModelCallsPerRun: 2 },
+      selector: {
+        modelCalls: 'none',
+        select: ({ turns }) =>
+          turns.length
+            ? { kind: 'finish', reason: 'done' }
+            : { kind: 'parallel', participantIds: ['a', 'b'] },
+      },
+    });
+    expect(await room.run()).toMatchObject({ status: 'limited', reason: 'model-calls' });
+    expect((await store.load('limit-siblings'))?.state).toMatchObject({ terminal: null });
+    expect(room.snapshot().messages).toEqual([]);
+    expect(await room.run()).toMatchObject({ status: 'completed', reason: 'done' });
+    expect(room.snapshot().messages.map((message) => message.content)).toEqual(['a', 'b']);
+    expect(runs).toEqual({ a: 2, b: 2 });
+    await room.dispose();
+  });
+
+  it('a sibling failure that precedes a rejected admission stays final', async () => {
+    const room = createRoundtable({
+      conversationId: 'limit-after-failure',
+      participants: [
+        agent('a', async (_turn, options) => {
+          // The sibling failure stops this group before the call the limit rejects.
+          await new Promise((resolve) =>
+            options.signal.addEventListener('abort', resolve, { once: true }),
+          );
+          for (let call = 0; call < 3; call++)
+            await options.services.admitModelCall({
+              callId: `a-${call}`,
+              providerId: 'p',
+              modelId: 'm',
+            });
+          return { kind: 'speak', content: 'a' };
+        }),
+        agent('b', async () => ({ kind: 'failed', message: 'b failed' })),
+      ],
+      maxConcurrentParticipants: 2,
+      limits: { maxTurnsPerRun: 2, maxModelCallsPerRun: 2 },
+      selector: {
+        modelCalls: 'none',
+        select: () => ({ kind: 'parallel', participantIds: ['a', 'b'] }),
+      },
     });
     const result = await room.run();
-    expect(result).toMatchObject({ status: 'limited', reason: 'model-calls' });
-    expect(room.snapshot().messages).toEqual([]);
-    const again = await room.run();
-    expect(again).toMatchObject({ status: 'limited', reason: 'model-calls' });
+    expect(result).toMatchObject({ status: 'failed', message: 'b failed' });
+    expect(await room.run()).toEqual(result);
+    await room.dispose();
+  });
+
+  it('a rejected selector admission ends the run, and the next run asks the selector again', async () => {
+    const store = new MemoryConversationStore();
+    let selections = 0;
+    const room = createRoundtable({
+      conversationId: 'limit-selector',
+      store,
+      participants: [agent('a', async () => ({ kind: 'speak', content: 'a' }))],
+      selector: {
+        modelCalls: 'metered',
+        select: async (_context, { services }) => {
+          const calls = ++selections === 1 ? 2 : 1;
+          for (let call = 0; call < calls; call++)
+            await services.admitModelCall({
+              callId: `select-${selections}-${call}`,
+              providerId: 'p',
+              modelId: 'm',
+            });
+          return { kind: 'finish', reason: 'done' };
+        },
+      },
+      limits: { maxTurnsPerRun: 1, maxModelCallsPerRun: 1 },
+    });
+    expect(await room.run()).toMatchObject({ status: 'limited', reason: 'model-calls' });
+    expect((await store.load('limit-selector'))?.state).toMatchObject({
+      terminal: null,
+      phase: { kind: 'ready' },
+    });
+    expect(await room.run()).toMatchObject({ status: 'completed', reason: 'done' });
+    expect(selections).toBe(2);
     await room.dispose();
   });
 

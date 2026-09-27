@@ -204,7 +204,8 @@ async function executeParallelRequest(
     if (isExecutionControlError(error)) {
       const selected = prioritizeExecutionError(state.fatalError, error);
       if (isExecutionControlError(selected)) state.fatalError = selected;
-      state.abort.abort(error);
+      // A saved wait only stops further dispatch: running siblings settle with real results.
+      if (!(error instanceof ExecutionSuspendedError)) state.abort.abort(error);
       return;
     }
     const err = error instanceof Error ? error : new Error(String(error));
@@ -323,7 +324,6 @@ async function executeRequest(
   }
   let result: IToolExecutionResult;
   const journal = context.journal;
-  let effectStarted = false;
   if (context.signal?.aborted) result = createInterruptedResult(request);
   else if (request.argumentDecodeError !== undefined)
     result = createArgumentDecodeErrorResult(request);
@@ -339,10 +339,7 @@ async function executeRequest(
             ...(journal.continuation ? { continuation: journal.continuation(index) } : {}),
             ...(journal.beforeEffect
               ? {
-                  beforeToolEffect: async (parameters) => {
-                    await journal.beforeEffect!(index, parameters);
-                    effectStarted = true;
-                  },
+                  beforeToolEffect: (parameters) => journal.beforeEffect!(index, parameters),
                 }
               : {}),
           }),
@@ -356,9 +353,6 @@ async function executeRequest(
       }
     }
   }
-  // A pause cannot settle work which never entered an effect. It remains pending on resume.
-  if (!effectStarted && context.signal?.reason instanceof ExecutionSuspendedError)
-    throw context.signal.reason;
   // Persist a settled sibling even after cancellation; this wait is not a new external effect.
   await context.journal?.onResult(index, result);
   return result;

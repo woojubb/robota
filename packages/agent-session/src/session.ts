@@ -23,8 +23,15 @@ import {
 import { executeResume, type TSessionResumeOptions } from './session-resume.js';
 import { sessionExecutionJournal, sessionRecoveryJournal } from './session-execution-journal.js';
 import { executeRun } from './session-run.js';
-import { recoverableSessionExecution } from './session-recoverable.js';
+import {
+  abandonedRoundResults,
+  noteEffectAdmissions,
+  pendingExecution,
+  recoverableSessionExecution,
+  unfinishedExecution,
+} from './session-recoverable.js';
 import type {
+  ISessionPendingExecution,
   ISessionRecoverableRunOptions,
   TSessionRecoverableResumeOptions,
   TSessionExecutionResult,
@@ -116,7 +123,8 @@ export class Session extends SessionBase {
   /** The last tool change; the next one waits for it. */
   private toolChange: Promise<void> = Promise.resolve();
   private shuttingDown = false;
-  private pendingExecutionId?: string;
+  /** Set while a journaled execution's round is open in history; cleared once it settles or is abandoned. */
+  private pendingExecution?: ISessionPendingExecution;
   private shutdownPromise: Promise<void> | null = null;
   /** Stdout collected from SessionStart hooks, injected on first run(). */
   private sessionStartStdout = '';
@@ -229,10 +237,10 @@ export class Session extends SessionBase {
   ): Promise<string> {
     const options = value ? { ...value } : undefined;
     if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
-    if (this.pendingExecutionId)
+    if (this.pendingExecution)
       throw new ExecutionRecoveryError(
         'EXECUTION_RECOVERY_REQUIRED',
-        'Resume the pending Session execution before submitting new input',
+        'Resume or abandon the pending Session execution before submitting new input',
       );
     const controller = this.turnClaim.claim(); // Synchronously, before any await.
     const unlink = linkCancellation(controller, options?.signal);
@@ -264,9 +272,12 @@ export class Session extends SessionBase {
       this.messageCount += 1;
       return response;
     } catch (error) {
-      if (error instanceof ExecutionSuspendedError)
-        this.pendingExecutionId = error.requests[0]?.executionId;
-      if (error instanceof ExecutionSuspendedError) signal.throwIfAborted();
+      if (error instanceof ExecutionSuspendedError) {
+        this.pendingExecution = pendingExecution(error);
+        signal.throwIfAborted();
+      } else if (options?.executionJournal) {
+        this.pendingExecution = unfinishedExecution(this.agent.getHistory(), undefined, new Set());
+      }
       throw error;
     } finally {
       this.permissionEnforcer.endTurn();
@@ -291,18 +302,19 @@ export class Session extends SessionBase {
   ): Promise<string> {
     const options = { ...value, toolResponses: structuredClone(value.toolResponses) };
     if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
-    if (this.pendingExecutionId && this.pendingExecutionId !== options.executionId)
+    if (this.pendingExecution && this.pendingExecution.executionId !== options.executionId)
       throw new ExecutionRecoveryError(
         'EXECUTION_RECOVERY_CONFLICT',
         'A different Session execution is pending',
       );
     const controller = this.turnClaim.claim();
     const unlink = linkCancellation(controller, options.signal);
+    const admitted = new Set<string>();
     try {
       controller.signal.throwIfAborted();
       await this.serializeToolChange(() => this.applyPendingTools());
       const journal = sessionRecoveryJournal(
-        options.journal,
+        noteEffectAdmissions(options.journal, admitted),
         this.sessionId,
         this.cwd,
         (peerTurn) => this.permissionEnforcer.beginTurn(peerTurn, checkpointedApprovals),
@@ -312,16 +324,54 @@ export class Session extends SessionBase {
         journal,
         signal: controller.signal,
       });
-      this.pendingExecutionId = undefined;
+      this.pendingExecution = undefined;
       return response;
     } catch (error) {
-      if (error instanceof ExecutionSuspendedError)
-        this.pendingExecutionId = error.requests[0]?.executionId;
-      if (error instanceof ExecutionSuspendedError) controller.signal.throwIfAborted();
+      if (error instanceof ExecutionSuspendedError) {
+        this.pendingExecution = pendingExecution(error);
+        controller.signal.throwIfAborted();
+      } else {
+        // Settled rounds end the execution like an ordinary turn; a round left open keeps it pending.
+        this.pendingExecution = unfinishedExecution(
+          this.agent.getHistory(),
+          this.pendingExecution,
+          admitted,
+        );
+      }
       throw error;
     } finally {
       this.permissionEnforcer.endTurn();
       unlink();
+      this.turnClaim.release(controller);
+    }
+  }
+
+  /** The execution blocking new input, if any: parked on saved waits, or left open by a failure. */
+  getPendingExecution(): ISessionPendingExecution | undefined {
+    return structuredClone(this.pendingExecution);
+  }
+
+  /**
+   * Give up a pending execution so the Session accepts new input. Nothing runs and nothing is
+   * journaled: calls its parked round left open are closed in history as failed, and the journal's
+   * records stay with the host. Resuming the execution afterwards is refused as a history conflict.
+   */
+  abandonPendingExecution(executionId: string): void {
+    if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
+    const pending = this.pendingExecution;
+    if (!pending) return;
+    if (pending.executionId !== executionId)
+      throw new ExecutionRecoveryError(
+        'EXECUTION_RECOVERY_CONFLICT',
+        'A different Session execution is pending',
+      );
+    const controller = this.turnClaim.claim();
+    try {
+      for (const message of abandonedRoundResults(this.agent.getHistory(), pending))
+        this.agent.injectRawMessage(message);
+      this.pendingExecution = undefined;
+      this.persistSessionInternal();
+    } finally {
       this.turnClaim.release(controller);
     }
   }

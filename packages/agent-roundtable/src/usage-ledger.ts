@@ -239,15 +239,23 @@ export function createTurnServices(options: {
   emit: (event: RoundtableEvent, signal: AbortSignal) => Promise<void>;
   signal: AbortSignal;
   ctx: UsageContext;
+  /** Stops the run before the rejection reaches the caller, so the attempt is treated as stopped. */
+  onLimit: () => void;
   pricing?: PricePolicy;
 }): TurnServices {
-  const { persistence, emit, signal, ctx, pricing } = options;
+  const { persistence, emit, signal, ctx, onLimit, pricing } = options;
   return {
     async admitModelCall(call: ModelCallIntent): Promise<void> {
       signal.throwIfAborted();
-      await persistence.update((draft, revision) => {
-        reserveModelCall(draft, revision, ctx, call);
-      });
+      try {
+        await persistence.update((draft, revision) => {
+          reserveModelCall(draft, revision, ctx, call);
+        });
+      } catch (error) {
+        // A reached limit ends the run like a time limit rather than failing the conversation.
+        if (error instanceof RoundtableError && error.code === 'model-call-limit') onLimit();
+        throw error;
+      }
       const record = persistence.snapshot().snapshot.usage.find((r) => r.callId === call.callId);
       if (record) await emit({ type: 'usage', record }, signal);
     },

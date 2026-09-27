@@ -25,6 +25,8 @@ export async function executeGroup(options: {
   session: (participant: AgentParticipant) => Promise<ParticipantLease>;
   emit: (event: RoundtableEvent, signal: AbortSignal) => Promise<void>;
   start: (turn: ParticipantTurn) => Promise<void>;
+  /** Discard an attempt that cancellation ended without a prepared result; it is dispatched again. */
+  restore: (turn: ParticipantTurn) => Promise<void>;
   settle: (turn: ParticipantTurn, outcome: PreparedMember['outcome']) => Promise<void>;
   prepare: (member: PreparedMember) => Promise<void>;
   fail: (turn: ParticipantTurn, error: unknown) => Promise<void>;
@@ -115,12 +117,15 @@ export async function executeGroup(options: {
             signal,
           );
       } catch (error) {
+        const interrupted = signal.aborted;
         if (!failed) {
           failed = true;
           failure = error;
         }
         groupAbort.abort(error);
-        await options.fail(turn, error).catch(() => {});
+        // This process saw the attempt settle. Under cancellation it contributed nothing, so it is
+        // dispatched again later; a runtime that acted outside the conversation must report that.
+        await (interrupted ? options.restore(turn) : options.fail(turn, error)).catch(() => {});
       }
     }
   }

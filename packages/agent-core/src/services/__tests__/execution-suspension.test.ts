@@ -330,52 +330,72 @@ describe('journaled tool suspension', () => {
     ).toBe(false);
   });
 
-  it('drains started effects and leaves undispatched calls pending when a sibling waits', async () => {
-    const started = deferred();
-    const aborted = deferred();
-    const finish = deferred();
-    let count = 0;
-    const f = fixture(
-      [{ toolCalls: Array.from({ length: 7 }, (_, index) => ({ name: 'act', args: { index } })) }],
-      {
-        beforeAsk: () => started.promise,
-        effect: async (_parameters, context) => {
-          if (++count === 4) started.resolve();
-          await new Promise<void>((resolve) =>
-            context!.signal!.addEventListener(
-              'abort',
-              () => {
-                aborted.resolve();
-                resolve();
-              },
-              { once: true },
-            ),
-          );
-          await finish.promise;
-          return 'settled after abort';
+  it.each([false, true])(
+    'lets running siblings settle and leaves undispatched calls pending when one waits (cancelled=%s)',
+    async (cancelled) => {
+      const started = deferred();
+      const waitSaved = deferred();
+      const finish = deferred();
+      const abortedSiblings: boolean[] = [];
+      let count = 0;
+      const f = fixture(
+        [
+          {
+            toolCalls: Array.from({ length: 7 }, (_, index) => ({ name: 'act', args: { index } })),
+          },
+        ],
+        {
+          beforeAsk: () => started.promise,
+          effect: async (_parameters, context) => {
+            if (++count === 4) started.resolve();
+            const signal = context!.signal!;
+            await Promise.race([
+              finish.promise,
+              new Promise<void>((resolve) =>
+                signal.addEventListener('abort', () => resolve(), { once: true }),
+              ),
+            ]);
+            abortedSiblings.push(signal.aborted);
+            return signal.aborted ? 'stopped by cancellation' : 'finished';
+          },
         },
-      },
-    );
-    const saved = journalFixture();
-    let settled = false;
-    const abort = new AbortController();
-    const running = f.agent
-      .run('input', { executionJournal: saved.journal, signal: abort.signal })
-      .finally(() => {
-        settled = true;
-      });
-    const caught = running.catch((error: unknown) => error);
-    try {
-      await Promise.race([aborted.promise, caught]);
-      expect(settled).toBe(false);
-      expect(f.effect).toHaveBeenCalledTimes(4);
-    } finally {
+      );
+      const saved = journalFixture();
+      let settled = false;
+      const abort = new AbortController();
+      const running = f.agent
+        .run('input', {
+          signal: abort.signal,
+          executionJournal: {
+            append: async (record) => {
+              await saved.journal.append(record);
+              if (record.kind === 'tool-wait') waitSaved.resolve();
+            },
+          },
+        })
+        .finally(() => {
+          settled = true;
+        });
+      const caught = running.catch((error: unknown) => error);
+      try {
+        await Promise.race([waitSaved.promise, caught]);
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        expect(settled).toBe(false);
+        expect(f.effect).toHaveBeenCalledTimes(4);
+        expect(abortedSiblings).toEqual([]);
+      } finally {
+        if (cancelled) abort.abort();
+        else finish.resolve();
+      }
+      expect(await caught).toMatchObject({ code: 'EXECUTION_SUSPENDED' });
       finish.resolve();
-      abort.abort();
-    }
-    expect(await caught).toMatchObject({ code: 'EXECUTION_SUSPENDED' });
-    expect(saved.records.filter((record) => record.kind === 'tool-result')).toHaveLength(4);
-    expect(saved.records.filter((record) => record.kind === 'tool-dispatch')).toHaveLength(5);
-    expect(f.requests).toHaveLength(1);
-  });
+      expect(abortedSiblings).toEqual([cancelled, cancelled, cancelled, cancelled]);
+      const results = saved.records.flatMap((record) =>
+        record.kind === 'tool-result' ? [record.result.result] : [],
+      );
+      expect(results).toEqual(Array(4).fill(cancelled ? 'stopped by cancellation' : 'finished'));
+      expect(saved.records.filter((record) => record.kind === 'tool-dispatch')).toHaveLength(5);
+      expect(f.requests).toHaveLength(1);
+    },
+  );
 });

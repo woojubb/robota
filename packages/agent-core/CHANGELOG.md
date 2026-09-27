@@ -1,9 +1,5 @@
 # @robota-sdk/agent-core
 
-## Unreleased
-
-- Add journaled pre-effect tool requests and correlated responses, typed execution suspension, and drained continuation writes. Recovery reuses exact response receipts and refuses unanswered or uncertain effects.
-
 ## 3.0.0-beta.83
 
 ### Minor Changes

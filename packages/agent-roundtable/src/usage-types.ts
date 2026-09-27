@@ -69,7 +69,10 @@ export type UsageRecord =
  * identity through it.
  */
 export interface TurnServices {
-  /** Awaited before dispatching the call; idempotent when retried with the same callId. */
+  /**
+   * Awaited before dispatching the call; idempotent when retried with the same callId. A rejection
+   * because a limit was reached also stops the run, the same way cancellation does.
+   */
   admitModelCall(call: ModelCallIntent): Promise<void>;
   /** Reports a call's outcome. An identical report is a no-op; a report is replaceable until final. */
   recordUsage(report: UsageReport): Promise<void>;

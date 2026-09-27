@@ -242,7 +242,7 @@ If a run is aborted mid-stream, partial content already produced is preserved in
 Each attempted provider round, including a forced-summary call, emits one content-free completion observation with its actual
 start/end time, round number, and success/failure/interruption outcome. It describes the shared
 provider-call boundary (which may be served from cache), not proof of an outbound network request;
-request and response bodies belong to separate execution events and, when configured, the host-owned execution journal. Observations cannot authorize dispatch or persistence: the awaited journal must accept a request before invocation and the settled response before its history or tools advance. Tool dispatch and authorized body entry are distinct boundaries: the effect-start record contains the effective arguments and is awaited after wrapper preconditions, before the body. Rejected writes stop further dispatch while already-running effects settle, because treating a storage failure as a retryable model/tool error could duplicate an effect. Recovery reuses durable settlements under exclusive host ownership and continues a compatible execution without new input, preserving its remaining limits, tool residency and result projection. Pre-effect waits are journaled under stable action and request identities; matching responses are persisted before permission-aware admission, and unanswered requests cannot authorize an effect. Suspension drains pending writes and active effects before returning without completion or failure observations; persistence and reconciliation failures retain precedence. Unknown effects and unsupported runtime state require reconciliation before execution can advance. Canonical private history is recovered independently of transformed provider input; conflicting live history is never overwritten, and restored history remains available for the host to checkpoint or discard. Turn-level lifecycle hooks are omitted during continuation because their effects have no durable receipts. The journal does not promise visibility into an adapter's internal retries; broader runtime recovery requires a cooperating host and runtime.
+request and response bodies belong only to their separate execution events and, when configured, the execution journal.
 
 The default round budget for one run is a fixed number of model/tool rounds, overridable per-run or per-config (run-scoped values win); a budget of zero disables the round cap entirely and leaves stopping to abort, the context-window guard, and provider timeouts.
 
@@ -257,6 +257,37 @@ When the round budget is exhausted without a final assistant text response, one 
 **Provider call failures are surfaced, not swallowed.** If a provider call throws, the error is recorded as a readable assistant-visible message rather than the caller seeing an opaque "no response received," and if the whole execution pipeline throws unexpectedly, it is caught and turned into an error result. Execution control outcomes propagate directly: persistence failures retain their original cause, uncertain effects require reconciliation, and a saved pre-effect wait suspends the execution. None may become normal assistant output or a tool failure that the model may retry.
 
 **Tool-result context budget.** Once history's context estimate crosses a high fixed threshold while committing a batch of tool results, remaining results in that batch are replaced with a short, fixed context-error message instead of their real content (mirroring the same pattern used for a permission deny) — the execution loop does not stop; it continues so the model can see the mix of real and skipped results and decide how to proceed with what it has.
+
+## Execution Journal and Continuation
+
+A host may make a run recoverable by supplying an execution journal it owns exclusively. The
+journal exists so that no model call or tool effect is repeated or hidden after a restart: every
+boundary whose loss would leave that ambiguous is awaited before the runtime crosses it, and
+events or observations never stand in for it. A tool's effect is recorded with the arguments it
+actually runs with, since wrappers may change them after dispatch. A rejected write fails the run instead of becoming
+a model-visible or retryable tool failure, because a retried effect could run twice; further
+dispatch stops while effects already running settle.
+
+Continuation resumes a compatible execution from its latest settled model response without new
+input, reusing every durable settlement instead of repeating it and keeping the limits and tool
+residency the execution started with. Whatever the journal cannot
+prove — an effect that started without a recorded result, a model call without a recorded
+response, runtime state that differs from the saved one — is refused for reconciliation rather
+than guessed, and live history that conflicts with the saved checkpoint is never overwritten.
+Restored history stays with the agent for the host to checkpoint or discard. Turn-level lifecycle hooks are not replayed, because their effects have no durable receipts.
+
+Before its effect starts, a tool may save a request for an outside response and suspend the
+execution. Requests and responses are durable under stable identities; a response can answer
+only its own request, is saved before it is used, and never admits an effect by itself — current
+admission still decides. Suspension is control flow, neither completion nor failure: it returns
+only once pending writes are durable and tools already running beside the waiting one have
+finished, while calls not yet started stay pending. Running siblings finish rather than being
+interrupted because one tool's wait says nothing about an allowed neighbour, and an interrupted
+result would be saved as its final outcome; cancellation still interrupts them. Persistence and
+reconciliation failures take precedence over a wait.
+
+Non-goals: visibility into a provider adapter's internal retries, and recovery of arbitrary
+effects without a cooperating host and runtime.
 
 ## Class Extension Points
 

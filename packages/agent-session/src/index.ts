@@ -3,6 +3,7 @@
 // Session
 export type { TSessionResumeOptions } from './session-resume.js';
 export type {
+  ISessionPendingExecution,
   ISessionRecoverableRunOptions,
   TSessionRecoverableResumeOptions,
   TSessionExecutionResult,
