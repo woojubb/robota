@@ -17,3 +17,7 @@ export type { OpenContext } from './open-context';
 
 export { ROBOTA_SESSION_CHECKPOINT_VERSION } from './checkpoint-codec';
 export type { SessionCheckpointState } from './checkpoint-codec';
+
+// The recoverable counterpart to the root entry's `meterJournal`, for a host building its own
+// checkpoint-resumable, Session-like participant (`sessionParticipant`'s own metering wrapper).
+export { meterRecoverableJournal } from './metering-journal';

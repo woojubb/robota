@@ -16,3 +16,5 @@ export { robotaSelector, robotaSelectorRegistration } from './robota-selector';
 export type { RobotaSelectorOptions } from './robota-selector';
 
 export { ROBOTA_AGENT_CHECKPOINT_VERSION } from './checkpoint-codec';
+
+export { meterJournal } from './metering-journal';
