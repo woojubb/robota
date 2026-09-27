@@ -739,6 +739,66 @@ reports that it saved the setting and that this run keeps what pinned it, rather
 do nothing. `NO_COLOR`, `FORCE_COLOR=0`, a non-TTY stdout and screen-reader mode still win over
 every theme: no colour and no animation, exactly as before.
 
+## Workspace Trust
+
+Robota loads a project's own configuration only from a workspace you have trusted. That covers the
+project's settings, hooks, plugins, skills, agent definitions, provider overrides and MCP servers.
+In a workspace you have not trusted:
+
+- the interactive TUI starts **Restricted**: your own user settings, built-in tools and permission
+  rules work, and nothing the repository contributes is loaded;
+- headless startup refuses with `Workspace trust is required before headless startup (state: …)`.
+  That covers print mode (`-p`), `--goal`, `--serve`, `robota mcp serve`, `robota daemon start`,
+  `robota session start` and a session that `robota session view` starts.
+
+There are two exceptions. `--safe-mode` always starts Restricted, so `-p`, `--goal`, `--serve` and
+`robota mcp serve` run with it without trust.
+A directory that is not in a Git repository cannot be trusted at all, and every mode runs Restricted
+there.
+
+```bash
+robota trust status        # Is this workspace trusted? Lists what trust would load when it is not
+robota trust --yes         # Trust the Git workspace you are in
+robota trust revoke --yes  # Take the grant back
+```
+
+Run these from inside the workspace. A grant covers that Git worktree:
+
+- any directory inside it resolves to the same workspace, and a symlinked path resolves to the real
+  one;
+- a nested repository or submodule is a workspace of its own, and so is each linked worktree.
+
+Grants are stored in `~/.robota/workspace-trust.json` and survive restarts. Without a TTY, `grant` and
+`revoke` require `--yes`.
+
+A grant is tied to the repository, not only to its path:
+
+- It **holds** through git commands that rewrite `.git/config` (`push -u`, renaming or deleting a
+  branch, `remote add`, `git config`) on a filesystem that records a creation time (APFS, ext4,
+  NTFS, …). On one that does not, such a command can drop it; run `robota trust --yes` again. A
+  volume that macOS renumbers never drops it.
+- It is **not inherited**: a repository deleted and recreated, or a different clone put at the same
+  path, is untrusted until you trust it. Moving or renaming the repository also needs a new grant.
+- MCP server approvals are tied to the grant only where they are stored, which means in a host that
+  embeds Robota with a persistent approval store. There, revoking, re-trusting, or a grant that
+  changes as above asks for them again. The `robota` executable keeps them in memory and asks on each
+  run.
+
+**After upgrading**, if a workspace you had trusted shows as untrusted, run `robota trust --yes` in
+it once. Grants are now keyed differently, so a grant made by an earlier version no longer matches.
+
+**In this monorepo**, use the source CLI, since a globally installed `robota` may be older than the
+source you are working on:
+
+```bash
+pnpm cli:trust       # Trust this repository
+pnpm cli:dev         # Run the CLI from source
+pnpm cli:dev:trust   # Trust it if it is not yet, then run the CLI (arguments go to the run)
+```
+
+To trust another repository with the source CLI, run the launcher from inside that repository:
+`/path/to/robota/scripts/dev/robota trust --yes`.
+
 ## Permission System
 
 Every tool call passes through a three-step permission gate:
@@ -1092,24 +1152,12 @@ The two user layers are always host-owned. The four project layers participate o
 supplies trusted project access; Restricted composition does not probe them. Project writes require a
 separately approved settings writer for the same authority.
 
-### Workspace trust
+### Provider endpoints and trust
 
-Robota admits project-controlled settings and executable contributions only after a host-owned grant
-for the canonical Git workspace identity. In a new or revoked workspace, interactive startup remains
-usable with project settings, hooks, plugins, skills, and provider overrides disabled. Headless startup
-fails closed until trust is granted:
-
-```bash
-robota trust status
-robota trust --yes
-robota trust revoke --yes
-```
-
-The grant survives process restart and is invalidated by repository replacement, revocation, or a
-trust-store error. Symlink aliases resolve to the canonical workspace; a different repository at the
-same textual path does not inherit the grant. `robota doctor` reports trust and endpoint provenance
-without printing credentials. If a lower-trust settings layer changes a provider endpoint without
-providing its own key, Robota removes the inherited key and reports `provider endpoint quarantined`.
+Project settings apply only in a trusted workspace (see [Workspace Trust](#workspace-trust)).
+`robota doctor` reports trust and endpoint provenance without printing credentials. If a lower-trust
+settings layer changes a provider endpoint without providing its own key, Robota removes the inherited
+key and reports `provider endpoint quarantined`.
 
 ```json
 {
