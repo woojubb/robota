@@ -20,6 +20,9 @@ function record(event) {
 // Issue #3256: in this mode the first model call waits for a `/sandbox` change sent while the child
 // runs. It asks for one with a text delta, once the sandbox is composed, so the change lands after it.
 const WAIT_FOR_CHANGE = process.env.SANDBOX_FIXTURE_WAIT_FOR_CHANGE === '1';
+// …or, in this mode, the command itself asks for the change once it is running, and finishes some
+// time after it arrives: a worker that exits on the change would cut it short.
+const CHANGE_DURING_COMMAND = process.env.SANDBOX_FIXTURE_CHANGE_DURING_COMMAND === '1';
 let changeArrived;
 const changed = new Promise((resolve) => {
   changeArrived = resolve;
@@ -63,9 +66,15 @@ runSubagentWorkerMain({
           },
         },
         getName: () => 'Bash',
-        execute: (args) => {
+        execute: async (args) => {
           record({ bashRan: args.command });
-          return Promise.resolve({ success: true, data: 'done' });
+          if (CHANGE_DURING_COMMAND) {
+            process.send?.({ type: 'text_delta', delta: 'awaiting-sandbox-change' });
+            await changed;
+            await new Promise((resolve) => setTimeout(resolve, 150));
+            record({ bashFinished: args.command });
+          }
+          return { success: true, data: 'done' };
         },
       },
     ];
@@ -79,6 +88,7 @@ runSubagentWorkerMain({
             client: SANDBOX,
             commandSandbox: { autoApproves: (toolName) => autoAllow && toolName === 'Bash' },
             applyParentSettings: (settings) => {
+              if (settings.unreadable === true) throw new Error('fixture cannot read these settings');
               record({ applied: settings });
               autoAllow = settings.autoAllowBashIfSandboxed;
             },

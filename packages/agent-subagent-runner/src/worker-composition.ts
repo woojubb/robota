@@ -145,7 +145,8 @@ export interface ISubagentComposedSandbox {
   /**
    * Take the parent's settings after a change it made while this child runs (`/sandbox`), so the
    * next command is confined and approved as the parent's would be. Throws on settings it cannot
-   * read: the worker then fails the job rather than run on settings the user has replaced.
+   * read: the worker then aborts the run and ends it with that error, rather than run on settings the
+   * user has replaced.
    */
   readonly applyParentSettings?: (settings: TParentSandboxSettings) => void;
 }

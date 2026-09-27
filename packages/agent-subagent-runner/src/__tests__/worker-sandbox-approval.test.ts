@@ -25,6 +25,9 @@ interface IRecord {
   bashRan?: string;
   parentSettings?: Record<string, unknown> | null;
   applied?: Record<string, unknown>;
+  bashFinished?: string;
+  /** A terminal message the child sent: its run's one outcome. */
+  terminal?: { type: string; message?: string };
 }
 
 function runWorker(
@@ -32,6 +35,8 @@ function runWorker(
   parentSandboxSettings?: Record<string, unknown>,
   /** Sent once the running child asks for it, after its sandbox is composed (issue #3256). */
   changeWhileRunning?: Record<string, unknown>,
+  /** Ask for the change from inside the running command rather than before the first model call. */
+  duringCommand = false,
 ): Promise<IRecord[]> {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-worker-sandbox-')));
   const recordPath = join(dir, 'records.jsonl');
@@ -42,7 +47,8 @@ function runWorker(
         ...process.env,
         SANDBOX_RECORD_PATH: recordPath,
         SANDBOX_FIXTURE_COMPOSES: composesSandbox ? '1' : '0',
-        SANDBOX_FIXTURE_WAIT_FOR_CHANGE: changeWhileRunning !== undefined ? '1' : '0',
+        SANDBOX_FIXTURE_WAIT_FOR_CHANGE: changeWhileRunning !== undefined && !duringCommand ? '1' : '0',
+        SANDBOX_FIXTURE_CHANGE_DURING_COMMAND: duringCommand ? '1' : '0',
       },
     });
     let stderr = '';
@@ -52,7 +58,17 @@ function runWorker(
       child.kill('SIGKILL');
       reject(new Error(`worker never finished; stderr: ${stderr.slice(0, 600)}`));
     }, TEST_TIMEOUT_MS - 5_000);
-    child.on('message', (message: { type?: string; delta?: string }) => {
+    const terminals: IRecord[] = [];
+    child.on('message', (message: { type?: string; delta?: string; message?: string }) => {
+      if (message.type === 'result' || message.type === 'error' || message.type === 'cancelled') {
+        terminals.push({
+          terminal: {
+            type: message.type,
+            ...(message.message !== undefined ? { message: message.message } : {}),
+          },
+        });
+        return;
+      }
       if (message.type === 'text_delta' && message.delta === 'awaiting-sandbox-change') {
         child.send({ type: 'sandbox_settings', settings: changeWhileRunning });
         return;
@@ -99,7 +115,7 @@ function runWorker(
             .map((line) => JSON.parse(line) as IRecord)
         : [];
       rmSync(dir, { recursive: true, force: true });
-      resolve(records);
+      resolve([...records, ...terminals]);
     });
     child.on('error', (error) => {
       clearTimeout(timer);
@@ -142,6 +158,26 @@ describe.skipIf(!existsSync(DIST))('a child-process subagent and its composed sa
 
       expect(records).toContainEqual({ applied: { autoAllowBashIfSandboxed: false } });
       expect(records.some((record) => record.bashRan !== undefined)).toBe(false);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'lets a running command finish, then ends the run with one error, when a change cannot be taken (#3256)',
+    async () => {
+      const records = await runWorker(
+        true,
+        { autoAllowBashIfSandboxed: true },
+        { unreadable: true },
+        true,
+      );
+
+      // Exiting from the message handler would cut the running command short.
+      expect(records).toContainEqual({ bashFinished: 'npm test' });
+      const terminals = records.filter((record) => record.terminal !== undefined);
+      expect(terminals).toEqual([
+        { terminal: { type: 'error', message: 'fixture cannot read these settings' } },
+      ]);
     },
     TEST_TIMEOUT_MS,
   );

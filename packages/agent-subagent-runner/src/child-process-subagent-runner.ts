@@ -233,7 +233,11 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       if (!child.connected) return;
       void sendWorkerMessage(child, { type: 'sandbox_settings', settings }).catch(() => undefined);
     });
-    if (unwatch !== undefined) child.once('exit', unwatch);
+    if (unwatch === undefined) return;
+    // A child that never started emits `error` and no `exit`; either ends the watch, and ending it twice
+    // is harmless.
+    child.once('exit', unwatch);
+    child.once('error', unwatch);
   }
 
   private resolveTranscriptPath(job: ISubagentJobStart): string | undefined {
