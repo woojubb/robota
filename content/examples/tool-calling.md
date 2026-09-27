@@ -1,8 +1,10 @@
 # Tool Calling
 
-Agents that use Zod-validated function tools.
+Give an agent functions it can call. `createZodFunctionTool()` turns a Zod schema and a handler into a
+tool: the schema is sent to the model, and the arguments the model sends back are validated against it
+before your handler runs.
 
-## Basic Tool
+## Basic tool
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
@@ -14,15 +16,22 @@ const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+const operations = {
+  add: (a: number, b: number) => a + b,
+  subtract: (a: number, b: number) => a - b,
+  multiply: (a: number, b: number) => a * b,
+  divide: (a: number, b: number) => a / b,
+};
+
 const calculatorTool = createZodFunctionTool(
   'calculator',
-  'Evaluate a math expression',
+  'Apply an arithmetic operation to two numbers',
   z.object({
-    expression: z.string().describe('The math expression to evaluate'),
+    operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
+    a: z.number(),
+    b: z.number(),
   }),
-  async ({ expression }) => ({
-    data: String(eval(expression)),
-  }),
+  async ({ operation, a, b }) => String(operations[operation](a, b)),
 );
 
 const agent = new Robota({
@@ -38,10 +47,15 @@ const agent = new Robota({
 
 const response = await agent.run('What is (42 * 17) + 256?');
 console.log(response);
-// The agent calls calculator({ expression: '(42 * 17) + 256' }) and reports the result
+// The agent calls calculator (multiply, then add) and answers 970
 ```
 
-## Multiple Tools
+The handler's return value is what the model sees. Return a string; any other value is sent as its
+JSON text.
+
+## Several tools
+
+Register as many tools as the task needs; the model picks one per step and can chain them.
 
 ```typescript
 import { Robota, type IAIProvider } from '@robota-sdk/agent-core';
@@ -50,45 +64,40 @@ import { z } from 'zod';
 
 declare const provider: IAIProvider;
 
-const fileSearchTool = createZodFunctionTool(
-  'search_files',
-  'Search for files by name pattern',
-  z.object({
-    pattern: z.string().describe('Filename pattern to match'),
-  }),
-  async ({ pattern }) => {
-    const { readdirSync } = await import('node:fs');
-    const files = readdirSync('.', { recursive: true })
-      .map(String)
-      .filter((file) => file.includes(pattern));
-    return { data: JSON.stringify(files) };
-  },
+const currentTimeTool = createZodFunctionTool(
+  'get_current_time',
+  'Return the current UTC date and time in ISO 8601 format',
+  z.object({}),
+  async () => new Date().toISOString(),
 );
 
-const readFileTool = createZodFunctionTool(
-  'read_file',
-  'Read the contents of a file',
-  z.object({
-    path: z.string().describe('File path to read'),
-  }),
-  async ({ path }) => {
-    const { readFileSync } = await import('fs');
-    return { data: readFileSync(path, 'utf-8') };
-  },
+const daysBetweenTool = createZodFunctionTool(
+  'days_between',
+  'Count the whole days between two ISO 8601 dates',
+  z.object({ from: z.string(), to: z.string() }),
+  async ({ from, to }) =>
+    String(Math.floor((Date.parse(to) - Date.parse(from)) / (24 * 60 * 60 * 1000))),
 );
 
 const agent = new Robota({
-  name: 'FileAgent',
+  name: 'CalendarAgent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  tools: [fileSearchTool, readFileTool],
+  tools: [currentTimeTool, daysBetweenTool],
 });
 
-// The agent may call search_files first, then read_file on the results
-const response = await agent.run('Find all .ts files in src/ and show me the smallest one');
+// The agent calls get_current_time first, then days_between with the result
+const response = await agent.run('How many days are left until 2027-01-01?');
 ```
 
-## Using Built-in Tools
+[examples/express](../../examples/express/README.md) passes custom tools to a `createQuery()` session
+for each request.
+
+## Built-in tools
+
+`@robota-sdk/agent-tools` ships file and shell tools. Each is created with a `cwd`: the directory the
+tool works in and may not leave. There are no ready-made instances, because a file tool with no root
+would have no boundary.
 
 ```typescript
 import { Robota, type IAIProvider } from '@robota-sdk/agent-core';
@@ -101,9 +110,6 @@ import {
 
 declare const provider: IAIProvider;
 
-// Every file tool is built against an explicit containment root (ARCH-010). There are no ready-made
-// tool instances: one bound at import time could carry no root, and a file tool with no root has no
-// boundary. Pass the directory the agent is meant to work in.
 const workspaceRoot = process.cwd();
 
 const agent = new Robota({
@@ -121,13 +127,19 @@ const agent = new Robota({
 const response = await agent.run('Find all TODO comments in the project');
 ```
 
-## Sandbox-Aware Built-in Tools
+A `Robota` agent has no permission prompts: it runs the tools it is given. For permission modes and
+approval prompts, use an [`InteractiveSession`](./session-management.md), which also assembles the
+built-in tool set for you.
 
-Use factory exports when Bash or file tools should run inside a provider sandbox instead of the host workspace:
+## Tools in a sandbox
+
+Pass a `sandboxClient` to run shell and file tools inside a sandbox instead of on the host. The
+example uses the E2B adapter; install the `e2b` package in your application.
 
 <!-- doc-example-skip: requires the optional e2b dependency -->
 
 ```typescript
+import { Robota, type IAIProvider } from '@robota-sdk/agent-core';
 import {
   E2BSandboxClient,
   applyWorkspaceManifest,
@@ -138,9 +150,12 @@ import {
 } from '@robota-sdk/agent-tools';
 import { Sandbox } from 'e2b';
 
+declare const provider: IAIProvider;
+
 const sandbox = await Sandbox.create();
 const sandboxClient = new E2BSandboxClient({ sandbox });
 
+// Prepare files and directories in the sandbox before the tools run
 await applyWorkspaceManifest(sandboxClient, {
   entries: {
     'task.md': { type: 'file', content: 'Run the requested checks.\n' },
@@ -153,8 +168,7 @@ const agent = new Robota({
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   tools: [
-    // `cwd` is required even with a sandbox client (ARCH-010): it is the root inside the sandbox,
-    // and it still contains any tool that falls through to the host filesystem.
+    // `cwd` is still required: it is the root inside the sandbox.
     createBashTool({ sandboxClient, cwd: '/workspace' }),
     createReadTool({ sandboxClient, cwd: '/workspace' }),
     createWriteTool({ sandboxClient, cwd: '/workspace' }),
@@ -163,4 +177,9 @@ const agent = new Robota({
 });
 ```
 
-`E2BSandboxClient` is a structural adapter. Install and construct the concrete provider SDK in your application, then pass the adapter to Robota tools or `InteractiveSession`. Workspace manifests use the same sandbox port and prepare files/directories before the tools run. When a session store is present, snapshot-capable sandbox clients can persist a `sandboxSnapshotId` on shutdown and hydrate that workspace during non-fork resume.
+`E2BSandboxClient` adapts an E2B sandbox you create with the E2B SDK; the same client can be passed
+to `InteractiveSession` as `sandboxClient`. When a session has a session store, a sandbox client that
+supports snapshots saves a `sandboxSnapshotId` on shutdown, and resuming the session (not forking it)
+restores that workspace.
+[examples/capabilities/sandboxed-tools](../../examples/capabilities/sandboxed-tools/README.md) runs
+the default tool set against an in-memory sandbox, with no account needed.
