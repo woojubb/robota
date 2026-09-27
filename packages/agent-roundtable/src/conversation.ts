@@ -458,7 +458,10 @@ export class Conversation implements Roundtable {
         continue;
       }
       const agents = selected.filter((p): p is AgentParticipant => p.kind === 'agent');
-      const members = agents.map(({ id }): UsagePrincipal => ({ kind: 'participant', id }));
+      // A participant whose factory declares 'none' needs no allowance, like a 'none' selector.
+      const members = agents
+        .filter((p) => p.factory.modelCalls === 'metered')
+        .map(({ id }): UsagePrincipal => ({ kind: 'participant', id }));
       if (modelCallsSpent(this.persistence.snapshot(), runId, members)) {
         return { status: 'limited', reason: 'model-calls', revision: this.snapshot().revision };
       }
@@ -542,10 +545,10 @@ export class Conversation implements Roundtable {
     const selected = pending.map((member) => this.participants.get(member.participantId));
     if (selected.some((participant) => participant?.kind !== 'agent'))
       throw new RoundtableError('conflict', 'Group participant is missing');
-    const members = pending.map(({ participantId }): UsagePrincipal => ({
-      kind: 'participant',
-      id: participantId,
-    }));
+    // A participant whose factory declares 'none' needs no allowance, like a 'none' selector.
+    const members = (selected as AgentParticipant[])
+      .filter((participant) => participant.factory.modelCalls === 'metered')
+      .map(({ id }): UsagePrincipal => ({ kind: 'participant', id }));
     if (modelCallsSpent(resumeState, runId, members)) return false;
     await executeGroup({
       participants: selected as AgentParticipant[],

@@ -95,6 +95,7 @@ Omitting `store` uses the same in-memory store. A durable `ConversationStore` to
 - `group-started` — the selected participants and the transcript revision they all see.
 - `delta` — text a participant streams through `onDelta` while its turn runs.
 - `prepared` — a participant's result is saved but not public yet.
+- `usage` — a model-call admission or usage report was saved to the usage ledger.
 - `published` — the whole group committed; its messages are in the transcript, in selection order.
 
 An exception from `onEvent` goes to `onEventError` and cannot undo a committed group.

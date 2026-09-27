@@ -670,7 +670,7 @@ describe('per-turn usage services and the admission ledger', () => {
     await reloaded.dispose();
   });
 
-  it('rejects a usage report with no prior admission unless it reports a cache hit', async () => {
+  it('rejects a usage report with no prior admission unless it reports a cache hit, which then needs its own identity', async () => {
     const room = createRoundtable({
       conversationId: 'unadmitted',
       participants: [
@@ -683,10 +683,22 @@ describe('per-turn usage services and the admission ledger', () => {
               final: true,
             }),
           ).rejects.toMatchObject({ code: 'conflict' });
+          // A cache hit needs no admission, but without one it must carry providerId and modelId
+          // itself; nothing else would fix its identity, and it must never be stored empty.
+          await expect(
+            options.services.recordUsage({
+              callId: 'cache-1',
+              outcome: 'cache-hit',
+              provenance: 'reported',
+              final: true,
+            }),
+          ).rejects.toMatchObject({ code: 'invalid-config' });
           await options.services.recordUsage({
             callId: 'cache-1',
             outcome: 'cache-hit',
             provenance: 'reported',
+            providerId: 'p',
+            modelId: 'm',
             final: true,
           });
           return { kind: 'speak', content: 'ok' };
@@ -700,7 +712,205 @@ describe('per-turn usage services and the admission ledger', () => {
     expect(usage.find((record) => record.callId === 'cache-1')).toMatchObject({
       status: 'settled',
       outcome: 'cache-hit',
+      providerId: 'p',
+      modelId: 'm',
     });
     await room.dispose();
+  });
+
+  it('reloads a conversation whose ledger holds an admission-free cache hit', async () => {
+    const store = new MemoryConversationStore();
+    const factory: ParticipantFactory = {
+      modelCalls: 'metered',
+      checkpointVersions: ['1'],
+      openSession: async () => ({
+        session: {
+          runTurn: async (_turn, options) => {
+            await options.services.recordUsage({
+              callId: 'cache-1',
+              outcome: 'cache-hit',
+              provenance: 'reported',
+              providerId: 'p',
+              modelId: 'm',
+              final: true,
+            });
+            return { kind: 'speak', content: 'ok' };
+          },
+          checkpoint: async () => ({ version: '1', data: null }),
+        },
+        release: async () => {},
+      }),
+    };
+    const participant: AgentParticipant = {
+      kind: 'agent',
+      id: 'a',
+      runtime: { id: 'echo', version: '1' },
+      factory,
+    };
+    const registry = {
+      resolveParticipant: async () => ({ reference: { id: 'echo', version: '1' }, factory }),
+    };
+    const room = createRoundtable({
+      conversationId: 'reload-cache-hit',
+      participants: [participant],
+      store,
+      limits: { maxTurnsPerRun: 1 },
+    });
+    await room.run();
+    await room.dispose();
+
+    const loaded = await loadRoundtable({ conversationId: 'reload-cache-hit', store, registry });
+    expect(loaded.snapshot().usage).toMatchObject([
+      { callId: 'cache-1', status: 'settled', providerId: 'p', modelId: 'm' },
+    ]);
+    await loaded.dispose();
+  });
+
+  it('rejects fractional or unrecognized-key tokens before they are ever stored', async () => {
+    const room = createRoundtable({
+      conversationId: 'fractional-tokens',
+      participants: [
+        agent('a', async (_turn, options) => {
+          await options.services.admitModelCall({ callId: 'c1', providerId: 'p', modelId: 'm' });
+          // Reporters must round fractional provider counts; a fractional count is rejected, not stored.
+          await expect(
+            options.services.recordUsage({
+              callId: 'c1',
+              outcome: 'completed',
+              provenance: 'estimated',
+              tokens: { input: 12.5 },
+              final: true,
+            }),
+          ).rejects.toMatchObject({ code: 'invalid-config' });
+          await expect(
+            options.services.recordUsage({
+              callId: 'c1',
+              outcome: 'completed',
+              provenance: 'estimated',
+              tokens: { input: 12, notARecognizedKey: 1 } as never,
+              final: true,
+            }),
+          ).rejects.toMatchObject({ code: 'invalid-config' });
+          return { kind: 'speak', content: 'ok' };
+        }),
+      ],
+      limits: { maxTurnsPerRun: 1 },
+    });
+    await room.run();
+    expect(room.snapshot().usage.find((r) => r.callId === 'c1')).toMatchObject({
+      status: 'reserved',
+    });
+    await room.dispose();
+  });
+
+  it('rejects a settlement whose pricing cost is not an integer amount string, before it is stored, and summarizeUsage still never throws', async () => {
+    const pricing: PricePolicy = {
+      version: 'v1',
+      cost: () => ({ currency: 'USD', minorUnits: '1.5' }),
+    };
+    const room = createRoundtable({
+      conversationId: 'bad-pricing-cost',
+      participants: [
+        agent('a', async (_turn, options) => {
+          await options.services.admitModelCall({ callId: 'c1', providerId: 'p', modelId: 'm' });
+          await expect(
+            options.services.recordUsage({
+              callId: 'c1',
+              outcome: 'completed',
+              provenance: 'reported',
+              final: true,
+            }),
+          ).rejects.toMatchObject({ code: 'invalid-config' });
+          return { kind: 'speak', content: 'ok' };
+        }),
+      ],
+      selector: roundRobin(),
+      pricing,
+      limits: { maxTurnsPerRun: 1 },
+    });
+    await room.run();
+    const usage = room.snapshot().usage;
+    expect(usage.find((r) => r.callId === 'c1')).toMatchObject({ status: 'reserved' });
+    expect(() => summarizeUsage(usage)).not.toThrow();
+    await room.dispose();
+  });
+
+  it('a response that settles after the run stops on a timeout still records its tokens; a new admission afterward is refused', async () => {
+    let secondAdmissionError: unknown;
+    const room = createRoundtable({
+      conversationId: 'late-settlement',
+      participants: [
+        agent('a', async (_turn, options) => {
+          await options.services.admitModelCall({ callId: 'c1', providerId: 'p', modelId: 'm' });
+          // The provider response arrives well after the run's timeout already fired.
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          await options.services.recordUsage({
+            callId: 'c1',
+            outcome: 'completed',
+            provenance: 'reported',
+            tokens: { input: 5, output: 10 },
+            final: true,
+          });
+          try {
+            await options.services.admitModelCall({ callId: 'c2', providerId: 'p', modelId: 'm' });
+          } catch (error) {
+            secondAdmissionError = error;
+          }
+          return { kind: 'speak', content: 'late' };
+        }),
+      ],
+      limits: { maxTurnsPerRun: 1, timeoutMs: 30 },
+    });
+    const result = await room.run();
+    expect(result).toMatchObject({ status: 'limited', reason: 'time' });
+    expect(room.snapshot().usage.find((r) => r.callId === 'c1')).toMatchObject({
+      status: 'settled',
+      outcome: 'completed',
+      tokens: { input: 5, output: 10 },
+    });
+    expect(secondAdmissionError).toBeDefined();
+    await room.dispose();
+  });
+
+  describe('the pre-dispatch group limit check', () => {
+    it('needs no allowance for a participant whose factory declares modelCalls "none", like a "none" selector', async () => {
+      const silent: AgentParticipant = {
+        kind: 'agent',
+        id: 'silent',
+        runtime: { id: 'silent', version: '1' },
+        factory: {
+          modelCalls: 'none',
+          openSession: async () => ({
+            session: { runTurn: async () => ({ kind: 'speak', content: 'silent' }) },
+            release: async () => {},
+          }),
+        },
+      };
+      const metered = agent('metered', async (_turn, options) => {
+        await options.services.admitModelCall({ callId: 'm-1', providerId: 'p', modelId: 'm' });
+        return { kind: 'speak', content: 'metered' };
+      });
+      const room = createRoundtable({
+        conversationId: 'none-member-allowance',
+        participants: [silent, metered],
+        maxConcurrentParticipants: 2,
+        limits: { maxTurnsPerRun: 2, maxModelCallsPerRun: 1 },
+        selector: {
+          modelCalls: 'none',
+          select: () => ({ kind: 'parallel', participantIds: ['silent', 'metered'] }),
+        },
+      });
+      // Before the fix, 'silent' counted toward the needed allowance and the group was refused
+      // whole even though only 'metered' would ever spend it.
+      const result = await room.run();
+      expect(result).toMatchObject({ status: 'limited', reason: 'turns' });
+      expect(
+        room
+          .snapshot()
+          .messages.map((message) => message.content)
+          .sort(),
+      ).toEqual(['metered', 'silent']);
+      await room.dispose();
+    });
   });
 });
