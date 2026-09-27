@@ -123,6 +123,35 @@ describe('readProjectGitStatus', () => {
     expect(result.truncated).toBe(true);
   });
 
+  it('asks numstat for only the kept files, not every changed file past the cap', async () => {
+    const env = hermeticEnv();
+    const repo = initRepo(env);
+    const count = MAX_STATUS_FILES + 5;
+    for (let i = 0; i < count; i += 1) writeFileSync(join(repo, `f${i}.txt`), 'x\n');
+    git(repo, env, 'add', '.');
+    git(repo, env, 'commit', '-q', '-m', 'chore: base');
+    for (let i = 0; i < count; i += 1) writeFileSync(join(repo, `f${i}.txt`), 'x\nCHANGED\n');
+
+    const real = port(env);
+    const numstatPathCounts: number[] = [];
+    const spyPort: IGitProcessPort = {
+      run: async (args, options) => {
+        if (args[0] === 'diff' && args.includes('--numstat')) {
+          numstatPathCounts.push(args.length - args.indexOf('--') - 1);
+        }
+        return real.run(args, options);
+      },
+    };
+
+    const result = await readProjectGitStatus(spyPort, repo);
+    if (!result.ok || !result.repository) throw new Error('expected a repository result');
+    expect(result.files).toHaveLength(MAX_STATUS_FILES);
+    expect(result.truncated).toBe(true);
+    expect(numstatPathCounts.length).toBeGreaterThan(0);
+    // Neither the worktree nor the --cached numstat call asked about more than the kept files.
+    expect(numstatPathCounts.every((requested) => requested <= MAX_STATUS_FILES)).toBe(true);
+  });
+
   it('reports a real git failure (not the non-repository case) with a message', async () => {
     const env = hermeticEnv();
     const notGit: IGitProcessPort = { run: async () => ({ kind: 'exited', stdout: '', stderr: 'fatal: something else went wrong', exitCode: 128 }) };

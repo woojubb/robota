@@ -11,6 +11,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { NodeFileSystemAsync } from '../../adapters/node-file-system.js';
 import { createGitProcess } from '../git-process.js';
 import {
   MAX_PROJECT_DIFF_LINES,
@@ -54,6 +55,15 @@ function initRepo(env: NodeJS.ProcessEnv): string {
 
 function port(env: NodeJS.ProcessEnv): IGitProcessPort {
   return createGitProcess({ env });
+}
+
+/** Records whether `readFile` was ever called — proves the size cap refuses BEFORE reading. */
+class ReadSpyFileSystem extends NodeFileSystemAsync {
+  readCalled = false;
+  override async readFile(path: string, encoding: BufferEncoding): Promise<string> {
+    this.readCalled = true;
+    return super.readFile(path, encoding);
+  }
 }
 
 describe('parseUnifiedDiffLines', () => {
@@ -142,6 +152,47 @@ describe('readProjectGitDiff', () => {
       { type: 'add', text: 'alpha', lineNumber: 1 },
       { type: 'add', text: 'beta', lineNumber: 2 },
     ]);
+  });
+
+  it('refuses an untracked file over the size cap, without ever reading its content', async () => {
+    const env = hermeticEnv();
+    const repo = initRepo(env);
+    git(repo, env, 'commit', '-q', '-m', 'chore: empty', '--allow-empty');
+    // 1 MiB is the cap (MAX_UNTRACKED_DIFF_BYTES) — one byte over it.
+    writeFileSync(join(repo, 'big.log'), 'x'.repeat(1024 * 1024 + 1));
+
+    const spyFs = new ReadSpyFileSystem();
+    const result = await readProjectGitDiff(port(env), repo, 'big.log', spyFs);
+    if (!result.ok) throw new Error(`expected ok, got ${JSON.stringify(result)}`);
+    expect(result.diffLines).toEqual([
+      { type: 'hunk', text: 'This file is too large to show here.', lineNumber: 1 },
+    ]);
+    expect(spyFs.readCalled).toBe(false);
+  });
+
+  it('shows a binary untracked file as "Binary file", never mangled text', async () => {
+    const env = hermeticEnv();
+    const repo = initRepo(env);
+    git(repo, env, 'commit', '-q', '-m', 'chore: empty', '--allow-empty');
+    writeFileSync(join(repo, 'image.bin'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x01, 0x02]));
+
+    const result = await readProjectGitDiff(port(env), repo, 'image.bin');
+    if (!result.ok) throw new Error(`expected ok, got ${JSON.stringify(result)}`);
+    expect(result.diffLines).toEqual([{ type: 'hunk', text: 'Binary file', lineNumber: 1 }]);
+  });
+
+  it('truncates one pathologically long line instead of showing it whole', async () => {
+    const env = hermeticEnv();
+    const repo = initRepo(env);
+    git(repo, env, 'commit', '-q', '-m', 'chore: empty', '--allow-empty');
+    const longLine = 'x'.repeat(5000);
+    writeFileSync(join(repo, 'minified.js'), longLine);
+
+    const result = await readProjectGitDiff(port(env), repo, 'minified.js');
+    if (!result.ok) throw new Error(`expected ok, got ${JSON.stringify(result)}`);
+    const added = result.diffLines.find((l) => l.type === 'add');
+    expect(added?.text.length).toBeLessThan(5000);
+    expect(added?.text).toContain('(line truncated)');
   });
 
   it('diffs a staged file on an unborn branch (no HEAD yet)', async () => {

@@ -13,12 +13,12 @@ import { resolve } from 'node:path';
 
 import { isPathInside } from '@robota-sdk/agent-core/node';
 
-import { NodeFileSystem } from '../adapters/node-file-system.js';
+import { NodeFileSystemAsync } from '../adapters/node-file-system.js';
 import { GIT_STATUS_ARGS, parseStatusRecords } from './git-status.js';
 import { isNotAGitRepositoryFailure } from './project-status-read.js';
 
 import type { IGitProcessPort } from './git-process.js';
-import type { IFileSystem } from '@robota-sdk/agent-core';
+import type { IFileSystemAsync } from '@robota-sdk/agent-core';
 import type { IDiffLine } from '@robota-sdk/agent-interface-session';
 
 export type TProjectGitDiffResult =
@@ -30,6 +30,28 @@ export type TProjectGitDiffResult =
 /** Matches `MAX_WRITE_DIFF_LINES` in `interactive-session-streaming.ts` — the ONE diff-line cap a
  *  surface already renders correctly (DiffLines has no fold of its own; a builder caps its output). */
 export const MAX_PROJECT_DIFF_LINES = 500;
+
+const BYTES_PER_KIB = 1024;
+/**
+ * The untracked-file diff preview's OWN read cap — smaller than the general 4 MiB project-read cap
+ * (`MAX_PROJECT_READ_BYTES` in `workspace-trust/project-reader-path.ts`) because this file is
+ * materialized whole into a string to build a line-by-line diff view, not streamed, and a Project
+ * panel preview has no reason to hold megabytes of a build artifact or log file in the daemon's
+ * memory just to say "too large". Checked via `stat` BEFORE any read (#3282 §4c review): a file over
+ * this size is refused without ever touching the file's contents, so it can neither block the event
+ * loop with a large synchronous-equivalent read nor slip a pathologically long line past the cap
+ * below.
+ */
+const MAX_UNTRACKED_DIFF_BYTES = BYTES_PER_KIB * BYTES_PER_KIB; // 1 MiB
+
+/** Matches the attachment resolver's own binary sniff (`prompt-file-reference-resolver.ts`): a NUL
+ *  byte survives UTF-8 decoding unchanged, so checking the first 8 KiB of the (already size-capped)
+ *  decoded content for one reliably flags binary content without raw-byte access. */
+const BINARY_SNIFF_CHARS = 8 * BYTES_PER_KIB;
+
+/** The line-count cap above bounds how many lines are shown, not how long any ONE of them is — a
+ *  single very long line (e.g. a minified file on one line) is truncated here too. */
+const MAX_DIFF_LINE_CHARS = 2000;
 
 function outsideWorkspace(path: string): TProjectGitDiffResult {
   return { ok: false, code: 'outside_workspace', message: `"${path}" is outside the workspace.` };
@@ -85,20 +107,59 @@ function capDiffLines(diffLines: readonly IDiffLine[]): { diffLines: IDiffLine[]
   };
 }
 
-/** An untracked file has no git baseline — shown as a whole-file addition, `buildWriteDiffState`-style. */
-function readUntrackedFileDiffLines(fs: IFileSystem, absolutePath: string): IDiffLine[] {
+function couldNotReadDiffLines(): IDiffLine[] {
+  return [{ type: 'hunk', text: 'This file could not be read.', lineNumber: 1 }];
+}
+
+function tooLargeDiffLines(): IDiffLine[] {
+  return [{ type: 'hunk', text: 'This file is too large to show here.', lineNumber: 1 }];
+}
+
+function binaryFileDiffLines(): IDiffLine[] {
+  return [{ type: 'hunk', text: 'Binary file', lineNumber: 1 }];
+}
+
+function looksBinary(content: string): boolean {
+  return content.slice(0, BINARY_SNIFF_CHARS).includes('\u0000');
+}
+
+function truncateDiffLineText(text: string): string {
+  return text.length > MAX_DIFF_LINE_CHARS ? `${text.slice(0, MAX_DIFF_LINE_CHARS)}… (line truncated)` : text;
+}
+
+/**
+ * An untracked file has no git baseline — shown as a whole-file addition, `buildWriteDiffState`-style.
+ * Stats the file before reading it: over `MAX_UNTRACKED_DIFF_BYTES`, it is refused without ever being
+ * read. At or under that size, it is read once (bounded by the same check) and sniffed for binary
+ * content the same way the composer's attachment resolver does.
+ */
+async function readUntrackedFileDiffLines(fs: IFileSystemAsync, absolutePath: string): Promise<IDiffLine[]> {
+  let size: number;
+  try {
+    size = (await fs.stat(absolutePath)).size;
+  } catch {
+    return couldNotReadDiffLines();
+  }
+  if (size > MAX_UNTRACKED_DIFF_BYTES) return tooLargeDiffLines();
+
   let content: string;
   try {
-    content = fs.readFileSync(absolutePath, 'utf8');
+    content = await fs.readFile(absolutePath, 'utf8');
   } catch {
-    return [{ type: 'hunk', text: 'This file could not be read.', lineNumber: 1 }];
+    return couldNotReadDiffLines();
   }
+  if (looksBinary(content)) return binaryFileDiffLines();
+
   // A file read from disk ends with a trailing newline far more often than not; without stripping
   // it, `split('\n')` manufactures one extra empty "added" line that was never really there.
   const lines = content.replace(/\n$/, '').split('\n');
   return [
     { type: 'hunk', text: `@@ -0,0 +1,${lines.length} @@`, lineNumber: 1 },
-    ...lines.map((text, index) => ({ type: 'add' as const, text, lineNumber: index + 1 })),
+    ...lines.map((text, index) => ({
+      type: 'add' as const,
+      text: truncateDiffLineText(text),
+      lineNumber: index + 1,
+    })),
   ];
 }
 
@@ -123,7 +184,7 @@ export async function readProjectGitDiff(
   port: IGitProcessPort,
   cwd: string,
   requestedPath: string,
-  fs: IFileSystem = new NodeFileSystem(),
+  fs: IFileSystemAsync = new NodeFileSystemAsync(),
 ): Promise<TProjectGitDiffResult> {
   const absolutePath = resolve(cwd, requestedPath);
   if (!isPathInside(cwd, absolutePath)) return outsideWorkspace(requestedPath);
@@ -140,7 +201,7 @@ export async function readProjectGitDiff(
   }
 
   if (await isUntracked(port, cwd, requestedPath)) {
-    const { diffLines, truncated } = capDiffLines(readUntrackedFileDiffLines(fs, absolutePath));
+    const { diffLines, truncated } = capDiffLines(await readUntrackedFileDiffLines(fs, absolutePath));
     return { ok: true, diffLines, truncated };
   }
 

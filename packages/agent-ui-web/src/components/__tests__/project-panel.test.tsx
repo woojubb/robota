@@ -179,6 +179,17 @@ describe('ProjectPanel', () => {
     expect(onOpenMemoryInEditor).toHaveBeenCalledExactlyOnceWith('MEMORY.md');
   });
 
+  it('shows a truncation notice when the memory content was cut short', () => {
+    render(
+      <ProjectPanel
+        state={baseState({
+          projectMemory: { kind: 'memory', content: '# Notes', path: 'MEMORY.md', truncated: true },
+        })}
+      />,
+    );
+    expect(screen.getByText('The memory was too long and was cut short.')).toBeTruthy();
+  });
+
   it('shows the plain unavailable message when memory cannot be read', () => {
     render(
       <ProjectPanel

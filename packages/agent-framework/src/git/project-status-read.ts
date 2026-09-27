@@ -151,16 +151,20 @@ export async function readProjectGitStatus(
   }
 
   const parsed = parseStatusRecords(outcome.stdout);
-  const countable = parsed.records.filter(
-    (record) => record.kind === 'ordinary' || record.kind === 'renamed',
-  );
+  // Cut to the file-count cap BEFORE asking for numstat counts: a numstat request for every
+  // changed file in a workspace with thousands of them (a huge rebase, a generated-file dump) would
+  // be pure waste when only the first MAX_STATUS_FILES rows are ever shown (review: #3282 §4c).
+  const truncated = parsed.records.length > MAX_STATUS_FILES;
+  const records = truncated ? parsed.records.slice(0, MAX_STATUS_FILES) : parsed.records;
+
+  const countable = records.filter((record) => record.kind === 'ordinary' || record.kind === 'renamed');
   const counts = await readNumstatCounts(
     port,
     cwd,
     countable.map((record) => record.path),
   );
 
-  const files: IProjectGitStatusFile[] = parsed.records.map((record) => {
+  const files: IProjectGitStatusFile[] = records.map((record) => {
     if (record.kind === 'untracked') return { path: record.path, status: 'Untracked' };
     if (record.kind === 'unmerged') return { path: record.path, status: 'Conflicted' };
     const status = plainWordStatus(primaryStatusLetter(record.xy));
@@ -175,13 +179,12 @@ export async function readProjectGitStatus(
     };
   });
 
-  const truncated = files.length > MAX_STATUS_FILES;
   return {
     ok: true,
     repository: true,
     branch: parsed.branch,
     unborn: parsed.unborn,
-    files: truncated ? files.slice(0, MAX_STATUS_FILES) : files,
+    files,
     truncated,
   };
 }

@@ -96,6 +96,15 @@ describe('gitEnvironment', () => {
       expect(env[key]).toBe(source[key]);
     }
   });
+
+  it('forces the C locale regardless of the source environment (#3282 §4c review)', () => {
+    // `isNotAGitRepositoryFailure` pattern-matches git's English stderr text; a host whose own LANG
+    // is set to something git has translations for must not change that text.
+    const source: NodeJS.ProcessEnv = { PATH: '/usr/bin', LANG: 'fr_FR.UTF-8', LC_ALL: 'de_DE.UTF-8' };
+    const env = gitEnvironment(source);
+    expect(env.LC_ALL).toBe('C');
+    expect(env.LANG).toBe('C');
+  });
 });
 
 describe('createGitProcess against a real repository', () => {
