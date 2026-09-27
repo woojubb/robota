@@ -134,6 +134,32 @@ describe('session-loop creation durability', () => {
     }
   });
 
+  it('reads a pending self-paced loop\'s own detail page instead of throwing "Unknown background '
+    + 'task" (#3288 §1)', async () => {
+    const { interactive } = setup(() => undefined);
+    const held = holdForeground(interactive);
+    try {
+      const created = await interactive.createSelfPacedLoop('check the build');
+      const entry = interactive
+        .listExecutionWorkspaceEntries()
+        .find((candidate) => candidate.sourceId === created.loopId);
+      expect(entry).toBeDefined();
+      // The real dispatcher (`readWorkspaceDetail`, wired through `InteractiveSession`), not a
+      // component-level mock of the detail read: a `pending` self-paced loop has no
+      // `IBackgroundTaskState` of its own, so this used to throw "Unknown background task".
+      const detail = await interactive.readExecutionWorkspaceDetail(entry!.id);
+      expect(detail.entryId).toBe(entry!.id);
+      expect(detail.records.map((record) => record.text)).toEqual([
+        'check the build',
+        'Phase: pending',
+        'Iteration 0',
+      ]);
+    } finally {
+      held.controller.clearPendingQueue();
+      held.release();
+    }
+  });
+
   it('does not arm a successor when a running loop is stopped', async () => {
     let release!: () => void;
     const held = new Promise<void>((resolve) => { release = resolve; });
