@@ -23,6 +23,7 @@ import type {
   ConversationSnapshot,
   ExternalInput,
   ParticipantDefinition,
+  ParticipantCheckpoint,
   ParticipantLease,
   ParticipantTurn,
   Roundtable,
@@ -523,8 +524,10 @@ export class Conversation implements Roundtable {
             });
           });
         } finally {
-          // Its session holds the abandoned attempt, so the retry reopens from the saved checkpoint.
-          if (entered) await this.discardSession(turn.participantId);
+          // Its session holds the abandoned attempt. Reopen only when that loses nothing else: from a
+          // saved checkpoint, or fresh before any history. Otherwise the live session is all there is.
+          if (entered && this.reopenable(turn.participantId))
+            await this.discardSession(turn.participantId);
         }
       },
       settle: (turn, outcome) =>
@@ -678,17 +681,33 @@ export class Conversation implements Roundtable {
     }
   }
 
+  /** The private state a newly opened session starts from: a parked wait's, else the participant's. */
+  private savedCheckpoint(
+    state: ConversationState,
+    participantId: string,
+  ): ParticipantCheckpoint | null | undefined {
+    const member =
+      state.phase.kind === 'group'
+        ? state.phase.members.find((candidate) => candidate.participantId === participantId)
+        : undefined;
+    return member?.requestIds.length
+      ? member.checkpoint
+      : state.participants.find((p) => p.id === participantId)?.checkpoint;
+  }
+
+  private reopenable(participantId: string): boolean {
+    const state = this.persistence.snapshot();
+    if (this.savedCheckpoint(state, participantId)) return true;
+    return (
+      !state.participants.find((p) => p.id === participantId)?.delivered.length &&
+      !state.snapshot.turns.some((turn) => turn.participantId === participantId)
+    );
+  }
+
   private session(participant: AgentParticipant): Promise<ParticipantLease> {
     let opened = this.sessions.get(participant.id);
     if (!opened) {
-      const state = this.persistence.snapshot();
-      const member =
-        state.phase.kind === 'group'
-          ? state.phase.members.find((candidate) => candidate.participantId === participant.id)
-          : undefined;
-      const checkpoint = member?.requestIds.length
-        ? member.checkpoint
-        : state.participants.find((p) => p.id === participant.id)?.checkpoint;
+      const checkpoint = this.savedCheckpoint(this.persistence.snapshot(), participant.id);
       opened = participant.factory.openSession({
         conversationId: this.options.conversationId,
         participantId: participant.id,

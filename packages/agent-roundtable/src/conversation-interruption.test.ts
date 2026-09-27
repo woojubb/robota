@@ -404,6 +404,81 @@ describe('retrying a participant after cancellation', () => {
   });
 });
 
+/** A stateful runtime without checkpoint(): its memory lives only in the open session. */
+function memoryAgent(id: string, said: { count: number }, stopAt?: number) {
+  let calls = 0;
+  let entered!: () => void;
+  const running = new Promise<void>((resolve) => (entered = resolve));
+  const sessions: string[][] = [];
+  const release = vi.fn(async () => {});
+  const participant: AgentParticipant = {
+    kind: 'agent',
+    id,
+    runtime: { id, version: '1' },
+    factory: {
+      openSession: async () => {
+        const memory: string[] = [];
+        sessions.push(memory);
+        return {
+          session: {
+            runTurn: async (turn, { signal }) => {
+              memory.push(...turn.context.messages.map((m) => `${m.participantId}:${m.content}`));
+              if (++calls === stopAt) {
+                entered();
+                await untilAborted(signal);
+              }
+              const content = `${id}-said-${said.count++}`;
+              memory.push(`me:${content}`);
+              return { kind: 'speak', content };
+            },
+          },
+          release,
+        };
+      },
+    },
+  };
+  return { participant, sessions, release, running };
+}
+
+describe('retrying a participant that cannot checkpoint', () => {
+  it('a stateful participant without checkpoint keeps its memory when retried after cancellation', async () => {
+    const said = { count: 0 };
+    const a = memoryAgent('a', said, 2);
+    const b = memoryAgent('b', said);
+    const order = ['a', 'b', 'a'];
+    const f = setup(
+      ({ turns }) =>
+        turns.length < order.length
+          ? { kind: 'speak', participantId: order[turns.length] }
+          : { kind: 'finish', reason: 'done' },
+      { agents: [a, b] },
+    );
+    expect(await f.room.run()).toMatchObject({ status: 'limited', reason: 'turns' });
+    const abort = new AbortController();
+    const cancelled = f.room.run({ signal: abort.signal });
+    await a.running;
+    abort.abort();
+    expect(await cancelled).toMatchObject({ status: 'cancelled' });
+    expect(await f.room.run()).toMatchObject({ status: 'completed', reason: 'done' });
+    // Nothing could restore its memory, so the live session is kept, abandoned attempt included.
+    expect(a.sessions).toEqual([['me:a-said-0', 'b:b-said-1', 'b:b-said-1', 'me:a-said-2']]);
+    expect(a.release).not.toHaveBeenCalled();
+  });
+
+  it('a participant without checkpoint and without earlier turns still reopens fresh', async () => {
+    const a = memoryAgent('a', { count: 0 }, 1);
+    const f = setup(speakThenFinish, { agents: [a] });
+    const abort = new AbortController();
+    const cancelled = f.room.run({ signal: abort.signal });
+    await a.running;
+    abort.abort();
+    expect(await cancelled).toMatchObject({ status: 'cancelled' });
+    expect(await f.room.run()).toMatchObject({ status: 'completed', reason: 'done' });
+    expect(a.sessions).toEqual([[], ['me:a-said-0']]);
+    expect(a.release).toHaveBeenCalledOnce();
+  });
+});
+
 describe('selector decisions are validated before they are saved', () => {
   it.each([
     ['an unknown participant', { kind: 'speak', participantId: 'ghost' }, /Unknown participant/],
