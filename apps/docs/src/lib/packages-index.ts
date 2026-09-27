@@ -20,13 +20,18 @@ export function buildPackageIndex(packagesDir: string): IPackageIndexEntry[] {
   if (!fs.existsSync(packagesDir)) return [];
   return fs
     .readdirSync(packagesDir, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && fs.existsSync(path.join(packagesDir, e.name, 'docs', 'README.md')))
+    .filter(
+      (e) => e.isDirectory() && fs.existsSync(path.join(packagesDir, e.name, 'docs', 'README.md')),
+    )
     .map((e) => e.name)
     .sort()
     .map((dir) => {
       const manifestPath = path.join(packagesDir, dir, 'package.json');
       const manifest = fs.existsSync(manifestPath)
-        ? (JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as { name?: string; private?: boolean })
+        ? (JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as {
+            name?: string;
+            private?: boolean;
+          })
         : {};
       const readme = fs.readFileSync(path.join(packagesDir, dir, 'docs', 'README.md'), 'utf8');
       return {
@@ -38,7 +43,7 @@ export function buildPackageIndex(packagesDir: string): IPackageIndexEntry[] {
     });
 }
 
-/** The first prose paragraph after the H1, with Markdown links and emphasis reduced to text. */
+/** The first prose paragraph after the H1, with Markdown links, emphasis and inline code reduced to text. */
 export function firstParagraph(markdown: string): string {
   const blocks = markdown.split(/\n\s*\n/).map((b) => b.trim());
   const prose = blocks.find((b) => b !== '' && !/^(#|```|[-*+] |\d+\. |\||>|<)/.test(b));

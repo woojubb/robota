@@ -35,11 +35,11 @@ SDK packages (@robota-sdk/*)
                         runtime host (buildRuntimeSession / startRuntimeHost behind robota --serve)
   Transports            agent-transport (wire protocol, delivery), and the carriers built on it:
                         agent-transport-ws · -http · -mcp · -webrtc
-  Runtime               agent-session · agent-executor · agent-tool-defaults
+  Runtime               agent-session · agent-executor · agent-tool-defaults ·
+                        agent-provider-replay (private: replays recorded provider responses in tests)
   Building blocks       agent-tools · agent-plugin · agent-mcp · agent-session-analytics ·
                         agent-provider-{anthropic,openai,openai-compatible,gemini,bytedance} ·
-                        agent-builtin-providers · agent-provider-replay (private: replays recorded
-                        provider responses in tests)
+                        agent-builtin-providers
   Contracts (type-only) agent-interface-{session,session-mobility,command,execution,
                         analytics,transport,tui}
   Foundation            agent-core

@@ -43,7 +43,8 @@
 /changelog/* https://docs.robota.io/en/changelog/:splat 301
 /plugins https://docs.robota.io/en/plugins/ 301
 /plugins/* https://docs.robota.io/en/plugins/:splat 301
-/integrations https://docs.robota.io/en/integrations/ 301
+/integrations https://docs.robota.io/en/integrations/github-action/ 301
+/integrations/ https://docs.robota.io/en/integrations/github-action/ 301
 /integrations/* https://docs.robota.io/en/integrations/:splat 301
 /quickstart.html https://docs.robota.io/en/quickstart/ 301
 /quickstart https://docs.robota.io/en/quickstart/ 301

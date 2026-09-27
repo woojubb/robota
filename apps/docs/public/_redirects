@@ -13,7 +13,8 @@
 /development/* /en/development/:splat 301
 /plugins /en/plugins/ 301
 /plugins/* /en/plugins/:splat 301
-/integrations /en/integrations/ 301
+/integrations /en/integrations/github-action/ 301
+/integrations/ /en/integrations/github-action/ 301
 /integrations/* /en/integrations/:splat 301
 /quickstart /en/quickstart/ 301
 /quickstart/* /en/quickstart/:splat 301

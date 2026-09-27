@@ -49,6 +49,9 @@ deploys production (`docs.robota.io`), and a push to any other branch builds a p
 `wrangler pages deploy out --project-name robota-docs --branch main`) uploads a local build straight to
 production; it is a manual fallback that needs a Wrangler login.
 
+Every page lives under `/en/` or `/ko/`. `public/_redirects` sends locale-less section paths (old links,
+hand-typed URLs such as `/guide/cli/`) to the English page.
+
 ## Documents
 
 - [`SPEC.md`](./SPEC.md): documentation site scope, ownership, and publishing boundaries.

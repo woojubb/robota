@@ -55,7 +55,10 @@ export function Footer() {
             <ul className="mt-3 space-y-2">
               {[
                 { key: 'documentation', href: `https://docs.robota.io/${locale}/` },
-                { key: 'gettingStarted', href: `https://docs.robota.io/${locale}/getting-started/` },
+                {
+                  key: 'gettingStarted',
+                  href: `https://docs.robota.io/${locale}/getting-started/`,
+                },
                 { key: 'github', href: 'https://github.com/woojubb/robota' },
                 {
                   key: 'npm',
