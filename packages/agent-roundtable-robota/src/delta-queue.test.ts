@@ -61,4 +61,21 @@ describe('createDeltaQueue', () => {
     await expect(queue.flush()).rejects.toBe(failure);
     expect(delivered).toEqual([]);
   });
+
+  it('never leaves a rejected sink call unobserved, even when flush is only awaited well after it failed', async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandledRejection = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandledRejection);
+    const failure = new Error('sink rejected');
+    const queue = createDeltaQueue(async (text) => {
+      if (text === 'bad') throw failure;
+    });
+    queue.push('bad');
+    // Long enough for Node to flag any promise in the chain that has no handler attached yet —
+    // a sink failure can arrive a full macrotask before its caller ever calls flush.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    process.off('unhandledRejection', onUnhandledRejection);
+    expect(unhandled).toEqual([]);
+    await expect(queue.flush()).rejects.toBe(failure);
+  });
 });

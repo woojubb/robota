@@ -8,6 +8,7 @@ import type {
   TToolParameters,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
+import { createRoundtable } from '@robota-sdk/agent-roundtable';
 import type {
   ParticipantExecutionOptions,
   ParticipantTurn,
@@ -303,5 +304,66 @@ describe('robotaParticipant: speak path', () => {
       participant.factory.openSession({ conversationId: 'c2', participantId: 'B' }),
     ).rejects.toMatchObject({ code: 'resource-reused' });
     await first.release();
+  });
+});
+
+describe('robotaParticipant: cancellation while a delta is in flight', () => {
+  it('ends the run cancelled and raises no unhandled rejection', async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandledRejection = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandledRejection);
+    const controller = new AbortController();
+    const provider: IAIProvider = {
+      name: 'streamer',
+      version: 'test',
+      async chat(_messages, options): Promise<TUniversalMessage> {
+        for (const chunk of ['one ', 'two ', 'three ']) {
+          (options as { onTextDelta?: (text: string) => void } | undefined)?.onTextDelta?.(chunk);
+          await new Promise((resolve) => setTimeout(resolve, 5));
+        }
+        if (options?.signal?.aborted) throw options.signal.reason;
+        return {
+          id: 'r1',
+          role: 'assistant',
+          content: 'one two three',
+          state: 'complete',
+          timestamp: new Date(),
+        };
+      },
+      async generateResponse() {
+        return { content: '' };
+      },
+      supportsTools: () => false,
+      validateConfig: () => true,
+    };
+    const room = createRoundtable({
+      conversationId: 'crash-probe',
+      participants: [
+        robotaParticipant({
+          id: 'a',
+          runtime: { id: 'fixture/robota', version: '1' },
+          createAgent: async () =>
+            new Robota({
+              name: 'fixture',
+              aiProviders: [provider],
+              defaultModel: { provider: provider.name, model: 'test-model' },
+            }),
+        }),
+      ],
+      limits: { maxTurnsPerRun: 1 },
+      // Slow enough (an awaited host handler, e.g. writing a delta out to a socket) that a delta
+      // pushed to the queue is still undelivered at the moment the run is cancelled.
+      onEvent: async (event) => {
+        if (event.type === 'delta') await new Promise((resolve) => setTimeout(resolve, 20));
+      },
+    });
+    setTimeout(() => controller.abort(new Error('user pressed stop')), 8);
+    const result = await room.run({ signal: controller.signal });
+    // Long enough for a rejection any earlier link left unhandled to be reported.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    process.off('unhandledRejection', onUnhandledRejection);
+    await room.dispose();
+    expect(result.status).toBe('cancelled');
+    expect(unhandled).toEqual([]);
   });
 });

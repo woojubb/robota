@@ -811,6 +811,63 @@ describe('sessionParticipant: lease safety on openSession failure', () => {
   });
 });
 
+describe('sessionParticipant: cancellation while a delta is in flight', () => {
+  it('ends the run cancelled and raises no unhandled rejection', async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandledRejection = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandledRejection);
+    const controller = new AbortController();
+    const provider: IAIProvider = {
+      name: 'streamer',
+      version: 'test',
+      async chat(_messages, options): Promise<TUniversalMessage> {
+        for (const chunk of ['one ', 'two ', 'three ']) {
+          (options as { onTextDelta?: (text: string) => void } | undefined)?.onTextDelta?.(chunk);
+          await new Promise((resolve) => setTimeout(resolve, 5));
+        }
+        if ((options as { signal?: AbortSignal } | undefined)?.signal?.aborted)
+          throw (options as { signal: AbortSignal }).signal.reason;
+        return {
+          id: 'r1',
+          role: 'assistant',
+          content: 'one two three',
+          state: 'complete',
+          timestamp: new Date(),
+        };
+      },
+      async generateResponse() {
+        return { content: '' };
+      },
+      supportsTools: () => false,
+      validateConfig: () => true,
+    };
+    const room = createRoundtable({
+      conversationId: 'crash-probe-session',
+      participants: [
+        sessionParticipant({
+          id: 'a',
+          runtime: { id: 'fixture/session', version: '1' },
+          createSessionOptions: async () => hostOptions(provider),
+        }),
+      ],
+      limits: { maxTurnsPerRun: 1 },
+      // Slow enough (an awaited host handler, e.g. writing a delta out to a socket) that a delta
+      // pushed to the queue is still undelivered at the moment the run is cancelled.
+      onEvent: async (event) => {
+        if (event.type === 'delta') await new Promise((resolve) => setTimeout(resolve, 20));
+      },
+    });
+    setTimeout(() => controller.abort(new Error('user pressed stop')), 8);
+    const result = await room.run({ signal: controller.signal });
+    // Long enough for a rejection any earlier link left unhandled to be reported.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    process.off('unhandledRejection', onUnhandledRejection);
+    await room.dispose();
+    expect(result.status).toBe('cancelled');
+    expect(unhandled).toEqual([]);
+  });
+});
+
 function freshJournal(): IRecoverableExecutionJournal {
   const records: TExecutionJournalRecord[] = [];
   return {
