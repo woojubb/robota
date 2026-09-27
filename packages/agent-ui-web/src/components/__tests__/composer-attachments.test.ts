@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ATTACHMENT_NO_PATH_NOTICE,
+  ATTACHMENT_NON_TEXT_NOTICE,
   MAX_ATTACHMENT_FILE_BYTES,
   MAX_ATTACHMENT_TOTAL_BYTES,
   buildPromptWithAttachments,
@@ -64,37 +65,46 @@ describe('looksBinary', () => {
   it('trusts a text/* MIME type over a misleading extension', () => {
     expect(looksBinary('data.bin', 'text/plain')).toBe(false);
   });
+
+  // Correction: ANY non-text MIME type the browser reports refuses the file — not just an
+  // allowlisted set of "known binary" ones — so an exotic type never mangled content sneaks past.
+  it('flags any MIME type the browser reports that is not text/JSON/XML, not only a known-binary allowlist', () => {
+    expect(looksBinary('mystery.xyz', 'application/x-something-unheard-of')).toBe(true);
+  });
 });
 
 describe('evaluateCandidateFile', () => {
-  const cwd = '/repo';
+  const workspacePath = '/repo';
 
   it('attaches a workspace file as a chip with its relative path', () => {
-    const outcome = evaluateCandidateFile({ name: 'a.ts', size: 100, absolutePath: '/repo/src/a.ts' }, cwd, 0);
+    const outcome = evaluateCandidateFile(
+      { name: 'a.ts', size: 100, absolutePath: '/repo/src/a.ts' },
+      workspacePath,
+      0,
+    );
     expect(outcome.kind).toBe('attached');
     if (outcome.kind === 'attached') {
       expect(outcome.attachment.relativePath).toBe('src/a.ts');
       expect(outcome.attachment.name).toBe('a.ts');
       expect(outcome.attachment.size).toBe(100);
-      expect(outcome.attachment.looksBinary).toBe(false);
     }
   });
 
   it('rejects a file with no real path (a plain browser pick or drop) with the plain sentence', () => {
-    const outcome = evaluateCandidateFile({ name: 'a.ts', size: 100 }, cwd, 0);
+    const outcome = evaluateCandidateFile({ name: 'a.ts', size: 100 }, workspacePath, 0);
     expect(outcome).toEqual({ kind: 'rejected', message: ATTACHMENT_NO_PATH_NOTICE });
   });
 
   it('rejects a file outside the workspace with the same plain sentence', () => {
     const outcome = evaluateCandidateFile(
       { name: 'passwd', size: 10, absolutePath: '/etc/passwd' },
-      cwd,
+      workspacePath,
       0,
     );
     expect(outcome).toEqual({ kind: 'rejected', message: ATTACHMENT_NO_PATH_NOTICE });
   });
 
-  it('rejects a file with no cwd known yet, the same way', () => {
+  it('rejects a file with no workspace path known yet, the same way', () => {
     const outcome = evaluateCandidateFile(
       { name: 'a.ts', size: 10, absolutePath: '/repo/a.ts' },
       undefined,
@@ -106,7 +116,7 @@ describe('evaluateCandidateFile', () => {
   it('rejects a file over the per-file limit, naming the file', () => {
     const outcome = evaluateCandidateFile(
       { name: 'big.log', size: MAX_ATTACHMENT_FILE_BYTES + 1, absolutePath: '/repo/big.log' },
-      cwd,
+      workspacePath,
       0,
     );
     expect(outcome.kind).toBe('rejected');
@@ -119,7 +129,7 @@ describe('evaluateCandidateFile', () => {
   it('accepts a file exactly at the per-file limit', () => {
     const outcome = evaluateCandidateFile(
       { name: 'exact.log', size: MAX_ATTACHMENT_FILE_BYTES, absolutePath: '/repo/exact.log' },
-      cwd,
+      workspacePath,
       0,
     );
     expect(outcome.kind).toBe('attached');
@@ -128,27 +138,37 @@ describe('evaluateCandidateFile', () => {
   it('rejects a file that would push the running total over the combined limit', () => {
     const outcome = evaluateCandidateFile(
       { name: 'c.ts', size: 10, absolutePath: '/repo/c.ts' },
-      cwd,
+      workspacePath,
       MAX_ATTACHMENT_TOTAL_BYTES - 5,
     );
     expect(outcome.kind).toBe('rejected');
     if (outcome.kind === 'rejected') expect(outcome.message).toContain('256 KB');
   });
 
-  it('flags an image as looksBinary while still attaching it (images fall back to @-references, #3282 §4)', () => {
+  // Correction: binary files (images included) are refused outright, never attached with a caution
+  // note — the runtime's own @-reference resolver now refuses a binary file the same way.
+  it('refuses an image outright, with the plain non-text sentence — not attached', () => {
     const outcome = evaluateCandidateFile(
       { name: 'shot.png', size: 100, mimeType: 'image/png', absolutePath: '/repo/shot.png' },
-      cwd,
+      workspacePath,
       0,
     );
-    expect(outcome.kind).toBe('attached');
-    if (outcome.kind === 'attached') expect(outcome.attachment.looksBinary).toBe(true);
+    expect(outcome).toEqual({ kind: 'rejected', message: ATTACHMENT_NON_TEXT_NOTICE });
+  });
+
+  it('refuses a known-binary extension the same way when no MIME type is known (a desktop pick)', () => {
+    const outcome = evaluateCandidateFile(
+      { name: 'archive.zip', size: 100, absolutePath: '/repo/archive.zip' },
+      workspacePath,
+      0,
+    );
+    expect(outcome).toEqual({ kind: 'rejected', message: ATTACHMENT_NON_TEXT_NOTICE });
   });
 
   it('rejects a workspace file whose name has a space, naming the syntax limit rather than failing silently', () => {
     const outcome = evaluateCandidateFile(
       { name: 'my file.txt', size: 10, absolutePath: '/repo/my file.txt' },
-      cwd,
+      workspacePath,
       0,
     );
     expect(outcome.kind).toBe('rejected');
@@ -162,7 +182,11 @@ describe('evaluateCandidateFile', () => {
   it.each(['notes.', 'todo:', 'important!', 'maybe?'])(
     'rejects a workspace file whose name ends in trailing punctuation the parser would strip (%s)',
     (name) => {
-      const outcome = evaluateCandidateFile({ name, size: 10, absolutePath: `/repo/${name}` }, cwd, 0);
+      const outcome = evaluateCandidateFile(
+        { name, size: 10, absolutePath: `/repo/${name}` },
+        workspacePath,
+        0,
+      );
       expect(outcome.kind).toBe('rejected');
     },
   );
@@ -170,7 +194,7 @@ describe('evaluateCandidateFile', () => {
   it('does not reject an ordinary file with a "." in the middle (an extension)', () => {
     const outcome = evaluateCandidateFile(
       { name: 'notes.txt', size: 10, absolutePath: '/repo/notes.txt' },
-      cwd,
+      workspacePath,
       0,
     );
     expect(outcome.kind).toBe('attached');
@@ -184,15 +208,15 @@ describe('buildPromptWithAttachments', () => {
 
   it('appends each attachment as an @-reference', () => {
     const result = buildPromptWithAttachments('look at this', [
-      { id: '1', name: 'a.ts', relativePath: 'src/a.ts', size: 1, looksBinary: false },
-      { id: '2', name: 'b.ts', relativePath: 'src/b.ts', size: 1, looksBinary: false },
+      { id: '1', name: 'a.ts', relativePath: 'src/a.ts', size: 1 },
+      { id: '2', name: 'b.ts', relativePath: 'src/b.ts', size: 1 },
     ]);
     expect(result).toBe('look at this\n\n@src/a.ts @src/b.ts');
   });
 
   it('carries just the references when the prompt text is empty', () => {
     const result = buildPromptWithAttachments('', [
-      { id: '1', name: 'a.ts', relativePath: 'src/a.ts', size: 1, looksBinary: false },
+      { id: '1', name: 'a.ts', relativePath: 'src/a.ts', size: 1 },
     ]);
     expect(result).toBe('@src/a.ts');
   });

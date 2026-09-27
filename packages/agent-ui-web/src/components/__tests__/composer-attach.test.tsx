@@ -42,8 +42,11 @@ function baseProps(): {
   };
 }
 
-/** A `TSessionStatus` naming a workspace root — attachments are resolved against `cwd` (#3282 §4d). */
-function statusWithCwd(sessionId: string, cwd: string): TSessionStatus {
+/**
+ * A `TSessionStatus` naming a workspace root — attachments are resolved against `workspace.path`
+ * (#3282 §4d, using the `ISessionStatusSnapshot.workspace` field #3289 §1 added).
+ */
+function statusWithWorkspace(sessionId: string, path: string): TSessionStatus {
   return {
     sessionId,
     model: 'm',
@@ -51,7 +54,7 @@ function statusWithCwd(sessionId: string, cwd: string): TSessionStatus {
     effort: 'auto',
     context: { usedPercentage: 0, usedTokens: 0, maxTokens: 100, remainingPercentage: 100 },
     goal: null,
-    cwd,
+    workspace: { name: path.split('/').pop() ?? path, path },
   } as TSessionStatus;
 }
 
@@ -72,7 +75,7 @@ describe('Composer — attach button (#3282 §4d)', () => {
     const pickFiles = vi.fn(
       async (): Promise<IPickedFile[]> => [{ path: '/repo/src/a.ts', name: 'a.ts', size: 10 }],
     );
-    render(<Composer {...baseProps()} status={statusWithCwd('s1', '/repo')} pickFiles={pickFiles} />);
+    render(<Composer {...baseProps()} status={statusWithWorkspace('s1', '/repo')} pickFiles={pickFiles} />);
     fireEvent.click(screen.getByRole('button', { name: 'Attach files' }));
     expect(pickFiles).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(screen.getByRole('list', { name: 'attachments' })).toBeTruthy());
@@ -80,7 +83,7 @@ describe('Composer — attach button (#3282 §4d)', () => {
   });
 
   it('without a host picker, falls back to the plain HTML file input', () => {
-    render(<Composer {...baseProps()} status={statusWithCwd('s1', '/repo')} />);
+    render(<Composer {...baseProps()} status={statusWithWorkspace('s1', '/repo')} />);
     const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
     fireEvent.click(screen.getByRole('button', { name: 'Attach files' }));
     expect(clickSpy).toHaveBeenCalledTimes(1);
@@ -88,7 +91,7 @@ describe('Composer — attach button (#3282 §4d)', () => {
   });
 
   it('a file chosen through the plain HTML input (no real path in a browser) shows the plain sentence', () => {
-    const { container } = render(<Composer {...baseProps()} status={statusWithCwd('s1', '/repo')} />);
+    const { container } = render(<Composer {...baseProps()} status={statusWithWorkspace('s1', '/repo')} />);
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
     const file = new File(['x'], 'photo.png', { type: 'image/png' });
     fireEvent.change(fileInput, { target: { files: [file] } });
@@ -122,7 +125,7 @@ describe('Composer — drag-and-drop (#3282 §4d)', () => {
       <Composer
         {...baseProps()}
         onSubmit={onSubmit}
-        status={statusWithCwd('s1', '/repo')}
+        status={statusWithWorkspace('s1', '/repo')}
         getPathForFile={() => '/repo/src/a.ts'}
       />,
     );
@@ -136,7 +139,7 @@ describe('Composer — drag-and-drop (#3282 §4d)', () => {
   });
 
   it('a browser drop with no real path shows the plain sentence and adds no chip (rule 3)', () => {
-    render(<Composer {...baseProps()} status={statusWithCwd('s1', '/repo')} />);
+    render(<Composer {...baseProps()} status={statusWithWorkspace('s1', '/repo')} />);
     const input = screen.getByLabelText('message');
     drop(input, [new File(['hello'], 'photo.png', { type: 'image/png' })]);
     expect(screen.getByText('Only files inside this project folder can be attached.')).toBeTruthy();
@@ -147,7 +150,7 @@ describe('Composer — drag-and-drop (#3282 §4d)', () => {
     render(
       <Composer
         {...baseProps()}
-        status={statusWithCwd('s1', '/repo')}
+        status={statusWithWorkspace('s1', '/repo')}
         getPathForFile={() => '/etc/passwd'}
       />,
     );
@@ -162,7 +165,7 @@ describe('Composer — drag-and-drop (#3282 §4d)', () => {
       <Composer
         {...baseProps()}
         connected={false}
-        status={statusWithCwd('s1', '/repo')}
+        status={statusWithWorkspace('s1', '/repo')}
         getPathForFile={() => '/repo/a.ts'}
       />,
     );
@@ -171,20 +174,33 @@ describe('Composer — drag-and-drop (#3282 §4d)', () => {
     expect(screen.queryByText('a.ts')).toBeNull();
   });
 
-  it('flags an attached image with a caution note, but still attaches it as an @-reference (#3282 §4 rule 4)', () => {
+  it('refuses an image outright — no chip, a plain sentence (#3282 §4 rule 4, corrected)', () => {
     render(
       <Composer
         {...baseProps()}
-        status={statusWithCwd('s1', '/repo')}
+        status={statusWithWorkspace('s1', '/repo')}
         getPathForFile={() => '/repo/shot.png'}
       />,
     );
     const input = screen.getByLabelText('message');
     drop(input, [new File(['x'], 'shot.png', { type: 'image/png' })]);
-    expect(screen.getByText('shot.png')).toBeTruthy();
-    expect(
-      screen.getByText('Binary files, including images, are sent as file references and may not read correctly.'),
-    ).toBeTruthy();
+    expect(screen.queryByText('shot.png')).toBeNull();
+    expect(screen.queryByRole('list', { name: 'attachments' })).toBeNull();
+    expect(screen.getByText("Images and other non-text files can't be attached yet.")).toBeTruthy();
+  });
+
+  it('refuses a known-binary extension the same way, even with no MIME type (a desktop drop)', () => {
+    render(
+      <Composer
+        {...baseProps()}
+        status={statusWithWorkspace('s1', '/repo')}
+        getPathForFile={() => '/repo/archive.zip'}
+      />,
+    );
+    const input = screen.getByLabelText('message');
+    drop(input, [new File(['x'], 'archive.zip')]);
+    expect(screen.queryByText('archive.zip')).toBeNull();
+    expect(screen.getByText("Images and other non-text files can't be attached yet.")).toBeTruthy();
   });
 });
 
@@ -193,7 +209,7 @@ describe('Composer — remove and persist attachments (#3282 §4d)', () => {
 
   it('Remove clears a chip, named after its file', () => {
     render(
-      <Composer {...baseProps()} status={statusWithCwd('s1', '/repo')} getPathForFile={() => '/repo/a.ts'} />,
+      <Composer {...baseProps()} status={statusWithWorkspace('s1', '/repo')} getPathForFile={() => '/repo/a.ts'} />,
     );
     const input = screen.getByLabelText('message');
     drop(input, [new File(['x'], 'a.ts')]);
@@ -209,7 +225,7 @@ describe('Composer — remove and persist attachments (#3282 §4d)', () => {
       <Composer
         {...baseProps()}
         onSubmit={onSubmit}
-        status={statusWithCwd('s1', '/repo')}
+        status={statusWithWorkspace('s1', '/repo')}
         getPathForFile={() => '/repo/a.ts'}
       />,
     );
@@ -217,7 +233,7 @@ describe('Composer — remove and persist attachments (#3282 §4d)', () => {
     expect(screen.getByText('a.ts')).toBeTruthy();
     unmount();
 
-    render(<Composer {...baseProps()} onSubmit={onSubmit} status={statusWithCwd('s1', '/repo')} />);
+    render(<Composer {...baseProps()} onSubmit={onSubmit} status={statusWithWorkspace('s1', '/repo')} />);
     expect(screen.getByText('a.ts')).toBeTruthy();
 
     // A message consisting only of an attachment (no typed text) still sends.

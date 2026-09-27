@@ -3,7 +3,6 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 
 import { commandMenuFor } from '../hooks/command-menu.js';
 import {
-  BINARY_ATTACHMENT_NOTICE,
   buildPromptWithAttachments,
   evaluateCandidateFile,
   type ICandidateFile,
@@ -221,7 +220,7 @@ export const Composer = forwardRef<
     setAttachments([]);
     setAttachmentNotice(null);
   };
-  const cwd = status?.cwd;
+  const workspacePath = status?.workspace?.path;
   const totalAttachedBytes = attachments.reduce((sum, a) => sum + a.size, 0);
   /** Evaluate every dropped/picked file in order, so a mixed batch attaches what it can. */
   const addCandidates = (candidates: readonly ICandidateFile[]): void => {
@@ -230,7 +229,7 @@ export const Composer = forwardRef<
     const added: IDraftAttachment[] = [];
     let notice: string | null = null;
     for (const candidate of candidates) {
-      const outcome = evaluateCandidateFile(candidate, cwd, total);
+      const outcome = evaluateCandidateFile(candidate, workspacePath, total);
       if (outcome.kind === 'attached') {
         added.push(outcome.attachment);
         total += outcome.attachment.size;
@@ -441,11 +440,6 @@ export const Composer = forwardRef<
               >
                 <Paperclip size={12} strokeWidth={1.75} aria-hidden="true" className="flex-shrink-0" />
                 <span className="max-w-[180px] truncate">{attachment.name}</span>
-                {attachment.looksBinary && (
-                  <span className="flex-shrink-0 text-subtle" title={BINARY_ATTACHMENT_NOTICE}>
-                    ⚠
-                  </span>
-                )}
                 <button
                   type="button"
                   aria-label={`Remove ${attachment.name}`}
@@ -462,9 +456,6 @@ export const Composer = forwardRef<
           <p role="status" aria-live="polite" className="mb-1.5 px-1.5 text-[12.5px] text-muted-foreground">
             {attachmentNotice}
           </p>
-        )}
-        {attachments.some((a) => a.looksBinary) && !attachmentNotice && (
-          <p className="mb-1.5 px-1.5 text-[12.5px] text-subtle">{BINARY_ATTACHMENT_NOTICE}</p>
         )}
         <input
           ref={fileInputRef}

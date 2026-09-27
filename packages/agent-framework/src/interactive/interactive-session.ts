@@ -1667,6 +1667,14 @@ export class InteractiveSession
   /** The one status read every client renders beside the conversation (#3186). */
   getStatusSnapshot(): ISessionStatusSnapshot {
     const session = this.getSessionOrThrow();
+    let workspace: { name: string; path: string } | undefined;
+    try {
+      const cwd = this.getCwd();
+      workspace = { name: basename(cwd), path: cwd };
+    } catch {
+      // allow-fallback: a session with no cwd set yet reports no workspace, not a thrown status read.
+      workspace = undefined;
+    }
     return {
       sessionId: session.getSessionId(),
       ...(this.sessionName !== undefined ? { sessionName: this.sessionName } : {}),
@@ -1676,10 +1684,7 @@ export class InteractiveSession
       context: session.getContextState(),
       goal: this.getGoalState(),
       ...(this.setupRequired ? { setupRequired: true } : {}),
-      // #3282 §4d: `this.workspace.cwd` defaults to '' when no cwd was provided (see the options
-      // handling above) — omit the field rather than send an empty string a client would treat as
-      // a real (root) workspace.
-      ...(this.workspace.cwd ? { cwd: this.workspace.cwd } : {}),
+      ...(workspace !== undefined ? { workspace } : {}),
     };
   }
 

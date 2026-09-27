@@ -198,8 +198,8 @@ try {
   // #3282 §4d: the composer's attach button through the REAL Electron bridge — preload -> IPC ->
   // `dialog.showOpenDialog` -> `fs.statSync`. Stubs only the dialog (via `evaluate`, in the main
   // process); everything downstream of the picked path is the real preload/main/gui-host/Composer
-  // code. A fresh daemon reports a real temp directory as its `cwd` so the picked file resolves as
-  // "inside the workspace" the same way a real project would.
+  // code. A fresh daemon reports a real temp directory as its workspace so the picked file resolves
+  // as "inside the workspace" the same way a real project would.
   stopRecordedDaemon();
   const attachDir = mkdtempSync(join(tmpdir(), 'agent-app-e2e-attach-'));
   const attachFilePath = join(attachDir, 'notes.txt');
