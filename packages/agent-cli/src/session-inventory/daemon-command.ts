@@ -27,6 +27,8 @@ export interface IDaemonCommandOptions {
    * a person's choice to start it without the project's own configuration.
    */
   readonly admit: (workspace: string, start: { readonly restricted: boolean }) => Promise<void>;
+  /** Whether the workspace is trusted now, so a daemon started in it would load the project's configuration. */
+  readonly trusted: (workspace: string) => Promise<boolean>;
   readonly stdout: (text: string) => void;
   readonly stderr: (text: string) => void;
   readonly root?: string;
@@ -180,17 +182,24 @@ export async function runDaemonCommand(
     let started = false;
     let id: string;
     let url: string;
-    // A running daemon is reused only with the access this start asks for: a Restricted start was a
-    // person's choice and never gets the project's configuration, and a plain start is not quietly
-    // handed a daemon without it.
-    const refuseMismatch = (daemon: TWorkspaceDaemon): void => {
-      if ((daemon.restricted === true) === parsed.restricted) return;
-      throw new Error(parsed.restricted
-        ? `Daemon ${daemon.id} is running in ${workspace} with the project's configuration, so it cannot be started Restricted. Run: robota daemon stop`
-        : `Daemon ${daemon.id} is running Restricted in ${workspace}. To start it with the project's configuration, run: robota daemon stop`);
+    // A Restricted start was a person's choice and never gets a daemon with the project's
+    // configuration. A plain start takes a Restricted daemon unless the folder is trusted now: the
+    // person who trusted it expects that configuration, and anywhere else a new daemon would not
+    // have it either.
+    const refuseMismatch = async (daemon: TWorkspaceDaemon): Promise<void> => {
+      if (parsed.restricted && daemon.restricted !== true) {
+        throw new Error(
+          `Daemon ${daemon.id} is running in ${workspace} with the project's configuration, so it cannot be started Restricted. Run: robota daemon stop`,
+        );
+      }
+      if (!parsed.restricted && daemon.restricted === true && await options.trusted(workspace)) {
+        throw new Error(
+          `Daemon ${daemon.id} is running Restricted in ${workspace}, which is trusted now. To start it with the project's configuration, run: robota daemon stop`,
+        );
+      }
     };
     if (running !== undefined) {
-      refuseMismatch(running);
+      await refuseMismatch(running);
       id = running.id;
       url = await connectRunning(options, running);
     } else {
@@ -199,7 +208,7 @@ export async function runDaemonCommand(
       try {
         const winner = await findDaemon(options, workspace);
         if (winner !== undefined) {
-          refuseMismatch(winner);
+          await refuseMismatch(winner);
           id = winner.id;
           url = await connectRunning(options, winner);
         } else {

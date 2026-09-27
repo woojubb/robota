@@ -342,7 +342,7 @@ export async function runPreparsedCliCommand(
       // The same admission as `session start`, asked before anything is spawned.
       admit: async (workspace, { restricted }) => {
         const access = await resolveInitialCliWorkspaceProjectAccess(workspace, options);
-        // A person chose to run this folder Restricted (the desktop app asked them).
+        // A person chose to run this folder Restricted (a front end asked them).
         if (requiresHeadlessWorkspaceTrust(access) && !(restricted && canAskToTrust(access))) {
           throw new Error(formatHeadlessWorkspaceTrustError(access, workspace));
         }
@@ -351,6 +351,8 @@ export async function runPreparsedCliCommand(
           surface: 'serve',
         });
       },
+      trusted: async (workspace) =>
+        (await resolveInitialCliWorkspaceProjectAccess(workspace, options)).status === 'trusted',
       stdout: (text) => process.stdout.write(text),
       stderr: (text) => process.stderr.write(text),
     });

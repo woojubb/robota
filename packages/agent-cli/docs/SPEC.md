@@ -133,9 +133,9 @@ A workspace's daemon is such a session, at most one per workspace even when star
 that a client in that workspace, the desktop app or a terminal attached with `robota --attach`, connects
 to the one already running instead of spawning a runtime of its own, so no launch option of the
 client's shapes that session. The one exception is Restricted: a daemon reports whether it runs
-Restricted, and a start is handed only a daemon with the access it asked for, because a person who
-chose Restricted must never get the project's configuration, and one who trusted the folder must not
-quietly get a daemon without it; a daemon that could not hand over a connection is never left running, and
+Restricted, and a Restricted start is never handed one with the project's configuration, because a
+person chose Restricted, while a plain start in a folder trusted since is not handed a Restricted one,
+because the person who trusted it expects that configuration; a daemon that could not hand over a connection is never left running, and
 the lock that keeps racing starts apart is removed only by the start that took it or by the user. The
 transport's per-launch authentication token is never exposed through the control endpoint or inventory,
 with one exception: a daemon, which receives it only through its environment and removes it from there so

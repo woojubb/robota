@@ -45,10 +45,12 @@ function harness(rows: readonly ISupervisedSessionRow[], overrides: Partial<IDae
   const launch = vi.fn(async () => STARTED);
   const stop = vi.fn(async () => undefined);
   const admit = vi.fn(async () => undefined);
+  const trusted = vi.fn(async () => false);
   const options: IDaemonCommandOptions = {
     cwd: scratch,
     env: () => ({ PATH: '/bin', ROBOTA_WS_PORT: '7777', ROBOTA_WS_TOKEN: 'inherited' }),
     admit,
+    trusted,
     stdout: (text) => { stdout += text; },
     stderr: (text) => { stderr += text; },
     root: join(scratch, 'supervised'),
@@ -58,7 +60,7 @@ function harness(rows: readonly ISupervisedSessionRow[], overrides: Partial<IDae
     stop,
     ...overrides,
   };
-  return { options, list, connect, launch, stop, admit, out: () => stdout, err: () => stderr };
+  return { options, list, connect, launch, stop, admit, trusted, out: () => stdout, err: () => stderr };
 }
 
 describe('robota daemon', () => {
@@ -172,11 +174,21 @@ describe('robota daemon', () => {
     expect(h.out()).toBe(`${JSON.stringify({ id: LIVE, url: URL_WITH_TOKEN })}\n`);
   });
 
-  it('does not quietly hand a plain start a Restricted daemon (#3268)', async () => {
-    const h = harness([daemonRow(LIVE, { restricted: true })]);
+  it('does not quietly hand a plain start a Restricted daemon in a folder trusted since (#3268)', async () => {
+    const h = harness([daemonRow(LIVE, { restricted: true })], { trusted: vi.fn(async () => true) });
     expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(1);
     expect(h.connect).not.toHaveBeenCalled();
-    expect(h.err()).toContain(`is running Restricted in ${workspace}. To start it with the project's configuration, run: robota daemon stop`);
+    expect(h.err()).toContain(
+      `is running Restricted in ${workspace}, which is trusted now. To start it with the project's configuration, run: robota daemon stop`,
+    );
+  });
+
+  it('hands a plain start the Restricted daemon of a folder that is not trusted, outside Git included (#3268)', async () => {
+    const h = harness([daemonRow(LIVE, { restricted: true })]);
+    expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(0);
+    expect(h.trusted).toHaveBeenCalledWith(workspace);
+    expect(h.launch).not.toHaveBeenCalled();
+    expect(h.out()).toBe(`${JSON.stringify({ id: LIVE, url: URL_WITH_TOKEN })}\n`);
   });
 
   it('prints usage for an unknown action or flag', async () => {
