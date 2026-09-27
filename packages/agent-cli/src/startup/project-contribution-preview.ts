@@ -91,15 +91,14 @@ export function formatProjectContributionPreview(
     identity,
     descriptors.map((descriptor) => descriptor.relativePath),
   );
-  // #3282 §3: a path whose state could not be determined (every path, on a host without Linux's
-  // pinned handle-walk — see `inspectPreTrustProjectPaths`) says nothing worth showing; listing it
-  // as "[unavailable]" anyway is noise, not information, and on macOS/Windows it used to be EVERY
-  // row. Only a path whose state IS known (file, directory, link, other, or confirmed absent) earns
-  // a line.
-  const rows = descriptors
-    .map((descriptor, index) => ({ descriptor, kind: inspected[index]?.kind ?? 'unavailable' }))
-    .filter(({ kind }) => kind !== 'unavailable')
-    .map(({ descriptor, kind }) => `  [${kind}] ${descriptor.relativePath} — ${descriptor.label}`);
+  // Full candidate list, every row's inspected state included as-is — a terminal reader (plain
+  // `robota trust status`, the TUI's own interactive prompt) sees the complete picture. #3282 §3
+  // trims this down for `--json`/the GUI dialog specifically, in `trustQuestionFor` below — those
+  // audiences want "what would this show me", not a diagnostic of what could not be inspected.
+  const rows = descriptors.map((descriptor, index) => {
+    const kind = inspected[index]?.kind ?? 'unavailable';
+    return `  [${kind}] ${descriptor.relativePath} — ${descriptor.label}`;
+  });
   return [
     'Project sources (metadata only; content not read):',
     ...rows,

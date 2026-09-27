@@ -84,9 +84,13 @@ export function trustQuestionFor(
   return {
     folder: access.displayPath ?? cwd,
     // The source rows only: the header and the closing note describe the listing, not the folder.
+    // #3282 §3: this is what `trust status --json` and the desktop dialog show — a row whose state
+    // could not be determined (every row, on a host without Linux's pinned handle-walk) says nothing
+    // worth showing there, unlike the full terminal preview (`formatProjectContributionPreview`
+    // itself, still complete — the TUI's own interactive prompt and plain `trust status` keep it).
     loads: formatProjectContributionPreview(access.identity, cwd)
       .split('\n')
-      .filter((line) => line.startsWith('  [')),
+      .filter((line) => line.startsWith('  [') && !line.startsWith('  [unavailable]')),
   };
 }
 

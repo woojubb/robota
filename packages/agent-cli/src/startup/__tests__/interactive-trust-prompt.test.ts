@@ -10,9 +10,21 @@ import { join } from 'node:path';
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { askToTrustWorkspace, startsNewTuiSession } from '../interactive-trust-prompt.js';
+import { askToTrustWorkspace, startsNewTuiSession, trustQuestionFor } from '../interactive-trust-prompt.js';
 import { resolveInitialCliWorkspaceProjectAccess } from '../workspace-project-composition.js';
 import { runWorkspaceTrustCommand } from '../workspace-trust-command.js';
+
+// #3282 §3: `inspectPreTrustProjectPaths` reports every path as `unavailable` unless run on Linux (see
+// its own doc comment), which makes the filtering `trustQuestionFor` does deterministic to assert only
+// on Linux without a mock. The mock defaults to the real implementation (call-through) so every other
+// test in this file, which never varies path state, is unaffected; only the two tests below that need a
+// specific mixed/unavailable-only result install a one-shot override.
+const { inspectPreTrustProjectPaths } = vi.hoisted(() => ({ inspectPreTrustProjectPaths: vi.fn() }));
+vi.mock('@robota-sdk/agent-framework', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@robota-sdk/agent-framework')>();
+  inspectPreTrustProjectPaths.mockImplementation(actual.inspectPreTrustProjectPaths);
+  return { ...actual, inspectPreTrustProjectPaths };
+});
 
 const cleanup: Array<() => void> = [];
 afterEach(() => {
@@ -170,6 +182,39 @@ describe('askToTrustWorkspace when the grant fails', () => {
     expect(written.join('')).toContain(
       'Could not record trust (store is read-only). Starting Restricted.',
     );
+  });
+});
+
+describe('trustQuestionFor — #3282 §3 rows with an unknown state are omitted', () => {
+  it('lists only rows whose kind is known, in the same order', async () => {
+    const repo = untrustedRepository();
+    const access = await resolveInitialCliWorkspaceProjectAccess(repo);
+    // Deliberately mixed and out of the candidate list's own order, so a passing test cannot be an
+    // accident of "everything happens to line up".
+    inspectPreTrustProjectPaths.mockImplementationOnce((_identity: unknown, paths: readonly string[]) =>
+      paths.map((_path, index) =>
+        index % 3 === 0 ? { kind: 'unavailable' } : { kind: index % 3 === 1 ? 'absent' : 'directory' },
+      ),
+    );
+
+    const question = trustQuestionFor(access, repo);
+
+    expect(question?.loads.length).toBeGreaterThan(0);
+    expect(question?.loads.every((line) => !line.startsWith('  [unavailable]'))).toBe(true);
+    expect(question?.loads.some((line) => line.startsWith('  [absent]'))).toBe(true);
+    expect(question?.loads.some((line) => line.startsWith('  [directory]'))).toBe(true);
+  });
+
+  it('every row unknown leaves no rows — no "[unavailable]" noise', async () => {
+    const repo = untrustedRepository();
+    const access = await resolveInitialCliWorkspaceProjectAccess(repo);
+    inspectPreTrustProjectPaths.mockImplementationOnce((_identity: unknown, paths: readonly string[]) =>
+      paths.map(() => ({ kind: 'unavailable' })),
+    );
+
+    const question = trustQuestionFor(access, repo);
+
+    expect(question?.loads).toEqual([]);
   });
 });
 
