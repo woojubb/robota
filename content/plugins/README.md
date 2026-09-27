@@ -7,7 +7,7 @@ description: Official and community plugins for Robota SDK — extend your agent
 
 Plugins extend the Robota agent lifecycle without modifying core packages. Every plugin in this directory implements the `IPlugin` interface from `@robota-sdk/agent-core`.
 
-**→ [Build your own plugin](/guide/plugins)**
+**→ [Build your own plugin](../guide/plugins.md)**
 
 ---
 
@@ -86,5 +86,6 @@ To list your plugin here:
 
 ## Related
 
-- [Building Plugins — guide](/guide/plugins)
-- [Agent core abstractions](/packages/agent-core/)
+- [Building Plugins — guide](../guide/plugins.md)
+- [`@robota-sdk/agent-plugin` package docs](../../packages/agent-plugin/docs/README.md)
+- [`@robota-sdk/agent-core` package docs](../../packages/agent-core/docs/README.md) — the `IPlugin` contract and `EventEmitterPlugin`
