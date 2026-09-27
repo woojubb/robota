@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import { createGoalStatusTool, sandboxApprovalFor } from '@robota-sdk/agent-framework';
+import { OsSandboxClient } from '@robota-sdk/agent-tools';
 import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 import { createRobotaPacks, packCommandModuleNames } from './robota-profile.js';
@@ -201,13 +202,21 @@ export function createRobotaSubagentComposition(
           ? undefined
           : decodeOsSandboxSettings(context.parentSettings),
       );
-      return client === undefined ? undefined : { client, commandSandbox: sandboxApprovalFor(client) };
+      if (client === undefined) return undefined;
+      return {
+        client,
+        commandSandbox: sandboxApprovalFor(client),
+        // A `/sandbox` change in the parent while this child runs: the same instance the tools and the
+        // approval read takes it, so the next command follows it.
+        applyParentSettings: (settings: Readonly<Record<string, unknown>>) =>
+          client.configure(decodeOsSandboxSettings(settings)),
+      };
     },
   };
 }
 
 /** robota's OS sandbox for one execution root, from the given settings or else that root's files. */
-function robotaSandboxAt(cwd: string, settings?: IOsSandboxSettings): ISandboxClient | undefined {
+function robotaSandboxAt(cwd: string, settings?: IOsSandboxSettings): OsSandboxClient | undefined {
   return createRobotaSandbox({
     cwd,
     settingsSources: createCliWorkspaceComposition({ cwd, userHome: homedir() }).settingsSources,
@@ -248,6 +257,7 @@ function createRobotaChildProcessSubagentRunner(options: {
   assertChildProcessSubagentsCanReproduce(options.packContext);
   return createChildProcessSubagentRunnerFactory({
     parentSandboxSettings: parentSandboxSettingsOf(options.packContext),
+    watchParentSandboxSettings: watchParentSandboxSettingsOf(options.packContext),
     workerEntry: options.workerEntry,
     providerConfig: options.providerConfig,
     providerDefinitions: options.providerDefinitions,
@@ -267,6 +277,20 @@ export function parentSandboxSettingsOf(
     const settings = liveSandboxSettings(packContext.sandboxClient);
     return settings === undefined ? undefined : { ...settings };
   };
+}
+
+/**
+ * How a running child-process subagent learns of a `/sandbox` change: the parent's live client tells
+ * each watcher, and the runner forwards it. A parent without an OS sandbox has nothing to tell.
+ */
+export function watchParentSandboxSettingsOf(
+  packContext: IRobotaPackContext,
+): (listener: (settings: Readonly<Record<string, unknown>>) => void) => () => void {
+  const client = packContext.sandboxClient;
+  return (listener) =>
+    client instanceof OsSandboxClient
+      ? client.watchSettings((settings) => listener({ ...settings }))
+      : () => undefined;
 }
 
 /**

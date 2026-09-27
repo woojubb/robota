@@ -185,6 +185,18 @@ describe('OsSandboxClient', () => {
     expect(client.autoApproves('npm test')).toBe(false);
   });
 
+  it('tells its watchers each change until they stop watching (issue #3256)', () => {
+    const client = new OsSandboxClient({ root: '/w', availability: available });
+    const seen: boolean[] = [];
+    const unwatch = client.watchSettings((settings) => seen.push(settings.autoAllowBashIfSandboxed));
+
+    client.configure({ autoAllowBashIfSandboxed: false });
+    unwatch();
+    client.configure({ autoAllowBashIfSandboxed: true });
+
+    expect(seen).toEqual([false]);
+  });
+
   it('keeps a line that runs more than an excluded program confined', () => {
     const client = new OsSandboxClient({
       root: '/w',

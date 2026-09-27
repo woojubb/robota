@@ -197,6 +197,7 @@ export class OsSandboxClient implements ISandboxClient {
   private baseline: IProtectedEntryState[] = [];
   /** Entries a clean-up could not restore, with the state they must return to. */
   private readonly unresolved = new Map<string, IProtectedEntryState>();
+  private readonly watchers = new Set<(settings: IOsSandboxSettings) => void>();
 
   constructor(options: IOsSandboxClientOptions) {
     this.root = realPathOrSelf(options.root);
@@ -213,9 +214,21 @@ export class OsSandboxClient implements ISandboxClient {
     };
   }
 
-  /** Change the settings for the next command. */
+  /** Change the settings for the next command, and tell whoever watches them. */
   configure(settings: Partial<IOsSandboxSettings>): void {
     this.current = { ...this.current, ...settings };
+    for (const watcher of this.watchers) watcher(this.current);
+  }
+
+  /**
+   * Be told the settings after each change, for as long as the returned function is not called. A
+   * copy of this sandbox in another process (a subagent's) follows the user's change this way.
+   */
+  watchSettings(watcher: (settings: IOsSandboxSettings) => void): () => void {
+    this.watchers.add(watcher);
+    return () => {
+      this.watchers.delete(watcher);
+    };
   }
 
   /** Whether `shellCommand` would run confined. */

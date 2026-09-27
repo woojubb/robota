@@ -14,6 +14,7 @@ import {
   ROBOTA_OS_SANDBOX_TYPE,
   packTools,
   parentSandboxSettingsOf,
+  watchParentSandboxSettingsOf,
   type IRobotaPackContext,
 } from '../robota-subagent-composition.js';
 
@@ -349,5 +350,50 @@ describe('issue #3254 — robota tells each spawn what the parent sandbox holds 
 
   it('tells a child nothing when the parent holds no OS sandbox', () => {
     expect(parentSandboxSettingsOf({ cwd: CWD })()).toBeUndefined();
+  });
+});
+
+describe('issue #3256 — a running child follows the parent’s /sandbox changes', () => {
+  const SETTINGS = {
+    enabled: true,
+    autoAllowBashIfSandboxed: true,
+    excludedCommands: [],
+    allowWrite: [],
+    denyRead: [],
+    network: false,
+  };
+  const withBackend = () => ({ backend: 'bubblewrap' as const, missing: [] });
+
+  it('tells a watcher each change on the parent’s live client, until it stops watching', () => {
+    const client = createRobotaSandbox({
+      cwd: CWD,
+      settingsSources: [],
+      detect: withBackend,
+      settings: SETTINGS,
+    }).client;
+    const seen: unknown[] = [];
+    const unwatch = watchParentSandboxSettingsOf({ cwd: CWD, sandboxClient: client })((settings) =>
+      seen.push(settings.autoAllowBashIfSandboxed),
+    );
+
+    client?.configure({ autoAllowBashIfSandboxed: false });
+    unwatch();
+    client?.configure({ autoAllowBashIfSandboxed: true });
+
+    expect(seen).toEqual([false]);
+  });
+
+  it('applies a change to the sandbox the child composed, and refuses one it cannot read', () => {
+    const composed = createRobotaSubagentComposition().createSandbox?.({
+      cwd: CWD,
+      parentSettings: SETTINGS,
+    });
+    if (composed === undefined) return;
+
+    composed.applyParentSettings?.({ ...SETTINGS, autoAllowBashIfSandboxed: false });
+    expect(liveSandboxSettings(composed.client as never)).toMatchObject({
+      autoAllowBashIfSandboxed: false,
+    });
+    expect(() => composed.applyParentSettings?.({ enabled: 'no' })).toThrow(/sandbox settings/);
   });
 });
