@@ -94,9 +94,9 @@ describe('a message carries a driver label only when it came from a different ki
     expect(screen.getByText('from the terminal')).toBeTruthy();
   });
 
-  it('labels the agent\'s own wake-up as "automatic", never "from automatic" — always, even though a browser connection could never learn it as its own id', () => {
+  it('labels the agent\'s own wake-up as "Automatic — loop" (#3288 §1), never "from automatic" — always, even though a browser connection could never learn it as its own id', () => {
     renderConversation([userMessage('hi', 'agent')], 'browser');
-    expect(screen.getByText('automatic')).toBeTruthy();
+    expect(screen.getByText('Automatic — loop')).toBeTruthy();
     expect(screen.queryByText(/from automatic/)).toBeNull();
   });
 });
