@@ -755,13 +755,16 @@ In a workspace you have not trusted:
   That covers print mode (`-p`), `--goal`, `--serve`, `robota mcp serve`, `robota daemon start` and
   `robota session start`.
 
-There are two exceptions. `--safe-mode` always starts Restricted, so `-p`, `--goal`, `--serve` and
-`robota mcp serve` run with it without trust.
+There are three exceptions. `--safe-mode` always starts Restricted, so `-p`, `--goal`, `--serve` and
+`robota mcp serve` run with it without trust. `robota daemon start --restricted-workspace` starts the
+daemon Restricted in a folder not trusted yet; a graphical front end passes it when the person in front
+of it chose to start Restricted, and it refuses to take over a daemon that is already running.
 A directory that is not in a Git repository cannot be trusted at all, and every mode runs Restricted
 there.
 
 ```bash
 robota trust status        # Is this workspace trusted? Lists what trust would load when it is not
+robota trust status --json # The same as one JSON line, for a front end that asks the person
 robota trust --yes         # Trust the Git workspace you are in
 robota trust revoke --yes  # Take the grant back
 ```

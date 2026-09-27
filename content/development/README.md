@@ -48,8 +48,9 @@ pnpm app:dev                # the desktop app: builds the page and what it bundl
 
 The CLI always runs through `scripts/dev/robota`, which starts `packages/agent-cli/src/bin.ts` with the
 `source` export condition. `cli:dev` works in the repo root; the GUI and the desktop app serve the directory
-the command was started from (or `ROBOTA_DEV_CWD`). That directory must be a trusted workspace
-(`pnpm cli:dev trust --yes` for the repo root). All of them use your own `~/.robota`.
+the command was started from (or `ROBOTA_DEV_CWD`). In a folder not trusted yet, `cli:dev` and `gui:dev`
+ask at the terminal whether to trust it, start Restricted, or quit; `app:dev` needs it trusted
+(`pnpm cli:trust` for the repo root). All of them use your own `~/.robota`.
 
 The desktop app reattaches to the workspace's running daemon when there is one. After changing CLI code, stop
 it in the directory the app serves, so the next `app:dev` starts a daemon on the new code:

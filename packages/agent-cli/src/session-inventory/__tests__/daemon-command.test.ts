@@ -89,7 +89,7 @@ describe('robota daemon', () => {
   it('launches a daemon after admission, with a fresh token in the environment and no fixed port', async () => {
     const h = harness([]);
     expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(0);
-    expect(h.admit).toHaveBeenCalledWith(workspace);
+    expect(h.admit).toHaveBeenCalledWith(workspace, { restricted: false });
     expect(h.launch).toHaveBeenCalledTimes(1);
     const [cwd, launchOptions] = h.launch.mock.calls[0] as unknown as [string, { env: NodeJS.ProcessEnv; daemon: boolean }];
     expect(cwd).toBe(workspace);
@@ -143,8 +143,37 @@ describe('robota daemon', () => {
     expect(none.out()).toBe(`No daemon is running in ${workspace}.\n`);
   });
 
+  it('starts a daemon Restricted when a person chose that, in either flag order (#3268)', async () => {
+    for (const args of [
+      ['start', '--json', '--restricted-workspace'],
+      ['start', '--restricted-workspace', '--json'],
+    ]) {
+      const h = harness([]);
+      expect(await runDaemonCommand(args, h.options)).toBe(0);
+      expect(h.admit).toHaveBeenCalledWith(workspace, { restricted: true });
+      expect(h.launch).toHaveBeenCalledWith(workspace, expect.objectContaining({ daemon: true, restricted: true }));
+    }
+  });
+
+  it('does not hand over a running daemon for a Restricted start: it names the fix instead', async () => {
+    const h = harness([daemonRow(LIVE)]);
+    expect(await runDaemonCommand(['start', '--json', '--restricted-workspace'], h.options)).toBe(1);
+    expect(h.connect).not.toHaveBeenCalled();
+    expect(h.launch).not.toHaveBeenCalled();
+    expect(h.out()).toBe('');
+    expect(h.err()).toContain('cannot be started Restricted. Run: robota daemon stop');
+  });
+
   it('prints usage for an unknown action or flag', async () => {
-    for (const args of [[], ['restart'], ['start', '--port'], ['status', '--json', 'x'], ['stop', '--json']]) {
+    for (const args of [
+      [],
+      ['restart'],
+      ['start', '--port'],
+      ['start', '--json', '--json'],
+      ['status', '--restricted-workspace'],
+      ['status', '--json', 'x'],
+      ['stop', '--json'],
+    ]) {
       const h = harness([]);
       expect(await runDaemonCommand(args, h.options)).toBe(1);
       expect(h.err()).toMatch(/^Usage: robota daemon start/u);

@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { askToTrustWorkspace, startsNewTuiSession } from '../interactive-trust-prompt.js';
 import { resolveInitialCliWorkspaceProjectAccess } from '../workspace-project-composition.js';
+import { runWorkspaceTrustCommand } from '../workspace-trust-command.js';
 
 const cleanup: Array<() => void> = [];
 afterEach(() => {
@@ -169,5 +170,35 @@ describe('askToTrustWorkspace when the grant fails', () => {
     expect(written.join('')).toContain(
       'Could not record trust (store is read-only). Starting Restricted.',
     );
+  });
+});
+
+describe('robota trust status --json', () => {
+  it('reports what a client needs to ask a person: state, folder, askable, what trust loads', async () => {
+    const repo = untrustedRepository();
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      expect(await runWorkspaceTrustCommand(['status', '--json'], repo)).toBe(0);
+      const report = JSON.parse(stdout.mock.calls.map(([text]) => String(text)).join('')) as {
+        state: string;
+        workspace: string;
+        askable: boolean;
+        loads: string[];
+      };
+      expect(report).toMatchObject({ state: 'untrusted', workspace: repo, askable: true });
+      expect(report.loads.some((line) => line.includes('.robota/settings.json'))).toBe(true);
+
+      stdout.mockClear();
+      expect(await runWorkspaceTrustCommand(['--yes'], repo)).toBe(0);
+      stdout.mockClear();
+      await runWorkspaceTrustCommand(['status', '--json'], repo);
+      expect(JSON.parse(stdout.mock.calls.map(([text]) => String(text)).join(''))).toMatchObject({
+        state: 'trusted',
+        askable: false,
+        loads: [],
+      });
+    } finally {
+      stdout.mockRestore();
+    }
   });
 });
