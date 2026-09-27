@@ -115,10 +115,14 @@ Passing a `signal` to `run()`, a `timeoutMs` limit, a model-call limit that reje
 conversation. A result a participant returned is kept, even one that arrives after the abort, and is
 published when its group completes on a later run. An attempt stopped without one, for example a
 `runTurn` that rejects with the signal's reason, runs again on the next run for the same turn with a
-new `attemptId`; if it already acted outside the conversation, the participant's runtime must report
-that. `run()` and `loadRoundtable` reject with `recovery-required` only when stored state holds a turn
-that was never seen to settle, such as after the process stopped mid-turn. A group with a failed member
-is never published or run again automatically.
+new `attemptId`. When the participant provides `checkpoint()`, its session is released and the retry
+opens a new one from the last saved checkpoint, as loading would, so private state never holds the
+abandoned attempt. A participant without checkpoints keeps its live session (a new one only before its
+first turn), so its private state may retain the abandoned attempt; retry-independent private state
+requires `checkpoint()`. If the attempt already acted outside the conversation, the participant's
+runtime must report that. `run()` and `loadRoundtable` reject with `recovery-required` only when stored
+state holds a turn that was never seen to settle, such as after the process stopped mid-turn. A group
+with a failed member is never published or run again automatically.
 
 ## Supported environments
 

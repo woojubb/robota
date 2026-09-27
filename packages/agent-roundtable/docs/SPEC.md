@@ -30,12 +30,15 @@ Cancellation, disposal, and time and model-call limits stop new dispatch and wai
 settle. They end a run, not the conversation: only failure and semantic completion are final, so a host
 can stop work and continue it later without losing settled results. A result a participant returned is
 kept, and an attempt stopped without one runs again on the next run, as does a selector whose decision
-was not saved. Only a turn stored as running, which no process saw settle, requires reconciliation
-before the conversation continues. Cancellation does not establish that an external effect never
-happened; reporting an effect of an abandoned attempt remains the runtime's responsibility. A group
-commits only when every member has prepared; failure or cancellation never publishes provisional output
-as a completed contribution. Session release belongs to the factory, so borrowed resources remain under
-their owner's control.
+was not saved. A retry restores private state from the participant's checkpoint when it provides one,
+as loading would, so that state does not depend on whether the process restarted. A participant without
+checkpoints keeps its live session, since discarding it would lose memory nothing can restore, and may
+therefore retain the abandoned attempt. Only a turn stored as running, which no process saw settle,
+requires reconciliation before the conversation continues. Cancellation does not establish that an
+external effect never happened; reporting an effect of an abandoned attempt remains the runtime's
+responsibility. A group commits only when every member has prepared; failure or cancellation never
+publishes provisional output as a completed contribution. Session release belongs to the factory, so
+borrowed resources remain under their owner's control.
 
 ## Invariants
 

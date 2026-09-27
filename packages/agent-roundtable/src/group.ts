@@ -25,8 +25,11 @@ export async function executeGroup(options: {
   session: (participant: AgentParticipant) => Promise<ParticipantLease>;
   emit: (event: RoundtableEvent, signal: AbortSignal) => Promise<void>;
   start: (turn: ParticipantTurn) => Promise<void>;
-  /** Discard an attempt that cancellation ended without a prepared result; it is dispatched again. */
-  restore: (turn: ParticipantTurn) => Promise<void>;
+  /**
+   * Discard an attempt that cancellation ended without a prepared result; it is dispatched again.
+   * `entered` says whether its session ran the attempt and so holds it in private state.
+   */
+  restore: (turn: ParticipantTurn, entered: boolean) => Promise<void>;
   settle: (turn: ParticipantTurn, outcome: PreparedMember['outcome']) => Promise<void>;
   prepare: (member: PreparedMember) => Promise<void>;
   fail: (turn: ParticipantTurn, error: unknown) => Promise<void>;
@@ -46,6 +49,7 @@ export async function executeGroup(options: {
       const index = cursor++;
       const participant = options.participants[index];
       const turn = options.turns[index];
+      let entered = false;
       try {
         await options.start(turn);
         await options.admit();
@@ -73,6 +77,7 @@ export async function executeGroup(options: {
         const responses = options.responses?.(turn);
         if (responses && (!participant.factory.supportsContinuation || !lease.session.resumeTurn))
           throw new Error(`Participant cannot continue a checkpointed wait: ${participant.id}`);
+        entered = true;
         const outcome = structuredClone(
           responses
             ? await lease.session.resumeTurn!(structuredClone(turn), responses, executionOptions)
@@ -125,7 +130,9 @@ export async function executeGroup(options: {
         groupAbort.abort(error);
         // This process saw the attempt settle. Under cancellation it contributed nothing, so it is
         // dispatched again later; a runtime that acted outside the conversation must report that.
-        await (interrupted ? options.restore(turn) : options.fail(turn, error)).catch(() => {});
+        await (interrupted ? options.restore(turn, entered) : options.fail(turn, error)).catch(
+          () => {},
+        );
       }
     }
   }

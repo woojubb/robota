@@ -28,6 +28,7 @@ import type {
   ConversationSnapshot,
   ExternalInput,
   ParticipantDefinition,
+  ParticipantCheckpoint,
   ParticipantLease,
   ParticipantTurn,
   Roundtable,
@@ -47,6 +48,7 @@ type RunLimit = 'time' | 'model-calls';
 export class Conversation implements Roundtable {
   private readonly participants: Map<string, ParticipantDefinition>;
   private readonly sessions = new Map<string, Promise<ParticipantLease>>();
+  private readonly releaseErrors: unknown[] = [];
   private readonly selector: TurnSelector;
   private readonly persistence: ConversationPersistence;
   private readonly concurrency: number;
@@ -286,7 +288,10 @@ export class Conversation implements Roundtable {
           if (lease) await lease.release();
         }),
       );
-      const errors = releases.flatMap((r) => (r.status === 'rejected' ? [r.reason] : []));
+      const errors = [
+        ...this.releaseErrors.splice(0),
+        ...releases.flatMap((r) => (r.status === 'rejected' ? [r.reason] : [])),
+      ];
       if (errors.length) throw new AggregateError(errors, 'Participant release failed');
     })();
     return this.disposing;
@@ -564,16 +569,24 @@ export class Conversation implements Roundtable {
         this.persistence.update((draft) => {
           this.member(draft, turn).status = 'running';
         }),
-      restore: (turn) =>
-        this.persistence.update((draft) => {
-          const member = this.member(draft, turn);
-          // A result prepared or parked before the abort was settled work; keep it.
-          if (member.status === 'prepared' || member.status === 'waiting') return;
-          const saved = pending.find((candidate) => candidate.turn.turnId === turn.turnId)!;
-          Object.assign(member, structuredClone(saved), {
-            turn: { ...saved.turn, attemptId: crypto.randomUUID() },
+      restore: async (turn, entered) => {
+        const { status } = this.member(this.persistence.snapshot(), turn);
+        // A result prepared or parked before the abort was settled work; keep it and its session.
+        if (status === 'prepared' || status === 'waiting') return;
+        try {
+          await this.persistence.update((draft) => {
+            const saved = pending.find((candidate) => candidate.turn.turnId === turn.turnId)!;
+            Object.assign(this.member(draft, turn), structuredClone(saved), {
+              turn: { ...saved.turn, attemptId: crypto.randomUUID() },
+            });
           });
-        }),
+        } finally {
+          // Its session holds the abandoned attempt. Reopen only when that loses nothing else: from a
+          // saved checkpoint, or fresh before any history. Otherwise the live session is all there is.
+          if (entered && this.reopenable(turn.participantId))
+            await this.discardSession(turn.participantId);
+        }
+      },
       settle: (turn, outcome) =>
         this.persistence.update((draft) => {
           Object.assign(this.member(draft, turn), { status: 'settled', outcome });
@@ -739,17 +752,46 @@ export class Conversation implements Roundtable {
     });
   }
 
+  /** Release one participant's lease once; its failure is reported by dispose(), like the others. */
+  private async discardSession(participantId: string): Promise<void> {
+    const opened = this.sessions.get(participantId);
+    if (!opened) return;
+    this.sessions.delete(participantId);
+    try {
+      const lease = await opened.catch(() => undefined);
+      await lease?.release();
+    } catch (error) {
+      this.releaseErrors.push(error);
+    }
+  }
+
+  /** The private state a newly opened session starts from: a parked wait's, else the participant's. */
+  private savedCheckpoint(
+    state: ConversationState,
+    participantId: string,
+  ): ParticipantCheckpoint | null | undefined {
+    const member =
+      state.phase.kind === 'group'
+        ? state.phase.members.find((candidate) => candidate.participantId === participantId)
+        : undefined;
+    return member?.requestIds.length
+      ? member.checkpoint
+      : state.participants.find((p) => p.id === participantId)?.checkpoint;
+  }
+
+  private reopenable(participantId: string): boolean {
+    const state = this.persistence.snapshot();
+    if (this.savedCheckpoint(state, participantId)) return true;
+    return (
+      !state.participants.find((p) => p.id === participantId)?.delivered.length &&
+      !state.snapshot.turns.some((turn) => turn.participantId === participantId)
+    );
+  }
+
   private session(participant: AgentParticipant): Promise<ParticipantLease> {
     let opened = this.sessions.get(participant.id);
     if (!opened) {
-      const state = this.persistence.snapshot();
-      const member =
-        state.phase.kind === 'group'
-          ? state.phase.members.find((candidate) => candidate.participantId === participant.id)
-          : undefined;
-      const checkpoint = member?.requestIds.length
-        ? member.checkpoint
-        : state.participants.find((p) => p.id === participant.id)?.checkpoint;
+      const checkpoint = this.savedCheckpoint(this.persistence.snapshot(), participant.id);
       opened = participant.factory.openSession({
         conversationId: this.options.conversationId,
         participantId: participant.id,

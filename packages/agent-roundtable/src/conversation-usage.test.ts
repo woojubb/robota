@@ -112,27 +112,35 @@ describe('per-turn usage services and the admission ledger', () => {
   it('a rejected admission mid-turn ends only the run; the next run dispatches the member again', async () => {
     const store = new MemoryConversationStore();
     const turns: ParticipantTurn[] = [];
+    const participant = agent('a', async (turn, options) => {
+      turns.push(turn);
+      const calls = turns.length === 1 ? 2 : 1;
+      for (let call = 0; call < calls; call++)
+        await options.services.admitModelCall({
+          callId: `${turn.attemptId}-${call}`,
+          providerId: 'p',
+          modelId: 'm',
+        });
+      return { kind: 'speak', content: 'spoke' };
+    });
+    const openSession = participant.factory.openSession;
+    const sessions = { opened: 0, released: 0 };
+    participant.factory.openSession = async (context) => {
+      sessions.opened++;
+      const lease = await openSession(context);
+      return { ...lease, release: async () => void sessions.released++ };
+    };
     const room = createRoundtable({
       conversationId: 'limit-mid-turn',
       store,
-      participants: [
-        agent('a', async (turn, options) => {
-          turns.push(turn);
-          const calls = turns.length === 1 ? 2 : 1;
-          for (let call = 0; call < calls; call++)
-            await options.services.admitModelCall({
-              callId: `${turn.attemptId}-${call}`,
-              providerId: 'p',
-              modelId: 'm',
-            });
-          return { kind: 'speak', content: 'spoke' };
-        }),
-      ],
+      participants: [participant],
       limits: { maxTurnsPerRun: 1, maxModelCallsPerRun: 1 },
     });
     expect(await room.run()).toMatchObject({ status: 'limited', reason: 'model-calls' });
     expect(room.snapshot().messages).toEqual([]);
     expect((await store.load('limit-mid-turn'))?.state).toMatchObject({ terminal: null });
+    // The stopped attempt is discarded like a cancelled one, including the session that ran it.
+    expect(sessions).toEqual({ opened: 1, released: 1 });
 
     // A new run has a fresh per-run allowance, so the stopped attempt runs again for the same turn.
     expect(await room.run()).toMatchObject({ status: 'limited', reason: 'turns' });
@@ -141,6 +149,7 @@ describe('per-turn usage services and the admission ledger', () => {
     expect(turns[1].turnId).toBe(turns[0].turnId);
     expect(turns[1].attemptId).not.toBe(turns[0].attemptId);
     expect(room.snapshot().usage).toHaveLength(2);
+    expect(sessions).toEqual({ opened: 2, released: 1 });
     await room.dispose();
   });
 
