@@ -224,6 +224,14 @@ async function expectCommitOnYes(session: IPtySession): Promise<void> {
   await session.waitForSince(since, /Committed: \[main [0-9a-f]{7}\] feat: add greeting/, WAIT_MS);
 }
 
+/** The fixture repository is not trusted, so the TUI asks first (issue #3268); these scenarios run Restricted. */
+async function startRestricted(session: IPtySession): Promise<void> {
+  await session.waitFor(/Trust this folder\? \[y\/N\]/, WAIT_MS);
+  await session.sendKeys('n');
+  await session.pressEnter();
+  await session.waitFor(/Type a message or \/help/, WAIT_MS);
+}
+
 async function exitTui(session: IPtySession): Promise<number> {
   await run(session, '/exit');
   await session.waitFor(/Exit the session\?/, WAIT_MS);
@@ -251,7 +259,7 @@ describe('/git through the real binary (BEHAVIOR-2437 TC-07)', () => {
     async () => {
       fixture = makeFixture(true);
       session = spawnTui({ projectDir: fixture.repo, homeDir: fixture.home });
-      await session.waitFor(/Type a message or \/help/, WAIT_MS);
+      await startRestricted(session);
       await session.waitFor(/Idle/, WAIT_MS);
 
       await expectReadSteps(session);
@@ -272,7 +280,7 @@ describe('/git through the real binary (BEHAVIOR-2437 TC-07)', () => {
     async () => {
       fixture = makeFixture(true);
       session = spawnTui({ projectDir: fixture.repo, homeDir: fixture.home });
-      await session.waitFor(/Type a message or \/help/, WAIT_MS);
+      await startRestricted(session);
       await session.waitFor(/Idle/, WAIT_MS);
 
       await expectSubjectRefusal(session, fixture);
@@ -296,7 +304,7 @@ describe('/git through the real binary (BEHAVIOR-2437 TC-07)', () => {
     async () => {
       fixture = makeFixture(false);
       session = spawnTui({ projectDir: fixture.repo, homeDir: fixture.home });
-      await session.waitFor(/Type a message or \/help/, WAIT_MS);
+      await startRestricted(session);
       await session.waitFor(/Idle/, WAIT_MS);
 
       const since = await run(session, '/git commit feat: nothing to commit');

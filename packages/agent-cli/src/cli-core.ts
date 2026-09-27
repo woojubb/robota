@@ -95,10 +95,12 @@ import {
 } from './startup/loop-options.js';
 import {
   createInitialCliWorkspaceComposition,
+  RESTRICTED_WORKSPACE_FLAG,
   resolveStartupWorkspaceProjectAccess,
   SAFE_MODE_FLAG,
   SAFE_MODE_NOTICE,
 } from './startup/workspace-project-composition.js';
+import { askToTrustWorkspace, startsNewTuiSession } from './startup/interactive-trust-prompt.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
@@ -201,7 +203,7 @@ async function runCliCore(
   // Issue #3082: read from argv (or the embedder's option) before anything is composed, like the
   // access decision it forces to Restricted.
   const safeMode = process.argv.includes(SAFE_MODE_FLAG) || options.safeMode === true;
-  const projectAccess = await resolveStartupWorkspaceProjectAccess(
+  let projectAccess = await resolveStartupWorkspaceProjectAccess(
     safeMode ? [...process.argv, SAFE_MODE_FLAG] : process.argv,
     cwd,
     options,
@@ -335,6 +337,18 @@ async function runCliCore(
     terminal.writeError(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
+
+  // Issue #3268: a person starting a TUI session is asked, before the project is composed, rather
+  // than left in a Restricted session no one mentioned.
+  projectAccess = await askToTrustWorkspace(projectAccess, cwd, {
+    interactive:
+      startsNewTuiSession(args) && process.stdin.isTTY === true && process.stdout.isTTY === true,
+    accessFixed:
+      safeMode ||
+      process.argv.includes(RESTRICTED_WORKSPACE_FLAG) ||
+      options.projectAccess !== undefined,
+  });
+  startupOptions.projectAccess = projectAccess;
 
   // The shell's ONE preset resolution — see `resolveShellPreset` for why it is one. Resolved before
   // command setup so the preset's module-selection delta can reach `createDefaultCommandModules`.

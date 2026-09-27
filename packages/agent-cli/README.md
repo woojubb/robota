@@ -745,8 +745,10 @@ Robota loads a project's own configuration only from a workspace you have truste
 project's settings, hooks, plugins, skills, agent definitions, provider overrides and MCP servers.
 In a workspace you have not trusted:
 
-- the interactive TUI starts **Restricted**: your own user settings, built-in tools and permission
-  rules work, and nothing the repository contributes is loaded;
+- starting a new TUI session asks whether to trust the folder before loading anything from it, and
+  lists what trust would load. A yes records the grant and starts normally. A no, or a resumed session,
+  starts **Restricted**: your own user settings, built-in tools and permission rules work, and nothing
+  the repository contributes is loaded;
 - headless startup refuses with `Workspace trust is required before headless startup (state: …)`.
   That covers print mode (`-p`), `--goal`, `--serve`, `robota mcp serve`, `robota daemon start`,
   `robota session start` and a session that `robota session view` starts.
