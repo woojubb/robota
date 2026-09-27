@@ -74,6 +74,17 @@ describe('supervised daemon control', () => {
     });
   });
 
+  it('marks a daemon that runs Restricted, so a start asking for other access does not reuse it (#3268)', async () => {
+    await withControl({ url: () => URL_WITH_TOKEN, restricted: true }, async (root) => {
+      expect(await listSupervisedSessions(root, undefined, { includeDaemon: true })).toEqual([
+        { id: ID, liveness: 'alive', control: 'available', activity: 'idle', daemon: true, restricted: true },
+      ]);
+      expect(await listSupervisedSessions(root)).toEqual([
+        { id: ID, liveness: 'alive', control: 'available', activity: 'idle' },
+      ]);
+    });
+  });
+
   it('refuses connect on a session that is not a daemon, and marks none in status', async () => {
     await withControl(undefined, async (root) => {
       await expect(connectSupervisedDaemon(ID, root)).rejects.toThrow(/daemon connection/);
