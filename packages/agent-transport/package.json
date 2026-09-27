@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-transport",
   "version": "3.0.0-beta.83",
-  "description": "Transport package boundary for Robota SDK — runtime hosts are owned by agent-framework",
+  "description": "Carrier-neutral wire protocol, session dispatch and delivery for Robota SDK transports",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -72,9 +72,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/woojubb/robota.git"
+    "url": "https://github.com/woojubb/robota.git",
+    "directory": "packages/agent-transport"
   },
-  "homepage": "https://robota.io/",
+  "homepage": "https://docs.robota.io/en/packages/agent-transport/",
   "bugs": {
     "url": "https://github.com/woojubb/robota/issues"
   },

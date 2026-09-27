@@ -1,17 +1,67 @@
-# Agent Transport
+# @robota-sdk/agent-transport
 
-Browser-safe transport protocol and delivery substrate for the Robota SDK. The root exports shared
-wire messages, session bridging, channel codecs, and delivery helpers. Browser decoders are also
-available from `./client`; Node-only admission and handoff integrity helpers are available from
-`./node`.
+The shared protocol layer under every Robota transport. It defines the transport-neutral wire messages
+(`TClientMessage` / `TServerMessage`), the session bridge that turns those messages into calls on a live
+session, and the delivery helpers a carrier needs (backpressure, resumable delivery, channel framing,
+handoff payload chunking). The WebSocket and WebRTC transports carry its wire protocol, and the HTTP and
+MCP transports use its admission and token-verification helpers. It opens no socket or listener of its
+own.
 
-## Handoff offer migration
+## Installation
 
-`@robota-sdk/agent-transport/node` no longer exports `buildHandoffManifest`,
-`IBuildManifestInput`, `ISourceRuntimeState`, or `TManifestResult`. Handoff readiness and inventory
-classification belong to `@robota-sdk/agent-interface-session-mobility`. A host composing a handoff
-should check readiness before serializing, then pass the integrity of those exact bytes to the
-mobility offer policy:
+```bash
+npm install @robota-sdk/agent-transport
+```
+
+Requires Node.js 22.12 or later. The root and `./client` entry points also run in the browser.
+
+## Entry points
+
+| Import path                          | Environment      | What it contains                                                                                                                                                                                                                                                    |
+| ------------------------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-transport`        | browser and Node | Wire message types, runtime decoders, `createSessionMessageHandler`, `createOutboundDelivery`, `SessionResumeBridge`, channel frame codec, peer-message ledger, handoff chunking                                                                                    |
+| `@robota-sdk/agent-transport/client` | browser and Node | Only the wire message types and the runtime decoders (`decodeServerMessage`, `decodeClientMessage`, `decodeFrame`)                                                                                                                                                  |
+| `@robota-sdk/agent-transport/node`   | Node only        | Transport admission (`resolveAdmission`, `mintTransportToken`, `credentialMatches`), OAuth access-token verification (`createAccessTokenVerifier`), the bearer resource-server gate, file transfer, handoff integrity (`sealHandoffRecord`, `verifyHandoffPayload`) |
+
+Anything that needs `node:crypto` or the network lives under `./node`, so a browser bundle that imports
+the root or `./client` never pulls in a Node built-in.
+
+## Usage: bridging a connection to a session
+
+A carrier (your socket, data channel, or stream) turns each connection into three things: an outbound
+sink, a failure policy, and a feed of inbound text frames. The package does the rest.
+
+```typescript
+import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
+import type { IProtocolSession, TServerMessage } from '@robota-sdk/agent-transport';
+
+declare const session: IProtocolSession; // e.g. an InteractiveSession from @robota-sdk/agent-framework
+declare const socket: { send(text: string): void; close(): void }; // one client connection
+
+// Outbound: every frame to this connection goes through one delivery boundary. A failed send, or a
+// peer that stops reading, calls the error handler once; the carrier then closes the connection.
+const deliver = createOutboundDelivery(
+  (message: TServerMessage) => socket.send(JSON.stringify(message)),
+  () => socket.close(),
+);
+
+const handler = createSessionMessageHandler({ session, deliver });
+
+// Inbound: pass each raw text frame from the client; call cleanup when the connection closes.
+handler.onMessage(JSON.stringify({ type: 'submit', prompt: 'Hello' }));
+handler.cleanup();
+```
+
+`onMessage` decodes and validates the frame itself; malformed input is answered with a protocol error,
+not thrown. Pass `role: 'observe'` for a read-only connection: it can read the session's conversation
+and state but cannot submit, answer prompts or control the session.
+
+## Composing a handoff offer
+
+Moving a session to another device is split between two packages. Readiness and the offer policy
+belong to `@robota-sdk/agent-interface-session-mobility`; this package seals the serialized record so
+the receiver can verify it arrived intact. Check readiness first, then pass the integrity of those
+exact bytes to the offer:
 
 ```typescript
 import {
@@ -34,125 +84,37 @@ function buildOffer(request: Omit<IPrepareHandoffOfferInput, 'integrity'>) {
 }
 ```
 
-For types, use `ISourceRuntimeState`, `IPrepareHandoffOfferInput`, and `THandoffOfferResult` from
-session mobility. `IPrepareHandoffOfferInput` includes the integrity metadata produced by
-`sealHandoffRecord`; the serialized payload remains a separate transport value.
+The receiver checks the bytes against `offer.manifest.integrity` with `verifyHandoffPayload` before
+parsing them. A payload too large for one frame can be split with `chunkHandoffPayload` and reassembled
+with `HandoffChunkAssembler`.
 
-## Installation
+## Transport packages
 
-```bash
-npm install @robota-sdk/agent-transport
-```
+Each carrier is its own package, so an application installs only the protocol dependencies it uses.
 
-## Available Transports
+| Transport | Package                                                                     | What it does                                                                      |
+| --------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| WebSocket | [`@robota-sdk/agent-transport-ws`](../agent-transport-ws/README.md)         | Serves a session on a loopback WebSocket server (token-authenticated by default)  |
+| HTTP      | [`@robota-sdk/agent-transport-http`](../agent-transport-http/README.md)     | Hono routes for submitting prompts and reading session state over HTTP + SSE      |
+| MCP       | [`@robota-sdk/agent-transport-mcp`](../agent-transport-mcp/README.md)       | Exposes a session as an MCP server over stdio or Streamable HTTP                  |
+| WebRTC    | [`@robota-sdk/agent-transport-webrtc`](../agent-transport-webrtc/README.md) | Carries a session peer-to-peer over a pairing-gated data channel (Node host side) |
 
-Headless execution belongs to `agent-framework`. HTTP, WebSocket, MCP, and WebRTC ship as standalone
-transport packages.
-
-| Transport | Package / Sub-path                   | Description                                             |
-| --------- | ------------------------------------ | ------------------------------------------------------- |
-| Headless  | `@robota-sdk/agent-framework`        | Non-interactive text / JSON / stream-JSON output        |
-| HTTP      | `@robota-sdk/agent-transport-http`   | Hono-based REST adapter (Node.js / CF Workers / Lambda) |
-| WebSocket | `@robota-sdk/agent-transport-ws`     | Framework-agnostic real-time bidirectional adapter      |
-| MCP       | `@robota-sdk/agent-transport-mcp`    | Model Context Protocol server adapter                   |
-| WebRTC    | `@robota-sdk/agent-transport-webrtc` | Peer-to-peer data-channel adapter                       |
-
-Scripted-provider test fixtures live in `@robota-sdk/agent-core/testing` (the former `./testing`
-pass-through was removed, issue #2052).
-
-All session-owning entry points treat `cwd` as provenance, not project trust. Pass a host-issued
-`TWorkspaceProjectAccess` decision through `projectAccess`; omitting it creates a Restricted session
-that does not load project contributions.
-
-## Quick Start
-
-### Headless
-
-```typescript
-import { createHeadlessTransport } from '@robota-sdk/agent-framework';
-
-const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'Hello!' });
-```
-
-### WebSocket
-
-```typescript
-import { WsTransport } from '@robota-sdk/agent-transport-ws';
-
-const transport = new WsTransport({ port: 3001 });
-```
-
-### HTTP
-
-```typescript
-import { createHttpTransport } from '@robota-sdk/agent-transport-http';
-
-const transport = createHttpTransport({ basePath: '/agent' }); // mount on your own server
-```
-
-### MCP
-
-```typescript
-import { createMcpTransport } from '@robota-sdk/agent-transport-mcp';
-
-const transport = createMcpTransport({ name: 'my-agent', version: '1.0.0' });
-```
-
-### TUI presentation (Ink/React)
-
-```typescript
-import { renderApp } from '@robota-sdk/agent-ui-terminal';
-import type { IRenderOptions } from '@robota-sdk/agent-ui-terminal';
-
-declare const options: IRenderOptions;
-await renderApp(options);
-```
-
-> React and Ink dependencies are confined to the standalone
-> `@robota-sdk/agent-ui-terminal` package. This core package stays React-free.
-
-## Sub-path Imports
-
-Import only what you need to keep bundles small:
-
-```typescript
-import { createHeadlessTransport } from '@robota-sdk/agent-framework';
-import { WsTransport } from '@robota-sdk/agent-transport-ws';
-import type { TServerMessage } from '@robota-sdk/agent-transport';
-import { createHttpTransport } from '@robota-sdk/agent-transport-http';
-import { createMcpTransport } from '@robota-sdk/agent-transport-mcp';
-import { renderApp } from '@robota-sdk/agent-ui-terminal';
-```
-
-The framework root owns headless and programmatic surfaces plus `TransportRegistry`. The transport
-root owns transport-neutral wire messages, session bridging, channel codecs, and delivery helpers;
-browser decoders are also available from `@robota-sdk/agent-transport/client`, while Node-only
-admission and handoff integrity helpers live under `@robota-sdk/agent-transport/node`.
-
-```typescript
-import { createHeadlessTransport } from '@robota-sdk/agent-framework';
-```
-
-`TransportRegistry` accepts the discriminated base service/runner adapter union. It rejects active
-restart before mutation, rolls partial startup back in reverse order, reports real runner failure
-immediately, and returns a complete ordered aggregate whose pending runners become registry-owned
-`abandoned` records on stop or rollback.
+The headless (non-interactive text / JSON / stream-JSON) transport and `TransportRegistry`, which
+starts and stops a set of transports together, live in `@robota-sdk/agent-framework`. The terminal UI is
+`@robota-sdk/agent-ui-terminal`; this package has no React or Ink dependency.
 
 ## Dependencies
 
-- `@robota-sdk/agent-interface-analytics`
-- `@robota-sdk/agent-interface-command`
-- `@robota-sdk/agent-interface-execution`
-- `@robota-sdk/agent-interface-session`
-- `@robota-sdk/agent-interface-session-mobility`
-- `@robota-sdk/agent-interface-transport`
+- `@robota-sdk/agent-core`
+- `@robota-sdk/agent-interface-analytics`, `-command`, `-execution`, `-session`, `-session-mobility`,
+  `-transport` (contract packages)
+- `jose` (access-token signature verification under `./node`)
 
-The heavier protocol dependencies (`ws`, `hono`, `@modelcontextprotocol/sdk`,
-`react`, `ink`, and friends) now live in the split transport packages
-(`@robota-sdk/agent-transport-{http,ws,mcp}`) and presentation packages
-(`@robota-sdk/agent-ui-{terminal,web}`).
+The protocol libraries (`ws`, `hono`, `@modelcontextprotocol/sdk`, `node-datachannel`) are
+dependencies of the individual transport packages, not of this one.
 
-## Links
+## Documentation
 
-- [npm](https://www.npmjs.com/package/@robota-sdk/agent-transport)
-- [GitHub](https://github.com/woojubb/robota)
+- [docs/SPEC.md](./docs/SPEC.md) — package contract and boundaries
+- [npm](https://www.npmjs.com/package/@robota-sdk/agent-transport) ·
+  [GitHub](https://github.com/woojubb/robota)

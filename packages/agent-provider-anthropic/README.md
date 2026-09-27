@@ -30,8 +30,22 @@ console.log(response);
 ```
 
 The provider registers under the name `anthropic`, which is the value `defaultModel.provider` must
-use. `createAnthropicProvider(options)` is a factory that returns the same provider typed as
-`IAIProvider`.
+use. It has no default model of its own: every call must name one (a `Robota` agent passes
+`defaultModel.model`), and a call without a model throws. `createAnthropicProvider(options)` is a
+factory that returns the same provider typed as `IAIProvider`.
+
+### Structured output and reasoning effort
+
+A request that carries a `json_schema` response format (as a `Robota` run with an `output` schema
+can) is sent through Anthropic's native structured output, `output_config.format`. Every object in
+the schema is closed (`additionalProperties: false`) on the way out, because Anthropic rejects open
+objects. The `text` and `json_object` formats have no Anthropic equivalent; they rely on the
+agent-core validation loop instead.
+
+A reasoning-effort selection (`defaultModel.effort` on a `Robota` agent, or `effort` on a chat call)
+is sent as `output_config.effort` for models in the provider's verified effort table. The table
+applies only when `baseURL` is not set: a gateway's behavior is not Anthropic's, so the provider
+claims no effort support there.
 
 ### Server-side web search
 
@@ -61,6 +75,13 @@ by this provider.
 
 For OpenAI-protocol gateways (Vercel AI Gateway, LiteLLM, OpenRouter), use
 `@robota-sdk/agent-provider-openai` with the gateway's `baseURL` and model slug instead.
+
+## Errors
+
+A failed API call throws a typed error from `@robota-sdk/agent-core`: a `RateLimitError` for a rate
+limit, otherwise a `ProviderError` that carries the HTTP `status` and Anthropic's error `type` (for
+example `overloaded_error`) and keeps the SDK error as `originalError`. A failure Anthropic reports in
+the middle of a stream is mapped the same way. An aborted call rethrows the abort unchanged.
 
 ## Exports
 

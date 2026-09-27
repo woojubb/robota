@@ -1,65 +1,10 @@
 # Session Management
 
-Multi-turn sessions with permissions, context tracking, and compaction.
+`InteractiveSession` is the event-driven session every Robota surface is built on. It keeps the
+conversation, runs the built-in tools under a permission mode, tracks the context window, and can save
+and resume itself through a session store.
 
-## Using InteractiveSession (Recommended)
-
-```typescript
-import { InteractiveSession, createUserSessionStore } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-
-const sessionStore = createUserSessionStore(join(homedir(), '.my-agent', 'sessions'));
-const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-const session = new InteractiveSession({
-  cwd: process.cwd(),
-  provider,
-  sessionStore, // auto-persist after each submit
-  sessionName: 'my-task', // optional name
-});
-
-// Submit prompts
-await session.submit('What is the architecture?');
-await session.submit('Show me the main entry point.');
-
-// Session name
-session.setName('architecture-review');
-console.log(session.getName()); // 'architecture-review'
-
-// Resume a previous session
-const resumed = new InteractiveSession({
-  cwd: process.cwd(),
-  provider,
-  sessionStore,
-  resumeSessionId: 'session_abc123', // restores history + AI context
-});
-
-// Fork a session (new ID, same context)
-const forked = new InteractiveSession({
-  cwd: process.cwd(),
-  provider,
-  sessionStore,
-  resumeSessionId: 'session_abc123',
-  forkSession: true,
-});
-```
-
-## Recovery log failures
-
-The project session store can recover from its append-only log when a snapshot is missing. It first
-validates the versioned JSONL and every event payload. A damaged log is reported as `corrupt`; an
-unsupported version is reported as `unsupported`. Such logs remain visible in store listings rather
-than disappearing as missing sessions, and valid lines are not used as a partial substitute for a
-damaged log. A corrupt snapshot never falls back to replay.
-
-New logs carry schema version 1. Unversioned legacy logs are not accepted by the replay codec; this
-change does not alter the session snapshot format. Direct log readers and the replay provider raise
-`SessionLogDecodeError` with a safe field/line location. External-payload integrity failures retain
-their existing typed errors.
-
-## Using InteractiveSession Events
+## Events and context
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
@@ -82,32 +27,43 @@ session.on('complete', ({ response }) => {
   console.log(response);
 });
 
-// Multi-turn conversation. submit() queues automatically if a run is active.
-await session.submit('What is the architecture of this project?');
+// submit() resolves after the turn when the session is idle; while a turn runs, a new
+// submission is queued and submit() resolves at once. `completed` settles with this turn's result.
+const { completed } = await session.submit('What is the architecture of this project?');
+const result = await completed;
+console.log(result.response.length, 'characters');
+
 await session.submit('Show me the main entry point.');
-await session.submit('What tests exist?');
 
-// Check context usage
+// Compact the conversation, with instructions for what to keep
 const state = session.getContextState();
-console.log(`Context: ${state.usedPercentage.toFixed(1)}% used`);
-
-// Manual compaction with focus
 if (state.usedPercentage > 70) {
-  await session.executeCommand('compact', 'Focus on the architecture discussion');
+  await session.compactContext('Focus on the architecture discussion');
 }
 
-// Session metadata
-console.log(`Messages: ${session.getFullHistory().length}`);
+console.log(`History entries: ${session.getFullHistory().length}`);
 console.log(`Mode: ${session.getSession().getPermissionMode()}`);
 
-// Change permission mode
+// Change the permission mode for the next tool calls
 session.getSession().setPermissionMode('acceptEdits');
 
-// Abort a long-running request
+// Abort the running turn
 setTimeout(() => session.abort(), 30000);
 ```
 
-## Session Persistence
+In `default` mode a tool call that needs approval emits `permission_request`; answer it with
+`session.resolvePermission(id, result)`. If nothing is listening, the call is denied. The
+[permissions guide](../guide/permissions-and-hooks.md) describes each mode.
+
+Without a `projectAccess` decision the session runs Restricted: its tools still work inside `cwd`,
+but it does not load the project's `AGENTS.md`/`CLAUDE.md`, settings or memory. The
+[agent-framework README](../../packages/agent-framework/README.md) describes how a host passes project
+access.
+
+## Persist and resume
+
+Give the session a store and it saves itself after each turn. `createUserSessionStore()` keeps the
+records in a directory you choose.
 
 ```typescript
 import { InteractiveSession, createUserSessionStore } from '@robota-sdk/agent-framework';
@@ -115,48 +71,92 @@ import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-const store = createUserSessionStore(join(homedir(), '.my-agent', 'sessions'));
+const sessionStore = createUserSessionStore(join(homedir(), '.my-agent', 'sessions'));
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// Sessions auto-persist when a store is provided
 const session = new InteractiveSession({
   cwd: process.cwd(),
   provider,
-  sessionStore: store,
+  sessionStore,
+  sessionName: 'my-task',
 });
 
-await session.submit('Hello');
+await session.submit('What is the architecture?');
+const sessionId = session.getSession().getSessionId();
 
-// Later — list and resume sessions
-const sessions = store.list();
-const record = store.load(sessions[0].id);
+session.setName('architecture-review');
+console.log(session.getName()); // 'architecture-review'
+
+// Resume: restores the history and the model's context
+const resumed = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
+  sessionStore,
+  resumeSessionId: sessionId,
+});
+
+// Fork: a new session ID that starts from the same history
+const forked = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
+  sessionStore,
+  resumeSessionId: sessionId,
+  forkSession: true,
+});
 ```
 
-## CLI Session Management
+[examples/telegram-bot](../../examples/telegram-bot/README.md) resumes one saved session per chat this
+way.
+
+## Reading the store
+
+`load()` and `list()` report why a record cannot be used instead of hiding it: each outcome is
+`valid`, `missing`, `corrupt` (present but not a session record) or `unsupported` (written by a
+version this one does not read). Only a `valid` outcome carries the record.
+
+```typescript
+import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
+const sessionStore = createUserSessionStore(join(homedir(), '.my-agent', 'sessions'));
+
+for (const entry of sessionStore.list()) {
+  const { outcome } = entry;
+  if (outcome.status === 'valid') {
+    console.log(entry.id, outcome.record.name ?? '(unnamed)', outcome.record.updatedAt);
+  } else {
+    console.log(entry.id, `cannot be resumed: ${outcome.status}`);
+  }
+}
+
+const outcome = sessionStore.load('session-id');
+if (outcome.status === 'valid') {
+  console.log(`${outcome.record.messages.length} messages`);
+}
+```
+
+A project session store (`createProjectSessionStore()`, built on a trusted workspace's state
+directories) also keeps an append-only log and can rebuild a session from it when the saved record is
+missing. A damaged log is reported as `corrupt` rather than partly replayed.
+
+## From the CLI
 
 ```bash
-# Continue last session
+# Continue the most recent session
 robota -c
 
-# Resume specific session (by name or ID)
+# Resume a session by name or ID
 robota -r my-feature
 
-# Fork from existing session (new ID, same context)
+# Fork into a new session with the same history
 robota -c --fork-session
 robota -r my-feature --fork-session
 
-# Name a session
+# Name a new session
 robota --name "auth-refactor"
 ```
 
-## TUI Commands
-
-```bash
-# Inside TUI:
-/resume          # Show session picker
-/rename my-task  # Rename current session
-```
-
-## Session Name
-
-Session name appears in three places: input box border, terminal title, status bar.
+Inside the terminal UI, `/resume` opens a session picker and `/rename <name>` renames the current
+session. The session name appears on the input box border, in the terminal title and in the status
+line.

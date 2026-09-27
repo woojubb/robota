@@ -1,68 +1,102 @@
-# agent-cli — message type unification
+# agent-cli — message model in the terminal UI
 
 > Whitebox design for `@robota-sdk/agent-cli`. The blackbox contract lives in
-> [`../SPEC.md`](../SPEC.md); nothing here is a promise to a consumer. Placement follows the
-> consumer-impact test in
-> [`design-doc-authoring`](../../../../.agents/skills/design-doc-authoring/SKILL.md).
+> [`../SPEC.md`](../SPEC.md); nothing here is a promise to a consumer.
 
 ## Context & Goal
 
-Which internal type the message list holds (`IHistoryEntry` vs `TUniversalMessage`) and how tool
-messages are narrowed. The user sees rendered output; the type behind it is not contract.
+Which type the transcript holds, where it is kept, and how each entry is rendered. The code lives in
+`@robota-sdk/agent-ui-terminal` (render state and components) and `@robota-sdk/agent-framework`
+(the session history); the CLI defines no message types of its own. The user sees rendered output;
+the types behind it are not contract.
 
 ## Constraints
 
-- `IHistoryEntry` is owned by `@robota-sdk/agent-core`; the CLI must not redefine it.
-- Type guards must be total — an unhandled message kind must not render as blank.
+- `IHistoryEntry` is owned by `@robota-sdk/agent-core`. Neither the CLI nor the terminal UI
+  redefines it, and there is no local `IChatMessage`.
+- The session is the source of truth. The UI replaces its copy with `session.getFullHistory()` and
+  never edits session entries.
+- Event text is built by neutral packages from parts that may be untrusted (a plugin's skill name, a
+  memory topic), so the render site sanitizes it with `sanitizeTerminalText()` before printing.
 
 ## Internal Structure
 
-The CLI uses `IHistoryEntry` from `@robota-sdk/agent-core` as the primary message type for the message list. `TUniversalMessage` is still used in lower-level contexts (session history access, type guards, provider calls). There is no local `IChatMessage` type.
+### Types
 
-### Type Unification
+`IHistoryEntry` has an `id`, a `timestamp`, a `category`, a `type` and type-specific `data`.
 
-- `IHistoryEntry[]` is the primary type held by `TuiStateManager` and passed to `MessageList`
-- `MessageList` renders entries via `EntryItem`, which dispatches on `entry.category`:
-  - `'chat'` entries: rendered as conversation messages (user, assistant, system, tool)
-  - `'event'` entries: rendered based on `entry.type` (e.g., `'tool-summary'` renders the tool call list, `'skill-invocation'` renders a system notice)
-- `entry.id` (UUID) is used as the React key for message list rendering
-- `TUniversalMessage` is still used where needed (type guards, provider API calls, `getMessages()` for backward compat)
-- `msg.state === 'interrupted'` shows an interrupted indicator in the UI
+- `category: 'chat'` entries carry a `TUniversalMessage` in `data`; `messageToHistoryEntry()` sets
+  `type` to the message role.
+- Every other entry is an event (`category: 'event'`), for example `tool-summary`, `usage-summary`
+  or `skill-activation`.
 
-### Message State in TuiInteractionChannel
+`TUniversalMessage` is still used where a message is needed on its own: provider calls
+(`getMessagesForAPI()` filters chat entries back into messages) and the type guards
+`isToolMessage()` and `isAssistantMessage()`.
 
-- `history: IHistoryEntry[]` state is managed by `TuiStateManager` inside `TuiInteractionChannel`, derived from `interactiveSession.getFullHistory()`.
-- After each execution (when `thinking` transitions to `false`), delegates to `TuiStateManager` to sync `history` from `interactiveSession.getFullHistory()` — the session is the SSOT for all history content.
-- `addMessage` appends a local system message directly to channel state (used for command output and error notices that are not part of the AI conversation). These are wrapped as `IHistoryEntry` with `category: 'event'` before insertion.
-- After abort: interrupted messages are already committed to session history by `InteractiveSession`; the channel re-syncs from full history — no separate streaming text ref is needed.
+### Where the transcript is kept
 
-### Tool Message Type Guards
+`TuiStateManager` (`packages/agent-ui-terminal/src/tui-state-manager.ts`) holds
+`history: IHistoryEntry[]` for one `TuiInteractionChannel`. `TuiSessionEventProjector` updates it from
+session events:
 
-Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.name`.
+| Event                                                              | Effect on `history`                                                                |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| `complete`, `error`, `compact`, `skill_activation`, `memory_event` | Replaced with `session.getFullHistory()`                                           |
+| `user_message`                                                     | The prompt is echoed at once; the session's own entry replaces it on the next sync |
+| `history_cleared`                                                  | Emptied                                                                            |
 
-### Render windowing and memoization
+The replace is whole: there is no windowing, so the render tree holds the full session history.
+Notices the terminal adds itself (`addEntry()`, for example "Unknown command") are system chat
+messages built with `messageToHistoryEntry(createSystemMessage(…))`; they keep their position across
+later syncs.
 
-How many entries the render tree holds, and which component skips a re-render, is invisible to the
-user — the transcript on disk is the contract, and it is stated in [`../SPEC.md`](../SPEC.md).
+When the user aborts a turn, the framework appends the partial answer and an "Interrupted by user."
+notice to the session history. When a turn fails mid-stream, it keeps the partial answer as an
+assistant message with `state: 'interrupted'`, which `MessageItem` renders with an "(interrupted)"
+marker.
 
-### Message Windowing
+### Rendering
 
-`TuiStateManager` keeps only the most recent 100 entries (`MAX_RENDERED_MESSAGES`) in `history: IHistoryEntry[]`. Older entries are dropped from the render tree to prevent unbounded memory growth. Full conversation history is preserved in the session store on disk.
+The transcript is printed with Ink's `<Static>` in `AppPresentation.tsx`: the banner first, then one
+`EntryItem` per history entry, keyed by `entry.id`. `<Static>` prints each item once, so only the
+newly appended tail reaches the terminal.
 
-### Tool State Cleanup
+```mermaid
+flowchart LR
+    E["EntryItem(entry)"] --> C{"category / type"}
+    C -->|"chat"| M["MessageItem (React.memo)"]
+    C -->|"tool-summary"| T["ToolSummaryEntry"]
+    C -->|"usage-summary"| U["UsageSummaryEntry"]
+    C -->|"tool-start, tool-end"| N["nothing"]
+    C -->|"other event"| V["EventEntry: System notice, or nothing without text"]
+```
 
-Completed tool execution states are trimmed to the most recent 50 entries (`MAX_COMPLETED_TOOLS`). Running tools are always kept. This prevents `activeTools` array from growing unbounded during tool-heavy responses.
+- `MessageItem` renders user, assistant, system and tool messages; tool messages are narrowed with
+  `isToolMessage()` before `name` is read. `React.memo` skips re-rendering unchanged messages.
+- `tool-start` and `tool-end` entries are kept for persistence only. While a turn runs, the streaming
+  indicator shows the active tools; afterwards the `tool-summary` entry lists them.
+- An event entry renders its `data.message` or `data.content` as a "System:" notice. An event with
+  neither is a record (a provider-call trace, a usage observation) and prints nothing.
 
-### React.memo
+### Streaming state
 
-`MessageItem` component uses `React.memo` to skip re-renders when message props are unchanged, reducing CPU and indirect memory pressure from Ink's full-tree reconciliation.
+Text deltas accumulate in `TuiStateManager` at once, but it notifies React at most once per
+`STREAMING_DEBOUNCE_MS` (300 ms), which bounds how often markdown is re-rendered.
+`createDebouncedNotify()` owns the timer; the turn's end, interruption or error cancels a pending
+notify and notifies directly. The active-tool list is cleared when a turn starts and when it ends.
+
+Separately, the framework keeps at most 50 completed tool states per response in its own streaming
+state (`MAX_COMPLETED_TOOLS` in `packages/agent-framework/src/interactive/interactive-session-streaming.ts`);
+running tools are always kept.
 
 ## Key Flows
 
-SDK event → history entry → type guard narrows to a tool/assistant/user variant → the matching
-renderer runs. What each variant looks like on screen is contract and lives in
-[`../SPEC.md`](../SPEC.md) under `User-Facing Contract`.
+Session event → `TuiSessionEventProjector` → `TuiStateManager` (history replaced from the session) →
+`useTuiChannel` re-renders → `<Static>` prints the new entries → `EntryItem` picks a renderer. What
+each kind looks like on screen is contract; see [`../SPEC.md`](../SPEC.md).
 
 ## Test Approach
 
-Type-guard unit tests plus render snapshots for each message variant.
+In `packages/agent-ui-terminal/src/__tests__/`: `tui-state-manager.test.ts` for the state
+transitions and `message-list-rendering.test.tsx` for the entry renderers.

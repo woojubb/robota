@@ -1,20 +1,26 @@
 # @robota-sdk/agent-interface-analytics — documents
 
-Usage and run-trace contracts for the Robota SDK. Type declarations only — no classes, no runtime
-logic. This package declares the shape of a measurement; it measures nothing.
+Usage and run-trace contracts for the Robota SDK: per-turn token and cost snapshots, per-source
+session reports and run timelines, the live prompt trace, opt-in live prompt/response/tool content,
+and the cross-session personal-usage report. Type declarations only, with no dependencies. The
+package declares the shape of a measurement; it measures nothing.
 
 ## Usage
 
 ```typescript
 import type {
   IUsageSnapshot,
-  IUsageSource,
   IUsageBySourceReport,
-  IRunTraceTurn,
+  ILivePromptContentBatch,
+  IPersonalUsageReport,
 } from '@robota-sdk/agent-interface-analytics';
-// Contract declarations only. Reports are assembled by `agent-session-analytics` and carried across
-// the sidecar boundary by `agent-transport`.
+// Contract declarations only. agent-framework records usage as a turn runs;
+// agent-session-analytics assembles the reports; agent-transport carries them over the wire.
 ```
+
+The usage, trace and personal-usage types never carry prompt, response, path or tool-payload
+text. That text is a separate opt-in contract (`ILivePromptContentPolicy`,
+`ILivePromptContentBatch`) linked to the trace only by its IDs.
 
 ## Documents
 

@@ -1,72 +1,89 @@
 # agent-cli — source layout
 
 > Whitebox design for `@robota-sdk/agent-cli`. The blackbox contract lives in
-> [`../SPEC.md`](../SPEC.md); nothing here is a promise to a consumer. Placement follows the
-> consumer-impact test in
-> [`design-doc-authoring`](../../../../.agents/skills/design-doc-authoring/SKILL.md).
+> [`../SPEC.md`](../SPEC.md); nothing here is a promise to a consumer.
 
 ## Context & Goal
 
-The directory tree of `packages/agent-cli/src`. Consumers import from the package root; no outside
+A map of `packages/agent-cli/src` for contributors. Consumers import from the package root; no outside
 code and no user depends on where a file sits.
 
 ## Constraints
 
-- File-size limits from `REFACTOR-025` apply to every file listed here.
-- Layer direction: components → hooks → services → SDK. A reverse edge is a defect.
+- The public surface is `src/index.ts`: `startCli` and the `IStartCliOptions` type.
+- The CLI holds no Ink components, hooks or render state. Those belong to
+  `@robota-sdk/agent-ui-terminal`. Only `src/cli.ts` imports the terminal UI as values; the shared
+  startup path (`src/cli-core.ts`) and the headless entry refer to it only through types, so the
+  headless build carries no TUI.
+- Command execution, the command registry and skill execution belong to
+  `@robota-sdk/agent-framework`; command behaviour belongs to the `@robota-sdk/agent-command*`
+  packages. The CLI has no `src/commands/` directory and never instantiates `SystemCommandExecutor`.
 
 ## Internal Structure
 
-```
-src/
-├── bin.ts                                        ← Binary entry point; top-level uncaughtException handler for IME errors
-├── cli.ts                                        ← Lifecycle owner: arg parsing, layered assembly, mode dispatch
-├── constants.ts                                  ← AGENT_CLI_BIN ('robota')
-├── index.ts                                      ← Public CLI entry exports (startCli only)
-├── user-local-direct-command.ts                  ← Direct user-local command handler (no provider)
-├── init/
-│   └── init-command.ts                           ← `robota init` — creates AGENTS.md + .robota/settings.json
-├── modes/
-│   ├── print-mode.ts                             ← Headless/print mode runner (-p flag); uses HeadlessInteractionChannel
-├── session-analyzer/
-│   └── session-analyze-command.ts                ← `robota session analyze` — thin wiring: loads records via framework session stores, delegates analysis/formatting to `@robota-sdk/agent-session-analytics`
-├── eval/
-│   └── eval-command.ts                           ← `robota eval <definition>` (SELFHOST-011) — thin wiring: loads a consumer eval definition, builds the default runFn from the resolved provider (`createSessionRunFn`), delegates scoring to `@robota-sdk/agent-framework` `runEval`; returns exit 0 (pass) / 1 (metric breach) — the CI gate
-└── startup/
-    ├── append-system-prompt.ts                   ← Builds appendSystemPrompt string from session options
-    ├── command-setup.ts                           ← buildCommandSetup() — command modules, adapters, provider definitions
-    ├── diagnose-command.ts                        ← runDiagnoseCommand() — `robota diagnose` 6-check setup report
-    ├── first-run.ts                               ← isFirstRun() / markOnboarded() / printFirstRunWelcome(terminal)
-    ├── preset-selection.ts                        ← selectPresetId() / resolveShellPreset() — the shell's single preset resolution over agent-preset's per-call registry
-    ├── provider-startup.ts                        ← runInteractiveProviderSetup() — interactive provider config
-    ├── reset-config.ts                            ← Deletes user settings file on --reset
-    ├── terminal-check.ts                          ← warnIfTerminalAppOnMacOS(terminal) — macOS Terminal.app CJK warning
-    └── version.ts                                 ← readVersion() — reads package.json version
-```
+### Top-level files
 
-All pre-session commands (`init`, `diagnose`, `session analyze`, `eval`, `user-local`, `--help`,
-`--version`, `--check-update`, `--reset`, `--configure`) are dispatched inline by `startCli()` in
-`src/cli.ts` — the composition root owns the single dispatch table. `eval` (like `session analyze`) is
-intercepted on `process.argv` before the strict global `parseCliArgs()` because it carries a definition path
+| File                           | Role                                                                                                                                                     |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bin.ts`                       | `robota` binary entry: installs the diagnostics sink and the last-resort crash policy, runs the subagent worker when asked, otherwise calls `startCli()` |
+| `headless-bin.ts`              | Presentation-free entry for the desktop app's runtime; accepts only `--serve`                                                                            |
+| `cli.ts`                       | `startCli()`: hands the terminal presentation to `startCliCore()`                                                                                        |
+| `cli-core.ts`                  | `startCliCore()`: the shell — argument parsing, settings reads, product assembly, mode dispatch                                                          |
+| `index.ts`                     | Package exports                                                                                                                                          |
+| `bootstrap-diagnostics.ts`     | Routes agent-core diagnostics (warnings and errors) to stderr                                                                                            |
+| `process-guards.ts`            | TUI-only last-resort guards that report uncaught errors into the live session instead of exiting                                                         |
+| `print-terminal.ts`            | `PrintTerminal`, the `ITerminalOutput` used outside the TUI                                                                                              |
+| `cli-input.ts`                 | Masked raw-mode prompt used by `init` and provider setup                                                                                                 |
+| `user-local-direct-command.ts` | `robota user-local …`, run without a provider                                                                                                            |
+| `constants.ts`                 | `AGENT_CLI_BIN` (`'robota'`)                                                                                                                             |
 
-- `--threshold` the global parser would reject; its returned count maps to `process.exitCode` (0/1). In the TUI path, `startCli()`
-  emits the macOS Terminal.app warning and the first-run welcome banner (creating the onboarded
-  marker) immediately before `renderApp()`.
+### Directories
 
-**Note:** `print-terminal.ts` and `types.ts` have been removed from `src/`. `ITerminalOutput` and
-`ISpinner` are owned by `@robota-sdk/agent-core`; import them directly from that package. All Ink
-TUI components, hooks, flows, `TuiStateManager`, and TUI-specific utilities are owned by
-`@robota-sdk/agent-ui-terminal`. The CLI's `src/` contains only the lifecycle assembly, local host
-adapters, and settings/provider utilities.
+| Directory            | Role                                                                                                                                                                                                                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `product/`           | Robota's identity as data: the product profile (`robota-profile.ts`), transport and runtime plumbing (`robota-plumbing.ts`), packs and the subagent runner (`robota-subagent-composition.ts`), and robota's paths, settings layers, roots, presets, sandbox and permission baseline |
+| `startup/`           | Startup steps called by `cli-core.ts`: command setup, preset selection, provider setup, workspace trust, MCP client composition, `doctor`, host-action adapters, and the inputs the TUI is rendered with                                                                            |
+| `modes/`             | Print mode (`-p`, `--goal`), the `--serve` runtime host with its monitor UI and session directory, and `robota mcp serve`                                                                                                                                                           |
+| `session-inventory/` | `session list`, `view`, `attach`, `start` and the per-workspace `daemon`: supervised background sessions                                                                                                                                                                            |
+| `remote-control/`    | `/remote-control` over WebRTC, the host identity, and local peer discovery and messaging                                                                                                                                                                                            |
+| `devices/`           | `/devices`: device identity, enrollment and the device mesh                                                                                                                                                                                                                         |
+| `handoff/`           | Moving a session to another session or device                                                                                                                                                                                                                                       |
+| `peer-files/`        | Files sent between peers: checks before sending, consent and quarantine on receipt                                                                                                                                                                                                  |
+| `external-events/`   | External-event grants and their HTTP endpoint for the TUI                                                                                                                                                                                                                           |
+| `credentials/`       | The host credential store: OS keychain, or an owner-only file                                                                                                                                                                                                                       |
+| `subagents/`         | `GitWorktreeIsolationAdapter` and the self-fork worker entry (see [`subagent-wiring.md`](subagent-wiring.md))                                                                                                                                                                       |
+| `plugins/`           | The `ICommandPluginAdapter` implementation and the plugin command-source loader                                                                                                                                                                                                     |
+| `launch-intent/`     | `robota open <url>` deep links                                                                                                                                                                                                                                                      |
+| `telemetry/`         | Opt-in live telemetry export (OTLP or console)                                                                                                                                                                                                                                      |
+| `usage/`             | `robota usage`, `usage export`, and the usage reporters the transports serve                                                                                                                                                                                                        |
+| `init/`              | `robota init`                                                                                                                                                                                                                                                                       |
+| `eval/`              | `robota eval`                                                                                                                                                                                                                                                                       |
+| `session-analyzer/`  | `robota session analyze`                                                                                                                                                                                                                                                            |
+| `update-check/`      | The npm update check and its cache                                                                                                                                                                                                                                                  |
+| `testing/`           | `createBinaryAgentDriver()`, which drives the built binary in the `*.bintest.ts` suites                                                                                                                                                                                             |
+| `utils/`             | Argument parsing (`parseCliArgs`), help text, MCP HTTP flags                                                                                                                                                                                                                        |
 
-**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, `SystemCommandExecutor`, `ICommand`, `ICommandSource`, and `executeSkill()` are owned by `@robota-sdk/agent-framework`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI has no `src/commands/` compatibility surface. Plugin command discovery uses the SDK-owned `PluginCommandSource`; plugin command execution lives in `@robota-sdk/agent-command`. The CLI's `src/index.ts` exports only `startCli`.
+### Where a command is dispatched
+
+`startCliCore()` settles an invocation in this order:
+
+1. `robota open <url>` is applied before anything reads the working directory.
+2. `runPreparsedCliCommand()` (`startup/preparsed-command-routing.ts`) handles the subcommands whose
+   flags the strict global parser would reject: `doctor` (aliases `checkup`, `diagnose`), `trust`,
+   `daemon`, `--attach`, `session list|view|attach|start|stop|rename|events|link-pr|unlink-pr|analyze`,
+   `usage`, `mcp login|logout` and `eval`.
+3. After `parseCliArgs()`: `--help`, `--version`, `--check-update`, `--reset` and `user-local`.
+4. After the command setup: `routeProjectSetup()` handles `init`, `--configure` and the
+   provider-configuration flags, and makes sure a usable provider is configured.
+5. Mode dispatch: print mode, `mcp serve`, `--serve`, or the TUI. Before `renderApp()` the TUI path
+   warns about macOS Terminal.app and shows the first-run welcome.
 
 ## Key Flows
 
-Not applicable — this file describes layout, not behaviour. Behavioural flows live in the sibling
-design docs and the contract lives in [`../SPEC.md`](../SPEC.md).
+Not applicable — this file describes layout. Startup order is in
+[`composition.md`](composition.md).
 
 ## Test Approach
 
-Enforced structurally rather than by test: the file-size scan and the layer-direction check in
-`pnpm harness:scan`.
+No test pins the layout. Tests sit beside the code in `__tests__/` folders, and
+`src/__tests__/` holds the cross-cutting startup, composition and boundary tests.

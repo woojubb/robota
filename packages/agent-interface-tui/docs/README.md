@@ -1,8 +1,9 @@
-# @robota-sdk/agent-interface-tui
+# @robota-sdk/agent-interface-tui — documents
 
-TUI interaction contracts for the Robota SDK. Contains only type contracts and narrow type
-guards — no implementation, no React, no Ink. Defines the interaction protocol between
-command handlers and TUI renderers.
+Terminal UI interaction contracts for the Robota SDK: how a command declares what the terminal UI
+should do when it is run without arguments (a picker, a wizard, or a confirmation). Type contracts
+only — no runtime functions, no React, no Ink, no dependencies. Rendering belongs to
+`agent-ui-terminal`, which re-exports these types.
 
 ## Usage
 
@@ -18,4 +19,4 @@ import type {
 
 ## Documents
 
-- [SPEC.md](./SPEC.md) — package contract, interface catalog, and ownership boundaries.
+- [SPEC.md](./SPEC.md) — package contract, boundaries, and invariants.

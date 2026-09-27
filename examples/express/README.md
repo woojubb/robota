@@ -1,6 +1,7 @@
 # robota-example-express
 
-Express REST API with AI tool use, powered by `@robota-sdk/agent-framework`.
+Express REST API that streams chat responses over SSE and registers custom tools for the agent, powered by
+`@robota-sdk/agent-framework`.
 
 ## What this shows
 
@@ -12,12 +13,14 @@ Express REST API with AI tool use, powered by `@robota-sdk/agent-framework`.
 ## Quick start
 
 ```bash
-cp .env.example .env
-# fill in ANTHROPIC_API_KEY
-
 npm install
+export ANTHROPIC_API_KEY=your-key
 npm run dev
 ```
+
+The server reads `ANTHROPIC_API_KEY` and `PORT` (default `3001`) from the environment and does not load `.env`
+itself. To keep them in a file, copy `.env.example` to `.env` and pass Node's `--env-file` flag:
+`npx tsx --env-file=.env src/server.ts`.
 
 Test with curl:
 
@@ -50,14 +53,32 @@ via `additionalTools`, and forwards streamed text through `onTextDelta` as SSE e
 POST /api/chat { message }
   └─ createQuery({ provider, additionalTools, onTextDelta })
        └─ query(message)
-            ├─ LLM calls tool → execute → result injected
-            └─ onTextDelta(delta) → SSE text_delta events → done
+            ├─ onTextDelta(delta) → data: { type: "text_delta", text }
+            └─ settled             → data: { type: "done" } or { type: "error", message }
+```
+
+## Tool permissions
+
+As written, the tool calls are refused. `createQuery` runs in the `default` permission mode, and a custom
+tool declares no risk class, so each call to `calculate` or `get_current_time` asks for approval; with no
+`permissionHandler` to answer, the ask is denied and the model sees a permission error. To let these tools
+run, pass `permissionMode: 'bypassPermissions'` to `createQuery` (the default file and shell tools are then
+allowed too), or a `permissionHandler` that approves only these two:
+
+```ts
+const query = createQuery({
+  provider: new AnthropicProvider({ apiKey }),
+  additionalTools: [calculatorTool, currentTimeTool],
+  permissionHandler: async (toolName) =>
+    toolName === 'calculate' || toolName === 'get_current_time',
+  onTextDelta: (delta) => send({ type: 'text_delta', text: delta }),
+});
 ```
 
 ## Swap provider
 
-In `src/server.ts`, replace `AnthropicProvider` with any supported provider and pass it to
-`createQuery`:
+Install the provider package (`npm install @robota-sdk/agent-provider-openai`), then in `src/server.ts`
+replace `AnthropicProvider` and pass the new provider to `createQuery`:
 
 ```ts
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';

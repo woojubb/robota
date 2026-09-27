@@ -30,7 +30,7 @@ export default async function BetaPage({ params }: { params: Promise<{ locale: s
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <a
-            href="https://docs.robota.io/getting-started/"
+            href={`https://docs.robota.io/${locale}/getting-started/`}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-lg bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"

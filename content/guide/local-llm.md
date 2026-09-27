@@ -1,34 +1,55 @@
 ---
-title: Local LLM Setup — Ollama & LM Studio
+title: Local LLM Setup — Ollama, LM Studio and llama.cpp
 description: Run Robota with local models. No API key, no internet connection, no usage cost.
 ---
 
 # Local LLM Setup
 
-Robota works with any OpenAI-compatible local inference server. This guide covers the two most popular options — **Ollama** and **LM Studio** — plus any `llama.cpp` server or custom endpoint.
+Robota works with any local inference server that speaks the OpenAI-compatible API. This guide
+covers **Ollama**, **LM Studio** and the **llama.cpp** server. In Robota these all use the same
+provider type, `gemma`, shown in setup as **Ollama / LM Studio / llama.cpp**.
 
-> **No API key required.** Local models run entirely on your machine. Your code, prompts, and conversation history never leave your device.
+> **No API key required.** Local models run entirely on your machine. Your code, prompts and
+> conversation history stay on your device.
 
 ---
 
 ## Quick Start
 
+1. Start your local model server (see the options below).
+2. Configure the `robota` CLI to use it:
+
+   ```bash
+   robota --configure
+   ```
+
+   Choose **Ollama / LM Studio / llama.cpp (gemma)**, then answer the three prompts. Press Enter to
+   accept a default:
+
+   | Prompt   | Default                         | What to enter                                  |
+   | -------- | ------------------------------- | ---------------------------------------------- |
+   | Base URL | `http://localhost:1234/v1`      | Your server's URL, including `/v1`             |
+   | Model    | `supergemma4-26b-uncensored-v2` | The model name exactly as your server lists it |
+   | API key  | `lm-studio`                     | Any value; local servers do not check it       |
+
+On a first run with no provider configured, `robota` offers the same setup: answer "No — use a local
+model", and after a short LM Studio guide it asks these three prompts.
+
+To configure without prompts (for example in a setup script):
+
 ```bash
-# 1. Start your local model server (see below)
-
-# 2. Configure Robota to use it
-robota --configure
-
-# Select "Gemma / LM Studio" and enter your server URL:
-#   Ollama:    http://localhost:11434/v1
-#   LM Studio: http://localhost:1234/v1
+robota --configure-provider local --type gemma \
+  --base-url http://localhost:11434/v1 --model llama3.2 --api-key ollama --set-current
 ```
+
+The profile is saved in `~/.robota/settings.json`, so you configure it once. Run `robota --configure`
+again, or use `/provider` inside a session, to change the provider, URL or model.
 
 ---
 
 ## Option 1: Ollama
 
-[Ollama](https://ollama.com) is the easiest way to run local models. It manages downloads and serves an OpenAI-compatible API automatically.
+[Ollama](https://ollama.com) downloads and serves models and exposes an OpenAI-compatible API.
 
 ### Install and start
 
@@ -37,37 +58,24 @@ robota --configure
 curl -fsSL https://ollama.com/install.sh | sh
 
 # Pull a model (examples)
-ollama pull llama3.2          # 3B — fast, good for most tasks
-ollama pull codellama         # Optimized for code
-ollama pull qwen2.5-coder     # Strong at TypeScript/Python
-ollama pull mistral           # Good general purpose
+ollama pull llama3.2          # small and fast
+ollama pull qwen2.5-coder     # strong at TypeScript/Python
 
 # Verify the server is running
 curl http://localhost:11434/v1/models
 ```
 
-Ollama starts automatically and listens on `http://localhost:11434`.
+Ollama listens on `http://localhost:11434`.
 
 ### Configure Robota
 
-```bash
-robota --configure
-```
+Run `robota --configure`, choose **Ollama / LM Studio / llama.cpp (gemma)**, and enter:
 
-When prompted:
-
-- **Provider**: Select `Gemma / LM Studio` (uses OpenAI-compatible API)
 - **Base URL**: `http://localhost:11434/v1`
-- **Model**: Enter the model name exactly as in `ollama list` (e.g. `llama3.2`, `codellama`)
-- **API key**: Enter any value (e.g. `ollama`) — Ollama does not validate it
+- **Model**: the model name exactly as `ollama list` shows it (e.g. `llama3.2`)
+- **API key**: any value (e.g. `ollama`)
 
-The interactive configuration is saved to your Robota settings file (`~/.robota/settings.json`),
-so you only configure it once. Re-run `robota --configure` any time to change the provider, base URL,
-or model. (There are no `ROBOTA_PROVIDER`/`ROBOTA_BASE_URL`/`ROBOTA_MODEL` environment variables;
-provider selection lives in settings, while hosted-provider API keys are read from their standard env
-vars such as `OPENAI_API_KEY`.)
-
-### Recommended models for coding
+### Models for coding
 
 | Model                   | Size | Best for                        |
 | ----------------------- | ---- | ------------------------------- |
@@ -76,50 +84,61 @@ vars such as `OPENAI_API_KEY`.)
 | `llama3.2:3b`           | 3B   | Fast responses, simple tasks    |
 | `deepseek-coder-v2:16b` | 16B  | Complex reasoning, refactoring  |
 
-Larger models produce better results but require more RAM and run slower.
+Larger models produce better results but need more memory and run slower.
 
 ---
 
 ## Option 2: LM Studio
 
-[LM Studio](https://lmstudio.ai) provides a GUI for downloading and running models, with a built-in local API server.
+[LM Studio](https://lmstudio.ai) is a desktop app for downloading and running models, with a
+built-in local API server.
 
 ### Install and start
 
-1. Download LM Studio from [lmstudio.ai](https://lmstudio.ai)
-2. In the **Discover** tab, search for and download a model (e.g. `Gemma 3`, `Llama 3.2`, `Qwen 2.5 Coder`)
-3. In the **Local Server** tab, click **Start Server**
+1. Download LM Studio from [lmstudio.ai](https://lmstudio.ai).
+2. Search for and download a model (for example a Gemma, Llama or Qwen Coder model).
+3. Start the local server from the **Developer** tab.
 
-The server runs on `http://localhost:1234` by default.
+The server runs on `http://localhost:1234` by default, which is also Robota's default base URL.
 
 ### Configure Robota
 
-```bash
-robota --configure
-```
+Run `robota --configure`, choose **Ollama / LM Studio / llama.cpp (gemma)**, and enter:
 
-When prompted:
-
-- **Provider**: Select `Gemma / LM Studio`
-- **Base URL**: `http://localhost:1234/v1`
-- **Model**: Enter the model name exactly as shown in LM Studio's **Local Server** tab
-- **API key**: `lm-studio` (placeholder — LM Studio does not validate it)
+- **Base URL**: `http://localhost:1234/v1` (the default)
+- **Model**: the model name exactly as LM Studio shows it for the loaded model
+- **API key**: `lm-studio` (the default)
 
 ---
 
-## Option 3: llama.cpp Server
+## Option 3: llama.cpp server
 
-If you compile and run `llama.cpp` directly:
+If you build and run `llama.cpp` yourself:
 
 ```bash
-# Start llama.cpp server
 ./llama-server -m models/your-model.gguf --port 8080
-
-# Configure Robota
-robota --configure
-# Base URL: http://localhost:8080/v1
-# API key: any value (e.g. "local")
 ```
+
+Then run `robota --configure`, choose **Ollama / LM Studio / llama.cpp (gemma)**, and enter
+`http://localhost:8080/v1` as the base URL and any value as the API key.
+
+---
+
+## Using a local model from code
+
+The same provider is available to your own code as `GemmaProvider`:
+
+```typescript
+import { GemmaProvider } from '@robota-sdk/agent-provider-openai-compatible';
+
+const provider = new GemmaProvider({
+  apiKey: 'ollama', // not checked by local servers
+  baseURL: 'http://localhost:11434/v1',
+  defaultModel: 'llama3.2',
+});
+```
+
+See [Providers](./providers.md#gemma--openai-compatible) for its options.
 
 ---
 
@@ -127,43 +146,42 @@ robota --configure
 
 ### "Connection refused" or "Network error"
 
-- Verify the server is running: `curl http://localhost:11434/v1/models`
-- Check the port number matches your configuration
-- On some systems, the server may bind to `127.0.0.1` only — try `http://127.0.0.1:11434/v1`
+- Check the server is running: `curl http://localhost:11434/v1/models` (Ollama) or
+  `curl http://localhost:1234/v1/models` (LM Studio).
+- Check the port in your base URL matches the server.
+- Some servers bind to `127.0.0.1` only; try `http://127.0.0.1:<port>/v1`.
 
 ### Model not responding
 
-- Ensure the model name in Robota's config exactly matches the model loaded in your server
-- For Ollama, run `ollama list` to see available model names
-- For LM Studio, the model name is shown in the Local Server tab header
+- The model name in your profile must match the model loaded in your server exactly.
+- For Ollama, `ollama list` shows the names; LM Studio shows the name of the loaded model.
 
 ### Slow responses
 
-- Local models are slower than cloud APIs, especially on CPU
-- Use smaller quantized models (e.g. `q4_k_m` variants) for faster inference
-- Enable GPU acceleration in Ollama or LM Studio settings if available
+- Local models are slower than hosted APIs, especially on CPU.
+- Smaller quantized models (e.g. `q4_k_m` variants) run faster.
+- Enable GPU acceleration in Ollama or LM Studio if available.
 
 ### Tool calling not working
 
-Some local models do not support the OpenAI function-calling format. If tool calls fail silently:
-
-1. Try a model known to support tools: `qwen2.5-coder`, `llama3.2`, `mistral-nemo`
-2. In Robota, run `/mode plan` to switch to plan mode, which requires fewer tool calls
-3. Check the model's documentation for tool-call support
+Robota's agent works through tool calls. Some local models do not support the OpenAI
+function-calling format, and tool calls then fail or never happen. Use a model whose documentation
+says it supports tool or function calling (for example `qwen2.5-coder` or `llama3.2`).
 
 ---
 
-## Tips for Local Model Usage
+## Tips
 
-- **Context windows are smaller.** Most local models have 4K–32K token context vs 200K+ for cloud models. Use `/compact` when the context fills up.
-- **Response quality varies.** Code quality from 7B models is good for straightforward tasks; use 13B+ for complex refactoring.
-- **No rate limits.** You can run as many sessions as your hardware supports.
-- **Offline capable.** Once the model is downloaded, no internet connection is required.
+- **Context windows are smaller.** Many local models have far smaller context windows than hosted
+  models. Use `/compact` when the context fills up.
+- **Quality varies with size.** Small models handle straightforward tasks; use larger ones for
+  complex refactoring.
+- **Offline.** Once the model is downloaded, no internet connection is needed.
 
 ---
 
 ## Related
 
-- [Provider configuration guide](/guide/cli#provider-setup)
-- [Context management](/guide/context-management)
-- [Why Robota — cost comparison](/compare/)
+- [CLI Reference — Connect a provider](./cli.md#connect-a-provider)
+- [Providers](./providers.md)
+- [Context Management](./context-management.md)

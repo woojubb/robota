@@ -1,58 +1,90 @@
 # Deployment — one agent definition, many channels
 
-Robota needs no separate "gateway" to serve one agent over many surfaces. You author **one** agent definition,
-build **one** session from it, and bind that session to as many channels as you like through the transport
-registry. Every channel is a transport that `attach()`es the **same** session instance — the deploy target is an
-abstraction, not a fork of your agent.
+Robota needs no separate gateway to serve one agent over many surfaces. You build **one** session from
+one agent definition and bind that session to as many channels as you need. Every channel is a
+transport that `attach()`es the **same** session instance, so a WebSocket client, an HTTP caller and
+a paired browser all talk to one conversation.
 
-The registry (`TransportRegistry`) is that abstraction. There is intentionally **no gateway package** and **no
-per-surface runtime fork** — a gateway would re-introduce the coupling the transport DIP exists to prevent.
+`TransportRegistry` (in `@robota-sdk/agent-framework`) runs those transports. There is no gateway
+package and no per-surface copy of the runtime; a gateway would bring back the coupling the transport
+interfaces exist to prevent.
 
 ## The pattern
 
-<!-- doc-example-skip: illustrative fragment — `provider`, `settingsPath`, and `port` are placeholders the reader supplies; the runnable form is examples/capabilities/multi-surface-deploy -->
-
 ```ts
-import { createAgentRuntime } from '@robota-sdk/agent-framework';
-import { TransportRegistry } from '@robota-sdk/agent-framework';
-import { WsTransport } from '@robota-sdk/agent-transport-ws';
-import { createHttpTransport } from '@robota-sdk/agent-transport-http';
+import os from 'node:os';
+import path from 'node:path';
 
-// 1. ONE definition → ONE session, built once.
-const runtime = createAgentRuntime({ cwd: process.cwd(), provider });
+import {
+  TransportRegistry,
+  bindTransportAdapter,
+  createAgentRuntime,
+} from '@robota-sdk/agent-framework';
+import { createAnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createHttpTransport } from '@robota-sdk/agent-transport-http';
+import { WsTransport } from '@robota-sdk/agent-transport-ws';
+
+// 1. One definition → one session, built once.
+const runtime = createAgentRuntime({
+  cwd: process.cwd(),
+  provider: createAnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY ?? '' }),
+});
 const session = runtime.createSession({ permissionMode: 'bypassPermissions' });
 
-// 2. Bind that ONE session to MANY channels.
-const registry = new TransportRegistry(settingsPath);
-registry.register(new WsTransport({ port })); // an IConfigurableTransport → started by startAll
-registry.register(createHttpTransport()); // a plain adapter → lifecycle-managed, no settings row
-await registry.startAll(session); // attaches + starts every enabled transport on THIS session
+// 2. Bind that session to a transport, then register the bound transport.
+const registry = new TransportRegistry(path.join(os.tmpdir(), 'robota-transports.json'));
+registry.register(bindTransportAdapter(new WsTransport({ port: 45678 }), session));
+
+// 3. A plain adapter can also be mounted directly on the same session.
+const http = createHttpTransport();
+
+try {
+  await registry.startAll(); // starts every registered, enabled transport
+  http.attach(session);
+  await http.start();
+} finally {
+  await registry.stopAll();
+  await http.stop();
+}
 ```
 
-The registry serializes startup and shutdown. A second active `startAll()` is rejected before
-mutation; partial startup is rolled back in reverse order. Runner adapters report only their own
-success/failure, while `waitForCompletion()` may record a pending runner as registry-owned
-`abandoned` on normal stop or startup rollback. That abandonment does not make normal shutdown fail.
+- `bindTransportAdapter(transport, session)` fixes which session a transport serves. The registry
+  accepts only bound transports and refuses a duplicate name.
+- `startAll()` takes no arguments. It starts the enabled transports in order, rejects a second start
+  while one is active, and rolls back the ones it already started if one fails. `stopAll()` stops
+  them all.
+- The argument to `new TransportRegistry(...)` is where transport settings (enabled flags and
+  options) are stored: a file path, or an `ITransportSettingsRepository`.
 
-Both channels now serve the one session. See the runnable
+The runnable version, which also prints the channels it serves, is
 [`examples/capabilities/multi-surface-deploy`](../../examples/capabilities/multi-surface-deploy/).
 
-## Two registry projections
+## Configurable and plain transports
 
-| Transport shape                                 | Lifecycle projection                                   | Settings projection |
-| ----------------------------------------------- | ------------------------------------------------------ | ------------------- |
-| `IConfigurableTransport` (has `defaultEnabled`) | registered; `startAll(session)` starts it when enabled | listed and mutable  |
-| plain `ITransportAdapter` factory               | registered; always lifecycle-enabled                   | absent              |
+| Transport shape                                         | Started by `startAll()`                                 | Listed in settings (`getAll()`, `setEnabled`, `setOptions`) |
+| ------------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------- |
+| Configurable (has `defaultEnabled`), e.g. `WsTransport` | When enabled (the saved setting, else `defaultEnabled`) | Yes                                                         |
+| Plain `ITransportAdapter`                               | Always, once bound and registered                       | No                                                          |
 
-A `defaultEnabled:false` transport (e.g. the pairing-gated `WebRtcTransport` in REMOTE-001) is **not** started
-by `startAll` — it is attached out-of-band to the same session when its trigger fires. That is the live proof
-that two transports share one session simultaneously.
+A transport with `defaultEnabled: false`, such as the pairing-gated `WebRtcTransport` in
+`@robota-sdk/agent-transport-webrtc`, is not started by `startAll()` until it is enabled. It is
+attached to the same session when its own trigger fires (a paired device connecting), so two
+transports share one session at the same time.
 
-## Surface → runtime → transport
+## Surfaces built on this pattern
 
-Which surface maps to which runtime and transport is catalogued in the
-[deployment matrix](../../.agents/specs/deployment-matrix.md) (a drift-guarded registry). In short: CLI/TUI runs
-in-process through the presentation channel; Desktop and HTTP/WS servers run a headless `robota --serve` (`ws`/`http`); the web playground
-and remote P2P ride `ws`/`webrtc`; MCP hosts ride `mcp`. Each surface keeps its own composition root and auth
-posture (the CLI resolves settings/preset/provider; `--serve` adds the loopback WS nonce; REMOTE-001 adds the
-pairing-gated WebRTC channel) — but they all attach to **one** session over the **same** registry seam.
+- **`robota` terminal UI** runs the session in the same process as the terminal UI.
+- **`robota --serve`** runs a headless runtime that serves the session over a loopback WebSocket
+  with a per-launch token; `--serve --open` also serves the web GUI on localhost.
+- **`robota daemon start`** keeps one such runtime per workspace; the desktop app, `robota --attach`
+  and the served GUI connect to it. See
+  [Sessions, Background Sessions and the Daemon](./sessions-and-daemon.md).
+- **`robota mcp serve`** serves one session to MCP clients (`@robota-sdk/agent-transport-mcp`). See
+  [Model Context Protocol (MCP)](./mcp.md).
+- **Remote control** attaches a pairing-gated WebRTC transport to the running session. See
+  [Devices, Peers and Remote Control](./devices-and-remote.md).
+
+Each surface keeps its own composition root and its own access rules (the CLI resolves settings,
+preset and provider; `--serve` adds the loopback token; remote control adds device pairing), but they
+all attach to one session through the same transport contract. For servers, bots and serverless
+functions built on `agent-framework`, see [Embedding agent-framework](./embedding.md).

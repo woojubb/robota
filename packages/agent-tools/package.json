@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-tools",
   "version": "3.0.0-beta.83",
-  "description": "Tool registry and implementations for Robota SDK",
+  "description": "Zod-validated function tools, built-in tool factories and sandbox ports for the Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -39,9 +39,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/woojubb/robota.git"
+    "url": "https://github.com/woojubb/robota.git",
+    "directory": "packages/agent-tools"
   },
-  "homepage": "https://robota.io/",
+  "homepage": "https://docs.robota.io/en/packages/agent-tools/",
   "bugs": {
     "url": "https://github.com/woojubb/robota/issues"
   },

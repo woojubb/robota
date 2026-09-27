@@ -20,14 +20,18 @@ const GUIDE_ORDER = [
   'building-agents',
   'sdk',
   'cli',
+  'sessions-and-daemon',
   'keybindings',
   'local-llm',
   'providers',
+  'mcp',
   'embedding',
   'permissions-and-hooks',
+  'devices-and-remote',
   'context-management',
   'error-handling',
   'plugins',
+  'deployment',
   'migration',
 ];
 

@@ -1,14 +1,16 @@
 # @robota-sdk/agent-transport
 
-Browser-safe transport protocol and delivery substrate for the Robota SDK. Node-only admission and
-handoff integrity helpers are available through `./node`; browser decoders are available through
-`./client`. TUI (Ink/React) rendering ships as the standalone
-`@robota-sdk/agent-ui-terminal` package, keeping this core React-free.
+The transport-neutral protocol layer shared by every Robota transport: the wire messages a client and
+a host exchange, the session bridge that applies them to a live session, and the delivery helpers
+(backpressure, resumable delivery, channel framing, handoff chunking) a carrier builds on. It owns no
+socket, listener or UI.
 
-## Usage
+The root and `./client` entry points run in the browser; Node-only admission, access-token
+verification, file transfer and handoff integrity helpers are under `./node`. The carriers themselves
+are separate packages: `@robota-sdk/agent-transport-ws`, `-http`, `-mcp` and `-webrtc`.
 
 ```typescript
-// Shared session-message handling
+// Shared session-message handling (browser and Node)
 import { createSessionMessageHandler } from '@robota-sdk/agent-transport';
 
 // Browser-side runtime decoding
@@ -16,14 +18,9 @@ import { decodeServerMessage } from '@robota-sdk/agent-transport/client';
 
 // Node-only admission helpers
 import { resolveAdmission } from '@robota-sdk/agent-transport/node';
-
-// TUI presentation host (session-owning, not ITransportAdapter)
-import { renderApp } from '@robota-sdk/agent-ui-terminal';
-
-// WebSocket transport
-import { WsTransport } from '@robota-sdk/agent-transport-ws';
 ```
 
 ## Documents
 
-- [SPEC.md](./SPEC.md) — package contract, sub-path layout, and ownership boundaries.
+- [SPEC.md](./SPEC.md) — package contract, entry-point layout and ownership boundaries.
+- [README](../README.md) — installation and usage examples.

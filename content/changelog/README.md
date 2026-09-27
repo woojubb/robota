@@ -5,7 +5,11 @@ description: What's new in Robota SDK — user-facing changes, new features, and
 
 # Changelog
 
-User-facing changes, new features, and notable fixes. For full commit history, see [GitHub](https://github.com/woojubb/robota).
+Highlights of user-facing changes, new features, and notable fixes in past releases. Every published
+package also ships its own `CHANGELOG.md` with the complete record for each version — for example
+[`@robota-sdk/agent-cli`](../../packages/agent-cli/CHANGELOG.md) and
+[`@robota-sdk/agent-core`](../../packages/agent-core/CHANGELOG.md). The commit history is on
+[GitHub](https://github.com/woojubb/robota).
 
 ---
 
@@ -73,11 +77,11 @@ paths above.
 
 ### New features
 
-**Plugin development guide and directory** — A new [Building Plugins](/guide/plugins) guide covers the full lifecycle for writing, testing, and publishing community plugins. The [Plugin Directory](/plugins/) page lists official plugins with a process for submitting community plugins.
+**Plugin development guide and directory** — A new [Building Plugins](../guide/plugins.md) guide covers the full lifecycle for writing, testing, and publishing community plugins. The [Plugin Directory](../plugins/README.md) page lists official plugins with a process for submitting community plugins.
 
 **`robota init` — project initialization** — Running `robota init` in any directory creates a starter `AGENTS.md` and `.robota/settings.json`. If a `.claude/` directory is detected, it offers to migrate Claude Code settings automatically.
 
-**Local LLM support guide** — A dedicated [Local LLM Setup](/guide/local-llm) guide covers Ollama, LM Studio, and llama.cpp with per-model recommendations. No API key needed for any local inference server.
+**Local LLM support guide** — A dedicated [Local LLM Setup](../guide/local-llm.md) guide covers Ollama, LM Studio, and llama.cpp with per-model recommendations. No API key needed for any local inference server.
 
 **Context warning banner** — The TUI now shows a yellow warning at 70% context usage and a red alert at 90%, with a prompt to run `/compact`.
 
@@ -91,7 +95,7 @@ paths above.
 
 ### New features
 
-**Visual Agent Builder Playground** — [play.robota.io/playground](https://play.robota.io/playground) is a drag-and-drop canvas for assembling agents visually. Drag tools onto an agent node, connect providers, and watch the execution DAG build in real time. Export the canvas as working TypeScript code.
+**Visual Agent Builder Playground** — The playground is a drag-and-drop canvas for assembling agents visually. Drag tools onto an agent node, connect providers, and watch the execution DAG build in real time. Export the canvas as working TypeScript code.
 
 **BYOK playground** — The playground accepts your own API keys directly in the browser. Keys are passed in-request and never stored server-side.
 
@@ -109,7 +113,7 @@ paths above.
 
 ## 2026-05-02 — Beta 59
 
-See the [full release notes for Beta 59](/guide/release-2026-05-02) for a detailed breakdown of all changes in this release window, including:
+See the [full release notes for Beta 59](../guide/release-2026-05-02.md) for a detailed breakdown of all changes in this release window, including:
 
 - Subagent background jobs with transcripts, watchdogs, and command surfaces
 - Provider composition: Qwen, Gemma, Gemini, Anthropic, OpenAI, and OpenAI-compatible in one config
@@ -129,7 +133,7 @@ See the [full release notes for Beta 59](/guide/release-2026-05-02) for a detail
 | 3.0.0-beta.67    | 2026-05-23 | Plugin guide, `robota init`, local LLM guide, UX improvements                      |
 | 3.0.0-beta.60–66 | 2026-05-10 | Visual playground, BYOK, safety limits, DAG fixes                                  |
 | 3.0.0-beta.59    | 2026-05-02 | Subagents, multi-provider, session replay, parallel agents                         |
-| 3.0.0-beta.56–58 | 2026-05-01 | [See release notes](/guide/release-2026-05-02)                                     |
+| 3.0.0-beta.56–58 | 2026-05-01 | [See release notes](../guide/release-2026-05-02.md)                                |
 
 ---
 

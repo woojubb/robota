@@ -1,15 +1,11 @@
-# Sessions Docs Index
+# agent-session Docs
 
-`@robota-sdk/agent-session` owns session lifecycle behavior: permission-aware execution, hooks, history persistence, compaction, and session-run orchestration.
-
-## Current Capabilities
-
-- Session execution emits provider usage and execution-boundary callbacks to SDK consumers.
-- Versioned session logs are decoded by event name before replay. Malformed or unknown events fail
-  explicitly, including nested messages; unversioned logs are not treated as valid recovery data.
-- System prompt composition includes session-owned context sections supplied by the SDK.
+`@robota-sdk/agent-session` owns the session lifecycle of the Robota SDK: permission-gated tool
+execution, lifecycle hooks, context-window tracking, compaction, versioned session logs and replay,
+and session-record persistence. Session logs are validated event by event before replay; malformed,
+unknown or unversioned logs fail explicitly instead of being treated as recovery data.
 
 ## Documents
 
-- [Package README](../README.md) — package usage overview.
-- [SPEC.md](./SPEC.md) — session management scope and package boundaries.
+- [Package README](../README.md) — usage, methods and exports.
+- [SPEC.md](./SPEC.md) — package contract, invariants and boundaries.

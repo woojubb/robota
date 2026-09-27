@@ -1,165 +1,327 @@
 ---
-title: Building Plugins
-description: Extend Robota with custom plugins — logging, monitoring, cost tracking, notifications, and more.
+title: Plugins
+description: Observe and extend a Robota agent with runtime plugins, use the ready-made plugins in @robota-sdk/agent-plugin, and package skills and hooks as robota CLI plugins.
 ---
 
-# Building Plugins
+# Plugins
 
-Robota's plugin system lets you hook into the agent execution lifecycle without modifying core packages. Plugins are the right tool for cross-cutting concerns: logging, metrics, cost tracking, notifications, and audit trails.
+"Plugin" means two different things in Robota:
 
----
+| Kind               | What it is                                                                                 | Where it runs                                  |
+| ------------------ | ------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| **Runtime plugin** | A class that observes a `Robota` agent's lifecycle: runs, provider calls, messages, errors | Your code, through `@robota-sdk/agent-core`    |
+| **CLI plugin**     | A folder of skills, commands, agent definitions, hooks and MCP servers                     | The `robota` CLI, installed from a marketplace |
 
-## Plugin Types
-
-There are two ways to extend Robota:
-
-| Approach                         | When to use                                                       |
-| -------------------------------- | ----------------------------------------------------------------- |
-| **AbstractPlugin**               | Full lifecycle access — before/after each run, tool calls, errors |
-| **EventEmitterPlugin listeners** | Subscribe to named events without subclassing                     |
+Runtime plugins are for cross-cutting concerns in code you write: logging, usage and cost tracking,
+limits, notifications, audit trails. CLI plugins extend the `robota` assistant for its users. The
+rest of this page covers runtime plugins first, then CLI plugins.
 
 ---
 
-## Quick Start — AbstractPlugin
+## Ready-made runtime plugins
 
-```typescript
-import { AbstractPlugin, PluginCategory, PluginPriority } from '@robota-sdk/agent-core';
-import type {
-  IPluginExecutionContext,
-  IPluginExecutionResult,
-  IPluginErrorContext,
-  IPluginOptions,
-  IPluginStats,
-} from '@robota-sdk/agent-core';
+`@robota-sdk/agent-plugin` ships eight plugins for the `Robota` class:
 
-interface IMyPluginOptions extends IPluginOptions {
-  logLevel?: 'info' | 'debug';
-}
+| Plugin class                | Concern                                          |
+| --------------------------- | ------------------------------------------------ |
+| `ConversationHistoryPlugin` | Persist and restore conversation history         |
+| `ErrorHandlingPlugin`       | Error classification, retries and recovery stats |
+| `ExecutionAnalyticsPlugin`  | Per-execution analytics                          |
+| `LimitsPlugin`              | Token, request and cost limits                   |
+| `LoggingPlugin`             | Structured logging of agent activity             |
+| `PerformancePlugin`         | Timing and performance metrics                   |
+| `UsagePlugin`               | Token usage accounting                           |
+| `WebhookPlugin`             | Send lifecycle events to webhook endpoints       |
 
-interface IMyPluginStats extends IPluginStats {
-  requestCount: number;
-}
-
-export class MyPlugin extends AbstractPlugin<IMyPluginOptions, IMyPluginStats> {
-  name = 'MyPlugin';
-  version = '1.0.0';
-  category = PluginCategory.MONITORING;
-  priority = PluginPriority.NORMAL;
-
-  // Called before each agent run
-  async beforeExecution(context: IPluginExecutionContext): Promise<void> {
-    this.updateCallStats();
-    console.log(`[MyPlugin] Starting run: ${context.executionId}`);
-  }
-
-  // Called after each successful run
-  async afterExecution(
-    context: IPluginExecutionContext,
-    result: IPluginExecutionResult,
-  ): Promise<void> {
-    const tokens = result.usage?.totalTokens ?? 0;
-    console.log(`[MyPlugin] Run complete. Tokens used: ${tokens}`);
-  }
-
-  // Called on execution error
-  async onError(error: Error, context?: IPluginErrorContext): Promise<void> {
-    this.updateErrorStats();
-    console.error(`[MyPlugin] Error in run: ${error.message}`);
-  }
-
-  getStats(): IMyPluginStats {
-    return {
-      ...super.getStats(),
-      requestCount: this.stats.calls,
-    };
-  }
-}
+```bash
+npm install @robota-sdk/agent-core @robota-sdk/agent-plugin
 ```
 
-### Register with Robota
-
-<!-- doc-example-skip: imports the local my-plugin.js module defined in the previous example -->
+Plugins are passed to the `Robota` constructor in its `plugins` array:
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { MyPlugin } from './my-plugin.js';
+import { Robota, type IAIProvider } from '@robota-sdk/agent-core';
+import { LimitsPlugin, LoggingPlugin, UsagePlugin } from '@robota-sdk/agent-plugin';
+
+declare const provider: IAIProvider;
 
 const agent = new Robota({
-  name: 'MyAgent',
-  aiProviders: [new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })],
+  name: 'my-agent',
+  aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  plugins: [new MyPlugin()],
+  plugins: [
+    new LoggingPlugin({ strategy: 'console' }),
+    new UsagePlugin({ strategy: 'memory' }),
+    new LimitsPlugin({ strategy: 'token-bucket', maxTokens: 100_000 }),
+  ],
 });
 ```
 
+Each plugin's options type is exported next to it (`ILoggingPluginOptions`, `IUsagePluginOptions`,
+`ILimitsPluginOptions`, `IWebhookPluginOptions` and so on), and most take a `strategy` that selects
+where data goes (for example `'console' | 'file' | 'remote' | 'silent'` for logging). See the
+[agent-plugin SPEC](../../packages/agent-plugin/docs/SPEC.md) for each plugin's contract.
+
 ---
 
-## AbstractPlugin Lifecycle Hooks
+## Writing a runtime plugin
 
-Override any of these optional methods in your plugin:
-
-<!-- doc-example-skip: hook signature listing, not runnable code -->
+A runtime plugin extends `AbstractPlugin` from `@robota-sdk/agent-core` and overrides the lifecycle
+methods it cares about. It needs a `name` and a `version`; `category` and `priority` classify it.
 
 ```typescript
-// Before the agent processes a message
-beforeExecution(context: IPluginExecutionContext): Promise<void> | void
+import {
+  AbstractPlugin,
+  PluginCategory,
+  PluginPriority,
+  type IPluginErrorContext,
+  type IPluginExecutionContext,
+  type IPluginExecutionResult,
+  type IPluginOptions,
+  type IPluginStats,
+} from '@robota-sdk/agent-core';
 
-// After successful completion
-afterExecution(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> | void
+interface IRunLoggerStats extends IPluginStats {
+  completedRuns: number;
+}
 
-// Before each tool call
-beforeToolCall(toolName: string, parameters: TToolParameters): Promise<void> | void
+export class RunLoggerPlugin extends AbstractPlugin<IPluginOptions, IRunLoggerStats> {
+  name = 'RunLoggerPlugin';
+  version = '1.0.0';
+  private completedRuns = 0;
 
-// After each tool call
-afterToolCall(toolName: string, parameters: TToolParameters, result: IToolExecutionResult): Promise<void> | void
+  constructor() {
+    super();
+    this.category = PluginCategory.MONITORING;
+    this.priority = PluginPriority.NORMAL;
+  }
 
-// On any error
-onError(error: Error, context?: IPluginErrorContext): Promise<void> | void
+  // Before the agent starts working on a message.
+  override async beforeExecution(context: IPluginExecutionContext): Promise<void> {
+    this.updateCallStats();
+    console.log(`[RunLogger] start ${context.executionId ?? ''}`);
+  }
 
-// Before the agent is disposed
-cleanup(): Promise<void>
+  // After the run completes.
+  override async afterExecution(
+    context: IPluginExecutionContext,
+    result: IPluginExecutionResult,
+  ): Promise<void> {
+    this.completedRuns += 1;
+    console.log(
+      `[RunLogger] done ${context.executionId ?? ''} in ${result.duration ?? 0} ms, ` +
+        `${result.toolsExecuted ?? 0} tool calls`,
+    );
+  }
+
+  // When the run fails.
+  override async onError(error: Error, context?: IPluginErrorContext): Promise<void> {
+    this.updateErrorStats();
+    console.error(`[RunLogger] ${context?.executionId ?? ''} failed: ${error.message}`);
+  }
+
+  override getStats(): IRunLoggerStats {
+    return { ...super.getStats(), completedRuns: this.completedRuns };
+  }
+}
 ```
 
-### Built-in stats helpers
+Register it like any other plugin: `plugins: [new RunLoggerPlugin()]`.
 
-`AbstractPlugin` tracks basic stats automatically. Use these protected helpers and fields:
+### Lifecycle methods the agent calls
+
+<!-- doc-example-skip: method signature listing, not runnable code -->
+
+```typescript
+// Once per run
+beforeRun(input: string, options?: IRunOptions): Promise<void>
+beforeExecution(context: IPluginExecutionContext): Promise<void>
+afterRun(input: string, response: string, options?: IRunOptions): Promise<void>
+afterExecution(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void>
+afterConversation(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void>
+afterToolExecution(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> // only when tools ran
+
+// Around every provider call and message
+beforeProviderCall(messages: TUniversalMessage[]): Promise<void>
+afterProviderCall(messages: TUniversalMessage[], response: TUniversalMessage): Promise<void>
+onMessageAdded(message: TUniversalMessage): Promise<void>
+
+// When a run fails
+onError(error: Error, context?: IPluginErrorContext): Promise<void>
+```
+
+The `result` given to the after-run methods carries `response`, `duration`, `tokensUsed` (when the
+provider reported usage), `toolsExecuted`, `success`, and `toolCalls` (the name of each tool that
+ran). The `context` carries `executionId` and the conversation `messages`.
+
+`IPluginHooks` also declares `beforeConversation`, `beforeToolCall`, `beforeToolExecution`,
+`afterToolCall` and `onStreamingChunk`, but the `Robota` run loop does not call them. A plugin that
+needs per-tool or per-provider-call detail should use `afterToolExecution` or
+`afterProviderCall`. A plugin method that throws is logged and does not stop the run.
+
+### Stats helpers
+
+`AbstractPlugin` counts calls and errors for `getStats()`. Inside a plugin:
 
 <!-- doc-example-skip: protected-member fragment inside a plugin class body, not runnable code -->
 
 ```typescript
-this.updateCallStats(); // increments this.stats.calls
-this.updateErrorStats(); // increments this.stats.errors
-this.stats.calls; // total calls
-this.stats.errors; // total errors
-this.stats.lastActivity; // Date of last call
+this.updateCallStats(); // increments calls and records the time
+this.updateErrorStats(); // increments errors and records the time
+```
+
+`getStats()` returns `enabled`, `calls`, `errors`, `moduleEventsReceived` and `lastActivity`;
+override it to add your own fields. `enable()`, `disable()`, `getStatus()` and `dispose()` are
+available on every plugin.
+
+### Example: cost tracking
+
+`afterProviderCall` sees every response message, and `readTokenUsageFromMessage` reads its usage
+metadata:
+
+```typescript
+import {
+  AbstractPlugin,
+  PluginCategory,
+  readTokenUsageFromMessage,
+  type TUniversalMessage,
+} from '@robota-sdk/agent-core';
+
+const USD_PER_1K_INPUT = 0.003;
+const USD_PER_1K_OUTPUT = 0.015;
+
+export class CostTrackingPlugin extends AbstractPlugin {
+  name = 'CostTrackingPlugin';
+  version = '1.0.0';
+  private totalCostUsd = 0;
+
+  constructor() {
+    super();
+    this.category = PluginCategory.MONITORING;
+  }
+
+  override async afterProviderCall(
+    _messages: TUniversalMessage[],
+    response: TUniversalMessage,
+  ): Promise<void> {
+    const usage = readTokenUsageFromMessage(response);
+    if (usage === undefined) return;
+    this.totalCostUsd +=
+      (usage.inputTokens / 1000) * USD_PER_1K_INPUT +
+      (usage.outputTokens / 1000) * USD_PER_1K_OUTPUT;
+  }
+
+  getTotalCost(): number {
+    return this.totalCostUsd;
+  }
+}
+```
+
+`@robota-sdk/agent-core` also exports `calculateModelCost` and `lookupModelPrice` if you would rather
+use Robota's own model price table.
+
+### Example: error notification
+
+```typescript
+import { AbstractPlugin, PluginCategory, type IPluginErrorContext } from '@robota-sdk/agent-core';
+
+export class ErrorNotificationPlugin extends AbstractPlugin {
+  name = 'ErrorNotificationPlugin';
+  version = '1.0.0';
+
+  constructor(private readonly webhookUrl: string) {
+    super();
+    this.category = PluginCategory.NOTIFICATION;
+  }
+
+  override async onError(error: Error, context?: IPluginErrorContext): Promise<void> {
+    await fetch(this.webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: `Agent run ${context?.executionId ?? ''} failed: ${error.message}`,
+      }),
+    });
+  }
+}
+```
+
+For more than a single notification, `WebhookPlugin` in `@robota-sdk/agent-plugin` sends lifecycle
+events to several endpoints with retries.
+
+### Testing a runtime plugin
+
+Lifecycle methods are ordinary async methods, so a test can call them directly:
+
+<!-- doc-example-skip: imports the local run-logger-plugin.js module defined in the earlier example -->
+
+```typescript
+import { describe, expect, it } from 'vitest';
+import { RunLoggerPlugin } from './run-logger-plugin.js';
+
+describe('RunLoggerPlugin', () => {
+  it('counts a completed run', async () => {
+    const plugin = new RunLoggerPlugin();
+    await plugin.beforeExecution({ executionId: 'test-1' });
+    await plugin.afterExecution({ executionId: 'test-1' }, { duration: 5, toolsExecuted: 0 });
+
+    expect(plugin.getStats().calls).toBe(1);
+    expect(plugin.getStats().completedRuns).toBe(1);
+  });
+});
+```
+
+### Publishing a runtime plugin
+
+A plugin package needs only `@robota-sdk/agent-core`. Declare it as a peer dependency so your plugin
+uses the application's copy. Robota is on the `3.0.0` beta line; a caret range on a beta version
+(`^3.0.0-beta.83`) accepts later betas and the stable release:
+
+```json
+{
+  "name": "@your-scope/robota-plugin-slack",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "peerDependencies": {
+    "@robota-sdk/agent-core": "^3.0.0-beta.83"
+  },
+  "devDependencies": {
+    "@robota-sdk/agent-core": "^3.0.0-beta.83"
+  }
+}
 ```
 
 ---
 
-## EventEmitterPlugin — Event Subscriptions
+## Subscribing to events: EventEmitterPlugin
 
-For simpler use cases, subscribe to named events without subclassing:
+`EventEmitterPlugin` (in `@robota-sdk/agent-core`) turns the lifecycle into named events you can
+subscribe to without writing a class:
 
 ```typescript
-import { Robota, EventEmitterPlugin, EVENT_EMITTER_EVENTS } from '@robota-sdk/agent-core';
+import { EVENT_EMITTER_EVENTS, EventEmitterPlugin, Robota } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 declare const provider: IAIProvider;
 
 const events = new EventEmitterPlugin();
 
-// Subscribe to specific events
-events.on(EVENT_EMITTER_EVENTS.EXECUTION_START, (data) => {
-  console.log('Agent started run:', data.metadata?.executionId);
+events.on(EVENT_EMITTER_EVENTS.AGENT_EXECUTION_START, (event) => {
+  console.log('Run started:', event.executionId);
 });
 
-events.on(EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE, (data) => {
-  console.log(`Tool called: ${data.metadata?.toolName}`);
+events.on(EVENT_EMITTER_EVENTS.TOOL_AFTER_EXECUTE, (event) => {
+  console.log('Tool ran:', event.data?.['toolName']);
 });
 
-events.on(EVENT_EMITTER_EVENTS.EXECUTION_COMPLETE, (data) => {
-  console.log('Run complete');
+events.on(EVENT_EMITTER_EVENTS.AGENT_EXECUTION_COMPLETE, (event) => {
+  console.log('Run complete in', event.data?.['duration'], 'ms');
 });
 
 const agent = new Robota({
@@ -170,183 +332,48 @@ const agent = new Robota({
 });
 ```
 
-### Available event constants
+Each listener receives an `IEventEmitterEventData`: `type`, `timestamp`, `executionId`, `sessionId`,
+`userId`, `data`, `error` and `metadata`. A `Robota` run emits these events through the plugin:
 
-| Constant                | Fired when                        |
-| ----------------------- | --------------------------------- |
-| `EXECUTION_START`       | Agent begins processing a message |
-| `EXECUTION_COMPLETE`    | Agent completes successfully      |
-| `EXECUTION_ERROR`       | Agent run fails                   |
-| `TOOL_BEFORE_EXECUTE`   | A tool is about to be invoked     |
-| `TOOL_AFTER_EXECUTE`    | A tool has returned a result      |
-| `TOOL_ERROR`            | A tool call fails                 |
-| `CONVERSATION_START`    | A conversation begins             |
-| `CONVERSATION_COMPLETE` | A conversation ends               |
-| `ERROR_OCCURRED`        | Any error is logged               |
+| Event constant             | Emitted                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------- |
+| `AGENT_EXECUTION_START`    | When a run starts                                                               |
+| `AGENT_EXECUTION_COMPLETE` | When a run completes (`data.duration`, `data.tokensUsed`, `data.toolsExecuted`) |
+| `AGENT_EXECUTION_ERROR`    | When a run fails (`error`)                                                      |
+| `TOOL_AFTER_EXECUTE`       | After a run, once per tool that ran (`data.toolName`)                           |
+| `TOOL_SUCCESS`             | With `TOOL_AFTER_EXECUTE`, for each tool call                                   |
+| `CONVERSATION_COMPLETE`    | When a run completes; only if listed in the `events` option                     |
 
-All constants are exported from `EVENT_EMITTER_EVENTS` in `@robota-sdk/agent-core`.
-
----
-
-## Example: Cost Tracking Plugin
-
-```typescript
-import { AbstractPlugin, PluginCategory, PluginPriority } from '@robota-sdk/agent-core';
-import type {
-  IPluginExecutionContext,
-  IPluginExecutionResult,
-  IPluginStats,
-} from '@robota-sdk/agent-core';
-
-const COST_PER_1K_INPUT = 0.003; // USD per 1K input tokens
-const COST_PER_1K_OUTPUT = 0.015; // USD per 1K output tokens
-
-interface ICostStats extends IPluginStats {
-  totalCostUsd: number;
-}
-
-export class CostTrackingPlugin extends AbstractPlugin<never, ICostStats> {
-  name = 'CostTrackingPlugin';
-  version = '1.0.0';
-  category = PluginCategory.MONITORING;
-  priority = PluginPriority.LOW;
-
-  private totalCostUsd = 0;
-
-  async afterExecution(
-    _context: IPluginExecutionContext,
-    result: IPluginExecutionResult,
-  ): Promise<void> {
-    const input = result.usage?.promptTokens ?? 0;
-    const output = result.usage?.completionTokens ?? 0;
-    const cost = (input / 1000) * COST_PER_1K_INPUT + (output / 1000) * COST_PER_1K_OUTPUT;
-    this.totalCostUsd += cost;
-  }
-
-  getTotalCost(): number {
-    return this.totalCostUsd;
-  }
-
-  getStats(): ICostStats {
-    return {
-      ...super.getStats(),
-      totalCostUsd: this.totalCostUsd,
-    };
-  }
-}
-```
+By default the plugin emits only the agent-execution and tool events; pass
+`new EventEmitterPlugin({ events: [...] })` to choose the list. Other options include `filters`
+(per-event predicates), `buffer` (batch delivery) and `async`.
 
 ---
 
-## Example: Slack Notification Plugin
+## CLI plugins
 
-```typescript
-import { AbstractPlugin, PluginCategory, PluginPriority } from '@robota-sdk/agent-core';
-import type { IPluginErrorContext } from '@robota-sdk/agent-core';
+A `robota` CLI plugin is a folder with a manifest at `.claude-plugin/plugin.json` (`name`, `version`,
+`description`, `features`), the same layout Claude Code plugins use:
 
-export class SlackNotificationPlugin extends AbstractPlugin {
-  name = 'SlackNotificationPlugin';
-  version = '1.0.0';
-  category = PluginCategory.NOTIFICATION;
-  priority = PluginPriority.LOW;
+| Path in the plugin       | Contributes                                                 |
+| ------------------------ | ----------------------------------------------------------- |
+| `skills/<name>/SKILL.md` | Skills, shown as `/<name>` with the plugin's name as a hint |
+| `commands/<name>.md`     | Commands, shown as `/<plugin>:<name>`                       |
+| `agents/`                | Agent definitions for subagents                             |
+| `hooks/hooks.json`       | Lifecycle hooks, merged with the session's own              |
+| `.mcp.json`              | MCP server definitions                                      |
+| `themes/`                | Terminal themes                                             |
 
-  constructor(private readonly webhookUrl: string) {
-    super();
-  }
-
-  async onError(error: Error, _context?: IPluginErrorContext): Promise<void> {
-    await fetch(this.webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: `Robota error: ${error.message}` }),
-    });
-  }
-}
-```
-
----
-
-## Publishing Your Plugin
-
-### Package naming
-
-Community plugins should follow the naming convention:
-
-```
-@your-scope/robota-plugin-<name>
-# Examples:
-@your-org/robota-plugin-slack
-@your-org/robota-plugin-linear
-@your-org/robota-plugin-datadog
-```
-
-### Minimal `package.json`
-
-```json
-{
-  "name": "@your-scope/robota-plugin-slack",
-  "version": "1.0.0",
-  "type": "module",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
-  },
-  "peerDependencies": {
-    "@robota-sdk/agent-core": ">=3.0.0"
-  },
-  "devDependencies": {
-    "@robota-sdk/agent-core": "^3.0.0"
-  }
-}
-```
-
-### Testing your plugin
-
-<!-- doc-example-skip: imports the local my-plugin.js module defined in the earlier example -->
-
-```typescript
-import { describe, it, expect, vi } from 'vitest';
-import { MyPlugin } from './my-plugin.js';
-
-describe('MyPlugin', () => {
-  it('increments call count on beforeExecution', async () => {
-    const plugin = new MyPlugin();
-    await plugin.initialize();
-
-    await plugin.beforeExecution({ executionId: 'test-1' });
-
-    expect(plugin.getStats().calls).toBe(1);
-  });
-
-  it('increments error count on onError', async () => {
-    const plugin = new MyPlugin();
-    await plugin.initialize();
-
-    await plugin.onError(new Error('test'));
-
-    expect(plugin.getStats().errors).toBe(1);
-  });
-});
-```
-
----
-
-## Plugin Directory
-
-**Official plugins** (maintained by the Robota team):
-
-| Plugin               | Import                   | Description                                                    |
-| -------------------- | ------------------------ | -------------------------------------------------------------- |
-| `EventEmitterPlugin` | `@robota-sdk/agent-core` | Pub/sub event subscriptions — subscribe to any lifecycle event |
-
-**Community plugins**: [Submit yours to the plugin directory](/plugins/).
+Plugins are published in marketplaces (a GitHub `owner/repo` or a git URL) and installed with
+`/plugin`, under `~/.robota/plugins/` for the user or `.robota/plugins/` for a project. See
+[CLI Reference — Plugins](./cli.md#plugins) for the commands, and
+[Permissions and Hooks — Plugin Hooks](./permissions-and-hooks.md#plugin-hooks) for the environment a
+plugin hook runs with.
 
 ---
 
 ## Related
 
-- [Plugin directory](/plugins/)
-- [Agent core API](./building-agents.md)
-- [SDK framework](./sdk.md)
+- [Building Agents](./building-agents.md) — the `Robota` class the runtime plugins attach to
+- [Using the SDK](./sdk.md) — sessions, hooks and permissions in `agent-framework`
+- [Permissions and Hooks](./permissions-and-hooks.md) — hooks, which run shell commands, HTTP calls or model checks at lifecycle events
