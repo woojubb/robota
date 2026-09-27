@@ -420,8 +420,9 @@ resumable, while project memory, which belongs to the repository, and edit check
 writes the project's files back, are not composed; `/rewind` then says which of trust or the host
 stands in the way. Print mode,
 `--goal`, and `--serve` fail closed for `untrusted`/`revoked`/`stale`/`store-unavailable` decisions
-before provider construction; interactive
-startup may continue Restricted with project contributions disabled. All trust diagnostics expose
+before provider construction, because no one is there to ask; an interactive start asks the person
+before the project is composed and continues Restricted when they decline, because a Restricted session
+no one mentioned hides why the project's own configuration is missing. All trust diagnostics expose
 only state and canonical display path — credentials and project-controlled content are never printed.
 
 ### Destination-scoped telemetry headers
