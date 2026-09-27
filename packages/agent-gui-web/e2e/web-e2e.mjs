@@ -259,6 +259,31 @@ try {
     await sidebar.locator('[aria-current="true"]', { hasText: 'What did we decide' }).waitFor();
   });
 
+  // Regression for the MUST fix: `session_switched` clears the status before `get-status` answers, so
+  // every switch passes through a transient no-session-id moment, not only the very first one. A
+  // composer that mistook that moment for "no session has ever been known" would leak keystrokes
+  // typed mid-switch into whichever session answered next (or the pre-session fallback key).
+  await scenario('#3280: switching between two sidebar sessions keeps each one\'s own draft', async () => {
+    // Currently on "What did we decide about the parser?" (the previous scenario switched to it).
+    await page.getByLabel('message').fill('draft for the parser session');
+    await row(/Set up the release checklist/).click();
+    await sidebar.locator('[aria-current="true"]', { hasText: 'Set up the release checklist' }).waitFor();
+    if ((await page.getByLabel('message').inputValue()) !== '') {
+      throw new Error('the release-checklist session inherited the parser session\'s draft');
+    }
+    await page.getByLabel('message').fill('draft for the release-checklist session');
+    await row(/What did we decide about the parser\?/).click();
+    await sidebar.locator('[aria-current="true"]', { hasText: 'What did we decide' }).waitFor();
+    if ((await page.getByLabel('message').inputValue()) !== 'draft for the parser session') {
+      throw new Error('switching back lost the parser session\'s own draft');
+    }
+    await row(/Set up the release checklist/).click();
+    await sidebar.locator('[aria-current="true"]', { hasText: 'Set up the release checklist' }).waitFor();
+    if ((await page.getByLabel('message').inputValue()) !== 'draft for the release-checklist session') {
+      throw new Error('the release-checklist session lost its own draft');
+    }
+  });
+
   await scenario('/resume opens the collapsed sidebar instead of a "not available" line', async () => {
     await page.getByRole('button', { name: 'Hide sessions' }).click();
     await sidebar.waitFor({ state: 'detached' });
@@ -293,6 +318,28 @@ try {
     await page.getByRole('button', { name: 'Stop' }).waitFor();
     await page.getByLabel('message').press('Escape');
     await page.getByRole('button', { name: 'Send' }).waitFor();
+  });
+
+  // Truly last: a reload drops every other scenario's assumed UI state (view, sidebar, transcript).
+  await scenario('#3280: a draft survives a Chat -> Usage -> Chat switch and a reload', async () => {
+    await page.getByLabel('message').fill('an unsent draft');
+
+    // Exact: a stored session named "Usage e2e session" otherwise substring-matches this nav button.
+    await page.getByRole('button', { name: 'Usage', exact: true }).click();
+    await page.getByRole('heading', { name: 'Personal usage' }).waitFor();
+    await page.getByRole('button', { name: 'Chat' }).click();
+    await page.getByLabel('message').waitFor();
+    if ((await page.getByLabel('message').inputValue()) !== 'an unsent draft') {
+      throw new Error('the draft did not survive the Chat -> Usage -> Chat switch');
+    }
+
+    await page.reload();
+    await page.locator('.agent-gui-status[data-status="connected"]').waitFor({ timeout: 20_000 });
+    // Waits for the session's own status, so the draft (keyed by session id) has had its chance to load.
+    await page.getByRole('button', { name: 'model: scripted-model' }).waitFor();
+    if ((await page.getByLabel('message').inputValue()) !== 'an unsent draft') {
+      throw new Error('the draft did not survive a reload');
+    }
   });
 } finally {
   if (process.env.CAPTURE_OUT) await page.screenshot({ path: join(process.env.CAPTURE_OUT, 'web-e2e.png') });
