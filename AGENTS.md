@@ -13,7 +13,7 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
   findings from one session share one issue.
 - Merge only through a PR with CI green. Before merging, review the diff with the `pr-review-reviewer` agent
   and resolve every MUST/SHOULD. Never push to `develop` or `main` directly.
-- Once a PR is merged, always ask the owner whether to delete its remote branch; never delete one without a yes.
+- After a PR is merged, always ask the owner whether to delete its head branch (never `develop` or `main`).
 - A behavior change ships with a test that failed before the change.
 - A product slash command or skill that is added or changed carries a description written for the model (what it
   does, when to use it, what it returns) and a deliberate, tested choice of model invocation: what the model should
@@ -29,13 +29,12 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
 
 - Running the CLI writes to `~/.robota/`; a script or test that runs it points `HOME` at a temporary directory.
 - The owner works on both macOS and Linux; shell commands must be portable or check `uname -s`.
-- `.agents/skills/` in product code is a product feature (Robota loads a user project's skills); it is not this
-  repository's own harness.
+- `.agents/skills/` in product code is a product feature (Robota loads a user project's skills), not this harness.
 
 ## Ask first
 
-npm publish (unless the owner asked for the release), release tags, changing CI permissions or repository
-settings, anything touching secrets.
+npm publish (unless the owner asked for the release), release tags, deleting remote branches, changing CI
+permissions or repository settings, anything touching secrets.
 
 ## Keeping the harness small
 
