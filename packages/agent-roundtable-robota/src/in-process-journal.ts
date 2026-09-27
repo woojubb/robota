@@ -1,0 +1,40 @@
+import type { IRecoverableExecutionJournal, TExecutionJournalRecord } from '@robota-sdk/agent-core';
+
+/**
+ * Default journal for `sessionParticipant`/`robotaParticipant` when the host supplies none.
+ *
+ * Keyed by `sessionId` at module scope, so it survives a session lease being discarded and
+ * reopened — including a fresh `Conversation` built by `loadRoundtable` in the same process — for
+ * as long as the process runs. It is not durable across a process restart: a host that needs an
+ * approval wait to survive that must supply its own `journal` that persists records elsewhere.
+ */
+const journals = new Map<string, TExecutionJournalRecord[]>();
+
+function sameRecord(a: TExecutionJournalRecord, b: TExecutionJournalRecord): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+export function createInProcessJournal(sessionId: string): IRecoverableExecutionJournal {
+  let records = journals.get(sessionId);
+  if (!records) {
+    records = [];
+    journals.set(sessionId, records);
+  }
+  const store = records;
+  return {
+    async append(record: TExecutionJournalRecord): Promise<void> {
+      const existing = store.find((saved) => saved.recordId === record.recordId);
+      if (existing) {
+        if (!sameRecord(existing, record))
+          throw new Error(
+            `Journal record id was already used with different content: ${record.recordId}`,
+          );
+        return;
+      }
+      store.push(structuredClone(record));
+    },
+    async read(executionId: string): Promise<readonly TExecutionJournalRecord[]> {
+      return structuredClone(store.filter((record) => record.executionId === executionId));
+    },
+  };
+}
