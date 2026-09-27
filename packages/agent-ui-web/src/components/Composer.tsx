@@ -1,9 +1,15 @@
 import { ArrowUp, Gauge, Shield, Sparkles, Square, Target } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import { commandMenuFor } from '../hooks/command-menu.js';
 
 import type { TCommandCatalog, TSessionStatus } from '../hooks/session-client-types.js';
+
+/** What a caller can do to the composer from outside it — currently just reclaiming focus. */
+export interface IComposerHandle {
+  /** Focuses the message field — used to send focus back there once a docked prompt is answered. */
+  focus: () => void;
+}
 
 /**
  * The composer — the control centre, as desktop agent apps place it: the message box, a `/` menu of
@@ -11,17 +17,17 @@ import type { TCommandCatalog, TSessionStatus } from '../hooks/session-client-ty
  * context). The row's controls run the session's own commands (`/provider`, `/mode`, `/effort`), so a
  * setting changes through the one path every client shares.
  */
-export function Composer({
-  onSubmit,
-  onCommand,
-  catalog,
-  status,
-}: {
-  onSubmit: (prompt: string) => void;
-  onCommand: (name: string) => void;
-  catalog: TCommandCatalog | null;
-  status: TSessionStatus | null;
-}): React.ReactElement {
+export const Composer = forwardRef<
+  IComposerHandle,
+  {
+    onSubmit: (prompt: string) => void;
+    onCommand: (name: string) => void;
+    catalog: TCommandCatalog | null;
+    status: TSessionStatus | null;
+  }
+>(function Composer({ onSubmit, onCommand, catalog, status }, ref): React.ReactElement {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useImperativeHandle(ref, () => ({ focus: () => textareaRef.current?.focus() }), []);
   const [draft, setDraft] = useState('');
   const [selected, setSelected] = useState(0);
   const [dismissed, setDismissed] = useState(false);
@@ -100,6 +106,7 @@ export function Composer({
         }}
       >
         <textarea
+          ref={textareaRef}
           aria-label="message"
           rows={1}
           value={draft}
@@ -144,7 +151,7 @@ export function Composer({
       </form>
     </div>
   );
-}
+});
 
 /**
  * Where a command the session does not run is run instead. The GUI runs no client command, so its
