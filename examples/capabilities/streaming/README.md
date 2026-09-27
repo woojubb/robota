@@ -12,4 +12,5 @@ pnpm install
 ANTHROPIC_API_KEY=your-key pnpm dev
 ```
 
-See the agent-core README's Structured Output section for the non-streaming variant.
+For the non-streaming variant, `run(prompt, { output: zodSchema })`, see the Structured Output section of the
+[agent-core README](../../../packages/agent-core/README.md).

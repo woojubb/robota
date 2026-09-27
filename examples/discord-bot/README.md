@@ -57,7 +57,9 @@ In any channel where the bot has access:
 /ask question: What is the difference between TypeScript interfaces and types?
 ```
 
-The bot defers the reply immediately, then streams the AI response and edits the deferred message when complete. Responses longer than 2000 characters are split into follow-up messages.
+The bot defers the reply immediately, collects the streamed response, and edits the deferred message once the turn completes. Responses longer than 2000 characters are split into follow-up messages.
+
+Each `/ask` runs in a new session, so the bot does not remember earlier questions. The session runs with `permissionMode: 'bypassPermissions'` and the default tool set in the bot's working directory, so anyone who can use `/ask` can have the agent read, write and run shell commands there. Run it on a machine you control, or pass `deniedTools` to `runtime.createSession()` in `src/bot.ts`.
 
 ## Deploying globally
 

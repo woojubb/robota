@@ -11,5 +11,5 @@ ANTHROPIC_API_KEY=your-key pnpm dev
 ```
 
 For a fixed-schema JSON answer instead of a routing side effect, prefer structured output:
-`run(prompt, { output: zodSchema })` — see the streaming demo and the
+`run(prompt, { output: zodSchema })` — see the [streaming demo](../streaming/) and the
 [Building Agents guide](../../../content/guide/building-agents.md#decision-agents--the-tool-call-is-the-answer).
