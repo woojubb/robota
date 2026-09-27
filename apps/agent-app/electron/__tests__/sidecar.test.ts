@@ -6,8 +6,10 @@ import {
   buildDaemonStartSpawn,
   createDaemonAttachment,
   describeDaemonStartFailure,
+  isTrustChoice,
   OUTPUT_TAIL_LIMIT,
   parseDaemonStartOutput,
+  parseTrustStatusOutput,
   resolveSidecarCommand,
   type TDaemonStart,
 } from '../sidecar.js';
@@ -67,6 +69,54 @@ describe('buildDaemonStartSpawn (#3189)', () => {
     expect(invocation.args).toEqual(['daemon', 'start', '--json']);
     expect(invocation.env).toEqual({ PATH: '/usr/bin' });
     expect(invocation.env).not.toHaveProperty('ROBOTA_WS_TOKEN');
+  });
+
+  it('starts it Restricted when the person chose that (#3268)', () => {
+    expect(buildDaemonStartSpawn('/opt/robota', {}, { restricted: true }).args).toEqual([
+      'daemon',
+      'start',
+      '--json',
+      '--restricted-workspace',
+    ]);
+  });
+});
+
+/** #3268 — the window asks about a folder not trusted yet before a daemon starts there. */
+describe('parseTrustStatusOutput (#3268)', () => {
+  const status = (fields: Record<string, unknown>): string =>
+    `${JSON.stringify({ state: 'untrusted', workspace: '/work/repo', askable: true, loads: [], ...fields })}\n`;
+
+  it('asks when the CLI says a person can be asked, naming the folder and what trust would load', () => {
+    expect(
+      parseTrustStatusOutput(status({ loads: ['  [file] AGENTS.md — Agent instructions'] })),
+    ).toEqual({
+      folder: '/work/repo',
+      loads: ['  [file] AGENTS.md — Agent instructions'],
+    });
+  });
+
+  it('asks nothing for a trusted folder, one a grant cannot change, or an unexpected answer', () => {
+    expect(parseTrustStatusOutput(status({ state: 'trusted', askable: false }))).toBeUndefined();
+    expect(
+      parseTrustStatusOutput(status({ state: 'identity-unavailable', askable: false })),
+    ).toBeUndefined();
+    expect(parseTrustStatusOutput('')).toBeUndefined();
+    expect(parseTrustStatusOutput('Workspace trust: untrusted\n')).toBeUndefined();
+    expect(parseTrustStatusOutput(`${status({})}${status({})}`)).toBeUndefined();
+    expect(parseTrustStatusOutput(status({ workspace: '' }))).toBeUndefined();
+  });
+
+  it('keeps the rows it can show and counts the rest', () => {
+    const loads = Array.from({ length: 70 }, (_, index) => `  [absent] source-${index}`);
+    const question = parseTrustStatusOutput(status({ loads: [...loads, 42] }));
+    expect(question?.loads).toHaveLength(65);
+    expect(question?.loads.at(-1)).toBe('  … 6 more');
+  });
+
+  it('accepts only the three answers', () => {
+    expect(['trust', 'restricted', 'quit'].every(isTrustChoice)).toBe(true);
+    expect(isTrustChoice('yes')).toBe(false);
+    expect(isTrustChoice(undefined)).toBe(false);
   });
 });
 

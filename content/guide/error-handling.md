@@ -5,89 +5,111 @@ description: How Robota SDK surfaces errors and how to handle them reliably in y
 
 # Error Handling
 
-Robota SDK uses a typed error hierarchy. Every error extends `RobotaError`, which carries
-a `code`, a `category`, and a `recoverable` flag. This lets you handle classes of errors
-rather than matching on string messages.
+Robota uses a typed error hierarchy. Errors thrown by the SDK extend `RobotaError`, which carries a
+`code`, a `category` and a `recoverable` flag, so you can handle kinds of errors instead of matching
+message text. All the classes below are exported from `@robota-sdk/agent-core`.
 
 ---
 
-## Error Class Reference
+## Error class reference
 
-All error classes are exported from `@robota-sdk/agent-core`.
-
-| Class                     | Code                    | Category   | Recoverable | When thrown                                      |
-| ------------------------- | ----------------------- | ---------- | ----------- | ------------------------------------------------ |
-| `ConfigurationError`      | `CONFIGURATION_ERROR`   | `user`     | No          | Bad constructor options, missing required fields |
-| `ValidationError`         | `VALIDATION_ERROR`      | `user`     | No          | Invalid input values (wrong type, out of range)  |
-| `AuthenticationError`     | `AUTHENTICATION_ERROR`  | `user`     | No          | Invalid or missing API key                       |
-| `ModelNotAvailableError`  | `MODEL_NOT_AVAILABLE`   | `user`     | No          | Requested model does not exist for the provider  |
-| `ProviderError`           | `PROVIDER_ERROR`        | `provider` | Yes         | Provider API returned an unexpected error        |
-| `RateLimitError`          | `RATE_LIMIT_ERROR`      | `provider` | Yes         | Provider rate limit exceeded                     |
-| `NetworkError`            | `NETWORK_ERROR`         | `system`   | Yes         | Connection failure, DNS, timeout                 |
-| `ToolExecutionError`      | `TOOL_EXECUTION_ERROR`  | `system`   | No          | A tool's handler threw an error                  |
-| `CircuitBreakerOpenError` | `CIRCUIT_BREAKER_OPEN`  | `system`   | Yes         | Circuit breaker tripped after repeated failures  |
-| `PluginError`             | `PLUGIN_ERROR`          | `system`   | No          | A registered plugin threw during its lifecycle   |
-| `StorageError`            | `STORAGE_ERROR`         | `system`   | Yes         | Session store read/write failure                 |
-| `CacheIntegrityError`     | `CACHE_INTEGRITY_ERROR` | `system`   | No          | Persisted cache data is corrupt                  |
+| Class                     | Code                      | Category   | Recoverable | Where it comes from                                                                                         |
+| ------------------------- | ------------------------- | ---------- | ----------- | ----------------------------------------------------------------------------------------------------------- |
+| `ConfigurationError`      | `CONFIGURATION_ERROR`     | `user`     | No          | Invalid or missing configuration, e.g. a provider created without an API key                                |
+| `ValidationError`         | `VALIDATION_ERROR`        | `user`     | No          | Invalid input, e.g. tool arguments that fail the tool's Zod schema                                          |
+| `AuthenticationError`     | `AUTHENTICATION_ERROR`    | `user`     | No          | For your own code; built-in providers report a rejected key as `ProviderError`                              |
+| `ModelNotAvailableError`  | `MODEL_NOT_AVAILABLE`     | `user`     | No          | A requested model is not available; for your own code — built-in providers use `ProviderError`              |
+| `ProviderError`           | `PROVIDER_ERROR`          | `provider` | Yes         | A provider call failed for any reason other than a rate limit                                               |
+| `RateLimitError`          | `RATE_LIMIT_ERROR`        | `provider` | Yes         | The provider reported a rate limit (HTTP 429)                                                               |
+| `StructuredOutputError`   | `STRUCTURED_OUTPUT_ERROR` | `provider` | Yes         | `run(prompt, { output })` got no valid object after all retries                                             |
+| `NetworkError`            | `NETWORK_ERROR`           | `system`   | Yes         | A connection failure or timeout; built-in providers report connection failures as `ProviderError`           |
+| `ToolExecutionError`      | `TOOL_EXECUTION_ERROR`    | `system`   | No          | A tool failed. During a run the failure goes back to the model as the tool's result instead of being thrown |
+| `SameToolInputLoopError`  | `SAME_TOOL_INPUT_LOOP`    | `system`   | Yes         | A tool was called with identical input more often than `maxSameToolInputs` allows                           |
+| `CircuitBreakerOpenError` | `CIRCUIT_BREAKER_OPEN`    | `system`   | Yes         | For your own circuit breakers; the built-in packages do not throw it                                        |
+| `PluginError`             | `PLUGIN_ERROR`            | `system`   | No          | A plugin is misconfigured or could not be found                                                             |
+| `StorageError`            | `STORAGE_ERROR`           | `system`   | Yes         | A plugin's storage backend (conversation history, usage) failed to read or write                            |
+| `CacheIntegrityError`     | `CACHE_INTEGRITY_ERROR`   | `system`   | No          | A cached execution result failed its integrity check                                                        |
 
 **Categories:**
 
-- `user` — caused by incorrect configuration or input; fix the code before retrying
-- `provider` — caused by the upstream AI provider; may succeed on retry
-- `system` — caused by the local runtime (network, filesystem, plugins)
+- `user` — caused by configuration or input; fix the code or settings before trying again
+- `provider` — caused by the AI provider; the same call may succeed later
+- `system` — caused by the local runtime (tools, plugins, storage, timeouts)
 
-**Recoverable:** when `true`, a retry or fallback makes sense. When `false`, the same
-call will fail again without a code change.
+**Recoverable:** when `true`, retrying or falling back can make sense. `ErrorUtils.isRecoverable()`
+and `ErrorUtils.getErrorCode()` read these fields from any error (`false` and `'UNKNOWN_ERROR'` for
+an error that is not a `RobotaError`).
 
 ```typescript
-import { RobotaError, ErrorUtils } from '@robota-sdk/agent-core';
+import { ErrorUtils } from '@robota-sdk/agent-core';
 
-function shouldRetry(error: Error): boolean {
-  return ErrorUtils.isRecoverable(error);
-}
-
-function getCode(error: Error): string {
-  return ErrorUtils.getErrorCode(error); // returns 'UNKNOWN_ERROR' for non-RobotaError
+function describe(error: Error): string {
+  return `${ErrorUtils.getErrorCode(error)} (recoverable: ${ErrorUtils.isRecoverable(error)})`;
 }
 ```
 
 ---
 
-## Handling Errors with createQuery()
+## Provider failures
 
-`createQuery` returns a plain async function. Errors are thrown as rejected promises,
-so you can use a standard `try/catch`.
+Every built-in provider turns a failed API call into one of two errors:
+
+- `RateLimitError` when the vendor reports a rate limit (HTTP 429 or a rate-limit error type).
+- `ProviderError` for everything else. It carries `provider`, the HTTP `status` and the vendor's
+  error `type` when the vendor sent them, and the underlying error as `originalError`.
+
+A rejected API key therefore arrives as a `ProviderError` with `status` 401 or 403, not as an
+`AuthenticationError`. And because every `ProviderError` is marked recoverable, `recoverable` alone
+cannot tell a temporary outage from a bad key.
+
+To decide what to do, use `classifyProviderFailure(error)`. It reads the status and type, follows
+wrapped errors (`originalError` and `cause`), and returns `{ switchable, reason }`:
+
+| `reason`                                                  | Meaning                                                   |
+| --------------------------------------------------------- | --------------------------------------------------------- |
+| `'rate-limit'`                                            | Too many requests; wait and retry                         |
+| `'overloaded'`, `'service-unavailable'`, `'server-error'` | The vendor is struggling (529, 503, 500/502/504)          |
+| `'network'`                                               | The connection failed                                     |
+| `'authentication'`                                        | The key was rejected (401, 403)                           |
+| `'billing'`                                               | Payment required (402)                                    |
+| `'model-unavailable'`                                     | The vendor does not serve this model                      |
+| `'invalid-request'`                                       | The vendor rejected the request as malformed or too large |
+| `'aborted'`                                               | The call was cancelled                                    |
+| `'unknown'`                                               | Anything else                                             |
+
+`switchable` is `true` when a different model could plausibly serve the same request (overload,
+outages, an unavailable model).
+
+The Robota run loop does not retry a failed provider call itself. The Anthropic and OpenAI provider
+packages create their vendor SDK clients with the SDK's default retry settings; to change those,
+construct the SDK client yourself and pass it as the provider's `client` option.
+
+---
+
+## Handling errors with createQuery()
+
+A query function returns a promise; a failed turn rejects it.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import {
-  AuthenticationError,
-  RateLimitError,
-  NetworkError,
-  RobotaError,
-} from '@robota-sdk/agent-core';
+import { RobotaError, classifyProviderFailure } from '@robota-sdk/agent-core';
 
 const query = createQuery({
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! }),
 });
 
 try {
-  const response = await query('Explain dependency injection.');
-  console.log(response);
+  console.log(await query('Explain dependency injection.'));
 } catch (error) {
-  if (error instanceof AuthenticationError) {
-    console.error('Invalid API key — check your ANTHROPIC_API_KEY environment variable.');
-  } else if (error instanceof RateLimitError) {
-    const wait = error.retryAfter ?? 60;
-    console.error(`Rate limited. Retry after ${wait}s.`);
-  } else if (error instanceof NetworkError) {
-    console.error('Network failure:', error.message);
+  const { reason } = classifyProviderFailure(error);
+  if (reason === 'authentication') {
+    console.error('The API key was rejected — check ANTHROPIC_API_KEY.');
+  } else if (reason === 'rate-limit') {
+    console.error('Rate limited — try again later.');
   } else if (error instanceof RobotaError) {
-    // All other typed errors
     console.error(`[${error.code}] ${error.message}`, error.context);
   } else {
-    // Unexpected errors outside the SDK
     throw error;
   }
 }
@@ -95,241 +117,141 @@ try {
 
 ---
 
-## Handling Errors with InteractiveSession (event-driven)
+## Handling errors with InteractiveSession
 
-`InteractiveSession` emits errors through its `error` event. The `submit()` method
-may also reject — catch both surfaces.
+A failed turn is reported in two ways: the session emits `error` with the error object, and that
+turn's `completed` promise rejects with the same error. `submit()` itself rejects only when the
+prompt is not accepted or its turn fails before it starts running — for example after `shutdown()`.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { RateLimitError, AuthenticationError } from '@robota-sdk/agent-core';
+import { classifyProviderFailure } from '@robota-sdk/agent-core';
 
 const session = new InteractiveSession({
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! }),
-  permissionMode: 'bypassPermissions',
 });
 
-// Stream output as it arrives
 session.on('text_delta', (delta) => process.stdout.write(delta));
 
-// Handle successful completion
-session.on('complete', ({ response }) => {
-  console.log('\n[done]', response.length, 'chars');
-});
+try {
+  const handle = await session.submit('Refactor this file.');
+  const result = await handle.completed;
+  console.log('\n[done]', result.response.length, 'chars');
+} catch (error) {
+  const { reason } = classifyProviderFailure(error);
+  console.error(`Turn failed (${reason}):`, error instanceof Error ? error.message : error);
+}
+```
 
-// Handle errors emitted by the session
+The `error` event also reports failures outside a turn, such as background work, so a long-lived
+application should listen for it:
+
+```typescript
+import type { InteractiveSession } from '@robota-sdk/agent-framework';
+
+declare const session: InteractiveSession;
+
 session.on('error', (error) => {
-  if (error instanceof RateLimitError) {
-    console.error(
-      `Rate limited (provider: ${error.provider}). Retry after ${error.retryAfter ?? '?'}s.`,
-    );
-  } else if (error instanceof AuthenticationError) {
-    console.error('Auth failure — check your API key.');
-    process.exit(1); // non-recoverable
-  } else {
-    console.error('Session error:', error.message);
-  }
-});
-
-// submit() itself can reject synchronously before the session emits 'error'
-await session.submit('Refactor this file.').catch((err) => {
-  console.error('submit() rejected:', err);
+  console.error('Session error:', error.message);
 });
 ```
 
-> **Important:** Always attach an `error` listener **before** calling `submit()`.
-> See [The error event footgun](#the-error-event-footgun) below.
+`InteractiveSession` keeps its own listener list; it is not a Node.js `EventEmitter`, so an `error`
+event with no listener does not throw or crash the process. Events are not replayed, so attach
+listeners before you call `submit()` if you want every event of the turn.
+
+After a failure the session stays usable: submit the next prompt as usual. An aborted turn is not an
+error — `completed` resolves with `interrupted: true` and the session emits `interrupted`.
 
 ---
 
-## Retry Pattern for RateLimitError
+## Retrying provider failures
 
-`RateLimitError` carries an optional `retryAfter` field (seconds) from the provider's
-`Retry-After` header. Use exponential back-off with jitter when the header is absent.
+Retry the failures that can clear up on their own — rate limits, overload, outages and network
+errors — with exponential back-off and jitter. Do not retry authentication, billing or invalid
+requests.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { RateLimitError, NetworkError, ErrorUtils } from '@robota-sdk/agent-core';
+import { classifyProviderFailure } from '@robota-sdk/agent-core';
+import type { TProviderFailureReason } from '@robota-sdk/agent-core';
 
-const query = createQuery({
-  provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! }),
-});
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
+
+const RETRYABLE = new Set<TProviderFailureReason>([
+  'rate-limit',
+  'overloaded',
+  'service-unavailable',
+  'server-error',
+  'network',
+]);
 
 async function queryWithRetry(prompt: string, maxAttempts = 5): Promise<string> {
-  let attempt = 0;
-
-  while (attempt < maxAttempts) {
+  for (let attempt = 1; ; attempt++) {
+    // A fresh query per attempt, so a failed attempt does not stay in the conversation.
+    const query = createQuery({ provider });
     try {
       return await query(prompt);
     } catch (error) {
-      attempt++;
+      const { reason } = classifyProviderFailure(error);
+      if (attempt >= maxAttempts || !RETRYABLE.has(reason)) throw error;
 
-      if (attempt >= maxAttempts) throw error;
-
-      if (error instanceof RateLimitError || error instanceof NetworkError) {
-        // Use provider's Retry-After if available, else exponential back-off with jitter
-        const baseDelay =
-          error instanceof RateLimitError && error.retryAfter
-            ? error.retryAfter * 1000
-            : Math.min(1000 * 2 ** attempt, 30_000);
-
-        const jitter = Math.random() * 1000;
-        const delay = baseDelay + jitter;
-
-        console.warn(
-          `Attempt ${attempt} failed (${ErrorUtils.getErrorCode(error as Error)}). ` +
-            `Retrying in ${(delay / 1000).toFixed(1)}s...`,
-        );
-
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      } else {
-        // Non-recoverable — do not retry
-        throw error;
-      }
+      const delay = Math.min(1000 * 2 ** attempt, 30_000) + Math.random() * 1000;
+      console.warn(
+        `Attempt ${attempt} failed (${reason}); retrying in ${(delay / 1000).toFixed(1)}s`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
-
-  throw new Error('Unreachable');
 }
 
-// Usage
-const answer = await queryWithRetry('Summarise this codebase.');
-console.log(answer);
-```
-
-You can use `ErrorUtils.isRecoverable(error)` instead of an `instanceof` check if you
-want a single condition that covers all recoverable error classes:
-
-```typescript
-import { ErrorUtils } from '@robota-sdk/agent-core';
-
-declare const error: unknown;
-
-if (error instanceof Error && ErrorUtils.isRecoverable(error)) {
-  // safe to retry
-}
+const answer = await queryWithRetry('Summarize this codebase.');
 ```
 
 ---
 
-## Authentication Error Handling
+## Failing fast on credentials
 
-`AuthenticationError` is always non-recoverable (`recoverable: false`, category `user`).
-Do not retry — fix the API key first.
+Check that a key is present when your application starts, rather than at the first request:
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { AuthenticationError } from '@robota-sdk/agent-core';
 
-function buildQuery() {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-
-  if (!apiKey) {
-    // Fail fast at startup rather than at the first query
-    throw new Error('ANTHROPIC_API_KEY is not set.');
-  }
-
-  return createQuery({
-    provider: new AnthropicProvider({ apiKey }),
-  });
+const apiKey = process.env.ANTHROPIC_API_KEY;
+if (!apiKey) {
+  throw new Error('ANTHROPIC_API_KEY is not set.');
 }
 
-const query = buildQuery();
-
-try {
-  const result = await query('Hello!');
-  console.log(result);
-} catch (error) {
-  if (error instanceof AuthenticationError) {
-    // The key is set but rejected by the provider (e.g. rotated, revoked, wrong region)
-    console.error(
-      `Authentication failed for provider "${error.provider}". ` +
-        'Verify the key is valid and has not been revoked.',
-    );
-    process.exit(1);
-  }
-  throw error;
-}
+const query = createQuery({ provider: new AnthropicProvider({ apiKey }) });
 ```
 
-`AuthenticationError` exposes the `provider` field so you know which provider rejected
-the key when multiple providers are registered.
+Creating `AnthropicProvider` with no `apiKey`, `client` or `executor` throws a `ConfigurationError`
+immediately. A key that is present but wrong (revoked, rotated, wrong account) is only detected on
+the first call, as a `ProviderError` that `classifyProviderFailure` reports as `'authentication'`.
 
 ---
 
-## Interactive Failures: What the User Sees (ERR-001)
+## What the robota CLI shows
 
-In the interactive TUI a failed turn is surfaced, never swallowed and never fatal:
+In the interactive terminal UI, a failed turn is shown and the session carries on:
 
-- Any partially streamed answer stays visible, marked _(interrupted)_ — it is committed to
-  history before stream state clears.
-- The failure renders as a styled error block (humanized message — e.g. network failures say so
-  plainly) plus a note that the session is still alive; the input prompt is immediately usable.
-- If the provider goes silent mid-turn, the status area hints after ~15s that the connection may
-  be stalled (Esc interrupts); the 120s provider idle timeout remains the hard stop.
-- Errors outside the turn boundary (background tasks, un-caught promises) route through the same
-  path — in interactive mode the process itself never exits on them.
-
-## The error Event Footgun
-
-`InteractiveSession` extends Node.js `EventEmitter`. In Node.js, an `'error'` event
-with no listener throws an uncaught exception and crashes the process.
-
-**Always attach the `error` listener before calling `submit()`:**
-
-<!-- doc-example-skip: fragment — bad/good pattern contrast with elided options -->
-
-```typescript
-// BAD — if 'error' fires before .on('error') is attached the process crashes
-const session = new InteractiveSession({ ... });
-await session.submit('hello');          // <-- error event could fire here
-session.on('error', handleError);       // too late
-
-// GOOD — listener is attached synchronously before submit()
-const session = new InteractiveSession({ ... });
-session.on('error', handleError);       // safe: listener registered first
-session.on('complete', handleComplete);
-await session.submit('hello');
-```
-
-With `createQuery()` this is handled for you internally — you only need to handle
-the rejected promise.
-
-### Safe session wrapper
-
-For server use-cases where you create sessions inside request handlers, a small
-wrapper guarantees the listener is always registered:
-
-```typescript
-import { InteractiveSession } from '@robota-sdk/agent-framework';
-import type { IAIProvider } from '@robota-sdk/agent-core';
-
-function runSession(provider: IAIProvider, prompt: string): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    const session = new InteractiveSession({
-      cwd: process.cwd(),
-      provider,
-      permissionMode: 'bypassPermissions',
-      bare: true,
-    });
-
-    // Register error listener BEFORE submit
-    session.on('error', reject);
-    session.on('complete', (result) => resolve(result.response));
-
-    session.submit(prompt).catch(reject);
-  });
-}
-```
+- Any partially streamed answer stays visible, marked _(interrupted)_ — it is added to the history
+  before the stream is cleared.
+- The failure appears as a styled error block with a plain-language message, plus a note that the
+  session is still alive; the prompt is ready for the next input.
+- If the provider goes silent mid-turn, the status area suggests after about 15 seconds that the
+  connection may be stalled (Esc interrupts); a 120-second provider idle timeout is the hard stop.
+- Errors outside a turn (background tasks, stray promise rejections) are reported the same way; the
+  interactive process does not exit because of them.
 
 ---
 
 ## Related
 
-- [Embedding agent-framework](./embedding.md) — server and serverless session patterns with error handling
-- [Providers Reference](./providers.md) — provider-specific error behaviour
+- [Embedding agent-framework](./embedding.md) — server and serverless session patterns
+- [Providers Reference](./providers.md) — provider options
 - [Getting Started](../getting-started/README.md) — quick-start examples

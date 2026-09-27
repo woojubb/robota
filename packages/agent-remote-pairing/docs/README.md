@@ -1,46 +1,18 @@
 # @robota-sdk/agent-remote-pairing
 
-Isomorphic pairing + DTLS-fingerprint **channel binding** for Robota P2P remote-control (REMOTE-001, Stage B3).
+Pairing and DTLS-fingerprint channel binding for Robota's peer-to-peer remote control. A host proves that
+a connecting peer holds a single-use pairing secret and binds that proof to the DTLS channel each side
+actually observes, so a signaling relay in the middle is detected. The package also holds the identity
+primitives for one user's devices: device keys and reconnect, the master → signing key → device
+certificate chain, the device handshake, enrollment with a one-time code, and hand-off grants.
 
-A host proves a connecting remote holds a single-use pairing secret and binds that proof to the actual DTLS
-channel each peer observes — defeating a MITM signaling relay. **WebCrypto only**, zero workspace deps, no `node:`
-imports — the same module runs on the Node host and the Stage-D browser remote client.
+The main entry point is isomorphic (WebCrypto only, no `node:` imports, no WebRTC dependency) and runs on
+the Node host and in the browser client; the Node-only `./local` entry point admits peers on the same
+machine and user account. The WebRTC transports (`@robota-sdk/agent-transport-webrtc` on the host,
+`@robota-sdk/agent-transport-webrtc-web` in the browser) are its callers; it opens no connection itself.
 
-> No user-facing enable path here (that is Stage B4). This package ships the pairing primitives + handshake.
+## Documents
 
-## Why not SPAKE2?
-
-The parent design specified SPAKE2. A PAKE exists to protect a **low-entropy** secret (a typed PIN) from
-brute-force. The pairing secret here is transferred **machine-to-machine via QR / deep link**, so it is
-**high-entropy (256-bit)** — a PAKE is unnecessary. Instead, a **directional, nonce-bound HMAC key-confirmation
-bound to the DTLS fingerprints** authenticates the peer and detects a MITM relay, using only audited WebCrypto
-primitives (no hand-rolled curve math).
-
-## Usage
-
-```ts
-import {
-  generatePairingSecret,
-  toPairingUrl,
-  startPairingHandshake,
-  extractDtlsFingerprint,
-} from '@robota-sdk/agent-remote-pairing';
-
-// Host: create the secret + a pairing link (secret lives in the URL fragment, never sent to a server).
-const pairing = generatePairingSecret();
-const link = toPairingUrl('https://remote.example/app', pairing);
-
-// After the WebRTC data channel is open, both peers run the handshake (initiator ≡ WebRTC offerer):
-const handshake = startPairingHandshake({
-  secret: pairing.secret,
-  role: 'initiator',
-  localFingerprint: extractDtlsFingerprint(localSdp),
-  remoteFingerprint: extractDtlsFingerprint(remoteSdp), // the certificate the DTLS layer verified
-  send: (frame) => channel.send(JSON.stringify(frame)),
-});
-channel.onMessage((raw) => handshake.onFrame(JSON.parse(raw)));
-
-const { sessionKey } = await handshake.result; // throws on MITM / mismatch / timeout — do NOT expose the session unless this resolves
-```
-
-See [`SPEC.md`](./SPEC.md) for the full contract + security model.
+- [SPEC.md](./SPEC.md) — security model, the same-user identity chain, `./local` admission and the
+  pre-auth wire contract.
+- [README](../README.md) — installation, a pairing example and the export overview.

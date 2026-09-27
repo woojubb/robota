@@ -72,7 +72,10 @@ export type TCliWorkspaceCompositionOverrides = Pick<
   'projectAccess' | 'projectSettingsWriter' | 'safeMode'
 >;
 
-/** Set only by `/cd` when the session it moves is Restricted (issue #3081). */
+/**
+ * A run that must start Restricted: set by `/cd` into a Restricted folder (issue #3081), and for a
+ * background session a person chose to start Restricted from the session view (issue #3268).
+ */
 export const RESTRICTED_WORKSPACE_FLAG = '--restricted-workspace';
 
 /** Starts with every customization off, to rule one out (issue #3082). */

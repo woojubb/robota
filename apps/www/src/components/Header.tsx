@@ -60,7 +60,7 @@ export function Header() {
               {t(`lang.${otherLocale}`)}
             </button>
             <a
-              href="https://docs.robota.io"
+              href={`https://docs.robota.io/${locale}/`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex min-h-[44px] items-center rounded-md px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"

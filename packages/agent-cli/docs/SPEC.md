@@ -108,9 +108,9 @@ The global supervised view observes only that guarded inventory, and narrows by 
 directory, or linked PR only on a live owner-verified path. It does not join peer or saved-record
 identities, show conversation content or project paths in ordinary rows (verified paths appear only
 when the viewer groups by directory), treat an exited process as completed, or show stale PR links;
-PR URLs never enter ordinary listings or registration records. Starting a session from the view
-still requires headless workspace trust for its target directory, and closing the view never stops
-a supervised session. A damaged registration is shown as unavailable without hiding healthy
+PR URLs never enter ordinary listings or registration records. Starting a session from the view in a
+directory not trusted yet asks the person first, and closing the view never stops a supervised
+session. A damaged registration is shown as unavailable without hiding healthy
 sessions. Each process start registers a fresh generation that its control endpoint requires and
 echoes only to a caller that already named it, so a stop, rename, or PR-association request acts
 only on the start the caller verified (the one a view row displayed, or the one registered when the
@@ -132,7 +132,10 @@ other client, and nothing would start it again.
 A workspace's daemon is such a session, at most one per workspace even when starts race, marked so
 that a client in that workspace, the desktop app or a terminal attached with `robota --attach`, connects
 to the one already running instead of spawning a runtime of its own, so no launch option of the
-client's shapes that session; a daemon that could not hand over a connection is never left running, and
+client's shapes that session. The one exception is Restricted: a daemon reports whether it runs
+Restricted, and a Restricted start is never handed one with the project's configuration, because a
+person chose Restricted, while a plain start in a folder trusted since is not handed a Restricted one,
+because the person who trusted it expects that configuration; a daemon that could not hand over a connection is never left running, and
 the lock that keeps racing starts apart is removed only by the start that took it or by the user. The
 transport's per-launch authentication token is never exposed through the control endpoint or inventory,
 with one exception: a daemon, which receives it only through its environment and removes it from there so
@@ -420,9 +423,12 @@ resumable, while project memory, which belongs to the repository, and edit check
 writes the project's files back, are not composed; `/rewind` then says which of trust or the host
 stands in the way. Print mode,
 `--goal`, and `--serve` fail closed for `untrusted`/`revoked`/`stale`/`store-unavailable` decisions
-before provider construction; interactive
-startup may continue Restricted with project contributions disabled. All trust diagnostics expose
-only state and canonical display path — credentials and project-controlled content are never printed.
+before provider construction, because no one is there to ask, unless the run was asked to start
+Restricted (safe mode, or a run a person chose to start Restricted); an interactive
+start asks the person before the project is composed and continues Restricted when they decline,
+because a Restricted session no one mentioned hides why the project's own configuration is missing.
+All trust diagnostics expose only state and canonical display path — credentials and
+project-controlled content are never printed.
 
 ### Destination-scoped telemetry headers
 

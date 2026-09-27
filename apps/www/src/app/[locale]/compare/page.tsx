@@ -166,7 +166,7 @@ export default async function ComparePage({ params }: { params: Promise<{ locale
 
       <div className="text-center">
         <a
-          href="https://docs.robota.io/getting-started/"
+          href={`https://docs.robota.io/${locale}/getting-started/`}
           target="_blank"
           rel="noopener noreferrer"
           className="rounded-lg bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"

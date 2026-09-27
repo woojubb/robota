@@ -45,6 +45,11 @@ import {
   formatHeadlessWorkspaceTrustError,
   requiresHeadlessWorkspaceTrust,
 } from './workspace-trust-admission.js';
+import {
+  canAskToTrust,
+  grantWorkspaceTrust,
+  trustQuestionFor,
+} from './interactive-trust-prompt.js';
 
 import type { IStartCliOptions } from './command-setup.js';
 
@@ -300,9 +305,18 @@ export async function runPreparsedCliCommand(
       launchCwd: cwd,
       render: renderSessionView,
       ...(renderAttached === undefined ? {} : { renderAttached }),
-      start: async (targetCwd) => {
-        const access = await resolveInitialCliWorkspaceProjectAccess(targetCwd);
-        if (requiresHeadlessWorkspaceTrust(access)) {
+      startTrustQuestion: async (targetCwd) =>
+        trustQuestionFor(await resolveInitialCliWorkspaceProjectAccess(targetCwd), targetCwd),
+      start: async (targetCwd, choice) => {
+        let access = await resolveInitialCliWorkspaceProjectAccess(targetCwd);
+        // A person in the view answered for a folder not trusted yet: trust it, or run it Restricted.
+        // A Restricted answer holds even if the folder became trusted meanwhile; it never widens.
+        const restricted = choice === 'restricted';
+        if (choice === 'trust' && canAskToTrust(access)) access = await grantWorkspaceTrust(targetCwd);
+        if (
+          requiresHeadlessWorkspaceTrust(access) &&
+          !(restricted && canAskToTrust(access))
+        ) {
           throw new Error(formatHeadlessWorkspaceTrustError(access, targetCwd));
         }
         // The child validates the very same settings when it starts; asking here first avoids
@@ -313,7 +327,10 @@ export async function runPreparsedCliCommand(
           serviceVersion: readVersion(),
           surface: 'serve',
         });
-        return launchSupervisedSession(targetCwd, { env: supervisedEnv() });
+        return launchSupervisedSession(targetCwd, {
+          env: supervisedEnv(),
+          ...(restricted ? { restricted: true } : {}),
+        });
       },
     });
     return true;
@@ -323,9 +340,10 @@ export async function runPreparsedCliCommand(
       cwd,
       env: supervisedEnv,
       // The same admission as `session start`, asked before anything is spawned.
-      admit: async (workspace) => {
+      admit: async (workspace, { restricted }) => {
         const access = await resolveInitialCliWorkspaceProjectAccess(workspace, options);
-        if (requiresHeadlessWorkspaceTrust(access)) {
+        // A person chose to run this folder Restricted (a front end asked them).
+        if (requiresHeadlessWorkspaceTrust(access) && !(restricted && canAskToTrust(access))) {
           throw new Error(formatHeadlessWorkspaceTrustError(access, workspace));
         }
         validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
@@ -333,6 +351,8 @@ export async function runPreparsedCliCommand(
           surface: 'serve',
         });
       },
+      trusted: async (workspace) =>
+        (await resolveInitialCliWorkspaceProjectAccess(workspace, options)).status === 'trusted',
       stdout: (text) => process.stdout.write(text),
       stderr: (text) => process.stderr.write(text),
     });

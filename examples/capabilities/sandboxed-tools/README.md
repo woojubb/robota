@@ -6,29 +6,33 @@ The agent's file and shell tools run inside a **sandbox** instead of on the host
 pnpm --filter robota-capability-sandboxed-tools dev
 ```
 
+The demo makes no model call, so no API key is needed.
+
 ## What it shows
 
-**Composing a sandboxed tool surface.** `createDefaultTools` takes an optional `sandboxClient`; every
-file tool it builds then reads and writes through that client rather than the host filesystem. The
-demo uses `InMemorySandboxClient`, so it is self-contained and destroys nothing. Swapping in
-`E2BSandboxClient` points the same tools at a real remote sandbox with no other change.
+**Composing a sandboxed tool surface.** `createDefaultTools` takes an optional `sandboxClient`. With a
+sandbox that has its own filesystem, every file tool it builds reads and writes through that client rather
+than the host filesystem. The demo uses `InMemorySandboxClient`, so it is self-contained and destroys
+nothing: it writes a file into the sandbox and reads it back. Swapping in `E2BSandboxClient` points the same
+tools at a real remote sandbox with no other change.
 
-The tool SET is identical with and without a sandbox — sandboxing changes _where_ a tool acts, not
-_which_ tools exist.
+Sandboxing changes _where_ a tool acts, and on a separate filesystem it also drops the tools that cannot act
+there: `Glob` and `Grep` have no sandbox path, so they are withheld rather than left searching the host while
+edits land in the sandbox. That is why the demo prints `sameToolSetWithAndWithoutSandbox: false`.
 
-**Why a sandboxed parent cannot spawn child-process subagents.** Child-process subagents are
-reproduced from a _recipe_: the child receives an execution root and a serialized profile, then
-rebuilds an equivalent tool surface at its own root. A recipe carries anything that is a pure function
-of (root, payload, durable state) — and a live sandbox client is not: it is an open session against a
-remote machine.
+**Sandboxes and child-process subagents.** Child-process subagents are reproduced from a _recipe_: the child
+receives an execution root and a serialized profile, then rebuilds an equivalent tool surface at its own
+root. A recipe carries anything that is a pure function of (root, payload, durable state) — and a live
+sandbox client is not: it is an open session against a remote machine.
 
-So the product **refuses to compose** rather than spawning children that would silently fall back to
-host tools. That refusal is the safe direction: a sandboxed parent with host-tool children is
-ARCH-010's shape, where the measured breach was a subagent reading outside its root.
+What can cross the process boundary is a `(type, snapshotId)` pair. `ISandboxClient` may implement
+`snapshot()` / `restore(snapshotId)`, and the demo takes a snapshot to show that the reference is just a
+serializable string. The child also needs a constructor for the client type: a composition root registers
+one per type in `sandboxFactories` on `ISubagentWorkerComposition` (`@robota-sdk/agent-subagent-runner`), and
+the child restores its sandbox from the snapshot.
 
-`ISandboxClient` declares `snapshot()` / `restore(snapshotId)`, so a sandbox is in principle
-projectable — the child could restore from a snapshot reference, and the demo shows that reference is
-just a serializable string. What is missing is the **constructor**: the child must build the same
-client type, and only the composition root knows which type that is. Designing that projection is
-[ARCH-033](https://github.com/woojubb/robota/issues/1784); this example is the executable statement of
-the problem it solves.
+When a sandboxed parent cannot be projected that way — its client has no `snapshot()`, or no type is named —
+the `robota` CLI refuses to start rather than spawn children that would silently fall back to host tools,
+and a child handed a type with no registered factory fails the job instead of running unsandboxed. A
+sandboxed parent with host-tool children would let a subagent read outside the parent's root, so refusing is
+the safe direction.

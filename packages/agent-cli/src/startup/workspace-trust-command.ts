@@ -6,6 +6,7 @@ import {
 
 import { formatProjectContributionPreview } from './project-contribution-preview.js';
 import { userPaths } from '../product/user-paths.js';
+import { trustQuestionFor } from './interactive-trust-prompt.js';
 import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../product/robota-project-state-directories.js';
 
 type TWorkspaceTrustAction = 'status' | 'grant' | 'revoke';
@@ -32,6 +33,17 @@ function printAccess(access: TWorkspaceProjectAccess): void {
   }
 }
 
+/** The state, the folder, whether a person can be asked, and what trust would load. */
+function trustStatusJson(access: TWorkspaceProjectAccess, cwd: string): Record<string, unknown> {
+  const question = trustQuestionFor(access, cwd);
+  return {
+    state: accessState(access),
+    workspace: accessPath(access) ?? cwd,
+    askable: question !== undefined,
+    loads: question?.loads ?? [],
+  };
+}
+
 /** Handle the pre-parse `robota trust` lifecycle command without loading project settings. */
 export async function runWorkspaceTrustCommand(
   argv: readonly string[],
@@ -44,7 +56,7 @@ export async function runWorkspaceTrustCommand(
   const action = (argv.find((argument) => !argument.startsWith('-')) ??
     (argv.includes('--yes') ? 'grant' : 'status')) as TWorkspaceTrustAction;
   if (!['status', 'grant', 'revoke'].includes(action)) {
-    process.stderr.write('Usage: robota trust [status|grant|revoke] [--yes]\n');
+    process.stderr.write('Usage: robota trust [status [--json]|grant|revoke] [--yes]\n');
     return 1;
   }
   if (action !== 'status' && process.stdin.isTTY !== true && !argv.includes('--yes')) {
@@ -58,6 +70,11 @@ export async function runWorkspaceTrustCommand(
         : action === 'revoke'
           ? await service.revoke(cwd)
           : await service.inspect(cwd);
+    if (action === 'status' && argv.includes('--json')) {
+      // For a client that asks a person itself (the desktop app) before it starts a runtime here.
+      process.stdout.write(`${JSON.stringify(trustStatusJson(access, cwd))}\n`);
+      return 0;
+    }
     printAccess(access);
     if (action === 'status' && access.status !== 'trusted') {
       process.stdout.write(formatProjectContributionPreview(access.identity, cwd));

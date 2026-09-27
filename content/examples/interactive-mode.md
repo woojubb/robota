@@ -1,76 +1,99 @@
 # Interactive Mode
 
-The CLI TUI provides a full-featured terminal AI coding assistant.
+Running `robota` without `-p` opens the terminal UI: a coding-assistant session in the current
+directory, built from the same Robota libraries as the SDK examples. This page walks through what you
+see on screen. The [CLI guide](../guide/cli.md) is the full reference.
 
 ## Starting
 
 ```bash
-robota                    # Start empty
-robota "Fix the bug"      # Start with initial prompt
-robota -c                 # Continue last session
-robota -r session_123     # Resume specific session
+robota                    # Start a new session
+robota "Fix the bug"      # Start with an initial prompt
+robota -c                 # Continue the most recent session
+robota -r session_123     # Resume a session by ID or name
 ```
 
-## Features
+When you start a new session in a Git repository you have not trusted yet, `robota` first lists what
+trusting it would load (the project's settings, hooks, plugins, skills, agent definitions, provider
+overrides and MCP servers) and asks `Trust this folder? [y/N]`. Answering no starts the session
+Restricted, without any of those; `robota trust --yes` trusts the folder later.
 
-### Slash Commands
+## Slash commands
 
-Type `/` to see all available commands. The autocomplete popup filters as you type.
-
-```
-/help         Show available commands
-/mode plan    Switch to plan mode (read-only)
-/compact      Compress context with default instructions
-/compact focus on API changes    Compress with custom focus
-/context      Show detailed context usage
-/clear        Clear history and start fresh
-/resume       Resume a previous session
-/rename name  Rename the current session
-/provider     Manage provider profiles
-/memory       Inspect and manage project memory
-/rewind       Restore an edit checkpoint
-/background   List and control background tasks
-/agent        Run or manage background subagent jobs
-/statusline   Show, hide, or reset status line fields
-/reload-plugins  Reload all plugin resources
-/workflows create/list/catalog/validate/run  Author and run DAG workflows
-```
-
-### Permission Prompts
-
-When a tool requires approval (in `default` mode), an arrow-key prompt appears:
+Type `/` to open the command menu; it filters as you type. Tab inserts the highlighted command into the
+input without running it, so you can add arguments. Enter runs it.
 
 ```
-Bash: pnpm test
-  ▸ Allow once
-    Allow for session
-    Deny
+/help                Show available commands
+/mode plan           Switch the permission mode (plan | default | acceptEdits | bypassPermissions | auto)
+/permissions         Show or change the permission mode and permission rules
+/compact [focus]     Compress the context window, keeping what the focus text names
+/context             Context window usage, context references, auto-compact controls
+/clear               Clear conversation history
+/resume              Resume a previous session
+/rename <name>       Rename the current session
+/provider            Manage provider profiles
+/memory              Inspect and manage project memory
+/rewind              List, inspect and restore edit checkpoints
+/background          List and control background tasks
+/agent               Run or manage background subagent jobs
+/statusline          Show, hide or reset the status line
+/reload-plugins      Reload all plugin resources
+/workflows           Author, list, validate and run DAG workflows
 ```
 
-### Context Status
+`/help` lists every command available in your session.
 
-The status bar shows real-time context usage:
+Skills and commands appear in the same menu. The CLI reads them from `.robota/skills/`,
+`.claude/skills/`, `.claude/commands/` and `.agents/skills/`, in your home directory and, once the
+folder is trusted, in the project.
 
-```
-Thinking | Model: claude-sonnet-4-6 | Context: 45%
-```
+## Permission prompts
 
-`default` permission mode is hidden because it is the baseline. Non-default permission modes such as
-`plan`, `acceptEdits`, and `bypassPermissions` are shown as `Mode: <mode>`.
-
-Colors: green (0-69%), yellow (70-89%), red (90%+).
-
-### Tab Completion
+In `default` mode, a file edit or a shell command asks first (read-only commands such as `ls` or
+`git status` inside the project run without asking). The prompt appears above the input box:
 
 ```
-Tab: Insert command into input (without executing)
-Enter: Execute immediately
+[Permission Required]
+Tool: Bash
+ command: pnpm test
+
+> Allow [y]
+  Allow Bash(pnpm *) always (this session) [s]
+  Allow Bash(pnpm *) always (this project) [p]
+  Deny [n]
 ```
 
-### Session Name
+Move with the arrow keys and press Enter, or press the letter shown. The "always" options name the
+pattern they grant, so you can see how far the approval reaches: `Bash(pnpm *)` covers every `pnpm`
+command, and a file approval covers the file's directory tree. When the project cannot store a
+project-wide approval, the third row reads `Project-wide approval unavailable`. For a short moment
+after the prompt appears its keys do nothing, so a key you were typing into the input box cannot
+answer it; Esc does not dismiss it.
 
-The session name appears in three places: input box border, terminal title, and status bar.
+## Status line
 
-### Skill Commands
+The line under the input box shows the session's state, for example:
 
-Project skills from `.agents/skills/` appear as additional slash commands, separated from built-in commands.
+```
+Thinking  |  Mode: plan  |  auth-refactor  |  git: main  |  Anthropic claude-sonnet-4-6  |  Context: 45% (90K/200K tokens)
+```
+
+From left to right:
+
+- **Activity** — `Idle`, `Thinking`, `Tools (n)` while tools run, `Background (n)` for background
+  tasks, and `queued` when a prompt is waiting.
+- **Mode** — shown for every permission mode except `default`: `plan`, `acceptEdits`,
+  `bypassPermissions` or `auto`.
+- **Preset** — shown when a preset other than `default` is active.
+- **Session name** and **git branch**, when there is one.
+- **Provider and model**, followed by `Effort: <level>` when an effort level is set.
+- **Context** — how full the context window is, in green below 70%, yellow from 70% and red from 90%.
+
+`/statusline off` hides the line, `/statusline git off` hides the branch, and `/statusline reset`
+restores the defaults.
+
+## Session name
+
+The session name appears on the input box border, in the terminal title and in the status line. Set
+it with `robota --name <name>` or `/rename <name>`.

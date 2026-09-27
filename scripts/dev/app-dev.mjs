@@ -6,8 +6,8 @@
  * the workspace libraries the page bundles — so the window never loads a stale `dist`. Then starts
  * Electron with `ROBOTA_GUI_SIDECAR_CMD` pointing at `scripts/dev/robota`, so the window drives the repo
  * CLI from source rather than whatever `robota` is on PATH. A value you set yourself wins (e.g. the scripted
- * sidecar). The daemon serves the directory the command was started from (or `ROBOTA_DEV_CWD`), which
- * must be a trusted workspace (`robota trust`).
+ * sidecar). The daemon serves the directory the command was started from (or `ROBOTA_DEV_CWD`); in a
+ * folder not trusted yet the window asks first.
  */
 
 import { spawn, spawnSync } from 'node:child_process';

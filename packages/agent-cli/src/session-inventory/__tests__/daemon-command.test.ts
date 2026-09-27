@@ -45,10 +45,12 @@ function harness(rows: readonly ISupervisedSessionRow[], overrides: Partial<IDae
   const launch = vi.fn(async () => STARTED);
   const stop = vi.fn(async () => undefined);
   const admit = vi.fn(async () => undefined);
+  const trusted = vi.fn(async () => false);
   const options: IDaemonCommandOptions = {
     cwd: scratch,
     env: () => ({ PATH: '/bin', ROBOTA_WS_PORT: '7777', ROBOTA_WS_TOKEN: 'inherited' }),
     admit,
+    trusted,
     stdout: (text) => { stdout += text; },
     stderr: (text) => { stderr += text; },
     root: join(scratch, 'supervised'),
@@ -58,7 +60,7 @@ function harness(rows: readonly ISupervisedSessionRow[], overrides: Partial<IDae
     stop,
     ...overrides,
   };
-  return { options, list, connect, launch, stop, admit, out: () => stdout, err: () => stderr };
+  return { options, list, connect, launch, stop, admit, trusted, out: () => stdout, err: () => stderr };
 }
 
 describe('robota daemon', () => {
@@ -89,7 +91,7 @@ describe('robota daemon', () => {
   it('launches a daemon after admission, with a fresh token in the environment and no fixed port', async () => {
     const h = harness([]);
     expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(0);
-    expect(h.admit).toHaveBeenCalledWith(workspace);
+    expect(h.admit).toHaveBeenCalledWith(workspace, { restricted: false });
     expect(h.launch).toHaveBeenCalledTimes(1);
     const [cwd, launchOptions] = h.launch.mock.calls[0] as unknown as [string, { env: NodeJS.ProcessEnv; daemon: boolean }];
     expect(cwd).toBe(workspace);
@@ -143,8 +145,62 @@ describe('robota daemon', () => {
     expect(none.out()).toBe(`No daemon is running in ${workspace}.\n`);
   });
 
+  it('starts a daemon Restricted when a person chose that, in either flag order (#3268)', async () => {
+    for (const args of [
+      ['start', '--json', '--restricted-workspace'],
+      ['start', '--restricted-workspace', '--json'],
+    ]) {
+      const h = harness([]);
+      expect(await runDaemonCommand(args, h.options)).toBe(0);
+      expect(h.admit).toHaveBeenCalledWith(workspace, { restricted: true });
+      expect(h.launch).toHaveBeenCalledWith(workspace, expect.objectContaining({ daemon: true, restricted: true }));
+    }
+  });
+
+  it('does not hand over a daemon with the project configuration for a Restricted start: it names the fix instead', async () => {
+    const h = harness([daemonRow(LIVE)]);
+    expect(await runDaemonCommand(['start', '--json', '--restricted-workspace'], h.options)).toBe(1);
+    expect(h.connect).not.toHaveBeenCalled();
+    expect(h.launch).not.toHaveBeenCalled();
+    expect(h.out()).toBe('');
+    expect(h.err()).toContain('cannot be started Restricted. Run: robota daemon stop');
+  });
+
+  it('reuses a running Restricted daemon for a Restricted start, as a relaunched app asks (#3268)', async () => {
+    const h = harness([daemonRow(LIVE, { restricted: true })]);
+    expect(await runDaemonCommand(['start', '--json', '--restricted-workspace'], h.options)).toBe(0);
+    expect(h.launch).not.toHaveBeenCalled();
+    expect(h.admit).not.toHaveBeenCalled();
+    expect(h.out()).toBe(`${JSON.stringify({ id: LIVE, url: URL_WITH_TOKEN })}\n`);
+  });
+
+  it('does not quietly hand a plain start a Restricted daemon in a folder trusted since (#3268)', async () => {
+    const h = harness([daemonRow(LIVE, { restricted: true })], { trusted: vi.fn(async () => true) });
+    expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(1);
+    expect(h.connect).not.toHaveBeenCalled();
+    expect(h.err()).toContain(
+      `is running Restricted in ${workspace}, which is trusted now. To start it with the project's configuration, run: robota daemon stop`,
+    );
+  });
+
+  it('hands a plain start the Restricted daemon of a folder that is not trusted, outside Git included (#3268)', async () => {
+    const h = harness([daemonRow(LIVE, { restricted: true })]);
+    expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(0);
+    expect(h.trusted).toHaveBeenCalledWith(workspace);
+    expect(h.launch).not.toHaveBeenCalled();
+    expect(h.out()).toBe(`${JSON.stringify({ id: LIVE, url: URL_WITH_TOKEN })}\n`);
+  });
+
   it('prints usage for an unknown action or flag', async () => {
-    for (const args of [[], ['restart'], ['start', '--port'], ['status', '--json', 'x'], ['stop', '--json']]) {
+    for (const args of [
+      [],
+      ['restart'],
+      ['start', '--port'],
+      ['start', '--json', '--json'],
+      ['status', '--restricted-workspace'],
+      ['status', '--json', 'x'],
+      ['stop', '--json'],
+    ]) {
       const h = harness([]);
       expect(await runDaemonCommand(args, h.options)).toBe(1);
       expect(h.err()).toMatch(/^Usage: robota daemon start/u);

@@ -1,18 +1,28 @@
 # @robota-sdk/agent-command
 
-Consolidated command module for the Robota SDK CLI. Provides all slash-command implementations
-(`/agent`, `/background`, `/compact`, `/context`, `/exit`, `/help`, `/language`, `/memory`,
-`/mode`, `/model`, `/permissions`, `/plugin`, `/provider`, `/reset`, `/rewind`, `/session`,
-`/settings`, `/skills`, `/statusline`, `/user-local`) as a single importable package.
+`@robota-sdk/agent-command` owns the slash-command implementations for Robota agents: one command module
+per area (session, provider, permissions, background work, terminal, plugins, and so on), each with its
+own factory, plus `createDefaultCommandModules`, which assembles the default set and applies a host's
+allow/deny module selection. Hosts register the modules with an `agent-framework` runtime; the `robota`
+CLI is one such host.
 
-## Usage
+The package implements commands only. Command contracts and the shared command APIs belong to
+`agent-framework` and `agent-interface-command`, and project access, settings storage, and terminal
+capabilities arrive as injected ports.
 
 ```typescript
 import { createDefaultCommandModules } from '@robota-sdk/agent-command';
 
-const commandModules = createDefaultCommandModules({ cwd, providerDefinitions });
+const { modules, unknownModuleNames } = createDefaultCommandModules({
+  cwd,
+  userLocalStorageRoot,
+  providerDefinitions,
+  providerSettingsAdapter,
+});
 ```
 
 ## Documents
 
-- [SPEC.md](./SPEC.md) — package contract, ownership boundaries, and public API surface.
+- [SPEC.md](./SPEC.md) — package contract, boundaries, and per-command guarantees.
+- [Package README](../README.md) — installation, usage, and the command list.
+- [CLI guide](../../../content/guide/cli.md#slash-commands) — the commands as used in the `robota` CLI.

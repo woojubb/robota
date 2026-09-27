@@ -174,6 +174,8 @@ export interface ISupervisedSessionRow {
   readonly pr?: ISupervisedPr;
   /** Present only when requested: the live owner reports itself as its workspace's daemon. */
   readonly daemon?: true;
+  /** Present only with `daemon`: the daemon runs Restricted, without the project's own configuration. */
+  readonly restricted?: true;
   /** Present only when requested and verified: the registration this row's actions must still address. */
   readonly generation?: string;
   /** Present only when requested: each external-event grant's label, state and counts. */
@@ -462,7 +464,9 @@ export async function listSupervisedSessions(
           ...(options.includePr && pr !== undefined ? { pr } : {}),
           ...(options.includeGeneration ? { generation: record.generation } : {}),
           ...(options.includeDaemon && 'daemon' in response && response.daemon === true
-            ? { daemon: true as const } : {}),
+            ? { daemon: true as const,
+                ...('restricted' in response && response.restricted === true ? { restricted: true as const } : {}) }
+            : {}),
           ...(options.includeExternalEvents && 'externalEvents' in response
             ? optionalGrants(readList(response.externalEvents, readGrantSummary)) : {}),
           ...('activity' in response && response.activity === 'idle' &&
@@ -865,6 +869,8 @@ export interface ISupervisedExternalEvents {
 export interface ISupervisedDaemon {
   /** `undefined` until the transport is bound, or once the runtime is stopping. */
   url(): string | undefined;
+  /** It runs Restricted, so a start that needs the project's configuration does not reuse it. */
+  readonly restricted?: boolean;
 }
 
 export interface ISupervisedControl {
@@ -993,7 +999,7 @@ export async function startSupervisedControl(
           ...(isSupervisedSessionName(name) ? { name } : {}),
           ...(isSupervisedPr(linkedPr) ? { pr: linkedPr } : {}),
           ...(grants !== undefined && grants.length > 0 ? { externalEvents: grants } : {}),
-          ...(daemon !== undefined ? { daemon: true } : {}) });
+          ...(daemon !== undefined ? { daemon: true, ...(daemon.restricted === true ? { restricted: true } : {}) } : {}) });
       } else if (value.command === 'connect' && daemon !== undefined) {
         let url: unknown;
         try {

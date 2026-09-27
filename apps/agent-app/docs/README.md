@@ -1,21 +1,24 @@
 # @robota-sdk/agent-app
 
 An **Electron desktop app** (macOS / Linux / Windows) that drives a live `robota` session graphically —
-the graphical mirror of the terminal TUI (`agent-ui-terminal`).
+the graphical counterpart of the terminal UI (`agent-ui-terminal`). It is internal to the monorepo and not
+published to npm.
 
 `agent-app` is a **thin shell**: it runs `robota daemon start --json`, which starts this workspace's headless
-runtime daemon (**not** the terminal TUI) or reuses the live one, and loads the GUI web app
+runtime daemon (**not** the terminal UI) or reuses the live one — in a folder not trusted yet, after asking
+whether to trust it, start it Restricted, or quit — and loads the GUI web app
 (`packages/agent-gui-web`), handing it the daemon's loopback address through the preload bridge. The daemon
-outlives the window: closing the app leaves it running, and the next launch reattaches to it. The page is the same one the CLI serves on
-`robota --serve --open`; design work and the user scenarios run in a browser there (`pnpm gui:dev`, `test:e2e`). The GUI drives a
-shared runtime and does not control the CLI's terminal UI. All session, command, and permission logic lives in
-the daemon (reached over the wire), so the GUI holds no agent runtime and depends on neither `agent-framework`
-nor `agent-core` (the OWNER PRINCIPLE: the GUI is "just another surface").
+outlives the window: closing the app leaves it running, and the next launch reattaches to it. The page is the
+same one the CLI serves on `robota --serve --open`; design work and the user scenarios run in a browser there
+(`pnpm gui:dev`, and `test:e2e` in `agent-gui-web`). The GUI drives a shared runtime and does not control the
+CLI's terminal UI. All session, command, and permission logic lives in the daemon (reached over the wire), so
+the GUI holds no agent runtime and depends on neither `agent-framework` nor `agent-core` — it is just another
+surface on the same daemon.
 
-The loopback connection is authenticated by a token (GUI-002): the CLI mints it with the daemon and reports it
-in the address the shell hands the page, and the `WsTransport` rejects any connection lacking the token
-**before** emitting session data — closing the otherwise-unauthenticated
-loopback port against a co-resident browser page.
+The loopback connection is authenticated by a token: the CLI mints it with the daemon and reports it in the
+address the shell hands the page, and the `WsTransport` rejects any connection lacking the token **before**
+emitting session data — closing the otherwise-unauthenticated loopback port against a co-resident browser
+page.
 
 ## Run (dev)
 
@@ -23,14 +26,22 @@ loopback port against a co-resident browser page.
 pnpm app:dev   # builds the shell and the page it loads, opens the window on the CLI from source
 ```
 
+The daemon serves the directory `app:dev` was started from (or `ROBOTA_DEV_CWD`). If that folder is not
+trusted yet, the window asks whether to trust it, start Restricted, or quit; `robota trust grant` trusts it
+ahead of time.
+
 `app:dev` sets `ROBOTA_GUI_SIDECAR_CMD` to `scripts/dev/robota`; outside it, an unpackaged shell runs PATH
 `robota`. Set the variable yourself to use another command **binary** (the e2e uses the scripted sidecar); the
-shell always runs it as `daemon start --json`. The other ways to run from source are in the
+shell runs it as `trust status --json`, `trust --yes` when the person trusts the folder, and
+`daemon start --json` (with `--restricted-workspace` when they chose Restricted). A packaged app ignores the
+variable and runs the `robota` runtime bundled inside it. The other ways to run from source are in the
 [development guide](../../../content/development/README.md#run-from-source).
 
-## Status (Stage 1 — GUI-002)
+## Packaging
 
-Foundation MVP: window + workspace daemon attach + live session render + permission/ask + required loopback
-auth. **Deferred:** per-OS packaging/code-signing (GUI-003), richer co-drive UI. See
-[`docs/SPEC.md`](./SPEC.md) for the architecture, the daemon/token contract, and the User Execution Test
-Scenario.
+`pnpm --filter @robota-sdk/agent-app dist:app` builds the shell, bundles a host-platform `robota` runtime, and
+produces installers with electron-builder (configured in `electron-builder.yml`). Release tags attach these
+installers to the GitHub Release. They are **not code-signed**, so macOS Gatekeeper and Windows SmartScreen
+warn on first launch.
+
+See [`SPEC.md`](./SPEC.md) for the daemon/token contract, renderer hardening, and what the shell does not own.

@@ -601,7 +601,10 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         // A daemon hands its owner the URL its transport is served on, token included, so a
         // client in this workspace can connect to it instead of starting a runtime of its own.
         args.daemon === true
-          ? { url: () => settling ? undefined : opts.getMonitorWsUrl?.() }
+          ? {
+              url: () => settling ? undefined : opts.getMonitorWsUrl?.(),
+              restricted: opts.projectAccess?.status === 'restricted',
+            }
           : undefined,
       );
       if (settling) throw new Error('Supervised runtime stopped before readiness.');

@@ -13,7 +13,7 @@ uses. The package also contains the building blocks for connecting one user's de
 npm install @robota-sdk/agent-transport-webrtc @robota-sdk/agent-transport node-datachannel
 ```
 
-Requires Node.js 22 or later. The WebRTC implementation, `node-datachannel` (libdatachannel, a
+Requires Node.js 22.12 or later. The WebRTC implementation, `node-datachannel` (libdatachannel, a
 native module), is an optional peer dependency loaded lazily. If it is not installed or has no
 prebuilt binary for the platform, `start()` fails with an explicit `WebRTC transport unavailable`
 error; there is no fallback implementation. `@robota-sdk/agent-transport` provides the
@@ -87,7 +87,9 @@ requires attaching again.
 - Relay: `TurnServer` and `MeshTurnRelay`, a TURN relay one of the user's devices can run for its
   paired devices.
 - Enrollment: `dialEnrollment` and `listenForEnrollment` open the channel used to enroll a new
-  device.
+  device; they fail with `EnrollmentLinkError`.
+- Admission frames: `localProofFrame` (the local-peer nonce) and `handoffGrantFrame` /
+  `judgeHandoffGrant` (a signed cross-device hand-off grant, verified by a host-supplied verifier).
 
 ## Related packages
 
@@ -97,8 +99,12 @@ requires attaching again.
   DTLS-fingerprint channel binding the pairing gate uses.
 - [`@robota-sdk/agent-transport-ws`](../agent-transport-ws/README.md): the WebSocket transport for
   the same protocol.
+- [`@robota-sdk/agent-transport-webrtc-web`](../agent-transport-webrtc-web/README.md): the browser
+  peer that answers this transport's offer (internal).
 
-See [docs/SPEC.md](docs/SPEC.md) for the package contract.
+For how the Robota CLI uses this for remote control and connecting your own devices, see the
+[devices and remote access guide](../../content/guide/devices-and-remote.md). See
+[docs/SPEC.md](docs/SPEC.md) for the package contract.
 
 ## License
 

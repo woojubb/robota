@@ -1,12 +1,20 @@
-# Agent Plugin
+# @robota-sdk/agent-plugin
 
-Consolidated plugin package providing 8 official plugin implementations for the Robota SDK.
+Ready-made plugins for the Robota SDK: conversation history, error handling, execution analytics,
+limits, logging, performance metrics, usage tracking and webhooks. Each plugin extends
+`AbstractPlugin` from `@robota-sdk/agent-core` and receives the agent's lifecycle hooks (before and
+after a run, on error, and so on).
+
+Plugins are opt-in: neither the SDK nor the Robota CLI adds them by default. You pass plugin
+instances to `Robota` in `plugins`.
 
 ## Installation
 
 ```bash
-npm install @robota-sdk/agent-plugin
+npm install @robota-sdk/agent-plugin @robota-sdk/agent-core
 ```
+
+Requires Node.js 22.12 or later.
 
 ## Available Plugins
 
@@ -51,6 +59,8 @@ import { ConversationHistoryPlugin } from '@robota-sdk/agent-plugin';
 // storage: 'memory' | 'file' | 'database'
 new ConversationHistoryPlugin({ storage: 'memory' });
 ```
+
+The `database` strategy needs a `databaseDriver` you supply; this package ships no database driver.
 
 ### LoggingPlugin
 
@@ -97,9 +107,14 @@ new WebhookPlugin({ endpoints: [{ url: 'https://example.com/hook' }] });
 
 ## Dependencies
 
-- `@robota-sdk/agent-core` — plugin interface, core types
+- `@robota-sdk/agent-core` — `AbstractPlugin` and the core types
+- `jssha` — HMAC signing for `WebhookPlugin`
 
-## Links
+## Documentation
 
-- [npm](https://www.npmjs.com/package/@robota-sdk/agent-plugin)
-- [GitHub](https://github.com/woojubb/robota)
+- [docs/SPEC.md](./docs/SPEC.md) — package contract and the plugin list
+- [Plugins guide](../../content/guide/plugins.md)
+
+## License
+
+Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

@@ -1,11 +1,10 @@
 /**
  * FLOW-2006: turn a parsed launch intent into a directory the session may actually start in.
  *
- * The rule the whole feature rests on: a link opens only what the user has ALREADY trusted. The
- * premise that this could reuse an existing interactive trust gate was false — `workspace-trust-
- * admission.ts` is the headless gate, guarded by `printMode || goal || serve`, and the TUI has no
- * trust decision point at all, so an untrusted directory would otherwise open silently in restricted
- * mode. Refusing is the safe direction until that gap is closed.
+ * The rule the whole feature rests on: a link opens only what the user has ALREADY trusted. An
+ * interactive start in an untrusted directory now asks whether to trust it (issue #3268), but a link
+ * still refuses: whoever wrote the link chose its target, so the question would be about a directory
+ * the user did not pick.
  *
  * Contained — TRUST-1989.
  */

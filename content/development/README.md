@@ -1,6 +1,8 @@
 # Development
 
-Guide for contributing to the Robota SDK monorepo.
+How to work on the Robota monorepo: set it up, run the checks, run the apps from source, find your way
+around, and write the docs. The contribution workflow — issues, branches, commit messages and
+changesets — is in [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Setup
 
@@ -9,31 +11,36 @@ git clone https://github.com/woojubb/robota.git
 cd robota
 pnpm install
 pnpm build
-pnpm test
 ```
 
 ### Requirements
 
-- **Node.js**: 22.14.0 (managed by Volta)
-- **pnpm**: 8.15.4
+- **Node.js 22** — 22.14 or a later 22.x release (the root `engines` field; Volta and `.nvmrc` pin
+  22.14.0)
+- **pnpm 8.15.4** (the root `packageManager` field)
 - **Module system**: ES modules only (`"type": "module"`)
 
-## Commands
+## Checks
+
+A pull request must pass all five:
 
 ```bash
-pnpm build              # Build the package workspace once from the repo root
-pnpm test               # Run all tests
-pnpm typecheck          # TypeScript strict check
-pnpm lint               # ESLint
-pnpm harness:scan       # Full harness verification
+pnpm build       # build every package
+pnpm typecheck   # TypeScript strict check
+pnpm lint        # ESLint
+pnpm test        # every workspace package's tests, plus the scripts' tests
+pnpm deps:check  # dependency rules (dependency-cruiser)
 ```
 
-### Per-Package
+For one package:
 
 ```bash
 pnpm --filter @robota-sdk/<pkg> build
 pnpm --filter @robota-sdk/<pkg> test
 ```
+
+Running the CLI writes to `~/.robota/`. A script or test that runs it points `HOME` at a temporary
+directory.
 
 ## Run From Source
 
@@ -48,8 +55,10 @@ pnpm app:dev                # the desktop app: builds the page and what it bundl
 
 The CLI always runs through `scripts/dev/robota`, which starts `packages/agent-cli/src/bin.ts` with the
 `source` export condition. `cli:dev` works in the repo root; the GUI and the desktop app serve the directory
-the command was started from (or `ROBOTA_DEV_CWD`). That directory must be a trusted workspace
-(`pnpm cli:dev trust --yes` for the repo root). All of them use your own `~/.robota`.
+the command was started from (or `ROBOTA_DEV_CWD`). In a folder not trusted yet, `cli:dev` asks at the
+terminal whether to trust it (no starts Restricted); `gui:dev` asks the same at the terminal and
+`app:dev` in its window, each with trust, start Restricted, or quit. `pnpm cli:trust` trusts the repo
+root ahead of time. All of them use your own `~/.robota`.
 
 The desktop app reattaches to the workspace's running daemon when there is one. After changing CLI code, stop
 it in the directory the app serves, so the next `app:dev` starts a daemon on the new code:
@@ -58,65 +67,93 @@ it in the directory the app serves, so the next `app:dev` starts a daemon on the
 <repo>/scripts/dev/robota daemon stop
 ```
 
-## Monorepo Structure
+## Repository Layout
 
-```
-packages/
-├── agent-core/                 ← Foundation (zero deps)
-├── agent-tools/                ← Tools + 9 built-in CLI tools
-├── agent-session/              ← Session with permissions/hooks
-├── agent-session-analytics/    ← Session log timing analysis (new in beta.76)
-├── agent-executor/             ← Background task and subagent lifecycle
-├── agent-framework/            ← Assembly layer (InteractiveSession, createQuery)
-├── agent-command/              ← All slash command modules in one package
-├── agent-provider-anthropic/   ← Anthropic provider client
-├── agent-provider-openai/      ← OpenAI provider client
-├── agent-provider-openai-compatible/ ← OpenAI-compatible clients (DeepSeek, Qwen, Gemma)
-├── agent-provider-gemini/      ← Gemini / Google provider client
-├── agent-provider-bytedance/   ← ByteDance video generation provider client
-├── agent-builtin-providers/    ← Built-in provider definitions + default role-to-model mapping
-├── agent-plugin/               ← Consolidated plugin package
-├── agent-transport/            ← Browser-safe protocol/delivery substrate (sub-paths: /client, /node)
-├── agent-ui-terminal/        ← Terminal UI (Ink/React) — standalone
-├── agent-transport-http/       ← HTTP/REST transport — standalone
-├── agent-transport-ws/         ← WebSocket transport — standalone
-├── agent-transport-mcp/        ← MCP transport — standalone
-├── agent-interface-transport/  ← Transport type contracts (zero deps)
-├── agent-interface-tui/        ← TUI interaction type contracts (zero deps)
-├── agent-cli/                  ← Terminal AI coding assistant
-├── agent-subagent-runner/      ← Opt-in child-process subagent runner
-├── agent-remote-client/        ← HTTP client for remote agents
-├── agent-ui-web/               ← Shared GUI core (components + session reducer)
-├── agent-gui-web/              ← The GUI web app: loaded by the desktop app, served by `robota --serve --open`
-├── agent-transport-webrtc-web/ ← Browser WebRTC peer over the GUI core
-├── agent-mcp/                  ← MCP definitions, control plane, client adapter
-└── agent-playground/           ← Playground executor, hooks, and components
+- `packages/` — the agent libraries (`agent-*`), their shared contracts (`agent-interface-*`), the
+  coding capability pack (`pack-coding`), and the DAG workflow packages (`dag-*`, `dag-nodes/*`).
+- `apps/` — deployable apps, none published to npm (listed below).
+- `examples/` — runnable example projects. They are workspace members, so they build against the
+  local packages.
+- `content/` — the docs site's pages.
+- `scripts/` — dev, docs, publish and repository-check scripts.
 
-apps/
-├── agent-web/                  ← Next.js playground host
-├── agent-app/                  ← Electron shell: runs the robota --serve sidecar and loads agent-gui-web
-├── agent-server/               ← AI provider proxy + WebSocket server
-├── docs/                       ← VitePress documentation site
-└── blog/                       ← Blog
-```
+The [packages index](/packages/) lists every package with its summary and whether it is published on
+npm. [ARCHITECTURE.md](../../ARCHITECTURE.md) explains how they depend on each other.
+
+The apps:
+
+| App                  | What it is                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------------ |
+| `docs`               | The docs site, docs.robota.io (Next.js static export)                                                  |
+| `www`                | The marketing site, robota.io                                                                          |
+| `blog`               | The blog, blog.robota.io (Astro)                                                                       |
+| `agent-app`          | The Electron desktop app: starts or reuses the workspace's `robota` daemon and loads the GUI           |
+| `agent-web`          | Next.js host for the Playground (`/playground`) and the browser remote-control client (`/remote`)      |
+| `agent-server`       | AI provider proxy and the Playground's WebSocket server                                                |
+| `dag-runtime-server` | HTTP server for the DAG runtime (`/v1/dag/*`)                                                          |
+| `remote-signaling`   | WebRTC signaling relay for remote control                                                              |
+| `starter-nextjs`     | Next.js starter template with one chat API route                                                       |
+| `action`             | GitHub Action that runs the CLI; not released (see [GitHub Actions](../integrations/github-action.md)) |
 
 ## Key Rules
 
-- **TypeScript strict mode** — `any` and `{}` prohibited in production code
-- **SPEC.md required** — Every package must have `docs/SPEC.md`
-- **TDD** — Red-green-refactor cycle
-- **Spec-first** — Update SPEC before code changes
-- **No fallbacks** — Single correct path, no silent alternatives
-- **One-way dependencies** — No circular deps between packages
-- **Conventional commits** — `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`
+- **TypeScript strict mode.** `any` is a lint error in production code (tests are exempt).
+- **A behavior change ships with a test** that failed before the change.
+- **Each package states its contract in `docs/SPEC.md`** — purpose, guarantees, invariants and
+  non-goals; what the code already shows stays out of it.
+- **Dependencies point one way.** `pnpm deps:check` enforces the dependency rules between packages,
+  including no circular imports.
+- **Conventional commits**, checked by commitlint — `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, …
 
-See [AGENTS.md](https://github.com/woojubb/robota/blob/main/AGENTS.md) for the complete rule set.
+[CONTRIBUTING.md](../../CONTRIBUTING.md) has the full workflow, and
+[AGENTS.md](../../AGENTS.md) the working rules for coding agents in this repository.
+
+## Writing Docs
+
+Where each kind of doc lives:
+
+- `content/**` — guides, examples and these pages. The docs site at docs.robota.io serves them at
+  `/{en,ko}/<path without .md>/` (a `README.md` is its folder's page). A Korean page comes from
+  `content/ko/` when that file exists; otherwise the English page is shown. `content/v2.0.0/` and
+  `content/images/` are not rendered.
+- `packages/<pkg>/docs/*.md` — the package's pages on the site, at `/{en,ko}/packages/<pkg>/` (English
+  only). `docs/README.md` opens with a one-paragraph summary, which the packages index shows.
+- `packages/<pkg>/docs/SPEC.md` — the package contract.
+- `packages/<pkg>/README.md` — the package page on npm and GitHub (not rendered on the site).
+- The site's home page (`/en/`, `/ko/`) comes from the `home` keys in
+  `apps/docs/src/messages/{en,ko}.json`. `content/README.md` is the `content/` folder's page on GitHub;
+  its frontmatter `description` is the home page's meta description.
+
+When package behavior changes, update the package README, its docs pages and the guides that describe
+it in the same pull request.
+
+**Links.** Link to another doc with a path relative to the file you are editing, pointing at the real
+`.md` file — for example `../guide/cli.md` or `../../packages/agent-core/docs/SPEC.md`. Such links work
+on GitHub as written. The site resolves them against the source file: a page it renders becomes that
+page in the reader's locale, and any other file in the repository becomes a GitHub link on `main`. Do
+not hand-write site URLs. The one exception is the generated packages index, which has no source file:
+link to it as `/packages/` (the site adds the locale; GitHub opens the `packages/` folder).
+
+The sidebar sections and the order of the guides are set in `apps/docs/src/lib/sidebar.ts`.
+
+## Building and Deploying the Docs
+
+```bash
+pnpm docs:dev     # dev server at http://localhost:3020
+pnpm docs:build   # static export to apps/docs/out, then the Pagefind search index
+```
+
+The docs site deploys itself: its Cloudflare Pages project is connected to the GitHub repository, a
+push to `main` updates docs.robota.io. Other branches get no usable preview, so check a docs change
+locally with `pnpm docs:dev` (see [apps/docs/docs/README.md](../../apps/docs/docs/README.md) for
+serving a production build). The marketing site (`apps/www`, robota.io) and the blog
+(`apps/blog`, blog.robota.io) deploy the same way from their own projects. See
+[apps/docs/docs/README.md](../../apps/docs/docs/README.md) for the details.
 
 ## Publishing
 
-Robota publishes every non-private package together with one coordinated version. The current beta
-package set publishes approved `@robota-sdk/*` packages; private app, plugin, and internal packages
-are not published by the beta script.
+Every package that is not `private` is published to npm under `@robota-sdk/`, all with one shared
+version. Private packages and the apps are never published.
 
 Releases publish from GitHub Actions: run the **Publish to npm** workflow (`.github/workflows/publish.yml`) on
 `main` and approve the `npm-publish` environment. It uses npm trusted publishing (OIDC), so no npm token is
@@ -140,19 +177,3 @@ fails, run `npm login --registry https://registry.npmjs.org/`.
 
 Never publish individual packages with `--filter`. The scripts resolve `workspace:*` dependencies correctly
 and keep the monorepo package set on one version.
-
-## Documentation Sync
-
-When package behavior changes, update the package README, the package docs page, and the relevant robota.io source page in the same PR:
-
-- `packages/<pkg>/README.md` — npm/GitHub package README
-- `packages/<pkg>/docs/README.md` — copied to robota.io as `/packages/<pkg>/`
-- `packages/<pkg>/docs/SPEC.md` — package contract truth
-- `content/README.md` — robota.io home page
-- `content/guide/*.md` and `content/examples/*.md` — user-facing guides and examples
-
-After changing `content/` or `packages/*/docs/`, run:
-
-```bash
-pnpm docs:build
-```

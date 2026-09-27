@@ -1,12 +1,18 @@
-# Agent Core
+# @robota-sdk/agent-core
 
-The foundation layer of the Robota SDK. Provides the `Robota` agent class, abstract base classes for providers/tools/plugins, the permission system, hook system, event services, and error hierarchy.
+The foundation of the Robota SDK. It provides the `Robota` agent class (a conversation loop with
+tool calling), the provider, tool and plugin contracts with their abstract base classes, the
+permission evaluator, the hook runner, event services, typed errors, model metadata, and structured
+output. It has no `@robota-sdk/*` dependencies; every other Robota package builds on it.
 
 ## Installation
 
 ```bash
 npm install @robota-sdk/agent-core
 ```
+
+Requires Node.js 22.12 or later. A provider package supplies the model connection, for example
+`@robota-sdk/agent-provider-anthropic`.
 
 ## Quick Start
 
@@ -30,24 +36,34 @@ const response = await agent.run('Hello, world!');
 console.log(response);
 ```
 
-## Key Features
+`defaultModel.provider` names one of the `aiProviders` by its `name` (`'anthropic'` here).
 
-- **Robota class**: AI agent with conversation history, tool execution, and plugin support
-- **ConversationStore**: Append-only conversation history with streaming buffer (`beginAssistant`/`appendStreaming`/`commitAssistant`)
-- **IBaseMessage**: Every message has a unique `id` (UUID) and `state` (`'complete'` | `'interrupted'`)
-- **Multi-provider**: Register multiple providers, switch dynamically with `setModel()`
-- **Provider capabilities**: Provider-neutral capability reports distinguish local tools from provider-native hosted web search/fetch
-- **AbstractAIProvider.streamWithAbort()**: Standard streaming wrapper for all providers — handles AbortSignal, returns partial content on abort
-- **Permission system**: Deterministic 3-step policy evaluation (`evaluatePermission`)
-- **Hook system**: Shell command-based lifecycle hooks (`runHooks`)
-- **Plugin system**: `AbstractPlugin` base class with lifecycle hooks (beforeRun, afterRun, onError, etc.)
-- **Event services**: Unified event emission with owner path tracking
-- **Error hierarchy**: Typed errors extending `RobotaError` (ProviderError, RateLimitError, etc.)
-- **Model metadata registry**: providers contribute their own models via `registerModelMetadata()`; core owns the registry and the lookups, not any vendor's catalogue (NEUT-010)
-- **callProviderWithCache**: Accepts `Partial<IChatOptions>` overrides for per-call configuration
-- **AbortSignal propagation**: Signal flows through the entire execution chain (Session -> Robota -> Provider)
-- **Execution boundary events**: `Robota.run()` can emit provider/tool provenance events through `onExecutionEvent`
-- **Type safety**: Strict TypeScript, zero `any` in production code
+## What it provides
+
+- **`Robota`** — an agent with conversation history, automatic tool execution, plugins, streaming
+  (`runStream`) and structured output. By default history accumulates across runs; set
+  `retainHistory: false` to start every run from the system prompt.
+- **Messages** — every message (`TUniversalMessage`) has a unique `id` and a `state`
+  (`'complete'` or `'interrupted'`). `ConversationStore` is the append-only history with a streaming
+  buffer.
+- **Multiple providers** — register several providers and switch with `setModel()`. Providers extend
+  `AbstractAIProvider` and report capabilities (`getProviderCapabilities`), including whether they
+  offer hosted web search/fetch.
+- **Tools** — `FunctionTool` and `ToolRegistry` live here, next to the `AbstractTool` base class and
+  the tool schema contract. Ready-made tools are in `@robota-sdk/agent-tools`.
+- **Permissions** — `evaluatePermission` decides a tool call from the permission mode and
+  allow/deny/ask rules; it is the one evaluator every Robota caller uses.
+- **Hooks** — `runHooks` runs the lifecycle hooks configured for an event. See the
+  [hook event catalog](./docs/HOOK-CATALOG.md).
+- **Plugins** — `AbstractPlugin` with lifecycle hooks (`beforeRun`, `afterRun`, `onError`, …).
+  Ready-made plugins are in `@robota-sdk/agent-plugin`.
+- **Events** — event services with owner-path tracking and `EventEmitterPlugin`.
+- **Errors** — typed errors extending `RobotaError`, such as `ProviderError`, `RateLimitError`,
+  `ToolExecutionError` and `StructuredOutputError`.
+- **Model metadata** — providers register their own models with `registerModelMetadata()`; core
+  owns the registry and the lookups (`getModelContextWindow()`, `getModelMaxOutput()`, …), not any
+  vendor's catalogue.
+- **Cancellation** — an `AbortSignal` passed in run options reaches the provider call.
 
 ## Robota API
 
@@ -58,23 +74,26 @@ import type { IAgentConfig } from '@robota-sdk/agent-core';
 declare const config: IAgentConfig;
 const agent = new Robota(config);
 
-// Send a message (executes tool calls automatically)
+// Send a message (tool calls are executed automatically)
 const response = await agent.run('Hello');
 
 // Conversation history
 const history = agent.getHistory(); // TUniversalMessage[]
 agent.clearHistory();
 
-// Switch provider/model mid-conversation
+// Switch provider/model mid-conversation (the provider must be registered in aiProviders)
 agent.setModel({ provider: 'openai', model: 'gpt-4o' });
+
+// Release the agent's resources when you are done
+await agent.destroy();
 ```
 
-### Structured Output
+### Structured output
 
-`run(input, { output })` returns a schema-validated object instead of a string. Zod schemas give a
-typed result; the schema is forwarded to the provider's native structured-output surface where one
-exists, and the response is always validated core-side with a bounded retry on violation
-(`outputRetries`, default 2). Exhausted retries throw `StructuredOutputError`.
+`run(input, { output })` returns a schema-validated object instead of a string. A Zod schema gives a
+typed result. The schema is sent to the provider's native structured-output support where one
+exists, and the response is always validated by core with a bounded retry on violation
+(`outputRetries`, default 2). When the retries are used up, `run` throws `StructuredOutputError`.
 
 ```typescript
 import { z } from 'zod';
@@ -95,7 +114,7 @@ const report = await agent.run('Summarize the meeting as a report.', {
   output: reportSchema,
 });
 
-// Streaming variant: deltas stream as usual; the validated object is the
+// Streaming variant: text deltas stream as usual; the validated object is the
 // generator's return value (the final { done: true, value } iterator result).
 const stream = agent.runStream('Summarize again.', { output: reportSchema });
 const iterator = stream[Symbol.asyncIterator]();
@@ -105,20 +124,20 @@ while (!next.done) {
   next = await iterator.next();
 }
 const streamedReport = next.value;
-console.log(streamedReport.title);
+console.log(report.title, streamedReport.title);
 ```
 
-A raw JSON-schema wrapper is also accepted: `{ output: { jsonSchema: { type: 'object', properties: { answer: { type: 'string' } }, required: ['answer'] } } }`.
+A raw JSON-schema wrapper is also accepted:
+`{ output: { jsonSchema: { type: 'object', properties: { answer: { type: 'string' } }, required: ['answer'] } } }`.
 
-### Model Options per Run
+### Model options per run
 
-`run`/`runStream` accept run-scoped model options that win over `defaultModel.*`:
-`maxTokens`, `temperature`, and `toolChoice`. `toolChoice` directs tool invocation —
-`'auto'` (model decides), `'none'` (suppress tool calls), `'required'` (must call some
-tool), or `{ tool: name }` (must call the named tool). A named tool missing from the run's
-tool list throws immediately; nothing is silently ignored. Forcing directives apply to the
-run's first model call only — rounds after tool results revert to `'auto'` so the model can
-consume the results and finish.
+`run` and `runStream` accept run-scoped model options that win over `defaultModel.*`: `maxTokens`,
+`temperature` and `toolChoice`. `toolChoice` controls tool calls: `'auto'` (the model decides),
+`'none'` (no tool calls), `'required'` (must call some tool), or `{ tool: name }` (must call that
+tool). Naming a tool that is not in the run's tool list throws immediately. A forcing directive
+applies to the run's first model call only; later rounds revert to `'auto'` so the model can use the
+tool results and finish.
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
@@ -127,7 +146,7 @@ import type { IAgentConfig } from '@robota-sdk/agent-core';
 declare const config: IAgentConfig;
 const agent = new Robota(config);
 
-// Force the model to answer via the router tool (decision-agent pattern)
+// Force the model to answer through a router tool (decision-agent pattern)
 const decision = await agent.run('Route this request.', {
   toolChoice: { tool: 'route-request' },
   allowToolOnlyCompletion: true,
@@ -141,106 +160,125 @@ const summary = await agent.run('Summarize the discussion.', {
 console.log(decision, summary);
 ```
 
-The same directive can be set agent-wide via `defaultModel.toolChoice`.
+The same directive can be set for every run with `defaultModel.toolChoice`.
 
-### Model Effort Selection
+### Model effort
 
-`defaultModel.effort` and per-call `IChatOptions.effort` accept `auto`, `none`, `minimal`, `low`,
-`medium`, `high`, `xhigh`, or `max`. `auto` is preserved to the provider adapter, which resolves its
-documented exact-model default from a source-dated capability table. The adapter reports the terminal
-resolution, native-control, and dispatch outcome through `onModelEffortOutcome`; Core does not guess
-vendor field names or defaults.
+`defaultModel.effort` and the per-call `IChatOptions.effort` accept `auto`, `none`, `minimal`,
+`low`, `medium`, `high`, `xhigh` or `max`. `auto` is passed through to the provider adapter, which
+applies the model's documented default. The adapter reports what it actually sent through
+`onModelEffortOutcome`; core does not guess vendor field names or defaults.
 
-### Execution Boundary Events
+### Execution events and usage
 
-`run()` accepts `onExecutionEvent` in run options. The execution loop emits provider-neutral events that higher layers can persist as append-only session provenance:
+`run()` accepts an `onExecutionEvent` callback in its options. The execution loop reports
+provider-neutral events that a higher layer can persist as an append-only record of the run,
+including `provider_request`, `provider_native_raw_payload`, `provider_stream_raw_delta`,
+`provider_response_raw`, `provider_response_normalized`, `assistant_message_committed`,
+`tool_batch_started`, `tool_execution_request`, `tool_execution_result`, `tool_message_committed`
+and `history_mutation`. `@robota-sdk/agent-session` writes these events to its session log.
 
-- `provider_request`
-- `provider_native_raw_payload`
-- `provider_stream_raw_delta`
-- `provider_response_raw`
-- `provider_response_normalized`
-- `assistant_message_committed`
-- `tool_batch_started`
-- `tool_execution_request`
-- `tool_execution_result`
-- `tool_message_committed`
-- `history_mutation`
+Capturing a vendor SDK's exact payloads stays in the provider package: a provider calls
+`IChatOptions.onProviderNativeRawPayload`, and `Robota` forwards it as a
+`provider_native_raw_payload` event without importing vendor SDK types.
 
-Provider-specific SDK payload capture remains provider-owned. Providers may call `IChatOptions.onProviderNativeRawPayload` with exact SDK request, response, or stream event objects; `Robota` forwards those callbacks as provider-neutral `provider_native_raw_payload` execution events without importing concrete provider SDK types. `provider_response_raw.responseKind` remains `provider-normalized-message`, which keeps common replay validation provider-neutral.
+Each provider call gets a `usageObservationId`. Streaming fragments of one call share it, and a
+separately billed call gets a new one, so stored analytics can deduplicate usage by identity.
 
-Each provider round also receives a `usageObservationId` before invocation. Streaming fragments from
-that round reuse the identifier, while a separately billed round receives a new one. Persisted
-analytics can therefore deduplicate provider usage by identity without collapsing equal token totals.
+`sumMessagesUsage(messages)` sums the usage providers reported on assistant messages. The usage of
+one run, tool rounds included, is the sum over the messages that run appended:
 
-`sumMessagesUsage(messages)` sums the usage providers reported on assistant messages. One run's usage,
-tool rounds and a forced summary included, is the sum over the messages that run appended:
+```typescript
+import { Robota, sumMessagesUsage } from '@robota-sdk/agent-core';
+import type { IAgentConfig } from '@robota-sdk/agent-core';
 
-```ts
+declare const config: IAgentConfig;
+const agent = new Robota(config);
+
 const before = agent.getHistory().length;
-await agent.run(prompt);
+await agent.run('Summarize the open issues.');
 const usage = sumMessagesUsage(agent.getHistory().slice(before));
 ```
 
-`cacheReadTokens` — the part of `promptTokens` the provider served from its prompt cache — is present
-only when a provider reported it (the OpenAI and OpenAI-compatible adapters do).
+`cacheReadTokens`, the part of `promptTokens` the provider served from its prompt cache, is present
+only when a provider reports it (the OpenAI and OpenAI-compatible providers do).
 
 ## IAgentConfig
 
-| Field                   | Type                       | Description                    |
-| ----------------------- | -------------------------- | ------------------------------ |
-| `name`                  | `string`                   | Agent name                     |
-| `aiProviders`           | `IAIProvider[]`            | One or more provider instances |
-| `defaultModel.provider` | `string`                   | Provider name                  |
-| `defaultModel.model`    | `string`                   | Model identifier               |
-| `systemMessage`         | `string?`                  | System prompt (top-level)      |
-| `tools`                 | `IToolWithEventService[]?` | Tools the agent can call       |
-| `plugins`               | `IPluginContract[]?`       | Plugins for lifecycle hooks    |
+The main fields:
 
-## Architecture
+| Field                   | Type                       | Description                                                |
+| ----------------------- | -------------------------- | ---------------------------------------------------------- |
+| `name`                  | `string`                   | Agent name                                                 |
+| `aiProviders`           | `IAIProvider[]`            | One or more provider instances                             |
+| `defaultModel.provider` | `string`                   | Name of the provider to use                                |
+| `defaultModel.model`    | `string`                   | Model identifier                                           |
+| `systemMessage`         | `string?`                  | System prompt                                              |
+| `tools`                 | `IToolWithEventService[]?` | Tools the agent can call                                   |
+| `plugins`               | `IPluginContract[]?`       | Plugins that receive lifecycle hooks                       |
+| `retainHistory`         | `boolean?`                 | Keep history across runs (default `true`)                  |
+| `maxExecutionRounds`    | `number?`                  | Cap on model-call rounds per run (`0` means no cap)        |
+| `isToolVisible`         | `(name) => boolean`        | Hide a registered tool from the model, checked every round |
+
+## Entry points
+
+| Import path                      | What it contains                                                                                                                                                                                           |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-core`         | The main API, listed under Main exports. It also has a browser build: nothing in its static import graph uses Node built-ins.                                                                              |
+| `@robota-sdk/agent-core/node`    | Node-only pieces: the `CommandExecutor` and `HttpExecutor` hook executors, path containment (`canonicalizePath`, `isPathInside`), owner-only file writes, and the egress policy (`fetchWithEgressPolicy`). |
+| `@robota-sdk/agent-core/testing` | Test fixtures: `createScriptedProvider`, `createRecordingProvider`, `createReplayProvider`.                                                                                                                |
+
+When you pass no executors, `runHooks` loads `CommandExecutor` and `HttpExecutor` on demand (this
+needs Node). Import them from `@robota-sdk/agent-core/node` only to pass them explicitly.
+
+## Main exports
+
+| Area                   | Exports                                                                                                                                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Agent**              | `Robota`, `ConversationStore`, `ConversationHistory`, `AbstractAgent`, `AgentFactory`, `AgentTemplates`                                                                                                                  |
+| **Providers**          | `AbstractAIProvider`, `IAIProvider`, `IChatOptions`, `IProviderCapabilities`, `getProviderCapabilities`, `assertProviderNativeWebToolsAvailable`, `IProviderDefinition`, `createProviderFromConfig`                      |
+| **Media providers**    | `IImageGenerationProvider`, `IVideoGenerationProvider`, `isImageGenerationProvider`, `isVideoGenerationProvider`, `createImageProviderFromDefinition`, `createVideoProviderFromDefinition`, `resolveMediaProviderConfig` |
+| **Tools**              | `FunctionTool`, `ToolRegistry`, `AbstractTool`, `IToolSchema`, `IToolResult`, `zodToJsonSchema`                                                                                                                          |
+| **Execution**          | `AbstractExecutor`, `LocalExecutor`, `IExecutor`                                                                                                                                                                         |
+| **Permissions**        | `evaluatePermission`, `projectPermissionPolicy`, `RISK_CLASS_POLICY`, `UNCLASSIFIED_TOOL_FALLBACK`, `TRUST_TO_MODE`, `TPermissionMode`, `TTrustLevel`, `TPermissionDecision`, `TToolArgs`, `IPermissionLists`            |
+| **Hooks**              | `runHooks`, `GuardrailExecutor`, `decodeHookVerdict`, `isEnforcing`, `THookEvent`, `THooksConfig`, `IHookGroup`, `THookDefinition`, `IHookInput`, `THookOutcome`, `IHookTypeExecutor`                                    |
+| **Plugins and events** | `AbstractPlugin`, `EventEmitterPlugin`, `IEventService`, `IOwnerPathSegment`                                                                                                                                             |
+| **Orchestration**      | Contracts for multi-agent orchestration (`ISequentialOrchestrationSpec`, `IParallelOrchestrationSpec`, …, `ORCHESTRATION_EVENTS`); the runners are in `@robota-sdk/agent-framework`                                      |
+| **Models**             | `registerModelMetadata`, `getModelContextWindow`, `getModelMaxOutput`, `getModelName`, `formatTokenCount`, `DEFAULT_CONTEXT_WINDOW`, `DEFAULT_MAX_OUTPUT`, `IModelDefinition`                                            |
+| **Context and usage**  | `estimateContextTokensFromMessages`, `estimateSerializedContextTokens`, `readTokenUsageFromMessage`, `sumMessagesUsage`, `IContextWindowState`, `IContextTokenUsage`                                                     |
+| **Messages**           | `TUniversalMessage`, `IBaseMessage`, `TMessageState`, `createUserMessage`, `createAssistantMessage`, `isAssistantMessage`, …                                                                                             |
+| **Errors**             | `RobotaError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, `StructuredOutputError`, `classifyProviderFailure`, `toProviderError`                                                     |
+
+## Where it sits
 
 ```
-agent-core (this package — zero workspace dependencies)
+agent-core            ← this package (no workspace dependencies)
   ↑
-agent-session     ← Session lifecycle
-agent-tools       ← Tool implementations
-agent-provider-* ← AI provider implementations (one package per vendor)
-agent-plugin      ← Plugin implementations (8 plugins, consolidated)
+agent-tools, agent-session, agent-plugin, agent-mcp, agent-provider-* (one package per vendor)
   ↑
-agent-framework   ← Assembly layer
+agent-framework       ← assembles sessions, commands, permissions and hooks
   ↑
-agent-cli         ← Terminal UI
+agent-cli             ← the `robota` reference app
 ```
 
-## Public API Surface
+- Built-in tools (Shell, Read, Edit, …): `@robota-sdk/agent-tools`
+- Ready-made plugins (logging, usage, limits, …): `@robota-sdk/agent-plugin`
+- MCP servers and tools: `@robota-sdk/agent-mcp`
+- Sessions with permissions, hooks and compaction: `@robota-sdk/agent-session`
 
-| Category        | Exports                                                                                                                                                                                                                               |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Core**        | `Robota`, `ConversationStore`, `AbstractAgent`, `AbstractAIProvider` (+ `streamWithAbort`), `AbstractPlugin`, `AbstractTool`, `AbstractExecutor`, `LocalExecutor`, `getProviderCapabilities`, `assertProviderNativeWebToolsAvailable` |
-| **Permissions** | `evaluatePermission`, `MODE_POLICY`, `TRUST_TO_MODE`, `UNKNOWN_TOOL_FALLBACK`, `TPermissionMode`, `TTrustLevel`, `TPermissionDecision`, `TToolArgs`, `IPermissionLists`, `TKnownToolName`                                             |
-| **Hooks**       | `runHooks`, `CommandExecutor`, `HttpExecutor`, `IHookTypeExecutor`, `THookEvent`, `THooksConfig`, `IHookGroup`, `IHookDefinition`, `IHookInput`, `THookOutcome`                                                                       |
-| **Events**      | `EventEmitterPlugin`, `IEventService`, `IOwnerPathSegment`                                                                                                                                                                            |
-| **Models**      | `registerModelMetadata()`, `DEFAULT_CONTEXT_WINDOW`, `DEFAULT_MAX_OUTPUT`, `getModelContextWindow()`, `getModelMaxOutput()`, `getModelName()`, `formatTokenCount()`, `IModelDefinition`                                               |
-| **Context**     | `estimateContextTokensFromMessages()`, `estimateSerializedContextTokens()`, `readTokenUsageFromMessage()`, `sumMessagesUsage()`, `IContextTokenEstimate`, `IMessageTokenUsage`, `IContextWindowState`, `IContextTokenUsage`           |
-| **Types**       | `TUniversalMessage`, `IBaseMessage` (`id`, `state`), `TMessageState`, `IAgentConfig`, `IAIProvider`, `IProviderCapabilities`, `IProviderNativeWebToolRequest`, `IToolSchema`, `TTextDeltaCallback`                                    |
-| **Errors**      | `RobotaError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, etc.                                                                                                                                   |
-| **Managers**    | `AgentFactory`, `AgentTemplates`, `ConversationHistory`, `EventHistoryModule`                                                                                                                                                         |
+## Repository examples
 
-## What Moved Out in v3
+From `packages/agent-core` in a built checkout of the repository, these scripts exercise hooks
+without a live model: `node examples/hook-block-demo.mjs`, `node examples/hook-json-response-demo.mjs`,
+`node examples/hook-permission-mode-demo.mjs` and `node examples/hook-timeout-demo.mjs`.
 
-| What                                          | Moved to                     |
-| --------------------------------------------- | ---------------------------- |
-| `FunctionTool`, `ToolRegistry`, `OpenAPITool` | `@robota-sdk/agent-tools`    |
-| `MCPTool`, `RelayMcpTool`                     | `@robota-sdk/agent-tool-mcp` |
-| 8 plugins (logging, usage, performance, etc.) | `@robota-sdk/agent-plugin`   |
+## Documentation
 
-## Repository Examples
-
-Repository contributors can run the owner-local hook examples after building this package:
-`node examples/hook-block-demo.mjs`, `node examples/hook-json-response-demo.mjs`,
-`node examples/hook-permission-mode-demo.mjs`, and `node examples/hook-timeout-demo.mjs`,
-from `packages/agent-core`. They exercise hooks without a live model; see the
-[hook contract](./docs/SPEC.md) for each example's verification limits.
+- [docs/SPEC.md](./docs/SPEC.md) — package contract and design decisions
+- [docs/HOOK-CATALOG.md](./docs/HOOK-CATALOG.md) — hook events, input fields and blocking semantics
+- [Building agents](../../content/guide/building-agents.md) — a walkthrough of `Robota`, tools and
+  structured output
+- [Permissions and hooks](../../content/guide/permissions-and-hooks.md)
 
 ## License
 

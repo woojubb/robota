@@ -6,16 +6,30 @@ Defined in `agent-core`, consumed by `agent-session`. One deterministic evaluati
 
 ### Evaluation Algorithm
 
+Each call gets one of three answers: `auto` (run it), `approve` (ask a person) or `deny`. The steps
+run in this order and the first one that decides wins:
+
 1. **Deny list**: if any deny pattern matches, return `deny`.
-2. **Ceiling**: a background task or subagent carries one (its policy's allow list). A call outside it is `deny` in every mode.
-3. **Unevaluable deny**: a deny pattern the gate cannot evaluate returns `approve` (ask).
-4. **Never auto-approved**: return `approve` in every mode, `bypassPermissions` included, for:
+2. **Ceiling**: a background task or subagent can carry one (its policy's allow list). A call outside
+   it is `deny` in every mode.
+3. **Peer turns**: `peer_reply` (answering another session's message) is `deny` outside a turn that
+   a peer's message started, and `peer_send_file` is `deny` inside one. A peer turn changes nothing
+   else; its other calls are decided like the session's own.
+4. **Unevaluable deny**: a deny pattern the gate cannot evaluate returns `approve` (`deny` in `plan`
+   mode).
+5. **Never auto-approved**: return `approve` in every mode, `bypassPermissions` included, for:
    - an `ask` pattern match;
-   - removing a critical path with `rm`/`rmdir` (the root, a top-level directory, home, the working directory or a parent);
-   - a write into `.git`, `.robota`, `.claude`, `.agents`, `.mcp.json`, `.gitconfig`, `.npmrc` or a shell rc file.
-5. **bypassPermissions**: return `auto`.
-6. **Allow list**: if any allow pattern matches, return `auto` (no prompt).
-7. **Mode policy**: look up the tool's risk class in the mode matrix.
+   - removing a critical path with `rm`/`rmdir` (the root, a top-level directory, home, the working
+     directory or a parent);
+   - a write into `.git`, `.robota`, `.claude`, `.agents`, `.mcp.json`, `.gitconfig`, `.npmrc` or a
+     shell rc file.
+6. **Ask for everything**: when the caller routes every remaining call to a person (a background
+   task whose policy is `prompt`), return `approve`.
+7. **bypassPermissions**: return `auto`.
+8. **Allow list**: if any allow pattern matches, return `auto` (no prompt).
+9. **Mode policy**: look up the tool's risk class in the mode matrix. A shell command the OS sandbox
+   confines returns `auto` here in `default`, `acceptEdits` and `auto` mode when sandbox `auto-allow`
+   is on. A tool with no declared risk class asks (`deny` in `plan` mode).
 
 `approve` goes to the attached approver, and with no approver it is a denial. In `plan` mode, `approve` for anything but a read-only tool is a denial.
 
@@ -177,7 +191,7 @@ Bash(pnpm *)        # Bash with command starting "pnpm "
 Read(/src/**)        # Read for files under /src/
 Write(*)             # Write with any argument
 ToolName             # Match any invocation (no arg constraint)
-Bash(run_in_background:true)  # deny/ask only: a named top-level parameter
+Agent(model:opus*)  # deny/ask only: a named top-level parameter
 github__*            # a tool-name glob: every tool of one MCP server
 ```
 
@@ -205,10 +219,8 @@ Lifecycle hooks for extending session behavior. Defined in `agent-core` and `age
 
 ### Events
 
-The full, authoritative catalog — every event with its exact timing, fire-site, input fields, and
-blocking semantics — lives in the SSOT
-[`packages/agent-core/docs/HOOK-CATALOG.md`](../../packages/agent-core/docs/HOOK-CATALOG.md), kept
-true to the code by the `scan-hook-catalog` drift guard. Summary:
+The full catalog, with each event's exact timing, input fields and blocking behavior, is
+[`packages/agent-core/docs/HOOK-CATALOG.md`](../../packages/agent-core/docs/HOOK-CATALOG.md). Summary:
 
 | Event                | Timing                                        | Purpose                         | Blocking            |
 | -------------------- | --------------------------------------------- | ------------------------------- | ------------------- |
@@ -233,22 +245,31 @@ Only `PreToolUse` can block. `PreModelCall`, `PostModelCall`, and `PermissionDec
 informational-only (fire-and-forget) despite the "Pre"/"Decision" naming — they cannot veto the
 action they observe.
 
-### Exit Code Protocol
+### How a hook answers
 
-| Code  | Meaning                        |
-| ----- | ------------------------------ |
-| 0     | Allow / proceed                |
-| 2     | Block / deny (stderr = reason) |
-| other | Proceed with warning           |
+Each hook run ends in one of three outcomes:
+
+| `command` hook exit                  | Other hook types                   | Outcome | On `PreToolUse`                                 |
+| ------------------------------------ | ---------------------------------- | ------- | ----------------------------------------------- |
+| `0`                                  | `{ "ok": true }`                   | allow   | The call goes on to the normal permission check |
+| `2` (stderr is the reason)           | `{ "ok": false, "reason": "..." }` | deny    | The call is refused with the reason             |
+| any other code, a timeout, a failure | an unreadable or failed response   | error   | The call is refused: no verdict is not approval |
+
+A hook cannot approve a call: an `allow` only lets it continue to the permission rules and mode. On
+`PreToolUse`, an `allow` whose stdout is JSON with `"continue": false` or
+`hookSpecificOutput.permissionDecision: "deny"` also refuses the call; a `permissionDecision` of
+`allow`, `ask` or `defer` and any `updatedInput` are reported but not applied. On every other event
+the outcome is recorded and nothing is blocked.
 
 ### Hook Types
 
-| Type      | Layer           | Description                                                   |
-| --------- | --------------- | ------------------------------------------------------------- |
-| `command` | agent-core      | Shell command; receives JSON via stdin, uses exit codes       |
-| `http`    | agent-core      | HTTP POST to a URL; supports env var interpolation in headers |
-| `prompt`  | agent-framework | Single-turn LLM evaluation; returns model response            |
-| `agent`   | agent-framework | Multi-turn subagent; runs a full agent loop                   |
+| Type        | Layer           | Description                                                                 |
+| ----------- | --------------- | --------------------------------------------------------------------------- |
+| `command`   | agent-core      | Shell command; receives the input as JSON on stdin, answers by exit code    |
+| `http`      | agent-core      | POSTs the input as JSON to a URL; `$VAR` references in headers are expanded |
+| `prompt`    | agent-framework | Asks a model to judge the input                                             |
+| `agent`     | agent-framework | Runs a subagent session on the input                                        |
+| `guardrail` | agent-core      | Runs guardrail functions an SDK host registered; the first failure denies   |
 
 ### Hook Input
 
@@ -267,9 +288,11 @@ Hooks receive JSON via stdin:
 
 The `prompt` field is included for Claude Code compatibility and contains the user's current prompt text (present for `UserPromptSubmit` and `SessionStart` events).
 
-### Hook Stdout Injection
+### Hook Output as Context
 
-For `SessionStart` and `UserPromptSubmit` events, hook stdout is injected into the AI context as a `<system-reminder>` block. This allows hooks to dynamically provide instructions, context, or constraints to the model.
+The output of a `UserPromptSubmit` hook is added to the prompt inside a `<system-reminder>` block,
+and a `SessionStart` hook's output is added the same way to the session's first prompt. Hooks use
+this to give the model instructions or context. A `UserPromptSubmit` hook cannot stop the prompt.
 
 ### Configuration
 
@@ -292,7 +315,8 @@ For `SessionStart` and `UserPromptSubmit` events, hook stdout is injected into t
 }
 ```
 
-Hooks have a 10-second timeout. Empty matcher matches all tools.
+An empty matcher matches every tool. Each hook can set `timeout` in seconds; without one, a
+`command` hook may run for 600 seconds, an `agent` hook for 60 and an `http` hook for 10.
 
 ## Plugin Hooks
 
@@ -302,14 +326,15 @@ Plugins can define their own hooks in `hooks/hooks.json` within the plugin direc
 
 Plugin hooks receive additional environment variables:
 
-| Variable             | Description                       |
-| -------------------- | --------------------------------- |
-| `CLAUDE_PLUGIN_ROOT` | Root directory of the plugin      |
-| `CLAUDE_PLUGIN_PATH` | Full path to the hook script      |
-| `CLAUDE_PROJECT_DIR` | Current project working directory |
-| `CLAUDE_SESSION_ID`  | Active session identifier         |
+| Variable             | Description                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------------ |
+| `CLAUDE_PLUGIN_ROOT` | The plugin's root directory (also substituted as `${CLAUDE_PLUGIN_ROOT}` in hook commands) |
+| `CLAUDE_PLUGIN_PATH` | The plugin's root directory (same value as `CLAUDE_PLUGIN_ROOT`)                           |
+| `CLAUDE_PLUGIN_DATA` | A data directory for the plugin                                                            |
 
-These environment variables use the `CLAUDE_` prefix for compatibility with Claude Code plugin conventions.
+Like every command hook, plugin hooks also receive `CLAUDE_PROJECT_DIR` (the project working
+directory) and `CLAUDE_SESSION_ID` (the session id). The `CLAUDE_` prefix keeps Claude Code plugins
+working unchanged.
 
 ## Execution Loop Context Management
 

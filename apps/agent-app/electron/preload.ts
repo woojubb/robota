@@ -7,7 +7,7 @@
 
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 
-import type { TSidecarState } from './sidecar.js';
+import type { ITrustQuestion, TSidecarState, TTrustChoice } from './sidecar.js';
 
 const api = {
   /** Resolve the loopback WS URL (with the token) the renderer connects to. */
@@ -17,6 +17,12 @@ const api = {
    * shell then reloads the page, which attaches to whatever the CLI answered.
    */
   restartRuntime: (): Promise<void> => ipcRenderer.invoke('agent-gui:restart'),
+  /** Asked before anything starts in a folder not trusted yet; `null` when there is nothing to ask. */
+  trustQuestion: (): Promise<ITrustQuestion | null> =>
+    ipcRenderer.invoke('agent-gui:trust-question'),
+  /** The person's answer. The shell reloads the page once a daemon is asked for; `error` keeps the question up. */
+  answerTrust: (choice: TTrustChoice): Promise<{ error?: string }> =>
+    ipcRenderer.invoke('agent-gui:trust-answer', choice),
   /** Tell the main process the session is live. The daemon is the CLI's to supervise, so nothing acts on it yet. */
   signalReady: (): void => ipcRenderer.send('agent-gui:ready'),
   /** Subscribe to lifecycle state (`starting`/`ready`/`fatal`). Returns an unsubscribe fn. */

@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-core",
   "version": "3.0.0-beta.83",
-  "description": "Complete AI agent implementation with unified core and tools functionality - conversation management, plugin system, and advanced agent features",
+  "description": "Foundation of the Robota SDK: the Robota agent engine and the provider, tool, plugin and permission contracts",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -89,7 +89,7 @@
     "url": "https://github.com/woojubb/robota.git",
     "directory": "packages/agent-core"
   },
-  "homepage": "https://robota.io/",
+  "homepage": "https://docs.robota.io/en/packages/agent-core/",
   "bugs": {
     "url": "https://github.com/woojubb/robota/issues"
   },

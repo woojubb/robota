@@ -44,11 +44,23 @@ const gemma = new GemmaProvider({ apiKey: 'lm-studio', baseURL: 'http://localhos
 
 ## Providers
 
-| Provider           | `defaultModel.provider` | Default endpoint                                               | Notes                                                                                                                                                                                             |
-| ------------------ | ----------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DeepSeekProvider` | `'deepseek'`            | `https://api.deepseek.com`                                     | `thinking` (`'enabled' \| 'disabled'`) and `reasoningEffort` are sent as DeepSeek's `thinking` and `reasoning_effort` request fields.                                                             |
-| `QwenProvider`     | `'qwen'`                | DashScope OpenAI-compatible endpoint (Singapore region)        | `builtInWebTools: { webSearch, webFetch }` switches requests to DashScope's Responses endpoint with its server-side web search / web extractor tools; `responsesBaseURL` overrides that endpoint. |
-| `GemmaProvider`    | `'gemma'`               | None of its own: set `baseURL` to the server hosting the model | Removes Gemma's reasoning-channel text from visible output and turns tool calls the model writes as text into structured tool calls.                                                              |
+| Provider           | `defaultModel.provider` | Default endpoint                                        |
+| ------------------ | ----------------------- | ------------------------------------------------------- |
+| `DeepSeekProvider` | `'deepseek'`            | `https://api.deepseek.com`                              |
+| `QwenProvider`     | `'qwen'`                | DashScope OpenAI-compatible endpoint (Singapore region) |
+| `GemmaProvider`    | `'gemma'`               | None: set `baseURL` to the server hosting the model     |
+
+Each provider adds a few options and behaviors of its own:
+
+- **DeepSeek:** `thinking` (`'enabled' | 'disabled'`) and `reasoningEffort` are sent as DeepSeek's
+  `thinking` and `reasoning_effort` request fields.
+- **Qwen:** turning on `builtInWebTools.webSearch` or `builtInWebTools.webFetch` switches requests to
+  DashScope's Responses endpoint with its server-side web search and web extractor tools;
+  `builtInWebTools.enableThinking` is sent as `enable_thinking` on those requests. `responsesBaseURL`
+  overrides the Responses endpoint.
+- **Gemma:** removes Gemma's reasoning-channel text from visible output and turns tool calls the
+  model writes as text into structured tool calls. The `gemma` provider definition (used by
+  `@robota-sdk/agent-builtin-providers`) defaults to a local server at `http://localhost:1234/v1`.
 
 ## Common options
 
@@ -64,6 +76,13 @@ constructor throws otherwise.
 | `client`       | `OpenAI`    | A pre-built `openai` client, used instead of `apiKey`.                                        |
 | `executor`     | `IExecutor` | Delegates chat calls to an executor instead of calling the API directly.                      |
 | `logger`       | `ILogger`   | Logger for internal provider messages (silent by default).                                    |
+
+## Errors
+
+A failed API call throws a typed error from `@robota-sdk/agent-core`: a `RateLimitError` for a rate
+limit, otherwise a `ProviderError` that carries the HTTP `status` and the error `type` the endpoint
+reported and keeps the SDK error as `originalError`. Streaming calls map failures the same way. An
+aborted call rethrows the abort unchanged.
 
 ## Exports
 

@@ -1,8 +1,17 @@
 # Context Management
 
-## Token Tracking
+Every model has a context window — the number of tokens it can read in one request. A session sends
+its whole conversation on every turn, so the conversation eventually outgrows the window. This page
+explains how a Robota session tracks usage, compacts the conversation before it overflows, and what
+happens when you interrupt a turn.
 
-`ContextWindowTracker` (in `agent-session`) reads the shared `agent-core` context estimator. Terminal provider usage is treated as the exact post-response state. If new user or tool messages appear after the latest provider usage, the estimator uses the maximum of serialized history, latest provider usage metadata, and any caller-provided usage floor, so previous metadata cannot hide a large prompt that has not been sent yet.
+## Token tracking
+
+`ContextWindowTracker` (in `agent-session`) keeps the session's current usage. After each model
+reply it uses the token usage the provider reported. When new user or tool messages have been added
+since then, it takes the largest of an estimate from the serialized history, the last reported
+usage, and any usage floor the caller supplied — so a large prompt that has not been sent yet is
+never hidden behind an older, smaller figure.
 
 ```typescript
 import type { InteractiveSession } from '@robota-sdk/agent-framework';
@@ -13,31 +22,45 @@ const state = session.getContextState();
 // { maxTokens: 200000, usedTokens: 85000, usedPercentage: 42.5, remainingPercentage: 57.5 }
 ```
 
-### Model Context Sizes
+The session emits `context_update` with the same `IContextWindowState` whenever usage changes.
 
-| Model                        | Context Window   |
+### Model context sizes
+
+The window size comes from the model metadata registry. For the Claude models with built-in
+metadata:
+
+| Model                        | Context window   |
 | ---------------------------- | ---------------- |
 | Claude Sonnet 4.6 / Opus 4.6 | 1,000,000 tokens |
 | Claude Haiku 4.5             | 200,000 tokens   |
+| Claude Sonnet 4.5 / Opus 4.5 | 200,000 tokens   |
 
 ## Compaction
 
-When the context window fills up, Robota compresses the conversation by generating an LLM summary.
+Compaction replaces the conversation with an LLM-written summary, freeing room while keeping what
+matters.
 
-### Auto-Compaction
+### Automatic compaction
 
-Triggers at ~83.5% of the model's context window. The sequence:
+Before each new turn, the session checks usage. If it has passed the threshold — about 83.5% of the
+context window by default — it compacts first, then runs the turn. The sequence:
 
-1. `PreCompact` hook fires
-2. Full conversation history sent to LLM with summarization prompt
-3. History cleared and replaced with `[Context Summary]` message
-4. Token tracking resets
-5. `PostCompact` hook fires with the summary
-6. `onCompact` callback notifies the UI
+1. The `PreCompact` hook runs.
+2. The full conversation is sent to the model with a summarization prompt.
+3. The history is replaced by a `[Context Summary]` message.
+4. Token tracking resets.
+5. The `PostCompact` hook runs with the summary.
+6. The session emits a `compact` event (`trigger`, and the context state `before` and `after`).
 
-Core also has a last-resort hard-capacity guard before provider calls. That guard uses the same effective estimator and blocks only past 95% of the model context window, returning diagnostic values so the CLI can explain why a prompt was rejected.
+The threshold is adjustable: the `autoCompactThreshold` setting takes a fraction between 0 and 1, or
+`false` to turn automatic compaction off, and `session.setAutoCompactThreshold()` changes it for a
+running session.
 
-### Manual Compaction
+As a last resort, `agent-core` checks capacity before every model call. Past 95% of the context
+window it does not send the request; it adds a notice to the conversation with the measured usage
+and a hint to reduce the history, instead of sending a request the provider would reject.
+
+### Manual compaction
 
 ```typescript
 import type { InteractiveSession } from '@robota-sdk/agent-framework';
@@ -47,15 +70,20 @@ declare const session: InteractiveSession;
 await session.compactContext('Focus on the API design decisions');
 ```
 
-CLI: `/compact focus on API changes`
+The optional argument adds instructions to the summarization prompt. In the `robota` CLI the same
+thing is `/compact focus on API changes`.
 
 ### Compact Instructions
 
-CLAUDE.md can define a "Compact Instructions" section. These instructions are automatically extracted during context loading and included in the compaction prompt to preserve project-specific context.
+A `CLAUDE.md` file can contain a heading named "Compact Instructions". The section under it is
+extracted when project context is loaded and added to every compaction prompt, so project-specific
+details survive compaction. Project files are read only when the session has trusted project access
+(see [Project context and settings](./sdk.md#project-context-and-settings)).
 
 ## Streaming
 
-The `text_delta` event provides real-time text as the model generates it:
+The `text_delta` event delivers reply text as the model generates it; `complete` carries the final
+result when the turn ends. The full event list is in [Using the SDK](./sdk.md#events).
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
@@ -65,24 +93,21 @@ const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }
 
 const session = new InteractiveSession({ cwd: process.cwd(), provider });
 session.on('text_delta', (delta) => process.stdout.write(delta));
+session.on('complete', (result) => console.log(`\n${result.contextState.usedPercentage}% used`));
 ```
 
-The `complete` event carries the final response after streaming finishes.
-
-### Web Search
-
-Provider-side web tools are distinct from Robota local tools. Anthropic supports server-side web search (`web_search_20250305`) through provider-native capability configuration, and `onServerToolUse` fires when search executes. Qwen supports provider-side `web_search` and `web_extractor` through `builtInWebTools`; those hosted tools record provenance in assistant-message metadata and do not bypass local Robota permission checks. OpenAI-compatible local endpoints such as LM Studio are treated as custom function-tool capable, not provider-native web search/fetch capable, unless a concrete provider package documents and enables that hosted capability. Use Robota local `WebSearch` and `WebFetch` tools for explicit local-tool web access with those endpoints.
-
-## Abort
-
-Cancel a running `InteractiveSession.submit()` via AbortSignal:
+## Aborting a turn
 
 ```typescript
 import type { InteractiveSession } from '@robota-sdk/agent-framework';
 
 declare const session: InteractiveSession;
 
-session.abort(); // Triggers AbortSignal, cancels streaming
+session.abort();
 ```
 
-The AbortSignal flows through the entire execution chain: `InteractiveSession` calls `Session.run()`, `Session.run()` passes the signal to `Robota.run()`, and `Robota.run()` passes it to the provider. `AbstractAIProvider.streamWithAbort()` provides a standard streaming wrapper that all providers use to handle abort — when the signal fires, the provider returns partial content with `stopReason: 'aborted'`. The partial response is committed to history with `state: 'interrupted'`.
+`abort()` fires an `AbortSignal` that travels down the whole chain: `InteractiveSession` →
+`Session.run()` → `Robota.run()` → the provider, which stops reading its response stream. The text
+received so far is committed to the history with `state: 'interrupted'`, the session emits
+`interrupted` with the partial result, and the next request tells the model that its previous reply
+was cut off. `abort()` also clears any prompts waiting in the queue.

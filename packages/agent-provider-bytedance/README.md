@@ -32,13 +32,15 @@ const snapshot = await provider.getVideoJob(created.value.jobId);
 if (snapshot.ok && snapshot.value.status === 'succeeded') {
   console.log(snapshot.value.output?.uri);
 }
+
+// Stop a job that is still running.
+await provider.cancelVideoJob(created.value.jobId);
 ```
 
-Every method returns a result object (`{ ok: true, value }` or `{ ok: false, error }`) instead of
-throwing. Errors carry a normalized `code` such as `PROVIDER_AUTH_ERROR`, `PROVIDER_RATE_LIMITED`,
-`PROVIDER_TIMEOUT`, `PROVIDER_INVALID_REQUEST`, `PROVIDER_JOB_NOT_FOUND` or
-`PROVIDER_UPSTREAM_ERROR`. Job status is normalized to `queued`, `running`, `succeeded`, `failed` or
-`cancelled`.
+The provider has three methods: `createVideo(request)` starts a task, `getVideoJob(jobId)` reads its
+current state, and `cancelVideoJob(jobId)` cancels it. `getVideoJob` and `cancelVideoJob` both return
+a job snapshot whose status is normalized to `queued`, `running`, `succeeded`, `failed` or
+`cancelled`. A `failed` snapshot carries the vendor's error message in `error` when the API sends one.
 
 `durationSeconds` and `aspectRatio` are forwarded as the task's `duration` and `ratio`. A request
 may include `inputImages` (inline base64 or URI); they are sent to the task as image content
@@ -58,6 +60,22 @@ alongside the prompt. A request with `seed` is rejected as invalid.
 | `cancelVideoTaskMethod`       | `'POST' \| 'DELETE'`     | HTTP method for cancellation (default `'DELETE'`).                                               |
 | `timeoutMs`                   | `number`                 | Per-request timeout in milliseconds (default `60000`).                                           |
 | `defaultHeaders`              | `Record<string, string>` | Extra headers added to every request.                                                            |
+
+## Errors
+
+Every method returns a result object (`{ ok: true, value }` or `{ ok: false, error }`) instead of
+throwing. `error.code` is normalized, and `error.status` holds the HTTP status when the failure was an
+HTTP response:
+
+| `code`                         | When                                                                                                                                  |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `PROVIDER_INVALID_REQUEST`     | The request fails a local check (empty prompt, model, job id or input image; `seed` set), or the API answers with another 4xx status. |
+| `PROVIDER_AUTH_ERROR`          | HTTP 401 or 403.                                                                                                                      |
+| `PROVIDER_JOB_NOT_FOUND`       | HTTP 404.                                                                                                                             |
+| `PROVIDER_JOB_NOT_CANCELLABLE` | HTTP 409: the job's current state does not allow cancellation.                                                                        |
+| `PROVIDER_RATE_LIMITED`        | HTTP 429.                                                                                                                             |
+| `PROVIDER_TIMEOUT`             | No response within `timeoutMs`.                                                                                                       |
+| `PROVIDER_UPSTREAM_ERROR`      | HTTP 5xx, a network failure, or a response the provider cannot read (not JSON, no task id, an unknown status).                        |
 
 ## Related packages
 

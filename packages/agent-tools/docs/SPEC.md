@@ -47,7 +47,9 @@ resolved against the tool's own containment root (its `cwd`), never against the 
 directory, before the containment check and the filesystem call — the same anchoring applies to
 `Glob`/`Grep`'s search root. The permission gate is not owned by this package, but the consumer
 wrapping the tool must canonicalize the same argument the same way before the gate sees it, so the
-path judged is the path opened.
+path judged is the path opened. `Read` decides containment on the file it opened wherever the
+platform can name that file (macOS, Linux), so a path swapped for a link after the check is refused,
+not followed.
 
 ### Write/Edit semantics
 

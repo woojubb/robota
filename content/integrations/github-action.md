@@ -1,23 +1,76 @@
-# GitHub Action — Coming Soon
+# Running Robota in GitHub Actions
 
-> **Not yet available.** The `robota-sdk/action` GitHub Action is planned but not yet published.
-> Follow the [GitHub repository](https://github.com/woojubb/robota) for release announcements.
+To use Robota in a GitHub Actions workflow today, install the reference CLI in a step and run it in
+print mode (`robota -p`): it answers one prompt, writes the answer to stdout, and exits. The repository
+also contains a packaged GitHub Action, but it is not released yet — see
+[The Robota GitHub Action](#the-robota-github-action-not-released) below.
 
-## In the Meantime
+## Run the CLI in a workflow
 
-You can run Robota in CI today using the CLI directly:
+This workflow reviews a pull request and posts the review as a comment:
 
 ```yaml
-- name: Install Robota CLI
-  run: npm install -g @robota-sdk/agent-cli
+name: AI review
 
-- name: Run Robota task
-  env:
-    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-  run: robota -p "Review the changed files in this PR"
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the Robota CLI
+        run: npm install -g @robota-sdk/agent-cli
+
+      - name: Review the pull request
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          robota --safe-mode -p "Review the changes between origin/$BASE_REF and HEAD (use git diff). List correctness problems and missing tests." > review.md
+
+      - name: Post the review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr comment ${{ github.event.pull_request.number }} --body-file review.md
 ```
 
-Or use the SDK programmatically in a Node.js step:
+What the steps rely on:
+
+- **Node.js 22.12 or later.** The CLI requires it, so set it up with `actions/setup-node`.
+- **An API key as a secret.** With `ANTHROPIC_API_KEY` set, the CLI needs no settings file and uses
+  Anthropic's default model; `GEMINI_API_KEY`, `DEEPSEEK_API_KEY` and `DASHSCOPE_API_KEY` (Qwen) work
+  the same way. Add `--model <model>` to choose another model.
+- **Workspace trust.** Print mode refuses to start in a Git repository that is not trusted, and a fresh
+  checkout is not. `--safe-mode` starts with every customization off — instruction files, skills,
+  commands, plugins, hooks and MCP servers — and runs Restricted, so it needs no trust. To load the
+  repository's `AGENTS.md`, settings, skills and hooks instead, run `robota trust --yes` before the
+  prompt; do that only for code you trust, because it runs the repository's hooks.
+- **Permissions.** Print mode uses the `default` permission mode: reads, searches and read-only commands
+  such as `git diff` run, and anything that would ask for approval (an edit, another shell command) is
+  denied, since no one can answer. Pass `--permission-mode acceptEdits` to allow edits, or
+  `bypassPermissions` to allow everything except a few protected operations, such as writes into
+  `.git`.
+- **Output.** The answer goes to stdout. `--output-format json` or `stream-json` gives
+  machine-readable output, and `--max-turns <n>` caps the number of agent turns.
+
+The [CLI reference](../guide/cli.md) lists every flag.
+
+### Use the SDK in a Node.js step
+
+A script step can call the SDK directly with `createQuery` from `@robota-sdk/agent-framework`:
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
@@ -26,100 +79,45 @@ import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 const query = createQuery({
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
 });
-const result = await query('Review the changed files in this PR for potential issues');
+const result = await query('Review the changed files in this branch for potential issues');
 console.log(result);
 ```
 
-## Planned (future)
+`createQuery` also runs in the `default` permission mode, and without a `projectAccess` decision it
+does not load the repository's instruction files or settings. See [Using the SDK](../guide/sdk.md).
 
-> Everything below describes the **planned** `robota-sdk/action@v1` interface. It is **not yet
-> published** — the blocks are a design preview, not usable steps today. Until the action ships, use
-> the CLI workaround above.
+## The Robota GitHub Action (not released)
 
-[Open an issue](https://github.com/woojubb/robota/issues) to request prioritization.
+The GitHub Action lives in [`apps/action`](../../apps/action/action.yml). It is not released: its
+`action.yml` runs `dist/index.js`, which is not committed, and no workflow builds or publishes it, so
+there is no `uses:` reference a workflow can point at yet. Until it is released, use the CLI as shown
+above.
 
-### Planned Quick Start
+The action runs `npx --yes @robota-sdk/agent-cli -p <task> --output-format <output>`, adding `--model`
+and `--max-turns` when they are set, with `api-key` passed to the CLI as `ANTHROPIC_API_KEY`. It sets
+the `result` output to what the CLI printed, and fails the step if the CLI exits with an error. Each
+input reaches the CLI as a separate argument, never through a shell, so a task built from issue or pull
+request text cannot inject shell commands.
 
-Once released, add the following step to your workflow:
-
-```yaml
-- name: Run Robota (planned — not yet available)
-  uses: robota-sdk/action@v1
-  with:
-    task: 'Review the changed files in this PR for potential issues'
-    api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-```
-
-### Planned Inputs
+### Inputs
 
 | Input       | Required | Default | Description                                      |
 | ----------- | -------- | ------- | ------------------------------------------------ |
 | `task`      | yes      | —       | The task or prompt to send to the agent          |
 | `model`     | no       | —       | AI model to use (e.g. `claude-sonnet-4-6`)       |
-| `api-key`   | no       | —       | Anthropic API key (prefer `secrets`)             |
+| `api-key`   | no       | —       | Anthropic API key (pass it from `secrets`)       |
 | `output`    | no       | `text`  | Output format: `text` \| `json` \| `stream-json` |
 | `max-turns` | no       | —       | Maximum agent turns before stopping              |
 
-### Planned Outputs
+### Outputs
 
 | Output   | Description             |
 | -------- | ----------------------- |
 | `result` | The agent response text |
 
-### Planned Examples
+## Security
 
-These examples are illustrative of the planned interface and do not run until the action is published.
-
-#### PR Review
-
-```yaml
-name: AI PR Review
-
-on:
-  pull_request:
-    types: [opened, synchronize]
-
-jobs:
-  review:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run Robota PR Review
-        id: review
-        uses: robota-sdk/action@v1
-        with:
-          task: 'Review the diff in this PR. Focus on correctness, type safety, and missing tests.'
-          api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-          output: text
-
-      - name: Post review as PR comment
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## Robota AI Review\n\n${{ steps.review.outputs.result }}`
-            })
-```
-
-#### Commit Message Analysis
-
-```yaml
-- name: Analyze recent commits
-  uses: robota-sdk/action@v1
-  with:
-    task: 'Summarize what changed in the last 5 commits'
-    api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-    max-turns: '3'
-```
-
-### Planned Security
-
-- Always pass the API key via `${{ secrets.ANTHROPIC_API_KEY }}`, never hardcode it.
-- The action will not collect file contents, paths, or user identifiers.
-- Set `ANTHROPIC_API_KEY` as a repository or organization secret in GitHub Settings.
-
-These same practices apply to the CLI workaround above.
+- Pass API keys through `secrets` (for example `${{ secrets.ANTHROPIC_API_KEY }}`), never in the
+  workflow file.
+- Pass untrusted text such as pull request titles or issue bodies to a step through `env`, not by
+  writing `${{ … }}` into a `run:` script.

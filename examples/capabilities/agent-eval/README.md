@@ -1,15 +1,15 @@
 # Capability: evals-as-code
 
-Define **metrics over your agent's runs** and gate CI on a metric breach — the same
-`eval = { dataset } × { metrics } × { threshold }` shape every agent stack ships, but neutral: Robota
-provides only the definition/runner; **you** supply the metrics and dataset.
+Define **metrics over your agent's runs** and gate CI on a metric breach. An eval is
+`{ cases } × { metrics } × { threshold }`; Robota provides only the definition and the runner — **you** supply
+the metrics and the dataset.
 
 - A **metric** is a pure function over the run's `IExecutionResult` (response + tool trajectory + usage +
   history) — not just the final string, so you can score whether the agent used the right tool, stayed under a
   token budget, etc.
 - `runEval(definition, runFn)` runs each case through a `runFn`, applies each metric, and returns a report with
   per-case scores and an overall pass/fail against the threshold.
-- A failing eval `process.exit(1)`s, so dropping this into a CI job fails the build on a regression.
+- The demo exits with code 1 when the eval fails, so dropping it into a CI job fails the build on a regression.
 
 ## Run
 

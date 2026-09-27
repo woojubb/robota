@@ -1,213 +1,257 @@
 # Architecture
 
-## Layer Structure
+Robota is a collection of TypeScript packages, not one framework you adopt whole. Each package owns
+one concern, and packages are stacked in layers so that a package only ever depends on the layers
+beneath it. This page explains what the layers are, why they are separate, and how a request moves
+through them. The repository-level summary is in [`ARCHITECTURE.md`](../../ARCHITECTURE.md); each
+package's contract is in its `docs/SPEC.md`.
 
-Robota SDK follows a strict bottom-up layered assembly model. Each layer builds on the layer below.
+## Why the layers exist
+
+- **Use as little as you need.** `@robota-sdk/agent-core` runs an agent on its own. You add the
+  session runtime, the assembly layer, a transport or a UI only when you need them, and you install
+  only the provider packages you actually call.
+- **Swap parts without touching the core.** Providers, tools, transports and user interfaces plug
+  into contracts that the lower layers define. Adding a vendor or a protocol is a new package, not an
+  edit to the engine.
+- **Keep implementations independent.** Shared types live in contract-only packages
+  (`agent-interface-*`). A transport can talk to a session through those contracts without
+  depending on the package that builds sessions.
+- **Keep product opinions at the edge.** Library packages stay neutral: they read no ambient config
+  and pick no file locations on their own. The `robota` CLI is one application built on top of them,
+  and it is where product decisions (which settings files to read, which commands to offer) live.
+
+## The layers
+
+Arrows point from a package to what it depends on. The diagram groups packages; the tables below
+list the exact members.
 
 ```mermaid
 flowchart TB
-    CLI["**agent-cli**\nCLI entry point · argument parsing · provider wiring · TUI startup · --serve runtime host"]
-    TUI["**agent-ui-terminal**\nInk/React terminal UI · TuiInteractionChannel"]
-    CMD["**agent-command**\ncore slash command modules\n(+ /workflows via agent-command-workflows)"]
-    TRANS["**agent-transport**\nwire protocol · session delivery\nbrowser-safe root + client · Node-only admission"]
-    FW["**agent-framework**\nInteractiveSession · CommandRegistry · createQuery()"]
-    SESS["**agent-session**\nsession lifecycle · permissions · hooks · compaction"]
-    EXEC["**agent-executor**\nbackground tasks · subagent lifecycle"]
-    TOOLS["**agent-tools**\nToolRegistry · createZodFunctionTool · 9 built-in CLI tools"]
-    PROV["**agent-provider-{vendor}**\nAnthropic · OpenAI · OpenAI-compatible · Gemini · ByteDance"]
-    PLUG["**agent-plugin**\n8 official plugins"]
-    CORE["**agent-core**\nFoundation · Robota engine · DI · events · plugin system"]
+    SURF["**Surfaces**\nagent-cli · agent-ui-terminal · agent-ui-web · agent-gui-web"]
+    TRANS["**Transports**\nagent-transport · agent-transport-{http,ws,mcp,webrtc}"]
+    COMP["**Composition**\nagent-command · agent-preset\nagent-builtin-providers · agent-product · pack-coding"]
+    FW["**Assembly**\nagent-framework"]
+    RT["**Runtime**\nagent-session · agent-executor · agent-tool-defaults"]
+    CAP["**Capabilities**\nagent-tools · agent-mcp · agent-plugin\nagent-provider-{anthropic,openai,openai-compatible,gemini,bytedance}"]
+    IF["**Contracts**\nagent-interface-*"]
+    CORE["**Foundation**\nagent-core"]
 
-    CLI --> FW
-    CLI --> TUI
-    CLI --> CMD
-    CLI --> TRANS
-    TUI --> FW
-    CMD --> FW
-    FW --> SESS
-    FW --> EXEC
-    FW --> TOOLS
-    FW --> PROV
-    FW --> PLUG
-    SESS --> CORE
-    EXEC --> CORE
-    TOOLS --> CORE
-    PROV --> CORE
-    PLUG --> CORE
+    SURF --> TRANS
+    SURF --> COMP
+    SURF --> FW
+    COMP --> FW
+    COMP --> CAP
+    TRANS --> IF
+    FW --> RT
+    FW --> CAP
+    FW --> IF
+    RT --> IF
+    RT --> CAP
+    CAP --> CORE
+    RT --> CORE
+    IF --> CORE
 
-    classDef cli fill:#1e1e3f,stroke:#a78bfa,color:#e8e4ff
+    classDef edge fill:#1e1e3f,stroke:#a78bfa,color:#e8e4ff
     classDef framework fill:#1a1a38,stroke:#7c6bf7,color:#e8e4ff
     classDef general fill:#161630,stroke:#5a4de6,color:#e8e4ff
     classDef core fill:#0d0d25,stroke:#4f44d0,color:#fff
 
-    class CLI,TUI,CMD,TRANS cli
+    class SURF,TRANS,COMP edge
     class FW framework
-    class SESS,EXEC,TOOLS,PROV,PLUG general
+    class RT,CAP,IF general
     class CORE core
 ```
 
-## Package Roles
+### Foundation — `agent-core`
 
-| Package                        | Role                                                                                                                                                                                                             | Layer        |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **agent-core**                 | Robota engine, execution loop, provider abstraction, permissions, hooks, plugin system, model definitions (SSOT)                                                                                                 | Foundation   |
-| **agent-tools**                | ToolRegistry, FunctionTool, createZodFunctionTool, 9 built-in CLI tools                                                                                                                                          | General      |
-| **agent-session**              | Session class with permission enforcement, context tracking, compaction                                                                                                                                          | General      |
-| **agent-session-analytics**    | Session log timing analysis (LLM wait vs. tool/code time, slow intervals) — new in beta.76                                                                                                                       | Analytics    |
-| **agent-executor**             | Background task state machines, subagent manager contracts, task snapshots, watchdogs, transcript references                                                                                                     | General      |
-| **agent-provider-{vendor}**    | One provider client package per vendor: Anthropic, OpenAI, OpenAI-compatible (DeepSeek, Qwen, Gemma), Gemini, ByteDance                                                                                          | General      |
-| **agent-plugin**               | 8 official plugins: ConversationHistory, Logging, Usage, Limits, ErrorHandling, ExecutionAnalytics, Performance, Webhook                                                                                         | General      |
-| **agent-command**              | Consolidated slash command package — the core command modules in a single import. `/workflows` ships separately in `agent-command-workflows` (bundled into the CLI)                                              | SDK-specific |
-| **agent-framework**            | Assembly: InteractiveSession, CommandRegistry, BuiltinCommandSource, SkillCommandSource, config loading, context discovery, skill/agent runtime APIs, createQuery()                                              | SDK-specific |
-| **agent-transport**            | Browser-safe wire protocol, session bridge, channel codecs, and delivery helpers; browser decoders under `./client`, Node-only admission and handoff helpers under `./node`. Carrier packages remain standalone. | Transport    |
-| **agent-ui-terminal**          | TUI rendering layer — all Ink/React terminal UI components, `TuiInteractionChannel` (owns session lifecycle), and `useTuiChannel` hook (standalone package since beta.76)                                        | Presentation |
-| **agent-cli**                  | CLI entry point: argument parsing, provider factory, TUI startup, and the `robota --serve` headless runtime-host mode (RUNTIME-001); wires `agent-ui-terminal`, `agent-command`, `agent-framework`               | CLI          |
-| **agent-remote-client**        | HTTP client for calling a remote Robota agent exposed via `agent-transport-http`                                                                                                                                 | Client       |
-| **agent-ui-web**               | Shared GUI core — session reducer (`useSessionClient`/`useWsSession`) + view components (`ConversationView`, `AgentActivityPanel`, `PermissionPrompt`) + `SessionSurface` shell + `theme.css`                    | Browser UI   |
-| **agent-transport-webrtc-web** | Browser WebRTC peer (`RemoteClient`, `useRtcSession`) rendered over the GUI core                                                                                                                                 | Browser UI   |
-| **packages/agent-gui-web**     | The GUI web app (Vite): the desktop app loads its build, agent-cli serves it over localhost HTTP on `robota --serve --open`, `gui:dev` runs it in a browser                                                   | Browser UI   |
-| **apps/agent-app**             | Electron shell: spawns a `robota --serve` sidecar, hands its loopback address to the page, and loads `agent-gui-web`                                                                                             | Desktop UI   |
-| **agent-interface-transport**  | Transport contract interfaces only (no implementation): `ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`                                                                                        | Contracts    |
-| **agent-interface-tui**        | TUI interaction type contracts only: `ITuiCommandInteraction`, `ITuiCliAdapter`, `ITerminalOutput` — no runtime deps                                                                                             | Contracts    |
+`agent-core` contains the `Robota` agent class and its execution loop (model call, tool calls,
+repeat), the provider abstraction (`IAIProvider`, `AbstractAIProvider`), the tool registry
+(`FunctionTool`, `ToolRegistry`), the plugin base class (`AbstractPlugin`), permission evaluation,
+hook execution, context-window accounting, model metadata, and the typed error classes.
 
-## Dependency Flow
+It has no dependency on any other Robota package. Everything else registers with it through its
+abstract contracts, so it can be used alone and nothing can form a dependency cycle through it.
+Node-only helpers are on a separate `@robota-sdk/agent-core/node` entry point so that the main entry
+also works in a browser.
 
-```
-agent-cli              ─→ agent-framework, agent-ui-terminal, agent-command
-agent-ui-terminal    ─→ agent-framework, agent-interface-tui, agent-interface-transport, agent-core
-agent-transport        ─→ agent-interface-{analytics,command,execution,session,session-mobility,transport}
-agent-command          ─→ agent-core, agent-framework
-agent-remote-client                    (HTTP client, no agent-framework dependency)
-agent-ui-web        ─→ agent-interface-{command,execution,session,transport}, agent-transport
-agent-transport-webrtc-web ─→ agent-ui-web, agent-remote-pairing, agent-transport
-packages/agent-gui-web     ─→ agent-ui-web
-apps/agent-app             ─→ agent-gui-web (build output only; spawns robota --serve over loopback WS; no agent-framework/agent-core dep)
-```
+### Contracts — `agent-interface-*`
 
-> **Runtime host (RUNTIME-001).** `startRuntimeHost()`/`buildRuntimeSession()` live in `agent-framework`: they build and serve one headless `InteractiveSession` over a loopback WS. The TUI (`agent-cli`) and the desktop GUI (`apps/agent-app`, which spawns `robota --serve`) are sibling presentations over that one shared runtime host.
+| Package                            | Contracts it owns                                                           |
+| ---------------------------------- | --------------------------------------------------------------------------- |
+| `agent-interface-session`          | Interactive sessions, session events, turns, persistence records            |
+| `agent-interface-command`          | Commands, command results, command modules, capability descriptors          |
+| `agent-interface-execution`        | Background tasks, job groups, subagent jobs, execution workspaces           |
+| `agent-interface-transport`        | Transport adapters (`ITransportAdapter`) and transport configuration        |
+| `agent-interface-session-mobility` | Moving a session between processes and devices                              |
+| `agent-interface-analytics`        | Usage snapshots, per-source totals, run-trace timelines                     |
+| `agent-interface-tui`              | Terminal command interactions (pickers, confirmations, missing-arg prompts) |
 
-## React / Ink Policy
+These packages hold types, not behavior. An interface package depends only on `agent-core` and on
+lower interface packages, never on an implementation. That is what lets, for example, every
+transport accept a session without depending on `agent-framework`.
 
-| Category          | Packages allowed                                                                                             | Rule                                        |
-| ----------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| React + Ink (TUI) | `agent-ui-terminal` only                                                                                     | Never in protocol transport or SDK packages |
-| React (browser)   | `agent-playground`, `agent-ui-web`, `agent-transport-webrtc-web`, `packages/agent-gui-web`                   | Browser app packages only                   |
-| Pure TypeScript   | Everything else (core, framework, transport, CLI)                                                            | No React or Ink dependencies                |
+### Capabilities — providers, tools, MCP, plugins
 
-## Data Flow: IHistoryEntry[]
+| Package                                 | What it provides                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------------------- |
+| `agent-provider-anthropic`              | Anthropic Claude                                                                      |
+| `agent-provider-openai`                 | OpenAI                                                                                |
+| `agent-provider-openai-compatible`      | DeepSeek, Qwen, and Gemma-family models behind OpenAI-compatible endpoints            |
+| `agent-provider-gemini`                 | Google Gemini                                                                         |
+| `agent-provider-bytedance`              | ByteDance (ModelArk) video generation                                                 |
+| `agent-tools`                           | Tool factories (`createZodFunctionTool`, `createFunctionTool`) and the built-in tools |
+| `agent-mcp`                             | Model Context Protocol client: server definitions, activation, OAuth sign-in          |
+| `agent-plugin`                          | Eight ready-made plugins (logging, usage, limits, webhooks, and more)                 |
+| `agent-process`, `agent-file-authority` | Small helpers: process-tree termination, bounded root-relative file reads             |
+| `agent-session-analytics`               | Session-log timing and usage analysis, reports and OTLP export                        |
+| `agent-remote-pairing`                  | Pairing and channel binding for peer-to-peer connections (no Robota dependencies)     |
 
-`InteractiveSession` maintains history as `IHistoryEntry[]` — a universal timeline that includes both chat messages (user/assistant turns) and session events (tool calls, system events, status changes). This is the single source of truth for display and persistence.
+Each provider package is a leaf over `agent-core` (the OpenAI package also reuses
+`agent-provider-openai-compatible`), so a vendor SDK is installed only by the package that needs
+it. `agent-plugin` depends only on `agent-core`; plugins attach to the engine and never reach into
+the layers above it.
 
-Background tasks are tracked alongside the session through runtime snapshots and append-only JSONL event/transcript streams. High-frequency streaming output is stored in logs/transcripts, while session JSON stores resumable task state and references.
+### Runtime — `agent-session`, `agent-executor`, `agent-tool-defaults`
+
+`agent-session` wraps a `Robota` instance in a `Session`: tool calls pass through permission checks
+and hooks, context usage is tracked, the conversation is compacted when it grows too large, and
+records can be persisted through a store port. It receives its provider and tools already built;
+it never constructs them.
+
+`agent-executor` provides background-task lifecycles (queueing, cancellation, snapshots) and the
+subagent job ports.
+
+`agent-tool-defaults` holds `createDefaultTools()`, the default tool set (built on `agent-tools`).
+`agent-framework` loads it lazily when it assembles a session, and a caller replaces it by passing its
+own `defaultTools`; a library that needs only the tool mechanism depends on `agent-tools` and never
+pulls in the default catalog.
+
+### Assembly — `agent-framework`
+
+`agent-framework` puts the lower layers together into a ready-to-use session. Its entry points are
+`InteractiveSession`, `createQuery()` and `createAgentRuntime()`. It also owns config and context
+loading, workspace trust, the command registry, skills, subagent assembly, and the headless and
+programmatic runners.
+
+It is provider-neutral — you construct the provider and pass it in — and it contains no React or
+Ink. It reads only the files and directories its host passes to it: without an explicit decision it
+loads no user settings, no project instructions and no project skills. See
+[Using the SDK](./sdk.md).
+
+### Composition — defaults, presets, commands, packs
+
+| Package                   | Role                                                                              |
+| ------------------------- | --------------------------------------------------------------------------------- |
+| `agent-builtin-providers` | `createDefaultProviderDefinitions()` — the built-in chat provider definitions     |
+| `agent-command`           | The slash-command modules (`/help`, `/compact`, `/permissions`, and the rest)     |
+| `agent-preset`            | Named bundles of session options (persona, model, permission posture)             |
+| `agent-capability-pack`   | `ICapabilityPack` and `mergeCapabilityPacks()` for adding tools, commands, agents |
+| `pack-coding`             | `createCodingPack()` — the coding tools, commands and subagents as one pack       |
+| `agent-product`           | `assembleProduct()` — builds a product from a declarative profile                 |
+| `agent-subagent-runner`   | Optional runner that executes subagents in child processes                        |
+
+These packages are meant to be imported where an application is put together (its "composition
+root"), not by libraries in the middle of the stack, so a library that only needs the mechanisms
+never drags in these defaults.
+
+### Transports
+
+| Package                  | Protocol                                                        |
+| ------------------------ | --------------------------------------------------------------- |
+| `agent-transport`        | Carrier-neutral wire messages, decoders and delivery helpers    |
+| `agent-transport-http`   | HTTP, built on Hono                                             |
+| `agent-transport-ws`     | WebSocket                                                       |
+| `agent-transport-mcp`    | Exposes a session as an MCP server (stdio and Streamable HTTP)  |
+| `agent-transport-webrtc` | Peer-to-peer WebRTC data channels (remote control, device mesh) |
+
+A transport is a thin adapter: it turns protocol messages into session calls (submit, abort,
+commands, permission answers) and sends session events back. Transports implement
+`ITransportAdapter` from `agent-interface-transport` and depend on the session contracts, not on
+`agent-framework`. `agent-framework` itself provides the non-interactive runner (`text`, `json` or
+`stream-json` output) and the `TransportRegistry` that starts and stops several transports
+together. See [Deployment](./deployment.md).
+
+### Surfaces
+
+| Package                                 | What it is                                                                       |
+| --------------------------------------- | -------------------------------------------------------------------------------- |
+| `agent-ui-terminal`                     | The terminal UI (React + Ink), including `renderApp` and `TuiInteractionChannel` |
+| `agent-cli`                             | The `robota` command — a reference application built from the packages above     |
+| `agent-ui-web` (internal)               | GUI components and a session reducer over the transport wire protocol            |
+| `agent-gui-web` (internal)              | The GUI web app served by `robota --serve --open` and loaded by the desktop app  |
+| `agent-transport-webrtc-web` (internal) | The browser side of a WebRTC remote-control connection                           |
+
+`agent-cli` bundles the Robota packages it uses into its own build, so installing it does not
+install the SDK packages separately. The desktop app (`apps/agent-app`) is an Electron shell: it
+starts or reuses the workspace's `robota` daemon, connects to it over loopback, and loads
+`agent-gui-web`.
+
+React and Ink appear only in these surface packages: Ink in `agent-ui-terminal` (and `agent-cli`,
+which bundles it), React in the terminal and web UI packages. Every other package is plain
+TypeScript.
+
+### Internal packages
+
+Some packages are marked `private` and are not published to npm: the DAG workflow engine
+(`dag-*`) and `agent-command-workflows`, which together power the CLI's `/workflows` command and are
+bundled into `agent-cli`; the web UI packages above; `agent-playground`; `agent-remote-client`; and
+`agent-provider-replay`, a provider that replays a recorded session for offline tests.
+
+## Dependency rules
+
+These rules keep the layering real rather than aspirational (the full list is in
+[`ARCHITECTURE.md`](../../ARCHITECTURE.md)):
+
+- Dependencies point one way, down the layers. There are no cycles.
+- `agent-core` depends on no other Robota package.
+- An `agent-interface-*` package depends only on `agent-core` and lower interface packages.
+- Plugin packages depend only on `agent-core`.
+- `agent-framework` and `agent-core` never depend on a transport or UI package.
+- No package re-exports another package wholesale; you import a symbol from the package that owns it.
+
+## How a turn flows
+
+`InteractiveSession` records everything that happens in one ordered history of `IHistoryEntry`
+items. An entry's `category` is `'chat'` for user and assistant messages and `'event'` for things
+such as tool starts and ends. The same history drives display and persistence.
 
 ```
 User input
   → InteractiveSession.submit()
-  → history appended: IHistoryEntry (category: 'chat', role: 'user')
-  → Session.run()
-  → AI provider receives filtered view (chat-only IHistoryEntry[])
-  → streaming response → text_delta / tool_start / tool_end events
-  → history appended: IHistoryEntry (category: 'chat', role: 'assistant')
-  → event entries appended: IHistoryEntry (category: 'event', ...)
-  → thinking / context_update events emitted
-  → clients (CLI, HTTP, MCP, WS, Headless) update their state from events
+  → history: IHistoryEntry (category 'chat', user message)
+  → Session.run() → Robota.run()
+  → the provider receives only the chat entries, converted to messages
+  → streaming reply → text_delta events; tool calls → tool_start / tool_end events
+  → history: assistant message (category 'chat') and tool entries (category 'event')
+  → context_update, then complete (or interrupted / error)
+  → every attached client (terminal, web GUI, HTTP, WebSocket, MCP) updates from the events
 ```
 
-Key invariant: AI providers never receive event-kind entries. The session layer filters to chat-only entries before forwarding context to the provider.
+The provider never sees event entries; the session filters the history to chat messages before each
+model call. Background tasks are tracked beside the session as task snapshots and append-only
+transcripts, so a long-running task's output does not rewrite the session record on every chunk.
 
-Rules:
+`Session` delegates to focused components: `PermissionEnforcer` wraps each tool with permission
+checks and hooks, `ContextWindowTracker` tracks token usage and the auto-compaction threshold, and
+`CompactionOrchestrator` summarizes the conversation when it is compacted. See
+[Context Management](./context-management.md).
 
-- Dependencies are one-way. No cycles.
-- `agent-core` has zero workspace dependencies (foundation).
-- `agent-session` depends only on `agent-core` (generic — no tools or providers).
-- Assembly (wiring tools + provider + prompt) happens in `agent-framework`.
-- `InteractiveSession` (in `agent-framework`) is the gateway for all transport adapters. There is no separate `IAgentGateway` interface — transports consume `InteractiveSession` directly.
-- `agent-cli` and transport packages depend only on `agent-framework`; they do not access `agent-session` or `agent-core` directly.
-- `agent-remote-client` is a standalone HTTP client; it does not depend on `agent-framework`.
+## Plugins
 
-## Design Patterns
+`agent-core` defines `AbstractPlugin`; `@robota-sdk/agent-plugin` provides eight implementations.
+A plugin overrides the lifecycle hooks it cares about, such as `beforeRun`, `afterRun`,
+`beforeProviderCall`, `afterProviderCall` and `onError`. A failing hook is logged and does not fail
+the run. The hook list and examples are in [Building Agents](./building-agents.md#plugins).
 
-| Pattern         | Where                                                        | Purpose                                       |
-| --------------- | ------------------------------------------------------------ | --------------------------------------------- |
-| **Facade**      | `Robota`, `Session`, `InteractiveSession`                    | Single entry point hiding internal complexity |
-| **Decorator**   | `PermissionEnforcer.wrapTools()`                             | Wraps tools with permission checks            |
-| **Strategy**    | `IAIProvider`, `ISessionLogger`                              | Swappable implementations                     |
-| **Factory**     | `InteractiveSession`, `createZodFunctionTool()`              | Object creation                               |
-| **Null Object** | `SilentLogger`, `DefaultEventService`                        | Safe no-op defaults                           |
-| **Registry**    | `ToolRegistry`, `CommandRegistry`                            | Central management of tools and commands      |
-| **Composition** | `InteractiveSession` → `Session`; `Session` → sub-components | Delegation over inheritance                   |
+## Design patterns
 
-## Session Sub-Components
-
-`Session` delegates to focused sub-components:
-
-| Component                | Responsibility                                                      |
-| ------------------------ | ------------------------------------------------------------------- |
-| `PermissionEnforcer`     | Tool wrapping, permission checks, hook execution, output truncation |
-| `ContextWindowTracker`   | Token usage tracking, auto-compact threshold                        |
-| `CompactionOrchestrator` | Conversation summarization via LLM (PreCompact hook)                |
-
-## InteractiveSession
-
-`InteractiveSession` (in `agent-framework`) wraps `Session` via composition to provide an event-driven API suitable for any interactive client. It is the single gateway used by all transport adapters — CLI, HTTP, MCP, WebSocket, and Headless.
-
-Key responsibilities:
-
-| Concern               | Detail                                                                                                                           |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| **submit / abort**    | `submit(input)` starts a run; `abort()` cancels the current run                                                                  |
-| **cancelQueue**       | Cancels the pending queued prompt without aborting the in-flight run                                                             |
-| **Prompt queue**      | Queues a new prompt submitted while a run is in progress                                                                         |
-| **Event emission**    | Emits typed events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `context_update`, `error`) consumed by clients           |
-| **Universal history** | Maintains `IHistoryEntry[]` — unified timeline of chat messages and session events; `getFullHistory()` returns the complete list |
-| **CommandRegistry**   | SDK-owned utility used by clients to aggregate built-in, skill, plugin, and command-module sources for slash-command discovery   |
-
-`agent-ui-terminal`'s `TuiInteractionChannel` owns the session lifecycle and subscribes to these events, translating them into channel state via `TuiStateManager`. The `useTuiChannel` React hook bridges channel state into `App.tsx`. `InteractiveSession` itself has no React dependency.
-
-The shared event vocabulary also includes prompt request/settlement, plan lifecycle, context-file refresh,
-and checkpoint/branch transitions. Each presentation or protocol layer owns an exhaustive classification
-of that vocabulary. Transport delivery failures are isolated at the carrier boundary, so a broken socket
-or renderer cannot turn an already-persisted session operation into a domain failure.
-
-## Transport Layer
-
-The transport layer exposes `InteractiveSession` over various protocols. Each transport is a thin adapter that bridges the protocol to the session's `submit` / `abort` / event API.
-
-| Package                  | Protocol                       | Runtime                                        |
-| ------------------------ | ------------------------------ | ---------------------------------------------- |
-| **agent-ui-terminal**    | Terminal (stdin, Ink TUI)      | Node.js (Ink + React)                          |
-| **agent-transport-http** | HTTP / REST                    | Cloudflare Workers, Node.js, AWS Lambda (Hono) |
-| **agent-transport-mcp**  | MCP                            | Node.js stdio / SSE (MCP SDK)                  |
-| **agent-transport-ws**   | WebSocket                      | Any WS library (framework-agnostic)            |
-| **agent-framework**      | stdin/stdout (non-interactive) | Node.js — text/json/stream-json output         |
-
-All adapters import `InteractiveSession` from `agent-framework`. None of them implement session logic — they only translate protocol messages into session calls and forward session events back to the caller.
-
-Protocol and runner adapters implement `ITransportAdapter` (defined in
-`agent-interface-transport`). Its frozen service/runner kind makes readiness and completion distinct:
-`attach(session)` binds a borrowed session, `start()` resolves at readiness/launch, and `stop()` is
-safe to repeat. Runner completion uses a separate typed outcome. `agent-ui-terminal` is a
-session-owning presentation boundary and does not implement this port. Registry aggregation keeps
-adapter success/failure distinct from registry-owned stop/rollback abandonment.
-
-`agent-remote-client` is a companion HTTP client that allows a remote process to call an agent exposed via `agent-transport-http`. It has no dependency on `agent-framework`.
-
-## Plugin Architecture
-
-`agent-core` defines the `AbstractPlugin` base class. 8 plugin implementations are available in `@robota-sdk/agent-plugin`.
-
-Plugins integrate with the agent lifecycle via hooks: `beforeRun`, `afterRun`, `onError`, `onStreamChunk`, `beforeToolExecution`, `afterToolExecution`.
-
-## Changes from v2.0.0
-
-In v2.0.0, `agent-core` contained everything: tools, plugins, session management. In v3.0.0:
-
-- **Tools** moved to `agent-tools` (FunctionTool, ToolRegistry, built-in tools)
-- **Plugins** consolidated in `@robota-sdk/agent-plugin`
-- **Session** created as `agent-session` with permission and hook support
-- **Background tasks** handled by `agent-executor`
-- **SDK assembly** in `agent-framework`
-- **CLI** entry point is `agent-cli`
-- **TUI** (Ink/React) in the standalone `agent-ui-terminal` package
-- **Transport** (protocol-only) in the standalone `agent-transport-{http,ws,mcp}`
-- **Permissions** and **Hooks** added to `agent-core` as general-purpose infrastructure
+| Pattern         | Where                                                              | Purpose                                          |
+| --------------- | ------------------------------------------------------------------ | ------------------------------------------------ |
+| **Facade**      | `Robota`, `Session`, `InteractiveSession`                          | One entry point over many internal parts         |
+| **Decorator**   | `PermissionEnforcer.wrapTools()`                                   | Adds permission checks around each tool          |
+| **Strategy**    | `IAIProvider`, `ISessionLogger`                                    | Swappable implementations                        |
+| **Factory**     | `createQuery()`, `createAgentRuntime()`, `createZodFunctionTool()` | Build configured objects                         |
+| **Null Object** | `SilentLogger`, `DefaultEventService`                              | Safe do-nothing defaults                         |
+| **Registry**    | `ToolRegistry`, `CommandRegistry`, `TransportRegistry`             | One place to look up tools, commands, transports |
+| **Composition** | `InteractiveSession` → `Session` → `Robota`                        | Delegation instead of inheritance                |
