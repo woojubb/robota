@@ -109,8 +109,10 @@ export async function buildProviderDelete(
       success: false,
     };
   }
+  // #3282 §2: the GUI renders this confirm on its shared ConfirmDialog (id 'provider-delete') with
+  // this exact title — kept in the quoted-name form the TUI's inline picker shows the same way.
   const response = await ui.ask(
-    confirmAction('provider-delete', `Delete provider profile ${profileName}?`),
+    confirmAction('provider-delete', `Delete profile "${profileName}"?`),
   );
   if (!isConfirmed(response)) {
     return { message: 'Provider delete cancelled.', success: true };

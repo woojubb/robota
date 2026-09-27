@@ -187,6 +187,7 @@ export function SessionSurface({
           view={view}
           onView={setView}
           personalUsageEnabled={personalUsageEnabled}
+          connectionLost={state.connectionLost ?? false}
         />
 
         {usage ? (
@@ -261,7 +262,12 @@ export function SessionSurface({
                       // reliably disappears instead of trusting the clear went through.
                       state.send({ type: 'get-pending' });
                     }}
-                    onCommand={(name) => state.send({ type: 'command', name })}
+                    onCommand={(name, args) =>
+                      state.send({ type: 'command', name, ...(args ? { args } : {}) })
+                    }
+                    modelList={state.modelList}
+                    onRequestModelList={() => state.requestModelList()}
+                    onSilentCommand={(name, args) => state.sendCommandSilently(name, args)}
                     onSubmit={(prompt) => {
                       if (!prompt.startsWith('/')) {
                         state.send({ type: 'submit', prompt });

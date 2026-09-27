@@ -41,6 +41,7 @@ export function SessionTitleBar({
   view,
   onView,
   personalUsageEnabled,
+  connectionLost = false,
 }: {
   status: string;
   surface?: string;
@@ -51,9 +52,23 @@ export function SessionTitleBar({
   view: 'chat' | 'usage';
   onView: (view: 'chat' | 'usage') => void;
   personalUsageEnabled: boolean;
+  /**
+   * #3282 §2 (part 2): mirrors `ConnectionBanner`'s own "give-up" flag (`useWsSession`'s
+   * `connectionLost`) so this corner indicator can tell exactly when that banner is on screen, to
+   * never say the same thing twice.
+   */
+  connectionLost?: boolean;
 }): React.ReactElement {
   const state = STATUS[status] ?? STATUS.disconnected;
   useWorkspaceDocumentTitle(workspace);
+  // #3282 §2 (part 2): the same "has this surface ever connected" rule `ConnectionBanner` uses to
+  // decide whether it has anything to show — kept in step here so the corner text disappears exactly
+  // when, and only when, the banner takes over saying it (never both, never neither).
+  const everConnectedRef = useRef(false);
+  useEffect(() => {
+    if (status === 'connected') everConnectedRef.current = true;
+  }, [status]);
+  const bannerShown = status !== 'connected' && (connectionLost || everConnectedRef.current);
   return (
     <header
       className="agent-gui-status flex h-12 flex-shrink-0 items-center gap-3 px-5"
@@ -92,14 +107,16 @@ export function SessionTitleBar({
             ))}
           </nav>
         ) : null}
-        <span className="flex items-center gap-2" title={state.label}>
-          <span className={`h-2 w-2 rounded-full ${state.dot}`} />
-          {status === 'connected' ? (
-            <span className="sr-only">{status}</span>
-          ) : (
-            <span className="text-[13px] text-muted-foreground">{status}</span>
-          )}
-        </span>
+        {bannerShown ? null : (
+          <span className="flex items-center gap-2" title={state.label}>
+            <span className={`h-2 w-2 rounded-full ${state.dot}`} />
+            {status === 'connected' ? (
+              <span className="sr-only">{status}</span>
+            ) : (
+              <span className="text-[13px] text-muted-foreground">{state.label}</span>
+            )}
+          </span>
+        )}
       </div>
     </header>
   );

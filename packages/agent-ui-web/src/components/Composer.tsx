@@ -1,4 +1,4 @@
-import { ArrowUp, Gauge, Paperclip, Shield, Sparkles, Square, Target, X } from 'lucide-react';
+import { ArrowUp, Paperclip, Square, Target, X } from 'lucide-react';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import { commandMenuFor } from '../hooks/command-menu.js';
@@ -9,8 +9,14 @@ import {
   type IDraftAttachment,
   type IPickedFile,
 } from './composer-attachments.js';
+import { StatusRow } from './StatusControls.js';
 
-import type { IQueuedPrompt, TCommandCatalog, TSessionStatus } from '../hooks/session-client-types.js';
+import type {
+  IQueuedPrompt,
+  TCommandCatalog,
+  TModelListSnapshot,
+  TSessionStatus,
+} from '../hooks/session-client-types.js';
 
 export type { IPickedFile } from './composer-attachments.js';
 
@@ -111,12 +117,13 @@ export const Composer = forwardRef<
   IComposerHandle,
   {
     onSubmit: (prompt: string) => void;
-    onCommand: (name: string) => void;
+    onCommand: (name: string, args?: string) => void;
     catalog: TCommandCatalog | null;
     status: TSessionStatus | null;
     /**
      * False while the transport is not `connected` (issue #3280 §5): Enter and Send refuse to submit,
      * and nothing typed is cleared or lost — the composer never sends into a socket that is not there.
+     * #3282 §2 (part 2): the status chips and the `/` command menu are disabled the same way.
      */
     connected?: boolean;
     /** #3280 §2: a turn (or a blocking command) is running — Send becomes Stop and Esc stops it too. */
@@ -138,6 +145,11 @@ export const Composer = forwardRef<
      * become an `@`-reference either.
      */
     getPathForFile?: (file: File) => string;
+    /** #3282 §2 (part 2): the model control's pop-up menu — null until requested. */
+    modelList?: TModelListSnapshot | null;
+    onRequestModelList?: () => void;
+    /** Applies a model/mode/effort choice without a conversation card (the control's label confirms it). */
+    onSilentCommand?: (name: string, args?: string) => void;
   }
 >(function Composer(
   {
@@ -152,6 +164,9 @@ export const Composer = forwardRef<
     onCancelQueue,
     pickFiles,
     getPathForFile,
+    modelList = null,
+    onRequestModelList = () => {},
+    onSilentCommand = onCommand,
   },
   ref,
 ): React.ReactElement {
@@ -180,7 +195,8 @@ export const Composer = forwardRef<
   const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const [selected, setSelected] = useState(0);
   const [dismissed, setDismissed] = useState(false);
-  const menu = dismissed ? null : commandMenuFor(catalog, draft);
+  // #3282 §2 (part 2): the slash menu is disabled while disconnected — none of its commands could run.
+  const menu = dismissed || !connected ? null : commandMenuFor(catalog, draft);
   useEffect(() => {
     setSelected(0);
     setDismissed(false);
@@ -535,14 +551,24 @@ export const Composer = forwardRef<
           <button
             type="button"
             aria-label="Attach files"
-            title="Attach files"
+            // #3282 §2 (part 2): the attach button follows the same disconnected rule as the status
+            // chips and the `/` menu — a short "Reconnecting…" tooltip in place of its usual one.
+            title={connected ? 'Attach files' : 'Reconnecting…'}
             disabled={!connected}
             onClick={handleAttachClick}
             className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-hover hover:text-foreground disabled:text-subtle disabled:hover:bg-transparent"
           >
             <Paperclip size={16} strokeWidth={1.75} aria-hidden="true" />
           </button>
-          <StatusRow status={status} onCommand={onCommand} />
+          <StatusRow
+            status={status}
+            catalog={catalog}
+            modelList={modelList}
+            onRequestModelList={onRequestModelList}
+            onCommand={onCommand}
+            onSilentCommand={onSilentCommand}
+            connected={connected}
+          />
           <button
             type={running ? 'button' : 'submit'}
             onClick={running ? onStop : undefined}
@@ -629,74 +655,5 @@ export function GoalBar({
   );
 }
 
-/** Model · mode · effort, each opening its picker, and the context the conversation fills. */
-function StatusRow({
-  status,
-  onCommand,
-}: {
-  status: TSessionStatus | null;
-  onCommand: (name: string) => void;
-}): React.ReactElement {
-  const chip = (
-    label: string,
-    value: string,
-    command: string,
-    icon: React.ReactElement,
-  ): React.ReactElement => (
-    <button
-      type="button"
-      aria-label={`${label}: ${value}`}
-      title={`Change ${label}`}
-      onClick={() => onCommand(command)}
-      className="flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-hover hover:text-foreground"
-    >
-      {icon}
-      <span className="truncate">{value}</span>
-    </button>
-  );
-  const used = status ? Math.round(status.context.usedPercentage) : null;
-  const iconProps = { size: 14, strokeWidth: 1.75, 'aria-hidden': true } as const;
-  return (
-    <div className="flex min-w-0 flex-1 items-center gap-0.5">
-      {status ? (
-        <>
-          {chip('mode', status.permissionMode, 'mode', <Shield {...iconProps} />)}
-          <span className="ml-auto" />
-          {chip('model', status.model, 'provider', <Sparkles {...iconProps} />)}
-          {chip('effort', status.effort, 'effort', <Gauge {...iconProps} />)}
-        </>
-      ) : (
-        <span className="ml-auto px-2 text-[13px] text-subtle">…</span>
-      )}
-      <span
-        className="flex items-center gap-1.5 px-1.5 text-[12.5px] tabular-nums text-subtle"
-        title="Context used"
-        aria-label={`context ${used ?? 0}% used`}
-      >
-        <ContextRing percent={used ?? 0} />
-        {used === null ? '' : `${used}%`}
-      </span>
-    </div>
-  );
-}
-
-function ContextRing({ percent }: { percent: number }): React.ReactElement {
-  const r = 5;
-  const circumference = 2 * Math.PI * r;
-  const filled = Math.min(100, Math.max(0, percent)) / 100;
-  const tone = percent >= 80 ? 'stroke-warning' : 'stroke-muted-foreground';
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-      <circle cx="7" cy="7" r={r} className="fill-none stroke-raised" strokeWidth="2" />
-      <circle
-        cx="7"
-        cy="7"
-        r={r}
-        className={`fill-none ${tone}`}
-        strokeWidth="2"
-        strokeDasharray={`${circumference * filled} ${circumference}`}
-        transform="rotate(-90 7 7)"
-      />
-    </svg>
-  );
-}
+// `StatusRow` (model/mode/effort pop-up menus) and its `ContextRing` moved to `StatusControls.tsx`
+// (#3282 §2 part 2) — imported above.

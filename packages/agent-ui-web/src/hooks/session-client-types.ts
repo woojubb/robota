@@ -28,6 +28,15 @@ export type TCommandCatalog = Omit<Extract<TServerMessage, { type: 'commands' }>
 /** The session's status beside the conversation: model, permission mode, effort, context. */
 export type TSessionStatus = Extract<TServerMessage, { type: 'session_status' }>['status'];
 
+/**
+ * #3282 §2 (part 2): the models a person may switch to, grouped by configured provider profile —
+ * what the model control's pop-up menu is built from. `null` until requested (`list-models`).
+ */
+export type TModelListSnapshot = Omit<
+  Extract<TServerMessage, { type: 'model_list' }>,
+  'type' | 'requestId'
+>;
+
 /** The host's sessions in this workspace, which one is current, and the records it could not read. */
 export type TSessionListing = Extract<TServerMessage, { type: 'sessions' }>['listing'];
 /** Why the host did not list its sessions: it cannot (`not_available`), or listing failed. */
@@ -121,9 +130,19 @@ export interface IQueuedPrompt {
 
 export interface ISessionNotice {
   id: string;
-  /** `session-change-refused`: the host refused a new or switch this surface asked for.
-   *  `background-task-control-failed`: a Stop in the Agents panel did not take effect. */
-  kind: 'session-error' | 'protocol-error' | 'session-change-refused' | 'background-task-control-failed';
+  /**
+   * `session-change-refused`: the host refused a new or switch this surface asked for.
+   * `background-task-control-failed`: a Stop in the Agents panel did not take effect.
+   * `command-failed` (#3282 §2 part 2): a change made through a status control (model/mode/effort)
+   * failed — a plain notice rather than a conversation card, since the control's own label is where
+   * a successful change confirms itself and the label stays unchanged when it fails.
+   */
+  kind:
+    | 'session-error'
+    | 'protocol-error'
+    | 'session-change-refused'
+    | 'background-task-control-failed'
+    | 'command-failed';
   message: string;
   /**
    * A `session-error` classified at the wire boundary (#3289 §3) — present only when the host could
@@ -173,6 +192,13 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   commandCatalog: TCommandCatalog | null;
   /** Null until the session has answered; refreshed after every command and turn. */
   sessionStatus: TSessionStatus | null;
+  /**
+   * #3282 §2 (part 2): the models the model control's pop-up menu offers. Null until requested — the
+   * menu asks for it when it opens (or refreshes it) rather than every surface fetching it eagerly.
+   */
+  modelList: TModelListSnapshot | null;
+  /** Ask the session for the current model list (a fresh `list-models` round trip). */
+  requestModelList: () => void;
   /** Null until the host has answered; refreshed on connect, after a switch, a rename and a turn. */
   sessionListing: TSessionListing | null;
   /** Set when the host answered the latest listing request with an error instead. */
@@ -190,6 +216,12 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   sessionSidebarOpen: boolean;
   setSessionSidebarOpen: (open: boolean) => void;
   send: (msg: TClientMessage) => void;
+  /**
+   * #3282 §2 (part 2): run a command the SAME way `send({type:'command', ...})` does, but mark its
+   * outcome as controls-triggered — `useSessionClient` skips the conversation card for a change made
+   * this way (the control's own label confirms it instead), while a typed command keeps its card.
+   */
+  sendCommandSilently: (name: string, args?: string) => void;
   pendingPrompts: readonly TPendingPrompt[];
   /** #3280 §2: the prompt queued behind a running turn, or null when none is queued. */
   queuedPrompt: IQueuedPrompt | null;

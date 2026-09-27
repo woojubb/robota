@@ -28,6 +28,7 @@ function renderSidebar(
   overrides: Partial<IWsSessionState> = {},
 ): IWsSessionState {
   const state = {
+    status: 'connected',
     sessionListing: listing,
     sessionsError: null,
     setSessionSidebarOpen: () => undefined,
@@ -181,5 +182,75 @@ describe('#3282 §4a — the sidebar footer opens Settings', () => {
     render(<SessionSidebarRail state={state} />);
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(openSettings).toHaveBeenCalledOnce();
+  });
+});
+
+/**
+ * #3282 §2 (part 2): session switching is one of the controls disabled while disconnected, with a
+ * short tooltip explaining why (matching the status chips and the `/` command menu).
+ */
+describe('SessionSidebar — disabled while disconnected', () => {
+  afterEach(cleanup);
+
+  it('disables session rows and "New session", with a "Reconnecting…" tooltip', () => {
+    renderSidebar(
+      {
+        currentSessionId: 'a',
+        sessions: [row('a', 'first'), row('b', 'second')],
+        unreadableSessionIds: [],
+      },
+      { status: 'disconnected' },
+    );
+
+    const other = sessionRow(/second/) as HTMLButtonElement;
+    expect(other.disabled).toBe(true);
+    expect(other.title).toBe('Reconnecting…');
+    const newSessionButton = within(screen.getByRole('complementary', { name: 'Sessions' })).getByRole(
+      'button',
+      { name: /New session/ },
+    ) as HTMLButtonElement;
+    expect(newSessionButton.disabled).toBe(true);
+    expect(newSessionButton.title).toBe('Reconnecting…');
+  });
+
+  it('clicking a disabled row does not switch sessions', () => {
+    const switchSession = vi.fn();
+    renderSidebar(
+      {
+        currentSessionId: 'a',
+        sessions: [row('a', 'first'), row('b', 'second')],
+        unreadableSessionIds: [],
+      },
+      { status: 'disconnected', switchSession },
+    );
+
+    fireEvent.click(sessionRow(/second/));
+
+    expect(switchSession).not.toHaveBeenCalled();
+  });
+
+  it('rows and New session are enabled again once connected', () => {
+    renderSidebar({
+      currentSessionId: 'a',
+      sessions: [row('a', 'first'), row('b', 'second')],
+      unreadableSessionIds: [],
+    });
+
+    const other = sessionRow(/second/) as HTMLButtonElement;
+    expect(other.disabled).toBe(false);
+    expect(other.title).not.toBe('Reconnecting…');
+  });
+
+  it('SessionSidebarRail also disables "New session" while disconnected', () => {
+    const state = {
+      status: 'disconnected',
+      setSessionSidebarOpen: () => undefined,
+      newSession: () => undefined,
+    } as unknown as IWsSessionState;
+    render(<SessionSidebarRail state={state} />);
+
+    const newSessionButton = screen.getByRole('button', { name: 'New session' }) as HTMLButtonElement;
+    expect(newSessionButton.disabled).toBe(true);
+    expect(newSessionButton.title).toBe('Reconnecting…');
   });
 });

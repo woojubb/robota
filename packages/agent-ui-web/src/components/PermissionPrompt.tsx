@@ -11,6 +11,7 @@ import React, {
 } from 'react';
 
 import { driverAttributionText, isSameSurface } from '../driver-labels.js';
+import { ConfirmDialog } from './Dialog.js';
 import { DiffLines } from './DiffLines.js';
 
 import type { TPendingPrompt } from '../hooks/prompt-state.js';
@@ -62,6 +63,18 @@ export const PROMPT_ARM_DELAY_MS = 450;
 /** An element whose keystrokes the person relies on — a prompt must never take focus from one of these. */
 function isEditableElement(element: Element | null): boolean {
   return element !== null && element.matches('input, textarea, select, [contenteditable]');
+}
+
+/**
+ * #3282 §2 (part 2) — the one destructive option in the provider profile action menu (the ask built
+ * by `askProviderProfileAction` in `agent-command`'s `provider-command-profile.ts`, `request.id`
+ * `'provider-profile-action'`): "Delete" answers to no digit and renders apart from Switch/Edit/Test/
+ * Duplicate, styled destructive — the exact audited bug ("Delete looks the same as Switch, answers to
+ * the key 5"). Every other ask (this `request.id` check is the only thing that scopes the change) is
+ * unaffected.
+ */
+function isDestructiveAskOption(requestId: string | undefined, value: string): boolean {
+  return requestId === 'provider-profile-action' && value === 'delete';
 }
 
 export function PermissionPrompt({
@@ -139,6 +152,27 @@ export function PermissionPrompt({
   }, [promptId, onFocusReturn]);
   if (!prompt) return null;
 
+  // #3282 §2 (part 2): the provider-delete confirmation (`buildProviderDelete` in agent-command's
+  // `provider-command-profile-lifecycle.ts`) is now built on the shared `ConfirmDialog` (#3331)
+  // instead of the generic ask grid — a destructive-styled "Delete", Cancel focused by default, and
+  // no accidental backdrop-click dismissal. `confirmAction`'s own `CONFIRM_YES`/`CONFIRM_NO` values
+  // ('yes'/'no', from `@robota-sdk/agent-core`) are answered directly; this bypasses the rest of this
+  // component's dock/modal chrome and digit-shortcut machinery entirely, since `Dialog` already owns
+  // its own focus trap, Esc handling and focus restore.
+  if (prompt.kind === 'ask' && prompt.request.id === 'provider-delete') {
+    return (
+      <ConfirmDialog
+        open
+        title={prompt.request.title}
+        body="This removes it from your provider profiles. This can't be undone."
+        confirmLabel="Delete"
+        destructive
+        onCancel={() => onAnswerAsk(prompt.id, { type: 'cancelled' })}
+        onConfirm={() => onAnswerAsk(prompt.id, { type: 'answer', values: ['yes'] })}
+      />
+    );
+  }
+
   // REMOTE-014 E5 (display-only): the prompt belongs to the driver whose turn raised it. Shown so the owner
   // can tell a co-driver's tool-gate from their own — it NEVER changes who is authorized to answer (owner).
   const requesterLabel =
@@ -194,7 +228,13 @@ export function PermissionPrompt({
       if (index < 2) answerPermission(prompt.id, index === 0);
       return;
     }
-    const option = prompt.request.options?.[index];
+    // #3282 §2: a destructive option (Delete) is excluded from the digit-answerable list entirely —
+    // no stray digit, including the one it happened to render at before this menu was reordered, can
+    // ever answer it.
+    const digitOptions = (prompt.request.options ?? []).filter(
+      (opt) => !isDestructiveAskOption(prompt.request.id, opt.value),
+    );
+    const option = digitOptions[index];
     if (option) answerAsk(prompt.id, { type: 'answer', values: [option.value] });
   };
   // #3288: an Edit/Write request carries the same server-built diff `tool_end` would show.
@@ -204,7 +244,15 @@ export function PermissionPrompt({
       ? prompt.toolArgs['command']
       : undefined;
   const isShellCommand = prompt.kind === 'permission' && prompt.toolName === 'Bash' && shellCommand !== undefined;
+  const askRequestId = prompt.kind === 'ask' ? prompt.request.id : undefined;
   const askOptions = prompt.kind === 'ask' ? (prompt.request.options ?? []) : [];
+  // #3282 §2: Delete (in the provider profile action menu) renders apart from the rest, destructive-
+  // styled and with no digit shortcut — every other ask's options are unaffected (`destructiveAskOption`
+  // stays undefined, so `primaryAskOptions` is just `askOptions`, same order, same shortcuts).
+  const destructiveAskOption = askOptions.find((opt) => isDestructiveAskOption(askRequestId, opt.value));
+  const primaryAskOptions = destructiveAskOption
+    ? askOptions.filter((opt) => opt !== destructiveAskOption)
+    : askOptions;
   // Digits choose an option only while focus is on the prompt itself, not the field — a hint promising
   // "1–9 choose" while the field holds focus would be wrong, since digits type there instead.
   const askArmedHint =
@@ -342,9 +390,9 @@ export function PermissionPrompt({
               </div>
             </div>
             <div className="mt-4 flex flex-col gap-3 pl-11">
-              {askOptions.length > 0 && (
+              {primaryAskOptions.length > 0 && (
                 <div className="flex flex-wrap items-start gap-3">
-                  {askOptions.map((opt, index) => (
+                  {primaryAskOptions.map((opt, index) => (
                     <div key={opt.value} className="flex flex-col items-start gap-0.5">
                       <button
                         type="button"
@@ -364,6 +412,21 @@ export function PermissionPrompt({
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+              {/* #3282 §2: Delete sits apart at the bottom, styled destructive, with no digit
+                  shortcut — the audited bug was that it looked and behaved just like Switch. */}
+              {destructiveAskOption && (
+                <div className="flex flex-wrap items-start gap-3">
+                  <button
+                    type="button"
+                    className={DESTRUCTIVE_BUTTON}
+                    onClick={onButton(() =>
+                      answerAsk(prompt.id, { type: 'answer', values: [destructiveAskOption.value] }),
+                    )}
+                  >
+                    <span>{destructiveAskOption.label}</span>
+                  </button>
                 </div>
               )}
               {hasFreeText && (
@@ -415,6 +478,8 @@ const BUTTON =
 const PRIMARY_BUTTON = `${BUTTON} bg-primary text-primary-foreground hover:opacity-90`;
 const SECONDARY_BUTTON = `${BUTTON} bg-raised text-foreground hover:bg-hover`;
 const GHOST_BUTTON = `${BUTTON} text-muted-foreground hover:bg-hover hover:text-foreground`;
+/** #3282 §2: a destructive ask option (Delete) — visually distinct from Switch/Edit/Test/Duplicate. */
+const DESTRUCTIVE_BUTTON = `${BUTTON} bg-destructive/12 text-destructive hover:bg-destructive/20`;
 
 /** Imperative escape hatch a parent can use to wipe the field's value without owning it. */
 interface IFreeTextFieldHandle {

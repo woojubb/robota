@@ -22,6 +22,7 @@ import {
 import { createWsSessionClient } from '../client/ws-session-client.js';
 import { SERVER_MESSAGE_HANDLING } from './server-message-handling.js';
 import { useExecutionDetailState } from './use-execution-detail.js';
+import { useModelListState } from './use-model-list.js';
 import { usePersonalUsageState } from './use-personal-usage.js';
 import { useSessionDirectoryState } from './use-session-directory.js';
 import { useSettingsState } from './use-settings-state.js';
@@ -66,6 +67,12 @@ export type {
 let msgCounter = 0;
 function nextId(): string {
   return `msg_${++msgCounter}_${Date.now()}`;
+}
+
+let silentCommandRequestCounter = 0;
+function nextSilentCommandRequestId(): string {
+  silentCommandRequestCounter += 1;
+  return `silent_command_${silentCommandRequestCounter}_${Date.now()}`;
 }
 
 /**
@@ -246,6 +253,15 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   );
   // Commands this surface sent whose result has not come back — a screen request pairs with one.
   const commandsInFlightRef = useRef(0);
+  // #3282 §2 (part 2): the `requestId`s of commands sent via `sendCommandSilently`, still awaiting
+  // their `command_result`. The wire already correlates a command with its reply by `requestId` (see
+  // `TClientMessage`'s `command` / `TServerMessage`'s `command_result` in `@robota-sdk/agent-transport`)
+  // — a plain `send` command and a `sendCommandSilently` command can be outstanding at once, and only
+  // this correlation (not send order, which a slow host or a race can violate) reliably tells which
+  // in-flight command a given reply answers. A `command_result` with no `requestId` (an older host, or
+  // a typed command, which never sets one) always shows its card — silence is opt-in per request, never
+  // the default, so a reply this surface cannot identify is never hidden.
+  const silentCommandRequestIdsRef = useRef(new Set<string>());
   // Session changes this surface asked for; a refusal answers one of them, not a command.
   const sessionChangesInFlightRef = useRef(0);
   // Their request ids, for this connection: a refusal names the request it answers. A switch
@@ -264,12 +280,31 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     sessionChangesInFlightRef.current = Math.max(0, sessionChangesInFlightRef.current - 1);
     if (requestId !== undefined) sessionChangeRequestIdsRef.current.delete(requestId);
   }, []);
+  /**
+   * #3282 §2 (part 2): run a command the same way `send` does, but flag it as controls-triggered —
+   * the model/mode/effort pop-up menus use this instead of `send` directly, so their change is
+   * confirmed by the control's own label (via the `get-status` refresh `command_result` already
+   * triggers) rather than a conversation card. A typed `/command` still goes through plain `send`
+   * (and so never carries a `requestId`, keeping it outside this mechanism entirely). The `requestId`
+   * is generated here, not read back off `msg`, because `send`'s parameter type is the public
+   * `TClientMessage` — giving `command` a `requestId` there would let ANY caller of `send` opt a typed
+   * command into silence, which is exactly what this must not allow.
+   */
+  const sendCommandSilently = useCallback(
+    (name: string, args?: string): void => {
+      const requestId = nextSilentCommandRequestId();
+      silentCommandRequestIdsRef.current.add(requestId);
+      send({ type: 'command', name, requestId, ...(args ? { args } : {}) });
+    },
+    [send],
+  );
   const { handleUsageMessage, ...personalUsageState } = usePersonalUsageState(send);
   const {
     handleExecutionDetailMessage,
     closeExecutionDetail,
     ...executionDetailState
   } = useExecutionDetailState(send);
+  const { handleModelListMessage, ...modelListState } = useModelListState(send);
   const { handleSessionsMessage, canListSessions, markCurrent, armRestore, ...sessionDirectoryState } =
     useSessionDirectoryState(send);
   const { requestSessions, setSessionSidebarOpen } = sessionDirectoryState;
@@ -282,6 +317,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       void SERVER_MESSAGE_HANDLING[msg.type];
       if (handleUsageMessage(msg)) return;
       if (handleExecutionDetailMessage(msg)) return;
+      if (handleModelListMessage(msg)) return;
       if (handleSessionsMessage(msg)) return;
       if (handleSettingsMessage(msg)) return;
       switch (msg.type) {
@@ -560,6 +596,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           send({ type: 'get-status' });
           send({ type: 'get-commands' });
           commandsInFlightRef.current = Math.max(0, commandsInFlightRef.current - 1);
+          // #3282 §2 (part 2): identify silence by THIS reply's own `requestId`, not by position or
+          // count — see `silentCommandRequestIdsRef` above. No `requestId` (an older host, or a typed
+          // command) always falls through to `silent = false`, never the reverse.
+          const silent = msg.requestId !== undefined && silentCommandRequestIdsRef.current.delete(msg.requestId);
           const unavailable = pendingIntentRef.current;
           pendingIntentRef.current = null;
           if (unavailable !== null && msg.success) {
@@ -571,6 +611,20 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           }
           // A command that starts a turn (a skill) says nothing itself; the turn is its answer.
           if (msg.message.trim().length === 0) break;
+          // #3282 §2 (part 2): a change made through a status control confirms itself through the
+          // control's own label (the `get-status` refresh above lands it) — no conversation card. A
+          // failure still needs saying, as a plain notice rather than a card, and the label is left
+          // unchanged since nothing actually applied. A typed command (plain `send`) keeps its card
+          // either way — this ONLY silences a change sent via `sendCommandSilently`.
+          if (silent) {
+            if (!msg.success) {
+              setSessionNotices((previous) => [
+                ...previous,
+                { id: nextId(), kind: 'command-failed', message: msg.message },
+              ]);
+            }
+            break;
+          }
           appendEntry({
             id: nextId(),
             role: 'command',
@@ -600,6 +654,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       closeExecutionDetail,
       finishTurn,
       handleExecutionDetailMessage,
+      handleModelListMessage,
       handleSessionsMessage,
       handleSettingsMessage,
       handleUsageMessage,
@@ -634,6 +689,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       if (next === 'connected') {
         // A reply lost with the old connection never arrives; stop waiting for it.
         commandsInFlightRef.current = 0;
+        silentCommandRequestIdsRef.current.clear();
         sessionChangesInFlightRef.current = 0;
         sessionChangeRequestIdsRef.current.clear();
         pendingIntentRef.current = null;
@@ -670,6 +726,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     sessionStatus,
     ownDriverId,
     send,
+    sendCommandSilently,
     pendingPrompts,
     queuedPrompt,
     answerPermission,
@@ -677,6 +734,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     ...personalUsageState,
     ...executionDetailState,
     closeExecutionDetail,
+    ...modelListState,
     ...sessionDirectoryState,
     sessionNotices,
     dismissSessionNotice,

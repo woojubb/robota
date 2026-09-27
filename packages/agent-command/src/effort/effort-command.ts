@@ -1,5 +1,5 @@
 import { MODEL_EFFORT_VALUES, selectAction } from '@robota-sdk/agent-core';
-import { parseModelEffort, resolveModelEffort } from '@robota-sdk/agent-framework';
+import { EFFORT_LEVEL_LABELS, parseModelEffort, resolveModelEffort } from '@robota-sdk/agent-framework';
 
 import type {
   ICommandHostAdapterAccess,
@@ -15,19 +15,11 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 const EFFORT_SELECTIONS: readonly TEffortSelection[] = ['auto', ...MODEL_EFFORT_VALUES];
 
 /**
- * #3282 §2 — the plain label for each effort selection, shared by the outcome text below and the
- * TUI/GUI pickers, so `/effort xhigh` and a person reading "Extra high" agree on what happened.
+ * #3282 §2 — re-exported for callers already importing it from here; the canonical definition moved
+ * to `agent-framework` (`effort/effort-resolution.ts`) so headless `/goal` output (in that same
+ * package) can use the same labels without a circular dependency on `agent-command`.
  */
-export const EFFORT_LEVEL_LABELS: Readonly<Record<TEffortSelection, string>> = {
-  auto: 'Auto',
-  none: 'None',
-  minimal: 'Minimal',
-  low: 'Low',
-  medium: 'Medium',
-  high: 'High',
-  xhigh: 'Extra high',
-  max: 'Maximum',
-};
+export { EFFORT_LEVEL_LABELS };
 
 /**
  * Plain outcome text (#3282 §2), replacing the earlier `Model effort: requested=…, effective=…,

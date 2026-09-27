@@ -926,3 +926,176 @@ describe('issue #3288 §1: a background agent names itself on its own permission
     expect(screen.getByText(/\+ b/)).toBeTruthy();
   });
 });
+
+/**
+ * #3282 §2 (part 2) — the provider profile action menu ("Manage providers…" → a profile → its
+ * actions): Switch/Edit/Test/Duplicate keep the ordinary digit-shortcut grid, but Delete — the
+ * audited bug ("Delete looks the same as Switch, answers to the key 5") — is separated, destructive-
+ * styled, and answers to no digit at all.
+ */
+describe('#3282 §2: the provider profile action menu separates Delete', () => {
+  afterEach(cleanup);
+
+  function providerProfileActionAsk(): TPendingPrompt {
+    return {
+      kind: 'ask',
+      id: 'ppa-1',
+      request: {
+        id: 'provider-profile-action',
+        title: 'Provider profile: anthropic',
+        options: [
+          { value: 'switch', label: 'Switch' },
+          { value: 'edit', label: 'Edit' },
+          { value: 'test', label: 'Test' },
+          { value: 'duplicate', label: 'Duplicate' },
+          { value: 'delete', label: 'Delete' },
+        ],
+      },
+    } as unknown as TPendingPrompt;
+  }
+
+  it('gives Switch/Edit/Test/Duplicate a digit shortcut 1-4, and Delete none at all', () => {
+    render(
+      <Surface prompts={[providerProfileActionAsk()]} onAnswerPermission={vi.fn()} onAnswerAsk={vi.fn()} />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Switch' }).getAttribute('aria-keyshortcuts')).toBe('1');
+    expect(screen.getByRole('button', { name: 'Duplicate' }).getAttribute('aria-keyshortcuts')).toBe('4');
+    expect(screen.getByRole('button', { name: 'Delete' }).getAttribute('aria-keyshortcuts')).toBeNull();
+  });
+
+  it('styles Delete as destructive, distinct from the other actions', () => {
+    render(
+      <Surface prompts={[providerProfileActionAsk()]} onAnswerPermission={vi.fn()} onAnswerAsk={vi.fn()} />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Delete' }).className).toContain('destructive');
+    expect(screen.getByRole('button', { name: 'Switch' }).className).not.toContain('destructive');
+  });
+
+  it('pressing "5" (Delete\'s old, audited position) does nothing', () => {
+    vi.useFakeTimers();
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface
+        prompts={[providerProfileActionAsk()]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={onAnswerAsk}
+      />,
+    );
+    const dialog = screen.getByRole('dialog', { name: 'pending question' });
+    act(() => {
+      vi.advanceTimersByTime(PROMPT_ARM_DELAY_MS);
+    });
+
+    fireEvent.keyDown(dialog, { key: '5' });
+
+    expect(onAnswerAsk).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('clicking Delete still answers with it (the confirmation itself is a separate, existing ask)', () => {
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface
+        prompts={[providerProfileActionAsk()]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={onAnswerAsk}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }), { detail: 1 });
+
+    expect(onAnswerAsk).toHaveBeenCalledWith('ppa-1', { type: 'answer', values: ['delete'] });
+  });
+
+  it('an unrelated ask (e.g. /language) is unaffected: no option is separated out', () => {
+    const ask = {
+      kind: 'ask',
+      id: 'lang-1',
+      request: {
+        id: 'language',
+        title: 'Select language',
+        options: [
+          { value: 'ko', label: 'ko' },
+          { value: 'en', label: 'en' },
+        ],
+      },
+    } as unknown as TPendingPrompt;
+    render(<Surface prompts={[ask]} onAnswerPermission={vi.fn()} onAnswerAsk={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: 'ko' }).getAttribute('aria-keyshortcuts')).toBe('1');
+    expect(screen.getByRole('button', { name: 'en' }).getAttribute('aria-keyshortcuts')).toBe('2');
+  });
+});
+
+/**
+ * #3282 §2 (part 2) — profile deletion is confirmed on the shared `ConfirmDialog` (#3331), now that
+ * it exists, instead of the generic Yes/No ask grid: a destructive-styled "Delete" button, Cancel
+ * focused by default, and no accidental backdrop-click dismissal.
+ */
+describe('#3282 §2: profile delete is confirmed on ConfirmDialog', () => {
+  afterEach(cleanup);
+
+  function providerDeleteConfirmAsk(): TPendingPrompt {
+    return {
+      kind: 'ask',
+      id: 'confirm-1',
+      request: {
+        id: 'provider-delete',
+        title: 'Delete profile "anthropic"?',
+        options: [
+          { value: 'yes', label: 'Yes' },
+          { value: 'no', label: 'No' },
+        ],
+      },
+    } as unknown as TPendingPrompt;
+  }
+
+  it('renders as a ConfirmDialog with a destructive Delete button, not the generic ask grid', () => {
+    render(
+      <Surface
+        prompts={[providerDeleteConfirmAsk()]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('dialog', { name: 'Delete profile "anthropic"?' })).toBeTruthy();
+    const deleteButton = screen.getByRole('button', { name: 'Delete' });
+    expect(deleteButton.className).toContain('destructive');
+    // Not the old generic Yes/No grid.
+    expect(screen.queryByRole('button', { name: 'Yes' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'No' })).toBeNull();
+  });
+
+  it('Cancel is present and answers the ask as cancelled', () => {
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface
+        prompts={[providerDeleteConfirmAsk()]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={onAnswerAsk}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(onAnswerAsk).toHaveBeenCalledWith('confirm-1', { type: 'cancelled' });
+  });
+
+  it('confirming Delete answers the ask with the same "yes" value the server-side confirmAction expects', () => {
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface
+        prompts={[providerDeleteConfirmAsk()]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={onAnswerAsk}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    expect(onAnswerAsk).toHaveBeenCalledWith('confirm-1', { type: 'answer', values: ['yes'] });
+  });
+});
