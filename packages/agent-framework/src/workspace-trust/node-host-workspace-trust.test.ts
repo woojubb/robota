@@ -102,6 +102,63 @@ describe('Node host workspace trust', () => {
     expect(createNodeWorkspaceIdentityResolver().resolve(root).repositoryKey).not.toBe(originalKey);
   });
 
+  /** Whether this filesystem reports a real birth time for a new directory (ext4, APFS, NTFS do). */
+  function reportsBirthTime(): boolean {
+    const probe = tempRoot('robota-workspace-birth-');
+    const stat = statSync(probe, { bigint: true });
+    return stat.birthtimeNs !== 0n;
+  }
+
+  it.skipIf(!reportsBirthTime())(
+    'keeps a grant across git commands that rewrite the repository config',
+    async () => {
+      const root = tempRoot('robota-workspace-config-');
+      gitInit(root);
+      const git = (...args: string[]): void => {
+        execFileSync('git', ['-C', root, ...args], { stdio: 'ignore' });
+      };
+      git(
+        '-c',
+        'user.name=robota',
+        '-c',
+        'user.email=robota@example.invalid',
+        'commit',
+        '--allow-empty',
+        '--quiet',
+        '--no-gpg-sign',
+        '-m',
+        'init',
+      );
+      const service = new WorkspaceTrustService({
+        identityResolver: createNodeWorkspaceIdentityResolver(),
+        store: createNodeWorkspaceTrustStore(
+          join(tempRoot('robota-workspace-store-'), 'trust.json'),
+        ),
+      });
+      await service.grant(root);
+      const key = createNodeWorkspaceIdentityResolver().resolve(root).repositoryKey;
+
+      // Each of these replaces .git/config with a new file (new inode and ctime).
+      git('config', 'robota.probe', 'one');
+      git('remote', 'add', 'origin', 'https://example.invalid/repo.git');
+      git('branch', 'feature');
+      git('branch', '-m', 'feature', 'renamed');
+      git('branch', '-D', 'renamed');
+
+      expect(createNodeWorkspaceIdentityResolver().resolve(root).repositoryKey).toBe(key);
+      await expect(service.inspect(root)).resolves.toMatchObject({ status: 'trusted' });
+    },
+  );
+
+  it('keys a repository without the device number, which macOS renumbers', () => {
+    const root = tempRoot('robota-workspace-device-');
+    gitInit(root);
+    const key = createNodeWorkspaceIdentityResolver().resolve(root).repositoryKey;
+    const device = statSync(join(root, '.git'), { bigint: true }).dev.toString(16);
+
+    expect(key.split(':')).not.toContain(device);
+  });
+
   it('resolves nested repositories independently and distinguishes linked worktrees', () => {
     const outer = tempRoot('robota-workspace-outer-');
     const nested = join(outer, 'nested');

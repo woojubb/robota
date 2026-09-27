@@ -123,14 +123,31 @@ function expectedGenerationError(expected: number, actual: number): Error {
   );
 }
 
+/**
+ * A grant must survive what happens to a repository in normal use and must not pass to a repository
+ * recreated at the same path. Git never recreates its common dir, so that directory's inode and birth
+ * time hold across config writes (`push -u`, branch renames, `remote add` replace `config` itself) and
+ * across the volume renumbering that changes `dev` on macOS; a repository recreated there is a new
+ * directory with a new birth time. Where the filesystem reports no birth time (zero, or libuv's ctime
+ * stand-in), the key falls back to the `config` file, which a recreated repository also replaces:
+ * as safe, but it drops the grant whenever git rewrites that file.
+ */
 function repositoryIdentityKey(commonDir: string): string {
   const commonStat = statSync(commonDir, { bigint: true });
+  const born = commonStat.birthtimeNs;
+  if (born !== 0n && born !== commonStat.ctimeNs) {
+    return [
+      'git',
+      'born',
+      commonStat.ino.toString(HEX_RADIX),
+      born.toString(HEX_RADIX),
+      commonDir,
+    ].join(':');
+  }
   const configStat = statSync(join(commonDir, 'config'), { bigint: true });
   return [
     'git',
-    commonStat.dev.toString(HEX_RADIX),
     commonStat.ino.toString(HEX_RADIX),
-    configStat.dev.toString(HEX_RADIX),
     configStat.ino.toString(HEX_RADIX),
     configStat.ctimeNs.toString(HEX_RADIX),
     commonDir,
