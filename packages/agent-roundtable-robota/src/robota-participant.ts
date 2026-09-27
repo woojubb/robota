@@ -67,8 +67,14 @@ export function robotaParticipant(options: RobotaParticipantOptions): AgentParti
         // closes every provider in `agent.getConfig().aiProviders`, which breaks a second
         // participant still using that provider if a host's `createAgent` closure ever hands the
         // same provider or tool instance to two agents.
-        const config = agent.getConfig();
-        const releaseLease = claimLease([agent, ...config.aiProviders, ...(config.tools ?? [])]);
+        let releaseLease: () => void;
+        try {
+          const config = agent.getConfig();
+          releaseLease = claimLease([agent, ...config.aiProviders, ...(config.tools ?? [])]);
+        } catch (error) {
+          await agent.destroy().catch(() => {});
+          throw error;
+        }
         try {
           if (context.checkpoint) {
             const history = decodeAgentCheckpoint(context.checkpoint);
@@ -76,6 +82,7 @@ export function robotaParticipant(options: RobotaParticipantOptions): AgentParti
           }
         } catch (error) {
           releaseLease();
+          await agent.destroy().catch(() => {});
           throw error;
         }
 

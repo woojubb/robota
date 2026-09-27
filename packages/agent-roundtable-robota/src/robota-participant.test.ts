@@ -305,6 +305,71 @@ describe('robotaParticipant: speak path', () => {
     ).rejects.toMatchObject({ code: 'resource-reused' });
     await first.release();
   });
+
+  it('destroys the agent it just created when claiming its lease fails', async () => {
+    const shared = createScriptedProvider([{ text: 'ok' }]);
+    let secondAgent: Robota | undefined;
+    let secondDestroy: ReturnType<typeof vi.spyOn> | undefined;
+    const participant = robotaParticipant({
+      id: 'p',
+      runtime: { id: 'fixture/robota', version: '1' },
+      createAgent: async (ctx) => {
+        const agent = new Robota({
+          name: 'fixture',
+          aiProviders: [shared.provider],
+          defaultModel: { provider: shared.provider.name, model: 'test-model' },
+        });
+        if (ctx.participantId === 'B') {
+          secondAgent = agent;
+          secondDestroy = vi.spyOn(agent, 'destroy');
+        }
+        return agent;
+      },
+    });
+    const first = await participant.factory.openSession({
+      conversationId: 'c1',
+      participantId: 'A',
+    });
+    await expect(
+      participant.factory.openSession({ conversationId: 'c2', participantId: 'B' }),
+    ).rejects.toMatchObject({ code: 'resource-reused' });
+    expect(secondAgent).toBeDefined();
+    expect(secondDestroy).toHaveBeenCalledOnce();
+    await first.release();
+  });
+
+  it('destroys the agent it just created when its checkpoint fails to decode', async () => {
+    const scripted = createScriptedProvider([]);
+    let created: Robota | undefined;
+    let destroy: ReturnType<typeof vi.spyOn> | undefined;
+    const participant = robotaParticipant({
+      id: 'p',
+      runtime: { id: 'fixture/robota', version: '1' },
+      createAgent: async () => {
+        const agent = new Robota({
+          name: 'fixture',
+          aiProviders: [scripted.provider],
+          defaultModel: { provider: scripted.provider.name, model: 'test-model' },
+        });
+        created = agent;
+        destroy = vi.spyOn(agent, 'destroy');
+        return agent;
+      },
+    });
+    await expect(
+      participant.factory.openSession({
+        conversationId: 'c',
+        participantId: 'A',
+        checkpoint: { version: 'not-a-real-version', data: [] },
+      }),
+    ).rejects.toMatchObject({ code: 'checkpoint-invalid' });
+    expect(created).toBeDefined();
+    expect(destroy).toHaveBeenCalledOnce();
+    // The lease was released on failure too: opening again over the same provider now succeeds.
+    await expect(
+      participant.factory.openSession({ conversationId: 'c2', participantId: 'B' }),
+    ).resolves.toBeDefined();
+  });
 });
 
 describe('robotaParticipant: cancellation while a delta is in flight', () => {
