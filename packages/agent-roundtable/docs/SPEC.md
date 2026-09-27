@@ -48,6 +48,6 @@ Uncertain external effects require reconciliation before they can be attempted a
 ## Non-goals
 
 This package implements neither a model/tool runtime nor a permission engine. It does not discover
-credentials, project files or storage locations, import a concrete provider, or prescribe speech,
+credentials, project files or storage locations, import a concrete provider, or prescribe media,
 persona, billing or user-interface policy. It does not guarantee exactly-once effects at external
 services or a provider's eventual invoice amount.
