@@ -63,17 +63,21 @@ function orderedProfileNames(
 /**
  * The models every configured profile offers, current profile first (#3282 §2). A profile missing
  * `type` or `model` is skipped — it could not run even by an explicit `/provider switch`, so `/model`
- * does not offer it either.
+ * does not offer it either. `allowedProviders`, when set, is the org policy's allowlist of provider
+ * PROFILE NAMES (`IOrgPolicy.allowedProviders`) — a profile it excludes is skipped the same way, so
+ * a control built from this snapshot never offers a switch org policy would then refuse.
  */
 export function buildModelListSnapshot(
   providers: Record<string, IProviderProfileSettings> | undefined,
   currentProfileName: string | undefined,
   currentModel: string,
   providerDefinitions: readonly IProviderDefinition[],
+  allowedProviders?: readonly string[],
 ): IModelListSnapshot {
   const all = providers ?? {};
   const groups: IModelListGroup[] = [];
   for (const profileName of orderedProfileNames(all, currentProfileName)) {
+    if (allowedProviders !== undefined && !allowedProviders.includes(profileName)) continue;
     const profile = all[profileName];
     if (profile === undefined || !profile.type || !profile.model) continue;
     const definition = findProviderDefinition(providerDefinitions, profile.type);

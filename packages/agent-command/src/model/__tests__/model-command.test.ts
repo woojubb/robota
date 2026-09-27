@@ -53,6 +53,7 @@ function buildOptions(overrides: {
   writeTargetSettings?: ReturnType<typeof vi.fn>;
   currentProvider?: string;
   providers?: Record<string, IProviderProfileSettings>;
+  allowedProviders?: string[];
 }): IProviderCommandModuleOptions {
   const providerMap = overrides.providers ?? providers();
   const document = { currentProvider: overrides.currentProvider ?? 'anthropic', providers: providerMap };
@@ -63,6 +64,9 @@ function buildOptions(overrides: {
       readTargetSettings: () => document,
       writeTargetSettings: overrides.writeTargetSettings ?? vi.fn(),
     },
+    ...(overrides.allowedProviders !== undefined
+      ? { orgPolicy: { allowedProviders: overrides.allowedProviders } }
+      : {}),
   };
 }
 
@@ -115,6 +119,46 @@ describe('/model', () => {
     const written = writeTargetSettings.mock.calls[0]![0];
     expect(written.currentProvider).toBe('my-openai');
     expect(written.providers['my-openai']).toMatchObject({ model: 'gpt-5.1' });
+  });
+
+  it('an org policy still allowing the target profile leaves a cross-profile switch working', async () => {
+    const writeTargetSettings = vi.fn();
+    const host = createTestCommandHost({ session: { getModelId: () => 'claude-sonnet-4-6' } });
+    const options = buildOptions({ writeTargetSettings, allowedProviders: ['anthropic', 'my-openai'] });
+
+    const result = await executeModelCommand(host, 'gpt-5.1', options);
+
+    expect(result.success).toBe(true);
+    expect(result.hostActions).toEqual([{ type: 'provider-hot-swap', profileName: 'my-openai' }]);
+    expect(writeTargetSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a cross-profile switch to a profile org policy disallows, changing nothing on disk', async () => {
+    const writeTargetSettings = vi.fn();
+    const host = createTestCommandHost({ session: { getModelId: () => 'claude-sonnet-4-6' } });
+    // Typing the id resolves it (resolution is never filtered) so the refusal names the profile
+    // specifically, rather than the id falling through to a generic "Unknown model" error.
+    const options = buildOptions({ writeTargetSettings, allowedProviders: ['anthropic'] });
+
+    const result = await executeModelCommand(host, 'gpt-5.1', options);
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('organization policy');
+    expect(result.message).toContain('my-openai');
+    expect(result.hostActions).toBeUndefined();
+    expect(writeTargetSettings).not.toHaveBeenCalled();
+  });
+
+  it('the listing omits a profile org policy disallows', async () => {
+    const host = createTestCommandHost({ session: { getModelId: () => 'claude-sonnet-4-6' } });
+    const options = buildOptions({ allowedProviders: ['anthropic'] });
+
+    const result = await executeModelCommand(host, '', options);
+
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('Anthropic (anthropic)');
+    expect(result.message).not.toContain('OpenAI');
+    expect(result.message).not.toContain('my-openai');
   });
 
   it('an unknown id gives a plain error naming /model', async () => {

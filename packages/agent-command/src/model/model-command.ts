@@ -1,6 +1,7 @@
 import { selectAction } from '@robota-sdk/agent-core';
 import {
   buildModelListSnapshot,
+  formatOrgPolicyViolationMessage,
   resolveModelListSelection,
   setCurrentProvider,
   upsertProviderProfile,
@@ -21,7 +22,7 @@ import type { IModelListSnapshot } from '@robota-sdk/agent-interface-session';
 
 type TModelCommandContext = ICommandHostSessionAccess & ICommandHostUserInteraction;
 
-/** The current model, for building the snapshot and for the "already on it" no-op check. */
+/** The current model, read from the live session; falls back to the profile's configured one. */
 function readCurrentModel(
   context: ICommandHostSessionAccess,
   currentProfile: IProviderProfileSettings | undefined,
@@ -29,10 +30,19 @@ function readCurrentModel(
   return context.getSession().getModelId() ?? currentProfile?.model ?? '';
 }
 
+/**
+ * `allowFiltered` controls whether a profile org policy disallows is left out of the snapshot.
+ * The PICKER (no id typed) always filters: a disallowed profile must never be offered as a choice.
+ * RESOLVING a typed/clicked id never filters: `switchModelAcrossProfiles` is the one place that
+ * decides a disallowed target, exactly as `buildProviderSwitch` decides it for `/provider switch` —
+ * a filtered resolution snapshot would turn that decision into an unreachable "Unknown model"
+ * instead of the specific, actionable organization-policy refusal.
+ */
 function buildSnapshot(
   context: ICommandHostSessionAccess,
   settings: TProviderSettingsDocument,
   options: IProviderCommandModuleOptions,
+  allowFiltered: boolean,
 ): IModelListSnapshot {
   const currentProfile =
     settings.currentProvider !== undefined ? settings.providers?.[settings.currentProvider] : undefined;
@@ -41,6 +51,7 @@ function buildSnapshot(
     settings.currentProvider,
     readCurrentModel(context, currentProfile),
     options.providerDefinitions,
+    allowFiltered ? options.orgPolicy?.allowedProviders : undefined,
   );
 }
 
@@ -50,14 +61,15 @@ export async function executeModelCommand(
   options: IProviderCommandModuleOptions,
 ): Promise<ICommandResult> {
   const settings = options.settings.readMergedSettings();
-  const snapshot = buildSnapshot(context, settings, options);
   const id = args.trim();
 
   if (id.length === 0) {
-    return pickModel(context.getUserInteraction(), snapshot, context, options);
+    const visible = buildSnapshot(context, settings, options, true);
+    return pickModel(context.getUserInteraction(), visible, context, options);
   }
 
-  const selection = resolveModelListSelection(snapshot, id);
+  const full = buildSnapshot(context, settings, options, false);
+  const selection = resolveModelListSelection(full, id);
   if (selection === undefined) {
     return {
       message: `Unknown model "${id}". Run /model to see the choices.`,
@@ -167,6 +179,18 @@ function switchModelAcrossProfiles(
   settings: TProviderSettingsDocument,
   options: IProviderCommandModuleOptions,
 ): ICommandResult {
+  const { orgPolicy } = options;
+  // Checked BEFORE anything is read or written — exactly buildProviderSwitch's order — so a switch
+  // org policy refuses changes nothing on disk, the same guarantee /provider switch already gives.
+  if (orgPolicy?.allowedProviders && !orgPolicy.allowedProviders.includes(selection.profileName)) {
+    return {
+      message: formatOrgPolicyViolationMessage(
+        `Provider "${selection.profileName}" is not allowed by your organization policy. Allowed: ${orgPolicy.allowedProviders.join(', ')}.`,
+        orgPolicy.adminContact,
+      ),
+      success: false,
+    };
+  }
   const profile = settings.providers?.[selection.profileName];
   if (profile === undefined) {
     return { message: `Provider profile "${selection.profileName}" was not found.`, success: false };

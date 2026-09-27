@@ -1694,6 +1694,7 @@ export class InteractiveSession
       merged.currentProvider,
       session.getModelId(),
       this.providerDefinitions,
+      this.orgPolicy?.allowedProviders,
     );
   }
 
