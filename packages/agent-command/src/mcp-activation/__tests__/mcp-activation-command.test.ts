@@ -655,6 +655,70 @@ describe('/mcp login', () => {
   });
 });
 
+describe('/mcp reload (#3282 §4 part b-2)', () => {
+  function harness(reload: ICommandMCPActivationAdapter['reload']) {
+    const added: IToolWithEventService[][] = [];
+    const port: ICommandMCPActivationAdapter = {
+      list: () => [],
+      approve: async () => summary(),
+      reject: async () => summary(),
+      revoke: async () => summary(),
+      reload,
+    };
+    const host = createTestCommandHost({
+      overrides: { getCommandHostAdapters: () => ({ mcpActivation: port }) },
+    });
+    const session = host.getSession();
+    host.getSession = () => ({
+      ...session,
+      addTools: async (tools) => {
+        added.push([...tools]);
+        return tools.map((tool) => tool.schema.name);
+      },
+    });
+    return { added, run: (args: string) => executeMCPActivationCommand(host, args) };
+  }
+
+  const forecast = new FunctionTool(
+    { name: 'weather__forecast', description: 'Forecast', parameters: { type: 'object', properties: {} } },
+    async () => 'sunny',
+  );
+
+  it('retries not-connected servers, adds the new tools to the session, and names what changed', async () => {
+    const h = harness(async () => ({
+      tools: [forecast],
+      connectedServerIds: ['weather'],
+      failedServerIds: ['flaky'],
+    }));
+
+    const result = await h.run('reload');
+
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('Connected: weather.');
+    expect(result.message).toContain('Still not connected: flaky');
+    expect(h.added).toEqual([[forecast]]);
+    expect(result.data).toEqual({
+      connectedServerIds: ['weather'],
+      failedServerIds: ['flaky'],
+      tools: ['weather__forecast'],
+    });
+  });
+
+  it('says plainly when nothing newly connected', async () => {
+    const h = harness(async () => ({ tools: [], connectedServerIds: [], failedServerIds: [] }));
+    const result = await h.run('reload');
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('No server newly connected.');
+  });
+
+  it('is refused when the host offers no reload', async () => {
+    const h = harness(undefined);
+    const result = await h.run('reload');
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Reloading MCP servers is not available in this environment.');
+  });
+});
+
 describe('/mcp command entry', () => {
   it('opens only `status` to the model, and describes login for the user', () => {
     const entry = createMCPActivationCommandEntry();

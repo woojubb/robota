@@ -58,6 +58,7 @@ import type {
   ICommandSkillListEntry,
   ICommandSkillActivationRequest,
   TCommandInvocationSource,
+  TCommandSurfaceLocality,
 } from '../commands/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type {
@@ -121,6 +122,7 @@ export abstract class InteractiveSessionBase {
     args: string,
     source: TCommandInvocationSource = 'user',
     originDriverId?: TDriverId,
+    locality?: TCommandSurfaceLocality,
   ): Promise<ICommandResult | null> {
     await this.ensureInitialized();
     if (this.execCtrl.executing)
@@ -128,7 +130,7 @@ export abstract class InteractiveSessionBase {
         success: false,
         message: 'Another prompt or command is already running. Wait for it to finish.',
       };
-    return this.skillRouter.executeCommand(name, args, source, originDriverId);
+    return this.skillRouter.executeCommand(name, args, source, originDriverId, locality);
   }
   async executeModelCommand(name: string, args: string): Promise<ICommandResult | null> {
     await this.ensureInitialized();
@@ -144,6 +146,9 @@ export abstract class InteractiveSessionBase {
 
   getCommandInvocationSource(): TCommandInvocationSource {
     return this.skillRouter.getCommandInvocationSource();
+  }
+  getCommandSurfaceLocality(): TCommandSurfaceLocality {
+    return this.skillRouter.getCommandSurfaceLocality();
   }
   async executeSkillCommandByName(
     name: string,

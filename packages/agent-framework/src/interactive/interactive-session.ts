@@ -107,6 +107,7 @@ import type {
   TAutoCompactThresholdSource,
   TAutoCompactThreshold,
   TCommandInvocationSource,
+  TCommandSurfaceLocality,
 } from '../commands/index.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
@@ -2076,6 +2077,7 @@ export class InteractiveSession
     args: string,
     source: TCommandInvocationSource = 'user',
     originDriverId?: TDriverId,
+    locality?: TCommandSurfaceLocality,
   ): Promise<ICommandResult | null> {
     if (this.orgPolicy?.blockedCommands?.includes(name)) {
       return {
@@ -2109,8 +2111,8 @@ export class InteractiveSession
     // turn running, keeps the unchanged path.
     const bypassMidTurnGate = name === 'loop' && isLoopStopVerb(args) && this.execCtrl.executing;
     const result = bypassMidTurnGate
-      ? await this.skillRouter.executeCommand(name, args, source, originDriverId)
-      : await super.executeCommand(name, args, source, originDriverId);
+      ? await this.skillRouter.executeCommand(name, args, source, originDriverId, locality)
+      : await super.executeCommand(name, args, source, originDriverId, locality);
     if (result === null) return null;
     const application = await applyCommandHostActions(result, {
       getAdapters: () => this.getCommandHostAdapters(),

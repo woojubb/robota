@@ -321,6 +321,122 @@ describe('createMcpClientComposition', () => {
   });
 });
 
+describe('MCP Servers section runtime status (#3282 §4 part b-2)', () => {
+  it('list() reports a connected server as connected, with its tool names', async () => {
+    const entries = [resolvedEntry()];
+    const approvalStore = approvedApprovalStore(entries);
+    const { connection } = fakeConnection(discoveryWithOneTool());
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore,
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: () => connection,
+      reportDiagnostic: () => undefined,
+    });
+
+    await composition.connect();
+    const summary = composition.activationAdapter.list().find((s) => s.serverId === 'weather');
+
+    expect(summary?.connection).toBe('connected');
+    expect(summary?.toolNames).toEqual(['weather__forecast']);
+    expect(summary?.connectionFailureReason).toBeUndefined();
+
+    await composition.shutdown();
+  });
+
+  it('list() reports a plain failure reason for an admitted server whose discovery fails', async () => {
+    const entries = [resolvedEntry()];
+    const approvalStore = approvedApprovalStore(entries);
+    const failingConnection: IMcpServerConnection = {
+      discover: async () => {
+        throw new Error('boom');
+      },
+      callTool: async () => ({ content: [], isError: true }),
+      shutdown: async () => {},
+    };
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore,
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: () => failingConnection,
+      reportDiagnostic: () => undefined,
+    });
+
+    await composition.connect();
+    const summary = composition.activationAdapter.list().find((s) => s.serverId === 'weather');
+
+    expect(summary?.connection).toBe('failed');
+    expect(summary?.connectionFailureReason).toBe('boom');
+    expect(summary?.toolNames).toEqual([]);
+
+    await composition.shutdown();
+  });
+
+  it('reload() retries only a server not currently connected, leaving a connected one alone', async () => {
+    const entries = [
+      resolvedEntry({ name: 'weather' }),
+      resolvedEntry({
+        name: 'flaky',
+        definition: definition({ name: 'flaky', url: 'https://mcp.example.com/flaky' }),
+      }),
+    ];
+    const approvalStore = approvedApprovalStore(entries);
+    const { connection: weatherConnection } = fakeConnection(discoveryWithOneTool());
+    let flakyAttempts = 0;
+    const flakyDiscovery: IMCPDiscovery = {
+      ...discoveryWithOneTool(),
+      tools: {
+        state: { kind: 'supported', count: 1, listChanged: false },
+        items: [{ name: 'status', description: 'Check status', inputSchema: { type: 'object', properties: {} } }],
+        pages: 1,
+      },
+    };
+    const flakyConnection: IMcpServerConnection = {
+      discover: async () => {
+        flakyAttempts += 1;
+        if (flakyAttempts === 1) throw new Error('connection refused');
+        return flakyDiscovery;
+      },
+      callTool: async () => ({ content: [], isError: false }),
+      shutdown: async () => {},
+    };
+    let weatherSupervisorCalls = 0;
+
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore,
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: (options) => {
+        if (options.serverId === 'weather') {
+          weatherSupervisorCalls += 1;
+          return weatherConnection;
+        }
+        return flakyConnection;
+      },
+      reportDiagnostic: () => undefined,
+    });
+
+    await composition.connect();
+    expect(
+      composition.activationAdapter.list().find((s) => s.serverId === 'flaky')?.connection,
+    ).toBe('failed');
+    expect(weatherSupervisorCalls).toBe(1);
+
+    const result = await composition.activationAdapter.reload!();
+
+    expect(result.connectedServerIds).toEqual(['flaky']);
+    expect(result.failedServerIds).toEqual([]);
+    expect(result.tools.map((tool) => tool.getName())).toEqual(['flaky__status']);
+    // The already-connected server was left alone: no second supervisor for it.
+    expect(weatherSupervisorCalls).toBe(1);
+    const afterReload = composition.activationAdapter.list();
+    expect(afterReload.find((s) => s.serverId === 'flaky')?.connection).toBe('connected');
+    expect(afterReload.find((s) => s.serverId === 'weather')?.connection).toBe('connected');
+
+    await composition.shutdown();
+  });
+});
+
 // --- MCP-004 (TC-18): `toolCallMs` is a fifth, independently-set timeout — `buildMcpClientTimeouts`
 // sets it from the resolved `mcp.callTimeoutMs`, and the composition passes the result straight
 // through to the supervisor, leaving the other four MCP-002 defaults untouched.

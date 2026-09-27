@@ -695,6 +695,11 @@ class ScriptedSession extends EventEmitter {
       this.emit('session_renamed', { name: newName });
       return Promise.resolve({ message: `Session renamed to "${newName}".`, success: true });
     }
+    // #3282 §4 part b-2: `/plugin` opens the Settings screen's Plugins section.
+    if (name === 'plugin') {
+      this.emit('ui_intent', { intent: { type: 'show-plugin-manager' } });
+      return Promise.resolve({ message: 'Opening plugin manager...', success: true });
+    }
     return Promise.resolve({ message: 'ok', success: true });
   }
   listCommands() {
@@ -702,6 +707,7 @@ class ScriptedSession extends EventEmitter {
       { name: 'help', description: 'Show available commands', modelInvocable: false, runner: 'runtime' },
       { name: 'mode', description: 'Show or change the permission mode', modelInvocable: false, runner: 'runtime' },
       { name: 'settings', description: 'Open settings', modelInvocable: false, runner: 'runtime' },
+      { name: 'plugin', description: 'Manage plugins', modelInvocable: false, runner: 'runtime' },
       { name: 'resume', description: 'Resume another session', modelInvocable: false, runner: 'runtime' },
       // A command the terminal runs itself: the GUI's menu marks it rather than running it.
       {
@@ -901,6 +907,20 @@ const PERMISSION_MODE_CHOICES = [
 let permissionRules = [
   { scope: 'user', source: '~/.robota/settings.json', kind: 'allow', pattern: 'Bash(git status:*)' },
 ];
+/** #3282 §4 part b-2: the MCP Servers and Plugins sections' in-memory, scripted state. */
+let scriptedMcpServers = [
+  {
+    id: 'docs',
+    name: 'docs',
+    scopeLabel: 'This project',
+    status: 'connected',
+    toolNames: ['search_docs', 'read_doc'],
+    enabled: true,
+  },
+];
+let scriptedPlugins = [
+  { id: 'formatter@robota', name: 'formatter@robota', description: 'Formats code on save.', enabled: true },
+];
 
 function buildSettingsSnapshot() {
   return {
@@ -930,6 +950,8 @@ function buildSettingsSnapshot() {
       available: true,
       description: 'Confines shell commands to the workspace and temp directories, without a prompt for each one.',
     },
+    mcp: { servers: scriptedMcpServers },
+    plugins: { plugins: scriptedPlugins, canInstall: true },
   };
 }
 
@@ -972,6 +994,38 @@ const settingsReporter = {
         }
         break;
       }
+      case 'mcpServerEnabled': {
+        const server = scriptedMcpServers.find((s) => s.id === patch.serverId);
+        if (!server) return { ok: false, code: 'invalid', message: `Unknown MCP server "${patch.serverId}".` };
+        scriptedMcpServers = scriptedMcpServers.map((s) =>
+          s.id === patch.serverId
+            ? { ...s, enabled: patch.enabled, status: patch.enabled ? 'connected' : 'disabled' }
+            : s,
+        );
+        break;
+      }
+      case 'reloadMcpServers':
+        // Scripted: nothing to reconnect, but the round trip must still succeed.
+        break;
+      case 'pluginEnabled': {
+        const plugin = scriptedPlugins.find((p) => p.id === patch.pluginId);
+        if (!plugin) return { ok: false, code: 'invalid', message: `Unknown plugin "${patch.pluginId}".` };
+        scriptedPlugins = scriptedPlugins.map((p) =>
+          p.id === patch.pluginId ? { ...p, enabled: patch.enabled } : p,
+        );
+        break;
+      }
+      case 'reloadPlugins':
+        break;
+      case 'installPlugin':
+        scriptedPlugins = [
+          ...scriptedPlugins,
+          { id: patch.pluginId, name: patch.pluginId, description: 'Installed in this scripted session.', enabled: true },
+        ];
+        break;
+      case 'uninstallPlugin':
+        scriptedPlugins = scriptedPlugins.filter((p) => p.id !== patch.pluginId);
+        break;
       default:
         return { ok: false, code: 'invalid', message: 'Unknown settings field.' };
     }

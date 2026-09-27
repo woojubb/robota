@@ -174,9 +174,13 @@ export type { IPlanApprovalEvent } from './session-event-map.js';
 export type {
   ISettingsChoice,
   ISettingsLanguageSection,
+  ISettingsMcpSection,
+  ISettingsMcpServer,
   ISettingsOutputStyleSection,
   ISettingsPermissionModeSection,
   ISettingsPermissionRule,
+  ISettingsPlugin,
+  ISettingsPluginsSection,
   ISettingsPresetSection,
   ISettingsSandboxSection,
   ISettingsSnapshot,

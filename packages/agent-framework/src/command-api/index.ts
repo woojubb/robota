@@ -54,6 +54,7 @@ export type {
   IModelReapplyOptions,
   IUnknownCommandModuleName,
   TCommandInvocationSource,
+  TCommandSurfaceLocality,
   TAutoCompactThresholdSource,
 } from './host-context.js';
 export type {

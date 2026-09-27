@@ -54,7 +54,7 @@ function revocationText(result: ICommandMCPOAuthLogoutResult): string {
 }
 
 const USAGE =
-  'Usage: /mcp [status] | /mcp <approve|reject|revoke|logout> <serverId> | /mcp login <serverId> [--no-browser]';
+  'Usage: /mcp [status] | /mcp <approve|reject|revoke|logout> <serverId> | /mcp login <serverId> [--no-browser] | /mcp reload';
 const LOGIN_USAGE = 'Usage: /mcp login <serverId> [--no-browser]';
 
 /**
@@ -147,6 +147,7 @@ async function listResult(mcp: ICommandMCPActivationAdapter | undefined): Promis
     data: {
       servers: entries.map((entry) => ({
         serverId: entry.serverId,
+        ...(entry.displayName === undefined ? {} : { displayName: entry.displayName }),
         source: entry.source,
         status: entry.status,
         allowed: entry.allowed,
@@ -154,6 +155,12 @@ async function listResult(mcp: ICommandMCPActivationAdapter | undefined): Promis
         definitionFingerprint: entry.definitionFingerprint,
         securityIdentity: entry.securityIdentity,
         ...(oauth.has(entry.serverId) ? { oauth: oauth.get(entry.serverId) } : {}),
+        // #3282 §4 part b-2: the Settings screen's MCP Servers section.
+        ...(entry.connection === undefined ? {} : { connection: entry.connection }),
+        ...(entry.connectionFailureReason === undefined
+          ? {}
+          : { connectionFailureReason: entry.connectionFailureReason }),
+        ...(entry.toolNames === undefined ? {} : { toolNames: entry.toolNames }),
       })),
       sourceProblems,
     },
@@ -183,6 +190,7 @@ export async function executeMCPActivationCommand(
       : mcpModelStatusResult(adapter(context));
   }
   if (verb === 'login') return loginResult(context, serverId);
+  if (verb === 'reload') return reloadResult(context);
 
   if (verb !== 'approve' && verb !== 'reject' && verb !== 'revoke' && verb !== 'logout') {
     return { message: `Unknown argument. ${USAGE}`, success: false };
@@ -247,6 +255,48 @@ async function logoutResult(
     message: `${signedOut}; ${revocationText(result)}.`,
     success: true,
     data: { ...result },
+  };
+}
+
+/**
+ * #3282 §4 part b-2: `/mcp reload` and the Settings screen's "Reload servers" button — retries
+ * every server not currently connected and adds whatever tools it now offers to the live session,
+ * the same way a completed sign-in does.
+ */
+async function reloadResult(context: TMCPActivationCommandContext): Promise<ICommandResult> {
+  const mcp = adapter(context);
+  if (!mcp) {
+    return {
+      message: 'MCP activation management is not available in this environment.',
+      success: true,
+    };
+  }
+  if (mcp.reload === undefined) {
+    return { message: 'Reloading MCP servers is not available in this environment.', success: false };
+  }
+  const result = await mcp.reload();
+  const added =
+    result.tools.length === 0 ? [] : await context.getSession().addTools(result.tools);
+  const dropped = result.tools.length - added.length;
+  const parts = [
+    result.connectedServerIds.length === 0
+      ? 'No server newly connected.'
+      : `Connected: ${result.connectedServerIds.join(', ')}.`,
+    result.failedServerIds.length === 0
+      ? undefined
+      : `Still not connected: ${result.failedServerIds.join(', ')} (see /mcp status).`,
+    dropped === 0
+      ? undefined
+      : `${dropped} of the new tools ${dropped === 1 ? 'was' : 'were'} left out: the session already has a tool by that name.`,
+  ].filter((part): part is string => part !== undefined);
+  return {
+    message: `Reloaded MCP servers. ${parts.join(' ')}`.trim(),
+    success: true,
+    data: {
+      connectedServerIds: result.connectedServerIds,
+      failedServerIds: result.failedServerIds,
+      tools: [...added],
+    },
   };
 }
 

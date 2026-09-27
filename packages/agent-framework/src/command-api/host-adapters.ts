@@ -187,6 +187,15 @@ export interface ICommandMCPActivationSummary {
   readonly provenanceId: string;
   readonly definitionFingerprint: string;
   readonly securityIdentity: string;
+  /**
+   * #3282 §4 part b-2: this process's live connection outcome for an `allowed` server — absent for
+   * one that is not `allowed`, or has not been attempted yet. `'failed'`'s reason is
+   * {@link connectionFailureReason}; a connected server's tool names are {@link toolNames}.
+   */
+  readonly connection?: 'connected' | 'failed';
+  readonly connectionFailureReason?: string;
+  /** The names of the tools this server currently contributes; empty when not connected. */
+  readonly toolNames?: readonly string[];
 }
 
 /**
@@ -320,6 +329,17 @@ export interface ICommandMCPActivationAdapter {
    * a name it already had. Called once per sign-in that returned tools.
    */
   oauthToolsAdded?(serverId: string, added: readonly string[]): void;
+  /**
+   * #3282 §4 part b-2: `/mcp reload` and the Settings screen's "Reload servers" button. Retries
+   * every allowed server that is not currently connected; a server already connected is left
+   * running. Never rejects: a server that still cannot connect keeps its `list()` failure reason.
+   * Absent: the host offers no reload (the button/command then say so).
+   */
+  reload?(): Promise<{
+    readonly tools: readonly IToolWithEventService[];
+    readonly connectedServerIds: readonly string[];
+    readonly failedServerIds: readonly string[];
+  }>;
 }
 
 /**

@@ -254,8 +254,14 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   settingsSnapshot: ISettingsSnapshot | null;
   /** The plain message from the most recent failed read or write, if any. */
   settingsError: string | null;
-  /** Opens the screen and (re-)fetches its snapshot — the "reopen and see the new value" path. */
-  openSettings: () => void;
+  /** #3282 §4 part b-2: which section the screen should land on for the open in progress. */
+  settingsInitialSectionId: string | null;
+  /**
+   * Opens the screen and (re-)fetches its snapshot — the "reopen and see the new value" path.
+   * `sectionId` jumps straight to that section (e.g. `/plugin` → `'plugins'`); omitted opens on the
+   * screen's own default.
+   */
+  openSettings: (sectionId?: string) => void;
   closeSettings: () => void;
   /** A failed write leaves `settingsSnapshot` at its previous value; `settingsError` names why. */
   updateSettings: (patch: TSettingsPatch) => void;

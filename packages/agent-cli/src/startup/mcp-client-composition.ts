@@ -310,8 +310,38 @@ function toCommandSourceProblem(
   };
 }
 
-/** Narrows `agent-mcp`'s internal activation summary to the command layer's secret-free port shape. */
-function toCommandSummary(summary: IMCPActivationSummary): ICommandMCPActivationSummary {
+/** This process's live connection bookkeeping, read (never written) by `toCommandSummary`. */
+interface IMcpRuntimeStatus {
+  readonly discovered: ReadonlySet<string>;
+  readonly connectedToolProvenance: ReadonlyMap<string, IMcpConnectedToolProvenance>;
+  readonly connectionFailures: ReadonlyMap<string, string>;
+}
+
+/**
+ * Narrows `agent-mcp`'s internal activation summary to the command layer's secret-free port shape,
+ * and — for an `allowed` server — merges this process's live connection outcome and tool names
+ * (#3282 §4 part b-2) so `/mcp status` and the Settings screen's MCP Servers section read the same
+ * one source. `runtime` is absent for a caller with no connection bookkeeping (a narrower or older
+ * composition): the merged fields are then simply absent, same as "not attempted yet".
+ */
+function toCommandSummary(
+  summary: IMCPActivationSummary,
+  runtime?: IMcpRuntimeStatus,
+): ICommandMCPActivationSummary {
+  const connection: ICommandMCPActivationSummary['connection'] =
+    runtime === undefined || !summary.allowed
+      ? undefined
+      : runtime.discovered.has(summary.serverId)
+        ? 'connected'
+        : runtime.connectionFailures.has(summary.serverId)
+          ? 'failed'
+          : undefined;
+  const toolNames =
+    runtime === undefined
+      ? undefined
+      : [...runtime.connectedToolProvenance.entries()]
+          .filter(([, provenance]) => provenance.serverId === summary.serverId)
+          .map(([name]) => name);
   return {
     serverId: summary.serverId,
     ...(summary.displayName === undefined ? {} : { displayName: summary.displayName }),
@@ -322,6 +352,11 @@ function toCommandSummary(summary: IMCPActivationSummary): ICommandMCPActivation
     provenanceId: summary.provenanceId,
     definitionFingerprint: summary.definitionFingerprint,
     securityIdentity: summary.securityIdentity,
+    ...(connection === undefined ? {} : { connection }),
+    ...(connection === 'failed'
+      ? { connectionFailureReason: runtime?.connectionFailures.get(summary.serverId) ?? 'unknown' }
+      : {}),
+    ...(toolNames === undefined ? {} : { toolNames }),
   };
 }
 
@@ -350,6 +385,13 @@ interface IConnectServerContext {
   readonly oauthAuthenticators: Map<string, IMcpClosableAuthenticator>;
   /** Servers that did not start for a reason the user can fix, and which action fixes it. */
   readonly unavailable: Map<string, TMCPUserAction>;
+  /**
+   * #3282 §4 part b-2: the plain reason a server did not connect, for the Settings screen's MCP
+   * Servers section. Keyed by server id; cleared on a successful (re)connect. Distinct from
+   * `unavailable` (a user-fixable admission reason) — this is a genuine connection/refusal failure
+   * for an ADMITTED server.
+   */
+  readonly connectionFailures: Map<string, string>;
 }
 
 /** The user action an admission refusal calls for; `undefined` for a decision the user already made. */
@@ -461,6 +503,7 @@ async function connectOneServer(
       deps.reportDiagnostic(
         `MCP server "${request.serverId}" stdio was refused: missing host authority.`,
       );
+      context.connectionFailures.set(request.serverId, 'missing host authority');
       return undefined;
     }
     const adapter = createStdioAdapter({ admission, authority });
@@ -469,6 +512,7 @@ async function connectOneServer(
       deps.reportDiagnostic(
         `MCP server "${request.serverId}" stdio was refused (${result.reason}).`,
       );
+      context.connectionFailures.set(request.serverId, result.reason);
       return undefined;
     }
     supervisorOptions = buildSupervisorOptions(request, adapter, result.admitted, timeouts, deps);
@@ -483,6 +527,7 @@ async function connectOneServer(
         deps.reportDiagnostic(
           `MCP server "${request.serverId}" endpoint was refused (oauth-unavailable).`,
         );
+        context.connectionFailures.set(request.serverId, 'OAuth is not available');
         return undefined;
       }
       let oauthAuthenticator = context.oauthAuthenticators.get(request.serverId);
@@ -494,6 +539,7 @@ async function connectOneServer(
           deps.reportDiagnostic(
             `MCP server "${request.serverId}" endpoint was refused (oauth-unavailable).`,
           );
+          context.connectionFailures.set(request.serverId, 'OAuth is not available');
           return undefined;
         }
         context.oauthAuthenticators.set(request.serverId, oauthAuthenticator);
@@ -513,6 +559,7 @@ async function connectOneServer(
         deps.reportDiagnostic(
           `MCP server "${request.serverId}" endpoint was refused (${refusal ?? 'headers-helper-not-allowed'}).`,
         );
+        context.connectionFailures.set(request.serverId, refusal ?? 'headers-helper-not-allowed');
         return undefined;
       }
       const slot = helperAuthenticatorSlot(() =>
@@ -548,6 +595,7 @@ async function connectOneServer(
       deps.reportDiagnostic(
         `MCP server "${request.serverId}" endpoint was refused (${result.reason}): ${result.message}`,
       );
+      context.connectionFailures.set(request.serverId, `${result.reason}: ${result.message}`);
       return undefined;
     }
     supervisorOptions = buildSupervisorOptions(
@@ -569,14 +617,16 @@ async function connectOneServer(
   // not propagate past this one server.
   try {
     const discovery = await connection.discover(signal);
+    // A retry after an earlier failure (`reload`) succeeded — the stale reason must not linger.
+    context.connectionFailures.delete(request.serverId);
     return {
       catalogInput: { serverId: request.serverId, origin, transport, discovery },
       connection,
     };
   } catch (error) {
-    deps.reportDiagnostic(
-      `MCP server "${request.serverId}" discovery failed: ${transport === 'stdio' ? 'stdio connection failed' : describeError(error)}`,
-    );
+    const reason = transport === 'stdio' ? 'stdio connection failed' : describeError(error);
+    deps.reportDiagnostic(`MCP server "${request.serverId}" discovery failed: ${reason}`);
+    context.connectionFailures.set(request.serverId, reason);
     // An OAuth server refusing us is the one discovery failure the user fixes by signing in.
     if (definition.oauth !== undefined && classifyMcpFailure(error) === 'auth') {
       context.unavailable.set(request.serverId, 'sign-in');
@@ -601,10 +651,11 @@ function buildActivationAdapter(
   controller: MCPActivationController,
   sourceProblems: readonly IMCPDefinitionProblem[],
   resolvedEntries: readonly IMCPResolvedEntry[],
+  runtime: IMcpRuntimeStatus,
 ): ICommandMCPActivationAdapter {
   const managedTier = MCP_SOURCE_PRECEDENCE[0];
   return {
-    list: () => controller.list().map(toCommandSummary),
+    list: () => controller.list().map((summary) => toCommandSummary(summary, runtime)),
     sourceProblems: () => {
       // Recomputed on each call rather than captured once: `resolvedEntries` is this composition's
       // input for its whole lifetime (MCP-002 does not mutate it), so this is only ever the same
@@ -761,18 +812,6 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   const admission = new MCPActivationAdmissionService(deps.approvalStore, deps.now);
   const controller = new MCPActivationController(registry, admission, registry.displayNames());
   const oauthAuthenticators = new Map<string, IMcpClosableAuthenticator>();
-  const activationAdapter: ICommandMCPActivationAdapter = {
-    ...buildActivationAdapter(controller, deps.sourceProblems ?? [], deps.resolvedEntries),
-    ...oauthCommandPort(
-      registry,
-      deps.resolvedEntries,
-      deps.oauth,
-      oauthAuthenticators,
-      connectSignedIn,
-      toolsAdded,
-    ),
-    ...(deps.userActionSurface === undefined ? {} : { userActionSurface: deps.userActionSurface }),
-  };
 
   const openConnections: IMcpServerConnection[] = [];
   const helperSlots = new Map<string, IHelperAuthenticatorSlot>();
@@ -785,6 +824,27 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   const unavailableServers = new Map<string, TMCPUserAction>();
   /** Servers whose connection discovered successfully: connected, with or without tools. */
   const discovered = new Set<string>();
+  /** #3282 §4 part b-2: the plain reason an admitted server did not connect, by server id. */
+  const connectionFailures = new Map<string, string>();
+
+  const activationAdapter: ICommandMCPActivationAdapter = {
+    ...buildActivationAdapter(controller, deps.sourceProblems ?? [], deps.resolvedEntries, {
+      discovered,
+      connectedToolProvenance,
+      connectionFailures,
+    }),
+    ...oauthCommandPort(
+      registry,
+      deps.resolvedEntries,
+      deps.oauth,
+      oauthAuthenticators,
+      connectSignedIn,
+      toolsAdded,
+    ),
+    reload: reloadServers,
+    ...(deps.userActionSurface === undefined ? {} : { userActionSurface: deps.userActionSurface }),
+  };
+
   /** A sign-in's tools, by server, until the session says which it took. */
   const pendingProvenance = new Map<string, Map<string, IMcpConnectedToolProvenance>>();
   let resultSpillStore:
@@ -827,6 +887,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     helperSlots,
     oauthAuthenticators,
     unavailable: unavailableServers,
+    connectionFailures,
   });
 
   /**
@@ -950,6 +1011,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     connectedByServerId.clear();
     unavailableServers.clear();
     discovered.clear();
+    connectionFailures.clear();
     const catalogInputs: IMCPCatalogInput[] = [];
     const connectionByServerId = new Map<string, IMcpServerConnection>();
     const securityIdentityByServerId = new Map<string, string>();
@@ -990,6 +1052,82 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       authFailureNoticeByServerId,
     );
     return withResultReadTool(tools);
+  }
+
+  /**
+   * #3282 §4 part b-2: the Settings screen's "Reload servers" button and `/mcp reload`. Retries
+   * every ADMITTED server not currently connected — one whose config was just fixed, or that was
+   * just enabled — reusing the exact per-server connection `connect()` already uses. A server that
+   * is already connected is left alone: no teardown, no risk to a tool call already using it. Never
+   * throws: a server that still cannot connect keeps its recorded reason for the next read.
+   */
+  async function reloadServers(): Promise<{
+    readonly tools: readonly IToolWithEventService[];
+    readonly connectedServerIds: readonly string[];
+    readonly failedServerIds: readonly string[];
+  }> {
+    const context = connectContext(undefined);
+    const connectedServerIds: string[] = [];
+    const failedServerIds: string[] = [];
+    const newCatalogInputs: IMCPCatalogInput[] = [];
+    const connectionByServerId = new Map<string, IMcpServerConnection>();
+    const securityIdentityByServerId = new Map<string, string>();
+    const authFailureNoticeByServerId = new Map<string, string>();
+
+    for (const request of registry.list()) {
+      if (discovered.has(request.serverId)) continue;
+      const entry = deps.resolvedEntries.find((candidate) => candidate.name === request.serverId);
+      if (entry === undefined || entry.definition === undefined) continue;
+      const definition = entry.definition;
+      if (definition.transport !== 'http' && definition.transport !== 'stdio') continue;
+
+      // A previous attempt may have left a connection object with no successful discovery — close
+      // it before retrying so the retry does not open a second one beside it.
+      const previous = connectedByServerId.get(request.serverId);
+      if (previous !== undefined) {
+        const idx = openConnections.indexOf(previous);
+        if (idx !== -1) openConnections.splice(idx, 1);
+        await previous.shutdown().catch(() => undefined);
+        connectedByServerId.delete(request.serverId);
+      }
+
+      const connected = await connectOneServer(request, definition, entry.origin, context);
+      if (connected === undefined || connected === 'not-admitted') continue;
+      if (connected.connection === undefined) {
+        failedServerIds.push(request.serverId);
+        continue;
+      }
+      openConnections.push(connected.connection);
+      connectedByServerId.set(request.serverId, connected.connection);
+      if (connected.catalogInput.discovery === undefined) {
+        failedServerIds.push(request.serverId);
+        continue;
+      }
+      newCatalogInputs.push(connected.catalogInput);
+      connectionByServerId.set(request.serverId, connected.connection);
+      securityIdentityByServerId.set(request.serverId, request.securityIdentity);
+      if (definition.oauth !== undefined) {
+        authFailureNoticeByServerId.set(request.serverId, authFailureNotice(request.serverId));
+      }
+      discovered.add(request.serverId);
+      connectedServerIds.push(request.serverId);
+    }
+
+    if (newCatalogInputs.length === 0) {
+      return { tools: [], connectedServerIds, failedServerIds };
+    }
+    const catalog = buildServerCatalog(newCatalogInputs);
+    const provenance = new Map<string, IMcpConnectedToolProvenance>();
+    const tools = collectToolsFromCatalog(
+      catalog,
+      connectionByServerId,
+      securityIdentityByServerId,
+      provenance,
+      resultAdmission,
+      authFailureNoticeByServerId,
+    );
+    for (const [name, toolProvenance] of provenance) connectedToolProvenance.set(name, toolProvenance);
+    return { tools: withResultReadTool(tools), connectedServerIds, failedServerIds };
   }
 
   /** Reads a saved oversized MCP result back, a bounded slice at a time. */

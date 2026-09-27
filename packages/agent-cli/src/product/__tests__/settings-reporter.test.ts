@@ -412,6 +412,230 @@ describe('createSettingsReporter (#3282 §4a)', () => {
     expect(executeCommand).toHaveBeenCalledWith('sandbox', 'off', 'remote');
   });
 
+  it('builds the MCP and plugins sections from /mcp status and /plugin list (#3282 §4 part b-2)', async () => {
+    const executeCommand = vi.fn(async (name: string, args: string) => {
+      if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+      if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+      if (name === 'mcp' && args === 'status') {
+        return listResult({
+          servers: [
+            {
+              serverId: 'docs',
+              displayName: 'docs',
+              source: 'project',
+              status: 'approved',
+              allowed: true,
+              connection: 'connected',
+              toolNames: ['search_docs'],
+            },
+            {
+              serverId: 'flaky',
+              source: 'user',
+              status: 'approved',
+              allowed: true,
+              connection: 'failed',
+              connectionFailureReason: 'stdio connection failed',
+              toolNames: [],
+            },
+          ],
+        });
+      }
+      if (name === 'plugin' && args === 'list') {
+        return listResult({
+          plugins: [{ name: 'formatter@robota', description: 'Formats code.', enabled: true }],
+        });
+      }
+      return null;
+    });
+    const { session, reporter } = setup({ executeCommand });
+
+    const settings = await reporter.getSettings(session);
+
+    expect(settings.mcp.servers).toEqual([
+      {
+        id: 'docs',
+        name: 'docs',
+        scopeLabel: 'This project',
+        status: 'connected',
+        toolNames: ['search_docs'],
+        enabled: true,
+      },
+      {
+        id: 'flaky',
+        name: 'flaky',
+        scopeLabel: 'All projects',
+        status: 'failed',
+        statusReason: 'stdio connection failed',
+        toolNames: [],
+        enabled: true,
+      },
+    ]);
+    expect(settings.plugins.plugins).toEqual([
+      { id: 'formatter@robota', name: 'formatter@robota', description: 'Formats code.', enabled: true },
+    ]);
+  });
+
+  it('canInstall is true on a local read and false on a remote one', async () => {
+    const executeCommand = vi.fn(async (name: string, args: string) => {
+      if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+      if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+      return null;
+    });
+    const { session, reporter } = setup({ executeCommand });
+
+    expect((await reporter.getSettings(session)).plugins.canInstall).toBe(true);
+    expect((await reporter.getSettings(session, 'local')).plugins.canInstall).toBe(true);
+    expect((await reporter.getSettings(session, 'remote')).plugins.canInstall).toBe(false);
+  });
+
+  it('mcpServerEnabled toggles through the same /mcp approve|reject command', async () => {
+    const executeCommand = vi.fn(async (name: string, args: string) => {
+      if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+      if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+      if (name === 'mcp' && (args === 'approve docs' || args === 'reject docs')) {
+        return { success: true, message: 'ok' };
+      }
+      return null;
+    });
+    const { session, reporter } = setup({ executeCommand });
+
+    await reporter.updateSettings(session, { field: 'mcpServerEnabled', serverId: 'docs', enabled: true });
+    expect(executeCommand).toHaveBeenCalledWith('mcp', 'approve docs', 'remote');
+
+    await reporter.updateSettings(session, { field: 'mcpServerEnabled', serverId: 'docs', enabled: false });
+    expect(executeCommand).toHaveBeenCalledWith('mcp', 'reject docs', 'remote');
+  });
+
+  it('reloadMcpServers and reloadPlugins call the same reload commands', async () => {
+    const executeCommand = vi.fn(async (name: string, args: string) => {
+      if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+      if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+      if (name === 'mcp' && args === 'reload') return { success: true, message: 'ok' };
+      if (name === 'reload-plugins') return { success: true, message: 'ok' };
+      return null;
+    });
+    const { session, reporter } = setup({ executeCommand });
+
+    await reporter.updateSettings(session, { field: 'reloadMcpServers' });
+    expect(executeCommand).toHaveBeenCalledWith('mcp', 'reload', 'remote');
+
+    await reporter.updateSettings(session, { field: 'reloadPlugins' });
+    expect(executeCommand).toHaveBeenCalledWith('reload-plugins', '', 'remote');
+  });
+
+  it('pluginEnabled toggles through the same /plugin enable|disable command', async () => {
+    const executeCommand = vi.fn(async (name: string, args: string) => {
+      if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+      if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+      if (name === 'plugin' && (args === 'enable demo@robota' || args === 'disable demo@robota')) {
+        return { success: true, message: 'ok' };
+      }
+      return null;
+    });
+    const { session, reporter } = setup({ executeCommand });
+
+    await reporter.updateSettings(session, {
+      field: 'pluginEnabled',
+      pluginId: 'demo@robota',
+      enabled: false,
+    });
+    expect(executeCommand).toHaveBeenCalledWith('plugin', 'disable demo@robota', 'remote');
+  });
+
+  describe('installPlugin/uninstallPlugin forward this connection\'s locality to /plugin, the same rule the command uses (#3282 §4 part b-2)', () => {
+    it('a local install reaches the plugin command and succeeds', async () => {
+      const executeCommand = vi.fn(async (name: string, args: string) => {
+        if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+        if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+        if (name === 'plugin' && args === 'install demo@robota') {
+          return { success: true, message: 'Installed plugin: demo@robota' };
+        }
+        return null;
+      });
+      const { session, reporter } = setup({ executeCommand });
+
+      const outcome = await reporter.updateSettings(
+        session,
+        { field: 'installPlugin', pluginId: 'demo@robota' },
+        'local',
+      );
+
+      expect(executeCommand).toHaveBeenCalledWith(
+        'plugin',
+        'install demo@robota',
+        'remote',
+        undefined,
+        'local',
+      );
+      expect(outcome.ok).toBe(true);
+    });
+
+    it('a remote install is refused, carrying the command\'s own plain message', async () => {
+      const executeCommand = vi.fn(async (name: string, args: string) => {
+        if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+        if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+        if (name === 'plugin' && args === 'install demo@robota') {
+          return {
+            success: false,
+            message:
+              'Installing and uninstalling plugins runs code on this computer, so it only works ' +
+              'from the desktop app or the page opened here — not from a remote device.',
+          };
+        }
+        return null;
+      });
+      const { session, reporter } = setup({ executeCommand });
+
+      const outcome = await reporter.updateSettings(
+        session,
+        { field: 'installPlugin', pluginId: 'demo@robota' },
+        'remote',
+      );
+
+      expect(executeCommand).toHaveBeenCalledWith(
+        'plugin',
+        'install demo@robota',
+        'remote',
+        undefined,
+        'remote',
+      );
+      expect(outcome).toEqual({
+        ok: false,
+        code: 'refused',
+        message:
+          'Installing and uninstalling plugins runs code on this computer, so it only works ' +
+          'from the desktop app or the page opened here — not from a remote device.',
+      });
+    });
+
+    it('a remote uninstall is refused the same way', async () => {
+      const executeCommand = vi.fn(async (name: string, args: string) => {
+        if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+        if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+        if (name === 'plugin' && args === 'uninstall demo@robota') {
+          return { success: false, message: 'not from a remote device.' };
+        }
+        return null;
+      });
+      const { session, reporter } = setup({ executeCommand });
+
+      const outcome = await reporter.updateSettings(
+        session,
+        { field: 'uninstallPlugin', pluginId: 'demo@robota' },
+        'remote',
+      );
+
+      expect(executeCommand).toHaveBeenCalledWith(
+        'plugin',
+        'uninstall demo@robota',
+        'remote',
+        undefined,
+        'remote',
+      );
+      expect(outcome.ok).toBe(false);
+    });
+  });
+
   it('describes "regular" mode accurately: confined but still prompting, not "without a prompt"', async () => {
     const executeCommand = vi.fn(async (name: string, args: string) => {
       if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });

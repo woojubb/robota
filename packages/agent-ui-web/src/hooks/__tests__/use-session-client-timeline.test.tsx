@@ -50,20 +50,16 @@ describe('#3186 — the GUI conversation timeline', () => {
     expect(result.current.messages).toEqual([]);
   });
 
-  it('a ui_intent and its command result make ONE info entry naming what is unavailable', () => {
+  it('#3282 §4 part b-2: a ui_intent for the plugin manager opens Settings on Plugins, not an info entry', () => {
     const { result, deliver } = setup();
     act(() => result.current.send({ type: 'command', name: 'plugin' }));
     deliver({ type: 'ui_intent', event: { intent: { type: 'show-plugin-manager' } } } as TServerMessage);
     deliver({ type: 'command_result', name: 'plugin', message: 'Opening plugin manager...', success: true });
 
-    expect(result.current.messages).toHaveLength(1);
-    expect(result.current.messages[0]).toEqual(
-      expect.objectContaining({ role: 'command', name: 'plugin', tone: 'info' }),
-    );
-    expect(result.current.messages[0]).toHaveProperty(
-      'content',
-      expect.stringMatching(/plugin manager is not available/i),
-    );
+    expect(result.current.settingsOpen).toBe(true);
+    expect(result.current.settingsInitialSectionId).toBe('plugins');
+    // The screen opening is the answer — no info line, exactly like `show-settings`.
+    expect(result.current.messages).toEqual([]);
   });
 
   it('#3282 §4a: a ui_intent for settings opens the Settings screen instead of an info entry', () => {
@@ -94,11 +90,11 @@ describe('#3186 — the GUI conversation timeline', () => {
 
   it('#3186 review: a protocol error in place of the reply still shows the screen request', () => {
     const { result, deliver } = setup();
-    act(() => result.current.send({ type: 'command', name: 'plugin' }));
-    deliver({ type: 'ui_intent', event: { intent: { type: 'show-plugin-manager' } } } as TServerMessage);
+    act(() => result.current.send({ type: 'command', name: 'agent' }));
+    deliver({ type: 'ui_intent', event: { intent: { type: 'show-agent-switcher' } } } as TServerMessage);
     deliver({ type: 'protocol_error', message: 'boom' });
     expect(result.current.messages).toEqual([
-      expect.objectContaining({ role: 'command', name: 'plugin', tone: 'info' }),
+      expect.objectContaining({ role: 'command', name: 'agent', tone: 'info' }),
     ]);
     deliver({ type: 'command_result', name: 'help', message: 'Available commands', success: true });
     expect(result.current.messages.at(-1)).toEqual(expect.objectContaining({ tone: 'success' }));

@@ -398,6 +398,34 @@ const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
       patch: { field: 'removePermissionRule', scope: 'user', kind: 'allow' },
     },
   ],
+  [
+    'update-settings mcpServerEnabled patch missing serverId',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'mcpServerEnabled', enabled: true } },
+  ],
+  [
+    'update-settings mcpServerEnabled patch with a string enabled',
+    {
+      type: 'update-settings',
+      requestId: 'r',
+      patch: { field: 'mcpServerEnabled', serverId: 'docs', enabled: 'true' },
+    },
+  ],
+  [
+    'update-settings pluginEnabled patch with an empty pluginId',
+    {
+      type: 'update-settings',
+      requestId: 'r',
+      patch: { field: 'pluginEnabled', pluginId: '', enabled: true },
+    },
+  ],
+  [
+    'update-settings installPlugin patch missing pluginId',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'installPlugin' } },
+  ],
+  [
+    'update-settings uninstallPlugin patch with a numeric pluginId',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'uninstallPlugin', pluginId: 1 } },
+  ],
 ];
 
 const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
@@ -527,6 +555,21 @@ describe('decodeClientMessage (issue #2045)', () => {
     expect(decodeClientMessage({ type: 'submit', prompt: 1 })).toEqual({
       ok: false,
       reason: 'prompt must be a non-empty string',
+    });
+  });
+
+  it.each([
+    { field: 'mcpServerEnabled', serverId: 'docs', enabled: true },
+    { field: 'reloadMcpServers' },
+    { field: 'pluginEnabled', pluginId: 'formatter@robota', enabled: false },
+    { field: 'reloadPlugins' },
+    { field: 'installPlugin', pluginId: 'linter@robota' },
+    { field: 'uninstallPlugin', pluginId: 'formatter@robota' },
+  ] as const)('accepts the $field settings patch (#3282 §4 part b-2)', (patch) => {
+    const message = { type: 'update-settings' as const, requestId: 'r', patch };
+    expect(decodeClientMessage(JSON.parse(JSON.stringify(message)))).toEqual({
+      ok: true,
+      message,
     });
   });
 });

@@ -36,11 +36,17 @@ importable library.
   only what is truly desktop: the process, the token, the window.
 - The dev server runs without the content-security policy, because Vite injects an inline preamble
   for hot reload that the policy would block; the built page always carries it.
-- The Project panel (#3282 §4c) shows nothing for checkpoints/rewind, on every host, including Linux.
-  This is not a feature yet to build: `supportsWorkspaceProjectMutation` proves a project write stays
-  inside the project only on Linux (walking `/proc/self/fd`), by design — there is no configuration
-  that turns it on elsewhere, so a rewind list would either lie about what it can restore or offer a
-  restore that silently fails. The same check gates project memory, but that section is NOT excluded:
-  it shows the store's own plain unavailable message (off by default even on Linux; blocked on
-  macOS/Windows the same way), because unlike checkpoints, memory can be true and on (Linux, opted in)
-  and its command already had a working, catchable reply shape to reuse.
+- The Project panel shows nothing for checkpoints/rewind, on every host, including Linux. This is not
+  a feature yet to build: `supportsWorkspaceProjectMutation` proves a project write stays inside the
+  project only on Linux (walking `/proc/self/fd`), by design — there is no configuration that turns it
+  on elsewhere, so a rewind list would either lie about what it can restore or offer a restore that
+  silently fails. The same check gates project memory, but that section is NOT excluded: it shows the
+  store's own plain unavailable message (off by default even on Linux; blocked on macOS/Windows the
+  same way), because unlike checkpoints, memory can be true and on (Linux, opted in) and its command
+  already had a working, catchable reply shape to reuse.
+- The Settings screen's MCP Servers section has no add-a-server or edit-a-server form: the runtime
+  has no command path that writes an MCP server's own configuration — `/mcp` only approves, rejects,
+  revokes or signs a server in and out, never adds or edits one — so there is no function such a form
+  could call without inventing a second, GUI-only way to change that file. The section covers
+  everything the runtime already does: list every server with its live status and tools,
+  enable/disable, and reload.

@@ -11,6 +11,7 @@ type TSettingsState = Pick<
   | 'settingsStatus'
   | 'settingsSnapshot'
   | 'settingsError'
+  | 'settingsInitialSectionId'
   | 'openSettings'
   | 'closeSettings'
   | 'updateSettings'
@@ -42,6 +43,9 @@ export function useSettingsState(send: (msg: TClientMessage) => void): TSettings
   const [settingsStatus, setSettingsStatus] = useState<IWsSessionState['settingsStatus']>('idle');
   const [settingsSnapshot, setSettingsSnapshot] = useState<ISettingsSnapshot | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  // #3282 §4 part b-2: which section to land on THIS open — `/plugin` opens straight to Plugins,
+  // everything else (the gear, `/settings`) opens on the screen's own default (General).
+  const [settingsInitialSectionId, setSettingsInitialSectionId] = useState<string | null>(null);
   const requestRef = useRef<string | null>(null);
 
   const handleSettingsMessage = useCallback((msg: TServerMessage): boolean => {
@@ -58,14 +62,18 @@ export function useSettingsState(send: (msg: TClientMessage) => void): TSettings
     return true;
   }, []);
 
-  const openSettings = useCallback((): void => {
-    setSettingsOpen(true);
-    setSettingsStatus((current) => (current === 'ready' ? 'ready' : 'loading'));
-    setSettingsError(null);
-    const requestId = nextRequestId('get_settings');
-    requestRef.current = requestId;
-    send({ type: 'get-settings', requestId });
-  }, [send]);
+  const openSettings = useCallback(
+    (sectionId?: string): void => {
+      setSettingsOpen(true);
+      setSettingsInitialSectionId(sectionId ?? null);
+      setSettingsStatus((current) => (current === 'ready' ? 'ready' : 'loading'));
+      setSettingsError(null);
+      const requestId = nextRequestId('get_settings');
+      requestRef.current = requestId;
+      send({ type: 'get-settings', requestId });
+    },
+    [send],
+  );
 
   const closeSettings = useCallback((): void => {
     setSettingsOpen(false);
@@ -86,6 +94,7 @@ export function useSettingsState(send: (msg: TClientMessage) => void): TSettings
     settingsStatus,
     settingsSnapshot,
     settingsError,
+    settingsInitialSectionId,
     openSettings,
     closeSettings,
     updateSettings,

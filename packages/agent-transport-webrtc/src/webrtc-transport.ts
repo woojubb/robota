@@ -271,6 +271,8 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
         ? { storedSessionUsageReporter: this.options.storedSessionUsageReporter }
         : {}),
       surface: 'remote',
+      // #3282 §4 part b-2: WebRTC proves no locality; installing a plugin refuses it.
+      commandSurfaceLocality: 'remote',
       onDeliveryError: (error, event) =>
         this.deliveryLifecycle.handleFailure(channel, generation, error, event),
     });
@@ -315,6 +317,8 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
         ? { storedSessionUsageReporter: this.options.storedSessionUsageReporter }
         : {}),
       surface: 'remote',
+      // #3282 §4 part b-2: WebRTC proves no locality; installing a plugin refuses it.
+      commandSurfaceLocality: 'remote',
     });
     this.cleanupHandler = cleanup;
     channel.onMessage((frame) => {

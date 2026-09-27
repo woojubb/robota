@@ -112,6 +112,12 @@ const SETTINGS_PATCH_SHAPES: Readonly<Record<TSettingsPatch['field'], TVariantSh
     kind: oneOf(['allow', 'deny', 'ask']),
     pattern: isNonEmptyString,
   },
+  mcpServerEnabled: { serverId: isNonEmptyString, enabled: isBoolean },
+  reloadMcpServers: {},
+  pluginEnabled: { pluginId: isNonEmptyString, enabled: isBoolean },
+  reloadPlugins: {},
+  installPlugin: { pluginId: isNonEmptyString },
+  uninstallPlugin: { pluginId: isNonEmptyString },
 };
 const isSettingsPatch: TFieldCheck = (v) => {
   if (!isRecord(v) || !isString(v['field'])) return false;

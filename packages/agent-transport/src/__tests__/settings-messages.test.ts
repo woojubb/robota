@@ -22,6 +22,8 @@ const snapshot: ISettingsSnapshot = {
   permissionMode: { current: 'default', choices: [], skipsAllChecksMode: 'bypassPermissions' },
   permissionRules: [],
   sandbox: { enabled: true, available: true, description: 'Confines shell commands.' },
+  mcp: { servers: [] },
+  plugins: { plugins: [], canInstall: true },
 };
 
 function createReporter(overrides: Partial<ISettingsReporter> = {}): ISettingsReporter {
@@ -34,7 +36,13 @@ function createReporter(overrides: Partial<ISettingsReporter> = {}): ISettingsRe
   };
 }
 
-function attach(options: { reporter?: ISettingsReporter; role?: 'drive' | 'observe' } = {}): {
+function attach(
+  options: {
+    reporter?: ISettingsReporter;
+    role?: 'drive' | 'observe';
+    commandSurfaceLocality?: 'local' | 'remote';
+  } = {},
+): {
   sent: TServerMessage[];
   send: (message: TClientMessage) => void;
 } {
@@ -44,6 +52,9 @@ function attach(options: { reporter?: ISettingsReporter; role?: 'drive' | 'obser
     deliver: createOutboundDelivery((message) => sent.push(message), vi.fn()),
     ...(options.reporter ? { settingsReporter: options.reporter } : {}),
     ...(options.role ? { role: options.role } : {}),
+    ...(options.commandSurfaceLocality
+      ? { commandSurfaceLocality: options.commandSurfaceLocality }
+      : {}),
   });
   return { sent, send: (message) => onMessage(JSON.stringify(message)) };
 }
@@ -146,5 +157,36 @@ describe('settings messages (#3282 §4a)', () => {
       { type: 'settings', requestId: 'r5', settings: snapshot },
     ]);
     expect(reporter.updateSettings).not.toHaveBeenCalled();
+  });
+
+  it('forwards this carrier\'s commandSurfaceLocality to both a read and a write (#3282 §4 part b-2)', async () => {
+    const reporter = createReporter();
+    const client = attach({ reporter, commandSurfaceLocality: 'remote' });
+    client.send({ type: 'get-settings', requestId: 'r7' });
+    client.send({
+      type: 'update-settings',
+      requestId: 'r8',
+      patch: { field: 'reloadMcpServers' },
+    });
+    await flush();
+    expect(vi.mocked(reporter.getSettings).mock.calls[0]?.[1]).toBe('remote');
+    expect(vi.mocked(reporter.updateSettings).mock.calls[0]?.[2]).toBe('remote');
+  });
+
+  it.each([
+    { field: 'mcpServerEnabled', serverId: 'docs', enabled: false },
+    { field: 'reloadMcpServers' },
+    { field: 'pluginEnabled', pluginId: 'formatter@robota', enabled: true },
+    { field: 'reloadPlugins' },
+    { field: 'installPlugin', pluginId: 'linter@robota' },
+    { field: 'uninstallPlugin', pluginId: 'formatter@robota' },
+  ] as const)('round-trips the $field patch through the reporter', async (patch) => {
+    const reporter = createReporter();
+    const client = attach({ reporter });
+    client.send({ type: 'update-settings', requestId: 'rt', patch });
+    await flush();
+    expect(reporter.updateSettings).toHaveBeenCalledOnce();
+    expect(vi.mocked(reporter.updateSettings).mock.calls[0]?.[1]).toEqual(patch);
+    expect(client.sent).toEqual([{ type: 'settings', requestId: 'rt', settings: snapshot }]);
   });
 });

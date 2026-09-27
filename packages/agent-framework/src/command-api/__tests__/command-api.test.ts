@@ -462,6 +462,7 @@ describe('command-api contracts', () => {
 
     expect(buildPluginCommandSubcommands().map((command) => command.name)).toEqual([
       'manage',
+      'list',
       'install',
       'uninstall',
       'enable',

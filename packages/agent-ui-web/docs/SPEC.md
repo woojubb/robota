@@ -36,11 +36,11 @@ does not own session lifecycle, conversation history, or agent runtime state.
   never buried behind a truncated path or argument; an internal signal tool never renders as a call,
   and a projected `/command` tool shows the command it ran, not the provider-facing tool name.
 - A UI-intent opens its GUI screen when there is one — the session picker is the session sidebar
-  (unless the host cannot list sessions) and settings is the Settings modal. Any other (e.g. plugin
-  manager, agent switcher) answers with an explicit "not available on this surface" line in the
-  conversation — in place of the command's own reply when this surface's command awaits one, at once
-  otherwise — never a silent no-op, including intent kinds not yet known when this package was
-  written.
+  (unless the host cannot list sessions), and settings and the plugin manager both open the Settings
+  modal (the plugin manager on its Plugins section). Any other (e.g. agent switcher) answers with an
+  explicit "not available on this surface" line in the conversation — in place of the command's own
+  reply when this surface's command awaits one, at once otherwise — never a silent no-op, including
+  intent kinds not yet known when this package was written.
 - The session sidebar lists the host's sessions by a stable title — never the latest reply, which
   changes every turn — and never loses one silently: a record unreadable and belonging to this
   workspace is folded into one plain line rather than shown as a row; a record belonging to another

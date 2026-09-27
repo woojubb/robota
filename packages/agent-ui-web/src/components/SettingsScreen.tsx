@@ -5,10 +5,12 @@ import React, { useEffect, useState } from 'react';
 
 import { ConfirmDialog, Dialog } from './Dialog.js';
 import { SettingsGeneralSection } from './SettingsGeneralSection.js';
+import { SettingsMcpSection } from './SettingsMcpSection.js';
 import { describePermissionRuleRemoval, SettingsPermissionsSection } from './SettingsPermissionsSection.js';
+import { SettingsPluginsSection } from './SettingsPluginsSection.js';
 
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
-import type { ISettingsPermissionRule } from '@robota-sdk/agent-interface-session';
+import type { ISettingsPermissionRule, ISettingsPlugin } from '@robota-sdk/agent-interface-session';
 
 interface ISettingsSectionDefinition {
   id: string;
@@ -16,16 +18,20 @@ interface ISettingsSectionDefinition {
 }
 
 /**
- * The Settings screen's sections (#3282 §4). Adding a later section (Providers & Models, MCP
- * Servers, Plugins, Advisor) is one entry here plus one component in the switch below — nothing
- * else in this file changes.
+ * The Settings screen's sections (#3282 §4). Adding a later section (Providers & Models, Advisor)
+ * is one entry here plus one component in the switch below — nothing else in this file changes.
  */
 const SECTIONS: readonly ISettingsSectionDefinition[] = [
   { id: 'general', label: 'General' },
   { id: 'permissions', label: 'Permissions' },
+  { id: 'mcp', label: 'MCP Servers' },
+  { id: 'plugins', label: 'Plugins' },
 ];
 
 type TPendingSkipAllChecks = { kind: 'mode' } | { kind: 'preset'; presetId: string };
+type TPendingPluginAction =
+  | { kind: 'install'; pluginId: string }
+  | { kind: 'uninstall'; plugin: ISettingsPlugin };
 
 /**
  * A large modal sheet with a section sidebar on the left and content on the right (#3282 §4a) — the
@@ -45,13 +51,25 @@ export function SettingsScreen({ state }: { state: IWsSessionState }): React.Rea
   const [pendingRuleRemoval, setPendingRuleRemoval] = useState<ISettingsPermissionRule | null>(
     null,
   );
+  const [pendingPluginAction, setPendingPluginAction] = useState<TPendingPluginAction | null>(null);
+  const [mcpReloading, setMcpReloading] = useState(false);
+  const [pluginsReloading, setPluginsReloading] = useState(false);
 
-  // Each time the screen opens, start back on General and (for narrow windows) on the section list.
+  // Each time the screen opens, land on the section the opener asked for (`/plugin` → Plugins;
+  // the gear and `/settings` ask for none, which lands on General) and, for narrow windows, on the
+  // section list.
   useEffect(() => {
     if (!state.settingsOpen) return;
-    setActiveSectionId('general');
+    setActiveSectionId(state.settingsInitialSectionId ?? 'general');
     setShowList(true);
-  }, [state.settingsOpen]);
+  }, [state.settingsOpen, state.settingsInitialSectionId]);
+
+  // A reply to ANY request clears a reload spinner — the common case is the reload's own reply;
+  // a snapshot refreshed from elsewhere in the meantime is a reasonable time to stop showing it too.
+  useEffect(() => {
+    setMcpReloading(false);
+    setPluginsReloading(false);
+  }, [state.settingsSnapshot]);
 
   if (!state.settingsOpen) return null;
 
@@ -77,6 +95,25 @@ export function SettingsScreen({ state }: { state: IWsSessionState }): React.Rea
       return;
     }
     state.updateSettings({ field: 'preset', presetId });
+  }
+
+  function reloadMcpServers(): void {
+    setMcpReloading(true);
+    state.updateSettings({ field: 'reloadMcpServers' });
+  }
+
+  function reloadPlugins(): void {
+    setPluginsReloading(true);
+    state.updateSettings({ field: 'reloadPlugins' });
+  }
+
+  function confirmPluginAction(): void {
+    if (pendingPluginAction?.kind === 'install') {
+      state.updateSettings({ field: 'installPlugin', pluginId: pendingPluginAction.pluginId });
+    } else if (pendingPluginAction?.kind === 'uninstall') {
+      state.updateSettings({ field: 'uninstallPlugin', pluginId: pendingPluginAction.plugin.id });
+    }
+    setPendingPluginAction(null);
   }
 
   return (
@@ -171,6 +208,26 @@ export function SettingsScreen({ state }: { state: IWsSessionState }): React.Rea
                     onUpdate={state.updateSettings}
                     onRequestPresetChange={requestPresetChange}
                   />
+                ) : activeSection.id === 'mcp' ? (
+                  <SettingsMcpSection
+                    snapshot={snapshot}
+                    onToggleServer={(serverId, enabled) =>
+                      state.updateSettings({ field: 'mcpServerEnabled', serverId, enabled })
+                    }
+                    onReload={reloadMcpServers}
+                    reloading={mcpReloading}
+                  />
+                ) : activeSection.id === 'plugins' ? (
+                  <SettingsPluginsSection
+                    snapshot={snapshot}
+                    onTogglePlugin={(pluginId, enabled) =>
+                      state.updateSettings({ field: 'pluginEnabled', pluginId, enabled })
+                    }
+                    onReload={reloadPlugins}
+                    reloading={pluginsReloading}
+                    onRequestInstall={(pluginId) => setPendingPluginAction({ kind: 'install', pluginId })}
+                    onRequestUninstall={(plugin) => setPendingPluginAction({ kind: 'uninstall', plugin })}
+                  />
                 ) : (
                   <SettingsPermissionsSection
                     snapshot={snapshot}
@@ -224,6 +281,27 @@ export function SettingsScreen({ state }: { state: IWsSessionState }): React.Rea
           setPendingRuleRemoval(null);
         }}
       />
+
+      <ConfirmDialog
+        open={pendingPluginAction !== null}
+        title={pendingPluginAction?.kind === 'uninstall' ? 'Uninstall this plugin?' : 'Install this plugin?'}
+        body={pendingPluginAction ? describePluginAction(pendingPluginAction) : ''}
+        confirmLabel={pendingPluginAction?.kind === 'uninstall' ? 'Uninstall' : 'Install'}
+        destructive
+        onCancel={() => setPendingPluginAction(null)}
+        onConfirm={confirmPluginAction}
+      />
     </>
   );
+}
+
+/** Splits `<name>@<marketplace>` for the confirmation copy; a bare name shows with no source. */
+function describePluginAction(action: TPendingPluginAction): string {
+  if (action.kind === 'uninstall') {
+    return `"${action.plugin.name}" will be removed from this computer.`;
+  }
+  const at = action.pluginId.lastIndexOf('@');
+  const name = at === -1 ? action.pluginId : action.pluginId.slice(0, at);
+  const source = at === -1 ? undefined : action.pluginId.slice(at + 1);
+  return `Install "${name}"${source ? ` from ${source}` : ''}. It can run code on this computer.`;
 }

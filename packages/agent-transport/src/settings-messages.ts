@@ -1,6 +1,7 @@
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession } from './protocol-session.js';
 import type { TClientMessage } from './wire-messages.js';
+import type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface-command';
 import type { ISettingsSnapshot, TSettingsPatch } from '@robota-sdk/agent-interface-session';
 
 type TSettingsMessage = Extract<TClientMessage, { type: 'get-settings' | 'update-settings' }>;
@@ -26,10 +27,19 @@ export type TSettingsUpdateOutcome =
  * command would refuse on this surface is refused here too.
  */
 export interface ISettingsReporter {
-  getSettings(session: IProtocolSession): ISettingsSnapshot | Promise<ISettingsSnapshot>;
+  getSettings(
+    session: IProtocolSession,
+    locality?: TCommandSurfaceLocality,
+  ): ISettingsSnapshot | Promise<ISettingsSnapshot>;
+  /**
+   * Applies through the SAME function the matching slash command uses. `locality` (#3282 §4 part
+   * b-2) is forwarded to that command exactly as the transport received it, so a command that
+   * refuses a remote surface (installing a plugin) refuses identically here.
+   */
   updateSettings(
     session: IProtocolSession,
     patch: TSettingsPatch,
+    locality?: TCommandSurfaceLocality,
   ): TSettingsUpdateOutcome | Promise<TSettingsUpdateOutcome>;
 }
 
@@ -38,6 +48,7 @@ export function handleSettingsMessage(
   deliver: TOutboundDeliver,
   msg: TSettingsMessage,
   reporter: ISettingsReporter | undefined,
+  locality?: TCommandSurfaceLocality,
 ): void {
   if (!reporter) {
     deliverSettingsError(
@@ -50,14 +61,14 @@ export function handleSettingsMessage(
   }
   try {
     if (msg.type === 'get-settings') {
-      void Promise.resolve(reporter.getSettings(session)).then(
+      void Promise.resolve(reporter.getSettings(session, locality)).then(
         (settings) => deliver({ type: 'settings', requestId: msg.requestId, settings }),
         (error) =>
           deliverSettingsError(deliver, msg.requestId, 'update_failed', failureMessage(error)),
       );
       return;
     }
-    void Promise.resolve(reporter.updateSettings(session, msg.patch)).then(
+    void Promise.resolve(reporter.updateSettings(session, msg.patch, locality)).then(
       (outcome) => {
         if (outcome.ok) {
           deliver({ type: 'settings', requestId: msg.requestId, settings: outcome.settings });
