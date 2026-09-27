@@ -4,6 +4,7 @@ import {
   isApiKeyPlaintext,
   setCurrentProvider,
   upsertProviderProfile,
+  validateProviderProfile,
 } from '@robota-sdk/agent-framework';
 
 import { runProviderSetupAsk } from './provider-command-setup.js';
@@ -51,6 +52,19 @@ export function buildProviderSwitch(
     return { message: `Already using provider "${profileName}".`, success: true };
   }
   const profile = providers[profileName];
+  // #3282: the hot-swap this returns as a `hostActions` entry builds this exact profile against
+  // these exact definitions (`resolveUserSettingsProviderSwitch` in agent-framework). Validating it
+  // HERE, before anything is written, means a switch that would fail changes nothing on disk — the
+  // previous behavior wrote `currentProvider` unconditionally and let a downstream hot-swap failure
+  // (e.g. "Unknown provider: anthropic. Currently supported: ", an empty list) stand uncorrected.
+  try {
+    validateProviderProfile(profileName, profile, { providerDefinitions: options.providerDefinitions });
+  } catch (error) {
+    return {
+      message: `Failed to switch to "${profileName}": ${error instanceof Error ? error.message : String(error)}`,
+      success: false,
+    };
+  }
   const target = options.settings.readTargetSettings();
   const merged = options.settings.readMergedSettings();
   const next =
