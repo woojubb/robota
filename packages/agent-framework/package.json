@@ -99,6 +99,7 @@
     "@robota-sdk/agent-interface-session": "workspace:*",
     "@robota-sdk/agent-interface-session-mobility": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
+    "@robota-sdk/agent-roundtable": "workspace:*",
     "@robota-sdk/agent-session": "workspace:*",
     "@robota-sdk/agent-tool-defaults": "workspace:*",
     "@robota-sdk/agent-tools": "workspace:*",
