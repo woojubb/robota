@@ -27,8 +27,8 @@ screen: the demo shows `Read(src/index.ts)` however the scratch directory happen
 
 ## Why it needs no API key
 
-The run boots with `--session-log`, which swaps the model provider for the offline replay provider
-(INFRA-017): the two assistant turns come from a recorded session log embedded in the script. Only
+The run boots with `--session-log`, which swaps the model provider for the offline replay provider:
+the two assistant turns come from a recorded session log embedded in the script. Only
 the model turns are replayed — the CLI, the TUI, the tool registry and the `Read` tool all run for
 real, in a real pseudo-terminal (the same PTY substrate the `*.ptytest.ts` suites use).
 

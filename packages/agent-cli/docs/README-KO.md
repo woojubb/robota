@@ -1,350 +1,336 @@
-**Language:** [English](README.md) | [한국어](README.ko.md)
-
-## 왜 Robota인가?
-
-|                                                    | Robota | Claude Code | Aider | Cline |
-| -------------------------------------------------- | :----: | :---------: | :---: | :---: |
-| 멀티 프로바이더 (Anthropic, OpenAI, Gemini, Qwen…) |   ✅   |     ❌      |  ✅   |  ✅   |
-| 내 앱에 SDK로 임베드 가능                          |   ✅   |     ❌      |  ❌   |  ❌   |
-| 로컬 모델 (LM Studio, Ollama — OpenAI 호환 API)    |   ✅   |     ❌      |  ✅   |  ✅   |
-| 오픈소스 (AGPL-3.0)                                |   ✅   |  부분공개   |  ✅   |  ✅   |
-| Claude Code 설정 호환 (CLAUDE.md, 권한 모드)       |   ✅   |      —      |  ❌   |  ❌   |
-| 한국 팀이 개발 · 유지보수                          |   ✅   |     ❌      |  ❌   |  ❌   |
-
-Claude Code의 핵심 워크플로우를 그대로 쓰면서, 멀티 프로바이더 지원과 SDK 임베딩 기능을 더하고 싶다면 Robota가 정답입니다.
-
----
-
-<!--
-## GeekNews / okky / velog 커뮤니티 포스트 템플릿
-
-제목: [오픈소스] 한국 팀이 만든 AI 코딩 어시스턴트 CLI — Robota (Claude Code 대안, 멀티 프로바이더)
-
-본문:
-
-안녕하세요. 한국 팀에서 만든 오픈소스 AI 코딩 어시스턴트 CLI, **Robota**를 소개합니다.
-
-**Robota란?**
-- Claude Code와 동일한 CLAUDE.md/AGENTS.md 기반 컨텍스트 로딩
-- Claude Code 호환 권한 모드 (plan / default / acceptEdits / bypassPermissions)
-- **멀티 프로바이더**: Anthropic, OpenAI, Gemini, DeepSeek, Qwen, LM Studio 등
-- **SDK 임베딩**: `@robota-sdk/core`를 import해서 내 서비스에 AI 에이전트 내장 가능
-- AGPL-3.0 / 상업용 듀얼 라이선스
-
-**Claude Code와 차이점**
-1. Claude Code는 Anthropic 전용 / Robota는 어떤 LLM이든 교체 가능
-2. Claude Code는 CLI 전용 / Robota는 SDK로 자체 앱에 임베딩 가능
-3. LM Studio, Ollama 같은 로컬 모델도 OpenAI 호환 API로 연결 가능
-
-**설치**
-```bash
-npx @robota-sdk/agent-cli   # 바로 실행
-# 또는
-npm install -g @robota-sdk/agent-cli
-```
-
-**GitHub**: https://github.com/woojubb/robota
-**문서**: https://robota.io
-
-피드백과 star 환영합니다!
--->
+**Language:** [English](../README.md) | [한국어](README-KO.md)
 
 # @robota-sdk/agent-cli
 
-Robota SDK 기반의 AI 코딩 어시스턴트 CLI. AGENTS.md/CLAUDE.md를 로드하여 프로젝트 컨텍스트를 파악하고, Claude Code 호환 권한 모드를 갖춘 도구 호출 REPL을 제공합니다.
+`robota`는 터미널에서 쓰는 AI 코딩 어시스턴트이자, AI 에이전트를 만드는 TypeScript 라이브러리
+모음인 Robota의 레퍼런스 앱입니다. 프로젝트를 읽고, 사용자가 통제하는 권한 체계 아래에서 파일을
+수정하고 명령을 실행하며, Anthropic, OpenAI, Gemini, DeepSeek, Qwen과 로컬 OpenAI 호환 모델을
+지원합니다.
 
-## 시스템 요구사항
+이 CLI는 여러분의 앱에서도 쓸 수 있는 같은 패키지들로 조립되어 있습니다. 세션은
+`@robota-sdk/agent-framework`, 터미널 UI는 `@robota-sdk/agent-ui-terminal`이 맡고, 모델 제공자마다
+패키지가 하나씩 있습니다. 이 에이전트를 쓰는 대신 직접 에이전트를 만들려면
+[SDK 가이드](../../../content/guide/sdk.md)부터 보세요.
 
-**Node.js 22 이상** 필요합니다.
+> **베타.** 정식 릴리스 전까지 동작이 바뀔 수 있습니다.
+> [이슈를 알려 주세요](https://github.com/woojubb/robota/issues).
 
-```bash
-node --version  # v22.x.x 이상이어야 합니다
-```
-
-Node.js 버전이 22 미만이라면 [nvm](https://github.com/nvm-sh/nvm)으로 업그레이드:
-
-```bash
-nvm install 22
-nvm use 22
-```
+![터미널에서 robota가 프로젝트 파일을 읽고 진입점을 설명하는 모습](./demo.gif)
 
 ## 설치
 
-```bash
-# 바로 실행 — 설치 불필요
-npx @robota-sdk/agent-cli
-
-# 영구 사용을 위한 전역 설치
-npm install -g @robota-sdk/agent-cli
-```
-
-> **macOS Terminal.app 사용자**: 한국어/중국어/일본어 입력 시 크래시가 발생할 수 있습니다. **[iTerm2](https://iterm2.com/)** 사용을 권장합니다. 이는 Ink + Terminal.app의 알려진 문제로 Claude Code와 동일합니다.
-
-전역 설치 후 시스템 전체에서 `robota` 명령어를 사용할 수 있습니다:
+Node.js 22.12.0 이상이 필요합니다.
 
 ```bash
-robota                        # 인터랙티브 REPL
-robota "프롬프트"              # 초기 프롬프트와 함께 REPL 시작
-robota -p "파일 목록 출력"     # 출력 모드 (단발성, 응답 후 종료)
+npm install -g @robota-sdk/agent-cli   # `robota` 명령을 설치합니다
+npx @robota-sdk/agent-cli              # 설치하지 않고 한 번 실행합니다
 ```
 
-라이브러리(`startCli`)로 불러올 때 이 패키지는 ESM 전용입니다: `import` 또는 `import()`를 사용하세요.
-번들된 Ink TUI가 불러오는 `yoga-layout`이 최상위 `await`로 시작하고 `require()`는 이를 실행할 수 없으므로
-`require()` 진입점은 없습니다.
+macOS의 Terminal.app에서는 한국어 등 CJK 입력기가 충돌을 일으킬 수 있습니다.
+[iTerm2](https://iterm2.com/) 같은 다른 터미널을 쓰세요.
 
-### 환경 변수
+## 첫 실행
 
-| 변수                | 설명                                     | 필수 여부      |
-| ------------------- | ---------------------------------------- | -------------- |
-| `ANTHROPIC_API_KEY` | Anthropic 프로바이더용 API 키            | Anthropic 전용 |
-| `DEEPSEEK_API_KEY`  | DeepSeek 프로바이더용 API 키             | DeepSeek 전용  |
-| `DASHSCOPE_API_KEY` | Qwen(알리바바 클라우드) 모델 스튜디오 키 | Qwen 전용      |
+Git 저장소 안에서 `robota`를 실행합니다. 먼저 이 폴더를 신뢰할지 묻습니다. 프로젝트 자체의 설정,
+훅, 스킬, 플러그인, MCP 서버는 신뢰한 워크스페이스에서만 불러옵니다. 신뢰하지 않으면 세션은
+**Restricted** 상태로 시작하며, 사용자 설정과 기본 도구만 씁니다. 처음 실행할 때는 이어서 제공자를
+고르고 그 항목(모델, 기본 URL, API 키)을 채우는 과정을 안내한 뒤, 프로필을 `~/.robota/settings.json`에
+저장합니다.
 
-실행 전 키를 설정하세요:
+```bash
+cd my-project
+robota
+```
+
+서버처럼 입력 프롬프트 없이 설정하려면, 플래그로 프로필을 만들고 워크스페이스를 신뢰합니다.
+프로필에는 키 자체가 아니라 환경 변수에 대한 참조가 저장되며, 명령을 실행할 때 그 변수가 설정되어
+있어야 합니다.
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
+robota --configure-provider anthropic --type anthropic --model claude-sonnet-4-6 \
+  --api-key-env ANTHROPIC_API_KEY --set-current
+robota trust --yes
 ```
 
-## 개발 환경 설정 (모노레포)
+`robota init`은 현재 프로젝트에 기본 `AGENTS.md`와 `.robota/settings.json`을 만듭니다.
+`robota --configure`는 대화형 제공자 설정을 다시 실행하고, `robota --reset`은
+`~/.robota/settings.json`을 삭제합니다.
+
+## 할 수 있는 일
+
+### 터미널 UI에서 작업하기
+
+`robota`는 대화형 세션을 시작합니다. 요청을 입력하거나 `/`를 눌러 명령 메뉴를 엽니다(`/help`는 모든
+명령을 보여 줍니다). `Esc`는 진행 중인 응답을 멈추고, `Ctrl+R`은 이전에 입력한 프롬프트를 검색하며,
+모든 키는 `~/.robota/keybindings.json`에서 다시 지정할 수 있습니다
+([키 바인딩 가이드](../../../content/guide/keybindings.md) 참고).
+
+에이전트는 파일·셸 도구(`Read`, `Write`, `Edit`, `Glob`, `Grep`, `Bash`), `WebFetch`,
+`WebSearch`(`BRAVE_API_KEY` 필요), `AskUserQuestion`을 쓰며, 서브에이전트와 백그라운드 작업에 일을 넘길
+수 있습니다. 신뢰한 워크스페이스에서는 프로젝트의 `AGENTS.md`와 `CLAUDE.md`를 컨텍스트로 불러오고,
+프롬프트에 `@path`를 쓰면 프로젝트 파일을 첨부합니다.
 
 ```bash
-# 의존성 및 CLI 빌드
-pnpm build:deps
-pnpm --filter @robota-sdk/agent-cli build
+robota                              # 새 세션
+robota --permission-mode acceptEdits
+robota --screen-reader              # 스크린 리더용 일반 텍스트 모드
 ```
 
-## 실행 (모노레포)
+### 스크립트에서 프롬프트 하나 실행하기
+
+프린트 모드(`-p`)는 터미널 UI 없이 프롬프트 하나를 실행하고 종료합니다. 프롬프트 인자가 없으면
+파이프로 들어온 stdin에서 프롬프트를 읽습니다.
 
 ```bash
-# 모노레포 루트에서
-cd packages/agent-cli
-
-# 개발 모드 (빌드 불필요)
-pnpm dev
-
-# 프로덕션 모드 (빌드 필요)
-pnpm start
-
-# 인자 포함 실행
-pnpm dev -- --version
-pnpm dev -- --permission-mode plan
-pnpm dev -- -p "src/ 내 모든 TypeScript 파일 목록"
+robota -p "List the TypeScript files in src/"
+robota -p "Summarize this repository" --output-format json   # JSON 객체 하나: result, session_id
+cat task.md | robota -p                                      # stdin에서 프롬프트 읽기
+robota -p "Review this diff" --bare                          # 파이프라인용 원문 텍스트
+robota --goal "make the failing tests pass"                  # 여러 턴에 걸쳐 목표를 향해 작업
 ```
 
-## CLI 플래그
+`--output-format`은 `text`(기본값), `json`, `stream-json` 중 하나입니다. `--json-schema`는 스키마에
+맞는 JSON 응답을 요청하고, `--system-prompt` / `--append-system-prompt`는 이번 실행의 시스템
+프롬프트를 바꿉니다. 종료 코드는 성공이면 `0`, 오류면 `1`입니다. 사용할 수 있는 제공자 설정이
+없으면 `-p`는 `3`으로 끝나고, 목표에 도달하지 못하고 멈춘 `--goal` 실행은 `2`로 끝납니다. 신뢰하지
+않은 Git 저장소에서는 프린트 모드, `--goal`, `--serve`, `robota mcp serve`가 시작을 거부하며,
+`--safe-mode`를 붙이면 대신 Restricted 상태로 실행됩니다.
 
-```
-robota                              # 인터랙티브 REPL (기본 모드)
-robota "프롬프트"                   # 초기 프롬프트와 함께 REPL 시작
-robota -p "프롬프트"                # 출력 모드 (단발성, 응답 후 종료)
-robota -c                           # 마지막 세션 이어서 시작
-robota -r <session-id>              # 세션 ID로 세션 재개
-robota --model <모델>               # 모델 지정 (예: claude-sonnet-4-6)
-robota --language <언어>            # 응답 언어 (ko, en, ja, zh)
-robota --permission-mode <모드>     # plan | default | acceptEdits | bypassPermissions
-robota --max-turns <n>              # 인터랙션당 에이전틱 턴 제한
-robota --output-format <형식>       # text | json | stream-json (출력 모드)
-robota --system-prompt <텍스트>     # 시스템 프롬프트 교체 (출력 모드)
-robota --append-system-prompt <텍스트> # 시스템 프롬프트에 추가 (출력 모드)
-robota --reset                      # 사용자 설정 삭제 후 종료
-robota --check-update               # npm에서 최신 CLI 버전 확인 후 종료
-robota --disable-update-check       # 이번 실행에서 시작 시 업데이트 확인 건너뜀
-robota --version                    # 버전 표시
-```
+### 세션 이어 가기, 백그라운드 실행, 데몬 공유
 
-### CLI 업데이트 확인
+세션은 저장되므로 나중에 다시 돌아올 수 있습니다.
 
 ```bash
-robota --check-update
+robota -c                           # 가장 최근 세션 이어 가기
+robota -r <id-or-name>              # 세션 재개
+robota -r <id> --fork-session       # 원본은 그대로 두고 복사본으로 이어 가기
+robota -n "refactor auth"           # 새 세션에 이름 붙이기
 ```
 
-업데이트가 있으면 npm 전역 설치 명령어를 출력합니다:
+세션 안에서는 `/resume`으로 세션을 바꾸고, `/rename`으로 현재 세션 이름을 정하고, `/fork`로 대화를
+백그라운드 세션에 복사하고, `/cd <directory>`로 대화를 다른 디렉터리로 옮깁니다.
+
+감독(supervised) 세션은 터미널을 닫아도 계속 실행되고, 워크스페이스 데몬은 터미널과 데스크톱 앱이
+함께 쓰는 오래 사는 런타임 하나입니다.
 
 ```bash
-npm install -g '@robota-sdk/agent-cli@latest'
+robota session start --background --name nightly
+robota session list
+robota session attach <supervised-id>          # --observe를 붙이면 읽기 전용으로 지켜봅니다
+robota daemon start                            # 그다음: robota --attach
+robota daemon stop
 ```
 
-### 출력 모드 형식
+[세션과 데몬](../../../content/guide/sessions-and-daemon.md)을 참고하세요.
 
-출력 모드(`-p`)는 `--output-format`으로 세 가지 형식을 지원합니다:
+### 에이전트가 할 수 있는 일 통제하기
 
-| 형식          | 설명                                                             |
-| ------------- | ---------------------------------------------------------------- |
-| `text`        | 표준 출력에 일반 텍스트 응답 (기본값)                            |
-| `json`        | 단일 JSON 객체: `{ type, result, session_id, subtype }`          |
-| `stream-json` | `content_block_delta` 스트리밍 이벤트를 줄바꿈으로 구분한 NDJSON |
+모든 도구 호출은 deny 규칙, ask 규칙, allow 규칙을 거친 뒤 권한 모드로 결정됩니다.
 
-### 표준 입력(Stdin) 파이프
+| 모드                | 읽기 | 파일 수정 | 셸 명령                               |
+| ------------------- | ---- | --------- | ------------------------------------- |
+| `plan`              | 허용 | 거부      | 거부(기본 제공 읽기 전용 명령은 예외) |
+| `default`           | 허용 | 물어봄    | 물어봄                                |
+| `acceptEdits`       | 허용 | 허용      | 물어봄                                |
+| `auto`              | 허용 | 허용      | 모델 분류기가 결정                    |
+| `bypassPermissions` | 허용 | 허용      | 허용                                  |
 
-`-p`와 위치 인자 없이 stdin이 파이프되면 CLI가 stdin에서 읽습니다:
-
-```bash
-echo "이 오류를 설명해줘" | robota -p
-cat file.ts | robota -p "이 코드를 검토해줘" --output-format json
-git diff | robota -p "변경 사항 요약" --output-format stream-json
-```
-
-## 최초 실행 설정
-
-사용 가능한 설정 파일이 없으면 CLI가 다음을 안내합니다:
-
-1. **프로바이더 선택** — CLI 바이너리에 포함된 프로바이더 중 선택
-2. **프로바이더별 설정** — 모델, base URL, 마스킹된 API 키 등
-3. **응답 언어** (ko/en/ja/zh, 기본값: en)
-
-`~/.robota/settings.json`에 설정이 저장됩니다. `robota --reset`으로 최초 실행 상태로 되돌릴 수 있습니다.
-
-## 내장 도구
-
-AI 에이전트는 8개의 로컬 도구를 호출할 수 있습니다:
-
-| 도구        | 설명                          | 주요 인자  |
-| ----------- | ----------------------------- | ---------- |
-| `Bash`      | 셸 명령 실행                  | `command`  |
-| `Read`      | 줄 번호와 함께 파일 내용 읽기 | `filePath` |
-| `Write`     | 파일에 내용 쓰기              | `filePath` |
-| `Edit`      | 파일의 문자열 교체            | `filePath` |
-| `Glob`      | 패턴으로 파일 검색            | `pattern`  |
-| `Grep`      | 정규식으로 파일 내용 검색     | `pattern`  |
-| `WebFetch`  | URL 내용을 텍스트로 가져오기  | `url`      |
-| `WebSearch` | 인터넷 검색                   | `query`    |
-
-## 권한 시스템
-
-모든 도구 호출은 세 단계 권한 게이트를 통과합니다:
-
-1. **거부 목록** — 거부 패턴이 일치하면 차단
-2. **허용 목록** — 허용 패턴이 일치하면 자동 승인
-3. **모드 정책** — 활성 권한 모드에 따라 결정
-
-### 권한 모드
-
-| 모드                | Read/Glob/Grep | Write/Edit | Bash |
-| ------------------- | :------------: | :--------: | :--: |
-| `plan`              |      자동      |    거부    | 거부 |
-| `default`           |      자동      |    승인    | 승인 |
-| `acceptEdits`       |      자동      |    자동    | 승인 |
-| `bypassPermissions` |      자동      |    자동    | 자동 |
-
-### 런타임 모드 변경
-
-`/permissions` 슬래시 커맨드 사용:
-
-```
-> /permissions                    # 현재 모드 및 세션 승인 도구 표시
-> /permissions plan               # 읽기 전용 모드로 전환
-> /permissions bypassPermissions  # 모든 프롬프트 건너뜀
-```
-
-또는 시작 시 설정:
-
-```bash
-robota --permission-mode plan
-```
-
-### 권한 패턴
-
-`.robota/settings.json` 또는 `.robota/settings.local.json`에 설정:
+모드는 `--permission-mode <mode>`로 정하거나(`--dry-run`은 `plan`과 같습니다) 세션 안에서
+`/permissions <mode>`로 바꿉니다. `/permissions`만 입력하면 적용 중인 규칙과 최근 거부 내역을 보여
+줍니다. 규칙은 어느 설정 파일에나 둘 수 있습니다.
 
 ```json
 {
   "permissions": {
-    "allow": ["Bash(pnpm *)", "Bash(git status)", "Read(/src/**)"],
+    "allow": ["Bash(pnpm *)", "Bash(git status)"],
+    "ask": ["Bash(git push *)"],
     "deny": ["Bash(rm -rf *)", "Write(.env)"]
   }
 }
 ```
 
-패턴 문법: `ToolName`은 모든 호출에 매칭; `ToolName(pattern)`은 셸 스타일 글로브(`*`, `**`)로 주요 인자에 매칭.
+`ask` 규칙은 `bypassPermissions`에서도 물어보며, 몇 가지 동작은 어떤 모드에서도 자동 승인되지
+않습니다. 루트·홈·작업 디렉터리에 대한 `rm`, 그리고 `.git`, `.robota`, `.claude`, `.agents`나 셸·도구
+설정 파일에 쓰는 동작이 그렇습니다.
 
-## 키보드 단축키
+셸 명령은 OS 샌드박스(Linux는 bubblewrap, macOS는 Seatbelt) 안에서 실행할 수도 있습니다.
+`/sandbox`는 `auto-allow`, `regular`, `off` 사이를 전환하고, `sandbox` 설정 키로 구성합니다. 뭔가
+이상하게 동작하면 `robota --safe-mode`로 지시 파일, 스킬, 플러그인, 훅, MCP 서버를 모두 끈 채
+시작해 보세요.
 
-| 키        | 동작                                       |
-| --------- | ------------------------------------------ |
-| Enter     | 입력 제출                                  |
-| ESC       | 현재 실행 중단 (부분 응답 저장)            |
-| Ctrl+C    | 즉시 프로세스 종료                         |
-| Up/Down   | 여러 줄 입력에서 줄 탐색                   |
-| 화살표 키 | 슬래시 커맨드 자동완성, 권한 프롬프트 탐색 |
+워크스페이스 신뢰는 Git 워크트리 단위로 부여되며 `~/.robota/workspace-trust.json`에 저장됩니다.
 
-## 주요 슬래시 커맨드
+```bash
+robota trust status    # 이 워크스페이스를 신뢰하는가? 신뢰하면 무엇을 불러오는가?
+robota trust --yes     # 지금 있는 Git 워크스페이스를 신뢰
+robota trust revoke --yes
+```
 
-| 커맨드                | 설명                                            |
-| --------------------- | ----------------------------------------------- |
-| `/help`               | 사용 가능한 커맨드 표시                         |
-| `/clear`              | 대화 기록 초기화                                |
-| `/model [모델명]`     | AI 모델 변경 (확인 프롬프트, CLI 재시작)        |
-| `/language [언어]`    | 응답 언어 설정 (ko, en, ja, zh), 저장 후 재시작 |
-| `/compact [지시사항]` | 컨텍스트 창 압축                                |
-| `/cost`               | 세션 정보 표시                                  |
-| `/context`            | 컨텍스트 창 상세, 참조 목록, 자동 압축 설정     |
-| `/agent`              | 백그라운드 서브에이전트 작업 실행 및 관리       |
-| `/permissions [모드]` | 권한 규칙 표시 또는 권한 모드 변경              |
-| `/plugin [하위명령]`  | 플러그인 관리                                   |
-| `/resume`             | 최근 세션 목록 표시 및 재개                     |
-| `/rename <이름>`      | 현재 세션 이름 변경                             |
-| `/exit`               | CLI 종료                                        |
+[권한과 훅](../../../content/guide/permissions-and-hooks.md)을 참고하세요.
 
-## 세션 관리
+### 제공자와 모델 고르기
 
-### CLI 플래그
+`providers`의 각 제공자 프로필은 `type`(`anthropic`, `openai`, `gemini`, `deepseek`, `qwen`,
+`gemma`)과 모델, 그리고 선택적으로 기본 URL과 API 키를 지정하며, `currentProvider`가 사용할 프로필을
+고릅니다. 설정 과정은 키를 환경 변수 참조로 채워 넣습니다.
 
-| 플래그                | 설명                                     |
-| --------------------- | ---------------------------------------- |
-| `-c`, `--continue`    | 가장 최근 세션 이어서 시작               |
-| `-r`, `--resume <id>` | 특정 세션 ID로 재개                      |
-| `--fork-session <id>` | 세션 포크 (복사된 기록으로 새 세션 시작) |
-| `--name <이름>`       | 시작 시 세션에 이름 지정                 |
-
-## 설정
-
-설정은 다음 순서로 병합됩니다 (낮은 우선순위 → 높은 우선순위):
-
-1. `~/.robota/settings.json` (사용자 전역)
-2. `~/.claude/settings.json` (사용자 전역, Claude Code 호환)
-3. `.robota/settings.json` (프로젝트, 공유)
-4. `.robota/settings.local.json` (로컬, gitignore 대상)
-5. `.claude/settings.json` (프로젝트, Claude Code 호환)
-6. `.claude/settings.local.json` (로컬, gitignore 대상, Claude Code 호환)
+| 제공자 타입 | 기본 키 변수        | 비고                                                               |
+| ----------- | ------------------- | ------------------------------------------------------------------ |
+| `anthropic` | `ANTHROPIC_API_KEY` |                                                                    |
+| `openai`    | `OPENAI_API_KEY`    | `baseURL`로 다른 OpenAI 호환 엔드포인트도 사용                     |
+| `gemini`    | `GEMINI_API_KEY`    |                                                                    |
+| `deepseek`  | `DEEPSEEK_API_KEY`  |                                                                    |
+| `qwen`      | `DASHSCOPE_API_KEY` | Alibaba Cloud Model Studio                                         |
+| `gemma`     | 없음                | 로컬 Gemma 모델. 기본 URL은 LM Studio의 `http://localhost:1234/v1` |
 
 ```json
 {
-  "defaultMode": "default",
-  "language": "ko",
-  "currentProvider": "claude-sonnet-4-6",
+  "currentProvider": "claude",
   "providers": {
-    "claude-sonnet-4-6": {
+    "claude": {
       "type": "anthropic",
       "model": "claude-sonnet-4-6",
       "apiKey": "$ENV:ANTHROPIC_API_KEY"
     }
-  },
-  "permissions": {
-    "allow": ["Bash(pnpm *)"],
-    "deny": ["Bash(rm -rf *)"]
   }
 }
 ```
 
-## 컨텍스트 자동 탐색
+세션 안에서는 `/provider list`, `/provider switch <profile>`, `/provider add`, `/provider test`로
+프로필을 관리합니다. 한 번의 실행에 대해서는 `--provider <profile>`로 프로필을 고르고(`--set-current`를
+붙이면 기본값이 됩니다), `--model`로 모델을 덮어쓰고, `--fallback-model a,b`로 첫 모델이 과부하일 때
+다른 모델에서 턴을 이어 가고, `--effort <level>`로 모델 effort를 정하고, `--advisor <profile[:model]>`로
+모델이 두 번째 모델에게 조언을 구하게 할 수 있습니다. [제공자](../../../content/guide/providers.md)와
+[로컬 LLM 설정](../../../content/guide/local-llm.md)을 참고하세요.
 
-CLI는 다음을 자동으로 탐색하고 로드합니다:
+### MCP 서버 연결하기, 또는 Robota를 MCP로 제공하기
 
-- **AGENTS.md** — cwd에서 파일시스템 루트까지 상위 디렉토리 탐색
-- **CLAUDE.md** — 동일한 상위 탐색
-- **프로젝트 메타데이터** — `package.json`, `tsconfig.json`
+원격 MCP 서버는 설정 파일의 `mcpServers` 아래에 선언합니다. 선언한 서버는 승인하기 전까지 연결되지
+않습니다. `/mcp`는 각 서버의 상태를 보여 주고, `/mcp approve <server>`는 승인을 기록합니다. `robota`
+실행 파일은 승인을 메모리에만 두므로 다음 실행에는 이어지지 않습니다. OAuth를 쓰는 서버는 로그인도
+필요합니다. 세션 안에서는 `/mcp login <server>`, 터미널에서는 `robota mcp login <server>`를 쓰며,
+승인된 서버는 로그인하면 실행 중인 세션에 연결됩니다.
 
-모든 컨텍스트가 시스템 프롬프트로 조합됩니다.
+```json
+{
+  "mcpServers": {
+    "docs": { "type": "http", "url": "https://mcp.example.com/mcp", "oauth": {} }
+  }
+}
+```
 
-## 세션 로깅
+`robota mcp serve`는 그 반대입니다. Robota 세션 하나를 stdio로(또는 `--http-*`, `--oauth-*` 플래그로
+인증된 HTTP로) MCP 호스트에 제공합니다. 먼저 프로젝트를 신뢰하고, 호스트에는 `robota`의 절대 경로와
+프로젝트 디렉터리를 알려 줍니다.
 
-세션 로그는 JSONL 형식으로 `.robota/logs/{sessionId}.jsonl`에 기록됩니다. 재개 가능한 세션 JSON은 `.robota/sessions/{sessionId}.json`에 저장됩니다.
+```json
+{
+  "mcpServers": {
+    "robota": {
+      "command": "/absolute/path/to/robota",
+      "args": ["mcp", "serve"],
+      "cwd": "/absolute/path/to/trusted/project"
+    }
+  }
+}
+```
 
-## 아키텍처
+[MCP](../../../content/guide/mcp.md)를 참고하세요.
 
-CLI는 순수 TUI 레이어입니다. 모든 비즈니스 로직은 `@robota-sdk/agent-framework`의 `InteractiveSession`에 있습니다. `useInteractiveSession`이 유일한 React↔SDK 브릿지입니다.
+### 스킬, 명령, 에이전트, 플러그인 추가하기
+
+스킬과 명령은 CLI가 `.robota/skills/`, `.claude/skills/`, `.claude/commands/`, `.agents/skills/`에서
+찾는 Markdown 파일입니다. 신뢰한 프로젝트와 홈 디렉터리 양쪽에서 찾습니다. 각각이 슬래시 명령
+(`/<name>`)이 되고, `/skills`가 목록을 보여 줍니다. 에이전트 정의는 `.robota/agents/`,
+`.agents/agents/`, `.claude/agents/`에서 읽습니다. 플러그인은 이것들을 훅, 테마, MCP 서버와 함께
+묶습니다.
+
+```text
+/plugin marketplace add <source>
+/plugin install <name>@<marketplace>
+/plugin                              # 플러그인 관리자 열기
+```
+
+스킬 frontmatter와 플러그인 관리는 [CLI 가이드](../../../content/guide/cli.md)를 참고하세요.
+
+### 그래픽 인터페이스 쓰기
+
+`robota --serve --open`은 현재 워크스페이스용 헤드리스 런타임을 시작하고, Robota GUI를
+`127.0.0.1`에서 제공하며, 브라우저에서 엽니다. 이 저장소의 Electron 데스크톱 앱
+([`apps/agent-app`](../../../apps/agent-app/docs/README.md))은 워크스페이스 데몬 위에서 같은 GUI를
+보여 주며, npm에는 배포되지 않습니다.
+
+### 다른 세션과 다른 기기에 닿기
+
+`/peers`는 이 컴퓨터에서 실행 중인 다른 `robota` 세션을 보여 주고, `/peers send <session-id>
+<message>`는 그중 하나에 메시지를 보냅니다. 받는 세션은 그 메시지를 자기 작업과 똑같이 자신의 권한
+아래에서 처리합니다. `/handoff <session-id>`는 양쪽이 확인하면 이 대화를 다른 세션으로 옮깁니다.
+다른 기기에도 닿으려면 `/devices init`으로 기기 ID를 만들고, 새 기기를 `/devices add`와
+`/devices join`으로 연결한 뒤, 사용자 설정에서 `transports.mesh.enabled`를 `true`로 설정합니다.
+`/remote-control enable`은 브라우저를 페어링해 현재 세션을 함께 조작하게 합니다.
+
+[기기와 원격 제어](../../../content/guide/devices-and-remote.md)를 참고하세요.
+
+### 설정과 사용량 확인하기
+
+```bash
+robota doctor            # 설정 계층, 제공자, 신뢰, 저장소, 플러그인, 훅, MCP
+robota usage             # 최근 7일의 세션, 턴, 토큰, 비용 (--period 30d)
+robota --check-update    # npm에 새 버전이 있는가?
+robota eval <definition> # evals-as-code 정의 실행. 지표 위반 시 1로 종료
+```
+
+## 설정 파일
+
+설정은 다음 파일들을 우선순위가 낮은 것부터 병합합니다. 사용자 파일 두 개는 항상 적용되고, 프로젝트
+파일 네 개는 신뢰한 워크스페이스에서만 적용됩니다.
+
+| 파일                          | 범위                              |
+| ----------------------------- | --------------------------------- |
+| `~/.robota/settings.json`     | 사용자                            |
+| `~/.claude/settings.json`     | 사용자 (Claude Code 호환)         |
+| `.robota/settings.json`       | 프로젝트, 저장소에 커밋           |
+| `.robota/settings.local.json` | 프로젝트, 이 컴퓨터 전용          |
+| `.claude/settings.json`       | 프로젝트 (Claude Code 호환)       |
+| `.claude/settings.local.json` | 프로젝트, 로컬 (Claude Code 호환) |
+
+CLI가 `~/.robota/` 아래에 두는 그 밖의 파일:
+
+| 경로                   | 내용                                                               |
+| ---------------------- | ------------------------------------------------------------------ |
+| `workspace-trust.json` | 신뢰한 워크스페이스                                                |
+| `sessions/`            | 저장된 세션 (신뢰한 프로젝트는 `.robota/sessions/`에 둘 수도 있음) |
+| `history.jsonl`        | `Ctrl+R`용으로 입력한 프롬프트 (`"promptHistory": false`로 끔)     |
+| `keybindings.json`     | 키 바인딩                                                          |
+| `themes/`              | 직접 만든 `/theme` 테마                                            |
+| `plugins/`             | 설치한 플러그인 (프로젝트는 자체 `.robota/plugins/`를 둘 수 있음)  |
+| `mcp-credentials/`     | MCP 서버용 OAuth 토큰, 본인만 읽을 수 있음                         |
+
+## 코드에서 쓰기
+
+이 패키지는 `robota` 실행 파일이 실행하는 함수인 `startCli`와 그 옵션 타입 `IStartCliOptions`도
+export합니다. 패키지는 ESM 전용이므로 `require()`가 아니라 `import`로 불러오세요.
+
+## 이 저장소에서 CLI 개발하기
+
+```bash
+pnpm install && pnpm build
+pnpm cli:dev          # 소스에서 CLI 실행
+pnpm cli:trust        # 소스 CLI가 이 저장소를 신뢰하도록 설정
+```
+
+## 문서
+
+- [CLI 가이드](../../../content/guide/cli.md) — 모든 명령, 플래그, 설정
+- [세션과 데몬](../../../content/guide/sessions-and-daemon.md)
+- [권한과 훅](../../../content/guide/permissions-and-hooks.md)
+- [제공자](../../../content/guide/providers.md)와 [로컬 LLM 설정](../../../content/guide/local-llm.md)
+- [MCP](../../../content/guide/mcp.md)
+- [기기와 원격 제어](../../../content/guide/devices-and-remote.md)
+- [SPEC.md](./SPEC.md) — 이 패키지가 맡는 것과 보장하는 것
 
 ## 라이선스
 
-AGPL-3.0 또는 상업용 라이선스. [LICENSING.md](../../../LICENSING.md) 참고.
+Robota는 [GNU AGPL-3.0](../../../LICENSE) 또는 [상용 라이선스](../../../COMMERCIAL.md)로 이중
+라이선스됩니다. [LICENSING.md](../../../LICENSING.md)를 참고하세요.
