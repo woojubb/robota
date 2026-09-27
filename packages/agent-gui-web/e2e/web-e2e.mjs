@@ -274,6 +274,26 @@ try {
     await page.getByText(/Session connected\. Send a message/).waitFor();
     await sidebar.locator('[aria-current="true"]', { hasText: 'New session' }).waitFor();
   });
+
+  // Last: these leave "Working on it..." in the transcript, which an earlier scenario's strict
+  // `getByText('Working on it...')` would otherwise match twice (this fresh session is not read again).
+  await scenario('#3280: Send becomes Stop while a turn runs; Stop ends it and keeps the partial reply', async () => {
+    await send('stay busy');
+    await page.getByText('Working on it...').waitFor();
+    if ((await page.getByRole('button', { name: 'Send' }).count()) !== 0) {
+      throw new Error('Send is still shown while the turn runs');
+    }
+    await page.getByRole('button', { name: 'Stop' }).click();
+    await page.getByRole('button', { name: 'Send' }).waitFor();
+    await page.getByText('Working on it...').last().waitFor();
+  });
+
+  await scenario('#3280: Esc in the composer stops a running turn', async () => {
+    await send('stay busy');
+    await page.getByRole('button', { name: 'Stop' }).waitFor();
+    await page.getByLabel('message').press('Escape');
+    await page.getByRole('button', { name: 'Send' }).waitFor();
+  });
 } finally {
   if (process.env.CAPTURE_OUT) await page.screenshot({ path: join(process.env.CAPTURE_OUT, 'web-e2e.png') });
   await browser.close();

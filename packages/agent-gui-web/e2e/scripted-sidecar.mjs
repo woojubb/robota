@@ -226,8 +226,11 @@ class ScriptedSession extends EventEmitter {
   getContextState() {
     return { usedPercentage: 0, usedTokens: 0, maxTokens: 200000 };
   }
+  // #3280 §2: the QUEUED-MESSAGE the host has taken but not yet run (a submit behind a running turn)
+  // — unrelated to a pending PERMISSION prompt (`#pendingPermission`, above). This fixture never queues
+  // a second submit behind a running one, so there is never a next prompt to report.
   getPendingPrompt() {
-    return this.#pendingPermission ? 'permission' : null;
+    return null;
   }
   isExecuting() {
     return false;
@@ -389,7 +392,15 @@ class ScriptedSession extends EventEmitter {
       goal: null,
     };
   }
-  abort() {}
+  // #3280 §2: Stop (button or Esc) sends `abort` — end a "stay busy" turn the same way a real one
+  // interrupts: the partial reply already streamed (`text_delta`) stays, as `interrupted` keeps it.
+  abort() {
+    if (!this.#busy) return;
+    this.#busy = false;
+    this.#record('assistant', 'Working on it...');
+    this.emit('thinking', false);
+    this.emit('interrupted', { success: false, content: 'Working on it...' });
+  }
   cancelQueue() {}
 }
 

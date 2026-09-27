@@ -26,6 +26,7 @@ import { useSessionDirectoryState } from './use-session-directory.js';
 
 import type {
   IActiveTool,
+  IQueuedPrompt,
   ISessionClientHandle,
   ISessionNotice,
   IWsSessionState,
@@ -45,6 +46,7 @@ export type {
   ICommandOutputEntry,
   IConversationMessage,
   IToolGroupEntry,
+  IQueuedPrompt,
   ISessionClientHandle,
   ISessionNotice,
   IWsSessionState,
@@ -69,6 +71,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     null,
   );
   const [pendingPrompts, setPendingPrompts] = useState<readonly TPendingPrompt[]>([]);
+  const [queuedPrompt, setQueuedPrompt] = useState<IQueuedPrompt | null>(null);
   const [sessionName, setSessionName] = useState<string | null>(null);
   const [sessionNotices, setSessionNotices] = useState<readonly ISessionNotice[]>([]);
   const [commandCatalog, setCommandCatalog] = useState<TCommandCatalog | null>(null);
@@ -202,6 +205,14 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           setExecutionWorkspace(msg.snapshot);
           break;
         }
+        // #3280 §2: the prompt queued behind a running turn — shown above the composer, editable
+        // and removable (`cancel-queue`). `pending: null` means nothing waits; the row disappears.
+        case 'pending': {
+          setQueuedPrompt(
+            msg.pending === null ? null : { text: msg.pending, count: msg.pendingCount ?? 1 },
+          );
+          break;
+        }
         case 'permission_request':
         case 'ask_request':
         case 'prompt_resolved': {
@@ -252,6 +263,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           updateActiveTools(() => []);
           setMessages([]);
           setPendingPrompts([]);
+          setQueuedPrompt(null);
           setSessionName(null);
           setExecutionWorkspace(null);
           markCurrent(msg.event.sessionId);
@@ -259,6 +271,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           send({ type: 'get-status' });
           send({ type: 'get-commands' });
           send({ type: 'get-execution-workspace' });
+          send({ type: 'get-pending' });
           requestSessions();
           break;
         }
@@ -353,6 +366,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         case 'complete':
         case 'interrupted': {
           send({ type: 'get-status' });
+          // #3280 §2: the turn ending can advance the queue (its next entry now runs) or, if this
+          // was an abort, drop it entirely (`abort()` clears the whole queue) — either way the
+          // composer's queued-message row is stale until this reply refreshes it.
+          send({ type: 'get-pending' });
           // The turn changed this session's preview, message count and time in the list.
           requestSessions();
           finishTurn((tool) => (tool.status === 'running' ? 'done' : tool.status));
@@ -401,6 +418,11 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         pendingIntentRef.current = null;
         client.send({ type: 'get-commands' });
         client.send({ type: 'get-status' });
+        // #3280 §2: a reconnect that lands back on the SAME session (the common case) fires no
+        // `session_switched` — its own `get-pending` would be missed — so ask here too, or a stale
+        // `queuedPrompt` from before the drop keeps showing (with working Edit/Remove) until the
+        // turn it was queued behind happens to end.
+        client.send({ type: 'get-pending' });
         // A host that keeps sessions live puts a new connection on its primary session.
         armRestore();
         requestSessions();
@@ -427,6 +449,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     sessionStatus,
     send,
     pendingPrompts,
+    queuedPrompt,
     answerPermission,
     answerAsk,
     ...personalUsageState,

@@ -99,6 +99,7 @@ export type {
 export {
   GoalController,
   extractGoalSignal,
+  isGoalCancelVerb,
   createGoalStatusTool,
   GOAL_SIGNAL_TOOL_NAME,
   DEFAULT_GOAL_MAX_ITERATIONS,

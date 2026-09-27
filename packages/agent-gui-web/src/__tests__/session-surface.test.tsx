@@ -50,6 +50,7 @@ function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
     sessionSidebarOpen: true,
     setSessionSidebarOpen: vi.fn(),
     pendingPrompts: [],
+    queuedPrompt: null,
     send: vi.fn(),
     answerPermission: vi.fn(),
     answerAsk: vi.fn(),
@@ -288,6 +289,49 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
       />,
     );
     expect(screen.queryByRole('status', { name: 'goal' })).toBeNull();
+  });
+
+  it('#3280 §2: Send becomes Stop while a turn runs, and Stop sends abort', () => {
+    const state = stubState({ isThinking: true });
+    render(<SessionSurface state={state} />);
+    expect(screen.queryByRole('button', { name: 'Send' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    expect(state.send).toHaveBeenCalledWith({ type: 'abort' });
+  });
+
+  it('#3280 §2: Esc in the composer stops a running turn', () => {
+    const state = stubState({ isThinking: true });
+    render(<SessionSurface state={state} />);
+    fireEvent.keyDown(screen.getByLabelText('message'), { key: 'Escape' });
+    expect(state.send).toHaveBeenCalledWith({ type: 'abort' });
+  });
+
+  it('#3280 §2: a message queued behind the turn shows above the composer, with Edit and Remove', () => {
+    const state = stubState({
+      isThinking: true,
+      queuedPrompt: { text: 'ping the team when done', count: 2 },
+    } as Partial<IWsSessionState>);
+    render(<SessionSurface state={state} />);
+    const row = screen.getByRole('status', { name: 'queued prompt' });
+    expect(row.textContent).toContain('Queued: ping the team when done');
+    expect(row.textContent).toContain('and 1 more');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    expect(state.send).toHaveBeenCalledWith({ type: 'cancel-queue' });
+    expect(state.send).toHaveBeenCalledWith({ type: 'get-pending' });
+  });
+
+  it('#3280 §2: Edit cancels the queue and puts the queued text back in the draft', () => {
+    const state = stubState({
+      isThinking: true,
+      queuedPrompt: { text: 'ping the team when done', count: 1 },
+    } as Partial<IWsSessionState>);
+    render(<SessionSurface state={state} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(state.send).toHaveBeenCalledWith({ type: 'cancel-queue' });
+    expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe(
+      'ping the team when done',
+    );
   });
 
   it('#3186 review: a pending question stays visible while the Usage view is open', () => {
