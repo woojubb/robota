@@ -4,6 +4,10 @@ Runs a Robota `Session` or a plain `Robota` agent as an `@robota-sdk/agent-round
 and a Robota agent as its selector. `agent-roundtable` stays free of both runtimes; this is the only
 package that imports `@robota-sdk/agent-core` and `@robota-sdk/agent-session` to bridge them in.
 
+The package root (`robotaParticipant`, `robotaSelector`, `meterJournal`, ...) only ever needs
+`@robota-sdk/agent-core`. `sessionParticipant`, which needs `@robota-sdk/agent-session` as well, is
+exported from the `/session` subpath instead — see below.
+
 ## Installation
 
 ```bash
@@ -101,10 +105,14 @@ changes.
 on, with tools, permissions and hooks — as a participant. The host supplies everything Session-specific
 through `createSessionOptions`; this package owns turning a shared increment into that Session's input,
 metering every provider call it makes, and mapping its one supported wait shape (a tool call awaiting
-approval, `robota-session/approval`) onto the roundtable's own wait/resume protocol:
+approval, `robota-session/approval`) onto the roundtable's own wait/resume protocol.
+
+It is imported from the `/session` subpath, not the package root: `sessionParticipant` pulls in
+`@robota-sdk/agent-session` — and, through it, `@robota-sdk/agent-file-authority`'s native binary — a
+cost a consumer of `robotaParticipant`/`robotaSelector` alone should never pay:
 
 ```typescript
-import { sessionParticipant } from '@robota-sdk/agent-roundtable-robota';
+import { sessionParticipant } from '@robota-sdk/agent-roundtable-robota/session';
 
 const reviewer = sessionParticipant({
   id: 'reviewer',
@@ -159,6 +167,25 @@ anything already delivered to it, which the roundtable core already excludes —
 text. The default renderer, `renderSharedIncrement`, quotes every message's content line by line so it
 can never be read back as a new message header; a host that wants a different shape for its runtime's
 input passes its own `render` function to either participant.
+
+## `meterJournal`: metering a host's own selector or participant
+
+Both `robotaParticipant` and `robotaSelector` wrap the `IExecutionJournal` they hand to a `Robota`
+run with `meterJournal`, which is exported so a host writing its own Robota-backed selector or
+participant gets the same guarantee without reimplementing it:
+
+```typescript
+import { meterJournal } from '@robota-sdk/agent-roundtable-robota';
+
+const metered = meterJournal(myInnerJournal, execOptions.services);
+await agent.run(prompt, { signal: execOptions.signal, executionJournal: metered });
+```
+
+Every `model-request` record is admitted through `services.admitModelCall` before it reaches the
+inner journal — a rejected admission stops the call before it is dispatched — and every
+`model-response`/`model-failure`/`model-cache-hit` is reported through `services.recordUsage` once
+it settles. A `Session`-backed, checkpoint-resumable journal uses `meterRecoverableJournal` from
+`@robota-sdk/agent-roundtable-robota/session` instead, which adds a passed-through `read`.
 
 ## Errors
 

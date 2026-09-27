@@ -18,9 +18,9 @@ import { toCompletionOutcome } from './outcome';
 import { RobotaParticipantError } from './errors';
 import { claimLease } from './resource-guard';
 import { renderSharedIncrement, type TurnRenderer } from './render';
-import type { OpenContext } from './session-participant';
+import type { OpenContext } from './open-context';
 
-export type { OpenContext } from './session-participant';
+export type { OpenContext } from './open-context';
 
 export interface RobotaParticipantOptions {
   id: string;

@@ -113,14 +113,30 @@ async function meteredAppend(
   }
 }
 
-/** Wrap a plain journal (used by `robotaParticipant`, which has no continuation) with metering. */
+/**
+ * Wrap a plain `IExecutionJournal` so every provider call it journals is admitted and reported
+ * through `services` — the same metering `robotaParticipant`/`robotaSelector` apply internally,
+ * exported so a host can give the same guarantee to a Robota-backed participant or selector it
+ * writes itself, without going through either of this package's own wrappers.
+ *
+ * `services.admitModelCall` is awaited before a `model-request` record reaches `inner`, so a
+ * rejected admission stops the call before it is ever dispatched. `model-response`/`model-failure`
+ * report `completed`/`failed` usage after the fact; `model-cache-hit` reports a `cache-hit` with no
+ * admission, since serving one from cache costs nothing. Every other record kind passes through to
+ * `inner` untouched. For a `Session`-backed, checkpoint-resumable journal use
+ * `meterRecoverableJournal` from `@robota-sdk/agent-roundtable-robota/session` instead.
+ */
 export function meterJournal(inner: IExecutionJournal, services: TurnServices): IExecutionJournal {
   return {
     append: (record) => meteredAppend(record, inner, services),
   };
 }
 
-/** Wrap a recoverable journal (used by `sessionParticipant`) with metering; `read` passes through. */
+/**
+ * The `IRecoverableExecutionJournal` counterpart to {@link meterJournal} — same metering, plus a
+ * passed-through `read`, for a host's own checkpoint-resumable participant (what `sessionParticipant`
+ * uses internally). Exported from `@robota-sdk/agent-roundtable-robota/session`, not the root entry.
+ */
 export function meterRecoverableJournal(
   inner: IRecoverableExecutionJournal,
   services: TurnServices,
