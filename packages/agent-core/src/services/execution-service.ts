@@ -1,4 +1,11 @@
 import { ExecutionEventEmitter } from './execution-event-emitter';
+import { continueJournaledExecution } from './execution-continuation';
+import { resumeJournaledToolCalls } from './execution-resume';
+import type {
+  IResumeExecutionOptions,
+  IResumeToolCallsOptions,
+  IResumeToolCallsResult,
+} from '../interfaces/execution-journal';
 import { runExecutionLoop, finalizeExecution } from './execution-pipeline';
 import {
   resolveProviderAndTools,
@@ -21,6 +28,7 @@ import { userMessageMetadata } from './execution-user-message';
 import { callPluginHook, type TPluginWithHooks } from './plugin-hook-dispatcher';
 import { ToolExecutionService } from './tool-execution-service';
 import { isAbortFailure } from '../utils/abort-classification';
+import { ExecutionJournalError } from '../utils/execution-journal-error';
 import { createLogger, type ILogger } from '../utils/logger';
 
 import type {
@@ -90,6 +98,45 @@ export class ExecutionService {
     context: IToolExecutionContext,
   ): Promise<IToolExecutionResult> {
     return this.toolExecutionService.executeTool(name, parameters, context, 'registered');
+  }
+
+  resume(
+    conversationId: string,
+    options: IResumeExecutionOptions,
+    config: IAgentConfig,
+  ): Promise<ICoreExecutionResult> {
+    return continueJournaledExecution(
+      this.conversationHistory.getConversationStore(conversationId),
+      conversationId,
+      options,
+      config,
+      (executionConfig) => resolveProviderAndTools(this.aiProviders, this.tools, executionConfig),
+      {
+        toolExecutionService: this.toolExecutionService,
+        plugins: this.plugins,
+        logger: this.logger,
+        eventEmitter: this.eventEmitter,
+        cacheService: this.cacheService,
+      },
+    );
+  }
+
+  /** Reuse the normal tool pipeline for the latest durable batch. */
+  resumeToolCalls(
+    conversationId: string,
+    options: IResumeToolCallsOptions,
+  ): Promise<IResumeToolCallsResult> {
+    return resumeJournaledToolCalls(
+      this.conversationHistory.getConversationStore(conversationId),
+      conversationId,
+      options,
+      {
+        toolExecutionService: this.toolExecutionService,
+        plugins: this.plugins,
+        logger: this.logger,
+        eventEmitter: this.eventEmitter,
+      },
+    );
   }
 
   /** Register a plugin */
@@ -271,6 +318,7 @@ export class ExecutionService {
         this.eventEmitter,
       );
     } catch (error) {
+      if (error instanceof ExecutionJournalError) throw error;
       // CORE-027: classified from the SIGNAL and the error's own name, never from its prose. The
       // substring test that stood here returned `success: true, interrupted: true` for any provider
       // failure whose message happened to contain "abort".

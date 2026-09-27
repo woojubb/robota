@@ -12,8 +12,10 @@ export function perTurnRunOptions(
   | 'toolChoice'
   | 'traceContext'
   | 'withholdHostedTools'
+  | 'executionJournal'
 > {
   return {
+    ...(options?.executionJournal !== undefined && { executionJournal: options.executionJournal }),
     ...(options?.ephemeralSystemContext !== undefined && {
       ephemeralSystemContext: options.ephemeralSystemContext,
     }),

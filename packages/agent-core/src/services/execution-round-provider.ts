@@ -10,6 +10,8 @@ import { applyStructuredOutputTransport } from './execution-structured-output-gu
 import { routeModel } from './execution-model-route.js';
 import { withOutboundTraceContext } from './execution-trace-context.js';
 import { randomId } from '../utils/random-id.js';
+import { appendExecutionRecord, callJournaledProvider } from './execution-journal';
+import type { IModelJournalContext } from '../interfaces/execution-journal';
 
 import type { IModelRoute } from './execution-model-route';
 import type { IStructuredOutputTransportOutcome } from './execution-structured-output-guard';
@@ -130,6 +132,7 @@ export async function callProviderWithCache(
    * requested model's, nor the other way round.
    */
   route: IModelRoute = {},
+  journalContext?: IModelJournalContext,
 ): Promise<TUniversalMessage> {
   if (!config.defaultModel?.model) {
     throw new Error('Model is required in defaultModel configuration. Please specify a model.');
@@ -163,11 +166,20 @@ export async function callProviderWithCache(
     ...(structuredOutcome !== undefined && { structuredOutput: structuredOutcome }),
   });
   const providerChat = resolved.provider.chat.bind(resolved.provider) as TProviderChat;
-  const observedChat: TProviderChat = (messages, options) => {
-    // Invocation of the provider SDK adapter, not proof of a network attempt within that adapter.
-    onDispatch?.('invoked', options.model ?? model);
-    return providerChat(messages, withOutboundTraceContext(options, resolveOutboundTraceContext?.()));
-  };
+  const observedChat: TProviderChat = (messages, options) =>
+    callJournaledProvider(
+      (admittedMessages, admittedOptions) => {
+        // Invocation of the provider SDK adapter, not proof of a network attempt within that adapter.
+        onDispatch?.('invoked', admittedOptions.model ?? model);
+        return providerChat(
+          admittedMessages,
+          withOutboundTraceContext(admittedOptions, resolveOutboundTraceContext?.()),
+        );
+      },
+      messages,
+      options,
+      journalContext,
+    );
   // DATA-007/API-001: the SESSION's effort selection is the cache identity — never a locally resolved
   // effective value. An earlier version of this fix resolved the effort against
   // `resolved.provider.effortTable()` before touching the cache, but that table is only ever
@@ -196,20 +208,31 @@ export async function callProviderWithCache(
     );
     if (cachedResponse) {
       onDispatch?.('cache-hit', chatOptions.model ?? model);
-      return {
+      const response: TUniversalMessage = {
         role: 'assistant',
         content: cachedResponse,
         timestamp: new Date(),
         id: randomId(),
         state: 'complete' as const,
       };
+      if (journalContext)
+        await appendExecutionRecord(journalContext.journal, {
+          kind: 'model-cache-hit',
+          checkpoint: journalContext.checkpoint,
+          recordId: `${journalContext.callId}:cache`,
+          executionId: journalContext.executionId,
+          callId: journalContext.callId,
+          ...journalContext.route(),
+          response,
+        });
+      return response;
     }
     const response = await callProviderWithIdleTimeout(
       observedChat,
       outgoing,
       chatOptions,
       config.timeout,
-      awaitProviderSettlement,
+      awaitProviderSettlement || !!journalContext,
     );
     if (typeof response.content === 'string') {
       cacheService.store(
@@ -227,7 +250,13 @@ export async function callProviderWithCache(
     return response;
   }
 
-  return callProviderWithIdleTimeout(observedChat, outgoing, chatOptions, config.timeout, awaitProviderSettlement);
+  return callProviderWithIdleTimeout(
+    observedChat,
+    outgoing,
+    chatOptions,
+    config.timeout,
+    awaitProviderSettlement || !!journalContext,
+  );
 }
 
 /** Validate and normalize the provider response */

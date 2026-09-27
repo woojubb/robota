@@ -14,6 +14,7 @@ import type {
 import type { ISessionLogger } from './session-logger.js';
 import type {
   IAIProvider,
+  IExecutionJournal,
   IContextWindowState,
   IToolWithEventService,
   IUserInteraction,
@@ -205,6 +206,8 @@ export interface ISessionOptions {
  * as a group rather than tested one at a time at each call site.
  */
 export interface ISessionRunOptions {
+  /** Awaited core model/tool and automatic-compaction journal for this turn. */
+  executionJournal?: IExecutionJournal;
   /** Cancellation belongs to this submission and remains linked until execution settles. */
   signal?: AbortSignal;
   /**

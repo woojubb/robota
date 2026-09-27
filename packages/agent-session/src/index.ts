@@ -1,6 +1,7 @@
 // @robota-sdk/agent-session
 
 // Session
+export type { TSessionResumeOptions } from './session-resume.js';
 export { Session } from './session.js';
 export type { IProviderCallTraceObservation, ISessionRunOptions } from './session-types.js';
 export type {

@@ -29,6 +29,11 @@ import { normalizeStructuredOutput } from '../schema/structured-output';
 import { createLogger, type ILogger } from '../utils/logger';
 
 import type { RobotaConfigManager } from './robota-config-manager';
+import type {
+  IResumeExecutionOptions,
+  IResumeToolCallsOptions,
+  IResumeToolCallsResult,
+} from '../interfaces/execution-journal';
 import type { IModelConfig, IConfigurationSnapshot } from './robota-types';
 import type { AbstractTool, IToolWithEventService } from '../abstracts/abstract-tool';
 import type {
@@ -175,6 +180,32 @@ export class Robota
       ownerPath,
       ownerType: 'tool',
       ownerId: context.executionId,
+    });
+  }
+
+  /**
+   * Resume a compatible journaled execution without adding input or repeating settled calls.
+   * Retain restored history for the host to checkpoint or discard, including on interruption.
+   */
+  async resume(options: IResumeExecutionOptions): Promise<string> {
+    this.assertNotDestroyed();
+    return this.runQueue.run(options.signal, async () => {
+      await this.ensureFullyInitialized();
+      const result = await this.executionService.resume(this.conversationId, options, this.config);
+      if (!result.success) throw result.error ?? new Error('Execution continuation failed');
+      return result.response;
+    });
+  }
+
+  /**
+   * Restore the latest journaled tool batch without a model call or new user input.
+   * The host must own the journal exclusively and settle the previous runtime first.
+   */
+  async resumeToolCalls(options: IResumeToolCallsOptions): Promise<IResumeToolCallsResult> {
+    this.assertNotDestroyed();
+    return this.runQueue.run(options.signal, async () => {
+      await this.ensureFullyInitialized();
+      return this.executionService.resumeToolCalls(this.conversationId, options);
     });
   }
 

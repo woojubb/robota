@@ -1,5 +1,16 @@
 // Interface exports - centralized types first
 export * from './types';
+export type {
+  IExecutionJournal,
+  IRecoverableExecutionJournal,
+  IExecutionRoundCheckpoint,
+  IExecutionContinuationState,
+  IResumeExecutionOptions,
+  IResumeToolCallsOptions,
+  IResumeToolCallsResult,
+  TExecutionJournalRecord,
+  TJournalModelOptions,
+} from './execution-journal';
 
 // Re-export specific types to avoid conflicts
 export type {
@@ -168,6 +179,7 @@ export type {
   IToolExecutionContext,
   IParameterValidationResult,
   TToolExecutor,
+  TToolEffectAdmission,
   TToolMetadata,
 } from './tool';
 

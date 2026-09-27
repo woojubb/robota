@@ -37,6 +37,13 @@ export class SessionBusyError extends Error {
  */
 export class TurnClaim {
   private controller: AbortController | null = null;
+  private settlement: Promise<void> = Promise.resolve();
+  private settle: (() => void) | undefined;
+
+  /** Resolves when the currently claimed turn has finished unwinding. */
+  get drained(): Promise<void> {
+    return this.settlement;
+  }
 
   /**
    * Take the claim for a new turn, or throw if one is already held.
@@ -54,6 +61,9 @@ export class TurnClaim {
           'turn in flight, abort() it and await it, or use a separate session for concurrent work.',
       );
     }
+    this.settlement = new Promise<void>((resolve) => {
+      this.settle = resolve;
+    });
     this.controller = new AbortController();
     return this.controller;
   }
@@ -68,6 +78,8 @@ export class TurnClaim {
   release(controller: AbortController): void {
     if (this.controller === controller) {
       this.controller = null;
+      this.settle?.();
+      this.settle = undefined;
     }
   }
 

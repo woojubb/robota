@@ -3,6 +3,7 @@ import { getValidationErrors, validateToolParameters } from './parameter-validat
 import { generateSpanId } from '../event-service/event-service';
 import { SPAN_EVENTS } from '../event-service/span-events';
 import { ToolExecutionError, ValidationError } from '../utils/errors';
+import { ExecutionJournalError } from '../utils/execution-journal-error';
 
 import type { ISpanCompletionEventData } from '../event-service/span-events';
 import type { IToolSchema } from '../interfaces/provider';
@@ -78,6 +79,7 @@ export class FunctionTool implements IFunctionTool {
     try {
       result = await this.fn(parameters, context);
     } catch (error) {
+      if (error instanceof ExecutionJournalError) throw error;
       if (error instanceof ToolExecutionError || error instanceof ValidationError) {
         throw error;
       }

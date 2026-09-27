@@ -1,0 +1,51 @@
+{
+  "name": "@robota-sdk/agent-roundtable",
+  "version": "3.0.0-beta.83",
+  "description": "Coordinate independent agents and people in sequential or parallel conversations",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsgo --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src/ --ext .ts",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "devDependencies": {
+    "tsdown": "^0.22.14",
+    "vitest": "^3.2.6"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "publishConfig": {
+    "access": "public"
+  },
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/woojubb/robota.git",
+    "directory": "packages/agent-roundtable"
+  }
+}

@@ -1,6 +1,7 @@
 import { PERMISSION_DENIED_RESULT, reportToolCrash, toolFailure } from './permission-types.js';
 import {
   createLogger,
+  ExecutionJournalError,
   DEFAULT_ABSTRACT_EVENT_SERVICE,
   isAbortFailure,
   TOOL_BODY_EVENTS,
@@ -24,9 +25,16 @@ import type {
   ITerminalOutput,
   TToolArgs,
   TToolParameters,
+  TToolEffectAdmission,
 } from '@robota-sdk/agent-core';
 
 const logger = createLogger('ToolBodyTrace');
+
+class DeferredPermissionRefusal extends Error {
+  constructor(readonly result: IToolResult) {
+    super('Effective tool arguments were not authorized');
+  }
+}
 
 /** Never let a permission observation break the tool_result it merely watches. */
 function emitPermissionDecision(
@@ -81,6 +89,7 @@ export function wrapToolWithPermission(
   enforcer: IToolWrapperDeps,
 ): IToolWithEventService {
   const originalExecute = tool.execute.bind(tool);
+  const originalExecuteWithAdmission = tool.executeWithAdmission?.bind(tool);
   // What this session gave the tool with `setEventService`. The tool instance may be shared with
   // other sessions, and the service set on it is whichever session set one last, so each call
   // carries this one instead. Until the session sets one, calls carry the no-op service: its calls
@@ -88,23 +97,19 @@ export function wrapToolWithPermission(
   let sessionEventService: IEventService = DEFAULT_ABSTRACT_EVENT_SERVICE;
 
   const wrappedTool = Object.create(tool) as IToolWithEventService;
-  wrappedTool.execute = async (
+  const execute = async (
     rawParameters: TToolParameters,
     context?: IToolExecutionContext,
+    beforeEffect?: TToolEffectAdmission,
   ): Promise<IToolResult> => {
     // Issue #2429: the gate, the hooks, the logs and the tool all see ONE canonical form of the
     // arguments — a relative path argument resolved against the session root — so a pattern judges
     // the path the tool will actually open. Canonicalising needs the tool's name, which is read
     // inside the try below, so until then this holds the raw form.
     let parameters: TToolParameters = rawParameters;
-    // Must NEVER throw — if this throws, the execution round records the
-    // assistant tool_use in history but never adds a tool_result, which
-    // corrupts the conversation and causes a 400 error on the next API call.
-    // Read INSIDE the try, and held for the catch. Hoisting it out put an unguarded call above
-    // the comment that says this function must never throw — a tool whose `getName` is missing or
-    // throws would have propagated, which is the corruption that comment exists to prevent. The
-    // catch needs the name only to announce the failure, and a call that has not reached it yet
-    // has nothing to announce.
+    // Ordinary tool failures become results. A journal failure must stop the execution owner,
+    // preventing a later model call from treating a persistence failure as a retryable tool error.
+    // Resolve the name inside the protected path so a malformed tool still produces a result.
     let toolName = '(unknown)';
 
     try {
@@ -115,7 +120,7 @@ export function wrapToolWithPermission(
         args: parameters as Record<string, string | number | boolean | object>,
       });
 
-      const hookInput = buildHookInput(
+      let hookInput = buildHookInput(
         enforcer.sessionId,
         enforcer.cwd,
         toolName,
@@ -166,13 +171,62 @@ export function wrapToolWithPermission(
       enforcer.onToolExecution?.({
         type: 'start',
         toolName,
-        toolArgs: parameters as TToolArgs,
+        toolArgs: structuredClone(parameters) as TToolArgs,
         executionId: context?.executionId,
       });
+      context?.signal?.throwIfAborted();
 
       // The observation covers ONLY the awaited body, never approval, hooks, truncation or a
       // detached continuation. A pre-start denial/abort therefore has no tool-body span.
-      const startedAtMs = Date.now();
+      let startedAtMs: number | undefined;
+      const admit: TToolEffectAdmission = async (effective) => {
+        context?.signal?.throwIfAborted();
+        const approvedArguments = canonicaliseToolArguments(toolName, effective, enforcer.cwd);
+        if (JSON.stringify(approvedArguments) !== JSON.stringify(effective)) {
+          throw new DeferredPermissionRefusal(
+            toolFailure(
+              'denied',
+              'Tool admission requires final canonical arguments; relative paths must be resolved before admission.',
+            ),
+          );
+        }
+        if (JSON.stringify(approvedArguments) !== JSON.stringify(parameters)) {
+          const nextHookInput = buildHookInput(
+            enforcer.sessionId,
+            enforcer.cwd,
+            toolName,
+            approvedArguments,
+            enforcer.getPermissionMode(),
+            enforcer.transcriptPath,
+          );
+          const blocked = await runPreToolHook(
+            enforcer.config.hooks,
+            nextHookInput,
+            enforcer.hookTypeExecutors,
+            context?.hookTraceEnv,
+          );
+          if (blocked) throw new DeferredPermissionRefusal(blocked);
+          const effectiveVerdict = await enforcer.checkPermission(
+            toolName,
+            approvedArguments as TToolArgs,
+            context?.signal,
+            context?.permissionInteraction,
+            context?.hookTraceEnv,
+          );
+          if (effectiveVerdict !== true)
+            throw new DeferredPermissionRefusal(
+              typeof effectiveVerdict === 'object'
+                ? toolFailure('denied', effectiveVerdict.message)
+                : PERMISSION_DENIED_RESULT,
+            );
+          hookInput = nextHookInput;
+        }
+        parameters = structuredClone(effective);
+        context?.signal?.throwIfAborted();
+        await beforeEffect?.(parameters);
+        context?.signal?.throwIfAborted();
+        startedAtMs = Date.now();
+      };
       let outcome: 'success' | 'failure' | 'interrupted' = 'failure';
       let result: IToolResult;
       try {
@@ -181,21 +235,33 @@ export function wrapToolWithPermission(
           context === undefined
             ? undefined
             : { ...context, instanceEventService: sessionEventService };
-        result = await originalExecute(parameters, toolContext as IToolExecutionContext);
+        if (beforeEffect && originalExecuteWithAdmission) {
+          result = await originalExecuteWithAdmission(
+            parameters,
+            toolContext as IToolExecutionContext,
+            admit,
+          );
+        } else {
+          if (beforeEffect) await admit(parameters);
+          else startedAtMs = Date.now();
+          context?.signal?.throwIfAborted();
+          result = await originalExecute(parameters, toolContext as IToolExecutionContext);
+        }
         outcome = context?.signal?.aborted ? 'interrupted' : result.success ? 'success' : 'failure';
       } catch (error) {
         outcome = context?.signal?.aborted || isAbortFailure(error) ? 'interrupted' : 'failure';
         throw error;
       } finally {
         try {
-          context?.eventService?.emit(TOOL_BODY_EVENTS.COMPLETED, {
-            timestamp: new Date(),
-            executionId: context.executionId,
-            startedAt: new Date(startedAtMs).toISOString(),
-            endedAt: new Date(Math.max(Date.now(), startedAtMs)).toISOString(),
-            outcome,
-            ...(typeof context.toolBodyId === 'string' ? { toolBodyId: context.toolBodyId } : {}),
-          });
+          if (startedAtMs !== undefined)
+            context?.eventService?.emit(TOOL_BODY_EVENTS.COMPLETED, {
+              timestamp: new Date(),
+              executionId: context.executionId,
+              startedAt: new Date(startedAtMs).toISOString(),
+              endedAt: new Date(Math.max(Date.now(), startedAtMs)).toISOString(),
+              outcome,
+              ...(typeof context.toolBodyId === 'string' ? { toolBodyId: context.toolBodyId } : {}),
+            });
         } catch (error) {
           // An observer must never turn a completed tool body into a missing tool_result.
           logger.warn(
@@ -245,6 +311,8 @@ export function wrapToolWithPermission(
       );
       return truncatedResult;
     } catch (err) {
+      if (err instanceof ExecutionJournalError) throw err;
+      if (err instanceof DeferredPermissionRefusal) return err.result;
       // CORE-027 — beside the envelope it returns, in `permission-types.ts`.
       return reportToolCrash(err, enforcer.onToolExecution, {
         toolName,
@@ -253,6 +321,9 @@ export function wrapToolWithPermission(
       });
     }
   };
+
+  wrappedTool.execute = execute;
+  wrappedTool.executeWithAdmission = execute;
 
   // SELFHOST-004: kept for the calls above, and still forwarded to the original tool, because
   // `Object.create(tool)` would otherwise shadow it onto the wrapper: a tool that reads only the

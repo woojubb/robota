@@ -15,6 +15,7 @@ import type { IToolSchema } from '@robota-sdk/agent-core';
 import type { Robota } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
+  IExecutionJournal,
   THooksConfig,
   IHookInput,
   IHookTypeExecutor,
@@ -44,11 +45,13 @@ export interface ICompactContext {
   trigger: TCompactTrigger;
   /** The prompt's trace for both compaction hooks, present only for a compaction inside a prompt. */
   hookTraceEnv?: ISubprocessTraceEnv;
+  executionJournal?: IExecutionJournal;
   log: (event: string, data: TSessionLogData) => void;
 }
 
 /** What compaction needs beyond the run context it shares eight fields with. */
 export interface ICompactExtras {
+  executionJournal?: IExecutionJournal;
   systemMessage: string;
   compactionOrchestrator: CompactionOrchestrator;
   onCompactCallback: ((summary: string) => void) | undefined;
@@ -115,6 +118,7 @@ export async function compact(
     signal,
     ctx.trigger,
     ctx.hookTraceEnv,
+    ctx.executionJournal,
   );
 
   // Clear history, re-inject system message, then inject summary.

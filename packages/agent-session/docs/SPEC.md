@@ -45,6 +45,15 @@ persistence paths that consume it (the store, the artifact envelope, the replay 
   the previous record.
 - `IHistoryEntry.timestamp` is `Date`-typed at compile time but round-trips through JSON as an
   ISO string; consumers of a loaded record must not assume a live `Date` instance.
+- An explicitly supplied execution journal is awaited by the underlying agent and by session
+  compaction before their results change history. Rejection remains fatal across cancellation;
+  observer logging is not an admission or persistence barrier. Tool-effect admission follows current
+  permission and hook decisions for the effective arguments, including changes made by nested
+  wrappers, so saved execution identity cannot substitute for authorization. No-input continuation
+  requires a compatible owner checkpoint for the same session and workspace, restores peer-turn
+  restrictions independently of transcript attribution, and checks pending effects under current
+  permissions. It holds the ordinary turn claim while restoring and executing. Injected classifiers,
+  hooks, and tools own additional model calls and must declare their integration separately.
 - Memory-event and used-reference fields are audit/debug data, not baseline user-local
   preferences. Session records must not become a command source or a hidden preference store.
 
@@ -202,8 +211,10 @@ that session actually uses instead of re-deriving one that could disagree.
 
 `SessionStart` fires once at construction; `UserPromptSubmit` before each turn; `Stop` after each
 successful response; `StopFailure` on a model-turn error; `SessionEnd` exactly once from
-`shutdown()`, after local persistence and before the wrapped agent is destroyed (so no
-session-owned timers or listeners survive shutdown). Each shutdown step is best-effort.
+`shutdown()`, after active execution has drained and local persistence has captured its settled
+history, before the wrapped agent is destroyed (so no session-owned timers or listeners survive
+shutdown). No-input continuation omits prompt submission and turn-level completion hooks because those hook effects have no durable receipts.
+Each shutdown step is best-effort.
 
 When a turn's trace context enables hooks, only a hook fired on that turn's own path hands its
 command children the prompt root's `TRACEPARENT`, so their spans sit beside the turn's provider and
@@ -295,9 +306,10 @@ person is never shown "no history" when history could not actually be read.
 
 ### Abort behavior
 
-A running turn's partial response is always committed to history on abort (marked interrupted;
-text is never stripped). The underlying run always returns normally on abort — it never throws —
-and the session's post-run check is the sole source of the abort error surfaced to the caller.
+A running turn's committed partial response is preserved on abort and marked interrupted.
+The underlying run normally returns on abort, and the session's post-run check surfaces the abort
+error. A concurrent execution-journal failure remains a persistence error; unpersisted output must
+not become a committed response merely because cancellation was also requested.
 
 ### Tool-result spill store
 

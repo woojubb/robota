@@ -1,6 +1,7 @@
 import { executeBatch } from './tool-execution-batch';
 import { TOOL_SEARCH_TOOL_NAME } from '../interfaces/tool-search';
 import { ValidationError } from '../utils/errors';
+import { ExecutionJournalError } from '../utils/execution-journal-error';
 import { SilentLogger, type ILogger } from '../utils/logger';
 
 import type { IOwnerPathSegment, IToolEventData } from '../interfaces/event-service';
@@ -44,6 +45,19 @@ export class ToolExecutionService {
       listDeferredTools: () => this.tools.listDeferredTools(),
       loadDeferredTools: (names) => this.tools.loadDeferredTools(names),
     };
+  }
+
+  getLoadedDeferredTools(): string[] | undefined {
+    return this.tools.getLoadedDeferredTools?.();
+  }
+
+  restoreLoadedDeferredTools(names: readonly string[]): void {
+    for (const name of names) {
+      if (!this.tools.hasTool(name))
+        throw new Error(`Recovery tool is no longer registered: ${name}`);
+    }
+    const visible = new Set(this.tools.getTools().map((tool) => tool.name));
+    this.tools.loadDeferredTools(names.filter((name) => visible.has(name)));
   }
 
   /**
@@ -163,6 +177,7 @@ export class ToolExecutionService {
         executionId: executionContext.executionId!,
       };
     } catch (error) {
+      if (error instanceof ExecutionJournalError) throw error;
       this.logger.error(`Tool execution failed: ${toolName}`);
 
       const toolError = error instanceof Error ? error : new Error(String(error));
@@ -239,8 +254,7 @@ export class ToolExecutionService {
 }
 
 type TDecodedToolCallArguments =
-  | { ok: true; parameters: TToolParameters }
-  | { ok: false; error: string };
+  { ok: true; parameters: TToolParameters } | { ok: false; error: string };
 
 /**
  * Issue #2078: `TToolParameters` is a record contract, so a syntactically valid JSON body whose root

@@ -1,4 +1,4 @@
-import { announceAppend } from './execution-event-helpers';
+import { announceAppend, observeExecutionCleanup } from './execution-event-helpers';
 import { callProviderWithCache } from './execution-round-provider';
 import { resolveToolChoiceForRound } from './execution-service-helpers';
 import { isAbortFailure } from '../utils/abort-classification';
@@ -7,6 +7,8 @@ import { verifiedProviderCallUsage } from './provider-call-usage';
 import { resolveProviderCallTraceContext } from './execution-trace-context';
 import { PROVIDER_CALL_EVENTS, PROVIDER_FALLBACK_EVENTS } from '../event-service/span-events';
 import { moveModelRoute, openModelRoute, routeModel, routeProvider } from './execution-model-route';
+import { ExecutionJournalError } from '../utils/execution-journal-error';
+import type { IExecutionRoundCheckpoint } from '../interfaces/execution-journal';
 
 import type { IAssembledProviderRequest } from './execution-round-provider';
 import type { IModelRoute } from './execution-model-route';
@@ -78,13 +80,19 @@ export async function callRoundProviderWithEvents(
   onProviderFailure?: (error: unknown) => void,
   /** Where the request is actually answered; read by the caller to attribute the committed reply. */
   route: IModelRoute = openModelRoute(resolved, config.defaultModel.model, executionId),
+  callId: string = randomId(),
+  checkpoint?: IExecutionRoundCheckpoint,
 ): Promise<TUniversalMessage | null> {
   const startedAtMs = Date.now();
-  const callId = randomId();
-  const dispatch: { disposition: 'invoked' | 'cache-hit' | 'preflight-refused'; model?: string; startedAtMs?: number } = {
+  const dispatch: {
+    disposition: 'invoked' | 'cache-hit' | 'preflight-refused';
+    model?: string;
+    startedAtMs?: number;
+  } = {
     disposition: 'preflight-refused',
   };
   let providerResponse: TUniversalMessage | undefined;
+  let journalFailure: ExecutionJournalError | undefined;
   let outcome: 'success' | 'failure' | 'interrupted' = 'failure';
   let assembled: IAssembledProviderRequest | undefined;
   const announceRequest = (request: IAssembledProviderRequest): void => {
@@ -181,13 +189,26 @@ export async function callRoundProviderWithEvents(
         dispatch.model = routeModel(route, model);
         if (actualDisposition === 'invoked') dispatch.startedAtMs = Date.now();
       },
-      () => resolveProviderCallTraceContext(
-        fullContext.traceContext,
-        resolved.provider,
-        resolved.currentInfo.provider,
-        callId,
-      ),
+      () =>
+        resolveProviderCallTraceContext(
+          fullContext.traceContext,
+          resolved.provider,
+          resolved.currentInfo.provider,
+          callId,
+        ),
       route,
+      fullContext.executionJournal
+        ? {
+            journal: fullContext.executionJournal,
+            executionId,
+            callId,
+            checkpoint,
+            route: () => ({
+              providerId: routeProvider(route, resolved),
+              modelId: routeModel(route, config.defaultModel.model),
+            }),
+          }
+        : undefined,
     );
     providerResponse = response;
     // CORE-042: a provider that returned assembled text without streaming any of it still owes the
@@ -246,6 +267,11 @@ export async function callRoundProviderWithEvents(
     outcome = 'success';
     return response;
   } catch (providerError) {
+    if (providerError instanceof ExecutionJournalError) {
+      journalFailure = providerError;
+      conversationStore.discardPending();
+      throw providerError;
+    }
     // allow-fallback: provider errors terminate the round, not the process
     //
     // CORE-027: classified from the SIGNAL this round was given and from the error's own name, never
@@ -289,34 +315,38 @@ export async function callRoundProviderWithEvents(
     });
     return null;
   } finally {
-    const usage = dispatch.disposition === 'invoked'
-      ? verifiedProviderCallUsage(providerResponse)
-      : { provenance: 'absent' as const };
+    const usage =
+      dispatch.disposition === 'invoked'
+        ? verifiedProviderCallUsage(providerResponse)
+        : { provenance: 'absent' as const };
     // A single content-free lifecycle observation per attempted provider round. This is emitted
     // even when the provider fails or the turn is interrupted; it contains no request/response.
-    fullContext.onExecutionEvent?.(PROVIDER_CALL_EVENTS.COMPLETED, {
-      executionId,
-      conversationId: fullContext.conversationId,
-      round: currentRound,
-      startedAt: new Date(dispatch.startedAtMs ?? startedAtMs).toISOString(),
-      endedAt: new Date(Math.max(Date.now(), dispatch.startedAtMs ?? startedAtMs)).toISOString(),
-      outcome,
-      callId,
-      disposition: dispatch.disposition,
-      ...(dispatch.disposition === 'invoked' && {
-        providerId: routeProvider(route, resolved),
-        ...(dispatch.model !== undefined && { modelId: dispatch.model }),
-        ...(typeof providerResponse?.metadata?.['providerRequestId'] === 'string' && {
-          providerRequestId: providerResponse.metadata['providerRequestId'],
+    observeExecutionCleanup(() => {
+      fullContext.onExecutionEvent?.(PROVIDER_CALL_EVENTS.COMPLETED, {
+        executionId,
+        conversationId: fullContext.conversationId,
+        round: currentRound,
+        startedAt: new Date(dispatch.startedAtMs ?? startedAtMs).toISOString(),
+        endedAt: new Date(Math.max(Date.now(), dispatch.startedAtMs ?? startedAtMs)).toISOString(),
+        outcome,
+        callId,
+        disposition: dispatch.disposition,
+        ...(dispatch.disposition === 'invoked' && {
+          providerId: routeProvider(route, resolved),
+          ...(dispatch.model !== undefined && { modelId: dispatch.model }),
+          ...(typeof providerResponse?.metadata?.['providerRequestId'] === 'string' && {
+            providerRequestId: providerResponse.metadata['providerRequestId'],
+          }),
         }),
-      }),
-      usageProvenance: usage.provenance,
-      ...('promptTokens' in usage && usage.promptTokens !== undefined && {
-        promptTokens: usage.promptTokens,
-        completionTokens: usage.completionTokens,
-        totalTokens: usage.totalTokens,
-        ...(usage.cacheReadTokens !== undefined && { cacheReadTokens: usage.cacheReadTokens }),
-      }),
-    } as TExecutionEventData);
+        usageProvenance: usage.provenance,
+        ...('promptTokens' in usage &&
+          usage.promptTokens !== undefined && {
+            promptTokens: usage.promptTokens,
+            completionTokens: usage.completionTokens,
+            totalTokens: usage.totalTokens,
+            ...(usage.cacheReadTokens !== undefined && { cacheReadTokens: usage.cacheReadTokens }),
+          }),
+      } as TExecutionEventData);
+    }, journalFailure);
   }
 }

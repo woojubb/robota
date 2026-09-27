@@ -7,122 +7,22 @@
 
 import {
   CONTEXT_ESTIMATE_CHARS_PER_TOKEN,
-  PROVIDER_CALL_EVENTS,
-  PROVIDER_FALLBACK_EVENTS,
-  readModelFallbackNotice,
   createLogger,
   createUserMessage,
   getProviderCapabilities,
-  isModelEffort,
   runHooks,
   traceEnvFor,
 } from '@robota-sdk/agent-core';
 
 import { perTurnRunOptions } from './session-run-options.js';
-import {
-  createToolExecutionBridge,
-  forwardToolExecutionEvent,
-} from './session-tool-execution-bridge.js';
+import { createRunObservers } from './session-run-observation.js';
 
-import type { ContextWindowTracker } from './context-window-tracker.js';
-import type { TSessionLogData } from './session-logger.js';
-import type {
-  IProviderCallTraceObservation,
-  ISessionOptions,
-  ISessionRunOptions,
-} from './session-types.js';
-import type {
-  IAIProvider,
-  IContextWindowState,
-  IModelFallbackNotice,
-  THooksConfig,
-  IHookTypeExecutor,
-  ISubprocessTraceEnv,
-  TTextDeltaCallback,
-  TModelEffortSelection,
-} from '@robota-sdk/agent-core';
-import type { Robota } from '@robota-sdk/agent-core';
+import type { IRunContext } from './session-run-context.js';
+export type { IRunContext } from './session-run-context.js';
+import type { ISessionRunOptions } from './session-types.js';
+import type { THooksConfig } from '@robota-sdk/agent-core';
 
 const logger = createLogger('SessionRun');
-
-/**
- * SELFHOST-009: fire an INFORMATIONAL-ONLY model-call hook event mapped from a provider-call
- * execution event the turn owner already observes. Fire-and-forget — `onExecutionEvent` is a void,
- * un-awaited callback, so this `runHooks` call cannot block or mutate `provider.chat()`. Its result
- * is never consulted for gating; only PreToolUse gates.
- */
-function fireModelCallHook(
-  ctx: IRunContext,
-  hookEvent: 'PreModelCall' | 'PostModelCall',
-  data: Record<string, unknown>,
-  hookTraceEnv: ISubprocessTraceEnv | undefined,
-): void {
-  const model = typeof data['model'] === 'string' ? (data['model'] as string) : ctx.model;
-  const provider =
-    typeof data['provider'] === 'string' ? (data['provider'] as string) : ctx.aiProvider.name;
-  const rawEffort = data['effort'];
-  const effort =
-    typeof rawEffort === 'string' && isModelEffort(rawEffort)
-      ? rawEffort
-      : (ctx.effort ??
-        (typeof ctx.agent.getModel === 'function' ? ctx.agent.getModel().effort : undefined) ??
-        'high');
-  const round = typeof data['round'] === 'number' ? (data['round'] as number) : undefined;
-  void runHooks(
-    ctx.hooks as THooksConfig | undefined,
-    hookEvent,
-    {
-      session_id: ctx.sessionId,
-      cwd: ctx.cwd,
-      hook_event_name: hookEvent,
-      model,
-      provider,
-      effort,
-      ...(round !== undefined && { round }),
-      ...(ctx.permissionMode !== undefined && { permission_mode: ctx.permissionMode }),
-      ...(ctx.transcriptPath !== undefined && { transcript_path: ctx.transcriptPath }),
-      env: {
-        CLAUDE_PROJECT_DIR: ctx.cwd,
-        CLAUDE_SESSION_ID: ctx.sessionId,
-      },
-    },
-    ctx.hookTypeExecutors,
-    hookTraceEnv,
-  ).catch((error) => logger.warn('hook failed', { error }));
-}
-
-/** Dependencies injected by Session.run() */
-export interface IRunContext {
-  sessionId: string;
-  cwd: string;
-  model: string;
-  /** Model-effort selection for informational model-call hooks. */
-  effort?: TModelEffortSelection;
-  /** Current permission mode — passed to all hook inputs as permission_mode */
-  permissionMode?: string;
-  /** Absolute path to session transcript file — passed to all hook inputs as transcript_path */
-  transcriptPath?: string;
-  agent: Robota;
-  aiProvider: IAIProvider;
-  contextTracker: ContextWindowTracker;
-  hooks: Record<string, unknown> | undefined;
-  hookTypeExecutors: IHookTypeExecutor[] | undefined;
-  sessionStartStdout: string;
-  log: (event: string, data: TSessionLogData) => void;
-  /** RUNTIME-004: abort must not rewrite history. `hookTraceEnv` is the prompt's, for PreCompact. */
-  compact: (signal?: AbortSignal, hookTraceEnv?: ISubprocessTraceEnv) => Promise<void>;
-  persistSession: () => void;
-  getSessionStore: () => boolean;
-  clearSessionStartStdout: () => void;
-  maxTurns?: number;
-  onTextDelta?: TTextDeltaCallback;
-  onContextUpdate?: (state: IContextWindowState) => void;
-  onToolExecution?: ISessionOptions['onToolExecution'];
-  emitProviderCallCompleted?: (observation: IProviderCallTraceObservation) => void;
-  /** Tell the session's owner a request moved to another model, so it can say so. */
-  emitProviderFallback?: (notice: IModelFallbackNotice) => void;
-  knownToolNames?: readonly string[];
-}
 
 /**
  * Execute a single agent turn: run hooks, send message to AI, log results.
@@ -157,7 +57,11 @@ export async function executeRun(
     const savedDelta = provider.onTextDelta;
     provider.onTextDelta = undefined;
     try {
-      await (hookTraceEnv ? ctx.compact(abortSignal, hookTraceEnv) : ctx.compact(abortSignal));
+      if (runOptions?.executionJournal) {
+        await ctx.compact(abortSignal, hookTraceEnv, runOptions.executionJournal);
+      } else {
+        await (hookTraceEnv ? ctx.compact(abortSignal, hookTraceEnv) : ctx.compact(abortSignal));
+      }
     } finally {
       provider.onTextDelta = savedDelta;
     }
@@ -216,124 +120,12 @@ export async function executeRun(
 
   let response: string;
   try {
-    const toolExecutionBridge = createToolExecutionBridge({
-      knownToolNames: ctx.knownToolNames ?? [],
-      ...(ctx.onToolExecution && { onToolExecution: ctx.onToolExecution }),
-    });
-    const onTextDelta = ctx.onTextDelta
-      ? (delta: string): void => {
-          ctx.log('text_delta', { delta });
-          ctx.onTextDelta?.(delta);
-        }
-      : undefined;
-
-    let calledModel: Record<string, unknown> = {};
     response = await ctx.agent.run(enrichedMessage, {
       signal: abortSignal,
       maxExecutionRounds: ctx.maxTurns ?? 0,
       // Thin pass-through of the per-turn options to agent-core (SELFHOST-008 P3, PEER-007).
       ...perTurnRunOptions(runOptions),
-      onExecutionEvent: (event, data) => {
-        // This new local observability signal is persisted by the interactive history owner;
-        // it is not a replay-substrate session-log event.
-        if (event !== PROVIDER_CALL_EVENTS.COMPLETED) ctx.log(event, data as TSessionLogData);
-        forwardToolExecutionEvent(toolExecutionBridge, event, data);
-        // SELFHOST-009: fire the informational-only model-call events from the provider-call
-        // execution events the turn owner already observes. provider_request → PreModelCall (before
-        // provider.chat() returns); provider_response_normalized → PostModelCall (the SINGLE
-        // canonical source — NOT provider_response_raw, which would double-fire per round). Both are
-        // fire-and-forget: this callback is void/un-awaited, so they cannot gate/mutate the call.
-        if (event === 'provider_request') {
-          const request = data as Record<string, unknown>;
-          calledModel = { model: request['model'], provider: request['provider'] };
-          fireModelCallHook(ctx, 'PreModelCall', request, hookTraceEnv);
-        } else if (event === 'provider_response_normalized') {
-          // Named after the model the request was last sent to, which answered it.
-          fireModelCallHook(
-            ctx,
-            'PostModelCall',
-            { ...(data as Record<string, unknown>), ...calledModel },
-            hookTraceEnv,
-          );
-        } else if (event === PROVIDER_FALLBACK_EVENTS.SWITCHED) {
-          const notice = readModelFallbackNotice(data as Record<string, unknown>);
-          if (notice !== undefined) {
-            // The call to the model that failed ends here, so its PreModelCall gets its PostModelCall
-            // before the request is announced again for the next model.
-            fireModelCallHook(
-              ctx,
-              'PostModelCall',
-              { round: data['round'], model: notice.from.model, provider: notice.from.provider },
-              hookTraceEnv,
-            );
-            ctx.emitProviderFallback?.(notice);
-          }
-        } else if (event === PROVIDER_CALL_EVENTS.COMPLETED && ctx.emitProviderCallCompleted) {
-          // Forward an allowlist, not the generic event envelope, across the session boundary.
-          const observation = data as Record<string, unknown>;
-          if (
-            Number.isSafeInteger(observation['round']) &&
-            (observation['round'] as number) > 0 &&
-            typeof observation['startedAt'] === 'string' &&
-            typeof observation['endedAt'] === 'string' &&
-            (observation['outcome'] === 'success' ||
-              observation['outcome'] === 'failure' ||
-              observation['outcome'] === 'interrupted')
-          ) {
-            ctx.emitProviderCallCompleted({
-              round: observation['round'] as number,
-              startedAt: observation['startedAt'],
-              endedAt: observation['endedAt'],
-              outcome: observation['outcome'],
-              ...(typeof observation['callId'] === 'string' &&
-                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(observation['callId']) &&
-                { callId: observation['callId'] }),
-              ...((observation['disposition'] === 'invoked' ||
-                observation['disposition'] === 'cache-hit' ||
-                observation['disposition'] === 'preflight-refused') &&
-                { disposition: observation['disposition'] }),
-              ...(typeof observation['providerId'] === 'string' &&
-                observation['providerId'].length > 0 && observation['providerId'].length <= 128 &&
-                [...observation['providerId']].every((char) => char.charCodeAt(0) >= 32) &&
-                { providerId: observation['providerId'] }),
-              ...(typeof observation['modelId'] === 'string' &&
-                observation['modelId'].length > 0 && observation['modelId'].length <= 128 &&
-                [...observation['modelId']].every((char) => char.charCodeAt(0) >= 32) &&
-                { modelId: observation['modelId'] }),
-              ...((observation['usageProvenance'] === 'complete' ||
-                observation['usageProvenance'] === 'partial' ||
-                observation['usageProvenance'] === 'absent') &&
-                { usageProvenance: observation['usageProvenance'] }),
-              ...(observation['usageProvenance'] === 'complete' &&
-                typeof observation['promptTokens'] === 'number' &&
-                Number.isSafeInteger(observation['promptTokens']) && observation['promptTokens'] >= 0 &&
-                typeof observation['completionTokens'] === 'number' &&
-                Number.isSafeInteger(observation['completionTokens']) && observation['completionTokens'] >= 0 &&
-                typeof observation['totalTokens'] === 'number' &&
-                Number.isSafeInteger(observation['totalTokens']) &&
-                observation['totalTokens'] === observation['promptTokens'] + observation['completionTokens'] &&
-                {
-                  promptTokens: observation['promptTokens'],
-                  completionTokens: observation['completionTokens'],
-                  totalTokens: observation['totalTokens'],
-                }),
-              ...(observation['disposition'] === 'invoked' &&
-                typeof observation['providerRequestId'] === 'string' &&
-                { providerRequestId: observation['providerRequestId'] }),
-            });
-          }
-        }
-        // BEHAVIOR-002: recompute and emit context per agentic round so the status bar
-        // climbs live during a turn instead of jumping once at completion. The agent loop
-        // runs entirely inside this single robota.run() call; assistant_message_committed
-        // fires once per round with the round's usage already committed to history, which is
-        // the right cadence — frequent enough to feel live, sparse enough to avoid render flooding.
-        if (event === 'assistant_message_committed') {
-          ctx.contextTracker.updateFromHistory(ctx.agent.getHistory());
-          ctx.onContextUpdate?.(ctx.contextTracker.getContextState());
-        }
-      },
-      ...(onTextDelta && { onTextDelta }),
+      ...createRunObservers(ctx, traceContext),
     });
 
     // If execution was interrupted (abort fired during execution),
@@ -342,11 +134,15 @@ export async function executeRun(
       throw new DOMException('Aborted', 'AbortError');
     }
   } catch (error) {
-    ctx.log('error', {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? (error.stack ?? '') : '',
-      historyLength: ctx.agent.getHistory().length,
-    });
+    try {
+      ctx.log('error', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? (error.stack ?? '') : '',
+        historyLength: ctx.agent.getHistory().length,
+      });
+    } catch {
+      // Diagnostic failure cannot replace the execution error and its recovery classification.
+    }
     runHooks(
       ctx.hooks as THooksConfig | undefined,
       'StopFailure',

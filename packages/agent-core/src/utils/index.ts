@@ -9,6 +9,7 @@ export * from './logger';
 export * from './validation';
 export * from './error-utils';
 export * from './errors';
+export { ExecutionJournalError } from './execution-journal-error';
 export {
   classifyProviderFailure,
   readProviderFailureDetails,
@@ -30,3 +31,5 @@ export {
   traceHeadersFor,
 } from './trace-context';
 export type { TTimerId } from './timer-types';
+export { ExecutionRecoveryError } from './execution-recovery-error';
+export type { TExecutionRecoveryErrorCode } from './execution-recovery-error';

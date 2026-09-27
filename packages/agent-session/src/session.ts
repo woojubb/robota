@@ -18,6 +18,8 @@ import {
   fireSessionEndHook,
   fireSessionStartHook,
 } from './session-lifecycle.js';
+import { executeResume, type TSessionResumeOptions } from './session-resume.js';
+import { sessionExecutionJournal, sessionRecoveryJournal } from './session-execution-journal.js';
 import { executeRun } from './session-run.js';
 import { SessionRuntimeTools, linkCancellation } from './session-runtime-tools.js';
 
@@ -31,7 +33,7 @@ import type {
   ISpinner,
 } from './permission-types.js';
 import type { ISessionLogger, TSessionLogData } from './session-logger.js';
-import type { IRunContext } from './session-run.js';
+import type { IRunContext } from './session-run-context.js';
 import type {
   ICompactEvent,
   ISessionOptions,
@@ -41,6 +43,7 @@ import type {
 } from './session-types.js';
 import type {
   IAIProvider,
+  IExecutionJournal,
   IContextWindowState,
   IEventService,
   IToolSchema,
@@ -205,9 +208,51 @@ export class Session extends SessionBase {
       // Tools added while the last turn ran join at this boundary, before any request of this turn;
       // a change already in flight finishes first, so the turn never sees a list mid-update.
       await this.serializeToolChange(() => this.applyPendingTools());
-      const response = await executeRun(message, rawInput, this.buildRunContext(), signal, options);
+      const runOptions = options?.executionJournal
+        ? {
+            ...options,
+            executionJournal: sessionExecutionJournal(options.executionJournal, {
+              sessionId: this.sessionId,
+              cwd: this.cwd,
+              peerTurn: options.peerTurn === true,
+            }),
+          }
+        : options;
+      const response = await executeRun(
+        message,
+        rawInput,
+        this.buildRunContext(),
+        signal,
+        runOptions,
+      );
       this.messageCount += 1;
       return response;
+    } finally {
+      this.permissionEnforcer.endTurn();
+      unlink();
+      this.turnClaim.release(controller);
+    }
+  }
+
+  /** Resume the original Session execution under current permissions without submitting input. */
+  async resume(options: TSessionResumeOptions): Promise<string> {
+    if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
+    const controller = this.turnClaim.claim();
+    const unlink = linkCancellation(controller, options.signal);
+    try {
+      controller.signal.throwIfAborted();
+      await this.serializeToolChange(() => this.applyPendingTools());
+      const journal = sessionRecoveryJournal(
+        options.journal,
+        this.sessionId,
+        this.cwd,
+        (peerTurn) => this.permissionEnforcer.beginTurn(peerTurn),
+      );
+      return await executeResume(this.buildRunContext(), {
+        ...options,
+        journal,
+        signal: controller.signal,
+      });
     } finally {
       this.permissionEnforcer.endTurn();
       unlink();
@@ -331,6 +376,7 @@ export class Session extends SessionBase {
     this.shutdownPromise = (async () => {
       await step('abort', () => this.abort());
       await step('drain-direct-tool', () => this.runtimeTools.drain());
+      await step('drain-turn', () => this.turnClaim.drained);
       this.log('session_shutdown', { reason });
       await step('persist', () => this.persistSessionInternal());
       await step('session-end-hook', () =>
@@ -369,8 +415,9 @@ export class Session extends SessionBase {
     instructions?: string,
     trigger: TCompactTrigger = 'manual',
     signal?: AbortSignal,
+    executionJournal?: IExecutionJournal,
   ): Promise<void> {
-    await this.compactWith(instructions, trigger, signal);
+    await this.compactWith(instructions, trigger, signal, undefined, executionJournal);
   }
 
   /** `hookTraceEnv` reaches PreCompact only for a compaction inside a prompt (see `executeRun`). */
@@ -379,6 +426,7 @@ export class Session extends SessionBase {
     trigger: TCompactTrigger,
     signal?: AbortSignal,
     hookTraceEnv?: ISubprocessTraceEnv,
+    executionJournal?: IExecutionJournal,
   ): Promise<void> {
     const extras = {
       systemMessage: this.systemMessage,
@@ -387,6 +435,7 @@ export class Session extends SessionBase {
       onCompactEventCallback: this.onCompactEventCallback,
       trigger,
       ...(hookTraceEnv ? { hookTraceEnv } : {}),
+      ...(executionJournal ? { executionJournal } : {}),
     };
     await compact(instructions, buildCompactContext(this.buildRunContext(), extras), signal);
   }
@@ -404,7 +453,8 @@ export class Session extends SessionBase {
       hookTypeExecutors: this.hookTypeExecutors,
       sessionStartStdout: this.sessionStartStdout,
       log: (event: string, data: TSessionLogData) => this.log(event, data),
-      compact: (signal, hookTraceEnv) => this.compactWith(undefined, 'auto', signal, hookTraceEnv),
+      compact: (signal, hookTraceEnv, executionJournal) =>
+        this.compactWith(undefined, 'auto', signal, hookTraceEnv, executionJournal),
       persistSession: () => this.persistSessionInternal(),
       getSessionStore: () => !!this.sessionStore,
       clearSessionStartStdout: () => void (this.sessionStartStdout = ''),

@@ -11,6 +11,11 @@ export type { TToolParameters } from './types';
 // Re-export event service types for consumers that import from tool interface
 export type { IEventService } from './event-service';
 
+/** Awaited host admission for effective parameters, immediately before a tool body. */
+export type TToolEffectAdmission<TParameters = TToolParameters> = (
+  parameters: TParameters,
+) => Promise<void>;
+
 export type TToolContextExtensionValue =
   TUniversalValue | Date | Error | TLoggerData | TContextData | TToolParameters | TToolMetadata;
 
@@ -67,6 +72,8 @@ export interface IToolExecutionResult {
 export interface IToolExecutionContext {
   toolName: string;
   parameters: TToolParameters;
+  /** Runtime-owned barrier, consumed after permission and before entering the tool. */
+  beforeToolEffect?: TToolEffectAdmission;
   /**
    * Run-scoped cancellation signal (CORE-018). Long-running tools MUST honor it: terminate
    * the underlying work (kill the child process, abort the network request) and return an

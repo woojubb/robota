@@ -1,4 +1,5 @@
 import { toolResultValue } from './tool-result-value';
+import { executeWithToolAdmission } from './tool-effect-admission';
 /**
  * Configuration and tool management delegate for the Robota agent.
  *
@@ -111,7 +112,7 @@ export class RobotaConfigManager {
         if (!context) {
           throw new Error('[ROBOTA] Missing ToolExecutionContext for tool execution');
         }
-        const result = await tool.execute(parameters, context);
+        const result = await executeWithToolAdmission(tool, parameters, context);
         return toolResultValue(tool.schema.name, result);
       };
       this.getTools().addTool(tool.schema, toolExecutor);
@@ -292,7 +293,7 @@ export class RobotaConfigManager {
       if (!context) {
         throw new Error('[ROBOTA] Missing ToolExecutionContext for tool execution');
       }
-      const result = await tool.execute(parameters, context);
+      const result = await executeWithToolAdmission(tool, parameters, context);
       return toolResultValue(tool.schema.name, result);
     };
     tools.addTool(tool.schema, toolExecutor);
