@@ -153,14 +153,14 @@ function createBackgroundTaskEntry(
 }
 
 /**
- * #3288 §1: an agent task's own denied-tool-call count, read defensively — `deniedToolCalls` does
- * not exist on every host's `IAgentBackgroundTaskResult` yet (PEER/#3312 adds it), so this reads it
- * as an unknown field rather than a typed one, and is a no-op wherever it is absent.
+ * #3288 §1: an agent task's own denied-tool-call count (#3312's `IBackgroundTaskDeniedToolCalls`,
+ * additive — absent on a task with nothing refused). Flattened to the total here; the entry carries
+ * a count for the panel's label, not the by-reason breakdown.
  */
 function deniedToolCallsFromResult(state: IBackgroundTaskState): number | undefined {
   if (state.kind !== 'agent' || state.result?.kind !== 'agent') return undefined;
-  const raw = (state.result as unknown as { deniedToolCalls?: unknown }).deniedToolCalls;
-  return typeof raw === 'number' && raw > 0 ? raw : undefined;
+  const denied = state.result.deniedToolCalls;
+  return denied && denied.total > 0 ? denied.total : undefined;
 }
 
 /**

@@ -108,10 +108,11 @@ export interface IExecutionWorkspaceEntry {
    */
   readonly loopId?: string;
   /**
-   * #3288 §1: an agent task's own count of tool calls its result reports as refused, when its
-   * result carries one — read defensively (the field may not exist on an older host's result), so a
-   * surface can show "Needs permission" instead of a plain "Done" for a task that finished with
-   * something still refused, rather than losing that fact once the task is no longer running.
+   * #3288 §1: an agent task's own count of tool calls its result reports as refused
+   * (`IAgentBackgroundTaskResult.deniedToolCalls.total`, #3312), so a surface can show "Needs
+   * permission" instead of a plain "Done" for a task that finished with something still refused,
+   * rather than losing that fact once the task is no longer running. Absent on a task whose result
+   * predates #3312, or reports nothing refused.
    */
   readonly deniedToolCalls?: number;
 }

@@ -663,9 +663,15 @@ describe('#3288 §1 — loop visibility and stop routing', () => {
             taskId: 'agent_1',
             kind: 'agent',
             output: 'done',
-            // Not yet a declared field of IAgentBackgroundTaskResult (#3312 adds it) — read
-            // defensively, so this must work whether or not the host's result carries it.
-            ...({ deniedToolCalls: 2 } as Record<string, unknown>),
+            deniedToolCalls: {
+              total: 2,
+              byReason: {
+                'denied-by-person': 2,
+                'no-approver': 0,
+                'approver-error': 0,
+                cancelled: 0,
+              },
+            },
           },
         }),
       ],
@@ -692,7 +698,10 @@ describe('#3288 §1 — loop visibility and stop routing', () => {
             taskId: 'agent_zero',
             kind: 'agent',
             output: 'done',
-            ...({ deniedToolCalls: 0 } as Record<string, unknown>),
+            deniedToolCalls: {
+              total: 0,
+              byReason: { 'denied-by-person': 0, 'no-approver': 0, 'approver-error': 0, cancelled: 0 },
+            },
           },
         }),
       ],
