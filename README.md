@@ -213,6 +213,13 @@ The [packages index](https://docs.robota.io/en/packages/) on the docs site cover
 | [`@robota-sdk/agent-process`](https://www.npmjs.com/package/@robota-sdk/agent-process)                     | Child-process tree termination (`killProcessTree`)                                                    |
 | [`@robota-sdk/agent-file-authority`](https://www.npmjs.com/package/@robota-sdk/agent-file-authority)       | Bounded, root-relative file reads for Node.js                                                         |
 
+**Multi-agent conversation** — coordinate independent agents and people in a shared conversation:
+
+| Package                                                                                                       | Description                                                                       |
+| -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [`@robota-sdk/agent-roundtable`](https://www.npmjs.com/package/@robota-sdk/agent-roundtable)                 | Selects turns, runs parallel groups, publishes to a shared transcript; no model, no provider |
+| [`@robota-sdk/agent-roundtable-robota`](https://www.npmjs.com/package/@robota-sdk/agent-roundtable-robota)   | Runs a Robota `Session` or plain `Robota` agent as a roundtable participant or selector       |
+
 **Product composition** — build your own product on the same runtime:
 
 | Package                                                                                                | Description                                                                        |
