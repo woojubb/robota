@@ -7,7 +7,7 @@
  * this module so it can be tested in a plain Node/vitest environment.
  */
 
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 /** Inputs for resolving the sidecar command — injected (not read from electron) so this stays unit-testable. */
 export interface IResolveSidecarCommandOptions {
@@ -63,6 +63,37 @@ export function buildDaemonStartSpawn(
     ...(options.restricted === true ? ['--restricted-workspace'] : []),
   ];
   return { command, args, env };
+}
+
+/**
+ * One file the person chose from the native "Attach files" dialog (#3282 §4d), with its real size —
+ * the composer refuses a file over its per-file limit, and needs the size to know that without a
+ * round trip to read the file itself.
+ */
+export interface IPickedFile {
+  readonly path: string;
+  readonly name: string;
+  readonly size: number;
+}
+
+/**
+ * Shape the dialog's chosen paths into `IPickedFile`s. `statSize` is injected (not `node:fs` read
+ * directly) so this stays testable without touching a real filesystem — `main.ts` passes
+ * `(path) => statSync(path).size`. A path whose size cannot be read (removed between the dialog
+ * closing and this running, or an unreadable device file) is left out rather than thrown: the person
+ * just sees one fewer chip, not a picker that crashed.
+ */
+export function buildPickedFiles(
+  paths: readonly string[],
+  statSize: (path: string) => number | undefined,
+): IPickedFile[] {
+  const files: IPickedFile[] = [];
+  for (const path of paths) {
+    const size = statSize(path);
+    if (size === undefined) continue;
+    files.push({ path, name: basename(path), size });
+  }
+  return files;
 }
 
 /** What the window asks before a daemon starts in a folder not trusted yet (issue #3268). */

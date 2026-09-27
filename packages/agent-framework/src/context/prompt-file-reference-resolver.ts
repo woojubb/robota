@@ -20,6 +20,13 @@ const DEFAULT_MAX_REFERENCES = Number('8');
 const BYTES_PER_KIB = Number('1024');
 const DEFAULT_MAX_FILE_BYTES = Number('64') * BYTES_PER_KIB;
 const DEFAULT_MAX_TOTAL_BYTES = Number('256') * BYTES_PER_KIB;
+// Correction to #3282 §4: the reader decodes every file as UTF-8 unconditionally (`readText` in
+// workspace-trust/project-reader-path.ts) — a binary file was previously sent to the model as
+// mangled text instead of being refused. A NUL byte survives that decode unchanged (0x00 is valid
+// single-byte UTF-8), so sniffing for one in the first 8 KiB reliably flags binary content without
+// needing raw-byte access here. Every surface shares this resolver, so this refusal is universal
+// (GUI, TUI, headless), not a GUI-only client-side check.
+const BINARY_SNIFF_CHARS = Number('8') * BYTES_PER_KIB;
 
 interface IResolvedLimits {
   maxDepth: number;
@@ -110,6 +117,7 @@ function resolveReference(
 
   const content = readReferenceFile(reference, sourcePath, state);
   if (content === undefined) return;
+  if (!checkNotBinary(reference, content, state)) return;
   const byteLength = Buffer.byteLength(content, 'utf8');
   if (!checkByteBudget(reference, byteLength, state)) return;
 
@@ -213,6 +221,21 @@ function readReferenceFile(
   if (content !== undefined) return content;
   pushDiagnostic(state, 'not-found', reference, 'Referenced file was not found.');
   return undefined;
+}
+
+/** A NUL byte anywhere in the first 8 KiB marks the file as binary — see the constant's comment above. */
+function looksBinary(content: string): boolean {
+  return content.slice(0, BINARY_SNIFF_CHARS).includes('\u0000');
+}
+
+function checkNotBinary(
+  reference: IPromptFileReferenceToken,
+  content: string,
+  state: IResolveState,
+): boolean {
+  if (!looksBinary(content)) return true;
+  pushDiagnostic(state, 'binary-file', reference, 'Referenced file is not a text file, so it cannot be attached.');
+  return false;
 }
 
 function checkByteBudget(

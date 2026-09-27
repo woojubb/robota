@@ -141,6 +141,28 @@ try {
     await page.getByLabel('context 12% used').waitFor();
   });
 
+  await scenario('#3282 §4d: the attach button (paperclip) is present, with an accessible name', async () => {
+    await page.getByRole('button', { name: 'Attach files' }).waitFor();
+  });
+
+  await scenario(
+    '#3282 §4d: a plain-browser attach attempt shows the plain sentence, and adds no chip',
+    async () => {
+      // A plain browser page has no real filesystem path for a `File` (no Electron bridge) — every
+      // pick, even the hidden HTML file input the attach button falls back to, is refused the same way.
+      const fileInput = page.locator('input[type="file"]');
+      await fileInput.setInputFiles({
+        name: 'photo.png',
+        mimeType: 'image/png',
+        buffer: Buffer.from('not a real image, just e2e bytes'),
+      });
+      await page.getByText('Only files inside this project folder can be attached.').waitFor();
+      if ((await page.getByRole('list', { name: 'attachments' }).count()) !== 0) {
+        throw new Error('a plain-browser pick added a chip despite having no real path');
+      }
+    },
+  );
+
   await scenario('a long command result is a folded card and the composer stays usable', async () => {
     await send('/help');
     const card = page.getByTestId('command-output').last();

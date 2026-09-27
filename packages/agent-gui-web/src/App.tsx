@@ -39,6 +39,8 @@ function SessionView({ url, host }: { url: string; host: IGuiHost }): React.Reac
       surface={host.kind === 'desktop' ? 'app' : 'web'}
       personalUsageEnabled
       onReconnect={onReconnect}
+      pickFiles={host.pickFiles}
+      getPathForFile={host.getPathForFile}
     />
   );
 }

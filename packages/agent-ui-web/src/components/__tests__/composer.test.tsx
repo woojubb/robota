@@ -65,6 +65,24 @@ function statusFor(sessionId: string): TSessionStatus {
   } as TSessionStatus;
 }
 
+/**
+ * #3282 §4d: the persisted draft is now JSON (`{text, attachments}`), not the bare text string it used
+ * to be — reads back just the text half, so a test asserting "this text is what got saved" does not
+ * need to know the wrapper shape.
+ */
+function storedDraftText(raw: string | null): string | null {
+  if (raw === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && typeof (parsed as { text?: unknown }).text === 'string') {
+      return (parsed as { text: string }).text;
+    }
+  } catch {
+    // A plain string, saved before attachments shipped — the text itself.
+  }
+  return raw;
+}
+
 function openMenu(): void {
   render(<Composer {...baseProps()} />);
   fireEvent.change(screen.getByLabelText('message'), { target: { value: '/' } });
@@ -404,7 +422,7 @@ describe('Composer — the draft survives a remount, per session', () => {
       'already waiting in session 2',
     );
     // Session 1's own draft was not lost — it stayed under its own key.
-    expect(window.localStorage.getItem('robota.draft.s1')).toBe('typing in session 1');
+    expect(storedDraftText(window.localStorage.getItem('robota.draft.s1'))).toBe('typing in session 1');
   });
 
   it('switching to a session with nothing saved shows an empty composer', () => {
@@ -432,7 +450,7 @@ describe('Composer — the draft survives a remount, per session', () => {
     expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe('');
     expect(window.localStorage.getItem('robota.draft.s2')).toBeNull();
     // What was typed mid-switch belongs to s1 (the last known session while typing), not s2.
-    expect(window.localStorage.getItem('robota.draft.s1')).toBe('typing during the switch');
+    expect(storedDraftText(window.localStorage.getItem('robota.draft.s1'))).toBe('typing during the switch');
   });
 
   it('B\'s own already-saved draft still shows after the same transient null step', () => {
@@ -447,13 +465,13 @@ describe('Composer — the draft survives a remount, per session', () => {
   it('typed before the session id was known (the fallback key) carries over once it arrives', () => {
     const { rerender } = render(<Composer {...baseProps()} status={null} />);
     fireEvent.change(screen.getByLabelText('message'), { target: { value: 'typing before connected' } });
-    expect(window.localStorage.getItem('robota.draft')).toBe('typing before connected');
+    expect(storedDraftText(window.localStorage.getItem('robota.draft'))).toBe('typing before connected');
 
     rerender(<Composer {...baseProps()} status={statusFor('s1')} />);
     expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe(
       'typing before connected',
     );
-    expect(window.localStorage.getItem('robota.draft.s1')).toBe('typing before connected');
+    expect(storedDraftText(window.localStorage.getItem('robota.draft.s1'))).toBe('typing before connected');
     expect(window.localStorage.getItem('robota.draft')).toBeNull();
   });
 

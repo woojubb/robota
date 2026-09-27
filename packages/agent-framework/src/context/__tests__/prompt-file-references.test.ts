@@ -130,6 +130,50 @@ describe('prompt file references', () => {
     }
   });
 
+  // Correction to #3282 §4: a binary file must never be silently decoded as UTF-8 and sent to the
+  // model as garbled text — refuse it with a plain diagnostic instead, the same way an oversized or
+  // out-of-workspace reference is refused. Every surface (GUI, TUI, headless) shares this resolver.
+  it('refuses a binary file (a NUL byte in its content) instead of mangling it', async () => {
+    const cwd = await createWorkspace();
+    try {
+      // A NUL byte anywhere in the first 8 KiB marks the file as binary — a minimal, real-world
+      // stand-in for a PNG/zip/etc. header without needing an actual image fixture.
+      await writeFile(join(cwd, 'photo.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x0d, 0x0a]));
+
+      const result = await resolvePromptFileReferences('Look at @photo.png', {
+        reader: await projectReader(cwd),
+      });
+
+      expect(result.references).toEqual([]);
+      expect(result.diagnostics[0]).toEqual(
+        expect.objectContaining({
+          code: 'binary-file',
+          reference: '@photo.png',
+        }),
+      );
+      expect(formatPromptFileReferenceDiagnostics(result.diagnostics)).toContain('photo.png');
+      expect(formatPromptFileReferenceDiagnostics(result.diagnostics)).toMatch(/not a text file/u);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('does not flag an ordinary text file that merely contains bytes past ASCII', async () => {
+    const cwd = await createWorkspace();
+    try {
+      await writeFile(join(cwd, 'notes.md'), '# Notes\nCafé, naïve, 日本語.\n');
+
+      const result = await resolvePromptFileReferences('Read @notes.md', {
+        reader: await projectReader(cwd),
+      });
+
+      expect(result.diagnostics).toEqual([]);
+      expect(result.references).toHaveLength(1);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
   it('detects circular nested references', async () => {
     const cwd = await createWorkspace();
     try {

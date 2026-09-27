@@ -140,6 +140,7 @@ export function createTestInteractiveSession(
       effort: 'auto',
       context: { ...EMPTY_CONTEXT_STATE },
       goal: null,
+      workspace: { name: 'workspace', path: '/workspace' },
     }),
     // #3282 §2: no configured profiles by default — a case that cares builds its own groups.
     listModels: () => ({ groups: [], currentModel: 'test-model' }),

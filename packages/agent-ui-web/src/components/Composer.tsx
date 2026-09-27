@@ -1,15 +1,32 @@
-import { ArrowUp, Gauge, Shield, Sparkles, Square, Target } from 'lucide-react';
+import { ArrowUp, Gauge, Paperclip, Shield, Sparkles, Square, Target, X } from 'lucide-react';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import { commandMenuFor } from '../hooks/command-menu.js';
+import {
+  buildPromptWithAttachments,
+  evaluateCandidateFile,
+  type ICandidateFile,
+  type IDraftAttachment,
+  type IPickedFile,
+} from './composer-attachments.js';
 
 import type { IQueuedPrompt, TCommandCatalog, TSessionStatus } from '../hooks/session-client-types.js';
+
+export type { IPickedFile } from './composer-attachments.js';
 
 /** What a caller can do to the composer from outside it — currently just reclaiming focus. */
 export interface IComposerHandle {
   /** Focuses the message field — used to send focus back there once a docked prompt is answered. */
   focus: () => void;
 }
+
+/** The draft as persisted: the typed text plus any attachment chips (#3282 §4d). */
+interface IStoredDraft {
+  readonly text: string;
+  readonly attachments: readonly IDraftAttachment[];
+}
+
+const EMPTY_DRAFT: IStoredDraft = { text: '', attachments: [] };
 
 /**
  * #3280 §4: the unsent draft survives a Chat → Usage → Chat switch (the composer unmounts), a page
@@ -18,6 +35,10 @@ export interface IComposerHandle {
  * `robota.restoreSessionId` in `use-session-directory.ts`) so a page hosting other state under the
  * same origin does not collide. Per session id when one is known; a single fallback key before the
  * first status arrives (the gap is brief and is reconciled once it does — see the effect below).
+ *
+ * #3282 §4d: the stored value is now JSON (`IStoredDraft`), not the bare text string it used to be —
+ * `parseStoredDraft` treats anything that does not parse as that shape (including a draft saved
+ * before this change shipped) as plain text with no attachments, so an old stored draft still loads.
  */
 const DRAFT_STORAGE_PREFIX = 'robota.draft.';
 const DRAFT_STORAGE_FALLBACK_KEY = 'robota.draft';
@@ -26,21 +47,38 @@ function draftStorageKey(sessionId: string | undefined): string {
   return sessionId ? `${DRAFT_STORAGE_PREFIX}${sessionId}` : DRAFT_STORAGE_FALLBACK_KEY;
 }
 
-/** Best-effort: a private window, cleared site data, or a full quota still leaves typing working. */
-function readDraft(sessionId: string | undefined): string {
+function parseStoredDraft(raw: string | null): IStoredDraft {
+  if (!raw) return EMPTY_DRAFT;
   try {
-    return window.localStorage.getItem(draftStorageKey(sessionId)) ?? '';
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && typeof (parsed as { text?: unknown }).text === 'string') {
+      const attachments = (parsed as { attachments?: unknown }).attachments;
+      return {
+        text: (parsed as { text: string }).text,
+        attachments: Array.isArray(attachments) ? (attachments as IDraftAttachment[]) : [],
+      };
+    }
+  } catch {
+    // Not JSON — a draft saved before attachments shipped. Fall through to plain text below.
+  }
+  return { text: raw, attachments: [] };
+}
+
+/** Best-effort: a private window, cleared site data, or a full quota still leaves typing working. */
+function readDraft(sessionId: string | undefined): IStoredDraft {
+  try {
+    return parseStoredDraft(window.localStorage.getItem(draftStorageKey(sessionId)));
   } catch {
     // allow-fallback: storage unavailable — the draft still lives in component state this session.
-    return '';
+    return EMPTY_DRAFT;
   }
 }
 
-function writeDraft(sessionId: string | undefined, value: string): void {
+function writeDraft(sessionId: string | undefined, value: IStoredDraft): void {
   try {
     const key = draftStorageKey(sessionId);
-    if (value) window.localStorage.setItem(key, value);
-    else window.localStorage.removeItem(key);
+    if (!value.text && value.attachments.length === 0) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, JSON.stringify(value));
   } catch {
     // allow-fallback: same as readDraft — typing (and sending) still work without persistence.
   }
@@ -70,9 +108,34 @@ export const Composer = forwardRef<
     /** #3280 §2: the prompt queued behind the running turn, or null when none is queued. */
     queued: IQueuedPrompt | null;
     onCancelQueue: () => void;
+    /**
+     * Opens the host's native multi-file dialog with real filesystem paths — present only on the
+     * desktop app (#3282 §4d). Its absence means the attach button falls back to a plain HTML file
+     * picker, whose picks a browser can never resolve to a path (rule 3: shown plainly, nothing
+     * attached).
+     */
+    pickFiles?: () => Promise<readonly IPickedFile[]>;
+    /**
+     * Resolves a dropped or picked `File` to its real filesystem path — present only on the desktop
+     * app, via Electron's `webUtils.getPathForFile` (#3282 §4d). Its absence means a drop can never
+     * become an `@`-reference either.
+     */
+    getPathForFile?: (file: File) => string;
   }
 >(function Composer(
-  { onSubmit, onCommand, catalog, status, connected = true, running, onStop, queued, onCancelQueue },
+  {
+    onSubmit,
+    onCommand,
+    catalog,
+    status,
+    connected = true,
+    running,
+    onStop,
+    queued,
+    onCancelQueue,
+    pickFiles,
+    getPathForFile,
+  },
   ref,
 ): React.ReactElement {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -85,14 +148,19 @@ export const Composer = forwardRef<
   // ref is the one thing that distinguishes "no session has ever been known yet" (the fallback-key
   // migration case) from "between two known sessions right now" — never overload `undefined` for it.
   const hasKnownSessionRef = useRef(sessionId !== undefined);
-  // The draft as last set, read inside effects/handlers without depending on `draft` and risking a
-  // stale closure (this ref and the `draft` state are always kept in lockstep by `setDraft` below).
-  const draftRef = useRef('');
+  // The draft (text + attachments) as last set, read inside effects/handlers without depending on
+  // component state and risking a stale closure — kept in lockstep with the `draft`/`attachments`
+  // state below by `setDraft`/`setAttachments`, the only two places that mutate it.
+  const stateRef = useRef<IStoredDraft>(EMPTY_DRAFT);
   const [draft, setDraftState] = useState(() => {
     const initial = readDraft(sessionId);
-    draftRef.current = initial;
-    return initial;
+    stateRef.current = initial;
+    return initial.text;
   });
+  const [attachments, setAttachmentsState] = useState<readonly IDraftAttachment[]>(
+    () => stateRef.current.attachments,
+  );
+  const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const [selected, setSelected] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   const menu = dismissed ? null : commandMenuFor(catalog, draft);
@@ -102,9 +170,18 @@ export const Composer = forwardRef<
   }, [draft]);
   /** #3280 §4: every draft change is persisted at once, so a reload or relaunch loses nothing. */
   const setDraft = (value: string): void => {
-    draftRef.current = value;
+    stateRef.current = { ...stateRef.current, text: value };
     setDraftState(value);
-    writeDraft(sessionIdRef.current, value);
+    writeDraft(sessionIdRef.current, stateRef.current);
+  };
+  /** #3282 §4d: attachment chips persist alongside the text, under the same per-session draft key. */
+  const setAttachments = (
+    updater: readonly IDraftAttachment[] | ((current: readonly IDraftAttachment[]) => readonly IDraftAttachment[]),
+  ): void => {
+    const next = typeof updater === 'function' ? updater(stateRef.current.attachments) : updater;
+    stateRef.current = { ...stateRef.current, attachments: next };
+    setAttachmentsState(next);
+    writeDraft(sessionIdRef.current, stateRef.current);
   };
   // #3280 §4: a session switch shows THAT session's own saved draft, never what was typed for
   // another one. The session id becoming known for the very FIRST time (the fallback key was in use
@@ -121,21 +198,102 @@ export const Composer = forwardRef<
     sessionIdRef.current = sessionId;
     if (sessionId !== undefined) hasKnownSessionRef.current = true;
     const stored = readDraft(sessionId);
-    if (firstArrival && !stored && draftRef.current) {
-      writeDraft(sessionId, draftRef.current);
-      writeDraft(previous, '');
+    const hasStored = stored.text !== '' || stored.attachments.length > 0;
+    const hasCarryOver = stateRef.current.text !== '' || stateRef.current.attachments.length > 0;
+    if (firstArrival && !hasStored && hasCarryOver) {
+      writeDraft(sessionId, stateRef.current);
+      writeDraft(previous, EMPTY_DRAFT);
       return;
     }
-    draftRef.current = stored;
-    setDraftState(stored);
+    stateRef.current = stored;
+    setDraftState(stored.text);
+    setAttachmentsState(stored.attachments);
+    setAttachmentNotice(null); // a notice belongs to the attempt just made in the session left behind
   }, [sessionId]);
 
   const submit = (): void => {
     if (!connected) return;
-    const prompt = draft.trim();
-    if (!prompt) return;
-    onSubmit(prompt);
+    const text = draft.trim();
+    if (!text && attachments.length === 0) return;
+    onSubmit(buildPromptWithAttachments(text, attachments));
     setDraft('');
+    setAttachments([]);
+    setAttachmentNotice(null);
+  };
+  const workspacePath = status?.workspace?.path;
+  const totalAttachedBytes = attachments.reduce((sum, a) => sum + a.size, 0);
+  /** Evaluate every dropped/picked file in order, so a mixed batch attaches what it can. */
+  const addCandidates = (candidates: readonly ICandidateFile[]): void => {
+    if (candidates.length === 0) return;
+    let total = totalAttachedBytes;
+    const added: IDraftAttachment[] = [];
+    let notice: string | null = null;
+    for (const candidate of candidates) {
+      const outcome = evaluateCandidateFile(candidate, workspacePath, total);
+      if (outcome.kind === 'attached') {
+        added.push(outcome.attachment);
+        total += outcome.attachment.size;
+      } else {
+        notice = outcome.message;
+      }
+    }
+    if (added.length > 0) setAttachments((current) => [...current, ...added]);
+    setAttachmentNotice(notice);
+  };
+  const removeAttachment = (id: string): void => {
+    setAttachments((current) => current.filter((a) => a.id !== id));
+  };
+  const toCandidateFromFile = (file: File): ICandidateFile => ({
+    name: file.name,
+    size: file.size,
+    mimeType: file.type || undefined,
+    absolutePath: getPathForFile ? getPathForFile(file) || undefined : undefined,
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const handleAttachClick = (): void => {
+    if (!connected) return;
+    if (pickFiles) {
+      pickFiles()
+        .then((picked) =>
+          addCandidates(picked.map((f) => ({ name: f.name, size: f.size, absolutePath: f.path }))),
+        )
+        // The host's dialog IPC can reject (e.g. the window closed mid-pick) — say so rather than
+        // leaving an unhandled rejection and a button that silently did nothing (rule 5: never fail
+        // silently).
+        .catch(() => setAttachmentNotice('Could not open the file picker. Try again.'));
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+  const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = ''; // allow picking the same (rejected) file again after fixing it
+    addCandidates(files.map(toCandidateFromFile));
+  };
+  const dragDepthRef = useRef(0);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const hasFilesDrag = (event: React.DragEvent): boolean =>
+    Array.from(event.dataTransfer?.types ?? []).includes('Files');
+  const onDragEnter = (event: React.DragEvent): void => {
+    if (!connected || !hasFilesDrag(event)) return;
+    event.preventDefault();
+    dragDepthRef.current += 1;
+    setIsDraggingFiles(true);
+  };
+  const onDragOver = (event: React.DragEvent): void => {
+    if (!connected || !hasFilesDrag(event)) return;
+    event.preventDefault(); // required for onDrop to fire
+  };
+  const onDragLeave = (): void => {
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDraggingFiles(false);
+  };
+  const onDrop = (event: React.DragEvent): void => {
+    if (!connected || !hasFilesDrag(event)) return;
+    event.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDraggingFiles(false);
+    addCandidates(Array.from(event.dataTransfer?.files ?? []).map(toCandidateFromFile));
   };
   /** Complete the highlighted name; a draft that already names it is sent instead. */
   const acceptMenu = (): boolean => {
@@ -156,7 +314,27 @@ export const Composer = forwardRef<
   };
 
   return (
-    <div className="relative flex-shrink-0">
+    <div
+      className="relative flex-shrink-0"
+      onDragEnter={onDragEnter}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
+      {/* #3282 §4d rule 7: the drop target is announced even to someone who cannot drag a file —
+          the attach button beside the textarea is how they reach the same result. */}
+      <p id="composer-attach-hint" className="sr-only">
+        Drag files here, or use Attach files, to add them to your message.
+      </p>
+      {isDraggingFiles && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-[22px] border-2 border-dashed border-accent bg-accent/10 text-[14px] font-medium text-accent"
+        >
+          Drop to attach
+        </div>
+      )}
       {queued && (
         <div
           role="status"
@@ -249,9 +427,49 @@ export const Composer = forwardRef<
           submit();
         }}
       >
+        {attachments.length > 0 && (
+          <ul
+            aria-label="attachments"
+            className="mb-1.5 flex flex-wrap gap-1.5 px-1 pt-0.5"
+          >
+            {attachments.map((attachment) => (
+              <li
+                key={attachment.id}
+                title={attachment.relativePath}
+                className="flex max-w-full items-center gap-1.5 rounded-lg bg-raised px-2 py-1 text-[12.5px] text-muted-foreground"
+              >
+                <Paperclip size={12} strokeWidth={1.75} aria-hidden="true" className="flex-shrink-0" />
+                <span className="max-w-[180px] truncate">{attachment.name}</span>
+                <button
+                  type="button"
+                  aria-label={`Remove ${attachment.name}`}
+                  onClick={() => removeAttachment(attachment.id)}
+                  className="flex-shrink-0 rounded-full p-0.5 hover:bg-hover hover:text-foreground"
+                >
+                  <X size={12} strokeWidth={2} aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {attachmentNotice && (
+          <p role="status" aria-live="polite" className="mb-1.5 px-1.5 text-[12.5px] text-muted-foreground">
+            {attachmentNotice}
+          </p>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          onChange={handleFileInputChange}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+        />
         <textarea
           ref={textareaRef}
           aria-label="message"
+          aria-describedby="composer-attach-hint"
           rows={1}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -295,12 +513,22 @@ export const Composer = forwardRef<
           className="block max-h-[220px] min-h-[48px] w-full resize-none bg-transparent px-2 py-1 text-[15px] leading-relaxed text-foreground [field-sizing:content] focus:outline-none"
         />
         <div className="mt-1 flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Attach files"
+            title="Attach files"
+            disabled={!connected}
+            onClick={handleAttachClick}
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-hover hover:text-foreground disabled:text-subtle disabled:hover:bg-transparent"
+          >
+            <Paperclip size={16} strokeWidth={1.75} aria-hidden="true" />
+          </button>
           <StatusRow status={status} onCommand={onCommand} />
           <button
             type={running ? 'button' : 'submit'}
             onClick={running ? onStop : undefined}
             // Stop is unavailable while disconnected too: an abort could not reach the host either.
-            disabled={!connected || (!running && !draft.trim())}
+            disabled={!connected || (!running && !draft.trim() && attachments.length === 0)}
             aria-description={connected ? undefined : 'Not connected'}
             className="ml-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-all hover:opacity-85 disabled:bg-raised disabled:text-subtle"
           >

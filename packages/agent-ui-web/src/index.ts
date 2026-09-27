@@ -39,6 +39,7 @@ export { PermissionPrompt } from './components/PermissionPrompt.js';
 export { PersonalUsageDashboard } from './components/PersonalUsageDashboard.js';
 export type { TPersonalUsageDashboardState } from './components/personal-usage-dashboard-types.js';
 export { SessionSurface, CenteredChrome } from './components/SessionSurface.js';
+export type { IComposerHandle, IPickedFile } from './components/Composer.js';
 export { SessionSidebar } from './components/SessionSidebar.js';
 export { SessionMonitor } from './components/SessionMonitor.js';
 // Pieces of a surface's chrome, not roots: render them inside a `robota-ui` scope.

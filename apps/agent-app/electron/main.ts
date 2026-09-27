@@ -6,20 +6,23 @@
  */
 
 import { spawn } from 'node:child_process';
+import { statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { app, BrowserWindow, ipcMain, session, shell, type WebContents } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, session, shell, type WebContents } from 'electron';
 
 import {
   appendOutputTail,
   buildContentSecurityPolicy,
   buildDaemonStartSpawn,
+  buildPickedFiles,
   createDaemonAttachment,
   describeDaemonStartFailure,
   isTrustChoice,
   parseDaemonStartOutput,
   parseTrustStatusOutput,
   resolveSidecarCommand,
+  type IPickedFile,
   type ITrustQuestion,
   type TDaemonStart,
 } from './sidecar.js';
@@ -181,6 +184,27 @@ ipcMain.handle('agent-gui:restart', async (event): Promise<void> => {
 
 /** The question the page shows before anything starts, or `null` when there is none. */
 ipcMain.handle('agent-gui:trust-question', (): ITrustQuestion | null => pendingTrust ?? null);
+
+/**
+ * The composer's attach button (#3282 §4d): a native multi-file dialog, scoped to this window so it
+ * is modal to it rather than the whole app. Cancelling answers an empty list, same as picking nothing.
+ */
+ipcMain.handle('agent-gui:pick-files', async (event): Promise<IPickedFile[]> => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const properties: Array<'openFile' | 'multiSelections'> = ['openFile', 'multiSelections'];
+  const result = win
+    ? await dialog.showOpenDialog(win, { properties })
+    : await dialog.showOpenDialog({ properties });
+  if (result.canceled) return [];
+  return buildPickedFiles(result.filePaths, (path) => {
+    try {
+      return statSync(path).size;
+    } catch {
+      // Removed or unreadable between the dialog closing and this running — drop it, not a crash.
+      return undefined;
+    }
+  });
+});
 
 /**
  * The person answered. Trust records the grant (a grant the CLI refuses keeps the question up, with
