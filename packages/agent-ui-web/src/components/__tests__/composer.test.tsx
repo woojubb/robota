@@ -5,7 +5,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Composer } from '../Composer.js';
 
-import type { TCommandCatalog } from '../../hooks/session-client-types.js';
+import type { TCommandCatalog, TSessionStatus } from '../../hooks/session-client-types.js';
+
+// #3280 §4: the draft persists to `localStorage` — never leak one test's stored draft into another.
+afterEach(() => window.localStorage.clear());
 
 /**
  * #3189: a command a client runs (`/shell`) stays in the `/` menu with a badge naming where it runs.
@@ -48,6 +51,18 @@ function baseProps(): {
     queued: null,
     onCancelQueue: vi.fn(),
   };
+}
+
+/** A minimal but complete `TSessionStatus`, so the status row never reads through an undefined field. */
+function statusFor(sessionId: string): TSessionStatus {
+  return {
+    sessionId,
+    model: 'm',
+    permissionMode: 'default',
+    effort: 'auto',
+    context: { usedPercentage: 0, usedTokens: 0, maxTokens: 100, remainingPercentage: 100 },
+    goal: null,
+  } as TSessionStatus;
 }
 
 function openMenu(): void {
@@ -238,6 +253,32 @@ describe('Composer — queued message row', () => {
     expect(screen.getByText(/and 2 more/)).toBeTruthy();
   });
 
+  it('offers Edit and Remove when exactly one prompt is queued', () => {
+    render(<Composer {...baseProps()} queued={{ text: 'ping the team', count: 1 }} />);
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Remove all' })).toBeNull();
+  });
+
+  // #3280 §4 (design follow-up): `cancel-queue` clears the WHOLE queue — with more than one message
+  // queued, Edit could only ever restore the shown prompt's text, silently dropping the others. Offer
+  // only Remove all once there is more than one, never Edit.
+  it('offers only Remove all — no Edit — when more than one prompt is queued', () => {
+    render(<Composer {...baseProps()} queued={{ text: 'ping the team', count: 3 }} />);
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Remove all' })).toBeTruthy();
+  });
+
+  it('Remove all sends cancel-queue', () => {
+    const onCancelQueue = vi.fn();
+    render(
+      <Composer {...baseProps()} queued={{ text: 'ping the team', count: 3 }} onCancelQueue={onCancelQueue} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Remove all' }));
+    expect(onCancelQueue).toHaveBeenCalledTimes(1);
+  });
+
   it('Remove sends cancel-queue', () => {
     const onCancelQueue = vi.fn();
     render(
@@ -255,5 +296,184 @@ describe('Composer — queued message row', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     expect(onCancelQueue).toHaveBeenCalledTimes(1);
     expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe('ping the team');
+  });
+});
+
+/**
+ * #3280 §4: an Enter that only finishes an IME (Korean/Japanese/Chinese) composition must not send —
+ * `isComposing` (or `keyCode` 229 on older browsers) marks it, and applies equally to accepting the
+ * highlighted `/` command.
+ */
+describe('Composer — an IME composition Enter never sends', () => {
+  afterEach(cleanup);
+
+  it('Enter with isComposing true does not submit, and keeps the draft', () => {
+    const onSubmit = vi.fn();
+    render(<Composer {...baseProps()} onSubmit={onSubmit} />);
+    const input = screen.getByLabelText('message') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: '한글' } });
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(input.value).toBe('한글');
+  });
+
+  it('a plain Enter right after (composition already finished) sends normally', () => {
+    const onSubmit = vi.fn();
+    render(<Composer {...baseProps()} onSubmit={onSubmit} />);
+    const input = screen.getByLabelText('message') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: '한글' } });
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onSubmit).toHaveBeenCalledWith('한글');
+    expect(input.value).toBe('');
+  });
+
+  it('keyCode 229 alone (no isComposing) also blocks Enter, for browsers that predate it', () => {
+    const onSubmit = vi.fn();
+    render(<Composer {...baseProps()} onSubmit={onSubmit} />);
+    const input = screen.getByLabelText('message') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: 'still composing' } });
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 });
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(input.value).toBe('still composing');
+  });
+
+  it('does not accept the highlighted command menu item either', () => {
+    render(<Composer {...baseProps()} />);
+    const input = screen.getByLabelText('message') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: '/sh' } });
+    expect(screen.getByRole('listbox', { name: 'commands' })).toBeTruthy();
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+
+    // Still showing the raw typed text, not completed to "/shell ".
+    expect(input.value).toBe('/sh');
+    expect(screen.getByRole('listbox', { name: 'commands' })).toBeTruthy();
+  });
+});
+
+/**
+ * #3280 §4: the draft is not lost to a Chat → Usage → Chat switch (the composer unmounts), a page
+ * reload, or a desktop relaunch — kept in `localStorage`, per session id, cleared on send.
+ */
+describe('Composer — the draft survives a remount, per session', () => {
+  afterEach(cleanup);
+
+  it('starts empty when nothing was saved', () => {
+    render(<Composer {...baseProps()} status={statusFor('s1')} />);
+    expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe('');
+  });
+
+  it('restores a draft saved under the current session id, on mount', () => {
+    window.localStorage.setItem('robota.draft.s1', 'unsent thought');
+    render(<Composer {...baseProps()} status={statusFor('s1')} />);
+    expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe('unsent thought');
+  });
+
+  it('persists as it is typed, so an unmount and remount (the Usage → Chat switch) restores it', () => {
+    const { unmount } = render(<Composer {...baseProps()} status={statusFor('s1')} />);
+    fireEvent.change(screen.getByLabelText('message'), { target: { value: 'half a sentence' } });
+    unmount();
+
+    render(<Composer {...baseProps()} status={statusFor('s1')} />);
+    expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe('half a sentence');
+  });
+
+  it('is cleared from storage (and the field) once sent', () => {
+    const { unmount } = render(<Composer {...baseProps()} status={statusFor('s1')} />);
+    const input = screen.getByLabelText('message') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: 'ready to send' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(input.value).toBe('');
+    unmount();
+
+    expect(window.localStorage.getItem('robota.draft.s1')).toBeNull();
+    render(<Composer {...baseProps()} status={statusFor('s1')} />);
+    expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe('');
+  });
+
+  it('switching sessions shows the new session\'s own draft, not the old one\'s', () => {
+    window.localStorage.setItem('robota.draft.s2', 'already waiting in session 2');
+    const { rerender } = render(<Composer {...baseProps()} status={statusFor('s1')} />);
+    fireEvent.change(screen.getByLabelText('message'), { target: { value: 'typing in session 1' } });
+
+    rerender(<Composer {...baseProps()} status={statusFor('s2')} />);
+    expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe(
+      'already waiting in session 2',
+    );
+    // Session 1's own draft was not lost — it stayed under its own key.
+    expect(window.localStorage.getItem('robota.draft.s1')).toBe('typing in session 1');
+  });
+
+  it('switching to a session with nothing saved shows an empty composer', () => {
+    const { rerender } = render(<Composer {...baseProps()} status={statusFor('s1')} />);
+    fireEvent.change(screen.getByLabelText('message'), { target: { value: 'typing in session 1' } });
+
+    rerender(<Composer {...baseProps()} status={statusFor('s2')} />);
+    expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe('');
+  });
+
+  /**
+   * A real switch goes A → null → B: `session_switched` clears `sessionStatus` before `get-status`
+   * answers (`useSessionClient.ts`), so the composer briefly sees no session id at all — not just at
+   * the very start of the app. That transient null must not be treated as "no session has ever been
+   * known" (the fallback-key migration case, below): once a real session id has been seen, the
+   * composer stays bound to it — draft and keystrokes keep going to ITS key — until a new CONCRETE id
+   * arrives, so nothing typed during the round trip leaks into whichever session answers next.
+   */
+  it('a transient null status mid-switch (A -> null -> B) does not leak A\'s draft into B', () => {
+    const { rerender } = render(<Composer {...baseProps()} status={statusFor('s1')} />);
+    rerender(<Composer {...baseProps()} status={null} />);
+    fireEvent.change(screen.getByLabelText('message'), { target: { value: 'typing during the switch' } });
+
+    rerender(<Composer {...baseProps()} status={statusFor('s2')} />);
+    expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe('');
+    expect(window.localStorage.getItem('robota.draft.s2')).toBeNull();
+    // What was typed mid-switch belongs to s1 (the last known session while typing), not s2.
+    expect(window.localStorage.getItem('robota.draft.s1')).toBe('typing during the switch');
+  });
+
+  it('B\'s own already-saved draft still shows after the same transient null step', () => {
+    window.localStorage.setItem('robota.draft.s2', 'already waiting in s2');
+    const { rerender } = render(<Composer {...baseProps()} status={statusFor('s1')} />);
+    rerender(<Composer {...baseProps()} status={null} />);
+
+    rerender(<Composer {...baseProps()} status={statusFor('s2')} />);
+    expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe('already waiting in s2');
+  });
+
+  it('typed before the session id was known (the fallback key) carries over once it arrives', () => {
+    const { rerender } = render(<Composer {...baseProps()} status={null} />);
+    fireEvent.change(screen.getByLabelText('message'), { target: { value: 'typing before connected' } });
+    expect(window.localStorage.getItem('robota.draft')).toBe('typing before connected');
+
+    rerender(<Composer {...baseProps()} status={statusFor('s1')} />);
+    expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe(
+      'typing before connected',
+    );
+    expect(window.localStorage.getItem('robota.draft.s1')).toBe('typing before connected');
+    expect(window.localStorage.getItem('robota.draft')).toBeNull();
+  });
+
+  it('a storage failure does not throw, and typing still works in memory', () => {
+    const originalSetItem = window.localStorage.setItem;
+    const originalGetItem = window.localStorage.getItem;
+    window.localStorage.setItem = () => {
+      throw new Error('storage disabled');
+    };
+    window.localStorage.getItem = () => {
+      throw new Error('storage disabled');
+    };
+    try {
+      expect(() => render(<Composer {...baseProps()} status={statusFor('s1')} />)).not.toThrow();
+      const input = screen.getByLabelText('message') as HTMLTextAreaElement;
+      expect(() => fireEvent.change(input, { target: { value: 'still typable' } })).not.toThrow();
+      expect(input.value).toBe('still typable');
+    } finally {
+      window.localStorage.setItem = originalSetItem;
+      window.localStorage.getItem = originalGetItem;
+    }
   });
 });

@@ -306,7 +306,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.send).toHaveBeenCalledWith({ type: 'abort' });
   });
 
-  it('#3280 §2: a message queued behind the turn shows above the composer, with Edit and Remove', () => {
+  it('#3280 §2: more than one message queued behind the turn shows above the composer, with Remove all only', () => {
     const state = stubState({
       isThinking: true,
       queuedPrompt: { text: 'ping the team when done', count: 2 },
@@ -315,8 +315,10 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     const row = screen.getByRole('status', { name: 'queued prompt' });
     expect(row.textContent).toContain('Queued: ping the team when done');
     expect(row.textContent).toContain('and 1 more');
+    // Edit would only ever recover the shown prompt's text; cancel-queue drops every queued prompt.
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove all' }));
     expect(state.send).toHaveBeenCalledWith({ type: 'cancel-queue' });
     expect(state.send).toHaveBeenCalledWith({ type: 'get-pending' });
   });
