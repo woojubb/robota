@@ -45,6 +45,7 @@ import {
   formatHeadlessWorkspaceTrustError,
   requiresHeadlessWorkspaceTrust,
 } from './workspace-trust-admission.js';
+import { canAskToTrust, grantWorkspaceTrust } from './interactive-trust-prompt.js';
 
 import type { IStartCliOptions } from './command-setup.js';
 
@@ -300,9 +301,14 @@ export async function runPreparsedCliCommand(
       launchCwd: cwd,
       render: renderSessionView,
       ...(renderAttached === undefined ? {} : { renderAttached }),
-      start: async (targetCwd) => {
-        const access = await resolveInitialCliWorkspaceProjectAccess(targetCwd);
-        if (requiresHeadlessWorkspaceTrust(access)) {
+      startNeedsTrust: async (targetCwd) =>
+        canAskToTrust(await resolveInitialCliWorkspaceProjectAccess(targetCwd)),
+      start: async (targetCwd, choice) => {
+        let access = await resolveInitialCliWorkspaceProjectAccess(targetCwd);
+        // A person in the view answered for a folder not trusted yet: trust it, or run it Restricted.
+        const restricted = choice === 'restricted' && canAskToTrust(access);
+        if (choice === 'trust' && canAskToTrust(access)) access = await grantWorkspaceTrust(targetCwd);
+        if (!restricted && requiresHeadlessWorkspaceTrust(access)) {
           throw new Error(formatHeadlessWorkspaceTrustError(access, targetCwd));
         }
         // The child validates the very same settings when it starts; asking here first avoids
@@ -313,7 +319,10 @@ export async function runPreparsedCliCommand(
           serviceVersion: readVersion(),
           surface: 'serve',
         });
-        return launchSupervisedSession(targetCwd, { env: supervisedEnv() });
+        return launchSupervisedSession(targetCwd, {
+          env: supervisedEnv(),
+          ...(restricted ? { restricted: true } : {}),
+        });
       },
     });
     return true;

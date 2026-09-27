@@ -383,6 +383,57 @@ describe('supervised session view', () => {
     }
   });
 
+  it('asks about a folder not trusted yet, and starts as the answer says (#3268)', async () => {
+    const start = vi.fn(async () => SECOND.id);
+    const view = render(
+      <SupervisedSessionView
+        loadRows={async () => [FIRST]}
+        onStart={start}
+        startNeedsTrust={async () => true}
+      />,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('n');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('r Start Restricted'));
+      expect(start).not.toHaveBeenCalled();
+      // n cancels: nothing starts.
+      view.stdin.write('n');
+      await vi.waitFor(() => expect(view.lastFrame()).not.toContain('r Start Restricted'));
+      expect(start).not.toHaveBeenCalled();
+      view.stdin.write('n');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('r Start Restricted'));
+      view.stdin.write('r');
+      await vi.waitFor(() => expect(start).toHaveBeenLastCalledWith('restricted'));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Started ${SECOND.id}`));
+      view.stdin.write('n');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('r Start Restricted'));
+      view.stdin.write('y');
+      await vi.waitFor(() => expect(start).toHaveBeenLastCalledWith('trust'));
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('starts at once where the folder needs no answer', async () => {
+    const start = vi.fn(async () => SECOND.id);
+    const view = render(
+      <SupervisedSessionView
+        loadRows={async () => [FIRST]}
+        onStart={start}
+        startNeedsTrust={async () => false}
+      />,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('n');
+      await vi.waitFor(() => expect(start).toHaveBeenCalledExactlyOnceWith(undefined));
+      expect(view.lastFrame()).not.toContain('r Start Restricted');
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('keeps stop cancellation separate from starting a session', async () => {
     const start = vi.fn(async () => SECOND.id);
     const view = render(

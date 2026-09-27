@@ -8,6 +8,7 @@ export type {
   ISupervisedAttachRequest,
   ISupervisedViewRow,
   ISupervisedSessionViewProps,
+  TSupervisedStartTrustChoice,
   TSupervisedViewExit,
 } from './SupervisedSessionView.js';
 export { TuiInteractionChannel } from './TuiInteractionChannel.js';

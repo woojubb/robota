@@ -75,6 +75,52 @@ describe('session view background start route', () => {
     }
   });
 
+  it('asks about a folder not trusted yet, then starts it Trusted or Restricted as answered (#3268)', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-view-route-trust-'));
+    const cwd = join(scratch, 'viewer');
+    const home = join(scratch, 'home');
+    for (const directory of [cwd, home]) mkdirSync(directory);
+    execFileSync('git', ['init', '--quiet', cwd]);
+    vi.stubEnv('HOME', home);
+    const previousExitCode = process.exitCode;
+    vi.mocked(launchSupervisedSession).mockResolvedValue('8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4');
+    vi.mocked(runSessionViewCommand).mockImplementation(async (_argv, options) => {
+      await expect(options?.startNeedsTrust?.(cwd)).resolves.toBe(true);
+      // Without an answer an untrusted folder is still refused.
+      await expect(options?.start?.(cwd)).rejects.toThrow(/Workspace trust is required/);
+      // Restricted: started without a grant, and told to stay Restricted.
+      await options?.start?.(cwd, 'restricted');
+      expect(launchSupervisedSession).toHaveBeenLastCalledWith(cwd, {
+        env: expect.any(Object),
+        restricted: true,
+      });
+      await expect(options?.startNeedsTrust?.(cwd)).resolves.toBe(true);
+      // Trust: the grant is recorded, and the session starts Trusted.
+      await options?.start?.(cwd, 'trust');
+      expect(launchSupervisedSession).toHaveBeenLastCalledWith(cwd, { env: expect.any(Object) });
+      await expect(options?.startNeedsTrust?.(cwd)).resolves.toBe(false);
+      return 0;
+    });
+    try {
+      expect(
+        await runPreparsedCliCommand(
+          { providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd) },
+          ['node', 'robota', 'session', 'view'],
+          cwd,
+          {},
+          vi.fn(async () => undefined),
+        ),
+      ).toBe(true);
+      expect(process.exitCode).toBe(0);
+      expect(launchSupervisedSession).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllEnvs();
+      process.exitCode = previousExitCode;
+      vi.clearAllMocks();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
   it('attaches with the same full terminal UI as robota --attach and robota session attach', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'rs-view-route-app-'));
     // The renderer reads this user's settings, keybindings and themes: a home of the test's own.
