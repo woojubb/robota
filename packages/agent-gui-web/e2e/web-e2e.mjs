@@ -383,7 +383,8 @@ try {
       await page.getByText('Scheduled').waitFor();
       await page.getByText('check the nightly build').waitFor();
       await page.getByRole('button', { name: 'Delete…' }).click();
-      await page.getByRole('dialog', { name: 'Delete this schedule?' }).waitFor();
+      // #3282 §4e: a destructive ConfirmDialog is an alertdialog, not a plain dialog.
+      await page.getByRole('alertdialog', { name: 'Delete this schedule?' }).waitFor();
       await page.getByRole('button', { name: 'Delete', exact: true }).click();
       await page.getByText('check the nightly build').waitFor({ state: 'detached' });
     },

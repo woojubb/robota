@@ -499,7 +499,7 @@ describe('SettingsScreen — Plugins section (#3282 §4 part b-2)', () => {
       });
       fireEvent.click(screen.getByRole('button', { name: 'Install' }));
       expect(state.updateSettings).not.toHaveBeenCalled();
-      expect(screen.getByRole('dialog', { name: 'Install this plugin?' })).toBeTruthy();
+      expect(screen.getByRole('alertdialog', { name: 'Install this plugin?' })).toBeTruthy();
       expect(screen.getByText(/"linter"/)).toBeTruthy();
       expect(screen.getByText(/from robota/)).toBeTruthy();
       expect(screen.getByText(/It can run code on this computer\./)).toBeTruthy();
@@ -529,7 +529,7 @@ describe('SettingsScreen — Plugins section (#3282 §4 part b-2)', () => {
     openPlugins();
     fireEvent.click(screen.getByRole('button', { name: 'Uninstall formatter@robota' }));
     expect(state.updateSettings).not.toHaveBeenCalled();
-    expect(screen.getByRole('dialog', { name: 'Uninstall this plugin?' })).toBeTruthy();
+    expect(screen.getByRole('alertdialog', { name: 'Uninstall this plugin?' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
     expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({
       field: 'uninstallPlugin',
