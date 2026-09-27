@@ -12,6 +12,41 @@ export interface IComposerHandle {
 }
 
 /**
+ * #3280 §4: the unsent draft survives a Chat → Usage → Chat switch (the composer unmounts), a page
+ * reload, and a desktop relaunch — `localStorage`, not `sessionStorage`, since only `localStorage`
+ * survives a closed window/tab being reopened. Namespaced (`robota.draft.`, matching
+ * `robota.restoreSessionId` in `use-session-directory.ts`) so a page hosting other state under the
+ * same origin does not collide. Per session id when one is known; a single fallback key before the
+ * first status arrives (the gap is brief and is reconciled once it does — see the effect below).
+ */
+const DRAFT_STORAGE_PREFIX = 'robota.draft.';
+const DRAFT_STORAGE_FALLBACK_KEY = 'robota.draft';
+
+function draftStorageKey(sessionId: string | undefined): string {
+  return sessionId ? `${DRAFT_STORAGE_PREFIX}${sessionId}` : DRAFT_STORAGE_FALLBACK_KEY;
+}
+
+/** Best-effort: a private window, cleared site data, or a full quota still leaves typing working. */
+function readDraft(sessionId: string | undefined): string {
+  try {
+    return window.localStorage.getItem(draftStorageKey(sessionId)) ?? '';
+  } catch {
+    // allow-fallback: storage unavailable — the draft still lives in component state this session.
+    return '';
+  }
+}
+
+function writeDraft(sessionId: string | undefined, value: string): void {
+  try {
+    const key = draftStorageKey(sessionId);
+    if (value) window.localStorage.setItem(key, value);
+    else window.localStorage.removeItem(key);
+  } catch {
+    // allow-fallback: same as readDraft — typing (and sending) still work without persistence.
+  }
+}
+
+/**
  * The composer — the control centre, as desktop agent apps place it: the message box, a `/` menu of
  * the commands and skills the session offers, and a status row (model, permission mode, effort,
  * context). The row's controls run the session's own commands (`/provider`, `/mode`, `/effort`), so a
@@ -42,7 +77,22 @@ export const Composer = forwardRef<
 ): React.ReactElement {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   useImperativeHandle(ref, () => ({ focus: () => textareaRef.current?.focus() }), []);
-  const [draft, setDraft] = useState('');
+  const sessionId = status?.sessionId;
+  const sessionIdRef = useRef(sessionId);
+  // Whether a REAL session id has ever been seen. A switch goes A -> null -> B — `session_switched`
+  // clears `sessionStatus` before `get-status` answers (`useSessionClient.ts`) — so `sessionId` turns
+  // transiently `undefined` on an ordinary switch too, not only before the very first status. This
+  // ref is the one thing that distinguishes "no session has ever been known yet" (the fallback-key
+  // migration case) from "between two known sessions right now" — never overload `undefined` for it.
+  const hasKnownSessionRef = useRef(sessionId !== undefined);
+  // The draft as last set, read inside effects/handlers without depending on `draft` and risking a
+  // stale closure (this ref and the `draft` state are always kept in lockstep by `setDraft` below).
+  const draftRef = useRef('');
+  const [draft, setDraftState] = useState(() => {
+    const initial = readDraft(sessionId);
+    draftRef.current = initial;
+    return initial;
+  });
   const [selected, setSelected] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   const menu = dismissed ? null : commandMenuFor(catalog, draft);
@@ -50,6 +100,35 @@ export const Composer = forwardRef<
     setSelected(0);
     setDismissed(false);
   }, [draft]);
+  /** #3280 §4: every draft change is persisted at once, so a reload or relaunch loses nothing. */
+  const setDraft = (value: string): void => {
+    draftRef.current = value;
+    setDraftState(value);
+    writeDraft(sessionIdRef.current, value);
+  };
+  // #3280 §4: a session switch shows THAT session's own saved draft, never what was typed for
+  // another one. The session id becoming known for the very FIRST time (the fallback key was in use
+  // until now) instead carries over what is already typed, rather than discarding it. A transient
+  // `undefined` mid-switch, once a real id has already been seen, is not a change at all: stay bound
+  // to the last known session — keep showing and writing to ITS draft — until a new CONCRETE id
+  // arrives, so keystrokes typed during the round trip never land under the wrong session (or the
+  // fallback key).
+  useEffect(() => {
+    if (sessionId === undefined && hasKnownSessionRef.current) return;
+    if (sessionIdRef.current === sessionId) return;
+    const firstArrival = !hasKnownSessionRef.current;
+    const previous = sessionIdRef.current;
+    sessionIdRef.current = sessionId;
+    if (sessionId !== undefined) hasKnownSessionRef.current = true;
+    const stored = readDraft(sessionId);
+    if (firstArrival && !stored && draftRef.current) {
+      writeDraft(sessionId, draftRef.current);
+      writeDraft(previous, '');
+      return;
+    }
+    draftRef.current = stored;
+    setDraftState(stored);
+  }, [sessionId]);
 
   const submit = (): void => {
     if (!connected) return;
@@ -65,9 +144,11 @@ export const Composer = forwardRef<
     setDraft(`/${item.name} `);
     return true;
   };
-  /** #3280 §2: Edit puts the queued text back in the draft — Remove just drops it. Either way the
-   *  whole queue is cancelled (the wire has no per-message cancel), so a second queued message would
-   *  go with it too; the "and N more" count on the row says so before either button is pressed. */
+  /** #3280 §2: Edit puts the queued text back in the draft and cancels the queue behind it (the wire
+   *  has no per-message cancel — only a whole-queue clear). Offered only when exactly one prompt is
+   *  queued: with more than one, `cancel-queue` would still drop every one of them, but only the
+   *  shown prompt's text is known here, so "Edit" would silently lose the rest — the row offers only
+   *  "Remove all" instead once `queued.count > 1`. */
   const editQueued = (): void => {
     if (!queued) return;
     setDraft(queued.text);
@@ -88,20 +169,32 @@ export const Composer = forwardRef<
               <span className="text-subtle"> and {queued.count - 1} more</span>
             )}
           </span>
-          <button
-            type="button"
-            onClick={editQueued}
-            className="flex-shrink-0 rounded-lg px-2 py-1 text-muted-foreground hover:bg-hover hover:text-foreground"
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            onClick={onCancelQueue}
-            className="flex-shrink-0 rounded-lg px-2 py-1 text-muted-foreground hover:bg-hover hover:text-foreground"
-          >
-            Remove
-          </button>
+          {queued.count === 1 ? (
+            <>
+              <button
+                type="button"
+                onClick={editQueued}
+                className="flex-shrink-0 rounded-lg px-2 py-1 text-muted-foreground hover:bg-hover hover:text-foreground"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={onCancelQueue}
+                className="flex-shrink-0 rounded-lg px-2 py-1 text-muted-foreground hover:bg-hover hover:text-foreground"
+              >
+                Remove
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={onCancelQueue}
+              className="flex-shrink-0 rounded-lg px-2 py-1 text-muted-foreground hover:bg-hover hover:text-foreground"
+            >
+              Remove all
+            </button>
+          )}
         </div>
       )}
       {menu && (
@@ -163,6 +256,11 @@ export const Composer = forwardRef<
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
+            // #3280 §4: an Enter that only finishes an IME (Korean/Japanese/Chinese) composition must
+            // not submit or accept the menu — `isComposing` (or `keyCode` 229, on browsers that
+            // predate it) marks it; the keystroke is left alone so the browser commits the composition
+            // normally, matching the guard the free-text prompt field uses (#3280 §3).
+            if (e.key === 'Enter' && (e.nativeEvent.isComposing || e.keyCode === 229)) return;
             if (menu) {
               if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                 e.preventDefault();

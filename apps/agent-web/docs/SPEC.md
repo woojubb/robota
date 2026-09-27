@@ -2,16 +2,16 @@
 
 ## Purpose
 
-Owns the Robota web application: a Next.js host that serves the Playground UI and the browser runtime
-composition layer for it, plus a CLI second-screen monitor.
+Owns the Robota web application: a Next.js host that serves the browser client for the CLI's remote
+control, a second screen for a running session.
 
 ## Contract
 
 - Does not own package-level runtime contracts; renders only the browser-safe
-  `@robota-sdk/agent-playground/client` entry, never the root `@robota-sdk/agent-playground` entry or
-  provider packages, and never imports `apps/agent-server` — keeping server-only code out of the
-  browser bundle.
-- Does not own API server behavior; that belongs to `apps/agent-server`.
+  `@robota-sdk/agent-transport-webrtc-web/client` entry and never imports provider packages — keeping
+  server-only code out of the browser bundle.
+- Hosts no API server and holds no secrets: the remote client takes everything it needs from its URL
+  and connects out to the signaling relay.
 
 ## Non-goals
 

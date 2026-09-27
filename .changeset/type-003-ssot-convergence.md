@@ -2,7 +2,6 @@
 '@robota-sdk/agent-core': patch
 '@robota-sdk/agent-interface-transport': patch
 '@robota-sdk/agent-executor': patch
-'@robota-sdk/agent-remote-client': patch
 '@robota-sdk/agent-framework': patch
 '@robota-sdk/agent-session': minor
 ---

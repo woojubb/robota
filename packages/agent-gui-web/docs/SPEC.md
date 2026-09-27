@@ -26,8 +26,8 @@ importable library.
 
 - Ships no importable module.
 - Does not supervise a sidecar process or mint tokens — the desktop app and the CLI do.
-- The deployed browser surfaces reached over the internet (Playground, the paired remote) live in
-  `apps/agent-web`, not here.
+- The deployed browser surface reached over the internet (the paired remote) lives in `apps/agent-web`,
+  not here.
 
 ## Design decisions
 

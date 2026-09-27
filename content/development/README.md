@@ -88,8 +88,7 @@ The apps:
 | `www`                | The marketing site, robota.io                                                                          |
 | `blog`               | The blog, blog.robota.io (Astro)                                                                       |
 | `agent-app`          | The Electron desktop app: starts or reuses the workspace's `robota` daemon and loads the GUI           |
-| `agent-web`          | Next.js host for the Playground (`/playground`) and the browser remote-control client (`/remote`)      |
-| `agent-server`       | AI provider proxy and the Playground's WebSocket server                                                |
+| `agent-web`          | Next.js host for the browser remote-control client (`/remote`)                                         |
 | `dag-runtime-server` | HTTP server for the DAG runtime (`/v1/dag/*`)                                                          |
 | `remote-signaling`   | WebRTC signaling relay for remote control                                                              |
 | `starter-nextjs`     | Next.js starter template with one chat API route                                                       |

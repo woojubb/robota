@@ -1,5 +1,4 @@
 ---
-'@robota-sdk/agent-remote-client': minor
 ---
 
 CORE-046: remote streaming works — a served route, one spelling, and the server owns assembly

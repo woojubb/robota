@@ -113,8 +113,8 @@ export class FileSessionLogger implements ISessionLogger {
 
   log(sessionId: string, event: string, data: TSessionLogData): void {
     // SEC-006: `sessionId` becomes a path component below. This is a second sink on the same value the
-    // session store guards, and it is reachable with a remote-supplied id via the playground resume
-    // path, so it must not rely on the store having been called first. Logging must never break a
+    // session store guards, and a host can pass a remote-supplied id, so it must not rely on the
+    // store having been called first. Logging must never break a
     // session, so a rejected id drops the line rather than throwing — the store raises the loud error.
     if (!isSafeSessionId(sessionId)) return;
     try {

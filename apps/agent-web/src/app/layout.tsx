@@ -20,8 +20,8 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Robota Playground',
-  description: 'Deployable Playground host for Robota SDK',
+  title: 'Robota Remote',
+  description: 'Browser remote client for a Robota session',
 };
 
 export default function RootLayout({
