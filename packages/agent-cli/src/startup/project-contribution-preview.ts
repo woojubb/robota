@@ -91,10 +91,15 @@ export function formatProjectContributionPreview(
     identity,
     descriptors.map((descriptor) => descriptor.relativePath),
   );
-  const rows = descriptors.map((descriptor, index) => {
-    const kind = inspected[index]?.kind ?? 'unavailable';
-    return `  [${kind}] ${descriptor.relativePath} — ${descriptor.label}`;
-  });
+  // #3282 §3: a path whose state could not be determined (every path, on a host without Linux's
+  // pinned handle-walk — see `inspectPreTrustProjectPaths`) says nothing worth showing; listing it
+  // as "[unavailable]" anyway is noise, not information, and on macOS/Windows it used to be EVERY
+  // row. Only a path whose state IS known (file, directory, link, other, or confirmed absent) earns
+  // a line.
+  const rows = descriptors
+    .map((descriptor, index) => ({ descriptor, kind: inspected[index]?.kind ?? 'unavailable' }))
+    .filter(({ kind }) => kind !== 'unavailable')
+    .map(({ descriptor, kind }) => `  [${kind}] ${descriptor.relativePath} — ${descriptor.label}`);
   return [
     'Project sources (metadata only; content not read):',
     ...rows,

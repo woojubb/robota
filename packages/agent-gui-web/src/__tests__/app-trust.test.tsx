@@ -83,4 +83,22 @@ describe('the trust question', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getByText('Starting the agent…')).toBeTruthy();
   });
+
+  it('#3282 §3: the load list is a collapsed Details, closed to a plain sentence', async () => {
+    const host = desktopHost();
+    render(<App host={host} />);
+    const dialog = await screen.findByRole('dialog', { name: 'Do you trust this folder?' });
+    expect(dialog.textContent).toContain(
+      "Trusting this folder lets Robota use the project's own settings, hooks, skills and MCP servers.",
+    );
+    expect(screen.getByText('Details').closest('details')).toBeTruthy();
+  });
+
+  it('#3282 §3: no per-path noise — nothing known (e.g. non-Linux) shows no Details at all', async () => {
+    const host = desktopHost({ trustQuestion: vi.fn(async () => ({ folder: '/work/repo', loads: [] })) });
+    render(<App host={host} />);
+    await screen.findByRole('dialog', { name: 'Do you trust this folder?' });
+    expect(screen.queryByText('Details')).toBeNull();
+    expect(screen.queryByLabelText('What trust would load')).toBeNull();
+  });
 });

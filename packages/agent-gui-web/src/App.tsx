@@ -47,6 +47,60 @@ const TRUST_BUTTON =
   'rounded-lg px-4 py-2 text-[14px] font-medium disabled:opacity-60 focus-visible:outline focus-visible:outline-2';
 
 /**
+ * The runtime never started (or stopped for good before a session was ever live) — the reason the
+ * host reported, in plain words, and a Try again that reuses the exact same restart flow the
+ * connection-lost banner's Reconnect uses (issue #3282 §3): ask the CLI again, reload once it answers.
+ */
+function FatalDetail({
+  detail,
+  retry,
+}: {
+  detail?: string;
+  retry?: () => Promise<void>;
+}): React.ReactElement {
+  const [retrying, setRetrying] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  const tryAgain = (): void => {
+    if (!retry) return;
+    setRetrying(true);
+    setFailed(null);
+    retry().catch((error: unknown) => {
+      setRetrying(false);
+      setFailed(error instanceof Error ? error.message : String(error));
+    });
+  };
+  return (
+    <>
+      {detail ? (
+        <>
+          The agent process stopped:
+          <pre className="mt-4 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-card p-4 text-left font-mono text-[12.5px] leading-relaxed text-muted-foreground">
+            {detail}
+          </pre>
+        </>
+      ) : (
+        'The agent process stopped. Personal Usage is unavailable.'
+      )}
+      {retry ? (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={tryAgain}
+            disabled={retrying}
+            className="rounded-lg bg-primary px-4 py-2 text-[14px] font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
+          >
+            {retrying ? 'Trying again…' : 'Try again'}
+          </button>
+        </div>
+      ) : (
+        <p className="mt-3">Restart the app to reconnect.</p>
+      )}
+      {failed ? <p className="mt-3 text-[13px] text-destructive">{failed}</p> : null}
+    </>
+  );
+}
+
+/**
  * The folder is not trusted yet (issue #3268): nothing has started. Trusting it lets the session load
  * the project's own configuration; Restricted starts without it; Quit closes the app.
  */
@@ -84,16 +138,23 @@ function TrustQuestion({
         </h1>
         <p className="mt-2 break-all font-mono text-[13px] text-foreground">{question.folder}</p>
         <p className="mt-3">
-          Trusting it lets the session load the project&apos;s own settings, hooks, plugins, skills
-          and MCP servers. Restricted starts without them.
+          Trusting this folder lets Robota use the project&apos;s own settings, hooks, skills and MCP
+          servers. Restricted starts without them.
         </p>
+        {/* #3282 §3: a row appears only when its state is known (never "[unavailable]" noise), and
+            the list is closed by default — the sentence above is the answer for most people. */}
         {question.loads.length > 0 ? (
-          <pre
-            aria-label="What trust would load"
-            className="mt-4 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-card p-4 text-left font-mono text-[12px] leading-relaxed text-muted-foreground"
-          >
-            {question.loads.join('\n')}
-          </pre>
+          <details className="mt-4 text-left">
+            <summary className="cursor-pointer text-[13px] text-muted-foreground hover:text-foreground">
+              Details
+            </summary>
+            <pre
+              aria-label="What trust would load"
+              className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-card p-4 font-mono text-[12px] leading-relaxed text-muted-foreground"
+            >
+              {question.loads.join('\n')}
+            </pre>
+          </details>
         ) : null}
         <div className="mt-5 flex flex-wrap justify-center gap-2">
           <button
@@ -164,16 +225,7 @@ export function App({ host }: { host: IGuiHost }): React.ReactElement {
     return (
       <div role="alert" className="flex h-full flex-col">
         <CenteredChrome tone="fatal">
-          {fatal.detail ? (
-            <>
-              The agent process stopped:
-              <pre className="mt-4 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-card p-4 text-left font-mono text-[12.5px] leading-relaxed text-muted-foreground">
-                {fatal.detail}
-              </pre>
-            </>
-          ) : (
-            'The agent process stopped. Personal Usage is unavailable. Restart the app to reconnect.'
-          )}
+          <FatalDetail detail={fatal.detail} retry={host.restartRuntime} />
         </CenteredChrome>
       </div>
     );

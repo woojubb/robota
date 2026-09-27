@@ -4,8 +4,8 @@
  * output with the fatal state; an untrusted workspace, for one, names the command that fixes it.
  */
 
-import { act, cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from '../App.js';
 
@@ -13,7 +13,10 @@ import type { IGuiHost, TGuiHostState } from '../gui-host.js';
 
 afterEach(cleanup);
 
-function hostThatStops(detail?: string): { host: IGuiHost; stop: () => void } {
+function hostThatStops(
+  detail?: string,
+  restartRuntime?: () => Promise<void>,
+): { host: IGuiHost; stop: () => void } {
   let listener: ((state: TGuiHostState, detail?: string) => void) | null = null;
   const host: IGuiHost = {
     kind: 'desktop',
@@ -23,6 +26,7 @@ function hostThatStops(detail?: string): { host: IGuiHost; stop: () => void } {
       listener = next;
       return () => {};
     },
+    ...(restartRuntime ? { restartRuntime } : {}),
   };
   return { host, stop: () => listener?.('fatal', detail) };
 }
@@ -44,5 +48,24 @@ describe('the fatal screen', () => {
     render(<App host={host} />);
     act(() => stop());
     expect(screen.getByRole('alert').textContent).toContain('Restart the app to reconnect');
+  });
+
+  it('#3282 §3: a Try again button reuses the restart flow, and shows a failure if it does not take', async () => {
+    const restartRuntime = vi.fn(async () => {
+      throw new Error('the daemon refused to start');
+    });
+    const { host, stop } = hostThatStops('No provider configuration found.', restartRuntime);
+    render(<App host={host} />);
+    act(() => stop());
+
+    const button = screen.getByRole('button', { name: 'Try again' });
+    fireEvent.click(button);
+    expect(screen.getByRole('button', { name: 'Trying again…' }).hasAttribute('disabled')).toBe(true);
+    expect(restartRuntime).toHaveBeenCalledTimes(1);
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toContain('the daemon refused to start'),
+    );
+    expect(screen.getByRole('button', { name: 'Try again' }).hasAttribute('disabled')).toBe(false);
   });
 });

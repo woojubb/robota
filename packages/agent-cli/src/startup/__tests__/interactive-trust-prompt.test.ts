@@ -186,7 +186,15 @@ describe('robota trust status --json', () => {
         loads: string[];
       };
       expect(report).toMatchObject({ state: 'untrusted', workspace: repo, askable: true });
-      expect(report.loads.some((line) => line.includes('.robota/settings.json'))).toBe(true);
+      // #3282 §3: a row appears only when its state is known. Only Linux's pinned handle-walk can
+      // tell a not-yet-created `.robota/settings.json` apart from one it cannot describe safely, so
+      // elsewhere every candidate is unknown before trust and `loads` reports none of them — no
+      // `[unavailable]` noise, rather than a claim about every path this platform cannot verify.
+      if (process.platform === 'linux') {
+        expect(report.loads.some((line) => line.includes('.robota/settings.json'))).toBe(true);
+      } else {
+        expect(report.loads).toEqual([]);
+      }
 
       stdout.mockClear();
       expect(await runWorkspaceTrustCommand(['--yes'], repo)).toBe(0);

@@ -43,6 +43,44 @@ function EmptyState(): React.ReactElement {
 }
 
 /**
+ * Issue #3282 §3 — shown in place of the conversation while `sessionStatus.setupRequired` holds: the
+ * session is running (the GUI itself connected fine), but has no provider to reply with yet. "Set up
+ * provider" runs `/provider add` as a command; its questions dock above where the composer would be
+ * (the same `PermissionPrompt` any ask uses), and the panel clears itself once the session reports a
+ * real provider, live — no restart, no reload.
+ */
+function SetupPanel({
+  onSetUp,
+  disabled,
+}: {
+  onSetUp: () => void;
+  disabled: boolean;
+}): React.ReactElement {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <div className="gui-rise flex max-w-[440px] flex-col items-center gap-4 px-8 text-center">
+        <RobotaMark size={40} />
+        <h2 className="text-[26px] font-semibold tracking-[-0.02em] text-foreground">
+          Connect a model provider to start.
+        </h2>
+        <p className="text-[15px] leading-relaxed text-muted-foreground">
+          Robota needs a provider profile — a type, a key and a model — before it can reply. Set one
+          up now; you can add more or change it later the same way.
+        </p>
+        <button
+          type="button"
+          onClick={onSetUp}
+          disabled={disabled}
+          className="rounded-lg bg-primary px-4 py-2 text-[14px] font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
+        >
+          Set up provider
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * The full desktop layout over an `IWsSessionState`. `surface` is an optional label shown next to the
  * mark (e.g. "app").
  */
@@ -72,6 +110,9 @@ export function SessionSurface({
     !state.streamingText &&
     !state.isThinking &&
     state.activeTools.length === 0;
+  // #3282 §3: no provider is configured — the session is running (a placeholder stands in for the
+  // real one), but there is nothing to reply with yet.
+  const setupRequired = state.sessionStatus?.setupRequired === true;
   const hasSessionList =
     (state.sessionListing ?? null) !== null || state.sessionsError?.code === 'list_failed';
   const sidebarOpen = hasSessionList && state.sessionSidebarOpen;
@@ -139,7 +180,12 @@ export function SessionSurface({
                 onReconnect={onReconnect}
               />
               <div className="min-h-0 flex-1 overflow-hidden">
-                {isEmpty ? (
+                {setupRequired ? (
+                  <SetupPanel
+                    onSetUp={() => state.send({ type: 'command', name: 'provider', args: 'add' })}
+                    disabled={state.status !== 'connected'}
+                  />
+                ) : isEmpty ? (
                   <EmptyState />
                 ) : (
                   <ConversationView
@@ -164,32 +210,36 @@ export function SessionSurface({
                   onAnswerAsk={state.answerAsk}
                   onFocusReturn={() => composerRef.current?.focus()}
                 />
-                <Composer
-                  ref={composerRef}
-                  catalog={state.commandCatalog ?? null}
-                  status={state.sessionStatus ?? null}
-                  connected={state.status === 'connected'}
-                  running={state.isThinking}
-                  onStop={() => state.send({ type: 'abort' })}
-                  queued={state.queuedPrompt}
-                  onCancelQueue={() => {
-                    state.send({ type: 'cancel-queue' });
-                    // No push confirms a cleared queue (unlike a resolved prompt); ask, so the row
-                    // reliably disappears instead of trusting the clear went through.
-                    state.send({ type: 'get-pending' });
-                  }}
-                  onCommand={(name) => state.send({ type: 'command', name })}
-                  onSubmit={(prompt) => {
-                    if (!prompt.startsWith('/')) {
-                      state.send({ type: 'submit', prompt });
-                      return;
-                    }
-                    const [name, ...rest] = prompt.slice(1).trim().split(/\s+/u);
-                    if (!name) return;
-                    const args = rest.join(' ');
-                    state.send({ type: 'command', name, ...(args ? { args } : {}) });
-                  }}
-                />
+                {/* #3282 §3: hidden while there is no provider to send to — the setup panel's own
+                    button is the only way in, so nobody types into a composer that goes nowhere. */}
+                {setupRequired ? null : (
+                  <Composer
+                    ref={composerRef}
+                    catalog={state.commandCatalog ?? null}
+                    status={state.sessionStatus ?? null}
+                    connected={state.status === 'connected'}
+                    running={state.isThinking}
+                    onStop={() => state.send({ type: 'abort' })}
+                    queued={state.queuedPrompt}
+                    onCancelQueue={() => {
+                      state.send({ type: 'cancel-queue' });
+                      // No push confirms a cleared queue (unlike a resolved prompt); ask, so the row
+                      // reliably disappears instead of trusting the clear went through.
+                      state.send({ type: 'get-pending' });
+                    }}
+                    onCommand={(name) => state.send({ type: 'command', name })}
+                    onSubmit={(prompt) => {
+                      if (!prompt.startsWith('/')) {
+                        state.send({ type: 'submit', prompt });
+                        return;
+                      }
+                      const [name, ...rest] = prompt.slice(1).trim().split(/\s+/u);
+                      if (!name) return;
+                      const args = rest.join(' ');
+                      state.send({ type: 'command', name, ...(args ? { args } : {}) });
+                    }}
+                  />
+                )}
               </div>
             </div>
 
