@@ -47,6 +47,7 @@ export function firstParagraph(markdown: string): string {
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
     .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
     .replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
     .replace(/\s+/g, ' ')
     .trim();
   return text.length > MAX_SUMMARY ? `${text.slice(0, MAX_SUMMARY - 1).trimEnd()}…` : text;

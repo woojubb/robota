@@ -21,7 +21,8 @@ npm install -g @robota-sdk/agent-cli  # install the `robota` command
 ### Connect a provider
 
 On the first start in an interactive terminal, `robota` asks whether you have an API key, want a
-free Gemini key, or want to use a local model (LM Studio, Ollama, llama.cpp), then asks for the
+free Gemini key, or want to use a local model (it walks you through LM Studio; Ollama and llama.cpp
+are set up as in [Local LLMs](./local-llm.md)), then asks for the
 provider's settings and a response language, and saves a provider profile to
 `~/.robota/settings.json`. If `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `DASHSCOPE_API_KEY` or
 `DEEPSEEK_API_KEY` is set and no profile exists, it starts with that provider's default model and

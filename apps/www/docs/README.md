@@ -26,7 +26,7 @@ The `deploy` script is a manual fallback that uploads a local build straight to 
 Wrangler login:
 
 ```bash
-pnpm --filter robota-www deploy
+pnpm --filter robota-www run deploy
 # equivalent to: next build && wrangler pages deploy out --project-name robota-www --branch main
 ```
 

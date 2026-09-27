@@ -1,0 +1,19 @@
+# Locale-less paths (old links, hand-typed URLs) go to the English page. Every page lives under /en/ or /ko/.
+/getting-started /en/getting-started/ 301
+/getting-started/* /en/getting-started/:splat 301
+/guide /en/guide/ 301
+/guide/* /en/guide/:splat 301
+/examples /en/examples/ 301
+/examples/* /en/examples/:splat 301
+/packages /en/packages/ 301
+/packages/* /en/packages/:splat 301
+/changelog /en/changelog/ 301
+/changelog/* /en/changelog/:splat 301
+/development /en/development/ 301
+/development/* /en/development/:splat 301
+/plugins /en/plugins/ 301
+/plugins/* /en/plugins/:splat 301
+/integrations /en/integrations/ 301
+/integrations/* /en/integrations/:splat 301
+/quickstart /en/quickstart/ 301
+/quickstart/* /en/quickstart/:splat 301

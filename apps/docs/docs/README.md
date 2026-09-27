@@ -45,7 +45,7 @@ pnpm --filter robota-docs test   # unit tests
 
 The Cloudflare Pages project `robota-docs` is connected to the GitHub repository: a push to `main`
 deploys production (`docs.robota.io`), and a push to any other branch builds a preview at
-`<branch>.robota-docs.pages.dev`. `pnpm --filter robota-docs deploy` (build, then
+`<branch>.robota-docs.pages.dev`. `pnpm --filter robota-docs run deploy` (build, then
 `wrangler pages deploy out --project-name robota-docs --branch main`) uploads a local build straight to
 production; it is a manual fallback that needs a Wrangler login.
 

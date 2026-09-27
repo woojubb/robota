@@ -38,7 +38,7 @@ describe('buildPackageIndex', () => {
       {
         dir: 'agent-core',
         name: '@robota-sdk/agent-core',
-        summary: '`agent-core` owns the run loop and provider contracts.',
+        summary: 'agent-core owns the run loop and provider contracts.',
         internal: false,
       },
       { dir: 'dag-builder', name: '@robota-sdk/dag-builder', summary: 'Builds DAG definitions.', internal: true },

@@ -39,7 +39,7 @@ Environment variable: `NODE_VERSION` = `22` (the package requires Node `>=22.12.
 ### Manual deploy (fallback)
 
 ```sh
-pnpm --filter robota-blog deploy
+pnpm --filter robota-blog run deploy
 # astro build && wrangler pages deploy dist --project-name robota --branch main
 ```
 

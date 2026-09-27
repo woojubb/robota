@@ -28,6 +28,7 @@ graph TD
     MCP[agent-mcp<br/>MCP client]
     PROV[agent-provider-anthropic / -openai / -openai-compatible /<br/>-gemini / -bytedance]
     BIP[agent-builtin-providers]
+    REPLAY[agent-provider-replay<br/>private · test replay]
     SA[agent-session-analytics]
   end
 
@@ -95,6 +96,7 @@ graph TD
   CORE --> TOOLS & PLUG & MCP & PROV & SA
   PROC --> TOOLS
   PROV --> BIP
+  CORE & SESS --> REPLAY
   IFA & IFS --> SA
 
   %% Runtime

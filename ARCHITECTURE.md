@@ -38,7 +38,8 @@ SDK packages (@robota-sdk/*)
   Runtime               agent-session · agent-executor · agent-tool-defaults
   Building blocks       agent-tools · agent-plugin · agent-mcp · agent-session-analytics ·
                         agent-provider-{anthropic,openai,openai-compatible,gemini,bytedance} ·
-                        agent-builtin-providers
+                        agent-builtin-providers · agent-provider-replay (private: replays recorded
+                        provider responses in tests)
   Contracts (type-only) agent-interface-{session,session-mobility,command,execution,
                         analytics,transport,tui}
   Foundation            agent-core

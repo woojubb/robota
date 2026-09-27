@@ -26,7 +26,9 @@ For walkthroughs, see the [SDK guide](../../content/guide/sdk.md) and
 npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic
 ```
 
-Requires Node.js 22.12 or later. Any Robota provider package works in place of the Anthropic one.
+Requires Node.js 22.12 or later. `InteractiveSession` works with any Robota provider package given a
+`model`; `createQuery` has no `model` option, so without settings it only works with the Anthropic
+provider (see below).
 
 ## Quick start
 
