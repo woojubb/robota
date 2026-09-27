@@ -126,6 +126,15 @@ describe('observe role', () => {
     ]);
   });
 
+  it('#3282 §4: reads the agent switcher roster, a query, never a write', () => {
+    const session = createSession();
+    const observer = attach(session, 'observe');
+    observer.send({ type: 'get-agent-definitions', requestId: 'req-agents-1' });
+    expect(observer.sent).toEqual([
+      { type: 'agent_definitions', requestId: 'req-agents-1', agents: [], current: 'general-purpose' },
+    ]);
+  });
+
   it('#3186: reads the session status and the command catalog, which every client shows', () => {
     const session = createSession();
     const observer = attach(session, 'observe');

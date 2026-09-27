@@ -15,6 +15,7 @@ function createMockSession(overrides?: Record<string, unknown>) {
       { name: 'general-purpose', description: 'General-purpose task execution agent.' },
       { name: 'Plan', description: 'Read-only planning agent.' },
     ]),
+    setDefaultAgentType: vi.fn(),
     listAgentJobs: vi.fn().mockReturnValue([]),
     readBackgroundTaskLog: vi.fn().mockResolvedValue({ taskId: 'agent_1', lines: [] }),
     spawnAgentJob: vi.fn().mockResolvedValue({
@@ -516,6 +517,67 @@ describe('agent command module', () => {
 
     expect(result?.success).toBe(true);
     expect(result?.uiIntents).toEqual([{ type: 'show-agent-switcher' }]);
+  });
+
+  it('#3282 §4: /agent <name> with nothing after it selects a default agent instead of failing', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession();
+
+    const result = await executor.execute('agent', session, 'Plan');
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toBe('Default agent: Plan');
+    expect(result?.data).toEqual({ agentType: 'Plan' });
+    expect(
+      (session as unknown as { setDefaultAgentType: ReturnType<typeof vi.fn> }).setDefaultAgentType,
+    ).toHaveBeenCalledWith('Plan');
+    expect(
+      (session as unknown as { spawnAgentJob: ReturnType<typeof vi.fn> }).spawnAgentJob,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('#3282 §4: a single unrecognized word is still a prompt for the default agent, not a selection', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession();
+
+    const result = await executor.execute('agent', session, 'NotARealAgent');
+
+    expect(result?.success).toBe(true);
+    expect(
+      (session as unknown as { spawnAgentJob: ReturnType<typeof vi.fn> }).spawnAgentJob,
+    ).toHaveBeenCalledWith({
+      agentType: 'general-purpose',
+      label: 'general-purpose',
+      mode: 'background',
+      prompt: 'NotARealAgent',
+    });
+    expect(
+      (session as unknown as { setDefaultAgentType: ReturnType<typeof vi.fn> }).setDefaultAgentType,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('#3282 §4: a known agent name followed by a prompt still runs a job, not a selection', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession();
+
+    const result = await executor.execute('agent', session, 'Plan "draft architecture"');
+
+    expect(result?.success).toBe(true);
+    expect(
+      (session as unknown as { setDefaultAgentType: ReturnType<typeof vi.fn> }).setDefaultAgentType,
+    ).not.toHaveBeenCalled();
   });
 
   it('shows text list when agent list subcommand is used explicitly', async () => {

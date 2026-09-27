@@ -219,7 +219,21 @@ export interface ISessionProjectRead {
 }
 
 export interface ISessionAgentJobs {
-  listAgentDefinitions(): Array<{ name: string; description: string }>;
+  /**
+   * #3282 §4: the agent switcher's roster — `definedIn` is a plain-words location (a discovered
+   * file's path, or "Built-in") a person picking an agent can read.
+   */
+  listAgentDefinitions(): Array<{ name: string; description: string; definedIn: string }>;
+  /**
+   * #3282 §4: the agent type `/agent <name>` (no prompt) currently selects — the agent switcher
+   * shows it checked. Never throws; a host without the agent runtime just has the fallback default.
+   */
+  getDefaultAgentType(): string;
+  /**
+   * #3282 §4: `/agent <name>` (bare, no prompt) sets this. Choosing an agent in the switcher sends
+   * `/agent <name>` through `executeCommand`, the same path the command itself uses.
+   */
+  setDefaultAgentType(agentType: string): void;
   listAgentJobs(): ISubagentJobState[];
   spawnAgentJob(input: {
     agentType: string;
@@ -296,6 +310,8 @@ export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
   selfPacedLoopControl: Object.freeze(['stopWaitingSelfPacedLoop'] as const),
   agentJobs: Object.freeze([
     'listAgentDefinitions',
+    'getDefaultAgentType',
+    'setDefaultAgentType',
     'listAgentJobs',
     'spawnAgentJob',
     'sendAgentJob',

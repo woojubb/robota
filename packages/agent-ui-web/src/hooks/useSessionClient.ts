@@ -21,10 +21,12 @@ import {
 } from './ui-intent-state.js';
 import { createWsSessionClient } from '../client/ws-session-client.js';
 import { SERVER_MESSAGE_HANDLING } from './server-message-handling.js';
+import { useAgentSwitcherState } from './use-agent-switcher-state.js';
 import { useExecutionDetailState } from './use-execution-detail.js';
 import { useModelListState } from './use-model-list.js';
 import { usePersonalUsageState } from './use-personal-usage.js';
 import { useProjectPanelState } from './use-project-panel.js';
+import { useSchedulesState } from './use-schedules-state.js';
 import { useSessionDirectoryState } from './use-session-directory.js';
 import { useSettingsState } from './use-settings-state.js';
 
@@ -381,6 +383,13 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     useSessionDirectoryState(send);
   const { requestSessions, setSessionSidebarOpen } = sessionDirectoryState;
   const { handleSettingsMessage, openSettings, ...settingsState } = useSettingsState(send);
+  const {
+    handleAgentDefinitionsMessage,
+    resolveSwitchResult,
+    openAgentSwitcher,
+    ...agentSwitcherState
+  } = useAgentSwitcherState(send);
+  const { handleSchedulesMessage, requestSchedules, ...schedulesState } = useSchedulesState(send);
 
   const handleMessage = useCallback(
     (msg: TServerMessage): void => {
@@ -393,6 +402,12 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       if (handleProjectMessage(msg)) return;
       if (handleSessionsMessage(msg)) return;
       if (handleSettingsMessage(msg)) return;
+      if (handleAgentDefinitionsMessage(msg)) return;
+      // #3282 §4 part b-3: exclusively owns `background_tasks` (the Scheduled group's roster); a
+      // schedule write instead rides the generic `command`/`cancel-background-task` messages, so
+      // for THOSE types this always returns false — it only refreshes on top of whatever else those
+      // types already do below, never in place of it.
+      if (handleSchedulesMessage(msg)) return;
       switch (msg.type) {
         case 'messages': {
           // #3288 §2: `display` is the server's projection of this same history into tool rows,
@@ -518,6 +533,15 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
             }
             break;
           }
+          // #3282 §4 part b-3: `/agent` (bare) asks for the switcher — always available on this
+          // surface, unlike the session picker, which needs a host that lists sessions.
+          if (guiScreenForUiIntent(msg.event.intent) === 'agent-switcher') {
+            openAgentSwitcher();
+            if (commandsInFlightRef.current > 0) {
+              pendingIntentRef.current = { name: uiIntentCommandName(msg.event.intent), text: null };
+            }
+            break;
+          }
           // CMD-004 Stage D: a command this surface issued requested a screen the GUI does not have.
           // The command's result follows; the unavailable line answers it (TC-05, never silent).
           const unavailable = {
@@ -563,6 +587,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           send({ type: 'get-execution-workspace' });
           send({ type: 'get-pending' });
           requestSessions();
+          requestSchedules();
           break;
         }
         case 'history_cleared': {
@@ -679,6 +704,9 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           // count — see `silentCommandRequestIdsRef` above. No `requestId` (an older host, or a typed
           // command) always falls through to `silent = false`, never the reverse.
           const silent = msg.requestId !== undefined && silentCommandRequestIdsRef.current.delete(msg.requestId);
+          // #3282 §4 part b-3: a selection made in the agent switcher sheet — its own plain
+          // confirmation line answers it, never a conversation card (issue #3282 §4's decided design).
+          if (resolveSwitchResult(msg.requestId, msg)) break;
           const unavailable = pendingIntentRef.current;
           pendingIntentRef.current = null;
           if (unavailable !== null && msg.success) {
@@ -732,15 +760,20 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       canListSessions,
       closeExecutionDetail,
       finishTurn,
+      handleAgentDefinitionsMessage,
       handleExecutionDetailMessage,
       handleModelListMessage,
       handleProjectMessage,
+      handleSchedulesMessage,
       handleSessionsMessage,
       handleSettingsMessage,
       handleUsageMessage,
       markCurrent,
+      openAgentSwitcher,
       openSettings,
+      requestSchedules,
       requestSessions,
+      resolveSwitchResult,
       send,
       setSessionSidebarOpen,
       settleSessionChange,
@@ -783,6 +816,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         // A host that keeps sessions live puts a new connection on its primary session.
         armRestore();
         requestSessions();
+        requestSchedules();
       }
     };
     const client = makeClient({ onMessage: handleMessage, onStatusChange });
@@ -792,7 +826,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       client.disconnect();
       clientRef.current = null;
     };
-  }, [makeClient, handleMessage, requestSessions, armRestore]);
+  }, [makeClient, handleMessage, requestSessions, requestSchedules, armRestore]);
 
   return {
     status,
@@ -821,6 +855,9 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     dismissSessionNotice,
     openSettings,
     ...settingsState,
+    openAgentSwitcher,
+    ...agentSwitcherState,
+    ...schedulesState,
   };
 }
 

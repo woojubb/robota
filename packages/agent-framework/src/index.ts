@@ -607,7 +607,7 @@ export type {
 } from './plugins/index.js';
 
 export type { IAgentDefinition } from './agents/index.js';
-export { BUILT_IN_AGENTS } from './agents/index.js';
+export { BUILT_IN_AGENTS, DEFAULT_AGENT_DEFINED_IN, DEFAULT_AGENT_TYPE } from './agents/index.js';
 
 export {
   getSubagentSuffix,

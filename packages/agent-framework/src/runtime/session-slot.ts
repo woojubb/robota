@@ -217,6 +217,10 @@ export class SessionSlot<
     this.currentSession.stopWaitingSelfPacedLoop(...args);
   listAgentDefinitions: IInteractiveSession['listAgentDefinitions'] = (...args) =>
     this.currentSession.listAgentDefinitions(...args);
+  getDefaultAgentType: IInteractiveSession['getDefaultAgentType'] = (...args) =>
+    this.currentSession.getDefaultAgentType(...args);
+  setDefaultAgentType: IInteractiveSession['setDefaultAgentType'] = (...args) =>
+    this.currentSession.setDefaultAgentType(...args);
   listAgentJobs: IInteractiveSession['listAgentJobs'] = (...args) =>
     this.currentSession.listAgentJobs(...args);
   spawnAgentJob: IInteractiveSession['spawnAgentJob'] = (...args) =>

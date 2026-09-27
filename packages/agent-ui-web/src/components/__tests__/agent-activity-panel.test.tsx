@@ -1,12 +1,4 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import React from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-
-import { AgentActivityPanel } from '../AgentActivityPanel.js';
-
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
-
 /**
  * #3288 §1: the Agents panel — clicking an entry opens it (the main thread instead returns to the
  * conversation, which this desktop layout already shows beside the panel), a running/queued entry
@@ -14,7 +6,18 @@ import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execu
  * says "Done", a cancelled one says "Stopped", a completed one that still had a tool call refused
  * along the way says "Needs permission" (distinct from "Needs you" — nothing is waiting on the
  * operator right now, the run is already over).
+ *
+ * #3282 §4 part b-3 — the Agents panel's "Scheduled" group and Goal row: plain times (never an ISO
+ * string or a cron expression), Pause/Resume, a confirmed Delete, and Cancel goal.
  */
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import React from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { AgentActivityPanel } from '../AgentActivityPanel.js';
+
+import type { IBackgroundTaskState, IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
+import type { IGoalState } from '@robota-sdk/agent-interface-session';
 
 afterEach(cleanup);
 
@@ -32,6 +35,25 @@ function createEntry(overrides: Partial<IExecutionWorkspaceEntry> = {}): IExecut
     updatedAt: '2026-05-09T00:00:00.000Z',
     controls: ['select', 'cancel'],
     state: 'working',
+    ...overrides,
+  };
+}
+
+function schedule(
+  overrides: Partial<IBackgroundTaskState<'scheduled'>> = {},
+): IBackgroundTaskState<'scheduled'> {
+  return {
+    id: 'sched_1',
+    kind: 'scheduled',
+    label: 'Scheduled: check the build',
+    status: 'sleeping',
+    mode: 'background',
+    parentSessionId: 'session-1',
+    depth: 0,
+    cwd: '/repo',
+    updatedAt: '2026-05-01T00:00:00.000Z',
+    unread: false,
+    schedule: { cronExpression: '0 9 * * 1-5', agentInstruction: 'check the build' },
     ...overrides,
   };
 }
@@ -148,5 +170,121 @@ describe('AgentActivityPanel — open, and true status (#3288 §1)', () => {
     const task = createEntry({ status: 'failed', attention: 'failed', controls: ['select', 'close'] });
     render(<AgentActivityPanel tasks={[task]} />);
     expect(screen.getByText('Failed')).toBeTruthy();
+  });
+});
+
+describe('AgentActivityPanel — Scheduled group', () => {
+  it('shows nothing when there are no schedules', () => {
+    render(<AgentActivityPanel tasks={[]} schedules={[]} />);
+    expect(screen.queryByText('Scheduled')).toBeNull();
+  });
+
+  it('shows what it runs, a plain next-run time (never an ISO string or a cron expression), and status', () => {
+    // Same clock time, one calendar day forward — always exactly "Tomorrow" regardless of the hour
+    // the test happens to run at.
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    render(
+      <AgentActivityPanel
+        tasks={[]}
+        schedules={[schedule({ nextFireAt: tomorrow.toISOString() })]}
+      />,
+    );
+    expect(screen.getByText('check the build')).toBeTruthy();
+    const timing = screen.getByText(/Tomorrow \d/);
+    expect(timing.textContent).not.toMatch(/T\d\d:\d\d/); // no ISO timestamp
+    expect(timing.textContent).not.toMatch(/[*/]/); // no cron expression
+    expect(screen.getByText(/Active/)).toBeTruthy();
+  });
+
+  it('a recurring schedule with no pending fire is phrased plainly from its cadence', () => {
+    render(<AgentActivityPanel tasks={[]} schedules={[schedule({ nextFireAt: undefined })]} />);
+    expect(screen.getByText(/Every weekday at 09:00/)).toBeTruthy();
+  });
+
+  it('Pause on an active schedule runs the same path `/schedule pause <id>` runs', () => {
+    const onPauseSchedule = vi.fn();
+    render(<AgentActivityPanel tasks={[]} schedules={[schedule()]} onPauseSchedule={onPauseSchedule} />);
+    fireEvent.click(screen.getByRole('button', { name: /Pause/ }));
+    expect(onPauseSchedule).toHaveBeenCalledExactlyOnceWith('sched_1');
+  });
+
+  it('a paused schedule offers Resume instead of Pause', () => {
+    const onResumeSchedule = vi.fn();
+    render(
+      <AgentActivityPanel
+        tasks={[]}
+        schedules={[schedule({ status: 'paused' })]}
+        onResumeSchedule={onResumeSchedule}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /^Pause/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Resume/ }));
+    expect(onResumeSchedule).toHaveBeenCalledExactlyOnceWith('sched_1');
+  });
+
+  it('Delete is confirmed before it runs', () => {
+    const onDeleteSchedule = vi.fn();
+    render(<AgentActivityPanel tasks={[]} schedules={[schedule()]} onDeleteSchedule={onDeleteSchedule} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete…' }));
+    // The write has not happened yet — a confirmation dialog stands between the click and the call.
+    expect(onDeleteSchedule).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Delete this schedule?' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(onDeleteSchedule).toHaveBeenCalledExactlyOnceWith('sched_1');
+  });
+
+  it('cancelling the confirmation never calls the delete write', () => {
+    const onDeleteSchedule = vi.fn();
+    render(<AgentActivityPanel tasks={[]} schedules={[schedule()]} onDeleteSchedule={onDeleteSchedule} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete…' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onDeleteSchedule).not.toHaveBeenCalled();
+  });
+
+  it('a deleted (cancelled) schedule no longer appears', () => {
+    render(<AgentActivityPanel tasks={[]} schedules={[schedule({ status: 'cancelled' })]} />);
+    expect(screen.queryByText('Scheduled')).toBeNull();
+  });
+});
+
+describe('AgentActivityPanel — Goal row', () => {
+  const goal: IGoalState = {
+    id: 'goal_1',
+    objective: 'Land the release notes',
+    status: 'active',
+    iterations: 2,
+    maxIterations: 25,
+    startedAt: '2026-05-01T00:00:00.000Z',
+    progress: [],
+  };
+
+  it('shows nothing when there is no goal', () => {
+    render(<AgentActivityPanel tasks={[]} goal={null} />);
+    expect(screen.queryByText('Goal')).toBeNull();
+  });
+
+  it('shows the objective and its status in plain words', () => {
+    render(<AgentActivityPanel tasks={[]} goal={goal} />);
+    expect(screen.getByText('Land the release notes')).toBeTruthy();
+    expect(screen.getByText('Active')).toBeTruthy();
+  });
+
+  it('Cancel goal sends the same action as /goal cancel', () => {
+    const onCancelGoal = vi.fn();
+    render(<AgentActivityPanel tasks={[]} goal={goal} onCancelGoal={onCancelGoal} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel goal' }));
+    expect(onCancelGoal).toHaveBeenCalledOnce();
+  });
+
+  it('a stopped goal has no Cancel control', () => {
+    render(
+      <AgentActivityPanel
+        tasks={[]}
+        goal={{ ...goal, status: 'stopped', stopReason: 'cancelled' }}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Cancel goal' })).toBeNull();
+    expect(screen.getByText('Cancelled')).toBeTruthy();
   });
 });

@@ -29,6 +29,7 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
   'get-commands': { type: 'get-commands' },
   'get-status': { type: 'get-status' },
   'list-models': { type: 'list-models', requestId: 'request-6' },
+  'get-agent-definitions': { type: 'get-agent-definitions', requestId: 'request-7' },
   'list-sessions': { type: 'list-sessions', requestId: 'request-3' },
   'new-session': { type: 'new-session', requestId: 'request-4' },
   'switch-session': { type: 'switch-session', sessionId: 'session-2', requestId: 'request-5' },
@@ -146,6 +147,15 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
     ],
     currentProfile: 'anthropic',
     currentModel: 'claude-sonnet-4-6',
+  },
+  agent_definitions: {
+    type: 'agent_definitions',
+    requestId: 'request-7',
+    agents: [
+      { name: 'general-purpose', description: 'General-purpose task execution agent.', definedIn: 'Built-in' },
+      { name: 'Explore', description: 'Read-only codebase exploration agent.', definedIn: 'Built-in' },
+    ],
+    current: 'general-purpose',
   },
   sessions: { type: 'sessions', requestId: 'request-3', listing: {} as never },
   sessions_error: {
@@ -327,6 +337,11 @@ const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
   ['list-sessions without requestId', { type: 'list-sessions' }],
   ['list-models without requestId', { type: 'list-models' }],
   ['list-models with an empty requestId', { type: 'list-models', requestId: '' }],
+  ['get-agent-definitions without requestId', { type: 'get-agent-definitions' }],
+  [
+    'get-agent-definitions with an empty requestId',
+    { type: 'get-agent-definitions', requestId: '' },
+  ],
   ['get-history from a negative index', { type: 'get-history', fromIndex: -1 }],
   ['get-history from a fractional index', { type: 'get-history', fromIndex: 1.5 }],
   ['command with an empty requestId', { type: 'command', name: 'n', requestId: '' }],
@@ -461,6 +476,24 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
     { type: 'model_list', requestId: 'r', groups: {}, currentModel: 'm' },
   ],
   ['model_list without currentModel', { type: 'model_list', requestId: 'r', groups: [] }],
+  [
+    'agent_definitions without requestId',
+    { type: 'agent_definitions', agents: [], current: 'general-purpose' },
+  ],
+  [
+    'agent_definitions with a non-array agents',
+    { type: 'agent_definitions', requestId: 'r', agents: {}, current: 'general-purpose' },
+  ],
+  [
+    'agent_definitions with an agent missing definedIn',
+    {
+      type: 'agent_definitions',
+      requestId: 'r',
+      agents: [{ name: 'a', description: 'd' }],
+      current: 'a',
+    },
+  ],
+  ['agent_definitions without current', { type: 'agent_definitions', requestId: 'r', agents: [] }],
   [
     'session_change_failed with an unknown code',
     { type: 'session_change_failed', code: 'nope', message: 'm' },

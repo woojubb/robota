@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { AgentActivityPanel } from './AgentActivityPanel.js';
+import { AgentSwitcherSheet } from './AgentSwitcherSheet.js';
 import { RobotaMark, RobotaWordmark } from './Brand.js';
 import { Composer, GoalBar } from './Composer.js';
 import { ConversationView } from './ConversationView.js';
@@ -144,6 +145,11 @@ export function SessionSurface({
       state.send({ type: 'cancel-background-task', taskId: entry.sourceId });
     }
   };
+  // #3282 §4 part b-3: the rail also earns its width for a schedule or a goal, even with no running
+  // background task/loop beside the conversation — "Work in progress" covers all four (issue #3282
+  // §4's Expected section), not only execution-workspace entries.
+  const currentGoal = state.sessionStatus?.goal ?? null;
+  const hasWorkInProgress = hasTasks || state.scheduledTasks.length > 0 || currentGoal !== null;
   const isEmpty =
     state.messages.length === 0 &&
     !state.streamingText &&
@@ -364,7 +370,7 @@ export function SessionSurface({
               </div>
             </div>
 
-            {hasTasks && (
+            {hasWorkInProgress && (
               <aside aria-label="Agents" className="flex w-72 flex-shrink-0 overflow-hidden bg-sidebar">
                 <AgentActivityPanel
                   tasks={tasks}
@@ -373,6 +379,12 @@ export function SessionSurface({
                   onSelect={(entry) => state.openExecutionDetail(entry.id)}
                   onReturnToConversation={() => state.closeExecutionDetail()}
                   onStop={stopExecutionEntry}
+                  schedules={state.scheduledTasks}
+                  goal={currentGoal}
+                  onPauseSchedule={state.pauseSchedule}
+                  onResumeSchedule={state.resumeSchedule}
+                  onDeleteSchedule={state.deleteSchedule}
+                  onCancelGoal={() => state.send({ type: 'command', name: 'goal', args: 'cancel' })}
                 />
               </aside>
             )}
@@ -393,6 +405,7 @@ export function SessionSurface({
 
       <SessionNotices state={state} />
       <SettingsScreen state={state} />
+      <AgentSwitcherSheet state={state} />
     </div>
   );
 }

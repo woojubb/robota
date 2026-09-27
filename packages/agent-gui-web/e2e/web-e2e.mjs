@@ -315,6 +315,62 @@ try {
     await page.getByRole('dialog', { name: 'Settings' }).waitFor({ state: 'detached' });
   });
 
+  await scenario(
+    '#3282 §4 part b-3: /agent opens the switcher; choosing an agent shows a plain confirmation, not a card',
+    async () => {
+      await send('/agent');
+      await page.getByRole('dialog', { name: 'Switch agent' }).waitFor();
+      // Not getByText: general-purpose's own description ("General-purpose task execution
+      // agent.") contains the same text, so a plain text match is ambiguous — the row is one
+      // button whose accessible name starts with the agent's name.
+      await page.getByRole('button', { name: /^general-purpose\b/ }).waitFor();
+      const explore = page.getByRole('button', { name: /Explore/ });
+      await explore.waitFor();
+      if ((await explore.getAttribute('aria-current')) !== null) {
+        throw new Error('Explore was checked before it was chosen');
+      }
+      await explore.click();
+      await page.getByRole('status').filter({ hasText: 'Default agent: Explore' }).waitFor();
+      // The checked row follows the switch, and no conversation card was added for it.
+      if ((await explore.getAttribute('aria-current')) !== 'true') {
+        throw new Error('Explore was not checked after being chosen');
+      }
+      if ((await page.getByText('Default agent: Explore', { exact: false }).count()) > 1) {
+        throw new Error('the switch also added a conversation card, not just the sheet confirmation');
+      }
+      await page.getByRole('button', { name: 'Close' }).click();
+      await page.getByRole('dialog', { name: 'Switch agent' }).waitFor({ state: 'detached' });
+    },
+  );
+
+  await scenario(
+    '#3282 §4 part b-3: the Agents panel shows one schedule, and Delete (confirmed) removes it',
+    async () => {
+      await page.getByText('Scheduled').waitFor();
+      await page.getByText('check the nightly build').waitFor();
+      await page.getByRole('button', { name: 'Delete…' }).click();
+      await page.getByRole('dialog', { name: 'Delete this schedule?' }).waitFor();
+      await page.getByRole('button', { name: 'Delete', exact: true }).click();
+      await page.getByText('check the nightly build').waitFor({ state: 'detached' });
+    },
+  );
+
+  await scenario(
+    '#3282 §4 part b-3: the Agents panel shows the current goal, and Cancel goal stops it',
+    async () => {
+      await send('set a goal');
+      // Scoped to the Agents panel: the pre-existing GoalBar (#3307, docked above the composer,
+      // `aria-label="goal"`) shows the same objective text while the goal is active, so a bare
+      // page-wide text match is ambiguous between the two.
+      const agentsPanel = page.getByRole('complementary', { name: 'Agents' });
+      await agentsPanel.getByText('Land the release notes').waitFor();
+      await agentsPanel.getByText('Active', { exact: true }).waitFor();
+      await page.getByRole('button', { name: 'Cancel goal' }).click();
+      await page.getByRole('button', { name: 'Cancel goal' }).waitFor({ state: 'detached' });
+      await agentsPanel.getByText('Cancelled', { exact: true }).waitFor();
+    },
+  );
+
   await scenario('a finished turn keeps its tool calls as one line that opens', async () => {
     await send('read the file');
     await page.getByText('Read the file.').waitFor();

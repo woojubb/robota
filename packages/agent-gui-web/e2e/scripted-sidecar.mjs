@@ -263,6 +263,12 @@ const SCRIPTED_MODELS = [
 ];
 
 /** A scripted IInteractiveSession: EventEmitter for on/off/emit, deterministic submit + permission. */
+// #3282 §4 part b-3: the agent switcher's roster — name, one-line description, plain-words location.
+const scriptedAgentDefinitions = [
+  { name: 'general-purpose', description: 'General-purpose task execution agent.', definedIn: 'Built-in' },
+  { name: 'Explore', description: 'Read-only codebase exploration agent.', definedIn: 'Built-in' },
+];
+
 class ScriptedSession extends EventEmitter {
   #pendingPermission = null;
   #pendingAsk = null;
@@ -275,6 +281,29 @@ class ScriptedSession extends EventEmitter {
   #pendingSetupAsk = null;
   #resolveSetupCommand = null;
   #executionWorkspaceEntries = [];
+  // #3282 §4 part b-3: the agent switcher's current selection — `/agent <name>` (bare) sets it.
+  #defaultAgentType = 'general-purpose';
+  // #3282 §4 part b-3: the Agents panel's Scheduled group — one recurring schedule, cancellable.
+  #schedules = [
+    {
+      id: 'sched_1',
+      kind: 'scheduled',
+      label: 'Scheduled: check the nightly build',
+      status: 'sleeping',
+      mode: 'background',
+      parentSessionId: this.currentId,
+      depth: 0,
+      cwd: workspaceCwd,
+      updatedAt: new Date().toISOString(),
+      unread: false,
+      nextFireAt: new Date(Date.now() + 20 * 60 * 60 * 1000).toISOString(),
+      schedule: { cronExpression: '0 9 * * 1-5', agentInstruction: 'check the nightly build' },
+    },
+  ];
+  // #3282 §4 part b-3: the current goal (`/goal`) — null until a scripted turn sets one (a submit
+  // containing "set a goal"), so every OTHER e2e scenario sees exactly what it saw before this
+  // feature — no goal bar/row unless the scenario asks for one. Cancel goal runs `/goal cancel`.
+  #goal = null;
 
   get currentId() {
     return this.#current.id;
@@ -342,20 +371,6 @@ class ScriptedSession extends EventEmitter {
     if (!records) return Promise.reject(new Error(`Unknown execution entry: ${entryId}`));
     return Promise.resolve({ entryId, records });
   }
-  // #3288 §1: a task's own Stop — never a loop's (that always goes through /loop stop <id> below,
-  // even for a loop's own disposable wake timer, which this fixture never separately models).
-  cancelBackgroundTask(taskId) {
-    const entry = this.#executionWorkspaceEntries.find((candidate) => candidate.sourceId === taskId);
-    if (!entry || entry.loopId !== undefined) {
-      return Promise.reject(new Error(`No stoppable task: ${taskId}`));
-    }
-    entry.status = 'cancelled';
-    entry.updatedAt = new Date().toISOString();
-    // Terminal now — 'cancel' is no longer offered (a stopped task does not still offer Stop).
-    entry.controls = ['select', 'close'];
-    this.#emitExecutionWorkspaceUpdated();
-    return Promise.resolve();
-  }
   getContextState() {
     return { usedPercentage: 0, usedTokens: 0, maxTokens: 200000 };
   }
@@ -414,6 +429,26 @@ class ScriptedSession extends EventEmitter {
       await tick();
       this.emit('thinking', false);
       this.#complete('Working on it... finished.');
+      return;
+    }
+    if (lower.includes('set a goal')) {
+      // #3282 §4 part b-3: puts an active goal in `getStatusSnapshot()` — the GUI's own `get-status`
+      // refresh after this turn completes is what the Agents panel's Goal row picks it up from.
+      this.#goal = {
+        id: 'goal_1',
+        objective: 'Land the release notes',
+        status: 'active',
+        iterations: 2,
+        maxIterations: 25,
+        startedAt: new Date().toISOString(),
+        progress: [],
+      };
+      await tick();
+      this.emit('thinking', true);
+      this.emit('text_delta', 'Goal set — pursuing autonomously.');
+      await tick();
+      this.emit('thinking', false);
+      this.#complete('Goal set — pursuing autonomously.');
       return;
     }
     if (String(input).toLowerCase().includes('permission')) {
@@ -700,7 +735,90 @@ class ScriptedSession extends EventEmitter {
       this.emit('ui_intent', { intent: { type: 'show-plugin-manager' } });
       return Promise.resolve({ message: 'Opening plugin manager...', success: true });
     }
+    if (name === 'agent') {
+      const trimmed = args.trim();
+      if (trimmed === '') {
+        this.emit('ui_intent', { intent: { type: 'show-agent-switcher' } });
+        return Promise.resolve({ message: '', success: true });
+      }
+      // #3282 §4 part b-3: a bare known name selects the default — the same path choosing a row in
+      // the switcher sheet runs.
+      if (scriptedAgentDefinitions.some((agent) => agent.name === trimmed)) {
+        this.#defaultAgentType = trimmed;
+        return Promise.resolve({
+          message: `Default agent: ${trimmed}`,
+          success: true,
+          data: { agentType: trimmed },
+        });
+      }
+      return Promise.resolve({ message: `Unknown agent type: ${trimmed}`, success: false });
+    }
+    if (name === 'schedule') {
+      const [verb, id] = args.trim().split(/\s+/);
+      const found = this.#schedules.find((task) => task.id === id);
+      if (verb === 'pause' && found) {
+        found.status = 'paused';
+        return Promise.resolve({ message: `Schedule paused: ${id}`, success: true });
+      }
+      if (verb === 'resume' && found) {
+        found.status = 'sleeping';
+        return Promise.resolve({ message: `Schedule resumed: ${id}`, success: true });
+      }
+      return Promise.resolve({ message: `Unknown schedule: ${id}`, success: false });
+    }
+    if (name === 'goal') {
+      if (args.trim() === 'cancel') {
+        if (!this.#goal || this.#goal.status !== 'active') {
+          return Promise.resolve({ message: 'No active goal to cancel.', success: false });
+        }
+        this.#goal = { ...this.#goal, status: 'stopped', stopReason: 'cancelled' };
+        return Promise.resolve({
+          message: `Goal cancelled: ${this.#goal.objective}`,
+          success: true,
+        });
+      }
+      return Promise.resolve({ message: 'No goal is set.', success: true });
+    }
     return Promise.resolve({ message: 'ok', success: true });
+  }
+  // #3282 §4 part b-3: the agent switcher's roster, with `definedIn` (a discovered file's path, or
+  // "Built-in") — a plain-words location a person picking an agent can read.
+  listAgentDefinitions() {
+    return scriptedAgentDefinitions.map((agent) => ({ ...agent }));
+  }
+  getDefaultAgentType() {
+    return this.#defaultAgentType;
+  }
+  // #3282 §4 part b-3: the Agents panel's Scheduled group reads through the SAME generic
+  // `get-background-tasks` path a real host answers, filtered to `kind: 'scheduled'`.
+  listBackgroundTasks(filter) {
+    if (filter?.kind && filter.kind !== 'scheduled') return [];
+    return this.#schedules.map((task) => ({ ...task }));
+  }
+  getBackgroundTask(taskId) {
+    const found = this.#schedules.find((task) => task.id === taskId);
+    return found ? { ...found } : undefined;
+  }
+  // #3288 §1: a task's own Stop — never a loop's (that always goes through /loop stop <id> above,
+  // even for a loop's own disposable wake timer, which this fixture never separately models).
+  // #3282 §4 part b-3: also the Agents panel's schedule Delete — a schedule IS a background task,
+  // and cancelling one is permanent, exactly like the real `BackgroundTaskManager.cancel()`.
+  async cancelBackgroundTask(taskId) {
+    const entry = this.#executionWorkspaceEntries.find((candidate) => candidate.sourceId === taskId);
+    if (entry) {
+      if (entry.loopId !== undefined) {
+        throw new Error(`No stoppable task: ${taskId}`);
+      }
+      entry.status = 'cancelled';
+      entry.updatedAt = new Date().toISOString();
+      // Terminal now — 'cancel' is no longer offered (a stopped task does not still offer Stop).
+      entry.controls = ['select', 'close'];
+      this.#emitExecutionWorkspaceUpdated();
+      return;
+    }
+    const schedule = this.#schedules.find((task) => task.id === taskId);
+    if (!schedule) throw new Error(`Unknown background task: ${taskId}`);
+    schedule.status = 'cancelled';
   }
   listCommands() {
     return [
@@ -739,7 +857,7 @@ class ScriptedSession extends EventEmitter {
       permissionMode: this.#mode,
       effort: 'auto',
       context: { usedPercentage: 12, usedTokens: 24000, maxTokens: 200000, remainingPercentage: 88 },
-      goal: null,
+      goal: this.#goal,
       // Absent (never `false`) once set up, exactly like the real ISessionStatusSnapshot field.
       ...(this.#setupRequired ? { setupRequired: true } : {}),
       // #3289 §1: the folder the title bar and document.title show; #3282 §4d resolves attached
