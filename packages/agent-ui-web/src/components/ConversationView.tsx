@@ -111,7 +111,7 @@ function CodeBlockRenderer({ children }: { children?: React.ReactNode }): React.
       <CopyButton
         label="Copy code"
         getText={() => text}
-        className="absolute right-2 top-2 opacity-0 transition-opacity focus-visible:opacity-100 group-hover/code:opacity-100 group-focus-within/code:opacity-100 [@media(hover:none)]:opacity-100"
+        className="absolute right-2 top-2 opacity-0 transition-opacity group-hover/code:opacity-100 group-focus-within/code:opacity-100 [@media(hover:none)]:opacity-100"
       />
     </div>
   );
