@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { calculateModelCost } from '@robota-sdk/agent-core';
 
 import { summarizePersonalUsage } from '../personal-usage.js';
 
@@ -411,5 +412,211 @@ describe('summarizePersonalUsage', () => {
       ],
     });
     expect(report.bySurface.map((entry) => entry.key)).toEqual(['attach']);
+  });
+
+  describe('cost: one unpriced observation never hides an otherwise-priced total', () => {
+    const advisorSource = { scope: 'tool', id: 'advisor:big-model', label: 'Advisor (big-model)' };
+
+    function priced(
+      turnId: string,
+      promptTokens: number,
+      completionTokens: number,
+      costUsd: number,
+      extra: Record<string, unknown> = {},
+    ) {
+      return {
+        usageObservationId: turnId,
+        turnId,
+        outcome: 'success',
+        usage: {
+          kind: 'estimated',
+          scope: 'turn',
+          totalTokens: promptTokens + completionTokens,
+          promptTokens,
+          completionTokens,
+          contextUsedTokens: 0,
+          contextMaxTokens: 0,
+          contextUsedPercentage: 0,
+          costStatus: 'estimated',
+          costUsd,
+        },
+        ...extra,
+      };
+    }
+
+    function unpriced(
+      turnId: string,
+      tokens: number,
+      extra: Record<string, unknown> = {},
+    ) {
+      return {
+        usageObservationId: turnId,
+        turnId,
+        outcome: 'success',
+        usage: {
+          kind: 'estimated',
+          scope: 'turn',
+          totalTokens: tokens,
+          contextUsedTokens: 0,
+          contextMaxTokens: 0,
+          contextUsedPercentage: 0,
+          costStatus: 'unknown',
+        },
+        ...extra,
+      };
+    }
+
+    it('does not poison the total when an advisor call could not be priced (was: costStatus unknown)', () => {
+      const report = summarizePersonalUsage({
+        request: { period: '7d', timezone: 'UTC' },
+        now: new Date('2026-09-06T12:00:00.000Z'),
+        records: [
+          record('s1', [
+            { id: 'e1', at: '2026-09-05T10:00:00.000Z', data: priced('turn-1', 100, 50, 0.5) },
+            { id: 'e2', at: '2026-09-05T10:01:00.000Z', data: priced('turn-2', 100, 50, 0.75) },
+            {
+              id: 'e3',
+              at: '2026-09-05T10:02:00.000Z',
+              data: unpriced('advisor-1', 500, { source: advisorSource }),
+            },
+          ]),
+        ],
+      });
+
+      expect(report.totals.costStatus).toBe('estimated');
+      expect(report.totals.costUsd).toBeCloseTo(1.25, 10);
+      // The unpriced observation was an advisor/tool call, not a turn of its own, so it never counts
+      // toward "turns without a price".
+      expect(report.totals.unpricedTurns).toBeUndefined();
+    });
+
+    it('counts a turn that could not be priced, and keeps summing what could be', () => {
+      const report = summarizePersonalUsage({
+        request: { period: '7d', timezone: 'UTC' },
+        now: new Date('2026-09-06T12:00:00.000Z'),
+        records: [
+          record('s1', [
+            { id: 'e1', at: '2026-09-05T10:00:00.000Z', data: priced('turn-1', 100, 50, 0.5) },
+            { id: 'e2', at: '2026-09-05T10:01:00.000Z', data: priced('turn-2', 100, 50, 0.75) },
+            { id: 'e3', at: '2026-09-05T10:02:00.000Z', data: unpriced('turn-3', 500) },
+          ]),
+        ],
+      });
+
+      expect(report.totals).toMatchObject({ turns: 3, costStatus: 'estimated', unpricedTurns: 1 });
+      expect(report.totals.costUsd).toBeCloseTo(1.25, 10);
+    });
+
+    it('shows unknown only when nothing in the aggregate could be priced', () => {
+      const report = summarizePersonalUsage({
+        request: { period: '7d', timezone: 'UTC' },
+        now: new Date('2026-09-06T12:00:00.000Z'),
+        records: [
+          record('s1', [{ id: 'e1', at: '2026-09-05T10:00:00.000Z', data: unpriced('turn-1', 500) }]),
+        ],
+      });
+
+      expect(report.totals.costStatus).toBe('unknown');
+      expect(report.totals.costUsd).toBe(0);
+      expect(report.totals.unpricedTurns).toBe(1);
+    });
+
+    /**
+     * Mirrors the fixture in `packages/agent-command/src/session/__tests__/session-command-module.test.ts`
+     * ("totals main and advisor usage, pricing the advisor on its own model" / "does not price an
+     * unpriced advisor model at the main rate"): the same main-turn tokens/model, the same priced
+     * advisor call, and the same unpriced advisor call. `/cost` sums the main turn's own price plus the
+     * priced advisor's, and leaves the unpriced advisor out entirely — never repricing it at the main
+     * model's rate. The personal-usage report must land on the exact same total for a period holding
+     * only this one session, since both readers are summing the same recorded per-turn prices.
+     */
+    it('matches what /cost reports for the same session (built from the same per-turn records)', () => {
+      const own = calculateModelCost('claude-sonnet-4-5', 40_000, 10_000)!;
+      const report = summarizePersonalUsage({
+        request: { period: '7d', timezone: 'UTC' },
+        now: new Date('2026-09-06T12:00:00.000Z'),
+        records: [
+          record('current-session', [
+            {
+              id: 'e1',
+              at: '2026-09-05T10:00:00.000Z',
+              data: priced('turn-1', 40_000, 10_000, own, {
+                modelId: 'claude-sonnet-4-5',
+                providerId: 'anthropic',
+              }),
+            },
+            {
+              id: 'e2',
+              at: '2026-09-05T10:01:00.000Z',
+              data: priced('advisor-priced', 5_000, 2_000, 1.5, {
+                modelId: 'big-model',
+                providerId: 'vendor-b',
+                source: advisorSource,
+              }),
+            },
+            {
+              id: 'e3',
+              at: '2026-09-05T10:02:00.000Z',
+              data: unpriced('advisor-unpriced', 4_000, {
+                modelId: 'big-model',
+                providerId: 'vendor-b',
+                source: advisorSource,
+              }),
+            },
+          ]),
+        ],
+      });
+
+      expect(report.totals.costStatus).toBe('estimated');
+      expect(report.totals.costUsd).toBeCloseTo(own + 1.5, 10);
+    });
+  });
+
+  describe('sessionFirstSeen: a content-free timestamp per session', () => {
+    it('records the earliest included observation time for a session', () => {
+      const report = summarizePersonalUsage({
+        request: { period: '7d', timezone: 'UTC' },
+        now: new Date('2026-09-06T12:00:00.000Z'),
+        records: [
+          record('s1', [
+            {
+              id: 'e1',
+              at: '2026-09-05T10:00:00.000Z',
+              data: { usageObservationId: 't1', turnId: 't1', outcome: 'success' },
+            },
+            {
+              id: 'e2',
+              at: '2026-09-05T08:00:00.000Z',
+              data: { usageObservationId: 't2', turnId: 't2', outcome: 'success' },
+            },
+          ]),
+        ],
+        corruptSessionIds: [],
+        unsupportedSessionIds: [],
+      });
+
+      expect(report.sessionFirstSeen?.['s1']).toBe('2026-09-05T08:00:00.000Z');
+    });
+
+    it('never carries a timestamp — or any of its name/cwd content — for a session outside the reported period', () => {
+      const outOfRange: IInteractiveSessionRecord = {
+        id: 'stale',
+        name: 'Should not appear',
+        cwd: '/should/not-appear',
+        createdAt: '2020-01-01T00:00:00.000Z',
+        updatedAt: '2020-01-01T00:00:00.000Z',
+        messages: [],
+        history: [],
+      };
+
+      const report = summarizePersonalUsage({
+        request: { period: '7d', timezone: 'UTC' },
+        now: new Date('2026-09-06T12:00:00.000Z'),
+        records: [outOfRange],
+      });
+
+      expect(report.sessionFirstSeen).toEqual({});
+      expect(JSON.stringify(report)).not.toContain('not-appear');
+    });
   });
 });

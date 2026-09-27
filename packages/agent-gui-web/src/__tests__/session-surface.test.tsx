@@ -410,10 +410,22 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
         unsupportedSessionIds: [],
       },
     };
+    // The report itself is content-free; a session's readable name comes from this workspace's own
+    // local session-directory listing (#3289 §4), not from the report.
+    const listing: NonNullable<IWsSessionState['sessionListing']> = {
+      currentSessionId: 'a',
+      sessions: [
+        { id: 'a', name: 'Session A', cwd: '/w', updatedAt: report.generatedAt, messageCount: 1, preview: '' },
+        { id: 'b', name: 'Session B', cwd: '/w', updatedAt: report.generatedAt, messageCount: 1, preview: '' },
+        { id: 'c', name: 'Session C', cwd: '/w', updatedAt: report.generatedAt, messageCount: 1, preview: '' },
+      ],
+      unreadableSessionIds: [],
+    };
     const state = stubState({
       personalUsageStatus: 'ready',
       personalUsageReport: report,
       requestPersonalUsage: vi.fn(),
+      sessionListing: listing,
     });
 
     render(<SessionSurface state={state} personalUsageEnabled />);
@@ -423,7 +435,8 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(screen.getByText('1,200')).toBeTruthy();
     expect(screen.getByText('gpt-test')).toBeTruthy();
     expect(screen.getByText(/partial day/i)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Open session a' }));
+    // The button shows the session's readable name, never the raw id (#3289 §4).
+    fireEvent.click(screen.getByRole('button', { name: 'Open session Session A' }));
     expect(state.requestStoredSessionUsage).toHaveBeenCalledWith('a');
   });
 

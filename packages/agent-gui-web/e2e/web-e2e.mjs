@@ -187,13 +187,22 @@ try {
   });
 
   await scenario('the usage dashboard renders the sidecar report without raw content', async () => {
-    await page.getByRole('button', { name: 'Usage' }).click();
+    // Exact: the sidebar also lists a stored session named "Usage e2e session" (below), whose row
+    // text otherwise substring-matches this nav button too.
+    await page.getByRole('button', { name: 'Usage', exact: true }).click();
     await page.getByRole('heading', { name: 'Personal usage' }).waitFor();
     await page.getByText('scripted-model').waitFor();
-    await page.getByRole('button', { name: 'Open session usage-e2e-session' }).click();
-    await page.getByRole('region', { name: 'Session usage detail' }).getByText('42').waitFor();
+    // The report itself is content-free; the session button is named from this workspace's own
+    // local session-directory listing (the scripted sidecar's fake directory), never a raw id.
+    await page.getByRole('button', { name: 'Open session Usage e2e session' }).click();
+    const detail = page.getByRole('region', { name: 'Session usage detail' });
+    await detail.getByText('42').waitFor();
+    await detail.getByRole('heading', { name: 'Usage e2e session' }).waitFor();
     if ((await page.getByText('PROMPT_CONTENT_MUST_NOT_APPEAR').count()) !== 0) {
       throw new Error('dashboard rendered raw persisted content');
+    }
+    if ((await page.getByText('usage-e2e-session').count()) !== 0) {
+      throw new Error('dashboard rendered the raw session id as visible text');
     }
   });
 

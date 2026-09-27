@@ -195,4 +195,72 @@ describe('robota usage', () => {
     // The reporter creates its user store internally; the valid project result must win before it.
     expect(reporter('shared')).toMatchObject({ sessionId: 'shared', totalTokens: 25 });
   });
+
+  it('never leaks a session\'s cwd or message content into the JSON report (#3289 §4)', () => {
+    const sentinel = 'PROMPT_CONTENT_MUST_NOT_APPEAR';
+    const leaky: IInteractiveSessionRecord = {
+      id: 'leaky-session',
+      cwd: `/private/${sentinel}`,
+      createdAt: '2026-09-05T10:00:00.000Z',
+      updatedAt: '2026-09-05T10:00:00.000Z',
+      messages: [
+        {
+          id: 'm1',
+          timestamp: new Date('2026-09-05T10:00:00.000Z'),
+          state: 'complete',
+          role: 'user',
+          content: sentinel,
+        },
+      ],
+      history: [
+        {
+          id: 'usage-observation_leaky',
+          timestamp: new Date('2026-09-05T10:00:00.000Z'),
+          category: 'event',
+          type: 'usage-observation',
+          data: {
+            usageObservationId: 'turn-leaky',
+            turnId: 'turn-leaky',
+            outcome: 'success',
+            providerId: 'openai',
+            modelId: 'gpt-test',
+            surface: 'cli',
+            usage: {
+              kind: 'exact',
+              scope: 'turn',
+              promptTokens: 8,
+              completionTokens: 2,
+              totalTokens: 10,
+              contextUsedTokens: 10,
+              contextMaxTokens: 1000,
+              contextUsedPercentage: 1,
+              costStatus: 'exact',
+              costUsd: 0.01,
+            },
+          },
+        },
+        {
+          id: 'tool-start_leaky',
+          timestamp: new Date('2026-09-05T10:00:00.000Z'),
+          category: 'event',
+          type: 'tool-start',
+          data: { toolName: 'Read', firstArg: sentinel },
+        },
+      ],
+    };
+
+    const result = executeUsageCommand(
+      ['--period', '30d', '--timezone', 'UTC', '--format', 'json'],
+      {
+        userSessionStore: store([
+          { id: 'leaky-session', outcome: { status: 'valid', record: leaky } },
+        ]),
+        now: new Date('2026-09-06T03:00:00.000Z'),
+      },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({ totals: { sessions: 1, totalTokens: 10 } });
+    expect(result.stdout).not.toContain(sentinel);
+  });
 });
