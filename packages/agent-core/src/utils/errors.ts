@@ -168,9 +168,9 @@ export class NetworkError extends RobotaError {
   constructor(
     message: string,
     public readonly originalError?: Error,
+    context?: TErrorContextData,
     /** `undefined` for a network failure with no provider context (e.g. a generic timeout). */
     public readonly provider?: string,
-    context?: TErrorContextData,
   ) {
     super(`Network Error: ${message}`, context);
   }
@@ -242,14 +242,19 @@ export class ModelNotAvailableError extends RobotaError {
     public readonly model: string | undefined,
     public readonly provider: string,
     public readonly availableModels?: string[],
+    /**
+     * `context.originalMessage`, when given, is the vendor's own text (already scrubbed of any
+     * credential by the caller) — folded into `message` so a "Details" disclosure built from
+     * `message` alone still shows the real cause instead of just this class's fixed sentence.
+     */
     context?: TErrorContextData,
   ) {
-    super(
+    const base =
       model !== undefined
         ? `Model "${model}" is not available for provider "${provider}"`
-        : `No model available for provider "${provider}"`,
-      context,
-    );
+        : `No model available for provider "${provider}"`;
+    const detail = context?.['originalMessage'];
+    super(typeof detail === 'string' && detail.length > 0 ? `${base}: ${detail}` : base, context);
   }
 }
 

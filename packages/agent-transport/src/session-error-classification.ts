@@ -25,6 +25,8 @@ export interface ISessionErrorClassification {
   code?: TSessionErrorCode;
   provider?: string;
   retryAfterSeconds?: number;
+  /** For `code: 'model_unavailable'`, the model the request tried, when the failure named one. */
+  model?: string;
 }
 
 const MAX_WRAP_DEPTH = 8;
@@ -72,7 +74,11 @@ export function classifySessionErrorForWire(error: unknown): ISessionErrorClassi
       };
     }
     if (layer instanceof ModelNotAvailableError) {
-      return { code: 'model_unavailable', provider: layer.provider };
+      return {
+        code: 'model_unavailable',
+        provider: layer.provider,
+        ...(layer.model !== undefined && { model: layer.model }),
+      };
     }
     if (layer instanceof NetworkError) {
       return { code: 'network', ...(layer.provider !== undefined && { provider: layer.provider }) };

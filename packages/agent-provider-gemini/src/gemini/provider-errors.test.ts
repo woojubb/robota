@@ -79,11 +79,30 @@ describe('Gemini provider errors', () => {
   });
 
   it('chat maps a not-found model response to ModelNotAvailableError', async () => {
-    generateContent.mockRejectedValue(apiError(404));
-    generateContentStream.mockRejectedValue(apiError(404));
+    // Gemini's real 404 body names the model directly: "models/<name> is not found for API
+    // version ...", with no code distinguishing it from any other 404.
+    const notFound = new ApiError({
+      status: 404,
+      message:
+        'models/gemini-pro is not found for API version v1beta, or is not supported for ' +
+        'generateContent. Call ListModels to see the list of available models.',
+    });
+    generateContent.mockRejectedValue(notFound);
+    generateContentStream.mockRejectedValue(notFound);
     const provider = new GeminiProvider({ apiKey: 'test-key' });
     const error = await failure(() => provider.chat(messages, { model: 'gemini-pro' }));
     expect(error).toBeInstanceOf(ModelNotAvailableError);
+    expect(error.message).toContain('gemini-pro');
+  });
+
+  it('chat keeps an unrelated 404 (no model-not-found signal) as a generic ProviderError', async () => {
+    const notFound = apiError(404);
+    generateContent.mockRejectedValue(notFound);
+    generateContentStream.mockRejectedValue(notFound);
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
+    const error = await failure(() => provider.chat(messages, { model: 'gemini-pro' }));
+    expect(error).toBeInstanceOf(ProviderError);
+    expect(error).not.toBeInstanceOf(ModelNotAvailableError);
   });
 
   it('chatStream keeps HTTP 503', async () => {

@@ -93,6 +93,13 @@ export interface ISessionNotice {
   code?: 'auth' | 'rate_limit' | 'model_unavailable' | 'network' | 'provider';
   provider?: string;
   retryAfterSeconds?: number;
+  /**
+   * For `code: 'model_unavailable'`, the model the failed request tried — captured when the notice
+   * was created (from the wire frame's own `model`, or `sessionStatus` at that moment), never read
+   * live off the CURRENT session status. The person may switch models before dismissing the notice,
+   * and a live read would then blame the new model for the old failure.
+   */
+  model?: string;
 }
 
 export interface ISessionClientHandle {

@@ -16,7 +16,7 @@ import {
   RobotaError,
 } from './errors';
 
-import type { IProviderFailureDetails } from './errors';
+import type { IProviderFailureDetails, TErrorContextData } from './errors';
 
 const HTTP_BAD_REQUEST = 400;
 const HTTP_UNAUTHORIZED = 401;
@@ -51,6 +51,53 @@ const NETWORK_ERROR_CLASSES: ReadonlySet<string> = new Set([
   'APIConnectionError',
   'APIConnectionTimeoutError',
 ]);
+
+/**
+ * A vendor message that names the model itself as the problem — the other half of "does the vendor
+ * say this is about the model" beside a `model_not_found`-style code/type. Written from real vendor
+ * text, not a guess: Anthropic's bare 404 body is just `model: <name>`, no "not found" wording and no
+ * distinguishing code at all; Gemini's is `models/<name> is not found for API version ...`. Neither
+ * pattern fires on an unrelated 404 body such as an openai-compatible self-hosted gateway's
+ * `Cannot POST /wrong/path/chat/completions`, which names no model.
+ *
+ * `model:` is deliberately not anchored to the start of the message: the Stainless SDKs (Anthropic,
+ * OpenAI) fold the whole parsed body into `Error.message` as `${status} ${JSON.stringify(body)}` — so
+ * the vendor's own `"message":"model: claude-x"` shows up mid-string, quoted, not as the first thing
+ * in the text. A JSON *key* named `model` never matches: it is followed by a closing quote before the
+ * colon (`"model":`), not by `model:` directly.
+ */
+const MODEL_NOT_FOUND_MESSAGE_PATTERNS: readonly RegExp[] = [
+  /\bmodel:\s*\S/i,
+  /\bmodels?\b[^.\n]{0,80}\b(?:not found|does not exist|doesn't exist|is not available|not available|unavailable|unrecognized|not recognized|unknown)\b/i,
+  /\b(?:no such model|unknown model|invalid model|unrecognized model|model not found)\b/i,
+];
+
+function messageNamesUnavailableModel(message: string): boolean {
+  return MODEL_NOT_FOUND_MESSAGE_PATTERNS.some((pattern) => pattern.test(message));
+}
+
+/**
+ * Strip anything that reads like a credential out of vendor text before it is kept on a typed error.
+ * A vendor's error body is not supposed to echo request headers, but a misconfigured self-hosted
+ * gateway can bounce the raw request back (an `Authorization` header, a `Bearer` token, or an
+ * `api_key=` query parameter) — this runs once, ahead of every classification below, so nothing built
+ * from `message` (the wire frame's `message`, a GUI "Details" disclosure) can leak one.
+ */
+const SECRET_PATTERNS: readonly RegExp[] = [
+  /\bauthorization\s*:\s*[^\r\n]+/gi,
+  /\bbearer\s+[A-Za-z0-9._-]+/gi,
+  /\b(api[-_]?key)\s*[:=]\s*[^\s&"']+/gi,
+  /\bsk-[A-Za-z0-9_-]{8,}/gi,
+];
+
+function scrubSecrets(text: string): string {
+  return SECRET_PATTERNS.reduce((result, pattern) => {
+    pattern.lastIndex = 0;
+    return result.replace(pattern, (match, group?: string) =>
+      group !== undefined ? `${group}: [REDACTED]` : '[REDACTED]',
+    );
+  }, text);
+}
 
 /** Why a provider call failed, as far as switching models is concerned. */
 export type TProviderFailureReason =
@@ -143,11 +190,22 @@ function readRetryAfterSeconds(error: unknown): number | undefined {
       ? headers.get('retry-after')
       : ((asRecord(headers)?.['retry-after'] ?? asRecord(headers)?.['Retry-After']) as
           string | undefined);
-  if (raw === undefined || raw === null) return undefined;
+  // An empty header (`retry-after: ` with nothing after it) is absent in every way that matters —
+  // `Number('')` is 0, which would otherwise read as "retry immediately" instead of "unknown".
+  if (raw === undefined || raw === null || raw.trim().length === 0) return undefined;
   const asSeconds = Number(raw);
   if (Number.isFinite(asSeconds)) return Math.max(0, asSeconds);
   const asDate = Date.parse(raw);
   return Number.isNaN(asDate) ? undefined : Math.max(0, Math.round((asDate - Date.now()) / 1000));
+}
+
+/** `{ status, type }`, when the vendor gave either — the shared shape kept on every classified error. */
+function failureContext(details: IProviderFailureDetails): TErrorContextData | undefined {
+  if (details.status === undefined && details.type === undefined) return undefined;
+  return {
+    ...(details.status !== undefined && { status: details.status }),
+    ...(details.type !== undefined && { type: details.type }),
+  };
 }
 
 /**
@@ -158,14 +216,18 @@ function readRetryAfterSeconds(error: unknown): number | undefined {
  * authentication failure, a model the vendor does not serve, and a transport failure each become
  * their own typed error (so `AuthenticationError`/`ModelNotAvailableError`/`NetworkError` are actually
  * thrown, not just recognized after the fact); anything left over becomes a `ProviderError` carrying
- * the status and type the vendor reported, with the original kept as `originalError`.
+ * the status and type the vendor reported, with the original kept as `originalError`. Every branch
+ * keeps the vendor's own (scrubbed) message and status/type — as the text baked into `message` for
+ * the types that already carry a free-form one, and as `context` alongside it — so a "Details"
+ * disclosure built from `message` downstream never has less to say than the vendor did.
  */
 export function toProviderError(error: unknown, provider: string, operation: string): Error {
   if (error instanceof RobotaError || isAbort(error)) return error as Error;
   const originalError =
     error instanceof Error ? error : new Error(typeof error === 'string' ? error : '');
   const details = readProviderFailureDetails(error);
-  const message = originalError.message || 'request failed';
+  const message = scrubSecrets(originalError.message || 'request failed');
+  const context = failureContext(details);
 
   if (
     details.status === HTTP_TOO_MANY_REQUESTS ||
@@ -175,6 +237,7 @@ export function toProviderError(error: unknown, provider: string, operation: str
       message || `${provider} rate limit exceeded.`,
       readRetryAfterSeconds(error),
       provider,
+      context,
     );
   }
   if (
@@ -182,22 +245,30 @@ export function toProviderError(error: unknown, provider: string, operation: str
     details.status === HTTP_FORBIDDEN ||
     (details.type !== undefined && AUTH_TYPES.has(details.type))
   ) {
-    return new AuthenticationError(message, provider);
+    return new AuthenticationError(message, provider, context);
   }
-  // A chat endpoint's only addressable resource is the model, so a bare 404 means the model even
-  // without an explicit `model_not_found` code (Anthropic's `not_found_error`, for one, has none).
+  // Classify as the model only when the vendor actually names it as the problem: a
+  // `model_not_found`-style code/type, or a message that says so (see
+  // MODEL_NOT_FOUND_MESSAGE_PATTERNS — Anthropic's and Gemini's real bodies, which carry no
+  // distinguishing code). A bare 404/400 with neither signal — e.g. a mistyped self-hosted endpoint's
+  // "Cannot POST /wrong/path" — falls through to the generic ProviderError below instead of being
+  // misread as "no such model", keeping its real text and status.
   const bareStatus =
     details.status === undefined ||
     details.status === HTTP_BAD_REQUEST ||
     details.status === HTTP_NOT_FOUND;
   const namesUnavailableModel =
     hasModelUnavailableCode(error) ||
-    (details.type !== undefined && MODEL_UNAVAILABLE_CODES.has(details.type));
-  if ((bareStatus && namesUnavailableModel) || details.status === HTTP_NOT_FOUND) {
-    return new ModelNotAvailableError(undefined, provider);
+    (details.type !== undefined && MODEL_UNAVAILABLE_CODES.has(details.type)) ||
+    messageNamesUnavailableModel(message);
+  if (bareStatus && namesUnavailableModel) {
+    return new ModelNotAvailableError(undefined, provider, undefined, {
+      ...context,
+      originalMessage: message,
+    });
   }
   if (isNetworkFailure(error)) {
-    return new NetworkError(message, originalError, provider);
+    return new NetworkError(message, originalError, context, provider);
   }
   return new ProviderError(`${operation}: ${message}`, provider, originalError, undefined, details);
 }

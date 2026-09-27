@@ -441,6 +441,17 @@ describe('decodeServerMessage (issue #2045)', () => {
     });
   });
 
+  it('accepts an error frame naming the model a model_unavailable failure tried', () => {
+    const classified = {
+      type: 'error',
+      message: 'No model available for provider "anthropic"',
+      code: 'model_unavailable',
+      provider: 'anthropic',
+      model: 'claude-x',
+    };
+    expect(decodeServerMessage(classified)).toEqual({ ok: true, message: classified });
+  });
+
   it('refuses an error frame with an unrecognized code', () => {
     expect(
       decodeServerMessage({ type: 'error', message: 'm', code: 'not-a-real-code' }).ok,

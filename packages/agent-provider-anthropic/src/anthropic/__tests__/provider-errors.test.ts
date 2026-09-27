@@ -154,10 +154,35 @@ describe('Anthropic provider errors', () => {
   });
 
   it('chat maps a not-found model response to ModelNotAvailableError', async () => {
-    create.mockRejectedValue(httpError(404, 'not_found_error'));
+    // Anthropic's real not_found_error body for a bad model is just `model: <name>` — no "not found"
+    // wording and no code distinguishing it from any other 404, so the message itself is the signal.
+    create.mockRejectedValue(
+      APIError.generate(
+        404,
+        { type: 'error', error: { type: 'not_found_error', message: `model: ${MODEL}` } },
+        undefined,
+        new Headers(),
+      ),
+    );
     const error = await failure(() => provider.chat(messages, { model: MODEL }));
     expect(error).toBeInstanceOf(ModelNotAvailableError);
     expect((error as ModelNotAvailableError).provider).toBe('anthropic');
+    expect(error.message).toContain(MODEL);
+  });
+
+  it('chat keeps an unrelated 404 (no model_not_found signal) as a generic ProviderError', async () => {
+    create.mockRejectedValue(
+      APIError.generate(
+        404,
+        { type: 'error', error: { type: 'not_found_error', message: 'Cannot POST /wrong/path' } },
+        undefined,
+        new Headers(),
+      ),
+    );
+    const error = await failure(() => provider.chat(messages, { model: MODEL }));
+    expect(error).toBeInstanceOf(ProviderError);
+    expect(error).not.toBeInstanceOf(ModelNotAvailableError);
+    expect(error.message).toContain('Cannot POST /wrong/path');
   });
 
   it('chatStream keeps the status of a failed request', async () => {

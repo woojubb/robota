@@ -195,13 +195,62 @@ describe('toProviderError', () => {
     expect((error as ModelNotAvailableError).provider).toBe('deepseek');
   });
 
-  it('maps a bare 404 (no model_not_found code) to ModelNotAvailableError too', () => {
+  // A mistyped self-hosted endpoint (e.g. an openai-compatible `baseURL`) returns a bare 404 whose
+  // body names no model at all. Earlier, ANY bare 404 became ModelNotAvailableError, dropping the
+  // real cause and reporting "the model isn't available with this key" for what is actually a wrong
+  // URL. `error.message` here is exactly what reaches the wire `error` frame's `message` unchanged
+  // (agent-transport's `subscribeSessionEvents` sends `message: error.message`) and, from there, the
+  // GUI's "Details" disclosure — so this also proves those two keep the vendor's real text.
+  it('keeps a bare 404 with no model-naming signal as a generic ProviderError', () => {
     const error = toProviderError(
-      Object.assign(new Error('not found'), { status: 404, type: 'not_found_error' }),
+      Object.assign(new Error('Cannot POST /wrong/path/chat/completions'), {
+        status: 404,
+        type: 'not_found_error',
+      }),
+      'openai-compatible',
+      'op',
+    );
+    expect(error).toBeInstanceOf(ProviderError);
+    expect(error).not.toBeInstanceOf(ModelNotAvailableError);
+    expect(error.message).toContain('Cannot POST /wrong/path/chat/completions');
+  });
+
+  // Anthropic's real not-found body is just `model: <name>` (no distinguishing code); Gemini's is
+  // `models/<name> is not found for API version ...`. Either way the vendor names the model, so this
+  // stays ModelNotAvailableError — and keeps the vendor's message instead of the old
+  // `new ModelNotAvailableError(undefined, provider)`, which threw the text away entirely.
+  it('maps a 404 that names the model as not found to ModelNotAvailableError, keeping the vendor message', () => {
+    const error = toProviderError(
+      Object.assign(new Error('model: claude-nonexistent'), { status: 404, type: 'not_found_error' }),
       'anthropic',
       'op',
     );
     expect(error).toBeInstanceOf(ModelNotAvailableError);
+    expect(error.message).toContain('model: claude-nonexistent');
+  });
+
+  it('scrubs an API key or Authorization header out of the preserved vendor text, both ways', () => {
+    const genericNotFound = toProviderError(
+      Object.assign(
+        new Error('Cannot POST /wrong/path (Authorization: Bearer sk-live-should-not-leak)'),
+        { status: 404 },
+      ),
+      'openai-compatible',
+      'op',
+    );
+    expect(genericNotFound).not.toBeInstanceOf(ModelNotAvailableError);
+    expect(genericNotFound.message).not.toContain('sk-live-should-not-leak');
+
+    const modelNotFound = toProviderError(
+      Object.assign(new Error('model: claude-x not found (api_key=sk-ant-should-not-leak)'), {
+        status: 404,
+        type: 'not_found_error',
+      }),
+      'anthropic',
+      'op',
+    );
+    expect(modelNotFound).toBeInstanceOf(ModelNotAvailableError);
+    expect(modelNotFound.message).not.toContain('sk-ant-should-not-leak');
   });
 
   it('maps a network failure to NetworkError, carrying the provider', () => {

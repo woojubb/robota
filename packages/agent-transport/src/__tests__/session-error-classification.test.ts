@@ -36,14 +36,19 @@ describe('classifySessionErrorForWire', () => {
     );
   });
 
-  it('classifies a ModelNotAvailableError', () => {
+  it('classifies a ModelNotAvailableError, carrying the model when the failure named one', () => {
     expect(
       classifySessionErrorForWire(new ModelNotAvailableError('claude-x', 'anthropic')),
+    ).toEqual({ code: 'model_unavailable', provider: 'anthropic', model: 'claude-x' });
+    expect(
+      classifySessionErrorForWire(new ModelNotAvailableError(undefined, 'anthropic')),
     ).toEqual({ code: 'model_unavailable', provider: 'anthropic' });
   });
 
   it('classifies a NetworkError, carrying the provider when the failure named one', () => {
-    expect(classifySessionErrorForWire(new NetworkError('down', undefined, 'anthropic'))).toEqual({
+    expect(
+      classifySessionErrorForWire(new NetworkError('down', undefined, undefined, 'anthropic')),
+    ).toEqual({
       code: 'network',
       provider: 'anthropic',
     });

@@ -57,17 +57,28 @@ describe('SessionNotices maps a coded provider error to a plain sentence', () =>
     expect(screen.getByText('OpenAI is limiting requests. Try again in a moment.')).toBeTruthy();
   });
 
-  it('model_unavailable: names the current model from session status', () => {
-    renderNotices(
-      [notice({ code: 'model_unavailable', provider: 'anthropic', message: 'raw' })],
-      { sessionStatus: { model: 'claude-x' } as never },
-    );
+  it('model_unavailable: names the model captured on the notice', () => {
+    renderNotices([
+      notice({ code: 'model_unavailable', provider: 'anthropic', model: 'claude-x', message: 'raw' }),
+    ]);
     expect(screen.getByText('The model "claude-x" isn\'t available with this key.')).toBeTruthy();
   });
 
-  it('model_unavailable: still shows a plain sentence with no current model known', () => {
+  it('model_unavailable: still shows a plain sentence with no model known', () => {
     renderNotices([notice({ code: 'model_unavailable', provider: 'anthropic', message: 'raw' })]);
     expect(screen.getByText("The model isn't available with this key.")).toBeTruthy();
+  });
+
+  it('model_unavailable: keeps naming the model that actually failed after the session switches models', () => {
+    // The notice is created for a failure on model A. The person then switches to model B — the very
+    // fix the notice suggests — and `sessionStatus` updates to match. A live read of the CURRENT
+    // model would now wrongly blame B for A's failure; the notice must keep saying A.
+    renderNotices(
+      [notice({ code: 'model_unavailable', provider: 'anthropic', model: 'model-a', message: 'raw' })],
+      { sessionStatus: { model: 'model-b' } as never },
+    );
+    expect(screen.getByText('The model "model-a" isn\'t available with this key.')).toBeTruthy();
+    expect(screen.queryByText(/model-b/)).toBeNull();
   });
 
   it('network: says the connection could not reach the provider', () => {

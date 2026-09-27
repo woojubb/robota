@@ -186,6 +186,7 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
     code: isOptional(oneOf(['auth', 'rate_limit', 'model_unavailable', 'network', 'provider'])),
     provider: isOptional(isString),
     retryAfterSeconds: isOptional(isFiniteNumber),
+    model: isOptional(isString),
     ...authored,
   },
   command_result: {

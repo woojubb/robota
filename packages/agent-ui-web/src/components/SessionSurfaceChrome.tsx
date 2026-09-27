@@ -177,8 +177,12 @@ function displayProvider(provider: string | undefined): string {
  * A provider/session error classified at the wire boundary (#3289 §3) as one plain sentence naming
  * what happened and, where there is one, the next step — `null` for a notice this classification does
  * not cover, which keeps showing its own `message` instead.
+ *
+ * `model_unavailable` names `notice.model` — captured on the notice when it was created — and never
+ * the session's current model: a still-open notice must keep blaming the model that actually failed
+ * even after the person switches to a different one (the very fix the notice suggests).
  */
-function noticeSentence(notice: ISessionNotice, currentModel: string | undefined): string | null {
+function noticeSentence(notice: ISessionNotice): string | null {
   const provider = displayProvider(notice.provider);
   switch (notice.code) {
     case 'auth':
@@ -191,8 +195,8 @@ function noticeSentence(notice: ISessionNotice, currentModel: string | undefined
       return `${provider} is limiting requests. Try again in ${wait}.`;
     }
     case 'model_unavailable':
-      return currentModel
-        ? `The model "${currentModel}" isn't available with this key.`
+      return notice.model
+        ? `The model "${notice.model}" isn't available with this key.`
         : "The model isn't available with this key.";
     case 'network':
       return `Can't reach ${provider}. Check your connection.`;
@@ -212,11 +216,10 @@ function noticeSentence(notice: ISessionNotice, currentModel: string | undefined
 export function SessionNotices({ state }: { state: IWsSessionState }): React.ReactElement | null {
   const notices = state.sessionNotices ?? [];
   if (notices.length === 0) return null;
-  const currentModel = state.sessionStatus?.model;
   return (
     <div className="pointer-events-none absolute right-4 top-16 z-40 flex w-[min(400px,calc(100%-32px))] flex-col gap-2">
       {notices.slice(-3).map((notice) => {
-        const sentence = noticeSentence(notice, currentModel);
+        const sentence = noticeSentence(notice);
         return (
           <div
             key={notice.id}
