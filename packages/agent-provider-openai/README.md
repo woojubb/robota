@@ -44,6 +44,7 @@ const provider = new OpenAIProvider({
   baseURL: 'https://ai-gateway.vercel.sh/v1',
 });
 // then: defaultModel: { provider: 'openai', model: 'anthropic/claude-sonnet-4-5' }
+// (a gateway model slug, passed through to the gateway as written)
 ```
 
 The API surface follows `baseURL` unless `apiSurface` is set:
@@ -63,28 +64,50 @@ tool is sent with `strict: true` on both the Responses and Chat Completions surf
 OpenAI-compatible endpoint that rejects the `strict` field needs `strictTools` left off. With
 `strictTools` off (the default) tool schemas are forwarded as authored and no `strict` field is sent.
 
+### Reasoning effort and web tools
+
+A reasoning-effort selection (`defaultModel.effort` on a `Robota` agent, or `effort` on a chat call)
+is sent as `reasoning.effort` only on the official Responses API (no `baseURL`) and only for models
+in the provider's verified effort table. On Chat Completions, behind a custom `baseURL`, or for other
+models, the effort is reported as not applied and no native field is sent. When a call selects an
+effort, a static `reasoning` option's `effort` must equal the value sent; a different value, or any
+value when no native effort is sent, is rejected.
+
+Native web search and web fetch are not available through this provider on either surface. Setting
+`nativeWebTools.webSearch` or `nativeWebTools.webFetch` to `true` makes the constructor throw.
+
 ## Options
 
 `new OpenAIProvider(options: IOpenAIProviderOptions)`. One of `apiKey`, `client` or `executor` is
 required; the constructor throws otherwise.
 
-| Option               | Type                                       | Description                                                                                                     |
-| -------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `apiKey`             | `string`                                   | API key used to create the `openai` client.                                                                     |
-| `baseURL`            | `string`                                   | Endpoint base URL (default `https://api.openai.com/v1`). Also switches the default surface to Chat Completions. |
-| `apiSurface`         | `'responses' \| 'chat-completions'`        | Forces the API surface instead of deriving it from `baseURL`.                                                   |
-| `defaultModel`       | `string`                                   | Model used when a call does not name one.                                                                       |
-| `organization`       | `string`                                   | OpenAI organization ID.                                                                                         |
-| `timeout`            | `number`                                   | Request timeout in milliseconds.                                                                                |
-| `strictTools`        | `boolean`                                  | Closes tool object schemas and requests OpenAI strict function calling (see above).                             |
-| `responseFormat`     | `'text' \| 'json_object' \| 'json_schema'` | Response format; `'json_schema'` uses `jsonSchema`.                                                             |
-| `jsonSchema`         | `IOpenAIJsonSchemaDefinition`              | Schema for Structured Outputs when `responseFormat` is `'json_schema'`.                                         |
-| `reasoning`          | `IOpenAIResponsesReasoningOptions`         | Responses API reasoning controls (`effort`, `summary`).                                                         |
-| `includeStreamUsage` | `boolean`                                  | Requests token usage on streaming Chat Completions turns (default `true`).                                      |
-| `client`             | `OpenAI`                                   | A pre-built `openai` client, used instead of `apiKey`.                                                          |
-| `executor`           | `IExecutor`                                | Delegates chat calls to an executor instead of calling the API directly.                                        |
-| `payloadLogger`      | `IPayloadLogger`                           | Logs a summary of each Chat Completions request (model, message count, tools present, temperature, max tokens). |
-| `logger`             | `ILogger`                                  | Logger for internal provider messages (silent by default).                                                      |
+| Option                      | Type                                       | Description                                                                                                     |
+| --------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `apiKey`                    | `string`                                   | API key used to create the `openai` client.                                                                     |
+| `baseURL`                   | `string`                                   | Endpoint base URL (default `https://api.openai.com/v1`). Also switches the default surface to Chat Completions. |
+| `apiSurface`                | `'responses' \| 'chat-completions'`        | Forces the API surface instead of deriving it from `baseURL`.                                                   |
+| `defaultModel`              | `string`                                   | Model used when a call does not name one.                                                                       |
+| `organization`              | `string`                                   | OpenAI organization ID.                                                                                         |
+| `timeout`                   | `number`                                   | Request timeout in milliseconds.                                                                                |
+| `strictTools`               | `boolean`                                  | Closes tool object schemas and requests OpenAI strict function calling (see above).                             |
+| `responseFormat`            | `'text' \| 'json_object' \| 'json_schema'` | Response format; `'json_schema'` uses `jsonSchema`.                                                             |
+| `jsonSchema`                | `IOpenAIJsonSchemaDefinition`              | Schema for Structured Outputs when `responseFormat` is `'json_schema'`.                                         |
+| `reasoning`                 | `IOpenAIResponsesReasoningOptions`         | Responses API reasoning controls (`effort`, `summary`).                                                         |
+| `store`                     | `boolean`                                  | Responses API only: whether OpenAI stores the response; when unset, OpenAI's default applies.                   |
+| `includeEncryptedReasoning` | `boolean`                                  | Responses API only: asks for encrypted reasoning items, so reasoning can continue without server-side state.    |
+| `nativeWebTools`            | `IOpenAINativeWebToolsOptions`             | Not supported: `true` for `webSearch` or `webFetch` throws (see above).                                         |
+| `includeStreamUsage`        | `boolean`                                  | Requests token usage on streaming Chat Completions turns (default `true`).                                      |
+| `client`                    | `OpenAI`                                   | A pre-built `openai` client, used instead of `apiKey`.                                                          |
+| `executor`                  | `IExecutor`                                | Delegates chat calls to an executor instead of calling the API directly.                                        |
+| `payloadLogger`             | `IPayloadLogger`                           | Logs a summary of each Chat Completions request (model, message count, tools present, temperature, max tokens). |
+| `logger`                    | `ILogger`                                  | Logger for internal provider messages (silent by default).                                                      |
+
+## Errors
+
+A failed API call throws a typed error from `@robota-sdk/agent-core`: a `RateLimitError` for a rate
+limit, otherwise a `ProviderError` that carries the HTTP `status` and the error `type` the endpoint
+reported and keeps the SDK error as `originalError`. Both API surfaces, streaming included, map
+failures the same way. An aborted call rethrows the abort unchanged.
 
 ## Exports
 
