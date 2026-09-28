@@ -2,6 +2,8 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
@@ -18,6 +20,7 @@ const skillsModule = {
     {
       name: 'skills',
       description: 'run a skill',
+      modelInvocable: true,
       // Lets a typed `/<skill>` route here, as the product's `/skills` command does.
       semanticRole: 'skillActivation',
       execute: async (context: ICommandHostContext, args: string) =>
@@ -26,6 +29,22 @@ const skillsModule = {
           displayInput: `/${args}`,
           rawInput: `/${args}`,
         })) ?? { success: false, message: 'unknown skill' },
+    },
+  ],
+} as unknown as ICommandModule;
+
+const reloadModule = {
+  name: 'reload-test',
+  systemCommands: [
+    {
+      name: 'reload-plugins',
+      description: 'Refresh installed plugin commands and skills',
+      modelInvocable: false,
+      execute: async () => ({
+        success: true,
+        message: 'Reloaded',
+        data: { pluginRegistryReloaded: true },
+      }),
     },
   ],
 } as unknown as ICommandModule;
@@ -111,7 +130,7 @@ async function sessionWith(options: {
       options.untrusted === true
         ? createRestrictedWorkspaceProjectAccess('untrusted', options.cwd)
         : await createTrustedProjectAccessFixture(options.cwd),
-    commandModules: [skillsModule],
+    commandModules: [skillsModule, reloadModule],
     pluginDirectories: {
       user: options.pluginsDir,
       ...(options.projectPluginsDir !== undefined ? { project: options.projectPluginsDir } : {}),
@@ -125,6 +144,90 @@ async function sessionWith(options: {
 }
 
 describe('a bundle plugin skill', () => {
+  it('refreshes the model catalogue in a real session and retains it during later prompt changes', async () => {
+    const home = tempRoot();
+    const cwd = tempRoot();
+    const settingsPath = join(home, 'settings.json');
+    writeFileSync(settingsPath, '{}');
+    vi.stubEnv('HOME', home);
+    const session = new InteractiveSession({
+      cwd,
+      provider: createScriptedProvider([]).provider,
+      contributionSources: createNodeHostContributionSourcesFixture(cwd),
+      projectAccess: await createTrustedProjectAccessFixture(cwd),
+      commandModules: [skillsModule, reloadModule],
+      pluginDirectories: { user: join(home, 'plugins') },
+      userSettingsSources: [
+        { kind: 'host', scope: 'user', displayName: 'settings', path: settingsPath },
+      ],
+    });
+    try {
+      await session.whenInitialized();
+      expect(session.getSession().getSystemMessage()).not.toContain('tidy skill');
+      installHelperPlugin(home);
+      await session.executeCommand('reload-plugins', '', 'user');
+      expect(session.getSession().getSystemMessage()).toContain('tidy skill');
+      session.applyPersona('concise');
+      expect(session.getSession().getSystemMessage()).toContain('tidy skill');
+      writeFileSync(settingsPath, JSON.stringify({ enabledPlugins: { helper: false } }));
+      await session.executeCommand('reload-plugins', '', 'user');
+      expect(session.getSession().getSystemMessage()).not.toContain('tidy skill');
+      session.applyPersona('helpful');
+      expect(session.getSession().getSystemMessage()).not.toContain('tidy skill');
+    } finally {
+      await session.shutdown();
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('reloads installed and disabled skills in the same session, including model calls', async () => {
+    const home = tempRoot();
+    const pluginsDir = join(home, 'plugins');
+    const { session, run, settingsPath } = await sessionWith({ cwd: tempRoot(), home, pluginsDir });
+    expect(session.listSkills()).toEqual([]);
+    expect(await session.executeModelCommand('reload-plugins', '')).toBeNull();
+    installHelperPlugin(home);
+    await session.executeCommand('reload-plugins', '', 'user');
+    expect(session.listSkills().some((skill) => skill.name === 'tidy')).toBe(true);
+    const enabled = await session.executeCommand('tidy', '', 'user');
+    expect(enabled?.success).toBe(true);
+    await vi.waitFor(() => expect(run).toHaveBeenCalledOnce());
+    const modelRun = await session.executeSkillCommandByName('tidy', '', {
+      invocationSource: 'model',
+    });
+    expect(modelRun?.success).toBe(true);
+    expect(String(modelRun?.data?.['prompt'])).toContain('Tidy from helper.');
+    const commandRun = await session.executeSkillCommandByName('helper:lint', '', {
+      invocationSource: 'model',
+    });
+    expect(String(commandRun?.data?.['prompt'])).toContain('Lint it.');
+    writeFileSync(settingsPath, JSON.stringify({ enabledPlugins: { helper: false } }));
+    await session.executeCommand('reload-plugins', '', 'user');
+    expect(session.listSkills()).toEqual([]);
+    const disabled = await session.executeCommand('tidy', '', 'user');
+    expect(disabled).toBeNull();
+    expect(
+      await session.executeSkillCommandByName('helper:lint', '', { invocationSource: 'model' }),
+    ).toBeNull();
+    expect(
+      await session.executeSkillCommandByName('tidy', '', { invocationSource: 'model' }),
+    ).toBeNull();
+    expect(run).toHaveBeenCalledOnce();
+  });
+
+  it('clears plugin skills on reload when the settings file becomes unparseable', async () => {
+    const home = tempRoot();
+    const { session, settingsPath } = await sessionWith({
+      cwd: tempRoot(),
+      home,
+      pluginsDir: installHelperPlugin(home),
+    });
+    expect(session.listSkills().length).toBeGreaterThan(0);
+    writeFileSync(settingsPath, '{');
+    await session.executeCommand('reload-plugins', '', 'user');
+    expect(session.listSkills()).toEqual([]);
+  });
+
   it('runs when the user types it', async () => {
     const home = tempRoot();
     const { session, run } = await sessionWith({

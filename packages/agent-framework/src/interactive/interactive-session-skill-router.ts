@@ -100,7 +100,7 @@ export class SessionSkillRouter {
     /** Optional remote-command policy (REMOTE-006). Undefined → allow (local == remote); provide one only to opt into a restriction. */
     private readonly remoteCommandPolicy?: IRemoteCommandPolicy,
     /** Skills from the bundle plugins the session loaded. */
-    private readonly pluginSkills: readonly ICommand[] = [],
+    private pluginSkills: readonly ICommand[] = [],
   ) {
     this.allCommandModules = commandModules;
     this.commandExecutor = new SystemCommandExecutor(
@@ -153,6 +153,10 @@ export class SessionSkillRouter {
 
   listCommands(): ICommandListEntry[] {
     return this.commandExecutor.listCommands().map(toCommandListEntry);
+  }
+
+  replacePluginSkills(skills: readonly ICommand[]): void {
+    this.pluginSkills = skills;
   }
 
   listSkills(): ICommandSkillListEntry[] {
@@ -234,8 +238,10 @@ export class SessionSkillRouter {
   }
 
   async executeModelCommand(name: string, args: string): Promise<ICommandResult | null> {
-    return this.commandScope.run({ source: 'model', originDriverId: undefined, locality: undefined }, () =>
-      this.commandExecutor.executeModelInvocable(name, this.getSession(), args));
+    return this.commandScope.run(
+      { source: 'model', originDriverId: undefined, locality: undefined },
+      () => this.commandExecutor.executeModelInvocable(name, this.getSession(), args),
+    );
   }
 
   async executeSkillCommandByName(
