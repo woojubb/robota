@@ -79,10 +79,12 @@ For OpenAI-protocol gateways (Vercel AI Gateway, LiteLLM, OpenRouter), use
 
 ## Errors
 
-A failed API call throws a typed error from `@robota-sdk/agent-core`: a `RateLimitError` for a rate
-limit, otherwise a `ProviderError` that carries the HTTP `status` and Anthropic's error `type` (for
-example `overloaded_error`) and keeps the SDK error as `originalError`. A failure Anthropic reports in
-the middle of a stream is mapped the same way. An aborted call rethrows the abort unchanged.
+A failed API call throws a typed error from `@robota-sdk/agent-core`: `RateLimitError` (with
+`retryAfter` from the `retry-after` header), `AuthenticationError`, `ModelNotAvailableError` or
+`NetworkError` when the failure is one of those, otherwise a `ProviderError` that carries the HTTP
+`status` and Anthropic's error `type` (for example `overloaded_error`) and keeps the SDK error as
+`originalError`. A failure Anthropic reports in the middle of a stream is mapped the same way. An
+aborted call rethrows the abort unchanged. See [Provider failures](../../content/guide/error-handling.md#provider-failures).
 
 ## Exports
 

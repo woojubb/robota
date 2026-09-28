@@ -67,6 +67,20 @@ describe('AnthropicProvider defaultModel', () => {
     expect(requestedModels()).toEqual(['claude-opus-4-5']);
   });
 
+  it('resolves a requested effort for the default model', async () => {
+    const provider = new AnthropicProvider({
+      apiKey: 'sk-ant-test',
+      defaultModel: 'claude-sonnet-4-6',
+    });
+
+    await provider.chat(MESSAGES, { effort: 'low' });
+
+    expect(sdk.create.mock.calls[0]?.[0]).toMatchObject({
+      model: 'claude-sonnet-4-6',
+      output_config: { effort: 'low' },
+    });
+  });
+
   it('uses the model a provider definition configures', async () => {
     const definition = createAnthropicProviderDefinition();
     const provider = definition.createProvider({

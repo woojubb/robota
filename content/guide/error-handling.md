@@ -59,8 +59,9 @@ Every built-in chat provider turns a failed API call into one of these errors:
   Gemini SDK exposes no headers, so it is always undefined there.
 - `AuthenticationError` when the key is rejected (HTTP 401 or 403, or an authentication or permission
   error type).
-- `ModelNotAvailableError` when the vendor names the model as the problem: a `model_not_found` code,
-  or a 400 or 404 whose message names the model.
+- `ModelNotAvailableError` when the vendor names the model as the problem, in a `model_not_found`
+  code or in its message, on a 400, a 404 or a failure with no HTTP status (such as one reported
+  mid-stream).
 - `NetworkError` when the request got no response at all.
 - `ProviderError` for everything else. It carries `provider`, the HTTP `status` and the vendor's
   error `type` when the vendor sent them, and the underlying error as `originalError`.
@@ -240,7 +241,8 @@ const query = createQuery({ provider: new AnthropicProvider({ apiKey }) });
 
 Creating `AnthropicProvider` with no `apiKey`, `client` or `executor` throws a `ConfigurationError`
 immediately. A key that is present but wrong (revoked, rotated, wrong account) is only detected on
-the first call, as a `ProviderError` that `classifyProviderFailure` reports as `'authentication'`.
+the first call, as an `AuthenticationError`, which `classifyProviderFailure` reports as
+`'authentication'`.
 
 ---
 
