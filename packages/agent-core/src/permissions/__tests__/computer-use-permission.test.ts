@@ -19,7 +19,7 @@ import type { TPermissionMode } from '../types';
  * register the same profiles that package declares rather than reading a name table from this one.
  * "Decided exactly like Read / Shell" is now a statement about the DECLARATION — both are `inspect`,
  * both are `execute` — and is asserted where the declaration lives; what this file asserts is that
- * those declarations produce the decisions SELFHOST-010 specified.
+ * those declarations produce the intended permission decisions.
  */
 
 const ALL_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];

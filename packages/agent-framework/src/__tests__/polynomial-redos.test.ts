@@ -31,7 +31,7 @@ import {
 import { createProviderSafeModelCommandToolName } from '../tools/model-command-tool-projection.js';
 import { getWorkspaceProjectReader } from '../workspace-trust/index.js';
 
-/** Pump length. Every pre-fix measurement in the SEC-003 table used this size. */
+/** Pump length. Every pre-fix measurement used this size. */
 const PUMP = 200_000;
 /** Post-fix budget. The fixed parsers all run in single-digit milliseconds, so this is not a tight threshold. */
 const BUDGET_MS = 250;
