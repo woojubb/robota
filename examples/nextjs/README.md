@@ -32,7 +32,7 @@ Open http://localhost:3000 — you should see a streaming chat UI.
 ```
 Client (fetch + ReadableStream)
   └─ POST /api/chat { message }
-       └─ createAgentRuntime({ cwd, provider }).createSession({ permissionMode, bare: true })
+       └─ createAgentRuntime({ cwd, provider }).createSession({ bare: true, deniedTools })
             └─ session.submit(message)
                  ├─ text_delta            → data: { type: "text_delta", text: "..." }
                  ├─ complete/interrupted  → data: { type: "done" }

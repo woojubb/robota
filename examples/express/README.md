@@ -83,7 +83,10 @@ import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const query = createQuery({
   provider: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
+  model: 'gpt-4o',
   additionalTools: [calculatorTool, currentTimeTool],
+  allowedTools: ['calculate', 'get_current_time'],
+  deniedTools: DENIED_TOOLS,
   onTextDelta: (delta) => send({ type: 'text_delta', text: delta }),
 });
 ```
