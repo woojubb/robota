@@ -118,6 +118,14 @@ describe('ExecutionAnalyticsPlugin', () => {
       }
     });
 
+    it('pairs a legacy two-argument start with a result that includes an ID', async () => {
+      const plugin = new ExecutionAnalyticsPlugin();
+      await plugin.beforeToolCall('legacy', {});
+      await plugin.afterToolCall('legacy', {}, { success: true, executionId: 'legacy-call' });
+      expect(plugin.getExecutionStats('tool-call')).toHaveLength(1);
+      expect(plugin.getActiveExecutions()).toHaveLength(0);
+    });
+
     it('tracks tool call lifecycle', async () => {
       const plugin = new ExecutionAnalyticsPlugin();
 

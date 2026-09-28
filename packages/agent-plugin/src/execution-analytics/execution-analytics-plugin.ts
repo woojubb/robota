@@ -187,9 +187,16 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<
   ): Promise<void> {
     const key = result.executionId ? `tool:${result.executionId}` : undefined;
     const data = key ? this.activeExecutions.get(key) : undefined;
-    const execution = key
-      ? data && { executionId: key, executionData: data }
-      : findActiveExecution(this.activeExecutions, 'tool-call', toolName);
+    const legacy = data
+      ? undefined
+      : [...this.activeExecutions].find(
+          ([id, entry]) =>
+            !id.startsWith('tool:') && entry.operation === 'tool-call' && entry.input === toolName,
+        );
+    const execution =
+      data && key
+        ? { executionId: key, executionData: data }
+        : legacy && { executionId: legacy[0], executionData: legacy[1] };
     if (!execution) return;
     const { executionId, executionData } = execution;
     const duration = Date.now() - executionData.startTime;
