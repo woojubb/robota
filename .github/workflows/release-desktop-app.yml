@@ -147,16 +147,28 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
+          # Expanded HERE, from `apps/agent-app` — same directory `$ASSETS` (e.g. `release/*.dmg`) is
+          # written relative to, and the same idiom the "Assert packaged artifacts" step above already
+          # uses successfully. The previous version expanded these patterns AFTER `cd release`, so
+          # `release/*.dmg` was looked up as `release/release/*.dmg`; with nullglob set that matched
+          # nothing and the loop silently ran zero times, publishing an empty manifest.
+          found=()
+          for pattern in $ASSETS; do
+            for f in $pattern; do found+=("$f"); done
+          done
+          if [ ${#found[@]} -eq 0 ]; then
+            echo "::error::no artifacts matched '$ASSETS' — nothing to hash."
+            exit 1
+          fi
           : >"release/$MANIFEST"
           cd release
-          for pattern in $ASSETS; do
-            for f in ${pattern#release/}; do
-              if command -v sha256sum >/dev/null 2>&1; then
-                sha256sum "$f" >>"$MANIFEST"
-              else
-                shasum -a 256 "$f" >>"$MANIFEST"
-              fi
-            done
+          for f in "${found[@]}"; do
+            name=${f#release/}
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256sum "$name" >>"$MANIFEST"
+            else
+              shasum -a 256 "$name" >>"$MANIFEST"
+            fi
           done
           if [ ! -s "$MANIFEST" ]; then
             echo "::error::checksum manifest is empty — nothing was hashed."
