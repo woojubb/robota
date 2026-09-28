@@ -1,9 +1,9 @@
 name: Release — Desktop app
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_run:
+    workflows: ['Release — Bun binaries']
+    types: [completed]
   workflow_dispatch:
     inputs:
       tag:
@@ -37,13 +37,17 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-assets-${{ github.event.inputs.tag || github.ref_name }}
+  group: ${{ github.event.inputs.verify_only == 'true' && 'verify-release-assets-' || 'release-assets-' }}${{ github.event.inputs.tag || github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   desktop:
     name: Package + publish (${{ matrix.os }})
-    if: github.event.inputs.verify_only != 'true'
+    if: >-
+      ${{ github.event.inputs.verify_only != 'true' && (github.event_name != 'workflow_run'
+        || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+          && github.event.workflow_run.head_repository.full_name == github.repository
+          && startsWith(github.event.workflow_run.head_branch, 'v'))) }}
     strategy:
       fail-fast: false
       matrix:
@@ -57,7 +61,7 @@ jobs:
         id: tag
         shell: bash
         env:
-          INPUT_TAG: ${{ github.event.inputs.tag }}
+          INPUT_TAG: ${{ github.event.inputs.tag || github.event.workflow_run.head_branch }}
           REF_NAME: ${{ github.ref_name }}
         run: echo "tag=${INPUT_TAG:-$REF_NAME}" >> "$GITHUB_OUTPUT"
 
@@ -84,6 +88,24 @@ jobs:
             source=$TAG
           fi
           echo "ref=$source" >> "$GITHUB_OUTPUT"
+
+      - name: Require the native release before publishing installers
+        if: github.event.inputs.publish != 'false'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          names=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || true)
+          required="robota-darwin-arm64 robota-darwin-x64 robota-linux-arm64 robota-linux-x64 robota-windows-x64.exe SHA256SUMS.txt"
+          for name in $required; do
+            if ! printf '%s\n' "$names" | grep -Fqx "$name"; then
+              echo "::error::Native release asset $name is missing. Run release-bun-binaries.yml for $TAG before retrying installers."
+              exit 1
+            fi
+          done
 
       - uses: actions/checkout@v7
         with:
@@ -283,7 +305,7 @@ jobs:
       - name: Resolve release tag
         id: tag
         env:
-          INPUT_TAG: ${{ github.event.inputs.tag }}
+          INPUT_TAG: ${{ github.event.inputs.tag || github.event.workflow_run.head_branch }}
           REF_NAME: ${{ github.ref_name }}
         run: echo "tag=${INPUT_TAG:-$REF_NAME}" >> "$GITHUB_OUTPUT"
 
@@ -326,7 +348,7 @@ jobs:
       - name: Resolve release tag
         id: tag
         env:
-          INPUT_TAG: ${{ github.event.inputs.tag }}
+          INPUT_TAG: ${{ github.event.inputs.tag || github.event.workflow_run.head_branch }}
           REF_NAME: ${{ github.ref_name }}
         run: echo "tag=${INPUT_TAG:-$REF_NAME}" >> "$GITHUB_OUTPUT"
 

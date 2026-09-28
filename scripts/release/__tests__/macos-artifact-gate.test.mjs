@@ -18,6 +18,7 @@ function fixture({
   rejectStaple = false,
   requireOpenAssessment = false,
   rejectCliNotarization = false,
+  requireCliAssessment = false,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'macos-gate-test-'));
   scratch.push(root);
@@ -36,7 +37,9 @@ function fixture({
   const mocks = {
     codesign: rejectCliNotarization
       ? 'case "$*" in *"--test-requirement =notarized"*robota-darwin*) exit 1;; esac'
-      : 'exit 0',
+      : requireCliAssessment
+        ? 'case "$*" in *"--test-requirement =notarized"*robota-darwin*) for arg in "$@"; do target="$arg"; done; test -f "$target.assessed";; esac'
+        : 'exit 0',
     xattr: 'echo quarantine',
     uuidgen: 'echo uuid',
     sw_vers: 'echo 26.0',
@@ -44,7 +47,7 @@ function fixture({
     hdiutil:
       'if [ "$1" = attach ]; then for arg in "$@"; do mount="$arg"; done; mkdir -p "$mount/Robota.app"; fi',
     spctl:
-      'case "$*" in *robota-darwin*) echo "rejected (the code is valid but does not seem to be an app)" >&2; exit 3;; esac\n' +
+      'case "$*" in *robota-darwin*) for arg in "$@"; do target="$arg"; done; touch "$target.assessed"; echo "rejected (the code is valid but does not seem to be an app)" >&2; exit 3;; esac\n' +
       (requireOpenAssessment
         ? 'case "$*" in *Robota.dmg*) case "$*" in *"--type open --context context:primary-signature"*) exit 0;; *) exit 1;; esac;; esac'
         : 'exit 0'),
@@ -81,4 +84,11 @@ it('rejects a signed executable that has no Apple notarization ticket', () => {
   expect(result.stdout).toMatch(/BLOCKING\s+FAIL notarization requirement: robota-darwin-arm64/);
   expect(result.stdout).toMatch(/BLOCKING\s+FAIL notarization requirement: robota-darwin-x64/);
   expect(result.status).toBe(1);
+});
+
+it('fetches each standalone CLI ticket before checking notarization on a fresh Mac', () => {
+  const result = fixture({ requireCliAssessment: true });
+  expect(result.stdout).toMatch(/BLOCKING\s+PASS notarization requirement: robota-darwin-arm64/);
+  expect(result.stdout).toMatch(/BLOCKING\s+PASS notarization requirement: robota-darwin-x64/);
+  expect(result.status).toBe(0);
 });
