@@ -272,6 +272,12 @@ These are behaviors a caller cannot infer from a type signature alone.
   first unwraps any tool-call-handoff wrapper (so a child session or fork never inherits one even
   though the parent's own tool list does), then applies the agent definition's denylist, then its
   allowlist, and finally always removes agent-spawning tools regardless of either list.
+- **A session runs the skills and commands of the bundle plugins it may load**, behind the same
+  gates as plugin hooks (a bare session loads none; project plugins need a trusted workspace; a
+  disabled plugin is skipped). Like hooks they are loaded once, when the session is built, and the
+  prompt and the router share that snapshot, so a settings file that changes or stops parsing later
+  cannot re-enable a plugin the user disabled. The session's own skill of the same name wins, then
+  the first plugin to name it.
 - **Agent definitions resolve through three precedence tiers, highest to lowest: discovered
   definitions on disk, then definitions injected by the composition root, then the built-in set (or
   its full replacement).** A composition-root-injected definition can override a framework built-in of

@@ -136,6 +136,7 @@ Register it like any other plugin: `plugins: [new RunLoggerPlugin()]`.
 // Once per run
 beforeRun(input: string, options?: IRunOptions): Promise<void>
 beforeExecution(context: IPluginExecutionContext): Promise<void>
+beforeConversation(context: IPluginExecutionContext): Promise<void>
 afterRun(input: string, response: string, options?: IRunOptions): Promise<void>
 afterExecution(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void>
 afterConversation(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void>
@@ -143,6 +144,7 @@ afterToolExecution(context: IPluginExecutionContext, result: IPluginExecutionRes
 
 // Around every provider call and message
 beforeProviderCall(messages: TUniversalMessage[]): Promise<void>
+onStreamingChunk(chunk: TUniversalMessage): Promise<void> // each streamed piece of text, in order
 afterProviderCall(messages: TUniversalMessage[], response: TUniversalMessage): Promise<void>
 onMessageAdded(message: TUniversalMessage): Promise<void>
 
@@ -151,13 +153,13 @@ onError(error: Error, context?: IPluginErrorContext): Promise<void>
 ```
 
 The `result` given to the after-run methods carries `response`, `duration`, `tokensUsed` (when the
-provider reported usage), `toolsExecuted`, `success`, and `toolCalls` (the name of each tool that
-ran). The `context` carries `executionId` and the conversation `messages`.
+provider reported usage), `toolsExecuted`, `success`, and `toolCalls` (the id and name of each tool
+call that ran, with `result: null` for one that failed). The `context` carries `executionId` and
+the conversation `messages`.
 
-`IPluginHooks` also declares `beforeConversation`, `beforeToolCall`, `beforeToolExecution`,
-`afterToolCall` and `onStreamingChunk`, but the `Robota` run loop does not call them. A plugin that
-needs per-tool or per-provider-call detail should use `afterToolExecution` or
-`afterProviderCall`. A plugin method that throws is logged and does not stop the run.
+`IPluginHooks` also declares `beforeToolCall`, `beforeToolExecution` and `afterToolCall`, but the
+`Robota` run loop does not call them; a plugin that needs per-tool detail should read `toolCalls`
+in `afterToolExecution`. A plugin method that throws is logged and does not stop the run.
 
 ### Stats helpers
 
@@ -340,8 +342,10 @@ Each listener receives an `IEventEmitterEventData`: `type`, `timestamp`, `execut
 | `AGENT_EXECUTION_START`    | When a run starts                                                               |
 | `AGENT_EXECUTION_COMPLETE` | When a run completes (`data.duration`, `data.tokensUsed`, `data.toolsExecuted`) |
 | `AGENT_EXECUTION_ERROR`    | When a run fails (`error`)                                                      |
-| `TOOL_AFTER_EXECUTE`       | After a run, once per tool that ran (`data.toolName`)                           |
-| `TOOL_SUCCESS`             | With `TOOL_AFTER_EXECUTE`, for each tool call                                   |
+| `TOOL_AFTER_EXECUTE`       | After a run, once per tool call that ran (`data.toolName`)                      |
+| `TOOL_SUCCESS`             | With `TOOL_AFTER_EXECUTE`, for each tool call that succeeded                    |
+| `TOOL_ERROR`               | With `TOOL_AFTER_EXECUTE`, for each tool call that failed                       |
+| `CONVERSATION_START`       | When a run starts; only if listed in the `events` option                        |
 | `CONVERSATION_COMPLETE`    | When a run completes; only if listed in the `events` option                     |
 
 By default the plugin emits only the agent-execution and tool events; pass

@@ -141,42 +141,52 @@ export async function executeRound(
   conversationStore.beginAssistant();
   const usageObservationId = executionUsage.createUsageObservationId();
 
-  const { wrappedOnTextDelta, wrappedOnProviderNativeRawPayload } = createRoundStreamingCallbacks(
-    fullContext,
-    conversationStore,
-    executionId,
-    currentRound,
-  );
+  const { wrappedOnTextDelta, wrappedOnProviderNativeRawPayload, settleStreamingChunkHooks } =
+    createRoundStreamingCallbacks(
+      fullContext,
+      conversationStore,
+      executionId,
+      currentRound,
+      plugins,
+      logger,
+    );
 
   const route = openModelRoute(resolved, config.defaultModel.model, executionId);
   const providerCallId = randomId();
-  const response = await callRoundProviderWithEvents(
-    providerMessages,
-    config,
-    resolved,
-    cacheService,
-    fullContext,
-    conversationStore,
-    currentRound,
-    executionId,
-    usageObservationId,
-    logger,
-    wrappedOnTextDelta,
-    wrappedOnProviderNativeRawPayload,
-    (error) => void (roundState.providerFailure = error),
-    route,
-    providerCallId,
-    fullContext.executionJournal
-      ? captureExecutionCheckpoint(
-          conversationMessages,
-          roundState,
-          fullContext,
-          config,
-          maxRounds,
-          deps.toolExecutionService.getLoadedDeferredTools(),
-        )
-      : undefined,
-  );
+  let response: Awaited<ReturnType<typeof callRoundProviderWithEvents>>;
+  try {
+    response = await callRoundProviderWithEvents(
+      providerMessages,
+      config,
+      resolved,
+      cacheService,
+      fullContext,
+      conversationStore,
+      currentRound,
+      executionId,
+      usageObservationId,
+      logger,
+      wrappedOnTextDelta,
+      wrappedOnProviderNativeRawPayload,
+      (error) => void (roundState.providerFailure = error),
+      route,
+      providerCallId,
+      fullContext.executionJournal
+        ? captureExecutionCheckpoint(
+            conversationMessages,
+            roundState,
+            fullContext,
+            config,
+            maxRounds,
+            deps.toolExecutionService.getLoadedDeferredTools(),
+          )
+        : undefined,
+    );
+  } finally {
+    // Every streamed chunk's hooks have run before the round goes on or the run settles, whether
+    // the call returned, failed or was interrupted.
+    await settleStreamingChunkHooks();
+  }
   if (response === null) return true;
 
   const { assistantResponse, assistantToolCalls } = validateAndExtractResponse(

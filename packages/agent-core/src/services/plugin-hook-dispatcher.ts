@@ -57,6 +57,12 @@ const HOOK_HANDLERS: Record<string, TPluginHookHandler> = {
   onMessageAdded: async (plugin, context) => {
     if (plugin.onMessageAdded && context.message) await plugin.onMessageAdded(context.message);
   },
+  beforeConversation: async (plugin, context) => {
+    if (plugin.beforeConversation) await plugin.beforeConversation(toExecutionContext(context));
+  },
+  onStreamingChunk: async (plugin, context) => {
+    if (plugin.onStreamingChunk && context.message) await plugin.onStreamingChunk(context.message);
+  },
   beforeRun: async (plugin, context) => {
     if (plugin.beforeRun && context.input) {
       await plugin.beforeRun(context.input, context.metadata);
