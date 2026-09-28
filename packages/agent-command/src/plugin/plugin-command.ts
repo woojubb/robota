@@ -259,7 +259,7 @@ export async function executeReloadPluginsCommand(
       result.loadedPluginCount === 1
         ? '1 plugin resource'
         : `${result.loadedPluginCount} plugin resources`;
-    return `Reloaded ${suffix}.`;
+    return `Reloaded ${suffix}. Plugin commands and skills are active now; hook changes apply to new sessions.`;
   }).then((result) => {
     if (!result.success) return result;
     // CMD-004 Stage E: the semantic reload already ran HOST-side above (`adapter.reloadPlugins()`);

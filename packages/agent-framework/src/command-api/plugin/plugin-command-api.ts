@@ -16,7 +16,8 @@ export type {
 export const PLUGIN_COMMAND_DESCRIPTION = 'Manage plugins';
 export const PLUGIN_COMMAND_ARGUMENT_HINT =
   'manage | list | install <name@marketplace> | uninstall <name@marketplace> | enable <name@marketplace> | disable <name@marketplace> | marketplace <action>';
-export const RELOAD_PLUGINS_COMMAND_DESCRIPTION = 'Reload all plugin resources';
+export const RELOAD_PLUGINS_COMMAND_DESCRIPTION =
+  'After installing, enabling or disabling plugins, refresh the command list, skill routing and model skill catalogue. Returns the loaded resource count; hook changes need a new session. User-only because this activates installed code.';
 
 /** CMD-004: `/plugin manage` asks the REQUESTING surface to open its plugin manager (UI intent). */
 export function createShowPluginManagerIntent(): TCommandUiIntent {

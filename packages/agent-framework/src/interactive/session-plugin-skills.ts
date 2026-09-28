@@ -60,12 +60,7 @@ export function sessionPluginSettingsPath(scope: ISessionPluginScope): string | 
   return scope.userSettingsSources?.find((source) => source.scope === 'user')?.path;
 }
 
-/**
- * The skills and commands of the bundle plugins this session may load, read once when the session is
- * built, like plugin hooks: a plugin installed, enabled or disabled later takes effect in the next
- * session, and a settings file that changes or stops parsing afterwards cannot re-enable a plugin the
- * user disabled.
- */
+/** Skills and commands admitted for the session's next snapshot; discovery errors admit none. */
 export function loadSessionPluginSkills(scope: ISessionPluginScope): readonly ICommand[] {
   const settingsPath = sessionPluginSettingsPath(scope);
   if (settingsPath === undefined) return [];
