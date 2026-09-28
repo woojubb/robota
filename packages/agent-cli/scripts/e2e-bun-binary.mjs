@@ -89,10 +89,12 @@ try {
 
   try {
     console.log(runNativeFileAuthorityE2e(standalone));
-    check('native replay succeeds and replaced parent is refused', true);
+    // Linux: the project-store replay round-trips and a swapped-in symlink parent is refused.
+    // Everywhere else: the user-store fallback round-trips and nothing project-relative is written.
+    check('native session-store fixture round-trips and stays within its platform contract', true);
   } catch (error) {
     console.error(error);
-    check('native replay succeeds and replaced parent is refused', false);
+    check('native session-store fixture round-trips and stays within its platform contract', false);
   }
 } finally {
   rmSync(cleanRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });

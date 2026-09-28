@@ -39,6 +39,19 @@ function requireLine(file, line) {
   return 'passed';
 }
 
+/**
+ * The exact line `e2e-native-file-authority.mjs` prints on success, on THIS host. It packages
+ * (and standalone-compiles) a project-store replay + symlink-tamper-refusal fixture on Linux only
+ * (ARCH-047: project-relative mutation is provable only via `/proc/self/fd`) — everywhere else it
+ * round-trips a session through the user store instead and confirms nothing project-relative was
+ * written. Kept here rather than imported: this evidence generator has no dependency on agent-cli.
+ */
+function expectedNativeCliLine() {
+  return process.platform === 'linux'
+    ? 'native-file-authority=passed; scenario=project; success=true; replacementDenied=true; cleanupRemoved=true'
+    : 'native-file-authority=passed; scenario=user-store; success=true; projectStateWritten=false; cleanupRemoved=true';
+}
+
 const target = argument('--target');
 const output = argument('--output');
 const node20Log = argument('--node20-log');
@@ -84,13 +97,7 @@ const evidence = {
     sessionLog,
     'result=replay-preserved; replacementDenied=true; cleanupRemoved=true',
   ),
-  packedNodeCli: requireLine(
-    nodeCliLog,
-    'native-file-authority=passed; success=true; replacementDenied=true; cleanupRemoved=true',
-  ),
-  standaloneBunCli: requireLine(
-    bunCliLog,
-    'native-file-authority=passed; success=true; replacementDenied=true; cleanupRemoved=true',
-  ),
+  packedNodeCli: requireLine(nodeCliLog, expectedNativeCliLine()),
+  standaloneBunCli: requireLine(bunCliLog, expectedNativeCliLine()),
 };
 writeFileSync(resolve(output), `${JSON.stringify(evidence, null, 2)}\n`, { flag: 'wx' });
