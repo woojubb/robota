@@ -50,7 +50,7 @@ via `additionalTools`, and forwards streamed text through `onTextDelta` as SSE e
 
 ```
 POST /api/chat { message }
-  └─ createQuery({ provider, additionalTools, onTextDelta })
+  └─ createQuery({ provider, additionalTools, allowedTools, deniedTools, onTextDelta })
        └─ query(message)
             ├─ onTextDelta(delta) → data: { type: "text_delta", text }
             └─ settled             → data: { type: "done" } or { type: "error", message }
@@ -58,18 +58,17 @@ POST /api/chat { message }
 
 ## Tool permissions
 
-As written, the tool calls are refused. `createQuery` runs in the `default` permission mode, and a custom
-tool declares no risk class, so each call to `calculate` or `get_current_time` asks for approval; with no
-`permissionHandler` to answer, the ask is denied and the model sees a permission error. To let these tools
-run, pass `permissionMode: 'bypassPermissions'` to `createQuery` (the default file and shell tools are then
-allowed too), or a `permissionHandler` that approves only these two:
+`createQuery` runs in the `default` permission mode, where a custom tool would ask for approval that no
+one is there to give. The server lists its two tools in `allowedTools`, so they run without asking, and
+denies the built-in tools that run commands, read or change files, reach the network or send files, since
+anyone who can reach `/api/chat` writes the prompt:
 
 ```ts
 const query = createQuery({
   provider: new AnthropicProvider({ apiKey }),
   additionalTools: [calculatorTool, currentTimeTool],
-  permissionHandler: async (toolName) =>
-    toolName === 'calculate' || toolName === 'get_current_time',
+  allowedTools: ['calculate', 'get_current_time'],
+  deniedTools: DENIED_TOOLS,
   onTextDelta: (delta) => send({ type: 'text_delta', text: delta }),
 });
 ```

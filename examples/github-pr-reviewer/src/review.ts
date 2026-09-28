@@ -15,9 +15,24 @@ if (!ANTHROPIC_API_KEY || !GITHUB_TOKEN || !PR_NUMBER || !REPO_OWNER || !REPO_NA
 
 const octokit = new Octokit({ auth: GITHUB_TOKEN });
 
+// The diff is written by whoever opened the pull request, and the job holds a GitHub token, so the
+// reviewer only reads what it is given: no built-in tool that runs commands, reads or changes files,
+// reaches the network or sends files.
 const query = createQuery({
   provider: new AnthropicProvider({ apiKey: ANTHROPIC_API_KEY }),
-  permissionMode: 'bypassPermissions',
+  deniedTools: [
+    'Shell',
+    'Bash',
+    'BackgroundProcess',
+    'Read',
+    'Write',
+    'Edit',
+    'Glob',
+    'Grep',
+    'WebFetch',
+    'WebSearch',
+    'peer_send_file',
+  ],
   maxTurns: 1,
 });
 

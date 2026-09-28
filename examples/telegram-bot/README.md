@@ -59,6 +59,6 @@ Each message runs in a session resumed by chat ID (`resumeSessionId`), so the bo
 within a chat. Session records are written to `.robota/sessions/` in the working directory, but the chat-ID →
 session map lives in memory, so a restart starts every chat fresh.
 
-The session runs with `permissionMode: 'bypassPermissions'` and the default tool set in the bot's working
-directory, so anyone who can message the bot can have the agent read, write and run shell commands there. Run
-it on a machine you control, or pass `deniedTools` to `runtime.createSession()` in `src/bot.ts`.
+Anyone who can message the bot talks to the agent, so the session has none of the built-in tools that run
+commands, read or change files, reach the network or send files (`DENIED_TOOLS` in `src/bot.ts`). Give it
+your own tools with `additionalTools` and approve them by name with `allowedTools`.
