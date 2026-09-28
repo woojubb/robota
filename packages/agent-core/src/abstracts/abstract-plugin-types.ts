@@ -101,6 +101,8 @@ export interface IPluginExecutionResult {
  * above, which lives at this abstracts layer.
  */
 export interface IPluginContext {
+  toolData?: IToolExecutionContext;
+  toolResult?: IToolExecutionResult;
   input?: string;
   response?: string;
   messages?: TUniversalMessage[];
@@ -219,7 +221,11 @@ export interface IPluginHooks {
     context: IPluginExecutionContext,
     result: IPluginExecutionResult,
   ): Promise<void> | void;
-  beforeToolCall?(toolName: string, parameters: TToolParameters): Promise<void> | void;
+  beforeToolCall?(
+    toolName: string,
+    parameters: TToolParameters,
+    context?: IToolExecutionContext,
+  ): Promise<void> | void;
   beforeToolExecution?(
     context: IPluginExecutionContext,
     toolData: IToolExecutionContext,

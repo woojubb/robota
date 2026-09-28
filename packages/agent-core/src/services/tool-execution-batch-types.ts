@@ -24,6 +24,15 @@ export interface IToolExecutionBatchContext {
   signal?: AbortSignal;
   /** Validated durable settlements; these indices never enter a tool body again. */
   recoveredResults?: ReadonlyMap<number, IToolExecutionResult>;
+  /** Observers of dispatched attempts; restored settlements do not re-enter them. */
+  lifecycle?: {
+    beforeDispatch(index: number, context: IToolExecutionContext): Promise<void>;
+    onResult(
+      index: number,
+      context: IToolExecutionContext,
+      result: IToolExecutionResult,
+    ): Promise<void>;
+  };
   /** Awaited per-action boundaries, supplied by the execution owner rather than tool bodies. */
   journal?: {
     continuation?(index: number): IToolContinuation;

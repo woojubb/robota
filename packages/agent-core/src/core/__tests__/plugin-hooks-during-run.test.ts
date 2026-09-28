@@ -16,7 +16,12 @@ import type { IPluginExecutionContext } from '../../abstracts/abstract-plugin-ty
 import type { IAgentConfig, IToolMessage } from '../../interfaces/agent';
 import type { TUniversalMessage } from '../../interfaces/messages';
 import type { IAIProvider, IChatOptions } from '../../interfaces/provider';
-import type { IToolResult, TToolParameters } from '../../interfaces/tool';
+import type {
+  IToolExecutionContext,
+  IToolExecutionResult,
+  IToolResult,
+  TToolParameters,
+} from '../../interfaces/tool';
 import type { IToolSchema } from '../../interfaces/tool-schema';
 
 class ScriptedTool extends AbstractTool {
@@ -39,6 +44,31 @@ class ScriptedTool extends AbstractTool {
 class RecordingPlugin extends AbstractPlugin {
   readonly name = 'RecordingPlugin';
   readonly version = '1.0.0';
+  readonly calls: string[] = [];
+  readonly startedIds: string[] = [];
+  readonly finishedIds: string[] = [];
+  override async beforeToolCall(
+    name: string,
+    _parameters: TToolParameters,
+    context?: IToolExecutionContext,
+  ): Promise<void> {
+    this.startedIds.push(context?.executionId ?? 'missing');
+    this.calls.push(`before:${name}`);
+  }
+  override async beforeToolExecution(
+    _context: IPluginExecutionContext,
+    tool: IToolExecutionContext,
+  ): Promise<void> {
+    this.calls.push(`execute:${tool.toolName}`);
+  }
+  override async afterToolCall(
+    name: string,
+    _parameters: TToolParameters,
+    result: IToolExecutionResult,
+  ): Promise<void> {
+    this.finishedIds.push(result.executionId ?? 'missing');
+    this.calls.push(`after:${name}:${result.success}`);
+  }
   readonly conversations: number[] = [];
   readonly chunks: string[] = [];
 
@@ -73,6 +103,34 @@ function agentWith(plugins: IAgentConfig['plugins'], provider?: IAIProvider): Ro
 }
 
 describe('plugin hooks during a run', () => {
+  it('wraps each tool attempt, including unknown tools, in awaited hooks', async () => {
+    const plugin = new RecordingPlugin();
+    const agent = agentWith(
+      [plugin],
+      createScriptedProvider([
+        ...TURNS.slice(0, 2),
+        { toolCalls: [{ name: 'missing', args: {} }] },
+        { text: 'done' },
+      ]).provider,
+    );
+    await agent.run('go');
+    expect(plugin.calls).toEqual([
+      'before:works',
+      'execute:works',
+      'after:works:true',
+      'before:breaks',
+      'execute:breaks',
+      'after:breaks:false',
+      'before:missing',
+      'execute:missing',
+      'after:missing:false',
+    ]);
+    expect(plugin.startedIds).toEqual(plugin.finishedIds);
+    expect(plugin.startedIds).not.toContain('missing');
+    expect(new Set(plugin.startedIds).size).toBe(3);
+    await agent.destroy();
+  });
+
   it('calls beforeConversation once and onStreamingChunk for each streamed chunk', async () => {
     const plugin = new RecordingPlugin();
 
@@ -123,6 +181,7 @@ describe('plugin hooks during a run', () => {
   it('lets the event emitter plugin emit the conversation start and a tool error', async () => {
     const events = [
       EVENT_EMITTER_EVENTS.CONVERSATION_START,
+      EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE,
       EVENT_EMITTER_EVENTS.TOOL_SUCCESS,
       EVENT_EMITTER_EVENTS.TOOL_ERROR,
     ];
@@ -141,6 +200,8 @@ describe('plugin hooks during a run', () => {
     await agent.run('go');
 
     expect(seen).toContain(`${EVENT_EMITTER_EVENTS.CONVERSATION_START}:`);
+    expect(seen).toContain(`${EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE}:works`);
+    expect(seen).toContain(`${EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE}:breaks`);
     expect(seen).toContain(`${EVENT_EMITTER_EVENTS.TOOL_SUCCESS}:works`);
     expect(seen).toContain(`${EVENT_EMITTER_EVENTS.TOOL_ERROR}:breaks`);
     expect(seen).not.toContain(`${EVENT_EMITTER_EVENTS.TOOL_SUCCESS}:breaks`);
