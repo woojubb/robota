@@ -384,8 +384,8 @@ Every tool call is checked against the permission mode and your allow, deny and 
 
 - Choose the mode with `--permission-mode <mode>` (`--dry-run` means `plan`), or in a session with
   `/mode <mode>` or `/permissions <mode>`.
-- A subagent starts in the mode the session is in when it starts; one already running keeps its
-  mode.
+- A subagent or a fork-context skill starts in the mode the session is in when it starts; one
+  already running keeps its mode.
 - `--allowed-tools a,b` adds tools that run without asking; `--denied-tools a,b` removes tools.
 - `/permissions` shows the rules in force by settings file, the "allow always" approvals, and recent
   refusals with their reason. `/permissions retry <n>` lets one call the `auto` classifier blocked run

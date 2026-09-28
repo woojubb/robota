@@ -265,9 +265,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   the same policy, and a turn that ran on more than one model is charged to each model for its own
   calls. In-process subagents share the decorated provider and so the chain; a child-process
   subagent does not, because its one bound connection would need a binding per entry.
-- **A subagent starts under the parent's permission mode and rules as they are when it starts**, not
-  as they were when the runtime was built, so a switch to `plan` binds every subagent started after
-  it. A subagent already running keeps what it started with.
+- **A subagent or a fork-context skill starts under the parent's permission mode and rules as they
+  are when it starts**, not as they were when the runtime was built, so a switch to `plan` binds
+  every one started after it. One already running keeps what it started with.
 - **Subagent tool filtering has a fixed order, and subagents cannot spawn subagents.** Filtering
   first unwraps any tool-call-handoff wrapper (so a child session or fork never inherits one even
   though the parent's own tool list does), then applies the agent definition's denylist, then its

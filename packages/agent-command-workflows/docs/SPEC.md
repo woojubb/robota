@@ -54,7 +54,8 @@ authoring never searches the process home for a provider profile.
   swallowed; there is no fallback to `cwd`, generic filesystem access, or a default workflow when
   authority/mutation capability, a file, or a DAG is missing or invalid.
 - The `workflows` command is model-invocable: an agent can author and run (or author and save) a
-  workflow from a chat request, subject to the same privilege split between `create` and `build`.
+  workflow from a chat request, subject to the same privilege split between `create` and `build`,
+  except in plan mode, which saves and runs nothing until the plan is approved.
 - The built-in `text-repeat` operation enforces a fixed output-size ceiling before expanding output; a saved
   workflow cannot raise it, and `run` surfaces a violation as a failed command rather than an
   unbounded result.
