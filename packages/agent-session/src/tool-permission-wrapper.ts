@@ -19,6 +19,7 @@ import type { TPreToolHookDecision } from './tool-hook-helpers.js';
 import type { IPermissionEnforcerOptions, IPermissionRefusal } from './permission-types.js';
 import type { TSessionLogData } from './session-logger.js';
 import type {
+  IHookInput,
   IEventService,
   IToolExecutionContext,
   IToolResult,
@@ -144,6 +145,11 @@ export function wrapToolWithPermission(
         return gate.refusal;
       }
 
+      if (gate.parameters !== undefined) {
+        parameters = gate.parameters;
+        hookInput = { ...hookInput, tool_input: parameters as IHookInput['tool_input'] };
+      }
+
       // RUNTIME-005: the turn's signal reaches this wrapper (CORE-018) and stopped here.
       const verdict = await enforcer.checkPermission(
         toolName,
@@ -211,6 +217,16 @@ export function wrapToolWithPermission(
             context?.hookTraceEnv,
           );
           if (nextGate.refusal) throw new DeferredPermissionRefusal(nextGate.refusal);
+          if (
+            nextGate.parameters !== undefined &&
+            JSON.stringify(nextGate.parameters) !== JSON.stringify(approvedArguments)
+          )
+            throw new DeferredPermissionRefusal(
+              toolFailure(
+                'hook-blocked',
+                'A hook cannot replace arguments already settled by the tool; retry as a new call.',
+              ),
+            );
           const effectiveVerdict = await enforcer.checkPermission(
             toolName,
             approvedArguments as TToolArgs,
@@ -241,7 +257,7 @@ export function wrapToolWithPermission(
         const toolContext =
           context === undefined
             ? undefined
-            : { ...context, instanceEventService: sessionEventService };
+            : { ...context, parameters, instanceEventService: sessionEventService };
         if (beforeEffect && originalExecuteWithAdmission) {
           result = await originalExecuteWithAdmission(
             parameters,

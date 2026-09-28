@@ -43,7 +43,7 @@ until its definition, its source or the workspace changes. So:
 | Remote (`"type": "http"`) with `oauth`              | Connects once you run `/mcp approve <server>` and then `/mcp login <server>`.                                                         |
 | Remote without `oauth` (static headers or a helper) | Connects once you run `/mcp approve <server>`; a helper must also be allowed (see below).                                             |
 | `stdio`                                             | Listed in `/mcp`; refused with `missing host authority`. The executable supplies no authority to start a local process from settings. |
-| `sse`, `ws`                                         | Listed, never connected. Only Streamable HTTP and stdio are supported.                                                                |
+| `sse`, `ws`                                         | Reported as unsupported at startup and reload; use Streamable HTTP instead.                                                           |
 
 An application that embeds the CLI through `startCli()` from `@robota-sdk/agent-cli` can supply its
 own approval store (`mcpApprovalStore`) in place of that file, and per-server stdio authorities
