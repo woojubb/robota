@@ -8,6 +8,9 @@ import { join } from 'node:path';
 
 import { dirname, join as pjoin } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { buildBundledRuntimeChildEnv } from './child-env.mjs';
+
 const releaseDir = pjoin(dirname(fileURLToPath(import.meta.url)), '..', 'release');
 const BIN =
   process.platform === 'darwin'
@@ -102,7 +105,13 @@ const url = (t = token) => `ws://127.0.0.1:${port}?token=${encodeURIComponent(t)
 
 const child = spawn(BIN, ['--serve', '--no-session-persistence'], {
   cwd: binCwd,
-  env: { PATH: process.env.PATH, HOME: home, ROBOTA_WS_TOKEN: token, ROBOTA_WS_PORT: String(port) },
+  env: buildBundledRuntimeChildEnv({
+    path: process.env.PATH,
+    home,
+    token,
+    port,
+    systemRoot: process.env.SystemRoot,
+  }),
   stdio: ['ignore', 'ignore', 'pipe'],
 });
 let stderr = '';

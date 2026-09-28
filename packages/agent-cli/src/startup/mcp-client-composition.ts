@@ -858,7 +858,10 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
    * provenance (caught in review — the untokened first version let exactly this happen).
    */
   let pendingReload:
-    | { readonly token: string; readonly provenance: ReadonlyMap<string, IMcpConnectedToolProvenance> }
+    | {
+        readonly token: string;
+        readonly provenance: ReadonlyMap<string, IMcpConnectedToolProvenance>;
+      }
     | undefined;
   let reloadTokenSeq = 0;
   /**
@@ -1029,6 +1032,17 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     return catalog;
   }
 
+  function supportsTransport(
+    request: IMCPActivationRequest,
+    definition: IMCPServerDefinitionResolved,
+  ): boolean {
+    if (definition.transport === 'http' || definition.transport === 'stdio') return true;
+    const reason = `unsupported transport: ${definition.transport}; use Streamable HTTP (type: "http")`;
+    connectionFailures.set(request.serverId, reason);
+    deps.reportDiagnostic(`MCP server "${request.serverId}" was refused: ${reason}.`);
+    return false;
+  }
+
   async function connect(signal?: AbortSignal): Promise<readonly IToolWithEventService[]> {
     connectedByServerId.clear();
     unavailableServers.clear();
@@ -1044,8 +1058,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       const entry = deps.resolvedEntries.find((candidate) => candidate.name === request.serverId);
       if (entry === undefined || entry.definition === undefined) continue;
       const definition = entry.definition;
-      // HTTP and stdio use shared adapters; SSE/WebSocket have no adapter in this composition.
-      if (definition.transport !== 'http' && definition.transport !== 'stdio') continue;
+      if (!supportsTransport(request, definition)) continue;
 
       const connected = await connectOneServer(request, definition, entry.origin, context);
       if (connected === undefined || connected === 'not-admitted') continue;
@@ -1134,7 +1147,10 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       const entry = deps.resolvedEntries.find((candidate) => candidate.name === request.serverId);
       if (entry === undefined || entry.definition === undefined) continue;
       const definition = entry.definition;
-      if (definition.transport !== 'http' && definition.transport !== 'stdio') continue;
+      if (!supportsTransport(request, definition)) {
+        failedServerIds.push(request.serverId);
+        continue;
+      }
 
       // A previous attempt may have left a connection object with no successful discovery — close
       // it before retrying so the retry does not open a second one beside it.

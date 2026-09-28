@@ -27,7 +27,7 @@ import { decideApproval } from './abortable-approval.js';
 import { checkpointedApproval, hasCheckpointedApproval } from './checkpointed-approval.js';
 import { AutoModeGate } from './auto-mode-gate.js';
 import { consentScopeFor } from './consent-scope.js';
-import { buildHookInput, runPreToolHook } from './tool-hook-helpers.js';
+import { buildHookInput, runPreToolGate } from './tool-hook-helpers.js';
 import { PermissionDenialLog } from './permission-denial-log.js';
 import { wrapToolWithPermission } from './tool-permission-wrapper.js';
 import { createWorkspacePathResolver } from './workspace-path-resolver.js';
@@ -42,6 +42,7 @@ import type {
 } from './permission-types.js';
 import type { IPermissionDenial } from './permission-denial-log.js';
 import type { ISessionLogger, TSessionLogData } from './session-logger.js';
+import type { TPreToolHookDecision } from './tool-hook-helpers.js';
 import type { IToolWrapperDeps } from './tool-permission-wrapper.js';
 import type {
   IToolExecutionContext,
@@ -80,6 +81,8 @@ interface IDecisionScope {
   readonly continuation?: IToolExecutionContext['continuation'];
   /** `false` when the call will NOT run inside the command sandbox, so its approval cannot apply. */
   readonly sandboxed?: boolean;
+  /** What the call's PreToolUse hooks decided, applied after the rules and mode. */
+  readonly hookDecision?: TPreToolHookDecision;
 }
 
 export class PermissionEnforcer {
@@ -249,9 +252,18 @@ export class PermissionEnforcer {
       hookTypeExecutors: this.hookTypeExecutors,
       getPermissionMode: this.getPermissionMode,
       log: (event, detail) => this.log(event, detail),
-      checkPermission: (toolName, toolArgs, signal, interaction, hookTraceEnv, continuation) =>
+      checkPermission: (
+        toolName,
+        toolArgs,
+        signal,
+        interaction,
+        hookTraceEnv,
+        continuation,
+        hookDecision,
+      ) =>
         this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv, {
           continuation,
+          ...(hookDecision !== undefined ? { hookDecision } : {}),
         }),
     };
 
@@ -360,8 +372,8 @@ export class PermissionEnforcer {
       this.getPermissionMode(),
       this.transcriptPath,
     );
-    const blocked = await runPreToolHook(this.config.hooks, hookInput, this.hookTypeExecutors);
-    if (blocked) {
+    const gate = await runPreToolGate(this.config.hooks, hookInput, this.hookTypeExecutors);
+    if (gate.refusal || gate.parameters !== undefined) {
       this.log('tool_blocked', { tool: toolName, reason: 'hook', delegated: true });
       return false;
     }
@@ -371,7 +383,7 @@ export class PermissionEnforcer {
       signal,
       'interactive',
       undefined,
-      { sandboxed: false },
+      { sandboxed: false, ...(gate.decision !== undefined ? { hookDecision: gate.decision } : {}) },
     );
     return decision === true;
   }
@@ -448,11 +460,23 @@ export class PermissionEnforcer {
     // decision is made. Fire-and-forget — the hook cannot change the outcome that follows.
     this.firePermissionDecisionHook(toolName, toolArgs, decision, hookTraceEnv);
 
-    if (decision === 'auto') return true;
     if (decision === 'deny') {
       this.denials.record(toolName, toolArgs, 'policy');
       return false;
     }
+    // A hook's `ask` reaches a person whatever the mode or a remembered consent would allow, since
+    // the hook asks again on every call.
+    if (scope.hookDecision === 'ask') {
+      return this.promptForApproval(
+        toolName,
+        toolArgs,
+        signal,
+        interaction,
+        true,
+        scope.continuation,
+      );
+    }
+    if (decision === 'auto') return true;
 
     // 'approve' — route to the human-approval path. An ask that must reach a person every time is
     // not answered by a remembered consent, and does not create one (issue #3081).
@@ -470,6 +494,9 @@ export class PermissionEnforcer {
         scope,
       );
     }
+    // A hook's `allow` answers the person's prompt, not the classifier and not an ask that must
+    // reach a person.
+    if (scope.hookDecision === 'allow' && !fresh && policy?.askAll !== true) return true;
     return this.promptForApproval(
       toolName,
       toolArgs,
@@ -582,7 +609,7 @@ export class PermissionEnforcer {
   /**
    * SELFHOST-009: fire the PermissionDecision hook (informational-only, non-blocking) via the shared
    * `runHooks` path. Fire-and-forget — the result is never awaited or consulted, so it cannot gate the
-   * permission outcome. The sole blocking gate remains PreToolUse (`runPreToolHook`).
+   * permission outcome. The sole blocking gate remains PreToolUse (`runPreToolGate`).
    */
   private firePermissionDecisionHook(
     toolName: string,

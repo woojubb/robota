@@ -10,7 +10,6 @@ works with any provider in the `IProviderDefinition[]` registry passed to its co
 - **Config** `provider` (string) or `providers` (array of `{ provider, model?, priority }`) — one of
   the two is required; `model` (string, optional); `temperature` (default `0.2`); `maxTokens`
   (optional); `baseCredits` (default `0`); `options` (record, passed to the provider config).
-  `strategy` and `maxCostUsd` are accepted but the node does not use them.
 
 Providers are tried in ascending `priority`. An unknown provider, a provider without a resolvable
 credential, or a model outside the provider's allowed list is skipped; the first successful reply is

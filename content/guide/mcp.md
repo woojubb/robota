@@ -34,21 +34,20 @@ That is deliberately not done over MCP.
 
 ### What the CLI can connect
 
-Read this first. The `robota` executable keeps MCP approvals in memory: an approval lasts only for
-the running process, nothing persists across starts, and `/mcp approve` does not connect a server in
-the session where you run it. The one path that connects a server inside a running session is an
-OAuth sign-in after approval, so:
+Read this first. `/mcp approve <server>` connects the server in the session where you run it, and
+the approval is kept in `~/.robota/mcp-approvals.json`, so the server also connects at later starts
+until its definition, its source or the workspace changes. So:
 
 | Server definition                                   | In the `robota` CLI                                                                                                                   |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Remote (`"type": "http"`) with `oauth`              | Connects in the session where you run `/mcp approve <server>` and then `/mcp login <server>`.                                         |
-| Remote without `oauth` (static headers or a helper) | Listed in `/mcp`; cannot connect.                                                                                                     |
+| Remote (`"type": "http"`) with `oauth`              | Connects once you run `/mcp approve <server>` and then `/mcp login <server>`.                                                         |
+| Remote without `oauth` (static headers or a helper) | Connects once you run `/mcp approve <server>`; a helper must also be allowed (see below).                                             |
 | `stdio`                                             | Listed in `/mcp`; refused with `missing host authority`. The executable supplies no authority to start a local process from settings. |
-| `sse`, `ws`                                         | Listed, never connected. Only Streamable HTTP and stdio are supported.                                                                |
+| `sse`, `ws`                                         | Reported as unsupported at startup and reload; use Streamable HTTP instead.                                                           |
 
-An application that embeds the CLI through `startCli()` from `@robota-sdk/agent-cli` can supply a
-durable approval store (`mcpApprovalStore`) and per-server stdio authorities (`mcpStdioAuthorities`);
-with those, approved remote and stdio servers connect at startup.
+An application that embeds the CLI through `startCli()` from `@robota-sdk/agent-cli` can supply its
+own approval store (`mcpApprovalStore`) in place of that file, and per-server stdio authorities
+(`mcpStdioAuthorities`); with those, approved stdio servers connect too.
 
 ### Where definitions live
 
@@ -290,7 +289,8 @@ background session, `robota session events list <id>` and `robota session events
 | Command                                                    | What it does                                                                                      |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `/mcp` or `/mcp status`                                    | Every server's name, approval state, scope, reason and OAuth sign-in state. The model may run it. |
-| `/mcp approve <server>`                                    | Trust and activate a server for this process.                                                     |
+| `/mcp approve <server>`                                    | Trust a server, connect it now, and keep the approval for later sessions.                         |
+| `/mcp reload`                                              | Retry every server that is not connected, and add the tools of those that connect.                |
 | `/mcp reject <server>`                                     | Refuse a server.                                                                                  |
 | `/mcp revoke <server>`                                     | Withdraw an earlier approval.                                                                     |
 | `/mcp login <server> [--no-browser]`                       | Sign in to an OAuth server and connect it in this session.                                        |
@@ -363,7 +363,6 @@ sign-in required, signed out.
 
 ### Limitations
 
-- Approvals are held in memory for one process; see [What the CLI can connect](#what-the-cli-can-connect).
 - A remote server on `localhost` or a private network address is refused by the CLI's default
   address policy.
 - `robota mcp serve` in remote mode serves one session shared by every admitted subject.
@@ -378,7 +377,7 @@ sign-in required, signed out.
 | `MCP server "<name>" was not admitted (pending)`                                          | Run `/mcp approve <name>`, then `/mcp login <name>` for an OAuth server.                            |
 | `MCP server "<name>" was not admitted (untrusted)`                                        | The definition is in project settings; run `robota trust --yes`.                                    |
 | `MCP server "<name>" stdio was refused: missing host authority.`                          | The CLI does not start stdio servers from settings (see above).                                     |
-| `Signed in to MCP server <name>, but it is not approved for this session`                 | Run `/mcp approve <name>`, then `/mcp login <name>` again.                                          |
+| `Signed in to MCP server <name>, but it is not approved for this session`                 | Run `/mcp approve <name>`; it retries the connection using the existing sign-in.                    |
 | `Sign-in … failed (browser-failed)`                                                       | Use `/mcp login <name> --no-browser`.                                                               |
 | `A client secret is never typed into a session.`                                          | Run `robota mcp login <name> --client-secret` in a terminal.                                        |
 | `"mcpHeaderHelpers" in <file> was ignored: only user settings may allow a header helper.` | Move the list to `~/.robota/settings.json` or `~/.claude/settings.json`.                            |

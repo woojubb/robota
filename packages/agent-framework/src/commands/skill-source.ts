@@ -32,12 +32,14 @@ function buildCommand(
   frontmatter: ISkillFrontmatter,
   content: string,
   fallbackName: string,
+  skillDirectory: string | undefined,
 ): ICommand {
   const cmd: ICommand = {
     name: frontmatter.name ?? fallbackName,
     description: frontmatter.description ?? `Skill: ${fallbackName}`,
     source: 'skill',
     skillContent: content,
+    ...(skillDirectory !== undefined ? { skillDirectory } : {}),
   };
 
   if (frontmatter.argumentHint !== undefined) cmd.argumentHint = frontmatter.argumentHint;
@@ -66,9 +68,10 @@ function discovered(
   frontmatter: ISkillFrontmatter | undefined,
   content: string,
   fallbackName: string,
+  skillDirectory: string | undefined,
 ): IDiscoveredCommand {
   if (frontmatter === undefined) return { name: fallbackName };
-  const command = buildCommand(frontmatter, content, fallbackName);
+  const command = buildCommand(frontmatter, content, fallbackName, skillDirectory);
   return { name: command.name, command };
 }
 
@@ -87,7 +90,8 @@ function scanSkillsDir(skillsDir: string, source: IContributionSource): IDiscove
     const content = source.readText(skillFile, 'load skill definition');
     if (content === undefined) continue;
     const frontmatter = decodeSkill(content, skillFile, source);
-    commands.push(discovered(frontmatter, content, entry.name));
+    const skillDirectory = source.locate?.(join(skillsDir, entry.name));
+    commands.push(discovered(frontmatter, content, entry.name, skillDirectory));
   }
 
   return commands;
@@ -107,7 +111,7 @@ function scanCommandsDir(commandsDir: string, source: IContributionSource): IDis
     if (content === undefined) continue;
     const frontmatter = decodeSkill(content, filePath, source);
     const fallbackName = basename(entry.name, '.md');
-    commands.push(discovered(frontmatter, content, fallbackName));
+    commands.push(discovered(frontmatter, content, fallbackName, source.locate?.(commandsDir)));
   }
 
   return commands;
@@ -117,6 +121,26 @@ function scanCommandsDir(commandsDir: string, source: IContributionSource): IDis
 export interface ISkillRootDescriptor {
   readonly root: string;
   readonly kind: 'skills' | 'commands';
+}
+
+/**
+ * `first` followed by the commands of `then` whose names are not already taken, compared
+ * case-insensitively: a session's own skill wins over a plugin skill of the same name, and the first
+ * plugin to name a skill wins over a later one.
+ */
+export function mergeSkillCommands(
+  first: readonly ICommand[],
+  then: readonly ICommand[],
+): ICommand[] {
+  const taken = new Set(first.map((command) => command.name.toLowerCase()));
+  const merged = [...first];
+  for (const command of then) {
+    const name = command.name.toLowerCase();
+    if (taken.has(name)) continue;
+    taken.add(name);
+    merged.push(command);
+  }
+  return merged;
 }
 
 /** Command source that discovers skills from multiple directories */

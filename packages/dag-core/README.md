@@ -78,7 +78,6 @@ them.
 | Authoring   | [`dag-cost`](../dag-cost/README.md)                                 | CEL cost formulas and the cost-metadata model                     |
 | Execution   | [`dag-runtime`](../dag-runtime/README.md)                           | Create, start, query and cancel runs                              |
 | Execution   | [`dag-worker`](../dag-worker/README.md)                             | Execute queued tasks and advance runs                             |
-| Execution   | [`dag-scheduler`](../dag-scheduler/README.md)                       | Scheduled, batch and catch-up run triggers                        |
 | Execution   | [`dag-projection`](../dag-projection/README.md)                     | Read models for runs, lineage and dashboards                      |
 | Adapters    | [`dag-adapters-local`](../dag-adapters-local/README.md)             | In-memory and file-based ports                                    |
 | Adapters    | [`dag-adapters-sqlite`](../dag-adapters-sqlite/docs/README.md)      | SQLite storage and queue                                          |

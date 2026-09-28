@@ -14,6 +14,7 @@ import {
   SkillCommandSource,
   SystemCommandExecutor,
 } from '../commands/index.js';
+import { mergeSkillCommands } from '../commands/skill-source.js';
 import { createSkillActivationEvent } from '../commands/skill-activation-events.js';
 
 import type { TSubmitFn } from './interactive-session-execution-contracts.js';
@@ -98,6 +99,8 @@ export class SessionSkillRouter {
     private readonly shellExec?: TShellExecFn,
     /** Optional remote-command policy (REMOTE-006). Undefined → allow (local == remote); provide one only to opt into a restriction. */
     private readonly remoteCommandPolicy?: IRemoteCommandPolicy,
+    /** Skills from the bundle plugins the session loaded. */
+    private pluginSkills: readonly ICommand[] = [],
   ) {
     this.allCommandModules = commandModules;
     this.commandExecutor = new SystemCommandExecutor(
@@ -152,8 +155,17 @@ export class SessionSkillRouter {
     return this.commandExecutor.listCommands().map(toCommandListEntry);
   }
 
+  replacePluginSkills(skills: readonly ICommand[]): void {
+    this.pluginSkills = skills;
+  }
+
   listSkills(): ICommandSkillListEntry[] {
-    return this.skillCommandSource.getCommands().map(toSkillListEntry);
+    return this.allSkills().map(toSkillListEntry);
+  }
+
+  /** The session's own skills, then the plugin skills whose names they do not already use. */
+  private allSkills(): ICommand[] {
+    return mergeSkillCommands(this.skillCommandSource.getCommands(), this.pluginSkills);
   }
 
   listModelInvocableCommands(): Array<{ name: string; description: string }> {
@@ -165,9 +177,9 @@ export class SessionSkillRouter {
 
   findSkillCommand(name: string): ICommand | undefined {
     const normalizedName = normalizeNameToken(name);
-    return this.skillCommandSource
-      .getCommands()
-      .find((skill) => skill.name.toLowerCase() === normalizedName.toLowerCase());
+    return this.allSkills().find(
+      (skill) => skill.name.toLowerCase() === normalizedName.toLowerCase(),
+    );
   }
 
   async executeCommand(
@@ -226,8 +238,10 @@ export class SessionSkillRouter {
   }
 
   async executeModelCommand(name: string, args: string): Promise<ICommandResult | null> {
-    return this.commandScope.run({ source: 'model', originDriverId: undefined, locality: undefined }, () =>
-      this.commandExecutor.executeModelInvocable(name, this.getSession(), args));
+    return this.commandScope.run(
+      { source: 'model', originDriverId: undefined, locality: undefined },
+      () => this.commandExecutor.executeModelInvocable(name, this.getSession(), args),
+    );
   }
 
   async executeSkillCommandByName(
@@ -324,7 +338,11 @@ export class SessionSkillRouter {
           runInFork: (content, options) => this.runSkillInFork(content, options),
           ...(this.shellExec ? { shellExec: this.shellExec } : {}),
         },
-        { sessionId: this.getSessionId() },
+        {
+          sessionId: this.getSessionId(),
+          ...(skill.skillDirectory !== undefined ? { skillDir: skill.skillDirectory } : {}),
+          ...(skill.pluginDir !== undefined ? { pluginRoot: skill.pluginDir } : {}),
+        },
       );
       this.emitSkillActivation(skill, invocation, 'completed', qualifiedName, {
         appendHistory: false,

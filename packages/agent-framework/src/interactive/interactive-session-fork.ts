@@ -63,7 +63,8 @@ export async function runSkillInFork(
     // session's root rather than re-deriving one.
     cwd: parentSession.getCwd(),
     isForkWorker: true,
-    permissionMode: deps.permissionMode,
+    // The mode the parent is in now: a fork started after a switch to `plan` must not edit.
+    permissionMode: parentSession.getPermissionMode(),
     ...(deps.commandSemanticRoles ? { commandSemanticRoles: deps.commandSemanticRoles } : {}),
     ...(deps.modelCommandToolPrefix ? { modelCommandToolPrefix: deps.modelCommandToolPrefix } : {}),
     permissionHandler: deps.permissionHandler,

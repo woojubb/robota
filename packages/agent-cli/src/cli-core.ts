@@ -129,6 +129,7 @@ import { runMcpServeMode } from './modes/mcp-serve-mode.js';
 import { resolveMcpHttpOptions } from './utils/mcp-http-args.js';
 import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
 import { composeMcpClientForStartup, mcpStartupModelNotice } from './startup/mcp-startup.js';
+import { resolveMcpApprovalStore } from './startup/mcp-approval-file-store.js';
 import { composeCliAdvisor } from './startup/advisor-composition.js';
 import type { TMcpStartupMode } from './startup/mcp-startup.js';
 import type { Writable } from 'node:stream';
@@ -423,9 +424,7 @@ async function runCliCore(
           ...(options.mcpStdioAuthorities === undefined
             ? {}
             : { stdioAuthorities: options.mcpStdioAuthorities }),
-          ...(options.mcpApprovalStore === undefined
-            ? {}
-            : { approvalStore: options.mcpApprovalStore }),
+          approvalStore: resolveMcpApprovalStore(options.mcpApprovalStore),
           ...(options.mcpHttpTransportDeps === undefined
             ? {}
             : { httpTransportDeps: options.mcpHttpTransportDeps }),

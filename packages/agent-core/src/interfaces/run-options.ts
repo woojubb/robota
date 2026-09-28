@@ -101,7 +101,8 @@ export interface IRunOptions {
    * The summary call is the one made when the round cap ends the loop on a tool round; before the cap
    * the model is called again after tool results as usual, so a decision agent sets
    * `maxExecutionRounds` too (e.g. `1`). The run resolves with the turn's text, or `''` when it
-   * produced none; consumers read the outcome from the tool results.
+   * ended in tool results (consumers read the outcome from those results), and rejects with
+   * `EmptyCompletionError` when it produced neither text nor a tool result.
    */
   allowToolOnlyCompletion?: boolean;
   /**

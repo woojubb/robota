@@ -1,5 +1,15 @@
 # @robota-sdk/agent-transport-http
 
+## 3.0.0-beta.85
+
+### Patch Changes
+
+- 54e2848: `POST /submit` on a session that is still starting (a fresh `InteractiveSession`) now waits for it to start and runs the turn. It used to answer 500 ("concurrent-turn tracking is unavailable") until background initialization finished. A session that fails to start is answered 500 without the reason. `IHttpTransportSession` gains an optional `whenInitialized()` for this.
+- Updated dependencies [9a01e78]
+  - @robota-sdk/agent-transport@3.0.0-beta.85
+  - @robota-sdk/agent-interface-session@3.0.0-beta.85
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.85
+
 ## 3.0.0-beta.84
 
 ### Patch Changes

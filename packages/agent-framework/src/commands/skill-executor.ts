@@ -58,7 +58,15 @@ async function buildProcessedContent(
   context?: ISkillPromptContext,
 ): Promise<string | null> {
   if (!skill.skillContent) return null;
-  const preprocessed = await preprocessShellCommands(skill.skillContent, callbacks.shellExec);
+  // Commands run before substitution, so the model's `$ARGUMENTS` never reach a shell; the skill's
+  // own variables reach it as environment variables instead.
+  // Set even when empty, so a value the host process happens to carry never stands in for them.
+  const env: Record<string, string> = {
+    CLAUDE_SKILL_DIR: context?.skillDir ?? '',
+    CLAUDE_SESSION_ID: context?.sessionId ?? '',
+    CLAUDE_PLUGIN_ROOT: context?.pluginRoot ?? '',
+  };
+  const preprocessed = await preprocessShellCommands(skill.skillContent, callbacks.shellExec, env);
   return substituteVariables(preprocessed, args, context);
 }
 

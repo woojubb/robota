@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-framework",
-  "version": "3.0.0-beta.84",
+  "version": "3.0.0-beta.85",
   "description": "Programmatic SDK for building AI agents with Robota — provides InteractiveSession, createQuery(), command APIs, permissions, hooks, and context loading",
   "type": "module",
   "main": "dist/node/index.js",
@@ -99,6 +99,7 @@
     "@robota-sdk/agent-interface-session": "workspace:*",
     "@robota-sdk/agent-interface-session-mobility": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
+    "@robota-sdk/agent-roundtable": "workspace:*",
     "@robota-sdk/agent-session": "workspace:*",
     "@robota-sdk/agent-tool-defaults": "workspace:*",
     "@robota-sdk/agent-tools": "workspace:*",

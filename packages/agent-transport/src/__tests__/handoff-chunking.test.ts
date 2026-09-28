@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   chunkCountFor,
@@ -211,5 +211,48 @@ describe('HANDOFF-001 TC-06 — a mangled chunk is caught where it arrives', () 
 
     expect(verifyHandoffPayload(last?.serialized ?? '', integrity).intact).toBe(true);
     expect(JSON.parse(last?.serialized ?? '{}')).toEqual(record);
+  });
+});
+
+describe('without Node’s Buffer, as in the browser build', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('chunks and reassembles a multi-byte payload', () => {
+    vi.stubGlobal('Buffer', undefined);
+    const serialized = JSON.stringify({ text: '핸드오프 ✓ '.repeat(200) });
+    const assembler = new HandoffChunkAssembler('h-browser');
+    let result: ReturnType<HandoffChunkAssembler['accept']> | undefined;
+
+    for (const chunk of chunkHandoffPayload('h-browser', serialized, 64)) {
+      result = assembler.accept(chunk);
+    }
+
+    expect(result).toMatchObject({ outcome: 'complete', serialized });
+  });
+
+  it('keeps a leading byte-order mark', () => {
+    vi.stubGlobal('Buffer', undefined);
+    const serialized = '\uFEFF{"text":"bom"}';
+    const assembler = new HandoffChunkAssembler('h-bom');
+    let result: ReturnType<HandoffChunkAssembler['accept']> | undefined;
+
+    for (const chunk of chunkHandoffPayload('h-bom', serialized, 4)) {
+      result = assembler.accept(chunk);
+    }
+
+    expect(result).toMatchObject({ outcome: 'complete', serialized });
+  });
+
+  it('refuses a chunk whose base64 is not canonical', () => {
+    vi.stubGlobal('Buffer', undefined);
+    const [chunk] = chunkHandoffPayload('h-browser', 'hello', 64);
+    const assembler = new HandoffChunkAssembler('h-browser');
+
+    expect(assembler.accept({ ...chunk!, data: ` ${chunk!.data}` })).toMatchObject({
+      outcome: 'refused',
+      rejection: 'undecodable',
+    });
   });
 });

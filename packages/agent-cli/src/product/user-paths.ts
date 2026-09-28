@@ -9,6 +9,7 @@ export function userPaths(home: string = homedir()): {
   history: string;
   workspaceTrust: string;
   orgPolicy: string;
+  mcpApprovals: string;
 } {
   const base = userLocalStorageRoot(home);
   return {
@@ -18,6 +19,7 @@ export function userPaths(home: string = homedir()): {
     history: join(base, 'history.jsonl'),
     workspaceTrust: join(base, 'workspace-trust.json'),
     orgPolicy: join(base, 'org-policy.json'),
+    mcpApprovals: join(base, 'mcp-approvals.json'),
   };
 }
 

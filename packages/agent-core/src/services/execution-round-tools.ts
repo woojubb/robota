@@ -12,6 +12,7 @@ import { appendExecutionRecord } from './execution-journal';
 import type { IExecutionJournal } from '../interfaces/execution-journal';
 import type { IRecoveredToolBatch } from './execution-recovery-state';
 import { toolContinuation } from './execution-tool-waits';
+import { callPluginHook } from './plugin-hook-dispatcher';
 
 import type { IRoundDependencies } from './execution-round-types';
 import type { IToolExecutionBatchContext } from './tool-execution-service';
@@ -123,6 +124,28 @@ export async function executeAndRecordToolCalls(
     maxConcurrency: 5,
     continueOnError: true,
     signal,
+  };
+  toolContext.lifecycle = {
+    beforeDispatch: async (index, toolData) => {
+      // A pre-effect wait resumes the wrapper, not a new logical call.
+      const request = toolRequests[index];
+      if (journalContext?.recovery?.actions.get(request.executionId ?? '')?.dispatched) return;
+      const context = { toolData, executionContext: { executionId, sessionId: conversationId } };
+      await callPluginHook(deps.plugins, 'beforeToolCall', context, logger);
+      await callPluginHook(deps.plugins, 'beforeToolExecution', context, logger);
+    },
+    onResult: async (_index, toolData, toolResult) => {
+      await callPluginHook(
+        deps.plugins,
+        'afterToolCall',
+        {
+          toolData,
+          toolResult,
+          executionContext: { executionId, sessionId: conversationId },
+        },
+        logger,
+      );
+    },
   };
   if (journalContext) {
     const { journal, parentCallId } = journalContext;
@@ -244,17 +267,23 @@ export async function executeAndRecordToolCalls(
     } as TExecutionEventData);
   });
 
+  const ranResults = toolSummary.results.filter(
+    (result) => !isUnknownToolExecutionResult(result) && !isArgumentDecodeErrorResult(result),
+  );
   roundState.toolsExecuted.push(
-    ...toolSummary.results
-      .filter(
-        (result) => !isUnknownToolExecutionResult(result) && !isArgumentDecodeErrorResult(result),
-      )
-      .map((r) => {
-        if (!r.toolName || r.toolName.length === 0) {
-          throw new Error('[EXECUTION] Tool result missing toolName');
-        }
-        return r.toolName;
-      }),
+    ...ranResults.map((r) => {
+      if (!r.toolName || r.toolName.length === 0) {
+        throw new Error('[EXECUTION] Tool result missing toolName');
+      }
+      return r.toolName;
+    }),
+  );
+  roundState.toolCallOutcomes.push(
+    ...ranResults.map((r) => ({
+      ...(r.executionId !== undefined ? { id: r.executionId } : {}),
+      name: r.toolName ?? '',
+      success: r.success,
+    })),
   );
 
   const contextLimit =

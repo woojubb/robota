@@ -265,10 +265,19 @@ These are behaviors a caller cannot infer from a type signature alone.
   the same policy, and a turn that ran on more than one model is charged to each model for its own
   calls. In-process subagents share the decorated provider and so the chain; a child-process
   subagent does not, because its one bound connection would need a binding per entry.
+- **A subagent or a fork-context skill starts under the parent's permission mode and rules as they
+  are when it starts**, not as they were when the runtime was built, so a switch to `plan` binds
+  every one started after it. One already running keeps what it started with.
 - **Subagent tool filtering has a fixed order, and subagents cannot spawn subagents.** Filtering
   first unwraps any tool-call-handoff wrapper (so a child session or fork never inherits one even
   though the parent's own tool list does), then applies the agent definition's denylist, then its
   allowlist, and finally always removes agent-spawning tools regardless of either list.
+- **A session runs the skills and commands of the bundle plugins it may load**, behind the same
+  gates as plugin hooks (a bare session loads none; project plugins load only from a folder inside
+  the trusted workspace; a disabled plugin is skipped). The prompt and router share the same
+  admitted snapshot until an explicit user reload replaces both; unreadable settings cannot activate
+  installed code. The session's own skill of the same name wins, then
+  the first plugin to name it.
 - **Agent definitions resolve through three precedence tiers, highest to lowest: discovered
   definitions on disk, then definitions injected by the composition root, then the built-in set (or
   its full replacement).** A composition-root-injected definition can override a framework built-in of
@@ -340,6 +349,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   A skipped candidate is never persisted anywhere, including the pending queue. Approval accepts only a
   `pending` candidate and re-runs the check, so nothing flagged reaches durable memory. This is a
   heuristic, not a secret scanner: a secret that reads like prose can still pass.
+- **`group-chat`'s only turn loop is the Roundtable core's.** The facade keeps no transcript, turn
+  counter or loop of its own, so conversation orchestration lives in exactly one place; it makes no
+  durability or cancellation claim beyond what the legacy loop it replaced already made.
 
 ## Error taxonomy (shape, not enumeration)
 

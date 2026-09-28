@@ -1,4 +1,4 @@
-import { parseModelEffort } from '@robota-sdk/agent-framework';
+import { VALID_PERMISSION_MODES, parseModelEffort } from '@robota-sdk/agent-framework';
 
 import type {
   IPreset,
@@ -13,13 +13,8 @@ export type TPresetValidationResult = { ok: true; preset: IPreset } | { ok: fals
 /** Runtime membership list for {@link TPresetAutonomy}. */
 const AUTONOMY_VALUES: readonly TPresetAutonomy[] = ['ask-first', 'act-first', 'balanced'];
 
-/** Runtime membership list for {@link TPresetPermissionMode}. */
-const PERMISSION_MODE_VALUES: readonly TPresetPermissionMode[] = [
-  'plan',
-  'default',
-  'acceptEdits',
-  'bypassPermissions',
-];
+/** Runtime membership list for {@link TPresetPermissionMode}: every mode a session accepts. */
+const PERMISSION_MODE_VALUES: readonly TPresetPermissionMode[] = VALID_PERMISSION_MODES;
 
 /** Narrowing guard: `value` is a non-null, non-array object. */
 function isPlainObject(value: unknown): value is Record<string, unknown> {

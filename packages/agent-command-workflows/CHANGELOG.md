@@ -1,5 +1,39 @@
 # @robota-sdk/agent-command-workflows
 
+## 3.0.0-beta.9
+
+### Patch Changes
+
+- 2e07cad: A subagent and a fork-context skill now start in the permission mode their parent is in at that
+  moment. The runtime used to hand them the mode it was built with, so after a switch to `plan` a
+  subagent the model started, or a skill it ran in a fork, still ran in the earlier mode and could
+  edit. `IInProcessSubagentRunnerDeps` gains the optional `getParentPermissionMode`, which the session
+  wires to its live mode; the in-process and child-process runners read it at spawn and fall back to
+  `permissionMode` when it is absent.
+
+  In plan mode the model can no longer run `/workflows create` or `/workflows build`: both save to
+  the project, and `create` also runs the workflow. The user can still run them by hand.
+
+- Updated dependencies [4e11579]
+- Updated dependencies [41cca13]
+- Updated dependencies [193a0bc]
+- Updated dependencies [54e2848]
+- Updated dependencies [3c1967f]
+- Updated dependencies [ada3841]
+- Updated dependencies [5093a30]
+- Updated dependencies [5684612]
+- Updated dependencies [6ee8725]
+- Updated dependencies [6072e9a]
+- Updated dependencies [94b2c87]
+- Updated dependencies [3ab2eca]
+- Updated dependencies [2e07cad]
+  - @robota-sdk/agent-framework@3.0.0-beta.85
+  - @robota-sdk/agent-core@3.0.0-beta.85
+  - @robota-sdk/agent-interface-command@3.0.0-beta.85
+  - @robota-sdk/dag-framework@1.0.0-beta.9
+  - @robota-sdk/dag-nodes-default@0.1.0-beta.6
+  - @robota-sdk/dag-node-instant-node@3.0.0-beta.69
+
 ## 3.0.0-beta.8
 
 ### Patch Changes

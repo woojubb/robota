@@ -68,6 +68,7 @@ export type { IAgentRuntimeResult } from './build-agent-runtime.js';
  * copy that forgets a field.
  */
 export interface TLivePromptOverrides {
+  skills?: ISystemPromptParams['skills'];
   outputStyle?: IOutputStylePrompt;
   persona?: string;
   selfVerification?: boolean | string;
@@ -297,11 +298,13 @@ export function buildSessionSystemPrompt(
     ? `${systemMessage}\n\n${options.appendSystemPrompt}`
     : systemMessage;
 
+  let currentSkills = staticPromptParams.skills;
   const rebuildSystemMessage = (
     newAgentsMd: string,
     newProjectNotesMd: string,
     overrides?: TLivePromptOverrides,
   ): string => {
+    if (overrides?.skills !== undefined) currentSkills = overrides.skills;
     if (overrides?.outputStyle !== undefined) {
       currentOutputStyle = overrides.outputStyle;
     }
@@ -323,6 +326,7 @@ export function buildSessionSystemPrompt(
     }
     const rebuilt = buildPrompt({
       ...staticPromptParams,
+      skills: currentSkills,
       ...(currentOutputStyle !== undefined ? { outputStyle: currentOutputStyle } : {}),
       ...(currentPersona !== undefined ? { persona: currentPersona } : {}),
       ...(currentSelfVerification !== undefined
@@ -360,6 +364,7 @@ export function wireSessionDeps(
     agentToolDeps.isParallelSubagentsEnabled = () => session.getParallelSubagentsEnabled();
     // Issue #3081: subagents inherit what this session's gate enforces now, not the settings file.
     agentToolDeps.getParentPermissionRules = () => session.getPermissionRules();
+    agentToolDeps.getParentPermissionMode = () => session.getPermissionMode();
   }
   if (backgroundProcessToolDeps) backgroundProcessToolDeps.parentSessionId = session.getSessionId();
   storeSessionBackgroundTaskManager(session, backgroundTaskManager);

@@ -1,5 +1,18 @@
 # @robota-sdk/agent-provider-replay
 
+## 3.0.0-beta.85
+
+### Patch Changes
+
+- Updated dependencies [41cca13]
+- Updated dependencies [ada3841]
+- Updated dependencies [5093a30]
+- Updated dependencies [94b2c87]
+- Updated dependencies [10597b2]
+- Updated dependencies [3ab2eca]
+  - @robota-sdk/agent-core@3.0.0-beta.85
+  - @robota-sdk/agent-session@3.0.0-beta.85
+
 ## 3.0.0-beta.84
 
 ### Patch Changes

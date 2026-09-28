@@ -33,22 +33,32 @@ export class NodeHostPluginSettingsStore {
     this.fs = fs;
   }
 
-  /** Read the full settings file from disk. */
+  /**
+   * Read the full settings file from disk. A file that does not parse to an object throws: read as
+   * `{}` it would say no plugin is disabled, re-enabling every plugin the user turned off, and a
+   * write would replace the user's whole settings file with the plugin keys alone.
+   */
   private readAll(): Record<string, unknown> {
     if (!this.fs.existsSync(this.settingsPath)) {
       return {};
     }
+    const raw = this.fs.readFileSync(this.settingsPath, 'utf-8');
+    let data: unknown;
     try {
-      const raw = this.fs.readFileSync(this.settingsPath, 'utf-8');
-      const data: unknown = JSON.parse(raw);
-      if (typeof data === 'object' && data !== null) {
-        return data as Record<string, unknown>;
-      }
-      return {};
-    } catch {
-      // allow-fallback: corrupt settings file returns empty object to allow recovery
-      return {};
+      data = JSON.parse(raw);
+    } catch (error) {
+      throw new Error(
+        `Plugin settings cannot be read: ${this.settingsPath} is not valid JSON. ` +
+          'Fix the file; until then no plugin is loaded and plugin settings are not changed.',
+        { cause: error },
+      );
     }
+    if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+      throw new Error(
+        `Plugin settings cannot be read: ${this.settingsPath} does not hold a JSON object.`,
+      );
+    }
+    return data as Record<string, unknown>;
   }
 
   /** Write the full settings file to disk. */

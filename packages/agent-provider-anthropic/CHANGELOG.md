@@ -1,5 +1,21 @@
 # @robota-sdk/agent-provider-anthropic
 
+## 3.0.0-beta.85
+
+### Patch Changes
+
+- cd036b4: `AnthropicProvider` now uses its `defaultModel` option when a chat call names no model, as the other built-in providers do. The Anthropic provider definition already passed the configured model as `defaultModel`, and a call without a model threw "Model is required" instead of using it.
+- 3ab2eca: - External presets accept every permission mode a session does, `auto` included; `auto` used to fail validation.
+  - `createDagFramework({ ports: { costMeta } })` wires cost-metadata management; without it cost operations still report that they are unsupported.
+  - `startCli()` runs the subagent worker when a subagent starts the embedder's entry script again, as the `robota` executable already did; an embedded CLI used to start a second CLI there.
+  - The provider `executor` option docs no longer import a `RemoteExecutor` that does not exist, and `IRemoteExecutorConfig` is marked deprecated: nothing implements a remote executor.
+- Updated dependencies [41cca13]
+- Updated dependencies [ada3841]
+- Updated dependencies [5093a30]
+- Updated dependencies [94b2c87]
+- Updated dependencies [3ab2eca]
+  - @robota-sdk/agent-core@3.0.0-beta.85
+
 ## 3.0.0-beta.84
 
 ### Patch Changes

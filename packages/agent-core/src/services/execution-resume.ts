@@ -179,6 +179,7 @@ export async function restoreJournaledRound(
   if (hasResponse) staged.addMessage(recoveredAssistant(batch, options));
   const state: IExecutionRoundState = {
     toolsExecuted: [...(batch.checkpoint.continuation?.toolsExecuted ?? [])],
+    toolCallOutcomes: [],
     currentRound: batch.checkpoint.round,
     runningAssistantCount: staged.getMessages().filter((message) => message.role === 'assistant')
       .length,

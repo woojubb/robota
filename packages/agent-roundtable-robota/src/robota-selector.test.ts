@@ -64,6 +64,18 @@ describe('robotaSelector', () => {
     expect(scripted.requests).toHaveLength(1);
   });
 
+  it('rejects an empty reply with no-decision, making exactly one provider call', async () => {
+    const scripted = createScriptedProvider([{ text: '' }]);
+    const selector = robotaSelector({
+      reference: { id: 'fixture/selector', version: '1' },
+      createAgent: async () => agentFor(scripted),
+    });
+    await expect(
+      selector.select(context(), { signal: new AbortController().signal, services: noServices() }),
+    ).rejects.toMatchObject({ code: 'no-decision' });
+    expect(scripted.requests).toHaveLength(1);
+  });
+
   it('rejects two decision calls with multiple-decisions', async () => {
     const scripted = createScriptedProvider([
       {

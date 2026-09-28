@@ -9,10 +9,8 @@ agent runtime, or plain code.
 
 ## Installation
 
-Not published to npm yet. Inside this monorepo, depend on it as a workspace package:
-
-```json
-{ "dependencies": { "@robota-sdk/agent-roundtable": "workspace:*" } }
+```bash
+npm install @robota-sdk/agent-roundtable
 ```
 
 ## Quick start
@@ -43,38 +41,65 @@ const echo: AgentParticipant = {
   },
 };
 
-const room = createRoundtable({
-  conversationId: 'demo',
-  participants: [externalParticipant({ id: 'user' }), echo],
-  store: new MemoryConversationStore(),
-  limits: { maxTurnsPerRun: 1 },
-  onEvent: (event) => {
-    if (event.type === 'published')
-      for (const message of event.messages)
-        console.log(`${message.participantId}: ${message.content}`);
-  },
-});
-
-// The default round-robin selector asks the person first, so the run waits for input.
-const waiting = await room.run();
-if (waiting.status === 'waiting') {
-  await room.submitInput({
-    participantId: 'user',
-    inputId: 'input-1', // Retrying with the same id and content returns the same receipt.
-    expectedRevision: waiting.revision,
-    replyToRequestId: waiting.requests[0].id,
-    content: 'Hello',
+export async function runQuickstart() {
+  const published: string[] = [];
+  const room = createRoundtable({
+    conversationId: 'demo',
+    participants: [externalParticipant({ id: 'user' }), echo],
+    store: new MemoryConversationStore(),
+    limits: { maxTurnsPerRun: 1 },
+    onEvent: (event) => {
+      if (event.type === 'published')
+        for (const message of event.messages)
+          published.push(`${message.participantId}: ${message.content}`);
+    },
   });
+
+  // The default round-robin selector asks the person first, so the run waits for input.
+  const waiting = await room.run();
+  if (waiting.status === 'waiting') {
+    await room.submitInput({
+      participantId: 'user',
+      inputId: 'input-1', // Retrying with the same id and content returns the same receipt.
+      expectedRevision: waiting.revision,
+      replyToRequestId: waiting.requests[0].id,
+      content: 'Hello',
+    });
+  }
+
+  const result = await room.run(); // echo speaks: { status: 'limited', reason: 'turns', ... }
+  const messages = room.snapshot().messages.map((message) => message.content); // ['Hello', 'echo: Hello']
+  await room.dispose();
+  return { result, messages, published };
 }
 
-console.log(await room.run()); // echo speaks: { status: 'limited', reason: 'turns', ... }
-console.log(room.snapshot().messages.map((message) => message.content)); // ['Hello', 'echo: Hello']
-await room.dispose();
+await runQuickstart();
 ```
+
+This exact example is executed by `src/readme-example.test.ts`, so it stays runnable as the package
+changes.
 
 Omitting `store` uses the same in-memory store. A durable `ConversationStore` together with a
 `RoundtableRegistry` that maps saved runtime and selector versions back to live factories lets
 `loadRoundtable` reopen a conversation later.
+
+## Exports
+
+| Export                      | What it is for                                                                                                                                                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createRoundtable(options)` | Validates configuration and returns a `Roundtable` handle; `run()` executes it.                                                                                                                                                                   |
+| `loadRoundtable(options)`   | Reopens a conversation from a `ConversationStore`, resolving saved runtime/selector references through a `RoundtableRegistry`.                                                                                                                    |
+| `MemoryConversationStore`   | The in-memory `ConversationStore`; no durability, no `recovery: 'durable'` support.                                                                                                                                                               |
+| `externalParticipant(def)`  | Declares a participant answered through `submitInput`/`resume` instead of a factory.                                                                                                                                                              |
+| `roundRobin()`              | The default `TurnSelector`: no model calls; cycles through participants in order after the last speaker, forever — it never finishes on its own, so a run's own limits (`maxTurnsPerRun`, `timeoutMs`, a model-call limit) are what stop it.      |
+| `RoundtableError`           | Thrown by every rejecting call and by `TurnServices.admitModelCall`; `code` distinguishes `invalid-config`, `busy`, `conflict`, `disposed`, `stale-claim`, `recovery-required`, `model-call-limit` and `invalid-selection` (see README "Errors"). |
+| `summarizeUsage(records)`   | Reduces `UsageRecord[]` (from a snapshot or the `usage` event) into one combined `UsageSummary`; filter the records first (by run, participant, ...) for a per-principal breakdown.                                                               |
+
+Everything else this package exports is a type: the participant/session/selector contracts
+(`ParticipantDefinition`, `ParticipantSession`, `TurnSelector`, …), the store contract
+(`ConversationStore`, `ConversationEnvelope`, …), and the usage/pricing types consumed by
+`TurnServices`. `@robota-sdk/agent-roundtable-robota` implements these contracts against Robota; a
+host can implement them against any other runtime.
 
 ## Run results
 
@@ -107,8 +132,21 @@ Calls reject with a `RoundtableError` whose `code` is one of `invalid-config`, `
 `submitInput` or `resume` is already active, or another owner holds the stored conversation),
 `conflict` (a stale `expectedRevision`, a reused id with different content, or a request that is no
 longer pending), `disposed`, `stale-claim` (this handle's claim on the store expired or changed
-owner) or `recovery-required`. A selector decision that names an unknown participant, cannot run as
-a group or needs more turns than one run allows is not saved; the run ends `failed`.
+owner) or `recovery-required`.
+
+`model-call-limit` is different: it is thrown by `TurnServices.admitModelCall` itself, to whichever
+custom participant, selector or `meterJournal` host called it, once a configured `maxModelCallsPerRun`,
+`-PerConversation` or `-PerParticipant` limit is reached. Admission has already stopped the run,
+which ends `limited` (reason `'model-calls'`) either way. The caller should still let the rejection
+propagate (or return `failed`): the interrupted attempt is then discarded and retried on a later run,
+whereas swallowing it and returning `speak` keeps that partial result and publishes it later.
+
+`invalid-selection` never reaches a caller as a rejection: it is thrown internally when a selector's
+decision is malformed, empty, or has duplicate participant ids, names an unknown participant, mixes
+kinds a group can't run (a non-agent in a `parallel` selection, or a non-external participant for a
+`wait`), or needs more turns than `maxTurnsPerRun` allows — and the run's own error handling catches
+it like any other participant/selector/store failure. The decision is never saved, and the run ends
+`failed`, with the `RoundtableError`'s message (not its `code`) surfaced as the `message` of the `failed` `RunResult`.
 
 ## Cancellation
 
@@ -132,6 +170,23 @@ The build is platform-neutral ESM and CommonJS with type declarations and has no
 dependencies. It needs only standard globals: `AbortController`, `AbortSignal.any`,
 `structuredClone`, `crypto.randomUUID` and `setTimeout`. That covers Node.js 22.12 or later and
 current browsers.
+
+A participant can be a plain object like `echo` above, or come from
+`@robota-sdk/agent-roundtable-robota`'s `sessionParticipant` (a permission-gated Robota `Session`) or
+`robotaParticipant` (a plain Robota agent) — this package never depends on either.
+
+## Version and compatibility
+
+This package's own API follows the release's semantic version. That is separate from the **stored
+conversation schema**: `MemoryConversationStore` and any other `ConversationStore` persist a snapshot
+whose envelope carries `schemaVersion: 1`, and it keeps that envelope exactly as given — a store never
+inspects or validates it; decoding is the conversation owner's job. `loadRoundtable` is what decodes a
+loaded envelope, and it rejects (rather than guesses at) one whose `schemaVersion` it does not
+recognize, with a `RoundtableError('invalid-config', ...)`; so a schema change ships as a new number
+and an explicit migration, never a silent reinterpretation — independent of how many API-compatible
+minor/patch releases happen in between. `loadRoundtable` additionally requires the saved
+participant/selector runtime and configuration versions to match what a `RoundtableRegistry` resolves
+today; a mismatch is refused the same way, rather than run against the wrong definition.
 
 ## Documentation
 

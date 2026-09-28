@@ -291,7 +291,7 @@ export async function composeMcpClientForStartup(
 /**
  * The startup notice naming MCP servers the user must act on, for the model — only in the
  * interactive mode, the one where the user can type the `/mcp` command it suggests. A print or
- * serve run has no prompt to type it into, and an approval made elsewhere does not reach it.
+ * serve run has no prompt to type it into; its next start reads durable approvals.
  */
 export function mcpStartupModelNotice(
   mode: TMcpStartupMode,

@@ -101,6 +101,8 @@ export interface IPluginExecutionResult {
  * above, which lives at this abstracts layer.
  */
 export interface IPluginContext {
+  toolData?: IToolExecutionContext;
+  toolResult?: IToolExecutionResult;
   input?: string;
   response?: string;
   messages?: TUniversalMessage[];
@@ -110,7 +112,10 @@ export interface IPluginContext {
   executionContext?: TContextData;
   /** PLG-020 (issue #2460): the run's result, for `afterExecution` / `afterConversation` / `afterToolExecution`. */
   executionResult?: IPluginExecutionResult;
-  /** PLG-020 (issue #2460): the message just appended to the conversation, for `onMessageAdded`. */
+  /**
+   * The message just appended to the conversation, for `onMessageAdded`, or the streamed text
+   * chunk, for `onStreamingChunk`.
+   */
   message?: TUniversalMessage;
 }
 
@@ -216,7 +221,11 @@ export interface IPluginHooks {
     context: IPluginExecutionContext,
     result: IPluginExecutionResult,
   ): Promise<void> | void;
-  beforeToolCall?(toolName: string, parameters: TToolParameters): Promise<void> | void;
+  beforeToolCall?(
+    toolName: string,
+    parameters: TToolParameters,
+    context?: IToolExecutionContext,
+  ): Promise<void> | void;
   beforeToolExecution?(
     context: IPluginExecutionContext,
     toolData: IToolExecutionContext,

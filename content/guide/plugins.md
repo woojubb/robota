@@ -10,7 +10,7 @@ description: Observe and extend a Robota agent with runtime plugins, use the rea
 | Kind               | What it is                                                                                 | Where it runs                                  |
 | ------------------ | ------------------------------------------------------------------------------------------ | ---------------------------------------------- |
 | **Runtime plugin** | A class that observes a `Robota` agent's lifecycle: runs, provider calls, messages, errors | Your code, through `@robota-sdk/agent-core`    |
-| **CLI plugin**     | A folder of skills, commands, agent definitions, hooks and MCP servers                     | The `robota` CLI, installed from a marketplace |
+| **CLI plugin**     | A folder of skills, commands, agent definitions, hooks and MCP declarations                | The `robota` CLI, installed from a marketplace |
 
 Runtime plugins are for cross-cutting concerns in code you write: logging, usage and cost tracking,
 limits, notifications, audit trails. CLI plugins extend the `robota` assistant for its users. The
@@ -136,6 +136,7 @@ Register it like any other plugin: `plugins: [new RunLoggerPlugin()]`.
 // Once per run
 beforeRun(input: string, options?: IRunOptions): Promise<void>
 beforeExecution(context: IPluginExecutionContext): Promise<void>
+beforeConversation(context: IPluginExecutionContext): Promise<void>
 afterRun(input: string, response: string, options?: IRunOptions): Promise<void>
 afterExecution(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void>
 afterConversation(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void>
@@ -143,6 +144,7 @@ afterToolExecution(context: IPluginExecutionContext, result: IPluginExecutionRes
 
 // Around every provider call and message
 beforeProviderCall(messages: TUniversalMessage[]): Promise<void>
+onStreamingChunk(chunk: TUniversalMessage): Promise<void> // each streamed piece of text, in order
 afterProviderCall(messages: TUniversalMessage[], response: TUniversalMessage): Promise<void>
 onMessageAdded(message: TUniversalMessage): Promise<void>
 
@@ -151,13 +153,13 @@ onError(error: Error, context?: IPluginErrorContext): Promise<void>
 ```
 
 The `result` given to the after-run methods carries `response`, `duration`, `tokensUsed` (when the
-provider reported usage), `toolsExecuted`, `success`, and `toolCalls` (the name of each tool that
-ran). The `context` carries `executionId` and the conversation `messages`.
+provider reported usage), `toolsExecuted`, `success`, and `toolCalls` (the id and name of each tool
+call that ran, with `result: null` for one that failed). The `context` carries `executionId` and
+the conversation `messages`.
 
-`IPluginHooks` also declares `beforeConversation`, `beforeToolCall`, `beforeToolExecution`,
-`afterToolCall` and `onStreamingChunk`, but the `Robota` run loop does not call them. A plugin that
-needs per-tool or per-provider-call detail should use `afterToolExecution` or
-`afterProviderCall`. A plugin method that throws is logged and does not stop the run.
+`IPluginHooks` also declares `beforeToolCall`, `beforeToolExecution` and `afterToolCall`, but the
+`Robota` run loop does not call them; a plugin that needs per-tool detail should read `toolCalls`
+in `afterToolExecution`. A plugin method that throws is logged and does not stop the run.
 
 ### Stats helpers
 
@@ -340,8 +342,10 @@ Each listener receives an `IEventEmitterEventData`: `type`, `timestamp`, `execut
 | `AGENT_EXECUTION_START`    | When a run starts                                                               |
 | `AGENT_EXECUTION_COMPLETE` | When a run completes (`data.duration`, `data.tokensUsed`, `data.toolsExecuted`) |
 | `AGENT_EXECUTION_ERROR`    | When a run fails (`error`)                                                      |
-| `TOOL_AFTER_EXECUTE`       | After a run, once per tool that ran (`data.toolName`)                           |
-| `TOOL_SUCCESS`             | With `TOOL_AFTER_EXECUTE`, for each tool call                                   |
+| `TOOL_AFTER_EXECUTE`       | After a run, once per tool call that ran (`data.toolName`)                      |
+| `TOOL_SUCCESS`             | With `TOOL_AFTER_EXECUTE`, for each tool call that succeeded                    |
+| `TOOL_ERROR`               | With `TOOL_AFTER_EXECUTE`, for each tool call that failed                       |
+| `CONVERSATION_START`       | When a run starts; only if listed in the `events` option                        |
 | `CONVERSATION_COMPLETE`    | When a run completes; only if listed in the `events` option                     |
 
 By default the plugin emits only the agent-execution and tool events; pass
@@ -355,14 +359,14 @@ By default the plugin emits only the agent-execution and tool events; pass
 A `robota` CLI plugin is a folder with a manifest at `.claude-plugin/plugin.json` (`name`, `version`,
 `description`, `features`), the same layout Claude Code plugins use:
 
-| Path in the plugin       | Contributes                                                 |
-| ------------------------ | ----------------------------------------------------------- |
-| `skills/<name>/SKILL.md` | Skills, shown as `/<name>` with the plugin's name as a hint |
-| `commands/<name>.md`     | Commands, shown as `/<plugin>:<name>`                       |
-| `agents/`                | Agent definitions for subagents                             |
-| `hooks/hooks.json`       | Lifecycle hooks, merged with the session's own              |
-| `.mcp.json`              | MCP server definitions                                      |
-| `themes/`                | Terminal themes                                             |
+| Path in the plugin       | Contributes                                                            |
+| ------------------------ | ---------------------------------------------------------------------- |
+| `skills/<name>/SKILL.md` | Skills, shown as `/<name>` with the plugin's name as a hint            |
+| `commands/<name>.md`     | Commands, shown as `/<plugin>:<name>`                                  |
+| `agents/`                | Agent definitions for subagents                                        |
+| `hooks/hooks.json`       | Lifecycle hooks, merged with the session's own                         |
+| `.mcp.json`              | MCP declarations for inspection; configure runtime servers in settings |
+| `themes/`                | Terminal themes                                                        |
 
 Plugins are published in marketplaces (a GitHub `owner/repo` or a git URL) and installed with
 `/plugin`, under `~/.robota/plugins/` for the user or `.robota/plugins/` for a project. See
@@ -377,3 +381,8 @@ plugin hook runs with.
 - [Building Agents](./building-agents.md) — the `Robota` class the runtime plugins attach to
 - [Using the SDK](./sdk.md) — sessions, hooks and permissions in `agent-framework`
 - [Permissions and Hooks](./permissions-and-hooks.md) — hooks, which run shell commands, HTTP calls or model checks at lifecycle events
+
+Plugin `.mcp.json` declarations are inspected by `/doctor` but are not activated as MCP sources.
+Copy a supported server definition into `mcpServers` in your settings and approve it with
+`/mcp approve <name>`. The stock CLI supports approved public Streamable HTTP servers; starting
+stdio programs requires host-provided authority, and private-network endpoints remain blocked.

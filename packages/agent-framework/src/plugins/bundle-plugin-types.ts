@@ -29,6 +29,8 @@ export interface IBundleSkill extends IBundleSkillFrontmatter {
   name: string;
   description: string;
   skillContent: string;
+  /** The absolute directory the skill's file is in. */
+  skillDirectory?: string;
 }
 
 /** A fully loaded bundle plugin with all its assets. */

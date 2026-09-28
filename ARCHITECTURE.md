@@ -36,9 +36,9 @@ SDK packages (@robota-sdk/*)
   Transports            agent-transport (wire protocol, delivery), and the carriers built on it:
                         agent-transport-ws · -http · -mcp · -webrtc
   Runtime               agent-session · agent-executor · agent-tool-defaults ·
-                        agent-provider-replay (private: replays recorded provider responses in tests) ·
-                        agent-roundtable-robota (private: runs Session/Robota as roundtable
-                        participants and selectors)
+                        agent-roundtable-robota (runs Session/Robota as roundtable participants and
+                        selectors) ·
+                        agent-provider-replay (private: replays recorded provider responses in tests)
   Building blocks       agent-tools · agent-plugin · agent-mcp · agent-session-analytics ·
                         agent-provider-{anthropic,openai,openai-compatible,gemini,bytedance} ·
                         agent-builtin-providers
@@ -62,7 +62,10 @@ The main package-level edges are drawn in [`diagrams/robota-architecture.mmd`](d
 > The transport family builds on `agent-core`, the contract packages and `agent-remote-pairing`,
 > not on `agent-framework`; `agent-ui-terminal` depends on both. `agent-subagent-runner` sits above the
 > framework because it assembles child sessions through it. `agent-mcp` depends only on
-> `agent-core`; the CLI connects it to the session.
+> `agent-core`; the CLI connects it to the session. `agent-framework`'s `runGroupChat` is a facade
+> over the `agent-roundtable` leaf's `Roundtable` (Assembly → Leaves, a downward edge): the core owns
+> the only turn loop, and the framework never depends on `agent-roundtable-robota`, which sits in
+> Runtime for the product's own Session/Robota participants.
 
 > **Type contracts.** Each `agent-interface-*` package owns one contract family and contains type
 > declarations plus, at most, small pure accessors: sessions and interaction channels

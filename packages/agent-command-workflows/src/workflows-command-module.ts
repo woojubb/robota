@@ -9,8 +9,11 @@ import { DetachedWorkflowRuns } from './detached-runs.js';
 import { parseFileArg } from './args.js';
 
 import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag-core';
+import { readCommandPermissionMode } from '@robota-sdk/agent-framework';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
+  ICommandHostAdapterAccess,
+  ICommandHostSessionAccess,
   ICommandHostWorkspace,
   ICommandModule,
   ISystemCommand,
@@ -70,8 +73,26 @@ function refuseUngatedModelSubcommand(
   };
 }
 
+/**
+ * Refuse a model-issued subcommand that saves to the project or runs a workflow while the session is
+ * in plan mode, which changes nothing until the plan is approved. The user can still run it by hand.
+ */
+function refuseInPlanMode(
+  sub: string,
+  context: ICommandHostWorkspace & ICommandHostAdapterAccess & ICommandHostSessionAccess,
+): ICommandResult | undefined {
+  if (context.getCommandInvocationSource() !== 'model') return undefined;
+  const entry = WORKFLOWS_SUBCOMMANDS.find((candidate) => candidate.name === sub);
+  if (entry?.changesProject !== true) return undefined;
+  if (readCommandPermissionMode(context) !== 'plan') return undefined;
+  return {
+    success: false,
+    message: `Plan mode saves and runs no workflow. Run \`workflows ${sub}\` after plan mode ends.`,
+  };
+}
+
 async function executeWorkflowsCommand(
-  context: ICommandHostWorkspace,
+  context: ICommandHostWorkspace & ICommandHostAdapterAccess & ICommandHostSessionAccess,
   args: string,
   workspace: IWorkspaceLayout,
   providerDefinitions: readonly IProviderDefinition[],
@@ -92,7 +113,7 @@ async function executeWorkflowsCommand(
   // dispatcher knows which subcommand an args string names. Read from the same registry that
   // declares it, so the two cannot drift: a subcommand added as `modelInvocable: false` is gated by
   // existing to be found, not by someone remembering to add a case.
-  const refusal = refuseUngatedModelSubcommand(sub, context);
+  const refusal = refuseUngatedModelSubcommand(sub, context) ?? refuseInPlanMode(sub, context);
   if (refusal !== undefined) return refusal;
 
   const requiresProject = WORKFLOWS_SUBCOMMANDS.some((candidate) => candidate.name === sub);
@@ -176,8 +197,9 @@ export function createWorkflowsCommandEntry(): ICommand {
       'Author a DAG workflow from a natural-language description. Use it when the user asks for a ' +
       'repeatable multi-step pipeline: `create` authors one and runs it immediately, `build` authors ' +
       'one and saves it for the user to review without running it. Returns the saved workflow path ' +
-      'and, for `create`, the run result. Running, validating or listing an on-disk workflow is the ' +
-      'user’s: suggest `/workflows run <file.json>`.',
+      'and, for `create`, the run result. Refused in plan mode, which saves and runs nothing. ' +
+      'Running, validating or listing an on-disk workflow is the user’s: suggest ' +
+      '`/workflows run <file.json>`.',
     source: 'workflows',
     argumentHint: WORKFLOWS_ARGUMENT_HINT,
     subcommands: SUBCOMMANDS,

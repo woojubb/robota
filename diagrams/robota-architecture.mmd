@@ -7,7 +7,7 @@ graph TD
     PROC[agent-process]
     FA[agent-file-authority]
     PAIR[agent-remote-pairing]
-    RT[agent-roundtable<br/>private · turn scheduling, no runtime]
+    RT[agent-roundtable<br/>turn scheduling, no runtime]
   end
 
   subgraph Foundation["Foundation"]
@@ -37,7 +37,7 @@ graph TD
     REPLAY[agent-provider-replay<br/>private · test replay]
     EXEC[agent-executor]
     TD[agent-tool-defaults]
-    RTR[agent-roundtable-robota<br/>private · Session/Robota roundtable participants]
+    RTR[agent-roundtable-robota<br/>Session/Robota roundtable participants]
   end
 
   subgraph Assembly["Assembly"]
@@ -106,7 +106,7 @@ graph TD
   CORE & SESS & RT --> RTR
 
   %% Assembly (providers are injected by the composition root, never imported)
-  CORE & SESS & EXEC & TOOLS & TD & FA --> FW
+  CORE & SESS & EXEC & TOOLS & TD & FA & RT --> FW
   IFA & IFCE & IFS & IFM & IFT --> FW
   PROV -. injected .-> FW
 

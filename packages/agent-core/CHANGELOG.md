@@ -1,5 +1,61 @@
 # @robota-sdk/agent-core
 
+## 3.0.0-beta.85
+
+### Patch Changes
+
+- 41cca13: Fixed `run(input, { allowToolOnlyCompletion: true })` throwing an internal `[STRICT-POLICY]` error
+  when a round produced neither a tool call nor any text — for example a tool-calling decision agent
+  whose model answered with nothing at all. `allowToolOnlyCompletion` only widens what counts as a
+  finished turn (a tool call alone, with no final text); an ordinary text-only reply already completes
+  normally and is unaffected, and a turn that ends in tool results still resolves with `''`. A turn
+  that ends with neither text nor a tool result now rejects with a new, catchable `EmptyCompletionError`
+  (`code: 'EMPTY_COMPLETION'`) instead of the internal invariant message; `resume()` of such an
+  execution raises the same error.
+- ada3841: Dispatch tool-call plugin hooks around each decoded attempt, including unknown-tool refusals,
+  and emit the event emitter plugin's before-execution event. A pre-effect wait resumes the same
+  logical call without repeating its before hooks; recovered results do not replay call hooks.
+
+  Pair parallel tool analytics by the logical execution ID, including calls of the same tool.
+
+- 5093a30: A `Robota` run now calls `beforeConversation`, with `beforeExecution`, and `onStreamingChunk` for
+  each streamed piece of text, in order; the round waits for those chunk hooks before it goes on,
+  whether the provider call returned, failed or was interrupted. `EventEmitterPlugin` therefore emits
+  `CONVERSATION_START`.
+
+  The run result's `toolCalls` now carry each executed call's id and `result: null` for one that
+  failed, so `EventEmitterPlugin` emits `TOOL_ERROR` instead of `TOOL_SUCCESS` for a failed call, and
+  `WebhookPlugin`'s `tool.executed` payload reports it as failed with its call id.
+
+  `EXECUTION_START`, `EXECUTION_COMPLETE` and `EXECUTION_ERROR` are marked deprecated: no run emits
+  them; the `AGENT_EXECUTION_*` events are the ones a run emits. `beforeToolCall`,
+  `beforeToolExecution` and `afterToolCall` are still not called.
+
+- 94b2c87: A PreToolUse `command` hook can now steer a tool call, not only refuse it. The permission gate
+  applies the winning `hookSpecificOutput.permissionDecision`:
+
+  - `allow` skips the prompt a person would otherwise get. Deny rules, refusals from the mode, the
+    `auto` mode classifier and asks that must reach a person (an `ask` rule, a protected path, a
+    policy that asks about everything) still apply.
+  - `ask` sends the call to a person even when the mode or a remembered consent would run it. The
+    answer is not remembered, and with no one to ask the call is refused.
+  - `defer` leaves the call to the normal flow, as before.
+
+  Before this change these decisions were read and then ignored.
+
+  `updatedInput` is still not applied: the call runs the input it was made with, and an `allow` sent
+  with an `updatedInput` is not applied either, since it approved another input.
+
+  `runHooks` (agent-core) now reads a decision and an `updatedInput` only from `command` hooks: a
+  `prompt` or `agent` hook answers from a model that reads the tool input it judges, so it can only
+  refuse. With several hooks, `ask` now outranks `defer` (`deny` > `ask` > `defer` > `allow`), and the
+  reported `updatedInput` is the one sent with the winning decision.
+
+- 3ab2eca: - External presets accept every permission mode a session does, `auto` included; `auto` used to fail validation.
+  - `createDagFramework({ ports: { costMeta } })` wires cost-metadata management; without it cost operations still report that they are unsupported.
+  - `startCli()` runs the subagent worker when a subagent starts the embedder's entry script again, as the `robota` executable already did; an embedded CLI used to start a second CLI there.
+  - The provider `executor` option docs no longer import a `RemoteExecutor` that does not exist, and `IRemoteExecutorConfig` is marked deprecated: nothing implements a remote executor.
+
 ## 3.0.0-beta.84
 
 ### Minor Changes

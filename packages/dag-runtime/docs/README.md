@@ -6,8 +6,8 @@ and `RunCancelService`.
 
 `@robota-sdk/dag-runtime` depends only on `@robota-sdk/dag-core` and receives storage, queue and
 clock as ports. It owns run-key idempotency, logical-date resolution and run and task state changes
-(delegated to the `dag-core` state machines). Worker execution belongs to `dag-worker`, triggers on a
-schedule to `dag-scheduler`, API transport to `dag-api`, and read models to `dag-projection`.
+(delegated to the `dag-core` state machines). Worker execution belongs to `dag-worker`, API transport
+to `dag-api`, and read models to `dag-projection`.
 
 ## Documents
 

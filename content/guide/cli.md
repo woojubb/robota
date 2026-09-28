@@ -384,6 +384,8 @@ Every tool call is checked against the permission mode and your allow, deny and 
 
 - Choose the mode with `--permission-mode <mode>` (`--dry-run` means `plan`), or in a session with
   `/mode <mode>` or `/permissions <mode>`.
+- A subagent or a fork-context skill starts in the mode the session is in when it starts; one
+  already running keeps its mode.
 - `--allowed-tools a,b` adds tools that run without asking; `--denied-tools a,b` removes tools.
 - `/permissions` shows the rules in force by settings file, the "allow always" approvals, and recent
   refusals with their reason. `/permissions retry <n>` lets one call the `auto` classifier blocked run
@@ -430,10 +432,11 @@ skill in text does not activate it.
 | `agent`                    | string  | Agent definition for that subagent                        |
 
 Before a skill runs, its body is expanded: `$ARGUMENTS` (all arguments), `$ARGUMENTS[N]` or `$N`
-(one argument, from 0) and `${CLAUDE_SESSION_ID}` (the session id). `${CLAUDE_SKILL_DIR}` is
-recognized but currently replaced with an empty string, so a skill cannot use it to find its own
-folder. A `` !`command` `` in the body is replaced by that command's output, run in the project
-folder.
+(one argument, from 0), `${CLAUDE_SESSION_ID}` (the session id), `${CLAUDE_SKILL_DIR}` (the absolute
+folder the skill's file is in, so it can point at scripts it ships beside `SKILL.md`) and, for a
+skill from a plugin, `${CLAUDE_PLUGIN_ROOT}` (the plugin's folder). A `` !`command` `` in the body
+is replaced by that command's output, run in the project folder; the `CLAUDE_` variables are in its
+environment, so `` !`bash "${CLAUDE_SKILL_DIR}/check.sh"` `` works.
 
 Agent definitions for subagents are discovered in `.robota/agents/`, `.agents/agents/` and
 `.claude/agents/`; the built-in ones are `general-purpose`, `Explore` and `Plan`.
@@ -458,7 +461,11 @@ actions as text:
 /plugin marketplace list
 ```
 
-`/reload-plugins` reloads plugin skills, commands and hooks without restarting. These CLI plugins are
+A session loads its plugins' skills, commands and hooks when it starts, so a plugin installed,
+enabled or disabled takes effect in the next session or when you run `/reload-plugins`, which updates
+the command list, executable skills and the model skill catalogue together. Hook changes take effect
+in a new session.
+Both you (`/<name>`) and the agent can run a plugin's skills and commands. These CLI plugins are
 different from the SDK's runtime plugins for the `Robota` class; both are covered in
 [Plugins](./plugins.md).
 
@@ -504,8 +511,8 @@ different from the SDK's runtime plugins for the `Robota` class; both are covere
 
 `create` asks the active model to design a workflow from your description, saves it as
 `.workflows/<name>.json` (prompt-backed nodes go under `.workflows/nodes/`), runs it, and reports the
-saved path and outputs. The agent can run `create` and `build` itself; the other subcommands are
-yours.
+saved path and outputs. The agent can run `create` and `build` itself, except in `plan` mode; the
+other subcommands are yours.
 
 ## Context, checkpoints and cost
 
@@ -554,8 +561,10 @@ MCP servers are defined under `mcpServers` in the settings files, and none is us
 it. `/mcp` shows every server's approval and sign-in state; `/mcp approve|reject|revoke <server>`
 decides trust, and `/mcp login <server>` signs in to an OAuth server from inside the session. Outside
 a session, `robota mcp login <name>` and `robota mcp logout <name>` do the same. In the `robota`
-executable, approvals last for the session and a remote server that signs in with OAuth connects once
-approved and signed in; a stdio server needs an authority that a host embedding the CLI supplies.
+executable, approvals persist in `~/.robota/mcp-approvals.json`; approving retries the connection in
+this session, and `/mcp reload` retries later. OAuth servers also need sign-in; a stdio server needs
+an authority that a host embedding the CLI supplies. A changed definition or trust generation needs
+fresh approval.
 
 `robota mcp serve` turns `robota` into an MCP server for one session, over stdio, authenticated
 loopback HTTP (`--http-token-file`, `--http-port`), or remote HTTP as an OAuth resource server

@@ -5,6 +5,7 @@ import type {
   IProviderDefinition,
   IProviderDefinitionConfig,
 } from '@robota-sdk/agent-core';
+import { LlmTextConfigSchema } from './config.js';
 import { LlmTextNodeDefinition } from './index.js';
 
 // Keep the real credential-resolution functions (normalizeProviderConfig / createProviderFromConfig /
@@ -255,5 +256,22 @@ describe('LlmTextNodeDefinition (ARCH-PROVIDER-003)', () => {
       // stub has no costPerTokenUsd → FALLBACK_COST_PER_TOKEN_USD (0.003)
       expect(result.value.estimatedCredits).toBeCloseTo(0.01 + (400 / 4) * 0.003, 4);
     }
+  });
+});
+
+describe('llm-text config', () => {
+  it('offers no option the node ignores', () => {
+    expect(Object.keys(LlmTextConfigSchema.shape)).not.toContain('strategy');
+    expect(Object.keys(LlmTextConfigSchema.shape)).not.toContain('maxCostUsd');
+  });
+
+  it('still reads a saved config that carries them, and drops them', () => {
+    const parsed = LlmTextConfigSchema.parse({
+      provider: 'anthropic',
+      strategy: 'round-robin',
+      maxCostUsd: 1,
+    });
+    expect(parsed).not.toHaveProperty('strategy');
+    expect(parsed).not.toHaveProperty('maxCostUsd');
   });
 });

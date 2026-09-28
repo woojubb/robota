@@ -11,9 +11,7 @@ the DAG workflow subsystem; see [the DAG packages](../dag-core/README.md#the-dag
 
 - Depends on: [`@robota-sdk/dag-core`](../dag-core/README.md) only. It imports no sibling DAG
   package and ships no storage, queue or clock implementation; every port is injected.
-- Used by: [`dag-framework`](../dag-framework/README.md) (its execution composition) and
-  [`dag-scheduler`](../dag-scheduler/README.md) (which triggers runs through
-  `RunOrchestratorService`).
+- Used by: [`dag-framework`](../dag-framework/README.md) (its execution composition).
 
 ## Main exports
 

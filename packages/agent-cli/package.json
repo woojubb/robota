@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-cli",
-  "version": "3.0.0-beta.84",
+  "version": "3.0.0-beta.85",
   "description": "robota — the reference AI coding assistant CLI, built from the Robota SDK libraries",
   "type": "module",
   "bin": {

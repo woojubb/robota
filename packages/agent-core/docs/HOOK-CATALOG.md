@@ -56,7 +56,11 @@ the Claude Code compatible response protocol:
 - `{ "continue": false }` blocks on every event; `stopReason` is used as the reason.
 - On `PreToolUse`, `hookSpecificOutput.permissionDecision` may be `allow`, `ask`, `defer` or
   `deny`; `deny` blocks. With several hooks, the highest-priority decision wins
-  (`deny` > `defer` > `ask` > `allow`), and `hookSpecificOutput.updatedInput` travels with it.
+  (`deny` > `ask` > `defer` > `allow`), and the `hookSpecificOutput.updatedInput` sent with the
+  winning decision travels with it. Only a `command` hook's decision and `updatedInput` are read;
+  an `http`, `prompt`, `agent` or `guardrail` hook can only block. A `prompt` or `agent` hook
+  answers from a model that reads the tool input it would be approving, and an `http` hook's
+  documented answer is `{ "ok", "reason" }`.
 - On `UserPromptSubmit`, `{ "decision": "block" }` blocks, and
   `hookSpecificOutput.additionalContext` is collected as output.
 - `systemMessage` is collected as output.
@@ -78,10 +82,24 @@ that deny a tool call there; anything else that needs them links here. There are
    must not allow silently.
 
 Causes 1 and 2 set `IRunHooksResult.blocked`. Causes 3 and 4 are read from `errors` and
-`unknownHookTypes` at the gate (`agent-session/src/tool-hook-helpers.ts : runPreToolHook`), which
+`unknownHookTypes` at the gate (`agent-session/src/tool-hook-helpers.ts : runPreToolGate`), which
 checks `isEnforcing('PreToolUse')`. In every case the tool's `execute` never runs; the model
 receives a failed tool result whose reason names the cause, and for an `error` it names the failure
 kind and the executor type.
+
+A `PreToolUse` hook that does not deny can still steer the call. The permission gate
+(`agent-session/src/permission-enforcer.ts`) applies the winning `permissionDecision` after the
+permission rules and mode:
+
+- `allow` answers the prompt a person would otherwise get. It never outweighs a deny rule, a refusal
+  from the mode, the `auto` mode classifier, or an ask that must reach a person (an `ask` rule, a
+  protected path, a policy that asks about everything).
+- `ask` sends the call to a person even when the mode or a remembered consent would run it, and is
+  not remembered. Where no one can answer, the call is refused.
+- `defer` leaves the call to the normal flow.
+
+`updatedInput` is reported on the result but not applied: the call runs the input it was made with.
+An `allow` sent with an `updatedInput` approved another input, so it is not applied either.
 
 `HOOK_ENFORCEMENT_POLICY` (`packages/agent-core/src/hooks/enforcement-policy.ts`) records which
 events enforce. `PreToolUse` is the only event whose fire site awaits `runHooks` and consults the
@@ -98,9 +116,6 @@ particular:
   inside a `<system-reminder>` block. A `{ "decision": "block" }` or `continue: false` response
   does not stop the prompt.
 - `SessionStart` output is added the same way to the session's first prompt.
-- On `PreToolUse`, a `permissionDecision` of `allow`, `ask` or `defer` and any `updatedInput` are
-  reported on the result but not applied: they do not change the permission decision or the tool's
-  input. Only a denial has an effect.
 
 The block directives are scoped by event in both the runner and the `{ ok }` verdict decoder
 (`decodeHookVerdict`): `continue: false` on every event, `decision: "block"` only on
@@ -121,7 +136,7 @@ not. A group's `env` is merged on top.
 
 | Event                | Timing                                                 | Fire site (file : function)                                                         | Event-specific input fields                                                                                   | Matcher target | Blocking            |
 | -------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------- | ------------------- |
-| `PreToolUse`         | Before a tool executes                                 | `agent-session/src/tool-hook-helpers.ts : runPreToolHook`                           | `tool_name`, `tool_input`                                                                                     | `tool_name`    | **BLOCKING** (gate) |
+| `PreToolUse`         | Before a tool executes                                 | `agent-session/src/tool-hook-helpers.ts : runPreToolGate`                           | `tool_name`, `tool_input`                                                                                     | `tool_name`    | **BLOCKING** (gate) |
 | `PostToolUse`        | After a tool executes                                  | `agent-session/src/tool-hook-helpers.ts : firePostToolHook`                         | `tool_name`, `tool_input`, `tool_output`                                                                      | `tool_name`    | Informational       |
 | `SessionStart`       | When a `Session` is constructed                        | `agent-session/src/session-lifecycle.ts : fireSessionStartHook`                     | (common fields only)                                                                                          | none           | Informational       |
 | `SessionEnd`         | Session shutdown                                       | `agent-session/src/session-lifecycle.ts : fireSessionEndHook`                       | `reason`                                                                                                      | `reason`       | Informational       |

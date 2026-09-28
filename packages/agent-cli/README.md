@@ -210,11 +210,10 @@ lets the model consult a second model. See [Providers](../../content/guide/provi
 ### Connect MCP servers, or serve Robota over MCP
 
 Declare remote MCP servers under `mcpServers` in a settings file. A declared server is not connected
-until you approve it: `/mcp` shows each server's state and `/mcp approve <server>` records your
-approval. The `robota` executable keeps approvals in memory only, so they do not carry over to the
-next start. A server that uses OAuth also needs a sign-in — `/mcp login <server>` in a session, or
-`robota mcp login <server>` in a terminal — and an approved server connects in the running session
-once you sign in.
+until you approve it: `/mcp` shows each server's state, and `/mcp approve <server>` connects it in
+the running session and keeps the approval in `~/.robota/mcp-approvals.json` for later starts. A
+server that uses OAuth also needs a sign-in — `/mcp login <server>` in a session, or
+`robota mcp login <server>` in a terminal — and connects once you sign in.
 
 ```json
 {
@@ -315,6 +314,11 @@ Other files the CLI keeps under `~/.robota/`:
 
 The package also exports `startCli`, the function the `robota` executable runs, and its options
 type `IStartCliOptions`. The package is ESM-only: load it with `import`, not `require()`.
+
+A subagent runs in a child process that starts your entry script again with a worker flag; when
+`startCli()` sees that flag it runs the subagent instead of the CLI, and the returned promise never
+settles (the worker ends the process). So call `startCli()` from the script Node started, and put
+nothing before it that must not run once per subagent.
 
 ## Work on the CLI in this repository
 

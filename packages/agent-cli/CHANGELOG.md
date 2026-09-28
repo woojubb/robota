@@ -1,5 +1,27 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.85
+
+### Minor Changes
+
+- db35dcd: MCP approvals now outlive the process, and an approval takes effect at once. The `robota` CLI keeps
+  activation decisions in `~/.robota/mcp-approvals.json` (owner-only) unless the host passes its own
+  `mcpApprovalStore`, so an approved server connects at later starts until its definition changes.
+  `/mcp approve <server>` now also connects the server in the running session, the way `/mcp reload`
+  does, instead of waiting for a restart. A remote server without OAuth therefore connects once
+  approved; stdio servers still need a host-supplied authority.
+
+### Patch Changes
+
+- 193a0bc: `${CLAUDE_SKILL_DIR}` in a skill expands to the absolute folder its `SKILL.md` is in; it used to expand to an empty string. A skill's `` !`command` `` gets `CLAUDE_SKILL_DIR` and `CLAUDE_SESSION_ID` in its environment, so the shell expands them there too (`TShellExecFn` takes an optional `env`). Skills from host folders and a trusted project carry the folder, and bundle-plugin skills and commands record theirs. `ICommand` gains `skillDirectory`, and `IContributionSource` an optional `locate()` that names the absolute path of a root-relative one.
+- 3cfd5b9: Words after `--` are the prompt, never a subcommand or a flag. `robota -p -- init` used to run `robota init` (and `eval`, `user-local` or `mcp` likewise ran or refused as those commands), and a prompt spelling `--attach`, `--safe-mode` or `--restricted-workspace` acted as that flag; now each is sent to the model as text. A subcommand or flag given before `--` works as before.
+- 4cee6fb: Report unsupported MCP transports at startup and reload instead of silently skipping them,
+  and distinguish plugin MCP declaration inspection from a runtime connection.
+- 3ab2eca: - External presets accept every permission mode a session does, `auto` included; `auto` used to fail validation.
+  - `createDagFramework({ ports: { costMeta } })` wires cost-metadata management; without it cost operations still report that they are unsupported.
+  - `startCli()` runs the subagent worker when a subagent starts the embedder's entry script again, as the `robota` executable already did; an embedded CLI used to start a second CLI there.
+  - The provider `executor` option docs no longer import a `RemoteExecutor` that does not exist, and `IRemoteExecutorConfig` is marked deprecated: nothing implements a remote executor.
+
 ## 3.0.0-beta.84
 
 ### Minor Changes

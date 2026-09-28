@@ -27,9 +27,7 @@ export const LlmTextConfigSchema = z.object({
   model: z.string().optional(),
   temperature: z.number().default(DEFAULT_TEMPERATURE),
   maxTokens: z.number().int().positive().optional(),
-  maxCostUsd: z.number().positive().optional(),
   baseCredits: z.number().default(0),
-  strategy: z.enum(['priority-fallback', 'round-robin']).default('priority-fallback'),
   options: z.record(z.unknown()).optional(),
 });
 

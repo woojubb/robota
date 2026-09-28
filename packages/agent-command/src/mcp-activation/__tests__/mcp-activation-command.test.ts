@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
@@ -659,13 +659,14 @@ describe('/mcp reload (#3282 §4 part b-2)', () => {
   function harness(
     reload: ICommandMCPActivationAdapter['reload'],
     taken: (names: string[]) => string[] = (names) => names,
+    approve: ICommandMCPActivationAdapter['approve'] = async () => summary(),
   ) {
     const added: IToolWithEventService[][] = [];
     const reloadToolsAddedCalls: { token: string; added: readonly string[] }[] = [];
     const port: ICommandMCPActivationAdapter = {
       list: () => [],
-      approve: async () => summary(),
-      reject: async () => summary(),
+      approve,
+      reject: async () => summary({ status: 'rejected', allowed: false }),
       revoke: async () => summary(),
       reload,
       reloadToolsAdded: (token, names) => reloadToolsAddedCalls.push({ token, added: names }),
@@ -689,7 +690,11 @@ describe('/mcp reload (#3282 §4 part b-2)', () => {
   }
 
   const forecast = new FunctionTool(
-    { name: 'weather__forecast', description: 'Forecast', parameters: { type: 'object', properties: {} } },
+    {
+      name: 'weather__forecast',
+      description: 'Forecast',
+      parameters: { type: 'object', properties: {} },
+    },
     async () => 'sunny',
   );
 
@@ -719,6 +724,94 @@ describe('/mcp reload (#3282 §4 part b-2)', () => {
     const result = await h.run('reload');
     expect(result.success).toBe(true);
     expect(result.message).toContain('No server newly connected.');
+  });
+
+  it('an approval connects the server in the running session', async () => {
+    const reload = vi.fn(async () => ({
+      tools: [forecast],
+      connectedServerIds: ['weather'],
+      failedServerIds: [],
+      reloadToken: 'token-1',
+    }));
+    const h = harness(reload, undefined, async () =>
+      summary({ serverId: 'weather', status: 'approved', allowed: true, reason: 'Approved.' }),
+    );
+
+    const result = await h.run('approve weather');
+
+    expect(reload).toHaveBeenCalledOnce();
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('is now approved');
+    expect(result.message).toContain('Connected: weather.');
+    expect(h.added).toEqual([[forecast]]);
+  });
+
+  it('acknowledges an empty-tool connection before approving another server', async () => {
+    let released = false;
+    const h = harness(
+      async () =>
+        released
+          ? {
+              tools: [forecast],
+              connectedServerIds: ['weather'],
+              failedServerIds: [],
+              reloadToken: 'second',
+            }
+          : { tools: [], connectedServerIds: ['empty'], failedServerIds: [], reloadToken: 'first' },
+      undefined,
+      async (id) => summary({ serverId: id, status: 'approved', allowed: true }),
+    );
+    await h.run('approve empty');
+    released = h.reloadToolsAddedCalls.some((call) => call.token === 'first');
+    const result = await h.run('approve weather');
+    expect(result.message).toContain('Connected: weather.');
+    expect(h.reloadToolsAddedCalls).toEqual([
+      { token: 'first', added: [] },
+      { token: 'second', added: ['weather__forecast'] },
+    ]);
+  });
+
+  it('preserves a saved approval when connecting fails, and suggests reload', async () => {
+    const h = harness(
+      async () => {
+        throw new Error('connection failed');
+      },
+      undefined,
+      async () => summary({ status: 'approved', allowed: true }),
+    );
+    const result = await h.run('approve weather');
+    expect(result.success).toBe(true);
+    expect(result.data).toMatchObject({ status: 'approved', allowed: true });
+    expect(result.message).toContain('connection failed');
+    expect(result.message).toContain('/mcp reload');
+  });
+
+  it('releases a staged reload even when adding tools throws', async () => {
+    const h = harness(
+      async () => ({
+        tools: [forecast],
+        connectedServerIds: ['weather'],
+        failedServerIds: [],
+        reloadToken: 'token-failed',
+      }),
+      () => {
+        throw new Error('cannot add tools');
+      },
+      async () => summary({ status: 'approved', allowed: true }),
+    );
+    const result = await h.run('approve weather');
+    expect(result.success).toBe(true);
+    expect(h.reloadToolsAddedCalls).toEqual([{ token: 'token-failed', added: [] }]);
+  });
+
+  it('a decision that is not an approval connects nothing', async () => {
+    const reload = vi.fn(async () => ({ tools: [], connectedServerIds: [], failedServerIds: [] }));
+    const h = harness(reload);
+
+    await h.run('reject weather');
+    await h.run('approve weather');
+
+    expect(reload).not.toHaveBeenCalled();
   });
 
   it('is refused when the host offers no reload', async () => {

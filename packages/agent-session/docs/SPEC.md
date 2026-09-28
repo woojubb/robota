@@ -244,13 +244,19 @@ name. The tool-use hooks take the root from the tool call's context, apart from 
 own span, which belongs to the tool alone.
 
 `PreToolUse` is the **one enforcing** hook event: a hook that reaches no verdict there denies the
-tool call. Every other event is advisory — a failure is reported, and the turn proceeds. This
-package is responsible for two of the documented deny causes: a hook execution error (timeout,
-transport failure, malformed response, non-zero exit), and a configured hook type with no
-registered executor — denying rather than silently skipping a gate the user configured. When
-both apply in the same turn they are reported as a single combined reason rather than one at a
-time, because a fail-closed gate that reveals its reasons one per retry is a gate an operator has
-to debug by being repeatedly stopped.
+tool call. A command hook's `allow` stands in for a person's prompt only, never for a deny rule, a
+refusal from the mode, the `auto` classifier, or an ask that must reach a person: a hook is one more
+approver, not a way around the policy. Its `ask` reaches a person every time, since the hook asks
+again on each call. The input selected by PreToolUse must reach a stable verdict from every
+enforcing hook before permission or execution; approval of an earlier input cannot authorize a
+replacement. An action whose caller cannot apply a replacement is refused rather than authorized
+against arguments it will not run. Every other event is advisory — a failure
+is reported, and the turn proceeds. This package is responsible for two of the documented deny
+causes: a hook execution error (timeout, transport failure, malformed response, non-zero exit), and
+a configured hook type with no registered executor — denying rather than silently skipping a gate
+the user configured. When both apply in the same turn they are reported as a single combined reason
+rather than one at a time, because a fail-closed gate that reveals its reasons one per retry is a
+gate an operator has to debug by being repeatedly stopped.
 
 ### Session logging
 

@@ -63,6 +63,7 @@ export function buildCreateSessionOptions(
     context,
     contributionSources,
     skillRoots,
+    ...(options.pluginSkills !== undefined ? { pluginSkills: options.pluginSkills } : {}),
     projectInfo,
     permissionMode: options.permissionMode,
     baselinePermissionAllow: options.baselinePermissionAllow,

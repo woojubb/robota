@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ExecutionAnalyticsPlugin } from '../execution-analytics-plugin';
-import type { TUniversalMessage } from '@robota-sdk/agent-core';
+import type { TUniversalMessage, IToolExecutionContext } from '@robota-sdk/agent-core';
 
 function userMsg(content: string): TUniversalMessage {
   return {
@@ -90,6 +90,42 @@ describe('ExecutionAnalyticsPlugin', () => {
   });
 
   describe('tool call tracking', () => {
+    it.each([
+      ['slow', 'fast'],
+      ['same', 'same'],
+    ])('pairs out-of-order calls by execution ID (%s/%s)', async (slow, fast) => {
+      const clock = vi.spyOn(Date, 'now');
+      const plugin = new ExecutionAnalyticsPlugin();
+      const context = (id: string, toolName: string): IToolExecutionContext => ({
+        executionId: id,
+        toolName,
+        parameters: {},
+      });
+      try {
+        clock.mockReturnValue(0);
+        await plugin.beforeToolCall(slow, {}, context('slow-id', slow));
+        clock.mockReturnValue(80);
+        await plugin.beforeToolCall(fast, {}, context('fast-id', fast));
+        clock.mockReturnValue(82);
+        await plugin.afterToolCall(fast, {}, { success: true, executionId: 'fast-id' });
+        expect(plugin.getExecutionStats('tool-call')[0].duration).toBe(2);
+        clock.mockReturnValue(100);
+        await plugin.afterToolCall(slow, {}, { success: true, executionId: 'slow-id' });
+        expect(plugin.getExecutionStats('tool-call')[1].duration).toBe(100);
+        expect(plugin.getActiveExecutions()).toHaveLength(0);
+      } finally {
+        clock.mockRestore();
+      }
+    });
+
+    it('pairs a legacy two-argument start with a result that includes an ID', async () => {
+      const plugin = new ExecutionAnalyticsPlugin();
+      await plugin.beforeToolCall('legacy', {});
+      await plugin.afterToolCall('legacy', {}, { success: true, executionId: 'legacy-call' });
+      expect(plugin.getExecutionStats('tool-call')).toHaveLength(1);
+      expect(plugin.getActiveExecutions()).toHaveLength(0);
+    });
+
     it('tracks tool call lifecycle', async () => {
       const plugin = new ExecutionAnalyticsPlugin();
 

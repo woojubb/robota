@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   ORCHESTRATION_EVENTS,
   ORCHESTRATION_EVENT_PREFIX,
   composeEventName,
 } from '@robota-sdk/agent-core';
-import type { IGroupChatOrchestrationSpec } from '@robota-sdk/agent-core';
+import type { IGroupChatOrchestrationSpec, ITokenUsage } from '@robota-sdk/agent-core';
 import { SubagentManager } from '@robota-sdk/agent-executor';
 import type {
   ISubagentJobHandle,
@@ -131,5 +131,338 @@ describe('SELFHOST-001 P3 — group-chat orchestration', () => {
     expect(result.steps.map((step) => step.id)).toEqual(['a', 'b']);
     expect(result.output).toBe('B');
     expect(typeof createInProcessSubagentRunner).toBe('function');
+  });
+
+  // --- Pins for issue #3273 (the roundtable-core facade): each of these must pass against the
+  // current while-loop implementation before the facade lands, and continue to pass after.
+
+  it('threads turn 3s prompt with every prior turns output, including the same steps own', async () => {
+    const { manager, spawns } = fakeManager(outByType);
+    await runGroupChat(spec, {
+      manager,
+      context: TEST_CONTEXT,
+      selectNextStep: alternateUntilThree,
+    });
+    expect(spawns[2].prompt).toBe('Speak as A.\n\n---\nPrevious step output:\n[a] A\n\n[b] B');
+  });
+
+  it('completes cleanly when the policy stops exactly at the (default) step count', async () => {
+    const { manager, spawns } = fakeManager(outByType);
+    const stopAtTwo: SelectNextStep = (history) => (history.length >= 2 ? null : 'b');
+    // No `maxTurns` override: defaults to spec.steps.length (2).
+    const result = await runGroupChat(
+      { steps: spec.steps, firstStepId: 'a' },
+      { manager, context: TEST_CONTEXT, selectNextStep: stopAtTwo },
+    );
+    expect(result.steps.map((step) => step.id)).toEqual(['a', 'b']);
+    expect(spawns).toHaveLength(2);
+  });
+
+  it('maxTurns: 0 throws before running any turn and spawns nothing', async () => {
+    const { manager, spawns } = fakeManager(outByType);
+    await expect(
+      runGroupChat(
+        { ...spec, maxTurns: 0 },
+        { manager, context: TEST_CONTEXT, selectNextStep: () => null },
+      ),
+    ).rejects.toThrow(/exceeded maxTurns \(0\)/);
+    expect(spawns).toHaveLength(0);
+  });
+
+  it('the maxTurns bound is checked before the unknown-id check (bound error wins)', async () => {
+    const { manager, spawns } = fakeManager(outByType);
+    await expect(
+      runGroupChat(
+        { ...spec, maxTurns: 1 },
+        { manager, context: TEST_CONTEXT, selectNextStep: () => 'ghost' },
+      ),
+    ).rejects.toThrow(/exceeded maxTurns \(1\)/);
+    expect(spawns).toHaveLength(1); // only the first turn ran before the bound fired
+  });
+
+  it('an empty-string next id ends the run exactly like null', async () => {
+    const { manager } = fakeManager(outByType);
+    const emptyEnds: SelectNextStep = (_history, lastStepId) => (lastStepId === 'a' ? '' : 'a');
+    const result = await runGroupChat(spec, {
+      manager,
+      context: TEST_CONTEXT,
+      selectNextStep: emptyEnds,
+    });
+    expect(result.steps.map((step) => step.id)).toEqual(['a']);
+    expect(result.output).toBe('A');
+  });
+
+  it('empty steps produce STARTED+COMPLETED and an empty result, without calling the selector', async () => {
+    const { manager, spawns } = fakeManager(outByType);
+    const { events, names } = capturingEvents();
+    const result = await runGroupChat(
+      { steps: [] },
+      {
+        manager,
+        context: TEST_CONTEXT,
+        events,
+        selectNextStep: () => {
+          throw new Error('selectNextStep must not be called for an empty step list');
+        },
+      },
+    );
+    expect(result).toEqual({ primitive: 'group-chat', steps: [], output: '' });
+    expect(names).toEqual([p(ORCHESTRATION_EVENTS.STARTED), p(ORCHESTRATION_EVENTS.COMPLETED)]);
+    expect(spawns).toHaveLength(0);
+  });
+
+  it('propagates the exact rejection from wait(), emits FAILED, and never COMPLETED', async () => {
+    const boom = new Error('wait blew up');
+    const { manager, spawns } = fakeManager(outByType, {
+      failing: [false, true],
+      failure: () => boom,
+    });
+    const { events, names } = capturingEvents();
+    const alwaysContinue: SelectNextStep = (_history, last) => (last === 'a' ? 'b' : 'a');
+    await expect(
+      runGroupChat(spec, {
+        manager,
+        context: TEST_CONTEXT,
+        events,
+        selectNextStep: alwaysContinue,
+      }),
+    ).rejects.toBe(boom);
+    expect(spawns).toHaveLength(2);
+    expect(names).toContain(p(ORCHESTRATION_EVENTS.FAILED));
+    expect(names).not.toContain(p(ORCHESTRATION_EVENTS.COMPLETED));
+  });
+
+  it('propagates the exact error thrown by a throwing selector, and emits FAILED', async () => {
+    const boom = new Error('selector exploded');
+    const { manager } = fakeManager(outByType);
+    const { events, names } = capturingEvents();
+    await expect(
+      runGroupChat(spec, {
+        manager,
+        context: TEST_CONTEXT,
+        events,
+        selectNextStep: () => {
+          throw boom;
+        },
+      }),
+    ).rejects.toBe(boom);
+    expect(names).toContain(p(ORCHESTRATION_EVENTS.FAILED));
+    expect(names).not.toContain(p(ORCHESTRATION_EVENTS.COMPLETED));
+  });
+
+  it('carries usage into the history the selector sees and into the final result', async () => {
+    const usageA: ITokenUsage = { promptTokens: 10, completionTokens: 5, totalTokens: 15 };
+    const usageB: ITokenUsage = { promptTokens: 7, completionTokens: 3, totalTokens: 10 };
+    const { manager } = fakeManager(outByType, { usage: [usageA, usageB] });
+    const seenHistories: unknown[][] = [];
+    const stopAtTwo: SelectNextStep = (history) => {
+      seenHistories.push(history);
+      return history.length >= 2 ? null : 'b';
+    };
+    const result = await runGroupChat(spec, {
+      manager,
+      context: TEST_CONTEXT,
+      selectNextStep: stopAtTwo,
+    });
+    expect(result.steps[0].usage).toEqual(usageA);
+    expect(result.steps[1].usage).toEqual(usageB);
+    expect((seenHistories[0][0] as { usage?: ITokenUsage }).usage).toEqual(usageA);
+  });
+
+  it('calls the selector exactly once per completed turn (never more)', async () => {
+    const { manager } = fakeManager(outByType);
+    let calls = 0;
+    const countingAlternate: SelectNextStep = (history, last) => {
+      calls += 1;
+      return alternateUntilThree(history, last);
+    };
+    const result = await runGroupChat(spec, {
+      manager,
+      context: TEST_CONTEXT,
+      selectNextStep: countingAlternate,
+    });
+    expect(result.steps).toHaveLength(3);
+    expect(calls).toBe(3); // decides turn 2, decides turn 3, decides to finish
+  });
+
+  it('emits the exact event sequence with per-step stepIndex and one stable ownerId', async () => {
+    const { manager } = fakeManager(outByType);
+    const { events, records } = capturingEvents();
+    await runGroupChat(spec, {
+      manager,
+      context: TEST_CONTEXT,
+      events,
+      selectNextStep: alternateUntilThree,
+    });
+
+    expect(records.map((record) => record.type)).toEqual([
+      p(ORCHESTRATION_EVENTS.STARTED),
+      p(ORCHESTRATION_EVENTS.STEP_STARTED),
+      p(ORCHESTRATION_EVENTS.STEP_COMPLETED),
+      p(ORCHESTRATION_EVENTS.STEP_STARTED),
+      p(ORCHESTRATION_EVENTS.STEP_COMPLETED),
+      p(ORCHESTRATION_EVENTS.STEP_STARTED),
+      p(ORCHESTRATION_EVENTS.STEP_COMPLETED),
+      p(ORCHESTRATION_EVENTS.COMPLETED),
+    ]);
+
+    const stepIndexes = records
+      .filter(
+        (record) =>
+          record.type === p(ORCHESTRATION_EVENTS.STEP_STARTED) ||
+          record.type === p(ORCHESTRATION_EVENTS.STEP_COMPLETED),
+      )
+      .map((record) => (record.data as { stepIndex?: number }).stepIndex);
+    expect(stepIndexes).toEqual([0, 0, 1, 1, 2, 2]);
+
+    const ownerId = records[0].context?.ownerId;
+    expect(typeof ownerId).toBe('string');
+    expect(ownerId).toContain(':groupchat:');
+    for (const record of records) {
+      expect(record.context?.ownerId).toBe(ownerId);
+    }
+  });
+});
+
+// The facade sits on top of a core with its own admission checks (safe-integer limits, JSON-only
+// usage persistence, a model-call identity check, a wall-clock store lease); the old `while` loop had
+// none of those, so an input it happily ran can hit one of them unless the facade absorbs the gap.
+// Each of these pins one such input.
+describe('group-chat: inputs the old while-loop accepted', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('completes when maxTurns is an enormous finite number', async () => {
+    for (const maxTurns of [Number.MAX_SAFE_INTEGER, 1e20]) {
+      const { manager } = fakeManager(outByType);
+      const result = await runGroupChat(
+        { ...spec, maxTurns },
+        {
+          manager,
+          context: TEST_CONTEXT,
+          selectNextStep: (history) => (history.length >= 2 ? null : 'b'),
+        },
+      );
+      expect(result.steps.map((step) => step.id)).toEqual(['a', 'b']);
+    }
+  });
+
+  it('normalises a reported usage value that carries an undefined optional key', async () => {
+    const usage = {
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+      cacheReadTokens: undefined,
+    } as ITokenUsage;
+    const { manager } = fakeManager(outByType, { usage: [usage] });
+    const result = await runGroupChat(spec, {
+      manager,
+      context: TEST_CONTEXT,
+      selectNextStep: () => null,
+    });
+    expect(result.steps[0].usage).toEqual({
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+    });
+  });
+
+  it('keeps every reported usage value the legacy loop returned, as plain data', async () => {
+    class ReportedUsage {
+      promptTokens = 1;
+      completionTokens = 1;
+      totalTokens = 2;
+    }
+    const noPrototype = Object.assign(Object.create(null) as object, {
+      promptTokens: 3,
+      completionTokens: 4,
+      totalTokens: 7,
+    });
+    const cases: Array<[ITokenUsage, unknown]> = [
+      [
+        new ReportedUsage() as unknown as ITokenUsage,
+        { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+      ],
+      [noPrototype as ITokenUsage, { promptTokens: 3, completionTokens: 4, totalTokens: 7 }],
+      [
+        { promptTokens: -1, completionTokens: 1, totalTokens: 0 },
+        { promptTokens: -1, completionTokens: 1, totalTokens: 0 },
+      ],
+      [
+        {
+          promptTokens: 1,
+          completionTokens: 1,
+          totalTokens: 2,
+          model: 'x',
+          detail: { cached: 1 },
+        } as unknown as ITokenUsage,
+        { promptTokens: 1, completionTokens: 1, totalTokens: 2, model: 'x', detail: { cached: 1 } },
+      ],
+    ];
+    for (const [usage, expected] of cases) {
+      const { manager } = fakeManager(outByType, { usage: [usage] });
+      const seen: unknown[] = [];
+      const result = await runGroupChat(spec, {
+        manager,
+        context: TEST_CONTEXT,
+        selectNextStep: (history) => {
+          seen.push(history[0]?.usage);
+          return null;
+        },
+      });
+      expect(result.steps[0].usage).toEqual(expected);
+      expect(seen).toEqual([expected]);
+    }
+  });
+
+  it('completes without usage when the reported value cannot be stored as finite JSON', async () => {
+    const notFiniteJson: ITokenUsage[] = [
+      { promptTokens: NaN, completionTokens: 1, totalTokens: 2 },
+      { promptTokens: Infinity, completionTokens: 1, totalTokens: 2 },
+    ];
+    for (const usage of notFiniteJson) {
+      const { manager } = fakeManager(outByType, { usage: [usage] });
+      const result = await runGroupChat(spec, {
+        manager,
+        context: TEST_CONTEXT,
+        selectNextStep: () => null,
+      });
+      expect(result.steps[0].usage).toBeUndefined();
+    }
+  });
+
+  it("falls back to the step's agentType when its model is an empty string", async () => {
+    const { manager, spawns } = fakeManager(outByType);
+    const result = await runGroupChat(
+      { ...spec, steps: spec.steps.map((step) => ({ ...step, model: '' })) },
+      { manager, context: TEST_CONTEXT, selectNextStep: () => null },
+    );
+    expect(result.steps.map((step) => step.id)).toEqual(['a']);
+    expect(spawns).toHaveLength(1);
+  });
+
+  it("falls back to the step's id when both model and agentType are empty strings", async () => {
+    const { manager, spawns } = fakeManager(outByType);
+    const result = await runGroupChat(
+      { ...spec, steps: spec.steps.map((step) => ({ ...step, agentType: '' })) },
+      { manager, context: TEST_CONTEXT, selectNextStep: () => null },
+    );
+    expect(result.steps.map((step) => step.id)).toEqual(['a']);
+    expect(spawns).toHaveLength(1);
+  });
+
+  it('completes a turn after the wall clock jumps forward well past the old default lease', async () => {
+    const { manager } = fakeManager(outByType, {
+      onWait: () => {
+        vi.setSystemTime(Date.now() + 45_000);
+      },
+    });
+    const result = await runGroupChat(spec, {
+      manager,
+      context: TEST_CONTEXT,
+      selectNextStep: () => null,
+    });
+    expect(result.steps.map((step) => step.id)).toEqual(['a']);
   });
 });

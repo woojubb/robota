@@ -5,6 +5,8 @@
 
 import { runHooks, createLogger, isEnforcing, wasToolResultAdmitted } from '@robota-sdk/agent-core';
 
+import { canonicaliseToolArguments } from './tool-argument-canonicalisation.js';
+
 import { MAX_TOOL_OUTPUT_CHARS, toolFailure } from './permission-types.js';
 
 import type {
@@ -17,6 +19,8 @@ import type {
 } from '@robota-sdk/agent-core';
 
 const logger = createLogger('ToolHookHelpers');
+
+type TRunHooksResult = Awaited<ReturnType<typeof runHooks>>;
 
 /**
  * Truncate tool result data if it exceeds MAX_TOOL_OUTPUT_CHARS.
@@ -56,6 +60,17 @@ export function buildHookInput(
   };
 }
 
+/** A PreToolUse decision the permission gate applies; `deny` is a refusal and `defer` changes nothing. */
+export type TPreToolHookDecision = 'allow' | 'ask';
+
+/** What the PreToolUse hooks decided about one call. */
+export interface IPreToolGateOutcome {
+  /** The denial to return instead of running the tool, or null to go on to the permission gate. */
+  readonly refusal: IToolResult | null;
+  readonly decision?: TPreToolHookDecision;
+  readonly parameters?: TToolParameters;
+}
+
 /**
  * Run PreToolUse hooks; returns a denial IToolResult if blocked, or null to proceed. `hookTraceEnv`
  * names the prompt root, never the tool body's span.
@@ -66,6 +81,60 @@ export async function runPreToolHook(
   hookTypeExecutors: IHookTypeExecutor[] | undefined,
   hookTraceEnv?: ISubprocessTraceEnv,
 ): Promise<IToolResult | null> {
+  return (await runPreToolGate(hooks, hookInput, hookTypeExecutors, hookTraceEnv)).refusal;
+}
+
+/** Re-evaluate all enforcing hooks after a command rewrite before granting permission. */
+export async function runPreToolGate(
+  hooks: Record<string, unknown> | undefined,
+  hookInput: IHookInput,
+  hookTypeExecutors: IHookTypeExecutor[] | undefined,
+  hookTraceEnv?: ISubprocessTraceEnv,
+): Promise<IPreToolGateOutcome> {
+  let input = hookInput;
+  let rewritten: TToolParameters | undefined;
+  const seen = new Set([JSON.stringify(input.tool_input)]);
+  for (let pass = 0; pass < 8; pass++) {
+    const evaluated = await evaluatePreToolHooks(hooks, input, hookTypeExecutors, hookTraceEnv);
+    if (evaluated.result !== null) return { refusal: evaluated.result };
+    const { permissionDecision, updatedInput } = evaluated.hookResult;
+    if (updatedInput !== undefined) {
+      if (updatedInput === null || typeof updatedInput !== 'object' || Array.isArray(updatedInput))
+        return {
+          refusal: toolFailure('hook-blocked', 'PreToolUse updatedInput must be an object.'),
+        };
+      const parameters = canonicaliseToolArguments(
+        input.tool_name ?? '',
+        updatedInput as TToolParameters,
+        input.cwd,
+      );
+      const encoded = JSON.stringify(parameters);
+      if (encoded !== JSON.stringify(input.tool_input)) {
+        if (seen.has(encoded)) break;
+        seen.add(encoded);
+        rewritten = parameters;
+        input = { ...input, tool_input: parameters as IHookInput['tool_input'] };
+        continue;
+      }
+    }
+    return {
+      refusal: null,
+      ...(rewritten === undefined ? {} : { parameters: rewritten }),
+      ...(permissionDecision === 'allow' || permissionDecision === 'ask'
+        ? { decision: permissionDecision }
+        : {}),
+    };
+  }
+  const reason = 'PreToolUse input rewriting did not stabilize; no tool call was executed.';
+  return { refusal: toolFailure('hook-blocked', reason, { blocked: true, reason }) };
+}
+
+async function evaluatePreToolHooks(
+  hooks: Record<string, unknown> | undefined,
+  hookInput: IHookInput,
+  hookTypeExecutors: IHookTypeExecutor[] | undefined,
+  hookTraceEnv?: ISubprocessTraceEnv,
+): Promise<{ result: IToolResult | null; hookResult: TRunHooksResult }> {
   const hookResult = await runHooks(
     hooks as THooksConfig | undefined,
     'PreToolUse',
@@ -79,7 +148,7 @@ export async function runPreToolHook(
     // `success: true`, so the type promised a distinction the code did not make — in the file that
     // exists to end exactly that.
     const reason = hookResult.reason ?? 'Blocked by hook';
-    return toolFailure('hook-blocked', reason, { blocked: true, reason });
+    return { result: toolFailure('hook-blocked', reason, { blocked: true, reason }), hookResult };
   }
 
   // SEC-016. A hook that reached NO verdict is not a hook that approved. Issue #2083 made that
@@ -87,7 +156,7 @@ export async function runPreToolHook(
   //
   // Guarded by the policy rather than by a literal `true`, so the posture is stated in ONE place and
   // this boundary cannot drift from it. Note what this does NOT buy: the event is hardcoded here
-  // because this function is `runPreToolHook`, so a future enforcing event needs its own boundary
+  // because this function is the PreToolUse gate, so a future enforcing event needs its own boundary
   // and does not inherit anything — an earlier version of this comment claimed otherwise and review
   // caught it. What the indirection does buy is that flipping `PreToolUse` to advisory in the table
   // turns this gate off.
@@ -144,18 +213,21 @@ export async function runPreToolHook(
         // and hit a second denial with no warning it was queued. A fail-closed gate that reveals its
         // reasons one per attempt is a gate you debug by being repeatedly stopped.
         (unregisteredReason !== '' ? ` Also unevaluated — ${unregisteredReason}` : '');
-      return toolFailure('hook-blocked', reason, { blocked: true, reason });
+      return { result: toolFailure('hook-blocked', reason, { blocked: true, reason }), hookResult };
     }
 
     if (unregisteredReason !== '') {
-      return toolFailure('hook-blocked', unregisteredReason, {
-        blocked: true,
-        reason: unregisteredReason,
-      });
+      return {
+        result: toolFailure('hook-blocked', unregisteredReason, {
+          blocked: true,
+          reason: unregisteredReason,
+        }),
+        hookResult,
+      };
     }
   }
 
-  return null;
+  return { result: null, hookResult };
 }
 
 /** Fire PostToolUse hooks (fire and forget) */

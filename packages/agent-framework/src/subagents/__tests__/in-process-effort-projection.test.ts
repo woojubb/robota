@@ -86,6 +86,29 @@ describe('in-process subagent effort projection (BEHAVIOR-009)', () => {
   });
 });
 
+describe('the permission mode a subagent starts in', () => {
+  it('is the mode the parent is in when the subagent starts', () => {
+    mocks.createSubagentSession.mockReturnValue({
+      run: vi.fn().mockResolvedValue('done'),
+      abort: vi.fn(),
+      getFullHistory: vi.fn().mockReturnValue([]),
+    });
+    let mode: 'default' | 'plan' = 'default';
+    const runner = createInProcessSubagentRunner({
+      ...deps(),
+      permissionMode: 'default',
+      getParentPermissionMode: () => mode,
+    });
+
+    mode = 'plan';
+    runner.start(job());
+
+    expect(mocks.createSubagentSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({ permissionMode: 'plan' }),
+    );
+  });
+});
+
 describe('the parent rules a subagent inherits (issue #3081)', () => {
   it('are the rules the parent gate enforces now, read at each spawn', () => {
     const session = {

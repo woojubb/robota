@@ -15,7 +15,7 @@ implementations, and the narrow service ports those controllers consume.
   Worker execution and advancement belong to `dag-worker`; assembly composition belongs to
   `dag-framework`.
 - Does not own operational HTTP client behavior — that belongs to `@robota-sdk/dag-orchestration-client`.
-- Depends on `dag-core` only for production domain contracts. Runtime, worker, scheduler, and
+- Depends on `dag-core` only for production domain contracts. Runtime, worker and
   projection packages must not be production dependencies of this package.
 
 ## Contract guarantees

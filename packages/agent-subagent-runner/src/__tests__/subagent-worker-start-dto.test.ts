@@ -176,6 +176,53 @@ describe('child-process effort projection (BEHAVIOR-009)', () => {
   });
 });
 
+describe('child-process permission mode projection', () => {
+  it('carries the mode the parent is in when the subagent starts', async () => {
+    const payload = await projectStartPayload(
+      {
+        taskId: 'agent_1',
+        request: {
+          agentType: 'a',
+          label: 'mode',
+          mode: 'background',
+          parentSessionId: 'parent',
+          depth: 1,
+          cwd: '/workspace',
+          prompt: 'Continue.',
+          permissionPolicy: 'inherit-allowlist',
+        },
+      },
+      {
+        config: {
+          defaultTrustLevel: 'moderate',
+          currentProvider: 'openai',
+          provider: { name: 'openai', model: 'test-model', apiKey: 'k' },
+          permissions: { allow: [], deny: [] },
+          env: {},
+        },
+        context: { agentsMd: '', projectNotesMd: '' },
+        tools: [],
+        terminal: {
+          write: () => {},
+          writeLine: () => {},
+          writeMarkdown: () => {},
+          writeError: () => {},
+          prompt: () => Promise.resolve(''),
+          select: () => Promise.resolve(0),
+          spinner: () => ({ stop: () => {}, update: () => {} }),
+        },
+        provider: {} as IInProcessSubagentRunnerDeps['provider'],
+        customAgentRegistry: () => MINIMAL_DEFINITION,
+        permissionMode: 'default',
+        getParentPermissionMode: () => 'plan',
+      },
+      { providerDefinitions: TEST_PROVIDER_DEFINITIONS },
+    );
+
+    expect(payload.permissionMode).toBe('plan');
+  });
+});
+
 /**
  * CLI-1994 TC-06 — a FORK job's start payload is the plain job's payload plus one string.
  *
