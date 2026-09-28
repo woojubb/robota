@@ -75,7 +75,7 @@ export function findActiveExecution(
   | undefined {
   for (const [executionId, executionData] of activeExecutions.entries()) {
     if (executionData.operation === operation) {
-      if (operation === 'run' && input && executionData.input !== input) continue;
+      if (input && executionData.input !== input) continue;
       return { executionId, executionData };
     }
   }

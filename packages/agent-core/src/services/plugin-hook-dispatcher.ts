@@ -59,7 +59,11 @@ const HOOK_HANDLERS: Record<string, TPluginHookHandler> = {
   },
   beforeToolCall: async (plugin, context) => {
     if (plugin.beforeToolCall && context.toolData)
-      await plugin.beforeToolCall(context.toolData.toolName, context.toolData.parameters);
+      await plugin.beforeToolCall(
+        context.toolData.toolName,
+        context.toolData.parameters,
+        context.toolData,
+      );
   },
   beforeToolExecution: async (plugin, context) => {
     if (plugin.beforeToolExecution && context.toolData)

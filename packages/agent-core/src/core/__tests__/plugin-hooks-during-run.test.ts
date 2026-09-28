@@ -45,7 +45,14 @@ class RecordingPlugin extends AbstractPlugin {
   readonly name = 'RecordingPlugin';
   readonly version = '1.0.0';
   readonly calls: string[] = [];
-  override async beforeToolCall(name: string): Promise<void> {
+  readonly startedIds: string[] = [];
+  readonly finishedIds: string[] = [];
+  override async beforeToolCall(
+    name: string,
+    _parameters: TToolParameters,
+    context?: IToolExecutionContext,
+  ): Promise<void> {
+    this.startedIds.push(context?.executionId ?? 'missing');
     this.calls.push(`before:${name}`);
   }
   override async beforeToolExecution(
@@ -59,6 +66,7 @@ class RecordingPlugin extends AbstractPlugin {
     _parameters: TToolParameters,
     result: IToolExecutionResult,
   ): Promise<void> {
+    this.finishedIds.push(result.executionId ?? 'missing');
     this.calls.push(`after:${name}:${result.success}`);
   }
   readonly conversations: number[] = [];
@@ -117,6 +125,9 @@ describe('plugin hooks during a run', () => {
       'execute:missing',
       'after:missing:false',
     ]);
+    expect(plugin.startedIds).toEqual(plugin.finishedIds);
+    expect(plugin.startedIds).not.toContain('missing');
+    expect(new Set(plugin.startedIds).size).toBe(3);
     await agent.destroy();
   });
 

@@ -221,7 +221,11 @@ export interface IPluginHooks {
     context: IPluginExecutionContext,
     result: IPluginExecutionResult,
   ): Promise<void> | void;
-  beforeToolCall?(toolName: string, parameters: TToolParameters): Promise<void> | void;
+  beforeToolCall?(
+    toolName: string,
+    parameters: TToolParameters,
+    context?: IToolExecutionContext,
+  ): Promise<void> | void;
   beforeToolExecution?(
     context: IPluginExecutionContext,
     toolData: IToolExecutionContext,

@@ -229,7 +229,11 @@ export abstract class AbstractPlugin<
     context: IPluginExecutionContext,
     result: IPluginExecutionResult,
   ): Promise<void>;
-  async beforeToolCall?(toolName: string, parameters: TToolParameters): Promise<void>;
+  async beforeToolCall?(
+    toolName: string,
+    parameters: TToolParameters,
+    context?: IToolExecutionContext,
+  ): Promise<void>;
   async beforeToolExecution?(
     context: IPluginExecutionContext,
     toolData: IToolExecutionContext,

@@ -10,6 +10,7 @@ import {
   isAssistantMessage,
   type TToolParameters,
   type IToolExecutionResult,
+  type IToolExecutionContext,
 } from '@robota-sdk/agent-core';
 
 import { aggregateExecutionStats } from './analytics-aggregation';
@@ -164,8 +165,15 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<
     }
   };
 
-  override async beforeToolCall(toolName: string, _parameters: TToolParameters): Promise<void> {
-    this.activeExecutions.set(generateExecutionId('tool', ++this.executionCounter), {
+  override async beforeToolCall(
+    toolName: string,
+    _parameters: TToolParameters,
+    context?: IToolExecutionContext,
+  ): Promise<void> {
+    const key = context?.executionId
+      ? `tool:${context.executionId}`
+      : generateExecutionId('tool', ++this.executionCounter);
+    this.activeExecutions.set(key, {
       startTime: Date.now(),
       operation: 'tool-call',
       input: toolName,
@@ -177,7 +185,11 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<
     parameters: TToolParameters,
     result: IToolExecutionResult,
   ): Promise<void> {
-    const execution = findActiveExecution(this.activeExecutions, 'tool-call', toolName);
+    const key = result.executionId ? `tool:${result.executionId}` : undefined;
+    const data = key ? this.activeExecutions.get(key) : undefined;
+    const execution = key
+      ? data && { executionId: key, executionData: data }
+      : findActiveExecution(this.activeExecutions, 'tool-call', toolName);
     if (!execution) return;
     const { executionId, executionData } = execution;
     const duration = Date.now() - executionData.startTime;
