@@ -54,6 +54,27 @@ function renderHistory(stepResults: IOrchestrationStepResult[]): string {
 }
 
 /**
+ * The ledger's `raw` slot must be finite, acyclic JSON (see `usage-ledger.ts`/`json.ts`); a runner's
+ * reported {@link ITokenUsage} is never validated to that standard and can carry an undefined-valued
+ * optional key, a non-finite number, or a non-plain-object instance. Usage is auxiliary everywhere
+ * else in this codebase (`in-process-subagent-runner.ts`'s own usage capture is best-effort and never
+ * fails the run it describes), so this facade holds it to the same standard: an undefined key is
+ * dropped (its absence and its presence-as-undefined read the same through `?.` and through
+ * `toEqual`), and anything else unrepresentable drops the whole reading rather than fail the turn.
+ */
+function usageForLedger(usage: ITokenUsage): JsonValue | undefined {
+  if (typeof usage !== 'object' || usage === null || Array.isArray(usage)) return undefined;
+  if (Object.getPrototypeOf(usage) !== Object.prototype) return undefined;
+  const clean: Record<string, number> = {};
+  for (const [key, value] of Object.entries(usage)) {
+    if (value === undefined) continue;
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return undefined;
+    clean[key] = value;
+  }
+  return clean as unknown as JsonValue;
+}
+
+/**
  * Convert a Roundtable snapshot's published messages into the legacy `IOrchestrationStepResult[]`
  * shape: one entry per turn, in publication order, with usage read back from the settled ledger
  * record sharing that turn's id (the raw {@link ITokenUsage} recorded by {@link createGroupChatParticipants}).
@@ -164,16 +185,21 @@ export function createGroupChatParticipants(
               await options.services.admitModelCall({
                 callId: turn.attemptId,
                 providerId: 'robota-subagent',
-                modelId: step.model ?? step.agentType,
+                // `??` alone still passes through an explicit `''`; a step can carry an empty
+                // `model` or (with no model at all) an empty `agentType`, and neither may reach the
+                // ledger's non-empty identity check — `step.id` is filtered non-empty before any
+                // participant is built, so it is always available as the last fallback.
+                modelId: step.model || step.agentType || step.id,
               });
               const result = await runStepOnce(step, history.length, prompt, deps, runId, emit);
-              if (result.usage) {
+              const raw = result.usage ? usageForLedger(result.usage) : undefined;
+              if (raw) {
                 await options.services.recordUsage({
                   callId: turn.attemptId,
                   outcome: 'completed',
                   provenance: 'reported',
                   final: true,
-                  raw: result.usage as unknown as JsonValue,
+                  raw,
                 });
               }
               return { kind: 'speak', content: result.output };
@@ -195,13 +221,24 @@ export function createGroupChatParticipants(
 /** A finite `maxTurns` allows the core one MORE turn than {@link decide} does, so `decide`'s own
  * bound check always fires before the core's own `limited` status could — the core's limit exists
  * only to satisfy its constructor validation, and is engineered here to never actually bind. A
- * non-finite `maxTurns` (NaN/Infinity) cannot be a safe integer either, so it maps to the largest
- * one instead — practically unbounded, matching the old loop's own numeric comparison, which never
- * threw for a non-finite bound.
+ * non-finite `maxTurns` (NaN/Infinity), or one so large that adding 1 would no longer be a safe
+ * integer, is clamped to the largest safe integer instead — practically unbounded, matching the old
+ * loop's own numeric comparison, which never threw for a non-finite or huge bound. `decide` itself
+ * keeps comparing against the caller's raw, unclamped `maxTurns` (see its own doc comment).
  */
 function toMaxTurnsPerRun(maxTurns: number): number {
-  return Number.isFinite(maxTurns) ? Math.max(1, Math.ceil(maxTurns) + 1) : Number.MAX_SAFE_INTEGER;
+  if (!Number.isFinite(maxTurns)) return Number.MAX_SAFE_INTEGER;
+  return Math.min(Number.MAX_SAFE_INTEGER, Math.max(1, Math.ceil(maxTurns) + 1));
 }
+
+/**
+ * The store lease this facade asks the core for. The core renews it on a timer but checks
+ * expiry against the wall clock; the old loop held no lease and so could never lose one to a
+ * host sleep, VM pause, or clock jump mid-turn. A day is comfortably below `setTimeout`'s
+ * 2^31−1 ms ceiling and far longer than one subagent turn can plausibly take, so this facade's
+ * single in-memory, single-owner run is unbounded in the same practical sense the old loop was.
+ */
+const GROUP_CHAT_LEASE_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Build the `RoundtableOptions` for one `runGroupChat` call: a fresh in-memory store, one
@@ -234,5 +271,6 @@ export function toRoundtableOptions(
     maxConcurrentParticipants: 1,
     store: new MemoryConversationStore(),
     recovery: 'none',
+    leaseMs: GROUP_CHAT_LEASE_MS,
   };
 }

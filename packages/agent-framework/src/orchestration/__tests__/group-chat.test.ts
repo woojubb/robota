@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   ORCHESTRATION_EVENTS,
   ORCHESTRATION_EVENT_PREFIX,
@@ -321,5 +321,105 @@ describe('SELFHOST-001 P3 — group-chat orchestration', () => {
     for (const record of records) {
       expect(record.context?.ownerId).toBe(ownerId);
     }
+  });
+});
+
+// The facade sits on top of a core with its own admission checks (safe-integer limits, JSON-only
+// usage persistence, a model-call identity check, a wall-clock store lease); the old `while` loop had
+// none of those, so an input it happily ran can hit one of them unless the facade absorbs the gap.
+// Each of these pins one such input.
+describe('group-chat: inputs the old while-loop accepted', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('completes when maxTurns is an enormous finite number', async () => {
+    for (const maxTurns of [Number.MAX_SAFE_INTEGER, 1e20]) {
+      const { manager } = fakeManager(outByType);
+      const result = await runGroupChat(
+        { ...spec, maxTurns },
+        {
+          manager,
+          context: TEST_CONTEXT,
+          selectNextStep: (history) => (history.length >= 2 ? null : 'b'),
+        },
+      );
+      expect(result.steps.map((step) => step.id)).toEqual(['a', 'b']);
+    }
+  });
+
+  it('normalises a reported usage value that carries an undefined optional key', async () => {
+    const usage = {
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+      cacheReadTokens: undefined,
+    } as ITokenUsage;
+    const { manager } = fakeManager(outByType, { usage: [usage] });
+    const result = await runGroupChat(spec, {
+      manager,
+      context: TEST_CONTEXT,
+      selectNextStep: () => null,
+    });
+    expect(result.steps[0].usage).toEqual({
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+    });
+  });
+
+  it('completes without carrying usage when the reported value is not finite JSON', async () => {
+    class ReportedUsage {
+      promptTokens = 1;
+      completionTokens = 1;
+      totalTokens = 2;
+    }
+    const notFiniteJson: ITokenUsage[] = [
+      { promptTokens: NaN, completionTokens: 1, totalTokens: 2 },
+      new ReportedUsage() as unknown as ITokenUsage,
+    ];
+    for (const usage of notFiniteJson) {
+      const { manager } = fakeManager(outByType, { usage: [usage] });
+      const result = await runGroupChat(spec, {
+        manager,
+        context: TEST_CONTEXT,
+        selectNextStep: () => null,
+      });
+      expect(result.steps[0].usage).toBeUndefined();
+    }
+  });
+
+  it("falls back to the step's agentType when its model is an empty string", async () => {
+    const { manager, spawns } = fakeManager(outByType);
+    const result = await runGroupChat(
+      { ...spec, steps: spec.steps.map((step) => ({ ...step, model: '' })) },
+      { manager, context: TEST_CONTEXT, selectNextStep: () => null },
+    );
+    expect(result.steps.map((step) => step.id)).toEqual(['a']);
+    expect(spawns).toHaveLength(1);
+  });
+
+  it("falls back to the step's id when both model and agentType are empty strings", async () => {
+    const { manager, spawns } = fakeManager(outByType);
+    const result = await runGroupChat(
+      { ...spec, steps: spec.steps.map((step) => ({ ...step, agentType: '' })) },
+      { manager, context: TEST_CONTEXT, selectNextStep: () => null },
+    );
+    expect(result.steps.map((step) => step.id)).toEqual(['a']);
+    expect(spawns).toHaveLength(1);
+  });
+
+  it('completes a turn after the wall clock jumps forward well past the old default lease', async () => {
+    const { manager } = fakeManager(outByType, {
+      onWait: () => {
+        vi.setSystemTime(Date.now() + 45_000);
+      },
+    });
+    const result = await runGroupChat(spec, {
+      manager,
+      context: TEST_CONTEXT,
+      selectNextStep: () => null,
+    });
+    expect(result.steps.map((step) => step.id)).toEqual(['a']);
   });
 });

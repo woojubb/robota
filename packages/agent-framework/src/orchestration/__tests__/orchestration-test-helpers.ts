@@ -48,6 +48,8 @@ export interface IFakeManagerOptions {
   failing?: boolean[] | ((spawn: IRecordedSpawn, index: number) => boolean);
   /** The error a failing spawn's `wait()` rejects with. Defaults to a stock `Error` per job id. */
   failure?: (spawn: IRecordedSpawn, index: number) => unknown;
+  /** Runs at the start of `wait()`, before it resolves — e.g. to move the clock mid-turn. */
+  onWait?: (taskId: string) => void | Promise<void>;
 }
 
 /**
@@ -97,6 +99,7 @@ export function fakeManager(
       return jobState(id);
     },
     async wait(taskId) {
+      await options.onWait?.(taskId);
       if (failures.has(taskId)) throw failures.get(taskId);
       const result = results.get(taskId);
       if (!result) throw new Error(`no result for ${taskId}`);
