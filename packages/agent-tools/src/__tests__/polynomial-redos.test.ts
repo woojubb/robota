@@ -134,7 +134,7 @@ describe('SEC-003 sweep — WebFetch HTML-to-text (unflagged, remote-sourced)', 
     'converts a page of unclosed `<script` in linear time',
     async () => {
       const started = performance.now();
-      const result = await fetchHtml('<script'.repeat(Math.floor(PUMP / 7)));
+      const result = await fetchHtml('<script'.repeat(Math.floor((PUMP / 7) * 2)));
       expect(performance.now() - started).toBeLessThan(BUDGET_MS);
       expect(result.success).toBe(true);
     },
