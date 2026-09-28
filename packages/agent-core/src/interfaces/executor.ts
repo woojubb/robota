@@ -50,14 +50,9 @@ export type TExecutorStreamEvent = IExecutorStreamMessageEvent | IExecutorStream
 /**
  * Interface for executing AI provider operations
  *
- * Executors abstract the execution mechanism, allowing providers to work
- * with either local API calls or remote server calls transparently.
- *
- * Implementation patterns:
- * - LocalExecutor: Direct API calls using provider SDKs
- * - RemoteExecutor: HTTP/WebSocket calls to remote server
- * - CacheExecutor: Cached responses with explicit error propagation
- * - HybridExecutor: Conditional local/remote execution
+ * Executors abstract the execution mechanism, so a provider can call its API directly or hand the
+ * call to something else (a server of your own, a cache). `LocalExecutor` is the in-process one;
+ * any other is yours to implement.
  */
 export interface IExecutor {
   /**
@@ -143,7 +138,10 @@ export interface ILocalExecutorConfig {
 }
 
 /**
- * Configuration options for remote executor
+ * Configuration options for a remote executor.
+ *
+ * @deprecated Robota ships no remote executor, so nothing reads this type. It stays exported only
+ * so existing imports keep compiling; describe your own executor's options instead.
  */
 export interface IRemoteExecutorConfig {
   /** Remote server URL */

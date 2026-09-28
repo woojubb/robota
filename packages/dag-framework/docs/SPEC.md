@@ -25,8 +25,8 @@ zero external runtime-server process dependencies.
   own working directory when the root is omitted.
 - Run lifecycle, definition reads and mutations, build, catalog-aware definition validation,
   registered-node catalog, cost-meta, and run-draft operations are domain capabilities on the
-  returned framework. Without a wired cost policy, cost operations report an explicit unsupported
-  result rather than fabricating a response.
+  returned framework. Cost-meta operations are the host's `ports.costMeta`; without one, they
+  report an explicit unsupported result rather than fabricating a response.
 - The in-process framework does not create HTTP response envelopes. Its run lifecycle owns the
   implicit definition create/publish needed before a manually prepared run; the runtime server
   maps those outcomes to HTTP. Asset storage and byte streaming remain separate capabilities.
