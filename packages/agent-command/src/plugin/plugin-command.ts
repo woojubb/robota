@@ -259,11 +259,10 @@ export async function executeReloadPluginsCommand(
       result.loadedPluginCount === 1
         ? '1 plugin resource'
         : `${result.loadedPluginCount} plugin resources`;
-    return `Reloaded ${suffix}.`;
+    return `Reloaded ${suffix}. Plugin commands and skills are active now; hook changes apply to new sessions.`;
   }).then((result) => {
-    if (!result.success) return result;
-    // CMD-004 Stage E: the semantic reload already ran HOST-side above (`adapter.reloadPlugins()`);
-    // the requester-local registry/autocomplete refresh rides the result as a data hint.
+    // A failed reload must also refresh the admitted snapshot: malformed settings must not leave
+    // previously loaded code executable. Preserve the error while requesting the same refresh.
     return {
       ...result,
       data: { ...result.data, pluginRegistryReloaded: true },

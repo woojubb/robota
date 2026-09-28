@@ -274,9 +274,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   allowlist, and finally always removes agent-spawning tools regardless of either list.
 - **A session runs the skills and commands of the bundle plugins it may load**, behind the same
   gates as plugin hooks (a bare session loads none; project plugins load only from a folder inside
-  the trusted workspace; a disabled plugin is skipped). Like hooks they are loaded once, when the session is built, and the
-  prompt and the router share that snapshot, so a settings file that changes or stops parsing later
-  cannot re-enable a plugin the user disabled. The session's own skill of the same name wins, then
+  the trusted workspace; a disabled plugin is skipped). The prompt and router share the same
+  admitted snapshot until an explicit user reload replaces both; unreadable settings cannot activate
+  installed code. The session's own skill of the same name wins, then
   the first plugin to name it.
 - **Agent definitions resolve through three precedence tiers, highest to lowest: discovered
   definitions on disk, then definitions injected by the composition root, then the built-in set (or

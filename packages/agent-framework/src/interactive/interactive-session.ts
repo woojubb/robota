@@ -251,7 +251,8 @@ export class InteractiveSession
   protected readonly histTracker: SessionHistoryTracker;
   protected readonly skillRouter: SessionSkillRouter;
   /** The skills and commands of the bundle plugins this session loaded when it was built. */
-  private readonly pluginSkills: readonly ICommand[];
+  private pluginSkills: readonly ICommand[];
+  private readonly loadPluginSkills: () => readonly ICommand[];
   protected readonly execCtrl: SessionExecutionController;
   private readonly stoppedWakeTaskIds = new Set<string>();
   private readonly sessionLoopExpiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -394,15 +395,17 @@ export class InteractiveSession
       'contributionSources' in options ? (options.contributionSources ?? []) : [];
     const skillRoots = 'skillRoots' in options ? (options.skillRoots ?? []) : [];
 
-    // Read once, now, so the prompt and the router agree on which plugin skills exist.
-    this.pluginSkills = loadSessionPluginSkills({
-      ...('bare' in options ? { bare: options.bare } : {}),
-      ...('projectAccess' in options ? { projectAccess: options.projectAccess } : {}),
-      ...('pluginDirectories' in options ? { pluginDirectories: options.pluginDirectories } : {}),
-      ...('userSettingsSources' in options
-        ? { userSettingsSources: options.userSettingsSources }
-        : {}),
-    });
+    // The same admitted snapshot feeds routing and the model's skill catalogue.
+    this.loadPluginSkills = () =>
+      loadSessionPluginSkills({
+        ...('bare' in options ? { bare: options.bare } : {}),
+        ...('projectAccess' in options ? { projectAccess: options.projectAccess } : {}),
+        ...('pluginDirectories' in options ? { pluginDirectories: options.pluginDirectories } : {}),
+        ...('userSettingsSources' in options
+          ? { userSettingsSources: options.userSettingsSources }
+          : {}),
+      });
+    this.pluginSkills = this.loadPluginSkills();
     this.skillRouter = new SessionSkillRouter(
       commandModules,
       contributionSources,
@@ -625,7 +628,12 @@ export class InteractiveSession
       // actually supplies a `requester`/`signal` (the child-process subagent runner) holds this same
       // function through the session-layer's own, wider `TPermissionHandler` and calls it with three.
       permissionHandler: (toolName: string, toolArgs: TToolArgs, context?: IPermissionAskContext) =>
-        this.promptRegistry.requestPermission(toolName, toolArgs, canPersistProjectPermission, context),
+        this.promptRegistry.requestPermission(
+          toolName,
+          toolArgs,
+          canPersistProjectPermission,
+          context,
+        ),
       askHandler: this.askHandler,
       onTextDelta: (delta) => this.execCtrl.handleTextDelta(delta),
       onContextUpdate: (state) => this.emit('context_update', state),
@@ -766,7 +774,8 @@ export class InteractiveSession
    */
   async readProjectDiff(path: string): Promise<TProjectDiffRead> {
     const result = await readProjectGitDiff(createGitProcess(), this.getCwd(), path);
-    if (result.ok) return { kind: 'diff', diffLines: result.diffLines, truncated: result.truncated };
+    if (result.ok)
+      return { kind: 'diff', diffLines: result.diffLines, truncated: result.truncated };
     if (result.code === 'not_a_repository') return { kind: 'not-a-repository' };
     if (result.code === 'outside_workspace') return { kind: 'outside-workspace' };
     return { kind: 'failed', message: result.message };
@@ -783,10 +792,18 @@ export class InteractiveSession
     try {
       store = this.getMemoryStore();
     } catch (error) {
-      return { kind: 'unavailable', message: error instanceof Error ? error.message : String(error) };
+      return {
+        kind: 'unavailable',
+        message: error instanceof Error ? error.message : String(error),
+      };
     }
     const memory = await store.loadStartupMemory();
-    return { kind: 'memory', content: memory.content, path: memory.path, truncated: memory.truncated };
+    return {
+      kind: 'memory',
+      content: memory.content,
+      path: memory.path,
+      truncated: memory.truncated,
+    };
   }
 
   get sessionId(): string {
@@ -2109,7 +2126,12 @@ export class InteractiveSession
     // prompt or command is already running"). Cancel the goal FIRST, so the still-running turn's
     // `handleGoalTurnComplete` sees it inactive and schedules no further iteration, THEN abort the
     // turn. A goal cancel with no active goal, or any other command, keeps the unchanged refusal.
-    if (name === 'goal' && isGoalCancelVerb(args) && this.execCtrl.executing && this.goalController.isActive()) {
+    if (
+      name === 'goal' &&
+      isGoalCancelVerb(args) &&
+      this.execCtrl.executing &&
+      this.goalController.isActive()
+    ) {
       const stopped = this.cancelGoal();
       this.abort();
       this.statusPush.push();
@@ -2129,6 +2151,20 @@ export class InteractiveSession
       ? await this.skillRouter.executeCommand(name, args, source, originDriverId, locality)
       : await super.executeCommand(name, args, source, originDriverId, locality);
     if (result === null) return null;
+    if (result.data?.['pluginRegistryReloaded'] === true && source !== 'model') {
+      this.pluginSkills = this.loadPluginSkills();
+      this.skillRouter.replacePluginSkills(this.pluginSkills);
+      const activation = this.skillRouter.commandExecutor.getSemanticRoles().skillActivation;
+      this.rebuildLivePrompt({
+        skills:
+          activation && this.skillRouter.commandExecutor.isModelInvocable(activation)
+            ? this.skillRouter
+                .listSkills()
+                .filter((skill) => skill.modelInvocable)
+                .map((skill) => ({ name: skill.name, description: skill.description }))
+            : [],
+      });
+    }
     const application = await applyCommandHostActions(result, {
       getAdapters: () => this.getCommandHostAdapters(),
       invocationSource: source,

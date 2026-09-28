@@ -46,10 +46,7 @@ function createCommandSessionRuntime() {
   });
 }
 
-function createCommandHostContext(
-  adapter?: ICommandPluginAdapter,
-  locality?: 'local' | 'remote',
-) {
+function createCommandHostContext(adapter?: ICommandPluginAdapter, locality?: 'local' | 'remote') {
   const checkpoint = {
     id: 'checkpoint_1',
     sessionId: 'session_1',
@@ -111,7 +108,9 @@ describe('createPluginCommandModule', () => {
       }),
       expect.objectContaining({
         name: 'reload-plugins',
-        description: 'Reload all plugin resources',
+        description: expect.stringContaining(
+          'refresh the command list, skill routing and model skill catalogue',
+        ),
         source: 'plugin-manager',
         modelInvocable: false,
       }),
@@ -278,7 +277,8 @@ describe('executeReloadPluginsCommand', () => {
       executeReloadPluginsCommand(createCommandHostContext(adapter), ''),
     ).resolves.toEqual({
       success: true,
-      message: 'Reloaded 3 plugin resources.',
+      message:
+        'Reloaded 3 plugin resources. Plugin commands and skills are active now; hook changes apply to new sessions.',
       data: { pluginRegistryReloaded: true },
     });
     expect(adapter.reloadPlugins).toHaveBeenCalled();
@@ -294,6 +294,7 @@ describe('executeReloadPluginsCommand', () => {
     ).resolves.toEqual({
       success: false,
       message: 'Plugin error: manifest failed',
+      data: { pluginRegistryReloaded: true },
     });
   });
 });
