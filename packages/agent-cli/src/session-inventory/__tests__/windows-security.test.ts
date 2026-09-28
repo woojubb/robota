@@ -48,6 +48,15 @@ describe('Windows daemon security', () => {
     expect(isPrivateWindowsSddl(`O:${SID}D:AI(A;ID;FA;;;AU)`, SID, false)).toBe(false);
   });
 
+  it('distinguishes local administrators by their complete account SID', () => {
+    const local = 'S-1-5-21-1-2-3-500';
+    const foreign = 'S-1-5-21-4-5-6-500';
+    expect(isPrivateWindowsSddl(`O:${local}D:P(A;;FA;;;${local})`, local, true)).toBe(true);
+    expect(isPrivateWindowsSddl(`O:${foreign}D:P(A;;FA;;;${local})`, local, true)).toBe(false);
+    expect(isPrivateWindowsSddl(`O:${local}D:P(A;;FA;;;${foreign})`, local, true)).toBe(false);
+    expect(isPrivateWindowsSddl('O:LAD:P(A;;FA;;;LA)', local, true)).toBe(false);
+  });
+
   it('selects the Windows creation-time reader instead of /proc', () => {
     expect(
       readProcessStartTime(
@@ -79,24 +88,7 @@ describe('Windows daemon security', () => {
         expect(() => createWindowsPrivateDirectory(storage)).toThrow(/not private/);
         rmSync(storage, { recursive: true });
         execFileSync('icacls.exe', [root, '/grant', '*S-1-1-0:(OI)(CI)F']);
-        try {
-          createWindowsPrivateDirectory(storage);
-        } catch (error) {
-          console.log('Fixture current numeric SID:', currentWindowsSid());
-          console.log(
-            execFileSync(
-              'powershell.exe',
-              [
-                '-NoProfile',
-                '-NonInteractive',
-                '-Command',
-                '(Get-Acl -LiteralPath $env:ROBOTA_ACL_TEST_PATH).Sddl',
-              ],
-              { env: { ...process.env, ROBOTA_ACL_TEST_PATH: storage }, encoding: 'utf8' },
-            ),
-          );
-          throw error;
-        }
+        createWindowsPrivateDirectory(storage);
         expect(() => createWindowsPrivateDirectory(storage, true)).toThrow(/already exists/);
         expect(() => assertWindowsPrivatePath(storage, true)).not.toThrow();
         const registration = join(storage, 'registration.json');

@@ -68,11 +68,12 @@ function loadApi() {
     ),
     sidString: security.func('int __stdcall ConvertSidToStringSidW(void*, _Out_ void**)'),
     getSecurity: security.func(
-      'uint32_t __stdcall GetNamedSecurityInfoW(str16, int, uint32_t, void*, void*, void*, void*, _Out_ void**)',
+      'uint32_t __stdcall GetNamedSecurityInfoW(str16, int, uint32_t, _Out_ void**, void*, _Out_ void**, void*, _Out_ void**)',
     ),
-    descriptorString: security.func(
-      'int __stdcall ConvertSecurityDescriptorToStringSecurityDescriptorW(void*, uint32_t, uint32_t, _Out_ void**, void*)',
+    descriptorControl: security.func(
+      'int __stdcall GetSecurityDescriptorControl(void*, _Out_ uint16_t*, _Out_ uint32_t*)',
     ),
+    getAce: security.func('int __stdcall GetAce(void*, uint32_t, _Out_ void**)'),
     descriptor: security.func(
       'int __stdcall ConvertStringSecurityDescriptorToSecurityDescriptorW(str16, uint32_t, _Out_ void**, void*)',
     ),
@@ -82,6 +83,20 @@ function loadApi() {
 let cachedApi: ReturnType<typeof loadApi> | undefined;
 const api = () => (cachedApi ??= loadApi());
 let cachedSid: string | undefined;
+
+function numericSid(pointer: unknown): string {
+  const win = api();
+  const text: unknown[] = [null];
+  if (!pointer || !win.sidString(pointer, text))
+    throw new Error('Unable to decode Windows owner SID.');
+  try {
+    const sid = String(koffi.decode.string16(text[0]));
+    if (!/^S-1-[0-9-]+$/u.test(sid)) throw new Error('Invalid Windows owner SID.');
+    return sid;
+  } finally {
+    win.free(text[0]);
+  }
+}
 
 function tokenSid(processHandle: unknown): string {
   const win = api();
@@ -97,16 +112,7 @@ function tokenSid(processHandle: unknown): string {
     try {
       if (!win.tokenInfo(token[0], 1, buffer, length[0], length))
         throw new Error('Unable to read Windows process owner.');
-      const text: unknown[] = [null];
-      if (!win.sidString(koffi.decode(buffer, 'void*'), text))
-        throw new Error('Unable to decode Windows process owner.');
-      try {
-        const sid = String(koffi.decode.string16(text[0]));
-        if (!/^S-1-[0-9-]+$/u.test(sid)) throw new Error('Invalid Windows owner SID.');
-        return sid;
-      } finally {
-        win.free(text[0]);
-      }
+      return numericSid(koffi.decode(buffer, 'void*'));
     } finally {
       koffi.free(buffer);
     }
@@ -122,17 +128,40 @@ export function currentWindowsSid(): string {
 function descriptorOf(path: string): string {
   const win = api();
   const descriptor: unknown[] = [null];
-  if (win.getSecurity(path, 1, 5, null, null, null, null, descriptor) !== 0)
+  const owner: unknown[] = [null];
+  const acl: unknown[] = [null];
+  if (win.getSecurity(path, 1, 5, owner, null, acl, null, descriptor) !== 0)
     throw new Error('Unable to read Windows access protection.');
   try {
-    const text: unknown[] = [null];
-    if (!win.descriptorString(descriptor[0], 1, 5, text, null))
+    const control = [0];
+    const revision = [0];
+    if (!acl[0] || !win.descriptorControl(descriptor[0], control, revision))
       throw new Error('Unable to decode Windows access protection.');
-    try {
-      return String(koffi.decode.string16(text[0]));
-    } finally {
-      win.free(text[0]);
+    // SDDL abbreviates domain-relative accounts (for example LA). Read the actual
+    // binary SIDs instead: a matching RID alone never establishes the same account.
+    const count = koffi.decode(acl[0], 4, 'uint16_t') as number;
+    const entries: string[] = [];
+    for (let index = 0; index < count; index++) {
+      const ace: unknown[] = [null];
+      if (!win.getAce(acl[0], index, ace)) throw new Error('Unable to read Windows access entry.');
+      const header = Buffer.from(koffi.decode(ace[0], 'uint8_t', 8));
+      if (header[0] !== 0 || header.readUInt16LE(2) < 16 || (header[1]! & ~0x1f) !== 0)
+        throw new Error('Unsupported Windows access entry.');
+      const flags = [
+        [1, 'OI'],
+        [2, 'CI'],
+        [4, 'NP'],
+        [8, 'IO'],
+        [16, 'ID'],
+      ] as const;
+      const inheritance = flags
+        .filter(([bit]) => (header[1]! & bit) !== 0)
+        .map(([, flag]) => flag)
+        .join('');
+      const trustee = numericSid(koffi.address(ace[0]) + 8n);
+      entries.push(`(A;${inheritance};0x${header.readUInt32LE(4).toString(16)};;;${trustee})`);
     }
+    return `O:${numericSid(owner[0])}D:${control[0]! & 0x1000 ? 'P' : ''}${entries.join('')}`;
   } finally {
     win.free(descriptor[0]);
   }
