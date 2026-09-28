@@ -56,6 +56,39 @@ export interface IHandoffChunk {
  */
 export const DEFAULT_MAX_CHUNK_BYTES = 16 * 1024;
 
+// This module is exported from the package root, which also builds for the browser, so it uses the
+// web platform's bytes, text codecs and base64 (`btoa`/`atob`) rather than Node's `Buffer`.
+
+/** How many bytes go through `String.fromCharCode` at once, well under the argument-count limit. */
+const BINARY_STRING_STEP = 0x8000;
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += BINARY_STRING_STEP) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + BINARY_STRING_STEP));
+  }
+  return btoa(binary);
+}
+
+/** The bytes `data` encodes, or `undefined` when it is not base64 at all. */
+function fromBase64(data: string): Uint8Array | undefined {
+  let binary: string;
+  try {
+    binary = atob(data);
+  } catch {
+    return undefined;
+  }
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 /**
  * Cut a sealed payload into chunks.
  *
@@ -75,14 +108,14 @@ export function chunkHandoffPayload(
         'as a hang rather than as the configuration error it is.',
     );
   }
-  const bytes = Buffer.from(serialized, 'utf8');
+  const bytes = new TextEncoder().encode(serialized);
   // An empty payload is still one chunk. Zero chunks would leave the receiver unable to tell a
   // completed empty transfer from one that never started.
   const total = Math.max(1, Math.ceil(bytes.byteLength / maxChunkBytes));
   const chunks: IHandoffChunk[] = [];
   for (let index = 0; index < total; index += 1) {
     const slice = bytes.subarray(index * maxChunkBytes, (index + 1) * maxChunkBytes);
-    chunks.push({ handoffId, index, total, data: slice.toString('base64') });
+    chunks.push({ handoffId, index, total, data: toBase64(slice) });
   }
   return chunks;
 }
@@ -127,7 +160,7 @@ export interface IChunkResult {
  * would make this a dispatcher as well as a buffer.
  */
 export class HandoffChunkAssembler {
-  private readonly chunks = new Map<number, Buffer>();
+  private readonly chunks = new Map<number, Uint8Array>();
   private declaredTotal: number | undefined;
 
   constructor(private readonly handoffId: string) {}
@@ -161,19 +194,19 @@ export class HandoffChunkAssembler {
       return refuse('out-of-range');
     }
 
-    const decoded = Buffer.from(chunk.data, 'base64');
-    // Buffer.from is lenient — it drops what it cannot parse rather than throwing, so a mangled
-    // chunk would silently become a shorter one and corrupt the payload in a way only the final
-    // digest would catch, after the whole transfer completed. Re-encoding is how the leniency is
-    // detected here instead.
-    if (decoded.toString('base64') !== chunk.data) return refuse('undecodable');
+    const decoded = fromBase64(chunk.data);
+    // Base64 decoding is lenient — it skips whitespace and accepts non-canonical padding — so a
+    // mangled chunk could silently become a different one and corrupt the payload in a way only the
+    // final digest would catch, after the whole transfer completed. Re-encoding is how the leniency
+    // is detected here instead.
+    if (decoded === undefined || toBase64(decoded) !== chunk.data) return refuse('undecodable');
 
     this.declaredTotal = chunk.total;
     const held = this.chunks.get(chunk.index);
     if (held !== undefined) {
       // A retry re-sending the same bytes is normal. Different bytes for the same index is the
       // inconsistent case again, and the same reasoning applies.
-      if (held.equals(decoded)) {
+      if (sameBytes(held, decoded)) {
         return { outcome: 'duplicate', received: this.chunks.size, expected: chunk.total };
       }
       return refuse('inconsistent-total');
@@ -206,7 +239,7 @@ export class HandoffChunkAssembler {
   }
 
   private reassemble(total: number): string {
-    const ordered: Buffer[] = [];
+    const ordered: Uint8Array[] = [];
     for (let i = 0; i < total; i += 1) {
       const part = this.chunks.get(i);
       if (part === undefined) {
@@ -217,7 +250,13 @@ export class HandoffChunkAssembler {
       }
       ordered.push(part);
     }
-    return Buffer.concat(ordered).toString('utf8');
+    const joined = new Uint8Array(ordered.reduce((size, part) => size + part.length, 0));
+    let offset = 0;
+    for (const part of ordered) {
+      joined.set(part, offset);
+      offset += part.length;
+    }
+    return new TextDecoder().decode(joined);
   }
 }
 
