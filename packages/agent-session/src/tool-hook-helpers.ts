@@ -5,6 +5,8 @@
 
 import { runHooks, createLogger, isEnforcing, wasToolResultAdmitted } from '@robota-sdk/agent-core';
 
+import { canonicaliseToolArguments } from './tool-argument-canonicalisation.js';
+
 import { MAX_TOOL_OUTPUT_CHARS, toolFailure } from './permission-types.js';
 
 import type {
@@ -66,6 +68,7 @@ export interface IPreToolGateOutcome {
   /** The denial to return instead of running the tool, or null to go on to the permission gate. */
   readonly refusal: IToolResult | null;
   readonly decision?: TPreToolHookDecision;
+  readonly parameters?: TToolParameters;
 }
 
 /**
@@ -81,25 +84,49 @@ export async function runPreToolHook(
   return (await runPreToolGate(hooks, hookInput, hookTypeExecutors, hookTraceEnv)).refusal;
 }
 
-/**
- * {@link runPreToolHook}, keeping the hooks' `permissionDecision` for the permission gate. A `defer`
- * is dropped: it leaves the call to the normal flow. The call runs its own input, so an `allow` sent
- * with an `updatedInput` approved another input and is dropped too.
- */
+/** Re-evaluate all enforcing hooks after a command rewrite before granting permission. */
 export async function runPreToolGate(
   hooks: Record<string, unknown> | undefined,
   hookInput: IHookInput,
   hookTypeExecutors: IHookTypeExecutor[] | undefined,
   hookTraceEnv?: ISubprocessTraceEnv,
 ): Promise<IPreToolGateOutcome> {
-  const refusal = await evaluatePreToolHooks(hooks, hookInput, hookTypeExecutors, hookTraceEnv);
-  if (refusal.result !== null) return { refusal: refusal.result };
-  const { permissionDecision, updatedInput } = refusal.hookResult;
-  if (permissionDecision === 'ask') return { refusal: null, decision: 'ask' };
-  if (permissionDecision === 'allow' && updatedInput === undefined) {
-    return { refusal: null, decision: 'allow' };
+  let input = hookInput;
+  let rewritten: TToolParameters | undefined;
+  const seen = new Set([JSON.stringify(input.tool_input)]);
+  for (let pass = 0; pass < 8; pass++) {
+    const evaluated = await evaluatePreToolHooks(hooks, input, hookTypeExecutors, hookTraceEnv);
+    if (evaluated.result !== null) return { refusal: evaluated.result };
+    const { permissionDecision, updatedInput } = evaluated.hookResult;
+    if (updatedInput !== undefined) {
+      if (updatedInput === null || typeof updatedInput !== 'object' || Array.isArray(updatedInput))
+        return {
+          refusal: toolFailure('hook-blocked', 'PreToolUse updatedInput must be an object.'),
+        };
+      const parameters = canonicaliseToolArguments(
+        input.tool_name ?? '',
+        updatedInput as TToolParameters,
+        input.cwd,
+      );
+      const encoded = JSON.stringify(parameters);
+      if (encoded !== JSON.stringify(input.tool_input)) {
+        if (seen.has(encoded)) break;
+        seen.add(encoded);
+        rewritten = parameters;
+        input = { ...input, tool_input: parameters as IHookInput['tool_input'] };
+        continue;
+      }
+    }
+    return {
+      refusal: null,
+      ...(rewritten === undefined ? {} : { parameters: rewritten }),
+      ...(permissionDecision === 'allow' || permissionDecision === 'ask'
+        ? { decision: permissionDecision }
+        : {}),
+    };
   }
-  return { refusal: null };
+  const reason = 'PreToolUse input rewriting did not stabilize; no tool call was executed.';
+  return { refusal: toolFailure('hook-blocked', reason, { blocked: true, reason }) };
 }
 
 async function evaluatePreToolHooks(
