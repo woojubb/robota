@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
 import { createQuery } from '../index.js';
 
 const roots: string[] = [];
@@ -13,6 +15,27 @@ function tempCwd(): string {
   const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-query-options-')));
   roots.push(cwd);
   return cwd;
+}
+
+/** A provider whose first call answers only when aborted, and says when that call has started. */
+function hangingProvider(): { provider: IAIProvider; started: Promise<void> } {
+  let markStarted = (): void => undefined;
+  const started = new Promise<void>((resolve) => (markStarted = resolve));
+  const provider: IAIProvider = {
+    name: 'hanging-test-provider',
+    version: 'test',
+    chat: (_messages, options) =>
+      new Promise((_resolve, reject) => {
+        markStarted();
+        options?.signal?.addEventListener('abort', () =>
+          reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+        );
+      }),
+    generateResponse: () => Promise.reject(new Error('not used')),
+    supportsTools: () => true,
+    validateConfig: () => true,
+  };
+  return { provider, started };
 }
 
 function offeredTools(options: { tools?: ReadonlyArray<{ name: string }> } | undefined): string[] {
@@ -80,7 +103,20 @@ describe('createQuery options', () => {
     await expect(query('hello')).resolves.toBe('ok');
     await query.shutdown();
 
-    await expect(query('again')).rejects.toThrow();
+    await expect(query('again')).rejects.toThrow('shut down');
     expect(scripted.chatOptions).toHaveLength(1);
+  });
+
+  it('rejects the running call and the waiting ones when shut down, instead of answering them', async () => {
+    const { provider, started } = hangingProvider();
+    const query = createQuery({ cwd: tempCwd(), provider });
+
+    const running = query('first');
+    const waiting = query('second');
+    await started;
+    await query.shutdown();
+
+    await expect(running).rejects.toThrow('shut down');
+    await expect(waiting).rejects.toThrow('shut down');
   });
 });

@@ -43,7 +43,10 @@ export interface ICreateQueryOptions {
   model?: string;
   /** Maximum agentic turns per query. */
   maxTurns?: number;
-  /** Tools that run without asking, in any permission mode (e.g. your own `additionalTools`). */
+  /**
+   * Tools that run without asking (e.g. your own `additionalTools`). A call that every mode asks
+   * about still asks.
+   */
   allowedTools?: readonly string[];
   /** Tools the model is never offered. Denied wins over allowed. */
   deniedTools?: readonly string[];
@@ -63,13 +66,21 @@ export interface ICreateQueryOptions {
  */
 export type TQueryFunction = ((prompt: string) => Promise<string>) & {
   readonly projectAccess: TWorkspaceProjectAccess;
-  /** Shut the query's session down; later calls are refused. */
+  /** Shut the query's session down; the running call and every later one reject. */
   shutdown(): Promise<void>;
 };
 
-async function submitQuery(session: InteractiveSession, prompt: string): Promise<string> {
+const SHUT_DOWN_MESSAGE = 'This query has been shut down.';
+
+async function submitQuery(
+  session: InteractiveSession,
+  prompt: string,
+  isShutDown: () => boolean,
+): Promise<string> {
   const turn = await session.submit(prompt);
   const result = await turn.completed;
+  // Shutting the session down interrupts the running turn; what it had so far is not an answer.
+  if (result.interrupted === true && isShutDown()) throw new Error(SHUT_DOWN_MESSAGE);
   return result.response;
 }
 
@@ -141,8 +152,8 @@ export function createQuery(options: ICreateQueryOptions): TQueryFunction {
   let shutDown = false;
   const query = (prompt: string): Promise<string> => {
     const answer = previous.then(() => {
-      if (shutDown) throw new Error('This query has been shut down.');
-      return submitQuery(session, prompt);
+      if (shutDown) throw new Error(SHUT_DOWN_MESSAGE);
+      return submitQuery(session, prompt, () => shutDown);
     });
     previous = answer.catch(() => undefined);
     return answer;

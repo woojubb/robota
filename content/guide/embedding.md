@@ -94,8 +94,8 @@ Things to know about a query function:
 - **Calls run one at a time.** The function wraps one session, so a call made while another is
   running waits for it, then gets its own reply. For parallel work, create one query function per
   task.
-- **Shut it down when you are done.** `await query.shutdown()` ends the session; a later call is
-  refused.
+- **Shut it down when you are done.** `await query.shutdown()` ends the session. A call still
+  running or waiting rejects, and so does every later one.
 
 ## createAgentRuntime — streaming server
 
@@ -296,6 +296,7 @@ import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const query = createQuery({
   provider: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
+  model: 'gpt-4o',
   responseFormat: { type: 'json_object' },
 });
 

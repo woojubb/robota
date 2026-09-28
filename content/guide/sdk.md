@@ -191,7 +191,8 @@ Pass `model` with any provider other than Anthropic: without it the model comes 
 files, and without one the session asks the provider for `claude-opus-4-5`.
 
 Calls run one at a time, in the order they were made, and each resolves with its own reply.
-`query.shutdown()` ends the session; a later call is refused.
+`query.shutdown()` ends the session; a call still running or waiting rejects, and so does every
+later one.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';

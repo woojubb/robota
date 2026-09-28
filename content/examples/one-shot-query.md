@@ -49,7 +49,8 @@ const response = await query('Refactor the error handling in src/utils.ts and ru
   approval is denied, unless the tool is in `allowedTools`. `deniedTools` are never offered to the
   model. See the [permissions guide](../guide/permissions-and-hooks.md) for what each mode allows.
 - `model` picks the model; pass it with any provider other than Anthropic.
-- Calls run one at a time and each resolves with its own reply; `query.shutdown()` ends the session.
+- Calls run one at a time and each resolves with its own reply. `query.shutdown()` ends the session;
+  a call still running or waiting rejects, and so does every later one.
 - Without a `projectAccess` decision the session runs Restricted: its tools still work inside `cwd`,
   but it does not load the project's `AGENTS.md`/`CLAUDE.md`, settings or memory. The
   [agent-framework README](../../packages/agent-framework/README.md) describes how a host passes

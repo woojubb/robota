@@ -457,8 +457,8 @@ agent.setModel({ provider: 'gemini', model: 'gemini-2.0-flash' });
 const r3 = await agent.run('Rate the translation quality.');
 ```
 
-The same pattern works with `createQuery` and `createAgentRuntime` — simply pass
-a different provider object at construction time.
+With `createQuery` and `createAgentRuntime`, pass a different provider object at construction time,
+together with a `model` it serves.
 
 ---
 
