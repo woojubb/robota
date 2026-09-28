@@ -6,11 +6,19 @@ import koffi from 'koffi';
 // Administrators and SYSTEM can override any local ACL, as root can on POSIX.
 const PRIVILEGED_SIDS = new Set(['BA', 'SY', 'S-1-5-32-544', 'S-1-5-18']);
 const FULL_CONTROL = 0x1f01ff;
+const FIXED_SID_ALIASES: Record<string, string> = {
+  SY: 'S-1-5-18',
+  BA: 'S-1-5-32-544',
+  LS: 'S-1-5-19',
+  NS: 'S-1-5-20',
+};
 
 /** A complete owner/DACL descriptor, never a POSIX mode assertion on Windows. */
 export function isPrivateWindowsSddl(sddl: string, sid: string, protectedAcl: boolean): boolean {
   const parsed = /^O:([^:]+)D:([A-Z]*)(\(.*\))$/u.exec(sddl);
-  if (!parsed || (parsed[1] !== sid && !PRIVILEGED_SIDS.has(parsed[1]!))) return false;
+  if (!parsed) return false;
+  const owner = FIXED_SID_ALIASES[parsed[1]!] ?? parsed[1]!;
+  if (owner !== sid && !PRIVILEGED_SIDS.has(owner)) return false;
   if (protectedAcl && !parsed[2]!.includes('P')) return false;
   const entries = [...parsed[3]!.matchAll(/\(([^()]*)\)/gu)];
   if (!entries.length || entries.map((entry) => entry[0]).join('') !== parsed[3]) return false;
@@ -18,7 +26,7 @@ export function isPrivateWindowsSddl(sddl: string, sid: string, protectedAcl: bo
   for (const entry of entries) {
     const fields = entry[1]!.split(';');
     if (fields.length !== 6 || fields[0] !== 'A' || fields[3] || fields[4]) return false;
-    const trustee = fields[5]!;
+    const trustee = FIXED_SID_ALIASES[fields[5]!] ?? fields[5]!;
     if (trustee !== sid && !PRIVILEGED_SIDS.has(trustee)) return false;
     const rights =
       fields[2] === 'FA'

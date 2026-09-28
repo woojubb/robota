@@ -23,6 +23,13 @@ describe('Windows daemon security', () => {
     expect(isPrivateWindowsSddl(`O:BAD:PAI(A;;FA;;;${SID})(A;;FA;;;SY)`, SID, true)).toBe(true);
   });
 
+  it('compares fixed service account aliases with the exact numeric account', () => {
+    expect(isPrivateWindowsSddl('O:SYD:P(A;OICI;FA;;;SY)', 'S-1-5-18', true)).toBe(true);
+    expect(isPrivateWindowsSddl('O:LSD:P(A;OICI;FA;;;LS)', 'S-1-5-19', true)).toBe(true);
+    expect(isPrivateWindowsSddl('O:SYD:P(A;OICI;FA;;;SY)', SID, true)).toBe(false);
+    expect(isPrivateWindowsSddl(`O:${SID}D:P(A;;FA;;;LS)(A;;FA;;;${SID})`, SID, true)).toBe(false);
+  });
+
   it('refuses public, inherited, null, incomplete, and foreign-owner descriptors', () => {
     for (const descriptor of [
       `O:${SID}D:P(A;;FA;;;WD)(A;;FA;;;${SID})`,
@@ -75,6 +82,7 @@ describe('Windows daemon security', () => {
         try {
           createWindowsPrivateDirectory(storage);
         } catch (error) {
+          console.log('Fixture current numeric SID:', currentWindowsSid());
           console.log(
             execFileSync(
               'powershell.exe',
