@@ -102,4 +102,11 @@ it('fails a manual published build immediately when any native payload is absent
   const missing = run(names.filter((name) => name !== 'robota-darwin-arm64'));
   expect(missing.status).toBe(1);
   expect(missing.stdout).toMatch(/release-bun-binaries\.yml/);
+  for (const dottedName of ['robota-windows-x64.exe', 'SHA256SUMS.txt']) {
+    const lookalike = run(
+      names.map((name) => (name === dottedName ? name.replace('.', '_') : name)),
+    );
+    expect(lookalike.status).toBe(1);
+    expect(lookalike.stdout).toContain(`Native release asset ${dottedName} is missing`);
+  }
 });

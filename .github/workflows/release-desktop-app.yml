@@ -101,7 +101,7 @@ jobs:
           names=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || true)
           required="robota-darwin-arm64 robota-darwin-x64 robota-linux-arm64 robota-linux-x64 robota-windows-x64.exe SHA256SUMS.txt"
           for name in $required; do
-            if ! printf '%s\n' "$names" | grep -qx "$name"; then
+            if ! printf '%s\n' "$names" | grep -Fqx "$name"; then
               echo "::error::Native release asset $name is missing. Run release-bun-binaries.yml for $TAG before retrying installers."
               exit 1
             fi
