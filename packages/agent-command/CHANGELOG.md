@@ -10,6 +10,8 @@
   `/mcp approve <server>` now also connects the server in the running session, the way `/mcp reload`
   does, instead of waiting for a restart. A remote server without OAuth therefore connects once
   approved; stdio servers still need a host-supplied authority.
+- 4cee6fb: Report unsupported MCP transports at startup and reload instead of silently skipping them,
+  and distinguish plugin MCP declaration inspection from a runtime connection.
 - 043fd27: In `plan` mode the model can no longer save project memory with `/memory add`. The command is auto-approved, so it ran in plan mode while `Write` and `Edit` were denied there. Reading memory, and adding it by hand, still work in plan mode.
 - 6ee8725: A user settings file that does not parse no longer reads as "no plugin is disabled". Plugin settings
   now refuse to read it: no plugin loads (skills, commands, hooks and themes alike), a plugin command

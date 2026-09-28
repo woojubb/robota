@@ -30,6 +30,7 @@
 - Updated dependencies [ada3841]
 - Updated dependencies [5093a30]
 - Updated dependencies [94b2c87]
+- Updated dependencies [10597b2]
 - Updated dependencies [3ab2eca]
   - @robota-sdk/agent-roundtable@3.0.0-beta.85
   - @robota-sdk/agent-core@3.0.0-beta.85

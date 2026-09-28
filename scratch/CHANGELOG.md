@@ -15,6 +15,7 @@
 - Updated dependencies [6ee8725]
 - Updated dependencies [6072e9a]
 - Updated dependencies [94b2c87]
+- Updated dependencies [10597b2]
 - Updated dependencies [3ab2eca]
 - Updated dependencies [2e07cad]
   - @robota-sdk/agent-framework@3.0.0-beta.85
