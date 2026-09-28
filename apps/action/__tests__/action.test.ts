@@ -254,14 +254,17 @@ describe('runAction', () => {
   });
 
   it('stops the runner from reading workflow commands out of the reply it logs', () => {
-    const { logs } = act({ ROBOTA_TASK: 'go' }, { reply: '::add-mask::x' });
+    const { logs, outputs } = act({ ROBOTA_TASK: 'go' }, { reply: '::add-mask::x' });
     const lines = logs.split('\n');
-    const stop = lines.findIndex((line) => line.startsWith('::stop-commands::'));
-    const token = lines[stop]?.slice('::stop-commands::'.length);
+    const reply = lines.indexOf('::add-mask::x');
+    const token = lines[reply - 1]?.slice('::stop-commands::'.length);
 
-    expect(stop).toBeGreaterThanOrEqual(0);
-    expect(lines[stop + 1]).toBe('::add-mask::x');
-    expect(lines[stop + 2]).toBe(`::${token}::`);
+    expect(lines[reply - 1]).toMatch(/^::stop-commands::/);
+    expect(lines[reply + 1]).toBe(`::${token}::`);
+    // Made after the reply, so neither the reply's token nor the output delimiter was in the log
+    // while the CLI ran.
+    expect(lines.slice(0, reply - 1).join('\n')).not.toContain(String(token));
+    expect(outputs).not.toContain(String(token));
   });
 
   it('fails the step without running anything when the task is empty', () => {

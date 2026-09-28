@@ -104,6 +104,8 @@ describe('a task that names a subcommand is still only a prompt', () => {
     );
     const cliPackage = createRequire(import.meta.url).resolve('@robota-sdk/agent-cli/package.json');
     const entry = join(dirname(cliPackage), 'bin', 'robota.cjs');
+    // Without the built CLI the run fails before reading anything, and the test would prove nothing.
+    expect(existsSync(join(dirname(cliPackage), 'dist', 'node', 'bin.js'))).toBe(true);
 
     // No provider is configured, so the CLI fails; what matters is what it ran first.
     expect(() =>

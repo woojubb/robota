@@ -107,7 +107,7 @@ export function runAction(io) {
   const loadProject = io.env.ROBOTA_LOAD_PROJECT === 'true';
   /** @type {NodeJS.ProcessEnv} */
   const env = { ...io.env };
-  // The inputs reach the CLI only as argv (and the key as ANTHROPIC_API_KEY), never as these names.
+  // The inputs reach the CLI as stdin (the task), argv and ANTHROPIC_API_KEY, never as these names.
   for (const name of INPUT_VARIABLES) delete env[name];
   // npm and the install scripts it runs never see the key.
   const { ANTHROPIC_API_KEY: _jobKey, ...installEnv } = env;
@@ -129,11 +129,10 @@ export function runAction(io) {
       maxTurns: io.env.ROBOTA_MAX_TURNS ?? '',
       loadProject,
     });
-    // Random tokens the agent's reply cannot predict: one delimits the multi-line output value,
-    // the other stops the runner from reading workflow commands out of what the CLI prints (its
-    // stderr streams to the log while it runs) and out of the reply logged after it.
-    const token = randomUUID();
-    io.log(`::stop-commands::${token}`);
+    // The runner reads no workflow commands out of what the CLI prints while it runs (its stderr
+    // streams to the log).
+    const runToken = randomUUID();
+    io.log(`::stop-commands::${runToken}`);
     let result;
     try {
       // The task goes on stdin, never as an argument. The CLI's own output is the agent's reply,
@@ -141,11 +140,17 @@ export function runAction(io) {
       result = runStep('The Robota CLI', () => io.run(entry, args, env, task), {
         withOutput: false,
       });
-      io.log(result);
     } finally {
-      io.log(`::${token}::`);
+      io.log(`::${runToken}::`);
     }
-    io.appendOutput(`result<<ROBOTA_RESULT_${token}\n${result}\nROBOTA_RESULT_${token}\n`);
+    // Tokens made after the reply exists, so the reply cannot contain them: one wraps the reply in
+    // the log, the other delimits the multi-line output value.
+    const replyToken = randomUUID();
+    io.log(`::stop-commands::${replyToken}`);
+    io.log(result);
+    io.log(`::${replyToken}::`);
+    const delimiter = `ROBOTA_RESULT_${randomUUID()}`;
+    io.appendOutput(`result<<${delimiter}\n${result}\n${delimiter}\n`);
     return 0;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
