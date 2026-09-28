@@ -1,15 +1,5 @@
 name: Release — Desktop app
 
-# GUI-003 — package apps/agent-app per-OS with electron-builder (runtime bundled via extraResources) and
-# publish the installers to the tag's GitHub Release. Sibling to release-bun-binaries.yml (raw Bun binaries) and
-# release.yml (npm publish); all three leave each other untouched. Installers are UNSIGNED (no certs).
-#
-# DIST-002 — this workflow also hosts the macOS artifact VERIFICATION gate (the `verify-macos-artifacts`
-# job). It lives here, rather than beside the binaries it checks, for one reason: verifying a macOS artifact
-# requires a macOS runner, containers cannot host macOS, and this is the only release workflow with a
-# `macos-latest` leg. The gate covers BOTH product families' darwin artifacts — the agent-cli single binaries
-# (built on ubuntu-latest by release-bun-binaries.yml) and this workflow's .dmg.
-
 on:
   push:
     tags:
@@ -29,8 +19,6 @@ on:
 permissions:
   contents: write
 
-# Shares the Release with release-bun-binaries.yml (both fire on v*) — serialize per tag so they do not race on
-# release creation.
 concurrency:
   group: release-assets-${{ github.event.inputs.tag || github.ref_name }}
   cancel-in-progress: false
@@ -38,7 +26,6 @@ concurrency:
 jobs:
   desktop:
     name: Package + publish (${{ matrix.os }})
-    # verify_only re-runs the gate against what is already published; it must not rebuild or re-upload.
     if: github.event.inputs.verify_only != 'true'
     strategy:
       fail-fast: false
@@ -58,8 +45,6 @@ jobs:
       - name: Resolve release tag
         id: tag
         shell: bash
-        # The tag is read from `env`, never interpolated into the script body: `${{ }}` inside a `run:`
-        # is textual substitution, so a tag containing shell metacharacters would execute here.
         env:
           INPUT_TAG: ${{ github.event.inputs.tag }}
           REF_NAME: ${{ github.ref_name }}
@@ -69,6 +54,16 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ steps.tag.outputs.tag }}
+
+      - name: Checkout macOS release tooling
+        if: runner.os == 'macOS'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .release-tools
+          sparse-checkout: |
+            scripts/release
+            apps/agent-app/electron-builder.yml
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -85,7 +80,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Full workspace build — the Bun binary bundles the agent-cli closure (dist/node/*).
       - name: Build workspace
         run: pnpm build
 
@@ -97,31 +91,41 @@ jobs:
       - name: Compile the host Bun runtime binary
         run: pnpm --filter @robota-sdk/agent-cli build:bun:headless:${{ matrix.bun_target }}
 
+      - name: Prepare macOS release credentials
+        if: runner.os == 'macOS'
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: node .release-tools/scripts/release/setup-macos-signing.mjs setup
+
+      - name: Sign the bundled macOS runtime with Bun's entitlements
+        if: runner.os == 'macOS'
+        env:
+          BINARY: packages/agent-cli/dist-bun-headless/robota-headless-${{ matrix.bun_target }}
+        run: |
+          node .release-tools/scripts/release/macos-signing.mjs sign-runtime "$BINARY"
+          cp .release-tools/apps/agent-app/electron-builder.yml apps/agent-app/electron-builder.yml
+
       - name: Package the desktop app (bundles the runtime)
-        run: pnpm --filter @robota-sdk/agent-app dist:app
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            pnpm --filter @robota-sdk/agent-app dist:app --config.forceCodeSigning=true
+          else
+            pnpm --filter @robota-sdk/agent-app dist:app
+          fi
+
+      - name: Sign, notarize and staple the macOS disk image
+        if: runner.os == 'macOS'
+        run: node .release-tools/scripts/release/macos-signing.mjs notarize-dmgs apps/agent-app/release
 
       - name: Exercise the packaged runtime
         run: pnpm --filter @robota-sdk/agent-app test:e2e:bundled
 
-      # `gh release upload release/*.dmg` with no match uploads nothing and still exits 0 on some gh
-      # versions, and an empty or truncated installer uploads perfectly happily. Assert the artifacts
-      # exist and are plausibly sized BEFORE publishing them, so a packaging regression cannot reach a
-      # user as a 0-byte download.
-      #
-      # #3356 — matching is done by `scripts/release/list-release-assets.mjs`, shared with the checksum
-      # step below, rather than each step carrying its own `for pattern in $ASSETS; do for f in
-      # $pattern; do found+=("$f"); done; done`. That idiom glob-expands correctly but then WORD-SPLITS
-      # the result, so a matched filename containing a space becomes two array entries instead of one.
-      # Node's `glob` returns real filenames, never re-parsed as shell words, and streams them back
-      # NUL-terminated; `read -r -d ''` (not `mapfile -d ''` — macOS's system `/bin/bash` is 3.2, which
-      # has no `mapfile` builtin) is the one bash framing that cannot split on an embedded space either.
-      #
-      # Two more failure modes the script itself closes: this checks out `steps.tag.outputs.tag`, a tag
-      # that may predate the script existing at all (every tag through v3.0.0-beta.84 does), so its
-      # presence is checked explicitly rather than assumed. And a `while ... < <(node ...)` process
-      # substitution does NOT propagate the substituted command's exit status — `set -e` cannot see it
-      # — so a crashing script would otherwise look identical to "matched nothing" instead of failing
-      # loudly; captured to a file and checked with `if !`, its exit status is not lost.
       - name: Assert packaged artifacts exist and are non-trivial
         shell: bash
         working-directory: apps/agent-app
@@ -149,25 +153,12 @@ jobs:
           for f in "${found[@]}"; do
             size=$(wc -c <"$f")
             echo "$f -> $size bytes"
-            # Every real installer for this app is tens of MB; 1 MB is a generous floor that only a
-            # truncated or empty artifact falls below.
             if [ "$size" -lt 1048576 ]; then
               echo "::error::$f is $size bytes — truncated or empty, refusing to publish."
               exit 1
             fi
           done
 
-      # DIST-002 — the desktop installers shipped with NO published checksums at all, so a user (and this
-      # repo's own verification gate) had no way to tell a complete download from a truncated one. One
-      # manifest PER MATRIX LEG: a single shared filename would have the three legs clobber each other's
-      # upload, which is how a checksum file ends up describing only the last OS to finish.
-      #
-      # #3356 — this step used to run `cd release` and THEN expand `$ASSETS` (e.g. `release/*.dmg`), so
-      # the patterns were looked up as `release/release/*.dmg` and — with `nullglob` set — matched
-      # nothing on every OS: "checksum manifest is empty — nothing was hashed." Matching now goes
-      # through `scripts/release/list-release-assets.mjs` (see the comment on "Assert packaged
-      # artifacts" above for why, including why its presence and exit status are both checked here
-      # rather than assumed — a tag that predates the script, or a crash inside it, must fail loudly).
       - name: Generate SHA-256 checksums for this OS's installers
         shell: bash
         working-directory: apps/agent-app
@@ -209,9 +200,6 @@ jobs:
           fi
           cat "$MANIFEST"
 
-      # REL-022 — managed release notes: categorized conventional-commit notes instead of the raw
-      # `--generate-notes` PR-title dump. The script auto-detects the previous v* tag (checkout above
-      # uses fetch-depth: 0, so full tag history is available). No network — git history only.
       - name: Generate release notes
         shell: bash
         env:
@@ -230,37 +218,18 @@ jobs:
           set -euo pipefail
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes-file "$NOTES"
           # `# reason`, not `-- reason`: shellcheck cannot PARSE the `--` form, and a directive it
-          # cannot parse aborts every check on the block (SC1073 "Fix to allow more checks"). So this
-          # line suppressed nothing and silently switched off the whole script instead. Found by
-          # INFRA-065's actionlint job on its first run.
           # shellcheck disable=SC2086 # $ASSETS is an intentional multi-pattern glob list.
           gh release upload "$TAG" $ASSETS "$MANIFEST" --clobber
         working-directory: apps/agent-app
 
-  # -------------------------------------------------------------------------------------------------
-  # DIST-002 phase 1 — the gate.
-  #
-  # "Did the upload succeed" and "is the uploaded thing usable" are different questions, and until now
-  # this pipeline only ever answered the first. `v3.0.0-beta.79` published a macOS binary carrying an
-  # ad-hoc signature (CodeDirectory only, no certificate chain); the kernel loads it, so every check that
-  # ran on the build runner passed, while every user who downloaded it — and therefore got
-  # com.apple.quarantine — was refused by Gatekeeper. That shipped 2026-07-15 and went unnoticed for four
-  # months because nothing ever looked at a published asset.
-  #
-  # This gate downloads the PUBLISHED asset, applies the quarantine attribute, and asks Gatekeeper.
-  # It is EXPECTED TO FAIL until signing and notarization land (#3349). That red is the point:
-  # a verification job written after the credentials arrive, green from its first run, cannot distinguish
-  # "correctly signed" from "checks nothing".
-  # -------------------------------------------------------------------------------------------------
+      - name: Remove macOS release credentials
+        if: ${{ always() && runner.os == 'macOS' }}
+        run: node .release-tools/scripts/release/setup-macos-signing.mjs cleanup
 
   await-published-assets:
     name: Wait for the tag's release assets to be published
-    # Deliberately on ubuntu: this job only polls, and macOS runner minutes bill at a large multiple.
     runs-on: ubuntu-latest
     needs: [desktop]
-    # The sibling workflow (release-bun-binaries.yml) publishes the darwin CLI binaries and shares this
-    # tag's concurrency group, so on a tag push the two workflows serialize in an unspecified ORDER —
-    # whichever runs first would find the other's assets missing. Poll rather than assume.
     if: ${{ !cancelled() && (github.event.inputs.verify_only == 'true' || needs.desktop.result == 'success') }}
     steps:
       - name: Resolve release tag
@@ -280,8 +249,6 @@ jobs:
           required="robota-darwin-arm64 robota-darwin-x64 SHA256SUMS.txt"
           deadline=$(( $(date +%s) + 1500 ))   # 25 minutes
           # allow-runner-wait: a release runs with a human or agent already driving it, and this
-          # poll watches an EXTERNAL event (asset propagation) that no re-run can observe sooner.
-          # Per-push gates do not qualify — see scan-runner-wait.mjs.
           while :; do
             names=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || true)
             missing=""
@@ -294,7 +261,6 @@ jobs:
               exit 0
             fi
             if [ "$(date +%s)" -ge "$deadline" ]; then
-              # Timing out is a FAILURE, never a skip: "could not determine" must not read as "fine".
               echo "::error::timed out waiting for release assets on $TAG; still missing:$missing"
               exit 1
             fi
@@ -318,8 +284,6 @@ jobs:
 
       - uses: actions/checkout@v7
 
-      # `gh release download` fetches what a user fetches — the published asset. Verifying a locally
-      # rebuilt copy instead would check a different artifact than the one that is broken.
       - name: Download the PUBLISHED macOS assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
