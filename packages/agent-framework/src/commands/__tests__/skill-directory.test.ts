@@ -183,7 +183,29 @@ describe('${CLAUDE_SKILL_DIR}', () => {
       { sessionId: 's-1', skillDir: '/skills/audit' },
     );
 
-    expect(seen).toEqual([{ CLAUDE_SKILL_DIR: '/skills/audit', CLAUDE_SESSION_ID: 's-1' }]);
+    expect(seen).toEqual([
+      { CLAUDE_SKILL_DIR: '/skills/audit', CLAUDE_SESSION_ID: 's-1', CLAUDE_PLUGIN_ROOT: '' },
+    ]);
+  });
+
+  it("gives a bundle plugin skill's shell commands its plugin folder", async () => {
+    const seen: Array<Readonly<Record<string, string>> | undefined> = [];
+    const skill = {
+      name: 'tidy',
+      description: 'Tidy',
+      source: 'plugin' as const,
+      context: 'inject',
+      skillContent: 'Result: !`run ${CLAUDE_PLUGIN_ROOT}/bin/tidy`',
+    };
+
+    await executeSkill(
+      skill,
+      '',
+      { shellExec: (_command, env) => (seen.push(env), 'ok') },
+      { sessionId: 's-1', pluginRoot: '/plugins/helper' },
+    );
+
+    expect(seen[0]?.['CLAUDE_PLUGIN_ROOT']).toBe('/plugins/helper');
   });
 
   it('never names a path outside the source root', () => {

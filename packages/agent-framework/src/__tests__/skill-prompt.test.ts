@@ -2,6 +2,17 @@ import { describe, it, expect } from 'vitest';
 
 import { substituteVariables, preprocessShellCommands } from '../utils/skill-prompt.js';
 
+describe('${CLAUDE_PLUGIN_ROOT}', () => {
+  it.each(['/plugins/a$&b', '/plugins/a$$b', "/plugins/a$'b", '/plugins/a$`b'])(
+    'substitutes the literal plugin directory %s',
+    (pluginRoot) => {
+      expect(substituteVariables('Read ${CLAUDE_PLUGIN_ROOT}/notes.md', '', { pluginRoot })).toBe(
+        `Read ${pluginRoot}/notes.md`,
+      );
+    },
+  );
+});
+
 describe('substituteVariables', () => {
   it('should substitute $ARGUMENTS with all args', () => {
     const result = substituteVariables('Run $ARGUMENTS', 'file.ts --fix');

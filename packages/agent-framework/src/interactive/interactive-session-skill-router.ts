@@ -335,6 +335,7 @@ export class SessionSkillRouter {
         {
           sessionId: this.getSessionId(),
           ...(skill.skillDirectory !== undefined ? { skillDir: skill.skillDirectory } : {}),
+          ...(skill.pluginDir !== undefined ? { pluginRoot: skill.pluginDir } : {}),
         },
       );
       this.emitSkillActivation(skill, invocation, 'completed', qualifiedName, {

@@ -64,6 +64,7 @@ async function buildProcessedContent(
   const env: Record<string, string> = {
     CLAUDE_SKILL_DIR: context?.skillDir ?? '',
     CLAUDE_SESSION_ID: context?.sessionId ?? '',
+    CLAUDE_PLUGIN_ROOT: context?.pluginRoot ?? '',
   };
   const preprocessed = await preprocessShellCommands(skill.skillContent, callbacks.shellExec, env);
   return substituteVariables(preprocessed, args, context);

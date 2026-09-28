@@ -1,7 +1,7 @@
 /**
  * Shell exec function for skill preprocessing — injected from composition root. `env` holds the
- * skill's variables (`CLAUDE_SKILL_DIR`, `CLAUDE_SESSION_ID`), added to the command's environment so
- * the shell expands them itself.
+ * skill's variables (`CLAUDE_SKILL_DIR`, `CLAUDE_SESSION_ID`, `CLAUDE_PLUGIN_ROOT`), added to the
+ * command's environment so the shell expands them itself.
  */
 export type TShellExecFn = (command: string, env?: Readonly<Record<string, string>>) => string;
 
@@ -11,6 +11,8 @@ export interface ISkillPromptContext {
   sessionId?: string;
   /** Directory containing SKILL.md — substituted for ${CLAUDE_SKILL_DIR} */
   skillDir?: string;
+  /** The plugin's folder, for a skill from a bundle plugin — substituted for ${CLAUDE_PLUGIN_ROOT} */
+  pluginRoot?: string;
 }
 
 /**
@@ -22,6 +24,7 @@ export interface ISkillPromptContext {
  * - `$N` — shorthand for `$ARGUMENTS[N]` (single digit, 0-9)
  * - `${CLAUDE_SESSION_ID}` — current session ID
  * - `${CLAUDE_SKILL_DIR}` — directory containing SKILL.md
+ * - `${CLAUDE_PLUGIN_ROOT}` — the plugin's folder, for a skill from a bundle plugin
  */
 export function substituteVariables(
   content: string,
@@ -50,6 +53,9 @@ export function substituteVariables(
 
   // Replace ${CLAUDE_SKILL_DIR}
   result = result.replace(/\$\{CLAUDE_SKILL_DIR}/g, context?.skillDir ?? '');
+
+  // Replace ${CLAUDE_PLUGIN_ROOT}
+  result = result.replace(/\$\{CLAUDE_PLUGIN_ROOT}/g, () => context?.pluginRoot ?? '');
 
   return result;
 }
