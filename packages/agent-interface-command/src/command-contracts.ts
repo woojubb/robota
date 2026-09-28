@@ -65,6 +65,11 @@ export interface ICommand {
   execute?: (args: string) => void | Promise<void>;
   /** Full SKILL.md content (only for skill commands) */
   skillContent?: string;
+  /**
+   * The absolute directory the skill's file is in, when its source can name one. `${CLAUDE_SKILL_DIR}`
+   * in the skill's content expands to it, so the skill can point at files it ships beside SKILL.md.
+   */
+  skillDirectory?: string;
   /** Hint for the expected argument (Claude Code frontmatter) */
   argumentHint?: string;
   /** When true, models cannot invoke this skill autonomously */

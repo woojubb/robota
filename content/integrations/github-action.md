@@ -88,26 +88,39 @@ does not load the repository's instruction files or settings. See [Using the SDK
 
 ## The Robota GitHub Action (not released)
 
-The GitHub Action lives in [`apps/action`](../../apps/action/action.yml). It is not released: its
-`action.yml` runs `dist/index.js`, which is not committed, and no workflow builds or publishes it, so
-there is no `uses:` reference a workflow can point at yet. Until it is released, use the CLI as shown
-above.
+The GitHub Action lives in [`apps/action`](../../apps/action/action.yml). It is not released yet: no
+tag or `uses:` reference is published for it, so until it is, use the CLI as shown above.
 
-The action runs `npx --yes @robota-sdk/agent-cli -p <task> --output-format <output>`, adding `--model`
-and `--max-turns` when they are set, with `api-key` passed to the CLI as `ANTHROPIC_API_KEY`. It sets
-the `result` output to what the CLI printed, and fails the step if the CLI exits with an error. Each
-input reaches the CLI as a separate argument, never through a shell, so a task built from issue or pull
-request text cannot inject shell commands.
+It is a composite action for Linux and macOS runners. It sets up Node.js 22.12 or later with
+`actions/setup-node` (so later steps in the job see that Node.js too), installs
+`@robota-sdk/agent-cli` with npm in the runner's temp directory, and runs it in the checkout as
+`robota --safe-mode --output-format <output> -p` with the task on stdin, adding `--model` and
+`--max-turns` when they are set, with `api-key` passed to the CLI as `ANTHROPIC_API_KEY`. It sets the
+`result` output to what the CLI printed, and fails the step if the CLI exits with an error.
+
+What the checkout can and cannot do:
+
+- Nothing in it decides which program runs. npm runs outside the checkout, so its `.npmrc` is not
+  read, and the installed CLI runs with Node directly, so a copy of the package committed to the
+  checkout is never used.
+- The task reaches the CLI only on stdin, so a task built from issue or pull request text is only
+  ever a prompt: it cannot inject shell commands, CLI options or a subcommand. The other inputs are
+  separate arguments, never passed through a shell.
+- By default the CLI runs with `--safe-mode`, so the checkout's settings, hooks, skills and MCP
+  servers do not load. Set `load-project: 'true'` to run `robota trust --yes` first and load them
+  instead — only for code you trust, never for a pull request from a fork.
 
 ### Inputs
 
-| Input       | Required | Default | Description                                      |
-| ----------- | -------- | ------- | ------------------------------------------------ |
-| `task`      | yes      | —       | The task or prompt to send to the agent          |
-| `model`     | no       | —       | AI model to use (e.g. `claude-sonnet-4-6`)       |
-| `api-key`   | no       | —       | Anthropic API key (pass it from `secrets`)       |
-| `output`    | no       | `text`  | Output format: `text` \| `json` \| `stream-json` |
-| `max-turns` | no       | —       | Maximum agent turns before stopping              |
+| Input          | Required | Default  | Description                                                             |
+| -------------- | -------- | -------- | ----------------------------------------------------------------------- |
+| `task`         | yes      | —        | The task or prompt to send to the agent                                 |
+| `model`        | no       | —        | AI model to use (e.g. `claude-sonnet-4-6`)                              |
+| `api-key`      | no       | —        | Anthropic API key (pass it from `secrets`)                              |
+| `output`       | no       | `text`   | Output format: `text` \| `json` \| `stream-json`                        |
+| `max-turns`    | no       | —        | Maximum agent turns before stopping                                     |
+| `load-project` | no       | `false`  | Trust the checkout and load its settings, hooks, skills and MCP servers |
+| `cli-version`  | no       | `latest` | Exact version or dist-tag of `@robota-sdk/agent-cli` to install         |
 
 ### Outputs
 

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-command",
-  "version": "3.0.0-beta.83",
+  "version": "3.0.0-beta.84",
   "description": "Slash-command modules for Robota SDK sessions (/help, /permissions, /mcp, /rewind, …)",
   "type": "module",
   "main": "dist/node/index.js",

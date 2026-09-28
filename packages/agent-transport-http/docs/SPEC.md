@@ -26,9 +26,10 @@ so the `hono` dependency is an isolated unit.
   violation upstream, since `getSessionId()` is supposed to name a session.
 - A session that cannot name itself cannot be claimed: `/submit` refuses it (HTTP 500) rather than
   falling back to `isExecuting()`, because that fallback would start a turn this route cannot
-  guarantee belongs to the caller. `/executing` is the one place an unnameable session still answers,
-  from `isExecuting()` alone — reporting what a session is doing is not the same act as admitting a
-  new turn to it.
+  guarantee belongs to the caller. A session that is still starting is not unnameable: `/submit` waits
+  on its `whenInitialized()` first, so the first request to a fresh `InteractiveSession` is served.
+  `/executing` is the one place an unnameable session still answers, from `isExecuting()` alone —
+  reporting what a session is doing is not the same act as admitting a new turn to it.
 
 ## Error taxonomy (design intent)
 

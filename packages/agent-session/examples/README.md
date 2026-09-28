@@ -19,6 +19,5 @@ connection or a provider key. `pnpm scenario:verify` from this package runs all 
   `pnpm scenario:verify:external-payload-replay`.
 - `verify-session-history-migration.mjs`: Runs the legacy session-history migration script against
   disposable files. Run it with `node examples/verify-session-history-migration.mjs`.
-- `scenarios/offline-verify.record.json`: A recorded output of the offline scenario.
 
 Embedding and demo examples live in the repository-root `examples/` directory.

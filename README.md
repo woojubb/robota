@@ -270,6 +270,7 @@ Full documentation lives at **[docs.robota.io](https://docs.robota.io/en/)**.
 - [Providers](https://docs.robota.io/en/guide/providers/)
 - [Permissions and Hooks](https://docs.robota.io/en/guide/permissions-and-hooks/)
 - [Sessions and Daemon](https://docs.robota.io/en/guide/sessions-and-daemon/)
+- [The GUI and the Desktop App](https://docs.robota.io/en/guide/gui/)
 - [Devices and Remote Control](https://docs.robota.io/en/guide/devices-and-remote/)
 - [MCP](https://docs.robota.io/en/guide/mcp/)
 - [CLI Reference](https://docs.robota.io/en/guide/cli/)

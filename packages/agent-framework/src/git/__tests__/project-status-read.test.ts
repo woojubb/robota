@@ -153,7 +153,6 @@ describe('readProjectGitStatus', () => {
   });
 
   it('reports a real git failure (not the non-repository case) with a message', async () => {
-    const env = hermeticEnv();
     const notGit: IGitProcessPort = { run: async () => ({ kind: 'exited', stdout: '', stderr: 'fatal: something else went wrong', exitCode: 128 }) };
     const result = await readProjectGitStatus(notGit, '/does-not-matter');
     expect(result).toMatchObject({ ok: false });

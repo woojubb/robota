@@ -12,7 +12,8 @@ import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-comma
 /**
  * Model-invocable: remembering and recalling project conventions is the model's own work. The
  * subcommand flags (in `buildMemoryCommandSubcommands`) keep `approve`/`reject` user-only, because
- * pending candidates exist so the user reviews what the model proposed to remember.
+ * pending candidates exist so the user reviews what the model proposed to remember, and the command
+ * refuses the model's `add` in plan mode, which writes nothing.
  */
 const MEMORY_COMMAND_MODEL_DESCRIPTION =
   'Read and write this project’s durable memory. Use `list` or `show [topic]` to look up stored ' +
@@ -20,7 +21,8 @@ const MEMORY_COMMAND_MODEL_DESCRIPTION =
   'to save a durable preference, project convention, feedback item or reference worth reusing ' +
   'across sessions (never secrets, credentials or transient facts); `pending` to see candidates ' +
   'awaiting the user’s review; `used` to report which memory items informed this turn. Bare lists ' +
-  'topics. Returns the requested topics or entries, or a confirmation of what was saved. Approving ' +
+  'topics. In plan mode `add` is refused: save after plan mode ends. Returns the requested topics ' +
+  'or entries, or a confirmation of what was saved. Approving ' +
   'or rejecting a pending candidate is the user’s review: suggest `/memory approve <id>` or ' +
   '`/memory reject <id>`.';
 

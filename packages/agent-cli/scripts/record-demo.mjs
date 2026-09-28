@@ -7,7 +7,7 @@
  *  1. RECORD  — spawn the built `bin/robota.cjs` in a real pseudo-terminal (the same PTY substrate the
  *               `*.ptytest.ts` suites use), drive a scripted keystroke sequence, and capture the raw
  *               terminal bytes into an asciicast-v2 file. Model answers come from the offline
- *               `--session-log` replay provider (INFRA-017) — no network, no API key, no live provider.
+ *               `--session-log` replay provider (`agent-provider-replay`) — no network, no API key, no live provider.
  *               Tools are NOT replayed: the `Read` tool call really runs against the demo project on disk.
  *  2. RENDER  — replay the capture into a real terminal emulator (xterm.js) inside headless Chromium and
  *               screenshot one frame per meaningful output change. Frames are sampled from the recorded
@@ -117,7 +117,7 @@ export function loadTasks(path: string): ITask[] {
 const DEMO_PROMPT = 'Explain the main entry point of this project';
 
 /**
- * Recorded provider responses replayed by `--session-log` (INFRA-017). Round 0 answers with a `Read`
+ * Recorded provider responses replayed by `--session-log`. Round 0 answers with a `Read`
  * tool call — which the CLI really executes — and round 1 explains the file that was read.
  */
 function demoSessionLog() {

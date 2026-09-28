@@ -20,8 +20,10 @@ profile among many — an external repo brings its own and reuses the same kerne
 ## Boundaries
 
 The CLI does not own, and must not import the internals of: session/persistence adapters (owns none,
-must not import `@robota-sdk/agent-session`), tools (`@robota-sdk/agent-tools` forbidden — tools are
-assembled internally by the framework), permission/hook mechanics (only public types from
+must not import `@robota-sdk/agent-session`), tools (assembled by the framework; from
+`@robota-sdk/agent-tools` the CLI takes only the OS sandbox — its client, detection and settings — a
+host adapter it composes),
+permission/hook mechanics (only public types from
 `agent-core`), config/context loading, `@file` prompt reference resolution, context-reference
 inventory, automatic project memory capture/retrieval/storage, edit-checkpoint capture/storage,
 `InteractiveSession` itself, `CommandRegistry`/`ICommand`/`ICommandSource`, background/subagent
@@ -29,7 +31,8 @@ lifecycle contracts, transparent-workflow provenance/state vocabulary, baseline 
 Ink TUI components/hooks (owned by `@robota-sdk/agent-ui-terminal`). Non-UI behavior exposed through
 the CLI is owned below it first unless it is listed as CLI-owned below.
 
-The CLI owns: argument parsing and process lifecycle assembly, `TransportRegistry`, provider
+The CLI owns: argument parsing and process lifecycle assembly, which transports each mode registers
+(the `TransportRegistry` class itself is agent-framework's), provider
 composition (selecting an injected `IProviderDefinition`, not implementing providers), concrete local
 host adapters (background runner, child-process subagent, Git worktree, settings I/O), package-version
 update checks, and the per-mode host-action adapters (`/remote-control`, process exit) through which the session executes a command's host actions.
@@ -186,7 +189,7 @@ Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`)
 | `agent-framework`         | SDK-owned APIs and facades                                                                                   |
 | `agent-core`              | Public types + utilities only; internal engine (`Robota`, `ExecutionService`, `ConversationStore`) forbidden |
 | `agent-session`           | Forbidden — the SDK provides its own session/permission types                                                |
-| `agent-tools`             | Forbidden — the SDK assembles tools internally                                                               |
+| `agent-tools`             | The OS sandbox only (its client, detection and settings) — the SDK assembles tools internally                |
 | `agent-command`           | Slash-command modules only                                                                                   |
 | `agent-subagent-runner`   | Subagent/background runner only                                                                              |
 | `agent-builtin-providers` | Provider definition assembly only                                                                            |

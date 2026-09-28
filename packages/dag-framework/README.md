@@ -28,7 +28,8 @@ the DAG workflow subsystem; see [the DAG packages](../dag-core/README.md#the-dag
 - `createDagFramework(options)` — async; returns an `IDagFramework` with domain capabilities
   (`runs`, `build`, `validation`, `catalog`, `definitionReads`, `definitionMutations`, `costMeta`,
   `runDrafts`, `assets`), `internals` for embedders, and `start()` / `stop()`. None of them returns
-  HTTP envelopes. In this composition `costMeta` reports an explicit "unsupported" result.
+  HTTP envelopes. `costMeta` reports an explicit "unsupported" result unless `ports.costMeta` is
+  given.
 - `LocalDagRuntimeProvider` — an `IDagRuntimeProvider` that runs one `IDagDefinition` in process
   with `execute(definition, inputs, options?)` and lists nodes with `listNodes()`.
 - `HttpDagRuntimeProvider` — the same provider contract plus detached runs (`submitRun`,
@@ -49,6 +50,8 @@ Key options of `createDagFramework()`:
 - `nodes` replaces the default catalog; `providers` binds the default `llm-text` node and is ignored
   when `nodes` is set.
 - `autoStart: true` starts the advancement actor during creation; otherwise call `start()`.
+- `ports.costMeta` supplies cost-metadata management (an `ICostMetaOperationsPort` from
+  `@robota-sdk/dag-cost`).
 
 Each framework owns one queue-scoped run advancement actor. `framework.start()` begins persistent
 advancement and `framework.stop()` closes prompt admission, lets the in-flight worker step finish

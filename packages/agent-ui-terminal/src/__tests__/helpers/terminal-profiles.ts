@@ -22,7 +22,7 @@
 export type TerminalProvenance = 'measured' | 'documented';
 
 export interface ITerminalProfile {
-  /** Stable id used in test names. */
+  /** Stable id used to look a profile up. */
   id: string;
   /** Human label for the matrix. */
   label: string;

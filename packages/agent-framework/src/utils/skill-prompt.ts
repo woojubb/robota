@@ -1,5 +1,9 @@
-/** Shell exec function for skill preprocessing — injected from composition root. */
-export type TShellExecFn = (command: string) => string;
+/**
+ * Shell exec function for skill preprocessing — injected from composition root. `env` holds the
+ * skill's variables (`CLAUDE_SKILL_DIR`, `CLAUDE_SESSION_ID`), added to the command's environment so
+ * the shell expands them itself.
+ */
+export type TShellExecFn = (command: string, env?: Readonly<Record<string, string>>) => string;
 
 /** Context variables available during skill prompt processing */
 export interface ISkillPromptContext {
@@ -58,6 +62,7 @@ export function substituteVariables(
 export async function preprocessShellCommands(
   content: string,
   exec?: TShellExecFn,
+  env?: Readonly<Record<string, string>>,
 ): Promise<string> {
   const shellPattern = /!`([^`]+)`/g;
 
@@ -81,7 +86,7 @@ export async function preprocessShellCommands(
     let output = '';
     if (exec) {
       try {
-        output = exec(command);
+        output = exec(command, env);
       } catch {
         output = '';
       }

@@ -64,13 +64,14 @@ const provider = new AnthropicProvider({
 
 ### Configuration options
 
-| Option     | Type        | Required                       | Description                                                    |
-| ---------- | ----------- | ------------------------------ | -------------------------------------------------------------- |
-| `apiKey`   | `string`    | Yes (unless `client` provided) | Anthropic API key                                              |
-| `client`   | `Anthropic` | No                             | Pre-built Anthropic SDK client                                 |
-| `baseURL`  | `string`    | No                             | Any Anthropic-Messages-API-compatible endpoint (proxy/gateway) |
-| `timeout`  | `number`    | No                             | Request timeout in milliseconds                                |
-| `executor` | `IExecutor` | No                             | Remote or local executor override                              |
+| Option         | Type        | Required                       | Description                                                    |
+| -------------- | ----------- | ------------------------------ | -------------------------------------------------------------- |
+| `apiKey`       | `string`    | Yes (unless `client` provided) | Anthropic API key                                              |
+| `client`       | `Anthropic` | No                             | Pre-built Anthropic SDK client                                 |
+| `baseURL`      | `string`    | No                             | Any Anthropic-Messages-API-compatible endpoint (proxy/gateway) |
+| `timeout`      | `number`    | No                             | Request timeout in milliseconds                                |
+| `defaultModel` | `string`    | No                             | Model used when a request names none                           |
+| `executor`     | `IExecutor` | No                             | Remote or local executor override                              |
 
 ### With a pre-built client
 
@@ -457,8 +458,8 @@ agent.setModel({ provider: 'gemini', model: 'gemini-2.0-flash' });
 const r3 = await agent.run('Rate the translation quality.');
 ```
 
-The same pattern works with `createQuery` and `createAgentRuntime` — simply pass
-a different provider object at construction time.
+With `createQuery` and `createAgentRuntime`, pass a different provider object at construction time,
+together with a `model` it serves.
 
 ---
 

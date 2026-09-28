@@ -36,6 +36,7 @@ import { ROBOTA_PROJECT_SETTINGS } from '../product/robota-project-settings.js';
 import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../product/robota-project-state-directories.js';
 import { createRobotaUserSettingsSources } from '../product/robota-user-settings.js';
 import { ROBOTA_SKILL_ROOTS } from '../product/robota-skill-roots.js';
+import { optionArgv } from '../utils/option-argv.js';
 
 export interface ICreateCliWorkspaceCompositionOptions {
   readonly cwd: string;
@@ -94,10 +95,19 @@ export const SAFE_MODE_NOTICE =
 export async function resolveStartupWorkspaceProjectAccess(
   argv: readonly string[],
   cwd: string,
-  options: { readonly projectAccess?: TWorkspaceProjectAccess } = {},
+  options: {
+    readonly projectAccess?: TWorkspaceProjectAccess;
+    /** An embedder's `startCli({ safeMode: true })`, which leaves no flag in argv. */
+    readonly safeMode?: boolean;
+  } = {},
 ): Promise<TWorkspaceProjectAccess> {
   // Safe mode loads nothing from the project, so it starts Restricted whatever the trust store says.
-  if (argv.includes(RESTRICTED_WORKSPACE_FLAG) || argv.includes(SAFE_MODE_FLAG)) {
+  const flags = optionArgv(argv);
+  if (
+    options.safeMode === true ||
+    flags.includes(RESTRICTED_WORKSPACE_FLAG) ||
+    flags.includes(SAFE_MODE_FLAG)
+  ) {
     return createRestrictedWorkspaceProjectAccess('untrusted', cwd);
   }
   return resolveInitialCliWorkspaceProjectAccess(cwd, options);

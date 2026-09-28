@@ -94,6 +94,8 @@ export interface IDagFrameworkPorts {
   readonly executor?: ITaskExecutorPort;
   readonly assetStore?: IAssetStore;
   readonly runDraftStore?: IRunDraftStore;
+  /** Cost-metadata management. Absent, every cost operation reports that it is unsupported. */
+  readonly costMeta?: ICostMetaOperationsPort;
 }
 
 export interface IDagFrameworkPaths {

@@ -86,7 +86,7 @@ reads the prompt from piped stdin.
 robota -p "List the TypeScript files in src/"
 robota -p "Summarize this repository" --output-format json   # one JSON object: result, session_id
 cat task.md | robota -p                                      # prompt from stdin
-robota -p "Review this diff" --bare                          # raw text for pipelines
+robota -p "Review this diff" --bare                          # without AGENTS.md, CLAUDE.md or plugins
 robota --goal "make the failing tests pass"                  # work toward a goal over several turns
 ```
 
@@ -263,7 +263,7 @@ See the [CLI guide](../../content/guide/cli.md) for skill frontmatter and plugin
 `robota --serve --open` starts a headless runtime for the current workspace, serves the Robota GUI
 on `127.0.0.1` and opens it in your browser. The Electron desktop app in this repository
 ([`apps/agent-app`](../../apps/agent-app/docs/README.md)) shows the same GUI over the workspace
-daemon; it is not published to npm.
+daemon; it is not published to npm. See [The GUI and the Desktop App](../../content/guide/gui.md).
 
 ### Reach other sessions and your other devices
 
@@ -315,6 +315,11 @@ Other files the CLI keeps under `~/.robota/`:
 
 The package also exports `startCli`, the function the `robota` executable runs, and its options
 type `IStartCliOptions`. The package is ESM-only: load it with `import`, not `require()`.
+
+A subagent runs in a child process that starts your entry script again with a worker flag; when
+`startCli()` sees that flag it runs the subagent instead of the CLI, and the returned promise never
+settles (the worker ends the process). So call `startCli()` from the script Node started, and put
+nothing before it that must not run once per subagent.
 
 ## Work on the CLI in this repository
 

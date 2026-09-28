@@ -86,8 +86,3 @@ responsibility to inject.
 
 Looking up an unknown preset id throws a plain `Error` naming the id and listing the available
 ids. No custom error classes are defined for this package's single failure mode.
-
-## Dependencies
-
-Depends on the framework package's session-option types (for the permission-mode type, via indexed
-access) and no other workspace package.

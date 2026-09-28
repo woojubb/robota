@@ -10,7 +10,9 @@ import {
 
 import type {
   IAppendMemoryInput,
+  ICommandHostAdapterAccess,
   ICommandHostMemory,
+  ICommandHostSessionAccess,
   ICommandHostWorkspace,
   IMemoryStore,
 } from '@robota-sdk/agent-framework';
@@ -208,8 +210,18 @@ function formatUsed(context: ICommandHostMemory): ICommandResult {
   };
 }
 
+/** The host's view of the session's permission mode, when it has one. */
+type TMemoryCommandModeAccess = ICommandHostAdapterAccess &
+  Partial<Pick<ICommandHostSessionAccess, 'getSession'>>;
+
+function isPlanMode(context: TMemoryCommandModeAccess): boolean {
+  const adapter = context.getCommandHostAdapters?.().permissionMode;
+  const mode = adapter?.getPermissionMode() ?? context.getSession?.().getPermissionMode();
+  return mode === 'plan';
+}
+
 export async function executeMemoryCommand(
-  context: ICommandHostMemory & ICommandHostWorkspace,
+  context: ICommandHostMemory & ICommandHostWorkspace & TMemoryCommandModeAccess,
   rawArgs: string,
 ): Promise<ICommandResult> {
   const args = rawArgs.trim().split(/\s+/).filter(Boolean);
@@ -227,6 +239,14 @@ export async function executeMemoryCommand(
   if (subcommand === 'reject') return rejectPending(context, store, args[TYPE_INDEX]);
   if (subcommand === 'used') return formatUsed(context);
   if (subcommand === 'add') {
+    // Plan mode changes nothing, and saved memory is read back into every later session. The user
+    // can still save by hand; the model waits until plan mode ends.
+    if (context.getCommandInvocationSource() === 'model' && isPlanMode(context)) {
+      return {
+        message: 'Plan mode saves no memory. Save it after plan mode ends.',
+        success: false,
+      };
+    }
     const input = parseAdd(args);
     if (!input) return usage();
     if (hasSensitiveCommandMemoryContent(input.text)) {

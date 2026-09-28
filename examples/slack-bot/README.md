@@ -68,11 +68,10 @@ The bot answers in a thread under your message.
   replaces it when the turn completes.
 - Session records are written to `.robota/sessions/` in the working directory.
 
-The code is written to resume one session per thread: it keeps a map from `thread_ts` to a session ID and
-passes it as `resumeSessionId`. It reads that ID from the `complete` event's result, which does not carry one,
-so the map stays empty and every mention currently starts a new session with no memory of the thread. The
-running session's ID is available as `session.sessionId`.
+Each thread keeps one conversation: the bot maps `thread_ts` to the session's ID (`session.sessionId`) when a
+reply completes and passes it as `resumeSessionId` on the next mention in that thread. The map lives in memory,
+so a restart starts every thread fresh.
 
-The session runs with `permissionMode: 'bypassPermissions'` and the default tool set in the bot's working
-directory, so anyone who can mention the bot can have the agent read, write and run shell commands there. Run
-it on a machine you control, or pass `deniedTools` to `runtime.createSession()` in `src/app.ts`.
+Anyone who can mention the bot talks to the agent, so the session has none of the built-in tools that run
+commands, read or change files, reach the network or send files (`DENIED_TOOLS` in `src/app.ts`). Give it
+your own tools with `additionalTools` and approve them by name with `allowedTools`.

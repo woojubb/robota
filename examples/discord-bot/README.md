@@ -59,7 +59,7 @@ In any channel where the bot has access:
 
 The bot defers the reply immediately, collects the streamed response, and edits the deferred message once the turn completes. Responses longer than 2000 characters are split into follow-up messages.
 
-Each `/ask` runs in a new session, so the bot does not remember earlier questions. The session runs with `permissionMode: 'bypassPermissions'` and the default tool set in the bot's working directory, so anyone who can use `/ask` can have the agent read, write and run shell commands there. Run it on a machine you control, or pass `deniedTools` to `runtime.createSession()` in `src/bot.ts`.
+Each `/ask` runs in a new session, so the bot does not remember earlier questions. Anyone who can use `/ask` talks to the agent, so the session has none of the built-in tools that run commands, read or change files, reach the network or send files (`DENIED_TOOLS` in `src/bot.ts`). Give it your own tools with `additionalTools` and approve them by name with `allowedTools`.
 
 ## Deploying globally
 

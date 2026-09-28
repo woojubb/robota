@@ -27,10 +27,9 @@ it produces the prompt a downstream LLM node consumes (`skill -> llm-text -> ...
   `@robota-sdk/agent-framework`.
 - The `args` input port, when a non-empty string, overrides the static config default — callers can
   parameterize a skill invocation per-run without editing the node's config.
-- Skill discovery is rooted at the trusted execution root passed in context. A configured working
-  directory may only narrow within that root; absolute paths, parent traversal, and symlink escapes
-  are rejected rather than silently resolved, so a node config cannot read outside the run's
-  sandboxed root.
+- Skills are discovered only from the skill roots and contribution sources the composition root
+  injects into the resolution port. A node config names a skill, never a directory, so it cannot
+  reach skills outside what the host granted.
 - Cost estimation defaults to zero credits, since prompt resolution runs no model.
 
 ## Boundaries

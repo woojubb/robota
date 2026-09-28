@@ -1,3 +1,4 @@
+import './load-env.js';
 import express from 'express';
 import { z } from 'zod';
 import { createQuery } from '@robota-sdk/agent-framework';
@@ -12,6 +13,20 @@ if (!apiKey) {
   console.error('Error: ANTHROPIC_API_KEY environment variable is required');
   process.exit(1);
 }
+
+const DENIED_TOOLS = [
+  'Shell',
+  'Bash',
+  'BackgroundProcess',
+  'Read',
+  'Write',
+  'Edit',
+  'Glob',
+  'Grep',
+  'WebFetch',
+  'WebSearch',
+  'peer_send_file',
+];
 
 // Custom function tools are created once and registered per request via `additionalTools`.
 const calculatorTool = createZodFunctionTool(
@@ -69,10 +84,15 @@ app.post('/api/chat', (req, res) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`);
   };
 
-  // A fresh query per request so conversation history does not bleed between users.
+  // A fresh query per request so conversation history does not bleed between users. Anyone who can
+  // reach this server talks to the agent, so it runs only the two tools below, approved by name,
+  // and none of the built-in tools that run commands, read or change files, reach the network or
+  // send files.
   const query = createQuery({
     provider: new AnthropicProvider({ apiKey }),
     additionalTools: [calculatorTool, currentTimeTool],
+    allowedTools: ['calculate', 'get_current_time'],
+    deniedTools: DENIED_TOOLS,
     onTextDelta: (delta) => send({ type: 'text_delta', text: delta }),
   });
 

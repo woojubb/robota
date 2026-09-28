@@ -13,6 +13,7 @@ import { isSubagentWorkerModeArgv, runSubagentWorkerMain } from '@robota-sdk/age
 import { startCli } from './cli.js';
 import { createRobotaSubagentComposition } from './product/robota-subagent-composition.js';
 import { areTuiProcessGuardsActive, classifyUncaughtException } from './process-guards.js';
+import { optionArgv } from './utils/option-argv.js';
 
 installCliDiagnostics();
 
@@ -40,7 +41,7 @@ process.on('uncaughtException', (err) => {
 // a source run, AND the compiled single-file binaries, where there is no sibling file to find.
 // `runSubagentWorkerMain` refuses loudly when there is no IPC channel, so a hand-typed flag fails
 // where someone can see it instead of looking started.
-if (isSubagentWorkerModeArgv(process.argv)) {
+if (isSubagentWorkerModeArgv(optionArgv(process.argv))) {
   // ARCH-021: the child composes robota's OWN surface, from the same packs the parent uses. The
   // neutral runner no longer imports product defaults — it is handed the recipe.
   runSubagentWorkerMain(createRobotaSubagentComposition());

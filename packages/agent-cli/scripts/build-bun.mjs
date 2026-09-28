@@ -9,7 +9,7 @@
  *
  * Prereq: run the normal build first so dist/node/bin.js (and dist/node/headless.js) exist. Binaries are written
  * to dist-bun/ (full) or dist-bun-headless/ (headless).
- * Two build-time fixes (see the DIST-001 spec): stub ink's dev-only `react-devtools-core` static import, and
+ * Two build-time fixes: stub ink's dev-only `react-devtools-core` static import, and
  * inject the real version via `--define __ROBOTA_VERSION__` (the single binary can't fs-walk for package.json).
  */
 

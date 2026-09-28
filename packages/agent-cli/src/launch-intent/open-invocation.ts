@@ -53,6 +53,9 @@ export async function resolveLaunchInvocation(
 ): Promise<TLaunchInvocation> {
   if (argv[SUBCOMMAND_INDEX] !== OPEN_SUBCOMMAND) return { kind: 'not-an-open-invocation' };
   const rest = argv.slice(SUBCOMMAND_ARGS_INDEX);
+  // `robota open --help` asks for help, not a launch: the help router answers it, and nothing reads
+  // a link or changes directory first.
+  if (rest.includes('--help') || rest.includes('-h')) return { kind: 'not-an-open-invocation' };
   const link = rest[0];
   if (link === undefined) {
     return refused(`\`${OPEN_SUBCOMMAND}\` needs a link.\n${LAUNCH_INTENT_USAGE}`);

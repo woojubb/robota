@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { IDagDefinition } from '@robota-sdk/dag-core';
+import { UnsupportedCostMetaOperations } from '../adapters/unsupported-cost-meta.js';
 import { createDagFramework } from '../create-dag-framework.js';
 import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-nodes-default';
 import type { IDagFramework } from '../types.js';
@@ -157,6 +158,24 @@ describe('listNodes', () => {
 });
 
 describe('cost-meta capability', () => {
+  it('is the host-wired cost-meta port when one is given', async () => {
+    const costMeta = new UnsupportedCostMetaOperations();
+    const root = await mkdtemp(path.join(os.tmpdir(), 'robota-dag-cost-meta-'));
+    try {
+      const wired = await createDagFramework({
+        executionRoot: root,
+        nodes: createDefaultNodeRegistrySync(),
+        paths: { storageRoot: path.join(root, 'storage'), assetRoot: path.join(root, 'assets') },
+        ports: { costMeta },
+        autoStart: false,
+      });
+      expect(wired.costMeta).toBe(costMeta);
+      await wired.stop();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('reports unsupported as a domain result, not an HTTP envelope', async () => {
     const res = await framework.costMeta.listCostMeta();
     expect(res).toMatchObject({ ok: false, error: { code: 'DAG_COST_META_UNSUPPORTED' } });

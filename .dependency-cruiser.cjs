@@ -24,45 +24,6 @@ module.exports = {
     },
 
     // ==========================================================
-    // Core package isolation: agents must not depend on higher-level packages
-    // ==========================================================
-    {
-      name: 'no-agents-to-sessions',
-      severity: 'error',
-      comment: 'agents (core) must not depend on sessions (higher-level)',
-      from: { path: '^packages/agents/' },
-      to: { path: '^packages/sessions/' },
-    },
-    {
-      name: 'no-agents-to-team',
-      severity: 'error',
-      comment: 'agents (core) must not depend on team (higher-level)',
-      from: { path: '^packages/agents/' },
-      to: { path: '^packages/team/' },
-    },
-    {
-      name: 'no-agents-to-remote',
-      severity: 'error',
-      comment: 'agents (core) must not depend on remote (higher-level)',
-      from: { path: '^packages/agents/' },
-      to: { path: '^packages/remote/' },
-    },
-    {
-      name: 'no-agents-to-dag',
-      severity: 'error',
-      comment: 'agents (core) must not depend on any DAG package',
-      from: { path: '^packages/agents/' },
-      to: { path: '^packages/dag-' },
-    },
-    {
-      name: 'no-agents-to-providers',
-      severity: 'error',
-      comment: 'agents (core) must not depend on provider packages',
-      from: { path: '^packages/agents/' },
-      to: { path: '^packages/(openai|anthropic|google|bytedance)/' },
-    },
-
-    // ==========================================================
     // DAG dependency direction rules
     // dag-core is SSOT - must not depend on any other dag package
     // ==========================================================
@@ -72,38 +33,13 @@ module.exports = {
       comment: 'dag-core (SSOT) must not depend on any other DAG package',
       from: { path: '^packages/dag-core/' },
       to: {
-        path: '^packages/dag-(runtime|worker|scheduler|projection|api|designer|nodes|server-core)/',
+        path: '^packages/dag-(runtime|worker|scheduler|projection|api|nodes)/',
       },
     },
 
     // ==========================================================
-    // dag-designer must NOT import runtime, worker, or scheduler directly
-    // ==========================================================
-    {
-      name: 'no-dag-designer-to-runtime',
-      severity: 'error',
-      comment: 'dag-designer must not import dag-runtime directly (use dag-api)',
-      from: { path: '^packages/dag-designer/' },
-      to: { path: '^packages/dag-runtime/' },
-    },
-    {
-      name: 'no-dag-designer-to-worker',
-      severity: 'error',
-      comment: 'dag-designer must not import dag-worker directly (use dag-api)',
-      from: { path: '^packages/dag-designer/' },
-      to: { path: '^packages/dag-worker/' },
-    },
-    {
-      name: 'no-dag-designer-to-scheduler',
-      severity: 'error',
-      comment: 'dag-designer must not import dag-scheduler directly (use dag-api)',
-      from: { path: '^packages/dag-designer/' },
-      to: { path: '^packages/dag-scheduler/' },
-    },
-
-    // ==========================================================
     // Lower DAG layers must not depend on higher DAG layers
-    // Layer order: dag-core < dag-runtime/dag-worker/dag-projection < dag-scheduler < dag-api < dag-designer
+    // Layer order: dag-core < dag-runtime/dag-worker/dag-projection < dag-scheduler < dag-api
     // ==========================================================
     {
       name: 'no-dag-runtime-to-scheduler',
@@ -120,13 +56,6 @@ module.exports = {
       to: { path: '^packages/dag-api/' },
     },
     {
-      name: 'no-dag-runtime-to-designer',
-      severity: 'error',
-      comment: 'dag-runtime must not depend on dag-designer (higher layer)',
-      from: { path: '^packages/dag-runtime/' },
-      to: { path: '^packages/dag-designer/' },
-    },
-    {
       name: 'no-dag-worker-to-scheduler',
       severity: 'error',
       comment: 'dag-worker must not depend on dag-scheduler (higher layer)',
@@ -139,13 +68,6 @@ module.exports = {
       comment: 'dag-worker must not depend on dag-api (higher layer)',
       from: { path: '^packages/dag-worker/' },
       to: { path: '^packages/dag-api/' },
-    },
-    {
-      name: 'no-dag-worker-to-designer',
-      severity: 'error',
-      comment: 'dag-worker must not depend on dag-designer (higher layer)',
-      from: { path: '^packages/dag-worker/' },
-      to: { path: '^packages/dag-designer/' },
     },
     {
       name: 'no-dag-projection-to-scheduler',
@@ -162,32 +84,11 @@ module.exports = {
       to: { path: '^packages/dag-api/' },
     },
     {
-      name: 'no-dag-projection-to-designer',
-      severity: 'error',
-      comment: 'dag-projection must not depend on dag-designer (higher layer)',
-      from: { path: '^packages/dag-projection/' },
-      to: { path: '^packages/dag-designer/' },
-    },
-    {
       name: 'no-dag-scheduler-to-api',
       severity: 'error',
       comment: 'dag-scheduler must not depend on dag-api (higher layer)',
       from: { path: '^packages/dag-scheduler/' },
       to: { path: '^packages/dag-api/' },
-    },
-    {
-      name: 'no-dag-scheduler-to-designer',
-      severity: 'error',
-      comment: 'dag-scheduler must not depend on dag-designer (higher layer)',
-      from: { path: '^packages/dag-scheduler/' },
-      to: { path: '^packages/dag-designer/' },
-    },
-    {
-      name: 'no-dag-api-to-designer',
-      severity: 'error',
-      comment: 'dag-api must not depend on dag-designer (higher layer)',
-      from: { path: '^packages/dag-api/' },
-      to: { path: '^packages/dag-designer/' },
     },
 
     // ==========================================================
@@ -196,11 +97,23 @@ module.exports = {
     {
       name: 'no-provider-cross-deps',
       severity: 'error',
-      comment: 'Provider packages must not depend on each other',
-      from: { path: '^packages/(openai|anthropic|google|bytedance)/' },
+      comment: 'A provider package must not depend on another provider package (FAMILY-SIBLINGS).',
+      from: {
+        path: '^packages/agent-provider-([^/]+)/',
+        pathNot: '^packages/agent-provider-openai/',
+      },
+      to: { path: '^packages/agent-provider-', pathNot: '^packages/agent-provider-$1/' },
+    },
+    {
+      name: 'no-openai-provider-cross-deps',
+      severity: 'error',
+      comment:
+        'agent-provider-openai may use the OpenAI wire-protocol base in agent-provider-openai-compatible ' +
+        'and no other provider package (FAMILY-SIBLINGS exception).',
+      from: { path: '^packages/agent-provider-openai/' },
       to: {
-        path: '^packages/(openai|anthropic|google|bytedance)/',
-        pathNot: '$1',
+        path: '^packages/agent-provider-',
+        pathNot: '^packages/agent-provider-(openai|openai-compatible)/',
       },
     },
   ],
@@ -214,7 +127,7 @@ module.exports = {
     },
     enhancedResolveOptions: {
       exportsFields: ['exports'],
-      conditionNames: ['import', 'require', 'node', 'default'],
+      conditionNames: ['source', 'import', 'require', 'node', 'default'],
     },
     reporterOptions: {
       text: {

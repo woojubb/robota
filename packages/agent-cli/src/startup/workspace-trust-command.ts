@@ -79,7 +79,10 @@ export async function runWorkspaceTrustCommand(
     if (action === 'status' && access.status !== 'trusted') {
       process.stdout.write(formatProjectContributionPreview(access.identity, cwd));
     }
-    return access.status === 'trusted' || action === 'status' ? 0 : 1;
+    // A grant succeeds when the folder ends up trusted; a revoke when it no longer is.
+    if (action === 'grant') return access.status === 'trusted' ? 0 : 1;
+    if (action === 'revoke') return access.status === 'trusted' ? 1 : 0;
+    return 0;
   } catch (error) {
     process.stderr.write(
       `Workspace trust ${action} failed: ${error instanceof Error ? error.message : String(error)}\n`,

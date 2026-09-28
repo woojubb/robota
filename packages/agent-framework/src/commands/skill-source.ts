@@ -32,12 +32,14 @@ function buildCommand(
   frontmatter: ISkillFrontmatter,
   content: string,
   fallbackName: string,
+  skillDirectory: string | undefined,
 ): ICommand {
   const cmd: ICommand = {
     name: frontmatter.name ?? fallbackName,
     description: frontmatter.description ?? `Skill: ${fallbackName}`,
     source: 'skill',
     skillContent: content,
+    ...(skillDirectory !== undefined ? { skillDirectory } : {}),
   };
 
   if (frontmatter.argumentHint !== undefined) cmd.argumentHint = frontmatter.argumentHint;
@@ -66,9 +68,10 @@ function discovered(
   frontmatter: ISkillFrontmatter | undefined,
   content: string,
   fallbackName: string,
+  skillDirectory: string | undefined,
 ): IDiscoveredCommand {
   if (frontmatter === undefined) return { name: fallbackName };
-  const command = buildCommand(frontmatter, content, fallbackName);
+  const command = buildCommand(frontmatter, content, fallbackName, skillDirectory);
   return { name: command.name, command };
 }
 
@@ -87,7 +90,8 @@ function scanSkillsDir(skillsDir: string, source: IContributionSource): IDiscove
     const content = source.readText(skillFile, 'load skill definition');
     if (content === undefined) continue;
     const frontmatter = decodeSkill(content, skillFile, source);
-    commands.push(discovered(frontmatter, content, entry.name));
+    const skillDirectory = source.locate?.(join(skillsDir, entry.name));
+    commands.push(discovered(frontmatter, content, entry.name, skillDirectory));
   }
 
   return commands;
@@ -107,7 +111,7 @@ function scanCommandsDir(commandsDir: string, source: IContributionSource): IDis
     if (content === undefined) continue;
     const frontmatter = decodeSkill(content, filePath, source);
     const fallbackName = basename(entry.name, '.md');
-    commands.push(discovered(frontmatter, content, fallbackName));
+    commands.push(discovered(frontmatter, content, fallbackName, source.locate?.(commandsDir)));
   }
 
   return commands;

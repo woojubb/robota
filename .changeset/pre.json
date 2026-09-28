@@ -103,7 +103,9 @@
     "@robota-sdk/agent-transport-webrtc-web": "3.0.0-beta.79",
     "@robota-sdk/agent-ui-web": "3.0.0-beta.79",
     "@robota-sdk/dag-nodes-default": "0.1.0-beta.0",
-    "@robota-sdk/pack-coding": "3.0.0-beta.79"
+    "@robota-sdk/pack-coding": "3.0.0-beta.79",
+    "@robota-sdk/agent-roundtable": "3.0.0-beta.83",
+    "@robota-sdk/agent-roundtable-robota": "3.0.0-beta.83"
   },
   "changesets": [
     "1994-fork-conversation-into-background-session",
@@ -213,6 +215,15 @@
     "3254-sandbox-live-settings",
     "3256-sandbox-push",
     "3257-stable-trust-identity",
+    "3268-gui-trust",
+    "3268-session-view-trust",
+    "3268-tui-trust-prompt",
+    "3273-adapter-review-fixes",
+    "3273-core-execution-journal",
+    "3273-session-recoverable-runs",
+    "3275-cli-help-and-trust",
+    "3280-connection-loss",
+    "3282-first-run-setup",
     "arch-005-s1-composition-layer",
     "arch-005-s2-cli-collapse",
     "arch-006-007-tool-axis-runtime-seam",
@@ -289,8 +300,11 @@
     "payload-2153-stable-replay",
     "peer-conversation",
     "peer-turn-origin",
+    "personal-usage-unpriced-turns",
     "prov-004-compat-request-builder-seam",
     "prov-004-responseformat-transport",
+    "provider-error-classification",
+    "read-tool-symlink-containment",
     "remote-002-stage-a-webrtc-skeleton",
     "remote-004-stage-b2-signaling-relay",
     "remote-005-stage-b3-pairing",
@@ -315,10 +329,12 @@
     "shared-dag-root-credits",
     "stream-regex-replace",
     "strict-frontmatter-discovery",
+    "subagent-permission-forwarding",
     "surface-unknown-preset-command-modules",
     "trans-001-payload-agnostic-transport",
     "type-003-ssot-convergence",
     "versioned-session-log-codec",
+    "wire-protocol-settings-and-session-management",
     "workflow-004-build-subcommand"
   ]
 }
