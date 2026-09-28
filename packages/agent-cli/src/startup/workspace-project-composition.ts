@@ -95,11 +95,19 @@ export const SAFE_MODE_NOTICE =
 export async function resolveStartupWorkspaceProjectAccess(
   argv: readonly string[],
   cwd: string,
-  options: { readonly projectAccess?: TWorkspaceProjectAccess } = {},
+  options: {
+    readonly projectAccess?: TWorkspaceProjectAccess;
+    /** An embedder's `startCli({ safeMode: true })`, which leaves no flag in argv. */
+    readonly safeMode?: boolean;
+  } = {},
 ): Promise<TWorkspaceProjectAccess> {
   // Safe mode loads nothing from the project, so it starts Restricted whatever the trust store says.
   const flags = optionArgv(argv);
-  if (flags.includes(RESTRICTED_WORKSPACE_FLAG) || flags.includes(SAFE_MODE_FLAG)) {
+  if (
+    options.safeMode === true ||
+    flags.includes(RESTRICTED_WORKSPACE_FLAG) ||
+    flags.includes(SAFE_MODE_FLAG)
+  ) {
     return createRestrictedWorkspaceProjectAccess('untrusted', cwd);
   }
   return resolveInitialCliWorkspaceProjectAccess(cwd, options);

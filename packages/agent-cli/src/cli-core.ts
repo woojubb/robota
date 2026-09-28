@@ -205,11 +205,10 @@ async function runCliCore(
   // Issue #3082: read from argv (or the embedder's option) before anything is composed, like the
   // access decision it forces to Restricted.
   const safeMode = optionArgv(process.argv).includes(SAFE_MODE_FLAG) || options.safeMode === true;
-  let projectAccess = await resolveStartupWorkspaceProjectAccess(
-    safeMode ? [...process.argv, SAFE_MODE_FLAG] : process.argv,
-    cwd,
-    options,
-  );
+  let projectAccess = await resolveStartupWorkspaceProjectAccess(process.argv, cwd, {
+    ...options,
+    safeMode,
+  });
   const startupOptions: IStartCliOptions = {
     ...options,
     projectAccess,

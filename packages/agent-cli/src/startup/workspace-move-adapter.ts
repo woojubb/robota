@@ -17,6 +17,7 @@ import {
 
 import { resolveSelfForkWorkerEntry } from '../subagents/self-fork-worker-entry.js';
 import { buildWorkspaceMoveArgv } from '../utils/cli-args.js';
+import { optionArgv } from '../utils/option-argv.js';
 import {
   createCliWorkspaceComposition,
   resolveInitialCliWorkspaceProjectAccess,
@@ -34,7 +35,12 @@ import type {
  * or by an embedder's `startCli({ safeMode: true })`, which leaves no flag in argv.
  */
 export function argvCarryingSafeMode(argv: readonly string[], safeMode: boolean): string[] {
-  return safeMode && !argv.includes(SAFE_MODE_FLAG) ? [...argv, SAFE_MODE_FLAG] : [...argv];
+  if (!safeMode || optionArgv(argv).includes(SAFE_MODE_FLAG)) return [...argv];
+  // Before any `--`: a flag after it would be read as prompt text.
+  const terminator = argv.indexOf('--');
+  return terminator === -1
+    ? [...argv, SAFE_MODE_FLAG]
+    : [...argv.slice(0, terminator), SAFE_MODE_FLAG, ...argv.slice(terminator)];
 }
 
 export interface IWorkspaceMoveAdapterDeps {

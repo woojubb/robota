@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { startsNewTuiSession } from '../../startup/interactive-trust-prompt.js';
 import { mcpServeProtocolArgs } from '../../startup/mcp-serve-invocation.js';
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
+import { argvCarryingSafeMode } from '../../startup/workspace-move-adapter.js';
 import { resolveStartupWorkspaceProjectAccess } from '../../startup/workspace-project-composition.js';
 import { runUserLocalDirectCommandIfRequested } from '../../user-local-direct-command.js';
 import { parseCliArgs, subcommandWord } from '../cli-args.js';
@@ -82,5 +83,34 @@ describe('flags are read only from the part of argv before `--`', () => {
       { projectAccess: HOST_DECISION },
     );
     expect(access).toBe(HOST_DECISION);
+  });
+
+  it("starts Restricted under an embedder's safe mode even with a prompt after `--`", async () => {
+    const trusted = { status: 'trusted' } as never;
+    const access = await resolveStartupWorkspaceProjectAccess(
+      ['node', 'robota', '-p', '--', 'hello'],
+      '/nonexistent-robota-safe-mode-cwd',
+      { projectAccess: trusted, safeMode: true },
+    );
+    expect(access.status).toBe('restricted');
+  });
+
+  it('carries safe mode into a /cd target before any `--`, and is not fooled by prompt text', () => {
+    expect(argvCarryingSafeMode(['-p', '--', 'hello'], true)).toEqual([
+      '-p',
+      '--safe-mode',
+      '--',
+      'hello',
+    ]);
+    expect(argvCarryingSafeMode(['--', '--safe-mode'], true)).toEqual([
+      '--safe-mode',
+      '--',
+      '--safe-mode',
+    ]);
+    expect(argvCarryingSafeMode(['--safe-mode', '--', 'x'], true)).toEqual([
+      '--safe-mode',
+      '--',
+      'x',
+    ]);
   });
 });
