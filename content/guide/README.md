@@ -9,6 +9,7 @@ Task-oriented guides for building agents with the Robota libraries and for using
 - [Using the SDK](./sdk.md) — `agent-framework` sessions: `InteractiveSession`, `createQuery()`, built-in tools, transports
 - [CLI Reference](./cli.md) — Every `robota` option, subcommand and slash command
 - [Sessions, Background Sessions and the Daemon](./sessions-and-daemon.md) — Sessions that outlive the terminal, attaching, one daemon per workspace, workspace trust
+- [The GUI and the Desktop App](./gui.md) — `robota --serve --open` and the desktop app: first run, sessions, prompts, settings, and current limits
 - [TUI Keybindings](./keybindings.md) — Contextual shortcuts, hot reload, chords, and terminal limits
 - [Local LLM Setup](./local-llm.md) — Ollama, LM Studio and llama.cpp with no API key
 - [Providers](./providers.md) — Every provider package, its options, and switching between them

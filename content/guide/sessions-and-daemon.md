@@ -67,9 +67,11 @@ in an untrusted repository asks `Trust this folder? [y/N]` first; answering no s
 Headless starts — a background session, the daemon, `--serve`, `robota mcp serve` and print mode
 (`-p`) — refuse the `untrusted`, `revoked`, `stale/replaced` and `store-unavailable` states with
 `Workspace trust is required before headless startup`, so an untrusted project never runs silently
-without its configuration. `--safe-mode` starts Restricted on purpose and is not refused, and so does
-`robota daemon start --restricted-workspace`, for a front end whose person chose Restricted. That start
-reuses a running daemon only when it runs Restricted too, and a plain `daemon start` in a folder you
+without its configuration. `--safe-mode` starts Restricted on purpose and is not refused, and neither
+is `--restricted-workspace` on the daemon, `--serve`, print mode or `--goal`, for a front end whose
+person chose Restricted. `robota --serve --open` run at a terminal asks there first: trust, start
+Restricted, or quit. A Restricted `robota daemon start` reuses a running daemon only when it runs
+Restricted too, and a plain `daemon start` in a folder you
 have trusted since does not reuse a Restricted daemon; either refusal names `robota daemon stop`.
 `robota trust status --json` prints the trust state as one JSON line for a front end that asks the
 person.
@@ -157,7 +159,8 @@ robota daemon stop
 
 `robota --serve --open` starts a runtime of its own (not the daemon), serves the GUI web app over
 `http://127.0.0.1:<port>` and opens it in your browser. The runtime lasts as long as the command
-runs. The GUI shows a sessions sidebar; `/resume` in the GUI opens it.
+runs. The GUI shows a sessions sidebar; `/resume` in the GUI opens it. Using the GUI and the desktop
+app is covered in [The GUI and the Desktop App](./gui.md).
 
 ## The session view
 
@@ -290,7 +293,7 @@ the project root.
 | `Daemon <id> is running but cannot be connected to. Run: robota daemon stop` | Stop it and start again.                                                                                                                |
 | `<id> is not a live supervised session this terminal can attach to.`         | The session stopped, or is not controllable. Check `robota session list`.                                                               |
 | `Supervised session directory is not private to this user.`                  | Make the control directory (see above) owned by you with mode `0700`.                                                                   |
-| `Web monitor assets not found (dist/web) — run a full CLI build.`            | The GUI assets are missing (for example, a source checkout without a full build).                                                       |
+| `Robota web assets not found (dist/web) — run a full CLI build.`             | The GUI assets are missing (for example, a source checkout without a full build).                                                       |
 | A saved session is listed as `corrupt` or `unsupported`                      | The file is not a session record, or was written by a build this one does not read. It is kept, not overwritten, and cannot be resumed. |
 
 ## Related

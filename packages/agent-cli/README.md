@@ -263,7 +263,7 @@ See the [CLI guide](../../content/guide/cli.md) for skill frontmatter and plugin
 `robota --serve --open` starts a headless runtime for the current workspace, serves the Robota GUI
 on `127.0.0.1` and opens it in your browser. The Electron desktop app in this repository
 ([`apps/agent-app`](../../apps/agent-app/docs/README.md)) shows the same GUI over the workspace
-daemon; it is not published to npm.
+daemon; it is not published to npm. See [The GUI and the Desktop App](../../content/guide/gui.md).
 
 ### Reach other sessions and your other devices
 
