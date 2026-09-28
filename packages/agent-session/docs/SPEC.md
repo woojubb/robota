@@ -244,7 +244,12 @@ name. The tool-use hooks take the root from the tool call's context, apart from 
 own span, which belongs to the tool alone.
 
 `PreToolUse` is the **one enforcing** hook event: a hook that reaches no verdict there denies the
-tool call. Every other event is advisory — a failure is reported, and the turn proceeds. This
+tool call. Its hooks' `allow` stands in for the approval prompt only, never for a deny rule, a
+refusal from the mode, or an ask that must reach a person: a hook is one more approver, not a way
+around the policy. Their `ask` reaches a person every time, since the hook asks again on each call.
+Their `updatedInput` becomes the input the rules judge and the tool runs; where a rewrite cannot
+reach what runs, the call is refused, because the decision beside it was made about the rewritten
+input. Every other event is advisory — a failure is reported, and the turn proceeds. This
 package is responsible for two of the documented deny causes: a hook execution error (timeout,
 transport failure, malformed response, non-zero exit), and a configured hook type with no
 registered executor — denying rather than silently skipping a gate the user configured. When

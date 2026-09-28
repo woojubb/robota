@@ -4,7 +4,7 @@
  * A registered `IHookTypeExecutor` (`type: 'guardrail'`) that fans out the registered guardrail SET in
  * PARALLEL and FAILS FAST: the first guardrail that returns `pass: false` (or throws — fail-safe) maps
  * onto the `deny` outcome `runHooks` understands (SEC-015; formerly exit code 2), so a guardrail block flows
- * through the SAME `runHooks` → `runPreToolHook` → `PermissionEnforcer` denial path hooks already use —
+ * through the SAME `runHooks` → `runPreToolGate` → `PermissionEnforcer` denial path hooks already use —
  * no new runner, no second turn-blocking mechanism. Parallelism lives INSIDE the executor; the guardrail
  * SET runs concurrently while the turn still carries exactly one block decision.
  *

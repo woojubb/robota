@@ -72,7 +72,7 @@ export interface IAgentHookDefinition {
  * Guardrail hook (SELFHOST-005) — runs the registered guardrail SET in parallel and fails the turn
  * fast. The guardrail functions live in the `GuardrailExecutor` (registered by the consumer); this
  * data-only definition just selects which to run. Any failure maps onto the existing exit-code-2 /
- * `blocked` contract, so enforcement reuses the single `runHooks` → `runPreToolHook` path.
+ * `blocked` contract, so enforcement reuses the single `runHooks` → `runPreToolGate` path.
  */
 export interface IGuardrailHookDefinition {
   type: 'guardrail';

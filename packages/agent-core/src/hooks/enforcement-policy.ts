@@ -93,7 +93,7 @@ export const HOOK_ENFORCEMENT_POLICY: Readonly<Record<THookEvent, IHookEventPoli
       posture: 'enforcing',
       enforcementReachable: true,
       rationale:
-        'The tool-execution gate. `runPreToolHook` awaits the result and turns `blocked` into a denial, so a hook that reached no verdict must not read as approval (tracker issue #2075).',
+        'The tool-execution gate. `runPreToolGate` awaits the result and turns `blocked` into a denial, so a hook that reached no verdict must not read as approval (tracker issue #2075).',
     },
 
     // ── Awaited, but the result's `blocked` is never consulted ───────────────────────────────────

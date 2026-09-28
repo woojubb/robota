@@ -11,10 +11,11 @@ import { canonicaliseToolArguments } from './tool-argument-canonicalisation.js';
 import {
   buildHookInput,
   firePostToolHook,
-  runPreToolHook,
+  runPreToolGate,
   truncateToolResult,
 } from './tool-hook-helpers.js';
 
+import type { TPreToolHookDecision } from './tool-hook-helpers.js';
 import type { IPermissionEnforcerOptions, IPermissionRefusal } from './permission-types.js';
 import type { TSessionLogData } from './session-logger.js';
 import type {
@@ -74,6 +75,7 @@ export interface IToolWrapperDeps {
     interaction?: IToolExecutionContext['permissionInteraction'],
     hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
     continuation?: IToolExecutionContext['continuation'],
+    hookDecision?: TPreToolHookDecision,
   ): Promise<boolean | IPermissionRefusal>;
 }
 
@@ -130,16 +132,32 @@ export function wrapToolWithPermission(
         enforcer.transcriptPath,
       );
 
-      const preResult = await runPreToolHook(
+      const gate = await runPreToolGate(
         enforcer.config.hooks,
         hookInput,
         enforcer.hookTypeExecutors,
         context?.hookTraceEnv,
       );
-      if (preResult) {
+      if (gate.refusal) {
         enforcer.log('tool_blocked', { tool: toolName, reason: 'hook' });
         emitPermissionDecision(context, 'hook-blocked');
-        return preResult;
+        return gate.refusal;
+      }
+      // The rules, the prompt and the tool judge and run the input the hooks rewrote the call to.
+      if (gate.updatedInput !== undefined) {
+        parameters = canonicaliseToolArguments(toolName, gate.updatedInput, enforcer.cwd);
+        enforcer.log('tool_input_updated', {
+          tool: toolName,
+          args: parameters as Record<string, string | number | boolean | object>,
+        });
+        hookInput = buildHookInput(
+          enforcer.sessionId,
+          enforcer.cwd,
+          toolName,
+          parameters,
+          enforcer.getPermissionMode(),
+          enforcer.transcriptPath,
+        );
       }
 
       // RUNTIME-005: the turn's signal reaches this wrapper (CORE-018) and stopped here.
@@ -150,6 +168,7 @@ export function wrapToolWithPermission(
         context?.permissionInteraction,
         context?.hookTraceEnv,
         context?.continuation,
+        gate.decision,
       );
       if (verdict !== true) {
         enforcer.log('tool_denied', { tool: toolName, reason: 'permission' });
@@ -201,13 +220,26 @@ export function wrapToolWithPermission(
             enforcer.getPermissionMode(),
             enforcer.transcriptPath,
           );
-          const blocked = await runPreToolHook(
+          const nextGate = await runPreToolGate(
             enforcer.config.hooks,
             nextHookInput,
             enforcer.hookTypeExecutors,
             context?.hookTraceEnv,
           );
-          if (blocked) throw new DeferredPermissionRefusal(blocked);
+          if (nextGate.refusal) throw new DeferredPermissionRefusal(nextGate.refusal);
+          // The tool has fixed these arguments, so a rewrite cannot reach it here.
+          if (
+            nextGate.updatedInput !== undefined &&
+            JSON.stringify(
+              canonicaliseToolArguments(toolName, nextGate.updatedInput, enforcer.cwd),
+            ) !== JSON.stringify(approvedArguments)
+          ) {
+            const reason =
+              'A PreToolUse hook rewrote arguments the tool had already fixed; the call is refused.';
+            throw new DeferredPermissionRefusal(
+              toolFailure('hook-blocked', reason, { blocked: true, reason }),
+            );
+          }
           const effectiveVerdict = await enforcer.checkPermission(
             toolName,
             approvedArguments as TToolArgs,
@@ -215,6 +247,7 @@ export function wrapToolWithPermission(
             context?.permissionInteraction,
             context?.hookTraceEnv,
             context?.continuation,
+            nextGate.decision,
           );
           if (effectiveVerdict !== true)
             throw new DeferredPermissionRefusal(
