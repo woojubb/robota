@@ -62,7 +62,11 @@ function installHelperPlugin(base: string, name = 'helper'): string {
     join(pluginDir, '.claude-plugin', 'plugin.json'),
     JSON.stringify({ name, version: '1.0.0', description: name }),
   );
-  writeSkill(join(pluginDir, 'skills', 'tidy'), 'tidy', `Tidy from ${name}.`);
+  writeSkill(
+    join(pluginDir, 'skills', 'tidy'),
+    'tidy',
+    `Tidy from ${name}. Read \${CLAUDE_PLUGIN_ROOT}/notes.md`,
+  );
   mkdirSync(join(pluginDir, 'commands'), { recursive: true });
   writeFileSync(join(pluginDir, 'commands', 'lint.md'), '---\ndescription: Lint\n---\nLint it.');
   return pluginsDir;
@@ -303,5 +307,30 @@ describe('a bundle plugin skill', () => {
     await session.executeCommand('tidy', '', 'user');
     await vi.waitFor(() => expect(run).toHaveBeenCalled());
     expect(String(run.mock.calls[0]?.[0])).toContain('Tidy from project-helper.');
+  });
+
+  it('reads ${CLAUDE_PLUGIN_ROOT} as its plugin folder', async () => {
+    const home = tempRoot();
+    const pluginsDir = installHelperPlugin(home);
+    const { session, run } = await sessionWith({ cwd: tempRoot(), home, pluginsDir });
+
+    await session.executeCommand('tidy', '', 'user');
+
+    await vi.waitFor(() => expect(run).toHaveBeenCalled());
+    expect(String(run.mock.calls[0]?.[0])).toContain(
+      `Read ${join(pluginsDir, 'cache', 'local', 'helper', '1.0.0')}/notes.md`,
+    );
+  });
+
+  it('is not loaded from a project plugin folder outside the trusted workspace', async () => {
+    const home = tempRoot();
+    const { session } = await sessionWith({
+      cwd: tempRoot(),
+      home,
+      pluginsDir: join(home, 'no-user-plugins'),
+      projectPluginsDir: installHelperPlugin(tempRoot()),
+    });
+
+    expect(session.listSkills().map((skill) => skill.name)).not.toContain('tidy');
   });
 });
