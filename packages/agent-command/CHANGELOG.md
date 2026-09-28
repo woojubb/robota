@@ -5,11 +5,18 @@
 ### Patch Changes
 
 - 043fd27: In `plan` mode the model can no longer save project memory with `/memory add`. The command is auto-approved, so it ran in plan mode while `Write` and `Edit` were denied there. Reading memory, and adding it by hand, still work in plan mode.
+- 6ee8725: A user settings file that does not parse no longer reads as "no plugin is disabled". Plugin settings
+  now refuse to read it: no plugin loads (skills, commands, hooks and themes alike), a plugin command
+  such as `/plugin enable` fails instead of rewriting the whole settings file with the plugin keys
+  alone, and `robota doctor` reports the plugin check as failed while still inspecting each installed
+  plugin. The CLI already refuses to start with such a file; this covers a session started later in
+  the same process.
 - Updated dependencies [4e11579]
 - Updated dependencies [41cca13]
 - Updated dependencies [193a0bc]
 - Updated dependencies [54e2848]
 - Updated dependencies [5093a30]
+- Updated dependencies [6ee8725]
 - Updated dependencies [6072e9a]
 - Updated dependencies [94b2c87]
 - Updated dependencies [3ab2eca]

@@ -37,6 +37,12 @@
   of failing the run. Each call keeps a small in-memory operation log for its conversation; it is bounded
   per call and negligible at the default `maxTurns` (the step count).
 
+- 6ee8725: A user settings file that does not parse no longer reads as "no plugin is disabled". Plugin settings
+  now refuse to read it: no plugin loads (skills, commands, hooks and themes alike), a plugin command
+  such as `/plugin enable` fails instead of rewriting the whole settings file with the plugin keys
+  alone, and `robota doctor` reports the plugin check as failed while still inspecting each installed
+  plugin. The CLI already refuses to start with such a file; this covers a session started later in
+  the same process.
 - 6072e9a: Bundle plugin skills and commands now run. They were listed in the command menu, but typing one
   answered "Unknown command", and the model could neither see nor activate them: the session's skill
   router and the prompt's skill list read only the host's skill roots. A session now also loads the
