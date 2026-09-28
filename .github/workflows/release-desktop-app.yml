@@ -107,18 +107,41 @@ jobs:
       # versions, and an empty or truncated installer uploads perfectly happily. Assert the artifacts
       # exist and are plausibly sized BEFORE publishing them, so a packaging regression cannot reach a
       # user as a 0-byte download.
+      #
+      # #3356 — matching is done by `scripts/release/list-release-assets.mjs`, shared with the checksum
+      # step below, rather than each step carrying its own `for pattern in $ASSETS; do for f in
+      # $pattern; do found+=("$f"); done; done`. That idiom glob-expands correctly but then WORD-SPLITS
+      # the result, so a matched filename containing a space becomes two array entries instead of one.
+      # Node's `glob` returns real filenames, never re-parsed as shell words, and streams them back
+      # NUL-terminated; `read -r -d ''` (not `mapfile -d ''` — macOS's system `/bin/bash` is 3.2, which
+      # has no `mapfile` builtin) is the one bash framing that cannot split on an embedded space either.
+      #
+      # Two more failure modes the script itself closes: this checks out `steps.tag.outputs.tag`, a tag
+      # that may predate the script existing at all (every tag through v3.0.0-beta.84 does), so its
+      # presence is checked explicitly rather than assumed. And a `while ... < <(node ...)` process
+      # substitution does NOT propagate the substituted command's exit status — `set -e` cannot see it
+      # — so a crashing script would otherwise look identical to "matched nothing" instead of failing
+      # loudly; captured to a file and checked with `if !`, its exit status is not lost.
       - name: Assert packaged artifacts exist and are non-trivial
         shell: bash
         working-directory: apps/agent-app
         env:
           ASSETS: ${{ matrix.assets }}
+          MATCHES_FILE: ${{ runner.temp }}/list-release-assets-assert.txt
         run: |
           set -euo pipefail
-          shopt -s nullglob
+          script="$GITHUB_WORKSPACE/scripts/release/list-release-assets.mjs"
+          if [ ! -f "$script" ]; then
+            echo "::error::this tag predates scripts/release/list-release-assets.mjs, so its release assets cannot be rebuilt by this workflow; cut a new tag instead"
+            exit 1
+          fi
+          if ! node "$script" "$ASSETS" >"$MATCHES_FILE"; then
+            echo "::error::scripts/release/list-release-assets.mjs failed matching '$ASSETS' — see the Node error above"
+            exit 1
+          fi
           found=()
-          for pattern in $ASSETS; do
-            for f in $pattern; do found+=("$f"); done
-          done
+          while IFS= read -r -d '' f; do found+=("$f"); done <"$MATCHES_FILE"
+          rm -f "$MATCHES_FILE"
           if [ ${#found[@]} -eq 0 ]; then
             echo "::error::no artifacts matched '$ASSETS' — electron-builder produced nothing to publish."
             exit 1
@@ -138,25 +161,47 @@ jobs:
       # repo's own verification gate) had no way to tell a complete download from a truncated one. One
       # manifest PER MATRIX LEG: a single shared filename would have the three legs clobber each other's
       # upload, which is how a checksum file ends up describing only the last OS to finish.
+      #
+      # #3356 — this step used to run `cd release` and THEN expand `$ASSETS` (e.g. `release/*.dmg`), so
+      # the patterns were looked up as `release/release/*.dmg` and — with `nullglob` set — matched
+      # nothing on every OS: "checksum manifest is empty — nothing was hashed." Matching now goes
+      # through `scripts/release/list-release-assets.mjs` (see the comment on "Assert packaged
+      # artifacts" above for why, including why its presence and exit status are both checked here
+      # rather than assumed — a tag that predates the script, or a crash inside it, must fail loudly).
       - name: Generate SHA-256 checksums for this OS's installers
         shell: bash
         working-directory: apps/agent-app
         env:
           ASSETS: ${{ matrix.assets }}
           MANIFEST: SHA256SUMS-desktop-${{ matrix.os }}.txt
+          MATCHES_FILE: ${{ runner.temp }}/list-release-assets-checksum.txt
         run: |
           set -euo pipefail
-          shopt -s nullglob
+          script="$GITHUB_WORKSPACE/scripts/release/list-release-assets.mjs"
+          if [ ! -f "$script" ]; then
+            echo "::error::this tag predates scripts/release/list-release-assets.mjs, so its release assets cannot be rebuilt by this workflow; cut a new tag instead"
+            exit 1
+          fi
+          if ! node "$script" "$ASSETS" >"$MATCHES_FILE"; then
+            echo "::error::scripts/release/list-release-assets.mjs failed matching '$ASSETS' — see the Node error above"
+            exit 1
+          fi
+          found=()
+          while IFS= read -r -d '' f; do found+=("$f"); done <"$MATCHES_FILE"
+          rm -f "$MATCHES_FILE"
+          if [ ${#found[@]} -eq 0 ]; then
+            echo "::error::no artifacts matched '$ASSETS' — nothing to hash."
+            exit 1
+          fi
           : >"release/$MANIFEST"
           cd release
-          for pattern in $ASSETS; do
-            for f in ${pattern#release/}; do
-              if command -v sha256sum >/dev/null 2>&1; then
-                sha256sum "$f" >>"$MANIFEST"
-              else
-                shasum -a 256 "$f" >>"$MANIFEST"
-              fi
-            done
+          for f in "${found[@]}"; do
+            name=${f#release/}
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256sum -- "$name" >>"$MANIFEST"
+            else
+              shasum -a 256 -- "$name" >>"$MANIFEST"
+            fi
           done
           if [ ! -s "$MANIFEST" ]; then
             echo "::error::checksum manifest is empty — nothing was hashed."
