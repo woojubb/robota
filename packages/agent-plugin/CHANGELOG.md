@@ -4,6 +4,12 @@
 
 ### Patch Changes
 
+- ada3841: Dispatch tool-call plugin hooks around each decoded attempt, including unknown-tool refusals,
+  and emit the event emitter plugin's before-execution event. A pre-effect wait resumes the same
+  logical call without repeating its before hooks; recovered results do not replay call hooks.
+
+  Pair parallel tool analytics by the logical execution ID, including calls of the same tool.
+
 - 5093a30: A `Robota` run now calls `beforeConversation`, with `beforeExecution`, and `onStreamingChunk` for
   each streamed piece of text, in order; the round waits for those chunk hooks before it goes on,
   whether the provider call returned, failed or was interrupted. `EventEmitterPlugin` therefore emits
@@ -18,6 +24,7 @@
   `beforeToolExecution` and `afterToolCall` are still not called.
 
 - Updated dependencies [41cca13]
+- Updated dependencies [ada3841]
 - Updated dependencies [5093a30]
 - Updated dependencies [94b2c87]
 - Updated dependencies [3ab2eca]

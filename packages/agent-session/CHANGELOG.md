@@ -26,7 +26,11 @@
 
 ### Patch Changes
 
+- 10597b2: Apply command-hook PreToolUse input rewrites only after every enforcing hook evaluates the final
+  input. Permission checks and tool execution share those arguments; rewrite cycles and replacements
+  that a delegated or already-settled action cannot apply are refused.
 - Updated dependencies [41cca13]
+- Updated dependencies [ada3841]
 - Updated dependencies [5093a30]
 - Updated dependencies [94b2c87]
 - Updated dependencies [3ab2eca]
