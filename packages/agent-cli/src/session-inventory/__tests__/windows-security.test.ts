@@ -72,7 +72,23 @@ describe('Windows daemon security', () => {
         expect(() => createWindowsPrivateDirectory(storage)).toThrow(/not private/);
         rmSync(storage, { recursive: true });
         execFileSync('icacls.exe', [root, '/grant', '*S-1-1-0:(OI)(CI)F']);
-        createWindowsPrivateDirectory(storage);
+        try {
+          createWindowsPrivateDirectory(storage);
+        } catch (error) {
+          console.log(
+            execFileSync(
+              'powershell.exe',
+              [
+                '-NoProfile',
+                '-NonInteractive',
+                '-Command',
+                '(Get-Acl -LiteralPath $env:ROBOTA_ACL_TEST_PATH).Sddl',
+              ],
+              { env: { ...process.env, ROBOTA_ACL_TEST_PATH: storage }, encoding: 'utf8' },
+            ),
+          );
+          throw error;
+        }
         expect(() => createWindowsPrivateDirectory(storage, true)).toThrow(/already exists/);
         expect(() => assertWindowsPrivatePath(storage, true)).not.toThrow();
         const registration = join(storage, 'registration.json');
