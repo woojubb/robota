@@ -152,9 +152,9 @@ export interface IOrchestrationStepResult {
   output: string;
   /**
    * Optional token usage of the step's subagent run (the {@link ITokenUsage} SSOT triple;
-   * TYPE-003). Present only when the underlying runner/manager surfaces usage through its
-   * result — the default `SubagentManager.wait` does not yet thread it, so this is
-   * `undefined` there until that port is extended.
+   * TYPE-003). Present when the underlying runner reported it — `SubagentManager.wait` already
+   * threads a completed job's `usage` straight through its result; this is `undefined` only when
+   * the runner itself never reported any.
    */
   usage?: ITokenUsage;
 }

@@ -1,26 +1,25 @@
 import { ORCHESTRATION_EVENTS } from '@robota-sdk/agent-core';
+import { createRoundtable } from '@robota-sdk/agent-roundtable';
 
-import { makeEmit, runStepOnce, threadPrompt, type IOrchestrationRunContext } from './shared';
+import { makeEmit } from './shared';
+import {
+  decide,
+  toRoundtableOptions,
+  toStepResults,
+  type GroupChatErrorBox,
+  type GroupChatRoundtableRef,
+  type SelectNextStep,
+} from './group-chat-roundtable';
 
 import type {
   IGroupChatOrchestrationSpec,
-  IOrchestrationStep,
   IOrchestrationRunResult,
-  IOrchestrationStepResult,
   IEventService,
 } from '@robota-sdk/agent-core';
 import type { ISubagentManager } from '@robota-sdk/agent-executor';
+import type { IOrchestrationRunContext } from './shared';
 
-/**
- * A neutral turn-selection policy: given the running history and the id of the
- * step that just took a turn, return the id of the step to take the next turn,
- * or `null` to end. Keeping WHO speaks next a caller decision means the
- * primitive itself carries no app-domain turn logic (library-neutral).
- */
-export type SelectNextStep = (
-  history: IOrchestrationStepResult[],
-  lastStepId: string,
-) => string | null;
+export type { SelectNextStep } from './group-chat-roundtable';
 
 /**
  * Dependencies for the `group-chat` orchestration mechanism. Adds the neutral
@@ -40,11 +39,6 @@ export interface IGroupChatOrchestratorDeps {
 /** Monotonic per-process counter so concurrent runs in one session get distinct run ids. */
 let groupChatRunCounter = 0;
 
-/** Render the prior turns as neutral, id-labeled history threaded into the next step. */
-function renderHistory(stepResults: IOrchestrationStepResult[]): string {
-  return stepResults.map((result) => `[${result.id}] ${result.output}`).join('\n\n');
-}
-
 /**
  * Run a `group-chat` (turn-taking) orchestration: starting at `firstStepId` (or
  * the first step), each selected step takes a turn — threaded the prior turns'
@@ -52,6 +46,10 @@ function renderHistory(stepResults: IOrchestrationStepResult[]): string {
  * ending the run. A `maxTurns` bound (default: step count) guards a policy that
  * never ends; exceeding it fails the run. Returns the per-step results in turn
  * order plus the last turn's output. Emits neutral lifecycle events.
+ *
+ * A facade over `@robota-sdk/agent-roundtable`'s `Roundtable`: the core owns the only turn loop
+ * here (see `group-chat-roundtable.ts`) — this function itself holds no transcript, turn counter or
+ * `while` loop, only the STARTED/COMPLETED/FAILED lifecycle around one `Roundtable` run.
  */
 export async function runGroupChat(
   spec: IGroupChatOrchestrationSpec,
@@ -62,22 +60,52 @@ export async function runGroupChat(
   const emit = makeEmit(deps.events, 'group-chat');
   emit(ORCHESTRATION_EVENTS.STARTED, runId, {});
 
-  const byId = new Map<string, IOrchestrationStep>(spec.steps.map((step) => [step.id, step]));
-  const maxTurns = spec.maxTurns ?? spec.steps.length;
-  const stepResults: IOrchestrationStepResult[] = [];
-  let currentId: string | null = spec.firstStepId ?? spec.steps[0]?.id ?? null;
-
   try {
-    while (currentId) {
-      if (stepResults.length >= maxTurns) {
-        throw new Error(`group-chat exceeded maxTurns (${maxTurns})`);
+    const nonEmptyIds = new Set(spec.steps.filter((step) => step.id).map((step) => step.id));
+    const maxTurns = spec.maxTurns ?? spec.steps.length;
+    const firstId = spec.firstStepId ?? spec.steps[0]?.id ?? null;
+
+    if (nonEmptyIds.size === 0) {
+      // No step can ever be reached (the core refuses to be built with zero participants): run the
+      // same pure decision the core's selector would, without ever constructing a Roundtable. Given
+      // an empty id set, `decide` either finishes (a falsy `firstId`) or throws "step not found" —
+      // it can never resolve to `speak`.
+      decide(0, firstId, maxTurns, nonEmptyIds);
+      emit(ORCHESTRATION_EVENTS.COMPLETED, runId, {});
+      return { primitive: 'group-chat', steps: [], output: '' };
+    }
+
+    const rtRef: GroupChatRoundtableRef = {};
+    const errorBox: GroupChatErrorBox = { has: false };
+    const options = toRoundtableOptions(
+      spec,
+      deps,
+      runId,
+      emit,
+      deps.selectNextStep,
+      rtRef,
+      errorBox,
+    );
+    const rt = createRoundtable(options);
+    rtRef.current = rt;
+    try {
+      const result = await rt.run();
+      if (result.status === 'failed') {
+        throw errorBox.has ? errorBox.error : new Error(result.message);
       }
-      const step = byId.get(currentId);
-      if (!step) throw new Error(`group-chat step not found: ${currentId}`);
-      const prompt = threadPrompt(step.prompt, renderHistory(stepResults));
-      const result = await runStepOnce(step, stepResults.length, prompt, deps, runId, emit);
-      stepResults.push(result);
-      currentId = deps.selectNextStep(stepResults, step.id);
+      if (result.status !== 'completed') {
+        // `limited`/`cancelled`/`waiting` cannot happen: no time/model-call limit is configured,
+        // nothing external ever calls `dispose()` mid-run, and no participant ever waits.
+        throw new Error(
+          `group-chat: internal invariant violated — roundtable status ${result.status}`,
+        );
+      }
+      const steps = toStepResults(rt.snapshot());
+      const output = steps.length > 0 ? steps[steps.length - 1].output : '';
+      emit(ORCHESTRATION_EVENTS.COMPLETED, runId, {});
+      return { primitive: 'group-chat', steps, output };
+    } finally {
+      await rt.dispose();
     }
   } catch (error) {
     emit(ORCHESTRATION_EVENTS.FAILED, runId, {
@@ -85,8 +113,4 @@ export async function runGroupChat(
     });
     throw error;
   }
-
-  emit(ORCHESTRATION_EVENTS.COMPLETED, runId, {});
-  const output = stepResults.length > 0 ? stepResults[stepResults.length - 1].output : '';
-  return { primitive: 'group-chat', steps: stepResults, output };
 }

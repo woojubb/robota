@@ -340,6 +340,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   A skipped candidate is never persisted anywhere, including the pending queue. Approval accepts only a
   `pending` candidate and re-runs the check, so nothing flagged reaches durable memory. This is a
   heuristic, not a secret scanner: a secret that reads like prose can still pass.
+- **`group-chat`'s only turn loop is the Roundtable core's.** The facade keeps no transcript, turn
+  counter or loop of its own, so conversation orchestration lives in exactly one place; it makes no
+  durability or cancellation claim beyond what the legacy loop it replaced already made.
 
 ## Error taxonomy (shape, not enumeration)
 
