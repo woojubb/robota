@@ -12,9 +12,10 @@ image-generation provider.
 - Delegates to an injected `IMediaProviderDefinition`/`IImageGenerationProvider` rather than
   embedding any specific provider SDK. Provider SDK composition belongs to the providers package,
   not this node package.
-- Registered as an **async/optional** node: the provider is an optional peer dependency, and the
-  node self-skips if the provider cannot be constructed (e.g. missing credentials), rather than
-  failing DAG registration.
+- Registered as an **async/optional** node, which the registry skips only when the package cannot be
+  loaded or constructed. Without a usable provider (e.g. missing credentials) the node is still
+  registered, and a run fails with a validation error naming what to configure, rather than failing
+  DAG registration.
 
 ## Contract
 

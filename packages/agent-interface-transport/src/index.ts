@@ -2,20 +2,11 @@
 
 // ── One interaction primitive, re-exported for a structural reason (ARCH-037) ──
 //
-// `TActionResponse`'s SSOT is `agent-core`, and this is a pass-through re-export, which STRUCT-07
-// bans. It survives as a NAMED exception because the ban has no answer here, and that was measured
-// rather than assumed:
-//
-//   - its consumers are FOUR files across TWO packages — `agent-ui-web` (three) and
-//     `agent-transport` (one) — and neither package's documented dependency set
-//     (`.agents/project-structure.md`) admits `agent-core`. An earlier revision said "the one
-//     consumer is `agent-ui-web`": a line-based count cannot see a multi-line import;
-//   - `agent-core` has NO internal dependencies — it is the bottom layer — so the type cannot move
-//     here instead.
-//
-// So this re-export is the only path by which a permitted consumer can name the type. ARCH-037's
-// stated direction was to drop these and have consumers "import from `@robota-sdk/agent-core`";
-// that holds for the two dropped alongside it and NOT for this one.
+// `TActionResponse`'s SSOT is `agent-core`, and a pass-through re-export is normally banned
+// (STRUCT-07). This one stays because `agent-ui-web`, the GUI presentation layer, does not depend on
+// `agent-core` and names the type only through this package; `agent-core` is the bottom layer, so
+// the type cannot move here instead. (`agent-transport` imports it from here too, although it could
+// reach `agent-core` directly.)
 //
 // `IActionRequest` was re-exported here too and is gone: every consumer already imported it from
 // `agent-core` directly, so the re-export was a second name for a type nobody reached this way.

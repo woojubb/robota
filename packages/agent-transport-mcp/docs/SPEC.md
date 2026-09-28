@@ -48,7 +48,7 @@ approval prompts.
 - On the loopback host, `Host` must match the listener's own loopback address and port; a present
   `Origin` must match that exact origin (absent is permitted for local non-browser clients). Invalid
   Host/Origin returns 403 and an invalid bearer returns 401, both before the request body is read.
-  The bearer is minted at host start and returned only to the trusted process owner, which must keep
+  The bearer is minted when the host is created (`createMcpHttpHost`) and returned only to the trusted process owner, which must keep
   it out of argv, logs, URLs, and world-readable files. The loopback host refuses a non-loopback bind; only the remote
   host, which cannot be built without a verifier and an `https` public URL, binds elsewhere.
 - The external wire schema and protocol errors are MCP-SDK owned, not a Robota REST envelope.

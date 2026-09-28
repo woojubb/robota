@@ -5,9 +5,8 @@
 Owns the `tool` DAG node, which wraps a single `@robota-sdk/agent-tools` builtin (Read,
 Write, Edit, Shell, Bash, Glob, Grep, WebFetch, WebSearch) as one DAG step, emitting its text output.
 
-Distinct from the `mcp-tool` node: `mcp-tool` calls an **external** MCP server over HTTP/stdio; this
-node runs an agent builtin without an MCP transport; CPU-bound grep matching is isolated from the
-workflow event loop.
+This node runs an agent builtin in-process, without an MCP transport; CPU-bound grep matching is
+isolated from the workflow event loop.
 
 ## Contract
 
@@ -26,9 +25,9 @@ workflow event loop.
 
 ## Invariants — containment
 
-- Every builtin is constructed per invocation and bound to a containment root; none is taken from
-  `agent-tools`' module-level singletons, which are context-free by construction and therefore
-  uncontained.
+- Every file and command builtin is constructed per invocation and bound to a containment root; none
+  is taken from `agent-tools`' module-level singletons, which are context-free by construction and
+  therefore uncontained. WebFetch and WebSearch touch no files, so they are the shared singletons.
 - The root is the trusted, canonical, absolute `INodeExecutionContext.executionRoot`; the node never
   reads `process.cwd()`.
 - `config.cwd` may only **narrow** that root — it arrives in the same LLM-authorable `.dag.json` as
