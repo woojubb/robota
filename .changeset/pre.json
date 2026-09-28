@@ -75,7 +75,6 @@
     "@robota-sdk/dag-orchestration-client": "3.0.0-beta.60",
     "@robota-sdk/dag-projection": "3.0.0-beta.60",
     "@robota-sdk/dag-runtime": "3.0.0-beta.60",
-    "@robota-sdk/dag-scheduler": "3.0.0-beta.60",
     "@robota-sdk/dag-worker": "3.0.0-beta.60",
     "robota-scratch": "0.0.0",
     "@robota-sdk/dag-node-seedance-video": "3.0.0-beta.61",
