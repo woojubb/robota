@@ -255,11 +255,21 @@ Each hook run ends in one of three outcomes:
 | `2` (stderr is the reason)           | `{ "ok": false, "reason": "..." }` | deny    | The call is refused with the reason             |
 | any other code, a timeout, a failure | an unreadable or failed response   | error   | The call is refused: no verdict is not approval |
 
-A hook cannot approve a call: an `allow` only lets it continue to the permission rules and mode. On
-`PreToolUse`, an `allow` whose stdout is JSON with `"continue": false` or
-`hookSpecificOutput.permissionDecision: "deny"` also refuses the call; a `permissionDecision` of
-`allow`, `ask` or `defer` and any `updatedInput` are reported but not applied. On every other event
-the outcome is recorded and nothing is blocked.
+An `allow` outcome alone does not approve a call: it only lets the call continue to the permission
+rules and mode. On `PreToolUse`, an `allow` whose stdout is JSON with `"continue": false` or
+`hookSpecificOutput.permissionDecision: "deny"` refuses the call. A `command` hook's
+`hookSpecificOutput.permissionDecision` can also steer it:
+
+- `"allow"` skips the prompt you would otherwise get. Deny rules, the mode's refusals, the `auto`
+  mode classifier and `ask` rules still apply.
+- `"ask"` asks you even when the mode or an earlier "always allow" would run the call. With no one to
+  ask, the call is refused.
+- `"defer"` leaves the call to the normal permission check.
+
+`updatedInput` is not applied, and an `allow` sent with it is ignored. `http`, `prompt`, `agent` and
+`guardrail` hooks can only refuse a call.
+
+On every other event the outcome is recorded and nothing is blocked.
 
 ### Hook Types
 

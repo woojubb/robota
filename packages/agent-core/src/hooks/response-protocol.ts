@@ -20,8 +20,11 @@ import type { THookEvent } from './types.js';
 
 export type TPermissionDecision = 'allow' | 'deny' | 'ask' | 'defer';
 
-/** Permission decision priority: deny=3 > defer=2 > ask=1 > allow=0 */
-export const PERMISSION_PRIORITY: Record<string, number> = { deny: 3, defer: 2, ask: 1, allow: 0 };
+/**
+ * Permission decision priority: deny=3 > ask=2 > defer=1 > allow=0. `defer` leaves the call to the
+ * normal flow, so it outranks an `allow` but must not cancel another hook's `ask`.
+ */
+export const PERMISSION_PRIORITY: Record<string, number> = { deny: 3, ask: 2, defer: 1, allow: 0 };
 
 /**
  * What one `allow` outcome's stdout asks of the runner — declarative, so the runner aggregates and

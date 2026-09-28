@@ -18,6 +18,8 @@ import type {
 
 const logger = createLogger('ToolHookHelpers');
 
+type TRunHooksResult = Awaited<ReturnType<typeof runHooks>>;
+
 /**
  * Truncate tool result data if it exceeds MAX_TOOL_OUTPUT_CHARS.
  * Uses middle-truncation: keeps first and last portions, removes middle.
@@ -56,6 +58,16 @@ export function buildHookInput(
   };
 }
 
+/** A PreToolUse decision the permission gate applies; `deny` is a refusal and `defer` changes nothing. */
+export type TPreToolHookDecision = 'allow' | 'ask';
+
+/** What the PreToolUse hooks decided about one call. */
+export interface IPreToolGateOutcome {
+  /** The denial to return instead of running the tool, or null to go on to the permission gate. */
+  readonly refusal: IToolResult | null;
+  readonly decision?: TPreToolHookDecision;
+}
+
 /**
  * Run PreToolUse hooks; returns a denial IToolResult if blocked, or null to proceed. `hookTraceEnv`
  * names the prompt root, never the tool body's span.
@@ -66,6 +78,36 @@ export async function runPreToolHook(
   hookTypeExecutors: IHookTypeExecutor[] | undefined,
   hookTraceEnv?: ISubprocessTraceEnv,
 ): Promise<IToolResult | null> {
+  return (await runPreToolGate(hooks, hookInput, hookTypeExecutors, hookTraceEnv)).refusal;
+}
+
+/**
+ * {@link runPreToolHook}, keeping the hooks' `permissionDecision` for the permission gate. A `defer`
+ * is dropped: it leaves the call to the normal flow. The call runs its own input, so an `allow` sent
+ * with an `updatedInput` approved another input and is dropped too.
+ */
+export async function runPreToolGate(
+  hooks: Record<string, unknown> | undefined,
+  hookInput: IHookInput,
+  hookTypeExecutors: IHookTypeExecutor[] | undefined,
+  hookTraceEnv?: ISubprocessTraceEnv,
+): Promise<IPreToolGateOutcome> {
+  const refusal = await evaluatePreToolHooks(hooks, hookInput, hookTypeExecutors, hookTraceEnv);
+  if (refusal.result !== null) return { refusal: refusal.result };
+  const { permissionDecision, updatedInput } = refusal.hookResult;
+  if (permissionDecision === 'ask') return { refusal: null, decision: 'ask' };
+  if (permissionDecision === 'allow' && updatedInput === undefined) {
+    return { refusal: null, decision: 'allow' };
+  }
+  return { refusal: null };
+}
+
+async function evaluatePreToolHooks(
+  hooks: Record<string, unknown> | undefined,
+  hookInput: IHookInput,
+  hookTypeExecutors: IHookTypeExecutor[] | undefined,
+  hookTraceEnv?: ISubprocessTraceEnv,
+): Promise<{ result: IToolResult | null; hookResult: TRunHooksResult }> {
   const hookResult = await runHooks(
     hooks as THooksConfig | undefined,
     'PreToolUse',
@@ -79,7 +121,7 @@ export async function runPreToolHook(
     // `success: true`, so the type promised a distinction the code did not make — in the file that
     // exists to end exactly that.
     const reason = hookResult.reason ?? 'Blocked by hook';
-    return toolFailure('hook-blocked', reason, { blocked: true, reason });
+    return { result: toolFailure('hook-blocked', reason, { blocked: true, reason }), hookResult };
   }
 
   // SEC-016. A hook that reached NO verdict is not a hook that approved. Issue #2083 made that
@@ -87,7 +129,7 @@ export async function runPreToolHook(
   //
   // Guarded by the policy rather than by a literal `true`, so the posture is stated in ONE place and
   // this boundary cannot drift from it. Note what this does NOT buy: the event is hardcoded here
-  // because this function is `runPreToolHook`, so a future enforcing event needs its own boundary
+  // because this function is the PreToolUse gate, so a future enforcing event needs its own boundary
   // and does not inherit anything — an earlier version of this comment claimed otherwise and review
   // caught it. What the indirection does buy is that flipping `PreToolUse` to advisory in the table
   // turns this gate off.
@@ -144,18 +186,21 @@ export async function runPreToolHook(
         // and hit a second denial with no warning it was queued. A fail-closed gate that reveals its
         // reasons one per attempt is a gate you debug by being repeatedly stopped.
         (unregisteredReason !== '' ? ` Also unevaluated — ${unregisteredReason}` : '');
-      return toolFailure('hook-blocked', reason, { blocked: true, reason });
+      return { result: toolFailure('hook-blocked', reason, { blocked: true, reason }), hookResult };
     }
 
     if (unregisteredReason !== '') {
-      return toolFailure('hook-blocked', unregisteredReason, {
-        blocked: true,
-        reason: unregisteredReason,
-      });
+      return {
+        result: toolFailure('hook-blocked', unregisteredReason, {
+          blocked: true,
+          reason: unregisteredReason,
+        }),
+        hookResult,
+      };
     }
   }
 
-  return null;
+  return { result: null, hookResult };
 }
 
 /** Fire PostToolUse hooks (fire and forget) */
