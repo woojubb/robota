@@ -11,16 +11,20 @@ exported from the `/session` subpath instead — see below.
 ## Installation
 
 ```bash
-npm install @robota-sdk/agent-roundtable-robota @robota-sdk/agent-core
+npm install @robota-sdk/agent-roundtable-robota @robota-sdk/agent-core @robota-sdk/agent-roundtable
 # only if you use sessionParticipant from the /session subpath:
 npm install @robota-sdk/agent-session
 ```
 
-`@robota-sdk/agent-roundtable` comes along automatically as a regular dependency.
+`@robota-sdk/agent-roundtable` comes along automatically as a regular dependency of this package, but
+the Quick Start below also imports `createRoundtable` and `MemoryConversationStore` from it directly,
+so your own project needs it as a direct dependency too — install it explicitly as shown above (under
+pnpm's default strict `node_modules` or under Yarn PnP, importing a package your project never
+declared fails even though this package's install brought a copy of it in transitively).
 `@robota-sdk/agent-core` is a peer dependency, and `@robota-sdk/agent-session` an optional one needed
 only by the `/session` subpath. This package runs the `Robota`/`Session` instances the host
-constructs with them, so the host's copies and this package's must be the same install. See "Version and compatibility" below for what version range that peer
-dependency actually pins to.
+constructs with them, so the host's copies and this package's must be the same install. See "Version
+and compatibility" below for what version range that peer dependency actually pins to.
 
 ## Supported environments
 
@@ -31,16 +35,22 @@ platform-neutral — only this adapter, and the runtimes it wraps, are Node-only
 
 ## Capabilities by participant kind
 
-| Kind                                                                              | Wait continuation                                               | Checkpoint             | Model calls                                                  |
-| --------------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------ |
-| `sessionParticipant`                                                              | Yes — a tool call awaiting approval (`robota-session/approval`) | `robota-session/1`     | Metered (`'metered'`)                                        |
-| `robotaParticipant`                                                               | No — a suspended execution fails the turn outright              | `robota-agent/1`       | Metered (`'metered'`)                                        |
-| Custom (write your own `AgentParticipant` against `@robota-sdk/agent-roundtable`) | Whatever you implement                                          | Whatever you implement | Declare `factory.modelCalls` yourself, or omit it (`'none'`) |
+| Kind                                                                              | Wait continuation                                               | Checkpoint             | Model calls                                            |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------- | ------------------------------------------------------ |
+| `sessionParticipant`                                                              | Yes — a tool call awaiting approval (`robota-session/approval`) | `robota-session/1`     | Metered (`'metered'`)                                  |
+| `robotaParticipant`                                                               | No — a suspended execution fails the turn outright              | `robota-agent/1`       | Metered (`'metered'`)                                  |
+| Custom (write your own `AgentParticipant` against `@robota-sdk/agent-roundtable`) | Whatever you implement                                          | Whatever you implement | Declare `factory.modelCalls` yourself (see note below) |
 
 A custom participant needs neither this package nor Robota at all — `@robota-sdk/agent-roundtable`'s
 own README shows one wrapping plain code. Use `sessionParticipant` when the turn needs tools,
 permissions or approval; use `robotaParticipant` for a model-only agent with no continuation to
 manage; write a custom participant for any other runtime.
+
+Leaving a custom factory's `modelCalls` undeclared behaves like `'none'` only while the roundtable has
+no model-call limit and no pricing policy. As soon as either is configured, `createRoundtable`
+requires every agent factory and the selector to declare `modelCalls` explicitly — `'none'` included —
+and throws `RoundtableError('invalid-config', ...)` for any factory that leaves it undeclared, so a
+participant nobody metered can never end up silently governed by a limit it never agreed to observe.
 
 ## Quick start
 
@@ -222,15 +232,17 @@ limits should disable that provider SDK's automatic retries.
 This package's own API follows the release's semantic version, same as `@robota-sdk/agent-roundtable`,
 `@robota-sdk/agent-core` and `@robota-sdk/agent-session` in the same release (they are versioned in
 lockstep). Its `peerDependencies` on the latter two are `workspace:*` in source; publishing pins them
-to the **exact** version they release with, not a range — so installing this package always pulls in
-the exact `agent-core`/`agent-session` version it was built and tested against.
+to the **exact** version they release with, not a range — so the host must have `@robota-sdk/agent-core`
+installed at that exact version (a different version is a peer dependency install error, not a
+warning); `@robota-sdk/agent-session` is required at that same exact version only when the host uses
+the `/session` subpath, since that peer is optional.
 
 That API version is separate from **checkpoint format compatibility**, which this package owns
 independently of any of those three:
 
 - `sessionParticipant`'s checkpoint is versioned `robota-session/1`; `robotaParticipant`'s is
-  `robota-agent/1`. Both `checkpoint-codec` decoders reject any other `version` string outright —
-  there is no silent best-effort decode of an unrecognized or future format.
+  `robota-agent/1`. Both decoders reject any other `version` string outright — there is no silent
+  best-effort decode of an unrecognized or future format.
 - A checkpoint format changes only by minting a new version string (e.g. a hypothetical
   `robota-session/2`), never by changing what `/1` means in place. An API-compatible minor or patch
   release of this package never changes what an existing checkpoint version decodes to.
