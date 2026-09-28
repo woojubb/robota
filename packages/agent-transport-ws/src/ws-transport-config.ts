@@ -28,6 +28,8 @@ export interface IWsTransportConfig {
   storedSessionUsageReporter?: ISessionMessageHandlerOptions['storedSessionUsageReporter'];
   /** Host-owned session directory (#3189): lets every connection list, start and switch sessions. */
   sessionDirectory?: ISessionMessageHandlerOptions['sessionDirectory'];
+  /** #3282 §4a: host-owned read/write for the GUI Settings screen, forwarded unchanged. */
+  settingsReporter?: ISessionMessageHandlerOptions['settingsReporter'];
   /**
    * #3189: gives each connection a binding of its own — its own session and its own directory view —
    * so one connection's switch moves only that connection. Released when the connection closes. When
@@ -99,6 +101,7 @@ type TConfiguredHandlerOptions = Pick<
   | 'usageReporter'
   | 'storedSessionUsageReporter'
   | 'sessionDirectory'
+  | 'settingsReporter'
 >;
 
 /** Project immutable transport attribution/reporters into each protocol handler. */
@@ -108,6 +111,7 @@ export function configuredWsHandlerOptions(config: IWsTransportConfig): TConfigu
     ...(config.surface ? { surface: config.surface } : {}),
     ...configuredUsageReporters(config),
     ...(config.sessionDirectory ? { sessionDirectory: config.sessionDirectory } : {}),
+    ...(config.settingsReporter ? { settingsReporter: config.settingsReporter } : {}),
   };
 }
 

@@ -42,7 +42,13 @@ describe('InteractiveSession.getStatusSnapshot', () => {
       effort: 'high',
       context: { usedPercentage: 12, usedTokens: 1200, maxTokens: 10000, remainingPercentage: 88 },
       goal: null,
+      workspace: { name: 'tmp', path: '/tmp' },
     });
+  });
+
+  it('reports no workspace when the session has no cwd set', () => {
+    const session = new InteractiveSession({ session: mockSession() as never });
+    expect(session.getStatusSnapshot()).not.toHaveProperty('workspace');
   });
 
   it('carries the goal being pursued, so every client can show its progress', () => {
@@ -63,5 +69,19 @@ describe('InteractiveSession.getStatusSnapshot', () => {
   it('leaves the name out of an unnamed session', () => {
     const session = new InteractiveSession({ session: mockSession() as never, cwd: '/tmp' });
     expect(session.getStatusSnapshot()).not.toHaveProperty('sessionName');
+  });
+
+  it('#3282 §3: reports setupRequired when constructed with it, so a client shows a setup screen', () => {
+    const session = new InteractiveSession({
+      session: mockSession() as never,
+      cwd: '/tmp',
+      setupRequired: true,
+    });
+    expect(session.getStatusSnapshot().setupRequired).toBe(true);
+  });
+
+  it('#3282 §3: leaves setupRequired out for every ordinary session (absent, never false)', () => {
+    const session = new InteractiveSession({ session: mockSession() as never, cwd: '/tmp' });
+    expect(session.getStatusSnapshot()).not.toHaveProperty('setupRequired');
   });
 });

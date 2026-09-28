@@ -10,6 +10,8 @@ import { MONITOR_SHELL_TOOL, MonitorCommandRefusedError } from '../command-api/a
 import { readSessionUsageRecords } from '../command-api/session/session-usage.js';
 import {
   listAgentDefinitionsFromSession,
+  getDefaultAgentTypeFromSession,
+  setDefaultAgentTypeFromSession,
   listAgentJobsFromSession,
   spawnAgentJobFromSession,
   waitAgentJobFromSession,
@@ -23,6 +25,7 @@ import {
   buildWorkspaceTaskSpawner,
   readWorkspaceDetail,
 } from './interactive-session-workspace.js';
+import { projectHistoryForDisplay } from './interactive-session-history-projection.js';
 import { validateWorkspaceSessionReplayLog as validateReplay } from './workspace-session-replay-validation.js';
 
 import type { ISessionUsageRecord } from '../command-api/session/session-usage.js';
@@ -37,6 +40,7 @@ import type {
   IExecutionDetailPage,
   IExecutionOrigin,
   IExecutionPendingRequest,
+  IExecutionSelfPacedLoopSummary,
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceFilter,
   IExecutionWorkspaceSnapshot,
@@ -56,6 +60,7 @@ import type {
   ICommandSkillListEntry,
   ICommandSkillActivationRequest,
   TCommandInvocationSource,
+  TCommandSurfaceLocality,
 } from '../commands/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type {
@@ -77,7 +82,11 @@ import type {
   IBackgroundTaskState,
   ISubagentJobState,
 } from '@robota-sdk/agent-interface-execution';
-import type { TDriverId } from '@robota-sdk/agent-interface-session';
+import type {
+  IHistoryDisplaySegment,
+  ISessionLoopState,
+  TDriverId,
+} from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
 
 export abstract class InteractiveSessionBase {
@@ -115,6 +124,7 @@ export abstract class InteractiveSessionBase {
     args: string,
     source: TCommandInvocationSource = 'user',
     originDriverId?: TDriverId,
+    locality?: TCommandSurfaceLocality,
   ): Promise<ICommandResult | null> {
     await this.ensureInitialized();
     if (this.execCtrl.executing)
@@ -122,7 +132,7 @@ export abstract class InteractiveSessionBase {
         success: false,
         message: 'Another prompt or command is already running. Wait for it to finish.',
       };
-    return this.skillRouter.executeCommand(name, args, source, originDriverId);
+    return this.skillRouter.executeCommand(name, args, source, originDriverId, locality);
   }
   async executeModelCommand(name: string, args: string): Promise<ICommandResult | null> {
     await this.ensureInitialized();
@@ -138,6 +148,9 @@ export abstract class InteractiveSessionBase {
 
   getCommandInvocationSource(): TCommandInvocationSource {
     return this.skillRouter.getCommandInvocationSource();
+  }
+  getCommandSurfaceLocality(): TCommandSurfaceLocality {
+    return this.skillRouter.getCommandSurfaceLocality();
   }
   async executeSkillCommandByName(
     name: string,
@@ -178,6 +191,13 @@ export abstract class InteractiveSessionBase {
       .getHistory()
       .filter((e) => e.category === 'chat')
       .map((e) => e.data as TUniversalMessage);
+  }
+  /** #3288 §2: `getMessages()`'s chat entries, projected for a reload/reconnect/resume replay. */
+  getMessagesDisplay(): IHistoryDisplaySegment[] {
+    return projectHistoryForDisplay(this.histTracker.getHistory(), {
+      cwd: this.getCwd(),
+      modelCommandToolNames: this.execCtrl.modelCommandToolNames,
+    });
   }
   listEditCheckpoints(): IEditCheckpointSummary[] {
     return this.histTracker.listEditCheckpoints();
@@ -276,9 +296,27 @@ export abstract class InteractiveSessionBase {
         histTracker: this.histTracker,
         bgTracker: this.bgTracker,
         pendingRequest: () => this.getPendingRequest(),
+        selfPacedLoops: () => this.getSelfPacedLoopWorkspaceSummaries(),
       },
       options,
     );
+  }
+  /**
+   * #3288 §1: this session's self-paced loops, summarized for the execution workspace. Overridden
+   * by {@link InteractiveSession} (the only subclass with self-paced loops at all); the default
+   * here keeps a hypothetical other subclass working with none, rather than requiring one.
+   */
+  protected getSelfPacedLoopWorkspaceSummaries(): readonly IExecutionSelfPacedLoopSummary[] {
+    return [];
+  }
+  /**
+   * #3288 §1: a single self-paced loop's own durable state, for its detail page (`readWorkspaceDetail`
+   * — its entry has no `IBackgroundTaskState` of its own to read). Overridden by
+   * {@link InteractiveSession}; the default here keeps a hypothetical other subclass working with
+   * none, matching {@link getSelfPacedLoopWorkspaceSummaries}.
+   */
+  protected getSelfPacedLoopDetail(_loopId: string): ISessionLoopState | undefined {
+    return undefined;
   }
   listExecutionWorkspaceEntries(filter?: IExecutionWorkspaceFilter): IExecutionWorkspaceEntry[] {
     return [...this.getExecutionWorkspaceSnapshot({ filter }).entries];
@@ -298,6 +336,7 @@ export abstract class InteractiveSessionBase {
       this.getSessionOrThrow().getSessionId(),
       cursor,
       this.getPendingRequest(),
+      (loopId) => this.getSelfPacedLoopDetail(loopId),
     );
   }
   createExecutionWorkspaceTaskSpawner(origin: IExecutionOrigin): IExecutionWorkspaceTaskSpawner {
@@ -308,8 +347,14 @@ export abstract class InteractiveSessionBase {
       origin,
     );
   }
-  listAgentDefinitions(): Array<{ name: string; description: string }> {
+  listAgentDefinitions(): Array<{ name: string; description: string; definedIn: string }> {
     return listAgentDefinitionsFromSession(this.getSessionOrThrow());
+  }
+  getDefaultAgentType(): string {
+    return getDefaultAgentTypeFromSession(this.getSessionOrThrow());
+  }
+  setDefaultAgentType(agentType: string): void {
+    setDefaultAgentTypeFromSession(this.getSessionOrThrow(), agentType);
   }
   listAgentJobs(): ISubagentJobState[] {
     return listAgentJobsFromSession(this.getSessionOrThrow());

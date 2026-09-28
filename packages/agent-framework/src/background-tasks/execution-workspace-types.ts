@@ -25,6 +25,7 @@ export type {
   IExecutionDetailPage,
   ICreateMainThreadEntryInput,
   ICreateExecutionWorkspaceSnapshotInput,
+  IExecutionSelfPacedLoopSummary,
   IExecutionWorkspaceEntryRef,
   ICreateMainThreadDetailPageInput,
   ICreateLineDetailPageInput,

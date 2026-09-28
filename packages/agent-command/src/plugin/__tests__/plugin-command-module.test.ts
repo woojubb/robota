@@ -46,7 +46,10 @@ function createCommandSessionRuntime() {
   });
 }
 
-function createCommandHostContext(adapter?: ICommandPluginAdapter) {
+function createCommandHostContext(
+  adapter?: ICommandPluginAdapter,
+  locality?: 'local' | 'remote',
+) {
   const checkpoint = {
     id: 'checkpoint_1',
     sessionId: 'session_1',
@@ -66,6 +69,7 @@ function createCommandHostContext(adapter?: ICommandPluginAdapter) {
       }),
       getAutoCompactThreshold: () => 0.8,
       getCommandHostAdapters: () => (adapter === undefined ? {} : { plugin: adapter }),
+      ...(locality ? { getCommandSurfaceLocality: () => locality } : {}),
       compactContext: async () => undefined,
       getCwd: () => '/workspace',
       listCommands: () => [],
@@ -184,6 +188,82 @@ describe('executePluginCommand', () => {
     await expect(executePluginCommand(createCommandHostContext(), 'disable')).resolves.toEqual({
       success: false,
       message: 'Usage: /plugin disable <name>@<marketplace>',
+    });
+  });
+
+  it('lists installed plugins through the adapter, for the Settings screen (#3282 §4 part b-2)', async () => {
+    const adapter = createPluginAdapter({
+      listInstalled: vi.fn().mockResolvedValue([
+        { name: 'formatter@robota', description: 'Formats code.', enabled: true },
+        { name: 'linter@robota', description: 'Lints code.', enabled: false },
+      ]),
+    });
+
+    const result = await executePluginCommand(createCommandHostContext(adapter), 'list');
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({
+      plugins: [
+        { name: 'formatter@robota', description: 'Formats code.', enabled: true },
+        { name: 'linter@robota', description: 'Lints code.', enabled: false },
+      ],
+    });
+    expect(result.message).toContain('formatter@robota');
+    expect(result.message).toContain('linter@robota (disabled)');
+  });
+
+  it('no plugins installed reports a plain empty list', async () => {
+    const adapter = createPluginAdapter();
+    const result = await executePluginCommand(createCommandHostContext(adapter), 'list');
+    expect(result).toEqual({
+      success: true,
+      message: 'No plugins are installed.',
+      data: { plugins: [] },
+    });
+  });
+
+  describe('install/uninstall stay local-surface-only (#3282 §4 part b-2)', () => {
+    it('runs install from a local surface', async () => {
+      const adapter = createPluginAdapter();
+      const result = await executePluginCommand(
+        createCommandHostContext(adapter, 'local'),
+        'install demo@community',
+      );
+      expect(result.success).toBe(true);
+      expect(adapter.install).toHaveBeenCalledWith('demo@community');
+    });
+
+    it('refuses install from a remote surface with a plain message, writing nothing', async () => {
+      const adapter = createPluginAdapter();
+      const result = await executePluginCommand(
+        createCommandHostContext(adapter, 'remote'),
+        'install demo@community',
+      );
+      expect(result.success).toBe(false);
+      expect(result.message).toMatch(/only works from the desktop app or the page opened here/);
+      expect(result.message).toMatch(/not from a remote device/);
+      expect(adapter.install).not.toHaveBeenCalled();
+    });
+
+    it('refuses uninstall from a remote surface with a plain message, writing nothing', async () => {
+      const adapter = createPluginAdapter();
+      const result = await executePluginCommand(
+        createCommandHostContext(adapter, 'remote'),
+        'uninstall demo@community',
+      );
+      expect(result.success).toBe(false);
+      expect(result.message).toMatch(/not from a remote device/);
+      expect(adapter.uninstall).not.toHaveBeenCalled();
+    });
+
+    it('never refuses enable/disable/reload from a remote surface — only install/uninstall run new code', async () => {
+      const adapter = createPluginAdapter();
+      const enableResult = await executePluginCommand(
+        createCommandHostContext(adapter, 'remote'),
+        'enable demo@community',
+      );
+      expect(enableResult.success).toBe(true);
+      expect(adapter.enable).toHaveBeenCalledWith('demo@community');
     });
   });
 });

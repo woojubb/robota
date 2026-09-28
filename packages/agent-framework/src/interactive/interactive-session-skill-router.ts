@@ -30,6 +30,7 @@ import type {
   ICommandSkillActivationRequest,
   IUnknownCommandModuleName,
   TCommandInvocationSource,
+  TCommandSurfaceLocality,
   ISystemCommand,
   IRemoteCommandPolicy,
 } from '../commands/index.js';
@@ -63,6 +64,7 @@ export class SessionSkillRouter {
   private readonly commandScope = new AsyncLocalStorage<{
     readonly source: TCommandInvocationSource;
     readonly originDriverId: TDriverId | undefined;
+    readonly locality: TCommandSurfaceLocality | undefined;
   }>();
   constructor(
     commandModules: readonly ICommandModule[],
@@ -133,6 +135,11 @@ export class SessionSkillRouter {
     return this.commandScope.getStore()?.source ?? 'user';
   }
 
+  /** #3282 §4 part b-2: allow-by-default, matching every other transport-origin default here. */
+  getCommandSurfaceLocality(): TCommandSurfaceLocality {
+    return this.commandScope.getStore()?.locality ?? 'local';
+  }
+
   getCommandOriginDriverId(): TDriverId | undefined {
     return this.commandScope.getStore()?.originDriverId;
   }
@@ -168,6 +175,7 @@ export class SessionSkillRouter {
     args: string,
     source: TCommandInvocationSource = 'user',
     originDriverId?: TDriverId,
+    locality?: TCommandSurfaceLocality,
   ): Promise<ICommandResult | null> {
     const normalizedName = normalizeNameToken(name);
     const command = this.commandExecutor.getCommand(normalizedName);
@@ -183,9 +191,10 @@ export class SessionSkillRouter {
         skillsCommand,
         commandArgs.length > 0 ? `${skill.name} ${commandArgs}` : skill.name,
         originDriverId,
+        locality,
       );
     }
-    return this.executeCommandWithSource(source, command, commandArgs, originDriverId);
+    return this.executeCommandWithSource(source, command, commandArgs, originDriverId, locality);
   }
 
   async executeCommandWithSource(
@@ -193,8 +202,9 @@ export class SessionSkillRouter {
     command: ISystemCommand,
     args: string,
     originDriverId?: TDriverId,
+    locality?: TCommandSurfaceLocality,
   ): Promise<ICommandResult> {
-    return this.commandScope.run({ source, originDriverId }, async () => {
+    return this.commandScope.run({ source, originDriverId, locality }, async () => {
       // REMOTE-006: local == remote — a transport-origin command runs exactly as a locally-typed one (pairing is
       // the trust boundary; the universal permission system governs anything dangerous). This is **allow-by-
       // default**: with no injected policy it always allows; an OPTIONAL `remoteCommandPolicy` may restrict for a
@@ -216,7 +226,7 @@ export class SessionSkillRouter {
   }
 
   async executeModelCommand(name: string, args: string): Promise<ICommandResult | null> {
-    return this.commandScope.run({ source: 'model', originDriverId: undefined }, () =>
+    return this.commandScope.run({ source: 'model', originDriverId: undefined, locality: undefined }, () =>
       this.commandExecutor.executeModelInvocable(name, this.getSession(), args));
   }
 

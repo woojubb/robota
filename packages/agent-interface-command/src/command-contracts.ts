@@ -18,6 +18,18 @@ import type { TModelEffort, TSessionEndReason, TUniversalValue } from '@robota-s
 export type TCommandInvocationSource = 'user' | 'model' | 'remote';
 
 /**
+ * Whether a `'remote'`-sourced invocation is provably on this machine. The loopback-bound WS carrier
+ * (the desktop app and a locally served browser page) is `'local'`; the device-mesh/WebRTC carrier
+ * proves no locality ("a browser device proves no locality, so it is treated as another machine" —
+ * the same rule `ConnectionAuthority` already applies to pairing), so it is always `'remote'`. Absent
+ * (an in-process caller, an older host, or a test double) defaults to `'local'` — the allow-by-default
+ * posture the rest of the command layer already uses. A command that runs code from outside the
+ * session (installing a plugin) reads this to refuse a remote device even though `'remote'`-sourced
+ * commands otherwise run like a local one (REMOTE-006).
+ */
+export type TCommandSurfaceLocality = 'local' | 'remote';
+
+/**
  * Who runs a command. `'runtime'`: the process that owns the session runs it, whichever surface
  * sent it. `'client'`: the surface the user is typing into runs it itself, because what it does
  * belongs to that surface (its terminal, its appearance), not to the session. A client that is

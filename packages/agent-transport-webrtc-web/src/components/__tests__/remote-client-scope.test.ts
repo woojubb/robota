@@ -1,5 +1,5 @@
 /**
- * The remote client is embedded by hosts with design tokens of their own (agent-web's playground). Its
+ * The remote client is embedded by hosts with design tokens of their own (agent-web's Studio palette). Its
  * root carries the GUI surface's `robota-ui` scope, so the surface's tokens and type apply inside it and
  * the host's stay outside.
  */
@@ -16,7 +16,15 @@ describe('RemoteClient', () => {
       React.createElement(RemoteClient, { href: 'https://host.example/remote' }),
     );
 
-    expect(html).toMatch(/^<div class="robota-ui[ "]/u);
+    expect(html).toMatch(/^<main class="robota-ui[ "]/u);
     expect(html).toContain('Cannot pair');
+  });
+
+  it('REGRESSION (#3289 §3 review): that unusable-pairing-link state is the page\'s one `main` landmark, since no host of this component can be relied on to supply it', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(RemoteClient, { href: 'https://host.example/remote' }),
+    );
+
+    expect(html.match(/<main[ >]/gu)?.length).toBe(1);
   });
 });

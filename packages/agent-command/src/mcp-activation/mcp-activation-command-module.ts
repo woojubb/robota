@@ -35,6 +35,12 @@ export function createMCPActivationCommandEntry(): ICommand {
         source: 'mcp-activation',
         modelInvocable: true,
       },
+      {
+        name: 'reload',
+        description: 'Retry connecting every MCP server that is not currently connected',
+        source: 'mcp-activation',
+        modelInvocable: false,
+      },
       ...(['approve', 'reject', 'revoke', 'login', 'logout'] as const).map((verb) => ({
         name: verb,
         description: USER_ONLY_VERB_DESCRIPTION[verb],

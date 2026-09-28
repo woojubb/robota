@@ -71,6 +71,7 @@ import type { IPreset } from '@robota-sdk/agent-preset';
  * same command host used by interactive and headless surfaces.
  * `agent-command-advisor` exposes `/advisor`, which chooses the model the main model may consult.
  * `agent-command-devices` exposes `/devices`, this device's identity among the user's devices.
+ * `agent-command-model` was added by #3282 §2 to expose `/model`, choosing the model itself.
  */
 const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-skills',
@@ -114,6 +115,7 @@ const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-remote-control',
   'agent-command-devices',
   'agent-command-provider',
+  'agent-command-model',
   'agent-command-workflows',
 ];
 
@@ -247,7 +249,11 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
 
     expect(options.providerErrorGuidance?.authentication).toContain('/provider');
     expect(options.providerErrorGuidance?.authentication).toContain('~/.robota/settings.json');
-    expect(options.providerErrorGuidance?.rateLimit).toContain('/model');
+    // #3275/#3289: the rate-limit guidance used to name a `/model` command that was never
+    // registered — the real command is `/provider`.
+    expect(options.providerErrorGuidance?.rateLimit).toContain('/provider');
+    expect(options.providerErrorGuidance?.rateLimit).not.toContain('/model');
+    expect(options.providerErrorGuidance?.modelUnavailable).toContain('/provider');
   });
 
   it('assembles exactly the same command-module SET (no module gained or lost)', () => {

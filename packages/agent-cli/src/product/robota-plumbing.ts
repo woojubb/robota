@@ -74,6 +74,8 @@ export function createDefaultTransportRegistry(
   surface?: import('@robota-sdk/agent-interface-analytics').TUsageSurface,
   /** #3189: binds each connection to the runtime's sessions, so a switch moves that connection alone. */
   sessionBinder?: import('@robota-sdk/agent-interface-session').ISessionBinder<IProtocolSession>,
+  /** #3282 §4a: host-owned read/write for the GUI Settings screen. */
+  settingsReporter?: ISessionMessageHandlerOptions['settingsReporter'],
 ): {
   registry: TransportRegistry;
   wsTransport: WsTransport;
@@ -104,6 +106,7 @@ export function createDefaultTransportRegistry(
     ...(driverId ? { driverId } : {}),
     ...(surface ? { surface } : {}),
     ...(sessionBinder ? { sessionBinder } : {}),
+    ...(settingsReporter ? { settingsReporter } : {}),
     usageReporter,
   });
   let registered = false;

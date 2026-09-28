@@ -12,9 +12,13 @@ import type {
   IToolResult,
   TBackgroundPermissionPolicy,
 } from '@robota-sdk/agent-core';
-import type { TPermissionResultValue } from '@robota-sdk/agent-interface-session';
+import type {
+  TPermissionRequester,
+  TPermissionResultValue,
+} from '@robota-sdk/agent-interface-session';
 
 export type { ISpinner, ITerminalOutput };
+export type { TPermissionRequester };
 
 /** The part of a sandbox client the permission gate consults. */
 export interface ICommandSandboxApproval {
@@ -39,12 +43,29 @@ export interface ICommandSandboxApproval {
 export type TPermissionResult = TPermissionResultValue;
 
 /**
+ * Issue #3288 §1: context a caller MAY attach to a permission ask beyond the call itself.
+ *
+ * `requester` says WHO is asking, when it is not the person's own turn — a background agent's tool
+ * call forwarded to the person, say — so a surface can show "Background agent X wants to …" instead
+ * of an unattributed prompt. `signal` cancels the ASK itself (not the tool call): a background task
+ * that is stopped or whose child process exits while a person has not yet answered must not leave
+ * that answer parked forever, so aborting it here settles the parked prompt denied and dismisses it
+ * on every attached surface — the same fail-closed direction `checkPermission`'s own `signal` denies
+ * on. Both fields are optional so every existing 2-arg handler stays a valid implementation.
+ */
+export interface IPermissionAskContext {
+  readonly requester?: TPermissionRequester;
+  readonly signal?: AbortSignal;
+}
+
+/**
  * Custom permission handler — called when a tool needs user approval.
  * Returns true to allow, false to deny, or 'allow-session' to remember for the session.
  */
 export type TPermissionHandler = (
   toolName: string,
   toolArgs: TToolArgs,
+  context?: IPermissionAskContext,
 ) => Promise<TPermissionResult>;
 
 export interface IPermissionEnforcerOptions {

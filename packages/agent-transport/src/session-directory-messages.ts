@@ -1,4 +1,4 @@
-import { isSessionChangeRefusal } from '@robota-sdk/agent-interface-session';
+import { isSessionChangeRefusal, isSessionDeleteRefusal } from '@robota-sdk/agent-interface-session';
 
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { TClientMessage } from './wire-messages.js';
@@ -13,6 +13,17 @@ export function isSessionDirectoryMessage(msg: TClientMessage): msg is TSessionD
   return (
     msg.type === 'list-sessions' || msg.type === 'new-session' || msg.type === 'switch-session'
   );
+}
+
+type TSessionRenameMessage = Extract<TClientMessage, { type: 'rename-session' }>;
+type TSessionDeleteMessage = Extract<TClientMessage, { type: 'delete-session' }>;
+
+export function isSessionRenameMessage(msg: TClientMessage): msg is TSessionRenameMessage {
+  return msg.type === 'rename-session';
+}
+
+export function isSessionDeleteMessage(msg: TClientMessage): msg is TSessionDeleteMessage {
+  return msg.type === 'delete-session';
 }
 
 /**
@@ -82,4 +93,70 @@ function listSessions(
 
 function failureMessage(error: Error | string): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * #3289 §1: rename a session from the list — current or not. Success replies with the new name so
+ * the client can update it optimistically; the client also re-lists to pick up everything else a
+ * rename can imply (nothing today, but the reply shape matches `delete-session`'s on purpose).
+ */
+export function handleSessionRenameMessage(
+  deliver: TOutboundDeliver,
+  msg: TSessionRenameMessage,
+  directory: ISessionDirectory | undefined,
+): void {
+  if (!directory) {
+    deliver({
+      type: 'session_rename_failed',
+      requestId: msg.requestId,
+      message: 'Sessions cannot be renamed on this host.',
+    });
+    return;
+  }
+  directory.renameSession(msg.sessionId, msg.name).then(
+    () =>
+      deliver({
+        type: 'session_renamed_in_list',
+        requestId: msg.requestId,
+        sessionId: msg.sessionId,
+        name: msg.name,
+      }),
+    (error: Error | string) =>
+      deliver({
+        type: 'session_rename_failed',
+        requestId: msg.requestId,
+        message: failureMessage(error),
+      }),
+  );
+}
+
+/**
+ * #3289 §1: remove a stored session's record. Refused when it is live on another client or running a
+ * turn; deleting the current session switches this binding away first (the directory's own job), so
+ * by the time this answers, the caller's own session is never the one just removed.
+ */
+export function handleSessionDeleteMessage(
+  deliver: TOutboundDeliver,
+  msg: TSessionDeleteMessage,
+  directory: ISessionDirectory | undefined,
+): void {
+  if (!directory) {
+    deliver({
+      type: 'session_delete_failed',
+      requestId: msg.requestId,
+      code: 'not_available',
+      message: 'Sessions cannot be deleted on this host.',
+    });
+    return;
+  }
+  directory.deleteSession(msg.sessionId).then(
+    () => deliver({ type: 'session_deleted', requestId: msg.requestId, sessionId: msg.sessionId }),
+    (error: Error | string) =>
+      deliver({
+        type: 'session_delete_failed',
+        requestId: msg.requestId,
+        code: isSessionDeleteRefusal(error) ? error.code : 'failed',
+        message: failureMessage(error),
+      }),
+  );
 }

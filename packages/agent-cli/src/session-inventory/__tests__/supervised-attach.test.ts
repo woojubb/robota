@@ -391,6 +391,8 @@ describe('supervised attach carrier', () => {
       newSession: vi.fn(async () => {
         throw new SessionChangeRefusal('prompt_pending', 'Answer or dismiss the pending prompt first.');
       }),
+      renameSession: vi.fn(async () => undefined),
+      deleteSession: vi.fn(async () => undefined),
     };
     await withTarget('rs-b6-', async ({ attach }) => {
       const { client } = await attach('drive');
@@ -448,6 +450,8 @@ describe('attach bindings (#3189)', () => {
       listSessions: vi.fn(),
       switchSession: vi.fn(async () => undefined),
       newSession: vi.fn(async () => undefined),
+      renameSession: vi.fn(async () => undefined),
+      deleteSession: vi.fn(async () => undefined),
     };
     const binder = binderOf(createTestInteractiveSession(), directory);
     const carrier = createSupervisedAttachCarrier({ binder });
@@ -472,6 +476,8 @@ describe('attach bindings (#3189)', () => {
       listSessions: vi.fn(),
       switchSession: vi.fn(async () => undefined),
       newSession: vi.fn(async () => undefined),
+      renameSession: vi.fn(async () => undefined),
+      deleteSession: vi.fn(async () => undefined),
     });
     const carrier = createSupervisedAttachCarrier({ binder });
     const refuse = vi.fn();

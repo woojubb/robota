@@ -285,7 +285,7 @@ fi
 if [ "$BLOCKING_FAILURES" -gt 0 ]; then
   echo
   echo "VERDICT: FAIL — a user downloading these artifacts cannot open them."
-  echo "See .agents/tasks/DIST-002-release-artifact-verification.md for the signing work this needs."
+  echo "The artifacts need Developer ID signing and notarization, which the release workflows do not do yet."
   exit 1
 fi
 

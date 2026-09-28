@@ -5,9 +5,9 @@ export function createSettingsCommandEntry(): ICommand {
   return {
     name: 'settings',
     displayName: 'Settings',
-    description: 'Open transport settings — enable/disable transports and configure options',
+    description: 'Open settings — language, output style, preset, permissions and more',
     source: 'settings',
-    // User-only: transport settings screen; UI-only.
+    // User-only: opens a screen; nothing here is a model action.
     modelInvocable: false,
   };
 }

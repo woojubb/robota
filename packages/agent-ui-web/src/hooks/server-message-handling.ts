@@ -28,10 +28,19 @@ export const SERVER_MESSAGE_HANDLING = {
   turn_source: 'intentionally-not-rendered',
   commands: 'reducer-state',
   session_status: 'reducer-state',
+  // #3282 §2 part 2: the reply to `list-models`, fed into `modelList` state by the model control's
+  // pop-up menu (`useModelListState`).
+  model_list: 'reducer-state',
+  // #3282 §4 part b-3: the agent switcher sheet's own correlated request/response state (`useAgentSwitcherState`).
+  agent_definitions: 'reducer-state',
   sessions: 'reducer-state',
   sessions_error: 'reducer-state',
   session_switched: 'reducer-state',
   session_change_failed: 'visible-notice',
+  session_renamed_in_list: 'reducer-state',
+  session_rename_failed: 'visible-notice',
+  session_deleted: 'reducer-state',
+  session_delete_failed: 'visible-notice',
   usage_report: 'reducer-state',
   personal_usage_report: 'reducer-state',
   personal_usage_report_error: 'visible-notice',
@@ -41,16 +50,25 @@ export const SERVER_MESSAGE_HANDLING = {
   // #3280 §2: the prompt queued behind a running turn — shown above the composer with Edit/Remove.
   pending: 'reducer-state',
   execution_workspace_event: 'reducer-state',
-  // #3189: replies to requests only a terminal client sends (a detail page, Esc's loop stop).
-  execution_detail: 'intentionally-not-rendered',
-  execution_detail_error: 'intentionally-not-rendered',
+  // #3288 §1: the Agents panel's detail sheet reads a page at a time.
+  execution_detail: 'reducer-state',
+  execution_detail_error: 'reducer-state',
+  // Esc's loop stop is a TUI-only shortcut; this surface's loops stop through the Agents panel
+  // instead (`/loop stop <id>`, or `stop-waiting-loop` is simply never sent here).
   waiting_loop_stop: 'intentionally-not-rendered',
+  // The Agents panel already reflects a task's cancel/close/send through `execution_workspace_event`;
+  // nothing here renders this narrower, task-only event on its own.
+  // #3282 §4c: the Project panel's reads — reduced into state by `useProjectPanelState`.
+  project_status: 'reducer-state',
+  project_diff: 'reducer-state',
+  project_memory: 'reducer-state',
   background_task_event: 'intentionally-not-rendered',
   background_job_group_event: 'intentionally-not-rendered',
   plan_event: 'intentionally-not-rendered',
   context_file_refreshed: 'intentionally-not-rendered',
   branch_event: 'intentionally-not-rendered',
-  background_tasks: 'intentionally-not-rendered',
+  // #3282 §4 part b-3: the Agents panel's "Scheduled" group's own roster (`useSchedulesState`).
+  background_tasks: 'reducer-state',
   background_task: 'intentionally-not-rendered',
   background_job_groups: 'intentionally-not-rendered',
   background_job_group: 'intentionally-not-rendered',
@@ -61,7 +79,14 @@ export const SERVER_MESSAGE_HANDLING = {
   ui_intent: 'reducer-state',
   session_renamed: 'reducer-state',
   history_cleared: 'reducer-state',
-  background_task_control_result: 'intentionally-not-rendered',
+  // #3288 §1: a failed Stop (e.g. a task that finished a moment before it arrived) is worth telling
+  // the operator; a success shows itself through the workspace snapshot's own update. #3282 §4 part
+  // b-3: a schedule's Delete uses this same `cancel-background-task` write — `useSchedulesState`
+  // refreshes the roster on a successful cancel, and a failure gets the same visible notice as Stop.
+  background_task_control_result: 'visible-notice',
   protocol_error: 'visible-notice',
   resume_gap: 'transport-control',
+  // #3282 §4a: the Settings screen's own correlated request/response state (`useSettingsState`).
+  settings: 'reducer-state',
+  settings_error: 'reducer-state',
 } as const satisfies Readonly<Record<TServerMessage['type'], TServerMessageHandling>>;

@@ -22,7 +22,13 @@ describe('the surface components open their own robota-ui scope', () => {
 
   it('ConversationView', () => {
     const { container } = render(
-      <ConversationView messages={[]} activeTools={[]} streamingText="" isThinking={false} />,
+      <ConversationView
+        messages={[]}
+        activeTools={[]}
+        streamingText=""
+        isThinking={false}
+        ownDriverId={null}
+      />,
     );
     expect((container.firstElementChild as HTMLElement).classList).toContain('robota-ui');
   });

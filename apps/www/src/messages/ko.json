@@ -22,8 +22,7 @@
         "npm": "npm",
         "enterprise": "엔터프라이즈",
         "githubDiscussions": "GitHub 토론",
-        "issues": "이슈",
-        "playground": "플레이그라운드"
+        "issues": "이슈"
       },
       "copyright": "© 2026 Robota"
     },

@@ -85,3 +85,42 @@ export function isSessionChangeRefusal(value: unknown): value is ISessionChangeR
     )
   );
 }
+
+/** Every reason a session delete can be refused, in one place so a wire decoder can check a code. */
+export const SESSION_DELETE_REFUSAL_CODES = Object.freeze([
+  /** The host cannot delete sessions at all (none attached yet, or no directory). */
+  'not_available',
+  /** The host is shutting down. */
+  'stopping',
+  /** No such session in this workspace. */
+  'unknown_session',
+  /** A client other than the one asking is on this session. */
+  'live_elsewhere',
+  /** The session is running a turn now. */
+  'running',
+  /** Anything else; the message says what. */
+  'failed',
+] as const);
+
+/** Why a session delete was refused. */
+export type TSessionDeleteRefusalCode = (typeof SESSION_DELETE_REFUSAL_CODES)[number];
+
+/**
+ * The error a refused session delete carries. A client shows `message` and may branch on `code`; it
+ * never has to parse the message to tell "someone else is on it" from "it is mid-turn".
+ */
+export interface ISessionDeleteRefusal extends Error {
+  readonly name: 'SessionDeleteRefusal';
+  readonly code: TSessionDeleteRefusalCode;
+}
+
+/** Is this error a declared delete refusal, or a real failure? */
+export function isSessionDeleteRefusal(value: unknown): value is ISessionDeleteRefusal {
+  return (
+    value instanceof Error &&
+    value.name === 'SessionDeleteRefusal' &&
+    (SESSION_DELETE_REFUSAL_CODES as readonly unknown[]).includes(
+      (value as { code?: unknown }).code,
+    )
+  );
+}

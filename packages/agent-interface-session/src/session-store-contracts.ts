@@ -43,10 +43,24 @@ export type TSessionLoadOutcome =
   | { readonly status: 'valid'; readonly record: IInteractiveSessionRecord }
   /** No record for this id. The only outcome from which a recovery path may run. */
   | { readonly status: 'missing' }
-  /** Present and not a session record. Never silently replaced, never overwritten. */
-  | { readonly status: 'corrupt'; readonly issues: readonly ISessionRecordDecodeIssue[] }
-  /** Present and written by a build this one does not read. Carries the version it saw. */
-  | { readonly status: 'unsupported'; readonly schemaVersion: number | undefined };
+  /**
+   * Present and not a session record. Never silently replaced, never overwritten.
+   *
+   * `cwd` is a best-effort read of the raw bytes, present when they still carry a plain `cwd`
+   * string despite failing full decode — so a caller that only needs to know which workspace this
+   * record belongs to is not forced to treat every corrupt record as workspace-unknown.
+   */
+  | {
+      readonly status: 'corrupt';
+      readonly issues: readonly ISessionRecordDecodeIssue[];
+      readonly cwd?: string;
+    }
+  /**
+   * Present and written by a build this one does not read. Carries the version it saw, and `cwd`
+   * when the raw bytes still carry a plain `cwd` string despite the version mismatch — this is the
+   * shape a pre-envelope legacy record takes.
+   */
+  | { readonly status: 'unsupported'; readonly schemaVersion: number | undefined; readonly cwd?: string };
 
 /**
  * One entry in a store listing, carrying WHY it cannot be read when it cannot.

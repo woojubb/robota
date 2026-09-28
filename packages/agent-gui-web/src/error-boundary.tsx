@@ -20,8 +20,11 @@ export class ErrorBoundary extends React.Component<
 
   override render(): React.ReactNode {
     if (this.state.error) {
+      // #3289 §3: nothing above this boundary (agent-gui-web's `main.tsx`, the desktop app) supplies
+      // a `main` landmark, and this screen replaces everything below it — so it owns the page's one
+      // `main` itself, same as `CenteredChrome`'s starting/fatal/trust screens.
       return (
-        <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-8">
+        <main className="min-h-screen bg-[var(--background)] flex items-center justify-center p-8">
           <div className="max-w-[600px] text-[15px] text-[var(--destructive)]">
             <p className="mb-2 text-[20px] font-semibold text-[var(--foreground)]">
               Robota hit an error
@@ -31,7 +34,7 @@ export class ErrorBoundary extends React.Component<
               {this.state.error.stack}
             </pre>
           </div>
-        </div>
+        </main>
       );
     }
     return this.props.children;

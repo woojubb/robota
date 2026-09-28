@@ -70,9 +70,17 @@ function decodeStoredSessionText(raw: string): TSessionLoadOutcome {
   const outcome = decodeVersionedInteractiveSessionRecord(parsed);
   if (outcome.status === 'valid') return { status: 'valid', record: outcome.record };
   if (outcome.status === 'unsupported') {
-    return { status: 'unsupported', schemaVersion: outcome.schemaVersion };
+    return {
+      status: 'unsupported',
+      schemaVersion: outcome.schemaVersion,
+      ...(outcome.cwd !== undefined ? { cwd: outcome.cwd } : {}),
+    };
   }
-  return { status: 'corrupt', issues: outcome.issues };
+  return {
+    status: 'corrupt',
+    issues: outcome.issues,
+    ...(outcome.cwd !== undefined ? { cwd: outcome.cwd } : {}),
+  };
 }
 
 /** Project session record adapter backed only by runtime-minted state facets. */

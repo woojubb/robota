@@ -1,7 +1,7 @@
 /** UI-layer permission types for the Ink TUI */
 
 import type { TToolArgs } from '@robota-sdk/agent-core';
-import type { TPermissionResultValue } from '@robota-sdk/agent-interface-session';
+import type { TPermissionRequester, TPermissionResultValue } from '@robota-sdk/agent-interface-session';
 
 /**
  * Permission result: true (allow once), false (deny), 'allow-session' (remember for session),
@@ -15,5 +15,7 @@ export interface IPendingPermissionRequest {
   canPersistProjectPermission?: boolean;
   /** The peer session whose message this call serves, when a peer turn asked. */
   requestedByPeer?: string;
+  /** Issue #3288 §1: a background agent's own request, forwarded to the person. */
+  requester?: TPermissionRequester;
   resolve: (result: TPermissionResult) => void;
 }

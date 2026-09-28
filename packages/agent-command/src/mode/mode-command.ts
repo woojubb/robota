@@ -28,7 +28,7 @@ async function resolveModeViaAsk(
   if (!ui) return undefined;
   const options = buildPermissionModeSubcommands().map((sub) => ({
     value: sub.name,
-    label: sub.name,
+    label: sub.displayName ?? sub.name,
     description: sub.description,
   }));
   const response = await ui.ask(selectAction('mode', 'Select interaction mode', options));

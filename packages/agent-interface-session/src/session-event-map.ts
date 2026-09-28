@@ -49,7 +49,31 @@ export interface IToolState {
   diffFile?: string;
   toolResultData?: string;
   executionId?: string;
+  /**
+   * #3288: a workspace-relative display form of the tool's path argument (Edit/Write/Read), computed
+   * server-side (the server knows the session's cwd). Additive — `firstArg` is unchanged so the TUI's
+   * existing rendering never has to compute this itself.
+   */
+  displayPath?: string;
+  /** #3288: the `/command` this call projects, when it is a model-command-projection tool (e.g. "agent"). */
+  commandName?: string;
+  /** #3288: true for an internal signal tool (e.g. the goal-status tool) — surfaces should not show it as a call. */
+  internal?: boolean;
 }
+
+/**
+ * #3288 §2 (history replay): one piece of a REPLAYED transcript — a reload, reconnect or session
+ * resume has no live stream to rebuild tool rows from, only stored history. The server projects that
+ * history into a chronological sequence of these (text runs and finished tool calls, in the order
+ * they happened), so a client renders the same shapes a live stream would have produced instead of
+ * text-only bubbles. A `'tool'` segment carries the SAME {@link IToolState} shape `tool_end` carries —
+ * diff included, capped the same way — always with `isRunning: false` (a replay never shows a call as
+ * still running; see the projector's own doc comment for why). `'text'` never carries an empty string:
+ * the projector omits a segment rather than emit one with nothing to show.
+ */
+export type IHistoryDisplaySegment =
+  | { type: 'text'; role: 'user' | 'assistant'; content: string }
+  | { type: 'tool'; tool: IToolState };
 
 /** Permission handler delegate — clients provide their own UI. */
 export type TInteractivePermissionHandler = (
@@ -68,6 +92,22 @@ export type TInteractivePermissionHandler = (
  * first already answered.
  */
 
+/**
+ * Issue #3288 §1: which background agent raised a permission request, when one did — display-only,
+ * the same way `requesterDriverId` is. A closed union of one variant today; a future non-agent
+ * asker (a schedule, say) adds a member rather than widening this one's meaning.
+ */
+export interface IBackgroundAgentPermissionRequester {
+  readonly kind: 'background-agent';
+  /** The agent type shown to the person, e.g. "general-purpose". */
+  readonly label: string;
+  /** The background task id — correlates with the Agents panel entry. */
+  readonly taskId: string;
+}
+
+/** Who is asking, when the answer did not come from the person's own turn. */
+export type TPermissionRequester = IBackgroundAgentPermissionRequester;
+
 /** A tool call awaiting a permission decision. Serializable — crosses the transport boundary unchanged. */
 export interface IPermissionRequestEvent {
   id: string;
@@ -77,6 +117,18 @@ export interface IPermissionRequestEvent {
   canPersistProjectPermission?: boolean;
   /** REMOTE-014 E5: the driver whose turn raised this prompt (display-only). */
   requesterDriverId?: TDriverId;
+  /** Issue #3288 §1: a background agent's own request, forwarded to the person (display-only). */
+  requester?: TPermissionRequester;
+  /**
+   * #3288 §2: for an Edit/Write request, the same server-built diff the finished call would carry —
+   * built from the SAME diff builder `interactive-session-streaming.ts` uses at `tool_end`, so a
+   * surface renders "Edit <path>" with its diff instead of the raw tool arguments.
+   */
+  diffLines?: IDiffLine[];
+  /** #3288 §2: workspace-relative path the diff (or the request) concerns, paired with `diffLines`. */
+  diffFile?: string;
+  /** #3288 §2: a Shell request's working directory, present only when it differs from the workspace. */
+  cwd?: string;
 }
 
 /** An "ask the user" request (command- or tool-issued) awaiting an answer. Serializable. */
@@ -184,6 +236,51 @@ export interface ISessionStatusSnapshot {
   readonly context: IContextWindowState;
   /** The goal being pursued (`/goal`), or null; a client shows its progress beside the composer. */
   readonly goal: IGoalState | null;
+  /**
+   * Issue #3282 §3: true while `model` is a placeholder because no provider is configured yet — a
+   * served runtime's first run. A client shows a setup screen instead of a composer. Absent (never
+   * `false`) once a provider is configured, which is every session before this existed.
+   */
+  readonly setupRequired?: boolean;
+  /**
+   * The folder this session works in; absent when the host cannot say. A client shows `name` in its
+   * title bar and `document.title` (#3289 §1), and resolves a dropped or picked file's real
+   * filesystem path against `workspace.path` (#3282 §4d) to decide whether the file is inside the
+   * workspace and, if so, what `@`-reference path names it.
+   */
+  readonly workspace?: { readonly name: string; readonly path: string };
+}
+
+/**
+ * One model a client may switch to (#3282 §2): a plain id/label pair, never an internal catalog
+ * shape — the GUI shows `label` and sends `id` back verbatim as `/model <id>`.
+ */
+export interface IModelCatalogEntry {
+  readonly id: string;
+  readonly label: string;
+}
+
+/**
+ * The models available under one configured provider profile, labeled for display (#3282 §2). One
+ * group per profile — never per provider type — so two profiles on the same provider (for example
+ * two Anthropic accounts) are not merged into one ambiguous list.
+ */
+export interface IModelListGroup {
+  readonly profileName: string;
+  readonly providerLabel: string;
+  readonly models: readonly IModelCatalogEntry[];
+}
+
+/**
+ * Every model a client may switch to, grouped by the provider profile that offers it (#3282 §2).
+ * The current profile's group is first; `currentModel` marks the selection within it. Built only
+ * from CONFIGURED profiles, so nothing offered here can fail to run for lacking a profile.
+ */
+export interface IModelListSnapshot {
+  readonly groups: readonly IModelListGroup[];
+  /** Absent only when no provider profile is configured at all. */
+  readonly currentProfile?: string;
+  readonly currentModel: string;
 }
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;

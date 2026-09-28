@@ -189,7 +189,21 @@ describe('Agent tool', () => {
         parentContext: context,
         parentTools: tools,
         terminal,
-        permissionHandler,
+        // #3288 §1: no longer the exact `permissionHandler` reference — the in-process runner wraps
+        // it to bind this job's requester identity (`bindRequester`), the same way the child-process
+        // runner's own approver is bound. Asserted below: the wrapped handler still forwards to the
+        // original, with the requester attached.
+        permissionHandler: expect.any(Function),
+      }),
+    );
+    const boundHandler = (createSubagentSession as ReturnType<typeof vi.fn>).mock.calls[0]![0]
+      .permissionHandler as TPermissionHandler;
+    await boundHandler('Bash', { command: 'ls' });
+    expect(permissionHandler).toHaveBeenCalledWith(
+      'Bash',
+      { command: 'ls' },
+      expect.objectContaining({
+        requester: { kind: 'background-agent', label: 'Explore', taskId: expect.any(String) },
       }),
     );
   });

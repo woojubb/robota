@@ -3,7 +3,14 @@
  * collapsing into a bare `Error` whose only trace of the status is its message text.
  */
 
-import { ProviderError, RateLimitError, classifyProviderFailure } from '@robota-sdk/agent-core';
+import {
+  AuthenticationError,
+  ModelNotAvailableError,
+  NetworkError,
+  ProviderError,
+  RateLimitError,
+  classifyProviderFailure,
+} from '@robota-sdk/agent-core';
 import { APIConnectionError, APIError, APIUserAbortError } from 'openai';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -44,7 +51,6 @@ const statuses: Array<[number, string]> = [
   [529, 'overloaded_error'],
   [503, 'server_error'],
   [500, 'server_error'],
-  [401, 'invalid_api_key'],
 ];
 
 describe('OpenAI provider errors', () => {
@@ -73,7 +79,7 @@ describe('OpenAI provider errors', () => {
       expect(classifyProviderFailure(error)).toEqual({ switchable: false, reason: 'aborted' });
     });
 
-    it(`${surface} classifies an SDK connection failure as network`, async () => {
+    it(`${surface} classifies an SDK connection failure as a NetworkError`, async () => {
       const provider = providerWith(
         surface,
         new APIConnectionError({
@@ -82,11 +88,11 @@ describe('OpenAI provider errors', () => {
         }),
       );
       const error = await failure(() => provider.chat(messages, { model: 'gpt-4o' }));
-      expect(error).toBeInstanceOf(ProviderError);
+      expect(error).toBeInstanceOf(NetworkError);
       expect(classifyProviderFailure(error)).toEqual({ switchable: false, reason: 'network' });
     });
 
-    it(`${surface} classifies a 400 model_not_found as model-unavailable`, async () => {
+    it(`${surface} maps a 400 model_not_found to ModelNotAvailableError`, async () => {
       const provider = providerWith(
         surface,
         APIError.generate(
@@ -99,6 +105,7 @@ describe('OpenAI provider errors', () => {
         ),
       );
       const error = await failure(() => provider.chat(messages, { model: 'gpt-4o' }));
+      expect(error).toBeInstanceOf(ModelNotAvailableError);
       expect(classifyProviderFailure(error)).toEqual({
         switchable: true,
         reason: 'model-unavailable',
@@ -109,6 +116,28 @@ describe('OpenAI provider errors', () => {
       const provider = providerWith(surface, httpError(429, 'rate_limit_exceeded'));
       const error = await failure(() => provider.chat(messages, { model: 'gpt-4o' }));
       expect(error).toBeInstanceOf(RateLimitError);
+    });
+
+    it(`${surface} chat maps 401 to AuthenticationError, carrying the provider name`, async () => {
+      const provider = providerWith(surface, httpError(401, 'invalid_api_key'));
+      const error = await failure(() => provider.chat(messages, { model: 'gpt-4o' }));
+      expect(error).toBeInstanceOf(AuthenticationError);
+      expect((error as AuthenticationError).provider).toBe('openai');
+    });
+
+    it(`${surface} chat reads the retry-after header off a 429 into RateLimitError.retryAfter`, async () => {
+      const provider = providerWith(
+        surface,
+        APIError.generate(
+          429,
+          { error: { type: 'rate_limit_exceeded', message: 'slow down' } },
+          undefined,
+          { 'retry-after': '12' },
+        ),
+      );
+      const error = await failure(() => provider.chat(messages, { model: 'gpt-4o' }));
+      expect(error).toBeInstanceOf(RateLimitError);
+      expect((error as RateLimitError).retryAfter).toBe(12);
     });
   }
 });

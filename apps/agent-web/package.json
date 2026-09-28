@@ -3,7 +3,7 @@
   "version": "0.1.1-beta.3",
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "private": true,
-  "description": "Minimal Next.js host for Robota Agent Playground (/playground)",
+  "description": "Next.js host for the Robota browser remote client (/remote)",
   "scripts": {
     "dev": "next dev --port 7071",
     "build": "next build",
@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:^",
-    "@robota-sdk/agent-playground": "workspace:^",
     "@robota-sdk/agent-ui-web": "workspace:^",
     "@robota-sdk/agent-transport-webrtc-web": "workspace:*",
     "next": "^15.5.19",

@@ -17,6 +17,7 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
 import {
   resolveLatestSessionId,
+  resolveReusableEmptySessionId,
   resolveSessionIdByIdOrName,
   InteractiveSession,
   createExternalEventGrantHistory,
@@ -31,6 +32,7 @@ import { assembleProduct } from '@robota-sdk/agent-product';
 
 import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';
 import { applyModelFallbackChain } from './startup/model-fallback-startup.js';
+import { createSetupPlaceholderProvider } from './startup/setup-placeholder-provider.js';
 import { checkForCliUpdate, formatCliUpdateCheckMessage } from './update-check/update-check.js';
 import { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
 import { parseCliArgs, printHelp, type IParsedCliArgs } from './utils/cli-args.js';
@@ -67,6 +69,7 @@ import {
   selectProductCommandModules,
   createChannelReadyHandler,
 } from './product/robota-plumbing.js';
+import { createSettingsReporter } from './product/settings-reporter.js';
 import { createRemoteControlController } from './remote-control/index.js';
 import { createDeviceMeshHost, startDeviceListReissue } from './devices/index.js';
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
@@ -101,6 +104,10 @@ import {
   SAFE_MODE_NOTICE,
 } from './startup/workspace-project-composition.js';
 import { askToTrustWorkspace, startsNewTuiSession } from './startup/interactive-trust-prompt.js';
+import {
+  askServeOpenTrustQuestion,
+  canAskServeOpenTrustQuestion,
+} from './startup/headless-serve-trust-prompt.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
@@ -305,9 +312,20 @@ async function runCliCore(
     !process.argv.includes(RESTRICTED_WORKSPACE_FLAG) &&
     requiresHeadlessWorkspaceTrust(projectAccess)
   ) {
-    process.stderr.write(`${formatHeadlessWorkspaceTrustError(projectAccess, cwd)}\n`);
-    process.exitCode = 1;
-    return;
+    // #3282 §3: `--serve --open` opens a browser for whoever ran it — someone is at this terminal,
+    // unlike every other headless start here. With a TTY to ask on, this asks instead of refusing.
+    if (args.serve && args.open && canAskServeOpenTrustQuestion(projectAccess)) {
+      const answer = await askServeOpenTrustQuestion(projectAccess, cwd);
+      if (answer.decision === 'quit') {
+        process.exitCode = 1;
+        return;
+      }
+      projectAccess = answer.access;
+    } else {
+      process.stderr.write(`${formatHeadlessWorkspaceTrustError(projectAccess, cwd)}\n`);
+      process.exitCode = 1;
+      return;
+    }
   }
 
   if (args.positional[0] === 'eval') {
@@ -483,6 +501,18 @@ async function runCliCore(
     args.serve && !args.noSessionPersistence
       ? createServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>()
       : undefined;
+  // #3282 §4a: built from the SAME `commandHostAdapters`/`workspaceComposition` objects the rest of
+  // this function keeps mutating (e.g. `commandHostAdapters.sandbox` below) — safe because the
+  // reporter reads them lazily, per connection, long after startup finishes populating them.
+  const settingsReporter = createSettingsReporter({
+    commandHostAdapters,
+    settingsSources: workspaceComposition.settingsSources,
+    settingsStores: workspaceComposition.settingsStores,
+    // #3282 §4b: the "Providers & Models" section reads/filters the same way `/model`'s wire
+    // projection does — same provider definitions, same org-policy allowlist.
+    providerDefinitions,
+    orgPolicy,
+  });
   // REMOTE-008: the shell owns/injects transport wiring; `/remote-control` is its declarative trigger.
   const {
     registry: transportRegistry,
@@ -495,6 +525,7 @@ async function runCliCore(
     args.open,
     serveSessionDirectory,
     args.daemon === true,
+    settingsReporter,
   );
   // External-event grants (TUI only; the parser refuses them elsewhere): every file is valid, or the
   // TUI does not start. Each session the TUI binds opens them, and a refusal fails that bind.
@@ -573,26 +604,28 @@ async function runCliCore(
     resolvedPreset,
   );
 
-  if (
-    await routeProjectSetup({
-      cwd,
-      args,
-      startOptions: startupOptions,
-      terminal,
-      providerDefinitions,
-      workspace: workspaceComposition,
-    })
-  ) {
+  const projectSetup = await routeProjectSetup({
+    cwd,
+    args,
+    startOptions: startupOptions,
+    terminal,
+    providerDefinitions,
+    workspace: workspaceComposition,
+  });
+  if (projectSetup.handled) {
     return;
   }
+  // #3282 §3: no usable provider, but this is `--serve` (a daemon's child is too) — continue with a
+  // placeholder that never calls a model instead of the normal, validated settings read below, which
+  // would throw the same "No provider configuration found" this run already tolerated.
+  const setupRequired = projectSetup.setupRequired !== undefined;
 
   const providerOptions = args.provider
     ? { providerOverride: args.provider, providerDefinitions }
     : { providerDefinitions };
-  const providerSettings = readProviderSettings(
-    workspaceComposition.settingsSources,
-    providerOptions,
-  );
+  const providerSettings = setupRequired
+    ? { name: 'setup-placeholder', model: 'setup-required' }
+    : readProviderSettings(workspaceComposition.settingsSources, providerOptions);
   const modelId = resolvedPreset.model ?? providerSettings.model;
   let effortResolution;
   try {
@@ -651,6 +684,9 @@ async function runCliCore(
       providerDefinitions,
       providerSettings: { ...providerSettings, model: modelId },
       ...(args.sessionLog ? { provider: loadReplayProvider(args.sessionLog) } : {}),
+      // #3282 §3: setup mode overrides with the same seam `--session-log` replay uses — the
+      // placeholder never calls a model, so nothing below needs to construct a real one.
+      ...(setupRequired ? { provider: createSetupPlaceholderProvider() } : {}),
       preset,
       baseCommandModules,
       packs,
@@ -659,9 +695,10 @@ async function runCliCore(
       transports: transportRegistry,
     }),
   );
-  // A replayed session answers from its log, so there is nothing to fall back from.
+  // A replayed session answers from its log, so there is nothing to fall back from; a setup-mode
+  // placeholder is not a provider a fallback chain could validate either.
   const provider =
-    product.provider === undefined || args.sessionLog !== undefined
+    product.provider === undefined || args.sessionLog !== undefined || setupRequired
       ? product.provider
       : applyModelFallbackChain({
           provider: product.provider,
@@ -772,6 +809,11 @@ async function runCliCore(
         process.exit(1);
       }
     }
+  } else if (args.serve && !args.noSessionPersistence) {
+    // #3289 §1: a served/daemon runtime's own launch reuses an existing empty session of this
+    // workspace instead of adding another one — nothing else can be bound to anything yet at
+    // startup, so every empty session found here is free.
+    resumeSessionId = resolveReusableEmptySessionId(sessionStore, cwd);
   }
 
   // SELFHOST-008 P6: one memory switch (default OFF), resolved once and threaded into print/serve/TUI.
@@ -964,6 +1006,7 @@ async function runCliCore(
       model: modelId,
       preset: presetSurface,
       memorySessionOptions,
+      ...(setupRequired ? { setupRequired: true } : {}),
     });
     try {
       await serveRun;

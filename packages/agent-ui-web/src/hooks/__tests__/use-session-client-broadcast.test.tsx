@@ -79,6 +79,82 @@ describe('CMD-004 Stage E — GUI folds the broadcast session events', () => {
     });
   });
 
+  it('#3289 §3: a coded error frame carries its classification onto the session notice', () => {
+    const { result, deliver } = setup();
+    deliver({
+      type: 'error',
+      message: 'Rate Limit Error: slow down',
+      code: 'rate_limit',
+      provider: 'anthropic',
+      retryAfterSeconds: 30,
+    });
+
+    expect(result.current.sessionNotices.at(-1)).toMatchObject({
+      kind: 'session-error',
+      message: 'Rate Limit Error: slow down',
+      code: 'rate_limit',
+      provider: 'anthropic',
+      retryAfterSeconds: 30,
+    });
+  });
+
+  it('#3289 §3: an uncoded error frame carries no classification, exactly as before', () => {
+    const { result, deliver } = setup();
+    deliver({ type: 'error', message: 'provider failed' });
+
+    const notice = result.current.sessionNotices.at(-1);
+    expect(notice?.code).toBeUndefined();
+    expect(notice?.provider).toBeUndefined();
+    expect(notice?.retryAfterSeconds).toBeUndefined();
+  });
+
+  function statusWithModel(model: string): Extract<TServerMessage, { type: 'session_status' }> {
+    return {
+      type: 'session_status',
+      status: {
+        sessionId: 's',
+        model,
+        permissionMode: 'default',
+        effort: 'auto',
+        context: { usedPercentage: 3, usedTokens: 3, maxTokens: 100, remainingPercentage: 97 },
+        goal: null,
+      },
+    };
+  }
+
+  it('a model_unavailable notice captures the model from session status at creation time, not live later', () => {
+    const { result, deliver } = setup();
+    deliver(statusWithModel('model-a'));
+    deliver({
+      type: 'error',
+      code: 'model_unavailable',
+      message: 'No model available for provider "anthropic"',
+      provider: 'anthropic',
+    });
+
+    expect(result.current.sessionNotices.at(-1)).toMatchObject({ model: 'model-a' });
+
+    // The failure's own `get-status` reply (or the person switching models afterward) must not
+    // rewrite an already-created notice — it would then blame the NEW model for the OLD failure.
+    deliver(statusWithModel('model-b'));
+
+    expect(result.current.sessionNotices.at(-1)).toMatchObject({ model: 'model-a' });
+  });
+
+  it('an error frame that names its own model wins over the session status', () => {
+    const { result, deliver } = setup();
+    deliver(statusWithModel('model-a'));
+    deliver({
+      type: 'error',
+      code: 'model_unavailable',
+      message: 'No model available for provider "anthropic"',
+      provider: 'anthropic',
+      model: 'model-x',
+    });
+
+    expect(result.current.sessionNotices.at(-1)).toMatchObject({ model: 'model-x' });
+  });
+
   it('ARCH-2164: requests and receives the existing current-session usage report', () => {
     let onMessage: ((msg: TServerMessage) => void) | null = null;
     const wire: import('@robota-sdk/agent-transport').TClientMessage[] = [];

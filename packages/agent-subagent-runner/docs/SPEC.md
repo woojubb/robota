@@ -52,6 +52,11 @@ extra dependency.
   the parent.
 - **Malformed IPC messages are never silently dropped** on either side of the channel; each
   direction has an explicit rejection/error path.
+- **A child's own permission ask reaches the parent's approver.** A tool call inside the child that
+  needs a human decision is forwarded over the same channel and answered by whatever approver the
+  parent session has — the child carries no approver of its own. A parent with none attached denies
+  it immediately, unchanged from having no approver anywhere. A request still unanswered when the
+  task is cancelled or the child exits is settled denied rather than left open.
 
 ## Test coverage note
 

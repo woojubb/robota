@@ -12,5 +12,7 @@ describe('ARCH-2164 server-message handling contract', () => {
     expect(SERVER_MESSAGE_HANDLING.usage_report).toBe('reducer-state');
     // #3280 §2: a queued prompt is shown above the composer (Edit/Remove) — no longer dropped.
     expect(SERVER_MESSAGE_HANDLING.pending).toBe('reducer-state');
+    // #3282 §2 part 2: the model control's pop-up menu is fed by `list-models` -> `model_list`.
+    expect(SERVER_MESSAGE_HANDLING.model_list).toBe('reducer-state');
   });
 });

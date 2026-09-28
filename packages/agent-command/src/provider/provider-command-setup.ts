@@ -87,11 +87,12 @@ export function runProviderAddSetup(
   ui: IUserInteraction,
   flow: IProviderSetupFlowState,
   options: IProviderCommandModuleOptions,
+  isSetupRequired: boolean,
 ): Promise<ICommandResult> {
   return runProviderSetupAsk(
     ui,
     flow,
-    (input) => completeProviderSetup(input, options),
+    (input) => completeProviderSetup(input, options, isSetupRequired),
     'Provider setup cancelled.',
   );
 }
@@ -99,12 +100,24 @@ export function runProviderAddSetup(
 function completeProviderSetup(
   input: IProviderSetupInput,
   options: IProviderCommandModuleOptions,
+  isSetupRequired: boolean,
 ): ICommandResult {
   const target = options.settings.readTargetSettings();
   const patch = buildProviderSetupPatch(input, {
     providerDefinitions: options.providerDefinitions,
   });
   options.settings.writeTargetSettings(mergeProviderPatch(target, patch));
+  // #3282 §3: the session's own live setup-mode state (never settings — an ordinary env-default
+  // session also has no persisted `currentProvider`, and restarts like any other session). Only a
+  // session that itself started with a placeholder provider hot-swaps the real one in; every other
+  // `/provider add`, even a session's first EVER persisted profile, restarts as before.
+  if (isSetupRequired) {
+    return {
+      message: `Provider ${input.profile} configured.`,
+      success: true,
+      hostActions: [{ type: 'provider-hot-swap', profileName: input.profile }],
+    };
+  }
   return {
     message: `Provider ${input.profile} configured. Restarting...`,
     success: true,

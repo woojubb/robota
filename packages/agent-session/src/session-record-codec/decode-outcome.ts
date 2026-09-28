@@ -19,11 +19,22 @@ import type {
   ISessionRecordDecodeIssue,
 } from '@robota-sdk/agent-interface-session';
 
-/** What a decode of a persisted session record can conclude. */
+/**
+ * What a decode of a persisted session record can conclude.
+ *
+ * `corrupt` and `unsupported` carry an optional `cwd`: a best-effort, untyped read of the raw value
+ * for a plain `cwd` string, taken even though the rest of the value failed full decode. It exists so
+ * a caller that only wants to know which workspace an unreadable record belongs to — never its
+ * content — is not forced to treat every one of them as workspace-unknown.
+ */
 export type TSessionRecordDecodeOutcome =
   | { readonly status: 'valid'; readonly record: IInteractiveSessionRecord }
-  | { readonly status: 'corrupt'; readonly issues: readonly ISessionRecordDecodeIssue[] }
-  | { readonly status: 'unsupported'; readonly schemaVersion: number | undefined };
+  | {
+      readonly status: 'corrupt';
+      readonly issues: readonly ISessionRecordDecodeIssue[];
+      readonly cwd?: string;
+    }
+  | { readonly status: 'unsupported'; readonly schemaVersion: number | undefined; readonly cwd?: string };
 
 /**
  * Re-stated for readers of this module: `ISessionRecordDecodeIssue` is declared with the record it

@@ -55,6 +55,9 @@ function scanAgentsDir(dir: string, source: IContributionSource): IDiscoveredAge
       name: frontmatter.name ?? fallbackName,
       description: frontmatter.description ?? '',
       systemPrompt: body === content ? body : body.trim(),
+      // #3282 §4: the same display path `decodeFrontmatter` was given above — where a person reading
+      // the agent switcher would look to find or edit this definition.
+      definedIn: join(source.displayName, filePath),
     };
 
     if (frontmatter.model !== undefined) agent.model = frontmatter.model;

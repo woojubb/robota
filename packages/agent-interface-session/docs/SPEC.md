@@ -54,8 +54,11 @@ it does not own before overwriting its authoritative fields.
 A load reports which of four things happened — valid, missing, corrupt, or unsupported — rather
 than a bare `record | undefined`, because that collapsed "no such session" and "the snapshot is
 unreadable" into one answer a caller could not act on differently. The store decodes the record
-envelope and validates its shape (which is inspection), but never reads a field for its meaning —
-no branch on any field's value — so it holds no domain policy of its own.
+envelope and validates its shape (which is inspection); no field's value ever changes which of the
+four outcomes is reported, so the store holds no domain policy of its own. A corrupt or unsupported
+outcome may still carry the record's `cwd`, read on a best-effort basis from bytes that otherwise
+failed to decode, so a caller can tell which workspace an unreadable record belongs to without being
+handed content it could not validate.
 
 Self-paced repeats keep their stable identity and lifecycle in the session record, not in a
 disposable scheduled-task id. A waiting loop records its next allowed instant and the reason for

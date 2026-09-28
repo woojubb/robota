@@ -30,6 +30,7 @@ export interface IAttachSessionOptions {
   readonly usageReporter?: ISessionMessageHandlerOptions['usageReporter'];
   readonly storedSessionUsageReporter?: ISessionMessageHandlerOptions['storedSessionUsageReporter'];
   readonly surface?: ISessionMessageHandlerOptions['surface'];
+  readonly commandSurfaceLocality?: ISessionMessageHandlerOptions['commandSurfaceLocality'];
 }
 
 export interface IAttachedSession {
@@ -83,6 +84,9 @@ export function attachSession(
       ? { storedSessionUsageReporter: options.storedSessionUsageReporter }
       : {}),
     ...(options.surface ? { surface: options.surface } : {}),
+    ...(options.commandSurfaceLocality
+      ? { commandSurfaceLocality: options.commandSurfaceLocality }
+      : {}),
   });
   return { onSessionMessage: onMessage, cleanup };
 }

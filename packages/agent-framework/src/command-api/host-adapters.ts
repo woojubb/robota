@@ -67,9 +67,23 @@ export interface IPermissionRuleLayer {
   readonly ask: readonly string[];
 }
 
+/** One rule to remove from the settings layer it was declared in (#3282 §4a). */
+export interface IPermissionRuleRemoval {
+  /** The `scope` of the {@link IPermissionRuleLayer} the rule was read from. */
+  readonly scope: string;
+  readonly kind: 'allow' | 'deny' | 'ask';
+  readonly pattern: string;
+}
+
 /** Where each configured permission rule comes from, read fresh on every call. */
 export interface ICommandPermissionRulesAdapter {
   readLayers(): readonly IPermissionRuleLayer[];
+  /**
+   * #3282 §4a: remove one declared rule from its settings layer. Optional — a host with no write
+   * target for any layer (read-only rule discovery) makes rule removal fail EXPLICITLY wherever it
+   * is offered, never a silent no-op. Returns `false` when no writable layer matched the removal.
+   */
+  removeRule?(removal: IPermissionRuleRemoval): boolean;
 }
 
 /** How shell commands are confined: not at all, confined without prompts, or confined and asked. */
@@ -173,6 +187,15 @@ export interface ICommandMCPActivationSummary {
   readonly provenanceId: string;
   readonly definitionFingerprint: string;
   readonly securityIdentity: string;
+  /**
+   * #3282 §4 part b-2: this process's live connection outcome for an `allowed` server — absent for
+   * one that is not `allowed`, or has not been attempted yet. `'failed'`'s reason is
+   * {@link connectionFailureReason}; a connected server's tool names are {@link toolNames}.
+   */
+  readonly connection?: 'connected' | 'failed';
+  readonly connectionFailureReason?: string;
+  /** The names of the tools this server currently contributes; empty when not connected. */
+  readonly toolNames?: readonly string[];
 }
 
 /**
@@ -306,6 +329,33 @@ export interface ICommandMCPActivationAdapter {
    * a name it already had. Called once per sign-in that returned tools.
    */
   oauthToolsAdded?(serverId: string, added: readonly string[]): void;
+  /**
+   * #3282 §4 part b-2: `/mcp reload` and the Settings screen's "Reload servers" button. Retries
+   * every allowed server that is not currently connected; a server already connected is left
+   * running. Never rejects: a server that still cannot connect keeps its `list()` failure reason.
+   * Absent: the host offers no reload (the button/command then say so).
+   */
+  reload?(): Promise<{
+    readonly tools: readonly IToolWithEventService[];
+    readonly connectedServerIds: readonly string[];
+    readonly failedServerIds: readonly string[];
+    /**
+     * Identifies this call's staged tool provenance for `reloadToolsAdded`; absent when there is
+     * nothing to acknowledge (no server newly connected). Two `reload()` calls outstanding at once
+     * — `/mcp reload` runs inline, unblocked by the mid-turn gate, and an `update-settings` write
+     * is fire-and-forget, so this is reachable, not hypothetical — join the same connection pass
+     * and get the same token back; a fresh call started only after the last one's token was
+     * acknowledged gets a new one.
+     */
+    readonly reloadToken?: string;
+  }>;
+  /**
+   * Which of `reload`'s tools the session actually took, keyed to the `reloadToken` it returned;
+   * any other was left out for a name it already had. `token` not matching the currently staged
+   * reload — already committed, or superseded by a later call — makes this a no-op, so a late or
+   * duplicate acknowledgement can never clear or corrupt a different reload's provenance.
+   */
+  reloadToolsAdded?(token: string, added: readonly string[]): void;
 }
 
 /**
