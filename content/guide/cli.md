@@ -54,10 +54,11 @@ robota trust --yes     # trust this folder so its settings, hooks, skills and pl
 `robota` loads a project's own configuration only from a folder you trust. Starting the terminal UI in
 a folder you have not decided about asks first: trust it, start Restricted (project content not
 loaded), or cancel. Print mode, `--goal`, `--serve`, `robota daemon` and background sessions cannot
-ask, so they refuse an untrusted folder with a message that names `robota trust --yes` and
-`--restricted-workspace`, which starts Restricted instead (`robota daemon start --restricted-workspace`,
-`robota --serve --open --restricted-workspace`). The desktop app asks in its window before it starts
-the daemon. Use `robota trust` (or `robota trust status`, with
+ask, so they refuse an untrusted folder with a message that names `robota trust --yes`. All of them
+but background sessions also accept `--restricted-workspace`, which starts Restricted instead (for
+example `robota daemon start --restricted-workspace`). `robota --serve --open` run at a terminal asks
+there instead of refusing, and the desktop app asks in its window before it starts the daemon. Use
+`robota trust` (or `robota trust status`, with
 `--json` for one JSON line) to see the current decision and `robota trust revoke` to withdraw it.
 
 ## Ways to run it

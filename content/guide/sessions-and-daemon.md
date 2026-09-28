@@ -67,9 +67,11 @@ in an untrusted repository asks `Trust this folder? [y/N]` first; answering no s
 Headless starts — a background session, the daemon, `--serve`, `robota mcp serve` and print mode
 (`-p`) — refuse the `untrusted`, `revoked`, `stale/replaced` and `store-unavailable` states with
 `Workspace trust is required before headless startup`, so an untrusted project never runs silently
-without its configuration. `--safe-mode` starts Restricted on purpose and is not refused, and so does
-`robota daemon start --restricted-workspace`, for a front end whose person chose Restricted. That start
-reuses a running daemon only when it runs Restricted too, and a plain `daemon start` in a folder you
+without its configuration. `--safe-mode` starts Restricted on purpose and is not refused, and neither
+is `--restricted-workspace` on the daemon, `--serve`, print mode or `--goal`, for a front end whose
+person chose Restricted. `robota --serve --open` run at a terminal asks there first: trust, start
+Restricted, or quit. A Restricted `robota daemon start` reuses a running daemon only when it runs
+Restricted too, and a plain `daemon start` in a folder you
 have trusted since does not reuse a Restricted daemon; either refusal names `robota daemon stop`.
 `robota trust status --json` prints the trust state as one JSON line for a front end that asks the
 person.

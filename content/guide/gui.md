@@ -15,10 +15,10 @@ terminal UI.
 
 ## Two ways in
 
-| Way in                  | What runs                                                                     | What you need                                                      |
-| ----------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `robota --serve --open` | A runtime of its own, for as long as the command runs                         | The `robota` CLI ([Getting Started](../getting-started/README.md)) |
-| The desktop app         | The folder's workspace daemon, which keeps running after you close the window | An installer from GitHub Releases; it bundles its own `robota`     |
+| Way in                  | What runs                                                                     | What you need                                                          |
+| ----------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `robota --serve --open` | A runtime of its own, for as long as the command runs                         | The `robota` CLI ([Getting Started](../getting-started/README.md))     |
+| The desktop app         | The folder's workspace daemon, which keeps running after you close the window | The app (see below for its current state); it bundles its own `robota` |
 
 Both show the same page.
 
@@ -36,18 +36,23 @@ page, so another page in your browser cannot connect to it. The runtime stops wh
 command (Ctrl+C). It is not the workspace daemon: `robota --attach` and the desktop app do not see
 it.
 
-`--serve` cannot ask whether to trust the folder, so in a folder you have not decided about it
-refuses and names both ways past: trust the folder first with `robota trust --yes`, or start it
-Restricted with `robota --serve --open --restricted-workspace`. See [the first run](#the-first-run).
+In a folder you have not decided about, `robota --serve --open` asks in the terminal before it
+starts: `y` trusts the folder, `r` starts Restricted, and anything else quits. Plain `--serve`, and
+`--serve --open` with no terminal to ask on, refuse instead and name both ways past:
+`robota trust --yes`, or `--restricted-workspace`. See [the first run](#the-first-run).
 
 ### The desktop app
 
-The desktop app is published as installers on each release's
-[GitHub Releases](https://github.com/woojubb/robota/releases) page, named
+The desktop app is released as installers on
+[GitHub Releases](https://github.com/woojubb/robota/releases), named
 `robota-desktop-<version>-<arch>`: a `.dmg` or `.zip` for macOS, an `.exe` for Windows, and an
-`.AppImage` or `.deb` for Linux. A per-OS `SHA256SUMS-desktop-<os>.txt` file lists their checksums.
-It is not published to npm. The installers are built from the release tag, so an older release's app
-may not have everything this guide describes.
+`.AppImage` or `.deb` for Linux. It is not published to npm.
+
+> **The published installers are out of date.** The release workflow has not produced installers
+> since 3.0.0-beta.79 ([#3356](https://github.com/woojubb/robota/issues/3356)), and that app predates
+> most of this guide, including the trust question, provider setup and Settings. Until new installers
+> are published, use `robota --serve --open`, which serves the same page from the CLI, or build the
+> app from source as described in [its README](../../apps/agent-app/docs/README.md).
 
 The installers are **not code-signed** yet (tracked in
 [#3349](https://github.com/woojubb/robota/issues/3349)), so the operating system stops or warns on the
@@ -66,9 +71,9 @@ the folder stops it. See [the workspace daemon](./sessions-and-daemon.md#walkthr
 > **Which folder the app works on.** The app has no Open Folder command yet
 > ([#3354](https://github.com/woojubb/robota/issues/3354)). It works on the folder its own process
 > was started in, and an app started from Finder, the Dock, the Start menu or a desktop launcher does
-> not start in your project (on macOS it starts in `/`). Until that is fixed, use
-> `robota --serve --open` in your project folder, or start the app from a terminal whose current
-> folder is the project.
+> not start in your project — on macOS it starts in `/`. That folder is not a Git repository, so the
+> daemon starts there Restricted without asking. Until this is fixed, use `robota --serve --open` in
+> your project folder.
 
 ## The first run
 
@@ -82,9 +87,10 @@ decided about, the desktop app asks **Do you trust this folder?** before it star
   overrides and MCP servers are not loaded.
 - **Quit** — nothing starts.
 
-**Details** lists what the project would load. The answer is the same trust decision `robota trust`
-records, described in [workspace trust](./sessions-and-daemon.md#workspace-trust). In the browser,
-decide before you start, as described above.
+**Details** lists what the project would load. `robota --serve --open` asks the same question in the
+terminal before the page opens. The answer is the same trust decision `robota trust` records,
+described in [workspace trust](./sessions-and-daemon.md#workspace-trust). A folder that is not in a
+Git repository has nothing to trust, so Robota runs there Restricted without asking.
 
 ### Connecting a model provider
 
@@ -92,9 +98,10 @@ If no provider is configured yet, the GUI shows **Connect a model provider to st
 the conversation. **Set up provider** walks you through the same steps as `/provider add` in the
 terminal:
 
-1. Choose a provider type — Anthropic, OpenAI, Gemini, Gemma (any OpenAI-compatible local server),
-   Qwen or DeepSeek.
-2. Enter the API key (the field is masked) and choose a model.
+1. Choose a provider type: Anthropic, OpenAI, Gemini, a local server (listed as Ollama / LM Studio /
+   llama.cpp), Qwen or DeepSeek.
+2. Answer that type's questions: its base URL where it has one, the API key (the field is masked; a
+   local server needs none) and the model, with a default offered.
 
 The answers are saved as a provider profile in `~/.robota/settings.json`, and the conversation
 appears without a restart. Add more profiles, or change this one, later in
@@ -104,9 +111,7 @@ appears without a restart. Add more profiles, or change this one, later in
 ### When the runtime cannot start
 
 If the runtime stops before the window can connect, the window shows **The agent process stopped:**
-followed by the runtime's own message, which names the fix. **Try again** starts it again. The message
-is cleaned before it is shown: control characters are removed and anything that looks like a key or
-token is redacted.
+followed by the runtime's own message, which names the fix. **Try again** starts it again.
 
 ## Using the GUI
 
@@ -115,7 +120,7 @@ the **Agents** panel appears on the right whenever work is running in the backgr
 
 ### Sessions
 
-The sidebar lists the sessions in this runtime, each with its name (or the start of its first
+The sidebar lists this folder's saved sessions, each with its name (or the start of its first
 message), when it was last updated, and a dot when it is live. **New session** starts one; clicking
 another session switches to it. A row's **⋯** menu (or a right-click) offers **Rename** and
 **Delete…**, which asks first because it removes the conversation from your computer. `/resume`
@@ -137,7 +142,8 @@ keyboard shortcuts and every command.
 In the desktop app, the paperclip button or dragging files onto the composer attaches them as `@`
 references to files in the project: up to 8 text files per message, 64 KiB each and 256 KiB in
 total. A file outside the project folder, an image or another non-text file is refused with a
-message. A browser cannot tell the page where a file is on disk, so attaching does nothing there.
+message. A browser cannot tell the page where a file is on disk, so there every file is refused with
+_Only files inside this project folder can be attached._
 
 ### Model, mode and effort
 
@@ -164,7 +170,7 @@ When the agent needs you, the question appears above the composer:
 - A question that needs text shows a field and **Continue**; the field is masked for secrets such as
   API keys.
 
-A new prompt ignores keys for a moment and never takes focus from a field you are typing in, so a
+A new prompt ignores answer keys for a moment and never takes focus from a field you are typing in, so a
 keystroke meant for something else does not answer it.
 
 ### Settings
@@ -173,9 +179,11 @@ keystroke meant for something else does not answer it.
 sections, and every change applies at once — there is no Save button:
 
 - **General** — language, output style and preset.
-- **Permissions** — the permission mode, and the allow, ask and deny rules (remove one here).
-- **MCP Servers** — approve, reject or revoke a configured server, and sign in to one that uses
-  OAuth. Servers are added in settings files, as described in [MCP](./mcp.md).
+- **Permissions** — the permission mode, the sandbox switch, and the allow, ask and deny rules
+  (remove one here).
+- **MCP Servers** — turn a configured server on (approve) or off (reject), see its tools, and reload
+  the servers. Revoking an approval and signing in are `/mcp` commands, and servers are added in
+  settings files; see [MCP](./mcp.md).
 - **Plugins** — turn installed CLI plugins on or off, or uninstall them.
 - **Providers & Models** — your provider profiles: use, change the model, edit, test, duplicate or
   delete one, or add a provider.
@@ -214,25 +222,27 @@ A `robota --serve --open` runtime is separate from the daemon, so a terminal can
 
 - **Choose a folder in the desktop app.** See the note under [the desktop app](#the-desktop-app).
 - **Attach images or other non-text files**, or attach anything from a browser.
-- **Add or edit an MCP server.** Configure servers in settings files; the GUI approves, revokes and
-  signs in.
+- **Add or edit an MCP server.** Configure servers in settings files; Settings turns them on or off.
 - **Create a schedule or a goal from a form.** Use `/schedule` and `/goal`; the Agents panel then
   shows and controls them.
 - **Rewind to a checkpoint.** The GUI has no checkpoint list.
 - **Run the terminal-only commands.** `/shell` needs a terminal; `/theme`, `/keybindings`, `/editor`
   and `/statusline` configure the terminal UI (the GUI follows your system's appearance); pairing a
   device stays in the terminal. Typing one of them in the GUI says what to use instead.
-- **Show Advisor and sandbox settings on their own screen.** Use `/advisor` and `/sandbox`.
-- **Open without a warning.** The installers are unsigned (#3349).
+- **Show Advisor settings, or sandbox options beyond on and off, on a screen.** Use `/advisor` and
+  `/sandbox`.
+- **Install a current desktop app.** The published installers are out of date
+  ([#3356](https://github.com/woojubb/robota/issues/3356)) and unsigned
+  ([#3349](https://github.com/woojubb/robota/issues/3349)).
 
 ## Troubleshooting
 
-| Message or symptom                                                     | What to do                                                                                          |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `Workspace trust is required before headless startup (state: …)`       | `robota --serve` in an untrusted folder. Run `robota trust --yes`, or add `--restricted-workspace`. |
-| `Robota web assets not found (dist/web) — run a full CLI build.`       | A source checkout without the GUI build. Run `pnpm build` at the repository root.                   |
-| The desktop app asks to trust `/` or another folder you did not expect | The app was not started in your project (#3354). Use `robota --serve --open` in the project folder. |
-| **The agent process stopped:** …                                       | Follow the message, then choose **Try again**.                                                      |
+| Message or symptom                                                                                  | What to do                                                                                                                                           |
+| --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Workspace trust is required before headless startup (state: …)`                                    | `--serve` in an untrusted folder with no terminal to ask on. Run `robota trust --yes`, or add `--restricted-workspace`.                              |
+| `Robota web assets not found (dist/web) — run a full CLI build.`                                    | A source checkout without the GUI build. Run `pnpm build` at the repository root.                                                                    |
+| The desktop app shows `/` or another folder you did not expect, and project settings are not loaded | The app was not started in your project ([#3354](https://github.com/woojubb/robota/issues/3354)). Use `robota --serve --open` in the project folder. |
+| **The agent process stopped:** …                                                                    | Follow the message, then choose **Try again**.                                                                                                       |
 
 ## Related
 
