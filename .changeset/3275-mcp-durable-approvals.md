@@ -1,6 +1,7 @@
 ---
 '@robota-sdk/agent-cli': minor
 '@robota-sdk/agent-command': patch
+'@robota-sdk/agent-mcp': patch
 ---
 
 MCP approvals now outlive the process, and an approval takes effect at once. The `robota` CLI keeps

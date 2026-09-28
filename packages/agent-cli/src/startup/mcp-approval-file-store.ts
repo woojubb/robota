@@ -129,6 +129,13 @@ export function createFileMcpApprovalStore(filePath: string): IMCPActivationAppr
         records: [...store.records.filter((existing) => !sameSlot(existing, record)), record],
       }));
     },
+    putWithAudit(record, event) {
+      update((store) => ({
+        ...store,
+        records: [...store.records.filter((existing) => !sameSlot(existing, record)), record],
+        audit: [...store.audit, event].slice(-MAX_AUDIT_EVENTS),
+      }));
+    },
     listAudit: () => read().audit,
     appendAudit(event) {
       update((store) => ({ ...store, audit: [...store.audit, event].slice(-MAX_AUDIT_EVENTS) }));

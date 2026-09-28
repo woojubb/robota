@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { MCPActivationAdmissionService } from '@robota-sdk/agent-mcp';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createFileMcpApprovalStore, resolveMcpApprovalStore } from '../mcp-approval-file-store.js';
 
@@ -43,6 +43,20 @@ describe('the file-backed MCP approval store', () => {
 
     expect(nextProcess.admit(request())).toMatchObject({ status: 'approved', allowed: true });
     expect(nextProcess.listAudit()).toHaveLength(1);
+  });
+
+  it('commits a decision and audit together instead of failing after saving just the decision', () => {
+    const path = storePath();
+    const store = createFileMcpApprovalStore(path);
+    vi.spyOn(store, 'appendAudit').mockImplementation(() => {
+      throw new Error('audit write failed');
+    });
+    const service = new MCPActivationAdmissionService(store);
+    expect(service.approve(request()).allowed).toBe(true);
+    expect(store.appendAudit).not.toHaveBeenCalled();
+    const saved = createFileMcpApprovalStore(path);
+    expect(saved.list()).toHaveLength(1);
+    expect(saved.listAudit()).toHaveLength(1);
   });
 
   it('does not carry an approval to a changed definition', () => {
