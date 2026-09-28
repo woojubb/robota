@@ -40,6 +40,5 @@ that package's build output.
 
 ## Design decisions
 
-- Packaging copies a manifest-verified, OS/architecture-specific headless CLI build to a fixed
-  `resources/robota` path rather than bundling the full CLI release, keeping the shipped binary
-  minimal and reproducible per platform.
+- Packaging embeds the platform CLI because the window delegates workspace trust and daemon
+  ownership to the CLI; a serve-only host cannot fulfill that contract.
