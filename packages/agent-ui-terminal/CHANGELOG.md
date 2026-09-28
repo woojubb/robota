@@ -1,5 +1,40 @@
 # @robota-sdk/agent-ui-terminal
 
+## 3.0.0-beta.84
+
+### Minor Changes
+
+- 4f35721: Starting a session from `robota session view` in a folder that is not trusted asks what to do
+  instead of failing. The question names the folder and lists what trust would load. The choices are
+  `y` to trust the folder and start, `r` to start it Restricted, and `n` to cancel. A Restricted answer
+  holds even if the folder was trusted meanwhile. Before, the view showed only "Start failed".
+
+  - `agent-cli` (patch):
+    - A background session started Restricted runs with `--restricted-workspace`.
+    - A headless start that asked to run Restricted is no longer refused for want of trust, the same
+      as `--safe-mode`.
+  - `agent-ui-terminal` (minor): the session view takes `startTrustQuestion`, which returns the
+    folder and what trust would load (`ISupervisedStartTrustQuestion`). `onStart` receives the person's
+    choice (`TSupervisedStartTrustChoice`).
+
+### Patch Changes
+
+- Updated dependencies [9f46375]
+- Updated dependencies [e8d70ac]
+- Updated dependencies [9c6a8db]
+- Updated dependencies [9c6a8db]
+- Updated dependencies [9c6a8db]
+- Updated dependencies [9c6a8db]
+  - @robota-sdk/agent-core@3.0.0-beta.84
+  - @robota-sdk/agent-framework@3.0.0-beta.84
+  - @robota-sdk/agent-interface-session@3.0.0-beta.84
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.84
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.84
+  - @robota-sdk/agent-transport@3.0.0-beta.84
+  - @robota-sdk/agent-interface-command@3.0.0-beta.84
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.84
+  - @robota-sdk/agent-interface-tui@3.0.0-beta.84
+
 ## 3.0.0-beta.83
 
 ### Major Changes
