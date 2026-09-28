@@ -229,6 +229,38 @@ export class SameToolInputLoopError extends RobotaError {
 }
 
 /**
+ * A round ended with neither a tool call nor a final text response, while `allowToolOnlyCompletion`
+ * was set — R14 (issue #3273).
+ *
+ * `allowToolOnlyCompletion` only WIDENS what counts as a valid finish (a tool call alone, with no
+ * final text after it); it never narrows the ordinary case. Without the flag, a round that produces
+ * neither is recovered by one more provider call asking for a summary (`forceSummaryCall`). Setting
+ * the flag is what turns that rescue off — a decision agent wants exactly one provider call, never a
+ * follow-up — so a round that produces neither has nothing left to recover it. That is a genuinely
+ * unanswered turn, not the internal `[STRICT-POLICY]` result-shape violation an actually malformed
+ * execution result trips; a caller must be able to catch this by type instead of parsing that message.
+ *
+ * `recoverable` is TRUE: like `SameToolInputLoopError`, this is a property of this turn's prompt and
+ * model response, not of the system, and a caller that varies either can reasonably try again.
+ */
+export class EmptyCompletionError extends RobotaError {
+  readonly code = 'EMPTY_COMPLETION';
+  readonly category = 'provider' as const;
+  readonly recoverable = true;
+
+  constructor(
+    public readonly round: number,
+    context?: TErrorContextData,
+  ) {
+    super(
+      `Round ${round} ended with no tool call and no text response, and allowToolOnlyCompletion ` +
+        'prevented the follow-up call that would otherwise recover it',
+      context,
+    );
+  }
+}
+
+/**
  * Model not available errors
  */
 export class ModelNotAvailableError extends RobotaError {
