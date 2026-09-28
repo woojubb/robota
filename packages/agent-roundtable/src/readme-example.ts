@@ -54,3 +54,5 @@ export async function runQuickstart() {
   await room.dispose();
   return { result, messages, published };
 }
+
+await runQuickstart();

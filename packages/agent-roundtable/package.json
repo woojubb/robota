@@ -47,5 +47,9 @@
     "type": "git",
     "url": "https://github.com/woojubb/robota.git",
     "directory": "packages/agent-roundtable"
+  },
+  "homepage": "https://docs.robota.io/en/packages/agent-roundtable/",
+  "bugs": {
+    "url": "https://github.com/woojubb/robota/issues"
   }
 }
