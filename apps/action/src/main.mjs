@@ -11,7 +11,7 @@ const tempDir = process.env.RUNNER_TEMP || tmpdir();
 process.exitCode = runAction({
   env: process.env,
   install: (packageSpec, env) => installCli(packageSpec, env, { tempDir }),
-  run: (entry, args, env) => runCli(entry, args, env, workspace),
+  run: (entry, args, env, input) => runCli(entry, args, env, workspace, input),
   appendOutput: (text) => {
     if (outputFile) appendFileSync(outputFile, text);
   },

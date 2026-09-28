@@ -9,22 +9,23 @@
  */
 
 /**
- * The CLI's arguments as a literal argv vector, so no shell ever parses an input and a task built
- * from issue or pull request text cannot inject commands (SEC-006).
+ * The CLI's arguments as a literal argv vector, so no shell ever parses an input (SEC-006).
  *
- * Options come first and the task last, after `--`, so a task that starts with `-` is still the
- * prompt and never an option. Unless the workflow asks to load the project, the CLI runs with
- * `--safe-mode`: a pull request's own settings, hooks and MCP servers must not run on the runner just
- * because the job checked it out.
+ * The task is not among them: it goes to the CLI on stdin, which print mode reads when it has no
+ * prompt argument. As an argument, a task that is exactly a subcommand's name (`eval`, `init`) ran
+ * that subcommand in the checkout, whatever `--` said, and a long issue body could exceed the
+ * system's limit on one argument. Unless the workflow asks to load the project, the CLI runs with
+ * `--safe-mode`: a pull request's own settings, hooks and MCP servers must not run on the runner
+ * just because the job checked it out.
  *
- * @param {IActionInputs} inputs
+ * @param {Omit<IActionInputs, 'task'>} inputs
  * @returns {string[]}
  */
 export function buildCliArgs(inputs) {
   const args = [...(inputs.loadProject ? [] : ['--safe-mode']), '--output-format', inputs.output];
   if (inputs.model) args.push('--model', inputs.model);
   if (inputs.maxTurns) args.push('--max-turns', inputs.maxTurns);
-  args.push('-p', '--', inputs.task);
+  args.push('-p');
   return args;
 }
 
@@ -37,8 +38,11 @@ export function buildTrustArgs() {
   return ['trust', '--yes'];
 }
 
-/** A dist-tag or version: letters, digits, `.`, `+`, `-`. Anything else could name another package. */
-const CLI_VERSION = /^[0-9A-Za-z][0-9A-Za-z.+-]*$/;
+/**
+ * A dist-tag (`latest`, `beta`) or an exact version (`3.0.0-beta.83`). Anything else — a range, a
+ * path, a tarball, a URL — could name another package.
+ */
+const CLI_VERSION = /^(?:[a-z][a-z0-9-]*|\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/;
 
 /**
  * The npm package spec for the CLI version the workflow asked for.

@@ -9,6 +9,7 @@
     "test:coverage": "vitest run --coverage --config vitest.config.ts"
   },
   "devDependencies": {
+    "@robota-sdk/agent-cli": "workspace:*",
     "@types/node": "^22.19.21",
     "vitest": "^3.2.6"
   },

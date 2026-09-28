@@ -162,6 +162,9 @@ importers:
 
   apps/action:
     devDependencies:
+      '@robota-sdk/agent-cli':
+        specifier: workspace:*
+        version: link:../../packages/agent-cli
       '@types/node':
         specifier: ^22.19.21
         version: 22.19.21

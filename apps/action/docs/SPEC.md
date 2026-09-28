@@ -27,12 +27,15 @@ integration point between GitHub CI/CD workflows and the Robota agent CLI.
 ## Design decisions
 
 - It is a composite action that runs plain JavaScript with the Node.js it sets up: nothing has to be
-  built or committed for a `uses:` reference to work, and the CLI gets the Node.js version it needs
-  whatever the runner has.
+  built or committed for a `uses:` reference to work, and the CLI gets a Node.js version it supports
+  whatever the runner has cached.
 - The CLI is installed with npm in the runner's temp directory and its entry script run with Node,
   not through `npx` in the checkout: npm reads the `.npmrc` of the directory it runs in, and a package
-  runner prefers a copy of the package it finds there, so the checkout would choose the program.
-- Inputs reach the script only through the step's environment, and the CLI only as argv with no
-  shell, with the task after `--`, so workflow inputs cannot inject commands or options.
-- The agent's reply is untrusted too: the log wraps it so the runner reads no workflow commands from
-  it, and the output value uses a random delimiter.
+  runner prefers a copy of the package it finds there, so the checkout would choose the program. npm
+  runs without the API key in its environment.
+- Inputs reach the script only through the step's environment. The task reaches the CLI on stdin,
+  never as an argument: as an argument, a task that is exactly a subcommand's name ran that
+  subcommand in the checkout, and a long one could exceed the system's limit on one argument. The
+  other inputs are literal argv elements with no shell.
+- The agent's output is untrusted too: while the CLI runs and while its reply is logged, the runner
+  reads no workflow commands, and the output value uses a random delimiter.

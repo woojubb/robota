@@ -12,6 +12,7 @@ interface IRun {
   entry: string;
   args: string[];
   env: NodeJS.ProcessEnv;
+  input: string | undefined;
 }
 
 interface IFakes {
@@ -23,18 +24,20 @@ interface IFakes {
 
 function act(env: NodeJS.ProcessEnv, fakes: IFakes = {}) {
   const installs: string[] = [];
+  const installEnvs: NodeJS.ProcessEnv[] = [];
   const runs: IRun[] = [];
   const outputs: string[] = [];
   const logs: string[] = [];
   const code = runAction({
     env,
-    install: (spec) => {
+    install: (spec, installEnv) => {
       installs.push(spec);
+      installEnvs.push(installEnv);
       if (fakes.installFailure) throw fakes.installFailure;
       return ENTRY;
     },
-    run: (entry, args, childEnv) => {
-      runs.push({ entry, args, env: childEnv });
+    run: (entry, args, childEnv, input) => {
+      runs.push({ entry, args, env: childEnv, input });
       const failure = args[0] === 'trust' ? fakes.trustFailure : fakes.cliFailure;
       if (failure) throw failure;
       return fakes.reply ?? 'the reply';
@@ -42,7 +45,7 @@ function act(env: NodeJS.ProcessEnv, fakes: IFakes = {}) {
     appendOutput: (text) => outputs.push(text),
     log: (text) => logs.push(text),
   });
-  return { code, installs, runs, outputs: outputs.join(''), logs: logs.join('\n') };
+  return { code, installs, installEnvs, runs, outputs: outputs.join(''), logs: logs.join('\n') };
 }
 
 function exitFailure(status: number, stdout = ''): Error {
@@ -54,10 +57,10 @@ function exitFailure(status: number, stdout = ''): Error {
 }
 
 describe('action.yml', () => {
-  it('is a composite action that sets up Node 22 without a package-manager cache', () => {
+  it('is a composite action that sets up Node 22.12+ without a package-manager cache', () => {
     expect(ACTION_YML).toContain("using: 'composite'");
     expect(ACTION_YML).toContain('actions/setup-node@v6');
-    expect(ACTION_YML).toContain("node-version: '22'");
+    expect(ACTION_YML).toContain("node-version: '^22.12.0'");
     expect(ACTION_YML).toContain('package-manager-cache: false');
     expect(ACTION_YML).toContain('run: node "$GITHUB_ACTION_PATH/src/main.mjs"');
     expect(ACTION_YML).not.toContain('dist/');
@@ -97,14 +100,8 @@ describe('runAction', () => {
     expect(installs).toEqual(['@robota-sdk/agent-cli@3.0.0-beta.83']);
     expect(runs).toHaveLength(1);
     expect(runs[0]?.entry).toBe(ENTRY);
-    expect(runs[0]?.args).toEqual([
-      '--safe-mode',
-      '--output-format',
-      'text',
-      '-p',
-      '--',
-      'review this',
-    ]);
+    expect(runs[0]?.args).toEqual(['--safe-mode', '--output-format', 'text', '-p']);
+    expect(runs[0]?.input).toBe('review this');
     expect(outputs).toMatch(/^result<<(ROBOTA_RESULT_[\w-]+)\nthe reply\n\1\n$/);
   });
 
@@ -124,19 +121,39 @@ describe('runAction', () => {
     const { code, runs } = act({ ROBOTA_TASK: 'go', ROBOTA_LOAD_PROJECT: 'true' });
 
     expect(code).toBe(0);
-    expect(runs.map((run) => run.args)).toEqual([
-      ['trust', '--yes'],
-      ['--output-format', 'text', '-p', '--', 'go'],
+    expect(runs.map((run) => [run.args, run.input])).toEqual([
+      [['trust', '--yes'], undefined],
+      [['--output-format', 'text', '-p'], 'go'],
     ]);
   });
 
-  it('keeps a task that starts with a dash as the prompt', () => {
-    const { runs } = act({ ROBOTA_TASK: '--serve' });
-    expect(runs[0]?.args.slice(-2)).toEqual(['--', '--serve']);
+  it('never puts the task in argv, so no word of it can be read as an option or a subcommand', () => {
+    for (const task of ['--serve', 'eval', 'init', 'mcp serve']) {
+      const { runs } = act({ ROBOTA_TASK: task });
+      expect(runs[0]?.args).not.toContain(task);
+      expect(runs[0]?.input).toBe(task);
+    }
   });
 
-  it('passes api-key to the CLI only as ANTHROPIC_API_KEY', () => {
-    const { runs } = act({ ROBOTA_TASK: 'go', ROBOTA_API_KEY: 'sk-test', PATH: '/bin' });
+  it('refuses a cli-version that is a range, a path or a tarball', () => {
+    for (const version of ['^3.0.0', '../x', 'x.tgz', 'https://evil.example/x.tgz', 'Latest']) {
+      expect(act({ ROBOTA_TASK: 'go', ROBOTA_CLI_VERSION: version }).installs).toEqual([]);
+    }
+    expect(act({ ROBOTA_TASK: 'go', ROBOTA_CLI_VERSION: 'beta' }).installs).toEqual([
+      '@robota-sdk/agent-cli@beta',
+    ]);
+  });
+
+  it('passes api-key to the CLI only as ANTHROPIC_API_KEY, and never to npm', () => {
+    const { runs, installEnvs } = act({
+      ROBOTA_TASK: 'go',
+      ROBOTA_API_KEY: 'sk-test',
+      ANTHROPIC_API_KEY: 'from-job',
+      PATH: '/bin',
+    });
+
+    expect(installEnvs[0]?.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(installEnvs[0]?.PATH).toBe('/bin');
 
     expect(runs[0]?.env.ANTHROPIC_API_KEY).toBe('sk-test');
     expect(runs[0]?.env.PATH).toBe('/bin');
@@ -161,6 +178,17 @@ describe('runAction', () => {
     expect(logs).toContain('::error::Robota Action: The Robota CLI failed: it exited with code 2');
     expect(logs).not.toContain('secret task');
     expect(logs).not.toContain('agent reply text');
+  });
+
+  it('says the output was too long when the CLI printed more than it reads', () => {
+    const overflow = Object.assign(new Error('spawnSync node ENOBUFS'), {
+      code: 'ENOBUFS',
+      signal: 'SIGTERM',
+      status: null,
+    });
+    const { logs } = act({ ROBOTA_TASK: 'go' }, { cliFailure: overflow });
+
+    expect(logs).toContain('The Robota CLI failed: its output was longer than the action reads');
   });
 
   it('names the signal, not the command line, when the CLI is killed', () => {
@@ -203,6 +231,26 @@ describe('runAction', () => {
 
     expect(logs).toContain('boom%0A::add-mask::x');
     expect(logs.split('\n').some((line) => line.startsWith('::add-mask::'))).toBe(false);
+  });
+
+  it('stops reading workflow commands while the CLI runs, and resumes before reporting a failure', () => {
+    const lines: string[] = [];
+    let stoppedDuringRun = false;
+    runAction({
+      env: { ROBOTA_TASK: 'go' },
+      install: () => ENTRY,
+      run: () => {
+        stoppedDuringRun = lines.at(-1)?.startsWith('::stop-commands::') === true;
+        throw exitFailure(1);
+      },
+      appendOutput: () => undefined,
+      log: (text) => lines.push(text),
+    });
+    const token = lines[0]?.slice('::stop-commands::'.length);
+
+    expect(stoppedDuringRun).toBe(true);
+    expect(lines[1]).toBe(`::${token}::`);
+    expect(lines[2]).toMatch(/^::error::/);
   });
 
   it('stops the runner from reading workflow commands out of the reply it logs', () => {

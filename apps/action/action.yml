@@ -29,7 +29,7 @@ inputs:
     required: false
     default: 'false'
   cli-version:
-    description: 'Version or dist-tag of @robota-sdk/agent-cli to install'
+    description: 'Exact version or dist-tag of @robota-sdk/agent-cli to install'
     required: false
     default: 'latest'
 
@@ -41,11 +41,12 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    # The Robota CLI needs Node.js 22.12 or later. No package-manager cache: this job holds an API
-    # key, and the checkout's package.json must not decide what gets cached or restored.
+    # The Robota CLI needs Node.js 22.12 or later; a cached older 22.x does not satisfy the range.
+    # No package-manager cache: this job holds an API key, and the checkout's package.json must not
+    # decide what gets cached or restored.
     - uses: actions/setup-node@v6
       with:
-        node-version: '22'
+        node-version: '^22.12.0'
         package-manager-cache: false
     # Inputs reach the script only through the environment, never written into the script itself.
     - id: run-robota

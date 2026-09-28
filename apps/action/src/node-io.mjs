@@ -46,21 +46,27 @@ export function installCli(packageSpec, env, options) {
   return join(packageDir, bin);
 }
 
+/** Output the CLI may print before the run is stopped: a streamed reply can be long. */
+export const MAX_CLI_OUTPUT_BYTES = 64 * 1024 * 1024;
+
 /**
  * Run the installed entry script with this Node, in the checkout: no shell, and no package runner
- * that would look in the checkout for the command.
+ * that would look in the checkout for the command. `input`, when given, is written to its stdin.
  *
  * @param {string} entry
  * @param {string[]} args
  * @param {NodeJS.ProcessEnv} env
  * @param {string} workspace
+ * @param {string} [input]
  * @returns {string} its stdout
  */
-export function runCli(entry, args, env, workspace) {
+export function runCli(entry, args, env, workspace, input) {
   return execFileSync(process.execPath, [entry, ...args], {
     cwd: workspace,
     env,
     encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'inherit'],
+    maxBuffer: MAX_CLI_OUTPUT_BYTES,
+    ...(input !== undefined ? { input } : {}),
+    stdio: [input !== undefined ? 'pipe' : 'ignore', 'pipe', 'inherit'],
   });
 }

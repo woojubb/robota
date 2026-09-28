@@ -91,20 +91,21 @@ does not load the repository's instruction files or settings. See [Using the SDK
 The GitHub Action lives in [`apps/action`](../../apps/action/action.yml). It is not released yet: no
 tag or `uses:` reference is published for it, so until it is, use the CLI as shown above.
 
-It is a composite action for Linux and macOS runners. It sets up Node.js 22 with `actions/setup-node`
-(so later steps in the job see that Node.js too), installs `@robota-sdk/agent-cli` with npm in the
-runner's temp directory, and runs it in the checkout as
-`robota --safe-mode --output-format <output> -p -- <task>`, adding `--model` and `--max-turns` when
-they are set, with `api-key` passed to the CLI as `ANTHROPIC_API_KEY`. It sets the `result` output to
-what the CLI printed, and fails the step if the CLI exits with an error.
+It is a composite action for Linux and macOS runners. It sets up Node.js 22.12 or later with
+`actions/setup-node` (so later steps in the job see that Node.js too), installs
+`@robota-sdk/agent-cli` with npm in the runner's temp directory, and runs it in the checkout as
+`robota --safe-mode --output-format <output> -p` with the task on stdin, adding `--model` and
+`--max-turns` when they are set, with `api-key` passed to the CLI as `ANTHROPIC_API_KEY`. It sets the
+`result` output to what the CLI printed, and fails the step if the CLI exits with an error.
 
 What the checkout can and cannot do:
 
 - Nothing in it decides which program runs. npm runs outside the checkout, so its `.npmrc` is not
   read, and the installed CLI runs with Node directly, so a copy of the package committed to the
   checkout is never used.
-- Each input reaches the CLI as a separate argument, never through a shell, and the task comes after
-  `--`, so a task built from issue or pull request text cannot inject shell commands or CLI options.
+- The task reaches the CLI only on stdin, so a task built from issue or pull request text is only
+  ever a prompt: it cannot inject shell commands, CLI options or a subcommand. The other inputs are
+  separate arguments, never passed through a shell.
 - By default the CLI runs with `--safe-mode`, so the checkout's settings, hooks, skills and MCP
   servers do not load. Set `load-project: 'true'` to run `robota trust --yes` first and load them
   instead — only for code you trust, never for a pull request from a fork.
@@ -119,7 +120,7 @@ What the checkout can and cannot do:
 | `output`       | no       | `text`   | Output format: `text` \| `json` \| `stream-json`                        |
 | `max-turns`    | no       | —        | Maximum agent turns before stopping                                     |
 | `load-project` | no       | `false`  | Trust the checkout and load its settings, hooks, skills and MCP servers |
-| `cli-version`  | no       | `latest` | Version or dist-tag of `@robota-sdk/agent-cli` to install               |
+| `cli-version`  | no       | `latest` | Exact version or dist-tag of `@robota-sdk/agent-cli` to install         |
 
 ### Outputs
 

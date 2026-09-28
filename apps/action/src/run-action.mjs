@@ -7,9 +7,9 @@ import { buildCliArgs, buildTrustArgs, cliPackageSpec } from './build-invocation
  * @property {NodeJS.ProcessEnv} env The step's environment; `action.yml` maps each input to a `ROBOTA_*` variable.
  * @property {(packageSpec: string, env: NodeJS.ProcessEnv) => string} install
  *   Installs the CLI outside the checkout and returns the path of its entry script.
- * @property {(entry: string, args: string[], env: NodeJS.ProcessEnv) => string} run
- *   Runs the entry script with Node (never through a shell or a package runner) in the checkout and
- *   returns its stdout.
+ * @property {(entry: string, args: string[], env: NodeJS.ProcessEnv, input?: string) => string} run
+ *   Runs the entry script with Node (never through a shell or a package runner) in the checkout,
+ *   writing `input` to its stdin when given, and returns its stdout.
  * @property {(text: string) => void} appendOutput Appends to the file `$GITHUB_OUTPUT` names.
  * @property {(text: string) => void} log
  */
@@ -47,6 +47,9 @@ function escapeCommandData(text) {
  */
 function failureReason(error) {
   if (error !== null && typeof error === 'object') {
+    if ('code' in error && error.code === 'ENOBUFS') {
+      return 'its output was longer than the action reads';
+    }
     if ('signal' in error && typeof error.signal === 'string') {
       return `it was stopped by ${error.signal}`;
     }
@@ -106,10 +109,12 @@ export function runAction(io) {
   const env = { ...io.env };
   // The inputs reach the CLI only as argv (and the key as ANTHROPIC_API_KEY), never as these names.
   for (const name of INPUT_VARIABLES) delete env[name];
+  // npm and the install scripts it runs never see the key.
+  const { ANTHROPIC_API_KEY: _jobKey, ...installEnv } = env;
   if (io.env.ROBOTA_API_KEY) env.ANTHROPIC_API_KEY = io.env.ROBOTA_API_KEY;
   try {
     const spec = cliPackageSpec(io.env.ROBOTA_CLI_VERSION || 'latest');
-    const entry = runStep('Installing the Robota CLI', () => io.install(spec, env), {
+    const entry = runStep('Installing the Robota CLI', () => io.install(spec, installEnv), {
       withOutput: false,
     });
     if (loadProject) {
@@ -119,21 +124,28 @@ export function runAction(io) {
       });
     }
     const args = buildCliArgs({
-      task,
       model: io.env.ROBOTA_MODEL ?? '',
       output: io.env.ROBOTA_OUTPUT || 'text',
       maxTurns: io.env.ROBOTA_MAX_TURNS ?? '',
       loadProject,
     });
-    // The CLI's own output is the agent's reply, which is untrusted: it is not repeated here.
-    const result = runStep('The Robota CLI', () => io.run(entry, args, env), { withOutput: false });
     // Random tokens the agent's reply cannot predict: one delimits the multi-line output value,
-    // the other stops the runner from reading workflow commands out of the reply in the log.
+    // the other stops the runner from reading workflow commands out of what the CLI prints (its
+    // stderr streams to the log while it runs) and out of the reply logged after it.
     const token = randomUUID();
-    io.appendOutput(`result<<ROBOTA_RESULT_${token}\n${result}\nROBOTA_RESULT_${token}\n`);
     io.log(`::stop-commands::${token}`);
-    io.log(result);
-    io.log(`::${token}::`);
+    let result;
+    try {
+      // The task goes on stdin, never as an argument. The CLI's own output is the agent's reply,
+      // which is untrusted: a failure does not repeat it.
+      result = runStep('The Robota CLI', () => io.run(entry, args, env, task), {
+        withOutput: false,
+      });
+      io.log(result);
+    } finally {
+      io.log(`::${token}::`);
+    }
+    io.appendOutput(`result<<ROBOTA_RESULT_${token}\n${result}\nROBOTA_RESULT_${token}\n`);
     return 0;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
