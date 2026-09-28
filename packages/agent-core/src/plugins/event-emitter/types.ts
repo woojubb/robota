@@ -39,8 +39,11 @@ type TAgentEventName = (typeof AGENT_EVENT_NAMES)[keyof typeof AGENT_EVENT_NAMES
  * - Import and use EVENT_EMITTER_EVENTS instead.
  */
 export const EVENT_EMITTER_EVENTS = {
+  /** @deprecated Not emitted by a run; a run emits `AGENT_EXECUTION_START`. */
   EXECUTION_START: EXECUTION_EVENT_NAMES.START,
+  /** @deprecated Not emitted by a run; a run emits `AGENT_EXECUTION_COMPLETE`. */
   EXECUTION_COMPLETE: EXECUTION_EVENT_NAMES.COMPLETE,
+  /** @deprecated Not emitted by a run; a run emits `AGENT_EXECUTION_ERROR`. */
   EXECUTION_ERROR: EXECUTION_EVENT_NAMES.ERROR,
   TOOL_BEFORE_EXECUTE: 'tool.beforeExecute',
   TOOL_AFTER_EXECUTE: 'tool.afterExecute',

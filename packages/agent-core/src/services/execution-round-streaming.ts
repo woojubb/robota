@@ -1,4 +1,6 @@
 import { announceAppend, observeExecutionCleanup } from './execution-event-helpers';
+import { callPluginHook } from './plugin-hook-dispatcher';
+import { createAssistantMessage } from '../managers/conversation-message-factory';
 import { callProviderWithCache } from './execution-round-provider';
 import { resolveToolChoiceForRound } from './execution-service-helpers';
 import { isAbortFailure } from '../utils/abort-classification';
@@ -20,10 +22,13 @@ import type { TProviderNativeRawPayloadCallback } from '../interfaces/provider';
 import type { ConversationStore } from '../managers/conversation-history-manager';
 import type { ExecutionCacheService } from './cache/execution-cache-service';
 import type { ILogger } from '../utils/logger';
+import type { TPluginWithHooks } from './plugin-hook-dispatcher';
 
 export interface IRoundStreamingCallbacks {
   wrappedOnTextDelta: (delta: string) => void;
   wrappedOnProviderNativeRawPayload: TProviderNativeRawPayloadCallback;
+  /** Resolves once every `onStreamingChunk` hook for this round's deltas has run, in order. */
+  settleStreamingChunkHooks: () => Promise<void>;
 }
 
 export function createRoundStreamingCallbacks(
@@ -31,9 +36,14 @@ export function createRoundStreamingCallbacks(
   conversationStore: ConversationStore,
   executionId: string,
   currentRound: number,
+  plugins: ReadonlyArray<TPluginWithHooks> = [],
+  logger?: ILogger,
 ): IRoundStreamingCallbacks {
   let streamDeltaSequence = 0;
   let providerNativeRawPayloadSequence = 0;
+  // A delta arrives in a synchronous callback, so each chunk's hooks are chained after the last
+  // one's: plugins see the chunks in the order they streamed, and the round waits for them.
+  let streamingChunkHooks: Promise<void> = Promise.resolve();
 
   const wrappedOnTextDelta = (delta: string): void => {
     fullContext.onExecutionEvent?.('provider_stream_raw_delta', {
@@ -46,6 +56,13 @@ export function createRoundStreamingCallbacks(
     streamDeltaSequence++;
     conversationStore.appendStreaming(delta);
     fullContext.onTextDelta?.(delta);
+    if (plugins.length > 0 && logger !== undefined) {
+      // The chunk carries only this delta's text; the committed message is the whole reply.
+      const chunk = createAssistantMessage(delta);
+      streamingChunkHooks = streamingChunkHooks.then(() =>
+        callPluginHook(plugins, 'onStreamingChunk', { message: chunk }, logger),
+      );
+    }
   };
 
   const wrappedOnProviderNativeRawPayload: TProviderNativeRawPayloadCallback = (event): void => {
@@ -60,7 +77,11 @@ export function createRoundStreamingCallbacks(
     } as TExecutionEventData);
   };
 
-  return { wrappedOnTextDelta, wrappedOnProviderNativeRawPayload };
+  return {
+    wrappedOnTextDelta,
+    wrappedOnProviderNativeRawPayload,
+    settleStreamingChunkHooks: () => streamingChunkHooks,
+  };
 }
 
 /** Call the provider with event emissions. Returns null if round should break; throws on abort. */

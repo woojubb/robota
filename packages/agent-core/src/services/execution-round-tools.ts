@@ -244,17 +244,23 @@ export async function executeAndRecordToolCalls(
     } as TExecutionEventData);
   });
 
+  const ranResults = toolSummary.results.filter(
+    (result) => !isUnknownToolExecutionResult(result) && !isArgumentDecodeErrorResult(result),
+  );
   roundState.toolsExecuted.push(
-    ...toolSummary.results
-      .filter(
-        (result) => !isUnknownToolExecutionResult(result) && !isArgumentDecodeErrorResult(result),
-      )
-      .map((r) => {
-        if (!r.toolName || r.toolName.length === 0) {
-          throw new Error('[EXECUTION] Tool result missing toolName');
-        }
-        return r.toolName;
-      }),
+    ...ranResults.map((r) => {
+      if (!r.toolName || r.toolName.length === 0) {
+        throw new Error('[EXECUTION] Tool result missing toolName');
+      }
+      return r.toolName;
+    }),
+  );
+  roundState.toolCallOutcomes.push(
+    ...ranResults.map((r) => ({
+      ...(r.executionId !== undefined ? { id: r.executionId } : {}),
+      name: r.toolName ?? '',
+      success: r.success,
+    })),
   );
 
   const contextLimit =
