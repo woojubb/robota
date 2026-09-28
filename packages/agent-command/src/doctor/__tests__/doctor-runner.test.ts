@@ -53,13 +53,16 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(byId(neutral, 'provider.resolution').detail?.join(' ')).not.toMatch(/robota/i);
     expect(byId(neutral, 'workspace.trust').detail?.join(' ')).not.toMatch(/robota/i);
 
-    const hosted = await runDoctor({
-      ...f.inputs,
-      diagnosticGuidance: {
-        providerResolution: 'Run atlas configure.',
-        projectTrust: 'Run atlas trust.',
+    const hosted = await runDoctor(
+      {
+        ...f.inputs,
+        diagnosticGuidance: {
+          providerResolution: 'Run atlas configure.',
+          projectTrust: 'Run atlas trust.',
+        },
       },
-    }, f.deps);
+      f.deps,
+    );
     expect(byId(hosted, 'provider.resolution').detail).toEqual(['Run atlas configure.']);
     expect(byId(hosted, 'workspace.trust').detail).toEqual(['Run atlas trust.']);
   });
@@ -143,6 +146,9 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     const ghost = byId(report, 'mcp.plugin.mcp-plugin@fixture-market.ghost');
     expect(ghost).toMatchObject({ status: 'warn' });
     expect(ghost.cause).toContain('robota-doctor-missing-binary');
+    const declaration = byId(report, 'mcp.plugin.mcp-plugin@fixture-market.ready');
+    expect(declaration.status).toBe('warn');
+    expect(declaration.detail?.join(' ')).toContain('not a runtime source');
     expect(byId(report, 'mcp.activation').status).toBe('not-configured');
     expect(byId(report, 'mcp.connection').status).toBe('not-probed');
     expect(byId(report, 'hooks.execution').status).toBe('not-probed');
