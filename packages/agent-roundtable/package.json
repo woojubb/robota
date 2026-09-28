@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-roundtable",
-  "version": "3.0.0-beta.83",
+  "version": "3.0.0-beta.84",
   "description": "Coordinate independent agents and people in sequential or parallel conversations",
   "type": "module",
   "main": "dist/index.js",
@@ -42,10 +42,14 @@
   "publishConfig": {
     "access": "public"
   },
-  "private": true,
+  "private": false,
   "repository": {
     "type": "git",
     "url": "https://github.com/woojubb/robota.git",
     "directory": "packages/agent-roundtable"
+  },
+  "homepage": "https://docs.robota.io/en/packages/agent-roundtable/",
+  "bugs": {
+    "url": "https://github.com/woojubb/robota/issues"
   }
 }

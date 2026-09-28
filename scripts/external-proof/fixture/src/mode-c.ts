@@ -74,7 +74,13 @@ export async function runModeC(): Promise<void> {
   checkEqual(
     'command modules: base first, then packs in profile order',
     product.commandModules.map((commandModule) => commandModule.name),
-    ['acme-shell-base', 'agent-command-shell', 'agent-command-editor', 'acme-tickets'],
+    [
+      'acme-shell-base',
+      'agent-command-shell',
+      'agent-command-editor',
+      'agent-command-git',
+      'acme-tickets',
+    ],
   );
   checkEqual(
     "subagents: ours then the consumer's",
@@ -166,7 +172,13 @@ export async function runModeC(): Promise<void> {
   checkEqual(
     'the command-module axis is overlaid on the same path',
     (options.commandModules ?? []).map((commandModule) => commandModule.name),
-    ['acme-shell-base', 'agent-command-shell', 'agent-command-editor', 'acme-tickets'],
+    [
+      'acme-shell-base',
+      'agent-command-shell',
+      'agent-command-editor',
+      'agent-command-git',
+      'acme-tickets',
+    ],
   );
   check(
     'the subagent axis reaches the runtime via the agentDefinitions injection seam',
