@@ -29,7 +29,7 @@ const runtime = createAgentRuntime({
   cwd: process.cwd(),
   provider: createAnthropicProvider({ apiKey }),
 });
-const session = runtime.createSession({ permissionMode: 'bypassPermissions' });
+const session = runtime.createSession({});
 
 // 2. Bind that ONE session to MANY channels — no gateway, just the registry.
 const settingsPath = path.join(os.tmpdir(), `robota-multi-surface-${process.pid}.json`);

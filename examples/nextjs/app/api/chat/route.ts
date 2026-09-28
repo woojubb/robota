@@ -2,6 +2,23 @@ import { NextRequest } from 'next/server';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
+// Anyone who can reach this server talks to the agent, so its sessions have none of the built-in tools
+// that run commands, read or change files, reach the network or send files. Give it your own tools
+// with `additionalTools` and approve them by name with `allowedTools`.
+const DENIED_TOOLS = [
+  'Shell',
+  'Bash',
+  'BackgroundProcess',
+  'Read',
+  'Write',
+  'Edit',
+  'Glob',
+  'Grep',
+  'WebFetch',
+  'WebSearch',
+  'peer_send_file',
+];
+
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest): Promise<Response> {
@@ -32,8 +49,8 @@ export async function POST(request: NextRequest): Promise<Response> {
         });
 
         const session = agentRuntime.createSession({
-          permissionMode: 'bypassPermissions',
           bare: true,
+          deniedTools: DENIED_TOOLS,
         });
 
         session.on('text_delta', (delta: string) => {

@@ -72,6 +72,6 @@ Each thread keeps one conversation: the bot maps `thread_ts` to the session's ID
 reply completes and passes it as `resumeSessionId` on the next mention in that thread. The map lives in memory,
 so a restart starts every thread fresh.
 
-The session runs with `permissionMode: 'bypassPermissions'` and the default tool set in the bot's working
-directory, so anyone who can mention the bot can have the agent read, write and run shell commands there. Run
-it on a machine you control, or pass `deniedTools` to `runtime.createSession()` in `src/app.ts`.
+Anyone who can mention the bot talks to the agent, so the session has none of the built-in tools that run
+commands, read or change files, reach the network or send files (`DENIED_TOOLS` in `src/app.ts`). Give it
+your own tools with `additionalTools` and approve them by name with `allowedTools`.

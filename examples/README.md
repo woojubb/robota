@@ -66,10 +66,12 @@ export ANTHROPIC_API_KEY=your-key
 npm run dev -- "Hello, world!"
 ```
 
-The Next.js, WebSocket, Slack, Discord and Telegram examples run each session with
-`permissionMode: 'bypassPermissions'` and the default tool set, so whoever can message the bot or reach the
-endpoint can have the agent read, write and run shell commands in the process's working directory. Keep them
-on a machine you control, or narrow the tools with `deniedTools` on `createSession`.
+The examples that take prompts from other people — the Next.js, WebSocket, Express, Slack, Discord and
+Telegram servers and bots, and the PR reviewer and batch processor, which put a diff or a document into the
+prompt — deny the built-in tools that run commands, read or change files, reach the network or send files,
+so whoever writes the prompt can talk to the model and use only the tools the example approves (Express's
+calculator and clock). Add your own tools with `additionalTools` and approve them by name with
+`allowedTools`.
 
 ## SDK packages used
 

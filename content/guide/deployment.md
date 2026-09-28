@@ -29,7 +29,7 @@ const runtime = createAgentRuntime({
   cwd: process.cwd(),
   provider: createAnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY ?? '' }),
 });
-const session = runtime.createSession({ permissionMode: 'bypassPermissions' });
+const session = runtime.createSession({});
 
 // 2. Bind that session to a transport, then register the bound transport.
 const registry = new TransportRegistry(path.join(os.tmpdir(), 'robota-transports.json'));

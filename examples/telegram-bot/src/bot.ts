@@ -4,6 +4,23 @@ import { Bot } from 'grammy';
 import { createAgentRuntime, createNodeHostSessionStore } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
+// Anyone who can message this bot talks to the agent, so its sessions have none of the built-in tools
+// that run commands, read or change files, reach the network or send files. Give it your own tools
+// with `additionalTools` and approve them by name with `allowedTools`.
+const DENIED_TOOLS = [
+  'Shell',
+  'Bash',
+  'BackgroundProcess',
+  'Read',
+  'Write',
+  'Edit',
+  'Glob',
+  'Grep',
+  'WebFetch',
+  'WebSearch',
+  'peer_send_file',
+];
+
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
@@ -25,8 +42,8 @@ async function handleMessage(chatId: number, prompt: string): Promise<void> {
   await bot.api.sendChatAction(chatId, 'typing');
 
   const session = runtime.createSession({
-    permissionMode: 'bypassPermissions',
     bare: true,
+    deniedTools: DENIED_TOOLS,
     resumeSessionId: chatSessions.get(chatId),
   });
 
