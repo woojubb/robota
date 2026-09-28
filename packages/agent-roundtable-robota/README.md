@@ -233,8 +233,8 @@ This package's own API follows the release's semantic version, same as `@robota-
 `@robota-sdk/agent-core` and `@robota-sdk/agent-session` in the same release (they are versioned in
 lockstep). Its `peerDependencies` on the latter two are `workspace:*` in source; publishing pins them
 to the **exact** version they release with, not a range — so the host must have `@robota-sdk/agent-core`
-installed at that exact version (a different version is a peer dependency install error, not a
-warning); `@robota-sdk/agent-session` is required at that same exact version only when the host uses
+installed at that exact version (npm 7+ refuses to install a different version; pnpm and Yarn
+warn by default, but a mismatch is still unsupported); `@robota-sdk/agent-session` is required at that same exact version only when the host uses
 the `/session` subpath, since that peer is optional.
 
 That API version is separate from **checkpoint format compatibility**, which this package owns
