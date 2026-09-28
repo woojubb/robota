@@ -35,7 +35,9 @@ import type { ISessionViewCommandOptions } from '../session-inventory/session-vi
 import { validateNodeOtlpLiveTelemetrySettings } from '../telemetry/live-trace-otlp.js';
 import { runUsageCommand } from '../usage/usage-command.js';
 import { runUsageExportCommand } from '../usage/usage-export-command.js';
+import { subcommandHelpFor } from '../utils/cli-help.js';
 import {
+  RESTRICTED_WORKSPACE_FLAG,
   createInitialCliWorkspaceComposition,
   resolveInitialCliWorkspaceProjectAccess,
 } from './workspace-project-composition.js';
@@ -57,7 +59,7 @@ const SUBCOMMAND_INDEX = 2;
 const ACTION_INDEX = 3;
 const SUBCOMMAND_ARGUMENT_INDEX = 4;
 const START_USAGE =
-  'Usage: robota session start --background [--name <name>]\n' +
+  'Usage: robota session start --background [--name <name>] [--restricted-workspace]\n' +
   '         [--external-event-grant <file>]... [--external-event-port <port>]\n' +
   '         [--external-event-trusted-proxy <ip>]...\n';
 const EVENTS_USAGE =
@@ -68,6 +70,7 @@ const EVENTS_USAGE =
 function parseStartArgs(args: readonly string[]):
   | {
       readonly name?: string;
+      readonly restricted: boolean;
       readonly grantFiles: readonly string[];
       readonly port?: string;
       readonly trustedProxies: readonly string[];
@@ -78,17 +81,23 @@ function parseStartArgs(args: readonly string[]):
   let port: string | undefined;
   const grantFiles: string[] = [];
   const trustedProxies: string[] = [];
-  for (let index = 1; index < args.length; index += 2) {
-    const value = args[index + 1];
+  // The one flag without a value: start Restricted, as the headless trust refusal suggests.
+  const restricted = args.includes(RESTRICTED_WORKSPACE_FLAG);
+  const valued = args.filter(
+    (argument, index) => index === 0 || argument !== RESTRICTED_WORKSPACE_FLAG,
+  );
+  for (let index = 1; index < valued.length; index += 2) {
+    const value = valued[index + 1];
     if (value === undefined) return undefined;
-    if (args[index] === '--name' && name === undefined) name = value;
-    else if (args[index] === '--external-event-grant') grantFiles.push(value);
-    else if (args[index] === '--external-event-port' && port === undefined) port = value;
-    else if (args[index] === '--external-event-trusted-proxy') trustedProxies.push(value);
+    if (valued[index] === '--name' && name === undefined) name = value;
+    else if (valued[index] === '--external-event-grant') grantFiles.push(value);
+    else if (valued[index] === '--external-event-port' && port === undefined) port = value;
+    else if (valued[index] === '--external-event-trusted-proxy') trustedProxies.push(value);
     else return undefined;
   }
   return {
     ...(name !== undefined ? { name } : {}),
+    restricted,
     grantFiles,
     ...(port !== undefined ? { port } : {}),
     trustedProxies,
@@ -130,9 +139,12 @@ function parseEventEndpoint(start: {
  */
 async function runSessionEventsCommand(args: readonly string[]): Promise<number> {
   const [action, id, argument, extra] = args;
-  const list = action === 'list' && id !== undefined &&
+  const list =
+    action === 'list' &&
+    id !== undefined &&
     (argument === undefined || (argument === '--json' && extra === undefined));
-  const revoke = action === 'revoke' && id !== undefined && argument !== undefined && extra === undefined;
+  const revoke =
+    action === 'revoke' && id !== undefined && argument !== undefined && extra === undefined;
   if (!list && !revoke) {
     process.stderr.write(EVENTS_USAGE);
     return 1;
@@ -140,13 +152,17 @@ async function runSessionEventsCommand(args: readonly string[]): Promise<number>
   try {
     if (revoke) {
       await revokeSupervisedExternalEventGrant(id!, argument!);
-      process.stdout.write(`Revoked external event grant ${argument} on supervised session ${id}.\n`);
+      process.stdout.write(
+        `Revoked external event grant ${argument} on supervised session ${id}.\n`,
+      );
       return 0;
     }
     const grants = await listSupervisedExternalEvents(id!);
-    process.stdout.write(argument === '--json'
-      ? `${JSON.stringify({ id, grants })}\n`
-      : formatExternalEventGrantRows(grants));
+    process.stdout.write(
+      argument === '--json'
+        ? `${JSON.stringify({ id, grants })}\n`
+        : formatExternalEventGrantRows(grants),
+    );
     return 0;
   } catch (error) {
     process.stderr.write(
@@ -168,6 +184,14 @@ export async function runPreparsedCliCommand(
   // The Robota telemetry settings were removed from process.env at startup; the supervised runtime is
   // the one child that receives them, through its explicit spawn environment.
   const supervisedEnv = (): NodeJS.ProcessEnv => ({ ...process.env, ...telemetryEnvironment });
+  // `robota <subcommand> --help` prints that subcommand's help before anything runs: no command's own
+  // option parser, trust check or terminal UI ever sees the flag.
+  const subcommandHelp = subcommandHelpFor(argv.slice(SUBCOMMAND_INDEX));
+  if (subcommandHelp !== undefined) {
+    process.stdout.write(subcommandHelp);
+    process.exitCode = 0;
+    return true;
+  }
   // OBSERVABILITY-1991: the doctor is matched BEFORE the shared composition below, and composes its
   // own inside a failure boundary — a configuration broken enough to throw here must still be
   // diagnosable, and `--repair <id>` / `--yes` must never reach the strict global parser.
@@ -312,11 +336,9 @@ export async function runPreparsedCliCommand(
         // A person in the view answered for a folder not trusted yet: trust it, or run it Restricted.
         // A Restricted answer holds even if the folder became trusted meanwhile; it never widens.
         const restricted = choice === 'restricted';
-        if (choice === 'trust' && canAskToTrust(access)) access = await grantWorkspaceTrust(targetCwd);
-        if (
-          requiresHeadlessWorkspaceTrust(access) &&
-          !(restricted && canAskToTrust(access))
-        ) {
+        if (choice === 'trust' && canAskToTrust(access))
+          access = await grantWorkspaceTrust(targetCwd);
+        if (requiresHeadlessWorkspaceTrust(access) && !(restricted && canAskToTrust(access))) {
           throw new Error(formatHeadlessWorkspaceTrustError(access, targetCwd));
         }
         // The child validates the very same settings when it starts; asking here first avoids
@@ -427,7 +449,11 @@ export async function runPreparsedCliCommand(
       process.exitCode = 1;
       return true;
     }
-    if (requiresHeadlessWorkspaceTrust(composition.projectAccess)) {
+    // The same admission as `daemon start`: Restricted only where a person could have been asked.
+    if (
+      requiresHeadlessWorkspaceTrust(composition.projectAccess) &&
+      !(start.restricted && canAskToTrust(composition.projectAccess))
+    ) {
       process.stderr.write(
         `${formatHeadlessWorkspaceTrustError(composition.projectAccess, cwd)}\n`,
       );
@@ -444,6 +470,7 @@ export async function runPreparsedCliCommand(
       const id = await launchSupervisedSession(cwd, {
         env: supervisedEnv(),
         ...(start.name !== undefined ? { name: start.name } : {}),
+        ...(start.restricted ? { restricted: true } : {}),
         ...(grants.length > 0 && eventEndpoint !== undefined ? { grants, eventEndpoint } : {}),
       });
       process.stdout.write(`Supervised session: ${id}\n`);

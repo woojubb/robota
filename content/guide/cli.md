@@ -55,8 +55,8 @@ robota trust --yes     # trust this folder so its settings, hooks, skills and pl
 a folder you have not decided about asks first: trust it, start Restricted (project content not
 loaded), or cancel. Print mode, `--goal`, `--serve`, `robota daemon` and background sessions cannot
 ask, so they refuse an untrusted folder with a message that names `robota trust --yes`. All of them
-but background sessions also accept `--restricted-workspace`, which starts Restricted instead (for
-example `robota daemon start --restricted-workspace`). `robota --serve --open` run at a terminal asks
+also accept `--restricted-workspace`, which starts Restricted instead (for example
+`robota daemon start --restricted-workspace`). `robota --serve --open` run at a terminal asks
 there instead of refusing, and the desktop app asks in its window before it starts the daemon. Use
 `robota trust` (or `robota trust status`, with
 `--json` for one JSON line) to see the current decision and `robota trust revoke` to withdraw it.
@@ -66,6 +66,7 @@ there instead of refusing, and the desktop app asks in its window before it star
 | Invocation                          | What it does                                                            |
 | ----------------------------------- | ----------------------------------------------------------------------- |
 | `robota`                            | Interactive terminal UI                                                 |
+| `robota "prompt"`                   | Interactive terminal UI with the prompt typed in, not yet sent          |
 | `robota -p "prompt"`                | Print mode: one prompt, the answer on stdout, then exit                 |
 | `robota --goal "objective"`         | Pursue an objective across turns without a person, then exit            |
 | `robota --serve [--open]`           | Headless runtime over a loopback WebSocket; `--open` also opens the GUI |
@@ -82,7 +83,7 @@ Print mode (`-p`) runs one prompt without the terminal UI and exits. stdout carr
 robota -p "Explain this error"
 robota -p "Summarize the project" --output-format json
 robota -p "Write a function" --output-format stream-json
-robota -p "Review this diff" --bare          # raw text, no status line
+robota -p "Review this diff" --bare          # without AGENTS.md, CLAUDE.md or plugins
 ```
 
 `--output-format json` prints one object such as
@@ -573,7 +574,7 @@ another session or device. All four are user-only. See [Devices, Peers and Remot
 | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | `-p`                                                                                                                                                      | Print mode: run the prompt argument (or stdin) and exit                   |
 | `--output-format text\|json\|stream-json`                                                                                                                 | Print-mode output format (default `text`)                                 |
-| `--bare`                                                                                                                                                  | Print mode: raw text only                                                 |
+| `--bare`                                                                                                                                                  | Print mode: skip instruction files and plugins                            |
 | `--json-schema <schema>`                                                                                                                                  | Print mode: ask for JSON matching this schema                             |
 | `--system-prompt <text>`                                                                                                                                  | Replace the system prompt                                                 |
 | `--append-system-prompt <text>`                                                                                                                           | Add to the system prompt                                                  |

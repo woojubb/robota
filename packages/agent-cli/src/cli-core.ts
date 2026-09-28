@@ -111,6 +111,7 @@ import {
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
+import { tuiInitialInputProps } from './startup/tui-initial-input.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
 import { providerHasOwnCredential } from './handoff/handoff-host-adapter.js';
 import {
@@ -1054,9 +1055,7 @@ async function runCliCore(
     promptFileReferenceTag,
     providerDefinitions,
     ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
-    ...(initialInput !== undefined
-      ? { initialInput, initialInputOrigin: 'external-link' as const }
-      : {}),
+    ...tuiInitialInputProps(initialInput, args.positional),
     onChannelReady: createChannelReadyHandler(
       presentation.setLiveChannel,
       setRemoteControlChannel,

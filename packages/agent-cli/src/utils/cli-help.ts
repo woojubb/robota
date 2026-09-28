@@ -28,23 +28,33 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --external-event-trusted-proxy <ip>
                              With grants: a proxy whose X-Forwarded-For is believed (repeat)
   --max-turns <n>            Maximum agent turns before stopping
+  --goal <objective>         Pursue an objective across turns without a person, then exit
+  --goal-max-iterations <n>  Turn budget for --goal (default 25)
   -c, --continue             Continue the most recent session
   -r, --resume <id>          Resume a session by ID or name
   -n, --name <name>          Name for the new session
   --fork-session             Fork the current session into a new independent session
   --task-file <path>         Read a task prompt from file and append it to the system prompt
-  --bare                     Print mode: output raw text only, no formatting wrapper
+  --bare                     Print mode: skip instruction files (AGENTS.md, CLAUDE.md) and plugins
   --safe-mode                Start with every customization off: instruction files, skills,
                              commands, agents, output styles, plugins, hooks and MCP servers.
                              Use it first when something misbehaves; if the problem goes away,
                              one of them is the cause
   --configure                Run interactive provider configuration
   --configure-provider <n>   Configure a specific provider
+  --type <type>              With --configure-provider: the provider type
+  --base-url <url>           With --configure-provider: the provider's base URL
+  --api-key <key>            With --configure-provider: the API key to store
+  --api-key-env <name>       With --configure-provider: store a reference to this environment
+                             variable instead of the key itself
+  --settings-scope <scope>   Which settings file provider setup writes: user | project-local
+  --provider <profile>       Use this provider profile for the run
+  --set-current              With --provider or --configure-provider: save it as the default
   --allowed-tools <list>     Comma-separated tool auto-approval list
   --denied-tools <list>      Comma-separated tool denylist
   --model <model>            Model override for this run
   --fallback-model <list>    Comma-separated models to continue a turn on when the model is overloaded
-  --effort <level>           Model effort: auto | low | medium | high | xhigh | max
+  --effort <level>           Model effort: auto | none | minimal | low | medium | high | xhigh | max
   --advisor <profile[:model]> Model the main model may consult for advice (or "off");
                              overrides settings.json advisorModel. ROBOTA_DISABLE_ADVISOR=1 turns it off
   --preset <id>              Preset id to apply (default: settings.preset or "default")
@@ -62,11 +72,16 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
                              Overrides ROBOTA_REDUCED_MOTION=1|0 and settings.json reducedMotion
   --no-reduced-motion        Allow animation for this run, overriding a persisted reducedMotion
   --json-schema <schema>     Print mode: instruct the model to respond with JSON matching this schema
+  --session-log <path>       Replay a recorded session log instead of calling a model
   --dry-run                  Alias for --permission-mode plan (plan only, no execution)
   --reset                    Delete ~/.robota/settings.json (provider profiles and preferences).
                              Asks for confirmation; use --yes to skip
   --yes                      Skip confirmation prompts (required for --reset in non-TTY)
+  --serve                    Run the headless runtime over a loopback WebSocket
   --serve --open             Serve Robota over localhost and open it in a browser
+  --restricted-workspace     With print mode, --goal, --serve, daemon start or session start:
+                             start without the project's settings, hooks, plugins, skills and
+                             MCP servers
   --attach [--screen-reader|--no-screen-reader]
                              Open the full terminal UI on this workspace's running daemon
                              (robota daemon start) instead of starting a session: its
@@ -91,6 +106,7 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
                              Token subjects admitted to the one shared session
   --trusted-proxy <ip>       Believe X-Forwarded-For from this proxy address (repeatable)
   --check-update             Check for CLI updates
+  --disable-update-check     Skip the startup update check
   --version                  Show version number
   -h, --help                 Show this help message
 
@@ -110,7 +126,8 @@ Commands:
   robota session view [--cwd <directory>] [--name <text>] [--pr <number>] [--state <state>]
                       [--screen-reader|--no-screen-reader]
                                   Live supervised sessions across projects, or filtered (TTY only)
-  robota session start --background [--name <name>] [--external-event-grant <file>]...
+  robota session start --background [--name <name>] [--restricted-workspace]
+                      [--external-event-grant <file>]...
                       [--external-event-port <port>] [--external-event-trusted-proxy <ip>]...
                                   Start a supervised session that outlives this terminal
   robota session attach <supervised-id> [--observe] [--screen-reader|--no-screen-reader]
@@ -147,7 +164,7 @@ Examples:
   robota init                      Initialize project files
   robota -p "Hello"                Print mode: send prompt and exit
   robota -p "Hello" --output-format json
-  robota -p "Review this diff" --bare    Raw output for shell pipelines
+  robota -p "Review this diff" --bare    Print mode without instruction files or plugins
   robota --task-file task.md       Run task from file (appended to system prompt)
   robota -p "Refactor the auth module" --dry-run   Plan only, no execution
   robota --continue                Resume the last session
@@ -158,4 +175,48 @@ export function printHelp(): string {
   return `${USAGE}
 Options:
 ${OPTIONS}`;
+}
+
+/** `robota doctor`'s aliases, answered with the doctor's entries. */
+const SUBCOMMAND_ALIASES: Readonly<Record<string, string>> = {
+  checkup: 'doctor',
+  diagnose: 'doctor',
+};
+
+/** The `Commands:` section of the help, one entry per `robota <subcommand> …` line with its continuation. */
+function commandEntries(): readonly { subcommand: string; text: string }[] {
+  const start = OPTIONS.indexOf('Commands:\n');
+  const end = OPTIONS.indexOf('\nExamples:');
+  const entries: { subcommand: string; text: string }[] = [];
+  for (const line of OPTIONS.slice(start + 'Commands:\n'.length, end).split('\n')) {
+    const match = /^ {2}robota (\S+)/.exec(line);
+    if (match) entries.push({ subcommand: match[1] ?? '', text: line });
+    else if (line.trim() !== '' && entries.length > 0) {
+      const last = entries[entries.length - 1];
+      if (last) last.text += `\n${line}`;
+    }
+  }
+  return entries;
+}
+
+/** `robota mcp serve`'s transport options, listed among the global options. */
+function mcpServeOptions(): string {
+  const start = OPTIONS.indexOf('  --http-token-file');
+  const end = OPTIONS.indexOf('  --check-update');
+  return OPTIONS.slice(start, end).trimEnd();
+}
+
+/**
+ * Help for `robota <subcommand> --help` (or `-h`): that subcommand's entries from the command list
+ * above, so the two never disagree. Undefined when `args` is not such a request.
+ */
+export function subcommandHelpFor(args: readonly string[]): string | undefined {
+  const first = args[0];
+  if (first === undefined || !(args.includes('--help') || args.includes('-h'))) return undefined;
+  const subcommand = SUBCOMMAND_ALIASES[first] ?? first;
+  const entries = commandEntries().filter((entry) => entry.subcommand === subcommand);
+  if (entries.length === 0) return undefined;
+  const options =
+    subcommand === 'mcp' ? `\n\nOptions for robota mcp serve:\n${mcpServeOptions()}` : '';
+  return `\nUsage:\n${entries.map((entry) => entry.text).join('\n')}${options}\n\nRun robota --help for every option and command.\n`;
 }
