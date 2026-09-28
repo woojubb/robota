@@ -55,7 +55,7 @@ export function substituteVariables(
   result = result.replace(/\$\{CLAUDE_SKILL_DIR}/g, context?.skillDir ?? '');
 
   // Replace ${CLAUDE_PLUGIN_ROOT}
-  result = result.replace(/\$\{CLAUDE_PLUGIN_ROOT}/g, context?.pluginRoot ?? '');
+  result = result.replace(/\$\{CLAUDE_PLUGIN_ROOT}/g, () => context?.pluginRoot ?? '');
 
   return result;
 }
