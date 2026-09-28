@@ -308,7 +308,8 @@ Memory keeps facts worth reusing across sessions (preferences, project conventio
 is off by default. `--memory` or `--no-memory` decides for one run and overrides the
 `memory.enabled` setting; the `ROBOTA_MEMORY=1|0` environment variable overrides both. Captured facts
 wait in an approval queue unless you pass `--memory-autosave`. In a session, `/memory` lists, shows,
-adds and reviews items (`/memory pending`, `/memory approve <id>`, `/memory reject <id>`).
+adds and reviews items (`/memory pending`, `/memory approve <id>`, `/memory reject <id>`). The model
+can look memory up and add to it too, except in `plan` mode, where it saves nothing.
 
 ### Terminal appearance
 
