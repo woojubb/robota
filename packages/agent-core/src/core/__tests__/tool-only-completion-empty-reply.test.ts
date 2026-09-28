@@ -1,6 +1,5 @@
 /**
- * `allowToolOnlyCompletion` with a round that answers with neither a tool call nor text — R14
- * (issue #3273).
+ * `allowToolOnlyCompletion` with a round that answers with neither a tool call nor text
  *
  * `allowToolOnlyCompletion` only WIDENS what counts as a valid finish: a round may end in a tool
  * call alone, with no final text after it. It must never make an ordinary, non-empty text-only
@@ -65,7 +64,7 @@ function buildAgent(text: string): {
 } {
   const scripted = createScriptedProvider([{ text }]);
   const config: IAgentConfig = {
-    name: 'R14 Agent',
+    name: 'Decision Agent',
     aiProviders: [scripted.provider],
     defaultModel: { provider: PROVIDER_NAME, model: 'test-model' },
     logging: { level: 'silent', enabled: false },

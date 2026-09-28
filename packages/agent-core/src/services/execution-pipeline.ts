@@ -103,7 +103,7 @@ export async function runExecutionLoop(
   // and a decision-agent run can declare tool-only endings valid completions outright.
   if (signal?.aborted) return;
   if (fullContext.allowToolOnlyCompletion === true) {
-    // R14 (issue #3273): the flag WIDENS what counts as a finish (a tool call alone, with no final
+    // The flag WIDENS what counts as a finish (a tool call alone, with no final
     // text) — it must not be read as "any ending is fine". A round that ended in neither a tool call
     // nor text produced nothing at all; without this flag that round is recovered by the summary
     // call below, so the flag is exactly what removes the rescue. That is a genuinely unanswered

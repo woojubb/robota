@@ -229,8 +229,8 @@ export class SameToolInputLoopError extends RobotaError {
 }
 
 /**
- * A round ended with neither a tool call nor a final text response, while `allowToolOnlyCompletion`
- * was set — R14 (issue #3273).
+ * A turn ended with neither a tool result nor a final text response while `allowToolOnlyCompletion`
+ * was set.
  *
  * `allowToolOnlyCompletion` only WIDENS what counts as a valid finish (a tool call alone, with no
  * final text after it); it never narrows the ordinary case. Without the flag, a round that produces
