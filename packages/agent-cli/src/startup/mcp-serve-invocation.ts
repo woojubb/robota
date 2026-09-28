@@ -1,4 +1,4 @@
-import { parseCliArgs, type IParsedCliArgs } from '../utils/cli-args.js';
+import { parseCliArgs, subcommandWord, type IParsedCliArgs } from '../utils/cli-args.js';
 
 /**
  * The parsed arguments of a `robota mcp serve` run that will speak MCP on stdout, or `undefined`.
@@ -9,7 +9,7 @@ export function mcpServeProtocolArgs(argv: readonly string[]): IParsedCliArgs | 
   if (!argv.includes('mcp')) return undefined;
   try {
     const parsed = parseCliArgs([...argv]);
-    return parsed.positional[0] === 'mcp' && parsed.positional[1] === 'serve' && !parsed.help
+    return subcommandWord(parsed) === 'mcp' && parsed.positional[1] === 'serve' && !parsed.help
       ? parsed
       : undefined;
   } catch {

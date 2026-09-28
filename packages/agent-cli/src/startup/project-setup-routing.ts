@@ -10,7 +10,7 @@ import {
 
 import type { IStartCliOptions } from './command-setup.js';
 import type { ICliWorkspaceComposition } from './workspace-project-composition.js';
-import type { IParsedCliArgs } from '../utils/cli-args.js';
+import { subcommandWord, type IParsedCliArgs } from '../utils/cli-args.js';
 import type { IProviderDefinition, ITerminalOutput } from '@robota-sdk/agent-core';
 
 const PRINT_MODE_PROVIDER_CONFIG_EXIT_CODE = 3;
@@ -44,7 +44,7 @@ export async function routeProjectSetup(
     settingsSources: workspace.settingsSources,
     settingsStores: workspace.settingsStores,
   };
-  if (args.positional[0] === 'init') {
+  if (subcommandWord(args) === 'init') {
     await runProjectInit(options, settingsAccess);
     return { handled: true };
   }
@@ -69,7 +69,7 @@ export async function routeProjectSetup(
       promptInput,
       terminal,
       providerDefinitions,
-      args.positional[0] === 'mcp' && args.positional[1] === 'serve' ? false : undefined,
+      subcommandWord(args) === 'mcp' && args.positional[1] === 'serve' ? false : undefined,
       settingsAccess,
     );
   } catch (error) {

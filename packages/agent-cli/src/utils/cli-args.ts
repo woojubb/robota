@@ -31,6 +31,11 @@ const VALID_OUTPUT_FORMATS = OUTPUT_FORMATS;
 
 export interface IParsedCliArgs {
   positional: string[];
+  /**
+   * The positionals came after `--`, so they are text (a prompt), never a subcommand:
+   * `robota -p -- init` asks the model about "init" instead of running `robota init`.
+   */
+  literalPositionals?: true;
   help: boolean;
   printMode: boolean;
   /** RUNTIME-001: run the headless runtime host (serve the WS, no ink) — the backend apps/agent-app spawns. */
@@ -314,12 +319,33 @@ function parseEventPort(raw: string): number {
   return port;
 }
 
+/** The subcommand the positionals name, or `undefined` when they are text after `--`. */
+export function subcommandWord(
+  args: Pick<IParsedCliArgs, 'positional' | 'literalPositionals'>,
+): string | undefined {
+  return args.literalPositionals === true ? undefined : args.positional[0];
+}
+
+/** True when the first positional comes after the `--` that ends the options. */
+function positionalsAreLiteral(argv: readonly string[]): boolean {
+  const { tokens } = parseArgs({ ...PARSE_ARGS_CONFIG, args: [...argv], tokens: true });
+  const terminator = tokens.find((token) => token.kind === 'option-terminator');
+  const firstPositional = tokens.find((token) => token.kind === 'positional');
+  return (
+    terminator !== undefined &&
+    firstPositional !== undefined &&
+    firstPositional.index > terminator.index
+  );
+}
+
 function mapParsedValues(
   values: TParsedArgValues,
   positionals: string[],
+  literalPositionals: boolean,
 ): Omit<IParsedCliArgs, 'memory' | 'memoryAutoSave' | 'screenReader' | 'reducedMotion'> {
   return {
     positional: positionals,
+    ...(literalPositionals ? { literalPositionals: true as const } : {}),
     help: values['help'] ?? false,
     printMode: values['p'] ?? false,
     serve: values['serve'] ?? false,
@@ -404,7 +430,7 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     );
   }
   const args: IParsedCliArgs = {
-    ...mapParsedValues(values, positionals),
+    ...mapParsedValues(values, positionals, positionalsAreLiteral(argv)),
     ...resolveMemoryArgs(values),
     ...resolveScreenReaderArgs(values),
     ...resolveReducedMotionArgs(values),
@@ -429,7 +455,9 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     throw new Error('--supervised-external-event-grants is set only by a supervised launch');
   }
   if (args.daemon === true && args.supervisedSessionId === undefined) {
-    throw new Error('--daemon is set only by a supervised launch; start one with `robota daemon start`');
+    throw new Error(
+      '--daemon is set only by a supervised launch; start one with `robota daemon start`',
+    );
   }
   if ((args.externalEventGrantFiles?.length ?? 0) > 0) {
     if (
@@ -442,7 +470,7 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
       args.version ||
       args.checkUpdate ||
       args.help ||
-      ['mcp', 'eval', 'session', 'user-local'].includes(args.positional[0] ?? '')
+      ['mcp', 'eval', 'session', 'user-local'].includes(subcommandWord(args) ?? '')
     ) {
       throw new Error(
         '--external-event-grant is available only in the interactive TUI; ' +
@@ -465,7 +493,7 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
   }
   if (hasGrants && args.externalEventPort === undefined) {
     throw new Error(
-      '--external-event-grant needs --external-event-port: the loopback port the owner\'s proxy forwards to',
+      "--external-event-grant needs --external-event-port: the loopback port the owner's proxy forwards to",
     );
   }
   if (args.printMode) {

@@ -11,7 +11,7 @@ import { userPaths } from '../product/user-paths.js';
 import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../product/robota-project-state-directories.js';
 import { formatProjectContributionPreview } from './project-contribution-preview.js';
 
-import type { IParsedCliArgs } from '../utils/cli-args.js';
+import { subcommandWord, type IParsedCliArgs } from '../utils/cli-args.js';
 import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 
 /** States a grant can change. A directory outside Git has no identity to grant, and a store that
@@ -30,6 +30,7 @@ export function startsNewTuiSession(
     | 'goal'
     | 'serve'
     | 'positional'
+    | 'literalPositionals'
     | 'configure'
     | 'configureProvider'
     | 'setCurrent'
@@ -39,8 +40,8 @@ export function startsNewTuiSession(
 ): boolean {
   const headless = args.printMode || args.goal !== undefined || args.serve;
   const setup =
-    args.positional[0] === 'init' ||
-    args.positional[0] === 'mcp' ||
+    subcommandWord(args) === 'init' ||
+    subcommandWord(args) === 'mcp' ||
     args.configure ||
     args.configureProvider !== undefined ||
     args.setCurrent;

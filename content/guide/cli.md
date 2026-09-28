@@ -86,6 +86,14 @@ robota -p "Write a function" --output-format stream-json
 robota -p "Review this diff" --bare          # without AGENTS.md, CLAUDE.md or plugins
 ```
 
+Put the prompt after `--` when it comes from somewhere you do not control (an issue body, a file):
+everything after `--` is the prompt, even text that starts with `-` or is exactly a subcommand's name,
+such as `init`.
+
+```bash
+robota -p --output-format json -- "$ISSUE_TITLE"
+```
+
 `--output-format json` prints one object such as
 `{ "type": "result", "result": "...", "session_id": "...", "subtype": "success" }`.
 `stream-json` prints one JSON object per line as the answer streams, then the result.
