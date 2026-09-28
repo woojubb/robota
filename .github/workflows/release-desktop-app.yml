@@ -117,6 +117,10 @@ jobs:
       - name: Build workspace
         run: pnpm build
 
+      - name: Verify Windows native control transport
+        if: runner.os == 'Windows'
+        run: pnpm --filter @robota-sdk/agent-cli exec vitest run src/session-inventory/__tests__/windows-security.test.ts src/session-inventory/__tests__/windows-control-pipe.test.ts
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
