@@ -115,16 +115,33 @@ jobs:
       # Node's `glob` returns real filenames, never re-parsed as shell words, and streams them back
       # NUL-terminated; `read -r -d ''` (not `mapfile -d ''` — macOS's system `/bin/bash` is 3.2, which
       # has no `mapfile` builtin) is the one bash framing that cannot split on an embedded space either.
+      #
+      # Two more failure modes the script itself closes: this checks out `steps.tag.outputs.tag`, a tag
+      # that may predate the script existing at all (every tag through v3.0.0-beta.84 does), so its
+      # presence is checked explicitly rather than assumed. And a `while ... < <(node ...)` process
+      # substitution does NOT propagate the substituted command's exit status — `set -e` cannot see it
+      # — so a crashing script would otherwise look identical to "matched nothing" instead of failing
+      # loudly; captured to a file and checked with `if !`, its exit status is not lost.
       - name: Assert packaged artifacts exist and are non-trivial
         shell: bash
         working-directory: apps/agent-app
         env:
           ASSETS: ${{ matrix.assets }}
+          MATCHES_FILE: ${{ runner.temp }}/list-release-assets-assert.txt
         run: |
           set -euo pipefail
+          script="$GITHUB_WORKSPACE/scripts/release/list-release-assets.mjs"
+          if [ ! -f "$script" ]; then
+            echo "::error::this tag predates scripts/release/list-release-assets.mjs, so its release assets cannot be rebuilt by this workflow; cut a new tag instead"
+            exit 1
+          fi
+          if ! node "$script" "$ASSETS" >"$MATCHES_FILE"; then
+            echo "::error::scripts/release/list-release-assets.mjs failed matching '$ASSETS' — see the Node error above"
+            exit 1
+          fi
           found=()
-          while IFS= read -r -d '' f; do found+=("$f"); done \
-            < <(node "$GITHUB_WORKSPACE/scripts/release/list-release-assets.mjs" "$ASSETS")
+          while IFS= read -r -d '' f; do found+=("$f"); done <"$MATCHES_FILE"
+          rm -f "$MATCHES_FILE"
           if [ ${#found[@]} -eq 0 ]; then
             echo "::error::no artifacts matched '$ASSETS' — electron-builder produced nothing to publish."
             exit 1
@@ -149,19 +166,29 @@ jobs:
       # the patterns were looked up as `release/release/*.dmg` and — with `nullglob` set — matched
       # nothing on every OS: "checksum manifest is empty — nothing was hashed." Matching now goes
       # through `scripts/release/list-release-assets.mjs` (see the comment on "Assert packaged
-      # artifacts" above for why: the same fix also closes the word-splitting gap a naive `cd`-before
-      # correction would have left open).
+      # artifacts" above for why, including why its presence and exit status are both checked here
+      # rather than assumed — a tag that predates the script, or a crash inside it, must fail loudly).
       - name: Generate SHA-256 checksums for this OS's installers
         shell: bash
         working-directory: apps/agent-app
         env:
           ASSETS: ${{ matrix.assets }}
           MANIFEST: SHA256SUMS-desktop-${{ matrix.os }}.txt
+          MATCHES_FILE: ${{ runner.temp }}/list-release-assets-checksum.txt
         run: |
           set -euo pipefail
+          script="$GITHUB_WORKSPACE/scripts/release/list-release-assets.mjs"
+          if [ ! -f "$script" ]; then
+            echo "::error::this tag predates scripts/release/list-release-assets.mjs, so its release assets cannot be rebuilt by this workflow; cut a new tag instead"
+            exit 1
+          fi
+          if ! node "$script" "$ASSETS" >"$MATCHES_FILE"; then
+            echo "::error::scripts/release/list-release-assets.mjs failed matching '$ASSETS' — see the Node error above"
+            exit 1
+          fi
           found=()
-          while IFS= read -r -d '' f; do found+=("$f"); done \
-            < <(node "$GITHUB_WORKSPACE/scripts/release/list-release-assets.mjs" "$ASSETS")
+          while IFS= read -r -d '' f; do found+=("$f"); done <"$MATCHES_FILE"
+          rm -f "$MATCHES_FILE"
           if [ ${#found[@]} -eq 0 ]; then
             echo "::error::no artifacts matched '$ASSETS' — nothing to hash."
             exit 1
