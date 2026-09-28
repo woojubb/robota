@@ -99,10 +99,6 @@ paths above.
 
 ### Fixes
 
-**Parallel DAG convergence** — Fixed a bug that created duplicate edges when multiple parallel agents converged at the same node.
-
-**clearChat full reset** — `/clear` now fully resets the session log, DAG state, and conversation history. Previously some DAG events persisted across resets.
-
 **Session log correlation** — Tool calls in session logs now carry consistent correlation keys, making replay-grade reconstruction reliable.
 
 ---
@@ -127,7 +123,7 @@ See the [full release notes for Beta 59](../guide/release-2026-05-02.md) for a d
 | 3.0.0-beta.77–78 | 2026-07-05 | `/workflows create` NL authoring (FLOW-007), self-contained CLI bundle (INFRA-028) |
 | 3.0.0-beta.68–76 | 2026-06-14 | Transport package split, `agent-session-analytics`, design-quality audit           |
 | 3.0.0-beta.67    | 2026-05-23 | Plugin guide, `robota init`, local LLM guide, UX improvements                      |
-| 3.0.0-beta.60–66 | 2026-05-10 | Safety limits, DAG fixes                                                           |
+| 3.0.0-beta.60–66 | 2026-05-10 | Safety limits, session log correlation                                             |
 | 3.0.0-beta.59    | 2026-05-02 | Subagents, multi-provider, session replay, parallel agents                         |
 | 3.0.0-beta.56–58 | 2026-05-01 | [See release notes](../guide/release-2026-05-02.md)                                |
 
