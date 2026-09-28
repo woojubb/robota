@@ -46,6 +46,190 @@ export function resolveNativeFixtureWorkspace(cwd, env = process.env) {
   return realpathSync(result.stdout.trim());
 }
 
+/**
+ * Whether this host can prove a project-relative write stays under the trusted workspace root
+ * (ARCH-047). The proof walks descriptor-relative paths through `/proc/self/fd`, which only Linux
+ * provides — see `supportsWorkspaceProjectMutation` in
+ * `packages/agent-framework/src/workspace-trust/project-relative-writer.ts`, the CLI-internal
+ * function this mirrors. Everywhere else, `trustedSessionStore`
+ * (`packages/agent-cli/src/startup/workspace-project-composition.ts`) falls a trusted workspace's
+ * sessions back to the user store instead, and the replay-log "native file authority" this fixture
+ * exercises never runs — there is no project-relative session write to protect. The two scenarios
+ * below assert whichever contract the current host actually promises, matching the same platform
+ * gate the product itself uses, rather than assuming the Linux-only contract everywhere.
+ */
+function supportsProjectFileAuthority(platform = process.platform) {
+  return platform === 'linux';
+}
+
+/**
+ * Linux scenario: a session's replay log and its externalized payload live under the trusted
+ * project (`<workspace>/.robota/logs`). `session analyze` must replay it, and must refuse to follow
+ * the payload directory when it has been swapped for a symlink into an untrusted parent.
+ */
+function runProjectFileAuthorityScenario(
+  command,
+  prefixArguments,
+  fixtureRoot,
+  workspace,
+  env,
+  sessionId,
+) {
+  const serializedPayload = JSON.stringify('native replay preserved');
+  const sha256 = createHash('sha256').update(serializedPayload).digest('hex');
+  const payloadName = `${sha256}.json`;
+  const marker = 'outside-secret-marker';
+  const logs = join(workspace, '.robota', 'logs');
+  const payloadDirectory = join(logs, `${sessionId}.payloads`);
+
+  mkdirSync(payloadDirectory, { recursive: true });
+  writeFileSync(join(payloadDirectory, payloadName), serializedPayload);
+  const timestamp = '2026-09-21T00:00:00.000Z';
+  // Current versioned session-log format: every line carries schemaVersion, and session_init
+  // records the full provider/prompt/tool context the replay decoder requires.
+  const lines = [
+    {
+      schemaVersion: 1,
+      timestamp,
+      sessionId,
+      event: 'session_init',
+      cwd: workspace,
+      systemPromptLength: 0,
+      systemPrompt: '',
+      toolSchemas: [],
+      model: 'fixture-model',
+      provider: 'fixture',
+    },
+    {
+      schemaVersion: 1,
+      timestamp,
+      sessionId,
+      event: 'history_mutation',
+      mutation: 'append_message',
+      index: 0,
+      message: {
+        id: 'user-1',
+        role: 'user',
+        state: 'complete',
+        content: 'analyze fixture',
+        timestamp,
+      },
+    },
+    {
+      schemaVersion: 1,
+      timestamp: '2026-09-21T00:00:01.000Z',
+      sessionId,
+      event: 'history_mutation',
+      mutation: 'append_message',
+      index: 1,
+      message: {
+        id: 'assistant-1',
+        role: 'assistant',
+        state: 'complete',
+        content: {
+          kind: 'external-payload',
+          encoding: 'json',
+          sha256,
+          byteLength: Buffer.byteLength(serializedPayload),
+          relativePath: `${sessionId}.payloads/${payloadName}`,
+        },
+        timestamp: '2026-09-21T00:00:01.000Z',
+      },
+    },
+  ];
+  writeFileSync(
+    join(logs, `${sessionId}.jsonl`),
+    `${lines.map((line) => JSON.stringify(line)).join('\n')}\n`,
+  );
+
+  const analyze = run(
+    command,
+    [...prefixArguments, 'session', 'analyze', '--session', sessionId],
+    workspace,
+    env,
+  );
+  if (analyze.status !== 0 || !(analyze.stdout ?? '').includes(sessionId)) {
+    throw commandFailure('robota session analyze', analyze);
+  }
+  const replaySucceeded = true;
+
+  rmSync(payloadDirectory, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
+  const outside = join(fixtureRoot, 'outside');
+  mkdirSync(outside);
+  writeFileSync(join(outside, payloadName), JSON.stringify(marker));
+  symlinkSync(outside, payloadDirectory, process.platform === 'win32' ? 'junction' : 'dir');
+
+  const refused = run(
+    command,
+    [...prefixArguments, 'session', 'analyze', '--session', sessionId],
+    workspace,
+    env,
+  );
+  const refusalOutput = `${refused.stdout ?? ''}\n${refused.stderr ?? ''}`;
+  const replacementDenied =
+    refused.status !== 0 &&
+    /link|unsafe|authority/iu.test(refusalOutput) &&
+    !refusalOutput.includes(marker) &&
+    !refusalOutput.includes(outside);
+  if (!replacementDenied) throw commandFailure('replaced-parent session analyze refusal', refused);
+
+  return { replaySucceeded, replacementDenied };
+}
+
+/**
+ * Non-Linux scenario: a trusted workspace's sessions are served from the user store
+ * (`~/.robota/sessions/<id>.json`), never from the project — there is no project-relative write for
+ * `session analyze` to protect, so the meaningful assertion is that the CLI still serves a session
+ * through the store it actually uses here, and that it never fell through to writing (or reading)
+ * anything project-relative in `workspace/.robota` while doing it.
+ */
+function runUserSessionStoreScenario(command, prefixArguments, home, workspace, env, sessionId) {
+  const timestamp = '2026-09-21T00:00:00.000Z';
+  const record = {
+    id: sessionId,
+    cwd: workspace,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    messages: [
+      {
+        id: 'user-1',
+        role: 'user',
+        state: 'complete',
+        content: 'analyze fixture',
+        timestamp,
+      },
+    ],
+  };
+  const sessionsDirectory = join(home, '.robota', 'sessions');
+  mkdirSync(sessionsDirectory, { recursive: true });
+  // Same versioned envelope `NodeSessionStore.save` writes (session-record-codec's
+  // SESSION_RECORD_ENVELOPE_VERSION); written directly here so the fixture proves the CLI's own
+  // *read* path, the same way the Linux scenario writes its replay log directly.
+  writeFileSync(
+    join(sessionsDirectory, `${sessionId}.json`),
+    JSON.stringify({ schemaVersion: 1, record }, null, 2),
+  );
+
+  const analyze = run(
+    command,
+    [...prefixArguments, 'session', 'analyze', '--session', sessionId],
+    workspace,
+    env,
+  );
+  if (analyze.status !== 0 || !(analyze.stdout ?? '').includes(sessionId)) {
+    throw commandFailure('robota session analyze', analyze);
+  }
+
+  const projectStateWritten = existsSync(join(workspace, '.robota'));
+  if (projectStateWritten) {
+    throw new Error(
+      'A trusted workspace wrote project-relative state on a host without project file authority.',
+    );
+  }
+
+  return { replaySucceeded: true, projectStateWritten };
+}
+
 export function runNativeFileAuthorityE2e(binaryPath, options = {}) {
   const binary = resolve(binaryPath);
   if (!existsSync(binary)) throw new Error(`The packaged Robota executable is missing: ${binary}`);
@@ -56,15 +240,10 @@ export function runNativeFileAuthorityE2e(binaryPath, options = {}) {
   const fixtureRoot = realpathSync(mkdtempSync(join(tmpdir(), 'robota-native-cli-')));
   const home = join(fixtureRoot, 'home');
   const workspaceDirectory = join(fixtureRoot, 'workspace');
-  const outside = join(fixtureRoot, 'outside');
   const sessionId = 'session_1781000001000_native';
-  const serializedPayload = JSON.stringify('native replay preserved');
-  const sha256 = createHash('sha256').update(serializedPayload).digest('hex');
-  const payloadName = `${sha256}.json`;
-  const marker = 'outside-secret-marker';
   const env = { ...process.env, HOME: home, USERPROFILE: home };
-  let replaySucceeded = false;
-  let replacementDenied = false;
+  const projectAuthority = supportsProjectFileAuthority();
+  let scenario;
 
   try {
     mkdirSync(home, { recursive: true });
@@ -72,111 +251,35 @@ export function runNativeFileAuthorityE2e(binaryPath, options = {}) {
     const git = run('git', ['init', '--quiet'], workspaceDirectory, env);
     if (git.status !== 0) throw commandFailure('git init', git);
     const workspace = resolveNativeFixtureWorkspace(workspaceDirectory, env);
-    const logs = join(workspace, '.robota', 'logs');
-    const payloadDirectory = join(logs, `${sessionId}.payloads`);
 
     const trust = run(command, [...prefixArguments, 'trust', '--yes'], workspace, env);
     if (trust.status !== 0 || !/Workspace trust: trusted/u.test(trust.stdout ?? '')) {
       throw commandFailure('robota trust --yes', trust);
     }
 
-    mkdirSync(payloadDirectory, { recursive: true });
-    writeFileSync(join(payloadDirectory, payloadName), serializedPayload);
-    const timestamp = '2026-09-21T00:00:00.000Z';
-    // Current versioned session-log format: every line carries schemaVersion, and session_init
-    // records the full provider/prompt/tool context the replay decoder requires.
-    const lines = [
-      {
-        schemaVersion: 1,
-        timestamp,
-        sessionId,
-        event: 'session_init',
-        cwd: workspace,
-        systemPromptLength: 0,
-        systemPrompt: '',
-        toolSchemas: [],
-        model: 'fixture-model',
-        provider: 'fixture',
-      },
-      {
-        schemaVersion: 1,
-        timestamp,
-        sessionId,
-        event: 'history_mutation',
-        mutation: 'append_message',
-        index: 0,
-        message: {
-          id: 'user-1',
-          role: 'user',
-          state: 'complete',
-          content: 'analyze fixture',
-          timestamp,
-        },
-      },
-      {
-        schemaVersion: 1,
-        timestamp: '2026-09-21T00:00:01.000Z',
-        sessionId,
-        event: 'history_mutation',
-        mutation: 'append_message',
-        index: 1,
-        message: {
-          id: 'assistant-1',
-          role: 'assistant',
-          state: 'complete',
-          content: {
-            kind: 'external-payload',
-            encoding: 'json',
-            sha256,
-            byteLength: Buffer.byteLength(serializedPayload),
-            relativePath: `${sessionId}.payloads/${payloadName}`,
-          },
-          timestamp: '2026-09-21T00:00:01.000Z',
-        },
-      },
-    ];
-    writeFileSync(
-      join(logs, `${sessionId}.jsonl`),
-      `${lines.map((line) => JSON.stringify(line)).join('\n')}\n`,
-    );
-
-    const analyze = run(
-      command,
-      [...prefixArguments, 'session', 'analyze', '--session', sessionId],
-      workspace,
-      env,
-    );
-    if (analyze.status !== 0 || !(analyze.stdout ?? '').includes(sessionId)) {
-      throw commandFailure('robota session analyze', analyze);
-    }
-    replaySucceeded = true;
-
-    rmSync(payloadDirectory, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
-    mkdirSync(outside);
-    writeFileSync(join(outside, payloadName), JSON.stringify(marker));
-    symlinkSync(outside, payloadDirectory, process.platform === 'win32' ? 'junction' : 'dir');
-
-    const refused = run(
-      command,
-      [...prefixArguments, 'session', 'analyze', '--session', sessionId],
-      workspace,
-      env,
-    );
-    const refusalOutput = `${refused.stdout ?? ''}\n${refused.stderr ?? ''}`;
-    replacementDenied =
-      refused.status !== 0 &&
-      /link|unsafe|authority/iu.test(refusalOutput) &&
-      !refusalOutput.includes(marker) &&
-      !refusalOutput.includes(outside);
-    if (!replacementDenied)
-      throw commandFailure('replaced-parent session analyze refusal', refused);
+    scenario = projectAuthority
+      ? runProjectFileAuthorityScenario(
+          command,
+          prefixArguments,
+          fixtureRoot,
+          workspace,
+          env,
+          sessionId,
+        )
+      : runUserSessionStoreScenario(command, prefixArguments, home, workspace, env, sessionId);
   } finally {
     rmSync(fixtureRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
   }
 
   const cleanupRemoved = !existsSync(fixtureRoot);
   if (!cleanupRemoved) throw new Error('The packaged native replay fixture was not removed.');
-  return `native-file-authority=passed; success=${replaySucceeded}; replacementDenied=${replacementDenied}; cleanupRemoved=${cleanupRemoved}`;
+  const detail = projectAuthority
+    ? `replacementDenied=${scenario.replacementDenied}`
+    : `projectStateWritten=${scenario.projectStateWritten}`;
+  return (
+    `native-file-authority=passed; scenario=${projectAuthority ? 'project' : 'user-store'}; ` +
+    `success=${scenario.replaySucceeded}; ${detail}; cleanupRemoved=${cleanupRemoved}`
+  );
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
