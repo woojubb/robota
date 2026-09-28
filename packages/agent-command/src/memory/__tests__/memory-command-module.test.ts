@@ -101,10 +101,15 @@ function createMockRuntimeSession() {
   };
 }
 
-async function createInteractiveSession(cwd = makeProject()): Promise<InteractiveSession> {
+async function createInteractiveSession(
+  cwd = makeProject(),
+  permissionMode: 'default' | 'plan' = 'default',
+): Promise<InteractiveSession> {
+  const runtime = createMockRuntimeSession();
+  runtime.getPermissionMode.mockReturnValue(permissionMode);
   return new InteractiveSession({
     cwd,
-    session: createMockRuntimeSession() as never,
+    session: runtime as never,
     memoryStore: await createMemoryStore(cwd),
     commandModules: [createMemoryCommandModule()],
   });
@@ -361,5 +366,38 @@ describe('executeMemoryCommand', () => {
     expect(result.message).toContain('Usage: memory');
     expect(unknownResult.success).toBe(false);
     expect(existsSync(join(cwd, '.robota', 'memory', 'MEMORY.md'))).toBe(false);
+  });
+
+  describe('in plan mode', () => {
+    it('refuses a memory the model asks to save, and writes nothing', async () => {
+      const cwd = makeProject();
+      const session = await createInteractiveSession(cwd, 'plan');
+
+      const result = await session.executeModelCommand('memory', 'add project build Use pnpm.');
+
+      expect(result?.success).toBe(false);
+      expect(result?.message).toContain('Plan mode saves no memory');
+      expect(existsSync(join(cwd, '.robota', 'memory', 'MEMORY.md'))).toBe(false);
+    });
+
+    // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+    it.runIf(process.platform === 'linux')(
+      'still saves a memory the user adds by hand',
+      async () => {
+        const cwd = makeProject();
+        const session = await createInteractiveSession(cwd, 'plan');
+
+        const result = await session.executeCommand('memory', 'add project build Use pnpm.');
+
+        expect(result?.success).toBe(true);
+        expect(existsSync(join(cwd, '.robota', 'memory', 'MEMORY.md'))).toBe(true);
+      },
+    );
+
+    it('lets the model read memory', async () => {
+      const session = await createInteractiveSession(makeProject(), 'plan');
+      const result = await session.executeModelCommand('memory', 'list');
+      expect(result?.success).toBe(true);
+    });
   });
 });

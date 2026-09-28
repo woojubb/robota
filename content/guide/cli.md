@@ -181,13 +181,13 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
-| Option                                | Use                                                          |
-| ------------------------------------- | ------------------------------------------------------------ |
-| `--permission-mode plan`              | Review only: nothing is written; only read-only commands run |
-| `--permission-mode bypassPermissions` | Let the agent edit and run commands without asking           |
-| `--no-session-persistence`            | Do not save the session                                      |
-| `--output-format json`                | One JSON result; check `.subtype` for `success` or `error`   |
-| `--max-turns <n>`                     | Cap the number of agent turns                                |
+| Option                                | Use                                                                    |
+| ------------------------------------- | ---------------------------------------------------------------------- |
+| `--permission-mode plan`              | Review only: the agent writes nothing and runs only read-only commands |
+| `--permission-mode bypassPermissions` | Let the agent edit and run commands without asking                     |
+| `--no-session-persistence`            | Do not save the session                                                |
+| `--output-format json`                | One JSON result; check `.subtype` for `success` or `error`             |
+| `--max-turns <n>`                     | Cap the number of agent turns                                          |
 
 ## Session management
 
@@ -316,7 +316,8 @@ Memory keeps facts worth reusing across sessions (preferences, project conventio
 is off by default. `--memory` or `--no-memory` decides for one run and overrides the
 `memory.enabled` setting; the `ROBOTA_MEMORY=1|0` environment variable overrides both. Captured facts
 wait in an approval queue unless you pass `--memory-autosave`. In a session, `/memory` lists, shows,
-adds and reviews items (`/memory pending`, `/memory approve <id>`, `/memory reject <id>`).
+adds and reviews items (`/memory pending`, `/memory approve <id>`, `/memory reject <id>`). The model
+can look memory up and add to it too, except in `plan` mode, where it saves nothing.
 
 ### Terminal appearance
 
