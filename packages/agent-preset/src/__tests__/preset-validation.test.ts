@@ -55,6 +55,15 @@ describe('validateExternalPreset — field-type validation', () => {
     if (!bad.ok) expect(bad.error).toMatch(/^permissionMode: expected one of/);
   });
 
+  it('accepts every permission mode a session accepts, auto included', () => {
+    for (const mode of ['plan', 'default', 'acceptEdits', 'bypassPermissions', 'auto']) {
+      const result = validateExternalPreset({ ...BASE, permissionMode: mode });
+      expect(result.ok, mode).toBe(true);
+      if (result.ok) expect(result.preset.permissionMode).toBe(mode);
+    }
+    expect(validateExternalPreset({ ...BASE, defaultPermissionMode: 'auto' }).ok).toBe(true);
+  });
+
   it('accepts string-array fields and rejects non-string-array values', () => {
     const good = validateExternalPreset({ ...BASE, allowedTools: ['Read', 'Write'] });
     expect(good.ok).toBe(true);

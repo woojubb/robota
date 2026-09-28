@@ -208,26 +208,18 @@ export interface IOpenAIProviderOptions {
   /**
    * Optional executor for handling AI requests
    *
-   * When provided, the provider will delegate all chat operations to this executor
-   * instead of making direct API calls. This enables remote execution capabilities.
+   * When provided, the provider delegates every chat call to this executor instead of calling the
+   * API itself — for example to route calls through your own server. Implement `IExecutor` from
+   * `@robota-sdk/agent-core`; `LocalExecutor` is the in-process one.
    *
    * @example
    * ```typescript
-   * import { LocalExecutor, RemoteExecutor } from '@robota-sdk/agent-core';
+   * import { LocalExecutor } from '@robota-sdk/agent-core';
    *
-   * // Local execution (registers this provider)
-   * const localExecutor = new LocalExecutor();
-   * localExecutor.registerProvider('openai', new OpenAIProvider({ apiKey: 'sk-...' }));
+   * const executor = new LocalExecutor();
+   * executor.registerProvider('openai', new OpenAIProvider({ apiKey: 'sk-...' }));
    *
-   * // Remote execution
-   * const remoteExecutor = new RemoteExecutor({
-   *   serverUrl: 'https://api.robota.io',
-   *   userApiKey: 'user-token-123'
-   * });
-   *
-   * const provider = new OpenAIProvider({
-   *   executor: remoteExecutor // No direct API key needed
-   * });
+   * const provider = new OpenAIProvider({ executor });
    * ```
    */
   executor?: IExecutor;
