@@ -1,13 +1,20 @@
-import { describe, expect, it } from 'vitest';
+import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
+import { describe, expect, it, vi } from 'vitest';
 
 import { startsNewTuiSession } from '../../startup/interactive-trust-prompt.js';
 import { mcpServeProtocolArgs } from '../../startup/mcp-serve-invocation.js';
+import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
+import { resolveStartupWorkspaceProjectAccess } from '../../startup/workspace-project-composition.js';
 import { runUserLocalDirectCommandIfRequested } from '../../user-local-direct-command.js';
 import { parseCliArgs, subcommandWord } from '../cli-args.js';
+import { optionArgv } from '../option-argv.js';
 
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
 const silentTerminal = {} as ITerminalOutput;
+
+/** A host decision `resolveStartupWorkspaceProjectAccess` passes through unless a flag forces Restricted. */
+const HOST_DECISION = createRestrictedWorkspaceProjectAccess('revoked', '/workspace');
 
 describe('words after `--` are text, never a subcommand', () => {
   it('reads `robota -p -- init` as a prompt, not as `robota init`', () => {
@@ -39,5 +46,41 @@ describe('words after `--` are text, never a subcommand', () => {
   it('opens the terminal UI for `robota -- init`, since "init" is text there', () => {
     expect(startsNewTuiSession(parseCliArgs(['--', 'init']))).toBe(true);
     expect(startsNewTuiSession(parseCliArgs(['init']))).toBe(false);
+  });
+});
+
+describe('flags are read only from the part of argv before `--`', () => {
+  it('cuts argv at the first `--`', () => {
+    expect(optionArgv(['node', 'robota', '-p', '--', '--attach'])).toEqual([
+      'node',
+      'robota',
+      '-p',
+    ]);
+    expect(optionArgv(['node', 'robota', '--attach'])).toEqual(['node', 'robota', '--attach']);
+  });
+
+  it('does not start the attach command for a prompt that spells --attach', async () => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      const handled = await runPreparsedCliCommand(
+        { providerDefinitions: [] },
+        ['node', 'robota', '-p', '--', '--attach'],
+        '/nonexistent-robota-attach-cwd',
+      );
+      expect(handled).toBe(false);
+    } finally {
+      stdout.mockRestore();
+      stderr.mockRestore();
+    }
+  });
+
+  it('does not force a Restricted start for a prompt that spells --safe-mode', async () => {
+    const access = await resolveStartupWorkspaceProjectAccess(
+      ['node', 'robota', '-p', '--', '--safe-mode'],
+      '/nonexistent-robota-safe-mode-cwd',
+      { projectAccess: HOST_DECISION },
+    );
+    expect(access).toBe(HOST_DECISION);
   });
 });

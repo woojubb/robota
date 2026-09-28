@@ -43,6 +43,7 @@ import {
 } from './workspace-project-composition.js';
 import { runMcpLoginCommand, runMcpLogoutCommand } from './mcp-login-command.js';
 import { runWorkspaceTrustCommand } from './workspace-trust-command.js';
+import { optionArgv } from '../utils/option-argv.js';
 import {
   formatHeadlessWorkspaceTrustError,
   requiresHeadlessWorkspaceTrust,
@@ -222,7 +223,7 @@ export async function runPreparsedCliCommand(
         });
   // `robota --attach`: the full TUI on this workspace's daemon. Its only flags are presentation
   // flags, so the strict global parser, which knows the session-shaping ones, never sees it.
-  if (isDaemonAttachInvocation(argv.slice(SUBCOMMAND_INDEX))) {
+  if (isDaemonAttachInvocation(optionArgv(argv).slice(SUBCOMMAND_INDEX))) {
     const render = await attachedAppRender();
     process.exitCode = await runDaemonAttachCommand(argv.slice(SUBCOMMAND_INDEX), {
       cwd,

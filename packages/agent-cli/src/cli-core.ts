@@ -36,6 +36,7 @@ import { createSetupPlaceholderProvider } from './startup/setup-placeholder-prov
 import { checkForCliUpdate, formatCliUpdateCheckMessage } from './update-check/update-check.js';
 import { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
 import { parseCliArgs, printHelp, subcommandWord, type IParsedCliArgs } from './utils/cli-args.js';
+import { optionArgv } from './utils/option-argv.js';
 import { isSubcommandName } from './utils/cli-help.js';
 import { resolveShellPresetOrExit } from './startup/preset-selection.js';
 import { ROBOTA_DEFAULT_AGENT_NAME } from './product/robota-preset-defaults.js';
@@ -203,7 +204,7 @@ async function runCliCore(
   const cwd = process.cwd();
   // Issue #3082: read from argv (or the embedder's option) before anything is composed, like the
   // access decision it forces to Restricted.
-  const safeMode = process.argv.includes(SAFE_MODE_FLAG) || options.safeMode === true;
+  const safeMode = optionArgv(process.argv).includes(SAFE_MODE_FLAG) || options.safeMode === true;
   let projectAccess = await resolveStartupWorkspaceProjectAccess(
     safeMode ? [...process.argv, SAFE_MODE_FLAG] : process.argv,
     cwd,
@@ -304,7 +305,7 @@ async function runCliCore(
     // the session view), ask for one; the refusal exists so an untrusted project is never silently
     // run without its sources, which is exactly what they request.
     !safeMode &&
-    !process.argv.includes(RESTRICTED_WORKSPACE_FLAG) &&
+    !optionArgv(process.argv).includes(RESTRICTED_WORKSPACE_FLAG) &&
     requiresHeadlessWorkspaceTrust(projectAccess)
   ) {
     // #3282 §3: `--serve --open` opens a browser for whoever ran it — someone is at this terminal,
@@ -360,7 +361,7 @@ async function runCliCore(
       startsNewTuiSession(args) && process.stdin.isTTY === true && process.stdout.isTTY === true,
     accessFixed:
       safeMode ||
-      process.argv.includes(RESTRICTED_WORKSPACE_FLAG) ||
+      optionArgv(process.argv).includes(RESTRICTED_WORKSPACE_FLAG) ||
       options.projectAccess !== undefined,
   });
   startupOptions.projectAccess = projectAccess;
