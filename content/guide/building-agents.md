@@ -518,6 +518,6 @@ if (errors.length > 0) {
 ## Errors
 
 Errors thrown by the SDK extend `RobotaError`, which carries a `code`, a `category` and a
-`recoverable` flag. Provider failures arrive as `RateLimitError` (HTTP 429) or `ProviderError` (which
-carries the HTTP `status`). See [Error Handling](./error-handling.md) for the full list and retry
-patterns.
+`recoverable` flag. Provider failures arrive as `RateLimitError`, `AuthenticationError`,
+`ModelNotAvailableError`, `NetworkError` or, for anything else, `ProviderError` (which carries the HTTP
+`status`). See [Error Handling](./error-handling.md) for the full list and retry patterns.

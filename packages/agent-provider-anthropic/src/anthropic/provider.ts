@@ -111,7 +111,7 @@ export class AnthropicProvider extends AbstractAIProvider {
   ): Promise<TUniversalMessage> {
     this.validateMessages(messages);
     this.validateNativeWebTools(options?.nativeWebTools);
-    const resolvedOptions = this.resolveEffortOptions(options);
+    const resolvedOptions = this.resolveEffortOptions(this.withDefaultModel(options));
 
     // Use executor when configured; otherwise use direct execution
     if (this.executor) {
@@ -195,7 +195,7 @@ export class AnthropicProvider extends AbstractAIProvider {
   ): AsyncIterable<TUniversalMessage> {
     this.validateMessages(messages);
     this.validateNativeWebTools(options?.nativeWebTools);
-    const resolvedOptions = this.resolveEffortOptions(options);
+    const resolvedOptions = this.resolveEffortOptions(this.withDefaultModel(options));
 
     // Use executor when configured; otherwise use direct execution
     if (this.executor) {
@@ -328,6 +328,13 @@ export class AnthropicProvider extends AbstractAIProvider {
   private traceRequestHeaders(options: IChatOptions | undefined): Readonly<Record<string, string>> {
     if (!this.canPropagateTraceContext()) return {};
     return traceHeadersFor(this.effectiveBaseUrl(), options?.outboundTraceContext);
+  }
+
+  /** The call's options with the configured default model filled in when the call names none. */
+  private withDefaultModel(options: IChatOptions | undefined): IChatOptions | undefined {
+    const defaultModel = this.options.defaultModel;
+    if (options?.model !== undefined || defaultModel === undefined) return options;
+    return { ...options, model: defaultModel };
   }
 
   private resolveEffortOptions(options: IChatOptions | undefined): IChatOptions | undefined {

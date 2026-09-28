@@ -17,12 +17,12 @@ message text. All the classes below are exported from `@robota-sdk/agent-core`.
 | ------------------------- | ------------------------- | ---------- | ----------- | ----------------------------------------------------------------------------------------------------------- |
 | `ConfigurationError`      | `CONFIGURATION_ERROR`     | `user`     | No          | Invalid or missing configuration, e.g. a provider created without an API key                                |
 | `ValidationError`         | `VALIDATION_ERROR`        | `user`     | No          | Invalid input, e.g. tool arguments that fail the tool's Zod schema                                          |
-| `AuthenticationError`     | `AUTHENTICATION_ERROR`    | `user`     | No          | For your own code; built-in providers report a rejected key as `ProviderError`                              |
-| `ModelNotAvailableError`  | `MODEL_NOT_AVAILABLE`     | `user`     | No          | A requested model is not available; for your own code — built-in providers use `ProviderError`              |
-| `ProviderError`           | `PROVIDER_ERROR`          | `provider` | Yes         | A provider call failed for any reason other than a rate limit                                               |
-| `RateLimitError`          | `RATE_LIMIT_ERROR`        | `provider` | Yes         | The provider reported a rate limit (HTTP 429)                                                               |
+| `AuthenticationError`     | `AUTHENTICATION_ERROR`    | `user`     | No          | The provider rejected the API key (HTTP 401 or 403, or an authentication error type)                        |
+| `ModelNotAvailableError`  | `MODEL_NOT_AVAILABLE`     | `user`     | No          | The provider says the requested model does not exist or is not served                                       |
+| `ProviderError`           | `PROVIDER_ERROR`          | `provider` | Yes         | A provider call failed for any reason the other provider errors do not cover                                |
+| `RateLimitError`          | `RATE_LIMIT_ERROR`        | `provider` | Yes         | The provider reported a rate limit (HTTP 429); `retryAfter` holds the seconds it asked to wait              |
 | `StructuredOutputError`   | `STRUCTURED_OUTPUT_ERROR` | `provider` | Yes         | `run(prompt, { output })` got no valid object after all retries                                             |
-| `NetworkError`            | `NETWORK_ERROR`           | `system`   | Yes         | A connection failure or timeout; built-in providers report connection failures as `ProviderError`           |
+| `NetworkError`            | `NETWORK_ERROR`           | `system`   | Yes         | The request to the provider got no response: a refused or reset connection, DNS, a timeout                  |
 | `ToolExecutionError`      | `TOOL_EXECUTION_ERROR`    | `system`   | No          | A tool failed. During a run the failure goes back to the model as the tool's result instead of being thrown |
 | `SameToolInputLoopError`  | `SAME_TOOL_INPUT_LOOP`    | `system`   | Yes         | A tool was called with identical input more often than `maxSameToolInputs` allows                           |
 | `CircuitBreakerOpenError` | `CIRCUIT_BREAKER_OPEN`    | `system`   | Yes         | For your own circuit breakers; the built-in packages do not throw it                                        |
@@ -52,15 +52,22 @@ function describe(error: Error): string {
 
 ## Provider failures
 
-Every built-in provider turns a failed API call into one of two errors:
+Every built-in chat provider turns a failed API call into one of these errors:
 
 - `RateLimitError` when the vendor reports a rate limit (HTTP 429 or a rate-limit error type).
+  `retryAfter` is the number of seconds from the vendor's `retry-after` header, when it sent one; the
+  Gemini SDK exposes no headers, so it is always undefined there.
+- `AuthenticationError` when the key is rejected (HTTP 401 or 403, or an authentication or permission
+  error type).
+- `ModelNotAvailableError` when the vendor names the model as the problem: a `model_not_found` code,
+  or a 400 or 404 whose message names the model.
+- `NetworkError` when the request got no response at all.
 - `ProviderError` for everything else. It carries `provider`, the HTTP `status` and the vendor's
   error `type` when the vendor sent them, and the underlying error as `originalError`.
 
-A rejected API key therefore arrives as a `ProviderError` with `status` 401 or 403, not as an
-`AuthenticationError`. And because every `ProviderError` is marked recoverable, `recoverable` alone
-cannot tell a temporary outage from a bad key.
+Each keeps the vendor's own message, with anything that looks like a credential removed. A rejected
+key and an unavailable model are not recoverable; the others are, so `recoverable` alone cannot tell
+a temporary outage from a request that is wrong for this vendor.
 
 To decide what to do, use `classifyProviderFailure(error)`. It reads the status and type, follows
 wrapped errors (`originalError` and `cause`), and returns `{ switchable, reason }`:
@@ -170,13 +177,13 @@ error — `completed` resolves with `interrupted: true` and the session emits `i
 ## Retrying provider failures
 
 Retry the failures that can clear up on their own — rate limits, overload, outages and network
-errors — with exponential back-off and jitter. Do not retry authentication, billing or invalid
-requests.
+errors — with exponential back-off and jitter, and wait at least as long as a rate limit's
+`retryAfter` asks. Do not retry authentication, billing or invalid requests.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { classifyProviderFailure } from '@robota-sdk/agent-core';
+import { RateLimitError, classifyProviderFailure } from '@robota-sdk/agent-core';
 import type { TProviderFailureReason } from '@robota-sdk/agent-core';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -199,7 +206,9 @@ async function queryWithRetry(prompt: string, maxAttempts = 5): Promise<string> 
       const { reason } = classifyProviderFailure(error);
       if (attempt >= maxAttempts || !RETRYABLE.has(reason)) throw error;
 
-      const delay = Math.min(1000 * 2 ** attempt, 30_000) + Math.random() * 1000;
+      const backoff = Math.min(1000 * 2 ** attempt, 30_000) + Math.random() * 1000;
+      const asked = error instanceof RateLimitError ? (error.retryAfter ?? 0) * 1000 : 0;
+      const delay = Math.max(backoff, asked);
       console.warn(
         `Attempt ${attempt} failed (${reason}); retrying in ${(delay / 1000).toFixed(1)}s`,
       );

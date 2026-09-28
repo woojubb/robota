@@ -411,7 +411,8 @@ from a runtime so you can `shutdown()` each one when its item is done.
 
 The run loop does not retry a failed provider call (the vendor SDK clients inside the Anthropic and
 OpenAI providers apply their own default retries). A rate limit that still fails surfaces as
-`RateLimitError`; other provider failures as `ProviderError` with the HTTP `status`. Retry in your
+`RateLimitError`, with the seconds the vendor asked to wait in `retryAfter` when it said; see
+[Provider failures](./error-handling.md#provider-failures) for the other error types. Retry in your
 code — see [Retrying provider failures](./error-handling.md#retrying-provider-failures).
 
 ### Context overflow

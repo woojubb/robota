@@ -129,6 +129,9 @@ The map is plain data. The routing helpers that read it live in `@robota-sdk/age
   model in its role's chain whose provider matches the session's provider. The role is the agent
   definition's `role`, or its `name`.
 
+Nothing passes this map by default: the reference CLI's subagents run on the session's model unless
+their agent definition names one. A host opts in to role routing by passing a map as `roleModels`.
+
 To change a role, build your own map from the default:
 
 ```typescript
