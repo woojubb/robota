@@ -373,8 +373,7 @@ export class PermissionEnforcer {
       this.transcriptPath,
     );
     const gate = await runPreToolGate(this.config.hooks, hookInput, this.hookTypeExecutors);
-    // The action runs as described, so a hook that rewrote its input decided about another action.
-    if (gate.refusal || gate.updatedInput !== undefined) {
+    if (gate.refusal) {
       this.log('tool_blocked', { tool: toolName, reason: 'hook', delegated: true });
       return false;
     }
@@ -475,8 +474,6 @@ export class PermissionEnforcer {
     // 'approve' — route to the human-approval path. An ask that must reach a person every time is
     // not answered by a remembered consent, and does not create one (issue #3081).
     const fresh = requiresFreshApproval(toolName, toolArgs, rules, where);
-    // A hook's `allow` answers the ordinary prompt, not an ask that must reach a person.
-    if (scope.hookDecision === 'allow' && !fresh && policy?.askAll !== true) return true;
     // In auto mode the classifier stands in for the person, except where a person is required: an
     // ask rule, a critical removal or protected path, or a policy that asks about everything.
     if (mode === 'auto' && this.autoMode !== undefined && !fresh && policy?.askAll !== true) {
@@ -490,6 +487,9 @@ export class PermissionEnforcer {
         scope,
       );
     }
+    // A hook's `allow` answers the person's prompt, not the classifier and not an ask that must
+    // reach a person.
+    if (scope.hookDecision === 'allow' && !fresh && policy?.askAll !== true) return true;
     return this.promptForApproval(
       toolName,
       toolArgs,

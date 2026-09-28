@@ -136,7 +136,6 @@ const fixtures = {
     ],
   },
   tool_call: { tool: 'Read', args: { path: 'a' } },
-  tool_input_updated: { tool: 'Read', args: { path: 'b' } },
   tool_result: { tool: 'Read', success: true, dataChars: 1, truncated: false },
   tool_blocked: { tool: 'Read', reason: 'hook' },
   tool_denied: { tool: 'Read', reason: 'permission' },
@@ -173,7 +172,6 @@ const malformedField = {
   text_delta: 'delta',
   assistant: 'historyStructure',
   tool_call: 'args',
-  tool_input_updated: 'args',
   tool_result: 'dataChars',
   tool_blocked: 'reason',
   tool_denied: 'reason',
@@ -199,10 +197,10 @@ describe('session-log codec', () => {
     const decoded = decodeSessionLogEntries(
       Object.entries(fixtures).map(([event, payload]) => ({ ...envelope, event, ...payload })),
     );
-    expect(decoded).toHaveLength(Object.keys(fixtures).length);
+    expect(decoded).toHaveLength(31);
     const response = decoded.find((entry) => entry.event === 'provider_response_normalized');
     expect(response?.response.timestamp).toBeInstanceOf(Date);
-    expect(decodeSessionLogEntries(decoded)).toHaveLength(Object.keys(fixtures).length);
+    expect(decodeSessionLogEntries(decoded)).toHaveLength(31);
   });
 
   it.each(Object.entries(malformedField))('rejects malformed %s payload field', (event, field) => {

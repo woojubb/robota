@@ -1,7 +1,7 @@
 /**
- * A PreToolUse hook's `permissionDecision` and `updatedInput` reach the permission gate: `allow`
- * answers the ordinary prompt, `ask` reaches a person whatever the mode allows, `defer` leaves the
- * normal flow, and the rules, the prompt and the tool see the rewritten input.
+ * A PreToolUse command hook's `permissionDecision` reaches the permission gate: `allow` answers the
+ * person's prompt, `ask` reaches a person whatever the mode allows, and `defer` leaves the normal
+ * flow. A model-judged hook can only refuse, and an `allow` sent with a rewrite is not applied.
  */
 
 import { clearRegisteredToolProfiles, registerToolPermissionProfile } from '@robota-sdk/agent-core';
@@ -15,9 +15,20 @@ import type {
   IToolResult,
   IToolWithEventService,
   ITerminalOutput,
+  THooksConfig,
   TPermissionMode,
   TToolParameters,
 } from '@robota-sdk/agent-core';
+
+beforeEach(() => {
+  clearRegisteredToolProfiles();
+  registerToolPermissionProfile('Bash', {
+    argument: { key: 'command', kind: 'command' },
+    riskClass: 'execute',
+  });
+});
+
+afterEach(() => clearRegisteredToolProfiles());
 
 function makeNoopTerminal(): ITerminalOutput {
   return {
@@ -31,48 +42,72 @@ function makeNoopTerminal(): ITerminalOutput {
   };
 }
 
-/** A command hook that answers with the given `hookSpecificOutput`. */
-function hookSaying(specific: Record<string, unknown>): IHookTypeExecutor {
+function bodyOf(specific: Record<string, unknown>): string {
+  return JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', ...specific } });
+}
+
+/**
+ * Command hooks, one per answer. Each hook's `command` names the answer it gives, so several hooks
+ * share the one command executor.
+ */
+function commandHooks(...answers: Record<string, unknown>[]): {
+  hooks: THooksConfig;
+  executors: IHookTypeExecutor[];
+} {
   return {
-    type: 'command',
-    execute: vi.fn(async () => ({
-      outcome: 'allow' as const,
-      source: 'command' as const,
-      stdout: JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', ...specific } }),
-    })),
+    hooks: {
+      PreToolUse: [
+        {
+          matcher: '',
+          hooks: answers.map((_, index) => ({ type: 'command' as const, command: `${index}` })),
+        },
+      ],
+    },
+    executors: [
+      {
+        type: 'command',
+        execute: vi.fn(async (definition) => ({
+          outcome: 'allow' as const,
+          source: 'command' as const,
+          stdout: bodyOf(answers[Number((definition as { command: string }).command)]!),
+        })),
+      },
+    ],
   };
 }
 
+interface ISetupOptions {
+  mode?: TPermissionMode;
+  deny?: string[];
+  ask?: string[];
+  handler?: TPermissionHandler;
+  extra?: Partial<IPermissionEnforcerOptions>;
+}
+
 function setup(
-  specific: Record<string, unknown>,
-  options: {
-    mode?: TPermissionMode;
-    allow?: string[];
-    deny?: string[];
-    ask?: string[];
-    handler?: TPermissionHandler;
-  } = {},
+  hookSetup: { hooks: THooksConfig; executors: IHookTypeExecutor[] },
+  options: ISetupOptions = {},
 ): {
   enforcer: PermissionEnforcer;
   run: (parameters: TToolParameters) => Promise<IToolResult>;
   body: ReturnType<typeof vi.fn>;
 } {
-  const config: IPermissionEnforcerOptions['config'] = {
-    permissions: {
-      allow: options.allow ?? [],
-      deny: options.deny ?? [],
-      ...(options.ask ? { ask: options.ask } : {}),
-    },
-    hooks: { PreToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'gate' }] }] },
-  };
   const enforcer = new PermissionEnforcer({
     sessionId: 'test-session',
     cwd: '/tmp',
     getPermissionMode: () => options.mode ?? 'default',
-    config,
+    config: {
+      permissions: {
+        allow: [],
+        deny: options.deny ?? [],
+        ...(options.ask ? { ask: options.ask } : {}),
+      },
+      hooks: hookSetup.hooks,
+    },
     terminal: makeNoopTerminal(),
-    hookTypeExecutors: [hookSaying(specific)],
+    hookTypeExecutors: hookSetup.executors,
     ...(options.handler ? { permissionHandler: options.handler } : {}),
+    ...options.extra,
   });
   const body = vi.fn(async (parameters: TToolParameters): Promise<IToolResult> => ({
     success: true,
@@ -90,20 +125,12 @@ function setup(
   return { enforcer, run, body };
 }
 
-beforeEach(() => {
-  clearRegisteredToolProfiles();
-  registerToolPermissionProfile('Bash', {
-    argument: { key: 'command', kind: 'command' },
-    riskClass: 'execute',
-  });
-});
+const refuse = (): TPermissionHandler => vi.fn<TPermissionHandler>().mockResolvedValue(false);
 
-afterEach(() => clearRegisteredToolProfiles());
-
-describe('PreToolUse permissionDecision', () => {
+describe('a command hook’s permissionDecision', () => {
   it('allow answers the prompt a call would otherwise need', async () => {
-    const handler = vi.fn<TPermissionHandler>().mockResolvedValue(false);
-    const { run, body } = setup({ permissionDecision: 'allow' }, { handler });
+    const handler = refuse();
+    const { run, body } = setup(commandHooks({ permissionDecision: 'allow' }), { handler });
 
     const result = await run({ command: 'pnpm test' });
 
@@ -113,7 +140,9 @@ describe('PreToolUse permissionDecision', () => {
   });
 
   it('allow does not outweigh a deny rule', async () => {
-    const { run, body } = setup({ permissionDecision: 'allow' }, { deny: ['Bash(pnpm *)'] });
+    const { run, body } = setup(commandHooks({ permissionDecision: 'allow' }), {
+      deny: ['Bash(pnpm *)'],
+    });
 
     await run({ command: 'pnpm test' });
 
@@ -121,11 +150,11 @@ describe('PreToolUse permissionDecision', () => {
   });
 
   it('allow does not answer an ask rule, which must reach a person', async () => {
-    const handler = vi.fn<TPermissionHandler>().mockResolvedValue(false);
-    const { run, body } = setup(
-      { permissionDecision: 'allow' },
-      { ask: ['Bash(pnpm *)'], handler },
-    );
+    const handler = refuse();
+    const { run, body } = setup(commandHooks({ permissionDecision: 'allow' }), {
+      ask: ['Bash(pnpm *)'],
+      handler,
+    });
 
     await run({ command: 'pnpm test' });
 
@@ -133,12 +162,39 @@ describe('PreToolUse permissionDecision', () => {
     expect(body).not.toHaveBeenCalled();
   });
 
+  it('allow does not answer a policy that asks about everything', async () => {
+    const handler = refuse();
+    const { run, body } = setup(commandHooks({ permissionDecision: 'allow' }), {
+      mode: 'bypassPermissions',
+      handler,
+      extra: { permissionPolicy: 'prompt' },
+    });
+
+    await run({ command: 'pnpm test' });
+
+    expect(handler).toHaveBeenCalledOnce();
+    expect(body).not.toHaveBeenCalled();
+  });
+
+  it('allow does not stand in for the auto-mode classifier', async () => {
+    const classify = vi.fn().mockResolvedValue({ decision: 'block', reason: 'not this one' });
+    const { run, body } = setup(commandHooks({ permissionDecision: 'allow' }), {
+      mode: 'auto',
+      extra: { permissionClassifier: { classify } },
+    });
+
+    await run({ command: 'pnpm test' });
+
+    expect(classify).toHaveBeenCalledOnce();
+    expect(body).not.toHaveBeenCalled();
+  });
+
   it('ask reaches a person even in a mode that would run the call unasked', async () => {
-    const handler = vi.fn<TPermissionHandler>().mockResolvedValue(false);
-    const { run, body } = setup(
-      { permissionDecision: 'ask' },
-      { mode: 'bypassPermissions', handler },
-    );
+    const handler = refuse();
+    const { run, body } = setup(commandHooks({ permissionDecision: 'ask' }), {
+      mode: 'bypassPermissions',
+      handler,
+    });
 
     await run({ command: 'pnpm test' });
 
@@ -148,7 +204,7 @@ describe('PreToolUse permissionDecision', () => {
 
   it('ask is not answered by a consent remembered for the session', async () => {
     const handler = vi.fn<TPermissionHandler>().mockResolvedValue('allow-session');
-    const { run, body } = setup({ permissionDecision: 'ask' }, { handler });
+    const { run, body } = setup(commandHooks({ permissionDecision: 'ask' }), { handler });
 
     await run({ command: 'pnpm test' });
     await run({ command: 'pnpm test' });
@@ -158,8 +214,66 @@ describe('PreToolUse permissionDecision', () => {
   });
 
   it('defer leaves the call to the normal flow', async () => {
-    const handler = vi.fn<TPermissionHandler>().mockResolvedValue(false);
-    const { run, body } = setup({ permissionDecision: 'defer' }, { handler });
+    const handler = refuse();
+    const { run, body } = setup(commandHooks({ permissionDecision: 'defer' }), { handler });
+
+    await run({ command: 'pnpm test' });
+
+    expect(handler).toHaveBeenCalledOnce();
+    expect(body).not.toHaveBeenCalled();
+  });
+
+  it('another hook’s defer does not cancel an ask', async () => {
+    const handler = refuse();
+    const { run, body } = setup(
+      commandHooks({ permissionDecision: 'ask' }, { permissionDecision: 'defer' }),
+      { mode: 'bypassPermissions', handler },
+    );
+
+    await run({ command: 'pnpm test' });
+
+    expect(handler).toHaveBeenCalledOnce();
+    expect(body).not.toHaveBeenCalled();
+  });
+
+  it('an allow sent with an updatedInput is not applied, and the call runs its own input', async () => {
+    const handler = vi.fn<TPermissionHandler>().mockResolvedValue(true);
+    const { run, body } = setup(
+      commandHooks({ permissionDecision: 'allow', updatedInput: { command: 'pnpm test --run' } }),
+      { handler },
+    );
+
+    await run({ command: 'pnpm test' });
+
+    expect(handler).toHaveBeenCalledOnce();
+    expect(body.mock.calls[0]![0]).toEqual({ command: 'pnpm test' });
+  });
+});
+
+describe('which hooks can steer a call', () => {
+  it('a prompt hook’s allow is not applied, since its model reads the input it would approve', async () => {
+    const handler = refuse();
+    const { run, body } = setup(
+      {
+        hooks: {
+          PreToolUse: [{ matcher: '', hooks: [{ type: 'prompt', prompt: 'judge' }] }],
+        },
+        executors: [
+          {
+            type: 'prompt',
+            execute: vi.fn(async () => ({
+              outcome: 'allow' as const,
+              source: 'prompt' as const,
+              stdout: JSON.stringify({
+                ok: true,
+                hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow' },
+              }),
+            })),
+          },
+        ],
+      },
+      { handler },
+    );
 
     await run({ command: 'pnpm test' });
 
@@ -168,64 +282,24 @@ describe('PreToolUse permissionDecision', () => {
   });
 });
 
-describe('PreToolUse updatedInput', () => {
-  it('the tool runs the rewritten input', async () => {
-    const { run, body } = setup(
-      { permissionDecision: 'allow', updatedInput: { command: 'pnpm test --run' } },
-      { mode: 'bypassPermissions' },
-    );
-
-    const result = await run({ command: 'pnpm test' });
-
-    expect(body).toHaveBeenCalledOnce();
-    expect(body.mock.calls[0]![0]).toEqual({ command: 'pnpm test --run' });
-    expect(result.data).toBe('ran pnpm test --run');
-  });
-
-  it('the rules judge the rewritten input, not the one the model sent', async () => {
-    // A person would approve the call the model sent; the rewrite is what the deny rule matches.
-    const handler = vi.fn<TPermissionHandler>().mockResolvedValue(true);
-    const { run, body } = setup(
-      { permissionDecision: 'allow', updatedInput: { command: 'rm -rf build' } },
-      { deny: ['Bash(rm *)'], handler },
-    );
-
-    await run({ command: 'pnpm test' });
-
-    expect(body).not.toHaveBeenCalled();
-  });
-
-  it('an updatedInput that is not an object refuses the call', async () => {
-    const { run, body } = setup(
-      { permissionDecision: 'allow', updatedInput: 'pnpm test' },
-      { mode: 'bypassPermissions' },
-    );
-
-    const result = await run({ command: 'pnpm test' });
-
-    expect(body).not.toHaveBeenCalled();
-    expect(result.success).toBe(false);
-  });
-
-  it('a rewrite of arguments the tool already fixed at admission refuses the call', async () => {
-    const hooks = {
-      PreToolUse: [{ matcher: '', hooks: [{ type: 'command' as const, command: 'gate' }] }],
-    };
+describe('a call the gate checks again or on another’s behalf', () => {
+  it('the decision applies to the arguments a tool settles on at admission', async () => {
+    const handler = refuse();
+    const { hooks, executors } = commandHooks({ permissionDecision: 'allow' });
     const enforcer = new PermissionEnforcer({
       sessionId: 'test-session',
       cwd: '/tmp',
-      getPermissionMode: () => 'bypassPermissions',
+      getPermissionMode: () => 'default',
       config: { permissions: { allow: [], deny: [] }, hooks },
       terminal: makeNoopTerminal(),
-      hookTypeExecutors: [
-        hookSaying({ permissionDecision: 'allow', updatedInput: { command: 'pnpm test --run' } }),
-      ],
+      hookTypeExecutors: executors,
+      permissionHandler: handler,
     });
     const effect = vi.fn();
     const tool = {
       getName: () => 'Bash',
       execute: vi.fn(),
-      // The tool settles on other arguments before its effect, so the hooks run again on them.
+      // The tool settles on other arguments before its effect, so the gate runs again on them.
       executeWithAdmission: async (
         _parameters: TToolParameters,
         _context: unknown,
@@ -239,28 +313,19 @@ describe('PreToolUse updatedInput', () => {
     } as unknown as IToolWithEventService;
     const [wrapped] = enforcer.wrapTools([tool]);
 
-    const result = await wrapped!.executeWithAdmission!(
+    await wrapped!.executeWithAdmission!(
       { command: 'pnpm test' },
       { toolName: 'Bash', parameters: { command: 'pnpm test' } },
       async () => undefined,
     );
 
-    expect(effect).not.toHaveBeenCalled();
-    expect(result.success).toBe(false);
-  });
-
-  it('a delegated action cannot take a rewrite, so the rewrite refuses it', async () => {
-    const { enforcer } = setup(
-      { permissionDecision: 'allow', updatedInput: { command: 'pnpm test --run' } },
-      { mode: 'bypassPermissions' },
-    );
-
-    expect(await enforcer.checkDelegatedToolCall('Bash', { command: 'pnpm test' })).toBe(false);
+    expect(handler).not.toHaveBeenCalled();
+    expect(effect).toHaveBeenCalledOnce();
   });
 
   it('a delegated action takes the allow', async () => {
-    const handler = vi.fn<TPermissionHandler>().mockResolvedValue(false);
-    const { enforcer } = setup({ permissionDecision: 'allow' }, { handler });
+    const handler = refuse();
+    const { enforcer } = setup(commandHooks({ permissionDecision: 'allow' }), { handler });
 
     expect(await enforcer.checkDelegatedToolCall('Bash', { command: 'pnpm test' })).toBe(true);
     expect(handler).not.toHaveBeenCalled();

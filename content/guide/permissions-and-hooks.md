@@ -257,16 +257,17 @@ Each hook run ends in one of three outcomes:
 
 An `allow` outcome alone does not approve a call: it only lets the call continue to the permission
 rules and mode. On `PreToolUse`, an `allow` whose stdout is JSON with `"continue": false` or
-`hookSpecificOutput.permissionDecision: "deny"` refuses the call, and other `hookSpecificOutput`
-fields steer it:
+`hookSpecificOutput.permissionDecision: "deny"` refuses the call. A `command` hook's
+`hookSpecificOutput.permissionDecision` can also steer it:
 
-- `permissionDecision: "allow"` skips the approval prompt the call would otherwise need. Deny rules,
-  the mode's refusals and `ask` rules still apply.
-- `permissionDecision: "ask"` asks you even when the mode or an earlier "always allow" would run the
-  call. With no one to ask, the call is refused.
-- `permissionDecision: "defer"` leaves the call to the normal permission check.
-- `updatedInput`, sent with a `permissionDecision`, replaces the tool's input, and the permission
-  rules judge the new input.
+- `"allow"` skips the prompt you would otherwise get. Deny rules, the mode's refusals, the `auto`
+  mode classifier and `ask` rules still apply.
+- `"ask"` asks you even when the mode or an earlier "always allow" would run the call. With no one to
+  ask, the call is refused.
+- `"defer"` leaves the call to the normal permission check.
+
+`updatedInput` is not applied, and an `allow` sent with it is ignored. `prompt` and `agent` hooks
+can only refuse a call.
 
 On every other event the outcome is recorded and nothing is blocked.
 

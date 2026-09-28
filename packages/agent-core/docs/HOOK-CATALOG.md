@@ -56,7 +56,10 @@ the Claude Code compatible response protocol:
 - `{ "continue": false }` blocks on every event; `stopReason` is used as the reason.
 - On `PreToolUse`, `hookSpecificOutput.permissionDecision` may be `allow`, `ask`, `defer` or
   `deny`; `deny` blocks. With several hooks, the highest-priority decision wins
-  (`deny` > `defer` > `ask` > `allow`), and `hookSpecificOutput.updatedInput` travels with it.
+  (`deny` > `ask` > `defer` > `allow`), and the `hookSpecificOutput.updatedInput` sent with the
+  winning decision travels with it. Only a `command` hook's decision and `updatedInput` are read;
+  any other hook type can only block, because a `prompt` or `agent` hook answers from a model that
+  reads the tool input it would be approving.
 - On `UserPromptSubmit`, `{ "decision": "block" }` blocks, and
   `hookSpecificOutput.additionalContext` is collected as output.
 - `systemMessage` is collected as output.
@@ -87,17 +90,15 @@ A `PreToolUse` hook that does not deny can still steer the call. The permission 
 (`agent-session/src/permission-enforcer.ts`) applies the winning `permissionDecision` after the
 permission rules and mode:
 
-- `allow` answers the approval prompt the call would otherwise need. It never outweighs a deny rule,
-  a refusal from the mode, or an ask that must reach a person (an `ask` rule, a protected path, a
-  policy that asks about everything).
+- `allow` answers the prompt a person would otherwise get. It never outweighs a deny rule, a refusal
+  from the mode, the `auto` mode classifier, or an ask that must reach a person (an `ask` rule, a
+  protected path, a policy that asks about everything).
 - `ask` sends the call to a person even when the mode or a remembered consent would run it, and is
   not remembered. Where no one can answer, the call is refused.
 - `defer` leaves the call to the normal flow.
 
-`updatedInput` replaces the call's input before the rules judge it, so the rules, the prompt and the
-tool all see the rewritten input. A rewrite that cannot reach what runs refuses the call: an action
-checked on a tool's behalf, or arguments a tool has already fixed at admission. An `updatedInput`
-that is not an object refuses the call too.
+`updatedInput` is reported on the result but not applied: the call runs the input it was made with.
+An `allow` sent with an `updatedInput` approved another input, so it is not applied either.
 
 `HOOK_ENFORCEMENT_POLICY` (`packages/agent-core/src/hooks/enforcement-policy.ts`) records which
 events enforce. `PreToolUse` is the only event whose fire site awaits `runHooks` and consults the

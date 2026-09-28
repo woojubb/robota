@@ -213,14 +213,17 @@ export async function runHooks(
         };
       }
 
-      if (interpretation.permissionDecision !== undefined) {
+      // Only a command hook's output, written by the user's own program, can steer a call short of
+      // refusing it. A `prompt` or `agent` hook answers from a model that reads the tool input the
+      // main model wrote, so its body could otherwise approve or rewrite the very call it judges.
+      if (interpretation.permissionDecision !== undefined && outcome.source === 'command') {
         const priority = PERMISSION_PRIORITY[interpretation.permissionDecision];
+        // The rewrite rides with the decision that wins, never with one a higher decision replaced.
         if (priority > highestPermissionPriority) {
           highestPermissionPriority = priority;
           highestPermissionDecision = interpretation.permissionDecision;
-        }
-        // Track updatedInput from the highest-priority decision
-        if (priority >= highestPermissionPriority && interpretation.updatedInput !== undefined) {
+          lastUpdatedInput = interpretation.updatedInput;
+        } else if (priority === highestPermissionPriority && interpretation.updatedInput !== undefined) {
           lastUpdatedInput = interpretation.updatedInput;
         }
       }

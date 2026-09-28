@@ -65,7 +65,6 @@ export const SESSION_LOG_EVENT = {
   textDelta: 'text_delta',
   assistant: 'assistant',
   toolCall: 'tool_call',
-  toolInputUpdated: 'tool_input_updated',
   toolResult: 'tool_result',
   toolBlocked: 'tool_blocked',
   toolDenied: 'tool_denied',

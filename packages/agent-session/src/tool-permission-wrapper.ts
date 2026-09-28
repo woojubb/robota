@@ -143,22 +143,6 @@ export function wrapToolWithPermission(
         emitPermissionDecision(context, 'hook-blocked');
         return gate.refusal;
       }
-      // The rules, the prompt and the tool judge and run the input the hooks rewrote the call to.
-      if (gate.updatedInput !== undefined) {
-        parameters = canonicaliseToolArguments(toolName, gate.updatedInput, enforcer.cwd);
-        enforcer.log('tool_input_updated', {
-          tool: toolName,
-          args: parameters as Record<string, string | number | boolean | object>,
-        });
-        hookInput = buildHookInput(
-          enforcer.sessionId,
-          enforcer.cwd,
-          toolName,
-          parameters,
-          enforcer.getPermissionMode(),
-          enforcer.transcriptPath,
-        );
-      }
 
       // RUNTIME-005: the turn's signal reaches this wrapper (CORE-018) and stopped here.
       const verdict = await enforcer.checkPermission(
@@ -227,19 +211,6 @@ export function wrapToolWithPermission(
             context?.hookTraceEnv,
           );
           if (nextGate.refusal) throw new DeferredPermissionRefusal(nextGate.refusal);
-          // The tool has fixed these arguments, so a rewrite cannot reach it here.
-          if (
-            nextGate.updatedInput !== undefined &&
-            JSON.stringify(
-              canonicaliseToolArguments(toolName, nextGate.updatedInput, enforcer.cwd),
-            ) !== JSON.stringify(approvedArguments)
-          ) {
-            const reason =
-              'A PreToolUse hook rewrote arguments the tool had already fixed; the call is refused.';
-            throw new DeferredPermissionRefusal(
-              toolFailure('hook-blocked', reason, { blocked: true, reason }),
-            );
-          }
           const effectiveVerdict = await enforcer.checkPermission(
             toolName,
             approvedArguments as TToolArgs,

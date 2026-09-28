@@ -215,7 +215,6 @@ export const PAYLOADS = {
     historyStructure: required(historyStructure),
   },
   tool_call: { tool: required(decodeString), args: required(record) },
-  tool_input_updated: { tool: required(decodeString), args: required(record) },
   tool_result: {
     tool: required(decodeString),
     success: required(decodeBoolean),

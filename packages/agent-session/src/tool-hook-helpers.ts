@@ -66,8 +66,6 @@ export interface IPreToolGateOutcome {
   /** The denial to return instead of running the tool, or null to go on to the permission gate. */
   readonly refusal: IToolResult | null;
   readonly decision?: TPreToolHookDecision;
-  /** The input the hooks rewrote the call to. The gate and the tool see this instead. */
-  readonly updatedInput?: TToolParameters;
 }
 
 /**
@@ -83,13 +81,10 @@ export async function runPreToolHook(
   return (await runPreToolGate(hooks, hookInput, hookTypeExecutors, hookTraceEnv)).refusal;
 }
 
-function isToolParameters(value: unknown): value is TToolParameters {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 /**
- * {@link runPreToolHook}, keeping the hooks' `permissionDecision` and `updatedInput` for the caller
- * to apply. A `defer` is dropped: it leaves the call to the normal permission flow.
+ * {@link runPreToolHook}, keeping the hooks' `permissionDecision` for the permission gate. A `defer`
+ * is dropped: it leaves the call to the normal flow. The call runs its own input, so an `allow` sent
+ * with an `updatedInput` approved another input and is dropped too.
  */
 export async function runPreToolGate(
   hooks: Record<string, unknown> | undefined,
@@ -100,17 +95,11 @@ export async function runPreToolGate(
   const refusal = await evaluatePreToolHooks(hooks, hookInput, hookTypeExecutors, hookTraceEnv);
   if (refusal.result !== null) return { refusal: refusal.result };
   const { permissionDecision, updatedInput } = refusal.hookResult;
-  if (updatedInput !== undefined && !isToolParameters(updatedInput)) {
-    const reason = 'A PreToolUse hook returned an updatedInput that is not an object.';
-    return { refusal: toolFailure('hook-blocked', reason, { blocked: true, reason }) };
+  if (permissionDecision === 'ask') return { refusal: null, decision: 'ask' };
+  if (permissionDecision === 'allow' && updatedInput === undefined) {
+    return { refusal: null, decision: 'allow' };
   }
-  return {
-    refusal: null,
-    ...(permissionDecision === 'allow' || permissionDecision === 'ask'
-      ? { decision: permissionDecision }
-      : {}),
-    ...(updatedInput !== undefined ? { updatedInput } : {}),
-  };
+  return { refusal: null };
 }
 
 async function evaluatePreToolHooks(
