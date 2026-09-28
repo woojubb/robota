@@ -377,7 +377,7 @@ sign-in required, signed out.
 | `MCP server "<name>" was not admitted (pending)`                                          | Run `/mcp approve <name>`, then `/mcp login <name>` for an OAuth server.                            |
 | `MCP server "<name>" was not admitted (untrusted)`                                        | The definition is in project settings; run `robota trust --yes`.                                    |
 | `MCP server "<name>" stdio was refused: missing host authority.`                          | The CLI does not start stdio servers from settings (see above).                                     |
-| `Signed in to MCP server <name>, but it is not approved for this session`                 | Run `/mcp approve <name>`, then `/mcp login <name>` again.                                          |
+| `Signed in to MCP server <name>, but it is not approved for this session`                 | Run `/mcp approve <name>`; it retries the connection using the existing sign-in.                    |
 | `Sign-in … failed (browser-failed)`                                                       | Use `/mcp login <name> --no-browser`.                                                               |
 | `A client secret is never typed into a session.`                                          | Run `robota mcp login <name> --client-secret` in a terminal.                                        |
 | `"mcpHeaderHelpers" in <file> was ignored: only user settings may allow a header helper.` | Move the list to `~/.robota/settings.json` or `~/.claude/settings.json`.                            |

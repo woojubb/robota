@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { closeSync, mkdirSync, openSync, readFileSync, unlinkSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 import { tightenExistingFile, writeOwnerOnlyFile } from '@robota-sdk/agent-core/node';
 
@@ -68,52 +69,69 @@ function sameSlot(a: IMCPActivationApprovalRecord, b: IMCPActivationApprovalReco
 }
 
 /**
- * MCP approvals kept in one owner-only JSON file, so an approval outlives the process that made it.
- *
- * Every call reads the file again, so two sessions see each other's decisions and a write never
- * drops one made elsewhere since. A file that is missing, unreadable or not this shape reads as no
- * decisions: that only withholds approval, and the next decision writes a valid file. Records that
- * do not match the shape are dropped for the same reason.
+ * Owner-only decisions shared across CLI starts. Reads withhold all approvals on an invalid file;
+ * writes refuse it intact so a different version's decisions and audit history are never erased.
+ * A write locks before reading, so concurrent writers cannot restore an earlier approval over a
+ * rejection. A busy lock refuses the write rather than blocking the CLI.
  */
 export function createFileMcpApprovalStore(filePath: string): IMCPActivationApprovalStore {
-  function read(): IPersistedApprovals {
-    if (!existsSync(filePath)) return { version: STORE_VERSION, records: [], audit: [] };
+  function read(strict = false): IPersistedApprovals {
     try {
       tightenExistingFile(filePath);
       const parsed: unknown = JSON.parse(readFileSync(filePath, 'utf8'));
-      if (!isRecordObject(parsed) || parsed['version'] !== STORE_VERSION) {
+      if (
+        !isRecordObject(parsed) ||
+        parsed['version'] !== STORE_VERSION ||
+        !Array.isArray(parsed['records']) ||
+        !parsed['records'].every(isApprovalRecord) ||
+        !Array.isArray(parsed['audit']) ||
+        !parsed['audit'].every(isAuditEvent)
+      ) {
+        throw new Error('Unrecognised approval store');
+      }
+      return { version: STORE_VERSION, records: parsed['records'], audit: parsed['audit'] };
+    } catch (error) {
+      if (isRecordObject(error) && error['code'] === 'ENOENT') {
         return { version: STORE_VERSION, records: [], audit: [] };
       }
-      const records = Array.isArray(parsed['records']) ? parsed['records'] : [];
-      const audit = Array.isArray(parsed['audit']) ? parsed['audit'] : [];
-      return {
-        version: STORE_VERSION,
-        records: records.filter(isApprovalRecord),
-        audit: audit.filter(isAuditEvent),
-      };
-    } catch {
-      // allow-fallback: an unreadable store withholds approval; see the doc comment above.
+      if (strict)
+        throw new Error(
+          `Refusing to write unreadable or unrecognised MCP approval store ${filePath}; repair or move it aside first.`,
+        );
       return { version: STORE_VERSION, records: [], audit: [] };
     }
   }
 
-  function write(store: IPersistedApprovals): void {
-    writeOwnerOnlyFile(filePath, `${JSON.stringify(store, null, 2)}\n`);
+  function update(change: (store: IPersistedApprovals) => IPersistedApprovals): void {
+    mkdirSync(dirname(filePath), { recursive: true, mode: 0o700 });
+    const lockPath = `${filePath}.lock`;
+    let lock: number;
+    try {
+      lock = openSync(lockPath, 'wx', 0o600);
+    } catch {
+      throw new Error(
+        `Refusing to write MCP approval store ${filePath}: another writer holds ${lockPath}. Retry after it finishes; remove a stale lock only after that process has stopped.`,
+      );
+    }
+    try {
+      writeOwnerOnlyFile(filePath, `${JSON.stringify(change(read(true)), null, 2)}\n`);
+    } finally {
+      closeSync(lock);
+      unlinkSync(lockPath);
+    }
   }
 
   return {
     list: () => read().records,
     put(record) {
-      const store = read();
-      write({
+      update((store) => ({
         ...store,
         records: [...store.records.filter((existing) => !sameSlot(existing, record)), record],
-      });
+      }));
     },
     listAudit: () => read().audit,
     appendAudit(event) {
-      const store = read();
-      write({ ...store, audit: [...store.audit, event].slice(-MAX_AUDIT_EVENTS) });
+      update((store) => ({ ...store, audit: [...store.audit, event].slice(-MAX_AUDIT_EVENTS) }));
     },
   };
 }

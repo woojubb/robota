@@ -231,12 +231,20 @@ export async function executeMCPActivationCommand(
     if (verb !== 'approve' || result.status !== 'approved' || mcp.reload === undefined) {
       return decided;
     }
-    const reloaded = await reloadResult(context);
-    return {
-      ...decided,
-      message: `${decided.message} ${reloaded.message}`,
-      data: { ...decided.data, reload: reloaded.data ?? {} },
-    };
+    try {
+      const reloaded = await reloadResult(context);
+      return {
+        ...decided,
+        message: `${decided.message} ${reloaded.message}`,
+        data: { ...decided.data, reload: reloaded.data ?? {} },
+      };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      return {
+        ...decided,
+        message: `${decided.message} Could not connect now: ${reason}. Run /mcp reload to retry.`,
+      };
+    }
   } catch (error) {
     return {
       message: error instanceof Error ? error.message : String(error),
@@ -288,9 +296,11 @@ async function reloadResult(context: TMCPActivationCommandContext): Promise<ICom
     };
   }
   const result = await mcp.reload();
-  const added = result.tools.length === 0 ? [] : await context.getSession().addTools(result.tools);
-  if (result.tools.length > 0 && result.reloadToken !== undefined) {
-    mcp.reloadToolsAdded?.(result.reloadToken, added);
+  let added: readonly string[] = [];
+  try {
+    added = result.tools.length === 0 ? [] : await context.getSession().addTools(result.tools);
+  } finally {
+    if (result.reloadToken !== undefined) mcp.reloadToolsAdded?.(result.reloadToken, added);
   }
   const dropped = result.tools.length - added.length;
   const parts = [

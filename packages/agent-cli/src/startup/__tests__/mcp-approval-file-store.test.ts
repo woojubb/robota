@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -82,18 +82,45 @@ describe('the file-backed MCP approval store', () => {
     expect(readFileSync(path, 'utf8')).not.toContain('https://mcp.example.test');
   });
 
-  it('reads a corrupt file as no approvals, and the next decision writes a valid one', () => {
+  it.each([
+    '{ "version": 1, "records": [ }',
+    JSON.stringify({ version: 2, records: [], audit: [] }),
+    JSON.stringify({ version: 1, records: [{}], audit: [] }),
+    JSON.stringify({ version: 1, records: [], audit: [{}] }),
+  ])('withholds approval and preserves an unrecognised store: %s', (content) => {
     const path = storePath();
     new MCPActivationAdmissionService(createFileMcpApprovalStore(path)).approve(request());
-    writeFileSync(path, '{ "version": 1, "records": [ }');
-
+    writeFileSync(path, content);
     const service = new MCPActivationAdmissionService(createFileMcpApprovalStore(path));
     expect(service.admit(request()).allowed).toBe(false);
+    expect(() => service.approve(request())).toThrow(/refus.*writ/i);
+    expect(readFileSync(path, 'utf8')).toBe(content);
+    expect(() =>
+      createFileMcpApprovalStore(path).appendAudit({
+        action: 'approve',
+        source: 'project',
+        provenanceId: 'workspace-settings',
+        definitionFingerprint: 'v1',
+        securityIdentity: 'v1',
+        serverId: 'docs',
+        decision: 'approved',
+        at: new Date().toISOString(),
+      }),
+    ).toThrow(/refus.*writ/i);
+    expect(readFileSync(path, 'utf8')).toBe(content);
+  });
 
+  it('refuses a competing writer without losing a rejection', () => {
+    const path = storePath();
+    const service = new MCPActivationAdmissionService(createFileMcpApprovalStore(path));
+    service.reject(request());
+    const original = readFileSync(path, 'utf8');
+    writeFileSync(`${path}.lock`, '', { flag: 'wx', mode: 0o600 });
+    expect(() => service.approve(request())).toThrow(/another writer/);
+    expect(readFileSync(path, 'utf8')).toBe(original);
+    unlinkSync(`${path}.lock`);
     service.approve(request());
-    expect(
-      new MCPActivationAdmissionService(createFileMcpApprovalStore(path)).admit(request()).allowed,
-    ).toBe(true);
+    expect(service.admit(request()).allowed).toBe(true);
   });
 
   it('is what a CLI session uses unless the host supplies a store', () => {

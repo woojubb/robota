@@ -557,8 +557,10 @@ MCP servers are defined under `mcpServers` in the settings files, and none is us
 it. `/mcp` shows every server's approval and sign-in state; `/mcp approve|reject|revoke <server>`
 decides trust, and `/mcp login <server>` signs in to an OAuth server from inside the session. Outside
 a session, `robota mcp login <name>` and `robota mcp logout <name>` do the same. In the `robota`
-executable, approvals last for the session and a remote server that signs in with OAuth connects once
-approved and signed in; a stdio server needs an authority that a host embedding the CLI supplies.
+executable, approvals persist in `~/.robota/mcp-approvals.json`; approving retries the connection in
+this session, and `/mcp reload` retries later. OAuth servers also need sign-in; a stdio server needs
+an authority that a host embedding the CLI supplies. A changed definition or trust generation needs
+fresh approval.
 
 `robota mcp serve` turns `robota` into an MCP server for one session, over stdio, authenticated
 loopback HTTP (`--http-token-file`, `--http-port`), or remote HTTP as an OAuth resource server
