@@ -34,8 +34,7 @@ that package's build output.
 
 ## Non-goals
 
-- Builds its installers but does not sign, notarize or auto-update them; those need release
-  credentials the app's build does not hold.
+- Does not auto-update itself.
 - No `agent-framework`/`agent-core` dependency — the daemon owns the runtime.
 - Does not supervise or stop the daemon; its lifetime is the CLI's to manage.
 

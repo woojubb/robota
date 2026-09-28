@@ -21,7 +21,8 @@ profile among many — an external repo brings its own and reuses the same kerne
 
 The CLI does not own, and must not import the internals of: session/persistence adapters (owns none,
 must not import `@robota-sdk/agent-session`), tools (assembled by the framework; from
-`@robota-sdk/agent-tools` the CLI takes only the OS sandbox client, a host adapter it composes),
+`@robota-sdk/agent-tools` the CLI takes only the OS sandbox — its client, detection and settings — a
+host adapter it composes),
 permission/hook mechanics (only public types from
 `agent-core`), config/context loading, `@file` prompt reference resolution, context-reference
 inventory, automatic project memory capture/retrieval/storage, edit-checkpoint capture/storage,
@@ -188,7 +189,7 @@ Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`)
 | `agent-framework`         | SDK-owned APIs and facades                                                                                   |
 | `agent-core`              | Public types + utilities only; internal engine (`Robota`, `ExecutionService`, `ConversationStore`) forbidden |
 | `agent-session`           | Forbidden — the SDK provides its own session/permission types                                                |
-| `agent-tools`             | OS sandbox client and its settings types only — the SDK assembles tools internally                           |
+| `agent-tools`             | The OS sandbox only (its client, detection and settings) — the SDK assembles tools internally                |
 | `agent-command`           | Slash-command modules only                                                                                   |
 | `agent-subagent-runner`   | Subagent/background runner only                                                                              |
 | `agent-builtin-providers` | Provider definition assembly only                                                                            |

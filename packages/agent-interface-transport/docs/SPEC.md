@@ -78,10 +78,6 @@ abandonment (stopped, or rolled back during startup) for a runner that never rea
 a separate "first failure" wait reports only a genuine failure and does not treat normal stop-time
 abandonment as a process failure.
 
-One transport implementation (TUI) is deliberately outside this family: it ignores `attach()` and
-constructs its own session, because it owns presentation and session lifecycle itself rather than
-receiving a session from a host.
-
 ### Persisted configuration
 
 A transport's persisted configuration is an enabled flag plus a free-form options bag, stored under

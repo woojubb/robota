@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, readdirSync, promises as fs } from 'node:fs';
+import { appendFileSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 
 import { isEntryPoint } from './entrypoint.mjs';

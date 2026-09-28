@@ -2,7 +2,7 @@
  * `@robota-sdk/remote-signaling` — minimal, content-blind WebRTC signaling relay.
  *
  * Pairs two peers by an opaque rendezvous id and relays SDP/ICE only. Holds no session content and
- * authenticates no one: the peers confirm each other end to end during pairing, and the relay limits abuse
+ * authenticates no one by default: the peers confirm each other end to end during pairing, and the relay limits abuse
  * at its own layer. It is not part of any published or deployed artifact — you run it yourself.
  */
 export { SignalingRelay, MAX_PEERS_PER_RENDEZVOUS } from './relay.js';

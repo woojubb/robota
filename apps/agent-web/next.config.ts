@@ -17,22 +17,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  // Image optimization configuration
-  images: {
-    // Enable image optimization
-    formats: ['image/webp', 'image/avif'],
-
-    // Image sizes for optimization
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-
-    // Enable lazy loading by default
-    loader: 'default',
-
-    // Minimize layout shift
-    minimumCacheTTL: 60,
-  },
-
   // Performance optimizations
   experimental: {
     optimizePackageImports: [
