@@ -136,17 +136,17 @@ owner) or `recovery-required`.
 
 `model-call-limit` is different: it is thrown by `TurnServices.admitModelCall` itself, to whichever
 custom participant, selector or `meterJournal` host called it, once a configured `maxModelCallsPerRun`,
-`-PerConversation` or `-PerParticipant` limit is reached. That caller should let it propagate rather
-than catch and swallow it — admission already stopped the run internally, and propagating the
-rejection is what turns the in-flight `run()` call into a `limited` result (reason `'model-calls'`)
-instead of one participant failing while the run keeps going.
+`-PerConversation` or `-PerParticipant` limit is reached. Admission has already stopped the run,
+which ends `limited` (reason `'model-calls'`) either way. The caller should still let the rejection
+propagate (or return `failed`): the interrupted attempt is then discarded and retried on a later run,
+whereas swallowing it and returning `speak` keeps that partial result and publishes it later.
 
 `invalid-selection` never reaches a caller as a rejection: it is thrown internally when a selector's
 decision is malformed, empty, or has duplicate participant ids, names an unknown participant, mixes
 kinds a group can't run (a non-agent in a `parallel` selection, or a non-external participant for a
 `wait`), or needs more turns than `maxTurnsPerRun` allows — and the run's own error handling catches
 it like any other participant/selector/store failure. The decision is never saved, and the run ends
-`failed`, with the `RoundtableError`'s message (not its `code`) surfaced as `TerminalResult.message`.
+`failed`, with the `RoundtableError`'s message (not its `code`) surfaced as the `message` of the `failed` `RunResult`.
 
 ## Cancellation
 

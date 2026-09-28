@@ -190,9 +190,9 @@ async function runParallelBarrier(): Promise<void> {
 async function runRobotaAdapterTurn(): Promise<void> {
   section("D2 — a robotaParticipant speaks, metered through the adapter's own usage ledger");
 
-  // NOTE: this scripted turn's `usage` counts are never metered — see the note below. Declared here
-  // only so the scripted provider's own request/response shape matches a real one; the assertions
-  // below check what the ledger actually records, not these counts.
+  // The scripted turn reports no token counts: this provider does not mark its usage as verified, so
+  // the ledger would record provenance 'unknown' anyway. The assertions below check what the ledger
+  // actually records (one settled record), not token counts.
   const scripted = createScriptedProvider([{ text: 'adapter reply' }]);
 
   const assistant = robotaParticipant({
