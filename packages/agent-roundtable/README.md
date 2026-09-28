@@ -9,10 +9,8 @@ agent runtime, or plain code.
 
 ## Installation
 
-Not published to npm yet. Inside this monorepo, depend on it as a workspace package:
-
-```json
-{ "dependencies": { "@robota-sdk/agent-roundtable": "workspace:*" } }
+```bash
+npm install @robota-sdk/agent-roundtable
 ```
 
 ## Quick start
@@ -43,38 +41,63 @@ const echo: AgentParticipant = {
   },
 };
 
-const room = createRoundtable({
-  conversationId: 'demo',
-  participants: [externalParticipant({ id: 'user' }), echo],
-  store: new MemoryConversationStore(),
-  limits: { maxTurnsPerRun: 1 },
-  onEvent: (event) => {
-    if (event.type === 'published')
-      for (const message of event.messages)
-        console.log(`${message.participantId}: ${message.content}`);
-  },
-});
-
-// The default round-robin selector asks the person first, so the run waits for input.
-const waiting = await room.run();
-if (waiting.status === 'waiting') {
-  await room.submitInput({
-    participantId: 'user',
-    inputId: 'input-1', // Retrying with the same id and content returns the same receipt.
-    expectedRevision: waiting.revision,
-    replyToRequestId: waiting.requests[0].id,
-    content: 'Hello',
+export async function runQuickstart() {
+  const published: string[] = [];
+  const room = createRoundtable({
+    conversationId: 'demo',
+    participants: [externalParticipant({ id: 'user' }), echo],
+    store: new MemoryConversationStore(),
+    limits: { maxTurnsPerRun: 1 },
+    onEvent: (event) => {
+      if (event.type === 'published')
+        for (const message of event.messages)
+          published.push(`${message.participantId}: ${message.content}`);
+    },
   });
-}
 
-console.log(await room.run()); // echo speaks: { status: 'limited', reason: 'turns', ... }
-console.log(room.snapshot().messages.map((message) => message.content)); // ['Hello', 'echo: Hello']
-await room.dispose();
+  // The default round-robin selector asks the person first, so the run waits for input.
+  const waiting = await room.run();
+  if (waiting.status === 'waiting') {
+    await room.submitInput({
+      participantId: 'user',
+      inputId: 'input-1', // Retrying with the same id and content returns the same receipt.
+      expectedRevision: waiting.revision,
+      replyToRequestId: waiting.requests[0].id,
+      content: 'Hello',
+    });
+  }
+
+  const result = await room.run(); // echo speaks: { status: 'limited', reason: 'turns', ... }
+  const messages = room.snapshot().messages.map((message) => message.content); // ['Hello', 'echo: Hello']
+  await room.dispose();
+  return { result, messages, published };
+}
 ```
+
+This exact example is executed by `src/readme-example.test.ts`, so it stays runnable as the package
+changes.
 
 Omitting `store` uses the same in-memory store. A durable `ConversationStore` together with a
 `RoundtableRegistry` that maps saved runtime and selector versions back to live factories lets
 `loadRoundtable` reopen a conversation later.
+
+## Exports
+
+| Export                    | What it is for                                                                              |
+| -------------------------- | -------------------------------------------------------------------------------------------- |
+| `createRoundtable(options)` | Validates configuration and returns a `Roundtable` handle; `run()` executes it.            |
+| `loadRoundtable(options)`   | Reopens a conversation from a `ConversationStore`, resolving saved runtime/selector references through a `RoundtableRegistry`. |
+| `MemoryConversationStore`   | The in-memory `ConversationStore`; no durability, no `recovery: 'durable'` support.         |
+| `externalParticipant(def)`  | Declares a participant answered through `submitInput`/`resume` instead of a factory.       |
+| `roundRobin()`              | The default `TurnSelector`: speaks each registered participant once, in order, no model calls. |
+| `RoundtableError`           | Thrown by every rejecting call; `code` distinguishes `invalid-config`, `busy`, `conflict`, `disposed`, `stale-claim` and `recovery-required` (see README "Errors"). |
+| `summarizeUsage(records)`   | Reduces `UsageRecord[]` (from a snapshot or the `usage` event) into per-principal totals.  |
+
+Everything else this package exports is a type: the participant/session/selector contracts
+(`ParticipantDefinition`, `ParticipantSession`, `TurnSelector`, …), the store contract
+(`ConversationStore`, `ConversationEnvelope`, …), and the usage/pricing types consumed by
+`TurnServices`. `@robota-sdk/agent-roundtable-robota` implements these contracts against Robota; a
+host can implement them against any other runtime.
 
 ## Run results
 
@@ -95,6 +118,8 @@ Omitting `store` uses the same in-memory store. A durable `ConversationStore` to
 - `group-started` — the selected participants and the transcript revision they all see.
 - `delta` — text a participant streams through `onDelta` while its turn runs.
 - `prepared` — a participant's result is saved but not public yet.
+- `usage` — a model-call admission or usage report was saved to the usage ledger; a report that
+  settles after the run that admitted its call has already stopped is saved silently, with no event.
 - `published` — the whole group committed; its messages are in the transcript, in selection order.
 
 An exception from `onEvent` goes to `onEventError` and cannot undo a committed group.
@@ -130,6 +155,21 @@ The build is platform-neutral ESM and CommonJS with type declarations and has no
 dependencies. It needs only standard globals: `AbortController`, `AbortSignal.any`,
 `structuredClone`, `crypto.randomUUID` and `setTimeout`. That covers Node.js 22.12 or later and
 current browsers.
+
+A participant can be a plain object like `echo` above, or come from
+`@robota-sdk/agent-roundtable-robota`'s `sessionParticipant` (a permission-gated Robota `Session`) or
+`robotaParticipant` (a plain Robota agent) — this package never depends on either.
+
+## Version and compatibility
+
+This package's own API follows the release's semantic version. That is separate from the **stored
+conversation schema**: `MemoryConversationStore` and any other `ConversationStore` persist a snapshot
+whose envelope carries `schemaVersion: 1`. A store rejects (rather than guesses at) a snapshot whose
+`schemaVersion` it does not recognize, so a schema change ships as a new number and an explicit
+migration, never a silent reinterpretation — independent of how many API-compatible minor/patch
+releases happen in between. `loadRoundtable` additionally requires the saved participant/selector
+runtime and configuration versions to match what a `RoundtableRegistry` resolves today; a mismatch is
+refused rather than run against the wrong definition.
 
 ## Documentation
 

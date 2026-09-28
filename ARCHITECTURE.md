@@ -37,9 +37,9 @@ SDK packages (@robota-sdk/*)
   Transports            agent-transport (wire protocol, delivery), and the carriers built on it:
                         agent-transport-ws · -http · -mcp · -webrtc
   Runtime               agent-session · agent-executor · agent-tool-defaults ·
-                        agent-provider-replay (private: replays recorded provider responses in tests) ·
-                        agent-roundtable-robota (private: runs Session/Robota as roundtable
-                        participants and selectors)
+                        agent-roundtable-robota (runs Session/Robota as roundtable participants and
+                        selectors) ·
+                        agent-provider-replay (private: replays recorded provider responses in tests)
   Building blocks       agent-tools · agent-plugin · agent-mcp · agent-session-analytics ·
                         agent-provider-{anthropic,openai,openai-compatible,gemini,bytedance} ·
                         agent-builtin-providers

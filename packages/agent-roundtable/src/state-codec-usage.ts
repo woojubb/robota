@@ -1,8 +1,10 @@
 import { requireState, record, list, text, integer, unique } from './state-codec-values';
-
-const OUTCOMES = ['completed', 'failed', 'cancelled', 'cache-hit'];
-const PROVENANCES = ['reported', 'partial', 'estimated', 'unknown'];
-const TOKEN_KEYS = ['input', 'output', 'cacheRead', 'cacheWrite', 'reasoning'];
+import {
+  USAGE_OUTCOMES,
+  USAGE_PROVENANCES,
+  validUsageCost,
+  validUsageTokens,
+} from './usage-validation';
 
 /** Validate the persisted usage ledger before a registry, pricing policy or participant can act on it. */
 export function validateUsageState(
@@ -23,7 +25,8 @@ export function validateUsageState(
         text(entry.runId) &&
         text(entry.attemptId) &&
         integer(entry.revision, 1) &&
-        entry.revision <= revision,
+        entry.revision <= revision &&
+        typeof entry.admitted === 'boolean',
     );
     const principal = record(entry.principal);
     requireState(
@@ -43,29 +46,18 @@ export function validateUsageState(
     if (entry.price !== null) {
       const price = record(entry.price);
       requireState(text(price.version));
-      if (price.cost !== null) {
-        const cost = record(price.cost);
-        requireState(
-          text(cost.currency) &&
-            typeof cost.minorUnits === 'string' &&
-            /^-?\d+$/.test(cost.minorUnits),
-        );
-      }
+      requireState(price.cost === null || validUsageCost(price.cost));
     }
     requireState(entry.status === 'reserved' || entry.status === 'settled');
+    // Only a settled cache hit can exist without an admission; every other record reserved one.
+    requireState(entry.admitted || (entry.status === 'settled' && entry.outcome === 'cache-hit'));
     if (entry.status === 'settled') {
       requireState(
-        OUTCOMES.includes(String(entry.outcome)) &&
-          PROVENANCES.includes(String(entry.provenance)) &&
+        (USAGE_OUTCOMES as readonly string[]).includes(String(entry.outcome)) &&
+          (USAGE_PROVENANCES as readonly string[]).includes(String(entry.provenance)) &&
           typeof entry.final === 'boolean',
       );
-      if (entry.tokens !== undefined) {
-        const tokens = record(entry.tokens);
-        requireState(Object.keys(tokens).every((key) => TOKEN_KEYS.includes(key)));
-        for (const key of TOKEN_KEYS) {
-          if (Object.hasOwn(tokens, key)) requireState(integer(tokens[key]));
-        }
-      }
+      requireState(entry.tokens === undefined || validUsageTokens(entry.tokens));
     } else {
       requireState(
         !Object.hasOwn(entry, 'outcome') &&

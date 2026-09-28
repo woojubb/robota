@@ -8,7 +8,8 @@ import type {
   TurnSelector,
 } from '@robota-sdk/agent-roundtable';
 import { meterJournal } from './metering-journal';
-import { SelectorDecisionError } from './errors';
+import { quoteContent } from './render';
+import { RobotaParticipantError, SelectorDecisionError } from './errors';
 
 const DECISION_TOOL_NAME = 'decide_next_speaker';
 
@@ -51,6 +52,14 @@ function renderContext(context: SelectionContext): string {
   const roster = context.participants
     .map((p) => `- ${p.id} (${p.kind}${p.description ? `: ${p.description}` : ''})`)
     .join('\n');
+  // The model used to decide on ids and outcome kinds alone, never what was actually said.
+  // Rendered with the same per-message escaping `render.ts` uses. `context.messages` is the
+  // conversation's whole shared transcript, not a bounded window — no context policy limits a
+  // selector's own view the way `contextPolicy` limits a participant's; every decision resends
+  // everything sent so far, so its cost grows with the conversation (see the package README).
+  const shared = context.messages
+    .map((m) => `### From ${m.participantId}\n${quoteContent(m.content)}`)
+    .join('\n\n');
   const recent = context.turns
     .slice(-10)
     .map((t) => `- ${t.participantId}: ${t.outcome}`)
@@ -58,6 +67,7 @@ function renderContext(context: SelectionContext): string {
   return [
     'Decide who speaks next by calling the decision tool exactly once.',
     `Participants:\n${roster || '(none)'}`,
+    `Shared conversation:\n${shared || '(none yet)'}`,
     `Recent turns:\n${recent || '(none yet)'}`,
     `Turns remaining this run: ${context.remainingTurns}`,
   ].join('\n\n');
@@ -115,64 +125,100 @@ function toSelection(
  *
  * The agent `createAgent()` returns is built and reused for the selector's lifetime; it must
  * carry no tools of its own — the decision tool is the only one added, per call, scoped to that
- * call's candidate ids — because an agent free to call something else could never be trusted to
- * decide. Exactly one provider call is made per decision: `allowToolOnlyCompletion` and a
- * one-round cap keep the pipeline from forcing a second, follow-up call for a decision that
- * ends in a tool call rather than text. A decision this cannot resolve to exactly one `Selection`
- * — no call, more than one call, an unknown or duplicated participant id, an oversized parallel
- * group — throws `SelectorDecisionError` and fails the run; there is no retry.
+ * call's candidate ids, and removed again in a `finally` so a cancelled or failed decision never
+ * leaves it behind for the next `select()` to trip over — because an agent free to call something
+ * else could never be trusted to decide. Its history is cleared before every decision: reused
+ * across decisions with no checkpoint of its own, it would otherwise accumulate private history a
+ * freshly reloaded selector never sees, so a live selector's judgment (and its cost) would drift
+ * from a reloaded one deciding from the same `SelectionContext`. Exactly one provider call is made
+ * per decision: `allowToolOnlyCompletion` and a one-round cap keep the pipeline from forcing a
+ * second, follow-up call for a decision that ends in a tool call rather than text. A decision this
+ * cannot resolve to exactly one `Selection` — no call, more than one call, an unknown or duplicated
+ * participant id, an oversized parallel group — throws `SelectorDecisionError` and fails the run;
+ * there is no retry.
  */
 export function robotaSelector(options: RobotaSelectorOptions): TurnSelector {
   let agentPromise: Promise<Robota> | undefined;
+  let deciding = false;
   return {
     reference: options.reference,
     modelCalls: 'metered',
     async select(context, { signal, services }) {
-      const candidateIds = context.participants.map((p) => p.id);
-      if (candidateIds.length === 0)
-        throw new SelectorDecisionError('no-candidates', 'No participants are available to select');
-      if (!agentPromise) agentPromise = Promise.resolve(options.createAgent());
-      const agent = await agentPromise;
-      const existingTools = agent.getConfig().tools ?? [];
-      if (existingTools.length > 0)
-        throw new SelectorDecisionError(
-          'invalid-decision',
-          'The selector agent must carry no tools of its own',
+      // The reused agent's history and tools below are this one instance's private, mutable
+      // state; a second select() overlapping the first — one instance shared by two
+      // conversations, most often — would interleave clearHistory()/updateTools() between them
+      // and corrupt both decisions. Each conversation needs its own instance.
+      if (deciding)
+        throw new RobotaParticipantError(
+          'resource-reused',
+          'This robotaSelector instance is already deciding a selection; use a separate instance per conversation',
         );
-      await agent.updateTools([decisionTool(candidateIds)]);
-      const before = agent.getHistory().length;
-      const meteredJournal = meterJournal(discardingJournal(), services);
-      await agent.run(renderContext(context), {
-        signal,
-        executionJournal: meteredJournal,
-        maxExecutionRounds: 1,
-        allowToolOnlyCompletion: true,
-      });
-      await agent.updateTools([]);
-      const decisionCalls = agent
-        .getHistory()
-        .slice(before)
-        .flatMap((message) =>
-          message.role === 'assistant' && message.toolCalls ? message.toolCalls : [],
-        )
-        .filter((call) => call.function.name === DECISION_TOOL_NAME);
-      if (decisionCalls.length === 0)
-        throw new SelectorDecisionError('no-decision', 'The selector agent made no decision');
-      if (decisionCalls.length > 1)
-        throw new SelectorDecisionError(
-          'multiple-decisions',
-          'The selector agent made more than one decision',
-        );
-      let decision: Decision;
+      deciding = true;
       try {
-        decision = JSON.parse(decisionCalls[0]!.function.arguments) as Decision;
-      } catch {
-        throw new SelectorDecisionError(
-          'invalid-decision',
-          'Decision arguments were not valid JSON',
+        const candidateIds = context.participants.map((p) => p.id);
+        if (candidateIds.length === 0)
+          throw new SelectorDecisionError(
+            'no-candidates',
+            'No participants are available to select',
+          );
+        if (!agentPromise) agentPromise = Promise.resolve(options.createAgent());
+        const agent = await agentPromise;
+        // A tool left behind by a cancelled or failed PREVIOUS decision (before the `finally`
+        // below existed, or if it too were ever interrupted) must not permanently lock out
+        // every later decision — only a tool genuinely foreign to this selector should.
+        const existingTools = (agent.getConfig().tools ?? []).filter(
+          (tool) => tool.getName() !== DECISION_TOOL_NAME,
         );
+        if (existingTools.length > 0)
+          throw new SelectorDecisionError(
+            'invalid-decision',
+            'The selector agent must carry no tools of its own',
+          );
+        agent.clearHistory();
+        await agent.updateTools([decisionTool(candidateIds)]);
+        const before = agent.getHistory().length;
+        const meteredJournal = meterJournal(discardingJournal(), services);
+        try {
+          await agent.run(renderContext(context), {
+            signal,
+            executionJournal: meteredJournal,
+            maxExecutionRounds: 1,
+            allowToolOnlyCompletion: true,
+          });
+        } finally {
+          // Cancellation (including a timeout during selection) can make `run` reject — most
+          // often via an `ExecutionJournalError` wrapping a rejected admission, which agent-core
+          // rethrows even while the signal is aborted. Resetting here, unconditionally, is what
+          // keeps that failure from also disabling every later select() on this reused agent.
+          await agent.updateTools([]);
+        }
+        const decisionCalls = agent
+          .getHistory()
+          .slice(before)
+          .flatMap((message) =>
+            message.role === 'assistant' && message.toolCalls ? message.toolCalls : [],
+          )
+          .filter((call) => call.function.name === DECISION_TOOL_NAME);
+        if (decisionCalls.length === 0)
+          throw new SelectorDecisionError('no-decision', 'The selector agent made no decision');
+        if (decisionCalls.length > 1)
+          throw new SelectorDecisionError(
+            'multiple-decisions',
+            'The selector agent made more than one decision',
+          );
+        let decision: Decision;
+        try {
+          decision = JSON.parse(decisionCalls[0]!.function.arguments) as Decision;
+        } catch {
+          throw new SelectorDecisionError(
+            'invalid-decision',
+            'Decision arguments were not valid JSON',
+          );
+        }
+        return toSelection(decision, candidateIds, options.maxParallel);
+      } finally {
+        deciding = false;
       }
-      return toSelection(decision, candidateIds, options.maxParallel);
     },
   };
 }

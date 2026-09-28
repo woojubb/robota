@@ -6,7 +6,7 @@
  * PUBLISHED package surface. It is deliberately not a workspace link and not a relative import: the
  * runner packs each package with `pnpm pack` (which rewrites `workspace:` specifiers), installs them with `npm install`
  * into a throwaway directory outside the repo, type-checks the consumer against the SHIPPED `.d.ts`
- * files, and runs the Mode A/B/C assertions.
+ * files, and runs the Mode A/B/C/D assertions.
  *
  * OPT-IN by design — it packs + installs (network, tens of seconds), so it is NOT part of `pnpm test`.
  * Run it explicitly:
@@ -18,7 +18,7 @@
  *   --workdir <path>   use a specific working directory (must be outside the repo)
  *   --keep             do not delete the working directory on success (for inspection)
  *
- * Exit code 0 = every assertion in all three modes passed.
+ * Exit code 0 = every assertion in all four modes passed.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -43,6 +43,8 @@ const ENTRY_PACKAGES = [
   '@robota-sdk/agent-builtin-providers',
   '@robota-sdk/agent-core',
   '@robota-sdk/agent-framework',
+  '@robota-sdk/agent-roundtable',
+  '@robota-sdk/agent-roundtable-robota',
 ];
 
 function log(message) {
@@ -191,7 +193,7 @@ async function main() {
     stdio: 'inherit',
   });
 
-  log('\n[5/5] running the Mode A/B/C assertions\n');
+  log('\n[5/5] running the Mode A/B/C/D assertions\n');
   run(process.execPath, ['dist/proof.js'], { cwd: consumerDir, stdio: 'inherit' });
 
   if (keep) {

@@ -15,6 +15,7 @@ export type UsageOutcome = 'completed' | 'failed' | 'cancelled' | 'cache-hit';
 /** How trustworthy the reported counts are; only 'reported' comes straight from the provider. */
 export type UsageProvenance = 'reported' | 'partial' | 'estimated' | 'unknown';
 
+/** Non-negative integers; a reporter with fractional provider counts must round them first. */
 export interface UsageTokens {
   input?: number;
   output?: number;
@@ -23,11 +24,18 @@ export interface UsageTokens {
   reasoning?: number;
 }
 
-/** What a participant or selector reports back once a call it admitted has an outcome. */
+/**
+ * What a participant or selector reports back once a call has an outcome. A call that was admitted
+ * needs no identity here: its providerId and modelId already came from admission, and any given here
+ * are ignored. A cache hit needs no admission, but a cache hit with none must carry providerId and
+ * modelId itself, since nothing else fixed them; omitting them is rejected rather than stored empty.
+ */
 export interface UsageReport {
   callId: string;
   outcome: UsageOutcome;
   provenance: UsageProvenance;
+  providerId?: string;
+  modelId?: string;
   tokens?: UsageTokens;
   raw?: JsonValue;
   /** False marks a partial report that may still be replaced; true locks it. */
@@ -52,6 +60,12 @@ interface UsageRecordIdentity extends ModelCallIntent {
   /** The revision at which this record last changed. */
   revision: number;
   price: { version: string; cost: Money | null } | null;
+  /**
+   * Whether admission ever reserved this call. False only for a cache hit reported with no prior
+   * admission — a free hit that never drew on any call-limit allowance. Every limit that counts
+   * calls excludes a record with this false.
+   */
+  admitted: boolean;
 }
 
 /**
@@ -74,7 +88,11 @@ export interface TurnServices {
    * because a limit was reached also stops the run, the same way cancellation does.
    */
   admitModelCall(call: ModelCallIntent): Promise<void>;
-  /** Reports a call's outcome. An identical report is a no-op; a report is replaceable until final. */
+  /**
+   * Reports a call's outcome. An identical report is a no-op; a report is replaceable until final.
+   * Settles even after the run that admitted the call was cancelled or limited, as long as this
+   * process still holds the conversation; only admitting a new call is refused once a run has stopped.
+   */
   recordUsage(report: UsageReport): Promise<void>;
 }
 

@@ -24,20 +24,19 @@ import {
   encodeSessionCheckpoint,
   type SessionCheckpointState,
 } from './checkpoint-codec';
-import { createInProcessJournal } from './in-process-journal';
+import {
+  clearInProcessJournal,
+  createInProcessJournal,
+  forgetInProcessJournal,
+} from './in-process-journal';
 import { meterRecoverableJournal } from './metering-journal';
 import { toCompletionOutcome } from './outcome';
 import { RobotaParticipantError } from './errors';
 import { claimLease } from './resource-guard';
 import { renderSharedIncrement, type TurnRenderer } from './render';
+import type { OpenContext } from './open-context';
 
-/** What `sessionParticipant` tells the host about the session it is about to open or restore. */
-export interface OpenContext {
-  conversationId: string;
-  participantId: string;
-  /** True when opening from a saved checkpoint (a settled turn boundary, or a parked wait). */
-  restoring: boolean;
-}
+export type { OpenContext } from './open-context';
 
 /** `ISessionOptions` minus the fields this adapter owns: identity, streaming and terminal I/O. */
 export type SessionHostOptions = Omit<ISessionOptions, 'sessionId' | 'onTextDelta' | 'terminal'> & {
@@ -156,7 +155,13 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
         ]);
 
         let currentSink: ReturnType<typeof createDeltaQueue> | undefined;
-        let session: Session;
+        // Lease leak: every step below that can throw — construction, replaying a
+        // checkpoint's history, and a host's own `journal()` factory — is inside the one guard
+        // that releases the lease on the way out, so a failure here never leaves this provider or
+        // these tools permanently unusable to a later `openSession`.
+        let session!: Session;
+        const usingDefaultJournal = options.journal === undefined;
+        let journal: IRecoverableExecutionJournal;
         try {
           session = new Session({
             ...hostOptions,
@@ -166,15 +171,15 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
               currentSink?.push(delta);
             },
           });
+          if (state.history) for (const message of state.history) session.injectRawMessage(message);
+          journal =
+            options.journal?.({ ...openCtx, sessionId: state.sessionId }) ??
+            createInProcessJournal(state.sessionId);
         } catch (error) {
           releaseLease();
+          if (session) await session.shutdown().catch(() => {});
           throw error;
         }
-        if (state.history) for (const message of state.history) session.injectRawMessage(message);
-
-        const journal =
-          options.journal?.({ ...openCtx, sessionId: state.sessionId }) ??
-          createInProcessJournal(state.sessionId);
 
         let firstTurnDone = state.firstTurnDone;
         let pendingWait: { executionId: string; requestIds: string[] } | null = state.pending;
@@ -190,6 +195,15 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
           try {
             const meteredJournal = meterRecoverableJournal(journal, execOptions.services);
             const result = await run(meteredJournal);
+            // An aborted run can resolve instead of rejecting, the way a plain Robota agent's
+            // `agent.run()` always does (see robota-participant.ts) — checking `signal.aborted`
+            // only in `catch` below would miss that path, letting a cancelled turn's partial text
+            // (or even a stray 'waiting' status racing the abort) be published or parked as if
+            // the cancellation never happened. `Session`'s own executeRun already turns that same
+            // case into a rejection before it reaches here, so this guard is not what this
+            // specific call depends on today, but it keeps the same guarantee for any run or
+            // resume call that resolves on abort instead.
+            if (signal.aborted) throw signal.reason;
             await deltaQueue.flush();
             if (result.status === 'waiting') {
               const outcome = toWaitOutcome(result.requests);
@@ -202,6 +216,11 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
             }
             firstTurnDone = true;
             pendingWait = null;
+            // The default in-process journal never freed a settled execution's records (full
+            // message arrays included) — safe exactly here, because nothing reads them back once
+            // this turn settled with no wait parked; a journal a host supplied is left alone,
+            // since its lifecycle is the host's to manage.
+            if (usingDefaultJournal) clearInProcessJournal(state.sessionId);
             return toCompletionOutcome(result.response);
           } catch (error) {
             if (signal.aborted) throw signal.reason ?? error;
@@ -284,6 +303,10 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
             if (released) return;
             released = true;
             releaseLease();
+            // Free the module-level map entry itself once this lease ends, unless a wait is
+            // still parked — a resumed lease later needs exactly those records, and `settle`
+            // above never got to clear them because this execution never settled.
+            if (usingDefaultJournal && !pendingWait) forgetInProcessJournal(state.sessionId);
             await session.shutdown();
           },
         };

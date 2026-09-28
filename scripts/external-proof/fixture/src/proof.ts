@@ -11,6 +11,7 @@ import { report } from './harness.js';
 import { runModeA } from './mode-a.js';
 import { runModeB } from './mode-b.js';
 import { runModeC } from './mode-c.js';
+import { runModeD } from './mode-d.js';
 
 process.stdout.write(
   'ARCH-005 S3 — external-consumer proof of the published Robota product-composition surface\n' +
@@ -20,4 +21,5 @@ process.stdout.write(
 runModeA();
 runModeB();
 await runModeC();
+await runModeD();
 report();

@@ -17,9 +17,9 @@ A conversation's purpose is announced to a runtime once, on the turn that opens 
 
 Every provider call a wrapped runtime makes is admitted and reported through that turn's own bound
 services before it reaches the provider; a call an admission rejects is never dispatched, so a spent
-limit stops a runtime before it produces a result nothing asked for. A cache hit is admitted under its
-own identity when the record carries one, rather than resting on the ledger's admission-free path for a
-report that arrives with none.
+limit stops a runtime before it produces a result nothing asked for. A cache hit costs nothing to
+serve, so it is reported through the ledger's admission-free cache-hit path instead, carrying its own
+identity — never spending a call-limit allowance a free hit did not need.
 
 A `Session` participant understands exactly one shape of suspended request — the one its own
 permission gate produces for a tool awaiting approval — and maps it to a roundtable wait under the
@@ -70,6 +70,12 @@ admitting and reporting what a runtime already reports, and it does not implemen
 - A parked wait's checkpoint omits private history rather than duplicating it: the live session that
   produced the wait is the runtime of record for that turn, and a settled checkpoint already carries
   history once there is a boundary safe to restore from.
-- A selector's agent must carry no tool of its own before the decision tool is added, and the check
-  runs before any provider call: a decision an agent could reach two ways can never be trusted to have
-  been reached through the one this package can verify.
+- A selector's agent must carry no tool of its own — other than the decision tool this package
+  manages — before a decision is reached, and the check runs before any provider call: a decision
+  an agent could reach two ways can never be trusted to have been reached through the one this
+  package can verify.
+- A selector's agent has its history cleared before every decision and is shown the shared
+  conversation itself, rendered the same way a participant's turn is: reused with no checkpoint of
+  its own, it would otherwise accumulate private history a freshly reloaded selector never sees, so a
+  live selector's judgment — and its cost — would drift from a reloaded one deciding from the same
+  `SelectionContext`.

@@ -88,7 +88,7 @@ export function runModeA(): void {
   checkEqual(
     'the coding command modules are present',
     product.commandModules.map((commandModule) => commandModule.name),
-    ['agent-command-shell', 'agent-command-editor'],
+    ['agent-command-shell', 'agent-command-editor', 'agent-command-git'],
   );
   checkEqual(
     'the ten built-in coding tools are present',
@@ -121,7 +121,7 @@ export function runModeA(): void {
   );
   check(
     'the overlay carries the assembled command modules',
-    (options.commandModules ?? []).length === 2,
+    (options.commandModules ?? []).length === 3,
   );
   check(
     'the overlay carries the pack tools as additionalTools',

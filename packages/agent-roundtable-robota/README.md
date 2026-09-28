@@ -4,13 +4,43 @@ Runs a Robota `Session` or a plain `Robota` agent as an `@robota-sdk/agent-round
 and a Robota agent as its selector. `agent-roundtable` stays free of both runtimes; this is the only
 package that imports `@robota-sdk/agent-core` and `@robota-sdk/agent-session` to bridge them in.
 
+The package root (`robotaParticipant`, `robotaSelector`, `meterJournal`, ...) only ever needs
+`@robota-sdk/agent-core`. `sessionParticipant`, which needs `@robota-sdk/agent-session` as well, is
+exported from the `/session` subpath instead — see below.
+
 ## Installation
 
-Not published to npm yet. Inside this monorepo, depend on it as a workspace package:
-
-```json
-{ "dependencies": { "@robota-sdk/agent-roundtable-robota": "workspace:*" } }
+```bash
+npm install @robota-sdk/agent-roundtable-robota @robota-sdk/agent-core
+# only if you use sessionParticipant from the /session subpath:
+npm install @robota-sdk/agent-session
 ```
+
+`@robota-sdk/agent-roundtable` comes along automatically as a regular dependency.
+`@robota-sdk/agent-core` is a peer dependency, and `@robota-sdk/agent-session` an optional one needed
+only by the `/session` subpath. This package runs the `Robota`/`Session` instances the host
+constructs with them, so the host's copies and this package's must be the same install. See "Version and compatibility" below for what version range that peer
+dependency actually pins to.
+
+## Supported environments
+
+Node.js only (the peer `@robota-sdk/agent-session` reads and writes the filesystem for permissions,
+hooks and persistence); there is no browser build. Requires Node.js 22.12 or later, matching
+`@robota-sdk/agent-core` and `@robota-sdk/agent-session`. `@robota-sdk/agent-roundtable` itself stays
+platform-neutral — only this adapter, and the runtimes it wraps, are Node-only.
+
+## Capabilities by participant kind
+
+| Kind                                                                              | Wait continuation                                               | Checkpoint             | Model calls                                                  |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------ |
+| `sessionParticipant`                                                              | Yes — a tool call awaiting approval (`robota-session/approval`) | `robota-session/1`     | Metered (`'metered'`)                                        |
+| `robotaParticipant`                                                               | No — a suspended execution fails the turn outright              | `robota-agent/1`       | Metered (`'metered'`)                                        |
+| Custom (write your own `AgentParticipant` against `@robota-sdk/agent-roundtable`) | Whatever you implement                                          | Whatever you implement | Declare `factory.modelCalls` yourself, or omit it (`'none'`) |
+
+A custom participant needs neither this package nor Robota at all — `@robota-sdk/agent-roundtable`'s
+own README shows one wrapping plain code. Use `sessionParticipant` when the turn needs tools,
+permissions or approval; use `robotaParticipant` for a model-only agent with no continuation to
+manage; write a custom participant for any other runtime.
 
 ## Quick start
 
@@ -77,10 +107,14 @@ changes.
 on, with tools, permissions and hooks — as a participant. The host supplies everything Session-specific
 through `createSessionOptions`; this package owns turning a shared increment into that Session's input,
 metering every provider call it makes, and mapping its one supported wait shape (a tool call awaiting
-approval, `robota-session/approval`) onto the roundtable's own wait/resume protocol:
+approval, `robota-session/approval`) onto the roundtable's own wait/resume protocol.
+
+It is imported from the `/session` subpath, not the package root: `sessionParticipant` pulls in
+`@robota-sdk/agent-session` — and, through it, `@robota-sdk/agent-file-authority`'s native binary — a
+cost a consumer of `robotaParticipant`/`robotaSelector` alone should never pay:
 
 ```typescript
-import { sessionParticipant } from '@robota-sdk/agent-roundtable-robota';
+import { sessionParticipant } from '@robota-sdk/agent-roundtable-robota/session';
 
 const reviewer = sessionParticipant({
   id: 'reviewer',
@@ -109,6 +143,9 @@ resolves, so restoring one still depends on that session — or a durable journa
 execution — being reachable. The default journal a `sessionParticipant` uses when none is supplied is
 shared by session id for the lifetime of the process, which is enough for a `loadRoundtable` reload in
 the same process; a host that needs a wait to survive a restart supplies its own durable `journal`.
+That default also only ever frees a session's records once its execution settles with no wait parked;
+a parked wait whose conversation fails or is simply never resumed keeps its records in memory for the
+life of the process. A host that expects abandoned waits supplies its own `journal` to clean those up.
 
 ## `robotaParticipant`: a plain agent turn, no continuation
 
@@ -128,6 +165,15 @@ package can verify. A decision that never calls the tool, calls it more than onc
 the conversation's current participants, or names the same participant twice, fails the selection; the
 roundtable's own run then fails too, with no retry from inside the selector.
 
+The `robotaSelector` a call to this function returns is one conversation's selector: its reused agent's
+history and tools are private, mutable state a second, overlapping `select()` call on the same instance
+would corrupt, so a second such call is rejected outright (`resource-reused`) rather than left to race
+the first. Give each conversation its own instance instead of sharing one across conversations.
+
+Every decision is shown the conversation's whole shared transcript, not a bounded window — no context
+policy trims a selector's own view the way one trims what a participant receives — so the cost of each
+decision grows with the conversation rather than staying flat.
+
 ## Rendering a turn's shared increment
 
 Both participants render a turn's `context.messages` — never the participant's own prior output or
@@ -136,12 +182,33 @@ text. The default renderer, `renderSharedIncrement`, quotes every message's cont
 can never be read back as a new message header; a host that wants a different shape for its runtime's
 input passes its own `render` function to either participant.
 
+## `meterJournal`: metering a host's own selector or participant
+
+Both `robotaParticipant` and `robotaSelector` wrap the `IExecutionJournal` they hand to a `Robota`
+run with `meterJournal`, which is exported so a host writing its own Robota-backed selector or
+participant gets the same guarantee without reimplementing it:
+
+```typescript
+import { meterJournal } from '@robota-sdk/agent-roundtable-robota';
+
+const metered = meterJournal(myInnerJournal, execOptions.services);
+await agent.run(prompt, { signal: execOptions.signal, executionJournal: metered });
+```
+
+Every `model-request` record is admitted through `services.admitModelCall` before it reaches the
+inner journal — a rejected admission stops the call before it is dispatched — and every
+`model-response`/`model-failure`/`model-cache-hit` is reported through `services.recordUsage` once
+it settles. A `Session`-backed, checkpoint-resumable journal uses `meterRecoverableJournal` from
+`@robota-sdk/agent-roundtable-robota/session` instead, which adds a passed-through `read`.
+
 ## Errors
 
 `RobotaParticipantError` (`unsupported-wait`, `identity-mismatch`, `checkpoint-invalid`,
 `journal-missing`, `resource-reused`) is thrown by a participant's `runTurn`/`resumeTurn`/`openSession`.
 `SelectorDecisionError` (`no-candidates`, `no-decision`, `multiple-decisions`, `invalid-decision`,
-`unknown-participant`) is thrown by `robotaSelector`'s `select`.
+`unknown-participant`) is thrown by `robotaSelector`'s `select`, which also throws
+`RobotaParticipantError('resource-reused')` if one selector instance is asked to decide for two
+conversations at the same time.
 
 ## Provider SDK retries
 
@@ -149,3 +216,28 @@ A provider SDK's own automatic retry of a failed request is invisible to this pa
 retried call still admits and reports as one call, because the adapter only ever sees the provider
 call boundary agent-core journals, not the transport underneath it. A host relying on per-call model
 limits should disable that provider SDK's automatic retries.
+
+## Version and compatibility
+
+This package's own API follows the release's semantic version, same as `@robota-sdk/agent-roundtable`,
+`@robota-sdk/agent-core` and `@robota-sdk/agent-session` in the same release (they are versioned in
+lockstep). Its `peerDependencies` on the latter two are `workspace:*` in source; publishing pins them
+to the **exact** version they release with, not a range — so installing this package always pulls in
+the exact `agent-core`/`agent-session` version it was built and tested against.
+
+That API version is separate from **checkpoint format compatibility**, which this package owns
+independently of any of those three:
+
+- `sessionParticipant`'s checkpoint is versioned `robota-session/1`; `robotaParticipant`'s is
+  `robota-agent/1`. Both `checkpoint-codec` decoders reject any other `version` string outright —
+  there is no silent best-effort decode of an unrecognized or future format.
+- A checkpoint format changes only by minting a new version string (e.g. a hypothetical
+  `robota-session/2`), never by changing what `/1` means in place. An API-compatible minor or patch
+  release of this package never changes what an existing checkpoint version decodes to.
+- Restoring also re-validates identity: `sessionParticipant`'s `openSession` rejects a checkpoint
+  built under a different `cwd`, and a parked wait's checkpoint is a receipt, not a substitute for the
+  live session (or durable journal) that actually produced it — see "sessionParticipant" above.
+
+A host that persists checkpoints across releases should track the checkpoint `version` string
+alongside its own data, the same way `@robota-sdk/agent-roundtable`'s stored conversation state
+carries its own `schemaVersion` (see that package's README).

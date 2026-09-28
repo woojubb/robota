@@ -17,6 +17,17 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./session": {
+      "source": "./src/session.ts",
+      "import": {
+        "types": "./dist/session.d.ts",
+        "default": "./dist/session.js"
+      },
+      "require": {
+        "types": "./dist/session.d.cts",
+        "default": "./dist/session.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -38,9 +49,15 @@
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-session": "workspace:*"
   },
+  "peerDependenciesMeta": {
+    "@robota-sdk/agent-session": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-session": "workspace:*",
+    "@robota-sdk/agent-tool-defaults": "workspace:*",
     "tsdown": "^0.22.14",
     "vitest": "^3.2.6"
   },
@@ -51,7 +68,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "private": true,
+  "private": false,
   "repository": {
     "type": "git",
     "url": "https://github.com/woojubb/robota.git",

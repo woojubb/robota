@@ -105,4 +105,31 @@ describe('the persisted usage ledger is validated on load', () => {
     expect(loaded.snapshot().usage).toHaveLength(1);
     await loaded.dispose();
   });
+
+  it.each([
+    ['has no admitted marker', (record: Record<string, unknown>) => delete record.admitted],
+    [
+      'claims no admission for a completed call',
+      (record: Record<string, unknown>) => (record.admitted = false),
+    ],
+  ])('rejects a stored usage record that %s', async (_label, corrupt) => {
+    const f = fixture();
+    const store = new MemoryConversationStore();
+    const room = createRoundtable({
+      conversationId: 'corrupt-admitted-marker',
+      store,
+      participants: [f.participant],
+      limits: { maxTurnsPerRun: 1, maxModelCallsPerRun: 1 },
+    });
+    await room.run();
+    await room.dispose();
+    const envelope = (await store.load('corrupt-admitted-marker'))!;
+    const state = envelope.state as unknown as ConversationState;
+    const [record] = state.snapshot.usage as unknown as Record<string, unknown>[];
+    corrupt(record);
+    vi.spyOn(store, 'load').mockResolvedValue(envelope);
+    await expect(
+      loadRoundtable({ conversationId: 'corrupt-admitted-marker', store, registry: f.registry }),
+    ).rejects.toMatchObject({ code: 'invalid-config' });
+  });
 });

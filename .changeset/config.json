@@ -30,6 +30,8 @@
       "@robota-sdk/agent-provider-openai",
       "@robota-sdk/agent-provider-openai-compatible",
       "@robota-sdk/agent-remote-pairing",
+      "@robota-sdk/agent-roundtable",
+      "@robota-sdk/agent-roundtable-robota",
       "@robota-sdk/agent-session",
       "@robota-sdk/agent-session-analytics",
       "@robota-sdk/agent-subagent-runner",
