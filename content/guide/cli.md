@@ -173,13 +173,13 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
-| Option                                | Use                                                          |
-| ------------------------------------- | ------------------------------------------------------------ |
-| `--permission-mode plan`              | Review only: nothing is written; only read-only commands run |
-| `--permission-mode bypassPermissions` | Let the agent edit and run commands without asking           |
-| `--no-session-persistence`            | Do not save the session                                      |
-| `--output-format json`                | One JSON result; check `.subtype` for `success` or `error`   |
-| `--max-turns <n>`                     | Cap the number of agent turns                                |
+| Option                                | Use                                                                    |
+| ------------------------------------- | ---------------------------------------------------------------------- |
+| `--permission-mode plan`              | Review only: the agent writes nothing and runs only read-only commands |
+| `--permission-mode bypassPermissions` | Let the agent edit and run commands without asking                     |
+| `--no-session-persistence`            | Do not save the session                                                |
+| `--output-format json`                | One JSON result; check `.subtype` for `success` or `error`             |
+| `--max-turns <n>`                     | Cap the number of agent turns                                          |
 
 ## Session management
 
