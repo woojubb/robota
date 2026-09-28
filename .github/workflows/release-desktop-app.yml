@@ -24,6 +24,14 @@ on:
         description: 'Exact product commit SHA for an unpublished candidate. Published installers always use the release tag.'
         required: false
         type: string
+      candidate_platform:
+        description: 'Limit an unpublished candidate to Windows while diagnosing native failures. Published builds always cover all platforms.'
+        required: false
+        default: all
+        type: choice
+        options:
+          - all
+          - windows
 
 permissions:
   contents: write
@@ -39,16 +47,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            bun_target: linux-x64
-            assets: release/*.AppImage release/*.deb
-          - os: macos-latest
-            bun_target: darwin-arm64
-            assets: release/*.dmg release/*.zip
-          - os: windows-latest
-            bun_target: windows-x64
-            assets: release/*.exe
+        include: >-
+          ${{ fromJSON(github.event.inputs.publish == 'false' && github.event.inputs.candidate_platform == 'windows'
+            && '[{"os":"windows-latest","bun_target":"windows-x64","assets":"release/*.exe"}]'
+            || '[{"os":"ubuntu-latest","bun_target":"linux-x64","assets":"release/*.AppImage release/*.deb"},{"os":"macos-latest","bun_target":"darwin-arm64","assets":"release/*.dmg release/*.zip"},{"os":"windows-latest","bun_target":"windows-x64","assets":"release/*.exe"}]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Resolve release tag
