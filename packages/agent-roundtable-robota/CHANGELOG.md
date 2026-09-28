@@ -1,5 +1,13 @@
 # @robota-sdk/agent-roundtable-robota
 
+## 3.0.0-beta.86
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.86
+- @robota-sdk/agent-roundtable@3.0.0-beta.86
+- @robota-sdk/agent-session@3.0.0-beta.86
+
 ## 3.0.0-beta.85
 
 ### Minor Changes

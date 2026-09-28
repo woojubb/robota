@@ -1,5 +1,13 @@
 # robota-web
 
+## 0.1.1-beta.6
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.86
+- @robota-sdk/agent-ui-web@3.0.0-beta.86
+- @robota-sdk/agent-transport-webrtc-web@3.0.0-beta.86
+
 ## 0.1.1-beta.5
 
 ### Patch Changes

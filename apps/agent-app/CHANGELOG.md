@@ -1,5 +1,11 @@
 # @robota-sdk/agent-app
 
+## 3.0.0-beta.84
+
+### Patch Changes
+
+- 0af9b30: Bundle the full CLI so the desktop app can check workspace trust, start and reconnect to its daemon, and stop it on each supported platform.
+
 ## 3.0.0-beta.83
 
 ### Minor Changes

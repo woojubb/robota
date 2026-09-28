@@ -1,5 +1,12 @@
 # @robota-sdk/dag-framework
 
+## 1.0.0-beta.10
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.86
+- @robota-sdk/dag-worker@3.0.0-beta.67
+
 ## 1.0.0-beta.9
 
 ### Minor Changes
