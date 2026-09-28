@@ -36,6 +36,7 @@ import { createSetupPlaceholderProvider } from './startup/setup-placeholder-prov
 import { checkForCliUpdate, formatCliUpdateCheckMessage } from './update-check/update-check.js';
 import { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
 import { parseCliArgs, printHelp, type IParsedCliArgs } from './utils/cli-args.js';
+import { isSubcommandName } from './utils/cli-help.js';
 import { resolveShellPresetOrExit } from './startup/preset-selection.js';
 import { ROBOTA_DEFAULT_AGENT_NAME } from './product/robota-preset-defaults.js';
 import { ROBOTA_AGENT_DEFINITION_ROOTS } from './product/robota-agent-roots.js';
@@ -112,6 +113,7 @@ import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { tuiInitialInputProps } from './startup/tui-initial-input.js';
+import { mcpServeProtocolArgs } from './startup/mcp-serve-invocation.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
 import { providerHasOwnCredential } from './handoff/handoff-host-adapter.js';
 import {
@@ -172,16 +174,7 @@ export async function startCliCore(
   const launch = await applyLaunchInvocation();
   if (launch.kind === 'refused') return;
   const initialInput = launch.kind === 'launched' ? launch.initialInput : undefined;
-  let parsedMcpArgs: IParsedCliArgs | undefined;
-  if (process.argv.includes('mcp')) {
-    try {
-      const parsed = parseCliArgs();
-      if (parsed.positional[0] === 'mcp' && parsed.positional[1] === 'serve')
-        parsedMcpArgs = parsed;
-    } catch {
-      // The normal parser reports an invalid invocation below.
-    }
-  }
+  const parsedMcpArgs = mcpServeProtocolArgs(process.argv.slice(2));
   const mcpOutput = parsedMcpArgs === undefined ? undefined : reserveMcpStdout();
   try {
     await runCliCore(
@@ -1055,7 +1048,7 @@ async function runCliCore(
     promptFileReferenceTag,
     providerDefinitions,
     ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
-    ...tuiInitialInputProps(initialInput, args.positional),
+    ...tuiInitialInputProps(initialInput, args.positional, isSubcommandName),
     onChannelReady: createChannelReadyHandler(
       presentation.setLiveChannel,
       setRemoteControlChannel,

@@ -16,6 +16,14 @@ describe('tuiInitialInputProps', () => {
     });
   });
 
+  it('does not treat words that begin with a subcommand’s name as a prompt', () => {
+    const isSubcommand = (word: string): boolean => word === 'session';
+    expect(tuiInitialInputProps(undefined, ['session', 'lst'], isSubcommand)).toEqual({});
+    expect(tuiInitialInputProps(undefined, ['explain', 'sessions'], isSubcommand)).toEqual({
+      initialInput: 'explain sessions',
+    });
+  });
+
   it('starts empty when nothing was given', () => {
     expect(tuiInitialInputProps(undefined, [])).toEqual({});
     expect(tuiInitialInputProps(undefined, ['  '])).toEqual({});

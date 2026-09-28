@@ -16,6 +16,8 @@ const NOT_IN_GLOBAL_HELP = new Set([
   'supervised-external-event-grants',
   'daemon',
   'external-event-allow',
+  // `robota session list --format` is listed with that command; `--summary` and `--source` belong
+  // to an internal command.
   'format',
   'summary',
   'source',
@@ -32,7 +34,7 @@ describe('robota --help', () => {
   it('lists every option the parser accepts, except those not meant for people', () => {
     const help = printHelp();
     const missing = CLI_OPTION_NAMES.filter(
-      (name) => !NOT_IN_GLOBAL_HELP.has(name) && !help.includes(`--${name}`),
+      (name) => !NOT_IN_GLOBAL_HELP.has(name) && !new RegExp(`--${name}(?![\\w-])`).test(help),
     );
     expect(missing).toEqual([]);
   });
@@ -72,6 +74,18 @@ describe('robota <subcommand> --help', () => {
     expect(subcommandHelpFor(['mcp', 'serve', '--help'])).toContain('--http-token-file');
   });
 
+  it('leaves --help to a command that prints fuller help of its own', () => {
+    for (const args of [
+      ['usage', '--help'],
+      ['usage', 'export', '--help'],
+      ['session', 'list', '--help'],
+      ['session', 'view', '-h'],
+      ['session', 'attach', '--help'],
+    ]) {
+      expect(subcommandHelpFor(args)).toBeUndefined();
+    }
+  });
+
   it('is undefined without --help, or for something that is not a subcommand', () => {
     expect(subcommandHelpFor(['trust', 'status'])).toBeUndefined();
     expect(subcommandHelpFor(['-p', 'hello', '--help'])).toBeUndefined();
@@ -84,7 +98,17 @@ describe('robota <subcommand> --help', () => {
       process.exitCode = exitCode;
     });
 
-    it.each([['trust'], ['doctor'], ['session'], ['init'], ['open'], ['mcp', 'serve']])(
+    it.each([
+      ['trust'],
+      ['doctor'],
+      ['session'],
+      ['session', 'start'],
+      ['init'],
+      ['open'],
+      ['mcp', 'serve'],
+      ['daemon'],
+      ['eval'],
+    ])(
       'robota %s --help prints help and exits 0 instead of running the command',
       async (...subcommand: string[]) => {
         const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
@@ -103,5 +127,37 @@ describe('robota <subcommand> --help', () => {
         expect(stdout.mock.calls.flat().join('')).toContain(`robota ${subcommand[0]}`);
       },
     );
+  });
+});
+
+describe('the help router hands --help to commands with their own help', () => {
+  const exitCode = process.exitCode;
+  afterEach(() => {
+    vi.restoreAllMocks();
+    process.exitCode = exitCode;
+  });
+
+  it.each([
+    [['usage'], '--period'],
+    [['usage', 'export'], '--signal'],
+    [['session', 'view'], '--state'],
+    [['session', 'attach'], '--observe'],
+  ])('robota %j --help prints the command’s own help', async (subcommand, expected) => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    process.exitCode = undefined;
+
+    await runPreparsedCliCommand(
+      { providerDefinitions: [] },
+      ['node', 'robota', ...subcommand, '--help'],
+      '/nonexistent-robota-help-cwd',
+    );
+
+    expect(stdout.mock.calls.flat().join('')).toContain(expected);
+  });
+
+  it('lists every option daemon start and eval accept in their entries', () => {
+    expect(subcommandHelpFor(['daemon', '--help'])).toContain('--restricted-workspace');
+    expect(subcommandHelpFor(['eval', '--help'])).toContain('--threshold');
   });
 });

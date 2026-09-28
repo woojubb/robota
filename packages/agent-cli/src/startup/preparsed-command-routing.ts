@@ -76,16 +76,14 @@ function parseStartArgs(args: readonly string[]):
       readonly trustedProxies: readonly string[];
     }
   | undefined {
-  if (args[0] !== '--background') return undefined;
   let name: string | undefined;
   let port: string | undefined;
   const grantFiles: string[] = [];
   const trustedProxies: string[] = [];
   // The one flag without a value: start Restricted, as the headless trust refusal suggests.
   const restricted = args.includes(RESTRICTED_WORKSPACE_FLAG);
-  const valued = args.filter(
-    (argument, index) => index === 0 || argument !== RESTRICTED_WORKSPACE_FLAG,
-  );
+  const valued = args.filter((argument) => argument !== RESTRICTED_WORKSPACE_FLAG);
+  if (valued[0] !== '--background') return undefined;
   for (let index = 1; index < valued.length; index += 2) {
     const value = valued[index + 1];
     if (value === undefined) return undefined;

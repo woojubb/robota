@@ -146,7 +146,8 @@ Commands:
                                   Link a PR/MR URL to a live supervised session
   robota session unlink-pr <supervised-id>
                                   Clear a live supervised session PR/MR link
-  robota daemon start [--json]     Start this workspace's daemon, or reuse the running one; --json
+  robota daemon start [--json] [--restricted-workspace]
+                                  Start this workspace's daemon, or reuse the running one; --json
                                   prints {"id","url"} for the client that connects to it
   robota daemon status [--json]    Show whether this workspace's daemon is running
   robota daemon stop               Stop this workspace's daemon
@@ -157,7 +158,8 @@ Commands:
                                   Sign in to a remote MCP server that declares oauth
                                   (--no-browser: print the URL, paste the redirect back)
   robota mcp logout <name>         Sign out of an OAuth MCP server and revoke its tokens
-  robota eval <definition>         Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
+  robota eval <definition> [--threshold <0..1>]
+                                  Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 
 Examples:
   robota                           Start interactive TUI session
@@ -175,6 +177,18 @@ export function printHelp(): string {
   return `${USAGE}
 Options:
 ${OPTIONS}`;
+}
+
+/**
+ * Invocations whose command prints fuller help of its own for `--help` (its options and values), so
+ * the router leaves the flag to it.
+ */
+function hasOwnHelp(args: readonly string[]): boolean {
+  const [subcommand, action] = args;
+  if (subcommand === 'usage') return true;
+  return (
+    subcommand === 'session' && (action === 'list' || action === 'view' || action === 'attach')
+  );
 }
 
 /** `robota doctor`'s aliases, answered with the doctor's entries. */
@@ -206,6 +220,12 @@ function mcpServeOptions(): string {
   return OPTIONS.slice(start, end).trimEnd();
 }
 
+/** Whether `word` names a `robota` subcommand (or one of the doctor's aliases). */
+export function isSubcommandName(word: string): boolean {
+  const subcommand = SUBCOMMAND_ALIASES[word] ?? word;
+  return commandEntries().some((entry) => entry.subcommand === subcommand);
+}
+
 /**
  * Help for `robota <subcommand> --help` (or `-h`): that subcommand's entries from the command list
  * above, so the two never disagree. Undefined when `args` is not such a request.
@@ -213,6 +233,7 @@ function mcpServeOptions(): string {
 export function subcommandHelpFor(args: readonly string[]): string | undefined {
   const first = args[0];
   if (first === undefined || !(args.includes('--help') || args.includes('-h'))) return undefined;
+  if (hasOwnHelp(args)) return undefined;
   const subcommand = SUBCOMMAND_ALIASES[first] ?? first;
   const entries = commandEntries().filter((entry) => entry.subcommand === subcommand);
   if (entries.length === 0) return undefined;
