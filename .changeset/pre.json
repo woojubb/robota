@@ -231,6 +231,8 @@
     "3275-http-submit-fresh-session",
     "3275-literal-prompt-after-dashdash",
     "3275-memory-plan-mode",
+    "3275-plugin-hook-dispatch",
+    "3275-plugin-skill-routing",
     "3275-pretooluse-decisions",
     "3275-small-contracts",
     "3275-subagent-mode-at-spawn",

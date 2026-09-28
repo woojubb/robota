@@ -12,6 +12,19 @@
   that ends with neither text nor a tool result now rejects with a new, catchable `EmptyCompletionError`
   (`code: 'EMPTY_COMPLETION'`) instead of the internal invariant message; `resume()` of such an
   execution raises the same error.
+- 5093a30: A `Robota` run now calls `beforeConversation`, with `beforeExecution`, and `onStreamingChunk` for
+  each streamed piece of text, in order; the round waits for those chunk hooks before it goes on,
+  whether the provider call returned, failed or was interrupted. `EventEmitterPlugin` therefore emits
+  `CONVERSATION_START`.
+
+  The run result's `toolCalls` now carry each executed call's id and `result: null` for one that
+  failed, so `EventEmitterPlugin` emits `TOOL_ERROR` instead of `TOOL_SUCCESS` for a failed call, and
+  `WebhookPlugin`'s `tool.executed` payload reports it as failed with its call id.
+
+  `EXECUTION_START`, `EXECUTION_COMPLETE` and `EXECUTION_ERROR` are marked deprecated: no run emits
+  them; the `AGENT_EXECUTION_*` events are the ones a run emits. `beforeToolCall`,
+  `beforeToolExecution` and `afterToolCall` are still not called.
+
 - 94b2c87: A PreToolUse `command` hook can now steer a tool call, not only refuse it. The permission gate
   applies the winning `hookSpecificOutput.permissionDecision`:
 

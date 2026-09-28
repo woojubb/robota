@@ -37,6 +37,12 @@
   of failing the run. Each call keeps a small in-memory operation log for its conversation; it is bounded
   per call and negligible at the default `maxTurns` (the step count).
 
+- 6072e9a: Bundle plugin skills and commands now run. They were listed in the command menu, but typing one
+  answered "Unknown command", and the model could neither see nor activate them: the session's skill
+  router and the prompt's skill list read only the host's skill roots. A session now also loads the
+  skills and commands of the bundle plugins it may load, once, behind the same gates as plugin hooks
+  (not in a bare session, project plugins only in a trusted workspace, disabled plugins skipped). A
+  session's own skill of the same name wins, then the first plugin to name it.
 - 2e07cad: A subagent and a fork-context skill now start in the permission mode their parent is in at that
   moment. The runtime used to hand them the mode it was built with, so after a switch to `plan` a
   subagent the model started, or a skill it ran in a fork, still ran in the earlier mode and could
@@ -50,6 +56,7 @@
 - Updated dependencies [190f78f]
 - Updated dependencies [41cca13]
 - Updated dependencies [193a0bc]
+- Updated dependencies [5093a30]
 - Updated dependencies [94b2c87]
 - Updated dependencies [3ab2eca]
   - @robota-sdk/agent-roundtable@3.0.0-beta.85
