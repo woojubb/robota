@@ -294,6 +294,7 @@ describe('executeReloadPluginsCommand', () => {
     ).resolves.toEqual({
       success: false,
       message: 'Plugin error: manifest failed',
+      data: { pluginRegistryReloaded: true },
     });
   });
 });

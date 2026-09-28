@@ -2151,7 +2151,7 @@ export class InteractiveSession
       ? await this.skillRouter.executeCommand(name, args, source, originDriverId, locality)
       : await super.executeCommand(name, args, source, originDriverId, locality);
     if (result === null) return null;
-    if (result.success && result.data?.['pluginRegistryReloaded'] === true && source !== 'model') {
+    if (result.data?.['pluginRegistryReloaded'] === true && source !== 'model') {
       this.pluginSkills = this.loadPluginSkills();
       this.skillRouter.replacePluginSkills(this.pluginSkills);
       const activation = this.skillRouter.commandExecutor.getSemanticRoles().skillActivation;
