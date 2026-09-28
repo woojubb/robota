@@ -256,7 +256,8 @@ export class HandoffChunkAssembler {
       joined.set(part, offset);
       offset += part.length;
     }
-    return new TextDecoder().decode(joined);
+    // Keep a leading byte-order mark: it is part of the payload, as it was with `Buffer`.
+    return new TextDecoder('utf-8', { ignoreBOM: true }).decode(joined);
   }
 }
 

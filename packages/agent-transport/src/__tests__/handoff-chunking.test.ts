@@ -232,6 +232,19 @@ describe('without Node’s Buffer, as in the browser build', () => {
     expect(result).toMatchObject({ outcome: 'complete', serialized });
   });
 
+  it('keeps a leading byte-order mark', () => {
+    vi.stubGlobal('Buffer', undefined);
+    const serialized = '\uFEFF{"text":"bom"}';
+    const assembler = new HandoffChunkAssembler('h-bom');
+    let result: ReturnType<HandoffChunkAssembler['accept']> | undefined;
+
+    for (const chunk of chunkHandoffPayload('h-bom', serialized, 4)) {
+      result = assembler.accept(chunk);
+    }
+
+    expect(result).toMatchObject({ outcome: 'complete', serialized });
+  });
+
   it('refuses a chunk whose base64 is not canonical', () => {
     vi.stubGlobal('Buffer', undefined);
     const [chunk] = chunkHandoffPayload('h-browser', 'hello', 64);

@@ -151,7 +151,7 @@ export interface IProviderDefinition {
    * LLM nodes' single `COST_PER_TOKEN_USD` scalar. The correct long-term home is the per-model
    * {@link IProviderModelCatalogEntry.costPerInputToken}/`costPerOutputToken`; this flat scalar is a
    * fidelity-preserving interim used only while model catalogs are `status:'unavailable'` (no per-model
-   * entries to attach cost to). Consumed by the collapsed `llm-text` node's `maxCostUsd` estimation. Absent
+   * entries to attach cost to). Consumed by the collapsed `llm-text` node's cost estimate. Absent
    * means cost is unknown for this provider and estimators must degrade explicitly.
    */
   costPerTokenUsd?: number;
