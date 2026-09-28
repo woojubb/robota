@@ -84,18 +84,23 @@ function tokenSid(processHandle: unknown): string {
     const length = [0];
     win.tokenInfo(token[0], 1, null, 0, length);
     if (!length[0] || length[0] > 65536) throw new Error('Invalid Windows process owner size.');
-    const buffer = Buffer.alloc(length[0]);
-    if (!win.tokenInfo(token[0], 1, buffer, buffer.length, length))
-      throw new Error('Unable to read Windows process owner.');
-    const text: unknown[] = [null];
-    if (!win.sidString(koffi.decode(buffer, 'void*'), text))
-      throw new Error('Unable to decode Windows process owner.');
+    // TOKEN_USER embeds a SID pointer into this storage, used by the next native call.
+    const buffer = koffi.alloc('uint8_t', length[0]);
     try {
-      const sid = String(koffi.decode.string16(text[0]));
-      if (!/^S-1-[0-9-]+$/u.test(sid)) throw new Error('Invalid Windows owner SID.');
-      return sid;
+      if (!win.tokenInfo(token[0], 1, buffer, length[0], length))
+        throw new Error('Unable to read Windows process owner.');
+      const text: unknown[] = [null];
+      if (!win.sidString(koffi.decode(buffer, 'void*'), text))
+        throw new Error('Unable to decode Windows process owner.');
+      try {
+        const sid = String(koffi.decode.string16(text[0]));
+        if (!/^S-1-[0-9-]+$/u.test(sid)) throw new Error('Invalid Windows owner SID.');
+        return sid;
+      } finally {
+        win.free(text[0]);
+      }
     } finally {
-      win.free(text[0]);
+      koffi.free(buffer);
     }
   } finally {
     win.close(token[0]);
