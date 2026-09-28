@@ -80,6 +80,35 @@ describe('CMD-006 — a model may not execute an on-disk workflow', () => {
   });
 });
 
+describe('plan mode keeps the model from saving or running a workflow', () => {
+  function planHost(source: TCommandInvocationSource) {
+    return createTestCommandHost({
+      cwd: '/w',
+      session: { getPermissionMode: () => 'plan' },
+      overrides: { getCommandInvocationSource: () => source },
+    });
+  }
+
+  it.each(['create', 'build'])('refuses a model-issued `workflows %s`', async (sub) => {
+    const result = await systemCommand().execute(planHost('model'), `${sub} "sum two numbers"`);
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('Plan mode');
+  });
+
+  it('leaves the user free to author by hand', async () => {
+    const result = await systemCommand().execute(planHost('user'), 'create');
+
+    expect(result.message ?? '').not.toContain('Plan mode');
+  });
+
+  it('lets the model author outside plan mode', async () => {
+    const result = await systemCommand().execute(hostContext('model'), 'create');
+
+    expect(result.message ?? '').not.toContain('Plan mode');
+  });
+});
+
 describe('what the model is offered of `/workflows`', () => {
   it('describes and offers only the authoring subcommands', () => {
     const executor = new SystemCommandExecutor([systemCommand()]);

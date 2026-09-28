@@ -170,7 +170,7 @@ export function projectStartPayload(
     parentContext: encodeParentContext(projectParentContext(deps.context)),
     ...(options.connection ??
       projectProviderConnection(job, deps, options, process.env, process.env)),
-    permissionMode: deps.permissionMode,
+    permissionMode: deps.getParentPermissionMode?.() ?? deps.permissionMode,
     ...projectSessionTiers(deps),
     ...(options.parentSandboxSettings !== undefined
       ? { parentSandboxSettings: options.parentSandboxSettings }

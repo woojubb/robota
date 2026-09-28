@@ -46,6 +46,11 @@ export interface IInProcessSubagentRunnerDeps {
   terminal: ITerminalOutput;
   provider: IAIProvider;
   permissionMode?: TPermissionMode;
+  /**
+   * The parent's permission mode, read live at spawn, so a subagent started after a switch to
+   * `plan` runs in `plan`. Absent → `permissionMode`, the mode the runtime was built with.
+   */
+  getParentPermissionMode?: () => TPermissionMode;
   permissionHandler?: TPermissionHandler;
   hooks?: ISubagentOptions['hooks'];
   hookTypeExecutors?: IHookTypeExecutor[];
@@ -278,7 +283,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
         ...(resumeSessionId !== undefined && deps.resumeSessionStore !== undefined
           ? { sessionStore: deps.resumeSessionStore }
           : {}),
-        permissionMode: deps.permissionMode,
+        permissionMode: deps.getParentPermissionMode?.() ?? deps.permissionMode,
         ...(deps.commandSemanticRoles ? { commandSemanticRoles: deps.commandSemanticRoles } : {}),
         ...(deps.modelCommandToolPrefix
           ? { modelCommandToolPrefix: deps.modelCommandToolPrefix }

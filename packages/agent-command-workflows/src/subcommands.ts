@@ -15,6 +15,8 @@ export interface IWorkflowsSubcommand {
   readonly argumentHint?: string;
   /** Whether the agent (not just the user) may invoke it. */
   readonly modelInvocable: boolean;
+  /** Whether it saves files to the project or runs a workflow, which plan mode keeps the model from. */
+  readonly changesProject: boolean;
 }
 
 /** The authoring subcommands share one argument grammar (`parseCreateArgs`). */
@@ -28,6 +30,7 @@ export const WORKFLOWS_SUBCOMMANDS: readonly IWorkflowsSubcommand[] = [
     description: 'Author a workflow from a natural-language description and run it immediately',
     argumentHint: AUTHORING_HINT,
     modelInvocable: true,
+    changesProject: true,
   },
   {
     name: 'build',
@@ -35,40 +38,47 @@ export const WORKFLOWS_SUBCOMMANDS: readonly IWorkflowsSubcommand[] = [
       'Author a workflow from a natural-language description and save it for review (no run)',
     argumentHint: AUTHORING_HINT,
     modelInvocable: true,
+    changesProject: true,
   },
   {
     name: 'list',
     description: 'List available workflow nodes (built-ins + nodes saved in this workspace)',
     modelInvocable: false,
+    changesProject: false,
   },
   {
     name: 'catalog',
     description: 'List workflow files in the local .workflows catalog',
     modelInvocable: false,
+    changesProject: false,
   },
   {
     name: 'validate',
     description: 'Validate a workflow file against the node catalog',
     argumentHint: FILE_HINT,
     modelInvocable: false,
+    changesProject: false,
   },
   {
     name: 'run',
     description: 'Run a workflow file',
     argumentHint: `${FILE_HINT} [--detach]`,
     modelInvocable: false,
+    changesProject: true,
   },
   {
     name: 'status',
     description: 'Inspect a detached run in this CLI session',
     argumentHint: '<run-id>',
     modelInvocable: false,
+    changesProject: false,
   },
   {
     name: 'cancel',
     description: 'Cancel an active detached run in this CLI session',
     argumentHint: '<run-id>',
     modelInvocable: false,
+    changesProject: false,
   },
 ];
 

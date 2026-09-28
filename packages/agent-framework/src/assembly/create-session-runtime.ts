@@ -360,6 +360,7 @@ export function wireSessionDeps(
     agentToolDeps.isParallelSubagentsEnabled = () => session.getParallelSubagentsEnabled();
     // Issue #3081: subagents inherit what this session's gate enforces now, not the settings file.
     agentToolDeps.getParentPermissionRules = () => session.getPermissionRules();
+    agentToolDeps.getParentPermissionMode = () => session.getPermissionMode();
   }
   if (backgroundProcessToolDeps) backgroundProcessToolDeps.parentSessionId = session.getSessionId();
   storeSessionBackgroundTaskManager(session, backgroundTaskManager);
