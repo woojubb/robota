@@ -92,9 +92,11 @@ so set those to reach Vertex AI or another endpoint.
 
 ## Errors
 
-A failed chat or stream call throws a typed error from `@robota-sdk/agent-core`: a `RateLimitError`
-for a rate limit, otherwise a `ProviderError` that carries the HTTP `status` and keeps the SDK error
-as `originalError`. An aborted call rethrows the abort unchanged.
+A failed chat or stream call throws a typed error from `@robota-sdk/agent-core`: `RateLimitError`,
+`AuthenticationError`, `ModelNotAvailableError` or `NetworkError` when the failure is one of those,
+otherwise a `ProviderError` that carries the HTTP `status` and keeps the SDK error as
+`originalError`. The Google SDK exposes no response headers, so `RateLimitError.retryAfter` is always
+undefined. An aborted call rethrows the abort unchanged. See [Provider failures](../../content/guide/error-handling.md#provider-failures).
 
 Image methods never throw. A request with missing input (empty prompt or model, too few images for
 `composeImage`, an unusable image source) returns `PROVIDER_INVALID_REQUEST`; a failed call, or a

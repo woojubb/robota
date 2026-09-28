@@ -14,8 +14,9 @@
 import { toProviderError } from '@robota-sdk/agent-core';
 
 /**
- * Re-throw an Anthropic SDK error as a typed provider failure: a `RateLimitError` for a rate limit,
- * a `ProviderError` carrying the HTTP status and Anthropic's error type otherwise. Aborts and
+ * Re-throw an Anthropic SDK error as a typed provider failure (see `toProviderError`): a rate limit,
+ * a rejected key, an unavailable model and a network failure each get their own error type, and
+ * anything else is a `ProviderError` carrying the HTTP status and Anthropic's error type. Aborts and
  * errors already in the taxonomy are re-thrown unchanged.
  *
  * Always throws — the return type says so, so a caller cannot fall through it by accident.
