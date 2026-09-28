@@ -2,7 +2,7 @@
   "name": "robota-capability-agent-eval",
   "version": "0.1.0",
   "private": true,
-  "description": "Robota capability demo — evals-as-code: define metrics over an agent's runs and gate CI on a metric breach",
+  "description": "Robota capability demo \u2014 evals-as-code: define metrics over an agent's runs and gate CI on a metric breach",
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
@@ -18,6 +18,6 @@
     "typescript": "^6.0.3"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.12.0"
   }
 }

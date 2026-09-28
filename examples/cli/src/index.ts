@@ -5,12 +5,14 @@
  * Usage:
  *   node dist/index.js "your prompt here"
  *   echo "your prompt" | node dist/index.js
+ *   git diff | node dist/index.js "review this diff"   (the piped text follows the prompt)
  *
  * Environment:
  *   ANTHROPIC_API_KEY   — Anthropic API key
  *   OPENAI_API_KEY      — OpenAI API key (if using OpenAI)
  */
 
+import './load-env.js';
 import { createInterface } from 'node:readline';
 import { createQuery } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
@@ -34,7 +36,9 @@ async function readStdin(): Promise<string> {
 
 async function main(): Promise<void> {
   const argPrompt = process.argv.slice(2).join(' ').trim();
-  const prompt = argPrompt.length > 0 ? argPrompt : process.stdin.isTTY ? '' : await readStdin();
+  // Piped text is read whether or not a prompt argument is given: with both, it follows the prompt.
+  const piped = process.stdin.isTTY ? '' : await readStdin();
+  const prompt = [argPrompt, piped].filter((part) => part.length > 0).join('\n\n');
 
   if (!prompt) {
     console.error('Usage: node dist/index.js "<prompt>"');

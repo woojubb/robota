@@ -1,3 +1,4 @@
+import './load-env.js';
 import express from 'express';
 import { z } from 'zod';
 import { createQuery } from '@robota-sdk/agent-framework';

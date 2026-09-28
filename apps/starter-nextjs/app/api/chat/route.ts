@@ -20,8 +20,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     provider: new AnthropicProvider({ apiKey }),
   });
 
-  const session = runtime.createSession({ permissionMode: 'bypassPermissions' });
-  const response = await session.submit(userMessage);
-
-  return NextResponse.json({ reply: response });
+  // Anyone who can reach this route can talk to the agent, so the session loads no project
+  // instruction files and has none of the built-in tools that run commands or read or change files.
+  // Add your own tools with `additionalTools` and approve them by name with `allowedTools`.
+  const session = runtime.createSession({
+    bare: true,
+    deniedTools: [
+      'Shell',
+      'Bash',
+      'Read',
+      'Write',
+      'Edit',
+      'Glob',
+      'Grep',
+      'WebFetch',
+      'WebSearch',
+    ],
+  });
+  try {
+    const turn = await session.submit(userMessage);
+    const result = await turn.completed;
+    return NextResponse.json({ reply: result.response });
+  } finally {
+    await session.shutdown();
+  }
 }

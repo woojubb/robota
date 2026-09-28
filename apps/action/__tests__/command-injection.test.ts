@@ -14,7 +14,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { buildCliInvocation } from '../src/build-invocation.js';
+import { buildCliInvocation } from '../src/build-invocation.mjs';
 
 /**
  * The payload names the marker relative to the child's `cwd` rather than by its absolute path, so the
@@ -42,6 +42,7 @@ describe('SEC-006: action inputs must never reach a shell', () => {
       model: '',
       output: 'text',
       maxTurns: '',
+      loadProject: false,
     });
 
     // stand in for `npx` so the test never hits the network; the argv vector is otherwise verbatim
@@ -56,7 +57,13 @@ describe('SEC-006: action inputs must never reach a shell', () => {
 
   it('keeps a metacharacter-laden task as ONE literal argv element', () => {
     const task = 'a b; c && d `e` $(f) | g > h';
-    const { file, args } = buildCliInvocation({ task, model: '', output: 'text', maxTurns: '' });
+    const { file, args } = buildCliInvocation({
+      task,
+      model: '',
+      output: 'text',
+      maxTurns: '',
+      loadProject: false,
+    });
 
     expect(file).toBe('npx');
     expect(args).toContain(task);
@@ -71,6 +78,7 @@ describe('SEC-006: action inputs must never reach a shell', () => {
       model: 'x; touch /tmp/nope',
       output: 'text',
       maxTurns: '3; touch /tmp/nope',
+      loadProject: false,
     });
     expect(args[args.indexOf('--model') + 1]).toBe('x; touch /tmp/nope');
     expect(args[args.indexOf('--max-turns') + 1]).toBe('3; touch /tmp/nope');
@@ -84,6 +92,7 @@ describe('SEC-006: action inputs must never reach a shell', () => {
       model: '',
       output: 'text',
       maxTurns: '',
+      loadProject: false,
     });
     execSync(['echo', ...args].join(' '), {
       cwd: dir,

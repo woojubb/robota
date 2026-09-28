@@ -6,7 +6,7 @@ Node.js CLI script for running AI queries from a terminal or CI pipeline, powere
 
 - One-shot AI query with `createQuery`
 - Streaming output directly to stdout
-- Reading the prompt from argv, or from stdin when no argument is given (pipe-friendly)
+- Reading the prompt from argv, stdin, or both (pipe-friendly)
 
 ## Quick start
 
@@ -22,9 +22,8 @@ npm run build
 node dist/index.js "Explain what this project's tsconfig.json enables"
 ```
 
-The script reads `ANTHROPIC_API_KEY` from the environment and does not load `.env` itself. To keep the key in
-a file, copy `.env.example` to `.env` and pass Node's `--env-file` flag:
-`node --env-file=.env dist/index.js "..."`.
+The script reads `ANTHROPIC_API_KEY` from the environment, and loads `.env` from the working directory first
+when there is one (copy `.env.example` to `.env`).
 
 ## What the agent may do
 
@@ -35,12 +34,12 @@ anything that would ask for approval — writing files, other shell commands —
 
 ## Pipe mode (CI/CD)
 
-When no argument is given, the whole prompt is read from stdin. An argument takes precedence, and stdin is
-then ignored — so put the instruction and the input on stdin together:
+Piped text is read whether or not an argument is given. Without an argument it is the whole prompt; with
+one, it follows the argument, so the argument can be the instruction and stdin the input:
 
 ```bash
 cat error.log | node dist/index.js
-{ echo "Explain the errors in this log:"; cat error.log; } | node dist/index.js
+cat error.log | node dist/index.js "Explain the errors in this log:"
 ```
 
 ## GitHub Actions example

@@ -28,9 +28,7 @@ const runtime = createAgentRuntime({
 
 const threadSessions = new Map<string, string>();
 
-app.event('app_mention', async ({ event, client, ack }) => {
-  await ack?.();
-
+app.event('app_mention', async ({ event, client }) => {
   const threadKey = event.thread_ts ?? event.ts;
   const channelId = event.channel;
   const prompt = (event as { text: string }).text.replace(/<@[A-Z0-9]+>/g, '').trim();
@@ -71,10 +69,8 @@ app.event('app_mention', async ({ event, client, ack }) => {
   });
 
   session.on('complete', async (result) => {
-    const sessionId = (result as unknown as { sessionId?: string }).sessionId;
-    if (sessionId) {
-      threadSessions.set(threadKey, sessionId);
-    }
+    // Remember this thread's session so the next mention in it resumes the conversation.
+    threadSessions.set(threadKey, session.sessionId);
     if (statusTs && result.response) {
       try {
         await client.chat.update({
