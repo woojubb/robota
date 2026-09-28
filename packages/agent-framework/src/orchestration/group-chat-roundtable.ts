@@ -54,24 +54,42 @@ function renderHistory(stepResults: IOrchestrationStepResult[]): string {
 }
 
 /**
- * The ledger's `raw` slot must be finite, acyclic JSON (see `usage-ledger.ts`/`json.ts`); a runner's
- * reported {@link ITokenUsage} is never validated to that standard and can carry an undefined-valued
- * optional key, a non-finite number, or a non-plain-object instance. Usage is auxiliary everywhere
- * else in this codebase (`in-process-subagent-runner.ts`'s own usage capture is best-effort and never
- * fails the run it describes), so this facade holds it to the same standard: an undefined key is
- * dropped (its absence and its presence-as-undefined read the same through `?.` and through
- * `toEqual`), and anything else unrepresentable drops the whole reading rather than fail the turn.
+ * The ledger's `raw` slot must be finite, acyclic JSON, while a runner's reported
+ * {@link ITokenUsage} is never validated to that standard. Usage is auxiliary everywhere else in this
+ * codebase and never fails the run it describes, so the reading is copied into plain JSON data —
+ * own enumerable keys, undefined-valued keys omitted, any prototype dropped — and only a reading that
+ * still cannot be stored (a non-finite number, a function, a cycle) is left out of the step result.
  */
 function usageForLedger(usage: ITokenUsage): JsonValue | undefined {
-  if (typeof usage !== 'object' || usage === null || Array.isArray(usage)) return undefined;
-  if (Object.getPrototypeOf(usage) !== Object.prototype) return undefined;
-  const clean: Record<string, number> = {};
-  for (const [key, value] of Object.entries(usage)) {
-    if (value === undefined) continue;
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return undefined;
-    clean[key] = value;
+  return toJsonData(usage, new Set());
+}
+
+function toJsonData(value: unknown, seen: Set<object>): JsonValue | undefined {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value !== 'object' || seen.has(value)) return undefined;
+  seen.add(value);
+  try {
+    if (Array.isArray(value)) {
+      const items: JsonValue[] = [];
+      for (const item of value) {
+        const copy = toJsonData(item, seen);
+        if (copy === undefined) return undefined;
+        items.push(copy);
+      }
+      return items;
+    }
+    const copy: Record<string, JsonValue> = {};
+    for (const [key, entry] of Object.entries(value)) {
+      if (entry === undefined) continue;
+      const converted = toJsonData(entry, seen);
+      if (converted === undefined) return undefined;
+      copy[key] = converted;
+    }
+    return copy;
+  } finally {
+    seen.delete(value);
   }
-  return clean as unknown as JsonValue;
 }
 
 /**

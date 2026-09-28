@@ -368,15 +368,58 @@ describe('group-chat: inputs the old while-loop accepted', () => {
     });
   });
 
-  it('completes without carrying usage when the reported value is not finite JSON', async () => {
+  it('keeps every reported usage value the legacy loop returned, as plain data', async () => {
     class ReportedUsage {
       promptTokens = 1;
       completionTokens = 1;
       totalTokens = 2;
     }
+    const noPrototype = Object.assign(Object.create(null) as object, {
+      promptTokens: 3,
+      completionTokens: 4,
+      totalTokens: 7,
+    });
+    const cases: Array<[ITokenUsage, unknown]> = [
+      [
+        new ReportedUsage() as unknown as ITokenUsage,
+        { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+      ],
+      [noPrototype as ITokenUsage, { promptTokens: 3, completionTokens: 4, totalTokens: 7 }],
+      [
+        { promptTokens: -1, completionTokens: 1, totalTokens: 0 },
+        { promptTokens: -1, completionTokens: 1, totalTokens: 0 },
+      ],
+      [
+        {
+          promptTokens: 1,
+          completionTokens: 1,
+          totalTokens: 2,
+          model: 'x',
+          detail: { cached: 1 },
+        } as unknown as ITokenUsage,
+        { promptTokens: 1, completionTokens: 1, totalTokens: 2, model: 'x', detail: { cached: 1 } },
+      ],
+    ];
+    for (const [usage, expected] of cases) {
+      const { manager } = fakeManager(outByType, { usage: [usage] });
+      const seen: unknown[] = [];
+      const result = await runGroupChat(spec, {
+        manager,
+        context: TEST_CONTEXT,
+        selectNextStep: (history) => {
+          seen.push(history[0]?.usage);
+          return null;
+        },
+      });
+      expect(result.steps[0].usage).toEqual(expected);
+      expect(seen).toEqual([expected]);
+    }
+  });
+
+  it('completes without usage when the reported value cannot be stored as finite JSON', async () => {
     const notFiniteJson: ITokenUsage[] = [
       { promptTokens: NaN, completionTokens: 1, totalTokens: 2 },
-      new ReportedUsage() as unknown as ITokenUsage,
+      { promptTokens: Infinity, completionTokens: 1, totalTokens: 2 },
     ];
     for (const usage of notFiniteJson) {
       const { manager } = fakeManager(outByType, { usage: [usage] });
