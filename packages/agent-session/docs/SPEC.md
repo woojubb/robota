@@ -248,13 +248,13 @@ tool call. A command hook's `allow` stands in for a person's prompt only, never 
 refusal from the mode, the `auto` classifier, or an ask that must reach a person: a hook is one more
 approver, not a way around the policy. Its `ask` reaches a person every time, since the hook asks
 again on each call. The call runs the input it was made with, so an `allow` sent with an
-`updatedInput` approved another input and is not applied. Every other event is advisory — a failure is reported, and the turn proceeds. This
-package is responsible for two of the documented deny causes: a hook execution error (timeout,
-transport failure, malformed response, non-zero exit), and a configured hook type with no
-registered executor — denying rather than silently skipping a gate the user configured. When
-both apply in the same turn they are reported as a single combined reason rather than one at a
-time, because a fail-closed gate that reveals its reasons one per retry is a gate an operator has
-to debug by being repeatedly stopped.
+`updatedInput` approved another input and is not applied. Every other event is advisory — a failure
+is reported, and the turn proceeds. This package is responsible for two of the documented deny
+causes: a hook execution error (timeout, transport failure, malformed response, non-zero exit), and
+a configured hook type with no registered executor — denying rather than silently skipping a gate
+the user configured. When both apply in the same turn they are reported as a single combined reason
+rather than one at a time, because a fail-closed gate that reveals its reasons one per retry is a
+gate an operator has to debug by being repeatedly stopped.
 
 ### Session logging
 

@@ -58,8 +58,9 @@ the Claude Code compatible response protocol:
   `deny`; `deny` blocks. With several hooks, the highest-priority decision wins
   (`deny` > `ask` > `defer` > `allow`), and the `hookSpecificOutput.updatedInput` sent with the
   winning decision travels with it. Only a `command` hook's decision and `updatedInput` are read;
-  any other hook type can only block, because a `prompt` or `agent` hook answers from a model that
-  reads the tool input it would be approving.
+  an `http`, `prompt`, `agent` or `guardrail` hook can only block. A `prompt` or `agent` hook
+  answers from a model that reads the tool input it would be approving, and an `http` hook's
+  documented answer is `{ "ok", "reason" }`.
 - On `UserPromptSubmit`, `{ "decision": "block" }` blocks, and
   `hookSpecificOutput.additionalContext` is collected as output.
 - `systemMessage` is collected as output.

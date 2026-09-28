@@ -467,7 +467,14 @@ export class PermissionEnforcer {
     // A hook's `ask` reaches a person whatever the mode or a remembered consent would allow, since
     // the hook asks again on every call.
     if (scope.hookDecision === 'ask') {
-      return this.promptForApproval(toolName, toolArgs, signal, interaction, true, scope.continuation);
+      return this.promptForApproval(
+        toolName,
+        toolArgs,
+        signal,
+        interaction,
+        true,
+        scope.continuation,
+      );
     }
     if (decision === 'auto') return true;
 

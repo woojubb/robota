@@ -266,8 +266,8 @@ rules and mode. On `PreToolUse`, an `allow` whose stdout is JSON with `"continue
   ask, the call is refused.
 - `"defer"` leaves the call to the normal permission check.
 
-`updatedInput` is not applied, and an `allow` sent with it is ignored. `prompt` and `agent` hooks
-can only refuse a call.
+`updatedInput` is not applied, and an `allow` sent with it is ignored. `http`, `prompt`, `agent` and
+`guardrail` hooks can only refuse a call.
 
 On every other event the outcome is recorded and nothing is blocked.
 

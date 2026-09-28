@@ -175,7 +175,11 @@ export async function runHooks(
 
       const outcome =
         hook.type === 'command' && traceEnv !== undefined
-          ? await (executor as unknown as ICommandHookTraceExecutor).execute(hook, groupInput, traceEnv)
+          ? await (executor as unknown as ICommandHookTraceExecutor).execute(
+              hook,
+              groupInput,
+              traceEnv,
+            )
           : await executor.execute(hook, groupInput);
 
       // An explicit denial blocks, exactly as exit code 2 did.
@@ -223,7 +227,10 @@ export async function runHooks(
           highestPermissionPriority = priority;
           highestPermissionDecision = interpretation.permissionDecision;
           lastUpdatedInput = interpretation.updatedInput;
-        } else if (priority === highestPermissionPriority && interpretation.updatedInput !== undefined) {
+        } else if (
+          priority === highestPermissionPriority &&
+          interpretation.updatedInput !== undefined
+        ) {
           lastUpdatedInput = interpretation.updatedInput;
         }
       }
