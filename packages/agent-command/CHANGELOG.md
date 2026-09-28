@@ -1,5 +1,24 @@
 # @robota-sdk/agent-command
 
+## 3.0.0-beta.85
+
+### Patch Changes
+
+- 043fd27: In `plan` mode the model can no longer save project memory with `/memory add`. The command is auto-approved, so it ran in plan mode while `Write` and `Edit` were denied there. Reading memory, and adding it by hand, still work in plan mode.
+- Updated dependencies [4e11579]
+- Updated dependencies [41cca13]
+- Updated dependencies [193a0bc]
+- Updated dependencies [54e2848]
+- Updated dependencies [94b2c87]
+- Updated dependencies [3ab2eca]
+- Updated dependencies [2e07cad]
+  - @robota-sdk/agent-framework@3.0.0-beta.85
+  - @robota-sdk/agent-core@3.0.0-beta.85
+  - @robota-sdk/agent-interface-command@3.0.0-beta.85
+  - @robota-sdk/agent-preset@3.0.0-beta.85
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.85
+  - @robota-sdk/agent-interface-session@3.0.0-beta.85
+
 ## 3.0.0-beta.84
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @robota-sdk/agent-cli-web
 
+## 3.0.0-beta.85
+
+### Patch Changes
+
+- @robota-sdk/agent-ui-web@3.0.0-beta.85
+
 ## 3.0.0-beta.84
 
 ### Patch Changes

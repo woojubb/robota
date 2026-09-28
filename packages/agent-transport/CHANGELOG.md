@@ -1,5 +1,22 @@
 # @robota-sdk/agent-transport
 
+## 3.0.0-beta.85
+
+### Patch Changes
+
+- 9a01e78: `chunkHandoffPayload` and `HandoffChunkAssembler`, exported from the package root that also builds for the browser, no longer use Node's `Buffer`; they use `Uint8Array`, `TextEncoder`/`TextDecoder` and `btoa`/`atob`, with the same chunks and the same refusal of non-canonical base64.
+- Updated dependencies [41cca13]
+- Updated dependencies [193a0bc]
+- Updated dependencies [94b2c87]
+- Updated dependencies [3ab2eca]
+  - @robota-sdk/agent-core@3.0.0-beta.85
+  - @robota-sdk/agent-interface-command@3.0.0-beta.85
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.85
+  - @robota-sdk/agent-interface-session@3.0.0-beta.85
+  - @robota-sdk/agent-interface-session-mobility@3.0.0-beta.85
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.85
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.85
+
 ## 3.0.0-beta.84
 
 ### Patch Changes

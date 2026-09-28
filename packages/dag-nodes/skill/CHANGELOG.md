@@ -1,5 +1,16 @@
 # @robota-sdk/dag-node-skill
 
+## 3.0.0-beta.69
+
+### Patch Changes
+
+- Updated dependencies [41cca13]
+- Updated dependencies [193a0bc]
+- Updated dependencies [94b2c87]
+- Updated dependencies [3ab2eca]
+  - @robota-sdk/agent-core@3.0.0-beta.85
+  - @robota-sdk/agent-interface-command@3.0.0-beta.85
+
 ## 3.0.0-beta.68
 
 ### Patch Changes
