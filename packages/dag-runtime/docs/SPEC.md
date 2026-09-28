@@ -12,7 +12,7 @@ run status, cancelling runs, and publishing execution progress events.
 - Depends only on `@robota-sdk/dag-core` for domain types, state machines, port interfaces, error
   builders, and time semantics. All imports flow toward `dag-core`; this package imports from no
   sibling DAG package.
-- Does not own worker execution loops (`dag-worker`), scheduler triggers (`dag-scheduler`),
+- Does not own worker execution loops (`dag-worker`),
   storage/queue implementations (consumed only through port interfaces), API transport (`dag-api`),
   DAG definition authoring/validation (`dag-core`), or projection/read-model concerns
   (`dag-projection`).
