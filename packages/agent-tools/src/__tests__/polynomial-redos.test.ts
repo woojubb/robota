@@ -14,7 +14,12 @@ import type { ISandboxClient, ISandboxRunResult } from '../sandbox/types.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 
 const PUMP = 200_000;
-const BUDGET_MS = 250;
+/**
+ * A linear pass over the pumped input takes a few milliseconds, and a quadratic one takes seconds or
+ * more, so the budget sits far from both: a slow or busy CI runner has taken over 250 ms for the
+ * linear pass.
+ */
+const BUDGET_MS = 2_000;
 const RED_TIMEOUT_MS = 120_000;
 
 /**
