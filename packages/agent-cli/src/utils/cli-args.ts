@@ -259,6 +259,9 @@ const PARSE_ARGS_CONFIG = {
   },
 } as const;
 
+/** Every long option name the parser accepts — `--help` is checked against it. */
+export const CLI_OPTION_NAMES: readonly string[] = Object.keys(PARSE_ARGS_CONFIG.options);
+
 type TParsedArgValues = ReturnType<typeof parseArgs<typeof PARSE_ARGS_CONFIG>>['values'];
 
 /**

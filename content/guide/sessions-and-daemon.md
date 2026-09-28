@@ -68,7 +68,7 @@ Headless starts — a background session, the daemon, `--serve`, `robota mcp ser
 (`-p`) — refuse the `untrusted`, `revoked`, `stale/replaced` and `store-unavailable` states with
 `Workspace trust is required before headless startup`, so an untrusted project never runs silently
 without its configuration. `--safe-mode` starts Restricted on purpose and is not refused, and neither
-is `--restricted-workspace` on the daemon, `--serve`, print mode or `--goal`, for a front end whose
+is `--restricted-workspace` on the daemon, a background session, `--serve`, print mode or `--goal`, for a front end whose
 person chose Restricted. `robota --serve --open` run at a terminal asks there first: trust, start
 Restricted, or quit. A Restricted `robota daemon start` reuses a running daemon only when it runs
 Restricted too, and a plain `daemon start` in a folder you
@@ -222,7 +222,7 @@ These limits are fixed in code, not settings.
 | `robota --serve --open`                                                          | Serve the GUI web app on localhost and open it in a browser.                                                                                                        |
 | `robota session list [--format text\|json]`                                      | List live processes on this machine, saved sessions, and background sessions, in separate groups.                                                                   |
 | `robota session view [--cwd <dir>] [--name <text>] [--pr <n>] [--state <state>]` | Live view of background sessions across projects (TTY only).                                                                                                        |
-| `robota session start --background [--name <name>]`                              | Start a background session that outlives this terminal. Prints its id.                                                                                              |
+| `robota session start --background [--name <name>] [--restricted-workspace]`     | Start a background session that outlives this terminal. Prints its id.                                                                                              |
 | `robota session attach <id> [--observe]`                                         | Attach this terminal to drive a background session, or observe it read-only.                                                                                        |
 | `robota session stop <id>`                                                       | Stop a background session you own.                                                                                                                                  |
 | `robota session rename <id> <name>`                                              | Rename a live background session.                                                                                                                                   |

@@ -86,7 +86,7 @@ reads the prompt from piped stdin.
 robota -p "List the TypeScript files in src/"
 robota -p "Summarize this repository" --output-format json   # one JSON object: result, session_id
 cat task.md | robota -p                                      # prompt from stdin
-robota -p "Review this diff" --bare                          # raw text for pipelines
+robota -p "Review this diff" --bare                          # without AGENTS.md, CLAUDE.md or plugins
 robota --goal "make the failing tests pass"                  # work toward a goal over several turns
 ```
 

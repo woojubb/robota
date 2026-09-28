@@ -137,7 +137,7 @@ describe('CLI workspace trust admission', () => {
     }
   });
 
-  it('supports a host-owned grant and revocation without exposing a credential', async () => {
+  it('supports a host-owned grant and revocation without exposing a credential, and a successful revoke exits 0', async () => {
     const cwd = tempRoot('robota-cli-trust-command-');
     const storePath = join(tempRoot('robota-cli-trust-store-'), 'trust.json');
     gitInit(cwd);
@@ -148,7 +148,7 @@ describe('CLI workspace trust admission', () => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
     await expect(runWorkspaceTrustCommand(['--yes'], cwd, service)).resolves.toBe(0);
-    await expect(runWorkspaceTrustCommand(['revoke', '--yes'], cwd, service)).resolves.toBe(1);
+    await expect(runWorkspaceTrustCommand(['revoke', '--yes'], cwd, service)).resolves.toBe(0);
     const output = stdout.mock.calls.flat().join('');
     expect(output).toContain('Workspace trust: trusted');
     expect(output).toContain('Workspace trust: revoked');
