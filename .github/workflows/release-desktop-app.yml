@@ -107,6 +107,14 @@ jobs:
       # versions, and an empty or truncated installer uploads perfectly happily. Assert the artifacts
       # exist and are plausibly sized BEFORE publishing them, so a packaging regression cannot reach a
       # user as a 0-byte download.
+      #
+      # #3356 — matching is done by `scripts/release/list-release-assets.mjs`, shared with the checksum
+      # step below, rather than each step carrying its own `for pattern in $ASSETS; do for f in
+      # $pattern; do found+=("$f"); done; done`. That idiom glob-expands correctly but then WORD-SPLITS
+      # the result, so a matched filename containing a space becomes two array entries instead of one.
+      # Node's `glob` returns real filenames, never re-parsed as shell words, and streams them back
+      # NUL-terminated; `read -r -d ''` (not `mapfile -d ''` — macOS's system `/bin/bash` is 3.2, which
+      # has no `mapfile` builtin) is the one bash framing that cannot split on an embedded space either.
       - name: Assert packaged artifacts exist and are non-trivial
         shell: bash
         working-directory: apps/agent-app
@@ -114,11 +122,9 @@ jobs:
           ASSETS: ${{ matrix.assets }}
         run: |
           set -euo pipefail
-          shopt -s nullglob
           found=()
-          for pattern in $ASSETS; do
-            for f in $pattern; do found+=("$f"); done
-          done
+          while IFS= read -r -d '' f; do found+=("$f"); done \
+            < <(node "$GITHUB_WORKSPACE/scripts/release/list-release-assets.mjs" "$ASSETS")
           if [ ${#found[@]} -eq 0 ]; then
             echo "::error::no artifacts matched '$ASSETS' — electron-builder produced nothing to publish."
             exit 1
@@ -138,6 +144,13 @@ jobs:
       # repo's own verification gate) had no way to tell a complete download from a truncated one. One
       # manifest PER MATRIX LEG: a single shared filename would have the three legs clobber each other's
       # upload, which is how a checksum file ends up describing only the last OS to finish.
+      #
+      # #3356 — this step used to run `cd release` and THEN expand `$ASSETS` (e.g. `release/*.dmg`), so
+      # the patterns were looked up as `release/release/*.dmg` and — with `nullglob` set — matched
+      # nothing on every OS: "checksum manifest is empty — nothing was hashed." Matching now goes
+      # through `scripts/release/list-release-assets.mjs` (see the comment on "Assert packaged
+      # artifacts" above for why: the same fix also closes the word-splitting gap a naive `cd`-before
+      # correction would have left open).
       - name: Generate SHA-256 checksums for this OS's installers
         shell: bash
         working-directory: apps/agent-app
@@ -146,16 +159,9 @@ jobs:
           MANIFEST: SHA256SUMS-desktop-${{ matrix.os }}.txt
         run: |
           set -euo pipefail
-          shopt -s nullglob
-          # Expanded HERE, from `apps/agent-app` — same directory `$ASSETS` (e.g. `release/*.dmg`) is
-          # written relative to, and the same idiom the "Assert packaged artifacts" step above already
-          # uses successfully. The previous version expanded these patterns AFTER `cd release`, so
-          # `release/*.dmg` was looked up as `release/release/*.dmg`; with nullglob set that matched
-          # nothing and the loop silently ran zero times, publishing an empty manifest.
           found=()
-          for pattern in $ASSETS; do
-            for f in $pattern; do found+=("$f"); done
-          done
+          while IFS= read -r -d '' f; do found+=("$f"); done \
+            < <(node "$GITHUB_WORKSPACE/scripts/release/list-release-assets.mjs" "$ASSETS")
           if [ ${#found[@]} -eq 0 ]; then
             echo "::error::no artifacts matched '$ASSETS' — nothing to hash."
             exit 1
@@ -165,9 +171,9 @@ jobs:
           for f in "${found[@]}"; do
             name=${f#release/}
             if command -v sha256sum >/dev/null 2>&1; then
-              sha256sum "$name" >>"$MANIFEST"
+              sha256sum -- "$name" >>"$MANIFEST"
             else
-              shasum -a 256 "$name" >>"$MANIFEST"
+              shasum -a 256 -- "$name" >>"$MANIFEST"
             fi
           done
           if [ ! -s "$MANIFEST" ]; then
