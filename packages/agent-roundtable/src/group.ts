@@ -7,6 +7,7 @@ import type {
   ParticipantResponse,
   ParticipantExecutionOptions,
   RoundtableEvent,
+  TurnServices,
 } from './types';
 
 export interface PreparedMember {
@@ -33,6 +34,7 @@ export async function executeGroup(options: {
   prepare: (member: PreparedMember) => Promise<void>;
   fail: (turn: ParticipantTurn, error: unknown) => Promise<void>;
   admit: () => Promise<void>;
+  services: (turn: ParticipantTurn) => TurnServices;
   responses?: (turn: ParticipantTurn) => ParticipantResponse[] | undefined;
 }): Promise<PreparedMember[]> {
   const groupAbort = new AbortController();
@@ -57,6 +59,7 @@ export async function executeGroup(options: {
         signal.throwIfAborted();
         const executionOptions: ParticipantExecutionOptions = {
           signal,
+          services: options.services(turn),
           onDelta: async (text) => {
             signal.throwIfAborted();
             await options.emit(

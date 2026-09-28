@@ -226,6 +226,11 @@ export {
   type IAssistantUsageMetadata,
   type ISessionUsageTotals,
 } from './services/execution-usage';
+export {
+  verifiedProviderCallUsage,
+  type IVerifiedProviderCallUsage,
+  type TProviderUsageProvenance,
+} from './services/provider-call-usage';
 
 // Core types
 export type { IAgent, IAgentConfig, IAgentTemplate, IRunOptions } from './interfaces/agent';
