@@ -157,7 +157,9 @@ function runProjectFileAuthorityScenario(
   const outside = join(fixtureRoot, 'outside');
   mkdirSync(outside);
   writeFileSync(join(outside, payloadName), JSON.stringify(marker));
-  symlinkSync(outside, payloadDirectory, process.platform === 'win32' ? 'junction' : 'dir');
+  // This scenario only runs where `supportsProjectFileAuthority()` is true, i.e. Linux — a plain
+  // directory symlink, not the Windows junction form `process.platform` would otherwise pick.
+  symlinkSync(outside, payloadDirectory, 'dir');
 
   const refused = run(
     command,
