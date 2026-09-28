@@ -7,6 +7,7 @@
 - 9a01e78: `chunkHandoffPayload` and `HandoffChunkAssembler`, exported from the package root that also builds for the browser, no longer use Node's `Buffer`; they use `Uint8Array`, `TextEncoder`/`TextDecoder` and `btoa`/`atob`, with the same chunks and the same refusal of non-canonical base64.
 - Updated dependencies [41cca13]
 - Updated dependencies [193a0bc]
+- Updated dependencies [ada3841]
 - Updated dependencies [5093a30]
 - Updated dependencies [94b2c87]
 - Updated dependencies [3ab2eca]

@@ -4,7 +4,14 @@
 
 ### Patch Changes
 
+- db35dcd: MCP approvals now outlive the process, and an approval takes effect at once. The `robota` CLI keeps
+  activation decisions in `~/.robota/mcp-approvals.json` (owner-only) unless the host passes its own
+  `mcpApprovalStore`, so an approved server connects at later starts until its definition changes.
+  `/mcp approve <server>` now also connects the server in the running session, the way `/mcp reload`
+  does, instead of waiting for a restart. A remote server without OAuth therefore connects once
+  approved; stdio servers still need a host-supplied authority.
 - Updated dependencies [41cca13]
+- Updated dependencies [ada3841]
 - Updated dependencies [5093a30]
 - Updated dependencies [94b2c87]
 - Updated dependencies [3ab2eca]

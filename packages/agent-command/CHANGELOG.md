@@ -4,6 +4,12 @@
 
 ### Patch Changes
 
+- db35dcd: MCP approvals now outlive the process, and an approval takes effect at once. The `robota` CLI keeps
+  activation decisions in `~/.robota/mcp-approvals.json` (owner-only) unless the host passes its own
+  `mcpApprovalStore`, so an approved server connects at later starts until its definition changes.
+  `/mcp approve <server>` now also connects the server in the running session, the way `/mcp reload`
+  does, instead of waiting for a restart. A remote server without OAuth therefore connects once
+  approved; stdio servers still need a host-supplied authority.
 - 043fd27: In `plan` mode the model can no longer save project memory with `/memory add`. The command is auto-approved, so it ran in plan mode while `Write` and `Edit` were denied there. Reading memory, and adding it by hand, still work in plan mode.
 - 6ee8725: A user settings file that does not parse no longer reads as "no plugin is disabled". Plugin settings
   now refuse to read it: no plugin loads (skills, commands, hooks and themes alike), a plugin command
@@ -15,7 +21,9 @@
 - Updated dependencies [41cca13]
 - Updated dependencies [193a0bc]
 - Updated dependencies [54e2848]
+- Updated dependencies [ada3841]
 - Updated dependencies [5093a30]
+- Updated dependencies [5684612]
 - Updated dependencies [6ee8725]
 - Updated dependencies [6072e9a]
 - Updated dependencies [94b2c87]

@@ -37,6 +37,12 @@
   of failing the run. Each call keeps a small in-memory operation log for its conversation; it is bounded
   per call and negligible at the default `maxTurns` (the step count).
 
+- 5684612: A bundle plugin skill can use `${CLAUDE_PLUGIN_ROOT}`: it expands to the plugin's folder in the
+  skill's body, and `` !`command` `` preprocessing gets it in the environment, as plugin hooks already
+  did. Every skill's commands now get `CLAUDE_PLUGIN_ROOT` set (empty outside a plugin), so a value the
+  host process carries never stands in for it. A session also loads project plugins, skills and hooks
+  alike, only from a folder inside the trusted workspace; trust granted to one repository does not
+  extend to a plugin folder elsewhere.
 - 6ee8725: A user settings file that does not parse no longer reads as "no plugin is disabled". Plugin settings
   now refuse to read it: no plugin loads (skills, commands, hooks and themes alike), a plugin command
   such as `/plugin enable` fails instead of rewriting the whole settings file with the plugin keys
@@ -62,6 +68,7 @@
 - Updated dependencies [190f78f]
 - Updated dependencies [41cca13]
 - Updated dependencies [193a0bc]
+- Updated dependencies [ada3841]
 - Updated dependencies [5093a30]
 - Updated dependencies [94b2c87]
 - Updated dependencies [3ab2eca]

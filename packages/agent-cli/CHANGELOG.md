@@ -2,6 +2,15 @@
 
 ## 3.0.0-beta.85
 
+### Minor Changes
+
+- db35dcd: MCP approvals now outlive the process, and an approval takes effect at once. The `robota` CLI keeps
+  activation decisions in `~/.robota/mcp-approvals.json` (owner-only) unless the host passes its own
+  `mcpApprovalStore`, so an approved server connects at later starts until its definition changes.
+  `/mcp approve <server>` now also connects the server in the running session, the way `/mcp reload`
+  does, instead of waiting for a restart. A remote server without OAuth therefore connects once
+  approved; stdio servers still need a host-supplied authority.
+
 ### Patch Changes
 
 - 193a0bc: `${CLAUDE_SKILL_DIR}` in a skill expands to the absolute folder its `SKILL.md` is in; it used to expand to an empty string. A skill's `` !`command` `` gets `CLAUDE_SKILL_DIR` and `CLAUDE_SESSION_ID` in its environment, so the shell expands them there too (`TShellExecFn` takes an optional `env`). Skills from host folders and a trusted project carry the folder, and bundle-plugin skills and commands record theirs. `ICommand` gains `skillDirectory`, and `IContributionSource` an optional `locate()` that names the absolute path of a root-relative one.
