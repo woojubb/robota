@@ -1,5 +1,39 @@
 # @robota-sdk/agent-ui-web
 
+## 3.0.0-beta.84
+
+### Minor Changes
+
+- 29486da: A lost connection no longer drops a typed message or takes the person out of their session. While the
+  transport is not `connected`, the composer keeps its draft and Send explains why it cannot submit
+  ("Not connected"). A banner above the conversation — never a full-screen replacement — says "Connection
+  lost. Reconnecting…" while retries continue, and once they give up either offers a working Reconnect
+  (a host that can restart the runtime) or says how to reopen the page (a browser served by
+  `robota --serve --open`). A desktop Reconnect remembers the session the person was in and returns to it
+  once the restart's reload reconnects.
+- e8d70ac: A first run finds a provider, instead of a dead end. `robota --serve` (and the daemon it starts) no
+  longer refuses when no provider is configured: it starts in setup mode, and the GUI's conversation area
+  shows a "Connect a model provider to start" panel with a "Set up provider" button in place of the
+  composer. Answering it configures and swaps in the first provider live, with no restart. A startup
+  failure now says why — `robota daemon start --json` and the desktop app's fatal screen report the
+  child's own reason instead of a generic "readiness channel closed", and the fatal screen gets a Try
+  again button. `trust status --json` and the desktop trust dialog list only sources whose state trust
+  would actually change, instead of naming one this platform could not determine; the dialog shows one
+  sentence and a collapsed Details section. `robota --serve --open` in an untrusted folder now asks at
+  the terminal (trust it, start Restricted, or quit) when someone is there to ask, instead of refusing
+  outright.
+
+### Patch Changes
+
+- Updated dependencies [e8d70ac]
+- Updated dependencies [9c6a8db]
+- Updated dependencies [9c6a8db]
+  - @robota-sdk/agent-interface-session@3.0.0-beta.84
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.84
+  - @robota-sdk/agent-transport@3.0.0-beta.84
+  - @robota-sdk/agent-interface-command@3.0.0-beta.84
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.84
+
 ## 3.0.0-beta.83
 
 ### Major Changes
