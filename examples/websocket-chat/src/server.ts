@@ -1,3 +1,4 @@
+import './load-env.js';
 import { createServer } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "review": "tsx src/review.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@octokit/rest": "^20.1.1",
@@ -17,5 +18,8 @@
     "@types/node": "^22.0.0",
     "tsx": "^4.23.1",
     "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   }
 }

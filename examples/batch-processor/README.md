@@ -18,9 +18,8 @@ npm install          # or pnpm install
 export ANTHROPIC_API_KEY=your-key
 ```
 
-The script reads `ANTHROPIC_API_KEY` from the environment and does not load `.env` itself. To keep the key in
-a file, copy `.env.example` to `.env` and run with Node's `--env-file` flag instead:
-`npx tsx --env-file=.env src/index.ts`.
+The script reads `ANTHROPIC_API_KEY` from the environment, and loads `.env` from the working directory first
+when there is one (copy `.env.example` to `.env`).
 
 ## Run
 
