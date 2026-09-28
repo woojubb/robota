@@ -153,35 +153,40 @@ export async function executeRound(
 
   const route = openModelRoute(resolved, config.defaultModel.model, executionId);
   const providerCallId = randomId();
-  const response = await callRoundProviderWithEvents(
-    providerMessages,
-    config,
-    resolved,
-    cacheService,
-    fullContext,
-    conversationStore,
-    currentRound,
-    executionId,
-    usageObservationId,
-    logger,
-    wrappedOnTextDelta,
-    wrappedOnProviderNativeRawPayload,
-    (error) => void (roundState.providerFailure = error),
-    route,
-    providerCallId,
-    fullContext.executionJournal
-      ? captureExecutionCheckpoint(
-          conversationMessages,
-          roundState,
-          fullContext,
-          config,
-          maxRounds,
-          deps.toolExecutionService.getLoadedDeferredTools(),
-        )
-      : undefined,
-  );
-  // Every streamed chunk's hooks run before the round moves on, even when the call failed.
-  await settleStreamingChunkHooks();
+  let response: Awaited<ReturnType<typeof callRoundProviderWithEvents>>;
+  try {
+    response = await callRoundProviderWithEvents(
+      providerMessages,
+      config,
+      resolved,
+      cacheService,
+      fullContext,
+      conversationStore,
+      currentRound,
+      executionId,
+      usageObservationId,
+      logger,
+      wrappedOnTextDelta,
+      wrappedOnProviderNativeRawPayload,
+      (error) => void (roundState.providerFailure = error),
+      route,
+      providerCallId,
+      fullContext.executionJournal
+        ? captureExecutionCheckpoint(
+            conversationMessages,
+            roundState,
+            fullContext,
+            config,
+            maxRounds,
+            deps.toolExecutionService.getLoadedDeferredTools(),
+          )
+        : undefined,
+    );
+  } finally {
+    // Every streamed chunk's hooks have run before the round goes on or the run settles, whether
+    // the call returned, failed or was interrupted.
+    await settleStreamingChunkHooks();
+  }
   if (response === null) return true;
 
   const { assistantResponse, assistantToolCalls } = validateAndExtractResponse(

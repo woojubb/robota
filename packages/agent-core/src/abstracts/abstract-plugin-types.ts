@@ -115,10 +115,6 @@ export interface IPluginContext {
    * chunk, for `onStreamingChunk`.
    */
   message?: TUniversalMessage;
-  /** The tool call about to run or just run, for the per-call tool hooks. */
-  toolCall?: IToolExecutionContext;
-  /** The result of `toolCall`, for `afterToolCall`. */
-  toolResult?: IToolExecutionResult;
 }
 
 /** Error context for plugin error handling */

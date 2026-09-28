@@ -188,11 +188,8 @@ export async function finalizeExecution(
       toolsExecuted: result.toolsExecuted.length,
       success: result.success,
       // A failed call carries `result: null`, which is how a plugin tells TOOL_ERROR from success.
-      toolCalls: (
-        roundState.toolCallOutcomes ??
-        result.toolsExecuted.map((name) => ({ name, success: true }))
-      ).map((call) => ({
-        ...('id' in call && call.id !== undefined ? { id: call.id } : {}),
+      toolCalls: roundState.toolCallOutcomes.map((call) => ({
+        ...(call.id !== undefined ? { id: call.id } : {}),
         name: call.name,
         ...(call.success ? {} : { result: null }),
       })),

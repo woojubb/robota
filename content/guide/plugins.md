@@ -142,11 +142,6 @@ afterExecution(context: IPluginExecutionContext, result: IPluginExecutionResult)
 afterConversation(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void>
 afterToolExecution(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> // only when tools ran
 
-// Around every tool call
-beforeToolCall(toolName: string, parameters: TToolParameters): Promise<void>
-beforeToolExecution(context: IPluginExecutionContext, toolData: IToolExecutionContext): Promise<void>
-afterToolCall(toolName: string, parameters: TToolParameters, result: IToolExecutionResult): Promise<void>
-
 // Around every provider call and message
 beforeProviderCall(messages: TUniversalMessage[]): Promise<void>
 onStreamingChunk(chunk: TUniversalMessage): Promise<void> // each streamed piece of text, in order
@@ -162,9 +157,9 @@ provider reported usage), `toolsExecuted`, `success`, and `toolCalls` (the id an
 call that ran, with `result: null` for one that failed). The `context` carries `executionId` and
 the conversation `messages`.
 
-The tool-call methods run for each call the model makes, before the batch starts and after it
-settles; a call whose arguments could not be read never runs and gets neither. A plugin method that
-throws is logged and does not stop the run.
+`IPluginHooks` also declares `beforeToolCall`, `beforeToolExecution` and `afterToolCall`, but the
+`Robota` run loop does not call them; a plugin that needs per-tool detail should read `toolCalls`
+in `afterToolExecution`. A plugin method that throws is logged and does not stop the run.
 
 ### Stats helpers
 
@@ -347,7 +342,6 @@ Each listener receives an `IEventEmitterEventData`: `type`, `timestamp`, `execut
 | `AGENT_EXECUTION_START`    | When a run starts                                                               |
 | `AGENT_EXECUTION_COMPLETE` | When a run completes (`data.duration`, `data.tokensUsed`, `data.toolsExecuted`) |
 | `AGENT_EXECUTION_ERROR`    | When a run fails (`error`)                                                      |
-| `TOOL_BEFORE_EXECUTE`      | Before each tool call runs (`data.toolName`, `data.arguments`)                  |
 | `TOOL_AFTER_EXECUTE`       | After a run, once per tool call that ran (`data.toolName`)                      |
 | `TOOL_SUCCESS`             | With `TOOL_AFTER_EXECUTE`, for each tool call that succeeded                    |
 | `TOOL_ERROR`               | With `TOOL_AFTER_EXECUTE`, for each tool call that failed                       |

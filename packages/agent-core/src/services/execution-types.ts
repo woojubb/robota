@@ -100,7 +100,7 @@ export const MAX_CONSECUTIVE_UNKNOWN_TOOL_FAILURE_ROUNDS = 2;
 export interface IExecutionRoundState {
   toolsExecuted: string[];
   /** Whether each tool call that ran succeeded, in the order the calls ran. */
-  toolCallOutcomes?: Array<{ id?: string; name: string; success: boolean }>;
+  toolCallOutcomes: Array<{ id?: string; name: string; success: boolean }>;
   currentRound: number;
   runningAssistantCount: number;
   lastTrackedAssistantMessage: IAssistantMessage | undefined;

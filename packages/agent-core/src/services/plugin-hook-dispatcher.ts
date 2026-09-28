@@ -60,25 +60,6 @@ const HOOK_HANDLERS: Record<string, TPluginHookHandler> = {
   beforeConversation: async (plugin, context) => {
     if (plugin.beforeConversation) await plugin.beforeConversation(toExecutionContext(context));
   },
-  beforeToolCall: async (plugin, context) => {
-    if (plugin.beforeToolCall && context.toolCall) {
-      await plugin.beforeToolCall(context.toolCall.toolName, context.toolCall.parameters);
-    }
-  },
-  beforeToolExecution: async (plugin, context) => {
-    if (plugin.beforeToolExecution && context.toolCall) {
-      await plugin.beforeToolExecution(toExecutionContext(context), context.toolCall);
-    }
-  },
-  afterToolCall: async (plugin, context) => {
-    if (plugin.afterToolCall && context.toolCall && context.toolResult) {
-      await plugin.afterToolCall(
-        context.toolCall.toolName,
-        context.toolCall.parameters,
-        context.toolResult,
-      );
-    }
-  },
   onStreamingChunk: async (plugin, context) => {
     if (plugin.onStreamingChunk && context.message) await plugin.onStreamingChunk(context.message);
   },

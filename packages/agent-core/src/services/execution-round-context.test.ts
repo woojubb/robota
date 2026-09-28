@@ -28,6 +28,7 @@ function makeConfig(overrides: Partial<IAgentConfig> = {}): IAgentConfig {
 function makeRoundState(): IExecutionRoundState {
   return {
     toolsExecuted: [],
+    toolCallOutcomes: [],
     currentRound: 1,
     runningAssistantCount: 0,
     lastTrackedAssistantMessage: undefined,

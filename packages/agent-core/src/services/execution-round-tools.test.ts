@@ -5,6 +5,7 @@ import type { IExecutionRoundState } from './execution-types';
 function makeRoundState(): IExecutionRoundState {
   return {
     toolsExecuted: [],
+    toolCallOutcomes: [],
     currentRound: 1,
     runningAssistantCount: 0,
     lastTrackedAssistantMessage: undefined,

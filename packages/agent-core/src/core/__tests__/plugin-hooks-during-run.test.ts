@@ -1,7 +1,6 @@
 /**
- * The plugin hooks a run is meant to call are called during a real `Robota` run: the conversation
- * start, each tool call before and after it runs, and each streamed chunk. The event emitter plugin
- * that builds on them emits what it promises, a failed tool call included.
+ * The conversation-start and streaming-chunk plugin hooks are called during a real `Robota` run,
+ * and the event emitter plugin reports a failed tool call as a tool error.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -16,12 +15,8 @@ import { Robota } from '../robota';
 import type { IPluginExecutionContext } from '../../abstracts/abstract-plugin-types';
 import type { IAgentConfig } from '../../interfaces/agent';
 import type { TUniversalMessage } from '../../interfaces/messages';
-import type {
-  IToolExecutionContext,
-  IToolExecutionResult,
-  IToolResult,
-  TToolParameters,
-} from '../../interfaces/tool';
+import type { IAIProvider, IChatOptions } from '../../interfaces/provider';
+import type { IToolResult, TToolParameters } from '../../interfaces/tool';
 import type { IToolSchema } from '../../interfaces/tool-schema';
 
 class ScriptedTool extends AbstractTool {
@@ -40,37 +35,19 @@ class ScriptedTool extends AbstractTool {
   }
 }
 
-/** Records every hook the run calls, in order. */
+/** Records the conversation start and every streamed chunk, taking its time over each chunk. */
 class RecordingPlugin extends AbstractPlugin {
   readonly name = 'RecordingPlugin';
   readonly version = '1.0.0';
-  readonly calls: string[] = [];
+  readonly conversations: number[] = [];
   readonly chunks: string[] = [];
 
   override async beforeConversation(context: IPluginExecutionContext): Promise<void> {
-    this.calls.push(`beforeConversation:${context.messages?.length ?? 0}`);
-  }
-
-  override async beforeToolCall(toolName: string): Promise<void> {
-    this.calls.push(`beforeToolCall:${toolName}`);
-  }
-
-  override async beforeToolExecution(
-    _context: IPluginExecutionContext,
-    toolData: IToolExecutionContext,
-  ): Promise<void> {
-    this.calls.push(`beforeToolExecution:${toolData.toolName}`);
-  }
-
-  override async afterToolCall(
-    toolName: string,
-    _parameters: TToolParameters,
-    result: IToolExecutionResult,
-  ): Promise<void> {
-    this.calls.push(`afterToolCall:${toolName}:${result.success ? 'ok' : 'failed'}`);
+    this.conversations.push(context.messages?.length ?? 0);
   }
 
   override async onStreamingChunk(chunk: TUniversalMessage): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 5));
     this.chunks.push(String(chunk.content ?? ''));
   }
 }
@@ -81,10 +58,10 @@ const TURNS: readonly TScriptedTurn[] = [
   { text: 'all done' },
 ];
 
-function agentWith(plugins: IAgentConfig['plugins']): Robota {
-  const config: IAgentConfig = {
+function agentWith(plugins: IAgentConfig['plugins'], provider?: IAIProvider): Robota {
+  return new Robota({
     name: 'Plugin Hooks Agent',
-    aiProviders: [createScriptedProvider(TURNS).provider],
+    aiProviders: [provider ?? createScriptedProvider(TURNS).provider],
     defaultModel: { provider: 'scripted-test-provider', model: 'test-model' },
     tools: [
       new ScriptedTool('works', { success: true, data: 'fine' }),
@@ -92,32 +69,40 @@ function agentWith(plugins: IAgentConfig['plugins']): Robota {
     ],
     plugins,
     logging: { level: 'silent', enabled: false },
-  };
-  return new Robota(config);
+  });
 }
 
 describe('plugin hooks during a run', () => {
-  it('calls the conversation, per-tool-call and streaming hooks', async () => {
+  it('calls beforeConversation once and onStreamingChunk for each streamed chunk', async () => {
     const plugin = new RecordingPlugin();
 
     await agentWith([plugin]).run('go', { onTextDelta: () => undefined });
 
-    expect(plugin.calls).toEqual([
-      'beforeConversation:1',
-      'beforeToolCall:works',
-      'beforeToolExecution:works',
-      'afterToolCall:works:ok',
-      'beforeToolCall:breaks',
-      'beforeToolExecution:breaks',
-      'afterToolCall:breaks:failed',
-    ]);
+    expect(plugin.conversations).toEqual([1]);
     expect(plugin.chunks.join('')).toBe('all done');
   });
 
-  it('lets the event emitter plugin emit the conversation start, the tool start and a tool error', async () => {
+  it('has run every chunk hook when a provider fails mid-stream', async () => {
+    const plugin = new RecordingPlugin();
+    const failing: IAIProvider = {
+      ...createScriptedProvider([]).provider,
+      async chat(_messages: TUniversalMessage[], options?: IChatOptions) {
+        options?.onTextDelta?.('par');
+        options?.onTextDelta?.('tial');
+        throw new Error('stream dropped');
+      },
+    };
+
+    await agentWith([plugin], failing)
+      .run('go', { onTextDelta: () => undefined })
+      .catch(() => undefined);
+
+    expect(plugin.chunks).toEqual(['par', 'tial']);
+  });
+
+  it('lets the event emitter plugin emit the conversation start and a tool error', async () => {
     const events = [
       EVENT_EMITTER_EVENTS.CONVERSATION_START,
-      EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE,
       EVENT_EMITTER_EVENTS.TOOL_SUCCESS,
       EVENT_EMITTER_EVENTS.TOOL_ERROR,
     ];
@@ -132,9 +117,8 @@ describe('plugin hooks during a run', () => {
     await agentWith([emitter]).run('go');
 
     expect(seen).toContain(`${EVENT_EMITTER_EVENTS.CONVERSATION_START}:`);
-    expect(seen).toContain(`${EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE}:works`);
-    expect(seen).toContain(`${EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE}:breaks`);
     expect(seen).toContain(`${EVENT_EMITTER_EVENTS.TOOL_SUCCESS}:works`);
     expect(seen).toContain(`${EVENT_EMITTER_EVENTS.TOOL_ERROR}:breaks`);
+    expect(seen).not.toContain(`${EVENT_EMITTER_EVENTS.TOOL_SUCCESS}:breaks`);
   });
 });
