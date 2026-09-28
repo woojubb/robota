@@ -1,5 +1,13 @@
 # @robota-sdk/agent-transport-http
 
+## 3.0.0-beta.86
+
+### Patch Changes
+
+- @robota-sdk/agent-interface-session@3.0.0-beta.86
+- @robota-sdk/agent-interface-transport@3.0.0-beta.86
+- @robota-sdk/agent-transport@3.0.0-beta.86
+
 ## 3.0.0-beta.85
 
 ### Patch Changes

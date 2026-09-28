@@ -1,5 +1,23 @@
 # @robota-sdk/agent-framework
 
+## 3.0.0-beta.86
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.86
+- @robota-sdk/agent-executor@3.0.0-beta.86
+- @robota-sdk/agent-file-authority@3.0.0-beta.86
+- @robota-sdk/agent-interface-analytics@3.0.0-beta.86
+- @robota-sdk/agent-interface-command@3.0.0-beta.86
+- @robota-sdk/agent-interface-execution@3.0.0-beta.86
+- @robota-sdk/agent-interface-session@3.0.0-beta.86
+- @robota-sdk/agent-interface-session-mobility@3.0.0-beta.86
+- @robota-sdk/agent-interface-transport@3.0.0-beta.86
+- @robota-sdk/agent-roundtable@3.0.0-beta.86
+- @robota-sdk/agent-session@3.0.0-beta.86
+- @robota-sdk/agent-tool-defaults@3.0.0-beta.86
+- @robota-sdk/agent-tools@3.0.0-beta.86
+
 ## 3.0.0-beta.85
 
 ### Minor Changes

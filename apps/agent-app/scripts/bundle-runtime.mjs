@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * GUI-003 / RUNTIME-002 — copy the verified host-arch headless Bun binary to a FIXED canonical path electron-builder can reference.
+ * Copy the host CLI to the canonical path electron-builder bundles and the shell resolves.
  *
- * `build-bun.mjs headless` emits host-suffixed names (`robota-headless-<os>-<arch>`, `.exe` on Windows); a static
+ * `build-bun.mjs` emits host-suffixed names (`robota-<os>-<arch>`, `.exe` on Windows); a static
  * `electron-builder.yml` cannot interpolate the host arch. So this copies the matching binary to
  * `apps/agent-app/resources-bin/robota(.exe)` — the fixed path `extraResources` bundles into `resources/`,
  * where `sidecar.ts:resolveSidecarCommand` resolves it in a packaged app.
@@ -18,13 +18,13 @@ const cliDir = join(appDir, '..', '..', 'packages', 'agent-cli');
 const os = process.platform === 'win32' ? 'windows' : process.platform; // darwin | linux | windows
 const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
 const isWin = process.platform === 'win32';
-const srcName = `robota-headless-${os}-${arch}${isWin ? '.exe' : ''}`;
-const src = join(cliDir, 'dist-bun-headless', srcName);
+const srcName = `robota-${os}-${arch}${isWin ? '.exe' : ''}`;
+const src = join(cliDir, 'dist-bun', srcName);
 
 if (!existsSync(src)) {
   throw new Error(
     `bundle-runtime: ${src} is missing. ` +
-      `Build it first: pnpm --filter @robota-sdk/agent-cli build:bun:headless:${os}-${arch}`,
+      `Build it first: pnpm --filter @robota-sdk/agent-cli build:bun:${os}-${arch}`,
   );
 }
 

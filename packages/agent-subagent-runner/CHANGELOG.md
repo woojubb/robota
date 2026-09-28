@@ -1,5 +1,15 @@
 # @robota-sdk/agent-subagent-runner
 
+## 3.0.0-beta.86
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.86
+- @robota-sdk/agent-executor@3.0.0-beta.86
+- @robota-sdk/agent-framework@3.0.0-beta.86
+- @robota-sdk/agent-interface-execution@3.0.0-beta.86
+- @robota-sdk/agent-process@3.0.0-beta.86
+
 ## 3.0.0-beta.85
 
 ### Patch Changes

@@ -34,6 +34,8 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { readWindowsProcessStartTime } from '../session-inventory/windows-security.js';
+
 import type { IWorkspaceClaim } from './local-peer-workspace.js';
 
 /** What a session publishes about itself. */
@@ -133,9 +135,12 @@ export function readProcessStartTime(
   pid: number,
   platform: string = process.platform,
   readDarwin: (pid: number) => string | undefined = readDarwinStartTime,
+  readWindows: (pid: number) => string | undefined = readWindowsProcessStartTime,
 ): string | undefined {
   if (!Number.isSafeInteger(pid) || pid <= 0) return undefined;
-  return platform === 'darwin' ? readDarwin(pid) : readProcStartTime(pid);
+  if (platform === 'darwin') return readDarwin(pid);
+  if (platform === 'win32') return readWindows(pid);
+  return readProcStartTime(pid);
 }
 
 function readAnnouncedStartMetadata(

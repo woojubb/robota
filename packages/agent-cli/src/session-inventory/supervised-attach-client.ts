@@ -7,7 +7,7 @@ import { decodeFrame, decodeServerMessage } from '@robota-sdk/agent-transport';
 
 import { openSupervisedAttachSocket } from './supervised-session-control.js';
 
-import type { Socket } from 'node:net';
+import type { IControlChannel } from './windows-control-pipe.js';
 import type { TClientMessage, TServerMessage } from '@robota-sdk/agent-transport';
 
 /**
@@ -44,7 +44,7 @@ export async function openSupervisedAttach(
 
 /** The protocol over an admitted attach socket; `rest` is what arrived with the handshake reply. */
 export function createSupervisedAttachConnection(
-  socket: Socket,
+  socket: IControlChannel,
   driverId: string,
   rest: string,
 ): ISupervisedAttachConnection {

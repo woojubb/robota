@@ -1,15 +1,17 @@
-// GUI-003 TC-02a/TC-04 — the BUNDLED runtime inside the packaged app is a working `robota --serve`.
-// nonce handshake succeeds, a wrong token is rejected before session data, SIGTERM shuts down cleanly.
-import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+// Exercise the shell's trust/daemon commands and the serve transport in the actual packaged binary.
+import { execFile, spawn } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import { connect, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { dirname, join as pjoin } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import { buildBundledRuntimeChildEnv } from './child-env.mjs';
+import { buildDaemonStartSpawn, parseDaemonStartOutput } from '../dist/electron/sidecar.js';
 
 const releaseDir = pjoin(dirname(fileURLToPath(import.meta.url)), '..', 'release');
 const BIN =
@@ -87,6 +89,8 @@ const drive = (url, onOpen, predicate, timeout) =>
 
 const binCwd = mkdtempSync(join(tmpdir(), 'gui003-bin-'));
 const home = mkdtempSync(join(tmpdir(), 'gui003-home-'));
+// macOS's default temp directory is too long for the daemon's Unix control socket.
+const runtime = mkdtempSync(join(process.platform === 'darwin' ? '/tmp' : tmpdir(), 'rg-'));
 mkdirSync(join(binCwd, '.robota'), { recursive: true });
 mkdirSync(join(home, '.robota'), { recursive: true });
 writeFileSync(
@@ -103,21 +107,19 @@ const token = 'gui003-nonce-0123456789abcdef';
 const port = await freePort();
 const url = (t = token) => `ws://127.0.0.1:${port}?token=${encodeURIComponent(t)}`;
 
-const child = spawn(BIN, ['--serve', '--no-session-persistence'], {
-  cwd: binCwd,
-  env: buildBundledRuntimeChildEnv({
-    path: process.env.PATH,
-    home,
-    token,
-    port,
-    systemRoot: process.env.SystemRoot,
-  }),
-  stdio: ['ignore', 'ignore', 'pipe'],
+const serveEnv = buildBundledRuntimeChildEnv({
+  path: process.env.PATH,
+  home,
+  token,
+  port,
+  systemRoot: process.env.SystemRoot,
 });
+const { ROBOTA_WS_TOKEN: _token, ROBOTA_WS_PORT: _port, ...baseCliEnv } = serveEnv;
+const cliEnv = { ...baseCliEnv, XDG_RUNTIME_DIR: runtime };
+const exec = promisify(execFile);
+const runCli = (args) => exec(BIN, args, { cwd: binCwd, env: cliEnv, timeout: 30000 });
+let child;
 let stderr = '';
-child.stderr.on('data', (chunk) => {
-  stderr += String(chunk);
-});
 
 let ok = true;
 const check = (label, cond) => {
@@ -126,6 +128,48 @@ const check = (label, cond) => {
 };
 
 try {
+  const trust = JSON.parse((await runCli(['trust', 'status', '--json'])).stdout);
+  check('desktop: bundled CLI reports workspace trust as JSON', typeof trust.askable === 'boolean');
+  const start = buildDaemonStartSpawn(BIN, cliEnv, { restricted: true });
+  try {
+    const started = await runCli(start.args);
+    const endpoint = parseDaemonStartOutput(started.stdout);
+    if (!endpoint)
+      throw new Error(
+        `bundled daemon start did not report a valid loopback endpoint: ${started.stdout}; stderr: ${started.stderr}`,
+      );
+    const authed = await drive(
+      endpoint.url,
+      () => {},
+      (f) => f.some((m) => m.type === 'messages'),
+      8000,
+    );
+    check(
+      'desktop: bundled daemon connects with its own launch nonce',
+      authed.frames.some((m) => m.type === 'messages'),
+    );
+    const reused = parseDaemonStartOutput((await runCli(start.args)).stdout);
+    check(
+      'desktop: reopening reuses the workspace daemon',
+      reused?.id === endpoint.id && reused?.url === endpoint.url,
+    );
+  } catch (error) {
+    console.error('Packaged daemon startup check failed:', error);
+    throw error;
+  } finally {
+    await runCli(['daemon', 'stop']);
+  }
+  const stopped = JSON.parse((await runCli(['daemon', 'status', '--json'])).stdout);
+  check('desktop: bundled CLI stops its workspace daemon', stopped.running === false);
+
+  child = spawn(BIN, ['--serve', '--no-session-persistence'], {
+    cwd: binCwd,
+    env: serveEnv,
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
+  child.stderr.on('data', (chunk) => {
+    stderr += String(chunk);
+  });
   try {
     await waitTcp(port, 20000);
   } catch (error) {
@@ -173,10 +217,14 @@ try {
     'TC-02a: SIGTERM shuts the bundled runtime down cleanly',
     !exited.timeout && successfulShutdown,
   );
+} catch (error) {
+  console.error('Packaged runtime check failed:', error);
+  throw error;
 } finally {
-  if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
-  rmSync(binCwd, { recursive: true, force: true });
-  rmSync(home, { recursive: true, force: true });
+  if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+  for (const fixture of [binCwd, home, runtime]) {
+    await rm(fixture, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
 }
 
 console.log(ok ? '\nGUI-003 bundled-runtime e2e PASSED' : '\nGUI-003 bundled-runtime e2e FAILED');
