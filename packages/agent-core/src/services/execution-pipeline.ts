@@ -2,6 +2,7 @@ import { EXECUTION_EVENTS } from './execution-constants';
 import { buildFinalResult } from './execution-failure';
 import { forceSummaryCall } from './execution-forced-summary';
 import { executeRound } from './execution-round';
+import { EmptyCompletionError } from '../utils/errors';
 import {
   type IResolvedProviderInfo,
   type IExecutionContext,
@@ -101,7 +102,19 @@ export async function runExecutionLoop(
   // CORE-011: a caller that already extracted its tool outcome can abort away the summary call,
   // and a decision-agent run can declare tool-only endings valid completions outright.
   if (signal?.aborted) return;
-  if (fullContext.allowToolOnlyCompletion === true) return;
+  if (fullContext.allowToolOnlyCompletion === true) {
+    // The flag WIDENS what counts as a finish (a tool call alone, with no final
+    // text) — it must not be read as "any ending is fine". A round that ended in neither a tool call
+    // nor text produced nothing at all; without this flag that round is recovered by the summary
+    // call below, so the flag is exactly what removes the rescue. That is a genuinely unanswered
+    // turn, not the `[STRICT-POLICY]` result-shape invariant a malformed execution result trips, so
+    // it must fail with a named, catchable error here rather than reach that invariant unexplained.
+    const endedInToolResults = lastMsg?.role === 'tool';
+    if (!hasTextResponse && !endedInToolResults) {
+      throw new EmptyCompletionError(roundState.currentRound, { conversationId, executionId });
+    }
+    return;
+  }
 
   if (!hasTextResponse) {
     await forceSummaryCall(

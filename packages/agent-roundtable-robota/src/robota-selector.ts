@@ -1,4 +1,4 @@
-import { FunctionTool } from '@robota-sdk/agent-core';
+import { EmptyCompletionError, FunctionTool } from '@robota-sdk/agent-core';
 import type { IExecutionJournal, IToolWithEventService, Robota } from '@robota-sdk/agent-core';
 import type {
   RuntimeReference,
@@ -185,6 +185,11 @@ export function robotaSelector(options: RobotaSelectorOptions): TurnSelector {
             maxExecutionRounds: 1,
             allowToolOnlyCompletion: true,
           });
+        } catch (error) {
+          // A reply with neither text nor a tool call is still a decision the model did not make.
+          if (!signal.aborted && error instanceof EmptyCompletionError)
+            throw new SelectorDecisionError('no-decision', 'The selector agent made no decision');
+          throw error;
         } finally {
           // Cancellation (including a timeout during selection) can make `run` reject — most
           // often via an `ExecutionJournalError` wrapping a rejected admission, which agent-core
