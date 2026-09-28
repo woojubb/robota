@@ -18,7 +18,6 @@ robota/
 │   ├── bytedance/      # ByteDance provider
 │   ├── sessions/       # Session management
 │   ├── remote/         # Remote execution
-│   ├── playground/     # Development playground
 │   ├── team/           # Task assignment tools
 │   ├── dag-core/       # DAG core types
 │   ├── dag-api/        # DAG API contracts
