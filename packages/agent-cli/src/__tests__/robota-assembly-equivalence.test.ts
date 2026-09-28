@@ -17,7 +17,7 @@
  * insertion order — so `/shell` and `/editor` move to the END of `/help` output and of the slash-command
  * autocomplete popup. Content identical, position changed. Restoring the old position would mean teaching
  * the neutral merger about one product's preferred ordering, which is exactly what the composition-
- * neutrality guards forbid — so the ordering delta is recorded in the ARCH-005 evidence log instead.
+ * neutrality guards forbid — so the ordering delta is accepted and recorded here instead.
  */
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

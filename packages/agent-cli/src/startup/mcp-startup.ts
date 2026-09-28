@@ -1,6 +1,6 @@
 /**
  * MCP-002: the ONE place that turns product startup inputs into a live `IMcpClientComposition`,
- * completing the reachability step MCP-002's spec asks for — sourcing (`mcp-definition-sources.ts`)
+ * completing the reachability step — sourcing (`mcp-definition-sources.ts`)
  * → workspace projection (`mcp-workspace.ts`) → composition (`mcp-client-composition.ts`, MCP-002's
  * existing manager wiring) → the `/mcp` adapter and connected tools `cli.ts` consumes.
  *

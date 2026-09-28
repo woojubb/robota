@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# DIST-002 phase 1 — verify that PUBLISHED macOS release artifacts actually open on a user's Mac.
+# DIST-002 — verify that PUBLISHED macOS release artifacts actually open on a user's Mac.
 #
 # The question this answers is NOT "did the upload succeed" (which is all the release workflows have
 # ever checked) but "is the uploaded thing usable". Those are different questions and only the second
@@ -31,7 +31,7 @@
 # EXIT 0 only if every BLOCKING check passed. DIAGNOSTIC checks are reported with their real status
 # and never affect the exit code; they are labelled as such in the summary so nobody mistakes a
 # printed line for an enforced one. `xcrun stapler validate` is DIAGNOSTIC today and becomes BLOCKING
-# in DIST-002 phase 2, when notarization exists for it to validate.
+# once the releases are notarized (#3349), when there is a ticket for it to validate.
 #
 # Usage: verify-macos-release-artifacts.sh <tag> <download-dir>
 
@@ -285,7 +285,7 @@ fi
 if [ "$BLOCKING_FAILURES" -gt 0 ]; then
   echo
   echo "VERDICT: FAIL — a user downloading these artifacts cannot open them."
-  echo "The artifacts need Developer ID signing and notarization, which the release workflows do not do yet."
+  echo "See the FAIL lines above. Signing and notarization, which the releases still lack, are tracked in #3349."
   exit 1
 fi
 
