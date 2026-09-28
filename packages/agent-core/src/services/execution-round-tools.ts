@@ -223,7 +223,6 @@ export async function executeAndRecordToolCalls(
   });
 
   const toolSummary = await toolExecutionService.executeTools(toolContext);
-
   const unknownToolNames = toolSummary.results
     .filter(isUnknownToolExecutionResult)
     .map((result) => result.toolName)

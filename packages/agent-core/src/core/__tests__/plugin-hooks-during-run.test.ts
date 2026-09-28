@@ -13,7 +13,7 @@ import { createScriptedProvider, type TScriptedTurn } from '../../testing/script
 import { Robota } from '../robota';
 
 import type { IPluginExecutionContext } from '../../abstracts/abstract-plugin-types';
-import type { IAgentConfig } from '../../interfaces/agent';
+import type { IAgentConfig, IToolMessage } from '../../interfaces/agent';
 import type { TUniversalMessage } from '../../interfaces/messages';
 import type { IAIProvider, IChatOptions } from '../../interfaces/provider';
 import type { IToolResult, TToolParameters } from '../../interfaces/tool';
@@ -100,6 +100,26 @@ describe('plugin hooks during a run', () => {
     expect(plugin.chunks).toEqual(['par', 'tial']);
   });
 
+  it('has run every chunk hook when the run is interrupted mid-stream', async () => {
+    const plugin = new RecordingPlugin();
+    const controller = new AbortController();
+    const interrupted: IAIProvider = {
+      ...createScriptedProvider([]).provider,
+      async chat(_messages: TUniversalMessage[], options?: IChatOptions) {
+        options?.onTextDelta?.('half');
+        options?.onTextDelta?.('way');
+        controller.abort();
+        throw new DOMException('The run was interrupted', 'AbortError');
+      },
+    };
+
+    await agentWith([plugin], interrupted)
+      .run('go', { onTextDelta: () => undefined, signal: controller.signal })
+      .catch(() => undefined);
+
+    expect(plugin.chunks).toEqual(['half', 'way']);
+  });
+
   it('lets the event emitter plugin emit the conversation start and a tool error', async () => {
     const events = [
       EVENT_EMITTER_EVENTS.CONVERSATION_START,
@@ -108,17 +128,29 @@ describe('plugin hooks during a run', () => {
     ];
     const emitter = new EventEmitterPlugin({ events, async: false });
     const seen: string[] = [];
+    const toolIds = new Map<string, string>();
     for (const event of events) {
       emitter.on(event, (data) => {
-        seen.push(`${event}:${String(data.data?.['toolName'] ?? '')}`);
+        const key = `${event}:${String(data.data?.['toolName'] ?? '')}`;
+        seen.push(key);
+        toolIds.set(key, String(data.data?.['toolId'] ?? ''));
       });
     }
+    const agent = agentWith([emitter]);
 
-    await agentWith([emitter]).run('go');
+    await agent.run('go');
 
     expect(seen).toContain(`${EVENT_EMITTER_EVENTS.CONVERSATION_START}:`);
     expect(seen).toContain(`${EVENT_EMITTER_EVENTS.TOOL_SUCCESS}:works`);
     expect(seen).toContain(`${EVENT_EMITTER_EVENTS.TOOL_ERROR}:breaks`);
     expect(seen).not.toContain(`${EVENT_EMITTER_EVENTS.TOOL_SUCCESS}:breaks`);
+    // Each event names the call it reports, as the tool message in history does.
+    const callIds = agent
+      .getHistory()
+      .filter((message): message is IToolMessage => message.role === 'tool')
+      .map((message) => message.toolCallId);
+    expect(toolIds.get(`${EVENT_EMITTER_EVENTS.TOOL_SUCCESS}:works`)).toBe(callIds[0]);
+    expect(toolIds.get(`${EVENT_EMITTER_EVENTS.TOOL_ERROR}:breaks`)).toBe(callIds[1]);
+    expect(callIds[0]).not.toBe('');
   });
 });
