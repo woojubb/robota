@@ -1,4 +1,5 @@
 import { lstatSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 import koffi from 'koffi';
 
@@ -35,7 +36,14 @@ function loadApi() {
   if (process.platform !== 'win32') throw new Error('Windows security requires Windows.');
   const kernel = koffi.load('kernel32.dll');
   const security = koffi.load('advapi32.dll');
+  const securityAttributes = koffi.struct({ length: 'uint32_t', descriptor: 'void*', inherit: 'int' });
   return {
+    securityAttributes,
+    createDirectory: kernel.func('__stdcall', 'CreateDirectoryW', 'int', [
+      'str16',
+      koffi.pointer(securityAttributes),
+    ]),
+    error: kernel.func('uint32_t __stdcall GetLastError()'),
     currentProcess: kernel.func('void* __stdcall GetCurrentProcess()'),
     close: kernel.func('int __stdcall CloseHandle(void*)'),
     free: kernel.func('void* __stdcall LocalFree(void*)'),
@@ -55,15 +63,6 @@ function loadApi() {
     ),
     descriptor: security.func(
       'int __stdcall ConvertStringSecurityDescriptorToSecurityDescriptorW(str16, uint32_t, _Out_ void**, void*)',
-    ),
-    owner: security.func(
-      'int __stdcall GetSecurityDescriptorOwner(void*, _Out_ void**, _Out_ int*)',
-    ),
-    dacl: security.func(
-      'int __stdcall GetSecurityDescriptorDacl(void*, _Out_ int*, _Out_ void**, _Out_ int*)',
-    ),
-    setSecurity: security.func(
-      'uint32_t __stdcall SetNamedSecurityInfoW(str16, int, uint32_t, void*, void*, void*, void*)',
     ),
   };
 }
@@ -132,36 +131,45 @@ function assertLocalPath(path: string): void {
 
 export function assertWindowsPrivatePath(path: string, directory: boolean): void {
   assertLocalPath(path);
+  const stat = lstatSync(path);
+  if (directory ? !stat.isDirectory() : !stat.isFile())
+    throw new Error('Invalid Windows supervised storage type.');
   if (!isPrivateWindowsSddl(descriptorOf(path), currentWindowsSid(), directory)) {
     throw new Error('Windows supervised storage is not private to this user.');
   }
 }
 
-/** Called only for a directory this start just created, before writing any registration or key. */
-export function protectWindowsDirectory(path: string): void {
-  assertLocalPath(path);
-  const sid = currentWindowsSid();
-  const owner = /^O:([^:]+)/u.exec(descriptorOf(path))?.[1];
-  if (owner !== sid && (owner === undefined || !PRIVILEGED_SIDS.has(owner)))
-    throw new Error('Windows supervised directory has a different owner.');
+/** Apply the private descriptor at creation: an inherited ACL is never briefly exposed. */
+export function createWindowsPrivateDirectory(path: string, exclusive = false): void {
+  try {
+    assertWindowsPrivatePath(path, true);
+    if (exclusive) throw new Error('Windows supervised directory already exists.');
+    return;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+  const parent = dirname(path);
+  try {
+    assertLocalPath(parent);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || parent === path) throw error;
+    createWindowsPrivateDirectory(parent);
+  }
   const win = api();
   const descriptor: unknown[] = [null];
+  const sid = currentWindowsSid();
   if (!win.descriptor(`O:${sid}D:P(A;OICI;FA;;;${sid})`, 1, descriptor, null))
     throw new Error('Unable to build Windows access protection.');
   try {
-    const ownerPointer: unknown[] = [null];
-    const daclPointer: unknown[] = [null];
-    const defaulted = [0];
-    const present = [0];
     if (
-      !win.owner(descriptor[0], ownerPointer, defaulted) ||
-      !win.dacl(descriptor[0], present, daclPointer, defaulted) ||
-      !present[0] ||
-      !daclPointer[0]
+      !win.createDirectory(path, {
+        length: koffi.sizeof(win.securityAttributes),
+        descriptor: descriptor[0],
+        inherit: 0,
+      }) &&
+      (exclusive || win.error() !== 183)
     )
-      throw new Error('Invalid Windows access protection.');
-    if (win.setSecurity(path, 1, 0x80000005, ownerPointer[0], null, daclPointer[0], null) !== 0)
-      throw new Error('Unable to protect Windows supervised directory.');
+      throw new Error('Unable to create private Windows supervised directory.');
   } finally {
     win.free(descriptor[0]);
   }

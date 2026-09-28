@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
+import { readFile } from 'node:fs/promises';
 
 import { describe, expect, it } from 'vitest';
 
@@ -41,10 +42,17 @@ describe('Windows supervised pipe endpoint', () => {
       });
       try {
         const expected = { pid: process.pid, startedAt: readWindowsProcessStartTime(process.pid)! };
-        expect(() => connectWindowsControlPipe(path, { ...expected, startedAt: '0' })).toThrow(
-          /registered process/,
-        );
-        const client = connectWindowsControlPipe(path, expected);
+        await expect(
+          connectWindowsControlPipe(path, { ...expected, startedAt: '0' }),
+        ).rejects.toThrow(/registered process/);
+        // Idle peers must not occupy the finite native worker pool or starve later I/O.
+        for (let index = 0; index < 6; index++) {
+          const idle = await connectWindowsControlPipe(path, expected);
+          channels.add(idle);
+          idle.on('error', () => undefined);
+        }
+        expect(await readFile(new URL(import.meta.url), 'utf8')).toContain('Windows supervised');
+        const client = await connectWindowsControlPipe(path, expected);
         channels.add(client);
         client.on('error', () => undefined);
         const payload = Buffer.alloc(2 * 1024 * 1024, 0x61);

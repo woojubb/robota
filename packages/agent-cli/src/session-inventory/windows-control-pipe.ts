@@ -47,7 +47,6 @@ function loadPipeApi() {
       'void* __stdcall CreateFileW(str16, uint32_t, uint32_t, void*, uint32_t, uint32_t, void*)',
     ),
     connect: kernel.func('int __stdcall ConnectNamedPipe(void*, void*)'),
-    wait: kernel.func('int __stdcall WaitNamedPipeW(str16, uint32_t)'),
     read: kernel.func('int __stdcall ReadFile(void*, void*, uint32_t, void*, void*)'),
     write: kernel.func('int __stdcall WriteFile(void*, void*, uint32_t, void*, void*)'),
     result: kernel.func('int __stdcall GetOverlappedResult(void*, void*, _Out_ uint32_t*, int)'),
@@ -98,15 +97,20 @@ function performIo(
     return Promise.reject(new Error('Windows pipe I/O was refused.'));
   }
   return new Promise<number>((resolve, reject) => {
-    win.result.async(handle, state, transferred, 1, (error: Error | null, completed: number) => {
-      // Keep the buffer referenced through completion, even when only the native pointer is in use.
-      if (buffer && transferred[0]! > buffer.length) {
-        reject(new Error('Invalid Windows pipe I/O size.'));
+    const poll = () => {
+      // Do not occupy a finite FFI worker with an idle pipe read or accept.
+      const completed = win.result(handle, state, transferred, 0);
+      if (!completed && win.error() === 996) {
+        setTimeout(poll, 10);
         return;
       }
-      if (error || !completed) reject(new Error('Windows pipe I/O ended.'));
+      // Windows has completed this request, including cancellation, before release.
+      if (!completed) reject(new Error('Windows pipe I/O ended.'));
+      else if (buffer && transferred[0]! > buffer.length)
+        reject(new Error('Invalid Windows pipe I/O size.'));
       else resolve(transferred[0]!);
-    });
+    };
+    poll();
   }).finally(release);
 }
 
@@ -122,7 +126,7 @@ class WindowsPipeChannel extends Duplex implements IControlChannel {
   ) {
     super();
     if (connecting)
-      queueMicrotask(() => {
+      setImmediate(() => {
         if (!this.destroyed) this.emit('connect');
       });
   }
@@ -270,18 +274,24 @@ export class WindowsControlPipeServer extends EventEmitter {
 }
 
 /** The actual connected handle must name the registered process start before any control bytes leave. */
-export function connectWindowsControlPipe(
+export async function connectWindowsControlPipe(
   path: string,
   expected: { pid: number; startedAt: string },
-): IControlChannel {
+  signal?: AbortSignal,
+): Promise<IControlChannel> {
   const win = api();
   // SECURITY_IDENTIFICATION prevents the server from impersonating this client's token.
-  let handle = win.open(path, 0xc0000000, 0, null, 3, 0x40000000 | 0x100000 | 0x10000, null);
-  if (invalidHandle(handle) && win.error() === 231 && win.wait(path, 2000)) {
+  const deadline = Date.now() + 2000;
+  let handle: unknown;
+  for (;;) {
+    signal?.throwIfAborted();
     handle = win.open(path, 0xc0000000, 0, null, 3, 0x40000000 | 0x100000 | 0x10000, null);
+    if (!invalidHandle(handle) || win.error() !== 231 || Date.now() >= deadline) break;
+    await new Promise<void>((resolve) => setTimeout(resolve, 10));
   }
   if (invalidHandle(handle)) throw new Error('Windows supervised control is unavailable.');
   try {
+    signal?.throwIfAborted();
     const peer = peerIdentity(handle, 'server');
     if (peer.pid !== expected.pid || peer.startedAt !== expected.startedAt)
       throw new Error('Windows control pipe does not belong to the registered process start.');

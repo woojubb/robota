@@ -9,7 +9,7 @@ import {
   assertWindowsPrivatePath,
   currentWindowsSid,
   isPrivateWindowsSddl,
-  protectWindowsDirectory,
+  createWindowsPrivateDirectory,
   readWindowsProcessIdentity,
   readWindowsProcessStartTime,
 } from '../windows-security.js';
@@ -69,7 +69,11 @@ describe('Windows daemon security', () => {
         const storage = join(root, 'storage');
         mkdirSync(storage);
         expect(() => assertWindowsPrivatePath(storage, true)).toThrow();
-        protectWindowsDirectory(storage);
+        expect(() => createWindowsPrivateDirectory(storage)).toThrow(/not private/);
+        rmSync(storage, { recursive: true });
+        execFileSync('icacls.exe', [root, '/grant', '*S-1-1-0:(OI)(CI)F']);
+        createWindowsPrivateDirectory(storage);
+        expect(() => createWindowsPrivateDirectory(storage, true)).toThrow(/already exists/);
         expect(() => assertWindowsPrivatePath(storage, true)).not.toThrow();
         const registration = join(storage, 'registration.json');
         writeFileSync(registration, '{}');
@@ -79,7 +83,7 @@ describe('Windows daemon security', () => {
         const junction = join(root, 'junction');
         symlinkSync(storage, junction, 'junction');
         expect(() => assertWindowsPrivatePath(junction, true)).toThrow(/reparse/);
-        expect(() => protectWindowsDirectory(junction)).toThrow(/reparse/);
+        expect(() => createWindowsPrivateDirectory(junction)).toThrow(/reparse/);
       } finally {
         rmSync(root, { recursive: true, force: true });
       }
