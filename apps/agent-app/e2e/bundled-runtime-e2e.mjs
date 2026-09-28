@@ -1,6 +1,7 @@
 // Exercise the shell's trust/daemon commands and the serve transport in the actual packaged binary.
 import { execFile, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import { connect, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -131,8 +132,12 @@ try {
   check('desktop: bundled CLI reports workspace trust as JSON', typeof trust.askable === 'boolean');
   const start = buildDaemonStartSpawn(BIN, cliEnv, { restricted: true });
   try {
-    const endpoint = parseDaemonStartOutput((await runCli(start.args)).stdout);
-    if (!endpoint) throw new Error('bundled daemon start did not report a valid loopback endpoint');
+    const started = await runCli(start.args);
+    const endpoint = parseDaemonStartOutput(started.stdout);
+    if (!endpoint)
+      throw new Error(
+        `bundled daemon start did not report a valid loopback endpoint: ${started.stdout}; stderr: ${started.stderr}`,
+      );
     const authed = await drive(
       endpoint.url,
       () => {},
@@ -148,6 +153,9 @@ try {
       'desktop: reopening reuses the workspace daemon',
       reused?.id === endpoint.id && reused?.url === endpoint.url,
     );
+  } catch (error) {
+    console.error('Packaged daemon startup check failed:', error);
+    throw error;
   } finally {
     await runCli(['daemon', 'stop']);
   }
@@ -209,11 +217,14 @@ try {
     'TC-02a: SIGTERM shuts the bundled runtime down cleanly',
     !exited.timeout && successfulShutdown,
   );
+} catch (error) {
+  console.error('Packaged runtime check failed:', error);
+  throw error;
 } finally {
   if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
-  rmSync(binCwd, { recursive: true, force: true });
-  rmSync(home, { recursive: true, force: true });
-  rmSync(runtime, { recursive: true, force: true });
+  for (const fixture of [binCwd, home, runtime]) {
+    await rm(fixture, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
 }
 
 console.log(ok ? '\nGUI-003 bundled-runtime e2e PASSED' : '\nGUI-003 bundled-runtime e2e FAILED');
