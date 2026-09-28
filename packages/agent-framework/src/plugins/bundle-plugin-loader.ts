@@ -234,6 +234,7 @@ export class BundlePluginLoader {
         description,
         skillContent: body === raw ? body : body.trimStart(),
         ...metadata,
+        skillDirectory: join(skillsDir, entry.name),
       };
 
       skills.push(skill);
@@ -266,6 +267,7 @@ export class BundlePluginLoader {
         name: `${pluginName}:${name}`,
         description,
         skillContent: body === raw ? body : body.trimStart(),
+        skillDirectory: commandsDir,
       });
     }
 

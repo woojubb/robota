@@ -1,5 +1,5 @@
 name: 'Robota Action'
-description: 'Run Robota AI coding assistant in CI/CD workflows'
+description: 'Run the Robota coding assistant on a task in a workflow'
 author: 'robota-sdk'
 branding:
   icon: 'cpu'
@@ -22,6 +22,16 @@ inputs:
   max-turns:
     description: 'Maximum agent turns'
     required: false
+  load-project:
+    description: >-
+      Trust the checked-out repository so Robota loads its settings, hooks, skills and MCP servers.
+      Leave it 'false' (safe mode) when the checkout may contain untrusted code, such as a pull request.
+    required: false
+    default: 'false'
+  cli-version:
+    description: 'Exact version or dist-tag of @robota-sdk/agent-cli to install'
+    required: false
+    default: 'latest'
 
 outputs:
   result:
@@ -29,5 +39,24 @@ outputs:
     value: ${{ steps.run-robota.outputs.result }}
 
 runs:
-  using: 'node20'
-  main: 'dist/index.js'
+  using: 'composite'
+  steps:
+    # The Robota CLI needs Node.js 22.12 or later; a cached older 22.x does not satisfy the range.
+    # No package-manager cache: this job holds an API key, and the checkout's package.json must not
+    # decide what gets cached or restored.
+    - uses: actions/setup-node@v6
+      with:
+        node-version: '^22.12.0'
+        package-manager-cache: false
+    # Inputs reach the script only through the environment, never written into the script itself.
+    - id: run-robota
+      shell: bash
+      env:
+        ROBOTA_TASK: ${{ inputs.task }}
+        ROBOTA_MODEL: ${{ inputs.model }}
+        ROBOTA_OUTPUT: ${{ inputs.output }}
+        ROBOTA_MAX_TURNS: ${{ inputs.max-turns }}
+        ROBOTA_LOAD_PROJECT: ${{ inputs.load-project }}
+        ROBOTA_API_KEY: ${{ inputs.api-key }}
+        ROBOTA_CLI_VERSION: ${{ inputs.cli-version }}
+      run: node "$GITHUB_ACTION_PATH/src/main.mjs"

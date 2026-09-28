@@ -3,10 +3,10 @@ name: Release — tag on version bump
 # RELEASE-001 — when a version bump for @robota-sdk/agent-cli lands on main, push the matching `v<version>` tag.
 # That tag fires release-bun-binaries.yml + release-desktop-app.yml (which a tag pushed with the default
 # GITHUB_TOKEN cannot do — anti-recursion), so the binaries + OS installers auto-build for that release.
-# npm publish is OUT OF SCOPE — it stays the separate OTP-gated manual flow (release-operations.md), untouched.
+# npm publish is OUT OF SCOPE — it is the separate Publish to npm workflow (publish.yml, trusted publishing).
 #
 # Requires an owner-provisioned repo DEPLOY KEY (write) as `secrets.RELEASE_DEPLOY_KEY`. Inert without it
-# (the tag push fails loudly). See the release runbook.
+# (the tag push fails loudly). See the release skill (.agents/skills/release/SKILL.md).
 #
 # AUDIT NOTE (2026-07-26): as of this change the tag-pushing branch of this workflow had NEVER executed.
 # Every one of its ~19 runs took the `version unchanged` early return, because agent-cli has sat at

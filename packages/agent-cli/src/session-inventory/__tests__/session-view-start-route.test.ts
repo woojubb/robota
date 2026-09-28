@@ -45,7 +45,7 @@ describe('session view background start route', () => {
       expect(launchSupervisedSession).toHaveBeenCalledExactlyOnceWith(cwd, {
         env: expect.any(Object),
       });
-      expect(await runWorkspaceTrustCommand(['revoke', '--yes'], cwd)).toBe(1);
+      expect(await runWorkspaceTrustCommand(['revoke', '--yes'], cwd)).toBe(0);
       await expect(options?.start?.(cwd)).rejects.toThrow(/Workspace trust is required/);
       expect(launchSupervisedSession).toHaveBeenCalledTimes(1);
       return 0;
@@ -120,7 +120,10 @@ describe('session view background start route', () => {
     try {
       expect(
         await runPreparsedCliCommand(
-          { providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd) },
+          {
+            providerDefinitions: [],
+            projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
+          },
           ['node', 'robota', 'session', 'view'],
           cwd,
           {},
@@ -151,7 +154,10 @@ describe('session view background start route', () => {
     try {
       expect(
         await runPreparsedCliCommand(
-          { providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd) },
+          {
+            providerDefinitions: [],
+            projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
+          },
           ['node', 'robota', 'session', 'view'],
           cwd,
           {},
@@ -166,19 +172,77 @@ describe('session view background start route', () => {
         ),
       ).toBe(true);
       expect(renderAttached).toBeTypeOf('function');
-      const connection = { send: vi.fn(), subscribe: () => () => undefined, onClose: () => () => undefined };
+      const connection = {
+        send: vi.fn(),
+        subscribe: () => () => undefined,
+        onClose: () => () => undefined,
+      };
       await renderAttached?.({
-        connection, driverId: 'attach:1', mode: 'observe', sessionLabel: 'Morning review',
-        screenReaderFlag: undefined, announce: false,
+        connection,
+        driverId: 'attach:1',
+        mode: 'observe',
+        sessionLabel: 'Morning review',
+        screenReaderFlag: undefined,
+        announce: false,
       });
-      expect(renderStub).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
-        connection, driverId: 'attach:1', mode: 'observe', sessionLabel: 'Morning review', announce: false,
-      }));
+      expect(renderStub).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          connection,
+          driverId: 'attach:1',
+          mode: 'observe',
+          sessionLabel: 'Morning review',
+          announce: false,
+        }),
+      );
     } finally {
       vi.unstubAllEnvs();
       process.exitCode = previousExitCode;
       vi.clearAllMocks();
       rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('starts a background session Restricted when asked with --restricted-workspace, as the refusal suggests', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-start-restricted-'));
+    const cwd = join(scratch, 'project');
+    const home = join(scratch, 'home');
+    for (const directory of [cwd, home]) mkdirSync(directory);
+    execFileSync('git', ['init', '--quiet', cwd]);
+    vi.stubEnv('HOME', home);
+    const previousExitCode = process.exitCode;
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    vi.mocked(launchSupervisedSession).mockResolvedValue('8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4');
+    const start = (...extra: string[]) =>
+      runPreparsedCliCommand(
+        { providerDefinitions: [] },
+        ['node', 'robota', 'session', 'start', '--background', ...extra],
+        cwd,
+      );
+    try {
+      // Untrusted and not asked for Restricted: refused, naming both ways past.
+      process.exitCode = undefined;
+      await start();
+      expect(process.exitCode).toBe(1);
+      expect(stderr.mock.calls.flat().join('')).toContain('--restricted-workspace');
+      expect(launchSupervisedSession).not.toHaveBeenCalled();
+
+      // The suggested flag is accepted, and the session is told to stay Restricted.
+      process.exitCode = undefined;
+      await start('--restricted-workspace', '--name', 'review');
+      expect(process.exitCode).toBeUndefined();
+      expect(launchSupervisedSession).toHaveBeenCalledExactlyOnceWith(cwd, {
+        env: expect.any(Object),
+        name: 'review',
+        restricted: true,
+      });
+    } finally {
+      vi.unstubAllEnvs();
+      process.exitCode = previousExitCode;
+      stdout.mockRestore();
+      stderr.mockRestore();
+      vi.clearAllMocks();
+      rmSync(scratch, { recursive: true, force: true });
     }
   });
 });

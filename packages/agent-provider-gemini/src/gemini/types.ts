@@ -95,27 +95,19 @@ export interface IGeminiProviderOptions {
   /**
    * Optional executor for handling AI requests
    *
-   * When provided, the provider will delegate all chat operations to this executor
-   * instead of making direct API calls. This enables remote execution capabilities.
+   * When provided, the provider delegates every chat call to this executor instead of calling the
+   * API itself — for example to route calls through your own server. Implement `IExecutor` from
+   * `@robota-sdk/agent-core`; `LocalExecutor` is the in-process one.
    *
    * @example
    * ```typescript
-   * import { LocalExecutor, RemoteExecutor } from '@robota-sdk/agent-core';
+   * import { LocalExecutor } from '@robota-sdk/agent-core';
    *
-   * // Local execution (registers this provider)
-   * const localExecutor = new LocalExecutor();
-   * localExecutor.registerProvider('gemini', new GeminiProvider({ apiKey: 'AIza...' }));
+   * const executor = new LocalExecutor();
+   * executor.registerProvider('gemini', new GeminiProvider({ apiKey: 'AIza...' }));
    *
-   * // Remote execution
-   * const remoteExecutor = new RemoteExecutor({
-   *   serverUrl: 'https://api.robota.io',
-   *   userApiKey: 'user-token-123'
-   * });
-   *
-   * const provider = new GeminiProvider({
-   *   apiKey: 'placeholder', // Required for type safety but not used
-   *   executor: remoteExecutor
-   * });
+   * // `apiKey` is required by the type; the executor makes the calls.
+   * const provider = new GeminiProvider({ apiKey: 'unused', executor });
    * ```
    */
   executor?: IExecutor;

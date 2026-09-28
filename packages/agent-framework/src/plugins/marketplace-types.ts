@@ -45,7 +45,7 @@ export type TKnownMarketplacesRegistry = Record<string, IKnownMarketplaceEntry>;
  *
  * A vector is what makes it safe by construction rather than by quoting: no shell parses these values,
  * so there is no quoting to get right. The repository already reached this conclusion once —
- * `apps/action/src/build-invocation.ts` (SEC-006) replaced `execSync(args.join(' '))` for the same
+ * `apps/action/src/build-invocation.mjs` (SEC-006) replaced `execSync(args.join(' '))` for the same
  * reason — and this is that fix applied to the plugin surface.
  *
  * `file` is the executable. `args` is readonly because an implementation must not be able to fold an

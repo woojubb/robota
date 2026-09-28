@@ -91,7 +91,7 @@ const response = await agent.run('How many days are left until 2027-01-01?');
 ```
 
 [examples/express](../../examples/express/README.md) passes custom tools to a `createQuery()` session
-for each request.
+for each request and approves them by name with `allowedTools`.
 
 ## Built-in tools
 

@@ -4,8 +4,8 @@
 
 Owns the official plugin implementations for the Robota SDK: history persistence, logging,
 usage/cost tracking, rate limiting, error handling, execution analytics, performance monitoring,
-and webhook notifications. Each plugin implements the `IPlugin` interface from `agent-core` and
-encapsulates a single cross-cutting concern. This package does not own the plugin host, the event
+and webhook notifications. Each plugin extends `AbstractPlugin` from `agent-core` and encapsulates a
+single cross-cutting concern. This package does not own the plugin host, the event
 bus, or any provider or tool infrastructure — those, and hook dispatch on a real turn, belong to
 `agent-core`.
 

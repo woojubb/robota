@@ -124,8 +124,17 @@ export function relativeWorkspacePath(
   return relative ? relative : null;
 }
 
-/** A MIME type the browser reports for genuinely text-ish content — never refused as binary. */
-const TEXTY_MIME_TYPES = /^text\/|(?:\+|\/)(?:json|xml)$/u;
+/**
+ * A MIME type the browser reports for genuinely text-ish content — never refused as binary: the type
+ * starts with `text/`, or ends with `+json`, `+xml`, `/json`, or `/xml` (e.g. `application/ld+json`,
+ * `image/svg+xml`). Kept as two separately anchored tests rather than one alternation — `|` binds
+ * looser than `^`/`$`, so a single pattern like `/^text\/|(?:\+|\/)(?:json|xml)$/` reads ambiguously
+ * (flagged by CodeQL as misleading operator precedence) even though each anchor was already scoped to
+ * the alternative it belongs to.
+ */
+function isTextyMimeType(mimeType: string): boolean {
+  return /^text\//.test(mimeType) || /[+/](?:json|xml)$/.test(mimeType);
+}
 const BINARY_EXTENSIONS = new Set([
   'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'tiff', 'heic',
   'pdf', 'zip', 'tar', 'gz', 'tgz', '7z', 'rar',
@@ -141,7 +150,7 @@ const BINARY_EXTENSIONS = new Set([
  * MIME type at all, so a picked file falls back to the extension denylist.
  */
 export function looksBinary(name: string, mimeType: string | undefined): boolean {
-  if (mimeType) return !TEXTY_MIME_TYPES.test(mimeType);
+  if (mimeType) return !isTextyMimeType(mimeType);
   const dot = name.lastIndexOf('.');
   if (dot < 0) return false;
   return BINARY_EXTENSIONS.has(name.slice(dot + 1).toLowerCase());

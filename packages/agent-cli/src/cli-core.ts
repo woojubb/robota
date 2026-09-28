@@ -35,7 +35,9 @@ import { applyModelFallbackChain } from './startup/model-fallback-startup.js';
 import { createSetupPlaceholderProvider } from './startup/setup-placeholder-provider.js';
 import { checkForCliUpdate, formatCliUpdateCheckMessage } from './update-check/update-check.js';
 import { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
-import { parseCliArgs, printHelp, type IParsedCliArgs } from './utils/cli-args.js';
+import { parseCliArgs, printHelp, subcommandWord, type IParsedCliArgs } from './utils/cli-args.js';
+import { optionArgv } from './utils/option-argv.js';
+import { isSubcommandName } from './utils/cli-help.js';
 import { resolveShellPresetOrExit } from './startup/preset-selection.js';
 import { ROBOTA_DEFAULT_AGENT_NAME } from './product/robota-preset-defaults.js';
 import { ROBOTA_AGENT_DEFINITION_ROOTS } from './product/robota-agent-roots.js';
@@ -111,6 +113,8 @@ import {
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
+import { tuiInitialInputProps } from './startup/tui-initial-input.js';
+import { mcpServeProtocolArgs } from './startup/mcp-serve-invocation.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
 import { providerHasOwnCredential } from './handoff/handoff-host-adapter.js';
 import {
@@ -171,16 +175,7 @@ export async function startCliCore(
   const launch = await applyLaunchInvocation();
   if (launch.kind === 'refused') return;
   const initialInput = launch.kind === 'launched' ? launch.initialInput : undefined;
-  let parsedMcpArgs: IParsedCliArgs | undefined;
-  if (process.argv.includes('mcp')) {
-    try {
-      const parsed = parseCliArgs();
-      if (parsed.positional[0] === 'mcp' && parsed.positional[1] === 'serve')
-        parsedMcpArgs = parsed;
-    } catch {
-      // The normal parser reports an invalid invocation below.
-    }
-  }
+  const parsedMcpArgs = mcpServeProtocolArgs(process.argv.slice(2));
   const mcpOutput = parsedMcpArgs === undefined ? undefined : reserveMcpStdout();
   try {
     await runCliCore(
@@ -209,12 +204,11 @@ async function runCliCore(
   const cwd = process.cwd();
   // Issue #3082: read from argv (or the embedder's option) before anything is composed, like the
   // access decision it forces to Restricted.
-  const safeMode = process.argv.includes(SAFE_MODE_FLAG) || options.safeMode === true;
-  let projectAccess = await resolveStartupWorkspaceProjectAccess(
-    safeMode ? [...process.argv, SAFE_MODE_FLAG] : process.argv,
-    cwd,
-    options,
-  );
+  const safeMode = optionArgv(process.argv).includes(SAFE_MODE_FLAG) || options.safeMode === true;
+  let projectAccess = await resolveStartupWorkspaceProjectAccess(process.argv, cwd, {
+    ...options,
+    safeMode,
+  });
   const startupOptions: IStartCliOptions = {
     ...options,
     projectAccess,
@@ -243,8 +237,9 @@ async function runCliCore(
     process.exit(1);
   }
   const version = readVersion();
-  const mcpServe = args.positional[0] === 'mcp' && args.positional[1] === 'serve';
-  if (args.positional[0] === 'mcp' && (!mcpServe || args.positional.length !== 2)) {
+  const subcommand = subcommandWord(args);
+  const mcpServe = subcommand === 'mcp' && args.positional[1] === 'serve';
+  if (subcommand === 'mcp' && (!mcpServe || args.positional.length !== 2)) {
     throw new Error('Usage: robota mcp serve [options]');
   }
   const mcpHttp = resolveMcpHttpOptions(args, mcpServe);
@@ -309,7 +304,7 @@ async function runCliCore(
     // the session view), ask for one; the refusal exists so an untrusted project is never silently
     // run without its sources, which is exactly what they request.
     !safeMode &&
-    !process.argv.includes(RESTRICTED_WORKSPACE_FLAG) &&
+    !optionArgv(process.argv).includes(RESTRICTED_WORKSPACE_FLAG) &&
     requiresHeadlessWorkspaceTrust(projectAccess)
   ) {
     // #3282 §3: `--serve --open` opens a browser for whoever ran it — someone is at this terminal,
@@ -328,7 +323,7 @@ async function runCliCore(
     }
   }
 
-  if (args.positional[0] === 'eval') {
+  if (subcommandWord(args) === 'eval') {
     // Normally unreachable — the pre-parse interceptor above handles `eval`.
     // Kept as a defensive fallthrough for non-argv invocations.
     // CLI-078 (issue #2443): `eval` is the documented shell exception to `assembleProduct` — it
@@ -341,7 +336,7 @@ async function runCliCore(
     return;
   }
 
-  if (args.positional[0] === 'session' && args.positional[1] === 'analyze') {
+  if (subcommandWord(args) === 'session' && args.positional[1] === 'analyze') {
     // Normally unreachable — the pre-parse interceptor above handles `session analyze`.
     // Kept as a defensive fallthrough for non-argv invocations.
     await runSessionAnalyze(process.argv.slice(4), cwd);
@@ -365,7 +360,7 @@ async function runCliCore(
       startsNewTuiSession(args) && process.stdin.isTTY === true && process.stdout.isTTY === true,
     accessFixed:
       safeMode ||
-      process.argv.includes(RESTRICTED_WORKSPACE_FLAG) ||
+      optionArgv(process.argv).includes(RESTRICTED_WORKSPACE_FLAG) ||
       options.projectAccess !== undefined,
   });
   startupOptions.projectAccess = projectAccess;
@@ -1054,9 +1049,11 @@ async function runCliCore(
     promptFileReferenceTag,
     providerDefinitions,
     ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
-    ...(initialInput !== undefined
-      ? { initialInput, initialInputOrigin: 'external-link' as const }
-      : {}),
+    ...tuiInitialInputProps(
+      initialInput,
+      args.positional,
+      args.literalPositionals === true ? () => false : isSubcommandName,
+    ),
     onChannelReady: createChannelReadyHandler(
       presentation.setLiveChannel,
       setRemoteControlChannel,

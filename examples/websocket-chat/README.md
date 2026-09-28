@@ -18,9 +18,8 @@ npm install          # or pnpm install
 export ANTHROPIC_API_KEY=your-key
 ```
 
-The server reads `ANTHROPIC_API_KEY` and `PORT` from the environment and does not load `.env` itself. To keep
-them in a file, copy `.env.example` to `.env` and pass Node's `--env-file` flag:
-`npx tsx --env-file=.env src/server.ts`.
+The server reads `ANTHROPIC_API_KEY` and `PORT` from the environment, and loads `.env` from the working
+directory first when there is one (copy `.env.example` to `.env`).
 
 ## Run
 
@@ -69,6 +68,6 @@ Click **Stop** to abort the current generation mid-stream.
 An aborted generation also ends with `done`, carrying the partial response. Each connection keeps its session
 for its lifetime, so the conversation continues across messages until the client disconnects.
 
-The session runs with `permissionMode: 'bypassPermissions'` and the default tool set in the server's working
-directory, so anyone who can connect can have the agent read, write and run shell commands there. Keep the
-server local, or pass `deniedTools` to `runtime.createSession()` in `src/server.ts`.
+Anyone who can connect talks to the agent, so the session has none of the built-in tools that run commands,
+read or change files, reach the network or send files (`DENIED_TOOLS` in `src/server.ts`). Give it your own
+tools with `additionalTools` and approve them by name with `allowedTools`.

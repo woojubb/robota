@@ -220,7 +220,7 @@ export async function createDagFramework(
     catalog: { listNodes: async () => structuredClone(assembly.manifests) },
     definitionReads: new DagFrameworkDefinitionReads(new DagDefinitionService(storage)),
     definitionMutations: new DagFrameworkDefinitionMutations(new DagDefinitionService(storage)),
-    costMeta: new UnsupportedCostMetaOperations(),
+    costMeta: options.ports?.costMeta ?? new UnsupportedCostMetaOperations(),
     runDrafts: new DagFrameworkRunDraftOperations(runDraftStore, clock),
     assets: assetStore,
     internals: { controllers, execution, storage, promptBackend, assetStore },

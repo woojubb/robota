@@ -1,6 +1,7 @@
 import { realpathSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 
+import { assertRootRelative } from './root-relative-path.js';
 import { createWorkspaceProjectReader } from '../workspace-trust/project-reader.js';
 
 import type { IContributionSource } from './contribution-source.js';
@@ -17,6 +18,7 @@ export function createNodeHostContributionSource(root: string): IContributionSou
   }
   const resolvedRoot = resolve(root);
   let reader: IWorkspaceProjectReader | undefined;
+  let readerRoot: string | undefined;
 
   function getReader(): IWorkspaceProjectReader | undefined {
     if (reader !== undefined) return reader;
@@ -36,6 +38,7 @@ export function createNodeHostContributionSource(root: string): IContributionSou
       resolve: () => identity,
     };
     reader = createWorkspaceProjectReader(identity, identityResolver, () => {});
+    readerRoot = canonicalRoot;
     return reader;
   }
 
@@ -48,5 +51,10 @@ export function createNodeHostContributionSource(root: string): IContributionSou
       getReader()?.listDirectory(relativePath, purpose) ?? [],
     inspectKind: (relativePath: string, purpose: string) =>
       getReader()?.inspectKind(relativePath, purpose),
+    locate: (relativePath: string) => {
+      assertRootRelative(relativePath);
+      getReader();
+      return join(readerRoot ?? resolvedRoot, relativePath);
+    },
   });
 }

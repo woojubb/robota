@@ -95,17 +95,9 @@ paths above.
 
 ### New features
 
-**Visual Agent Builder Playground** — The playground is a drag-and-drop canvas for assembling agents visually. Drag tools onto an agent node, connect providers, and watch the execution DAG build in real time. Export the canvas as working TypeScript code.
-
-**BYOK playground** — The playground accepts your own API keys directly in the browser. Keys are passed in-request and never stored server-side.
-
 **`maxSameToolInputs` safety limit** — Set `maxSameToolInputs` on a `Robota` agent to automatically abort a run if the same tool is called with identical inputs more than N times. Prevents infinite retry loops.
 
 ### Fixes
-
-**Parallel DAG convergence** — Fixed a bug that created duplicate edges when multiple parallel agents converged at the same node.
-
-**clearChat full reset** — `/clear` now fully resets the session log, DAG state, and conversation history. Previously some DAG events persisted across resets.
 
 **Session log correlation** — Tool calls in session logs now carry consistent correlation keys, making replay-grade reconstruction reliable.
 
@@ -131,7 +123,7 @@ See the [full release notes for Beta 59](../guide/release-2026-05-02.md) for a d
 | 3.0.0-beta.77–78 | 2026-07-05 | `/workflows create` NL authoring (FLOW-007), self-contained CLI bundle (INFRA-028) |
 | 3.0.0-beta.68–76 | 2026-06-14 | Transport package split, `agent-session-analytics`, design-quality audit           |
 | 3.0.0-beta.67    | 2026-05-23 | Plugin guide, `robota init`, local LLM guide, UX improvements                      |
-| 3.0.0-beta.60–66 | 2026-05-10 | Visual playground, BYOK, safety limits, DAG fixes                                  |
+| 3.0.0-beta.60–66 | 2026-05-10 | Safety limits, session log correlation                                             |
 | 3.0.0-beta.59    | 2026-05-02 | Subagents, multi-provider, session replay, parallel agents                         |
 | 3.0.0-beta.56–58 | 2026-05-01 | [See release notes](../guide/release-2026-05-02.md)                                |
 

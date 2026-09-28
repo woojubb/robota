@@ -1,3 +1,4 @@
+import './load-env.js';
 import { readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import pLimit from 'p-limit';

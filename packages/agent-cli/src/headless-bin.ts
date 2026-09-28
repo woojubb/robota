@@ -7,10 +7,11 @@ import { installCliDiagnostics } from './bootstrap-diagnostics.js';
 import { startCliCore } from './cli-core.js';
 import { createRobotaSubagentComposition } from './product/robota-subagent-composition.js';
 import { parseCliArgs } from './utils/cli-args.js';
+import { optionArgv } from './utils/option-argv.js';
 
 installCliDiagnostics();
 
-if (isSubagentWorkerModeArgv(process.argv)) {
+if (isSubagentWorkerModeArgv(optionArgv(process.argv))) {
   // The served parent's child re-executes process.execPath; this private route must survive bundling.
   runSubagentWorkerMain(createRobotaSubagentComposition());
 } else {

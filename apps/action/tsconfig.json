@@ -4,15 +4,13 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "lib": ["ES2022"],
-    "outDir": "dist",
-    "rootDir": "src",
+    "types": ["node"],
     "strict": true,
-    "esModuleInterop": true,
     "skipLibCheck": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": true
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "__tests__"]
+  "include": ["src/**/*.mjs", "__tests__/**/*.ts"],
+  "exclude": ["node_modules"]
 }

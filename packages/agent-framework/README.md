@@ -26,9 +26,8 @@ For walkthroughs, see the [SDK guide](../../content/guide/sdk.md) and
 npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic
 ```
 
-Requires Node.js 22.12 or later. `InteractiveSession` works with any Robota provider package given a
-`model`; `createQuery` has no `model` option, so without settings it only works with the Anthropic
-provider (see below).
+Requires Node.js 22.12 or later. `InteractiveSession` and `createQuery` work with any Robota provider
+package given a `model`; without one they use the settings files, or Anthropic's default model.
 
 ## Quick start
 
@@ -55,10 +54,13 @@ console.log(response, analysis);
 
 `createQuery()` uses the `default` permission mode. With no `permissionHandler`, a tool call that
 would ask for approval is denied, so an unattended run only does what the mode allows without asking.
-Pass `permissionMode: 'bypassPermissions'` explicitly if the run should approve everything, or pass a
-`permissionHandler` to decide each request.
+List the tools that may run anyway in `allowedTools` (your own `additionalTools`, say), pass a
+`permissionHandler` to decide each request, or pass `permissionMode: 'bypassPermissions'` explicitly
+if the run should approve everything. `deniedTools` are never offered to the model.
 
-There is no `model` option: the model comes from the settings files, and without one the session asks the provider for `claude-opus-4-5`. Use `createQuery` with the Anthropic provider, or use `InteractiveSession`, which takes an explicit `model`, for other providers.
+Pass `model` with any provider other than Anthropic: without it the model comes from the settings
+files, and without one the session asks the provider for `claude-opus-4-5`. Calls run one at a time,
+each answered by its own turn, and `query.shutdown()` ends the session.
 
 Without `projectAccess`, a query runs **Restricted**: it can use its tools in `cwd`, but it loads
 no project context, settings, memory or session files. See [Project access](#project-access).

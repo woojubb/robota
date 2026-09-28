@@ -119,7 +119,10 @@ the System Overview diagram above. Current checks are defined in `AGENTS.md` and
   transport or UI child (`agent-transport-*`, `agent-ui-*`). Code two siblings share belongs in the
   parent (or a parent subpath) — never in a sibling-named substrate (`-common`, `-shared`,
   `-protocol`, `-defaults`, `-builtin`). Judged over `dependencies` + `peerDependencies`; the
-  `agent-interface-*` family is judged once, by `INTERFACE-DEPS`.
+  `agent-interface-*` family is judged once, by `INTERFACE-DEPS`. One exception:
+  `agent-provider-openai` builds on `agent-provider-openai-compatible` (its `/shared` subpath), because
+  the OpenAI wire protocol is the base both implement and there is no `agent-provider` parent to hold
+  it. `pnpm deps:check` enforces the provider part of this rule.
 - `UNDECLARED-IMPORT` — every `@robota-sdk/*` workspace package a production source file imports is
   declared in one of the importing package's `dependencies`, `peerDependencies` or
   `devDependencies`; "undeclared" is absence from all three, so a manifest rule such as

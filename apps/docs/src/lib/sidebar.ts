@@ -21,6 +21,7 @@ const GUIDE_ORDER = [
   'sdk',
   'cli',
   'sessions-and-daemon',
+  'gui',
   'keybindings',
   'local-llm',
   'providers',

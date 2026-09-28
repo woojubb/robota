@@ -86,7 +86,7 @@ robota --screen-reader              # 스크린 리더용 일반 텍스트 모�
 robota -p "List the TypeScript files in src/"
 robota -p "Summarize this repository" --output-format json   # JSON 객체 하나: result, session_id
 cat task.md | robota -p                                      # stdin에서 프롬프트 읽기
-robota -p "Review this diff" --bare                          # 파이프라인용 원문 텍스트
+robota -p "Review this diff" --bare                          # AGENTS.md, CLAUDE.md, 플러그인 없이 실행
 robota --goal "make the failing tests pass"                  # 여러 턴에 걸쳐 목표를 향해 작업
 ```
 

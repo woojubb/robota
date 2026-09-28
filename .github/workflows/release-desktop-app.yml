@@ -203,7 +203,7 @@ jobs:
   # months because nothing ever looked at a published asset.
   #
   # This gate downloads the PUBLISHED asset, applies the quarantine attribute, and asks Gatekeeper.
-  # It is EXPECTED TO FAIL until DIST-002 phase 2 (signing + notarization) lands. That red is the point:
+  # It is EXPECTED TO FAIL until signing and notarization land (#3349). That red is the point:
   # a verification job written after the credentials arrive, green from its first run, cannot distinguish
   # "correctly signed" from "checks nothing".
   # -------------------------------------------------------------------------------------------------
