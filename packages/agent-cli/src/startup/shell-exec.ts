@@ -8,6 +8,11 @@ import { execSync } from 'node:child_process';
  * the child's output out of the operator's terminal — the TUI renders it — and the timeout means a
  * hung command surfaces as a failed one instead of a frozen interface.
  */
-export function runShellCommand(command: string): string {
-  return execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd();
+export function runShellCommand(command: string, env?: Readonly<Record<string, string>>): string {
+  return execSync(command, {
+    timeout: 5000,
+    encoding: 'utf-8',
+    stdio: 'pipe',
+    ...(env !== undefined ? { env: { ...process.env, ...env } } : {}),
+  }).trimEnd();
 }

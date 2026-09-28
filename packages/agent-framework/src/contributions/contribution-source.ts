@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 
 import { assertWorkspaceProjectReader } from '../workspace-trust/index.js';
+import { assertRootRelative } from './root-relative-path.js';
 
 import type {
   IWorkspaceDirectoryEntry,
@@ -28,7 +29,14 @@ export function createWorkspaceProjectContributionSource(
 ): IContributionSource {
   const accepted = assertWorkspaceProjectReader(reader);
   return Object.freeze({
-    ...(root !== undefined ? { locate: (relativePath: string) => join(root, relativePath) } : {}),
+    ...(root !== undefined
+      ? {
+          locate: (relativePath: string) => {
+            assertRootRelative(relativePath);
+            return join(root, relativePath);
+          },
+        }
+      : {}),
     kind: 'project' as const,
     displayName: 'authorized workspace project',
     readText: (relativePath: string, purpose: string) =>

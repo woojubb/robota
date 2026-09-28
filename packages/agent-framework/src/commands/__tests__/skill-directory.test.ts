@@ -4,7 +4,10 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { executeSkill } from '../skill-executor.js';
 import { createSkillExecutionPort } from '../skill-execution-port.js';
+import { PluginCommandSource } from '../plugin-source.js';
+import { BundlePluginLoader } from '../../plugins/bundle-plugin-loader.js';
 import { createNodeHostContributionSource } from '../../contributions/node-host-contribution-source.js';
 import { createContributionSourcesForProjectAccess } from '../../contributions/initial-contribution-sources.js';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
@@ -124,5 +127,68 @@ describe('${CLAUDE_SKILL_DIR}', () => {
 
     await vi.waitFor(() => expect(run).toHaveBeenCalled());
     expect(String(run.mock.calls[0]?.[0])).toContain(`Read ${skillDir}/rules.md`);
+  });
+
+  it('is the commands folder for a legacy command file', () => {
+    const home = tempRoot();
+    const commandsDir = join(home, '.claude', 'commands');
+    mkdirSync(commandsDir, { recursive: true });
+    writeFileSync(join(commandsDir, 'review.md'), '---\ndescription: Review\n---\nReview it.');
+    const port = createSkillExecutionPort(
+      [createNodeHostContributionSource(home)],
+      [{ root: join('.claude', 'commands'), kind: 'commands' }],
+    );
+
+    expect(port.loadCommands()[0]?.skillDirectory).toBe(commandsDir);
+  });
+
+  it('is the plugin folder for a bundle plugin skill and command', () => {
+    const pluginsDir = tempRoot();
+    const pluginDir = join(pluginsDir, 'cache', 'local', 'helper', '1.0.0');
+    mkdirSync(join(pluginDir, '.claude-plugin'), { recursive: true });
+    writeFileSync(
+      join(pluginDir, '.claude-plugin', 'plugin.json'),
+      JSON.stringify({ name: 'helper', version: '1.0.0', description: 'Helper' }),
+    );
+    writeSkill(pluginDir, join('skills', 'audit'), 'Audit.');
+    mkdirSync(join(pluginDir, 'commands'), { recursive: true });
+    writeFileSync(join(pluginDir, 'commands', 'lint.md'), '---\ndescription: Lint\n---\nLint.');
+
+    const commands = new PluginCommandSource(
+      new BundlePluginLoader(pluginsDir).loadPluginsSync(),
+    ).getCommands();
+
+    expect(commands.find((c) => c.name === 'audit')?.skillDirectory).toBe(
+      join(pluginDir, 'skills', 'audit'),
+    );
+    expect(commands.find((c) => c.name === 'helper:lint')?.skillDirectory).toBe(
+      join(pluginDir, 'commands'),
+    );
+  });
+
+  it("is in the environment of a skill's shell commands, where the shell expands it", async () => {
+    const seen: Array<Readonly<Record<string, string>> | undefined> = [];
+    const skill = {
+      name: 'audit',
+      description: 'Audit',
+      source: 'skill' as const,
+      context: 'inject',
+      skillContent: 'Result: !`run ${CLAUDE_SKILL_DIR}/check.sh`',
+    };
+
+    await executeSkill(
+      skill,
+      '',
+      { shellExec: (_command, env) => (seen.push(env), 'ok') },
+      { sessionId: 's-1', skillDir: '/skills/audit' },
+    );
+
+    expect(seen).toEqual([{ CLAUDE_SKILL_DIR: '/skills/audit', CLAUDE_SESSION_ID: 's-1' }]);
+  });
+
+  it('never names a path outside the source root', () => {
+    const source = createNodeHostContributionSource(tempRoot());
+    expect(() => source.locate?.('../outside')).toThrow('Not a root-relative path');
+    expect(() => source.locate?.('/etc')).toThrow('Not a root-relative path');
   });
 });
