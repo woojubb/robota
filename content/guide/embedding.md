@@ -46,7 +46,9 @@ createQuery()                               →  @robota-sdk/agent-framework  (p
 ## createQuery — questions from code
 
 `createQuery()` returns an async function. Each call is a new turn in the same conversation, so
-follow-up questions see earlier answers. There is no `model` option: the model comes from the settings files, and without one the session asks the provider for `claude-opus-4-5`. Use `createQuery` with the Anthropic provider, or use `InteractiveSession`, which takes an explicit `model`, for other providers.
+follow-up questions see earlier answers. Pass `model` with any provider other than Anthropic: without
+it the model comes from the settings files, and without one the session asks the provider for
+`claude-opus-4-5`.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
@@ -60,8 +62,8 @@ const query = createQuery({
 const answer = await query('What files are in the project?');
 ```
 
-With your own tools, approve them with a `permissionHandler` (a query function has no
-`allowedTools` option):
+With your own tools, list them in `allowedTools` so they run without asking (or decide per call with a
+`permissionHandler`):
 
 ```typescript
 import { z } from 'zod';
@@ -81,7 +83,7 @@ const calculatorTool = createZodFunctionTool(
 const query = createQuery({
   provider,
   additionalTools: [calculatorTool],
-  permissionHandler: async (toolName) => toolName === 'calculate',
+  allowedTools: ['calculate'],
 });
 
 const answer = await query('What is 1234 + 5678?');
@@ -89,11 +91,11 @@ const answer = await query('What is 1234 + 5678?');
 
 Things to know about a query function:
 
-- **Await one call before making the next.** The function wraps one session. A call made while
-  another is still running waits in that session's queue, and a newer waiting call replaces an older
-  one. For parallel work, create one query function per task.
-- **It has no shutdown.** The session lives as long as the function. When you need to end sessions
-  explicitly (per request, per job), use `createAgentRuntime` and call `shutdown()`.
+- **Calls run one at a time.** The function wraps one session, so a call made while another is
+  running waits for it, then gets its own reply. For parallel work, create one query function per
+  task.
+- **Shut it down when you are done.** `await query.shutdown()` ends the session. A call still
+  running or waiting rejects, and so does every later one.
 
 ## createAgentRuntime — streaming server
 
@@ -294,6 +296,7 @@ import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const query = createQuery({
   provider: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
+  model: 'gpt-4o',
   responseFormat: { type: 'json_object' },
 });
 

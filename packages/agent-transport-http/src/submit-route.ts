@@ -114,6 +114,18 @@ export function submitHandler(
       return c.json({ error: 'prompt is required' }, 400);
     }
 
+    // A session still building itself cannot name itself yet, and the claim needs its name. The
+    // claim itself is still taken synchronously after this, so two requests that both waited here
+    // start one turn between them.
+    if (session.whenInitialized !== undefined) {
+      try {
+        await session.whenInitialized();
+      } catch {
+        // The reason can name host paths or settings; the client only needs to know it failed.
+        return c.json({ error: 'the session could not be started' }, 500);
+      }
+    }
+
     const admitted = admitTurn(c, session, claims);
     if (admitted instanceof Response) {
       return admitted;

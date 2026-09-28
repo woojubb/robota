@@ -52,10 +52,10 @@ const response = await query('Hello, what can you do?');
 console.log(response);
 ```
 
-`createQuery` has no model option. Without settings it asks the provider for `claude-opus-4-5`, so use
-it with the Anthropic provider, or use a session with an explicit `model` as shown next. Without a
-`projectAccess` decision it also runs Restricted: the project's `AGENTS.md`, `CLAUDE.md` and settings
-are not loaded. The [SDK guide](./guide/sdk.md) covers both.
+Pass `model` to `createQuery` with any provider other than Anthropic: without it the query asks the
+provider for `claude-opus-4-5` unless a settings file names a model. Without a `projectAccess`
+decision it also runs Restricted: the project's `AGENTS.md`, `CLAUDE.md` and settings are not loaded.
+The [SDK guide](./guide/sdk.md) covers both.
 
 ## Use another provider
 
