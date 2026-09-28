@@ -253,6 +253,34 @@ describe('a command hook’s permissionDecision', () => {
     expect(body.mock.calls[0]![1].parameters).toEqual({ command: 'pnpm test --run' });
   });
 
+  it.each([null, 'invalid', []])('refuses malformed updatedInput (%j)', async (updatedInput) => {
+    const { run, body } = setup(commandHooks({ permissionDecision: 'allow', updatedInput }));
+    expect((await run({ command: 'safe' })).success).toBe(false);
+    expect(body).not.toHaveBeenCalled();
+  });
+
+  it('re-evaluates a guardrail on rewritten arguments', async () => {
+    const hooks = commandHooks({
+      permissionDecision: 'allow',
+      updatedInput: { command: 'danger' },
+    });
+    hooks.hooks.PreToolUse![0]!.hooks.unshift({ type: 'guardrail' });
+    const seen: unknown[] = [];
+    hooks.executors.push({
+      type: 'guardrail',
+      execute: async (_definition, input) => {
+        seen.push(input.tool_input?.command);
+        return input.tool_input?.command === 'danger'
+          ? { outcome: 'deny', source: 'guardrail', reason: 'unsafe rewritten command' }
+          : { outcome: 'allow', source: 'guardrail', stdout: '' };
+      },
+    });
+    const { run, body } = setup(hooks);
+    expect((await run({ command: 'safe' })).success).toBe(false);
+    expect(seen).toEqual(['safe', 'danger']);
+    expect(body).not.toHaveBeenCalled();
+  });
+
   it('checks deny rules against rewritten input before executing', async () => {
     const { run, body } = setup(
       commandHooks({
