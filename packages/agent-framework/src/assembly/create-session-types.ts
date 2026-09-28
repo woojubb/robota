@@ -1,7 +1,7 @@
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
-import type { ISystemCommandSemanticRoles } from '../command-api/index.js';
+import type { ICommand, ISystemCommandSemanticRoles } from '../command-api/index.js';
 import type { ICommandResult } from '../commands/system-command.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
@@ -83,6 +83,8 @@ export interface ICreateSessionOptions {
   contributionSources?: readonly IContributionSource[];
   /** Ordered skill and legacy-command roots selected by the host; absence disables file discovery. */
   skillRoots?: readonly ISkillRootDescriptor[];
+  /** Skills from the bundle plugins the session may load; a skill-root skill of the same name wins. */
+  pluginSkills?: readonly ICommand[];
   /** Loaded AGENTS.md / CLAUDE.md context */
   context: ILoadedContext;
   /** Terminal I/O for permission prompts */

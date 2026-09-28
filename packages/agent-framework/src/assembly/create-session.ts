@@ -22,7 +22,7 @@ import {
   wireSessionDeps,
 } from './create-session-runtime.js';
 import { assertConfiguredHookTypesExecutable } from './hook-type-reachability.js';
-import { SkillCommandSource } from '../commands/skill-source.js';
+import { mergeSkillCommands, SkillCommandSource } from '../commands/skill-source.js';
 import {
   createModelCommandToolProjection,
   createProjectedCommandExecutionTools,
@@ -131,7 +131,10 @@ export async function createSession(
     modelInvocableCommandDescriptors,
     options.commandSemanticRoles?.skillActivation ?? '',
   )
-    ? skillCommandSource.getModelInvocableSkills()
+    ? mergeSkillCommands(
+        skillCommandSource.getCommands(),
+        options.pluginSkills ?? [],
+      ).filter((skill) => skill.disableModelInvocation !== true)
     : [];
 
   let assembledSession: Session | undefined;
