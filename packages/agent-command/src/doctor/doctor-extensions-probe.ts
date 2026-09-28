@@ -287,11 +287,25 @@ export function probeExtensions(
   // Enablement is read the way the session loader reads it — from the user settings file through the
   // plugin settings store — so the doctor and the session agree even where that store's own policy is
   // a separate open item (recorded on #2670).
-  const plugins = loadHostBundlePluginInspectionFromScopes(inputs.pluginsDirs, {
-    settingsPath: inputs.userSettingsPath,
-  });
+  let plugins: IBundlePluginInspection[];
+  let settingsProblem: string | undefined;
+  try {
+    plugins = loadHostBundlePluginInspectionFromScopes(inputs.pluginsDirs, {
+      settingsPath: inputs.userSettingsPath,
+    });
+  } catch (error) {
+    // Unreadable plugin settings load no plugin in a session. The doctor says so, and still
+    // inspects every installed plugin so its other problems are not hidden behind this one.
+    settingsProblem = error instanceof Error ? error.message : String(error);
+    plugins = loadHostBundlePluginInspectionFromScopes(inputs.pluginsDirs, { enabledPlugins: {} });
+  }
+  const pluginSummary = pluginChecks(plugins).map((check) =>
+    settingsProblem !== undefined && check.id === 'plugins'
+      ? { ...check, status: 'fail' as const, cause: `no plugin loads: ${settingsProblem}` }
+      : check,
+  );
   return [
-    ...pluginChecks(plugins),
+    ...pluginSummary,
     ...skillChecks(inputs),
     ...hookChecks(settings, plugins, deps),
     ...mcpChecks(inputs, plugins, deps),
