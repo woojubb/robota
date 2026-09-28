@@ -197,6 +197,20 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(byId(report, 'settings.user.robota')).toMatchObject({ status: 'fail' });
   });
 
+  it('an unparseable user settings file is a failed plugin check, not a crash', async () => {
+    const f = fixture({ env: {} });
+    f.mkdir('.robota');
+    f.mkdir('.robota/sessions');
+    f.write('.robota/settings.json', '{ "enabledPlugins": { "helper": false }, }');
+
+    const report = await runDoctor(f.inputs, f.deps);
+
+    expect(byId(report, 'plugins')).toMatchObject({
+      status: 'fail',
+      cause: expect.stringContaining('not valid JSON'),
+    });
+  });
+
   it('TC-04: derives the reachability host from profile baseURL, then defaults.baseURL, then endpoint', async () => {
     const profile = fixture({ env: {} });
     profile.write(
