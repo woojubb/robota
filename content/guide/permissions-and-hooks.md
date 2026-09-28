@@ -266,7 +266,10 @@ rules and mode. On `PreToolUse`, an `allow` whose stdout is JSON with `"continue
   ask, the call is refused.
 - `"defer"` leaves the call to the normal permission check.
 
-A command hook's `updatedInput` replaces the call's arguments. All PreToolUse hooks run again
+For command hooks, the highest-priority `permissionDecision` wins (`deny` > `ask` > `defer` >
+`allow`). Its accompanying `updatedInput` replaces the call's arguments; among equally ranked
+decisions, the last supplied replacement wins. A replacement without a named decision is ignored.
+All PreToolUse hooks run again
 against the rewritten input before permission rules, prompts or execution; a rewrite cycle is
 refused. Hooks may therefore run more than once for a call. A delegated action or arguments already
 settled by a tool cannot be replaced and are refused instead. `http`, `prompt`, `agent` and
