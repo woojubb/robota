@@ -230,6 +230,7 @@
     "3275-handoff-chunking-web",
     "3275-http-submit-fresh-session",
     "3275-literal-prompt-after-dashdash",
+    "3275-live-plugin-reload",
     "3275-mcp-durable-approvals",
     "3275-mcp-unsupported-diagnostics",
     "3275-memory-plan-mode",

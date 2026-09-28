@@ -37,6 +37,9 @@
   of failing the run. Each call keeps a small in-memory operation log for its conversation; it is bounded
   per call and negligible at the default `maxTurns` (the step count).
 
+- 3c1967f: Reloading plugins updates the live session's skill routing and model skill catalogue together
+  with command completion. Disabled plugins stop being executable after reload, and unreadable
+  settings clear the plugin skill snapshot. Hook changes require a new session.
 - 5684612: A bundle plugin skill can use `${CLAUDE_PLUGIN_ROOT}`: it expands to the plugin's folder in the
   skill's body, and `` !`command` `` preprocessing gets it in the environment, as plugin hooks already
   did. Every skill's commands now get `CLAUDE_PLUGIN_ROOT` set (empty outside a plugin), so a value the

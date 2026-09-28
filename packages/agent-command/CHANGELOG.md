@@ -4,6 +4,9 @@
 
 ### Patch Changes
 
+- 3c1967f: Reloading plugins updates the live session's skill routing and model skill catalogue together
+  with command completion. Disabled plugins stop being executable after reload, and unreadable
+  settings clear the plugin skill snapshot. Hook changes require a new session.
 - db35dcd: MCP approvals now outlive the process, and an approval takes effect at once. The `robota` CLI keeps
   activation decisions in `~/.robota/mcp-approvals.json` (owner-only) unless the host passes its own
   `mcpApprovalStore`, so an approved server connects at later starts until its definition changes.
@@ -23,6 +26,7 @@
 - Updated dependencies [41cca13]
 - Updated dependencies [193a0bc]
 - Updated dependencies [54e2848]
+- Updated dependencies [3c1967f]
 - Updated dependencies [ada3841]
 - Updated dependencies [5093a30]
 - Updated dependencies [5684612]
