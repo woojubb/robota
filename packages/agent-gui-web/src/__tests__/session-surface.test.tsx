@@ -54,6 +54,34 @@ function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
     send: vi.fn(),
     answerPermission: vi.fn(),
     answerAsk: vi.fn(),
+    settingsOpen: false,
+    settingsInitialSectionId: null,
+    settingsStatus: 'idle',
+    settingsSnapshot: null,
+    settingsError: null,
+    openSettings: vi.fn(),
+    closeSettings: vi.fn(),
+    updateSettings: vi.fn(),
+    // #3282 §2 (part 2): the model control's pop-up menu.
+    modelList: null,
+    requestModelList: vi.fn(),
+    sendCommandSilently: vi.fn(),
+    agentSwitcherOpen: false,
+    agentSwitcherStatus: 'idle',
+    agentDefinitions: [],
+    currentAgentType: null,
+    agentSwitchMessage: null,
+    openAgentSwitcher: vi.fn(),
+    closeAgentSwitcher: vi.fn(),
+    selectAgent: vi.fn(),
+    scheduledTasks: [],
+    pauseSchedule: vi.fn(),
+    resumeSchedule: vi.fn(),
+    deleteSchedule: vi.fn(),
+    // #3282 §4e: the Help sheet.
+    helpOpen: false,
+    openHelp: vi.fn(),
+    closeHelp: vi.fn(),
     ...over,
   } as unknown as IWsSessionState;
 }
@@ -92,11 +120,11 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
   it('ARCH-2164: routes slash input to the command wire path', () => {
     const state = stubState();
     render(<SessionSurface state={state} />);
-    fireEvent.change(screen.getByLabelText('message'), { target: { value: '/help providers' } });
+    fireEvent.change(screen.getByLabelText('message'), { target: { value: '/memory providers' } });
     fireEvent.click(screen.getByText('Send'));
     expect(state.send).toHaveBeenCalledWith({
       type: 'command',
-      name: 'help',
+      name: 'memory',
       args: 'providers',
     });
   });
@@ -155,7 +183,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
 
   it('#3186: the activity rail stays closed while only the main thread exists', () => {
     const mainOnly = {
-      entries: [{ id: 'main', kind: 'main_thread', title: 'Main thread' }],
+      entries: [{ id: 'main', kind: 'main_thread', title: 'Main thread', controls: ['select'] }],
     } as unknown as IWsSessionState['executionWorkspace'];
     const { rerender } = render(
       <SessionSurface state={stubState({ executionWorkspace: mainOnly })} />,
@@ -163,7 +191,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(screen.queryByText('Main thread')).toBeNull();
     const withTask = {
       entries: [
-        { id: 'main', kind: 'main_thread', title: 'Main thread' },
+        { id: 'main', kind: 'main_thread', title: 'Main thread', controls: ['select'] },
         { id: 't', kind: 'background_task', title: 'Build', status: 'running', controls: [] },
       ],
     } as unknown as IWsSessionState['executionWorkspace'];
@@ -207,7 +235,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'mode' });
   });
 
-  it('#3189: a command the terminal runs is marked "terminal" in the menu; a session command is not', () => {
+  it('#3282 §4e: a command the GUI cannot run at all is left out of the menu entirely', () => {
     const state = stubState({
       commandCatalog: {
         commands: [
@@ -232,15 +260,12 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     render(<SessionSurface state={state} />);
     const input = screen.getByLabelText('message') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: '/sh' } });
-    const shell = screen.getByRole('option', { name: /\/shell/ });
-    const badge = within(shell).getByText('terminal');
-    expect(badge.getAttribute('title')).toBe('Runs in the robota terminal');
-    expect(shell.getAttribute('aria-description')).toBe('Runs in the robota terminal');
-    const share = screen.getByRole('option', { name: /\/share/ });
-    expect(within(share).queryByText('terminal')).toBeNull();
+    expect(screen.queryByRole('option', { name: /\/shell/ })).toBeNull();
+    expect(screen.queryByText('Open a shell')).toBeNull();
+    expect(screen.getByRole('option', { name: /\/share/ })).toBeTruthy();
   });
 
-  it('#3186: the status row shows the session status and opens its pickers', () => {
+  it('#3186 / #3282 §2: the status row shows the session status and its pop-up menus apply through the wire', () => {
     const state = stubState({
       sessionStatus: {
         sessionId: 's',
@@ -250,13 +275,54 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
         context: { usedPercentage: 42, usedTokens: 42, maxTokens: 100, remainingPercentage: 58 },
         goal: null,
       },
+      commandCatalog: {
+        commands: [
+          {
+            name: 'mode',
+            description: 'Show or change the permission mode',
+            modelInvocable: false,
+            runner: 'runtime',
+            subcommands: [
+              { name: 'plan', displayName: 'Plan only', description: 'Plan only, no execution' },
+              {
+                name: 'acceptEdits',
+                displayName: 'Accept edits',
+                description: 'Auto-approve file edits',
+              },
+            ],
+          },
+        ],
+        skills: [],
+      },
+      modelList: {
+        groups: [
+          {
+            profileName: 'anthropic',
+            providerLabel: 'Anthropic',
+            models: [{ id: 'claude-sonnet-5', label: 'Claude Sonnet 5' }],
+          },
+        ],
+        currentProfile: 'anthropic',
+        currentModel: 'claude-sonnet-5',
+      },
+      requestModelList: vi.fn(),
+      sendCommandSilently: vi.fn(),
     } as Partial<IWsSessionState>);
     render(<SessionSurface state={state} />);
     expect(screen.getByLabelText('context 42% used')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'mode: acceptEdits' }));
-    expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'mode' });
+
+    // The mode chip shows the plain label (from the catalog's subcommands), and its menu applies a
+    // choice silently — the same command wire path /mode <name> uses, no conversation card.
+    fireEvent.click(screen.getByRole('button', { name: 'mode: Accept edits' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Plan only' }));
+    expect(state.sendCommandSilently).toHaveBeenCalledWith('mode', 'plan');
+
+    // The model chip's menu, fed by `modelList`, requests a fresh list on open and its last item
+    // ("Manage providers…") opens Settings at the Providers & Models section (#3282 §4b).
     fireEvent.click(screen.getByRole('button', { name: 'model: claude-sonnet-5' }));
-    expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'provider' });
+    expect(state.requestModelList).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Manage providers…' }));
+    expect(state.openSettings).toHaveBeenCalledWith('providers');
   });
 
   it('#3186: a goal in progress shows above the composer and can be stopped', () => {
@@ -306,7 +372,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.send).toHaveBeenCalledWith({ type: 'abort' });
   });
 
-  it('#3280 §2: a message queued behind the turn shows above the composer, with Edit and Remove', () => {
+  it('#3280 §2: more than one message queued behind the turn shows above the composer, with Remove all only', () => {
     const state = stubState({
       isThinking: true,
       queuedPrompt: { text: 'ping the team when done', count: 2 },
@@ -315,8 +381,10 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     const row = screen.getByRole('status', { name: 'queued prompt' });
     expect(row.textContent).toContain('Queued: ping the team when done');
     expect(row.textContent).toContain('and 1 more');
+    // Edit would only ever recover the shown prompt's text; cancel-queue drops every queued prompt.
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove all' }));
     expect(state.send).toHaveBeenCalledWith({ type: 'cancel-queue' });
     expect(state.send).toHaveBeenCalledWith({ type: 'get-pending' });
   });
@@ -562,35 +630,43 @@ describe('#3189 — the session sidebar', () => {
         cwd: '/w',
         updatedAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
         messageCount: 1,
-        preview: 'Fix the flaky test',
+        preview: '## Fix the flaky test (raw reply, not the title)',
+        // #3289 §1: a stable title (the first request), distinct from the raw `preview` above.
+        title: 'Fix the flaky test',
       },
     ],
     unreadableSessionIds: ['broken-1'],
   };
 
-  it('lists the sessions with name or preview, time and count, the current one marked', () => {
+  // A row's "More" button is also named after its title ("More for <title>"), so an unanchored
+  // name match finds both; the row button itself is always first in the DOM.
+  const sessionRowButton = (name: RegExp): HTMLElement =>
+    screen.getAllByRole('button', { name }).filter((el) => el.tagName === 'BUTTON' && !(el.getAttribute('aria-label') ?? '').startsWith('More for'))[0]!;
+
+  it('lists the sessions by their stable title, time, the current one marked, no message count', () => {
     render(<SessionSurface state={stubState({ sessionListing: listing })} />);
     const sidebar = screen.getByRole('complementary', { name: 'Sessions' });
-    const current = screen.getByRole('button', { name: /Refactor the parser/ });
+    const current = sessionRowButton(/Refactor the parser/);
     expect(current.getAttribute('aria-current')).toBe('true');
     expect(current.textContent).toContain('5m ago');
-    expect(current.textContent).toContain('12 msgs');
-    const other = screen.getByRole('button', { name: /Fix the flaky test/ });
+    expect(current.textContent).not.toMatch(/msg/);
+    const other = sessionRowButton(/Fix the flaky test/);
     expect(other.getAttribute('aria-current')).toBeNull();
     expect(other.textContent).toContain('3h ago');
-    expect(other.textContent).toContain('1 msg');
+    expect(other.textContent).not.toMatch(/msg/);
+    expect(other.textContent).not.toContain('## Fix the flaky test');
     // Unreadable records are listed as one folded line, never as rows to click.
     expect(screen.queryByRole('button', { name: /broken-1/ })).toBeNull();
-    expect(sidebar.textContent).toContain('1 session could not be read');
+    expect(sidebar.textContent).toContain("1 older session in this folder can't be opened");
     expect(sidebar.textContent).toContain('broken-1');
   });
 
   it('clicking another session switches to it; the current one does nothing', () => {
     const state = stubState({ sessionListing: listing });
     render(<SessionSurface state={state} />);
-    fireEvent.click(screen.getByRole('button', { name: /Refactor the parser/ }));
+    fireEvent.click(sessionRowButton(/Refactor the parser/));
     expect(state.switchSession).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: /Fix the flaky test/ }));
+    fireEvent.click(sessionRowButton(/Fix the flaky test/));
     expect(state.switchSession).toHaveBeenCalledWith('old');
   });
 
@@ -599,7 +675,7 @@ describe('#3189 — the session sidebar', () => {
     expect(screen.getByRole('heading', { name: 'Refactor the parser' })).toBeTruthy();
   });
 
-  it('an unnamed current session is titled by its first message', () => {
+  it('an unnamed current session is titled by its stable title, not the raw preview', () => {
     render(
       <SessionSurface
         state={stubState({ sessionListing: { ...listing, currentSessionId: 'old' } })}
@@ -614,7 +690,7 @@ describe('#3189 — the session sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Usage' }));
     expect(screen.getByRole('main', { name: 'Personal usage' })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: /Fix the flaky test/ }));
+    fireEvent.click(sessionRowButton(/Fix the flaky test/));
 
     expect(state.switchSession).toHaveBeenCalledWith('old');
     expect(screen.queryByRole('main', { name: 'Personal usage' })).toBeNull();
@@ -624,7 +700,7 @@ describe('#3189 — the session sidebar', () => {
   it('+ New session starts one', () => {
     const state = stubState({ sessionListing: listing });
     render(<SessionSurface state={state} />);
-    fireEvent.click(screen.getByRole('button', { name: /New session/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'New session' }));
     expect(state.newSession).toHaveBeenCalledTimes(1);
   });
 
@@ -647,6 +723,33 @@ describe('#3189 — the session sidebar', () => {
     );
     expect(screen.queryByRole('complementary', { name: 'Sessions' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Show sessions' })).toBeNull();
+  });
+
+  it('#3282 §4a: the footer gear opens the Settings screen', () => {
+    const state = stubState({ sessionListing: listing });
+    render(<SessionSurface state={state} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(state.openSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('#3282 §4e: the Help sheet renders when helpOpen is true, and Close calls closeHelp', () => {
+    const state = stubState({
+      helpOpen: true,
+      commandCatalog: {
+        commands: [{ name: 'mode', description: 'Change the permission mode', modelInvocable: false, runner: 'runtime' }],
+        skills: [],
+      },
+    });
+    render(<SessionSurface state={state} />);
+    const sheet = screen.getByRole('dialog', { name: 'Help' });
+    expect(within(sheet).getByText('/mode')).toBeTruthy();
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Close Help' }));
+    expect(state.closeHelp).toHaveBeenCalledTimes(1);
+  });
+
+  it('#3282 §4e: the Help sheet is absent while helpOpen is false', () => {
+    render(<SessionSurface state={stubState({ helpOpen: false })} />);
+    expect(screen.queryByRole('dialog', { name: 'Help' })).toBeNull();
   });
 
   it('a failed listing says why inside the sidebar', () => {
@@ -708,5 +811,212 @@ describe('#3280 §5 — a lost connection keeps the conversation and the draft',
     const alert = screen.getByRole('alert');
     expect(alert.textContent).toContain('robota --serve --open');
     expect(within(alert).queryByRole('button')).toBeNull();
+  });
+});
+
+describe('#3282 §3 — first run: setup mode', () => {
+  const setupStatus: NonNullable<IWsSessionState['sessionStatus']> = {
+    sessionId: 's',
+    model: 'setup-required',
+    permissionMode: 'default',
+    effort: 'auto',
+    context: { usedPercentage: 0, usedTokens: 0, maxTokens: 0, remainingPercentage: 100 },
+    goal: null,
+    setupRequired: true,
+  };
+
+  it('shows the setup panel instead of the conversation, and hides the composer', () => {
+    const state = stubState({ sessionStatus: setupStatus });
+    render(<SessionSurface state={state} />);
+
+    expect(screen.getByRole('heading', { name: 'Connect a model provider to start.' })).toBeTruthy();
+    // The conversation (and its default fixture message) is not shown while setup is required.
+    expect(screen.queryByText('hello')).toBeNull();
+    expect(screen.queryByLabelText('message')).toBeNull();
+  });
+
+  it('renders exactly one main landmark, never zero, never nested (#3289 §3)', () => {
+    const state = stubState({ sessionStatus: setupStatus });
+    render(<SessionSurface state={state} />);
+
+    // getByRole('main') itself throws on zero matches or on more than one — this alone proves both
+    // halves of the invariant, the same way the conversation and personal-usage states already do.
+    expect(screen.getByRole('main', { name: 'Set up a provider' })).toBeTruthy();
+  });
+
+  it('"Set up provider" sends /provider add as a command', () => {
+    const state = stubState({ sessionStatus: setupStatus });
+    render(<SessionSurface state={state} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set up provider' }));
+
+    expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'provider', args: 'add' });
+  });
+
+  it('"Set up provider" is disabled while disconnected', () => {
+    const state = stubState({ status: 'disconnected', sessionStatus: setupStatus });
+    render(<SessionSurface state={state} />);
+
+    const button = screen.getByRole('button', { name: 'Set up provider' });
+    expect(button.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(button);
+    expect(state.send).not.toHaveBeenCalled();
+  });
+
+  it('the setup flow\'s questions dock where the composer would be (PermissionPrompt keeps rendering)', () => {
+    const state = stubState({
+      sessionStatus: setupStatus,
+      pendingPrompts: [
+        {
+          kind: 'ask',
+          id: 'a1',
+          request: { title: 'Select provider', options: [{ value: 'anthropic', label: 'anthropic' }] },
+        },
+      ] as unknown as IWsSessionState['pendingPrompts'],
+    });
+    render(<SessionSurface state={state} />);
+
+    expect(screen.getByRole('dialog', { name: 'pending question' })).toBeTruthy();
+  });
+
+  it('clears once setupRequired turns false: the composer and conversation return, live, no reload', () => {
+    const { rerender } = render(<SessionSurface state={stubState({ sessionStatus: setupStatus })} />);
+    expect(screen.queryByLabelText('message')).toBeNull();
+
+    rerender(
+      <SessionSurface
+        state={stubState({ sessionStatus: { ...setupStatus, setupRequired: undefined, model: 'claude' } })}
+      />,
+    );
+
+    expect(screen.getByLabelText('message')).toBeTruthy();
+    expect(screen.getByText('hello')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Connect a model provider to start.' })).toBeNull();
+  });
+});
+
+describe('#3289 §2 — below md, the open sidebar is a sheet over the conversation', () => {
+  const listing: NonNullable<IWsSessionState['sessionListing']> = {
+    currentSessionId: 'cur',
+    sessions: [
+      { id: 'cur', name: 'Current session', cwd: '/w', updatedAt: new Date().toISOString(), messageCount: 1, preview: '' },
+      { id: 'old', name: 'Older session', cwd: '/w', updatedAt: new Date().toISOString(), messageCount: 1, preview: '' },
+    ],
+    unreadableSessionIds: [],
+  };
+  const sessionRowButton = (name: RegExp): HTMLElement =>
+    screen.getAllByRole('button', { name }).filter((el) => el.tagName === 'BUTTON' && !(el.getAttribute('aria-label') ?? '').startsWith('More for'))[0]!;
+
+  /** `matches` fixed for every query — good enough for a test that only cares about one breakpoint. */
+  function mockViewport(matches: boolean): void {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })) as unknown as typeof window.matchMedia;
+  }
+
+  afterEach(() => {
+    // @ts-expect-error -- test-only cleanup of the global stub `mockViewport` sets.
+    delete window.matchMedia;
+  });
+
+  it('a wide window shows the sidebar as a plain column, with no backdrop', () => {
+    mockViewport(false);
+    render(<SessionSurface state={stubState({ sessionListing: listing })} />);
+    expect(screen.getByRole('complementary', { name: 'Sessions' })).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: 'Sessions' })).toBeNull();
+  });
+
+  it('a narrow window shows the sheet in a dialog with a dimmed backdrop, which closes it on an outside click', () => {
+    mockViewport(true);
+    const state = stubState({ sessionListing: listing });
+    render(<SessionSurface state={state} />);
+
+    const dialog = screen.getByRole('dialog', { name: 'Sessions' });
+    expect(dialog).toBeTruthy();
+    // The backdrop is `Dialog`'s own outer element, the dialog panel's parent; `Dialog` listens for
+    // `mousedown` there (not `click`) and closes only when the event's target is the backdrop itself.
+    fireEvent.mouseDown(dialog.parentElement!);
+
+    expect(state.setSessionSidebarOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('Esc closes the narrow sheet', () => {
+    mockViewport(true);
+    const state = stubState({ sessionListing: listing });
+    render(<SessionSurface state={state} />);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(state.setSessionSidebarOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('choosing a session closes the narrow sheet too', () => {
+    mockViewport(true);
+    const state = stubState({ sessionListing: listing });
+    render(<SessionSurface state={state} />);
+
+    fireEvent.click(sessionRowButton(/Older session/));
+
+    expect(state.switchSession).toHaveBeenCalledWith('old');
+    expect(state.setSessionSidebarOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('a wide window never closes on Esc or a session choice — it is a column, not a sheet', () => {
+    mockViewport(false);
+    const state = stubState({ sessionListing: listing });
+    render(<SessionSurface state={state} />);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(state.setSessionSidebarOpen).not.toHaveBeenCalled();
+
+    fireEvent.click(sessionRowButton(/Older session/));
+    expect(state.switchSession).toHaveBeenCalledWith('old');
+    expect(state.setSessionSidebarOpen).not.toHaveBeenCalled();
+  });
+
+  it('moves focus into the open sheet, and traps Tab inside it', () => {
+    mockViewport(true);
+    render(<SessionSurface state={stubState({ sessionListing: listing })} />);
+    const dialog = screen.getByRole('dialog', { name: 'Sessions' });
+
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    const focusable = dialog.querySelectorAll('button');
+    const first = focusable[0] as HTMLElement;
+    const last = focusable[focusable.length - 1] as HTMLElement;
+    first.focus();
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(last);
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(document.activeElement).toBe(first);
+  });
+
+  it('returns focus to the control that opened the sheet, once it closes', () => {
+    mockViewport(true);
+    const state = stubState({ sessionListing: listing, sessionSidebarOpen: false });
+    const { rerender } = render(<SessionSurface state={state} />);
+
+    const opener = screen.getByRole('button', { name: 'Show sessions' });
+    opener.focus();
+    fireEvent.click(opener);
+    expect(state.setSessionSidebarOpen).toHaveBeenCalledWith(true);
+
+    // The rail's own button is replaced by the sheet it opens, so this simulates the host applying
+    // that state change (as the earlier "collapses to a rail and opens again" test does).
+    rerender(<SessionSurface state={{ ...state, sessionSidebarOpen: true }} />);
+    expect(screen.getByRole('dialog', { name: 'Sessions' }).contains(document.activeElement)).toBe(true);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    rerender(<SessionSurface state={{ ...state, sessionSidebarOpen: false }} />);
+
+    // A fresh "Show sessions" button remounted under the same name — that is the return address.
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show sessions' }));
   });
 });

@@ -1,15 +1,19 @@
+import { sep } from 'node:path';
+
 import { describe, it, expect } from 'vitest';
 
 import {
   appendOutputTail,
   buildContentSecurityPolicy,
   buildDaemonStartSpawn,
+  buildPickedFiles,
   createDaemonAttachment,
   describeDaemonStartFailure,
   isTrustChoice,
   OUTPUT_TAIL_LIMIT,
   parseDaemonStartOutput,
   parseTrustStatusOutput,
+  resolveOpenPathTarget,
   resolveSidecarCommand,
   type TDaemonStart,
 } from '../sidecar.js';
@@ -243,6 +247,60 @@ describe('createDaemonAttachment (#3189)', () => {
     await first;
     void attachment.start();
     expect(runs).toBe(2);
+  });
+});
+
+describe('buildPickedFiles (#3282 §4d — the composer attach dialog)', () => {
+  it('pairs each chosen path with its basename and injected size', () => {
+    const sizes: Record<string, number> = {
+      '/repo/src/a.ts': 120,
+      '/repo/README.md': 4096,
+    };
+    expect(buildPickedFiles(Object.keys(sizes), (path) => sizes[path])).toEqual([
+      { path: '/repo/src/a.ts', name: 'a.ts', size: 120 },
+      { path: '/repo/README.md', name: 'README.md', size: 4096 },
+    ]);
+  });
+
+  it('drops a path whose size cannot be read, instead of throwing', () => {
+    const files = buildPickedFiles(['/repo/gone.txt', '/repo/here.txt'], (path) =>
+      path.endsWith('here.txt') ? 10 : undefined,
+    );
+    expect(files).toEqual([{ path: '/repo/here.txt', name: 'here.txt', size: 10 }]);
+  });
+
+  it('answers an empty list for no paths', () => {
+    expect(buildPickedFiles([], () => 0)).toEqual([]);
+  });
+});
+
+describe('resolveOpenPathTarget (#3282 §4c — the Project panel Memory "Open in editor")', () => {
+  const cwd = `${sep}repo`;
+
+  it('resolves a workspace-relative path against cwd', () => {
+    expect(resolveOpenPathTarget(cwd, `.robota${sep}memory${sep}MEMORY.md`)).toBe(
+      `${sep}repo${sep}.robota${sep}memory${sep}MEMORY.md`,
+    );
+  });
+
+  it('accepts an absolute path already inside the workspace', () => {
+    expect(resolveOpenPathTarget(cwd, `${sep}repo${sep}notes.md`)).toBe(`${sep}repo${sep}notes.md`);
+  });
+
+  it('refuses a path that escapes the workspace with ..', () => {
+    expect(resolveOpenPathTarget(cwd, `..${sep}outside.md`)).toBeUndefined();
+  });
+
+  it('refuses an absolute path outside the workspace', () => {
+    expect(resolveOpenPathTarget(cwd, `${sep}etc${sep}passwd`)).toBeUndefined();
+  });
+
+  it('refuses an empty path', () => {
+    expect(resolveOpenPathTarget(cwd, '')).toBeUndefined();
+  });
+
+  it('accepts the workspace root itself', () => {
+    expect(resolveOpenPathTarget(cwd, '.')).toBe(cwd);
   });
 });
 

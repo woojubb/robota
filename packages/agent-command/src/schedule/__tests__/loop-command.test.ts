@@ -2,7 +2,17 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { executeLoopCommand } from '../loop-command.js';
 
+import type { ILoopInvocationContext } from '../loop-command.js';
 import { createTestAgentJobHost } from '@robota-sdk/agent-framework/testing';
+
+/**
+ * #3288 §1: every default-prompt form (bare or interval-only) is gated on confirmation — an
+ * interactive invocation with an ask port that answers Start, for a test whose OWN point is
+ * something else (default-prompt resolution, cadence, etc.), not the confirmation gate itself.
+ */
+function interactiveStart(): ILoopInvocationContext {
+  return { ui: { ask: vi.fn().mockResolvedValue({ type: 'answer', values: ['start'] }) }, source: 'user' };
+}
 
 describe('fixed in-session loop', () => {
   it('uses the host maintenance prompt for interval-only forms', async () => {
@@ -10,7 +20,9 @@ describe('fixed in-session loop', () => {
     const host = createTestAgentJobHost({ spawnScheduledWake });
     const options = { defaultPrompt: 'Tend only the current task and its PR.' };
 
-    expect((await executeLoopCommand(host, vi.fn(), '5m', options)).success).toBe(true);
+    expect(
+      (await executeLoopCommand(host, vi.fn(), '5m', options, interactiveStart())).success,
+    ).toBe(true);
     expect(spawnScheduledWake).toHaveBeenLastCalledWith(
       expect.objectContaining({
         cronExpression: expect.any(String),
@@ -27,7 +39,10 @@ describe('fixed in-session loop', () => {
     const host = createTestAgentJobHost({ spawnScheduledWake, createSelfPacedLoop });
     const options = { defaultPrompt: 'Tend the current task.' };
 
-    expect((await executeLoopCommand(host, vi.fn(), '', options)).success).toBe(true);
+    expect(
+      (await executeLoopCommand(host, vi.fn(), '', options, interactiveStart())).success,
+    ).toBe(true);
+    // An explicit prompt is never gated — no invocation (headless) needed to succeed.
     expect((await executeLoopCommand(host, vi.fn(), 'check the build')).success).toBe(true);
     expect(createSelfPacedLoop.mock.calls.map(([prompt]) => prompt)).toEqual([
       options.defaultPrompt,
@@ -45,9 +60,13 @@ describe('fixed in-session loop', () => {
     const resolveDefaultPrompt = vi.fn().mockReturnValue('current file prompt');
     const options = { defaultPrompt: 'built-in prompt', resolveDefaultPrompt };
 
-    expect((await executeLoopCommand(host, vi.fn(), '', options)).success).toBe(true);
+    expect(
+      (await executeLoopCommand(host, vi.fn(), '', options, interactiveStart())).success,
+    ).toBe(true);
     expect(createSelfPacedLoop).toHaveBeenCalledWith('current file prompt', { useDefaultPrompt: true });
-    expect((await executeLoopCommand(host, vi.fn(), '5m', options)).success).toBe(true);
+    expect(
+      (await executeLoopCommand(host, vi.fn(), '5m', options, interactiveStart())).success,
+    ).toBe(true);
     expect(spawnScheduledWake).toHaveBeenCalledWith(expect.objectContaining({
       agentInstruction: 'current file prompt', sessionLoopDefaultPrompt: true,
     }));
@@ -357,4 +376,219 @@ describe('fixed in-session loop', () => {
       expect(spawnScheduledWake).not.toHaveBeenCalled();
     },
   );
+});
+
+/**
+ * #3288 §1: every form that falls back to the host's default maintenance prompt — bare `/loop` or
+ * an interval-only `/loop <N><s|m|h|d>` (self-paced or fixed cadence) — keeps working on its own for
+ * up to 7 days: a standing commitment the operator never typed, gated the same way regardless of
+ * which form reached it. An explicit prompt is the operator's own instruction and is never gated.
+ * A model-invoked call is always refused outright; an interactive one (an ask port attached) asks;
+ * a headless one (no ask port — print mode, a scheduled run) is refused too, the same reason as the
+ * model: nobody is there to say yes to a loop that can run for a week.
+ */
+describe('/loop asks before starting on its own (#3288 §1)', () => {
+  function askResolving(value: 'start' | 'cancel'): ReturnType<typeof vi.fn> {
+    return vi.fn().mockResolvedValue({ type: 'answer', values: [value] });
+  }
+
+  it('asks before creating a bare self-paced loop, and creates it on Start', async () => {
+    const createSelfPacedLoop = vi.fn().mockResolvedValue({
+      loopId: 'loop_default',
+      expiresAt: '2030-01-01T00:00:00.000Z',
+    });
+    const host = createTestAgentJobHost({ createSelfPacedLoop });
+    const ask = askResolving('start');
+    const options = { defaultPrompt: 'Tend the current task.\nCheck CI when it finishes.' };
+
+    const result = await executeLoopCommand(host, vi.fn(), '', options, { ui: { ask }, source: 'user' });
+
+    expect(ask).toHaveBeenCalledTimes(1);
+    const request = ask.mock.calls[0]![0] as { title: string; options: Array<{ value: string }> };
+    expect(request.title).toContain('Start a loop that keeps working on its own for up to 7 days');
+    expect(request.title).toContain('Tend the current task.');
+    expect(request.title).not.toContain('Check CI when it finishes.');
+    expect(request.options.map((option) => option.value)).toEqual(['start', 'cancel']);
+    expect(createSelfPacedLoop).toHaveBeenCalledWith('Tend the current task.\nCheck CI when it finishes.', {
+      useDefaultPrompt: true,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('does not create the loop when the user cancels', async () => {
+    const createSelfPacedLoop = vi.fn();
+    const host = createTestAgentJobHost({ createSelfPacedLoop });
+    const ask = askResolving('cancel');
+    const options = { defaultPrompt: 'Tend the current task.' };
+
+    const result = await executeLoopCommand(host, vi.fn(), '', options, { ui: { ask }, source: 'user' });
+
+    expect(createSelfPacedLoop).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ success: true, message: 'Loop not started.' });
+  });
+
+  it('treats a dismissed (cancelled) ask the same as Cancel', async () => {
+    const createSelfPacedLoop = vi.fn();
+    const host = createTestAgentJobHost({ createSelfPacedLoop });
+    const ask = vi.fn().mockResolvedValue({ type: 'cancelled' });
+    const options = { defaultPrompt: 'Tend the current task.' };
+
+    const result = await executeLoopCommand(host, vi.fn(), '', options, { ui: { ask }, source: 'user' });
+
+    expect(createSelfPacedLoop).not.toHaveBeenCalled();
+    expect(result.success).toBe(true);
+    expect(result.message).toBe('Loop not started.');
+  });
+
+  it('lists other active loops in the confirmation', async () => {
+    const createSelfPacedLoop = vi.fn().mockResolvedValue({
+      loopId: 'loop_new',
+      expiresAt: '2030-01-01T00:00:00.000Z',
+    });
+    const host = createTestAgentJobHost({
+      createSelfPacedLoop,
+      listSelfPacedLoops: () => [
+        {
+          loopId: 'loop_existing',
+          instruction: 'watch CI',
+          phase: 'waiting',
+          createdAt: '2026-09-24T00:00:00.000Z',
+          expiresAt: '2026-10-01T00:00:00.000Z',
+          revision: 1,
+          generation: 1,
+          fallbackUsed: false,
+        },
+      ],
+    });
+    const ask = askResolving('start');
+
+    await executeLoopCommand(host, vi.fn(), '', { defaultPrompt: 'Tend.' }, { ui: { ask }, source: 'user' });
+
+    const request = ask.mock.calls[0]![0] as { description?: string };
+    expect(request.description).toContain('loop_existing');
+  });
+
+  it('refuses a model-invoked bare loop outright, without asking', async () => {
+    const createSelfPacedLoop = vi.fn();
+    const host = createTestAgentJobHost({ createSelfPacedLoop });
+    const ask = vi.fn();
+    const options = { defaultPrompt: 'Tend the current task.' };
+
+    const result = await executeLoopCommand(host, vi.fn(), '', options, { ui: { ask }, source: 'model' });
+
+    expect(ask).not.toHaveBeenCalled();
+    expect(createSelfPacedLoop).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('/loop');
+  });
+
+  it('refuses a model-invoked bare loop even with no interactive renderer attached', async () => {
+    const createSelfPacedLoop = vi.fn();
+    const host = createTestAgentJobHost({ createSelfPacedLoop });
+    const options = { defaultPrompt: 'Tend the current task.' };
+
+    const result = await executeLoopCommand(host, vi.fn(), '', options, { ui: undefined, source: 'model' });
+
+    expect(createSelfPacedLoop).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
+  });
+
+  it('refuses a bare loop headless (no ask port attached) — never proceeds unconfirmed', async () => {
+    const createSelfPacedLoop = vi.fn();
+    const host = createTestAgentJobHost({ createSelfPacedLoop });
+    const options = { defaultPrompt: 'Tend the current task.' };
+
+    const result = await executeLoopCommand(host, vi.fn(), '', options, { ui: undefined, source: 'user' });
+
+    expect(createSelfPacedLoop).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('needs someone to confirm it');
+    expect(result.message).toContain('/loop <prompt>');
+  });
+
+  it('refuses an interval-only default-prompt loop headless too, the same as bare', async () => {
+    const spawnScheduledWake = vi.fn();
+    const host = createTestAgentJobHost({ spawnScheduledWake });
+    const options = { defaultPrompt: 'Tend the current task.' };
+
+    const result = await executeLoopCommand(host, vi.fn(), '1h', options, { ui: undefined, source: 'user' });
+
+    expect(spawnScheduledWake).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('needs someone to confirm it');
+  });
+
+  it('refuses a model-invoked interval-only default-prompt loop outright, without asking', async () => {
+    const spawnScheduledWake = vi.fn();
+    const host = createTestAgentJobHost({ spawnScheduledWake });
+    const ask = vi.fn();
+    const options = { defaultPrompt: 'Tend the current task.' };
+
+    const result = await executeLoopCommand(host, vi.fn(), '1h', options, { ui: { ask }, source: 'model' });
+
+    expect(ask).not.toHaveBeenCalled();
+    expect(spawnScheduledWake).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
+  });
+
+  it('asks for an interactive interval-only default-prompt loop, and creates it on Start', async () => {
+    const spawnScheduledWake = vi.fn().mockResolvedValue({ id: 'loop_task_interval' });
+    const host = createTestAgentJobHost({ spawnScheduledWake });
+    const ask = askResolving('start');
+    const options = { defaultPrompt: 'Tend the current task.' };
+
+    const result = await executeLoopCommand(host, vi.fn(), '1h', options, { ui: { ask }, source: 'user' });
+
+    expect(ask).toHaveBeenCalledTimes(1);
+    const request = ask.mock.calls[0]![0] as { title: string };
+    expect(request.title).toContain('Start a loop that keeps working on its own for up to 7 days');
+    expect(spawnScheduledWake).toHaveBeenCalledWith(
+      expect.objectContaining({ agentInstruction: options.defaultPrompt }),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it('never asks for an interval WITH an explicit prompt, even headless', async () => {
+    const spawnScheduledWake = vi.fn().mockResolvedValue({ id: 'loop_task_explicit_interval' });
+    const host = createTestAgentJobHost({ spawnScheduledWake });
+
+    // No invocation at all (defaults to headless, source 'user') — an explicit prompt is unaffected.
+    const result = await executeLoopCommand(host, vi.fn(), '1h check the build', {
+      defaultPrompt: 'Tend the current task.',
+    });
+
+    expect(spawnScheduledWake).toHaveBeenCalledWith(
+      expect.objectContaining({ agentInstruction: 'check the build' }),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it('never asks for an explicit prompt, even with a person attached', async () => {
+    const createSelfPacedLoop = vi.fn().mockResolvedValue({
+      loopId: 'loop_explicit',
+      expiresAt: '2030-01-01T00:00:00.000Z',
+    });
+    const host = createTestAgentJobHost({ createSelfPacedLoop });
+    const ask = vi.fn();
+
+    const result = await executeLoopCommand(host, vi.fn(), 'check the build', {}, { ui: { ask }, source: 'user' });
+
+    expect(ask).not.toHaveBeenCalled();
+    expect(createSelfPacedLoop).toHaveBeenCalledWith('check the build');
+    expect(result.success).toBe(true);
+  });
+
+  it('never asks for a fixed-cadence loop with an explicit prompt', async () => {
+    const spawnScheduledWake = vi.fn().mockResolvedValue({ id: 'loop_task_fixed' });
+    const host = createTestAgentJobHost({ spawnScheduledWake });
+    const ask = vi.fn();
+
+    const result = await executeLoopCommand(host, vi.fn(), '5m check the build', {}, {
+      ui: { ask },
+      source: 'user',
+    });
+
+    expect(ask).not.toHaveBeenCalled();
+    expect(result.success).toBe(true);
+  });
 });

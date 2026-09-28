@@ -15,9 +15,14 @@ import {
 import { handleLoopControlMessage, isLoopControlMessage } from './loop-control-messages.js';
 import { parseClientMessage } from './message-parser.js';
 import { isObserverMessageType } from './observer-messages.js';
+import { handleProjectReadMessage, isProjectReadMessage } from './project-read-messages.js';
 import {
+  handleSessionDeleteMessage,
   handleSessionDirectoryMessage,
+  handleSessionRenameMessage,
+  isSessionDeleteMessage,
   isSessionDirectoryMessage,
+  isSessionRenameMessage,
 } from './session-directory-messages.js';
 import { subscribeSessionEvents } from './session-events.js';
 import {
@@ -25,12 +30,15 @@ import {
   isSessionQueryMessage,
   pendingFrame,
 } from './session-query-messages.js';
+import { handleSettingsMessage, isSettingsMessage } from './settings-messages.js';
 import { handleUsageQueryMessage } from './usage-messages.js';
 
 import type { TOutboundDeliver } from './outbound-delivery.js';
-import type { IProtocolSession } from './protocol-session.js';
+import type { IProtocolSession, TProjectReadCapableSession } from './protocol-session.js';
+import type { ISettingsReporter } from './settings-messages.js';
 import type { IUsageQueryReporters } from './usage-messages.js';
 import type { TClientMessage } from './wire-messages.js';
+import type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface-command';
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 import type { ISessionDirectory, TDriverId } from '@robota-sdk/agent-interface-session';
 
@@ -48,8 +56,8 @@ export { parseClientMessage } from './message-parser.js';
 export type TSessionSurfaceRole = 'drive' | 'observe';
 
 export interface ISessionMessageHandlerOptions {
-  /** IProtocolSession to expose. */
-  session: IProtocolSession;
+  /** IProtocolSession to expose — `Partial<ISessionProjectRead>` is probed, not assumed (#3282 §4c). */
+  session: TProjectReadCapableSession;
   /**
    * ARCH-030: the CARRIER's connection-scoped outbound delivery boundary — not a raw `send`, and not a
    * `send` plus an error callback for this handler to assemble into one. The carrier owns both the sink
@@ -76,6 +84,15 @@ export interface ISessionMessageHandlerOptions {
   storedSessionUsageReporter?: NonNullable<IUsageQueryReporters['storedSessionUsageReporter']>;
   /** Host-owned session directory (#3189): list, start and switch the host's sessions. */
   sessionDirectory?: ISessionDirectory;
+  /** #3282 §4a: host-owned read/write for the GUI Settings screen. */
+  settingsReporter?: ISettingsReporter;
+  /**
+   * #3282 §4 part b-2: carrier-decided, like `role` — whether THIS carrier's connections are
+   * provably on this machine. The loopback WS carrier is `'local'`; the device-mesh/WebRTC carrier
+   * sets `'remote'`. Absent → `'local'`, forwarded to `executeCommand` and the settings reporter so a
+   * command that runs code from outside the session (installing a plugin) can refuse a remote device.
+   */
+  commandSurfaceLocality?: TCommandSurfaceLocality;
 }
 
 /**
@@ -118,19 +135,23 @@ export function createSessionMessageHandler(options: ISessionMessageHandlerOptio
     options.surface,
     role,
     options.sessionDirectory,
+    options.settingsReporter,
+    options.commandSurfaceLocality,
   );
 
   return { onMessage, cleanup };
 }
 
 function createMessageHandler(
-  session: IProtocolSession,
+  session: TProjectReadCapableSession,
   deliver: TOutboundDeliver,
   driverId?: TDriverId,
   reporters: IUsageQueryReporters = EMPTY_USAGE_REPORTERS,
   surface?: TUsageSurface,
   role: TSessionSurfaceRole = 'drive',
   sessionDirectory?: ISessionDirectory,
+  settingsReporter?: ISettingsReporter,
+  commandSurfaceLocality?: TCommandSurfaceLocality,
 ): (data: string) => void {
   return (data: string): void => {
     const msg = parseClientMessage(data, deliver);
@@ -139,7 +160,17 @@ function createMessageHandler(
       deliver({ type: 'protocol_error', message: `Not permitted for an observer: ${msg.type}` });
       return;
     }
-    handleClientMessage(session, deliver, msg, driverId, reporters, surface, sessionDirectory);
+    handleClientMessage(
+      session,
+      deliver,
+      msg,
+      driverId,
+      reporters,
+      surface,
+      sessionDirectory,
+      settingsReporter,
+      commandSurfaceLocality,
+    );
   };
 }
 
@@ -154,13 +185,15 @@ const EMPTY_USAGE_REPORTERS: IUsageQueryReporters = {
  * the {@link SessionResumeBridge} intercepts `resume`/`ack` itself and delegates everything else here.
  */
 export function handleClientMessage(
-  session: IProtocolSession,
+  session: TProjectReadCapableSession,
   deliver: TOutboundDeliver,
   msg: TClientMessage,
   driverId?: TDriverId,
   reporters: IUsageQueryReporters = EMPTY_USAGE_REPORTERS,
   surface?: TUsageSurface,
   sessionDirectory?: ISessionDirectory,
+  settingsReporter?: ISettingsReporter,
+  commandSurfaceLocality?: TCommandSurfaceLocality,
 ): void {
   if (handleUsageQueryMessage(session, deliver, msg, reporters)) {
     return;
@@ -169,8 +202,20 @@ export function handleClientMessage(
     handleSessionDirectoryMessage(deliver, msg, sessionDirectory);
     return;
   }
+  if (isSettingsMessage(msg)) {
+    handleSettingsMessage(session, deliver, msg, settingsReporter, commandSurfaceLocality);
+    return;
+  }
+  if (isSessionRenameMessage(msg)) {
+    handleSessionRenameMessage(deliver, msg, sessionDirectory);
+    return;
+  }
+  if (isSessionDeleteMessage(msg)) {
+    handleSessionDeleteMessage(deliver, msg, sessionDirectory);
+    return;
+  }
   if (isSessionControlMessage(msg)) {
-    handleSessionControlMessage(session, deliver, msg, driverId, surface);
+    handleSessionControlMessage(session, deliver, msg, driverId, surface, commandSurfaceLocality);
     return;
   }
   if (isLoopControlMessage(msg)) {
@@ -179,6 +224,10 @@ export function handleClientMessage(
   }
   if (isSessionQueryMessage(msg)) {
     handleSessionQueryMessage(session, deliver, msg);
+    return;
+  }
+  if (isProjectReadMessage(msg)) {
+    handleProjectReadMessage(session, deliver, msg);
     return;
   }
   if (isBackgroundQueryMessage(msg)) {
@@ -268,6 +317,7 @@ function handleSessionControlMessage(
   msg: Extract<TClientMessage, { type: 'submit' | 'command' | 'abort' | 'cancel-queue' }>,
   driverId?: TDriverId,
   surface?: TUsageSurface,
+  commandSurfaceLocality?: TCommandSurfaceLocality,
 ): void {
   if (msg.type === 'submit') {
     // TRANS-008 (issue #2045). A TYPE check, not a falsy one: `{}`, `[]`, `42` and `true` are truthy
@@ -304,7 +354,7 @@ function handleSessionControlMessage(
     }
     // REMOTE-003: a transport-origin command is tagged `'remote'` (optional policy, allow-by-default;
     // REMOTE-006). CMD-004: the SERVER-ASSIGNED driver id (E5) is the command origin — intents route back here.
-    session.executeCommand(msg.name, msg.args ?? '', 'remote', driverId).then(
+    session.executeCommand(msg.name, msg.args ?? '', 'remote', driverId, commandSurfaceLocality).then(
       (result) => {
         deliver({
           type: 'command_result',

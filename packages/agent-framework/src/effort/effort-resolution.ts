@@ -10,6 +10,24 @@ export type TEffortSource =
   'command' | 'flag' | 'environment' | 'settings' | 'preset' | 'model-default';
 export type TEffortDisposition = 'applied' | 'model-default' | 'clamped' | 'not-applied';
 
+/**
+ * #3282 §2 — the plain label for each effort selection, shared by every surface that reports an
+ * effort choice or change: `/effort`'s own outcome text, the TUI/GUI pickers, and headless `/goal`
+ * output (`transport-host/headless/headless-output.ts`). Lives here (not in `agent-command`, which
+ * depends on this package) so `agent-framework`'s own headless output can use it without a circular
+ * dependency; `agent-command`'s `effort-command.ts` re-exports it unchanged.
+ */
+export const EFFORT_LEVEL_LABELS: Readonly<Record<TEffortSelection, string>> = {
+  auto: 'Auto',
+  none: 'None',
+  minimal: 'Minimal',
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  xhigh: 'Extra high',
+  max: 'Maximum',
+};
+
 export interface IModelEffortResolution {
   readonly requested: TEffortSelection;
   readonly effective: TModelEffort;

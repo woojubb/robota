@@ -321,6 +321,326 @@ describe('createMcpClientComposition', () => {
   });
 });
 
+describe('MCP Servers section runtime status (#3282 §4 part b-2)', () => {
+  it('list() reports a connected server as connected, with its tool names', async () => {
+    const entries = [resolvedEntry()];
+    const approvalStore = approvedApprovalStore(entries);
+    const { connection } = fakeConnection(discoveryWithOneTool());
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore,
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: () => connection,
+      reportDiagnostic: () => undefined,
+    });
+
+    await composition.connect();
+    const summary = composition.activationAdapter.list().find((s) => s.serverId === 'weather');
+
+    expect(summary?.connection).toBe('connected');
+    expect(summary?.toolNames).toEqual(['weather__forecast']);
+    expect(summary?.connectionFailureReason).toBeUndefined();
+
+    await composition.shutdown();
+  });
+
+  it('list() reports a plain failure reason for an admitted server whose discovery fails', async () => {
+    const entries = [resolvedEntry()];
+    const approvalStore = approvedApprovalStore(entries);
+    const failingConnection: IMcpServerConnection = {
+      discover: async () => {
+        throw new Error('boom');
+      },
+      callTool: async () => ({ content: [], isError: true }),
+      shutdown: async () => {},
+    };
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore,
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: () => failingConnection,
+      reportDiagnostic: () => undefined,
+    });
+
+    await composition.connect();
+    const summary = composition.activationAdapter.list().find((s) => s.serverId === 'weather');
+
+    expect(summary?.connection).toBe('failed');
+    expect(summary?.connectionFailureReason).toBe('boom');
+    expect(summary?.toolNames).toEqual([]);
+
+    await composition.shutdown();
+  });
+
+  it('reload() retries only a server not currently connected, leaving a connected one alone', async () => {
+    const entries = [
+      resolvedEntry({ name: 'weather' }),
+      resolvedEntry({
+        name: 'flaky',
+        definition: definition({ name: 'flaky', url: 'https://mcp.example.com/flaky' }),
+      }),
+    ];
+    const approvalStore = approvedApprovalStore(entries);
+    const { connection: weatherConnection } = fakeConnection(discoveryWithOneTool());
+    let flakyAttempts = 0;
+    const flakyDiscovery: IMCPDiscovery = {
+      ...discoveryWithOneTool(),
+      tools: {
+        state: { kind: 'supported', count: 1, listChanged: false },
+        items: [{ name: 'status', description: 'Check status', inputSchema: { type: 'object', properties: {} } }],
+        pages: 1,
+      },
+    };
+    const flakyConnection: IMcpServerConnection = {
+      discover: async () => {
+        flakyAttempts += 1;
+        if (flakyAttempts === 1) throw new Error('connection refused');
+        return flakyDiscovery;
+      },
+      callTool: async () => ({ content: [], isError: false }),
+      shutdown: async () => {},
+    };
+    let weatherSupervisorCalls = 0;
+
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore,
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: (options) => {
+        if (options.serverId === 'weather') {
+          weatherSupervisorCalls += 1;
+          return weatherConnection;
+        }
+        return flakyConnection;
+      },
+      reportDiagnostic: () => undefined,
+    });
+
+    await composition.connect();
+    expect(
+      composition.activationAdapter.list().find((s) => s.serverId === 'flaky')?.connection,
+    ).toBe('failed');
+    expect(weatherSupervisorCalls).toBe(1);
+
+    const result = await composition.activationAdapter.reload!();
+
+    expect(result.connectedServerIds).toEqual(['flaky']);
+    expect(result.failedServerIds).toEqual([]);
+    expect(result.tools.map((tool) => tool.getName())).toEqual(['flaky__status']);
+    // The already-connected server was left alone: no second supervisor for it.
+    expect(weatherSupervisorCalls).toBe(1);
+    const afterReload = composition.activationAdapter.list();
+    expect(afterReload.find((s) => s.serverId === 'flaky')?.connection).toBe('connected');
+    expect(afterReload.find((s) => s.serverId === 'weather')?.connection).toBe('connected');
+    // `reload()` never commits tool provenance itself — nothing in `toolNames` yet, until the
+    // session says (via `reloadToolsAdded`) which of the reloaded tools it actually took.
+    expect(afterReload.find((s) => s.serverId === 'flaky')?.toolNames).toEqual([]);
+
+    await composition.shutdown();
+  });
+
+  it("reload()'s tools reach toolNames only for the names reloadToolsAdded confirms, never a dropped collision", async () => {
+    const entries = [
+      resolvedEntry({ name: 'weather' }),
+      resolvedEntry({
+        name: 'flaky',
+        definition: definition({ name: 'flaky', url: 'https://mcp.example.com/flaky' }),
+      }),
+    ];
+    const approvalStore = approvedApprovalStore(entries);
+    const failingThenTwoTools: IMcpServerConnection = {
+      discover: (() => {
+        let attempts = 0;
+        return async () => {
+          attempts += 1;
+          if (attempts === 1) throw new Error('connection refused');
+          return {
+            ...discoveryWithOneTool(),
+            tools: {
+              state: { kind: 'supported', count: 2, listChanged: false },
+              items: [
+                { name: 'status', description: 'Check status', inputSchema: { type: 'object', properties: {} } },
+                { name: 'ping', description: 'Ping', inputSchema: { type: 'object', properties: {} } },
+              ],
+              pages: 1,
+            },
+          };
+        };
+      })(),
+      callTool: async () => ({ content: [], isError: false }),
+      shutdown: async () => {},
+    };
+
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore,
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: (options) =>
+        options.serverId === 'weather' ? fakeConnection(discoveryWithOneTool()).connection : failingThenTwoTools,
+      reportDiagnostic: () => undefined,
+    });
+
+    await composition.connect();
+    const result = await composition.activationAdapter.reload!();
+    expect(result.tools.map((tool) => tool.getName())).toEqual(['flaky__status', 'flaky__ping']);
+    expect(result.reloadToken).toBeDefined();
+
+    // The session took only one of the two (the other collided with a tool it already has).
+    composition.activationAdapter.reloadToolsAdded!(result.reloadToken!, ['flaky__status']);
+
+    const toolNames = composition.activationAdapter.list().find((s) => s.serverId === 'flaky')?.toolNames;
+    expect(toolNames).toEqual(['flaky__status']);
+    expect(toolNames).not.toContain('flaky__ping');
+
+    await composition.shutdown();
+  });
+
+  it('two overlapping reload() calls join one connection pass and both callers get the same result (#3282 §4 part b-2 review)', async () => {
+    const entries = [
+      resolvedEntry({ name: 'weather' }),
+      resolvedEntry({
+        name: 'flaky',
+        definition: definition({ name: 'flaky', url: 'https://mcp.example.com/flaky' }),
+      }),
+    ];
+    const approvalStore = approvedApprovalStore(entries);
+    let discoverAttempts = 0;
+    let releaseDiscover: (() => void) | undefined;
+    const gatedDiscovery = new Promise<void>((resolve) => {
+      releaseDiscover = resolve;
+    });
+    const flakyConnection: IMcpServerConnection = {
+      discover: async () => {
+        discoverAttempts += 1;
+        // Attempt 1 (during `connect()`) fails immediately, same as the other tests' "flaky"
+        // server. Attempt 2 (the reload's) is held open until the test lets both `reload()` calls
+        // race past this point — a second, un-joined call would reach `discovered.has('flaky')`
+        // (still false) before the first sets it, and would call `discover` a third time.
+        if (discoverAttempts === 1) throw new Error('connection refused');
+        await gatedDiscovery;
+        return discoveryWithOneTool();
+      },
+      callTool: async () => ({ content: [], isError: false }),
+      shutdown: async () => {},
+    };
+
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore,
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: (options) =>
+        options.serverId === 'weather' ? fakeConnection(discoveryWithOneTool()).connection : flakyConnection,
+      reportDiagnostic: () => undefined,
+    });
+
+    await composition.connect();
+    expect(
+      composition.activationAdapter.list().find((s) => s.serverId === 'flaky')?.connection,
+    ).toBe('failed');
+
+    const first = composition.activationAdapter.reload!();
+    const second = composition.activationAdapter.reload!();
+    releaseDiscover!();
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+
+    // Exactly one reload connection attempt for both callers (plus the one from `connect()`), not two.
+    expect(discoverAttempts).toBe(2);
+    expect(firstResult).toEqual(secondResult);
+    expect(firstResult.reloadToken).toBeDefined();
+    expect(firstResult.tools.map((tool) => tool.getName())).toEqual(['flaky__forecast']);
+
+    // Every tool the joined callers saw ends up in provenance once acknowledged with the shared token.
+    composition.activationAdapter.reloadToolsAdded!(firstResult.reloadToken!, ['flaky__forecast']);
+    expect(
+      composition.activationAdapter.list().find((s) => s.serverId === 'flaky')?.toolNames,
+    ).toEqual(['flaky__forecast']);
+
+    await composition.shutdown();
+  });
+
+  it("a late reloadToolsAdded from a reload() that a later call already superseded doesn't clear the later one's provenance (#3282 §4 part b-2 review)", async () => {
+    // Two servers, each fixed on a different reload: A on the first call, B only on the second.
+    function flakyServer(name: string, succeedsFromAttempt: number): IMcpServerConnection {
+      let attempts = 0;
+      return {
+        discover: async () => {
+          attempts += 1;
+          if (attempts < succeedsFromAttempt) throw new Error('connection refused');
+          return {
+            ...discoveryWithOneTool(),
+            identity: { ...discoveryWithOneTool().identity, serverId: name },
+            tools: {
+              state: { kind: 'supported', count: 1, listChanged: false },
+              items: [{ name: 'status', description: 'Check', inputSchema: { type: 'object', properties: {} } }],
+              pages: 1,
+            },
+          };
+        },
+        callTool: async () => ({ content: [], isError: false }),
+        shutdown: async () => {},
+      };
+    }
+    const entries = [
+      resolvedEntry({
+        name: 'flakyA',
+        definition: definition({ name: 'flakyA', url: 'https://mcp.example.com/flakyA' }),
+      }),
+      resolvedEntry({
+        name: 'flakyB',
+        definition: definition({ name: 'flakyB', url: 'https://mcp.example.com/flakyB' }),
+      }),
+    ];
+    const approvalStore = approvedApprovalStore(entries);
+    // `connect()` is attempt 1 for both (fails); the first `reload()` is attempt 2 for both — A
+    // succeeds there, B still fails; the second `reload()` is attempt 3 for B, which succeeds.
+    const flakyAConnection = flakyServer('flakyA', 2);
+    const flakyBConnection = flakyServer('flakyB', 3);
+
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore,
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: (options) =>
+        options.serverId === 'flakyA' ? flakyAConnection : flakyBConnection,
+      reportDiagnostic: () => undefined,
+    });
+
+    await composition.connect();
+
+    // First reload: A connects and stages provenance under token A; B still fails.
+    const firstResult = await composition.activationAdapter.reload!();
+    expect(firstResult.connectedServerIds).toEqual(['flakyA']);
+    expect(firstResult.reloadToken).toBeDefined();
+    const tokenA = firstResult.reloadToken!;
+    composition.activationAdapter.reloadToolsAdded!(tokenA, ['flakyA__status']);
+    expect(
+      composition.activationAdapter.list().find((s) => s.serverId === 'flakyA')?.toolNames,
+    ).toEqual(['flakyA__status']);
+
+    // Second reload: B connects and stages provenance under its own, later token B.
+    const secondResult = await composition.activationAdapter.reload!();
+    expect(secondResult.connectedServerIds).toEqual(['flakyB']);
+    expect(secondResult.reloadToken).toBeDefined();
+    const tokenB = secondResult.reloadToken!;
+    expect(tokenB).not.toBe(tokenA);
+
+    // A LATE ack for the superseded token A arrives (e.g. a slow, duplicate command execution) —
+    // it must be a no-op: B's still-pending provenance must not be disturbed by it.
+    composition.activationAdapter.reloadToolsAdded!(tokenA, ['flakyA__status']);
+    expect(
+      composition.activationAdapter.list().find((s) => s.serverId === 'flakyB')?.toolNames,
+    ).toEqual([]);
+
+    // B's own, correct ack still commits normally afterwards.
+    composition.activationAdapter.reloadToolsAdded!(tokenB, ['flakyB__status']);
+    expect(
+      composition.activationAdapter.list().find((s) => s.serverId === 'flakyB')?.toolNames,
+    ).toEqual(['flakyB__status']);
+
+    await composition.shutdown();
+  });
+});
+
 // --- MCP-004 (TC-18): `toolCallMs` is a fifth, independently-set timeout — `buildMcpClientTimeouts`
 // sets it from the resolved `mcp.callTimeoutMs`, and the composition passes the result straight
 // through to the supervisor, leaving the other four MCP-002 defaults untouched.

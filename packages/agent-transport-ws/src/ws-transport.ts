@@ -28,6 +28,7 @@ export interface IWsTransportOptions {
   usageReporter?: ISessionMessageHandlerOptions['usageReporter'];
   storedSessionUsageReporter?: ISessionMessageHandlerOptions['storedSessionUsageReporter'];
   sessionDirectory?: ISessionMessageHandlerOptions['sessionDirectory'];
+  settingsReporter?: ISessionMessageHandlerOptions['settingsReporter'];
   driverId?: TDriverId;
   surface?: TUsageSurface;
 }
@@ -77,6 +78,7 @@ export function createWsTransport(options: IWsTransportOptions): IWsTransport {
           ? { storedSessionUsageReporter: options.storedSessionUsageReporter }
           : {}),
         ...(options.sessionDirectory ? { sessionDirectory: options.sessionDirectory } : {}),
+        ...(options.settingsReporter ? { settingsReporter: options.settingsReporter } : {}),
       });
       cleanup = handler.cleanup;
       this.onMessage = handler.onMessage;

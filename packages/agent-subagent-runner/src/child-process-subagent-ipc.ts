@@ -115,11 +115,30 @@ export interface ISubagentWorkerSandboxSettingsMessage {
   settings: TParentSandboxSettings;
 }
 
+/**
+ * Issue #3288 §1: the three-way answer a permission ask can receive — the same shape
+ * `@robota-sdk/agent-session`'s `TPermissionResult` allows, inlined here so this wire module does not
+ * need that package as a dependency for one literal union.
+ */
+export type TSubagentWorkerPermissionResult = boolean | 'allow-session' | 'allow-project';
+
+/**
+ * Issue #3288 §1: the parent's answer to a `permission_request` the child raised, correlated by
+ * `requestId`. `false` when the parent has no approver attached (print mode) — the fail-closed
+ * default, not a special case the child has to know about.
+ */
+export interface ISubagentWorkerPermissionResponseMessage {
+  type: 'permission_response';
+  requestId: string;
+  result: TSubagentWorkerPermissionResult;
+}
+
 export type TSubagentWorkerParentMessage =
   | ISubagentWorkerStartMessage
   | ISubagentWorkerSendMessage
   | ISubagentWorkerCancelMessage
-  | ISubagentWorkerSandboxSettingsMessage;
+  | ISubagentWorkerSandboxSettingsMessage
+  | ISubagentWorkerPermissionResponseMessage;
 
 export interface ISubagentWorkerReadyMessage {
   type: 'ready';
@@ -151,6 +170,18 @@ export interface ISubagentWorkerToolEndMessage {
   success: boolean;
 }
 
+/**
+ * Issue #3288 §1: a tool call inside the child needs a human's approval. `requestId` correlates this
+ * with the parent's eventual `permission_response`; the child parks the call until it arrives (or
+ * until its own turn is cancelled, which the enforcer's existing signal race already denies).
+ */
+export interface ISubagentWorkerPermissionRequestMessage {
+  type: 'permission_request';
+  requestId: string;
+  toolName: string;
+  toolArgs?: TToolArgs;
+}
+
 export interface ISubagentWorkerResultMessage {
   type: 'result';
   output: string;
@@ -173,6 +204,7 @@ export type TSubagentWorkerChildMessage =
   | ISubagentWorkerTextDeltaMessage
   | ISubagentWorkerToolStartMessage
   | ISubagentWorkerToolEndMessage
+  | ISubagentWorkerPermissionRequestMessage
   | ISubagentWorkerResultMessage
   | ISubagentWorkerErrorMessage
   | ISubagentWorkerCancelledMessage;
@@ -302,9 +334,16 @@ export function isSubagentWorkerParentMessage(
       return value.reason === undefined || typeof value.reason === 'string';
     case 'sandbox_settings':
       return isRecord(value.settings);
+    case 'permission_response':
+      return hasString(value, 'requestId') && isPermissionResult(value.result);
     default:
       return false;
   }
+}
+
+/** A `TSubagentWorkerPermissionResult`: the same three-way answer the session layer allows. */
+function isPermissionResult(value: TSubagentWorkerWireValue): boolean {
+  return typeof value === 'boolean' || value === 'allow-session' || value === 'allow-project';
 }
 
 export function isSubagentWorkerChildMessage(
@@ -320,6 +359,8 @@ export function isSubagentWorkerChildMessage(
       return hasString(value, 'toolName');
     case 'tool_end':
       return hasString(value, 'toolName') && typeof value.success === 'boolean';
+    case 'permission_request':
+      return hasString(value, 'requestId') && hasString(value, 'toolName');
     case 'result':
       return hasString(value, 'output') && hasValidOptionalUsage(value);
     case 'error':

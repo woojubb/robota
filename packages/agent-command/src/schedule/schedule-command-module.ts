@@ -43,10 +43,13 @@ const MONITOR_MODEL_DESCRIPTION =
   'The command is allowed, refused or asked about by the same permission rules as a shell tool ' +
   'call. Returns the monitor task id, or a refusal naming what the user must allow.';
 const LOOP_MODEL_DESCRIPTION =
-  'Repeat a prompt on a fixed cadence (`<N><s|m|h|d> [prompt]`) or self-paced (bare or prompt ' +
-  'only: each iteration chooses its next delay or stops). Use it when the user asks for recurring ' +
-  'work in this session. `list` shows active loops; `stop <id>` ends one. Returns the loop id and ' +
-  'its next fire time, or the loop list.';
+  'Repeat a prompt on a fixed cadence (`<N><s|m|h|d> <prompt>`) or self-paced (`<prompt>`: each ' +
+  'iteration chooses its next delay or stops). Use it when the user asks for recurring work in ' +
+  'this session, and always give your own prompt: any form that would fall back to the host\'s ' +
+  'default maintenance prompt — bare `/loop` or an interval alone (`<N><s|m|h|d>`) — needs a ' +
+  'person to confirm it and is always refused for you, whether or not one is attached. `list` ' +
+  'shows active loops; `stop <id>` ends one, even mid-turn. Returns the loop id and its next fire ' +
+  'time, the loop list, or a refusal naming the command to suggest.';
 
 export function createScheduleCommandEntry(): ICommand {
   return {
@@ -154,6 +157,7 @@ function createLoopSystemCommand(options: ILoopCommandOptions): ISystemCommand {
         (taskId, reason) => context.cancelBackgroundTask(taskId, reason),
         args,
         options,
+        { ui: context.getUserInteraction(), source: context.getCommandInvocationSource() },
       ),
   };
 }

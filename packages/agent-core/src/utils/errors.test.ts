@@ -186,6 +186,13 @@ describe('Error Classes', () => {
       expect(error.originalError).toBe(orig);
     });
 
+    it('should store an optional provider, undefined when the failure names none', () => {
+      expect(new NetworkError('failed', undefined, undefined, 'anthropic').provider).toBe(
+        'anthropic',
+      );
+      expect(new NetworkError('failed').provider).toBeUndefined();
+    });
+
     it('should be instanceof RobotaError and Error', () => {
       const error = new NetworkError('test');
       expect(error).toBeInstanceOf(NetworkError);

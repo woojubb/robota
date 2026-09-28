@@ -7,6 +7,7 @@
 
 import { DEFAULT_BACKGROUND_PERMISSION_POLICY } from '@robota-sdk/agent-core';
 
+import { DEFAULT_AGENT_DEFINED_IN, DEFAULT_AGENT_TYPE } from '../agents/agent-definition-types.js';
 import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 
@@ -53,12 +54,30 @@ export function resolveAgentDefinition(
 /** List agent definitions available in the session. */
 export function listAgentDefinitionsFromSession(
   session: Session,
-): Array<{ name: string; description: string }> {
+): Array<{ name: string; description: string; definedIn: string }> {
   const deps = retrieveAgentToolDeps(session);
   return (deps?.agentDefinitions ?? []).map((agent) => ({
     name: agent.name,
     description: agent.description,
+    definedIn: agent.definedIn ?? DEFAULT_AGENT_DEFINED_IN,
   }));
+}
+
+/**
+ * #3282 §4: the agent type `/agent <name>` (no prompt) currently selects, and the agent switcher
+ * shows checked. Never throws — a session with no agent runtime simply has the fallback default.
+ */
+export function getDefaultAgentTypeFromSession(session: Session): string {
+  return retrieveAgentToolDeps(session)?.defaultAgentType ?? DEFAULT_AGENT_TYPE;
+}
+
+/**
+ * #3282 §4: `/agent <name>` (bare, no prompt) sets this session's default agent type — the same
+ * mutable deps bag `spawnAgentJob` and friends already read (`getAgentToolDepsOrThrow`), so it lives
+ * exactly as long as the agent runtime does and needs no separate store.
+ */
+export function setDefaultAgentTypeFromSession(session: Session, agentType: string): void {
+  getAgentToolDepsOrThrow(session).defaultAgentType = agentType;
 }
 
 export interface ISpawnAgentJobInput {

@@ -100,13 +100,21 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
       session: this.interactiveSession,
       manager: this.stateManager,
       ...(this.attention ? { attention: this.attention } : {}),
-      requestPermission: (toolName, toolArgs, id, canPersistProjectPermission, requestedByPeer) =>
+      requestPermission: (
+        toolName,
+        toolArgs,
+        id,
+        canPersistProjectPermission,
+        requestedByPeer,
+        requester,
+      ) =>
         this.permissions.enqueue(
           toolName,
           toolArgs,
           id,
           canPersistProjectPermission,
           requestedByPeer,
+          requester,
         ),
       askUser: (request, id) => this.askUser(request, id),
       dismissPrompt: (id) => this.dismissPromptById(id),

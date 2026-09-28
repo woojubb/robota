@@ -306,6 +306,18 @@ describe('WireTuiChannel', () => {
     await channel.stop();
   });
 
+  it('issue #3288 §1: carries a background agent requester onto the shown permission request', async () => {
+    const { channel, link } = await attached();
+    const requester = { kind: 'background-agent' as const, label: 'general-purpose', taskId: 'agent_1' };
+    link.push({
+      type: 'permission_request',
+      event: { id: 'p1', toolName: 'Glob', toolArgs: { pattern: '**/*' }, requester },
+    });
+    expect(channel.getSnapshot().permissionRequest).toMatchObject({ toolName: 'Glob', requester });
+    channel.getSnapshot().permissionRequest?.resolve(false);
+    await channel.stop();
+  });
+
   it('answers an ask through resolveUserAction as ask-response', async () => {
     const { channel, link } = await attached();
     link.sent.length = 0;

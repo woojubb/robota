@@ -48,6 +48,17 @@ A fork is a copy, not a branch of one live thing: from the moment the record is 
 conversations are separate records that never rejoin. `TExecutionControl` gains `'attach'` for
 exactly that reason — attaching to a fork is a view switch onto its record, never a merge.
 
+### Loop stop routing (`IExecutionWorkspaceEntry.loopId`)
+
+`loopId` names the stable `/loop stop <id>` handle for a `/loop`-managed entry (fixed cadence or
+self-paced) — never inferred from `taskKind` or a title string, because `/schedule` also produces
+`kind: 'scheduled'` tasks that are not loops, and because a self-paced loop's own background-task
+representation, when it has one, is only its disposable wake timer: `cancel-background-task` on that
+timer stops the timer, not the loop. `IExecutionSelfPacedLoopSummary` is a deliberately structural
+(not the full `ISessionLoopState`) subset carried by `ICreateExecutionWorkspaceSnapshotInput` —
+`agent-interface-session` depends on this package, not the reverse, so the richer contract cannot be
+imported here.
+
 ## Non-goals
 
 None by design: a contract package is extended by amending a declaration, not by subclassing or

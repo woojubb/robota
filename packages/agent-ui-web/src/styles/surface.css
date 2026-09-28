@@ -214,3 +214,18 @@
     margin-top: 0.75em;
   }
 }
+
+/*
+ * A code block's own horizontal scrollbar (#3289 §2) stays visible rather than only-on-hover like the
+ * rest of the page (`theme.css`'s quiet overlay scrollbar) — a long unwrapped line needs a standing
+ * signal that there is more of it, not one that only appears once the person already found the edge.
+ * `.gui-code-scroll::-webkit-scrollbar-thumb` outranks that page-wide bare `::-webkit-scrollbar-thumb`
+ * rule on specificity alone, so it wins regardless of which stylesheet loads first.
+ */
+.gui-code-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--foreground) 28%, transparent) transparent;
+}
+.gui-code-scroll::-webkit-scrollbar-thumb {
+  background-color: color-mix(in oklab, var(--foreground) 28%, transparent);
+}

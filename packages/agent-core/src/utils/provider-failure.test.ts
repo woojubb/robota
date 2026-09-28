@@ -10,6 +10,7 @@ import {
 import {
   classifyProviderFailure,
   readProviderFailureDetails,
+  scrubSecrets,
   toProviderError,
 } from './provider-failure';
 
@@ -89,6 +90,114 @@ describe('readProviderFailureDetails', () => {
   });
 });
 
+describe('scrubSecrets', () => {
+  // The previous implementation shared one replace callback across every pattern and keyed its
+  // output on whether `group` was `undefined` — but for a pattern with no capture group, `replace`
+  // passes the match's numeric OFFSET as that argument, not `undefined`, so the check was always
+  // true and the offset itself leaked into the output (e.g. `"...(25: [REDACTED]"`, dropping the
+  // rest of the line as well since the `authorization` pattern also read to the end of the string).
+  it('redacts only the credential in an Authorization header, keeping what comes after it', () => {
+    expect(
+      scrubSecrets('Cannot POST /wrong/path (Authorization: Bearer sk-live-should-not-leak)'),
+    ).toBe('Cannot POST /wrong/path (Authorization: [REDACTED])');
+  });
+
+  it('keeps the rest of the sentence after a mid-message Authorization header', () => {
+    expect(
+      scrubSecrets(
+        'Request failed: Authorization: Bearer sk-live-abcd1234, but also note … ' +
+          'Please update your integration.',
+      ),
+    ).toBe(
+      'Request failed: Authorization: [REDACTED], but also note … Please update your integration.',
+    );
+  });
+
+  it('redacts a standalone Bearer token with no Authorization: prefix', () => {
+    expect(scrubSecrets('token used: Bearer sk-live-standalone-token here')).toBe(
+      'token used: Bearer [REDACTED] here',
+    );
+  });
+
+  it('redacts api_key / api-key / apikey / x-api-key / x-goog-api-key, keeping the header name', () => {
+    expect(scrubSecrets('Gateway rejected api_key=sk-proj-abc123 for this request.')).toBe(
+      'Gateway rejected api_key: [REDACTED] for this request.',
+    );
+    expect(scrubSecrets('header apikey: abc.def.ghi denied')).toBe(
+      'header apikey: [REDACTED] denied',
+    );
+    expect(scrubSecrets('curl error: x-goog-api-key: AIzaSyABCDEF1234567890 was rejected')).toBe(
+      'curl error: x-goog-api-key: [REDACTED] was rejected',
+    );
+    expect(scrubSecrets('refused: x-api-key=abcdef123456')).toBe('refused: x-api-key: [REDACTED]');
+  });
+
+  it('redacts a key= query parameter', () => {
+    expect(scrubSecrets('Blocked request to /v1/models?key=AIzaSyDEMOKEY1234 from client')).toBe(
+      'Blocked request to /v1/models?key=[REDACTED] from client',
+    );
+  });
+
+  it('redacts a bare secret key token, including sk-ant-...', () => {
+    expect(scrubSecrets('Leaked token sk-live-abcdefgh1234 in log line')).toBe(
+      'Leaked token [REDACTED] in log line',
+    );
+    expect(scrubSecrets('Leaked token sk-ant-api03-abcdefgh in log line')).toBe(
+      'Leaked token [REDACTED] in log line',
+    );
+  });
+
+  it('leaves an ordinary message with no secrets unchanged', () => {
+    expect(scrubSecrets('503 Service Unavailable')).toBe('503 Service Unavailable');
+  });
+
+  it('does not hit ordinary hyphenated words that merely contain "sk"', () => {
+    const benign = 'This risky, ask-first, desk-based task-runner workflow needs a review.';
+    expect(scrubSecrets(benign)).toBe(benign);
+  });
+
+  // Built at runtime, not spelled out contiguously here: gitleaks' gcp-api-key rule matches the
+  // AIza… shape by pattern alone, with no allowance for "fake"/"example" context, so a literal test
+  // fixture of this shape is indistinguishable from a real leaked key to that scanner.
+  const FAKE_GOOGLE_KEY = ['AI', 'za', 'SyD', 'x'.repeat(32)].join('');
+
+  // A gateway that echoes the request back as JSON quotes both the header name and its value — the
+  // closing quote right after the key name (`"x-goog-api-key":`) broke the plain `\s*[:=]` match, so
+  // a non-`sk-` key (a Google `AIza...` key, or any quoted `Authorization` value) survived untouched.
+  it('redacts a quoted x-goog-api-key value in a JSON-echoed request', () => {
+    expect(scrubSecrets(`"x-goog-api-key": "${FAKE_GOOGLE_KEY}"`)).toBe(
+      '"x-goog-api-key": "[REDACTED]"',
+    );
+  });
+
+  it('redacts a quoted api_key value with no spaces around the colon', () => {
+    expect(scrubSecrets('"api_key":"abc123secret"')).toBe('"api_key": "[REDACTED]"');
+  });
+
+  it('redacts a quoted Authorization value using a non-Bearer scheme', () => {
+    expect(scrubSecrets('"Authorization": "Basic dXNlcjpwYXNz"')).toBe(
+      '"Authorization": "[REDACTED]"',
+    );
+  });
+
+  it('redacts only the JSON-quoted secret in a mixed message, leaving the rest untouched', () => {
+    const message =
+      'Gateway error: {"error":{"code":401,"message":"Invalid credentials",' +
+      `"x-goog-api-key":"${FAKE_GOOGLE_KEY}"}} — please rotate your key ` +
+      'and retry the request.';
+    expect(scrubSecrets(message)).toBe(
+      'Gateway error: {"error":{"code":401,"message":"Invalid credentials",' +
+        '"x-goog-api-key": "[REDACTED]"}} — please rotate your key and retry the request.',
+    );
+  });
+
+  it('redacts a bare Google API key token with no api_key/key= label around it', () => {
+    expect(scrubSecrets(`token leaked: ${FAKE_GOOGLE_KEY} in the log`)).toBe(
+      'token leaked: [REDACTED] in the log',
+    );
+  });
+});
+
 describe('toProviderError', () => {
   it('wraps an HTTP failure keeping status, type and the original error', () => {
     const sdkError = Object.assign(new Error('503 Service Unavailable'), { status: 503 });
@@ -118,6 +227,166 @@ describe('toProviderError', () => {
     expect(toProviderError(existing, 'openai', 'op')).toBe(existing);
     const sdkAbort = new APIUserAbortErrorShape('Request was aborted.');
     expect(toProviderError(sdkAbort, 'anthropic', 'op')).toBe(sdkAbort);
+  });
+
+  it('maps a 401 to AuthenticationError, carrying the provider', () => {
+    const error = toProviderError(
+      Object.assign(new Error('invalid x-api-key'), { status: 401 }),
+      'anthropic',
+      'Anthropic request failed',
+    );
+    expect(error).toBeInstanceOf(AuthenticationError);
+    expect((error as AuthenticationError).provider).toBe('anthropic');
+    expect(error.message).toBe('Authentication Error: invalid x-api-key');
+  });
+
+  it('maps a 403 to AuthenticationError', () => {
+    const error = toProviderError(
+      Object.assign(new Error('permission denied'), { status: 403 }),
+      'openai',
+      'op',
+    );
+    expect(error).toBeInstanceOf(AuthenticationError);
+  });
+
+  it('maps an authentication_error type with no status to AuthenticationError', () => {
+    const error = toProviderError(
+      Object.assign(new Error('bad key'), { type: 'authentication_error' }),
+      'anthropic',
+      'op',
+    );
+    expect(error).toBeInstanceOf(AuthenticationError);
+  });
+
+  it('reads a retry-after header (Headers instance) into RateLimitError.retryAfter', () => {
+    const error = toProviderError(
+      Object.assign(new Error('slow down'), {
+        status: 429,
+        headers: new Headers({ 'retry-after': '30' }),
+      }),
+      'anthropic',
+      'op',
+    );
+    expect(error).toBeInstanceOf(RateLimitError);
+    expect((error as RateLimitError).retryAfter).toBe(30);
+  });
+
+  it('reads a retry-after header (plain object) into RateLimitError.retryAfter', () => {
+    const error = toProviderError(
+      Object.assign(new Error('slow down'), { status: 429, headers: { 'retry-after': '5' } }),
+      'openai',
+      'op',
+    );
+    expect(error).toBeInstanceOf(RateLimitError);
+    expect((error as RateLimitError).retryAfter).toBe(5);
+  });
+
+  it('leaves retryAfter undefined when there is no retry-after header', () => {
+    const error = toProviderError(
+      Object.assign(new Error('slow down'), { status: 429 }),
+      'gemini',
+      'op',
+    );
+    expect(error).toBeInstanceOf(RateLimitError);
+    expect((error as RateLimitError).retryAfter).toBeUndefined();
+  });
+
+  it('maps a model_not_found code to ModelNotAvailableError', () => {
+    const error = toProviderError(
+      Object.assign(withCode('The model does not exist', 'model_not_found'), {
+        status: 400,
+        type: 'invalid_request_error',
+      }),
+      'deepseek',
+      'op',
+    );
+    expect(error).toBeInstanceOf(ModelNotAvailableError);
+    expect((error as ModelNotAvailableError).provider).toBe('deepseek');
+  });
+
+  // A mistyped self-hosted endpoint (e.g. an openai-compatible `baseURL`) returns a bare 404 whose
+  // body names no model at all. Earlier, ANY bare 404 became ModelNotAvailableError, dropping the
+  // real cause and reporting "the model isn't available with this key" for what is actually a wrong
+  // URL. `error.message` here is exactly what reaches the wire `error` frame's `message` unchanged
+  // (agent-transport's `subscribeSessionEvents` sends `message: error.message`) and, from there, the
+  // GUI's "Details" disclosure — so this also proves those two keep the vendor's real text.
+  it('keeps a bare 404 with no model-naming signal as a generic ProviderError', () => {
+    const error = toProviderError(
+      Object.assign(new Error('Cannot POST /wrong/path/chat/completions'), {
+        status: 404,
+        type: 'not_found_error',
+      }),
+      'openai-compatible',
+      'op',
+    );
+    expect(error).toBeInstanceOf(ProviderError);
+    expect(error).not.toBeInstanceOf(ModelNotAvailableError);
+    expect(error.message).toContain('Cannot POST /wrong/path/chat/completions');
+  });
+
+  // Anthropic's real not-found body is just `model: <name>` (no distinguishing code); Gemini's is
+  // `models/<name> is not found for API version ...`. Either way the vendor names the model, so this
+  // stays ModelNotAvailableError — and keeps the vendor's message instead of the old
+  // `new ModelNotAvailableError(undefined, provider)`, which threw the text away entirely.
+  it('maps a 404 that names the model as not found to ModelNotAvailableError, keeping the vendor message', () => {
+    const error = toProviderError(
+      Object.assign(new Error('model: claude-nonexistent'), { status: 404, type: 'not_found_error' }),
+      'anthropic',
+      'op',
+    );
+    expect(error).toBeInstanceOf(ModelNotAvailableError);
+    expect(error.message).toContain('model: claude-nonexistent');
+  });
+
+  it('scrubs an API key or Authorization header out of the preserved vendor text, both ways', () => {
+    const genericNotFound = toProviderError(
+      Object.assign(
+        new Error('Cannot POST /wrong/path (Authorization: Bearer sk-live-should-not-leak)'),
+        { status: 404 },
+      ),
+      'openai-compatible',
+      'op',
+    );
+    expect(genericNotFound).not.toBeInstanceOf(ModelNotAvailableError);
+    expect(genericNotFound.message).not.toContain('sk-live-should-not-leak');
+
+    const modelNotFound = toProviderError(
+      Object.assign(new Error('model: claude-x not found (api_key=sk-ant-should-not-leak)'), {
+        status: 404,
+        type: 'not_found_error',
+      }),
+      'anthropic',
+      'op',
+    );
+    expect(modelNotFound).toBeInstanceOf(ModelNotAvailableError);
+    expect(modelNotFound.message).not.toContain('sk-ant-should-not-leak');
+  });
+
+  it('maps a network failure to NetworkError, carrying the provider', () => {
+    const error = toProviderError(withCode('socket hang up', 'ECONNRESET'), 'openai', 'op');
+    expect(error).toBeInstanceOf(NetworkError);
+    expect((error as NetworkError).provider).toBe('openai');
+  });
+
+  it('maps an SDK connection-error class to NetworkError', () => {
+    const error = toProviderError(
+      new ApiConnectionErrorShape('Connection error.'),
+      'anthropic',
+      'op',
+    );
+    expect(error).toBeInstanceOf(NetworkError);
+  });
+
+  it('still falls back to a generic ProviderError for anything else (e.g. 503)', () => {
+    const error = toProviderError(
+      Object.assign(new Error('busy'), { status: 503 }),
+      'openai',
+      'OpenAI chat failed',
+    );
+    expect(error).toBeInstanceOf(ProviderError);
+    expect(error).not.toBeInstanceOf(AuthenticationError);
+    expect(error).not.toBeInstanceOf(NetworkError);
+    expect(error).not.toBeInstanceOf(ModelNotAvailableError);
   });
 });
 

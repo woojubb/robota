@@ -57,6 +57,7 @@ export { isObserverMessageType } from './observer-messages.js';
 export type { TProtocolSessionEventClassification } from './session-events.js';
 export type { IProtocolSession } from './protocol-session.js';
 export type {
+  IWireAgentDefinitionSummary,
   IWireHistoryEntry,
   TClientMessage,
   TServerMessage,
@@ -88,6 +89,9 @@ export type {
   TResumeSink,
   IAttachOptions,
 } from './session-resume-bridge.js';
+// #3282 §4a: the Settings screen's host-owned read/write seam (parallels `IUsageQueryReporters`).
+export { handleSettingsMessage, isSettingsMessage } from './settings-messages.js';
+export type { ISettingsReporter, TSettingsUpdateOutcome } from './settings-messages.js';
 
 // SEC-008 admission is NOT here: `src/node/admission.ts` mints and compares transport tokens with
 // `node:crypto`. A browser never mints one — it presents one it was handed — so the exclusion costs

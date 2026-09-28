@@ -1,8 +1,15 @@
 import type { ISubmitOptions, TDriverId } from './driver-contracts.js';
 import type { TWaitingLoopStopOutcome } from './session-loop-contracts.js';
 import type {
+  TProjectDiffRead,
+  TProjectMemoryRead,
+  TProjectStatusRead,
+} from './session-project-contracts.js';
+import type {
   IGoalState,
+  IHistoryDisplaySegment,
   IInteractiveSessionEvents,
+  IModelListSnapshot,
   ISessionStatusSnapshot,
   TInteractiveEventName,
   TPermissionResultValue,
@@ -22,6 +29,7 @@ import type {
   ICommandResult,
   ICommandSkillListEntry,
   TCommandInvocationSource,
+  TCommandSurfaceLocality,
 } from '@robota-sdk/agent-interface-command';
 import type { ISubagentJobState } from '@robota-sdk/agent-interface-execution';
 import type {
@@ -89,6 +97,13 @@ export interface ISessionConversationRead {
    * `getMessages()` is its chat entries alone; a client that renders the session reads this.
    */
   getFullHistory(): IHistoryEntry[];
+  /**
+   * #3288 §2: `getMessages()`'s chat entries, projected into the same display shapes a live stream
+   * produces — text runs and finished tool calls (diffs included, built from each call's arguments
+   * only, never a disk read), in chronological order. A reload, reconnect or session resume has no
+   * live stream to rebuild tool rows from; a client renders THIS instead of falling back to bare text.
+   */
+  getMessagesDisplay(): IHistoryDisplaySegment[];
   getContextState(): IContextWindowState;
 }
 
@@ -116,10 +131,18 @@ export interface ISessionCommands {
     args: string,
     source?: TCommandInvocationSource,
     originDriverId?: TDriverId,
+    /** #3282 §4 part b-2: whether this invocation is provably on this machine. Absent → `'local'`. */
+    locality?: TCommandSurfaceLocality,
   ): Promise<ICommandResult | null>;
   listCommands(): ICommandListEntry[];
   /** The skills a client can offer beside the commands (`/<skill>` activates one). */
   listSkills(): ICommandSkillListEntry[];
+  /**
+   * The models a client may switch to (#3282 §2), grouped by configured provider profile — so the
+   * GUI's model menu never scrapes `/model`'s picker text. Choosing one sends `/model <id>` through
+   * `executeCommand`, the same path the command itself uses.
+   */
+  listModels(): IModelListSnapshot;
 }
 
 export type { ISessionStatusSnapshot } from './session-event-map.js';
@@ -181,8 +204,36 @@ export interface ISessionSelfPacedLoopControl {
   stopWaitingSelfPacedLoop(reason?: string): Promise<TWaitingLoopStopOutcome>;
 }
 
+/**
+ * #3282 §4c — the Project panel's reads: git status, one file's diff, and project memory as readable
+ * text. Deliberately NOT registered in {@link ISessionCapabilityMap} / `SESSION_CAPABILITY_MEMBER_KEYS`
+ * (the session-pool partial-test-double registry, ARCH-012) — nothing in the panel composes a partial
+ * fake session through that host, and every role already there is exercised by it; adding an unused
+ * row would only be more surface for that exact-parity test to carry. `IProtocolSession`
+ * (`agent-transport`) composes this interface directly, the same as it does the roles above.
+ */
+export interface ISessionProjectRead {
+  readProjectStatus(): Promise<TProjectStatusRead>;
+  readProjectDiff(path: string): Promise<TProjectDiffRead>;
+  readProjectMemory(): Promise<TProjectMemoryRead>;
+}
+
 export interface ISessionAgentJobs {
-  listAgentDefinitions(): Array<{ name: string; description: string }>;
+  /**
+   * #3282 §4: the agent switcher's roster — `definedIn` is a plain-words location (a discovered
+   * file's path, or "Built-in") a person picking an agent can read.
+   */
+  listAgentDefinitions(): Array<{ name: string; description: string; definedIn: string }>;
+  /**
+   * #3282 §4: the agent type `/agent <name>` (no prompt) currently selects — the agent switcher
+   * shows it checked. Never throws; a host without the agent runtime just has the fallback default.
+   */
+  getDefaultAgentType(): string;
+  /**
+   * #3282 §4: `/agent <name>` (bare, no prompt) sets this. Choosing an agent in the switcher sends
+   * `/agent <name>` through `executeCommand`, the same path the command itself uses.
+   */
+  setDefaultAgentType(agentType: string): void;
   listAgentJobs(): ISubagentJobState[];
   spawnAgentJob(input: {
     agentType: string;
@@ -227,10 +278,15 @@ export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
   goal: Object.freeze(['setGoal', 'getGoalState', 'cancelGoal'] as const),
   executionState: Object.freeze(['isExecuting', 'getPendingPrompt', 'getPendingCount'] as const),
   driverAttribution: Object.freeze(['getActiveDriverId'] as const),
-  conversationRead: Object.freeze(['getMessages', 'getFullHistory', 'getContextState'] as const),
+  conversationRead: Object.freeze([
+    'getMessages',
+    'getFullHistory',
+    'getMessagesDisplay',
+    'getContextState',
+  ] as const),
   identity: Object.freeze(['getSession'] as const),
   workspaceLocation: Object.freeze(['getCwd'] as const),
-  commands: Object.freeze(['executeCommand', 'listCommands', 'listSkills'] as const),
+  commands: Object.freeze(['executeCommand', 'listCommands', 'listSkills', 'listModels'] as const),
   statusRead: Object.freeze(['getStatusSnapshot'] as const),
   runtimeTools: Object.freeze(['listRuntimeTools', 'invokeRuntimeTool'] as const),
   events: Object.freeze(['on', 'off'] as const),
@@ -254,6 +310,8 @@ export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
   selfPacedLoopControl: Object.freeze(['stopWaitingSelfPacedLoop'] as const),
   agentJobs: Object.freeze([
     'listAgentDefinitions',
+    'getDefaultAgentType',
+    'setDefaultAgentType',
     'listAgentJobs',
     'spawnAgentJob',
     'sendAgentJob',

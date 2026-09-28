@@ -11,12 +11,14 @@ type TSessionDirectoryState = Pick<
   | 'requestSessions'
   | 'switchSession'
   | 'newSession'
+  | 'renameSessionInList'
+  | 'deleteSession'
   | 'sessionSidebarOpen'
   | 'setSessionSidebarOpen'
 >;
 
 let requestCounter = 0;
-function nextRequestId(kind: 'sessions' | 'session_change'): string {
+function nextRequestId(kind: 'sessions' | 'session_change' | 'session_rename' | 'session_delete'): string {
   requestCounter += 1;
   return `${kind}_${requestCounter}_${Date.now()}`;
 }
@@ -113,6 +115,19 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
     (): void => send({ type: 'new-session', requestId: nextRequestId('session_change') }),
     [send],
   );
+  // #3289 §1: rename or delete a row in the list — current or not. Both answer on their own
+  // correlated reply (`session_renamed_in_list`/`session_deleted`, or a `_failed` counterpart); the
+  // reducer in `useSessionClient` refreshes the listing on success and raises a notice on failure.
+  const renameSessionInList = useCallback(
+    (sessionId: string, name: string): void =>
+      send({ type: 'rename-session', sessionId, name, requestId: nextRequestId('session_rename') }),
+    [send],
+  );
+  const deleteSession = useCallback(
+    (sessionId: string): void =>
+      send({ type: 'delete-session', sessionId, requestId: nextRequestId('session_delete') }),
+    [send],
+  );
 
   // The session this surface last moved to, and — once per connection — whether to go back to it.
   const lastSwitchedIdRef = useRef<string | null>(null);
@@ -173,6 +188,8 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
     requestSessions,
     switchSession,
     newSession,
+    renameSessionInList,
+    deleteSession,
     sessionSidebarOpen,
     setSessionSidebarOpen,
     handleSessionsMessage,

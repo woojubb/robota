@@ -74,15 +74,10 @@ graph TD
     WF[agent-command-workflows]
   end
 
-  subgraph Private["App support · private"]
-    PLAY[agent-playground · agent-remote-client]
-  end
-
   subgraph Surfaces["Composition roots"]
     CLI[packages/agent-cli<br/>robota · self-contained bundle]
     APP[apps/agent-app<br/>Electron desktop app]
-    WEB[apps/agent-web<br/>Playground · browser remote client]
-    SRV[apps/agent-server<br/>provider proxy · Playground WebSocket]
+    WEB[apps/agent-web<br/>browser remote client]
     STARTER[apps/starter-nextjs]
     DAGSRV[apps/dag-runtime-server]
     SIG[apps/remote-signaling]
@@ -138,16 +133,12 @@ graph TD
   FW --> DAGDEF & WF
   DAGFW & DAGDEF --> WF
 
-  %% App support
-  TOOLS --> PLAY
-
   %% Composition roots
   FW & CMD & PROD & PACK & SUB & MCP & BIP & SA --> CLI
   TTUI & TCAR & TWEBRTC & TGUI & WF --> CLI
   TGUI --> APP
   CLI -. daemon over loopback WebSocket .-> APP
-  TGUI & PLAY --> WEB
-  FW & CMD & PROV & PLAY --> SRV
+  TGUI --> WEB
   FW & PROV --> STARTER
   DAGFW --> DAGSRV
   TWEBRTC --> SIG

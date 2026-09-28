@@ -3,8 +3,7 @@
  *
  * This is the one alert in the class with a genuinely **remote** source rather than a library one: the SDP is
  * delivered by the (untrusted, content-blind) signaling relay, and `extractDtlsFingerprint` runs on it BEFORE the
- * pairing confirmation — it produces the very value that confirmation binds. See the SEC-003 backlog for the
- * cited call path on both peers.
+ * pairing confirmation — it produces the very value that confirmation binds.
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

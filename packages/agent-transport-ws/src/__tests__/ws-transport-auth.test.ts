@@ -133,6 +133,39 @@ describe('WsTransport loopback auth (GUI-002 TC-03)', () => {
     await closed;
   });
 
+  it('carries the driver id on the connection-open messages frame, so a client can learn its own id (#3289 §3)', async () => {
+    // The crux of #3289 §3's own-driver-id feature: a client's first `messages` frame is where it
+    // learns which of every subsequent `authored` message is its own. This is the one place that
+    // sets it — decode-shape validation and the client reducer are covered elsewhere, but neither
+    // would catch this specific line being broken or reverted.
+    const port = 17660;
+    const transport = new WsTransport({
+      port,
+      maxRetries: 30,
+      open: true,
+      openReason: 'own-driver-id regression test',
+      driverId: 'browser',
+      surface: 'browser',
+    });
+    transport.attach(mockSession());
+    await transport.start();
+    started.push(transport);
+    const ws = new WebSocket(`ws://127.0.0.1:${transport.boundPort}`);
+    const firstMessagesFrame = await new Promise<{ type: string; driverId?: string }>(
+      (resolve, reject) => {
+        ws.on('error', reject);
+        ws.on('message', (data) => {
+          const msg = JSON.parse(String(data)) as { type: string; driverId?: string };
+          if (msg.type === 'messages') resolve(msg);
+        });
+      },
+    );
+    expect(firstMessagesFrame.driverId).toBe('browser');
+    const closed = new Promise<void>((resolve) => ws.once('close', () => resolve()));
+    ws.close();
+    await closed;
+  });
+
   it('accepts a connection presenting the correct token via query param', async () => {
     const { port } = await startOn({ token: 'secret-nonce' });
     expect(await probe(port, { token: 'secret-nonce' })).toBe('messages');

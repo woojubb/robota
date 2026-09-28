@@ -20,7 +20,21 @@ import type { ISessionLoopState } from '@robota-sdk/agent-interface-session';
 
 /** Starting, steering and ending subagent jobs. */
 export interface IAgentJobDispatch {
-  listAgentDefinitions(): Array<{ name: string; description: string }>;
+  /**
+   * #3282 §4: the agent switcher's roster — `definedIn` is a plain-words location (a discovered
+   * file's path, or "Built-in") a person picking an agent can read.
+   */
+  listAgentDefinitions(): Array<{ name: string; description: string; definedIn: string }>;
+  /**
+   * #3282 §4: the agent type `/agent <name>` (no prompt) currently selects — the agent switcher
+   * shows it checked. Never throws; a host without the agent runtime just has the fallback default.
+   */
+  getDefaultAgentType(): string;
+  /**
+   * #3282 §4: `/agent <name>` (bare, no prompt) sets this — the agent type used as the default
+   * `agentType` whenever one is not otherwise named. Throws if the agent runtime is unavailable.
+   */
+  setDefaultAgentType(agentType: string): void;
   listAgentJobs(): ISubagentJobState[];
   spawnAgentJob(input: {
     agentType: string;
@@ -123,7 +137,7 @@ export interface IAgentJobLogs {
   ): Promise<IBackgroundTaskLogPage>;
 }
 
-/** Aggregate: all 15 members remain source-compatible. Declare a role port instead of this. */
+/** Aggregate of the five role interfaces above, kept source-compatible. Declare a role port instead of this. */
 export interface IAgentJobHostContext
   extends
     IAgentJobDispatch,

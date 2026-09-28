@@ -8,9 +8,7 @@ export type TEditCheckpointsUnavailableReason =
   'host-cannot-write-project' | 'restricted-workspace' | 'no-checkpoint-store';
 
 const MESSAGES: Record<TEditCheckpointsUnavailableReason, string> = {
-  'host-cannot-write-project':
-    'Edit checkpoints are off on this host: it cannot prove a write stays inside the project, so a ' +
-    'checkpoint could be neither saved nor restored.',
+  'host-cannot-write-project': "Rewind isn't available on this computer yet.",
   'restricted-workspace':
     'Edit checkpoints need a trusted workspace; this one is restricted, so nothing is saved under it.',
   'no-checkpoint-store':

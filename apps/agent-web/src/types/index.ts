@@ -37,4 +37,4 @@ export interface IApiResponse<T = TUniversalValue> {
   message?: string;
 }
 
-// Note: Auth/Website domain types were removed. apps/web is a minimal Playground host.
+// Note: Auth/Website domain types were removed. apps/agent-web only hosts the browser remote client.

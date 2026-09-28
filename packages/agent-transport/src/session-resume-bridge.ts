@@ -28,6 +28,7 @@ import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession } from './protocol-session.js';
 import type { IUsageQueryReporters } from './usage-messages.js';
 import type { TSeqServerMessage, TServerMessage } from './wire-messages.js';
+import type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface-command';
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 import type { TDriverId } from '@robota-sdk/agent-interface-session';
 
@@ -65,6 +66,8 @@ export interface ISessionResumeBridgeOptions {
   readonly personalUsageReporter?: IUsageQueryReporters['personalUsageReporter'];
   readonly usageReporter?: IUsageQueryReporters['usageReporter'];
   readonly storedSessionUsageReporter?: IUsageQueryReporters['storedSessionUsageReporter'];
+  /** #3282 §4 part b-2: this bridge is the reconnectable WebRTC path, so it is always `'remote'`. */
+  readonly commandSurfaceLocality?: TCommandSurfaceLocality;
 }
 
 export class SessionResumeBridge {
@@ -73,6 +76,7 @@ export class SessionResumeBridge {
   private driverId?: TDriverId;
   private readonly reporters: IUsageQueryReporters;
   private readonly surface?: TUsageSurface;
+  private readonly commandSurfaceLocality?: TCommandSurfaceLocality;
   private readonly unsubscribe: () => void;
   private onDeliveryError?: IAttachOptions['onDeliveryError'];
   /**
@@ -105,6 +109,7 @@ export class SessionResumeBridge {
     this.buffer = new ResumeBuffer(options.buffer);
     this.driverId = options.driverId;
     this.surface = options.surface;
+    this.commandSurfaceLocality = options.commandSurfaceLocality;
     this.reporters = {
       personalUsageReporter: options.personalUsageReporter,
       usageReporter: options.usageReporter,
@@ -178,6 +183,9 @@ export class SessionResumeBridge {
       this.driverId,
       this.reporters,
       this.surface,
+      undefined,
+      undefined,
+      this.commandSurfaceLocality,
     );
   }
 

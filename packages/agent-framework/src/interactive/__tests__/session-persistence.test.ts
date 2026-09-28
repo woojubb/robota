@@ -51,6 +51,7 @@ describe.runIf(process.platform === 'linux')('session persistence facade', () =>
         updatedAt: '2026-05-05T00:02:00.000Z',
         messageCount: 1,
         preview: 'newer answer',
+        // No user message in this session, so no title.
       },
       {
         id: 'session_one',
@@ -59,6 +60,7 @@ describe.runIf(process.platform === 'linux')('session persistence facade', () =>
         updatedAt: '2026-05-05T00:01:00.000Z',
         messageCount: 2,
         preview: 'first answer with newline',
+        title: 'hello',
       },
     ]);
 

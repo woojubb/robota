@@ -14,6 +14,8 @@ type TSessionQueryMessage = Extract<
       | 'get-context'
       | 'get-commands'
       | 'get-status'
+      | 'list-models'
+      | 'get-agent-definitions'
       | 'get-executing'
       | 'get-pending'
       | 'get-execution-workspace'
@@ -38,6 +40,8 @@ export function isSessionQueryMessage(msg: TClientMessage): msg is TSessionQuery
     msg.type === 'get-context' ||
     msg.type === 'get-commands' ||
     msg.type === 'get-status' ||
+    msg.type === 'list-models' ||
+    msg.type === 'get-agent-definitions' ||
     msg.type === 'get-executing' ||
     msg.type === 'get-pending' ||
     msg.type === 'get-execution-workspace' ||
@@ -51,7 +55,10 @@ export function handleSessionQueryMessage(
   msg: TSessionQueryMessage,
 ): void {
   if (msg.type === 'get-messages') {
-    deliver({ type: 'messages', messages: session.getMessages() });
+    // #3288 §2: `display` rides the same frame as `messages` — a reload/reconnect/resume replay
+    // needs both in one round trip, and there is no reason a client would ever want one without
+    // the other (the raw messages already have to be fetched to build the projection).
+    deliver({ type: 'messages', messages: session.getMessages(), display: session.getMessagesDisplay() });
   } else if (msg.type === 'get-history') {
     deliver(historyPage(session, msg.fromIndex ?? 0));
   } else if (msg.type === 'get-prompts') {
@@ -62,6 +69,16 @@ export function handleSessionQueryMessage(
     deliver({ type: 'commands', commands: session.listCommands(), skills: session.listSkills() });
   } else if (msg.type === 'get-status') {
     deliver({ type: 'session_status', status: session.getStatusSnapshot() });
+  } else if (msg.type === 'list-models') {
+    const snapshot = session.listModels();
+    deliver({ type: 'model_list', requestId: msg.requestId, ...snapshot });
+  } else if (msg.type === 'get-agent-definitions') {
+    deliver({
+      type: 'agent_definitions',
+      requestId: msg.requestId,
+      agents: session.listAgentDefinitions(),
+      current: session.getDefaultAgentType(),
+    });
   } else if (msg.type === 'get-executing') {
     deliver({ type: 'executing', executing: session.isExecuting() });
   } else if (msg.type === 'get-execution-workspace') {

@@ -24,6 +24,10 @@
  * fail-closed, and drain logic is unit-testable with a stub emitter.
  */
 
+import { resolve } from 'node:path';
+
+import { buildDiffState } from './interactive-session-streaming.js';
+
 import type { IActionRequest, TActionResponse, TToolArgs } from '@robota-sdk/agent-core';
 import type { IExecutionPendingRequest } from '@robota-sdk/agent-interface-execution';
 import type {
@@ -33,6 +37,23 @@ import type {
   TDriverId,
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-session';
+import type { IPermissionAskContext } from '@robota-sdk/agent-session';
+
+/**
+ * #3288: a Shell request's working directory, but only when it differs from the workspace — a prompt
+ * for a command that just runs where the session already is needs no cwd line.
+ */
+function resolveShellCwdIfDifferent(
+  toolName: string,
+  toolArgs: TToolArgs,
+  cwd: string | undefined,
+): string | undefined {
+  if (toolName !== 'Bash' || !cwd) return undefined;
+  const workingDirectory = toolArgs['workingDirectory'];
+  if (typeof workingDirectory !== 'string' || workingDirectory.length === 0) return undefined;
+  const resolved = resolve(cwd, workingDirectory);
+  return resolved === resolve(cwd) ? undefined : resolved;
+}
 
 /**
  * Whether a driver id names a party that is not the owner: a peer session or an external sender.
@@ -56,6 +77,12 @@ interface IParkedPrompt {
   resolve: (value: TPermissionResultValue | TActionResponse) => void;
   /** Backstop timer (cleared on settle), when a backstop is configured. */
   timer?: ReturnType<typeof setTimeout>;
+  /**
+   * Issue #3288 §1: detach the caller's own abort listener (idempotent), when `requestPermission` was
+   * given a `signal`. Called on every settle path, not only the abort one, so a prompt a person
+   * answered normally does not leave a listener on a signal the caller may hold onto afterward.
+   */
+  onSettle?: () => void;
 }
 
 /** The fail-closed value for a kind: deny a permission, cancel an ask. */
@@ -72,6 +99,12 @@ export interface ISessionPromptRegistryDeps {
   /** REMOTE-014 E5: the ACTIVE turn's driver id, stamped as `requesterDriverId` on the emitted prompt. */
   getActiveDriverId?: () => TDriverId | null;
   /**
+   * #3288: the session's cwd — an Edit/Write permission request uses it to build the same diff
+   * preview `tool_end` would carry, and a Shell request uses it to note its working directory only
+   * when that differs from the workspace. Absent ⇒ neither field is attached (legacy callers).
+   */
+  getCwd?: () => string;
+  /**
    * Optional backstop timeout (ms). Armed when a prompt parks with a live surface; the unconditional
    * last resort so a surface that died without unsubscribing cannot hang the prompt forever. Omit to
    * disable (unit tests) — emit-time + detach reconciliation already guarantee settlement in every
@@ -86,23 +119,47 @@ export class SessionPromptRegistry {
 
   constructor(private readonly deps: ISessionPromptRegistryDeps) {}
 
-  /** Request a permission decision. Resolves deny (`false`) when no surface can answer (fail-closed). */
+  /**
+   * Request a permission decision. Resolves deny (`false`) when no surface can answer (fail-closed).
+   *
+   * Issue #3288 §1: `context.requester` names who is asking when it is not the person's own turn (a
+   * background agent's forwarded tool call), carried on the emitted event for display. `context.signal`
+   * lets the CALLER cancel the ask itself: aborting it settles this prompt denied and emits
+   * `prompt_resolved` on every surface, exactly as if the person had denied it — a background task
+   * that stops or crashes while its request is still parked must not leave it hanging forever.
+   */
   requestPermission(
     toolName: string,
     toolArgs: TToolArgs,
     canPersistProjectPermission = false,
+    context?: IPermissionAskContext,
   ): Promise<TPermissionResultValue> {
     const id = this.mintId('p');
     if (this.deps.countListeners('permission_request') === 0) {
       return Promise.resolve(failClosedValue('permission') as TPermissionResultValue);
     }
+    const signal = context?.signal;
+    if (signal?.aborted === true) {
+      return Promise.resolve(failClosedValue('permission') as TPermissionResultValue);
+    }
     const requesterDriverId = this.deps.getActiveDriverId?.() ?? undefined;
-    return new Promise<TPermissionResultValue>((resolve) => {
+    const cwd = this.deps.getCwd?.();
+    // #3288 §2: the SAME diff builder `tool_end` uses — a no-op ({}) for any tool that isn't Edit/Write.
+    const { diffLines, diffFile } = buildDiffState({ toolName, toolArgs }, cwd);
+    const shellCwd = resolveShellCwdIfDifferent(toolName, toolArgs, cwd);
+    return new Promise<TPermissionResultValue>((resolvePrompt) => {
+      let onSettle: (() => void) | undefined;
+      if (signal !== undefined) {
+        const onAbort = (): void => this.settle(id, failClosedValue('permission'));
+        signal.addEventListener('abort', onAbort, { once: true });
+        onSettle = () => signal.removeEventListener('abort', onAbort);
+      }
       this.park(
         id,
         'permission',
         `Allow ${toolName}?`,
-        resolve as (v: TPermissionResultValue | TActionResponse) => void,
+        resolvePrompt as (v: TPermissionResultValue | TActionResponse) => void,
+        onSettle,
       );
       this.emitOrFailClosed(id, 'permission', () =>
         this.deps.emitPermissionRequest({
@@ -111,6 +168,9 @@ export class SessionPromptRegistry {
           toolArgs,
           canPersistProjectPermission,
           ...(requesterDriverId ? { requesterDriverId } : {}),
+          ...(context?.requester ? { requester: context.requester } : {}),
+          ...(diffLines ? { diffLines, diffFile } : {}),
+          ...(shellCwd ? { cwd: shellCwd } : {}),
         }),
       );
     });
@@ -214,6 +274,7 @@ export class SessionPromptRegistry {
     kind: TParkedKind,
     text: string,
     resolve: (value: TPermissionResultValue | TActionResponse) => void,
+    onSettle?: () => void,
   ): void {
     let timer: ReturnType<typeof setTimeout> | undefined;
     if (this.deps.backstopMs !== undefined) {
@@ -221,7 +282,7 @@ export class SessionPromptRegistry {
       // Never keep the process alive purely to fire a backstop.
       (timer as { unref?: () => void }).unref?.();
     }
-    this.parked.set(id, { kind, text, resolve, timer });
+    this.parked.set(id, { kind, text, resolve, timer, onSettle });
   }
 
   private settle(
@@ -233,6 +294,7 @@ export class SessionPromptRegistry {
     if (!parked) return; // unknown or already-settled — idempotent no-op
     this.parked.delete(id);
     if (parked.timer) clearTimeout(parked.timer);
+    parked.onSettle?.();
     parked.resolve(value);
     this.deps.emitPromptResolved({ id, ...(answererDriverId ? { answererDriverId } : {}) });
   }

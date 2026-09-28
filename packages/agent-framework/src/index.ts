@@ -83,6 +83,7 @@ export {
   ExternalEventIngress,
   ExternalEventGrantHistory,
   createExternalEventGrantHistory,
+  isLoopStopVerb,
 } from './interactive/index.js';
 export { withUniqueSessionName } from './interactive/interactive-session-fork-record.js';
 // TERM-001: a client attached to a runtime in another process hands its own terminal to the
@@ -122,10 +123,14 @@ export {
   isSafeSessionId,
   listResumableSessionSummaries,
   listUnreadableSessions,
+  listUnreadableSessionsForWorkspace,
   resolveLatestSessionId,
+  resolveReusableEmptySessionId,
   resolveSessionIdByIdOrName,
   generateSessionName,
   restoreSessionRecordIntoSession,
+  SessionRenameUnavailableError,
+  persistSessionRename,
   WorkspaceProjectSessionStore,
   WorkspaceSessionLogSink,
   WorkspaceSessionLogSource,
@@ -204,6 +209,7 @@ export type {
   ICommandExternalEventsAdapter,
   TSandboxCommandMode,
   IPermissionRuleLayer,
+  IPermissionRuleRemoval,
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
   ICommandMCPSourceProblem,
@@ -236,6 +242,7 @@ export type {
   IActiveModelChangeOptions,
   IActiveModelChangeResult,
   IReadProviderSettingsOptions,
+  IModelListSelection,
   IContextReferenceAddResult,
   IContextReferenceClearResult,
   IContextReferenceRemoveResult,
@@ -265,7 +272,7 @@ export type {
   TAdvisorTargetResolver,
 } from './advisor/index.js';
 export type { ISessionUsageRecord } from './command-api/session/session-usage.js';
-export { parseModelEffort, resolveModelEffort } from './effort/index.js';
+export { EFFORT_LEVEL_LABELS, parseModelEffort, resolveModelEffort } from './effort/index.js';
 export type {
   IModelEffortInputs,
   IModelEffortResolution,
@@ -292,6 +299,9 @@ export {
   readMergedProviderSettings,
   readProviderSettings,
   resolveEnvDefaultProvider,
+  buildModelListSnapshot,
+  resolveModelListSelection,
+  buildProviderProfilesSnapshot,
   clearCommandContextReferences,
   deleteProviderProfile,
   mergeProviderPatch,
@@ -322,6 +332,7 @@ export {
   parseLanguageArgument,
   RECOMMENDED_RESPONSE_LANGUAGES,
   buildPermissionModeSubcommands,
+  PERMISSION_MODE_LABELS,
   formatCommandPermissionsMessage,
   groupPermissionRulesBySource,
   RUNTIME_RULE_SOURCE,
@@ -597,7 +608,7 @@ export type {
 } from './plugins/index.js';
 
 export type { IAgentDefinition } from './agents/index.js';
-export { BUILT_IN_AGENTS } from './agents/index.js';
+export { BUILT_IN_AGENTS, DEFAULT_AGENT_DEFINED_IN, DEFAULT_AGENT_TYPE } from './agents/index.js';
 
 export {
   getSubagentSuffix,
@@ -847,6 +858,7 @@ export { inspectSettingsLayers } from './config/settings-inspection.js';
 export {
   createSettingsPermissionRulesAdapter,
   readPermissionRuleLayers,
+  removePermissionRule,
 } from './config/permission-rule-layers.js';
 export type {
   ISettingsInspection,
@@ -872,6 +884,51 @@ export type { IResetUserConfigResult } from './config/reset-user-config.js';
 
 // ── Git utilities ─────────────────────────────────────────────
 export { resolveGitBranchFromNodeHost } from './git/git-branch.js';
+// BEHAVIOR-2437 / #3282 §4c: the git process port and the `/git status` + `/git diff` readers moved
+// here from `agent-command` (which depends on this package, never the reverse) so the Project panel's
+// session-level reads and the `/git` command run through the exact SAME functions — never a second,
+// possibly-drifting implementation of "what changed" or "what does this diff show".
+export {
+  createGitProcess,
+  executeGitDiff,
+  executeGitStatus,
+  formatGitStatus,
+  gitDiffArgv,
+  gitEnvironment,
+  gitFailureMessage,
+  isNotAGitRepositoryFailure,
+  parseGitDiffArgs,
+  parseStatusPorcelainV2,
+  parseStatusRecords,
+  parseUnifiedDiffLines,
+  readProjectGitDiff,
+  readProjectGitStatus,
+  GIT_DEFAULT_TIMEOUT_MS,
+  GIT_DIFF_USAGE,
+  GIT_ENV_DENYLIST,
+  GIT_MAX_OUTPUT_BYTES,
+  GIT_STATUS_ARGS,
+  MAX_PROJECT_DIFF_LINES,
+  MAX_STATUS_FILES,
+} from './git/index.js';
+export type {
+  ICreateGitProcessOptions,
+  IGitDiffArgs,
+  IGitProcessPort,
+  IGitProcessRunOptions,
+  IGitStatusSummary,
+  IParsedGitStatus,
+  IProjectGitStatusFile,
+  IRawGitStatusRecord,
+  TGitDiffTarget,
+  TGitProcessFailureReason,
+  TGitProcessOutcome,
+  TParseGitDiffArgs,
+  TProjectFileStatus,
+  TProjectGitDiffResult,
+  TProjectGitStatusResult,
+  TRawGitStatusRecordKind,
+} from './git/index.js';
 
 // ── Semver comparison ─────────────────────────────────────────
 export { compareSemverVersions, isNewerSemverVersion } from './utils/semver-compare.js';
@@ -899,6 +956,7 @@ export {
   SESSION_POOL_MAX_LIVE,
   SESSION_POOL_IDLE_GRACE_MS,
   SessionChangeRefusal,
+  SessionDeleteRefusal,
 } from './runtime/index.js';
 export type {
   ISessionPoolOptions,
@@ -970,6 +1028,7 @@ export type {
   ICommandHostPlan,
   ICommandHostPresetApplication,
   ICommandHostSessionAccess,
+  ICommandHostSetupState,
   ICommandHostTerminalHandoff,
   ICommandHostUserInteraction,
   ICommandHostWorkspace,

@@ -75,6 +75,8 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
       'get-status',
       'get-pending',
       'list-sessions',
+      // #3282 §4 part b-3: the Agents panel's Scheduled group also loads on connect.
+      'get-background-tasks',
     ]);
   });
 
@@ -149,6 +151,8 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
       // #3280 §2: the queued-message row is per-session state too — a switch re-reads it.
       'get-pending',
       'list-sessions',
+      // #3282 §4 part b-3: schedules are per-session state too — a switch re-reads it.
+      'get-background-tasks',
     ]);
   });
 
@@ -190,8 +194,11 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
     expect(result.current.messages.at(-1)).toMatchObject({
       role: 'command',
       tone: 'info',
-      content: expect.stringMatching(/session picker is not available/),
+      content: expect.stringMatching(/cannot list sessions/),
     });
+    // Never the generic "not available on this surface" line (#3282 §4e).
+    const content = (result.current.messages.at(-1) as { content?: string }).content ?? '';
+    expect(content).not.toMatch(/not available on this surface/i);
   });
 
   it('a refused switch surfaces its reason as a notice', () => {
@@ -206,16 +213,19 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
 
   it('a refused switch is its own answer: it leaves a command in flight paired with its screen', () => {
     const { result, deliver } = setup();
-    act(() => result.current.send({ type: 'command', name: 'settings' }));
-    deliver({ type: 'ui_intent', event: { intent: { type: 'show-settings' } } } as TServerMessage);
+    act(() => result.current.send({ type: 'command', name: 'agent' }));
+    // A still-genuinely-unsupported intent: every intent with a real GUI screen (session picker,
+    // settings, plugin manager, agent switcher) now suppresses the reply's conversation card by
+    // design (#3282 §4), so this generic in-flight-pairing test needs one that still does not.
+    deliver({ type: 'ui_intent', event: { intent: { type: 'show-theme-picker' } } } as TServerMessage);
     act(() => result.current.switchSession('b'));
     deliver({ type: 'protocol_error', message: 'Stop the running turn first.' });
-    // The refusal is a toast; the settings command still awaits its own reply.
+    // The refusal is a toast; the agent command still awaits its own reply.
     expect(result.current.sessionNotices.at(-1)).toMatchObject({ message: 'Stop the running turn first.' });
     expect(result.current.messages).toEqual([]);
-    deliver({ type: 'command_result', name: 'settings', message: 'Opening settings...', success: true });
+    deliver({ type: 'command_result', name: 'agent', message: 'Opening agent switcher...', success: true });
     expect(result.current.messages).toEqual([
-      expect.objectContaining({ role: 'command', name: 'settings', tone: 'info' }),
+      expect.objectContaining({ role: 'command', name: 'agent', tone: 'info' }),
     ]);
   });
 
@@ -249,8 +259,11 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
 describe('#3189 step 5 — a refused session change and a pool-capable host', () => {
   it('session_change_failed shows the reason and answers the change, not a command', () => {
     const { result, wire, deliver } = setup();
-    act(() => result.current.send({ type: 'command', name: 'settings' }));
-    deliver({ type: 'ui_intent', event: { intent: { type: 'show-settings' } } } as TServerMessage);
+    act(() => result.current.send({ type: 'command', name: 'agent' }));
+    // A still-genuinely-unsupported intent: every intent with a real GUI screen (session picker,
+    // settings, plugin manager, agent switcher) now suppresses the reply's conversation card by
+    // design (#3282 §4), so this generic in-flight-pairing test needs one that still does not.
+    deliver({ type: 'ui_intent', event: { intent: { type: 'show-theme-picker' } } } as TServerMessage);
     act(() => result.current.switchSession('b'));
     deliver({
       type: 'session_change_failed',
@@ -262,9 +275,9 @@ describe('#3189 step 5 — a refused session change and a pool-capable host', ()
       message: 'Four sessions are live; close one first.',
     });
     // The in-flight change is answered: a later protocol error belongs to the command again.
-    deliver({ type: 'protocol_error', message: 'settings failed' });
+    deliver({ type: 'protocol_error', message: 'agent failed' });
     expect(result.current.messages).toEqual([
-      expect.objectContaining({ role: 'command', name: 'settings', tone: 'info' }),
+      expect.objectContaining({ role: 'command', name: 'theme', tone: 'info' }),
     ]);
   });
 
@@ -405,5 +418,79 @@ describe("#3280 §5 — remembering the session across a desktop Reconnect's rel
     } finally {
       window.sessionStorage.setItem = original;
     }
+  });
+});
+
+describe('#3289 §1 — renaming and deleting a row from the list', () => {
+  it('sends rename-session on the wire and refreshes the listing once it lands', () => {
+    const { result, wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: listing('a') });
+    const before = wire.filter((m) => m.type === 'list-sessions').length;
+
+    act(() => result.current.renameSessionInList('b', 'New name'));
+    const rename = wire.filter((m) => m.type === 'rename-session').at(-1);
+    if (rename?.type !== 'rename-session') throw new Error('expected a rename-session message');
+    expect(rename).toEqual({ type: 'rename-session', sessionId: 'b', name: 'New name', requestId: rename.requestId });
+
+    deliver({
+      type: 'session_renamed_in_list',
+      requestId: rename.requestId,
+      sessionId: 'b',
+      name: 'New name',
+    });
+    expect(wire.filter((m) => m.type === 'list-sessions').length).toBe(before + 1);
+  });
+
+  it('raises a notice when a rename is refused', () => {
+    const { result, wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: listing('a') });
+    act(() => result.current.renameSessionInList('nope', 'x'));
+    const rename = wire.filter((m) => m.type === 'rename-session').at(-1);
+    if (rename?.type !== 'rename-session') throw new Error('expected a rename-session message');
+
+    deliver({
+      type: 'session_rename_failed',
+      requestId: rename.requestId,
+      message: 'No session nope in this workspace.',
+    });
+    expect(result.current.sessionNotices.at(-1)).toMatchObject({
+      message: 'No session nope in this workspace.',
+    });
+  });
+
+  it('sends delete-session on the wire and refreshes the listing once it lands', () => {
+    const { result, wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: listing('a') });
+    const before = wire.filter((m) => m.type === 'list-sessions').length;
+
+    act(() => result.current.deleteSession('b'));
+    const del = wire.filter((m) => m.type === 'delete-session').at(-1);
+    if (del?.type !== 'delete-session') throw new Error('expected a delete-session message');
+    expect(del).toEqual({ type: 'delete-session', sessionId: 'b', requestId: del.requestId });
+
+    deliver({ type: 'session_deleted', requestId: del.requestId, sessionId: 'b' });
+    expect(wire.filter((m) => m.type === 'list-sessions').length).toBe(before + 1);
+  });
+
+  it('raises a notice with the refusal code’s reason when a delete is refused', () => {
+    const { result, wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: listing('a') });
+    act(() => result.current.deleteSession('b'));
+    const del = wire.filter((m) => m.type === 'delete-session').at(-1);
+    if (del?.type !== 'delete-session') throw new Error('expected a delete-session message');
+
+    deliver({
+      type: 'session_delete_failed',
+      requestId: del.requestId,
+      code: 'live_elsewhere',
+      message: 'Another client is on this session.',
+    });
+    expect(result.current.sessionNotices.at(-1)).toMatchObject({
+      message: 'Another client is on this session.',
+    });
   });
 });

@@ -1,6 +1,6 @@
-import type { TBackgroundTaskIsolation } from '@robota-sdk/agent-interface-execution';
+import { DEFAULT_AGENT_TYPE } from '@robota-sdk/agent-framework';
 
-const DEFAULT_AGENT_TYPE = 'general-purpose';
+import type { TBackgroundTaskIsolation } from '@robota-sdk/agent-interface-execution';
 
 export type TAgentMode = 'background';
 

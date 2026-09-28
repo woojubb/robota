@@ -655,6 +655,137 @@ describe('/mcp login', () => {
   });
 });
 
+describe('/mcp reload (#3282 §4 part b-2)', () => {
+  function harness(
+    reload: ICommandMCPActivationAdapter['reload'],
+    taken: (names: string[]) => string[] = (names) => names,
+  ) {
+    const added: IToolWithEventService[][] = [];
+    const reloadToolsAddedCalls: { token: string; added: readonly string[] }[] = [];
+    const port: ICommandMCPActivationAdapter = {
+      list: () => [],
+      approve: async () => summary(),
+      reject: async () => summary(),
+      revoke: async () => summary(),
+      reload,
+      reloadToolsAdded: (token, names) => reloadToolsAddedCalls.push({ token, added: names }),
+    };
+    const host = createTestCommandHost({
+      overrides: { getCommandHostAdapters: () => ({ mcpActivation: port }) },
+    });
+    const session = host.getSession();
+    host.getSession = () => ({
+      ...session,
+      addTools: async (tools) => {
+        added.push([...tools]);
+        return taken(tools.map((tool) => tool.schema.name));
+      },
+    });
+    return {
+      added,
+      reloadToolsAddedCalls,
+      run: (args: string) => executeMCPActivationCommand(host, args),
+    };
+  }
+
+  const forecast = new FunctionTool(
+    { name: 'weather__forecast', description: 'Forecast', parameters: { type: 'object', properties: {} } },
+    async () => 'sunny',
+  );
+
+  it('retries not-connected servers, adds the new tools to the session, and names what changed', async () => {
+    const h = harness(async () => ({
+      tools: [forecast],
+      connectedServerIds: ['weather'],
+      failedServerIds: ['flaky'],
+      reloadToken: 'token-1',
+    }));
+
+    const result = await h.run('reload');
+
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('Connected: weather.');
+    expect(result.message).toContain('Still not connected: flaky');
+    expect(h.added).toEqual([[forecast]]);
+    expect(result.data).toEqual({
+      connectedServerIds: ['weather'],
+      failedServerIds: ['flaky'],
+      tools: ['weather__forecast'],
+    });
+  });
+
+  it('says plainly when nothing newly connected', async () => {
+    const h = harness(async () => ({ tools: [], connectedServerIds: [], failedServerIds: [] }));
+    const result = await h.run('reload');
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('No server newly connected.');
+  });
+
+  it('is refused when the host offers no reload', async () => {
+    const h = harness(undefined);
+    const result = await h.run('reload');
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Reloading MCP servers is not available in this environment.');
+  });
+
+  it('tells the port which reloaded tools the session actually took, keyed to the reload it came from', async () => {
+    const h = harness(
+      async () => ({
+        tools: [forecast],
+        connectedServerIds: ['weather'],
+        failedServerIds: [],
+        reloadToken: 'token-1',
+      }),
+      (names) => names,
+    );
+
+    const result = await h.run('reload');
+
+    expect(result.success).toBe(true);
+    expect(h.reloadToolsAddedCalls).toEqual([{ token: 'token-1', added: ['weather__forecast'] }]);
+  });
+
+  it('tells the port when a reloaded tool collided and was dropped', async () => {
+    const h = harness(
+      async () => ({
+        tools: [forecast],
+        connectedServerIds: ['weather'],
+        failedServerIds: [],
+        reloadToken: 'token-1',
+      }),
+      () => [],
+    );
+
+    const result = await h.run('reload');
+
+    expect(result.success).toBe(true);
+    expect(h.reloadToolsAddedCalls).toEqual([{ token: 'token-1', added: [] }]);
+  });
+
+  it('never calls it when the reload has no token to acknowledge (nothing staged)', async () => {
+    // A defensive case: a host that returned tools without a token (should not happen in practice,
+    // since the composition only omits one when there is nothing to stage) must not be acknowledged
+    // — there would be nothing for the token to correlate to.
+    const h = harness(async () => ({
+      tools: [forecast],
+      connectedServerIds: ['weather'],
+      failedServerIds: [],
+    }));
+
+    await h.run('reload');
+
+    expect(h.reloadToolsAddedCalls).toEqual([]);
+  });
+
+  it('never calls it when nothing newly connected', async () => {
+    const h = harness(async () => ({ tools: [], connectedServerIds: [], failedServerIds: [] }));
+
+    await h.run('reload');
+
+    expect(h.reloadToolsAddedCalls).toEqual([]);
+  });
+});
+
 describe('/mcp command entry', () => {
   it('opens only `status` to the model, and describes login for the user', () => {
     const entry = createMCPActivationCommandEntry();

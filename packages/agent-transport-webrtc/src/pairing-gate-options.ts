@@ -98,6 +98,8 @@ export interface IPairingGateOptions {
   readonly storedSessionUsageReporter?: ISessionMessageHandlerOptions['storedSessionUsageReporter'];
   /** Trusted carrier-owned surface; WebRTC assigns `remote`. */
   readonly surface?: ISessionMessageHandlerOptions['surface'];
+  /** #3282 §4 part b-2: WebRTC assigns `remote` — it proves no locality. */
+  readonly commandSurfaceLocality?: ISessionMessageHandlerOptions['commandSurfaceLocality'];
   /**
    * Post-accept session-frame delivery failure; owning transport performs drop cleanup.
    *

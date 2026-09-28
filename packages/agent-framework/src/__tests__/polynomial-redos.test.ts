@@ -4,8 +4,8 @@
  * Each `describe` covers one parser whose regex was quadratic. The pair is deliberate:
  *
  * - a **timing** test that pumps the string CodeQL named and asserts the parse finishes under
- *   {@link BUDGET_MS}. Every one of these ran for seconds against the pre-fix source (the numbers are in the
- *   SEC-003 backlog), so reverting a fix turns the test red on the assertion, not on a timeout.
+ *   {@link BUDGET_MS}. Every one of these ran for seconds against the pre-fix source, so reverting a fix turns
+ *   the test red on the assertion, not on a timeout.
  * - an **equivalence** test pinning the parse result for well-formed input, so the regex shape cannot be
  *   loosened back to the ambiguous form without a visible behavioural diff.
  *

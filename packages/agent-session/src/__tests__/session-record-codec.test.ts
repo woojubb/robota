@@ -136,6 +136,11 @@ function maximalRecord(): IInteractiveSessionRecord {
           output: 'done',
           metadata: { lines: 12 },
           usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+          // Issue #3288 §1.
+          deniedToolCalls: {
+            total: 2,
+            byReason: { 'denied-by-person': 1, 'no-approver': 1, 'approver-error': 0, cancelled: 0 },
+          },
         },
         error: { category: 'timeout', message: 'too slow', recoverable: true },
       },
@@ -494,6 +499,16 @@ describe('decodeInteractiveSessionRecord — background task result kind discrim
     expect(outcome.status).toBe('corrupt');
     expect(issuePaths(outcome)).toContain('backgroundTasks[0].result.usage');
   });
+
+  it('rejects a process-kind result carrying agent-only deniedToolCalls (#3288 §1)', () => {
+    const record = persisted() as { backgroundTasks: Array<Record<string, unknown>> };
+    const task = record.backgroundTasks[0]!;
+    task['kind'] = 'process';
+    (task['result'] as Record<string, unknown>)['kind'] = 'process';
+    const outcome = decodeInteractiveSessionRecord(record);
+    expect(outcome.status).toBe('corrupt');
+    expect(issuePaths(outcome)).toContain('backgroundTasks[0].result.deniedToolCalls');
+  });
 });
 
 describe('decodeInteractiveSessionRecord — background task state kind discrimination (#2079)', () => {
@@ -713,7 +728,9 @@ describe('decodeVersionedInteractiveSessionRecord — TC-07 version gate', () =>
       schemaVersion: version,
       record: persisted(),
     });
-    expect(outcome).toEqual({ status: 'unsupported', schemaVersion: version });
+    // #3289 §1: the raw `cwd` is still readable despite the version mismatch, so it rides along —
+    // a caller that only wants to know which workspace this legacy record belongs to gets an answer.
+    expect(outcome).toEqual({ status: 'unsupported', schemaVersion: version, cwd: '/work' });
   });
 
   it.each([
@@ -726,6 +743,7 @@ describe('decodeVersionedInteractiveSessionRecord — TC-07 version gate', () =>
     expect(decodeVersionedInteractiveSessionRecord(envelope)).toEqual({
       status: 'unsupported',
       schemaVersion: undefined,
+      cwd: '/work',
     });
   });
 

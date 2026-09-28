@@ -1,1 +1,0 @@
-export const CONTENT_PREVIEW_LENGTH = 100;

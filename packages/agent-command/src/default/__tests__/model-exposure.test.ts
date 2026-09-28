@@ -109,6 +109,8 @@ const USER_ONLY_COMMANDS = [
   'events',
   // Account and credential actions.
   'provider',
+  // Cost and capability decisions: the person chooses, never the model on its own (#3282 §2).
+  'model',
   // Permission widening or permission-mode changes.
   'mode',
   'permissions',

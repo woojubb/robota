@@ -24,6 +24,8 @@ function createDirectory(): ISessionDirectory {
     listSessions: vi.fn(() => listing),
     switchSession: vi.fn(async () => undefined),
     newSession: vi.fn(async () => undefined),
+    renameSession: vi.fn(async () => undefined),
+    deleteSession: vi.fn(async () => undefined),
   };
 }
 

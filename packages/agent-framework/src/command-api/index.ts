@@ -36,6 +36,7 @@ export type {
   ICommandHostPlan,
   ICommandHostPresetApplication,
   ICommandHostSessionAccess,
+  ICommandHostSetupState,
   ICommandHostTerminalHandoff,
   ICommandHostUserInteraction,
   ICommandHostWorkspace,
@@ -53,6 +54,7 @@ export type {
   IModelReapplyOptions,
   IUnknownCommandModuleName,
   TCommandInvocationSource,
+  TCommandSurfaceLocality,
   TAutoCompactThresholdSource,
 } from './host-context.js';
 export type {
@@ -71,6 +73,7 @@ export type {
   ICommandExternalEventsAdapter,
   TSandboxCommandMode,
   IPermissionRuleLayer,
+  IPermissionRuleRemoval,
   ICommandPickerAdapter,
   ICommandProcessAdapter,
   ICommandLocalPeersAdapter,
@@ -185,6 +188,12 @@ export {
   readProviderSettings,
   resolveEnvDefaultProvider,
 } from './provider/provider-factory.js';
+export type { IModelListSelection } from './provider/provider-model-catalog.js';
+export {
+  buildModelListSnapshot,
+  resolveModelListSelection,
+} from './provider/provider-model-catalog.js';
+export { buildProviderProfilesSnapshot } from './provider/provider-profile-summary.js';
 export { formatCommandHelpMessage, HELP_COMMAND_DESCRIPTION } from './help/help-command-api.js';
 export {
   BACKGROUND_COMMAND_DESCRIPTION,
@@ -233,6 +242,7 @@ export {
   parseLanguageArgument,
   RECOMMENDED_RESPONSE_LANGUAGES,
 } from './language/language-command-api.js';
+export { PERMISSION_MODE_LABELS } from './permissions/permission-mode-command-api.js';
 export {
   buildPermissionModeSubcommands,
   formatCommandPermissionsMessage,

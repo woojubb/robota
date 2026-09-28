@@ -38,6 +38,14 @@ export interface IMonitorUiServer {
 }
 
 /**
+ * #3289 §3: what `--serve --open` prints once the page is up. "Robota", not "web monitor" — the
+ * person opening it is looking at their own running session, not a separate observability tool.
+ */
+export function servedAtMessage(url: string): string {
+  return `Robota is open at ${url}\n`;
+}
+
+/**
  * Resolve the built web-monitor asset root (`dist/web`, assembled from a pinned web-producer generation).
  * From the compiled module at `dist/node/…`, the assets sit at `dist/web`. Returns null if not present (a
  * dev tree without a CLI build) — the caller then skips serving the UI without failing the WS host.

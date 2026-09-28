@@ -71,6 +71,37 @@ describe('TuiStateManager', () => {
     expect(mgr.activeTools[0]!.result).toBe('success');
   });
 
+  it('#3288: two parallel same-named calls are attributed by executionId, not by name+running order', () => {
+    const mgr = new TuiStateManager();
+    mgr.onToolStart({ toolName: 'Read', firstArg: 'a.ts', isRunning: true, executionId: 'exec-a' });
+    mgr.onToolStart({ toolName: 'Read', firstArg: 'b.ts', isRunning: true, executionId: 'exec-b' });
+    // The FIRST-started call (a.ts) finishes first, while the SECOND (b.ts) is still running.
+    // `findLastIndex` by name+running alone would pick the most-recently-STARTED entry (b.ts) —
+    // the wrong one — because it is still running and sits last in the array.
+    mgr.onToolEnd({
+      toolName: 'Read',
+      firstArg: 'a.ts',
+      isRunning: false,
+      result: 'success',
+      executionId: 'exec-a',
+    });
+    const a = mgr.activeTools.find((t) => t.executionId === 'exec-a');
+    const b = mgr.activeTools.find((t) => t.executionId === 'exec-b');
+    expect(a?.isRunning).toBe(false);
+    expect(a?.firstArg).toBe('a.ts');
+    expect(b?.isRunning).toBe(true);
+    expect(b?.firstArg).toBe('b.ts');
+
+    mgr.onToolEnd({
+      toolName: 'Read',
+      firstArg: 'b.ts',
+      isRunning: false,
+      result: 'success',
+      executionId: 'exec-b',
+    });
+    expect(mgr.activeTools.every((t) => !t.isRunning)).toBe(true);
+  });
+
   it('clears tools on thinking=true (next execution start)', () => {
     const mgr = new TuiStateManager();
     mgr.onToolStart({ toolName: 'Read', firstArg: '', isRunning: true });

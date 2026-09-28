@@ -14,6 +14,12 @@ import { launchSupervisedSession } from '../supervised-session-launch.js';
 
 const fixture = fileURLToPath(new URL('./fixtures/supervised-serve-fixture.ts', import.meta.url));
 const hungFixture = fileURLToPath(new URL('./fixtures/supervised-hung-start.mjs', import.meta.url));
+const stderrCrashFixture = fileURLToPath(
+  new URL('./fixtures/supervised-stderr-crash.mjs', import.meta.url),
+);
+const stderrSecretsFixture = fileURLToPath(
+  new URL('./fixtures/supervised-stderr-secrets.mjs', import.meta.url),
+);
 const SECRET_MARKER = 'SUPERVISED_SECRET_MUST_NOT_APPEAR';
 
 describe('detached supervised runtime', () => {
@@ -195,6 +201,64 @@ describe('detached supervised runtime', () => {
       rmSync(scratch, { recursive: true, force: true });
     }
   }, 30_000);
+
+  it('#3282 §3: a child that dies before readiness reports its own stderr, not a generic message', async () => {
+    let child: ChildProcess | undefined;
+    try {
+      await expect(launchSupervisedSession(process.cwd(), {
+        entrypoint: stderrCrashFixture,
+        execArgs: [],
+        env: {},
+        onSpawn: (spawned) => { child = spawned; },
+      })).rejects.toThrow('No provider configuration found. Configure a provider before starting a session.');
+    } finally {
+      if (child?.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+    }
+  }, 10_000);
+
+  it('#3282 §3: a benign stderr message survives sanitization unchanged', async () => {
+    let child: ChildProcess | undefined;
+    try {
+      await expect(launchSupervisedSession(process.cwd(), {
+        entrypoint: stderrCrashFixture,
+        execArgs: [],
+        env: {},
+        onSpawn: (spawned) => { child = spawned; },
+      })).rejects.toThrow(
+        /^No provider configuration found\. Configure a provider before starting a session\.$/,
+      );
+    } finally {
+      if (child?.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+    }
+  }, 10_000);
+
+  it('#3282 §3: the reported stderr has no ANSI codes and no secret, env or pattern-matched', async () => {
+    const envSecret = 'sk-test-env-credential-abcdefgh12345';
+    let child: ChildProcess | undefined;
+    let message = '';
+    try {
+      await launchSupervisedSession(process.cwd(), {
+        entrypoint: stderrSecretsFixture,
+        execArgs: [],
+        env: { SUPERVISED_TEST_API_KEY: envSecret },
+        onSpawn: (spawned) => { child = spawned; },
+      });
+      throw new Error('expected launchSupervisedSession to reject');
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    } finally {
+      if (child?.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+    }
+    // No ANSI escape survives (the color codes around "FATAL", nor a bare ESC byte).
+    // eslint-disable-next-line no-control-regex -- asserting NO control byte reached the caller
+    expect(/\x1b/u.test(message)).toBe(false);
+    // Neither secret survives verbatim: the env-credential exact value, or the Bearer token pattern.
+    expect(message).not.toContain(envSecret);
+    expect(message).not.toContain('sk-live-should-not-leak-1234567890');
+    // The benign surrounding text — and that something WAS redacted, not silently dropped — survives.
+    expect(message).toContain('FATAL: connection using key [REDACTED] failed');
+    expect(message).toContain('Authorization: [REDACTED]');
+  }, 10_000);
 
   it('reaps a detached runtime that refuses startup and ignores graceful termination', async () => {
     let child: ChildProcess | undefined;

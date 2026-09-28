@@ -28,17 +28,24 @@ import type {
   IBranchEvent,
   IExecutionResult,
   IContextFileRefreshedEvent,
+  IModelListGroup,
   IPermissionRequestEvent,
   IPromptResolvedEvent,
   IPlanApprovalEvent,
   ISessionRenamedEvent,
+  ISettingsSnapshot,
   IToolState,
   ISessionListing,
   ISessionStatusSnapshot,
   ISessionSwitchedEvent,
   TSessionChangeRefusalCode,
+  TSessionDeleteRefusalCode,
+  TSettingsPatch,
   IUiIntentEvent,
   TPermissionResultValue,
+  TProjectDiffRead,
+  TProjectMemoryRead,
+  TProjectStatusRead,
   TWaitingLoopStopOutcome,
 } from '@robota-sdk/agent-interface-session';
 import type {
@@ -51,6 +58,16 @@ import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
 export type TBackgroundControlAction = 'cancel' | 'close' | 'send';
 
 type THistoryEntry = ReturnType<ISessionConversationRead['getFullHistory']>[number];
+
+/**
+ * #3282 §4: one agent the switcher can offer. `definedIn` is a plain-words location — a discovered
+ * file's path, or "Built-in" — never a raw internal id.
+ */
+export interface IWireAgentDefinitionSummary {
+  name: string;
+  description: string;
+  definedIn: string;
+}
 
 /**
  * #3189: one entry of the session's full history as it crosses the wire. The same record the session
@@ -89,11 +106,25 @@ export type TClientMessage =
   // (a `/` menu), and the session's status (model, permission mode, effort, context).
   | { type: 'get-commands' }
   | { type: 'get-status' }
+  // #3282 §2: the models the GUI's model menu offers, grouped by configured provider profile — so
+  // the GUI never scrapes `/model`'s picker text. Choosing one sends `command` with `name: 'model'`,
+  // the SAME path `/model <id>` runs; this message only reads the choices.
+  | { type: 'list-models'; requestId: string }
+  // #3282 §4: the agent switcher's roster and its currently-selected default — so the GUI never
+  // scrapes `/agent`'s text. Choosing one sends `command` with `name: 'agent'`, the SAME path
+  // `/agent <name>` runs; this message only reads the roster and the current selection.
+  | { type: 'get-agent-definitions'; requestId: string }
   // #3189: the host's sessions — list them, start a new one, make another current. A refused change
   // answers `session_change_failed` with the same `requestId`.
   | { type: 'list-sessions'; requestId: string }
   | { type: 'new-session'; requestId?: string }
   | { type: 'switch-session'; sessionId: string; requestId?: string }
+  // #3289 §1: rename a session from the list — current or not. Answered by `session_renamed_in_list`
+  // or `session_rename_failed`, both carrying the same `requestId`.
+  | { type: 'rename-session'; sessionId: string; name: string; requestId: string }
+  // #3289 §1: remove a stored session's record for good. Answered by `session_deleted` or
+  // `session_delete_failed`, both carrying the same `requestId`.
+  | { type: 'delete-session'; sessionId: string; requestId: string }
   // SELFHOST-004: request the assembled trace/cost read-model (spans + cost-by-source) for the run.
   | { type: 'get-usage-report' }
   | {
@@ -116,6 +147,16 @@ export type TClientMessage =
     }
   // Stop the self-paced loop that is waiting for its next wake; answered by `waiting_loop_stop`.
   | { type: 'stop-waiting-loop'; requestId: string }
+  // #3282 §4c: the Project panel's "Changes" section — this workspace's git status. Answered by
+  // `project_status`, echoing `requestId`.
+  | { type: 'project-status'; requestId: string }
+  // The Project panel's "File diff" section for one file `project_status` reported — `path` exactly
+  // as reported (workspace-relative; the server re-checks it stays inside the workspace). Answered by
+  // `project_diff`.
+  | { type: 'project-diff'; requestId: string; path: string }
+  // The Project panel's "Memory" section — project memory as readable text. Answered by
+  // `project_memory`.
+  | { type: 'project-memory'; requestId: string }
   | { type: 'get-background-tasks'; filter?: IBackgroundTaskListFilter }
   | { type: 'get-background-task'; taskId: string }
   | { type: 'get-background-job-groups' }
@@ -131,7 +172,12 @@ export type TClientMessage =
   // REMOTE-013 E4 session-resume: `resume` asks the host to replay the tail after `lastSeq` (the last seq the
   // client applied); `ack` lets the host free its un-acked buffer up to `seq`. Only meaningful post-E3-accept.
   | { type: 'resume'; lastSeq: number }
-  | { type: 'ack'; seq: number };
+  | { type: 'ack'; seq: number }
+  // #3282 §4a: the GUI Settings screen. A snapshot fetch and a discriminated single-field patch,
+  // never command text — the server applies a patch through the same function its slash command
+  // uses, so the two paths cannot drift. Answered by `settings` or `settings_error`.
+  | { type: 'get-settings'; requestId: string }
+  | { type: 'update-settings'; requestId: string; patch: TSettingsPatch };
 
 /** Outbound message from server to client. */
 export type TServerMessage =
@@ -145,7 +191,28 @@ export type TServerMessage =
   | { type: 'thinking'; isThinking: boolean; driverId?: TDriverId }
   | { type: 'complete'; result: TWireExecutionResult; driverId?: TDriverId }
   | { type: 'interrupted'; result: TWireExecutionResult; driverId?: TDriverId }
-  | { type: 'error'; message: string; driverId?: TDriverId }
+  | {
+      type: 'error';
+      /** The raw failure text — kept for a "Details" disclosure; never the whole story on its own. */
+      message: string;
+      /**
+       * What kind of failure this was, when it's known — so a renderer can say what happened and
+       * what to do next in plain words instead of showing `message` verbatim (#3289 §3). Additive:
+       * absent for a session error this classification does not recognize (unchanged behavior).
+       */
+      code?: 'auth' | 'rate_limit' | 'model_unavailable' | 'network' | 'provider';
+      /** The provider/profile name the failure came from, when `code` names one. */
+      provider?: string;
+      /** For `code: 'rate_limit'`, how long until a retry may succeed, when the provider said so. */
+      retryAfterSeconds?: number;
+      /**
+       * For `code: 'model_unavailable'`, the model the failed request tried — captured at the moment
+       * of failure so a renderer never has to fall back to whatever model is live by the time it
+       * draws this notice (which may already be a different one the person switched to).
+       */
+      model?: string;
+      driverId?: TDriverId;
+    }
   | {
       type: 'command_result';
       name: string;
@@ -155,7 +222,24 @@ export type TServerMessage =
       /** The `requestId` of the `command` this answers, when it carried one. */
       requestId?: string;
     }
-  | { type: 'messages'; messages: ReturnType<ISessionConversationRead['getMessages']> }
+  | {
+      type: 'messages';
+      messages: ReturnType<ISessionConversationRead['getMessages']>;
+      /**
+       * #3288 §2: the SAME history, projected into display segments (text runs and finished tool
+       * calls, diffs included) — so a reload/reconnect/resume replay shows tool rows instead of bare
+       * text. Optional so an older host that has not grown `getMessagesDisplay()` yet still sends a
+       * valid frame; a client without this field falls back to `messages`-only (text bubbles), the
+       * same as before this existed.
+       */
+      display?: ReturnType<ISessionConversationRead['getMessagesDisplay']>;
+      /**
+       * #3289 §3: this connection's own server-assigned driver id, carried on the first frame every
+       * connection already gets — so a client can tell its OWN turns from a co-driver's instead of
+       * treating everything but the literal `'owner'` id as someone else (REMOTE-014 E5 display-only).
+       */
+      driverId?: TDriverId;
+    }
   // #3189: one page of the full history. `entries` start at `startIndex` of the `total` the session
   // holds now, and stop before a page grows past a bounded size (a single larger entry is sent alone).
   | { type: 'history'; startIndex: number; total: number; entries: IWireHistoryEntry[] }
@@ -169,6 +253,23 @@ export type TServerMessage =
   | { type: 'commands'; commands: ICommandListEntry[]; skills: ICommandSkillListEntry[] }
   // Sent in reply to `get-status`, and pushed whenever the session's status changes.
   | { type: 'session_status'; status: ISessionStatusSnapshot }
+  // #3282 §2: reply to `list-models`, echoing its `requestId`. `groups` is current-profile first;
+  // `currentProfile` is absent only when no provider profile is configured at all.
+  | {
+      type: 'model_list';
+      requestId: string;
+      groups: readonly IModelListGroup[];
+      currentProfile?: string;
+      currentModel: string;
+    }
+  // #3282 §4: reply to `get-agent-definitions`, echoing its `requestId`. `current` is always one of
+  // `agents`' names (the fallback default when nothing was ever selected).
+  | {
+      type: 'agent_definitions';
+      requestId: string;
+      agents: readonly IWireAgentDefinitionSummary[];
+      current: string;
+    }
   | { type: 'sessions'; requestId: string; listing: ISessionListing }
   | {
       type: 'sessions_error';
@@ -185,6 +286,18 @@ export type TServerMessage =
       code: TSessionChangeRefusalCode;
       message: string;
       requestId?: string;
+    }
+  // #3289 §1: a `rename-session` succeeded (current session or not); the client refreshes its listing.
+  | { type: 'session_renamed_in_list'; requestId: string; sessionId: string; name: string }
+  | { type: 'session_rename_failed'; requestId: string; message: string }
+  // #3289 §1: a `delete-session` succeeded; the client refreshes its listing and, if it was showing
+  // the deleted session, re-reads what it now shows (the host has already switched it away).
+  | { type: 'session_deleted'; requestId: string; sessionId: string }
+  | {
+      type: 'session_delete_failed';
+      requestId: string;
+      code: TSessionDeleteRefusalCode;
+      message: string;
     }
   // SELFHOST-004 (P5, TC-08): carry the assembled trace/cost read-model (per-op span timeline +
   // cost-by-source) across the sidecar boundary — no existing variant carries per-op `durationMs` or
@@ -218,6 +331,13 @@ export type TServerMessage =
   | { type: 'execution_detail'; requestId: string; page: IExecutionDetailPage }
   | { type: 'execution_detail_error'; requestId: string; message: string }
   | { type: 'waiting_loop_stop'; requestId: string; outcome: TWaitingLoopStopOutcome }
+  // #3282 §4c: the Project panel's reads. Each result crosses the wire UNCHANGED as the session
+  // method's own return value (same convention as `waiting_loop_stop`'s `outcome` above) — the
+  // `kind` discriminant carries the non-repository / outside-workspace / unavailable / failed cases,
+  // so there is no separate `_error` sibling to keep in sync with these.
+  | { type: 'project_status'; requestId: string; result: TProjectStatusRead }
+  | { type: 'project_diff'; requestId: string; result: TProjectDiffRead }
+  | { type: 'project_memory'; requestId: string; result: TProjectMemoryRead }
   | { type: 'background_task_event'; event: TBackgroundTaskEvent }
   | { type: 'background_job_group_event'; event: TBackgroundJobGroupEvent }
   | { type: 'plan_event'; event: IPlanApprovalEvent }
@@ -252,7 +372,16 @@ export type TServerMessage =
   | { type: 'protocol_error'; message: string; requestId?: string }
   // REMOTE-013 E4: sent instead of a replay when the client's `lastSeq` predates the host's retained buffer
   // (overrun) — the client must do a full `get-messages` refresh rather than accept a silent gap.
-  | { type: 'resume_gap' };
+  | { type: 'resume_gap' }
+  // #3282 §4a: the Settings screen's snapshot, in reply to `get-settings` or `update-settings`. The
+  // same type answers both, the way `session_status` answers `get-status` and a status change alike.
+  | { type: 'settings'; requestId: string; settings: ISettingsSnapshot }
+  | {
+      type: 'settings_error';
+      requestId: string;
+      code: 'not_available' | 'invalid' | 'refused' | 'update_failed';
+      message: string;
+    };
 
 /**
  * REMOTE-013 E4: a server message stamped with its monotonic session sequence number (added by the

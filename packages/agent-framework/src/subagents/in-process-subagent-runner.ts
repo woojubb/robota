@@ -294,7 +294,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
         ...(job.request.disallowedTools !== undefined
           ? { taskDisallowedTools: job.request.disallowedTools }
           : {}),
-        permissionHandler: deps.permissionHandler,
+        permissionHandler: bindRequester(deps.permissionHandler, job),
         ...subagentCommandSandbox(deps.sandboxClient),
         hooks: deps.hooks,
         hookTypeExecutors: deps.hookTypeExecutors,
@@ -324,4 +324,25 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
       };
     },
   };
+}
+
+/**
+ * Issue #3288 §1: bind this job's requester identity onto the parent's own approver — the SAME way
+ * `child-process-subagent-runner.ts`'s `permissionApprover` does — so an in-process background
+ * agent's permission prompt is attributed too ("Background agent <type> wants to …"), not just a
+ * child-process one. Built from the parent's own job record (`job.request.agentType`, `job.taskId`),
+ * never from anything the agent itself supplies. `undefined` stays `undefined` (no approver at all,
+ * the same fail-closed default the enforcer applies with none).
+ */
+function bindRequester(
+  handler: TPermissionHandler | undefined,
+  job: ISubagentJobStart,
+): TPermissionHandler | undefined {
+  if (handler === undefined) return undefined;
+  const requester = {
+    kind: 'background-agent' as const,
+    label: job.request.agentType,
+    taskId: job.taskId,
+  };
+  return (toolName, toolArgs, context) => handler(toolName, toolArgs, { ...context, requester });
 }

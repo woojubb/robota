@@ -16,6 +16,8 @@ export type {
   TAutoCompactThreshold,
   TPermissionHandler,
   TPermissionResult,
+  IPermissionAskContext,
+  TPermissionRequester,
   ITerminalOutput,
   ISpinner,
 } from './session.js';

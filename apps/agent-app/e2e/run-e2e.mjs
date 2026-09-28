@@ -8,7 +8,8 @@
  * to that same daemon and its conversation (#3189); a daemon that stops while the window is open leaves the
  * window saying so, and Reconnect starts a new daemon and attaches to it (or, when the new start fails,
  * shows the CLI's reason); a daemon that cannot start reaches the fatal screen with the CLI's reason
- * instead of hanging; and in a folder not trusted yet the window asks first, and starts the daemon
+ * instead of hanging, and its Try again button reuses the same restart flow to connect once the cause is
+ * gone (#3282 §3); and in a folder not trusted yet the window asks first, and starts the daemon
  * Restricted or after the grant, as answered (#3268).
  *
  * Run: `pnpm --filter @robota-sdk/agent-app test:e2e` (wraps this in `xvfb-run`; on macOS run it with node).
@@ -94,6 +95,26 @@ try {
     await page.getByLabel('message').press('Enter');
     await page.getByText('Hello from the scripted agent.').waitFor({ timeout: 10_000 });
     check('TC-01: a turn round-trips through the desktop shell', true);
+
+    // #3282 §4a: the App menu's "Settings…" (id `open-settings`, ⌘,/Ctrl+,) — clicked through the
+    // main process rather than a synthetic key event, the reliable path in headless/CI Linux.
+    await app.evaluate(({ Menu }) =>
+      Menu.getApplicationMenu()?.getMenuItemById('open-settings')?.click(),
+    );
+    await page.getByRole('dialog', { name: 'Settings' }).waitFor({ timeout: 10_000 });
+    check('#3282 §4a: the Settings… menu item opens the Settings screen', true);
+    await page.getByRole('button', { name: 'Close Settings' }).click();
+    await page.getByRole('dialog', { name: 'Settings' }).waitFor({ state: 'detached' });
+
+    // Setting an application menu at all replaces Electron's built-in one; confirm Edit's Copy role
+    // is still there, so the composer keeps its normal cut/copy/paste shortcuts.
+    const hasCopyRole = await app.evaluate(({ Menu }) => {
+      const walk = (items) =>
+        items.some((item) => item.role === 'copy' || (item.submenu && walk(item.submenu.items)));
+      const menu = Menu.getApplicationMenu();
+      return menu ? walk(menu.items) : false;
+    });
+    check('#3282 §4a: the Edit menu still offers Copy (composer shortcuts keep working)', hasCopyRole);
   } catch (err) {
     check(`first launch threw: ${err?.message ?? err}`, false);
   } finally {
@@ -194,6 +215,35 @@ try {
     await askedTrust.close();
   }
 
+  // #3282 §4d: the composer's attach button through the REAL Electron bridge — preload -> IPC ->
+  // `dialog.showOpenDialog` -> `fs.statSync`. Stubs only the dialog (via `evaluate`, in the main
+  // process); everything downstream of the picked path is the real preload/main/gui-host/Composer
+  // code. A fresh daemon reports a real temp directory as its workspace so the picked file resolves
+  // as "inside the workspace" the same way a real project would.
+  stopRecordedDaemon();
+  const attachDir = mkdtempSync(join(tmpdir(), 'agent-app-e2e-attach-'));
+  const attachFilePath = join(attachDir, 'notes.txt');
+  writeFileSync(attachFilePath, 'scripted attachment contents');
+  const attach = await launch({ ROBOTA_E2E_WORKSPACE_CWD: attachDir });
+  try {
+    const page = await attach.firstWindow();
+    await connected(page);
+    await attach.evaluate(({ dialog: electronDialog }, filePath) => {
+      electronDialog.showOpenDialog = async () => ({ canceled: false, filePaths: [filePath] });
+    }, attachFilePath);
+    await page.getByRole('button', { name: 'Attach files' }).click();
+    await page
+      .getByRole('list', { name: 'attachments' })
+      .getByText('notes.txt')
+      .waitFor({ timeout: 10_000 });
+    check('#3282 §4d: the attach button opens the native dialog and adds a chip for the picked file', true);
+  } catch (err) {
+    check(`attach check threw: ${err?.message ?? err}`, false);
+  } finally {
+    await attach.close();
+    rmSync(attachDir, { recursive: true, force: true });
+  }
+
   const refused = await launch({ ROBOTA_E2E_DAEMON_FAIL: '1' });
   try {
     const page = await refused.firstWindow();
@@ -203,6 +253,27 @@ try {
     check(`fatal-state check threw: ${err?.message ?? err}`, false);
   } finally {
     await refused.close();
+  }
+
+  // #3282 §3: the fatal screen's Try again reuses the same restart flow as Reconnect — it must connect
+  // once whatever stopped the very first start is gone, not just redraw the same failure.
+  stopRecordedDaemon();
+  writeFileSync(failFile, '');
+  const neverStarted = await launch({ ROBOTA_E2E_DAEMON_FAIL_FILE: failFile });
+  try {
+    const page = await neverStarted.firstWindow();
+    await page.getByRole('alert').getByText(/robota trust/).waitFor({ timeout: 20_000 });
+    const tryAgain = page.getByRole('alert').getByRole('button', { name: 'Try again' });
+    await tryAgain.waitFor();
+    rmSync(failFile, { force: true });
+    await tryAgain.click();
+    await connected(page);
+    check('#3282 §3: Try again on the fatal screen retries and connects once the cause is gone', isAlive(readDaemonPid()));
+  } catch (err) {
+    check(`fatal try-again check threw: ${err?.message ?? err}`, false);
+  } finally {
+    await neverStarted.close();
+    rmSync(failFile, { force: true });
   }
 } finally {
   const pid = readDaemonPid();

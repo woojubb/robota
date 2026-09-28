@@ -6,20 +6,34 @@
  */
 
 import { spawn } from 'node:child_process';
+import { statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { app, BrowserWindow, ipcMain, session, shell, type WebContents } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  session,
+  shell,
+  type MenuItemConstructorOptions,
+  type WebContents,
+} from 'electron';
 
 import {
   appendOutputTail,
   buildContentSecurityPolicy,
   buildDaemonStartSpawn,
+  buildPickedFiles,
   createDaemonAttachment,
   describeDaemonStartFailure,
   isTrustChoice,
   parseDaemonStartOutput,
   parseTrustStatusOutput,
+  resolveOpenPathTarget,
   resolveSidecarCommand,
+  type IPickedFile,
   type ITrustQuestion,
   type TDaemonStart,
 } from './sidecar.js';
@@ -125,6 +139,77 @@ function lockNavigation(win: BrowserWindow): void {
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 }
 
+/**
+ * #3282 §4a: "Settings…" — id `open-settings` so `apps/agent-app/e2e/run-e2e.mjs` can click it
+ * directly (`Menu.getApplicationMenu()?.getMenuItemById('open-settings')?.click()`), the reliable
+ * path in CI/headless Linux where a native accelerator key event may not reach the app the same way.
+ */
+function openSettingsMenuItem(win: BrowserWindow): MenuItemConstructorOptions {
+  return {
+    id: 'open-settings',
+    label: 'Settings…',
+    accelerator: 'CmdOrCtrl+,',
+    click: () => {
+      if (!win.webContents.isDestroyed()) win.webContents.send('agent-gui:open-settings');
+    },
+  };
+}
+
+/**
+ * A complete standard application menu — setting one at all REPLACES Electron's own default, so this
+ * covers every role a person expects (Edit's cut/copy/paste keeps the composer's normal shortcuts
+ * working), not only the Settings item #3282 §4a adds.
+ */
+function buildMenu(win: BrowserWindow): Menu {
+  const isMac = process.platform === 'darwin';
+  const editSubmenu: MenuItemConstructorOptions[] = [
+    ...(isMac ? [] : [openSettingsMenuItem(win), { type: 'separator' } as const]),
+    { role: 'undo' },
+    { role: 'redo' },
+    { type: 'separator' },
+    { role: 'cut' },
+    { role: 'copy' },
+    { role: 'paste' },
+    { role: 'selectAll' },
+  ];
+  const viewSubmenu: MenuItemConstructorOptions[] = [
+    { role: 'resetZoom' },
+    { role: 'zoomIn' },
+    { role: 'zoomOut' },
+    { type: 'separator' },
+    { role: 'togglefullscreen' },
+    // Dev tools stay out of a packaged build's menu — nothing here toggles a debugging surface a
+    // shipped app should not offer.
+    ...(app.isPackaged ? [] : [{ type: 'separator' } as const, { role: 'toggleDevTools' } as const]),
+  ];
+  const template: MenuItemConstructorOptions[] = [
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' },
+              { type: 'separator' },
+              openSettingsMenuItem(win),
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' },
+            ],
+          } satisfies MenuItemConstructorOptions,
+        ]
+      : [{ label: '&File', submenu: [{ role: 'quit' }] } satisfies MenuItemConstructorOptions]),
+    { label: isMac ? 'Edit' : '&Edit', submenu: editSubmenu },
+    { label: isMac ? 'View' : '&View', submenu: viewSubmenu },
+    { role: 'windowMenu' },
+  ];
+  return Menu.buildFromTemplate(template);
+}
+
 async function createWindow(): Promise<void> {
   // In a folder not trusted yet the daemon would be refused; the person in front is asked first.
   const started = readTrustQuestion().then((question) => {
@@ -144,6 +229,7 @@ async function createWindow(): Promise<void> {
     },
   });
   lockNavigation(win);
+  Menu.setApplicationMenu(buildMenu(win));
   win.once('ready-to-show', () => win.show());
 
   // The CSP is fixed when the page loads, so the page loads once the daemon's port is known. A failed
@@ -181,6 +267,40 @@ ipcMain.handle('agent-gui:restart', async (event): Promise<void> => {
 
 /** The question the page shows before anything starts, or `null` when there is none. */
 ipcMain.handle('agent-gui:trust-question', (): ITrustQuestion | null => pendingTrust ?? null);
+
+/**
+ * The composer's attach button (#3282 §4d): a native multi-file dialog, scoped to this window so it
+ * is modal to it rather than the whole app. Cancelling answers an empty list, same as picking nothing.
+ */
+ipcMain.handle('agent-gui:pick-files', async (event): Promise<IPickedFile[]> => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const properties: Array<'openFile' | 'multiSelections'> = ['openFile', 'multiSelections'];
+  const result = win
+    ? await dialog.showOpenDialog(win, { properties })
+    : await dialog.showOpenDialog({ properties });
+  if (result.canceled) return [];
+  return buildPickedFiles(result.filePaths, (path) => {
+    try {
+      return statSync(path).size;
+    } catch {
+      // Removed or unreadable between the dialog closing and this running — drop it, not a crash.
+      return undefined;
+    }
+  });
+});
+
+/**
+ * The Project panel's Memory "Open in editor" (#3282 §4c): opens a project-relative path — as the
+ * local daemon itself reported it — in the OS default app for it. `resolveOpenPathTarget` refuses a
+ * path that resolves outside this workspace before anything is opened.
+ */
+ipcMain.handle('agent-gui:open-path', async (_event, path: unknown): Promise<{ error?: string }> => {
+  if (typeof path !== 'string') return { error: 'path must be a string' };
+  const target = resolveOpenPathTarget(process.cwd(), path);
+  if (target === undefined) return { error: 'That path is outside the workspace.' };
+  const error = await shell.openPath(target);
+  return error ? { error } : {};
+});
 
 /**
  * The person answered. Trust records the grant (a grant the CLI refuses keeps the question up, with
