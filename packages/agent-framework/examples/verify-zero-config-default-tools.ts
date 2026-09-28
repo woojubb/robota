@@ -41,7 +41,9 @@ const EXPECTED_TOOLS = [
   'WebFetch',
   'WebSearch',
   'Write',
+  'peer_send_file',
   'report_goal_status',
+  'report_loop_decision',
 ];
 
 function assertCondition(condition: boolean, message: string): void {

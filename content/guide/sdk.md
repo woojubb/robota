@@ -66,6 +66,10 @@ directory or a storage location. With only `cwd` and `provider`, a session:
 
 - has the default tools (`Shell`, `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebFetch`,
   `WebSearch`, `AskUserQuestion`), with file tools confined to `cwd`;
+- has the session's own tools `report_goal_status`, `report_loop_decision` and `peer_send_file`,
+  which do nothing unless a goal, a loop or a host that connects the session to other sessions is
+  in play (a session from `createAgentRuntime()` also has `BackgroundProcess`). They are listed to
+  MCP clients too; `deniedTools` hides any of them;
 - applies permission checks for the chosen `permissionMode`;
 - reads **no** settings file, **no** `AGENTS.md` or `CLAUDE.md`, and discovers **no** skills, agent
   definitions or plugins;
