@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Robota SDK \u2014 Express REST API with tool use example",
+  "description": "Robota SDK — Express REST API with tool use example",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",

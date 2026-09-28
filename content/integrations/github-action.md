@@ -88,30 +88,26 @@ does not load the repository's instruction files or settings. See [Using the SDK
 
 ## The Robota GitHub Action (not released)
 
-The GitHub Action lives in [`apps/action`](../../apps/action/action.yml). It is not released yet: no
-tag or `uses:` reference is published for it, so until it is, use the CLI as shown above.
+The GitHub Action lives in [`apps/action`](../../apps/action/action.yml). It is not released: its
+`action.yml` runs `dist/index.js`, which is not committed, and no workflow builds or publishes it, so
+there is no `uses:` reference a workflow can point at yet. Until it is released, use the CLI as shown
+above.
 
-It is a composite action: it sets up Node.js 22.12 and runs
-`npx --yes @robota-sdk/agent-cli --safe-mode -p <task> --output-format <output>`, adding `--model` and
-`--max-turns` when they are set, with `api-key` passed to the CLI as `ANTHROPIC_API_KEY`. It sets the
-`result` output to what the CLI printed, and fails the step if the CLI exits with an error. Each input
-reaches the CLI as a separate argument, never through a shell, so a task built from issue or pull
+The action runs `npx --yes @robota-sdk/agent-cli -p <task> --output-format <output>`, adding `--model`
+and `--max-turns` when they are set, with `api-key` passed to the CLI as `ANTHROPIC_API_KEY`. It sets
+the `result` output to what the CLI printed, and fails the step if the CLI exits with an error. Each
+input reaches the CLI as a separate argument, never through a shell, so a task built from issue or pull
 request text cannot inject shell commands.
-
-By default the CLI runs with `--safe-mode`, so the checkout's settings, hooks, skills and MCP servers do
-not load. Set `load-project: 'true'` to run `robota trust --yes` first and load them instead — only for
-code you trust, never for a pull request from a fork.
 
 ### Inputs
 
-| Input          | Required | Default | Description                                                             |
-| -------------- | -------- | ------- | ----------------------------------------------------------------------- |
-| `task`         | yes      | —       | The task or prompt to send to the agent                                 |
-| `model`        | no       | —       | AI model to use (e.g. `claude-sonnet-4-6`)                              |
-| `api-key`      | no       | —       | Anthropic API key (pass it from `secrets`)                              |
-| `output`       | no       | `text`  | Output format: `text` \| `json` \| `stream-json`                        |
-| `max-turns`    | no       | —       | Maximum agent turns before stopping                                     |
-| `load-project` | no       | `false` | Trust the checkout and load its settings, hooks, skills and MCP servers |
+| Input       | Required | Default | Description                                      |
+| ----------- | -------- | ------- | ------------------------------------------------ |
+| `task`      | yes      | —       | The task or prompt to send to the agent          |
+| `model`     | no       | —       | AI model to use (e.g. `claude-sonnet-4-6`)       |
+| `api-key`   | no       | —       | Anthropic API key (pass it from `secrets`)       |
+| `output`    | no       | `text`  | Output format: `text` \| `json` \| `stream-json` |
+| `max-turns` | no       | —       | Maximum agent turns before stopping              |
 
 ### Outputs
 

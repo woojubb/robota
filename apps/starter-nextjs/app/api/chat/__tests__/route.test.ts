@@ -47,22 +47,12 @@ describe('POST /api/chat', () => {
     expect(await response.json()).toEqual({ reply: 'Hello from Robota' });
   });
 
-  it('offers the model none of the built-in tools that run commands or read or change files', async () => {
+  it('offers the model only tools that act on nothing outside the conversation', async () => {
     await POST(chat({ message: 'hi' }));
     const offered = (scripted.chatOptions[0]?.tools ?? []).map((tool) => tool.name);
-    for (const name of [
-      'Shell',
-      'Bash',
-      'Read',
-      'Write',
-      'Edit',
-      'Glob',
-      'Grep',
-      'WebFetch',
-      'WebSearch',
-    ]) {
-      expect(offered).not.toContain(name);
-    }
+    // An allowlist, so a built-in tool added later fails here until someone decides about it.
+    const harmless = ['AskUserQuestion', 'report_goal_status', 'report_loop_decision'];
+    expect(offered.filter((name) => !harmless.includes(name))).toEqual([]);
   });
 
   it('refuses a request without a message', async () => {

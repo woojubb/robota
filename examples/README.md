@@ -43,8 +43,9 @@ Each example is independent — install and run it separately. Copied out on its
 published `@robota-sdk/*` packages from npm. Inside this repository the examples are pnpm workspace members
 linked to the local packages, so run `pnpm install && pnpm build` at the repository root first.
 
-Examples that use `dotenv` (the Slack, Discord and Telegram bots and the PR reviewer) or Next.js read their
-`.env` file themselves. The others read keys from the process environment only: export them, or pass Node's
+The examples in this directory read their `.env` file themselves: the Slack, Discord and Telegram bots and the
+PR reviewer with `dotenv`, Next.js from `.env.local`, and the rest with Node's `process.loadEnvFile`. The
+demos under `capabilities/` read keys from the process environment only: export them, or pass Node's
 `--env-file` flag (for example `npx tsx --env-file=.env src/index.ts`).
 
 ```bash

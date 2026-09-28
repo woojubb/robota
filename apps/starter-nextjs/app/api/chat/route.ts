@@ -21,13 +21,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   });
 
   // Anyone who can reach this route can talk to the agent, so the session loads no project
-  // instruction files and has none of the built-in tools that run commands or read or change files.
-  // Add your own tools with `additionalTools` and approve them by name with `allowedTools`.
+  // instruction files and has none of the built-in tools that run commands, read or change files,
+  // reach the network or send files. Add your own tools with `additionalTools` and approve them by
+  // name with `allowedTools`.
   const session = runtime.createSession({
     bare: true,
     deniedTools: [
       'Shell',
       'Bash',
+      'BackgroundProcess',
       'Read',
       'Write',
       'Edit',
@@ -35,6 +37,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       'Grep',
       'WebFetch',
       'WebSearch',
+      'peer_send_file',
     ],
   });
   try {

@@ -2,7 +2,7 @@
   "name": "robota-example-telegram-bot",
   "version": "0.1.0",
   "private": true,
-  "description": "Robota SDK \u2014 Telegram bot example using grammy",
+  "description": "Robota SDK — Telegram bot example using grammy",
   "type": "module",
   "scripts": {
     "build": "tsc",

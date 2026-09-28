@@ -2,7 +2,7 @@
   "name": "robota-example-discord-bot",
   "version": "0.1.0",
   "private": true,
-  "description": "Robota SDK \u2014 Discord bot example using discord.js",
+  "description": "Robota SDK — Discord bot example using discord.js",
   "type": "module",
   "scripts": {
     "build": "tsc",

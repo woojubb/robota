@@ -16,8 +16,8 @@ returns its reply. It is the canonical reference for wiring `@robota-sdk/agent-f
 - Does not define custom authentication, rate limiting, or middleware, and exports no library symbols
   for programmatic consumption.
 - Safety caveat: the chat route is unauthenticated, so every session it starts loads no project
-  instruction files and has none of the built-in tools that run commands or read or change files; a
-  request can talk to the model and nothing else. Add authentication before exposing it, and approve
+  instruction files and has none of the built-in tools that run commands, read or change files, reach
+  the network or send files; a request can talk to the model and nothing else. Add authentication before exposing it, and approve
   any tool you add by name rather than widening the permission mode.
 
 ## Non-goals

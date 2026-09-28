@@ -35,7 +35,9 @@ anything that would ask for approval — writing files, other shell commands —
 ## Pipe mode (CI/CD)
 
 Piped text is read whether or not an argument is given. Without an argument it is the whole prompt; with
-one, it follows the argument, so the argument can be the instruction and stdin the input:
+one, it follows the argument, so the argument can be the instruction and stdin the input. With an
+argument, stdin is read only when it is a pipe or a redirected file, so a program that starts the script
+with its stdin left open does not make it wait:
 
 ```bash
 cat error.log | node dist/index.js

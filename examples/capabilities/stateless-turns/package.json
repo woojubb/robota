@@ -2,7 +2,7 @@
   "name": "robota-capability-stateless-turns",
   "version": "0.1.0",
   "private": true,
-  "description": "Robota capability demo \u2014 run-isolated mode (retainHistory: false) with a flat token profile",
+  "description": "Robota capability demo — run-isolated mode (retainHistory: false) with a flat token profile",
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",

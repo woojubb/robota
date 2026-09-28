@@ -2,7 +2,7 @@
   "name": "robota-example-nextjs",
   "version": "0.1.0",
   "private": true,
-  "description": "Robota SDK \u2014 Next.js App Router streaming chat example",
+  "description": "Robota SDK — Next.js App Router streaming chat example",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

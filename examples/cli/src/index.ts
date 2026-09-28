@@ -13,6 +13,7 @@
  */
 
 import './load-env.js';
+import { fstatSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { createQuery } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
@@ -34,10 +35,18 @@ async function readStdin(): Promise<string> {
   return lines.join('\n').trim();
 }
 
+/** A shell pipe or a redirected file ends; a parent process's open stdin socket may never. */
+function stdinIsPipedData(): boolean {
+  const stat = fstatSync(0);
+  return stat.isFIFO() || stat.isFile();
+}
+
 async function main(): Promise<void> {
   const argPrompt = process.argv.slice(2).join(' ').trim();
-  // Piped text is read whether or not a prompt argument is given: with both, it follows the prompt.
-  const piped = process.stdin.isTTY ? '' : await readStdin();
+  // Piped text follows the prompt argument. With an argument, stdin is read only when it is a pipe
+  // or a file, so a parent that spawns this with an open stdin does not hang it.
+  const readsStdin = !process.stdin.isTTY && (argPrompt === '' || stdinIsPipedData());
+  const piped = readsStdin ? await readStdin() : '';
   const prompt = [argPrompt, piped].filter((part) => part.length > 0).join('\n\n');
 
   if (!prompt) {

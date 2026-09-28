@@ -2,7 +2,7 @@
   "name": "robota-example-cli",
   "version": "0.1.0",
   "private": true,
-  "description": "Robota SDK \u2014 CLI script for CI pipeline integration",
+  "description": "Robota SDK — CLI script for CI pipeline integration",
   "type": "module",
   "scripts": {
     "build": "tsc",
