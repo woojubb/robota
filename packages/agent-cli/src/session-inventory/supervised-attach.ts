@@ -21,7 +21,7 @@ import {
   createSessionMessageHandler,
 } from '@robota-sdk/agent-transport';
 
-import type { Socket } from 'node:net';
+import type { IControlChannel } from './windows-control-pipe.js';
 import type { ISessionBinder } from '@robota-sdk/agent-interface-session';
 import type {
   ICapabilityApprovalRequest,
@@ -68,7 +68,7 @@ export interface ISupervisedAttachCarrier {
    * Admit one connection whose id and generation the control endpoint already verified. `rest` is
    * whatever arrived after the handshake line; the socket is paused until the protocol takes over.
    */
-  admit(socket: Socket, request: object, rest: string, respond: ISupervisedAttachResponder): Promise<void>;
+  admit(socket: IControlChannel, request: object, rest: string, respond: ISupervisedAttachResponder): Promise<void>;
 }
 
 /**
@@ -81,7 +81,7 @@ export type TSupervisedAttachTarget =
   | { readonly session: IProtocolSession };
 
 export function createSupervisedAttachCarrier(target: TSupervisedAttachTarget): ISupervisedAttachCarrier {
-  const attached = new Set<Socket>();
+  const attached = new Set<IControlChannel>();
   let admitted = 0;
   return {
     admit: async (socket, request, rest, respond) => {
