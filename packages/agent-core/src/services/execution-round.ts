@@ -141,12 +141,15 @@ export async function executeRound(
   conversationStore.beginAssistant();
   const usageObservationId = executionUsage.createUsageObservationId();
 
-  const { wrappedOnTextDelta, wrappedOnProviderNativeRawPayload } = createRoundStreamingCallbacks(
-    fullContext,
-    conversationStore,
-    executionId,
-    currentRound,
-  );
+  const { wrappedOnTextDelta, wrappedOnProviderNativeRawPayload, settleStreamingChunkHooks } =
+    createRoundStreamingCallbacks(
+      fullContext,
+      conversationStore,
+      executionId,
+      currentRound,
+      plugins,
+      logger,
+    );
 
   const route = openModelRoute(resolved, config.defaultModel.model, executionId);
   const providerCallId = randomId();
@@ -177,6 +180,8 @@ export async function executeRound(
         )
       : undefined,
   );
+  // Every streamed chunk's hooks run before the round moves on, even when the call failed.
+  await settleStreamingChunkHooks();
   if (response === null) return true;
 
   const { assistantResponse, assistantToolCalls } = validateAndExtractResponse(

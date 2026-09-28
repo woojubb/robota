@@ -12,6 +12,7 @@ import { appendExecutionRecord } from './execution-journal';
 import type { IExecutionJournal } from '../interfaces/execution-journal';
 import type { IRecoveredToolBatch } from './execution-recovery-state';
 import { toolContinuation } from './execution-tool-waits';
+import { callPluginHook } from './plugin-hook-dispatcher';
 
 import type { IRoundDependencies } from './execution-round-types';
 import type { IToolExecutionBatchContext } from './tool-execution-service';
@@ -21,6 +22,7 @@ import type {
   TExecutionEventData,
 } from '../interfaces/agent';
 import type { IToolCall } from '../interfaces/messages';
+import type { IToolExecutionContext } from '../interfaces/tool';
 import type { IRunTraceContext } from '../interfaces/trace-context';
 import type { ConversationStore } from '../managers/conversation-history-manager';
 
@@ -71,7 +73,7 @@ export async function executeAndRecordToolCalls(
     recovery?: IRecoveredToolBatch;
   },
 ): Promise<IToolResultsOutcome> {
-  const { toolExecutionService, logger, eventEmitter } = deps;
+  const { toolExecutionService, logger, eventEmitter, plugins } = deps;
 
   const resolvedMaxSameToolInputs = maxSameToolInputs ?? config?.maxSameToolInputs;
   if (resolvedMaxSameToolInputs !== undefined) {
@@ -222,7 +224,51 @@ export async function executeAndRecordToolCalls(
     } as TExecutionEventData);
   });
 
+  // The per-call plugin hooks see the call as the model made it, not the runtime's request object.
+  const pluginExecutionContext = { executionId, conversationId };
+  const pluginToolCalls = toolRequests.map(
+    (request): IToolExecutionContext => ({
+      toolName: request.toolName,
+      parameters: request.parameters,
+      ...(request.executionId !== undefined ? { executionId: request.executionId } : {}),
+    }),
+  );
+  if (plugins.length > 0) {
+    for (const [index, toolCall] of pluginToolCalls.entries()) {
+      // A call whose arguments did not decode never runs.
+      if (toolRequests[index]?.argumentDecodeError !== undefined) continue;
+      for (const hookName of ['beforeToolCall', 'beforeToolExecution'] as const) {
+        await callPluginHook(
+          plugins,
+          hookName,
+          { toolCall, executionContext: pluginExecutionContext },
+          logger,
+        );
+      }
+    }
+  }
+
   const toolSummary = await toolExecutionService.executeTools(toolContext);
+
+  if (plugins.length > 0) {
+    for (const [index, toolResult] of toolSummary.results.entries()) {
+      const requestIndex = toolRequests.findIndex(
+        (request) =>
+          toolResult.executionId !== undefined && request.executionId === toolResult.executionId,
+      );
+      const matched = requestIndex === -1 ? index : requestIndex;
+      const toolCall = pluginToolCalls[matched];
+      if (toolCall === undefined || toolRequests[matched]?.argumentDecodeError !== undefined) {
+        continue;
+      }
+      await callPluginHook(
+        plugins,
+        'afterToolCall',
+        { toolCall, toolResult, executionContext: pluginExecutionContext },
+        logger,
+      );
+    }
+  }
   const unknownToolNames = toolSummary.results
     .filter(isUnknownToolExecutionResult)
     .map((result) => result.toolName)
@@ -244,17 +290,23 @@ export async function executeAndRecordToolCalls(
     } as TExecutionEventData);
   });
 
+  const ranResults = toolSummary.results.filter(
+    (result) => !isUnknownToolExecutionResult(result) && !isArgumentDecodeErrorResult(result),
+  );
   roundState.toolsExecuted.push(
-    ...toolSummary.results
-      .filter(
-        (result) => !isUnknownToolExecutionResult(result) && !isArgumentDecodeErrorResult(result),
-      )
-      .map((r) => {
-        if (!r.toolName || r.toolName.length === 0) {
-          throw new Error('[EXECUTION] Tool result missing toolName');
-        }
-        return r.toolName;
-      }),
+    ...ranResults.map((r) => {
+      if (!r.toolName || r.toolName.length === 0) {
+        throw new Error('[EXECUTION] Tool result missing toolName');
+      }
+      return r.toolName;
+    }),
+  );
+  roundState.toolCallOutcomes?.push(
+    ...ranResults.map((r) => ({
+      ...(r.executionId !== undefined ? { id: r.executionId } : {}),
+      name: r.toolName ?? '',
+      success: r.success,
+    })),
   );
 
   const contextLimit =

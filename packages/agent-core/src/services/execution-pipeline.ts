@@ -187,7 +187,15 @@ export async function finalizeExecution(
       ...(result.tokensUsed !== undefined ? { tokensUsed: result.tokensUsed } : {}),
       toolsExecuted: result.toolsExecuted.length,
       success: result.success,
-      toolCalls: result.toolsExecuted.map((name) => ({ name })),
+      // A failed call carries `result: null`, which is how a plugin tells TOOL_ERROR from success.
+      toolCalls: (
+        roundState.toolCallOutcomes ??
+        result.toolsExecuted.map((name) => ({ name, success: true }))
+      ).map((call) => ({
+        ...('id' in call && call.id !== undefined ? { id: call.id } : {}),
+        name: call.name,
+        ...(call.success ? {} : { result: null }),
+      })),
     },
   };
   for (const hookName of ['afterExecution', 'afterConversation', 'afterToolExecution'] as const) {

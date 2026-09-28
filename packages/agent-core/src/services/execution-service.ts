@@ -223,6 +223,7 @@ export class ExecutionService {
     let turnMessageId: string | undefined;
     const roundState: IExecutionRoundState = {
       toolsExecuted: [],
+      toolCallOutcomes: [],
       currentRound: 0,
       runningAssistantCount: 0,
       lastTrackedAssistantMessage: undefined,
@@ -269,12 +270,14 @@ export class ExecutionService {
           this.logger,
         );
       }
-      await callPluginHook(
-        this.plugins,
-        'beforeExecution',
-        { messages: conversationStore.getMessages(), executionContext: pluginExecutionContext },
-        this.logger,
-      );
+      for (const hookName of ['beforeExecution', 'beforeConversation'] as const) {
+        await callPluginHook(
+          this.plugins,
+          hookName,
+          { messages: conversationStore.getMessages(), executionContext: pluginExecutionContext },
+          this.logger,
+        );
+      }
 
       validateProvider(resolved);
 
