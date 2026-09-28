@@ -1,8 +1,8 @@
 name: Release — tag on version bump
 
 # RELEASE-001 — when a version bump for @robota-sdk/agent-cli lands on main, push the matching `v<version>` tag.
-# That tag fires release-bun-binaries.yml + release-desktop-app.yml (which a tag pushed with the default
-# GITHUB_TOKEN cannot do — anti-recursion), so the binaries + OS installers auto-build for that release.
+# That tag fires release-bun-binaries.yml; its successful completion starts release-desktop-app.yml.
+# A tag pushed with GITHUB_TOKEN cannot fire another workflow (anti-recursion), so tagging uses the deploy key below.
 # npm publish is OUT OF SCOPE — it is the separate Publish to npm workflow (publish.yml, trusted publishing).
 #
 # Requires an owner-provisioned repo DEPLOY KEY (write) as `secrets.RELEASE_DEPLOY_KEY`. Inert without it
@@ -109,7 +109,7 @@ jobs:
             echo "pushed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          echo "pushing $TAG to fire the binary + desktop workflows"
+          echo "pushing $TAG to start the native release and then the desktop workflow"
           git tag "$TAG"
           git push origin "refs/tags/$TAG"
           # Read the ref back: `git push` reporting success is not the same as the remote serving the tag.
@@ -136,8 +136,8 @@ jobs:
 
       # The failure this guards is silent and expensive: a tag that triggers nothing produces a GitHub
       # Release with no assets, and the only symptom is a download page that is simply empty. Assert the
-      # downstream workflows actually started for this tag.
-      - name: Confirm the tag triggered the release workflows
+      # native release workflow actually started for this tag; desktop follows its successful completion.
+      - name: Confirm the tag triggered the native release workflow
         if: steps.push.outputs.pushed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -146,7 +146,7 @@ jobs:
         run: |
           set -euo pipefail
           deadline=$(( $(date +%s) + 300 ))   # 5 minutes; a push trigger dispatches within seconds
-          want="release-bun-binaries.yml release-desktop-app.yml"
+          want="release-bun-binaries.yml"
           # allow-runner-wait: a release runs with a human or agent already driving it, and this
           # poll watches an EXTERNAL event (asset propagation) that no re-run can observe sooner.
           # Per-push gates do not qualify — see scan-runner-wait.mjs.
@@ -157,7 +157,7 @@ jobs:
               [ "$n" -ge 1 ] || missing="$missing $wf"
             done
             if [ -z "$missing" ]; then
-              echo "both release workflows were triggered by $TAG."
+              echo "native release workflow was triggered by $TAG; desktop follows its successful completion."
               exit 0
             fi
             if [ "$(date +%s)" -ge "$deadline" ]; then
