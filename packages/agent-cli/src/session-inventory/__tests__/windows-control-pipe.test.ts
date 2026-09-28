@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
 
@@ -56,18 +56,20 @@ describe('Windows supervised pipe endpoint', () => {
         channels.add(client);
         client.on('error', () => undefined);
         const payload = Buffer.alloc(2 * 1024 * 1024, 0x61);
-        const received: Buffer[] = [];
+        const received = createHash('sha256');
         let length = 0;
-        const echoed = new Promise<Buffer>((resolve, reject) => {
+        const echoed = new Promise<string>((resolve, reject) => {
           client.on('data', (data: Buffer) => {
-            received.push(data);
+            received.update(data);
             length += data.length;
-            if (length >= payload.length) resolve(Buffer.concat(received));
+            if (length > payload.length) reject(new Error('Unexpected extra pipe bytes.'));
+            else if (length === payload.length) resolve(received.digest('hex'));
           });
           client.once('error', reject);
         });
         client.write(payload);
-        expect(await echoed).toEqual(payload);
+        expect(await echoed).toBe(createHash('sha256').update(payload).digest('hex'));
+        expect(length).toBe(payload.length);
         // Destroy with a read pending: native cancellation must complete before freeing its buffers.
         const closed = once(client, 'close');
         client.destroy();
