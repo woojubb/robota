@@ -54,22 +54,23 @@ robota trust --yes     # trust this folder so its settings, hooks, skills and pl
 `robota` loads a project's own configuration only from a folder you trust. Starting the terminal UI in
 a folder you have not decided about asks first: trust it, start Restricted (project content not
 loaded), or cancel. Print mode, `--goal`, `--serve`, `robota daemon` and background sessions cannot
-ask, so they refuse an untrusted folder with a message that names `robota trust --yes`;
-`robota daemon start --restricted-workspace` starts the daemon Restricted instead, and the desktop app
-asks in its window before it starts the daemon. Use `robota trust` (or `robota trust status`, with
+ask, so they refuse an untrusted folder with a message that names `robota trust --yes` and
+`--restricted-workspace`, which starts Restricted instead (`robota daemon start --restricted-workspace`,
+`robota --serve --open --restricted-workspace`). The desktop app asks in its window before it starts
+the daemon. Use `robota trust` (or `robota trust status`, with
 `--json` for one JSON line) to see the current decision and `robota trust revoke` to withdraw it.
 
 ## Ways to run it
 
-| Invocation                          | What it does                                                                 |
-| ----------------------------------- | ---------------------------------------------------------------------------- |
-| `robota`                            | Interactive terminal UI                                                      |
-| `robota -p "prompt"`                | Print mode: one prompt, the answer on stdout, then exit                      |
-| `robota --goal "objective"`         | Pursue an objective across turns without a person, then exit                 |
-| `robota --serve [--open]`           | Headless runtime over a loopback WebSocket; `--open` also serves the web GUI |
-| `robota --attach`                   | Full terminal UI on this folder's running daemon                             |
-| `robota session start --background` | A supervised session that outlives the terminal                              |
-| `robota mcp serve`                  | Serve one session to an MCP client                                           |
+| Invocation                          | What it does                                                            |
+| ----------------------------------- | ----------------------------------------------------------------------- |
+| `robota`                            | Interactive terminal UI                                                 |
+| `robota -p "prompt"`                | Print mode: one prompt, the answer on stdout, then exit                 |
+| `robota --goal "objective"`         | Pursue an objective across turns without a person, then exit            |
+| `robota --serve [--open]`           | Headless runtime over a loopback WebSocket; `--open` also opens the GUI |
+| `robota --attach`                   | Full terminal UI on this folder's running daemon                        |
+| `robota session start --background` | A supervised session that outlives the terminal                         |
+| `robota mcp serve`                  | Serve one session to an MCP client                                      |
 
 ### Print mode
 
@@ -197,8 +198,10 @@ Inside the terminal UI: `/resume` opens the session picker, `/rename <name>` ren
 Sessions can also run without a terminal. `robota session start --background` starts a supervised
 session that keeps running after you close the terminal; `robota session list`, `view`, `attach`,
 `stop`, `rename`, `link-pr` and `unlink-pr` manage them. `robota daemon start` keeps one long-lived
-runtime per folder that the desktop app, `robota --attach` and `robota --serve --open` all connect to.
-See [Sessions, Background Sessions and the Daemon](./sessions-and-daemon.md).
+runtime per folder that the desktop app and `robota --attach` connect to; `robota --serve --open`
+starts a runtime of its own and opens the GUI in a browser. See
+[Sessions, Background Sessions and the Daemon](./sessions-and-daemon.md) and
+[The GUI and the Desktop App](./gui.md).
 
 ## Configuration
 
@@ -606,7 +609,7 @@ another session or device. All four are user-only. See [Devices, Peers and Remot
 | `--settings-scope user\|project-local`                                                                                                                    | Which settings file provider setup writes                                 |
 | `--session-log <path>`                                                                                                                                    | Replay a recorded session log instead of calling a model                  |
 | `--serve`                                                                                                                                                 | Run the headless runtime over a loopback WebSocket                        |
-| `--open`                                                                                                                                                  | With `--serve`: also serve the web GUI on localhost and open a browser    |
+| `--open`                                                                                                                                                  | With `--serve`: also serve the GUI on localhost and open it in a browser  |
 | `--attach [--screen-reader\|--no-screen-reader]`                                                                                                          | Open the terminal UI on this folder's running daemon                      |
 | `--external-event-grant <file>`                                                                                                                           | Admit verified external events into this terminal session (repeatable)    |
 | `--external-event-port <port>`                                                                                                                            | Loopback port for external events                                         |

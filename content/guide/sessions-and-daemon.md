@@ -157,7 +157,8 @@ robota daemon stop
 
 `robota --serve --open` starts a runtime of its own (not the daemon), serves the GUI web app over
 `http://127.0.0.1:<port>` and opens it in your browser. The runtime lasts as long as the command
-runs. The GUI shows a sessions sidebar; `/resume` in the GUI opens it.
+runs. The GUI shows a sessions sidebar; `/resume` in the GUI opens it. Using the GUI and the desktop
+app is covered in [The GUI and the Desktop App](./gui.md).
 
 ## The session view
 
@@ -290,7 +291,7 @@ the project root.
 | `Daemon <id> is running but cannot be connected to. Run: robota daemon stop` | Stop it and start again.                                                                                                                |
 | `<id> is not a live supervised session this terminal can attach to.`         | The session stopped, or is not controllable. Check `robota session list`.                                                               |
 | `Supervised session directory is not private to this user.`                  | Make the control directory (see above) owned by you with mode `0700`.                                                                   |
-| `Web monitor assets not found (dist/web) — run a full CLI build.`            | The GUI assets are missing (for example, a source checkout without a full build).                                                       |
+| `Robota web assets not found (dist/web) — run a full CLI build.`             | The GUI assets are missing (for example, a source checkout without a full build).                                                       |
 | A saved session is listed as `corrupt` or `unsupported`                      | The file is not a session record, or was written by a build this one does not read. It is kept, not overwritten, and cannot be resumed. |
 
 ## Related
