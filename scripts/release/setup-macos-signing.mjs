@@ -33,7 +33,6 @@ function setup() {
   const certificate = join(directory, 'certificate.p12');
   const apiKey = join(directory, 'notary-key.p8');
   const password = randomBytes(32).toString('hex');
-  console.log(`::add-mask::${password}`);
   const searchList = [
     ...runCommand('security', ['list-keychains', '-d', 'user']).matchAll(/"([^"\n]+)"/g),
   ].map((match) => match[1]);

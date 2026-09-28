@@ -2,18 +2,12 @@
 #
 # DIST-002 — verify that PUBLISHED macOS release artifacts actually open on a user's Mac.
 #
-# The question this answers is NOT "did the upload succeed" (which is all the release workflows have
-# ever checked) but "is the uploaded thing usable". Those are different questions and only the second
-# is what anyone wants from a release pipeline. `v3.0.0-beta.79` shipped a macOS binary that no user
-# could open, and the release workflow reported success for four months, because it succeeded at
-# uploading.
-#
 # SCOPE IS DELIBERATELY NARROW. This asserts exactly what a user's machine does to a downloaded
 # artifact and nothing more:
 #
 #   1. the bytes are intact                 (sha256 against the published checksum manifest)
 #   2. the signature is structurally valid  (codesign --verify --strict)
-#   3. Gatekeeper accepts it                (spctl --assess, with com.apple.quarantine APPLIED)
+#   3. notarization is valid               (codesign requirement for CLIs; spctl for apps/DMGs)
 #   4. it actually runs                     (execute the quarantined binary)
 #
 # A gate that asserts more than Gatekeeper does goes red on things that do not matter and gets
@@ -179,8 +173,10 @@ verify_cli_binary() {
 
   apply_quarantine "$file"
 
-  run_check BLOCKING "spctl --assess --type execute: $name" \
-    spctl --assess --type execute --verbose=4 "$file"
+  # Apple's app-bundle assessment rejects even notarized standalone Mach-O tools as "not an app".
+  # Check the binary's notarization ticket using Apple's codesign requirement instead.
+  run_check BLOCKING "notarization requirement: $name" \
+    codesign --verify --strict --verbose=2 --test-requirement '=notarized' "$file"
 
   # The user's actual gesture. A quarantined artifact that Gatekeeper rejects may still be launchable
   # from a shell on some macOS versions, so this is asserted independently rather than inferred.

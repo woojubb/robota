@@ -14,7 +14,11 @@ afterEach(() => {
   for (const path of scratch.splice(0)) rmSync(path, { recursive: true, force: true });
 });
 
-function fixture({ rejectStaple = false, requireOpenAssessment = false } = {}) {
+function fixture({
+  rejectStaple = false,
+  requireOpenAssessment = false,
+  rejectCliNotarization = false,
+} = {}) {
   const root = mkdtempSync(join(tmpdir(), 'macos-gate-test-'));
   scratch.push(root);
   const commands = join(root, 'commands');
@@ -30,16 +34,20 @@ function fixture({ rejectStaple = false, requireOpenAssessment = false } = {}) {
     names.map((name) => `${digest}  ${name}\n`).join(''),
   );
   const mocks = {
-    codesign: 'exit 0',
+    codesign: rejectCliNotarization
+      ? 'case "$*" in *"--test-requirement =notarized"*robota-darwin*) exit 1;; esac'
+      : 'exit 0',
     xattr: 'echo quarantine',
     uuidgen: 'echo uuid',
     sw_vers: 'echo 26.0',
     xcrun: rejectStaple ? 'exit 1' : 'exit 0',
     hdiutil:
       'if [ "$1" = attach ]; then for arg in "$@"; do mount="$arg"; done; mkdir -p "$mount/Robota.app"; fi',
-    spctl: requireOpenAssessment
-      ? 'case "$*" in *Robota.dmg*) case "$*" in *"--type open --context context:primary-signature"*) exit 0;; *) exit 1;; esac;; esac'
-      : 'exit 0',
+    spctl:
+      'case "$*" in *robota-darwin*) echo "rejected (the code is valid but does not seem to be an app)" >&2; exit 3;; esac\n' +
+      (requireOpenAssessment
+        ? 'case "$*" in *Robota.dmg*) case "$*" in *"--type open --context context:primary-signature"*) exit 0;; *) exit 1;; esac;; esac'
+        : 'exit 0'),
   };
   for (const [name, content] of Object.entries(mocks))
     writeFileSync(join(commands, name), `#!/bin/sh\n${content}\n`, { mode: 0o755 });
@@ -59,4 +67,18 @@ it('assesses a DMG as a disk image being opened rather than a package installer'
   const result = fixture({ requireOpenAssessment: true });
   expect(result.stdout).toMatch(/BLOCKING\s+PASS spctl --assess --type open/);
   expect(result.status).toBe(0);
+});
+
+it('accepts notarized standalone CLIs despite app-only spctl refusing their file type', () => {
+  const result = fixture();
+  expect(result.stdout).toMatch(/BLOCKING\s+PASS notarization requirement: robota-darwin-arm64/);
+  expect(result.stdout).toMatch(/BLOCKING\s+PASS notarization requirement: robota-darwin-x64/);
+  expect(result.status).toBe(0);
+});
+
+it('rejects a signed executable that has no Apple notarization ticket', () => {
+  const result = fixture({ rejectCliNotarization: true });
+  expect(result.stdout).toMatch(/BLOCKING\s+FAIL notarization requirement: robota-darwin-arm64/);
+  expect(result.stdout).toMatch(/BLOCKING\s+FAIL notarization requirement: robota-darwin-x64/);
+  expect(result.status).toBe(1);
 });
