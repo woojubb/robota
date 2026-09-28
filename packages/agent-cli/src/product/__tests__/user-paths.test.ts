@@ -16,6 +16,7 @@ describe('Robota user paths', () => {
       history: join('/first-home', '.robota', 'history.jsonl'),
       workspaceTrust: join('/first-home', '.robota', 'workspace-trust.json'),
       orgPolicy: join('/first-home', '.robota', 'org-policy.json'),
+      mcpApprovals: join('/first-home', '.robota', 'mcp-approvals.json'),
     });
     expect(second.sessions).toBe(join('/second-home', '.robota', 'sessions'));
     expect(userLocalStorageRoot('/first-home')).toBe(join('/first-home', '.robota'));

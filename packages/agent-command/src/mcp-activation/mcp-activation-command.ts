@@ -213,7 +213,7 @@ export async function executeMCPActivationCommand(
 
   try {
     const result = await mcp[verb](serverId);
-    return {
+    const decided = {
       message: `MCP server ${serverId} is now ${result.status}. ${result.reason}`,
       success:
         result.status === 'approved' || result.status === 'rejected' || result.status === 'revoked',
@@ -226,6 +226,16 @@ export async function executeMCPActivationCommand(
         definitionFingerprint: result.definitionFingerprint,
         securityIdentity: result.securityIdentity,
       },
+    };
+    // An approval takes effect now: the session connects the server as `/mcp reload` would.
+    if (verb !== 'approve' || result.status !== 'approved' || mcp.reload === undefined) {
+      return decided;
+    }
+    const reloaded = await reloadResult(context);
+    return {
+      ...decided,
+      message: `${decided.message} ${reloaded.message}`,
+      data: { ...decided.data, reload: reloaded.data ?? {} },
     };
   } catch (error) {
     return {
@@ -272,11 +282,13 @@ async function reloadResult(context: TMCPActivationCommandContext): Promise<ICom
     };
   }
   if (mcp.reload === undefined) {
-    return { message: 'Reloading MCP servers is not available in this environment.', success: false };
+    return {
+      message: 'Reloading MCP servers is not available in this environment.',
+      success: false,
+    };
   }
   const result = await mcp.reload();
-  const added =
-    result.tools.length === 0 ? [] : await context.getSession().addTools(result.tools);
+  const added = result.tools.length === 0 ? [] : await context.getSession().addTools(result.tools);
   if (result.tools.length > 0 && result.reloadToken !== undefined) {
     mcp.reloadToolsAdded?.(result.reloadToken, added);
   }

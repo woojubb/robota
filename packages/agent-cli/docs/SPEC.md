@@ -296,10 +296,11 @@ name and quoting rules differ between shells. The authorization page opens by ar
 and a client secret or pasted redirect is asked for without echo, never read from an argument or a
 definition.
 
-**Current limitation.** Approval is in-memory and session-scoped per process: a server approved via
-`/mcp approve` mid-session is not connected by that already-started session. An embedding host can
-supply its own `IMCPActivationApprovalStore` before `robota mcp serve` starts to admit and connect
-approved definitions ahead of building the served runtime session.
+**Approvals outlive the process.** The CLI keeps activation decisions in an owner-only file in the
+user's storage unless the host supplies its own `IMCPActivationApprovalStore`, and `/mcp approve`
+connects the approved server in the running session. A decision binds to the definition's
+fingerprint and security identity, so a changed definition asks again. A store that cannot be read
+reads as no decisions: it can only withhold approval, never grant it.
 
 **External events need a verified grant.** The CLI admits no sender-name grant: a sender name relayed
 by an MCP server does not prove who sent an event, and a flag asking for one is refused with that

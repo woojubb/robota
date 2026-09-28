@@ -19,6 +19,7 @@ import {
 } from '@robota-sdk/agent-framework';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { createFileMcpApprovalStore } from '../mcp-approval-file-store.js';
 import { composeMcpClientForStartup } from '../mcp-startup.js';
 import { ROBOTA_PROJECT_SETTINGS } from '../../product/robota-project-settings.js';
 import { createRobotaUserSettingsSources } from '../../product/robota-user-settings.js';
@@ -123,6 +124,54 @@ describe('composeMcpClientForStartup', () => {
       expect(mcp.connectedToolProvenance.get('local__ping')?.sourceName).toBe('ping');
     } finally {
       await mcp.shutdown();
+    }
+  });
+
+  it('connects at the next start a server approved in an earlier one', async () => {
+    const cwd = tempRoot('robota-mcp-startup-durable-');
+    const userHome = tempRoot('robota-mcp-startup-durable-home-');
+    const fixture = fileURLToPath(
+      new URL('../../../../agent-mcp/examples/stdio-fixture-server.mjs', import.meta.url),
+    );
+    const args = [fixture, 'client-info'];
+    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    writeFileSync(
+      join(userHome, '.robota', 'settings.json'),
+      JSON.stringify({
+        mcpServers: { local: { type: 'stdio', command: process.execPath, args, cwd } },
+      }),
+    );
+    const approvalsPath = join(userHome, '.robota', 'mcp-approvals.json');
+    const start = async () =>
+      composeMcpClientForStartup({
+        settingsSources: createRobotaUserSettingsSources(userHome),
+        projectAccess: await trustedAccessFor(cwd),
+        cwd,
+        env: {},
+        mode: 'interactive',
+        inspectTrust: async () => ({ state: 'trusted', generation: 1 }),
+        reportDiagnostic: () => undefined,
+        approvalStore: createFileMcpApprovalStore(approvalsPath),
+        stdioAuthorities: {
+          local: {
+            allowedRoot: cwd,
+            generation: 'host-1',
+            executables: [{ command: process.execPath, args: [args] }],
+            environment: { HOME: userHome },
+          },
+        },
+      });
+
+    const first = await start();
+    await first.activationAdapter.approve('local');
+    await first.shutdown();
+
+    const second = await start();
+    try {
+      const tools = await second.connect();
+      expect(tools.map((tool) => tool.getName())).toContain('local__ping');
+    } finally {
+      await second.shutdown();
     }
   });
 
