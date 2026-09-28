@@ -123,6 +123,18 @@ export interface ISkillRootDescriptor {
   readonly kind: 'skills' | 'commands';
 }
 
+/**
+ * `first` followed by the commands of `then` whose names `first` does not already use, compared
+ * case-insensitively: a session's own skill wins over a plugin skill of the same name.
+ */
+export function mergeSkillCommands(
+  first: readonly ICommand[],
+  then: readonly ICommand[],
+): ICommand[] {
+  const taken = new Set(first.map((command) => command.name.toLowerCase()));
+  return [...first, ...then.filter((command) => !taken.has(command.name.toLowerCase()))];
+}
+
 /** Command source that discovers skills from multiple directories */
 export class SkillCommandSource implements ICommandSource {
   readonly name = 'skill';

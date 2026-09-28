@@ -14,6 +14,7 @@ import {
   SkillCommandSource,
   SystemCommandExecutor,
 } from '../commands/index.js';
+import { mergeSkillCommands } from '../commands/skill-source.js';
 import { createSkillActivationEvent } from '../commands/skill-activation-events.js';
 
 import type { TSubmitFn } from './interactive-session-execution-contracts.js';
@@ -98,6 +99,8 @@ export class SessionSkillRouter {
     private readonly shellExec?: TShellExecFn,
     /** Optional remote-command policy (REMOTE-006). Undefined → allow (local == remote); provide one only to opt into a restriction. */
     private readonly remoteCommandPolicy?: IRemoteCommandPolicy,
+    /** Skills from the bundle plugins the session may load, read on each lookup. */
+    private readonly loadPluginSkills: () => readonly ICommand[] = () => [],
   ) {
     this.allCommandModules = commandModules;
     this.commandExecutor = new SystemCommandExecutor(
@@ -153,7 +156,12 @@ export class SessionSkillRouter {
   }
 
   listSkills(): ICommandSkillListEntry[] {
-    return this.skillCommandSource.getCommands().map(toSkillListEntry);
+    return this.allSkills().map(toSkillListEntry);
+  }
+
+  /** The session's own skills, then the plugin skills whose names they do not already use. */
+  private allSkills(): ICommand[] {
+    return mergeSkillCommands(this.skillCommandSource.getCommands(), this.loadPluginSkills());
   }
 
   listModelInvocableCommands(): Array<{ name: string; description: string }> {
@@ -165,9 +173,9 @@ export class SessionSkillRouter {
 
   findSkillCommand(name: string): ICommand | undefined {
     const normalizedName = normalizeNameToken(name);
-    return this.skillCommandSource
-      .getCommands()
-      .find((skill) => skill.name.toLowerCase() === normalizedName.toLowerCase());
+    return this.allSkills().find(
+      (skill) => skill.name.toLowerCase() === normalizedName.toLowerCase(),
+    );
   }
 
   async executeCommand(

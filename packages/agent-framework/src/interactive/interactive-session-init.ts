@@ -24,6 +24,7 @@ import { injectSavedMessage } from './interactive-session-restore.js';
 import { deriveContextCapacityHint } from '../assembly/context-capacity-hint.js';
 import { createSession } from '../assembly/index.js';
 import { loadHostBundlePluginsFromScopes } from '../plugins/index.js';
+import { sessionPluginDirectories, sessionPluginSettingsPath } from './session-plugin-skills.js';
 import {
   mergePluginHooksWithSources,
   mergeHooksIntoConfig,
@@ -96,23 +97,14 @@ export async function createInteractiveSession(
   if (options.skipConfiguredHooks === true) mergedConfig = { ...mergedConfig, hooks: undefined };
   const effectiveHookSources = options.skipConfiguredHooks === true ? [] : [...hookSources];
 
-  // Project plugins may contain executable hooks. Include that scope only after the host has
-  // granted workspace trust; a restricted session still sees user-installed plugins.
-  const pluginsDirs = [
-    ...(options.projectAccess?.status === 'trusted' &&
-    options.pluginDirectories?.project !== undefined
-      ? [options.pluginDirectories.project]
-      : []),
-    ...(options.pluginDirectories?.user !== undefined ? [options.pluginDirectories.user] : []),
-  ];
+  // A restricted session still sees user-installed plugins; see `sessionPluginDirectories`.
+  const pluginsDirs = sessionPluginDirectories(options);
   // PLG-021 / issue #2025: built through the composition root so a disabled plugin's hooks do not
   // load. The bare constructor defaults the enablement map to `{}`, which reads as "nothing
   // disabled" — indistinguishable from a user who disabled nothing. `pluginsDirs` stays a local
   // because the failure log below names it.
-  const pluginSettingsPath = options.userSettingsSources?.find(
-    (source) => source.scope === 'user',
-  )?.path;
-  if (!options.bare && pluginSettingsPath !== undefined) {
+  const pluginSettingsPath = sessionPluginSettingsPath(options);
+  if (pluginSettingsPath !== undefined) {
     try {
       const plugins = loadHostBundlePluginsFromScopes(pluginsDirs, {
         settingsPath: pluginSettingsPath,

@@ -2,6 +2,7 @@ import { FileSessionLogger, SilentSessionLogger } from '@robota-sdk/agent-sessio
 
 import { NOOP_TERMINAL } from './interactive-session-execution.js';
 import { createProjectPermissionPersistence } from './project-permission-persistence.js';
+import { createPluginSkillLoader } from './session-plugin-skills.js';
 
 import type { IInitOptions } from './interactive-session-options.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
@@ -63,6 +64,7 @@ export function buildCreateSessionOptions(
     context,
     contributionSources,
     skillRoots,
+    pluginSkills: createPluginSkillLoader(options),
     projectInfo,
     permissionMode: options.permissionMode,
     baselinePermissionAllow: options.baselinePermissionAllow,

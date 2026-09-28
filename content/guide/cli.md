@@ -459,9 +459,10 @@ actions as text:
 /plugin marketplace list
 ```
 
-`/reload-plugins` reloads plugin skills, commands and hooks without restarting. These CLI plugins are
-different from the SDK's runtime plugins for the `Robota` class; both are covered in
-[Plugins](./plugins.md).
+A plugin's skills and commands run, from `/<name>` or from the agent, as soon as the plugin is
+installed or enabled; `/reload-plugins` refreshes the command list. Plugin hooks are loaded when a
+session starts. These CLI plugins are different from the SDK's runtime plugins for the `Robota`
+class; both are covered in [Plugins](./plugins.md).
 
 ## Background work and automation
 

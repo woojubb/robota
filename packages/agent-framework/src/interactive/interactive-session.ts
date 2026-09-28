@@ -32,6 +32,7 @@ import { persistSessionRename } from './interactive-session-rename.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
 import { InteractiveSessionRuntimeTools } from './interactive-session-runtime-tools.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
+import { createPluginSkillLoader } from './session-plugin-skills.js';
 import { SessionTerminalHandoffGate } from './interactive-session-terminal-handoff.js';
 import { SessionTurnMemory } from './interactive-session-turn-memory.js';
 import { ExternalEventIngress } from './external-event-ingress.js';
@@ -416,6 +417,14 @@ export class InteractiveSession
         this.execCtrl.executeForegroundCommand(execute, (entry) => this.resumeQueuedTurn(entry)),
       shellExec,
       remoteCommandPolicy,
+      createPluginSkillLoader({
+        ...('bare' in options ? { bare: options.bare } : {}),
+        ...('projectAccess' in options ? { projectAccess: options.projectAccess } : {}),
+        ...('pluginDirectories' in options ? { pluginDirectories: options.pluginDirectories } : {}),
+        ...('userSettingsSources' in options
+          ? { userSettingsSources: options.userSettingsSources }
+          : {}),
+      }),
     );
 
     // #3288: tool name -> source `/command` name, for the projected model-command tools this
