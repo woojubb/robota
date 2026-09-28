@@ -1,5 +1,11 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.86
+
+### Patch Changes
+
+- 44bd221: Allow the desktop CLI to start and reconnect to its workspace daemon on Windows using private storage and a native local control pipe that verifies process ownership.
+
 ## 3.0.0-beta.85
 
 ### Minor Changes
