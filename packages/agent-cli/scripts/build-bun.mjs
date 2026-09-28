@@ -88,6 +88,7 @@ export async function buildBunBinaries(packageRoot, keys, kind = 'full') {
   if (keys.length !== 1 || keys[0] !== bunTargetForHost()) {
     throw new Error(`Bun packaging requires the matching native host ${bunTargetForHost()}.`);
   }
+  await import('./qualify-koffi-gc.mjs');
   const manifest = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8'));
   const entry = join(packageRoot, 'dist', 'node', kind === 'headless' ? 'headless.js' : 'bin.js');
   if (!existsSync(entry)) throw new Error(`${entry} is missing; run the package build first.`);

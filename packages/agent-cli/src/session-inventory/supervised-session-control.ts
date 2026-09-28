@@ -3,7 +3,7 @@ import {
   closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync,
   renameSync, rmSync, writeFileSync,
 } from 'node:fs';
-import { createConnection, createServer, type Server, type Socket } from 'node:net';
+import { createConnection, createServer } from 'node:net';
 import { dirname, isAbsolute, join } from 'node:path';
 
 import { admitLocalPeerDirectory, ensureGuardedDirectory } from '@robota-sdk/agent-remote-pairing/local';
@@ -21,6 +21,8 @@ import {
 import { readProcessStartTime } from '../remote-control/local-peer-registry.js';
 import { resolveRendezvousDirectory } from '../remote-control/local-peer-rendezvous.js';
 import { createSupervisedAttachCarrier, type TSupervisedAttachTarget } from './supervised-attach.js';
+import { connectWindowsControlPipe, WindowsControlPipeServer, windowsControlPipePath, type IControlChannel } from './windows-control-pipe.js';
+import { assertWindowsPrivatePath, createWindowsPrivateDirectory } from './windows-security.js';
 
 
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -198,6 +200,11 @@ export function resolveSupervisedDirectory(): string {
 
 function verifyExistingDirectory(directory: string): void {
   const stat = lstatSync(directory);
+  if (process.platform === 'win32') {
+    if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('Supervised session directory was refused.');
+    assertWindowsPrivatePath(directory, true);
+    return;
+  }
   if (!stat.isDirectory() || stat.isSymbolicLink() || stat.uid !== (process.getuid?.() ?? 0) || (stat.mode & 0o077) !== 0) {
     throw new Error('Supervised session directory is not private to this user.');
   }
@@ -211,6 +218,11 @@ function ensurePrivateDirectory(directory: string): void {
     return;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+  if (process.platform === 'win32') {
+    createWindowsPrivateDirectory(directory);
+    verifyExistingDirectory(directory);
+    return;
   }
   const admission = ensureGuardedDirectory(directory, { expectedUid: process.getuid?.() ?? 0 });
   if (!admission.admitted) throw new Error('Unable to create a private supervised session directory.');
@@ -236,6 +248,7 @@ export class SupervisedControlPathTooLongError extends Error {
 }
 
 function controlSocketPath(root: string, id: string): string {
+  if (process.platform === 'win32') return windowsControlPipePath(root, id);
   const name = createHash('sha256').update(id).digest('hex').slice(0, 16);
   const socketPath = join(root, `${name}.sock`);
   if (Buffer.byteLength(socketPath, 'utf8') > MAX_SOCKET_PATH_BYTES) {
@@ -254,6 +267,10 @@ function readOwnedFile(
   file: string,
   rules: { readonly ownerOnly: boolean; readonly maxBytes?: number; readonly refusal: string },
 ): string {
+  if (process.platform === 'win32') {
+    verifyExistingDirectory(dirname(file));
+    assertWindowsPrivatePath(file, false);
+  }
   let fd: number;
   try {
     // The mode is a no-op without O_CREAT; it is passed so the open states an owner-only mode,
@@ -269,8 +286,8 @@ function readOwnedFile(
   }
   try {
     const stat = fstatSync(fd);
-    if (!stat.isFile() || stat.uid !== (process.getuid?.() ?? 0) ||
-      (rules.ownerOnly && (stat.mode & 0o077) !== 0) ||
+    if (!stat.isFile() || (process.platform !== 'win32' && (stat.uid !== (process.getuid?.() ?? 0) ||
+      (rules.ownerOnly && (stat.mode & 0o077) !== 0))) ||
       (rules.maxBytes !== undefined && stat.size > rules.maxBytes)) {
       throw new Error(rules.refusal);
     }
@@ -303,7 +320,7 @@ function readRegistration(directory: string, id: string): IRegistration {
 
 /** `onRest` receives whatever arrived after the line, for a connection that stays open. */
 function readLine(
-  socket: Socket,
+  socket: IControlChannel,
   maxBytes = MAX_FRAME_BYTES,
   onRest?: (rest: string) => void,
 ): Promise<string> {
@@ -350,9 +367,10 @@ function readLine(
  * generation, so a reply from a different process start is never taken as this registration's.
  */
 /** Open the owner's control socket, refusing one this user does not own. */
-function connectControlSocket(directory: string, id: string): Socket {
+async function connectControlSocket(directory: string, id: string, signal?: AbortSignal): Promise<IControlChannel> {
   verifyExistingDirectory(directory);
   const socketPath = controlSocketPath(dirname(directory), id);
+  if (process.platform === 'win32') return connectWindowsControlPipe(socketPath, readRegistration(directory, id), signal);
   const info = lstatSync(socketPath);
   if (!info.isSocket() || info.uid !== (process.getuid?.() ?? 0)) throw new Error('Supervised session control socket was refused.');
   return createConnection(socketPath);
@@ -369,7 +387,7 @@ async function request(
   grantId?: string,
 ): Promise<object> {
   signal?.throwIfAborted();
-  const socket = connectControlSocket(directory, id);
+  const socket = await connectControlSocket(directory, id, signal);
   const onAbort = (): void => { socket.destroy(new Error('Supervised session control aborted.')); };
   signal?.addEventListener('abort', onAbort, { once: true });
   try {
@@ -623,7 +641,7 @@ const ATTACH_REFUSALS: Readonly<Record<string, string>> = {
 };
 
 export interface ISupervisedAttachSocket {
-  readonly socket: Socket;
+  readonly socket: IControlChannel;
   readonly driverId: string;
   /** Protocol bytes that arrived with the handshake reply. The socket is paused. */
   readonly rest: string;
@@ -641,7 +659,7 @@ export async function openSupervisedAttachSocket(
   expectedGeneration?: string,
 ): Promise<ISupervisedAttachSocket> {
   const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
-  const socket = connectControlSocket(directory, id);
+  const socket = await connectControlSocket(directory, id);
   try {
     await new Promise<void>((resolve, reject) => {
       socket.once('connect', resolve);
@@ -899,19 +917,19 @@ export async function startSupervisedControl(
   const socketPath = controlSocketPath(root, id);
   // One value per process start: a request bound to any other start is refused, never acted on.
   const generation = randomBytes(16).toString('base64url');
-  const reply = (socket: Socket, body: Record<string, unknown>): void => {
+  const reply = (socket: IControlChannel, body: Record<string, unknown>): void => {
     socket.end(`${JSON.stringify({ id, ...body, generation })}\n`);
   };
   // A caller that has not named this start learns nothing from the refusal: the generation is part
   // of the proof a later request presents, so it is echoed only to a caller that already holds it.
-  const refuse = (socket: Socket, reason?: 'stale-generation'): void => {
+  const refuse = (socket: IControlChannel, reason?: 'stale-generation'): void => {
     socket.end(`${JSON.stringify({ id, status: 'refused', ...(reason ? { reason } : {}) })}\n`);
   };
   const attach = attachTarget === undefined
     ? undefined
     : createSupervisedAttachCarrier(attachTarget);
-  const clients = new Set<Socket>();
-  const server: Server = createServer((socket) => {
+  const clients = new Set<IControlChannel>();
+  const onConnection = (socket: IControlChannel): void => {
     clients.add(socket);
     // readLine owns request errors only; write-side EPIPE can arrive after its listener is removed.
     socket.on('error', () => socket.destroy());
@@ -1056,10 +1074,12 @@ export async function startSupervisedControl(
         reply(socket, { status: 'refused' });
       }
     }).catch(() => socket.destroy());
-  });
+  };
+  const server = process.platform === 'win32' ? new WindowsControlPipeServer(onConnection) : createServer(onConnection);
   let bound = false;
   try {
-    mkdirSync(pendingDirectory, { mode: 0o700 });
+    if (process.platform === 'win32') createWindowsPrivateDirectory(pendingDirectory, true);
+    else mkdirSync(pendingDirectory, { mode: 0o700 });
     verifyExistingDirectory(pendingDirectory);
     await new Promise<void>((resolve, reject) => {
       server.once('error', reject);
@@ -1084,7 +1104,7 @@ export async function startSupervisedControl(
     renameSync(pendingDirectory, directory);
   } catch (error) {
     if (bound) server.close();
-    if (bound) rmSync(socketPath, { force: true });
+    if (bound && process.platform !== 'win32') rmSync(socketPath, { force: true });
     rmSync(pendingDirectory, { recursive: true, force: true });
     throw error;
   }
@@ -1095,7 +1115,7 @@ export async function startSupervisedControl(
       closed = true;
       for (const socket of clients) socket.destroy();
       await new Promise<void>((resolve) => server.close(() => resolve()));
-      rmSync(socketPath, { force: true });
+      if (process.platform !== 'win32') rmSync(socketPath, { force: true });
       rmSync(directory, { recursive: true, force: true });
     },
   };

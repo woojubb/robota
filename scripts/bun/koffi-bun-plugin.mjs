@@ -76,6 +76,7 @@ function shimSource(nativeEntry) {
     'export const sizeof = (spec) => introspect(spec).size;',
     'export const alignof = (spec) => introspect(spec).alignment;',
     'export const offsetof = (spec, name) => introspect(spec).members[name].offset;',
+    'Object.assign(native, { sizeof, alignof, offsetof });',
     ...NAMED_EXPORTS.map((name) => `export const ${name} = native.${name};`),
     'export default native;',
   ].join('\n');
