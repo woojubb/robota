@@ -1,5 +1,5 @@
 import { realpathSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { createWorkspaceProjectReader } from '../workspace-trust/project-reader.js';
 
@@ -48,5 +48,7 @@ export function createNodeHostContributionSource(root: string): IContributionSou
       getReader()?.listDirectory(relativePath, purpose) ?? [],
     inspectKind: (relativePath: string, purpose: string) =>
       getReader()?.inspectKind(relativePath, purpose),
+    locate: (relativePath: string) =>
+      join(getReader() === undefined ? resolvedRoot : realpathSync(resolvedRoot), relativePath),
   });
 }

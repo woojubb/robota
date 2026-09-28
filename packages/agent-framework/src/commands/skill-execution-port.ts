@@ -32,12 +32,10 @@ class AgentFrameworkSkillExecutionPort implements ISkillExecutionPort {
     args: string,
     opts?: { sessionId?: string },
   ): Promise<ISkillResolutionResult> {
-    const result = await executeSkill(
-      skill,
-      args,
-      {},
-      opts?.sessionId !== undefined ? { sessionId: opts.sessionId } : undefined,
-    );
+    const result = await executeSkill(skill, args, {}, {
+      ...(opts?.sessionId !== undefined ? { sessionId: opts.sessionId } : {}),
+      ...(skill.skillDirectory !== undefined ? { skillDir: skill.skillDirectory } : {}),
+    });
     return result.prompt !== undefined
       ? { mode: result.mode, prompt: result.prompt }
       : { mode: result.mode };

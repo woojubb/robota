@@ -421,9 +421,9 @@ skill in text does not activate it.
 | `agent`                    | string  | Agent definition for that subagent                        |
 
 Before a skill runs, its body is expanded: `$ARGUMENTS` (all arguments), `$ARGUMENTS[N]` or `$N`
-(one argument, from 0) and `${CLAUDE_SESSION_ID}` (the session id). `${CLAUDE_SKILL_DIR}` is
-recognized but currently replaced with an empty string, so a skill cannot use it to find its own
-folder. A `` !`command` `` in the body is replaced by that command's output, run in the project
+(one argument, from 0), `${CLAUDE_SESSION_ID}` (the session id) and `${CLAUDE_SKILL_DIR}` (the
+absolute folder the skill's file is in, so it can point at scripts or references it ships beside
+`SKILL.md`). A `` !`command` `` in the body is replaced by that command's output, run in the project
 folder.
 
 Agent definitions for subagents are discovered in `.robota/agents/`, `.agents/agents/` and

@@ -1,6 +1,6 @@
 import { createWorkspaceProjectContributionSource } from './contribution-source.js';
 import { createNodeHostContributionSource } from './node-host-contribution-source.js';
-import { getWorkspaceProjectReader } from '../workspace-trust/index.js';
+import { getWorkspaceProjectIdentity, getWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 import type { IContributionSource } from './contribution-source.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
@@ -25,6 +25,7 @@ export function createContributionSourcesForProjectAccess(
       ? [
           createWorkspaceProjectContributionSource(
             getWorkspaceProjectReader(projectAccess.authority),
+            getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot,
           ),
         ]
       : [];
