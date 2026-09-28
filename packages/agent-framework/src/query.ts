@@ -16,7 +16,7 @@ import {
 } from './workspace-trust/index.js';
 import { isWorkspacePathContained } from './workspace-trust/project-reader-path.js';
 
-import type { IExecutionResult, TInteractivePermissionHandler } from './interactive/types.js';
+import type { TInteractivePermissionHandler } from './interactive/types.js';
 import type { InteractiveSession } from './interactive/interactive-session.js';
 import type { INodeHostSettingsSource } from './config/node-host-settings-source.js';
 import type { TWorkspaceProjectAccess } from './workspace-trust/index.js';
@@ -36,8 +36,17 @@ export interface ICreateQueryOptions {
    * denied (issue #3081). Pass `'bypassPermissions'` explicitly for unattended driving.
    */
   permissionMode?: TPermissionMode;
+  /**
+   * Model to request. Without it the query uses the model from `userSettingsSources`, or Anthropic's
+   * default when none is set — so pass it with any other provider.
+   */
+  model?: string;
   /** Maximum agentic turns per query. */
   maxTurns?: number;
+  /** Tools that run without asking, in any permission mode (e.g. your own `additionalTools`). */
+  allowedTools?: readonly string[];
+  /** Tools the model is never offered. Denied wins over allowed. */
+  deniedTools?: readonly string[];
   /** Permission handler callback. */
   permissionHandler?: TInteractivePermissionHandler;
   /** Streaming text callback. */
@@ -48,39 +57,20 @@ export interface ICreateQueryOptions {
   responseFormat?: { type: 'text' | 'json_object' };
 }
 
-/** Callable query surface plus its immutable initial project-access decision. */
+/**
+ * Callable query surface plus its immutable initial project-access decision. Calls share one session
+ * and run one at a time, each answered by its own turn.
+ */
 export type TQueryFunction = ((prompt: string) => Promise<string>) & {
   readonly projectAccess: TWorkspaceProjectAccess;
+  /** Shut the query's session down; later calls are refused. */
+  shutdown(): Promise<void>;
 };
 
-function submitQuery(session: InteractiveSession, prompt: string): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    const cleanup = (): void => {
-      session.off('complete', onComplete);
-      session.off('interrupted', onInterrupted);
-      session.off('error', onError);
-    };
-    const onComplete = (result: IExecutionResult): void => {
-      cleanup();
-      resolve(result.response);
-    };
-    const onInterrupted = (result: IExecutionResult): void => {
-      cleanup();
-      resolve(result.response);
-    };
-    const onError = (error: Error): void => {
-      cleanup();
-      reject(error);
-    };
-
-    session.on('complete', onComplete);
-    session.on('interrupted', onInterrupted);
-    session.on('error', onError);
-    session.submit(prompt).catch((error) => {
-      cleanup();
-      reject(error instanceof Error ? error : new Error(String(error)));
-    });
-  });
+async function submitQuery(session: InteractiveSession, prompt: string): Promise<string> {
+  const turn = await session.submit(prompt);
+  const result = await turn.completed;
+  return result.response;
 }
 
 /**
@@ -124,7 +114,10 @@ export function createQuery(options: ICreateQueryOptions): TQueryFunction {
       ? { userSettingsSources: options.userSettingsSources }
       : {}),
     permissionMode: options.permissionMode ?? 'default',
+    ...(options.model !== undefined ? { model: options.model } : {}),
     maxTurns: options.maxTurns,
+    ...(options.allowedTools !== undefined ? { allowedTools: options.allowedTools } : {}),
+    ...(options.deniedTools !== undefined ? { deniedTools: options.deniedTools } : {}),
     additionalTools: options.additionalTools,
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
   });
@@ -142,6 +135,21 @@ export function createQuery(options: ICreateQueryOptions): TQueryFunction {
     session.on('text_delta', options.onTextDelta);
   }
 
-  const query = (prompt: string): Promise<string> => submitQuery(session, prompt);
-  return Object.freeze(Object.assign(query, { projectAccess }));
+  // One call at a time: queued submissions from one caller coalesce, so a third concurrent call
+  // would replace the second instead of getting its own answer.
+  let previous: Promise<unknown> = Promise.resolve();
+  let shutDown = false;
+  const query = (prompt: string): Promise<string> => {
+    const answer = previous.then(() => {
+      if (shutDown) throw new Error('This query has been shut down.');
+      return submitQuery(session, prompt);
+    });
+    previous = answer.catch(() => undefined);
+    return answer;
+  };
+  const shutdown = async (): Promise<void> => {
+    shutDown = true;
+    await session.shutdown();
+  };
+  return Object.freeze(Object.assign(query, { projectAccess, shutdown }));
 }

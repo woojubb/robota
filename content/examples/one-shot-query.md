@@ -20,7 +20,8 @@ session, so a later prompt sees the earlier ones. For an independent conversatio
 `createQuery()` again. To drive the session yourself (events, abort, persistence), use
 [`InteractiveSession`](./session-management.md).
 
-There is no `model` option: the model comes from the settings files, and without one the session asks the provider for `claude-opus-4-5`. Use `createQuery` with the Anthropic provider, or use `InteractiveSession`, which takes an explicit `model`, for other providers.
+Pass `model` with any provider other than Anthropic: without it the model comes from the settings
+files, and without one the session asks the provider for `claude-opus-4-5`.
 
 ## Options
 
@@ -45,8 +46,10 @@ const response = await query('Refactor the error handling in src/utils.ts and ru
 ```
 
 - `permissionMode` defaults to `default`. With no `permissionHandler`, a tool call that would ask for
-  approval is denied. See the [permissions guide](../guide/permissions-and-hooks.md) for what each
-  mode allows.
+  approval is denied, unless the tool is in `allowedTools`. `deniedTools` are never offered to the
+  model. See the [permissions guide](../guide/permissions-and-hooks.md) for what each mode allows.
+- `model` picks the model; pass it with any provider other than Anthropic.
+- Calls run one at a time and each resolves with its own reply; `query.shutdown()` ends the session.
 - Without a `projectAccess` decision the session runs Restricted: its tools still work inside `cwd`,
   but it does not load the project's `AGENTS.md`/`CLAUDE.md`, settings or memory. The
   [agent-framework README](../../packages/agent-framework/README.md) describes how a host passes

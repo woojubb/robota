@@ -180,13 +180,18 @@ const answer = await query('Which files define the public API?');
 const followUp = await query('And which of those have tests?');
 ```
 
-Options: `provider` (required), `cwd` (default `process.cwd()`), `permissionMode` (default
-`'default'`), `permissionHandler`, `onTextDelta`, `additionalTools`, `maxTurns`, `responseFormat`,
-`projectAccess` and `userSettingsSources`. With no `permissionHandler`, any call that would need
-approval is denied; pass one to decide, or pass `permissionMode: 'bypassPermissions'` only when the
-agent may do anything in `cwd` unattended.
+Options: `provider` (required), `model`, `cwd` (default `process.cwd()`), `permissionMode` (default
+`'default'`), `permissionHandler`, `allowedTools`, `deniedTools`, `onTextDelta`, `additionalTools`,
+`maxTurns`, `responseFormat`, `projectAccess` and `userSettingsSources`. With no `permissionHandler`,
+any call that would need approval is denied; list the tools that may run anyway in `allowedTools`,
+pass a handler to decide, or pass `permissionMode: 'bypassPermissions'` only when the agent may do
+anything in `cwd` unattended. `deniedTools` are never offered to the model.
 
-There is no `model` option: the model comes from the settings files, and without one the session asks the provider for `claude-opus-4-5`. Use `createQuery` with the Anthropic provider, or use `InteractiveSession`, which takes an explicit `model`, for other providers.
+Pass `model` with any provider other than Anthropic: without it the model comes from the settings
+files, and without one the session asks the provider for `claude-opus-4-5`.
+
+Calls run one at a time, in the order they were made, and each resolves with its own reply.
+`query.shutdown()` ends the session; a later call is refused.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
