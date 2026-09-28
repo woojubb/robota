@@ -30,8 +30,7 @@
 #
 # EXIT 0 only if every BLOCKING check passed. DIAGNOSTIC checks are reported with their real status
 # and never affect the exit code; they are labelled as such in the summary so nobody mistakes a
-# printed line for an enforced one. `xcrun stapler validate` is DIAGNOSTIC today and becomes BLOCKING
-# once the releases are notarized (#3349), when there is a ticket for it to validate.
+# printed line for an enforced one.
 #
 # Usage: verify-macos-release-artifacts.sh <tag> <download-dir>
 
@@ -210,9 +209,9 @@ verify_dmg() {
   verify_checksum "$file"
   apply_quarantine "$file"
 
-  run_check BLOCKING "spctl --assess --type install: $name" \
-    spctl --assess --type install --verbose=4 "$file"
-  run_check DIAGNOSTIC "xcrun stapler validate (BLOCKING once notarized): $name" \
+  run_check BLOCKING "spctl --assess --type open: $name" \
+    spctl --assess --type open --context context:primary-signature --verbose=4 "$file"
+  run_check BLOCKING "xcrun stapler validate: $name" \
     xcrun stapler validate "$file"
 
   mountpoint="$(mktemp -d)"
