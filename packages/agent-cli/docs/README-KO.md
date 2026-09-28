@@ -209,8 +209,9 @@ robota trust revoke --yes
 ### MCP 서버 연결하기, 또는 Robota를 MCP로 제공하기
 
 원격 MCP 서버는 설정 파일의 `mcpServers` 아래에 선언합니다. 선언한 서버는 승인하기 전까지 연결되지
-않습니다. `/mcp`는 각 서버의 상태를 보여 주고, `/mcp approve <server>`는 승인을 기록합니다. `robota`
-실행 파일은 승인을 메모리에만 두므로 다음 실행에는 이어지지 않습니다. OAuth를 쓰는 서버는 로그인도
+않습니다. `/mcp`는 각 서버의 상태를 보여 주고, `/mcp approve <server>`는 승인을 기록한 뒤
+실행 중인 세션에서 연결을 시도합니다. 승인은 `~/.robota/mcp-approvals.json`에 저장되어 다음 실행에도
+이어지며, 서버 정의나 프로젝트 신뢰가 바뀌면 다시 승인해야 합니다. OAuth를 쓰는 서버는 로그인도
 필요합니다. 세션 안에서는 `/mcp login <server>`, 터미널에서는 `robota mcp login <server>`를 쓰며,
 승인된 서버는 로그인하면 실행 중인 세션에 연결됩니다.
 

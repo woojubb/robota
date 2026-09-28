@@ -76,6 +76,8 @@ export interface IMCPActivationAuditEvent {
 export interface IMCPActivationApprovalStore {
   list(): readonly IMCPActivationApprovalRecord[];
   put(record: IMCPActivationApprovalRecord): void;
+  /** Durable stores can commit a decision and its audit receipt in one transaction. */
+  putWithAudit?(record: IMCPActivationApprovalRecord, event: IMCPActivationAuditEvent): void;
   listAudit(): readonly IMCPActivationAuditEvent[];
   appendAudit(event: IMCPActivationAuditEvent): void;
 }
@@ -269,8 +271,7 @@ export class MCPActivationAdmissionService implements IMCPActivationAdmission {
     }
 
     const record = this.createRecord(request, authority, 'approved');
-    this.store.put(record);
-    this.audit(request, record);
+    this.save(request, record);
     return this.inspect(request);
   }
 
@@ -284,8 +285,7 @@ export class MCPActivationAdmissionService implements IMCPActivationAdmission {
       );
     }
     const record = this.createRecord(request, authority, 'rejected');
-    this.store.put(record);
-    this.audit(request, record);
+    this.save(request, record);
     return this.inspect(request);
   }
 
@@ -299,8 +299,7 @@ export class MCPActivationAdmissionService implements IMCPActivationAdmission {
       );
     }
     const record = this.createRecord(request, authority, 'revoked');
-    this.store.put(record);
-    this.audit(request, record);
+    this.save(request, record);
     return this.inspect(request);
   }
 
@@ -335,8 +334,8 @@ export class MCPActivationAdmissionService implements IMCPActivationAdmission {
     };
   }
 
-  private audit(request: IMCPActivationRequest, record: IMCPActivationApprovalRecord): void {
-    this.store.appendAudit({
+  private save(request: IMCPActivationRequest, record: IMCPActivationApprovalRecord): void {
+    const event: IMCPActivationAuditEvent = {
       action:
         record.decision === 'approved'
           ? 'approve'
@@ -350,7 +349,12 @@ export class MCPActivationAdmissionService implements IMCPActivationAdmission {
       securityIdentity: request.securityIdentity,
       decision: record.decision,
       at: record.decidedAt,
-    });
+    };
+    if (this.store.putWithAudit) this.store.putWithAudit(record, event);
+    else {
+      this.store.put(record);
+      this.store.appendAudit(event);
+    }
   }
 }
 
