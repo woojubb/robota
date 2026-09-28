@@ -10,7 +10,7 @@ the DAG workflow subsystem; see [the DAG packages](../dag-core/README.md#the-dag
 
 ## Where it sits
 
-- Depends on: [`@robota-sdk/dag-core`](../dag-core/README.md) only. Runtime, worker, scheduler and
+- Depends on: [`@robota-sdk/dag-core`](../dag-core/README.md) only. Runtime, worker and
   projection packages are not dependencies; controllers reach them through the ports below.
 - Used by: [`dag-framework`](../dag-framework/README.md), which builds the controllers and uses
   `RunProgressEventBus` and the run lifecycle port, and

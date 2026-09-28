@@ -13,7 +13,7 @@ functions that node implementors use to build concrete node definitions. It sits
   to `@robota-sdk/dag-core`.
 - **No concrete node implementations.** Specific node types belong to `@robota-sdk/dag-nodes`.
 - **No orchestration or runtime.** DAG scheduling, worker execution, and run coordination belong to
-  `dag-runtime`, `dag-worker`, `dag-scheduler`.
+  `dag-runtime` and `dag-worker`.
 - **No API layer.** HTTP/REST composition belongs to application packages.
 - **No execution engine or lifecycle runner.** Those belong to `@robota-sdk/dag-core`.
 
