@@ -122,6 +122,32 @@ function diagnosticsSink() {
 }
 
 describe('createMcpClientComposition', () => {
+  it.each(['sse', 'ws'] as const)(
+    'reports unsupported %s transport at startup and reload',
+    async (transport) => {
+      const entries = [resolvedEntry({ definition: definition({ transport }) })];
+      const diagnostics = diagnosticsSink();
+      const createSupervisor = vi.fn();
+      const composition = createMcpClientComposition({
+        resolvedEntries: entries,
+        approvalStore: approvedApprovalStore(entries),
+        createSupervisor,
+        reportDiagnostic: diagnostics.reportDiagnostic,
+      });
+      expect(await composition.connect()).toEqual([]);
+      expect(diagnostics.messages.join(' ')).toContain(`unsupported transport: ${transport}`);
+      expect(composition.activationAdapter.list()[0]).toMatchObject({
+        connection: 'failed',
+        connectionFailureReason: expect.stringContaining('unsupported transport'),
+      });
+      const reload = await composition.activationAdapter.reload!();
+      expect(reload.failedServerIds).toEqual(['weather']);
+      expect(reload.connectedServerIds).toEqual([]);
+      expect(createSupervisor).not.toHaveBeenCalled();
+      await composition.shutdown();
+    },
+  );
+
   it('offers no external-event subscription, even for a connected server', async () => {
     const entries = [resolvedEntry()];
     const { connection } = fakeConnection(discoveryWithOneTool());
@@ -387,7 +413,13 @@ describe('MCP Servers section runtime status (#3282 §4 part b-2)', () => {
       ...discoveryWithOneTool(),
       tools: {
         state: { kind: 'supported', count: 1, listChanged: false },
-        items: [{ name: 'status', description: 'Check status', inputSchema: { type: 'object', properties: {} } }],
+        items: [
+          {
+            name: 'status',
+            description: 'Check status',
+            inputSchema: { type: 'object', properties: {} },
+          },
+        ],
         pages: 1,
       },
     };
@@ -459,8 +491,16 @@ describe('MCP Servers section runtime status (#3282 §4 part b-2)', () => {
             tools: {
               state: { kind: 'supported', count: 2, listChanged: false },
               items: [
-                { name: 'status', description: 'Check status', inputSchema: { type: 'object', properties: {} } },
-                { name: 'ping', description: 'Ping', inputSchema: { type: 'object', properties: {} } },
+                {
+                  name: 'status',
+                  description: 'Check status',
+                  inputSchema: { type: 'object', properties: {} },
+                },
+                {
+                  name: 'ping',
+                  description: 'Ping',
+                  inputSchema: { type: 'object', properties: {} },
+                },
               ],
               pages: 1,
             },
@@ -476,7 +516,9 @@ describe('MCP Servers section runtime status (#3282 §4 part b-2)', () => {
       approvalStore,
       transport: { lookup: async () => ['93.184.216.34'] },
       createSupervisor: (options) =>
-        options.serverId === 'weather' ? fakeConnection(discoveryWithOneTool()).connection : failingThenTwoTools,
+        options.serverId === 'weather'
+          ? fakeConnection(discoveryWithOneTool()).connection
+          : failingThenTwoTools,
       reportDiagnostic: () => undefined,
     });
 
@@ -488,7 +530,9 @@ describe('MCP Servers section runtime status (#3282 §4 part b-2)', () => {
     // The session took only one of the two (the other collided with a tool it already has).
     composition.activationAdapter.reloadToolsAdded!(result.reloadToken!, ['flaky__status']);
 
-    const toolNames = composition.activationAdapter.list().find((s) => s.serverId === 'flaky')?.toolNames;
+    const toolNames = composition.activationAdapter
+      .list()
+      .find((s) => s.serverId === 'flaky')?.toolNames;
     expect(toolNames).toEqual(['flaky__status']);
     expect(toolNames).not.toContain('flaky__ping');
 
@@ -529,7 +573,9 @@ describe('MCP Servers section runtime status (#3282 §4 part b-2)', () => {
       approvalStore,
       transport: { lookup: async () => ['93.184.216.34'] },
       createSupervisor: (options) =>
-        options.serverId === 'weather' ? fakeConnection(discoveryWithOneTool()).connection : flakyConnection,
+        options.serverId === 'weather'
+          ? fakeConnection(discoveryWithOneTool()).connection
+          : flakyConnection,
       reportDiagnostic: () => undefined,
     });
 
@@ -571,7 +617,13 @@ describe('MCP Servers section runtime status (#3282 §4 part b-2)', () => {
             identity: { ...discoveryWithOneTool().identity, serverId: name },
             tools: {
               state: { kind: 'supported', count: 1, listChanged: false },
-              items: [{ name: 'status', description: 'Check', inputSchema: { type: 'object', properties: {} } }],
+              items: [
+                {
+                  name: 'status',
+                  description: 'Check',
+                  inputSchema: { type: 'object', properties: {} },
+                },
+              ],
               pages: 1,
             },
           };

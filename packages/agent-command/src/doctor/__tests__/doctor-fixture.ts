@@ -139,6 +139,7 @@ export function installBrokenHome(fixture: IDoctorFixture): void {
     JSON.stringify({
       mcpServers: {
         ghost: { command: 'robota-doctor-missing-binary', env: { GHOST_TOKEN: MARKERS.mcp } },
+        ready: { type: 'http', url: 'https://mcp.example.test' },
       },
     }),
   );
