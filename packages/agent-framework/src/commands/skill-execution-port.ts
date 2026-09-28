@@ -36,7 +36,10 @@ class AgentFrameworkSkillExecutionPort implements ISkillExecutionPort {
       skill,
       args,
       {},
-      opts?.sessionId !== undefined ? { sessionId: opts.sessionId } : undefined,
+      {
+        ...(opts?.sessionId !== undefined ? { sessionId: opts.sessionId } : {}),
+        ...(skill.skillDirectory !== undefined ? { skillDir: skill.skillDirectory } : {}),
+      },
     );
     return result.prompt !== undefined
       ? { mode: result.mode, prompt: result.prompt }

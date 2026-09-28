@@ -55,6 +55,7 @@ export class PluginCommandSource implements ICommandSource {
           description: `(${plugin.manifest.name}) ${skill.description}`,
           source: 'plugin',
           skillContent: skill.skillContent,
+          ...(skill.skillDirectory !== undefined ? { skillDirectory: skill.skillDirectory } : {}),
           pluginDir: plugin.pluginDir,
           ...skillCommandMetadata(skill),
         });
@@ -67,6 +68,7 @@ export class PluginCommandSource implements ICommandSource {
           description: cmd.description,
           source: 'plugin',
           skillContent: cmd.skillContent,
+          ...(cmd.skillDirectory !== undefined ? { skillDirectory: cmd.skillDirectory } : {}),
           pluginDir: plugin.pluginDir,
           ...skillCommandMetadata(cmd),
         });

@@ -324,7 +324,10 @@ export class SessionSkillRouter {
           runInFork: (content, options) => this.runSkillInFork(content, options),
           ...(this.shellExec ? { shellExec: this.shellExec } : {}),
         },
-        { sessionId: this.getSessionId() },
+        {
+          sessionId: this.getSessionId(),
+          ...(skill.skillDirectory !== undefined ? { skillDir: skill.skillDirectory } : {}),
+        },
       );
       this.emitSkillActivation(skill, invocation, 'completed', qualifiedName, {
         appendHistory: false,
