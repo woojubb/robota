@@ -14,7 +14,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { buildCliInvocation } from '../src/build-invocation.js';
+import { buildCliArgs } from '../src/build-invocation.mjs';
 
 /**
  * The payload names the marker relative to the child's `cwd` rather than by its absolute path, so the
@@ -37,15 +37,16 @@ describe('SEC-006: action inputs must never reach a shell', () => {
   });
 
   it('does not execute a shell payload smuggled through the task input', () => {
-    const invocation = buildCliInvocation({
+    const args = buildCliArgs({
       task: PAYLOAD,
       model: '',
       output: 'text',
       maxTurns: '',
+      loadProject: false,
     });
 
-    // stand in for `npx` so the test never hits the network; the argv vector is otherwise verbatim
-    execFileSync('echo', invocation.args, {
+    // stand in for the CLI so the test never hits the network; the argv vector is otherwise verbatim
+    execFileSync('echo', args, {
       cwd: dir,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -56,21 +57,27 @@ describe('SEC-006: action inputs must never reach a shell', () => {
 
   it('keeps a metacharacter-laden task as ONE literal argv element', () => {
     const task = 'a b; c && d `e` $(f) | g > h';
-    const { file, args } = buildCliInvocation({ task, model: '', output: 'text', maxTurns: '' });
+    const args = buildCliArgs({
+      task,
+      model: '',
+      output: 'text',
+      maxTurns: '',
+      loadProject: false,
+    });
 
-    expect(file).toBe('npx');
-    expect(args).toContain(task);
-    // exactly one element equals the payload — it was not split or re-quoted
+    // exactly one element equals the payload — it was not split or re-quoted — and it is the last,
+    // after the `--` that ends the options
     expect(args.filter((a) => a === task)).toHaveLength(1);
-    expect(args[args.indexOf('-p') + 1]).toBe(task);
+    expect(args.slice(-2)).toEqual(['--', task]);
   });
 
   it('also isolates the model and max-turns inputs', () => {
-    const { args } = buildCliInvocation({
+    const args = buildCliArgs({
       task: 'ok',
       model: 'x; touch /tmp/nope',
       output: 'text',
       maxTurns: '3; touch /tmp/nope',
+      loadProject: false,
     });
     expect(args[args.indexOf('--model') + 1]).toBe('x; touch /tmp/nope');
     expect(args[args.indexOf('--max-turns') + 1]).toBe('3; touch /tmp/nope');
@@ -79,11 +86,12 @@ describe('SEC-006: action inputs must never reach a shell', () => {
   it('CONTROL: the previous join-into-a-shell shape really did execute the payload', () => {
     // Pins WHY the fix is shaped this way. If this ever stops reproducing, the threat model changed
     // and the reasoning above should be revisited rather than silently trusted.
-    const { args } = buildCliInvocation({
+    const args = buildCliArgs({
       task: PAYLOAD,
       model: '',
       output: 'text',
       maxTurns: '',
+      loadProject: false,
     });
     execSync(['echo', ...args].join(' '), {
       cwd: dir,

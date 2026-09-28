@@ -3,15 +3,10 @@
   "version": "1.0.0",
   "description": "Official Robota GitHub Action",
   "type": "module",
-  "main": "dist/index.js",
   "scripts": {
-    "build": "tsgo",
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsgo --noEmit",
     "test:coverage": "vitest run --coverage --config vitest.config.ts"
-  },
-  "dependencies": {
-    "@actions/core": "^1.11.1"
   },
   "devDependencies": {
     "@types/node": "^22.19.21",
