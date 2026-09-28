@@ -1,7 +1,6 @@
 # GUI-003 — electron-builder config for the Robota desktop app.
 # Bundles the host-arch Bun `robota` runtime (copied to resources-bin/ by scripts/bundle-runtime.mjs) as an
-# extraResource, so the installed app is self-contained (zero external install). Artifacts are UNSIGNED
-# (no certs — Gatekeeper/SmartScreen will warn); signing is a tracked follow-up.
+# extraResource, so the installed app is self-contained (zero external install).
 #
 # electron-builder is pinned EXACTLY (not `^`) in package.json, deliberately. Within the 26.15 patch line
 # alone, two artifact-corrupting regressions shipped as ordinary patches and were fixed several releases
@@ -60,6 +59,12 @@ mac:
     - dmg
     - zip
   category: public.app-category.developer-tools
+  type: distribution
+  hardenedRuntime: true
+  notarize: true
+  # The release signs the Bun sidecar first with Bun's own JIT entitlements; preserve that signature.
+  signIgnore:
+    - /Contents/Resources/robota$
 win:
   target:
     - nsis
