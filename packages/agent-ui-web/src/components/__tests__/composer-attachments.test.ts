@@ -89,6 +89,25 @@ describe('looksBinary', () => {
   it('flags any MIME type the browser reports that is not text/JSON/XML, not only a known-binary allowlist', () => {
     expect(looksBinary('mystery.xyz', 'application/x-something-unheard-of')).toBe(true);
   });
+
+  // Pins the text/JSON/XML MIME check: a type is texty when it starts with `text/`, or ends with
+  // `+json`, `+xml`, `/json`, or `/xml` — each anchor scoped to its own alternative rather than one
+  // ambiguous `^…|…$` pattern (CodeQL flagged the combined form as misleading operator precedence).
+  // `application/jsonp` and `x/text/json-ish` exercise the end anchor: both contain "json" as a
+  // substring but not as the type's actual suffix, so they must still be refused as binary.
+  it.each([
+    ['text/plain', false],
+    ['application/json', false],
+    ['application/ld+json', false],
+    ['image/svg+xml', false],
+    ['application/xml', false],
+    ['image/png', true],
+    ['application/octet-stream', true],
+    ['application/jsonp', true],
+    ['x/text/json-ish', true],
+  ] as const)('treats %s as binary=%s', (mimeType, expected) => {
+    expect(looksBinary('file', mimeType)).toBe(expected);
+  });
 });
 
 describe('evaluateCandidateFile', () => {
