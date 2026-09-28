@@ -317,8 +317,9 @@ The package also exports `startCli`, the function the `robota` executable runs, 
 type `IStartCliOptions`. The package is ESM-only: load it with `import`, not `require()`.
 
 A subagent runs in a child process that starts your entry script again with a worker flag; when
-`startCli()` sees that flag it runs the subagent instead of the CLI. So call `startCli()` from the
-script Node started, before anything that should happen only once.
+`startCli()` sees that flag it runs the subagent instead of the CLI, and the returned promise never
+settles (the worker ends the process). So call `startCli()` from the script Node started, and put
+nothing before it that must not run once per subagent.
 
 ## Work on the CLI in this repository
 

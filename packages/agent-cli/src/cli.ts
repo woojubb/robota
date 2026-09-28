@@ -23,7 +23,9 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // dispatch is here too: without it the child would start a second CLI instead of the subagent.
   if (isSubagentWorkerModeArgv(optionArgv(process.argv))) {
     runSubagentWorkerMain(createRobotaSubagentComposition());
-    return;
+    // The worker ends the process itself when its task is done. Never settling keeps an embedder's
+    // code after `await startCli()` (a `process.exit()`, say) from running in the worker child.
+    return new Promise<never>(() => undefined);
   }
   return startCliCore(options, createDefaultBackgroundTaskRunners, {
     renderApp,
