@@ -173,8 +173,10 @@ verify_cli_binary() {
 
   apply_quarantine "$file"
 
-  # Apple's app-bundle assessment rejects even notarized standalone Mach-O tools as "not an app".
-  # Check the binary's notarization ticket using Apple's codesign requirement instead.
+  # Assessment fetches the online ticket on a fresh Mac, but its app-only verdict rejects standalone
+  # tools as "not an app". Record that verdict diagnostically; enforce the ticket requirement below.
+  run_check DIAGNOSTIC "Gatekeeper ticket lookup: $name" \
+    spctl --assess --type execute --verbose=4 "$file"
   run_check BLOCKING "notarization requirement: $name" \
     codesign --verify --strict --verbose=2 --test-requirement '=notarized' "$file"
 
