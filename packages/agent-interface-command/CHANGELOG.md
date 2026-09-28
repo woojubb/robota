@@ -1,5 +1,19 @@
 # @robota-sdk/agent-interface-command
 
+## 3.0.0-beta.85
+
+### Minor Changes
+
+- 193a0bc: `${CLAUDE_SKILL_DIR}` in a skill expands to the absolute folder its `SKILL.md` is in; it used to expand to an empty string. A skill's `` !`command` `` gets `CLAUDE_SKILL_DIR` and `CLAUDE_SESSION_ID` in its environment, so the shell expands them there too (`TShellExecFn` takes an optional `env`). Skills from host folders and a trusted project carry the folder, and bundle-plugin skills and commands record theirs. `ICommand` gains `skillDirectory`, and `IContributionSource` an optional `locate()` that names the absolute path of a root-relative one.
+
+### Patch Changes
+
+- Updated dependencies [41cca13]
+- Updated dependencies [5093a30]
+- Updated dependencies [94b2c87]
+- Updated dependencies [3ab2eca]
+  - @robota-sdk/agent-core@3.0.0-beta.85
+
 ## 3.0.0-beta.84
 
 ### Patch Changes

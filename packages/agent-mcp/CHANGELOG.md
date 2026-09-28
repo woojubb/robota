@@ -1,5 +1,15 @@
 # @robota-sdk/agent-mcp
 
+## 3.0.0-beta.85
+
+### Patch Changes
+
+- Updated dependencies [41cca13]
+- Updated dependencies [5093a30]
+- Updated dependencies [94b2c87]
+- Updated dependencies [3ab2eca]
+  - @robota-sdk/agent-core@3.0.0-beta.85
+
 ## 3.0.0-beta.84
 
 ### Patch Changes

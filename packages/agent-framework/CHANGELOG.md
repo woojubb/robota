@@ -1,5 +1,84 @@
 # @robota-sdk/agent-framework
 
+## 3.0.0-beta.85
+
+### Minor Changes
+
+- 193a0bc: `${CLAUDE_SKILL_DIR}` in a skill expands to the absolute folder its `SKILL.md` is in; it used to expand to an empty string. A skill's `` !`command` `` gets `CLAUDE_SKILL_DIR` and `CLAUDE_SESSION_ID` in its environment, so the shell expands them there too (`TShellExecFn` takes an optional `env`). Skills from host folders and a trusted project carry the folder, and bundle-plugin skills and commands record theirs. `ICommand` gains `skillDirectory`, and `IContributionSource` an optional `locate()` that names the absolute path of a root-relative one.
+- 54e2848: `createQuery()` takes `model`, `allowedTools` and `deniedTools`, and the query function has `shutdown()`.
+
+  - `model` picks the model, so a query works with any provider without a settings file; before, it always asked for Anthropic's default model.
+  - `allowedTools` lets named tools (your own `additionalTools`, say) run in the `default` mode without a `permissionHandler`; `deniedTools` are never offered to the model.
+  - Calls on one query function run one at a time and each resolves with its own reply. Before, concurrent calls all resolved with the first turn's reply.
+  - `await query.shutdown()` ends the query's session; a call still running or waiting rejects, and so does every later one.
+
+### Patch Changes
+
+- 4e11579: `runGroupChat` runs on the Roundtable core.
+
+  `runGroupChat`'s own `while` loop is replaced by a facade over `@robota-sdk/agent-roundtable`'s
+  `Roundtable`: one step id becomes one participant, the caller's `selectNextStep` policy is adapted
+  into a `TurnSelector`, and the core runs the only turn loop. The public contract
+  (`IGroupChatOrchestrationSpec`, `SelectNextStep`, `IGroupChatOrchestratorDeps`,
+  `IOrchestrationRunResult`) is unchanged, and so is the behavior it describes: the first speaker,
+  threaded whole-transcript prompts, the `maxTurns` bound and its error message and check order, empty
+  steps, the STARTED/STEP_STARTED/STEP_COMPLETED/COMPLETED/FAILED event sequence, per-step usage, and
+  the original error object thrown on failure — including for inputs the old loop tolerated only
+  because it never validated them, such as a non-finite or extremely large `maxTurns` or a step with no
+  usable model id.
+
+  A few differences are deliberate and small: the selector now receives a freshly built history array
+  on every call rather than a reference into a mutated one; a duplicate step id keeps only its last
+  definition and an empty step id can never be reached (both were already-unreachable edge cases in
+  the old loop); and a non-integer `maxTurns` is rounded up for the core's own internal turn ceiling,
+  though the selector's own bound check still compares the caller's exact value first. Reported step
+  usage comes back as a plain-data copy (same values; undefined-valued keys omitted), and a reading that
+  cannot be stored as finite JSON, such as one containing `NaN`, is left out of the step result instead
+  of failing the run. Each call keeps a small in-memory operation log for its conversation; it is bounded
+  per call and negligible at the default `maxTurns` (the step count).
+
+- 6ee8725: A user settings file that does not parse no longer reads as "no plugin is disabled". Plugin settings
+  now refuse to read it: no plugin loads (skills, commands, hooks and themes alike), a plugin command
+  such as `/plugin enable` fails instead of rewriting the whole settings file with the plugin keys
+  alone, and `robota doctor` reports the plugin check as failed while still inspecting each installed
+  plugin. The CLI already refuses to start with such a file; this covers a session started later in
+  the same process.
+- 6072e9a: Bundle plugin skills and commands now run. They were listed in the command menu, but typing one
+  answered "Unknown command", and the model could neither see nor activate them: the session's skill
+  router and the prompt's skill list read only the host's skill roots. A session now also loads the
+  skills and commands of the bundle plugins it may load, once, behind the same gates as plugin hooks
+  (not in a bare session, project plugins only in a trusted workspace, disabled plugins skipped). A
+  session's own skill of the same name wins, then the first plugin to name it.
+- 2e07cad: A subagent and a fork-context skill now start in the permission mode their parent is in at that
+  moment. The runtime used to hand them the mode it was built with, so after a switch to `plan` a
+  subagent the model started, or a skill it ran in a fork, still ran in the earlier mode and could
+  edit. `IInProcessSubagentRunnerDeps` gains the optional `getParentPermissionMode`, which the session
+  wires to its live mode; the in-process and child-process runners read it at spawn and fall back to
+  `permissionMode` when it is absent.
+
+  In plan mode the model can no longer run `/workflows create` or `/workflows build`: both save to
+  the project, and `create` also runs the workflow. The user can still run them by hand.
+
+- Updated dependencies [190f78f]
+- Updated dependencies [41cca13]
+- Updated dependencies [193a0bc]
+- Updated dependencies [5093a30]
+- Updated dependencies [94b2c87]
+- Updated dependencies [3ab2eca]
+  - @robota-sdk/agent-roundtable@3.0.0-beta.85
+  - @robota-sdk/agent-core@3.0.0-beta.85
+  - @robota-sdk/agent-interface-command@3.0.0-beta.85
+  - @robota-sdk/agent-session@3.0.0-beta.85
+  - @robota-sdk/agent-executor@3.0.0-beta.85
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.85
+  - @robota-sdk/agent-interface-session@3.0.0-beta.85
+  - @robota-sdk/agent-interface-session-mobility@3.0.0-beta.85
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.85
+  - @robota-sdk/agent-tool-defaults@3.0.0-beta.85
+  - @robota-sdk/agent-tools@3.0.0-beta.85
+  - @robota-sdk/agent-file-authority@3.0.0-beta.85
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.85
+
 ## 3.0.0-beta.84
 
 ### Minor Changes
