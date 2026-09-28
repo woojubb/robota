@@ -311,38 +311,29 @@ async function executeRequest(
 ): Promise<IToolExecutionResult> {
   const recovered = context.recoveredResults?.get(index);
   if (recovered) return structuredClone(recovered);
-  if (!context.journal) {
-    return context.signal?.aborted
-      ? createInterruptedResult(request)
-      : request.argumentDecodeError !== undefined
-        ? createArgumentDecodeErrorResult(request)
-        : executor.executeTool(
-            request.toolName,
-            request.parameters,
-            createExecutionContext(request, context.signal),
-          );
-  }
   let result: IToolExecutionResult;
   const journal = context.journal;
   if (context.signal?.aborted) result = createInterruptedResult(request);
   else if (request.argumentDecodeError !== undefined)
     result = createArgumentDecodeErrorResult(request);
   else {
-    await journal.beforeDispatch(index);
-    // The admission wait can outlive a sibling's failure or caller cancellation.
+    if (journal) await journal.beforeDispatch(index);
     if (context.signal?.aborted) result = createInterruptedResult(request);
     else {
+      const executionContext = {
+        ...createExecutionContext(request, context.signal),
+        ...(journal?.continuation ? { continuation: journal.continuation(index) } : {}),
+        ...(journal?.beforeEffect
+          ? {
+              beforeToolEffect: (parameters: TToolParameters) =>
+                journal.beforeEffect!(index, parameters),
+            }
+          : {}),
+      };
+      if (context.lifecycle) await context.lifecycle.beforeDispatch(index, executionContext);
       try {
         result = await executeAndDrain(context, index, () =>
-          executor.executeTool(request.toolName, request.parameters, {
-            ...createExecutionContext(request, context.signal),
-            ...(journal.continuation ? { continuation: journal.continuation(index) } : {}),
-            ...(journal.beforeEffect
-              ? {
-                  beforeToolEffect: (parameters) => journal.beforeEffect!(index, parameters),
-                }
-              : {}),
-          }),
+          executor.executeTool(request.toolName, request.parameters, executionContext),
         );
       } catch (error) {
         if (isExecutionControlError(error)) throw error;
@@ -351,6 +342,7 @@ async function executeRequest(
           error instanceof Error ? error : new Error(String(error)),
         );
       }
+      if (context.lifecycle) await context.lifecycle.onResult(index, executionContext, result);
     }
   }
   // Persist a settled sibling even after cancellation; this wait is not a new external effect.

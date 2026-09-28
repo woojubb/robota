@@ -101,6 +101,8 @@ export interface IPluginExecutionResult {
  * above, which lives at this abstracts layer.
  */
 export interface IPluginContext {
+  toolData?: IToolExecutionContext;
+  toolResult?: IToolExecutionResult;
   input?: string;
   response?: string;
   messages?: TUniversalMessage[];

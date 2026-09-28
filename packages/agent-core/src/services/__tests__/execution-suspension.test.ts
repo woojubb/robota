@@ -1,3 +1,5 @@
+import { AbstractPlugin } from '../../abstracts/abstract-plugin';
+import type { IAgentConfig } from '../../interfaces/agent';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Robota } from '../../core/robota';
 import { FunctionTool } from '../../tool-registry';
@@ -36,6 +38,7 @@ function journalFixture() {
 function fixture(
   turns: TScriptedTurn[],
   options: {
+    plugins?: IAgentConfig['plugins'];
     beforeAsk?: () => Promise<void>;
     swallowWait?: boolean;
     parallelPrompts?: boolean;
@@ -93,6 +96,7 @@ function fixture(
     aiProviders: [scripted.provider],
     defaultModel: { provider: scripted.provider.name, model: 'test-model' },
     tools: [tool],
+    plugins: options.plugins,
   });
   agents.push(agent);
   return { agent, effect, ...scripted };
@@ -113,6 +117,54 @@ async function suspended() {
 }
 
 describe('journaled tool suspension', () => {
+  it('fires each call hook once across repeated suspension, resume and recovered results', async () => {
+    class Recorder extends AbstractPlugin {
+      readonly name = 'per-call-recorder';
+      readonly version = '1';
+      before = vi.fn();
+      execution = vi.fn();
+      after = vi.fn();
+      override async beforeToolCall(): Promise<void> {
+        this.before();
+      }
+      override async beforeToolExecution(): Promise<void> {
+        this.execution();
+      }
+      override async afterToolCall(): Promise<void> {
+        this.after();
+      }
+    }
+    const plugin = new Recorder();
+    const source = fixture([action, { text: 'done' }], { plugins: [plugin] });
+    const saved = journalFixture();
+    const error = await source.agent
+      .run('input', { executionJournal: saved.journal })
+      .catch((e: unknown) => e);
+    expect(error).toMatchObject({ code: 'EXECUTION_SUSPENDED' });
+    const request = (error as { requests: IToolWaitRequest[] }).requests[0];
+    expect(plugin.before).toHaveBeenCalledTimes(1);
+    expect(plugin.execution).toHaveBeenCalledTimes(1);
+    expect(plugin.after).not.toHaveBeenCalled();
+    const options = { executionId: request.executionId, journal: saved.journal };
+    await expect(source.agent.resume(options)).rejects.toMatchObject({
+      code: 'EXECUTION_SUSPENDED',
+    });
+    expect(plugin.before).toHaveBeenCalledTimes(1);
+    expect(plugin.execution).toHaveBeenCalledTimes(1);
+    await source.agent.resume({
+      ...options,
+      toolResponses: [
+        { requestId: request.requestId, responseId: 'response', response: { approved: true } },
+      ],
+    });
+    expect(plugin.after).toHaveBeenCalledTimes(1);
+    await source.agent.resume(options);
+    expect(plugin.before).toHaveBeenCalledTimes(1);
+    expect(plugin.execution).toHaveBeenCalledTimes(1);
+    expect(plugin.after).toHaveBeenCalledTimes(1);
+    expect(source.effect).toHaveBeenCalledTimes(1);
+  });
+
   it('refuses effect admission when a restored wrapper skips an unanswered request', async () => {
     const f = await suspended();
     const fresh = fixture([{ text: 'must not run' }], { skipAsk: true });

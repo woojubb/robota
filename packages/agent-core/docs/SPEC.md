@@ -274,7 +274,7 @@ residency the execution started with. Whatever the journal cannot
 prove — an effect that started without a recorded result, a model call without a recorded
 response, runtime state that differs from the saved one — is refused for reconciliation rather
 than guessed, and live history that conflicts with the saved checkpoint is never overwritten.
-Restored history stays with the agent for the host to checkpoint or discard. Turn-level lifecycle hooks are not replayed, because their effects have no durable receipts.
+Restored history stays with the agent for the host to checkpoint or discard. Lifecycle observations must not manufacture repeated work during recovery: turn-level hooks are not replayed, a resumed pre-effect wait remains the same logical call, and restored settlements do not re-enter call observers.
 
 Before its effect starts, a tool may save a request for an outside response and suspend the
 execution. Requests and responses are durable under stable identities; a response can answer

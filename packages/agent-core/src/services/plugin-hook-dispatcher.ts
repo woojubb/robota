@@ -57,6 +57,22 @@ const HOOK_HANDLERS: Record<string, TPluginHookHandler> = {
   onMessageAdded: async (plugin, context) => {
     if (plugin.onMessageAdded && context.message) await plugin.onMessageAdded(context.message);
   },
+  beforeToolCall: async (plugin, context) => {
+    if (plugin.beforeToolCall && context.toolData)
+      await plugin.beforeToolCall(context.toolData.toolName, context.toolData.parameters);
+  },
+  beforeToolExecution: async (plugin, context) => {
+    if (plugin.beforeToolExecution && context.toolData)
+      await plugin.beforeToolExecution(toExecutionContext(context), context.toolData);
+  },
+  afterToolCall: async (plugin, context) => {
+    if (plugin.afterToolCall && context.toolData && context.toolResult)
+      await plugin.afterToolCall(
+        context.toolData.toolName,
+        context.toolData.parameters,
+        context.toolResult,
+      );
+  },
   beforeConversation: async (plugin, context) => {
     if (plugin.beforeConversation) await plugin.beforeConversation(toExecutionContext(context));
   },
