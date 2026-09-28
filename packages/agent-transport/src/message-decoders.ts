@@ -14,7 +14,10 @@
  * owner and is tracked there, not duplicated in a transport package.
  */
 
-import { SESSION_CHANGE_REFUSAL_CODES } from '@robota-sdk/agent-interface-session';
+import {
+  SESSION_CHANGE_REFUSAL_CODES,
+  SESSION_DELETE_REFUSAL_CODES,
+} from '@robota-sdk/agent-interface-session';
 
 import type { TBackgroundControlAction, TClientMessage, TServerMessage } from './wire-messages.js';
 
@@ -58,6 +61,11 @@ const isWireHistoryEntry = (v: unknown): boolean =>
   isString(v['type']);
 const isWireHistoryEntries = (v: unknown): boolean =>
   Array.isArray(v) && v.every(isWireHistoryEntry);
+/** #3282 §4: one row of `agent_definitions` — name, one-line description, plain-words location. */
+const isWireAgentDefinition = (v: unknown): boolean =>
+  isRecord(v) && isString(v['name']) && isString(v['description']) && isString(v['definedIn']);
+const isWireAgentDefinitions = (v: unknown): boolean =>
+  Array.isArray(v) && v.every(isWireAgentDefinition);
 
 type TFieldCheck = (value: unknown) => boolean;
 type TVariantShape = Readonly<Record<string, TFieldCheck>>;
@@ -96,6 +104,38 @@ const isActionResponse: TFieldCheck = (v) =>
     isOptional(isString)(v['text'])) ||
     (v['type'] === 'cancelled' && v['values'] === undefined && v['text'] === undefined));
 
+type TSettingsPatch = Extract<TClientMessage, { type: 'update-settings' }>['patch'];
+/** Keyed by `field`, so a patch variant added to the union without a shape here fails to compile. */
+const SETTINGS_PATCH_SHAPES: Readonly<Record<TSettingsPatch['field'], TVariantShape>> = {
+  language: { language: isNonEmptyString },
+  outputStyle: { styleId: isNonEmptyString },
+  preset: { presetId: isNonEmptyString },
+  permissionMode: { mode: isNonEmptyString },
+  sandbox: { enabled: isBoolean },
+  removePermissionRule: {
+    scope: isNonEmptyString,
+    kind: oneOf(['allow', 'deny', 'ask']),
+    pattern: isNonEmptyString,
+  },
+  mcpServerEnabled: { serverId: isNonEmptyString, enabled: isBoolean },
+  reloadMcpServers: {},
+  pluginEnabled: { pluginId: isNonEmptyString, enabled: isBoolean },
+  reloadPlugins: {},
+  installPlugin: { pluginId: isNonEmptyString },
+  uninstallPlugin: { pluginId: isNonEmptyString },
+  // #3282 §4b: "Providers & Models" — Use, Model, Delete.
+  providerProfile: { profileName: isNonEmptyString },
+  providerModel: { profileName: isNonEmptyString, modelId: isNonEmptyString },
+  deleteProviderProfile: { profileName: isNonEmptyString },
+};
+const isSettingsPatch: TFieldCheck = (v) => {
+  if (!isRecord(v) || !isString(v['field'])) return false;
+  const field = v['field'];
+  if (!Object.prototype.hasOwnProperty.call(SETTINGS_PATCH_SHAPES, field)) return false;
+  const shape = SETTINGS_PATCH_SHAPES[field as TSettingsPatch['field']];
+  return Object.entries(shape).every(([key, check]) => check(v[key]));
+};
+
 type TWaitingLoopStopOutcome = Extract<TServerMessage, { type: 'waiting_loop_stop' }>['outcome'];
 /** Keyed by `kind`, so an outcome added to the union without a shape here fails to compile. */
 const WAITING_LOOP_STOP_OUTCOME_SHAPES: Readonly<
@@ -114,6 +154,72 @@ const isWaitingLoopStopOutcome: TFieldCheck = (v) => {
   return Object.entries(shape).every(([field, check]) => check(v[field]));
 };
 
+/** Decode a `kind`-discriminated result union (the `TWaitingLoopStopOutcome` convention) from a shape
+ *  map keyed by `kind`. */
+function isKindDiscriminated(shapes: Readonly<Record<string, TVariantShape>>): TFieldCheck {
+  return (v) => {
+    if (!isRecord(v) || !isString(v['kind'])) return false;
+    const shape = Object.prototype.hasOwnProperty.call(shapes, v['kind']) ? shapes[v['kind']] : undefined;
+    if (shape === undefined) return false;
+    return Object.entries(shape).every(([field, check]) => check(v[field]));
+  };
+}
+
+// #3282 §4c: the Project panel's reads. Each result is the session method's own return value, crossing
+// the wire unchanged (the `TWaitingLoopStopOutcome` convention above) — decoded from a `kind`-keyed
+// shape map the same way.
+const PROJECT_FILE_STATUSES = [
+  'Added',
+  'Modified',
+  'Deleted',
+  'Renamed',
+  'Copied',
+  'Untracked',
+  'Conflicted',
+] as const;
+const isProjectStatusFile: TFieldCheck = (v) =>
+  isRecord(v) &&
+  isNonEmptyString(v['path']) &&
+  oneOf(PROJECT_FILE_STATUSES)(v['status']) &&
+  isOptional(isNonEmptyString)(v['renamedFrom']) &&
+  isOptional(isFiniteNumber)(v['added']) &&
+  isOptional(isFiniteNumber)(v['removed']);
+const isProjectStatusFiles: TFieldCheck = (v) => Array.isArray(v) && v.every(isProjectStatusFile);
+
+type TProjectStatusReadResult = Extract<TServerMessage, { type: 'project_status' }>['result'];
+const PROJECT_STATUS_READ_SHAPES: Readonly<Record<TProjectStatusReadResult['kind'], TVariantShape>> = {
+  status: {
+    branch: isOptional(isString),
+    unborn: isBoolean,
+    files: isProjectStatusFiles,
+    truncated: isBoolean,
+  },
+  'not-a-repository': {},
+  failed: { message: isString },
+};
+const isProjectStatusRead = isKindDiscriminated(PROJECT_STATUS_READ_SHAPES);
+
+const DIFF_LINE_TYPES = ['add', 'remove', 'context', 'hunk'] as const;
+const isDiffLine: TFieldCheck = (v) =>
+  isRecord(v) && oneOf(DIFF_LINE_TYPES)(v['type']) && isString(v['text']) && isFiniteNumber(v['lineNumber']);
+const isDiffLines: TFieldCheck = (v) => Array.isArray(v) && v.every(isDiffLine);
+
+type TProjectDiffReadResult = Extract<TServerMessage, { type: 'project_diff' }>['result'];
+const PROJECT_DIFF_READ_SHAPES: Readonly<Record<TProjectDiffReadResult['kind'], TVariantShape>> = {
+  diff: { diffLines: isDiffLines, truncated: isBoolean },
+  'not-a-repository': {},
+  'outside-workspace': {},
+  failed: { message: isString },
+};
+const isProjectDiffRead = isKindDiscriminated(PROJECT_DIFF_READ_SHAPES);
+
+type TProjectMemoryReadResult = Extract<TServerMessage, { type: 'project_memory' }>['result'];
+const PROJECT_MEMORY_READ_SHAPES: Readonly<Record<TProjectMemoryReadResult['kind'], TVariantShape>> = {
+  memory: { content: isString, path: isNonEmptyString, truncated: isBoolean },
+  unavailable: { message: isString },
+};
+const isProjectMemoryRead = isKindDiscriminated(PROJECT_MEMORY_READ_SHAPES);
+
 /** One entry per `TClientMessage` variant — a variant added to the union without one fails the test. */
 export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVariantShape>> = {
   submit: { prompt: isNonEmptyString },
@@ -130,9 +236,17 @@ export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVar
   'get-context': {},
   'get-commands': {},
   'get-status': {},
+  'list-models': { requestId: isNonEmptyString },
+  'get-agent-definitions': { requestId: isNonEmptyString },
   'list-sessions': { requestId: isNonEmptyString },
   'new-session': { requestId: isOptional(isNonEmptyString) },
   'switch-session': { sessionId: isNonEmptyString, requestId: isOptional(isNonEmptyString) },
+  'rename-session': {
+    sessionId: isNonEmptyString,
+    name: isNonEmptyString,
+    requestId: isNonEmptyString,
+  },
+  'delete-session': { sessionId: isNonEmptyString, requestId: isNonEmptyString },
   'get-usage-report': {},
   'get-personal-usage-report': {
     requestId: isNonEmptyString,
@@ -152,6 +266,9 @@ export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVar
     cursor: isOptional(isExecutionDetailCursor),
   },
   'stop-waiting-loop': { requestId: isNonEmptyString },
+  'project-status': { requestId: isNonEmptyString },
+  'project-diff': { requestId: isNonEmptyString, path: isNonEmptyString },
+  'project-memory': { requestId: isNonEmptyString },
   'get-background-tasks': { filter: isOptional(isBackgroundTaskListFilter) },
   'get-background-task': { taskId: isNonEmptyString },
   'get-background-job-groups': {},
@@ -168,6 +285,8 @@ export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVar
   'ask-response': { id: isNonEmptyString, response: isActionResponse },
   resume: { lastSeq: isFiniteNumber },
   ack: { seq: isFiniteNumber },
+  'get-settings': { requestId: isNonEmptyString },
+  'update-settings': { requestId: isNonEmptyString, patch: isSettingsPatch },
 };
 
 const authored: TVariantShape = { driverId: isOptional(isString) };
@@ -181,20 +300,38 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
   thinking: { isThinking: isBoolean, ...authored },
   complete: { result: isRecord, ...authored },
   interrupted: { result: isRecord, ...authored },
-  error: { message: isString, ...authored },
+  error: {
+    message: isString,
+    code: isOptional(oneOf(['auth', 'rate_limit', 'model_unavailable', 'network', 'provider'])),
+    provider: isOptional(isString),
+    retryAfterSeconds: isOptional(isFiniteNumber),
+    model: isOptional(isString),
+    ...authored,
+  },
   command_result: {
     name: isString,
     message: isString,
     success: isBoolean,
     requestId: isOptional(isString),
   },
-  messages: { messages: isRecordArray, ...authored },
+  messages: { messages: isRecordArray, display: isOptional(isRecordArray), ...authored },
   history: { startIndex: isCount, total: isCount, entries: isWireHistoryEntries },
   context: { state: isRecord },
   history_changed: {},
   turn_source: { source: oneOf(Object.keys(TURN_SOURCES)) },
   commands: { commands: isRecordArray, skills: isRecordArray },
   session_status: { status: isRecord },
+  model_list: {
+    requestId: isNonEmptyString,
+    groups: isRecordArray,
+    currentProfile: isOptional(isString),
+    currentModel: isString,
+  },
+  agent_definitions: {
+    requestId: isNonEmptyString,
+    agents: isWireAgentDefinitions,
+    current: isNonEmptyString,
+  },
   sessions: { requestId: isNonEmptyString, listing: isRecord },
   sessions_error: {
     requestId: isNonEmptyString,
@@ -206,6 +343,14 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
     code: oneOf(SESSION_CHANGE_REFUSAL_CODES),
     message: isString,
     requestId: isOptional(isString),
+  },
+  session_renamed_in_list: { requestId: isNonEmptyString, sessionId: isString, name: isString },
+  session_rename_failed: { requestId: isNonEmptyString, message: isString },
+  session_deleted: { requestId: isNonEmptyString, sessionId: isString },
+  session_delete_failed: {
+    requestId: isNonEmptyString,
+    code: oneOf(SESSION_DELETE_REFUSAL_CODES),
+    message: isString,
   },
   usage_report: { report: isRecord },
   personal_usage_report: { requestId: isNonEmptyString, report: isRecord },
@@ -232,6 +377,9 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
   execution_detail: { requestId: isNonEmptyString, page: isRecord },
   execution_detail_error: { requestId: isNonEmptyString, message: isString },
   waiting_loop_stop: { requestId: isNonEmptyString, outcome: isWaitingLoopStopOutcome },
+  project_status: { requestId: isNonEmptyString, result: isProjectStatusRead },
+  project_diff: { requestId: isNonEmptyString, result: isProjectDiffRead },
+  project_memory: { requestId: isNonEmptyString, result: isProjectMemoryRead },
   background_task_event: { event: isRecord },
   background_job_group_event: { event: isRecord },
   plan_event: { event: isRecord },
@@ -256,6 +404,12 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
   },
   protocol_error: { message: isString, requestId: isOptional(isString) },
   resume_gap: {},
+  settings: { requestId: isNonEmptyString, settings: isRecord },
+  settings_error: {
+    requestId: isNonEmptyString,
+    code: oneOf(['not_available', 'invalid', 'refused', 'update_failed']),
+    message: isString,
+  },
 };
 
 function decodeVariant<TMessage extends { type: string }>(

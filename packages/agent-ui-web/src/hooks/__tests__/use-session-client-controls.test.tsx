@@ -1,0 +1,273 @@
+// @vitest-environment jsdom
+/**
+ * #3282 §2 (part 2) — the GUI reducer's support for the model/mode/effort pop-up menus:
+ *
+ * - `requestModelList()` sends `list-models` with a fresh `requestId`, and only a reply carrying
+ *   THAT id is applied to `modelList` — a reply to a superseded request is dropped.
+ * - `sendCommandSilently(name, args)` runs the same `command` wire message `send` does, but its
+ *   `command_result` never becomes a conversation card: a successful change confirms itself through
+ *   the control's own label (fed by the `get-status` refresh every `command_result` already
+ *   triggers), and a failed one becomes a plain notice instead, leaving the label unchanged. A command
+ *   sent through the ordinary `send` (what a typed `/command` uses) keeps its card either way.
+ */
+
+import { act, renderHook } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { useSessionClient } from '../useSessionClient.js';
+
+import type { TMakeSessionClient } from '../useSessionClient.js';
+import type { TClientMessage, TServerMessage } from '@robota-sdk/agent-transport';
+
+afterEach(() => window.sessionStorage.clear());
+
+function setup(): {
+  result: { current: ReturnType<typeof useSessionClient> };
+  deliver: (msg: TServerMessage) => void;
+  connect: () => void;
+  wire: TClientMessage[];
+} {
+  let onMessage: ((msg: TServerMessage) => void) | null = null;
+  let onStatusChange: ((status: 'connected') => void) | null = null;
+  const wire: TClientMessage[] = [];
+  const makeClient: TMakeSessionClient = (callbacks) => {
+    onMessage = callbacks.onMessage;
+    onStatusChange = callbacks.onStatusChange;
+    return { connect: () => {}, disconnect: () => {}, send: (message) => wire.push(message) };
+  };
+  const { result } = renderHook(() => useSessionClient(makeClient));
+  return {
+    result,
+    wire,
+    deliver: (msg) => act(() => onMessage?.(msg)),
+    connect: () => act(() => onStatusChange?.('connected')),
+  };
+}
+
+const MODEL_LIST_SNAPSHOT = {
+  groups: [
+    {
+      profileName: 'anthropic',
+      providerLabel: 'Anthropic',
+      models: [{ id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' }],
+    },
+  ],
+  currentProfile: 'anthropic',
+  currentModel: 'claude-sonnet-4-6',
+};
+
+describe('#3282 §2 (part 2) — requestModelList / modelList', () => {
+  it('sends list-models and stores the reply under modelList', () => {
+    const { result, deliver, wire } = setup();
+
+    act(() => result.current.requestModelList());
+    const request = wire.find((m) => m.type === 'list-models');
+    expect(request?.type).toBe('list-models');
+    expect(result.current.modelList).toBeNull();
+
+    deliver({
+      type: 'model_list',
+      requestId: request && request.type === 'list-models' ? request.requestId : '',
+      ...MODEL_LIST_SNAPSHOT,
+    });
+
+    expect(result.current.modelList).toEqual(MODEL_LIST_SNAPSHOT);
+  });
+
+  it('ignores a reply to a request a newer one already superseded', () => {
+    const { result, deliver, wire } = setup();
+
+    act(() => result.current.requestModelList());
+    const first = wire.find((m) => m.type === 'list-models');
+    act(() => result.current.requestModelList());
+
+    deliver({
+      type: 'model_list',
+      requestId: first && first.type === 'list-models' ? first.requestId : '',
+      ...MODEL_LIST_SNAPSHOT,
+      currentModel: 'stale-reply-must-not-apply',
+    });
+
+    expect(result.current.modelList).toBeNull();
+  });
+});
+
+/** The `requestId` a `sendCommandSilently`/`send({type:'command',...})` call most recently put on the wire. */
+function lastSentRequestId(wire: TClientMessage[]): string | undefined {
+  const sent = wire[wire.length - 1];
+  return sent && sent.type === 'command' ? sent.requestId : undefined;
+}
+
+describe('#3282 §4e — /help opens the Help sheet locally, never the session', () => {
+  it('send({type:"command", name:"help"}) opens the sheet and never touches the wire', () => {
+    const { result, wire } = setup();
+
+    expect(result.current.helpOpen).toBe(false);
+    act(() => result.current.send({ type: 'command', name: 'help' }));
+
+    expect(result.current.helpOpen).toBe(true);
+    expect(wire).toEqual([]);
+    expect(result.current.messages).toEqual([]);
+  });
+
+  it('closeHelp closes it again', () => {
+    const { result } = setup();
+    act(() => result.current.send({ type: 'command', name: 'help' }));
+    act(() => result.current.closeHelp());
+    expect(result.current.helpOpen).toBe(false);
+  });
+});
+
+describe('#3282 §4e — an excluded command is caught before the session sees it', () => {
+  it('typing an excluded command answers with its plain sentence, never the raw refusal, and never reaches the wire', () => {
+    const { result, wire } = setup();
+
+    act(() => result.current.send({ type: 'command', name: 'theme', args: 'dark' }));
+
+    expect(wire).toEqual([]);
+    expect(result.current.messages).toEqual([
+      expect.objectContaining({
+        role: 'command',
+        name: 'theme',
+        content: 'Robota follows your system appearance.',
+        tone: 'info',
+      }),
+    ]);
+  });
+
+  it('an ordinary command is unaffected — it still reaches the wire', () => {
+    const { result, wire } = setup();
+
+    act(() => result.current.send({ type: 'command', name: 'context' }));
+
+    expect(wire).toContainEqual(expect.objectContaining({ type: 'command', name: 'context' }));
+  });
+
+  it('a client-only command excluded only by its catalog declaration (no curated name yet) is caught the same way', () => {
+    // Regression: the exclusion check must read the SAME catalog entry `command-menu.ts` reads to
+    // filter the `/` menu — a command left out only because of `runner`/`surfaces`, not yet given a
+    // name in `excluded-commands.ts`, must still be caught here, or a hand-typed instance of it would
+    // sail past this interception straight to the session (exactly what this mechanism exists to stop).
+    const { result, deliver, wire } = setup();
+    deliver({
+      type: 'commands',
+      commands: [
+        {
+          name: 'future-terminal-command',
+          description: 'Not yet named in excluded-commands.ts',
+          modelInvocable: false,
+          runner: 'client',
+          surfaces: ['terminal'],
+        },
+      ],
+      skills: [],
+    });
+
+    act(() => result.current.send({ type: 'command', name: 'future-terminal-command' }));
+
+    expect(wire).toEqual([]);
+    expect(result.current.messages).toEqual([
+      expect.objectContaining({
+        role: 'command',
+        name: 'future-terminal-command',
+        content: 'This command runs in the robota terminal.',
+        tone: 'info',
+      }),
+    ]);
+  });
+});
+
+describe('#3282 §2 (part 2) — sendCommandSilently suppresses the conversation card', () => {
+  it('a successful silent command adds no conversation card, but still refreshes status', () => {
+    const { result, deliver, wire } = setup();
+
+    act(() => result.current.sendCommandSilently('model', 'claude-haiku-4-5'));
+    expect(wire).toContainEqual(
+      expect.objectContaining({ type: 'command', name: 'model', args: 'claude-haiku-4-5' }),
+    );
+    const requestId = lastSentRequestId(wire);
+    expect(requestId).toBeDefined();
+
+    deliver({ type: 'command_result', name: 'model', message: 'Model: Claude Haiku 4.5', success: true, requestId });
+
+    expect(result.current.messages.some((m) => m.role === 'command')).toBe(false);
+    expect(wire.filter((m) => m.type === 'get-status')).toHaveLength(1);
+  });
+
+  it('a failed silent command adds no card either, but raises a plain notice', () => {
+    const { result, deliver, wire } = setup();
+
+    act(() => result.current.sendCommandSilently('mode', 'bypassPermissions'));
+    const requestId = lastSentRequestId(wire);
+
+    deliver({ type: 'command_result', name: 'mode', message: 'Could not change mode.', success: false, requestId });
+
+    expect(result.current.messages.some((m) => m.role === 'command')).toBe(false);
+    expect(result.current.sessionNotices.map((n) => n.message)).toContain('Could not change mode.');
+  });
+
+  it('a command sent the ordinary way (a typed /command) still gets its card', () => {
+    const { result, deliver } = setup();
+
+    act(() => result.current.send({ type: 'command', name: 'mode', args: 'plan' }));
+    deliver({ type: 'command_result', name: 'mode', message: 'Permission mode set to: plan', success: true });
+
+    const card = result.current.messages.find((m) => m.role === 'command');
+    expect(card).toBeDefined();
+    expect(card && 'content' in card ? card.content : undefined).toBe('Permission mode set to: plan');
+  });
+
+  it('silent and typed commands resolved one after the other are each attributed correctly', () => {
+    const { result, deliver, wire } = setup();
+
+    act(() => result.current.sendCommandSilently('effort', 'high'));
+    deliver({ type: 'command_result', name: 'effort', message: 'Effort: High', success: true, requestId: lastSentRequestId(wire) });
+    // Not `/help` — #3282 §4e made that one the GUI's own Help sheet, never sent to the session.
+    act(() => result.current.send({ type: 'command', name: 'cost' }));
+    deliver({ type: 'command_result', name: 'cost', message: 'Available commands: ...', success: true });
+
+    const cards = result.current.messages.filter((m) => m.role === 'command');
+    expect(cards).toHaveLength(1);
+    expect(cards[0] && 'name' in cards[0] ? cards[0].name : undefined).toBe('cost');
+  });
+
+  it('attributes by requestId, not arrival order: a later-sent silent reply landing FIRST does not swallow the earlier typed command', () => {
+    // Reviewer-mandated regression test (#3339): a send-order-based FIFO was tried first and is
+    // exactly as wrong as a bare count — both assume replies arrive in send order, which a slow host
+    // or a race can violate. The wire already correlates a `command` with its `command_result` by
+    // `requestId` (`packages/agent-transport/src/wire-messages.ts`), so attribution must use THAT,
+    // never position. Proof: send the typed command first, the silent one second, but deliver the
+    // SILENT one's reply first — the reverse of send order. A FIFO shifts its front (the typed
+    // command's `false` entry) for this first-arriving reply, misreading the silent reply as
+    // non-silent (wrongly gives it a card) and the later typed reply as silent (wrongly swallows its
+    // card). requestId correlation gets both right regardless of arrival order.
+    const { result, deliver, wire } = setup();
+
+    // Not `/help` — #3282 §4e made that one the GUI's own Help sheet, never sent to the session.
+    act(() => result.current.send({ type: 'command', name: 'cost' }));
+    act(() => result.current.sendCommandSilently('effort', 'high'));
+    const silentRequestId = lastSentRequestId(wire);
+    expect(silentRequestId).toBeDefined();
+
+    deliver({ type: 'command_result', name: 'effort', message: 'Effort: High', success: true, requestId: silentRequestId });
+    deliver({ type: 'command_result', name: 'cost', message: 'Available commands: ...', success: true });
+
+    const cards = result.current.messages.filter((m) => m.role === 'command');
+    expect(cards).toHaveLength(1);
+    expect(cards[0] && 'name' in cards[0] ? cards[0].name : undefined).toBe('cost');
+  });
+
+  it('a silent command whose reply carries no requestId (an older host) falls back to showing the card, never hiding it', () => {
+    // Silence is opt-in per identified reply, never the default: a `command_result` this surface
+    // cannot positively match to a silent request must show its card. The alternative — hiding the
+    // outcome of a reply that might, for all this surface can tell, belong to something the person
+    // typed — is the worse failure mode.
+    const { result, deliver } = setup();
+
+    act(() => result.current.sendCommandSilently('effort', 'high'));
+    deliver({ type: 'command_result', name: 'effort', message: 'Effort: High', success: true });
+
+    const card = result.current.messages.find((m) => m.role === 'command');
+    expect(card).toBeDefined();
+  });
+});

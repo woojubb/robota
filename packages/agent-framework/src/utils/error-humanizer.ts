@@ -1,5 +1,6 @@
 import {
   AuthenticationError,
+  ModelNotAvailableError,
   RateLimitError,
   NetworkError,
   ProviderError,
@@ -11,6 +12,7 @@ export interface IProviderErrorGuidance {
   readonly forbidden?: string;
   readonly rateLimit?: string;
   readonly network?: string;
+  readonly modelUnavailable?: string;
 }
 
 type TGuidanceCategory = keyof IProviderErrorGuidance;
@@ -90,6 +92,14 @@ export function humanizeApiError(error: Error, guidance?: IProviderErrorGuidance
     return withGuidance(
       'Network connection failed. Check your internet connection.',
       'network',
+      guidance,
+    );
+  }
+  if (error instanceof ModelNotAvailableError) {
+    const model = error.model !== undefined ? ` "${error.model}"` : '';
+    return withGuidance(
+      `The model${model} is not available for ${error.provider}.`,
+      'modelUnavailable',
       guidance,
     );
   }

@@ -34,7 +34,7 @@ that package's build output.
 
 ## Non-goals
 
-- Does not own packaging/signing (installers, code-signing, notarization, auto-update).
+- Does not auto-update itself.
 - No `agent-framework`/`agent-core` dependency — the daemon owns the runtime.
 - Does not supervise or stop the daemon; its lifetime is the CLI's to manage.
 

@@ -101,6 +101,29 @@ export function decodeInteractiveSessionRecord(value: unknown): TSessionRecordDe
 }
 
 /**
+ * A best-effort, untyped `cwd` read off a value this build could not fully decode — tolerant of any
+ * shape, so it works on both the current envelope (`{ record: { cwd } }`) and a pre-envelope legacy
+ * record (`{ cwd }` at the root). It exists only to answer "which workspace", never to stand in for
+ * the decoded record itself.
+ */
+function peekCwd(value: unknown): string | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const root = value as Record<string, unknown>;
+  if (typeof root['cwd'] === 'string') return root['cwd'];
+  const nested = root['record'];
+  if (typeof nested === 'object' && nested !== null) {
+    const nestedCwd = (nested as Record<string, unknown>)['cwd'];
+    if (typeof nestedCwd === 'string') return nestedCwd;
+  }
+  return undefined;
+}
+
+/** `{ cwd }` when one was found, an empty object otherwise — spread onto an outcome literal. */
+function cwdField(cwd: string | undefined): { cwd: string } | Record<string, never> {
+  return cwd !== undefined ? { cwd } : {};
+}
+
+/**
  * Decode a versioned envelope.
  *
  * The version is read BEFORE the record, and a version this build does not implement returns
@@ -112,19 +135,19 @@ export function decodeVersionedInteractiveSessionRecord(
 ): TSessionRecordDecodeOutcome {
   const issues: TDecodeIssues = [];
   const envelope = decodeDeclaredObject(value, '', issues, ['schemaVersion', 'record']);
-  if (envelope === undefined) return { status: 'corrupt', issues };
+  if (envelope === undefined) return { status: 'corrupt', issues, ...cwdField(peekCwd(value)) };
 
   const declaredVersion = envelope['schemaVersion'];
   if (typeof declaredVersion !== 'number' || !Number.isFinite(declaredVersion)) {
-    return { status: 'unsupported', schemaVersion: undefined };
+    return { status: 'unsupported', schemaVersion: undefined, ...cwdField(peekCwd(value)) };
   }
   if (declaredVersion !== SESSION_RECORD_ENVELOPE_VERSION) {
-    return { status: 'unsupported', schemaVersion: declaredVersion };
+    return { status: 'unsupported', schemaVersion: declaredVersion, ...cwdField(peekCwd(value)) };
   }
 
   const record = decodeRecordInto(envelope['record'], 'record', issues);
   if (record === undefined || issues.length > 0) {
-    return { status: 'corrupt', issues };
+    return { status: 'corrupt', issues, ...cwdField(peekCwd(value)) };
   }
   return { status: 'valid', record };
 }

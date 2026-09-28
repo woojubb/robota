@@ -1,5 +1,5 @@
 import { MODEL_EFFORT_VALUES, selectAction } from '@robota-sdk/agent-core';
-import { parseModelEffort, resolveModelEffort } from '@robota-sdk/agent-framework';
+import { EFFORT_LEVEL_LABELS, parseModelEffort, resolveModelEffort } from '@robota-sdk/agent-framework';
 
 import type {
   ICommandHostAdapterAccess,
@@ -14,13 +14,27 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 const EFFORT_SELECTIONS: readonly TEffortSelection[] = ['auto', ...MODEL_EFFORT_VALUES];
 
+/**
+ * #3282 §2 — re-exported for callers already importing it from here; the canonical definition moved
+ * to `agent-framework` (`effort/effort-resolution.ts`) so headless `/goal` output (in that same
+ * package) can use the same labels without a circular dependency on `agent-command`.
+ */
+export { EFFORT_LEVEL_LABELS };
+
+/**
+ * Plain outcome text (#3282 §2), replacing the earlier `Model effort: requested=…, effective=…,
+ * source=…, disposition=…` internal-field dump. `not-applied` means the model has no matching native
+ * control at all — the earlier fields carried no information a person could act on for that case, so
+ * it gets its own plain sentence instead of a label.
+ */
 function formatEffortMessage(resolution: {
   requested: TEffortSelection;
-  effective: string;
-  source: string;
   disposition: string;
 }): string {
-  return `Model effort: requested=${resolution.requested}, effective=${resolution.effective}, source=${resolution.source}, disposition=${resolution.disposition}.`;
+  if (resolution.disposition === 'not-applied') {
+    return "This model doesn't support effort levels, so it will use its default.";
+  }
+  return `Effort: ${EFFORT_LEVEL_LABELS[resolution.requested]}`;
 }
 
 async function askForEffort(
@@ -32,7 +46,7 @@ async function askForEffort(
     selectAction(
       'effort',
       'Select model effort',
-      EFFORT_SELECTIONS.map((value) => ({ value, label: value })),
+      EFFORT_SELECTIONS.map((value) => ({ value, label: EFFORT_LEVEL_LABELS[value] })),
     ),
   );
   const selected = response.type === 'answer' ? response.values[0] : undefined;

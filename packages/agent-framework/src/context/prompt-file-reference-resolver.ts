@@ -20,6 +20,13 @@ const DEFAULT_MAX_REFERENCES = Number('8');
 const BYTES_PER_KIB = Number('1024');
 const DEFAULT_MAX_FILE_BYTES = Number('64') * BYTES_PER_KIB;
 const DEFAULT_MAX_TOTAL_BYTES = Number('256') * BYTES_PER_KIB;
+// Correction to #3282 §4: the reader decodes every file as UTF-8 unconditionally (`readText` in
+// workspace-trust/project-reader-path.ts) — a binary file was previously sent to the model as
+// mangled text instead of being refused. A NUL byte survives that decode unchanged (0x00 is valid
+// single-byte UTF-8), so sniffing for one in the first 8 KiB reliably flags binary content without
+// needing raw-byte access here. Every surface shares this resolver, so this refusal is universal
+// (GUI, TUI, headless), not a GUI-only client-side check.
+const BINARY_SNIFF_CHARS = Number('8') * BYTES_PER_KIB;
 
 interface IResolvedLimits {
   maxDepth: number;
@@ -110,6 +117,7 @@ function resolveReference(
 
   const content = readReferenceFile(reference, sourcePath, state);
   if (content === undefined) return;
+  if (!checkNotBinary(reference, content, state)) return;
   const byteLength = Buffer.byteLength(content, 'utf8');
   if (!checkByteBudget(reference, byteLength, state)) return;
 
@@ -153,11 +161,28 @@ function hasUnsafePathShape(value: string): boolean {
   );
 }
 
+/**
+ * Follow-up to #3282 §4d: `isPathLikeReference` in the parser recognizes a `./`-prefixed token as
+ * path-like even when it has no `.` elsewhere (e.g. `./Makefile`) — the GUI composer relies on this
+ * to attach a dotless filename, which `@Makefile` alone cannot do. A literal `.` segment (leading or
+ * internal) is always a no-op in ordinary path semantics, so it is stripped here before the safety
+ * check and the workspace-relative lookup, rather than loosening `hasUnsafePathShape` itself. `..` is
+ * left completely untouched (never collapsed, never specially handled) — it still reaches
+ * `hasUnsafePathShape` exactly as before and is still refused, so `../secret.md` and the
+ * `.`-disguised `./../secret.md` are both still `outside-root` after this change, same as before it.
+ */
+function collapseDotSegments(value: string): string {
+  return value
+    .split('/')
+    .filter((segment) => segment !== '.')
+    .join('/');
+}
+
 function resolveReferencePath(
   reference: IPromptFileReferenceToken,
   state: IResolveState,
 ): string | undefined {
-  const normalized = reference.path.replaceAll('\\', '/');
+  const normalized = collapseDotSegments(reference.path.replaceAll('\\', '/'));
   if (hasUnsafePathShape(normalized)) {
     pushDiagnostic(state, 'outside-root', reference, 'Referenced path is outside the workspace.');
     return undefined;
@@ -213,6 +238,21 @@ function readReferenceFile(
   if (content !== undefined) return content;
   pushDiagnostic(state, 'not-found', reference, 'Referenced file was not found.');
   return undefined;
+}
+
+/** A NUL byte anywhere in the first 8 KiB marks the file as binary — see the constant's comment above. */
+function looksBinary(content: string): boolean {
+  return content.slice(0, BINARY_SNIFF_CHARS).includes('\u0000');
+}
+
+function checkNotBinary(
+  reference: IPromptFileReferenceToken,
+  content: string,
+  state: IResolveState,
+): boolean {
+  if (!looksBinary(content)) return true;
+  pushDiagnostic(state, 'binary-file', reference, 'Referenced file is not a text file, so it cannot be attached.');
+  return false;
 }
 
 function checkByteBudget(

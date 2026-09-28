@@ -18,6 +18,7 @@ import { MemoryConversationStore } from './memory-store';
 import { roundRobin } from './policies';
 import { resolveSelection, validateSelection } from './selection';
 import type { StoreOwner } from './store-owner';
+import { createTurnServices, modelCallsSpent, requireModelCallCapabilities } from './usage-ledger';
 import type {
   AgentParticipant,
   ConversationSnapshot,
@@ -32,9 +33,14 @@ import type {
   RunResult,
   Selection,
   TurnSelector,
+  TurnServices,
+  UsagePrincipal,
   ResumeRequest,
   ResponseReceipt,
 } from './types';
+
+/** A limit that stops a run while work is in flight; the next run continues from saved state. */
+type RunLimit = 'time' | 'model-calls';
 
 export class Conversation implements Roundtable {
   private readonly participants: Map<string, ParticipantDefinition>;
@@ -45,6 +51,7 @@ export class Conversation implements Roundtable {
   private readonly concurrency: number;
   private active?: Promise<unknown>;
   private abort?: AbortController;
+  private limitRun?: (reason: RunLimit) => void;
   private disposing?: Promise<void>;
   private disposed = false;
   private busy = false;
@@ -60,9 +67,9 @@ export class Conversation implements Roundtable {
       ),
     };
     this.concurrency = options.maxConcurrentParticipants ?? 1;
+    this.selector = options.selector ?? roundRobin();
     this.validate();
     this.participants = new Map(this.options.participants.map((p) => [p.id, p]));
-    this.selector = options.selector ?? roundRobin();
     this.persistence = new ConversationPersistence(
       options.store ?? new MemoryConversationStore(),
       restored ?? {
@@ -72,12 +79,16 @@ export class Conversation implements Roundtable {
           limits: {
             maxTurnsPerRun: options.limits.maxTurnsPerRun,
             timeoutMs: options.limits.timeoutMs ?? null,
+            maxModelCallsPerRun: options.limits.maxModelCallsPerRun ?? null,
+            maxModelCallsPerConversation: options.limits.maxModelCallsPerConversation ?? null,
+            maxModelCallsPerParticipant: options.limits.maxModelCallsPerParticipant ?? null,
           },
           maxConcurrentParticipants: this.concurrency,
           recovery: options.recovery ?? 'none',
           leaseMs: options.leaseMs ?? 30_000,
           selector: this.selector.reference ?? null,
           contextPolicy: { id: 'roundtable/increments', version: '1' },
+          pricingVersion: options.pricing?.version ?? null,
         },
         selectorCheckpoint: null,
         snapshot: {
@@ -86,6 +97,7 @@ export class Conversation implements Roundtable {
           messages: [],
           turns: [],
           requests: [],
+          usage: [],
         },
         participants: this.options.participants.map((p) => ({
           id: p.id,
@@ -121,17 +133,23 @@ export class Conversation implements Roundtable {
     this.abort = abort;
     const signal = options.signal ? AbortSignal.any([options.signal, abort.signal]) : abort.signal;
     let timeout: ReturnType<typeof setTimeout> | undefined;
-    let timedOut = false;
+    let limited: RunLimit | undefined;
+    // A limit reached mid-run stops it the way cancellation does; the first stop decides the result.
+    const limit = (reason: RunLimit) => {
+      if (signal.aborted) return;
+      limited = reason;
+      abort.abort();
+    };
     if (this.options.limits.timeoutMs !== undefined) {
-      timeout = setTimeout(() => {
-        timedOut = true;
-        abort.abort();
-      }, this.options.limits.timeoutMs);
+      timeout = setTimeout(() => limit('time'), this.options.limits.timeoutMs);
     }
-    const running = this.executeOwned(signal, () => timedOut).finally(() => {
+    const runId = crypto.randomUUID();
+    this.limitRun = limit;
+    const running = this.executeOwned(signal, () => limited, runId).finally(() => {
       clearTimeout(timeout);
       this.active = undefined;
       this.abort = undefined;
+      this.limitRun = undefined;
       this.busy = false;
     });
     this.active = running;
@@ -276,27 +294,31 @@ export class Conversation implements Roundtable {
     return this.disposing;
   }
 
-  private async executeOwned(signal: AbortSignal, timedOut: () => boolean): Promise<RunResult> {
+  private async executeOwned(
+    signal: AbortSignal,
+    limited: () => RunLimit | undefined,
+    runId: string,
+  ): Promise<RunResult> {
     const owner = await this.persistence.begin();
     try {
-      return await this.execute(AbortSignal.any([signal, owner.signal]), owner);
+      return await this.execute(AbortSignal.any([signal, owner.signal]), owner, runId);
     } catch (error) {
       // A turn stored as running was never seen to settle (the process stopped mid-turn), so it is
       // neither rerun nor finished until the host reconciles it.
       if (error instanceof RoundtableError && error.code === 'recovery-required') throw error;
-      // A member failure that settled before cancellation stays final.
+      // A member failure that settled before cancellation or a limit stays final.
       const { phase } = this.persistence.snapshot();
       const memberFailed =
         phase.kind === 'group' && phase.members.some((member) => member.status === 'failed');
-      if (signal.aborted && !memberFailed) return await this.stop(owner, timedOut());
+      if (signal.aborted && !memberFailed) return await this.stop(owner, limited());
       return await this.fail(owner, error);
     } finally {
       await this.persistence.end();
     }
   }
 
-  /** Cancellation, disposal and time limits end this run at a safe point, never the conversation. */
-  private async stop(owner: StoreOwner, timedOut: boolean): Promise<RunResult> {
+  /** Cancellation, disposal and limits end this run at a safe point, never the conversation. */
+  private async stop(owner: StoreOwner, limited: RunLimit | undefined): Promise<RunResult> {
     if (!owner.signal.aborted && this.persistence.snapshot().phase.kind === 'selecting') {
       // The selector call settled without a saved decision, so the next run asks again. If this
       // write fails, the stored attempt stays and loading requires reconciliation.
@@ -307,8 +329,8 @@ export class Conversation implements Roundtable {
         .catch(() => {});
     }
     const revision = this.snapshot().revision;
-    return timedOut
-      ? { status: 'limited', reason: 'time', revision }
+    return limited
+      ? { status: 'limited', reason: limited, revision }
       : { status: 'cancelled', revision };
   }
 
@@ -336,7 +358,11 @@ export class Conversation implements Roundtable {
     return structuredClone(result);
   }
 
-  private async execute(signal: AbortSignal, owner: StoreOwner): Promise<RunResult> {
+  private async execute(signal: AbortSignal, owner: StoreOwner, runId: string): Promise<RunResult> {
+    const selector: UsagePrincipal = {
+      kind: 'selector',
+      id: this.selector.reference?.id ?? 'selector',
+    };
     let attempted = 0;
     for (;;) {
       signal.throwIfAborted();
@@ -346,7 +372,8 @@ export class Conversation implements Roundtable {
         attempted += phase.members.filter(
           (member) => member.status === 'pending' || member.status === 'resumable',
         ).length;
-        await this.continueGroup(signal, owner);
+        if (!(await this.continueGroup(signal, owner, runId)))
+          return { status: 'limited', reason: 'model-calls', revision: view.revision };
         view = this.snapshot();
         if (view.requests.length)
           return { status: 'waiting', revision: view.revision, requests: view.requests };
@@ -359,6 +386,11 @@ export class Conversation implements Roundtable {
       let selection: Selection;
       if (phase.kind === 'selected') selection = phase.selection;
       else {
+        if (
+          this.selector.modelCalls === 'metered' &&
+          modelCallsSpent(this.persistence.snapshot(), runId, [selector])
+        )
+          return { status: 'limited', reason: 'model-calls', revision: view.revision };
         const attemptId = crypto.randomUUID();
         await this.persistence.update((draft) => {
           draft.phase = { kind: 'selecting', attemptId };
@@ -377,7 +409,10 @@ export class Conversation implements Roundtable {
             turns: view.turns,
             remainingTurns: this.options.limits.maxTurnsPerRun - attempted,
           },
-          { signal },
+          {
+            signal,
+            services: this.turnServices(selector, null, null, attemptId, signal, runId),
+          },
         );
         selection = validateSelection(
           decision,
@@ -422,9 +457,17 @@ export class Conversation implements Roundtable {
         });
         continue;
       }
-      attempted += selected.length;
       const agents = selected.filter((p): p is AgentParticipant => p.kind === 'agent');
-      await this.executeParticipants(agents, groupId, signal, owner);
+      // A participant whose factory declares 'none' needs no allowance, like a 'none' selector.
+      const members = agents
+        .filter((p) => p.factory.modelCalls === 'metered')
+        .map(({ id }): UsagePrincipal => ({ kind: 'participant', id }));
+      if (modelCallsSpent(this.persistence.snapshot(), runId, members)) {
+        return { status: 'limited', reason: 'model-calls', revision: this.snapshot().revision };
+      }
+      attempted += selected.length;
+      if (!(await this.executeParticipants(agents, groupId, signal, owner, runId)))
+        return { status: 'limited', reason: 'model-calls', revision: this.snapshot().revision };
     }
   }
 
@@ -433,7 +476,8 @@ export class Conversation implements Roundtable {
     groupId: string,
     signal: AbortSignal,
     owner: StoreOwner,
-  ): Promise<void> {
+    runId: string,
+  ): Promise<boolean> {
     const state = this.persistence.snapshot();
     const baseRevision = state.snapshot.revision;
     const turns: ParticipantTurn[] = selected.map((p) => ({
@@ -473,10 +517,15 @@ export class Conversation implements Roundtable {
       { type: 'group-started', groupId, participantIds: selected.map((p) => p.id), baseRevision },
       signal,
     );
-    await this.continueGroup(signal, owner);
+    return this.continueGroup(signal, owner, runId);
   }
 
-  private async continueGroup(signal: AbortSignal, owner: StoreOwner): Promise<void> {
+  /** Resolves false, without dispatching anyone, when a spent model-call limit refuses the group. */
+  private async continueGroup(
+    signal: AbortSignal,
+    owner: StoreOwner,
+    runId: string,
+  ): Promise<boolean> {
     const phase = this.persistence.snapshot().phase;
     if (phase.kind !== 'group') throw new RoundtableError('conflict', 'Active group is missing');
     if (
@@ -496,6 +545,11 @@ export class Conversation implements Roundtable {
     const selected = pending.map((member) => this.participants.get(member.participantId));
     if (selected.some((participant) => participant?.kind !== 'agent'))
       throw new RoundtableError('conflict', 'Group participant is missing');
+    // A participant whose factory declares 'none' needs no allowance, like a 'none' selector.
+    const members = (selected as AgentParticipant[])
+      .filter((participant) => participant.factory.modelCalls === 'metered')
+      .map(({ id }): UsagePrincipal => ({ kind: 'participant', id }));
+    if (modelCallsSpent(resumeState, runId, members)) return false;
     await executeGroup({
       participants: selected as AgentParticipant[],
       turns: pending.map((member) => member.turn),
@@ -504,6 +558,15 @@ export class Conversation implements Roundtable {
       session: (p) => this.session(p),
       emit: (event, eventSignal) => this.emit(event, eventSignal),
       admit: () => owner.admit(),
+      services: (turn) =>
+        this.turnServices(
+          { kind: 'participant', id: turn.participantId },
+          turn.turnId,
+          turn.groupId,
+          turn.attemptId,
+          signal,
+          runId,
+        ),
       responses: (turn) => {
         const member = pending.find((candidate) => candidate.turn.turnId === turn.turnId)!;
         return member.status === 'resumable' ? memberResponses(resumeState, member) : undefined;
@@ -550,7 +613,7 @@ export class Conversation implements Roundtable {
         }),
     });
     signal.throwIfAborted();
-    if (this.snapshot().requests.length) return;
+    if (this.snapshot().requests.length) return true;
     await this.persistence.update((draft, revision) => {
       if (draft.phase.kind !== 'group')
         throw new RoundtableError('conflict', 'Active group changed');
@@ -589,6 +652,7 @@ export class Conversation implements Roundtable {
       },
       signal,
     );
+    return true;
   }
 
   private async acceptInput(
@@ -666,6 +730,33 @@ export class Conversation implements Roundtable {
         : undefined;
     if (!member) throw new RoundtableError('conflict', 'Participant execution is no longer active');
     return member;
+  }
+
+  private turnServices(
+    principal: { kind: 'participant' | 'selector'; id: string },
+    turnId: string | null,
+    groupId: string | null,
+    attemptId: string,
+    signal: AbortSignal,
+    runId: string,
+  ): TurnServices {
+    const limit = this.limitRun;
+    return createTurnServices({
+      persistence: this.persistence,
+      emit: (event, eventSignal) => this.emit(event, eventSignal),
+      signal,
+      // A rejected admission stops only the run these services were bound to.
+      onLimit: () => limit?.('model-calls'),
+      ctx: {
+        conversationId: this.options.conversationId,
+        runId,
+        principal,
+        turnId,
+        groupId,
+        attemptId,
+      },
+      pricing: this.options.pricing,
+    });
   }
 
   /** Release one participant's lease once; its failure is reported by dispose(), like the others. */
@@ -762,6 +853,9 @@ export class Conversation implements Roundtable {
       this.options.limits.maxTurnsPerRun,
       this.options.limits.timeoutMs ?? 1,
       this.options.leaseMs ?? 30_000,
+      this.options.limits.maxModelCallsPerRun ?? 1,
+      this.options.limits.maxModelCallsPerConversation ?? 1,
+      this.options.limits.maxModelCallsPerParticipant ?? 1,
     ]) {
       if (!Number.isSafeInteger(value) || value <= 0)
         throw new RoundtableError(
@@ -769,5 +863,16 @@ export class Conversation implements Roundtable {
           'Execution limits must be positive safe integers',
         );
     }
+    if (this.options.pricing && !this.options.pricing.version)
+      throw new RoundtableError('invalid-config', 'A pricing policy requires a version');
+    requireModelCallCapabilities({
+      participants: this.options.participants,
+      selector: this.selector,
+      governed:
+        this.options.limits.maxModelCallsPerRun !== undefined ||
+        this.options.limits.maxModelCallsPerConversation !== undefined ||
+        this.options.limits.maxModelCallsPerParticipant !== undefined ||
+        this.options.pricing !== undefined,
+    });
   }
 }

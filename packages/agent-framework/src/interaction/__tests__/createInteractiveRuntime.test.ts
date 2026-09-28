@@ -37,6 +37,7 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
     getPendingPrompt: vi.fn().mockReturnValue(null),
     getMessages: vi.fn().mockReturnValue([]),
     getFullHistory: vi.fn().mockReturnValue([]),
+    getMessagesDisplay: vi.fn().mockReturnValue([]),
     getContextState: vi.fn().mockReturnValue({
       usedPercentage: 0,
       usedTokens: 0,
@@ -48,6 +49,8 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
     executeCommand: vi.fn().mockResolvedValue(null),
     listCommands: vi.fn().mockReturnValue([] as ICommandListEntry[]),
     listSkills: vi.fn().mockReturnValue([]),
+    // #3282 §2: no configured profiles in this double — a case that cares overrides it.
+    listModels: vi.fn().mockReturnValue({ groups: [], currentModel: 'test-model' }),
     getStatusSnapshot: vi.fn().mockReturnValue({
       sessionId: 'test-session',
       model: 'test-model',
@@ -94,6 +97,8 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
     readExecutionWorkspaceDetail: vi.fn().mockResolvedValue({ items: [] }),
     stopWaitingSelfPacedLoop: vi.fn().mockResolvedValue({ kind: 'none' }),
     listAgentDefinitions: vi.fn().mockReturnValue([]),
+    getDefaultAgentType: vi.fn().mockReturnValue('general-purpose'),
+    setDefaultAgentType: vi.fn(),
     listAgentJobs: vi.fn().mockReturnValue([]),
     spawnAgentJob: vi.fn().mockResolvedValue({ jobId: 'j1' }),
     sendAgentJob: vi.fn().mockResolvedValue(undefined),

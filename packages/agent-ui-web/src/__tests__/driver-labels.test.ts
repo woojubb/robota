@@ -64,8 +64,8 @@ describe('humanDriverLabel / driverAttributionText', () => {
     expect(humanDriverLabel('some-future-id')).toBe('another surface');
   });
 
-  it('renders "from <label>" for a co-driver, and the bare word "automatic" for the agent', () => {
+  it('renders "from <label>" for a co-driver, and "Automatic — loop" for the agent (#3288 §1)', () => {
     expect(driverAttributionText('browser')).toBe('from the browser');
-    expect(driverAttributionText('agent')).toBe('automatic');
+    expect(driverAttributionText('agent')).toBe('Automatic — loop');
   });
 });

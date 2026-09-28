@@ -32,7 +32,7 @@ Open http://localhost:3000 — you should see a streaming chat UI.
 ```
 Client (fetch + ReadableStream)
   └─ POST /api/chat { message }
-       └─ createAgentRuntime({ cwd, provider }).createSession({ permissionMode, bare: true })
+       └─ createAgentRuntime({ cwd, provider }).createSession({ bare: true, deniedTools })
             └─ session.submit(message)
                  ├─ text_delta            → data: { type: "text_delta", text: "..." }
                  ├─ complete/interrupted  → data: { type: "done" }
@@ -40,9 +40,10 @@ Client (fetch + ReadableStream)
 ```
 
 Each request builds a new runtime and session, and the client sends only the latest message, so the model
-does not see earlier turns of the chat. The session runs with `permissionMode: 'bypassPermissions'` and the
-default tool set in the server's working directory, so anyone who can reach `/api/chat` can have the agent
-read, write and run shell commands there. Keep the app local, or pass `deniedTools` to `createSession()`.
+does not see earlier turns of the chat. Anyone who can reach `/api/chat` talks to the agent, so the session
+has none of the built-in tools that run commands, read or change files, reach the network or send files
+(`DENIED_TOOLS` in the route): a request can talk to the model and nothing else. Give it your own tools with
+`additionalTools` and approve them by name with `allowedTools`.
 
 ## Swap provider
 

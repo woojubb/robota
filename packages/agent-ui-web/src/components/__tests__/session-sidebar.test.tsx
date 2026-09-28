@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import React from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { SessionSidebar } from '../SessionSidebar.js';
+import { SessionSidebar, SessionSidebarRail } from '../SessionSidebar.js';
 
 import type { IWsSessionState, TSessionListing } from '../../hooks/session-client-types.js';
 
@@ -18,22 +18,43 @@ function row(
   extra: { live?: boolean; clients?: number } = {},
   updatedAt = '2026-09-26T00:00:00.000Z',
 ) {
-  return { id, cwd: '/w', updatedAt, messageCount: 1, preview, ...extra };
+  // `title` (#3289 §1) is what the row now shows; `preview` still rides along on the wire but is no
+  // longer what the sidebar renders, so it is set to the same text here for these count-focused tests.
+  return { id, cwd: '/w', updatedAt, messageCount: 1, preview, title: preview, ...extra };
 }
 
-function renderSidebar(listing: TSessionListing): void {
+function renderSidebar(
+  listing: TSessionListing,
+  overrides: Partial<IWsSessionState> = {},
+): IWsSessionState {
   const state = {
+    status: 'connected',
     sessionListing: listing,
     sessionsError: null,
     setSessionSidebarOpen: () => undefined,
     newSession: () => undefined,
     switchSession: () => undefined,
+    openSettings: () => undefined,
+    renameSessionInList: () => undefined,
+    deleteSession: () => undefined,
+    send: () => undefined,
+    ...overrides,
   } as unknown as IWsSessionState;
   render(<SessionSidebar state={state} />);
+  return state;
 }
 
-const sessionRow = (name: RegExp): HTMLElement =>
-  within(screen.getByRole('complementary', { name: 'Sessions' })).getByRole('button', { name });
+// A row's "More" button is also named after its title ("More for <title>"), so a plain accessible-name
+// match finds both; this picks the row button itself, never the "More" trigger beside it.
+const sessionRow = (name: RegExp): HTMLElement => {
+  const candidates = within(screen.getByRole('complementary', { name: 'Sessions' })).getAllByRole(
+    'button',
+    { name },
+  );
+  const found = candidates.find((el) => !(el.getAttribute('aria-label') ?? '').startsWith('More for'));
+  if (!found) throw new Error(`no session row button matching ${String(name)}`);
+  return found;
+};
 
 afterEach(cleanup);
 
@@ -135,5 +156,101 @@ describe('SessionSidebar rows have a clean accessible name and a description (#3
     });
     const button = sessionRow(/stored only/);
     expect(button.getAttribute('aria-describedby')?.split(' ').length).toBe(1);
+  });
+});
+
+describe('#3282 §4a — the sidebar footer opens Settings', () => {
+  afterEach(cleanup);
+
+  it('the footer gear has an accessible name "Settings" and opens the screen', () => {
+    const openSettings = vi.fn();
+    renderSidebar(
+      { currentSessionId: 'a', sessions: [row('a', 'plain')], unreadableSessionIds: [] },
+      { openSettings },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(openSettings).toHaveBeenCalledOnce();
+  });
+
+  it('the collapsed rail also offers a Settings button', () => {
+    const openSettings = vi.fn();
+    const state = {
+      setSessionSidebarOpen: () => undefined,
+      newSession: () => undefined,
+      openSettings,
+    } as unknown as IWsSessionState;
+    render(<SessionSidebarRail state={state} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(openSettings).toHaveBeenCalledOnce();
+  });
+});
+
+/**
+ * #3282 §2 (part 2): session switching is one of the controls disabled while disconnected, with a
+ * short tooltip explaining why (matching the status chips and the `/` command menu).
+ */
+describe('SessionSidebar — disabled while disconnected', () => {
+  afterEach(cleanup);
+
+  it('disables session rows and "New session", with a "Reconnecting…" tooltip', () => {
+    renderSidebar(
+      {
+        currentSessionId: 'a',
+        sessions: [row('a', 'first'), row('b', 'second')],
+        unreadableSessionIds: [],
+      },
+      { status: 'disconnected' },
+    );
+
+    const other = sessionRow(/second/) as HTMLButtonElement;
+    expect(other.disabled).toBe(true);
+    expect(other.title).toBe('Reconnecting…');
+    const newSessionButton = within(screen.getByRole('complementary', { name: 'Sessions' })).getByRole(
+      'button',
+      { name: /New session/ },
+    ) as HTMLButtonElement;
+    expect(newSessionButton.disabled).toBe(true);
+    expect(newSessionButton.title).toBe('Reconnecting…');
+  });
+
+  it('clicking a disabled row does not switch sessions', () => {
+    const switchSession = vi.fn();
+    renderSidebar(
+      {
+        currentSessionId: 'a',
+        sessions: [row('a', 'first'), row('b', 'second')],
+        unreadableSessionIds: [],
+      },
+      { status: 'disconnected', switchSession },
+    );
+
+    fireEvent.click(sessionRow(/second/));
+
+    expect(switchSession).not.toHaveBeenCalled();
+  });
+
+  it('rows and New session are enabled again once connected', () => {
+    renderSidebar({
+      currentSessionId: 'a',
+      sessions: [row('a', 'first'), row('b', 'second')],
+      unreadableSessionIds: [],
+    });
+
+    const other = sessionRow(/second/) as HTMLButtonElement;
+    expect(other.disabled).toBe(false);
+    expect(other.title).not.toBe('Reconnecting…');
+  });
+
+  it('SessionSidebarRail also disables "New session" while disconnected', () => {
+    const state = {
+      status: 'disconnected',
+      setSessionSidebarOpen: () => undefined,
+      newSession: () => undefined,
+    } as unknown as IWsSessionState;
+    render(<SessionSidebarRail state={state} />);
+
+    const newSessionButton = screen.getByRole('button', { name: 'New session' }) as HTMLButtonElement;
+    expect(newSessionButton.disabled).toBe(true);
+    expect(newSessionButton.title).toBe('Reconnecting…');
   });
 });

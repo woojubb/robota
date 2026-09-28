@@ -187,6 +187,44 @@ describe('WebSocket Transport Handler', () => {
     expect(sent).toEqual([{ type: 'session_status', status: session.getStatusSnapshot() }]);
   });
 
+  it('#3282 §2: list-models sends the model list, echoing requestId', () => {
+    const { onMessage, session, sent } = setup();
+    const snapshot = {
+      groups: [
+        {
+          profileName: 'anthropic',
+          providerLabel: 'Anthropic',
+          models: [{ id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' }],
+        },
+      ],
+      currentProfile: 'anthropic',
+      currentModel: 'claude-sonnet-4-6',
+    };
+    Object.assign(session, { listModels: vi.fn().mockReturnValue(snapshot) });
+
+    onMessage(JSON.stringify({ type: 'list-models', requestId: 'req-models-1' }));
+
+    expect(sent).toEqual([{ type: 'model_list', requestId: 'req-models-1', ...snapshot }]);
+  });
+
+  it('#3282 §4: get-agent-definitions sends the roster and the current default, echoing requestId', () => {
+    const { onMessage, session, sent } = setup();
+    const agents = [
+      { name: 'general-purpose', description: 'General-purpose task execution agent.', definedIn: 'Built-in' },
+      { name: 'Explore', description: 'Read-only codebase exploration agent.', definedIn: 'Built-in' },
+    ];
+    Object.assign(session, {
+      listAgentDefinitions: vi.fn().mockReturnValue(agents),
+      getDefaultAgentType: vi.fn().mockReturnValue('Explore'),
+    });
+
+    onMessage(JSON.stringify({ type: 'get-agent-definitions', requestId: 'req-agents-1' }));
+
+    expect(sent).toEqual([
+      { type: 'agent_definitions', requestId: 'req-agents-1', agents, current: 'Explore' },
+    ]);
+  });
+
   it('get-executing sends executing status', () => {
     const { onMessage, sent } = setup();
     onMessage(JSON.stringify({ type: 'get-executing' }));
@@ -367,10 +405,11 @@ describe('WebSocket Transport Handler', () => {
     // A transport-origin command is an untrusted remote origin — the handler tags it `'remote'` so the session
     // applies its (optional, allow-by-default) remote-command policy.
     // CMD-004 Phase 2: the 4th arg is the command-origin driver id — undefined when the handler has
-    // no server-assigned id (unattributed; a client-sent id is NEVER trusted).
+    // no server-assigned id (unattributed; a client-sent id is NEVER trusted). The 5th (#3282 §4
+    // part b-2) is this carrier's locality — undefined here since this handler was not given one.
     expect(
       (session as unknown as { executeCommand: ReturnType<typeof vi.fn> }).executeCommand,
-    ).toHaveBeenCalledWith('clear', '', 'remote', undefined);
+    ).toHaveBeenCalledWith('clear', '', 'remote', undefined, undefined);
   });
 
   it('command carries the SERVER-ASSIGNED driver id as the command origin (CMD-004 Phase 2)', async () => {
@@ -385,7 +424,22 @@ describe('WebSocket Transport Handler', () => {
     await new Promise((r) => setTimeout(r, 10));
     expect(
       (session as unknown as { executeCommand: ReturnType<typeof vi.fn> }).executeCommand,
-    ).toHaveBeenCalledWith('settings', '', 'remote', 'device-7');
+    ).toHaveBeenCalledWith('settings', '', 'remote', 'device-7', undefined);
+  });
+
+  it("forwards this carrier's commandSurfaceLocality to executeCommand (#3282 §4 part b-2)", async () => {
+    const session = createMockSession();
+    const sent: TServerMessage[] = [];
+    const { onMessage } = createSessionMessageHandler({
+      session,
+      deliver: createOutboundDelivery((msg) => sent.push(msg), vi.fn()),
+      commandSurfaceLocality: 'remote',
+    });
+    onMessage(JSON.stringify({ type: 'command', name: 'plugin', args: 'install demo@community' }));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(
+      (session as unknown as { executeCommand: ReturnType<typeof vi.fn> }).executeCommand,
+    ).toHaveBeenCalledWith('plugin', 'install demo@community', 'remote', undefined, 'remote');
   });
 
   it('forwards ui_intent session events to the requesting client (CMD-004 Phase 2)', () => {

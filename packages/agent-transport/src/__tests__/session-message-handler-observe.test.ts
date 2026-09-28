@@ -20,6 +20,9 @@ type TListener = (...args: unknown[]) => void;
 function createSession(): IInteractiveSession & {
   emit: (event: string, ...args: unknown[]) => void;
   listenerCount: (event: string) => number;
+  // #3282 §4c: `Partial<ISessionProjectRead>` — not part of `IInteractiveSession`, so it is assigned
+  // ad hoc (below) rather than passed to `createTestInteractiveSession`'s strict literal.
+  readProjectStatus: ReturnType<typeof vi.fn>;
 } {
   const listeners = new Map<string, Set<TListener>>();
   const session = createTestInteractiveSession({
@@ -43,6 +46,7 @@ function createSession(): IInteractiveSession & {
     }) as IInteractiveSession['off'],
   });
   return Object.assign(session, {
+    readProjectStatus: vi.fn().mockResolvedValue({ kind: 'not-a-repository' }),
     emit: (event: string, ...args: unknown[]) => {
       listeners.get(event)?.forEach((handler) => handler(...args));
     },
@@ -106,8 +110,28 @@ describe('observe role', () => {
     observer.send({ type: 'get-messages' });
     observer.send({ type: 'get-executing' });
     expect(observer.sent).toEqual([
-      { type: 'messages', messages: [{ role: 'user', content: 'hi' }] },
+      // #3288 §2: `display` rides the same frame (the test double's default projects to `[]`).
+      { type: 'messages', messages: [{ role: 'user', content: 'hi' }], display: [] },
       { type: 'executing', executing: true },
+    ]);
+  });
+
+  it('#3282 §4c: reads the Project panel status — read-only, so an observer may too', async () => {
+    const session = createSession();
+    const observer = attach(session, 'observe');
+    observer.send({ type: 'project-status', requestId: 'ps-1' });
+    await Promise.resolve();
+    expect(observer.sent).toEqual([
+      { type: 'project_status', requestId: 'ps-1', result: { kind: 'not-a-repository' } },
+    ]);
+  });
+
+  it('#3282 §4: reads the agent switcher roster, a query, never a write', () => {
+    const session = createSession();
+    const observer = attach(session, 'observe');
+    observer.send({ type: 'get-agent-definitions', requestId: 'req-agents-1' });
+    expect(observer.sent).toEqual([
+      { type: 'agent_definitions', requestId: 'req-agents-1', agents: [], current: 'general-purpose' },
     ]);
   });
 

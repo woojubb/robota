@@ -164,6 +164,8 @@ export class SessionSlot<
     this.currentSession.getMessages(...args);
   getFullHistory: IInteractiveSession['getFullHistory'] = (...args) =>
     this.currentSession.getFullHistory(...args);
+  getMessagesDisplay: IInteractiveSession['getMessagesDisplay'] = (...args) =>
+    this.currentSession.getMessagesDisplay(...args);
   getContextState: IInteractiveSession['getContextState'] = (...args) =>
     this.currentSession.getContextState(...args);
   getSession: IInteractiveSession['getSession'] = (...args) =>
@@ -177,6 +179,8 @@ export class SessionSlot<
     this.currentSession.listSkills(...args);
   getStatusSnapshot: IInteractiveSession['getStatusSnapshot'] = (...args) =>
     this.currentSession.getStatusSnapshot(...args);
+  listModels: IInteractiveSession['listModels'] = (...args) =>
+    this.currentSession.listModels(...args);
   listRuntimeTools: IInteractiveSession['listRuntimeTools'] = (...args) =>
     this.currentSession.listRuntimeTools(...args);
   invokeRuntimeTool: IInteractiveSession['invokeRuntimeTool'] = (...args) =>
@@ -213,6 +217,10 @@ export class SessionSlot<
     this.currentSession.stopWaitingSelfPacedLoop(...args);
   listAgentDefinitions: IInteractiveSession['listAgentDefinitions'] = (...args) =>
     this.currentSession.listAgentDefinitions(...args);
+  getDefaultAgentType: IInteractiveSession['getDefaultAgentType'] = (...args) =>
+    this.currentSession.getDefaultAgentType(...args);
+  setDefaultAgentType: IInteractiveSession['setDefaultAgentType'] = (...args) =>
+    this.currentSession.setDefaultAgentType(...args);
   listAgentJobs: IInteractiveSession['listAgentJobs'] = (...args) =>
     this.currentSession.listAgentJobs(...args);
   spawnAgentJob: IInteractiveSession['spawnAgentJob'] = (...args) =>

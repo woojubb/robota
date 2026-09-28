@@ -28,9 +28,18 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
   'get-context': { type: 'get-context' },
   'get-commands': { type: 'get-commands' },
   'get-status': { type: 'get-status' },
+  'list-models': { type: 'list-models', requestId: 'request-6' },
+  'get-agent-definitions': { type: 'get-agent-definitions', requestId: 'request-7' },
   'list-sessions': { type: 'list-sessions', requestId: 'request-3' },
   'new-session': { type: 'new-session', requestId: 'request-4' },
   'switch-session': { type: 'switch-session', sessionId: 'session-2', requestId: 'request-5' },
+  'rename-session': {
+    type: 'rename-session',
+    sessionId: 'session-2',
+    name: 'Renamed',
+    requestId: 'request-6',
+  },
+  'delete-session': { type: 'delete-session', sessionId: 'session-2', requestId: 'request-7' },
   'get-usage-report': { type: 'get-usage-report' },
   'get-personal-usage-report': {
     type: 'get-personal-usage-report',
@@ -53,6 +62,9 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
     cursor: { offset: 20 },
   },
   'stop-waiting-loop': { type: 'stop-waiting-loop', requestId: 'loop-1' },
+  'project-status': { type: 'project-status', requestId: 'project-status-1' },
+  'project-diff': { type: 'project-diff', requestId: 'project-diff-1', path: 'a.txt' },
+  'project-memory': { type: 'project-memory', requestId: 'project-memory-1' },
   'get-background-tasks': {
     type: 'get-background-tasks',
     filter: { kind: 'agent', includeClosed: true },
@@ -73,6 +85,12 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
   'ask-response': { type: 'ask-response', id: 'a1', response: { type: 'answer', values: ['y'] } },
   resume: { type: 'resume', lastSeq: 4 },
   ack: { type: 'ack', seq: 9 },
+  'get-settings': { type: 'get-settings', requestId: 'settings-1' },
+  'update-settings': {
+    type: 'update-settings',
+    requestId: 'settings-2',
+    patch: { field: 'outputStyle', styleId: 'concise' },
+  },
 };
 
 const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> = {
@@ -91,7 +109,17 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
     success: true,
     requestId: 'command-1',
   },
-  messages: { type: 'messages', messages: [] },
+  // #3288 §2: `display` is optional (an older host may not send it) and foreign-owned
+  // (`IHistoryDisplaySegment`, `agent-interface-session`) — checked shallowly here, same as
+  // `tool_start`'s `state`, per this file's own header.
+  messages: {
+    type: 'messages',
+    messages: [],
+    display: [
+      { type: 'text', role: 'user', content: 'hi' },
+      { type: 'tool', tool: { toolName: 'Bash', firstArg: 'ls', isRunning: false } as never },
+    ],
+  },
   history: {
     type: 'history',
     startIndex: 3,
@@ -111,6 +139,24 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
   turn_source: { type: 'turn_source', source: 'peer' },
   commands: { type: 'commands', commands: [], skills: [] },
   session_status: { type: 'session_status', status: {} as never },
+  model_list: {
+    type: 'model_list',
+    requestId: 'request-6',
+    groups: [
+      { profileName: 'anthropic', providerLabel: 'Anthropic', models: [{ id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' }] },
+    ],
+    currentProfile: 'anthropic',
+    currentModel: 'claude-sonnet-4-6',
+  },
+  agent_definitions: {
+    type: 'agent_definitions',
+    requestId: 'request-7',
+    agents: [
+      { name: 'general-purpose', description: 'General-purpose task execution agent.', definedIn: 'Built-in' },
+      { name: 'Explore', description: 'Read-only codebase exploration agent.', definedIn: 'Built-in' },
+    ],
+    current: 'general-purpose',
+  },
   sessions: { type: 'sessions', requestId: 'request-3', listing: {} as never },
   sessions_error: {
     type: 'sessions_error',
@@ -124,6 +170,24 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
     code: 'prompt_pending',
     message: 'Answer the pending prompt first.',
     requestId: 'request-5',
+  },
+  session_renamed_in_list: {
+    type: 'session_renamed_in_list',
+    requestId: 'request-6',
+    sessionId: 'session-2',
+    name: 'Renamed',
+  },
+  session_rename_failed: {
+    type: 'session_rename_failed',
+    requestId: 'request-6',
+    message: 'No session session-2 in this workspace.',
+  },
+  session_deleted: { type: 'session_deleted', requestId: 'request-7', sessionId: 'session-2' },
+  session_delete_failed: {
+    type: 'session_delete_failed',
+    requestId: 'request-7',
+    code: 'live_elsewhere',
+    message: 'Another client is on this session.',
   },
   usage_report: { type: 'usage_report', report: {} as never },
   personal_usage_report: {
@@ -168,6 +232,31 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
     requestId: 'loop-1',
     outcome: { kind: 'stopped', loopId: 'loop-a', message: 'Stopped loop-a.' },
   },
+  project_status: {
+    type: 'project_status',
+    requestId: 'project-status-1',
+    result: {
+      kind: 'status',
+      branch: 'main',
+      unborn: false,
+      files: [{ path: 'a.txt', status: 'Modified', added: 1, removed: 2 }],
+      truncated: false,
+    },
+  },
+  project_diff: {
+    type: 'project_diff',
+    requestId: 'project-diff-1',
+    result: {
+      kind: 'diff',
+      diffLines: [{ type: 'add', text: 'new line', lineNumber: 3 }],
+      truncated: false,
+    },
+  },
+  project_memory: {
+    type: 'project_memory',
+    requestId: 'project-memory-1',
+    result: { kind: 'memory', content: '# Memory', path: '.robota/memory/MEMORY.md', truncated: false },
+  },
   background_task_event: { type: 'background_task_event', event: {} as never },
   background_job_group_event: { type: 'background_job_group_event', event: {} as never },
   plan_event: { type: 'plan_event', event: {} as never },
@@ -192,6 +281,13 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
   },
   protocol_error: { type: 'protocol_error', message: 'm', requestId: 'command-1' },
   resume_gap: { type: 'resume_gap' },
+  settings: { type: 'settings', requestId: 'settings-1', settings: {} as never },
+  settings_error: {
+    type: 'settings_error',
+    requestId: 'settings-1',
+    code: 'not_available',
+    message: 'Settings are not available on this host.',
+  },
 };
 
 const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
@@ -239,6 +335,13 @@ const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
   ['ack with NaN', { type: 'ack', seq: Number.NaN }],
   ['cancel-background-task with an empty taskId', { type: 'cancel-background-task', taskId: '' }],
   ['list-sessions without requestId', { type: 'list-sessions' }],
+  ['list-models without requestId', { type: 'list-models' }],
+  ['list-models with an empty requestId', { type: 'list-models', requestId: '' }],
+  ['get-agent-definitions without requestId', { type: 'get-agent-definitions' }],
+  [
+    'get-agent-definitions with an empty requestId',
+    { type: 'get-agent-definitions', requestId: '' },
+  ],
   ['get-history from a negative index', { type: 'get-history', fromIndex: -1 }],
   ['get-history from a fractional index', { type: 'get-history', fromIndex: 1.5 }],
   ['command with an empty requestId', { type: 'command', name: 'n', requestId: '' }],
@@ -263,6 +366,101 @@ const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
   ],
   ['stop-waiting-loop without requestId', { type: 'stop-waiting-loop' }],
   ['stop-waiting-loop with an empty requestId', { type: 'stop-waiting-loop', requestId: '' }],
+  ['get-settings without requestId', { type: 'get-settings' }],
+  ['get-settings with an empty requestId', { type: 'get-settings', requestId: '' }],
+  ['update-settings without a patch', { type: 'update-settings', requestId: 'r' }],
+  [
+    'update-settings with an unknown patch field',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'nope' } },
+  ],
+  [
+    'update-settings with a prototype-only patch field',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'toString' } },
+  ],
+  [
+    'update-settings language patch with a numeric language',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'language', language: 1 } },
+  ],
+  [
+    'update-settings outputStyle patch missing styleId',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'outputStyle' } },
+  ],
+  [
+    'update-settings preset patch with an empty presetId',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'preset', presetId: '' } },
+  ],
+  [
+    'update-settings permissionMode patch missing mode',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'permissionMode' } },
+  ],
+  [
+    'update-settings sandbox patch with a string enabled',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'sandbox', enabled: 'true' } },
+  ],
+  [
+    'update-settings removePermissionRule patch with an unknown kind',
+    {
+      type: 'update-settings',
+      requestId: 'r',
+      patch: { field: 'removePermissionRule', scope: 'user', kind: 'nope', pattern: 'Bash(*)' },
+    },
+  ],
+  [
+    'update-settings removePermissionRule patch missing pattern',
+    {
+      type: 'update-settings',
+      requestId: 'r',
+      patch: { field: 'removePermissionRule', scope: 'user', kind: 'allow' },
+    },
+  ],
+  [
+    'update-settings mcpServerEnabled patch missing serverId',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'mcpServerEnabled', enabled: true } },
+  ],
+  [
+    'update-settings mcpServerEnabled patch with a string enabled',
+    {
+      type: 'update-settings',
+      requestId: 'r',
+      patch: { field: 'mcpServerEnabled', serverId: 'docs', enabled: 'true' },
+    },
+  ],
+  [
+    'update-settings pluginEnabled patch with an empty pluginId',
+    {
+      type: 'update-settings',
+      requestId: 'r',
+      patch: { field: 'pluginEnabled', pluginId: '', enabled: true },
+    },
+  ],
+  [
+    'update-settings installPlugin patch missing pluginId',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'installPlugin' } },
+  ],
+  [
+    'update-settings uninstallPlugin patch with a numeric pluginId',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'uninstallPlugin', pluginId: 1 } },
+  ],
+  [
+    'update-settings providerProfile patch missing profileName',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'providerProfile' } },
+  ],
+  [
+    'update-settings providerProfile patch with an empty profileName',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'providerProfile', profileName: '' } },
+  ],
+  [
+    'update-settings providerModel patch missing modelId',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'providerModel', profileName: 'anthropic' } },
+  ],
+  [
+    'update-settings providerModel patch missing profileName',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'providerModel', modelId: 'claude-haiku-4-5' } },
+  ],
+  [
+    'update-settings deleteProviderProfile patch missing profileName',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'deleteProviderProfile' } },
+  ],
 ];
 
 const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
@@ -276,6 +474,8 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
   ['messages with a non-array', { type: 'messages', messages: {} }],
   ['messages with a primitive entry', { type: 'messages', messages: ['x'] }],
   ['messages with a numeric driverId', { type: 'messages', messages: [], driverId: 12345 }],
+  ['messages with a non-array display', { type: 'messages', messages: [], display: {} }],
+  ['messages with a display holding a primitive entry', { type: 'messages', messages: [], display: ['x'] }],
   ['pending with a number', { type: 'pending', pending: 1, pendingCount: 1 }],
   ['pending with a negative count', { type: 'pending', pending: null, pendingCount: -1 }],
   ['pending with a fractional count', { type: 'pending', pending: 'p', pendingCount: 1.5 }],
@@ -290,6 +490,30 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
     { type: 'sessions_error', requestId: 'r', code: 'nope', message: 'm' },
   ],
   ['session_switched without event', { type: 'session_switched' }],
+  ['model_list without requestId', { type: 'model_list', groups: [], currentModel: 'm' }],
+  [
+    'model_list with a non-array groups',
+    { type: 'model_list', requestId: 'r', groups: {}, currentModel: 'm' },
+  ],
+  ['model_list without currentModel', { type: 'model_list', requestId: 'r', groups: [] }],
+  [
+    'agent_definitions without requestId',
+    { type: 'agent_definitions', agents: [], current: 'general-purpose' },
+  ],
+  [
+    'agent_definitions with a non-array agents',
+    { type: 'agent_definitions', requestId: 'r', agents: {}, current: 'general-purpose' },
+  ],
+  [
+    'agent_definitions with an agent missing definedIn',
+    {
+      type: 'agent_definitions',
+      requestId: 'r',
+      agents: [{ name: 'a', description: 'd' }],
+      current: 'a',
+    },
+  ],
+  ['agent_definitions without current', { type: 'agent_definitions', requestId: 'r', agents: [] }],
   [
     'session_change_failed with an unknown code',
     { type: 'session_change_failed', code: 'nope', message: 'm' },
@@ -356,6 +580,13 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
     'waiting_loop_stop with a prototype-only kind',
     { type: 'waiting_loop_stop', requestId: 'r', outcome: { kind: 'toString' } },
   ],
+  ['settings without requestId', { type: 'settings', settings: {} }],
+  ['settings with an array settings', { type: 'settings', requestId: 'r', settings: [] }],
+  [
+    'settings_error with an unknown code',
+    { type: 'settings_error', requestId: 'r', code: 'nope', message: 'm' },
+  ],
+  ['settings_error without message', { type: 'settings_error', requestId: 'r', code: 'invalid' }],
 ];
 
 describe('decodeClientMessage (issue #2045)', () => {
@@ -373,10 +604,40 @@ describe('decodeClientMessage (issue #2045)', () => {
     expect(decodeClientMessage(value).ok).toBe(false);
   });
 
+  // #3282 §4b: "Providers & Models" — Use, Model and Delete each add one `update-settings` patch
+  // field; `CLIENT_SAMPLES` above only round-trips one field (`outputStyle`) per variant, so these
+  // three get their own explicit round trip.
+  it.each([
+    { field: 'providerProfile', profileName: 'backup' },
+    { field: 'providerModel', profileName: 'backup', modelId: 'claude-haiku-4-5' },
+    { field: 'deleteProviderProfile', profileName: 'backup' },
+  ])('decodes an update-settings patch with field %j', (patch) => {
+    const message = { type: 'update-settings', requestId: 'r', patch };
+    expect(decodeClientMessage(JSON.parse(JSON.stringify(message)))).toEqual({
+      ok: true,
+      message,
+    });
+  });
+
   it('keeps the protocol wording for a bad submit prompt', () => {
     expect(decodeClientMessage({ type: 'submit', prompt: 1 })).toEqual({
       ok: false,
       reason: 'prompt must be a non-empty string',
+    });
+  });
+
+  it.each([
+    { field: 'mcpServerEnabled', serverId: 'docs', enabled: true },
+    { field: 'reloadMcpServers' },
+    { field: 'pluginEnabled', pluginId: 'formatter@robota', enabled: false },
+    { field: 'reloadPlugins' },
+    { field: 'installPlugin', pluginId: 'linter@robota' },
+    { field: 'uninstallPlugin', pluginId: 'formatter@robota' },
+  ] as const)('accepts the $field settings patch (#3282 §4 part b-2)', (patch) => {
+    const message = { type: 'update-settings' as const, requestId: 'r', patch };
+    expect(decodeClientMessage(JSON.parse(JSON.stringify(message)))).toEqual({
+      ok: true,
+      message,
     });
   });
 });
@@ -424,6 +685,38 @@ describe('decodeServerMessage (issue #2045)', () => {
       ok: true,
       message: { type: 'pending', pending: null },
     });
+  });
+
+  it('accepts an error frame carrying its classification (#3289 §3), and one without it', () => {
+    const classified = {
+      type: 'error',
+      message: 'Authentication Error: invalid x-api-key',
+      code: 'rate_limit',
+      provider: 'anthropic',
+      retryAfterSeconds: 30,
+    };
+    expect(decodeServerMessage(classified)).toEqual({ ok: true, message: classified });
+    expect(decodeServerMessage({ type: 'error', message: 'boom' })).toEqual({
+      ok: true,
+      message: { type: 'error', message: 'boom' },
+    });
+  });
+
+  it('accepts an error frame naming the model a model_unavailable failure tried', () => {
+    const classified = {
+      type: 'error',
+      message: 'No model available for provider "anthropic"',
+      code: 'model_unavailable',
+      provider: 'anthropic',
+      model: 'claude-x',
+    };
+    expect(decodeServerMessage(classified)).toEqual({ ok: true, message: classified });
+  });
+
+  it('refuses an error frame with an unrecognized code', () => {
+    expect(
+      decodeServerMessage({ type: 'error', message: 'm', code: 'not-a-real-code' }).ok,
+    ).toBe(false);
   });
 });
 

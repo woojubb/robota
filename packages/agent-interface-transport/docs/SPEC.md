@@ -3,7 +3,7 @@
 ## Scope
 
 Owns the transport contract interfaces for the Robota SDK: the standard protocol for transport
-adapters (WebSocket, HTTP, MCP, TUI, etc.) and their configurable lifecycle. This package is
+adapters (carriers such as WebSocket, HTTP or MCP) and their configurable lifecycle. This package is
 contracts plus a small set of pure, dependency-free derivation accessors over its own owned union
 types — no classes, no I/O, no side effects.
 
@@ -77,10 +77,6 @@ no raw underlying cause exposed through this contract. A registry aggregate may 
 abandonment (stopped, or rolled back during startup) for a runner that never reached that outcome;
 a separate "first failure" wait reports only a genuine failure and does not treat normal stop-time
 abandonment as a process failure.
-
-One transport implementation (TUI) is deliberately outside this family: it ignores `attach()` and
-constructs its own session, because it owns presentation and session lifecycle itself rather than
-receiving a session from a host.
 
 ### Persisted configuration
 

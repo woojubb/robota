@@ -39,6 +39,12 @@ export interface IAnthropicProviderOptions {
   timeout?: number;
 
   /**
+   * Model to request when a chat call names none. A provider definition sets it from the configured
+   * model.
+   */
+  defaultModel?: string;
+
+  /**
    * API base URL (default: Anthropic's official endpoint).
    * Point this at any Anthropic-Messages-API-compatible endpoint — e.g. a
    * proxy/gateway that speaks the Messages protocol. For OpenAI-protocol

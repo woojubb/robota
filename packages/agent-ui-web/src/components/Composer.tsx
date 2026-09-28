@@ -1,14 +1,56 @@
-import { ArrowUp, Gauge, Shield, Sparkles, Square, Target } from 'lucide-react';
+import { ArrowUp, Paperclip, Square, Target, X } from 'lucide-react';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import { commandMenuFor } from '../hooks/command-menu.js';
+import type { ICommandMenuItem } from '../hooks/command-menu.js';
+import {
+  buildPromptWithAttachments,
+  evaluateCandidateFile,
+  type ICandidateFile,
+  type IDraftAttachment,
+  type IPickedFile,
+} from './composer-attachments.js';
+import { StatusRow } from './StatusControls.js';
 
-import type { IQueuedPrompt, TCommandCatalog, TSessionStatus } from '../hooks/session-client-types.js';
+import type {
+  IQueuedPrompt,
+  TCommandCatalog,
+  TModelListSnapshot,
+  TSessionStatus,
+} from '../hooks/session-client-types.js';
+
+export type { IPickedFile } from './composer-attachments.js';
 
 /** What a caller can do to the composer from outside it — currently just reclaiming focus. */
 export interface IComposerHandle {
   /** Focuses the message field — used to send focus back there once a docked prompt is answered. */
   focus: () => void;
+}
+
+/** The draft as persisted: the typed text plus any attachment chips (#3282 §4d). */
+interface IStoredDraft {
+  readonly text: string;
+  readonly attachments: readonly IDraftAttachment[];
+}
+
+const EMPTY_DRAFT: IStoredDraft = { text: '', attachments: [] };
+
+/**
+ * #3282 §4e: a command whose whole job is opening a GUI screen — choosing it from the `/` menu runs
+ * it at once (its `ui_intent` opens the screen the normal way) instead of filling the draft and
+ * waiting for Enter, since there is nothing useful to type after it. `help` never reaches the
+ * session at all (`useSessionClient.ts`'s `send` opens the Help sheet locally). Every other command
+ * still "runs as today": chosen or Tab-completed, it fills the draft for its arguments.
+ */
+const IMMEDIATE_SCREEN_COMMANDS: ReadonlySet<string> = new Set(['settings', 'resume', 'help']);
+
+function isImmediateScreenCommand(item: ICommandMenuItem): boolean {
+  return item.kind === 'command' && IMMEDIATE_SCREEN_COMMANDS.has(item.name);
+}
+
+/** The group a menu row falls under — shown as a header above the first row of each. */
+function menuGroupLabel(item: ICommandMenuItem): 'Commands' | 'Skills' {
+  return item.kind === 'skill' ? 'Skills' : 'Commands';
 }
 
 /**
@@ -18,6 +60,10 @@ export interface IComposerHandle {
  * `robota.restoreSessionId` in `use-session-directory.ts`) so a page hosting other state under the
  * same origin does not collide. Per session id when one is known; a single fallback key before the
  * first status arrives (the gap is brief and is reconciled once it does — see the effect below).
+ *
+ * #3282 §4d: the stored value is now JSON (`IStoredDraft`), not the bare text string it used to be —
+ * `parseStoredDraft` treats anything that does not parse as that shape (including a draft saved
+ * before this change shipped) as plain text with no attachments, so an old stored draft still loads.
  */
 const DRAFT_STORAGE_PREFIX = 'robota.draft.';
 const DRAFT_STORAGE_FALLBACK_KEY = 'robota.draft';
@@ -26,21 +72,55 @@ function draftStorageKey(sessionId: string | undefined): string {
   return sessionId ? `${DRAFT_STORAGE_PREFIX}${sessionId}` : DRAFT_STORAGE_FALLBACK_KEY;
 }
 
-/** Best-effort: a private window, cleared site data, or a full quota still leaves typing working. */
-function readDraft(sessionId: string | undefined): string {
+/**
+ * A stored attachment's shape is never trusted blindly: it is `localStorage`, not this component's
+ * own state, so it can be edited by hand, left over from a future version with a different shape, or
+ * just corrupted. A missing/non-string `name` or `relativePath` would otherwise show a blank chip and
+ * send a broken (or empty) `@`-reference on submit — dropped instead of risking either.
+ */
+function isStoredAttachment(value: unknown): value is IDraftAttachment {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.name === 'string' &&
+    typeof candidate.relativePath === 'string' &&
+    typeof candidate.size === 'number'
+  );
+}
+
+function parseStoredDraft(raw: string | null): IStoredDraft {
+  if (!raw) return EMPTY_DRAFT;
   try {
-    return window.localStorage.getItem(draftStorageKey(sessionId)) ?? '';
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && typeof (parsed as { text?: unknown }).text === 'string') {
+      const attachments = (parsed as { attachments?: unknown }).attachments;
+      return {
+        text: (parsed as { text: string }).text,
+        attachments: Array.isArray(attachments) ? attachments.filter(isStoredAttachment) : [],
+      };
+    }
+  } catch {
+    // Not JSON — a draft saved before attachments shipped. Fall through to plain text below.
+  }
+  return { text: raw, attachments: [] };
+}
+
+/** Best-effort: a private window, cleared site data, or a full quota still leaves typing working. */
+function readDraft(sessionId: string | undefined): IStoredDraft {
+  try {
+    return parseStoredDraft(window.localStorage.getItem(draftStorageKey(sessionId)));
   } catch {
     // allow-fallback: storage unavailable — the draft still lives in component state this session.
-    return '';
+    return EMPTY_DRAFT;
   }
 }
 
-function writeDraft(sessionId: string | undefined, value: string): void {
+function writeDraft(sessionId: string | undefined, value: IStoredDraft): void {
   try {
     const key = draftStorageKey(sessionId);
-    if (value) window.localStorage.setItem(key, value);
-    else window.localStorage.removeItem(key);
+    if (!value.text && value.attachments.length === 0) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, JSON.stringify(value));
   } catch {
     // allow-fallback: same as readDraft — typing (and sending) still work without persistence.
   }
@@ -56,12 +136,13 @@ export const Composer = forwardRef<
   IComposerHandle,
   {
     onSubmit: (prompt: string) => void;
-    onCommand: (name: string) => void;
+    onCommand: (name: string, args?: string) => void;
     catalog: TCommandCatalog | null;
     status: TSessionStatus | null;
     /**
      * False while the transport is not `connected` (issue #3280 §5): Enter and Send refuse to submit,
      * and nothing typed is cleared or lost — the composer never sends into a socket that is not there.
+     * #3282 §2 (part 2): the status chips and the `/` command menu are disabled the same way.
      */
     connected?: boolean;
     /** #3280 §2: a turn (or a blocking command) is running — Send becomes Stop and Esc stops it too. */
@@ -70,9 +151,49 @@ export const Composer = forwardRef<
     /** #3280 §2: the prompt queued behind the running turn, or null when none is queued. */
     queued: IQueuedPrompt | null;
     onCancelQueue: () => void;
+    /**
+     * Opens the host's native multi-file dialog with real filesystem paths — present only on the
+     * desktop app (#3282 §4d). Its absence means the attach button falls back to a plain HTML file
+     * picker, whose picks a browser can never resolve to a path (rule 3: shown plainly, nothing
+     * attached).
+     */
+    pickFiles?: () => Promise<readonly IPickedFile[]>;
+    /**
+     * Resolves a dropped or picked `File` to its real filesystem path — present only on the desktop
+     * app, via Electron's `webUtils.getPathForFile` (#3282 §4d). Its absence means a drop can never
+     * become an `@`-reference either.
+     */
+    getPathForFile?: (file: File) => string;
+    /** #3282 §2 (part 2): the model control's pop-up menu — null until requested. */
+    modelList?: TModelListSnapshot | null;
+    onRequestModelList?: () => void;
+    /** Applies a model/mode/effort choice without a conversation card (the control's label confirms it). */
+    onSilentCommand?: (name: string, args?: string) => void;
+    /**
+     * #3282 §4b: "Manage providers…" opens Settings at the Providers & Models section. Defaults to
+     * dispatching the bare `/provider` command (the pre-#3282-§4b behavior) for a caller that has not
+     * wired Settings — every shipped caller passes its own `state.openSettings('providers')`.
+     */
+    onManageProviders?: () => void;
   }
 >(function Composer(
-  { onSubmit, onCommand, catalog, status, connected = true, running, onStop, queued, onCancelQueue },
+  {
+    onSubmit,
+    onCommand,
+    catalog,
+    status,
+    connected = true,
+    running,
+    onStop,
+    queued,
+    onCancelQueue,
+    pickFiles,
+    getPathForFile,
+    modelList = null,
+    onRequestModelList = () => {},
+    onSilentCommand = onCommand,
+    onManageProviders = () => onCommand('provider'),
+  },
   ref,
 ): React.ReactElement {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -85,26 +206,47 @@ export const Composer = forwardRef<
   // ref is the one thing that distinguishes "no session has ever been known yet" (the fallback-key
   // migration case) from "between two known sessions right now" — never overload `undefined` for it.
   const hasKnownSessionRef = useRef(sessionId !== undefined);
-  // The draft as last set, read inside effects/handlers without depending on `draft` and risking a
-  // stale closure (this ref and the `draft` state are always kept in lockstep by `setDraft` below).
-  const draftRef = useRef('');
+  // The draft (text + attachments) as last set, read inside effects/handlers without depending on
+  // component state and risking a stale closure — kept in lockstep with the `draft`/`attachments`
+  // state below by `setDraft`/`setAttachments`, the only two places that mutate it.
+  const stateRef = useRef<IStoredDraft>(EMPTY_DRAFT);
   const [draft, setDraftState] = useState(() => {
     const initial = readDraft(sessionId);
-    draftRef.current = initial;
-    return initial;
+    stateRef.current = initial;
+    return initial.text;
   });
+  const [attachments, setAttachmentsState] = useState<readonly IDraftAttachment[]>(
+    () => stateRef.current.attachments,
+  );
+  const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const [selected, setSelected] = useState(0);
   const [dismissed, setDismissed] = useState(false);
-  const menu = dismissed ? null : commandMenuFor(catalog, draft);
+  // #3282 §2 (part 2): the slash menu is disabled while disconnected — none of its commands could run.
+  const menu = dismissed || !connected ? null : commandMenuFor(catalog, draft);
   useEffect(() => {
     setSelected(0);
     setDismissed(false);
   }, [draft]);
+  // #3282 §4e: the menu can hold more rows than fit in its scroll area — keyboard navigation (below)
+  // must keep the highlighted row in view, not just move the highlight off-screen.
+  const menuOptionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  useEffect(() => {
+    menuOptionRefs.current[selected]?.scrollIntoView?.({ block: 'nearest' });
+  }, [selected, menu]);
   /** #3280 §4: every draft change is persisted at once, so a reload or relaunch loses nothing. */
   const setDraft = (value: string): void => {
-    draftRef.current = value;
+    stateRef.current = { ...stateRef.current, text: value };
     setDraftState(value);
-    writeDraft(sessionIdRef.current, value);
+    writeDraft(sessionIdRef.current, stateRef.current);
+  };
+  /** #3282 §4d: attachment chips persist alongside the text, under the same per-session draft key. */
+  const setAttachments = (
+    updater: readonly IDraftAttachment[] | ((current: readonly IDraftAttachment[]) => readonly IDraftAttachment[]),
+  ): void => {
+    const next = typeof updater === 'function' ? updater(stateRef.current.attachments) : updater;
+    stateRef.current = { ...stateRef.current, attachments: next };
+    setAttachmentsState(next);
+    writeDraft(sessionIdRef.current, stateRef.current);
   };
   // #3280 §4: a session switch shows THAT session's own saved draft, never what was typed for
   // another one. The session id becoming known for the very FIRST time (the fallback key was in use
@@ -121,27 +263,121 @@ export const Composer = forwardRef<
     sessionIdRef.current = sessionId;
     if (sessionId !== undefined) hasKnownSessionRef.current = true;
     const stored = readDraft(sessionId);
-    if (firstArrival && !stored && draftRef.current) {
-      writeDraft(sessionId, draftRef.current);
-      writeDraft(previous, '');
+    const hasStored = stored.text !== '' || stored.attachments.length > 0;
+    const hasCarryOver = stateRef.current.text !== '' || stateRef.current.attachments.length > 0;
+    if (firstArrival && !hasStored && hasCarryOver) {
+      writeDraft(sessionId, stateRef.current);
+      writeDraft(previous, EMPTY_DRAFT);
       return;
     }
-    draftRef.current = stored;
-    setDraftState(stored);
+    stateRef.current = stored;
+    setDraftState(stored.text);
+    setAttachmentsState(stored.attachments);
+    setAttachmentNotice(null); // a notice belongs to the attempt just made in the session left behind
   }, [sessionId]);
 
   const submit = (): void => {
     if (!connected) return;
-    const prompt = draft.trim();
-    if (!prompt) return;
-    onSubmit(prompt);
+    const text = draft.trim();
+    if (!text && attachments.length === 0) return;
+    onSubmit(buildPromptWithAttachments(text, attachments));
     setDraft('');
+    setAttachments([]);
+    setAttachmentNotice(null);
   };
-  /** Complete the highlighted name; a draft that already names it is sent instead. */
+  const workspacePath = status?.workspace?.path;
+  const totalAttachedBytes = attachments.reduce((sum, a) => sum + a.size, 0);
+  /** Evaluate every dropped/picked file in order, so a mixed batch attaches what it can. */
+  const addCandidates = (candidates: readonly ICandidateFile[]): void => {
+    if (candidates.length === 0) return;
+    let total = totalAttachedBytes;
+    let count = attachments.length;
+    const added: IDraftAttachment[] = [];
+    let notice: string | null = null;
+    for (const candidate of candidates) {
+      const outcome = evaluateCandidateFile(candidate, workspacePath, total, count);
+      if (outcome.kind === 'attached') {
+        added.push(outcome.attachment);
+        total += outcome.attachment.size;
+        count += 1;
+      } else {
+        notice = outcome.message;
+      }
+    }
+    if (added.length > 0) setAttachments((current) => [...current, ...added]);
+    setAttachmentNotice(notice);
+  };
+  const removeAttachment = (id: string): void => {
+    setAttachments((current) => current.filter((a) => a.id !== id));
+  };
+  const toCandidateFromFile = (file: File): ICandidateFile => ({
+    name: file.name,
+    size: file.size,
+    mimeType: file.type || undefined,
+    absolutePath: getPathForFile ? getPathForFile(file) || undefined : undefined,
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const handleAttachClick = (): void => {
+    if (!connected) return;
+    if (pickFiles) {
+      pickFiles()
+        .then((picked) =>
+          addCandidates(picked.map((f) => ({ name: f.name, size: f.size, absolutePath: f.path }))),
+        )
+        // The host's dialog IPC can reject (e.g. the window closed mid-pick) — say so rather than
+        // leaving an unhandled rejection and a button that silently did nothing (rule 5: never fail
+        // silently).
+        .catch(() => setAttachmentNotice('Could not open the file picker. Try again.'));
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+  const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = ''; // allow picking the same (rejected) file again after fixing it
+    addCandidates(files.map(toCandidateFromFile));
+  };
+  const dragDepthRef = useRef(0);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const hasFilesDrag = (event: React.DragEvent): boolean =>
+    Array.from(event.dataTransfer?.types ?? []).includes('Files');
+  const onDragEnter = (event: React.DragEvent): void => {
+    if (!connected || !hasFilesDrag(event)) return;
+    event.preventDefault();
+    dragDepthRef.current += 1;
+    setIsDraggingFiles(true);
+  };
+  const onDragOver = (event: React.DragEvent): void => {
+    if (!connected || !hasFilesDrag(event)) return;
+    event.preventDefault(); // required for onDrop to fire
+  };
+  const onDragLeave = (): void => {
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDraggingFiles(false);
+  };
+  const onDrop = (event: React.DragEvent): void => {
+    if (!connected || !hasFilesDrag(event)) return;
+    event.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDraggingFiles(false);
+    addCandidates(Array.from(event.dataTransfer?.files ?? []).map(toCandidateFromFile));
+  };
+  /** Choosing a command from the menu, by mouse or by keyboard (`acceptMenu` below). */
+  const chooseMenuItem = (item: ICommandMenuItem): void => {
+    if (isImmediateScreenCommand(item)) {
+      setDraft('');
+      onCommand(item.name);
+      return;
+    }
+    setDraft(`/${item.name} `);
+  };
+  /** Complete the highlighted name; a draft that already names it is sent instead. A command whose
+   *  whole job is opening a screen runs at once either way — see `IMMEDIATE_SCREEN_COMMANDS`. */
   const acceptMenu = (): boolean => {
     const item = menu?.[selected];
-    if (!item || draft === `/${item.name}`) return false;
-    setDraft(`/${item.name} `);
+    if (!item) return false;
+    if (!isImmediateScreenCommand(item) && draft === `/${item.name}`) return false;
+    chooseMenuItem(item);
     return true;
   };
   /** #3280 §2: Edit puts the queued text back in the draft and cancels the queue behind it (the wire
@@ -156,7 +392,27 @@ export const Composer = forwardRef<
   };
 
   return (
-    <div className="relative flex-shrink-0">
+    <div
+      className="relative flex-shrink-0"
+      onDragEnter={onDragEnter}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
+      {/* #3282 §4d rule 7: the drop target is announced even to someone who cannot drag a file —
+          the attach button beside the textarea is how they reach the same result. */}
+      <p id="composer-attach-hint" className="sr-only">
+        Drag files here, or use Attach files, to add them to your message.
+      </p>
+      {isDraggingFiles && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-[22px] border-2 border-dashed border-accent bg-accent/10 text-[14px] font-medium text-accent"
+        >
+          Drop to attach
+        </div>
+      )}
       {queued && (
         <div
           role="status"
@@ -204,40 +460,44 @@ export const Composer = forwardRef<
           className="gui-rise absolute bottom-full left-0 right-0 mb-2 max-h-[320px] overflow-y-auto rounded-2xl bg-popover p-1.5 shadow-2xl shadow-black/35"
         >
           {menu.map((item, index) => {
-            const runsElsewhere = item.runsIn ? runsInDescription(item.runsIn) : undefined;
+            // #3282 §4e: "Commands" then "Skills" — a header appears once, above the first row of
+            // its group (the menu always lists every command before every skill, so a group's rows
+            // are contiguous).
+            const showGroupHeader = index === 0 || menuGroupLabel(menu[index - 1]!) !== menuGroupLabel(item);
             return (
-              <button
-                key={`${item.kind}:${item.name}`}
-                type="button"
-                role="option"
-                aria-selected={index === selected}
-                aria-description={runsElsewhere}
-                onMouseEnter={() => setSelected(index)}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  setDraft(`/${item.name} `);
-                }}
-                className={`flex w-full items-baseline gap-3 rounded-xl px-3 py-2 text-left text-[14px] ${
-                  index === selected ? 'bg-hover' : ''
-                }`}
-              >
-                {/* A command that runs elsewhere dims its name and description by text colour only —
-                    an opacity on the row would also fade its badge and the selected highlight. */}
-                <span
-                  className={`flex-shrink-0 font-mono text-[13.5px] ${runsElsewhere ? 'text-subtle' : 'text-foreground'}`}
-                >
-                  /{item.name}
-                </span>
-                <span
-                  className={`min-w-0 flex-1 truncate ${runsElsewhere ? 'text-subtle' : 'text-muted-foreground'}`}
-                >
-                  {item.description}
-                </span>
-                {item.kind === 'skill' && <MenuBadge label="skill" />}
-                {item.runsIn && (
-                  <MenuBadge label={item.runsIn.join(' · ') || 'client'} title={runsElsewhere} />
+              <div key={`${item.kind}:${item.name}`}>
+                {showGroupHeader && (
+                  <div
+                    role="presentation"
+                    className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-subtle first:pt-1"
+                  >
+                    {menuGroupLabel(item)}
+                  </div>
                 )}
-              </button>
+                <button
+                  ref={(el) => {
+                    menuOptionRefs.current[index] = el;
+                  }}
+                  type="button"
+                  role="option"
+                  aria-selected={index === selected}
+                  onMouseEnter={() => setSelected(index)}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    chooseMenuItem(item);
+                  }}
+                  className={`flex w-full items-baseline gap-3 rounded-xl px-3 py-2 text-left text-[14px] ${
+                    index === selected ? 'bg-hover' : ''
+                  }`}
+                >
+                  <span className="flex-shrink-0 font-mono text-[13.5px] text-foreground">
+                    /{item.name}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                    {item.description}
+                  </span>
+                </button>
+              </div>
             );
           })}
         </div>
@@ -249,9 +509,49 @@ export const Composer = forwardRef<
           submit();
         }}
       >
+        {attachments.length > 0 && (
+          <ul
+            aria-label="attachments"
+            className="mb-1.5 flex flex-wrap gap-1.5 px-1 pt-0.5"
+          >
+            {attachments.map((attachment) => (
+              <li
+                key={attachment.id}
+                title={attachment.relativePath}
+                className="flex max-w-full items-center gap-1.5 rounded-lg bg-raised px-2 py-1 text-[12.5px] text-muted-foreground"
+              >
+                <Paperclip size={12} strokeWidth={1.75} aria-hidden="true" className="flex-shrink-0" />
+                <span className="max-w-[180px] truncate">{attachment.name}</span>
+                <button
+                  type="button"
+                  aria-label={`Remove ${attachment.name}`}
+                  onClick={() => removeAttachment(attachment.id)}
+                  className="flex-shrink-0 rounded-full p-0.5 hover:bg-hover hover:text-foreground"
+                >
+                  <X size={12} strokeWidth={2} aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {attachmentNotice && (
+          <p role="status" aria-live="polite" className="mb-1.5 px-1.5 text-[12.5px] text-muted-foreground">
+            {attachmentNotice}
+          </p>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          onChange={handleFileInputChange}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+        />
         <textarea
           ref={textareaRef}
           aria-label="message"
+          aria-describedby="composer-attach-hint"
           rows={1}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -295,12 +595,32 @@ export const Composer = forwardRef<
           className="block max-h-[220px] min-h-[48px] w-full resize-none bg-transparent px-2 py-1 text-[15px] leading-relaxed text-foreground [field-sizing:content] focus:outline-none"
         />
         <div className="mt-1 flex items-center gap-1">
-          <StatusRow status={status} onCommand={onCommand} />
+          <button
+            type="button"
+            aria-label="Attach files"
+            // #3282 §2 (part 2): the attach button follows the same disconnected rule as the status
+            // chips and the `/` menu — a short "Reconnecting…" tooltip in place of its usual one.
+            title={connected ? 'Attach files' : 'Reconnecting…'}
+            disabled={!connected}
+            onClick={handleAttachClick}
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-hover hover:text-foreground disabled:text-subtle disabled:hover:bg-transparent"
+          >
+            <Paperclip size={16} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+          <StatusRow
+            status={status}
+            catalog={catalog}
+            modelList={modelList}
+            onRequestModelList={onRequestModelList}
+            onManageProviders={onManageProviders}
+            onSilentCommand={onSilentCommand}
+            connected={connected}
+          />
           <button
             type={running ? 'button' : 'submit'}
             onClick={running ? onStop : undefined}
             // Stop is unavailable while disconnected too: an abort could not reach the host either.
-            disabled={!connected || (!running && !draft.trim())}
+            disabled={!connected || (!running && !draft.trim() && attachments.length === 0)}
             aria-description={connected ? undefined : 'Not connected'}
             className="ml-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-all hover:opacity-85 disabled:bg-raised disabled:text-subtle"
           >
@@ -316,27 +636,6 @@ export const Composer = forwardRef<
     </div>
   );
 });
-
-/**
- * Where a command the session does not run is run instead. The GUI runs no client command, so its
- * row stays offered — choosing it inserts the command and the session answers with its refusal —
- * but says where it works.
- */
-function runsInDescription(runsIn: readonly string[]): string {
-  return `Runs in the robota ${runsIn.join(' or ') || 'client'}`;
-}
-
-/** Solid muted text, never an opacity, so a small badge stays legible on a plain or selected row. */
-function MenuBadge({ label, title }: { label: string; title?: string }): React.ReactElement {
-  return (
-    <span
-      title={title}
-      className="flex-shrink-0 rounded-md bg-raised px-1.5 py-px text-[12px] text-muted-foreground"
-    >
-      {label}
-    </span>
-  );
-}
 
 /**
  * The goal being pursued (`/goal`), above the composer while it is active — the objective, how far
@@ -382,74 +681,5 @@ export function GoalBar({
   );
 }
 
-/** Model · mode · effort, each opening its picker, and the context the conversation fills. */
-function StatusRow({
-  status,
-  onCommand,
-}: {
-  status: TSessionStatus | null;
-  onCommand: (name: string) => void;
-}): React.ReactElement {
-  const chip = (
-    label: string,
-    value: string,
-    command: string,
-    icon: React.ReactElement,
-  ): React.ReactElement => (
-    <button
-      type="button"
-      aria-label={`${label}: ${value}`}
-      title={`Change ${label}`}
-      onClick={() => onCommand(command)}
-      className="flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-hover hover:text-foreground"
-    >
-      {icon}
-      <span className="truncate">{value}</span>
-    </button>
-  );
-  const used = status ? Math.round(status.context.usedPercentage) : null;
-  const iconProps = { size: 14, strokeWidth: 1.75, 'aria-hidden': true } as const;
-  return (
-    <div className="flex min-w-0 flex-1 items-center gap-0.5">
-      {status ? (
-        <>
-          {chip('mode', status.permissionMode, 'mode', <Shield {...iconProps} />)}
-          <span className="ml-auto" />
-          {chip('model', status.model, 'provider', <Sparkles {...iconProps} />)}
-          {chip('effort', status.effort, 'effort', <Gauge {...iconProps} />)}
-        </>
-      ) : (
-        <span className="ml-auto px-2 text-[13px] text-subtle">…</span>
-      )}
-      <span
-        className="flex items-center gap-1.5 px-1.5 text-[12.5px] tabular-nums text-subtle"
-        title="Context used"
-        aria-label={`context ${used ?? 0}% used`}
-      >
-        <ContextRing percent={used ?? 0} />
-        {used === null ? '' : `${used}%`}
-      </span>
-    </div>
-  );
-}
-
-function ContextRing({ percent }: { percent: number }): React.ReactElement {
-  const r = 5;
-  const circumference = 2 * Math.PI * r;
-  const filled = Math.min(100, Math.max(0, percent)) / 100;
-  const tone = percent >= 80 ? 'stroke-warning' : 'stroke-muted-foreground';
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-      <circle cx="7" cy="7" r={r} className="fill-none stroke-raised" strokeWidth="2" />
-      <circle
-        cx="7"
-        cy="7"
-        r={r}
-        className={`fill-none ${tone}`}
-        strokeWidth="2"
-        strokeDasharray={`${circumference * filled} ${circumference}`}
-        transform="rotate(-90 7 7)"
-      />
-    </svg>
-  );
-}
+// `StatusRow` (model/mode/effort pop-up menus) and its `ContextRing` moved to `StatusControls.tsx`
+// (#3282 §2 part 2) — imported above.

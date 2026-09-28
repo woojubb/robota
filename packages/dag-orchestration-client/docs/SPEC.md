@@ -3,7 +3,7 @@
 ## Scope
 
 Thin operational HTTP client and response contracts for Robota DAG orchestration endpoints.
-This package is consumed by command-line and MCP clients that call a DAG orchestration HTTP server (e.g. `@robota-sdk/dag-runtime-server`).
+It is the client side of a DAG orchestration HTTP server (e.g. `@robota-sdk/dag-runtime-server`): `dag-framework` uses it to run DAGs against a remote runtime, and the server shares its response contracts.
 
 ## Boundaries
 

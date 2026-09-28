@@ -25,6 +25,7 @@ import { createPromptHistoryRecorder } from './interactive-session-prompt-histor
 import { createProjectPermissionPersistence } from './project-permission-persistence.js';
 import { resolveUserSettingsProviderSwitch } from './interactive-session-provider-switch.js';
 import { readMergedProviderSettings } from '../command-api/provider/provider-factory.js';
+import { buildModelListSnapshot } from '../command-api/provider/provider-model-catalog.js';
 import { FallbackProvider } from '../routing/fallback-provider.js';
 import { applyModelFallback } from '../routing/model-fallback-chain.js';
 import { persistSessionRename } from './interactive-session-rename.js';
@@ -35,6 +36,7 @@ import { SessionTerminalHandoffGate } from './interactive-session-terminal-hando
 import { SessionTurnMemory } from './interactive-session-turn-memory.js';
 import { ExternalEventIngress } from './external-event-ingress.js';
 import type { ExternalEventGrantHistory } from './external-event-ingress.js';
+import type { IExecutionSelfPacedLoopSummary } from '../background-tasks/index.js';
 import { PeerTurnRateLimiter } from './peer-turn-rate-limit.js';
 import { DurableSessionLoopStore } from './session-loop-durable-store.js';
 import { extractSelfPacedLoopDecision } from './session-loop-decision-tool.js';
@@ -59,6 +61,7 @@ import {
 } from './session-loop-lifecycle.js';
 import { SessionPromptRegistry } from './session-prompt-registry.js';
 import { SessionAutoNaming } from './session-auto-naming.js';
+import { isLoopStopVerb } from './session-loop-stop-verb.js';
 import { SessionStatusPush, STATUS_CHANGING_EVENTS } from './session-status-push.js';
 import { stopWaitingSelfPacedLoop } from './session-waiting-loop.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
@@ -67,11 +70,13 @@ import { GoalController, buildGoalContinuationPrompt, isGoalCancelVerb } from '.
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
 import { PlanController } from '../plan/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
+import { createModelCommandToolProjection } from '../tools/model-command-tool-projection.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
 import {
   WorkspaceAuthorityRequiredError,
   createRestrictedWorkspaceProjectAccess,
 } from '../workspace-trust/index.js';
+import { createGitProcess, readProjectGitDiff, readProjectGitStatus } from '../git/index.js';
 
 import type { IInteractiveSession } from './i-interactive-session.js';
 import type {
@@ -102,6 +107,7 @@ import type {
   TAutoCompactThresholdSource,
   TAutoCompactThreshold,
   TCommandInvocationSource,
+  TCommandSurfaceLocality,
 } from '../commands/index.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
@@ -137,7 +143,12 @@ import type {
   TDriverId,
   TPermissionResultValue,
   ISessionLoopState,
+  ISessionProjectRead,
   ISessionStatusSnapshot,
+  IModelListSnapshot,
+  TProjectDiffRead,
+  TProjectMemoryRead,
+  TProjectStatusRead,
   TWaitingLoopStopOutcome,
 } from '@robota-sdk/agent-interface-session';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
@@ -156,7 +167,12 @@ const PROMPT_BACKSTOP_MS = 30 * 60 * 1000;
 
 export class InteractiveSession
   extends InteractiveSessionBase
-  implements ISession, IAgentJobHostContext, IInteractiveSession, ICommandHostContext
+  implements
+    ISession,
+    IAgentJobHostContext,
+    IInteractiveSession,
+    ICommandHostContext,
+    ISessionProjectRead
 {
   private session: Session | null = null;
   private readonly listeners = new Map<string, Set<(...args: unknown[]) => void>>();
@@ -314,6 +330,9 @@ export class InteractiveSession
       countListeners: (event) => this.listeners.get(event)?.size ?? 0,
       // REMOTE-014 E5: stamp the active turn's driver as the prompt's requester (display-only attribution).
       getActiveDriverId: () => this.execCtrl.activeDriverId,
+      // #3288: so an Edit/Write permission request can attach the same server-built diff preview
+      // `tool_end` gets, and a Shell request can note its cwd only when it differs from this one.
+      getCwd: () => this.getCwd(),
       backstopMs: PROMPT_BACKSTOP_MS,
     });
     this.askHandler = (request) => this.promptRegistry.requestAsk(request);
@@ -399,6 +418,16 @@ export class InteractiveSession
       remoteCommandPolicy,
     );
 
+    // #3288: tool name -> source `/command` name, for the projected model-command tools this
+    // session's descriptors would produce (`model-command-tool-projection.ts`). Computed here —
+    // independently of whether `create-session.ts` actually registered those tools as callable —
+    // because `tool_start` classification only needs the NAME MAP; a session with the projection
+    // disabled simply never sees a `toolName` that matches one of these, so this is always safe.
+    const modelCommandToolNames = createModelCommandToolProjection(
+      this.skillRouter.commandExecutor.listModelInvocableCommands(),
+      options.modelCommandToolPrefix,
+    ).toolNameToCommandName;
+
     this.execCtrl = new SessionExecutionController(this.histTracker, this.skillRouter, {
       providerErrorGuidance: this.providerErrorGuidance,
       promptFileReferenceTag: this.promptFileReferenceTag,
@@ -406,6 +435,7 @@ export class InteractiveSession
       getSessionOrThrow: () => this.getSessionOrThrow(),
       getCwd: () => this.getCwd(),
       getProjectAccess: () => this.workspace.projectAccess,
+      modelCommandToolNames,
       getContextState: () => this.getContextState(),
       getExecutionWorkspaceSnapshot: () => this.getExecutionWorkspaceSnapshot(),
       emit: (event, ...args) =>
@@ -694,6 +724,54 @@ export class InteractiveSession
   getMemoryStore(): IMemoryStore {
     if (this.injectedMemoryStore) return this.injectedMemoryStore;
     throw new WorkspaceAuthorityRequiredError("Project memory isn't available for this folder.");
+  }
+
+  /**
+   * #3282 §4c — the Project panel's "Changes" section. The SAME reader `/git status` runs
+   * (`readProjectGitStatus`, `agent-framework/src/git`), over this session's own `cwd` — a
+   * `not-a-repository` result is the panel's one plain sentence, never a thrown error.
+   */
+  async readProjectStatus(): Promise<TProjectStatusRead> {
+    const result = await readProjectGitStatus(createGitProcess(), this.getCwd());
+    if (!result.ok) return { kind: 'failed', message: result.message };
+    if (!result.repository) return { kind: 'not-a-repository' };
+    return {
+      kind: 'status',
+      ...(result.branch !== undefined ? { branch: result.branch } : {}),
+      unborn: result.unborn,
+      files: result.files,
+      truncated: result.truncated,
+    };
+  }
+
+  /**
+   * #3282 §4c — the Project panel's "File diff" section, for one file `readProjectStatus` reported.
+   * `readProjectGitDiff` checks workspace containment itself (`isPathInside`, SEC-006) before any git
+   * or filesystem call.
+   */
+  async readProjectDiff(path: string): Promise<TProjectDiffRead> {
+    const result = await readProjectGitDiff(createGitProcess(), this.getCwd(), path);
+    if (result.ok) return { kind: 'diff', diffLines: result.diffLines, truncated: result.truncated };
+    if (result.code === 'not_a_repository') return { kind: 'not-a-repository' };
+    if (result.code === 'outside_workspace') return { kind: 'outside-workspace' };
+    return { kind: 'failed', message: result.message };
+  }
+
+  /**
+   * #3282 §4c — the Project panel's "Memory" section: the SAME store `/memory show` reads
+   * (`getMemoryStore()`), read-only. `getMemoryStore()` throwing (memory off by default, or
+   * unavailable on this host — `WorkspaceAuthorityRequiredError`) becomes the panel's plain message,
+   * never a thrown error — the same fix `executeMemoryCommand` needed for the red toast.
+   */
+  async readProjectMemory(): Promise<TProjectMemoryRead> {
+    let store: IMemoryStore;
+    try {
+      store = this.getMemoryStore();
+    } catch (error) {
+      return { kind: 'unavailable', message: error instanceof Error ? error.message : String(error) };
+    }
+    const memory = await store.loadStartupMemory();
+    return { kind: 'memory', content: memory.content, path: memory.path, truncated: memory.truncated };
   }
 
   get sessionId(): string {
@@ -1044,6 +1122,21 @@ export class InteractiveSession
   /** Session-owned self-paced loops remain addressable after a one-shot timer has completed. */
   listSelfPacedLoops(): readonly ISessionLoopState[] {
     return this.selfPacedLoops.list();
+  }
+
+  protected override getSelfPacedLoopWorkspaceSummaries(): readonly IExecutionSelfPacedLoopSummary[] {
+    return this.selfPacedLoops.list().map((loop) => ({
+      loopId: loop.loopId,
+      instruction: loop.instruction,
+      phase: loop.phase,
+      createdAt: loop.createdAt,
+      ...(loop.delaySeconds === undefined ? {} : { delaySeconds: loop.delaySeconds }),
+      ...(loop.reason === undefined ? {} : { reason: loop.reason }),
+    }));
+  }
+
+  protected override getSelfPacedLoopDetail(loopId: string): ISessionLoopState | undefined {
+    return this.selfPacedLoops.get(loopId);
   }
 
   async createSelfPacedLoop(
@@ -1667,6 +1760,14 @@ export class InteractiveSession
   /** The one status read every client renders beside the conversation (#3186). */
   getStatusSnapshot(): ISessionStatusSnapshot {
     const session = this.getSessionOrThrow();
+    let workspace: { name: string; path: string } | undefined;
+    try {
+      const cwd = this.getCwd();
+      workspace = { name: basename(cwd), path: cwd };
+    } catch {
+      // allow-fallback: a session with no cwd set yet reports no workspace, not a thrown status read.
+      workspace = undefined;
+    }
     return {
       sessionId: session.getSessionId(),
       ...(this.sessionName !== undefined ? { sessionName: this.sessionName } : {}),
@@ -1676,7 +1777,35 @@ export class InteractiveSession
       context: session.getContextState(),
       goal: this.getGoalState(),
       ...(this.setupRequired ? { setupRequired: true } : {}),
+      ...(workspace !== undefined ? { workspace } : {}),
     };
+  }
+
+  /**
+   * The models a client's model menu may switch to (#3282 §2), grouped by configured provider
+   * profile. Reads the same merged settings and `providerDefinitions` `/provider switch` and
+   * `/model` already read, so the GUI's list and what `/model <id>` accepts never drift apart.
+   */
+  listModels(): IModelListSnapshot {
+    const merged = readMergedProviderSettings(this.userSettingsSources);
+    const session = this.getSessionOrThrow();
+    return buildModelListSnapshot(
+      merged.providers,
+      merged.currentProvider,
+      session.getModelId(),
+      this.providerDefinitions,
+      this.orgPolicy?.allowedProviders,
+    );
+  }
+
+  /**
+   * #3282 §3 — {@link ICommandHostSetupState}: whether THIS session is still running the placeholder
+   * provider. `/provider add` reads this (never settings) to decide hot-swap vs. restart, because a
+   * settings-inferred "no `currentProvider`" is also true of an ordinary env-default session that was
+   * never in setup mode.
+   */
+  isSetupRequired(): boolean {
+    return this.setupRequired;
   }
 
   attachTransport(transport: ITransportAdapter<IInteractiveSession>): void {
@@ -1948,6 +2077,7 @@ export class InteractiveSession
     args: string,
     source: TCommandInvocationSource = 'user',
     originDriverId?: TDriverId,
+    locality?: TCommandSurfaceLocality,
   ): Promise<ICommandResult | null> {
     if (this.orgPolicy?.blockedCommands?.includes(name)) {
       return {
@@ -1972,7 +2102,17 @@ export class InteractiveSession
         ? { message: `Goal cancelled: ${stopped.objective}`, success: true }
         : { message: 'No active goal to cancel.', success: false };
     }
-    const result = await super.executeCommand(name, args, source, originDriverId);
+    // #3288 §1: `/loop stop <id>` is a CONTROL action too — it must reach the loop mid-turn, since a
+    // runaway loop is exactly when stopping it matters (the base class's mid-turn gate below would
+    // otherwise refuse it with "Another prompt or command is already running"). Unlike `/goal
+    // cancel`, this does NOT abort the running turn: `stopSelfPacedLoop`/`cancelBackgroundTask` (the
+    // command's own logic, reached the ordinary way below) already let an already-running turn
+    // finish — only its FUTURE iterations stop. Any other `/loop` invocation, or a "stop" with no
+    // turn running, keeps the unchanged path.
+    const bypassMidTurnGate = name === 'loop' && isLoopStopVerb(args) && this.execCtrl.executing;
+    const result = bypassMidTurnGate
+      ? await this.skillRouter.executeCommand(name, args, source, originDriverId, locality)
+      : await super.executeCommand(name, args, source, originDriverId, locality);
     if (result === null) return null;
     const application = await applyCommandHostActions(result, {
       getAdapters: () => this.getCommandHostAdapters(),

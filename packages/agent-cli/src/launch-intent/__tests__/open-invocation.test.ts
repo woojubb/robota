@@ -26,6 +26,16 @@ describe('resolveLaunchInvocation', () => {
     }
   });
 
+  it('leaves a help request to the help router instead of reading a link', async () => {
+    for (const args of [
+      argv('open', '--help'),
+      argv('open', '-h'),
+      argv('open', 'robota://open?v=1&prompt=hi', '--help'),
+    ]) {
+      expect((await resolveLaunchInvocation(args, deps())).kind).toBe('not-an-open-invocation');
+    }
+  });
+
   it('hands back the resolved cwd and the prompt, and nothing else', async () => {
     const outcome = await resolveLaunchInvocation(
       argv('open', 'robota://open?v=1&prompt=hi&cwd=/repo'),

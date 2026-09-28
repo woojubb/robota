@@ -30,9 +30,9 @@ console.log(response);
 ```
 
 The provider registers under the name `anthropic`, which is the value `defaultModel.provider` must
-use. It has no default model of its own: every call must name one (a `Robota` agent passes
-`defaultModel.model`), and a call without a model throws. `createAnthropicProvider(options)` is a
-factory that returns the same provider typed as `IAIProvider`.
+use. A call that names no model uses the provider's `defaultModel` option (a `Robota` agent passes
+`defaultModel.model` on every call); with neither, the call throws. `createAnthropicProvider(options)`
+is a factory that returns the same provider typed as `IAIProvider`.
 
 ### Structured output and reasoning effort
 
@@ -65,23 +65,26 @@ by this provider.
 `new AnthropicProvider(options: IAnthropicProviderOptions)`. One of `apiKey`, `client` or
 `executor` is required; the constructor throws otherwise.
 
-| Option     | Type        | Description                                                                                                            |
-| ---------- | ----------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `apiKey`   | `string`    | Anthropic API key used to create the SDK client.                                                                       |
-| `baseURL`  | `string`    | Endpoint base URL (default: Anthropic's official endpoint). Any endpoint that speaks the Anthropic Messages API works. |
-| `timeout`  | `number`    | Request timeout in milliseconds.                                                                                       |
-| `client`   | `Anthropic` | A pre-built `@anthropic-ai/sdk` client, used instead of `apiKey` (for authentication set up outside the API-key flow). |
-| `executor` | `IExecutor` | Delegates chat calls to an executor instead of calling the API directly.                                               |
+| Option         | Type        | Description                                                                                                            |
+| -------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `apiKey`       | `string`    | Anthropic API key used to create the SDK client.                                                                       |
+| `baseURL`      | `string`    | Endpoint base URL (default: Anthropic's official endpoint). Any endpoint that speaks the Anthropic Messages API works. |
+| `timeout`      | `number`    | Request timeout in milliseconds.                                                                                       |
+| `defaultModel` | `string`    | Model to request when a call names none.                                                                               |
+| `client`       | `Anthropic` | A pre-built `@anthropic-ai/sdk` client, used instead of `apiKey` (for authentication set up outside the API-key flow). |
+| `executor`     | `IExecutor` | Delegates chat calls to an executor instead of calling the API directly.                                               |
 
 For OpenAI-protocol gateways (Vercel AI Gateway, LiteLLM, OpenRouter), use
 `@robota-sdk/agent-provider-openai` with the gateway's `baseURL` and model slug instead.
 
 ## Errors
 
-A failed API call throws a typed error from `@robota-sdk/agent-core`: a `RateLimitError` for a rate
-limit, otherwise a `ProviderError` that carries the HTTP `status` and Anthropic's error `type` (for
-example `overloaded_error`) and keeps the SDK error as `originalError`. A failure Anthropic reports in
-the middle of a stream is mapped the same way. An aborted call rethrows the abort unchanged.
+A failed API call throws a typed error from `@robota-sdk/agent-core`: `RateLimitError` (with
+`retryAfter` from the `retry-after` header), `AuthenticationError`, `ModelNotAvailableError` or
+`NetworkError` when the failure is one of those, otherwise a `ProviderError` that carries the HTTP
+`status` and Anthropic's error `type` (for example `overloaded_error`) and keeps the SDK error as
+`originalError`. A failure Anthropic reports in the middle of a stream is mapped the same way. An
+aborted call rethrows the abort unchanged. See [Provider failures](../../content/guide/error-handling.md#provider-failures).
 
 ## Exports
 

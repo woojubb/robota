@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -11,14 +11,18 @@ import type { TCommandCatalog, TSessionStatus } from '../../hooks/session-client
 afterEach(() => window.localStorage.clear());
 
 /**
- * #3189: a command a client runs (`/shell`) stays in the `/` menu with a badge naming where it runs.
- * The row is dimmed by the colour of its name and description alone — an opacity on the row would
- * multiply into the badge (leaving it illegible) and fade the selected highlight.
+ * #3282 §4e: a command the GUI cannot run at all (`/shell`, declared `runner: 'client'` for the
+ * terminal only) never appears in the `/` menu — it stays in the catalog (other surfaces still list
+ * it), so a realistic catalog here still carries it, alongside `share` (an ordinary session command
+ * that also matches the query `/sh` once `shell` is filtered out).
  */
 
 const catalog: TCommandCatalog = {
   commands: [
     { name: 'help', description: 'Show commands', modelInvocable: false, runner: 'runtime' },
+    { name: 'settings', description: 'Open settings', modelInvocable: false, runner: 'runtime' },
+    { name: 'resume', description: 'Resume another session', modelInvocable: false, runner: 'runtime' },
+    { name: 'share', description: 'Share the session', modelInvocable: false, runner: 'runtime' },
     {
       name: 'shell',
       description: 'Open a shell',
@@ -65,49 +69,118 @@ function statusFor(sessionId: string): TSessionStatus {
   } as TSessionStatus;
 }
 
+/**
+ * #3282 §4d: the persisted draft is now JSON (`{text, attachments}`), not the bare text string it used
+ * to be — reads back just the text half, so a test asserting "this text is what got saved" does not
+ * need to know the wrapper shape.
+ */
+function storedDraftText(raw: string | null): string | null {
+  if (raw === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && typeof (parsed as { text?: unknown }).text === 'string') {
+      return (parsed as { text: string }).text;
+    }
+  } catch {
+    // A plain string, saved before attachments shipped — the text itself.
+  }
+  return raw;
+}
+
 function openMenu(): void {
   render(<Composer {...baseProps()} />);
   fireEvent.change(screen.getByLabelText('message'), { target: { value: '/' } });
 }
 
-/** Every opacity class on the element and the ancestors up to the listbox. */
-function opacitiesUpToMenu(element: HTMLElement): string[] {
-  const found: string[] = [];
-  for (let node: HTMLElement | null = element; node; node = node.parentElement) {
-    found.push(...Array.from(node.classList).filter((name) => name.startsWith('opacity-')));
-    if (node.getAttribute('role') === 'listbox') break;
-  }
-  return found;
-}
-
-describe('Composer command menu', () => {
+describe('Composer command menu (#3282 §4e)', () => {
   afterEach(cleanup);
 
-  it('keeps the "terminal" badge of a client command free of any opacity, in solid muted text', () => {
+  it('never shows a command the GUI cannot run at all, even though the catalog still carries it', () => {
     openMenu();
 
-    const badge = screen.getByText('terminal');
-
-    expect(opacitiesUpToMenu(badge)).toEqual([]);
-    expect(badge.className).toContain('text-muted-foreground');
+    expect(screen.queryByRole('option', { name: /\/shell/u })).toBeNull();
+    expect(screen.queryByText('Open a shell')).toBeNull();
+    // Everything else still shows.
+    expect(screen.getByRole('option', { name: /\/help/u })).toBeTruthy();
+    expect(screen.getByRole('option', { name: /\/share/u })).toBeTruthy();
   });
 
-  it('dims a client command by its text colours, leaving the selected highlight undimmed', () => {
-    openMenu();
-    const shell = screen.getByRole('option', { name: /\/shell/u });
-    const help = screen.getByRole('option', { name: /\/help/u });
+  it('groups skills under their own "Skills" heading, after a "Commands" heading', () => {
+    const withSkill: TCommandCatalog = {
+      ...catalog,
+      skills: [
+        { name: 'demo', description: 'A demo skill', source: 'project', modelInvocable: true, userInvocable: true },
+      ],
+    };
+    render(<Composer {...baseProps()} catalog={withSkill} />);
+    fireEvent.change(screen.getByLabelText('message'), { target: { value: '/' } });
 
-    fireEvent.mouseEnter(shell);
+    const menu = screen.getByRole('listbox', { name: 'commands' });
+    expect(within(menu).getByText('Commands')).toBeTruthy();
+    expect(within(menu).getByText('Skills')).toBeTruthy();
+    // Every command row precedes every skill row.
+    const rowOrder = within(menu)
+      .getAllByRole('option')
+      .map((el) => el.textContent ?? '');
+    const skillIndex = rowOrder.findIndex((text) => text.includes('/demo'));
+    const commandIndexes = rowOrder
+      .map((text, index) => (text.includes('/demo') ? -1 : index))
+      .filter((index) => index >= 0);
+    const lastCommandIndex = Math.max(...commandIndexes);
+    expect(skillIndex).toBeGreaterThan(lastCommandIndex);
+  });
 
-    expect(shell.getAttribute('aria-selected')).toBe('true');
-    expect(shell.className).toContain('bg-hover');
-    expect(opacitiesUpToMenu(shell)).toEqual([]);
-    expect(screen.getByText('/shell').className).toContain('text-subtle');
-    expect(screen.getByText('Open a shell').className).toContain('text-subtle');
-    // A session command keeps its brighter name.
-    expect(help.getAttribute('aria-selected')).toBe('false');
-    expect(screen.getByText('/help').className).toContain('text-foreground');
-    expect(screen.getByText('/help').className).not.toContain('text-subtle');
+  it('scrolls beyond the visible rows, and keyboard navigation keeps the selected row in view', () => {
+    const many: TCommandCatalog = {
+      commands: Array.from({ length: 15 }, (_, i) => ({
+        name: `cmd${i}`,
+        description: `Command ${i}`,
+        modelInvocable: false,
+        runner: 'runtime' as const,
+      })),
+      skills: [],
+    };
+    const scrollIntoView = vi.fn();
+    // jsdom does not implement scrollIntoView; the component guards the call, but this test needs a
+    // spy to prove it is actually invoked as the highlighted row changes.
+    Element.prototype.scrollIntoView = scrollIntoView;
+    render(<Composer {...baseProps()} catalog={many} />);
+    fireEvent.change(screen.getByLabelText('message'), { target: { value: '/cmd' } });
+
+    const options = screen.getAllByRole('option');
+    expect(options).toHaveLength(15); // every match is present, not truncated to the visible count
+
+    scrollIntoView.mockClear();
+    const input = screen.getByLabelText('message');
+    for (let i = 0; i < 10; i += 1) fireEvent.keyDown(input, { key: 'ArrowDown' });
+
+    expect(scrollIntoView).toHaveBeenCalled();
+    expect(options[10]?.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it.each(['help', 'settings', 'resume'])(
+    'choosing (or Tab-completing) /%s — a command that opens a GUI screen — runs it at once, not filling the draft',
+    (name) => {
+      const onCommand = vi.fn();
+      render(<Composer {...baseProps()} onCommand={onCommand} />);
+      const input = screen.getByLabelText('message') as HTMLTextAreaElement;
+      fireEvent.change(input, { target: { value: `/${name}` } });
+      fireEvent.keyDown(input, { key: 'Tab' });
+
+      expect(onCommand).toHaveBeenCalledWith(name);
+      expect(input.value).toBe(''); // not "/{name} " — there is nothing useful to type after it
+    },
+  );
+
+  it('choosing an ordinary command still fills the draft, waiting for its arguments', () => {
+    const onCommand = vi.fn();
+    render(<Composer {...baseProps()} onCommand={onCommand} />);
+    const input = screen.getByLabelText('message') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: '/sha' } });
+    fireEvent.keyDown(input, { key: 'Tab' });
+
+    expect(onCommand).not.toHaveBeenCalled();
+    expect(input.value).toBe('/share ');
   });
 });
 
@@ -157,6 +230,14 @@ describe('Composer — refuses to send while not connected', () => {
     expect(onSubmit).toHaveBeenCalledWith('hello');
     expect(input.value).toBe('');
     expect(screen.getByRole('button', { name: 'Send' }).getAttribute('aria-description')).toBeNull();
+  });
+
+  // #3282 §2 (part 2): the `/` command menu is one of the controls disabled while disconnected.
+  it('the slash command menu does not open while disconnected', () => {
+    render(<Composer {...baseProps()} connected={false} />);
+    fireEvent.change(screen.getByLabelText('message'), { target: { value: '/' } });
+
+    expect(screen.queryByRole('listbox', { name: 'commands' })).toBeNull();
   });
 
   it('Stop is unavailable while disconnected too: an abort could not be delivered either', () => {
@@ -348,7 +429,8 @@ describe('Composer — an IME composition Enter never sends', () => {
     expect(screen.getByRole('listbox', { name: 'commands' })).toBeTruthy();
     fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
 
-    // Still showing the raw typed text, not completed to "/shell ".
+    // Still showing the raw typed text, not completed to "/share " (`/shell` is excluded from the
+    // menu entirely — #3282 §4e — so it is the only match).
     expect(input.value).toBe('/sh');
     expect(screen.getByRole('listbox', { name: 'commands' })).toBeTruthy();
   });
@@ -404,7 +486,7 @@ describe('Composer — the draft survives a remount, per session', () => {
       'already waiting in session 2',
     );
     // Session 1's own draft was not lost — it stayed under its own key.
-    expect(window.localStorage.getItem('robota.draft.s1')).toBe('typing in session 1');
+    expect(storedDraftText(window.localStorage.getItem('robota.draft.s1'))).toBe('typing in session 1');
   });
 
   it('switching to a session with nothing saved shows an empty composer', () => {
@@ -432,7 +514,7 @@ describe('Composer — the draft survives a remount, per session', () => {
     expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe('');
     expect(window.localStorage.getItem('robota.draft.s2')).toBeNull();
     // What was typed mid-switch belongs to s1 (the last known session while typing), not s2.
-    expect(window.localStorage.getItem('robota.draft.s1')).toBe('typing during the switch');
+    expect(storedDraftText(window.localStorage.getItem('robota.draft.s1'))).toBe('typing during the switch');
   });
 
   it('B\'s own already-saved draft still shows after the same transient null step', () => {
@@ -447,13 +529,13 @@ describe('Composer — the draft survives a remount, per session', () => {
   it('typed before the session id was known (the fallback key) carries over once it arrives', () => {
     const { rerender } = render(<Composer {...baseProps()} status={null} />);
     fireEvent.change(screen.getByLabelText('message'), { target: { value: 'typing before connected' } });
-    expect(window.localStorage.getItem('robota.draft')).toBe('typing before connected');
+    expect(storedDraftText(window.localStorage.getItem('robota.draft'))).toBe('typing before connected');
 
     rerender(<Composer {...baseProps()} status={statusFor('s1')} />);
     expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe(
       'typing before connected',
     );
-    expect(window.localStorage.getItem('robota.draft.s1')).toBe('typing before connected');
+    expect(storedDraftText(window.localStorage.getItem('robota.draft.s1'))).toBe('typing before connected');
     expect(window.localStorage.getItem('robota.draft')).toBeNull();
   });
 

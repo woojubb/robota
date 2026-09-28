@@ -1,4 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   SessionPromptRegistry,
@@ -26,7 +30,7 @@ interface IHarness {
   setListeners(event: 'permission_request' | 'ask_request', n: number): void;
 }
 
-function harness(backstopMs?: number): IHarness {
+function harness(backstopMs?: number, cwd = '/workspace'): IHarness {
   const counts: Record<'permission_request' | 'ask_request', number> = {
     permission_request: 1,
     ask_request: 1,
@@ -39,6 +43,7 @@ function harness(backstopMs?: number): IHarness {
     emitAskRequest: (e) => askEvents.push(e),
     emitPromptResolved: (e) => resolvedEvents.push(e),
     countListeners: (event) => counts[event],
+    getCwd: () => cwd,
     ...(backstopMs !== undefined ? { backstopMs } : {}),
   };
   return {
@@ -64,6 +69,49 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     h.registry.resolvePermission(id, true);
     await expect(pending).resolves.toBe(true);
     expect(h.resolvedEvents).toEqual([{ id }]);
+  });
+
+  it('#3288: attaches the same diff preview a finished Edit/Write call would carry', async () => {
+    const h = harness();
+    const pending = h.registry.requestPermission('Write', {
+      filePath: '/workspace/src/new-file.ts',
+      content: 'line one\nline two',
+    });
+    const event = h.permissionEvents[0]!;
+    expect(event.diffFile).toBe('src/new-file.ts'); // workspace-relative, like tool_end's diffFile
+    expect(event.diffLines).toEqual(
+      expect.arrayContaining([
+        { type: 'add', text: 'line one', lineNumber: 1 },
+        { type: 'add', text: 'line two', lineNumber: 2 },
+      ]),
+    );
+    h.registry.resolvePermission(event.id, true);
+    await pending;
+  });
+
+  it('#3288: a permission request for a non-diff tool (Shell) carries no diff fields', async () => {
+    const h = harness();
+    const pending = h.registry.requestPermission('Bash', { command: 'ls' });
+    expect(h.permissionEvents[0]?.diffLines).toBeUndefined();
+    expect(h.permissionEvents[0]?.diffFile).toBeUndefined();
+    h.registry.resolvePermission(h.permissionEvents[0]!.id, true);
+    await pending;
+  });
+
+  it('#3288: notes a Shell request\'s cwd only when it differs from the workspace', async () => {
+    const h = harness();
+    const sameDir = h.registry.requestPermission('Bash', { command: 'ls' });
+    expect(h.permissionEvents[0]?.cwd).toBeUndefined();
+    h.registry.resolvePermission(h.permissionEvents[0]!.id, true);
+    await sameDir;
+
+    const otherDir = h.registry.requestPermission('Bash', {
+      command: 'ls',
+      workingDirectory: 'subdir',
+    });
+    expect(h.permissionEvents[1]?.cwd).toBe('/workspace/subdir');
+    h.registry.resolvePermission(h.permissionEvents[1]!.id, true);
+    await otherDir;
   });
 
   it('advertises project persistence only when the session has that capability', async () => {
@@ -312,6 +360,105 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('#3288 review MUST 1: a diff preview never reads a file outside the workspace', () => {
+  let tmpDir: string | undefined;
+  let outsideDir: string | undefined;
+
+  afterEach(() => {
+    if (tmpDir) {
+      rmSync(tmpDir, { recursive: true, force: true });
+      tmpDir = undefined;
+    }
+    if (outsideDir) {
+      rmSync(outsideDir, { recursive: true, force: true });
+      outsideDir = undefined;
+    }
+  });
+
+  it('an Edit for an absolute path outside the workspace gets no file content in the diff', async () => {
+    outsideDir = realpathSync(mkdtempSync(join(tmpdir(), 'prompt-registry-outside-')));
+    const outsideFile = join(outsideDir, 'secret.md');
+    writeFileSync(outsideFile, 'SECRET_OUTSIDE_LINE_1\nold line\nSECRET_OUTSIDE_LINE_2\n', 'utf8');
+    tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'prompt-registry-workspace-')));
+
+    const h = harness(undefined, tmpDir);
+    const pending = h.registry.requestPermission('Edit', {
+      filePath: outsideFile,
+      oldString: 'old line',
+      newString: 'new line',
+    });
+    const event = h.permissionEvents[0]!;
+    const text = (event.diffLines ?? []).map((l) => l.text).join('\n');
+    expect(text).not.toContain('SECRET_OUTSIDE_LINE');
+    expect((event.diffLines ?? []).some((l) => l.type === 'context')).toBe(false);
+    h.registry.resolvePermission(event.id, false);
+    await pending;
+  });
+
+  it('an Edit through a symlink that escapes the workspace gets no file content in the diff', async () => {
+    outsideDir = realpathSync(mkdtempSync(join(tmpdir(), 'prompt-registry-outside-')));
+    const outsideFile = join(outsideDir, 'secret.md');
+    writeFileSync(outsideFile, 'SECRET_OUTSIDE_LINE_1\nold line\nSECRET_OUTSIDE_LINE_2\n', 'utf8');
+    tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'prompt-registry-workspace-')));
+    const linkPath = join(tmpDir, 'link.md');
+    symlinkSync(outsideFile, linkPath);
+
+    const h = harness(undefined, tmpDir);
+    const pending = h.registry.requestPermission('Edit', {
+      filePath: linkPath,
+      oldString: 'old line',
+      newString: 'new line',
+    });
+    const event = h.permissionEvents[0]!;
+    const text = (event.diffLines ?? []).map((l) => l.text).join('\n');
+    expect(text).not.toContain('SECRET_OUTSIDE_LINE');
+    expect((event.diffLines ?? []).some((l) => l.type === 'context')).toBe(false);
+    h.registry.resolvePermission(event.id, false);
+    await pending;
+  });
+
+  it('an in-workspace Edit still gets context lines from the file', async () => {
+    tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'prompt-registry-workspace-')));
+    const filePath = join(tmpDir, 'inside.md');
+    writeFileSync(filePath, 'before line\nold line\nafter line\n', 'utf8');
+
+    const h = harness(undefined, tmpDir);
+    const pending = h.registry.requestPermission('Edit', {
+      filePath,
+      oldString: 'old line',
+      newString: 'new line',
+    });
+    const event = h.permissionEvents[0]!;
+    expect((event.diffLines ?? []).some((l) => l.type === 'context')).toBe(true);
+    const text = (event.diffLines ?? []).map((l) => l.text).join('\n');
+    expect(text).toContain('before line');
+    h.registry.resolvePermission(event.id, false);
+    await pending;
+  });
+
+  it('a RELATIVE in-workspace Edit path is anchored to the session cwd, not process.cwd(), and still gets context lines', async () => {
+    // #3288 review follow-up: a relative filePath must be resolved against the session's `cwd`
+    // (the containment root) for BOTH the containment check and the actual read — never against
+    // the server process's own working directory, which has nothing to do with this session's
+    // workspace and is very unlikely to contain a file named `inside.md`.
+    tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'prompt-registry-workspace-')));
+    writeFileSync(join(tmpDir, 'inside.md'), 'before line\nold line\nafter line\n', 'utf8');
+
+    const h = harness(undefined, tmpDir);
+    const pending = h.registry.requestPermission('Edit', {
+      filePath: 'inside.md',
+      oldString: 'old line',
+      newString: 'new line',
+    });
+    const event = h.permissionEvents[0]!;
+    expect((event.diffLines ?? []).some((l) => l.type === 'context')).toBe(true);
+    const text = (event.diffLines ?? []).map((l) => l.text).join('\n');
+    expect(text).toContain('before line');
+    h.registry.resolvePermission(event.id, false);
+    await pending;
   });
 });
 

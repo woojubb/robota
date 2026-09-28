@@ -66,6 +66,96 @@ describe('prompt file references', () => {
     }
   });
 
+  // Follow-up to #3282 §4d: `isPathLikeReference` only treats a token as a file reference when it
+  // has a `.` or an explicit relative-path prefix (`./`, `../`, `/`, `~/`) — a dotless name like
+  // `Makefile` or `LICENSE` is invisible to the parser on its own, so the GUI composer now always
+  // emits its attachments as `@./<relativePath>`. This is the resolver-level half of that fix: the
+  // real parser + resolver, end to end, on a fixture file with no extension.
+  it('resolves a dotless filename referenced with an explicit ./ prefix (a composer attachment)', async () => {
+    const cwd = await createWorkspace();
+    try {
+      await writeFile(join(cwd, 'Makefile'), 'build:\n\tdo the thing\n');
+
+      const result = await resolvePromptFileReferences('Look at @./Makefile', {
+        reader: await projectReader(cwd),
+      });
+
+      expect(result.diagnostics).toEqual([]);
+      expect(result.references).toEqual([
+        expect.objectContaining({
+          originalReference: '@./Makefile',
+          relativePath: 'Makefile',
+          reason: 'prompt-reference',
+          depth: 0,
+        }),
+      ]);
+      expect(result.references[0]?.content).toContain('do the thing');
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves a nested dotless filename the same way (a composer attachment in a subfolder)', async () => {
+    const cwd = await createWorkspace();
+    try {
+      await mkdir(join(cwd, 'src'));
+      await writeFile(join(cwd, 'src', 'Dockerfile'), 'FROM node:22\n');
+
+      const result = await resolvePromptFileReferences('Look at @./src/Dockerfile', {
+        reader: await projectReader(cwd),
+      });
+
+      expect(result.diagnostics).toEqual([]);
+      expect(result.references).toEqual([
+        expect.objectContaining({ relativePath: 'src/Dockerfile' }),
+      ]);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('a bare dotless filename with no ./ prefix is not recognized as a reference at all (documents the gap the ./ prefix works around)', () => {
+    const references = parsePromptFileReferences('Look at @Makefile please');
+    expect(references).toEqual([]);
+  });
+
+  it('still rejects a ./-disguised traversal outside the workspace root', async () => {
+    const parent = await createWorkspace();
+    const cwd = join(parent, 'workspace');
+    try {
+      await mkdir(cwd);
+      await writeFile(join(parent, 'secret.md'), 'secret');
+
+      const result = await resolvePromptFileReferences('Read @./../secret.md', {
+        reader: await projectReader(cwd),
+      });
+
+      expect(result.references).toEqual([]);
+      expect(result.diagnostics[0]).toEqual(
+        expect.objectContaining({ code: 'outside-root' }),
+      );
+    } finally {
+      await rm(parent, { recursive: true, force: true });
+    }
+  });
+
+  it('collapses a harmless internal ./ segment the same way', async () => {
+    const cwd = await createWorkspace();
+    try {
+      await mkdir(join(cwd, 'src'));
+      await writeFile(join(cwd, 'src', 'a.ts'), 'export {};\n');
+
+      const result = await resolvePromptFileReferences('Read @src/./a.ts', {
+        reader: await projectReader(cwd),
+      });
+
+      expect(result.diagnostics).toEqual([]);
+      expect(result.references).toEqual([expect.objectContaining({ relativePath: 'src/a.ts' })]);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
   it('reports missing files as blocking diagnostics', async () => {
     const cwd = await createWorkspace();
     try {
@@ -125,6 +215,50 @@ describe('prompt file references', () => {
           reference: '@large.md',
         }),
       );
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  // Correction to #3282 §4: a binary file must never be silently decoded as UTF-8 and sent to the
+  // model as garbled text — refuse it with a plain diagnostic instead, the same way an oversized or
+  // out-of-workspace reference is refused. Every surface (GUI, TUI, headless) shares this resolver.
+  it('refuses a binary file (a NUL byte in its content) instead of mangling it', async () => {
+    const cwd = await createWorkspace();
+    try {
+      // A NUL byte anywhere in the first 8 KiB marks the file as binary — a minimal, real-world
+      // stand-in for a PNG/zip/etc. header without needing an actual image fixture.
+      await writeFile(join(cwd, 'photo.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x0d, 0x0a]));
+
+      const result = await resolvePromptFileReferences('Look at @photo.png', {
+        reader: await projectReader(cwd),
+      });
+
+      expect(result.references).toEqual([]);
+      expect(result.diagnostics[0]).toEqual(
+        expect.objectContaining({
+          code: 'binary-file',
+          reference: '@photo.png',
+        }),
+      );
+      expect(formatPromptFileReferenceDiagnostics(result.diagnostics)).toContain('photo.png');
+      expect(formatPromptFileReferenceDiagnostics(result.diagnostics)).toMatch(/not a text file/u);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('does not flag an ordinary text file that merely contains bytes past ASCII', async () => {
+    const cwd = await createWorkspace();
+    try {
+      await writeFile(join(cwd, 'notes.md'), '# Notes\nCafé, naïve, 日本語.\n');
+
+      const result = await resolvePromptFileReferences('Read @notes.md', {
+        reader: await projectReader(cwd),
+      });
+
+      expect(result.diagnostics).toEqual([]);
+      expect(result.references).toHaveLength(1);
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }

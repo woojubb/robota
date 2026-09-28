@@ -68,6 +68,8 @@ function fakeBinder(overrides: Partial<ISessionDirectory> = {}): {
         listSessions: () => ({ currentSessionId: 's', sessions: [], unreadableSessionIds: [] }),
         switchSession: async (sessionId) => session.emit('session_switched', { sessionId }),
         newSession: async () => session.emit('session_switched', { sessionId: 'new' }),
+        renameSession: async () => undefined,
+        deleteSession: async () => undefined,
         ...overrides,
       };
       const binding: IFakeBinding = {

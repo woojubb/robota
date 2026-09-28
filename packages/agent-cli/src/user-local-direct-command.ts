@@ -1,6 +1,6 @@
 import { executeUserLocalDirectCommand } from '@robota-sdk/agent-command';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
-import type { IParsedCliArgs } from './utils/cli-args.js';
+import { subcommandWord, type IParsedCliArgs } from './utils/cli-args.js';
 import { userLocalStorageRoot } from './product/user-paths.js';
 
 export async function runUserLocalDirectCommandIfRequested(
@@ -8,7 +8,7 @@ export async function runUserLocalDirectCommandIfRequested(
   cwd: string,
   terminal: ITerminalOutput,
 ): Promise<boolean> {
-  if (args.positional[0] !== 'user-local') {
+  if (subcommandWord(args) !== 'user-local') {
     return false;
   }
 

@@ -10,7 +10,9 @@ import {
 
 import type {
   IAppendMemoryInput,
+  ICommandHostAdapterAccess,
   ICommandHostMemory,
+  ICommandHostSessionAccess,
   ICommandHostWorkspace,
   IMemoryStore,
 } from '@robota-sdk/agent-framework';
@@ -34,6 +36,24 @@ function formatError(error: Error | string): ICommandResult {
     message: error instanceof Error ? error.message : String(error),
     success: false,
   };
+}
+
+/**
+ * `context.getMemoryStore()` throws `WorkspaceAuthorityRequiredError` when the host composed no
+ * memory store — off by default, or unavailable on this host (mirrors `EditCheckpointsUnavailableError`
+ * for `/rewind`, `rewind-command.ts`'s `formatError`). Uncaught, that throw reaches the GUI as a raw
+ * `protocol_error` (a red toast) instead of the SAME plain `command_result` every other unavailable-
+ * command case gets — this is the one call in the command that can throw before any subcommand branch
+ * runs, so it is guarded once, here, rather than in each branch below.
+ */
+function getMemoryStoreOrError(
+  context: ICommandHostMemory,
+): { ok: true; store: IMemoryStore } | { ok: false; result: ICommandResult } {
+  try {
+    return { ok: true, store: createCommandMemoryStores(context) };
+  } catch (error) {
+    return { ok: false, result: formatError(error instanceof Error ? error : String(error)) };
+  }
 }
 
 async function formatList(store: IMemoryStore): Promise<ICommandResult> {
@@ -190,15 +210,27 @@ function formatUsed(context: ICommandHostMemory): ICommandResult {
   };
 }
 
+/** The host's view of the session's permission mode, when it has one. */
+type TMemoryCommandModeAccess = ICommandHostAdapterAccess &
+  Partial<Pick<ICommandHostSessionAccess, 'getSession'>>;
+
+function isPlanMode(context: TMemoryCommandModeAccess): boolean {
+  const adapter = context.getCommandHostAdapters?.().permissionMode;
+  const mode = adapter?.getPermissionMode() ?? context.getSession?.().getPermissionMode();
+  return mode === 'plan';
+}
+
 export async function executeMemoryCommand(
-  context: ICommandHostMemory & ICommandHostWorkspace,
+  context: ICommandHostMemory & ICommandHostWorkspace & TMemoryCommandModeAccess,
   rawArgs: string,
 ): Promise<ICommandResult> {
   const args = rawArgs.trim().split(/\s+/).filter(Boolean);
   const subcommand = args[SUBCOMMAND_INDEX] ?? 'list';
   // SELFHOST-008 P1R: the single injected durable-memory port (or fs default) — authoritative for all
   // `/memory` operations, so a surface that swaps the store is honored here too (no split-brain).
-  const store = createCommandMemoryStores(context);
+  const resolved = getMemoryStoreOrError(context);
+  if (!resolved.ok) return resolved.result;
+  const store = resolved.store;
 
   if (subcommand === 'list') return formatList(store);
   if (subcommand === 'show') return formatShow(store, args[TYPE_INDEX]);
@@ -207,6 +239,14 @@ export async function executeMemoryCommand(
   if (subcommand === 'reject') return rejectPending(context, store, args[TYPE_INDEX]);
   if (subcommand === 'used') return formatUsed(context);
   if (subcommand === 'add') {
+    // Plan mode changes nothing, and saved memory is read back into every later session. The user
+    // can still save by hand; the model waits until plan mode ends.
+    if (context.getCommandInvocationSource() === 'model' && isPlanMode(context)) {
+      return {
+        message: 'Plan mode saves no memory. Save it after plan mode ends.',
+        success: false,
+      };
+    }
     const input = parseAdd(args);
     if (!input) return usage();
     if (hasSensitiveCommandMemoryContent(input.text)) {

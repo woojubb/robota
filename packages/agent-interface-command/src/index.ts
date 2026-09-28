@@ -6,9 +6,8 @@
 // package. Consumers compose it downward — `agent-interface-session` names these types, never the
 // reverse.
 //
-// `capability-contracts` moves WITH its export. It has no consumer outside this package —
-// `command-contracts` is its only importer — and the owner ruled on issue #2177 that it stays public.
-// A zero-consumer count establishes a question about a surface; it does not answer it.
+// `capability-contracts` moves WITH its export and stays public: agent-framework's capability layer
+// re-exports its descriptor types.
 
 // ── Capability descriptor contracts ──────────────────────────
 export type {
@@ -25,6 +24,7 @@ export type {
   ICommandResult,
   TCommandResultDataValue,
   TCommandInvocationSource,
+  TCommandSurfaceLocality,
   TCommandRunner,
   TCommandSurface,
   ICommandListEntry,

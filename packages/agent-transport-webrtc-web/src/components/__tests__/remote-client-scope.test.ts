@@ -16,7 +16,15 @@ describe('RemoteClient', () => {
       React.createElement(RemoteClient, { href: 'https://host.example/remote' }),
     );
 
-    expect(html).toMatch(/^<div class="robota-ui[ "]/u);
+    expect(html).toMatch(/^<main class="robota-ui[ "]/u);
     expect(html).toContain('Cannot pair');
+  });
+
+  it('REGRESSION (#3289 §3 review): that unusable-pairing-link state is the page\'s one `main` landmark, since no host of this component can be relied on to supply it', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(RemoteClient, { href: 'https://host.example/remote' }),
+    );
+
+    expect(html.match(/<main[ >]/gu)?.length).toBe(1);
   });
 });

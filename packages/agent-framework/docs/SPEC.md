@@ -349,7 +349,8 @@ and turn admission. Errors from lower packages (permission denial, session run f
 task failure) propagate without being re-wrapped.
 
 There are three failure channels. `submit()` rejects when a prompt is refused before it runs
-(initialization failure, shutdown, a stopped wake, or a failed pre-run step). A turn handle's
+(initialization failure, shutdown, a stopped wake, setup mode with no provider configured, or a
+failed pre-run step). A turn handle's
 completion promise rejects with the error the turn failed on, or with a turn-not-run error that says
 why a submission never became a turn. Failures during a run are emitted as `error` events.
 

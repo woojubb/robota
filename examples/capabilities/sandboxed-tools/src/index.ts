@@ -9,23 +9,17 @@
  *    destroys nothing; swapping in `E2BSandboxClient` points the same tools at a real remote sandbox
  *    with no other change.
  *
- * 2. Why a sandboxed parent cannot spawn CHILD-PROCESS subagents (ARCH-033).
+ * 2. What a child-process subagent of a sandboxed parent needs.
  *
- *    Child-process subagents are reproduced from a RECIPE: the child receives the execution root and
- *    a serialized profile, and rebuilds an equivalent tool surface at its own root. A recipe can
- *    carry anything that is a pure function of (root, payload, durable state). It cannot carry a
- *    live handle — and a sandbox client IS one: an open session against a remote machine, holding
- *    state no serialized payload reproduces.
+ *    Child-process subagents are rebuilt from a RECIPE: the child receives the execution root and a
+ *    serialized profile, and composes an equivalent tool surface at its own root. A live sandbox
+ *    client cannot cross that process boundary — it is an open session, not data — but a sandbox
+ *    TYPE and a SNAPSHOT id can. The composition root registers a constructor for each type
+ *    (`sandboxFactories` in the subagent worker composition), and the child builds a client of that
+ *    type and restores the snapshot.
  *
- *    So the product refuses to compose rather than spawning children that would silently fall back
- *    to HOST tools. That refusal is the safe direction: a sandboxed parent with host-tool children is
- *    ARCH-010's shape, where the measured breach was a subagent reading outside its root.
- *
- *    `ISandboxClient` does declare `snapshot()` / `restore(snapshotId)`, so a sandbox is in principle
- *    projectable — the child could restore from a snapshot reference. What is missing is not the
- *    snapshot but the CONSTRUCTOR: the child must be able to build the same client type, and only the
- *    composition root knows which type that is. Designing that projection is ARCH-033; this example
- *    is the executable statement of the problem it solves.
+ *    A client that cannot produce a snapshot, or whose type has no registered constructor, is
+ *    refused: the product will not spawn children that would silently fall back to HOST tools.
  */
 import process from 'node:process';
 
@@ -48,7 +42,8 @@ async function main(): Promise<void> {
   const hostTools = createDefaultTools({ cwd });
   const sandboxedTools = createDefaultTools({ cwd, sandboxClient });
 
-  // The SET is the same either way — sandboxing changes where a tool acts, not which tools exist.
+  // On a sandbox with its own filesystem the set differs: Glob and Grep have no sandbox path, so
+  // they are withheld rather than left searching the host while edits land in the sandbox.
   report(
     'toolNames',
     sandboxedTools.map((tool) => tool.getName()),
@@ -62,19 +57,19 @@ async function main(): Promise<void> {
   // The file exists in the sandbox and was never written to the host.
   report('readBackFromSandbox', await sandboxClient.readFile(SANDBOX_FILE));
 
-  // ── 2. Why this parent cannot spawn child-process subagents ────────────────────────────────────
+  // ── 2. What crosses to a child-process subagent ────────────────────────────────────────────────
   //
-  // A snapshot reference IS carryable — it is just a string. The demo takes one to make the point
-  // concrete: the missing half is the constructor on the other side, not the state.
+  // A snapshot reference is just a string, so it is carryable; the child also needs the constructor
+  // for this sandbox type, which only the composition root can register.
   const snapshotId = await sandboxClient.snapshot();
   report('snapshotIdIsSerializable', typeof snapshotId === 'string');
   report(
-    'whatARecipeCannotCarry',
-    'the live client itself — an open session the child cannot rebuild from (root, payload, durable state) alone',
+    'whatCrossesTheBoundary',
+    'the sandbox type and a snapshot id; the child rebuilds the client with the constructor registered for that type',
   );
   report(
-    'productBehaviourToday',
-    'refuse to compose, rather than spawn children that would silently use HOST tools (ARCH-021)',
+    'withoutASnapshotOrConstructor',
+    'refuse to compose, rather than spawn children that would silently use HOST tools',
   );
 }
 

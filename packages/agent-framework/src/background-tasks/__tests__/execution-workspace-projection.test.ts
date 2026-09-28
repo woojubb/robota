@@ -485,3 +485,281 @@ describe('SCREEN-1992 headline is one bounded line', () => {
     expect(entry.headline).toEqual({ kind: 'activity', text: '2/3 tasks' });
   });
 });
+
+/**
+ * #3288 §1: `/loop`-managed work (fixed cadence and self-paced) becomes visible, addressable and
+ * stoppable in the execution workspace.
+ *
+ * - A loop-managed task entry carries `loopId` (the stable `/loop stop <id>` handle — a plain
+ *   `cancel-background-task` would stop a self-paced loop's disposable wake TIMER, not the loop
+ *   itself), so a client's stop control knows which wire action to send.
+ * - A cancelled loop task never lingers — `BackgroundTaskManager.cancel()` only flips status, it does
+ *   not remove the record (only `close()` does), so an ordinary background task stays listed
+ *   (queryable) after cancellation; a loop's is filtered out of the snapshot instead, since a loop
+ *   the operator stopped is not "background work in progress" any more.
+ * - A self-paced loop (never itself a `BackgroundTaskState` — see `ISessionLoopState`) is projected
+ *   directly from `input.selfPacedLoops` for its `pending`/`running` phases, when it has no
+ *   background-task representation of its own. Its `waiting` phase already has one: the disposable
+ *   wake timer `armSelfPacedTimer` spawns (`kind: 'scheduled'`, `sessionLoopSelfPaced: true`) is
+ *   itself a task in `input.tasks`, so projecting it again here would duplicate the row. `stopped`/
+ *   `expired` loops are never projected, for the same "does not linger" reason as a cancelled task.
+ */
+describe('#3288 §1 — loop visibility and stop routing', () => {
+  const idleMainThread = {
+    sessionId: 'session_parent',
+    isExecuting: false,
+    hasPendingPrompt: false,
+    historyLength: 0,
+    updatedAt: '2026-05-09T00:00:00.000Z',
+  };
+
+  it('carries the stable loop id on a fixed-cadence loop task, from its persisted metadata', () => {
+    const snapshot = createExecutionWorkspaceSnapshot({
+      sessionId: 'session_parent',
+      mainThread: idleMainThread,
+      groups: [],
+      tasks: [
+        createTask({
+          id: 'runtime_after_resume',
+          kind: 'scheduled',
+          status: 'sleeping',
+          label: 'Loop: check the build',
+          metadata: { sessionLoop: true, sessionLoopId: 'loop_stable' },
+        }),
+      ],
+    });
+    const entry = snapshot.entries.find((candidate) => candidate.kind === 'background_task')!;
+    expect(entry).toMatchObject({ loopId: 'loop_stable' });
+  });
+
+  it('falls back to the runtime task id when a loop predates stable ids', () => {
+    const snapshot = createExecutionWorkspaceSnapshot({
+      sessionId: 'session_parent',
+      mainThread: idleMainThread,
+      groups: [],
+      tasks: [
+        createTask({
+          id: 'loop_task_legacy',
+          kind: 'scheduled',
+          status: 'sleeping',
+          label: 'Loop: check',
+          metadata: { sessionLoop: true },
+        }),
+      ],
+    });
+    const entry = snapshot.entries.find((candidate) => candidate.kind === 'background_task')!;
+    expect(entry).toMatchObject({ loopId: 'loop_task_legacy' });
+  });
+
+  it('never puts loopId on an ordinary (non-loop) task', () => {
+    const snapshot = createExecutionWorkspaceSnapshot({
+      sessionId: 'session_parent',
+      mainThread: idleMainThread,
+      groups: [],
+      tasks: [createTask({ id: 'agent_1' })],
+    });
+    const entry = snapshot.entries.find((candidate) => candidate.kind === 'background_task')!;
+    expect(entry.loopId).toBeUndefined();
+  });
+
+  it('drops a cancelled loop task from the snapshot, unlike an ordinary cancelled task', () => {
+    const snapshot = createExecutionWorkspaceSnapshot({
+      sessionId: 'session_parent',
+      mainThread: idleMainThread,
+      groups: [],
+      tasks: [
+        createTask({
+          id: 'loop_cancelled',
+          kind: 'scheduled',
+          status: 'cancelled',
+          label: 'Loop: check',
+          metadata: { sessionLoop: true, sessionLoopId: 'loop_stable' },
+        }),
+        createTask({ id: 'agent_cancelled', status: 'cancelled' }),
+      ],
+    });
+    const ids = snapshot.entries.map((entry) => entry.sourceId);
+    expect(ids).not.toContain('loop_cancelled');
+    expect(ids).toContain('agent_cancelled');
+  });
+
+  it('drops a completed self-paced wake timer too, leaving exactly one row for the live loop', () => {
+    // MUST 3 (review on PR #3332): armSelfPacedTimer's one-shot wake timer has no next cron
+    // occurrence, so the manager moves it to `completed` on its own when it fires — one per
+    // iteration. Without also filtering `completed`, this fired timer's row would sit beside the
+    // live loop's own `pending`/`running` projection forever, duplicating "Loop: …" on every wake.
+    const snapshot = createExecutionWorkspaceSnapshot({
+      sessionId: 'session_parent',
+      mainThread: idleMainThread,
+      groups: [],
+      tasks: [
+        createTask({
+          id: 'timer_fired',
+          kind: 'scheduled',
+          status: 'completed',
+          label: 'Loop: check the deploy',
+          metadata: { sessionLoop: true, sessionLoopSelfPaced: true, sessionLoopId: 'loop_self' },
+        }),
+      ],
+      selfPacedLoops: [
+        {
+          loopId: 'loop_self',
+          instruction: 'check the deploy',
+          phase: 'pending',
+          createdAt: '2026-05-09T00:00:00.000Z',
+        },
+      ],
+    });
+    const loopEntries = snapshot.entries.filter((entry) => entry.kind === 'background_task');
+    expect(loopEntries).toHaveLength(1);
+    expect(loopEntries[0]).toMatchObject({ sourceId: 'loop_self', status: 'queued' });
+  });
+
+  it('leaves an ordinary (non-loop) completed task listed, unlike a completed loop timer', () => {
+    const snapshot = createExecutionWorkspaceSnapshot({
+      sessionId: 'session_parent',
+      mainThread: idleMainThread,
+      groups: [],
+      tasks: [createTask({ id: 'agent_done', status: 'completed' })],
+    });
+    expect(snapshot.entries.map((entry) => entry.sourceId)).toContain('agent_done');
+  });
+
+  it('projects a running self-paced loop with no background-task representation of its own', () => {
+    const snapshot = createExecutionWorkspaceSnapshot({
+      sessionId: 'session_parent',
+      mainThread: idleMainThread,
+      groups: [],
+      tasks: [],
+      selfPacedLoops: [
+        {
+          loopId: 'loop_self',
+          instruction: 'check the deploy',
+          phase: 'running',
+          createdAt: '2026-05-09T00:00:00.000Z',
+        },
+      ],
+    });
+    const entry = snapshot.entries.find((candidate) => candidate.kind === 'background_task')!;
+    expect(entry).toMatchObject({
+      kind: 'background_task',
+      loopId: 'loop_self',
+      status: 'running',
+      state: 'working',
+      title: expect.stringContaining('check the deploy'),
+      controls: expect.arrayContaining(['select', 'cancel']),
+    });
+    expect(entry.sourceId).toBe('loop_self');
+  });
+
+  it('projects a pending self-paced loop (claimed, about to run)', () => {
+    const snapshot = createExecutionWorkspaceSnapshot({
+      sessionId: 'session_parent',
+      mainThread: idleMainThread,
+      groups: [],
+      tasks: [],
+      selfPacedLoops: [
+        {
+          loopId: 'loop_self',
+          instruction: 'check the deploy',
+          phase: 'pending',
+          createdAt: '2026-05-09T00:00:00.000Z',
+        },
+      ],
+    });
+    const entry = snapshot.entries.find((candidate) => candidate.kind === 'background_task')!;
+    expect(entry).toMatchObject({ loopId: 'loop_self', status: 'queued', state: 'working' });
+  });
+
+  it.each(['waiting', 'stopped', 'expired'] as const)(
+    'never projects a self-paced loop entry for phase %s (waiting already has its timer task; stopped/expired must not linger)',
+    (phase) => {
+      const snapshot = createExecutionWorkspaceSnapshot({
+        sessionId: 'session_parent',
+        mainThread: idleMainThread,
+        groups: [],
+        tasks: [],
+        selfPacedLoops: [
+          {
+            loopId: 'loop_self',
+            instruction: 'check the deploy',
+            phase,
+            createdAt: '2026-05-09T00:00:00.000Z',
+          },
+        ],
+      });
+      expect(snapshot.entries.some((entry) => entry.kind === 'background_task')).toBe(false);
+    },
+  );
+
+  it('carries deniedToolCalls from a completed agent task result, when present', () => {
+    const snapshot = createExecutionWorkspaceSnapshot({
+      sessionId: 'session_parent',
+      mainThread: idleMainThread,
+      groups: [],
+      tasks: [
+        createTask({
+          id: 'agent_1',
+          status: 'completed',
+          result: {
+            taskId: 'agent_1',
+            kind: 'agent',
+            output: 'done',
+            deniedToolCalls: {
+              total: 2,
+              byReason: {
+                'denied-by-person': 2,
+                'no-approver': 0,
+                'approver-error': 0,
+                cancelled: 0,
+              },
+            },
+          },
+        }),
+      ],
+    });
+    const entry = snapshot.entries.find((candidate) => candidate.kind === 'background_task')!;
+    expect(entry.deniedToolCalls).toBe(2);
+  });
+
+  it('leaves deniedToolCalls absent when the result carries none, or is a clean zero', () => {
+    const snapshot = createExecutionWorkspaceSnapshot({
+      sessionId: 'session_parent',
+      mainThread: idleMainThread,
+      groups: [],
+      tasks: [
+        createTask({
+          id: 'agent_clean',
+          status: 'completed',
+          result: { taskId: 'agent_clean', kind: 'agent', output: 'done' },
+        }),
+        createTask({
+          id: 'agent_zero',
+          status: 'completed',
+          result: {
+            taskId: 'agent_zero',
+            kind: 'agent',
+            output: 'done',
+            deniedToolCalls: {
+              total: 0,
+              byReason: { 'denied-by-person': 0, 'no-approver': 0, 'approver-error': 0, cancelled: 0 },
+            },
+          },
+        }),
+      ],
+    });
+    for (const entry of snapshot.entries.filter((e) => e.kind === 'background_task')) {
+      expect(entry.deniedToolCalls).toBeUndefined();
+    }
+  });
+
+  it('omitting selfPacedLoops entirely keeps every pre-existing caller working', () => {
+    const snapshot = createExecutionWorkspaceSnapshot({
+      sessionId: 'session_parent',
+      mainThread: idleMainThread,
+      groups: [],
+      tasks: [createTask({ id: 'agent_1' })],
+    });
+    expect(snapshot.entries.map((entry) => entry.sourceId)).toEqual(['session_parent', 'agent_1']);
+  });
+});

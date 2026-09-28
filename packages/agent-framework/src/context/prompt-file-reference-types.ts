@@ -17,7 +17,8 @@ export type TPromptFileReferenceDiagnosticCode =
   | 'too-many-references'
   | 'max-depth'
   | 'circular-reference'
-  | 'unreadable';
+  | 'unreadable'
+  | 'binary-file';
 
 export interface IPromptFileReferenceToken {
   original: string;

@@ -310,8 +310,38 @@ function toCommandSourceProblem(
   };
 }
 
-/** Narrows `agent-mcp`'s internal activation summary to the command layer's secret-free port shape. */
-function toCommandSummary(summary: IMCPActivationSummary): ICommandMCPActivationSummary {
+/** This process's live connection bookkeeping, read (never written) by `toCommandSummary`. */
+interface IMcpRuntimeStatus {
+  readonly discovered: ReadonlySet<string>;
+  readonly connectedToolProvenance: ReadonlyMap<string, IMcpConnectedToolProvenance>;
+  readonly connectionFailures: ReadonlyMap<string, string>;
+}
+
+/**
+ * Narrows `agent-mcp`'s internal activation summary to the command layer's secret-free port shape,
+ * and — for an `allowed` server — merges this process's live connection outcome and tool names
+ * (#3282 §4 part b-2) so `/mcp status` and the Settings screen's MCP Servers section read the same
+ * one source. `runtime` is absent for a caller with no connection bookkeeping (a narrower or older
+ * composition): the merged fields are then simply absent, same as "not attempted yet".
+ */
+function toCommandSummary(
+  summary: IMCPActivationSummary,
+  runtime?: IMcpRuntimeStatus,
+): ICommandMCPActivationSummary {
+  const connection: ICommandMCPActivationSummary['connection'] =
+    runtime === undefined || !summary.allowed
+      ? undefined
+      : runtime.discovered.has(summary.serverId)
+        ? 'connected'
+        : runtime.connectionFailures.has(summary.serverId)
+          ? 'failed'
+          : undefined;
+  const toolNames =
+    runtime === undefined
+      ? undefined
+      : [...runtime.connectedToolProvenance.entries()]
+          .filter(([, provenance]) => provenance.serverId === summary.serverId)
+          .map(([name]) => name);
   return {
     serverId: summary.serverId,
     ...(summary.displayName === undefined ? {} : { displayName: summary.displayName }),
@@ -322,6 +352,11 @@ function toCommandSummary(summary: IMCPActivationSummary): ICommandMCPActivation
     provenanceId: summary.provenanceId,
     definitionFingerprint: summary.definitionFingerprint,
     securityIdentity: summary.securityIdentity,
+    ...(connection === undefined ? {} : { connection }),
+    ...(connection === 'failed'
+      ? { connectionFailureReason: runtime?.connectionFailures.get(summary.serverId) ?? 'unknown' }
+      : {}),
+    ...(toolNames === undefined ? {} : { toolNames }),
   };
 }
 
@@ -350,6 +385,13 @@ interface IConnectServerContext {
   readonly oauthAuthenticators: Map<string, IMcpClosableAuthenticator>;
   /** Servers that did not start for a reason the user can fix, and which action fixes it. */
   readonly unavailable: Map<string, TMCPUserAction>;
+  /**
+   * #3282 §4 part b-2: the plain reason a server did not connect, for the Settings screen's MCP
+   * Servers section. Keyed by server id; cleared on a successful (re)connect. Distinct from
+   * `unavailable` (a user-fixable admission reason) — this is a genuine connection/refusal failure
+   * for an ADMITTED server.
+   */
+  readonly connectionFailures: Map<string, string>;
 }
 
 /** The user action an admission refusal calls for; `undefined` for a decision the user already made. */
@@ -461,6 +503,7 @@ async function connectOneServer(
       deps.reportDiagnostic(
         `MCP server "${request.serverId}" stdio was refused: missing host authority.`,
       );
+      context.connectionFailures.set(request.serverId, 'missing host authority');
       return undefined;
     }
     const adapter = createStdioAdapter({ admission, authority });
@@ -469,6 +512,7 @@ async function connectOneServer(
       deps.reportDiagnostic(
         `MCP server "${request.serverId}" stdio was refused (${result.reason}).`,
       );
+      context.connectionFailures.set(request.serverId, result.reason);
       return undefined;
     }
     supervisorOptions = buildSupervisorOptions(request, adapter, result.admitted, timeouts, deps);
@@ -483,6 +527,7 @@ async function connectOneServer(
         deps.reportDiagnostic(
           `MCP server "${request.serverId}" endpoint was refused (oauth-unavailable).`,
         );
+        context.connectionFailures.set(request.serverId, 'OAuth is not available');
         return undefined;
       }
       let oauthAuthenticator = context.oauthAuthenticators.get(request.serverId);
@@ -494,6 +539,7 @@ async function connectOneServer(
           deps.reportDiagnostic(
             `MCP server "${request.serverId}" endpoint was refused (oauth-unavailable).`,
           );
+          context.connectionFailures.set(request.serverId, 'OAuth is not available');
           return undefined;
         }
         context.oauthAuthenticators.set(request.serverId, oauthAuthenticator);
@@ -513,6 +559,7 @@ async function connectOneServer(
         deps.reportDiagnostic(
           `MCP server "${request.serverId}" endpoint was refused (${refusal ?? 'headers-helper-not-allowed'}).`,
         );
+        context.connectionFailures.set(request.serverId, refusal ?? 'headers-helper-not-allowed');
         return undefined;
       }
       const slot = helperAuthenticatorSlot(() =>
@@ -548,6 +595,7 @@ async function connectOneServer(
       deps.reportDiagnostic(
         `MCP server "${request.serverId}" endpoint was refused (${result.reason}): ${result.message}`,
       );
+      context.connectionFailures.set(request.serverId, `${result.reason}: ${result.message}`);
       return undefined;
     }
     supervisorOptions = buildSupervisorOptions(
@@ -569,14 +617,16 @@ async function connectOneServer(
   // not propagate past this one server.
   try {
     const discovery = await connection.discover(signal);
+    // A retry after an earlier failure (`reload`) succeeded — the stale reason must not linger.
+    context.connectionFailures.delete(request.serverId);
     return {
       catalogInput: { serverId: request.serverId, origin, transport, discovery },
       connection,
     };
   } catch (error) {
-    deps.reportDiagnostic(
-      `MCP server "${request.serverId}" discovery failed: ${transport === 'stdio' ? 'stdio connection failed' : describeError(error)}`,
-    );
+    const reason = transport === 'stdio' ? 'stdio connection failed' : describeError(error);
+    deps.reportDiagnostic(`MCP server "${request.serverId}" discovery failed: ${reason}`);
+    context.connectionFailures.set(request.serverId, reason);
     // An OAuth server refusing us is the one discovery failure the user fixes by signing in.
     if (definition.oauth !== undefined && classifyMcpFailure(error) === 'auth') {
       context.unavailable.set(request.serverId, 'sign-in');
@@ -601,10 +651,11 @@ function buildActivationAdapter(
   controller: MCPActivationController,
   sourceProblems: readonly IMCPDefinitionProblem[],
   resolvedEntries: readonly IMCPResolvedEntry[],
+  runtime: IMcpRuntimeStatus,
 ): ICommandMCPActivationAdapter {
   const managedTier = MCP_SOURCE_PRECEDENCE[0];
   return {
-    list: () => controller.list().map(toCommandSummary),
+    list: () => controller.list().map((summary) => toCommandSummary(summary, runtime)),
     sourceProblems: () => {
       // Recomputed on each call rather than captured once: `resolvedEntries` is this composition's
       // input for its whole lifetime (MCP-002 does not mutate it), so this is only ever the same
@@ -761,18 +812,6 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   const admission = new MCPActivationAdmissionService(deps.approvalStore, deps.now);
   const controller = new MCPActivationController(registry, admission, registry.displayNames());
   const oauthAuthenticators = new Map<string, IMcpClosableAuthenticator>();
-  const activationAdapter: ICommandMCPActivationAdapter = {
-    ...buildActivationAdapter(controller, deps.sourceProblems ?? [], deps.resolvedEntries),
-    ...oauthCommandPort(
-      registry,
-      deps.resolvedEntries,
-      deps.oauth,
-      oauthAuthenticators,
-      connectSignedIn,
-      toolsAdded,
-    ),
-    ...(deps.userActionSurface === undefined ? {} : { userActionSurface: deps.userActionSurface }),
-  };
 
   const openConnections: IMcpServerConnection[] = [];
   const helperSlots = new Map<string, IHelperAuthenticatorSlot>();
@@ -785,8 +824,51 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   const unavailableServers = new Map<string, TMCPUserAction>();
   /** Servers whose connection discovered successfully: connected, with or without tools. */
   const discovered = new Set<string>();
+  /** #3282 §4 part b-2: the plain reason an admitted server did not connect, by server id. */
+  const connectionFailures = new Map<string, string>();
+
+  const activationAdapter: ICommandMCPActivationAdapter = {
+    ...buildActivationAdapter(controller, deps.sourceProblems ?? [], deps.resolvedEntries, {
+      discovered,
+      connectedToolProvenance,
+      connectionFailures,
+    }),
+    ...oauthCommandPort(
+      registry,
+      deps.resolvedEntries,
+      deps.oauth,
+      oauthAuthenticators,
+      connectSignedIn,
+      toolsAdded,
+    ),
+    reload: reloadServers,
+    reloadToolsAdded,
+    ...(deps.userActionSurface === undefined ? {} : { userActionSurface: deps.userActionSurface }),
+  };
+
   /** A sign-in's tools, by server, until the session says which it took. */
   const pendingProvenance = new Map<string, Map<string, IMcpConnectedToolProvenance>>();
+  /**
+   * #3282 §4 part b-2: a `reload()`'s tools, staged under its own token until the session says
+   * (`reloadToolsAdded`) which it took — the same staging `pendingProvenance`/`toolsAdded` does for
+   * a sign-in. Tokened, not a bare value, because a reload is not scoped to one server the way a
+   * sign-in is: `/mcp reload` runs inline (unblocked by the mid-turn gate) and an `update-settings`
+   * write is fire-and-forget, so a second `reload()` can start before the first's token is
+   * acknowledged, and an ack naming the wrong token must never clear or corrupt the other's
+   * provenance (caught in review — the untokened first version let exactly this happen).
+   */
+  let pendingReload:
+    | { readonly token: string; readonly provenance: ReadonlyMap<string, IMcpConnectedToolProvenance> }
+    | undefined;
+  let reloadTokenSeq = 0;
+  /**
+   * Set for the lifetime of one `reload()` call — from its start until its provenance (if any) is
+   * acknowledged, not merely until its connection pass finishes — so a caller that arrives while
+   * one is outstanding joins it and gets its exact result, instead of racing it to connect the same
+   * not-yet-connected server twice or starting a second pass that would overwrite `pendingReload`
+   * before the first is acknowledged.
+   */
+  let inFlightReload: ReturnType<typeof performReload> | undefined;
   let resultSpillStore:
     | (IToolResultSpillStore & {
         read(reference: string): Promise<string>;
@@ -827,6 +909,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     helperSlots,
     oauthAuthenticators,
     unavailable: unavailableServers,
+    connectionFailures,
   });
 
   /**
@@ -950,6 +1033,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     connectedByServerId.clear();
     unavailableServers.clear();
     discovered.clear();
+    connectionFailures.clear();
     const catalogInputs: IMCPCatalogInput[] = [];
     const connectionByServerId = new Map<string, IMcpServerConnection>();
     const securityIdentityByServerId = new Map<string, string>();
@@ -990,6 +1074,144 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       authFailureNoticeByServerId,
     );
     return withResultReadTool(tools);
+  }
+
+  /**
+   * #3282 §4 part b-2: the Settings screen's "Reload servers" button and `/mcp reload`. Single-
+   * flight: a call that arrives while one is outstanding — its connection pass still running, or
+   * its provenance still unacknowledged — joins it and gets its exact result, rather than starting
+   * a second connection pass (which could connect the same not-yet-connected server twice, and race
+   * the first pass on the shared `connectedByServerId`/`openConnections`/`connectionFailures` maps)
+   * or overwriting `pendingReload` before `reloadToolsAdded` reads it (review finding on the first,
+   * untokened version of this staging).
+   */
+  function reloadServers(): Promise<{
+    readonly tools: readonly IToolWithEventService[];
+    readonly connectedServerIds: readonly string[];
+    readonly failedServerIds: readonly string[];
+    readonly reloadToken?: string;
+  }> {
+    if (inFlightReload !== undefined) return inFlightReload;
+    const promise = performReload();
+    inFlightReload = promise;
+    promise.then(
+      (result) => {
+        // Nothing staged to acknowledge: release the slot now. Otherwise it stays held — even
+        // though the connection pass below has already finished — until `reloadToolsAdded` matches
+        // this call's token, so a call arriving in that window still joins instead of racing ahead.
+        if (result.reloadToken === undefined) inFlightReload = undefined;
+      },
+      () => {
+        inFlightReload = undefined;
+      },
+    );
+    return promise;
+  }
+
+  /**
+   * Retries every ADMITTED server not currently connected — one whose config was just fixed, or
+   * that was just enabled — reusing the exact per-server connection `connect()` already uses. A
+   * server that is already connected is left alone: no teardown, no risk to a tool call already
+   * using it. Never throws: a server that still cannot connect keeps its recorded reason for the
+   * next read. Always called through `reloadServers()`'s single-flight guard, never directly.
+   */
+  async function performReload(): Promise<{
+    readonly tools: readonly IToolWithEventService[];
+    readonly connectedServerIds: readonly string[];
+    readonly failedServerIds: readonly string[];
+    readonly reloadToken?: string;
+  }> {
+    const context = connectContext(undefined);
+    const connectedServerIds: string[] = [];
+    const failedServerIds: string[] = [];
+    const newCatalogInputs: IMCPCatalogInput[] = [];
+    const connectionByServerId = new Map<string, IMcpServerConnection>();
+    const securityIdentityByServerId = new Map<string, string>();
+    const authFailureNoticeByServerId = new Map<string, string>();
+
+    for (const request of registry.list()) {
+      if (discovered.has(request.serverId)) continue;
+      const entry = deps.resolvedEntries.find((candidate) => candidate.name === request.serverId);
+      if (entry === undefined || entry.definition === undefined) continue;
+      const definition = entry.definition;
+      if (definition.transport !== 'http' && definition.transport !== 'stdio') continue;
+
+      // A previous attempt may have left a connection object with no successful discovery — close
+      // it before retrying so the retry does not open a second one beside it.
+      const previous = connectedByServerId.get(request.serverId);
+      if (previous !== undefined) {
+        const idx = openConnections.indexOf(previous);
+        if (idx !== -1) openConnections.splice(idx, 1);
+        await previous.shutdown().catch(() => undefined);
+        connectedByServerId.delete(request.serverId);
+      }
+
+      const connected = await connectOneServer(request, definition, entry.origin, context);
+      if (connected === undefined || connected === 'not-admitted') continue;
+      if (connected.connection === undefined) {
+        failedServerIds.push(request.serverId);
+        continue;
+      }
+      openConnections.push(connected.connection);
+      connectedByServerId.set(request.serverId, connected.connection);
+      if (connected.catalogInput.discovery === undefined) {
+        failedServerIds.push(request.serverId);
+        continue;
+      }
+      newCatalogInputs.push(connected.catalogInput);
+      connectionByServerId.set(request.serverId, connected.connection);
+      securityIdentityByServerId.set(request.serverId, request.securityIdentity);
+      if (definition.oauth !== undefined) {
+        authFailureNoticeByServerId.set(request.serverId, authFailureNotice(request.serverId));
+      }
+      discovered.add(request.serverId);
+      connectedServerIds.push(request.serverId);
+    }
+
+    if (newCatalogInputs.length === 0) {
+      return { tools: [], connectedServerIds, failedServerIds };
+    }
+    const catalog = buildServerCatalog(newCatalogInputs);
+    const provenance = new Map<string, IMcpConnectedToolProvenance>();
+    const tools = collectToolsFromCatalog(
+      catalog,
+      connectionByServerId,
+      securityIdentityByServerId,
+      provenance,
+      resultAdmission,
+      authFailureNoticeByServerId,
+    );
+    // Recorded once the session says which of these it took (`reloadToolsAdded`), keyed to this
+    // call's own token — never committed here, so a tool name collision with one the session
+    // already has never leaks into `connectedToolProvenance` (and so `/mcp status`'s `toolNames`)
+    // as though it were live, and an ack meant for a different reload can never land here instead.
+    const reloadToken = `reload-${++reloadTokenSeq}`;
+    pendingReload = { token: reloadToken, provenance };
+    return { tools: withResultReadTool(tools), connectedServerIds, failedServerIds, reloadToken };
+  }
+
+  /**
+   * The session took `added` of the tools the `reload()` identified by `token` returned; the rest
+   * collided with its own. A `token` that does not match the currently staged reload — already
+   * committed, or superseded by a later call that started once this one's connection pass finished
+   * — is a no-op: a late or duplicate acknowledgement must never clear or corrupt a different
+   * reload's provenance.
+   */
+  function reloadToolsAdded(token: string, added: readonly string[]): void {
+    if (pendingReload === undefined || pendingReload.token !== token) return;
+    const { provenance } = pendingReload;
+    pendingReload = undefined;
+    inFlightReload = undefined;
+    const taken = new Set(added);
+    for (const [name, entry] of provenance) {
+      if (taken.has(name)) {
+        connectedToolProvenance.set(name, entry);
+      } else {
+        deps.reportDiagnostic(
+          `MCP tool "${name}" from "${entry.serverId}" was not added: the session already has a tool by that name.`,
+        );
+      }
+    }
   }
 
   /** Reads a saved oversized MCP result back, a bounded slice at a time. */

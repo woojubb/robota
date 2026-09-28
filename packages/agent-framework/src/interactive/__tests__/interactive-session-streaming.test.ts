@@ -40,29 +40,41 @@ describe('interactive-session-streaming edit diffs', () => {
     const filePath = makeTempFile(
       ['line four', 'line five', 'line six', 'line one', 'line eight', 'line nine'].join('\n'),
     );
+    // #3288 review MUST 1: cwd must name the file's REAL containing directory — a diff preview
+    // now only reads a file whose canonical path resolves inside it (see interactive-session-streaming.ts's
+    // `isSafeToReadForDiff`), so context lines are read here only because `tmpDir` genuinely contains it.
     const state = createState();
-    applyToolStart(state, {
-      toolName: 'Edit',
-      toolArgs: {
-        filePath,
-        oldString: 'line one\nline two\nline three',
-        newString: 'line one',
+    applyToolStart(
+      state,
+      {
+        toolName: 'Edit',
+        toolArgs: {
+          filePath,
+          oldString: 'line one\nline two\nline three',
+          newString: 'line one',
+        },
       },
-    });
+      undefined,
+      tmpDir,
+    );
 
-    const finished = applyToolEnd(state, {
-      type: 'end',
-      toolName: 'Edit',
-      toolArgs: {
-        filePath,
-        oldString: 'line one\nline two\nline three',
-        newString: 'line one',
+    const finished = applyToolEnd(
+      state,
+      {
+        type: 'end',
+        toolName: 'Edit',
+        toolArgs: {
+          filePath,
+          oldString: 'line one\nline two\nline three',
+          newString: 'line one',
+        },
+        success: true,
+        toolResultData: JSON.stringify({ success: true, startLine: 7 }),
       },
-      success: true,
-      toolResultData: JSON.stringify({ success: true, startLine: 7 }),
-    });
+      tmpDir,
+    );
 
-    expect(finished?.diffFile).toBe(filePath);
+    expect(finished?.diffFile).toBe('example.md');
     expect(finished?.diffLines).toEqual(
       expect.arrayContaining([
         { type: 'hunk', text: '@@ -4,6 +4,4 @@', lineNumber: 4 },
@@ -136,6 +148,143 @@ describe('interactive-session-streaming edit diffs', () => {
         },
       ],
     });
+  });
+});
+
+describe('#3288: extending the diff builder to Write', () => {
+  it('attaches diff metadata (all `add` lines, capped) when a Write tool completes', () => {
+    const state = createState();
+    applyToolStart(state, {
+      toolName: 'Write',
+      toolArgs: { filePath: '/tmp/new-file.md', content: 'line one\nline two\nline three' },
+    });
+
+    const finished = applyToolEnd(state, {
+      type: 'end',
+      toolName: 'Write',
+      toolArgs: { filePath: '/tmp/new-file.md', content: 'line one\nline two\nline three' },
+      success: true,
+    });
+
+    expect(finished?.diffFile).toBe('/tmp/new-file.md');
+    expect(finished?.diffLines).toEqual([
+      { type: 'hunk', text: '@@ -0,0 +1,3 @@', lineNumber: 1 },
+      { type: 'add', text: 'line one', lineNumber: 1 },
+      { type: 'add', text: 'line two', lineNumber: 2 },
+      { type: 'add', text: 'line three', lineNumber: 3 },
+    ]);
+  });
+
+  it('caps a large Write with a truncated marker rather than emitting every line', () => {
+    const state = createState();
+    const bigContent = Array.from({ length: 520 }, (_, i) => `line ${i}`).join('\n');
+    applyToolStart(state, { toolName: 'Write', toolArgs: { filePath: '/tmp/big.md', content: bigContent } });
+    const finished = applyToolEnd(state, {
+      type: 'end',
+      toolName: 'Write',
+      toolArgs: { filePath: '/tmp/big.md', content: bigContent },
+      success: true,
+    });
+    const diffLines = finished?.diffLines ?? [];
+    const addLines = diffLines.filter((l) => l.type === 'add');
+    // Exactly MAX_DIFF_LINES (500, not exported) — a `toBeLessThan` here would also pass a builder
+    // that forgot to cap at all and just happened to drop a handful of lines for some other reason.
+    expect(addLines.length).toBe(500);
+    expect(diffLines.at(-1)?.text).toMatch(/more lines truncated/);
+  });
+});
+
+describe('#3288 review SHOULD 3: Edit diffs are capped like Write', () => {
+  it('caps a large Edit with a truncated marker rather than emitting every line', () => {
+    const state = createState();
+    const bigOld = Array.from({ length: 520 }, (_, i) => `old ${i}`).join('\n');
+    const bigNew = Array.from({ length: 520 }, (_, i) => `new ${i}`).join('\n');
+    applyToolStart(state, {
+      toolName: 'Edit',
+      toolArgs: { filePath: '/tmp/big-edit.md', oldString: bigOld, newString: bigNew },
+    });
+    const finished = applyToolEnd(state, {
+      type: 'end',
+      toolName: 'Edit',
+      toolArgs: { filePath: '/tmp/big-edit.md', oldString: bigOld, newString: bigNew },
+      success: true,
+    });
+    const diffLines = finished?.diffLines ?? [];
+    const removeLines = diffLines.filter((l) => l.type === 'remove');
+    const addLines = diffLines.filter((l) => l.type === 'add');
+    // Exactly MAX_DIFF_LINES (500, not exported) on EACH side independently — `toBeLessThan` would
+    // also pass a builder that capped only one side, or capped at some other, wrong length.
+    expect(removeLines.length).toBe(500);
+    expect(addLines.length).toBe(500);
+    expect(diffLines.some((l) => l.type === 'hunk' && /more removed lines truncated/.test(l.text))).toBe(
+      true,
+    );
+    expect(diffLines.some((l) => l.type === 'hunk' && /more added lines truncated/.test(l.text))).toBe(
+      true,
+    );
+  });
+});
+
+describe('#3288: relative display paths (server-side, additive to firstArg)', () => {
+  it('computes a workspace-relative diffFile when cwd is provided, without changing firstArg', () => {
+    const state = createState();
+    applyToolStart(
+      state,
+      { toolName: 'Write', toolArgs: { filePath: '/workspace/src/file.ts', content: 'x' } },
+      undefined,
+      '/workspace',
+    );
+    const finished = applyToolEnd(
+      state,
+      {
+        type: 'end',
+        toolName: 'Write',
+        toolArgs: { filePath: '/workspace/src/file.ts', content: 'x' },
+        success: true,
+      },
+      '/workspace',
+    );
+    expect(finished?.diffFile).toBe('src/file.ts');
+    expect(finished?.firstArg).toBe('/workspace/src/file.ts');
+  });
+
+  it('keeps the absolute path when it falls outside the workspace', () => {
+    const state = createState();
+    applyToolStart(
+      state,
+      { toolName: 'Write', toolArgs: { filePath: '/etc/hosts', content: 'x' } },
+      undefined,
+      '/workspace',
+    );
+    const finished = applyToolEnd(
+      state,
+      { type: 'end', toolName: 'Write', toolArgs: { filePath: '/etc/hosts', content: 'x' }, success: true },
+      '/workspace',
+    );
+    expect(finished?.diffFile).toBe('/etc/hosts');
+  });
+});
+
+describe('#3288: parallel same-named tool_end attribution (executionId-first)', () => {
+  it('attributes tool_end by executionId, not by "first running with this name"', () => {
+    const state = createState();
+    applyToolStart(state, { toolName: 'Read', toolArgs: { filePath: 'a.ts' }, executionId: 'exec-a' });
+    applyToolStart(state, { toolName: 'Read', toolArgs: { filePath: 'b.ts' }, executionId: 'exec-b' });
+
+    // The SECOND call (exec-b) finishes first. A name-only `findIndex` would close the FIRST
+    // matching running entry (exec-a) instead — attributing exec-b's result to exec-a's call.
+    const finished = applyToolEnd(state, {
+      type: 'end',
+      toolName: 'Read',
+      toolResultData: 'result-for-b',
+      success: true,
+      executionId: 'exec-b',
+    });
+
+    expect(finished?.executionId).toBe('exec-b');
+    expect(finished?.firstArg).toBe('b.ts');
+    const stillRunning = state.activeTools.find((t) => t.executionId === 'exec-a');
+    expect(stillRunning?.isRunning).toBe(true);
   });
 });
 

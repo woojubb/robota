@@ -120,14 +120,46 @@ describe('HTTP Transport Routes', () => {
   it('serves requests, a turn stream, and cancellation through only the declared port', async () => {
     const { session: full, startedTurns } = createHonestSession();
     const {
-      submit, on, off, abort, cancelQueue, getSession, executeCommand, listCommands, listSkills,
-      getMessages, getFullHistory, getContextState, isExecuting, getPendingPrompt, getPendingCount,
+      submit,
+      on,
+      off,
+      abort,
+      cancelQueue,
+      getSession,
+      executeCommand,
+      listCommands,
+      listSkills,
+      listModels,
+      getMessages,
+      getFullHistory,
+      getMessagesDisplay,
+      getContextState,
+      isExecuting,
+      getPendingPrompt,
+      getPendingCount,
     } = full;
     const port: IHttpTransportSession = {
-      submit, on, off, abort, cancelQueue, getSession, executeCommand, listCommands, listSkills,
-      getMessages, getFullHistory, getContextState, isExecuting, getPendingPrompt, getPendingCount,
+      submit,
+      on,
+      off,
+      abort,
+      cancelQueue,
+      getSession,
+      executeCommand,
+      listCommands,
+      listSkills,
+      listModels,
+      getMessages,
+      getFullHistory,
+      getMessagesDisplay,
+      getContextState,
+      isExecuting,
+      getPendingPrompt,
+      getPendingCount,
     };
-    expect(Object.keys(port)).toHaveLength(15);
+    // #3282 §2 added `listModels` to `ISessionCommands` (15 + 1); #3288 §2 added
+    // `getMessagesDisplay` to `ISessionConversationRead` (16 + 1).
+    expect(Object.keys(port)).toHaveLength(17);
     const transport = createHttpTransport({
       admission: { open: true, openReason: 'least-authority HTTP port scenario' },
     });
@@ -944,5 +976,58 @@ describe('SEC-008: an unadmitted request never reaches the session', () => {
       expect(res.status, authorization).toBe(401);
     }
     expect(reached).toEqual([]);
+  });
+});
+
+describe('a session that builds itself in the background', () => {
+  /**
+   * `InteractiveSession` has no id until its background initialization finishes, so naming it
+   * throws until then. It says when it is ready through `whenInitialized()`.
+   */
+  function createStartingSession(initialization: Promise<void>): IHttpTransportSession {
+    const { session } = createHonestSession();
+    let ready = false;
+    void initialization.then(
+      () => (ready = true),
+      () => undefined,
+    );
+    session.getSession = (() => {
+      if (!ready) throw new Error('InteractiveSession not initialized.');
+      return { getSessionId: () => 'session_started' };
+    }) as IInteractiveSession['getSession'];
+    return Object.assign(session, { whenInitialized: () => initialization });
+  }
+
+  async function submit(session: IHttpTransportSession): Promise<Response> {
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+    });
+    return app.request('/submit', {
+      method: 'POST',
+      body: JSON.stringify({ prompt: 'hi' }),
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
+  it('serves the first /submit once the session is ready, instead of refusing it', async () => {
+    const session = createStartingSession(new Promise((resolve) => setTimeout(resolve, 10)));
+
+    const response = await submit(session);
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain('event: complete');
+  });
+
+  it('answers 500 without the reason when the session fails to start', async () => {
+    const failed = Promise.reject(new Error('settings at /home/me/.robota are broken'));
+    const session = createStartingSession(failed);
+
+    const response = await submit(session);
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(500);
+    expect(body.error).toMatch(/could not be started/);
+    expect(body.error).not.toMatch(/home/);
   });
 });

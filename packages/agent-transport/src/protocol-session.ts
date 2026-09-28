@@ -1,4 +1,5 @@
 import type {
+  ISessionAgentJobs,
   ISessionBackgroundGroups,
   ISessionBackgroundTasks,
   ISessionCommands,
@@ -8,6 +9,7 @@ import type {
   ISessionExecutionDetail,
   ISessionExecutionState,
   ISessionExecutionWorkspace,
+  ISessionProjectRead,
   ISessionPromptResolution,
   ISessionSelfPacedLoopControl,
   ISessionStatusRead,
@@ -31,4 +33,18 @@ export interface IProtocolSession
     ISessionBackgroundGroups,
     ISessionExecutionWorkspace,
     ISessionExecutionDetail,
-    ISessionSelfPacedLoopControl {}
+    ISessionSelfPacedLoopControl,
+    // #3282 §4: the agent switcher's read (`listAgentDefinitions`/`getDefaultAgentType`) — the
+    // group's write members (`spawnAgentJob` and friends) stay unused by any wire handler; they run
+    // only through `executeCommand`, same as every other command-only write.
+    ISessionAgentJobs {}
+
+/**
+ * #3282 §4c: a protocol session that ALSO answers the Project panel's reads. `Partial` (not a fourth
+ * mandatory role on {@link IProtocolSession} itself) deliberately: every existing test double and
+ * every other host that builds an `IProtocolSession` keeps type-checking unchanged, and the panel's
+ * three methods are runtime-probed (`typeof session.readProjectStatus === 'function'`) rather than
+ * assumed — `InteractiveSession` (the one production implementation) provides all three, satisfying
+ * this type with no further wiring.
+ */
+export type TProjectReadCapableSession = IProtocolSession & Partial<ISessionProjectRead>;

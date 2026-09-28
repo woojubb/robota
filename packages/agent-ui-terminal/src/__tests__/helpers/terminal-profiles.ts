@@ -1,7 +1,7 @@
 /**
- * CLI-062 — the terminal matrix, as data.
+ * The terminal matrix, as data.
  *
- * The backlog item's remaining work was a *manual* matrix ("iTerm2 + Terminal.app
+ * Checking IME cursor placement across terminals was a *manual* matrix ("iTerm2 + Terminal.app
  * ±ROBOTA_IME_CURSOR, kitty/WezTerm/Ghostty/Windows Terminal/tmux on real hardware"). This module
  * converts it into something a machine re-runs: each row is the environment handshake a terminal
  * emulator hands the program it launches, which is the ONLY channel through which the emulator's
@@ -22,7 +22,7 @@
 export type TerminalProvenance = 'measured' | 'documented';
 
 export interface ITerminalProfile {
-  /** Stable id used in test names and in the backlog matrix table. */
+  /** Stable id used to look a profile up. */
   id: string;
   /** Human label for the matrix. */
   label: string;
@@ -144,7 +144,7 @@ export function profileEnv(
   };
 }
 
-/** Matrix label used in test names and in the backlog's evidence table. */
+/** Matrix label used in test names. */
 export function cellLabel(profile: ITerminalProfile, override: string | undefined): string {
   const setting =
     override === undefined ? 'ROBOTA_IME_CURSOR unset' : `ROBOTA_IME_CURSOR=${override}`;

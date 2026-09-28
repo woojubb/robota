@@ -36,6 +36,7 @@ import type { IContextWindowState, IUserInteraction } from '@robota-sdk/agent-co
 import type {
   ICommandListEntry,
   TCommandInvocationSource,
+  TCommandSurfaceLocality,
 } from '@robota-sdk/agent-interface-command';
 import type {
   IBackgroundTaskListFilter,
@@ -88,6 +89,18 @@ export interface ICommandHostUserInteraction {
   getUserInteraction(): IUserInteraction | undefined;
 }
 
+/**
+ * Whether THIS session is running with no provider configured yet (issue #3282 §3 setup mode).
+ *
+ * Exists for exactly one command (`/provider add`, deciding hot-swap vs. restart) — never inferred
+ * from settings, because an ordinary session started from an env-default provider also has none
+ * persisted. The member is optional so a host with no concept of setup mode costs nothing and is
+ * correctly read as "not in it" (`?.() === true`), never mistaken for a required capability.
+ */
+export interface ICommandHostSetupState {
+  isSetupRequired?(): boolean;
+}
+
 /** Re-applying preset-owned configuration to the live session. */
 export interface ICommandHostPresetApplication {
   /** Apply an additive response style to the live system prompt. */
@@ -135,6 +148,12 @@ export interface ICommandHostContextReferences {
 export interface ICommandHostWorkspace {
   getCwd(): string;
   getCommandInvocationSource(): TCommandInvocationSource;
+  /**
+   * #3282 §4 part b-2: whether THIS invocation is provably on this machine. Optional so an older or
+   * narrower host still satisfies this interface; a caller that needs it treats a missing method the
+   * same as `'local'` (allow-by-default, matching the rest of the command layer).
+   */
+  getCommandSurfaceLocality?(): TCommandSurfaceLocality;
 }
 
 /** What commands and skills this host can dispatch. */
@@ -232,12 +251,13 @@ export interface ICommandHostAdapterAccess {
   getCommandHostAdapters?(): ICommandHostAdapters;
 }
 
-/** Aggregate: all 47 members remain source-compatible. Declare a role port instead of this. */
+/** Aggregate: all 48 members remain source-compatible. Declare a role port instead of this. */
 export interface ICommandHostContext
   extends
     ICommandHostSessionAccess,
     ICommandHostAgentJobs,
     ICommandHostUserInteraction,
+    ICommandHostSetupState,
     ICommandHostPresetApplication,
     ICommandHostContextWindow,
     ICommandHostContextReferences,

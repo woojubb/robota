@@ -89,9 +89,9 @@ describe('cancellation and time limits end the run, not the conversation', () =>
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     let calls = 0;
     const f = setup(
-      async (context, { signal }) => {
-        if (calls++ === 0) await untilAborted(signal);
-        return speakThenFinish(context, { signal });
+      async (context, options) => {
+        if (calls++ === 0) await untilAborted(options.signal);
+        return speakThenFinish(context, options);
       },
       { limits: { maxTurnsPerRun: 2, timeoutMs: 1_000 } },
     );
@@ -126,12 +126,12 @@ describe('cancellation and time limits end the run, not the conversation', () =>
     let entered!: () => void;
     const selecting = new Promise<void>((resolve) => (entered = resolve));
     let calls = 0;
-    const f = setup(async (context, { signal }) => {
+    const f = setup(async (context, options) => {
       if (calls++ === 0) {
         entered();
-        await untilAborted(signal);
+        await untilAborted(options.signal);
       }
-      return speakThenFinish(context, { signal });
+      return speakThenFinish(context, options);
     });
     const running = f.room.run();
     await selecting;

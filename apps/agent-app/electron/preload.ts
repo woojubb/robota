@@ -1,13 +1,14 @@
 /**
- * GUI-002 — Electron preload (runs in an isolated context). Exposes ONLY the loopback endpoint + lifecycle
- * signals to the renderer via `contextBridge` — no Node APIs leak into the GUI web app (agent-gui-web), and the endpoint
- * (which carries the auth nonce) is never placed on `window` as a plain value that page script could read
- * off a global before the bridge is set up.
+ * GUI-002 — Electron preload (runs in an isolated context). Exposes a narrow, named surface to the
+ * renderer via `contextBridge`, never a raw Node API: the loopback endpoint and lifecycle signals, the
+ * trust question/answer, and (#3282 §4d) the composer's native "Attach files" dialog and resolving a
+ * dropped/picked `File` to its real path. The endpoint (which carries the auth nonce) is never placed
+ * on `window` as a plain value that page script could read off a global before the bridge is set up.
  */
 
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 
-import type { ITrustQuestion, TSidecarState, TTrustChoice } from './sidecar.js';
+import type { IPickedFile, ITrustQuestion, TSidecarState, TTrustChoice } from './sidecar.js';
 
 const api = {
   /** Resolve the loopback WS URL (with the token) the renderer connects to. */
@@ -25,6 +26,16 @@ const api = {
     ipcRenderer.invoke('agent-gui:trust-answer', choice),
   /** Tell the main process the session is live. The daemon is the CLI's to supervise, so nothing acts on it yet. */
   signalReady: (): void => ipcRenderer.send('agent-gui:ready'),
+  /** The composer's attach button (#3282 §4d): a native multi-file dialog with real paths. */
+  pickFiles: (): Promise<IPickedFile[]> => ipcRenderer.invoke('agent-gui:pick-files'),
+  /**
+   * The real filesystem path a dropped or picked `File` represents (#3282 §4d) — empty when the
+   * object is not backed by one. A plain browser page has no equivalent; only this bridge does.
+   */
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+  /** The Project panel's Memory "Open in editor" (#3282 §4c): open a project-relative path in the OS
+   *  default app for it. */
+  openPath: (path: string): Promise<{ error?: string }> => ipcRenderer.invoke('agent-gui:open-path', path),
   /** Subscribe to lifecycle state (`starting`/`ready`/`fatal`). Returns an unsubscribe fn. */
   /** `detail` accompanies `fatal`: what the CLI said when the daemon could not be started. */
   onState: (cb: (state: TSidecarState, detail?: string) => void): (() => void) => {
@@ -32,6 +43,12 @@ const api = {
       cb(state, detail);
     ipcRenderer.on('agent-gui:state', listener);
     return () => ipcRenderer.removeListener('agent-gui:state', listener);
+  },
+  /** #3282 §4a: the App menu's "Settings…" (⌘,/Ctrl+,) asked the page to open the Settings screen. */
+  onOpenSettings: (cb: () => void): (() => void) => {
+    const listener = (): void => cb();
+    ipcRenderer.on('agent-gui:open-settings', listener);
+    return () => ipcRenderer.removeListener('agent-gui:open-settings', listener);
   },
 };
 

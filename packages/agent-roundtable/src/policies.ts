@@ -9,6 +9,7 @@ export function externalParticipant(
 export function roundRobin(): TurnSelector {
   return {
     reference: { id: 'roundtable/round-robin', version: '1' },
+    modelCalls: 'none',
     select: ({ participants, turns }) => {
       const last = turns.at(-1)?.participantId;
       const next =

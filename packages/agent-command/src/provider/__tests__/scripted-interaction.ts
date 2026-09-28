@@ -8,7 +8,15 @@ import type { IActionRequest, IUserInteraction, TActionResponse } from '@robota-
  * the rendered action shape) and returns the next scripted answer; once the script is exhausted it
  * returns `{ type: 'cancelled' }`, mirroring a user dismissing the prompt.
  */
-export function scriptedContext(answers: readonly TActionResponse[]): {
+export function scriptedContext(
+  answers: readonly TActionResponse[],
+  /**
+   * #3282 §3: whether THIS session is running with no provider configured yet — `/provider add`
+   * reads it (never settings) to decide hot-swap vs. restart. Defaults to `false`, an ordinary
+   * session, matching every test written before setup mode existed.
+   */
+  isSetupRequired = false,
+): {
   context: ReturnType<typeof createTestCommandHost>;
   requests: IActionRequest[];
 } {
@@ -25,6 +33,8 @@ export function scriptedContext(answers: readonly TActionResponse[]): {
   // ARCH-029: the double answers "no capability of that kind" for everything else, so this fixture
   // states exactly the one capability it scripts. The double cast it replaced —
   // `as Partial<…> as ICommandHostContext` — asserted conformance twice over one member.
-  const context = createTestCommandHost({ overrides: { getUserInteraction: () => ui } });
+  const context = createTestCommandHost({
+    overrides: { getUserInteraction: () => ui, isSetupRequired: () => isSetupRequired },
+  });
   return { context, requests };
 }

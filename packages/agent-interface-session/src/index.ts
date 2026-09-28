@@ -20,15 +20,33 @@ export type {
   ISessionBinder,
   ISessionBinding,
   ISessionChangeRefusal,
+  ISessionDeleteRefusal,
   TSessionBindingRole,
   TSessionChangeRefusalCode,
+  TSessionDeleteRefusalCode,
 } from './session-binding-contracts.js';
-export { isSessionChangeRefusal, SESSION_CHANGE_REFUSAL_CODES } from './session-binding-contracts.js';
+export {
+  isSessionChangeRefusal,
+  isSessionDeleteRefusal,
+  SESSION_CHANGE_REFUSAL_CODES,
+  SESSION_DELETE_REFUSAL_CODES,
+} from './session-binding-contracts.js';
 export type {
   ISessionLoopState,
   TSessionLoopPhase,
   TWaitingLoopStopOutcome,
 } from './session-loop-contracts.js';
+// #3282 §4c — the Project panel's read contracts (git status, one file's diff, project memory). Not
+// part of `IInteractiveSession`'s composed aggregate below (see `ISessionProjectRead`'s own doc
+// comment).
+export type {
+  IProjectStatusFile,
+  TProjectDiffRead,
+  TProjectFileStatus,
+  TProjectMemoryRead,
+  TProjectStatusRead,
+} from './session-project-contracts.js';
+export type { ISessionProjectRead } from './session-capability-contracts.js';
 // ── Interactive-session contracts ────────────────────────────
 export type {
   IInteractiveSession,
@@ -40,6 +58,9 @@ export type {
   ISessionCommands,
   ISessionStatusRead,
   ISessionStatusSnapshot,
+  IModelCatalogEntry,
+  IModelListGroup,
+  IModelListSnapshot,
   ISessionRuntimeTools,
   ISessionConversationRead,
   ISessionDriverAttribution,
@@ -63,6 +84,7 @@ export type {
   TTurnNotRunReason,
   IToolState,
   IDiffLine,
+  IHistoryDisplaySegment,
   IToolSummary,
   TPermissionResultValue,
   TInteractivePermissionHandler,
@@ -148,3 +170,21 @@ export type {
   TContextReferenceStatus,
 } from './event-contracts.js';
 export type { IPlanApprovalEvent } from './session-event-map.js';
+// ── Settings-screen contracts (#3282 §4a) ────────────────────
+export type {
+  ISettingsChoice,
+  ISettingsLanguageSection,
+  ISettingsMcpSection,
+  ISettingsMcpServer,
+  ISettingsOutputStyleSection,
+  ISettingsPermissionModeSection,
+  ISettingsPermissionRule,
+  ISettingsPlugin,
+  ISettingsPluginsSection,
+  ISettingsPresetSection,
+  ISettingsProviderProfile,
+  ISettingsProvidersSection,
+  ISettingsSandboxSection,
+  ISettingsSnapshot,
+  TSettingsPatch,
+} from './settings-contracts.js';

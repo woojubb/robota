@@ -45,9 +45,23 @@ export async function processDocument(filePath: string): Promise<IDocumentResult
 
   const content = await readFile(filePath, 'utf-8');
 
+  // The document's text goes into the prompt, so the agent gets no built-in tool that runs commands,
+  // reads or changes files, reaches the network or sends files: it only answers about the text.
   const query = createQuery({
     provider: new AnthropicProvider({ apiKey }),
-    permissionMode: 'bypassPermissions',
+    deniedTools: [
+      'Shell',
+      'Bash',
+      'BackgroundProcess',
+      'Read',
+      'Write',
+      'Edit',
+      'Glob',
+      'Grep',
+      'WebFetch',
+      'WebSearch',
+      'peer_send_file',
+    ],
     maxTurns: 1,
   });
 

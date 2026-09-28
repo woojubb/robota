@@ -678,11 +678,13 @@ describe("the ask prompt's free-text field", () => {
 describe('PermissionPrompt shows what the tool was asked to do', () => {
   afterEach(cleanup);
 
-  it('shows the command line and every other argument beside it', () => {
+  it('for a tool without its own preview, shows the command line and every other argument beside it', () => {
+    // #3288: Bash and Edit/Write get a dedicated preview (see below); anything else still falls
+    // back to this generic "command line, then every other arg" dump.
     const prompt = {
       kind: 'permission',
       id: 'p1',
-      toolName: 'Bash',
+      toolName: 'CustomShellTool',
       toolArgs: {
         command: 'pnpm test --filter agent-session',
         workingDirectory: '/srv/app',
@@ -725,6 +727,72 @@ describe('PermissionPrompt shows what the tool was asked to do', () => {
     expect(screen.getByRole('button', { name: 'Deny' }).getAttribute('aria-keyshortcuts')).toBe(
       '2',
     );
+  });
+
+  it('#3288: an Edit request with a diff preview shows "Edit <path>" and the diff, not raw args', () => {
+    const prompt = {
+      kind: 'permission',
+      id: 'p4',
+      toolName: 'Edit',
+      toolArgs: { file_path: 'src/task-title.ts', old_string: 'a', new_string: 'b' },
+      diffFile: 'src/task-title.ts',
+      diffLines: [
+        { type: 'remove', text: 'a', lineNumber: 1 },
+        { type: 'add', text: 'b', lineNumber: 1 },
+      ],
+    } as TPendingPrompt;
+    render(<Surface prompts={[prompt]} onAnswerPermission={vi.fn()} />);
+
+    expect(screen.getByText('Edit')).toBeTruthy();
+    expect(screen.getByText('src/task-title.ts')).toBeTruthy();
+    expect(screen.getByText(/- a/)).toBeTruthy();
+    expect(screen.getByText(/\+ b/)).toBeTruthy();
+    // The raw args are gone — no "Allow Edit to run?" line, no dumped old_string/new_string keys.
+    expect(screen.queryByText(/to run\?/)).toBeNull();
+    expect(screen.queryByText('old_string:')).toBeNull();
+  });
+
+  it('#3288: a Write request with a diff preview shows the same diff view', () => {
+    const prompt = {
+      kind: 'permission',
+      id: 'p5',
+      toolName: 'Write',
+      toolArgs: { file_path: 'src/new-file.ts', content: 'hello' },
+      diffFile: 'src/new-file.ts',
+      diffLines: [{ type: 'add', text: 'hello', lineNumber: 1 }],
+    } as TPendingPrompt;
+    render(<Surface prompts={[prompt]} onAnswerPermission={vi.fn()} />);
+
+    expect(screen.getByText('Write')).toBeTruthy();
+    expect(screen.getByText('src/new-file.ts')).toBeTruthy();
+    expect(screen.getByText(/\+ hello/)).toBeTruthy();
+  });
+
+  it('#3288: a Shell request shows the command, with no cwd line when it matches the workspace', () => {
+    const prompt = {
+      kind: 'permission',
+      id: 'p6',
+      toolName: 'Bash',
+      toolArgs: { command: 'pnpm test' },
+    } as TPendingPrompt;
+    render(<Surface prompts={[prompt]} onAnswerPermission={vi.fn()} />);
+
+    expect(screen.getByText('pnpm test')).toBeTruthy();
+    expect(screen.queryByText(/^in /)).toBeNull();
+  });
+
+  it('#3288: a Shell request notes its cwd only when it differs from the workspace', () => {
+    const prompt = {
+      kind: 'permission',
+      id: 'p7',
+      toolName: 'Bash',
+      toolArgs: { command: 'pnpm test', workingDirectory: 'sub' },
+      cwd: '/workspace/sub',
+    } as TPendingPrompt;
+    render(<Surface prompts={[prompt]} onAnswerPermission={vi.fn()} />);
+
+    expect(screen.getByText('pnpm test')).toBeTruthy();
+    expect(screen.getByText('/workspace/sub')).toBeTruthy();
   });
 });
 
@@ -799,7 +867,7 @@ describe('PermissionPrompt names a different kind of surface, never a raw id (#3
     expect(screen.queryByText(/session-abc123/)).toBeNull();
   });
 
-  it('says "automatic" for the agent\'s own wake-up, not "from automatic"', () => {
+  it('says "Automatic — loop" (#3288 §1) for the agent\'s own wake-up, not "from automatic"', () => {
     render(
       <PermissionPrompt
         prompts={[withRequester('agent')]}
@@ -807,7 +875,7 @@ describe('PermissionPrompt names a different kind of surface, never a raw id (#3
         onAnswerAsk={vi.fn()}
       />,
     );
-    expect(screen.getByText('automatic')).toBeTruthy();
+    expect(screen.getByText('Automatic — loop')).toBeTruthy();
     expect(screen.queryByText(/from automatic/)).toBeNull();
   });
 });
@@ -835,5 +903,199 @@ describe('issue #3288 §1: a background agent names itself on its own permission
 
     expect(dialog.textContent).toContain('to run?');
     expect(dialog.textContent).not.toContain('Background agent');
+  });
+
+  it('#3288 review MUST 2: still names the background agent when the request also carries a diff', () => {
+    const prompt = {
+      kind: 'permission',
+      id: 'p6',
+      toolName: 'Edit',
+      toolArgs: { file_path: 'src/task-title.ts', old_string: 'a', new_string: 'b' },
+      requester: { kind: 'background-agent', label: 'general-purpose', taskId: 'agent_1' },
+      diffFile: 'src/task-title.ts',
+      diffLines: [
+        { type: 'remove', text: 'a', lineNumber: 1 },
+        { type: 'add', text: 'b', lineNumber: 1 },
+      ],
+    } as TPendingPrompt;
+    render(<Surface prompts={[prompt]} onAnswerPermission={vi.fn()} />);
+
+    expect(screen.getByText(/Background agent/)).toBeTruthy();
+    expect(screen.getByText('general-purpose')).toBeTruthy();
+    expect(screen.getByText(/- a/)).toBeTruthy();
+    expect(screen.getByText(/\+ b/)).toBeTruthy();
+  });
+});
+
+/**
+ * #3282 §2 (part 2) — the provider profile action menu ("Manage providers…" → a profile → its
+ * actions): Switch/Edit/Test/Duplicate keep the ordinary digit-shortcut grid, but Delete — the
+ * audited bug ("Delete looks the same as Switch, answers to the key 5") — is separated, destructive-
+ * styled, and answers to no digit at all.
+ */
+describe('#3282 §2: the provider profile action menu separates Delete', () => {
+  afterEach(cleanup);
+
+  function providerProfileActionAsk(): TPendingPrompt {
+    return {
+      kind: 'ask',
+      id: 'ppa-1',
+      request: {
+        id: 'provider-profile-action',
+        title: 'Provider profile: anthropic',
+        options: [
+          { value: 'switch', label: 'Switch' },
+          { value: 'edit', label: 'Edit' },
+          { value: 'test', label: 'Test' },
+          { value: 'duplicate', label: 'Duplicate' },
+          { value: 'delete', label: 'Delete' },
+        ],
+      },
+    } as unknown as TPendingPrompt;
+  }
+
+  it('gives Switch/Edit/Test/Duplicate a digit shortcut 1-4, and Delete none at all', () => {
+    render(
+      <Surface prompts={[providerProfileActionAsk()]} onAnswerPermission={vi.fn()} onAnswerAsk={vi.fn()} />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Switch' }).getAttribute('aria-keyshortcuts')).toBe('1');
+    expect(screen.getByRole('button', { name: 'Duplicate' }).getAttribute('aria-keyshortcuts')).toBe('4');
+    expect(screen.getByRole('button', { name: 'Delete' }).getAttribute('aria-keyshortcuts')).toBeNull();
+  });
+
+  it('styles Delete as destructive, distinct from the other actions', () => {
+    render(
+      <Surface prompts={[providerProfileActionAsk()]} onAnswerPermission={vi.fn()} onAnswerAsk={vi.fn()} />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Delete' }).className).toContain('destructive');
+    expect(screen.getByRole('button', { name: 'Switch' }).className).not.toContain('destructive');
+  });
+
+  it('pressing "5" (Delete\'s old, audited position) does nothing', () => {
+    vi.useFakeTimers();
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface
+        prompts={[providerProfileActionAsk()]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={onAnswerAsk}
+      />,
+    );
+    const dialog = screen.getByRole('dialog', { name: 'pending question' });
+    act(() => {
+      vi.advanceTimersByTime(PROMPT_ARM_DELAY_MS);
+    });
+
+    fireEvent.keyDown(dialog, { key: '5' });
+
+    expect(onAnswerAsk).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('clicking Delete still answers with it (the confirmation itself is a separate, existing ask)', () => {
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface
+        prompts={[providerProfileActionAsk()]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={onAnswerAsk}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }), { detail: 1 });
+
+    expect(onAnswerAsk).toHaveBeenCalledWith('ppa-1', { type: 'answer', values: ['delete'] });
+  });
+
+  it('an unrelated ask (e.g. /language) is unaffected: no option is separated out', () => {
+    const ask = {
+      kind: 'ask',
+      id: 'lang-1',
+      request: {
+        id: 'language',
+        title: 'Select language',
+        options: [
+          { value: 'ko', label: 'ko' },
+          { value: 'en', label: 'en' },
+        ],
+      },
+    } as unknown as TPendingPrompt;
+    render(<Surface prompts={[ask]} onAnswerPermission={vi.fn()} onAnswerAsk={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: 'ko' }).getAttribute('aria-keyshortcuts')).toBe('1');
+    expect(screen.getByRole('button', { name: 'en' }).getAttribute('aria-keyshortcuts')).toBe('2');
+  });
+});
+
+/**
+ * #3282 §2 (part 2) — profile deletion is confirmed on the shared `ConfirmDialog` (#3331), now that
+ * it exists, instead of the generic Yes/No ask grid: a destructive-styled "Delete" button, Cancel
+ * focused by default, and no accidental backdrop-click dismissal.
+ */
+describe('#3282 §2: profile delete is confirmed on ConfirmDialog', () => {
+  afterEach(cleanup);
+
+  function providerDeleteConfirmAsk(): TPendingPrompt {
+    return {
+      kind: 'ask',
+      id: 'confirm-1',
+      request: {
+        id: 'provider-delete',
+        title: 'Delete profile "anthropic"?',
+        options: [
+          { value: 'yes', label: 'Yes' },
+          { value: 'no', label: 'No' },
+        ],
+      },
+    } as unknown as TPendingPrompt;
+  }
+
+  it('renders as a ConfirmDialog with a destructive Delete button, not the generic ask grid', () => {
+    render(
+      <Surface
+        prompts={[providerDeleteConfirmAsk()]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('alertdialog', { name: 'Delete profile "anthropic"?' })).toBeTruthy();
+    const deleteButton = screen.getByRole('button', { name: 'Delete' });
+    expect(deleteButton.className).toContain('destructive');
+    // Not the old generic Yes/No grid.
+    expect(screen.queryByRole('button', { name: 'Yes' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'No' })).toBeNull();
+  });
+
+  it('Cancel is present and answers the ask as cancelled', () => {
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface
+        prompts={[providerDeleteConfirmAsk()]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={onAnswerAsk}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(onAnswerAsk).toHaveBeenCalledWith('confirm-1', { type: 'cancelled' });
+  });
+
+  it('confirming Delete answers the ask with the same "yes" value the server-side confirmAction expects', () => {
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface
+        prompts={[providerDeleteConfirmAsk()]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={onAnswerAsk}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    expect(onAnswerAsk).toHaveBeenCalledWith('confirm-1', { type: 'answer', values: ['yes'] });
   });
 });

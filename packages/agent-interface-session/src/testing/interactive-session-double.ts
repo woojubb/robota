@@ -115,6 +115,7 @@ export function createTestInteractiveSession(
     getPendingPrompt: () => null,
     getMessages: () => [],
     getFullHistory: () => [],
+    getMessagesDisplay: () => [],
     getContextState: () => ({ ...EMPTY_CONTEXT_STATE }),
     getSession: () => ({
       // DISTINCT per double, because a session id IDENTIFIES a session. A fixed literal made every
@@ -140,7 +141,10 @@ export function createTestInteractiveSession(
       effort: 'auto',
       context: { ...EMPTY_CONTEXT_STATE },
       goal: null,
+      workspace: { name: 'workspace', path: '/workspace' },
     }),
+    // #3282 §2: no configured profiles by default — a case that cares builds its own groups.
+    listModels: () => ({ groups: [], currentModel: 'test-model' }),
     listRuntimeTools: async () => [],
     invokeRuntimeTool: async (name) => ({
       success: false,
@@ -174,6 +178,8 @@ export function createTestInteractiveSession(
     // No self-paced loop is waiting in a fresh double.
     stopWaitingSelfPacedLoop: () => Promise.resolve({ kind: 'none' as const }),
     listAgentDefinitions: () => [],
+    getDefaultAgentType: () => 'general-purpose',
+    setDefaultAgentType: () => {},
     listAgentJobs: () => [],
     spawnAgentJob: () =>
       Promise.resolve({

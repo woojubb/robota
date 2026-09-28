@@ -26,9 +26,8 @@
  *
  * DEFENCE IN DEPTH, not a boundary. Prompt-level framing reduces the chance that a recalled line is
  * followed as an instruction; it does not make that impossible, and it must not be cited as though it
- * did. The boundary-grade controls are elsewhere and are tracked separately in the SEC-007 backlog
- * item: a model-invocable WRITE that is auto-approved (`requiresPermission: false`) executes in
- * `plan` mode, where `Write` and `Edit` are hard-denied — an inconsistency this text cannot fix.
+ * did. The boundary-grade controls are elsewhere: among them, `/memory add` from the model is
+ * refused in `plan` mode, where `Write` and `Edit` are hard-denied too.
  */
 
 /** Prefix for the always-loaded startup memory index (system prompt, priority 25). */

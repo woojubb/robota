@@ -4,6 +4,23 @@ import { App } from '@slack/bolt';
 import { createAgentRuntime, createNodeHostSessionStore } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
+// Anyone who can message this bot talks to the agent, so its sessions have none of the built-in tools
+// that run commands, read or change files, reach the network or send files. Give it your own tools
+// with `additionalTools` and approve them by name with `allowedTools`.
+const DENIED_TOOLS = [
+  'Shell',
+  'Bash',
+  'BackgroundProcess',
+  'Read',
+  'Write',
+  'Edit',
+  'Glob',
+  'Grep',
+  'WebFetch',
+  'WebSearch',
+  'peer_send_file',
+];
+
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 const SLACK_APP_TOKEN = process.env.SLACK_APP_TOKEN;
 const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET;
@@ -28,9 +45,7 @@ const runtime = createAgentRuntime({
 
 const threadSessions = new Map<string, string>();
 
-app.event('app_mention', async ({ event, client, ack }) => {
-  await ack?.();
-
+app.event('app_mention', async ({ event, client }) => {
   const threadKey = event.thread_ts ?? event.ts;
   const channelId = event.channel;
   const prompt = (event as { text: string }).text.replace(/<@[A-Z0-9]+>/g, '').trim();
@@ -48,8 +63,8 @@ app.event('app_mention', async ({ event, client, ack }) => {
   }
 
   const session = runtime.createSession({
-    permissionMode: 'bypassPermissions',
     bare: true,
+    deniedTools: DENIED_TOOLS,
     resumeSessionId: threadSessions.get(threadKey),
   });
 
@@ -71,10 +86,8 @@ app.event('app_mention', async ({ event, client, ack }) => {
   });
 
   session.on('complete', async (result) => {
-    const sessionId = (result as unknown as { sessionId?: string }).sessionId;
-    if (sessionId) {
-      threadSessions.set(threadKey, sessionId);
-    }
+    // Remember this thread's session so the next mention in it resumes the conversation.
+    threadSessions.set(threadKey, session.sessionId);
     if (statusTs && result.response) {
       try {
         await client.chat.update({

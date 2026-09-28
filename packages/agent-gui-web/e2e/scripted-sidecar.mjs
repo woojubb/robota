@@ -11,7 +11,8 @@
  * A fake session directory lists a few stored sessions and switches between them; a switch while a
  * scripted turn is still running ("stay busy" until "all done") is refused with the host's reason,
  * which the transport answers as `session_change_failed`. Its rows say which sessions are live and
- * how many clients are on each, as a daemon that keeps several sessions live does.
+ * how many clients are on each, as a daemon that keeps several sessions live does. It also renames
+ * and deletes a stored session (#3289 §1), and its status snapshot carries a workspace folder.
  *
  * Run as `daemon start --json` (how the desktop app attaches) it plays the CLI's daemon starter instead: it
  * reuses the daemon recorded in `$ROBOTA_E2E_DAEMON_STATE` while that process lives, or starts itself
@@ -33,8 +34,10 @@ import { randomBytes } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { connect, createServer } from 'node:net';
+import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { AuthenticationError } from '@robota-sdk/agent-core';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
 
 
@@ -162,6 +165,10 @@ if (command === 'trust status --json' || command === 'trust --yes') trust(comman
 
 const token = process.env.ROBOTA_WS_TOKEN;
 const port = Number.parseInt(process.env.ROBOTA_WS_PORT ?? '0', 10);
+// #3282 §4d: the composer resolves a picked/dropped file's path against `getStatusSnapshot().workspace.path`.
+// A real absolute directory only when a test needs a real on-disk file to attach; the placeholder
+// otherwise, matching the fake `cwd` the session-directory listing already uses below.
+const workspaceCwd = process.env.ROBOTA_E2E_WORKSPACE_CWD ?? '/scripted/workspace';
 if (!token || !port) {
   process.stderr.write(line('scripted-sidecar: ROBOTA_WS_TOKEN + ROBOTA_WS_PORT required'));
   process.exit(1);
@@ -194,16 +201,109 @@ const storedSessions = [
 ];
 const unreadableSessionIds = ['damaged-session'];
 
+/**
+ * #3288 §1: the Agents panel's two fixture entries, appearing only once "show background work" is
+ * sent (so every other scenario's session starts, and stays, with none — never interfering with an
+ * unrelated selector elsewhere in this file, e.g. the composer's own "Stop" button). One is an
+ * ordinary background task; the other is a `/loop`-managed entry (carries `loopId`), so the e2e can
+ * exercise BOTH Stop routes — `cancel-background-task` and `/loop stop <id>`.
+ */
+function backgroundTaskEntry() {
+  return {
+    id: 'task:e2e-task-1',
+    sourceId: 'e2e-task-1',
+    kind: 'background_task',
+    origin: { kind: 'tool_call', sessionId: 'scripted-session' },
+    taskKind: 'agent',
+    status: 'running',
+    title: 'Reviewing the auth module',
+    // Deliberately distinct from the transcript records below: the detail sheet shows this AND
+    // the transcript together, and a real host would never hand both the same text.
+    headline: { kind: 'activity', text: 'Checking the auth module for issues' },
+    unread: false,
+    attention: 'none',
+    visibility: 'default',
+    updatedAt: new Date().toISOString(),
+    controls: ['select', 'cancel'],
+    state: 'working',
+  };
+}
+function loopEntry() {
+  return {
+    id: 'task:loop-e2e-1',
+    sourceId: 'loop-e2e-1',
+    kind: 'background_task',
+    origin: { kind: 'slash_command', sessionId: 'scripted-session', commandName: 'loop' },
+    taskKind: 'scheduled',
+    status: 'sleeping',
+    title: 'Loop: check the deploy',
+    // Deliberately distinct from the transcript records below (see the task entry's own note).
+    headline: { kind: 'activity', text: 'Waiting to check the deploy again' },
+    unread: false,
+    attention: 'none',
+    visibility: 'default',
+    updatedAt: new Date().toISOString(),
+    controls: ['select', 'cancel'],
+    state: 'working',
+    loopId: 'loop-e2e-1',
+  };
+}
+const executionDetailRecords = {
+  'task:e2e-task-1': [
+    { id: 'r1', kind: 'message', text: 'Reviewing packages/auth/login.ts' },
+    { id: 'r2', kind: 'tool_activity', text: 'Read login.ts' },
+  ],
+  'task:loop-e2e-1': [{ id: 'l1', kind: 'message', text: 'check the deploy' }],
+};
+
+/** #3282 §2 (part 2): the two models the status row's model control switches between. */
+const SCRIPTED_MODELS = [
+  { id: 'scripted-model', label: 'Scripted Model' },
+  { id: 'scripted-model-2', label: 'Scripted Model 2' },
+];
+
 /** A scripted IInteractiveSession: EventEmitter for on/off/emit, deterministic submit + permission. */
+// #3282 §4 part b-3: the agent switcher's roster — name, one-line description, plain-words location.
+const scriptedAgentDefinitions = [
+  { name: 'general-purpose', description: 'General-purpose task execution agent.', definedIn: 'Built-in' },
+  { name: 'Explore', description: 'Read-only codebase exploration agent.', definedIn: 'Built-in' },
+];
+
 class ScriptedSession extends EventEmitter {
   #pendingPermission = null;
   #pendingAsk = null;
   #mode = 'default';
+  // #3282 §2 (part 2): the model the status row's model control switches between.
+  #model = 'scripted-model';
   #current = storedSessions[0];
   #busy = false;
   #setupRequired = process.env.ROBOTA_E2E_SETUP_REQUIRED === '1';
   #pendingSetupAsk = null;
   #resolveSetupCommand = null;
+  #executionWorkspaceEntries = [];
+  // #3282 §4 part b-3: the agent switcher's current selection — `/agent <name>` (bare) sets it.
+  #defaultAgentType = 'general-purpose';
+  // #3282 §4 part b-3: the Agents panel's Scheduled group — one recurring schedule, cancellable.
+  #schedules = [
+    {
+      id: 'sched_1',
+      kind: 'scheduled',
+      label: 'Scheduled: check the nightly build',
+      status: 'sleeping',
+      mode: 'background',
+      parentSessionId: this.currentId,
+      depth: 0,
+      cwd: workspaceCwd,
+      updatedAt: new Date().toISOString(),
+      unread: false,
+      nextFireAt: new Date(Date.now() + 20 * 60 * 60 * 1000).toISOString(),
+      schedule: { cronExpression: '0 9 * * 1-5', agentInstruction: 'check the nightly build' },
+    },
+  ];
+  // #3282 §4 part b-3: the current goal (`/goal`) — null until a scripted turn sets one (a submit
+  // containing "set a goal"), so every OTHER e2e scenario sees exactly what it saw before this
+  // feature — no goal bar/row unless the scenario asks for one. Cancel goal runs `/goal cancel`.
+  #goal = null;
 
   get currentId() {
     return this.#current.id;
@@ -219,7 +319,17 @@ class ScriptedSession extends EventEmitter {
   }
   #record(role, content) {
     this.#current.messages.push({ role, content });
+    // #3288 §2: `display` mirrors what the REAL server's `getMessagesDisplay()` projects from stored
+    // history — a text segment per role-run, plus one 'tool' segment per finished call (recorded by
+    // `#recordToolEnd`, below, at the same point a real `tool_end` would be persisted). Kept beside
+    // `messages`, never derived from it — `messages` alone cannot tell a Read from an Edit.
+    this.#current.display ??= [];
+    if (content) this.#current.display.push({ type: 'text', role, content });
     this.#current.updatedAt = new Date().toISOString();
+  }
+  #recordToolEnd(state) {
+    this.#current.display ??= [];
+    this.#current.display.push({ type: 'tool', tool: { ...state, isRunning: false } });
   }
   #complete(content) {
     this.#record('assistant', content);
@@ -229,8 +339,37 @@ class ScriptedSession extends EventEmitter {
   getMessages() {
     return this.#current.messages.map((message) => ({ ...message }));
   }
+  /** #3288 §2: a reload/reconnect replay renders THIS — the same projection the real server sends. */
+  getMessagesDisplay() {
+    if (this.#current.display) {
+      return this.#current.display.map((segment) =>
+        segment.type === 'tool' ? { type: 'tool', tool: { ...segment.tool } } : { ...segment },
+      );
+    }
+    // A session whose transcript is fixture SEED DATA (module-scope `storedSessions`, never touched
+    // by `#record`/`#recordToolEnd`) has no `display` array yet. None of the seed data includes a
+    // tool call, so a straight text-segment map is exact, not an approximation — and avoids keeping
+    // two parallel copies of the same seed content in sync by hand.
+    return this.#current.messages.map((m) => ({ type: 'text', role: m.role, content: m.content }));
+  }
   getExecutionWorkspaceSnapshot() {
-    return { entries: [] };
+    return {
+      sessionId: this.#current.id,
+      updatedAt: new Date().toISOString(),
+      entries: this.#executionWorkspaceEntries,
+    };
+  }
+  #emitExecutionWorkspaceUpdated() {
+    this.emit('execution_workspace_event', {
+      type: 'execution_workspace_updated',
+      cause: 'background_task',
+      snapshot: this.getExecutionWorkspaceSnapshot(),
+    });
+  }
+  readExecutionWorkspaceDetail(entryId) {
+    const records = executionDetailRecords[entryId];
+    if (!records) return Promise.reject(new Error(`Unknown execution entry: ${entryId}`));
+    return Promise.resolve({ entryId, records });
   }
   getContextState() {
     return { usedPercentage: 0, usedTokens: 0, maxTokens: 200000 };
@@ -264,6 +403,19 @@ class ScriptedSession extends EventEmitter {
     this.emit('user_message', input);
     this.#record('user', String(input));
     const lower = String(input).toLowerCase();
+    // #3288 §1: populate the Agents panel's two fixture entries (a background task and a loop) —
+    // only on this explicit trigger, so every other scenario's session keeps none, ever.
+    if (lower.includes('show background work')) {
+      this.#executionWorkspaceEntries = [backgroundTaskEntry(), loopEntry()];
+      this.#emitExecutionWorkspaceUpdated();
+      await tick();
+      this.emit('thinking', true);
+      this.emit('text_delta', 'Started background work.');
+      await tick();
+      this.emit('thinking', false);
+      this.#complete('Started background work.');
+      return;
+    }
     if (lower.includes('stay busy')) {
       // A turn that keeps running until "all done" — a switch meanwhile is refused.
       this.#busy = true;
@@ -277,6 +429,26 @@ class ScriptedSession extends EventEmitter {
       await tick();
       this.emit('thinking', false);
       this.#complete('Working on it... finished.');
+      return;
+    }
+    if (lower.includes('set a goal')) {
+      // #3282 §4 part b-3: puts an active goal in `getStatusSnapshot()` — the GUI's own `get-status`
+      // refresh after this turn completes is what the Agents panel's Goal row picks it up from.
+      this.#goal = {
+        id: 'goal_1',
+        objective: 'Land the release notes',
+        status: 'active',
+        iterations: 2,
+        maxIterations: 25,
+        startedAt: new Date().toISOString(),
+        progress: [],
+      };
+      await tick();
+      this.emit('thinking', true);
+      this.emit('text_delta', 'Goal set — pursuing autonomously.');
+      await tick();
+      this.emit('thinking', false);
+      this.#complete('Goal set — pursuing autonomously.');
       return;
     }
     if (String(input).toLowerCase().includes('permission')) {
@@ -304,30 +476,138 @@ class ScriptedSession extends EventEmitter {
       });
       return;
     }
+    if (lower.includes('long reply')) {
+      // #3289 §2 — many chunks over real time, long enough to scroll several screens: the e2e wheel-
+      // scrolls up mid-stream and checks the view stays put, then uses "Jump to latest". Kept short
+      // per paragraph and to a bounded count on purpose: `AgentMarkdown` re-parses every settled
+      // message on each later render, so a needlessly large one here would slow down every scenario
+      // that follows it, not just this one.
+      this.#busy = true;
+      await tick();
+      this.emit('thinking', true);
+      let acc = '';
+      for (let i = 1; i <= 20; i += 1) {
+        const chunk = `Paragraph ${i} of the long reply, on its own line so there is real distance to scroll.\n\n`;
+        acc += chunk;
+        this.emit('text_delta', chunk);
+        await tick(60);
+      }
+      this.#busy = false;
+      this.emit('thinking', false);
+      this.#complete(acc);
+      return;
+    }
+    if (lower.includes('show code')) {
+      // #3289 §2 — a fenced code block, for the copy-code e2e.
+      await tick();
+      this.emit('thinking', true);
+      const code = ['function greet(name) {', "  return `Hello, ${name}!`;", '}'].join('\n');
+      const reply = ['Here you go:', '', '```js', code, '```'].join('\n');
+      this.emit('text_delta', reply);
+      await tick();
+      this.emit('thinking', false);
+      this.#complete(reply);
+      return;
+    }
     if (String(input).toLowerCase().includes('read')) {
       await tick();
       this.emit('tool_start', { toolName: 'Read', firstArg: 'src/a.ts', isRunning: true });
       await tick();
-      this.emit('tool_end', { toolName: 'Read', firstArg: 'src/a.ts', isRunning: false });
+      const readEnd = { toolName: 'Read', firstArg: 'src/a.ts', isRunning: false };
+      this.emit('tool_end', readEnd);
+      this.#recordToolEnd(readEnd);
       this.emit('text_delta', 'Read the file.');
       await tick();
       this.#complete('Read the file.');
       return;
     }
+    // #3288: an Edit call carries a server-built diff, and a Shell call carries its output + exit
+    // status — the e2e drives both through to the GUI's expandable tool rows.
+    if (String(input).toLowerCase().includes('edit')) {
+      await tick();
+      this.emit('tool_start', {
+        toolName: 'Edit',
+        firstArg: '/workspace/src/task-title.ts',
+        isRunning: true,
+        executionId: 'exec-edit-1',
+        // The real server sets `displayPath` at tool_start (it's a start-time argument, resolved
+        // relative to cwd before execution) — never re-set at tool_end.
+        displayPath: 'src/task-title.ts',
+      });
+      await tick();
+      const editEnd = {
+        toolName: 'Edit',
+        firstArg: '/workspace/src/task-title.ts',
+        isRunning: false,
+        result: 'success',
+        executionId: 'exec-edit-1',
+        diffFile: 'src/task-title.ts',
+        diffLines: [
+          { type: 'hunk', text: '@@ -1,2 +1,2 @@', lineNumber: 1 },
+          { type: 'remove', text: "const title = 'old';", lineNumber: 1 },
+          { type: 'add', text: "const title = 'new';", lineNumber: 1 },
+        ],
+      };
+      this.emit('tool_end', editEnd);
+      // #3288 §2: the LIVE `tool_end` never repeats `displayPath` (see the `tool_start` comment
+      // above — real servers set it only once, at start), but a REPLAYED row has no earlier
+      // `tool_start` frame to have kept it from — the real projector (`interactive-session-history-
+      // projection.ts`) recomputes it fresh from the call's own `file_path` argument and the
+      // session's cwd, every time. This fixture has no such argument/cwd machinery, so it captures
+      // the SAME value here instead, for the one thing `#recordToolEnd` needs it to survive.
+      this.#recordToolEnd({ ...editEnd, displayPath: 'src/task-title.ts' });
+      this.emit('text_delta', 'Edited the title.');
+      await tick();
+      this.#complete('Edited the title.');
+      return;
+    }
+    if (String(input).toLowerCase().includes('run tests')) {
+      await tick();
+      this.emit('tool_start', {
+        toolName: 'Bash',
+        firstArg: 'pnpm test',
+        isRunning: true,
+        executionId: 'exec-shell-1',
+      });
+      await tick();
+      const shellEnd = {
+        toolName: 'Bash',
+        firstArg: 'pnpm test',
+        isRunning: false,
+        result: 'success',
+        executionId: 'exec-shell-1',
+        toolResultData: JSON.stringify({
+          success: true,
+          output: 'Test Files  1 passed (1)\nTests  3 passed (3)',
+          exitCode: 0,
+        }),
+      };
+      this.emit('tool_end', shellEnd);
+      this.#recordToolEnd(shellEnd);
+      this.emit('text_delta', 'Tests passed.');
+      await tick();
+      this.#complete('Tests passed.');
+      return;
+    }
     if (String(input).toLowerCase().includes('fail')) {
+      // #3289 §3: a real provider failure (an AuthenticationError, same as the built-in providers
+      // now throw), not a bare Error — the GUI is expected to say what happened in plain words.
       await tick();
       this.emit('thinking', true);
       this.emit('text_delta', 'Partial reply before failure.');
       await tick();
-      this.emit('error', new Error('Scripted provider failure'));
+      this.emit('error', new AuthenticationError('Scripted provider failure: invalid API key', 'anthropic'));
       return;
     }
     await tick();
     this.emit('thinking', true);
-    this.emit('text_delta', 'Hello from the scripted agent.');
+    // #3282 §2 (part 2): names the model that answered, so an e2e that switches models via the
+    // status row's model control can confirm the NEXT reply actually used the new one.
+    const reply = `Hello from the scripted agent. (model: ${this.#model})`;
+    this.emit('text_delta', reply);
     await tick();
     this.emit('thinking', false);
-    this.#complete('Hello from the scripted agent.');
+    this.#complete(reply);
   }
 
   resolvePermission(id, result) {
@@ -388,13 +668,30 @@ class ScriptedSession extends EventEmitter {
         });
       });
     }
-    if (name === 'help') {
+    if (name === 'context') {
+      // #3282 §4e: `/help` is now the GUI's own Help sheet and never reaches this scripted sidecar —
+      // `/context` stands in for it here, purely to exercise the folded-long-output card.
       const lines = Array.from({ length: 30 }, (_, i) => `Command ${i + 1} (/c${i + 1}) — does thing ${i + 1}`);
       return Promise.resolve({ message: ['Available commands:', ...lines].join('\n'), success: true });
     }
     if (name === 'mode') {
       this.#mode = 'acceptEdits';
       return Promise.resolve({ message: 'Permission mode: acceptEdits', success: true });
+    }
+    // #3282 §2 (part 2): the model control sends `/model <id>` directly (no picker round trip) —
+    // mirrors the real command's shape closely enough for the e2e to switch models and check the
+    // next reply used the new one.
+    if (name === 'model') {
+      const id = args.trim();
+      const found = SCRIPTED_MODELS.find((candidate) => candidate.id === id);
+      if (!found) {
+        return Promise.resolve({
+          message: `Unknown model "${id}". Run /model to see the choices.`,
+          success: false,
+        });
+      }
+      this.#model = found.id;
+      return Promise.resolve({ message: `Model: ${found.label}`, success: true });
     }
     if (name === 'resume') {
       this.emit('ui_intent', { intent: { type: 'show-session-picker' } });
@@ -404,15 +701,138 @@ class ScriptedSession extends EventEmitter {
       this.emit('ui_intent', { intent: { type: 'show-settings' } });
       return Promise.resolve({ message: 'Opening settings...', success: true });
     }
+    // #3288 §1: `/loop stop <id>` — a loop always stops this way, never cancel-background-task
+    // (its own disposable wake timer, when it has one, is not the loop itself).
+    if (name === 'loop') {
+      const stopMatch = /^stop\s+(\S+)$/.exec(args);
+      if (stopMatch) {
+        const loopId = stopMatch[1];
+        const before = this.#executionWorkspaceEntries.length;
+        // A stopped loop does not linger — it leaves the list on the next snapshot (#3288 §1).
+        this.#executionWorkspaceEntries = this.#executionWorkspaceEntries.filter(
+          (entry) => entry.loopId !== loopId,
+        );
+        if (this.#executionWorkspaceEntries.length === before) {
+          return Promise.resolve({ success: false, message: `Active loop not found: ${loopId}` });
+        }
+        this.#emitExecutionWorkspaceUpdated();
+        return Promise.resolve({
+          success: true,
+          message: `Loop stopped: ${loopId}. An already-running turn may finish.`,
+        });
+      }
+    }
+    if (name === 'rename') {
+      // #3289 §1: renaming the CURRENT session goes through this command (not the directory's
+      // `renameSession`) so the live session's own name and the sidebar row update together, exactly
+      // as the real `InteractiveSession` does (`setName` + a `session_renamed` broadcast).
+      const newName = args.trim();
+      if (newName === '') return Promise.resolve({ message: 'Usage: /rename <name>', success: false });
+      this.#current.name = newName;
+      this.emit('session_renamed', { name: newName });
+      return Promise.resolve({ message: `Session renamed to "${newName}".`, success: true });
+    }
+    // #3282 §4 part b-2: `/plugin` opens the Settings screen's Plugins section.
+    if (name === 'plugin') {
+      this.emit('ui_intent', { intent: { type: 'show-plugin-manager' } });
+      return Promise.resolve({ message: 'Opening plugin manager...', success: true });
+    }
+    if (name === 'agent') {
+      const trimmed = args.trim();
+      if (trimmed === '') {
+        this.emit('ui_intent', { intent: { type: 'show-agent-switcher' } });
+        return Promise.resolve({ message: '', success: true });
+      }
+      // #3282 §4 part b-3: a bare known name selects the default — the same path choosing a row in
+      // the switcher sheet runs.
+      if (scriptedAgentDefinitions.some((agent) => agent.name === trimmed)) {
+        this.#defaultAgentType = trimmed;
+        return Promise.resolve({
+          message: `Default agent: ${trimmed}`,
+          success: true,
+          data: { agentType: trimmed },
+        });
+      }
+      return Promise.resolve({ message: `Unknown agent type: ${trimmed}`, success: false });
+    }
+    if (name === 'schedule') {
+      const [verb, id] = args.trim().split(/\s+/);
+      const found = this.#schedules.find((task) => task.id === id);
+      if (verb === 'pause' && found) {
+        found.status = 'paused';
+        return Promise.resolve({ message: `Schedule paused: ${id}`, success: true });
+      }
+      if (verb === 'resume' && found) {
+        found.status = 'sleeping';
+        return Promise.resolve({ message: `Schedule resumed: ${id}`, success: true });
+      }
+      return Promise.resolve({ message: `Unknown schedule: ${id}`, success: false });
+    }
+    if (name === 'goal') {
+      if (args.trim() === 'cancel') {
+        if (!this.#goal || this.#goal.status !== 'active') {
+          return Promise.resolve({ message: 'No active goal to cancel.', success: false });
+        }
+        this.#goal = { ...this.#goal, status: 'stopped', stopReason: 'cancelled' };
+        return Promise.resolve({
+          message: `Goal cancelled: ${this.#goal.objective}`,
+          success: true,
+        });
+      }
+      return Promise.resolve({ message: 'No goal is set.', success: true });
+    }
     return Promise.resolve({ message: 'ok', success: true });
+  }
+  // #3282 §4 part b-3: the agent switcher's roster, with `definedIn` (a discovered file's path, or
+  // "Built-in") — a plain-words location a person picking an agent can read.
+  listAgentDefinitions() {
+    return scriptedAgentDefinitions.map((agent) => ({ ...agent }));
+  }
+  getDefaultAgentType() {
+    return this.#defaultAgentType;
+  }
+  // #3282 §4 part b-3: the Agents panel's Scheduled group reads through the SAME generic
+  // `get-background-tasks` path a real host answers, filtered to `kind: 'scheduled'`.
+  listBackgroundTasks(filter) {
+    if (filter?.kind && filter.kind !== 'scheduled') return [];
+    return this.#schedules.map((task) => ({ ...task }));
+  }
+  getBackgroundTask(taskId) {
+    const found = this.#schedules.find((task) => task.id === taskId);
+    return found ? { ...found } : undefined;
+  }
+  // #3288 §1: a task's own Stop — never a loop's (that always goes through /loop stop <id> above,
+  // even for a loop's own disposable wake timer, which this fixture never separately models).
+  // #3282 §4 part b-3: also the Agents panel's schedule Delete — a schedule IS a background task,
+  // and cancelling one is permanent, exactly like the real `BackgroundTaskManager.cancel()`.
+  async cancelBackgroundTask(taskId) {
+    const entry = this.#executionWorkspaceEntries.find((candidate) => candidate.sourceId === taskId);
+    if (entry) {
+      if (entry.loopId !== undefined) {
+        throw new Error(`No stoppable task: ${taskId}`);
+      }
+      entry.status = 'cancelled';
+      entry.updatedAt = new Date().toISOString();
+      // Terminal now — 'cancel' is no longer offered (a stopped task does not still offer Stop).
+      entry.controls = ['select', 'close'];
+      this.#emitExecutionWorkspaceUpdated();
+      return;
+    }
+    const schedule = this.#schedules.find((task) => task.id === taskId);
+    if (!schedule) throw new Error(`Unknown background task: ${taskId}`);
+    schedule.status = 'cancelled';
   }
   listCommands() {
     return [
       { name: 'help', description: 'Show available commands', modelInvocable: false, runner: 'runtime' },
       { name: 'mode', description: 'Show or change the permission mode', modelInvocable: false, runner: 'runtime' },
       { name: 'settings', description: 'Open settings', modelInvocable: false, runner: 'runtime' },
+      { name: 'plugin', description: 'Manage plugins', modelInvocable: false, runner: 'runtime' },
       { name: 'resume', description: 'Resume another session', modelInvocable: false, runner: 'runtime' },
-      // A command the terminal runs itself: the GUI's menu marks it rather than running it.
+      { name: 'context', description: 'Show context window usage', modelInvocable: false, runner: 'runtime' },
+      { name: 'theme', description: 'Change the terminal colour theme', modelInvocable: false, runner: 'client', surfaces: ['terminal'] },
+      // #3282 §4e: a command the terminal runs itself — the GUI's `/` menu leaves it out entirely
+      // now (it used to show with a "terminal" badge; that badge is gone).
       {
         name: 'shell',
         description: 'Open an interactive shell',
@@ -427,16 +847,28 @@ class ScriptedSession extends EventEmitter {
       { name: 'parity-demo', description: 'Replies with a fixed phrase', source: 'project', modelInvocable: true, userInvocable: true },
     ];
   }
+  // #3282 §2 (part 2): backs `list-models` -> `model_list`, the model control's pop-up menu.
+  listModels() {
+    return {
+      groups: [{ profileName: 'scripted', providerLabel: 'Scripted', models: SCRIPTED_MODELS }],
+      currentProfile: 'scripted',
+      currentModel: this.#model,
+    };
+  }
   getStatusSnapshot() {
     return {
       sessionId: this.#current.id,
-      model: this.#setupRequired ? 'setup-required' : 'scripted-model',
+      model: this.#setupRequired ? 'setup-required' : this.#model,
       permissionMode: this.#mode,
       effort: 'auto',
       context: { usedPercentage: 12, usedTokens: 24000, maxTokens: 200000, remainingPercentage: 88 },
-      goal: null,
+      goal: this.#goal,
       // Absent (never `false`) once set up, exactly like the real ISessionStatusSnapshot field.
       ...(this.#setupRequired ? { setupRequired: true } : {}),
+      // #3289 §1: the folder the title bar and document.title show; #3282 §4d resolves attached
+      // files' paths against it, so it defaults to the same '/scripted/workspace' but can be pointed
+      // at a real temp directory via ROBOTA_E2E_WORKSPACE_CWD.
+      workspace: { name: basename(workspaceCwd), path: workspaceCwd },
     };
   }
   // #3280 §2: Stop (button or Esc) sends `abort` — end a "stay busy" turn the same way a real one
@@ -449,6 +881,38 @@ class ScriptedSession extends EventEmitter {
     this.emit('interrupted', { success: false, content: 'Working on it...' });
   }
   cancelQueue() {}
+
+  // #3282 §4c: the Project panel — one modified file's status, its diff on request, and project
+  // memory (unavailable in this fixture, the common case: off by default).
+  readProjectStatus() {
+    return Promise.resolve({
+      kind: 'status',
+      branch: 'main',
+      unborn: false,
+      files: [{ path: 'src/task-title.ts', status: 'Modified', added: 1, removed: 1 }],
+      truncated: false,
+    });
+  }
+  readProjectDiff(path) {
+    if (path !== 'src/task-title.ts') {
+      return Promise.resolve({ kind: 'failed', message: `Unknown path: ${path}` });
+    }
+    return Promise.resolve({
+      kind: 'diff',
+      diffLines: [
+        { type: 'hunk', text: '@@ -1,2 +1,2 @@', lineNumber: 1 },
+        { type: 'remove', text: "const title = 'old';", lineNumber: 1 },
+        { type: 'add', text: "const title = 'new';", lineNumber: 1 },
+      ],
+      truncated: false,
+    });
+  }
+  readProjectMemory() {
+    return Promise.resolve({
+      kind: 'unavailable',
+      message: "Project memory isn't available for this folder.",
+    });
+  }
 }
 
 const session = new ScriptedSession();
@@ -476,6 +940,9 @@ const sessionDirectory = {
         .map(({ id, name, updatedAt, messages }) => {
           // The e2e page is the one client on the current session.
           const clients = id === session.currentId ? 1 : (liveElsewhere.get(id) ?? 0);
+          // #3289 §1: a stable title from the first user message — `preview` (the last reply) stays
+          // beside it unchanged, for a consumer that still wants that.
+          const firstUser = messages.find((message) => message.role === 'user');
           return {
             id,
             ...(name ? { name } : {}),
@@ -483,6 +950,7 @@ const sessionDirectory = {
             updatedAt,
             messageCount: messages.length,
             preview: messages[0]?.content ?? '',
+            ...(firstUser ? { title: firstUser.content } : {}),
             live: clients > 0,
             clients,
           };
@@ -503,7 +971,239 @@ const sessionDirectory = {
     storedSessions.push(stored);
     session.becomeSession(stored);
   },
+  // #3289 §1: rename any stored session — current or not — by writing its record directly, as the
+  // real directory does for a row that is not the one this client is on.
+  async renameSession(sessionId, name) {
+    const stored = storedSessions.find((candidate) => candidate.id === sessionId);
+    if (!stored) throw new Error(`No session ${sessionId} in this workspace.`);
+    stored.name = name;
+  },
+  // #3289 §1: delete a stored session; deleting the current one switches away first, exactly like
+  // the real directory.
+  async deleteSession(sessionId) {
+    const index = storedSessions.findIndex((candidate) => candidate.id === sessionId);
+    if (index === -1) {
+      throw Object.assign(new Error(`No session ${sessionId} in this workspace.`), {
+        name: 'SessionDeleteRefusal',
+        code: 'unknown_session',
+      });
+    }
+    const isCurrent = sessionId === session.currentId;
+    storedSessions.splice(index, 1);
+    if (isCurrent) {
+      const next = storedSessions[0];
+      if (next) {
+        session.becomeSession(next);
+      } else {
+        newSessionCount += 1;
+        const fresh = {
+          id: `new-session-${newSessionCount}`,
+          updatedAt: new Date().toISOString(),
+          messages: [],
+        };
+        storedSessions.push(fresh);
+        session.becomeSession(fresh);
+      }
+    }
+  },
 };
+/**
+ * #3282 §4a: an in-memory settings document the Settings screen reads and writes, the same way
+ * `storedSessions` gives the session-directory scenarios durable, in-process state a test can
+ * observe across a close-then-reopen. `scope: 'user'` matches the one writable store the real CLI
+ * wires for the demo settings this fixture models.
+ */
+const scriptedSettings = { language: 'en', outputStyle: 'default', preset: 'default', permissionMode: 'default', sandboxEnabled: true };
+const OUTPUT_STYLES = [
+  { id: 'default', label: 'Default', description: 'The ordinary response style.' },
+  { id: 'concise', label: 'Concise', description: 'Shorter, to-the-point replies.' },
+];
+const PRESETS = [
+  { id: 'default', label: 'Default', description: 'Neutral baseline — no overrides.' },
+  { id: 'careful-reviewer', label: 'Careful Reviewer', description: 'Ask-first, review-oriented posture.' },
+];
+const PERMISSION_MODE_CHOICES = [
+  { id: 'default', label: 'Ask first', description: 'Ask before risky actions' },
+  { id: 'acceptEdits', label: 'Accept edits', description: 'Auto-approve file edits' },
+  { id: 'bypassPermissions', label: 'Skip all checks', description: 'Skip all permission checks' },
+];
+let permissionRules = [
+  { scope: 'user', source: '~/.robota/settings.json', kind: 'allow', pattern: 'Bash(git status:*)' },
+];
+/** #3282 §4 part b-2: the MCP Servers and Plugins sections' in-memory, scripted state. */
+let scriptedMcpServers = [
+  {
+    id: 'docs',
+    name: 'docs',
+    scopeLabel: 'This project',
+    status: 'connected',
+    toolNames: ['search_docs', 'read_doc'],
+    enabled: true,
+  },
+];
+let scriptedPlugins = [
+  { id: 'formatter@robota', name: 'formatter@robota', description: 'Formats code on save.', enabled: true },
+];
+
+// #3282 §4b: backs the "Providers & Models" Settings section — one profile ('scripted'), its model
+// read from the SAME `listModels()` the model control's pop-up menu uses, so the two never disagree.
+function buildSettingsSnapshot(session) {
+  const modelList = session.listModels();
+  const currentModelLabel =
+    SCRIPTED_MODELS.find((candidate) => candidate.id === modelList.currentModel)?.label ??
+    modelList.currentModel;
+  return {
+    language: {
+      current: scriptedSettings.language,
+      recommended: [
+        { id: 'ko', label: 'Korean', description: 'ko' },
+        { id: 'en', label: 'English', description: 'en' },
+        { id: 'ja', label: 'Japanese', description: 'ja' },
+      ],
+      appliesNote: 'Takes effect the next time Robota starts — changing it here never restarts it.',
+    },
+    outputStyle: { current: scriptedSettings.outputStyle, choices: OUTPUT_STYLES },
+    preset: { current: scriptedSettings.preset, choices: PRESETS, skipsAllChecksPresetIds: [] },
+    permissionMode: {
+      current: scriptedSettings.permissionMode,
+      choices: PERMISSION_MODE_CHOICES,
+      skipsAllChecksMode: 'bypassPermissions',
+    },
+    permissionRules: permissionRules.map((rule) => ({
+      id: `${rule.scope}:${rule.kind}:${rule.pattern}`,
+      ...rule,
+      removable: true,
+    })),
+    sandbox: {
+      enabled: scriptedSettings.sandboxEnabled,
+      available: true,
+      description: 'Confines shell commands to the workspace and temp directories, without a prompt for each one.',
+    },
+    mcp: { servers: scriptedMcpServers },
+    plugins: { plugins: scriptedPlugins, canInstall: true },
+    providers: {
+      profiles: [
+        {
+          name: 'scripted',
+          providerLabel: 'Scripted',
+          model: { id: modelList.currentModel, label: currentModelLabel },
+          current: true,
+        },
+      ],
+    },
+  };
+}
+
+const settingsReporter = {
+  getSettings: (session) => buildSettingsSnapshot(session),
+  updateSettings: async (session, patch) => {
+    switch (patch.field) {
+      case 'language':
+        scriptedSettings.language = patch.language;
+        break;
+      case 'outputStyle':
+        if (!OUTPUT_STYLES.some((choice) => choice.id === patch.styleId)) {
+          return { ok: false, code: 'invalid', message: `Unknown output style "${patch.styleId}".` };
+        }
+        scriptedSettings.outputStyle = patch.styleId;
+        break;
+      case 'preset':
+        if (!PRESETS.some((choice) => choice.id === patch.presetId)) {
+          return { ok: false, code: 'invalid', message: `Unknown preset "${patch.presetId}".` };
+        }
+        scriptedSettings.preset = patch.presetId;
+        break;
+      case 'permissionMode':
+        if (!PERMISSION_MODE_CHOICES.some((choice) => choice.id === patch.mode)) {
+          return { ok: false, code: 'invalid', message: `Unknown permission mode "${patch.mode}".` };
+        }
+        scriptedSettings.permissionMode = patch.mode;
+        break;
+      case 'sandbox':
+        scriptedSettings.sandboxEnabled = patch.enabled;
+        break;
+      case 'removePermissionRule': {
+        const before = permissionRules.length;
+        permissionRules = permissionRules.filter(
+          (rule) =>
+            !(rule.scope === patch.scope && rule.kind === patch.kind && rule.pattern === patch.pattern),
+        );
+        if (permissionRules.length === before) {
+          return { ok: false, code: 'invalid', message: 'That rule was already gone.' };
+        }
+        break;
+      }
+      case 'mcpServerEnabled': {
+        const server = scriptedMcpServers.find((s) => s.id === patch.serverId);
+        if (!server) return { ok: false, code: 'invalid', message: `Unknown MCP server "${patch.serverId}".` };
+        scriptedMcpServers = scriptedMcpServers.map((s) =>
+          s.id === patch.serverId
+            ? { ...s, enabled: patch.enabled, status: patch.enabled ? 'connected' : 'disabled' }
+            : s,
+        );
+        break;
+      }
+      case 'reloadMcpServers':
+        // Scripted: nothing to reconnect, but the round trip must still succeed.
+        break;
+      case 'pluginEnabled': {
+        const plugin = scriptedPlugins.find((p) => p.id === patch.pluginId);
+        if (!plugin) return { ok: false, code: 'invalid', message: `Unknown plugin "${patch.pluginId}".` };
+        scriptedPlugins = scriptedPlugins.map((p) =>
+          p.id === patch.pluginId ? { ...p, enabled: patch.enabled } : p,
+        );
+        break;
+      }
+      case 'reloadPlugins':
+        break;
+      case 'installPlugin':
+        scriptedPlugins = [
+          ...scriptedPlugins,
+          { id: patch.pluginId, name: patch.pluginId, description: 'Installed in this scripted session.', enabled: true },
+        ];
+        break;
+      case 'uninstallPlugin':
+        scriptedPlugins = scriptedPlugins.filter((p) => p.id !== patch.pluginId);
+        break;
+      // #3282 §4b: "Use" — this fixture has one profile, so switching to it always succeeds and to
+      // anything else fails, matching the real refusal message for an unknown profile.
+      case 'providerProfile': {
+        if (patch.profileName !== 'scripted') {
+          return {
+            ok: false,
+            code: 'refused',
+            message: `Provider profile "${patch.profileName}" was not found.`,
+          };
+        }
+        break;
+      }
+      // #3282 §4b: "Model" — switches to `profileName` first (this fixture's one profile, so that
+      // always succeeds), then runs the SAME path `/model <id>` runs (`executeCommand('model', …)`),
+      // matching the real reporter's two-step and so the Settings screen and the status row's model
+      // control can never drift apart in this fixture either.
+      case 'providerModel': {
+        if (patch.profileName !== 'scripted') {
+          return {
+            ok: false,
+            code: 'refused',
+            message: `Provider profile "${patch.profileName}" was not found.`,
+          };
+        }
+        const result = await session.executeCommand('model', patch.modelId);
+        if (!result.success) return { ok: false, code: 'invalid', message: result.message };
+        break;
+      }
+      // #3282 §4b: "Delete" — this fixture's one profile is always the only one, so it is always
+      // refused, matching the real "only provider profile" refusal.
+      case 'deleteProviderProfile':
+        return { ok: false, code: 'refused', message: 'Cannot delete the only provider profile.' };
+      default:
+        return { ok: false, code: 'invalid', message: 'Unknown settings field.' };
+    }
+    return { ok: true, settings: buildSettingsSnapshot(session) };
+  },
+};
+
 const usageBySource = {
   sessionId: 'usage-e2e-session',
   totalTokens: 42,
@@ -620,6 +1320,7 @@ const transport = new WsTransport({
   usageReporter: () => usageBySource,
   storedSessionUsageReporter: () => usageBySource,
   sessionDirectory,
+  settingsReporter,
 });
 transport.attach(session);
 await transport.start();

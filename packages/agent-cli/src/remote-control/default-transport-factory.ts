@@ -30,7 +30,13 @@ export function defaultCreateResumeBridge(
   session: IProtocolSession,
   usageReporters?: TUsageReporters,
 ): SessionResumeBridge {
-  return new SessionResumeBridge({ session, surface: 'remote', ...usageReporters });
+  return new SessionResumeBridge({
+    session,
+    surface: 'remote',
+    // #3282 §4 part b-2: this is the reconnectable WebRTC path, so it can never prove locality.
+    commandSurfaceLocality: 'remote',
+    ...usageReporters,
+  });
 }
 
 export interface ITransportHooks {

@@ -10,6 +10,7 @@ import {
   checkpoint,
 } from './state-codec-values';
 import { validateRequestState } from './state-codec-requests';
+import { validateUsageState } from './state-codec-usage';
 import { assertJsonValue, canonicalJson } from './json';
 import type { ConversationEnvelope } from './store-types';
 
@@ -35,12 +36,18 @@ export function decodeConversation(
   requireState(definition.purpose === null || typeof definition.purpose === 'string');
   requireState(
     integer(limits.maxTurnsPerRun, 1) &&
-      (limits.timeoutMs === null || integer(limits.timeoutMs, 1)),
+      (limits.timeoutMs === null || integer(limits.timeoutMs, 1)) &&
+      (limits.maxModelCallsPerRun === null || integer(limits.maxModelCallsPerRun, 1)) &&
+      (limits.maxModelCallsPerConversation === null ||
+        integer(limits.maxModelCallsPerConversation, 1)) &&
+      (limits.maxModelCallsPerParticipant === null ||
+        integer(limits.maxModelCallsPerParticipant, 1)),
   );
   requireState(integer(definition.maxConcurrentParticipants, 1) && integer(definition.leaseMs, 1));
   requireState(definition.recovery === 'none' || definition.recovery === 'durable');
   if (definition.selector !== null) reference(definition.selector);
   reference(definition.contextPolicy);
+  requireState(definition.pricingVersion === null || text(definition.pricingVersion));
   checkpoint(state.selectorCheckpoint);
 
   const participants = list(state.participants).map(record);
@@ -205,5 +212,15 @@ export function decodeConversation(
         requireState(member.outcome === null && member.checkpoint === null);
     }
   }
+  const byTurn = new Set<string>(
+    turns.map((turn) => `${turn.id}:${turn.groupId}:${turn.participantId}`),
+  );
+  if (phase.kind === 'group') {
+    for (const member of list(phase.members).map(record)) {
+      const turn = record(member.turn);
+      byTurn.add(`${turn.turnId}:${turn.groupId}:${member.participantId}`);
+    }
+  }
+  validateUsageState(snapshot.usage, byId, byTurn, conversationId, envelope.revision);
   return structuredClone(state) as unknown as ConversationState;
 }

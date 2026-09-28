@@ -8,7 +8,10 @@ import {
 import { formatProviderChoiceLabel } from './provider-command-profile-operations.js';
 
 import type { IUserInteraction } from '@robota-sdk/agent-core';
-import type { IProviderCommandModuleOptions } from '@robota-sdk/agent-framework';
+import type {
+  IProviderCommandModuleOptions,
+  IProviderProfileSettings,
+} from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 const MAX_DUPLICATE_PROFILE_SUFFIX = 1000;
@@ -90,6 +93,47 @@ function completeProviderDuplicate(
   };
 }
 
+/**
+ * #3282 §4b: the direct, non-interactive delete itself — no replacement ask (the interactive
+ * per-profile menu's Delete, `buildProviderDelete` below, still offers one); refuses instead when the
+ * profile is the one in use. Never asks to CONFIRM either — its caller in `provider-command-execution`
+ * does that first, when a human can answer, before reaching this function; this function itself is
+ * called only once a delete is already decided (confirmed by a human, or `--confirmed` from the
+ * Settings screen's own ConfirmDialog).
+ */
+export function buildProviderProfileDelete(
+  providers: Record<string, IProviderProfileSettings> | undefined,
+  currentProvider: string | undefined,
+  profileName: string | undefined,
+  options: IProviderCommandModuleOptions,
+): ICommandResult {
+  if (!profileName) {
+    return { message: 'Usage: /provider delete <profile>', success: false };
+  }
+  if (!providers?.[profileName]) {
+    return { message: `Provider profile "${profileName}" was not found.`, success: false };
+  }
+  if (Object.keys(providers).length <= 1) {
+    return { message: 'Cannot delete the only provider profile.', success: false };
+  }
+  if (currentProvider === profileName) {
+    return {
+      message: 'Cannot delete the profile in use. Switch to another profile first.',
+      success: false,
+    };
+  }
+  if (options.settings.readTargetSettings().providers?.[profileName] === undefined) {
+    return {
+      message: `Provider profile "${profileName}" is not stored in the active write target; edit its source settings file or override it before deleting.`,
+      success: false,
+    };
+  }
+  options.settings.writeTargetSettings(
+    deleteProviderProfile(options.settings.readTargetSettings(), profileName),
+  );
+  return { message: `Provider profile deleted: ${profileName}.`, success: true };
+}
+
 export async function buildProviderDelete(
   ui: IUserInteraction,
   profileName: string,
@@ -109,8 +153,10 @@ export async function buildProviderDelete(
       success: false,
     };
   }
+  // #3282 §2: the GUI renders this confirm on its shared ConfirmDialog (id 'provider-delete') with
+  // this exact title — kept in the quoted-name form the TUI's inline picker shows the same way.
   const response = await ui.ask(
-    confirmAction('provider-delete', `Delete provider profile ${profileName}?`),
+    confirmAction('provider-delete', `Delete profile "${profileName}"?`),
   );
   if (!isConfirmed(response)) {
     return { message: 'Provider delete cancelled.', success: true };

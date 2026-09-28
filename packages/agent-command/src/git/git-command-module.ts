@@ -5,15 +5,14 @@
  * on the user path (`SystemCommandExecutor.executeCommand` calls `execute` directly).
  */
 import { executeGitCommit } from './git-commit.js';
-import { executeGitDiff } from './git-diff.js';
-import { createGitProcess } from './git-process.js';
-import { executeGitStatus } from './git-status.js';
 
-import type { IGitProcessPort } from './git-process.js';
+import { createGitProcess, executeGitDiff, executeGitStatus } from '@robota-sdk/agent-framework';
+
 import type {
   ICommandHostUserInteraction,
   ICommandHostWorkspace,
   ICommandModule,
+  IGitProcessPort,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
 import type { ICommand, ICommandResult, ICommandSource } from '@robota-sdk/agent-interface-command';

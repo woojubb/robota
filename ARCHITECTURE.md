@@ -36,15 +36,17 @@ SDK packages (@robota-sdk/*)
   Transports            agent-transport (wire protocol, delivery), and the carriers built on it:
                         agent-transport-ws · -http · -mcp · -webrtc
   Runtime               agent-session · agent-executor · agent-tool-defaults ·
-                        agent-provider-replay (private: replays recorded provider responses in tests)
+                        agent-provider-replay (private: replays recorded provider responses in tests) ·
+                        agent-roundtable-robota (private: runs Session/Robota as roundtable
+                        participants and selectors)
   Building blocks       agent-tools · agent-plugin · agent-mcp · agent-session-analytics ·
                         agent-provider-{anthropic,openai,openai-compatible,gemini,bytedance} ·
                         agent-builtin-providers
   Contracts (type-only) agent-interface-{session,session-mobility,command,execution,
                         analytics,transport,tui}
   Foundation            agent-core
-  Leaves                agent-process · agent-file-authority · agent-remote-pairing
-                        (no @robota-sdk dependency)
+  Leaves                agent-process · agent-file-authority · agent-remote-pairing ·
+                        agent-roundtable (no @robota-sdk dependency)
 
 DAG / workflow subsystem (private; depends on the SDK packages, never the reverse)
   dag-core ← dag-node, dag-runtime, dag-worker, dag-builder, dag-cost, dag-api, … ← dag-framework
@@ -114,7 +116,10 @@ the System Overview diagram above. Current checks are defined in `AGENTS.md` and
   transport or UI child (`agent-transport-*`, `agent-ui-*`). Code two siblings share belongs in the
   parent (or a parent subpath) — never in a sibling-named substrate (`-common`, `-shared`,
   `-protocol`, `-defaults`, `-builtin`). Judged over `dependencies` + `peerDependencies`; the
-  `agent-interface-*` family is judged once, by `INTERFACE-DEPS`.
+  `agent-interface-*` family is judged once, by `INTERFACE-DEPS`. One exception:
+  `agent-provider-openai` builds on `agent-provider-openai-compatible` (its `/shared` subpath), because
+  the OpenAI wire protocol is the base both implement and there is no `agent-provider` parent to hold
+  it. `pnpm deps:check` enforces the provider part of this rule.
 - `UNDECLARED-IMPORT` — every `@robota-sdk/*` workspace package a production source file imports is
   declared in one of the importing package's `dependencies`, `peerDependencies` or
   `devDependencies`; "undeclared" is absence from all three, so a manifest rule such as

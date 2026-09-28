@@ -136,6 +136,15 @@ export class SessionExecutionController {
     return this.executionClaim.active;
   }
 
+  /**
+   * #3288 §2: the same tool-name -> `/command` projection `applyToolStart` reads live, exposed so the
+   * history-replay projector can classify a STORED call's `commandName`/`internal` identically — the
+   * mapping is a property of the session's current command registration, not of the moment a call ran.
+   */
+  get modelCommandToolNames(): ReadonlyMap<string, string> | undefined {
+    return this.callbacks.modelCommandToolNames;
+  }
+
   /** The HEAD queued prompt (next to run), or null — backward-compatible single-prompt read. */
   get pendingPrompt(): string | null {
     return this.pending.head;

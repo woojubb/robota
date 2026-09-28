@@ -9,6 +9,9 @@ export type {
   InputRequest,
   JsonValue,
   LoadRoundtableOptions,
+  ModelCallCapability,
+  ModelCallIntent,
+  Money,
   ParticipantCheckpoint,
   ParticipantDefinition,
   ParticipantExecutionOptions,
@@ -19,6 +22,7 @@ export type {
   ParticipantResponse,
   ParticipantSession,
   ParticipantTurn,
+  PricePolicy,
   RequestResponse,
   ResponseReceipt,
   ResumeRequest,
@@ -33,6 +37,14 @@ export type {
   SelectorRegistration,
   SharedMessage,
   TurnSelector,
+  TurnServices,
+  UsageOutcome,
+  UsagePrincipal,
+  UsageProvenance,
+  UsageRecord,
+  UsageReport,
+  UsageSummary,
+  UsageTokens,
 } from './types';
 export type {
   ConversationClaim,
@@ -44,6 +56,7 @@ export { RoundtableError } from './errors';
 export { MemoryConversationStore } from './memory-store';
 export { externalParticipant, roundRobin } from './policies';
 export { loadRoundtable } from './load';
+export { summarizeUsage } from './types';
 import { Conversation } from './conversation';
 import type { Roundtable, RoundtableOptions } from './types';
 

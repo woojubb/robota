@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Robota DAG Asset API
   version: 1.0.0
-  description: Asset routes on the DAG runtime server; other DAG routes are inventoried in SPEC.md.
+  description: Asset routes on the DAG runtime server. The other DAG routes are defined in src/app.ts.
 paths:
   /v1/dag/assets:
     post:

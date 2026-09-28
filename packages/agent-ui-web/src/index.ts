@@ -35,11 +35,20 @@ export { describeUiIntentForGui, guiScreenForUiIntent } from './hooks/ui-intent-
 // ── Presentation components ─────────────────────────────────
 export { ConversationView } from './components/ConversationView.js';
 export { AgentActivityPanel } from './components/AgentActivityPanel.js';
+export { AgentSwitcherSheet } from './components/AgentSwitcherSheet.js';
 export { PermissionPrompt } from './components/PermissionPrompt.js';
 export { PersonalUsageDashboard } from './components/PersonalUsageDashboard.js';
 export type { TPersonalUsageDashboardState } from './components/personal-usage-dashboard-types.js';
 export { SessionSurface, CenteredChrome } from './components/SessionSurface.js';
+export type { IComposerHandle, IPickedFile } from './components/Composer.js';
 export { SessionSidebar } from './components/SessionSidebar.js';
 export { SessionMonitor } from './components/SessionMonitor.js';
+// #3282 §4a: the shared modal-shell primitive (also consumed by #3282 §2's mode-change confirmation
+// and #3289 §1's session-delete confirmation) and the Settings screen it backs.
+export { Dialog, ConfirmDialog } from './components/Dialog.js';
+export type { IDialogProps, IConfirmDialogProps } from './components/Dialog.js';
+export { SettingsScreen } from './components/SettingsScreen.js';
+// #3282 §4e: the Help sheet `/help` opens instead of the terminal-style text list.
+export { HelpSheet } from './components/HelpSheet.js';
 // Pieces of a surface's chrome, not roots: render them inside a `robota-ui` scope.
 export { RobotaMark, RobotaWordmark } from './components/Brand.js';

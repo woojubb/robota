@@ -728,7 +728,9 @@ describe('decodeVersionedInteractiveSessionRecord — TC-07 version gate', () =>
       schemaVersion: version,
       record: persisted(),
     });
-    expect(outcome).toEqual({ status: 'unsupported', schemaVersion: version });
+    // #3289 §1: the raw `cwd` is still readable despite the version mismatch, so it rides along —
+    // a caller that only wants to know which workspace this legacy record belongs to gets an answer.
+    expect(outcome).toEqual({ status: 'unsupported', schemaVersion: version, cwd: '/work' });
   });
 
   it.each([
@@ -741,6 +743,7 @@ describe('decodeVersionedInteractiveSessionRecord — TC-07 version gate', () =>
     expect(decodeVersionedInteractiveSessionRecord(envelope)).toEqual({
       status: 'unsupported',
       schemaVersion: undefined,
+      cwd: '/work',
     });
   });
 

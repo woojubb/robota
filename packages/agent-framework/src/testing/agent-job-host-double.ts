@@ -23,10 +23,11 @@ import type {
  * ARCH-029: the same double, for the capability `ICommandHostContext` reaches through
  * `getAgentJobCapability()`.
  *
- * `IAgentJobHostContext` declares 15 members and **none** of them optional — so it is the more honest
- * of the two contracts, and satisfying it without a cast means answering all fifteen. That is exactly
- * why fixtures cast it: there was nothing to reach for. Migrating a host cast into a job cast would
- * have been half the work, which is why this exists rather than a second double assertion.
+ * `IAgentJobHostContext` declares many members, almost all of them required — so it is the more
+ * honest of the two contracts, and satisfying it without a cast means answering nearly all of them
+ * (the self-paced-loop trio stays optional, and this double leaves those out). That is exactly why
+ * fixtures cast it: there was nothing to reach for. Migrating a host cast into a job cast would have
+ * been half the work, which is why this exists rather than a second double assertion.
  */
 /**
  * The three states this contract returns, each meaning "nothing ran". Named rather than inlined so a
@@ -75,6 +76,8 @@ export function createTestAgentJobHost(
 ): IAgentJobHostContext {
   const base: IAgentJobHostContext = {
     listAgentDefinitions: () => [],
+    getDefaultAgentType: () => 'general-purpose',
+    setDefaultAgentType: () => {},
     listAgentJobs: () => [],
     spawnAgentJob: () => Promise.resolve(EMPTY_SUBAGENT_JOB),
     sendAgentJob: () => Promise.resolve(),

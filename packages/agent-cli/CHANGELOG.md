@@ -1,5 +1,73 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.84
+
+### Minor Changes
+
+- e8d70ac: A first run finds a provider, instead of a dead end. `robota --serve` (and the daemon it starts) no
+  longer refuses when no provider is configured: it starts in setup mode, and the GUI's conversation area
+  shows a "Connect a model provider to start" panel with a "Set up provider" button in place of the
+  composer. Answering it configures and swaps in the first provider live, with no restart. A startup
+  failure now says why — `robota daemon start --json` and the desktop app's fatal screen report the
+  child's own reason instead of a generic "readiness channel closed", and the fatal screen gets a Try
+  again button. `trust status --json` and the desktop trust dialog list only sources whose state trust
+  would actually change, instead of naming one this platform could not determine; the dialog shows one
+  sentence and a collapsed Details section. `robota --serve --open` in an untrusted folder now asks at
+  the terminal (trust it, start Restricted, or quit) when someone is there to ask, instead of refusing
+  outright.
+
+### Patch Changes
+
+- 7e87bb2: A front end with a person in front can ask about an untrusted folder instead of being refused.
+  `robota trust status --json` reports the folder's trust state, whether a person can be asked, and
+  what trust would load. `robota daemon start --restricted-workspace` starts the daemon Restricted in a
+  folder that is not trusted yet, the choice that person made. A daemon reports whether it runs
+  Restricted: a Restricted start never reuses one with the project's configuration, and a plain start
+  in a folder trusted since never reuses a Restricted one; both refuse and name `robota daemon stop`. `pnpm gui:dev` asks at its terminal: trust the folder, start
+  Restricted, or quit.
+- 4f35721: Starting a session from `robota session view` in a folder that is not trusted asks what to do
+  instead of failing. The question names the folder and lists what trust would load. The choices are
+  `y` to trust the folder and start, `r` to start it Restricted, and `n` to cancel. A Restricted answer
+  holds even if the folder was trusted meanwhile. Before, the view showed only "Start failed".
+
+  - `agent-cli` (patch):
+    - A background session started Restricted runs with `--restricted-workspace`.
+    - A headless start that asked to run Restricted is no longer refused for want of trust, the same
+      as `--safe-mode`.
+  - `agent-ui-terminal` (minor): the session view takes `startTrustQuestion`, which returns the
+    folder and what trust would load (`ISupervisedStartTrustQuestion`). `onStart` receives the person's
+    choice (`TSupervisedStartTrustChoice`).
+
+- 4ee9596: Starting a new TUI session in an untrusted repository asks whether to trust the folder. Before, the
+  TUI started Restricted without saying so, and the project's settings, hooks, skills and MCP servers
+  were silently missing. The question comes before anything from the project is loaded and lists what
+  trust would load. A yes records the grant and starts normally. A no starts Restricted and asks again
+  next time. If the grant cannot be recorded, it says so and starts Restricted.
+
+  It is not asked:
+
+  - when resuming or continuing a session, which stays in the store it was saved in;
+  - for setup commands (`init`, `--configure`, `--configure-provider`, `--set-current`);
+  - with `--safe-mode`, or after a `/cd` into a Restricted folder;
+  - without a terminal;
+  - in a directory outside Git.
+
+- 12a5b15: CLI fixes from the docs-refresh findings (#3275):
+
+  - `robota trust revoke` exits 0 when the revoke succeeds.
+  - `robota <subcommand> --help` prints that subcommand's help instead of running it, refusing an unknown option, or starting the terminal UI; commands with fuller help of their own (`usage`, `session list|view|attach`) keep printing it, and `robota mcp serve --help` prints to stdout.
+  - `robota --help` lists every option the parser accepts (`--goal`, `--goal-max-iterations`, `--provider`, `--set-current`, `--type`, `--base-url`, `--api-key`, `--api-key-env`, `--settings-scope`, `--session-log`, `--serve`, `--restricted-workspace`, `--disable-update-check`), `--effort` lists `none` and `minimal`, and `--bare` is described as what it does: print mode without instruction files or plugins.
+  - `robota session start --background --restricted-workspace` starts a background session Restricted, as the headless trust refusal already suggested.
+  - `robota "prompt"` opens the terminal UI with the prompt typed in, not yet sent.
+
+- 29486da: A lost connection no longer drops a typed message or takes the person out of their session. While the
+  transport is not `connected`, the composer keeps its draft and Send explains why it cannot submit
+  ("Not connected"). A banner above the conversation — never a full-screen replacement — says "Connection
+  lost. Reconnecting…" while retries continue, and once they give up either offers a working Reconnect
+  (a host that can restart the runtime) or says how to reopen the page (a browser served by
+  `robota --serve --open`). A desktop Reconnect remembers the session the person was in and returns to it
+  once the restart's reload reconnects.
+
 ## 3.0.0-beta.83
 
 ### Minor Changes

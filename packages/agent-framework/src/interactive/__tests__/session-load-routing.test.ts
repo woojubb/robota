@@ -93,7 +93,13 @@ describe('TC-01: the replay log is reached by missing and by nothing else', () =
         'utf-8',
       );
 
-      expect(store.load(SESSION_ID)).toEqual({ status: 'unsupported', schemaVersion: undefined });
+      // TRANS-007's best-effort cwd peek (#3289 §1) reads even an unsupported record's raw `cwd`, so
+      // a workspace-scoped "can't be opened" listing can tell this record is THIS workspace's own.
+      expect(store.load(SESSION_ID)).toEqual({
+        status: 'unsupported',
+        schemaVersion: undefined,
+        cwd: '/work',
+      });
     },
   );
 });

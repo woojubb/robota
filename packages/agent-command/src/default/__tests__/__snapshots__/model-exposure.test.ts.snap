@@ -44,7 +44,7 @@ Run it with no arguments.",
   },
   "loop": {
     "argumentHint": "[prompt] | <N><s|m|h|d> [prompt] | <prompt> every <N> <unit> | list | stop <id>",
-    "description": "Repeat a prompt on a fixed cadence (\`<N><s|m|h|d> [prompt]\`) or self-paced (bare or prompt only: each iteration chooses its next delay or stops). Use it when the user asks for recurring work in this session. \`list\` shows active loops; \`stop <id>\` ends one. Returns the loop id and its next fire time, or the loop list.",
+    "description": "Repeat a prompt on a fixed cadence (\`<N><s|m|h|d> <prompt>\`) or self-paced (\`<prompt>\`: each iteration chooses its next delay or stops). Use it when the user asks for recurring work in this session, and always give your own prompt: any form that would fall back to the host's default maintenance prompt — bare \`/loop\` or an interval alone (\`<N><s|m|h|d>\`) — needs a person to confirm it and is always refused for you, whether or not one is attached. \`list\` shows active loops; \`stop <id>\` ends one, even mid-turn. Returns the loop id and its next fire time, the loop list, or a refusal naming the command to suggest.",
     "kind": "builtin-command",
     "modelInvocable": true,
     "name": "loop",
@@ -64,7 +64,7 @@ Subcommands you may run (bare \`mcp\` is also allowed):
   },
   "memory": {
     "argumentHint": "[list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | used]",
-    "description": "Read and write this project’s durable memory. Use \`list\` or \`show [topic]\` to look up stored conventions, preferences or references before asking the user again; \`add <type> <topic> <text>\` to save a durable preference, project convention, feedback item or reference worth reusing across sessions (never secrets, credentials or transient facts); \`pending\` to see candidates awaiting the user’s review; \`used\` to report which memory items informed this turn. Bare lists topics. Returns the requested topics or entries, or a confirmation of what was saved. Approving or rejecting a pending candidate is the user’s review: suggest \`/memory approve <id>\` or \`/memory reject <id>\`.
+    "description": "Read and write this project’s durable memory. Use \`list\` or \`show [topic]\` to look up stored conventions, preferences or references before asking the user again; \`add <type> <topic> <text>\` to save a durable preference, project convention, feedback item or reference worth reusing across sessions (never secrets, credentials or transient facts); \`pending\` to see candidates awaiting the user’s review; \`used\` to report which memory items informed this turn. Bare lists topics. In plan mode \`add\` is refused: save after plan mode ends. Returns the requested topics or entries, or a confirmation of what was saved. Approving or rejecting a pending candidate is the user’s review: suggest \`/memory approve <id>\` or \`/memory reject <id>\`.
 Subcommands you may run (bare \`memory\` is also allowed):
 - list: List project memory topics
 - show: Show project memory index or a topic

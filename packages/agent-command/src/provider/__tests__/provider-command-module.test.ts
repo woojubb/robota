@@ -169,6 +169,31 @@ describe('createProviderCommandModule', () => {
     expect(requests[1]?.title).toBe('Provider profile: anthropic');
   });
 
+  it('#3282 §2: the profile action menu offers Switch, Edit, Test, Duplicate and Delete — no separate Cancel option (the picker\'s own Cancel affordance is the only one)', async () => {
+    const { adapter } = createSettingsAdapter({
+      currentProvider: 'openai',
+      providers: {
+        openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+        anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+      },
+    });
+
+    const { context, requests } = scriptedContext([
+      { type: 'answer', values: ['anthropic'] },
+      { type: 'cancelled' },
+    ]);
+    await createExecutor(adapter).execute('provider', context, '');
+
+    const actionMenu = requests[1];
+    expect(actionMenu?.options?.map((option) => option.value)).toEqual([
+      'switch',
+      'edit',
+      'test',
+      'duplicate',
+      'delete',
+    ]);
+  });
+
   it('switches provider immediately via /provider switch without confirmation dialog', async () => {
     const { adapter, readTarget } = createSettingsAdapter(
       {
@@ -323,7 +348,7 @@ describe('createProviderCommandModule', () => {
 
     // The confirm prompt must actually be issued — guards against a silent drop of the
     // confirmation step that would still "delete and pass".
-    expect(requests[2]?.title).toBe('Delete provider profile anthropic?');
+    expect(requests[2]?.title).toBe('Delete profile "anthropic"?');
     expect(completed?.message).toBe('Provider profile deleted: anthropic.');
     expect(readTarget()).toEqual({
       currentProvider: 'openai',
@@ -360,7 +385,7 @@ describe('createProviderCommandModule', () => {
     const completed = await createExecutor(adapter).execute('provider', context, 'list');
 
     // The confirm precedes the replacement picker — assert both so neither step can be dropped silently.
-    expect(requests[2]?.title).toBe('Delete provider profile anthropic?');
+    expect(requests[2]?.title).toBe('Delete profile "anthropic"?');
     expect(requests[3]?.title).toBe('Replacement provider for anthropic');
     expect(readTarget()).toEqual({
       currentProvider: 'openai',
@@ -399,14 +424,20 @@ describe('createProviderCommandModule', () => {
     expect(result?.message).toContain('not stored in the active write target');
   });
 
-  it('owns provider setup flow, writes settings, and hot-swaps the first provider ever configured (#3282 §3)', async () => {
+  it('owns provider setup flow, writes settings, and hot-swaps a session actually in setup mode (#3282 §3)', async () => {
     const { adapter, readTarget } = createSettingsAdapter({}, {});
 
-    const { context, requests } = scriptedContext([
-      { type: 'answer', values: [], text: '' },
-      { type: 'answer', values: [], text: '' },
-      { type: 'answer', values: [], text: '' },
-    ]);
+    // #3282 §3: the session's own live `isSetupRequired()` says so — a served runtime's setup mode has
+    // no session to restart into, so this hot-swaps a running placeholder instead. Restarting a live
+    // session that already has a provider (adding a second profile, below) is unaffected.
+    const { context, requests } = scriptedContext(
+      [
+        { type: 'answer', values: [], text: '' },
+        { type: 'answer', values: [], text: '' },
+        { type: 'answer', values: [], text: '' },
+      ],
+      true,
+    );
     const completed = await createExecutor(adapter).execute('provider', context, 'add openai');
 
     expect(requests[0]?.title).toBe('OpenAI-compatible base URL');
@@ -434,10 +465,27 @@ describe('createProviderCommandModule', () => {
         },
       },
     });
-    // #3282 §3: nothing was configured before this — a served runtime's setup mode has no session to
-    // restart into, so this hot-swaps a running placeholder instead. Restarting a live session that
-    // already has a provider (adding a second profile, below) is unaffected.
     expect(completed?.hostActions).toEqual([{ type: 'provider-hot-swap', profileName: 'openai' }]);
+  });
+
+  it('restarts (never hot-swaps) an env-default session with no persisted provider either (#3282 §3)', async () => {
+    // A session that started from a recognized provider env key (zero-config) has no `currentProvider`
+    // persisted, exactly like a served runtime's setup-mode session — but it is NOT in setup mode.
+    // Inferring "first ever" from settings alone would hot-swap it silently; only the session's own
+    // `isSetupRequired()` (false here, the default) tells the two apart.
+    const { adapter, readTarget } = createSettingsAdapter({}, {});
+
+    const { context } = scriptedContext([
+      { type: 'answer', values: [], text: '' },
+      { type: 'answer', values: [], text: '' },
+      { type: 'answer', values: [], text: '' },
+    ]);
+    const completed = await createExecutor(adapter).execute('provider', context, 'add openai');
+
+    expect(readTarget()).toMatchObject({ currentProvider: 'openai' });
+    expect(completed?.hostActions).toEqual([
+      { type: 'session-restart', reason: 'other', message: 'Provider setup restart' },
+    ]);
   });
 
   it('asks the user to pick a provider type when /provider add is called without one', async () => {
@@ -492,8 +540,8 @@ describe('createProviderCommandModule', () => {
     ]);
     const completed = await createExecutor(adapter).execute('provider', context, 'add openai');
 
-    // #3282 §3: a provider was already active (in the merged view, even though this profile lands in
-    // an empty target layer) — a session already running one still restarts to pick up the new profile.
+    // #3282 §3: this session is not in setup mode (scriptedContext's isSetupRequired default, false) —
+    // it restarts to pick up the new profile, exactly as an ordinary session with one already active.
     expect(completed?.hostActions).toEqual([
       { type: 'session-restart', reason: 'other', message: 'Provider setup restart' },
     ]);
@@ -543,5 +591,217 @@ describe('createProviderCommandModule', () => {
     expect(result?.message).toContain('Connection failed');
     expect(result?.message).toContain('manual configuration can continue');
     expect(probe).toHaveBeenCalled();
+  });
+
+  // #3282 §4b: direct, non-interactive forms of Edit/Duplicate/Delete — the Settings screen already
+  // knows which profile a button belongs to, so it names it directly instead of repeating the
+  // profile-action menu's own "which profile" ask.
+  describe('direct edit/duplicate/delete subcommands (#3282 §4b)', () => {
+    it('edits a named profile directly, skipping the "which profile" ask', async () => {
+      const { adapter, readTarget } = createSettingsAdapter(
+        {
+          currentProvider: 'anthropic',
+          providers: {
+            anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6', apiKey: 'sk-ant-secret' },
+          },
+        },
+        {},
+      );
+
+      const { context, requests } = scriptedContext([
+        { type: 'answer', values: [], text: '' },
+        { type: 'answer', values: [], text: 'claude-opus-4-5' },
+      ]);
+      const completed = await createExecutor(adapter).execute('provider', context, 'edit anthropic');
+
+      expect(requests[0]?.title).toBe('anthropic API key');
+      expect(readTarget()).toMatchObject({
+        providers: { anthropic: { model: 'claude-opus-4-5', apiKey: 'sk-ant-secret' } },
+      });
+      expect(completed?.message).toBe('Provider anthropic updated. Switching...');
+    });
+
+    it('requires an interactive renderer to edit', async () => {
+      const { adapter } = createSettingsAdapter({
+        currentProvider: 'anthropic',
+        providers: { anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' } },
+      });
+
+      const result = await createExecutor(adapter).execute('provider', headlessContext, 'edit anthropic');
+
+      expect(result?.success).toBe(false);
+      expect(result?.message).toContain('interactive session');
+    });
+
+    it('duplicates a named profile directly, skipping the "which profile" ask', async () => {
+      const { adapter, readTarget } = createSettingsAdapter({
+        currentProvider: 'openai',
+        providers: {
+          openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2', apiKey: 'lm-studio' },
+        },
+      });
+
+      const { context, requests } = scriptedContext([{ type: 'answer', values: [], text: '' }]);
+      const completed = await createExecutor(adapter).execute('provider', context, 'duplicate openai');
+
+      expect(requests[0]?.title).toBe('Duplicate openai as');
+      expect(readTarget()).toMatchObject({
+        providers: { 'openai-copy': { type: 'openai', model: 'supergemma4-26b-uncensored-v2' } },
+      });
+      expect(completed?.hostActions).toBeUndefined();
+    });
+
+    it('the Settings screen\'s own write (--confirmed) deletes with no confirm ask and no replacement ask', async () => {
+      const { adapter, readTarget } = createSettingsAdapter(
+        {
+          currentProvider: 'openai',
+          providers: {
+            openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+            anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+          },
+        },
+        {
+          currentProvider: 'openai',
+          providers: {
+            openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+            anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+          },
+        },
+      );
+
+      const { context, requests } = scriptedContext([]);
+      const completed = await createExecutor(adapter).execute(
+        'provider',
+        context,
+        'delete anthropic --confirmed',
+      );
+
+      expect(requests).toEqual([]);
+      expect(completed?.message).toBe('Provider profile deleted: anthropic.');
+      expect(readTarget()).toEqual({
+        currentProvider: 'openai',
+        providers: { openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' } },
+      });
+    });
+
+    it('a plainly-typed delete confirms first, interactively, before deleting', async () => {
+      const { adapter, readTarget } = createSettingsAdapter(
+        {
+          currentProvider: 'openai',
+          providers: {
+            openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+            anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+          },
+        },
+        {
+          currentProvider: 'openai',
+          providers: {
+            openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+            anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+          },
+        },
+      );
+
+      const { context, requests } = scriptedContext([{ type: 'answer', values: ['yes'] }]);
+      const completed = await createExecutor(adapter).execute('provider', context, 'delete anthropic');
+
+      expect(requests[0]?.title).toBe('Delete profile "anthropic"?');
+      expect(completed?.message).toBe('Provider profile deleted: anthropic.');
+      expect(readTarget()).toEqual({
+        currentProvider: 'openai',
+        providers: { openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' } },
+      });
+    });
+
+    it('a declined confirm cancels a plainly-typed delete, deleting nothing', async () => {
+      const settings = {
+        currentProvider: 'openai',
+        providers: {
+          openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+          anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+        },
+      };
+      const { adapter, readTarget } = createSettingsAdapter(settings, settings);
+
+      const { context } = scriptedContext([{ type: 'answer', values: ['no'] }]);
+      const result = await createExecutor(adapter).execute('provider', context, 'delete anthropic');
+
+      expect(result).toEqual({ message: 'Provider delete cancelled.', success: true });
+      expect(readTarget().providers?.['anthropic']).toBeDefined();
+    });
+
+    it('a headless (non-interactive) delete proceeds without asking, matching /clear\'s convention', async () => {
+      const settings = {
+        currentProvider: 'openai',
+        providers: {
+          openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+          anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+        },
+      };
+      const { adapter, readTarget } = createSettingsAdapter(settings, settings);
+
+      const result = await createExecutor(adapter).execute('provider', headlessContext, 'delete anthropic');
+
+      expect(result?.message).toBe('Provider profile deleted: anthropic.');
+      expect(readTarget().providers?.['anthropic']).toBeUndefined();
+    });
+
+    it('refuses to delete the profile in use, unlike the menu\'s Delete which asks for a replacement', async () => {
+      const { adapter, readTarget } = createSettingsAdapter(
+        {
+          currentProvider: 'anthropic',
+          providers: {
+            openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+            anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+          },
+        },
+        {
+          currentProvider: 'anthropic',
+          providers: {
+            openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+            anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+          },
+        },
+      );
+
+      const { context, requests } = scriptedContext([]);
+      const result = await createExecutor(adapter).execute(
+        'provider',
+        context,
+        'delete anthropic --confirmed',
+      );
+
+      expect(result?.success).toBe(false);
+      expect(result?.message).toBe('Cannot delete the profile in use. Switch to another profile first.');
+      expect(requests).toEqual([]); // never asks — a modal write has nowhere to ask a follow-up
+      expect(readTarget().providers?.['anthropic']).toBeDefined(); // nothing was deleted
+    });
+
+    it('refuses to delete the only provider profile', async () => {
+      const { adapter } = createSettingsAdapter(
+        { currentProvider: 'openai', providers: { openai: { type: 'openai', model: 'x' } } },
+        { currentProvider: 'openai', providers: { openai: { type: 'openai', model: 'x' } } },
+      );
+
+      const result = await createExecutor(adapter).execute('provider', headlessContext, 'delete openai');
+
+      expect(result?.success).toBe(false);
+      expect(result?.message).toBe('Cannot delete the only provider profile.');
+    });
+
+    it('reports an unknown profile for a direct delete', async () => {
+      const { adapter } = createSettingsAdapter({
+        currentProvider: 'openai',
+        providers: {
+          openai: { type: 'openai', model: 'x' },
+          anthropic: { type: 'anthropic', model: 'y' },
+        },
+      });
+
+      const result = await createExecutor(adapter).execute('provider', headlessContext, 'delete ghost');
+
+      expect(result?.success).toBe(false);
+      expect(result?.message).toBe('Provider profile "ghost" was not found.');
+    });
   });
 });
