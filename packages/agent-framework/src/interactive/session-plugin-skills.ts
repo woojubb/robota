@@ -33,22 +33,26 @@ export function sessionPluginSettingsPath(scope: ISessionPluginScope): string | 
 }
 
 /**
- * The skills and commands of the bundle plugins this session may load, read again on every call so
- * a plugin installed, enabled or disabled during the session is reflected without a restart.
+ * The skills and commands of the bundle plugins this session may load. They are loaded once, on
+ * first use, like plugin hooks: a plugin installed, enabled or disabled during the session takes
+ * effect in the next one, and a settings file that stops parsing mid-session cannot re-enable a
+ * plugin the user disabled.
  */
 export function createPluginSkillLoader(scope: ISessionPluginScope): () => readonly ICommand[] {
   const settingsPath = sessionPluginSettingsPath(scope);
   if (settingsPath === undefined) return () => [];
   const directories = sessionPluginDirectories(scope);
+  let loaded: readonly ICommand[] | undefined;
   return () => {
+    if (loaded !== undefined) return loaded;
     try {
-      return new PluginCommandSource(
+      loaded = new PluginCommandSource(
         loadHostBundlePluginsFromScopes(directories, { settingsPath }),
       ).getCommands();
     } catch {
-      // allow-fallback: plugin discovery failing leaves the session's own skills working; the
-      // session start logs the same failure for plugin hooks.
-      return [];
+      // allow-fallback: plugin discovery failing leaves the session's own skills working.
+      loaded = [];
     }
+    return loaded;
   };
 }

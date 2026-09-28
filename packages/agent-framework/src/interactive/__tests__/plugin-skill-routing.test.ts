@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { InteractiveSession } from '../interactive-session.js';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
+import { createRestrictedWorkspaceProjectAccess } from '../../workspace-trust/index.js';
 
 import type { ICommandHostContext, ICommandModule } from '../../command-api/index.js';
 
@@ -49,16 +50,19 @@ function writeSkill(dir: string, name: string, body: string): void {
   );
 }
 
-/** A user plugins folder holding the `helper` plugin with a skill, `tidy`, and a command, `lint`. */
-function installHelperPlugin(home: string): string {
-  const pluginsDir = join(home, 'plugins');
-  const pluginDir = join(pluginsDir, 'cache', 'local', 'helper', '1.0.0');
+/**
+ * A plugins folder holding a plugin with a skill, `tidy`, and a command, `lint`. `name` defaults to
+ * `helper`; the skill says which plugin it came from.
+ */
+function installHelperPlugin(base: string, name = 'helper'): string {
+  const pluginsDir = join(base, 'plugins');
+  const pluginDir = join(pluginsDir, 'cache', 'local', name, '1.0.0');
   mkdirSync(join(pluginDir, '.claude-plugin'), { recursive: true });
   writeFileSync(
     join(pluginDir, '.claude-plugin', 'plugin.json'),
-    JSON.stringify({ name: 'helper', version: '1.0.0', description: 'Helper' }),
+    JSON.stringify({ name, version: '1.0.0', description: name }),
   );
-  writeSkill(join(pluginDir, 'skills', 'tidy'), 'tidy', 'Tidy from the plugin.');
+  writeSkill(join(pluginDir, 'skills', 'tidy'), 'tidy', `Tidy from ${name}.`);
   mkdirSync(join(pluginDir, 'commands'), { recursive: true });
   writeFileSync(join(pluginDir, 'commands', 'lint.md'), '---\ndescription: Lint\n---\nLint it.');
   return pluginsDir;
@@ -68,9 +72,15 @@ async function sessionWith(options: {
   cwd: string;
   home: string;
   pluginsDir: string;
+  projectPluginsDir?: string;
   enabledPlugins?: Record<string, boolean>;
   bare?: boolean;
-}): Promise<{ session: InteractiveSession; run: ReturnType<typeof vi.fn> }> {
+  untrusted?: boolean;
+}): Promise<{
+  session: InteractiveSession;
+  run: ReturnType<typeof vi.fn>;
+  settingsPath: string;
+}> {
   const settingsPath = join(options.home, 'settings.json');
   writeFileSync(settingsPath, JSON.stringify({ enabledPlugins: options.enabledPlugins ?? {} }));
   const run = vi.fn().mockResolvedValue('done');
@@ -93,15 +103,21 @@ async function sessionWith(options: {
     cwd: options.cwd,
     contributionSources: createNodeHostContributionSourcesFixture(options.cwd),
     skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' as const }],
-    projectAccess: await createTrustedProjectAccessFixture(options.cwd),
+    projectAccess:
+      options.untrusted === true
+        ? createRestrictedWorkspaceProjectAccess('untrusted', options.cwd)
+        : await createTrustedProjectAccessFixture(options.cwd),
     commandModules: [skillsModule],
-    pluginDirectories: { user: options.pluginsDir },
+    pluginDirectories: {
+      user: options.pluginsDir,
+      ...(options.projectPluginsDir !== undefined ? { project: options.projectPluginsDir } : {}),
+    },
     userSettingsSources: [
       { kind: 'host', scope: 'user', displayName: 'user settings', path: settingsPath },
     ],
     ...(options.bare === true ? { bare: true } : {}),
   });
-  return { session, run };
+  return { session, run, settingsPath };
 }
 
 describe('a bundle plugin skill', () => {
@@ -117,7 +133,7 @@ describe('a bundle plugin skill', () => {
 
     expect(result).not.toBeNull();
     await vi.waitFor(() => expect(run).toHaveBeenCalled());
-    expect(String(run.mock.calls[0]?.[0])).toContain('Tidy from the plugin.');
+    expect(String(run.mock.calls[0]?.[0])).toContain('Tidy from helper.');
   });
 
   it('runs as `/<plugin>:<command>` when it is a plugin command', async () => {
@@ -200,5 +216,72 @@ describe('a bundle plugin skill', () => {
 
     await vi.waitFor(() => expect(run).toHaveBeenCalled());
     expect(String(run.mock.calls[0]?.[0])).toContain('Tidy from the project.');
+  });
+
+  it('is not loaded from an untrusted workspace’s project plugins', async () => {
+    const home = tempRoot();
+    const cwd = tempRoot();
+    const { session } = await sessionWith({
+      cwd,
+      home,
+      pluginsDir: join(home, 'no-user-plugins'),
+      projectPluginsDir: installHelperPlugin(join(cwd, '.robota')),
+      untrusted: true,
+    });
+
+    expect(await session.executeCommand('tidy', '', 'user')).toBeNull();
+    expect(
+      await session.executeSkillCommandByName('tidy', '', {
+        invocationSource: 'model',
+        displayInput: '/tidy',
+        rawInput: '/tidy',
+      }),
+    ).toBeNull();
+    expect(session.listSkills().map((skill) => skill.name)).not.toContain('tidy');
+  });
+
+  it('is loaded from a trusted workspace’s project plugins', async () => {
+    const home = tempRoot();
+    const cwd = tempRoot();
+    const { session } = await sessionWith({
+      cwd,
+      home,
+      pluginsDir: join(home, 'no-user-plugins'),
+      projectPluginsDir: installHelperPlugin(join(cwd, '.robota')),
+    });
+
+    expect(session.listSkills().map((skill) => skill.name)).toContain('tidy');
+  });
+
+  it('keeps the set it loaded when the settings file changes mid-session', async () => {
+    const home = tempRoot();
+    const { session, settingsPath } = await sessionWith({
+      cwd: tempRoot(),
+      home,
+      pluginsDir: installHelperPlugin(home),
+      enabledPlugins: { helper: false },
+    });
+    expect(await session.executeCommand('tidy', '', 'user')).toBeNull();
+
+    // A file that stops parsing reads as "nothing disabled"; it must not re-enable the plugin.
+    writeFileSync(settingsPath, '{ "enabledPlugins": { "helper": false }, }');
+
+    expect(await session.executeCommand('tidy', '', 'user')).toBeNull();
+  });
+
+  it('comes from the first plugin that names it when two do', async () => {
+    const home = tempRoot();
+    const cwd = tempRoot();
+    const { session, run } = await sessionWith({
+      cwd,
+      home,
+      pluginsDir: installHelperPlugin(home, 'user-helper'),
+      projectPluginsDir: installHelperPlugin(join(cwd, '.robota'), 'project-helper'),
+    });
+
+    expect(session.listSkills().filter((skill) => skill.name === 'tidy')).toHaveLength(1);
+    await session.executeCommand('tidy', '', 'user');
+    await vi.waitFor(() => expect(run).toHaveBeenCalled());
+    expect(String(run.mock.calls[0]?.[0])).toContain('Tidy from project-helper.');
   });
 });
