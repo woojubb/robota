@@ -373,7 +373,7 @@ export class PermissionEnforcer {
       this.transcriptPath,
     );
     const gate = await runPreToolGate(this.config.hooks, hookInput, this.hookTypeExecutors);
-    if (gate.refusal) {
+    if (gate.refusal || gate.parameters !== undefined) {
       this.log('tool_blocked', { tool: toolName, reason: 'hook', delegated: true });
       return false;
     }
