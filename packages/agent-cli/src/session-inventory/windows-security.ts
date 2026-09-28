@@ -36,7 +36,11 @@ function loadApi() {
   if (process.platform !== 'win32') throw new Error('Windows security requires Windows.');
   const kernel = koffi.load('kernel32.dll');
   const security = koffi.load('advapi32.dll');
-  const securityAttributes = koffi.struct({ length: 'uint32_t', descriptor: 'void*', inherit: 'int' });
+  const securityAttributes = koffi.struct({
+    length: 'uint32_t',
+    descriptor: 'void*',
+    inherit: 'int',
+  });
   return {
     securityAttributes,
     createDirectory: kernel.func('__stdcall', 'CreateDirectoryW', 'int', [
@@ -87,7 +91,7 @@ function tokenSid(processHandle: unknown): string {
     if (!win.sidString(koffi.decode(buffer, 'void*'), text))
       throw new Error('Unable to decode Windows process owner.');
     try {
-      const sid = String(koffi.decode(text[0], 'str16'));
+      const sid = String(koffi.decode.string16(text[0]));
       if (!/^S-1-[0-9-]+$/u.test(sid)) throw new Error('Invalid Windows owner SID.');
       return sid;
     } finally {
@@ -112,7 +116,7 @@ function descriptorOf(path: string): string {
     if (!win.descriptorString(descriptor[0], 1, 5, text, null))
       throw new Error('Unable to decode Windows access protection.');
     try {
-      return String(koffi.decode(text[0], 'str16'));
+      return String(koffi.decode.string16(text[0]));
     } finally {
       win.free(text[0]);
     }

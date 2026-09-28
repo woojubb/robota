@@ -74,23 +74,37 @@ function performIo(
   if (!event) return Promise.reject(new Error('Unable to create Windows pipe I/O event.'));
   const state = koffi.alloc(win.overlapped, 1);
   koffi.encode(state, win.overlapped, { internal: 0n, high: 0n, offset: 0, offsetHigh: 0, event });
+  // Windows retains these addresses after the FFI call; JS Buffer pointers are transient.
+  const data = buffer ? koffi.alloc('uint8_t', buffer.length) : null;
+  if (kind === 'write') koffi.encode(data, 'uint8_t', buffer!, buffer!.length);
   const transferred = [0];
+  const completeRead = () => {
+    const length = transferred[0]!;
+    if (buffer && length > buffer.length) throw new Error('Invalid Windows pipe I/O size.');
+    if (kind === 'read' && length > 0)
+      Buffer.from(koffi.decode(data, 'uint8_t', length)).copy(buffer!);
+    return length;
+  };
   const release = () => {
+    if (data) koffi.free(data);
     koffi.free(state);
     win.close(event);
   };
   const started =
     kind === 'connect'
       ? win.connect(handle, state)
-      : win[kind](handle, buffer, buffer!.length, null, state);
+      : win[kind](handle, data, buffer!.length, null, state);
   const code = started ? 0 : win.error();
   if (started || (kind === 'connect' && code === 535)) {
     // Overlapped operations never retain an FFI temporary output pointer.
     const complete = kind === 'connect' || win.result(handle, state, transferred, 0);
-    release();
-    return complete
-      ? Promise.resolve(transferred[0]!)
-      : Promise.reject(new Error('Windows pipe I/O completion was refused.'));
+    try {
+      return complete
+        ? Promise.resolve(completeRead())
+        : Promise.reject(new Error('Windows pipe I/O completion was refused.'));
+    } finally {
+      release();
+    }
   }
   if (code !== 997) {
     release();
@@ -106,9 +120,13 @@ function performIo(
       }
       // Windows has completed this request, including cancellation, before release.
       if (!completed) reject(new Error('Windows pipe I/O ended.'));
-      else if (buffer && transferred[0]! > buffer.length)
-        reject(new Error('Invalid Windows pipe I/O size.'));
-      else resolve(transferred[0]!);
+      else {
+        try {
+          resolve(completeRead());
+        } catch (error) {
+          reject(error);
+        }
+      }
     };
     poll();
   }).finally(release);
