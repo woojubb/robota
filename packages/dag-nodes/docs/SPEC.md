@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Umbrella contract for the `packages/dag-nodes/<slug>` family. Each node ships as its own package
-(published as `@robota-sdk/dag-node-<slug>`), exporting `IDagNodeDefinition` implementations. There
+Umbrella contract for the `packages/dag-nodes/<slug>` family. Each node ships as its own private
+workspace package (`@robota-sdk/dag-node-<slug>`), exporting `IDagNodeDefinition` implementations. There
 is no shared `packages/dag-nodes/src/`; each leaf package documents its own node definitions in its
 own `docs/SPEC.md`.
 

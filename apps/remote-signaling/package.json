@@ -2,7 +2,7 @@
   "name": "@robota-sdk/remote-signaling",
   "version": "3.0.0-beta.83",
   "private": true,
-  "description": "Minimal content-blind WebRTC signaling relay (SDP/ICE rendezvous) for REMOTE-001 P2P remote-control",
+  "description": "Minimal content-blind WebRTC signaling relay (SDP/ICE rendezvous) for Robota remote control",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -34,10 +34,10 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@robota-sdk/agent-interface-session": "workspace:*",
     "ws": "^8.21.1"
   },
   "devDependencies": {
+    "@robota-sdk/agent-interface-session": "workspace:*",
     "@robota-sdk/agent-remote-pairing": "workspace:*",
     "@robota-sdk/agent-transport-webrtc": "workspace:*",
     "@types/node": "^22.19.21",

@@ -14,8 +14,7 @@ import type { TModelEffortSelection } from '../interfaces/provider';
  * `packages/agent-core/docs/HOOK-CATALOG.md` § "Blocking semantics" — cited here rather than
  * recounted, because two different groupings of the same set were in circulation and a second copy
  * is what let them drift. Which events enforce is recorded in `HOOK_ENFORCEMENT_POLICY`
- * (`./enforcement-policy.ts`); see the catalog SSOT `packages/agent-core/docs/HOOK-CATALOG.md` for
- * per-event timing, fire-site, and blocking semantics.
+ * (`./enforcement-policy.ts`); the catalog also gives per-event timing and fire sites.
  */
 export type THookEvent =
   | 'PreToolUse'
@@ -150,7 +149,7 @@ export interface IHookInput {
   agent_type?: string;
   /** Subagent transcript path when available (SubagentStop only) */
   agent_transcript_path?: string;
-  /** Claude Code permission mode at time of event (e.g. "default", "plan", "acceptEdits", "bypassPermissions") */
+  /** Permission mode at the time of the event (e.g. "default", "plan", "acceptEdits", "bypassPermissions", "auto") */
   permission_mode?: string;
   /**
    * Provider model identifier for the model call (PreModelCall/PostModelCall only).

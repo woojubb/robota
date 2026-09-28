@@ -1,10 +1,10 @@
 /**
- * WebSocket binding for the {@link SignalingRelay} (REMOTE-002 Stage A, Step 3).
+ * WebSocket binding for the {@link SignalingRelay}.
  *
  * This wraps each `ws` socket as an {@link ISignalingPeer} and delegates every frame to the content-blind relay.
  * It defaults to binding **loopback (`127.0.0.1`) on an ephemeral port (`0`)** so tests and local runs never
- * expose a network-reachable surface; a deployment would pass an explicit host/port. Stage A wires **no auth**
- * (Stage B adds pairing) and this server is NOT referenced by any publish/deploy path (TC-06).
+ * expose a network-reachable surface; a deployment would pass an explicit host/port. The server authenticates
+ * no one — pairing is confirmed end to end between the peers — and no publish or deploy path starts it.
  */
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 

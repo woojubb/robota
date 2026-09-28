@@ -3,7 +3,7 @@
 ## Scope
 
 Owns the transport contract interfaces for the Robota SDK: the standard protocol for transport
-adapters (WebSocket, HTTP, MCP, TUI, etc.) and their configurable lifecycle. This package is
+adapters (carriers such as WebSocket, HTTP or MCP) and their configurable lifecycle. This package is
 contracts plus a small set of pure, dependency-free derivation accessors over its own owned union
 types — no classes, no I/O, no side effects.
 

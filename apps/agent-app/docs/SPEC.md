@@ -34,7 +34,8 @@ that package's build output.
 
 ## Non-goals
 
-- Does not own packaging/signing (installers, code-signing, notarization, auto-update).
+- Builds its installers but does not sign, notarize or auto-update them; those need release
+  credentials the app's build does not hold.
 - No `agent-framework`/`agent-core` dependency — the daemon owns the runtime.
 - Does not supervise or stop the daemon; its lifetime is the CLI's to manage.
 

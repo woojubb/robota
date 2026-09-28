@@ -22,5 +22,5 @@ export interface ITuiConfirmInteraction extends ITuiCommandInteraction {
 
 export type TAnyTuiCommandInteraction = ITuiPickerInteraction | ITuiConfirmInteraction;
 
-// Runtime type-guards for these interfaces live in the consuming runtime package
-// (`@robota-sdk/agent-transport`) — this interface package contains type contracts only.
+// This interface package contains type contracts only: a consumer narrows
+// `TAnyTuiCommandInteraction` on its `onMissingArgs` discriminant rather than calling a type guard.

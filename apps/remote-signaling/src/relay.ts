@@ -1,12 +1,12 @@
 /**
- * Content-blind signaling relay (REMOTE-002 Stage A; abuse-hardened in REMOTE-004 Stage B2).
+ * Content-blind signaling relay, hardened against abuse at its own layer.
  *
  * Two NAT'd WebRTC peers exchange SDP offers/answers + ICE candidates through this relay to establish a direct
  * P2P `RTCDataChannel`. The relay is a **dumb rendezvous**: it pairs at most two peers by an opaque rendezvous
  * id and forwards **only** `offer`/`answer`/`ice` frames verbatim between them. It NEVER inspects the `data`
  * payload, NEVER forwards a non-signaling frame, and holds **no session content** — only transient membership.
  *
- * B2 makes the relay **safe by default** at its own layer (not only when a host wires a hook): a per-source
+ * The relay is **safe by default** at its own layer (not only when a host wires a hook): a per-source
  * token-bucket bounds join floods, rendezvous ids are **single-use** (a distinct third peer is refused for the
  * lifetime of the id, even after one of the original two leaves), a **half-open** rendezvous (one peer, no
  * counterpart) expires after a TTL, and the number of concurrent rendezvous is capped. All abuse controls take

@@ -26,7 +26,8 @@ The `seedance-video` DAG node generates a video from a text prompt via the ByteD
 - Delegates all provider/credential/model resolution to an injected `IMediaProviderDefinition`;
   concrete ByteDance SDK composition belongs to `@robota-sdk/agent-builtin-providers`, not here.
 - This package is `private: true` — the DAG subsystem stays private. It is registered in the
-  async/optional node-registry list: the ByteDance provider is optional, and the node self-skips
-  if it cannot construct one.
+  async/optional node-registry list, which skips it only when the package cannot be loaded or
+  constructed. Without a usable ByteDance provider the node is still registered, and a run fails with
+  a validation error naming the missing credentials rather than failing DAG registration.
 - Does not read ambient environment variables itself — credential and endpoint environment names
   are declared by the injected provider definition.
