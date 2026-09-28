@@ -10,6 +10,7 @@
  * Re-exported from the original module, so no consumer has to know it moved.
  */
 
+import type { ICommand } from '../command-api/types.js';
 import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { TInteractivePermissionHandler } from './types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
@@ -64,6 +65,8 @@ export interface IInitOptions {
   userSettingsSources?: readonly INodeHostSettingsSource[];
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
+  /** The plugin skills the session loaded when it was built. */
+  pluginSkills?: readonly ICommand[];
   permissionMode?: ICreateSessionOptions['permissionMode'];
   /** CMD-005: unified ask renderer, forwarded into the session as the model-question tool seam. */
   askHandler?: IUserInteraction['ask'];

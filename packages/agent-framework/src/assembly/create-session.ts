@@ -133,7 +133,7 @@ export async function createSession(
   )
     ? mergeSkillCommands(
         skillCommandSource.getCommands(),
-        options.pluginSkills?.() ?? [],
+        options.pluginSkills ?? [],
       ).filter((skill) => skill.disableModelInvocation !== true)
     : [];
 

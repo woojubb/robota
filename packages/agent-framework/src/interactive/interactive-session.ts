@@ -32,10 +32,11 @@ import { persistSessionRename } from './interactive-session-rename.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
 import { InteractiveSessionRuntimeTools } from './interactive-session-runtime-tools.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
-import { createPluginSkillLoader } from './session-plugin-skills.js';
+import { loadSessionPluginSkills } from './session-plugin-skills.js';
 import { SessionTerminalHandoffGate } from './interactive-session-terminal-handoff.js';
 import { SessionTurnMemory } from './interactive-session-turn-memory.js';
 import { ExternalEventIngress } from './external-event-ingress.js';
+import type { ICommand } from '../command-api/types.js';
 import type { ExternalEventGrantHistory } from './external-event-ingress.js';
 import type { IExecutionSelfPacedLoopSummary } from '../background-tasks/index.js';
 import { PeerTurnRateLimiter } from './peer-turn-rate-limit.js';
@@ -249,6 +250,8 @@ export class InteractiveSession
   protected readonly bgTracker: SessionBackgroundTaskTracker;
   protected readonly histTracker: SessionHistoryTracker;
   protected readonly skillRouter: SessionSkillRouter;
+  /** The skills and commands of the bundle plugins this session loaded when it was built. */
+  private readonly pluginSkills: readonly ICommand[];
   protected readonly execCtrl: SessionExecutionController;
   private readonly stoppedWakeTaskIds = new Set<string>();
   private readonly sessionLoopExpiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -391,6 +394,15 @@ export class InteractiveSession
       'contributionSources' in options ? (options.contributionSources ?? []) : [];
     const skillRoots = 'skillRoots' in options ? (options.skillRoots ?? []) : [];
 
+    // Read once, now, so the prompt and the router agree on which plugin skills exist.
+    this.pluginSkills = loadSessionPluginSkills({
+      ...('bare' in options ? { bare: options.bare } : {}),
+      ...('projectAccess' in options ? { projectAccess: options.projectAccess } : {}),
+      ...('pluginDirectories' in options ? { pluginDirectories: options.pluginDirectories } : {}),
+      ...('userSettingsSources' in options
+        ? { userSettingsSources: options.userSettingsSources }
+        : {}),
+    });
     this.skillRouter = new SessionSkillRouter(
       commandModules,
       contributionSources,
@@ -417,14 +429,7 @@ export class InteractiveSession
         this.execCtrl.executeForegroundCommand(execute, (entry) => this.resumeQueuedTurn(entry)),
       shellExec,
       remoteCommandPolicy,
-      createPluginSkillLoader({
-        ...('bare' in options ? { bare: options.bare } : {}),
-        ...('projectAccess' in options ? { projectAccess: options.projectAccess } : {}),
-        ...('pluginDirectories' in options ? { pluginDirectories: options.pluginDirectories } : {}),
-        ...('userSettingsSources' in options
-          ? { userSettingsSources: options.userSettingsSources }
-          : {}),
-      }),
+      this.pluginSkills,
     );
 
     // #3288: tool name -> source `/command` name, for the projected model-command tools this
@@ -634,6 +639,7 @@ export class InteractiveSession
         this.skillRouter.commandExecutor.isModelInvocable(command),
       commandDescriptors: this.skillRouter.commandExecutor.listModelInvocableCommands(),
       commandSemanticRoles: this.skillRouter.commandExecutor.getSemanticRoles(),
+      pluginSkills: this.pluginSkills,
       setEditCheckpointStore: (store) => this.histTracker.setEditCheckpointStore(store),
       // The reply answers the turn in progress, over whatever carrier the host attached by then.
       peerReply: {

@@ -62,7 +62,7 @@ describe('the skills the model is told about', () => {
   it('include a bundle plugin skill it may activate', async () => {
     const { session } = await createSession(
       options({
-        pluginSkills: () => [
+        pluginSkills: [
           {
             name: 'tidy-plugin-skill',
             description: '(helper) Tidy the workspace',
@@ -79,7 +79,7 @@ describe('the skills the model is told about', () => {
   it('leave out a plugin skill that is not model-invocable', async () => {
     const { session } = await createSession(
       options({
-        pluginSkills: () => [
+        pluginSkills: [
           {
             name: 'manual-plugin-skill',
             description: '(helper) Only by hand',

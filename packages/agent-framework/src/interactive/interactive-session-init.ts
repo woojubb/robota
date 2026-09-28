@@ -30,6 +30,7 @@ import {
   mergeHooksIntoConfig,
 } from '../plugins/plugin-hooks-merger.js';
 
+import type { ICommand } from '../command-api/types.js';
 import type {
   IInteractiveSessionStandardOptions,
   IInitOptions,
@@ -200,6 +201,8 @@ export interface IAsyncInitDeps {
   isModelCommandInvocable: (command: string) => boolean;
   commandDescriptors: readonly ICapabilityDescriptor[];
   commandSemanticRoles: IInitOptions['commandSemanticRoles'];
+  /** The plugin skills the session loaded, so the prompt names the ones the router runs. */
+  pluginSkills: readonly ICommand[];
   setEditCheckpointStore: (store: EditCheckpointStore) => void;
   /** The session's answer route to a peer (`peer_reply`). */
   peerReply?: IInitOptions['peerReply'];
@@ -254,6 +257,7 @@ export async function initializeInteractiveSessionAsync(
     hookSources,
     contributionSources: options.contributionSources,
     skillRoots: options.skillRoots,
+    pluginSkills: deps.pluginSkills,
     permissionMode: options.permissionMode,
     baselinePermissionAllow: options.baselinePermissionAllow,
     maxTurns: options.maxTurns,

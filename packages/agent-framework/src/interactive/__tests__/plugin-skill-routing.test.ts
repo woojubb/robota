@@ -253,7 +253,7 @@ describe('a bundle plugin skill', () => {
     expect(session.listSkills().map((skill) => skill.name)).toContain('tidy');
   });
 
-  it('keeps the set it loaded when the settings file changes mid-session', async () => {
+  it('keeps the set it loaded when built, even if the settings file breaks before first use', async () => {
     const home = tempRoot();
     const { session, settingsPath } = await sessionWith({
       cwd: tempRoot(),
@@ -261,10 +261,30 @@ describe('a bundle plugin skill', () => {
       pluginsDir: installHelperPlugin(home),
       enabledPlugins: { helper: false },
     });
-    expect(await session.executeCommand('tidy', '', 'user')).toBeNull();
 
     // A file that stops parsing reads as "nothing disabled"; it must not re-enable the plugin.
     writeFileSync(settingsPath, '{ "enabledPlugins": { "helper": false }, }');
+
+    expect(await session.executeCommand('tidy', '', 'user')).toBeNull();
+    expect(
+      await session.executeSkillCommandByName('tidy', '', {
+        invocationSource: 'model',
+        displayInput: '/tidy',
+        rawInput: '/tidy',
+      }),
+    ).toBeNull();
+  });
+
+  it('does not pick up a plugin enabled after the session was built', async () => {
+    const home = tempRoot();
+    const { session, settingsPath } = await sessionWith({
+      cwd: tempRoot(),
+      home,
+      pluginsDir: installHelperPlugin(home),
+      enabledPlugins: { helper: false },
+    });
+
+    writeFileSync(settingsPath, JSON.stringify({ enabledPlugins: { helper: true } }));
 
     expect(await session.executeCommand('tidy', '', 'user')).toBeNull();
   });

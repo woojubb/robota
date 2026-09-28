@@ -99,8 +99,8 @@ export class SessionSkillRouter {
     private readonly shellExec?: TShellExecFn,
     /** Optional remote-command policy (REMOTE-006). Undefined → allow (local == remote); provide one only to opt into a restriction. */
     private readonly remoteCommandPolicy?: IRemoteCommandPolicy,
-    /** Skills from the bundle plugins the session may load. */
-    private readonly loadPluginSkills: () => readonly ICommand[] = () => [],
+    /** Skills from the bundle plugins the session loaded. */
+    private readonly pluginSkills: readonly ICommand[] = [],
   ) {
     this.allCommandModules = commandModules;
     this.commandExecutor = new SystemCommandExecutor(
@@ -161,7 +161,7 @@ export class SessionSkillRouter {
 
   /** The session's own skills, then the plugin skills whose names they do not already use. */
   private allSkills(): ICommand[] {
-    return mergeSkillCommands(this.skillCommandSource.getCommands(), this.loadPluginSkills());
+    return mergeSkillCommands(this.skillCommandSource.getCommands(), this.pluginSkills);
   }
 
   listModelInvocableCommands(): Array<{ name: string; description: string }> {

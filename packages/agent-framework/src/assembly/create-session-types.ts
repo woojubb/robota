@@ -84,7 +84,7 @@ export interface ICreateSessionOptions {
   /** Ordered skill and legacy-command roots selected by the host; absence disables file discovery. */
   skillRoots?: readonly ISkillRootDescriptor[];
   /** Skills from the bundle plugins the session may load; a skill-root skill of the same name wins. */
-  pluginSkills?: () => readonly ICommand[];
+  pluginSkills?: readonly ICommand[];
   /** Loaded AGENTS.md / CLAUDE.md context */
   context: ILoadedContext;
   /** Terminal I/O for permission prompts */
