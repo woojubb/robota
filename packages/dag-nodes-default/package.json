@@ -1,8 +1,8 @@
 {
   "name": "@robota-sdk/dag-nodes-default",
-  "version": "0.1.0-beta.7",
+  "version": "0.1.0-beta.8",
   "private": true,
-  "description": "Default DAG node catalog \u2014 composition aggregator for the built-in node set (entry-point-only)",
+  "description": "Default DAG node catalog — composition aggregator for the built-in node set (entry-point-only)",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",

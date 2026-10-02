@@ -1,5 +1,27 @@
 # @robota-sdk/agent-provider-openai
 
+## 3.0.0-beta.87
+
+### Patch Changes
+
+- Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- 7d9cc66: Add owner-hosted organization control and OpenAI-wire gateway composition with anchored authority, mandatory verified audit, durable effect reservations, provider inventory cleanup and private content receipts. OpenAI profiles can opt into operation identities preserved across SDK retries.
+- 7d9cc66: Retain typed text and image observations alongside structured tool data through runtime settlement, history, and recovery. Deliver tool images as native content in OpenAI Responses and Anthropic requests, retain structured error receipts, include media in bounded result admission, and reject malformed MCP image observations with reconciliation state intact.
+- 7d9cc66: Preserve admitted tool text and source attribution on Chat Completions requests and transmit tool images as call-linked native vision observations.
+- 7d9cc66: Retain typed resource and audio observations alongside structured tool results through history, durable receipts, recovery, size admission, and session persistence. Preserve opaque resource references without fetching them, project embedded text and explicit unsupported binary/audio diagnostics into provider requests and compaction transcripts, and validate persisted observation shapes on reload.
+- Updated dependencies
+- Updated dependencies [66af868]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+  - @robota-sdk/agent-core@3.0.0-beta.87
+  - @robota-sdk/agent-provider-openai-compatible@3.0.0-beta.87
+
 ## 3.0.0-beta.86
 
 ### Patch Changes

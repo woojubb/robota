@@ -1,5 +1,26 @@
 # @robota-sdk/agent-transport-ws
 
+## 3.0.0-beta.87
+
+### Patch Changes
+
+- Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- Updated dependencies
+- Updated dependencies [66af868]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+  - @robota-sdk/agent-core@3.0.0-beta.87
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.87
+  - @robota-sdk/agent-interface-session@3.0.0-beta.87
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.87
+  - @robota-sdk/agent-transport@3.0.0-beta.87
+
 ## 3.0.0-beta.86
 
 ### Patch Changes

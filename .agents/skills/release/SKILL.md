@@ -8,10 +8,10 @@ description: Bump versions, promote develop to main, and publish the selected pr
 When the owner asks for a release, the agent carries out every step below, merging each PR itself once CI is
 green on its head and every MUST/SHOULD from `pr-review-reviewer` is resolved.
 
-1. **Bump** on a branch from fresh `origin/develop`: make sure every changed package has a changeset, run
-   `pnpm run version` (changesets; bare `pnpm version` is pnpm's own command), then `pnpm install` so the
-   lockfile is regenerated — never hand-edit it. The bump PR contains the bump and nothing else. Merge it
-   into `develop` through a normal PR.
+1. **Verify and bump** on a branch from fresh `origin/develop`: personally run the actual source CLI with disposable HOME/product state, submit a normal prompt and a slash command, and require successful session initialization and completed responses.
+   Record the exact commit, invocations, provider mode and results in the issue/PR; help/version output alone does not establish a working session. Before publication, repeat this check on the generated/installed CLI artifact intended for release.
+   Make sure every changed package has a changeset, run `pnpm run version` (changesets; bare `pnpm version` is pnpm's own command), then `pnpm install` so the lockfile is regenerated — never hand-edit it.
+   The bump PR contains the bump and nothing else. Merge it into `develop` through a normal PR.
 2. **Promote** `develop` → `main` with a PR whose head is `develop`. On merge,
    `release-tag-on-version-bump.yml` tags the new version; the binary and desktop release workflows run
    from that tag.

@@ -28,6 +28,59 @@ describe('validatePermissionPattern (issue #2428)', () => {
     expect(validatePermissionPattern('WebFetch(example.com)')).toMatch(/URL pattern grammar/);
   });
 
+  it('accepts Claude domain rules in allow, deny and ask after WebFetch parameters arrive', () => {
+    registerToolPermissionProfile('WebFetch', {
+      argument: { key: 'url', kind: 'url' },
+      riskClass: 'inspect',
+      parameters: ['url', 'prompt'],
+    });
+    for (const domain of [
+      'github.com',
+      'docs.anthropic.com',
+      'www.npmjs.com',
+      'raw.githubusercontent.com',
+      'hono.dev',
+      'vercel.com',
+      'EXAMPLE.COM.',
+      '*.example.com',
+      'example.*',
+      'a.*.example.com',
+      '*',
+    ]) {
+      for (const direction of ['allow', 'deny'] as const) {
+        expect(
+          validatePermissionPattern(`WebFetch(domain:${domain})`, direction),
+          domain,
+        ).toBeUndefined();
+      }
+    }
+  });
+
+  it.each([
+    '',
+    'https://example.com',
+    'example.com/path',
+    'example.com:443',
+    'user@example.com',
+    'example.com?query',
+    'example.com#fragment',
+    'example\\com',
+    'exa mple.com',
+    '.example.com',
+    'example..com',
+    '**.example.com',
+    'api-**.example.com',
+  ])('refuses malformed domain rules at startup: %s', (domain) => {
+    registerToolPermissionProfile('WebFetch', {
+      argument: { key: 'url', kind: 'url' },
+      riskClass: 'inspect',
+      parameters: ['url', 'prompt'],
+    });
+    for (const direction of ['allow', 'deny'] as const) {
+      expect(validatePermissionPattern(`WebFetch(domain:${domain})`, direction)).toMatch(/grammar/);
+    }
+  });
+
   it('refuses an argument-scoped pattern for a declared tool with no argument key', () => {
     registerToolPermissionProfile('AskUserQuestion', { riskClass: 'inspect' });
     expect(validatePermissionPattern('AskUserQuestion(anything)')).toMatch(/no argument key/);

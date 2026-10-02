@@ -1,5 +1,45 @@
 # @robota-sdk/agent-ui-terminal
 
+## 3.0.0-beta.87
+
+### Minor Changes
+
+- 7d9cc66: Preserve an explicitly supplied host tool scheduling policy through session assembly and CLI presentation modes, retaining permission admission and conservative handling of undeclared resources.
+
+### Patch Changes
+
+- Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- Updated dependencies
+- Updated dependencies [66af868]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+  - @robota-sdk/agent-core@3.0.0-beta.87
+  - @robota-sdk/agent-framework@3.0.0-beta.87
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.87
+  - @robota-sdk/agent-interface-command@3.0.0-beta.87
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.87
+  - @robota-sdk/agent-interface-session@3.0.0-beta.87
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.87
+  - @robota-sdk/agent-interface-tui@3.0.0-beta.87
+  - @robota-sdk/agent-transport@3.0.0-beta.87
+
 ## 3.0.0-beta.86
 
 ### Patch Changes

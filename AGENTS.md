@@ -26,7 +26,7 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
 
 ## Checks
 
-`pnpm build` · `pnpm typecheck` · `pnpm lint` · `pnpm test` · `pnpm deps:check`
+`pnpm build` · `pnpm typecheck` · `pnpm lint` · `pnpm test` · `pnpm deps:check`. For CLI runtime changes, personally run the actual source CLI with disposable HOME/product state, submit a normal prompt and a slash command, and verify session initialization and completed responses; record the exact commit, invocations, provider mode and results in the issue/PR. Help/version output alone does not establish a working session.
 
 ## Non-obvious facts
 

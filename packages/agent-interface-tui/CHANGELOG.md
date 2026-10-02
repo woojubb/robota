@@ -1,5 +1,11 @@
 # @robota-sdk/agent-interface-tui
 
+## 3.0.0-beta.87
+
+### Patch Changes
+
+- Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+
 ## 3.0.0-beta.86
 
 ## 3.0.0-beta.85
