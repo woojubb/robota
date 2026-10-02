@@ -15,7 +15,7 @@
  * can never be evaluated, whatever loads later.
  */
 
-import { matchUrl } from './argument-matchers.js';
+import { matchUrl, matchWebFetchUrl } from './argument-matchers.js';
 import { getToolPermissionProfile, parseParameterRule, parsePattern } from './permission-gate.js';
 
 import type { TMatchDirection } from './argument-matchers.js';
@@ -89,8 +89,12 @@ export function validatePermissionPattern(
     if (profile.riskClass === undefined) return undefined; // nobody has declared this tool yet
     return `tool "${toolName}" declares no argument key, so an argument-scoped pattern can never be evaluated`;
   }
-  if (profile.argument.kind === 'url' && matchUrl(argPattern, URL_PROBE) === 'unevaluable') {
-    return `does not fit the URL pattern grammar scheme://host[:port][/path] that "${toolName}" is matched by`;
+  if (profile.argument.kind === 'url') {
+    const matcher = toolName === 'WebFetch' ? matchWebFetchUrl : matchUrl;
+    if (matcher(argPattern, URL_PROBE) === 'unevaluable') {
+      const domainForm = toolName === 'WebFetch' ? ' or domain:hostname' : '';
+      return `does not fit the URL pattern grammar scheme://host[:port][/path]${domainForm} that "${toolName}" is matched by`;
+    }
   }
   return undefined;
 }

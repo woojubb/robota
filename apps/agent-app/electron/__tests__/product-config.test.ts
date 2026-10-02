@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 import { embeddedProductIdentity, resolveProductConfig } from '@robota-sdk/product-config';
+import { robotaEnvironment } from '../robota.js';
 
 import {
   desktopCliEnvironment,
@@ -10,7 +14,90 @@ import {
 } from '../product-config.js';
 import { desktopProductEnvironment } from './product-environment.js';
 
+const temporary: string[] = [];
+afterEach(() => temporary.splice(0).forEach((directory) => rmSync(directory, { recursive: true, force: true })));
+function home(): string {
+  const directory = mkdtempSync(join(tmpdir(), 'desktop-product-config-'));
+  temporary.push(directory);
+  return directory;
+}
+
 describe('desktop product configuration', () => {
+  it('uses invocation-home defaults for packaged Robota without embedding build storage', () => {
+    const buildHome = home();
+    const identity = embeddedProductIdentity(resolveProductConfig({ environment: robotaEnvironment({}, buildHome) }));
+    expect(JSON.stringify(identity)).not.toContain(buildHome);
+    for (const userHome of [home(), home()]) {
+      const config = loadDesktopProductConfig({
+        environment: { HOME: userHome },
+        identityFile: '/app/product-identity.json',
+        isPackaged: true,
+        exists: () => true,
+        readFile: () => JSON.stringify(identity),
+      });
+      expect(config.storage.userRoot).toBe(join(userHome, '.robota'));
+      expect(config.storage.cacheRoot).toBe(join(userHome, '.robota', 'cache'));
+      expect(config.storage.logRoot).toBe(join(userHome, '.robota', 'logs'));
+      expect(desktopUserDataPath(config)).toBe(join(userHome, '.robota', 'desktop'));
+      expect(embeddedProductIdentity(config)).toEqual(identity);
+    }
+  });
+
+  it('preserves packaged Robota overrides, explicit selection, empty and conflicting inputs', () => {
+    const userHome = home();
+    const identity = embeddedProductIdentity(resolveProductConfig({ environment: robotaEnvironment({}, userHome) }));
+    const load = (environment: Record<string, string | undefined>) => loadDesktopProductConfig({
+      environment: { HOME: userHome, ...environment },
+      identityFile: '/app/product-identity.json',
+      isPackaged: true,
+      exists: () => true,
+      readFile: () => JSON.stringify(identity),
+    });
+    const root = join(userHome, 'selected-state');
+    expect(load({ ROBOTA_USER_STATE_DIR: root }).storage.cacheRoot).toBe(join(root, 'cache'));
+    for (const environment of [
+      { PRODUCT_USER_STATE_DIR: '' },
+      { ROBOTA_LOG_DIR: '' },
+      { PRODUCT_LOG_DIR: root, ROBOTA_LOG_DIR: join(root, 'other') },
+      { ROBOTA_CREDENTIAL_SERVICE: 'other' },
+      { ROBOTA_MASTER_KEY_DERIVATION_PATH: '[7240,1]' },
+      { PRODUCT_ID: 'robota' },
+      { PRODUCT_ENV_PREFIX: 'ROBOTA_' },
+      { PRODUCT_CONFIG_FILE: '' },
+    ]) expect(() => load(environment)).toThrow();
+    const filePath = join(userHome, 'selected.env');
+    const file = Object.entries({
+      ...robotaEnvironment({}, userHome),
+      PRODUCT_USER_STATE_DIR: './file-state',
+    }).map(([key, value]) => `${key}=${value}`).join('\n');
+    const selected = loadDesktopProductConfig({
+      environment: { HOME: home(), PRODUCT_CONFIG_FILE: filePath },
+      identityFile: '/app/product-identity.json',
+      isPackaged: true,
+      exists: () => true,
+      readFile: (path) => path === filePath ? file : JSON.stringify(identity),
+    });
+    expect(selected.storage.userRoot).toBe(join(userHome, 'file-state'));
+  });
+
+  it('requires host settings for a same-ID desktop artifact with another complete profile', () => {
+    const environment = {
+      ...robotaEnvironment({}, home()),
+      PRODUCT_CREDENTIAL_SERVICE: 'other',
+      SECURITY_MASTER_KEY_DERIVATION_PATH: '[173,0]',
+    };
+    const identity = embeddedProductIdentity(resolveProductConfig({ environment }));
+    const options = {
+      identityFile: '/app/product-identity.json',
+      isPackaged: true,
+      exists: () => true,
+      readFile: () => JSON.stringify(identity),
+    };
+    expect(() => loadDesktopProductConfig({ ...options, environment: { HOME: home() } }))
+      .toThrow('PRODUCT_USER_STATE_DIR');
+    expect(loadDesktopProductConfig({ ...options, environment }).credentials.serviceNamespace).toBe('other');
+  });
+
   it('uses embedded identity while allowing host operational settings', () => {
     const identity = embeddedProductIdentity(resolveProductConfig({ environment: desktopProductEnvironment('cedar') }));
     const config = loadDesktopProductConfig({

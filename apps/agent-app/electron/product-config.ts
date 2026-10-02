@@ -1,8 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { homedir } from 'node:os';
 
 import { loadProductConfigSelection } from '@robota-sdk/product-config/node';
-import { embeddedProductIdentity, productConfigEntries } from '@robota-sdk/product-config';
+import { embeddedProductIdentity, productConfigEntries, resolveProductConfig } from '@robota-sdk/product-config';
+import { robotaEnvironment } from './robota.js';
 
 import type { IEmbeddedProductIdentity, IProductConfig, TConfigEnvironment } from '@robota-sdk/product-config';
 
@@ -34,8 +36,17 @@ export function loadDesktopProductConfigSelection(options: {
       throw new Error('Packaged desktop product identity is invalid.');
     }
   }
+  const environment = Object.freeze({ ...options.environment });
+  const defaults = embeddedIdentity === undefined ? undefined : robotaEnvironment(
+    environment,
+    environment.HOME ?? environment.USERPROFILE ?? homedir(),
+    (profileEnvironment) =>
+      JSON.stringify(embeddedProductIdentity(resolveProductConfig({ environment: profileEnvironment }))) ===
+      JSON.stringify(embeddedIdentity),
+  );
   return loadProductConfigSelection({
-    environment: Object.freeze({ ...options.environment }),
+    environment,
+    ...(defaults !== undefined ? { defaults } : {}),
     ...(embeddedIdentity !== undefined ? { embeddedIdentity } : {}),
     ...(options.readFile !== undefined ? { readFile: options.readFile } : {}),
   });

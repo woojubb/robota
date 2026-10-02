@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 
 /** Robota's public host composition; explicit product selection remains authoritative. */
-export function robotaEnvironment(environment, home) {
+export function robotaEnvironment(environment, home, acceptsProfile) {
   if (
     environment.PRODUCT_ENV_PREFIX !== undefined ||
     environment.PRODUCT_CONFIG_FILE !== undefined ||
@@ -45,6 +45,8 @@ export function robotaEnvironment(environment, home) {
     PROJECT_NPM_REGISTRY_URL: 'https://registry.npmjs.org',
     PROJECT_PACKAGE_ACCESS: 'public',
   };
+  // Hosts compare the complete canonical profile before allowing these product defaults.
+  if (acceptsProfile !== undefined && !acceptsProfile(defaults)) return environment;
   // An explicitly supplied alias belongs to the caller's layer, above host defaults.
   for (const key of Object.keys(defaults)) {
     if (key === 'PRODUCT_ENV_PREFIX') continue;
