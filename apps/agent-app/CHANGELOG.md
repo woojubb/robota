@@ -1,5 +1,14 @@
 # @robota-sdk/agent-app
 
+## 3.0.0-beta.87
+
+### Patch Changes
+
+- 66af868: Restore portable default startup for generated Robota artifacts while preserving explicit product selection and immutable identity. Keep shared product configuration internal because existing SDK and CLI artifacts bundle its implementation and types.
+- Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- Updated dependencies [66af868]
+  - @robota-sdk/product-config@3.0.0-beta.87
+
 ## 3.0.0-beta.84
 
 ### Patch Changes

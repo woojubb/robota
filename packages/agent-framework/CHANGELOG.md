@@ -1,5 +1,66 @@
 # @robota-sdk/agent-framework
 
+## 3.0.0-beta.87
+
+### Minor Changes
+
+- 7d9cc66: Keep host-declared inline human controls reachable during active turns. Plugin disable and uninstall can withdraw future dispatch without changing model invocation or host command policy.
+- 7d9cc66: Expose declarative contribution descriptors for installed bundles and resolved MCP sources,
+  including source generations, host capability requirements and compatibility diagnostics.
+  Revalidate MCP approval, source identity and workspace trust before new dispatch, preserving
+  outcomes of calls already started and refusing retained tools after shutdown.
+- 7d9cc66: Preserve an explicitly supplied host tool scheduling policy through session assembly and CLI presentation modes, retaining permission admission and conservative handling of undeclared resources.
+
+### Patch Changes
+
+- Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- 7d9cc66: Load declared JSON and inline bundle MCP configurations with selected-source containment, ordered whole-server replacement and file provenance. Route packaged servers through normal CLI/app MCP startup with namespaced identities, existing trust/approval/authority gates, disable overlays and value-free compatibility diagnostics.
+- 7d9cc66: Load external name-only plugin manifests without inventing optional metadata. Select the recorded
+  installed source instead of the lexically last cached directory, refusing invalid, missing or
+  ambiguous revisions. Check the installed identity as well as the manifest name for disablement.
+- 7d9cc66: Add user-only project memory topic correction and forgetting, prevent automatic restoration after restart, refresh retained startup context, and reconcile semantic recall with current durable source content.
+- 7d9cc66: Allow consumer eval metrics to require a perfect outcome independently of aggregate scores, and reject interrupted runs as successful evaluations.
+- 7d9cc66: Add explicit MCP Skills selection, bounded supervisor access and persistent host content consent.
+  Users can inspect verified instructions, approve the exact content fingerprint and withdraw consent;
+  models can discover metadata only. Consent stays separate from server admission and model-turn activation.
+- 7d9cc66: Route discovered MCP Skills through the shared skill command runtime with lazy verified content, source-bound invocation names, current user consent and execution-owned activation cleanup. Keep remote shell expressions inert and defer queued user skill reads until their own turn executes.
+- 7d9cc66: Restore actual interactive tool observations, identities and outcomes from persisted event history.
+  Show denied calls as failed in live and restored GUI conversation views.
+- 7d9cc66: Retain registered tool source attribution in observations and preserve ordered outcome receipts independently of conversation summaries.
+- 7d9cc66: Expose verified skill supporting resources only within their owning turn or fork, using the current host consent and manifest.
+- 7d9cc66: Retain mixed tool observations alongside structured results through live session events and history
+  display. The shared app renderer previews inline raster images and keeps resource URIs inert, with
+  explicit diagnostics for unsupported media instead of silently dropping it.
+- 7d9cc66: Observe scheduler queue intervals separately from pre-dispatch admission, permission and tool work.
+  Preserve valid duration totals when live trace detail is bounded, reporting invalid evidence explicitly
+  through content-free console and OTLP traces without altering dispatch, recovery or settlement.
+- Updated dependencies
+- Updated dependencies [66af868]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+  - @robota-sdk/agent-core@3.0.0-beta.87
+  - @robota-sdk/agent-executor@3.0.0-beta.87
+  - @robota-sdk/agent-file-authority@3.0.0-beta.87
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.87
+  - @robota-sdk/agent-interface-command@3.0.0-beta.87
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.87
+  - @robota-sdk/agent-interface-session@3.0.0-beta.87
+  - @robota-sdk/agent-interface-session-mobility@3.0.0-beta.87
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.87
+  - @robota-sdk/agent-roundtable@3.0.0-beta.87
+  - @robota-sdk/agent-session@3.0.0-beta.87
+  - @robota-sdk/agent-tool-defaults@3.0.0-beta.87
+  - @robota-sdk/agent-tools@3.0.0-beta.87
+
 ## 3.0.0-beta.86
 
 ### Patch Changes

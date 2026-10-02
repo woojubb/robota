@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/pack-coding",
-  "version": "3.0.0-beta.86",
-  "description": "Robota's coding capability pack \u2014 an ICapabilityPack bundling the built-in coding tools, coding command modules, and coding subagents",
+  "version": "3.0.0-beta.87",
+  "description": "Robota's coding capability pack — an ICapabilityPack bundling the built-in coding tools, coding command modules, and coding subagents",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",

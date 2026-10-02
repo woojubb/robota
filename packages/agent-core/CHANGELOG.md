@@ -1,5 +1,24 @@
 # @robota-sdk/agent-core
 
+## 3.0.0-beta.87
+
+### Patch Changes
+
+- Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- 66af868: Accept Claude-compatible WebFetch domain permission rules during session initialization while preserving hostname boundaries and deny/ask enforcement.
+- 7d9cc66: Add trusted host scheduling for model tool rounds, with dependencies, bounded independent work,
+  and shared-resource reader/writer exclusion. Unknown resources serialize conservatively. Failed
+  predecessors or invalid plans produce paired skipped receipts, while settled recovery receipts
+  and already running sibling outcomes remain intact.
+- 7d9cc66: Retain typed text and image observations alongside structured tool data through runtime settlement, history, and recovery. Deliver tool images as native content in OpenAI Responses and Anthropic requests, retain structured error receipts, include media in bounded result admission, and reject malformed MCP image observations with reconciliation state intact.
+- 7d9cc66: Preserve a result for each remaining call when a sequential tool batch stops after failure. Persist skipped calls without dispatch and reject recovery records that claim an executed action was skipped.
+- 7d9cc66: Retain typed resource and audio observations alongside structured tool results through history, durable receipts, recovery, size admission, and session persistence. Preserve opaque resource references without fetching them, project embedded text and explicit unsupported binary/audio diagnostics into provider requests and compaction transcripts, and validate persisted observation shapes on reload.
+- 7d9cc66: Retain registered tool source attribution in observations and preserve ordered outcome receipts independently of conversation summaries.
+- 7d9cc66: Observe scheduler queue intervals separately from pre-dispatch admission, permission and tool work.
+  Preserve valid duration totals when live trace detail is bounded, reporting invalid evidence explicitly
+  through content-free console and OTLP traces without altering dispatch, recovery or settlement.
+- 7d9cc66: Retain registered attribution on refused and interrupted call receipts without replacing the source of actual or recovered settlements, and project undispatched registered calls into live and restored presentation history.
+
 ## 3.0.0-beta.86
 
 ## 3.0.0-beta.85

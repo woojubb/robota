@@ -1,5 +1,14 @@
 # @robota-sdk/agent-interface-analytics
 
+## 3.0.0-beta.87
+
+### Patch Changes
+
+- Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- 7d9cc66: Observe scheduler queue intervals separately from pre-dispatch admission, permission and tool work.
+  Preserve valid duration totals when live trace detail is bounded, reporting invalid evidence explicitly
+  through content-free console and OTLP traces without altering dispatch, recovery or settlement.
+
 ## 3.0.0-beta.86
 
 ## 3.0.0-beta.85

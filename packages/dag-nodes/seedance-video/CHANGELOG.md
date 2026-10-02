@@ -1,5 +1,20 @@
 # @robota-sdk/dag-node-seedance-video
 
+## 3.0.0-beta.71
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies [66af868]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+  - @robota-sdk/agent-core@3.0.0-beta.87
+
 ## 3.0.0-beta.70
 
 ### Patch Changes

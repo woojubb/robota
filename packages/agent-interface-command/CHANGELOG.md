@@ -1,5 +1,23 @@
 # @robota-sdk/agent-interface-command
 
+## 3.0.0-beta.87
+
+### Patch Changes
+
+- Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- 7d9cc66: Route discovered MCP Skills through the shared skill command runtime with lazy verified content, source-bound invocation names, current user consent and execution-owned activation cleanup. Keep remote shell expressions inert and defer queued user skill reads until their own turn executes.
+- 7d9cc66: Expose verified skill supporting resources only within their owning turn or fork, using the current host consent and manifest.
+- Updated dependencies
+- Updated dependencies [66af868]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+  - @robota-sdk/agent-core@3.0.0-beta.87
+
 ## 3.0.0-beta.86
 
 ### Patch Changes

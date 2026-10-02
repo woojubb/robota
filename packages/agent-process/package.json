@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-process",
-  "version": "3.0.0-beta.86",
-  "description": "Domain-free child-process termination primitives for the Robota SDK \u2014 killProcessTree (SIGTERM\u2192grace\u2192SIGKILL, process-group aware)",
+  "version": "3.0.0-beta.87",
+  "description": "Domain-free child-process termination primitives for the Robota SDK — killProcessTree (SIGTERM→grace→SIGKILL, process-group aware)",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",

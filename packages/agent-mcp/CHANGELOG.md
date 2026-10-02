@@ -1,5 +1,42 @@
 # @robota-sdk/agent-mcp
 
+## 3.0.0-beta.87
+
+### Minor Changes
+
+- 7d9cc66: Expose declarative contribution descriptors for installed bundles and resolved MCP sources,
+  including source generations, host capability requirements and compatibility diagnostics.
+  Revalidate MCP approval, source identity and workspace trust before new dispatch, preserving
+  outcomes of calls already started and refusing retained tools after shutdown.
+
+### Patch Changes
+
+- Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- 7d9cc66: Withdraw a cancelled or timed-out tool HTTP request without closing unrelated calls or suppressing its cancellation notification.
+- 7d9cc66: Retain typed text and image observations alongside structured tool data through runtime settlement, history, and recovery. Deliver tool images as native content in OpenAI Responses and Anthropic requests, retain structured error receipts, include media in bounded result admission, and reject malformed MCP image observations with reconciliation state intact.
+- 7d9cc66: Remove foreign JSON Schema dialect declarations from portable MCP tool schemas and report the
+  adaptation, so sessions containing those tools can be persisted and restored without losing history.
+- 7d9cc66: Connect explicitly selected stateless MCP servers through product startup. Preserve and expose the selected protocol, bind activation approval to it, refuse unsupported selections, and report unavailable protocol capabilities without widening process or network authority.
+- 7d9cc66: Add explicit MCP Skills selection, bounded supervisor access and persistent host content consent.
+  Users can inspect verified instructions, approve the exact content fingerprint and withdraw consent;
+  models can discover metadata only. Consent stays separate from server admission and model-turn activation.
+- 7d9cc66: Retain typed resource and audio observations alongside structured tool results through history, durable receipts, recovery, size admission, and session persistence. Preserve opaque resource references without fetching them, project embedded text and explicit unsupported binary/audio diagnostics into provider requests and compaction transcripts, and validate persisted observation shapes on reload.
+- 7d9cc66: Retain registered tool source attribution in observations and preserve ordered outcome receipts independently of conversation summaries.
+- 7d9cc66: Add an explicit stateless MCP request surface over admitted HTTP and stdio transports, preserving legacy negotiation by default. Validate per-request/version, discovery and cache metadata, preserve private page hints, separate retained catalogs by carrier generation, and close uncertain timed-out execution without replay.
+- 7d9cc66: Add an explicitly selected stateless MCP Skills wire view with server-scoped manifests, lazy verified
+  file reads, bounded pagination and receive budgets, and invalidation after content changes. Skill
+  activation and permission consent remain owned by the host.
+- Updated dependencies
+- Updated dependencies [66af868]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+  - @robota-sdk/agent-core@3.0.0-beta.87
+
 ## 3.0.0-beta.86
 
 ### Patch Changes
