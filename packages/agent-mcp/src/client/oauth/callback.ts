@@ -61,9 +61,9 @@ const PAGE_HEADERS = {
   Connection: 'close',
 };
 const SIGNED_IN_PAGE =
-  '<!doctype html><title>Signed in</title><p>Signed in. You can close this tab and return to Robota.</p>';
+  '<!doctype html><title>Signed in</title><p>Signed in. You can close this tab and return to the application.</p>';
 const FAILED_PAGE =
-  '<!doctype html><title>Sign-in failed</title><p>Sign-in did not complete. Return to Robota for details.</p>';
+  '<!doctype html><title>Sign-in failed</title><p>Sign-in did not complete. Return to the application for details.</p>';
 
 function refuse(response: ServerResponse, status: number): void {
   response.writeHead(status, { ...PAGE_HEADERS, 'Content-Type': 'text/plain; charset=utf-8' });

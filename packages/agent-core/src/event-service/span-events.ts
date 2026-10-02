@@ -46,6 +46,11 @@ export const TOOL_BODY_EVENTS = {
   COMPLETED: 'tool_body_completed',
 } as const;
 
+/** Submission to scheduler selection or refusal; never permission or effect completion. */
+export const TOOL_QUEUE_EVENTS = {
+  COMPLETED: 'tool_queue_completed',
+} as const;
+
 /** Content-free decision reached for one tool call before any body runs. */
 export const TOOL_PERMISSION_EVENTS = {
   DECIDED: 'tool_permission_decided',

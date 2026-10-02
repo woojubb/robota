@@ -1,4 +1,4 @@
-// @robota-sdk/agent-ui-web — the GUI presentation layer for a robota session.
+// @robota-sdk/agent-ui-web — the GUI presentation layer for a agent session.
 // React components + a wire-protocol session reducer + a desktop shell, rendered over the transport-neutral
 // TServerMessage stream. The GUI analog of agent-ui-terminal; consumed by apps/agent-app (desktop) and the
 // browser surface (agent-transport-webrtc-web).
@@ -50,5 +50,8 @@ export type { IDialogProps, IConfirmDialogProps } from './components/Dialog.js';
 export { SettingsScreen } from './components/SettingsScreen.js';
 // #3282 §4e: the Help sheet `/help` opens instead of the terminal-style text list.
 export { HelpSheet } from './components/HelpSheet.js';
-// Pieces of a surface's chrome, not roots: render them inside a `robota-ui` scope.
-export { RobotaMark, RobotaWordmark } from './components/Brand.js';
+// Pieces of a surface's chrome, not roots: render them inside a `agent-ui` scope.
+export { ProductMark, ProductWordmark } from './components/Brand.js';
+
+export { ProductIdentityProvider, useProductIdentity } from './product-identity.js';
+export type { IWebProductIdentity } from './product-identity.js';

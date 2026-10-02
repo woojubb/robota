@@ -62,14 +62,36 @@ const LOCAL_ONLY = [
   'core.fsmonitor=false',
 ];
 
+const GIT_CHILD_ENVIRONMENT_KEYS = [
+  'PATH',
+  'HOME',
+  'TMPDIR',
+  'TMP',
+  'TEMP',
+  'SystemRoot',
+  'WINDIR',
+  'LANG',
+  'LC_ALL',
+  'LC_CTYPE',
+  'XDG_RUNTIME_DIR',
+] as const;
+
+/** Build a small environment for local Git reads without copying application secrets to children. */
+export function createLocalGitEnvironment(source: Readonly<NodeJS.ProcessEnv>): NodeJS.ProcessEnv {
+  const environment: NodeJS.ProcessEnv = {};
+  for (const key of GIT_CHILD_ENVIRONMENT_KEYS) {
+    const value = source[key];
+    if (value !== undefined) environment[key] = value;
+  }
+  environment.GIT_NO_LAZY_FETCH = '1';
+  return environment;
+}
+
 /** Run git for a read that stays local, whatever the repository's own configuration says. */
 export const runLocalGit: TRunGit = (cwd, args) => {
-  // Inherited `GIT_*` variables (a hook's GIT_DIR, say) would make git answer about some other
-  // repository than the one at `cwd`.
-  const env: NodeJS.ProcessEnv = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
-  );
-  env.GIT_NO_LAZY_FETCH = '1';
+  // Git receives only the host variables needed to locate Git and its temp/home directories.
+  // Application credentials, provider keys, and arbitrary product variables stay in this process.
+  const env = createLocalGitEnvironment(process.env);
   return new Promise((resolve) => {
     execFile(
       'git',

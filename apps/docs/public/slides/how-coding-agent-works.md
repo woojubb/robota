@@ -6,7 +6,7 @@
 
 <!-- Slide 1 -->
 
-## ROBOTA
+## AGENT_RUNTIME
 
 > 코딩 에이전트 CLI는 어떻게 만들까 — 직접 만들어본 코딩 에이전트 CLI
 
@@ -18,7 +18,7 @@
  |_| \_\\___/|____/ \___/ |_/_/   \_\
 ```
 
-`$ robota`
+`$ __PRODUCT_CLI_NAME__`
 
 ---
 
@@ -410,8 +410,8 @@ agent-core에 `IHistoryEntry` 타입을 신설하고, 모든 정보를 하나의
 궁금한 점이나 피드백이 있다면 GitHub에 남겨주세요.
 
 ```
-# https://robota.io
+# __PROJECT_WEBSITE_URL__
 
 $ npm install -g @robota-sdk/agent-cli
-$ robota
+$ __PRODUCT_CLI_NAME__
 ```

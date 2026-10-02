@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   activationIdentity,
-  definitionFingerprint,
+  activationEndpoint, definitionFingerprint,
   securityIdentity,
 } from '../definition/identity.js';
 
@@ -41,6 +41,14 @@ const entry = (overrides: Partial<IMCPResolvedEntry> = {}): IMCPResolvedEntry =>
 });
 
 describe('definitionFingerprint', () => {
+  it('invalidates an existing activation when explicit protocol selection changes', () => {
+    const original = definition();
+    const modern = { ...original, protocolVersion: '2026-07-28' as const };
+    expect(definitionFingerprint(modern)).not.toBe(definitionFingerprint(original));
+    expect(activationEndpoint(modern)).toContain('MCP 2026-07-28');
+    expect(activationEndpoint(original)).not.toContain('MCP 2026-07-28');
+  });
+
   it('is stable across re-resolution of an unchanged definition', () => {
     expect(definitionFingerprint(definition())).toBe(definitionFingerprint(definition()));
   });

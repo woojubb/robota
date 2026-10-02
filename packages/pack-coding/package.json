@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/pack-coding",
   "version": "3.0.0-beta.86",
-  "description": "Robota's coding capability pack — an ICapabilityPack bundling the built-in coding tools, coding command modules, and coding subagents",
+  "description": "Robota's coding capability pack \u2014 an ICapabilityPack bundling the built-in coding tools, coding command modules, and coding subagents",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -30,15 +30,6 @@
       }
     },
     "./package.json": "./package.json"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/woojubb/robota.git",
-    "directory": "packages/pack-coding"
-  },
-  "homepage": "https://docs.robota.io/en/packages/pack-coding/",
-  "bugs": {
-    "url": "https://github.com/woojubb/robota/issues"
   },
   "engines": {
     "node": ">=22.12.0"

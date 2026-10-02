@@ -34,7 +34,7 @@ export {
   PROTECTED_DIRECTORY_NAMES,
   PROTECTED_FILE_NAMES,
 } from './permission-safeguards.js';
-export type { ICriticalPathContext } from './permission-safeguards.js';
+export type { ICriticalPathContext, IPathProtectionPolicy } from './permission-safeguards.js';
 export {
   validatePermissionPattern,
   findInvalidPermissionPatterns,

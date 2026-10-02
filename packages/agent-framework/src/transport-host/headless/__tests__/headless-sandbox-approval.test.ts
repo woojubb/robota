@@ -39,7 +39,7 @@ function silenceStdout(): void {
 }
 
 async function runBashInPrintMode(sandboxClient?: ISandboxClient): Promise<string[]> {
-  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-headless-sandbox-')));
+  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-headless-sandbox-')));
   cleanup.push(() => rmSync(cwd, { recursive: true, force: true }));
   const ran: string[] = [];
   const bash = new FunctionTool(

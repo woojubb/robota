@@ -108,7 +108,10 @@ describe('SEC-003 sweep — WebFetch HTML-to-text (unflagged, remote-sourced)', 
       // hands the decoder every neighbouring allocation as well.
       arrayBuffer: () => Promise.resolve(new TextEncoder().encode(html).buffer),
     } as unknown as Response);
-    const { webFetchTool } = await import('../builtins/web-fetch-tool.js');
+    const { createWebFetchTool } = await import('../builtins/web-fetch-tool.js');
+    const webFetchTool = createWebFetchTool({
+      egress: { deps: { lookup: async () => ['93.184.216.34'], fetch: globalThis.fetch } },
+    });
     const result = await webFetchTool.execute({ url: 'https://example.com/' } as Parameters<
       typeof webFetchTool.execute
     >[0]);

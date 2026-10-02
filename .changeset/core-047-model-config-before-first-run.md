@@ -18,5 +18,5 @@ nothing and is gone.
 A destroyed agent still refuses — and now says so accurately (`AIProviders was disposed`) instead of
 misreporting teardown as missing initialization.
 
-`Robota.ensureReady()` is unchanged and remains the way to complete the asynchronous half without
+`ConversationAgent.ensureReady()` is unchanged and remains the way to complete the asynchronous half without
 running a turn. It is no longer a precondition for reading or changing the model.

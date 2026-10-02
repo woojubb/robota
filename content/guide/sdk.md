@@ -90,7 +90,7 @@ Each of those is switched on by an explicit option:
 | Add to, or replace, the system prompt                | `appendSystemPrompt`, or `systemPrompt` to replace it                            |
 | Skip instruction files and plugins even when trusted | `bare: true`                                                                     |
 
-The `robota` CLI is one host that makes these choices for you; see [CLI](./cli.md).
+The `__PRODUCT_CLI_NAME__` CLI is one host that makes these choices for you; see [CLI](./cli.md).
 
 ### Events
 
@@ -298,9 +298,9 @@ environment variable `NAME`.
 ```
 
 The session does not construct its provider from settings: the host resolves a provider profile
-and passes the provider instance in. The `robota` CLI reads six layers, lowest priority first:
-`~/.robota/settings.json`, `~/.claude/settings.json`, `.robota/settings.json`,
-`.robota/settings.local.json`, `.claude/settings.json`, `.claude/settings.local.json`. Provider
+and passes the provider instance in. The `__PRODUCT_CLI_NAME__` CLI reads six layers, lowest priority first:
+`<user-state>/settings.json`, `~/.claude/settings.json`, `<project-state>/settings.json`,
+`<project-state>/settings.local.json`, `.claude/settings.json`, `.claude/settings.local.json`. Provider
 profile options are listed in the [Providers Reference](./providers.md).
 
 ## Commands
@@ -308,7 +308,7 @@ profile options are listed in the [Providers Reference](./providers.md).
 The framework owns the command infrastructure — `CommandRegistry`, `SystemCommandExecutor`, and the
 command sources `SkillCommandSource` and `PluginCommandSource` — but ships no user-visible commands
 of its own. Commands come from command modules (`ICommandModule`) that the host passes as
-`commandModules`; `@robota-sdk/agent-command` provides the modules the `robota` CLI uses
+`commandModules`; `@robota-sdk/agent-command` provides the modules the `__PRODUCT_CLI_NAME__` CLI uses
 (`/help`, `/compact`, `/permissions`, `/skills` and the rest).
 
 Call commands through the session (this assumes the host composed a module that provides
@@ -327,7 +327,7 @@ User interfaces and transports parse slash input themselves and call `executeCom
 submitting ordinary prompts. When the skills module is composed, an explicit `/skill-name` prompt is
 routed to the `skills` command with `<skill-name> [args]`. Commands a module marks as
 model-invocable are also offered to the model as tools named `<prefix><command>`; the prefix is
-`command_` by default (the `robota` CLI uses `robota_command_`).
+`command_` by default (the `__PRODUCT_CLI_NAME__` CLI uses `__PRODUCT_MODEL_TOOL_PREFIX___command_`).
 
 ## Sandbox execution
 
@@ -384,7 +384,7 @@ filtered tool list. The framework ships three built-in agent definitions:
 
 A subagent never gets the tool that spawns further subagents. Hosts add their own definitions with
 `agentDefinitions`, or let the session discover definition files in `agentDefinitionRoots` (the
-`robota` CLI uses `.robota/agents`, `.agents/agents` and `.claude/agents`). The main fields of a
+`__PRODUCT_CLI_NAME__` CLI uses `<project-state>/agents`, `.agents/agents` and `.claude/agents`). The main fields of a
 definition (`IAgentDefinition`):
 
 | Field             | Type           | Description                                                  |
@@ -429,8 +429,8 @@ stored beside the log and verified by length and SHA-256 digest when it is read 
 Bundle plugins package skills, commands, hooks, agent definitions and MCP server definitions for
 distribution. `MarketplaceClient` manages plugin marketplaces as shallow Git clones under the plugins
 directory the host chooses (`new MarketplaceClient({ pluginsDir, exec })`; marketplaces go in
-`<pluginsDir>/marketplaces/`). Sources can be GitHub repositories, other Git URLs, or local paths. The `robota` CLI uses
-`~/.robota/plugins` and exposes this as `/plugin marketplace add|remove|list|update`. See
+`<pluginsDir>/marketplaces/`). Sources can be GitHub repositories, other Git URLs, or local paths. The `__PRODUCT_CLI_NAME__` CLI uses
+`<user-state>/plugins` and exposes this as `/plugin marketplace add|remove|list|update`. See
 [Building Plugins](./plugins.md).
 
 ## Transports

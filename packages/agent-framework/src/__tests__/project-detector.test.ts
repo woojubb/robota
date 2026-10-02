@@ -8,7 +8,7 @@ import { detectProject as detectProjectFromReader } from '../context/project-det
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectReader } from '../workspace-trust/index.js';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-detector-test-'));
+const TMP_BASE = mkdtempSync(join(tmpdir(), 'agent-detector-test-'));
 
 function setupDir(path: string): void {
   mkdirSync(path, { recursive: true });

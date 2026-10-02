@@ -52,12 +52,12 @@ describe('subprocessTraceEnvironment', () => {
     expect(ambient).toEqual(copy);
   });
 
-  it('leaves the base untouched when there is no Robota value', () => {
+  it('leaves the base untouched when there is no ConversationAgent value', () => {
     expect(subprocessTraceEnvironment(ambient, undefined)).toEqual(ambient);
     expect(subprocessTraceEnvironment(ambient, undefined, { X: '1' })).toEqual({ ...ambient, X: '1' });
   });
 
-  it('applies overrides after the Robota value, and a user TRACEPARENT keeps the whole ambient env', () => {
+  it('applies overrides after the ConversationAgent value, and a user TRACEPARENT keeps the whole ambient env', () => {
     expect(subprocessTraceEnvironment(ambient, trace, { TRACESTATE: 'user=1' })).toEqual({
       PATH: '/usr/bin', ...trace, TRACESTATE: 'user=1',
     });

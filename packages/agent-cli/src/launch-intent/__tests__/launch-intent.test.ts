@@ -6,8 +6,10 @@ import {
   parseLaunchIntent,
   LAUNCH_INTENT_MAX_PROMPT,
   LAUNCH_INTENT_MAX_URL,
-  LAUNCH_INTENT_USAGE,
+  launchIntentUsage,
 } from '../launch-intent.js';
+const LAUNCH_INTENT_USAGE = launchIntentUsage('test-product', 'test-product');
+
 
 /* eslint-disable no-control-regex -- asserting the control class IS the point */
 /** Nothing in this class may survive into a message the terminal prints. */
@@ -16,24 +18,24 @@ const FORBIDDEN_IN_OUTPUT =
 /* eslint-enable no-control-regex */
 
 const ok = (url: string): ReturnType<typeof parseLaunchIntent> => {
-  const parsed = parseLaunchIntent(url);
+  const parsed = parseLaunchIntent(url, 'test-product');
   expect(parsed.ok, `expected ${url} to parse`).toBe(true);
   return parsed;
 };
 
 function refusalFor(url: string): string {
-  const parsed = parseLaunchIntent(url);
+  const parsed = parseLaunchIntent(url, 'test-product');
   expect(parsed.ok, `expected ${url} to be refused`).toBe(false);
   return parsed.ok ? '' : parsed.reason;
 }
 
 describe('parseLaunchIntent accepts the three spellings of the one verb', () => {
-  it('takes robota://open, its trailing slash, the authority-less form and an upper-case verb', () => {
+  it('takes test-product://open, its trailing slash, the authority-less form and an upper-case verb', () => {
     for (const url of [
-      'robota://open?v=1&prompt=hi&cwd=/abs/path',
-      'robota://open/?v=1&prompt=hi&cwd=/abs/path',
-      'robota:open?v=1&prompt=hi&cwd=/abs/path',
-      'robota://OPEN?v=1&prompt=hi&cwd=/abs/path',
+      'test-product://open?v=1&prompt=hi&cwd=/abs/path',
+      'test-product://open/?v=1&prompt=hi&cwd=/abs/path',
+      'test-product:open?v=1&prompt=hi&cwd=/abs/path',
+      'test-product://OPEN?v=1&prompt=hi&cwd=/abs/path',
     ]) {
       const parsed = ok(url);
       if (parsed.ok) {
@@ -44,9 +46,9 @@ describe('parseLaunchIntent accepts the three spellings of the one verb', () => 
   });
 
   it('takes a repo slug, and a Windows absolute cwd', () => {
-    const repo = ok('robota://open?v=1&prompt=hi&repo=owner/name');
+    const repo = ok('test-product://open?v=1&prompt=hi&repo=owner/name');
     if (repo.ok) expect(repo.intent.repo).toBe('owner/name');
-    const win = ok('robota://open?v=1&prompt=hi&cwd=C:\\work\\repo');
+    const win = ok('test-product://open?v=1&prompt=hi&cwd=C:\\work\\repo');
     if (win.ok) expect(win.intent.cwd).toBe('C:\\work\\repo');
   });
 });
@@ -54,73 +56,73 @@ describe('parseLaunchIntent accepts the three spellings of the one verb', () => 
 describe('parseLaunchIntent refuses the whole url, naming the first rule broken', () => {
   it('refuses a wrong scheme, verb, fragment or missing target', () => {
     expect(refusalFor('https://open?v=1&prompt=hi')).toContain('scheme');
-    expect(refusalFor('robota://openx?v=1&prompt=hi&cwd=/a')).toContain('robota://open');
-    expect(refusalFor('robota://open/extra?v=1&prompt=hi&cwd=/a')).toContain('robota://open');
-    expect(refusalFor('robota://open?v=1&prompt=hi&cwd=/a#frag')).toContain('fragment');
-    expect(refusalFor('robota://open?v=1&prompt=hi')).toContain('names no target');
+    expect(refusalFor('test-product://openx?v=1&prompt=hi&cwd=/a')).toContain('test-product://open');
+    expect(refusalFor('test-product://open/extra?v=1&prompt=hi&cwd=/a')).toContain('test-product://open');
+    expect(refusalFor('test-product://open?v=1&prompt=hi&cwd=/a#frag')).toContain('fragment');
+    expect(refusalFor('test-product://open?v=1&prompt=hi')).toContain('names no target');
     expect(refusalFor('not a url at all')).toContain('not a URL');
   });
 
   it('refuses a missing or wrong version', () => {
-    expect(refusalFor('robota://open?prompt=hi&cwd=/a')).toContain('no `v`');
-    expect(refusalFor('robota://open?v=2&prompt=hi&cwd=/a')).toContain('version 1');
+    expect(refusalFor('test-product://open?prompt=hi&cwd=/a')).toContain('no `v`');
+    expect(refusalFor('test-product://open?v=2&prompt=hi&cwd=/a')).toContain('version 1');
   });
 
   it('refuses an unknown key rather than ignoring it — the configuration-smuggling boundary', () => {
     for (const key of ['provider', 'permission-mode', 'allowed-tools', 'plugin', 'model']) {
-      expect(refusalFor(`robota://open?v=1&prompt=hi&cwd=/a&${key}=x`)).toContain(key);
+      expect(refusalFor(`test-product://open?v=1&prompt=hi&cwd=/a&${key}=x`)).toContain(key);
     }
   });
 
   it('refuses a duplicate key rather than taking the last one', () => {
-    expect(refusalFor('robota://open?v=1&prompt=a&prompt=b&cwd=/a')).toContain('more than once');
+    expect(refusalFor('test-product://open?v=1&prompt=a&prompt=b&cwd=/a')).toContain('more than once');
   });
 
   it('refuses an oversize url and an oversize prompt, counting code points', () => {
-    const longUrl = `robota://open?v=1&cwd=/a&prompt=${'x'.repeat(LAUNCH_INTENT_MAX_URL)}`;
+    const longUrl = `test-product://open?v=1&cwd=/a&prompt=${'x'.repeat(LAUNCH_INTENT_MAX_URL)}`;
     expect(refusalFor(longUrl)).toContain('longer than');
-    const tooLong = `robota://open?v=1&cwd=/a&prompt=${'x'.repeat(LAUNCH_INTENT_MAX_PROMPT + 1)}`;
+    const tooLong = `test-product://open?v=1&cwd=/a&prompt=${'x'.repeat(LAUNCH_INTENT_MAX_PROMPT + 1)}`;
     expect(refusalFor(tooLong)).toContain(String(LAUNCH_INTENT_MAX_PROMPT));
     // Exactly at the cap is accepted.
-    ok(`robota://open?v=1&cwd=/a&prompt=${'x'.repeat(LAUNCH_INTENT_MAX_PROMPT)}`);
+    ok(`test-product://open?v=1&cwd=/a&prompt=${'x'.repeat(LAUNCH_INTENT_MAX_PROMPT)}`);
     // Code points, not UTF-16 units: an astral emoji is two units and must still count as one, so
     // a prompt of 3,000 of them is under the 5,000 cap. (The percent-encoded url is 12 bytes per
     // emoji, so this also stays under the url cap only because the count is well below it.)
     const emoji = encodeURIComponent('🙂'.repeat(600));
-    const parsed = ok(`robota://open?v=1&cwd=/a&prompt=${emoji}`);
+    const parsed = ok(`test-product://open?v=1&cwd=/a&prompt=${emoji}`);
     if (parsed.ok) expect([...(parsed.intent.prompt ?? '')].length).toBe(600);
   });
 
   it('refuses a control, invisible or bidirectional character in the prompt', () => {
     for (const bad of ['%00', '%1B', '%E2%80%AE', '%EF%BB%BF']) {
-      expect(refusalFor(`robota://open?v=1&cwd=/a&prompt=${bad}`)).toContain('control');
+      expect(refusalFor(`test-product://open?v=1&cwd=/a&prompt=${bad}`)).toContain('control');
     }
-    expect(refusalFor('robota://open?v=1&cwd=/a&prompt=a%0Db')).toContain('carriage return');
+    expect(refusalFor('test-product://open?v=1&cwd=/a&prompt=a%0Db')).toContain('carriage return');
     // A CRLF pair is normalized rather than refused.
-    const crlf = ok('robota://open?v=1&cwd=/a&prompt=a%0D%0Ab');
+    const crlf = ok('test-product://open?v=1&cwd=/a&prompt=a%0D%0Ab');
     if (crlf.ok) expect(crlf.intent.prompt).toBe('a\nb');
   });
 
   it('refuses a prompt that is a command, because one Enter would run it locally', () => {
-    expect(refusalFor('robota://open?v=1&cwd=/a&prompt=%2Fmode%20bypassPermissions')).toContain(
+    expect(refusalFor('test-product://open?v=1&cwd=/a&prompt=%2Fmode%20bypassPermissions')).toContain(
       'not a command',
     );
-    expect(refusalFor('robota://open?v=1&cwd=/a&prompt=%20%20%2Fexit')).toContain('not a command');
+    expect(refusalFor('test-product://open?v=1&cwd=/a&prompt=%20%20%2Fexit')).toContain('not a command');
   });
 
   it('refuses a relative, UNC, dot-dot or control-bearing cwd, and a malformed slug', () => {
-    expect(refusalFor('robota://open?v=1&prompt=hi&cwd=relative/path')).toContain('absolute');
-    expect(refusalFor('robota://open?v=1&prompt=hi&cwd=%5C%5Cserver%5Cshare')).toContain('UNC');
-    expect(refusalFor('robota://open?v=1&prompt=hi&cwd=/a/../b')).toContain('`..`');
-    expect(refusalFor('robota://open?v=1&prompt=hi&cwd=/a%00b')).toContain('control');
-    expect(refusalFor('robota://open?v=1&prompt=hi&repo=owner')).toContain('owner/name');
-    expect(refusalFor('robota://open?v=1&prompt=hi&repo=owner/name/extra')).toContain('owner/name');
+    expect(refusalFor('test-product://open?v=1&prompt=hi&cwd=relative/path')).toContain('absolute');
+    expect(refusalFor('test-product://open?v=1&prompt=hi&cwd=%5C%5Cserver%5Cshare')).toContain('UNC');
+    expect(refusalFor('test-product://open?v=1&prompt=hi&cwd=/a/../b')).toContain('`..`');
+    expect(refusalFor('test-product://open?v=1&prompt=hi&cwd=/a%00b')).toContain('control');
+    expect(refusalFor('test-product://open?v=1&prompt=hi&repo=owner')).toContain('owner/name');
+    expect(refusalFor('test-product://open?v=1&prompt=hi&repo=owner/name/extra')).toContain('owner/name');
   });
 });
 
 describe('TC-02: precedence and the round trip', () => {
   it('cwd wins over repo and records that repo was superseded', () => {
-    const parsed = ok('robota://open?v=1&prompt=hi&cwd=/abs&repo=owner/name');
+    const parsed = ok('test-product://open?v=1&prompt=hi&cwd=/abs&repo=owner/name');
     if (parsed.ok) {
       expect(parsed.intent.cwd).toBe('/abs');
       expect(parsed.intent.repo).toBeUndefined();
@@ -136,7 +138,7 @@ describe('TC-02: precedence and the round trip', () => {
       '한글 프롬프트 🙂',
       'trailing space ',
     ]) {
-      const url = encodeLaunchIntent({ version: '1', prompt, cwd: '/abs', repo: undefined });
+      const url = encodeLaunchIntent({ version: '1', prompt, cwd: '/abs', repo: undefined }, 'test-product');
       const parsed = ok(url);
       if (parsed.ok) expect(parsed.intent.prompt).toBe(prompt);
     }
@@ -155,23 +157,23 @@ describe('TC-02: precedence and the round trip', () => {
       `right\u202Eoverride`,
     ];
     const reasons = [
-      ...payloads.map((value) => refusalFor(`robota://open?v=1&${encodeURIComponent(value)}=x`)),
+      ...payloads.map((value) => refusalFor(`test-product://open?v=1&${encodeURIComponent(value)}=x`)),
       ...payloads.map((value) =>
-        refusalFor(`robota://open?v=${encodeURIComponent(value)}&prompt=hi`),
+        refusalFor(`test-product://open?v=${encodeURIComponent(value)}&prompt=hi`),
       ),
       ...payloads.map((value) =>
-        refusalFor(`robota://open?v=1&prompt=hi&repo=${encodeURIComponent(value)}`),
+        refusalFor(`test-product://open?v=1&prompt=hi&repo=${encodeURIComponent(value)}`),
       ),
     ];
     for (const reason of reasons) {
       expect(reason).not.toMatch(FORBIDDEN_IN_OUTPUT);
       // It still names the value rather than saying only that something was wrong.
-      expect(reason.length).toBeGreaterThan(LAUNCH_INTENT_USAGE.length);
+      expect(reason).toMatch(/\\u(?:\{[0-9a-f]+\}|[0-9a-f]{4})/i);
     }
   });
 
   it('clamps how much of an attacker-supplied value it echoes back', () => {
-    const reason = refusalFor(`robota://open?v=1&prompt=hi&repo=${'x'.repeat(500)}`);
+    const reason = refusalFor(`test-product://open?v=1&prompt=hi&repo=${'x'.repeat(500)}`);
     expect(reason).toContain('\u2026');
     expect(reason.length).toBeLessThan(LAUNCH_INTENT_USAGE.length + 200);
   });

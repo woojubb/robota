@@ -226,11 +226,58 @@ export async function executeMemoryCommand(
 ): Promise<ICommandResult> {
   const args = rawArgs.trim().split(/\s+/).filter(Boolean);
   const subcommand = args[SUBCOMMAND_INDEX] ?? 'list';
+  const source = context.getCommandInvocationSource();
+  if (
+    (subcommand === 'correct' || subcommand === 'forget') &&
+    source !== 'user' && source !== 'remote'
+  ) {
+    return {
+      success: false,
+      message:
+        'Memory correction and forgetting: only the user can run /memory correct or /memory forget.',
+    };
+  }
   // SELFHOST-008 P1R: the single injected durable-memory port (or fs default) — authoritative for all
   // `/memory` operations, so a surface that swaps the store is honored here too (no split-brain).
   const resolved = getMemoryStoreOrError(context);
   if (!resolved.ok) return resolved.result;
   const store = resolved.store;
+
+  if (subcommand === 'correct' || subcommand === 'forget') {
+    try {
+      if (subcommand === 'correct') {
+        const input = parseAdd(args);
+        if (!input) return usage();
+        if (hasSensitiveCommandMemoryContent(input.text))
+          return { success: false, message: 'Refusing to save sensitive memory content.' };
+        if (!store.replaceTopic)
+          return {
+            success: false,
+            message: 'This memory backend does not support topic correction.',
+          };
+        const result = await store.replaceTopic(input);
+        return {
+          success: true,
+          message: `Replaced all active memory in ${result.topicPath}. Automatic additions to this topic now require user correction. Historical transcripts and backups remain.`,
+          data: { ...result },
+        };
+      }
+      if (!args[TYPE_INDEX] || args.length !== 2) return usage();
+      if (!store.forgetTopic)
+        return {
+          success: false,
+          message: 'This memory backend does not support forgetting topics.',
+        };
+      const result = await store.forgetTopic(args[TYPE_INDEX]);
+      return {
+        success: true,
+        message: `Forgot active memory topic ${result.topic}. Source topic removed; automatic restoration is blocked. Historical transcripts and backups remain.`,
+        data: { ...result },
+      };
+    } catch (error) {
+      return formatError(error instanceof Error ? error : String(error));
+    }
+  }
 
   if (subcommand === 'list') return formatList(store);
   if (subcommand === 'show') return formatShow(store, args[TYPE_INDEX]);
@@ -255,7 +302,12 @@ export async function executeMemoryCommand(
         success: false,
       };
     }
-    const result = await store.append(input);
+    let result;
+    try {
+      result = await store.append(input);
+    } catch (error) {
+      return formatError(error instanceof Error ? error : String(error));
+    }
     return {
       message: result.deduplicated
         ? `${input.type} memory already exists in ${result.topicPath}`

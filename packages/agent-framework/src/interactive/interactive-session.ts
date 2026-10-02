@@ -1,3 +1,4 @@
+import type { ICommandProductVocabulary } from '../command-api/host-context-types.js';
 import { randomUUID } from 'node:crypto';
 import { basename } from 'node:path';
 
@@ -176,6 +177,11 @@ export class InteractiveSession
     ICommandHostContext,
     ISessionProjectRead
 {
+  private readonly commandProductVocabulary?: ICommandProductVocabulary;
+  getCommandProductVocabulary(): ICommandProductVocabulary | undefined {
+    return this.commandProductVocabulary;
+  }
+
   private session: Session | null = null;
   private readonly listeners = new Map<string, Set<(...args: unknown[]) => void>>();
   private initialized = false;
@@ -227,6 +233,7 @@ export class InteractiveSession
   // fs default (lazily created + cached so it is ONE shared instance). Exposed to the `/memory` command
   // host context via getMemoryStore() so command reads/writes hit the SAME store as startup + capture.
   private injectedMemoryStore?: IMemoryStore;
+  private readonly startupMemoryEnabled: boolean;
   // SELFHOST-008 P2: optional post-turn auto-capture policy (surface-supplied); absent ⇒ capture OFF.
   private readonly automaticMemory?: IAutomaticMemoryConfig;
   // SELFHOST-008 P3: optional per-turn recall policy (surface-supplied); absent ⇒ recall OFF.
@@ -238,6 +245,7 @@ export class InteractiveSession
   private projectNotesFileEntries: IContextFileEntry[] = [];
   private rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null = null;
   private providerDefinitions: readonly IProviderDefinition[] = [];
+  private readonly providerEnvironment?: Readonly<Record<string, string | undefined>>;
   private activeOutputStyleId = 'default';
   private orgPolicy: IOrgPolicy | null = null;
   /** #3282 §3 — see the option doc comment on `IInteractiveSessionStandardOptions.setupRequired`. */
@@ -283,6 +291,11 @@ export class InteractiveSession
 
   constructor(options: TInteractiveSessionOptions) {
     super();
+    this.providerEnvironment = 'environment' in options ? options.environment : undefined;
+    this.commandProductVocabulary =
+      options.commandProductVocabulary === undefined
+        ? undefined
+        : Object.freeze({ ...options.commandProductVocabulary });
     this.sessionStore = options.sessionStore;
     this.selfPacedLoops = new DurableSessionLoopStore([], {
       persist: (candidate) => this.persistCurrentSession(true, undefined, candidate),
@@ -346,6 +359,7 @@ export class InteractiveSession
     this.startedAsFork = options.forkSession ?? false;
     this.sandboxClient = 'sandboxClient' in options ? options.sandboxClient : undefined;
     this.injectedMemoryStore = 'memoryStore' in options ? options.memoryStore : undefined;
+    this.startupMemoryEnabled = !('bare' in options && options.bare === true);
     this.automaticMemory = 'automaticMemory' in options ? options.automaticMemory : undefined;
     this.recallMemory = 'recallMemory' in options ? options.recallMemory : undefined;
     const promptHistory = 'promptHistory' in options ? options.promptHistory : undefined;
@@ -433,6 +447,12 @@ export class InteractiveSession
       shellExec,
       remoteCommandPolicy,
       this.pluginSkills,
+      async (preparePrompt, displayInput, rawInput, originDriverId) => {
+        await this.submitNewTurn(displayInput ?? rawInput ?? '', displayInput, rawInput, {
+          preparePrompt,
+          ...(originDriverId !== undefined ? { driverId: originDriverId } : {}),
+        });
+      },
     );
 
     // #3288: tool name -> source `/command` name, for the projected model-command tools this
@@ -1004,6 +1024,12 @@ export class InteractiveSession
         throw error;
       }
     }
+    // Startup memory is retained in the system prompt. Read the authoritative store again before
+    // each turn so a user correction, forgetting, or another session's curation replaces that cache.
+    if (this.startupMemoryEnabled && this.injectedMemoryStore && this.rebuildSystemMessage) {
+      const memory = await this.injectedMemoryStore.loadStartupMemory();
+      this.rebuildLivePrompt({ memoryMd: memory.content });
+    }
     await this.execCtrl.executePrompt(
       input,
       displayInput,
@@ -1508,6 +1534,8 @@ export class InteractiveSession
   }
 
   abort(): void {
+    for (const error of this.skillRouter.abortSkillActivations())
+      this.reportBackgroundError(error, 'skill-activation');
     // REMOTE-014 E5: clearing the WHOLE shared queue is an OWNER-PRINCIPLE-legit cross-driver effect — emit an
     // attributed notice so a co-driver whose queued input was cleared sees why (and every wakeTaskId is freed).
     this.notifyQueueCleared(this.execCtrl.clearPendingQueue(), 'aborted');
@@ -2073,6 +2101,7 @@ export class InteractiveSession
       profileName,
       this.providerDefinitions,
       this.userSettingsSources,
+      this.providerEnvironment,
     );
     // #3282 §3: a real provider resolved — whether this switch came from `/provider switch` (already
     // configured, a no-op here) or from the setup flow's own hot-swap onto the first profile ever
@@ -2091,6 +2120,7 @@ export class InteractiveSession
       settings: readMergedProviderSettings(this.userSettingsSources),
       primary: { profile: profileName, config: settings },
       providerDefinitions: this.providerDefinitions,
+      ...(this.providerEnvironment !== undefined && { environment: this.providerEnvironment }),
       ...(this.orgPolicy?.allowedProviders !== undefined && {
         allowedProviders: this.orgPolicy.allowedProviders,
       }),

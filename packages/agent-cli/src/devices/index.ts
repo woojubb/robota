@@ -1,5 +1,5 @@
 /**
- * `/devices` at the composition root: identity state under `~/.robota/devices`, private keys in the
+ * `/devices` at the composition root: identity state under the configured devices directory, private keys in the
  * host credential store, the recovery phrase and enrollment codes on the process's own terminal, and
  * enrollment signaling through the configured relay (`transports.webrtc.options.relayUrl`).
  */
@@ -18,9 +18,11 @@ import { openSecretTerminal, type ISecretTerminalSession } from './secret-termin
 import type { ICredentialStore } from '@robota-sdk/agent-core';
 import type { IDevicesCommandPort, IDevicesMeshStatus } from '@robota-sdk/agent-command';
 import type { IIceServer, IMeshRelay } from '@robota-sdk/agent-transport-webrtc';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 export interface IDevicesCommandPortOptions {
-  /** Defaults to `~/.robota` under the current `HOME`. */
+  readonly productRuntime: ICliRuntimeContext;
+  /** Defaults to the configured user storage root under the current `HOME`. */
   readonly root?: string;
   /** Defaults to the host credential store (OS keychain, else an owner-only file). */
   readonly credentials?: { readonly store: ICredentialStore; describe(): string | undefined };
@@ -46,25 +48,30 @@ export interface IDevicesCommandPortOptions {
 }
 
 /** A client of the configured signaling relay, or `undefined` when none is configured. */
-function openConfiguredRelay(onError: (error: Error) => void): IMeshRelay | undefined {
-  const url = readWebrtcOption('relayUrl');
+function openConfiguredRelay(productRuntime: ICliRuntimeContext, onError: (error: Error) => void): IMeshRelay | undefined {
+  const url = readWebrtcOption(productRuntime, 'relayUrl');
   return url === undefined ? undefined : new WsMeshRelayClient({ url, onError });
 }
 
 export function createDevicesCommandPort(
-  options: IDevicesCommandPortOptions = {},
+  options: IDevicesCommandPortOptions,
 ): IDevicesCommandPort {
-  const root = options.root ?? userLocalStorageRoot();
+  const root = options.root ?? userLocalStorageRoot(options.productRuntime);
   // The backend in use is reported in the `/devices init` result, so the one-time notice is not needed.
-  const credentials = options.credentials ?? createHostCredentialStore({ root, notify: () => {} });
+  const credentials = options.credentials ?? createHostCredentialStore({
+    root,
+    serviceNamespace: options.productRuntime.config.credentials.serviceNamespace,
+    notify: () => {},
+  });
   const service = createDeviceIdentityService({
+    productRuntime: options.productRuntime,
     directory: join(root, 'devices'),
     withinRoot: root,
     store: credentials.store,
     openTerminal: options.openTerminal ?? (() => openSecretTerminal()),
     describeKeyStorage: () => credentials.describe(),
-    openEnrollmentRelay: options.openEnrollmentRelay ?? openConfiguredRelay,
-    iceServers: options.iceServers ?? (() => parseIceServers(readWebrtcRawOption('iceServers'))),
+    openEnrollmentRelay: options.openEnrollmentRelay ?? ((onError) => openConfiguredRelay(options.productRuntime, onError)),
+    iceServers: options.iceServers ?? (() => parseIceServers(readWebrtcRawOption(options.productRuntime, 'iceServers'))),
     ...(options.enrollment !== undefined ? { enrollment: options.enrollment } : {}),
   });
   const onChanged = options.onIdentityChanged;
@@ -105,7 +112,8 @@ export { createDeviceMeshHost } from './device-mesh-host.js';
 export type { IDeviceMeshHost } from './device-mesh-host.js';
 
 export interface IDeviceListReissueStartOptions {
-  /** Defaults to `~/.robota` under the current `HOME`. */
+  readonly productRuntime: ICliRuntimeContext;
+  /** Defaults to the configured user storage root under the current `HOME`. */
   readonly root?: string;
   readonly credentials?: { readonly store: ICredentialStore };
   /** New lists were issued: a running mesh pushes them. */
@@ -117,10 +125,15 @@ export interface IDeviceListReissueStartOptions {
  * signing key. A failed check is retried on the next one; the lists' validity, shown by
  * `/devices list`, is where a lasting failure becomes visible.
  */
-export function startDeviceListReissue(options: IDeviceListReissueStartOptions = {}): () => void {
-  const root = options.root ?? userLocalStorageRoot();
-  const credentials = options.credentials ?? createHostCredentialStore({ root, notify: () => {} });
+export function startDeviceListReissue(options: IDeviceListReissueStartOptions): () => void {
+  const root = options.root ?? userLocalStorageRoot(options.productRuntime);
+  const credentials = options.credentials ?? createHostCredentialStore({
+    root,
+    serviceNamespace: options.productRuntime.config.credentials.serviceNamespace,
+    notify: () => {},
+  });
   return scheduleListReissue({
+    productRuntime: options.productRuntime,
     directory: join(root, 'devices'),
     withinRoot: root,
     store: credentials.store,

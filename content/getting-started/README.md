@@ -1,11 +1,13 @@
 # Getting Started
 
-Robota is a set of TypeScript libraries for building AI agents. The `robota` CLI is a reference coding
-assistant built from the same libraries. This page gets you from install to a first agent, a
-session with built-in tools, and the CLI.
+Robota provides composable TypeScript libraries and agent interfaces on the same foundation.
+Our direction is [our agents developing and advancing our agents](__PROJECT_REPOSITORY_URL__/blob/develop/VISION.md);
+this guide covers current capabilities. Use the SDK to build an agent or the `__PRODUCT_CLI_NAME__` CLI
+as a coding assistant. This page takes you from installation to a first agent, a session with
+built-in tools, and the CLI.
 
 > **Beta** — the packages are published as `3.0.0-beta` versions. APIs may still change before a
-> stable release. [Report issues](https://github.com/woojubb/robota/issues).
+> stable release. [Report issues](__PROJECT_REPOSITORY_URL__/issues).
 
 ## Which path is right for you?
 
@@ -84,19 +86,38 @@ npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic
 
 ## Quick Start — CLI
 
+Select a product environment file before starting the CLI. The installed package supplies its fixed
+identity; the file supplies your operational settings. For example, create `product.env` with paths
+for this product's state, cache and logs:
+
+```dotenv
+PRODUCT_USER_STATE_DIR=./state
+PRODUCT_PROJECT_STATE_DIR=.project-state
+PRODUCT_CACHE_DIR=./cache
+PRODUCT_LOG_DIR=./logs
+```
+
+Relative user paths resolve against the environment file's directory. Choose separate state paths
+for separate products. Keep identity settings out of this operational file unless they match the
+installed artifact, and select the file by its absolute path:
+
+```bash
+export PRODUCT_CONFIG_FILE=/absolute/path/to/product.env
+```
+
 ```bash
 # Try it now — no install needed
 npx @robota-sdk/agent-cli
 
 # Install globally for persistent use
 npm install -g @robota-sdk/agent-cli
-robota
+__PRODUCT_CLI_NAME__
 ```
 
 On first run, the CLI asks whether you have an API key and walks you through configuring a provider,
 getting a free Gemini key, or connecting to a local model. If `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`,
 `DASHSCOPE_API_KEY` or `DEEPSEEK_API_KEY` is already set, it starts with that provider's default model
-instead. Run `robota --configure` to change the provider later.
+instead. Run `__PRODUCT_CLI_NAME__ --configure` to change the provider later.
 
 In a Git repository you have not trusted yet, the CLI asks whether to trust it before it loads the
 project's instruction files, settings, skills and hooks. Answering no starts the session Restricted,
@@ -106,7 +127,7 @@ without them.
 let the CLI build and run it:
 
 ```bash
-robota
+__PRODUCT_CLI_NAME__
 > /workflows create "draft three taglines for a CLI tool, then pick the best one and explain why"
 ```
 
@@ -130,14 +151,14 @@ robota
 ### 1. Create a simple conversational agent
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'Assistant',
   aiProviders: [provider],
   defaultModel: {
@@ -157,7 +178,7 @@ console.log(response);
 runs, and types the function's input from that schema.
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { z } from 'zod';
@@ -175,7 +196,7 @@ const weatherTool = createZodFunctionTool(
   async ({ city }) => ({ city, temperature: 22, condition: 'sunny' }),
 );
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'WeatherBot',
   aiProviders: [provider],
   defaultModel: {
@@ -194,11 +215,11 @@ console.log(response);
 ### 3. Switch providers dynamically
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'MultiProviderAgent',
   aiProviders: [
     new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
@@ -253,13 +274,13 @@ If you leave out `model`, the session asks the provider for `claude-opus-4-5`.
 
 ```bash
 # Interactive TUI
-robota
+__PRODUCT_CLI_NAME__
 
-# One-shot (print mode; in a Git repository, trust it first with `robota trust --yes`)
-robota -p "List all TODO comments in this project"
+# One-shot (print mode; in a Git repository, trust it first with `__PRODUCT_CLI_NAME__ trust --yes`)
+__PRODUCT_CLI_NAME__ -p "List all TODO comments in this project"
 
 # With model override
-robota --model claude-opus-4-6
+__PRODUCT_CLI_NAME__ --model claude-opus-4-6
 ```
 
 ## What's Next
@@ -278,15 +299,15 @@ robota --model claude-opus-4-6
 ## Troubleshooting
 
 **macOS Terminal.app + Korean/CJK input**: IME composition can crash macOS Terminal.app. Use
-**[iTerm2](https://iterm2.com/)** or another terminal, or use print mode (`robota -p`). The CLI warns
+**[iTerm2](https://iterm2.com/)** or another terminal, or use print mode (`__PRODUCT_CLI_NAME__ -p`). The CLI warns
 when it starts in Terminal.app.
 
 **Node.js version**: Robota needs Node.js 22.12 or later. Check with `node --version`. Use
 [Volta](https://volta.sh/) or [nvm](https://github.com/nvm-sh/nvm) to manage versions.
 
 **API key not found**: Set your key as an environment variable (`export ANTHROPIC_API_KEY=...`), or
-run `robota --configure` and follow the prompts.
+run `__PRODUCT_CLI_NAME__ --configure` and follow the prompts.
 
-**"Workspace trust is required before headless startup"**: print mode (`robota -p`) does not start in
-a Git repository you have not trusted. Run `robota trust --yes` there, or add `--safe-mode` to run with
+**"Workspace trust is required before headless startup"**: print mode (`__PRODUCT_CLI_NAME__ -p`) does not start in
+a Git repository you have not trusted. Run `__PRODUCT_CLI_NAME__ trust --yes` there, or add `--safe-mode` to run with
 every customization off (instruction files, skills, plugins, hooks and MCP servers).

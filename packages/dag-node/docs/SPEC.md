@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`@robota-sdk/dag-node` is the node authoring infrastructure package for the Robota DAG system: the
+`@robota-sdk/dag-node` is the node authoring infrastructure package for the agent runtime DAG system: the
 abstract base class, lifecycle wrappers, registries, IO accessors, value objects, and helper
 functions that node implementors use to build concrete node definitions. It sits between
 `dag-core` (domain contracts and interfaces) and `dag-nodes` (concrete node implementations).

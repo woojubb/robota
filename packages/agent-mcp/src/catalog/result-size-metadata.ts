@@ -1,7 +1,7 @@
 import { DEFAULT_TOOL_RESULT_HARD_CHARS, MAX_TOOL_RESULT_CHARS } from '@robota-sdk/agent-core';
 
 /**
- * The only MCP tool metadata key Robota interprets for result admission. The raw `_meta` object
+ * The only MCP tool metadata key the agent runtime interprets for result admission. The raw `_meta` object
  * never reaches the catalog or diagnostics.
  */
 const MCP_RESULT_SIZE_METADATA_KEY = ['anthropic', 'maxResultSizeChars'].join('/');

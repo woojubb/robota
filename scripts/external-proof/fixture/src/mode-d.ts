@@ -1,5 +1,5 @@
 /**
- * MODE D — Roundtable: independent participants in a shared conversation, and a Robota-backed
+ * MODE D — Roundtable: independent participants in a shared conversation, and an robota-backed
  * adapter turn, from OUTSIDE the monorepo, against the published `.d.ts` surface only.
  *
  * Two claims, matching issue #3273 section 9's acceptance criteria for external-consumer validation:
@@ -12,7 +12,7 @@
  * only then asserts nothing has published yet and that publication ultimately follows the SELECTOR's
  * order (alpha, beta), not completion order (beta settled first).
  *
- * D2 — a `robotaParticipant` from `@robota-sdk/agent-roundtable-robota` runs a plain `Robota` agent,
+ * D2 — a `runtimeParticipant` from `@robota-sdk/agent-roundtable-robota` runs the public `Robota` entry,
  * using `@robota-sdk/agent-core`'s own published scripted/test provider (`createScriptedProvider` from
  * the `/testing` subpath) instead of a hand-rolled mock. Asserts one published speak turn reached the
  * shared transcript and one usage record was recorded and settled for it.
@@ -27,7 +27,17 @@ import {
   type ParticipantOutcome,
   type SelectionContext,
 } from '@robota-sdk/agent-roundtable';
-import { robotaParticipant } from '@robota-sdk/agent-roundtable-robota';
+import {
+  robotaParticipant,
+  robotaSelector,
+  robotaSelectorRegistration,
+  RobotaParticipantError,
+  ROBOTA_AGENT_CHECKPOINT_VERSION,
+} from '@robota-sdk/agent-roundtable-robota';
+import {
+  sessionParticipant,
+  ROBOTA_SESSION_CHECKPOINT_VERSION,
+} from '@robota-sdk/agent-roundtable-robota/session';
 
 import { check, checkEqual, mode, note, section } from './harness.js';
 
@@ -80,7 +90,7 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-/** A hand-written participant — no Robota, no Session, nothing from this repo but the core contract. */
+/** A hand-written participant — no ConversationAgent, no Session, nothing from this repo but the core contract. */
 function customParticipant(
   id: string,
   reply: Promise<string>,
@@ -187,8 +197,8 @@ async function runParallelBarrier(): Promise<void> {
   );
 }
 
-async function runRobotaAdapterTurn(): Promise<void> {
-  section("D2 — a robotaParticipant speaks, metered through the adapter's own usage ledger");
+async function runAgentAdapterTurn(): Promise<void> {
+  section("D2 — a runtimeParticipant speaks, metered through the adapter's own usage ledger");
 
   // The scripted turn reports no token counts: this provider does not mark its usage as verified, so
   // the ledger would record provenance 'unknown' anyway. The assertions below check what the ledger
@@ -263,7 +273,24 @@ async function runRobotaAdapterTurn(): Promise<void> {
 }
 
 export async function runModeD(): Promise<void> {
-  mode('MODE D — Roundtable: independent participants, and a Robota-backed adapter turn');
+  mode('MODE D — Roundtable: independent participants, and an robota-backed adapter turn');
+  check(
+    'existing selector and Session entry points remain installable',
+    typeof robotaSelector === 'function' &&
+      typeof robotaSelectorRegistration === 'function' &&
+      typeof sessionParticipant === 'function' &&
+      typeof RobotaParticipantError === 'function',
+  );
+  checkEqual(
+    'existing agent checkpoint version remains public',
+    ROBOTA_AGENT_CHECKPOINT_VERSION,
+    'robota-agent/1',
+  );
+  checkEqual(
+    'existing Session checkpoint version remains public',
+    ROBOTA_SESSION_CHECKPOINT_VERSION,
+    'robota-session/1',
+  );
   await runParallelBarrier();
-  await runRobotaAdapterTurn();
+  await runAgentAdapterTurn();
 }

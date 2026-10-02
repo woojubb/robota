@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createScheduledTaskRunner, nextScheduledFireOnOrAfter } from '../scheduled-task-runner.js';
-import type { IBackgroundTaskStart, TBackgroundTaskRunnerEvent } from '../../types.js';
+import type {
+  IBackgroundTaskHandle,
+  IBackgroundTaskStart,
+  TBackgroundTaskRunnerEvent,
+} from '../../types.js';
 
 const TEST_TIMEOUT_MS = 15_000;
 
@@ -25,10 +29,28 @@ describe('nextScheduledFireOnOrAfter', () => {
 });
 
 /** The absolute node binary reaches the child through the task env; the command stays a literal. */
-const NODE_BINARY_ENV = 'ROBOTA_TEST_NODE';
+const NODE_BINARY_ENV = 'PRODUCT_TEST_NODE';
 
 function nodeCommand(script: string): string {
   return `"$${NODE_BINARY_ENV}" -e ${JSON.stringify(script)}`;
+}
+
+function isAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ESRCH') return false;
+    throw error;
+  }
+}
+
+function killObservedChild(pid: number): void {
+  try {
+    process.kill(pid, 'SIGKILL');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
+  }
 }
 
 function makeScheduledTask(
@@ -117,28 +139,42 @@ describe('createScheduledTaskRunner', () => {
   );
 
   it(
-    'fires the command on cron schedule and emits waking → sleeping cycle',
+    'executes two commands, retains both outputs in readLog, and emits waking → sleeping cycles',
     async () => {
       const runner = createScheduledTaskRunner();
       const emittedEvents: TBackgroundTaskRunnerEvent[] = [];
 
-      // Use a cron that fires every second for testing
-      const command = nodeCommand("process.stdout.write('scheduled-run\\n'); process.exit(0);");
+      const command = nodeCommand("process.stdout.write('scheduled-run:' + process.pid + '\\n');");
       const task = makeScheduledTask('* * * * * *', command, (e) => emittedEvents.push(e));
 
       const handle = runner.start(task);
 
-      // Wait for at least one fire cycle (give enough time for: sleep → wake → run → sleep)
-      await new Promise((r) => setTimeout(r, 3000));
-
-      await handle.cancel();
-
-      const wakingEvents = emittedEvents.filter((e) => e.type === 'background_task_waking');
-      const sleepingEvents = emittedEvents.filter((e) => e.type === 'background_task_sleeping');
-
-      expect(wakingEvents.length).toBeGreaterThanOrEqual(1);
-      // Initial sleeping + at least one post-run sleeping
-      expect(sleepingEvents.length).toBeGreaterThanOrEqual(2);
+      try {
+        const readLog = handle.readLog;
+        if (!readLog) throw new Error('readLog should be supported');
+        await vi.waitFor(
+          async () => {
+            const page = await readLog({ offset: 0 });
+            const pids = [...page.lines.join('\n').matchAll(/scheduled-run:(\d+)/g)].map(
+              (m) => m[1],
+            );
+            expect(new Set(pids).size).toBeGreaterThanOrEqual(2);
+            expect(
+              emittedEvents.filter((e) => e.type === 'background_task_sleeping').length,
+            ).toBeGreaterThanOrEqual(3);
+          },
+          { timeout: 10_000, interval: 20 },
+        );
+        expect(emittedEvents.slice(0, 5).map((e) => e.type)).toEqual([
+          'background_task_sleeping',
+          'background_task_waking',
+          'background_task_sleeping',
+          'background_task_waking',
+          'background_task_sleeping',
+        ]);
+      } finally {
+        await handle.cancel();
+      }
     },
     TEST_TIMEOUT_MS,
   );
@@ -148,24 +184,75 @@ describe('createScheduledTaskRunner', () => {
     async () => {
       const runner = createScheduledTaskRunner();
       const emittedEvents: TBackgroundTaskRunnerEvent[] = [];
-      // A fire that hangs forever (sleeps 60s). With protect:true a hung fire would starve every
-      // future fire; the per-fire timeout must kill it so the schedule resumes.
-      const command = nodeCommand('setTimeout(() => {}, 60000);');
-      const task = makeScheduledTask('* * * * * *', command, (e) => emittedEvents.push(e), {
-        timeoutMs: 700,
-      });
+      const pids: number[] = [];
+      const priorChildAliveAtWake: boolean[] = [];
+      const command = nodeCommand(
+        "process.stdout.write('hung-ready:' + process.pid + '\\n'); setInterval(() => {}, 1000);",
+      );
+      const task = makeScheduledTask(
+        '* * * * * *',
+        command,
+        (e) => {
+          emittedEvents.push(e);
+          if (e.type === 'background_task_waking' && pids.length) {
+            priorChildAliveAtWake.push(isAlive(pids[0]!));
+          }
+        },
+        {
+          timeoutMs: 700,
+        },
+      );
 
       const handle = runner.start(task);
-      // Enough wall-clock for: fire #1 (hangs) → timeout-kill → sleep → fire #2 → timeout-kill → sleep.
-      await new Promise((r) => setTimeout(r, 4000));
-      await handle.cancel();
-
-      const waking = emittedEvents.filter((e) => e.type === 'background_task_waking');
-      const sleeping = emittedEvents.filter((e) => e.type === 'background_task_sleeping');
-      // A hung fire that was killed still lets the NEXT fire happen → at least two wakes.
-      expect(waking.length).toBeGreaterThanOrEqual(2);
-      // Initial sleep + a post-kill sleep after each timed-out fire.
-      expect(sleeping.length).toBeGreaterThanOrEqual(2);
+      try {
+        const readLog = handle.readLog;
+        if (!readLog) throw new Error('readLog should be supported');
+        await vi.waitFor(
+          async () => {
+            const page = await readLog({ offset: 0 });
+            pids.splice(
+              0,
+              pids.length,
+              ...[...page.lines.join('\n').matchAll(/hung-ready:(\d+)/g)].map((m) => Number(m[1])),
+            );
+            expect(pids.length).toBeGreaterThanOrEqual(1);
+          },
+          { timeout: 10_000, interval: 20 },
+        );
+        expect(isAlive(pids[0]!)).toBe(true);
+        await vi.waitFor(
+          async () => {
+            const page = await readLog({ offset: 0 });
+            pids.splice(
+              0,
+              pids.length,
+              ...[...page.lines.join('\n').matchAll(/hung-ready:(\d+)/g)].map((m) => Number(m[1])),
+            );
+            expect(new Set(pids).size).toBeGreaterThanOrEqual(2);
+          },
+          { timeout: 10_000, interval: 20 },
+        );
+        expect((await readLog({ offset: 0 })).lines.join('\n')).toContain(
+          'fire timed out after 700ms',
+        );
+        expect(priorChildAliveAtWake).toEqual([false]);
+        expect(isAlive(pids[0]!)).toBe(false);
+        expect(isAlive(pids[1]!)).toBe(true);
+        expect(emittedEvents.slice(0, 4).map((e) => e.type)).toEqual([
+          'background_task_sleeping',
+          'background_task_waking',
+          'background_task_sleeping',
+          'background_task_waking',
+        ]);
+      } finally {
+        try {
+          await handle.cancel();
+        } finally {
+          // A deliberately broken timeout can orphan an earlier fire; clean up every observed child.
+          for (const pid of pids) killObservedChild(pid);
+          await vi.waitFor(() => expect(pids.every((pid) => !isAlive(pid))).toBe(true));
+        }
+      }
     },
     TEST_TIMEOUT_MS,
   );
@@ -174,40 +261,49 @@ describe('createScheduledTaskRunner', () => {
   it(
     'does not fire while paused (croner .pause(), not .stop()) and fires again after resume',
     async () => {
-      const runner = createScheduledTaskRunner();
-      const emitted: TBackgroundTaskRunnerEvent[] = [];
-      // Agent-wake-only every-second schedule: each fire emits a `waking` event (no child process).
-      const task: IBackgroundTaskStart<'scheduled'> = {
-        taskId: 'sched_pause_1',
-        request: {
-          kind: 'scheduled',
-          cronExpression: '* * * * * *',
-          agentInstruction: 'wake',
-          label: 'paused-schedule',
-          mode: 'background',
-          parentSessionId: 'session_1',
-          depth: 0,
-          cwd: process.cwd(),
-        },
-        emit: (e) => emitted.push(e),
-      };
-      const handle = runner.start(task);
-      if (!handle.pause || !handle.resume) throw new Error('pause/resume should be supported');
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      let handle: IBackgroundTaskHandle<'scheduled'> | undefined;
+      try {
+        const runner = createScheduledTaskRunner();
+        const emitted: TBackgroundTaskRunnerEvent[] = [];
+        // Agent-wake-only every-second schedule: each fire emits a `waking` event (no child process).
+        const task: IBackgroundTaskStart<'scheduled'> = {
+          taskId: 'sched_pause_1',
+          request: {
+            kind: 'scheduled',
+            cronExpression: '* * * * * *',
+            agentInstruction: 'wake',
+            label: 'paused-schedule',
+            mode: 'background',
+            parentSessionId: 'session_1',
+            depth: 0,
+            cwd: process.cwd(),
+          },
+          emit: (e) => emitted.push(e),
+        };
+        handle = runner.start(task);
+        if (!handle.pause || !handle.resume) throw new Error('pause/resume should be supported');
 
-      // Pause immediately, before any tick, then let 2+ scheduled ticks pass.
-      await handle.pause();
-      await new Promise((r) => setTimeout(r, 2200));
-      const wakesWhilePaused = emitted.filter((e) => e.type === 'background_task_waking').length;
-      expect(wakesWhilePaused).toBe(0); // zero fires while paused — asserted by absence of wakes, not a flag
+        // Pause immediately, before any tick, then let 2+ scheduled ticks pass.
+        await handle.pause();
+        await vi.advanceTimersByTimeAsync(2200);
+        const wakesWhilePaused = emitted.filter((e) => e.type === 'background_task_waking').length;
+        expect(wakesWhilePaused).toBe(0); // zero fires while paused — asserted by absence of wakes, not a flag
 
-      // Resume and observe it fire again — same task identity.
-      await handle.resume();
-      await new Promise((r) => setTimeout(r, 2200));
-      const wakesAfterResume = emitted.filter((e) => e.type === 'background_task_waking').length;
-      expect(wakesAfterResume).toBeGreaterThanOrEqual(1);
-      expect(handle.taskId).toBe('sched_pause_1');
-
-      await handle.cancel();
+        // Resume and observe it fire again — same task identity.
+        await handle.resume();
+        await vi.advanceTimersByTimeAsync(2200);
+        const wakesAfterResume = emitted.filter((e) => e.type === 'background_task_waking').length;
+        expect(wakesAfterResume).toBeGreaterThanOrEqual(1);
+        expect(handle.taskId).toBe('sched_pause_1');
+      } finally {
+        try {
+          await handle?.cancel();
+        } finally {
+          vi.useRealTimers();
+        }
+      }
     },
     TEST_TIMEOUT_MS,
   );
@@ -296,26 +392,6 @@ describe('createScheduledTaskRunner', () => {
         taskId: 'sched_1',
         kind: 'scheduled',
       });
-    },
-    TEST_TIMEOUT_MS,
-  );
-
-  it(
-    'supports readLog across multiple runs',
-    async () => {
-      const runner = createScheduledTaskRunner();
-      const command = nodeCommand("process.stdout.write('run-output\\n'); process.exit(0);");
-      const task = makeScheduledTask('* * * * * *', command);
-      const handle = runner.start(task);
-
-      // Wait for at least one run
-      await new Promise((r) => setTimeout(r, 3000));
-      await handle.cancel();
-
-      if (!handle.readLog) throw new Error('readLog should be supported');
-      const page = await handle.readLog({ offset: 0 });
-      const logText = page.lines.join('\n');
-      expect(logText).toContain('run-output');
     },
     TEST_TIMEOUT_MS,
   );

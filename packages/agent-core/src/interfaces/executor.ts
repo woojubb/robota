@@ -140,7 +140,7 @@ export interface ILocalExecutorConfig {
 /**
  * Configuration options for a remote executor.
  *
- * @deprecated Robota ships no remote executor, so nothing reads this type. It stays exported only
+ * @deprecated ConversationAgent ships no remote executor, so nothing reads this type. It stays exported only
  * so existing imports keep compiling; describe your own executor's options instead.
  */
 export interface IRemoteExecutorConfig {

@@ -24,6 +24,7 @@ export interface IInteractiveRuntimeOptions {
   projectAccess?: TWorkspaceProjectAccess;
   /** Explicit user settings layers for this runtime's session. */
   userSettingsSources?: readonly INodeHostSettingsSource[];
+  environment?: Readonly<Record<string, string | undefined>>;
   /** Session store for persistence. */
   sessionStore?: IInteractiveSessionStore;
   /** Permission mode for tool execution (parity with the TUI/headless channels). */
@@ -116,6 +117,7 @@ export function createInteractiveRuntime(options: IInteractiveRuntimeOptions): I
     commandModules,
     projectAccess,
     userSettingsSources,
+    environment,
     sessionStore,
     permissionMode,
   } = options;
@@ -124,6 +126,7 @@ export function createInteractiveRuntime(options: IInteractiveRuntimeOptions): I
     cwd,
     projectAccess,
     ...(userSettingsSources !== undefined ? { userSettingsSources } : {}),
+    ...(environment !== undefined ? { environment } : {}),
     sessionStore,
     commandModules,
     permissionMode,

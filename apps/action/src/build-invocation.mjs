@@ -48,11 +48,13 @@ const CLI_VERSION = /^(?:[a-z][a-z0-9-]*|\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/;
  * The npm package spec for the CLI version the workflow asked for.
  *
  * @param {string} version
+ * @param {string} scope
  * @returns {string}
  */
-export function cliPackageSpec(version) {
+export function cliPackageSpec(version, scope) {
   if (!CLI_VERSION.test(version)) {
     throw new Error(`cli-version must be a version or dist-tag, not "${version}".`);
   }
-  return `@robota-sdk/agent-cli@${version}`;
+  if (!/^@[a-z0-9][a-z0-9._-]*$/.test(scope ?? '')) throw new Error('PRODUCT_PACKAGE_SCOPE must be a valid package scope.');
+  return `${scope}/agent-cli@${version}`;
 }

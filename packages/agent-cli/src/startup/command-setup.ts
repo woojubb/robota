@@ -1,4 +1,4 @@
-import { homedir } from 'node:os';
+import { resolveCliRuntimeContext } from './product-bootstrap.js';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
@@ -32,7 +32,10 @@ import type {
   IKeybindingsFilePort,
   IThemeCataloguePort,
 } from '@robota-sdk/agent-command';
-import { createOutputStyleRegistry, loadOutputStylesFromSources } from '@robota-sdk/agent-preset';
+import {
+  createOutputStyleRegistry,
+  loadOutputStylesFromSources,
+} from '@robota-sdk/agent-preset';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import {
   createWorkspaceWorkflowProject,
@@ -41,19 +44,14 @@ import {
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { buildDoctorInputs } from './doctor-inputs.js';
 
-import type { IRobotaSandbox } from '../product/robota-execution-containment.js';
+import type { IProductSandbox } from '../product/execution-containment.js';
 import {
   areSessionLoopsDisabled,
   createLoopDefaultPromptResolver,
   DEFAULT_LOOP_MAINTENANCE_PROMPT,
 } from './loop-options.js';
 import { createDefaultPluginCommandAdapter } from '../plugins/default-plugin-command-adapter.js';
-import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
-import {
-  formatRobotaResumeCommand,
-  ROBOTA_DOCTOR_SLASH_DISPLAY,
-  ROBOTA_EDITOR_TEMPORARY_DIRECTORY_PREFIX,
-} from '../product/robota-command-vocabulary.js';
+import { productUserSettingsPath } from '../product/user-settings.js';
 import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
 import { buildOutputStyleSources } from './output-style-sources.js';
 import type { IOutputStyleRegistry } from '@robota-sdk/agent-preset';
@@ -76,6 +74,7 @@ function loadWorkflowsCommandModule(
   workspaceComposition: ICliWorkspaceComposition,
   projectMutation: IWorkspaceProjectMutation | undefined,
   allowDetachedRuns: boolean,
+  environment: Readonly<Record<string, string | undefined>>,
 ): ICommandModule {
   // FLOW-007: pass the provider definitions so `/workflows create` can resolve the ACTIVE provider
   // to author a workflow from natural language. Workspace layout defaults to `.workflows/`.
@@ -89,6 +88,7 @@ function loadWorkflowsCommandModule(
   return createWorkflowsCommandModule({
     providerDefinitions,
     settingsSources: workspaceComposition.settingsSources,
+    environment,
     allowDetachedRuns,
     ...(project === undefined ? {} : { project }),
   });
@@ -111,7 +111,7 @@ export interface ICliSetup {
    */
   callerSuppliedProviderDefinitions: boolean;
   /**
-   * CLI-083 (issue #2287) — the org policy read from `~/.robota/org-policy.json`, `null` when there
+   * CLI-083 (issue #2287) — the org policy read from `the configured user root/org-policy.json`, `null` when there
    * is none. Surfaced because it feeds TWO destinations and only one of them is inside this file:
    * the command-module chain built here (provider `allowedProviders` / `requireApiKeyFromEnv`), and
    * the SESSION, which `cli.ts` assembles for both the served and TUI paths.
@@ -168,7 +168,7 @@ export function buildCommandSetup(
   packCommandModuleNames: readonly string[] = [],
   keybindingsFilePort?: IKeybindingsFilePort,
   themeCataloguePort?: IThemeCataloguePort,
-  sandbox?: IRobotaSandbox,
+  sandbox?: IProductSandbox,
   /**
    * The device mesh this session may open; `/devices` shows its status and tells it when the
    * identity or its lists changed.
@@ -178,9 +178,11 @@ export function buildCommandSetup(
     readonly identityChanged: () => void;
   },
 ): ICliSetup {
+  const productRuntime = resolveCliRuntimeContext(options);
   const workspaceComposition = createCliWorkspaceComposition({
     cwd,
-    userHome: homedir(),
+    productRuntime,
+    userHome: productRuntime.userHome ?? productRuntime.layout.userRoot,
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
     ...(options.projectSettingsWriter !== undefined
       ? { projectSettingsWriter: options.projectSettingsWriter }
@@ -190,7 +192,8 @@ export function buildCommandSetup(
   const outputStyleSources = buildOutputStyleSources({
     ...(options.safeMode === true ? { safeMode: true } : {}),
     cwd,
-    userHome: homedir(),
+    productRuntime,
+    userHome: productRuntime.userHome ?? productRuntime.layout.userRoot,
     projectAccess: workspaceComposition.projectAccess,
     managedOutputStyleSources: options.managedOutputStyleSources,
   });
@@ -198,12 +201,12 @@ export function buildCommandSetup(
   const outputStyleRegistry = createOutputStyleRegistry(outputStyleSources);
   const commandHostAdapters: ICommandHostAdapters = {
     settings: {
-      read: () => readSettings(robotaUserSettingsPath()),
-      write: (settings) => writeSettings(robotaUserSettingsPath(), settings),
+      read: () => readSettings(productUserSettingsPath(productRuntime)),
+      write: (settings) => writeSettings(productUserSettingsPath(productRuntime), settings),
       // CMD-004 Phase 2: the host-executed `settings-reset` action deletes the user settings document.
-      delete: () => deleteSettings(robotaUserSettingsPath()),
+      delete: () => deleteSettings(productUserSettingsPath(productRuntime)),
     },
-    plugin: createDefaultPluginCommandAdapter(cwd),
+    plugin: createDefaultPluginCommandAdapter(cwd, productRuntime),
     // #3282 §4a: `settingsStores` gives the adapter a WRITE target per scope, so the Settings
     // screen's rule Remove button rewrites the same file `/permissions` reads the rule from.
     permissionRules: createSettingsPermissionRulesAdapter(
@@ -213,6 +216,9 @@ export function buildCommandSetup(
     ...(options.mcpActivationAdapter === undefined
       ? {}
       : { mcpActivation: options.mcpActivationAdapter }),
+    ...(options.mcpActivationAdapter?.skills?.commandSource === undefined
+      ? {}
+      : { skillCommands: options.mcpActivationAdapter.skills.commandSource }),
     outputStyleRegistry,
   };
   const providerDefinitions = options.providerDefinitions ?? createDefaultProviderDefinitions();
@@ -233,6 +239,7 @@ export function buildCommandSetup(
     workspaceComposition,
     options.projectMutation,
     !args.printMode && args.goal === undefined,
+    resolveCliRuntimeContext(options).environment,
   );
   // The pack-supplied modules are excluded from the base; `assembleProduct` merges them back in from the
   // profile's packs. `unknownModuleNames` is not read here — every excluded name is a real module, and the
@@ -241,8 +248,8 @@ export function buildCommandSetup(
   // `92596bc6f` removed it two days later while slimming this file, and four implemented enforcement
   // sites have been unreachable since. Nothing failed, because the parameter is optional and its
   // consumers read absence as "no policy configured".
-  const orgPolicy = loadOrgPolicy(userPaths().orgPolicy);
-  // OBSERVABILITY-1991: `/doctor` runs the same runner as `robota doctor`, over the inputs this host
+  const orgPolicy = loadOrgPolicy(userPaths(productRuntime).orgPolicy);
+  // OBSERVABILITY-1991: `/doctor` runs the same runner as `the product doctor`, over the inputs this host
   // composed; the shell supplies them, the command package owns the behaviour.
   const doctorInputs = buildDoctorInputs({
     cwd,
@@ -251,35 +258,37 @@ export function buildCommandSetup(
     options,
     projectAccess: workspaceComposition.projectAccess,
     providerDefinitions,
-    env: process.env,
+    env: productRuntime.environment,
   });
   const { modules: baseCommandModules } = createDefaultCommandModules({
     cwd,
-    userLocalStorageRoot: userLocalStorageRoot(),
-    editorTemporaryDirectoryPrefix: ROBOTA_EDITOR_TEMPORARY_DIRECTORY_PREFIX,
+    userLocalStorageRoot: userLocalStorageRoot(productRuntime),
+    editorTemporaryDirectoryPrefix: productRuntime.vocabulary.editorTemporaryDirectoryPrefix,
     providerDefinitions,
     providerSettingsAdapter,
     contributionSources: workspaceComposition.contributionSources,
     skillRoots: workspaceComposition.skillRoots,
     ...(keybindingsFilePort === undefined ? {} : { keybindingsFilePort }),
     ...(themeCataloguePort === undefined ? {} : { themeCataloguePort }),
-    // `/devices`: identity state under ~/.robota/devices, keys in the host credential store, and the
+    // `/devices`: identity state under the configured user root/devices, keys in the host credential store, and the
     // recovery phrase only on this process's own terminal.
-    devicesPort: createDevicesCommandPort(
-      mesh !== undefined
+    devicesPort: createDevicesCommandPort({
+      productRuntime,
+      ...(mesh !== undefined
         ? { meshStatus: mesh.status, onIdentityChanged: mesh.identityChanged }
-        : {},
-    ),
+        : {}),
+    }),
     doctorInputs,
-    doctorDisplay: ROBOTA_DOCTOR_SLASH_DISPLAY,
-    formatForkResumeCommand: formatRobotaResumeCommand,
+    doctorDisplay: productRuntime.vocabulary.doctorSlash,
+    formatForkResumeCommand: productRuntime.vocabulary.resumeCommand,
     loopOptions: {
       defaultPrompt: DEFAULT_LOOP_MAINTENANCE_PROMPT,
       resolveDefaultPrompt: createLoopDefaultPromptResolver({
+        productRuntime,
         projectAccess: workspaceComposition.projectAccess,
-        userHome: homedir(),
+        userHome: productRuntime.userHome ?? productRuntime.layout.userRoot,
       }),
-      disabled: areSessionLoopsDisabled(process.env),
+      disabled: areSessionLoopsDisabled(productRuntime.environment),
     },
     ...(orgPolicy === null ? {} : { orgPolicy }),
     ...(packCommandModuleNames.length > 0
@@ -287,7 +296,7 @@ export function buildCommandSetup(
       : {}),
   });
   const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)
-    ? getStartupCliUpdateNotice({ currentVersion: version })
+    ? getStartupCliUpdateNotice({ productRuntime, currentVersion: version })
     : undefined;
   return {
     commandHostAdapters,

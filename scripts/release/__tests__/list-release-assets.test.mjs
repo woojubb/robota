@@ -50,17 +50,17 @@ describe('matchReleaseAssets', () => {
   });
 
   it('matches the AppImage/deb leg', () => {
-    const cwd = makeReleaseDir(['robota.AppImage', 'robota.deb']);
+    const cwd = makeReleaseDir(['agent.AppImage', 'agent.deb']);
     expect(matchReleaseAssets('release/*.AppImage release/*.deb', { cwd })).toEqual([
-      'release/robota.AppImage',
-      'release/robota.deb',
+      'release/agent.AppImage',
+      'release/agent.deb',
     ]);
   });
 
   it('matches the Windows .exe leg', () => {
-    const cwd = makeReleaseDir(['robota-desktop-3.0.0-x64.exe']);
+    const cwd = makeReleaseDir(['agent-desktop-3.0.0-x64.exe']);
     expect(matchReleaseAssets('release/*.exe', { cwd })).toEqual([
-      'release/robota-desktop-3.0.0-x64.exe',
+      'release/agent-desktop-3.0.0-x64.exe',
     ]);
   });
 

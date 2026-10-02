@@ -53,6 +53,6 @@ describe('host-selected model identifiers through a real session', () => {
     const request = JSON.stringify(scripted.requests[0]);
     expect(request).toContain('<acme_file_references>');
     expect(request).toContain('ACME guidance');
-    expect(request).not.toContain('robota_file_references');
+    expect(request).not.toContain('agent_file_references');
   });
 });

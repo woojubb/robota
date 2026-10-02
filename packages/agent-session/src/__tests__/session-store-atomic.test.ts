@@ -43,7 +43,7 @@ function createRecord(
 }
 
 beforeEach(() => {
-  baseDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-store-')));
+  baseDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-store-')));
 });
 
 afterEach(() => {
@@ -51,6 +51,44 @@ afterEach(() => {
 });
 
 describe('SessionStore atomic persistence (CORE-019)', () => {
+  it('loads linked resource and audio receipts through a fresh store after a disk roundtrip', () => {
+    const record = createRecord({
+      messages: [
+        {
+          id: 'receipt',
+          role: 'tool',
+          toolCallId: 'call',
+          name: 'observe',
+          content: '{"saved":true}',
+          state: 'complete',
+          timestamp: new Date(0),
+          parts: [
+            {
+              type: 'resource_link',
+              uri: 'fixture://snapshot',
+              name: 'snapshot',
+              title: 'State',
+              description: 'Persisted receipt',
+              mimeType: 'application/json',
+              size: 3,
+            },
+            {
+              type: 'resource_embedded',
+              uri: 'fixture://text',
+              mimeType: 'text/plain',
+              text: 'persisted effect',
+            },
+            { type: 'resource_embedded', uri: 'fixture://binary', blob: 'YmluYXJ5' },
+            { type: 'audio_inline', mimeType: 'audio/wav', data: 'YXVkaW8=' },
+          ],
+        },
+      ],
+    });
+    new NodeSessionStore(baseDir).save(record);
+    const loaded = loadedOrMissing(new NodeSessionStore(baseDir), record.id);
+    expect(loaded?.messages).toStrictEqual(record.messages);
+  });
+
   it('save() roundtrips and leaves no temp-file residue', () => {
     const store = new NodeSessionStore(baseDir);
     store.save(createRecord());

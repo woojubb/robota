@@ -37,8 +37,7 @@ import { createDeviceIdentityService } from '../device-identity-service.js';
 import { createDeviceMeshHost, type IDeviceMeshHost } from '../device-mesh-host.js';
 import { openDeviceMesh, type IDeviceMeshEndpoint } from '../device-mesh.js';
 import {
-  DEVICE_KA_KEY,
-  DEVICE_SIGN_KEY,
+  deviceIdentityCredentialKeys,
   loadDevicePrivateKeys,
   loadSigningKey,
   storeKeyPair,
@@ -49,8 +48,10 @@ import {
   type IDeviceIdentityState,
 } from '../identity-state.js';
 import { scriptedOperator } from './fake-secret-terminal.js';
+import { createTestRuntimeContext } from './runtime-context-fixture.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
+import type { ICliRuntimeContext } from '../../product/runtime-context.js';
 import type { IInteractiveSessionRecord, ITurnHandle } from '@robota-sdk/agent-interface-session';
 import type {
   ICapabilityApprovalRequest,
@@ -62,21 +63,23 @@ interface IHome {
   readonly root: string;
   readonly directory: string;
   readonly store: ICredentialStore;
+  readonly productRuntime: ICliRuntimeContext;
 }
 
 function makeHome(label: string): IHome {
-  const home = mkdtempSync(join(tmpdir(), `robota-mesh-on-${label}-`));
-  const root = join(home, '.robota');
+  const home = mkdtempSync(join(tmpdir(), `agent-fixture-mesh-on-${label}-`));
+  const root = join(home, '.agent-fixture');
   return {
     home,
     root,
     directory: join(root, 'devices'),
     store: createFileCredentialStore(join(root, 'credentials'), { withinRoot: root }),
+    productRuntime: createTestRuntimeContext(root),
   };
 }
 
 function stateOf(home: IHome): IDeviceIdentityState {
-  const state = readIdentityState(home.directory);
+  const state = readIdentityState(home.productRuntime.cryptoContext, home.directory);
   if (state === undefined) throw new Error('no identity');
   return state;
 }
@@ -89,13 +92,13 @@ const endpoints: IDeviceMeshEndpoint[] = [];
 /** The desktop enrols with every capability in its certificate, so only local policy narrows it. */
 async function enrolDesktop(): Promise<string> {
   const held = stateOf(laptop);
-  const signingKey = await loadSigningKey(laptop.store, held.signingKeyCertificate);
+  const signingKey = await loadSigningKey(laptop.store, laptop.productRuntime.config.credentials.serviceNamespace, held.signingKeyCertificate);
   if (signingKey === undefined) throw new Error('no signing key');
   const [sign, ka] = await Promise.all([
     generateDeviceSignKeyPair(true),
     generateDeviceKeyAgreementKeyPair(true),
   ]);
-  const certificate = await certifyDevice({
+  const certificate = await certifyDevice(laptop.productRuntime.cryptoContext, {
     signingKey,
     signPublicKey: sign.publicKey,
     kaPublicKey: ka.publicKey,
@@ -104,15 +107,16 @@ async function enrolDesktop(): Promise<string> {
     capabilities: DEVICE_CAPABILITIES,
     issuedAt: Date.now(),
   });
-  const roster = await issueDeviceRoster({
+  const roster = await issueDeviceRoster(laptop.productRuntime.cryptoContext, {
     signingKey,
     seq: held.roster.seq + 1,
     issuedAt: Date.now(),
     devices: [...held.roster.devices, certificate],
   });
   writeIdentityState(laptop.directory, { ...held, roster }, laptop.root);
-  await storeKeyPair(desktop.store, DEVICE_SIGN_KEY, sign);
-  await storeKeyPair(desktop.store, DEVICE_KA_KEY, ka);
+  const keys = deviceIdentityCredentialKeys(desktop.productRuntime.config.credentials.serviceNamespace);
+  await storeKeyPair(desktop.store, keys.deviceSign, sign);
+  await storeKeyPair(desktop.store, keys.deviceKeyAgreement, ka);
   writeIdentityState(
     desktop.directory,
     { ...held, roster, deviceCertificate: certificate, holdsSigningKey: false, marks: {} },
@@ -125,6 +129,7 @@ beforeEach(async () => {
   laptop = makeHome('laptop');
   desktop = makeHome('desktop');
   const service = createDeviceIdentityService({
+    productRuntime: laptop.productRuntime,
     directory: laptop.directory,
     withinRoot: laptop.root,
     store: laptop.store,
@@ -151,6 +156,7 @@ function meshAt(
   said: string[] = [],
 ) {
   const host = createDeviceMeshHost({
+    productRuntime: home.productRuntime,
     root: home.root,
     store: home.store,
     readTransports: () => SETTINGS,
@@ -307,9 +313,10 @@ describe('the device mesh, turned on in two HOMEs', () => {
     atDesktop.bind({
       handoff: {
         receive: createHandoffReceiver({
+          productRuntime: desktop.productRuntime,
           root: desktop.root,
           composition,
-          identity: () => readHandoffIdentity(desktop.root),
+          identity: () => readHandoffIdentity(desktop.root, desktop.productRuntime),
           resolveCredential: () => true,
           persist: (record) => {
             store.save(record);
@@ -320,7 +327,7 @@ describe('the device mesh, turned on in two HOMEs', () => {
         onOutcome: (_from, outcome) => outcomes.push(outcome.received ? 'saved' : 'refused'),
       },
     });
-    const keys = await loadDevicePrivateKeys(laptop.store, stateOf(laptop).deviceCertificate);
+    const keys = await loadDevicePrivateKeys(laptop.store, laptop.productRuntime.config.credentials.serviceNamespace, stateOf(laptop).deviceCertificate);
     if (keys === undefined) throw new Error('no keys');
     const record: IInteractiveSessionRecord = {
       id: 'session-laptop',
@@ -330,6 +337,7 @@ describe('the device mesh, turned on in two HOMEs', () => {
       messages: [],
     };
     const result = await atLaptop.handoff(desktopId, {
+      cryptoContext: laptop.productRuntime.cryptoContext,
       composition,
       request: {
         handoffId: 'handoff-1',
@@ -342,6 +350,7 @@ describe('the device mesh, turned on in two HOMEs', () => {
       },
       mintGrant: (manifest, fingerprint) =>
         mintHandoffGrant(
+          laptop.productRuntime.cryptoContext,
           { userId: stateOf(laptop).userId, signPrivateKey: keys.signPrivateKey },
           manifest,
           fingerprint,

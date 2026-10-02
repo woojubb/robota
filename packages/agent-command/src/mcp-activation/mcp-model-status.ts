@@ -46,6 +46,7 @@ function toModelView(
   summary: ICommandMCPActivationSummary,
   oauth: TOAuthState | undefined,
   surface: TMCPUserActionSurface,
+  cliName?: string,
 ): IModelServerView {
   const name = shellArgumentForDisplay(summary.serverId);
   const action = userActionFor(summary.status, oauth);
@@ -55,7 +56,10 @@ function toModelView(
     ...(oauth === undefined ? {} : { oauth }),
     ...(action === undefined
       ? {}
-      : { suggestCommand: mcpUserActionCommand(summary.serverId, action, surface) }),
+      : (() => {
+          const suggestCommand = mcpUserActionCommand(summary.serverId, action, surface, cliName);
+          return suggestCommand === undefined ? {} : { suggestCommand };
+        })()),
   };
 }
 
@@ -69,6 +73,7 @@ function formatLine(view: IModelServerView): string {
 
 export async function mcpModelStatusResult(
   mcp: ICommandMCPActivationAdapter | undefined,
+  cliName?: string,
 ): Promise<ICommandResult> {
   if (!mcp) {
     return { message: 'MCP is not available in this environment.', success: true };
@@ -79,7 +84,7 @@ export async function mcpModelStatusResult(
   const servers = mcp
     .list()
     .map((summary) =>
-      toModelView(summary, oauthStates.get(summary.serverId), mcp.userActionSurface ?? 'session'),
+      toModelView(summary, oauthStates.get(summary.serverId), mcp.userActionSurface ?? 'session', cliName),
     );
   const unreadableSources = (mcp.sourceProblems?.() ?? []).length;
   const lines =

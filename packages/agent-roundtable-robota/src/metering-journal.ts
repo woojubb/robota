@@ -115,8 +115,8 @@ async function meteredAppend(
 
 /**
  * Wrap a plain `IExecutionJournal` so every provider call it journals is admitted and reported
- * through `services` — the same metering `robotaParticipant`/`robotaSelector` apply internally,
- * exported so a host can give the same guarantee to a Robota-backed participant or selector it
+ * through `services` — the same metering `runtimeParticipant`/`runtimeSelector` apply internally,
+ * exported so a host can give the same guarantee to a ConversationAgent-backed participant or selector it
  * writes itself, without going through either of this package's own wrappers.
  *
  * `services.admitModelCall` is awaited before a `model-request` record reaches `inner`, so a

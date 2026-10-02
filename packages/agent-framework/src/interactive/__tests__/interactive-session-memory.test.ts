@@ -14,7 +14,7 @@ import { InteractiveSession } from '../interactive-session.js';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
 import { loadedRecordOrMissing } from './session-load-helpers.js';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-interactive-memory-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-interactive-memory-')));
 const ORIGINAL_HOME = process.env.HOME;
 
 function makeProject(): string {
@@ -71,7 +71,7 @@ describe('InteractiveSession memory command integration', () => {
 
       await session.submit('remember that this project uses pnpm for package scripts');
 
-      expect(existsSync(join(cwd, '.robota', 'memory', 'pending.json'))).toBe(false);
+      expect(existsSync(join(cwd, '.agent', 'memory', 'pending.json'))).toBe(false);
       const saved = loadedRecordOrMissing(sessionStore, session.getSession().getSessionId());
       expect(saved?.memoryEvents).toEqual([]);
     },
@@ -117,6 +117,6 @@ describe('InteractiveSession memory command integration', () => {
     const result = await session.executeModelCommand('memory', 'list');
 
     expect(result).toBeNull();
-    expect(existsSync(join(cwd, '.robota', 'memory', 'MEMORY.md'))).toBe(false);
+    expect(existsSync(join(cwd, '.agent', 'memory', 'MEMORY.md'))).toBe(false);
   });
 });

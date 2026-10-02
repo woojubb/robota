@@ -23,7 +23,7 @@ import {
   deleteSettings,
 } from '../settings-io.js';
 
-const TEST_DIR = realpathSync(mkdtempSync(join(tmpdir(), 'robota-settings-io-test-')));
+const TEST_DIR = realpathSync(mkdtempSync(join(tmpdir(), 'agent-settings-io-test-')));
 
 beforeEach(() => {
   mkdirSync(TEST_DIR, { recursive: true });
@@ -125,10 +125,10 @@ describe('updateModelInSettings', () => {
   it('writes a shape the canonical loader round-trips', async () => {
     const cwd = join(TEST_DIR, 'project');
     const home = join(TEST_DIR, 'home');
-    mkdirSync(join(cwd, '.robota'), { recursive: true });
+    mkdirSync(join(cwd, '.agent'), { recursive: true });
     mkdirSync(home, { recursive: true });
     process.env.HOME = home;
-    const path = join(cwd, '.robota', 'settings.json');
+    const path = join(cwd, '.agent', 'settings.json');
     writeSettings(path, {
       currentProvider: 'main',
       providers: { main: { type: 'anthropic', model: 'claude-sonnet-4-6' } },

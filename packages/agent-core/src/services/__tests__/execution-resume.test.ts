@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Robota } from '../../core/robota';
+import { ConversationAgent } from '../../core/conversation-agent';
 import { createScriptedProvider } from '../../testing/scripted-provider';
 import { FunctionTool } from '../../tool-registry';
 import type { TExecutionJournalRecord } from '../../interfaces/execution-journal';
 
-const agents: Robota[] = [];
+const agents: ConversationAgent[] = [];
 afterEach(async () => {
   await Promise.all(agents.splice(0).map((agent) => agent.destroy()));
 });
@@ -20,7 +20,11 @@ function fixture() {
     { text: 'done' },
   ]);
   const effect = vi.fn(async (parameters: { n?: unknown }) => `result ${parameters.n}`);
-  const agent = new Robota({
+  const agent = new ConversationAgent({
+    // These fixtures exercise independent calls settling concurrently.
+    toolExecutionPolicy: (calls) => ({
+      scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
+    }),
     name: 'resume-test',
     aiProviders: [scripted.provider],
     defaultModel: { provider: scripted.provider.name, model: 'test-model' },

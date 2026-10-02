@@ -18,7 +18,7 @@ const TEST_CONFIG = {
 
 describe('InteractiveSession authorized context refresh', () => {
   it('emits a refresh event after an authorized project context file changes', async () => {
-    const cwd = await realpath(await mkdtemp(join(tmpdir(), 'robota-context-refresh-')));
+    const cwd = await realpath(await mkdtemp(join(tmpdir(), 'agent-context-refresh-')));
     const agentsPath = join(cwd, 'AGENTS.md');
     await writeFile(agentsPath, '# Initial rules\n', 'utf8');
     const scripted = createScriptedProvider([{ text: 'first' }, { text: 'second' }]);

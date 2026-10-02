@@ -203,7 +203,7 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions): Prom
 }
 
 /**
- * Create an EditTool instance — register with Robota agent tools registry.
+ * Create an EditTool instance — register with agent tools registry.
  */
 export function createEditTool(options: ISandboxBuiltinToolOptions): FunctionTool {
   return createZodFunctionTool(

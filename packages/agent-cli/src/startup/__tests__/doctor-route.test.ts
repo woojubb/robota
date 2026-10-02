@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -22,7 +23,7 @@ afterEach(() => {
 });
 
 function isolatedHome(): string {
-  const home = mkdtempSync(join(tmpdir(), 'robota-doctor-route-'));
+  const home = mkdtempSync(join(tmpdir(), 'test-product-doctor-route-'));
   homes.push(home);
   return home;
 }
@@ -34,12 +35,12 @@ const createProvider = vi.fn(() => {
 const definitions: IProviderDefinition[] = [
   {
     type: 'fixture',
-    defaults: { model: 'm', apiKey: '$ENV:ROBOTA_DOCTOR_ROUTE_KEY' },
+    defaults: { model: 'm', apiKey: '$ENV:PRODUCT_DOCTOR_ROUTE_KEY' },
     createProvider,
   },
 ];
 
-describe('robota doctor route (OBSERVABILITY-1991 TC-01)', () => {
+describe('test-product doctor route (OBSERVABILITY-1991 TC-01)', () => {
   it('parses only --repair <id> and --yes; anything else is an error, not a global-parser rejection', () => {
     expect(parseDoctorRouteArgs([])).toEqual({ yes: false });
     expect(parseDoctorRouteArgs(['--repair', 'x', '--yes'])).toEqual({ repair: 'x', yes: true });
@@ -58,11 +59,11 @@ describe('robota doctor route (OBSERVABILITY-1991 TC-01)', () => {
     for (const name of ['doctor', 'checkup', 'diagnose']) {
       process.exitCode = undefined;
       const handled = await runPreparsedCliCommand(
-        {
+        {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
           providerDefinitions: definitions,
           projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', home),
         },
-        ['node', 'robota', name, '--yes'],
+        ['node', 'test-product', name, '--yes'],
         home,
       );
       expect(handled).toBe(true);
@@ -73,9 +74,9 @@ describe('robota doctor route (OBSERVABILITY-1991 TC-01)', () => {
 
   it('prints the same check set for every name and exits 0 on a clean configuration', async () => {
     const home = isolatedHome();
-    mkdirSync(join(home, '.robota', 'sessions'), { recursive: true, mode: 0o700 });
+    mkdirSync(join(home, '.test-product', 'sessions'), { recursive: true, mode: 0o700 });
     writeFileSync(
-      join(home, '.robota', 'settings.json'),
+      join(home, '.test-product', 'settings.json'),
       JSON.stringify({
         currentProvider: 'p',
         providers: {
@@ -91,7 +92,7 @@ describe('robota doctor route (OBSERVABILITY-1991 TC-01)', () => {
           version: '0.0.0-test',
           terminal,
           cwd: home,
-          options: {
+          options: {productRuntime: createTestProductRuntime('test-product', { HOME: home }),
             providerDefinitions: definitions,
             projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', home),
           },
@@ -104,43 +105,44 @@ describe('robota doctor route (OBSERVABILITY-1991 TC-01)', () => {
       );
       expect(code).toBe(0);
       const text = lines.join('\n');
-      expect(text).toContain(`robota ${name}`);
-      expect(text).toContain('robota may work');
-      expect(text).toContain('robota trust --yes');
-      outputs.push(text.replace(`robota ${name}`, 'robota <name>'));
+      expect(text).toContain(`test-product ${name}`);
+      expect(text).toContain('test-product Agent may work');
+      expect(text).toContain('test-product trust --yes');
+      outputs.push(text.replace(`test-product ${name}`, 'test-product <name>'));
     }
     expect(
       new Set(outputs.map((o) => o.replace(/reachable in \d+ms|unreachable: .*$/gm, 'REACH'))).size,
     ).toBe(1);
-    expect(outputs[0]).toContain('[settings.user.robota] ok');
+    expect(outputs[0]).toContain('[settings.user.test-product] ok');
     expect(outputs[0]).toContain('[mcp.activation] not-configured');
   });
 
-  it('keeps the Robota provider remediation in the routed doctor output', async () => {
+  it('keeps the test-product Agent provider remediation in the routed doctor output', async () => {
     const home = isolatedHome();
     const { terminal, lines } = createCapturingTerminal();
     const code = await runDoctorRoute({
       version: '0.0.0-test', terminal, cwd: home,
-      options: {
+      options: {productRuntime: createTestProductRuntime('test-product', { HOME: home }),
         providerDefinitions: definitions,
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', home),
       },
       isTTY: false, env: {}, userHome: home,
     }, []);
     expect(code).toBe(1);
-    expect(lines.join('\n')).toContain('robota --configure');
+    expect(lines.join('\n')).toContain('test-product --configure');
   });
 
   it('refuses --repair without --yes in a non-TTY and applies it with --yes', async () => {
     const home = isolatedHome();
-    mkdirSync(join(home, '.robota', 'sessions'), { recursive: true, mode: 0o700 });
-    const path = join(home, '.robota', 'settings.json');
+    mkdirSync(join(home, '.test-product', 'sessions'), { recursive: true, mode: 0o700 });
+    const path = join(home, '.test-product', 'settings.json');
     writeFileSync(path, '');
     const ctx = (terminal: ReturnType<typeof createCapturingTerminal>['terminal']) => ({
       version: '0.0.0-test',
       terminal,
       cwd: home,
       options: {
+        productRuntime: createTestProductRuntime('test-product', { HOME: home }),
         providerDefinitions: definitions,
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', home),
       },
@@ -149,7 +151,7 @@ describe('robota doctor route (OBSERVABILITY-1991 TC-01)', () => {
       userHome: home,
     });
     const refused = createCapturingTerminal();
-    expect(await runDoctorRoute(ctx(refused.terminal), ['--repair', 'settings.user.robota'])).toBe(
+    expect(await runDoctorRoute(ctx(refused.terminal), ['--repair', 'settings.user.test-product'])).toBe(
       1,
     );
     expect(refused.errors.join('\n')).toContain('--yes');
@@ -158,16 +160,16 @@ describe('robota doctor route (OBSERVABILITY-1991 TC-01)', () => {
     const applied = createCapturingTerminal();
     const code = await runDoctorRoute(ctx(applied.terminal), [
       '--repair',
-      'settings.user.robota',
+      'settings.user.test-product',
       '--yes',
     ]);
     expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual({});
-    expect(applied.lines.join('\n')).toContain('[settings.user.robota] ok');
+    expect(applied.lines.join('\n')).toContain('[settings.user.test-product] ok');
     expect(code).toBe(1); // still no provider configured
 
     const again = createCapturingTerminal();
     expect(
-      await runDoctorRoute(ctx(again.terminal), ['--repair', 'settings.user.robota', '--yes']),
+      await runDoctorRoute(ctx(again.terminal), ['--repair', 'settings.user.test-product', '--yes']),
     ).toBe(1);
     expect(again.errors.join('\n')).toContain('state is ok');
   });
@@ -177,7 +179,7 @@ describe('robota doctor route (OBSERVABILITY-1991 TC-01)', () => {
     const inputs = buildDoctorInputs({
       cwd: home,
       version: '0.0.0-test',
-      options: { projectSettingsWriter: {} as never },
+      options: {productRuntime: createTestProductRuntime('test-product', { HOME: home }),  projectSettingsWriter: {} as never },
       projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', home),
       providerDefinitions: definitions,
       env: {},
@@ -197,13 +199,13 @@ describe('robota doctor route (OBSERVABILITY-1991 TC-01)', () => {
     const inputs = buildDoctorInputs({
       cwd: project,
       version: '0.0.0-test',
-      options: {},
+      options: {productRuntime: createTestProductRuntime('test-product', { HOME: home }), },
       projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', project),
       providerDefinitions: definitions,
       env: {},
       userHome: home,
     });
 
-    expect(inputs.pluginsDirs).toEqual([join(home, '.robota', 'plugins')]);
+    expect(inputs.pluginsDirs).toEqual([join(home, '.test-product', 'plugins')]);
   });
 });

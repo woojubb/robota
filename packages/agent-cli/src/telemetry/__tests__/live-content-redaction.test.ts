@@ -74,7 +74,7 @@ describe('live content redaction', () => {
   });
 
   it('masks the real path of the working directory, its plain path and a separate project root', () => {
-    const base = mkdtempSync(join(tmpdir(), 'robota-content-'));
+    const base = mkdtempSync(join(tmpdir(), 'agent-test-content-'));
     try {
       const real = realpathSync(base);
       const link = join(real, 'link');
@@ -87,7 +87,7 @@ describe('live content redaction', () => {
   });
 
   it('masks the real path of a symlinked home directory and project root', () => {
-    const base = mkdtempSync(join(tmpdir(), 'robota-content-home-'));
+    const base = mkdtempSync(join(tmpdir(), 'agent-test-content-home-'));
     try {
       const real = realpathSync(base);
       const home = join(real, 'home-link');

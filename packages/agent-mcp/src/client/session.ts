@@ -18,102 +18,52 @@ import {
   ResourceListChangedNotificationSchema,
   ToolListChangedNotificationSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { TypeUtils } from '@robota-sdk/agent-core';
+
+import { openStatelessSession } from './stateless-session.js';
+import {
+  buildDeclaredCapabilities,
+  DEFAULT_CLIENT_INFO,
+  MCPSessionError,
+  toToolCallResult,
+} from './session-protocol.js';
+export { MCPSessionError } from './session-protocol.js';
 
 import { MCPAuthenticationError } from './authentication.js';
+import { MCPTransportEgressRefusedError } from './pinned-http-fetch.js';
 import { discoverAll } from './discovery.js';
 import { MCPStdioError } from './stdio-transport.js';
 import { callTraceRegistryOf, runInCallTraceScope } from './trace-propagation.js';
 import { MCPDiscoveryError } from '../catalog/types.js';
-import { toUniversalObject } from '../catalog/universal-value.js';
 
-import type { IMCPDiscovery, IMCPServerIdentity, TMCPCapabilityDomain } from '../catalog/types.js';
+import type { IMCPDiscovery, IMCPServerIdentity } from '../catalog/types.js';
+import type { TToolParameters } from '@robota-sdk/agent-core';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
-import type { Implementation, ServerCapabilities } from '@modelcontextprotocol/sdk/types.js';
+import type { Implementation } from '@modelcontextprotocol/sdk/types.js';
 import type {
-  IOutboundTraceContext,
-  IUniversalObjectValue,
-  TToolParameters,
-} from '@robota-sdk/agent-core';
-import type { IMCPDiscoverOptions } from './session-types.js';
+  IMCPDiscoverOptions,
+  IMCPOpenSessionOptions,
+  IMCPSession,
+  IMCPToolCallOptions,
+  IMCPToolCallResult,
+  TMCPListChangedListener,
+} from './session-types.js';
+export type {
+  IMCPDiscoverOptions,
+  IMCPOpenSessionOptions,
+  IMCPSession,
+  IMCPSessionTimeouts,
+  IMCPToolCallOptions,
+  IMCPToolCallResult,
+  TMCPListChangedListener,
+} from './session-types.js';
 
-/** Protocol versions this legacy-era client accepts. A server answering outside the set is closed, not used. */
+/** Versions accepted by default legacy negotiation; stateless opt-in never expands this set. */
 export const SUPPORTED_MCP_PROTOCOL_VERSIONS: ReadonlySet<string> = new Set([
   '2024-11-05',
   '2025-03-26',
   '2025-06-18',
   '2025-11-25',
 ]);
-
-export interface IMCPSessionTimeouts {
-  /** Budget for `initialize` + `notifications/initialized`. */
-  readonly startupMs: number;
-  /** Budget for each list / call request. */
-  readonly perCallMs: number;
-}
-
-export interface IMCPToolCallOptions {
-  readonly signal?: AbortSignal;
-  readonly timeoutMs?: number;
-  /**
-   * The calling tool body's trusted trace context. Sent as `traceparent` only on this call's own
-   * `tools/call` request and its cancellation, only over HTTP, and only to an exactly listed origin.
-   */
-  readonly outboundTraceContext?: IOutboundTraceContext;
-}
-
-export interface IMCPToolCallResult {
-  readonly content: readonly IUniversalObjectValue[];
-  readonly structuredContent?: IUniversalObjectValue;
-  readonly isError: boolean;
-}
-
-/** Fired by the SDK when a server announces `notifications/<domain>/list_changed`. */
-export type TMCPListChangedListener = (domain: TMCPCapabilityDomain) => void;
-
-export interface IMCPSession {
-  readonly identity: IMCPServerIdentity;
-  readonly instructions?: string;
-  /** Capability keys the server declared at initialize; absence means the domain is never called. */
-  readonly declaredCapabilities: Readonly<
-    Record<TMCPCapabilityDomain, { listChanged: boolean } | undefined>
-  >;
-  /** Paginated discovery over every declared domain; bounded and typed (`../catalog/types.js`). */
-  discover(options: IMCPDiscoverOptions): Promise<IMCPDiscovery>;
-  callTool(
-    name: string,
-    args: TToolParameters,
-    options?: IMCPToolCallOptions,
-  ): Promise<IMCPToolCallResult>;
-  /** Subscribe to `list_changed`; returns an unsubscribe. */
-  onListChanged(listener: TMCPListChangedListener): () => void;
-  /** Closes the SDK client and its transport. Idempotent. */
-  close(): Promise<void>;
-}
-
-export type { IMCPDiscoverOptions } from './session-types.js';
-
-export interface IMCPOpenSessionOptions {
-  readonly serverId: string;
-  /** An already-ADMITTED transport (`./transport.ts`); this function never admits anything. */
-  readonly transport: Transport;
-  readonly clientInfo?: { readonly name: string; readonly version: string };
-  readonly timeouts: IMCPSessionTimeouts;
-  readonly signal?: AbortSignal;
-}
-
-export class MCPSessionError extends Error {
-  constructor(
-    readonly kind: 'unsupported-protocol-version' | 'initialize-failed' | 'startup-timeout',
-    message: string,
-    readonly details?: Readonly<Record<string, unknown>>,
-  ) {
-    super(message);
-    this.name = 'MCPSessionError';
-  }
-}
-
-const DEFAULT_CLIENT_INFO = { name: 'mcp-client', version: '0.0.0' } as const;
 
 /** Feature-detects the negotiated protocol version the SDK stamped onto the transport at connect(). */
 function readNegotiatedProtocolVersion(transport: Transport): string | undefined {
@@ -146,42 +96,6 @@ function isStartupTimeout(error: unknown): boolean {
     isRequestTimeout(error) ||
     (error instanceof MCPSessionError && error.kind === 'startup-timeout')
   );
-}
-
-/**
- * The SDK's `callTool` return type is a union with a legacy `toolResult`-only compatibility shape
- * (no `content`/`isError`); converting the whole thing through `toUniversalObject` once, here, is
- * the boundary into the fields this session promises — every field read below is `TUniversalValue`,
- * never `unknown`.
- */
-function toToolCallResult(raw: unknown): IMCPToolCallResult {
-  const converted = toUniversalObject(raw);
-  const rawContent = converted['content'];
-  const content = Array.isArray(rawContent) ? rawContent.filter(TypeUtils.isObject) : [];
-  const structuredContentValue = converted['structuredContent'];
-  const structuredContent = TypeUtils.isObject(structuredContentValue)
-    ? structuredContentValue
-    : undefined;
-  const isError = typeof converted['isError'] === 'boolean' ? converted['isError'] : false;
-  return { content, structuredContent, isError };
-}
-
-function buildDeclaredCapabilities(
-  serverCapabilities: ServerCapabilities | undefined,
-): Readonly<Record<TMCPCapabilityDomain, { listChanged: boolean } | undefined>> {
-  const domains: readonly TMCPCapabilityDomain[] = ['tools', 'prompts', 'resources'];
-  const record: Record<TMCPCapabilityDomain, { listChanged: boolean } | undefined> = {
-    tools: undefined,
-    prompts: undefined,
-    resources: undefined,
-  };
-  for (const domain of domains) {
-    const value = serverCapabilities?.[domain];
-    if (value !== undefined) {
-      record[domain] = { listChanged: value.listChanged ?? false };
-    }
-  }
-  return record;
 }
 
 /** Runs `initialize` within `startupMs`, retaining a typed stdio authority refusal after cleanup. */
@@ -227,9 +141,11 @@ async function connectClient(client: Client, options: IMCPOpenSessionOptions): P
           : 'Stdio session startup failed',
       );
     }
+    await client.close();
     // A refused credential stays typed, so the supervisor classifies it `auth` and does not retry
     // what the server will refuse again.
     if (error instanceof MCPAuthenticationError) throw error;
+    if (error instanceof MCPTransportEgressRefusedError) throw error;
     if (isRequestTimeout(error)) {
       throw new MCPSessionError(
         'startup-timeout',
@@ -296,6 +212,17 @@ function registerListChangedHandlers(
  * and return the session. Implemented in this file against the interfaces above.
  */
 export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<IMCPSession> {
+  if (options.skills && options.protocolVersion !== '2026-07-28')
+    throw new MCPSessionError(
+      'unsupported-protocol-version',
+      'Skills require explicit stateless protocol selection',
+    );
+  if (options.protocolVersion === '2026-07-28') return openStatelessSession(options);
+  if (options.protocolVersion !== undefined)
+    throw new MCPSessionError(
+      'unsupported-protocol-version',
+      'Unsupported explicitly selected MCP protocol version',
+    );
   const client = new Client(options.clientInfo ?? DEFAULT_CLIENT_INFO, { capabilities: {} });
 
   await connectClient(client, options);
@@ -372,8 +299,11 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
         });
       const outboundTraceContext = callOptions?.outboundTraceContext;
       const traceScope =
-        callTraces !== undefined && outboundTraceContext !== undefined
-          ? { outbound: outboundTraceContext }
+        callTraces !== undefined
+          ? {
+              requestAbortController: new AbortController(),
+              ...(outboundTraceContext ? { outbound: outboundTraceContext } : {}),
+            }
           : undefined;
       try {
         const raw = traceScope ? await runInCallTraceScope(traceScope, call) : await call();

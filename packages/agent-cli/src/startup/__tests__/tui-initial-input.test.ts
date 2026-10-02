@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { tuiInitialInputProps } from '../tui-initial-input.js';
 
 describe('tuiInitialInputProps', () => {
-  it('prefills the prompt with the words given after robota, unsent', () => {
+  it('prefills the prompt with the words given after test-product, unsent', () => {
     expect(tuiInitialInputProps(undefined, ['fix', 'the failing test'])).toEqual({
       initialInput: 'fix the failing test',
     });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { TOOL_SEARCH_TOOL_NAME } from '../../interfaces/tool-search';
-import { createConfiguredTools } from '../robota-construction';
+import { createConfiguredTools } from '../agent-construction';
 
 import type { IAgentConfig } from '../../interfaces/agent';
 import type { IToolSchema } from '../../interfaces/provider';

@@ -75,33 +75,33 @@ describe('metric attribute opt-in — default output', () => {
     const parsed = JSON.parse(withNoArg) as Array<{ descriptor: { name: string }; dataPoints: Array<{ attributes: Record<string, unknown> }> }>;
     const names = parsed.map((item) => item.descriptor.name);
     expect(names).toEqual([
-      'robota.prompt.executions',
-      'robota.tool.body_completions',
-      'robota.tool.permission_decisions',
-      'robota.provider.calls',
-      'robota.provider.input_tokens',
-      'robota.provider.output_tokens',
-      'robota.provider.estimated_cost_usd',
+      'agent.prompt.executions',
+      'agent.tool.body_completions',
+      'agent.tool.permission_decisions',
+      'agent.provider.calls',
+      'agent.provider.input_tokens',
+      'agent.provider.output_tokens',
+      'agent.provider.estimated_cost_usd',
     ]);
     for (const item of parsed) {
       for (const point of item.dataPoints) {
-        expect(point.attributes['robota.session.id']).toBeUndefined();
-        expect(point.attributes['robota.provider.id']).toBeUndefined();
-        expect(point.attributes['robota.model.id']).toBeUndefined();
+        expect(point.attributes['agent.session.id']).toBeUndefined();
+        expect(point.attributes['agent.provider.id']).toBeUndefined();
+        expect(point.attributes['agent.model.id']).toBeUndefined();
       }
     }
     // permission_decisions keeps only its existing decision-value label by default.
-    const decisions = parsed.find((item) => item.descriptor.name === 'robota.tool.permission_decisions')!;
-    expect(decisions.dataPoints[0]!.attributes).toEqual({ 'robota.permission.decision': 'allowed' });
-    const cost = parsed.find((item) => item.descriptor.name === 'robota.provider.estimated_cost_usd')!;
-    expect(cost.dataPoints[0]!.attributes).toEqual({ 'robota.cost.provenance': 'price-table-calculated' });
+    const decisions = parsed.find((item) => item.descriptor.name === 'agent.tool.permission_decisions')!;
+    expect(decisions.dataPoints[0]!.attributes).toEqual({ 'agent.permission.decision': 'allowed' });
+    const cost = parsed.find((item) => item.descriptor.name === 'agent.provider.estimated_cost_usd')!;
+    expect(cost.dataPoints[0]!.attributes).toEqual({ 'agent.cost.provenance': 'price-table-calculated' });
   });
 });
 
 describe('metric attribute opt-in — session', () => {
   const attrs = new Set<TLiveMetricAttribute>(['session']);
 
-  it('stamps robota.session.id on every datapoint, including omitted counts and permission decisions', () => {
+  it('stamps agent.session.id on every datapoint, including omitted counts and permission decisions', () => {
     const batch: ILivePromptTraceBatch = {
       ...base,
       children: [tool('1111111111111111'), provider('acme', 'gpt-4o'), permission('allowed', '1111111111111111')],
@@ -109,7 +109,7 @@ describe('metric attribute opt-in — session', () => {
     };
     for (const item of metricsOf(batch, attrs)) {
       for (const point of item.dataPoints) {
-        expect(point.attributes['robota.session.id']).toBe('sess-42');
+        expect(point.attributes['agent.session.id']).toBe('sess-42');
       }
     }
   });
@@ -118,19 +118,19 @@ describe('metric attribute opt-in — session', () => {
     const batch: ILivePromptTraceBatch = {
       ...base, children: [], omittedChildren: { provider: 3, tool: 2, permission: 1 },
     };
-    const toolOmitted = metric(batch, 'robota.telemetry.tool_events_omitted', attrs)!;
-    const providerOmitted = metric(batch, 'robota.telemetry.provider_events_omitted', attrs)!;
-    const permissionOmitted = metric(batch, 'robota.telemetry.permission_events_omitted', attrs)!;
-    expect(toolOmitted.dataPoints[0]!.attributes['robota.session.id']).toBe('sess-42');
-    expect(providerOmitted.dataPoints[0]!.attributes['robota.session.id']).toBe('sess-42');
-    expect(permissionOmitted.dataPoints[0]!.attributes['robota.session.id']).toBe('sess-42');
+    const toolOmitted = metric(batch, 'agent.telemetry.tool_events_omitted', attrs)!;
+    const providerOmitted = metric(batch, 'agent.telemetry.provider_events_omitted', attrs)!;
+    const permissionOmitted = metric(batch, 'agent.telemetry.permission_events_omitted', attrs)!;
+    expect(toolOmitted.dataPoints[0]!.attributes['agent.session.id']).toBe('sess-42');
+    expect(providerOmitted.dataPoints[0]!.attributes['agent.session.id']).toBe('sess-42');
+    expect(permissionOmitted.dataPoints[0]!.attributes['agent.session.id']).toBe('sess-42');
   });
 
   it('keeps the session id alongside the cost provenance label on the priced-cost datapoint', () => {
     const batch: ILivePromptTraceBatch = { ...base, children: [provider('acme', 'gpt-4o')] };
-    const cost = metric(batch, 'robota.provider.estimated_cost_usd', attrs)!;
+    const cost = metric(batch, 'agent.provider.estimated_cost_usd', attrs)!;
     expect(cost.dataPoints[0]!.attributes).toEqual({
-      'robota.session.id': 'sess-42', 'robota.cost.provenance': 'price-table-calculated',
+      'agent.session.id': 'sess-42', 'agent.cost.provenance': 'price-table-calculated',
     });
   });
 });
@@ -140,21 +140,21 @@ describe('metric attribute opt-in — provider/model grouping', () => {
     const batch: ILivePromptTraceBatch = {
       ...base, children: [provider('acme', 'gpt-4o'), provider('other-co', 'gpt-4o')],
     };
-    const calls = metric(batch, 'robota.provider.calls', new Set(['model']))!;
+    const calls = metric(batch, 'agent.provider.calls', new Set(['model']))!;
     expect(calls.dataPoints).toHaveLength(1);
     expect(calls.dataPoints[0]!.value).toBe(2);
-    expect(calls.dataPoints[0]!.attributes).toEqual({ 'robota.model.id': 'gpt-4o' });
+    expect(calls.dataPoints[0]!.attributes).toEqual({ 'agent.model.id': 'gpt-4o' });
   });
 
   it('splits by provider id alone when only provider is enabled', () => {
     const batch: ILivePromptTraceBatch = {
       ...base, children: [provider('acme', 'gpt-4o'), provider('acme', 'gpt-4o-mini'), provider('other-co', 'gpt-4o')],
     };
-    const calls = metric(batch, 'robota.provider.calls', new Set(['provider']))!;
+    const calls = metric(batch, 'agent.provider.calls', new Set(['provider']))!;
     expect(calls.dataPoints).toHaveLength(2);
-    const byProvider = Object.fromEntries(calls.dataPoints.map((point) => [point.attributes['robota.provider.id'], point.value]));
+    const byProvider = Object.fromEntries(calls.dataPoints.map((point) => [point.attributes['agent.provider.id'], point.value]));
     expect(byProvider).toEqual({ acme: 2, 'other-co': 1 });
-    for (const point of calls.dataPoints) expect(point.attributes['robota.model.id']).toBeUndefined();
+    for (const point of calls.dataPoints) expect(point.attributes['agent.model.id']).toBeUndefined();
   });
 
   it('groups by the (provider, model) pair when both are enabled', () => {
@@ -162,9 +162,9 @@ describe('metric attribute opt-in — provider/model grouping', () => {
       ...base,
       children: [provider('acme', 'gpt-4o'), provider('acme', 'gpt-4o-mini'), provider('other-co', 'gpt-4o')],
     };
-    const calls = metric(batch, 'robota.provider.calls', new Set(['provider', 'model']))!;
+    const calls = metric(batch, 'agent.provider.calls', new Set(['provider', 'model']))!;
     expect(calls.dataPoints).toHaveLength(3);
-    const keys = calls.dataPoints.map((point) => `${point.attributes['robota.provider.id']}/${point.attributes['robota.model.id']}`).sort();
+    const keys = calls.dataPoints.map((point) => `${point.attributes['agent.provider.id']}/${point.attributes['agent.model.id']}`).sort();
     expect(keys).toEqual(['acme/gpt-4o', 'acme/gpt-4o-mini', 'other-co/gpt-4o']);
   });
 
@@ -172,23 +172,23 @@ describe('metric attribute opt-in — provider/model grouping', () => {
     const batch: ILivePromptTraceBatch = {
       ...base, children: [provider('acme', 'gpt-4o'), provider(undefined, undefined)],
     };
-    const calls = metric(batch, 'robota.provider.calls', new Set(['provider', 'model']))!;
+    const calls = metric(batch, 'agent.provider.calls', new Set(['provider', 'model']))!;
     expect(calls.dataPoints).toHaveLength(2);
     const withoutIds = calls.dataPoints.find((point) => Object.keys(point.attributes).length === 0);
     expect(withoutIds).toBeDefined();
     expect(withoutIds!.value).toBe(1);
     const withIds = calls.dataPoints.find((point) => Object.keys(point.attributes).length > 0)!;
-    expect(withIds.attributes).toEqual({ 'robota.provider.id': 'acme', 'robota.model.id': 'gpt-4o' });
+    expect(withIds.attributes).toEqual({ 'agent.provider.id': 'acme', 'agent.model.id': 'gpt-4o' });
   });
 
   it('emits a priced estimated-cost datapoint per group and omits an unpriced group entirely', () => {
     const batch: ILivePromptTraceBatch = {
       ...base, children: [provider('acme', 'gpt-4o'), provider('acme', 'unknown-model')],
     };
-    const cost = metric(batch, 'robota.provider.estimated_cost_usd', new Set(['provider', 'model']))!;
+    const cost = metric(batch, 'agent.provider.estimated_cost_usd', new Set(['provider', 'model']))!;
     expect(cost.dataPoints).toHaveLength(1);
     expect(cost.dataPoints[0]!.attributes).toEqual({
-      'robota.provider.id': 'acme', 'robota.model.id': 'gpt-4o', 'robota.cost.provenance': 'price-table-calculated',
+      'agent.provider.id': 'acme', 'agent.model.id': 'gpt-4o', 'agent.cost.provenance': 'price-table-calculated',
     });
     expect(cost.dataPoints[0]!.value).toBe(calculateModelCost('gpt-4o', 100, 50));
   });
@@ -197,25 +197,25 @@ describe('metric attribute opt-in — provider/model grouping', () => {
     const batch: ILivePromptTraceBatch = {
       ...base, children: [provider('acme', 'gpt-4o'), provider('acme', 'gpt-4o'), provider('other-co', 'gpt-4o')],
     };
-    const calls = metric(batch, 'robota.provider.calls', new Set(['session', 'provider']))!;
+    const calls = metric(batch, 'agent.provider.calls', new Set(['session', 'provider']))!;
     expect(calls.dataPoints).toHaveLength(2);
     const seen = new Set(calls.dataPoints.map((point) => JSON.stringify(point.attributes)));
     expect(seen.size).toBe(2);
-    for (const point of calls.dataPoints) expect(point.attributes['robota.session.id']).toBe('sess-42');
+    for (const point of calls.dataPoints) expect(point.attributes['agent.session.id']).toBe('sess-42');
   });
 
   it('still withholds provider metrics entirely when any provider child was omitted', () => {
     const batch: ILivePromptTraceBatch = {
       ...base, children: [provider('acme', 'gpt-4o')], omittedChildren: { provider: 1, tool: 0, permission: 0 },
     };
-    expect(metric(batch, 'robota.provider.calls', new Set(['provider', 'model']))).toBeUndefined();
+    expect(metric(batch, 'agent.provider.calls', new Set(['provider', 'model']))).toBeUndefined();
   });
 });
 
 describe('metric attribute opt-in — configuration', () => {
   const enabledOtlp = {
-    ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_METRICS: 'otlp',
-    ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf', ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
+    PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_METRICS: 'otlp',
+    PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf', PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
   };
 
   it.each([
@@ -223,36 +223,36 @@ describe('metric attribute opt-in — configuration', () => {
   ])('refuses an invalid token %s naming only the setting and position, never the raw text', async (value, position) => {
     let error: unknown;
     try {
-      createConfiguredNodeOtlpLiveTelemetryPort({ ...enabledOtlp, ROBOTA_TELEMETRY_METRIC_ATTRIBUTES: value });
+      createConfiguredNodeOtlpLiveTelemetryPort({ ...enabledOtlp, PRODUCT_TELEMETRY_METRIC_ATTRIBUTES: value });
     } catch (caught) { error = caught; }
     expect(error).toBeInstanceOf(Error);
     const message = (error as Error).message;
-    expect(message).toContain('ROBOTA_TELEMETRY_METRIC_ATTRIBUTES');
+    expect(message).toContain('PRODUCT_TELEMETRY_METRIC_ATTRIBUTES');
     expect(message).toContain(String(position));
     if (value.trim().length > 0) expect(message).not.toContain(value.trim());
   });
 
   it('refuses the setting when metrics are neither otlp nor console', () => {
     expect(() => createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_METRIC_ATTRIBUTES: 'session',
-    })).toThrow(/ROBOTA_TELEMETRY_METRIC_ATTRIBUTES/);
+      PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_METRIC_ATTRIBUTES: 'session',
+    })).toThrow(/PRODUCT_TELEMETRY_METRIC_ATTRIBUTES/);
     expect(() => createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_METRICS: 'off', ROBOTA_TELEMETRY_METRIC_ATTRIBUTES: 'session',
-    })).toThrow(/ROBOTA_TELEMETRY_METRIC_ATTRIBUTES/);
+      PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_METRICS: 'off', PRODUCT_TELEMETRY_METRIC_ATTRIBUTES: 'session',
+    })).toThrow(/PRODUCT_TELEMETRY_METRIC_ATTRIBUTES/);
   });
 
   it('does not error when telemetry is disabled, whatever the value', () => {
     expect(createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_METRIC_ATTRIBUTES: 'not-a-real-token',
+      PRODUCT_TELEMETRY_METRIC_ATTRIBUTES: 'not-a-real-token',
     })).toBeUndefined();
     expect(createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_ENABLED: '0', ROBOTA_TELEMETRY_METRIC_ATTRIBUTES: 'not-a-real-token',
+      PRODUCT_TELEMETRY_ENABLED: '0', PRODUCT_TELEMETRY_METRIC_ATTRIBUTES: 'not-a-real-token',
     })).toBeUndefined();
   });
 
   it('accepts a canonical comma list when metrics export over otlp', async () => {
     const port = createConfiguredNodeOtlpLiveTelemetryPort({
-      ...enabledOtlp, ROBOTA_TELEMETRY_METRIC_ATTRIBUTES: 'session,provider,model',
+      ...enabledOtlp, PRODUCT_TELEMETRY_METRIC_ATTRIBUTES: 'session,provider,model',
     });
     expect(port).toBeDefined();
     await port?.shutdown();
@@ -261,8 +261,8 @@ describe('metric attribute opt-in — configuration', () => {
   it('accepts a canonical comma list when metrics export over console', async () => {
     const lines: string[] = [];
     const port = createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_METRICS: 'console',
-      ROBOTA_TELEMETRY_METRIC_ATTRIBUTES: 'session',
+      PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_METRICS: 'console',
+      PRODUCT_TELEMETRY_METRIC_ATTRIBUTES: 'session',
     }, undefined, (line) => { lines.push(line); });
     expect(port).toBeDefined();
     port!.enqueue({ ...base, children: [provider('acme', 'gpt-4o')] });
@@ -272,7 +272,7 @@ describe('metric attribute opt-in — configuration', () => {
     const callsMetric = record.metrics.find((item) =>
       item.points.some((point) => 'value' in point));
     expect(callsMetric).toBeDefined();
-    const stamped = record.metrics.every((item) => item.points.every((point) => point.attributes['robota.session.id'] === 'sess-42'));
+    const stamped = record.metrics.every((item) => item.points.every((point) => point.attributes['agent.session.id'] === 'sess-42'));
     expect(stamped).toBe(true);
   });
 });

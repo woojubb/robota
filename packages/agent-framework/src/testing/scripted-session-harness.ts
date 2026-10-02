@@ -185,7 +185,7 @@ export class ScriptedSessionHarness {
 
   constructor(options: IScriptedSessionOptions) {
     this.ownsWorkspace = options.cwd === undefined;
-    this.cwd = options.cwd ?? realpathSync(mkdtempSync(join(tmpdir(), 'robota-fxn-')));
+    this.cwd = options.cwd ?? realpathSync(mkdtempSync(join(tmpdir(), 'agent-fxn-')));
     if (this.ownsWorkspace) {
       for (const [relPath, content] of Object.entries(options.files ?? {})) {
         const abs = join(this.cwd, relPath);
@@ -226,11 +226,11 @@ export class ScriptedSessionHarness {
         return base.chat(messages, chatOptions);
       },
     };
-    const persistenceDir = join(this.cwd, '.robota', 'sessions');
+    const persistenceDir = join(this.cwd, '.agent', 'sessions');
     this.sessionStore = options.persistence ? new NodeSessionStore(persistenceDir) : undefined;
     let userSettingsPath: string | undefined;
     if (options.permissions !== undefined || options.hooks !== undefined) {
-      userSettingsPath = join(this.cwd, '.robota-test-user-settings.json');
+      userSettingsPath = join(this.cwd, '.agent-test-user-settings.json');
       const settings = {
         ...(options.permissions !== undefined ? { permissions: options.permissions } : {}),
         ...(options.hooks !== undefined ? { hooks: options.hooks } : {}),
@@ -260,7 +260,7 @@ export class ScriptedSessionHarness {
       ...(options.allowedTools ? { allowedTools: options.allowedTools } : {}),
       ...(options.deniedTools ? { deniedTools: options.deniedTools } : {}),
       ...(this.sessionStore ? { sessionStore: this.sessionStore } : {}),
-      sessionLogSink: new NodeSessionLogSink(join(this.cwd, '.robota', 'logs')),
+      sessionLogSink: new NodeSessionLogSink(join(this.cwd, '.agent', 'logs')),
       ...(options.resumeSessionId ? { resumeSessionId: options.resumeSessionId } : {}),
       ...(options.forkSession ? { forkSession: options.forkSession } : {}),
       ...(options.workspaceMovedFrom !== undefined
@@ -459,7 +459,7 @@ export class ScriptedSessionHarness {
     };
   }
 
-  /** The real session-log directory the framework writes to (`{cwd}/.robota/logs`). */
+  /** The real session-log directory the framework writes to (`{cwd}/.agent/logs`). */
   logsDir(): string {
     return logsDirOf(this.cwd);
   }
@@ -504,7 +504,7 @@ export class ScriptedSessionHarness {
     return workspaceFileExists(this.cwd, relPath);
   }
 
-  /** List workspace files (relative paths), excluding the `.robota` session/log dir. */
+  /** List workspace files (relative paths), excluding the `.agent` session/log dir. */
   files(): string[] {
     return workspaceFiles(this.cwd);
   }

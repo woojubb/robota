@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from './helpers/product-runtime.js';
 /**
  * INFRA-028: `/workflows` is bundled into the self-contained agent-cli. The command module comes from
  * `@robota-sdk/agent-command-workflows`, which is compiled into `dist` (no runtime resolution), so the
@@ -6,7 +7,7 @@
  * ARCH-005 S2: `buildCommandSetup` now returns the product-shell MATERIALS rather than the final module
  * list — `baseCommandModules` (fed to `assembleProduct` as the profile's base) and `fixedCommandModules`
  * (never filtered by the preset delta). The preset delta + its unknown-name diagnostics moved to the shell,
- * where they apply to the base ⊕ pack superset; they are covered in `robota-assembly-equivalence.test.ts`.
+ * where they apply to the base ⊕ pack superset; they are covered in `the product-assembly-equivalence.test.ts`.
  */
 import { existsSync, readFileSync, readdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -15,36 +16,36 @@ import { fileURLToPath } from 'node:url';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { createRobotaPacks, packCommandModuleNames } from '../product/robota-profile.js';
+import { createProductCapabilityPacks, packCommandModuleNames } from '../product/product-profile.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
 
 import type { ICommandMCPActivationAdapter } from '@robota-sdk/agent-framework';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 
 /** The packs' root: an unmade path in a private per-run directory, not a fixed name under /tmp. */
-const PRIVATE_BASE = mkdtempSync(join(tmpdir(), 'robota-optional-workflows-'));
+const PRIVATE_BASE = mkdtempSync(join(tmpdir(), 'test-product-optional-workflows-'));
 afterAll(() => rmSync(PRIVATE_BASE, { recursive: true, force: true }));
-const ROBOTA_PACK_COMMAND_MODULE_NAMES = packCommandModuleNames(
-  createRobotaPacks({ cwd: join(PRIVATE_BASE, 'workspace') }),
+const PRODUCT_PACK_COMMAND_MODULE_NAMES = packCommandModuleNames(
+  createProductCapabilityPacks({ cwd: join(PRIVATE_BASE, 'workspace') }, createTestProductRuntime()),
 );
 
 const MINIMAL_ARGS = { noUpdateCheck: true } as unknown as IParsedCliArgs;
 
 describe('buildCommandSetup — bundled /workflows (INFRA-028)', () => {
   it('builds a non-empty base command-module set without throwing', () => {
-    expect(() => buildCommandSetup('/tmp', MINIMAL_ARGS, {}, '0.0.0-test')).not.toThrow();
-    const setup = buildCommandSetup('/tmp', MINIMAL_ARGS, {}, '0.0.0-test');
+    expect(() => buildCommandSetup('/tmp', MINIMAL_ARGS, { productRuntime: createTestProductRuntime() }, '0.0.0-test')).not.toThrow();
+    const setup = buildCommandSetup('/tmp', MINIMAL_ARGS, { productRuntime: createTestProductRuntime() }, '0.0.0-test');
     expect(setup.baseCommandModules.length).toBeGreaterThan(0);
   });
 
   it('always includes exactly one fully-formed /workflows module (bundled, not optional)', () => {
-    const setup = buildCommandSetup('/tmp', MINIMAL_ARGS, {}, '0.0.0-test');
+    const setup = buildCommandSetup('/tmp', MINIMAL_ARGS, { productRuntime: createTestProductRuntime() }, '0.0.0-test');
     const workflows = setup.fixedCommandModules.filter((m) => m.name === 'agent-command-workflows');
     expect(workflows).toHaveLength(1);
     expect(workflows[0]?.systemCommands?.some((c) => c.name === 'workflows')).toBe(true);
   });
 
-  it('does not expose a second robota-dag executable from a workspace package', () => {
+  it('does not expose a second test-product-dag executable from a workspace package', () => {
     const packagesRoot = fileURLToPath(new URL('../../../', import.meta.url));
     const binOwners = readdirSync(packagesRoot, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
@@ -55,7 +56,7 @@ describe('buildCommandSetup — bundled /workflows (INFRA-028)', () => {
           bin?: Record<string, string> | string;
         };
         return typeof manifest.bin === 'object' && manifest.bin !== null &&
-          'robota-dag' in manifest.bin
+          'test-product-dag' in manifest.bin
           ? [entry.name]
           : [];
       });
@@ -101,7 +102,7 @@ describe('buildCommandSetup — bundled /workflows (INFRA-028)', () => {
     const setup = buildCommandSetup(
       '/tmp',
       MINIMAL_ARGS,
-      { mcpActivationAdapter: adapter },
+      { productRuntime: createTestProductRuntime(), mcpActivationAdapter: adapter },
       '0.0.0-test',
     );
 
@@ -114,14 +115,14 @@ describe('buildCommandSetup — pack-supplied modules are excluded from the base
     const setup = buildCommandSetup(
       '/tmp',
       MINIMAL_ARGS,
-      {},
+      { productRuntime: createTestProductRuntime() },
       '0.0.0-test',
-      ROBOTA_PACK_COMMAND_MODULE_NAMES,
+      PRODUCT_PACK_COMMAND_MODULE_NAMES,
     );
     const baseNames = setup.baseCommandModules.map((m) => m.name);
 
-    expect(ROBOTA_PACK_COMMAND_MODULE_NAMES.length).toBeGreaterThan(0);
-    for (const name of ROBOTA_PACK_COMMAND_MODULE_NAMES) {
+    expect(PRODUCT_PACK_COMMAND_MODULE_NAMES.length).toBeGreaterThan(0);
+    for (const name of PRODUCT_PACK_COMMAND_MODULE_NAMES) {
       expect(baseNames).not.toContain(name);
     }
   });
@@ -130,14 +131,14 @@ describe('buildCommandSetup — pack-supplied modules are excluded from the base
     const withExclusion = buildCommandSetup(
       '/tmp',
       MINIMAL_ARGS,
-      {},
+      { productRuntime: createTestProductRuntime() },
       '0.0.0-test',
-      ROBOTA_PACK_COMMAND_MODULE_NAMES,
+      PRODUCT_PACK_COMMAND_MODULE_NAMES,
     );
-    const withoutExclusion = buildCommandSetup('/tmp', MINIMAL_ARGS, {}, '0.0.0-test');
+    const withoutExclusion = buildCommandSetup('/tmp', MINIMAL_ARGS, { productRuntime: createTestProductRuntime() }, '0.0.0-test');
 
     expect(withoutExclusion.baseCommandModules.length).toBe(
-      withExclusion.baseCommandModules.length + ROBOTA_PACK_COMMAND_MODULE_NAMES.length,
+      withExclusion.baseCommandModules.length + PRODUCT_PACK_COMMAND_MODULE_NAMES.length,
     );
   });
 });

@@ -18,6 +18,7 @@ import type { ILaunchIntent } from './launch-intent.js';
 export type TLaunchTargetTrust = 'trusted' | 'untrusted' | 'revoked' | 'stale/replaced' | 'unknown';
 
 export interface IResolveLaunchTargetDeps {
+  readonly cliName: string;
   /** Every recorded grant, or `undefined` when the store cannot enumerate them. */
   listGrants: () => Promise<readonly IWorkspaceTrustGrant[] | undefined>;
   /** The trust state of one directory, as the store reports it today. */
@@ -62,7 +63,7 @@ async function requireTrusted(
   }
   if (state === 'trusted') return { ok: true, cwd };
   return refuse(
-    `${echoValue(cwd)} is not a trusted workspace (${state}). A link opens only what you have already trusted — run \`robota trust --yes\` there first.`,
+    `${echoValue(cwd)} is not a trusted workspace (${state}). A link opens only what you have already trusted — run \`${deps.cliName} trust --yes\` there first.`,
   );
 }
 
@@ -96,7 +97,7 @@ async function resolveRepo(
 
   if (byRepository.size === 0) {
     return refuse(
-      `no trusted local clone of \`${echoValue(slug)}\` is recorded. Open the link with \`cwd=<absolute path>\`, or run \`robota\` in that clone and trust it first.`,
+      `no trusted local clone of \`${echoValue(slug)}\` is recorded. Open the link with \`cwd=<absolute path>\`, or run this CLI in that clone and trust it first.`,
     );
   }
   if (byRepository.size > 1) {

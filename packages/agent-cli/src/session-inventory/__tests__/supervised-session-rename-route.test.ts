@@ -1,3 +1,4 @@
+import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -24,21 +25,21 @@ describe('supervised session rename command', () => {
     const previousExitCode = process.exitCode;
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const options = {
+    const options = { productRuntime: createTestProductRuntime(),
       providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
     };
     const url = 'https://github.com/team/repo/pull/123';
     vi.mocked(linkSupervisedPr).mockResolvedValue(undefined);
     vi.mocked(unlinkSupervisedPr).mockResolvedValue(undefined);
     try {
-      expect(await runPreparsedCliCommand(options, ['node', 'robota', 'session', 'link-pr', ID, url], cwd)).toBe(true);
+      expect(await runPreparsedCliCommand(options, ['node', 'test-product', 'session', 'link-pr', ID, url], cwd)).toBe(true);
       expect(process.exitCode).toBe(0);
-      expect(linkSupervisedPr).toHaveBeenCalledExactlyOnceWith(ID, url);
-      expect(await runPreparsedCliCommand(options, ['node', 'robota', 'session', 'unlink-pr', ID], cwd)).toBe(true);
+      expect(linkSupervisedPr).toHaveBeenCalledExactlyOnceWith(ID, url, join(createTestProductRuntime().layout.userRoot, 'supervised'));
+      expect(await runPreparsedCliCommand(options, ['node', 'test-product', 'session', 'unlink-pr', ID], cwd)).toBe(true);
       expect(process.exitCode).toBe(0);
-      expect(unlinkSupervisedPr).toHaveBeenCalledExactlyOnceWith(ID);
+      expect(unlinkSupervisedPr).toHaveBeenCalledExactlyOnceWith(ID, join(createTestProductRuntime().layout.userRoot, 'supervised'));
       expect(await runPreparsedCliCommand(options, [
-        'node', 'robota', 'session', 'link-pr', ID, 'https://github.com/team/repo/issues/123',
+        'node', 'test-product', 'session', 'link-pr', ID, 'https://github.com/team/repo/issues/123',
       ], cwd)).toBe(true);
       expect(process.exitCode).toBe(1);
       expect(linkSupervisedPr).toHaveBeenCalledTimes(1);
@@ -53,18 +54,18 @@ describe('supervised session rename command', () => {
     const previousExitCode = process.exitCode;
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const options = {
+    const options = { productRuntime: createTestProductRuntime(),
       providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
     };
     vi.mocked(renameSupervisedSession).mockResolvedValue(undefined);
     try {
       expect(await runPreparsedCliCommand(
-        options, ['node', 'robota', 'session', 'rename', ID, 'Evening review'], cwd,
+        options, ['node', 'test-product', 'session', 'rename', ID, 'Evening review'], cwd,
       )).toBe(true);
       expect(process.exitCode).toBe(0);
-      expect(renameSupervisedSession).toHaveBeenCalledExactlyOnceWith(ID, 'Evening review');
+      expect(renameSupervisedSession).toHaveBeenCalledExactlyOnceWith(ID, 'Evening review', join(createTestProductRuntime().layout.userRoot, 'supervised'));
       expect(await runPreparsedCliCommand(
-        options, ['node', 'robota', 'session', 'rename', ID, 'bad\nname'], cwd,
+        options, ['node', 'test-product', 'session', 'rename', ID, 'bad\nname'], cwd,
       )).toBe(true);
       expect(process.exitCode).toBe(1);
       expect(renameSupervisedSession).toHaveBeenCalledTimes(1);

@@ -29,16 +29,16 @@ import type {
 } from '../command-api/provider/provider-settings.js';
 import type { IProviderSwitchOptions } from '../command-api/provider/provider-configuration.js';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-provider-configuration-test-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-provider-configuration-test-')));
 const ORIGINAL_HOME = process.env.HOME;
 
 function nodeHostProviderSettingsPaths(cwd: string): string[] {
   const userHome = process.env.HOME ?? process.env.USERPROFILE ?? '/';
   return [
-    join(userHome, '.robota', 'settings.json'),
+    join(userHome, '.agent', 'settings.json'),
     join(userHome, '.claude', 'settings.json'),
-    join(cwd, '.robota', 'settings.json'),
-    join(cwd, '.robota', 'settings.local.json'),
+    join(cwd, '.agent', 'settings.json'),
+    join(cwd, '.agent', 'settings.local.json'),
     join(cwd, '.claude', 'settings.json'),
     join(cwd, '.claude', 'settings.local.json'),
   ];
@@ -119,8 +119,8 @@ describe('provider configuration writes', () => {
   });
 
   it('adds an Anthropic profile, preserves OpenAI profile, and sets current provider', () => {
-    const settingsPath = join(TMP_BASE, '.robota', 'settings.json');
-    mkdirSync(join(TMP_BASE, '.robota'), { recursive: true });
+    const settingsPath = join(TMP_BASE, '.agent', 'settings.json');
+    mkdirSync(join(TMP_BASE, '.agent'), { recursive: true });
     writeFileSync(
       settingsPath,
       JSON.stringify({
@@ -161,7 +161,7 @@ describe('provider configuration writes', () => {
   });
 
   it('writes only the requested settings path', () => {
-    const userPath = join(TMP_BASE, '.robota', 'settings.json');
+    const userPath = join(TMP_BASE, '.agent', 'settings.json');
     const claudePath = join(TMP_BASE, '.claude', 'settings.json');
 
     applyProviderConfiguration(userPath, {
@@ -178,8 +178,8 @@ describe('provider configuration writes', () => {
   });
 
   it('persists provider switch only when explicitly applied', () => {
-    const settingsPath = join(TMP_BASE, '.robota', 'settings.json');
-    mkdirSync(join(TMP_BASE, '.robota'), { recursive: true });
+    const settingsPath = join(TMP_BASE, '.agent', 'settings.json');
+    mkdirSync(join(TMP_BASE, '.agent'), { recursive: true });
     writeFileSync(
       settingsPath,
       JSON.stringify({
@@ -198,7 +198,7 @@ describe('provider configuration writes', () => {
   });
 
   it('persists currentProvider when profile is known from merged settings', () => {
-    const settingsPath = join(TMP_BASE, '.robota', 'settings.json');
+    const settingsPath = join(TMP_BASE, '.agent', 'settings.json');
 
     applyProviderSwitch(settingsPath, 'openai', {
       knownProviders: {
@@ -212,10 +212,10 @@ describe('provider configuration writes', () => {
   });
 
   it('updates the highest-precedence active provider profile model', () => {
-    const userPath = join(TMP_BASE, '.robota', 'settings.json');
-    const projectPath = join(TMP_BASE, 'project', '.robota', 'settings.local.json');
-    mkdirSync(join(TMP_BASE, '.robota'), { recursive: true });
-    mkdirSync(join(TMP_BASE, 'project', '.robota'), { recursive: true });
+    const userPath = join(TMP_BASE, '.agent', 'settings.json');
+    const projectPath = join(TMP_BASE, 'project', '.agent', 'settings.local.json');
+    mkdirSync(join(TMP_BASE, '.agent'), { recursive: true });
+    mkdirSync(join(TMP_BASE, 'project', '.agent'), { recursive: true });
     writeFileSync(
       userPath,
       JSON.stringify({
@@ -254,10 +254,10 @@ describe('provider configuration writes', () => {
 
   it('targets the highest-precedence currentProvider document for runtime provider switches', () => {
     const cwd = join(TMP_BASE, 'project');
-    const userPath = join(TMP_BASE, 'home', '.robota', 'settings.json');
-    const projectPath = join(cwd, '.robota', 'settings.local.json');
-    mkdirSync(join(TMP_BASE, 'home', '.robota'), { recursive: true });
-    mkdirSync(join(cwd, '.robota'), { recursive: true });
+    const userPath = join(TMP_BASE, 'home', '.agent', 'settings.json');
+    const projectPath = join(cwd, '.agent', 'settings.local.json');
+    mkdirSync(join(TMP_BASE, 'home', '.agent'), { recursive: true });
+    mkdirSync(join(cwd, '.agent'), { recursive: true });
     writeFileSync(
       userPath,
       JSON.stringify({
@@ -297,8 +297,8 @@ describe('provider configuration writes', () => {
 
   it('updates the provider override profile model resolved by the next session', () => {
     const cwd = join(TMP_BASE, 'project');
-    const settingsPath = join(cwd, '.robota', 'settings.json');
-    mkdirSync(join(cwd, '.robota'), { recursive: true });
+    const settingsPath = join(cwd, '.agent', 'settings.json');
+    mkdirSync(join(cwd, '.agent'), { recursive: true });
     writeFileSync(
       settingsPath,
       JSON.stringify({
@@ -330,8 +330,8 @@ describe('provider configuration writes', () => {
 
   it('updates the current provider profile model resolved by the next session', () => {
     const cwd = join(TMP_BASE, 'project');
-    const settingsPath = join(cwd, '.robota', 'settings.json');
-    mkdirSync(join(cwd, '.robota'), { recursive: true });
+    const settingsPath = join(cwd, '.agent', 'settings.json');
+    mkdirSync(join(cwd, '.agent'), { recursive: true });
     writeFileSync(
       settingsPath,
       JSON.stringify({
@@ -350,8 +350,8 @@ describe('provider configuration writes', () => {
 
   it('throws when trying to update model without currentProvider configured', () => {
     const cwd = join(TMP_BASE, 'project');
-    const settingsPath = join(cwd, '.robota', 'settings.json');
-    mkdirSync(join(cwd, '.robota'), { recursive: true });
+    const settingsPath = join(cwd, '.agent', 'settings.json');
+    mkdirSync(join(cwd, '.agent'), { recursive: true });
     writeFileSync(
       settingsPath,
       JSON.stringify({

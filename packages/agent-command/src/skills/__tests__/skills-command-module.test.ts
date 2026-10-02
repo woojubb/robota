@@ -94,6 +94,7 @@ describe('createSkillsCommandModule', () => {
     expect(module.name).toBe('agent-command-skills');
     expect(module.commandSources?.[0]?.getCommands().map((entry) => entry.name)).toEqual([
       'skills',
+      'skill-read',
     ]);
     expect(command).toMatchObject({
       name: 'skills',
@@ -164,7 +165,7 @@ describe('createSkillsCommandModule', () => {
   });
 
   it('lets the SDK normalize virtual /skill-name commands into the composed skills command', async () => {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-skills-command-module-')));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-skills-command-module-')));
     createTempSkill(cwd);
     const parentSession = makeParentSession();
     const session = new InteractiveSession({

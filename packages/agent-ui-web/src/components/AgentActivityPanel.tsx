@@ -72,7 +72,7 @@ export function AgentActivityPanel({
   const pendingDelete = visibleSchedules.find((task) => task.id === pendingDeleteId) ?? null;
 
   return (
-    <div className={`robota-ui flex flex-col overflow-hidden ${className ?? ''}`}>
+    <div className={`agent-ui flex flex-col overflow-hidden ${className ?? ''}`}>
       <div className="flex h-12 flex-shrink-0 items-center gap-2 px-4">
         <span className="text-[14px] font-medium text-foreground">Agents</span>
         {runningCount > 0 && (

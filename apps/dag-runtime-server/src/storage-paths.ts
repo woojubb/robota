@@ -1,34 +1,30 @@
-import os from 'node:os';
 import path from 'node:path';
 
-const APP_DIR = 'robota-dag';
-
-/**
- * Resolves the DAG storage root directory.
- * Precedence: env DAG_STORAGE_ROOT → XDG_DATA_HOME → ~/.robota-dag/storage
- */
-export function resolveStorageRoot(): string {
-  if (process.env.DAG_STORAGE_ROOT) {
-    return path.resolve(process.env.DAG_STORAGE_ROOT);
-  }
-  const xdgData = process.env.XDG_DATA_HOME;
-  if (xdgData) {
-    return path.join(xdgData, APP_DIR, 'storage');
-  }
-  return path.join(os.homedir(), `.${APP_DIR}`, 'storage');
+export interface IResolveDagStoragePathsOptions {
+  /** Selected product state root from the host's resolved product configuration. */
+  readonly userStateRoot: string;
+  /** Explicit host environment snapshot. */
+  readonly environment?: Readonly<Record<string, string | undefined>>;
 }
 
-/**
- * Resolves the asset storage root directory.
- * Precedence: env ASSET_STORAGE_ROOT → XDG_DATA_HOME → ~/.robota-dag/assets
- */
-export function resolveAssetRoot(): string {
-  if (process.env.ASSET_STORAGE_ROOT) {
-    return path.resolve(process.env.ASSET_STORAGE_ROOT);
+export interface IDagStoragePaths {
+  readonly storageRoot: string;
+  readonly assetRoot: string;
+}
+
+/** Resolve DAG storage beneath the state root selected by the host. */
+export function resolveDagStoragePaths(options: IResolveDagStoragePathsOptions): IDagStoragePaths {
+  const environment = options.environment ?? {};
+  const userStateRoot = options.userStateRoot.trim();
+  if (userStateRoot.length === 0) {
+    throw new Error('A configured product user state root is required for DAG storage.');
   }
-  const xdgData = process.env.XDG_DATA_HOME;
-  if (xdgData) {
-    return path.join(xdgData, APP_DIR, 'assets');
-  }
-  return path.join(os.homedir(), `.${APP_DIR}`, 'assets');
+  return Object.freeze({
+    storageRoot: environment['DAG_STORAGE_ROOT']
+      ? path.resolve(environment['DAG_STORAGE_ROOT'])
+      : path.join(userStateRoot, 'dag', 'storage'),
+    assetRoot: environment['ASSET_STORAGE_ROOT']
+      ? path.resolve(environment['ASSET_STORAGE_ROOT'])
+      : path.join(userStateRoot, 'dag', 'assets'),
+  });
 }

@@ -8,6 +8,7 @@ import { join } from 'node:path';
 
 import { HooksSchema } from '../config/config-types.js';
 import { FrontmatterDecodeError } from '../frontmatter/frontmatter-error.js';
+import { McpContributionError } from './declared-mcp-config.js';
 
 import type {
   IBundlePluginHookIssue,
@@ -23,6 +24,7 @@ export const SKIP_MESSAGES: Record<IBundlePluginSkip['reason'], string> = {
   'manifest-invalid': 'plugin manifest is not a valid plugin.json — skipping this plugin',
   disabled: 'plugin is disabled',
   'load-failed': 'plugin failed to load — skipping this plugin',
+  'revision-unselected': 'plugin has no valid selected installed revision — skipping this plugin',
 };
 
 const JSON_POSITION = /position (\d+)/;
@@ -33,6 +35,7 @@ const JSON_POSITION = /position (\d+)/;
  */
 export function skipDetail(error: Error | undefined): string {
   if (error === undefined) return 'Error';
+  if (error instanceof McpContributionError) return `${error.name} [${error.code}]`;
   if (error instanceof FrontmatterDecodeError) {
     return error.diagnostics
       .map((diagnostic) => {
@@ -114,6 +117,7 @@ export function inspectMcpConfig(
   pluginDir: string,
   mcpConfig: TUniversalValue | undefined,
   sink: IInspectionSink,
+  sourcePaths?: Readonly<Record<string, string>>,
 ): void {
   if (mcpConfig === undefined) return;
   const mcpPath = join(pluginDir, '.mcp.json');
@@ -127,6 +131,8 @@ export function inspectMcpConfig(
     return;
   }
   for (const [name, value] of Object.entries(declared)) {
-    sink.mcpServers.push(toMcpServer(pluginId, mcpPath, name, value));
+    const sourcePath =
+      sourcePaths && Object.hasOwn(sourcePaths, name) ? sourcePaths[name]! : mcpPath;
+    sink.mcpServers.push(toMcpServer(pluginId, sourcePath, name, value));
   }
 }

@@ -1,5 +1,5 @@
 /**
- * Robota capability demo — the agent's tools run in a SANDBOX, not on the host.
+ * Agent capability demo — the agent's tools run in a SANDBOX, not on the host.
  *
  * Two things are shown, and the second is the interesting one.
  *

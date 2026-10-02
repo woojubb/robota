@@ -2,8 +2,10 @@
 
 ## Purpose
 
-Owns the CLI session lifecycle for the Robota SDK. `Session` wraps a `Robota` agent instance
-with permission-gated tool execution, hook-based lifecycle events, context window tracking,
+Owns the CLI session lifecycle for the Robota SDK. `Session` wraps a `ConversationAgent` agent instance
+with permission-gated tool execution governed by current host scheduling intent without granting
+permission or replay authority; its live observations preserve typed results, including refusals before
+execution, and registered source attribution alongside their call identity, hook-based lifecycle events, context window tracking,
 conversation compaction, and optional persistence through `IInteractiveSessionStore`. It is the
 primary runtime used by the CLI application via the framework's assembly layer.
 
@@ -305,7 +307,9 @@ person is never shown "no history" when history could not actually be read.
 - The project-context system message is preserved across compaction — it is excluded from the
   summarization input, and re-injected (ahead of the generated summary) after history is
   cleared, so the model does not lose awareness of its working directory, rules, and tools after
-  a summary replaces the conversation.
+  a summary replaces the conversation. Tool identities, recorded outcomes and source attribution
+  survive independently of the generated summary, because lossy prose must not turn failures into
+  success or authorize repeating an effect; retained attribution remains observation, not authority.
 - **History is append-only source data; a failed compaction must never destroy it.** A summary is
   valid only if the provider returns a non-empty (non-whitespace) string; an invalid summary
   throws rather than being replaced with a placeholder, and history, the context tracker, and the

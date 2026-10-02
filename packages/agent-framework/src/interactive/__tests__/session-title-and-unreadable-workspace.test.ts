@@ -22,7 +22,7 @@ import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-sess
 const dirs: string[] = [];
 
 function newStoreDir(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'robota-sdk-session-title-'));
+  const dir = mkdtempSync(join(tmpdir(), 'agent-sdk-session-title-'));
   dirs.push(dir);
   return dir;
 }

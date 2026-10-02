@@ -64,7 +64,7 @@ describe.runIf(process.platform === 'linux')(
   'SELFHOST-007 TC-05a — active-branch restore survives store-injection ordering',
   () => {
     it('applies a stashed resume pointer on the first checkpoint access after setEditCheckpointStore', async () => {
-      const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-branch-resume-')));
+      const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-branch-resume-')));
       dirs.push(cwd);
       const aId = await seed(cwd);
 
@@ -80,7 +80,7 @@ describe.runIf(process.platform === 'linux')(
     });
 
     it('refuses checkpoint access instead of lazily creating ambient project authority', async () => {
-      const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-branch-resume-')));
+      const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-branch-resume-')));
       dirs.push(cwd);
       const aId = await seed(cwd);
 

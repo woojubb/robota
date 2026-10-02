@@ -1,6 +1,6 @@
 ---
 name: release
-description: Bump versions, promote develop to main, and publish the @robota-sdk packages to npm.
+description: Bump versions, promote develop to main, and publish the selected product's workspace packages to npm.
 ---
 
 # Release
@@ -22,8 +22,9 @@ green on its head and every MUST/SHOULD from `pr-review-reviewer` is resolved.
 
    ```bash
    gh run list --workflow publish.yml --branch main --limit 1 --json databaseId,headSha,status
-   gh api -X POST repos/woojubb/robota/actions/runs/<run-id>/pending_deployments -f state=approved \
-     -F "environment_ids[]=$(gh api repos/woojubb/robota/environments/npm-publish --jq .id)" -f comment='<release>'
+   GH_REPO="$(node -e 'const u=new URL(process.env.PROJECT_REPOSITORY_URL); if(u.hostname!=="github.com") process.exit(1); let p=u.pathname.slice(1); if(p.endsWith(".git")) p=p.slice(0,-4); process.stdout.write(p)')"
+   gh api -X POST "repos/$GH_REPO/actions/runs/<run-id>/pending_deployments" -f state=approved \
+     -F "environment_ids[]=$(gh api "repos/$GH_REPO/environments/npm-publish" --jq .id)" -f comment='<release>'
    ```
 
    It publishes through npm trusted publishing: no token or OTP, provenance attached, and `changeset publish`

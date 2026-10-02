@@ -1,3 +1,4 @@
+import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -70,7 +71,7 @@ function runtime(): Record<string, unknown> {
   };
 }
 
-/** A live daemon of `workspace` on a real control socket, as `robota daemon start` leaves one. */
+/** A live daemon of `workspace` on a real control socket, as `test-product daemon start` leaves one. */
 async function withDaemon(
   run: (daemon: { root: string; listeners: (event: string) => number }) => Promise<void>,
 ): Promise<void> {
@@ -92,7 +93,7 @@ async function withDaemon(
   }
 }
 
-describe('robota --attach', () => {
+describe('test-product --attach', () => {
   it('refuses every option that would shape the session, naming the daemon commands', async () => {
     const io = output();
     const list = listing([daemonRow()]);
@@ -108,12 +109,12 @@ describe('robota --attach', () => {
         ['--attach', '--fork-session'],
         ['--attach', '--safe-mode'],
       ]) {
-        expect(await runDaemonAttachCommand(argv, { cwd: scratch, isTTY: true, list, confirm, render })).toBe(1);
-        expect(io.stderr()).toContain(`robota --attach does not take ${argv[0] === '--attach' ? argv[1] : argv[0]}`);
+        expect(await runDaemonAttachCommand(argv, { productRuntime: createTestProductRuntime(), cwd: scratch, isTTY: true, list, confirm, render })).toBe(1);
+        expect(io.stderr()).toContain(`test-product --attach does not take ${argv[0] === '--attach' ? argv[1] : argv[0]}`);
       }
       expect(io.stderr()).toMatch(/shaped by the daemon/);
-      expect(io.stderr()).toContain('robota daemon stop');
-      expect(io.stderr()).toContain('robota daemon start');
+      expect(io.stderr()).toContain('test-product daemon stop');
+      expect(io.stderr()).toContain('test-product daemon start');
       expect(list).not.toHaveBeenCalled();
       expect(confirm).not.toHaveBeenCalled();
       expect(render).not.toHaveBeenCalled();
@@ -127,17 +128,17 @@ describe('robota --attach', () => {
     const confirm = vi.fn(async () => true);
     const render = vi.fn(async () => 'user' as const);
     try {
-      expect(await runDaemonAttachCommand(['--attach'], {
+      expect(await runDaemonAttachCommand(['--attach'], { productRuntime: createTestProductRuntime(),
         cwd: scratch, root: join(scratch, 'supervised'), isTTY: true, confirm, render,
       })).toBe(1);
-      expect(io.stderr()).toBe(`No daemon is running in ${workspace}. Start one with: robota daemon start\n`);
+      expect(io.stderr()).toBe(`No daemon is running in ${workspace}. Start one with: test-product daemon start\n`);
       // A daemon of another workspace, or one that is not live, is not this workspace's daemon.
       const others = listing([
         daemonRow({ cwd: join(workspace, 'elsewhere') }),
         daemonRow({ liveness: 'dead' }),
         { ...daemonRow(), daemon: undefined } as unknown as ISupervisedSessionRow,
       ]);
-      expect(await runDaemonAttachCommand(['--attach'], { cwd: scratch, isTTY: true, list: others, confirm, render })).toBe(1);
+      expect(await runDaemonAttachCommand(['--attach'], { productRuntime: createTestProductRuntime(), cwd: scratch, isTTY: true, list: others, confirm, render })).toBe(1);
       expect(confirm).not.toHaveBeenCalled();
       expect(render).not.toHaveBeenCalled();
     } finally {
@@ -150,10 +151,10 @@ describe('robota --attach', () => {
     const confirm = vi.fn(async () => true);
     const render = vi.fn(async () => 'user' as const);
     try {
-      expect(await runDaemonAttachCommand(['--attach'], {
+      expect(await runDaemonAttachCommand(['--attach'], { productRuntime: createTestProductRuntime(),
         cwd: scratch, isTTY: false, list: listing([daemonRow()]), confirm, render,
       })).toBe(1);
-      expect(io.stderr()).toContain('Ask the user to run: robota --attach');
+      expect(io.stderr()).toContain('Ask the user to run: test-product --attach');
       expect(io.stderr()).toMatch(/interactive terminal/);
       expect(confirm).not.toHaveBeenCalled();
       expect(render).not.toHaveBeenCalled();
@@ -168,7 +169,7 @@ describe('robota --attach', () => {
     const open = vi.fn();
     const render = vi.fn(async () => 'user' as const);
     try {
-      expect(await runDaemonAttachCommand(['--attach'], {
+      expect(await runDaemonAttachCommand(['--attach'], { productRuntime: createTestProductRuntime(),
         cwd: scratch, isTTY: true, list: listing([daemonRow()]), confirm, open, render,
       })).toBe(1);
       expect(confirm).toHaveBeenCalledExactlyOnceWith({ id: ID, name: 'Main daemon', mode: 'drive' });
@@ -197,11 +198,11 @@ describe('robota --attach', () => {
           expect(listeners('text_delta')).toBeGreaterThan(0);
           return 'user';
         };
-        expect(await runDaemonAttachCommand(['--attach', '--screen-reader'], {
+        expect(await runDaemonAttachCommand(['--attach', '--screen-reader'], { productRuntime: createTestProductRuntime(),
           cwd: scratch, root, isTTY: true, confirm, render,
         })).toBe(0);
         expect(confirm).toHaveBeenCalledExactlyOnceWith({ id: ID, name: 'Main daemon', mode: 'drive' });
-        expect(io.stdout()).toBe(`Detached from daemon ${ID}. It keeps running; stop it with robota daemon stop.\n`);
+        expect(io.stdout()).toBe(`Detached from daemon ${ID}. It keeps running; stop it with test-product daemon stop.\n`);
         // Detached: the daemon's session no longer streams to this terminal.
         await vi.waitFor(() => expect(listeners('text_delta')).toBe(0));
       } finally {
@@ -221,7 +222,7 @@ describe('robota --attach', () => {
       detach,
     }));
     try {
-      expect(await runDaemonAttachCommand(['--attach'], {
+      expect(await runDaemonAttachCommand(['--attach'], { productRuntime: createTestProductRuntime(),
         cwd: scratch, root: join(scratch, 'supervised'), isTTY: true, list: listing([daemonRow()]),
         confirm: async () => true, open, render: async () => 'closed',
       })).toBe(0);
@@ -236,7 +237,7 @@ describe('robota --attach', () => {
   it('describes what it does, what it returns, and that only the user runs it', async () => {
     const io = output();
     try {
-      expect(await runDaemonAttachCommand(['--attach', '--help'], { cwd: scratch })).toBe(0);
+      expect(await runDaemonAttachCommand(['--attach', '--help'], { productRuntime: createTestProductRuntime(), cwd: scratch })).toBe(0);
       expect(io.stdout()).toMatch(/only the user\s+can run it/);
       expect(io.stdout()).toMatch(/should suggest the command instead/);
       expect(io.stdout()).toMatch(/daemon keeps running/);
@@ -247,7 +248,7 @@ describe('robota --attach', () => {
   });
 });
 
-describe('robota --attach routing', () => {
+describe('test-product --attach routing', () => {
   const previousExitCode = process.exitCode;
   afterEach(() => {
     process.exitCode = previousExitCode;
@@ -260,8 +261,8 @@ describe('robota --attach routing', () => {
   } as unknown as IAttachedAppPresentation;
   const route = (argv: readonly string[], withPresentation = true): Promise<boolean> =>
     runPreparsedCliCommand(
-      { providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch) },
-      ['node', 'robota', ...argv],
+      { productRuntime: createTestProductRuntime(), providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch) },
+      ['node', 'test-product', ...argv],
       scratch,
       {},
       undefined,
@@ -273,7 +274,7 @@ describe('robota --attach routing', () => {
     try {
       expect(await route(['--attach', '--model', 'x'])).toBe(true);
       expect(process.exitCode).toBe(1);
-      expect(io.stderr()).toContain('robota --attach does not take --model');
+      expect(io.stderr()).toContain('test-product --attach does not take --model');
     } finally {
       io.restore();
     }
@@ -286,7 +287,7 @@ describe('robota --attach routing', () => {
     try {
       expect(await route(['--attach'])).toBe(true);
       expect(process.exitCode).toBe(1);
-      expect(io.stderr()).toBe(`No daemon is running in ${workspace}. Start one with: robota daemon start\n`);
+      expect(io.stderr()).toBe(`No daemon is running in ${workspace}. Start one with: test-product daemon start\n`);
     } finally {
       io.restore();
     }
@@ -308,7 +309,7 @@ describe('robota --attach routing', () => {
     try {
       expect(await route(['session', 'stop', '--attach'])).toBe(true);
       expect(io.stderr()).toMatch(/supervised session/i);
-      expect(io.stderr()).not.toContain('robota --attach');
+      expect(io.stderr()).not.toContain('test-product --attach');
     } finally {
       io.restore();
     }

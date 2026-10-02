@@ -100,6 +100,28 @@ describe('provider settings helpers', () => {
     expect(patch.currentProvider).toBe('anthropic');
   });
 
+  it('validates a credential reference against the selected environment snapshot', () => {
+    const patch = buildProviderSetupPatch(
+      {
+        profile: 'anthropic',
+        type: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        apiKeyEnv: 'SELECTED_PROVIDER_KEY',
+      },
+      {
+        providerDefinitions,
+        env: { SELECTED_PROVIDER_KEY: 'synthetic-key' },
+      },
+    );
+
+    expect(patch.providers.anthropic?.apiKey).toBe('$ENV:SELECTED_PROVIDER_KEY');
+    expect(() => validateProviderProfile(
+      'anthropic',
+      patch.providers.anthropic!,
+      { providerDefinitions, env: {} },
+    )).toThrow('missing apiKey');
+  });
+
   it('validates required fields by provider type', () => {
     expect(() =>
       validateProviderProfile(

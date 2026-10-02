@@ -721,7 +721,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(message(second)).not.toContain('Configure product A.');
     expect(message(neutral)).toContain('Invalid API key.');
     expect(message(neutral)).not.toContain('/provider');
-    expect(message(neutral)).not.toContain('~/.robota');
+    expect(message(neutral)).not.toContain('~/.agent');
   });
 
   it('uses this session’s provider guidance for a failed prompt turn', async () => {
@@ -1109,10 +1109,10 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   });
 
   // ══════════════════════════════════════════════════════════════
-  // Display order: Tool → Robota (SPEC-mandated fixed order)
+  // Display order: Tool → ConversationAgent (SPEC-mandated fixed order)
   // ══════════════════════════════════════════════════════════════
 
-  // Tool → Robota display order is tested via message-list-rendering.test.tsx
+  // Tool → ConversationAgent display order is tested via message-list-rendering.test.tsx
   // which verifies actual rendered output without private state manipulation.
 
   // ── Scenario: SessionStore auto-persist ────────────────────────
@@ -1218,7 +1218,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     // SessionStore.load should have been called with the resume ID
     expect(mockSessionStore.load).toHaveBeenCalledWith('prev-session');
 
-    // Messages should have been injected into Session's Robota for AI context
+    // Messages should have been injected into Session's ConversationAgent for AI context
     expect(mockSession.injectRawMessage).toHaveBeenCalledTimes(2);
     expect(mockSession.injectRawMessage).toHaveBeenCalledWith(
       expect.objectContaining({ role: 'user', content: 'previous' }),

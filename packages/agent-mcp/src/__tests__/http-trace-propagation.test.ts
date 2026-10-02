@@ -195,6 +195,49 @@ describe('traceparent on MCP HTTP tool calls', () => {
     return opened;
   }
 
+  it.each(['abort', 'timeout'] as const)(
+    'withdraws an untraced %s request while an independent call stays live',
+    async (mode) => {
+      let cancelledClosed = false;
+      const held = new Map<string, { rpc: Record<string, unknown>; res: ServerResponse }>();
+      const server = await serve((rpc, res) => {
+        const text = (rpc['params'] as { arguments: { text: string } }).arguments.text;
+        held.set(text, { rpc, res });
+        if (text === 'cancel')
+          res.once('close', () => {
+            cancelledClosed = true;
+          });
+      });
+      const { session, registry } = await sessionFor(server);
+      const controller = new AbortController();
+      const cancelled = session.callTool(
+        'echo',
+        { text: 'cancel' },
+        { signal: controller.signal, timeoutMs: mode === 'timeout' ? 1000 : 5000 },
+      );
+      const rejected = expect(cancelled).rejects.toBeDefined();
+      const independent = session
+        .callTool('echo', { text: 'independent' }, { timeoutMs: 5000 })
+        .then(
+          (result) => ({ result }),
+          (error: unknown) => ({ error }),
+        );
+      await server.received('tools/call', 2);
+      if (mode === 'abort') controller.abort();
+      await rejected;
+      await expect.poll(() => cancelledClosed, { timeout: 1000 }).toBe(true);
+      const live = held.get('independent')!;
+      sendJson(live.res, toolResult(live.rpc['id'], 'independent success'));
+      expect(await independent).toMatchObject({
+        result: { content: [{ type: 'text', text: 'independent success' }] },
+      });
+      await server.received('notifications/cancelled');
+      expect(registry.size).toBe(0);
+      expect(withoutTraceparent(server.requests)).toBe(true);
+    },
+  );
+
+
   it('sends the call\'s traceparent on its tools/call only, beside the admission headers', async () => {
     const server = await serve();
     const { session, registry } = await sessionFor(server);
@@ -345,8 +388,9 @@ describe('traceparent on MCP HTTP tool calls', () => {
     const pending = first.session.callTool('echo', {}, { outboundTraceContext: outbound(server, SPAN_A) });
     await server.received('tools/call');
     expect(first.registry.size).toBe(1);
+    const rejected = expect(pending).rejects.toThrow();
     await first.session.close();
-    await expect(pending).rejects.toThrow();
+    await rejected;
     expect(first.registry.size).toBe(0);
 
     const second = await sessionFor(server);
@@ -384,6 +428,7 @@ describe('traceparent on MCP HTTP tool calls', () => {
     const seen: Array<Headers> = [];
     const endpoint = { kind: 'streamable-http' as const, url: new URL('https://mcp.example.com/mcp'), headers: {} };
     const transport = constructStreamableHttpTransport(endpoint, {
+      lookup: async () => ['8.8.8.8'],
       fetch: async (_input, init) => {
         seen.push(new Headers(init?.headers));
         return new Response(null, { status: 202 });

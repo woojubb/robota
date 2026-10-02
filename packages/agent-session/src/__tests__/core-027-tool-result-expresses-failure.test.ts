@@ -72,6 +72,68 @@ function makeTool(name: string, execute: () => Promise<unknown>) {
 }
 
 describe('CORE-027: a crashed tool is not a success', () => {
+  it.each([false, true])(
+    'retains registered attribution in live and returned observations (crash=%s)',
+    async (crash) => {
+      const onToolExecution = vi.fn();
+      const enforcer = makeEnforcer({ onToolExecution });
+      const provenance = {
+        sourceId: 'fixture-plugin',
+        component: 'observe',
+        origin: 'fixture://installed',
+        version: '1',
+      };
+      const tool = Object.assign(
+        makeTool('Observe', async () => {
+          provenance.version = '2';
+          if (crash) throw new Error('partial failure');
+          return {
+            success: true,
+            data: 'observed',
+            parts: [{ type: 'text', text: 'foreign observation' }],
+          };
+        }),
+        { provenance },
+      );
+      const [wrapped] = enforcer.wrapTools([tool]);
+      const result = await wrapped.execute(
+        {},
+        { toolName: 'Observe', parameters: {}, executionId: 'call-source' },
+      );
+      const ended = onToolExecution.mock.calls
+        .map(([event]) => event)
+        .find((event) => event.type === 'end');
+      expect(result.metadata?.toolProvenance).toBe(JSON.stringify({ ...provenance, version: '1' }));
+      expect(ended).toMatchObject({ executionId: 'call-source', success: !crash });
+      expect(ended.toolResultParts[0]).toEqual(result.parts?.[0]);
+      expect(result.parts?.[0]).toMatchObject({
+        type: 'text',
+        text: expect.stringContaining('fixture-plugin'),
+      });
+    },
+  );
+
+  it('delivers admitted typed parts alongside structured data in the live callback', async () => {
+    const onToolExecution = vi.fn();
+    const enforcer = makeEnforcer({ onToolExecution });
+    const parts = [{ type: 'image_inline' as const, mimeType: 'image/png', data: 'iVBORw0KGgo=' }];
+    const [wrapped] = enforcer.wrapTools([
+      makeTool('Observe', async () => ({
+        success: true,
+        data: { revision: 7 },
+        parts,
+      })),
+    ]);
+    await wrapped.execute({}, { toolName: 'Observe', parameters: {}, executionId: 'call-7' });
+    expect(
+      onToolExecution.mock.calls.map(([event]) => event).find((event) => event.type === 'end'),
+    ).toMatchObject({
+      executionId: 'call-7',
+      toolResultData: '{"revision":7}',
+      toolResultParts: parts,
+    });
+  });
+
   it('does not report a thrown tool as `success: true`', async () => {
     const enforcer = makeEnforcer();
     const [wrapped] = enforcer.wrapTools([

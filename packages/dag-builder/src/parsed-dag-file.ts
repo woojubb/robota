@@ -5,7 +5,7 @@ import {
   type IDagDecodeIssue,
   type IDagDefinition,
   type IDagDefinitionDecodeOptions,
-  type IDagRobotaCompanion,
+  type IDagConversationAgentCompanion,
   type TResult,
 } from '@robota-sdk/dag-core';
 
@@ -24,7 +24,7 @@ import { fromDagWorkflowFile } from './dag-workflow-converter.js';
  * discriminator and the rest was a cast, so a parseable file with a wrong nested field reached the
  * semantic validator and failed there as a `TypeError` instead of as a diagnostic.
  *
- * Pure and synchronous. Callers that also read a `.dag.robota.json` companion off disk do the IO
+ * Pure and synchronous. Callers that also read a `.dag.agent.json` companion off disk do the IO
  * themselves and pass the result in.
  */
 
@@ -62,7 +62,7 @@ function detectFormat(parsed: unknown): TDagFileFormat | 'unrecognised' {
 /** Total decode of either disk format; never throws, never casts. */
 export function decodeDagFile(
   parsed: unknown,
-  companion?: IDagRobotaCompanion,
+  companion?: IDagConversationAgentCompanion,
 ): TResult<IDagDefinition, IDagFileDecodeFailure> {
   const format = detectFormat(parsed);
   if (format === 'unrecognised') {
@@ -121,7 +121,7 @@ export class DagFileDecodeError extends Error {
 /** The throwing form of {@link decodeDagFile}, for callers that render one error message. */
 export function dagDefinitionFromParsedFile(
   parsed: unknown,
-  companion?: IDagRobotaCompanion,
+  companion?: IDagConversationAgentCompanion,
 ): IDagDefinition {
   const result = decodeDagFile(parsed, companion);
   if (result.ok) return result.value;

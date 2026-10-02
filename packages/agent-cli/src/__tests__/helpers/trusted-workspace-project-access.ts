@@ -1,11 +1,14 @@
+import { createTestProductRuntime } from './product-runtime.js';
 import { WorkspaceTrustService } from '@robota-sdk/agent-framework';
-import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../../product/robota-project-state-directories.js';
+import { productProjectStateDirectories } from '../../product/project-state-directories.js';
 
 import type {
   ITrustedWorkspaceProjectAccess,
   IWorkspaceIdentity,
   IWorkspaceTrustStoreSnapshot,
 } from '@robota-sdk/agent-framework';
+const PRODUCT_PROJECT_STATE_DIRECTORIES = productProjectStateDirectories(createTestProductRuntime());
+
 
 export async function createTrustedWorkspaceProjectAccess(
   worktreeRoot: string,
@@ -22,7 +25,7 @@ export async function createTrustedWorkspaceProjectAccess(
   };
   const access = await new WorkspaceTrustService({
     identityResolver: { resolve: () => identity },
-    projectStateDirectories: ROBOTA_PROJECT_STATE_DIRECTORIES,
+    projectStateDirectories: PRODUCT_PROJECT_STATE_DIRECTORIES,
     store: {
       inspect: async () => trusted,
       grant: async () => trusted,

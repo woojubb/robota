@@ -27,7 +27,7 @@ published to npm. It is part of the DAG workflow subsystem; see
   file with `nodes` + `links`, or a definition with `dagId`) into a `TResult`.
   `dagDefinitionFromParsedFile(parsed, companion?)` is the throwing form (`DagFileDecodeError`).
 - `toDagWorkflowFile(definition)` / `fromDagWorkflowFile(file, companion?)` — convert between an
-  `IDagDefinition` and the workflow-file format. The `.dag.robota.json` companion carries what the
+  `IDagDefinition` and the workflow-file format. A `.dag.<identifier>.json` companion carries what the
   file format cannot record (original node ids, retry and cost policies); without it, imported
   nodes are named `node-<n>`.
 - `IDagBuildPort` — the build capability as a port, for hosts that expose building as a service.

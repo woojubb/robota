@@ -13,7 +13,8 @@ export type {
   ICommandPluginAdapter,
 } from '@robota-sdk/agent-interface-command';
 
-export const PLUGIN_COMMAND_DESCRIPTION = 'Manage plugins';
+export const PLUGIN_COMMAND_DESCRIPTION =
+  'Inspect or manage installed plugins and marketplaces; returns operation status. User-only because installing and enabling contributions activates code.';
 export const PLUGIN_COMMAND_ARGUMENT_HINT =
   'manage | list | install <name@marketplace> | uninstall <name@marketplace> | enable <name@marketplace> | disable <name@marketplace> | marketplace <action>';
 export const RELOAD_PLUGINS_COMMAND_DESCRIPTION =

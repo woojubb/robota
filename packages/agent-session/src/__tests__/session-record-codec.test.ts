@@ -44,6 +44,10 @@ function maximalRecord(): IInteractiveSessionRecord {
           { type: 'text', text: 'hello' },
           { type: 'image_inline', mimeType: 'image/png', data: 'AAA' },
           { type: 'image_uri', uri: 'https://example.test/i.png', mimeType: 'image/png' },
+          { type: 'audio_inline', mimeType: 'audio/wav', data: 'YXVkaW8=' },
+          { type: 'resource_link', uri: 'fixture://snapshot', name: 'snapshot', size: 3 },
+          { type: 'resource_embedded', uri: 'fixture://text', text: 'persisted effect' },
+          { type: 'resource_embedded', uri: 'fixture://binary', blob: 'YmluYXJ5' },
         ],
       },
       {
@@ -139,7 +143,12 @@ function maximalRecord(): IInteractiveSessionRecord {
           // Issue #3288 §1.
           deniedToolCalls: {
             total: 2,
-            byReason: { 'denied-by-person': 1, 'no-approver': 1, 'approver-error': 0, cancelled: 0 },
+            byReason: {
+              'denied-by-person': 1,
+              'no-approver': 1,
+              'approver-error': 0,
+              cancelled: 0,
+            },
           },
         },
         error: { category: 'timeout', message: 'too slow', recoverable: true },
@@ -571,9 +580,7 @@ describe('decodeInteractiveSessionRecord — background task state kind discrimi
   });
 
   it('permits pid/logPath/transcriptPath on a process-kind task — shared, not agent-exclusive', () => {
-    const outcome = decodeInteractiveSessionRecord(
-      persistedWith('backgroundTasks[1].pid', 555),
-    );
+    const outcome = decodeInteractiveSessionRecord(persistedWith('backgroundTasks[1].pid', 555));
     expect(outcome.status).toBe('valid');
   });
 });
@@ -868,5 +875,22 @@ describe('decodeInteractiveSessionRecord — a background task without a result 
     for (const task of outcome.record.backgroundTasks ?? []) {
       expect(Object.prototype.hasOwnProperty.call(task, 'result')).toBe(false);
     }
+  });
+});
+
+describe('resource observation record validation', () => {
+  it.each([
+    { type: 'resource_link', uri: 'fixture://receipt', name: 'receipt', size: -1 },
+    { type: 'resource_link', uri: 'fixture://receipt', name: 'receipt', size: 1.5 },
+    { type: 'resource_link', uri: 'fixture://receipt', name: 'receipt', description: 3 },
+    { type: 'resource_embedded', uri: 'fixture://receipt', text: 'text', blob: 'YQ==' },
+    { type: 'resource_embedded', uri: 'fixture://receipt' },
+    { type: 'resource_embedded', uri: 'fixture://receipt', blob: 3 },
+    { type: 'audio_inline', mimeType: 'audio/wav', data: null },
+  ])('rejects malformed observation %# without throwing', (part) => {
+    const value = JSON.parse(JSON.stringify(maximalRecord()));
+    value.messages[0].parts = [part];
+    expect(() => decodeInteractiveSessionRecord(value)).not.toThrow();
+    expect(decodeInteractiveSessionRecord(value).status).toBe('corrupt');
   });
 });

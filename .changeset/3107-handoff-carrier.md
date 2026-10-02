@@ -7,7 +7,7 @@
 
 `/handoff` moves a session over a real connection.
 
-- `/handoff <session-id>` pushes this conversation to another Robota session on this machine. The
+- `/handoff <session-id>` pushes this conversation to another the agent runtime session on this machine. The
   same carrier also runs between two of the user's devices over their mesh connection; no command
   opens that connection yet.
 - A hand-off is push-only: only the operator of the session that holds it starts one. A session or

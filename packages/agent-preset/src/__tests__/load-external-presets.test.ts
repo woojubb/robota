@@ -28,7 +28,7 @@ const BUILT_IN_IDS = createPresetRegistry()
 
 /** Create a fresh unique temp directory for a single test case. */
 function makeTempDir(): string {
-  return realpathSync(mkdtempSync(join(tmpdir(), 'robota-presets-')));
+  return realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-presets-')));
 }
 
 /** Write a JSON preset file into `dir` and return nothing. */

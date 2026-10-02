@@ -56,7 +56,7 @@ describe('decodeFrontmatter', () => {
       'invocable: true',
       'license: MIT',
       'metadata:',
-      '  author: robota',
+      '  author: agent',
       '  version: 1',
       '  stable: true',
       '---',
@@ -81,7 +81,7 @@ describe('decodeFrontmatter', () => {
       loop: 'over=finding-set; bound=2 rounds',
       invocable: true,
       license: 'MIT',
-      metadata: { author: 'robota', version: 1, stable: true },
+      metadata: { author: 'agent', version: 1, stable: true },
     });
     expectTypeOf(result.metadata.effort).toEqualTypeOf<TModelEffort | undefined>();
     expect(result.body).toBe('# Body\n');
@@ -179,7 +179,7 @@ describe('decodeFrontmatter', () => {
     },
     {
       name: 'a merge key',
-      content: '---\nmetadata:\n  <<: { author: robota }\n---\n',
+      content: '---\nmetadata:\n  <<: { author: agent }\n---\n',
       expected: {
         code: 'alias-or-merge-forbidden',
         line: 3,

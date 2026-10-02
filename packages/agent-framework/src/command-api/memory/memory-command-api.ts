@@ -27,9 +27,9 @@ import type { ICommand } from '../types.js';
 export const MEMORY_COMMAND_DESCRIPTION =
   'Project memory command. Use it to inspect project memory when stored context may help, save durable preferences, project conventions, feedback, or references worth reusing across sessions, review pending candidates, and report memory provenance. Do not store secrets, credentials, or transient facts.';
 export const MEMORY_COMMAND_ARGUMENT_HINT =
-  'list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | approve <id> | reject <id> | used';
+  'list | show [topic] | add <user|feedback|project|reference> <topic> <text> | correct <user|feedback|project|reference> <topic> <text> | forget <topic> | pending | approve <id> | reject <id> | used';
 export const MEMORY_COMMAND_USAGE =
-  'Usage: memory list | memory show [topic] | memory add <user|feedback|project|reference> <topic> <text> | memory pending | memory approve <id> | memory reject <id> | memory used';
+  'Usage: memory list | memory show [topic] | memory add <user|feedback|project|reference> <topic> <text> | memory correct <user|feedback|project|reference> <topic> <text> | memory forget <topic> | memory pending | memory approve <id> | memory reject <id> | memory used';
 
 // SELFHOST-008 P1R: the `/memory` command consumes the segregated durable-memory port role interfaces
 // (`IDurableMemoryReader` + `IMemoryWriter` + `IMemoryCurationQueue`) directly — the prior
@@ -73,6 +73,22 @@ export function buildMemoryCommandSubcommands(source = 'memory'): ICommand[] {
       argumentHint: '<user|feedback|project|reference> <topic> <text>',
       source,
       modelInvocable: true,
+    },
+    {
+      name: 'correct',
+      description:
+        'Replace all saved entries in a topic with the user’s corrected memory; returns its source paths',
+      argumentHint: '<user|feedback|project|reference> <topic> <text>',
+      source,
+      modelInvocable: false,
+    },
+    {
+      name: 'forget',
+      description:
+        'Remove a topic from active memory and prevent automatic restoration; historical transcripts and backups remain',
+      argumentHint: '<topic>',
+      source,
+      modelInvocable: false,
     },
     {
       name: 'pending',

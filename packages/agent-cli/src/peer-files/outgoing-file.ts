@@ -17,6 +17,7 @@ import { createReadStream } from 'node:fs';
 import { realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
+import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
 import type { IFileSource } from '@robota-sdk/agent-transport/node';
 
 /** Who is sending: the operator's command, or the model's tool. */
@@ -30,7 +31,6 @@ const SECRET_DIRECTORIES: ReadonlySet<string> = new Set([
   '.azure',
   '.kube',
   '.docker',
-  '.robota',
   '.password-store',
   'gcloud',
 ]);
@@ -52,7 +52,8 @@ const SECRET_NAME_PATTERNS: readonly RegExp[] = [
 ];
 
 /** Whether a path names something that holds secrets, judged on its segments. */
-export function isSecretPath(file: string): boolean {
+export function isSecretPath(file: string, policy?: IPathProtectionPolicy): boolean {
+  if (policy?.protectedPaths.some((root) => path.resolve(root) === path.resolve(file) || inside(path.resolve(root), path.resolve(file)))) return true;
   const segments = path
     .resolve(file)
     .split(path.sep)
@@ -60,7 +61,7 @@ export function isSecretPath(file: string): boolean {
   const name = segments[segments.length - 1] ?? '';
   if (SECRET_NAMES.has(name.toLowerCase())) return true;
   if (SECRET_NAME_PATTERNS.some((pattern) => pattern.test(name))) return true;
-  return segments.slice(0, -1).some((segment) => SECRET_DIRECTORIES.has(segment.toLowerCase()));
+  return segments.slice(0, -1).some((segment) => (SECRET_DIRECTORIES.has(segment.toLowerCase()) || policy?.protectedDirectoryNames.includes(segment) === true));
 }
 
 function inside(root: string, file: string): boolean {
@@ -88,7 +89,8 @@ export interface IPrepareOutgoingFileOptions {
   readonly path: string;
   /** The session's working directory: where a relative path starts, and the model's workspace. */
   readonly cwd: string;
-  readonly home: string;
+  readonly home?: string;
+  readonly pathProtection?: IPathProtectionPolicy;
   readonly origin: TFileSendOrigin;
   readonly maxBytes: number;
 }
@@ -109,8 +111,11 @@ export async function prepareOutgoingFile(
 ): Promise<TOutgoingFile> {
   const typed = options.path.trim();
   if (typed === '') return { ok: false, reason: 'no file was named.' };
+  if ((typed === '~' || typed.startsWith('~/')) && options.home === undefined) {
+    return { ok: false, reason: 'Home-relative file paths require an explicit home directory.' };
+  }
   const expanded =
-    typed === '~' || typed.startsWith('~/') ? path.join(options.home, typed.slice(1)) : typed;
+    typed === '~' || typed.startsWith('~/') ? path.join(options.home!, typed.slice(1)) : typed;
   const resolved = path.resolve(options.cwd, expanded);
   let real: string;
   try {
@@ -136,7 +141,7 @@ export async function prepareOutgoingFile(
           '/peers send-file.',
       };
     }
-    if (isSecretPath(resolved) || isSecretPath(real)) {
+    if (isSecretPath(resolved, options.pathProtection) || isSecretPath(real, options.pathProtection)) {
       return {
         ok: false,
         reason:

@@ -178,7 +178,7 @@ async function assertUnknownShellRejected(): Promise<number> {
 
 async function main(): Promise<void> {
   assertCondition(process.platform === 'win32', 'Windows shell scenario requires win32');
-  const originalRobotaShell = process.env['ROBOTA_SHELL'];
+  const originalFixtureShell = process.env['FIXTURE_SHELL'];
   const originalShell = process.env['SHELL'];
   const schedules: TTrackedSchedule[] = [];
   let failure: unknown;
@@ -186,7 +186,7 @@ async function main(): Promise<void> {
   let unknownShellSpawnAttempts = -1;
   let environmentRestored = false;
   try {
-    delete process.env['ROBOTA_SHELL'];
+    delete process.env['FIXTURE_SHELL'];
     delete process.env['SHELL'];
     const cases: IShellCase[] = [
       {
@@ -266,14 +266,14 @@ async function main(): Promise<void> {
         tracked.cancelled = true;
       }
     }
-    originalRobotaShell === undefined
-      ? delete process.env['ROBOTA_SHELL']
-      : (process.env['ROBOTA_SHELL'] = originalRobotaShell);
+    originalFixtureShell === undefined
+      ? delete process.env['FIXTURE_SHELL']
+      : (process.env['FIXTURE_SHELL'] = originalFixtureShell);
     originalShell === undefined
       ? delete process.env['SHELL']
       : (process.env['SHELL'] = originalShell);
     environmentRestored =
-      process.env['ROBOTA_SHELL'] === originalRobotaShell && process.env['SHELL'] === originalShell;
+      process.env['FIXTURE_SHELL'] === originalFixtureShell && process.env['SHELL'] === originalShell;
   }
   if (failure !== undefined) throw failure;
   const output = {
@@ -290,7 +290,7 @@ async function main(): Promise<void> {
   assertCondition(output.summary.scheduledHandlesCancelled, 'Scheduled cleanup failed');
   assertCondition(output.summary.environmentRestored, 'Environment restoration failed');
   const serialized = `${JSON.stringify(output)}\n`;
-  const outputPath = process.env['ROBOTA_SCENARIO_OUTPUT'];
+  const outputPath = process.env['PRODUCT_SCENARIO_OUTPUT'];
   if (outputPath) writeFileSync(outputPath, serialized, 'utf8');
   process.stdout.write(serialized);
 }

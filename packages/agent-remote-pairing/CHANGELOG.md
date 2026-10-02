@@ -97,7 +97,7 @@
     pairwise secret (`derivePairRendezvous(...).relayInbox()`).
   - `agent-cli` — a device holding the signing key reissues its roster and revocation list before they
     expire while an interactive session runs. The host can open this device's mesh endpoint from the
-    identity under `~/.robota/devices`, saving newer lists a peer hands over; no command starts it yet.
+    identity under `$PRODUCT_USER_STATE_DIR/devices`, saving newer lists a peer hands over; no command starts it yet.
   - `agent-command` — `/devices add|join` still reports that enrolment is not available yet.
 
 - c7f9203: Connected sessions can send each other files.
@@ -109,7 +109,7 @@
     The tool reaches only files inside the workspace whose path does not look like it holds secrets
     (`.env*`, `~/.ssh`, keys and credentials), and it does not exist in a turn a peer's message started.
   - The receiving operator approves every file. A received file is kept as an inert copy (mode 0600)
-    under `~/.robota/peer-files/<sender>/`. It is never run and never placed in the model's context.
+    under `$PRODUCT_USER_STATE_DIR/peer-files/<sender>/`. It is never run and never placed in the model's context.
     The conversation is told only its name, size and sha256. A name that leaves that directory is
     refused, a symbolic link is never written through, and nothing is overwritten.
   - Transfers travel on a channel of their own (a separate connection on this host, a separate data
@@ -177,7 +177,7 @@
     rate. Discovery yields candidates only: admission is still the device handshake, and an address is
     remembered only after an admission it carried.
   - `agent-cli` — the device mesh endpoint can look on the local network (`lan` option), remembering
-    the addresses that worked in an owner-only `~/.robota/devices/address-cache.json`; no command starts
+    the addresses that worked in an owner-only `$PRODUCT_USER_STATE_DIR/devices/address-cache.json`; no command starts
     it yet.
 
 ### Patch Changes
@@ -204,7 +204,7 @@
   - `agent-remote-pairing` — `startDeviceHandshake` runs the transport-agnostic device handshake
     (`send` + `onFrame`): a pairwise pre-proof that discloses no identity, then hello and prove, with
     the chain verified against the pinned master key, roster, revocation lists and high-water marks,
-    and possession proved by a `robota/handshake/v1` signature over the transcript. The side with the
+    and possession proved by a `__PRODUCT_DISPLAY_NAME__/handshake/v1` signature over the transcript. The side with the
     newer roster or revocation list hands it over and the receiver adopts it only once it verifies.
     Before a remote admission an optional lookup for newer lists runs for at most
     `FRESHNESS_LOOKUP_MS` (3 s); without a newer list a remote peer is admitted with a warning for
@@ -216,7 +216,7 @@
 
 - 44fc732: Add `/devices` for this device's identity among the user's devices: `list`, `init` (creates the identity: a recovery phrase, the master-certified signing key, this device's keys and certificate, the first roster and revocation list), `revoke <device-id>` (signing key only, no phrase; confirmed at the terminal) and `recover` (rotates the signing key from the phrase and revokes the old ones). Enrolling another device (`add` / `join`) comes with the device connection.
 
-  The recovery phrase never enters the session: it is shown once and read with no echo on the controlling terminal (opened apart from the session's input), on the alternate screen that is cleared afterwards, and never reaches prompt history, conversation history, transcripts, traces or the model. Without an interactive terminal the phrase commands refuse. `/devices` is operator-only: never model-invocable and refused from remote surfaces. Private keys live in the host credential store; certificates, roster, revocation lists and sequence marks are kept in owner-only files under `~/.robota/devices`.
+  The recovery phrase never enters the session: it is shown once and read with no echo on the controlling terminal (opened apart from the session's input), on the alternate screen that is cleared afterwards, and never reaches prompt history, conversation history, transcripts, traces or the model. Without an interactive terminal the phrase commands refuse. `/devices` is operator-only: never model-invocable and refused from remote surfaces. Private keys live in the host credential store; certificates, roster, revocation lists and sequence marks are kept in owner-only files under `$PRODUCT_USER_STATE_DIR/devices`.
 
   `agent-remote-pairing` adds `isRecoveryPhraseWord`, so a phrase can be checked one word at a time.
 

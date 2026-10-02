@@ -29,7 +29,7 @@ desktop-style composer.
   - Session notices keep only `session-error` and `protocol-error`.
   - The state gains `commandCatalog` and `sessionStatus`.
 - `agent-command` registers `/theme` and `/keybindings` even without a terminal. They then answer
-  that they belong to the robota terminal, instead of being unknown.
+  that they belong to the configured CLI terminal, instead of being unknown.
 - `agent-framework`:
   - `InteractiveSession.getStatusSnapshot()`.
   - The main-thread row previews the last chat message instead of the last record's type.

@@ -1,5 +1,10 @@
 import '@testing-library/jest-dom';
 
+// Keep Web Crypto consumers working in Jest's jsdom environment.
+const { TextDecoder, TextEncoder } = require('node:util');
+global.TextDecoder = TextDecoder;
+global.TextEncoder = TextEncoder;
+
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter: () => ({

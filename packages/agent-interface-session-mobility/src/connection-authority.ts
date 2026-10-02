@@ -115,21 +115,56 @@ function isAborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted === true;
 }
 
+function approvedBeforeAbort(answer: Promise<boolean>, signal: AbortSignal): Promise<boolean> {
+  return new Promise((resolve) => {
+    const finish = (yes: boolean): void => {
+      signal.removeEventListener('abort', abort);
+      resolve(yes && !signal.aborted);
+    };
+    const abort = (): void => finish(false);
+    signal.addEventListener('abort', abort, { once: true });
+    void answer.then(
+      (yes) => finish(yes === true),
+      () => finish(false),
+    );
+    if (signal.aborted) abort();
+  });
+}
+
 /** The authority one connection holds. Construct one per connection. */
 export class ConnectionAuthority {
   /** One answer per capability for this connection, shared by concurrent asks. */
-  private readonly connectionAnswers = new Map<TMeshCapability, Promise<TCapabilityDecision>>();
+  private readonly connectionAnswers = new Map<
+    TMeshCapability,
+    {
+      readonly result: Promise<TCapabilityDecision>;
+      readonly signal?: AbortSignal;
+    }
+  >();
+  private readonly lifetime = new AbortController();
+  private readonly peer: IConnectionPeer;
 
   constructor(
-    private readonly peer: IConnectionPeer,
+    peer: IConnectionPeer,
     private readonly approver?: IOperatorApprover,
-  ) {}
+  ) {
+    this.peer = Object.freeze({ ...peer, capabilities: Object.freeze([...peer.capabilities]) });
+  }
+
+  /** The carrier ends this authority with its connection, including replacement and revocation. */
+  close(): void {
+    this.lifetime.abort();
+    this.connectionAnswers.clear();
+  }
 
   /** Whether the peer may use `capability` now. */
   authorize(
     capability: TMeshCapability,
     options: IAuthorizeOptions = {},
   ): Promise<TCapabilityDecision> {
+    if (this.lifetime.signal.aborted || isAborted(options.signal)) {
+      return Promise.resolve(REFUSED_DECLINED);
+    }
     if (!this.peer.capabilities.includes(capability)) {
       return Promise.resolve({ allowed: false, reason: 'not-granted' });
     }
@@ -138,12 +173,20 @@ export class ConnectionAuthority {
     if (approval === 'every-request') return this.ask(capability, 'request', options);
     let answer = this.connectionAnswers.get(capability);
     if (answer === undefined) {
-      answer = this.ask(capability, 'connection', {
+      answer = {
+        result: this.ask(capability, 'connection', {
+          ...(options.signal ? { signal: options.signal } : {}),
+        }),
         ...(options.signal ? { signal: options.signal } : {}),
-      });
+      };
       this.connectionAnswers.set(capability, answer);
     }
-    return answer;
+    const shared = answer;
+    return shared.result.then((decision) =>
+      this.lifetime.signal.aborted || isAborted(shared.signal) || isAborted(options.signal)
+        ? REFUSED_DECLINED
+        : decision,
+    );
   }
 
   /**
@@ -195,7 +238,9 @@ export class ConnectionAuthority {
     { summary, signal }: IAuthorizeOptions,
   ): Promise<TCapabilityDecision> {
     if (this.approver === undefined) return { allowed: false, reason: 'no-approver' };
-    if (isAborted(signal)) return REFUSED_DECLINED;
+    const active =
+      signal === undefined ? this.lifetime.signal : AbortSignal.any([this.lifetime.signal, signal]);
+    if (active.aborted) return REFUSED_DECLINED;
     const question: ICapabilityApprovalRequest = {
       capability,
       scope,
@@ -204,9 +249,9 @@ export class ConnectionAuthority {
       ...(summary !== undefined ? { summary } : {}),
     };
     try {
-      const yes = (await this.approver.approve(question, signal)) === true;
+      const yes = await approvedBeforeAbort(this.approver.approve(question, active), active);
       // A yes that arrives after the peer left is about a connection that no longer exists.
-      return yes && !isAborted(signal) ? { allowed: true } : REFUSED_DECLINED;
+      return yes && !active.aborted ? { allowed: true } : REFUSED_DECLINED;
     } catch {
       return REFUSED_DECLINED;
     }

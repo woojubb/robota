@@ -19,7 +19,7 @@ import type { IToolSchema } from '../interfaces/tool-schema';
 import type { TToolSearchMode } from '../interfaces/tool-search';
 
 /**
- * The vendor's own invariant, as a Robota-level error: a request in which every tool is withheld
+ * The vendor's own invariant, as a ConversationAgent-level error: a request in which every tool is withheld
  * offers the model nothing to call and nothing to search with.
  */
 export const ALL_TOOLS_DEFERRED_MESSAGE =

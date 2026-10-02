@@ -51,7 +51,7 @@ describe('resolveContainedSnapshotPath (issue #2076)', () => {
   });
 });
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-edit-checkpoint-store-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-edit-checkpoint-store-')));
 
 function makeProject(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));
@@ -157,7 +157,7 @@ describe('EditCheckpointStore', () => {
       // restore it before failing, which is the partial restore the issue forbids.
       const manifestPath = join(
         cwd,
-        '.robota',
+        '.agent',
         'checkpoints',
         'session_1',
         second.id,
@@ -298,7 +298,7 @@ describe('EditCheckpointStore', () => {
       const inspection = store.inspect('session_1', first.id);
       expect(inspection.capturedFiles[0]?.snapshotAvailable).toBe(true);
       unlinkSync(
-        join(cwd, '.robota', 'checkpoints', 'session_1', first.id, 'files', '000001.content'),
+        join(cwd, '.agent', 'checkpoints', 'session_1', first.id, 'files', '000001.content'),
       );
 
       await expect(store.rollbackThroughCheckpoint('session_1', first.id)).rejects.toThrow();
@@ -352,7 +352,7 @@ describe('EditCheckpointStore', () => {
       expect(store.list('session_1')).toHaveLength(4);
 
       // d diverged from a (its parent is the restore target), NOT from c
-      const dManifestPath = join(cwd, '.robota', 'checkpoints', 'session_1', d.id, 'manifest.json');
+      const dManifestPath = join(cwd, '.agent', 'checkpoints', 'session_1', d.id, 'manifest.json');
       const dManifest = JSON.parse(readFileSync(dManifestPath, 'utf8')) as {
         version: number;
         parentId?: string;
@@ -366,7 +366,7 @@ describe('EditCheckpointStore', () => {
 
   it('loads a legacy v1 manifest as a linear chain (back-compat migration)', async () => {
     const cwd = makeProject();
-    const sessionDir = join(cwd, '.robota', 'checkpoints', 'session_1');
+    const sessionDir = join(cwd, '.agent', 'checkpoints', 'session_1');
     // hand-write two legacy v1 manifests (no parentId/branchId)
     for (const [seq, id] of [
       [1, 'turn-0001'],

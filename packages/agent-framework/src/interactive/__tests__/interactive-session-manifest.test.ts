@@ -42,7 +42,7 @@ vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
   return {
     ...actual,
-    Robota: vi.fn().mockImplementation(() => ({
+    ConversationAgent: vi.fn().mockImplementation(() => ({
       run: vi.fn().mockResolvedValue('mock AI response'),
       getHistory: vi.fn().mockReturnValue([]),
       clearHistory: vi.fn(),
@@ -67,7 +67,7 @@ const NOOP_DELTA = (): void => {};
 const NOOP_TOOL = (): void => {};
 
 /** The session's working directory: private to this run, never a fixed name under /tmp. */
-const SESSION_CWD = mkdtempSync(join(tmpdir(), 'robota-manifest-session-'));
+const SESSION_CWD = mkdtempSync(join(tmpdir(), 'agent-manifest-session-'));
 afterAll(() => rmSync(SESSION_CWD, { recursive: true, force: true }));
 
 describe('createInteractiveSession — workspace manifest', () => {

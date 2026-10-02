@@ -18,7 +18,7 @@ import { getWorkspaceProjectReader } from '../../workspace-trust/index.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), 'robota-settings-inspection-'));
+  const root = mkdtempSync(join(tmpdir(), 'agent-settings-inspection-'));
   roots.push(root);
   return root;
 }
@@ -116,9 +116,9 @@ describe('inspectSettingsLayers (OBSERVABILITY-1991 TC-02)', () => {
         },
       }),
     );
-    mkdirSync(join(root, '.robota'));
+    mkdirSync(join(root, '.agent'));
     writeFileSync(
-      join(root, '.robota', 'settings.json'),
+      join(root, '.agent', 'settings.json'),
       JSON.stringify({
         hooks: {
           PreToolUse: [

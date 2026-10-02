@@ -1,6 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { InternalLink } from '@/components/ui';
 import { KeyRound, Repeat, Package, ShieldCheck, Zap } from 'lucide-react';
+import { productPublicConfig } from '@/lib/product-config.generated';
 
 const FEATURE_ICONS = [KeyRound, Repeat, Package, ShieldCheck, Zap];
 
@@ -52,7 +53,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <a
-              href={`https://docs.robota.io/${locale}/getting-started/`}
+              href={`__PROJECT_DOCS_URL__/${locale}/getting-started/`}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-lg bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
@@ -60,7 +61,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               {t('hero.getStarted')}
             </a>
             <a
-              href="https://github.com/woojubb/robota"
+              href="__PROJECT_REPOSITORY_URL__"
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-5 py-3 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
@@ -144,6 +145,13 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               <span className="text-[var(--foreground)]">npm install -g @robota-sdk/agent-cli</span>
             </p>
             <p className="mt-3">
+              <span className="text-[var(--muted-foreground)]">{t('cta.commentProductConfig')}</span>
+            </p>
+            <p className="mt-1">
+              <span className="text-[var(--primary)]">$</span>{' '}
+              <span className="text-[var(--foreground)]">export PRODUCT_CONFIG_FILE=/absolute/path/to/product.env</span>
+            </p>
+            <p className="mt-3">
               <span className="text-[var(--muted-foreground)]">{t('cta.commentApiKey')}</span>
             </p>
             <p className="mt-1">
@@ -155,11 +163,11 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             </p>
             <p className="mt-1">
               <span className="text-[var(--primary)]">$</span>{' '}
-              <span className="text-[var(--foreground)]">robota</span>
+              <span className="text-[var(--foreground)]">{productPublicConfig.identity.cliName}</span>
             </p>
           </div>
           <a
-            href={`https://docs.robota.io/${locale}/getting-started/`}
+            href={`__PROJECT_DOCS_URL__/${locale}/getting-started/`}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-6 inline-block rounded-lg bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"

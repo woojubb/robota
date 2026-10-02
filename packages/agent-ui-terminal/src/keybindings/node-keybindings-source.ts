@@ -25,15 +25,15 @@ export interface IKeybindingsSource extends IKeybindingsFilePort {
 
 export interface INodeKeybindingsSourceOptions {
   readonly filePath: string;
-  readonly schemaUrl: string;
+  readonly schemaUrl?: string;
   readonly onDiagnostic?: (diagnostic: IKeybindingDiagnostic) => void;
 }
 
-function defaultDocument(schemaUrl: string) {
-  return { $schema: schemaUrl, version: 1 as const, bindings: {} };
+function defaultDocument(schemaUrl: string | undefined) {
+  return { ...(schemaUrl === undefined ? {} : { $schema: schemaUrl }), version: 1 as const, bindings: {} };
 }
 
-function defaultSnapshot(filePath: string, schemaUrl: string): IKeybindingSnapshot {
+function defaultSnapshot(filePath: string, schemaUrl: string | undefined): IKeybindingSnapshot {
   const parsed = parseKeybindingsDocument(JSON.stringify(defaultDocument(schemaUrl)), filePath);
   if (!parsed.ok) throw new Error(parsed.diagnostic.message);
   return parsed.snapshot;
@@ -41,7 +41,7 @@ function defaultSnapshot(filePath: string, schemaUrl: string): IKeybindingSnapsh
 
 class NodeKeybindingsSource implements IKeybindingsSource {
   readonly filePath: string;
-  readonly #schemaUrl: string;
+  readonly #schemaUrl: string | undefined;
   readonly #onDiagnostic: ((diagnostic: IKeybindingDiagnostic) => void) | undefined;
   readonly #listeners = new Set<(snapshot: IKeybindingSnapshot) => void>();
   #snapshot: IKeybindingSnapshot;
@@ -52,7 +52,7 @@ class NodeKeybindingsSource implements IKeybindingsSource {
 
   constructor(options: INodeKeybindingsSourceOptions) {
     if (options.filePath.trim() === '') throw new Error('Keybindings file path must not be empty.');
-    if (options.schemaUrl.trim() === '') throw new Error('Keybindings schema URL must not be empty.');
+    if (options.schemaUrl?.trim() === '') throw new Error('Keybindings schema URL must not be empty.');
     this.filePath = options.filePath;
     this.#schemaUrl = options.schemaUrl;
     this.#onDiagnostic = options.onDiagnostic;

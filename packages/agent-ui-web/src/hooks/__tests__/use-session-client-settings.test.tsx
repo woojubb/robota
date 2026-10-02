@@ -16,7 +16,8 @@
  *   below, open/close/reopen and a `provider` refresh included.
  */
 
-import { act, renderHook } from '@testing-library/react';
+import { renderHook } from '../../testing/product-provider.js';
+import { act } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { useSessionClient } from '../useSessionClient.js';

@@ -91,7 +91,7 @@ describe('provider definition helpers', () => {
  *
  * Declaration-only in v1: it records that a vendor documents a server-side tool search (deferred
  * definitions the API expands on demand), and NOTHING emits a vendor block on the strength of it.
- * Robota runs its own client-side catalog on every provider, because the vendor feature keeps
+ * ConversationAgent runs its own client-side catalog on every provider, because the vendor feature keeps
  * definitions out of the context window while still sending every one of them in the request — and
  * because Gemini documents no equivalent at all. The member exists so a later offload can be gated
  * on the capability table rather than on a provider name.

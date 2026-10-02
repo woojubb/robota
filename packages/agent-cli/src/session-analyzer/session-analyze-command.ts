@@ -1,11 +1,11 @@
 /**
- * `robota session analyze` command — thin CLI wiring around `@robota-sdk/agent-session-analytics`.
+ * `the product session analyze` command — thin CLI wiring around `@robota-sdk/agent-session-analytics`.
  *
  * Usage:
- *   robota session analyze                  — analyze the most recent session
- *   robota session analyze --last <n>       — aggregate the last N sessions
- *   robota session analyze --session <id>   — analyze a specific session by ID prefix
- *   robota session analyze --usage          — token usage broken down by source (which agent /
+ *   the product session analyze                  — analyze the most recent session
+ *   the product session analyze --last <n>       — aggregate the last N sessions
+ *   the product session analyze --session <id>   — analyze a specific session by ID prefix
+ *   the product session analyze --usage          — token usage broken down by source (which agent /
  *                                             background task burned the most tokens)
  *
  * This file only resolves session stores, parses args, and writes output. All timing analysis and
@@ -13,7 +13,7 @@
  * agent-framework session-store facades). agent-cli stays a thin shell.
  */
 
-import { createUserSessionStore, isSafeSessionId } from '@robota-sdk/agent-framework';
+import { isSafeSessionId } from '@robota-sdk/agent-framework';
 import {
   aggregateReports,
   analyzeSession,
@@ -25,7 +25,6 @@ import {
 
 import type { TSessionAnalysisInput } from '@robota-sdk/agent-session-analytics';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
-import { userPaths } from '../product/user-paths.js';
 
 interface ISessionAnalyzeArgs {
   last: number | undefined;
@@ -55,8 +54,8 @@ function parseSessionAnalyzeArgs(argv: string[]): ISessionAnalyzeArgs {
 }
 
 /**
- * Load session records from the user store (`~/.robota/sessions`) and the project store
- * (`cwd/.robota/sessions` + replay logs), de-duped by id (project wins on collision) and sorted by
+ * Load session records from the user store (`the configured user root/sessions`) and the project store
+ * (`cwd/the configured project directory/sessions` + replay logs), de-duped by id (project wins on collision) and sorted by
  * id ascending — session ids are timestamp-prefixed, so lexical order is chronological.
  */
 function loadSessionRecords(
@@ -92,7 +91,7 @@ export async function runSessionAnalyze(
   argv: string[],
   _cwd: string = process.cwd(),
   projectSessionStore?: IInteractiveSessionStore,
-  userSessionStore: IInteractiveSessionStore = createUserSessionStore(userPaths().sessions),
+  userSessionStore: IInteractiveSessionStore = (() => { throw new Error('Session analysis requires an explicit user store.'); })(),
 ): Promise<void> {
   const args = parseSessionAnalyzeArgs(argv);
   let records: TSessionAnalysisInput[] | undefined;

@@ -18,7 +18,7 @@ import { check, checkEqual, checkThrows, mode, note, section } from './harness.j
 /**
  * ARCH-006: the pack is built by a FACTORY bound to the session's working directory — a context-free pack
  * would carry a disarmed working-directory path guard on its file tools (ARCH-010 has since made that guard fail closed; the pack's rule is now the same one stated a layer up). A consumer builds it exactly as
- * robota's own shell does, with the cwd it assembles the session under.
+ * configured product's own shell does, with the cwd it assembles the session under.
  */
 const codingPack = createCodingPack({ cwd: process.cwd() });
 import { asStandardOptions } from './surface-notes.js';
@@ -39,7 +39,7 @@ export function runModeA(): void {
   };
   const bare = assembleProduct(bareProfile);
   checkEqual("assembled id is the consumer's own", bare.id, 'acme-assistant');
-  checkEqual('agentName is the consumer\'s branding, not "robota"', bare.agentName, 'acme');
+  checkEqual('agentName is the consumer\'s branding, not the SDK default', bare.agentName, 'acme');
   checkEqual('version passes through', bare.version, '0.1.0');
   check('provider surface passes through', bare.providerDefinitions.length === 6);
   checkEqual('a bare profile yields no command modules', bare.commandModules.length, 0);
@@ -78,7 +78,7 @@ export function runModeA(): void {
   );
   note('Mode A consumers do not depend on any @robota-sdk/agent-provider-* package directly');
 
-  section("A3 — Robota's own runtime capability arrives as a pack (their branding, our runtime)");
+  section("A3 — the reference CLI's runtime capability arrives as a pack (their branding, our runtime)");
   const product = assembleProduct({
     ...bareProfile,
     providerSettings: ACME_PROVIDER_SETTINGS,

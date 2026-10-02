@@ -42,7 +42,7 @@ export interface IWsTransportConfig {
   /**
    * OPTIONAL explicit loopback auth token. When set, every connection MUST present a matching token
    * (query param `?token=` or the `Sec-WebSocket-Protocol` subprotocol) or the socket is closed BEFORE any
-   * session data is emitted (GUI-002; the GUI sidecar sets `ROBOTA_WS_TOKEN`). SEC-001: when this is unset
+   * session data is emitted (GUI-002; the host sidecar supplies its configured token). SEC-001: when this is unset
    * AND `open` is not `true`, the transport AUTO-MINTS a random per-launch token (secure by default) —
    * `resolvedToken` exposes it so the surface can deliver it to the co-located client (a `0600` connection
    * file / the served monitor's injected `ws-url`). An explicit token here wins over the auto-mint — but NOT

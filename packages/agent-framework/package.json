@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-framework",
   "version": "3.0.0-beta.86",
-  "description": "Programmatic SDK for building AI agents with Robota — provides InteractiveSession, createQuery(), command APIs, permissions, hooks, and context loading",
+  "description": "Programmatic SDK for building AI agents with Robota \u2014 provides InteractiveSession, createQuery(), command APIs, permissions, hooks, and context loading",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -54,15 +54,6 @@
     },
     "./package.json": "./package.json"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/woojubb/robota.git",
-    "directory": "packages/agent-framework"
-  },
-  "homepage": "https://docs.robota.io/en/packages/agent-framework/",
-  "bugs": {
-    "url": "https://github.com/woojubb/robota/issues"
-  },
   "engines": {
     "node": ">=22.12.0"
   },
@@ -78,7 +69,7 @@
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "scenario:verify": "pnpm scenario:verify:external-payload && pnpm scenario:verify:runtime-session-store && pnpm scenario:verify:prompt-resolution && pnpm scenario:verify:zero-config-tools && pnpm scenario:verify:workspace-authority && pnpm scenario:verify:memory-recall-provenance && pnpm scenario:verify:fork-record-persistence",
     "scenario:verify:external-payload": "pnpm exec tsx --conditions=source examples/verify-session-log-external-payload-replay.ts",
-    "scenario:verify:runtime-session-store": "pnpm exec tsx --conditions=source examples/verify-agent-runtime-session-store.ts",
+    "scenario:verify:runtime-session-store": "pnpm exec tsx --conditions=source examples/verify-runtime-session-store.ts",
     "scenario:verify:prompt-resolution": "pnpm exec tsx --conditions=source examples/verify-prompt-request-resolution.ts",
     "typecheck": "tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit",
     "lint": "eslint src/ --ext .ts",
@@ -87,7 +78,8 @@
     "scenario:verify:zero-config-tools": "pnpm exec tsx --conditions=source examples/verify-zero-config-default-tools.ts",
     "scenario:verify:workspace-authority": "pnpm exec tsx --conditions=source examples/verify-workspace-project-authority.ts",
     "scenario:verify:memory-recall-provenance": "pnpm exec tsx --conditions=source examples/verify-memory-recall-provenance.ts",
-    "scenario:verify:fork-record-persistence": "pnpm exec tsx examples/verify-fork-record-persistence.ts"
+    "scenario:verify:fork-record-persistence": "pnpm exec tsx examples/verify-fork-record-persistence.ts",
+    "scenario:verify:outcomes": "pnpm exec tsx --conditions=source examples/verify-outcome-baseline.ts && pnpm exec tsx --conditions=source examples/verify-outcome-cancel-resume.ts && pnpm exec tsx --conditions=source examples/verify-outcome-memory.ts"
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",

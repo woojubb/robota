@@ -273,7 +273,7 @@ function buildGrepDescription(shellToolName: string): string {
 }
 
 /**
- * Create a GrepTool instance — register with Robota agent tools registry.
+ * Create a GrepTool instance — register with agent tools registry.
  */
 export function createGrepTool(options: IGrepToolOptions): FunctionTool {
   return createZodFunctionTool(

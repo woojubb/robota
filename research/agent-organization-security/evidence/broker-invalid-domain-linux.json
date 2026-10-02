@@ -1,0 +1,24 @@
+{
+  "kind": "actual-research-broker-invalid-domain-http",
+  "records": [
+    {
+      "id": "fraction",
+      "status": 403,
+      "reason": "invalid-proof-or-schema",
+      "passed": true
+    },
+    {
+      "id": "overflow",
+      "status": 403,
+      "reason": "invalid-proof-or-schema",
+      "passed": true
+    },
+    {
+      "id": "unicode-key",
+      "status": 403,
+      "reason": "invalid-proof-or-schema",
+      "passed": true
+    }
+  ],
+  "auditRecords": 3
+}

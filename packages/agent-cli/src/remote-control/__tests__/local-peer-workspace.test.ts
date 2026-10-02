@@ -22,6 +22,7 @@ import path from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import {
+  createLocalGitEnvironment,
   hashOriginUrl,
   judgeWorkspaceRelation,
   readWorkspaceClaim,
@@ -203,6 +204,28 @@ describe('reading a workspace never reaches the network', () => {
     const claim = await readWorkspaceClaim(repo);
     expect(existsSync(marker)).toBe(false);
     expect(claim).toBeUndefined();
+  });
+});
+
+describe('local Git child environment', () => {
+  it('keeps required host paths while excluding product and secret environment values', () => {
+    const childEnvironment = createLocalGitEnvironment({
+      PATH: '/usr/bin',
+      HOME: '/tmp/fixture-home',
+      TMPDIR: '/tmp',
+      PRODUCT_USER_STATE_DIR: '/tmp/fixture-state',
+      PRODUCT_PROVIDER_API_KEY: 'must-not-propagate',
+      LEGACY_SECRET: 'must-not-propagate',
+      GIT_DIR: '/unexpected/repository',
+    });
+
+    expect(childEnvironment).toEqual({
+      PATH: '/usr/bin',
+      HOME: '/tmp/fixture-home',
+      TMPDIR: '/tmp',
+      GIT_NO_LAZY_FETCH: '1',
+    });
+    expect(JSON.stringify(childEnvironment)).not.toContain('must-not-propagate');
   });
 });
 

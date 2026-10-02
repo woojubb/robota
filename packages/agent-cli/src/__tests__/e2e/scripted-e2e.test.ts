@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../helpers/product-runtime.js';
 /**
  * Deterministic agent-loop E2E suites (CLI-074 TC-02..TC-05).
  *
@@ -27,12 +28,12 @@ import { createTrustedWorkspaceProjectAccess } from '../helpers/trusted-workspac
 import type { IScriptedProvider, TScriptedTurn } from '@robota-sdk/agent-core/testing';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-scripted-e2e-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-scripted-e2e-')));
 const ORIGINAL_ARGV = process.argv;
 const ORIGINAL_HOME = process.env.HOME;
 
 function writeScriptedSettings(projectDir: string): void {
-  const settingsDir = join(projectDir, '.robota');
+  const settingsDir = join(projectDir, '.test-product');
   mkdirSync(settingsDir, { recursive: true });
   writeFileSync(
     join(settingsDir, 'settings.json'),
@@ -64,7 +65,7 @@ async function runScripted(
   argv: string[],
   scripted: IScriptedProvider,
 ): Promise<IRunResult> {
-  process.argv = ['node', 'robota', ...argv];
+  process.argv = ['node', 'test-product', ...argv];
   const stdoutChunks: string[] = [];
   const stderrChunks: string[] = [];
   vi.spyOn(process.stdout, 'write').mockImplementation(((chunk: unknown) => {
@@ -77,7 +78,7 @@ async function runScripted(
   }) as never);
   let exitCode = -1;
   try {
-    await startCli({
+    await startCli({productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
       providerDefinitions: [scriptedDefinition(scripted)],
       projectAccess: await createTrustedWorkspaceProjectAccess(project),
     });
@@ -96,7 +97,7 @@ async function runScripted(
 
 function sessionFiles(project: string): string[] {
   try {
-    return readdirSync(join(project, '.robota', 'sessions')).filter((f) => f.endsWith('.json'));
+    return readdirSync(join(project, '.test-product', 'sessions')).filter((f) => f.endsWith('.json'));
   } catch {
     // allow-fallback: no sessions dir means zero persisted sessions — a valid assertion state
     return [];
@@ -124,7 +125,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     rmSync(TMP_BASE, { recursive: true, force: true });
   });
 
-  it('shows Robota recovery guidance for a provider authentication failure', async () => {
+  it('shows test-product Agent recovery guidance for a provider authentication failure', async () => {
     const scripted = createScriptedProvider([{ text: 'unused' }]);
     scripted.provider.chat = async () => {
       throw new Error('401 unauthorized');
@@ -134,7 +135,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('/provider');
-    expect(result.stderr).toContain('~/.robota/settings.json');
+    expect(result.stderr).toContain(join(TMP_BASE, 'home', '.test-product', 'settings.json'));
   });
 
   function editScript(target: string): TScriptedTurn[] {
@@ -159,7 +160,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     'SEC-021: refuses settings-file %s hooks in the real CLI composition',
     async (type, hook) => {
       writeFileSync(
-        join(project, '.robota', 'settings.json'),
+        join(project, '.test-product', 'settings.json'),
         JSON.stringify({
           currentProvider: 'scripted',
           providers: { scripted: { type: 'scripted', model: 'scripted-model' } },
@@ -172,7 +173,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
       const result = await runScripted(project, ['-p', 'try a harmless request'], scripted);
 
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain('.robota/settings.json');
+      expect(result.stderr).toContain('.test-product/settings.json');
       expect(result.stderr).toContain(type);
       expect(scripted.requests).toHaveLength(0);
     },
@@ -279,7 +280,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
       expect(firstRun.exitCode).toBe(0);
       const [sourceFile] = sessionFiles(project);
       expect(sourceFile).toBeDefined();
-      const sourceRaw = readFileSync(join(project, '.robota', 'sessions', sourceFile!), 'utf8');
+      const sourceRaw = readFileSync(join(project, '.test-product', 'sessions', sourceFile!), 'utf8');
       // TRANS-007: the persisted shape is `{ schemaVersion, record }`, so the id is one level down.
       const sourceId = (JSON.parse(sourceRaw) as { record: { id: string } }).record.id;
 
@@ -305,7 +306,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
       // metadata on any resume/fork run; the restore path itself never writes —
       // proven byte-identical at the unit level in fork-restores-context.test.ts.)
       const sourceAfter = JSON.parse(
-        readFileSync(join(project, '.robota', 'sessions', sourceFile!), 'utf8'),
+        readFileSync(join(project, '.test-product', 'sessions', sourceFile!), 'utf8'),
       ) as { id: string; messages: unknown[]; history?: unknown[] };
       const sourceBefore = JSON.parse(sourceRaw) as { id: string; messages: unknown[] };
       expect(sourceAfter.id).toBe(sourceBefore.id);

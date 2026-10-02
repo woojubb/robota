@@ -73,7 +73,7 @@ the rostered device expected: a stranger learns nothing and costs key agreements
 or a disclosure. That proof names its sender by nothing but the MAC itself, because any identifier sent to an
 unauthenticated peer could be linked across connections by whoever answers.
 
-**Every signature names its purpose.** Each signed structure begins with a `robota/<purpose>/v<n>` tag inside one
+**Every signature names its purpose.** Each signed structure begins with a host-selected namespace and a purpose/version tag inside one
 canonical encoding, and a verifier refuses any other tag. One key signs several kinds of statement, and without
 the tag a signature made for one could be read as another whose fields line up. The encoding admits one spelling
 of each statement's signed content, and no field travels beside a signature without being covered by it.

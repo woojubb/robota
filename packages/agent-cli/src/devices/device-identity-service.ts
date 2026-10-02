@@ -45,8 +45,7 @@ import {
 } from './device-enrollment.js';
 import { addDialog, joinDialog } from './enrollment-dialog.js';
 import {
-  DEVICE_KA_KEY,
-  DEVICE_SIGN_KEY,
+  deviceIdentityCredentialKeys,
   holdsDeviceKeys,
   importPublicKey,
   loadSigningKey,
@@ -74,6 +73,7 @@ import {
 } from './secret-terminal.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { IIceServer, IMeshRelay } from '@robota-sdk/agent-transport-webrtc';
 import type {
   IDevicesAddResult,
@@ -92,9 +92,10 @@ const MIN_ID_PREFIX = 6;
 const SHORT_ID_CHARS = 10;
 
 export interface IDeviceIdentityServiceOptions {
-  /** Where the identity state is kept, e.g. `~/.robota/devices`. */
+  readonly productRuntime: ICliRuntimeContext;
+  /** Where the identity state is kept, e.g. the configured devices directory. */
   readonly directory: string;
-  /** An owned ancestor tightened with it, e.g. `~/.robota`. */
+  /** An owned ancestor tightened with it, e.g. the configured user storage root. */
   readonly withinRoot?: string;
   /** Where private keys are kept. */
   readonly store: ICredentialStore;
@@ -175,10 +176,13 @@ async function atTerminal(
 export function createDeviceIdentityService(
   options: IDeviceIdentityServiceOptions,
 ): IDevicesCommandPort {
+  const cryptoContext = options.productRuntime.cryptoContext;
+  const serviceNamespace = options.productRuntime.config.credentials.serviceNamespace;
+  const credentialKeys = deviceIdentityCredentialKeys(serviceNamespace);
   const now = options.now ?? Date.now;
   const random = options.randomInt ?? ((max: number) => randomInt(max));
   const lockPath = join(options.directory, 'identity.lock');
-  const read = (): IDeviceIdentityState | undefined => readIdentityState(options.directory);
+  const read = (): IDeviceIdentityState | undefined => readIdentityState(cryptoContext, options.directory);
   const write = (state: IDeviceIdentityState): void =>
     writeIdentityState(options.directory, state, options.withinRoot);
   const locked = <T>(critical: () => Promise<T>): Promise<T> =>
@@ -191,7 +195,7 @@ export function createDeviceIdentityService(
     const name = deviceName(request.name ?? options.defaultDeviceName?.() ?? hostname());
     // Touch the credential store before the phrase is shown: a store that cannot keep the keys
     // (a locked keychain, a recorded backend gone missing) must fail now, not after the ceremony.
-    await options.store.get(DEVICE_SIGN_KEY);
+    await options.store.get(credentialKeys.deviceSign);
     const session = options.openTerminal();
     if (session === undefined) return refuse('no-terminal');
 
@@ -203,20 +207,20 @@ export function createDeviceIdentityService(
       const passphrase = await readNewPassphrase(terminal);
       if (passphrase === undefined) return { ok: false, reason: 'confirmation-failed' };
       terminal.write('Deriving your keys…\r\n');
-      return { ok: true, master: await deriveMasterKey(phrase, passphrase) };
+      return { ok: true, master: await deriveMasterKey(phrase, { derivationPath: options.productRuntime.config.crypto.masterKeyDerivationPath, passphrase }) };
     });
     if (!derived.ok) return refuse(derived.reason);
     const { master } = derived;
 
     const issuedAt = now();
     const signingPair = await generateSigningKeyPair({ extractable: true });
-    const signingCertificate = await certifySigningKey({
+    const signingCertificate = await certifySigningKey(cryptoContext, {
       masterPrivateKey: master.keyPair.privateKey,
       userId: master.userId,
       signingPublicKey: signingPair.publicKey,
       issuedAt,
     });
-    const signingKeyRevocation = await issueSigningKeyRevocation({
+    const signingKeyRevocation = await issueSigningKeyRevocation(cryptoContext, {
       masterPrivateKey: master.keyPair.privateKey,
       userId: master.userId,
       seq: nextSeq(undefined, issuedAt),
@@ -231,7 +235,7 @@ export function createDeviceIdentityService(
       generateDeviceSignKeyPair(true),
       generateDeviceKeyAgreementKeyPair(true),
     ]);
-    const deviceCertificate = await certifyDevice({
+    const deviceCertificate = await certifyDevice(cryptoContext, {
       signingKey,
       signPublicKey: signPair.publicKey,
       kaPublicKey: kaPair.publicKey,
@@ -240,20 +244,20 @@ export function createDeviceIdentityService(
       capabilities: DEVICE_CAPABILITIES,
       issuedAt,
     });
-    const state = await checked(
+    const state = await checked(cryptoContext,
       {
         masterPublicKey: master.publicKey,
         userId: master.userId,
         deviceCertificate,
         signingKeyCertificate: signingCertificate,
         holdsSigningKey: true,
-        roster: await issueDeviceRoster({
+        roster: await issueDeviceRoster(cryptoContext, {
           signingKey,
           seq: nextSeq(undefined, issuedAt),
           issuedAt,
           devices: [deviceCertificate],
         }),
-        revocation: await issueDeviceRevocationList({
+        revocation: await issueDeviceRevocationList(cryptoContext, {
           signingKey,
           seq: nextSeq(undefined, issuedAt),
           issuedAt,
@@ -270,11 +274,11 @@ export function createDeviceIdentityService(
       if (read() !== undefined) return refuse<IDevicesInitResult>('changed-concurrently');
       await storeKeyPair(
         options.store,
-        signingKeyCredentialKey(signingCertificate.signingKeyId),
+        signingKeyCredentialKey(serviceNamespace, signingCertificate.signingKeyId),
         signingPair,
       );
-      await storeKeyPair(options.store, DEVICE_SIGN_KEY, signPair);
-      await storeKeyPair(options.store, DEVICE_KA_KEY, kaPair);
+      await storeKeyPair(options.store, credentialKeys.deviceSign, signPair);
+      await storeKeyPair(options.store, credentialKeys.deviceKeyAgreement, kaPair);
       write(state);
       const keyStorage = options.describeKeyStorage?.();
       return {
@@ -303,7 +307,7 @@ export function createDeviceIdentityService(
       if (phrase === undefined) return { ok: false, reason: 'phrase-invalid' };
       const passphrase = await readPassphrase(terminal);
       terminal.write('Deriving your keys…\r\n');
-      return { ok: true, master: await deriveMasterKey(phrase, passphrase) };
+      return { ok: true, master: await deriveMasterKey(phrase, { derivationPath: options.productRuntime.config.crypto.masterKeyDerivationPath, passphrase }) };
     });
     if (!derived.ok) return refuse(derived.reason);
     const { master } = derived;
@@ -315,7 +319,7 @@ export function createDeviceIdentityService(
       if (current === undefined || !sameIdentityState(before, current)) {
         return refuse<IDevicesRecoverResult>('changed-concurrently');
       }
-      if (!(await holdsDeviceKeys(options.store, current.deviceCertificate))) {
+      if (!(await holdsDeviceKeys(options.store, serviceNamespace, current.deviceCertificate))) {
         throw new DeviceIdentityError(
           "this device's own private keys are missing from the credential store; it cannot be certified again",
         );
@@ -328,7 +332,7 @@ export function createDeviceIdentityService(
         current.roster.signingKeyId,
         current.revocation.signingKeyId,
       ];
-      const signingKeyRevocation = await issueSigningKeyRevocation({
+      const signingKeyRevocation = await issueSigningKeyRevocation(cryptoContext, {
         masterPrivateKey: master.keyPair.privateKey,
         userId: master.userId,
         seq: nextSeq(
@@ -339,7 +343,7 @@ export function createDeviceIdentityService(
         revokedSigningKeyIds: retired,
       });
       const signingPair = await generateSigningKeyPair({ extractable: true });
-      const signingCertificate = await certifySigningKey({
+      const signingCertificate = await certifySigningKey(cryptoContext, {
         masterPrivateKey: master.keyPair.privateKey,
         userId: master.userId,
         signingPublicKey: signingPair.publicKey,
@@ -350,7 +354,7 @@ export function createDeviceIdentityService(
         privateKey: signingPair.privateKey,
       };
       const self = current.deviceCertificate;
-      const deviceCertificate = await certifyDevice({
+      const deviceCertificate = await certifyDevice(cryptoContext, {
         signingKey,
         signPublicKey: await importPublicKey('ES256', self.signKey),
         kaPublicKey: await importPublicKey('X25519', self.kaKey),
@@ -361,19 +365,19 @@ export function createDeviceIdentityService(
       });
       // Only this device is carried over. The others were certified by a retired key — possibly the
       // compromised one that is the reason for recovering — so each enrols again under the new key.
-      const state = await checked(
+      const state = await checked(cryptoContext,
         {
           ...current,
           deviceCertificate,
           signingKeyCertificate: signingCertificate,
           holdsSigningKey: true,
-          roster: await issueDeviceRoster({
+          roster: await issueDeviceRoster(cryptoContext, {
             signingKey,
             seq: nextSeq(undefined, issuedAt),
             issuedAt,
             devices: [deviceCertificate],
           }),
-          revocation: await issueDeviceRevocationList({
+          revocation: await issueDeviceRevocationList(cryptoContext, {
             signingKey,
             seq: nextSeq(undefined, issuedAt),
             issuedAt,
@@ -385,14 +389,14 @@ export function createDeviceIdentityService(
       );
       await storeKeyPair(
         options.store,
-        signingKeyCredentialKey(signingCertificate.signingKeyId),
+        signingKeyCredentialKey(serviceNamespace, signingCertificate.signingKeyId),
         signingPair,
       );
       write(state);
       // The retired key's private half goes only once nothing names it any more.
       if (current.holdsSigningKey) {
         await options.store.delete(
-          signingKeyCredentialKey(current.signingKeyCertificate.signingKeyId),
+          signingKeyCredentialKey(serviceNamespace, current.signingKeyCertificate.signingKeyId),
         );
       }
       return {
@@ -422,7 +426,7 @@ export function createDeviceIdentityService(
     const target = matches[0]!;
     if (target.deviceId === before.deviceCertificate.deviceId) return refuse('self-revocation');
     if (!before.holdsSigningKey) return refuse('no-signing-key');
-    const signingKey = await loadSigningKey(options.store, before.signingKeyCertificate);
+    const signingKey = await loadSigningKey(options.store, serviceNamespace, before.signingKeyCertificate);
     if (signingKey === undefined) return refuse('no-signing-key');
     if (now() >= signingKey.certificate.expiresAt) return refuse('signing-key-expired');
     const session = options.openTerminal();
@@ -449,16 +453,16 @@ export function createDeviceIdentityService(
       }
       const issuedAt = now();
       const marks = current.marks.bySigningKey?.[current.signingKeyCertificate.signingKeyId];
-      const state = await checked(
+      const state = await checked(cryptoContext,
         {
           ...current,
-          revocation: await issueDeviceRevocationList({
+          revocation: await issueDeviceRevocationList(cryptoContext, {
             signingKey,
             seq: nextSeq(Math.max(current.revocation.seq, marks?.revocationSeq ?? 0), issuedAt),
             issuedAt,
             revokedDeviceIds: [...current.revocation.revokedDeviceIds, target.deviceId],
           }),
-          roster: await issueDeviceRoster({
+          roster: await issueDeviceRoster(cryptoContext, {
             signingKey,
             seq: nextSeq(Math.max(current.roster.seq, marks?.rosterSeq ?? 0), issuedAt),
             issuedAt,
@@ -479,6 +483,7 @@ export function createDeviceIdentityService(
     const iceServers = options.iceServers?.();
     const connectTimeoutMs = options.enrollment?.connectTimeoutMs;
     return {
+      productRuntime: options.productRuntime,
       directory: options.directory,
       ...(options.withinRoot !== undefined ? { withinRoot: options.withinRoot } : {}),
       store: options.store,
@@ -520,7 +525,7 @@ export function createDeviceIdentityService(
     const before = read();
     if (before === undefined) return refuse('not-initialized');
     if (!before.holdsSigningKey) return refuse('no-signing-key');
-    const signingKey = await loadSigningKey(options.store, before.signingKeyCertificate);
+    const signingKey = await loadSigningKey(options.store, serviceNamespace, before.signingKeyCertificate);
     if (signingKey === undefined) return refuse('no-signing-key');
     if (now() >= signingKey.certificate.expiresAt) return refuse('signing-key-expired');
     return enrolling(async (environment, terminal) => {
@@ -557,14 +562,14 @@ export function createDeviceIdentityService(
       (request.name ?? options.defaultDeviceName?.() ?? hostname()).replace(/\p{Cf}/gu, ''),
     );
     // A store that cannot keep the keys must fail now, not after the other operator said yes.
-    await options.store.get(DEVICE_SIGN_KEY);
+    await options.store.get(credentialKeys.deviceSign);
     return enrolling(async (environment, terminal) => {
       const dialog = await joinDialog(terminal);
       try {
         if (dialog.code === undefined) return refuse<IDevicesJoinResult>('code-invalid');
         return await joinEnrollment({
           ...environment,
-          material: await deriveEnrollmentMaterial(dialog.code),
+          material: await deriveEnrollmentMaterial(cryptoContext, dialog.code),
           name,
           operator: dialog,
           cancelled: dialog.cancelled,

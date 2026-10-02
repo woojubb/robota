@@ -16,7 +16,7 @@ const originalHome = process.env.HOME;
 let root: string;
 
 beforeEach(() => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-plugin-skill-prompt-')));
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-plugin-skill-prompt-')));
   process.env.HOME = root;
 });
 

@@ -32,7 +32,7 @@ one per type in `sandboxFactories` on `ISubagentWorkerComposition` (`@robota-sdk
 the child restores its sandbox from the snapshot.
 
 When a sandboxed parent cannot be projected that way — its client has no `snapshot()`, or no type is named —
-the `robota` CLI refuses to start rather than spawn children that would silently fall back to host tools,
+the CLI composition refuses to start rather than spawn children that would silently fall back to host tools,
 and a child handed a type with no registered factory fails the job instead of running unsandboxed. A
 sandboxed parent with host-tool children would let a subagent read outside the parent's root, so refusing is
 the safe direction.

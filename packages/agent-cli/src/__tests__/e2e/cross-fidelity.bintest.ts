@@ -1,10 +1,12 @@
+import { createTestBinaryEnvironment } from '../helpers/product-runtime.js';
+import { createTestProductRuntime } from '../helpers/product-runtime.js';
 /**
  * INFRA-020 TC-04: cross-fidelity proof that `IAgentDriver` is a real contract.
  *
  * The SAME scenario (`runScenario`) is written once against the `IAgentDriver` interface and run on
  * two independent implementers:
  *   - the in-process programmatic driver (`createProgrammaticAgent`, scripted provider), and
- *   - the built-binary driver (`createBinaryAgentDriver`, the real robota CLI in print/stream-json mode
+ *   - the built-binary driver (`createBinaryAgentDriver`, the real the product CLI in print/stream-json mode
  *     made deterministic by `--session-log`).
  * Both must observe the identical reply — proving the client-side contract holds across fidelities.
  *
@@ -37,7 +39,7 @@ async function runScenario(driver: IAgentDriver): Promise<string | undefined> {
 }
 
 function writeProviderSettings(homeDir: string): void {
-  const dir = join(homeDir, '.robota');
+  const dir = join(homeDir, '.test-product');
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, 'settings.json'),
@@ -58,9 +60,9 @@ describe('IAgentDriver cross-fidelity (INFRA-020 TC-04)', () => {
   let homeDir: string;
 
   beforeEach(() => {
-    progCwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-xf-prog-')));
-    binCwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-xf-bin-')));
-    homeDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-xf-home-')));
+    progCwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-xf-prog-')));
+    binCwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-xf-bin-')));
+    homeDir = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-xf-home-')));
     writeProviderSettings(homeDir);
   });
 
@@ -75,10 +77,10 @@ describe('IAgentDriver cross-fidelity (INFRA-020 TC-04)', () => {
     const programmaticReply = await runScenario(programmatic);
 
     // Built-binary implementer (deterministic via --session-log).
-    const binary = createBinaryAgentDriver({
+    const binary = createBinaryAgentDriver({productRuntime: createTestProductRuntime(),
       cwd: binCwd,
       sessionLog: FIXTURE,
-      env: { PATH: process.env['PATH'] ?? '', HOME: homeDir },
+      env: createTestBinaryEnvironment(homeDir),
     });
     const binaryReply = await runScenario(binary);
 

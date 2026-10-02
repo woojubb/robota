@@ -22,7 +22,7 @@ import { loadedRecordOrMissing } from './session-load-helpers.js';
  * adapter-gated on a surface-supplied `recallMemory` policy, guarded (recall failure never breaks the turn).
  */
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-recall-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-recall-')));
 const ORIGINAL_HOME = process.env.HOME;
 const RECALL_BODY = '### deploy\nThe staging deploy key rotates every 30 days.';
 const BUDGET: IMemoryBudget = { maxTopics: 4, maxTopicChars: 2000 };

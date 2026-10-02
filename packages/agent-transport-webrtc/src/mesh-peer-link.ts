@@ -136,9 +136,9 @@ export interface IMeshPeerLinkOptions {
 const MAX_HELD_FRAMES = 16;
 /** ICE candidates per direction; a connection gathers a handful, and the relay supplies the peer's. */
 const MAX_CANDIDATES = 64;
-const DATA_CHANNEL_LABEL = 'robota-mesh';
+const DATA_CHANNEL_LABEL = 'agent-mesh';
 /** The label of a channel that carries one file transfer. */
-const FILE_CHANNEL_LABEL = 'robota-file';
+const FILE_CHANNEL_LABEL = 'agent-file';
 /** File channels open at once on one link. */
 const MAX_FILE_CHANNELS = 4;
 /** From opening a file channel to its being open. */

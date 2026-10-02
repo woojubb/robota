@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { openLocalPeerRendezvous } from '../local-peer-admission.js';
 import { ensureRendezvousDirectory } from '../local-peer-rendezvous.js';
+import { createTestRuntimeContext } from '../../devices/__tests__/runtime-context-fixture.js';
 
 /**
  * SEC-010 composition (#1862) — the three layers as one path.
@@ -18,7 +19,7 @@ import { ensureRendezvousDirectory } from '../local-peer-rendezvous.js';
 const made: string[] = [];
 
 function scratch(): string {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-comp-')));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-fixture-comp-')));
   made.push(dir);
   return dir;
 }
@@ -32,7 +33,7 @@ afterEach(() => {
 
 describe('#1862 — directory → ledger → gate port', () => {
   it('a verified directory yields a port that admits its own grant', () => {
-    const admission = ensureRendezvousDirectory({ env: {}, home: () => scratch() });
+    const admission = ensureRendezvousDirectory(createTestRuntimeContext(scratch()));
     expect(admission.admitted).toBe(true);
 
     const rv = openLocalPeerRendezvous({
@@ -48,7 +49,7 @@ describe('#1862 — directory → ledger → gate port', () => {
     // The gate takes `{ redeem: (nonce: string) => IPeerAdmission }`. Asserting the SHAPE rather
     // than importing the gate keeps this package free of a dependency it does not otherwise need,
     // while still failing if the port stops being callable the way the gate calls it.
-    const admission = ensureRendezvousDirectory({ env: {}, home: () => scratch() });
+    const admission = ensureRendezvousDirectory(createTestRuntimeContext(scratch()));
     const rv = openLocalPeerRendezvous({
       guardedDirectory: admission.binding?.guardedDirectory ?? '',
     });
@@ -62,8 +63,8 @@ describe('#1862 — directory → ledger → gate port', () => {
   it('a grant from one rendezvous is not honoured by another', () => {
     // Two sessions with separate guarded directories must not admit each other's peers — the
     // binding is to a rendezvous, not to the machine at large.
-    const a = ensureRendezvousDirectory({ env: {}, home: () => scratch() });
-    const b = ensureRendezvousDirectory({ env: {}, home: () => scratch() });
+    const a = ensureRendezvousDirectory(createTestRuntimeContext(scratch()));
+    const b = ensureRendezvousDirectory(createTestRuntimeContext(scratch()));
     const rvA = openLocalPeerRendezvous({ guardedDirectory: a.binding?.guardedDirectory ?? '' });
     const rvB = openLocalPeerRendezvous({ guardedDirectory: b.binding?.guardedDirectory ?? '' });
 
@@ -73,7 +74,7 @@ describe('#1862 — directory → ledger → gate port', () => {
   });
 
   it('revoking at session exit closes the port for grants already handed out', () => {
-    const admission = ensureRendezvousDirectory({ env: {}, home: () => scratch() });
+    const admission = ensureRendezvousDirectory(createTestRuntimeContext(scratch()));
     const rv = openLocalPeerRendezvous({
       guardedDirectory: admission.binding?.guardedDirectory ?? '',
     });

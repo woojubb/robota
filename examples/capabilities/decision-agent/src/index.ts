@@ -6,7 +6,7 @@
  *
  * Run: ANTHROPIC_API_KEY=... pnpm dev
  */
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
@@ -28,7 +28,7 @@ const routeTool = createZodFunctionTool(
   },
 );
 
-const router = new Robota({
+const router = new ConversationAgent({
   name: 'TicketRouter',
   aiProviders: [new AnthropicProvider({ apiKey })],
   defaultModel: { provider: 'anthropic', model: 'claude-haiku-4-5', maxTokens: 200 },

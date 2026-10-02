@@ -1,7 +1,7 @@
 import type { IRecoverableExecutionJournal, TExecutionJournalRecord } from '@robota-sdk/agent-core';
 
 /**
- * Default journal for `sessionParticipant`/`robotaParticipant` when the host supplies none.
+ * Default journal for `sessionParticipant`/`runtimeParticipant` when the host supplies none.
  *
  * Keyed by `sessionId` at module scope, so it survives a session lease being discarded and
  * reopened — including a fresh `Conversation` built by `loadRoundtable` in the same process — for

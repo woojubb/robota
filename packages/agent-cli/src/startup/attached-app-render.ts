@@ -1,6 +1,7 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * The attached terminal's renderer, for `robota --attach`, `robota session attach` and an attach
- * from `robota session view`: the full TUI on a session another process runs, in drive or observe
+ * The attached terminal's renderer, for `the product --attach`, `the product session attach` and an attach
+ * from `the product session view`: the full TUI on a session another process runs, in drive or observe
  * mode, with the presentation the plain TUI resolves — settings, screen reader, theme, keybindings,
  * terminal, focus reporting, prompt history search, the CLI adapter and the process guards. Nothing
  * that shapes a session is resolved: the process running it owns it. The terminal's own commands
@@ -11,13 +12,12 @@ import { createTerminalClientCommands } from '@robota-sdk/agent-command';
 import { applyAppearanceSettings } from '@robota-sdk/agent-framework';
 
 import { reloadPluginCommandSource } from '../plugins/default-plugin-command-source-loader.js';
-import { ROBOTA_EDITOR_TEMPORARY_DIRECTORY_PREFIX } from '../product/robota-command-vocabulary.js';
-import { resolveRobotaShellExecutable } from '../product/robota-shell.js';
-import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
+import { resolveProductShellExecutable } from '../product/shell.js';
+import { productUserSettingsPath } from '../product/user-settings.js';
 import { resolveShellPresetOrExit } from './preset-selection.js';
 import { resolveScreenReaderRenderFields } from './screen-reader-enablement.js';
 import {
-  createRobotaTuiCliAdapter,
+  createProductTuiCliAdapter,
   createTuiPresentationSources,
   resolveTuiRenderFields,
 } from './tui-presentation.js';
@@ -36,6 +36,7 @@ export interface IAttachedAppPresentation extends ITuiPresentationFactories {
 }
 
 export interface IAttachedAppContext {
+  readonly productRuntime: ICliRuntimeContext;
   readonly cwd: string;
   readonly projectAccess: TWorkspaceProjectAccess;
   /** The caller's provider catalogue, for display names; the built-in one otherwise. */
@@ -50,9 +51,10 @@ export function createAttachedAppRender(
 ): TAttachedAppRender {
   return async ({ connection, driverId, sessionLabel, screenReaderFlag, mode, announce }) => {
     const { cwd, projectAccess } = context;
-    const settings = readUserSettingsOrExit();
-    const env = process.env;
+    const settings = readUserSettingsOrExit(context.productRuntime);
+    const env = context.productRuntime.environment;
     const { keybindingsSource, theme } = createTuiPresentationSources(presentation, {
+      productRuntime: context.productRuntime,
       enabled: true,
       cwd,
       projectAccess,
@@ -67,6 +69,7 @@ export function createAttachedAppRender(
     // off is not a command this terminal offers. An attach takes no preset flag, so the user's
     // settings choose.
     const { enabledCommandModules, disabledCommandModules } = resolveShellPresetOrExit({
+      productRuntime: context.productRuntime,
       args: {},
       settings,
       safeMode: context.safeMode === true,
@@ -74,6 +77,7 @@ export function createAttachedAppRender(
     }).options;
     // The session-side prompt-history writer belongs to the session, which has its own.
     const { promptHistory: _sessionWriter, ...fields } = resolveTuiRenderFields({
+      productRuntime: context.productRuntime,
       screenReader: resolveScreenReaderRenderFields(settings, screenReaderFlag, env),
       settings,
       env,
@@ -85,12 +89,13 @@ export function createAttachedAppRender(
     presentation.installTuiProcessGuards();
     return presentation.renderAttachedApp({
       cwd,
-      productDisplayName: 'Robota',
+      productDisplayName: context.productRuntime.vocabulary.displayName,
       version: readVersion(),
-      cliAdapter: createRobotaTuiCliAdapter(presentation.createDefaultTuiCliAdapter, {
+      cliAdapter: createProductTuiCliAdapter(presentation.createDefaultTuiCliAdapter, {
+        productRuntime: context.productRuntime,
         providerDefinitions: context.providerDefinitions ?? createDefaultProviderDefinitions(),
         reloadPluginCommandSource: (registry) =>
-          reloadPluginCommandSource(registry, cwd, projectAccess, context.safeMode !== true),
+          reloadPluginCommandSource(registry, context.productRuntime, cwd, projectAccess, context.safeMode !== true),
       }),
       ...fields,
       keybindingsSource,
@@ -99,15 +104,15 @@ export function createAttachedAppRender(
       // is written where the plain TUI's session writes it.
       clientCommands: {
         commands: createTerminalClientCommands({
-          shellExecutable: resolveRobotaShellExecutable(),
-          editorTemporaryDirectoryPrefix: ROBOTA_EDITOR_TEMPORARY_DIRECTORY_PREFIX,
+          shellExecutable: resolveProductShellExecutable(context.productRuntime.environment),
+          editorTemporaryDirectoryPrefix: context.productRuntime.vocabulary.editorTemporaryDirectoryPrefix,
           keybindingsFile: keybindingsSource,
           themeCatalogue: theme.cataloguePort,
           ...(enabledCommandModules !== undefined ? { enabledCommandModules } : {}),
           ...(disabledCommandModules !== undefined ? { disabledCommandModules } : {}),
         }),
         writeAppearanceSettings: (patch) => {
-          applyAppearanceSettings(robotaUserSettingsPath(), patch);
+          applyAppearanceSettings(productUserSettingsPath(context.productRuntime), patch);
         },
       },
       themeRegistry: theme.registry,

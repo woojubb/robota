@@ -47,7 +47,7 @@ import {
   createGlobTool,
   createGrepTool,
 } from '@robota-sdk/agent-tools';
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 declare const provider: IAIProvider;
@@ -55,7 +55,7 @@ declare const provider: IAIProvider;
 // File tools are built for an explicit root and refuse paths outside it.
 const cwd = process.cwd();
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'DevAgent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
@@ -137,7 +137,13 @@ const readTool = createReadTool({ sandboxClient, cwd });
 
 `E2BSandboxClient` needs an object with `commands.run`, `files.read` and `files.write`, and optionally
 snapshot and reconnect methods. `snapshot()` returns a provider-owned reference to the workspace, and
-`restore(snapshotId)` brings it back.
+`restore(snapshotId)` brings it back. The E2B structural adapter rejects missing, malformed or
+conflicting exit codes instead of assuming success. While a restore is in progress or has failed,
+its previous worker is unavailable to commands, files and snapshots; a successful fresh restore is
+required to use this client again. Late responses from the previous worker are refused. A connector
+must return the requested `sandboxId`, while a checkpoint factory can create a new sandbox identity.
+These checks validate adapter results, not cloud attestation or snapshot bytes, and do not terminate
+provider processes that were already running; the execution owner must stop and clean those resources.
 
 `detectOsSandbox()` reports whether an OS sandbox backend is available here; `OsSandboxClient` takes
 that result and the sandbox settings (writable and unreadable paths, network access, excluded
@@ -200,4 +206,4 @@ fallback without a driver.
 
 ## License
 
-Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

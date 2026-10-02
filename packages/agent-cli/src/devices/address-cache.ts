@@ -1,5 +1,5 @@
 /**
- * Where this device last reached each peer device directly, under `~/.robota/devices`, so the next
+ * Where this device last reached each peer device directly, under the configured devices directory, so the next
  * connection tries those addresses before looking on the network.
  *
  * It holds device ids, addresses, ports and times, and nothing secret: an address it gives is only
@@ -86,7 +86,7 @@ function load(
 }
 
 export interface IFileMeshAddressCacheOptions {
-  /** The `~/.robota` the directory lives under. */
+  /** The the configured user storage root the directory lives under. */
   readonly withinRoot?: string;
   readonly now?: () => number;
 }

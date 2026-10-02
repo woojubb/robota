@@ -6,7 +6,7 @@ turns a profile into runtime materials. It resolves presets in a per-call regist
 packs through `mergeCapabilityPacks`, constructs the provider from already-resolved settings, and
 delegates runtime construction to `agent-framework`.
 
-It hard-codes no product: `robota` is one profile among many, and the package never imports a concrete
+It hard-codes no product: identity is supplied by the host profile, and the package never imports a concrete
 transport, the TUI, or the CLI.
 
 ## Documents

@@ -23,11 +23,11 @@ describe('gui:dev sidecar trust question', () => {
   });
 
   it('names the folder and what trust would load, capped', () => {
-    const lines = trustQuestionLines(untrusted, 12);
+    const lines = trustQuestionLines(untrusted, 'test-product', 12);
     expect(lines[0]).toBe('This folder is not trusted: /work/repo');
     expect(lines).toContain('  [absent] source-11');
     expect(lines).not.toContain('  [absent] source-12');
-    expect(lines.at(-1)).toBe('  … 8 more — see robota trust status');
+    expect(lines.at(-1)).toBe('  … 8 more — see test-product trust status');
   });
 
   it('reads y as trust, r as Restricted, and anything else as quit', () => {

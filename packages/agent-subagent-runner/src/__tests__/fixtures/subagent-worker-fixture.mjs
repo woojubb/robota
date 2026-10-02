@@ -1,7 +1,7 @@
-// DIST-006: the runner spawns `execPath args… --__robota-subagent-worker`, so the fixture asserts
+// DIST-006: the runner spawns `execPath args… --__agent-subagent-worker`, so the fixture asserts
 // the same entry contract the real composition root satisfies. Without this it would pass while the
 // flag was never delivered.
-if (!process.argv.includes('--__robota-subagent-worker')) {
+if (!process.argv.includes('--__agent-subagent-worker')) {
   process.stderr.write('fixture worker started without the worker-mode flag\n');
   process.exit(2);
 }
@@ -33,7 +33,7 @@ process.on('message', (message) => {
     return;
   }
 
-  if (process.env.ROBOTA_FIXTURE_MODE === 'echo-sandbox-updates') {
+  if (process.env.AGENT_FIXTURE_MODE === 'echo-sandbox-updates') {
     if (message.type === 'sandbox_settings') sandboxEcho.updates.push(message.settings);
     if (message.type === 'start') {
       sandboxEcho.started = true;
@@ -45,12 +45,12 @@ process.on('message', (message) => {
 
   if (message.type === 'start') {
     const taskId = message.payload?.taskId ?? 'unknown';
-    if (process.env.ROBOTA_FIXTURE_MODE === 'wait') {
+    if (process.env.AGENT_FIXTURE_MODE === 'wait') {
       return;
     }
     // Issue #3288 §1: a tool call needing approval. Sends the request once, then reports whatever
     // answer arrives (or never resolves, for a test that cancels the job while it is outstanding).
-    if (process.env.ROBOTA_FIXTURE_MODE === 'permission-request') {
+    if (process.env.AGENT_FIXTURE_MODE === 'permission-request') {
       process.send?.({
         type: 'permission_request',
         requestId: 'r1',
@@ -59,20 +59,20 @@ process.on('message', (message) => {
       });
       return;
     }
-    if (process.env.ROBOTA_FIXTURE_MODE === 'permission-request-wait') {
+    if (process.env.AGENT_FIXTURE_MODE === 'permission-request-wait') {
       process.send?.({ type: 'permission_request', requestId: 'r1', toolName: 'Glob' });
       return;
     }
     // Issue #3288 §1 (review item 3): sends the request, then — without waiting for an answer —
     // immediately reports a result too, simulating the child settling while a request is still
     // outstanding on the parent side.
-    if (process.env.ROBOTA_FIXTURE_MODE === 'permission-request-then-result') {
+    if (process.env.AGENT_FIXTURE_MODE === 'permission-request-then-result') {
       process.send?.({ type: 'permission_request', requestId: 'r1', toolName: 'Glob' });
       process.send?.({ type: 'result', output: 'raced' });
       setTimeout(() => process.exit(0), 0);
       return;
     }
-    if (process.env.ROBOTA_FIXTURE_MODE === 'progress') {
+    if (process.env.AGENT_FIXTURE_MODE === 'progress') {
       process.send?.({ type: 'tool_start', toolName: 'Read', toolArgs: { file_path: 'file.ts' } });
       process.send?.({ type: 'text_delta', delta: 'partial ' });
       process.send?.({ type: 'tool_end', toolName: 'Read', success: true });
@@ -80,8 +80,16 @@ process.on('message', (message) => {
     // SEC-009: echoes the provider profile EXACTLY as it crossed the IPC boundary, so a test can
     // assert on the wire message rather than on the function that built it. A payload assertion
     // taken parent-side would still pass if the value were re-resolved before `send`.
-    if (process.env.ROBOTA_FIXTURE_MODE === 'echo-profile') {
+    if (process.env.AGENT_FIXTURE_MODE === 'echo-profile') {
       process.send?.({ type: 'result', output: JSON.stringify(message.payload?.providerProfile) });
+      setTimeout(() => process.exit(0), 0);
+      return;
+    }
+    if (process.env.AGENT_FIXTURE_MODE === 'echo-selected-environment') {
+      process.send?.({ type: 'result', output: JSON.stringify({
+        selected: process.env.SYNTHETIC_SELECTED_PROVIDER_KEY,
+        unrelated: process.env.SYNTHETIC_UNRELATED_PARENT_SECRET,
+      }) });
       setTimeout(() => process.exit(0), 0);
       return;
     }
@@ -89,7 +97,7 @@ process.on('message', (message) => {
     // the same reason `echo-profile` exists — review found both declared here and read by the worker
     // while nothing ever SET them, and a parent-side assertion on the builder would not have caught
     // that the value never reached the wire.
-    if (process.env.ROBOTA_FIXTURE_MODE === 'echo-projection') {
+    if (process.env.AGENT_FIXTURE_MODE === 'echo-projection') {
       process.send?.({
         type: 'result',
         output: JSON.stringify({
@@ -103,12 +111,12 @@ process.on('message', (message) => {
     }
     // ARCH-031: reports the forked process's own OS working directory, so a test can observe where
     // the child actually landed rather than where the request said it should.
-    if (process.env.ROBOTA_FIXTURE_MODE === 'cwd') {
+    if (process.env.AGENT_FIXTURE_MODE === 'cwd') {
       process.send?.({ type: 'result', output: process.cwd() });
       setTimeout(() => process.exit(0), 0);
       return;
     }
-    if (process.env.ROBOTA_FIXTURE_MODE === 'usage') {
+    if (process.env.AGENT_FIXTURE_MODE === 'usage') {
       process.send?.({
         type: 'result',
         output: `completed:${taskId}`,

@@ -190,8 +190,11 @@ describe('assembleProduct — capability fold', () => {
         'acme_command_echo',
       );
       await runtime.submit('Read @guide.md');
-      expect(JSON.stringify(scripted.requests[0])).toContain('<acme_file_references>');
-      expect(JSON.stringify(scripted.requests[0])).not.toContain('robota_file_references');
+      const prompt = JSON.stringify(scripted.requests[0]);
+      expect(prompt).toContain('<acme_file_references>');
+      expect([...prompt.matchAll(/<([a-z0-9_]+_file_references)>/gu)].map((match) => match[1])).toEqual([
+        'acme_file_references',
+      ]);
     } finally {
       await runtime?.shutdown();
       rmSync(cwd, { recursive: true, force: true });

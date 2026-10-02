@@ -2,7 +2,7 @@ User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://docs.robota.io/sitemap.xml
+Sitemap: __PROJECT_DOCS_URL__/sitemap.xml
 
 # Crawl-delay for polite crawling
 Crawl-delay: 1

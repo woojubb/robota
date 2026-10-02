@@ -25,7 +25,7 @@ const mainProvider = { name: 'vendor-a' } as unknown as IAIProvider;
 let settingsPath: string;
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), 'robota-advisor-'));
+  home = mkdtempSync(join(tmpdir(), 'test-product-advisor-'));
   settingsPath = join(home, 'settings.json');
   writeFileSync(
     settingsPath,
@@ -97,9 +97,9 @@ describe('composeCliAdvisor', () => {
     expect(advisor.tool).toBeUndefined();
   });
 
-  it('adds nothing under ROBOTA_DISABLE_ADVISOR=1, and /advisor cannot turn it on', () => {
+  it('adds nothing under PRODUCT_DISABLE_ADVISOR=1, and /advisor cannot turn it on', () => {
     const advisor = composeCliAdvisor(
-      input({ flag: 'strong', env: { ROBOTA_DISABLE_ADVISOR: '1' } }),
+      input({ flag: 'strong', env: { PRODUCT_DISABLE_ADVISOR: '1' } }),
     );
     expect(advisor.tool).toBeUndefined();
     expect(advisor.controller.set('strong').success).toBe(false);
@@ -176,6 +176,32 @@ describe('advisor destination', () => {
       turnId: 't',
     });
     expect(result.outcome).toBe('answered');
+  });
+
+  it('resolves an advisor profile key from the selected host environment', async () => {
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as { providers: Record<string, Record<string, string>> };
+    settings.providers.cloud!.apiKey = '$ENV:SYNTHETIC_ADVISOR_KEY';
+    writeFileSync(settingsPath, JSON.stringify(settings));
+    const keys: string[] = [];
+    const definitions = providerDefinitions.map((definition) => ({
+      ...definition,
+      createProvider: (config: IProviderDefinitionConfig) => {
+        keys.push(config.apiKey ?? 'missing');
+        return { name: config.name, chat: async () => ({
+          id: 'a', role: 'assistant' as const, content: 'advice', state: 'complete' as const, timestamp: new Date(),
+        }) } as unknown as IAIProvider;
+      },
+    }));
+    const advisor = composeCliAdvisor(input({
+      flag: 'cloud',
+      providerDefinitions: definitions,
+      env: { SYNTHETIC_ADVISOR_KEY: 'file-only-advisor-key' },
+    }));
+    const result = await advisor.controller.consult({
+      history: [], systemPrompt: 's', mainDestination: providerDestinationOf(mainProvider), sessionId: 's', turnId: 't',
+    });
+    expect(result.outcome).toBe('answered');
+    expect(keys).toEqual(['file-only-advisor-key']);
   });
 });
 

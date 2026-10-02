@@ -5,7 +5,10 @@ import type {
 import type { IAssistantMessage } from '../interfaces/messages';
 import type { IToolExecutionResult } from '../interfaces/tool';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
-import { ARGUMENT_DECODE_ERROR_CODE } from './tool-execution-constants';
+import {
+  ARGUMENT_DECODE_ERROR_CODE,
+  TOOL_CALL_SKIPPED_ERROR_CODE,
+} from './tool-execution-constants';
 import type { IToolWaitState } from '../interfaces/tool-continuation';
 import { continuationObject } from '../utils/continuation-json';
 
@@ -209,8 +212,18 @@ function validateBatch(
       wait.response = record.response;
     } else if (record.kind === 'tool-result') {
       const result = record.result;
+      const skipped = result.metadata?.errorCode === TOOL_CALL_SKIPPED_ERROR_CODE;
       if (
-        (!action.intent && result.metadata?.errorCode !== ARGUMENT_DECODE_ERROR_CODE) ||
+        skipped &&
+        (result.success ||
+          action.dispatched ||
+          action.effectStarted ||
+          result.metadata?.dispatchStatus !== 'not-dispatched' ||
+          result.result !== null)
+      )
+        invalid('Skipped tool result cannot claim a dispatched or applied effect');
+      if (
+        (!action.intent && result.metadata?.errorCode !== ARGUMENT_DECODE_ERROR_CODE && !skipped) ||
         result.executionId !== call.id ||
         result.toolName !== call.function.name ||
         typeof result.success !== 'boolean' ||

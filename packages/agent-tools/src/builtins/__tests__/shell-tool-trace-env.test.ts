@@ -1,5 +1,5 @@
 /**
- * The shell child gets Robota's `TRACEPARENT` in a fresh environment copy when the call's context
+ * The shell child gets the agent runtime's `TRACEPARENT` in a fresh environment copy when the call's context
  * carries one; otherwise the ambient environment reaches it untouched. `process.env` never changes.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

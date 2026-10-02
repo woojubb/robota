@@ -21,7 +21,7 @@ describe('resolveBackgroundTaskShellCommand', () => {
     {
       name: 'Windows explicit bash',
       request: { command: 'sentinel', shell: 'C:\\Git\\bin\\bash.exe' },
-      options: { env: { ROBOTA_SHELL: 'powershell.exe' }, platform: 'win32' as const },
+      options: { env: { SHELL: 'powershell.exe' }, platform: 'win32' as const },
       executable: 'C:\\Git\\bin\\bash.exe',
       args: ['-c', 'sentinel'],
     },
@@ -58,7 +58,7 @@ describe('resolveBackgroundTaskShellCommand', () => {
   it('uses a host-selected default below a request shell', () => {
     const options = {
       executable: '/bin/bash',
-      env: { ROBOTA_SHELL: '/bin/fish' },
+      env: { SHELL: '/bin/fish' },
       platform: 'linux' as const,
     };
     expect(resolveBackgroundTaskShellCommand({ command: 'sentinel' }, options)).toEqual({

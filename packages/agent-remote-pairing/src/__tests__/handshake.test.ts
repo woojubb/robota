@@ -1,3 +1,5 @@
+import { createIdentityContext } from '../identity/crypto-context.js';
+const testIdentity = createIdentityContext('test-product');
 import { describe, expect, it } from 'vitest';
 
 import { generatePairingSecret } from '../pairing.js';
@@ -32,7 +34,7 @@ function pair(
     // deliver asynchronously to mimic the channel
     queueMicrotask(() => controllers[routed.to]?.onFrame(routed.frame));
   };
-  controllers.a = startPairingHandshake({
+  controllers.a = startPairingHandshake(testIdentity, {
     secret: secret.a,
     role: 'initiator',
     localFingerprint: fingerprints.aLocal,
@@ -40,7 +42,7 @@ function pair(
     send: (frame) => deliver('a', frame),
     timeoutMs: 2000,
   });
-  controllers.b = startPairingHandshake({
+  controllers.b = startPairingHandshake(testIdentity, {
     secret: secret.b,
     role: 'responder',
     localFingerprint: fingerprints.bLocal,
@@ -106,7 +108,7 @@ describe('pairing handshake (REMOTE-005 B3)', () => {
 
   it('times out (fail closed) when the counterpart never responds', async () => {
     const secret = generatePairingSecret().secret;
-    const a = startPairingHandshake({
+    const a = startPairingHandshake(testIdentity, {
       secret,
       role: 'initiator',
       localFingerprint: FP_A,

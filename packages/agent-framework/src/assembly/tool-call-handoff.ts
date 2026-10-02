@@ -50,7 +50,7 @@ export interface IToolCallHandoffDeps {
    * The diagnostic sink for the one declared fallback (MCP-004 § Fallback: admission refused after
    * the threshold fired). An embedding host that supplied `ICreateSessionOptions.sessionLogger`
    * observes the refusal as a `sessionLogger.log(sessionId, 'tool_call_handoff_refused', …)` call —
-   * the same seam `build-agent-runtime.ts` already uses to report `background_task_event`. Absent ⇒
+   * the same seam `build-runtime.ts` already uses to report `background_task_event`. Absent ⇒
    * the refusal still rides the returned `IToolResult.data.message`, just unreported to a second sink.
    */
   readonly sessionLogger?: ISessionLogger;
@@ -98,6 +98,10 @@ export class ToolCallHandoffTool implements IToolWithEventService {
 
   get schema(): IToolSchema {
     return this.inner.schema;
+  }
+
+  get provenance() {
+    return this.inner.provenance;
   }
 
   getName(): string {

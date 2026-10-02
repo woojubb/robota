@@ -1,8 +1,9 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
  * The product's OAuth host for remote MCP servers: where credentials are kept, and how a
  * server's OAuth authenticator is built and what it tells the user.
  *
- * Credentials live under `~/.robota/mcp-credentials/`, owner-only. The file store is one backend of
+ * Credentials live under `the configured user root/mcp-credentials/`, owner-only. The file store is one backend of
  * `agent-mcp`'s credential store port; the refresh lock beside it is the caller's, so a different
  * backend changes the store and nothing else.
  */
@@ -29,8 +30,8 @@ import type { IMCPOAuthNetwork, TMCPOAuthNotice } from '@robota-sdk/agent-mcp';
 import type { IMcpOAuthHost } from './mcp-client-composition.js';
 
 /** The directory OAuth credentials and their refresh locks are kept in. */
-export function mcpCredentialDirectory(home?: string): string {
-  return join(userLocalStorageRoot(home), 'mcp-credentials');
+export function mcpCredentialDirectory(runtime: ICliRuntimeContext): string {
+  return join(userLocalStorageRoot(runtime), 'mcp-credentials');
 }
 
 /** What JSON leaves unescaped but a terminal would act on or hide: DEL, C1 controls, separators, format characters. */
@@ -50,7 +51,7 @@ export function formatMcpOAuthNotice(notice: TMCPOAuthNotice): string {
     // A repository may name the server: it goes into the command only when it is safe to paste.
     const argument = shellArgumentForDisplay(notice.serverId);
     const shown = argument ?? '<server>';
-    const how = `run /mcp login ${shown} in this session, or robota mcp login ${shown} in a terminal`;
+    const how = `run /mcp login ${shown} in this session, or mcp login ${shown} in a terminal`;
     return argument === undefined
       ? `An MCP server whose name cannot be shown safely needs you to sign in: ${how}`
       : `MCP server ${argument} needs you to sign in: ${how}`;
@@ -65,6 +66,7 @@ export function formatMcpOAuthNotice(notice: TMCPOAuthNotice): string {
 export const MAX_PASTED_REDIRECT_LENGTH = 16_384;
 
 export function createMcpOAuthHost(options: {
+  readonly productRuntime: ICliRuntimeContext;
   readonly network: IMCPOAuthNetwork;
   readonly reportDiagnostic: (message: string) => void;
   readonly directory?: string;
@@ -72,7 +74,7 @@ export function createMcpOAuthHost(options: {
   readonly openBrowser?: (url: URL) => Promise<void>;
   readonly callbackTimeoutMs?: number;
 }): IMcpOAuthHost {
-  const directory = options.directory ?? mcpCredentialDirectory();
+  const directory = options.directory ?? mcpCredentialDirectory(options.productRuntime);
   const store = createFileOAuthCredentialStore(directory);
   const lock = createFileOAuthRefreshLock(directory);
   const open = options.openBrowser ?? ((url: URL) => openInBrowser(url));
@@ -94,6 +96,7 @@ export function createMcpOAuthHost(options: {
               return pasted;
             };
       await runMCPOAuthLogin({
+      clientName: options.productRuntime.config.identity.mcpClientName,
         securityIdentity: request.securityIdentity,
         serverUrl: definition.url ?? '',
         config: definition.oauth ?? {},

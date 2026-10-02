@@ -19,7 +19,7 @@ import type {
 } from '@robota-sdk/agent-roundtable';
 import { createDeltaQueue } from './delta-queue';
 import {
-  ROBOTA_SESSION_CHECKPOINT_VERSION,
+  AGENT_SESSION_CHECKPOINT_VERSION,
   decodeSessionCheckpoint,
   encodeSessionCheckpoint,
   type SessionCheckpointState,
@@ -31,7 +31,7 @@ import {
 } from './in-process-journal';
 import { meterRecoverableJournal } from './metering-journal';
 import { toCompletionOutcome } from './outcome';
-import { RobotaParticipantError } from './errors';
+import { RuntimeParticipantError } from './errors';
 import { claimLease } from './resource-guard';
 import { renderSharedIncrement, type TurnRenderer } from './render';
 import type { OpenContext } from './open-context';
@@ -87,7 +87,7 @@ function toWaitOutcome(
 ): ParticipantOutcome & { kind: 'wait' } {
   const unsupported = requests.find((request) => request.kind !== APPROVAL_WAIT_KIND);
   if (unsupported)
-    throw new RobotaParticipantError(
+    throw new RuntimeParticipantError(
       'unsupported-wait',
       `Session raised an unsupported wait kind: ${unsupported.kind}`,
     );
@@ -110,13 +110,13 @@ function toWaitOutcome(
 }
 
 /**
- * Run a Robota `Session` as an `agent-roundtable` participant.
+ * Run a ConversationAgent `Session` as an `agent-roundtable` participant.
  *
  * Every provider call the Session makes is admitted and reported through the turn's bound
  * `TurnServices` (see `metering-journal.ts`); only the final response text is ever returned as
  * `speak`, so private history and tool traces never enter the shared transcript. Approval waits
  * raised through `robota-session/approval` map to the roundtable's own `wait`/`resumeTurn`
- * protocol; any other wait kind fails the turn with `RobotaParticipantError('unsupported-wait')`.
+ * protocol; any other wait kind fails the turn with `RuntimeParticipantError('unsupported-wait')`.
  */
 export function sessionParticipant(options: SessionParticipantOptions): AgentParticipant {
   const render = options.render ?? renderSharedIncrement;
@@ -127,7 +127,7 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
     runtime: options.runtime,
     factory: {
       supportsContinuation: true,
-      checkpointVersions: [ROBOTA_SESSION_CHECKPOINT_VERSION],
+      checkpointVersions: [AGENT_SESSION_CHECKPOINT_VERSION],
       modelCalls: 'metered',
       async openSession(context) {
         const restoring = context.checkpoint !== undefined;
@@ -141,7 +141,7 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
         if (context.checkpoint) {
           state = decodeSessionCheckpoint(context.checkpoint);
           if (state.cwd !== hostOptions.cwd)
-            throw new RobotaParticipantError(
+            throw new RuntimeParticipantError(
               'checkpoint-invalid',
               'Checkpoint cwd does not match the current session options',
             );
@@ -195,8 +195,8 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
           try {
             const meteredJournal = meterRecoverableJournal(journal, execOptions.services);
             const result = await run(meteredJournal);
-            // An aborted run can resolve instead of rejecting, the way a plain Robota agent's
-            // `agent.run()` always does (see robota-participant.ts) — checking `signal.aborted`
+            // An aborted run can resolve instead of rejecting, the way a plain ConversationAgent agent's
+            // `agent.run()` always does (see agent-participant.ts) — checking `signal.aborted`
             // only in `catch` below would miss that path, letting a cancelled turn's partial text
             // (or even a stray 'waiting' status racing the abort) be published or parked as if
             // the cancellation never happened. `Session`'s own executeRun already turns that same
@@ -256,7 +256,7 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
           ) {
             const parked = pendingWait;
             if (!parked)
-              throw new RobotaParticipantError(
+              throw new RuntimeParticipantError(
                 'identity-mismatch',
                 'No approval wait is parked for this participant',
               );
@@ -270,7 +270,7 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
                 request.participantId !== turn.participantId ||
                 !parked.requestIds.includes(request.id)
               )
-                throw new RobotaParticipantError(
+                throw new RuntimeParticipantError(
                   'identity-mismatch',
                   'Approval response does not match the parked wait',
                 );
@@ -282,7 +282,7 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
             });
             const priorRecords = await journal.read(parked.executionId);
             if (priorRecords.length === 0)
-              throw new RobotaParticipantError(
+              throw new RuntimeParticipantError(
                 'journal-missing',
                 'No journal records were found for the parked execution',
               );

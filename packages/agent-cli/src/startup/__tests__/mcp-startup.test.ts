@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * MCP-002: `composeMcpClientForStartup` is the ONE function that turns product startup inputs
  * (settings sources, workspace-trust decision, `cwd`) into a live `IMcpClientComposition` — proof
@@ -21,14 +22,15 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { createFileMcpApprovalStore } from '../mcp-approval-file-store.js';
 import { composeMcpClientForStartup } from '../mcp-startup.js';
-import { ROBOTA_PROJECT_SETTINGS } from '../../product/robota-project-settings.js';
-import { createRobotaUserSettingsSources } from '../../product/robota-user-settings.js';
+import { productProjectSettings } from '../../product/project-settings.js';
+import { createProductUserSettingsSources } from '../../product/user-settings.js';
 
 import type {
   IWorkspaceIdentity,
   TSettingsSource,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
+const PRODUCT_PROJECT_SETTINGS = productProjectSettings(createTestProductRuntime());
 
 const roots: string[] = [];
 
@@ -71,28 +73,31 @@ async function trustedProjectSettingsSources(root: string): Promise<readonly TSe
   if (access.status !== 'trusted') throw new Error('Fixture trust service did not return trusted.');
   return createWorkspaceProjectSettingsSources(
     getWorkspaceProjectReader(access.authority),
-    ROBOTA_PROJECT_SETTINGS,
+    PRODUCT_PROJECT_SETTINGS,
   );
 }
 
 describe('composeMcpClientForStartup', () => {
-  it('connects a settings-defined stdio server with Robota client identity', async () => {
-    const cwd = tempRoot('robota-mcp-startup-live-');
-    const userHome = tempRoot('robota-mcp-startup-live-home-');
+  it('connects a settings-defined stdio server with test-product Agent client identity', async () => {
+    const cwd = tempRoot('test-product-mcp-startup-live-');
+    const userHome = tempRoot('test-product-mcp-startup-live-home-');
     const fixture = fileURLToPath(
       new URL('../../../../agent-mcp/examples/stdio-fixture-server.mjs', import.meta.url),
     );
     const args = [fixture, 'client-info'];
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
     writeFileSync(
-      join(userHome, '.robota', 'settings.json'),
+      join(userHome, '.test-product', 'settings.json'),
       JSON.stringify({
         mcpServers: { local: { type: 'stdio', command: process.execPath, args, cwd } },
       }),
     );
     const { messages, reportDiagnostic } = diagnosticsSink();
     const mcp = await composeMcpClientForStartup({
-      settingsSources: createRobotaUserSettingsSources(userHome),
+      productRuntime: createTestProductRuntime(),
+      settingsSources: createProductUserSettingsSources(
+        createTestProductRuntime('test-product', { HOME: userHome }),
+      ),
       projectAccess: await trustedAccessFor(cwd),
       cwd,
       env: {},
@@ -108,43 +113,169 @@ describe('composeMcpClientForStartup', () => {
         },
       },
     });
+    expect(mcp.contributionDescriptors).toMatchObject([
+      {
+        schemaVersion: 1,
+        identity: 'local',
+        source: { kind: 'mcp' },
+        contributions: [{ kind: 'mcp', requiredCapabilities: ['mcp-client', 'stdio-authority'] }],
+        lifecycle: { activation: 'unadmitted', activeCalls: 'host-owned' },
+      },
+    ]);
     await mcp.activationAdapter.approve('local');
     try {
       const tools = await mcp.connect();
       expect(messages).toEqual([]);
       expect(tools.map((tool) => tool.getName())).toEqual([
         'local__ping',
-        'robota_read_mcp_result',
+        'test_product_command_read_mcp_result',
       ]);
       const tool = tools[0];
       if (tool === undefined) throw new Error('Expected admitted stdio tool');
       const result = await tool.execute({}, { toolName: 'local__ping', parameters: {} });
       expect(result.success).toBe(true);
-      expect(JSON.stringify(result)).toContain('robota-agent-mcp');
+      expect(JSON.stringify(result)).toContain('test-product-agent');
       expect(mcp.connectedToolProvenance.get('local__ping')?.sourceName).toBe('ping');
     } finally {
       await mcp.shutdown();
     }
   });
 
+  it.each(['interactive', 'serve', 'print'] as const)(
+    'revalidates a live settings source before dispatch in %s mode',
+    async (mode) => {
+      for (const change of ['remove', 'replace'] as const) {
+        const cwd = tempRoot('mcp-source-lifecycle-');
+        const userHome = tempRoot('mcp-source-lifecycle-home-');
+        const runtime = createTestProductRuntime('test-product', { HOME: userHome });
+        const fixture = fileURLToPath(
+          new URL('../../../../agent-mcp/examples/stdio-fixture-server.mjs', import.meta.url),
+        );
+        const args = [fixture];
+        mkdirSync(join(userHome, '.test-product'), { recursive: true });
+        const settingsPath = join(userHome, '.test-product', 'settings.json');
+        const server = { type: 'stdio', command: process.execPath, args, cwd };
+        writeFileSync(settingsPath, JSON.stringify({ mcpServers: { local: server } }));
+        const mcp = await composeMcpClientForStartup({
+          productRuntime: runtime,
+          settingsSources: createProductUserSettingsSources(runtime),
+          projectAccess: await trustedAccessFor(cwd),
+          cwd,
+          env: {},
+          mode,
+          inspectTrust: async () => ({ state: 'trusted', generation: 1 }),
+          reportDiagnostic: () => undefined,
+          stdioAuthorities: {
+            local: {
+              allowedRoot: cwd,
+              generation: 'host-1',
+              executables: [{ command: process.execPath, args: [args] }],
+              environment: { HOME: userHome },
+            },
+          },
+        });
+        await mcp.activationAdapter.approve('local');
+        try {
+          const [tool] = await mcp.connect();
+          expect(
+            await tool!.execute({}, { toolName: tool!.getName(), parameters: {} }),
+          ).toMatchObject({ success: true, data: 'pong' });
+          writeFileSync(
+            settingsPath,
+            JSON.stringify(
+              change === 'remove'
+                ? {}
+                : {
+                    mcpServers: { local: { ...server, args: [fixture, 'client-info'] } },
+                  },
+            ),
+          );
+          expect(
+            await tool!.execute({}, { toolName: tool!.getName(), parameters: {} }),
+          ).toMatchObject({ success: false });
+        } finally {
+          await mcp.shutdown();
+        }
+      }
+    },
+  );
+
+  it.each(['revoked', 'replaced'] as const)(
+    'refuses new calls after workspace trust is %s',
+    async (change) => {
+      const cwd = tempRoot('mcp-workspace-lifecycle-');
+      const userHome = tempRoot('mcp-workspace-lifecycle-home-');
+      const runtime = createTestProductRuntime('test-product', { HOME: userHome });
+      const fixture = fileURLToPath(
+        new URL('../../../../agent-mcp/examples/stdio-fixture-server.mjs', import.meta.url),
+      );
+      const args = [fixture];
+      mkdirSync(join(cwd, '.test-product'), { recursive: true });
+      writeFileSync(
+        join(cwd, '.test-product', 'settings.json'),
+        JSON.stringify({
+          mcpServers: { local: { type: 'stdio', command: process.execPath, args, cwd } },
+        }),
+      );
+      let snapshot: { state: 'trusted' | 'revoked'; generation: number } = {
+        state: 'trusted',
+        generation: 1,
+      };
+      const mcp = await composeMcpClientForStartup({
+        productRuntime: runtime,
+        settingsSources: await trustedProjectSettingsSources(cwd),
+        projectAccess: await trustedAccessFor(cwd),
+        cwd,
+        env: {},
+        mode: 'interactive',
+        inspectTrust: async () => snapshot,
+        reportDiagnostic: () => undefined,
+        stdioAuthorities: {
+          local: {
+            allowedRoot: cwd,
+            generation: 'host-1',
+            executables: [{ command: process.execPath, args: [args] }],
+            environment: { HOME: userHome },
+          },
+        },
+      });
+      await mcp.activationAdapter.approve('local');
+      try {
+        const [tool] = await mcp.connect();
+        expect(
+          await tool!.execute({}, { toolName: tool!.getName(), parameters: {} }),
+        ).toMatchObject({ success: true, data: 'pong' });
+        snapshot = { state: change === 'revoked' ? 'revoked' : 'trusted', generation: 2 };
+        expect(
+          await tool!.execute({}, { toolName: tool!.getName(), parameters: {} }),
+        ).toMatchObject({ success: false });
+      } finally {
+        await mcp.shutdown();
+      }
+    },
+  );
+
   it('connects at the next start a server approved in an earlier one', async () => {
-    const cwd = tempRoot('robota-mcp-startup-durable-');
-    const userHome = tempRoot('robota-mcp-startup-durable-home-');
+    const cwd = tempRoot('test-product-mcp-startup-durable-');
+    const userHome = tempRoot('test-product-mcp-startup-durable-home-');
     const fixture = fileURLToPath(
       new URL('../../../../agent-mcp/examples/stdio-fixture-server.mjs', import.meta.url),
     );
     const args = [fixture, 'client-info'];
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
     writeFileSync(
-      join(userHome, '.robota', 'settings.json'),
+      join(userHome, '.test-product', 'settings.json'),
       JSON.stringify({
         mcpServers: { local: { type: 'stdio', command: process.execPath, args, cwd } },
       }),
     );
-    const approvalsPath = join(userHome, '.robota', 'mcp-approvals.json');
+    const approvalsPath = join(userHome, '.test-product', 'mcp-approvals.json');
     const start = async () =>
       composeMcpClientForStartup({
-        settingsSources: createRobotaUserSettingsSources(userHome),
+        productRuntime: createTestProductRuntime(),
+        settingsSources: createProductUserSettingsSources(
+          createTestProductRuntime('test-product', { HOME: userHome }),
+        ),
         projectAccess: await trustedAccessFor(cwd),
         cwd,
         env: {},
@@ -176,11 +307,11 @@ describe('composeMcpClientForStartup', () => {
   });
 
   it('forwards host stdio authority separately from settings into command admission', async () => {
-    const cwd = tempRoot('robota-mcp-startup-stdio-');
-    const userHome = tempRoot('robota-mcp-startup-stdio-home-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    const cwd = tempRoot('test-product-mcp-startup-stdio-');
+    const userHome = tempRoot('test-product-mcp-startup-stdio-home-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
     writeFileSync(
-      join(userHome, '.robota', 'settings.json'),
+      join(userHome, '.test-product', 'settings.json'),
       JSON.stringify({
         mcpServers: {
           weather: {
@@ -194,7 +325,10 @@ describe('composeMcpClientForStartup', () => {
     );
     const { messages, reportDiagnostic } = diagnosticsSink();
     const mcp = await composeMcpClientForStartup({
-      settingsSources: createRobotaUserSettingsSources(userHome),
+      productRuntime: createTestProductRuntime(),
+      settingsSources: createProductUserSettingsSources(
+        createTestProductRuntime('test-product', { HOME: userHome }),
+      ),
       projectAccess: await trustedAccessFor(cwd),
       cwd,
       env: {},
@@ -218,11 +352,11 @@ describe('composeMcpClientForStartup', () => {
   });
 
   it('lists a resolved http definition sourced from a fake settings source, given trusted access', async () => {
-    const cwd = tempRoot('robota-mcp-startup-trusted-');
-    const userHome = tempRoot('robota-mcp-startup-user-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    const cwd = tempRoot('test-product-mcp-startup-trusted-');
+    const userHome = tempRoot('test-product-mcp-startup-user-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
     writeFileSync(
-      join(userHome, '.robota', 'settings.json'),
+      join(userHome, '.test-product', 'settings.json'),
       JSON.stringify({
         mcpServers: { weather: { type: 'http', url: 'https://mcp.example.com/weather' } },
       }),
@@ -231,7 +365,10 @@ describe('composeMcpClientForStartup', () => {
     const { messages, reportDiagnostic } = diagnosticsSink();
 
     const mcp = await composeMcpClientForStartup({
-      settingsSources: createRobotaUserSettingsSources(userHome),
+      productRuntime: createTestProductRuntime(),
+      settingsSources: createProductUserSettingsSources(
+        createTestProductRuntime('test-product', { HOME: userHome }),
+      ),
       projectAccess: await trustedAccessFor(cwd),
       cwd,
       env: process.env,
@@ -252,16 +389,16 @@ describe('composeMcpClientForStartup', () => {
   // higher-precedence, well-formed layer (`project`) still resolves normally. The managed-tier
   // fail-closed case is exercised separately below.
   it('surfaces an unreadable source through activationAdapter.sourceProblems, beside a resolved server', async () => {
-    const userHome = tempRoot('robota-mcp-startup-unreadable-user-');
-    const projectRoot = tempRoot('robota-mcp-startup-unreadable-project-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    const userHome = tempRoot('test-product-mcp-startup-unreadable-user-');
+    const projectRoot = tempRoot('test-product-mcp-startup-unreadable-project-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
     writeFileSync(
-      join(userHome, '.robota', 'settings.json'),
+      join(userHome, '.test-product', 'settings.json'),
       JSON.stringify({ mcpServers: 'not an object' }),
     );
-    mkdirSync(join(projectRoot, '.robota'), { recursive: true });
+    mkdirSync(join(projectRoot, '.test-product'), { recursive: true });
     writeFileSync(
-      join(projectRoot, '.robota', 'settings.json'),
+      join(projectRoot, '.test-product', 'settings.json'),
       JSON.stringify({
         mcpServers: { weather: { type: 'http', url: 'https://mcp.example.com/weather' } },
       }),
@@ -270,8 +407,11 @@ describe('composeMcpClientForStartup', () => {
     const { reportDiagnostic } = diagnosticsSink();
 
     const mcp = await composeMcpClientForStartup({
+      productRuntime: createTestProductRuntime(),
       settingsSources: [
-        ...createRobotaUserSettingsSources(userHome),
+        ...createProductUserSettingsSources(
+          createTestProductRuntime('test-product', { HOME: userHome }),
+        ),
         ...(await trustedProjectSettingsSources(projectRoot)),
       ],
       projectAccess: await trustedAccessFor(projectRoot),
@@ -299,13 +439,13 @@ describe('composeMcpClientForStartup', () => {
   // `sourceProblems()` still names the managed source. `user`-tier unreadability (the test above)
   // does not have this effect; only the highest-trust tier does.
   it('blocks a project-source server end to end when the managed tier is entirely unreadable', async () => {
-    const managedRoot = tempRoot('robota-mcp-startup-managed-unreadable-');
-    const projectRoot = tempRoot('robota-mcp-startup-managed-unreadable-project-');
+    const managedRoot = tempRoot('test-product-mcp-startup-managed-unreadable-');
+    const projectRoot = tempRoot('test-product-mcp-startup-managed-unreadable-project-');
     const managedPath = join(managedRoot, 'managed-policy.json');
     writeFileSync(managedPath, JSON.stringify({ mcpServers: 'not an object' }));
-    mkdirSync(join(projectRoot, '.robota'), { recursive: true });
+    mkdirSync(join(projectRoot, '.test-product'), { recursive: true });
     writeFileSync(
-      join(projectRoot, '.robota', 'settings.json'),
+      join(projectRoot, '.test-product', 'settings.json'),
       JSON.stringify({
         mcpServers: { weather: { type: 'http', url: 'https://mcp.example.com/weather' } },
       }),
@@ -314,6 +454,7 @@ describe('composeMcpClientForStartup', () => {
     const { reportDiagnostic } = diagnosticsSink();
 
     const mcp = await composeMcpClientForStartup({
+      productRuntime: createTestProductRuntime(),
       settingsSources: [
         createNodeHostSettingsSource('managed', managedPath),
         ...(await trustedProjectSettingsSources(projectRoot)),
@@ -349,13 +490,13 @@ describe('composeMcpClientForStartup', () => {
   // `problems` list, so the ORIGINAL startup diagnostic loop (which only walks `problems`) silently
   // dropped it. `composeMcpClientForStartup` must separately walk `entries` for blocked ones.
   it('reports a blocked server on the diagnostics sink, naming it and that managed blocked it', async () => {
-    const managedRoot = tempRoot('robota-mcp-startup-managed-diagnostic-');
-    const projectRoot = tempRoot('robota-mcp-startup-managed-diagnostic-project-');
+    const managedRoot = tempRoot('test-product-mcp-startup-managed-diagnostic-');
+    const projectRoot = tempRoot('test-product-mcp-startup-managed-diagnostic-project-');
     const managedPath = join(managedRoot, 'managed-policy.json');
     writeFileSync(managedPath, JSON.stringify({ mcpServers: 'not an object' }));
-    mkdirSync(join(projectRoot, '.robota'), { recursive: true });
+    mkdirSync(join(projectRoot, '.test-product'), { recursive: true });
     writeFileSync(
-      join(projectRoot, '.robota', 'settings.json'),
+      join(projectRoot, '.test-product', 'settings.json'),
       JSON.stringify({
         mcpServers: { weather: { type: 'http', url: 'https://mcp.example.com/weather' } },
       }),
@@ -364,6 +505,7 @@ describe('composeMcpClientForStartup', () => {
     const { messages, reportDiagnostic } = diagnosticsSink();
 
     await composeMcpClientForStartup({
+      productRuntime: createTestProductRuntime(),
       settingsSources: [
         createNodeHostSettingsSource('managed', managedPath),
         ...(await trustedProjectSettingsSources(projectRoot)),
@@ -385,10 +527,10 @@ describe('composeMcpClientForStartup', () => {
   });
 
   it('refuses a project-source definition under restricted (untrusted) workspace access', async () => {
-    const projectRoot = tempRoot('robota-mcp-startup-project-');
-    mkdirSync(join(projectRoot, '.robota'), { recursive: true });
+    const projectRoot = tempRoot('test-product-mcp-startup-project-');
+    mkdirSync(join(projectRoot, '.test-product'), { recursive: true });
     writeFileSync(
-      join(projectRoot, '.robota', 'settings.json'),
+      join(projectRoot, '.test-product', 'settings.json'),
       JSON.stringify({
         mcpServers: { internal: { type: 'http', url: 'https://internal.example.com/mcp' } },
       }),
@@ -396,6 +538,7 @@ describe('composeMcpClientForStartup', () => {
     const { reportDiagnostic } = diagnosticsSink();
 
     const mcp = await composeMcpClientForStartup({
+      productRuntime: createTestProductRuntime(),
       settingsSources: await trustedProjectSettingsSources(projectRoot),
       // Restricted, no identity: `toMcpActivationWorkspace` reads `trustState` straight off this
       // access rather than from a (never-invoked) trust inspection.
@@ -414,11 +557,14 @@ describe('composeMcpClientForStartup', () => {
   });
 
   it('returns an empty, diagnostic-free composition when no layer declares mcpServers', async () => {
-    const userHome = tempRoot('robota-mcp-startup-empty-');
+    const userHome = tempRoot('test-product-mcp-startup-empty-');
     const { messages, reportDiagnostic } = diagnosticsSink();
 
     const mcp = await composeMcpClientForStartup({
-      settingsSources: createRobotaUserSettingsSources(userHome),
+      productRuntime: createTestProductRuntime(),
+      settingsSources: createProductUserSettingsSources(
+        createTestProductRuntime('test-product', { HOME: userHome }),
+      ),
       projectAccess: createRestrictedWorkspaceProjectAccess('identity-unavailable', userHome),
       cwd: userHome,
       env: process.env,
@@ -440,17 +586,20 @@ describe('composeMcpClientForStartup', () => {
 
 describe('composeMcpClientForStartup → buildToolCallHandoff (TC-25)', () => {
   it('interactive and serve carry toolCallHandoff with thresholdMs/budgetMs from settings; print does not', async () => {
-    const userHome = tempRoot('robota-mcp-startup-handoff-modes-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    const userHome = tempRoot('test-product-mcp-startup-handoff-modes-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
     writeFileSync(
-      join(userHome, '.robota', 'settings.json'),
+      join(userHome, '.test-product', 'settings.json'),
       JSON.stringify({ mcp: { autoBackgroundMs: 45_000, callTimeoutMs: 300_000 } }),
     );
 
     for (const mode of ['interactive', 'serve'] as const) {
       const { messages, reportDiagnostic } = diagnosticsSink();
       const mcp = await composeMcpClientForStartup({
-        settingsSources: createRobotaUserSettingsSources(userHome),
+        productRuntime: createTestProductRuntime(),
+        settingsSources: createProductUserSettingsSources(
+          createTestProductRuntime('test-product', { HOME: userHome }),
+        ),
         projectAccess: createRestrictedWorkspaceProjectAccess('identity-unavailable', userHome),
         cwd: userHome,
         env: process.env,
@@ -471,7 +620,10 @@ describe('composeMcpClientForStartup → buildToolCallHandoff (TC-25)', () => {
 
     const { messages: printMessages, reportDiagnostic: reportPrintDiagnostic } = diagnosticsSink();
     const printMcp = await composeMcpClientForStartup({
-      settingsSources: createRobotaUserSettingsSources(userHome),
+      productRuntime: createTestProductRuntime(),
+      settingsSources: createProductUserSettingsSources(
+        createTestProductRuntime('test-product', { HOME: userHome }),
+      ),
       projectAccess: createRestrictedWorkspaceProjectAccess('identity-unavailable', userHome),
       cwd: userHome,
       env: process.env,
@@ -486,17 +638,20 @@ describe('composeMcpClientForStartup → buildToolCallHandoff (TC-25)', () => {
   });
 
   it('autoBackgroundMs: 0 carries no policy in any mode and emits no diagnostic', async () => {
-    const userHome = tempRoot('robota-mcp-startup-handoff-zero-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    const userHome = tempRoot('test-product-mcp-startup-handoff-zero-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
     writeFileSync(
-      join(userHome, '.robota', 'settings.json'),
+      join(userHome, '.test-product', 'settings.json'),
       JSON.stringify({ mcp: { autoBackgroundMs: 0 } }),
     );
 
     for (const mode of ['interactive', 'serve', 'print'] as const) {
       const { messages, reportDiagnostic } = diagnosticsSink();
       const mcp = await composeMcpClientForStartup({
-        settingsSources: createRobotaUserSettingsSources(userHome),
+        productRuntime: createTestProductRuntime(),
+        settingsSources: createProductUserSettingsSources(
+          createTestProductRuntime('test-product', { HOME: userHome }),
+        ),
         projectAccess: createRestrictedWorkspaceProjectAccess('identity-unavailable', userHome),
         cwd: userHome,
         env: process.env,
@@ -511,16 +666,19 @@ describe('composeMcpClientForStartup → buildToolCallHandoff (TC-25)', () => {
   });
 
   it('autoBackgroundMs >= callTimeoutMs disables the handoff (one diagnostic) in every mode', async () => {
-    const userHome = tempRoot('robota-mcp-startup-handoff-ge-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    const userHome = tempRoot('test-product-mcp-startup-handoff-ge-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
     writeFileSync(
-      join(userHome, '.robota', 'settings.json'),
+      join(userHome, '.test-product', 'settings.json'),
       JSON.stringify({ mcp: { autoBackgroundMs: 600_000, callTimeoutMs: 600_000 } }),
     );
 
     const { messages, reportDiagnostic } = diagnosticsSink();
     const mcp = await composeMcpClientForStartup({
-      settingsSources: createRobotaUserSettingsSources(userHome),
+      productRuntime: createTestProductRuntime(),
+      settingsSources: createProductUserSettingsSources(
+        createTestProductRuntime('test-product', { HOME: userHome }),
+      ),
       projectAccess: createRestrictedWorkspaceProjectAccess('identity-unavailable', userHome),
       cwd: userHome,
       env: process.env,
@@ -535,3 +693,214 @@ describe('composeMcpClientForStartup → buildToolCallHandoff (TC-25)', () => {
     expect(messages[0]).toContain('callTimeoutMs');
   });
 });
+
+it.each(['observe', 'mcpServers'])(
+  'sources installed inline bundle server %s into the normal approval-gated MCP startup',
+  async (serverName) => {
+    const userHome = tempRoot('bundle-mcp-startup-');
+    const cwd = tempRoot('bundle-mcp-workspace-');
+    const runtime = createTestProductRuntime('test-product', { HOME: userHome });
+    const source = join(
+      runtime.layout.userRoot,
+      'plugins',
+      'cache',
+      'market',
+      'fixture',
+      'installed',
+    );
+    mkdirSync(join(source, '.claude-plugin'), { recursive: true });
+    writeFileSync(
+      join(source, '.claude-plugin', 'plugin.json'),
+      JSON.stringify({
+        name: 'fixture',
+        mcpServers: { [serverName]: { url: 'https://fixture.example.test/mcp' } },
+      }),
+    );
+    const { messages, reportDiagnostic } = diagnosticsSink();
+    const mcp = await composeMcpClientForStartup({
+      productRuntime: runtime,
+      settingsSources: createProductUserSettingsSources(runtime),
+      projectAccess: await trustedAccessFor(cwd),
+      cwd,
+      env: runtime.environment,
+      mode: 'interactive',
+      reportDiagnostic,
+      inspectTrust: async () => ({ state: 'trusted', generation: 1 }),
+    });
+    try {
+      expect(mcp.activationAdapter.list()).toMatchObject([
+        { serverId: `fixture:${serverName}`, source: 'plugin' },
+      ]);
+      expect(await mcp.connect()).toEqual([]);
+      expect(messages.join('\n')).not.toContain('fixture.example.test');
+    } finally {
+      await mcp.shutdown();
+    }
+  },
+);
+
+it.each([false, true])(
+  'honors bundle disable state and approved stdio authority for disabled=%s',
+  async (disabled) => {
+    const userHome = tempRoot('bundle-stdio-startup-');
+    const cwd = tempRoot('bundle-stdio-workspace-');
+    const runtime = createTestProductRuntime('test-product', { HOME: userHome });
+    const source = join(
+      runtime.layout.userRoot,
+      'plugins',
+      'cache',
+      'market',
+      'fixture',
+      'installed',
+    );
+    mkdirSync(join(source, '.claude-plugin'), { recursive: true });
+    const fixture = fileURLToPath(
+      new URL('../../../../agent-mcp/examples/stdio-fixture-server.mjs', import.meta.url),
+    );
+    const args = [fixture, 'client-info', source];
+    writeFileSync(
+      join(source, '.claude-plugin', 'plugin.json'),
+      JSON.stringify({
+        name: 'fixture',
+        mcpServers: {
+          observe: {
+            command: process.execPath,
+            args: [fixture, 'client-info', '${CLAUDE_PLUGIN_ROOT}'],
+            cwd: '${CLAUDE_PLUGIN_ROOT}',
+          },
+        },
+      }),
+    );
+    writeFileSync(
+      join(runtime.layout.userRoot, 'settings.json'),
+      JSON.stringify({ enabledPlugins: { 'fixture@market': !disabled } }),
+    );
+    const { reportDiagnostic } = diagnosticsSink();
+    const mcp = await composeMcpClientForStartup({
+      productRuntime: runtime,
+      settingsSources: createProductUserSettingsSources(runtime),
+      projectAccess: await trustedAccessFor(cwd),
+      cwd,
+      env: runtime.environment,
+      mode: 'interactive',
+      reportDiagnostic,
+      inspectTrust: async () => ({ state: 'trusted', generation: 1 }),
+      stdioAuthorities: {
+        'fixture:observe': {
+          allowedRoot: source,
+          generation: 'host-fixture',
+          executables: [{ command: process.execPath, args: [args] }],
+          environment: { HOME: userHome },
+        },
+      },
+    });
+    try {
+      if (disabled) {
+        expect(mcp.activationAdapter.list()).toEqual([]);
+        expect(await mcp.connect()).toEqual([]);
+        return;
+      }
+      expect(await mcp.connect()).toEqual([]);
+      await mcp.activationAdapter.approve('fixture:observe');
+      const tools = await mcp.connect();
+      const ping = tools.find((tool) => tool.getName().endsWith('__ping'));
+      if (!ping) throw new Error('Missing approved packaged MCP tool');
+      const result = await ping.execute({}, { toolName: ping.getName(), parameters: {} });
+      expect(result.success).toBe(true);
+      expect(JSON.stringify(result)).toContain('test-product-agent');
+    } finally {
+      await mcp.shutdown();
+    }
+  },
+);
+
+it.each(['disable', 'uninstall', 'update'] as const)(
+  'refuses old bundle calls and restored admission after %s',
+  async (change) => {
+    const userHome = tempRoot('bundle-lifecycle-home-');
+    const cwd = tempRoot('bundle-lifecycle-workspace-');
+    const runtime = createTestProductRuntime('test-product', { HOME: userHome });
+    const pluginsDir = join(runtime.layout.userRoot, 'plugins');
+    const source = join(pluginsDir, 'cache', 'market', 'fixture', 'pinned');
+    const fixture = fileURLToPath(
+      new URL('../../../../agent-mcp/examples/stdio-fixture-server.mjs', import.meta.url),
+    );
+    const args = [fixture];
+    const writeManifest = (directory: string) => {
+      mkdirSync(join(directory, '.claude-plugin'), { recursive: true });
+      writeFileSync(
+        join(directory, '.claude-plugin', 'plugin.json'),
+        JSON.stringify({
+          name: 'fixture',
+          mcpServers: { observe: { command: process.execPath, args, cwd: directory } },
+        }),
+      );
+    };
+    writeManifest(source);
+    const projectAccess = await trustedAccessFor(cwd);
+    const start = () =>
+      composeMcpClientForStartup({
+        productRuntime: runtime,
+        settingsSources: createProductUserSettingsSources(runtime),
+        projectAccess,
+        cwd,
+        env: runtime.environment,
+        mode: 'serve',
+        inspectTrust: async () => ({ state: 'trusted', generation: 1 }),
+        reportDiagnostic: () => undefined,
+        approvalStore: createFileMcpApprovalStore(
+          join(runtime.layout.userRoot, 'mcp-approvals.json'),
+        ),
+        stdioAuthorities: {
+          'fixture:observe': {
+            allowedRoot: source,
+            generation: 'host-pinned',
+            executables: [{ command: process.execPath, args: [args] }],
+            environment: { HOME: userHome },
+          },
+        },
+      });
+    const first = await start();
+    await first.activationAdapter.approve('fixture:observe');
+    try {
+      const [tool] = await first.connect();
+      const context = { toolName: tool!.getName(), parameters: {} };
+      expect(await tool!.execute({}, context)).toMatchObject({ success: true, data: 'pong' });
+      if (change === 'disable') {
+        writeFileSync(
+          join(runtime.layout.userRoot, 'settings.json'),
+          JSON.stringify({
+            enabledPlugins: { 'fixture@market': false },
+          }),
+        );
+      } else if (change === 'uninstall') {
+        rmSync(source, { recursive: true });
+      } else {
+        const next = join(pluginsDir, 'cache', 'market', 'fixture', 'updated');
+        writeManifest(next);
+        writeFileSync(
+          join(pluginsDir, 'installed_plugins.json'),
+          JSON.stringify({
+            'fixture@market': {
+              pluginName: 'fixture',
+              marketplace: 'market',
+              version: 'updated',
+              installPath: next,
+              installedAt: new Date(0).toISOString(),
+            },
+          }),
+        );
+      }
+      expect(await tool!.execute({}, context)).toMatchObject({ success: false });
+      const restored = await start();
+      try {
+        expect(await restored.connect()).toEqual([]);
+        expect(restored.activationAdapter.list().every((server) => !server.allowed)).toBe(true);
+      } finally {
+        await restored.shutdown();
+      }
+    } finally {
+      await first.shutdown();
+    }
+  },
+);

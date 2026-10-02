@@ -21,6 +21,21 @@ function finish(accumulator: LivePromptTraceAccumulator) {
 }
 
 describe('live prompt trace boundary', () => {
+  it('retains full valid duration totals when detailed children exceed the shared cap', () => {
+    const accumulator = makeAccumulator();
+    for (let index = 1; index <= 100; index++) {
+      accumulator.addProvider({ traceId: TRACE_ID, parentSpanId: ROOT_SPAN_ID, spanId: index.toString(16).padStart(16, '0'),
+        startedAt: AT, endedAt: new Date(Date.parse(AT) + 2).toISOString(), outcome: 'success', round: index });
+      accumulator.addTool({ traceId: TRACE_ID, parentSpanId: ROOT_SPAN_ID, spanId: (index + 100).toString(16).padStart(16, '0'),
+        startedAt: AT, endedAt: new Date(Date.parse(AT) + 3).toISOString(), outcome: 'success' });
+      accumulator.addPermission({ traceId: TRACE_ID, parentSpanId: ROOT_SPAN_ID, decidedAt: AT, decision: 'allowed' });
+    }
+    const batch = finish(accumulator);
+    expect(batch.children).toHaveLength(256);
+    expect(batch).toHaveProperty('timingTotals.provider', { durationMs: 200, samples: 100, invalid: 0 });
+    expect(batch).toHaveProperty('timingTotals.tool', { durationMs: 300, samples: 100, invalid: 0 });
+    expect(batch.omittedChildren.provider + batch.omittedChildren.tool + batch.omittedChildren.permission).toBe(44);
+  });
   it('carries safe tool-call correlation and explicitly omits unsafe IDs', () => {
     const accumulator = makeAccumulator();
     const base = {

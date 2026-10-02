@@ -1,0 +1,27 @@
+export function productEnvironment(label = 'cedar'): Record<string, string> {
+  return {
+    PRODUCT_ID: label,
+    PRODUCT_DISPLAY_NAME: `${label} Agent`,
+    PRODUCT_CLI_NAME: label,
+    PRODUCT_ENV_PREFIX: `${label.toUpperCase()}_`,
+    PRODUCT_PACKAGE_SCOPE: `@${label}-sdk`,
+    PRODUCT_APP_ID: `org.example.${label}`,
+    PRODUCT_PROTOCOL_SCHEME: label,
+    PRODUCT_TELEMETRY_SERVICE_NAME: `${label}.agent`,
+    PRODUCT_DAEMON_NAMESPACE: `${label}.daemon`,
+    PRODUCT_DESKTOP_EXECUTABLE: `${label}-runtime`,
+    PRODUCT_MCP_CLIENT_NAME: `${label}-agent`,
+    PRODUCT_MODEL_TOOL_PREFIX: `${label}_command_`,
+    PRODUCT_PROMPT_TAG: `${label}_references`,
+    PRODUCT_EDITOR_TEMP_PREFIX: `${label}-editor-`,
+    PRODUCT_USER_STATE_DIR: `/tmp/${label}/user`,
+    PRODUCT_PROJECT_STATE_DIR: `.${label}`,
+    PRODUCT_CACHE_DIR: `/tmp/${label}/cache`,
+    PRODUCT_LOG_DIR: `/tmp/${label}/logs`,
+    PRODUCT_BROWSER_NAMESPACE: `${label}.browser`,
+    PRODUCT_BROWSER_CREDENTIAL_DATABASE: `${label}-credentials`,
+    PRODUCT_CREDENTIAL_SERVICE: `org.example.${label}.credentials`,
+    PRODUCT_CRYPTO_NAMESPACE: `${label}.crypto`,
+    SECURITY_MASTER_KEY_DERIVATION_PATH: '[123,0]',
+  };
+}

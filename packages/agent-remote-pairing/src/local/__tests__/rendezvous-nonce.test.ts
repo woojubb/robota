@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_GRANT_TTL_MS, RendezvousGrantLedger } from '../rendezvous-nonce.js';
 
 const NOW = 1_700_000_000_000;
-const GUARDED = '/run/user/1000/robota/peers';
-const OTHER = '/run/user/1000/robota/other';
+const GUARDED = '/run/user/1000/fixture-agent/peers';
+const OTHER = '/run/user/1000/fixture-agent/other';
 
 describe('SEC-010 — the nonce carries the kernel’s answer from the rendezvous to the channel', () => {
   it('honours a grant presented at the rendezvous it was issued for', () => {

@@ -7,7 +7,7 @@ before your handler runs.
 ## Basic tool
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { z } from 'zod';
@@ -34,7 +34,7 @@ const calculatorTool = createZodFunctionTool(
   async ({ operation, a, b }) => String(operations[operation](a, b)),
 );
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'MathAgent',
   aiProviders: [provider],
   defaultModel: {
@@ -58,7 +58,7 @@ JSON text.
 Register as many tools as the task needs; the model picks one per step and can chain them.
 
 ```typescript
-import { Robota, type IAIProvider } from '@robota-sdk/agent-core';
+import { ConversationAgent, type IAIProvider } from '@robota-sdk/agent-core';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
@@ -79,7 +79,7 @@ const daysBetweenTool = createZodFunctionTool(
     String(Math.floor((Date.parse(to) - Date.parse(from)) / (24 * 60 * 60 * 1000))),
 );
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'CalendarAgent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
@@ -100,7 +100,7 @@ tool works in and may not leave. There are no ready-made instances, because a fi
 would have no boundary.
 
 ```typescript
-import { Robota, type IAIProvider } from '@robota-sdk/agent-core';
+import { ConversationAgent, type IAIProvider } from '@robota-sdk/agent-core';
 import {
   createBashTool,
   createReadTool,
@@ -112,7 +112,7 @@ declare const provider: IAIProvider;
 
 const workspaceRoot = process.cwd();
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'DevAgent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
@@ -139,7 +139,7 @@ example uses the E2B adapter; install the `e2b` package in your application.
 <!-- doc-example-skip: requires the optional e2b dependency -->
 
 ```typescript
-import { Robota, type IAIProvider } from '@robota-sdk/agent-core';
+import { ConversationAgent, type IAIProvider } from '@robota-sdk/agent-core';
 import {
   E2BSandboxClient,
   applyWorkspaceManifest,
@@ -163,7 +163,7 @@ await applyWorkspaceManifest(sandboxClient, {
   },
 });
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'SandboxedDevAgent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },

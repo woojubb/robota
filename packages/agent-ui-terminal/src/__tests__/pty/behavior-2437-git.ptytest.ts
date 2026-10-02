@@ -1,5 +1,5 @@
 /**
- * BEHAVIOR-2437 TC-07 — `/git status`, `/git diff` and `/git commit` on the BUILT robota binary, in
+ * BEHAVIOR-2437 TC-07 — `/git status`, `/git diff` and `/git commit` on the BUILT CLI binary, in
  * a real PTY, over a throwaway git repository. The four User Execution scenarios of the spec, as a
  * machine runs them: read path (S1), commit path (S2), nothing staged (S3), headless cancel (S4).
  *
@@ -15,11 +15,12 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { spawnTui } from './pty-driver.js';
+import { createPtyEnv } from './isolated-home.js';
 
 import type { IPtySession } from './pty-driver.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..');
-const ROBOTA_BIN = join(REPO_ROOT, 'packages/agent-cli/bin/robota.cjs');
+const AGENT_BIN = join(REPO_ROOT, 'packages/agent-cli/bin/agent.cjs');
 
 const WAIT_MS = 20_000;
 const CASE_TIMEOUT_MS = 120_000;
@@ -38,8 +39,7 @@ function gitEnv(home: string): NodeJS.ProcessEnv {
   const globalConfig = join(home, 'gitconfig');
   writeFileSync(globalConfig, '[commit]\n\tgpgsign = false\n');
   return {
-    PATH: process.env['PATH'] ?? '',
-    HOME: home,
+    ...createPtyEnv({ HOME: home }),
     GIT_CONFIG_NOSYSTEM: '1',
     GIT_CONFIG_GLOBAL: globalConfig,
   };
@@ -56,7 +56,7 @@ function git(fixture: IFixture, ...args: string[]): string {
 
 /** The dummy provider profile under the isolated HOME — boot/slash/exit make zero model calls. */
 function writeProviderSettings(home: string): void {
-  const dir = join(home, '.robota');
+  const dir = join(home, 'state');
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, 'settings.json'),
@@ -75,7 +75,7 @@ function writeProviderSettings(home: string): void {
  * `stage`), `notes.txt` edited and left unstaged, `scratch.log` created untracked.
  */
 function makeFixture(stage: boolean): IFixture {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-git-pty-')));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-git-pty-')));
   const home = join(root, 'home');
   const repo = join(root, 'repo');
   mkdirSync(home, { recursive: true });
@@ -83,7 +83,7 @@ function makeFixture(stage: boolean): IFixture {
   writeProviderSettings(home);
   const fixture: IFixture = { root, repo, home, env: gitEnv(home) };
   git(fixture, 'init', '-q', '-b', 'main');
-  git(fixture, 'config', 'user.name', 'Robota Scenario');
+  git(fixture, 'config', 'user.name', 'Scenario Fixture');
   git(fixture, 'config', 'user.email', 'scenario@example.com');
   git(fixture, 'config', 'commit.gpgsign', 'false');
   writeFileSync(join(repo, 'greeting.txt'), 'hello\n');
@@ -326,7 +326,7 @@ describe('/git through the real binary (BEHAVIOR-2437 TC-07)', () => {
     () => {
       fixture = makeFixture(true);
       const env: NodeJS.ProcessEnv = { ...fixture.env, TERM: 'dumb' };
-      const trust = spawnSync(process.execPath, [ROBOTA_BIN, 'trust', '--yes'], {
+      const trust = spawnSync(process.execPath, [AGENT_BIN, 'trust', '--yes'], {
         cwd: fixture.repo,
         env,
         encoding: 'utf8',
@@ -334,7 +334,7 @@ describe('/git through the real binary (BEHAVIOR-2437 TC-07)', () => {
       expect(trust.status).toBe(0);
       const result = spawnSync(
         process.execPath,
-        [ROBOTA_BIN, '-p', '/git commit feat: add greeting', '--bare', '--no-session-persistence'],
+        [AGENT_BIN, '-p', '/git commit feat: add greeting', '--bare', '--no-session-persistence'],
         { cwd: fixture.repo, env, encoding: 'utf8', timeout: 60_000 },
       );
       const output = `${result.stdout}${result.stderr}`;

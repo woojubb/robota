@@ -17,7 +17,7 @@
  * Deliberately not a plausible user flag: it is part of an internal process contract, and a user
  * who types it gets a loud refusal rather than a half-started worker.
  */
-export const SUBAGENT_WORKER_MODE_FLAG = '--__robota-subagent-worker';
+export const SUBAGENT_WORKER_MODE_FLAG = '--__agent-subagent-worker';
 
 /**
  * How to spawn a copy of the running artifact in subagent-worker mode.

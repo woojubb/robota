@@ -1,3 +1,4 @@
+import { useProductIdentity } from '../product-identity.js';
 import { useCallback, useRef, useState } from 'react';
 
 import type { IWsSessionState, TSessionListing, TSessionsError } from './session-client-types.js';
@@ -34,7 +35,7 @@ function keepsSessionsLive(listing: TSessionListing): boolean {
  * the reload (and only that tab), so it carries the id across it. Namespaced so a page hosting other
  * state under the same origin does not collide.
  */
-const RESTORE_SESSION_STORAGE_KEY = 'robota.restoreSessionId';
+function restoreSessionStorageKey(namespace: string): string { return `${namespace}.restoreSessionId`; }
 
 /**
  * Remember `sessionId` so the reload a desktop Reconnect triggers can switch back to it once the
@@ -42,25 +43,25 @@ const RESTORE_SESSION_STORAGE_KEY = 'robota.restoreSessionId';
  * storage is unavailable simply lands on whatever session the daemon puts a fresh connection on, same
  * as before this existed.
  */
-export function rememberSessionForRestore(sessionId: string): void {
+export function rememberSessionForRestore(namespace: string, sessionId: string): void {
   try {
-    window.sessionStorage.setItem(RESTORE_SESSION_STORAGE_KEY, sessionId);
+    window.sessionStorage.setItem(restoreSessionStorageKey(namespace), sessionId);
   } catch {
     /* storage unavailable — nothing to restore after the reload */
   }
 }
 
-function readStoredRestoreId(): string | null {
+function readStoredRestoreId(namespace: string): string | null {
   try {
-    return window.sessionStorage.getItem(RESTORE_SESSION_STORAGE_KEY);
+    return window.sessionStorage.getItem(restoreSessionStorageKey(namespace));
   } catch {
     return null;
   }
 }
 
-function clearStoredRestoreId(): void {
+function clearStoredRestoreId(namespace: string): void {
   try {
-    window.sessionStorage.removeItem(RESTORE_SESSION_STORAGE_KEY);
+    window.sessionStorage.removeItem(restoreSessionStorageKey(namespace));
   } catch {
     /* noop — nothing was readable to begin with */
   }
@@ -89,6 +90,7 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
   /** The connection is (re)established: the next listing decides whether to go back. */
   armRestore: () => void;
 } {
+  const { storage: { browserNamespace } } = useProductIdentity();
   const [sessionListing, setSessionListing] = useState<TSessionListing | null>(null);
   const [sessionsError, setSessionsError] = useState<TSessionsError | null>(null);
   const [sessionSidebarOpen, setSessionSidebarOpen] = useState(initialSidebarOpen);
@@ -109,11 +111,11 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
       if (sessionId === currentIdRef.current) return;
       send({ type: 'switch-session', sessionId, requestId: nextRequestId('session_change') });
     },
-    [send],
+    [send, browserNamespace],
   );
   const newSession = useCallback(
     (): void => send({ type: 'new-session', requestId: nextRequestId('session_change') }),
-    [send],
+    [send, browserNamespace],
   );
   // #3289 §1: rename or delete a row in the list — current or not. Both answer on their own
   // correlated reply (`session_renamed_in_list`/`session_deleted`, or a `_failed` counterpart); the
@@ -121,12 +123,12 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
   const renameSessionInList = useCallback(
     (sessionId: string, name: string): void =>
       send({ type: 'rename-session', sessionId, name, requestId: nextRequestId('session_rename') }),
-    [send],
+    [send, browserNamespace],
   );
   const deleteSession = useCallback(
     (sessionId: string): void =>
       send({ type: 'delete-session', sessionId, requestId: nextRequestId('session_delete') }),
-    [send],
+    [send, browserNamespace],
   );
 
   // The session this surface last moved to, and — once per connection — whether to go back to it.
@@ -135,8 +137,8 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
   const armRestore = useCallback((): void => {
     // A remembered id (issue #3280 §5, a desktop Reconnect's reload) wins over the same-page target:
     // on a fresh page, `lastSwitchedIdRef` is always null anyway, so this only ever adds a source.
-    restoreTargetRef.current = readStoredRestoreId() ?? lastSwitchedIdRef.current;
-  }, []);
+    restoreTargetRef.current = readStoredRestoreId(browserNamespace) ?? lastSwitchedIdRef.current;
+  }, [browserNamespace]);
   const restoreAfterReconnect = useCallback(
     (listing: TSessionListing): void => {
       const target = restoreTargetRef.current;
@@ -144,14 +146,14 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
       if (target === null) return;
       // Spent on this first listing whether or not the switch below actually happens — a fresh
       // launch with no remembered id never reaches here (target stays null), so nothing switches.
-      clearStoredRestoreId();
+      clearStoredRestoreId(browserNamespace);
       if (target === listing.currentSessionId) return;
       if (!keepsSessionsLive(listing)) return;
       // A session the host no longer lists (an empty one it never saved) is nothing to go back to.
       if (!listing.sessions.some((row) => row.id === target)) return;
       send({ type: 'switch-session', sessionId: target, requestId: nextRequestId('session_change') });
     },
-    [send],
+    [send, browserNamespace],
   );
 
   const handleSessionsMessage = useCallback(
@@ -180,7 +182,7 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
     setSessionListing((previous) =>
       previous === null ? previous : { ...previous, currentSessionId: sessionId },
     );
-  }, []);
+  }, [browserNamespace]);
 
   return {
     sessionListing,

@@ -4,7 +4,7 @@ Register several providers on one agent and switch the model between runs. Each 
 own package; DeepSeek, Qwen and Gemma share `@robota-sdk/agent-provider-openai-compatible`.
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
@@ -14,7 +14,7 @@ import {
   QwenProvider,
 } from '@robota-sdk/agent-provider-openai-compatible';
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'MultiAgent',
   aiProviders: [
     new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),

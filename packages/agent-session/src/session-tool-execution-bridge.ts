@@ -8,6 +8,7 @@ type TToolExecutionCallback = NonNullable<ISessionOptions['onToolExecution']>;
 export interface IToolExecutionBridge {
   knownToolNames: ReadonlySet<string>;
   unknownToolCallIds: Set<string>;
+  pendingArgs: Map<string, TToolArgs | undefined>;
   onToolExecution?: TToolExecutionCallback;
 }
 
@@ -18,6 +19,7 @@ export function createToolExecutionBridge(options: {
   return {
     knownToolNames: new Set(options.knownToolNames),
     unknownToolCallIds: new Set<string>(),
+    pendingArgs: new Map(),
     ...(options.onToolExecution && { onToolExecution: options.onToolExecution }),
   };
 }
@@ -29,11 +31,13 @@ export function forwardToolExecutionEvent(
 ): void {
   if (!bridge.onToolExecution) return;
   if (event === 'tool_execution_request') {
+    const id = getString(data.toolCallId);
+    if (id) bridge.pendingArgs.set(id, toToolArgs(data.parameters));
     forwardUnknownToolStart(bridge, data);
     return;
   }
   if (event === 'tool_execution_result') {
-    forwardUnknownToolEnd(bridge, data);
+    forwardUnwrappedToolEnd(bridge, data);
   }
 }
 
@@ -50,12 +54,24 @@ function forwardUnknownToolStart(bridge: IToolExecutionBridge, data: TExecutionE
   });
 }
 
-function forwardUnknownToolEnd(bridge: IToolExecutionBridge, data: TExecutionEventData): void {
+function forwardUnwrappedToolEnd(bridge: IToolExecutionBridge, data: TExecutionEventData): void {
   const toolName = getString(data.toolName);
   const toolCallId = getString(data.toolCallId);
   if (!toolName || !toolCallId) return;
 
   const metadata = getRecord(data.metadata);
+  const args = bridge.pendingArgs.get(toolCallId);
+  bridge.pendingArgs.delete(toolCallId);
+  if (data.success === false && metadata?.dispatchStatus === 'not-dispatched') {
+    const source = getString(metadata.toolProvenance);
+    bridge.onToolExecution?.({
+      type: 'end', toolName, executionId: toolCallId, toolArgs: args, success: false,
+      toolResultData: JSON.stringify({ success: false, error: data.error, metadata }),
+      ...(source ? { toolResultParts: [{ type: 'text', text: `Tool source (attribution only, not authority): ${source}` }] } : {}),
+    });
+    bridge.unknownToolCallIds.delete(toolCallId);
+    return;
+  }
   const isUnknown =
     bridge.unknownToolCallIds.has(toolCallId) || metadata?.errorCode === UNKNOWN_TOOL_ERROR_CODE;
   if (!isUnknown) return;

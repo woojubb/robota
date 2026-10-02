@@ -66,7 +66,35 @@ function isExpressible(node: IParameterSchema): boolean {
   return typeof node.type === 'string' && SUBSET_TYPES.has(node.type);
 }
 
-function narrowNode(node: IParameterSchema, path: string, dropped: string[]): IParameterSchema {
+function narrowNode(input: IParameterSchema, path: string, dropped: string[]): IParameterSchema {
+  let node = input;
+  // Foreign dialect declarations are not part of the portable schema contract. Keep the
+  // enforceable constraints, but report the declaration's removal rather than persisting it.
+  if (Object.prototype.hasOwnProperty.call(node, '$schema')) {
+    const { $schema: _dialect, ...portable } = node as IParameterSchema & { $schema?: unknown };
+    dropped.push(`${path}.$schema`);
+    node = portable as IParameterSchema;
+  }
+  if (Array.isArray(node.anyOf)) {
+    node = {
+      ...node,
+      anyOf: node.anyOf.map((child, index) =>
+        narrowNode(child, `${path}.anyOf[${index}]`, dropped),
+      ),
+    };
+  }
+  if (typeof node.additionalProperties === 'object' && node.additionalProperties !== null) {
+    const childPath = `${path}.additionalProperties`;
+    if (isExpressible(node.additionalProperties)) {
+      node = {
+        ...node,
+        additionalProperties: narrowNode(node.additionalProperties, childPath, dropped),
+      };
+    } else {
+      dropped.push(childPath);
+      node = { ...node, additionalProperties: anyValueNode() };
+    }
+  }
   if (node.type === 'object') {
     const properties = node.properties;
     if (!properties) return node;

@@ -1,3 +1,6 @@
+import { createIdentityContext } from '../identity/crypto-context.js';
+const testIdentity = createIdentityContext('test-product');
+const IDENTITY_PURPOSES = testIdentity.purposes;
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
@@ -14,12 +17,7 @@ import {
   type ISigningKey,
   type ISigningKeyCertificate,
 } from '../identity/certificates.js';
-import {
-  IDENTITY_CLOCK_SKEW_MS,
-  IDENTITY_PURPOSES,
-  canonicalBytes,
-  signCanonical,
-} from '../identity/encoding.js';
+import { IDENTITY_CLOCK_SKEW_MS, canonicalBytes, signCanonical } from '../identity/encoding.js';
 import { deriveMasterKey, type IMasterKey } from '../identity/master-key.js';
 import {
   REVOCATION_LIST_VALIDITY_MS,
@@ -58,7 +56,7 @@ interface IWorld {
 
 async function buildWorld(master: IMasterKey, alg: 'Ed25519' | 'ES256'): Promise<IWorld> {
   const signing = await generateSigningKeyPair({ alg, extractable: false });
-  const signingKeyCert = await certifySigningKey({
+  const signingKeyCert = await certifySigningKey(testIdentity, {
     masterPrivateKey: master.keyPair.privateKey,
     userId: master.userId,
     signingPublicKey: signing.publicKey,
@@ -67,7 +65,7 @@ async function buildWorld(master: IMasterKey, alg: 'Ed25519' | 'ES256'): Promise
   const signingKey: ISigningKey = { certificate: signingKeyCert, privateKey: signing.privateKey };
   const deviceSign = await generateDeviceSignKeyPair(false);
   const deviceKa = await generateDeviceKeyAgreementKeyPair(false);
-  const deviceCert = await certifyDevice({
+  const deviceCert = await certifyDevice(testIdentity, {
     signingKey,
     signPublicKey: deviceSign.publicKey,
     kaPublicKey: deviceKa.publicKey,
@@ -76,21 +74,26 @@ async function buildWorld(master: IMasterKey, alg: 'Ed25519' | 'ES256'): Promise
     capabilities: ['message', 'presence', 'handoff'],
     issuedAt: NOW,
   });
-  const roster = await issueDeviceRoster({ signingKey, seq: 5, issuedAt: NOW, devices: [deviceCert] });
-  const revocation = await issueDeviceRevocationList({
+  const roster = await issueDeviceRoster(testIdentity, {
+    signingKey,
+    seq: 5,
+    issuedAt: NOW,
+    devices: [deviceCert],
+  });
+  const revocation = await issueDeviceRevocationList(testIdentity, {
     signingKey,
     seq: 7,
     issuedAt: NOW,
     revokedDeviceIds: [],
   });
-  const signingKeyRevocation = await issueSigningKeyRevocation({
+  const signingKeyRevocation = await issueSigningKeyRevocation(testIdentity, {
     masterPrivateKey: master.keyPair.privateKey,
     userId: master.userId,
     seq: 2,
     issuedAt: NOW,
     revokedSigningKeyIds: [],
   });
-  const session = await signSessionDescriptor({
+  const session = await signSessionDescriptor(testIdentity, {
     signPrivateKey: deviceSign.privateKey,
     deviceId: deviceCert.deviceId,
     sessionId: 'c2Vzc2lvbi0x',
@@ -114,8 +117,11 @@ let world: IWorld;
 let otherWorld: IWorld;
 
 beforeAll(async () => {
-  world = await buildWorld(await deriveMasterKey(PHRASE), 'Ed25519');
-  otherWorld = await buildWorld(await deriveMasterKey(OTHER_PHRASE), 'ES256');
+  world = await buildWorld(await deriveMasterKey(PHRASE, { derivationPath: [100, 0] }), 'Ed25519');
+  otherWorld = await buildWorld(
+    await deriveMasterKey(OTHER_PHRASE, { derivationPath: [100, 0] }),
+    'ES256',
+  );
 });
 
 function clone<T>(value: T): T {
@@ -137,9 +143,14 @@ function full(overrides: Partial<IVerifyDeviceChainInput> = {}): IVerifyDeviceCh
 
 /** A P-256 SPKI whose point tag claims compressed form — same DER prefix, not an uncompressed point. */
 function compressedTag(spki: string): string {
-  const bytes = Uint8Array.from(atob(spki.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+  const bytes = Uint8Array.from(atob(spki.replace(/-/g, '+').replace(/_/g, '/')), (c) =>
+    c.charCodeAt(0),
+  );
   bytes[26] = 0x02;
-  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
 }
 
 /** Replace one character of a base64url value with another valid one, keeping it canonical. */
@@ -150,7 +161,7 @@ function flip(value: string, at = 5): string {
 
 describe('verifyDeviceChain — acceptance', () => {
   it('accepts a complete Ed25519-signing-key chain and reports what it accepted', async () => {
-    const verdict = await verifyDeviceChain(full());
+    const verdict = await verifyDeviceChain(testIdentity, full());
     expect(verdict).toEqual({
       ok: true,
       userId: world.master.userId,
@@ -163,7 +174,7 @@ describe('verifyDeviceChain — acceptance', () => {
   });
 
   it('accepts an ES256 signing key and a chain with no optional lists', async () => {
-    const verdict = await verifyDeviceChain({
+    const verdict = await verifyDeviceChain(testIdentity, {
       masterPublicKey: otherWorld.master.publicKey,
       signingKeyCert: otherWorld.signingKeyCert,
       deviceCert: otherWorld.deviceCert,
@@ -178,13 +189,14 @@ describe('verifyDeviceChain — acceptance', () => {
     expect(world.deviceCert.expiresAt - NOW).toBe(DEVICE_CERTIFICATE_VALIDITY_MS);
     expect(world.revocation.expiresAt - NOW).toBe(REVOCATION_LIST_VALIDITY_MS);
     expect(world.deviceCert.capabilities).toEqual(['handoff', 'message', 'presence']);
-    expect(world.deviceCert.ctx).toBe('robota/device-cert/v1');
+    expect(world.deviceCert.ctx).toBe(testIdentity.purposes.deviceCert);
     expect(world.deviceCert.alg).toBe('ES256');
     expect(world.deviceCert.kaAlg).toBe('X25519');
   });
 
   it('accepts a list whose seq equals the last one seen', async () => {
     const verdict = await verifyDeviceChain(
+      testIdentity,
       full({
         lastSeen: {
           signingKeyRevocationSeq: 2,
@@ -198,20 +210,24 @@ describe('verifyDeviceChain — acceptance', () => {
 
 describe('verifyDeviceChain — every rejection reason', () => {
   it('wrong-purpose: a roster presented as a revocation list, a device cert as a signing-key cert', async () => {
-    expect(await verifyDeviceChain(full({ revocation: world.roster }))).toEqual({
+    expect(await verifyDeviceChain(testIdentity, full({ revocation: world.roster }))).toEqual({
       ok: false,
       reason: 'wrong-purpose',
       subject: 'revocation',
     });
-    expect(await verifyDeviceChain(full({ signingKeyCert: world.deviceCert }))).toEqual({
+    expect(
+      await verifyDeviceChain(testIdentity, full({ signingKeyCert: world.deviceCert })),
+    ).toEqual({
       ok: false,
       reason: 'wrong-purpose',
       subject: 'signing-key-cert',
     });
-    expect(await verifyDeviceChain(full({ roster: world.revocation }))).toMatchObject({
-      reason: 'wrong-purpose',
-      subject: 'roster',
-    });
+    expect(await verifyDeviceChain(testIdentity, full({ roster: world.revocation }))).toMatchObject(
+      {
+        reason: 'wrong-purpose',
+        subject: 'roster',
+      },
+    );
   });
 
   it('cross-purpose signature: relabelling a statement keeps no signature valid', async () => {
@@ -226,7 +242,7 @@ describe('verifyDeviceChain — every rejection reason', () => {
       revokedDeviceIds: [],
       sig: world.roster.sig,
     };
-    expect(await verifyDeviceChain(full({ revocation: forgedRevocation }))).toEqual({
+    expect(await verifyDeviceChain(testIdentity, full({ revocation: forgedRevocation }))).toEqual({
       ok: false,
       reason: 'signature-invalid',
       subject: 'revocation',
@@ -241,7 +257,9 @@ describe('verifyDeviceChain — every rejection reason', () => {
       revokedSigningKeyIds: [],
       sig: world.signingKeyCert.sig,
     };
-    expect(await verifyDeviceChain(full({ signingKeyRevocation: forgedSkRevocation }))).toEqual({
+    expect(
+      await verifyDeviceChain(testIdentity, full({ signingKeyRevocation: forgedSkRevocation })),
+    ).toEqual({
       ok: false,
       reason: 'signature-invalid',
       subject: 'signing-key-revocation',
@@ -265,7 +283,7 @@ describe('verifyDeviceChain — every rejection reason', () => {
       expiresAt: world.deviceCert.expiresAt,
       sig: world.deviceCert.sig,
     };
-    expect(await verifyDeviceChain(full({ signingKeyCert: relabelled }))).toEqual({
+    expect(await verifyDeviceChain(testIdentity, full({ signingKeyCert: relabelled }))).toEqual({
       ok: false,
       reason: 'signature-invalid',
       subject: 'signing-key-cert',
@@ -275,6 +293,7 @@ describe('verifyDeviceChain — every rejection reason', () => {
   it('signature-invalid: a signing key certified by another master', async () => {
     expect(
       await verifyDeviceChain(
+        testIdentity,
         full({ signingKeyCert: otherWorld.signingKeyCert, deviceCert: otherWorld.deviceCert }),
       ),
     ).toEqual({ ok: false, reason: 'signature-invalid', subject: 'signing-key-cert' });
@@ -282,13 +301,13 @@ describe('verifyDeviceChain — every rejection reason', () => {
 
   it('user-mismatch: the master signed a certificate naming another user', async () => {
     const signing = await generateSigningKeyPair({ extractable: false });
-    const cert = await certifySigningKey({
+    const cert = await certifySigningKey(testIdentity, {
       masterPrivateKey: world.master.keyPair.privateKey,
       userId: otherWorld.master.userId,
       signingPublicKey: signing.publicKey,
       issuedAt: NOW,
     });
-    expect(await verifyDeviceChain(full({ signingKeyCert: cert }))).toEqual({
+    expect(await verifyDeviceChain(testIdentity, full({ signingKeyCert: cert }))).toEqual({
       ok: false,
       reason: 'user-mismatch',
       subject: 'signing-key-cert',
@@ -297,25 +316,25 @@ describe('verifyDeviceChain — every rejection reason', () => {
 
   it('signing-key-mismatch: a device or list issued under a different signing key', async () => {
     const signing = await generateSigningKeyPair({ extractable: false });
-    const secondCert = await certifySigningKey({
+    const secondCert = await certifySigningKey(testIdentity, {
       masterPrivateKey: world.master.keyPair.privateKey,
       userId: world.master.userId,
       signingPublicKey: signing.publicKey,
       issuedAt: NOW,
     });
-    expect(await verifyDeviceChain(full({ signingKeyCert: secondCert }))).toEqual({
+    expect(await verifyDeviceChain(testIdentity, full({ signingKeyCert: secondCert }))).toEqual({
       ok: false,
       reason: 'signing-key-mismatch',
       subject: 'device-cert',
     });
     const secondKey: ISigningKey = { certificate: secondCert, privateKey: signing.privateKey };
-    const foreignRoster = await issueDeviceRoster({
+    const foreignRoster = await issueDeviceRoster(testIdentity, {
       signingKey: secondKey,
       seq: 9,
       issuedAt: NOW,
       devices: [world.deviceCert],
     });
-    expect(await verifyDeviceChain(full({ roster: foreignRoster }))).toEqual({
+    expect(await verifyDeviceChain(testIdentity, full({ roster: foreignRoster }))).toEqual({
       ok: false,
       reason: 'signing-key-mismatch',
       subject: 'roster',
@@ -325,8 +344,16 @@ describe('verifyDeviceChain — every rejection reason', () => {
   it('key-id-mismatch: a signed device id that is not the hash of its key', async () => {
     const { sig: _sig, ...unsigned } = world.deviceCert;
     const lying = { ...unsigned, deviceId: otherWorld.deviceCert.deviceId };
-    const sig = await signCanonical(world.signingKey.privateKey, deviceCertificateBytes(lying));
-    expect(await verifyDeviceChain(full({ deviceCert: { ...lying, sig }, roster: undefined }))).toEqual({
+    const sig = await signCanonical(
+      world.signingKey.privateKey,
+      deviceCertificateBytes(testIdentity, lying),
+    );
+    expect(
+      await verifyDeviceChain(
+        testIdentity,
+        full({ deviceCert: { ...lying, sig }, roster: undefined }),
+      ),
+    ).toEqual({
       ok: false,
       reason: 'key-id-mismatch',
       subject: 'device-cert',
@@ -336,14 +363,30 @@ describe('verifyDeviceChain — every rejection reason', () => {
   it('expired / not-yet-valid honour the documented clock skew', async () => {
     const certEnd = world.signingKeyCert.expiresAt;
     const lists = { roster: undefined, revocation: undefined };
-    expect((await verifyDeviceChain(full({ ...lists, now: certEnd + IDENTITY_CLOCK_SKEW_MS - 1 }))).ok).toBe(true);
-    expect(await verifyDeviceChain(full({ ...lists, now: certEnd + IDENTITY_CLOCK_SKEW_MS }))).toEqual({
+    expect(
+      (
+        await verifyDeviceChain(
+          testIdentity,
+          full({ ...lists, now: certEnd + IDENTITY_CLOCK_SKEW_MS - 1 }),
+        )
+      ).ok,
+    ).toBe(true);
+    expect(
+      await verifyDeviceChain(
+        testIdentity,
+        full({ ...lists, now: certEnd + IDENTITY_CLOCK_SKEW_MS }),
+      ),
+    ).toEqual({
       ok: false,
       reason: 'expired',
       subject: 'signing-key-cert',
     });
-    expect((await verifyDeviceChain(full({ now: NOW - IDENTITY_CLOCK_SKEW_MS }))).ok).toBe(true);
-    expect(await verifyDeviceChain(full({ now: NOW - IDENTITY_CLOCK_SKEW_MS - 1 }))).toEqual({
+    expect(
+      (await verifyDeviceChain(testIdentity, full({ now: NOW - IDENTITY_CLOCK_SKEW_MS }))).ok,
+    ).toBe(true);
+    expect(
+      await verifyDeviceChain(testIdentity, full({ now: NOW - IDENTITY_CLOCK_SKEW_MS - 1 })),
+    ).toEqual({
       ok: false,
       reason: 'not-yet-valid',
       subject: 'signing-key-cert',
@@ -352,7 +395,7 @@ describe('verifyDeviceChain — every rejection reason', () => {
 
   it('expired: a device certificate past its end inside a live signing key', async () => {
     const deviceKa = await generateDeviceKeyAgreementKeyPair(false);
-    const shortLived = await certifyDevice({
+    const shortLived = await certifyDevice(testIdentity, {
       signingKey: world.signingKey,
       signPublicKey: world.deviceSign.publicKey,
       kaPublicKey: deviceKa.publicKey,
@@ -364,19 +407,24 @@ describe('verifyDeviceChain — every rejection reason', () => {
     });
     expect(
       await verifyDeviceChain(
-        full({ deviceCert: shortLived, roster: undefined, now: NOW + 1000 + IDENTITY_CLOCK_SKEW_MS }),
+        testIdentity,
+        full({
+          deviceCert: shortLived,
+          roster: undefined,
+          now: NOW + 1000 + IDENTITY_CLOCK_SKEW_MS,
+        }),
       ),
     ).toEqual({ ok: false, reason: 'expired', subject: 'device-cert' });
   });
 
   it('revoked: the device appears in a valid revocation list', async () => {
-    const revocation = await issueDeviceRevocationList({
+    const revocation = await issueDeviceRevocationList(testIdentity, {
       signingKey: world.signingKey,
       seq: 8,
       issuedAt: NOW,
       revokedDeviceIds: [otherWorld.deviceCert.deviceId, world.deviceCert.deviceId],
     });
-    expect(await verifyDeviceChain(full({ revocation }))).toEqual({
+    expect(await verifyDeviceChain(testIdentity, full({ revocation }))).toEqual({
       ok: false,
       reason: 'revoked',
       subject: 'revocation',
@@ -384,14 +432,16 @@ describe('verifyDeviceChain — every rejection reason', () => {
   });
 
   it('signing-key-revoked: the master revoked the signing key', async () => {
-    const skRevocation = await issueSigningKeyRevocation({
+    const skRevocation = await issueSigningKeyRevocation(testIdentity, {
       masterPrivateKey: world.master.keyPair.privateKey,
       userId: world.master.userId,
       seq: 3,
       issuedAt: NOW,
       revokedSigningKeyIds: [world.signingKeyCert.signingKeyId],
     });
-    expect(await verifyDeviceChain(full({ signingKeyRevocation: skRevocation }))).toEqual({
+    expect(
+      await verifyDeviceChain(testIdentity, full({ signingKeyRevocation: skRevocation })),
+    ).toEqual({
       ok: false,
       reason: 'signing-key-revoked',
       subject: 'signing-key-revocation',
@@ -399,19 +449,19 @@ describe('verifyDeviceChain — every rejection reason', () => {
   });
 
   it('not-in-roster: absent, or present only as a different certificate for the same device', async () => {
-    const empty = await issueDeviceRoster({
+    const empty = await issueDeviceRoster(testIdentity, {
       signingKey: world.signingKey,
       seq: 6,
       issuedAt: NOW,
       devices: [],
     });
-    expect(await verifyDeviceChain(full({ roster: empty }))).toEqual({
+    expect(await verifyDeviceChain(testIdentity, full({ roster: empty }))).toEqual({
       ok: false,
       reason: 'not-in-roster',
       subject: 'roster',
     });
     const deviceKa = await generateDeviceKeyAgreementKeyPair(false);
-    const reissued = await certifyDevice({
+    const reissued = await certifyDevice(testIdentity, {
       signingKey: world.signingKey,
       signPublicKey: world.deviceSign.publicKey,
       kaPublicKey: deviceKa.publicKey,
@@ -421,25 +471,27 @@ describe('verifyDeviceChain — every rejection reason', () => {
       issuedAt: NOW,
     });
     expect(reissued.deviceId).toBe(world.deviceCert.deviceId);
-    const rosterWithReissue = await issueDeviceRoster({
+    const rosterWithReissue = await issueDeviceRoster(testIdentity, {
       signingKey: world.signingKey,
       seq: 6,
       issuedAt: NOW,
       devices: [reissued],
     });
-    expect(await verifyDeviceChain(full({ roster: rosterWithReissue }))).toMatchObject({
+    expect(
+      await verifyDeviceChain(testIdentity, full({ roster: rosterWithReissue })),
+    ).toMatchObject({
       reason: 'not-in-roster',
     });
   });
 
   it('stale: an expired revocation list or roster', async () => {
     const later = NOW + REVOCATION_LIST_VALIDITY_MS + IDENTITY_CLOCK_SKEW_MS;
-    expect(await verifyDeviceChain(full({ roster: undefined, now: later }))).toEqual({
+    expect(await verifyDeviceChain(testIdentity, full({ roster: undefined, now: later }))).toEqual({
       ok: false,
       reason: 'stale',
       subject: 'revocation',
     });
-    const shortRoster = await issueDeviceRoster({
+    const shortRoster = await issueDeviceRoster(testIdentity, {
       signingKey: world.signingKey,
       seq: 5,
       issuedAt: NOW,
@@ -447,7 +499,10 @@ describe('verifyDeviceChain — every rejection reason', () => {
       devices: [world.deviceCert],
     });
     expect(
-      await verifyDeviceChain(full({ roster: shortRoster, now: NOW + 10 + IDENTITY_CLOCK_SKEW_MS })),
+      await verifyDeviceChain(
+        testIdentity,
+        full({ roster: shortRoster, now: NOW + 10 + IDENTITY_CLOCK_SKEW_MS }),
+      ),
     ).toEqual({ ok: false, reason: 'stale', subject: 'roster' });
   });
 
@@ -455,13 +510,17 @@ describe('verifyDeviceChain — every rejection reason', () => {
     const expiry = NOW + REVOCATION_LIST_VALIDITY_MS;
     const grace = 60 * 60 * 1000;
     const inside = await verifyDeviceChain(
+      testIdentity,
       full({ now: expiry + IDENTITY_CLOCK_SKEW_MS + grace - 1, listExpiryGraceMs: grace }),
     );
     expect(inside).toMatchObject({ ok: true, listsExpiredAt: expiry });
     expect(
-      await verifyDeviceChain(full({ now: expiry + IDENTITY_CLOCK_SKEW_MS + grace, listExpiryGraceMs: grace })),
+      await verifyDeviceChain(
+        testIdentity,
+        full({ now: expiry + IDENTITY_CLOCK_SKEW_MS + grace, listExpiryGraceMs: grace }),
+      ),
     ).toEqual({ ok: false, reason: 'stale', subject: 'revocation' });
-    const fresh = await verifyDeviceChain(full({ listExpiryGraceMs: grace }));
+    const fresh = await verifyDeviceChain(testIdentity, full({ listExpiryGraceMs: grace }));
     expect(fresh.ok && 'listsExpiredAt' in fresh).toBe(false);
   });
 
@@ -469,16 +528,22 @@ describe('verifyDeviceChain — every rejection reason', () => {
     const skId = world.signingKeyCert.signingKeyId;
     expect(
       await verifyDeviceChain(
-        full({ revocation: undefined, lastSeen: { bySigningKey: { [skId]: { revocationSeq: 7 } } } }),
+        testIdentity,
+        full({
+          revocation: undefined,
+          lastSeen: { bySigningKey: { [skId]: { revocationSeq: 7 } } },
+        }),
       ),
     ).toEqual({ ok: false, reason: 'stale', subject: 'revocation' });
     expect(
       await verifyDeviceChain(
+        testIdentity,
         full({ roster: undefined, lastSeen: { bySigningKey: { [skId]: { rosterSeq: 5 } } } }),
       ),
     ).toEqual({ ok: false, reason: 'stale', subject: 'roster' });
     expect(
       await verifyDeviceChain(
+        testIdentity,
         full({ signingKeyRevocation: undefined, lastSeen: { signingKeyRevocationSeq: 2 } }),
       ),
     ).toEqual({ ok: false, reason: 'stale', subject: 'signing-key-revocation' });
@@ -488,16 +553,33 @@ describe('verifyDeviceChain — every rejection reason', () => {
       ['signingKeyRevocation', 'signing-key-revocation'],
     ] as const) {
       expect(
-        await verifyDeviceChain(full({ [slot]: undefined, required: { [slot]: true } })),
+        await verifyDeviceChain(
+          testIdentity,
+          full({ [slot]: undefined, required: { [slot]: true } }),
+        ),
       ).toEqual({ ok: false, reason: 'stale', subject });
     }
-    expect((await verifyDeviceChain(full({ required: { roster: true, revocation: true, signingKeyRevocation: true } }))).ok).toBe(true);
+    expect(
+      (
+        await verifyDeviceChain(
+          testIdentity,
+          full({ required: { roster: true, revocation: true, signingKeyRevocation: true } }),
+        )
+      ).ok,
+    ).toBe(true);
   });
 
   it('device-list marks belong to the signing key that issued the list', async () => {
     // Another signing key's high seq does not make this key's lists look rolled back.
     const verdict = await verifyDeviceChain(
-      full({ lastSeen: { bySigningKey: { [otherWorld.signingKeyCert.signingKeyId]: { rosterSeq: 40, revocationSeq: 40 } } } }),
+      testIdentity,
+      full({
+        lastSeen: {
+          bySigningKey: {
+            [otherWorld.signingKeyCert.signingKeyId]: { rosterSeq: 40, revocationSeq: 40 },
+          },
+        },
+      }),
     );
     expect(verdict.ok).toBe(true);
   });
@@ -505,20 +587,28 @@ describe('verifyDeviceChain — every rejection reason', () => {
   it('rolled-back: any list below the last seq seen', async () => {
     const skId = world.signingKeyCert.signingKeyId;
     expect(
-      await verifyDeviceChain(full({ lastSeen: { bySigningKey: { [skId]: { rosterSeq: 6 } } } })),
+      await verifyDeviceChain(
+        testIdentity,
+        full({ lastSeen: { bySigningKey: { [skId]: { rosterSeq: 6 } } } }),
+      ),
     ).toEqual({
       ok: false,
       reason: 'rolled-back',
       subject: 'roster',
     });
     expect(
-      await verifyDeviceChain(full({ lastSeen: { bySigningKey: { [skId]: { revocationSeq: 8 } } } })),
+      await verifyDeviceChain(
+        testIdentity,
+        full({ lastSeen: { bySigningKey: { [skId]: { revocationSeq: 8 } } } }),
+      ),
     ).toEqual({
       ok: false,
       reason: 'rolled-back',
       subject: 'revocation',
     });
-    expect(await verifyDeviceChain(full({ lastSeen: { signingKeyRevocationSeq: 3 } }))).toEqual({
+    expect(
+      await verifyDeviceChain(testIdentity, full({ lastSeen: { signingKeyRevocationSeq: 3 } })),
+    ).toEqual({
       ok: false,
       reason: 'rolled-back',
       subject: 'signing-key-revocation',
@@ -543,7 +633,9 @@ async function expectEveryFieldBound(
   for (const [field, mutate] of Object.entries(mutations)) {
     const tampered = clone(original);
     tampered[field] = mutate(tampered[field]);
-    expect(tampered[field], `${label}.${field} mutation changes the value`).not.toEqual(original[field]);
+    expect(tampered[field], `${label}.${field} mutation changes the value`).not.toEqual(
+      original[field],
+    );
     const verdict = await verify(tampered);
     expect(verdict.ok, `${label}.${field} must be bound by the signature`).toBe(false);
   }
@@ -562,7 +654,7 @@ describe('tampering any signed field is refused', () => {
         issuedAt: NUMBER_MUTATION,
         expiresAt: NUMBER_MUTATION,
       },
-      (t) => verifyDeviceChain(full({ signingKeyCert: t })),
+      (t) => verifyDeviceChain(testIdentity, full({ signingKeyCert: t })),
     );
   });
 
@@ -584,7 +676,7 @@ describe('tampering any signed field is refused', () => {
         issuedAt: NUMBER_MUTATION,
         expiresAt: NUMBER_MUTATION,
       },
-      (t) => verifyDeviceChain(full({ deviceCert: t, roster: undefined })),
+      (t) => verifyDeviceChain(testIdentity, full({ deviceCert: t, roster: undefined })),
     );
   });
 
@@ -598,11 +690,12 @@ describe('tampering any signed field is refused', () => {
         seq: NUMBER_MUTATION,
         issuedAt: NUMBER_MUTATION,
         expiresAt: NUMBER_MUTATION,
-        devices: (v) => [...(v as unknown[]), otherWorld.deviceCert].sort((a, b) =>
-          (a as IDeviceCertificate).deviceId < (b as IDeviceCertificate).deviceId ? -1 : 1,
-        ),
+        devices: (v) =>
+          [...(v as unknown[]), otherWorld.deviceCert].sort((a, b) =>
+            (a as IDeviceCertificate).deviceId < (b as IDeviceCertificate).deviceId ? -1 : 1,
+          ),
       },
-      (t) => verifyDeviceChain(full({ roster: t })),
+      (t) => verifyDeviceChain(testIdentity, full({ roster: t })),
     );
   });
 
@@ -618,7 +711,7 @@ describe('tampering any signed field is refused', () => {
         expiresAt: NUMBER_MUTATION,
         revokedDeviceIds: () => [otherWorld.deviceCert.deviceId],
       },
-      (t) => verifyDeviceChain(full({ revocation: t })),
+      (t) => verifyDeviceChain(testIdentity, full({ revocation: t })),
     );
   });
 
@@ -632,7 +725,7 @@ describe('tampering any signed field is refused', () => {
         issuedAt: NUMBER_MUTATION,
         revokedSigningKeyIds: () => [otherWorld.signingKeyCert.signingKeyId],
       },
-      (t) => verifyDeviceChain(full({ signingKeyRevocation: t })),
+      (t) => verifyDeviceChain(testIdentity, full({ signingKeyRevocation: t })),
     );
   });
 
@@ -647,13 +740,16 @@ describe('tampering any signed field is refused', () => {
         startedAt: NUMBER_MUTATION,
         expiresAt: NUMBER_MUTATION,
       },
-      (t) => verifySessionDescriptor(t, { deviceCertificate: world.deviceCert, now: NOW }),
+      (t) =>
+        verifySessionDescriptor(testIdentity, t, { deviceCertificate: world.deviceCert, now: NOW }),
     );
   });
 
   it('a flipped signature byte', async () => {
     const tampered = { ...world.deviceCert, sig: flip(world.deviceCert.sig, 10) };
-    expect(await verifyDeviceChain(full({ deviceCert: tampered, roster: undefined }))).toEqual({
+    expect(
+      await verifyDeviceChain(testIdentity, full({ deviceCert: tampered, roster: undefined })),
+    ).toEqual({
       ok: false,
       reason: 'signature-invalid',
       subject: 'device-cert',
@@ -664,7 +760,10 @@ describe('tampering any signed field is refused', () => {
 describe('verifySessionDescriptor', () => {
   it('accepts a descriptor signed by the certified device key', async () => {
     expect(
-      await verifySessionDescriptor(world.session, { deviceCertificate: world.deviceCert, now: NOW }),
+      await verifySessionDescriptor(testIdentity, world.session, {
+        deviceCertificate: world.deviceCert,
+        now: NOW,
+      }),
     ).toEqual({
       ok: true,
       sessionId: 'c2Vzc2lvbi0x',
@@ -675,16 +774,19 @@ describe('verifySessionDescriptor', () => {
 
   it('refuses another device, another purpose, and an expired descriptor', async () => {
     expect(
-      await verifySessionDescriptor(otherWorld.session, {
+      await verifySessionDescriptor(testIdentity, otherWorld.session, {
         deviceCertificate: world.deviceCert,
         now: NOW,
       }),
     ).toEqual({ ok: false, reason: 'device-mismatch', subject: 'session-desc' });
     expect(
-      await verifySessionDescriptor(world.deviceCert, { deviceCertificate: world.deviceCert, now: NOW }),
+      await verifySessionDescriptor(testIdentity, world.deviceCert, {
+        deviceCertificate: world.deviceCert,
+        now: NOW,
+      }),
     ).toEqual({ ok: false, reason: 'wrong-purpose', subject: 'session-desc' });
     expect(
-      await verifySessionDescriptor(world.session, {
+      await verifySessionDescriptor(testIdentity, world.session, {
         deviceCertificate: world.deviceCert,
         now: world.session.expiresAt + IDENTITY_CLOCK_SKEW_MS,
       }),
@@ -693,7 +795,7 @@ describe('verifySessionDescriptor', () => {
 
   it('refuses to sign a descriptor its own decoder would reject', async () => {
     await expect(
-      signSessionDescriptor({
+      signSessionDescriptor(testIdentity, {
         signPrivateKey: world.deviceSign.privateKey,
         deviceId: world.deviceCert.deviceId,
         sessionId: 'not base64url!',
@@ -703,7 +805,7 @@ describe('verifySessionDescriptor', () => {
   });
 
   it('accepts a descriptor without a workspace claim', async () => {
-    const session = await signSessionDescriptor({
+    const session = await signSessionDescriptor(testIdentity, {
       signPrivateKey: world.deviceSign.privateKey,
       deviceId: world.deviceCert.deviceId,
       sessionId: 'c2Vzc2lvbi0y',
@@ -711,7 +813,10 @@ describe('verifySessionDescriptor', () => {
     });
     expect('workspaceClaim' in session).toBe(false);
     expect(
-      await verifySessionDescriptor(session, { deviceCertificate: world.deviceCert, now: NOW }),
+      await verifySessionDescriptor(testIdentity, session, {
+        deviceCertificate: world.deviceCert,
+        now: NOW,
+      }),
     ).toMatchObject({ ok: true, sessionId: 'c2Vzc2lvbi0y' });
   });
 });
@@ -745,17 +850,24 @@ describe('malformed input is a reason, never a throw, never an echo', () => {
     { ...clone(world.deviceCert), issuedAt: Number.MAX_SAFE_INTEGER + 2 },
     { ...clone(world.deviceCert), kaEpoch: -0 },
     { ...clone(world.deviceCert), signKey: compressedTag(world.deviceCert.signKey) },
-    JSON.parse(`{"__proto__": {"${MARKER}": 1}, "ctx": "robota/device-cert/v1"}`),
+    JSON.parse(`{"__proto__": {"${MARKER}": 1}, "ctx": "other-product/device-cert/v1"}`),
     Object.assign(Object.create({ inherited: MARKER }), clone(world.deviceCert)),
   ];
 
   it('in every slot of verifyDeviceChain', async () => {
-    const slots = ['signingKeyCert', 'deviceCert', 'roster', 'revocation', 'signingKeyRevocation'] as const;
+    const slots = [
+      'signingKeyCert',
+      'deviceCert',
+      'roster',
+      'revocation',
+      'signingKeyRevocation',
+    ] as const;
     for (const slot of slots) {
-      const optional = slot === 'roster' || slot === 'revocation' || slot === 'signingKeyRevocation';
+      const optional =
+        slot === 'roster' || slot === 'revocation' || slot === 'signingKeyRevocation';
       for (const value of garbage()) {
         if (optional && value === undefined) continue;
-        const verdict = await verifyDeviceChain(full({ [slot]: value }));
+        const verdict = await verifyDeviceChain(testIdentity, full({ [slot]: value }));
         expect(verdict.ok, `${slot} ← ${typeof value}`).toBe(false);
         expect(JSON.stringify(verdict)).not.toContain(MARKER);
       }
@@ -765,11 +877,14 @@ describe('malformed input is a reason, never a throw, never an echo', () => {
   it('malformed roster entries, oversized lists, and non-canonical base64url', async () => {
     const cases: unknown[] = [
       { ...clone(world.roster), devices: [{ ...clone(world.deviceCert), sig: MARKER }] },
-      { ...clone(world.roster), devices: Array.from({ length: 1000 }, () => clone(world.deviceCert)) },
+      {
+        ...clone(world.roster),
+        devices: Array.from({ length: 1000 }, () => clone(world.deviceCert)),
+      },
       { ...clone(world.roster), devices: [clone(world.deviceCert), clone(world.deviceCert)] },
     ];
     for (const roster of cases) {
-      const verdict = await verifyDeviceChain(full({ roster }));
+      const verdict = await verifyDeviceChain(testIdentity, full({ roster }));
       expect(verdict).toMatchObject({ ok: false, reason: 'malformed', subject: 'roster' });
       expect(JSON.stringify(verdict)).not.toContain(MARKER);
     }
@@ -780,35 +895,44 @@ describe('malformed input is a reason, never a throw, never an echo', () => {
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
     const sibling = alphabet[alphabet.indexOf(last) ^ 1];
     const nonCanonical = { ...world.deviceCert, sig: sig.slice(0, -1) + sibling };
-    expect(await verifyDeviceChain(full({ deviceCert: nonCanonical, roster: undefined }))).toMatchObject({
+    expect(
+      await verifyDeviceChain(testIdentity, full({ deviceCert: nonCanonical, roster: undefined })),
+    ).toMatchObject({
       ok: false,
       subject: 'device-cert',
     });
     const revocation = {
       ...clone(world.revocation),
-      revokedDeviceIds: Array.from({ length: 5000 }, (_, i) => flip(world.deviceCert.deviceId, i % 40)),
+      revokedDeviceIds: Array.from({ length: 5000 }, (_, i) =>
+        flip(world.deviceCert.deviceId, i % 40),
+      ),
     };
-    expect(await verifyDeviceChain(full({ revocation }))).toMatchObject({
+    expect(await verifyDeviceChain(testIdentity, full({ revocation }))).toMatchObject({
       reason: 'malformed',
       subject: 'revocation',
     });
   });
 
   it('the decoder alone refuses -0 and a non-uncompressed P-256 point', () => {
-    expect(decodeDeviceCertificate({ ...clone(world.deviceCert), kaEpoch: -0 })).toEqual({
+    expect(
+      decodeDeviceCertificate(testIdentity, { ...clone(world.deviceCert), kaEpoch: -0 }),
+    ).toEqual({
       ok: false,
       reason: 'malformed',
       field: 'kaEpoch',
     });
     expect(
-      decodeDeviceCertificate({ ...clone(world.deviceCert), signKey: compressedTag(world.deviceCert.signKey) }),
+      decodeDeviceCertificate(testIdentity, {
+        ...clone(world.deviceCert),
+        signKey: compressedTag(world.deviceCert.signKey),
+      }),
     ).toEqual({ ok: false, reason: 'malformed', field: 'signKey' });
-    expect(decodeDeviceCertificate(clone(world.deviceCert)).ok).toBe(true);
+    expect(decodeDeviceCertificate(testIdentity, clone(world.deviceCert)).ok).toBe(true);
   });
 
   it('in verifySessionDescriptor', async () => {
     for (const value of garbage()) {
-      const verdict = await verifySessionDescriptor(value, {
+      const verdict = await verifySessionDescriptor(testIdentity, value, {
         deviceCertificate: world.deviceCert,
         now: NOW,
       });

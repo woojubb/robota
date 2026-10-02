@@ -28,6 +28,7 @@ import { openHandoffWire, type IHandoffWire } from './handoff-wire.js';
 
 import type { THandoffWireRefusal } from './handoff-wire.js';
 import type { IFileFrameChannel } from '@robota-sdk/agent-interface-session-mobility';
+import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 
 /** For the receiving operator to answer. */
 const DECISION_MS = 5 * 60_000;
@@ -38,6 +39,8 @@ const IDLE_MS = 30_000;
 export type TPushProgress = 'offered' | 'sending' | 'awaiting-confirmation';
 
 export interface IPushHandoffOptions {
+  /** Product-specific crypto domain used to bind the channel fingerprint. */
+  readonly cryptoContext: IIdentityContext;
   readonly composition: IHandoffComposition;
   readonly request: IHandoffManifestRequest;
   /** Opened only once the session is ready to be offered. */
@@ -124,7 +127,7 @@ class ChannelCarrier implements IHandoffCarrier {
     if (binding.t !== 'handoff-binding') throw new Refused('cancelled', 'expected the binding');
     const grant = await this.options.mintGrant(
       manifest,
-      handoffChannelFingerprint(this.options.carrierBinding, binding.nonce),
+      handoffChannelFingerprint(this.options.cryptoContext, this.options.carrierBinding, binding.nonce),
     );
     wire.send({ t: 'handoff-offer', manifest, grant });
     this.options.onProgress?.('offered');

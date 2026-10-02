@@ -10,7 +10,7 @@
 
 import { MemoryRetrievalService } from './memory-retrieval-service.js';
 import { PendingMemoryStore } from './pending-memory-store.js';
-import { ProjectMemoryStore } from './project-memory-store.js';
+import { ProjectMemoryStore, sanitizeTopic } from './project-memory-store.js';
 
 import type {
   IMemoryBudget,
@@ -59,6 +59,26 @@ export class WorkspaceMemoryStore implements IMemoryStore {
     return this.project.append(input);
   }
 
+  async replaceTopic(input: IAppendMemoryInput) {
+    const result = this.project.replaceTopic(input);
+    this.purgePendingTopic(result.topic);
+    return result;
+  }
+
+  async forgetTopic(topic: string) {
+    const result = this.project.forgetTopic(topic);
+    this.purgePendingTopic(result.topic);
+    return result;
+  }
+
+  private purgePendingTopic(topic: string): void {
+    for (const record of this.pending.list()) {
+      if (sanitizeTopic(record.topic) === topic) {
+        this.pending.upsert(record, 'skipped', 'user-curated-topic');
+      }
+    }
+  }
+
   // ── budgeted recall ────────────────────────────────────────────────────
   async recall(query: string, budget: IMemoryBudget): Promise<IMemoryRetrievalResult> {
     return this.retrieval.retrieve(query, budget);
@@ -66,11 +86,12 @@ export class WorkspaceMemoryStore implements IMemoryStore {
 
   // ── curation queue ─────────────────────────────────────────────────────
   async getPending(id: string): Promise<IMemoryPendingRecord | undefined> {
-    return this.pending.get(id);
+    const record = this.pending.get(id);
+    return record && !this.project.isTopicCurated(record.topic) ? record : undefined;
   }
 
   async listPending(status?: TMemoryCandidateStatus): Promise<IMemoryPendingRecord[]> {
-    return this.pending.list(status);
+    return this.pending.list(status).filter((record) => !this.project.isTopicCurated(record.topic));
   }
 
   async markPending(
@@ -78,6 +99,11 @@ export class WorkspaceMemoryStore implements IMemoryStore {
     status: TMemoryCandidateStatus,
     reason: string,
   ): Promise<IMemoryPendingRecord> {
+    const record = this.pending.get(id);
+    if (record && this.project.isTopicCurated(record.topic))
+      throw new Error(
+        'This memory topic is controlled by the user; use /memory correct to change it.',
+      );
     return this.pending.mark(id, status, reason);
   }
 
@@ -86,6 +112,10 @@ export class WorkspaceMemoryStore implements IMemoryStore {
     status: TMemoryCandidateStatus,
     reason: string,
   ): Promise<void> {
+    if (this.project.isTopicCurated(candidate.topic)) {
+      this.pending.upsert(candidate, 'skipped', 'user-curated-topic');
+      return;
+    }
     this.pending.upsert(candidate, status, reason);
   }
 }

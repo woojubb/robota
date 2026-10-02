@@ -33,7 +33,7 @@ export function describeFileRefusal(reason: TFileTransferRefusal, detail?: strin
 }
 
 export interface IFileReceivingOptions {
-  /** `~/.robota` of this session's `HOME`; received files are kept under it. */
+  /** `the configured user root` of this session's `HOME`; received files are kept under it. */
   readonly root: string;
   /** Names the sender's quarantine directory. */
   readonly senderId: string;

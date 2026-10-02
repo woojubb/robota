@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * SCREEN-2002 TC-11 — a plugin scope the loader cannot read.
  *
@@ -32,10 +33,10 @@ afterEach(() => {
 
 describe('loadThemeSources when a plugin scope cannot be read', () => {
   it('says so as a skip, and keeps the escape sequence in the error off the terminal', () => {
-    const home = mkdtempSync(join(tmpdir(), 'robota-theme-scope-'));
+    const home = mkdtempSync(join(tmpdir(), 'test-product-theme-scope-'));
     roots.push(home);
 
-    const sources = loadThemeSources({ cwd: undefined, userHome: home });
+    const sources = loadThemeSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),  cwd: undefined, userHome: home });
 
     expect(sources.themes).toEqual([]);
     expect(sources.skipped).toHaveLength(1);

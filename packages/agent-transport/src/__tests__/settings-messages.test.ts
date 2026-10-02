@@ -177,10 +177,10 @@ describe('settings messages (#3282 §4a)', () => {
   it.each([
     { field: 'mcpServerEnabled', serverId: 'docs', enabled: false },
     { field: 'reloadMcpServers' },
-    { field: 'pluginEnabled', pluginId: 'formatter@robota', enabled: true },
+    { field: 'pluginEnabled', pluginId: 'formatter@fixture-agent', enabled: true },
     { field: 'reloadPlugins' },
-    { field: 'installPlugin', pluginId: 'linter@robota' },
-    { field: 'uninstallPlugin', pluginId: 'formatter@robota' },
+    { field: 'installPlugin', pluginId: 'linter@fixture-agent' },
+    { field: 'uninstallPlugin', pluginId: 'formatter@fixture-agent' },
   ] as const)('round-trips the $field patch through the reporter', async (patch) => {
     const reporter = createReporter();
     const client = attach({ reporter });

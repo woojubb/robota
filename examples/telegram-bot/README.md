@@ -1,6 +1,6 @@
 # Telegram Bot Example
 
-A Telegram bot built with [grammy](https://grammy.dev) and the Robota SDK. Each chat maintains its own conversation session, so the bot remembers context within a chat.
+A Telegram bot built with [grammy](https://grammy.dev) and the agent runtime SDK. Each chat maintains its own conversation session, so the bot remembers context within a chat.
 
 ## Prerequisites
 
@@ -56,7 +56,7 @@ npm start
 - Any text message that does not start with `/` — sent to the AI and replied to in the same chat
 
 Each message runs in a session resumed by chat ID (`resumeSessionId`), so the bot remembers the conversation
-within a chat. Session records are written to `.robota/sessions/` in the working directory, but the chat-ID →
+within a chat. Session records are written under the configured `EXAMPLE_STATE_ROOT` directory, but the chat-ID →
 session map lives in memory, so a restart starts every chat fresh.
 
 Anyone who can message the bot talks to the agent, so the session has none of the built-in tools that run

@@ -1,7 +1,7 @@
 /**
  * SELFHOST-011 P3 — neutral `formatEvalReport`, the shared SDK renderer for an eval report.
  *
- * Consolidates the formatter the `robota eval` CLI carried privately (SELFHOST-011 P2) so any SDK consumer renders
+ * Consolidates the formatter the `agent eval` CLI carried privately (SELFHOST-011 P2) so any SDK consumer renders
  * a report identically without re-implementing it. Pure — no IO.
  */
 

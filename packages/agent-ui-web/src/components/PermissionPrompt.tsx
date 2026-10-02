@@ -265,8 +265,8 @@ export function PermissionPrompt({
     <div
       className={
         dock
-          ? 'robota-ui gui-rise flex-shrink-0'
-          : 'robota-ui fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px]'
+          ? 'agent-ui gui-rise flex-shrink-0'
+          : 'agent-ui fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px]'
       }
     >
       <div

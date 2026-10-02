@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-interface-execution",
   "version": "3.0.0-beta.86",
-  "description": "Execution contract interfaces for the Robota SDK — background tasks, job groups, subagent jobs and execution workspaces",
+  "description": "Execution contract interfaces for the Robota SDK \u2014 background tasks, job groups, subagent jobs and execution workspaces",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -30,15 +30,6 @@
       }
     },
     "./package.json": "./package.json"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/woojubb/robota.git",
-    "directory": "packages/agent-interface-execution"
-  },
-  "homepage": "https://docs.robota.io/en/packages/agent-interface-execution/",
-  "bugs": {
-    "url": "https://github.com/woojubb/robota/issues"
   },
   "engines": {
     "node": ">=22.12.0"

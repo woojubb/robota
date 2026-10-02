@@ -1,0 +1,304 @@
+import { executeWithToolAdmission } from './tool-effect-admission';
+/**
+ * Configuration and tool management delegate for the ConversationAgent agent.
+ *
+ * Extracted from agent.ts to keep the main class under 300 lines.
+ */
+import { AGENT_EVENTS } from '../agents/constants';
+import { ConfigurationError } from '../utils/errors';
+
+import type { IToolWithEventService } from '../abstracts/abstract-tool';
+import type { AbstractTool } from '../abstracts/abstract-tool';
+import type { IAgentConfig } from '../interfaces/agent';
+import type { IEventService } from '../interfaces/event-service';
+import type { TModelEffortSelection } from '../interfaces/provider';
+import type { IToolExecutionContext, IToolResult, TToolParameters } from '../interfaces/tool';
+import type { AIProviders } from '../managers/ai-provider-manager';
+import type { Tools } from '../managers/tool-manager';
+import type { ILogger } from '../utils/logger';
+
+/** Agent statistics metadata type */
+export type TAgentStatsMetadata = Record<string, string | number | boolean | Date | string[]>;
+
+/**
+ * Validates the agent configuration format.
+ * @internal
+ */
+export function validateAgentConfig(config: IAgentConfig): void {
+  if (!config.name) {
+    throw new ConfigurationError('Agent name is required', { component: 'ConversationAgent' });
+  }
+
+  if (!config.aiProviders || config.aiProviders.length === 0) {
+    throw new ConfigurationError('At least one AI provider is required', {
+      component: 'ConversationAgent',
+    });
+  }
+
+  if (!config.defaultModel) {
+    throw new ConfigurationError('Default model configuration is required', {
+      component: 'ConversationAgent',
+    });
+  }
+
+  if (!config.defaultModel.provider || !config.defaultModel.model) {
+    throw new ConfigurationError('Default model must specify both provider and model', {
+      component: 'ConversationAgent',
+    });
+  }
+
+  const providerNames = config.aiProviders.map((p) => p.name);
+  const duplicates = providerNames.filter((name, index) => providerNames.indexOf(name) !== index);
+  if (duplicates.length > 0) {
+    throw new ConfigurationError(`Duplicate AI provider names: ${duplicates.join(', ')}`, {
+      component: 'ConversationAgent',
+      duplicates,
+    });
+  }
+
+  if (!providerNames.includes(config.defaultModel.provider)) {
+    throw new ConfigurationError(
+      `Default provider '${config.defaultModel.provider}' not found in AI providers list. Available: ${providerNames.join(', ')}`,
+      {
+        component: 'ConversationAgent',
+        defaultProvider: config.defaultModel.provider,
+        availableProviders: providerNames,
+      },
+    );
+  }
+}
+
+/**
+ * Manages model/tool/config updates on behalf of a ConversationAgent instance.
+ * @internal
+ */
+export class AgentConfigManager {
+  constructor(
+    private readonly logger: ILogger,
+    private readonly getAIProviders: () => AIProviders,
+    private readonly getTools: () => Tools,
+    private readonly getEventService: () => IEventService | undefined,
+    private readonly ensureReady: () => Promise<void>,
+    private readonly getConfig: () => IAgentConfig,
+    private readonly setConfig: (c: IAgentConfig) => void,
+    private readonly getConfigVersion: () => number,
+    private readonly bumpConfigVersion: () => number,
+    private readonly getConfigUpdatedAt: () => number,
+    private readonly setConfigUpdatedAt: (t: number) => void,
+    private readonly emitAgentEvent: (eventType: string, data: Record<string, unknown>) => void,
+  ) {}
+
+  /** Update tools for this agent instance. */
+  async updateTools(next: Array<IToolWithEventService>): Promise<{ version: number }> {
+    await this.ensureReady();
+
+    if (!Array.isArray(next)) {
+      throw new ConfigurationError('updateTools: next must be an array of tools');
+    }
+
+    const registry = this.getTools().getRegistry();
+    registry.clear();
+
+    const toolNames: string[] = [];
+    const eventService = this.getEventService();
+    for (const tool of next) {
+      if (eventService) {
+        tool.setEventService(eventService);
+      }
+      const toolExecutor = async (
+        parameters: TToolParameters,
+        context?: IToolExecutionContext,
+      ): Promise<IToolResult> => {
+        if (!context) {
+          throw new Error('[AGENT] Missing ToolExecutionContext for tool execution');
+        }
+        return executeWithToolAdmission(tool, parameters, context);
+      };
+      this.getTools().addResultTool(tool.schema, toolExecutor, tool.provenance);
+      const nm = tool.schema.name;
+      if (typeof nm === 'string' && nm.length > 0) toolNames.push(nm);
+    }
+
+    const config = this.getConfig();
+    config.tools = next;
+    this.setConfig(config);
+    const version = this.bumpConfigVersion();
+    this.setConfigUpdatedAt(Date.now());
+
+    this.emitAgentEvent(AGENT_EVENTS.CONFIG_UPDATED, {
+      parameters: {
+        tools: toolNames,
+        systemMessage: config.systemMessage,
+        provider: config.defaultModel.provider,
+        model: config.defaultModel.model,
+        temperature: config.defaultModel.temperature,
+        maxTokens: config.defaultModel.maxTokens,
+      },
+      metadata: { version },
+    });
+
+    return { version };
+  }
+
+  /**
+   * Update configuration partially — `tools` and `name`. ARCH-040 added `name`: `ConversationAgentBase.name`
+   * reads through `config`, so writing it here IS the rename, with no second copy to forget.
+   */
+  async updateConfiguration(patch: Partial<IAgentConfig>): Promise<{ version: number }> {
+    if (patch.tools) {
+      return this.updateTools(patch.tools);
+    }
+    if (patch.name !== undefined) {
+      this.setConfig({ ...this.getConfig(), name: patch.name });
+      const version = this.bumpConfigVersion();
+      this.setConfigUpdatedAt(Date.now());
+      return { version };
+    }
+    throw new ConfigurationError('updateConfiguration: only `tools` and `name` are supported');
+  }
+
+  /** Read-only configuration overview for UI. */
+  async getConfiguration(): Promise<{
+    version: number;
+    tools: Array<{ name: string; parameters?: string[] }>;
+    updatedAt: number;
+    metadata?: TAgentStatsMetadata;
+  }> {
+    await this.ensureReady();
+    const schemas = this.getTools().getTools();
+    const tools = schemas.map((s) => ({
+      name: s.name,
+      parameters: (() => {
+        const params = s.parameters as { properties?: Record<string, object> } | undefined;
+        const props = params?.properties;
+        return props && typeof props === 'object' ? Object.keys(props) : undefined;
+      })(),
+    }));
+    return {
+      version: this.getConfigVersion(),
+      tools,
+      updatedAt: this.getConfigUpdatedAt(),
+      metadata: undefined,
+    };
+  }
+
+  /** Set the current model configuration (complete replacement). */
+  setModel(modelConfig: {
+    provider: string;
+    model: string;
+    temperature?: number;
+    maxTokens?: number;
+    topP?: number;
+    effort?: TModelEffortSelection;
+  }): void {
+    if (!modelConfig.provider || !modelConfig.model) {
+      throw new ConfigurationError('Both provider and model are required', {
+        component: 'ConversationAgent',
+      });
+    }
+
+    // CORE-047: no readiness guard, and no `isReady` dependency to hold one. The provider registry
+    // and the current (provider, model) pair are established by the `ConversationAgent` CONSTRUCTOR
+    // (`createConfiguredProviders`), so there is no asynchronous state left for this to protect. A
+    // destroyed agent is still refused — by the provider manager's own disposal check, which says
+    // "disposed" rather than misreporting teardown as "not initialized".
+    const aiProviders = this.getAIProviders();
+    const availableProviders = aiProviders.getProviderNames();
+    if (!availableProviders.includes(modelConfig.provider)) {
+      throw new ConfigurationError(
+        `AI Provider '${modelConfig.provider}' not found. Available: ${availableProviders.join(', ')}`,
+        { component: 'ConversationAgent', provider: modelConfig.provider, availableProviders },
+      );
+    }
+
+    aiProviders.setCurrentProvider(modelConfig.provider, modelConfig.model);
+
+    const config = this.getConfig();
+    this.setConfig({
+      ...config,
+      defaultModel: {
+        ...config.defaultModel,
+        provider: modelConfig.provider,
+        model: modelConfig.model,
+        ...(modelConfig.temperature !== undefined && { temperature: modelConfig.temperature }),
+        ...(modelConfig.maxTokens !== undefined && { maxTokens: modelConfig.maxTokens }),
+        ...(modelConfig.topP !== undefined && { topP: modelConfig.topP }),
+        ...(modelConfig.effort !== undefined && { effort: modelConfig.effort }),
+      },
+    });
+
+    this.logger.debug('Model configuration updated', modelConfig);
+  }
+
+  /** Get the current model configuration. */
+  getModel(): {
+    provider: string;
+    model: string;
+    temperature?: number;
+    maxTokens?: number;
+    topP?: number;
+    effort?: TModelEffortSelection;
+  } {
+    // CORE-047: no readiness guard — see `setModel`.
+    const currentProviderInfo = this.getAIProviders().getCurrentProvider();
+    if (!currentProviderInfo) {
+      throw new ConfigurationError('No provider is currently set', {
+        component: 'ConversationAgent',
+      });
+    }
+
+    const config = this.getConfig();
+    return {
+      provider: currentProviderInfo.provider,
+      model: currentProviderInfo.model,
+      ...(config.defaultModel.temperature !== undefined && {
+        temperature: config.defaultModel.temperature,
+      }),
+      ...(config.defaultModel.maxTokens !== undefined && {
+        maxTokens: config.defaultModel.maxTokens,
+      }),
+      ...(config.defaultModel.topP !== undefined && { topP: config.defaultModel.topP }),
+      ...(config.defaultModel.effort !== undefined && { effort: config.defaultModel.effort }),
+    };
+  }
+
+  /**
+   * Live system-prompt update (SSOT). Sets the top-level `config.systemMessage` — the single source
+   * of the system prompt. The conversation store head is updated separately by `ConversationAgent`; together
+   * they ensure the next provider request carries the change. The system prompt is an agent-level
+   * concern, not model config, so it is intentionally not part of `setModel`.
+   */
+  setSystemMessage(content: string): void {
+    const config = this.getConfig();
+    config.systemMessage = content;
+    this.setConfig(config);
+    this.setConfigUpdatedAt(Date.now());
+  }
+
+  /** Current live system prompt (top-level `config.systemMessage`). */
+  getSystemMessage(): string | undefined {
+    return this.getConfig().systemMessage;
+  }
+
+  /** Register a new tool for function calling. */
+  registerTool(tool: AbstractTool, tools: Tools): void {
+    if (tools.hasTool(tool.schema.name)) {
+      throw new Error(
+        `[STRICT-POLICY][EMITTER-CONTRACT] Duplicate tool registration attempted: ${tool.schema.name}. ` +
+          `Tool registration flow must provide a single authoritative registration path.`,
+      );
+    }
+
+    const toolExecutor = async (
+      parameters: TToolParameters,
+      context?: IToolExecutionContext,
+    ): Promise<IToolResult> => {
+      if (!context) {
+        throw new Error('[AGENT] Missing ToolExecutionContext for tool execution');
+      }
+      return executeWithToolAdmission(tool, parameters, context);
+    };
+    tools.addResultTool(tool.schema, toolExecutor, tool.provenance);
+    this.logger.debug('Tool registered', { toolName: tool.schema.name });
+  }
+}

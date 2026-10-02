@@ -13,7 +13,7 @@ import {
   type TResult,
 } from '@robota-sdk/dag-core';
 import {
-  Robota,
+  ConversationAgent,
   createProviderFromConfig,
   findProviderDefinition,
   formatSupportedProviderTypes,
@@ -55,7 +55,7 @@ function resolveProviderInstance(
   provider: string,
   model: string | undefined,
   providers: readonly IProviderDefinition[],
-): { agent: Robota } | { error: IDagError } {
+): { agent: ConversationAgent } | { error: IDagError } {
   const definition = findProviderDefinition(providers, provider);
   if (definition === undefined) {
     return {
@@ -90,7 +90,7 @@ function resolveProviderInstance(
 
   try {
     return {
-      agent: new Robota({
+      agent: new ConversationAgent({
         name: `InstantNode_${provider}`,
         aiProviders: [createProviderFromConfig(config, providers)],
         defaultModel: { provider: definition.type, model: config.model },

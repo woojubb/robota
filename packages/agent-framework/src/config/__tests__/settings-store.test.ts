@@ -18,7 +18,7 @@ import {
 const roots: string[] = [];
 
 function tempRoot(): string {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-settings-store-')));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-settings-store-')));
   roots.push(root);
   return root;
 }
@@ -80,7 +80,7 @@ describe('settings stores', () => {
       ).toContain('"project": true');
       expect(
         getWorkspaceProjectReader(access.authority).readText(
-          join('.robota', 'settings.local.json'),
+          join('.agent', 'settings.local.json'),
           'verify no product path was written',
         ),
       ).toBeUndefined();
@@ -96,7 +96,7 @@ describe('settings stores', () => {
     const writer = createWorkspaceProjectSettingsWriter(left.authority, {
       status: 'approved',
       target: 'project',
-      relativePath: join('.robota', 'settings.json'),
+      relativePath: join('.agent', 'settings.json'),
       purpose: 'test cross-workspace denial',
     });
 

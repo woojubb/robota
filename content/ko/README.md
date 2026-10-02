@@ -1,25 +1,29 @@
 ---
 layout: home
-title: Robota SDK
-description: AI 에이전트를 만들기 위한 조합형 TypeScript 라이브러리 — 엄격한 타입, 멀티 프로바이더, 도구 호출, 플러그인과 이벤트. Robota CLI는 이 라이브러리로 만든 레퍼런스 앱입니다.
+title: Robota
+description: An adaptable foundation for AI agents, delivered through composable TypeScript libraries and maintained agent interfaces.
 lang: ko-KR
 ---
 
-# Robota SDK
+# Robota
 
-Robota는 AI 에이전트를 만들기 위한 조합형 TypeScript 라이브러리 모음입니다. 엄격한 타입, 모델 벤더를 가리지
-않는 하나의 프로바이더 인터페이스, 런타임에 인자를 검증하는 도구 호출, 플러그인·이벤트 아키텍처를 제공하며,
-에이전트에 필요한 패키지만 골라 설치합니다. `robota` 명령(`@robota-sdk/agent-cli`, 터미널용 AI 코딩
-어시스턴트)은 같은 라이브러리로 만든 레퍼런스 앱입니다.
+**Our agents develop and advance our agents.** Our direction is a dependable, adaptable foundation
+on which agents can carry their own development forward. The [canonical vision](__PROJECT_REPOSITORY_URL__/blob/develop/VISION.md)
+states the ambition; autonomous self-evolution is not a current guarantee.
+
+Today, composable TypeScript libraries provide strict types, one provider interface across model
+vendors, runtime-validated tool arguments, plugins and events. Install only the packages your agent
+needs, or use `__PRODUCT_CLI_NAME__` (`@robota-sdk/agent-cli`), the coding-capable terminal interface
+built from the same libraries.
 
 [![npm version](https://img.shields.io/npm/v/@robota-sdk/agent-core?label=npm)](https://www.npmjs.com/package/@robota-sdk/agent-core)
 [![npm downloads](https://img.shields.io/npm/dm/@robota-sdk/agent-cli?label=downloads)](https://www.npmjs.com/package/@robota-sdk/agent-cli)
-[![GitHub stars](https://img.shields.io/github/stars/woojubb/robota?style=social)](https://github.com/woojubb/robota)
+[Source repository](__PROJECT_REPOSITORY_URL__)
 [![License: AGPL-3.0 OR Commercial](https://img.shields.io/badge/license-AGPL--3.0%20OR%20Commercial-blue)](../../LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](https://www.typescriptlang.org/)
 
 > **베타** — 패키지는 `3.0.0-beta` 버전으로 배포됩니다. 정식 릴리스 전에 API가 바뀔 수 있습니다.
-> [이슈 보고](https://github.com/woojubb/robota/issues).
+> [이슈 보고](__PROJECT_REPOSITORY_URL__/issues).
 
 ## 어디서 시작할까요
 
@@ -50,17 +54,17 @@ npm install @robota-sdk/agent-tools zod@3
 # 내장 도구, 권한 모드, 훅, 프로젝트 컨텍스트를 갖춘 세션
 npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic
 
-# 레퍼런스 CLI
+# The CLI
 npm install -g @robota-sdk/agent-cli
 ```
 
 ## 첫 번째 에이전트
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'Assistant',
   aiProviders: [new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
@@ -85,8 +89,8 @@ console.log(await agent.run('TypeScript 제네릭을 두 문장으로 설명해�
 - **조립** — [`agent-framework`](../../packages/agent-framework/docs/README.md)가 라이브러리를 세션으로
   묶습니다: `InteractiveSession`, `createQuery()`, `createAgentRuntime()`, 그리고 내장 도구, 권한 모드, 훅,
   컨텍스트 로딩, 영속성.
-- **레퍼런스 앱** — [`agent-cli`](../../packages/agent-cli/docs/README.md). 조립 계층 위에 터미널 UI, 슬래시
-  커맨드, 트랜스포트를 더한 `robota` 터미널 코딩 어시스턴트입니다.
+- **Agent interface** — [`agent-cli`](../../packages/agent-cli/docs/README.md), the `__PRODUCT_CLI_NAME__` terminal coding
+  assistant, built on the assembly layer with a terminal UI, slash commands and transports.
 
 계층 전체는 [architecture guide](../guide/architecture.md)(영어)와
 [ARCHITECTURE.md](../../ARCHITECTURE.md)(영어)에서 설명합니다. 모든 패키지는
@@ -105,21 +109,21 @@ console.log(await agent.run('TypeScript 제네릭을 두 문장으로 설명해�
 각 프로바이더는 [Providers Reference](../guide/providers.md)(영어)에서 다룹니다. API 키 없이 로컬 모델을
 실행하려면 [Local LLM Setup](../guide/local-llm.md)(영어)을 참고하세요.
 
-## 레퍼런스 CLI
+## The CLI
 
 ```bash
 npx @robota-sdk/agent-cli          # 설치 없이 실행
 npm install -g @robota-sdk/agent-cli
-robota                              # 인터랙티브 터미널 UI
-robota -p "이 프로젝트를 설명해줘"  # print 모드: 한 번 답하고 종료
+__PRODUCT_CLI_NAME__                              # 인터랙티브 터미널 UI
+__PRODUCT_CLI_NAME__ -p "이 프로젝트를 설명해줘"  # print 모드: 한 번 답하고 종료
 ```
 
 처음 실행하면 CLI가 프로바이더와 API 키를 묻거나 로컬 모델을 제안합니다. 아직 신뢰하지 않은 Git 저장소에서는
-터미널 UI가 프로젝트에서 무엇이든 불러오기 전에 신뢰 여부를 묻고, print 모드는 `robota trust --yes`를 실행할
+터미널 UI가 프로젝트에서 무엇이든 불러오기 전에 신뢰 여부를 묻고, print 모드는 `__PRODUCT_CLI_NAME__ trust --yes`를 실행할
 때까지 시작하지 않습니다. 신뢰된 워크스페이스에서 CLI는 프로젝트의 `AGENTS.md`와 Claude Code 관례를
 읽습니다: `CLAUDE.md`, `.claude/settings.json`, `.claude/agents/`, `.claude/skills/`, `.claude/commands/`.
 플래그, 슬래시 커맨드, 권한 모드는 [CLI reference](../guide/cli.md)(영어)에서 다룹니다. 다른 코딩
-어시스턴트와의 비교: [robota.io/ko/compare](https://robota.io/ko/compare).
+어시스턴트와의 비교: [__PROJECT_WEBSITE_HOST__/ko/compare](__PROJECT_WEBSITE_URL__/ko/compare).
 
 ## 라이선스
 

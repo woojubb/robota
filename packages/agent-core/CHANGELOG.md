@@ -20,7 +20,7 @@
 
   Pair parallel tool analytics by the logical execution ID, including calls of the same tool.
 
-- 5093a30: A `Robota` run now calls `beforeConversation`, with `beforeExecution`, and `onStreamingChunk` for
+- 5093a30: A `ConversationAgent` run now calls `beforeConversation`, with `beforeExecution`, and `onStreamingChunk` for
   each streamed piece of text, in order; the round waits for those chunk hooks before it goes on,
   whether the provider call returned, failed or was interrupted. `EventEmitterPlugin` therefore emits
   `CONVERSATION_START`.
@@ -55,7 +55,7 @@
 
 - 3ab2eca: - External presets accept every permission mode a session does, `auto` included; `auto` used to fail validation.
   - `createDagFramework({ ports: { costMeta } })` wires cost-metadata management; without it cost operations still report that they are unsupported.
-  - `startCli()` runs the subagent worker when a subagent starts the embedder's entry script again, as the `robota` executable already did; an embedded CLI used to start a second CLI there.
+  - `startCli()` runs the subagent worker when a subagent starts the embedder's entry script again, as the `__PRODUCT_CLI_NAME__` executable already did; an embedded CLI used to start a second CLI there.
   - The provider `executor` option docs no longer import a `RemoteExecutor` that does not exist, and `IRemoteExecutorConfig` is marked deprecated: nothing implements a remote executor.
 
 ## 3.0.0-beta.84
@@ -69,12 +69,12 @@
   sees it as a tool failure it could retry. A journaled run waits for a cancelled model call to
   finish, because its late reply can still carry usage or tool calls that must be recorded.
 
-  With a journal that can also read its records back (`IRecoverableExecutionJournal`), a new `Robota`
+  With a journal that can also read its records back (`IRecoverableExecutionJournal`), a new `ConversationAgent`
   for the same conversation continues where the old one stopped, without new user input and without
   repeating calls whose results were saved:
 
-  - `Robota.resumeToolCalls()` runs the latest saved batch of tool calls without calling the model.
-  - `Robota.resume()` continues the whole execution, keeping its remaining round and repeated-input
+  - `ConversationAgent.resumeToolCalls()` runs the latest saved batch of tool calls without calling the model.
+  - `ConversationAgent.resume()` continues the whole execution, keeping its remaining round and repeated-input
     limits. It refuses a different provider or model. Turn-level lifecycle hooks do not run again, and
     structured output cannot be recovered. A deferred tool the execution had loaded that is no longer
     registered raises `ExecutionRecoveryError`.
@@ -193,7 +193,7 @@
     The tool reaches only files inside the workspace whose path does not look like it holds secrets
     (`.env*`, `~/.ssh`, keys and credentials), and it does not exist in a turn a peer's message started.
   - The receiving operator approves every file. A received file is kept as an inert copy (mode 0600)
-    under `~/.robota/peer-files/<sender>/`. It is never run and never placed in the model's context.
+    under `$PRODUCT_USER_STATE_DIR/peer-files/<sender>/`. It is never run and never placed in the model's context.
     The conversation is told only its name, size and sha256. A name that leaves that directory is
     refused, a symbolic link is never written through, and nothing is overwritten.
   - Transfers travel on a channel of their own (a separate connection on this host, a separate data
@@ -270,9 +270,9 @@
     session on an earlier version cannot confirm, so its messages are refused; both sessions need this
     version to message each other.
 
-- ec5e477: Add a credential store port (`ICredentialStore` in `agent-core`) and keep the CLI's secrets behind it: the OS keychain through the optional `@napi-rs/keyring` binding (macOS Keychain, Windows Credential Manager, Linux Secret Service), else an owner-only file under `~/.robota/credentials`. The backend is chosen at first use, recorded, and named by `/remote-control status`; a recorded keychain that stops working fails closed instead of degrading to the file.
+- ec5e477: Add a credential store port (`ICredentialStore` in `agent-core`) and keep the CLI's secrets behind it: the OS keychain through the optional `@napi-rs/keyring` binding (macOS Keychain, Windows Credential Manager, Linux Secret Service), else an owner-only file under `$PRODUCT_USER_STATE_DIR/credentials`. The backend is chosen at first use, recorded, and named by `/remote-control status`; a recorded keychain that stops working fails closed instead of degrading to the file.
 
-  The remote-control host identity key moves into the store. The old `~/.robota/remote-host-identity.json` may have been copied by backups or dotfile sync, so it is not carried over: on the first run after upgrading a new host key is generated, the old file is removed, and the operator is told once that trusted devices must pair again.
+  The remote-control host identity key moves into the store. The old `$PRODUCT_USER_STATE_DIR/remote-host-identity.json` may have been copied by backups or dotfile sync, so it is not carried over: on the first run after upgrading a new host key is generated, the old file is removed, and the operator is told once that trusted devices must pair again.
 
 ## 3.0.0-beta.80
 
@@ -311,8 +311,8 @@
     construction alongside `allow` and `deny`.
   - **Never auto-approved, bypass included:** removing a critical path with `rm`/`rmdir` (the root, a
     top-level directory, home, the working directory or a parent), and a modify-class write into
-    `.git`, `.robota`, `.claude`, `.agents`, `.mcp.json`, `.gitconfig`, `.npmrc` or a shell rc file.
-    Files inside an isolated worktree (`.robota/worktrees/<name>/…`) are ordinary files. With no
+    `.git`, `.__PRODUCT_DISPLAY_NAME__`, `.claude`, `.agents`, `.mcp.json`, `.gitconfig`, `.npmrc` or a shell rc file.
+    Files inside an isolated worktree (`$PRODUCT_PROJECT_STATE_DIR/worktrees/<name>/…`) are ordinary files. With no
     approver attached, an ask is a denial.
   - **A ceiling is checked before bypass and before any ask.** A subagent's `inherit-allowlist` ceiling
     is now the parent's _effective_ rules, read live at spawn: settings, preset lists and command
@@ -404,7 +404,7 @@
 - d4189b9: The rest of the per-server MCP OAuth lifecycle: signing in to a server without a local browser,
   signing out of it with token revocation, and each server's sign-in state in `/mcp`.
 
-  - **`robota mcp login <name> --no-browser`** prints the authorization URL and reads the redirect URL
+  - **`__PRODUCT_CLI_NAME__ mcp login <name> --no-browser`** prints the authorization URL and reads the redirect URL
     the user pastes back (not echoed). `runMCPOAuthLogin` takes `readRedirect` for this; nothing
     listens on the redirect URI then. The pasted URL is held to the loopback listener's rules through
     `createPastedRedirectAcceptor`: it must be the registered redirect URI (same origin and path, no
@@ -413,7 +413,7 @@
     check applies as before. `openBrowser` now also receives the redirect URI. `readRedirect` gets a
     signal that aborts on cancel or at `callbackTimeoutMs` (5 minutes by default, as for the loopback
     listener); a paste longer than the prompt accepts fails as `redirect-too-long`.
-  - **Signing out** (`runMCPOAuthLogout`; `robota mcp logout <name>`; `/mcp logout <serverId>`):
+  - **Signing out** (`runMCPOAuthLogout`; `__PRODUCT_CLI_NAME__ mcp logout <name>`; `/mcp logout <serverId>`):
     deletes the stored credential under the refresh lock, then revokes the refresh token and the
     access token (RFC 7009) when the stored issuer advertises `revocation_endpoint`. Revocation is a
     POST through the egress policy that never follows a redirect and is byte-bounded; it authenticates
@@ -428,7 +428,7 @@
     OAuth server; a server this session was told needs a sign-in reads `sign-in-required`.
     `ICommandMCPActivationAdapter` gains optional `oauthStatus` and `oauthLogout`
     (`ICommandMCPOAuthStatus`, `ICommandMCPOAuthLogoutResult`).
-  - **No in-session sign-in:** signing in stays `robota mcp login <server>` in a terminal, since it
+  - **No in-session sign-in:** signing in stays `__PRODUCT_CLI_NAME__ mcp login <server>` in a terminal, since it
     needs the terminal (browser, pasted redirect, hidden secret prompt) a running session owns. `/mcp`
     names that command for a server that needs a sign-in, as does the session's sign-in notice; the
     server name is shown there only when it is safe to paste into any shell — a plain token not
@@ -440,7 +440,7 @@
     The expiry skew is capped at half the token's lifetime, so a short-lived token is not refreshed on
     every request; credentials now record `issuedAt` for this.
 
-- 9edae52: Remote MCP servers can authenticate with OAuth: `robota mcp login <name>` signs in, and sessions
+- 9edae52: Remote MCP servers can authenticate with OAuth: `__PRODUCT_CLI_NAME__ mcp login <name>` signs in, and sessions
   send the stored token.
 
   - **Declaring it:** `"oauth": { "clientId"?, "callbackPort"?, "authServerMetadataUrl"?, "scopes"? }`
@@ -452,7 +452,7 @@
       or on a stdio server, is refused.
     - `oauth` is no longer reported as unsupported authentication, and it is part of the definition
       fingerprint.
-  - **Signing in** (`runMCPOAuthLogin`; `robota mcp login <name> [--client-secret]`):
+  - **Signing in** (`runMCPOAuthLogin`; `__PRODUCT_CLI_NAME__ mcp login <name> [--client-secret]`):
     - Discovery is done here, not by the SDK's `discoverOAuthServerInfo`: the protected-resource
       metadata `resource` must be the canonical server URL, the authorization server's `issuer` must
       be the server it was fetched for, the server, authorization, token and registration
@@ -474,7 +474,7 @@
     of following it; registration, token and refresh requests use it.
   - **Storage:** `IMCPOAuthCredentialStore` (`get`/`set`/`delete`), keyed by the server's security
     identity and canonical URL together. `createFileOAuthCredentialStore` keeps 0600 files in a 0700
-    `~/.robota/mcp-credentials/`. The issuer, token endpoint and client (with its secret, if any, and
+    `$PRODUCT_USER_STATE_DIR/mcp-credentials/`. The issuer, token endpoint and client (with its secret, if any, and
     the client authentication method dynamic registration returned) are stored with the tokens. A
     sign-in stores its credential under the refresh lock, so a refresh in flight cannot overwrite it.
   - **Sessions** (`createOAuthAuthenticator`, wired for every `oauth` definition):
@@ -485,7 +485,7 @@
       stale lock is taken over, and a lock released, only after it is renamed aside and proven to be
       the one judged — never another process's fresh lock.
     - A 401 rediscovers, then refreshes once and retries; an authorization server that changed clears
-      the tokens — compared, under the lock, with what is stored then, so a newer sign-in is kept. `invalid_grant`, or nothing stored, asks the user to run `robota mcp login <name>`. A 403
+      the tokens — compared, under the lock, with what is stored then, so a newer sign-in is kept. `invalid_grant`, or nothing stored, asks the user to run `__PRODUCT_CLI_NAME__ mcp login <name>`. A 403
       `insufficient_scope` fails and names the scope.
     - An `oauth` definition is never connected without the authenticator (`oauth-unavailable`).
   - Failures are `MCPOAuthError` with a fixed reason; no code, verifier, token, secret or
@@ -558,7 +558,7 @@
     - Deny rules, ask rules, critical removals and plan mode still apply first.
   - **Exclusions:** `sandbox.excludedCommands` run unconfined, through the ordinary permission path.
   - **When the sandbox cannot run:** a missing or unusable backend is reported at startup, in
-    `robota doctor` and in `/sandbox`, and commands then run unconfined.
+    `__PRODUCT_CLI_NAME__ doctor` and in `/sandbox`, and commands then run unconfined.
     `sandbox.failIfUnavailable` refuses to start instead.
   - **New contracts:**
     - `OsSandboxClient`, `detectOsSandbox`, `bubblewrapArguments`, `seatbeltProfile`.
@@ -812,7 +812,7 @@
   A destroyed agent still refuses — and now says so accurately (`AIProviders was disposed`) instead of
   misreporting teardown as missing initialization.
 
-  `Robota.ensureReady()` is unchanged and remains the way to complete the asynchronous half without
+  `__PRODUCT_DISPLAY_NAME__.ensureReady()` is unchanged and remains the way to complete the asynchronous half without
   running a turn. It is no longer a precondition for reading or changing the model.
 
 - d28430a: CORE-048: `resolveStructuredOutputCapability` is exported
@@ -889,7 +889,7 @@
 
 - 6f308d1: fix(streaming): expose token usage on the streaming execution path (BEHAVIOR-005)
 
-  Token usage was silently dropped on streaming turns, so `readTokenUsageFromMessage` and robota's usage analytics returned empty/0 for every `run()`/`runStream()` (which always stream). OpenAI-compatible streaming requests now send `stream_options: { include_usage: true }`, the stream assembler and the `runStream` commit path attach the same top-level `usage` shape the non-streaming path already emits, and both `run()` and `runStream()` now expose usage. New opt-out `IOpenAIProviderOptions.includeStreamUsage` (default `true`) for OpenAI-compatible servers that reject `stream_options`.
+  Token usage was silently dropped on streaming turns, so `readTokenUsageFromMessage` and __PRODUCT_DISPLAY_NAME__'s usage analytics returned empty/0 for every `run()`/`runStream()` (which always stream). OpenAI-compatible streaming requests now send `stream_options: { include_usage: true }`, the stream assembler and the `runStream` commit path attach the same top-level `usage` shape the non-streaming path already emits, and both `run()` and `runStream()` now expose usage. New opt-out `IOpenAIProviderOptions.includeStreamUsage` (default `true`) for OpenAI-compatible servers that reject `stream_options`.
 
 ## 3.0.0-beta.77
 
@@ -908,9 +908,9 @@
 ### Patch Changes
 
 - DQ-AUDIT-002 — consolidate duplicated domain data onto single owners: one model-pricing SSOT in agent-core (`MODEL_PRICES`/`lookupModelPrice`/`calculateModelCost`/`estimateBlendedCostPer1000`) consumed by agent-command and agent-plugin (drops two embedded/stale price tables); the `len/4` token estimator replaced by core `CONTEXT_ESTIMATE_CHARS_PER_TOKEN`; TUI `TContextState` derived from core `IContextWindowState`; dead pass-through re-exports removed from agent-session.
-- DQ-AUDIT-006 — error/observability hygiene: replace raw `throw new Error()` on core-service and provider hot paths with typed `RobotaError` subclasses (`ConfigurationError`/`ValidationError`) so error-handling can branch on category/recoverable; surface fire-and-forget hook failures via `logger.warn` instead of silent `.catch(() => {})`; wire the error-handling plugin's `totalRetries`/`successfulRecoveries` stats to real counters.
+- DQ-AUDIT-006 — error/observability hygiene: replace raw `throw new Error()` on core-service and provider hot paths with typed `AgentRuntimeError` subclasses (`ConfigurationError`/`ValidationError`) so error-handling can branch on category/recoverable; surface fire-and-forget hook failures via `logger.warn` instead of silent `.catch(() => {})`; wire the error-handling plugin's `totalRetries`/`successfulRecoveries` stats to real counters.
 - DQ-AUDIT-007 — remove the silent `model || 'gpt-4o-mini'` default in the OpenAI streaming handler (a missing model now throws `ConfigurationError` instead of substituting a vendor default); document `IAIProvider`'s universal (`chat`) vs raw (`generateResponse`) dual surface as intentional in the agent-core SPEC.
-- 576af62: Fix `ConfigurationError: Agent must be fully initialized before changing model configuration` when running `/preset` (or any live model re-apply) on a fresh interactive session before the first message. The Robota agent initialized lazily on the first `run()`, but `setModel` requires full initialization. `Session.applyModelOptions` now awaits the new idempotent `Robota.ensureReady()` before `setModel`, and the preset live-switch path (`applyPresetToSession` → `executePresetCommand`) is async end-to-end. Adds a real cold-session regression test (no mocked Robota).
+- 576af62: Fix `ConfigurationError: Agent must be fully initialized before changing model configuration` when running `/preset` (or any live model re-apply) on a fresh interactive session before the first message. The __PRODUCT_DISPLAY_NAME__ agent initialized lazily on the first `run()`, but `setModel` requires full initialization. `Session.applyModelOptions` now awaits the new idempotent `__PRODUCT_DISPLAY_NAME__.ensureReady()` before `setModel`, and the preset live-switch path (`applyPresetToSession` → `executePresetCommand`) is async end-to-end. Adds a real cold-session regression test (no mocked __PRODUCT_DISPLAY_NAME__).
 
 ## 3.0.0-beta.75
 
@@ -920,7 +920,7 @@
 
   - **Preset system (PRESET-001~017):** new `@robota-sdk/agent-preset` package layering framework
     assembly options into named, selectable profiles (`default`, `autonomous-builder`, `careful-reviewer`,
-    `neutral-executor`) plus user-authored external presets loaded from `~/.robota/presets/*.json`.
+    `neutral-executor`) plus user-authored external presets loaded from `$PRODUCT_USER_STATE_DIR/presets/*.json`.
   - **Live preset switching:** `/preset` command (list + active marker + switch) and a TUI active-preset
     display. Switching live re-applies permission posture, model/effort, persona, command-module
     selection, parallel-subagents gating, and a self-verification system-prompt section via the single
@@ -965,7 +965,7 @@
 - Add CLI second-screen browser monitor (PLG-002)
   - New `@robota-sdk/agent-web` package: WebSocket client, `useWsSession` hook, `SessionMonitor` component with Markdown rendering
   - `--web` flag on `agent-cli`: starts WebSocket sidecar server and auto-opens browser monitor
-  - `--no-open` flag and `ROBOTA_NO_OPEN` env var to suppress browser launch
+  - `--no-open` flag and `PRODUCT_NO_OPEN` env var to suppress browser launch
   - `user_message` event added to `IInteractiveSessionEvents` so user prompts stream to browser in real-time
   - `TServerMessage` protocol extended with `user_message` type
 
@@ -989,7 +989,7 @@
 
 ### Patch Changes
 
-- Refresh package docs and robota.io content for the beta 57 feature set.
+- Refresh package docs and __PRODUCT_DISPLAY_NAME__.io content for the beta 57 feature set.
 
 ## 3.0.0-beta.57
 
@@ -1054,8 +1054,8 @@
   - IHistoryEntry as universal history type across all 4 packages (core → sessions → sdk → cli)
   - Tool summary stored as event entry in history (category: 'event', type: 'tool-summary')
   - TuiStateManager pure TypeScript class for CLI rendering state
-  - MessageList renders IHistoryEntry[] with Tool:/System:/You:/Robota: labels
-  - Display order fixed: Tool → Robota (both streaming and abort)
+  - MessageList renders IHistoryEntry[] with Tool:/System:/You:/__PRODUCT_DISPLAY_NAME__: labels
+  - Display order fixed: Tool → __PRODUCT_DISPLAY_NAME__ (both streaming and abort)
   - Remove 25 tautological, duplicate, and hardcoded tests
 
 ## 2.0.9
@@ -1097,7 +1097,7 @@
   - **Smaller footprint**: Reduced JavaScript bundle sizes for web applications
   - **Universal API**: Same API works across all environments
 
-  This update completes the browser compatibility optimization phase, making Robota SDK production-ready for web applications with optimal performance characteristics.
+  This update completes the browser compatibility optimization phase, making __PRODUCT_DISPLAY_NAME__ SDK production-ready for web applications with optimal performance characteristics.
 
 ## 2.0.8
 
@@ -1114,7 +1114,7 @@
   - **All Providers**: `client` is now optional, automatically created from `apiKey`
 
   ### **Centralized Model Configuration**
-  - Model configuration is now exclusively handled through `defaultModel` in Robota constructor
+  - Model configuration is now exclusively handled through `defaultModel` in __PRODUCT_DISPLAY_NAME__ constructor
   - Providers are simplified to handle only connection-related settings
   - Runtime model switching via `setModel()` method is now the recommended approach
 
@@ -1148,7 +1148,7 @@
   ## 🔧 **Migration Guide**
   1. **Remove model settings from Provider constructors**
   2. **Use `apiKey` instead of `client` injection (recommended)**
-  3. **Ensure `defaultModel` is properly configured in Robota constructor**
+  3. **Ensure `defaultModel` is properly configured in __PRODUCT_DISPLAY_NAME__ constructor**
   4. **Update any hardcoded model references to use runtime switching**
 
   ## 🎯 **Benefits**
@@ -1182,7 +1182,7 @@
   - Update OpenAI stream handlers to work in browser environments
   - Maintain 100% backward compatibility with existing Node.js applications
 
-  This update enables Robota SDK to run seamlessly in both Node.js and browser environments without breaking changes.
+  This update enables __PRODUCT_DISPLAY_NAME__ SDK to run seamlessly in both Node.js and browser environments without breaking changes.
 
 ## 2.0.5
 
@@ -1214,7 +1214,7 @@
 
 ### Major Changes
 
-- a3a464c: # Robota SDK v2.0.0-rc.1 - Unified Architecture
+- a3a464c: # __PRODUCT_DISPLAY_NAME__ SDK v2.0.0-rc.1 - Unified Architecture
 
   ## 🚀 Major Changes
 

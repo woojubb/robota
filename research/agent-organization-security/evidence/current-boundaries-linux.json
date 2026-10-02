@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "kind": "current-product-boundary-observations",
+  "sourceCommit": "571af99c1981f14200c87baf6787ae6a2b58590d",
+  "platform": "linux",
+  "backend": "bubblewrap",
+  "durationMs": 246,
+  "limitations": [
+    "Admitted tools are exercised directly; this is not a model-prompt exploit or cloud-provider PoC.",
+    "No real credentials, accounts, repositories or external services are used.",
+    "No microVM isolation claim follows from namespace-only tests."
+  ],
+  "records": [
+    {
+      "id": "default-disabled",
+      "observation": "admitted shell runs on host",
+      "verified": true
+    },
+    {
+      "id": "runtime-file-readable",
+      "observation": "confined shell can read synthetic runtime file outside workspace",
+      "verified": true
+    },
+    {
+      "id": "runtime-env-inherited",
+      "observation": "confined shell inherits synthetic runtime environment value",
+      "verified": true
+    },
+    {
+      "id": "workspace-write",
+      "observation": "ordinary workspace write allowed",
+      "verified": true
+    },
+    {
+      "id": "git-config-write",
+      "observation": "existing .git write refused",
+      "verified": true
+    },
+    {
+      "id": "outside-write",
+      "observation": "non-temp host write refused",
+      "verified": true
+    },
+    {
+      "id": "shared-temp-write",
+      "observation": "other synthetic task file under shared temp remains writable",
+      "verified": true
+    },
+    {
+      "id": "deny-read-mask",
+      "observation": "explicit file denyRead prevents canary disclosure",
+      "verified": true
+    },
+    {
+      "id": "backend-missing",
+      "observation": "OsSandboxClient alone runs admitted command unconfined when unavailable; startup policy must reject",
+      "verified": true
+    },
+    {
+      "id": "excluded-command",
+      "observation": "excluded first program runs admitted command unconfined",
+      "verified": true
+    },
+    {
+      "id": "backend-execution-failure",
+      "observation": "backend exit failure does not retry shell on host",
+      "verified": true
+    },
+    {
+      "id": "network-host-positive",
+      "observation": "host Python probe receives the synthetic loopback canary",
+      "verified": true
+    },
+    {
+      "id": "network-enabled-positive",
+      "observation": "same confined command with network enabled receives canary",
+      "verified": true
+    },
+    {
+      "id": "network-disabled",
+      "observation": "same confined command reports a network refusal rather than an arbitrary program failure",
+      "verified": true
+    },
+    {
+      "id": "file-tool-root",
+      "observation": "production default-tools composition keeps shared-sandbox Read on root-guarded host path",
+      "verified": true
+    },
+    {
+      "id": "worker-restore-missing",
+      "observation": "projected subagent with unregistered sandbox type refuses restoration",
+      "verified": true
+    }
+  ]
+}

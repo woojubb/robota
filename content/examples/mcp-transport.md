@@ -77,6 +77,6 @@ exports `createMcpHttpHost()` and `createMcpRemoteHttpHost()`; see the
 
 ## From the CLI
 
-`robota mcp serve` does the same for the CLI's own session, over stdio by default. It names the
-submit tool `robota_submit` and command tools `robota_command_<name>`. `robota --help` lists its
+`__PRODUCT_CLI_NAME__ mcp serve` does the same for the CLI's own session, over stdio by default. It names the
+submit tool `__PRODUCT_MODEL_TOOL_PREFIX___submit` and command tools `__PRODUCT_MODEL_TOOL_PREFIX___command_<name>`. `__PRODUCT_CLI_NAME__ --help` lists its
 HTTP options (`--http-token-file`, `--http-public-url` and the `--oauth-*` flags).

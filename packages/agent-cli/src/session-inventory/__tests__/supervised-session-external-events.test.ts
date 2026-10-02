@@ -1,3 +1,4 @@
+import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import { type ChildProcess } from 'node:child_process';
 import {
   closeSync,
@@ -37,9 +38,9 @@ function grant(grantId: string): IExternalEventGrant {
     grantId,
     verifier: {
       issuer: 'https://issuer.example',
-      resource: `https://robota.example/events/${grantId}`,
+      resource: `https://test-product.example/events/${grantId}`,
       algorithms: ['ES256'],
-      requiredScopes: ['robota.events.submit'],
+      requiredScopes: ['test-product.events.submit'],
       allowedClients: [PRINCIPAL],
     },
     kinds: ['message'],
@@ -71,7 +72,7 @@ function post(
         method: 'POST',
         path: `/events/${grantId}`,
         headers: {
-          host: 'robota.example',
+          host: 'test-product.example',
           'content-type': 'application/json',
           'content-length': Buffer.byteLength(body),
           ...(token !== undefined ? { authorization: `Bearer ${token}` } : {}),
@@ -105,10 +106,10 @@ describe('external event grants on a supervised session', () => {
     let id: string | undefined;
     const port = await freePort();
     try {
-      id = await launchSupervisedSession(process.cwd(), {
+      id = await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
         execArgs: ['--import', 'tsx', '--conditions=source'],
-        env: { ROBOTA_TEST_SUPERVISED_ROOT: root },
+        env: { PRODUCT_TEST_SUPERVISED_ROOT: root },
         root,
         grants: [grant('ci'), grant('chat')],
         eventEndpoint: { port },
@@ -123,7 +124,7 @@ describe('external event grants on a supervised session', () => {
       const missing = await post(port, 'ci');
       expect(missing).toMatchObject({ status: 401, body: '' });
       expect(missing.challenge).toBe(
-        'Bearer resource_metadata="https://robota.example/.well-known/oauth-protected-resource/events/ci"',
+        'Bearer resource_metadata="https://test-product.example/.well-known/oauth-protected-resource/events/ci"',
       );
       expect(await post(port, 'nope', 'x')).toMatchObject({ status: 404, body: '' });
       expect(await post(port, 'ci', 'not-a-token')).toMatchObject({ status: 401, body: '' });
@@ -206,12 +207,12 @@ describe('external event grants on a supervised session', () => {
     try {
       let message = '';
       try {
-        await launchSupervisedSession(process.cwd(), {
+        await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
           entrypoint: fixture,
           execArgs: ['--import', 'tsx', '--conditions=source'],
           env: {
-            ROBOTA_TEST_SUPERVISED_ROOT: root,
-            ROBOTA_TEST_PERMISSION_MODE: 'bypassPermissions',
+            PRODUCT_TEST_SUPERVISED_ROOT: root,
+            PRODUCT_TEST_PERMISSION_MODE: 'bypassPermissions',
           },
           root,
           grants: [grant('ci')],
@@ -239,7 +240,7 @@ describe('external event grants on a supervised session', () => {
     let child: ChildProcess | undefined;
     try {
       await expect(
-        launchSupervisedSession(process.cwd(), {
+        launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
           entrypoint: lossyFixture,
           execArgs: [],
           env: {},

@@ -41,7 +41,35 @@ export type TCommandRunner = 'runtime' | 'client';
 /** A kind of client surface. Names the surfaces a `'client'` command can run on. */
 export type TCommandSurface = 'terminal' | 'gui';
 
-/** A command entry */
+/** A resource identity bound to the host's verified skill manifest. */
+export interface ISkillResourceDescriptor {
+  readonly uri: string;
+  readonly digest: string;
+  readonly size: number;
+}
+
+/** Verified supporting bytes; reading them does not activate another skill. */
+export interface ISkillResource extends ISkillResourceDescriptor {
+  readonly text?: string;
+  readonly blob?: string;
+  readonly mimeType?: string;
+}
+
+/** A host-owned window for verified lazy skill instructions. */
+export interface ISkillContentActivation {
+  readonly content: string;
+  readonly resources?: {
+    readonly manifest: readonly ISkillResourceDescriptor[];
+    /** The host verifies membership, bytes and current authority on every read. */
+    read(uri: string, signal?: AbortSignal): Promise<ISkillResource>;
+  };
+  /** Recheck the host's content consent and source before instructions are published. */
+  validate(): Promise<void>;
+  /** Ends this instruction/supporting-file window, including outstanding reads. */
+  close(): void;
+}
+
+/** A command entry. */
 export interface ICommand {
   /** Command name without slash (e.g., "mode") — used for invocation */
   name: string;
@@ -65,6 +93,10 @@ export interface ICommand {
   execute?: (args: string) => void | Promise<void>;
   /** Full SKILL.md content (only for skill commands) */
   skillContent?: string;
+  /** Metadata remains lazy; the host verifies and admits instructions only at activation. */
+  skillContentLoader?: {
+    acquire(signal?: AbortSignal): Promise<ISkillContentActivation>;
+  };
   /**
    * The absolute directory the skill's file is in, when its source can name one. `${CLAUDE_SKILL_DIR}`
    * in the skill's content expands to it, so the skill can point at files it ships beside SKILL.md.

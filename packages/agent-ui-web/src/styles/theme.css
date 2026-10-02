@@ -1,7 +1,7 @@
 /*
- * The GUI as a whole page (the GUI web app, and the desktop app and `robota --serve --open` that load its
+ * The GUI as a whole page (the GUI web app, and the desktop app and `agent --serve --open` that load its
  * build): the surface's design from `surface.css`, plus what only a page that is the surface owns — its
- * height, its background and its scrollbars. The page puts `robota-ui` on its `<html>`, so the tokens
+ * height, its background and its scrollbars. The page puts `agent-ui` on its `<html>`, so the tokens
  * reach the body too.
  */
 @import './surface.css';

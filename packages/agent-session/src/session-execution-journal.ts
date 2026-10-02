@@ -26,7 +26,7 @@ export function sessionExecutionJournal(
       ) {
         const saved = structuredClone(record);
         saved.checkpoint!.owner = {
-          kind: 'robota-session',
+          kind: 'agent-session',
           version: 1,
           state: {
             sessionId: owner.sessionId,
@@ -60,7 +60,7 @@ export function sessionRecoveryJournal(
         const state = owner?.state;
         if (
           !owner ||
-          owner.kind !== 'robota-session' ||
+          owner.kind !== 'agent-session' ||
           owner.version !== 1 ||
           !state ||
           state.sessionId !== sessionId ||

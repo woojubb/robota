@@ -21,7 +21,7 @@ type TSandboxClient = NonNullable<Parameters<typeof scriptedSession>[0]['sandbox
 /** A fork runs on the agent runtime, which a session builds only when a module asks for it. */
 const agentRuntimeModule: ICommandModule = {
   name: 'fork-sandbox-fixture',
-  sessionRequirements: ['agent-runtime'],
+  sessionRequirements: ['runtime'],
   systemCommands: [],
 };
 
@@ -45,7 +45,7 @@ afterEach(async () => {
 });
 
 async function runForkSkill(sandboxClient?: TSandboxClient): Promise<boolean> {
-  workspace = realpathSync(mkdtempSync(join(tmpdir(), 'robota-fork-sandbox-')));
+  workspace = realpathSync(mkdtempSync(join(tmpdir(), 'agent-fork-sandbox-')));
   const skillDir = join(workspace, '.agents', 'skills', 'run-tests');
   mkdirSync(skillDir, { recursive: true });
   writeFileSync(

@@ -137,7 +137,7 @@ function trustCheck(inputs: IDoctorInputs): IDoctorCheck {
 }
 
 /**
- * The credential-quarantine report `robota diagnose` already shipped (CLI-067), over the inspection's
+ * The credential-quarantine report already shipped (CLI-067), over the inspection's
  * parsed layers instead of a private re-read: a lower-trust layer that changed a profile's `baseURL`
  * without supplying its own key had the inherited key removed. Neither key is ever shown.
  */

@@ -29,7 +29,7 @@ describe('migrate-session-history', () => {
   let sessionsDir: string;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), 'robota-session-migration-'));
+    tmpDir = mkdtempSync(join(tmpdir(), 'agent-session-migration-'));
     sessionsDir = join(tmpDir, 'sessions with spaces');
     mkdirSync(sessionsDir, { recursive: true });
   });
@@ -135,6 +135,16 @@ describe('migrate-session-history', () => {
     });
     expect(output.trim()).toBe('No sessions directory found.');
     expect(existsSync(missing)).toBe(false);
+  });
+
+  it('requires an explicit storage directory instead of selecting a product path', () => {
+    const result = spawnSync(process.execPath, [script], {
+      cwd: tmpDir,
+      encoding: 'utf8',
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Usage:');
+    expect(result.stdout).toBe('');
   });
 
   it.each([

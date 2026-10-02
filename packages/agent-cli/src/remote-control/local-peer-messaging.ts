@@ -83,7 +83,7 @@ export interface IPeerMessagingOptions {
 
 /** How this session takes files from its peers. */
 export interface IPeerFileReceiving {
-  /** `~/.robota` of this session's `HOME`; received files are kept under it. */
+  /** the configured user storage root of this session's `HOME`; received files are kept under it. */
   readonly root: string;
   /** Asked for every file. Absent: every file is refused, since nobody can approve it. */
   readonly approver?: IOperatorApprover;

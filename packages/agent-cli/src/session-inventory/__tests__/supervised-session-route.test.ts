@@ -1,3 +1,4 @@
+import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -15,11 +16,11 @@ describe('supervised background session command', () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
       const handled = await runPreparsedCliCommand(
-        {
+        { productRuntime: createTestProductRuntime(),
           providerDefinitions: [],
           projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
         },
-        ['node', 'robota', 'session', 'view'],
+        ['node', 'test-product', 'session', 'view'],
         cwd,
       );
       expect(handled).toBe(true);
@@ -33,16 +34,16 @@ describe('supervised background session command', () => {
   });
 
   it('rejects a malformed stop target before looking for a control socket', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-supervised-stop-'));
+    const cwd = mkdtempSync(join(tmpdir(), 'test-product-supervised-stop-'));
     const previousExitCode = process.exitCode;
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
       const handled = await runPreparsedCliCommand(
-        {
+        { productRuntime: createTestProductRuntime(),
           providerDefinitions: [],
           projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
         },
-        ['node', 'robota', 'session', 'stop', '../escape'],
+        ['node', 'test-product', 'session', 'stop', '../escape'],
         cwd,
       );
       expect(handled).toBe(true);
@@ -58,7 +59,7 @@ describe('supervised background session command', () => {
   });
 
   it('refuses an invalid grant file before starting anything, naming no configured value', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-supervised-grant-'));
+    const cwd = mkdtempSync(join(tmpdir(), 'test-product-supervised-grant-'));
     const previousExitCode = process.exitCode;
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
@@ -68,18 +69,18 @@ describe('supervised background session command', () => {
         JSON.stringify({
           grantId: 'ci',
           issuer: 'http://issuer.example',
-          resource: 'https://robota.example/events/ci',
+          resource: 'https://test-product.example/events/ci',
           client: 'ci-bot',
-          scopes: ['robota.events.submit'],
+          scopes: ['test-product.events.submit'],
         }),
       );
-      const options = {
+      const options = { productRuntime: createTestProductRuntime(),
         providerDefinitions: [],
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
       };
       const start = [
         'node',
-        'robota',
+        'test-product',
         'session',
         'start',
         '--background',
@@ -103,7 +104,7 @@ describe('supervised background session command', () => {
           issuer: 'https://issuer.example',
           resource: 'https://elsewhere.example/events/chat',
           client: 'chat-bot',
-          scopes: ['robota.events.submit'],
+          scopes: ['test-product.events.submit'],
         }),
       );
       const valid = join(cwd, 'valid.json');
@@ -112,9 +113,9 @@ describe('supervised background session command', () => {
         JSON.stringify({
           grantId: 'ci',
           issuer: 'https://issuer.example',
-          resource: 'https://robota.example/events/ci',
+          resource: 'https://test-product.example/events/ci',
           client: 'ci-bot',
-          scopes: ['robota.events.submit'],
+          scopes: ['test-product.events.submit'],
         }),
       );
       stderr.mockClear();
@@ -122,7 +123,7 @@ describe('supervised background session command', () => {
         options,
         [
           'node',
-          'robota',
+          'test-product',
           'session',
           'start',
           '--background',
@@ -161,10 +162,10 @@ describe('supervised background session command', () => {
   });
 
   it('shows usage for a malformed events command and refuses a malformed session id', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-supervised-events-'));
+    const cwd = mkdtempSync(join(tmpdir(), 'test-product-supervised-events-'));
     const previousExitCode = process.exitCode;
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const options = {
+    const options = { productRuntime: createTestProductRuntime(),
       providerDefinitions: [],
       projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
     };
@@ -175,16 +176,16 @@ describe('supervised background session command', () => {
         ['session', 'events', 'revoke', 'x'],
       ]) {
         process.exitCode = 0;
-        expect(await runPreparsedCliCommand(options, ['node', 'robota', ...argv], cwd)).toBe(true);
+        expect(await runPreparsedCliCommand(options, ['node', 'test-product', ...argv], cwd)).toBe(true);
         expect(process.exitCode).toBe(1);
       }
       expect(stderr.mock.calls.map(([text]) => String(text)).join('')).toMatch(
-        /Usage: robota session events list <supervised-id> \[--json\]/,
+        /Usage: test-product session events list <supervised-id> \[--json\]/,
       );
       stderr.mockClear();
       await runPreparsedCliCommand(
         options,
-        ['node', 'robota', 'session', 'events', 'revoke', '../escape', 'ci'],
+        ['node', 'test-product', 'session', 'events', 'revoke', '../escape', 'ci'],
         cwd,
       );
       expect(process.exitCode).toBe(1);
@@ -199,16 +200,16 @@ describe('supervised background session command', () => {
   });
 
   it('refuses an untrusted project before starting a background session', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-supervised-route-'));
+    const cwd = mkdtempSync(join(tmpdir(), 'test-product-supervised-route-'));
     const previousExitCode = process.exitCode;
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
       const handled = await runPreparsedCliCommand(
-        {
+        { productRuntime: createTestProductRuntime(),
           providerDefinitions: [],
           projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
         },
-        ['node', 'robota', 'session', 'start', '--background'],
+        ['node', 'test-product', 'session', 'start', '--background'],
         cwd,
       );
 
@@ -217,11 +218,11 @@ describe('supervised background session command', () => {
       expect(stderr.mock.calls.map(([text]) => String(text)).join('')).toMatch(/trust|untrusted/i);
       stderr.mockClear();
       const named = await runPreparsedCliCommand(
-        {
+        { productRuntime: createTestProductRuntime(),
           providerDefinitions: [],
           projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
         },
-        ['node', 'robota', 'session', 'start', '--background', '--name', 'Morning review'],
+        ['node', 'test-product', 'session', 'start', '--background', '--name', 'Morning review'],
         cwd,
       );
       expect(named).toBe(true);

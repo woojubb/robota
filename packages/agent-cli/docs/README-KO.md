@@ -2,10 +2,12 @@
 
 # @robota-sdk/agent-cli
 
-`robota`는 터미널에서 쓰는 AI 코딩 어시스턴트이자, AI 에이전트를 만드는 TypeScript 라이브러리
-모음인 Robota의 레퍼런스 앱입니다. 프로젝트를 읽고, 사용자가 통제하는 권한 체계 아래에서 파일을
-수정하고 명령을 실행하며, Anthropic, OpenAI, Gemini, DeepSeek, Qwen과 로컬 OpenAI 호환 모델을
-지원합니다.
+`__PRODUCT_CLI_NAME__` is the configurable terminal interface for Robota, assembled from the
+same TypeScript libraries you can embed. It is a coding-capable agent within the environment whose
+direction is [our agents developing and advancing our agents](../../../VISION.md). Autonomous
+self-evolution remains an ambition; the behavior below describes the current CLI. It reads your
+project, edits files and runs commands under a permission system you control, and works with
+Anthropic, OpenAI, Gemini, DeepSeek, Qwen and local OpenAI-compatible models.
 
 이 CLI는 여러분의 앱에서도 쓸 수 있는 같은 패키지들로 조립되어 있습니다. 세션은
 `@robota-sdk/agent-framework`, 터미널 UI는 `@robota-sdk/agent-ui-terminal`이 맡고, 모델 제공자마다
@@ -13,16 +15,15 @@
 [SDK 가이드](../../../content/guide/sdk.md)부터 보세요.
 
 > **베타.** 정식 릴리스 전까지 동작이 바뀔 수 있습니다.
-> [이슈를 알려 주세요](https://github.com/woojubb/robota/issues).
+> [이슈를 알려 주세요](__PROJECT_REPOSITORY_URL__/issues).
 
-![터미널에서 robota가 프로젝트 파일을 읽고 진입점을 설명하는 모습](./demo.gif)
 
 ## 설치
 
 Node.js 22.12.0 이상이 필요합니다.
 
 ```bash
-npm install -g @robota-sdk/agent-cli   # `robota` 명령을 설치합니다
+npm install -g @robota-sdk/agent-cli   # `__PRODUCT_CLI_NAME__` 명령을 설치합니다
 npx @robota-sdk/agent-cli              # 설치하지 않고 한 번 실행합니다
 ```
 
@@ -31,15 +32,15 @@ macOS의 Terminal.app에서는 한국어 등 CJK 입력기가 충돌을 일으�
 
 ## 첫 실행
 
-Git 저장소 안에서 `robota`를 실행합니다. 먼저 이 폴더를 신뢰할지 묻습니다. 프로젝트 자체의 설정,
+Git 저장소 안에서 `__PRODUCT_CLI_NAME__`를 실행합니다. 먼저 이 폴더를 신뢰할지 묻습니다. 프로젝트 자체의 설정,
 훅, 스킬, 플러그인, MCP 서버는 신뢰한 워크스페이스에서만 불러옵니다. 신뢰하지 않으면 세션은
 **Restricted** 상태로 시작하며, 사용자 설정과 기본 도구만 씁니다. 처음 실행할 때는 이어서 제공자를
-고르고 그 항목(모델, 기본 URL, API 키)을 채우는 과정을 안내한 뒤, 프로필을 `~/.robota/settings.json`에
+고르고 그 항목(모델, 기본 URL, API 키)을 채우는 과정을 안내한 뒤, 프로필을 `<configured-user-state-dir>/settings.json`에
 저장합니다.
 
 ```bash
 cd my-project
-robota
+__PRODUCT_CLI_NAME__
 ```
 
 서버처럼 입력 프롬프트 없이 설정하려면, 플래그로 프로필을 만들고 워크스페이스를 신뢰합니다.
@@ -48,22 +49,22 @@ robota
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-robota --configure-provider anthropic --type anthropic --model claude-sonnet-4-6 \
+__PRODUCT_CLI_NAME__ --configure-provider anthropic --type anthropic --model claude-sonnet-4-6 \
   --api-key-env ANTHROPIC_API_KEY --set-current
-robota trust --yes
+__PRODUCT_CLI_NAME__ trust --yes
 ```
 
-`robota init`은 현재 프로젝트에 기본 `AGENTS.md`와 `.robota/settings.json`을 만듭니다.
-`robota --configure`는 대화형 제공자 설정을 다시 실행하고, `robota --reset`은
-`~/.robota/settings.json`을 삭제합니다.
+`__PRODUCT_CLI_NAME__ init`은 현재 프로젝트에 기본 `AGENTS.md`와 `<configured-project-state-dir>/settings.json`을 만듭니다.
+`__PRODUCT_CLI_NAME__ --configure`는 대화형 제공자 설정을 다시 실행하고, `__PRODUCT_CLI_NAME__ --reset`은
+`<configured-user-state-dir>/settings.json`을 삭제합니다.
 
 ## 할 수 있는 일
 
 ### 터미널 UI에서 작업하기
 
-`robota`는 대화형 세션을 시작합니다. 요청을 입력하거나 `/`를 눌러 명령 메뉴를 엽니다(`/help`는 모든
+`__PRODUCT_CLI_NAME__`는 대화형 세션을 시작합니다. 요청을 입력하거나 `/`를 눌러 명령 메뉴를 엽니다(`/help`는 모든
 명령을 보여 줍니다). `Esc`는 진행 중인 응답을 멈추고, `Ctrl+R`은 이전에 입력한 프롬프트를 검색하며,
-모든 키는 `~/.robota/keybindings.json`에서 다시 지정할 수 있습니다
+모든 키는 `<configured-user-state-dir>/keybindings.json`에서 다시 지정할 수 있습니다
 ([키 바인딩 가이드](../../../content/guide/keybindings.md) 참고).
 
 에이전트는 파일·셸 도구(`Read`, `Write`, `Edit`, `Glob`, `Grep`, `Bash`), `WebFetch`,
@@ -72,9 +73,9 @@ robota trust --yes
 프롬프트에 `@path`를 쓰면 프로젝트 파일을 첨부합니다.
 
 ```bash
-robota                              # 새 세션
-robota --permission-mode acceptEdits
-robota --screen-reader              # 스크린 리더용 일반 텍스트 모드
+__PRODUCT_CLI_NAME__                              # 새 세션
+__PRODUCT_CLI_NAME__ --permission-mode acceptEdits
+__PRODUCT_CLI_NAME__ --screen-reader              # 스크린 리더용 일반 텍스트 모드
 ```
 
 ### 스크립트에서 프롬프트 하나 실행하기
@@ -83,30 +84,30 @@ robota --screen-reader              # 스크린 리더용 일반 텍스트 모�
 파이프로 들어온 stdin에서 프롬프트를 읽습니다.
 
 ```bash
-robota -p "List the TypeScript files in src/"
-robota -p "Summarize this repository" --output-format json   # JSON 객체 하나: result, session_id
-cat task.md | robota -p                                      # stdin에서 프롬프트 읽기
-robota -p "Review this diff" --bare                          # AGENTS.md, CLAUDE.md, 플러그인 없이 실행
-robota --goal "make the failing tests pass"                  # 여러 턴에 걸쳐 목표를 향해 작업
+__PRODUCT_CLI_NAME__ -p "List the TypeScript files in src/"
+__PRODUCT_CLI_NAME__ -p "Summarize this repository" --output-format json   # JSON 객체 하나: result, session_id
+cat task.md | __PRODUCT_CLI_NAME__ -p                                      # stdin에서 프롬프트 읽기
+__PRODUCT_CLI_NAME__ -p "Review this diff" --bare                          # AGENTS.md, CLAUDE.md, 플러그인 없이 실행
+__PRODUCT_CLI_NAME__ --goal "make the failing tests pass"                  # 여러 턴에 걸쳐 목표를 향해 작업
 ```
 
 `--output-format`은 `text`(기본값), `json`, `stream-json` 중 하나입니다. `--json-schema`는 스키마에
 맞는 JSON 응답을 요청하고, `--system-prompt` / `--append-system-prompt`는 이번 실행의 시스템
 프롬프트를 바꿉니다. 종료 코드는 성공이면 `0`, 오류면 `1`입니다. 사용할 수 있는 제공자 설정이
 없으면 `-p`는 `3`으로 끝나고, 목표에 도달하지 못하고 멈춘 `--goal` 실행은 `2`로 끝납니다. 신뢰하지
-않은 Git 저장소에서는 프린트 모드, `--goal`, `--serve`, `robota mcp serve`, `robota daemon start`,
-`robota session start`가 시작을 거부합니다. 앞의 네 가지는 `--safe-mode`를 붙이면 대신 Restricted
-상태로 실행되고, `robota daemon start --restricted-workspace`는 데몬을 Restricted로 시작합니다.
+않은 Git 저장소에서는 프린트 모드, `--goal`, `--serve`, `__PRODUCT_CLI_NAME__ mcp serve`, `__PRODUCT_CLI_NAME__ daemon start`,
+`__PRODUCT_CLI_NAME__ session start`가 시작을 거부합니다. 앞의 네 가지는 `--safe-mode`를 붙이면 대신 Restricted
+상태로 실행되고, `__PRODUCT_CLI_NAME__ daemon start --restricted-workspace`는 데몬을 Restricted로 시작합니다.
 
 ### 세션 이어 가기, 백그라운드 실행, 데몬 공유
 
 세션은 저장되므로 나중에 다시 돌아올 수 있습니다.
 
 ```bash
-robota -c                           # 가장 최근 세션 이어 가기
-robota -r <id-or-name>              # 세션 재개
-robota -r <id> --fork-session       # 원본은 그대로 두고 복사본으로 이어 가기
-robota -n "refactor auth"           # 새 세션에 이름 붙이기
+__PRODUCT_CLI_NAME__ -c                           # 가장 최근 세션 이어 가기
+__PRODUCT_CLI_NAME__ -r <id-or-name>              # 세션 재개
+__PRODUCT_CLI_NAME__ -r <id> --fork-session       # 원본은 그대로 두고 복사본으로 이어 가기
+__PRODUCT_CLI_NAME__ -n "refactor auth"           # 새 세션에 이름 붙이기
 ```
 
 세션 안에서는 `/resume`으로 세션을 바꾸고, `/rename`으로 현재 세션 이름을 정하고, `/fork`로 대화를
@@ -117,11 +118,11 @@ robota -n "refactor auth"           # 새 세션에 이름 붙이기
 창에서 신뢰할지, Restricted로 시작할지, 종료할지 묻습니다.
 
 ```bash
-robota session start --background --name nightly
-robota session list
-robota session attach <supervised-id>          # --observe를 붙이면 읽기 전용으로 지켜봅니다
-robota daemon start                            # 그다음: robota --attach
-robota daemon stop
+__PRODUCT_CLI_NAME__ session start --background --name nightly
+__PRODUCT_CLI_NAME__ session list
+__PRODUCT_CLI_NAME__ session attach <supervised-id>          # --observe를 붙이면 읽기 전용으로 지켜봅니다
+__PRODUCT_CLI_NAME__ daemon start                            # 그다음: __PRODUCT_CLI_NAME__ --attach
+__PRODUCT_CLI_NAME__ daemon stop
 ```
 
 [세션과 데몬](../../../content/guide/sessions-and-daemon.md)을 참고하세요.
@@ -153,20 +154,20 @@ robota daemon stop
 ```
 
 `ask` 규칙은 `bypassPermissions`에서도 물어보며, 몇 가지 동작은 어떤 모드에서도 자동 승인되지
-않습니다. 루트·홈·작업 디렉터리에 대한 `rm`, 그리고 `.git`, `.robota`, `.claude`, `.agents`나 셸·도구
+않습니다. 루트·홈·작업 디렉터리에 대한 `rm`, 그리고 `.git`, `<configured-project-state-dir>`, `.claude`, `.agents`나 셸·도구
 설정 파일에 쓰는 동작이 그렇습니다.
 
 셸 명령은 OS 샌드박스(Linux는 bubblewrap, macOS는 Seatbelt) 안에서 실행할 수도 있습니다.
 `/sandbox`는 `auto-allow`, `regular`, `off` 사이를 전환하고, `sandbox` 설정 키로 구성합니다. 뭔가
-이상하게 동작하면 `robota --safe-mode`로 지시 파일, 스킬, 플러그인, 훅, MCP 서버를 모두 끈 채
+이상하게 동작하면 `__PRODUCT_CLI_NAME__ --safe-mode`로 지시 파일, 스킬, 플러그인, 훅, MCP 서버를 모두 끈 채
 시작해 보세요.
 
-워크스페이스 신뢰는 Git 워크트리 단위로 부여되며 `~/.robota/workspace-trust.json`에 저장됩니다.
+워크스페이스 신뢰는 Git 워크트리 단위로 부여되며 `<configured-user-state-dir>/workspace-trust.json`에 저장됩니다.
 
 ```bash
-robota trust status    # 이 워크스페이스를 신뢰하는가? 신뢰하면 무엇을 불러오는가? (--json: 한 줄 JSON)
-robota trust --yes     # 지금 있는 Git 워크스페이스를 신뢰
-robota trust revoke --yes
+__PRODUCT_CLI_NAME__ trust status    # 이 워크스페이스를 신뢰하는가? 신뢰하면 무엇을 불러오는가? (--json: 한 줄 JSON)
+__PRODUCT_CLI_NAME__ trust --yes     # 지금 있는 Git 워크스페이스를 신뢰
+__PRODUCT_CLI_NAME__ trust revoke --yes
 ```
 
 [권한과 훅](../../../content/guide/permissions-and-hooks.md)을 참고하세요.
@@ -206,13 +207,13 @@ robota trust revoke --yes
 모델이 두 번째 모델에게 조언을 구하게 할 수 있습니다. [제공자](../../../content/guide/providers.md)와
 [로컬 LLM 설정](../../../content/guide/local-llm.md)을 참고하세요.
 
-### MCP 서버 연결하기, 또는 Robota를 MCP로 제공하기
+### MCP 서버 연결하기, 또는 에이전트 세션을 MCP로 제공하기
 
 원격 MCP 서버는 설정 파일의 `mcpServers` 아래에 선언합니다. 선언한 서버는 승인하기 전까지 연결되지
 않습니다. `/mcp`는 각 서버의 상태를 보여 주고, `/mcp approve <server>`는 승인을 기록한 뒤
-실행 중인 세션에서 연결을 시도합니다. 승인은 `~/.robota/mcp-approvals.json`에 저장되어 다음 실행에도
+실행 중인 세션에서 연결을 시도합니다. 승인은 `<configured-user-state-dir>/mcp-approvals.json`에 저장되어 다음 실행에도
 이어지며, 서버 정의나 프로젝트 신뢰가 바뀌면 다시 승인해야 합니다. OAuth를 쓰는 서버는 로그인도
-필요합니다. 세션 안에서는 `/mcp login <server>`, 터미널에서는 `robota mcp login <server>`를 쓰며,
+필요합니다. 세션 안에서는 `/mcp login <server>`, 터미널에서는 `__PRODUCT_CLI_NAME__ mcp login <server>`를 쓰며,
 승인된 서버는 로그인하면 실행 중인 세션에 연결됩니다.
 
 ```json
@@ -223,15 +224,15 @@ robota trust revoke --yes
 }
 ```
 
-`robota mcp serve`는 그 반대입니다. Robota 세션 하나를 stdio로(또는 `--http-*`, `--oauth-*` 플래그로
-인증된 HTTP로) MCP 호스트에 제공합니다. 먼저 프로젝트를 신뢰하고, 호스트에는 `robota`의 절대 경로와
+`__PRODUCT_CLI_NAME__ mcp serve`는 그 반대입니다. 에이전트 세션 하나를 stdio로(또는 `--http-*`, `--oauth-*` 플래그로
+인증된 HTTP로) MCP 호스트에 제공합니다. 먼저 프로젝트를 신뢰하고, 호스트에는 `__PRODUCT_CLI_NAME__`의 절대 경로와
 프로젝트 디렉터리를 알려 줍니다.
 
 ```json
 {
   "mcpServers": {
-    "robota": {
-      "command": "/absolute/path/to/robota",
+    "__PRODUCT_CLI_NAME__": {
+      "command": "/absolute/path/to/__PRODUCT_CLI_NAME__",
       "args": ["mcp", "serve"],
       "cwd": "/absolute/path/to/trusted/project"
     }
@@ -243,9 +244,9 @@ robota trust revoke --yes
 
 ### 스킬, 명령, 에이전트, 플러그인 추가하기
 
-스킬과 명령은 CLI가 `.robota/skills/`, `.claude/skills/`, `.claude/commands/`, `.agents/skills/`에서
+스킬과 명령은 CLI가 `<configured-project-state-dir>/skills/`, `.claude/skills/`, `.claude/commands/`, `.agents/skills/`에서
 찾는 Markdown 파일입니다. 신뢰한 프로젝트와 홈 디렉터리 양쪽에서 찾습니다. 각각이 슬래시 명령
-(`/<name>`)이 되고, `/skills`가 목록을 보여 줍니다. 에이전트 정의는 `.robota/agents/`,
+(`/<name>`)이 되고, `/skills`가 목록을 보여 줍니다. 에이전트 정의는 `<configured-project-state-dir>/agents/`,
 `.agents/agents/`, `.claude/agents/`에서 읽습니다. 플러그인은 이것들을 훅, 테마, MCP 서버와 함께
 묶습니다.
 
@@ -259,14 +260,14 @@ robota trust revoke --yes
 
 ### 그래픽 인터페이스 쓰기
 
-`robota --serve --open`은 현재 워크스페이스용 헤드리스 런타임을 시작하고, Robota GUI를
+`__PRODUCT_CLI_NAME__ --serve --open`은 현재 워크스페이스용 헤드리스 런타임을 시작하고, configured GUI를
 `127.0.0.1`에서 제공하며, 브라우저에서 엽니다. 이 저장소의 Electron 데스크톱 앱
 ([`apps/agent-app`](../../../apps/agent-app/docs/README.md))은 워크스페이스 데몬 위에서 같은 GUI를
 보여 주며, npm에는 배포되지 않습니다.
 
 ### 다른 세션과 다른 기기에 닿기
 
-`/peers`는 이 컴퓨터에서 실행 중인 다른 `robota` 세션을 보여 주고, `/peers send <session-id>
+`/peers`는 이 컴퓨터에서 실행 중인 다른 `__PRODUCT_CLI_NAME__` 세션을 보여 주고, `/peers send <session-id>
 <message>`는 그중 하나에 메시지를 보냅니다. 받는 세션은 그 메시지를 자기 작업과 똑같이 자신의 권한
 아래에서 처리합니다. `/handoff <session-id>`는 양쪽이 확인하면 이 대화를 다른 세션으로 옮깁니다.
 다른 기기에도 닿으려면 `/devices init`으로 기기 ID를 만들고, 새 기기를 `/devices add`와
@@ -278,10 +279,10 @@ robota trust revoke --yes
 ### 설정과 사용량 확인하기
 
 ```bash
-robota doctor            # 설정 계층, 제공자, 신뢰, 저장소, 플러그인, 훅, MCP
-robota usage             # 최근 7일의 세션, 턴, 토큰, 비용 (--period 30d)
-robota --check-update    # npm에 새 버전이 있는가?
-robota eval <definition> # evals-as-code 정의 실행. 지표 위반 시 1로 종료
+__PRODUCT_CLI_NAME__ doctor            # 설정 계층, 제공자, 신뢰, 저장소, 플러그인, 훅, MCP
+__PRODUCT_CLI_NAME__ usage             # 최근 7일의 세션, 턴, 토큰, 비용 (--period 30d)
+__PRODUCT_CLI_NAME__ --check-update    # npm에 새 버전이 있는가?
+__PRODUCT_CLI_NAME__ eval <definition> # evals-as-code 정의 실행. 지표 위반 시 1로 종료
 ```
 
 ## 설정 파일
@@ -291,28 +292,28 @@ robota eval <definition> # evals-as-code 정의 실행. 지표 위반 시 1로 �
 
 | 파일                          | 범위                              |
 | ----------------------------- | --------------------------------- |
-| `~/.robota/settings.json`     | 사용자                            |
+| `<configured-user-state-dir>/settings.json`     | 사용자                            |
 | `~/.claude/settings.json`     | 사용자 (Claude Code 호환)         |
-| `.robota/settings.json`       | 프로젝트, 저장소에 커밋           |
-| `.robota/settings.local.json` | 프로젝트, 이 컴퓨터 전용          |
+| `<configured-project-state-dir>/settings.json`       | 프로젝트, 저장소에 커밋           |
+| `<configured-project-state-dir>/settings.local.json` | 프로젝트, 이 컴퓨터 전용          |
 | `.claude/settings.json`       | 프로젝트 (Claude Code 호환)       |
 | `.claude/settings.local.json` | 프로젝트, 로컬 (Claude Code 호환) |
 
-CLI가 `~/.robota/` 아래에 두는 그 밖의 파일:
+CLI가 `<configured-user-state-dir>/` 아래에 두는 그 밖의 파일:
 
 | 경로                   | 내용                                                               |
 | ---------------------- | ------------------------------------------------------------------ |
 | `workspace-trust.json` | 신뢰한 워크스페이스                                                |
-| `sessions/`            | 저장된 세션 (신뢰한 프로젝트는 `.robota/sessions/`에 둘 수도 있음) |
+| `sessions/`            | 저장된 세션 (신뢰한 프로젝트는 `<configured-project-state-dir>/sessions/`에 둘 수도 있음) |
 | `history.jsonl`        | `Ctrl+R`용으로 입력한 프롬프트 (`"promptHistory": false`로 끔)     |
 | `keybindings.json`     | 키 바인딩                                                          |
 | `themes/`              | 직접 만든 `/theme` 테마                                            |
-| `plugins/`             | 설치한 플러그인 (프로젝트는 자체 `.robota/plugins/`를 둘 수 있음)  |
+| `plugins/`             | 설치한 플러그인 (프로젝트는 자체 `<configured-project-state-dir>/plugins/`를 둘 수 있음)  |
 | `mcp-credentials/`     | MCP 서버용 OAuth 토큰, 본인만 읽을 수 있음                         |
 
 ## 코드에서 쓰기
 
-이 패키지는 `robota` 실행 파일이 실행하는 함수인 `startCli`와 그 옵션 타입 `IStartCliOptions`도
+이 패키지는 `__PRODUCT_CLI_NAME__` 실행 파일이 실행하는 함수인 `startCli`와 그 옵션 타입 `IStartCliOptions`도
 export합니다. 패키지는 ESM 전용이므로 `require()`가 아니라 `import`로 불러오세요.
 
 ## 이 저장소에서 CLI 개발하기
@@ -335,5 +336,5 @@ pnpm cli:trust        # 소스 CLI가 이 저장소를 신뢰하도록 설정
 
 ## 라이선스
 
-Robota는 [GNU AGPL-3.0](../../../LICENSE) 또는 [상용 라이선스](../../../COMMERCIAL.md)로 이중
+이 패키지는 [GNU AGPL-3.0](../../../LICENSE) 또는 [상용 라이선스](../../../COMMERCIAL.md)로 이중
 라이선스됩니다. [LICENSING.md](../../../LICENSING.md)를 참고하세요.

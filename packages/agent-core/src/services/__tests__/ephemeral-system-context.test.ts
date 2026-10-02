@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { Robota } from '../../core/robota';
+import { ConversationAgent } from '../../core/conversation-agent';
 import { createScriptedProvider } from '../../testing/scripted-provider';
 
 import type { IAgentConfig } from '../../interfaces/agent';
@@ -31,9 +31,9 @@ function createConfig(
 describe('SELFHOST-008 P3 TC-03 — ephemeral system-context seam (agent-core)', () => {
   it('reaches the provider request as a system message but is NOT persisted to the conversation store', async () => {
     const scripted = createScriptedProvider([{ text: 'done' }]);
-    const robota = new Robota(createConfig('scripted-test-provider', scripted.provider));
+    const agent = new ConversationAgent(createConfig('scripted-test-provider', scripted.provider));
 
-    await robota.run('rotate the staging key', { ephemeralSystemContext: EPHEMERAL });
+    await agent.run('rotate the staging key', { ephemeralSystemContext: EPHEMERAL });
 
     // (a) the provider saw the ephemeral block as a system message this call
     expect(scripted.requests).toHaveLength(1);
@@ -41,16 +41,16 @@ describe('SELFHOST-008 P3 TC-03 — ephemeral system-context seam (agent-core)',
     expect(sentSystemBlocks.some((m) => m.content === EPHEMERAL)).toBe(true);
 
     // (b) it is absent from the persisted conversation store (never addUserMessage/addMessage'd)
-    const persisted = robota.getHistory();
+    const persisted = agent.getHistory();
     expect(persisted.some((m) => (m.content ?? '').includes('recalled-memory'))).toBe(false);
     expect(persisted.some((m) => (m.content ?? '').includes('staging deploy key'))).toBe(false);
   });
 
   it('is a no-op when ephemeralSystemContext is absent (no extra system message)', async () => {
     const scripted = createScriptedProvider([{ text: 'done' }]);
-    const robota = new Robota(createConfig('scripted-test-provider', scripted.provider));
+    const agent = new ConversationAgent(createConfig('scripted-test-provider', scripted.provider));
 
-    await robota.run('hello');
+    await agent.run('hello');
 
     expect(scripted.requests).toHaveLength(1);
     expect(scripted.requests[0].some((m) => m.content === EPHEMERAL)).toBe(false);
@@ -58,15 +58,15 @@ describe('SELFHOST-008 P3 TC-03 — ephemeral system-context seam (agent-core)',
 
   it('does not persist the block even across a second turn (ephemeral per-run only)', async () => {
     const scripted = createScriptedProvider([{ text: 'one' }, { text: 'two' }]);
-    const robota = new Robota(createConfig('scripted-test-provider', scripted.provider));
+    const agent = new ConversationAgent(createConfig('scripted-test-provider', scripted.provider));
 
-    await robota.run('first', { ephemeralSystemContext: EPHEMERAL });
-    await robota.run('second');
+    await agent.run('first', { ephemeralSystemContext: EPHEMERAL });
+    await agent.run('second');
 
     // the 2nd call's request must not carry the 1st turn's ephemeral block (it was never stored)
     expect(scripted.requests).toHaveLength(2);
     expect(scripted.requests[1].some((m) => m.content === EPHEMERAL)).toBe(false);
-    expect(robota.getHistory().some((m) => (m.content ?? '').includes('recalled-memory'))).toBe(
+    expect(agent.getHistory().some((m) => (m.content ?? '').includes('recalled-memory'))).toBe(
       false,
     );
   });
@@ -79,9 +79,9 @@ describe('SELFHOST-008 P3 — ephemeral seam on the runStream path (review SHOUL
     // uses the SAME scripted provider the run() cases above use -- and the symmetry is the point: a
     // separate double for the streaming path is how the two paths drifted in the first place.
     const scripted = createScriptedProvider([{ text: 'done' }]);
-    const robota = new Robota(createConfig('scripted-test-provider', scripted.provider));
+    const agent = new ConversationAgent(createConfig('scripted-test-provider', scripted.provider));
 
-    for await (const _chunk of robota.runStream('rotate the key', {
+    for await (const _chunk of agent.runStream('rotate the key', {
       ephemeralSystemContext: EPHEMERAL,
     })) {
       // consume
@@ -91,7 +91,7 @@ describe('SELFHOST-008 P3 — ephemeral seam on the runStream path (review SHOUL
     expect(scripted.requests[0].some((m) => m.role === 'system' && m.content === EPHEMERAL)).toBe(
       true,
     );
-    expect(robota.getHistory().some((m) => (m.content ?? '').includes('recalled-memory'))).toBe(
+    expect(agent.getHistory().some((m) => (m.content ?? '').includes('recalled-memory'))).toBe(
       false,
     );
   });

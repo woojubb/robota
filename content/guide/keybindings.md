@@ -1,20 +1,20 @@
 # TUI Keybindings
 
 Robota's interactive terminal UI reads contextual keyboard overrides from
-`~/.robota/keybindings.json`. Run `/keybindings` in an interactive session to create the sparse
+`<user-state>/keybindings.json`. Run `/keybindings` in an interactive session to create the sparse
 file when it does not exist and open that exact file in your configured editor. Saving the file
 reloads valid changes without restarting Robota. Invalid replacements are rejected atomically: the
 TUI shows the file, JSON path, and error while the last valid bindings remain active.
 
 The generated document links to the published
-[JSON Schema](https://docs.robota.io/schemas/keybindings.schema.json), so compatible editors can
+[JSON Schema](__PROJECT_DOCS_URL__/schemas/keybindings.schema.json), so compatible editors can
 validate context and action names.
 
 ## File format
 
 ```json
 {
-  "$schema": "https://docs.robota.io/schemas/keybindings.schema.json",
+  "$schema": "__PROJECT_DOCS_URL__/schemas/keybindings.schema.json",
   "version": 1,
   "bindings": {
     "chat-input": {

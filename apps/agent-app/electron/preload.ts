@@ -10,7 +10,9 @@ import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'ele
 
 import type { IPickedFile, ITrustQuestion, TSidecarState, TTrustChoice } from './sidecar.js';
 
+const remoteMode = ipcRenderer.sendSync('agent-gui:runtime-mode') === 'remote';
 const api = {
+  runtimeMode: remoteMode ? ('remote' as const) : ('local' as const),
   /** Resolve the loopback WS URL (with the token) the renderer connects to. */
   getEndpoint: (): Promise<string | null> => ipcRenderer.invoke('agent-gui:endpoint'),
   /**
@@ -32,10 +34,11 @@ const api = {
    * The real filesystem path a dropped or picked `File` represents (#3282 §4d) — empty when the
    * object is not backed by one. A plain browser page has no equivalent; only this bridge does.
    */
-  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+  getPathForFile: (file: File): string => (remoteMode ? '' : webUtils.getPathForFile(file)),
   /** The Project panel's Memory "Open in editor" (#3282 §4c): open a project-relative path in the OS
    *  default app for it. */
-  openPath: (path: string): Promise<{ error?: string }> => ipcRenderer.invoke('agent-gui:open-path', path),
+  openPath: (path: string): Promise<{ error?: string }> =>
+    ipcRenderer.invoke('agent-gui:open-path', path),
   /** Subscribe to lifecycle state (`starting`/`ready`/`fatal`). Returns an unsubscribe fn. */
   /** `detail` accompanies `fatal`: what the CLI said when the daemon could not be started. */
   onState: (cb: (state: TSidecarState, detail?: string) => void): (() => void) => {

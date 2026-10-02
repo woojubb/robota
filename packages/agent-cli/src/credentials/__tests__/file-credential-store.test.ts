@@ -22,7 +22,7 @@ import { createFileCredentialStore } from '../file-credential-store.js';
  */
 
 const posix = process.platform !== 'win32';
-const KEY = { service: 'robota.test', account: 'alpha' } as const;
+const KEY = { service: 'test-product.test', account: 'alpha' } as const;
 const SECRET = 'SECRET-VALUE-4f1c';
 
 let home: string;
@@ -41,7 +41,7 @@ function onlyRecord(): string {
 
 beforeEach(() => {
   home = realpathSync(mkdtempSync(join(tmpdir(), 'file-credentials-')));
-  root = join(home, '.robota');
+  root = join(home, '.test-product');
   directory = join(root, 'credentials');
 });
 
@@ -109,7 +109,7 @@ describe('owner-only file credential store: creation and races', () => {
     parsed.key.account = 'someone-else';
     writeFileSync(record, JSON.stringify(parsed));
 
-    await expect(store.get(KEY)).rejects.toThrow(/robota\.test\/alpha/);
+    await expect(store.get(KEY)).rejects.toThrow(/test-product\.test\/alpha/);
   });
 });
 
@@ -124,7 +124,7 @@ describe('owner-only file credential store: secrets stay out of errors', () => {
       (caught: unknown) => caught,
     );
     expect(error).toBeInstanceOf(Error);
-    expect(String((error as Error).message)).toMatch(/robota\.test\/alpha/);
+    expect(String((error as Error).message)).toMatch(/test-product\.test\/alpha/);
     expect(JSON.stringify(error, Object.getOwnPropertyNames(error))).not.toContain(SECRET);
     expect((error as Error).cause).toBeUndefined();
   });

@@ -2,7 +2,7 @@ import { defineConfig } from 'tsdown';
 
 import manifest from './package.json' with { type: 'json' };
 
-const define = { __ROBOTA_VERSION__: JSON.stringify(manifest.version) };
+const define = { __AGENT_VERSION__: JSON.stringify(manifest.version) };
 
 export default defineConfig([
   {

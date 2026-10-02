@@ -81,7 +81,7 @@ const REFUSALS: Readonly<Record<TDevicesRefusal, string>> = {
   'no-terminal':
     'This needs an interactive terminal; the recovery phrase is never shown or read anywhere else.',
   'not-initialized':
-    'This device has no identity yet. If you already use Robota on another device, run `/devices add` there and `/devices join` here, typing the code it shows. Run `/devices init` only for your first device: it creates a separate identity that can never link to your other devices.',
+    'This device has no identity yet. If your other devices are already linked, run `/devices add` there and `/devices join` here, typing the code it shows. Run `/devices init` only when setting up your first device: it creates a separate identity that cannot link to an existing device group.',
   'already-initialized':
     'This device already has an identity. Use `/devices recover` to rotate its signing key.',
   cancelled: 'Cancelled. Nothing was changed.',

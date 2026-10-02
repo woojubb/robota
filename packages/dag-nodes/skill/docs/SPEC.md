@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Owns the `skill` DAG node definition. Resolves a Robota skill (by name) to its expanded
+Owns the `skill` DAG node definition. Resolves an agent runtime skill (by name) to its expanded
 inject-mode prompt string, emitted on an output port. It does not run the skill through an LLM —
 it produces the prompt a downstream LLM node consumes (`skill -> llm-text -> ...`).
 

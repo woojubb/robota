@@ -2,7 +2,7 @@
  * The user's master key: an Ed25519 key recomputed from a BIP39 recovery phrase and never stored.
  *
  * phrase ─(BIP39: NFKD, PBKDF2-HMAC-SHA512 ×2048)→ 64-byte seed
- *        ─(SLIP-0010 ed25519, path MASTER_KEY_DERIVATION_PATH)→ 32-byte private key
+ *        ─(SLIP-0010 ed25519, explicitly selected path)→ 32-byte private key
  *        ─(WebCrypto, non-extractable)→ CryptoKeyPair
  *
  * Standard derivations rather than a bespoke KDF, so the phrase can be checked against published
@@ -10,11 +10,7 @@
  * signing key is certified, rotated or revoked; the day-to-day issuer is the signing key.
  */
 
-import {
-  entropyToMnemonic,
-  mnemonicToSeed,
-  validateMnemonic,
-} from '@scure/bip39';
+import { entropyToMnemonic, mnemonicToSeed, validateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 
 import { ab, encoder, randomBytes, webcrypto } from '../crypto-primitives.js';
@@ -23,12 +19,6 @@ import { exportSpki, keyIdOf } from './encoding.js';
 /** Words in a recovery phrase — 256 bits of entropy plus an 8-bit checksum. */
 export const RECOVERY_PHRASE_WORDS = 24;
 const RECOVERY_ENTROPY_BYTES = 32;
-
-/**
- * SLIP-0010 path of the master key: `m/7240'/0'` (every ed25519 SLIP-0010 index is hardened).
- * A dedicated first index keeps this key unrelated to any wallet key the same phrase might derive.
- */
-export const MASTER_KEY_DERIVATION_PATH: readonly number[] = [7240, 0];
 
 const HARDENED_OFFSET = 0x80000000;
 const SLIP10_ED25519_CURVE_KEY = 'ed25519 seed';
@@ -181,11 +171,35 @@ export interface IMasterKey {
   readonly keyPair: CryptoKeyPair;
 }
 
-/** Recompute the master key from the recovery phrase (and optional BIP39 passphrase). */
-export async function deriveMasterKey(phrase: string, passphrase = ''): Promise<IMasterKey> {
-  const seed = await recoveryPhraseToSeed(phrase, passphrase);
-  const node = await deriveSlip10Ed25519(seed, MASTER_KEY_DERIVATION_PATH);
-  seed.fill(0);
+export interface IDeriveMasterKeyOptions {
+  /** Product-selected SLIP-0010 indices; every index is hardened by the derivation algorithm. */
+  readonly derivationPath: readonly number[];
+  readonly passphrase?: string;
+}
+
+/** Recompute a product's master key without retaining its phrase or configuration. */
+export async function deriveMasterKey(
+  phrase: string,
+  options: IDeriveMasterKeyOptions,
+): Promise<IMasterKey> {
+  if (
+    !options ||
+    !Array.isArray(options.derivationPath) ||
+    options.derivationPath.length === 0 ||
+    options.derivationPath.some(
+      (index) => !Number.isInteger(index) || index < 0 || index >= HARDENED_OFFSET,
+    )
+  ) {
+    throw new Error('master key: a nonempty hardened derivation path is required');
+  }
+  const path = [...options.derivationPath];
+  const seed = await recoveryPhraseToSeed(phrase, options.passphrase ?? '');
+  let node: ISlip10Node;
+  try {
+    node = await deriveSlip10Ed25519(seed, path);
+  } finally {
+    seed.fill(0);
+  }
   try {
     const { keyPair } = await ed25519KeyPairFromSeed(node.privateKey, false);
     return {

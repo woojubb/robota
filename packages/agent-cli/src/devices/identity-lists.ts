@@ -2,7 +2,7 @@
  * What every issuer of this device's lists shares: how the next sequence number is chosen, and the
  * check a new identity state passes before it is saved.
  */
-import { verifyDeviceChain, type IListHighWaterMarks } from '@robota-sdk/agent-remote-pairing';
+import { verifyDeviceChain, type IIdentityContext, type IListHighWaterMarks } from '@robota-sdk/agent-remote-pairing';
 
 import { DeviceIdentityError } from './device-identity-error.js';
 
@@ -19,10 +19,11 @@ export function nextSeq(previous: number | undefined, now: number): number {
 
 /** Verify the state for this device before it is saved, and fold the accepted `seq`s into its marks. */
 export async function checked(
+  cryptoContext: IIdentityContext,
   state: IDeviceIdentityState,
   now: number,
 ): Promise<IDeviceIdentityState> {
-  const verdict = await verifyDeviceChain({
+  const verdict = await verifyDeviceChain(cryptoContext, {
     masterPublicKey: state.masterPublicKey,
     signingKeyCert: state.signingKeyCertificate,
     deviceCert: state.deviceCertificate,

@@ -31,7 +31,7 @@ describe('CMD-004 TC-05 — ui_intent description (explicit, never silent, never
 
   it('the theme picker reuses the exclusion sentence — the GUI follows system appearance', () => {
     expect(describeUiIntentForGui({ type: 'show-theme-picker' })).toBe(
-      'Robota follows your system appearance.',
+      'This app follows your system appearance.',
     );
   });
 

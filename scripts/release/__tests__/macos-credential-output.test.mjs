@@ -44,6 +44,7 @@ printf '%s\\n' "$@"
         MOCK_PASSWORD_FILE: passwordFile,
         MOCK_REJECT_IMPORT: String(rejectImport),
         RUNNER_TEMP: root,
+        PRODUCT_CREDENTIAL_SERVICE: 'synthetic-service',
         GITHUB_ENV: join(root, 'github-env'),
         MACOS_CERTIFICATE_P12: Buffer.from('synthetic certificate').toString('base64'),
         MACOS_CERTIFICATE_PASSWORD: 'synthetic-certificate-password',

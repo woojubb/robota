@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-product",
   "version": "3.0.0-beta.86",
-  "description": "The product-assembly kernel for the Robota SDK: assembleProduct — a pure, IO-free fold over IProductProfile that delegates runtime construction to agent-framework",
+  "description": "The product-assembly kernel for the Robota SDK: assembleProduct \u2014 a pure, IO-free fold over IProductProfile that delegates runtime construction to agent-framework",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -30,15 +30,6 @@
       }
     },
     "./package.json": "./package.json"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/woojubb/robota.git",
-    "directory": "packages/agent-product"
-  },
-  "homepage": "https://docs.robota.io/en/packages/agent-product/",
-  "bugs": {
-    "url": "https://github.com/woojubb/robota/issues"
   },
   "engines": {
     "node": ">=22.12.0"

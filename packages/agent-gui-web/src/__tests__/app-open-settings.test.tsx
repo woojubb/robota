@@ -5,6 +5,7 @@
  * itself (tested in `agent-ui-web`) owns the Settings screen and its gear button.
  */
 
+import { testProduct } from './product-fixture.js';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -53,7 +54,7 @@ function hostWithMenu(): {
 describe('#3282 §4a — the App menu opens Settings through the same handle as the gear', () => {
   it('the menu item calls openSettings once the session is live', async () => {
     const { host, triggerMenu, subscribed } = hostWithMenu();
-    render(<App host={host} />);
+    render(<App product={testProduct} host={host} />);
     await screen.findByText('session surface');
     // The surface can be on screen before the effect that subscribes to the menu has run.
     await waitFor(() => expect(subscribed()).toBe(true));
@@ -71,7 +72,7 @@ describe('#3282 §4a — the App menu opens Settings through the same handle as 
       onState: () => () => {},
       onOpenSettings: () => () => {},
     };
-    render(<App host={host} />);
+    render(<App product={testProduct} host={host} />);
     await screen.findByText('session surface');
     expect(openSettings).not.toHaveBeenCalled();
   });

@@ -19,7 +19,7 @@ const DEFINITIONS: IProviderDefinition[] = ['anthropic', 'openai', 'gemini'].map
 let dir: string;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'robota-fallback-'));
+  dir = mkdtempSync(join(tmpdir(), 'test-product-fallback-'));
 });
 
 afterEach(() => {

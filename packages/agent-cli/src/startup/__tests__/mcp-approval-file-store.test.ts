@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,9 +17,9 @@ afterEach(() => {
 });
 
 function storePath(): string {
-  const root = mkdtempSync(join(tmpdir(), 'robota-mcp-approvals-'));
+  const root = mkdtempSync(join(tmpdir(), 'test-product-mcp-approvals-'));
   roots.push(root);
-  return join(root, '.robota', 'mcp-approvals.json');
+  return join(root, '.test-product', 'mcp-approvals.json');
 }
 
 function request(overrides: Partial<IMCPActivationRequest> = {}): IMCPActivationRequest {
@@ -138,15 +139,15 @@ describe('the file-backed MCP approval store', () => {
   });
 
   it('is what a CLI session uses unless the host supplies a store', () => {
-    const home = mkdtempSync(join(tmpdir(), 'robota-mcp-approvals-home-'));
+    const home = mkdtempSync(join(tmpdir(), 'test-product-mcp-approvals-home-'));
     roots.push(home);
-    new MCPActivationAdmissionService(resolveMcpApprovalStore(undefined, home)).approve(request());
+    new MCPActivationAdmissionService(resolveMcpApprovalStore(undefined, createTestProductRuntime('test-product', { HOME: home }))).approve(request());
 
     expect(
-      new MCPActivationAdmissionService(resolveMcpApprovalStore(undefined, home)).admit(request())
+      new MCPActivationAdmissionService(resolveMcpApprovalStore(undefined, createTestProductRuntime('test-product', { HOME: home }))).admit(request())
         .allowed,
     ).toBe(true);
     const supplied = createFileMcpApprovalStore(storePath());
-    expect(resolveMcpApprovalStore(supplied, home)).toBe(supplied);
+    expect(resolveMcpApprovalStore(supplied, createTestProductRuntime('test-product', { HOME: home }))).toBe(supplied);
   });
 });

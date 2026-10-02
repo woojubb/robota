@@ -39,7 +39,7 @@ function fakeHandoff(canHandoff: boolean): ITerminalHandoff {
 
 /** Write a fake `$EDITOR`: a script that writes `content` into the file it is given as $1. */
 function installFakeEditor(content: string): string {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-fake-editor-')));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-fake-editor-')));
   const script = join(dir, 'fake-editor.sh');
   writeFileSync(
     script,

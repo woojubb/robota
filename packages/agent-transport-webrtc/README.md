@@ -1,6 +1,6 @@
 # @robota-sdk/agent-transport-webrtc
 
-WebRTC peer-to-peer transport for the Robota SDK (Node.js). `WebRtcTransport` carries a Robota
+WebRTC peer-to-peer transport for the Robota SDK (Node.js). `WebRtcTransport` carries an agent runtime
 session over an `RTCDataChannel`, so a remote client can drive a live session directly, peer to
 peer, without session content passing through a server. It reuses the transport-neutral session
 bridge and wire protocol from `@robota-sdk/agent-transport`, the same ones the WebSocket transport
@@ -102,10 +102,10 @@ requires attaching again.
 - [`@robota-sdk/agent-transport-webrtc-web`](../agent-transport-webrtc-web/README.md): the browser
   peer that answers this transport's offer (internal).
 
-For how the Robota CLI uses this for remote control and connecting your own devices, see the
+For how the agent runtime CLI uses this for remote control and connecting your own devices, see the
 [devices and remote access guide](../../content/guide/devices-and-remote.md). See
 [docs/SPEC.md](docs/SPEC.md) for the package contract.
 
 ## License
 
-Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

@@ -47,6 +47,21 @@ function markAdmitted(result: IToolResult): IToolResult {
 }
 
 function modelFacingText(result: IToolResult): string {
+  if (result.parts?.length && result.parts.every((part) => part.type === 'text')) {
+    const text = result.parts.map((part) => (part.type === 'text' ? part.text : '')).join('\n');
+    if (
+      (result.success && result.data === text) ||
+      (!result.success && result.data === undefined && result.error === text)
+    )
+      return text;
+  }
+  if (result.parts?.length)
+    return JSON.stringify({
+      success: result.success,
+      data: result.data,
+      error: result.error,
+      parts: result.parts,
+    });
   if (result.success) {
     if (typeof result.data === 'string') return result.data;
     return JSON.stringify(result.data) ?? '';

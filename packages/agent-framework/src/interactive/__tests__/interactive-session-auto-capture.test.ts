@@ -21,7 +21,7 @@ import { loadedRecordOrMissing } from './session-load-helpers.js';
  * controller's `finally`, before `persistSession()`, on the completed-turn path, guarded).
  */
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-auto-capture-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-auto-capture-')));
 const ORIGINAL_HOME = process.env.HOME;
 
 function makeProject(): string {
@@ -82,8 +82,8 @@ describe('SELFHOST-008 P2 TC-01/TC-05 — capture fires on a completed turn (que
       await session.submit(CUE);
 
       // queued, not durably saved
-      expect(existsSync(join(cwd, '.robota', 'memory', 'pending.json'))).toBe(true);
-      expect(existsSync(join(cwd, '.robota', 'memory', 'MEMORY.md'))).toBe(false);
+      expect(existsSync(join(cwd, '.agent', 'memory', 'pending.json'))).toBe(true);
+      expect(existsSync(join(cwd, '.agent', 'memory', 'MEMORY.md'))).toBe(false);
       // memory event recorded IN this turn's persisted record (proves await-before-persist)
       const saved = loadedRecordOrMissing(sessionStore, session.getSession().getSessionId());
       const types = (saved?.memoryEvents ?? []).map((e) => e.type);
@@ -109,7 +109,7 @@ describe('SELFHOST-008 P2 TC-01/TC-05 — capture fires on a completed turn (que
 
       await session.submit(CUE);
 
-      expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
+      expect(readFileSync(join(cwd, '.agent', 'memory', 'MEMORY.md'), 'utf8')).toContain(
         'this project uses pnpm for package scripts',
       );
       const saved = loadedRecordOrMissing(sessionStore, session.getSession().getSessionId());
@@ -134,7 +134,7 @@ describe('SELFHOST-008 P2 TC-03 — adapter-gating: no automaticMemory ⇒ captu
 
       await session.submit(CUE);
 
-      expect(existsSync(join(cwd, '.robota', 'memory', 'pending.json'))).toBe(false);
+      expect(existsSync(join(cwd, '.agent', 'memory', 'pending.json'))).toBe(false);
       expect(
         loadedRecordOrMissing(sessionStore, session.getSession().getSessionId())?.memoryEvents,
       ).toEqual([]);
@@ -155,9 +155,9 @@ describe('SELFHOST-008 P2 TC-04 — sensitive content is refused on the capture 
 
     await session.submit('remember that my api_key is sk-live-super-secret-value');
 
-    expect(existsSync(join(cwd, '.robota', 'memory', 'MEMORY.md'))).toBe(false);
+    expect(existsSync(join(cwd, '.agent', 'memory', 'MEMORY.md'))).toBe(false);
     // the pending queue, if created, holds a 'skipped' record — never 'pending'/'saved' for this content
-    const pendingPath = join(cwd, '.robota', 'memory', 'pending.json');
+    const pendingPath = join(cwd, '.agent', 'memory', 'pending.json');
     if (existsSync(pendingPath)) {
       const doc = JSON.parse(readFileSync(pendingPath, 'utf8')) as {
         records: { status: string }[];

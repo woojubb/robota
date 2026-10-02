@@ -7,7 +7,7 @@ describe('resolveCliModelEffort', () => {
     expect(
       resolveCliModelEffort(
         { effort: 'low' },
-        { ROBOTA_EFFORT: 'medium' },
+        { PRODUCT_EFFORT: 'medium' },
         { effort: 'high' },
         { effort: 'xhigh' },
       ),
@@ -16,11 +16,11 @@ describe('resolveCliModelEffort', () => {
 
   it('reads the environment and settings boundaries as untrusted values', () => {
     expect(
-      resolveCliModelEffort({ effort: undefined }, { ROBOTA_EFFORT: 'medium' }, {}, {}),
+      resolveCliModelEffort({ effort: undefined }, { PRODUCT_EFFORT: 'medium' }, {}, {}),
     ).toMatchObject({ effective: 'medium', source: 'environment' });
     expect(() =>
-      resolveCliModelEffort({ effort: undefined }, { ROBOTA_EFFORT: 'turbo' }, {}, {}),
-    ).toThrow('ROBOTA_EFFORT');
+      resolveCliModelEffort({ effort: undefined }, { PRODUCT_EFFORT: 'turbo' }, {}, {}),
+    ).toThrow('PRODUCT_EFFORT');
   });
 
   it('keeps a live auto command as the provider-boundary selection', async () => {

@@ -4,7 +4,8 @@
  * control reflects the new snapshot, a failed update reverts with a plain message, Esc closes with
  * focus restored, and the two confirmations ("Skip all checks", removing a rule).
  */
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { render } from '../../testing/product-provider.js';
+import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import React, { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -22,7 +23,7 @@ const snapshot: ISettingsSnapshot = {
       { id: 'ko', label: 'Korean', description: 'ko' },
       { id: 'en', label: 'English', description: 'en' },
     ],
-    appliesNote: 'Takes effect the next time Robota starts.',
+    appliesNote: 'Takes effect the next time Test Product starts.',
   },
   outputStyle: {
     current: 'default',
@@ -48,7 +49,7 @@ const snapshot: ISettingsSnapshot = {
     {
       id: 'user:allow:Bash(git push:*)',
       scope: 'user',
-      source: '~/.robota/settings.json',
+      source: '~/.test-product/settings.json',
       kind: 'allow',
       pattern: 'Bash(git push:*)',
       removable: true,
@@ -78,7 +79,7 @@ const snapshot: ISettingsSnapshot = {
   },
   plugins: {
     plugins: [
-      { id: 'formatter@robota', name: 'formatter@robota', description: 'Formats code.', enabled: true },
+      { id: 'formatter@test-product', name: 'formatter@test-product', description: 'Formats code.', enabled: true },
     ],
     canInstall: true,
   },
@@ -457,9 +458,9 @@ describe('SettingsScreen — Plugins section (#3282 §4 part b-2)', () => {
   it('lists every plugin with plain labels: name, description and enabled state', () => {
     render(<SettingsScreen state={buildState()} />);
     openPlugins();
-    expect(screen.getByText('formatter@robota')).toBeTruthy();
+    expect(screen.getByText('formatter@test-product')).toBeTruthy();
     expect(screen.getByText('Formats code.')).toBeTruthy();
-    expect(screen.getByRole('switch', { name: 'formatter@robota' }).getAttribute('aria-checked')).toBe(
+    expect(screen.getByRole('switch', { name: 'formatter@test-product' }).getAttribute('aria-checked')).toBe(
       'true',
     );
   });
@@ -468,10 +469,10 @@ describe('SettingsScreen — Plugins section (#3282 §4 part b-2)', () => {
     const state = buildState();
     render(<SettingsScreen state={state} />);
     openPlugins();
-    fireEvent.click(screen.getByRole('switch', { name: 'formatter@robota' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'formatter@test-product' }));
     expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({
       field: 'pluginEnabled',
-      pluginId: 'formatter@robota',
+      pluginId: 'formatter@test-product',
       enabled: false,
     });
   });
@@ -479,10 +480,10 @@ describe('SettingsScreen — Plugins section (#3282 §4 part b-2)', () => {
   it('a failed toggle leaves the switch at its previous state and shows a plain message', () => {
     const { rerender } = render(<SettingsScreen state={buildState()} />);
     openPlugins();
-    fireEvent.click(screen.getByRole('switch', { name: 'formatter@robota' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'formatter@test-product' }));
     rerender(<SettingsScreen state={buildState({ settingsError: 'Could not change that plugin.' })} />);
     expect(
-      screen.getByRole('switch', { name: 'formatter@robota' }).getAttribute('aria-checked'),
+      screen.getByRole('switch', { name: 'formatter@test-product' }).getAttribute('aria-checked'),
     ).toBe('true');
     expect(screen.getByText('Could not change that plugin.')).toBeTruthy();
   });
@@ -510,7 +511,7 @@ describe('SettingsScreen — Plugins section (#3282 §4 part b-2)', () => {
   it('opens straight to Plugins when settingsInitialSectionId is "plugins" (the /plugin path)', () => {
     render(<SettingsScreen state={buildState({ settingsInitialSectionId: 'plugins' })} />);
     expect(screen.getByRole('button', { name: 'Plugins' }).getAttribute('aria-current')).toBe('true');
-    expect(screen.getByText('formatter@robota')).toBeTruthy();
+    expect(screen.getByText('formatter@test-product')).toBeTruthy();
   });
 
   describe('installing a plugin needs confirmation and names the plugin and its source', () => {
@@ -519,18 +520,18 @@ describe('SettingsScreen — Plugins section (#3282 §4 part b-2)', () => {
       render(<SettingsScreen state={state} />);
       openPlugins();
       fireEvent.change(screen.getByLabelText('Install a plugin'), {
-        target: { value: 'linter@robota' },
+        target: { value: 'linter@test-product' },
       });
       fireEvent.click(screen.getByRole('button', { name: 'Install' }));
       expect(state.updateSettings).not.toHaveBeenCalled();
       expect(screen.getByRole('alertdialog', { name: 'Install this plugin?' })).toBeTruthy();
       expect(screen.getByText(/"linter"/)).toBeTruthy();
-      expect(screen.getByText(/from robota/)).toBeTruthy();
+      expect(screen.getByText(/from test-product/)).toBeTruthy();
       expect(screen.getByText(/It can run code on this computer\./)).toBeTruthy();
       fireEvent.click(screen.getAllByRole('button', { name: 'Install' })[1]!);
       expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({
         field: 'installPlugin',
-        pluginId: 'linter@robota',
+        pluginId: 'linter@test-product',
       });
     });
 
@@ -539,7 +540,7 @@ describe('SettingsScreen — Plugins section (#3282 §4 part b-2)', () => {
       render(<SettingsScreen state={state} />);
       openPlugins();
       fireEvent.change(screen.getByLabelText('Install a plugin'), {
-        target: { value: 'linter@robota' },
+        target: { value: 'linter@test-product' },
       });
       fireEvent.click(screen.getByRole('button', { name: 'Install' }));
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -551,13 +552,13 @@ describe('SettingsScreen — Plugins section (#3282 §4 part b-2)', () => {
     const state = buildState();
     render(<SettingsScreen state={state} />);
     openPlugins();
-    fireEvent.click(screen.getByRole('button', { name: 'Uninstall formatter@robota' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Uninstall formatter@test-product' }));
     expect(state.updateSettings).not.toHaveBeenCalled();
     expect(screen.getByRole('alertdialog', { name: 'Uninstall this plugin?' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
     expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({
       field: 'uninstallPlugin',
-      pluginId: 'formatter@robota',
+      pluginId: 'formatter@test-product',
     });
   });
 

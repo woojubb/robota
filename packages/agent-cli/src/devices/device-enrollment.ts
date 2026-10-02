@@ -49,7 +49,7 @@ import {
 
 import { withExclusiveFileLock } from '../credentials/exclusive-file-lock.js';
 import { DeviceIdentityError } from './device-identity-error.js';
-import { DEVICE_KA_KEY, DEVICE_SIGN_KEY, importPublicKey, storeKeyPair } from './identity-keys.js';
+import { deviceIdentityCredentialKeys, importPublicKey, storeKeyPair } from './identity-keys.js';
 import { checked, nextSeq } from './identity-lists.js';
 import {
   readIdentityState,
@@ -59,6 +59,7 @@ import {
 } from './identity-state.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type {
   IDevicesAddResult,
   IDevicesJoinResult,
@@ -81,7 +82,8 @@ const MAX_QUEUED_FRAMES = 16;
 const LAST_WORD_LINGER_MS = 5_000;
 
 export interface IEnrollmentEnvironment {
-  /** `~/.robota/devices`. */
+  readonly productRuntime: ICliRuntimeContext;
+  /** the configured devices directory. */
   readonly directory: string;
   readonly withinRoot?: string;
   readonly store: ICredentialStore;
@@ -114,7 +116,7 @@ class FrameInbox {
   private waiter?: { resolve: (frame: unknown) => void; reject: (error: Error) => void };
   private ended?: InboxClosed;
 
-  public constructor(channel: IEnrollmentChannel) {
+  public constructor(channel: IEnrollmentChannel, private readonly cryptoContext: ICliRuntimeContext['cryptoContext']) {
     channel.onFrame((frame) => {
       if (this.waiter !== undefined) {
         const { resolve } = this.waiter;
@@ -165,7 +167,7 @@ class FrameInbox {
     kinds: readonly K[],
     timeoutMs: number,
   ): Promise<Extract<TEnrollmentFrame, { t: K }>> {
-    const decoded = decodeEnrollmentFrame(await this.next(timeoutMs));
+    const decoded = decodeEnrollmentFrame(this.cryptoContext, await this.next(timeoutMs));
     if (!decoded.ok || !(kinds as readonly string[]).includes(decoded.frame.t)) {
       throw new DeviceIdentityError('the other device sent something unexpected');
     }
@@ -175,12 +177,13 @@ class FrameInbox {
 
 /** Run the proof over `channel`; resolves with the binding, rejects as the proof or the channel fails. */
 async function prove(
+  cryptoContext: ICliRuntimeContext['cryptoContext'],
   channel: IEnrollmentChannel,
   inbox: FrameInbox,
   role: TEnrollmentRole,
   material: IEnrollmentMaterial,
 ): Promise<IEnrollmentBinding> {
-  const proof = startEnrollmentProof({
+  const proof = startEnrollmentProof(cryptoContext, {
     role,
     material,
     localFingerprint: channel.localFingerprint,
@@ -361,8 +364,8 @@ function awaitProvenDevice(
         : {}),
       onChannel: (channel) => {
         proving.add(channel);
-        const inbox = new FrameInbox(channel);
-        prove(channel, inbox, 'existing', material).then(
+        const inbox = new FrameInbox(channel, options.productRuntime.cryptoContext);
+        prove(options.productRuntime.cryptoContext, channel, inbox, 'existing', material).then(
           (binding) => {
             proving.delete(channel);
             settle({ channel, inbox, binding });
@@ -388,7 +391,7 @@ export async function offerEnrollment(
   options: IOfferEnrollmentOptions,
 ): Promise<TOutcome<IDevicesAddResult>> {
   const code = generateEnrollmentCode();
-  const material = await deriveEnrollmentMaterial(code);
+  const material = await deriveEnrollmentMaterial(options.productRuntime.cryptoContext, code);
   options.showCode(code, options.now() + (options.ttlMs ?? ENROLLMENT_CODE_TTL_MS));
   const proven = await awaitProvenDevice(options, material);
   // Nobody can use the code any more: the listener is gone, and so is the relay presence with it.
@@ -416,7 +419,7 @@ async function enrol(
   } catch {
     return refuse('enrollment-failed');
   }
-  if (!(await verifyEnrollmentRequest(binding, request))) return refuse('enrollment-failed');
+  if (!(await verifyEnrollmentRequest(options.productRuntime.cryptoContext, binding, request))) return refuse('enrollment-failed');
   // Only now, with the joiner's contribution committed, is this side's revealed.
   const anchor: IEnrollmentAnchorFrame = {
     t: 'en-anchor',
@@ -431,10 +434,10 @@ async function enrol(
   } catch {
     return refuse('enrollment-failed');
   }
-  if (!(await verifyEnrollmentReveal(binding, request.commit, joinerContribution))) {
+  if (!(await verifyEnrollmentReveal(options.productRuntime.cryptoContext, binding, request.commit, joinerContribution))) {
     return refuse('enrollment-failed');
   }
-  const sas = await enrollmentSas({
+  const sas = await enrollmentSas(options.productRuntime.cryptoContext, {
     material,
     binding,
     request,
@@ -464,12 +467,12 @@ async function enrol(
   if (closed) return refuse('enrollment-failed');
 
   const issued = await withExclusiveFileLock(join(options.directory, 'identity.lock'), async () => {
-    const current = readIdentityState(options.directory);
+    const current = readIdentityState(options.productRuntime.cryptoContext, options.directory);
     if (current === undefined || !sameIdentityState(before, current)) {
       return refuse<IEnrollmentGrantFrame>('changed-concurrently');
     }
     const issuedAt = options.now();
-    const deviceCertificate = await certifyDevice({
+    const deviceCertificate = await certifyDevice(options.productRuntime.cryptoContext, {
       signingKey: options.signingKey,
       signPublicKey: await importPublicKey('ES256', request.signKey),
       kaPublicKey: await importPublicKey('X25519', request.kaKey),
@@ -486,10 +489,10 @@ async function enrol(
       return refuse<IEnrollmentGrantFrame>('enrollment-failed');
     }
     const marks = current.marks.bySigningKey?.[current.signingKeyCertificate.signingKeyId];
-    const state = await checked(
+    const state = await checked(options.productRuntime.cryptoContext,
       {
         ...current,
-        roster: await issueDeviceRoster({
+        roster: await issueDeviceRoster(options.productRuntime.cryptoContext, {
           signingKey: options.signingKey,
           seq: nextSeq(Math.max(current.roster.seq, marks?.rosterSeq ?? 0), issuedAt),
           issuedAt,
@@ -610,12 +613,12 @@ async function joinOver(
     readonly kaKey: string;
   },
 ): Promise<TOutcome<IDevicesJoinResult>> {
-  const inbox = new FrameInbox(channel);
+  const inbox = new FrameInbox(channel, options.productRuntime.cryptoContext);
   const failed = (): TOutcome<IDevicesJoinResult> =>
     refuse(options.cancelled.aborted ? 'cancelled' : 'enrollment-failed');
   let binding: IEnrollmentBinding;
   try {
-    binding = await prove(channel, inbox, 'joiner', options.material);
+    binding = await prove(options.productRuntime.cryptoContext, channel, inbox, 'joiner', options.material);
   } catch {
     // The other side refused this device's proof, or proved another code: whether it said so with
     // its own proof or by closing the channel first is a race, not a difference.
@@ -625,11 +628,11 @@ async function joinOver(
   // Committed now, opened only once the other side has revealed its own.
   const contribution = newEnrollmentContribution();
   channel.send(
-    await signEnrollmentRequest({
+    await signEnrollmentRequest(options.productRuntime.cryptoContext, {
       binding,
       signPrivateKey: keys.signPair.privateKey,
       ...fields,
-      commit: await enrollmentCommitment(binding, contribution),
+      commit: await enrollmentCommitment(options.productRuntime.cryptoContext, binding, contribution),
     }),
   );
   let anchor: IEnrollmentAnchorFrame;
@@ -639,7 +642,7 @@ async function joinOver(
     return failed();
   }
   channel.send({ t: 'en-reveal', contribution });
-  const sas = await enrollmentSas({
+  const sas = await enrollmentSas(options.productRuntime.cryptoContext, {
     material: options.material,
     binding,
     request: fields,
@@ -674,7 +677,7 @@ async function joinOver(
   let state: IDeviceIdentityState;
   try {
     // The chain must verify against the master key the short string covered, with this device rostered.
-    state = await checked(
+    state = await checked(options.productRuntime.cryptoContext,
       {
         masterPublicKey: anchor.masterPublicKey,
         userId: anchor.userId,
@@ -693,9 +696,10 @@ async function joinOver(
   }
   const saved = await withExclusiveFileLock(join(options.directory, 'identity.lock'), async () => {
     // Another session may have created an identity while this one was joining.
-    if (readIdentityState(options.directory) !== undefined) return false;
-    await storeKeyPair(options.store, DEVICE_SIGN_KEY, keys.signPair);
-    await storeKeyPair(options.store, DEVICE_KA_KEY, keys.kaPair);
+    if (readIdentityState(options.productRuntime.cryptoContext, options.directory) !== undefined) return false;
+    const credentialKeys = deviceIdentityCredentialKeys(options.productRuntime.config.credentials.serviceNamespace);
+    await storeKeyPair(options.store, credentialKeys.deviceSign, keys.signPair);
+    await storeKeyPair(options.store, credentialKeys.deviceKeyAgreement, keys.kaPair);
     writeIdentityState(options.directory, state, options.withinRoot);
     return true;
   });

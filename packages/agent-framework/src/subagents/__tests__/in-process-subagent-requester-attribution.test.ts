@@ -29,7 +29,7 @@ afterEach(() => {
 function makeDeps(
   permissionHandler: IInProcessSubagentRunnerDeps['permissionHandler'],
 ): { deps: IInProcessSubagentRunnerDeps; cwd: string } {
-  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-subagent-requester-')));
+  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-subagent-requester-')));
   cleanup.push(() => rmSync(cwd, { recursive: true, force: true }));
   const bash = new FunctionTool(
     {

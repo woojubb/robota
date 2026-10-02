@@ -192,7 +192,7 @@ describe('ReplayProvider (INFRA-017)', () => {
   });
 
   it('ARCH-014: direct construction hydrates nested response references with an explicit base', async () => {
-      const baseDirectory = realpathSync(mkdtempSync(join(tmpdir(), 'robota-replay-provider-')));
+      const baseDirectory = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-replay-provider-')));
       try {
         const serialized = JSON.stringify('hydrated content');
         const sha256 = createHash('sha256').update(serialized).digest('hex');

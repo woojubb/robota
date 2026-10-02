@@ -1,13 +1,13 @@
 import { AbstractPlugin } from '../../abstracts/abstract-plugin';
 import type { IAgentConfig } from '../../interfaces/agent';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Robota } from '../../core/robota';
+import { ConversationAgent } from '../../core/conversation-agent';
 import { FunctionTool } from '../../tool-registry';
 import { createScriptedProvider, type TScriptedTurn } from '../../testing/scripted-provider';
 import type { IRunOptions } from '../../interfaces/run-options';
 import type { TExecutionJournalRecord } from '../../interfaces/execution-journal';
 
-const agents: Robota[] = [];
+const agents: ConversationAgent[] = [];
 afterEach(async () => {
   await Promise.all(agents.splice(0).map((agent) => agent.destroy()));
 });
@@ -15,7 +15,7 @@ const action: TScriptedTurn = { toolCalls: [{ name: 'act', args: {} }] };
 function fixture(turns: TScriptedTurn[], config: Partial<IAgentConfig> = {}) {
   const scripted = createScriptedProvider(turns);
   const effect = vi.fn(async () => 'completed effect');
-  const agent = new Robota({
+  const agent = new ConversationAgent({
     name: 'continuation',
     aiProviders: [scripted.provider],
     defaultModel: { provider: scripted.provider.name, model: 'test-model' },

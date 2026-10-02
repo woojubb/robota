@@ -3,7 +3,6 @@ title: 'Multi-Provider AI: How We Cut Costs Without Changing Agent Logic'
 subtitle: 'The real value of a vendor-neutral AI agent SDK'
 date: '2026-05-18'
 author: 'Jung Youn Hwang'
-authorUrl: 'https://github.com/woojubb'
 lang: 'en'
 ---
 
@@ -25,7 +24,7 @@ Every provider in Robota implements the same `IAIProvider` interface. When you c
 
 ```typescript
 // Your agent code — identical regardless of provider
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'MyAgent',
   aiProviders: [provider], // swap this out anytime
   defaultModel: {
@@ -56,7 +55,7 @@ Your tool definitions, system prompts, session logic, and persistence layer are 
 You can register multiple providers and switch between them at runtime — within the same conversation:
 
 ```typescript
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'CostOptimizedAgent',
   aiProviders: [
     new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
@@ -98,4 +97,4 @@ The AI provider landscape is changing fast. Prices drop every quarter. New model
 
 Vendor lock-in in AI tooling is a technical debt bomb. Robota was designed from day one to make the bomb impossible to arm.
 
-[Get started →](https://robota.io/getting-started/)
+[Get started →](__PROJECT_WEBSITE_URL__/getting-started/)

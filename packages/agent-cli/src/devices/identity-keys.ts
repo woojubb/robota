@@ -18,7 +18,6 @@ import type {
 } from '@robota-sdk/agent-remote-pairing';
 
 const webcrypto: Crypto = globalThis.crypto;
-const SERVICE = 'robota.device-identity';
 const RECORD_VERSION = 1;
 
 type TKeyAlg = 'Ed25519' | 'ES256' | 'X25519';
@@ -32,11 +31,19 @@ interface IKeyRecord {
   readonly pkcs8: string;
 }
 
-export const DEVICE_SIGN_KEY: ICredentialKey = { service: SERVICE, account: 'device-sign-key' };
-export const DEVICE_KA_KEY: ICredentialKey = { service: SERVICE, account: 'device-ka-key' };
+export function deviceIdentityCredentialKeys(serviceNamespace: string): {
+  readonly deviceSign: ICredentialKey;
+  readonly deviceKeyAgreement: ICredentialKey;
+} {
+  const service = `${serviceNamespace}.device-identity`;
+  return {
+    deviceSign: { service, account: 'device-sign-key' },
+    deviceKeyAgreement: { service, account: 'device-ka-key' },
+  };
+}
 
-export function signingKeyCredentialKey(signingKeyId: string): ICredentialKey {
-  return { service: SERVICE, account: `signing-key/${signingKeyId}` };
+export function signingKeyCredentialKey(serviceNamespace: string, signingKeyId: string): ICredentialKey {
+  return { service: `${serviceNamespace}.device-identity`, account: `signing-key/${signingKeyId}` };
 }
 
 const IMPORT_PARAMS: Readonly<Record<TKeyAlg, AlgorithmIdentifier | EcKeyImportParams>> = {
@@ -132,9 +139,10 @@ async function provesPossession(
 /** The signing key `certificate` names, when this device's store holds it. */
 export async function loadSigningKey(
   store: ICredentialStore,
+  serviceNamespace: string,
   certificate: ISigningKeyCertificate,
 ): Promise<ISigningKey | undefined> {
-  const privateKey = await readRecord(store, signingKeyCredentialKey(certificate.signingKeyId), {
+  const privateKey = await readRecord(store, signingKeyCredentialKey(serviceNamespace, certificate.signingKeyId), {
     alg: certificate.alg,
     publicKey: certificate.publicKey,
   });
@@ -148,20 +156,24 @@ export async function loadSigningKey(
 /** Whether this device's store holds the private keys its certificate names. */
 export async function holdsDeviceKeys(
   store: ICredentialStore,
+  serviceNamespace: string,
   certificate: IDeviceCertificate,
 ): Promise<boolean> {
-  const sign = await readRecord(store, DEVICE_SIGN_KEY, { alg: 'ES256', publicKey: certificate.signKey });
+  const keys = deviceIdentityCredentialKeys(serviceNamespace);
+  const sign = await readRecord(store, keys.deviceSign, { alg: 'ES256', publicKey: certificate.signKey });
   if (sign === undefined || !(await provesPossession('ES256', sign, certificate.signKey))) return false;
-  const ka = await readRecord(store, DEVICE_KA_KEY, { alg: 'X25519', publicKey: certificate.kaKey });
+  const ka = await readRecord(store, keys.deviceKeyAgreement, { alg: 'X25519', publicKey: certificate.kaKey });
   return ka !== undefined;
 }
 
 /** This device's own private keys, checked against its certificate; `undefined` when the store lacks them. */
 export async function loadDevicePrivateKeys(
   store: ICredentialStore,
+  serviceNamespace: string,
   certificate: IDeviceCertificate,
 ): Promise<{ readonly signPrivateKey: CryptoKey; readonly kaPrivateKey: CryptoKey } | undefined> {
-  const signPrivateKey = await readRecord(store, DEVICE_SIGN_KEY, {
+  const keys = deviceIdentityCredentialKeys(serviceNamespace);
+  const signPrivateKey = await readRecord(store, keys.deviceSign, {
     alg: 'ES256',
     publicKey: certificate.signKey,
   });
@@ -169,7 +181,7 @@ export async function loadDevicePrivateKeys(
   if (!(await provesPossession('ES256', signPrivateKey, certificate.signKey))) {
     throw new DeviceIdentityError('the stored device key does not match its certificate');
   }
-  const kaPrivateKey = await readRecord(store, DEVICE_KA_KEY, {
+  const kaPrivateKey = await readRecord(store, keys.deviceKeyAgreement, {
     alg: 'X25519',
     publicKey: certificate.kaKey,
   });

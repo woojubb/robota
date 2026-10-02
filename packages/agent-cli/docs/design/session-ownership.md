@@ -72,16 +72,16 @@ so the view starts fresh. `AppView` calls `useAppController()`, which calls `use
 That hook subscribes to channel changes and returns a snapshot plus stable callbacks such as
 `handleSubmit`, `handleAbort`, `handleCancelQueue`, `handleStopWaitingLoop` and `handleShutdown`.
 
-The CLI's host services reach components through context: `createRobotaTuiCliAdapter()`
+The CLI's host services reach components through context: `createProductTuiCliAdapter()`
 (`src/startup/tui-presentation.ts`) builds the `ITuiCliAdapter`, and `App.tsx` provides it with
 `TuiCliAdapterProvider`. The CLI also passes `createChannelReadyHandler()`
-(`src/product/robota-plumbing.ts`), which receives every channel as it is created — including after a
+(`src/product/runtime-plumbing.ts`), which receives every channel as it is created — including after a
 switch — and points the process guards, the remote-control controller and peer messaging at it.
 
 ### Attached terminals
 
-When the terminal attaches to a session that runs in another process (`robota --attach`,
-`robota session attach`), `renderAttachedApp()` uses a `WireTuiChannel` that speaks the session
+When the terminal attaches to a session that runs in another process (`__PRODUCT_CLI_NAME__ --attach`,
+`__PRODUCT_CLI_NAME__ session attach`), `renderAttachedApp()` uses a `WireTuiChannel` that speaks the session
 protocol to that host instead. The session lives in the host, and a session switch is the host's.
 Both channel types implement `ITuiAppChannelPort`, so the React tree is the same.
 

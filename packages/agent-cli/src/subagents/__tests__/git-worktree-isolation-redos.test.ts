@@ -38,11 +38,11 @@ function runGit(cwd: string, args: string[]): void {
 }
 
 function createGitRepo(): string {
-  const repo = realpathSync(mkdtempSync(join(tmpdir(), 'robota-worktree-redos-')));
+  const repo = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-worktree-redos-')));
   tempRepos.push(repo);
   runGit(repo, ['init']);
   runGit(repo, ['config', 'user.email', 'test@example.com']);
-  runGit(repo, ['config', 'user.name', 'Robota Test']);
+  runGit(repo, ['config', 'user.name', 'test-product Agent Test']);
   writeFileSync(join(repo, 'README.md'), 'initial\n');
   runGit(repo, ['add', 'README.md']);
   runGit(repo, ['commit', '-m', 'initial']);
@@ -52,7 +52,7 @@ function createGitRepo(): string {
 describe('SEC-003 alert 34 — git worktree path segment sanitiser', () => {
   /** `prepare()` on a real repo, timed. */
   function timedPrepare(repo: string, shortId: string): { ms: number; branchName: string } {
-    const adapter = new GitWorktreeIsolationAdapter({ idFactory: () => shortId });
+    const adapter = new GitWorktreeIsolationAdapter({worktreeDir: '.test-product/worktrees', branchPrefix: 'test-product', environment: gitEnvironment(),  idFactory: () => shortId });
     const started = performance.now();
     const worktree = adapter.prepare({ taskId: 'agent_1', cwd: repo });
     const ms = performance.now() - started;
@@ -70,7 +70,7 @@ describe('SEC-003 alert 34 — git worktree path segment sanitiser', () => {
       const baseline = timedPrepare(repo, 'xy');
       const pumped = timedPrepare(repo, `x${'-'.repeat(PUMP)}y`);
 
-      expect(pumped.branchName).toMatch(/^robota\/agent_1-x-{7}$/);
+      expect(pumped.branchName).toMatch(/^test-product\/agent_1-x-{7}$/);
       expect(pumped.ms - baseline.ms).toBeLessThan(BUDGET_MS);
     },
     RED_TIMEOUT_MS,
@@ -80,9 +80,9 @@ describe('SEC-003 alert 34 — git worktree path segment sanitiser', () => {
     'keeps the sanitised segment for ordinary input',
     () => {
       const repo = createGitRepo();
-      const adapter = new GitWorktreeIsolationAdapter({ idFactory: () => '--Robota Agent--' });
+      const adapter = new GitWorktreeIsolationAdapter({worktreeDir: '.test-product/worktrees', branchPrefix: 'test-product', environment: gitEnvironment(),  idFactory: () => '--unique-identifier--' });
       const worktree = adapter.prepare({ taskId: '  weird/job id  ', cwd: repo });
-      expect(worktree.branchName).toBe('robota/weird-job-id-Robota-A');
+      expect(worktree.branchName).toBe('test-product/weird-job-id-unique-i');
       adapter.remove(worktree);
     },
     RED_TIMEOUT_MS,
@@ -93,8 +93,8 @@ describe('SEC-003 alert 34 — git worktree path segment sanitiser', () => {
     () => {
       const repo = createGitRepo();
       // `&` collapses to a single `-`, the edges are trimmed, and 8 characters are kept.
-      expect(timedPrepare(repo, `-${'&'.repeat(1_000)}-a-`).branchName).toBe('robota/agent_1-a');
-      expect(timedPrepare(repo, '---').branchName).toBe('robota/agent_1-agent');
+      expect(timedPrepare(repo, `-${'&'.repeat(1_000)}-a-`).branchName).toBe('test-product/agent_1-a');
+      expect(timedPrepare(repo, '---').branchName).toBe('test-product/agent_1-agent');
     },
     RED_TIMEOUT_MS,
   );

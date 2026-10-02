@@ -12,13 +12,13 @@
  * for `registerTool`, arrived at for a different reason: there, the guarded work did not exist;
  * here, it existed but was in the wrong place.
  *
- * `Robota.ensureReady()` remains the way to complete the genuinely asynchronous half, and is still
+ * `ConversationAgent.ensureReady()` remains the way to complete the genuinely asynchronous half, and is still
  * required before a turn runs. It is not required to ask which model you are using.
  */
 
 import { describe, expect, it } from 'vitest';
 
-import { Robota } from '../robota';
+import { ConversationAgent } from '../conversation-agent';
 
 import type { TUniversalMessage } from '../../interfaces/messages';
 import type { IAIProvider } from '../../interfaces/provider';
@@ -47,8 +47,8 @@ function createProvider(name: string): IAIProvider {
   } as unknown as IAIProvider;
 }
 
-function buildAgent(): Robota {
-  return new Robota({
+function buildAgent(): ConversationAgent {
+  return new ConversationAgent({
     name: 'core-047',
     aiProviders: [createProvider('primary')],
     defaultModel: { provider: 'primary', model: 'primary-model', temperature: 0.5 },

@@ -15,7 +15,7 @@ import {
 } from '@robota-sdk/agent-ui-web';
 import { useCallback, useMemo } from 'react';
 
-import { createDeviceCredentialStore } from '../client/device-credential-store.js';
+import { createDeviceCredentialStore, createIndexedDbBackend } from '../client/device-credential-store.js';
 import {
   createRtcSessionClient,
   type IRtcSessionClientOptions,
@@ -29,16 +29,17 @@ export type TSessionStatus = TConnectionStatus | TRtcConnectionStatus;
 export function useRtcSession(
   options: Pick<
     IRtcSessionClientOptions,
-    'relayUrl' | 'rendezvous' | 'secret' | 'iceServers' | 'forceTurn'
-  >,
+    'cryptoContext' | 'relayUrl' | 'rendezvous' | 'secret' | 'iceServers' | 'forceTurn'
+  > & { readonly credentialDatabase: string },
 ): IWsSessionState<TSessionStatus> {
-  const { relayUrl, rendezvous, secret, iceServers, forceTurn } = options;
+  const { credentialDatabase, cryptoContext, relayUrl, rendezvous, secret, iceServers, forceTurn } = options;
   // REMOTE-012 E3: a stable per-session credential store (IndexedDB) so first-pair enrolls this device.
-  const deviceCredentials = useMemo(() => createDeviceCredentialStore(), []);
+  const deviceCredentials = useMemo(() => createDeviceCredentialStore(createIndexedDbBackend(credentialDatabase)), [credentialDatabase]);
   const makeClient = useCallback<TMakeSessionClient<TSessionStatus>>(
     (cb) =>
       createRtcSessionClient(
         {
+          cryptoContext,
           relayUrl,
           rendezvous,
           secret,
@@ -48,7 +49,7 @@ export function useRtcSession(
         },
         cb,
       ),
-    [relayUrl, rendezvous, secret, iceServers, forceTurn, deviceCredentials],
+    [cryptoContext, relayUrl, rendezvous, secret, iceServers, forceTurn, deviceCredentials],
   );
   return useSessionClient<TSessionStatus>(makeClient);
 }

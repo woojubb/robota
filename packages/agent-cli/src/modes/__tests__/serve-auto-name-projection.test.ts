@@ -1,10 +1,11 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { describe, expect, it } from 'vitest';
 
 import { buildServeSessionOptions } from '../serve-mode.js';
 
 describe('served session naming', () => {
   it('builds sessions that name themselves, so a daemon and its pool name their own sessions', () => {
-    const options = buildServeSessionOptions({
+    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true } as never,
       preset: {},

@@ -1,3 +1,4 @@
+import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
 /**
  * Streaming and tool-event helpers for InteractiveSession.
  *
@@ -71,6 +72,7 @@ interface IToolEndEvent {
   success?: boolean;
   denied?: boolean;
   toolResultData?: string;
+  toolResultParts?: TUniversalMessagePart[];
   executionId?: string;
 }
 
@@ -169,7 +171,12 @@ function buildEditDiffState(
 
   const resolvedFilePath = resolveFilePathForDiffRead(cwd, filePath);
   const readableFs = isSafeToReadForDiff(cwd, resolvedFilePath) ? fs : undefined;
-  const startLine = resolveEditStartLine(event.toolResultData, resolvedFilePath, oldString, readableFs);
+  const startLine = resolveEditStartLine(
+    event.toolResultData,
+    resolvedFilePath,
+    oldString,
+    readableFs,
+  );
   return {
     diffFile: cwd ? toWorkspaceRelativeDisplayPath(cwd, filePath) : filePath,
     diffLines: buildEditDiffLinesWithContext(
@@ -231,11 +238,7 @@ export function buildDiffState(
  * `MAX_DIFF_LINES` with a trailing truncation marker — mirrors Write's own cap so neither an
  * enormous `old_string` nor an enormous `new_string` can flood the wire or the renderer.
  */
-function buildCappedDiffSide(
-  type: 'remove' | 'add',
-  text: string,
-  startLine: number,
-): IDiffLine[] {
+function buildCappedDiffSide(type: 'remove' | 'add', text: string, startLine: number): IDiffLine[] {
   const lines = text.split('\n');
   const truncated = lines.length > MAX_DIFF_LINES;
   const shown = truncated ? lines.slice(0, MAX_DIFF_LINES) : lines;
@@ -353,6 +356,8 @@ export function pushToolSummaryToHistory(state: IStreamingState): void {
         diffFile: t.diffFile,
         diffLines: t.diffLines,
         toolResultData: t.toolResultData,
+        toolResultParts: t.toolResultParts,
+        executionId: t.executionId,
       })),
       summary,
     },
@@ -394,7 +399,8 @@ export function applyToolStart(
 ): IToolState {
   const firstArg = label ?? extractFirstArg(event.toolArgs);
   const filePathArg = getStringArg(event.toolArgs, 'file_path', 'filePath');
-  const displayPath = cwd && filePathArg ? toWorkspaceRelativeDisplayPath(cwd, filePathArg) : undefined;
+  const displayPath =
+    cwd && filePathArg ? toWorkspaceRelativeDisplayPath(cwd, filePathArg) : undefined;
   const toolState: IToolState = {
     toolName: event.toolName,
     firstArg,
@@ -411,7 +417,7 @@ export function applyToolStart(
     timestamp: new Date(),
     category: 'event',
     type: 'tool-start',
-    data: { toolName: event.toolName, firstArg, isRunning: true },
+    data: { ...toolState },
   });
 
   return toolState;
@@ -446,6 +452,7 @@ export function applyToolEnd(
     isRunning: false,
     result,
     toolResultData: event.toolResultData,
+    toolResultParts: event.toolResultParts,
   };
   state.activeTools[idx] = finished;
   state.activeTools = trimCompletedTools(state.activeTools);
@@ -455,13 +462,7 @@ export function applyToolEnd(
     timestamp: new Date(),
     category: 'event',
     type: 'tool-end',
-    data: {
-      toolName: finished.toolName,
-      firstArg: finished.firstArg,
-      isRunning: false,
-      result,
-      toolResultData: event.toolResultData,
-    },
+    data: { ...finished },
   });
 
   return finished;

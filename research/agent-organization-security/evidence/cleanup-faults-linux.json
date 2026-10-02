@@ -1,0 +1,42 @@
+{
+  "kind": "actual-owned-process-cleanup-faults",
+  "records": [
+    {
+      "id": "unsafe-before-ssh-timeout",
+      "stillRunningAfterCleanup": {
+        "worker": true,
+        "tunnel": true,
+        "broker": true,
+        "effect": true
+      },
+      "reportedErrorType": "TimeoutExpired",
+      "passed": true
+    },
+    {
+      "id": "current-ssh-timeout",
+      "stillRunningAfterCleanup": {
+        "worker": false,
+        "tunnel": false,
+        "broker": false,
+        "effect": false
+      },
+      "reportedErrorType": "RuntimeError",
+      "passed": true
+    },
+    {
+      "id": "current-worker-wait-timeout",
+      "stillRunningAfterCleanup": {
+        "worker": false,
+        "tunnel": false,
+        "broker": false,
+        "effect": false
+      },
+      "reportedErrorType": "RuntimeError",
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "Driver cleanup AST is executed directly; subprocess and multiprocessing children are real disposable sleepers, not QEMU or SSH services.",
+    "Shutdown faults are injected as TimeoutExpired; no production/cloud resources are accessed."
+  ]
+}

@@ -1,5 +1,5 @@
 import { AbstractAIProvider } from '../src/abstracts/abstract-ai-provider.ts';
-import { Robota } from '../src/core/robota.ts';
+import { ConversationAgent } from '../src/core/conversation-agent.ts';
 import type { IChatOptions } from '../src/interfaces/provider.ts';
 import type { TUniversalMessage } from '../src/interfaces/messages.ts';
 
@@ -36,7 +36,7 @@ class MockAIProvider extends AbstractAIProvider {
   }
 }
 
-async function collectStream(agent: Robota, input = 'verify-stream'): Promise<string> {
+async function collectStream(agent: ConversationAgent, input = 'verify-stream'): Promise<string> {
   let output = '';
   for await (const chunk of agent.runStream(input)) {
     output += chunk;
@@ -45,7 +45,7 @@ async function collectStream(agent: Robota, input = 'verify-stream'): Promise<st
 }
 
 async function main(): Promise<void> {
-  const agent = new Robota({
+  const agent = new ConversationAgent({
     name: 'OfflineVerifyAgent',
     aiProviders: [new MockAIProvider()],
     defaultModel: {

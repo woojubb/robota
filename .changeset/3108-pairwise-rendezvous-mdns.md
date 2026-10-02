@@ -20,5 +20,5 @@ Two of one user's devices can find each other on the local network before the re
   rate. Discovery yields candidates only: admission is still the device handshake, and an address is
   remembered only after an admission it carried.
 - `agent-cli` — the device mesh endpoint can look on the local network (`lan` option), remembering
-  the addresses that worked in an owner-only `~/.robota/devices/address-cache.json`; no command starts
+  the addresses that worked in an owner-only `the configured user data directory`; no command starts
   it yet.

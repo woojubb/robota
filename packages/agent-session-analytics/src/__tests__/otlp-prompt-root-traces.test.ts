@@ -67,7 +67,7 @@ describe('content-free OTLP prompt root trace projection', () => {
         ]),
       ],
       'test-version',
-    );
+    'agent');
 
     expect(result.coverage).toMatchObject({ exported: 3, missing: 0, invalid: 0, duplicate: 0 });
     expect(spans(result).map((span) => span.status.code)).toEqual([1, 2, 0]);
@@ -77,7 +77,7 @@ describe('content-free OTLP prompt root trace projection', () => {
       kind: 1,
       startTimeUnixNano: '1790208059000000000',
       endTimeUnixNano: '1790208060000000000',
-      attributes: [{ key: 'robota.prompt.outcome', value: { stringValue: 'success' } }],
+      attributes: [{ key: 'agent.prompt.outcome', value: { stringValue: 'success' } }],
     });
     const wire = JSON.stringify(result.payload);
     expect(wire).not.toMatch(/secret|turn-1|secret-session|promptExecution|providerId|modelId/);
@@ -119,7 +119,7 @@ describe('content-free OTLP prompt root trace projection', () => {
     const result = createOtlpPromptRootTraces(
       [record('session', [validBoundary, ...unique])],
       'test-version',
-    );
+    'agent');
 
     expect(result.coverage).toMatchObject({ exported: 1, missing: 1, invalid: 9, duplicate: 0 });
     expect(spans(result)[0]?.startTimeUnixNano).toBe('18446744073709000000');
@@ -155,7 +155,7 @@ describe('content-free OTLP prompt root trace projection', () => {
         ]),
       ],
       'test-version',
-    );
+    'agent');
 
     expect(result.coverage).toMatchObject({ exported: 2, missing: 0, invalid: 0, duplicate: 4 });
     expect(spans(result).map((span) => span.traceId)).toEqual([
@@ -179,7 +179,7 @@ describe('content-free OTLP prompt root trace projection', () => {
       data: root(),
     });
 
-    const result = createOtlpPromptRootTraces([session], 'test-version');
+    const result = createOtlpPromptRootTraces([session], 'test-version', 'agent');
     expect(result.coverage).toMatchObject({ exported: 1, missing: 0, invalid: 0, duplicate: 0 });
     expect(spans(result)[0]?.startTimeUnixNano).toBe('0');
   });
@@ -203,7 +203,7 @@ describe('content-free OTLP prompt root trace projection', () => {
       },
     });
 
-    const result = createOtlpPromptRootTraces([session], 'test-version');
+    const result = createOtlpPromptRootTraces([session], 'test-version', 'agent');
     expect(result.coverage.providerChildren).toEqual({
       exported: 1,
       invalid: 0,
@@ -215,7 +215,7 @@ describe('content-free OTLP prompt root trace projection', () => {
       traceId: TRACE_ID,
       parentSpanId: SPAN_ID,
       spanId: 'abcdef1234567890',
-      name: 'robota.provider_call',
+      name: 'agent.provider_call',
       startTimeUnixNano: '1790208059100000000',
       endTimeUnixNano: '1790208059900000000',
       status: { code: 1 },
@@ -235,17 +235,17 @@ describe('content-free OTLP prompt root trace projection', () => {
         promptTokens: 100, completionTokens: 50, totalTokens: 150,
       },
     });
-    const result = createOtlpPromptRootTraces([session], 'test-version');
+    const result = createOtlpPromptRootTraces([session], 'test-version', 'agent');
     expect(result.callMetrics).toMatchObject({ invoked: 1, completeUsage: 1, inputTokens: 100, outputTokens: 50, estimatedCostUsd: 0.00075, exactPriceMatches: 1 });
-    expect(spans(result)[1]?.attributes).toContainEqual({ key: 'robota.provider.usage.input_tokens', value: { intValue: '100' } });
-    expect(spans(result)[1]?.attributes).toContainEqual({ key: 'robota.provider.cost.usd.estimated', value: { doubleValue: 0.00075 } });
+    expect(spans(result)[1]?.attributes).toContainEqual({ key: 'agent.provider.usage.input_tokens', value: { intValue: '100' } });
+    expect(spans(result)[1]?.attributes).toContainEqual({ key: 'agent.provider.cost.usd.estimated', value: { doubleValue: 0.00075 } });
     expect(JSON.stringify(result.payload)).not.toMatch(/secret|gpt-4o|callId|modelId|providerId/);
 
     (session.history![1]!.data as Record<string, unknown>)['totalTokens'] = 999;
-    const invalid = createOtlpPromptRootTraces([session], 'test-version');
+    const invalid = createOtlpPromptRootTraces([session], 'test-version', 'agent');
     expect(invalid.coverage.providerUsage.invalid).toBe(1);
     expect(invalid.coverage.providerChildren.exported).toBe(1);
-    expect(spans(invalid)[1]?.attributes).toEqual([{ key: 'robota.provider.outcome', value: { stringValue: 'success' } }]);
+    expect(spans(invalid)[1]?.attributes).toEqual([{ key: 'agent.provider.outcome', value: { stringValue: 'success' } }]);
   });
 
   it('does not export cache or preflight refusals as provider calls or completion logs', () => {
@@ -260,10 +260,10 @@ describe('content-free OTLP prompt root trace projection', () => {
         },
       });
     }
-    const traces = createOtlpPromptRootTraces([session], 'test');
-    expect(spans(traces).map((span) => span.name)).toEqual(['robota.prompt_execution']);
+    const traces = createOtlpPromptRootTraces([session], 'test', 'agent');
+    expect(spans(traces).map((span) => span.name)).toEqual(['agent.prompt_execution']);
     expect(traces.coverage.providerUsage.nonInvoked).toBe(2);
-    expect(createOtlpPromptEvents([session], 'test', new Date('2026-09-24T00:05:00.000Z')).exported).toBe(1);
+    expect(createOtlpPromptEvents([session], 'test', new Date('2026-09-24T00:05:00.000Z'), 'agent').exported).toBe(1);
   });
 
   it('exports a verified tool body child but no recorded arguments or results', () => {
@@ -284,7 +284,7 @@ describe('content-free OTLP prompt root trace projection', () => {
         toolResult: 'secret result',
       },
     });
-    const result = createOtlpPromptRootTraces([session], 'test-version');
+    const result = createOtlpPromptRootTraces([session], 'test-version', 'agent');
     expect(result.coverage.toolChildren).toEqual({
       exported: 1,
       invalid: 0,
@@ -295,7 +295,7 @@ describe('content-free OTLP prompt root trace projection', () => {
       traceId: TRACE_ID,
       parentSpanId: SPAN_ID,
       spanId: 'abcdef1234567890',
-      name: 'robota.tool_body',
+      name: 'agent.tool_body',
       status: { code: 2 },
     });
     expect(JSON.stringify(result.payload)).not.toMatch(/secret|toolArgs|toolResult/);
@@ -325,7 +325,7 @@ describe('content-free OTLP prompt root trace projection', () => {
     addTool('cccccccccccccccc', { endedAt: '2026-09-24T00:01:00.001Z' });
     addTool('dddddddddddddddd');
     addTool('dddddddddddddddd', { endedAt: 'bad' });
-    expect(createOtlpPromptRootTraces([session], 'test-version').coverage.toolChildren).toEqual({
+    expect(createOtlpPromptRootTraces([session], 'test-version', 'agent').coverage.toolChildren).toEqual({
       exported: 0,
       invalid: 2,
       orphaned: 1,
@@ -357,7 +357,7 @@ describe('content-free OTLP prompt root trace projection', () => {
     session.history!.push(child('dddddddddddddddd'));
     session.history!.push(child('dddddddddddddddd'));
 
-    const result = createOtlpPromptRootTraces([session], 'test-version');
+    const result = createOtlpPromptRootTraces([session], 'test-version', 'agent');
     expect(result.coverage.providerChildren).toEqual({
       exported: 1,
       invalid: 1,
@@ -393,7 +393,7 @@ describe('content-free OTLP prompt root trace projection', () => {
       });
     }
 
-    const result = createOtlpPromptRootTraces([session], 'test-version');
+    const result = createOtlpPromptRootTraces([session], 'test-version', 'agent');
     expect(spans(result)).toHaveLength(1);
     expect(result.coverage.providerChildren).toEqual({
       exported: 0,

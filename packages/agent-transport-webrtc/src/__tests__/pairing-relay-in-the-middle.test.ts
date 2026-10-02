@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { extractDtlsFingerprint, startPairingHandshake } from '@robota-sdk/agent-remote-pairing';
@@ -69,7 +71,7 @@ function connectResponder(signaling: ISignalingClient, secret: string): Promise<
         .catch(() => resolvePaired(false));
     });
     peer.onDataChannel((channel) => {
-      const controller = startPairingHandshake({
+      const controller = startPairingHandshake(testIdentity, {
         secret,
         role: 'responder',
         localFingerprint: localFingerprint!,
@@ -106,7 +108,7 @@ function startRelay(toHost: ISignalingClient, toRemote: ISignalingClient): void 
   const facingHost = new RtcPeer();
   const facingRemote = new RtcPeer();
   let hostChannel: RtcChannel | undefined;
-  const remoteChannel = facingRemote.createDataChannel('robota-session');
+  const remoteChannel = facingRemote.createDataChannel('agent-session');
   const toRemoteQueue: string[] = [];
   const toHostQueue: string[] = [];
   let pendingHostOffer: TDescription | undefined;
@@ -177,7 +179,7 @@ describe('WebRTC pairing with a relay in the middle', () => {
     const [relayRemoteSide, remoteSig] = createInMemorySignalingPair();
     const session = createStubSession();
     const onPaired = vi.fn();
-    const transport = new WebRtcTransport({ signaling: hostSig, secret, onPaired });
+    const transport = new WebRtcTransport({cryptoContext: testIdentity,  signaling: hostSig, secret, onPaired });
     transport.attach(session);
 
     startRelay(relayHostSide, relayRemoteSide);
@@ -198,7 +200,7 @@ describe('WebRTC transport answer handling', () => {
       setRemoteDescription: (_sdp, type) => remoteDescriptions.push(type),
     });
     const [hostSig, remoteSig] = createInMemorySignalingPair();
-    const transport = new WebRtcTransport({
+    const transport = new WebRtcTransport({cryptoContext: testIdentity,
       signaling: hostSig,
       secret: 'shared-secret-256bit-base64url-answers',
       loadDataChannel: () => fake.module,

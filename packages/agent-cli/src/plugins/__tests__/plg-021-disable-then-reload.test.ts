@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * PLG-021 / issue #2025 — disabling a plugin and reloading in the SAME process must not load it.
  *
@@ -37,7 +38,7 @@ let originalHome: string | undefined;
 function writePluginBundle(): void {
   const metaDir = join(
     home,
-    '.robota',
+    '.test-product',
     'plugins',
     'cache',
     MARKET,
@@ -54,11 +55,11 @@ function writePluginBundle(): void {
 }
 
 function settingsPath(): string {
-  return join(home, '.robota', 'settings.json');
+  return join(home, '.test-product', 'settings.json');
 }
 
 beforeEach(() => {
-  home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-plg021-')));
+  home = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-plg021-')));
   originalHome = process.env.HOME;
   process.env.HOME = home;
   writePluginBundle();
@@ -72,7 +73,7 @@ afterEach(() => {
 
 describe('PLG-021: disable then reload, in one process', () => {
   it('a plugin disabled through the adapter is not loaded by a later reload', async () => {
-    const adapter = createDefaultPluginCommandAdapter(home);
+    const adapter = createDefaultPluginCommandAdapter(home, createTestProductRuntime('test-product', { HOME: process.env['HOME'] }));
 
     const before = await adapter.reloadPlugins();
     expect(before.loadedPluginCount).toBe(1);
@@ -84,7 +85,7 @@ describe('PLG-021: disable then reload, in one process', () => {
   });
 
   it('the disable actually reached disk, so the assertion above is about the loader and not the write', async () => {
-    const adapter = createDefaultPluginCommandAdapter(home);
+    const adapter = createDefaultPluginCommandAdapter(home, createTestProductRuntime('test-product', { HOME: process.env['HOME'] }));
     await adapter.disable(`${PLUGIN}@${MARKET}`);
 
     // Without this, `loadedPluginCount === 0` could mean "disable silently did nothing and the
@@ -94,7 +95,7 @@ describe('PLG-021: disable then reload, in one process', () => {
   });
 
   it('re-enabling in the same process brings it back', async () => {
-    const adapter = createDefaultPluginCommandAdapter(home);
+    const adapter = createDefaultPluginCommandAdapter(home, createTestProductRuntime('test-product', { HOME: process.env['HOME'] }));
     await adapter.disable(`${PLUGIN}@${MARKET}`);
     expect((await adapter.reloadPlugins()).loadedPluginCount).toBe(0);
 

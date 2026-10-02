@@ -3,7 +3,7 @@
  *
  * The provider-error round branch records the failure as an assistant message with
  * `providerError: true` metadata. buildFinalResult must not count that message as a
- * successful response — robotaRun's failed-result throw depends on `success`/`error`.
+ * successful response — agentRun's failed-result throw depends on `success`/`error`.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -205,7 +205,7 @@ describe('initializeConversationStore restore robustness (CORE-008)', () => {
 
   it('restores conversation history even when a system prompt was pre-seeded before first run', () => {
     const store = new ConversationStore();
-    // Simulate Robota.updateSystemPrompt('LIVE SYSTEM') before the first run: it sets config AND the
+    // Simulate ConversationAgent.updateSystemPrompt('LIVE SYSTEM') before the first run: it sets config AND the
     // store head to the same value. A pre-seeded system head used to make the `getMessageCount() === 0`
     // restore guard false and silently drop the history (CORE-008).
     store.setSystemPrompt('LIVE SYSTEM');

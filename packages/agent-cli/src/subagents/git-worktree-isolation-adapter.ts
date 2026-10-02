@@ -10,8 +10,6 @@ import {
   type ISubagentWorktreePrepareRequest,
 } from '@robota-sdk/agent-executor';
 
-const WORKTREE_DIR = '.robota/worktrees';
-const BRANCH_PREFIX = 'robota';
 const GIT_ENCODING = 'utf8';
 const SHORT_ID_LENGTH = 8;
 const DEFAULT_MAX_CREATE_ATTEMPTS = 5;
@@ -19,14 +17,15 @@ const COLLISION_ERROR_PATTERN =
   /already exists|is already checked out|missing but already registered/i;
 
 export interface IGitWorktreeIsolationAdapterOptions {
-  worktreeDir?: string;
-  branchPrefix?: string;
+  worktreeDir: string;
+  branchPrefix: string;
+  environment: Readonly<Record<string, string | undefined>>;
   idFactory?: () => string;
   maxCreateAttempts?: number;
 }
 
 export function createGitWorktreeIsolationAdapter(
-  options?: IGitWorktreeIsolationAdapterOptions,
+  options: IGitWorktreeIsolationAdapterOptions,
 ): ISubagentWorktreeAdapter {
   return new GitWorktreeIsolationAdapter(options);
 }
@@ -34,12 +33,14 @@ export function createGitWorktreeIsolationAdapter(
 export class GitWorktreeIsolationAdapter implements ISubagentWorktreeAdapter {
   private readonly worktreeDir: string;
   private readonly branchPrefix: string;
+  private readonly environment: Readonly<Record<string, string | undefined>>;
   private readonly idFactory: () => string;
   private readonly maxCreateAttempts: number;
 
-  constructor(options: IGitWorktreeIsolationAdapterOptions = {}) {
-    this.worktreeDir = options.worktreeDir ?? WORKTREE_DIR;
-    this.branchPrefix = options.branchPrefix ?? BRANCH_PREFIX;
+  constructor(options: IGitWorktreeIsolationAdapterOptions) {
+    this.worktreeDir = options.worktreeDir;
+    this.branchPrefix = options.branchPrefix;
+    this.environment = { ...options.environment };
     this.idFactory = options.idFactory ?? createShortId;
     this.maxCreateAttempts = options.maxCreateAttempts ?? DEFAULT_MAX_CREATE_ATTEMPTS;
   }
@@ -48,9 +49,9 @@ export class GitWorktreeIsolationAdapter implements ISubagentWorktreeAdapter {
     if (this.maxCreateAttempts < 1) {
       throw new BackgroundTaskError('runner', 'Git worktree creation attempts must be at least 1');
     }
-    const repoRoot = resolveRepoRoot(request.cwd);
-    const baseRevision = runGit(repoRoot, ['rev-parse', 'HEAD']).trim();
-    const parentStatus = runGit(repoRoot, ['status', '--porcelain']).trimEnd();
+    const repoRoot = resolveRepoRoot(request.cwd, this.environment);
+    const baseRevision = runGit(repoRoot, ['rev-parse', 'HEAD'], this.environment).trim();
+    const parentStatus = runGit(repoRoot, ['status', '--porcelain'], this.environment).trimEnd();
     const worktreeRoot = join(repoRoot, this.worktreeDir);
     mkdirSync(worktreeRoot, { recursive: true });
 
@@ -61,7 +62,7 @@ export class GitWorktreeIsolationAdapter implements ISubagentWorktreeAdapter {
       const branchName = `${this.branchPrefix}/${taskId}-${shortId}`;
       const worktreePath = join(worktreeRoot, `${taskId}-${shortId}`);
       try {
-        runGit(repoRoot, ['worktree', 'add', '-b', branchName, worktreePath, 'HEAD']);
+        runGit(repoRoot, ['worktree', 'add', '-b', branchName, worktreePath, 'HEAD'], this.environment);
         return { repoRoot, worktreePath, branchName, baseRevision, parentStatus };
       } catch (error) {
         lastError = toError(error);
@@ -80,22 +81,22 @@ export class GitWorktreeIsolationAdapter implements ISubagentWorktreeAdapter {
   }
 
   getStatus(worktree: IPreparedSubagentWorktree): string {
-    return runGit(worktree.worktreePath, ['status', '--porcelain']);
+    return runGit(worktree.worktreePath, ['status', '--porcelain'], this.environment);
   }
 
   remove(worktree: IPreparedSubagentWorktree): void {
-    runGit(worktree.repoRoot, ['worktree', 'remove', '--force', worktree.worktreePath]);
-    runGit(worktree.repoRoot, ['branch', '-D', worktree.branchName]);
+    runGit(worktree.repoRoot, ['worktree', 'remove', '--force', worktree.worktreePath], this.environment);
+    runGit(worktree.repoRoot, ['branch', '-D', worktree.branchName], this.environment);
   }
 }
 
-function runGit(cwd: string, args: string[]): string {
+function runGit(cwd: string, args: string[], environment: Readonly<Record<string, string | undefined>>): string {
   try {
     return execFileSync('git', args, {
       cwd,
       encoding: GIT_ENCODING,
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: createGitEnvironment(),
+      env: createGitEnvironment(environment),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -103,8 +104,8 @@ function runGit(cwd: string, args: string[]): string {
   }
 }
 
-function createGitEnvironment(): NodeJS.ProcessEnv {
-  const env = { ...process.env };
+function createGitEnvironment(environment: Readonly<Record<string, string | undefined>>): NodeJS.ProcessEnv {
+  const env = { ...environment };
   // Git hooks export GIT_* variables that force child git commands back to the hook repository.
   for (const key of Object.keys(env)) {
     if (key.startsWith('GIT_')) {
@@ -114,9 +115,9 @@ function createGitEnvironment(): NodeJS.ProcessEnv {
   return env;
 }
 
-function resolveRepoRoot(cwd: string): string {
+function resolveRepoRoot(cwd: string, environment: Readonly<Record<string, string | undefined>>): string {
   try {
-    return runGit(cwd, ['rev-parse', '--show-toplevel']).trim();
+    return runGit(cwd, ['rev-parse', '--show-toplevel'], environment).trim();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new BackgroundTaskError(

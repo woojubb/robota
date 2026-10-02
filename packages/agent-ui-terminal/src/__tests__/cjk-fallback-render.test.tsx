@@ -2,7 +2,7 @@
  * CLI-062 — fallback-path pinning guard.
  *
  * When real-cursor positioning is NOT active (capability off — the default in this test process:
- * stdout is not a TTY and ROBOTA_IME_CURSOR is unset), CjkTextInput's rendering must stay
+ * stdout is not a TTY and PRODUCT_IME_CURSOR is unset), CjkTextInput's rendering must stay
  * byte-identical to the pre-CLI-062 behavior (invariant I4: guard fail → today's visuals, drawn
  * inverse cursor included). The expected strings below are literal captures of the component's
  * output BEFORE the CLI-062 change (chalk.level forced to 3 so the inverse-cursor bytes are pinned,
@@ -31,7 +31,7 @@ describe('CLI-062 — fallback rendering is byte-identical to pre-change output'
   });
 
   it('sanity: capability is off in this test process (fallback path is the one being pinned)', () => {
-    expect(process.env['ROBOTA_IME_CURSOR']).toBeUndefined();
+    expect(process.env['PRODUCT_IME_CURSOR']).toBeUndefined();
     expect(Boolean(process.stdout.isTTY)).toBe(false);
   });
 

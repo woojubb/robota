@@ -28,7 +28,7 @@ const THIRD: ISupervisedViewRow = {
 
 const QUESTION = {
   folder: '/work/repo',
-  loads: ['Project sources (metadata only; content not read):', '  [file] .robota/settings.json — settings'],
+  loads: ['Project sources (metadata only; content not read):', '  [file] state/settings.json — settings'],
 };
 
 describe('supervised session view', () => {
@@ -403,7 +403,7 @@ describe('supervised session view', () => {
       await vi.waitFor(() => expect(view.lastFrame()).toContain('r Start Restricted'));
       // It names the folder and what trusting it would load.
       expect(view.lastFrame()).toContain('Not trusted: /work/repo');
-      expect(view.lastFrame()).toContain('.robota/settings.json');
+      expect(view.lastFrame()).toContain('state/settings.json');
       expect(start).not.toHaveBeenCalled();
       // n cancels: nothing starts.
       view.stdin.write('n');
@@ -423,13 +423,16 @@ describe('supervised session view', () => {
     }
   });
 
-  it('fits a long trust question in a 24-row terminal, the folder and the choices whole', async () => {
+  it.each(['alpha-agent', 'beta-agent'] as const)(
+    'shows the configured trust-status command when fitting a long question for %s',
+    async (cliName) => {
     const loads = Array.from({ length: 32 }, (_, index) => `  [absent] source-${index} — a source`);
     const view = render(
       <SupervisedSessionView
         loadRows={async () => [FIRST]}
         onStart={async () => SECOND.id}
         startTrustQuestion={async () => ({ folder: '/work/repo', loads })}
+        trustStatusCommand={`${cliName} trust status`}
       />,
     );
     try {
@@ -441,12 +444,13 @@ describe('supervised session view', () => {
       expect(lines.length).toBeLessThanOrEqual(24);
       expect(lines).toContain('Not trusted: /work/repo');
       expect(lines).toContain('y Trust and start / r Start Restricted / n Cancel');
-      expect(frame).toMatch(/… \d+ more — see robota trust status/);
+      expect(frame).toMatch(new RegExp(`… \\d+ more — see ${cliName} trust status`));
       expect(frame).toContain('source-0 — a source');
     } finally {
       view.unmount();
     }
-  });
+    },
+  );
 
   it('cancels the trust question on Escape in screen-reader mode, and keeps the view open', async () => {
     const start = vi.fn(async () => SECOND.id);

@@ -12,9 +12,12 @@ import {
 
 import type { ICommand } from '../command-api/types.js';
 import type { TModelEffort } from '@robota-sdk/agent-core';
+import type { ISkillContentActivation } from '@robota-sdk/agent-interface-command';
 
 /** Options passed to the fork execution callback */
 export interface IForkExecutionOptions {
+  /** Cancellation belongs to the execution that owns these instructions. */
+  signal?: AbortSignal;
   /** Agent identity to use (e.g., 'Explore', 'Plan') */
   agent?: string;
   /** Tools the subagent is allowed to use */
@@ -27,12 +30,21 @@ export interface IForkExecutionOptions {
 
 /** Callback interface for skill execution infrastructure */
 export interface ISkillExecutionCallbacks {
+  signal?: AbortSignal;
+  /** Injection transfers a verified window to the actual model turn; it closes when that turn ends. */
+  retainActivation?: (activation: ISkillContentActivation) => void;
   /**
    * Run skill content in an isolated subagent session.
    * The content becomes the subagent's prompt.
    * Returns the subagent's response.
    */
-  runInFork?: (content: string, options: IForkExecutionOptions) => Promise<string>;
+  runInFork?: (
+    content: string,
+    options: IForkExecutionOptions,
+    activation?: ISkillContentActivation,
+  ) => Promise<string>;
+  /** Describe how this execution can read the activation's supporting resources. */
+  describeResources?: (activation: ISkillContentActivation) => string;
   /** Shell exec function for preprocessing `` !`cmd` `` patterns — injected from composition root. */
   shellExec?: TShellExecFn;
 }
@@ -56,6 +68,7 @@ async function buildProcessedContent(
   args: string,
   callbacks: ISkillExecutionCallbacks,
   context?: ISkillPromptContext,
+  allowShellPreprocessing = true,
 ): Promise<string | null> {
   if (!skill.skillContent) return null;
   // Commands run before substitution, so the model's `$ARGUMENTS` never reach a shell; the skill's
@@ -66,7 +79,9 @@ async function buildProcessedContent(
     CLAUDE_SESSION_ID: context?.sessionId ?? '',
     CLAUDE_PLUGIN_ROOT: context?.pluginRoot ?? '',
   };
-  const preprocessed = await preprocessShellCommands(skill.skillContent, callbacks.shellExec, env);
+  const preprocessed = allowShellPreprocessing
+    ? await preprocessShellCommands(skill.skillContent, callbacks.shellExec, env)
+    : skill.skillContent;
   return substituteVariables(preprocessed, args, context);
 }
 
@@ -79,8 +94,15 @@ async function buildInjectPrompt(
   args: string,
   callbacks: ISkillExecutionCallbacks,
   context?: ISkillPromptContext,
+  allowShellPreprocessing = true,
 ): Promise<string> {
-  const processed = await buildProcessedContent(skill, args, callbacks, context);
+  const processed = await buildProcessedContent(
+    skill,
+    args,
+    callbacks,
+    context,
+    allowShellPreprocessing,
+  );
   if (processed) {
     const userInstruction = args || skill.description;
     return `<skill name="${skill.name}">\n${processed}\n</skill>\n\nExecute the "${skill.name}" skill: ${userInstruction}`;
@@ -105,6 +127,59 @@ export async function executeSkill(
   if (skill.model !== undefined && skill.context !== 'fork') {
     throw new Error('Skill model requires context: fork');
   }
+  callbacks.signal?.throwIfAborted();
+  const activation = await skill.skillContentLoader?.acquire(callbacks.signal);
+  let transferred = false;
+  try {
+    await activation?.validate();
+    callbacks.signal?.throwIfAborted();
+    const resourceInstructions = activation ? callbacks.describeResources?.(activation) : undefined;
+    const resourceSuffix = resourceInstructions ? `\n\n${resourceInstructions}` : '';
+    const result = await executeLoadedSkill(
+      activation ? { ...skill, skillContent: activation.content } : skill,
+      args,
+      activation && callbacks.runInFork
+        ? {
+            ...callbacks,
+            runInFork: async (content, options) => {
+              await activation.validate();
+              callbacks.signal?.throwIfAborted();
+              return callbacks.runInFork!(
+                content + resourceSuffix,
+                {
+                  ...options,
+                  ...(callbacks.signal ? { signal: callbacks.signal } : {}),
+                },
+                activation,
+              );
+            },
+          }
+        : callbacks,
+      context,
+      activation === undefined,
+    );
+    await activation?.validate();
+    callbacks.signal?.throwIfAborted();
+    if (result.prompt !== undefined) result.prompt += resourceSuffix;
+    if (activation && result.mode === 'inject') {
+      if (!callbacks.retainActivation)
+        throw new Error('Lazy skill injection requires an owning turn.');
+      callbacks.retainActivation(activation);
+      transferred = true;
+    }
+    return result;
+  } finally {
+    if (!transferred) activation?.close();
+  }
+}
+
+async function executeLoadedSkill(
+  skill: ICommand,
+  args: string,
+  callbacks: ISkillExecutionCallbacks,
+  context: ISkillPromptContext | undefined,
+  allowShellPreprocessing: boolean,
+): Promise<ISkillExecutionResult> {
   // Fork execution: isolated subagent session
   if (skill.context === 'fork') {
     if (!callbacks.runInFork) {
@@ -113,7 +188,13 @@ export async function executeSkill(
       );
     }
 
-    const content = await buildProcessedContent(skill, args, callbacks, context);
+    const content = await buildProcessedContent(
+      skill,
+      args,
+      callbacks,
+      context,
+      allowShellPreprocessing,
+    );
     const prompt = content ?? `Use the "${skill.name}" skill: ${args || skill.description}`;
 
     const options: IForkExecutionOptions = {};
@@ -127,6 +208,6 @@ export async function executeSkill(
   }
 
   // Inject execution: return prompt for current session
-  const prompt = await buildInjectPrompt(skill, args, callbacks, context);
+  const prompt = await buildInjectPrompt(skill, args, callbacks, context, allowShellPreprocessing);
   return { mode: 'inject', prompt };
 }

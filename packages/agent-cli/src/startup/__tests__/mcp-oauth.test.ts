@@ -1,7 +1,8 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * The product side of MCP OAuth: `robota mcp login` finds the server a session would connect to,
+ * The product side of MCP OAuth: `the product mcp login` finds the server a session would connect to,
  * runs the sign-in without a real browser, and keeps the credential owner-only under the user's
- * Robota home; a session then sends it, and never connects an OAuth server without it.
+ * The product home; a session then sends it, and never connects an OAuth server without it.
  */
 
 import { request as httpRequest } from 'node:http';
@@ -41,7 +42,7 @@ import {
   formatMcpOAuthNotice,
   mcpCredentialDirectory,
 } from '../mcp-oauth-host.js';
-import { createRobotaUserSettingsSources } from '../../product/robota-user-settings.js';
+import { createProductUserSettingsSources } from '../../product/user-settings.js';
 
 import type {
   IActionRequest,
@@ -66,10 +67,10 @@ afterEach(() => {
 
 /** A temporary HOME holding a user settings file with these servers. */
 function home(servers: Record<string, unknown>): string {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-mcp-oauth-home-')));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-mcp-oauth-home-')));
   roots.push(root);
-  mkdirSync(join(root, '.robota'), { recursive: true });
-  writeFileSync(join(root, '.robota', 'settings.json'), JSON.stringify({ mcpServers: servers }));
+  mkdirSync(join(root, '.test-product'), { recursive: true });
+  writeFileSync(join(root, '.test-product', 'settings.json'), JSON.stringify({ mcpServers: servers }));
   return root;
 }
 
@@ -158,7 +159,8 @@ function commandDeps(
   opened: URL[],
 ): IMcpLoginCommandDeps {
   return {
-    settingsSources: createRobotaUserSettingsSources(userHome),
+    productRuntime: createTestProductRuntime('test-product', { HOME: userHome }),
+    settingsSources: createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome })),
     env: { HOME: userHome },
     stdout: (text) => out.push(text),
     stderr: (text) => err.push(text),
@@ -167,7 +169,7 @@ function commandDeps(
       await server.browse(url);
     },
     network: { fetch: server.fetch, lookup: server.lookup },
-    credentialDirectory: mcpCredentialDirectory(userHome),
+    credentialDirectory: mcpCredentialDirectory(createTestProductRuntime('test-product', { HOME: userHome })),
     callbackTimeoutMs: 5_000,
   };
 }
@@ -200,19 +202,19 @@ async function logout(
 }
 
 const credentialFiles = (userHome: string): string[] =>
-  readdirSync(join(userHome, '.robota', 'mcp-credentials')).filter((name) =>
+  readdirSync(join(userHome, '.test-product', 'mcp-credentials')).filter((name) =>
     name.endsWith('.json'),
   );
 
-describe('robota mcp login', () => {
-  it('signs in and stores the credential owner-only under ~/.robota/mcp-credentials', async () => {
+describe('mcp login', () => {
+  it('signs in and stores the credential owner-only under ~/.test-product/mcp-credentials', async () => {
     const userHome = home({ files: { type: 'http', url: MCP_URL, oauth: {} } });
     const result = await login(['files'], userHome);
     expect(result.err).toBe('');
     expect(result.code).toBe(0);
     expect(result.out).toContain('Signed in to MCP server "files"');
     expect(result.opened[0]?.protocol).toBe('https:');
-    const directory = join(userHome, '.robota', 'mcp-credentials');
+    const directory = join(userHome, '.test-product', 'mcp-credentials');
     const files = readdirSync(directory).filter((name) => name.endsWith('.json'));
     expect(files).toHaveLength(1);
     if (process.platform !== 'win32') {
@@ -229,7 +231,7 @@ describe('robota mcp login', () => {
     const userHome = home({ plain: { type: 'http', url: MCP_URL } });
     expect((await login(['plain'], userHome)).err).toContain('does not declare `oauth`');
     expect((await login(['missing'], userHome)).err).toContain('No MCP server named "missing"');
-    expect((await login([], userHome)).err).toContain('Usage: robota mcp login');
+    expect((await login([], userHome)).err).toContain('Usage: test-product mcp login');
     expect((await login(['a', 'b'], userHome)).code).toBe(1);
   });
 
@@ -248,7 +250,7 @@ describe('robota mcp login', () => {
 
     const port = 40_000 + Math.floor(Math.random() * 20_000);
     const registered = home({
-      files: { type: 'http', url: MCP_URL, oauth: { clientId: 'robota', callbackPort: port } },
+      files: { type: 'http', url: MCP_URL, oauth: { clientId: 'test-product', callbackPort: port } },
     });
     const result = await login(['files', '--client-secret'], registered, {
       promptSecret: async () => 'client-secret-value',
@@ -267,7 +269,7 @@ describe('robota mcp login', () => {
   });
 });
 
-describe('robota mcp login --no-browser', () => {
+describe('mcp login --no-browser', () => {
   const authorizationUrl = (out: string[]): URL =>
     new URL(/https:\/\/auth\.example\.test\/authorize\S+/.exec(out.join(''))![0]);
 
@@ -313,7 +315,7 @@ describe('robota mcp login --no-browser', () => {
     );
     expect(result.code).toBe(1);
     expect(result.err).toBe('Sign-in to MCP server "files" failed (callback-invalid).\n');
-    expect(readdirSync(join(userHome, '.robota'))).not.toContain('mcp-credentials');
+    expect(readdirSync(join(userHome, '.test-product'))).not.toContain('mcp-credentials');
   });
 });
 
@@ -343,7 +345,7 @@ describe('the pasted-redirect prompt', () => {
   });
 });
 
-describe('robota mcp logout', () => {
+describe('test-product mcp logout', () => {
   it('deletes the credential even when revocation fails, and says so by reason only', async () => {
     const userHome = home({ files: { type: 'http', url: MCP_URL, oauth: {} } });
     expect((await login(['files'], userHome)).code).toBe(0);
@@ -379,21 +381,21 @@ describe('robota mcp logout', () => {
   it('refuses a server that does not declare oauth, and a bad invocation', async () => {
     const userHome = home({ plain: { type: 'http', url: MCP_URL } });
     expect((await logout(['plain'], userHome)).err).toContain('does not declare `oauth`');
-    expect((await logout([], userHome)).err).toContain('Usage: robota mcp logout');
+    expect((await logout([], userHome)).err).toContain('Usage: test-product mcp logout');
   });
 });
 
 describe('/mcp sign-in state and sign-out', () => {
   it('shows each state without a token, and signs out through the session', async () => {
     const userHome = home({ files: { type: 'http', url: MCP_URL, oauth: {} } });
-    const { entries } = resolveMcpDefinitions(createRobotaUserSettingsSources(userHome), {
+    const { entries } = resolveMcpDefinitions(createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome })), {
       HOME: userHome,
     });
     const server = fakeAuthorizationServer();
-    const host = createMcpOAuthHost({
+    const host = createMcpOAuthHost({productRuntime: createTestProductRuntime(),
       network: { fetch: server.fetch, lookup: server.lookup },
       reportDiagnostic: () => undefined,
-      directory: mcpCredentialDirectory(userHome),
+      directory: mcpCredentialDirectory(createTestProductRuntime('test-product', { HOME: userHome })),
     });
     const composition = createMcpClientComposition({
       resolvedEntries: entries,
@@ -496,15 +498,15 @@ describe('/mcp login inside a session', () => {
     const server = fakeAuthorizationServer();
     if (options.signedIn === true)
       expect((await login(['files'], userHome, {}, server)).code).toBe(0);
-    const { entries } = resolveMcpDefinitions(createRobotaUserSettingsSources(userHome), {
+    const { entries } = resolveMcpDefinitions(createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome })), {
       HOME: userHome,
     });
     const diagnostics: string[] = [];
     const opened: URL[] = [];
-    const host = createMcpOAuthHost({
+    const host = createMcpOAuthHost({productRuntime: createTestProductRuntime(),
       network: { fetch: server.fetch, lookup: server.lookup },
       reportDiagnostic: (message) => diagnostics.push(message),
-      directory: mcpCredentialDirectory(userHome),
+      directory: mcpCredentialDirectory(createTestProductRuntime('test-product', { HOME: userHome })),
       callbackTimeoutMs: 5_000,
       openBrowser: async (url) => {
         opened.push(url);
@@ -724,7 +726,7 @@ describe('/mcp login inside a session', () => {
 
     expect(s.toolNames()).toEqual([]);
     expect(s.connections.map((connection) => connection.shutdown)).toEqual([0]);
-    expect(readdirSync(join(s.userHome, '.robota'))).not.toContain('mcp-credentials');
+    expect(readdirSync(join(s.userHome, '.test-product'))).not.toContain('mcp-credentials');
     expect(
       `${forged.message}${cancelled.message}${unattended.message}${s.diagnostics.join('')}`,
     ).not.toMatch(LEAKS);
@@ -807,7 +809,7 @@ describe('MCP OAuth notices and browser', () => {
   it('tells the user how to sign in, and which scope is missing', () => {
     expect(formatMcpOAuthNotice({ kind: 'login-required', serverId: 'files' })).toBe(
       'MCP server files needs you to sign in: run /mcp login files in this session, ' +
-        'or robota mcp login files in a terminal',
+        'or mcp login files in a terminal',
     );
     expect(
       formatMcpOAuthNotice({ kind: 'insufficient-scope', serverId: 'files', scope: 'files:write' }),
@@ -824,12 +826,12 @@ describe('MCP OAuth notices and browser', () => {
       "\\';touch pwned;#",
       '-rf',
       '=cmd',
-      'x\nrun robota mcp login good',
+      'x\nrun mcp login good',
       'x\u001b[2Kgood',
       'x‮good',
     ]) {
       expect(notice(name)).toContain(
-        'run /mcp login <server> in this session, or robota mcp login <server> in a terminal',
+        'run /mcp login <server> in this session, or mcp login <server> in a terminal',
       );
       for (const shown of [name, '\n', '\u001b', '‮', 'good', 'pwned']) {
         expect(notice(name)).not.toContain(shown);

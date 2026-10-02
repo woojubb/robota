@@ -118,11 +118,13 @@ export async function executeAndRecordToolCalls(
       ...(traceContext ? { traceContext } : {}),
     };
   });
+  const policy = config?.toolExecutionPolicy?.(structuredClone(assistantToolCalls));
   const toolContext: IToolExecutionBatchContext = {
     requests: toolRequests,
-    mode: 'parallel',
-    maxConcurrency: 5,
-    continueOnError: true,
+    mode: policy?.mode ?? 'parallel',
+    maxConcurrency: policy?.maxConcurrency ?? 5,
+    continueOnError: policy?.continueOnError ?? true,
+    scheduling: policy?.scheduling ?? new Map(),
     signal,
   };
   toolContext.lifecycle = {

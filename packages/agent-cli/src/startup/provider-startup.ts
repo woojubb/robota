@@ -3,8 +3,8 @@ import type { IParsedCliArgs } from '../utils/cli-args.js';
 import {
   applyProviderConfiguration,
   applyProviderSwitch,
-  createNodeHostSettingsStore,
   readMergedProviderSettings,
+  readProviderSettings,
   resolveProviderSettingsWriteTarget,
   WorkspaceAuthorityRequiredError,
 } from '@robota-sdk/agent-framework';
@@ -21,25 +21,35 @@ import {
   type TPromptInput,
 } from '@robota-sdk/agent-command';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
-import {
-  createRobotaUserSettingsSources,
-  robotaUserSettingsPath,
-} from '../product/robota-user-settings.js';
+import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
+
+/** All CLI provider reads use the selected invocation's file and explicit environment snapshot. */
+export function readCliProviderSettings(
+  runtime: ICliRuntimeContext,
+  settingsSources: readonly TSettingsSource[],
+  providerDefinitions: readonly IProviderDefinition[],
+  providerOverride?: string,
+): IProviderDefinitionConfig {
+  return readProviderSettings(settingsSources, {
+    providerDefinitions,
+    env: runtime.environment,
+    ...(providerOverride !== undefined ? { providerOverride } : {}),
+  });
+}
 
 export interface IProviderStartupSettingsAccess {
-  readonly settingsSources?: readonly TSettingsSource[];
-  readonly settingsStores?: readonly ISettingsDocumentStore[];
+  readonly cliName: string;
+  readonly env: Readonly<Record<string, string | undefined>>;
+  readonly settingsSources: readonly TSettingsSource[];
+  readonly settingsStores: readonly ISettingsDocumentStore[];
 }
 
 function resolveStartupSettingsAccess(
   access: IProviderStartupSettingsAccess,
 ): Required<IProviderStartupSettingsAccess> {
-  return {
-    settingsSources: access.settingsSources ?? createRobotaUserSettingsSources(),
-    settingsStores: access.settingsStores ?? [
-      createNodeHostSettingsStore('user', robotaUserSettingsPath()),
-    ],
-  };
+  if (access.settingsSources === undefined || access.settingsStores === undefined || access.env === undefined) throw new Error('Provider startup requires host-configured settings sources, stores and environment.');
+  return { cliName: access.cliName, env: access.env, settingsSources: access.settingsSources, settingsStores: access.settingsStores };
 }
 
 function selectStartupSettingsStore(
@@ -67,7 +77,7 @@ export function handleProviderConfigurationArgs(
   args: IParsedCliArgs,
   terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
-  settingsAccess: IProviderStartupSettingsAccess = {},
+  settingsAccess: IProviderStartupSettingsAccess,
 ): boolean {
   const scope = validateSettingsScope(args.settingsScope);
   const access = resolveStartupSettingsAccess(settingsAccess);
@@ -76,6 +86,7 @@ export function handleProviderConfigurationArgs(
   if (args.configureProvider) {
     applyProviderConfiguration(settingsStore, buildSetupInputFromArgs(args), {
       providerDefinitions,
+      env: access.env,
     });
     terminal.writeLine(`Provider profile saved to ${settingsStore.displayName}`);
     return !args.printMode && args.positional.length === 0;
@@ -96,8 +107,8 @@ export async function ensureConfig(
   promptInput: TPromptInput,
   terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
-  isInteractive?: boolean,
-  settingsAccess: IProviderStartupSettingsAccess = {},
+  isInteractive: boolean | undefined,
+  settingsAccess: IProviderStartupSettingsAccess,
 ): Promise<void> {
   const access = resolveStartupSettingsAccess(settingsAccess);
   await ensureProviderConfig(
@@ -107,12 +118,14 @@ export async function ensureConfig(
       settingsScope: validateSettingsScope(args.settingsScope),
       settingsSources: access.settingsSources,
       settingsStores: access.settingsStores,
+      env: access.env,
     },
     promptInput,
     terminal,
     providerDefinitions,
     {
-      formatError: formatMissingProviderConfigMessage,
+      formatError: (definitions) => formatMissingProviderConfigMessage(definitions, access.cliName),
+      env: access.env,
       isInteractive:
         isInteractive !== undefined
           ? () => isInteractive
@@ -127,7 +140,7 @@ export async function runInteractiveProviderSetup(
   promptInput: TPromptInput,
   terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
-  settingsAccess: IProviderStartupSettingsAccess = {},
+  settingsAccess: IProviderStartupSettingsAccess,
 ): Promise<void> {
   const access = resolveStartupSettingsAccess(settingsAccess);
   await runProviderStartupSetup(
@@ -136,6 +149,7 @@ export async function runInteractiveProviderSetup(
       settingsScope: validateSettingsScope(args.settingsScope),
       settingsSources: access.settingsSources,
       settingsStores: access.settingsStores,
+      env: access.env,
     },
     promptInput,
     terminal,
@@ -160,19 +174,20 @@ function buildSetupInputFromArgs(args: IParsedCliArgs): IProviderSetupInput {
 }
 
 export function formatMissingProviderConfigMessage(
-  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
+  providerDefinitions: readonly IProviderDefinition[],
+  cliName: string,
 ): string {
   return [
     'No provider configuration found.',
-    'Run `robota --configure` in an interactive terminal, or configure a provider:',
+    `Run \`${cliName} --configure\` in an interactive terminal, or configure a provider:`,
     `Supported providers: ${formatSupportedProviderTypes(providerDefinitions)}`,
-    ...providerDefinitions.map(formatConfigureProviderExample),
+    ...providerDefinitions.map((definition) => formatConfigureProviderExample(definition, cliName)),
   ].join('\n');
 }
 
-function formatConfigureProviderExample(definition: IProviderDefinition): string {
+function formatConfigureProviderExample(definition: IProviderDefinition, cliName: string): string {
   const flags = [
-    `robota --configure-provider ${definition.type}`,
+    `${cliName} --configure-provider ${definition.type}`,
     `--type ${definition.type}`,
     ...(definition.defaults?.baseURL !== undefined ? ['--base-url <url>'] : []),
     '--model <model>',

@@ -1,3 +1,4 @@
+import type { IIdentityContext } from './identity/crypto-context.js';
 /**
  * Pairing + DTLS-fingerprint channel binding (REMOTE-005 Stage B3).
  *
@@ -27,7 +28,6 @@ import {
 } from './crypto-primitives.js';
 
 /** Fixed, non-secret HKDF salt (v1). Host and browser MUST use the identical salt/info to derive matching keys. */
-const HKDF_SALT = encoder.encode('robota-remote-pairing/v1');
 const CONFIRM_INFO = encoder.encode('confirm');
 const SESSION_INFO = encoder.encode('session');
 
@@ -36,11 +36,6 @@ const RENDEZVOUS_BYTES = 16; // 128-bit rendezvous id
 const NONCE_BYTES = 16;
 
 export type TPairingRole = 'initiator' | 'responder';
-
-const ROLE_LABEL: Record<TPairingRole, Uint8Array> = {
-  initiator: encoder.encode('robota-pairing/initiator'),
-  responder: encoder.encode('robota-pairing/responder'),
-};
 
 export interface IPairingSecret {
   /** Rendezvous id (relay meeting point) — may be shared with the signaling server. */
@@ -120,7 +115,9 @@ const STRICT_FINGERPRINT_VALUE = /^(\S+)[ \t]+([0-9A-Fa-f:]+)[ \t]*$/;
 export function extractDtlsFingerprintAttribute(sdp: string): IDtlsFingerprint {
   let found: IDtlsFingerprint | undefined;
   for (const match of sdp.matchAll(LOOSE_FINGERPRINT_LINE)) {
-    const strict = match[0].startsWith('a=fingerprint:') ? STRICT_FINGERPRINT_VALUE.exec(match[1]) : null;
+    const strict = match[0].startsWith('a=fingerprint:')
+      ? STRICT_FINGERPRINT_VALUE.exec(match[1])
+      : null;
     if (!strict) throw new Error('SDP carries a malformed DTLS fingerprint attribute');
     const attribute = { algorithm: strict[1].toLowerCase(), value: strict[2].toUpperCase() };
     if (found && (found.algorithm !== attribute.algorithm || found.value !== attribute.value)) {
@@ -139,20 +136,33 @@ export function extractDtlsFingerprint(sdp: string): string {
 
 // ── key derivation (HKDF; distinct info per purpose) ────────────────────────────────────────────
 
-async function hkdfBits(secret: string, info: Uint8Array, bits = 256): Promise<Uint8Array> {
+async function hkdfBits(
+  cryptoContext: IIdentityContext,
+  secret: string,
+  info: Uint8Array,
+  bits = 256,
+): Promise<Uint8Array> {
   const base = await webcrypto.subtle.importKey('raw', ab(fromBase64Url(secret)), 'HKDF', false, [
     'deriveBits',
   ]);
   const derived = await webcrypto.subtle.deriveBits(
-    { name: 'HKDF', hash: 'SHA-256', salt: ab(HKDF_SALT), info: ab(info) },
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: ab(encoder.encode(`${cryptoContext.namespace}-remote-pairing/v1`)),
+      info: ab(info),
+    },
     base,
     bits,
   );
   return new Uint8Array(derived);
 }
 
-async function confirmationKey(secret: string): Promise<CryptoKey> {
-  const bits = await hkdfBits(secret, CONFIRM_INFO);
+async function confirmationKey(
+  cryptoContext: IIdentityContext,
+  secret: string,
+): Promise<CryptoKey> {
+  const bits = await hkdfBits(cryptoContext, secret, CONFIRM_INFO);
   return webcrypto.subtle.importKey('raw', ab(bits), { name: 'HMAC', hash: 'SHA-256' }, false, [
     'sign',
   ]);
@@ -162,13 +172,17 @@ async function confirmationKey(secret: string): Promise<CryptoKey> {
  * Derive the Stage-E application session key from the pairing secret (distinct `info` from the confirmation key
  * → domain-separated). B3 exposes it; its USE (TOFU bootstrap / app-layer key) is Stage E.
  */
-export async function deriveSessionKey(secret: string): Promise<string> {
-  return toBase64Url(await hkdfBits(secret, SESSION_INFO));
+export async function deriveSessionKey(
+  cryptoContext: IIdentityContext,
+  secret: string,
+): Promise<string> {
+  return toBase64Url(await hkdfBits(cryptoContext, secret, SESSION_INFO));
 }
 
 // ── directional, nonce-bound channel confirmation ───────────────────────────────────────────────
 
 async function confirmationFor(
+  cryptoContext: IIdentityContext,
   key: CryptoKey,
   role: TPairingRole,
   nonceInitiator: string,
@@ -176,7 +190,7 @@ async function confirmationFor(
   fingerprintPair: string,
 ): Promise<string> {
   const transcript = concat([
-    ROLE_LABEL[role],
+    encoder.encode(`${cryptoContext.namespace}-pairing/${role}`),
     fromBase64Url(nonceInitiator),
     fromBase64Url(nonceResponder),
     encoder.encode(fingerprintPair),
@@ -203,12 +217,14 @@ export interface IConfirmationInput {
  * receive ≠ the value it sends — so a secretless relay cannot reflect a peer's own confirmation back to it.
  */
 export async function computeConfirmations(
+  cryptoContext: IIdentityContext,
   input: IConfirmationInput,
 ): Promise<{ send: string; expectPeer: string }> {
-  const key = await confirmationKey(input.secret);
+  const key = await confirmationKey(cryptoContext, input.secret);
   const pair = sortedPair(input.localFingerprint, input.remoteFingerprint);
   const peerRole: TPairingRole = input.role === 'initiator' ? 'responder' : 'initiator';
   const send = await confirmationFor(
+    cryptoContext,
     key,
     input.role,
     input.nonceInitiator,
@@ -216,6 +232,7 @@ export async function computeConfirmations(
     pair,
   );
   const expectPeer = await confirmationFor(
+    cryptoContext,
     key,
     peerRole,
     input.nonceInitiator,

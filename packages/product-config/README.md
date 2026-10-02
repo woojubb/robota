@@ -1,0 +1,26 @@
+# Product configuration
+
+The pure entry exports `PRODUCT_CONFIG_DESCRIPTORS`, `resolveProductConfig`, `generateDefaultEnvironment`, `publicProductConfig`, `parsePublicProductConfig`, `hostProductConfig`, and `embeddedProductIdentity`. Every call takes an explicit environment snapshot; it never consults ambient environment variables or previously resolved products.
+
+`resolveProductConfig({ environment, fileValues?, defaults?, embeddedIdentity? })` applies environment, selected-file values, then defaults. Empty input clears optional values and rejects required values. When artifact identity is supplied, runtime identity inputs must agree with it; only operational defaults remain configurable.
+
+`loadProductConfig({ environment, filePath?, defaults?, embeddedIdentity?, readFile? })` from the `/node` entry reads only an explicit absolute file path or the canonical `PRODUCT_CONFIG_FILE` selection. `loadProductConfigSelection` returns both the resolved descriptor and file entries from the same read, so a host can pass operational inputs to its adapters. Relative host paths resolve against the selected file directory. Neither loader expands environment references, reads key files, or searches the working directory.
+
+The descriptor contract also produces `.env.default` guidance. Required product values have no product-specific defaults. Public projections include cryptographic domain labels needed by peers, while excluding master derivation indices and host storage paths. Generated identity keys remain in the configured credential store or user state root; key and trust-store file imports are not supported settings.
+
+## Product builds and release workflows
+
+Copy the repository's `.env.default` guidance into a private product environment file and fill the required identity, storage, credential-domain, and cryptographic-domain values. Select it by an absolute path with `PRODUCT_CONFIG_FILE` when building or running the common source. Optional `SERVICE_ANALYTICS_MEASUREMENT_ID` enables the blog's Google Analytics account for that product; leaving it empty omits the tracking scripts.
+
+Generate distribution artifacts in a separate workspace:
+
+```bash
+pnpm exec tsx scripts/product/generate-workspace.mjs --env /absolute/path/product.env --out /absolute/path/generated-product
+cd /absolute/path/generated-product
+pnpm install --frozen-lockfile
+pnpm build
+```
+
+GitHub release and npm publication workflows accept the non-secret file contents as the `product_env` dispatch input, or use the repository variable `PRODUCT_BUILD_ENV`. They validate that selection before compiling in a generated workspace and pass the resolved contract to later steps. Keep credentials in the existing protected workflow secrets, outside these product inputs. Native releases and version tagging require `PROJECT_RELEASE_TAG_PREFIX`; npm publication also needs the repository URL and registry URL. `PROJECT_PACKAGE_ACCESS` selects the publication access policy. The selected access is reflected in generated package manifests and Changesets configuration. A tag-triggered release uses the configured repository variable; a successful native tag release starts desktop packaging with the same selection.
+
+Pull requests use isolated synthetic Cedar and Amber configurations for native and desktop validation. Those jobs do not sign or publish artifacts. Publication dry runs pack and verify packages without using release credentials.

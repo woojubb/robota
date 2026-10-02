@@ -1,6 +1,8 @@
 import { sep } from 'node:path';
 
 import { describe, it, expect } from 'vitest';
+import { embeddedProductIdentity, resolveProductConfig } from '@robota-sdk/product-config';
+import { desktopProductEnvironment } from './product-environment.js';
 
 import {
   appendOutputTail,
@@ -13,6 +15,7 @@ import {
   OUTPUT_TAIL_LIMIT,
   parseDaemonStartOutput,
   parseTrustStatusOutput,
+  parseTrustedProviderEnvironmentReferences,
   resolveOpenPathTarget,
   resolveSidecarCommand,
   type TDaemonStart,
@@ -22,61 +25,67 @@ import {
 
 /** GUI-003 TC-03 — the bundled-runtime command resolution (packaged vs dev). */
 describe('resolveSidecarCommand (GUI-003)', () => {
+  const productIdentity = embeddedProductIdentity(resolveProductConfig({ environment: desktopProductEnvironment('cedar') }));
+
   it('packaged: resolves the bundled binary under resourcesPath (posix)', () => {
     expect(
       resolveSidecarCommand({
         isPackaged: true,
-        resourcesPath: '/Applications/Robota.app/Contents/Resources',
+        resourcesPath: '/Applications/Cedar Agent.app/Contents/Resources',
         platform: 'darwin',
-        env: { ROBOTA_GUI_SIDECAR_CMD: '/ignored/in/prod' },
+        productIdentity,
+        env: { PRODUCT_GUI_SIDECAR_CMD: '/ignored/in/prod' },
       }),
-    ).toBe('/Applications/Robota.app/Contents/Resources/robota');
+    ).toBe('/Applications/Cedar Agent.app/Contents/Resources/cedar-runtime');
   });
 
   it('packaged on win32: appends the .exe suffix', () => {
     expect(
       resolveSidecarCommand({
         isPackaged: true,
-        resourcesPath: 'C:\\Program Files\\Robota\\resources',
+        resourcesPath: 'C:\\Program Files\\Cedar Agent\\resources',
         platform: 'win32',
+        productIdentity,
       }),
-    ).toContain('robota.exe');
+    ).toContain('cedar-runtime.exe');
   });
 
-  it('dev: honors $ROBOTA_GUI_SIDECAR_CMD (the e2e/scripted double)', () => {
+  it('dev: honors PRODUCT_GUI_SIDECAR_CMD (the e2e/scripted double)', () => {
     expect(
       resolveSidecarCommand({
         isPackaged: false,
         resourcesPath: '/unused',
         platform: 'linux',
-        env: { ROBOTA_GUI_SIDECAR_CMD: '/repo/e2e/scripted-sidecar.mjs' },
+        productIdentity,
+        env: { PRODUCT_GUI_SIDECAR_CMD: '/repo/e2e/scripted-sidecar.mjs' },
       }),
     ).toBe('/repo/e2e/scripted-sidecar.mjs');
   });
 
-  it('dev without override: falls back to PATH `robota`', () => {
+  it('dev without override: selects the configured CLI from PATH', () => {
     expect(
       resolveSidecarCommand({
         isPackaged: false,
         resourcesPath: '/unused',
         platform: 'linux',
+        productIdentity,
         env: {},
       }),
-    ).toBe('robota');
+    ).toBe('cedar');
   });
 });
 
 describe('buildDaemonStartSpawn (#3189)', () => {
   it('asks the CLI to start or reuse the daemon, with the base environment and no secret of its own', () => {
-    const invocation = buildDaemonStartSpawn('/opt/robota', { PATH: '/usr/bin', UNSET: undefined });
-    expect(invocation.command).toBe('/opt/robota');
+    const invocation = buildDaemonStartSpawn('/opt/agent', { PATH: '/usr/bin', UNSET: undefined });
+    expect(invocation.command).toBe('/opt/agent');
     expect(invocation.args).toEqual(['daemon', 'start', '--json']);
     expect(invocation.env).toEqual({ PATH: '/usr/bin' });
-    expect(invocation.env).not.toHaveProperty('ROBOTA_WS_TOKEN');
+    expect(invocation.env).not.toHaveProperty('PRODUCT_WS_TOKEN');
   });
 
   it('starts it Restricted when the person chose that (#3268)', () => {
-    expect(buildDaemonStartSpawn('/opt/robota', {}, { restricted: true }).args).toEqual([
+    expect(buildDaemonStartSpawn('/opt/agent', {}, { restricted: true }).args).toEqual([
       'daemon',
       'start',
       '--json',
@@ -121,6 +130,28 @@ describe('parseTrustStatusOutput (#3268)', () => {
     expect(['trust', 'restricted', 'quit'].every(isTrustChoice)).toBe(true);
     expect(isTrustChoice('yes')).toBe(false);
     expect(isTrustChoice(undefined)).toBe(false);
+  });
+});
+
+describe('parseTrustedProviderEnvironmentReferences', () => {
+  it('accepts only variable names from a trusted CLI status and deduplicates them', () => {
+    expect(parseTrustedProviderEnvironmentReferences(JSON.stringify({
+      state: 'trusted',
+      providerEnvRefs: ['CUSTOM_PROVIDER_KEY', 'HTTPS_PROXY', 'CUSTOM_PROVIDER_KEY', 'bad=value', 4],
+    }))).toEqual(['CUSTOM_PROVIDER_KEY', 'HTTPS_PROXY']);
+  });
+
+  it('does not expose references for untrusted, malformed, or multi-line status output', () => {
+    expect(parseTrustedProviderEnvironmentReferences(JSON.stringify({
+      state: 'untrusted',
+      providerEnvRefs: ['CUSTOM_PROVIDER_KEY'],
+    }))).toBeUndefined();
+    expect(parseTrustedProviderEnvironmentReferences('{')).toBeUndefined();
+    expect(parseTrustedProviderEnvironmentReferences('{"state":"trusted"}\n{}')).toBeUndefined();
+  });
+
+  it('returns an empty trusted reference set when the older CLI omits the optional field', () => {
+    expect(parseTrustedProviderEnvironmentReferences(JSON.stringify({ state: 'trusted' }))).toEqual([]);
   });
 });
 
@@ -171,20 +202,20 @@ describe('describeDaemonStartFailure (#3189)', () => {
     expect(
       describeDaemonStartFailure({
         exitCode: 1,
-        stderr: 'Workspace is not trusted. Run: robota trust --yes\n',
+        stderr: 'Workspace is not trusted. Run: cedar trust --yes\n',
         stdout: '',
-      }),
-    ).toBe('Workspace is not trusted. Run: robota trust --yes');
+      }, 'cedar'),
+    ).toBe('Workspace is not trusted. Run: cedar trust --yes');
   });
 
   it('describes an unexpected answer on a successful exit', () => {
-    expect(describeDaemonStartFailure({ exitCode: 0, stderr: '', stdout: 'hello' })).toContain(
+    expect(describeDaemonStartFailure({ exitCode: 0, stderr: '', stdout: 'hello' }, 'cedar')).toContain(
       'unexpected result:\nhello',
     );
   });
 
   it('names the exit code when the CLI said nothing', () => {
-    expect(describeDaemonStartFailure({ exitCode: 3, stderr: '', stdout: '' })).toContain('exit 3');
+    expect(describeDaemonStartFailure({ exitCode: 3, stderr: '', stdout: '' }, 'cedar')).toContain('exit 3');
   });
 });
 
@@ -192,9 +223,9 @@ describe('#3186 — why the daemon could not start', () => {
   it('keeps only the tail of the CLI error output, so the fatal screen can say why', () => {
     let tail = '';
     tail = appendOutputTail(tail, 'x'.repeat(OUTPUT_TAIL_LIMIT));
-    tail = appendOutputTail(tail, 'Workspace trust is required.\nGrant access with: robota trust --yes\n');
+    tail = appendOutputTail(tail, 'Workspace trust is required.\nGrant access with: cedar trust --yes\n');
     expect(tail.length).toBe(OUTPUT_TAIL_LIMIT);
-    expect(tail.endsWith('Grant access with: robota trust --yes\n')).toBe(true);
+    expect(tail.endsWith('Grant access with: cedar trust --yes\n')).toBe(true);
   });
 });
 
@@ -222,12 +253,12 @@ describe('createDaemonAttachment (#3189)', () => {
   });
 
   it('a failed restart leaves no port to reach, and carries the reason', async () => {
-    const answers: TDaemonStart[] = [at(4001), { ok: false, detail: 'Run: robota trust --yes' }];
+    const answers: TDaemonStart[] = [at(4001), { ok: false, detail: 'Run: cedar trust --yes' }];
     const attachment = createDaemonAttachment(async () => answers.shift() ?? at(0));
     await attachment.start();
     await attachment.start();
     expect(attachment.port()).toBeUndefined();
-    await expect(attachment.current()).resolves.toEqual({ ok: false, detail: 'Run: robota trust --yes' });
+    await expect(attachment.current()).resolves.toEqual({ ok: false, detail: 'Run: cedar trust --yes' });
   });
 
   it('a start asked for while one runs joins it instead of running the CLI again', async () => {
@@ -278,8 +309,8 @@ describe('resolveOpenPathTarget (#3282 §4c — the Project panel Memory "Open i
   const cwd = `${sep}repo`;
 
   it('resolves a workspace-relative path against cwd', () => {
-    expect(resolveOpenPathTarget(cwd, `.robota${sep}memory${sep}MEMORY.md`)).toBe(
-      `${sep}repo${sep}.robota${sep}memory${sep}MEMORY.md`,
+    expect(resolveOpenPathTarget(cwd, `.cedar${sep}memory${sep}MEMORY.md`)).toBe(
+      `${sep}repo${sep}.cedar${sep}memory${sep}MEMORY.md`,
     );
   });
 

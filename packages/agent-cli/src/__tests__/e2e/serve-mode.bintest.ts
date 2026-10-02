@@ -1,8 +1,9 @@
+import { createTestBinaryEnvironment } from '../helpers/product-runtime.js';
 /**
- * RUNTIME-001 — black-box e2e for the real `robota --serve` headless runtime host.
+ * RUNTIME-001 — black-box e2e for the real `the product --serve` headless runtime host.
  *
  * This is the agent-runnable proof of the production user scenario that the GUI drives (apps/agent-app spawns
- * `robota --serve` as a loopback sidecar): a real CLI process serves the shared `startRuntimeHost` over an
+ * `the product --serve` as a loopback sidecar): a real CLI process serves the shared `startRuntimeHost` over an
  * authenticated loopback WS, a client connects with the launch nonce, runs one turn end-to-end, and the
  * process shuts down cleanly on SIGTERM. It is deliberately NOT the GUI e2e (which substitutes a scripted
  * sidecar) and NOT the in-process `runtime-host.test.ts` — here the ACTUAL built binary is spawned and driven
@@ -29,7 +30,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 /** The built CLI entry (same bin the binary-agent-driver spawns). */
-const ROBOTA_BIN = fileURLToPath(new URL('../../../bin/robota.cjs', import.meta.url));
+const PRODUCT_BIN = fileURLToPath(new URL('../../../bin/agent.cjs', import.meta.url));
 /** Reuse the cross-fidelity replay log — its recorded reply is `CROSS_FIDELITY_OK`. */
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'cross-fidelity.jsonl');
 const RECORDED_REPLY = 'CROSS_FIDELITY_OK';
@@ -77,7 +78,7 @@ function findFreePort(): Promise<number> {
 
 /** Write a bootable provider profile; `--session-log` swaps in the replay provider so the key is never used. */
 function writeProviderSettings(homeDir: string): void {
-  const dir = join(homeDir, '.robota');
+  const dir = join(homeDir, '.test-product');
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, 'settings.json'),
@@ -147,7 +148,7 @@ async function waitForServer(port: number, budgetMs: number): Promise<void> {
   }
 }
 
-describe('robota --serve black-box runtime host (RUNTIME-001)', () => {
+describe('test-product --serve black-box runtime host (RUNTIME-001)', () => {
   let binCwd: string;
   let homeDir: string;
   let child: ChildProcess;
@@ -156,22 +157,17 @@ describe('robota --serve black-box runtime host (RUNTIME-001)', () => {
   const url = (t = token): string => `ws://127.0.0.1:${port}?token=${encodeURIComponent(t)}`;
 
   beforeAll(async () => {
-    binCwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-serve-bin-')));
-    homeDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-serve-home-')));
+    binCwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-serve-bin-')));
+    homeDir = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-serve-home-')));
     writeProviderSettings(homeDir);
     port = await findFreePort();
 
     child = spawn(
       process.execPath,
-      [ROBOTA_BIN, '--serve', '--session-log', FIXTURE, '--no-session-persistence'],
+      [PRODUCT_BIN, '--serve', '--session-log', FIXTURE, '--no-session-persistence'],
       {
         cwd: binCwd,
-        env: {
-          PATH: process.env['PATH'] ?? '',
-          HOME: homeDir,
-          ROBOTA_WS_TOKEN: token,
-          ROBOTA_WS_PORT: String(port),
-        },
+        env: createTestBinaryEnvironment(homeDir, { PRODUCT_WS_TOKEN: token, PRODUCT_WS_PORT: String(port) }),
         stdio: 'ignore',
       },
     );

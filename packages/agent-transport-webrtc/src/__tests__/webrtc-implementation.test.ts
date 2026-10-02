@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 /**
  * The Node transport runs on `node-datachannel` (libdatachannel, DTLS by OpenSSL) and nothing else:
  * where it cannot load, the transport is unavailable, never backed by another implementation.
@@ -67,7 +69,7 @@ describe('when node-datachannel cannot load', () => {
   it('the transport start refuses and sends nothing', async () => {
     const [signaling] = createInMemorySignalingPair();
     const send = vi.spyOn(signaling, 'send');
-    const transport = new WebRtcTransport({
+    const transport = new WebRtcTransport({cryptoContext: testIdentity,
       signaling,
       open: true,
       openReason: 'implementation availability test',

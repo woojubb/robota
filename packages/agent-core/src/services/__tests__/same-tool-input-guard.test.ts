@@ -13,7 +13,7 @@
  *   means "the caller asked us to stop", and nobody did.
  * - **Named, not bare.** What the SPEC was reaching for by naming a type was that this condition is
  *   DISTINGUISHABLE. A bare `Error` is not: a caller cannot tell "the agent looped" from "the network
- *   died". `SameToolInputLoopError` extends `RobotaError`, so CORE-027 carries its `code`,
+ *   died". `SameToolInputLoopError` extends `AgentRuntimeError`, so CORE-027 carries its `code`,
  *   `category` and `recoverable` out to the caller intact.
  * - **N is the maximum ALLOWED.** `maxSameToolInputs` names a ceiling, so the Nth identical call is
  *   permitted and the N+1th trips. The SPEC's "N or more times" contradicted its own option name.
@@ -22,7 +22,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { checkSameToolInputLimit } from '../execution-round-tools';
-import { Robota } from '../../core/robota';
+import { ConversationAgent } from '../../core/conversation-agent';
 import { SameToolInputLoopError } from '../../utils/errors';
 
 import type { IExecutionRoundState } from '../execution-types';
@@ -108,7 +108,7 @@ describe('CORE-035 — the guard reports a FAILED run, not a successful interrup
     const scripted = createScriptedProvider(
       Array.from({ length: 8 }, () => ({ toolCalls: [{ name: 'loop', args: {} }] })),
     );
-    const agent = new Robota({
+    const agent = new ConversationAgent({
       name: 'core-035',
       aiProviders: [scripted.provider],
       defaultModel: { provider: 'scripted-test-provider', model: 'test-model' },

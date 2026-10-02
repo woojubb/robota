@@ -35,7 +35,7 @@ import type { FunctionTool } from '@robota-sdk/agent-core';
  * Inert containment root — every case reads text only and never touches the filesystem. Still a
  * private directory of its own, not the shared temp directory itself.
  */
-const ROOT = mkdtempSync(join(tmpdir(), 'robota-description-contract-'));
+const ROOT = mkdtempSync(join(tmpdir(), 'agent-test-description-contract-'));
 afterAll(() => rmSync(ROOT, { recursive: true, force: true }));
 
 const BUILTINS: ReadonlyArray<{ name: string; tool: FunctionTool }> = [

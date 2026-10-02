@@ -378,7 +378,7 @@ function isNeverAutoApproved(
   const value = toolArgs[argument.key];
   if (typeof value !== 'string') return false;
   if (argument.kind === 'command') return removesCriticalPath(value, context);
-  if (argument.kind === 'path' && profile?.riskClass === 'modify') return isProtectedPath(value);
+  if (argument.kind === 'path' && profile?.riskClass === 'modify') return isProtectedPath(value, context);
   return false;
 }
 

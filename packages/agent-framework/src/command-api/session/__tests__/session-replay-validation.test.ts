@@ -32,13 +32,13 @@ function writeLog(
   lines: readonly string[],
 ): { source: NodeSessionLogSource; reference: string } {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'arch-029-replay-')));
-  const logs = join(root, '.robota', 'logs');
+  const logs = join(root, '.agent', 'logs');
   mkdirSync(logs, { recursive: true });
   const logFile = join(logs, `${sessionId}.jsonl`);
   writeFileSync(logFile, lines.join('\n'), 'utf8');
   return {
     source: new NodeSessionLogSource(logFile),
-    reference: join('.robota', 'logs', `${sessionId}.jsonl`),
+    reference: join('.agent', 'logs', `${sessionId}.jsonl`),
   };
 }
 

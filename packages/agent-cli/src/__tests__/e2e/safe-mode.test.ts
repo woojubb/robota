@@ -1,5 +1,6 @@
+import { createTestProductRuntime } from '../helpers/product-runtime.js';
 /**
- * Issue #3082 — `--safe-mode` starts robota with every customization off, so a misbehaving
+ * Issue #3082 — `--safe-mode` starts the product with every customization off, so a misbehaving
  * instruction file, skill, plugin, hook or MCP server can be ruled out in one run.
  */
 
@@ -24,20 +25,20 @@ let home: string;
 let project: string;
 
 beforeEach(() => {
-  base = realpathSync(mkdtempSync(join(tmpdir(), 'robota-safe-mode-')));
+  base = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-safe-mode-')));
   home = join(base, 'home');
   project = join(base, 'project');
-  mkdirSync(join(home, '.robota', 'skills', 'user-skill'), { recursive: true });
+  mkdirSync(join(home, '.test-product', 'skills', 'user-skill'), { recursive: true });
   // The provider lives in the user settings: safe mode reads no project settings.
   writeFileSync(
-    join(home, '.robota', 'settings.json'),
+    join(home, '.test-product', 'settings.json'),
     JSON.stringify({
       currentProvider: 'scripted',
       providers: { scripted: { type: 'scripted', model: 'scripted-model' } },
     }),
   );
   writeFileSync(
-    join(home, '.robota', 'skills', 'user-skill', 'SKILL.md'),
+    join(home, '.test-product', 'skills', 'user-skill', 'SKILL.md'),
     '---\nname: user-skill\ndescription: a user skill\n---\nDo the thing.\n',
   );
   mkdirSync(project);
@@ -73,7 +74,7 @@ async function run(
   const scripted = createScriptedProvider([{ text: 'ok' }, { text: 'ok' }]);
   process.argv = [
     'node',
-    'robota',
+    'test-product',
     '-p',
     prompt,
     '--output-format',
@@ -92,7 +93,7 @@ async function run(
     return true;
   }) as never);
   try {
-    await startCli({
+    await startCli({productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
       providerDefinitions: [scriptedDefinition(scripted)],
       projectAccess: await createTrustedWorkspaceProjectAccess(project),
       ...startOptions,

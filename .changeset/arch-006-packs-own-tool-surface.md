@@ -5,7 +5,7 @@
 '@robota-sdk/agent-cli': minor
 ---
 
-ARCH-006 completion — robota's capability packs now OWN its tool surface, and `pack-coding` is built by a
+ARCH-006 completion — the configured product's capability packs now OWN its tool surface, and `pack-coding` is built by a
 context-bound factory.
 
 - **`@robota-sdk/pack-coding` (BREAKING)** — the module-level `codingPack` constant is **removed** and
@@ -18,14 +18,14 @@ context-bound factory.
   is gone rather than deprecated. Each call returns fresh instances bound to the supplied context, so two
   products in one process get independently-scoped file tools. Migration: replace `codingPack` with
   `createCodingPack({ cwd: process.cwd() })`.
-- **`@robota-sdk/agent-cli`** — `robota`'s packs are built from the shell's resolved `cwd`
-  (`createRobotaPacks({ cwd })`) before command setup, and the runtime seam passes
-  `ROBOTA_PACKS_OWN_TOOL_SURFACE` (an empty `defaultTools`) so the framework's `createDefaultTools()` tier
-  is REPLACED. Every tool robota runs now arrives from a capability pack: dropping a pack drops its tools,
+- **`@robota-sdk/agent-cli`** — `configured CLI`'s packs are built from the shell's resolved `cwd`
+  (`createProductCapabilityPacks({ cwd })`) before command setup, and the runtime seam passes
+  `PRODUCT_PACKS_OWN_TOOL_SURFACE` (an empty `defaultTools`) so the framework's `createDefaultTools()` tier
+  is REPLACED. Every tool the configured CLI runs now arrives from a capability pack: dropping a pack drops its tools,
   exactly as it already dropped its command modules and subagents.
 - **`@robota-sdk/agent-transport` / `@robota-sdk/agent-transport-tui`** — forward the optional
   `additionalTools` and `defaultTools` through the headless and TUI channels, mirroring the existing
   `agentDefinitions` pass-through, so print, serve and TUI carry an identical tool surface.
 
-End-user `robota` behavior is unchanged, including the security property: the real binary still answers a
+End-user `configured CLI` behavior is unchanged, including the security property: the real binary still answers a
 read outside the working directory with `Access denied: "…" is outside the working directory`.

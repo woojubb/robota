@@ -12,7 +12,7 @@ import type { IWorkspaceManifest } from '../sandbox/types.js';
 const tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-workspace-manifest-')));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-workspace-manifest-')));
   tempDirs.push(dir);
   return dir;
 }

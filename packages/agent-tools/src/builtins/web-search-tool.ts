@@ -73,7 +73,7 @@ export interface IWebSearchToolOptions
   extends IBuiltinToolDescriptionOptions, IWebSearchToolProviderOptions {}
 
 /**
- * Create a WebSearchTool instance — register with Robota agent tools registry.
+ * Create a WebSearchTool instance — register with agent tools registry.
  */
 export function createWebSearchTool(options: IWebSearchToolOptions = {}): FunctionTool {
   const provider = options.provider ?? createBraveSearchProvider();
@@ -86,6 +86,6 @@ export function createWebSearchTool(options: IWebSearchToolOptions = {}): Functi
 }
 
 /**
- * WebSearchTool instance — register with Robota agent tools registry.
+ * WebSearchTool instance — register with agent tools registry.
  */
 export const webSearchTool = createWebSearchTool();

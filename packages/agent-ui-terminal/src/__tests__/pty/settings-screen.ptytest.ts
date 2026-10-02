@@ -1,7 +1,7 @@
 /**
  * CMD-004 Phase 2 Stage C (TC-04): `/settings` still opens the settings screen — now rendered from
  * the requester-routed `ui_intent` session event (the legacy `settings-tui-requested` effect
- * branch is deleted from the TUI). Observed through a real PTY against the BUILT robota binary
+ * branch is deleted from the TUI). Observed through a real PTY against the BUILT CLI binary
  * (`pnpm --filter @robota-sdk/agent-cli build`).
  */
 
@@ -20,7 +20,7 @@ describe('/settings opens the settings screen via ui_intent (CMD-004 Stage C)', 
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-settings-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-settings-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 

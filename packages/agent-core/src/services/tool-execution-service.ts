@@ -4,6 +4,7 @@ import { ValidationError } from '../utils/errors';
 import { isExecutionControlError } from '../utils/execution-control-error';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
 import { SilentLogger, type ILogger } from '../utils/logger';
+import { snapshotToolProvenance, withToolProvenance } from '../utils/tool-provenance';
 
 import type { IOwnerPathSegment, IToolEventData } from '../interfaces/event-service';
 import type { IUserInteraction } from '../interfaces/interaction';
@@ -12,6 +13,7 @@ import type { IToolExecutionRequest } from '../interfaces/service';
 import type {
   IToolExecutionContext,
   IToolExecutionResult,
+  IToolProvenance,
   TToolParameters,
   TToolMetadata,
 } from '../interfaces/tool';
@@ -86,6 +88,7 @@ export class ToolExecutionService {
     catalog: 'offered' | 'registered' = 'offered',
   ): Promise<IToolExecutionResult> {
     this.logger.debug(`Executing tool: ${toolName}`);
+    let provenance: IToolProvenance | undefined;
 
     try {
       if (!context?.executionId) {
@@ -97,6 +100,7 @@ export class ToolExecutionService {
       // CLI-1990: a deferred tool the model has not loaded is refused like an unknown one — the model
       // was never shown its schema — and the remedy names the tool that loads it, so the two rounds
       // before the unknown-tool loop guard force-summarises are recoverable rather than fatal.
+      provenance = snapshotToolProvenance(this.tools.getTool?.(toolName)?.provenance);
       context.signal?.throwIfAborted();
       const withheld =
         catalog === 'offered' &&
@@ -160,7 +164,29 @@ export class ToolExecutionService {
 
       // Execute the tool with full context
       // Context already contains all necessary information including tool call ID
-      const result = await this.tools.executeTool(toolName, parameters, executionContext);
+      const rawEnvelope = this.tools.executeToolResult
+        ? await this.tools.executeToolResult(toolName, parameters, executionContext)
+        : {
+            success: true,
+            data: await this.tools.executeTool(toolName, parameters, executionContext),
+          };
+      const envelope = withToolProvenance(rawEnvelope, provenance);
+      if (!envelope.success) {
+        const error = envelope.error || 'Tool execution failed';
+        eventService?.emit(TOOL_EVENTS.CALL_ERROR, { timestamp: new Date(), toolName, error });
+        return {
+          success: false,
+          error,
+          result: envelope.data,
+          parts: envelope.parts,
+          metadata: envelope.metadata,
+          toolName,
+          executionId: executionContext.executionId,
+        };
+      }
+      if (envelope.data === undefined)
+        throw new Error('Tool execution succeeded but returned no data');
+      const result = envelope.data;
 
       this.logger.debug(`Tool execution completed: ${toolName}`);
 
@@ -177,6 +203,8 @@ export class ToolExecutionService {
       return {
         success: true,
         result,
+        ...(envelope.parts ? { parts: envelope.parts } : {}),
+        ...(envelope.metadata ? { metadata: envelope.metadata } : {}),
         toolName,
         executionId: executionContext.executionId!,
       };
@@ -196,9 +224,15 @@ export class ToolExecutionService {
         eventService.emit(TOOL_EVENTS.CALL_ERROR, errorEvent);
       }
 
+      const observation = withToolProvenance(
+        { success: false, error: toolError.message },
+        provenance,
+      );
       return {
         success: false,
         error: toolError.message,
+        ...(observation.parts ? { parts: observation.parts } : {}),
+        ...(observation.metadata ? { metadata: observation.metadata } : {}),
         toolName,
         executionId: context?.executionId,
       };
@@ -237,7 +271,10 @@ export class ToolExecutionService {
         ownerType: 'tool',
         ownerId: toolCall.id,
         ownerPath: [...context.ownerPathBase, { type: 'tool', id: toolCall.id }],
-        metadata: context.metadataFactory ? context.metadataFactory(toolCall) : undefined,
+        metadata: withToolProvenance(
+          { success: true, metadata: context.metadataFactory?.(toolCall) },
+          snapshotToolProvenance(this.tools.getTool?.(toolCall.function.name)?.provenance),
+        ).metadata,
         ...(this.askHandler ? { ask: this.askHandler } : {}),
         deferredTools: this.deferredToolCatalog,
         ...(decoded.ok ? {} : { argumentDecodeError: decoded.error }),

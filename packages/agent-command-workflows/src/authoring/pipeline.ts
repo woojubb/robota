@@ -135,8 +135,12 @@ function resolveAuthoringProvider(
     }
     const provider = createProviderFromSettings(settingsSources, undefined, {
       providerDefinitions,
+      ...(deps.environment !== undefined && { env: deps.environment }),
     });
-    const settings = readProviderSettings(settingsSources, { providerDefinitions });
+    const settings = readProviderSettings(settingsSources, {
+      providerDefinitions,
+      ...(deps.environment !== undefined && { env: deps.environment }),
+    });
     return {
       ok: true,
       value: {

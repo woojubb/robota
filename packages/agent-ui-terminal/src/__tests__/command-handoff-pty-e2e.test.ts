@@ -45,7 +45,7 @@ describe('command handoff PTY E2E', () => {
   it(
     '/shell runs a one-shot command on the real terminal and returns its exit code',
     async () => {
-      const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-shell-pty-')));
+      const dir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-shell-pty-')));
       tempDirs.push(dir);
       const outputPath = join(dir, 'result.json');
       const session = spawnPtyFixture(FIXTURE, {
@@ -77,7 +77,7 @@ describe('command handoff PTY E2E', () => {
   it(
     '/editor opens $EDITOR on the real terminal and round-trips the composed text',
     async () => {
-      const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-editor-pty-')));
+      const dir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-editor-pty-')));
       tempDirs.push(dir);
       const outputPath = join(dir, 'result.json');
       const session = spawnPtyFixture(FIXTURE, {

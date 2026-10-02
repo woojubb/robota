@@ -1,29 +1,44 @@
-# DIST-003 — Node-less installer for the `robota` CLI (Windows PowerShell).
+# DIST-003 — Node-less installer for the selected CLI (Windows PowerShell).
 #
-#   irm https://raw.githubusercontent.com/woojubb/robota/main/scripts/install.ps1 | iex
+# Select the installation script URL from PROJECT_INSTALL_SCRIPT_URL.
 #
 # Downloads the DIST-002 windows-x64 release binary, integrity-verifies its SHA-256, installs it to
-# %LOCALAPPDATA%\robota\bin, adds that dir to the USER PATH, and confirms via the absolute path. No Node.js.
+# configured user state root/bin, adds that dir to the USER PATH, and confirms via the absolute path. No Node.js.
 $ErrorActionPreference = 'Stop'
 
 # ── The ONLY place to change the download host ──────────────────────────────────────────────────────────────
-$RobotaDownloadBase = if ($env:ROBOTA_DOWNLOAD_BASE) { $env:ROBOTA_DOWNLOAD_BASE } else { 'https://github.com/woojubb/robota/releases' }
+if ($null -eq $env:PRODUCT_CLI_NAME -and $null -eq $env:PROJECT_RELEASE_BASE_URL) {
+  $env:PRODUCT_CLI_NAME = 'robota'
+  $env:PROJECT_RELEASE_BASE_URL = 'https://github.com/woojubb/robota/releases'
+  if (-not $env:PRODUCT_USER_STATE_DIR) { $env:PRODUCT_USER_STATE_DIR = Join-Path $env:LOCALAPPDATA 'robota' }
+  $env:PROJECT_RELEASE_TAG_PREFIX = 'v'
+}
+foreach ($name in @('PROJECT_RELEASE_BASE_URL', 'PRODUCT_USER_STATE_DIR', 'PRODUCT_CLI_NAME')) {
+  if (-not [Environment]::GetEnvironmentVariable($name)) { throw "install: $name is required" }
+}
+if ($env:PRODUCT_CLI_NAME -notmatch '^[A-Za-z0-9._-]+$') { throw 'install: invalid PRODUCT_CLI_NAME' }
+$artifactPrefix = if ($env:PRODUCT_ARTIFACT_PREFIX) { $env:PRODUCT_ARTIFACT_PREFIX } else { $env:PRODUCT_CLI_NAME }
+if ($artifactPrefix -notmatch '^[A-Za-z0-9._-]+$') { throw 'install: invalid PRODUCT_ARTIFACT_PREFIX' }
+if (-not [System.IO.Path]::IsPathRooted($env:PRODUCT_USER_STATE_DIR)) { throw 'install: PRODUCT_USER_STATE_DIR must be absolute' }
+if (([Uri]$env:PROJECT_RELEASE_BASE_URL).Scheme -ne 'https') { throw 'install: PROJECT_RELEASE_BASE_URL must use HTTPS' }
+$DownloadBase = $env:PROJECT_RELEASE_BASE_URL
 
 # ── Arch: only windows-x64 is published. Fail loud on 32-bit; ARM64 runs under x64 emulation. ────────────────
 $arch = $env:PROCESSOR_ARCHITECTURE
 if ($arch -eq 'x86') { throw 'install: 32-bit Windows is not supported (only x64).' }
 if ($arch -eq 'ARM64') { Write-Host 'install: no native ARM64 build; using the x64 binary under emulation.' }
-$asset = 'robota-windows-x64.exe'
+$asset = "$artifactPrefix-windows-x64.exe"
 
-# ── Version: default latest; ROBOTA_VERSION pins to a full v-prefixed tag (normalize a bare version) ─────────
-if ($env:ROBOTA_VERSION) {
-  $tag = if ($env:ROBOTA_VERSION.StartsWith('v')) { $env:ROBOTA_VERSION } else { "v$($env:ROBOTA_VERSION)" }
-  $baseUrl = "$RobotaDownloadBase/download/$tag"
+# ── Version: default latest; a configured tag prefix pins to an explicit release tag. ───────────────────────────────
+if ($env:PROJECT_RELEASE_VERSION) {
+  if (-not $env:PROJECT_RELEASE_TAG_PREFIX) { throw 'install: PROJECT_RELEASE_TAG_PREFIX is required' }
+  $tag = if ($env:PROJECT_RELEASE_VERSION.StartsWith($env:PROJECT_RELEASE_TAG_PREFIX)) { $env:PROJECT_RELEASE_VERSION } else { "$($env:PROJECT_RELEASE_TAG_PREFIX)$($env:PROJECT_RELEASE_VERSION)" }
+  $baseUrl = "$DownloadBase/download/$tag"
 } else {
-  $baseUrl = "$RobotaDownloadBase/latest/download"
+  $baseUrl = "$DownloadBase/latest/download"
 }
 
-$tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("robota-install-" + [System.Guid]::NewGuid().ToString('N'))
+$tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("agent-install-" + [System.Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $tmp -Force | Out-Null
 try {
   $assetPath = Join-Path $tmp $asset
@@ -41,10 +56,10 @@ try {
   $actual = (Get-FileHash -Path $assetPath -Algorithm SHA256).Hash.ToLower()
   if ($expected -ne $actual) { throw "install: checksum mismatch for $asset — refusing to install" }
 
-  # ── Install → %LOCALAPPDATA%\robota\bin\robota.exe ────────────────────────────────────────────────────────
-  $binDir = Join-Path $env:LOCALAPPDATA 'robota\bin'
+  # ── Install → configured user state root/bin/command.exe ────────────────────────────────────────────────────────
+  $binDir = Join-Path $env:PRODUCT_USER_STATE_DIR 'bin'
   New-Item -ItemType Directory -Path $binDir -Force | Out-Null
-  $dest = Join-Path $binDir 'robota.exe'
+  $dest = Join-Path $binDir "$($env:PRODUCT_CLI_NAME).exe"
   Copy-Item -Path $assetPath -Destination $dest -Force
 
   Write-Host "install: installed to $dest"
@@ -55,7 +70,7 @@ try {
   if (($userPath -split ';') -notcontains $binDir) {
     $newPath = if ([string]::IsNullOrEmpty($userPath)) { $binDir } else { "$userPath;$binDir" }
     [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
-    Write-Host "install: added $binDir to your user PATH (open a new terminal to use ``robota``)."
+    Write-Host "install: added $binDir to your user PATH (open a new terminal to use ``$($env:PRODUCT_CLI_NAME)``)."
   }
 } finally {
   Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue

@@ -51,11 +51,11 @@
 - eb16da8: The browser remote client runs one warm-reconnect loop at a time. When a reconnected link drops again while the
   previous loop is still waiting on a room, that older loop stops instead of moving on and tearing down the new
   loop's connection.
-- f8a8a4d: The GUI surface's design now applies inside a `robota-ui` scope that each of its root components opens,
+- f8a8a4d: The GUI surface's design now applies inside a `agent-ui` scope that each of its root components opens,
   so an app with design tokens of its own can embed the surface without either overriding the other. Such
   an app imports `@robota-sdk/agent-ui-web/styles/surface.css` into its Tailwind entry; a page that is only
-  the surface keeps importing `styles/theme.css` and puts `robota-ui` on its `<html>`. `RobotaMark` and
-  `RobotaWordmark` are exported. The browser remote client (`RemoteClient`) follows the same design, with
+  the surface keeps importing `styles/theme.css` and puts `agent-ui` on its `<html>`. `ProductMark` and
+  `ProductWordmark` are exported. The browser remote client (`RemoteClient`) follows the same design, with
   its pairing states centred on the page.
 - Updated dependencies [d877de2]
 - Updated dependencies [d61e159]
@@ -111,7 +111,7 @@
   fragment-injected `spa/remote.html` static entry, and the REMOTE-007 permission/ask render+answer
   (the paired owner answers its own prompts — local == remote) shared by both the WS and RTC clients. It
   reuses the isomorphic `@robota-sdk/agent-remote-pairing` leaf and takes no node/werift dependency.
-  `agent-cli` removes the fabricated `robota-remote://pair` client-URL default and fails closed when
+  `agent-cli` removes the fabricated `__PRODUCT_DISPLAY_NAME__-remote://pair` client-URL default and fails closed when
   `transports.webrtc.options.clientUrl` is unset (no dead link).
 
   (Bump targets corrected during REL-023 triage: `@robota-sdk/agent-web-ui` was dissolved by GUI-006 (#1141, 2026-07-12) before this work was ever published; the browser client described here now lives in `@robota-sdk/agent-transport-webrtc-web` + `@robota-sdk/agent-remote-client`.)

@@ -1,6 +1,6 @@
 import { TRUST_TO_MODE } from '@robota-sdk/agent-core';
 
-import { buildAgentRuntime } from './build-agent-runtime.js';
+import { buildAgentRuntime } from './build-runtime.js';
 import { formatDeferredToolRoster } from './deferred-tool-roster.js';
 import { ToolCallHandoffTool } from './tool-call-handoff.js';
 import { createExecutionOriginMetadata } from '../background-tasks/index.js';
@@ -57,7 +57,7 @@ export const DEFAULT_TOOL_DESCRIPTIONS = [
 // deferred roster included, since its one consumer is the prompt build below.
 export { buildAgentRuntime };
 export { DEFERRED_TOOL_ROSTER_HEADER, formatDeferredToolRoster } from './deferred-tool-roster.js';
-export type { IAgentRuntimeResult } from './build-agent-runtime.js';
+export type { IAgentRuntimeResult } from './build-runtime.js';
 
 /**
  * ARCH-040: what a live preset switch may re-apply to the system prompt.
@@ -68,6 +68,7 @@ export type { IAgentRuntimeResult } from './build-agent-runtime.js';
  * copy that forgets a field.
  */
 export interface TLivePromptOverrides {
+  memoryMd?: string;
   skills?: ISystemPromptParams['skills'];
   outputStyle?: IOutputStylePrompt;
   persona?: string;
@@ -299,12 +300,14 @@ export function buildSessionSystemPrompt(
     : systemMessage;
 
   let currentSkills = staticPromptParams.skills;
+  let currentMemory = staticPromptParams.memoryMd;
   const rebuildSystemMessage = (
     newAgentsMd: string,
     newProjectNotesMd: string,
     overrides?: TLivePromptOverrides,
   ): string => {
     if (overrides?.skills !== undefined) currentSkills = overrides.skills;
+    if (overrides?.memoryMd !== undefined) currentMemory = overrides.memoryMd;
     if (overrides?.outputStyle !== undefined) {
       currentOutputStyle = overrides.outputStyle;
     }
@@ -326,6 +329,7 @@ export function buildSessionSystemPrompt(
     }
     const rebuilt = buildPrompt({
       ...staticPromptParams,
+      memoryMd: currentMemory,
       skills: currentSkills,
       ...(currentOutputStyle !== undefined ? { outputStyle: currentOutputStyle } : {}),
       ...(currentPersona !== undefined ? { persona: currentPersona } : {}),

@@ -1,5 +1,7 @@
 'use client';
 
+import { useProductIdentity } from '../product-identity.js';
+
 import React, { useState } from 'react';
 
 import { useWsSession } from '../hooks/useSessionClient.js';
@@ -31,6 +33,7 @@ interface ISessionMonitorProps {
 }
 
 export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): React.ReactElement {
+  const { identity } = useProductIdentity();
   const [url, setUrl] = useState(wsUrl);
   const [inputUrl, setInputUrl] = useState(wsUrl);
 
@@ -53,7 +56,7 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
   const hasAgents = backgroundTasks.length > 0;
 
   return (
-    <div className={`robota-ui flex flex-col h-full overflow-hidden bg-background ${className ?? ''}`}>
+    <div className={`agent-ui flex flex-col h-full overflow-hidden bg-background ${className ?? ''}`}>
       {/* Header */}
       <div className="flex h-12 flex-shrink-0 items-center gap-3 px-5">
         <div className="flex items-center gap-2.5">
@@ -112,7 +115,7 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
                       ? `Connecting to ${url}…`
                       : status === 'error'
                         ? `Connection error — could not reach ${url}. Check the CLI is running and the URL is correct.`
-                        : `Run robota to start the CLI (WS transport starts automatically).`}
+                        : `Run ${identity.cliName} to start the CLI (WS transport starts automatically).`}
                   </p>
                 </div>
               </main>

@@ -15,6 +15,7 @@ import { createFileMeshAddressCache } from '../address-cache.js';
 import { createDeviceIdentityService } from '../device-identity-service.js';
 import { openDeviceMesh } from '../device-mesh.js';
 import { scriptedOperator } from './fake-secret-terminal.js';
+import { createTestRuntimeContext } from './runtime-context-fixture.js';
 
 vi.mock('@robota-sdk/agent-transport-webrtc', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@robota-sdk/agent-transport-webrtc')>();
@@ -31,7 +32,7 @@ vi.mock('@robota-sdk/agent-transport-webrtc', async (importOriginal) => {
 let home: string;
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), 'robota-mesh-open-failure-'));
+  home = mkdtempSync(join(tmpdir(), 'agent-fixture-mesh-open-failure-'));
 });
 
 afterEach(() => {
@@ -48,10 +49,12 @@ function bindable(port: number): Promise<boolean> {
 
 describe('a failed open of the mesh endpoint', () => {
   it('closes the local-network endpoint it had started', async () => {
-    const root = join(home, '.robota');
+    const root = join(home, '.agent-fixture');
     const directory = join(root, 'devices');
     const store = createFileCredentialStore(join(root, 'credentials'), { withinRoot: root });
+    const productRuntime = createTestRuntimeContext(root);
     const service = createDeviceIdentityService({
+      productRuntime,
       directory,
       withinRoot: root,
       store,
@@ -63,6 +66,8 @@ describe('a failed open of the mesh endpoint', () => {
     await expect(
       openDeviceMesh({
         root,
+        cryptoContext: productRuntime.cryptoContext,
+        credentialServiceNamespace: productRuntime.config.credentials.serviceNamespace,
         store,
         relay: createInMemoryMeshRelayHub().connect(),
         lan: { host: '127.0.0.1', mdns: false },

@@ -1,3 +1,4 @@
+import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
 /**
  * Session initialization helpers for InteractiveSession.
  *
@@ -196,6 +197,7 @@ export interface IAsyncInitDeps {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    toolResultParts?: TUniversalMessagePart[];
   }) => void;
   executeModelCommand: (command: string, args: string) => Promise<ICommandResult | null>;
   isModelCommandInvocable: (command: string) => boolean;
@@ -235,6 +237,7 @@ export async function initializeInteractiveSessionAsync(
     options.projectAccess,
     options.projectSettingsPaths,
     options.userSettingsSources,
+    options.environment,
   );
   const { config, hookSources } = loadedConfig;
   const autoCompactThresholdSource =
@@ -253,6 +256,7 @@ export async function initializeInteractiveSessionAsync(
     ...(options.userSettingsSources !== undefined
       ? { userSettingsSources: options.userSettingsSources }
       : {}),
+    ...(options.environment !== undefined ? { environment: options.environment } : {}),
     config,
     hookSources,
     contributionSources: options.contributionSources,
@@ -261,6 +265,9 @@ export async function initializeInteractiveSessionAsync(
     permissionMode: options.permissionMode,
     baselinePermissionAllow: options.baselinePermissionAllow,
     maxTurns: options.maxTurns,
+    ...(options.toolExecutionPolicy !== undefined
+      ? { toolExecutionPolicy: options.toolExecutionPolicy }
+      : {}),
     permissionHandler: deps.permissionHandler,
     ...(deps.askHandler ? { askHandler: deps.askHandler } : {}),
     resumeSessionId: deps.resumeSessionId,

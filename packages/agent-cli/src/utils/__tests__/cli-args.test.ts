@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   parsePermissionMode,
@@ -402,7 +403,7 @@ describe('help flag', () => {
   });
 
   it('printHelp returns help text string', () => {
-    const output = printHelp();
+    const output = printHelp(createTestProductRuntime());
     expect(output).toContain('--help');
     expect(output).toContain('--version');
     expect(output).toContain('-p');
@@ -505,15 +506,15 @@ describe('print-mode session flag validation (CLI-063)', () => {
 
 describe('printHelp flag coverage', () => {
   it('TC-04: lists --json-schema', () => {
-    expect(printHelp()).toContain('--json-schema');
+    expect(printHelp(createTestProductRuntime())).toContain('--json-schema');
   });
 
   it('TC-04: describes --dry-run as a plan-mode alias', () => {
-    expect(printHelp()).toMatch(/--dry-run\s+Alias for --permission-mode plan/);
+    expect(printHelp(createTestProductRuntime())).toMatch(/--dry-run\s+Alias for --permission-mode plan/);
   });
 
   it('TC-04: lists tool filter flags', () => {
-    expect(printHelp()).toContain('--allowed-tools');
-    expect(printHelp()).toContain('--denied-tools');
+    expect(printHelp(createTestProductRuntime())).toContain('--allowed-tools');
+    expect(printHelp(createTestProductRuntime())).toContain('--denied-tools');
   });
 });

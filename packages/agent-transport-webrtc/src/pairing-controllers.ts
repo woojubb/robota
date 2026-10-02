@@ -1,3 +1,4 @@
+import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 /**
  * Constructing the admission controllers the gate drives.
  *
@@ -24,6 +25,7 @@ import type {
 
 /** What both controllers need to talk on the channel and bind to it. */
 export interface IControllerContext {
+  readonly cryptoContext: IIdentityContext;
   readonly channel: IPairingChannel;
   readonly localFingerprint: string;
   readonly remoteFingerprint: string;
@@ -46,7 +48,7 @@ export function startFirstPairController(
   onRejected: () => void,
   start: typeof startPairingHandshake = startPairingHandshake,
 ): ReturnType<typeof startPairingHandshake> {
-  const controller = start({
+  const controller = start(context.cryptoContext, {
     secret,
     role,
     localFingerprint: context.localFingerprint,
@@ -65,7 +67,7 @@ export function startReconnectController(
   onAccepted: (result: IReconnectResult) => void,
   onRejected: () => void,
 ): ReturnType<typeof startHostReconnect> {
-  const controller = startHostReconnect({
+  const controller = startHostReconnect(context.cryptoContext, {
     hostIdentityId: config.hostIdentityId,
     localFingerprint: context.localFingerprint,
     remoteFingerprint: context.remoteFingerprint,

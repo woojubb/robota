@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react';
+import { render } from '../../testing/product-provider.js';
+import { cleanup, screen } from '@testing-library/react';
 import React from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -46,7 +47,7 @@ describe('SessionTitleBar workspace (#3289 §1)', () => {
     expect(screen.queryByTitle(/\//)).toBeNull();
   });
 
-  it('sets document.title to "<folder> — Robota"', () => {
+  it('sets document.title to "<folder> — Test Product"', () => {
     render(
       <SessionTitleBar
         status="connected"
@@ -58,11 +59,11 @@ describe('SessionTitleBar workspace (#3289 §1)', () => {
         personalUsageEnabled={false}
       />,
     );
-    expect(document.title).toBe('task-tracker — Robota');
+    expect(document.title).toBe('task-tracker — Test Product');
   });
 
   it('leaves document.title alone when the workspace is not yet known', () => {
-    document.title = 'Robota';
+    document.title = 'Test Product';
     render(
       <SessionTitleBar
         status="connecting"
@@ -72,6 +73,6 @@ describe('SessionTitleBar workspace (#3289 §1)', () => {
         personalUsageEnabled={false}
       />,
     );
-    expect(document.title).toBe('Robota');
+    expect(document.title).toBe('Test Product');
   });
 });

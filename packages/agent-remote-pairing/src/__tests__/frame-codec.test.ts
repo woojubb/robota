@@ -1,3 +1,5 @@
+import { createIdentityContext } from '../identity/crypto-context.js';
+const testIdentity = createIdentityContext('test-product');
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -125,7 +127,7 @@ describe('async frame transitions settle the result channel (issue #2046)', () =
     };
     process.on('unhandledRejection', onUnhandled);
     try {
-      const controller = startPairingHandshake({
+      const controller = startPairingHandshake(testIdentity, {
         secret: 'not-base64url!!', // fromBase64Url on this throws inside computeConfirmations
         role: 'initiator',
         localFingerprint: 'AA',
@@ -149,7 +151,7 @@ describe('async frame transitions settle the result channel (issue #2046)', () =
     };
     process.on('unhandledRejection', onUnhandled);
     try {
-      const controller = startHostReconnect({
+      const controller = startHostReconnect(testIdentity, {
         hostIdentityId: 'h',
         localFingerprint: 'AA',
         remoteFingerprint: 'BB',
@@ -176,7 +178,7 @@ describe('async frame transitions settle the result channel (issue #2046)', () =
     };
     process.on('unhandledRejection', onUnhandled);
     try {
-      const controller = startDeviceReconnect({
+      const controller = startDeviceReconnect(testIdentity, {
         deviceId: 'QUJD',
         hostIdentityId: 'h',
         localFingerprint: 'AA',

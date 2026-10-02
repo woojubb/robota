@@ -117,7 +117,7 @@ async function run(mode: string): Promise<void> {
     await spillStore.shutdown();
     spillStore = undefined;
     requireCondition(
-      !readdirSync(home).some((name) => name.startsWith('robota-tool-results-')),
+      !readdirSync(home).some((name) => name.startsWith('agent-tool-results-')),
       'session spill storage was not cleaned',
     );
     process.stdout.write(

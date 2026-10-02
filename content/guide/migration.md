@@ -63,12 +63,12 @@ changes:
 
 ```typescript
 // 2.x
-import { Robota } from '@robota-sdk/agents';
+import { ConversationAgent } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 
 // 3.0
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 ```
@@ -134,7 +134,7 @@ replacement. Choose by what you need:
 
 `@robota-sdk/team` (the assign-task relay tools and templates) was removed. In 3.0, an agent session
 delegates work to subagents: `agent-framework` sessions include an `Agent` tool that runs isolated
-subagent sessions with their own tools and history, and the `robota` CLI exposes the same through
+subagent sessions with their own tools and history, and the `__PRODUCT_CLI_NAME__` CLI exposes the same through
 `/agent`. See [Using the SDK](./sdk.md) and the [CLI Reference](./cli.md#background-work-and-automation).
 
 ### Upgrade steps
@@ -157,7 +157,7 @@ subagent sessions with their own tools and history, and the `robota` CLI exposes
 | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@robota-sdk/agent-sdk`                                   | `@robota-sdk/agent-framework`                                                                                                                                                      |
 | `@robota-sdk/agent-sessions`                              | `@robota-sdk/agent-session`                                                                                                                                                        |
-| `@robota-sdk/agent-runtime`                               | `@robota-sdk/agent-executor`                                                                                                                                                       |
+| `@robota-sdk/agent-executor`                               | `@robota-sdk/agent-executor`                                                                                                                                                       |
 | `@robota-sdk/agent-provider-google`                       | `@robota-sdk/agent-provider-gemini`                                                                                                                                                |
 | `@robota-sdk/agent-provider-deepseek`                     | `@robota-sdk/agent-provider-openai-compatible` (`DeepSeekProvider`)                                                                                                                |
 | `@robota-sdk/agent-provider` (all vendors in one package) | `@robota-sdk/agent-provider-anthropic`, `-openai`, `-gemini`, `-openai-compatible`, `-bytedance`; `createDefaultProviderDefinitions()` is in `@robota-sdk/agent-builtin-providers` |
@@ -188,6 +188,6 @@ subagent sessions with their own tools and history, and the `robota` CLI exposes
 
 ## Need Help?
 
-- [GitHub Issues](https://github.com/woojubb/robota/issues) — report upgrade problems
+- [GitHub Issues](__PROJECT_REPOSITORY_URL__/issues) — report upgrade problems
 - [Getting Started](../getting-started/README.md) — start fresh with 3.0 patterns
 - [Architecture](./architecture.md) — how the 3.0 packages fit together

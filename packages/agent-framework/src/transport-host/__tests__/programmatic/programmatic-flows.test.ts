@@ -74,7 +74,7 @@ describe('IAgentDriver conversation + slash flows (TEST-009 Phase 2)', () => {
   let driver: IAgentDriver | undefined;
 
   beforeEach(() => {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-flows-')));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-flows-')));
   });
   afterEach(async () => {
     await driver?.stop();

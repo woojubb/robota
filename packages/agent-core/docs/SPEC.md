@@ -2,7 +2,7 @@
 
 ## Scope
 
-- Owns the core Robota agent runtime, tool integration, conversation execution, and plugin-facing agent behavior.
+- Owns the core agent runtime, tool integration, conversation execution, and plugin-facing agent behavior.
 - Defines the canonical agent orchestration surface used by provider and higher-level packages.
 - Provides abstract base classes that provider packages and extensions must implement.
 
@@ -15,9 +15,9 @@
 
 ## Architecture
 
-Robota is a Facade over a Manager layer (provider registration, tool registry, agent lifecycle, conversation storage, module loading), a Service layer (message handling/LLM calls, tool schema validation and batch execution, unified event emission bound to an owner path), a Permission layer (deterministic policy evaluation for tool calls), a Hook layer (pluggable lifecycle hook execution via a strategy pattern), and a Plugin layer (one built-in event-coordination plugin; all product-facing plugins live in the external `@robota-sdk/agent-plugin` package to preserve the zero-dependency boundary above).
+agent runtime is a Facade over a Manager layer (provider registration, tool registry, agent lifecycle, conversation storage, module loading), a Service layer (message handling/LLM calls, tool schema validation and batch execution, unified event emission bound to an owner path), a Permission layer (deterministic policy evaluation for tool calls), a Hook layer (pluggable lifecycle hook execution via a strategy pattern), and a Plugin layer (one built-in event-coordination plugin; all product-facing plugins live in the external `@robota-sdk/agent-plugin` package to preserve the zero-dependency boundary above).
 
-All managers, services, and tools accept dependencies through constructor injection — there are no global singletons, and each `Robota` instance is completely independent. Safe defaults follow the Null Object pattern (a silent logger, a no-op event service), so a caller who wires nothing still gets working, side-effect-free behavior.
+All managers, services, and tools accept dependencies through constructor injection — there are no global singletons, and each `ConversationAgent` instance is completely independent. Safe defaults follow the Null Object pattern (a silent logger, a no-op event service), so a caller who wires nothing still gets working, side-effect-free behavior.
 
 ## Type and Model Ownership
 
@@ -37,17 +37,17 @@ This is exported from `@robota-sdk/agent-core/node`, not the main barrel: it rea
 
 The one outbound boundary for every caller- or model-supplied URL (web fetch, image-edit input fetch, and any future HTTP client a built-in or node runtime adds), exported from `@robota-sdk/agent-core/node` because it needs `node:dns`/`node:net`. It refuses loopback/private/link-local/CGNAT/multicast/reserved destinations for IPv4, IPv6, IPv4-mapped and IPv4-compatible forms — checking BOTH spellings of an embedded IPv4 address (the hex form a URL renders and the dotted form DNS lookups render), because classifying only one spelling leaves the other as a bypass. It also refuses a fixed hostname blocklist (including cloud metadata endpoints) and resolves hostnames, refusing if any answer is private.
 
-Policy outcomes are returned as a discriminated result (`{ ok: false, rejection }`), never thrown; transport errors are thrown as `fetch` throws them. On a cross-origin redirect every caller-supplied header except `User-Agent` is dropped. Known, documented gap: the connection is not pinned to the validated address (Node's global `fetch` offers no connect-time hook without `undici`), so resolve-then-validate per hop narrows the DNS-rebinding window rather than closing it.
+Policy outcomes are returned as a discriminated result (`{ ok: false, rejection }`), never thrown; transport errors are thrown as `fetch` throws them. On a cross-origin redirect every caller-supplied header except `User-Agent` is dropped. The default Node transport connects only to the validated IP address set, preserving the original URL and its normal Host/TLS identity without a second DNS resolution or an ambient dispatcher. The installed transport entry is explicit because a runtime replacement of the bare package import may ignore dispatch options; unsupported capabilities refuse execution rather than selecting an unpinned carrier. Each bounded exchange releases its connections on completion, rejection, abort and failure; a streaming caller owns the signal and explicit cleanup until its response ends or is withdrawn. A failed pinned transport never falls back to another carrier. Trusted fetch injection owns its own connection policy and lifetime rather than inheriting this guarantee. Socket pinning is an application HTTP boundary, not physical worker egress containment or an existing connection's policy revocation.
 
 ## Owner-Only Store
 
-The SSOT for "create this directory or file so only its owner can read it," for every host store under `~/.robota` and a project's `.robota` (session records, logs, settings, device credentials). This module exists because three facts about the Node filesystem API each independently produced a real defect before it did:
+The SSOT for "create this directory or file so only its owner can read it," for host stores under the configured user and project state roots (session records, logs, settings, device credentials). This module exists because three facts about the Node filesystem API each independently produced a real defect before it did:
 
 - `mkdirSync(path, { recursive: true, mode })` does **not** set the mode of a directory that already exists — it silently adopts whatever is there (measured: a log directory pre-created at 0777 stayed 0777 while its records were 0600, so another account could read, replace, or enumerate records).
 - `writeFileSync(path, data, { mode })` applies the mode only when the file is **created** — a record an older version left at 0644 keeps 0644 through every later save.
 - Creating a file wide and tightening the permissions afterwards leaves a window where the full record is readable on disk. The module therefore creates with the final mode from the start (atomic `wx`) and never chmods after, so a mutation that removes the mode is caught rather than masked.
 
-Create, set the mode, then **verify** — the verification is load-bearing, not a belt-and-braces extra: it is what catches a filesystem that accepts `chmod` and silently ignores it. Windows cannot express owner-only through `chmod`; the module reports which guarantee (`posix-mode` or `windows-acl`) is actually in force rather than claiming POSIX semantics everywhere, and a project-local `.robota` inside a world-writable directory on Windows is **not** protected by this module. Exported from `@robota-sdk/agent-core/node` for the same reason as path containment: it reads and writes the filesystem.
+Create, set the mode, then **verify** — the verification is load-bearing, not a belt-and-braces extra: it is what catches a filesystem that accepts `chmod` and silently ignores it. Windows cannot express owner-only through `chmod`; the module reports which guarantee (`posix-mode` or `windows-acl`) is actually in force rather than claiming POSIX semantics everywhere, and a project state directory inside a world-writable directory on Windows is **not** protected by this module. Exported from `@robota-sdk/agent-core/node` for the same reason as path containment: it reads and writes the filesystem.
 
 ## Credential Store Port
 
@@ -242,7 +242,7 @@ If a run is aborted mid-stream, partial content already produced is preserved in
 Each attempted provider round, including a forced-summary call, emits one content-free completion observation with its actual
 start/end time, round number, and success/failure/interruption outcome. It describes the shared
 provider-call boundary (which may be served from cache), not proof of an outbound network request;
-request and response bodies belong only to their separate execution events and, when configured, the execution journal.
+request and response bodies belong only to their separate execution events and, when configured, the execution journal. Tool queue observations describe submission until selection for pre-dispatch admission or refusal, excluding admission, permission and body work; they never certify an effect or replace a settlement, and observer failure cannot change execution.
 
 The default round budget for one run is a fixed number of model/tool rounds, overridable per-run or per-config (run-scoped values win); a budget of zero disables the round cap entirely and leaves stopping to abort, the context-window guard, and provider timeouts.
 
@@ -256,7 +256,7 @@ When the round budget is exhausted without a final assistant text response, and 
 
 **Provider call failures are surfaced, not swallowed.** If a provider call throws, the error is recorded as a readable assistant-visible message rather than the caller seeing an opaque "no response received," and if the whole execution pipeline throws unexpectedly, it is caught and turned into an error result. Execution control outcomes propagate directly: persistence failures retain their original cause, uncertain effects require reconciliation, and a saved pre-effect wait suspends the execution. None may become normal assistant output or a tool failure that the model may retry.
 
-**Tool-result context budget.** Once history's context estimate crosses a high fixed threshold while committing a batch of tool results, remaining results in that batch are replaced with a short, fixed context-error message instead of their real content (mirroring the same pattern used for a permission deny) — the execution loop does not stop; it continues so the model can see the mix of real and skipped results and decide how to proceed with what it has.
+**Tool-result context budget.** Observations preserve the recorded execution outcome and the host-declared source captured for the call, even when execution never begins or content is omitted; a tool's response cannot replace its registered attribution. Attribution identifies a contributor without granting authority or proving installed bytes. Context-limited observations distinguish a completed action, a known undispatched call and an error whose effects may be uncertain. Omitted content directs recovery toward retained receipts, fresh observation or effect reconciliation; omission grants no authority to repeat an operation. The execution loop continues with these bounded notices, and a supplied execution journal retains the full settled receipt for host-owned recovery.
 
 ## Execution Journal and Continuation
 

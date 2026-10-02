@@ -1,10 +1,11 @@
 import { IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
+import { loadWebProductConfig } from '../lib/product-config';
 
 import type { Metadata } from 'next';
 import type { ReactElement, ReactNode } from 'react';
 import './globals.css';
 
-// BRAND-002: unified Robota brand uses IBM Plex Sans/Mono (was Space Grotesk / Fira Code).
+// Shared typography for the remote surface.
 const ibmPlexSans = IBM_Plex_Sans({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
@@ -19,10 +20,10 @@ const ibmPlexMono = IBM_Plex_Mono({
   display: 'swap',
 });
 
-export const metadata: Metadata = {
-  title: 'Robota Remote',
-  description: 'Browser remote client for a Robota session',
-};
+export function generateMetadata(): Metadata {
+  const { identity } = loadWebProductConfig({ ...process.env });
+  return { title: `${identity.displayName} Remote`, description: `Browser remote client for a ${identity.displayName} session` };
+}
 
 export default function RootLayout({
   children,

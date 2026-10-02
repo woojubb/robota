@@ -124,7 +124,7 @@
   - The device lists read from public records are bounded per paired device, each device's newest
     before any device's next, and the chunks of one list carry a shared version, so a read that finds
     chunks of two versions yields no list. Records written before this change are not read as lists.
-  - CLI processes that share `~/.robota/devices/address-cache.json` apply each change to the file as it
+  - CLI processes that share `$PRODUCT_USER_STATE_DIR/devices/address-cache.json` apply each change to the file as it
     is on disk, so one process no longer overwrites what another learned.
 
 - 4241fc5: Device mesh follow-ups.
@@ -210,7 +210,7 @@
     pairwise secret (`derivePairRendezvous(...).relayInbox()`).
   - `agent-cli` — a device holding the signing key reissues its roster and revocation list before they
     expire while an interactive session runs. The host can open this device's mesh endpoint from the
-    identity under `~/.robota/devices`, saving newer lists a peer hands over; no command starts it yet.
+    identity under `$PRODUCT_USER_STATE_DIR/devices`, saving newer lists a peer hands over; no command starts it yet.
   - `agent-command` — `/devices add|join` still reports that enrolment is not available yet.
 
 - e15e22b: The Node WebRTC transport runs on `node-datachannel` (libdatachannel, DTLS by OpenSSL). The DTLS stack
@@ -234,7 +234,7 @@
     The tool reaches only files inside the workspace whose path does not look like it holds secrets
     (`.env*`, `~/.ssh`, keys and credentials), and it does not exist in a turn a peer's message started.
   - The receiving operator approves every file. A received file is kept as an inert copy (mode 0600)
-    under `~/.robota/peer-files/<sender>/`. It is never run and never placed in the model's context.
+    under `$PRODUCT_USER_STATE_DIR/peer-files/<sender>/`. It is never run and never placed in the model's context.
     The conversation is told only its name, size and sha256. A name that leaves that directory is
     refused, a symbolic link is never written through, and nothing is overwritten.
   - Transfers travel on a channel of their own (a separate connection on this host, a separate data
@@ -257,7 +257,7 @@
 
 - 004fe7f: `/handoff` moves a session over a real connection.
 
-  - `/handoff <session-id>` pushes this conversation to another Robota session on this machine. The
+  - `/handoff <session-id>` pushes this conversation to another __PRODUCT_DISPLAY_NAME__ session on this machine. The
     same carrier also runs between two of the user's devices over their mesh connection; no command
     opens that connection yet.
   - A hand-off is push-only: only the operator of the session that holds it starts one. A session or
@@ -266,7 +266,7 @@
     hand-off needs the device identity from `/devices init`. The receiving side checks it against the
     sender's certificate, then asks its own operator; without a yes nothing is sent.
   - The session travels on the file-transfer carrier, is kept aside until it matches the manifest, and
-    is saved without being started. The operator there resumes it with `robota --resume <id>`.
+    is saved without being started. The operator there resumes it with `__PRODUCT_CLI_NAME__ --resume <id>`.
   - The source gives the session up, and ends, only once the receiving side confirms it saved it.
     Every other outcome leaves the session where it was; if the confirmation is lost, `/handoff` to the
     same session again resends the same transfer, which the receiver settles without saving it twice.
@@ -326,7 +326,7 @@
     rate. Discovery yields candidates only: admission is still the device handshake, and an address is
     remembered only after an admission it carried.
   - `agent-cli` — the device mesh endpoint can look on the local network (`lan` option), remembering
-    the addresses that worked in an owner-only `~/.robota/devices/address-cache.json`; no command starts
+    the addresses that worked in an owner-only `$PRODUCT_USER_STATE_DIR/devices/address-cache.json`; no command starts
     it yet.
 
 ### Patch Changes

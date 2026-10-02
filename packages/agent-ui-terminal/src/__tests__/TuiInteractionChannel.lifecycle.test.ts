@@ -131,7 +131,7 @@ function makeMockTransportRegistry(): {
 }
 
 /** The session's working directory: private to this run, never a fixed name under /tmp. */
-const SESSION_CWD = mkdtempSync(join(tmpdir(), 'robota-tui-lifecycle-'));
+const SESSION_CWD = mkdtempSync(join(tmpdir(), 'agent-test-tui-lifecycle-'));
 afterAll(() => rmSync(SESSION_CWD, { recursive: true, force: true }));
 
 function makeChannel(opts?: {

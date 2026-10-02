@@ -29,6 +29,8 @@ export interface IProviderStartupContext {
   settingsScope?: TSettingsScope;
   settingsSources: readonly TSettingsSource[];
   settingsStores: readonly ISettingsDocumentStore[];
+  /** Selected host snapshot for configure-time credential reference checks. */
+  env?: Record<string, string | undefined>;
 }
 
 export interface IEnsureProviderConfigOptions {
@@ -65,7 +67,7 @@ export async function runProviderStartupSetup(
   const input = await runProviderSetupPromptFlow(type, promptInput, providerDefinitions, {
     existingProfileNames,
   });
-  applyProviderConfiguration(settingsStore, input, { providerDefinitions });
+  applyProviderConfiguration(settingsStore, input, { providerDefinitions, env: ctx.env });
   const language = await promptInput('  Response language (ko/en/ja/zh, default: en): ');
   if (language) {
     const settings = settingsStore.read();
@@ -104,7 +106,7 @@ export async function ensureProviderConfig(
   }
   await runProviderStartupSetup(
     cwd,
-    selectStartupContext(ctx, access.stores),
+    selectStartupContext({ ...ctx, env: ctx.env ?? options.env }, access.stores),
     promptInput,
     terminal,
     providerDefinitions,

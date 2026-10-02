@@ -66,7 +66,7 @@ The bot answers in a thread under your message.
   `ts`), then creates a session with `runtime.createSession()`.
 - Streaming text deltas update the placeholder in real time via `client.chat.update()`, and the final response
   replaces it when the turn completes.
-- Session records are written to `.robota/sessions/` in the working directory.
+- Session records are written under the configured `EXAMPLE_STATE_ROOT` directory.
 
 Each thread keeps one conversation: the bot maps `thread_ts` to the session's ID (`session.sessionId`) when a
 reply completes and passes it as `resumeSessionId` on the next mention in that thread. The map lives in memory,

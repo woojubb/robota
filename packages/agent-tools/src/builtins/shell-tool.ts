@@ -329,7 +329,7 @@ function createHostShellTool(name: string, options: IShellToolOptions): Function
 }
 
 /**
- * Create a `Shell` tool instance — register with the Robota agent tools registry.
+ * Create a `Shell` tool instance — register with the agent tools registry.
  * The description is resolved at creation time for the host's active shell.
  */
 export function createShellTool(options: IShellToolOptions): FunctionTool {

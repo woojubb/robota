@@ -39,9 +39,9 @@ function collectWarnings(): { notes: string[]; warn: (message: string) => void }
 }
 
 describe('TC-20: resolvePacing', () => {
-  it('ignores ambient Robota pacing variables without a host choice', () => {
-    vi.stubEnv('ROBOTA_SCREEN_READER_STARTUP_QUIET_MS', '0');
-    vi.stubEnv('ROBOTA_SCREEN_READER_PREPARK_MS', '0');
+  it('ignores ambient Fixture Agent pacing variables without a host choice', () => {
+    vi.stubEnv('PRODUCT_SCREEN_READER_STARTUP_QUIET_MS', '0');
+    vi.stubEnv('PRODUCT_SCREEN_READER_PREPARK_MS', '0');
     try {
       expect(resolvePacing({ enabled: true })).toEqual({
         startupQuietMs: DEFAULT_STARTUP_QUIET_MS,

@@ -17,7 +17,7 @@
  * async port without a breaking migration; no vector-DB SDK becomes an `agent-framework` dependency.
  *
  * Library-neutrality: this port and its fs reference adapter are neutral MECHANISMS. Memory CONTENT lives
- * only in the consumer workspace (`<cwd>/.robota/memory/`), and curation POLICY/prompt is supplied by the
+ * only in the consumer workspace (`<cwd>/.agent/memory/`), and curation POLICY/prompt is supplied by the
  * surface — neither belongs in `packages/`.
  */
 
@@ -116,7 +116,17 @@ export interface IMemoryCurationQueue {
  * controller ALL read/write through it, so an injected store is authoritative everywhere (no split-brain).
  */
 export interface IMemoryStore
-  extends IDurableMemoryReader, IMemoryWriter, IMemoryRecaller, IMemoryCurationQueue {}
+  extends IDurableMemoryReader, IMemoryWriter, IMemoryRecaller, IMemoryCurationQueue {
+  /** User-only topic replacement/deletion. An unsupported backend must expose neither operation. */
+  replaceTopic?(input: IAppendMemoryInput): Promise<IMemoryTopicMutationResult>;
+  forgetTopic?(topic: string): Promise<IMemoryTopicMutationResult>;
+}
+
+export interface IMemoryTopicMutationResult {
+  topic: string;
+  topicPath: string;
+  indexPath: string;
+}
 
 /** A single semantic recall hit (deferred backend). */
 export interface ISemanticMemoryQueryResult {
@@ -136,4 +146,6 @@ export interface ISemanticMemoryAdapter {
   index(input: IAppendMemoryInput): Promise<void>;
   /** Query the vector backend for the most relevant slice within a budget. */
   query(text: string, budget: IMemoryBudget): Promise<ISemanticMemoryQueryResult>;
+  /** Remove all indexed entries for a normalized topic before indexing its replacement. */
+  removeTopic?(topic: string): Promise<void>;
 }

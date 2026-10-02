@@ -11,6 +11,7 @@ import { chmodSync, copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync 
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fixtureArtifactPrefix, fixtureProcessEnvironment, selectedFixtureIdentity } from './product-fixture-environment.mjs';
 import {
   assertStandaloneNativeRuntime,
   runNativeFileAuthorityE2e,
@@ -49,7 +50,7 @@ if (build.status !== 0) {
 
 const os = process.platform === 'win32' ? 'windows' : process.platform;
 const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
-const bin = join(pkgDir, 'dist-bun', `robota-${os}-${arch}${os === 'windows' ? '.exe' : ''}`);
+const bin = join(pkgDir, 'dist-bun', `${fixtureArtifactPrefix()}-${os}-${arch}${os === 'windows' ? '.exe' : ''}`);
 if (!existsSync(bin)) {
   console.error(`e2e: host binary not produced at ${bin}`);
   process.exit(1);
@@ -63,7 +64,7 @@ const check = (label, ok) => {
   if (!ok) failures += 1;
 };
 
-const cleanRoot = mkdtempSync(join(tmpdir(), 'robota-bun-standalone-'));
+const cleanRoot = mkdtempSync(join(tmpdir(), 'agent-bun-standalone-'));
 try {
   const standalone = join(cleanRoot, basename(bin));
   copyFileSync(bin, standalone);
@@ -76,16 +77,17 @@ try {
     check('standalone fixture has no node_modules ancestor', false);
   }
 
-  const ver = spawnSync(standalone, ['--version'], { encoding: 'utf8' });
+  const env = fixtureProcessEnvironment(join(cleanRoot, 'home'));
+  const ver = spawnSync(standalone, ['--version'], { encoding: 'utf8', env });
   check('--version exits 0', ver.status === 0);
   check(
     `--version prints the real version (${expectedVersion}), not the 0.0.0 fallback`,
     (ver.stdout ?? '').includes(expectedVersion) && !(ver.stdout ?? '').includes('0.0.0'),
   );
 
-  const help = spawnSync(standalone, ['--help'], { encoding: 'utf8' });
+  const help = spawnSync(standalone, ['--help'], { encoding: 'utf8', env });
   check('--help exits 0', help.status === 0);
-  check('--help prints usage', /Usage:\s*robota/.test(help.stdout ?? ''));
+  check('--help prints usage', (help.stdout ?? '').includes(`Usage: ${selectedFixtureIdentity().identity.cliName}`));
 
   try {
     console.log(runNativeFileAuthorityE2e(standalone));

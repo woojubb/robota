@@ -1,6 +1,6 @@
 # @robota-sdk/agent-executor
 
-Runtime building blocks for long-running Robota work: a background task manager with a lifecycle
+Runtime building blocks for long-running agent runtime work: a background task manager with a lifecycle
 state machine, queueing, cancellation, watchdogs, events and log pages; runners for shell processes,
 scheduled tasks and tool invocations; a subagent manager built on the same layer, with optional Git
 worktree isolation; and helpers that build a provider from a serializable profile.
@@ -90,4 +90,4 @@ Task results and states are discriminated by `kind`: `exitCode` and `signalCode`
 
 ## License
 
-Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

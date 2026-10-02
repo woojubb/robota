@@ -357,7 +357,7 @@ A generic OpenAI-compatible provider. Use it for:
 - **Ollama**, **LM Studio** and the **llama.cpp** server (local)
 - Any other endpoint that implements the OpenAI Chat Completions API
 
-In the `robota` CLI this is the provider type `gemma`, listed in setup as
+In the `__PRODUCT_CLI_NAME__` CLI this is the provider type `gemma`, listed in setup as
 "Ollama / LM Studio / llama.cpp"; its setup defaults are LM Studio's `http://localhost:1234/v1` and
 the placeholder key `lm-studio`.
 
@@ -415,7 +415,7 @@ llama.cpp configuration details.
   `getVideoJob`, `cancelVideoJob`) rather than the chat `IAIProvider`, so it is not an agent's chat
   model.
 - **`@robota-sdk/agent-builtin-providers`** — `createDefaultProviderDefinitions()`, the provider
-  definitions (setup steps, defaults, model catalogs) the `robota` CLI offers for `anthropic`,
+  definitions (setup steps, defaults, model catalogs) the `__PRODUCT_CLI_NAME__` CLI offers for `anthropic`,
   `openai`, `gemini`, `gemma`, `qwen` and `deepseek`. Use it when your own host wants the same
   settings-driven provider selection.
 
@@ -426,13 +426,13 @@ llama.cpp configuration details.
 Because all providers implement `IAIProvider`, switching is a one-line change:
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
 
 // Register multiple providers — agent picks the right one from defaultModel.provider
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'MultiProviderAgent',
   aiProviders: [
     new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! }),

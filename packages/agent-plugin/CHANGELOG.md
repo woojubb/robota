@@ -16,7 +16,7 @@
 
   Pair parallel tool analytics by the logical execution ID, including calls of the same tool.
 
-- 5093a30: A `Robota` run now calls `beforeConversation`, with `beforeExecution`, and `onStreamingChunk` for
+- 5093a30: A `ConversationAgent` run now calls `beforeConversation`, with `beforeExecution`, and `onStreamingChunk` for
   each streamed piece of text, in order; the round waits for those chunk hooks before it goes on,
   whether the provider call returned, failed or was interrupted. `EventEmitterPlugin` therefore emits
   `CONVERSATION_START`.
@@ -152,7 +152,7 @@
 ### Patch Changes
 
 - DQ-AUDIT-002 — consolidate duplicated domain data onto single owners: one model-pricing SSOT in agent-core (`MODEL_PRICES`/`lookupModelPrice`/`calculateModelCost`/`estimateBlendedCostPer1000`) consumed by agent-command and agent-plugin (drops two embedded/stale price tables); the `len/4` token estimator replaced by core `CONTEXT_ESTIMATE_CHARS_PER_TOKEN`; TUI `TContextState` derived from core `IContextWindowState`; dead pass-through re-exports removed from agent-session.
-- DQ-AUDIT-006 — error/observability hygiene: replace raw `throw new Error()` on core-service and provider hot paths with typed `RobotaError` subclasses (`ConfigurationError`/`ValidationError`) so error-handling can branch on category/recoverable; surface fire-and-forget hook failures via `logger.warn` instead of silent `.catch(() => {})`; wire the error-handling plugin's `totalRetries`/`successfulRecoveries` stats to real counters.
+- DQ-AUDIT-006 — error/observability hygiene: replace raw `throw new Error()` on core-service and provider hot paths with typed `AgentRuntimeError` subclasses (`ConfigurationError`/`ValidationError`) so error-handling can branch on category/recoverable; surface fire-and-forget hook failures via `logger.warn` instead of silent `.catch(() => {})`; wire the error-handling plugin's `totalRetries`/`successfulRecoveries` stats to real counters.
 - Updated dependencies
 - Updated dependencies
 - Updated dependencies

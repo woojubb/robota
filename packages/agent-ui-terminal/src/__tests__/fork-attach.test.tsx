@@ -191,16 +191,16 @@ describe('attach refuses rather than stranding the terminal (CLI-1994 TC-09)', (
       notify: neutral,
     });
     expect(neutral.mock.calls[0]?.[0]).toContain(FORK_SESSION_ID);
-    expect(neutral.mock.calls[0]?.[0]).not.toContain('robota');
+    expect(neutral.mock.calls[0]?.[0]).not.toContain('agent');
 
     const product = vi.fn();
     attachToForkedSession(entry, {
       hasSessionRecord: storeWith([FORK_SESSION_ID]),
       switchSession: vi.fn(),
       notify: product,
-      formatResumeCommand: (id) => `robota --resume ${id}`,
+      formatResumeCommand: (id) => `agent --resume ${id}`,
     });
-    expect(product.mock.calls[0]?.[0]).toContain(`robota --resume ${FORK_SESSION_ID}`);
+    expect(product.mock.calls[0]?.[0]).toContain(`agent --resume ${FORK_SESSION_ID}`);
   });
 
   it('a missing session record is refused, naming the record and the task status', () => {

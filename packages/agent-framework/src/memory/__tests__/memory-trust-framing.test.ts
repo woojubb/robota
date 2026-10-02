@@ -1,7 +1,7 @@
 /**
  * SEC-007 — model-authored memory must not re-enter the prompt wearing the operator's voice.
  *
- * `/memory add` is `modelInvocable: true`, so the model writes `.robota/memory/`. That content is
+ * `/memory add` is `modelInvocable: true`, so the model writes `.agent/memory/`. That content is
  * injected at BOTH the startup system prompt (priority 25, in the same `project-instructions` band as
  * the operator-authored AGENTS.md) and as a per-turn ephemeral `role: 'system'` message that the
  * Anthropic provider hoists into the top-level `system` field — concatenated onto the operator's own

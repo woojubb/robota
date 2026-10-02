@@ -1,4 +1,6 @@
-import { homedir } from 'node:os';
+import { resolveCliRuntimeContext } from './startup/product-bootstrap.js';
+import { readHostedRuntimeConfig } from './hosted/hosted-runtime-config.js';
+import { runHostedRuntime } from './hosted/hosted-runtime-startup.js';
 
 import { PrintTerminal } from './print-terminal.js';
 import { readExternalEventGrantFiles } from './external-events/external-event-grant-file.js';
@@ -21,7 +23,7 @@ import {
   resolveSessionIdByIdOrName,
   InteractiveSession,
   createExternalEventGrantHistory,
-  readProviderSettings,
+  createUserSessionStore,
   readMergedProviderSettings,
   readSettings,
   writeSettings,
@@ -33,25 +35,23 @@ import { assembleProduct } from '@robota-sdk/agent-product';
 import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';
 import { applyModelFallbackChain } from './startup/model-fallback-startup.js';
 import { createSetupPlaceholderProvider } from './startup/setup-placeholder-provider.js';
+import { readCliProviderSettings } from './startup/provider-startup.js';
 import { checkForCliUpdate, formatCliUpdateCheckMessage } from './update-check/update-check.js';
 import { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
 import { parseCliArgs, printHelp, subcommandWord, type IParsedCliArgs } from './utils/cli-args.js';
 import { optionArgv } from './utils/option-argv.js';
 import { isSubcommandName } from './utils/cli-help.js';
 import { resolveShellPresetOrExit } from './startup/preset-selection.js';
-import { ROBOTA_DEFAULT_AGENT_NAME } from './product/robota-preset-defaults.js';
-import { ROBOTA_AGENT_DEFINITION_ROOTS } from './product/robota-agent-roots.js';
-import { robotaPluginDirectories } from './product/robota-plugin-paths.js';
+import { productPluginDirectories } from './product/plugin-paths.js';
 import {
-  createRobotaSandbox,
+  createProductSandbox,
   createSandboxCommandAdapter,
   sandboxStartupProblem,
-} from './product/robota-execution-containment.js';
-import { ROBOTA_PROJECT_SETTINGS } from './product/robota-project-settings.js';
+} from './product/execution-containment.js';
 import {
-  createRobotaUserSettingsSources,
-  robotaUserSettingsPath,
-} from './product/robota-user-settings.js';
+  createProductUserSettingsSources,
+  productUserSettingsPath,
+} from './product/user-settings.js';
 import { readUserSettingsOrExit } from './startup/user-settings.js';
 import { runShellCommand } from './startup/shell-exec.js';
 import {
@@ -62,28 +62,27 @@ import {
 import { createCliEffortAdapter, resolveCliModelEffort } from './startup/effort-resolution.js';
 import { resolveOutputStyle, selectOutputStyleId } from './startup/output-style-selection.js';
 import { bindAssembledCollaborators } from './product/assembled-collaborators.js';
-import { createRobotaProfile } from './product/robota-profile.js';
-import { ROBOTA_TASK_CONTEXT } from './product/robota-task-context.js';
+import { createSelectedProductProfile } from './product/product-profile.js';
 import {
-  buildRobotaRuntimeOptions,
+  buildProductRuntimeOptions,
   loadReplayProvider,
   reportUnknownPresetModules,
   selectProductCommandModules,
   createChannelReadyHandler,
-} from './product/robota-plumbing.js';
+} from './product/runtime-plumbing.js';
 import { createSettingsReporter } from './product/settings-reporter.js';
 import { createRemoteControlController } from './remote-control/index.js';
 import { createDeviceMeshHost, startDeviceListReissue } from './devices/index.js';
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
 import { createConfiguredNodeOtlpLiveTelemetryPort } from './telemetry/live-trace-otlp.js';
-import { takeRobotaTelemetryEnvironment } from './telemetry/live-telemetry-env.js';
+import { takeProductTelemetryEnvironment } from './telemetry/live-telemetry-env.js';
 import { resolveLiveTelemetrySurface } from './telemetry/live-resource.js';
 import { createCliLiveContentRedaction } from './telemetry/live-content-secrets.js';
 import {
-  createRobotaPackSet,
-  ROBOTA_OS_SANDBOX_TYPE,
-  createRobotaSubagentRunnerFactory,
-} from './product/robota-subagent-composition.js';
+  createProductPackSet,
+  OS_SANDBOX_TYPE,
+  createProductSubagentRunnerFactory,
+} from './product/subagent-composition.js';
 import { reloadPluginCommandSource } from './plugins/default-plugin-command-source-loader.js';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { runSessionAnalyze } from './session-analyzer/session-analyze-command.js';
@@ -114,7 +113,10 @@ import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { tuiInitialInputProps } from './startup/tui-initial-input.js';
-import { mcpServeProtocolArgs } from './startup/mcp-serve-invocation.js';
+import {
+  mcpServeProtocolArgs,
+  validateMcpServeInvocation,
+} from './startup/mcp-serve-invocation.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
 import { providerHasOwnCredential } from './handoff/handoff-host-adapter.js';
 import {
@@ -124,9 +126,7 @@ import {
 import { runPrintMode } from './modes/print-mode.js';
 import { buildServeSessionOptions, runServeMode } from './modes/serve-mode.js';
 import { createServeSessionDirectory } from './modes/serve-session-directory.js';
-import { ROBOTA_PERMISSION_BASELINE } from './product/robota-permission-baseline.js';
 import { runMcpServeMode } from './modes/mcp-serve-mode.js';
-import { resolveMcpHttpOptions } from './utils/mcp-http-args.js';
 import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
 import { composeMcpClientForStartup, mcpStartupModelNotice } from './startup/mcp-startup.js';
 import { resolveMcpApprovalStore } from './startup/mcp-approval-file-store.js';
@@ -135,12 +135,12 @@ import type { TMcpStartupMode } from './startup/mcp-startup.js';
 import type { Writable } from 'node:stream';
 import { resolveMemorySurfaceOptions } from './startup/memory-enablement.js';
 import {
-  createRobotaTuiCliAdapter,
+  createProductTuiCliAdapter,
   createTuiPresentationSources,
   resolveTuiRenderFields,
 } from './startup/tui-presentation.js';
 import { resolveScreenReaderRenderFields } from './startup/screen-reader-enablement.js';
-import { resolveRobotaShellExecutable } from './product/robota-shell.js';
+import { resolveProductShellExecutable } from './product/shell.js';
 import {
   formatHeadlessWorkspaceTrustError,
   requiresHeadlessWorkspaceTrust,
@@ -161,19 +161,36 @@ export interface ICliPresentation {
 }
 
 export async function startCliCore(
-  options: IStartCliOptions,
+  initialOptions: IStartCliOptions,
   createBackgroundTaskRunners: (shellExecutable?: string) => IBackgroundTaskRunner[],
   presentation?: ICliPresentation,
 ): Promise<void> {
-  const telemetryEnvironment = takeRobotaTelemetryEnvironment();
+  const productRuntime = resolveCliRuntimeContext(initialOptions);
+  // Hosted admission precedes launch handlers, project contributions, provider creation and all modes.
+  if (readHostedRuntimeConfig(productRuntime.environment) !== undefined) {
+    return runHostedRuntime(
+      initialOptions,
+      productRuntime.environment,
+      productRuntime.config.identity.cliName,
+    );
+  }
+  const options = { ...initialOptions, productRuntime };
+  const telemetryInput = { ...productRuntime.environment };
+  // The configured service name is product identity, not an exporter setting.
+  delete telemetryInput['PRODUCT_TELEMETRY_SERVICE_NAME'];
+  const telemetryEnvironment = takeProductTelemetryEnvironment(telemetryInput);
+  for (const key of Object.keys(process.env)) {
+    if (key === 'PRODUCT_TELEMETRY_SERVICE_NAME' || key === `${productRuntime.config.identity.envPrefix}TELEMETRY_SERVICE_NAME`) continue;
+    if (key.startsWith('PRODUCT_TELEMETRY_') || key.startsWith(`${productRuntime.config.identity.envPrefix}TELEMETRY_`)) delete process.env[key];
+  }
   // Telemetry settings may hold collector credentials: they leave process.env before anything else
   // runs, so no child process inherits them. Only the supervised session launch hands them over.
 
-  // FLOW-2006: `robota open <url>` is decided BEFORE the working directory is read and before the
+  // FLOW-2006: `the product open <url>` is decided BEFORE the working directory is read and before the
   // workspace is resolved — it is the one invocation that changes which directory the process is
   // about, and resolving trust for the directory the user happened to start in would be answering
   // the wrong question. On success it has already chdir'd and stripped its two argv tokens.
-  const launch = await applyLaunchInvocation();
+  const launch = await applyLaunchInvocation(productRuntime);
   if (launch.kind === 'refused') return;
   const initialInput = launch.kind === 'launched' ? launch.initialInput : undefined;
   const parsedMcpArgs = mcpServeProtocolArgs(process.argv.slice(2));
@@ -202,6 +219,7 @@ async function runCliCore(
   preParsedArgs?: IParsedCliArgs,
   telemetryEnvironment: Readonly<Record<string, string>> = {},
 ): Promise<void> {
+  const productRuntime = resolveCliRuntimeContext(options);
   const cwd = process.cwd();
   // Issue #3082: read from argv (or the embedder's option) before anything is composed, like the
   // access decision it forces to Restricted.
@@ -238,39 +256,24 @@ async function runCliCore(
     process.exit(1);
   }
   const version = readVersion();
-  const subcommand = subcommandWord(args);
-  const mcpServe = subcommand === 'mcp' && args.positional[1] === 'serve';
-  if (subcommand === 'mcp' && (!mcpServe || args.positional.length !== 2)) {
-    throw new Error('Usage: robota mcp serve [options]');
-  }
-  const mcpHttp = resolveMcpHttpOptions(args, mcpServe);
-  if (
-    mcpServe &&
-    (args.serve ||
-      args.printMode ||
-      args.goal !== undefined ||
-      args.open ||
-      args.configure ||
-      args.configureProvider !== undefined ||
-      args.reset)
-  ) {
-    throw new Error(
-      'robota mcp serve cannot be combined with another process mode or setup command',
-    );
-  }
+  const { mcpServe, http: mcpHttp } = validateMcpServeInvocation(
+    args,
+    productRuntime.config.identity.cliName,
+  );
 
   if (args.help) {
-    process.stdout.write(printHelp());
+    process.stdout.write(printHelp(productRuntime));
     return;
   }
 
   if (args.version) {
-    process.stdout.write(`robota ${version}\n`);
+    process.stdout.write(`${productRuntime.config.identity.cliName} ${version}\n`);
     return;
   }
 
   if (args.checkUpdate) {
-    const result = await checkForCliUpdate({ currentVersion: version, force: true });
+    const result = await checkForCliUpdate({
+      productRuntime, currentVersion: version, force: true });
     const message = formatCliUpdateCheckMessage(result);
     if (result.status === 'error') {
       process.stderr.write(`${message}\n`);
@@ -287,12 +290,13 @@ async function runCliCore(
     : {};
   const reloadPluginCommandSourceInCwd = (
     registry: Parameters<typeof reloadPluginCommandSource>[0],
-  ): number => reloadPluginCommandSource(registry, cwd, projectAccess, !safeMode);
+  ): number => reloadPluginCommandSource(registry, productRuntime, cwd, projectAccess, !safeMode);
   const terminal = new PrintTerminal();
 
   if (args.reset) {
     // Destructive-action contract (CLI-070): confirm in TTY, require --yes otherwise.
     process.exitCode = await runResetConfig(terminal, {
+      productRuntime,
       yes: args.yes,
       isTTY: process.stdin.isTTY === true,
     });
@@ -311,7 +315,7 @@ async function runCliCore(
     // #3282 §3: `--serve --open` opens a browser for whoever ran it — someone is at this terminal,
     // unlike every other headless start here. With a TTY to ask on, this asks instead of refusing.
     if (args.serve && args.open && canAskServeOpenTrustQuestion(projectAccess)) {
-      const answer = await askServeOpenTrustQuestion(projectAccess, cwd);
+      const answer = await askServeOpenTrustQuestion(projectAccess, cwd, { productRuntime });
       if (answer.decision === 'quit') {
         process.exitCode = 1;
         return;
@@ -333,6 +337,7 @@ async function runCliCore(
     process.exitCode = await runEvalCommand(process.argv.slice(3), cwd, {
       settingsSources: composition.settingsSources,
       projectAccess: composition.projectAccess,
+      environment: productRuntime.environment,
     });
     return;
   }
@@ -340,12 +345,12 @@ async function runCliCore(
   if (subcommandWord(args) === 'session' && args.positional[1] === 'analyze') {
     // Normally unreachable — the pre-parse interceptor above handles `session analyze`.
     // Kept as a defensive fallthrough for non-argv invocations.
-    await runSessionAnalyze(process.argv.slice(4), cwd);
+    await runSessionAnalyze(process.argv.slice(4), cwd, undefined, createUserSessionStore(productRuntime.layout.userPaths.sessions));
     return;
   }
 
   try {
-    if (await runUserLocalDirectCommandIfRequested(args, cwd, terminal)) {
+    if (await runUserLocalDirectCommandIfRequested(args, cwd, terminal, productRuntime)) {
       return;
     }
   } catch (error) {
@@ -357,6 +362,7 @@ async function runCliCore(
   // Issue #3268: a person starting a TUI session is asked, before the project is composed, rather
   // than left in a Restricted session no one mentioned.
   projectAccess = await askToTrustWorkspace(projectAccess, cwd, {
+    productRuntime,
     interactive:
       startsNewTuiSession(args) && process.stdin.isTTY === true && process.stdout.isTTY === true,
     accessFixed:
@@ -368,19 +374,21 @@ async function runCliCore(
 
   // The shell's ONE preset resolution — see `resolveShellPreset` for why it is one. Resolved before
   // command setup so the preset's module-selection delta can reach `createDefaultCommandModules`.
-  const userSettings = readUserSettingsOrExit();
+  const userSettings = readUserSettingsOrExit(productRuntime);
   const preset = resolveShellPresetOrExit({
     args,
     settings: userSettings,
+    productRuntime,
     safeMode,
     writeError: (message) => terminal.writeError(message),
   });
   const resolvedPreset = preset.options;
   const selectedPresetId = preset.presetId;
 
-  const shellExecutable = resolveRobotaShellExecutable();
-  // Issues #3081, #3082: the containment choice is named, and `robota doctor` reports the same value.
-  const sandbox = createRobotaSandbox({
+  const shellExecutable = resolveProductShellExecutable(productRuntime.environment);
+  // Issues #3081, #3082: the containment choice is named, and `the product doctor` reports the same value.
+  const sandbox = createProductSandbox({
+    productRuntime,
     cwd,
     settingsSources: createInitialCliWorkspaceComposition(cwd, startupOptions).settingsSources,
   });
@@ -393,9 +401,9 @@ async function runCliCore(
     }
   }
   const sandboxClient = sandbox.client;
-  const { packContext, packs, packCommandModules } = createRobotaPackSet(cwd, {
+  const { packContext, packs, packCommandModules } = createProductPackSet(cwd, productRuntime, {
     shellExecutable,
-    ...(sandboxClient !== undefined ? { sandboxClient, sandboxType: ROBOTA_OS_SANDBOX_TYPE } : {}),
+    ...(sandboxClient !== undefined ? { sandboxClient, sandboxType: OS_SANDBOX_TYPE } : {}),
   });
   const tuiSources =
     presentation === undefined
@@ -403,10 +411,11 @@ async function runCliCore(
       : createTuiPresentationSources(presentation, {
           enabled: !(args.printMode || args.goal !== undefined || args.serve || mcpServe),
           cwd,
+          productRuntime,
           projectAccess,
           settings: userSettings,
           reducedMotionFlag: args.reducedMotion,
-          env: process.env,
+          env: productRuntime.environment,
         });
   const keybindingsSource = tuiSources?.keybindingsSource;
   const theme = tuiSources?.theme;
@@ -415,16 +424,17 @@ async function runCliCore(
   const mcp =
     options.mcpActivationAdapter === undefined && !safeMode
       ? await composeMcpClientForStartup({
+          productRuntime,
           settingsSources: createInitialCliWorkspaceComposition(cwd, startupOptions)
             .settingsSources,
           projectAccess,
           cwd,
-          env: process.env,
+          env: productRuntime.environment,
           mode: mcpStartupMode,
           ...(options.mcpStdioAuthorities === undefined
             ? {}
             : { stdioAuthorities: options.mcpStdioAuthorities }),
-          approvalStore: resolveMcpApprovalStore(options.mcpApprovalStore),
+          approvalStore: resolveMcpApprovalStore(options.mcpApprovalStore, productRuntime),
           ...(options.mcpHttpTransportDeps === undefined
             ? {}
             : { httpTransportDeps: options.mcpHttpTransportDeps }),
@@ -436,7 +446,8 @@ async function runCliCore(
       : undefined;
   if (mcp !== undefined) startupOptions.mcpActivationAdapter = mcp.activationAdapter;
   // The device mesh: opened only by an interactive session whose user settings turn it on.
-  const deviceMesh = createDeviceMeshHost({ report: (message) => terminal.writeError(message) });
+  const deviceMesh = createDeviceMeshHost({
+    productRuntime, report: (message) => terminal.writeError(message) });
   const {
     commandHostAdapters,
     outputStyleRegistry,
@@ -514,7 +525,7 @@ async function runCliCore(
     bindTransports,
     usageReporters,
   } = createCliUsageTransportRegistry(
-    workspaceComposition.sessionStore,
+    productRuntime,    workspaceComposition.sessionStore,
     workspaceComposition.projectAccess.status === 'trusted',
     args.open,
     serveSessionDirectory,
@@ -570,17 +581,18 @@ async function runCliCore(
     await externalEvents.bind(session);
   };
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
-    createRemoteControlController(transportRegistry, usageReporters);
-  // CMD-007: this product stores `/cost budget` in `.robota/budget.json`; commands see only its port.
-  commandHostAdapters.costBudget = createFileCostBudgetAdapter(cwd);
+    createRemoteControlController(transportRegistry, usageReporters, productRuntime);
+  // CMD-007: this product stores `/cost budget` in `the configured project directory/budget.json`; commands see only its port.
+  commandHostAdapters.costBudget = createFileCostBudgetAdapter(cwd, productRuntime);
   commandHostAdapters.sandbox = createSandboxCommandAdapter(sandbox, {
-    read: () => readSettings(robotaUserSettingsPath()),
-    write: (settings) => writeSettings(robotaUserSettingsPath(), settings),
+    read: () => readSettings(productUserSettingsPath(productRuntime)),
+    write: (settings) => writeSettings(productUserSettingsPath(productRuntime), settings),
   });
   const startPeers = attachHostAdapters(
     commandHostAdapters,
     remoteControlController,
     terminal,
+    productRuntime,
     undefined,
     {
       sessionStore: workspaceComposition.sessionStore,
@@ -614,18 +626,15 @@ async function runCliCore(
   // would throw the same "No provider configuration found" this run already tolerated.
   const setupRequired = projectSetup.setupRequired !== undefined;
 
-  const providerOptions = args.provider
-    ? { providerOverride: args.provider, providerDefinitions }
-    : { providerDefinitions };
   const providerSettings = setupRequired
     ? { name: 'setup-placeholder', model: 'setup-required' }
-    : readProviderSettings(workspaceComposition.settingsSources, providerOptions);
+    : readCliProviderSettings(productRuntime, workspaceComposition.settingsSources, providerDefinitions, args.provider);
   const modelId = resolvedPreset.model ?? providerSettings.model;
   let effortResolution;
   try {
     effortResolution = resolveCliModelEffort(
       args,
-      process.env,
+      productRuntime.environment,
       readMergedProviderSettings(workspaceComposition.settingsSources),
       resolvedPreset,
     );
@@ -640,7 +649,7 @@ async function runCliCore(
     else terminal.writeLine(notice.trimEnd());
   }
   if (providerSettings.source === 'env-default' && providerSettings.sourceEnvVar !== undefined) {
-    const notice = `Using ${providerSettings.name} (${modelId}) via ${providerSettings.sourceEnvVar} — run \`robota --configure\` to persist a profile.\n`;
+    const notice = `Using ${providerSettings.name} (${modelId}) via ${providerSettings.sourceEnvVar} — run \`${productRuntime.config.identity.cliName} --configure\` to persist a profile.\n`;
     if (args.printMode) {
       process.stderr.write(notice);
     } else {
@@ -651,7 +660,8 @@ async function runCliCore(
   // to the identities `assembleProduct` returns (`bindAssembledCollaborators`), like every other
   // product-owned collaborator.
   const backgroundTaskRunnerInput = createBackgroundTaskRunners(shellExecutable);
-  const subagentRunnerFactoryInput = createRobotaSubagentRunnerFactory({
+  const subagentRunnerFactoryInput = createProductSubagentRunnerFactory({
+    productRuntime,
     packContext,
     providerConfig: { ...providerSettings, model: modelId },
     providerDefinitions,
@@ -662,8 +672,8 @@ async function runCliCore(
     notice: (message) => process.stderr.write(`${message}\n`),
   });
 
-  // ARCH-005 S2: the ONE composition call. Everything product-specific about `robota` is declared as DATA
-  // in `createRobotaProfile` and folded by the product-neutral `assembleProduct`. What remains below is
+  // ARCH-005 S2: the ONE composition call. Everything product-specific about `the product` is declared as DATA
+  // in `createSelectedProductProfile` and folded by the product-neutral `assembleProduct`. What remains below is
   // product SHELL only: notices, session-resume UX, memory UX, and mode dispatch.
   //
   // INFRA-018: `--session-log` injects a replay provider that overrides settings-based construction — it
@@ -672,9 +682,10 @@ async function runCliCore(
   // ARCH-109: that parenthesis was true of this process and false of its children until
   // `subagent-provider-reproduction.ts` made it hold session-wide.
   const product = assembleProduct(
-    createRobotaProfile({
+    createSelectedProductProfile({
+      productRuntime,
       version,
-      agentName: resolvedPreset.agentName ?? ROBOTA_DEFAULT_AGENT_NAME,
+      agentName: resolvedPreset.agentName ?? productRuntime.config.identity.displayName,
       providerDefinitions,
       providerSettings: { ...providerSettings, model: modelId },
       ...(args.sessionLog ? { provider: loadReplayProvider(args.sessionLog) } : {}),
@@ -701,6 +712,7 @@ async function runCliCore(
           primaryConfig: { ...providerSettings, model: modelId },
           ...(args.provider !== undefined && { providerOverride: args.provider }),
           providerDefinitions,
+          environment: productRuntime.environment,
           ...(orgPolicy !== undefined && { orgPolicy }),
           announceMoves: args.printMode,
           notice: (message) =>
@@ -716,14 +728,14 @@ async function runCliCore(
   // mutable array, so hand them a copy rather than widening the product's type.
   const backgroundTaskRunners = [...assembledBackgroundTaskRunners];
   if (provider === undefined) {
-    // Unreachable with robota's profile (it always supplies providerSettings) — surfaced, never silent.
+    // Unreachable with the product's profile (it always supplies providerSettings) — surfaced, never silent.
     process.stderr.write('No provider could be constructed from the resolved settings.\n');
     process.exit(1);
   }
 
   // ARCH-007 (B1): the kernel's RUNTIME SEAM. `commandModules`, `agentDefinitions`, `toolOptions` and
   // `permissionMode` bind here; the runner collaborators bind to `product` just above (CLI-078). The one
-  // surface that does NOT pass through this assembly is `robota eval`, a documented shell exception —
+  // surface that does NOT pass through this assembly is `the product eval`, a documented shell exception —
   // see `eval/eval-command.ts` § CLI-078 for its equivalence boundary.
   const {
     commandModules,
@@ -735,7 +747,7 @@ async function runCliCore(
     modelCommandToolPrefix,
     subagentHookEnvironmentNames,
     observerFailureWarningCode,
-  } = buildRobotaRuntimeOptions({
+  } = buildProductRuntimeOptions({
     product,
     cwd,
     provider,
@@ -752,14 +764,14 @@ async function runCliCore(
     flag: args.advisor,
     userSettings,
     safeMode,
-    env: process.env,
+    env: productRuntime.environment,
     orgPolicy,
     settingsSources: [
       ...workspaceComposition.settingsSources,
-      ...createRobotaUserSettingsSources(homedir()),
+      ...createProductUserSettingsSources(productRuntime),
     ],
     providerDefinitions,
-    userSettingsPath: robotaUserSettingsPath(),
+    userSettingsPath: productUserSettingsPath(productRuntime),
     mainProvider: { provider, config: providerSettings },
   });
   commandHostAdapters.advisor = advisor.controller;
@@ -768,6 +780,8 @@ async function runCliCore(
   // The session consults the same sandbox the shell tools run under, to let a confined command
   // skip the prompt when the settings say so.
   if (sandboxClient !== undefined) toolOptions.sandboxClient = sandboxClient;
+  if (options.toolExecutionPolicy !== undefined)
+    toolOptions.toolExecutionPolicy = options.toolExecutionPolicy;
   const toolCallHandoff = mcp?.buildToolCallHandoff(permissionMode);
   // A capability the merge refused (a colliding id) is reported, never silently dropped.
   for (const { kind, id, reason } of product.rejectedCapabilities) {
@@ -777,6 +791,7 @@ async function runCliCore(
   const cli = { cwd, args };
   const presetSurface = withAppendedSystemPrompt(
     buildPresetSurfaceOptions(
+      productRuntime,
       resolvedPreset,
       selectedPresetId,
       permissionMode,
@@ -784,7 +799,7 @@ async function runCliCore(
       outputStyle,
       effortResolution,
     ),
-    mcp === undefined ? undefined : mcpStartupModelNotice(mcpStartupMode, mcp.unavailableServers),
+    mcp === undefined ? undefined : mcpStartupModelNotice(mcpStartupMode, mcp.unavailableServers, productRuntime.vocabulary.cliName),
   );
 
   const sessionStore = workspaceComposition.sessionStore;
@@ -814,6 +829,7 @@ async function runCliCore(
   // Precedence there is settings ← flag ← env (env wins). CLI-2004's screen-reader switch below is
   // deliberately the OTHER way round (the flag wins) — see both resolvers' SPEC entries.
   const memorySessionOptions = resolveMemorySurfaceOptions({
+    productRuntime,
     settings: userSettings,
     args,
     memoryStore: workspaceComposition.memoryStore,
@@ -822,14 +838,15 @@ async function runCliCore(
   const screenReader = resolveScreenReaderRenderFields(
     userSettings,
     args.screenReader,
-    process.env,
+    productRuntime.environment,
   );
   const livePromptTracePort = createConfiguredNodeOtlpLiveTelemetryPort(
     telemetryEnvironment,
-    () => process.stderr.write('Robota telemetry export failed.\n'),
+    () => process.stderr.write(`${productRuntime.config.identity.displayName} telemetry export failed.\n`),
     undefined,
     {
       serviceVersion: version,
+      telemetryServiceName: productRuntime.config.identity.telemetryServiceName,
       surface: resolveLiveTelemetrySurface(args, mcpServe),
     },
     (message) => process.stderr.write(`${message}\n`),
@@ -839,10 +856,10 @@ async function runCliCore(
       // The startup layers and the user layers a mid-session provider switch reads.
       settingsSources: [
         ...workspaceComposition.settingsSources,
-        ...createRobotaUserSettingsSources(homedir()),
+        ...createProductUserSettingsSources(productRuntime),
       ],
       providerDefinitions,
-      env: process.env,
+      env: productRuntime.environment,
       startupCredentials: [providerSettings.apiKey],
     }),
   );
@@ -850,7 +867,7 @@ async function runCliCore(
   // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.
   if (args.printMode || args.goal) {
     const printRun = runPrintMode(
-      cwd,
+      productRuntime,      cwd,
       args,
       provider,
       sessionStore,
@@ -870,13 +887,13 @@ async function runCliCore(
       },
       orgPolicy,
       providerErrorGuidance,
-      safeMode ? [] : ROBOTA_AGENT_DEFINITION_ROOTS,
-      robotaPluginDirectories(cwd, homedir()),
-      ROBOTA_PROJECT_SETTINGS,
-      createRobotaUserSettingsSources(homedir()),
+      safeMode ? [] : productRuntime.layout.agentDefinitionRoots,
+      productPluginDirectories(cwd, productRuntime),
+      productRuntime.layout.projectSettingsPaths,
+      createProductUserSettingsSources(productRuntime),
       workspaceComposition.contributionSources,
       workspaceComposition.skillRoots,
-      ROBOTA_TASK_CONTEXT,
+      productRuntime.layout.taskContext,
       promptFileReferenceTag,
       modelCommandToolPrefix,
       subagentHookEnvironmentNames,
@@ -897,6 +914,7 @@ async function runCliCore(
   if (mcpServe) {
     if (mcpProtocolStdout === undefined) throw new Error('MCP protocol stdout was not reserved');
     const sessionOptions = buildServeSessionOptions({
+      productRuntime,
       cwd,
       ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
       args,
@@ -917,14 +935,14 @@ async function runCliCore(
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
-      agentDefinitionRoots: safeMode ? [] : ROBOTA_AGENT_DEFINITION_ROOTS,
+      agentDefinitionRoots: safeMode ? [] : productRuntime.layout.agentDefinitionRoots,
       ...safeModeSessionOptions,
-      pluginDirectories: robotaPluginDirectories(cwd, homedir()),
-      projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
-      userSettingsSources: createRobotaUserSettingsSources(homedir()),
+      pluginDirectories: productPluginDirectories(cwd, productRuntime),
+      projectSettingsPaths: productRuntime.layout.projectSettingsPaths,
+      userSettingsSources: createProductUserSettingsSources(productRuntime),
       contributionSources: workspaceComposition.contributionSources,
       skillRoots: workspaceComposition.skillRoots,
-      taskContext: ROBOTA_TASK_CONTEXT,
+      taskContext: productRuntime.layout.taskContext,
       ...toolOptions,
       ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
       commandModules,
@@ -937,7 +955,7 @@ async function runCliCore(
       memorySessionOptions,
     });
     try {
-      await runMcpServeMode(sessionOptions, version, mcpProtocolStdout, mcpHttp);
+      await runMcpServeMode(productRuntime, sessionOptions, version, mcpProtocolStdout, mcpHttp);
     } finally {
       await livePromptTracePort?.shutdown();
       if (mcp !== undefined) await mcp.shutdown();
@@ -945,12 +963,13 @@ async function runCliCore(
     return;
   }
 
-  // RUNTIME-001: the headless runtime host. `apps/agent-app` (GUI) spawns `robota --serve` instead of the ink
+  // RUNTIME-001: the headless runtime host. `apps/agent-app` (GUI) spawns `the product --serve` instead of the ink
   // TUI — both the TUI and this entry drive the SAME runtime; the GUI does not control the CLI. No ink is
   // rendered; the WS sidecar is served by the shared `startRuntimeHost`. Placed after the runtime block so it
   // reuses the exact provider/session/transport assembly.
   if (args.serve) {
     const serveRun = runServeMode({
+      productRuntime,
       cwd,
       ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
       args,
@@ -971,14 +990,14 @@ async function runCliCore(
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
-      agentDefinitionRoots: safeMode ? [] : ROBOTA_AGENT_DEFINITION_ROOTS,
+      agentDefinitionRoots: safeMode ? [] : productRuntime.layout.agentDefinitionRoots,
       ...safeModeSessionOptions,
-      pluginDirectories: robotaPluginDirectories(cwd, homedir()),
-      projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
-      userSettingsSources: createRobotaUserSettingsSources(homedir()),
+      pluginDirectories: productPluginDirectories(cwd, productRuntime),
+      projectSettingsPaths: productRuntime.layout.projectSettingsPaths,
+      userSettingsSources: createProductUserSettingsSources(productRuntime),
       contributionSources: workspaceComposition.contributionSources,
       skillRoots: workspaceComposition.skillRoots,
-      taskContext: ROBOTA_TASK_CONTEXT,
+      taskContext: productRuntime.layout.taskContext,
       ...toolOptions,
       ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
       commandModules,
@@ -1013,24 +1032,27 @@ async function runCliCore(
 
   if (!presentation || !theme)
     throw new Error('Interactive presentation unavailable in headless runtime');
-  warnIfTerminalAppOnMacOS(terminal);
+  warnIfTerminalAppOnMacOS(terminal, productRuntime.environment);
   // ERR-001 G1: interactive mode only — the process must survive transient failures.
   presentation.installTuiProcessGuards();
   // CMD-004 Phase 2 (Stage B): late-bound TUI-mode process adapter (host-executed exit/restart).
   commandHostAdapters.process = createTuiProcessAdapter();
-  // Issue #3081: `/cd` starts robota again in the target directory, resuming this conversation.
+  // Issue #3081: `/cd` starts the product again in the target directory, resuming this conversation.
   commandHostAdapters.workspace = createWorkspaceMoveAdapter({
-    userHome: homedir(),
+    productRuntime,
+    providerDefinitions,
+    userHome: productRuntime.userHome ?? productRuntime.layout.userRoot,
     argv: argvCarryingSafeMode(process.argv.slice(2), safeMode),
     requestExit: () => commandHostAdapters.process?.requestExit('other'),
     environment: telemetryEnvironment,
   });
-  if (isFirstRun()) {
-    printFirstRunWelcome(terminal, screenReader);
-    markOnboarded();
+  if (isFirstRun(productRuntime.layout.userPaths.onboarded)) {
+    printFirstRunWelcome(terminal, productRuntime, screenReader);
+    markOnboarded(productRuntime.layout.userPaths.onboarded);
   }
   // A device holding the signing key keeps its roster and revocation list from lapsing while it runs.
-  startDeviceListReissue({ onReissued: () => void deviceMesh.identityChanged() });
+  startDeviceListReissue({
+    productRuntime, onReissued: () => void deviceMesh.identityChanged() });
   // What a linked device asks that needs the operator is asked on this terminal, never in a prompt.
   void deviceMesh.start({
     ...(remoteControlController.operatorApprover !== undefined
@@ -1039,7 +1061,7 @@ async function runCliCore(
   });
 
   const tuiRun = presentation.renderApp({
-    productDisplayName: 'Robota',
+    productDisplayName: `${productRuntime.config.identity.displayName}`,
     ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
     modelCommandToolPrefix,
     subagentHookEnvironmentNames,
@@ -1075,10 +1097,11 @@ async function runCliCore(
     maxTurns: args.maxTurns,
     version,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
-    disableSessionLoops: areSessionLoopsDisabled(process.env),
+    disableSessionLoops: areSessionLoopsDisabled(productRuntime.environment),
     resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({
+      productRuntime,
       projectAccess: workspaceComposition.projectAccess,
-      userHome: homedir(),
+      userHome: productRuntime.userHome ?? productRuntime.layout.userRoot,
     }),
     resumeSessionId,
     showSessionPickerOnStart,
@@ -1088,20 +1111,21 @@ async function runCliCore(
     backgroundTaskRunners,
     subagentRunnerFactory,
     agentDefinitions,
-    agentDefinitionRoots: safeMode ? [] : ROBOTA_AGENT_DEFINITION_ROOTS,
+    agentDefinitionRoots: safeMode ? [] : productRuntime.layout.agentDefinitionRoots,
     ...safeModeSessionOptions,
-    pluginDirectories: robotaPluginDirectories(cwd, homedir()),
-    projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
-    baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,
-    userSettingsSources: createRobotaUserSettingsSources(homedir()),
+    pluginDirectories: productPluginDirectories(cwd, productRuntime),
+    projectSettingsPaths: productRuntime.layout.projectSettingsPaths,
+    baselinePermissionAllow: productRuntime.layout.baselinePermissionAllow,
+    userSettingsSources: createProductUserSettingsSources(productRuntime),
+    environment: productRuntime.environment,
     contributionSources: workspaceComposition.contributionSources,
     skillRoots: workspaceComposition.skillRoots,
-    taskContext: ROBOTA_TASK_CONTEXT,
+    taskContext: productRuntime.layout.taskContext,
     ...toolOptions,
     commandModules,
     commandHostAdapters,
     remoteCommandPolicy,
-    shellExec: runShellCommand,
+    shellExec: (command, env) => runShellCommand(command, productRuntime.environment, env),
     startupUpdateNotice: resolveCliUpdateNotice(startupUpdateNoticePromise),
     transportRegistry,
     bindTransports: bindTuiTransports,
@@ -1118,13 +1142,15 @@ async function runCliCore(
     ...memorySessionOptions,
     // CLI-2004, SCREEN-1992, SCREEN-1993: the presentation every TUI entry resolves alike.
     ...resolveTuiRenderFields({
+      productRuntime,
       screenReader,
       settings: userSettings,
-      env: process.env,
+      env: productRuntime.environment,
       access: workspaceComposition.projectAccess,
       cwd,
     }),
-    cliAdapter: createRobotaTuiCliAdapter(presentation.createDefaultTuiCliAdapter, {
+    cliAdapter: createProductTuiCliAdapter(presentation.createDefaultTuiCliAdapter, {
+      productRuntime,
       providerDefinitions,
       reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
     }),

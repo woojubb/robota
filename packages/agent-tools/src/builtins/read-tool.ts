@@ -237,7 +237,7 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Prom
 }
 
 /**
- * Create a ReadTool instance — register with Robota agent tools registry.
+ * Create a ReadTool instance — register with agent tools registry.
  */
 export function createReadTool(options: ISandboxBuiltinToolOptions): FunctionTool {
   return createZodFunctionTool(

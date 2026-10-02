@@ -23,7 +23,7 @@ describe('FileUsageStorage (PLUGIN-001: real persistence)', () => {
   let dir: string;
 
   function freshStorage(): FileUsageStorage {
-    dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-usage-')));
+    dir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-usage-')));
     return new FileUsageStorage(join(dir, 'usage.json'));
   }
 

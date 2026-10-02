@@ -17,7 +17,7 @@ let dir: string;
 let cassette: string;
 
 beforeEach(() => {
-  dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-cassette-')));
+  dir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-cassette-')));
   cassette = join(dir, 'goal.cassette.json');
 });
 afterEach(() => {

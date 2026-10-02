@@ -10,7 +10,7 @@ import { BUILT_IN_AGENTS } from '../built-in-agents.js';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
 
 const FIXTURE_AGENT_ROOTS = [
-  join('.robota', 'agents'),
+  join('.agent', 'agents'),
   join('.agents', 'agents'),
   join('.claude', 'agents'),
 ];
@@ -166,19 +166,19 @@ System prompt body here.`,
     expect(agent!.description).toBe('An agent without an explicit name');
   });
 
-  it('should load from Robota and Claude-compatible project/user agent paths', () => {
+  it('should load from ConversationAgent and Claude-compatible project/user agent paths', () => {
     const cwd = makeTempDir();
     const home = makeTempDir();
 
     writeAgentFile(
-      join(cwd, '.robota', 'agents'),
-      'robota-project-agent.md',
+      join(cwd, '.agent', 'agents'),
+      'agent-project-agent.md',
       `---
-name: robota-project-agent
-description: Robota project-level agent
+name: agent-project-agent
+description: ConversationAgent project-level agent
 ---
 
-Robota project agent prompt.`,
+ConversationAgent project agent prompt.`,
     );
 
     writeAgentFile(
@@ -204,14 +204,14 @@ Claude project agent prompt.`,
     );
 
     writeAgentFile(
-      join(home, '.robota', 'agents'),
-      'robota-user-agent.md',
+      join(home, '.agent', 'agents'),
+      'agent-user-agent.md',
       `---
-name: robota-user-agent
-description: Robota user-level agent
+name: agent-user-agent
+description: ConversationAgent user-level agent
 ---
 
-Robota user agent prompt.`,
+ConversationAgent user agent prompt.`,
     );
 
     writeAgentFile(
@@ -229,26 +229,26 @@ Claude user agent prompt.`,
     const all = loader.loadAll();
     const names = all.map((a) => a.name);
 
-    expect(names).toContain('robota-project-agent');
+    expect(names).toContain('agent-project-agent');
     expect(names).toContain('agents-project-agent');
     expect(names).toContain('claude-project-agent');
-    expect(names).toContain('robota-user-agent');
+    expect(names).toContain('agent-user-agent');
     expect(names).toContain('claude-user-agent');
   });
 
-  it('should prioritize project Robota agents over project Claude and user agents', () => {
+  it('should prioritize project ConversationAgent agents over project Claude and user agents', () => {
     const cwd = makeTempDir();
     const home = makeTempDir();
 
     writeAgentFile(
-      join(cwd, '.robota', 'agents'),
+      join(cwd, '.agent', 'agents'),
       'shared.md',
       `---
 name: shared
-description: Robota project version
+description: ConversationAgent project version
 ---
 
-Robota project prompt.`,
+ConversationAgent project prompt.`,
     );
 
     writeAgentFile(
@@ -263,7 +263,7 @@ Claude project prompt.`,
     );
 
     writeAgentFile(
-      join(home, '.robota', 'agents'),
+      join(home, '.agent', 'agents'),
       'shared.md',
       `---
 name: shared
@@ -277,7 +277,7 @@ User prompt.`,
     const agent = loader.getAgent('shared');
 
     expect(agent).toBeDefined();
-    expect(agent!.description).toBe('Robota project version');
+    expect(agent!.description).toBe('ConversationAgent project version');
   });
 
   it('should merge with built-in agents', () => {
@@ -385,7 +385,7 @@ Prompt.`,
   it('should handle missing agents directories gracefully', () => {
     const cwd = makeTempDir();
     const home = makeTempDir();
-    // No .claude/agents/ or ~/.robota/agents/ dirs created
+    // No .claude/agents/ or ~/.agent/agents/ dirs created
 
     const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd, home));
     const all = loader.loadAll();
@@ -534,10 +534,10 @@ Prompt.`,
   });
 
   it.each([
-    ['project .robota', '.robota/agents', 'project'],
+    ['project .agent', '.agent/agents', 'project'],
     ['project .agents', '.agents/agents', 'project'],
     ['project .claude', '.claude/agents', 'project'],
-    ['user .robota', '.robota/agents', 'user'],
+    ['user .agent', '.agent/agents', 'user'],
     ['user .agents', '.agents/agents', 'user'],
     ['user .claude', '.claude/agents', 'user'],
   ])('rejects numeric prefixes identically at the %s discovery root', (_label, relative, owner) => {
@@ -556,19 +556,19 @@ Prompt.`,
     const cwd = makeTempDir();
     const home = makeTempDir();
     writeAgentFile(
-      join(cwd, '.robota', 'agents'),
+      join(cwd, '.agent', 'agents'),
       'shared.md',
       '---\nname: shared\nmaxTurns: 0\n---\nInvalid high-priority definition.',
     );
     writeAgentFile(
-      join(home, '.robota', 'agents'),
+      join(home, '.agent', 'agents'),
       'shared.md',
       '---\nname: shared\nmaxTurns: 5\n---\nValid lower-priority definition.',
     );
 
     const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd, home));
     const warning = captureRefusal(() => loader.getAgent('shared'));
-    const source = join(cwd, '.robota/agents/shared.md');
+    const source = join(cwd, '.agent/agents/shared.md');
     expect(warning).toContain(`${source}:3:11 [invalid-value] maxTurns:`);
   });
 
@@ -690,7 +690,7 @@ Project prompt.`,
     );
 
     writeAgentFile(
-      join(home, '.robota', 'agents'),
+      join(home, '.agent', 'agents'),
       'dup.md',
       `---
 name: duplicated

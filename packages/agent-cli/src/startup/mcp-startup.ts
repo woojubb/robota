@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
  * MCP-002: the ONE place that turns product startup inputs into a live `IMcpClientComposition`,
  * completing the reachability step — sourcing (`mcp-definition-sources.ts`)
@@ -20,6 +21,8 @@ import { mkdirSync } from 'node:fs';
 
 import {
   MCPHeadersHelperError,
+  MCPDefinitionRegistry,
+  requiresTrustedWorkspace,
   isBlockedByManagedFailure,
   isWorkspaceHelperSource,
   withoutExpansions,
@@ -27,15 +30,19 @@ import {
 import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
 
 import { buildMcpClientTimeouts, createMcpClientComposition } from './mcp-client-composition.js';
+import { describeMcpContribution } from './mcp-contribution-descriptor.js';
 import { resolveMcpDefinitions } from './mcp-definition-sources.js';
+import { pluginMcpCandidates } from './plugin-mcp-definition-sources.js';
 import { resolveMcpHeaderHelperAllowlist } from './mcp-header-helper-allowlist.js';
 import { headersHelperEnvironment, runHeadersHelper } from './mcp-headers-helper-runner.js';
 import { createMcpOAuthHost } from './mcp-oauth-host.js';
 import { resolveMcpSettings } from './mcp-settings.js';
+import { resolveMcpSkillApprovalStore } from './mcp-skill-approval-file-store.js';
 import { toMcpActivationWorkspace } from './mcp-workspace.js';
 
 import type {
   IWorkspaceIdentity,
+  IContributionDescriptor,
   TSettingsSource,
   TWorkspaceProjectAccess,
   TWorkspaceTrustState,
@@ -47,6 +54,7 @@ import type {
 import type { IToolResultAdmissionOptions, TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IMCPActivationApprovalStore,
+  IMCPServerDefinitionResolved,
   IMCPHttpTransportDeps,
   IMCPStdioAuthority,
 } from '@robota-sdk/agent-mcp';
@@ -67,6 +75,7 @@ export interface IMcpWorkspaceTrustSnapshot {
 }
 
 export interface IComposeMcpClientForStartupInput {
+  readonly productRuntime: ICliRuntimeContext;
   readonly settingsSources: readonly TSettingsSource[];
   readonly projectAccess: TWorkspaceProjectAccess;
   readonly cwd: string;
@@ -93,6 +102,8 @@ export interface IComposeMcpClientForStartupInput {
  * — call it AFTER `await connect()`, exactly where `cli.ts` builds each mode's session options.
  */
 export interface IMcpStartupComposition extends IMcpClientComposition {
+  /** Declarative configuration generations, never execution approvals or server-reported versions. */
+  readonly contributionDescriptors: readonly IContributionDescriptor[];
   /**
    * `undefined` in every one of these cases: `mode === 'print'`; `mcp.autoBackgroundMs === 0`; or
    * `mcp.autoBackgroundMs >= mcp.callTimeoutMs` (already reported as one diagnostic by
@@ -115,8 +126,9 @@ export interface IMcpStartupComposition extends IMcpClientComposition {
  */
 async function inspectRealWorkspaceTrust(
   identity: IWorkspaceIdentity,
+  runtime: ICliRuntimeContext,
 ): Promise<IMcpWorkspaceTrustSnapshot> {
-  return createNodeWorkspaceTrustStore(userPaths().workspaceTrust).inspect(identity);
+  return createNodeWorkspaceTrustStore(userPaths(runtime).workspaceTrust).inspect(identity);
 }
 
 /**
@@ -134,6 +146,7 @@ export async function composeMcpClientForStartup(
   const { entries, problems, sourceProblems } = resolveMcpDefinitions(
     input.settingsSources,
     input.env,
+    pluginMcpCandidates(input.productRuntime, input.cwd, input.projectAccess),
   );
   for (const problem of problems) {
     // A source-level problem (`name === ''`, issue #2794) names no server, so "MCP definition """
@@ -183,16 +196,45 @@ export async function composeMcpClientForStartup(
   const trust: IMcpWorkspaceTrustSnapshot =
     identity === undefined
       ? { state: 'identity-unavailable', generation: 0 }
-      : await (input.inspectTrust ?? (() => inspectRealWorkspaceTrust(identity)))(input.cwd);
+      : await (
+          input.inspectTrust ?? (() => inspectRealWorkspaceTrust(identity, input.productRuntime))
+        )(input.cwd);
 
   const workspace = toMcpActivationWorkspace(input.projectAccess, trust);
+
+  const pinnedRequests = new MCPDefinitionRegistry(entries, { workspace }).list();
+  async function isDefinitionCurrent(definition: IMCPServerDefinitionResolved): Promise<boolean> {
+    if (requiresTrustedWorkspace(definition.source)) {
+      if (!identity) return false;
+      const currentTrust = await (
+        input.inspectTrust ?? (() => inspectRealWorkspaceTrust(identity, input.productRuntime))
+      )(input.cwd);
+      if (currentTrust.state !== 'trusted' || currentTrust.generation !== trust.generation)
+        return false;
+    }
+    const currentEntries = resolveMcpDefinitions(
+      input.settingsSources,
+      input.env,
+      pluginMcpCandidates(input.productRuntime, input.cwd, input.projectAccess),
+    ).entries;
+    const current = new MCPDefinitionRegistry(currentEntries, { workspace })
+      .list()
+      .find((request) => request.serverId === definition.name);
+    const pinned = pinnedRequests.find((request) => request.serverId === definition.name);
+    return (
+      !!current &&
+      !!pinned &&
+      current.securityIdentity === pinned.securityIdentity &&
+      current.definitionFingerprint === pinned.definitionFingerprint
+    );
+  }
 
   const helperAllowlist = resolveMcpHeaderHelperAllowlist(input.settingsSources);
   for (const diagnostic of helperAllowlist.diagnostics) input.reportDiagnostic(diagnostic);
   const headersHelpers: IMcpHeadersHelperHost = {
     allowed: helperAllowlist.allowed,
     run: async ({ request, definition, helper }, signal) => {
-      // A repository's helper runs in that repository; any other runs in the user's Robota home,
+      // A repository's helper runs in that repository; any other runs in the user's The product home,
       // never in whatever directory the CLI happened to start from.
       // A repository's helper is not told what the user's environment expanded into the URL.
       const workspaceHelper = isWorkspaceHelperSource(request.source);
@@ -202,7 +244,7 @@ export async function composeMcpClientForStartup(
         if (identity === undefined) throw new MCPHeadersHelperError('spawn-failed');
         cwd = identity.worktreeRoot;
       } else {
-        cwd = userLocalStorageRoot();
+        cwd = userLocalStorageRoot(input.productRuntime);
         mkdirSync(cwd, { recursive: true });
       }
       return runHeadersHelper({
@@ -220,15 +262,19 @@ export async function composeMcpClientForStartup(
   };
 
   const mcp = createMcpClientComposition({
+    skillApprovalStore: resolveMcpSkillApprovalStore(input.productRuntime),
     resolvedEntries: entries,
+    isDefinitionCurrent,
+    resultReadToolName: `${input.productRuntime.config.identity.modelCommandToolPrefix}read_mcp_result`,
     sourceProblems,
     workspace,
-    clientInfo: { name: 'robota-agent-mcp', version: '0.0.0' },
+    clientInfo: { name: input.productRuntime.config.identity.mcpClientName, version: '0.0.0' },
     ...(input.stdioAuthorities === undefined ? {} : { stdioAuthorities: input.stdioAuthorities }),
     ...(input.approvalStore === undefined ? {} : { approvalStore: input.approvalStore }),
     ...(input.httpTransportDeps === undefined ? {} : { transport: input.httpTransportDeps }),
     headersHelpers,
     oauth: createMcpOAuthHost({
+      productRuntime: input.productRuntime,
       network: {
         ...(input.httpTransportDeps?.policy === undefined
           ? {}
@@ -251,6 +297,7 @@ export async function composeMcpClientForStartup(
     ...(input.resultAdmissionLimits ? { resultAdmissionLimits: input.resultAdmissionLimits } : {}),
     reportDiagnostic: input.reportDiagnostic,
     userActionSurface: mcpUserActionSurfaceFor(input.mode),
+    cliName: input.productRuntime.vocabulary.cliName,
   });
 
   function buildToolCallHandoff(
@@ -285,7 +332,11 @@ export async function composeMcpClientForStartup(
     };
   }
 
-  return { ...mcp, buildToolCallHandoff };
+  const contributionDescriptors = entries.flatMap((entry) => {
+    const descriptor = describeMcpContribution(entry);
+    return descriptor ? [descriptor] : [];
+  });
+  return { ...mcp, buildToolCallHandoff, contributionDescriptors };
 }
 
 /**
@@ -296,8 +347,9 @@ export async function composeMcpClientForStartup(
 export function mcpStartupModelNotice(
   mode: TMcpStartupMode,
   unavailable: ReadonlyMap<string, TMCPUserAction>,
+  cliName?: string,
 ): string | undefined {
-  return mode === 'interactive' ? mcpUnavailableServersNotice(unavailable) : undefined;
+  return mode === 'interactive' ? mcpUnavailableServersNotice(unavailable, cliName) : undefined;
 }
 
 /**

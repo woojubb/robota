@@ -2,7 +2,7 @@
  * The terminal matrix, as data.
  *
  * Checking IME cursor placement across terminals was a *manual* matrix ("iTerm2 + Terminal.app
- * ±ROBOTA_IME_CURSOR, kitty/WezTerm/Ghostty/Windows Terminal/tmux on real hardware"). This module
+ * ±PRODUCT_IME_CURSOR, kitty/WezTerm/Ghostty/Windows Terminal/tmux on real hardware"). This module
  * converts it into something a machine re-runs: each row is the environment handshake a terminal
  * emulator hands the program it launches, which is the ONLY channel through which the emulator's
  * identity reaches our code (`supportsImeCursorPositioning()` reads `TERM_PROGRAM`).
@@ -105,7 +105,7 @@ export const TERMINAL_PROFILES: readonly ITerminalProfile[] = [
   },
 ];
 
-/** `ROBOTA_IME_CURSOR` settings the matrix sweeps. `undefined` means the variable is absent. */
+/** `PRODUCT_IME_CURSOR` settings the matrix sweeps. `undefined` means the variable is absent. */
 export const IME_CURSOR_SETTINGS: readonly (string | undefined)[] = [undefined, '1', '0'];
 
 export const REPRESENTATIVE_IME_PTY_CELLS: readonly {
@@ -140,13 +140,13 @@ export function profileEnv(
 ): Record<string, string> {
   return {
     ...profile.env,
-    ...(override === undefined ? {} : { ROBOTA_IME_CURSOR: override }),
+    ...(override === undefined ? {} : { PRODUCT_IME_CURSOR: override }),
   };
 }
 
 /** Matrix label used in test names. */
 export function cellLabel(profile: ITerminalProfile, override: string | undefined): string {
   const setting =
-    override === undefined ? 'ROBOTA_IME_CURSOR unset' : `ROBOTA_IME_CURSOR=${override}`;
+    override === undefined ? 'PRODUCT_IME_CURSOR unset' : `PRODUCT_IME_CURSOR=${override}`;
   return `${profile.label} / ${setting}`;
 }

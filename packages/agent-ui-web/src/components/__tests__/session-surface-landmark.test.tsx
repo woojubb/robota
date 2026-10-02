@@ -7,7 +7,8 @@
  * already covered elsewhere) — must carry it itself, never zero and never nested.
  */
 
-import { cleanup, render } from '@testing-library/react';
+import { render } from '../../testing/product-provider.js';
+import { cleanup } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { SessionSurface } from '../SessionSurface.js';

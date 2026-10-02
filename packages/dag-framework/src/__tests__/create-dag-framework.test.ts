@@ -14,7 +14,7 @@ let tmpDir: string;
 let framework: IDagFramework;
 
 beforeEach(async () => {
-  tmpDir = await mkdtemp(path.join(os.tmpdir(), 'robota-dag-e2e-'));
+  tmpDir = await mkdtemp(path.join(os.tmpdir(), 'agent-test-dag-e2e-'));
   framework = await createDagFramework({
     nodes: createDefaultNodeRegistrySync(),
     paths: { storageRoot: path.join(tmpDir, 'storage'), assetRoot: path.join(tmpDir, 'assets') },

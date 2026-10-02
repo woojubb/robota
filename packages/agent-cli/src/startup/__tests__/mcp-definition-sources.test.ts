@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * MCP-002: `resolveMcpDefinitions` sources every settings layer's `mcpServers` object and resolves
  * precedence across them — the one thing neither `agent-framework`'s settings inspection nor
@@ -17,10 +18,12 @@ import {
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { describeJsonParseFailure, resolveMcpDefinitions } from '../mcp-definition-sources.js';
-import { ROBOTA_PROJECT_SETTINGS } from '../../product/robota-project-settings.js';
-import { createRobotaUserSettingsSources } from '../../product/robota-user-settings.js';
+import { productProjectSettings } from '../../product/project-settings.js';
+import { createProductUserSettingsSources } from '../../product/user-settings.js';
 
 import type { IWorkspaceIdentity, TSettingsSource } from '@robota-sdk/agent-framework';
+const PRODUCT_PROJECT_SETTINGS = productProjectSettings(createTestProductRuntime());
+
 
 const roots: string[] = [];
 
@@ -53,31 +56,31 @@ async function trustedProjectSettingsSources(root: string): Promise<readonly TSe
   if (access.status !== 'trusted') throw new Error('Fixture trust service did not return trusted.');
   return createWorkspaceProjectSettingsSources(
     getWorkspaceProjectReader(access.authority),
-    ROBOTA_PROJECT_SETTINGS,
+    PRODUCT_PROJECT_SETTINGS,
   );
 }
 
 describe('resolveMcpDefinitions', () => {
   it('resolves a name declared by both a user and a project layer to the project entry', async () => {
-    const userHome = tempRoot('robota-mcp-defs-user-');
-    const projectRoot = tempRoot('robota-mcp-defs-project-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    const userHome = tempRoot('test-product-mcp-defs-user-');
+    const projectRoot = tempRoot('test-product-mcp-defs-project-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
     writeFileSync(
-      join(userHome, '.robota', 'settings.json'),
+      join(userHome, '.test-product', 'settings.json'),
       JSON.stringify({
         mcpServers: { weather: { type: 'http', url: 'https://user.example/weather' } },
       }),
     );
-    mkdirSync(join(projectRoot, '.robota'), { recursive: true });
+    mkdirSync(join(projectRoot, '.test-product'), { recursive: true });
     writeFileSync(
-      join(projectRoot, '.robota', 'settings.json'),
+      join(projectRoot, '.test-product', 'settings.json'),
       JSON.stringify({
         mcpServers: { weather: { type: 'http', url: 'https://project.example/weather' } },
       }),
     );
 
     const settingsSources = [
-      ...createRobotaUserSettingsSources(userHome),
+      ...createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome })),
       ...(await trustedProjectSettingsSources(projectRoot)),
     ];
 
@@ -91,17 +94,17 @@ describe('resolveMcpDefinitions', () => {
     expect(weather?.status).toBe('resolved');
     expect(weather?.definition?.url).toBe('https://project.example/weather');
     expect(weather?.shadowed).toEqual([
-      { name: 'weather', source: 'user', origin: expect.stringContaining('.robota') },
+      { name: 'weather', source: 'user', origin: expect.stringContaining('.test-product') },
     ]);
   });
 
   it('reports an invalid-json layer as a source-scoped problem naming its origin, never silently', () => {
-    const userHome = tempRoot('robota-mcp-defs-invalid-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
-    const settingsPath = join(userHome, '.robota', 'settings.json');
+    const userHome = tempRoot('test-product-mcp-defs-invalid-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
+    const settingsPath = join(userHome, '.test-product', 'settings.json');
     writeFileSync(settingsPath, '{ this is not json');
 
-    const settingsSources = createRobotaUserSettingsSources(userHome);
+    const settingsSources = createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome }));
     const { entries, problems, sourceProblems } = resolveMcpDefinitions(
       settingsSources,
       process.env,
@@ -117,11 +120,11 @@ describe('resolveMcpDefinitions', () => {
   });
 
   it('produces nothing for a layer that declares no mcpServers', () => {
-    const userHome = tempRoot('robota-mcp-defs-none-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
-    writeFileSync(join(userHome, '.robota', 'settings.json'), JSON.stringify({ language: 'en' }));
+    const userHome = tempRoot('test-product-mcp-defs-none-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
+    writeFileSync(join(userHome, '.test-product', 'settings.json'), JSON.stringify({ language: 'en' }));
 
-    const settingsSources = createRobotaUserSettingsSources(userHome);
+    const settingsSources = createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome }));
     const { entries, problems, sourceProblems } = resolveMcpDefinitions(
       settingsSources,
       process.env,
@@ -137,25 +140,25 @@ describe('resolveMcpDefinitions', () => {
   // as if the broken `user` layer were absent. This is NOT the fail-closed case; that one needs the
   // MANAGED tier specifically, exercised separately below.
   it('leaves a higher-precedence layer resolved when a lower, non-managed layer is unreadable', async () => {
-    const userHome = tempRoot('robota-mcp-defs-unreadable-user-');
-    const projectRoot = tempRoot('robota-mcp-defs-unreadable-project-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    const userHome = tempRoot('test-product-mcp-defs-unreadable-user-');
+    const projectRoot = tempRoot('test-product-mcp-defs-unreadable-project-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
     // `mcpServers` present but not an object — decoded by `agent-mcp`'s strict decoder as a
     // source-level problem, not a per-entry one (there are no entries to blame).
     writeFileSync(
-      join(userHome, '.robota', 'settings.json'),
+      join(userHome, '.test-product', 'settings.json'),
       JSON.stringify({ mcpServers: 'not an object' }),
     );
-    mkdirSync(join(projectRoot, '.robota'), { recursive: true });
+    mkdirSync(join(projectRoot, '.test-product'), { recursive: true });
     writeFileSync(
-      join(projectRoot, '.robota', 'settings.json'),
+      join(projectRoot, '.test-product', 'settings.json'),
       JSON.stringify({
         mcpServers: { weather: { type: 'http', url: 'https://project.example/weather' } },
       }),
     );
 
     const settingsSources = [
-      ...createRobotaUserSettingsSources(userHome),
+      ...createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome })),
       ...(await trustedProjectSettingsSources(projectRoot)),
     ];
 
@@ -178,13 +181,13 @@ describe('resolveMcpDefinitions', () => {
   // otherwise resolve from a lower tier, here a `project`-scoped server, because the unreadable
   // managed policy might have defined that exact name.
   it('blocks a lower-tier server and reports the managed source problem when the managed layer is unreadable', async () => {
-    const managedRoot = tempRoot('robota-mcp-defs-unreadable-managed-');
-    const projectRoot = tempRoot('robota-mcp-defs-managed-project-');
+    const managedRoot = tempRoot('test-product-mcp-defs-unreadable-managed-');
+    const projectRoot = tempRoot('test-product-mcp-defs-managed-project-');
     const managedPath = join(managedRoot, 'managed-policy.json');
     writeFileSync(managedPath, JSON.stringify({ mcpServers: 'not an object' }));
-    mkdirSync(join(projectRoot, '.robota'), { recursive: true });
+    mkdirSync(join(projectRoot, '.test-product'), { recursive: true });
     writeFileSync(
-      join(projectRoot, '.robota', 'settings.json'),
+      join(projectRoot, '.test-product', 'settings.json'),
       JSON.stringify({
         mcpServers: { weather: { type: 'http', url: 'https://project.example/weather' } },
       }),
@@ -217,9 +220,9 @@ describe('resolveMcpDefinitions', () => {
   // must never reach `sourceProblems`/`problems`, which feed both the startup diagnostic and (via
   // `mcp-client-composition.ts`) the live `/mcp status` command.
   it('never leaks a secret-looking value from a corrupt file into the reported reason', () => {
-    const userHome = tempRoot('robota-mcp-defs-secret-leak-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
-    const settingsPath = join(userHome, '.robota', 'settings.json');
+    const userHome = tempRoot('test-product-mcp-defs-secret-leak-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
+    const settingsPath = join(userHome, '.test-product', 'settings.json');
     // Assembled from fragments at runtime, never a literal secret-shaped token in source control.
     const secretLookingValue = ['sk', 'live', 'se', 'cre', 't', 'value'].join('-');
     const corruptJson = `{ "mcpServers": { "weather": { "env": { "API_KEY": ${secretLookingValue} } } } }`;
@@ -237,7 +240,7 @@ describe('resolveMcpDefinitions', () => {
     }
     expect(nodeEchoesTheValue).toBe(true);
 
-    const settingsSources = createRobotaUserSettingsSources(userHome);
+    const settingsSources = createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome }));
     const { problems, sourceProblems } = resolveMcpDefinitions(settingsSources, process.env);
 
     expect(problems).toHaveLength(1);
@@ -260,13 +263,13 @@ describe('resolveMcpDefinitions', () => {
     ['an array', '[]'],
   ] as const) {
     it(`fails closed when the managed root parses cleanly to ${label}`, async () => {
-      const managedRoot = tempRoot('robota-mcp-defs-managed-non-object-');
-      const projectRoot = tempRoot('robota-mcp-defs-managed-non-object-project-');
+      const managedRoot = tempRoot('test-product-mcp-defs-managed-non-object-');
+      const projectRoot = tempRoot('test-product-mcp-defs-managed-non-object-project-');
       const managedPath = join(managedRoot, 'managed-policy.json');
       writeFileSync(managedPath, root);
-      mkdirSync(join(projectRoot, '.robota'), { recursive: true });
+      mkdirSync(join(projectRoot, '.test-product'), { recursive: true });
       writeFileSync(
-        join(projectRoot, '.robota', 'settings.json'),
+        join(projectRoot, '.test-product', 'settings.json'),
         JSON.stringify({
           mcpServers: { weather: { type: 'http', url: 'https://project.example/weather' } },
         }),
@@ -294,14 +297,14 @@ describe('resolveMcpDefinitions', () => {
   }
 
   it('still treats a plain object with no mcpServers key as absent, never a problem', () => {
-    const userHome = tempRoot('robota-mcp-defs-plain-object-absent-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    const userHome = tempRoot('test-product-mcp-defs-plain-object-absent-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
     writeFileSync(
-      join(userHome, '.robota', 'settings.json'),
+      join(userHome, '.test-product', 'settings.json'),
       JSON.stringify({ language: 'en', theme: 'dark' }),
     );
 
-    const settingsSources = createRobotaUserSettingsSources(userHome);
+    const settingsSources = createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome }));
     const { entries, problems, sourceProblems } = resolveMcpDefinitions(
       settingsSources,
       process.env,

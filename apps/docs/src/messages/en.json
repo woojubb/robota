@@ -6,11 +6,11 @@
     "packages": "Packages",
     "changelog": "Changelog",
     "development": "Development",
-    "backToSite": "← robota.io"
+    "backToSite": "← __PROJECT_WEBSITE_HOST__"
   },
   "home": {
     "badge": "open source · AGPL-3.0 or commercial",
-    "title": "Robota SDK",
+    "title": "__PRODUCT_DISPLAY_NAME__ SDK",
     "titleHighlight": "Documentation",
     "description": "Composable TypeScript libraries for building AI agents: strict types, tool calling, a plugin and event architecture, and one provider interface for Anthropic, OpenAI, Gemini and any OpenAI-compatible endpoint, local models included.",
     "getStarted": "Get Started →",

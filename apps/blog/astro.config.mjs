@@ -5,9 +5,10 @@ import rehypePrettyCode from 'rehype-pretty-code';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import remarkToc from 'remark-toc';
 import remarkMermaid from './src/plugins/remark-mermaid.mjs';
+import { productPublicConfig } from './src/lib/product-config.generated.mjs';
 
 export default defineConfig({
-  site: 'https://blog.robota.io',
+  ...(productPublicConfig.identity.blogUrl ? { site: productPublicConfig.identity.blogUrl } : {}),
   i18n: {
     defaultLocale: 'en',
     locales: ['en', 'ko'],

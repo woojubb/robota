@@ -6,6 +6,7 @@
 import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
 import { describe, expect, it } from 'vitest';
 import { MCPStdioError } from '../client/stdio-transport.js';
+import { MCPTransportEgressRefusedError } from '../client/pinned-http-fetch.js';
 
 import { FakeSupervisorClock, fixtureTimeouts } from './supervisor-test-helpers.js';
 import { MCPSessionError } from '../client/session.js';
@@ -37,6 +38,8 @@ describe('classifyMcpFailure — pure classification (TC-13)', () => {
     );
     expect(classifyMcpFailure(new TypeError('Invalid URL'))).toBe('config');
     expect(classifyMcpFailure(new MCPStdioError('cleanup'))).toBe('config');
+    expect(classifyMcpFailure(new MCPTransportEgressRefusedError('private_destination'))).toBe('config');
+    expect(classifyMcpFailure(new MCPTransportEgressRefusedError('unresolvable'))).toBe('transient');
   });
 
   it('classifies a 404 / method-not-found shape as not-found', () => {

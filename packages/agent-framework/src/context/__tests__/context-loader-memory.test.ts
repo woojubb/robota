@@ -14,7 +14,7 @@ import { loadContext } from '../context-loader.js';
 
 import type { IMemoryStore, IStartupMemory } from '../../memory/types.js';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-context-loader-memory-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-context-loader-memory-')));
 
 function makeWorkspace(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));

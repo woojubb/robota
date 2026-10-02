@@ -12,6 +12,7 @@ import {
 import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
 
 import { createSessionEventDeliveryProjectAccess } from './session-event-delivery-project-access.js';
+import { createTestProductRuntime } from '../src/__tests__/helpers/product-runtime.js';
 
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
@@ -53,9 +54,10 @@ async function main(): Promise<void> {
     },
     { text: 'second complete' },
   ]);
-  const projectAccess = await createSessionEventDeliveryProjectAccess(cwd);
+  const productRuntime = createTestProductRuntime('test-product', { HOME: cwd });
+  const projectAccess = await createSessionEventDeliveryProjectAccess(cwd, productRuntime);
   assertCondition(projectAccess.status === 'trusted', 'scenario project access was not trusted');
-  const store = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
+  const store = createNodeHostSessionStore(join(cwd, productRuntime.layout.projectStateDirectories.sessions));
   const editCheckpointStore = new EditCheckpointStore({
     authority: projectAccess.authority,
     mutation: createWorkspaceProjectMutation(projectAccess.authority, {

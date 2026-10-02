@@ -6,11 +6,11 @@
  * per-terminal table; what the product shell owns is the kill switch, read here from its own
  * environment and injected as an option — the TUI package reads no product-named literal for it.
  *
- * `ROBOTA_FOCUS_EVENTS=0` turns the mode off (the TUI falls back to input idleness), `=1` forces it
+ * `PRODUCT_FOCUS_EVENTS=0` turns the mode off (the TUI falls back to input idleness), `=1` forces it
  * on (e.g. a multiplexer that synthesizes focus events but is not a TTY pair), anything else leaves
  * the TUI's own TTY gate in charge.
  */
-const FOCUS_EVENTS_ENV = 'ROBOTA_FOCUS_EVENTS';
+const FOCUS_EVENTS_ENV = 'PRODUCT_FOCUS_EVENTS';
 
 export function resolveFocusReportingOverride(
   env: Readonly<Record<string, string | undefined>>,

@@ -3,15 +3,15 @@
  *
  * Thin wrapper around createAgentRuntime that disables all filesystem side-effects —
  * - sessionStore: undefined  (no session persistence)
- * - commandHostAdapters with no-op settings (no ~/.robota/settings.json writes)
+ * - commandHostAdapters with no-op settings (no ~/.agent/settings.json writes)
  *
  * Sessions created from this runtime default to bare: true (skip AGENTS.md/CLAUDE.md
  * loading and plugin discovery). Override per-session if needed.
  */
 
-import { createAgentRuntime } from './agent-runtime.js';
+import { createAgentRuntime } from './session-runtime.js';
 
-import type { IAgentRuntime } from './agent-runtime.js';
+import type { IAgentRuntime } from './session-runtime.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 export interface IStatelessRuntimeConfig {

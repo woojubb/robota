@@ -185,7 +185,12 @@ async function runInitialPrompt(
         : {}),
       hooks: payload.parentConfig.hooks,
       ...(composition.createHookTypeExecutors !== undefined
-        ? { hookTypeExecutors: composition.createHookTypeExecutors() }
+        ? {
+            hookTypeExecutors: composition.createHookTypeExecutors({
+              cwd: subagentExecutionRoot(payload),
+              ...(toolSandbox !== undefined ? { sandboxClient: toolSandbox } : {}),
+            }),
+          }
         : {}),
       onTextDelta: (delta) => sendChildMessage({ type: 'text_delta', delta }),
       onToolExecution: forwardToolExecution,
@@ -308,7 +313,7 @@ function composedToolNames(composition: ISubagentWorkerComposition): readonly st
     // not lie either — `[]` would read as "this product composed no tools", which is the one
     // confusion a parity channel cannot afford. `undefined` says "could not enumerate".
     process.stderr.write(
-      `robota: could not enumerate the composed tool surface: ${error instanceof Error ? error.message : String(error)}\n`,
+      `agent: could not enumerate the composed tool surface: ${error instanceof Error ? error.message : String(error)}\n`,
     );
     return undefined;
   }
@@ -347,7 +352,7 @@ export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): 
     // "Silence is not success": a worker without an IPC channel can never report anything, so it
     // must fail where someone can see it rather than sit there looking started.
     process.stderr.write(
-      'robota: subagent worker mode requires an IPC channel; it is started by the agent runtime, not by hand.\n',
+      'agent: subagent worker mode requires an IPC channel; it is started by the agent runtime, not by hand.\n',
     );
     process.exit(WORKER_MISUSE_EXIT_CODE);
   }

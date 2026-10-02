@@ -255,7 +255,7 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
   project_memory: {
     type: 'project_memory',
     requestId: 'project-memory-1',
-    result: { kind: 'memory', content: '# Memory', path: '.robota/memory/MEMORY.md', truncated: false },
+    result: { kind: 'memory', content: '# Memory', path: '.fixture-state/memory/MEMORY.md', truncated: false },
   },
   background_task_event: { type: 'background_task_event', event: {} as never },
   background_job_group_event: { type: 'background_job_group_event', event: {} as never },
@@ -629,10 +629,10 @@ describe('decodeClientMessage (issue #2045)', () => {
   it.each([
     { field: 'mcpServerEnabled', serverId: 'docs', enabled: true },
     { field: 'reloadMcpServers' },
-    { field: 'pluginEnabled', pluginId: 'formatter@robota', enabled: false },
+    { field: 'pluginEnabled', pluginId: 'formatter@fixture-agent', enabled: false },
     { field: 'reloadPlugins' },
-    { field: 'installPlugin', pluginId: 'linter@robota' },
-    { field: 'uninstallPlugin', pluginId: 'formatter@robota' },
+    { field: 'installPlugin', pluginId: 'linter@fixture-agent' },
+    { field: 'uninstallPlugin', pluginId: 'formatter@fixture-agent' },
   ] as const)('accepts the $field settings patch (#3282 §4 part b-2)', (patch) => {
     const message = { type: 'update-settings' as const, requestId: 'r', patch };
     expect(decodeClientMessage(JSON.parse(JSON.stringify(message)))).toEqual({

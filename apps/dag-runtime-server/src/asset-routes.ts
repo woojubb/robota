@@ -27,7 +27,7 @@ function assetError(c: Context, status: TAssetErrorStatus, code: string, detail:
       status,
       errors: [
         {
-          type: `urn:robota:error:dag:${code.toLowerCase()}`,
+          type: `urn:agent:problems:dag:${code.toLowerCase()}`,
           title: 'Asset operation failed',
           status,
           detail,

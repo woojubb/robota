@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { AbstractPlugin } from '../../abstracts/abstract-plugin';
 import { AbstractTool } from '../../abstracts/abstract-tool';
 import { createScriptedProvider } from '../../testing/scripted-provider';
-import { Robota } from '../robota';
+import { ConversationAgent } from '../conversation-agent';
 
 import type { IAgentConfig, IRunOptions } from '../../interfaces/agent';
 import type { TUniversalMessage } from '../../interfaces/messages';
@@ -35,15 +35,15 @@ type TEntryPoint = (typeof ENTRY_POINTS)[number];
  * choosing streaming does not have to re-accumulate deltas to learn what `run` would have told it.
  */
 async function drive(
-  robota: Robota,
+  agent: ConversationAgent,
   entry: TEntryPoint,
   input: string,
   options?: IRunOptions,
 ): Promise<string> {
   if (entry === 'run') {
-    return robota.run(input, options);
+    return agent.run(input, options);
   }
-  const stream = robota.runStream(input, options);
+  const stream = agent.runStream(input, options);
   for (;;) {
     const next = await stream.next();
     if (next.done === true) {
@@ -113,33 +113,33 @@ const PROVIDER_NAME = 'scripted-test-provider';
 function buildAgent(
   turns: readonly TScriptedTurn[],
   overrides: Partial<IAgentConfig> = {},
-): { robota: Robota; scripted: IScriptedProvider } {
+): { agent: ConversationAgent; scripted: IScriptedProvider } {
   const scripted = createScriptedProvider(turns);
-  const robota = new Robota({
+  const agent = new ConversationAgent({
     name: 'Parity Test Agent',
     aiProviders: [scripted.provider],
     defaultModel: { provider: PROVIDER_NAME, model: 'test-model' },
     logging: { level: 'silent', enabled: false },
     ...overrides,
   });
-  return { robota, scripted };
+  return { agent, scripted };
 }
 
 describe.each(ENTRY_POINTS)('CORE-042 turn parity — %s()', (entry) => {
   it('carries the configured system prompt into the provider request', async () => {
     // The capability that reached the beta missing on one path, and the reason this table exists.
-    const { robota, scripted } = buildAgent([{ text: 'done' }], {
+    const { agent, scripted } = buildAgent([{ text: 'done' }], {
       systemMessage: 'You are the parity agent.',
     });
 
-    await drive(robota, entry, 'hello');
+    await drive(agent, entry, 'hello');
 
     const systemMessages = scripted.requests[0].filter((m) => m.role === 'system');
     expect(systemMessages.map((m) => m.content)).toContain('You are the parity agent.');
   });
 
   it('carries the model dials (maxTokens, temperature, effort) into the chat options', async () => {
-    const { robota, scripted } = buildAgent([{ text: 'done' }], {
+    const { agent, scripted } = buildAgent([{ text: 'done' }], {
       defaultModel: {
         provider: PROVIDER_NAME,
         model: 'test-model',
@@ -148,7 +148,7 @@ describe.each(ENTRY_POINTS)('CORE-042 turn parity — %s()', (entry) => {
       },
     });
 
-    await drive(robota, entry, 'hello');
+    await drive(agent, entry, 'hello');
 
     expect(scripted.chatOptions[0]?.maxTokens).toBe(512);
     expect(scripted.chatOptions[0]?.temperature).toBe(0.25);
@@ -157,7 +157,7 @@ describe.each(ENTRY_POINTS)('CORE-042 turn parity — %s()', (entry) => {
   });
 
   it('carries the tool-invocation directive into the chat options', async () => {
-    const { robota, scripted } = buildAgent([{ text: 'done' }], {
+    const { agent, scripted } = buildAgent([{ text: 'done' }], {
       defaultModel: {
         provider: PROVIDER_NAME,
         model: 'test-model',
@@ -166,16 +166,16 @@ describe.each(ENTRY_POINTS)('CORE-042 turn parity — %s()', (entry) => {
       tools: [new EchoTool()],
     });
 
-    await drive(robota, entry, 'hello');
+    await drive(agent, entry, 'hello');
 
     expect(scripted.chatOptions[0]?.toolChoice).toBe('required');
   });
 
   it('carries the run cancellation signal into the chat options', async () => {
-    const { robota, scripted } = buildAgent([{ text: 'done' }]);
+    const { agent, scripted } = buildAgent([{ text: 'done' }]);
     const controller = new AbortController();
 
-    await drive(robota, entry, 'hello', { signal: controller.signal });
+    await drive(agent, entry, 'hello', { signal: controller.signal });
 
     // Identity is deliberately not asserted: the shared provider helper hands the provider a linked
     // controller of its own so it can also fire the idle timeout. What both entries must do is
@@ -185,24 +185,24 @@ describe.each(ENTRY_POINTS)('CORE-042 turn parity — %s()', (entry) => {
 
   it('sends ephemeralSystemContext to the provider without persisting it', async () => {
     const ephemeral = '<recalled-memory>rotate the staging key</recalled-memory>';
-    const { robota, scripted } = buildAgent([{ text: 'done' }]);
+    const { agent, scripted } = buildAgent([{ text: 'done' }]);
 
-    await drive(robota, entry, 'hello', { ephemeralSystemContext: ephemeral });
+    await drive(agent, entry, 'hello', { ephemeralSystemContext: ephemeral });
 
     expect(scripted.requests[0].some((m) => m.role === 'system' && m.content === ephemeral)).toBe(
       true,
     );
-    expect(robota.getHistory().some((m) => (m.content ?? '').includes('recalled-memory'))).toBe(
+    expect(agent.getHistory().some((m) => (m.content ?? '').includes('recalled-memory'))).toBe(
       false,
     );
   });
 
   it('records the turn usage the provider reported on the committed message', async () => {
-    const { robota } = buildAgent([{ text: 'done', usage: { inputTokens: 11, outputTokens: 7 } }]);
+    const { agent } = buildAgent([{ text: 'done', usage: { inputTokens: 11, outputTokens: 7 } }]);
 
-    await drive(robota, entry, 'hello');
+    await drive(agent, entry, 'hello');
 
-    const assistant = robota.getHistory().filter((m) => m.role === 'assistant');
+    const assistant = agent.getHistory().filter((m) => m.role === 'assistant');
     const metadata = assistant[assistant.length - 1]?.metadata as
       Record<string, unknown> | undefined;
     const usage = metadata?.['usage'] as Record<string, unknown> | undefined;
@@ -230,7 +230,7 @@ describe.each(ENTRY_POINTS)('CORE-042 turn parity — %s()', (entry) => {
         };
       },
     };
-    const robota = new Robota({
+    const agent = new ConversationAgent({
       name: 'Partial Delta Agent',
       aiProviders: [partial],
       defaultModel: { provider: PROVIDER_NAME, model: 'test-model' },
@@ -238,13 +238,13 @@ describe.each(ENTRY_POINTS)('CORE-042 turn parity — %s()', (entry) => {
     });
 
     const seen: string[] = [];
-    const finalText = await drive(robota, entry, 'hello', {
+    const finalText = await drive(agent, entry, 'hello', {
       onTextDelta: (delta) => seen.push(delta),
     });
 
     expect(seen.join('')).toBe('The full answer is 42.');
     expect(finalText).toBe('The full answer is 42.');
-    const assistant = robota.getHistory().filter((m) => m.role === 'assistant');
+    const assistant = agent.getHistory().filter((m) => m.role === 'assistant');
     expect(assistant[assistant.length - 1]?.content).toBe('The full answer is 42.');
   });
 
@@ -252,9 +252,9 @@ describe.each(ENTRY_POINTS)('CORE-042 turn parity — %s()', (entry) => {
     // A plugin that inspects provider traffic was blind on one entry point, which is invisible from
     // the outside: the run still succeeds, the plugin just never sees anything.
     const plugin = new ProviderCallRecorderPlugin();
-    const { robota } = buildAgent([{ text: 'done' }], { plugins: [plugin] });
+    const { agent } = buildAgent([{ text: 'done' }], { plugins: [plugin] });
 
-    await drive(robota, entry, 'hello');
+    await drive(agent, entry, 'hello');
 
     expect(plugin.before).toBe(1);
     expect(plugin.after).toBe(1);
@@ -264,9 +264,9 @@ describe.each(ENTRY_POINTS)('CORE-042 turn parity — %s()', (entry) => {
     // Measured divergence: the two paths asked different questions about which tools exist -- the
     // round path read the RESOLVED tool list, the streaming path read `config.tools` -- so an agent
     // could offer the model a different tool set depending on which method the caller reached for.
-    const { robota, scripted } = buildAgent([{ text: 'done' }], { tools: [new EchoTool()] });
+    const { agent, scripted } = buildAgent([{ text: 'done' }], { tools: [new EchoTool()] });
 
-    await drive(robota, entry, 'hello');
+    await drive(agent, entry, 'hello');
 
     expect(scripted.chatOptions[0]?.tools?.map((t) => t.name)).toContain('echo_tool');
   });
@@ -275,11 +275,11 @@ describe.each(ENTRY_POINTS)('CORE-042 turn parity — %s()', (entry) => {
     // Validation that ran on one entry and was skipped on the other, so the same agent was valid or
     // invalid depending on which method the caller reached for.
     const tool = new MutableDescriptionTool();
-    const { robota } = buildAgent([{ text: 'done' }], { tools: [tool] });
+    const { agent } = buildAgent([{ text: 'done' }], { tools: [tool] });
     tool.description = '';
 
     // The message is the registry's rather than the turn's, because registration happens during the
     // entry point's own initialization -- which is the point: BOTH entries refuse the same agent.
-    await expect(drive(robota, entry, 'hello')).rejects.toThrow(/description/);
+    await expect(drive(agent, entry, 'hello')).rejects.toThrow(/description/);
   });
 });

@@ -36,6 +36,7 @@ import type { IBaseEventData, IEventService } from '../interfaces/event-service'
 import type { IToolSchema } from '../interfaces/provider';
 import type {
   IToolResult,
+  IToolProvenance,
   IToolExecutionContext,
   IParameterValidationResult,
   TToolParameters,
@@ -69,6 +70,7 @@ export abstract class AbstractTool<
   TResult = IToolResult,
 > implements IToolWithEventService<TParameters, TResult> {
   abstract readonly schema: IToolSchema;
+  readonly provenance?: IToolProvenance;
 
   /**
    * Logger for tool operations

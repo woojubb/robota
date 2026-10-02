@@ -4,14 +4,14 @@
  * Root cause this prevents: the system prompt must reach the model. The single source of truth is
  * the top-level `config.systemMessage` (execution-service seeds the conversation store from it).
  * The system prompt is an agent-level concern, not model config — it is intentionally NOT placed on
- * `defaultModel`. Live changes propagate via `Robota.updateSystemPrompt` (see agent-core SPEC →
+ * `defaultModel`. Live changes propagate via `ConversationAgent.updateSystemPrompt` (see agent-core SPEC →
  * System Prompt (single source of truth)).
  */
 
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { Session } from '../session.js';
 
-// Capture the config passed to Robota constructor
+// Capture the config passed to ConversationAgent constructor
 let capturedConfig: Record<string, unknown> | null = null;
 let mockRunResult = 'mock response';
 let mockRunDeltas: string[] = [];
@@ -21,7 +21,7 @@ vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
   return {
     ...actual,
-    Robota: vi.fn().mockImplementation((config: Record<string, unknown>) => {
+    ConversationAgent: vi.fn().mockImplementation((config: Record<string, unknown>) => {
       capturedConfig = config;
       return {
         run: vi.fn().mockImplementation(async (_message: string, options?: unknown) => {
@@ -148,7 +148,7 @@ describe('Session — system prompt delivery', () => {
     expect(defaultModel.systemMessage).toBeUndefined();
   });
 
-  it('should pass system message through to Robota config', () => {
+  it('should pass system message through to ConversationAgent config', () => {
     const systemMessage = 'Some base system prompt with tools listed';
 
     new Session({
@@ -197,7 +197,7 @@ describe('Session — system prompt delivery', () => {
     expect(topLevel).toContain('moderate');
   });
 
-  it('should pass provider timeout into Robota agent config', () => {
+  it('should pass provider timeout into ConversationAgent agent config', () => {
     new Session({
       cwd: process.cwd(),
       tools: MOCK_TOOLS as never,
@@ -211,7 +211,7 @@ describe('Session — system prompt delivery', () => {
     expect(capturedConfig!['timeout']).toBe(1234);
   });
 
-  it('passes maxTurns to Robota.run as maxExecutionRounds', async () => {
+  it('passes maxTurns to ConversationAgent.run as maxExecutionRounds', async () => {
     const session = new Session({
       cwd: process.cwd(),
       tools: MOCK_TOOLS as never,

@@ -26,7 +26,7 @@ import { applySystemCommandResult } from '../hooks/command-result-handler.js';
 const PLUGIN_SOURCE_NAME = 'plugin';
 
 function reloadPluginCommandSource(registry: CommandRegistry): void {
-  const pluginsDir = join(process.env.HOME ?? homedir(), '.robota', 'plugins');
+  const pluginsDir = join(process.env.HOME ?? homedir(), 'state', 'plugins');
   const loader = new BundlePluginLoader(pluginsDir);
   try {
     // allow-fallback: test helper — empty registry on load error is safe
@@ -119,10 +119,10 @@ describe('applySystemCommandResult', () => {
   });
 
   it('reloads plugin command source immediately when requested', () => {
-    const home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-plugin-reload-')));
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-plugin-reload-')));
     const pluginDir = join(
       home,
-      '.robota',
+      'state',
       'plugins',
       'cache',
       'community',

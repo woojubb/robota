@@ -1,6 +1,6 @@
 # @robota-sdk/agent-tool-defaults
 
-The Robota SDK's built-in default tool set. `createDefaultTools()` builds the tools a Robota session
+The Robota SDK's built-in default tool set. `createDefaultTools()` builds the tools an agent session
 gets when its composition root supplies no tool list of its own, using the tool factories from
 `@robota-sdk/agent-tools`. It implements no tool itself. File tools that run on the host are
 contained by the `cwd` you pass; with a `sandboxClient` that has its own filesystem, file paths go to
@@ -16,13 +16,13 @@ npm install @robota-sdk/agent-tool-defaults @robota-sdk/agent-core
 ## Usage
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 declare const provider: IAIProvider;
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'DevAgent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
@@ -71,10 +71,10 @@ When the sandbox shares the host filesystem, file tools stay on the host, contai
 
 - [`@robota-sdk/agent-tools`](../agent-tools/README.md): the tool factories, the tool registry and
   the sandbox clients.
-- [`@robota-sdk/agent-core`](../agent-core/README.md): the `Robota` agent and the tool contract.
+- [`@robota-sdk/agent-core`](../agent-core/README.md): the `ConversationAgent` agent and the tool contract.
 
 See [docs/SPEC.md](docs/SPEC.md) for the package contract.
 
 ## License
 
-Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

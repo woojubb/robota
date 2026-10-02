@@ -1,3 +1,4 @@
+import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -113,14 +114,14 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe('robota session attach', () => {
+describe('test-product session attach', () => {
   it('refuses without an interactive terminal and names the command for the user to run', async () => {
     const io = output();
     const confirm = vi.fn(async () => true);
     const render = vi.fn();
     try {
-      expect(await runSessionAttachCommand([ID], { isTTY: false, confirm, render })).toBe(1);
-      expect(io.stderr()).toContain(`robota session attach ${ID}`);
+      expect(await runSessionAttachCommand([ID], { productRuntime: createTestProductRuntime(), isTTY: false, confirm, render })).toBe(1);
+      expect(io.stderr()).toContain(`test-product session attach ${ID}`);
       expect(io.stderr()).toMatch(/interactive terminal/i);
       expect(confirm).not.toHaveBeenCalled();
       expect(render).not.toHaveBeenCalled();
@@ -132,7 +133,7 @@ describe('robota session attach', () => {
   it('describes what it does, what it returns, and that only the user runs it', async () => {
     const io = output();
     try {
-      expect(await runSessionAttachCommand(['--help'], { isTTY: false })).toBe(0);
+      expect(await runSessionAttachCommand(['--help'], { productRuntime: createTestProductRuntime(), isTTY: false })).toBe(0);
       expect(io.stdout()).toMatch(/only the user\s+can run it/);
       expect(io.stdout()).toMatch(/should suggest the command instead/);
       expect(io.stdout()).toMatch(/keeps running/);
@@ -146,9 +147,9 @@ describe('robota session attach', () => {
     const io = output();
     try {
       for (const argv of [[], [ID, '--drive'], [ID, 'extra'], ['../escape']]) {
-        expect(await runSessionAttachCommand(argv, { isTTY: true, confirm: vi.fn(), render: vi.fn() })).toBe(1);
+        expect(await runSessionAttachCommand(argv, { productRuntime: createTestProductRuntime(), isTTY: true, confirm: vi.fn(), render: vi.fn() })).toBe(1);
       }
-      expect(io.stderr()).toMatch(/Usage: robota session attach/);
+      expect(io.stderr()).toMatch(/Usage: test-product session attach/);
     } finally {
       io.restore();
     }
@@ -160,7 +161,7 @@ describe('robota session attach', () => {
       const confirm = vi.fn(async () => false);
       const render = vi.fn();
       try {
-        expect(await runSessionAttachCommand([ID, '--observe'], { isTTY: true, root, confirm, render })).toBe(1);
+        expect(await runSessionAttachCommand([ID, '--observe'], { productRuntime: createTestProductRuntime(), isTTY: true, root, confirm, render })).toBe(1);
         expect(confirm).toHaveBeenCalledExactlyOnceWith({ id: ID, name: 'Morning review', mode: 'observe' });
         expect(render).not.toHaveBeenCalled();
         expect(listeners('text_delta')).toBe(0);
@@ -179,7 +180,7 @@ describe('robota session attach', () => {
           await restart();
           return true;
         });
-        expect(await runSessionAttachCommand([ID], { isTTY: true, root, confirm, render })).toBe(1);
+        expect(await runSessionAttachCommand([ID], { productRuntime: createTestProductRuntime(), isTTY: true, root, confirm, render })).toBe(1);
         expect(io.stderr()).toMatch(/changed/i);
         expect(render).not.toHaveBeenCalled();
         expect(listeners('text_delta')).toBe(0);
@@ -204,9 +205,9 @@ describe('robota session attach', () => {
           await vi.waitFor(() => expect(frames.some((frame) => frame.type === 'complete')).toBe(true));
           return 'user';
         };
-        expect(await runSessionAttachCommand([ID], { isTTY: true, root, confirm: async () => true, render })).toBe(0);
+        expect(await runSessionAttachCommand([ID], { productRuntime: createTestProductRuntime(), isTTY: true, root, confirm: async () => true, render })).toBe(0);
         expect(io.stdout()).toMatch(/keeps running/i);
-        expect(io.stdout()).toContain(`robota session stop ${ID}`);
+        expect(io.stdout()).toContain(`test-product session stop ${ID}`);
         await vi.waitFor(() => expect(listeners('text_delta')).toBe(0));
         expect(session.getMessages().some((message) => message.content === 'hello')).toBe(true);
         expect(await listSupervisedSessions(root)).toEqual([
@@ -223,7 +224,7 @@ describe('robota session attach', () => {
       const io = output();
       try {
         const render = vi.fn(async () => 'user' as const);
-        expect(await runSessionAttachCommand([ID, '--observe', '--screen-reader'], {
+        expect(await runSessionAttachCommand([ID, '--observe', '--screen-reader'], { productRuntime: createTestProductRuntime(),
           isTTY: true, root, confirm: async () => true, render,
         })).toBe(0);
         expect(render).toHaveBeenCalledWith(expect.objectContaining({ mode: 'observe', screenReaderFlag: true }));
@@ -241,12 +242,12 @@ describe('robota session attach', () => {
       const io = output();
       try {
         const renderStub = vi.fn<typeof renderAttachedApp>(async () => 'user');
-        const render = createAttachedAppRender(presentation(renderStub), {
+        const render = createAttachedAppRender(presentation(renderStub), { productRuntime: createTestProductRuntime(),
           cwd: home,
           projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', home),
           providerDefinitions: [],
         });
-        expect(await runSessionAttachCommand([ID, '--observe'], {
+        expect(await runSessionAttachCommand([ID, '--observe'], { productRuntime: createTestProductRuntime(),
           isTTY: true, root, confirm: async () => true, render,
         })).toBe(0);
         expect(renderStub).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
@@ -274,8 +275,8 @@ describe('robota session attach', () => {
     const io = output();
     try {
       const handled = await runPreparsedCliCommand(
-        { providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd) },
-        ['node', 'robota', 'session', 'attach', ID, '--observe'],
+        { productRuntime: createTestProductRuntime(), providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd) },
+        ['node', 'test-product', 'session', 'attach', ID, '--observe'],
         cwd,
         {},
         undefined,
@@ -298,7 +299,7 @@ describe('robota session attach', () => {
       const io = output();
       try {
         const render: ISessionAttachCommandOptions['render'] = async () => 'closed';
-        expect(await runSessionAttachCommand([ID], { isTTY: true, root, confirm: async () => true, render })).toBe(0);
+        expect(await runSessionAttachCommand([ID], { productRuntime: createTestProductRuntime(), isTTY: true, root, confirm: async () => true, render })).toBe(0);
         expect(io.stdout()).toMatch(/closed the connection/i);
       } finally {
         io.restore();
@@ -311,7 +312,7 @@ describe('robota session attach', () => {
     const io = output();
     const confirm = vi.fn();
     try {
-      expect(await runSessionAttachCommand([ID], {
+      expect(await runSessionAttachCommand([ID], { productRuntime: createTestProductRuntime(),
         isTTY: true, root: join(scratch, 'supervised'), confirm, render: vi.fn(),
       })).toBe(1);
       expect(io.stderr()).toMatch(/not a live supervised session/i);
@@ -328,13 +329,13 @@ describe('robota session attach', () => {
     const io = output();
     try {
       const handled = await runPreparsedCliCommand(
-        { providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd) },
-        ['node', 'robota', 'session', 'attach', ID],
+        { productRuntime: createTestProductRuntime(), providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd) },
+        ['node', 'test-product', 'session', 'attach', ID],
         cwd,
       );
       expect(handled).toBe(true);
       expect(process.exitCode).toBe(1);
-      expect(io.stderr()).toContain(`robota session attach ${ID}`);
+      expect(io.stderr()).toContain(`test-product session attach ${ID}`);
     } finally {
       io.restore();
       process.exitCode = previousExitCode;

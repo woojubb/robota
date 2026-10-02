@@ -1,5 +1,6 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * `robota session attach <id> [--observe]`: put this terminal on a live supervised session.
+ * `the CLI session attach <id> [--observe]`: put this terminal on a live supervised session.
  *
  * Attaching is a trust action: the terminal gets the session's conversation and, in drive mode, sends
  * prompts and answers its permission questions. So it runs only for a person at an interactive
@@ -17,13 +18,13 @@ const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9
  * Written for whoever reads `--help`, a model included: what it does, when to use it, what it
  * returns, and that only the user can run it.
  */
-export const SESSION_ATTACH_HELP =
-  'Usage: robota session attach <supervised-id> [--observe] [--screen-reader|--no-screen-reader]\n' +
+export const SESSION_ATTACH_HELP = (cliName: string): string =>
+  `Usage: ${cliName} session attach <supervised-id> [--observe] [--screen-reader|--no-screen-reader]\n` +
   '\n' +
-  'Attach this terminal to a live supervised session started with `robota session start --background`.\n' +
+  `Attach this terminal to a live supervised session started with \`${cliName} session start --background\`.\n` +
   'Drive mode (the default) sends prompts and answers the session\'s questions alongside its other\n' +
   'surfaces; --observe follows the conversation read-only. Use it to check on or steer a background\n' +
-  'session; find ids with `robota session list` or `robota session view`.\n' +
+  `session; find ids with \`${cliName} session list\` or \`${cliName} session view\`.\n` +
   '\n' +
   'It asks for confirmation on this terminal first and needs an interactive terminal, so only the user\n' +
   'can run it; a script or an agent should suggest the command instead. Detach with /exit, Ctrl-C or\n' +
@@ -84,14 +85,15 @@ export async function runConfirmedAttach(attach: IConfirmedAttach): Promise<numb
 }
 
 /** What to print when an attach to a supervised session ends. */
-export function supervisedSessionAttachMessages(id: string): IConfirmedAttach['messages'] {
+export function supervisedSessionAttachMessages(id: string, cliName: string): IConfirmedAttach['messages'] {
   return {
     closed: `Supervised session ${id} closed the connection (it stopped, or cut this terminal off).`,
-    detached: `Detached from ${id}. It keeps running; stop it with robota session stop ${id} or from robota session view.`,
+    detached: `Detached from ${id}. It keeps running; stop it with ${cliName} session stop ${id} or from ${cliName} session view.`,
   };
 }
 
 export interface ISessionAttachCommandOptions {
+  readonly productRuntime: ICliRuntimeContext;
   readonly isTTY?: boolean;
   readonly root?: string;
   /** Supplied by the interactive CLI; resolves how the terminal UI ended. */
@@ -101,10 +103,11 @@ export interface ISessionAttachCommandOptions {
 
 export async function runSessionAttachCommand(
   argv: readonly string[],
-  options: ISessionAttachCommandOptions = {},
+  options: ISessionAttachCommandOptions,
 ): Promise<number> {
+  const cliName = options.productRuntime.vocabulary.cliName;
   if (argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h')) {
-    process.stdout.write(SESSION_ATTACH_HELP);
+    process.stdout.write(SESSION_ATTACH_HELP(cliName));
     return 0;
   }
   const [id, ...flags] = argv;
@@ -115,11 +118,11 @@ export async function runSessionAttachCommand(
     screenReaderFlags.length > 1 ||
     flags.some((flag) => flag !== '--observe' && flag !== '--screen-reader' && flag !== '--no-screen-reader')
   ) {
-    process.stderr.write(SESSION_ATTACH_HELP);
+    process.stderr.write(SESSION_ATTACH_HELP(cliName));
     return 1;
   }
   const mode = observe ? 'observe' : 'drive';
-  const command = `robota session attach ${id}${observe ? ' --observe' : ''}`;
+  const command = `${cliName} session attach ${id}${observe ? ' --observe' : ''}`;
   if (!(options.isTTY ?? (process.stdin.isTTY === true && process.stdout.isTTY === true))) {
     process.stderr.write(
       'Attaching needs an interactive terminal and the user\'s confirmation. ' +
@@ -129,11 +132,11 @@ export async function runSessionAttachCommand(
   }
   const render = options.render;
   if (render === undefined) {
-    process.stderr.write('robota session attach needs the interactive CLI; this runtime has no terminal UI.\n');
+    process.stderr.write(`${cliName} session attach needs the interactive CLI; this runtime has no terminal UI.\n`);
     return 1;
   }
   const screenReaderFlag = screenReaderFlags.length === 0 ? undefined : screenReaderFlags[0] === '--screen-reader';
-  const root = options.root ?? resolveSupervisedDirectory();
+  const root = options.root ?? resolveSupervisedDirectory(options.productRuntime);
   let row;
   try {
     row = (await listSupervisedSessions(root, undefined, { includeName: true, includeGeneration: true }))
@@ -155,6 +158,6 @@ export async function runSessionAttachCommand(
   return runConfirmedAttach({
     id, mode, generation: row.generation, root,
     render: (open) => render({ ...open, mode, sessionLabel, screenReaderFlag }),
-    messages: supervisedSessionAttachMessages(id),
+    messages: supervisedSessionAttachMessages(id, cliName),
   });
 }

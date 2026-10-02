@@ -99,12 +99,12 @@ with regex enabled fails closed.
   every consumer, even ones supplying their own node set.
 - Provider definitions and the trusted-execution-root contract are imported from the shared
   agent-core contracts package as neutral types. Concrete provider packages and upper
-  agent-runtime packages are never imported, so this package stays usable without pulling in a
+  robota packages are never imported, so this package stays usable without pulling in a
   specific LLM vendor or product-level session logic.
 
 ## Non-goals
 
-- Must not import concrete provider packages or upper agent-runtime packages (session, executor,
+- Must not import concrete provider packages or upper robota packages (session, executor,
   CLI, tools layers) — the dependency direction runs the other way.
 - Does not manage a second worker loop or expose the raw worker step to consumers.
 - Does not own the HTTP/byte mapping for assets — that belongs to the runtime server.

@@ -37,14 +37,14 @@ interface IFixture {
 }
 
 function makeFixture(): IFixture {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-trust-prompt-')));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-trust-prompt-')));
   const home = join(root, 'home');
   const repo = join(root, 'repo');
-  mkdirSync(join(home, '.robota'), { recursive: true });
+  mkdirSync(join(home, 'state'), { recursive: true });
   // Skip the first-run welcome and provider setup: neither is what this scenario observes.
-  writeFileSync(join(home, '.robota', 'onboarded'), new Date().toISOString(), 'utf8');
+  writeFileSync(join(home, 'state', 'onboarded'), new Date().toISOString(), 'utf8');
   writeFileSync(
-    join(home, '.robota', 'settings.json'),
+    join(home, 'state', 'settings.json'),
     JSON.stringify({
       currentProvider: 'anthropic',
       providers: {
@@ -58,7 +58,7 @@ function makeFixture(): IFixture {
 }
 
 function trustedGrants(fixture: IFixture): number {
-  const store = join(fixture.home, '.robota', 'workspace-trust.json');
+  const store = join(fixture.home, 'state', 'workspace-trust.json');
   if (!existsSync(store)) return 0;
   const parsed = JSON.parse(readFileSync(store, 'utf8')) as { grants: { state: string }[] };
   return parsed.grants.filter((grant) => grant.state === 'trusted').length;

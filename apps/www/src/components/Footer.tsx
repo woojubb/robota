@@ -2,17 +2,32 @@
 
 import { InternalLink } from './ui';
 import { useLocale, useTranslations } from 'next-intl';
+import { productPublicConfig } from '@/lib/product-config.generated';
 
 export function Footer() {
   const t = useTranslations('common');
   const locale = useLocale();
+  const externalLinks = [
+    productPublicConfig.identity.docsUrl && {
+      key: 'documentation',
+      href: `${productPublicConfig.identity.docsUrl}/${locale}/`,
+    },
+    productPublicConfig.identity.docsUrl && {
+      key: 'gettingStarted',
+      href: `${productPublicConfig.identity.docsUrl}/${locale}/getting-started/`,
+    },
+    productPublicConfig.identity.repositoryUrl && {
+      key: 'github',
+      href: productPublicConfig.identity.repositoryUrl,
+    },
+  ].filter((link): link is { key: string; href: string } => Boolean(link));
 
   return (
     <footer className="border-t border-[var(--border)] bg-[var(--background)]">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
           <div className="col-span-2 md:col-span-1">
-            <p className="text-lg font-bold text-[var(--foreground)]">robota</p>
+            <p className="text-lg font-bold text-[var(--foreground)]">{productPublicConfig.identity.displayName}</p>
             <p className="mt-2 text-sm text-[var(--muted-foreground)]">{t('footer.tagline')}</p>
           </div>
 
@@ -26,7 +41,7 @@ export function Footer() {
                   href={`/${locale}/compare`}
                   className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
-                  {t('footer.links.whyRobota')}
+                  {t('footer.links.whyProduct')}
                 </InternalLink>
               </li>
               <li>
@@ -54,12 +69,7 @@ export function Footer() {
             </p>
             <ul className="mt-3 space-y-2">
               {[
-                { key: 'documentation', href: `https://docs.robota.io/${locale}/` },
-                {
-                  key: 'gettingStarted',
-                  href: `https://docs.robota.io/${locale}/getting-started/`,
-                },
-                { key: 'github', href: 'https://github.com/woojubb/robota' },
+                ...externalLinks,
                 {
                   key: 'npm',
                   href: 'https://www.npmjs.com/package/@robota-sdk/agent-framework',
@@ -93,11 +103,18 @@ export function Footer() {
                 </InternalLink>
               </li>
               {[
+                ...(productPublicConfig.identity.repositoryUrl
+                  ? [
                 {
                   key: 'githubDiscussions',
-                  href: 'https://github.com/woojubb/robota/discussions',
+                  href: `${productPublicConfig.identity.repositoryUrl}/discussions`,
                 },
-                { key: 'issues', href: 'https://github.com/woojubb/robota/issues' },
+                {
+                  key: 'issues',
+                  href: `${productPublicConfig.identity.repositoryUrl}/issues`,
+                },
+                    ]
+                  : []),
               ].map(({ key, href }) => (
                 <li key={key}>
                   <a

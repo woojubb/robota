@@ -1,5 +1,5 @@
 /**
- * Static OTLP request headers from Robota telemetry settings. Header values are usually
+ * Static OTLP request headers from Product telemetry settings. Header values are usually
  * credentials, so every error names only the setting and, for an entry, its 1-based position.
  */
 
@@ -26,8 +26,8 @@ const RESERVED_NAMES = new Set([
 
 function invalidSetting(variable: string, entry?: number): Error {
   return new Error(entry === undefined
-    ? `Invalid Robota telemetry header setting ${variable}.`
-    : `Invalid Robota telemetry header setting ${variable} (entry ${entry}).`);
+    ? `Invalid Product telemetry header setting ${variable}.`
+    : `Invalid Product telemetry header setting ${variable} (entry ${entry}).`);
 }
 
 function freezeHeaderMap(entries: Iterable<readonly [string, string]>): TOtlpHeaderMap {
@@ -80,7 +80,7 @@ export function mergeOtlpHeaderMaps(variables: readonly string[], ...maps: reado
   // Header names and values are ASCII after validation, so length is their byte size on the wire.
   for (const [name, value] of merged) bytes += name.length + value.length + 4;
   if (bytes > MAX_MERGED_BYTES) {
-    throw new Error(`Robota telemetry headers from ${variables.join(' and ')} exceed the size limit.`);
+    throw new Error(`Product telemetry headers from ${variables.join(' and ')} exceed the size limit.`);
   }
   return freezeHeaderMap(merged);
 }
@@ -90,7 +90,7 @@ export function buildOtlpRequestHeaders(variables: readonly string[], map: TOtlp
   try {
     return new Headers(Object.keys(map).map((name) => [name, map[name]!] as [string, string]));
   } catch {
-    throw new Error(`Robota telemetry headers from ${variables.join(' and ')} could not be prepared.`);
+    throw new Error(`Product telemetry headers from ${variables.join(' and ')} could not be prepared.`);
   }
 }
 

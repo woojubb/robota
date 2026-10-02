@@ -1,6 +1,6 @@
-import { Robota, type IAIProvider } from '@robota-sdk/agent-core';
+import { ConversationAgent, type IAIProvider } from '@robota-sdk/agent-core';
 import { createRoundtable, MemoryConversationStore } from '@robota-sdk/agent-roundtable';
-import { robotaParticipant } from './index';
+import { runtimeParticipant } from './index';
 
 // A minimal provider so this example runs with no external service or API key.
 const provider: IAIProvider = {
@@ -23,11 +23,11 @@ const provider: IAIProvider = {
   validateConfig: () => true,
 };
 
-const assistant = robotaParticipant({
+const assistant = runtimeParticipant({
   id: 'assistant',
-  runtime: { id: 'demo/robota', version: '1' },
+  runtime: { id: 'demo/conversation-agent', version: '1' },
   createAgent: async () =>
-    new Robota({
+    new ConversationAgent({
       name: 'assistant',
       aiProviders: [provider],
       defaultModel: { provider: provider.name, model: 'demo-model' },

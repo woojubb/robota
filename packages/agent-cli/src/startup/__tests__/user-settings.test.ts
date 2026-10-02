@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * Issue #2342 — an invalid settings file reaches the user as its message, not as a stack trace.
  *
@@ -18,12 +19,12 @@ import { readUserSettingsOrExit } from '../user-settings.js';
 
 const homes: string[] = [];
 
-/** A HOME whose `~/.robota/settings.json` this case controls, written verbatim. */
+/** A HOME whose `the configured user root/settings.json` this case controls, written verbatim. */
 function homeWithSettings(raw?: string): string {
   const home = realpathSync(mkdtempSync(join(tmpdir(), 'issue-2342-home-')));
   homes.push(home);
-  mkdirSync(join(home, '.robota'), { recursive: true });
-  if (raw !== undefined) writeFileSync(join(home, '.robota', 'settings.json'), raw, 'utf8');
+  mkdirSync(join(home, '.test-product'), { recursive: true });
+  if (raw !== undefined) writeFileSync(join(home, '.test-product', 'settings.json'), raw, 'utf8');
   return home;
 }
 
@@ -45,21 +46,21 @@ describe('readUserSettingsOrExit (issue #2342)', () => {
       throw new Error('exited');
     }) as never);
 
-    expect(() => readUserSettingsOrExit()).toThrow('exited');
+    expect(() => readUserSettingsOrExit(createTestProductRuntime('test-product', { HOME: process.env['HOME'] }))).toThrow('exited');
 
     expect(exit).toHaveBeenCalledWith(1);
     // The two halves of the message that make it actionable: which file, and what to do.
     expect(written.join('')).toContain('settings.json');
     expect(written.join('')).toContain('Fix or delete the file');
-    expect(written.join('')).toContain('robota doctor');
-    expect(written.join('').match(/robota doctor/g)).toHaveLength(1);
+    expect(written.join('')).toContain('test-product doctor');
+    expect(written.join('').match(/test-product doctor/g)).toHaveLength(1);
   });
 
   it('returns the settings when the file parses', () => {
     // The companion the refusal needs: without it, a function that always exited would also pass.
     vi.stubEnv('HOME', homeWithSettings(JSON.stringify({ preset: 'default' })));
 
-    expect(readUserSettingsOrExit()).toEqual({ preset: 'default' });
+    expect(readUserSettingsOrExit(createTestProductRuntime('test-product', { HOME: process.env['HOME'] }))).toEqual({ preset: 'default' });
   });
 
   it('returns empty settings when there is no file, rather than treating absence as an error', () => {
@@ -67,20 +68,20 @@ describe('readUserSettingsOrExit (issue #2342)', () => {
     // not an error condition, and only an existing one that cannot be parsed is.
     vi.stubEnv('HOME', homeWithSettings());
 
-    expect(readUserSettingsOrExit()).toEqual({});
+    expect(readUserSettingsOrExit(createTestProductRuntime('test-product', { HOME: process.env['HOME'] }))).toEqual({});
   });
 
   it('lets an unrelated failure through instead of presenting it as a settings problem', () => {
     // Without this, a broad catch passes the first case too. `readSettings` throws a plain Error for
     // an unreadable path — a directory where the file should be — which is not a parse failure.
     const home = homeWithSettings();
-    mkdirSync(join(home, '.robota', 'settings.json'), { recursive: true });
+    mkdirSync(join(home, '.test-product', 'settings.json'), { recursive: true });
     vi.stubEnv('HOME', home);
     const exit = vi.spyOn(process, 'exit').mockImplementation((() => {
       throw new Error('exited');
     }) as never);
 
-    expect(() => readUserSettingsOrExit()).not.toThrow('exited');
+    expect(() => readUserSettingsOrExit(createTestProductRuntime('test-product', { HOME: process.env['HOME'] }))).not.toThrow('exited');
     expect(exit).not.toHaveBeenCalled();
   });
 });

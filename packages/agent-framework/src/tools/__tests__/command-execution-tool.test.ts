@@ -17,7 +17,7 @@ describe('command execution tool', () => {
     });
 
     expect(tool.schema.description).toContain('registered model-invocable command');
-    expect(tool.schema.description).not.toContain('Robota');
+    expect(tool.schema.description).not.toContain('ConversationAgent');
     expect(tool.schema.description).toContain('command registry');
     expect(tool.schema.description).not.toContain('Use this');
     expect(tool.schema.description).not.toContain('assistant text');

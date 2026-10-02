@@ -17,7 +17,7 @@ vi.mock('fs', () => {
 
 // SEC-003: `fs` is mocked, so this is an inert fixture path; it deliberately does not
 // live under the OS temp dir.
-const LOG_DIR = '/var/robota-test/openai-payload-logs';
+const LOG_DIR = '/var/agent-test/openai-payload-logs';
 
 function createMockLogger(): ILogger {
   return {

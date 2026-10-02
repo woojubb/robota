@@ -42,7 +42,10 @@ describe('SEC-004 — WebFetch HTML entity decoding is single-pass', () => {
       headers: { get: () => 'text/html; charset=utf-8' },
       arrayBuffer: () => Promise.resolve(new TextEncoder().encode(html).buffer),
     } as unknown as Response);
-    const { webFetchTool } = await import('../builtins/web-fetch-tool.js');
+    const { createWebFetchTool } = await import('../builtins/web-fetch-tool.js');
+    const webFetchTool = createWebFetchTool({
+      egress: { deps: { lookup: async () => ['93.184.216.34'], fetch: globalThis.fetch } },
+    });
     const result = await webFetchTool.execute({ url: 'https://example.com/' } as Parameters<
       typeof webFetchTool.execute
     >[0]);

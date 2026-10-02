@@ -2,7 +2,7 @@
   "name": "robota-capability-multi-surface-deploy",
   "version": "0.1.0",
   "private": true,
-  "description": "Robota capability demo — one agent definition served over many channels (WS + HTTP) via the transport registry, no gateway",
+  "description": "Robota capability demo \u2014 one agent definition served over many channels (WS + HTTP) via the transport registry, no gateway",
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",

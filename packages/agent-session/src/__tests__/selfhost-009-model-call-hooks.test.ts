@@ -22,7 +22,7 @@ import type {
   IHookInput,
   THookOutcome,
   IHookTypeExecutor,
-  Robota,
+  ConversationAgent,
   THooksConfig,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -46,11 +46,11 @@ function makeRecordingExecutor(exitCode = 0): {
 }
 
 /**
- * Fake Robota whose `run()` drives, per round, the real provider-call event sequence emitted by
+ * Fake ConversationAgent whose `run()` drives, per round, the real provider-call event sequence emitted by
  * `execution-round-streaming.ts`: `provider_request`, then `provider_response_raw`, then
  * `provider_response_normalized`.
  */
-function createFakeRobota(rounds: number): Robota {
+function createFakeConversationAgent(rounds: number): ConversationAgent {
   const messages: TUniversalMessage[] = [];
   const run = vi.fn(
     async (
@@ -73,7 +73,7 @@ function createFakeRobota(rounds: number): Robota {
   return {
     getHistory: (): TUniversalMessage[] => [...messages],
     run,
-  } as unknown as Robota;
+  } as unknown as ConversationAgent;
 }
 
 function createProvider(): IAIProvider {
@@ -88,7 +88,7 @@ function createProvider(): IAIProvider {
 }
 
 function createContext(
-  agent: Robota,
+  agent: ConversationAgent,
   hooks: THooksConfig,
   hookTypeExecutors: IHookTypeExecutor[],
 ): IRunContext {
@@ -122,7 +122,7 @@ describe('SELFHOST-009 TC-03 — model-call hook events', () => {
     const hooks: THooksConfig = {
       PreModelCall: [{ matcher: '', hooks: [{ type: 'command', command: 'noop' }] }],
     };
-    const ctx = createContext(createFakeRobota(2), hooks, [executor]);
+    const ctx = createContext(createFakeConversationAgent(2), hooks, [executor]);
 
     await executeRun('hello', undefined, ctx, new AbortController().signal);
     await flushMicrotasks();
@@ -139,7 +139,7 @@ describe('SELFHOST-009 TC-03 — model-call hook events', () => {
     const hooks: THooksConfig = {
       PostModelCall: [{ matcher: '', hooks: [{ type: 'command', command: 'noop' }] }],
     };
-    const ctx = createContext(createFakeRobota(3), hooks, [executor]);
+    const ctx = createContext(createFakeConversationAgent(3), hooks, [executor]);
 
     await executeRun('hello', undefined, ctx, new AbortController().signal);
     await flushMicrotasks();
@@ -177,7 +177,7 @@ describe('SELFHOST-009 TC-03 — model-call hook events', () => {
           return 'final response';
         },
       ),
-    } as unknown as Robota;
+    } as unknown as ConversationAgent;
     const ctx = createContext(agent, hooks, [executor]);
 
     await executeRun('hello', undefined, ctx, new AbortController().signal);
@@ -197,7 +197,7 @@ describe('SELFHOST-009 TC-03 — model-call hook events', () => {
       PreModelCall: [{ matcher: '', hooks: [{ type: 'command', command: 'deny' }] }],
       PostModelCall: [{ matcher: '', hooks: [{ type: 'command', command: 'deny' }] }],
     };
-    const ctx = createContext(createFakeRobota(1), hooks, [executor]);
+    const ctx = createContext(createFakeConversationAgent(1), hooks, [executor]);
 
     const response = await executeRun('hello', undefined, ctx, new AbortController().signal);
     await flushMicrotasks();

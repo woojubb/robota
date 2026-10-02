@@ -30,7 +30,7 @@ import {
 const made: string[] = [];
 
 function scratch(): string {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-reg-')));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-fixture-reg-')));
   made.push(dir);
   return dir;
 }

@@ -1,5 +1,6 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * `robota --attach` end to end in process: the real renderer, with the presentation the CLI
+ * `the product --attach` end to end in process: the real renderer, with the presentation the CLI
  * resolves, on an attach connection the daemon then closes. The command reports the close, detaches
  * and exits 0.
  *
@@ -96,7 +97,7 @@ function closingConnection(): {
   };
 }
 
-describe('robota --attach with the real renderer', () => {
+describe('test-product --attach with the real renderer', () => {
   it('renders the attached TUI, and reports the daemon closing the connection with exit 0', async () => {
     const stdout = captureWrites(process.stdout);
     captureWrites(process.stderr);
@@ -105,7 +106,7 @@ describe('robota --attach with the real renderer', () => {
       id: ID, liveness: 'alive', control: 'available', activity: 'idle', cwd: scratch,
       generation: GENERATION, daemon: true, name: 'Main daemon',
     };
-    const run = runDaemonAttachCommand(['--attach'], {
+    const run = runDaemonAttachCommand(['--attach'], {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
       cwd: scratch,
       root: join(scratch, 'supervised'),
       isTTY: true,
@@ -120,7 +121,7 @@ describe('robota --attach with the real renderer', () => {
           createDefaultTuiCliAdapter,
           installTuiProcessGuards: vi.fn(),
         },
-        {
+        {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
           cwd: scratch,
           projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch),
           providerDefinitions: [],
@@ -156,7 +157,7 @@ describe('robota --attach with the real renderer', () => {
           order.push('guards');
         }),
       },
-      {
+      {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
         cwd: scratch,
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch),
         providerDefinitions: [],
@@ -172,7 +173,7 @@ describe('robota --attach with the real renderer', () => {
     // The daemon's process has no terminal to hand over or theme to repaint: the attached terminal
     // runs these commands, so it must be given all of them, and a theme it picks lands in the same
     // user settings file the plain TUI writes.
-    const settingsPath = join(scratch, '.robota', 'settings.json');
+    const settingsPath = join(scratch, '.test-product', 'settings.json');
     mkdirSync(dirname(settingsPath), { recursive: true });
     writeFileSync(settingsPath, JSON.stringify({ language: 'ko', syntaxHighlighting: false }));
     const renderStub = vi.fn<typeof renderAttachedApp>(async () => 'user');
@@ -184,7 +185,7 @@ describe('robota --attach with the real renderer', () => {
         createDefaultTuiCliAdapter,
         installTuiProcessGuards: vi.fn(),
       },
-      {
+      {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
         cwd: scratch,
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch),
         providerDefinitions: [],
@@ -211,11 +212,11 @@ describe('robota --attach with the real renderer', () => {
   });
 });
 
-describe("robota --attach's own commands follow the plain TUI's module selection", () => {
+describe("test-product --attach's own commands follow the plain TUI's module selection", () => {
   it('leaves out a client command whose module the selected preset disables', async () => {
     // The attached terminal routes by this set: a module the preset turns off must not come back
     // as a command this terminal runs, because a plain TUI with the same settings would not offer it.
-    const presetsDirectory = join(scratch, '.robota', 'presets');
+    const presetsDirectory = join(scratch, '.test-product', 'presets');
     mkdirSync(presetsDirectory, { recursive: true });
     writeFileSync(
       join(presetsDirectory, 'no-shell.json'),
@@ -226,7 +227,7 @@ describe("robota --attach's own commands follow the plain TUI's module selection
         disabledCommandModules: ['agent-command-shell'],
       }),
     );
-    const settingsPath = join(scratch, '.robota', 'settings.json');
+    const settingsPath = join(scratch, '.test-product', 'settings.json');
     writeFileSync(settingsPath, JSON.stringify({ preset: 'no-shell' }));
     const renderStub = vi.fn<typeof renderAttachedApp>(async () => 'user');
     const render = createAttachedAppRender(
@@ -237,7 +238,7 @@ describe("robota --attach's own commands follow the plain TUI's module selection
         createDefaultTuiCliAdapter,
         installTuiProcessGuards: vi.fn(),
       },
-      {
+      {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
         cwd: scratch,
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch),
         providerDefinitions: [],

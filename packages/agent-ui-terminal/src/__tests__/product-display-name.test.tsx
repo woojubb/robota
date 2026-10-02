@@ -23,8 +23,8 @@ describe('host-selected terminal display name', () => {
 
     expect(history.lastFrame()).toContain('Atlas:');
     expect(streaming.lastFrame()).toContain('Atlas:');
-    expect(history.lastFrame()).not.toContain('Robota:');
-    expect(streaming.lastFrame()).not.toContain('Robota:');
+    expect(history.lastFrame()).not.toContain('Fixture Agent:');
+    expect(streaming.lastFrame()).not.toContain('Fixture Agent:');
   });
 
   it('uses a neutral name when the host does not choose one', () => {
@@ -34,15 +34,15 @@ describe('host-selected terminal display name', () => {
 
   it('renders a projected command using the host-selected prefix', () => {
     const { lastFrame } = render(
-      <ProductDisplayNameProvider name="Atlas" modelCommandToolPrefix="robota_command_">
+      <ProductDisplayNameProvider name="Atlas" modelCommandToolPrefix="fixture_agent_command_">
         <StreamingIndicator
           text=""
-          activeTools={[{ toolName: 'robota_command_echo', firstArg: '', isRunning: true }]}
+          activeTools={[{ toolName: 'fixture_agent_command_echo', firstArg: '', isRunning: true }]}
         />
       </ProductDisplayNameProvider>,
     );
     expect(lastFrame()).toContain('echo(');
-    expect(lastFrame()).not.toContain('robota_command_echo');
+    expect(lastFrame()).not.toContain('fixture_agent_command_echo');
   });
 
   it('uses the host name in transport restart copy', () => {

@@ -1,3 +1,6 @@
+import { createIdentityContext } from '../identity/crypto-context.js';
+const testIdentity = createIdentityContext('test-product');
+const IDENTITY_PURPOSES = testIdentity.purposes;
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -10,7 +13,7 @@ import {
   type ISigningKey,
   type TDeviceCapability,
 } from '../identity/certificates.js';
-import { HOUR_MS, IDENTITY_PURPOSES, canonicalBytes, signCanonical } from '../identity/encoding.js';
+import { HOUR_MS, canonicalBytes, signCanonical } from '../identity/encoding.js';
 import { deriveMasterKey, type IMasterKey } from '../identity/master-key.js';
 import {
   REVOCATION_LIST_VALIDITY_MS,
@@ -85,7 +88,7 @@ async function makeDevice(
 ): Promise<IDevice> {
   const sign = await generateDeviceSignKeyPair(false);
   const ka = await generateDeviceKeyAgreementKeyPair(false);
-  const cert = await certifyDevice({
+  const cert = await certifyDevice(testIdentity, {
     signingKey,
     signPublicKey: sign.publicKey,
     kaPublicKey: ka.publicKey,
@@ -94,7 +97,7 @@ async function makeDevice(
     capabilities,
     issuedAt: NOW,
   });
-  const session = await signSessionDescriptor({
+  const session = await signSessionDescriptor(testIdentity, {
     signPrivateKey: sign.privateKey,
     deviceId: cert.deviceId,
     sessionId: `c2Vzc2lvbi0${name}`,
@@ -107,9 +110,9 @@ async function makeDevice(
 }
 
 async function buildWorld(phrase: string): Promise<IWorld> {
-  const master = await deriveMasterKey(phrase);
+  const master = await deriveMasterKey(phrase, { derivationPath: [100, 0] });
   const signing = await generateSigningKeyPair({ extractable: false });
-  const certificate = await certifySigningKey({
+  const certificate = await certifySigningKey(testIdentity, {
     masterPrivateKey: master.keyPair.privateKey,
     userId: master.userId,
     signingPublicKey: signing.publicKey,
@@ -120,25 +123,25 @@ async function buildWorld(phrase: string): Promise<IWorld> {
   const b = await makeDevice(signingKey, 'b', ['drive', 'message', 'observe']);
   const c = await makeDevice(signingKey, 'c', ['message']);
   const d = await makeDevice(signingKey, 'd', ['message']);
-  const roster = await issueDeviceRoster({
+  const roster = await issueDeviceRoster(testIdentity, {
     signingKey,
     seq: 5,
     issuedAt: NOW,
     devices: [a.cert, b.cert, c.cert],
   });
-  const revocation = await issueDeviceRevocationList({
+  const revocation = await issueDeviceRevocationList(testIdentity, {
     signingKey,
     seq: 7,
     issuedAt: NOW,
     revokedDeviceIds: [],
   });
-  const revokedC = await issueDeviceRevocationList({
+  const revokedC = await issueDeviceRevocationList(testIdentity, {
     signingKey,
     seq: 8,
     issuedAt: NOW,
     revokedDeviceIds: [c.cert.deviceId],
   });
-  const signingKeyRevocation = await issueSigningKeyRevocation({
+  const signingKeyRevocation = await issueSigningKeyRevocation(testIdentity, {
     masterPrivateKey: master.keyPair.privateKey,
     userId: master.userId,
     seq: 2,
@@ -231,14 +234,14 @@ function run(
       for (const routed of await relay(from, copy)) controllers[to]?.onFrame(routed);
     });
   };
-  const a = startDeviceHandshake({
+  const a = startDeviceHandshake(testIdentity, {
     localFingerprint: FP_A,
     remoteFingerprint: FP_B,
     ...aOptions,
     role: 'initiator',
     send: (frame) => deliver('a', frame),
   });
-  const b = startDeviceHandshake({
+  const b = startDeviceHandshake(testIdentity, {
     localFingerprint: FP_B,
     remoteFingerprint: FP_A,
     ...bOptions,
@@ -299,17 +302,17 @@ function containsCertificate(frames: readonly TDeviceHandshakeFrame[]): boolean 
 describe('pairwise secret S_AB', () => {
   it('is the same value on both sides, 32 bytes, and differs per pair and per kaEpoch', async () => {
     const { a, b, c } = world.devices;
-    const ab = await derivePairwiseSecret({
+    const ab = await derivePairwiseSecret(testIdentity, {
       ownKaPrivateKey: a.ka.privateKey,
       own: a.cert,
       peer: b.cert,
     });
-    const ba = await derivePairwiseSecret({
+    const ba = await derivePairwiseSecret(testIdentity, {
       ownKaPrivateKey: b.ka.privateKey,
       own: b.cert,
       peer: a.cert,
     });
-    const ac = await derivePairwiseSecret({
+    const ac = await derivePairwiseSecret(testIdentity, {
       ownKaPrivateKey: a.ka.privateKey,
       own: a.cert,
       peer: c.cert,
@@ -318,7 +321,7 @@ describe('pairwise secret S_AB', () => {
     expect(ab).toEqual(ba);
     expect(ab).not.toEqual(ac);
     const rotated = { ...b.cert, kaEpoch: 2 };
-    const abRotated = await derivePairwiseSecret({
+    const abRotated = await derivePairwiseSecret(testIdentity, {
       ownKaPrivateKey: a.ka.privateKey,
       own: a.cert,
       peer: rotated,
@@ -329,14 +332,18 @@ describe('pairwise secret S_AB', () => {
   it('refuses two different users and a device paired with itself', async () => {
     const { a } = world.devices;
     await expect(
-      derivePairwiseSecret({
+      derivePairwiseSecret(testIdentity, {
         ownKaPrivateKey: a.ka.privateKey,
         own: a.cert,
         peer: other.devices.b.cert,
       }),
     ).rejects.toThrow(/user/);
     await expect(
-      derivePairwiseSecret({ ownKaPrivateKey: a.ka.privateKey, own: a.cert, peer: a.cert }),
+      derivePairwiseSecret(testIdentity, {
+        ownKaPrivateKey: a.ka.privateKey,
+        own: a.cert,
+        peer: a.cert,
+      }),
     ).rejects.toThrow(/itself/);
   });
 });
@@ -427,7 +434,7 @@ describe('device handshake — channel binding and pre-proof', () => {
   it('refuses a reflected pre-proof: the initiator hears its own frames back', async () => {
     const sent: TDeviceHandshakeFrame[] = [];
     const reflector: { onFrame(frame: unknown): void }[] = [];
-    const controller = startDeviceHandshake({
+    const controller = startDeviceHandshake(testIdentity, {
       ...sideA(),
       localFingerprint: FP_A,
       remoteFingerprint: FP_B,
@@ -487,7 +494,7 @@ describe('device handshake — replay and reflection of proofs', () => {
     await Promise.all([first.a, first.b]);
     // A second responder session hears the recorded initiator frames verbatim.
     const sent: TDeviceHandshakeFrame[] = [];
-    const responder = startDeviceHandshake({
+    const responder = startDeviceHandshake(testIdentity, {
       ...sideB(),
       localFingerprint: FP_B,
       remoteFingerprint: FP_A,
@@ -681,7 +688,7 @@ describe('device handshake — chain verification', () => {
   });
 
   it('refuses a device dropped from a newer roster', async () => {
-    const newer = await issueDeviceRoster({
+    const newer = await issueDeviceRoster(testIdentity, {
       signingKey: world.signingKey,
       seq: 6,
       issuedAt: NOW,
@@ -839,13 +846,13 @@ describe('device handshake — freshness (D7)', () => {
 
   it('uses fresher lists a signing-key holder returns, and needs no grace then', async () => {
     const at = expired(REMOTE_ADMISSION_GRACE_MS / HOUR_MS + 1);
-    const fresh = await issueDeviceRevocationList({
+    const fresh = await issueDeviceRevocationList(testIdentity, {
       signingKey: world.signingKey,
       seq: 9,
       issuedAt: at,
       revokedDeviceIds: [],
     });
-    const freshRoster = await issueDeviceRoster({
+    const freshRoster = await issueDeviceRoster(testIdentity, {
       signingKey: world.signingKey,
       seq: 6,
       issuedAt: at,
@@ -971,7 +978,7 @@ describe('device handshake — one signing key', () => {
   it('refuses a device certified by another of the user’s signing keys, closed', async () => {
     // Lists and marks speak for the key that issued them, and this handshake holds one key's lists.
     const signing = await generateSigningKeyPair({ extractable: false });
-    const certificate = await certifySigningKey({
+    const certificate = await certifySigningKey(testIdentity, {
       masterPrivateKey: world.master.keyPair.privateKey,
       userId: world.master.userId,
       signingPublicKey: signing.publicKey,
@@ -979,19 +986,19 @@ describe('device handshake — one signing key', () => {
     });
     const second: ISigningKey = { certificate, privateKey: signing.privateKey };
     const e = await makeDevice(second, 'e', ['message']);
-    const rosterWithE = await issueDeviceRoster({
+    const rosterWithE = await issueDeviceRoster(testIdentity, {
       signingKey: world.signingKey,
       seq: 5,
       issuedAt: NOW,
       devices: [world.devices.a.cert, world.devices.b.cert, e.cert],
     });
-    const eRoster = await issueDeviceRoster({
+    const eRoster = await issueDeviceRoster(testIdentity, {
       signingKey: second,
       seq: 5,
       issuedAt: NOW,
       devices: [world.devices.b.cert, e.cert],
     });
-    const eRevocation = await issueDeviceRevocationList({
+    const eRevocation = await issueDeviceRevocationList(testIdentity, {
       signingKey: second,
       seq: 7,
       issuedAt: NOW,
@@ -1045,7 +1052,7 @@ describe('device handshake — malformed input', () => {
 
   for (const [i, frame] of junk.entries()) {
     it(`refuses malformed frame #${i} without throwing or echoing it`, async () => {
-      const controller = startDeviceHandshake({
+      const controller = startDeviceHandshake(testIdentity, {
         ...sideB(),
         localFingerprint: FP_B,
         remoteFingerprint: FP_A,
@@ -1061,7 +1068,7 @@ describe('device handshake — malformed input', () => {
   }
 
   it('times out a silent peer', async () => {
-    const controller = startDeviceHandshake({
+    const controller = startDeviceHandshake(testIdentity, {
       ...sideB({ timeoutMs: 50 }),
       localFingerprint: FP_B,
       remoteFingerprint: FP_A,
@@ -1072,7 +1079,7 @@ describe('device handshake — malformed input', () => {
   });
 
   it('ignores frames after it settles and never throws from onFrame', async () => {
-    const controller = startDeviceHandshake({
+    const controller = startDeviceHandshake(testIdentity, {
       ...sideB({ timeoutMs: 20 }),
       localFingerprint: FP_B,
       remoteFingerprint: FP_A,
@@ -1086,7 +1093,7 @@ describe('device handshake — malformed input', () => {
   });
 
   it('settles as a refusal when a send throws', async () => {
-    const controller = startDeviceHandshake({
+    const controller = startDeviceHandshake(testIdentity, {
       ...sideB(),
       localFingerprint: FP_B,
       remoteFingerprint: FP_A,
@@ -1099,7 +1106,7 @@ describe('device handshake — malformed input', () => {
   });
 
   it('refuses identical local and remote fingerprints (a channel looped back on itself)', async () => {
-    const controller = startDeviceHandshake({
+    const controller = startDeviceHandshake(testIdentity, {
       ...sideB(),
       localFingerprint: FP_B,
       remoteFingerprint: FP_B,

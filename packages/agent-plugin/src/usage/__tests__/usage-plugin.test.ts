@@ -257,7 +257,7 @@ describe('UsagePlugin', () => {
     let filePath: string;
 
     beforeEach(() => {
-      fileDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-usage-')));
+      fileDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-usage-')));
       filePath = join(fileDir, 'usage.json');
     });
 

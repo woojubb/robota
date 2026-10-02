@@ -10,7 +10,7 @@ reporters stay available on every admitted path, including reconnects through `S
 Nothing starts it automatically (`defaultEnabled: false`). Admission is decided at construction: with a
 pairing `secret` the data channel carries only pairing frames until the handshake from
 `@robota-sdk/agent-remote-pairing` accepts, bound to the connection's DTLS fingerprints; without one the
-constructor throws unless the caller passes `open: true` with a written `openReason`. The Robota CLI's
+constructor throws unless the caller passes `open: true` with a written `openReason`. The agent runtime CLI's
 `/remote-control` command builds a pairing-gated transport over a `WsSignalingClient` and starts it when
 remote control is enabled.
 

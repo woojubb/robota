@@ -241,7 +241,11 @@ export async function createSession(
 
   const SessionWithAutoCompact = Session as TSessionConstructorWithAutoCompact;
   const session = new SessionWithAutoCompact({
+    pathProtection: options.pathProtection,
     tools,
+    ...(options.toolExecutionPolicy !== undefined
+      ? { toolExecutionPolicy: options.toolExecutionPolicy }
+      : {}),
     wrapAddedTools: wrapAdded,
     provider,
     systemMessage: finalSystemMessage,

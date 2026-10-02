@@ -45,6 +45,9 @@ export type {
   ITextMessagePart,
   IInlineImageMessagePart,
   IUriImageMessagePart,
+  IInlineAudioMessagePart,
+  IResourceLinkMessagePart,
+  TEmbeddedResourceMessagePart,
   TUniversalMessagePart,
 } from './messages';
 
@@ -184,6 +187,9 @@ export type {
   IFunctionTool,
   IToolRegistry,
   IToolResult,
+  IToolProvenance,
+  IToolCallScheduling,
+  IToolExecutionPolicy,
   IToolExecutionResult,
   IToolExecutionContext,
   IParameterValidationResult,

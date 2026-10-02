@@ -31,7 +31,7 @@ function definition(
   return {
     name,
     source: 'user',
-    origin: '~/.robota/settings.json',
+    origin: '~/.test-product/settings.json',
     transport: 'http',
     url: `https://mcp.example.com/${name}`,
     unsetVariables: [],
@@ -46,7 +46,7 @@ function entry(
   return {
     name,
     source: 'user',
-    origin: '~/.robota/settings.json',
+    origin: '~/.test-product/settings.json',
     status: 'resolved',
     definition: definition(name, overrides),
     shadowed: [],
@@ -112,6 +112,7 @@ describe('MCP servers the user must act on, as the model learns of them', () => 
         shutdown: async () => {},
       }),
       reportDiagnostic: () => undefined,
+      cliName: 'test-product',
     });
 
     await composition.connect();
@@ -138,6 +139,7 @@ describe('MCP servers the user must act on, as the model learns of them', () => 
         shutdown: async () => {},
       }),
       reportDiagnostic: () => undefined,
+      cliName: 'test-product',
       ...(userActionSurface === undefined ? {} : { userActionSurface }),
     });
   }
@@ -162,7 +164,7 @@ describe('MCP servers the user must act on, as the model learns of them', () => 
     const [tool] = await composition.connect();
     const result = await tool!.execute({}, { toolName: tool!.getName(), parameters: {} });
 
-    expect(JSON.stringify(result)).toContain('`robota mcp login github` in a terminal');
+    expect(JSON.stringify(result)).toContain('`test-product mcp login github` in a terminal');
     expect(JSON.stringify(result)).not.toContain('/mcp login');
     await composition.shutdown();
   });
@@ -182,7 +184,7 @@ describe('MCP servers the user must act on, as the model learns of them', () => 
 
   it('adds the notice to the prompt text every shell receives, after the CLI text', () => {
     const surface: IPresetSurfaceOptions = {
-      agentName: 'robota',
+      agentName: 'test-product',
       activePresetId: 'default',
       persona: undefined,
       effortResolution: undefined,

@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * MCP-004 (TC-11): `resolveMcpSettings` reads `mcp.autoBackgroundMs` / `mcp.callTimeoutMs` from the
  * SAME layered settings documents `resolveMcpDefinitions` reads `mcpServers` from, folding per key by
@@ -20,10 +21,12 @@ import {
   DEFAULT_MCP_CALL_TIMEOUT_MS,
   resolveMcpSettings,
 } from '../mcp-settings.js';
-import { ROBOTA_PROJECT_SETTINGS } from '../../product/robota-project-settings.js';
-import { createRobotaUserSettingsSources } from '../../product/robota-user-settings.js';
+import { productProjectSettings } from '../../product/project-settings.js';
+import { createProductUserSettingsSources } from '../../product/user-settings.js';
 
 import type { IWorkspaceIdentity, TSettingsSource } from '@robota-sdk/agent-framework';
+const PRODUCT_PROJECT_SETTINGS = productProjectSettings(createTestProductRuntime());
+
 
 const roots: string[] = [];
 
@@ -56,17 +59,17 @@ async function trustedProjectSettingsSources(root: string): Promise<readonly TSe
   if (access.status !== 'trusted') throw new Error('Fixture trust service did not return trusted.');
   return createWorkspaceProjectSettingsSources(
     getWorkspaceProjectReader(access.authority),
-    ROBOTA_PROJECT_SETTINGS,
+    PRODUCT_PROJECT_SETTINGS,
   );
 }
 
 describe('resolveMcpSettings', () => {
   it('defaults to 120000 / 600000 with handoff enabled when no layer declares mcp', () => {
-    const userHome = tempRoot('robota-mcp-settings-empty-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
-    writeFileSync(join(userHome, '.robota', 'settings.json'), JSON.stringify({ language: 'en' }));
+    const userHome = tempRoot('test-product-mcp-settings-empty-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
+    writeFileSync(join(userHome, '.test-product', 'settings.json'), JSON.stringify({ language: 'en' }));
 
-    const resolution = resolveMcpSettings(createRobotaUserSettingsSources(userHome));
+    const resolution = resolveMcpSettings(createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome })));
 
     expect(resolution.autoBackgroundMs).toBe(DEFAULT_MCP_AUTO_BACKGROUND_MS);
     expect(resolution.callTimeoutMs).toBe(DEFAULT_MCP_CALL_TIMEOUT_MS);
@@ -76,21 +79,21 @@ describe('resolveMcpSettings', () => {
   });
 
   it('layers per key: a higher-precedence (project) document overrides only the key it declares', async () => {
-    const userHome = tempRoot('robota-mcp-settings-user-');
-    const projectRoot = tempRoot('robota-mcp-settings-project-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    const userHome = tempRoot('test-product-mcp-settings-user-');
+    const projectRoot = tempRoot('test-product-mcp-settings-project-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
     writeFileSync(
-      join(userHome, '.robota', 'settings.json'),
+      join(userHome, '.test-product', 'settings.json'),
       JSON.stringify({ mcp: { autoBackgroundMs: 30_000, callTimeoutMs: 90_000 } }),
     );
-    mkdirSync(join(projectRoot, '.robota'), { recursive: true });
+    mkdirSync(join(projectRoot, '.test-product'), { recursive: true });
     writeFileSync(
-      join(projectRoot, '.robota', 'settings.json'),
+      join(projectRoot, '.test-product', 'settings.json'),
       JSON.stringify({ mcp: { autoBackgroundMs: 45_000 } }),
     );
 
     const settingsSources = [
-      ...createRobotaUserSettingsSources(userHome),
+      ...createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome })),
       ...(await trustedProjectSettingsSources(projectRoot)),
     ];
     const resolution = resolveMcpSettings(settingsSources);
@@ -104,14 +107,14 @@ describe('resolveMcpSettings', () => {
   });
 
   it('0 disables the handoff silently (no diagnostic)', () => {
-    const userHome = tempRoot('robota-mcp-settings-zero-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    const userHome = tempRoot('test-product-mcp-settings-zero-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
     writeFileSync(
-      join(userHome, '.robota', 'settings.json'),
+      join(userHome, '.test-product', 'settings.json'),
       JSON.stringify({ mcp: { autoBackgroundMs: 0 } }),
     );
 
-    const resolution = resolveMcpSettings(createRobotaUserSettingsSources(userHome));
+    const resolution = resolveMcpSettings(createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome })));
 
     expect(resolution.autoBackgroundMs).toBe(0);
     expect(resolution.handoffEnabled).toBe(false);
@@ -120,14 +123,14 @@ describe('resolveMcpSettings', () => {
   });
 
   it('autoBackgroundMs >= callTimeoutMs disables the handoff with exactly one diagnostic', () => {
-    const userHome = tempRoot('robota-mcp-settings-ge-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    const userHome = tempRoot('test-product-mcp-settings-ge-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
     writeFileSync(
-      join(userHome, '.robota', 'settings.json'),
+      join(userHome, '.test-product', 'settings.json'),
       JSON.stringify({ mcp: { autoBackgroundMs: 600_000, callTimeoutMs: 600_000 } }),
     );
 
-    const resolution = resolveMcpSettings(createRobotaUserSettingsSources(userHome));
+    const resolution = resolveMcpSettings(createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome })));
 
     expect(resolution.handoffEnabled).toBe(false);
     expect(resolution.problems).toEqual([]);
@@ -137,12 +140,12 @@ describe('resolveMcpSettings', () => {
   });
 
   it('a negative value is a reported problem; the default is not silently used', () => {
-    const userHome = tempRoot('robota-mcp-settings-negative-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
-    const settingsPath = join(userHome, '.robota', 'settings.json');
+    const userHome = tempRoot('test-product-mcp-settings-negative-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
+    const settingsPath = join(userHome, '.test-product', 'settings.json');
     writeFileSync(settingsPath, JSON.stringify({ mcp: { autoBackgroundMs: -1 } }));
 
-    const resolution = resolveMcpSettings(createRobotaUserSettingsSources(userHome));
+    const resolution = resolveMcpSettings(createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome })));
 
     expect(resolution.autoBackgroundMs).toBe(DEFAULT_MCP_AUTO_BACKGROUND_MS);
     expect(resolution.problems).toHaveLength(1);
@@ -155,14 +158,14 @@ describe('resolveMcpSettings', () => {
   });
 
   it('a non-integer value is a reported problem; the default is not silently used', () => {
-    const userHome = tempRoot('robota-mcp-settings-noninteger-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    const userHome = tempRoot('test-product-mcp-settings-noninteger-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
     writeFileSync(
-      join(userHome, '.robota', 'settings.json'),
+      join(userHome, '.test-product', 'settings.json'),
       JSON.stringify({ mcp: { callTimeoutMs: 1234.5 } }),
     );
 
-    const resolution = resolveMcpSettings(createRobotaUserSettingsSources(userHome));
+    const resolution = resolveMcpSettings(createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome })));
 
     expect(resolution.callTimeoutMs).toBe(DEFAULT_MCP_CALL_TIMEOUT_MS);
     expect(resolution.problems).toHaveLength(1);
@@ -170,14 +173,14 @@ describe('resolveMcpSettings', () => {
   });
 
   it('an invalid key refuses the WHOLE document — a valid sibling key in the same document is not applied', () => {
-    const userHome = tempRoot('robota-mcp-settings-whole-doc-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    const userHome = tempRoot('test-product-mcp-settings-whole-doc-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
     writeFileSync(
-      join(userHome, '.robota', 'settings.json'),
+      join(userHome, '.test-product', 'settings.json'),
       JSON.stringify({ mcp: { autoBackgroundMs: 'not-a-number', callTimeoutMs: 90_000 } }),
     );
 
-    const resolution = resolveMcpSettings(createRobotaUserSettingsSources(userHome));
+    const resolution = resolveMcpSettings(createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome })));
 
     expect(resolution.autoBackgroundMs).toBe(DEFAULT_MCP_AUTO_BACKGROUND_MS);
     // The valid `callTimeoutMs: 90_000` sibling is refused along with the document, not applied.
@@ -187,12 +190,12 @@ describe('resolveMcpSettings', () => {
   });
 
   it('reports an invalid-json layer as a problem naming its origin, never silently', () => {
-    const userHome = tempRoot('robota-mcp-settings-invalid-json-');
-    mkdirSync(join(userHome, '.robota'), { recursive: true });
-    const settingsPath = join(userHome, '.robota', 'settings.json');
+    const userHome = tempRoot('test-product-mcp-settings-invalid-json-');
+    mkdirSync(join(userHome, '.test-product'), { recursive: true });
+    const settingsPath = join(userHome, '.test-product', 'settings.json');
     writeFileSync(settingsPath, '{ this is not json');
 
-    const resolution = resolveMcpSettings(createRobotaUserSettingsSources(userHome));
+    const resolution = resolveMcpSettings(createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome })));
 
     expect(resolution.autoBackgroundMs).toBe(DEFAULT_MCP_AUTO_BACKGROUND_MS);
     expect(resolution.callTimeoutMs).toBe(DEFAULT_MCP_CALL_TIMEOUT_MS);

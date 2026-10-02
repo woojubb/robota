@@ -23,9 +23,10 @@ const DENIED_TOOLS = [
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const STATE_ROOT = process.env.EXAMPLE_STATE_ROOT;
 
-if (!BOT_TOKEN || !ANTHROPIC_API_KEY) {
-  throw new Error('Missing required environment variables. See .env.example.');
+if (!BOT_TOKEN || !ANTHROPIC_API_KEY || !STATE_ROOT) {
+  throw new Error('Set BOT_TOKEN, ANTHROPIC_API_KEY, and EXAMPLE_STATE_ROOT. See .env.example.');
 }
 
 const bot = new Bot(BOT_TOKEN);
@@ -33,7 +34,7 @@ const bot = new Bot(BOT_TOKEN);
 const runtime = createAgentRuntime({
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: ANTHROPIC_API_KEY }),
-  sessionStore: createNodeHostSessionStore(join(process.cwd(), '.robota', 'sessions')),
+  sessionStore: createNodeHostSessionStore(join(STATE_ROOT, 'sessions')),
 });
 
 const chatSessions = new Map<number, string>();
@@ -73,7 +74,7 @@ async function handleMessage(chatId: number, prompt: string): Promise<void> {
 
 bot.command('start', async (ctx) => {
   await ctx.reply(
-    'Hello! I am an AI assistant powered by Robota SDK. Send me any message and I will respond.',
+    'Hello! I am an AI assistant powered by the agent runtime SDK. Send me any message and I will respond.',
   );
 });
 

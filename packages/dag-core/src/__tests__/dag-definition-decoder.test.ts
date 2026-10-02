@@ -7,7 +7,7 @@ import {
 } from '../services/dag-definition-decoder.js';
 import { DagDefinitionValidator } from '../services/definition-validator.js';
 import {
-  decodeDagRobotaCompanion,
+  decodeDagConversationAgentCompanion,
   decodeDagWorkflowFile,
 } from '../services/dag-workflow-file-decoder.js';
 
@@ -211,7 +211,7 @@ describe('decodeDagDefinition (issue #2077)', () => {
   });
 });
 
-describe('decodeDagWorkflowFile / decodeDagRobotaCompanion (issue #2077)', () => {
+describe('decodeDagWorkflowFile / decodeDagConversationAgentCompanion (issue #2077)', () => {
   const FILE = {
     last_node_id: 2,
     last_link_id: 1,
@@ -219,13 +219,13 @@ describe('decodeDagWorkflowFile / decodeDagRobotaCompanion (issue #2077)', () =>
     nodes: [
       {
         id: 1,
-        type: 'RobotaInput',
+        type: 'ConversationAgentInput',
         pos: [0, 0],
         outputs: [{ name: 'text', type: 'STRING', links: [1] }],
       },
       {
         id: 2,
-        type: 'RobotaTextOutput',
+        type: 'ConversationAgentTextOutput',
         pos: [10, 0],
         inputs: [{ name: 'text', type: 'STRING', link: 1 }],
       },
@@ -276,10 +276,10 @@ describe('decodeDagWorkflowFile / decodeDagRobotaCompanion (issue #2077)', () =>
       status: 'published',
       nodes: { '1': { nodeId: 'a' } },
     };
-    expect(decodeDagRobotaCompanion(companion)).toEqual({ ok: true, value: companion });
-    const bad = decodeDagRobotaCompanion({ ...companion, nodes: { '1': { nodeId: 1 } } });
+    expect(decodeDagConversationAgentCompanion(companion)).toEqual({ ok: true, value: companion });
+    const bad = decodeDagConversationAgentCompanion({ ...companion, nodes: { '1': { nodeId: 1 } } });
     expect(bad.ok).toBe(false);
     if (!bad.ok) expect(bad.error[0]?.path).toBe('nodes.1.nodeId');
-    expect(decodeDagRobotaCompanion({ ...companion, status: 'active' }).ok).toBe(false);
+    expect(decodeDagConversationAgentCompanion({ ...companion, status: 'active' }).ok).toBe(false);
   });
 });

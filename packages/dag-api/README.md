@@ -31,7 +31,7 @@ assembly to [`dag-framework`](../dag-framework/README.md), and the HTTP client t
 - `PromptApiController` — the prompt-format API (submit a prompt, queue, history, object info,
   system stats) over an `IPromptBackendPort`.
 - `IProblemDetails`, `toProblemDetails(error, instance, correlationId?)` — the RFC 7807-style error
-  envelope with a URN `type` (`urn:robota:problems:dag:<category>`), so callers branch on category
+  envelope with a URN `type` (`urn:<namespace>:problems:dag:<category>`), so callers branch on category
   without parsing messages.
 - `IDagRunLifecyclePort` — in-process run lifecycle (`createRun`, `startRun`, `getRun`,
   `cancelRun`, `startPublishedWorkflowRun`) that reports domain results, not HTTP statuses.
@@ -78,7 +78,7 @@ const controllers = createDagControllerComposition({
 
 const response = await controllers.runtime.queryRun({ dagRunId: 'missing-run' });
 if (!response.ok) {
-  console.log(response.status, response.errors[0]?.type); // 404 'urn:robota:problems:dag:validation'
+  console.log(response.status, response.errors[0]?.type); // 404 'urn:example:problems:dag:validation'
 }
 ```
 

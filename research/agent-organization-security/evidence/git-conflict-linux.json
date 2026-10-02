@@ -1,0 +1,32 @@
+{
+  "kind": "actual-git-cas-merge-conflict",
+  "records": [
+    {
+      "id": "two-writer-git-ref-cas",
+      "expected": "one candidate accepted, stale baseline rejected",
+      "observedExitCodes": [0, 128],
+      "acceptedMatchesOneCandidate": true,
+      "passed": true
+    },
+    {
+      "id": "stale-baseline-retry-after-race",
+      "exitCode": 128,
+      "expectedRevisionMismatch": true,
+      "passed": true
+    },
+    {
+      "id": "real-content-merge-conflict",
+      "mergeExit": 1,
+      "conflictingFiles": ["shared.txt"],
+      "passed": true
+    },
+    {
+      "id": "conflict-abort-retains-candidate-and-accepted-ref",
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "Local synthetic Git validates conflict/CAS mechanisms; a production Git broker still must authenticate tenant/task/actor/branch/lease.",
+    "No production repository, GitHub branch or release is changed."
+  ]
+}

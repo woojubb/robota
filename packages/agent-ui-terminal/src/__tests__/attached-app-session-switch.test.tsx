@@ -79,7 +79,7 @@ describe('the full App attached to a host over the wire', () => {
   let cwd: string;
 
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-attached-app-'));
+    cwd = mkdtempSync(join(tmpdir(), 'agent-attached-app-'));
   });
 
   afterEach(() => {

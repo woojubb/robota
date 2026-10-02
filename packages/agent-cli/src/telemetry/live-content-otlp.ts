@@ -63,9 +63,9 @@ function toolAttributes(item: ILivePromptContentItem): Record<string, string> {
   const outcome = item.tool.outcome === 'success' || item.tool.outcome === 'failure' ||
     item.tool.outcome === 'denied' ? item.tool.outcome : 'failure';
   return {
-    ...(callId ? { 'robota.tool.call_id': callId } : {}),
-    'robota.tool.name': name,
-    'robota.tool.outcome': outcome,
+    ...(callId ? { 'agent.tool.call_id': callId } : {}),
+    'agent.tool.name': name,
+    'agent.tool.outcome': outcome,
   };
 }
 
@@ -85,7 +85,7 @@ export function projectLiveContentLogs(
   redactor: TLiveContentRedactor | undefined,
 ): ReadableLogRecord[][] {
   const resource = resourceFromAttributes(identity.attributes);
-  const instrumentationScope = { name: 'robota.live-prompt-content', version: '1' };
+  const instrumentationScope = { name: 'agent.live-prompt-content', version: '1' };
   const base = {
     hrTime: hrTime(batch.root.endedAt),
     hrTimeObserved: hrTime(observedAt.toISOString()),
@@ -127,13 +127,13 @@ export function projectLiveContentLogs(
     chunk.push({
       ...base,
       spanContext: spanContext(item.tool?.spanId),
-      eventName: 'robota.content.captured',
+      eventName: 'agent.content.captured',
       body: redacted.text,
       attributes: {
-        'robota.content.kind': item.kind,
-        'robota.content.truncated': redacted.truncated,
-        'robota.content.original_bytes': item.originalBytes,
-        ...(item.partial === true ? { 'robota.content.partial': true } : {}),
+        'agent.content.kind': item.kind,
+        'agent.content.truncated': redacted.truncated,
+        'agent.content.original_bytes': item.originalBytes,
+        ...(item.partial === true ? { 'agent.content.partial': true } : {}),
         ...toolAttributes(item),
       },
     });
@@ -148,11 +148,11 @@ export function projectLiveContentLogs(
     chunk.push({
       ...base,
       spanContext: spanContext(undefined),
-      eventName: 'robota.content.omitted',
+      eventName: 'agent.content.omitted',
       attributes: {
-        'robota.telemetry.omitted_content_items': total,
+        'agent.telemetry.omitted_content_items': total,
         ...Object.fromEntries([...omitted].map(([kind, count]) =>
-          [`robota.telemetry.omitted_content_items.${kind.replace(/-/gu, '_')}`, count])),
+          [`agent.telemetry.omitted_content_items.${kind.replace(/-/gu, '_')}`, count])),
       },
     });
   }

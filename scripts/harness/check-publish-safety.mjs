@@ -62,15 +62,26 @@ export function findPublishClaimFindings(root) {
   return findings;
 }
 
-const REPOSITORY = 'github.com/woojubb/robota';
-
-function namesThisRepository(repository) {
-  const url = typeof repository === 'string' ? repository : repository?.url;
-  if (typeof url !== 'string') return false;
-  return url.replace(/^git\+/, '').replace(/\.git$/, '') === `https://${REPOSITORY}`;
+function normalizeRepositoryUrl(value) {
+  if (typeof value !== 'string') return undefined;
+  try {
+    const normalized = value.replace(/^git\+/u, '').replace(/\.git$/u, '').replace(/\/+$/u, '');
+    const url = new URL(normalized);
+    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) return undefined;
+    return `${url.origin}${url.pathname.replace(/\/+$/u, '')}`;
+  } catch {
+    return undefined;
+  }
 }
 
-export function main(root = process.cwd()) {
+export function namesThisRepository(repository, expectedRepositoryUrl) {
+  const url = typeof repository === 'string' ? repository : repository?.url;
+  const actual = normalizeRepositoryUrl(url);
+  const expected = normalizeRepositoryUrl(expectedRepositoryUrl);
+  return actual !== undefined && expected !== undefined && actual === expected;
+}
+
+export function main(root = process.cwd(), expectedRepositoryUrl = process.env.PROJECT_REPOSITORY_URL) {
   let errors = 0;
 
   function error(msg) {
@@ -80,6 +91,11 @@ export function main(root = process.cwd()) {
 
   function ok(msg) {
     console.log(`✅ ${msg}`);
+  }
+
+  if (!expectedRepositoryUrl || !normalizeRepositoryUrl(expectedRepositoryUrl)) {
+    error('PROJECT_REPOSITORY_URL must be an explicit HTTPS repository URL for publish provenance.');
+    return 1;
   }
 
   // 1. agent-core must have zero @robota-sdk dependencies
@@ -134,8 +150,8 @@ export function main(root = process.cwd()) {
     if (!hasPrepublish) {
       error(`${pkg.name} missing prepublishOnly hook (pnpm publish enforcement)`);
     }
-    if (!namesThisRepository(pkg.repository)) {
-      error(`${pkg.name} repository.url must be https://${REPOSITORY}.git (provenance)`);
+    if (!namesThisRepository(pkg.repository, expectedRepositoryUrl)) {
+      error(`${pkg.name} repository.url must match the configured PROJECT_REPOSITORY_URL (provenance)`);
     }
   }
   ok(
@@ -152,12 +168,12 @@ export function main(root = process.cwd()) {
 
   // 4. INFRA-028: agent-cli must publish as a self-contained bundle — zero @robota-sdk runtime deps.
   const cliPkg = JSON.parse(readFileSync(join(root, 'packages/agent-cli/package.json'), 'utf-8'));
-  const cliRuntimeRobota = Object.keys(cliPkg.dependencies || {}).filter((d) =>
+  const cliRuntimeDependencies = Object.keys(cliPkg.dependencies || {}).filter((d) =>
     d.startsWith('@robota-sdk/'),
   );
-  if (cliRuntimeRobota.length > 0) {
+  if (cliRuntimeDependencies.length > 0) {
     error(
-      `agent-cli must be a self-contained bundle (INFRA-028): move these to devDependencies (bundled): ${cliRuntimeRobota.join(', ')}`,
+      `agent-cli must be a self-contained bundle (INFRA-028): move these to devDependencies (bundled): ${cliRuntimeDependencies.join(', ')}`,
     );
   } else {
     ok('agent-cli publishes self-contained — zero @robota-sdk runtime dependencies (INFRA-028)');

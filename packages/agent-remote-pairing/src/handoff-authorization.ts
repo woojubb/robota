@@ -1,3 +1,4 @@
+import type { IIdentityContext } from './identity/crypto-context.js';
 /**
  * SEC-011 (#1812): the grant that authorizes ONE hand-off, to ONE destination, over ONE channel.
  *
@@ -66,10 +67,10 @@ export interface IHandoffGrant extends IHandoffGrantClaims {
 }
 
 /** The bytes a grant signature covers — every claim, in a fixed order, versioned. */
-function grantBytes(claims: IHandoffGrantClaims): Uint8Array {
+function grantBytes(cryptoContext: IIdentityContext, claims: IHandoffGrantClaims): Uint8Array {
   return encoder.encode(
     JSON.stringify([
-      'robota.handoff-grant.v1',
+      `${cryptoContext.namespace}.handoff-grant.v1`,
       claims.userId,
       claims.sourceDeviceId,
       claims.destinationDeviceId,
@@ -85,13 +86,14 @@ function grantBytes(claims: IHandoffGrantClaims): Uint8Array {
 
 /** Mint a grant for exactly one transfer. */
 export async function issueHandoffGrant(
+  cryptoContext: IIdentityContext,
   claims: IHandoffGrantClaims,
   sourcePrivateKey: CryptoKey,
 ): Promise<IHandoffGrant> {
   const signature = await webcrypto.subtle.sign(
     SIGN_PARAMS,
     sourcePrivateKey,
-    ab(grantBytes(claims)),
+    ab(grantBytes(cryptoContext, claims)),
   );
   return { ...claims, signature: toBase64Url(new Uint8Array(signature)) };
 }
@@ -140,6 +142,7 @@ export interface IVerifyGrantOptions {
  * that merely travelled alongside a signature.
  */
 export async function verifyHandoffGrant(
+  cryptoContext: IIdentityContext,
   grant: IHandoffGrant,
   options: IVerifyGrantOptions,
 ): Promise<IHandoffAuthorization> {
@@ -148,7 +151,7 @@ export async function verifyHandoffGrant(
     SIGN_PARAMS,
     options.sourcePublicKey,
     ab(fromBase64Url(signature)),
-    ab(grantBytes(claims)),
+    ab(grantBytes(cryptoContext, claims)),
   );
   if (!signatureOk) return { authorized: false, rejection: 'signature-invalid' };
 

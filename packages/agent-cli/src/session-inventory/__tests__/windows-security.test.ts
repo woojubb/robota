@@ -80,7 +80,7 @@ describe('Windows daemon security', () => {
   it.runIf(process.platform === 'win32')(
     'protects storage before secrets and refuses exposed files and junctions',
     () => {
-      const root = mkdtempSync(join(tmpdir(), 'robota-acl-test-'));
+      const root = mkdtempSync(join(tmpdir(), 'test-product-acl-test-'));
       try {
         const storage = join(root, 'storage');
         mkdirSync(storage);

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { ToolResultAdmissionError, admitToolResult } from './tool-result-admission.js';
+import type { TUniversalMessagePart } from '../interfaces/messages.js';
 
 describe('generic tool-result admission', () => {
   it('keeps a result within the configured limit without writing a spill', async () => {
@@ -116,3 +117,42 @@ describe('generic tool-result admission', () => {
     expect(JSON.stringify(admitted)).not.toContain('credential');
   });
 });
+
+it.each<TUniversalMessagePart>([
+  { type: 'image_inline', mimeType: 'image/png', data: 'x'.repeat(400) },
+  { type: 'audio_inline', mimeType: 'audio/wav', data: 'eA=='.repeat(100) },
+  { type: 'resource_embedded', uri: 'fixture://text', text: 'x'.repeat(400) },
+  { type: 'resource_embedded', uri: 'fixture://binary', blob: 'eA=='.repeat(100) },
+  {
+    type: 'resource_link',
+    uri: 'fixture://reference',
+    name: 'snapshot',
+    description: 'x'.repeat(400),
+  },
+])(
+  'includes $type observations in the admission bound and stores the complete envelope',
+  async (part) => {
+    const result = {
+      success: true,
+      data: { revision: 1 },
+      parts: [part],
+    };
+    await expect(
+      admitToolResult('observe', result, { warningChars: 100, hardChars: 200 }),
+    ).rejects.toMatchObject({ code: 'spill-unavailable' });
+    let spilled = '';
+    const admitted = await admitToolResult('observe', result, {
+      warningChars: 100,
+      hardChars: 200,
+      spillStore: {
+        write: async (content) => {
+          spilled = content;
+          return { reference: `tool-result:${'a'.repeat(22)}` };
+        },
+      },
+    });
+    expect(JSON.parse(spilled)).toEqual(result);
+    expect(admitted).toEqual({ success: true, data: `tool-result:${'a'.repeat(22)}` });
+    expect(admitted.parts).toBeUndefined();
+  },
+);

@@ -1,3 +1,4 @@
+import { createTestTelemetryRuntime } from './helpers/product-runtime.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -8,16 +9,16 @@ import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
 const originalArgv = process.argv;
 const originalHome = process.env.HOME;
-const originalFakeKey = process.env['ROBOTA_LIVE_TRACE_TEST_KEY'];
+const originalFakeKey = process.env['PRODUCT_LIVE_TRACE_TEST_KEY'];
 const telemetryKeys = [
-  'ROBOTA_TELEMETRY_ENABLED', 'ROBOTA_TELEMETRY_TRACES', 'ROBOTA_TELEMETRY_OTLP_PROTOCOL',
-  'ROBOTA_TELEMETRY_OTLP_ENDPOINT', 'ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT', 'ROBOTA_TELEMETRY_OTLP_HEADERS',
+  'PRODUCT_TELEMETRY_ENABLED', 'PRODUCT_TELEMETRY_TRACES', 'PRODUCT_TELEMETRY_OTLP_PROTOCOL',
+  'PRODUCT_TELEMETRY_OTLP_ENDPOINT', 'PRODUCT_TELEMETRY_OTLP_TRACES_ENDPOINT', 'PRODUCT_TELEMETRY_OTLP_HEADERS',
 ] as const;
 const originalTelemetry = Object.fromEntries(telemetryKeys.map((key) => [key, process.env[key]]));
 
 const providerDefinition: IProviderDefinition = {
   type: 'livetrace-no-mix-test',
-  defaults: { model: 'test-model', apiKey: '$ENV:ROBOTA_LIVE_TRACE_TEST_KEY' },
+  defaults: { model: 'test-model', apiKey: '$ENV:PRODUCT_LIVE_TRACE_TEST_KEY' },
   requiresApiKey: true,
   createProvider: (): IAIProvider => ({
     name: 'livetrace-no-mix-test', version: 'test',
@@ -58,8 +59,8 @@ describe('CLI live trace settings across in-process calls never mix', () => {
     vi.restoreAllMocks();
     process.argv = originalArgv;
     process.env.HOME = originalHome;
-    if (originalFakeKey === undefined) delete process.env['ROBOTA_LIVE_TRACE_TEST_KEY'];
-    else process.env['ROBOTA_LIVE_TRACE_TEST_KEY'] = originalFakeKey;
+    if (originalFakeKey === undefined) delete process.env['PRODUCT_LIVE_TRACE_TEST_KEY'];
+    else process.env['PRODUCT_LIVE_TRACE_TEST_KEY'] = originalFakeKey;
     for (const key of telemetryKeys) {
       const original = originalTelemetry[key];
       if (original === undefined) delete process.env[key];
@@ -68,16 +69,16 @@ describe('CLI live trace settings across in-process calls never mix', () => {
   });
 
   it('never sends the first call\'s credential header to a second call\'s different destination', async () => {
-    const home = mkdtempSync(join(tmpdir(), 'robota-cli-no-mix-header-home-'));
+    const home = mkdtempSync(join(tmpdir(), 'test-product-cli-no-mix-header-home-'));
     process.env.HOME = home;
-    process.env['ROBOTA_LIVE_TRACE_TEST_KEY'] = 'test-only-key';
+    process.env['PRODUCT_LIVE_TRACE_TEST_KEY'] = 'test-only-key';
     vi.spyOn(process, 'cwd').mockReturnValue(home);
     vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
       throw new Error(`process.exit:${String(code ?? 0)}`);
     }) as never);
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    process.argv = ['node', 'robota', '-p', 'private prompt', '--no-session-persistence'];
+    process.argv = ['node', 'test-product', '-p', 'private prompt', '--no-session-persistence'];
 
     const requestsA: ICapturedRequest[] = [];
     const requestsB: ICapturedRequest[] = [];
@@ -85,23 +86,23 @@ describe('CLI live trace settings across in-process calls never mix', () => {
     const serverB = await startCapturingServer(requestsB);
     try {
       // Call 1: destination A, with a credential header configured FOR A.
-      process.env['ROBOTA_TELEMETRY_ENABLED'] = '1';
-      process.env['ROBOTA_TELEMETRY_TRACES'] = 'otlp';
-      process.env['ROBOTA_TELEMETRY_OTLP_PROTOCOL'] = 'http/protobuf';
-      process.env['ROBOTA_TELEMETRY_OTLP_ENDPOINT'] = serverA.endpoint;
-      process.env['ROBOTA_TELEMETRY_OTLP_HEADERS'] = 'Authorization=Bearer%20credA';
-      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      process.env['PRODUCT_TELEMETRY_ENABLED'] = '1';
+      process.env['PRODUCT_TELEMETRY_TRACES'] = 'otlp';
+      process.env['PRODUCT_TELEMETRY_OTLP_PROTOCOL'] = 'http/protobuf';
+      process.env['PRODUCT_TELEMETRY_OTLP_ENDPOINT'] = serverA.endpoint;
+      process.env['PRODUCT_TELEMETRY_OTLP_HEADERS'] = 'Authorization=Bearer%20credA';
+      await expect(startCli({productRuntime: createTestTelemetryRuntime(home),  providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requestsA).toHaveLength(1);
       expect(requestsA[0]!.authorization).toBe('Bearer credA');
       expect(requestsB).toHaveLength(0);
 
       // Call 2, same process: a DIFFERENT destination B, no header of its own. Credential A must
       // never reach B, and A must not receive a second request either.
-      process.env['ROBOTA_TELEMETRY_ENABLED'] = '1';
-      process.env['ROBOTA_TELEMETRY_TRACES'] = 'otlp';
-      process.env['ROBOTA_TELEMETRY_OTLP_PROTOCOL'] = 'http/protobuf';
-      process.env['ROBOTA_TELEMETRY_OTLP_ENDPOINT'] = serverB.endpoint;
-      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      process.env['PRODUCT_TELEMETRY_ENABLED'] = '1';
+      process.env['PRODUCT_TELEMETRY_TRACES'] = 'otlp';
+      process.env['PRODUCT_TELEMETRY_OTLP_PROTOCOL'] = 'http/protobuf';
+      process.env['PRODUCT_TELEMETRY_OTLP_ENDPOINT'] = serverB.endpoint;
+      await expect(startCli({productRuntime: createTestTelemetryRuntime(home),  providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requestsA).toHaveLength(1);
       expect(requestsB).toHaveLength(1);
       expect(requestsB[0]!.authorization).toBeUndefined();
@@ -113,16 +114,16 @@ describe('CLI live trace settings across in-process calls never mix', () => {
   });
 
   it('never keeps sending to a first call\'s signal-specific endpoint once a second call names a different generic one', async () => {
-    const home = mkdtempSync(join(tmpdir(), 'robota-cli-no-mix-endpoint-home-'));
+    const home = mkdtempSync(join(tmpdir(), 'test-product-cli-no-mix-endpoint-home-'));
     process.env.HOME = home;
-    process.env['ROBOTA_LIVE_TRACE_TEST_KEY'] = 'test-only-key';
+    process.env['PRODUCT_LIVE_TRACE_TEST_KEY'] = 'test-only-key';
     vi.spyOn(process, 'cwd').mockReturnValue(home);
     vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
       throw new Error(`process.exit:${String(code ?? 0)}`);
     }) as never);
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    process.argv = ['node', 'robota', '-p', 'private prompt', '--no-session-persistence'];
+    process.argv = ['node', 'test-product', '-p', 'private prompt', '--no-session-persistence'];
 
     const requestsA: ICapturedRequest[] = [];
     const requestsB: ICapturedRequest[] = [];
@@ -130,21 +131,21 @@ describe('CLI live trace settings across in-process calls never mix', () => {
     const serverB = await startCapturingServer(requestsB);
     try {
       // Call 1: an exact, signal-specific traces endpoint, A.
-      process.env['ROBOTA_TELEMETRY_ENABLED'] = '1';
-      process.env['ROBOTA_TELEMETRY_TRACES'] = 'otlp';
-      process.env['ROBOTA_TELEMETRY_OTLP_PROTOCOL'] = 'http/protobuf';
-      process.env['ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT'] = `${serverA.endpoint}/v1/traces`;
-      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      process.env['PRODUCT_TELEMETRY_ENABLED'] = '1';
+      process.env['PRODUCT_TELEMETRY_TRACES'] = 'otlp';
+      process.env['PRODUCT_TELEMETRY_OTLP_PROTOCOL'] = 'http/protobuf';
+      process.env['PRODUCT_TELEMETRY_OTLP_TRACES_ENDPOINT'] = `${serverA.endpoint}/v1/traces`;
+      await expect(startCli({productRuntime: createTestTelemetryRuntime(home),  providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requestsA).toHaveLength(1);
       expect(requestsB).toHaveLength(0);
 
       // Call 2, same process: only a generic endpoint B, no signal-specific override at all. A's
       // earlier signal-specific endpoint must not win a second export.
-      process.env['ROBOTA_TELEMETRY_ENABLED'] = '1';
-      process.env['ROBOTA_TELEMETRY_TRACES'] = 'otlp';
-      process.env['ROBOTA_TELEMETRY_OTLP_PROTOCOL'] = 'http/protobuf';
-      process.env['ROBOTA_TELEMETRY_OTLP_ENDPOINT'] = serverB.endpoint;
-      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      process.env['PRODUCT_TELEMETRY_ENABLED'] = '1';
+      process.env['PRODUCT_TELEMETRY_TRACES'] = 'otlp';
+      process.env['PRODUCT_TELEMETRY_OTLP_PROTOCOL'] = 'http/protobuf';
+      process.env['PRODUCT_TELEMETRY_OTLP_ENDPOINT'] = serverB.endpoint;
+      await expect(startCli({productRuntime: createTestTelemetryRuntime(home),  providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requestsA).toHaveLength(1);
       expect(requestsB).toHaveLength(1);
     } finally {
@@ -154,37 +155,37 @@ describe('CLI live trace settings across in-process calls never mix', () => {
     }
   });
 
-  it('turns export off for a later call that sets only ROBOTA_TELEMETRY_ENABLED=0', async () => {
-    const home = mkdtempSync(join(tmpdir(), 'robota-cli-no-mix-off-home-'));
+  it('turns export off for a later call that sets only PRODUCT_TELEMETRY_ENABLED=0', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'test-product-cli-no-mix-off-home-'));
     process.env.HOME = home;
-    process.env['ROBOTA_LIVE_TRACE_TEST_KEY'] = 'test-only-key';
+    process.env['PRODUCT_LIVE_TRACE_TEST_KEY'] = 'test-only-key';
     vi.spyOn(process, 'cwd').mockReturnValue(home);
     vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
       throw new Error(`process.exit:${String(code ?? 0)}`);
     }) as never);
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    process.argv = ['node', 'robota', '-p', 'private prompt', '--no-session-persistence'];
+    process.argv = ['node', 'test-product', '-p', 'private prompt', '--no-session-persistence'];
 
     const requests: ICapturedRequest[] = [];
     const server = await startCapturingServer(requests);
     try {
-      process.env['ROBOTA_TELEMETRY_ENABLED'] = '1';
-      process.env['ROBOTA_TELEMETRY_TRACES'] = 'otlp';
-      process.env['ROBOTA_TELEMETRY_OTLP_PROTOCOL'] = 'http/protobuf';
-      process.env['ROBOTA_TELEMETRY_OTLP_ENDPOINT'] = server.endpoint;
-      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      process.env['PRODUCT_TELEMETRY_ENABLED'] = '1';
+      process.env['PRODUCT_TELEMETRY_TRACES'] = 'otlp';
+      process.env['PRODUCT_TELEMETRY_OTLP_PROTOCOL'] = 'http/protobuf';
+      process.env['PRODUCT_TELEMETRY_OTLP_ENDPOINT'] = server.endpoint;
+      await expect(startCli({productRuntime: createTestTelemetryRuntime(home),  providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests).toHaveLength(1);
 
       // Second in-process call sets ONLY the off switch — nothing else of its own. It must not
       // reuse the first call's destination at all: no request goes out.
-      process.env['ROBOTA_TELEMETRY_ENABLED'] = '0';
-      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      process.env['PRODUCT_TELEMETRY_ENABLED'] = '0';
+      await expect(startCli({productRuntime: createTestTelemetryRuntime(home),  providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests).toHaveLength(1);
 
       // A third call that sets nothing of its own falls back to the (still off) settings the
       // second call captured, not the first call's now-discarded export configuration.
-      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      await expect(startCli({productRuntime: createTestTelemetryRuntime(home),  providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests).toHaveLength(1);
     } finally {
       await server.close();

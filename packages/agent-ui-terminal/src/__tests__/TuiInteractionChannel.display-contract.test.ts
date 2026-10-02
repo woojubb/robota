@@ -81,7 +81,7 @@ import type { IAIProvider, IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IExecutionResult } from '@robota-sdk/agent-interface-session';
 
 /** The session's working directory: private to this run, never a fixed name under /tmp. */
-const SESSION_CWD = mkdtempSync(join(tmpdir(), 'robota-tui-display-'));
+const SESSION_CWD = mkdtempSync(join(tmpdir(), 'agent-test-tui-display-'));
 afterAll(() => rmSync(SESSION_CWD, { recursive: true, force: true }));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

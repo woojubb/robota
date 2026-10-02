@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 function temporaryDirectory(): string {
-  const directory = mkdtempSync(join(tmpdir(), 'robota-oauth-'));
+  const directory = mkdtempSync(join(tmpdir(), 'agent-test-oauth-'));
   directories.push(directory);
   return join(directory, 'mcp-credentials');
 }

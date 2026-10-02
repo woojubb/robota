@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -10,9 +11,9 @@ import { buildOutputStyleSources } from '../output-style-sources.js';
 
 describe('CLI output-style source composition', () => {
   it('reads user styles through the host contribution source and keeps restricted projects absent', () => {
-    const home = mkdtempSync(join(tmpdir(), 'robota-style-home-'));
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-style-cwd-'));
-    const directory = join(home, '.robota', 'output-styles');
+    const home = mkdtempSync(join(tmpdir(), 'test-product-style-home-'));
+    const cwd = mkdtempSync(join(tmpdir(), 'test-product-style-cwd-'));
+    const directory = join(home, '.test-product', 'output-styles');
     mkdirSync(directory, { recursive: true });
     writeFileSync(
       join(directory, 'team.md'),
@@ -20,7 +21,7 @@ describe('CLI output-style source composition', () => {
     );
 
     try {
-      const sources = buildOutputStyleSources({
+      const sources = buildOutputStyleSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),
         cwd,
         userHome: home,
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),

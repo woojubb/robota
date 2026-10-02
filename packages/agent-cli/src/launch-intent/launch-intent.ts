@@ -1,5 +1,5 @@
 /**
- * FLOW-2006: the `robota://open` launch intent — the whole security boundary of a deep link.
+ * FLOW-2006: the `the product://open` launch intent — the whole security boundary of a deep link.
  *
  * The parser is fail-closed by construction. One verb, four allowed keys, a required version, and
  * any violation discards the WHOLE url naming the first rule broken (OWASP's discard-don't-partially-
@@ -17,8 +17,7 @@ export const LAUNCH_INTENT_MAX_PROMPT = 5000;
 /** The closed allowlist. A key outside it is a refusal, never a silent drop. */
 export const LAUNCH_INTENT_KEYS: readonly string[] = ['v', 'prompt', 'cwd', 'repo'];
 
-export const LAUNCH_INTENT_USAGE =
-  "Usage: robota open 'robota://open?v=1&prompt=<text>[&cwd=<absolute path>|&repo=<owner/name>]'";
+export function launchIntentUsage(cliName: string, protocolScheme: string): string { return `Usage: ${cliName} open '${protocolScheme}://open?v=1&prompt=<text>[&cwd=<absolute path>|&repo=<owner/name>]'`; }
 
 export interface ILaunchIntent {
   readonly version: string;
@@ -77,10 +76,10 @@ export function echoValue(value: string): string {
 }
 
 function refuse(reason: string): TLaunchIntentParse {
-  return { ok: false, reason: `${reason}\n${LAUNCH_INTENT_USAGE}` };
+  return { ok: false, reason };
 }
 
-/** `robota://open`, `robota://open/` and the authority-less `robota:open`, verb case-insensitive. */
+/** `the product://open`, `the product://open/` and the authority-less `the product:open`, verb case-insensitive. */
 function verbOf(url: URL): string | undefined {
   const host = url.host.toLowerCase();
   const path = url.pathname;
@@ -176,7 +175,7 @@ function readIntent(query: Map<string, string>): TLaunchIntentParse {
 }
 
 /** Parse a launch intent, or refuse the whole url naming the first rule it broke. */
-export function parseLaunchIntent(raw: string): TLaunchIntentParse {
+export function parseLaunchIntent(raw: string, protocolScheme: string): TLaunchIntentParse {
   if (codePointLength(raw) > LAUNCH_INTENT_MAX_URL) {
     return refuse(`the link is longer than ${LAUNCH_INTENT_MAX_URL} characters.`);
   }
@@ -186,11 +185,11 @@ export function parseLaunchIntent(raw: string): TLaunchIntentParse {
   } catch {
     return refuse('the link is not a URL.');
   }
-  if (url.protocol !== 'robota:') {
-    return refuse(`\`${echoValue(url.protocol)}\` is not the \`robota:\` scheme.`);
+  if (url.protocol !== `${protocolScheme}:`) {
+    return refuse(`\`${echoValue(url.protocol)}\` is not the selected protocol scheme.`);
   }
   if (url.hash.length > 0) return refuse('the link carries a fragment.');
-  if (verbOf(url) !== 'open') return refuse('the only accepted form is `robota://open`.');
+  if (verbOf(url) !== 'open') return refuse(`the only accepted launch verb is ${protocolScheme}://open.`);
 
   const query = readQuery(url);
   if (isRefusal(query)) return query;
@@ -201,11 +200,11 @@ export function parseLaunchIntent(raw: string): TLaunchIntentParse {
  * Build a link from an intent. Module-internal on purpose — no caller exists yet, and the round trip
  * is what the tests assert through this module's own boundary.
  */
-export function encodeLaunchIntent(intent: Omit<ILaunchIntent, 'repoSuperseded'>): string {
+export function encodeLaunchIntent(intent: Omit<ILaunchIntent, 'repoSuperseded'>, protocolScheme: string): string {
   const query = new URLSearchParams();
   query.set('v', intent.version);
   if (intent.prompt !== undefined) query.set('prompt', intent.prompt);
   if (intent.cwd !== undefined) query.set('cwd', intent.cwd);
   if (intent.repo !== undefined) query.set('repo', intent.repo);
-  return `robota://open?${query.toString()}`;
+  return `${protocolScheme}://open?${query.toString()}`;
 }

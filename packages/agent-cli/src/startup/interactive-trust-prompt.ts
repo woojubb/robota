@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
  * An interactive start in an untrusted workspace asks whether to trust it (issue #3268), the way the
  * headless refusal tells a run with no one to ask. It asks before anything from the project is
@@ -8,7 +9,6 @@ import { createInterface } from 'node:readline/promises';
 import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework';
 
 import { userPaths } from '../product/user-paths.js';
-import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../product/robota-project-state-directories.js';
 import { formatProjectContributionPreview } from './project-contribution-preview.js';
 
 import { subcommandWord, type IParsedCliArgs } from '../utils/cli-args.js';
@@ -50,6 +50,7 @@ export function startsNewTuiSession(
 }
 
 export interface IInteractiveTrustPromptOptions {
+  readonly productRuntime: ICliRuntimeContext;
   /** A person is at this run: a new TUI session ({@link startsNewTuiSession}) on a terminal. */
   readonly interactive: boolean;
   /** Access decided for this run and not to be reopened: safe mode, a `/cd` into a Restricted folder, an embedder's. */
@@ -80,6 +81,7 @@ export function canAskToTrust(
 export function trustQuestionFor(
   access: TWorkspaceProjectAccess,
   cwd: string,
+  runtime: ICliRuntimeContext,
 ): { readonly folder: string; readonly loads: readonly string[] } | undefined {
   if (!canAskToTrust(access)) return undefined;
   return {
@@ -89,17 +91,17 @@ export function trustQuestionFor(
     // could not be determined (every row, on a host without Linux's pinned handle-walk) says nothing
     // worth showing there, unlike the full terminal preview (`formatProjectContributionPreview`
     // itself, still complete — the TUI's own interactive prompt and plain `trust status` keep it).
-    loads: formatProjectContributionPreview(access.identity, cwd)
+    loads: formatProjectContributionPreview(access.identity, cwd, runtime)
       .split('\n')
       .filter((line) => line.startsWith('  [') && !line.startsWith('  [unavailable]')),
   };
 }
 
 /** Record the grant a person just gave, in the user's trust store. */
-export function grantWorkspaceTrust(cwd: string): Promise<TWorkspaceProjectAccess> {
+export function grantWorkspaceTrust(cwd: string, runtime: ICliRuntimeContext): Promise<TWorkspaceProjectAccess> {
   return createNodeWorkspaceTrustService(
-    userPaths().workspaceTrust,
-    ROBOTA_PROJECT_STATE_DIRECTORIES,
+    userPaths(runtime).workspaceTrust,
+    runtime.layout.projectStateDirectories,
   ).grant(cwd);
 }
 
@@ -115,18 +117,18 @@ export async function askToTrustWorkspace(
   write(
     [
       `This folder is not trusted: ${access.displayPath ?? cwd}`,
-      "Trusting it lets Robota load the project's own settings, hooks, plugins, skills, agent " +
-        'definitions, provider overrides and MCP servers. Without it, Robota starts Restricted.',
-      formatProjectContributionPreview(access.identity, cwd),
+      `Trusting it lets ${options.productRuntime.config.identity.displayName} load the project's own settings, hooks, plugins, skills, agent ` +
+        `definitions, provider overrides and MCP servers. Without it, ${options.productRuntime.config.identity.displayName} starts Restricted.`,
+      formatProjectContributionPreview(access.identity, cwd, options.productRuntime),
     ].join('\n'),
   );
   const confirmed = await (options.confirm ?? confirmOnTerminal)('Trust this folder? [y/N] ');
   if (!confirmed) {
-    write('Starting Restricted. Trust it later with: robota trust --yes\n');
+    write(`Starting Restricted. Trust it later with: ${options.productRuntime.config.identity.cliName} trust --yes\n`);
     return access;
   }
   try {
-    return await (options.grant ?? grantWorkspaceTrust)(cwd);
+    return await (options.grant ?? ((path) => grantWorkspaceTrust(path, options.productRuntime)))(cwd);
   } catch (error) {
     // The person said yes and it did not take: say so and start as a no would, not crash the start.
     write(

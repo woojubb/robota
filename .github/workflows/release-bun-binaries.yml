@@ -7,11 +7,17 @@ name: Release — Bun binaries
 on:
   push:
     tags:
-      - 'v*'
+      - '**'
+  pull_request:
+    branches: [develop, main]
   workflow_dispatch:
     inputs:
+      product_env:
+        description: 'Non-secret product environment file contents; otherwise uses vars.PRODUCT_BUILD_ENV.'
+        required: false
+        type: string
       tag:
-        description: 'Existing release tag to build + attach binaries to (e.g. v3.0.0-beta.79). The tag must already exist.'
+        description: 'Existing configured-prefix release tag to build and attach binaries to. The tag must already exist.'
         required: true
         type: string
 
@@ -21,42 +27,57 @@ permissions:
 # Shares the Release with release-desktop-app.yml — serialize both publishers on the same tag.
 concurrency:
   group: release-assets-${{ github.event.inputs.tag || github.ref_name }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  scope:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      plan: ${{ steps.scope.outputs.plan }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/ci-setup
+        with:
+          install: 'false'
+      - id: scope
+        run: node scripts/ci.mjs scope
+        env:
+          CI_EVENT: ${{ github.event_name }}
+          CI_BASE: ${{ github.event.pull_request.base.sha }}
   build-bun:
-    name: Build Bun / ${{ matrix.target }}
+    name: Build Bun / ${{ matrix.product }} / ${{ matrix.target }}
+    needs: scope
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || fromJSON(needs.scope.outputs.plan).developerDocs != true) }}
+    timeout-minutes: ${{ github.event_name == 'pull_request' && 30 || 360 }}
+    env:
+      PRODUCT_BUILD_ENV: ${{ github.event.inputs.product_env || vars.PRODUCT_BUILD_ENV }}
+    outputs:
+      artifact_prefix: ${{ steps.product.outputs.artifact_prefix }}
+      tag_prefix: ${{ steps.product.outputs.tag_prefix }}
+      repository_url: ${{ steps.product.outputs.repository_url }}
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - target: linux-x64
-            runner: ubuntu-24.04
-            binary: robota-linux-x64
-          - target: linux-arm64
-            runner: ubuntu-24.04-arm
-            binary: robota-linux-arm64
-          - target: darwin-x64
-            runner: macos-26-intel
-            binary: robota-darwin-x64
-          - target: darwin-arm64
-            runner: macos-26
-            binary: robota-darwin-arm64
-          - target: windows-x64
-            runner: windows-2025
-            binary: robota-windows-x64.exe
+        product: ${{ fromJSON(github.event_name == 'pull_request' && '["cedar","amber"]' || '["configured"]') }}
+        target: ${{ fromJSON(github.event_name == 'pull_request' && '["darwin-arm64"]' || '["linux-x64","linux-arm64","darwin-x64","darwin-arm64","windows-x64"]') }}
+        include: ${{ fromJSON(github.event_name == 'pull_request' && '[{"target":"darwin-arm64","runner":"macos-26"}]' || '[{"target":"linux-x64","runner":"ubuntu-24.04"},{"target":"linux-arm64","runner":"ubuntu-24.04-arm"},{"target":"darwin-x64","runner":"macos-26-intel"},{"target":"darwin-arm64","runner":"macos-26"},{"target":"windows-x64","runner":"windows-2025"}]') }}
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
+        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 360 }}
         with:
           fetch-depth: 0
-          ref: ${{ github.event.inputs.tag || github.ref_name }}
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.inputs.tag || github.ref_name }}
 
       # Keep the product tag immutable while allowing reviewed release tooling to repair an older tag.
       - name: Checkout macOS release tooling
-        if: runner.os == 'macOS'
+        if: github.event_name != 'pull_request' && runner.os == 'macOS'
         uses: actions/checkout@v7
         with:
           ref: ${{ github.workflow_sha }}
@@ -64,34 +85,64 @@ jobs:
           sparse-checkout: scripts/release
 
       - name: Install pnpm
+        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 360 }}
         uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
           run_install: false
 
       - name: Setup Node.js
+        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 360 }}
         uses: actions/setup-node@v6
         with:
           node-version: 22.14.0
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        timeout-minutes: ${{ github.event_name == 'pull_request' && 10 || 360 }}
+        run: ${{ github.event_name == 'pull_request' && 'pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .' || 'pnpm install --frozen-lockfile' }}
 
+      - name: Generate selected product workspace
+        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 360 }}
+        id: product
+        shell: bash
+        env:
+          IS_PULL_REQUEST: ${{ github.event_name == 'pull_request' }}
+          FIXTURE_PRODUCT: ${{ matrix.product }}
+        run: pnpm exec tsx scripts/product/prepare-workflow-workspace.mjs
+
+      - name: Validate configured release tag
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          tag=${INPUT_TAG:-$REF_NAME}
+          if [ -z "$PROJECT_RELEASE_TAG_PREFIX" ] || [[ "$tag" != "$PROJECT_RELEASE_TAG_PREFIX"* ]]; then
+            echo "::error::The selected tag must use the configured PROJECT_RELEASE_TAG_PREFIX."
+            exit 1
+          fi
       - name: Build workspace
-        run: pnpm build
+        timeout-minutes: ${{ github.event_name == 'pull_request' && 10 || 360 }}
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}
+        run: ${{ github.event_name == 'pull_request' && 'pnpm install --frozen-lockfile && pnpm -r --filter "{packages/agent-cli}..." --filter "{apps/agent-app}^..." run build' || 'pnpm install --frozen-lockfile && pnpm build' }}
 
       - name: Setup Bun
+        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 360 }}
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
 
       - name: Compile the exact native target
+        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 360 }}
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}
         shell: bash
         run: bun packages/agent-cli/scripts/build-bun.mjs "${{ matrix.target }}"
 
       - name: Prepare macOS release credentials
-        if: runner.os == 'macOS'
+        if: github.event_name != 'pull_request' && runner.os == 'macOS'
         env:
           MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
@@ -102,43 +153,77 @@ jobs:
         run: node .release-tools/scripts/release/setup-macos-signing.mjs setup
 
       - name: Sign and notarize the macOS executable
-        if: runner.os == 'macOS'
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}
+        if: github.event_name != 'pull_request' && runner.os == 'macOS'
         shell: bash
         env:
-          BINARY: packages/agent-cli/dist-bun/${{ matrix.binary }}
+          BINARY: ${{ env.PRODUCT_WORKSPACE }}/packages/agent-cli/dist-bun/${{ steps.product.outputs.artifact_prefix }}-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}
         run: |
           set -euo pipefail
-          node .release-tools/scripts/release/macos-signing.mjs sign-runtime "$BINARY"
-          node .release-tools/scripts/release/macos-signing.mjs notarize-cli "$BINARY"
+          node "$GITHUB_WORKSPACE/.release-tools/scripts/release/macos-signing.mjs" sign-runtime "$BINARY"
+          node "$GITHUB_WORKSPACE/.release-tools/scripts/release/macos-signing.mjs" notarize-cli "$BINARY"
 
       - name: Execute the exact signed native target
+        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 360 }}
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p ".release-output/${{ matrix.target }}"
-          cp "packages/agent-cli/dist-bun/${{ matrix.binary }}" ".release-output/${{ matrix.target }}/"
-          standalone_root="$(mktemp -d "${RUNNER_TEMP}/robota-release-bun-${{ matrix.target }}-XXXXXX")"
-          binary="$standalone_root/${{ matrix.binary }}"
-          cp ".release-output/${{ matrix.target }}/${{ matrix.binary }}" "$binary"
+          cp "packages/agent-cli/dist-bun/${{ steps.product.outputs.artifact_prefix }}-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}" ".release-output/${{ matrix.target }}/"
+          standalone_root="$(mktemp -d "${RUNNER_TEMP}/${{ steps.product.outputs.artifact_prefix }}-release-bun-${{ matrix.target }}-XXXXXX")"
+          binary="$standalone_root/${{ steps.product.outputs.artifact_prefix }}-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}"
+          cp ".release-output/${{ matrix.target }}/${{ steps.product.outputs.artifact_prefix }}-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}" "$binary"
           chmod +x "$binary"
           (cd "$standalone_root" && "$binary" --version)
           node packages/agent-cli/scripts/e2e-native-file-authority.mjs "$binary"
 
+      - name: Package and exercise the unsigned desktop product
+        timeout-minutes: ${{ github.event_name == 'pull_request' && 10 || 360 }}
+        if: github.event_name == 'pull_request'
+        shell: bash
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          pnpm --filter './apps/agent-app' build
+          pnpm --filter './apps/agent-app' bundle:runtime
+          pnpm --filter './apps/agent-app' exec electron-builder --dir --publish never -c.mac.notarize=false -c.mac.identity=null
+          pnpm --filter './apps/agent-app' test:e2e:bundled
+          pnpm --filter './packages/agent-cli' test:bun
+
       - name: Upload exactly one native binary
+        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 360 }}
         uses: actions/upload-artifact@v7
         with:
-          name: bun-binary-${{ matrix.target }}-${{ github.run_id }}
-          path: .release-output/${{ matrix.target }}/${{ matrix.binary }}
+          name: bun-binary-${{ matrix.target }}-${{ matrix.product }}-${{ github.run_id }}
+          path: ${{ env.PRODUCT_WORKSPACE }}/.release-output/${{ matrix.target }}/${{ steps.product.outputs.artifact_prefix }}-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}
           if-no-files-found: error
           retention-days: 1
 
       - name: Remove macOS release credentials
-        if: ${{ always() && runner.os == 'macOS' }}
+        if: ${{ always() && github.event_name != 'pull_request' && runner.os == 'macOS' }}
         run: node .release-tools/scripts/release/setup-macos-signing.mjs cleanup
+
+  native-validation:
+    needs: [scope, build-bun]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - run: node scripts/ci.mjs native-gate
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
 
   publish-bun:
     name: Publish verified Bun binaries
     needs: build-bun
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs['build-bun'].result == 'success' }}
+    env:
+      PRODUCT_ARTIFACT_PREFIX: ${{ needs.build-bun.outputs.artifact_prefix }}
+      PROJECT_RELEASE_TAG_PREFIX: ${{ needs.build-bun.outputs.tag_prefix }}
+      PROJECT_REPOSITORY_URL: ${{ needs.build-bun.outputs.repository_url }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -151,7 +236,7 @@ jobs:
         run: |
           set -euo pipefail
           tag="${INPUT_TAG:-$REF_NAME}"
-          if [[ ! "$tag" =~ ^v[0-9A-Za-z._+-]+$ ]]; then
+          if [ -z "$PROJECT_RELEASE_TAG_PREFIX" ] || [[ "$tag" != "$PROJECT_RELEASE_TAG_PREFIX"* ]] || [[ ! "$tag" =~ ^[0-9A-Za-z._+-]+$ ]]; then
             echo "::error::Refusing invalid release tag."
             exit 1
           fi
@@ -174,11 +259,11 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           expected=(
-            robota-darwin-arm64
-            robota-darwin-x64
-            robota-linux-x64
-            robota-linux-arm64
-            robota-windows-x64.exe
+            ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-arm64
+            ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-x64
+            ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-linux-x64
+            ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-linux-arm64
+            ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-windows-x64.exe
           )
           artifact_dirs=(.release-inputs/bun-binary-*-${{ github.run_id }})
           if [[ "${#artifact_dirs[@]}" -ne 5 ]]; then
@@ -204,11 +289,11 @@ jobs:
             cp "${files[0]}" ".release-assets/$name"
             description=$(file -b ".release-assets/$name")
             case "$name" in
-              robota-darwin-arm64) expected_format='Mach-O 64-bit arm64' ;;
-              robota-darwin-x64) expected_format='Mach-O 64-bit x86_64' ;;
-              robota-linux-x64) expected_format='ELF 64-bit LSB.*x86-64' ;;
-              robota-linux-arm64) expected_format='ELF 64-bit LSB.*ARM aarch64' ;;
-              robota-windows-x64.exe) expected_format='PE32+.*x86-64' ;;
+              ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-arm64) expected_format='Mach-O 64-bit arm64' ;;
+              ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-x64) expected_format='Mach-O 64-bit x86_64' ;;
+              ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-linux-x64) expected_format='ELF 64-bit LSB.*x86-64' ;;
+              ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-linux-arm64) expected_format='ELF 64-bit LSB.*ARM aarch64' ;;
+              ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-windows-x64.exe) expected_format='PE32+.*x86-64' ;;
             esac
             if [[ ! "$description" =~ $expected_format ]]; then
               echo "::error::$name has an unexpected binary format: $description"
@@ -224,11 +309,11 @@ jobs:
           (
             cd .release-assets
             sha256sum \
-              robota-darwin-arm64 \
-              robota-darwin-x64 \
-              robota-linux-x64 \
-              robota-linux-arm64 \
-              robota-windows-x64.exe \
+              ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-arm64 \
+              ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-x64 \
+              ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-linux-x64 \
+              ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-linux-arm64 \
+              ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-windows-x64.exe \
               > SHA256SUMS.txt
             lines=$(wc -l < SHA256SUMS.txt)
             if [[ "$lines" -ne 5 ]]; then
@@ -246,7 +331,7 @@ jobs:
       - name: Generate release notes
         env:
           TAG: ${{ steps.tag.outputs.tag }}
-        run: node scripts/release/generate-release-notes.mjs --tag "$TAG" --notes-file "${{ runner.temp }}/release-notes.md"
+        run: node scripts/release/generate-release-notes.mjs --tag "$TAG" --tag-prefix "$PROJECT_RELEASE_TAG_PREFIX" --notes-file "${{ runner.temp }}/release-notes.md"
 
       - name: Publish all six assets once
         env:
@@ -257,11 +342,11 @@ jobs:
           set -euo pipefail
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes-file "$NOTES"
           gh release upload "$TAG" \
-            .release-assets/robota-darwin-arm64 \
-            .release-assets/robota-darwin-x64 \
-            .release-assets/robota-linux-x64 \
-            .release-assets/robota-linux-arm64 \
-            .release-assets/robota-windows-x64.exe \
+            .release-assets/${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-arm64 \
+            .release-assets/${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-x64 \
+            .release-assets/${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-linux-x64 \
+            .release-assets/${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-linux-arm64 \
+            .release-assets/${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-windows-x64.exe \
             .release-assets/SHA256SUMS.txt \
             --clobber
 
@@ -275,11 +360,11 @@ jobs:
           gh release download "$TAG" \
             --dir .published-assets \
             --clobber \
-            --pattern robota-darwin-arm64 \
-            --pattern robota-darwin-x64 \
-            --pattern robota-linux-x64 \
-            --pattern robota-linux-arm64 \
-            --pattern robota-windows-x64.exe \
+            --pattern ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-arm64 \
+            --pattern ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-x64 \
+            --pattern ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-linux-x64 \
+            --pattern ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-linux-arm64 \
+            --pattern ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-windows-x64.exe \
             --pattern SHA256SUMS.txt
           shopt -s nullglob
           published=(.published-assets/*)

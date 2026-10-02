@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from './helpers/product-runtime.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { existsSync, mkdirSync, rmSync, writeFileSync, mkdtempSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
@@ -12,7 +13,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import { startCli } from '../cli.js';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-cli-update-check-test-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-cli-update-check-test-')));
 const ORIGINAL_ARGV = process.argv;
 const ORIGINAL_HOME = process.env.HOME;
 let lastChatMessages: TUniversalMessage[] = [];
@@ -57,7 +58,7 @@ function createFakeProvider(): IAIProvider {
 }
 
 function writeProjectSettings(projectDir: string): void {
-  const settingsDir = join(projectDir, '.robota');
+  const settingsDir = join(projectDir, '.test-product');
   mkdirSync(settingsDir, { recursive: true });
   writeFileSync(
     join(settingsDir, 'settings.json'),
@@ -106,7 +107,7 @@ describe('CLI update check command', () => {
     vi.spyOn(process, 'cwd').mockReturnValue(project);
     process.argv = [
       'node',
-      'robota',
+      'test-product',
       '-p',
       '--bare',
       '--no-session-persistence',
@@ -122,7 +123,7 @@ describe('CLI update check command', () => {
       throw new Error(`process.exit:${String(code ?? 0)}`);
     });
 
-    await expect(startCli({ providerDefinitions: [fakeProviderDefinition] })).rejects.toThrow(
+    await expect(startCli({productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),  providerDefinitions: [fakeProviderDefinition] })).rejects.toThrow(
       'process.exit:0',
     );
 
@@ -137,13 +138,13 @@ describe('CLI update check command', () => {
     expect(lastChatMessages.some((message) => message.content === 'Summarize the task file.')).toBe(
       true,
     );
-    expect(existsSync(join(project, '.robota', 'sessions'))).toBe(false);
+    expect(existsSync(join(project, '.test-product', 'sessions'))).toBe(false);
   });
 
   it('checks npm metadata and prints the npm global install command without writing settings', async () => {
     const home = join(TMP_BASE, 'home');
     process.env.HOME = home;
-    process.argv = ['node', 'robota', '--check-update'];
+    process.argv = ['node', 'test-product', '--check-update'];
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const fetchImpl = vi.fn(async () =>
@@ -151,19 +152,19 @@ describe('CLI update check command', () => {
     );
     vi.stubGlobal('fetch', fetchImpl);
 
-    await startCli();
+    await startCli({ productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'], PROJECT_NPM_REGISTRY_URL: 'https://registry.example.test' }) });
 
     expect(fetchImpl).toHaveBeenCalledOnce();
-    expect(stdout.mock.calls.join('\n')).toContain("npm install -g '@robota-sdk/agent-cli@latest'");
+    expect(stdout.mock.calls.join('\n')).toContain("npm install -g \"@test-product-sdk/agent-cli@latest\"");
     expect(stderr).not.toHaveBeenCalled();
-    expect(existsSync(join(home, '.robota', 'settings.json'))).toBe(false);
-    expect(existsSync(join(home, '.robota', 'update-check.json'))).toBe(true);
+    expect(existsSync(join(home, '.test-product', 'settings.json'))).toBe(false);
+    expect(existsSync(join(home, '.test-product', 'cache', 'update-check.json'))).toBe(true);
   });
 
-  it('keeps update caches separate for two Robota homes', async () => {
+  it('keeps update caches separate for two test-product Agent homes', async () => {
     const firstHome = join(TMP_BASE, 'first-home');
     const secondHome = join(TMP_BASE, 'second-home');
-    process.argv = ['node', 'robota', '--check-update'];
+    process.argv = ['node', 'test-product', '--check-update'];
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const fetchImpl = vi.fn(async () =>
@@ -172,13 +173,13 @@ describe('CLI update check command', () => {
     vi.stubGlobal('fetch', fetchImpl);
 
     process.env.HOME = firstHome;
-    await startCli();
+    await startCli({ productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'], PROJECT_NPM_REGISTRY_URL: 'https://registry.example.test' }) });
     process.env.HOME = secondHome;
-    await startCli();
+    await startCli({ productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'], PROJECT_NPM_REGISTRY_URL: 'https://registry.example.test' }) });
 
     expect(fetchImpl).toHaveBeenCalledTimes(2);
-    expect(existsSync(join(firstHome, '.robota', 'update-check.json'))).toBe(true);
-    expect(existsSync(join(secondHome, '.robota', 'update-check.json'))).toBe(true);
+    expect(existsSync(join(firstHome, '.test-product', 'cache', 'update-check.json'))).toBe(true);
+    expect(existsSync(join(secondHome, '.test-product', 'cache', 'update-check.json'))).toBe(true);
   });
 
   it.each<TPrintModeOutputCase>(['text', 'json', 'stream-json'])(
@@ -193,7 +194,7 @@ describe('CLI update check command', () => {
       const outputArgs = outputFormat === 'text' ? [] : ['--output-format', outputFormat];
       process.argv = [
         'node',
-        'robota',
+        'test-product',
         '-p',
         ...outputArgs,
         '--bare',
@@ -210,7 +211,7 @@ describe('CLI update check command', () => {
         throw new Error(`process.exit:${String(code ?? 0)}`);
       });
 
-      await expect(startCli({ providerDefinitions: [fakeProviderDefinition] })).rejects.toThrow(
+      await expect(startCli({productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),  providerDefinitions: [fakeProviderDefinition] })).rejects.toThrow(
         'process.exit:0',
       );
 
@@ -218,9 +219,9 @@ describe('CLI update check command', () => {
       const stdoutText = stdout.mock.calls.join('');
       expect(stdoutText).toContain('Available commands:');
       expect(stdoutText).toContain('agent');
-      expect(stdoutText).not.toContain('Robota update available');
+      expect(stdoutText).not.toContain('test-product Agent update available');
       expect(stderr.mock.calls.join('')).toBe('');
-      expect(existsSync(join(home, '.robota', 'update-check.json'))).toBe(false);
+      expect(existsSync(join(home, '.test-product', 'cache', 'update-check.json'))).toBe(false);
     },
   );
 });

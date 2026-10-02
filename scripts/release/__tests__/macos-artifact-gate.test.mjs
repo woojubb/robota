@@ -15,6 +15,7 @@ afterEach(() => {
 });
 
 function fixture({
+  artifactPrefix = 'agent',
   rejectStaple = false,
   requireOpenAssessment = false,
   rejectCliNotarization = false,
@@ -28,7 +29,7 @@ function fixture({
   mkdirSync(downloads);
   const script = '#!/bin/sh\nprintf "3.0.0-beta.test\\n"\n';
   const digest = createHash('sha256').update(script).digest('hex');
-  const names = ['robota-darwin-arm64', 'robota-darwin-x64', 'Robota.dmg'];
+  const names = [`${artifactPrefix}-darwin-arm64`, `${artifactPrefix}-darwin-x64`, 'RuntimeApp.dmg'];
   for (const name of names) writeFileSync(join(downloads, name), script, { mode: 0o755 });
   writeFileSync(
     join(downloads, 'SHA256SUMS.txt'),
@@ -36,27 +37,32 @@ function fixture({
   );
   const mocks = {
     codesign: rejectCliNotarization
-      ? 'case "$*" in *"--test-requirement =notarized"*robota-darwin*) exit 1;; esac'
+      ? `case "$*" in *"--test-requirement =notarized"*${artifactPrefix}-darwin*) exit 1;; esac`
       : requireCliAssessment
-        ? 'case "$*" in *"--test-requirement =notarized"*robota-darwin*) for arg in "$@"; do target="$arg"; done; test -f "$target.assessed";; esac'
+        ? `case "$*" in *"--test-requirement =notarized"*${artifactPrefix}-darwin*) for arg in "$@"; do target="$arg"; done; test -f "$target.assessed";; esac`
         : 'exit 0',
     xattr: 'echo quarantine',
     uuidgen: 'echo uuid',
     sw_vers: 'echo 26.0',
     xcrun: rejectStaple ? 'exit 1' : 'exit 0',
     hdiutil:
-      'if [ "$1" = attach ]; then for arg in "$@"; do mount="$arg"; done; mkdir -p "$mount/Robota.app"; fi',
+      'if [ "$1" = attach ]; then for arg in "$@"; do mount="$arg"; done; mkdir -p "$mount/RuntimeApp.app"; fi',
     spctl:
-      'case "$*" in *robota-darwin*) for arg in "$@"; do target="$arg"; done; touch "$target.assessed"; echo "rejected (the code is valid but does not seem to be an app)" >&2; exit 3;; esac\n' +
+      `case "$*" in *${artifactPrefix}-darwin*) for arg in "$@"; do target="$arg"; done; touch "$target.assessed"; echo "rejected (the code is valid but does not seem to be an app)" >&2; exit 3;; esac\n` +
       (requireOpenAssessment
-        ? 'case "$*" in *Robota.dmg*) case "$*" in *"--type open --context context:primary-signature"*) exit 0;; *) exit 1;; esac;; esac'
+        ? 'case "$*" in *RuntimeApp.dmg*) case "$*" in *"--type open --context context:primary-signature"*) exit 0;; *) exit 1;; esac;; esac'
         : 'exit 0'),
   };
   for (const [name, content] of Object.entries(mocks))
     writeFileSync(join(commands, name), `#!/bin/sh\n${content}\n`, { mode: 0o755 });
   return spawnSync('bash', [gate, 'test-tag', downloads], {
     encoding: 'utf8',
-    env: { ...process.env, PATH: `${commands}:${process.env.PATH}`, TMPDIR: root },
+    env: {
+      ...process.env,
+      PATH: `${commands}:${process.env.PATH}`,
+      TMPDIR: root,
+      PRODUCT_ARTIFACT_PREFIX: artifactPrefix,
+    },
   });
 }
 
@@ -74,21 +80,28 @@ it('assesses a DMG as a disk image being opened rather than a package installer'
 
 it('accepts notarized standalone CLIs despite app-only spctl refusing their file type', () => {
   const result = fixture();
-  expect(result.stdout).toMatch(/BLOCKING\s+PASS notarization requirement: robota-darwin-arm64/);
-  expect(result.stdout).toMatch(/BLOCKING\s+PASS notarization requirement: robota-darwin-x64/);
+  expect(result.stdout).toMatch(/BLOCKING\s+PASS notarization requirement: agent-darwin-arm64/);
+  expect(result.stdout).toMatch(/BLOCKING\s+PASS notarization requirement: agent-darwin-x64/);
+  expect(result.status).toBe(0);
+});
+
+it.each(['cedar', 'birch'])('verifies standalone artifacts from configured prefix %s', (artifactPrefix) => {
+  const result = fixture({ artifactPrefix });
+  expect(result.stdout).toContain(`CLI binary: ${artifactPrefix}-darwin-arm64`);
+  expect(result.stdout).toContain(`CLI binary: ${artifactPrefix}-darwin-x64`);
   expect(result.status).toBe(0);
 });
 
 it('rejects a signed executable that has no Apple notarization ticket', () => {
   const result = fixture({ rejectCliNotarization: true });
-  expect(result.stdout).toMatch(/BLOCKING\s+FAIL notarization requirement: robota-darwin-arm64/);
-  expect(result.stdout).toMatch(/BLOCKING\s+FAIL notarization requirement: robota-darwin-x64/);
+  expect(result.stdout).toMatch(/BLOCKING\s+FAIL notarization requirement: agent-darwin-arm64/);
+  expect(result.stdout).toMatch(/BLOCKING\s+FAIL notarization requirement: agent-darwin-x64/);
   expect(result.status).toBe(1);
 });
 
 it('fetches each standalone CLI ticket before checking notarization on a fresh Mac', () => {
   const result = fixture({ requireCliAssessment: true });
-  expect(result.stdout).toMatch(/BLOCKING\s+PASS notarization requirement: robota-darwin-arm64/);
-  expect(result.stdout).toMatch(/BLOCKING\s+PASS notarization requirement: robota-darwin-x64/);
+  expect(result.stdout).toMatch(/BLOCKING\s+PASS notarization requirement: agent-darwin-arm64/);
+  expect(result.stdout).toMatch(/BLOCKING\s+PASS notarization requirement: agent-darwin-x64/);
   expect(result.status).toBe(0);
 });

@@ -3,10 +3,10 @@ import { createConfiguredNodeOtlpLiveTelemetryPort } from '../live-trace-otlp.js
 
 const redaction = { getSecrets: () => [], cwd: '/nonexistent', homedir: '/home/al' };
 const contentBase = {
-  ROBOTA_TELEMETRY_ENABLED: '1',
-  ROBOTA_TELEMETRY_LOGS: 'otlp',
-  ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
-  ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
+  PRODUCT_TELEMETRY_ENABLED: '1',
+  PRODUCT_TELEMETRY_LOGS: 'otlp',
+  PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+  PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
 };
 
 function refusal(env: Record<string, string>): Error {
@@ -18,26 +18,26 @@ function refusal(env: Record<string, string>): Error {
 }
 
 const base = {
-  ROBOTA_TELEMETRY_ENABLED: '1',
-  ROBOTA_TELEMETRY_TRACES: 'otlp',
-  ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
-  ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
+  PRODUCT_TELEMETRY_ENABLED: '1',
+  PRODUCT_TELEMETRY_TRACES: 'otlp',
+  PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+  PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
 };
 
-describe('Robota live telemetry settings', () => {
+describe('Product live telemetry settings', () => {
   it.each([
-    ['ROBOTA_TELEMETRY_OTLP_HEADERS_HELPER', /headers are not supported/u],
-    ['ROBOTA_TELEMETRY_OTLP_HEADERS_REFRESH', /headers are not supported/u],
-    ['ROBOTA_TELEMETRY_HEADERS', /headers are not supported/u],
-    ['ROBOTA_TELEMETRY_OTLP_CLIENT_CERTIFICATE', /client certificates and custom CAs are not supported/u],
-    ['ROBOTA_TELEMETRY_OTLP_CLIENT_KEY', /client certificates and custom CAs are not supported/u],
-    ['ROBOTA_TELEMETRY_OTLP_CERTIFICATE', /client certificates and custom CAs are not supported/u],
-    ['ROBOTA_TELEMETRY_LOCKED_DESTINATION', /managed destination lock cannot be enforced/u],
-    ['ROBOTA_TELEMETRY_LOG_RAW_BODIES', /content capture is not supported/u],
-    ['ROBOTA_TELEMETRY_TOOL_CONTENT', /content capture is not supported/u],
-    ['ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS_RAW', /content capture is not supported/u],
-    ['ROBOTA_TELEMETRY_LOG_TOOL_BODIES', /content capture is not supported/u],
-    ['ROBOTA_TELEMETRY_SAMPLE_RATE', /Unknown Robota telemetry setting ROBOTA_TELEMETRY_SAMPLE_RATE/u],
+    ['PRODUCT_TELEMETRY_OTLP_HEADERS_HELPER', /headers are not supported/u],
+    ['PRODUCT_TELEMETRY_OTLP_HEADERS_REFRESH', /headers are not supported/u],
+    ['PRODUCT_TELEMETRY_HEADERS', /headers are not supported/u],
+    ['PRODUCT_TELEMETRY_OTLP_CLIENT_CERTIFICATE', /client certificates and custom CAs are not supported/u],
+    ['PRODUCT_TELEMETRY_OTLP_CLIENT_KEY', /client certificates and custom CAs are not supported/u],
+    ['PRODUCT_TELEMETRY_OTLP_CERTIFICATE', /client certificates and custom CAs are not supported/u],
+    ['PRODUCT_TELEMETRY_LOCKED_DESTINATION', /managed destination lock cannot be enforced/u],
+    ['PRODUCT_TELEMETRY_LOG_RAW_BODIES', /content capture is not supported/u],
+    ['PRODUCT_TELEMETRY_TOOL_CONTENT', /content capture is not supported/u],
+    ['PRODUCT_TELEMETRY_LOG_TOOL_ARGUMENTS_RAW', /content capture is not supported/u],
+    ['PRODUCT_TELEMETRY_LOG_TOOL_BODIES', /content capture is not supported/u],
+    ['PRODUCT_TELEMETRY_SAMPLE_RATE', /Unknown Product telemetry setting PRODUCT_TELEMETRY_SAMPLE_RATE/u],
   ])('refuses to start when %s is supplied, naming it but never echoing its value', (name, message) => {
     const secret = 'Bearer s3cr3t-value';
     let error: unknown;
@@ -50,30 +50,30 @@ describe('Robota live telemetry settings', () => {
 
   it('refuses unsupported settings even for console-only telemetry', () => {
     expect(() => createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_LOGS: 'console',
-      ROBOTA_TELEMETRY_OTLP_HEADERS_HELPER: 'x',
+      PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_LOGS: 'console',
+      PRODUCT_TELEMETRY_OTLP_HEADERS_HELPER: 'x',
     }, undefined, () => undefined)).toThrow(/headers are not supported/u);
   });
 
   it('keeps disabled telemetry inert whatever else is set', () => {
     expect(createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_OTLP_HEADERS: 'x', ROBOTA_TELEMETRY_SAMPLE_RATE: '1',
+      PRODUCT_TELEMETRY_OTLP_HEADERS: 'x', PRODUCT_TELEMETRY_SAMPLE_RATE: '1',
     })).toBeUndefined();
     expect(createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_ENABLED: '0', ROBOTA_TELEMETRY_OTLP_HEADERS: 'x',
+      PRODUCT_TELEMETRY_ENABLED: '0', PRODUCT_TELEMETRY_OTLP_HEADERS: 'x',
     })).toBeUndefined();
   });
 
   it('accepts every supported setting together', async () => {
     const port = createConfiguredNodeOtlpLiveTelemetryPort({
       ...base,
-      ROBOTA_TELEMETRY_METRICS: 'console',
-      ROBOTA_TELEMETRY_LOGS: 'off',
-      ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT: 'http://127.0.0.1:4318/v1/traces',
-      ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT: 'http://127.0.0.1:4318/v1/metrics',
-      ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT: 'http://127.0.0.1:4318/v1/logs',
-      ROBOTA_TELEMETRY_OTLP_TRACES_HEADERS: 'authorization=Bearer%20t',
-      ROBOTA_TELEMETRY_METRIC_ATTRIBUTES: 'session,provider,model',
+      PRODUCT_TELEMETRY_METRICS: 'console',
+      PRODUCT_TELEMETRY_LOGS: 'off',
+      PRODUCT_TELEMETRY_OTLP_TRACES_ENDPOINT: 'http://127.0.0.1:4318/v1/traces',
+      PRODUCT_TELEMETRY_OTLP_METRICS_ENDPOINT: 'http://127.0.0.1:4318/v1/metrics',
+      PRODUCT_TELEMETRY_OTLP_LOGS_ENDPOINT: 'http://127.0.0.1:4318/v1/logs',
+      PRODUCT_TELEMETRY_OTLP_TRACES_HEADERS: 'authorization=Bearer%20t',
+      PRODUCT_TELEMETRY_METRIC_ATTRIBUTES: 'session,provider,model',
     }, undefined, () => undefined);
     expect(port).toBeDefined();
     await port?.shutdown();
@@ -82,8 +82,8 @@ describe('Robota live telemetry settings', () => {
   it('accepts opt-in prompt and response capture over OTLP logs, with a default per-item bound', async () => {
     const port = createConfiguredNodeOtlpLiveTelemetryPort({
       ...contentBase,
-      ROBOTA_TELEMETRY_LOG_USER_PROMPTS: '1',
-      ROBOTA_TELEMETRY_LOG_ASSISTANT_RESPONSES: '0',
+      PRODUCT_TELEMETRY_LOG_USER_PROMPTS: '1',
+      PRODUCT_TELEMETRY_LOG_ASSISTANT_RESPONSES: '0',
     }, undefined, () => undefined, undefined, undefined, redaction);
     expect(port?.content?.policy).toEqual({
       userPrompts: true, assistantResponses: false, toolArguments: false, toolOutput: false, maxBytes: 2048,
@@ -91,8 +91,8 @@ describe('Robota live telemetry settings', () => {
     await port?.shutdown();
     const bounded = createConfiguredNodeOtlpLiveTelemetryPort({
       ...contentBase,
-      ROBOTA_TELEMETRY_LOG_ASSISTANT_RESPONSES: '1',
-      ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES: '16384',
+      PRODUCT_TELEMETRY_LOG_ASSISTANT_RESPONSES: '1',
+      PRODUCT_TELEMETRY_LOG_CONTENT_MAX_BYTES: '16384',
     }, undefined, () => undefined, undefined, undefined, redaction);
     expect(bounded?.content?.policy).toEqual({
       userPrompts: false, assistantResponses: true, toolArguments: false, toolOutput: false, maxBytes: 16384,
@@ -103,8 +103,8 @@ describe('Robota live telemetry settings', () => {
   it('offers no content channel unless a gate is 1', async () => {
     const port = createConfiguredNodeOtlpLiveTelemetryPort({
       ...contentBase,
-      ROBOTA_TELEMETRY_LOG_USER_PROMPTS: '0',
-      ROBOTA_TELEMETRY_LOG_ASSISTANT_RESPONSES: '0',
+      PRODUCT_TELEMETRY_LOG_USER_PROMPTS: '0',
+      PRODUCT_TELEMETRY_LOG_ASSISTANT_RESPONSES: '0',
     }, undefined, () => undefined);
     expect(port).toBeDefined();
     expect(port?.content).toBeUndefined();
@@ -112,25 +112,25 @@ describe('Robota live telemetry settings', () => {
   });
 
   it.each([
-    ['a gate that is not exactly 0 or 1', { ROBOTA_TELEMETRY_LOG_USER_PROMPTS: 'true-s3cr3t' },
-      /ROBOTA_TELEMETRY_LOG_USER_PROMPTS must be exactly 0 or 1/u],
-    ['a padded gate', { ROBOTA_TELEMETRY_LOG_ASSISTANT_RESPONSES: ' 1' },
-      /ROBOTA_TELEMETRY_LOG_ASSISTANT_RESPONSES must be exactly 0 or 1/u],
-    ['a bound without any gate', { ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES: '4096' },
-      /ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES is set but no content capture setting is 1/u],
+    ['a gate that is not exactly 0 or 1', { PRODUCT_TELEMETRY_LOG_USER_PROMPTS: 'true-s3cr3t' },
+      /PRODUCT_TELEMETRY_LOG_USER_PROMPTS must be exactly 0 or 1/u],
+    ['a padded gate', { PRODUCT_TELEMETRY_LOG_ASSISTANT_RESPONSES: ' 1' },
+      /PRODUCT_TELEMETRY_LOG_ASSISTANT_RESPONSES must be exactly 0 or 1/u],
+    ['a bound without any gate', { PRODUCT_TELEMETRY_LOG_CONTENT_MAX_BYTES: '4096' },
+      /PRODUCT_TELEMETRY_LOG_CONTENT_MAX_BYTES is set but no content capture setting is 1/u],
     ['a bound with every gate 0', {
-      ROBOTA_TELEMETRY_LOG_USER_PROMPTS: '0', ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES: '4096',
+      PRODUCT_TELEMETRY_LOG_USER_PROMPTS: '0', PRODUCT_TELEMETRY_LOG_CONTENT_MAX_BYTES: '4096',
     }, /no content capture setting is 1/u],
-    ['a bound below the range', { ROBOTA_TELEMETRY_LOG_USER_PROMPTS: '1', ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES: '255' },
+    ['a bound below the range', { PRODUCT_TELEMETRY_LOG_USER_PROMPTS: '1', PRODUCT_TELEMETRY_LOG_CONTENT_MAX_BYTES: '255' },
       /must be an integer from 256 to 16384/u],
-    ['a bound above the range', { ROBOTA_TELEMETRY_LOG_USER_PROMPTS: '1', ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES: '16385' },
+    ['a bound above the range', { PRODUCT_TELEMETRY_LOG_USER_PROMPTS: '1', PRODUCT_TELEMETRY_LOG_CONTENT_MAX_BYTES: '16385' },
       /must be an integer from 256 to 16384/u],
-    ['a non-integer bound', { ROBOTA_TELEMETRY_LOG_USER_PROMPTS: '1', ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES: '2e3' },
+    ['a non-integer bound', { PRODUCT_TELEMETRY_LOG_USER_PROMPTS: '1', PRODUCT_TELEMETRY_LOG_CONTENT_MAX_BYTES: '2e3' },
       /must be an integer from 256 to 16384/u],
-    ['a gate with console logs', { ROBOTA_TELEMETRY_LOGS: 'console', ROBOTA_TELEMETRY_LOG_USER_PROMPTS: '1' },
+    ['a gate with console logs', { PRODUCT_TELEMETRY_LOGS: 'console', PRODUCT_TELEMETRY_LOG_USER_PROMPTS: '1' },
       /console output never carries content/u],
-    ['a gate with logs off', { ROBOTA_TELEMETRY_LOGS: 'off', ROBOTA_TELEMETRY_TRACES: 'otlp', ROBOTA_TELEMETRY_LOG_USER_PROMPTS: '1' },
-      /requires ROBOTA_TELEMETRY_LOGS=otlp/u],
+    ['a gate with logs off', { PRODUCT_TELEMETRY_LOGS: 'off', PRODUCT_TELEMETRY_TRACES: 'otlp', PRODUCT_TELEMETRY_LOG_USER_PROMPTS: '1' },
+      /requires PRODUCT_TELEMETRY_LOGS=otlp/u],
   ])('refuses %s without echoing the value', (_label, extra, message) => {
     const error = refusal({ ...contentBase, ...extra });
     expect(error.message).toMatch(message);
@@ -141,14 +141,14 @@ describe('Robota live telemetry settings', () => {
 
   it('accepts opt-in tool argument and output capture, each on its own', async () => {
     const args = createConfiguredNodeOtlpLiveTelemetryPort({
-      ...contentBase, ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS: '1', ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT: '0',
+      ...contentBase, PRODUCT_TELEMETRY_LOG_TOOL_ARGUMENTS: '1', PRODUCT_TELEMETRY_LOG_TOOL_OUTPUT: '0',
     }, undefined, () => undefined, undefined, undefined, redaction);
     expect(args?.content?.policy).toEqual({
       userPrompts: false, assistantResponses: false, toolArguments: true, toolOutput: false, maxBytes: 2048,
     });
     await args?.shutdown();
     const output = createConfiguredNodeOtlpLiveTelemetryPort({
-      ...contentBase, ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT: '1', ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES: '4096',
+      ...contentBase, PRODUCT_TELEMETRY_LOG_TOOL_OUTPUT: '1', PRODUCT_TELEMETRY_LOG_CONTENT_MAX_BYTES: '4096',
     }, undefined, () => undefined, undefined, undefined, redaction);
     expect(output?.content?.policy).toEqual({
       userPrompts: false, assistantResponses: false, toolArguments: false, toolOutput: true, maxBytes: 4096,
@@ -157,13 +157,13 @@ describe('Robota live telemetry settings', () => {
   });
 
   it.each([
-    ['a tool gate that is not exactly 0 or 1', { ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS: 'yes-s3cr3t' },
-      /ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS must be exactly 0 or 1/u],
-    ['a tool gate with console logs', { ROBOTA_TELEMETRY_LOGS: 'console', ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT: '1' },
+    ['a tool gate that is not exactly 0 or 1', { PRODUCT_TELEMETRY_LOG_TOOL_ARGUMENTS: 'yes-s3cr3t' },
+      /PRODUCT_TELEMETRY_LOG_TOOL_ARGUMENTS must be exactly 0 or 1/u],
+    ['a tool gate with console logs', { PRODUCT_TELEMETRY_LOGS: 'console', PRODUCT_TELEMETRY_LOG_TOOL_OUTPUT: '1' },
       /console output never carries content/u],
     ['a bound with both tool gates 0', {
-      ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS: '0', ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT: '0',
-      ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES: '4096',
+      PRODUCT_TELEMETRY_LOG_TOOL_ARGUMENTS: '0', PRODUCT_TELEMETRY_LOG_TOOL_OUTPUT: '0',
+      PRODUCT_TELEMETRY_LOG_CONTENT_MAX_BYTES: '4096',
     }, /no content capture setting is 1/u],
   ])('refuses %s', (_label, extra, message) => {
     const error = refusal({ ...contentBase, ...extra });
@@ -173,20 +173,20 @@ describe('Robota live telemetry settings', () => {
 
   it.each(['print', 'serve', 'mcp-serve'] as const)('refuses tool content gates in %s mode', (surface) => {
     expect(() => createConfiguredNodeOtlpLiveTelemetryPort({
-      ...contentBase, ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS: '1',
-    }, undefined, () => undefined, { serviceVersion: 'test', surface }, undefined, redaction))
+      ...contentBase, PRODUCT_TELEMETRY_LOG_TOOL_ARGUMENTS: '1',
+    }, undefined, () => undefined, { telemetryServiceName: 'test-service', serviceVersion: 'test', surface }, undefined, redaction))
       .toThrow(/content capture is available only in the interactive terminal/u);
   });
 
   it('refuses content capture when the host supplied no redaction context', () => {
     expect(() => createConfiguredNodeOtlpLiveTelemetryPort({
-      ...contentBase, ROBOTA_TELEMETRY_LOG_USER_PROMPTS: '1',
+      ...contentBase, PRODUCT_TELEMETRY_LOG_USER_PROMPTS: '1',
     })).toThrow(/redaction context/u);
   });
 
   it('keeps content settings inert while telemetry is disabled', () => {
     expect(createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_LOG_USER_PROMPTS: 'garbage', ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT: '1',
+      PRODUCT_TELEMETRY_LOG_USER_PROMPTS: 'garbage', PRODUCT_TELEMETRY_LOG_TOOL_OUTPUT: '1',
     })).toBeUndefined();
   });
 
@@ -194,21 +194,23 @@ describe('Robota live telemetry settings', () => {
     'refuses content gates in %s mode, where no owner-typed prompt is recorded',
     (surface) => {
       expect(() => createConfiguredNodeOtlpLiveTelemetryPort({
-        ...contentBase, ROBOTA_TELEMETRY_LOG_ASSISTANT_RESPONSES: '1',
-      }, undefined, () => undefined, { serviceVersion: 'test', surface }, undefined, redaction))
-        .toThrow(`Robota telemetry content capture is available only in the interactive terminal, not in ${surface} mode.`);
+        ...contentBase, PRODUCT_TELEMETRY_LOG_ASSISTANT_RESPONSES: '1',
+      }, undefined, () => undefined, { telemetryServiceName: 'test-service', serviceVersion: 'test', surface }, undefined, redaction))
+        .toThrow(`Product telemetry content capture is available only in the interactive terminal, not in ${surface} mode.`);
     },
   );
 
   it('offers the content channel in the interactive terminal, and none elsewhere without a gate', async () => {
     const interactive = createConfiguredNodeOtlpLiveTelemetryPort({
-      ...contentBase, ROBOTA_TELEMETRY_LOG_USER_PROMPTS: '1',
-    }, undefined, () => undefined, { serviceVersion: 'test', surface: 'interactive' }, undefined, redaction);
+      ...contentBase, PRODUCT_TELEMETRY_LOG_USER_PROMPTS: '1',
+    }, undefined, () => undefined, {
+      telemetryServiceName: 'test-service', serviceVersion: 'test', surface: 'interactive',
+    }, undefined, redaction);
     expect(interactive?.content).toBeDefined();
     await interactive?.shutdown();
     for (const surface of ['print', 'serve', 'mcp-serve'] as const) {
       const port = createConfiguredNodeOtlpLiveTelemetryPort(contentBase, undefined, () => undefined,
-        { serviceVersion: 'test', surface }, undefined, redaction);
+        { telemetryServiceName: 'test-service', serviceVersion: 'test', surface }, undefined, redaction);
       expect(port?.content).toBeUndefined();
       await port?.shutdown();
     }

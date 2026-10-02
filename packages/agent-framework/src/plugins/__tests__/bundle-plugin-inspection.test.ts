@@ -13,7 +13,7 @@ afterEach(() => {
 });
 
 function pluginsDir(): string {
-  const root = mkdtempSync(join(tmpdir(), 'robota-plugin-inspection-'));
+  const root = mkdtempSync(join(tmpdir(), 'agent-plugin-inspection-'));
   roots.push(root);
   return root;
 }
@@ -48,7 +48,7 @@ describe('BundlePluginLoader.inspectPluginsSync (OBSERVABILITY-1991 TC-05)', () 
   it('names each skipped plugin with its manifest path and reason, and still loads the others', () => {
     const dir = pluginsDir();
     const broken = install(dir, 'broken-plugin', { '.claude-plugin/plugin.json': '{' });
-    install(dir, 'shapeless', { '.claude-plugin/plugin.json': '{"name":"shapeless"}' });
+    install(dir, 'shapeless', { '.claude-plugin/plugin.json': '{"name":"shapeless","version":3}' });
     install(dir, 'good', { '.claude-plugin/plugin.json': MANIFEST('good') });
     install(dir, 'off', { '.claude-plugin/plugin.json': MANIFEST('off') });
 
@@ -75,7 +75,7 @@ describe('BundlePluginLoader.inspectPluginsSync (OBSERVABILITY-1991 TC-05)', () 
       '.mcp.json': JSON.stringify({
         mcpServers: {
           ghost: {
-            command: 'robota-doctor-missing-binary',
+            command: 'agent-doctor-missing-binary',
             env: { GHOST_TOKEN: 'sk-doctor-marker-mcp-9f8e7d' },
           },
           remote: { url: 'https://mcp.example/sse' },
@@ -93,7 +93,7 @@ describe('BundlePluginLoader.inspectPluginsSync (OBSERVABILITY-1991 TC-05)', () 
         mcpPath: join(versionDir, '.mcp.json'),
         name: 'ghost',
         transport: 'stdio',
-        command: 'robota-doctor-missing-binary',
+        command: 'agent-doctor-missing-binary',
         envKeys: ['GHOST_TOKEN'],
       },
       {

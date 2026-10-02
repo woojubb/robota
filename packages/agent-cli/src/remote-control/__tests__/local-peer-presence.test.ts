@@ -21,6 +21,7 @@ import path from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 
 import { announceLocalPeerPresence } from '../local-peer-presence.js';
+import { createTestRuntimeContext } from '../../devices/__tests__/runtime-context-fixture.js';
 
 const scratch: string[] = [];
 afterAll(() => {
@@ -31,6 +32,11 @@ function guardedDirectory(): string {
   const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'peer-presence-')));
   scratch.push(dir);
   return dir;
+}
+
+
+function runtimeContext() {
+  return createTestRuntimeContext(guardedDirectory());
 }
 
 /** An exit subscription a case can fire, so the runner is never actually asked to exit. */
@@ -62,6 +68,7 @@ describe('announcing makes this session discoverable', () => {
     try {
       const bus = exitBus();
       const presence = announceLocalPeerPresence({
+        productRuntime: runtimeContext(),
         sessionId: 'session-one',
         guardedDirectory: guardedDirectory(),
         registry: { readStartTime: ALIVE, now: () => Date.now() },
@@ -86,6 +93,7 @@ describe('announcing makes this session discoverable', () => {
     const dir = guardedDirectory();
     const bus = exitBus();
     const one = announceLocalPeerPresence({
+        productRuntime: runtimeContext(),
       sessionId: 'session-one',
       name: 'first',
       guardedDirectory: dir,
@@ -94,6 +102,7 @@ describe('announcing makes this session discoverable', () => {
       off: bus.off,
     });
     const two = announceLocalPeerPresence({
+        productRuntime: runtimeContext(),
       sessionId: 'session-two',
       guardedDirectory: dir,
       registry: { readStartTime: ALIVE },
@@ -122,6 +131,7 @@ describe('announcing makes this session discoverable', () => {
     const dir = guardedDirectory();
     const bus = exitBus();
     const presence = announceLocalPeerPresence({
+        productRuntime: runtimeContext(),
       sessionId: 'session-one',
       guardedDirectory: dir,
       // A host that cannot answer. `unknown` must survive to the surface — rounding it to `alive`
@@ -141,6 +151,7 @@ describe('announcing makes this session discoverable', () => {
     try {
       const bus = exitBus();
       const presence = announceLocalPeerPresence({
+        productRuntime: runtimeContext(),
         sessionId: 'session-one',
         guardedDirectory: guardedDirectory(),
         registry: {
@@ -170,6 +181,7 @@ describe('announcing makes this session discoverable', () => {
       const dir = guardedDirectory();
       const bus = exitBus();
       const presence = announceLocalPeerPresence({
+        productRuntime: runtimeContext(),
         sessionId: 'session-one',
         guardedDirectory: dir,
         registry: {
@@ -197,6 +209,7 @@ describe('announcing makes this session discoverable', () => {
       let available = false;
       const bus = exitBus();
       const presence = announceLocalPeerPresence({
+        productRuntime: runtimeContext(),
         sessionId: 'session-one',
         guardedDirectory: guardedDirectory(),
         registry: {
@@ -230,6 +243,7 @@ describe('announcing makes this session discoverable', () => {
       const dir = guardedDirectory();
       const bus = exitBus();
       const presence = announceLocalPeerPresence({
+        productRuntime: runtimeContext(),
         sessionId: 'session-one',
         guardedDirectory: dir,
         registry: {
@@ -264,6 +278,7 @@ describe('withdrawal is bound to the process ending', () => {
     const dir = guardedDirectory();
     const bus = exitBus();
     announceLocalPeerPresence({
+        productRuntime: runtimeContext(),
       sessionId: 'session-one',
       guardedDirectory: dir,
       registry: { readStartTime: ALIVE },
@@ -284,6 +299,7 @@ describe('withdrawal is bound to the process ending', () => {
     const dir = guardedDirectory();
     const bus = exitBus();
     const presence = announceLocalPeerPresence({
+        productRuntime: runtimeContext(),
       sessionId: 'session-one',
       guardedDirectory: dir,
       registry: { readStartTime: ALIVE },
@@ -334,6 +350,7 @@ describe('the workspace claim (#3101 B2)', () => {
   async function announce(dir: string, sessionId: string, workspaceDirectory: string) {
     const bus = exitBus();
     const presence = announceLocalPeerPresence({
+        productRuntime: runtimeContext(),
       sessionId,
       guardedDirectory: dir,
       workspaceDirectory,

@@ -98,6 +98,7 @@ async function executeWorkflowsCommand(
   providerDefinitions: readonly IProviderDefinition[],
   project: IWorkflowProject | undefined,
   settingsSources: readonly TSettingsSource[] | undefined,
+  environment: Readonly<Record<string, string | undefined>> | undefined,
   detachedRuns: DetachedWorkflowRuns,
   allowDetachedRuns: boolean,
 ): Promise<ICommandResult> {
@@ -136,12 +137,14 @@ async function executeWorkflowsCommand(
           workspace,
           providerDefinitions,
           ...(settingsSources === undefined ? {} : { settingsSources }),
+          ...(environment === undefined ? {} : { environment }),
         });
       case 'build':
         return executeWorkflowsBuild(rest, requiredProject(), {
           workspace,
           providerDefinitions,
           ...(settingsSources === undefined ? {} : { settingsSources }),
+          ...(environment === undefined ? {} : { environment }),
         });
       case 'list':
         return executeWorkflowsList(requiredProject(), workspace, providerDefinitions);
@@ -214,6 +217,7 @@ function createWorkflowsSystemCommand(
   providerDefinitions: readonly IProviderDefinition[],
   project: IWorkflowProject | undefined,
   settingsSources: readonly TSettingsSource[] | undefined,
+  environment: Readonly<Record<string, string | undefined>> | undefined,
   allowDetachedRuns: boolean,
   getDetachedRuns: (host: ICommandHostWorkspace) => DetachedWorkflowRuns,
 ): ISystemCommand {
@@ -237,6 +241,7 @@ function createWorkflowsSystemCommand(
         providerDefinitions,
         project,
         settingsSources,
+        environment,
         getDetachedRuns(context),
         allowDetachedRuns,
       ),
@@ -261,6 +266,8 @@ export interface IWorkflowsCommandModuleDeps {
   readonly project?: IWorkflowProject;
   /** Explicit settings layers used by workflow authoring provider resolution. */
   readonly settingsSources?: readonly TSettingsSource[];
+  /** Host-selected environment for provider references in workflow authoring. */
+  readonly environment?: Readonly<Record<string, string | undefined>>;
   /** Disable detach in one-shot hosts that cannot accept a later status or cancel command. */
   readonly allowDetachedRuns?: boolean;
 }
@@ -289,6 +296,7 @@ export function createWorkflowsCommandModule(
         providerDefinitions,
         deps.project,
         deps.settingsSources,
+        deps.environment,
         deps.allowDetachedRuns ?? true,
         getDetachedRuns,
       ),

@@ -25,9 +25,10 @@ const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 const SLACK_APP_TOKEN = process.env.SLACK_APP_TOKEN;
 const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const STATE_ROOT = process.env.EXAMPLE_STATE_ROOT;
 
-if (!SLACK_BOT_TOKEN || !SLACK_APP_TOKEN || !SLACK_SIGNING_SECRET || !ANTHROPIC_API_KEY) {
-  throw new Error('Missing required environment variables. See .env.example.');
+if (!SLACK_BOT_TOKEN || !SLACK_APP_TOKEN || !SLACK_SIGNING_SECRET || !ANTHROPIC_API_KEY || !STATE_ROOT) {
+  throw new Error('Set Slack credentials, ANTHROPIC_API_KEY, and EXAMPLE_STATE_ROOT. See .env.example.');
 }
 
 const app = new App({
@@ -40,7 +41,7 @@ const app = new App({
 const runtime = createAgentRuntime({
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: ANTHROPIC_API_KEY }),
-  sessionStore: createNodeHostSessionStore(join(process.cwd(), '.robota', 'sessions')),
+  sessionStore: createNodeHostSessionStore(join(STATE_ROOT, 'sessions')),
 });
 
 const threadSessions = new Map<string, string>();

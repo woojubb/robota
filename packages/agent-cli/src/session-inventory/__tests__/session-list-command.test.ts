@@ -1,3 +1,4 @@
+import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import {
   chmodSync,
   existsSync,
@@ -19,7 +20,7 @@ import {
   createUserSessionStore,
 } from '@robota-sdk/agent-framework';
 
-import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../../product/robota-project-state-directories.js';
+import { productProjectStateDirectories } from '../../product/project-state-directories.js';
 
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
 import { executeSessionListCommand, readLocalPeersForInventory, runSessionListCommand } from '../session-list-command.js';
@@ -75,15 +76,15 @@ describe('read-only local session inventory', () => {
       process.env['HOME'] = home;
       process.env['XDG_RUNTIME_DIR'] = home;
       control = await startSupervisedControl(
-        id, () => undefined, resolveSupervisedDirectory(), () => 'needs-input',
+        id, () => undefined, resolveSupervisedDirectory(createTestProductRuntime()), () => 'needs-input',
         undefined, undefined, () => 'Private session name',
         undefined, { get: () => pr, set: (value) => { pr = value; } },
       );
-      await linkSupervisedPr(id, 'https://github.com/team/repo/pull/456');
+      await linkSupervisedPr(id, 'https://github.com/team/repo/pull/456', resolveSupervisedDirectory(createTestProductRuntime()));
       const generation = String((JSON.parse(readFileSync(
-        join(resolveSupervisedDirectory(), id, 'state.json'), 'utf8')) as { generation?: unknown }).generation);
+        join(resolveSupervisedDirectory(createTestProductRuntime()), id, 'state.json'), 'utf8')) as { generation?: unknown }).generation);
       expect(generation).toMatch(/^[A-Za-z0-9_-]{22}$/u);
-      expect(await runSessionListCommand(['--format', 'text'])).toBe(0);
+      expect(await runSessionListCommand(['--format', 'text'], createTestProductRuntime())).toBe(0);
       const text = output.mock.calls.map(([value]) => String(value)).join('');
       expect(text).not.toContain(generation);
       expect(text).toContain(`${id}  liveness alive  control available  activity needs-input`);
@@ -91,7 +92,7 @@ describe('read-only local session inventory', () => {
       expect(text).not.toContain('github.com');
       expect(text).not.toMatch(/prompt|token|transcript/i);
       output.mockClear();
-      expect(await runSessionListCommand(['--format', 'json'])).toBe(0);
+      expect(await runSessionListCommand(['--format', 'json'], createTestProductRuntime())).toBe(0);
       const json = output.mock.calls.map(([value]) => String(value)).join('');
       expect(JSON.parse(json).supervised.sessions).toEqual([
         { id, liveness: 'alive', control: 'available', activity: 'needs-input' },
@@ -112,7 +113,7 @@ describe('read-only local session inventory', () => {
   });
 
   it('keeps live peers separate from saved records and hides transcript content', () => {
-    const result = executeSessionListCommand(['--format', 'json'], {
+    const result = executeSessionListCommand(['--format', 'json'], { cliName: 'test-product',
       userSessionStore: store([
         valid('same-id'),
         valid('user-only'),
@@ -148,7 +149,7 @@ describe('read-only local session inventory', () => {
   });
 
   it('makes unavailable peer discovery visible without hiding saved sessions', () => {
-    const result = executeSessionListCommand([], {
+    const result = executeSessionListCommand([], { cliName: 'test-product',
       userSessionStore: store([valid('saved')]),
       readPeers: () => ({ status: 'unavailable' }),
     });
@@ -161,7 +162,7 @@ describe('read-only local session inventory', () => {
   it('rejects invalid flags before touching stores or peer discovery', () => {
     const list = vi.fn(() => []);
     const readPeers = vi.fn(() => ({ status: 'available' as const, peers: [] }));
-    const result = executeSessionListCommand(['--format', 'yaml'], {
+    const result = executeSessionListCommand(['--format', 'yaml'], { cliName: 'test-product',
       userSessionStore: { ...store([]), list },
       readPeers,
     });
@@ -171,7 +172,7 @@ describe('read-only local session inventory', () => {
   });
 
   it('does not create a missing peer directory or read an unsafe or linked one', () => {
-    const root = mkdtempSync(join(tmpdir(), 'robota-session-list-'));
+    const root = mkdtempSync(join(tmpdir(), 'test-product-session-list-'));
     try {
       const absent = join(root, 'absent');
       expect(readLocalPeersForInventory(absent)).toEqual({ status: 'available', peers: [] });
@@ -191,7 +192,7 @@ describe('read-only local session inventory', () => {
   });
 
   it('routes session list before the interactive shell is assembled', async () => {
-    const home = mkdtempSync(join(tmpdir(), 'robota-session-list-route-'));
+    const home = mkdtempSync(join(tmpdir(), 'test-product-session-list-route-'));
     const previousHome = process.env['HOME'];
     const previousRuntimeDirectory = process.env['XDG_RUNTIME_DIR'];
     const previousExit = process.exitCode;
@@ -200,11 +201,11 @@ describe('read-only local session inventory', () => {
       process.env['HOME'] = home;
       process.env['XDG_RUNTIME_DIR'] = join(home, 'runtime');
       const handled = await runPreparsedCliCommand(
-        {
+        { productRuntime: createTestProductRuntime(),
           providerDefinitions: [],
           projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', home),
         },
-        ['node', 'robota', 'session', 'list', '--format', 'json'],
+        ['node', 'test-product', 'session', 'list', '--format', 'json'],
         home,
       );
       expect(handled).toBe(true);
@@ -227,7 +228,7 @@ describe('read-only local session inventory', () => {
   });
 
   it('labels a trusted workspace session by the store that actually holds it', async () => {
-    const home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-session-list-trusted-')));
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-session-list-trusted-')));
     const workspace = join(home, 'workspace');
     mkdirSync(workspace);
     const previousHome = process.env['HOME'];
@@ -237,7 +238,7 @@ describe('read-only local session inventory', () => {
     try {
       process.env['HOME'] = home;
       process.env['XDG_RUNTIME_DIR'] = join(home, 'runtime');
-      createUserSessionStore(join(home, '.robota', 'sessions')).save({
+      createUserSessionStore(createTestProductRuntime().layout.userPaths.sessions).save({
         id: 'user-held-session',
         cwd: workspace,
         createdAt: '2026-09-26T00:00:00.000Z',
@@ -252,7 +253,7 @@ describe('read-only local session inventory', () => {
       const snapshot = { state: 'trusted', generation: 1 } as const;
       const projectAccess = await new WorkspaceTrustService({
         identityResolver: { resolve: () => identity },
-        projectStateDirectories: ROBOTA_PROJECT_STATE_DIRECTORIES,
+        projectStateDirectories: productProjectStateDirectories(createTestProductRuntime()),
         store: {
           inspect: async () => snapshot,
           grant: async () => snapshot,
@@ -262,8 +263,8 @@ describe('read-only local session inventory', () => {
       expect(projectAccess.status).toBe('trusted');
 
       const handled = await runPreparsedCliCommand(
-        { providerDefinitions: [], projectAccess },
-        ['node', 'robota', 'session', 'list', '--format', 'json'],
+        { productRuntime: createTestProductRuntime(), providerDefinitions: [], projectAccess },
+        ['node', 'test-product', 'session', 'list', '--format', 'json'],
         workspace,
       );
 

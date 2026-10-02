@@ -1,4 +1,4 @@
-# robota-docs
+# __PRODUCT_DISPLAY_NAME__-docs
 
 ## 1.0.25
 
@@ -39,7 +39,7 @@
   - **Smaller footprint**: Reduced JavaScript bundle sizes for web applications
   - **Universal API**: Same API works across all environments
 
-  This update completes the browser compatibility optimization phase, making Robota SDK production-ready for web applications with optimal performance characteristics.
+  This update completes the browser compatibility optimization phase, making __PRODUCT_DISPLAY_NAME__ SDK production-ready for web applications with optimal performance characteristics.
 
 ## 1.0.24
 
@@ -56,7 +56,7 @@
   - **All Providers**: `client` is now optional, automatically created from `apiKey`
 
   ### **Centralized Model Configuration**
-  - Model configuration is now exclusively handled through `defaultModel` in Robota constructor
+  - Model configuration is now exclusively handled through `defaultModel` in __PRODUCT_DISPLAY_NAME__ constructor
   - Providers are simplified to handle only connection-related settings
   - Runtime model switching via `setModel()` method is now the recommended approach
 
@@ -90,7 +90,7 @@
   ## 🔧 **Migration Guide**
   1. **Remove model settings from Provider constructors**
   2. **Use `apiKey` instead of `client` injection (recommended)**
-  3. **Ensure `defaultModel` is properly configured in Robota constructor**
+  3. **Ensure `defaultModel` is properly configured in __PRODUCT_DISPLAY_NAME__ constructor**
   4. **Update any hardcoded model references to use runtime switching**
 
   ## 🎯 **Benefits**
@@ -124,7 +124,7 @@
   - Update OpenAI stream handlers to work in browser environments
   - Maintain 100% backward compatibility with existing Node.js applications
 
-  This update enables Robota SDK to run seamlessly in both Node.js and browser environments without breaking changes.
+  This update enables __PRODUCT_DISPLAY_NAME__ SDK to run seamlessly in both Node.js and browser environments without breaking changes.
 
 ## 1.0.21
 
@@ -168,7 +168,7 @@
 
 - Refactor examples and improve resource management
   - Simplified examples from 18+ files to 4 core examples (basic conversation, tool calling, multi-providers, advanced features)
-  - Added proper resource cleanup with `robota.close()` method to prevent hanging processes
+  - Added proper resource cleanup with `__PRODUCT_DISPLAY_NAME__.close()` method to prevent hanging processes
   - Implemented `ToolProviderManager.close()` for proper tool provider cleanup
   - Added BaseAIProvider abstract class with common functionality for all AI providers
   - Updated package.json scripts and README documentation for better user experience
@@ -186,7 +186,7 @@
 ### Patch Changes
 
 - Major code quality improvements and architectural refactoring:
-  - **Facade Pattern Implementation**: Simplified Robota class interface with manager-based architecture (ai, system, functions, analytics, tools, limits, conversation)
+  - **Facade Pattern Implementation**: Simplified __PRODUCT_DISPLAY_NAME__ class interface with manager-based architecture (ai, system, functions, analytics, tools, limits, conversation)
   - **Deprecated Methods Removal**: Removed 20+ deprecated methods, replaced with clean option-based constructor
   - **File Modularization**: Split large files into focused modules (function.ts → 4 modules, conversation-history refactoring)
   - **State Management Enhancement**: Implemented state machine pattern for sessions with improved error handling
@@ -224,7 +224,7 @@
 
 ### Patch Changes
 
-- e69ce1c: Enhance SEO and update URLs to robota.io domain
+- e69ce1c: Enhance SEO and update URLs to __PRODUCT_DISPLAY_NAME__.io domain
 
 ## 1.0.7
 
@@ -278,7 +278,7 @@
 
 ### Patch Changes
 
-- Initial release of Robota SDK - A comprehensive JavaScript/TypeScript library for building Agentic AI applications with ease. This release includes core functionality, provider integrations for OpenAI and Anthropic, essential tools, comprehensive documentation, and example implementations.
+- Initial release of __PRODUCT_DISPLAY_NAME__ SDK - A comprehensive JavaScript/TypeScript library for building Agentic AI applications with ease. This release includes core functionality, provider integrations for OpenAI and Anthropic, essential tools, comprehensive documentation, and example implementations.
 
 ## 1.0.1
 

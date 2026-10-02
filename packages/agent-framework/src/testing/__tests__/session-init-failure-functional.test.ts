@@ -48,7 +48,7 @@ afterEach(() => {
 
 describe('a session whose initialization failed', () => {
   it('reports the failure cause to a readiness probe instead of "not initialized"', async () => {
-    workspace = realpathSync(mkdtempSync(join(tmpdir(), 'robota-init-failure-')));
+    workspace = realpathSync(mkdtempSync(join(tmpdir(), 'agent-init-failure-')));
     const harness = scriptedSession({
       cwd: workspace,
       contributionSources: [failingSource],

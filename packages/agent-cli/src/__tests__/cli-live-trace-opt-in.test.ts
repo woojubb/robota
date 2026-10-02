@@ -1,3 +1,4 @@
+import { createTestTelemetryRuntime } from './helpers/product-runtime.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -8,19 +9,19 @@ import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
 const originalArgv = process.argv;
 const originalHome = process.env.HOME;
-const originalFakeKey = process.env['ROBOTA_LIVE_TRACE_TEST_KEY'];
+const originalFakeKey = process.env['PRODUCT_LIVE_TRACE_TEST_KEY'];
 const telemetryKeys = [
-  'ROBOTA_TELEMETRY_ENABLED', 'ROBOTA_TELEMETRY_TRACES',
-  'ROBOTA_TELEMETRY_METRICS', 'ROBOTA_TELEMETRY_LOGS',
-  'ROBOTA_TELEMETRY_OTLP_PROTOCOL', 'ROBOTA_TELEMETRY_OTLP_ENDPOINT',
-  'ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT', 'ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT',
-  'ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT', 'ROBOTA_TELEMETRY_OTLP_HEADERS',
+  'PRODUCT_TELEMETRY_ENABLED', 'PRODUCT_TELEMETRY_TRACES',
+  'PRODUCT_TELEMETRY_METRICS', 'PRODUCT_TELEMETRY_LOGS',
+  'PRODUCT_TELEMETRY_OTLP_PROTOCOL', 'PRODUCT_TELEMETRY_OTLP_ENDPOINT',
+  'PRODUCT_TELEMETRY_OTLP_TRACES_ENDPOINT', 'PRODUCT_TELEMETRY_OTLP_METRICS_ENDPOINT',
+  'PRODUCT_TELEMETRY_OTLP_LOGS_ENDPOINT', 'PRODUCT_TELEMETRY_OTLP_HEADERS',
 ] as const;
 const originalTelemetry = Object.fromEntries(telemetryKeys.map((key) => [key, process.env[key]]));
 
 const providerDefinition: IProviderDefinition = {
   type: 'livetrace-test',
-  defaults: { model: 'test-model', apiKey: '$ENV:ROBOTA_LIVE_TRACE_TEST_KEY' },
+  defaults: { model: 'test-model', apiKey: '$ENV:PRODUCT_LIVE_TRACE_TEST_KEY' },
   requiresApiKey: true,
   createProvider: (): IAIProvider => ({
     name: 'livetrace-test', version: 'test',
@@ -39,8 +40,8 @@ describe('CLI live trace opt-in', () => {
     vi.restoreAllMocks();
     process.argv = originalArgv;
     process.env.HOME = originalHome;
-    if (originalFakeKey === undefined) delete process.env['ROBOTA_LIVE_TRACE_TEST_KEY'];
-    else process.env['ROBOTA_LIVE_TRACE_TEST_KEY'] = originalFakeKey;
+    if (originalFakeKey === undefined) delete process.env['PRODUCT_LIVE_TRACE_TEST_KEY'];
+    else process.env['PRODUCT_LIVE_TRACE_TEST_KEY'] = originalFakeKey;
     for (const key of telemetryKeys) {
       const original = originalTelemetry[key];
       if (original === undefined) delete process.env[key];
@@ -49,21 +50,21 @@ describe('CLI live trace opt-in', () => {
   });
 
   it('sends no telemetry when off, then independently selected live traces, metrics or logs in print mode', async () => {
-    const home = mkdtempSync(join(tmpdir(), 'robota-cli-live-trace-home-'));
+    const home = mkdtempSync(join(tmpdir(), 'test-product-cli-live-trace-home-'));
     process.env.HOME = home;
-    delete process.env['ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT'];
-    delete process.env['ROBOTA_TELEMETRY_METRICS'];
-    delete process.env['ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT'];
-    delete process.env['ROBOTA_TELEMETRY_LOGS'];
-    delete process.env['ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT'];
-    process.env['ROBOTA_LIVE_TRACE_TEST_KEY'] = 'test-only-key';
+    delete process.env['PRODUCT_TELEMETRY_OTLP_TRACES_ENDPOINT'];
+    delete process.env['PRODUCT_TELEMETRY_METRICS'];
+    delete process.env['PRODUCT_TELEMETRY_OTLP_METRICS_ENDPOINT'];
+    delete process.env['PRODUCT_TELEMETRY_LOGS'];
+    delete process.env['PRODUCT_TELEMETRY_OTLP_LOGS_ENDPOINT'];
+    process.env['PRODUCT_LIVE_TRACE_TEST_KEY'] = 'test-only-key';
     vi.spyOn(process, 'cwd').mockReturnValue(home);
     vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
       throw new Error(`process.exit:${String(code ?? 0)}`);
     }) as never);
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    process.argv = ['node', 'robota', '-p', 'private prompt', '--no-session-persistence'];
+    process.argv = ['node', 'test-product', '-p', 'private prompt', '--no-session-persistence'];
 
     const requests: Array<{ path: string; body: string; authorization?: string }> = [];
     const server = createServer(async (request, response) => {
@@ -82,44 +83,44 @@ describe('CLI live trace opt-in', () => {
       const address = server.address();
       if (!address || typeof address === 'string') throw new Error('Expected TCP listener');
       const endpoint = `http://127.0.0.1:${address.port}`;
-      // Startup removes every Robota telemetry setting from process.env, so each run sets its own.
+      // Startup removes operational telemetry settings from process.env, so each run sets its own.
       const setTelemetry = (settings: Record<string, string>): void => {
         for (const [key, value] of Object.entries({
-          ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf', ROBOTA_TELEMETRY_OTLP_ENDPOINT: endpoint, ...settings,
+          PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf', PRODUCT_TELEMETRY_OTLP_ENDPOINT: endpoint, ...settings,
         })) process.env[key] = value;
       };
-      setTelemetry({ ROBOTA_TELEMETRY_ENABLED: '0', ROBOTA_TELEMETRY_TRACES: 'otlp' });
-      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      setTelemetry({ PRODUCT_TELEMETRY_ENABLED: '0', PRODUCT_TELEMETRY_TRACES: 'otlp' });
+      await expect(startCli({productRuntime: createTestTelemetryRuntime(home),  providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests).toEqual([]);
 
-      expect(Object.keys(process.env).filter((key) => key.startsWith('ROBOTA_TELEMETRY_'))).toEqual([]);
+      expect(Object.keys(process.env).filter((key) => key.startsWith('PRODUCT_TELEMETRY_') && key !== 'PRODUCT_TELEMETRY_SERVICE_NAME')).toEqual([]);
 
       setTelemetry({
-        ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'otlp',
-        ROBOTA_TELEMETRY_OTLP_HEADERS: 'Authorization=Bearer%20e2e-token',
+        PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'otlp',
+        PRODUCT_TELEMETRY_OTLP_HEADERS: 'Authorization=Bearer%20e2e-token',
       });
-      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      await expect(startCli({productRuntime: createTestTelemetryRuntime(home),  providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests.map((request) => request.path)).toEqual(['/v1/traces']);
       expect(requests[0]!.authorization).toBe('Bearer e2e-token');
       expect(requests[0]!.body).not.toContain('e2e-token');
-      expect(process.env['ROBOTA_TELEMETRY_OTLP_HEADERS']).toBeUndefined();
+      expect(process.env['PRODUCT_TELEMETRY_OTLP_HEADERS']).toBeUndefined();
       expect(requests[0]!.body).toContain('service.version');
-      expect(requests[0]!.body).toContain('robota.surface');
+      expect(requests[0]!.body).toContain('agent.surface');
       expect(requests[0]!.body).toContain('print');
 
-      setTelemetry({ ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_METRICS: 'otlp' });
-      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      setTelemetry({ PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_METRICS: 'otlp' });
+      await expect(startCli({productRuntime: createTestTelemetryRuntime(home),  providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests.map((request) => request.path)).toEqual(['/v1/traces', '/v1/metrics']);
 
-      setTelemetry({ ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_LOGS: 'otlp' });
-      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      setTelemetry({ PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_LOGS: 'otlp' });
+      await expect(startCli({productRuntime: createTestTelemetryRuntime(home),  providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests.map((request) => request.path)).toEqual(['/v1/traces', '/v1/metrics', '/v1/logs']);
 
-      setTelemetry({ ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'otlp' });
-      process.argv = ['node', 'robota', '--serve', '-p', 'private prompt', '--no-session-persistence'];
-      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      setTelemetry({ PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'otlp' });
+      process.argv = ['node', 'test-product', '--serve', '-p', 'private prompt', '--no-session-persistence'];
+      await expect(startCli({productRuntime: createTestTelemetryRuntime(home),  providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests.at(-1)?.path).toBe('/v1/traces');
-      expect(requests.at(-1)?.body).toContain('robota.surface');
+      expect(requests.at(-1)?.body).toContain('agent.surface');
       expect(requests.at(-1)?.body).toContain('print');
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));

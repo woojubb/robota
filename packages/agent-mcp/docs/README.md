@@ -10,7 +10,7 @@ lifecycle supervisor). It also provides OAuth sign-in and header-helper authenti
 require them.
 
 Transports are Streamable HTTP and host-authorized stdio. Discovered tools reach the agent through the
-ordinary tool slot. Serving a Robota session as an MCP server is a different package,
+ordinary tool slot. Serving an agent session as an MCP server is a different package,
 `@robota-sdk/agent-transport-mcp`. For configuring MCP servers in the CLI, see the
 [MCP guide](../../../content/guide/mcp.md).
 

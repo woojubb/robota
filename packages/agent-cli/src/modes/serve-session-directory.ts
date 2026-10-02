@@ -1,7 +1,7 @@
 /**
  * #3189 — the sessions a served runtime keeps, one view of them per client.
  *
- * `robota --serve` keeps several sessions live in a pool. Each client connection binds to it and
+ * `the product --serve` keeps several sessions live in a pool. Each client connection binds to it and
  * gets a view of its own: its directory lists the workspace's stored sessions, says which one THIS
  * client is on and which are live, and a switch or a new session moves this client alone. Leaving a
  * session that is working does not stop that work: the pool keeps the session running. A change is

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  RobotaError,
+  AgentRuntimeError,
   ConfigurationError,
   ValidationError,
   ProviderError,
@@ -35,10 +35,10 @@ describe('Error Classes', () => {
       expect(error.context).toEqual(ctx);
     });
 
-    it('should be instanceof RobotaError and Error', () => {
+    it('should be instanceof AgentRuntimeError and Error', () => {
       const error = new ConfigurationError('test');
       expect(error).toBeInstanceOf(ConfigurationError);
-      expect(error).toBeInstanceOf(RobotaError);
+      expect(error).toBeInstanceOf(AgentRuntimeError);
       expect(error).toBeInstanceOf(Error);
     });
 
@@ -72,10 +72,10 @@ describe('Error Classes', () => {
       expect(error.context).toEqual(ctx);
     });
 
-    it('should be instanceof RobotaError and Error', () => {
+    it('should be instanceof AgentRuntimeError and Error', () => {
       const error = new ValidationError('test');
       expect(error).toBeInstanceOf(ValidationError);
-      expect(error).toBeInstanceOf(RobotaError);
+      expect(error).toBeInstanceOf(AgentRuntimeError);
       expect(error).toBeInstanceOf(Error);
     });
   });
@@ -106,10 +106,10 @@ describe('Error Classes', () => {
       expect(error.context).toEqual(ctx);
     });
 
-    it('should be instanceof RobotaError and Error', () => {
+    it('should be instanceof AgentRuntimeError and Error', () => {
       const error = new ProviderError('test', 'openai');
       expect(error).toBeInstanceOf(ProviderError);
-      expect(error).toBeInstanceOf(RobotaError);
+      expect(error).toBeInstanceOf(AgentRuntimeError);
       expect(error).toBeInstanceOf(Error);
     });
   });
@@ -132,10 +132,10 @@ describe('Error Classes', () => {
       expect(error.provider).toBe('openai');
     });
 
-    it('should be instanceof RobotaError and Error', () => {
+    it('should be instanceof AgentRuntimeError and Error', () => {
       const error = new AuthenticationError('test');
       expect(error).toBeInstanceOf(AuthenticationError);
-      expect(error).toBeInstanceOf(RobotaError);
+      expect(error).toBeInstanceOf(AgentRuntimeError);
       expect(error).toBeInstanceOf(Error);
     });
   });
@@ -159,10 +159,10 @@ describe('Error Classes', () => {
       expect(error.provider).toBe('openai');
     });
 
-    it('should be instanceof RobotaError and Error', () => {
+    it('should be instanceof AgentRuntimeError and Error', () => {
       const error = new RateLimitError('test');
       expect(error).toBeInstanceOf(RateLimitError);
-      expect(error).toBeInstanceOf(RobotaError);
+      expect(error).toBeInstanceOf(AgentRuntimeError);
       expect(error).toBeInstanceOf(Error);
     });
   });
@@ -193,10 +193,10 @@ describe('Error Classes', () => {
       expect(new NetworkError('failed').provider).toBeUndefined();
     });
 
-    it('should be instanceof RobotaError and Error', () => {
+    it('should be instanceof AgentRuntimeError and Error', () => {
       const error = new NetworkError('test');
       expect(error).toBeInstanceOf(NetworkError);
-      expect(error).toBeInstanceOf(RobotaError);
+      expect(error).toBeInstanceOf(AgentRuntimeError);
       expect(error).toBeInstanceOf(Error);
     });
   });
@@ -221,10 +221,10 @@ describe('Error Classes', () => {
       expect(error.originalError).toBe(orig);
     });
 
-    it('should be instanceof RobotaError and Error', () => {
+    it('should be instanceof AgentRuntimeError and Error', () => {
       const error = new ToolExecutionError('test', 'tool');
       expect(error).toBeInstanceOf(ToolExecutionError);
-      expect(error).toBeInstanceOf(RobotaError);
+      expect(error).toBeInstanceOf(AgentRuntimeError);
       expect(error).toBeInstanceOf(Error);
     });
   });
@@ -248,10 +248,10 @@ describe('Error Classes', () => {
       expect(error.availableModels).toEqual(models);
     });
 
-    it('should be instanceof RobotaError and Error', () => {
+    it('should be instanceof AgentRuntimeError and Error', () => {
       const error = new ModelNotAvailableError('model', 'provider');
       expect(error).toBeInstanceOf(ModelNotAvailableError);
-      expect(error).toBeInstanceOf(RobotaError);
+      expect(error).toBeInstanceOf(AgentRuntimeError);
       expect(error).toBeInstanceOf(Error);
     });
   });
@@ -274,10 +274,10 @@ describe('Error Classes', () => {
       expect(error.message).toBe('custom breaker message');
     });
 
-    it('should be instanceof RobotaError and Error', () => {
+    it('should be instanceof AgentRuntimeError and Error', () => {
       const error = new CircuitBreakerOpenError();
       expect(error).toBeInstanceOf(CircuitBreakerOpenError);
-      expect(error).toBeInstanceOf(RobotaError);
+      expect(error).toBeInstanceOf(AgentRuntimeError);
       expect(error).toBeInstanceOf(Error);
     });
   });
@@ -300,10 +300,10 @@ describe('Error Classes', () => {
       expect(error.pluginName).toBe('myPlugin');
     });
 
-    it('should be instanceof RobotaError and Error', () => {
+    it('should be instanceof AgentRuntimeError and Error', () => {
       const error = new PluginError('test', 'plugin');
       expect(error).toBeInstanceOf(PluginError);
-      expect(error).toBeInstanceOf(RobotaError);
+      expect(error).toBeInstanceOf(AgentRuntimeError);
       expect(error).toBeInstanceOf(Error);
     });
   });
@@ -327,10 +327,10 @@ describe('Error Classes', () => {
       expect(error.context).toEqual(ctx);
     });
 
-    it('should be instanceof RobotaError and Error', () => {
+    it('should be instanceof AgentRuntimeError and Error', () => {
       const error = new StorageError('test');
       expect(error).toBeInstanceOf(StorageError);
-      expect(error).toBeInstanceOf(RobotaError);
+      expect(error).toBeInstanceOf(AgentRuntimeError);
       expect(error).toBeInstanceOf(Error);
     });
   });
@@ -338,7 +338,7 @@ describe('Error Classes', () => {
 
 describe('ErrorUtils', () => {
   describe('isRecoverable', () => {
-    it('should return true for recoverable RobotaError subclasses', () => {
+    it('should return true for recoverable AgentRuntimeError subclasses', () => {
       expect(ErrorUtils.isRecoverable(new ProviderError('err', 'p'))).toBe(true);
       expect(ErrorUtils.isRecoverable(new RateLimitError('err'))).toBe(true);
       expect(ErrorUtils.isRecoverable(new NetworkError('err'))).toBe(true);
@@ -346,7 +346,7 @@ describe('ErrorUtils', () => {
       expect(ErrorUtils.isRecoverable(new StorageError('err'))).toBe(true);
     });
 
-    it('should return false for non-recoverable RobotaError subclasses', () => {
+    it('should return false for non-recoverable AgentRuntimeError subclasses', () => {
       expect(ErrorUtils.isRecoverable(new ConfigurationError('err'))).toBe(false);
       expect(ErrorUtils.isRecoverable(new ValidationError('err'))).toBe(false);
       expect(ErrorUtils.isRecoverable(new AuthenticationError('err'))).toBe(false);
@@ -360,7 +360,7 @@ describe('ErrorUtils', () => {
   });
 
   describe('getErrorCode', () => {
-    it('should return error code for RobotaError subclasses', () => {
+    it('should return error code for AgentRuntimeError subclasses', () => {
       expect(ErrorUtils.getErrorCode(new ConfigurationError('err'))).toBe('CONFIGURATION_ERROR');
       expect(ErrorUtils.getErrorCode(new ValidationError('err'))).toBe('VALIDATION_ERROR');
       expect(ErrorUtils.getErrorCode(new ProviderError('err', 'p'))).toBe('PROVIDER_ERROR');
@@ -372,7 +372,7 @@ describe('ErrorUtils', () => {
   });
 
   describe('fromUnknown', () => {
-    it('should return RobotaError instances as-is', () => {
+    it('should return AgentRuntimeError instances as-is', () => {
       const original = new ConfigurationError('already wrapped');
       const result = ErrorUtils.fromUnknown(original);
       expect(result).toBe(original);

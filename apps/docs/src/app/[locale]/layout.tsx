@@ -3,7 +3,11 @@ import { IBM_Plex_Mono, IBM_Plex_Sans, JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
+import { productPublicConfig } from '@/lib/product-config.generated';
 import '../globals.css';
+
+const productName = productPublicConfig.identity.displayName;
+const docsUrl = productPublicConfig.identity.docsUrl;
 
 const ibmPlexMono = IBM_Plex_Mono({
   subsets: ['latin'],
@@ -28,19 +32,18 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Robota Docs',
-    template: '%s | Robota Docs',
+    default: `${productName} Documentation`,
+    template: `%s | ${productName} Documentation`,
   },
   description:
-    'Documentation for Robota — open-source AI agent SDK and CLI with multi-provider support.',
-  metadataBase: new URL('https://docs.robota.io'),
+    `Documentation for ${productName} — open-source AI agent SDK and CLI with multi-provider support.`,
+  ...(docsUrl ? { metadataBase: new URL(docsUrl) } : {}),
   openGraph: {
     type: 'website',
-    url: 'https://docs.robota.io',
-    siteName: 'Robota Docs',
-    title: 'Robota Docs',
-    description:
-      'Documentation for Robota — open-source AI agent SDK and CLI with multi-provider support.',
+    ...(docsUrl ? { url: docsUrl } : {}),
+    siteName: `${productName} Documentation`,
+    title: `${productName} Documentation`,
+    description: `Documentation for ${productName} — open-source AI agent SDK and CLI with multi-provider support.`,
   },
 };
 

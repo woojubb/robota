@@ -85,7 +85,9 @@ export function resolveActiveProvider(
   settings: TProviderSettingsDocument,
   providerOverride: string | undefined,
   providerDefinitions: readonly IProviderDefinition[],
+  environment?: Readonly<Record<string, string | undefined>>,
 ): IProviderDefinitionConfig | undefined {
+  const resolve = environment === undefined ? undefined : (name: string) => environment[name];
   const activeProvider = providerOverride ?? settings.currentProvider;
   if (activeProvider !== undefined) {
     const profile = settings.providers?.[activeProvider];
@@ -105,6 +107,7 @@ export function resolveActiveProvider(
         options: profile.options,
       },
       providerDefinitions,
+      resolve,
     );
   }
 
@@ -120,6 +123,7 @@ export function resolveActiveProvider(
         options: provider.options,
       },
       providerDefinitions,
+      resolve,
     );
   }
 

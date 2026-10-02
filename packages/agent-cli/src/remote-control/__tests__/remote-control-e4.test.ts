@@ -1,6 +1,7 @@
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import {
+  createIdentityContext,
   deriveReconnectRendezvous,
   deriveReconnectSeed,
   generatePairingSecret,
@@ -18,6 +19,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { IHostIdentity } from '../host-identity.js';
 import { RemoteControlController } from '../remote-control-controller.js';
 import { createRemoteControlTransportHost } from '../transport-host-adapter.js';
+import { createTestRuntimeContext } from '../../devices/__tests__/runtime-context-fixture.js';
 import type { ITrustedDeviceRecord, ITrustedDeviceStore } from '../trusted-device-store.js';
 
 /**
@@ -31,9 +33,11 @@ import type { ITrustedDeviceRecord, ITrustedDeviceStore } from '../trusted-devic
  * Constructed with a temp settings path: the registry only reads it for saved transport config, and
  * an absent file means "no saved config", which is what these tests want.
  */
+const cryptoContext = createIdentityContext('test-agent-domain');
+
 function realRegistry(): TransportRegistry {
   return new TransportRegistry(
-    join(realpathSync(mkdtempSync(join(tmpdir(), 'robota-rc-registry-'))), 'settings.json'),
+    join(realpathSync(mkdtempSync(join(tmpdir(), 'agent-fixture-rc-registry-'))), 'settings.json'),
   );
 }
 
@@ -124,6 +128,7 @@ function setup(
   });
   const registry = realRegistry();
   const controller = new RemoteControlController({
+    productRuntime: createTestRuntimeContext('/tmp/remote-control-e4-test'),
     host: createRemoteControlTransportHost(registry),
     readRelayUrl: () => 'ws://relay',
     readClientUrl: () => 'https://client/',
@@ -155,7 +160,7 @@ function setup(
         if (i >= 0) ceilings.splice(i, 1);
       };
     },
-    createTransport: (_s, _secret, hooks, _ice, reconnect, bridge) => {
+    createTransport: (_context, _s, _secret, hooks, _ice, reconnect, bridge) => {
       const transport = fakeTransport();
       if (failFirstStart && created.length === 0) {
         vi.mocked(transport.start).mockRejectedValueOnce(new Error('start failed'));
@@ -210,7 +215,7 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     created[0].hooks.onPaired({ sessionKey });
     await waitForSeed(store, 'dev-1'); // let the async seed persist settle
 
-    const seed = await deriveReconnectSeed(sessionKey);
+    const seed = await deriveReconnectSeed(cryptoContext, sessionKey);
     const record = store.get('dev-1');
     expect(record?.reconnectSeed).toBe(seed);
     expect(record?.reconnectCounter).toBe(0);
@@ -220,8 +225,8 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     created[0].hooks.onDropped?.();
     await waitForReconnectRooms(created);
     const reconnectRooms = created.slice(1).map((c) => c.rendezvous);
-    expect(reconnectRooms).toContain(await deriveReconnectRendezvous(seed, 0));
-    expect(reconnectRooms).toContain(await deriveReconnectRendezvous(seed, 1));
+    expect(reconnectRooms).toContain(await deriveReconnectRendezvous(cryptoContext, seed, 0));
+    expect(reconnectRooms).toContain(await deriveReconnectRendezvous(cryptoContext, seed, 1));
   });
 
   it('a confirmed reconnect advances the counter (resync-on-success) and promotes the winner', async () => {
@@ -240,7 +245,7 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     await waitForReconnectRooms(created);
     const seed = (store.get('dev-1') as ITrustedDeviceRecord).reconnectSeed as string;
     // The device came back in the counter+1 room (it had advanced; host had not).
-    const room1 = await deriveReconnectRendezvous(seed, 1);
+    const room1 = await deriveReconnectRendezvous(cryptoContext, seed, 1);
     const winner = created.slice(1).find((c) => c.rendezvous === room1)!;
     expect(ceilings).toHaveLength(1); // ceiling armed
     winner.hooks.onPaired(); // reconnect confirmed at counter 1
@@ -321,7 +326,7 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     created[0].hooks.onDropped?.();
     await waitForReconnectRooms(created);
     const seed = (store.get('dev-1') as ITrustedDeviceRecord).reconnectSeed as string;
-    const room1 = await deriveReconnectRendezvous(seed, 1);
+    const room1 = await deriveReconnectRendezvous(cryptoContext, seed, 1);
     const winner = created.slice(1).find((c) => c.rendezvous === room1)!;
     winner.hooks.onPaired();
 
@@ -363,7 +368,7 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     }
   });
 
-  it.each(['ceiling', 'stop'] as const)(
+  it.each(['ceiling', 'stop', 'revoke'] as const)(
     'does not start late reconnect rooms after immediate %s during rendezvous derivation',
     async (reason) => {
       const store = memoryStore();
@@ -393,6 +398,7 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
       expect(ceilings).toHaveLength(1);
       expect(derivations).toHaveLength(2);
       if (reason === 'ceiling') ceilings[0].cb();
+      else if (reason === 'revoke') expect(controller.revokeDevice('dev-1')).toBe(true);
       else expect(await controller.stop()).toBe('Remote control stopped.');
       releaseDerivation();
       await Promise.all(derivations);

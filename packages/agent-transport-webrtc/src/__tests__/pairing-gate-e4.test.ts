@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 import { SessionResumeBridge } from '@robota-sdk/agent-transport';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
@@ -40,7 +42,7 @@ describe('PairingGate E4 resume bridge (REMOTE-013)', () => {
       onFrame: () => {},
     })) as never;
 
-    const gate = new PairingGate({
+    const gate = new PairingGate({cryptoContext: testIdentity,
       channel,
       session,
       secret: 's',
@@ -83,7 +85,7 @@ describe('PairingGate E4 resume bridge (REMOTE-013)', () => {
       result: Promise.resolve({ sessionKey: 'k' }),
       onFrame: () => {},
     })) as never;
-    const gate = new PairingGate({
+    const gate = new PairingGate({cryptoContext: testIdentity,
       channel,
       session,
       secret: 's',

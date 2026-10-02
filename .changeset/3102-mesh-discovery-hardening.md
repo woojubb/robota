@@ -14,5 +14,5 @@ Device mesh discovery holds up better against endpoints and peers that misbehave
 - The device lists read from public records are bounded per paired device, each device's newest
   before any device's next, and the chunks of one list carry a shared version, so a read that finds
   chunks of two versions yields no list. Records written before this change are not read as lists.
-- CLI processes that share `~/.robota/devices/address-cache.json` apply each change to the file as it
+- CLI processes that share `the configured user data directory` apply each change to the file as it
   is on disk, so one process no longer overwrites what another learned.

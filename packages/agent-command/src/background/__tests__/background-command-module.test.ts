@@ -145,10 +145,10 @@ describe('background command module', () => {
       listBackgroundTasks: vi.fn().mockReturnValue([
         createTask({
           status: 'completed',
-          worktreePath: '/workspace/.robota/worktrees/agent_1',
-          branchName: 'robota/agent_1',
+          worktreePath: '/workspace/.fixture-state/worktrees/agent_1',
+          branchName: 'agent/worker_1',
           worktreeStatus: ' M changed.ts\n?? new.ts',
-          worktreeNextAction: 'Review /workspace/.robota/worktrees/agent_1.',
+          worktreeNextAction: 'Review /workspace/.fixture-state/worktrees/agent_1.',
         }),
       ]),
     });
@@ -156,10 +156,10 @@ describe('background command module', () => {
     const result = await executeBackgroundCommand(context, 'list');
 
     expect(result.success).toBe(true);
-    expect(result.message).toContain('worktree=/workspace/.robota/worktrees/agent_1');
-    expect(result.message).toContain('branch=robota/agent_1');
+    expect(result.message).toContain('worktree=/workspace/.fixture-state/worktrees/agent_1');
+    expect(result.message).toContain('branch=agent/worker_1');
     expect(result.message).toContain('worktreeStatus="M changed.ts ?? new.ts"');
-    expect(result.message).toContain('next="Review /workspace/.robota/worktrees/agent_1."');
+    expect(result.message).toContain('next="Review /workspace/.fixture-state/worktrees/agent_1."');
   });
 
   it('defaults to list when no action is provided', async () => {

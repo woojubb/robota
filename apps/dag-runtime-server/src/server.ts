@@ -2,11 +2,15 @@ import { serve } from '@hono/node-server';
 import { createDagFramework } from '@robota-sdk/dag-framework';
 
 import { createDagRuntimeServer } from './app.js';
-import { resolveAssetRoot, resolveStorageRoot } from './storage-paths.js';
+import { resolveDagStoragePaths } from './storage-paths.js';
 
 export interface IStartDagRuntimeServerOptions {
+  /** Selected product user state root from the host's resolved configuration. */
+  userStateRoot: string;
   /** Port to bind. Defaults to 3939, or `DAG_RUNTIME_SERVER_PORT`. */
   port?: number;
+  /** Explicit environment snapshot for optional host overrides. */
+  environment?: Readonly<Record<string, string | undefined>>;
 }
 
 export interface IDagRuntimeServerHandle {
@@ -20,14 +24,16 @@ export interface IDagRuntimeServerHandle {
  * Returns a handle to stop it.
  */
 export async function startDagRuntimeServer(
-  options: IStartDagRuntimeServerOptions = {},
+  options: IStartDagRuntimeServerOptions,
 ): Promise<IDagRuntimeServerHandle> {
-  const envPort = process.env['DAG_RUNTIME_SERVER_PORT'];
+  const environment = options.environment ?? {};
+  const envPort = environment['DAG_RUNTIME_SERVER_PORT'];
   const port = options.port ?? (envPort !== undefined ? Number(envPort) : 3939);
+  const paths = resolveDagStoragePaths({ userStateRoot: options.userStateRoot, environment });
 
   const framework = await createDagFramework({
     executionRoot: process.cwd(),
-    paths: { storageRoot: resolveStorageRoot(), assetRoot: resolveAssetRoot() },
+    paths,
   });
   await framework.start();
   const app = createDagRuntimeServer(

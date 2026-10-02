@@ -3,7 +3,7 @@
 The **additive capability-bundle contract** for the Robota SDK: the `ICapabilityPack` type and the pure
 `mergeCapabilityPacks` merger.
 
-An `ICapabilityPack` is the _additive_ composition unit of a Robota product: a plain data record of named
+An `ICapabilityPack` is the _additive_ composition unit of an agent runtime product: a plain data record of named
 capability buckets — command modules, tools, and subagents — that a consumer brings on top of a product's
 base command modules. It is the additive analog of [`@robota-sdk/agent-preset`](../agent-preset/README.md): where a
 preset dials **behavior** (persona, permission posture, subtractive tool/command selection), a pack

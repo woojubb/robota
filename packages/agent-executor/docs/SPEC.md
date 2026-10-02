@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`@robota-sdk/agent-executor` owns reusable runtime primitives for long-running Robota work:
+`@robota-sdk/agent-executor` owns reusable runtime primitives for long-running agent runtime work:
 background task lifecycle, queueing, cancellation, events, and state snapshots; a subagent job
 compatibility facade over the generic background task layer; subagent runner ports and worktree
 isolation decoration; and provider factory helpers that construct provider instances from

@@ -2,7 +2,7 @@
   "name": "robota-capability-openai-compatible-gateway",
   "version": "0.1.0",
   "private": true,
-  "description": "Robota capability demo — any OpenAI-compatible endpoint via baseURL (gateways, Azure, vLLM, local)",
+  "description": "Robota capability demo \u2014 any OpenAI-compatible endpoint via baseURL (gateways, Azure, vLLM, local)",
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",

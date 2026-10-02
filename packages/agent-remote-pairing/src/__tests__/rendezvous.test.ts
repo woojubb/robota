@@ -1,3 +1,5 @@
+import { createIdentityContext } from '../identity/crypto-context.js';
+const testIdentity = createIdentityContext('test-product');
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
@@ -39,7 +41,7 @@ let lists: IRendezvousLists;
 async function device(name: string, sign?: CryptoKeyPair, kaEpoch = 0): Promise<IDevice> {
   const signPair = sign ?? (await generateDeviceSignKeyPair(false));
   const ka = await generateDeviceKeyAgreementKeyPair(false);
-  const cert = await certifyDevice({
+  const cert = await certifyDevice(testIdentity, {
     signingKey,
     signPublicKey: signPair.publicKey,
     kaPublicKey: ka.publicKey,
@@ -57,13 +59,13 @@ async function listsOf(
   seq = 1,
 ): Promise<IRendezvousLists> {
   return {
-    roster: await issueDeviceRoster({
+    roster: await issueDeviceRoster(testIdentity, {
       signingKey,
       seq,
       issuedAt: NOW,
       devices: devices.map((d) => d.cert),
     }),
-    revocation: await issueDeviceRevocationList({
+    revocation: await issueDeviceRevocationList(testIdentity, {
       signingKey,
       seq,
       issuedAt: NOW,
@@ -73,9 +75,9 @@ async function listsOf(
 }
 
 beforeAll(async () => {
-  const master = await deriveMasterKey(PHRASE);
+  const master = await deriveMasterKey(PHRASE, { derivationPath: [100, 0] });
   const pair = await generateSigningKeyPair({ extractable: false });
-  const certificate = await certifySigningKey({
+  const certificate = await certifySigningKey(testIdentity, {
     masterPrivateKey: master.keyPair.privateKey,
     userId: master.userId,
     signingPublicKey: pair.publicKey,
@@ -89,7 +91,7 @@ beforeAll(async () => {
 });
 
 function pair(own: IDevice, peer: IDevice, current = lists): Promise<IPairRendezvous> {
-  return derivePairRendezvous({
+  return derivePairRendezvous(testIdentity, {
     ownKaPrivateKey: own.ka.privateKey,
     own: own.cert,
     peerDeviceId: peer.cert.deviceId,

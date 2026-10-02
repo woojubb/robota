@@ -5,7 +5,7 @@ import type { IContributionSource } from '../contributions/index.js';
 import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 
 export const TEST_SKILL_ROOTS: readonly ISkillRootDescriptor[] = [
-  { root: '.robota/skills', kind: 'skills' },
+  { root: '.agent/skills', kind: 'skills' },
   { root: '.claude/skills', kind: 'skills' },
   { root: '.claude/commands', kind: 'commands' },
   { root: '.agents/skills', kind: 'skills' },

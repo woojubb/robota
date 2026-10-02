@@ -1,3 +1,4 @@
+import type { ICommandProductVocabulary } from '../command-api/host-context-types.js';
 /**
  * Public option interfaces for InteractiveSession construction and configuration.
  *
@@ -94,6 +95,8 @@ export interface IInteractiveSessionStandardOptions {
   taskContext?: IResolvedConfig['taskContext'];
   /** Explicit user settings layers; absent means no ambient user file is read. */
   userSettingsSources?: readonly INodeHostSettingsSource[];
+  /** Per-session host environment for resolving $ENV credential references. */
+  environment?: Readonly<Record<string, string | undefined>>;
   /** Host-composed filesystem sources for skill activation; absence disables skill file reads. */
   contributionSources?: readonly IContributionSource[];
   /** Ordered host-owned roots scanned against the provided contribution sources. */
@@ -181,6 +184,7 @@ export interface IInteractiveSessionStandardOptions {
   commandModules?: readonly ICommandModule[];
   /** Host adapters available to composed command modules. */
   commandHostAdapters?: ICommandHostAdapters;
+  commandProductVocabulary?: ICommandProductVocabulary;
   /** Shell exec function for preprocessing `` !`cmd` `` patterns in skills — injected from composition root. */
   shellExec?: TShellExecFn;
   /**
@@ -246,7 +250,7 @@ export interface IInteractiveSessionStandardOptions {
   sandboxWorkspaceRoot?: string;
   /** Provider sandbox snapshot id to restore before replaying saved messages. */
   sandboxSnapshotId?: string;
-  /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
+  /** Name reported to the underlying ConversationAgent agent config. Defaults to 'agent'. */
   agentName?: string;
   /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
   activePresetId?: string;
@@ -258,6 +262,8 @@ export interface IInteractiveSessionStandardOptions {
   orgPolicy?: IOrgPolicy;
   /** Additional tools registered alongside the default CLI tools. */
   additionalTools?: IToolWithEventService[];
+  /** Scheduling is a current host decision, never restored permission or plugin authority. */
+  toolExecutionPolicy?: ICreateSessionOptions['toolExecutionPolicy'];
   /**
    * ARCH-006: REPLACES the framework's `createDefaultTools()` tier; `[]` suppresses every framework
    * default so a product's capability packs can own the whole tool surface. Mirrors NEUT-003's
@@ -311,6 +317,7 @@ export interface IInteractiveSessionInjectedOptions {
   commandModules?: readonly ICommandModule[];
   /** Host adapters available to composed command modules. */
   commandHostAdapters?: ICommandHostAdapters;
+  commandProductVocabulary?: ICommandProductVocabulary;
   /** TERM-001: transport-provided terminal-handoff capability (see standard options). */
   terminalHandoff?: ITerminalHandoff;
   /** Builds each external-event grant's verifier; absent, the session opens no grant. */

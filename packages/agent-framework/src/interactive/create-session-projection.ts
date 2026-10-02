@@ -68,6 +68,9 @@ export function buildCreateSessionOptions(
     permissionMode: options.permissionMode,
     baselinePermissionAllow: options.baselinePermissionAllow,
     maxTurns: options.maxTurns,
+    ...(options.toolExecutionPolicy !== undefined
+      ? { toolExecutionPolicy: options.toolExecutionPolicy }
+      : {}),
     terminal: NOOP_TERMINAL,
     sessionLogger:
       options.sessionLogSink === undefined
@@ -140,7 +143,7 @@ export function buildCreateSessionOptions(
       ? { agentDefinitionRoots: options.agentDefinitionRoots }
       : {}),
     ...(options.commandModules?.some((module) =>
-      module.sessionRequirements?.includes('agent-runtime'),
+      module.sessionRequirements?.includes('runtime'),
     )
       ? { enableAgentRuntime: true }
       : {}),

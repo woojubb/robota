@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { createStableRootedFileReader, StableFileAuthorityError } from '../dist/node/index.js';
 
-const fixture = mkdtempSync(join(tmpdir(), 'robota-file-authority-qualification-'));
+const fixture = mkdtempSync(join(tmpdir(), 'agent-file-authority-qualification-'));
 const root = join(fixture, 'root');
 const originalRoot = join(fixture, 'root-original');
 const outside = join(fixture, 'outside');

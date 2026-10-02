@@ -12,7 +12,7 @@ import { isProtectedPath, removesCriticalPath } from '../permission-safeguards.j
  * Issue #3081 — one evaluation order for every caller: deny → ceiling → unevaluable deny → the
  * never-auto-approve set → ask-everything → bypass → allow → mode.
  */
-const where = { cwd: '/w/project', homeDirectory: '/home/me' };
+const where = { cwd: '/w/project', homeDirectory: '/home/me', pathProtection: { protectedDirectoryNames: ['.test-product'], protectedPaths: [], writableWorktreeContainers: ['.test-product/worktrees'] } };
 
 beforeEach(() => {
   clearRegisteredToolProfiles();
@@ -37,7 +37,7 @@ describe('ask rules', () => {
     expect(
       evaluatePermission('Bash', { command: 'git push origin main' }, 'bypassPermissions', {
         ask: ['Bash(git push *)'],
-      }),
+      }, where),
     ).toBe('approve');
   });
 
@@ -46,7 +46,7 @@ describe('ask rules', () => {
       evaluatePermission('Bash', { command: 'git push' }, 'default', {
         allow: ['Bash(git *)'],
         ask: ['Bash(git push*)'],
-      }),
+      }, where),
     ).toBe('approve');
   });
 
@@ -55,7 +55,7 @@ describe('ask rules', () => {
       evaluatePermission('Bash', { command: 'git push' }, 'default', {
         deny: ['Bash(git push*)'],
         ask: ['Bash(git push*)'],
-      }),
+      }, where),
     ).toBe('deny');
   });
 
@@ -63,16 +63,16 @@ describe('ask rules', () => {
     expect(
       evaluatePermission('Bash', { command: 'ls && git push' }, 'bypassPermissions', {
         ask: ['Bash(git push*)'],
-      }),
+      }, where),
     ).toBe('approve');
   });
 
   it('refuse in plan mode unless the call only inspects', () => {
-    expect(evaluatePermission('Bash', { command: 'git push' }, 'plan', { ask: ['Bash'] })).toBe(
+    expect(evaluatePermission('Bash', { command: 'git push' }, 'plan', { ask: ['Bash'] }, where)).toBe(
       'deny',
     );
     expect(
-      evaluatePermission('Read', { filePath: '/w/project/a.ts' }, 'plan', { ask: ['Read'] }),
+      evaluatePermission('Read', { filePath: '/w/project/a.ts' }, 'plan', { ask: ['Read'] }, where),
     ).toBe('approve');
   });
 });
@@ -121,46 +121,38 @@ describe('critical-path removal is never auto-approved', () => {
 describe('protected paths', () => {
   it.each([
     '/w/project/.git/config',
-    '/w/project/.robota/settings.json',
+    '/w/project/.test-product/settings.json',
     '/w/project/.claude/settings.local.json',
     '/w/project/.agents/skills/x/SKILL.md',
     '/w/project/.mcp.json',
     '/home/me/.zshrc',
     '/home/me/.npmrc',
   ])('a write to %s asks in bypassPermissions and acceptEdits, allow rule or not', (filePath) => {
-    expect(evaluatePermission('Write', { filePath }, 'bypassPermissions')).toBe('approve');
-    expect(evaluatePermission('Write', { filePath }, 'acceptEdits', { allow: ['Write'] })).toBe(
+    expect(evaluatePermission('Write', { filePath }, 'bypassPermissions', {}, where)).toBe('approve');
+    expect(evaluatePermission('Write', { filePath }, 'acceptEdits', { allow: ['Write'] }, where)).toBe(
       'approve',
     );
   });
 
   it('are ordinary files inside an isolated worktree, until a protected name recurs', () => {
     expect(
-      evaluatePermission(
-        'Write',
-        { filePath: '/w/project/.robota/worktrees/a1/src/x.ts' },
-        'acceptEdits',
-      ),
+      evaluatePermission('Write', { filePath: '/w/project/.test-product/worktrees/a1/src/x.ts' }, 'acceptEdits', {}, where),
     ).toBe('auto');
     expect(
-      evaluatePermission(
-        'Write',
-        { filePath: '/w/project/.robota/worktrees/a1/.git/config' },
-        'acceptEdits',
-      ),
+      evaluatePermission('Write', { filePath: '/w/project/.test-product/worktrees/a1/.git/config' }, 'acceptEdits', {}, where),
     ).toBe('approve');
   });
 
   it.each([
-    '/w/p/.robota/worktrees/../settings.json',
+    '/w/p/.test-product/worktrees/../settings.json',
     '.claude/worktrees/x/../../settings.json',
     '/w/p/src/../.git/config',
   ])('cannot be reached around the worktree exemption with .. (%s)', (filePath) => {
-    expect(evaluatePermission('Write', { filePath }, 'bypassPermissions')).toBe('approve');
+    expect(evaluatePermission('Write', { filePath }, 'bypassPermissions', {}, where)).toBe('approve');
   });
 
   it('do not stop reading', () => {
-    expect(evaluatePermission('Read', { filePath: '/w/project/.git/HEAD' }, 'default')).toBe(
+    expect(evaluatePermission('Read', { filePath: '/w/project/.git/HEAD' }, 'default', {}, where)).toBe(
       'auto',
     );
   });

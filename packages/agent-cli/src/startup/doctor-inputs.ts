@@ -4,28 +4,29 @@
  * can make — inside the doctor's own failure boundary, so a composition that throws becomes a `fail`
  * check instead of an exit. Shared by the pre-parse route and by `/doctor`.
  */
-import { homedir } from 'node:os';
+import { resolveCliRuntimeContext } from './product-bootstrap.js';
 import { join } from 'node:path';
 
 import { pluginScopeDirs } from '../plugins/default-plugin-command-source-loader.js';
 import {
-  createContributionSourcesForProjectAccess,
   createRestrictedWorkspaceProjectAccess,
   getWorkspaceProjectIdentity,
 } from '@robota-sdk/agent-framework';
 
 import {
   createCliWorkspaceComposition,
+  createProductContributionSources,
   resolveInitialCliWorkspaceProjectAccess,
 } from './workspace-project-composition.js';
 import {
   checkExecutionContainment,
-  createRobotaSandbox,
-} from '../product/robota-execution-containment.js';
+  createProductSandbox,
+} from '../product/execution-containment.js';
 
-import type { IRobotaSandbox } from '../product/robota-execution-containment.js';
-import { createRobotaUserSettingsSources } from '../product/robota-user-settings.js';
-import { ROBOTA_SKILL_ROOTS } from '../product/robota-skill-roots.js';
+import type { IProductSandbox } from '../product/execution-containment.js';
+import { createProductUserSettingsSources } from '../product/user-settings.js';
+
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 import type { IStartCliOptions } from './cli-options-types.js';
 import type { IDoctorCheck, IDoctorInputs } from '@robota-sdk/agent-command';
@@ -52,8 +53,8 @@ export function checkNodeVersion(nodeVersion: string = process.versions.node): I
   };
 }
 
-function checkCliVersion(version: string): IDoctorCheck {
-  return { id: 'host.cli', label: 'robota version', status: 'ok', cause: version };
+function checkCliVersion(version: string, runtime: ICliRuntimeContext): IDoctorCheck {
+  return { id: 'host.cli', label: `${runtime.config.identity.cliName} version`, status: 'ok', cause: version };
 }
 
 function checkTerminal(
@@ -84,7 +85,7 @@ export interface IBuildDoctorInputsOptions {
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly userHome?: string;
   /** The sandbox the session was composed with, so `/doctor` reports that value, not a rebuild. */
-  readonly sandbox?: IRobotaSandbox;
+  readonly sandbox?: IProductSandbox;
 }
 
 export function compositionFailure(error: Error): IDoctorCheck {
@@ -118,16 +119,18 @@ export async function resolveDoctorProjectAccess(
 
 /** Compose the doctor's inputs; a composition throw is a check, never a crash. */
 export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInputs {
-  const userHome = opts.userHome ?? homedir();
+  const runtime = resolveCliRuntimeContext(opts.options);
+  const userHome = opts.userHome ?? runtime.userHome ?? runtime.layout.userRoot;
   const projectAccess = opts.projectAccess;
   let failure: IDoctorCheck | undefined = opts.accessFailure;
-  let settingsSources: readonly TSettingsSource[] = createRobotaUserSettingsSources(userHome);
+  let settingsSources: readonly TSettingsSource[] = createProductUserSettingsSources(runtime);
   let contributionSources: readonly IContributionSource[] =
-    createContributionSourcesForProjectAccess(projectAccess, userHome);
-  let skillRoots = ROBOTA_SKILL_ROOTS;
+    createProductContributionSources(projectAccess, runtime);
+  let skillRoots = runtime.layout.skillRoots;
   if (failure === undefined) {
     try {
       const composition = createCliWorkspaceComposition({
+        productRuntime: runtime,
         cwd: opts.cwd,
         userHome,
         projectAccess,
@@ -144,12 +147,12 @@ export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInput
     }
   }
   // The product's own layout is the host's knowledge: the runner receives it and names nothing.
-  const userRoot = join(userHome, '.robota');
+  const userRoot = runtime.layout.userRoot;
   const projectStorageRoot =
     projectAccess.status === 'trusted'
-      ? join(getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot, '.robota')
+      ? join(getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot, runtime.layout.projectDirectory)
       : undefined;
-  const sandbox = opts.sandbox ?? createRobotaSandbox({ cwd: opts.cwd, settingsSources });
+  const sandbox = opts.sandbox ?? createProductSandbox({ productRuntime: runtime, cwd: opts.cwd, settingsSources });
   return {
     cwd: opts.cwd,
     userHome,
@@ -160,13 +163,13 @@ export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInput
     projectAccess,
     providerDefinitions: opts.providerDefinitions,
     diagnosticGuidance: {
-      providerResolution: 'Run: robota --configure, or set the provider API key variable.',
-      projectTrust: 'Project sources are disabled. Run: robota trust --yes',
+      providerResolution: `Run: ${runtime.config.identity.cliName} --configure, or set the provider API key variable.`,
+      projectTrust: `Project sources are disabled. Run: ${runtime.config.identity.cliName} trust --yes`,
     },
     env: opts.env,
     contributionSources,
     skillRoots,
-    pluginsDirs: pluginScopeDirs(opts.cwd, userHome, projectAccess),
+    pluginsDirs: pluginScopeDirs(opts.cwd, runtime, projectAccess),
     ...(opts.options.mcpActivationAdapter === undefined
       ? {}
       : { mcpActivation: opts.options.mcpActivationAdapter }),
@@ -174,7 +177,7 @@ export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInput
     get hostChecks() {
       return [
         checkNodeVersion(),
-        checkCliVersion(opts.version),
+        checkCliVersion(opts.version, runtime),
         checkTerminal(opts.env),
         checkExecutionContainment(sandbox),
       ];

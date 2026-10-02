@@ -1,7 +1,7 @@
 /**
  * PTY TUI driver (CLI-074 TC-07/08).
  *
- * Built-CLI convenience over the shared `spawnPty` harness (TEST-007): spawns the built robota CLI in
+ * Built-CLI convenience over the shared `spawnPty` harness (TEST-007): spawns the built CLI in
  * a real pseudo-terminal so Ink renders exactly as in a user terminal, with per-key paced input
  * (expect(1)-style burst input gets bundled as a bracketed paste — the failure mode this driver
  * exists to avoid). Test-only; lives in a dedicated vitest project (*.ptytest.ts).
@@ -11,17 +11,18 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { spawnPty } from './spawn-pty.js';
+import { fixtureProductEnvironment } from './isolated-home.js';
 
 import type { IPtyRunSession } from './spawn-pty.js';
 
 const REPO_ROOT = resolve(__dirname, '../../../../..');
-const ROBOTA_BIN = join(REPO_ROOT, 'packages/agent-cli/bin/robota.cjs');
+const AGENT_BIN = join(REPO_ROOT, 'packages/agent-cli/bin/agent.cjs');
 
 /**
  * Signal the PTY child and await its ACTUAL exit before the caller removes the project dir.
  * `dispose()` sends SIGTERM (then SIGKILL after the grace window) but returns synchronously;
  * `expectExit()` resolves once the child has exited and **throws** if it has not within the timeout.
- * Awaiting this closes the INFRA-026 race where a dying child writes `<projectDir>/.robota` between
+ * Awaiting this closes the INFRA-026 race where a dying child writes under the selected state root between
  * `rmSync`'s readdir and rmdir. A child that refuses to die fails the test loudly — the exit is awaited
  * at the source, never masked by a removal fallback.
  * Extracted so the compose is unit-testable with a fake session.
@@ -69,7 +70,7 @@ export interface IPtySession {
    * Teardown that awaits ACTUAL child exit: signals the PTY child (`kill()`/`dispose()`) then awaits
    * `expectExit`, which resolves once the child has exited and **throws** if it has not within the
    * timeout (default ≥ the SIGTERM→SIGKILL grace). Await this before removing the project dir so the
-   * dying child cannot write `<projectDir>/.robota` between `rmSync`'s readdir and rmdir (INFRA-026).
+   * dying child cannot write under the selected state root between `rmSync`'s readdir and rmdir (INFRA-026).
    */
   disposeAsync(timeoutMs?: number): Promise<void>;
 }
@@ -95,7 +96,7 @@ export function writeTuiProviderSettings(projectDir: string): void {
   // ARCH-042: a capabilityless built CLI is Restricted and must not read project settings. PTY
   // fixtures therefore configure the host-owned user layer under the same isolated HOME that
   // `spawnTui` derives from the fixture root.
-  const settingsDir = join(projectDir, 'home', '.robota');
+  const settingsDir = join(projectDir, 'home', 'state');
   mkdirSync(settingsDir, { recursive: true });
   writeFileSync(
     join(settingsDir, 'settings.json'),
@@ -121,12 +122,13 @@ export function spawnTui(options: ISpawnTuiOptions): IPtySession {
 
   const session: IPtyRunSession = spawnPty({
     command: process.execPath,
-    args: [ROBOTA_BIN, ...defaultedArgs],
+    args: [AGENT_BIN, ...defaultedArgs],
     cwd: options.projectDir,
     env: {
       PATH: process.env['PATH'] ?? '',
       HOME: options.homeDir,
       TERM: 'xterm-256color',
+      ...fixtureProductEnvironment(options.homeDir),
       // Never inherit real provider keys into PTY runs.
       ...(options.env ?? {}),
     },

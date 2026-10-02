@@ -1,0 +1,33 @@
+{
+  "kind": "actual-cli-disposable-vm-smoke",
+  "records": [
+    {
+      "id": "headless",
+      "cliExitCode": 0,
+      "artifactCheckExitCode": 0,
+      "markerPresent": true,
+      "durationMs": 1002,
+      "passed": true
+    },
+    {
+      "id": "shell-default-denied",
+      "cliExitCode": 0,
+      "artifactCheckExitCode": 0,
+      "markerPresent": true,
+      "durationMs": 1036,
+      "passed": true
+    },
+    {
+      "id": "shell-explicit-allow",
+      "cliExitCode": 0,
+      "artifactCheckExitCode": 0,
+      "markerPresent": true,
+      "durationMs": 1028,
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "No cloud provider or multi-worker result follows from these three probes.",
+    "The model is deterministic; CLI and tools are production implementations."
+  ]
+}

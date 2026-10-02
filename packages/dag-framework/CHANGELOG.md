@@ -13,7 +13,7 @@
 
 - 3ab2eca: - External presets accept every permission mode a session does, `auto` included; `auto` used to fail validation.
   - `createDagFramework({ ports: { costMeta } })` wires cost-metadata management; without it cost operations still report that they are unsupported.
-  - `startCli()` runs the subagent worker when a subagent starts the embedder's entry script again, as the `robota` executable already did; an embedded CLI used to start a second CLI there.
+  - `startCli()` runs the subagent worker when a subagent starts the embedder's entry script again, as the `__PRODUCT_CLI_NAME__` executable already did; an embedded CLI used to start a second CLI there.
   - The provider `executor` option docs no longer import a `RemoteExecutor` that does not exist, and `IRemoteExecutorConfig` is marked deprecated: nothing implements a remote executor.
 
 ### Patch Changes
@@ -88,9 +88,9 @@
 
   Direct `createExecutionComposition` callers that wrap a `LifecycleTaskExecutorPort` must pass `lifecycleCreditAdmission: true` in the composition dependencies so the worker recognizes that the wrapped lifecycle reserves credits before execution.
 
-- cd848eb: Require host-selected storage and asset paths (or supplied ports) when composing the in-process DAG framework. The neutral factory no longer selects environment or Robota home-directory storage defaults; existing hosts can preserve their layout by passing the former paths explicitly.
+- cd848eb: Require host-selected storage and asset paths (or supplied ports) when composing the in-process DAG framework. The neutral factory no longer selects environment or __PRODUCT_DISPLAY_NAME__ home-directory storage defaults; existing hosts can preserve their layout by passing the former paths explicitly.
 
-  Require a host-selected database path for both SQLite adapters. Callers that used the implicit `./robota-dag.db` file can pass that path explicitly.
+  Require a host-selected database path for both SQLite adapters. Callers that used the implicit `./__PRODUCT_DISPLAY_NAME__-dag.db` file can pass that path explicitly.
 
 - 34768aa: **BREAKING — RUNTIME-003: make one queue-scoped coordinator the sole owner of DAG run
   advancement.**
@@ -160,7 +160,7 @@
 
 - 792b726: Stop `text-replace` from ever running a regex on the host's main thread. `createDagFramework`'s default executor now isolates the default regex operation the same way the local Node provider already does, and the node itself no longer falls back to inline `RegExp` execution when no isolated operation is supplied — a pathological pattern can no longer freeze the host process, including its own cancel and status endpoints.
 - a58fc4b: Close the shared root credit authority when a participating DAG run's cancellation commits, so nested work cannot reserve new credits while active provider cleanup is still pending.
-- a0eac8f: Use a neutral catalog category for custom nodes that omit one instead of projecting a Robota product category.
+- a0eac8f: Use a neutral catalog category for custom nodes that omit one instead of projecting a __PRODUCT_DISPLAY_NAME__ product category.
 - 5a46402: Share root credit reservations across nested local DAG runs so concurrent children cannot each spend the same remaining limit.
 - 78dcc65: Bound memory used by default regex text replacement when a global pattern has many matches, while preserving JavaScript replacement and UTF-8 byte-limit behavior.
 - Updated dependencies [7b6234c]

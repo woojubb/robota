@@ -1,3 +1,5 @@
+import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
@@ -71,6 +73,7 @@ export type {
 
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
+  readonly pathProtection?: IPathProtectionPolicy;
   /** Additive response style; it never replaces framework, project, permission, or capability sections. */
   outputStyle?: IOutputStylePrompt;
   /** Resolved CLI configuration (model, API key, permissions) */
@@ -127,6 +130,8 @@ export interface ICreateSessionOptions {
   ) => Promise<TPermissionResult>;
   /** Additional tools to register beyond the defaults (e.g. agent-tool) */
   additionalTools?: IToolWithEventService[];
+  /** Host-selected resource/dependency policy, independent of permission admission. */
+  toolExecutionPolicy?: ISessionOptions['toolExecutionPolicy'];
   /**
    * ARCH-006: REPLACES the framework's `createDefaultTools()` tier for this session; `[]` suppresses every
    * framework default so a product's capability packs can own the whole tool surface. Mirrors NEUT-003's
@@ -193,6 +198,7 @@ export interface ICreateSessionOptions {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    toolResultParts?: TUniversalMessagePart[];
     executionId?: string;
   }) => void;
   /** Callback when context is compacted */
@@ -208,7 +214,7 @@ export interface ICreateSessionOptions {
   compactInstructions?: string;
   /**
    * NEUT-005: concrete remediation wording for the core's hard-capacity notice, forwarded to the
-   * session's Robota config. Absent ⇒ derived from the composed command set (see
+   * session's ConversationAgent config. Absent ⇒ derived from the composed command set (see
    * `deriveContextCapacityHint`); if that yields nothing, the neutral core default applies.
    */
   contextCapacityHint?: string;
@@ -309,7 +315,7 @@ export interface ICreateSessionOptions {
    * corpus). When present, the adapter-gated `CodebaseRetrieval` tool joins the default set; absent otherwise.
    */
   retrievalAdapter?: IRetrievalAdapter;
-  /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
+  /** Name reported to the underlying ConversationAgent agent config. Defaults to 'agent'. */
   agentName?: string;
   /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
   activePresetId?: string;
@@ -331,6 +337,7 @@ export interface ICreateSessionResult {
     agentsMd: string,
     projectNotesMd: string,
     overrides?: {
+      memoryMd?: string;
       outputStyle?: IOutputStylePrompt;
       persona?: string;
       selfVerification?: boolean | string;

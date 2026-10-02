@@ -1,3 +1,4 @@
+import type { IIdentityContext } from './crypto-context.js';
 /**
  * The secret two of one user's devices share and nobody else can compute: an X25519 agreement
  * between their certified key-agreement keys, expanded by HKDF.
@@ -13,7 +14,6 @@ import { decodeBase64Url } from './encoding.js';
 import type { IDeviceCertificate } from './certificates.js';
 
 /** The HKDF info label. Rendezvous keys are derived from the output under their own labels. */
-export const PAIRWISE_SECRET_LABEL = 'robota/rdv/v1';
 
 const SECRET_BITS = 256;
 
@@ -27,7 +27,10 @@ export interface IDerivePairwiseSecretInput {
 }
 
 /** `S_AB`, 32 bytes. Throws when the two devices are one device or belong to different users. */
-export async function derivePairwiseSecret(input: IDerivePairwiseSecretInput): Promise<Uint8Array> {
+export async function derivePairwiseSecret(
+  cryptoContext: IIdentityContext,
+  input: IDerivePairwiseSecretInput,
+): Promise<Uint8Array> {
   const { own, peer } = input;
   if (own.userId !== peer.userId)
     throw new Error('pairwise secret: the devices belong to different users');
@@ -51,7 +54,13 @@ export async function derivePairwiseSecret(input: IDerivePairwiseSecretInput): P
   if (shared.every((byte) => byte === 0)) throw new Error('pairwise secret: degenerate agreement');
   const [low, high] = own.deviceId < peer.deviceId ? [own, peer] : [peer, own];
   const info = encoder.encode(
-    JSON.stringify([PAIRWISE_SECRET_LABEL, low.deviceId, low.kaEpoch, high.deviceId, high.kaEpoch]),
+    JSON.stringify([
+      `${cryptoContext.namespace}/rdv/v1`,
+      low.deviceId,
+      low.kaEpoch,
+      high.deviceId,
+      high.kaEpoch,
+    ]),
   );
   const ikm = await webcrypto.subtle.importKey('raw', ab(shared), 'HKDF', false, ['deriveBits']);
   const secret = await webcrypto.subtle.deriveBits(

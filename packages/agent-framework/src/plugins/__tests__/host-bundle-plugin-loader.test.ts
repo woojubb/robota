@@ -20,7 +20,7 @@ import { createHostBundlePluginLoader } from '../host-bundle-plugin-loader.js';
 
 import type { IBundlePluginManifest } from '../bundle-plugin-types.js';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-host-plugin-loader-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-host-plugin-loader-')));
 
 function writeJson(path: string, data: unknown): void {
   mkdirSync(join(path, '..'), { recursive: true });

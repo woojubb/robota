@@ -37,15 +37,6 @@
     },
     "./package.json": "./package.json"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/woojubb/robota.git",
-    "directory": "packages/agent-tools"
-  },
-  "homepage": "https://docs.robota.io/en/packages/agent-tools/",
-  "bugs": {
-    "url": "https://github.com/woojubb/robota/issues"
-  },
   "engines": {
     "node": ">=22.12.0"
   },

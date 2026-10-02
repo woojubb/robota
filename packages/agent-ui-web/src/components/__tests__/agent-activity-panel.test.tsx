@@ -10,7 +10,8 @@
  * #3282 §4 part b-3 — the Agents panel's "Scheduled" group and Goal row: plain times (never an ISO
  * string or a cron expression), Pause/Resume, a confirmed Delete, and Cancel goal.
  */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { render } from '../../testing/product-provider.js';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 

@@ -95,7 +95,7 @@ export class CommandExecutor implements IHookTypeExecutor {
 
   /**
    * `traceEnv` is the prompt's trace for this child, handed separately so it never reaches the
-   * stdin JSON. The child sees `process.env`, then Robota's value, then the hook's own `env`; a hook
+   * stdin JSON. The child sees `process.env`, then ConversationAgent's value, then the hook's own `env`; a hook
    * that sets its own `TRACEPARENT` wins and gets the ambient environment unchanged.
    */
   execute(

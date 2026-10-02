@@ -4,16 +4,25 @@ import { isSubagentWorkerModeArgv, runSubagentWorkerMain } from '@robota-sdk/age
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
 
 import { installCliDiagnostics } from './bootstrap-diagnostics.js';
+import { resolveCliRuntimeContext } from './startup/product-bootstrap.js';
 import { startCliCore } from './cli-core.js';
-import { createRobotaSubagentComposition } from './product/robota-subagent-composition.js';
+import { createProductSubagentComposition } from './product/subagent-composition.js';
 import { parseCliArgs } from './utils/cli-args.js';
 import { optionArgv } from './utils/option-argv.js';
+import { assertLocalWorkerPosture } from './hosted/hosted-runtime-config.js';
 
 installCliDiagnostics();
 
 if (isSubagentWorkerModeArgv(optionArgv(process.argv))) {
   // The served parent's child re-executes process.execPath; this private route must survive bundling.
-  runSubagentWorkerMain(createRobotaSubagentComposition());
+  try {
+    const runtime = resolveCliRuntimeContext({});
+    assertLocalWorkerPosture(runtime.environment);
+    runSubagentWorkerMain(createProductSubagentComposition(runtime));
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 1;
+  }
 } else {
   try {
     const args = parseCliArgs();

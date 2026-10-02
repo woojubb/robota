@@ -1,16 +1,16 @@
-# Robota — Composable AI Agent Libraries
+# Robota — An adaptable foundation for AI agents
 
-Robota is a **composable TypeScript library collection for building AI agents** — strict types,
-multi-provider, tool calling, and an extensible plugin/event architecture. You assemble agents
-from neutral building blocks; `@robota-sdk/agent-cli` (an AI coding assistant) is a **reference
-app built from these same libraries**, not the product itself.
+**Our agents develop and advance our agents.** We are building toward agents that can carry their
+own development forward on a dependable, adaptable foundation. [VISION.md](./VISION.md) defines
+this direction; reliable autonomous self-evolution remains an ambition to build and demonstrate.
+
+Today, Robota provides composable TypeScript libraries with strict types, multi-provider
+support, tool calling and a plugin/event architecture. The SDK and maintained interfaces belong to
+the same environment. `@robota-sdk/agent-cli` delivers a terminal agent with coding capabilities,
+assembled from the same neutral building blocks you can embed in your own application.
 
 > Evaluating with an AI agent? Start at [`llms.txt`](./llms.txt) — the consumer map (minimal
 > package set, capabilities, behavior contracts).
-
-> **Where this is going:** [`VISION.md`](./VISION.md) — _Robota builds Robota_. The goal is a **general**
-> development agent capable enough to build even Robota; developing the Robota repo is the **validation
-> benchmark** (the hardest dogfood), not a Robota-dedicated tool.
 
 ## Quick Start — Embed the Library
 
@@ -22,10 +22,10 @@ npm install @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic
 ```
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'MyAgent',
   aiProviders: [new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })],
   defaultModel: {
@@ -38,6 +38,8 @@ const agent = new Robota({
 const response = await agent.run('Hello!');
 ```
 
+[Runtime migration and compatibility](./content/guide/runtime-migration.md)
+
 ### Add a tool
 
 `createZodFunctionTool` validates the model's arguments against a zod schema before your function
@@ -48,7 +50,7 @@ npm install @robota-sdk/agent-tools zod@3
 ```
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
@@ -60,7 +62,7 @@ const getWeather = createZodFunctionTool(
   async ({ city }) => `It is sunny in ${city}.`,
 );
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'WeatherAgent',
   aiProviders: [new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
@@ -91,10 +93,10 @@ const response = await query('List all TypeScript files in src/');
 ask for permission is denied. See the [SDK guide](./content/guide/sdk.md) for sessions, permission
 modes, and `InteractiveSession`.
 
-### Reference app — the CLI coding assistant
+### Use the CLI coding assistant
 
 ```bash
-# Try the reference app built from these libraries (no install needed)
+# Try the CLI built from these libraries (no install needed)
 npx @robota-sdk/agent-cli
 
 # Or install globally
@@ -118,10 +120,9 @@ The installer detects your OS and CPU, downloads the matching binary from the la
 [GitHub release](https://github.com/woojubb/robota/releases), verifies its SHA-256 checksum, and
 installs `robota` to `~/.robota/bin` (on Windows, `%LOCALAPPDATA%\robota\bin`, which it adds to your
 user PATH; on macOS/Linux it prints the `PATH` line to add if needed). To install a specific release,
-set `ROBOTA_VERSION` to its tag, e.g. `curl -fsSL … | ROBOTA_VERSION=v<version> bash`. Binaries are
+set `PRODUCT_VERSION` to its tag, e.g. `curl -fsSL … | PRODUCT_VERSION=v<version> bash`. Binaries are
 unsigned — macOS and Windows may warn.
 
-![Robota CLI](https://raw.githubusercontent.com/woojubb/robota/main/content/images/cli-demo.png)
 
 > **Beta**: Robota is currently `3.0.0-beta`. APIs may change before 1.0. See
 > [CHANGELOG.md](./CHANGELOG.md) for upgrade notes.
@@ -147,7 +148,7 @@ unsigned — macOS and Windows may warn.
   (`robota daemon start`) that the desktop app and the full terminal UI (`robota --attach`) connect to.
   [Sessions and daemon](./content/guide/sessions-and-daemon.md)
 - **MCP, both directions** — connect to MCP servers (stdio or remote, including OAuth sign-in) with
-  `agent-mcp`, and serve a Robota session as an MCP server with `agent-transport-mcp`
+  `agent-mcp`, and serve an Robota session as an MCP server with `agent-transport-mcp`
   (`robota mcp serve`). [MCP guide](./content/guide/mcp.md)
 - **Devices and remote control** — link your own devices, send messages and files between
   sessions, hand a session off to another device, and co-drive a session from a browser over
@@ -159,11 +160,11 @@ unsigned — macOS and Windows may warn.
 ## Architecture
 
 Libraries below, products on top. Everything under `packages/` is universal and neutral; apps and
-the reference CLI are opinionated assemblies of the libraries. Each layer builds only on the layers
+the CLI are opinionated assemblies of the libraries. Each layer builds only on the layers
 below it — see [ARCHITECTURE.md](./ARCHITECTURE.md) for the full picture.
 
 ```
-agent-cli                              ← Reference app: terminal AI coding assistant
+agent-cli                              ← Product interface: terminal AI coding assistant
 agent-product · pack-coding            ← Product composition: profiles and capability packs
 agent-command · agent-preset           ← Slash commands, presets and output styles
 agent-ui-terminal                      ← Terminal UI (React + Ink)
@@ -177,13 +178,13 @@ agent-mcp · agent-plugin               ← MCP client; lifecycle plugins
 agent-provider-*                       ← One provider package per vendor
   ↓
 agent-interface-*                      ← Type-only contracts shared across layers
-agent-core                             ← Foundation: Robota engine, provider/tool/plugin contracts, permissions
+agent-core                             ← Foundation: ConversationAgent engine, provider/tool/plugin contracts, permissions
 ```
 
 ## Packages
 
 Every package below is published on npm under `@robota-sdk/`, and all of them share one version.
-The [packages index](https://docs.robota.io/en/packages/) on the docs site covers each one.
+The [packages index](https://docs.robota.io//en/packages/) on the docs site covers each one.
 
 **Start here (embedding):**
 
@@ -254,7 +255,7 @@ The [packages index](https://docs.robota.io/en/packages/) on the docs site cover
 | [`@robota-sdk/agent-interface-transport`](https://www.npmjs.com/package/@robota-sdk/agent-interface-transport)               | Transport adapters, admission, access tokens, external events      |
 | [`@robota-sdk/agent-interface-tui`](https://www.npmjs.com/package/@robota-sdk/agent-interface-tui)                           | Terminal UI interaction contracts                                  |
 
-**Reference app:**
+**Agent interface:**
 
 | Package                                                                        | Description                                                                              |
 | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
@@ -262,25 +263,25 @@ The [packages index](https://docs.robota.io/en/packages/) on the docs site cover
 
 ## Documentation
 
-Full documentation lives at **[docs.robota.io](https://docs.robota.io/en/)**.
+Full documentation lives at **[docs.robota.io](https://docs.robota.io//en/)**.
 
-- [Getting Started](https://docs.robota.io/en/getting-started/) and the [Quick Start](https://docs.robota.io/en/quickstart/)
-- [Building Agents](https://docs.robota.io/en/guide/building-agents/)
-- [SDK Usage](https://docs.robota.io/en/guide/sdk/)
-- [Providers](https://docs.robota.io/en/guide/providers/)
-- [Permissions and Hooks](https://docs.robota.io/en/guide/permissions-and-hooks/)
-- [Sessions and Daemon](https://docs.robota.io/en/guide/sessions-and-daemon/)
-- [The GUI and the Desktop App](https://docs.robota.io/en/guide/gui/)
-- [Devices and Remote Control](https://docs.robota.io/en/guide/devices-and-remote/)
-- [MCP](https://docs.robota.io/en/guide/mcp/)
-- [CLI Reference](https://docs.robota.io/en/guide/cli/)
-- [Examples](https://docs.robota.io/en/examples/)
-- [Packages](https://docs.robota.io/en/packages/)
-- [Development](https://docs.robota.io/en/development/)
+- [Getting Started](https://docs.robota.io//en/getting-started/) and the [Quick Start](https://docs.robota.io//en/quickstart/)
+- [Building Agents](https://docs.robota.io//en/guide/building-agents/)
+- [SDK Usage](https://docs.robota.io//en/guide/sdk/)
+- [Providers](https://docs.robota.io//en/guide/providers/)
+- [Permissions and Hooks](https://docs.robota.io//en/guide/permissions-and-hooks/)
+- [Sessions and Daemon](https://docs.robota.io//en/guide/sessions-and-daemon/)
+- [The GUI and the Desktop App](https://docs.robota.io//en/guide/gui/)
+- [Devices and Remote Control](https://docs.robota.io//en/guide/devices-and-remote/)
+- [MCP](https://docs.robota.io//en/guide/mcp/)
+- [CLI Reference](https://docs.robota.io//en/guide/cli/)
+- [Examples](https://docs.robota.io//en/examples/)
+- [Packages](https://docs.robota.io//en/packages/)
+- [Development](https://docs.robota.io//en/development/)
 
 ## Repository Scope
 
-This repository holds the Robota agent SDK, providers, transports, the reference CLI, and related
+This repository holds the Robota agent SDK, providers, transports, the CLI, and related
 apps (desktop app, browser remote client, docs site, marketing site, blog).
 
 Some workspace packages are **private** and never published to npm on their own:

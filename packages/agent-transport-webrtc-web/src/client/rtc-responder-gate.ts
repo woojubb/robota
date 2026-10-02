@@ -1,3 +1,4 @@
+import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 /**
  * Responder-side pairing gate for the browser remote client (REMOTE-009 Stage D; extended for REMOTE-012
  * Stage E3 TOFU reconnect) — the client dual of the host `PairingGate`. The browser is the WebRTC ANSWERER ≡
@@ -55,6 +56,7 @@ export interface IDeviceIdentityConfig {
 }
 
 export interface IResponderGateOptions {
+  readonly cryptoContext: IIdentityContext;
   readonly channel: IResponderChannel;
   readonly secret: string;
   readonly localFingerprint: string;
@@ -158,7 +160,7 @@ export class ResponderGate {
   private startFirstPair(): void {
     const start = this.options.startHandshake ?? startPairingHandshake;
     this.state = 'pairing';
-    this.pairingController = start({
+    this.pairingController = start(this.options.cryptoContext, {
       secret: this.options.secret,
       role: 'responder',
       localFingerprint: this.options.localFingerprint,
@@ -177,7 +179,7 @@ export class ResponderGate {
     pinned: NonNullable<IDeviceIdentityConfig['reconnect']>,
   ): void {
     const start = this.options.startReconnect ?? startDeviceReconnect;
-    this.reconnectController = start({
+    this.reconnectController = start(this.options.cryptoContext, {
       deviceId: identity.deviceId,
       hostIdentityId: pinned.hostIdentityId,
       localFingerprint: this.options.localFingerprint,

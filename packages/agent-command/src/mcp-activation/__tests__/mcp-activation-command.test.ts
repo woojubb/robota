@@ -311,7 +311,7 @@ describe('/mcp and OAuth sign-in', () => {
   it('points a server that needs a sign-in at the session command and the terminal one', async () => {
     const result = await executeMCPActivationCommand(context(withServer('files')), 'status');
     expect(result.message).toContain(
-      'OAuth: sign-in required (run /mcp login files, or robota mcp login files in a terminal)',
+      'OAuth: sign-in required (run /mcp login files, or sign in from a terminal)',
     );
   });
 
@@ -322,14 +322,14 @@ describe('/mcp and OAuth sign-in', () => {
     ['a backslash-quote', "\\';touch pwned;#"],
     ['a leading dash', '-rf'],
     ['a leading equals sign', '=cmd'],
-    ['a newline', 'x\nrobota mcp login good'],
+    ['a newline', 'x\nfixture-agent mcp login good'],
     ['an escape sequence', 'x\u001b[2Kgood'],
     ['a right-to-left override', 'x‮good'],
   ])('never puts a name with %s into the sign-in command', async (_what, name) => {
     const result = await executeMCPActivationCommand(context(withServer(name)), 'status');
     const hint = /\(run \/mcp login [^)]*\)/.exec(result.message)?.[0];
     expect(hint).toBe(
-      '(run /mcp login <server>, or robota mcp login <server> in a terminal; ' +
+      '(run /mcp login <server>, or sign in from a terminal; ' +
         'its name cannot be shown safely here)',
     );
   });
@@ -529,7 +529,7 @@ describe('/mcp login', () => {
     const h = harness(async (request) => signedIn(request.serverId));
     const result = await h.run('login files --client-secret');
     expect(result.success).toBe(false);
-    expect(result.message).toContain('robota mcp login files --client-secret in a terminal');
+    expect(result.message).toContain('Sign in from a terminal configured for this product.');
     expect(h.requests).toEqual([]);
   });
 
@@ -542,7 +542,7 @@ describe('/mcp login', () => {
         tools: [],
       })).run('login files');
     expect((await failing(true)).message).toContain(
-      'run robota mcp login files --client-secret in a terminal',
+      'sign in from a terminal configured for this product',
     );
     expect((await failing(false)).message).not.toContain('--client-secret');
   });
@@ -557,7 +557,7 @@ describe('/mcp login', () => {
     expect((await h.run('login files')).message).toContain('/mcp login files --no-browser');
     expect((await h.run('login x$(id)')).message).toContain('/mcp login <server> --no-browser');
     expect((await h.run('login =cmd --client-secret')).message).toContain(
-      'robota mcp login <server> --client-secret',
+      'Sign in from a terminal configured for this product.',
     );
   });
 
@@ -880,14 +880,14 @@ describe('/mcp reload (#3282 §4 part b-2)', () => {
 });
 
 describe('/mcp command entry', () => {
-  it('opens only `status` to the model, and describes login for the user', () => {
+  it('opens status and skill metadata to the model, and describes login for the user', () => {
     const entry = createMCPActivationCommandEntry();
     // Model-invocable only through its read-only `status`; every verb that changes trust or a
     // credential is declared user-only (model-exposure.test.ts pins the refusal).
     expect(entry.modelInvocable).toBe(true);
     expect(
       (entry.subcommands ?? []).filter((sub) => sub.modelInvocable === true).map((s) => s.name),
-    ).toEqual(['status']);
+    ).toEqual(['status', 'skill-list']);
     expect(entry.description).toMatch(/sign in/);
     expect(entry.description).toMatch(/Returns/);
     expect(entry.argumentHint).toContain('login <server> [--no-browser]');

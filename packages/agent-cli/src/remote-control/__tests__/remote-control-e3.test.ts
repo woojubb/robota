@@ -17,7 +17,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { IHostIdentity } from '../host-identity.js';
 import { RemoteControlController } from '../remote-control-controller.js';
+import type { IRemoteControlControllerDeps } from '../remote-control-controller.js';
 import { createRemoteControlTransportHost } from '../transport-host-adapter.js';
+import { createTestRuntimeContext } from '../../devices/__tests__/runtime-context-fixture.js';
 import type { ITrustedDeviceRecord, ITrustedDeviceStore } from '../trusted-device-store.js';
 
 /**
@@ -33,7 +35,7 @@ import type { ITrustedDeviceRecord, ITrustedDeviceStore } from '../trusted-devic
  */
 function realRegistry(): TransportRegistry {
   return new TransportRegistry(
-    join(realpathSync(mkdtempSync(join(tmpdir(), 'robota-rc-registry-'))), 'settings.json'),
+    join(realpathSync(mkdtempSync(join(tmpdir(), 'agent-fixture-rc-registry-'))), 'settings.json'),
   );
 }
 
@@ -64,26 +66,36 @@ function build(
   identity: IHostIdentity,
 ): {
   controller: RemoteControlController;
-  captured: { reconnect?: IHostReconnectConfig };
+  captured: {
+    reconnect?: IHostReconnectConfig;
+    hooks?: Parameters<NonNullable<IRemoteControlControllerDeps['createTransport']>>[3];
+    transport?: IConfigurableTransport<IProtocolSession>;
+    signaling?: ISignalingClient;
+  };
 } {
-  const captured: { reconnect?: IHostReconnectConfig } = {};
+  const captured: ReturnType<typeof build>['captured'] = {};
   const controller = new RemoteControlController({
+    productRuntime: createTestRuntimeContext('/tmp/remote-control-e3-test'),
     host: createRemoteControlTransportHost(realRegistry()),
     readRelayUrl: () => 'ws://127.0.0.1:9999',
     readClientUrl: () => 'https://remote.example/',
     getSession: () => stubSession(),
     renderQr: () => Promise.resolve('[QR]'),
-    createSignaling: () =>
-      ({
+    createSignaling: () => {
+      const signaling = {
         send: vi.fn(),
         onSignal: vi.fn(() => () => {}),
         close: vi.fn(),
-      }) as unknown as ISignalingClient,
+      } as unknown as ISignalingClient;
+      captured.signaling = signaling;
+      return signaling;
+    },
     trustedDeviceStore: store,
     loadHostIdentity: () => Promise.resolve(identity),
-    createTransport: (_s, _secret, _h, _ice, reconnect) => {
+    createTransport: (_context, _s, _secret, hooks, _ice, reconnect) => {
       captured.reconnect = reconnect;
-      return {
+      captured.hooks = hooks;
+      const transport = {
         name: 'webrtc',
         // Issue #2043: the real `WebRtcTransport` declares `lifecycle: { kind: 'service' }` and has no
         // `waitForCompletion`, and `TransportRegistry.register` refuses a transport whose shape
@@ -97,6 +109,8 @@ function build(
         stop: vi.fn().mockResolvedValue(undefined),
         validateOptions: () => true,
       } as unknown as IConfigurableTransport<IProtocolSession>;
+      captured.transport = transport;
+      return transport;
     },
   });
   return { controller, captured };
@@ -149,9 +163,77 @@ describe('RemoteControlController E3 wiring (REMOTE-012)', () => {
     expect(controller.revokeDevice('missing')).toBe(false);
   });
 
+  it('revoking the paired device ends its active connection and prevents late enrollment', async () => {
+    const store = memoryStore();
+    const { controller, captured } = build(store, await hostIdentity());
+    await controller.enable();
+    expect(() => captured.reconnect?.onEnroll('dev-1', 'fixture-spki')).not.toThrow();
+    captured.hooks?.onPaired();
+    expect(controller.getStatus()).toEqual({ state: 'paired' });
+    expect(controller.revokeDevice('dev-1')).toBe(true);
+    await Promise.resolve();
+    expect(captured.transport?.stop).toHaveBeenCalledOnce();
+    expect(captured.signaling?.close).toHaveBeenCalledOnce();
+    expect(controller.getStatus()).toEqual({ state: 'off' });
+    expect(() => captured.reconnect?.onEnroll('dev-1', 'fixture-spki')).toThrow(
+      /no longer authorized/,
+    );
+    expect(store.get('dev-1')).toBeUndefined();
+  });
+
+  it('stopped enrollment callbacks cannot repopulate device trust', async () => {
+    const store = memoryStore();
+    const { controller, captured } = build(store, await hostIdentity());
+    await controller.enable();
+    await controller.stop();
+    expect(() => captured.reconnect?.onEnroll('late-device', 'fixture-spki')).toThrow(
+      /no longer authorized/,
+    );
+    expect(store.list()).toEqual([]);
+  });
+
+  it('a key imported across device revocation is refused', async () => {
+    const store = memoryStore();
+    const device = await generateIdentityKeyPair(false);
+    const spki = await exportPublicKey(device.publicKey);
+    const { controller, captured } = build(store, await hostIdentity());
+    await controller.enable();
+    captured.reconnect?.onEnroll('dev-1', spki);
+    expect(await captured.reconnect?.resolveDevicePublicKey('dev-1')).toBeTruthy();
+    const importing = captured.reconnect?.resolveDevicePublicKey('dev-1');
+    controller.revokeDevice('dev-1');
+    expect(await importing).toBeUndefined();
+    await controller.stop();
+  });
+
+  it('revoking an unrelated trusted device preserves the paired connection', async () => {
+    const store = memoryStore();
+    const { controller, captured } = build(store, await hostIdentity());
+    await controller.enable();
+    captured.reconnect?.onEnroll('dev-1', 'fixture-spki');
+    captured.hooks?.onPaired();
+    store.upsert({
+      deviceId: 'dev-2',
+      publicKey: 'other-spki',
+      label: 'other',
+      createdAt: 't',
+      lastSeenAt: 't',
+    });
+    expect(controller.revokeDevice('dev-2')).toBe(true);
+    expect(store.get('dev-1')).toBeDefined();
+    expect(captured.transport?.stop).not.toHaveBeenCalled();
+    expect(controller.getStatus()).toEqual({ state: 'paired' });
+    expect(() => captured.reconnect?.onEnroll('dev-2', 'other-spki')).toThrow(
+      /no longer authorized/,
+    );
+    expect(store.get('dev-2')).toBeUndefined();
+    await controller.stop();
+  });
+
   it('with no store configured, listDevices is empty and reconnect config is absent', async () => {
     const captured: { reconnect?: IHostReconnectConfig } = {};
     const controller = new RemoteControlController({
+      productRuntime: createTestRuntimeContext('/tmp/remote-control-e3-test'),
       host: createRemoteControlTransportHost(realRegistry()),
       readRelayUrl: () => 'ws://127.0.0.1:9999',
       readClientUrl: () => 'https://remote.example/',
@@ -163,7 +245,7 @@ describe('RemoteControlController E3 wiring (REMOTE-012)', () => {
           onSignal: vi.fn(() => () => {}),
           close: vi.fn(),
         }) as unknown as ISignalingClient,
-      createTransport: (_s, _secret, _h, _ice, reconnect) => {
+      createTransport: (_context, _s, _secret, _h, _ice, reconnect) => {
         captured.reconnect = reconnect;
         return {
           name: 'webrtc',

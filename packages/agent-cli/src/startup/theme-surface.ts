@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
  * SCREEN-2002 — the run's theme surface, assembled once.
  *
@@ -9,7 +10,7 @@
  * because a composition belongs beside its siblings in `startup/`, not in the shell that calls it.
  */
 import { readSettings } from '@robota-sdk/agent-framework';
-import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
+import { productUserSettingsPath } from '../product/user-settings.js';
 import {
   createThemeCataloguePort,
   createThemeRegistry,
@@ -24,11 +25,12 @@ import type { TSettingsData, TWorkspaceProjectAccess } from '@robota-sdk/agent-f
 import type { IThemeCataloguePort, TReducedMotionOverride } from '@robota-sdk/agent-command';
 
 export interface IThemeSurfaceOptions {
+  readonly productRuntime: ICliRuntimeContext;
   /** Where the run was started, for the plugin scopes. `undefined` leaves the user scope alone. */
   readonly cwd: string | undefined;
   /** Project plugin themes are visible only after workspace trust is granted. */
   readonly projectAccess?: TWorkspaceProjectAccess;
-  /** The home directory `~/.robota/themes` is read from. Home-only, like `~/.robota/output-styles`. */
+  /** The home directory `the configured user root/themes` is read from. Home-only, like `the configured user root/output-styles`. */
   readonly userHome: string;
   /**
    * Whether this run renders a terminal UI at all. Print mode, `--goal` and `--serve` render no
@@ -81,6 +83,7 @@ export function createThemeSurface(options: IThemeSurfaceOptions): IThemeSurface
   }
   const sources = loadThemeSources({
     cwd: options.cwd,
+    productRuntime: options.productRuntime,
     userHome: options.userHome,
     ...(options.projectAccess === undefined ? {} : { projectAccess: options.projectAccess }),
   });
@@ -94,7 +97,7 @@ export function createThemeSurface(options: IThemeSurfaceOptions): IThemeSurface
     // applies an `appearance-settings-patch`, so a captured value would make `/theme list` report
     // the change the user just made as not having happened.
     readAppearance: () =>
-      resolveAppearanceRenderFields(readSettings(robotaUserSettingsPath()), undefined, {}).appearance,
+      resolveAppearanceRenderFields(readSettings(productUserSettingsPath(options.productRuntime)), undefined, {}).appearance,
     ...(resolved.reducedMotionOverride === undefined
       ? {}
       : {

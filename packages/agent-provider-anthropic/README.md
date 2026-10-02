@@ -2,7 +2,7 @@
 
 Anthropic Claude provider for the Robota SDK, built on the official `@anthropic-ai/sdk`.
 `AnthropicProvider` implements the `@robota-sdk/agent-core` provider contract over the Anthropic
-Messages API, so a `Robota` agent can run on Claude models with streaming and tool calling. It can
+Messages API, so a `ConversationAgent` agent can run on Claude models with streaming and tool calling. It can
 also attach Anthropic's server-side web search tool to requests when you turn it on.
 
 ## Installation
@@ -14,12 +14,12 @@ npm install @robota-sdk/agent-provider-anthropic @robota-sdk/agent-core
 ## Usage
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'MyAgent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
@@ -30,19 +30,19 @@ console.log(response);
 ```
 
 The provider registers under the name `anthropic`, which is the value `defaultModel.provider` must
-use. A call that names no model uses the provider's `defaultModel` option (a `Robota` agent passes
+use. A call that names no model uses the provider's `defaultModel` option (a `ConversationAgent` agent passes
 `defaultModel.model` on every call); with neither, the call throws. `createAnthropicProvider(options)`
 is a factory that returns the same provider typed as `IAIProvider`.
 
 ### Structured output and reasoning effort
 
-A request that carries a `json_schema` response format (as a `Robota` run with an `output` schema
+A request that carries a `json_schema` response format (as a `ConversationAgent` run with an `output` schema
 can) is sent through Anthropic's native structured output, `output_config.format`. Every object in
 the schema is closed (`additionalProperties: false`) on the way out, because Anthropic rejects open
 objects. The `text` and `json_object` formats have no Anthropic equivalent; they rely on the
 agent-core validation loop instead.
 
-A reasoning-effort selection (`defaultModel.effort` on a `Robota` agent, or `effort` on a chat call)
+A reasoning-effort selection (`defaultModel.effort` on a `ConversationAgent` agent, or `effort` on a chat call)
 is sent as `output_config.effort` for models in the provider's verified effort table. The table
 applies only when `baseURL` is not set: a gateway's behavior is not Anthropic's, so the provider
 claims no effort support there.
@@ -95,7 +95,7 @@ aborted call rethrows the abort unchanged. See [Provider failures](../../content
 
 ## Related packages
 
-- [`@robota-sdk/agent-core`](../agent-core/README.md): the `Robota` agent and the provider contract.
+- [`@robota-sdk/agent-core`](../agent-core/README.md): the `ConversationAgent` agent and the provider contract.
 - [`@robota-sdk/agent-provider-openai`](../agent-provider-openai/README.md),
   [`@robota-sdk/agent-provider-gemini`](../agent-provider-gemini/README.md) and
   [`@robota-sdk/agent-provider-openai-compatible`](../agent-provider-openai-compatible/README.md):
@@ -107,4 +107,4 @@ See [docs/SPEC.md](docs/SPEC.md) for the package contract.
 
 ## License
 
-Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

@@ -30,6 +30,7 @@ function grant(partial: Partial<IWorkspaceTrustGrant>): IWorkspaceTrustGrant {
 
 function deps(overrides: Partial<IResolveLaunchTargetDeps> = {}): IResolveLaunchTargetDeps {
   return {
+    cliName: 'test-product',
     listGrants: async () => [],
     inspectTrust: async (): Promise<TLaunchTargetTrust> => 'trusted',
     realDirectory: (cwd) => cwd,
@@ -81,7 +82,7 @@ describe('cwd resolution', () => {
       expect(result.ok, state).toBe(false);
       if (!result.ok) {
         expect(result.reason).toContain(state);
-        expect(result.reason).toContain('robota trust --yes');
+        expect(result.reason).toContain('trust --yes');
       }
     }
   });

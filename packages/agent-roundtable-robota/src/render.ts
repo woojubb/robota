@@ -1,7 +1,7 @@
 import type { ParticipantTurn } from '@robota-sdk/agent-roundtable';
 
 /**
- * Turns one turn's shared increment into text a Session/Robota run() input can carry.
+ * Turns one turn's shared increment into text a Session/ConversationAgent run() input can carry.
  *
  * The result carries only `turn.context.messages` — the core already excludes the participant's
  * own prior output and anything already delivered to it (`conversation.ts`), so a renderer never

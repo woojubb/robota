@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * The host side of MCP header helpers: the user-settings allowlist, the bounded runner, and the
  * startup wiring that makes an allowed, approved helper authenticate a server's requests.
@@ -34,11 +35,13 @@ import { resolveMcpHeaderHelperAllowlist } from '../mcp-header-helper-allowlist.
 import { headersHelperEnvironment, runHeadersHelper } from '../mcp-headers-helper-runner.js';
 import { createMcpClientComposition } from '../mcp-client-composition.js';
 import { composeMcpClientForStartup } from '../mcp-startup.js';
-import { ROBOTA_PROJECT_SETTINGS } from '../../product/robota-project-settings.js';
-import { createRobotaUserSettingsSources } from '../../product/robota-user-settings.js';
+import { productProjectSettings } from '../../product/project-settings.js';
+import { createProductUserSettingsSources } from '../../product/user-settings.js';
 
 import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import type { IMCPConnectionSupervisorOptions, IMCPResolvedEntry } from '@robota-sdk/agent-mcp';
+const PRODUCT_PROJECT_SETTINGS = productProjectSettings(createTestProductRuntime());
+
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/headers-helper.mjs', import.meta.url));
 const helperFor = (...args: string[]) => ({ command: process.execPath, args: [FIXTURE, ...args] });
@@ -52,7 +55,7 @@ function tempRoot(prefix: string): string {
 
 let home: string;
 beforeEach(() => {
-  home = tempRoot('robota-headers-helper-home-');
+  home = tempRoot('test-product-headers-helper-home-');
   vi.stubEnv('HOME', home);
 });
 afterEach(() => {
@@ -113,7 +116,7 @@ describe('the helper environment', () => {
     BASH_ENV: 'evil.sh',
     GITHUB_TOKEN: 'ghp',
     AWS_SECRET_ACCESS_KEY: 'aws',
-    ROBOTA_MCP_SERVER_NAME: 'spoofed',
+    PRODUCT_MCP_SERVER_NAME: 'spoofed',
   };
 
   it('drops execution variables and sets the server name and URL', () => {
@@ -122,8 +125,8 @@ describe('the helper environment', () => {
       PATH: '/bin',
       GITHUB_TOKEN: 'ghp',
       AWS_SECRET_ACCESS_KEY: 'aws',
-      ROBOTA_MCP_SERVER_NAME: 'remote',
-      ROBOTA_MCP_SERVER_URL: 'https://mcp.example.test/mcp',
+      PRODUCT_MCP_SERVER_NAME: 'remote',
+      PRODUCT_MCP_SERVER_URL: 'https://mcp.example.test/mcp',
     });
   });
 
@@ -132,8 +135,8 @@ describe('the helper environment', () => {
       const env = headersHelperEnvironment(host, source, 'remote', 'https://mcp.example.test/mcp');
       expect(Object.keys(env).sort()).toEqual([
         'PATH',
-        'ROBOTA_MCP_SERVER_NAME',
-        'ROBOTA_MCP_SERVER_URL',
+        'PRODUCT_MCP_SERVER_NAME',
+        'PRODUCT_MCP_SERVER_URL',
       ]);
     }
   });
@@ -143,7 +146,7 @@ describe('running a helper', () => {
   const signal = new AbortController().signal;
 
   it('returns stdout, runs in the given cwd with exactly the given environment', async () => {
-    const cwd = tempRoot('robota-headers-helper-cwd-');
+    const cwd = tempRoot('test-product-headers-helper-cwd-');
     const out = await runHeadersHelper({
       helper: helperFor('env'),
       cwd,
@@ -308,11 +311,11 @@ function refusingFetch(): IStubbedFetch {
 }
 
 async function startWith(settings: Record<string, unknown>, stub: IStubbedFetch) {
-  mkdirSync(join(home, '.robota'), { recursive: true });
-  writeFileSync(join(home, '.robota', 'settings.json'), JSON.stringify(settings));
+  mkdirSync(join(home, '.test-product'), { recursive: true });
+  writeFileSync(join(home, '.test-product', 'settings.json'), JSON.stringify(settings));
   const messages: string[] = [];
-  const mcp = await composeMcpClientForStartup({
-    settingsSources: createRobotaUserSettingsSources(home),
+  const mcp = await composeMcpClientForStartup({productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
+    settingsSources: createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: home })),
     projectAccess: restrictedAccess,
     cwd: home,
     env: { PATH: process.env.PATH ?? '', HOME: home },
@@ -346,8 +349,8 @@ describe('a header helper at startup', () => {
     }
     expect(stub.authorizations).toEqual(['Bearer helper-run-1', 'Bearer helper-run-2']);
     expect(stub.servers).toEqual(['remote', 'remote']);
-    // The helper ran in the user's Robota home, not the process cwd.
-    expect(readFileSync(join(home, '.robota', 'runs'), 'utf8')).toBe('2');
+    // The helper ran in the user's The product home, not the process cwd.
+    expect(readFileSync(join(home, '.test-product', 'runs'), 'utf8')).toBe('2');
     const printed = messages.join('\n');
     expect(printed).not.toContain('helper-run');
     expect(printed).not.toContain('stderr-secret-text');
@@ -364,7 +367,7 @@ describe('a header helper at startup', () => {
     }
     expect(stub.authorizations).toEqual([]);
     expect(messages.join('\n')).toContain('headers-helper-not-allowed');
-    expect(existsSync(join(home, '.robota', 'runs'))).toBe(false);
+    expect(existsSync(join(home, '.test-product', 'runs'))).toBe(false);
   });
 
   it('refuses a helper allowed only for other arguments', async () => {
@@ -395,7 +398,7 @@ describe('a header helper at startup', () => {
       await mcp.shutdown();
     }
     expect(stub.authorizations).toEqual([]);
-    expect(existsSync(join(home, '.robota', 'runs'))).toBe(false);
+    expect(existsSync(join(home, '.test-product', 'runs'))).toBe(false);
   });
 });
 
@@ -420,10 +423,10 @@ describe('a repository header helper in a trusted workspace', () => {
   ])(
     'runs a %s helper in the worktree, without credentials or the expanded URL',
     async (_source, file) => {
-      const projectRoot = tempRoot('robota-headers-helper-project-');
-      mkdirSync(join(projectRoot, '.robota'), { recursive: true });
+      const projectRoot = tempRoot('test-product-headers-helper-project-');
+      mkdirSync(join(projectRoot, '.test-product'), { recursive: true });
       writeFileSync(
-        join(projectRoot, '.robota', file),
+        join(projectRoot, '.test-product', file),
         JSON.stringify({
           mcpServers: {
             remote: {
@@ -434,9 +437,9 @@ describe('a repository header helper in a trusted workspace', () => {
           },
         }),
       );
-      mkdirSync(join(home, '.robota'), { recursive: true });
+      mkdirSync(join(home, '.test-product'), { recursive: true });
       writeFileSync(
-        join(home, '.robota', 'settings.json'),
+        join(home, '.test-product', 'settings.json'),
         JSON.stringify({ mcpHeaderHelpers: [helperFor('env')] }),
       );
       const access = await trustedAccessFor(projectRoot);
@@ -447,12 +450,12 @@ describe('a repository header helper in a trusted workspace', () => {
         return new Response(null, { status: 401 });
       }) as typeof globalThis.fetch;
       const messages: string[] = [];
-      const mcp = await composeMcpClientForStartup({
+      const mcp = await composeMcpClientForStartup({productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
         settingsSources: [
-          ...createRobotaUserSettingsSources(home),
+          ...createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: home })),
           ...createWorkspaceProjectSettingsSources(
             getWorkspaceProjectReader(access.authority),
-            ROBOTA_PROJECT_SETTINGS,
+            PRODUCT_PROJECT_SETTINGS,
           ),
         ],
         projectAccess: access,
@@ -480,7 +483,7 @@ describe('a repository header helper in a trusted workspace', () => {
       const headers = seen[0]!;
       expect(headers.get('x-cwd')).toBe(projectRoot);
       const env = headers.get('x-env')?.split(',') ?? [];
-      expect(env).toEqual(expect.arrayContaining(['PATH', 'MCP_HOST', 'ROBOTA_MCP_SERVER_NAME']));
+      expect(env).toEqual(expect.arrayContaining(['PATH', 'MCP_HOST', 'PRODUCT_MCP_SERVER_NAME']));
       expect(env).not.toContain('GITHUB_TOKEN');
       expect(env).not.toContain('NODE_OPTIONS');
       expect(headers.get('x-url')).toBe('https://${MCP_HOST}/mcp');

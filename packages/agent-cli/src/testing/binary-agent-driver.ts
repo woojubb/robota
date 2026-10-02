@@ -1,6 +1,6 @@
 /**
  * createBinaryAgentDriver — the built-binary implementation of the client-side agent contract
- * (`IAgentDriver`, INFRA-020). agent-cli owns this because it drives **its own** artifact (the robota
+ * (`IAgentDriver`, INFRA-020). agent-cli owns this because it drives **its own** artifact (the the product
  * CLI binary); per the no-shared-CLI-factory rule the CLI tests itself, it is not driven by a shared
  * factory.
  *
@@ -20,6 +20,9 @@
  * unchanged: stdout keeps meaning exactly what it means today.
  */
 
+import { childProductEnvironment } from '../product/child-environment.js';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
+
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -38,18 +41,19 @@ import type {
   InteractionEvent,
 } from '@robota-sdk/agent-interface-session';
 
-const DEFAULT_BIN = fileURLToPath(new URL('../../bin/robota.cjs', import.meta.url));
+const DEFAULT_BIN = fileURLToPath(new URL('../../bin/agent.cjs', import.meta.url));
 
 export interface ICreateBinaryAgentDriverOptions {
+  readonly productRuntime: ICliRuntimeContext;
   /** Working directory the binary runs in (a provider profile + cwd-scoped sessions live here). */
   cwd: string;
-  /** Path to the built robota CLI (defaults to this package's `bin/robota.cjs`). */
+  /** Path to the built the product CLI (defaults to this package's `bin/agent.cjs`). */
   binPath?: string;
   /** Recorded session log for deterministic replay (`--session-log`); no model key is used. */
   sessionLog?: string;
   /**
    * Extra environment for the child (PATH/HOME are supplied by default). **Pass a throwaway `HOME`:**
-   * since SEC-022 the run persists its session record under `<HOME>/.robota/sessions`, which is where
+   * since SEC-022 the run persists its session record under `<HOME>/the configured project directory/sessions`, which is where
    * this driver reads the tool calls back from — the process `HOME` default would write into the
    * developer's real one.
    */
@@ -145,12 +149,12 @@ function parseToolArguments(raw: string | undefined): IToolCallObservation['args
  * source, and stdout is not a substitute for it (SEC-022 `## Fallback & Degradation Declaration`).
  */
 function appendRecordedToolEvents(
-  homeDir: string,
+  sessionsDirectory: string,
   sessionId: string | undefined,
   events: InteractionEvent[],
 ): void {
-  if (sessionId === undefined || homeDir.length === 0) return;
-  const file = join(homeDir, '.robota', 'sessions', `${sessionId}.json`);
+  if (sessionId === undefined || sessionsDirectory.length === 0) return;
+  const file = join(sessionsDirectory, `${sessionId}.json`);
   if (!existsSync(file)) return;
   const envelope = JSON.parse(readFileSync(file, 'utf8')) as {
     record?: { messages?: readonly IRecordedMessage[] };
@@ -180,12 +184,9 @@ function appendRecordedToolEvents(
 export function createBinaryAgentDriver(options: ICreateBinaryAgentDriverOptions): IAgentDriver {
   const events: InteractionEvent[] = [];
   const binPath = options.binPath ?? DEFAULT_BIN;
-  const childEnv = options.env ?? {
-    PATH: process.env['PATH'] ?? '',
-    HOME: process.env['HOME'] ?? '',
-  };
-  // Where the run's own record lands: `~/.robota/sessions` is resolved from the CHILD's HOME.
-  const homeDir = childEnv['HOME'] ?? '';
+  const childEnv = { ...childProductEnvironment(options.productRuntime), ...options.env };
+  // Where the run's own record lands: `the configured user root/sessions` is resolved from the CHILD's HOME.
+  const sessionsDirectory = options.productRuntime.layout.userPaths.sessions;
 
   const runPrint = (text: string): Promise<void> =>
     new Promise<void>((resolve, reject) => {
@@ -214,7 +215,7 @@ export function createBinaryAgentDriver(options: ICreateBinaryAgentDriverOptions
         // Tool events first, then the stdout-derived ones: in `-p` print mode only the FINAL
         // assistant text reaches stdout, so its `assistant-done` terminates the turn and every tool
         // the record carries ran before it.
-        appendRecordedToolEvents(homeDir, readSessionId(stdout), events);
+        appendRecordedToolEvents(sessionsDirectory, readSessionId(stdout), events);
         for (const line of stdout.split('\n')) appendStreamJsonLine(line, events);
         resolve();
       });

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { AgentActivityPanel } from './AgentActivityPanel.js';
 import { AgentSwitcherSheet } from './AgentSwitcherSheet.js';
-import { RobotaMark, RobotaWordmark } from './Brand.js';
+import { ProductMark, ProductWordmark } from './Brand.js';
 import { Composer, GoalBar } from './Composer.js';
 import { ConversationView } from './ConversationView.js';
 import { Dialog } from './Dialog.js';
@@ -41,12 +41,12 @@ function EmptyState(): React.ReactElement {
   return (
     <main className="flex h-full items-center justify-center" aria-label="Conversation">
       <div className="gui-rise flex max-w-[440px] flex-col items-center gap-4 px-8 text-center">
-        <RobotaMark size={40} />
+        <ProductMark size={40} />
         <h2 className="text-[26px] font-semibold tracking-[-0.02em] text-foreground">
           What are we working on?
         </h2>
         <p className="text-[15px] leading-relaxed text-muted-foreground">
-          Session connected. Send a message to start — the agent works in the robota runtime and
+          Session connected. Send a message to start — the agent works in the host runtime and
           asks you here before anything that needs your permission.
         </p>
       </div>
@@ -74,12 +74,12 @@ function SetupPanel({
   return (
     <main className="flex h-full items-center justify-center" aria-label="Set up a provider">
       <div className="gui-rise flex max-w-[440px] flex-col items-center gap-4 px-8 text-center">
-        <RobotaMark size={40} />
+        <ProductMark size={40} />
         <h2 className="text-[26px] font-semibold tracking-[-0.02em] text-foreground">
           Connect a model provider to start.
         </h2>
         <p className="text-[15px] leading-relaxed text-muted-foreground">
-          Robota needs a provider profile — a type, a key and a model — before it can reply. Set one
+          This app needs a provider profile — a type, a key and a model — before it can reply. Set one
           up now; you can add more or change it later the same way.
         </p>
         <button
@@ -223,7 +223,7 @@ export function SessionSurface({
   const sidebarPanel = (
     <SessionSidebar
       state={sidebarState}
-      brand={<RobotaWordmark surface={surface} />}
+      brand={<ProductWordmark surface={surface} />}
       className={
         sheetActive
           ? 'h-full'
@@ -233,7 +233,7 @@ export function SessionSurface({
   );
 
   return (
-    <div className="robota-ui relative flex h-full bg-background text-foreground">
+    <div className="agent-ui relative flex h-full bg-background text-foreground">
       {hasSessionList ? (
         sidebarOpen ? (
           isNarrow ? (
@@ -430,9 +430,9 @@ export function CenteredChrome({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <div className="robota-ui flex h-full flex-col bg-background text-foreground">
+    <div className="agent-ui flex h-full flex-col bg-background text-foreground">
       <header className="flex h-12 flex-shrink-0 items-center px-5">
-        <RobotaWordmark />
+        <ProductWordmark />
       </header>
       <main className="flex flex-1 items-center justify-center">
         <div className="gui-rise flex max-w-[520px] flex-col items-center gap-4 px-8 text-center">

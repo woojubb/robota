@@ -60,7 +60,7 @@ describe('SEC-003 alert 41 — ProjectMemoryStore topic sanitiser', () => {
   it(
     'sanitises a pumped dash run in linear time',
     async () => {
-      const root = tempDir('robota-redos-memory-');
+      const root = tempDir('agent-redos-memory-');
       const store = new ProjectMemoryStore(await createTrustedProjectStateFixture(root, 'memory'));
       const topic = `x${'-'.repeat(PUMP)}y`;
       expect(elapsedMs(() => void store.readTopic(topic))).toBeLessThan(BUDGET_MS);
@@ -72,7 +72,7 @@ describe('SEC-003 alert 41 — ProjectMemoryStore topic sanitiser', () => {
   it.runIf(process.platform === 'linux')(
     'keeps the sanitised topic for ordinary input',
     async () => {
-      const dir = tempDir('robota-redos-memory-');
+      const dir = tempDir('agent-redos-memory-');
       const store = new ProjectMemoryStore(await createTrustedProjectStateFixture(dir, 'memory'));
       const result = store.append({ type: 'project', topic: '--Build & Env--', text: 'hello' });
       expect(result.topic).toBe('build-env');
@@ -163,14 +163,14 @@ describe('SEC-003 alert 39 — skill frontmatter list values', () => {
 
 describe('SEC-003 sweep — agent definition frontmatter list values (unflagged twin of alert 39)', () => {
   function loaderFor(frontmatter: string): AgentDefinitionLoader {
-    const cwd = tempDir('robota-redos-agents-');
-    const dir = join(cwd, '.robota', 'agents');
+    const cwd = tempDir('agent-redos-agents-');
+    const dir = join(cwd, '.agent', 'agents');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'probe.md'), frontmatter, 'utf8');
     return new AgentDefinitionLoader(
       createNodeHostContributionSourcesFixture(cwd, join(cwd, 'home')),
       [],
-      [join('.robota', 'agents')],
+      [join('.agent', 'agents')],
     );
   }
 
@@ -191,7 +191,7 @@ describe('SEC-003 sweep — agent definition frontmatter list values (unflagged 
 
 describe('SEC-003 alert 40 — git worktree `gitdir:` pointer', () => {
   function repoWithGitFile(content: string): string {
-    const dir = tempDir('robota-redos-gitdir-');
+    const dir = tempDir('agent-redos-gitdir-');
     writeFileSync(join(dir, '.git'), content, 'utf8');
     return dir;
   }
@@ -206,7 +206,7 @@ describe('SEC-003 alert 40 — git worktree `gitdir:` pointer', () => {
   );
 
   it('still follows a well-formed `gitdir:` pointer to the branch', () => {
-    const gitDir = tempDir('robota-redos-realgit-');
+    const gitDir = tempDir('agent-redos-realgit-');
     writeFileSync(join(gitDir, 'HEAD'), 'ref: refs/heads/feature/x\n', 'utf8');
     const cwd = repoWithGitFile(`gitdir: ${gitDir}\n`);
     expect(readCurrentGitBranchFromNodeHost(cwd)).toBe('feature/x');
@@ -215,7 +215,7 @@ describe('SEC-003 alert 40 — git worktree `gitdir:` pointer', () => {
 
 describe('SEC-003 sweep — task file open items (unflagged, same shape as alert 40)', () => {
   function taskFile(content: string): { path: string; cwd: string } {
-    const cwd = tempDir('robota-redos-task-');
+    const cwd = tempDir('agent-redos-task-');
     const path = 'task.md';
     writeFileSync(join(cwd, path), content, 'utf8');
     return { path, cwd };

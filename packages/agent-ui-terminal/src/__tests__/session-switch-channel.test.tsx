@@ -220,7 +220,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
   let initialStartIntent: boolean;
 
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-b11-'));
+    cwd = mkdtempSync(join(tmpdir(), 'agent-b11-'));
     created = [];
     initialStartError = undefined;
     initialStartIntent = false;

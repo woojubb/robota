@@ -40,14 +40,14 @@ export function credentialKey(relayOrigin: string, hostIdentityId: string): stri
   return `${relayOrigin}|${hostIdentityId}`;
 }
 
-const DB_NAME = 'robota-remote';
 const STORE_NAME = 'device-credentials';
 
 /** Default IndexedDB backend (browser). Stores the `IDeviceCredential` via structured clone (no serialization). */
-function createIndexedDbBackend(indexed: IDBFactory = globalThis.indexedDB): ICredentialBackend {
+export function createIndexedDbBackend(databaseName: string, indexed: IDBFactory = globalThis.indexedDB): ICredentialBackend {
+  if (!databaseName.trim()) throw new Error('A credential database name is required');
   function open(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
-      const request = indexed.open(DB_NAME, 1);
+      const request = indexed.open(databaseName, 1);
       request.onupgradeneeded = () => {
         if (!request.result.objectStoreNames.contains(STORE_NAME)) {
           request.result.createObjectStore(STORE_NAME);
@@ -85,9 +85,9 @@ function createIndexedDbBackend(indexed: IDBFactory = globalThis.indexedDB): ICr
   };
 }
 
-/** Create the device-credential store over a backend (default: IndexedDB). */
+/** Create the device-credential store over an explicitly selected backend. */
 export function createDeviceCredentialStore(
-  backend: ICredentialBackend = createIndexedDbBackend(),
+  backend: ICredentialBackend,
 ): IDeviceCredentialStore {
   return {
     get: (relayOrigin, hostIdentityId) => backend.get(credentialKey(relayOrigin, hostIdentityId)),

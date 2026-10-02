@@ -11,7 +11,8 @@
  *   sent through the ordinary `send` (what a typed `/command` uses) keeps its card either way.
  */
 
-import { act, renderHook } from '@testing-library/react';
+import { renderHook } from '../../testing/product-provider.js';
+import { act } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { useSessionClient } from '../useSessionClient.js';
@@ -129,7 +130,7 @@ describe('#3282 §4e — an excluded command is caught before the session sees i
       expect.objectContaining({
         role: 'command',
         name: 'theme',
-        content: 'Robota follows your system appearance.',
+        content: 'This app follows your system appearance.',
         tone: 'info',
       }),
     ]);
@@ -170,7 +171,7 @@ describe('#3282 §4e — an excluded command is caught before the session sees i
       expect.objectContaining({
         role: 'command',
         name: 'future-terminal-command',
-        content: 'This command runs in the robota terminal.',
+        content: 'This command runs in the host terminal.',
         tone: 'info',
       }),
     ]);

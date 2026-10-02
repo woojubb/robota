@@ -7,7 +7,7 @@
  * where no keychain works). The device pins this host's PUBLIC key at first pair and verifies it on every
  * reconnect (rogue-host defense).
  *
- * Before the credential store existed the key sat in a plain `0600` JSON file under `~/.robota`, which
+ * Before the credential store existed the key sat in a plain `0600` JSON file under the configured user storage root, which
  * backups and dotfile sync copy. A key that may already have been copied elsewhere is not carried over: on
  * the first run after the move a new key is generated into the store, the old file is removed, and the
  * operator is told once that trusted devices must pair again, since the key they pinned is gone.
@@ -43,11 +43,10 @@ interface IHostIdentityRecord {
   readonly keyPair: IIdentityKeyPairJwk;
 }
 
-/** Where the host identity is kept in the credential store. */
-export const HOST_IDENTITY_CREDENTIAL_KEY: ICredentialKey = {
-  service: 'robota.remote-control',
-  account: 'host-identity',
-};
+/** Where the host identity is kept in the selected product's credential namespace. */
+export function hostIdentityCredentialKey(serviceNamespace: string): ICredentialKey {
+  return { service: `${serviceNamespace}.remote-control`, account: 'host-identity' };
+}
 
 /** What the operator is told once, when the plain-file key is retired. */
 export const HOST_IDENTITY_MOVED_NOTICE =
@@ -58,6 +57,7 @@ export const HOST_IDENTITY_MOVED_NOTICE =
 export interface IHostIdentityOptions {
   /** The host's credential store. */
   readonly store: ICredentialStore;
+  readonly serviceNamespace: string;
   /** Held while a missing key is created, so concurrent first runs converge on one key. */
   readonly lockPath: string;
   /** Where a key from before the credential store was kept; removed, never read. */
@@ -77,9 +77,10 @@ async function derive(keyPair: CryptoKeyPair): Promise<IHostIdentity> {
  * device to re-pair, so surfacing corruption is the safer failure. The messages name the key and never
  * carry the stored text or a parser's quote of it, which is private key material.
  */
-async function readStored(store: ICredentialStore): Promise<IHostIdentity | undefined> {
-  const label = credentialKeyLabel(HOST_IDENTITY_CREDENTIAL_KEY);
-  const raw = await store.get(HOST_IDENTITY_CREDENTIAL_KEY);
+async function readStored(store: ICredentialStore, serviceNamespace: string): Promise<IHostIdentity | undefined> {
+  const key = hostIdentityCredentialKey(serviceNamespace);
+  const label = credentialKeyLabel(key);
+  const raw = await store.get(key);
   if (raw === undefined) return undefined;
   let parsed: IHostIdentityRecord;
   try {
@@ -100,15 +101,16 @@ async function readStored(store: ICredentialStore): Promise<IHostIdentity | unde
 }
 
 /** Generate, store, and read back — a key the store did not keep is one no device could pin. */
-async function create(store: ICredentialStore): Promise<IHostIdentity> {
+async function create(store: ICredentialStore, serviceNamespace: string): Promise<IHostIdentity> {
+  const key = hostIdentityCredentialKey(serviceNamespace);
   const keyPair = await generateIdentityKeyPair(true);
   const record: IHostIdentityRecord = { version: 1, keyPair: await exportKeyPairJwk(keyPair) };
-  await store.set(HOST_IDENTITY_CREDENTIAL_KEY, JSON.stringify(record));
+  await store.set(key, JSON.stringify(record));
   const created = await derive(keyPair);
-  const stored = await readStored(store);
+  const stored = await readStored(store, serviceNamespace);
   if (stored?.publicKeySpki !== created.publicKeySpki) {
     throw new CredentialStoreError(
-      `the credential store did not keep remote host identity ${credentialKeyLabel(HOST_IDENTITY_CREDENTIAL_KEY)}`,
+      `the credential store did not keep remote host identity ${credentialKeyLabel(key)}`,
     );
   }
   return created;
@@ -138,10 +140,10 @@ export async function loadOrCreateHostIdentity(
 ): Promise<IHostIdentity> {
   const { store } = options;
   const identity =
-    (await readStored(store)) ??
+    (await readStored(store, options.serviceNamespace)) ??
     (await withExclusiveFileLock(
       options.lockPath,
-      async () => (await readStored(store)) ?? create(store),
+      async () => (await readStored(store, options.serviceNamespace)) ?? create(store, options.serviceNamespace),
     ));
   retireLegacyFile(options);
   return identity;

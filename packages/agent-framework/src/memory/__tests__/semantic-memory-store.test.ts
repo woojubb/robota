@@ -9,6 +9,7 @@ import type {
   IMemoryRetrievalResult,
   IMemoryStore,
   ISemanticMemoryAdapter,
+  ISemanticMemoryQueryResult,
 } from '../types.js';
 
 /**
@@ -32,8 +33,12 @@ const KEYWORD: IMemoryRetrievalResult = {
 function createFakeBase(overrides: { deduplicated?: boolean } = {}): IMemoryStore {
   return {
     loadStartupMemory: vi.fn(async () => ({ content: '', references: [] })),
-    list: vi.fn(async () => ({ topics: [], indexPath: '', hasIndex: false })),
-    readTopic: vi.fn(async () => ''),
+    list: vi.fn(async () => ({
+      topics: [{ name: 'deploy', path: 'deploy.md' }],
+      indexPath: '',
+      topicsPath: '',
+    })),
+    readTopic: vi.fn(async () => '<durable body>'),
     append: vi.fn(async (): Promise<IAppendMemoryResult> => ({
       indexPath: 'i',
       topicPath: 't',
@@ -50,13 +55,16 @@ function createFakeBase(overrides: { deduplicated?: boolean } = {}): IMemoryStor
 
 /** A fake semantic adapter; `query`/`index` behavior injectable. */
 function createFakeAdapter(
-  query: (t: string, b: IMemoryBudget) => Promise<{ content: string; references: [] }>,
+  query: (t: string, b: IMemoryBudget) => Promise<ISemanticMemoryQueryResult>,
   index: () => Promise<void> = async () => {},
 ): ISemanticMemoryAdapter {
   return { query: vi.fn(query), index: vi.fn(index) } as unknown as ISemanticMemoryAdapter;
 }
 
-const SEMANTIC_HIT = { content: '<semantic body>', references: [] as [] };
+const SEMANTIC_HIT = {
+  content: '<stale semantic body>',
+  references: [{ topic: 'deploy', path: 'deploy.md', score: 1, truncated: false }],
+};
 
 describe('SELFHOST-008 P4 — SemanticMemoryStore decorator', () => {
   it('TC-01: adapter present ⇒ recall returns the semantic query() result, not keyword', async () => {
@@ -67,7 +75,8 @@ describe('SELFHOST-008 P4 — SemanticMemoryStore decorator', () => {
     const result = await store.recall('paraphrased query', BUDGET);
 
     expect(adapter.query).toHaveBeenCalledWith('paraphrased query', BUDGET);
-    expect(result.content).toBe('<semantic body>');
+    expect(result.content).toContain('<durable body>');
+    expect(result.content).not.toContain('<stale semantic body>');
     expect(base.recall).not.toHaveBeenCalled(); // semantic is primary, keyword not consulted
   });
 
@@ -151,7 +160,7 @@ describe('SELFHOST-008 P4 — SemanticMemoryStore decorator', () => {
     // directly; injecting the decorated store needs NO consumer/library change.
     const result = await decorated.recall('paraphrased', BUDGET);
     expect(adapter.query).toHaveBeenCalledWith('paraphrased', BUDGET);
-    expect(result.content).toBe('<semantic body>');
+    expect(result.content).toContain('<durable body>');
   });
 
   it('exposes the class + factory (public mechanism, mirrors createFileSystemMemoryStore)', () => {

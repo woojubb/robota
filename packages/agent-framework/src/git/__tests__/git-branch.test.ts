@@ -15,7 +15,7 @@ import { describe, expect, it, afterEach } from 'vitest';
 
 import { resolveGitBranchFromNodeHost } from '../git-branch.js';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-git-branch-test-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-git-branch-test-')));
 
 describe('resolveGitBranchFromNodeHost', () => {
   afterEach(() => {

@@ -20,7 +20,7 @@ vi.mock('../runtime-host.js', async () => {
 });
 
 const { createQuery } = await import('../../query.js');
-const { createAgentRuntime } = await import('../agent-runtime.js');
+const { createAgentRuntime } = await import('../session-runtime.js');
 const { createInteractiveRuntime } = await import('../../interaction/createInteractiveRuntime.js');
 const { MockInteractionChannel } = await import('../../interaction/__tests__/MockInteractionChannel.js');
 

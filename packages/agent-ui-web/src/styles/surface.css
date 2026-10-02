@@ -1,9 +1,9 @@
 /*
- * The GUI surface's design (agent-ui-web), scoped to `.robota-ui`: a calm desktop-app surface where the
+ * The GUI surface's design (agent-ui-web), scoped to `.agent-ui`: a calm desktop-app surface where the
  * conversation is the product. Readable sizes, one humanist family (Pretendard, bundled — a page's CSP may
  * load fonts only from itself), monospace kept for code and paths, and a neutral palette with one accent.
  *
- * Every root component of the surface carries `robota-ui`, so its tokens apply inside it and nowhere else:
+ * Every root component of the surface carries `agent-ui`, so its tokens apply inside it and nowhere else:
  * a host with tokens of its own under the same names keeps them. The host owns the Tailwind entry
  * (`@import 'tailwindcss'` + `@source '…/agent-ui-web/src'`) and `@import`s this file there, so Tailwind
  * maps the tokens below onto utilities. A page that is the surface imports `theme.css` instead.
@@ -49,7 +49,7 @@
  * the system unless the host pins `data-theme` on the scope or above it. Text colours keep WCAG AA (4.5:1)
  * on every surface they sit on.
  */
-.robota-ui {
+.agent-ui {
   color-scheme: light dark;
   --radius: 0.75rem;
 
@@ -72,7 +72,7 @@
   --muted: light-dark(#f4f4f2, #232326);
   --muted-foreground: light-dark(#55555c, #a8a8af); /* secondary text */
   --subtle: light-dark(#68686f, #8e8e97); /* tertiary text: still >= 4.5:1 on every surface */
-  --accent: light-dark(#0a7a55, #5fd4a8); /* robota's mark, live state — sparingly */
+  --accent: light-dark(#0a7a55, #5fd4a8); /* agent's mark, live state — sparingly */
   --accent-foreground: light-dark(#ffffff, #0b1a14);
   --destructive: light-dark(#c42f40, #f2727f);
   --warning: light-dark(#8f5a0b, #f0b35b);
@@ -87,23 +87,23 @@
   --font-mono:
     'SF Mono', ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
 }
-.robota-ui[data-theme='light'],
-[data-theme='light'] .robota-ui {
+.agent-ui[data-theme='light'],
+[data-theme='light'] .agent-ui {
   color-scheme: light;
 }
-.robota-ui[data-theme='dark'],
-[data-theme='dark'] .robota-ui {
+.agent-ui[data-theme='dark'],
+[data-theme='dark'] .agent-ui {
   color-scheme: dark;
 }
 
 @layer base {
   /*
    * The surface's type, set where it renders and never on the root element: on a page that is only
-   * the surface (`<html class="robota-ui">`) it goes on the body, so `1rem` stays the browser's and the
+   * the surface (`<html class="agent-ui">`) it goes on the body, so `1rem` stays the browser's and the
    * rem-based spacing keeps its size. In the base layer, so a utility class on a root still wins.
    */
-  .robota-ui:not(:root),
-  :root.robota-ui > body {
+  .agent-ui:not(:root),
+  :root.agent-ui > body {
     color: var(--foreground);
     font-family: var(--font-sans);
     font-size: 15px;
@@ -117,29 +117,29 @@
     text-rendering: optimizeLegibility;
   }
 
-  .robota-ui,
-  .robota-ui *,
-  .robota-ui ::before,
-  .robota-ui ::after {
+  .agent-ui,
+  .agent-ui *,
+  .agent-ui ::before,
+  .agent-ui ::after {
     border-color: var(--border);
   }
 
-  .robota-ui ::selection {
+  .agent-ui ::selection {
     background: color-mix(in oklab, var(--accent) 32%, transparent);
   }
 
-  .robota-ui ::placeholder {
+  .agent-ui ::placeholder {
     color: var(--subtle);
   }
 
-  .robota-ui button {
+  .agent-ui button {
     cursor: pointer;
   }
-  .robota-ui button:disabled {
+  .agent-ui button:disabled {
     cursor: default;
   }
 
-  .robota-ui :focus-visible {
+  .agent-ui :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
@@ -191,9 +191,9 @@
 @media (prefers-reduced-motion: reduce) {
   .gui-rise,
   .gui-shimmer,
-  .robota-ui .animate-pulse,
-  .robota-ui .animate-spin,
-  .robota-ui .animate-ping {
+  .agent-ui .animate-pulse,
+  .agent-ui .animate-spin,
+  .agent-ui .animate-ping {
     animation: none;
   }
   .gui-shimmer {

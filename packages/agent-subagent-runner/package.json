@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-subagent-runner",
   "version": "3.0.0-beta.86",
-  "description": "Child-process subagent runner for Robota SDK — optional package for running subagents in isolated child processes",
+  "description": "Child-process subagent runner for Robota SDK \u2014 optional package for running subagents in isolated child processes",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -30,15 +30,6 @@
       }
     },
     "./package.json": "./package.json"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/woojubb/robota.git",
-    "directory": "packages/agent-subagent-runner"
-  },
-  "homepage": "https://docs.robota.io/en/packages/agent-subagent-runner/",
-  "bugs": {
-    "url": "https://github.com/woojubb/robota/issues"
   },
   "engines": {
     "node": ">=22.12.0"

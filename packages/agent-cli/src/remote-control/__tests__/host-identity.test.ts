@@ -13,7 +13,7 @@ import {
 import { createFileCredentialStore } from '../../credentials/file-credential-store.js';
 import { createKeychainCredentialStore } from '../../credentials/keychain-credential-store.js';
 import { createFakeKeyring } from '../../credentials/__tests__/fake-keyring.js';
-import { HOST_IDENTITY_CREDENTIAL_KEY, loadOrCreateHostIdentity } from '../host-identity.js';
+import { hostIdentityCredentialKey, loadOrCreateHostIdentity } from '../host-identity.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
 
@@ -31,9 +31,10 @@ let root: string;
 let lockPath: string;
 let legacyFilePath: string;
 let store: ICredentialStore;
+const serviceNamespace = 'test-agent-credentials';
 
 beforeEach(() => {
-  root = path.join(realpathSync(mkdtempSync(path.join(tmpdir(), 'host-identity-'))), '.robota');
+  root = path.join(realpathSync(mkdtempSync(path.join(tmpdir(), 'host-identity-'))), '.agent-fixture');
   lockPath = path.join(root, 'remote-host-identity.lock');
   legacyFilePath = path.join(root, 'remote-host-identity.json');
   store = createFileCredentialStore(path.join(root, 'credentials'), { withinRoot: root });
@@ -54,13 +55,13 @@ async function writeLegacyIdentity(): Promise<string> {
 
 describe('loadOrCreateHostIdentity', () => {
   it('generates the key into the credential store and reloads the same identity', async () => {
-    const created = await loadOrCreateHostIdentity({ store, lockPath, legacyFilePath });
-    const reloaded = await loadOrCreateHostIdentity({ store, lockPath, legacyFilePath });
+    const created = await loadOrCreateHostIdentity({ serviceNamespace, store, lockPath, legacyFilePath });
+    const reloaded = await loadOrCreateHostIdentity({ serviceNamespace, store, lockPath, legacyFilePath });
 
     expect(created.hostIdentityId).toMatch(/\S/);
     expect(reloaded.hostIdentityId).toBe(created.hostIdentityId);
     expect(reloaded.publicKeySpki).toBe(created.publicKeySpki);
-    expect(await store.get(HOST_IDENTITY_CREDENTIAL_KEY)).toBeDefined();
+    expect(await store.get(hostIdentityCredentialKey(serviceNamespace))).toBeDefined();
     expect(existsSync(legacyFilePath)).toBe(false);
     expect(existsSync(lockPath)).toBe(false);
   });
@@ -68,10 +69,10 @@ describe('loadOrCreateHostIdentity', () => {
   it('concurrent first runs converge on one identity instead of discarding the winner', async () => {
     const other = createFileCredentialStore(path.join(root, 'credentials'), { withinRoot: root });
     const [first, second] = await Promise.all([
-      loadOrCreateHostIdentity({ store, lockPath, legacyFilePath }),
-      loadOrCreateHostIdentity({ store: other, lockPath, legacyFilePath }),
+      loadOrCreateHostIdentity({ serviceNamespace, store, lockPath, legacyFilePath }),
+      loadOrCreateHostIdentity({ serviceNamespace, store: other, lockPath, legacyFilePath }),
     ]);
-    const stored = await loadOrCreateHostIdentity({ store, lockPath, legacyFilePath });
+    const stored = await loadOrCreateHostIdentity({ serviceNamespace, store, lockPath, legacyFilePath });
 
     expect(second.hostIdentityId).toBe(first.hostIdentityId);
     expect(stored.hostIdentityId).toBe(first.hostIdentityId);
@@ -81,19 +82,19 @@ describe('loadOrCreateHostIdentity', () => {
     const { module, controls } = createFakeKeyring();
     controls.dropWrites = true;
     await expect(
-      loadOrCreateHostIdentity({
+      loadOrCreateHostIdentity({ serviceNamespace,
         store: createKeychainCredentialStore(module),
         lockPath,
         legacyFilePath,
       }),
-    ).rejects.toThrow(/robota\.remote-control\/host-identity/);
+    ).rejects.toThrow(/test-agent-credentials\.remote-control\/host-identity/);
   });
 
   it('still fails fast on a corrupt stored key rather than minting a new identity, without quoting it', async () => {
-    await loadOrCreateHostIdentity({ store, lockPath, legacyFilePath });
-    await store.set(HOST_IDENTITY_CREDENTIAL_KEY, '{ "d": "PRIVATE-SCALAR"');
+    await loadOrCreateHostIdentity({ serviceNamespace, store, lockPath, legacyFilePath });
+    await store.set(hostIdentityCredentialKey(serviceNamespace), '{ "d": "PRIVATE-SCALAR"');
 
-    const error = await loadOrCreateHostIdentity({ store, lockPath, legacyFilePath }).then(
+    const error = await loadOrCreateHostIdentity({ serviceNamespace, store, lockPath, legacyFilePath }).then(
       () => undefined,
       (caught: unknown) => caught as Error,
     );
@@ -105,8 +106,8 @@ describe('loadOrCreateHostIdentity', () => {
   });
 
   it('still fails fast on an unexpected stored shape', async () => {
-    await store.set(HOST_IDENTITY_CREDENTIAL_KEY, JSON.stringify({ version: 2, keyPair: {} }));
-    await expect(loadOrCreateHostIdentity({ store, lockPath, legacyFilePath })).rejects.toThrow(
+    await store.set(hostIdentityCredentialKey(serviceNamespace), JSON.stringify({ version: 2, keyPair: {} }));
+    await expect(loadOrCreateHostIdentity({ serviceNamespace, store, lockPath, legacyFilePath })).rejects.toThrow(
       /unexpected shape/,
     );
   });
@@ -120,16 +121,16 @@ describe('moving the host identity out of the legacy plain file', () => {
       notices.push(message);
     };
 
-    const migrated = await loadOrCreateHostIdentity({ store, lockPath, legacyFilePath, notify });
+    const migrated = await loadOrCreateHostIdentity({ serviceNamespace, store, lockPath, legacyFilePath, notify });
 
     expect(migrated.publicKeySpki).not.toBe(legacyPublicKey);
     expect(existsSync(legacyFilePath)).toBe(false);
-    expect(await store.get(HOST_IDENTITY_CREDENTIAL_KEY)).toBeDefined();
+    expect(await store.get(hostIdentityCredentialKey(serviceNamespace))).toBeDefined();
     expect(notices).toHaveLength(1);
     expect(notices[0]).toMatch(/pair again/i);
     expect(notices[0]).not.toMatch(/"d"|privateJwk/);
 
-    const again = await loadOrCreateHostIdentity({ store, lockPath, legacyFilePath, notify });
+    const again = await loadOrCreateHostIdentity({ serviceNamespace, store, lockPath, legacyFilePath, notify });
     expect(again.hostIdentityId).toBe(migrated.hostIdentityId);
     expect(notices).toHaveLength(1);
   });
@@ -140,7 +141,7 @@ describe('moving the host identity out of the legacy plain file', () => {
     writeFileSync(legacyFilePath, '{ not json');
     const notices: string[] = [];
 
-    await loadOrCreateHostIdentity({
+    await loadOrCreateHostIdentity({ serviceNamespace,
       store,
       lockPath,
       legacyFilePath,
@@ -153,7 +154,7 @@ describe('moving the host identity out of the legacy plain file', () => {
 
   it('says nothing when there was no legacy file', async () => {
     const notices: string[] = [];
-    await loadOrCreateHostIdentity({
+    await loadOrCreateHostIdentity({ serviceNamespace,
       store,
       lockPath,
       legacyFilePath,
@@ -169,8 +170,8 @@ describe('moving the host identity out of the legacy plain file', () => {
       notices.push(message);
     };
     const [first, second] = await Promise.all([
-      loadOrCreateHostIdentity({ store, lockPath, legacyFilePath, notify }),
-      loadOrCreateHostIdentity({ store, lockPath, legacyFilePath, notify }),
+      loadOrCreateHostIdentity({ serviceNamespace, store, lockPath, legacyFilePath, notify }),
+      loadOrCreateHostIdentity({ serviceNamespace, store, lockPath, legacyFilePath, notify }),
     ]);
     expect(second.hostIdentityId).toBe(first.hostIdentityId);
     expect(notices).toHaveLength(1);

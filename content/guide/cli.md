@@ -1,7 +1,9 @@
 # CLI Reference
 
-`robota` is the command-line coding assistant in `@robota-sdk/agent-cli`. It is a reference app built
-from the same Robota libraries you can use in your own code: `@robota-sdk/agent-framework` runs the
+`__PRODUCT_CLI_NAME__` is the coding-capable terminal interface in `@robota-sdk/agent-cli`, part of
+Robota's environment for building and using agents. It supports the direction of
+[our agents developing and advancing our agents](__PROJECT_REPOSITORY_URL__/blob/develop/VISION.md),
+while this reference describes current behavior. It uses the same libraries you can embed: `@robota-sdk/agent-framework` runs the
 session, `@robota-sdk/agent-command` supplies the slash commands, and `@robota-sdk/agent-ui-terminal`
 draws the terminal UI. It reads Claude Code conventions where they exist (`CLAUDE.md`, `.claude/`
 settings, skills, commands and plugins), so much of a project's Claude Code setup carries over.
@@ -11,30 +13,30 @@ every slash command. Topics with their own guide get a short summary here and a 
 
 ## Install and first run
 
-`robota` needs Node.js 22.12.0 or newer.
+`__PRODUCT_CLI_NAME__` needs Node.js 22.12.0 or newer.
 
 ```bash
 npx @robota-sdk/agent-cli             # try it without installing
-npm install -g @robota-sdk/agent-cli  # install the `robota` command
+npm install -g @robota-sdk/agent-cli  # install the `__PRODUCT_CLI_NAME__` command
 ```
 
 ### Connect a provider
 
-On the first start in an interactive terminal, `robota` asks whether you have an API key, want a
+On the first start in an interactive terminal, `__PRODUCT_CLI_NAME__` asks whether you have an API key, want a
 free Gemini key, or want to use a local model (it walks you through LM Studio; Ollama and llama.cpp
 are set up as in [Local LLMs](./local-llm.md)), then asks for the
 provider's settings and a response language, and saves a provider profile to
-`~/.robota/settings.json`. If `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `DASHSCOPE_API_KEY` or
+`<user-state>/settings.json`. If `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `DASHSCOPE_API_KEY` or
 `DEEPSEEK_API_KEY` is set and no profile exists, it starts with that provider's default model and
 skips setup.
 
 To set up a provider without the prompts (for example in a script):
 
 ```bash
-robota --configure                    # the interactive setup, at any time
-robota --configure-provider work --type anthropic --model claude-sonnet-4-6 \
+__PRODUCT_CLI_NAME__ --configure                    # the interactive setup, at any time
+__PRODUCT_CLI_NAME__ --configure-provider work --type anthropic --model claude-sonnet-4-6 \
   --api-key-env ANTHROPIC_API_KEY --set-current
-robota --configure-provider local --type gemma --base-url http://localhost:1234/v1 \
+__PRODUCT_CLI_NAME__ --configure-provider local --type gemma --base-url http://localhost:1234/v1 \
   --model <model> --api-key lm-studio --set-current
 ```
 
@@ -47,32 +49,32 @@ the profile. See [Local LLM Setup](./local-llm.md) for local servers and
 ### Set up a project
 
 ```bash
-robota init            # write AGENTS.md and .robota/settings.json (never overwrites a file)
-robota trust --yes     # trust this folder so its settings, hooks, skills and plugins load
+__PRODUCT_CLI_NAME__ init            # write AGENTS.md and <project-state>/settings.json (never overwrites a file)
+__PRODUCT_CLI_NAME__ trust --yes     # trust this folder so its settings, hooks, skills and plugins load
 ```
 
-`robota` loads a project's own configuration only from a folder you trust. Starting the terminal UI in
+`__PRODUCT_CLI_NAME__` loads a project's own configuration only from a folder you trust. Starting the terminal UI in
 a folder you have not decided about asks first: trust it, start Restricted (project content not
-loaded), or cancel. Print mode, `--goal`, `--serve`, `robota daemon` and background sessions cannot
-ask, so they refuse an untrusted folder with a message that names `robota trust --yes`. All of them
+loaded), or cancel. Print mode, `--goal`, `--serve`, `__PRODUCT_CLI_NAME__ daemon` and background sessions cannot
+ask, so they refuse an untrusted folder with a message that names `__PRODUCT_CLI_NAME__ trust --yes`. All of them
 also accept `--restricted-workspace`, which starts Restricted instead (for example
-`robota daemon start --restricted-workspace`). `robota --serve --open` run at a terminal asks
+`__PRODUCT_CLI_NAME__ daemon start --restricted-workspace`). `__PRODUCT_CLI_NAME__ --serve --open` run at a terminal asks
 there instead of refusing, and the desktop app asks in its window before it starts the daemon. Use
-`robota trust` (or `robota trust status`, with
-`--json` for one JSON line) to see the current decision and `robota trust revoke` to withdraw it.
+`__PRODUCT_CLI_NAME__ trust` (or `__PRODUCT_CLI_NAME__ trust status`, with
+`--json` for one JSON line) to see the current decision and `__PRODUCT_CLI_NAME__ trust revoke` to withdraw it.
 
 ## Ways to run it
 
 | Invocation                          | What it does                                                            |
 | ----------------------------------- | ----------------------------------------------------------------------- |
-| `robota`                            | Interactive terminal UI                                                 |
-| `robota "prompt"`                   | Interactive terminal UI with the prompt typed in, not yet sent          |
-| `robota -p "prompt"`                | Print mode: one prompt, the answer on stdout, then exit                 |
-| `robota --goal "objective"`         | Pursue an objective across turns without a person, then exit            |
-| `robota --serve [--open]`           | Headless runtime over a loopback WebSocket; `--open` also opens the GUI |
-| `robota --attach`                   | Full terminal UI on this folder's running daemon                        |
-| `robota session start --background` | A supervised session that outlives the terminal                         |
-| `robota mcp serve`                  | Serve one session to an MCP client                                      |
+| `__PRODUCT_CLI_NAME__`                            | Interactive terminal UI                                                 |
+| `__PRODUCT_CLI_NAME__ "prompt"`                   | Interactive terminal UI with the prompt typed in, not yet sent          |
+| `__PRODUCT_CLI_NAME__ -p "prompt"`                | Print mode: one prompt, the answer on stdout, then exit                 |
+| `__PRODUCT_CLI_NAME__ --goal "objective"`         | Pursue an objective across turns without a person, then exit            |
+| `__PRODUCT_CLI_NAME__ --serve [--open]`           | Headless runtime over a loopback WebSocket; `--open` also opens the GUI |
+| `__PRODUCT_CLI_NAME__ --attach`                   | Full terminal UI on this folder's running daemon                        |
+| `__PRODUCT_CLI_NAME__ session start --background` | A supervised session that outlives the terminal                         |
+| `__PRODUCT_CLI_NAME__ mcp serve`                  | Serve one session to an MCP client                                      |
 
 ### Print mode
 
@@ -80,10 +82,10 @@ Print mode (`-p`) runs one prompt without the terminal UI and exits. stdout carr
 (or JSON), so it is safe to capture.
 
 ```bash
-robota -p "Explain this error"
-robota -p "Summarize the project" --output-format json
-robota -p "Write a function" --output-format stream-json
-robota -p "Review this diff" --bare          # without AGENTS.md, CLAUDE.md or plugins
+__PRODUCT_CLI_NAME__ -p "Explain this error"
+__PRODUCT_CLI_NAME__ -p "Summarize the project" --output-format json
+__PRODUCT_CLI_NAME__ -p "Write a function" --output-format stream-json
+__PRODUCT_CLI_NAME__ -p "Review this diff" --bare          # without AGENTS.md, CLAUDE.md or plugins
 ```
 
 Put the prompt after `--` when it comes from somewhere you do not control (an issue body, a file):
@@ -91,7 +93,7 @@ everything after `--` is the prompt, even text that starts with `-` or is exactl
 such as `init`.
 
 ```bash
-robota -p --output-format json -- "$ISSUE_TITLE"
+__PRODUCT_CLI_NAME__ -p --output-format json -- "$ISSUE_TITLE"
 ```
 
 `--output-format json` prints one object such as
@@ -102,22 +104,22 @@ With `-p` and no prompt argument, the whole prompt is read from stdin. A prompt 
 precedence and stdin is then not read, so put the instruction and the input on stdin together:
 
 ```bash
-echo "Explain what a monorepo is" | robota -p
-{ echo "What went wrong in this log?"; cat error.log; } | robota -p
-{ echo "Review this diff:"; git diff; } | robota -p --output-format json
+echo "Explain what a monorepo is" | __PRODUCT_CLI_NAME__ -p
+{ echo "What went wrong in this log?"; cat error.log; } | __PRODUCT_CLI_NAME__ -p
+{ echo "Review this diff:"; git diff; } | __PRODUCT_CLI_NAME__ -p --output-format json
 ```
 
 Other print-mode options:
 
 ```bash
-robota -p "..." --append-system-prompt "Focus on security issues"
-robota -p "..." --system-prompt "You are a release-notes writer."
-robota -p "..." --json-schema '{"type":"object","properties":{"ok":{"type":"boolean"}}}'
-robota --task-file task.md                 # append a task file to the system prompt
-robota -p "Refactor the auth module" --dry-run   # plan only (same as --permission-mode plan)
+__PRODUCT_CLI_NAME__ -p "..." --append-system-prompt "Focus on security issues"
+__PRODUCT_CLI_NAME__ -p "..." --system-prompt "You are a release-notes writer."
+__PRODUCT_CLI_NAME__ -p "..." --json-schema '{"type":"object","properties":{"ok":{"type":"boolean"}}}'
+__PRODUCT_CLI_NAME__ --task-file task.md                 # append a task file to the system prompt
+__PRODUCT_CLI_NAME__ -p "Refactor the auth module" --dry-run   # plan only (same as --permission-mode plan)
 ```
 
-A prompt that starts with `/` runs that slash command or skill instead (`robota -p "/audit src"`).
+A prompt that starts with `/` runs that slash command or skill instead (`__PRODUCT_CLI_NAME__ -p "/audit src"`).
 Print mode has no one to ask for permission, so a call that would ask is refused unless you pick a
 permission mode that allows it (see [Permissions](#permissions)). To resume a session in print mode,
 name it: `-r <id|name>`; `-c` continues the most recent one.
@@ -139,8 +141,8 @@ reports the goal done, reaches the iteration budget (`--goal-max-iterations`, de
 making progress.
 
 ```bash
-robota --goal "add a health-check endpoint and a test, then stop"
-robota --goal "refactor the utils module" --goal-max-iterations 10
+__PRODUCT_CLI_NAME__ --goal "add a health-check endpoint and a test, then stop"
+__PRODUCT_CLI_NAME__ --goal "refactor the utils module" --goal-max-iterations 10
 ```
 
 In the terminal UI the same feature is `/goal <objective>`, with `/goal status` and `/goal cancel`.
@@ -148,8 +150,8 @@ In the terminal UI the same feature is `/goal <objective>`, with `/goal status` 
 ### CI and scripts
 
 For unattended runs, pick a permission mode that does not need a person, send the prompt on stdin,
-and use JSON output. A fresh checkout is untrusted, and `robota -p` exits with an error there until
-you either trust it with `robota trust --yes` (the project's instruction files, skills, plugins, hooks
+and use JSON output. A fresh checkout is untrusted, and `__PRODUCT_CLI_NAME__ -p` exits with an error there until
+you either trust it with `__PRODUCT_CLI_NAME__ trust --yes` (the project's instruction files, skills, plugins, hooks
 and MCP servers then load, so only do this for code you trust) or run with `--safe-mode` (all of those
 stay off and the folder stays Restricted):
 
@@ -170,10 +172,10 @@ jobs:
         with:
           node-version: '22'
       - run: npm install -g @robota-sdk/agent-cli
-      - run: robota trust --yes
+      - run: __PRODUCT_CLI_NAME__ trust --yes
       - name: AI diff review
         run: |
-          { echo "Review this diff and list any issues:"; git diff HEAD~1; } | robota -p \
+          { echo "Review this diff and list any issues:"; git diff HEAD~1; } | __PRODUCT_CLI_NAME__ -p \
             --permission-mode plan \
             --no-session-persistence \
             --output-format json | jq -r '.result'
@@ -194,21 +196,21 @@ jobs:
 Every conversation is a saved session you can come back to.
 
 ```bash
-robota -c                              # continue the most recent session in this folder
-robota -r <id-or-name>                 # resume a session
-robota -c --fork-session               # continue as a new session; the original is untouched
-robota -n "my-task"                    # name the new session
-robota --no-session-persistence        # do not save this run
+__PRODUCT_CLI_NAME__ -c                              # continue the most recent session in this folder
+__PRODUCT_CLI_NAME__ -r <id-or-name>                 # resume a session
+__PRODUCT_CLI_NAME__ -c --fork-session               # continue as a new session; the original is untouched
+__PRODUCT_CLI_NAME__ -n "my-task"                    # name the new session
+__PRODUCT_CLI_NAME__ --no-session-persistence        # do not save this run
 ```
 
 Inside the terminal UI: `/resume` opens the session picker, `/rename <name>` renames the session,
 `/fork [name] [--same-dir]` copies the conversation into a background session and keeps you here, and
 `/cd <directory>` continues the conversation as a new session in another folder.
 
-Sessions can also run without a terminal. `robota session start --background` starts a supervised
-session that keeps running after you close the terminal; `robota session list`, `view`, `attach`,
-`stop`, `rename`, `link-pr` and `unlink-pr` manage them. `robota daemon start` keeps one long-lived
-runtime per folder that the desktop app and `robota --attach` connect to; `robota --serve --open`
+Sessions can also run without a terminal. `__PRODUCT_CLI_NAME__ session start --background` starts a supervised
+session that keeps running after you close the terminal; `__PRODUCT_CLI_NAME__ session list`, `view`, `attach`,
+`stop`, `rename`, `link-pr` and `unlink-pr` manage them. `__PRODUCT_CLI_NAME__ daemon start` keeps one long-lived
+runtime per folder that the desktop app and `__PRODUCT_CLI_NAME__ --attach` connect to; `__PRODUCT_CLI_NAME__ --serve --open`
 starts a runtime of its own and opens the GUI in a browser. See
 [Sessions, Background Sessions and the Daemon](./sessions-and-daemon.md) and
 [The GUI and the Desktop App](./gui.md).
@@ -219,27 +221,27 @@ starts a runtime of its own and opens the GUI in a browser. See
 
 Settings are JSON files merged in this order, later files winning:
 
-1. `~/.robota/settings.json` (user)
+1. `<user-state>/settings.json` (user)
 2. `~/.claude/settings.json` (user, Claude Code compatible)
-3. `.robota/settings.json` (project)
-4. `.robota/settings.local.json` (project, not committed)
+3. `<project-state>/settings.json` (project)
+4. `<project-state>/settings.local.json` (project, not committed)
 5. `.claude/settings.json` (project, Claude Code compatible)
 6. `.claude/settings.local.json` (project, not committed)
 
 Project files load only in a trusted folder. Most command-line options apply to one run and win over
 the settings files; where an environment variable is also involved, the order is given with the
-option below. An organization can add a policy file at `~/.robota/org-policy.json` (for example
-`allowedProviders`, `disableAutoMode`). `robota --reset` deletes `~/.robota/settings.json` after
+option below. An organization can add a policy file at `<user-state>/org-policy.json` (for example
+`allowedProviders`, `disableAutoMode`). `__PRODUCT_CLI_NAME__ --reset` deletes `<user-state>/settings.json` after
 asking (`--yes` skips the question; it is required without a terminal).
 
 ### Providers and models
 
 | Want to                                | Use                                                                             |
 | -------------------------------------- | ------------------------------------------------------------------------------- |
-| Use another saved profile for one run  | `robota --provider <profile>`                                                   |
-| Make a profile the default             | `robota --provider <profile> --set-current`, or `/provider switch <profile>`    |
-| Use another model for one run          | `robota --model <model>`                                                        |
-| Fall back when the model is overloaded | `robota --fallback-model a,b` (up to three; setting `fallbackModel`)            |
+| Use another saved profile for one run  | `__PRODUCT_CLI_NAME__ --provider <profile>`                                                   |
+| Make a profile the default             | `__PRODUCT_CLI_NAME__ --provider <profile> --set-current`, or `/provider switch <profile>`    |
+| Use another model for one run          | `__PRODUCT_CLI_NAME__ --model <model>`                                                        |
+| Fall back when the model is overloaded | `__PRODUCT_CLI_NAME__ --fallback-model a,b` (up to three; setting `fallbackModel`)            |
 | Manage profiles in a session           | `/provider current \| list \| switch <profile> \| add [type] \| test [profile]` |
 
 `/provider switch` replaces the model in the running session and keeps the conversation. In the
@@ -250,7 +252,7 @@ when the current model is overloaded, unavailable or failing.
 ### Model effort
 
 `--effort` (or `/effort`) sets how hard the model thinks: `auto`, `none`, `minimal`, `low`, `medium`,
-`high`, `xhigh` or `max`. The value comes from, in order: `--effort`, the `ROBOTA_EFFORT` environment
+`high`, `xhigh` or `max`. The value comes from, in order: `--effort`, the `__PRODUCT_ENV_PREFIX__EFFORT` environment
 variable, settings, the active preset, then the model's default. `auto` leaves the choice to the
 provider. `max` lasts for the session only; `/effort <level>` can save a named level. `/effort` alone
 reports the level in use and where it came from; print mode's JSON output carries the same record
@@ -265,13 +267,13 @@ same error keeps coming back, and before declaring the work done. You can also a
 advisor.
 
 ```bash
-robota --advisor strong              # a provider profile
-robota --advisor strong:<model>      # a profile and a model
-robota --advisor off
+__PRODUCT_CLI_NAME__ --advisor strong              # a provider profile
+__PRODUCT_CLI_NAME__ --advisor strong:<model>      # a profile and a model
+__PRODUCT_CLI_NAME__ --advisor off
 ```
 
-`/advisor <profile>[:<model>]` changes it and saves it as `advisorModel` in `~/.robota/settings.json`;
-the flag wins over the setting, and `ROBOTA_DISABLE_ADVISOR=1` turns the advisor off entirely. Safe
+`/advisor <profile>[:<model>]` changes it and saves it as `advisorModel` in `<user-state>/settings.json`;
+the flag wins over the setting, and `__PRODUCT_ENV_PREFIX__DISABLE_ADVISOR=1` turns the advisor off entirely. Safe
 mode ignores the saved advisor.
 
 - **What it sees.** The whole conversation: the system prompt, your messages, the tool calls and
@@ -286,10 +288,10 @@ mode ignores the saved advisor.
   model's cached prompt stays valid. An advisor set in a session that started without one takes effect
   in the next session.
 - **Cost.** Advisor usage is saved with the session under the advisor's own model, so `/cost`,
-  `robota usage` and resumed sessions include it.
+  `__PRODUCT_CLI_NAME__ usage` and resumed sessions include it.
 - **Privacy.** Sending the conversation to a destination the main model does not already use needs
   your consent once per destination (provider type and endpoint); the answer is remembered in
-  `~/.robota/settings.json`. Print mode cannot ask, so such a call is declined until consent exists.
+  `<user-state>/settings.json`. Print mode cannot ask, so such a call is declined until consent exists.
   The organization's `allowedProviders` policy applies to the advisor.
 - **Subagents.** Subagents in the same process inherit the advisor; subagents in a child process do
   not.
@@ -303,10 +305,10 @@ gives the main model an opinion.
 - **Presets** bundle a work style (effort, autonomy, subagent use). `--preset <id>` or `/preset <id>`
   picks one; the default comes from the `preset` setting, else `default`. Built-in presets are
   `default`, `autonomous-builder`, `careful-reviewer` and `neutral-executor`; more can be added as
-  files under `~/.robota/presets/`. `/preset` lists them.
+  files under `<user-state>/presets/`. `/preset` lists them.
 - **Output styles** shape how answers are written: `--output-style <id>` or `/output-style <id>`
   with `default`, `concise`, `proactive`, `explanatory` or `learning`, plus your own styles from
-  `.robota/output-styles/`. The choice is saved as `outputStyle`.
+  `<project-state>/output-styles/`. The choice is saved as `outputStyle`.
 - **Language.** `--language <code>` or `/language <code>` (`ko`, `en`, `ja`, `zh`) sets the response
   language.
 
@@ -314,7 +316,7 @@ gives the main model an opinion.
 
 Memory keeps facts worth reusing across sessions (preferences, project conventions, references). It
 is off by default. `--memory` or `--no-memory` decides for one run and overrides the
-`memory.enabled` setting; the `ROBOTA_MEMORY=1|0` environment variable overrides both. Captured facts
+`memory.enabled` setting; the `__PRODUCT_ENV_PREFIX__MEMORY=1|0` environment variable overrides both. Captured facts
 wait in an approval queue unless you pass `--memory-autosave`. In a session, `/memory` lists, shows,
 adds and reviews items (`/memory pending`, `/memory approve <id>`, `/memory reject <id>`). The model
 can look memory up and add to it too, except in `plan` mode, where it saves nothing.
@@ -323,11 +325,11 @@ can look memory up and add to it too, except in `plan` mode, where it saves noth
 
 | Setting             | How                                                                                                                           |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Theme               | `/theme` lists and previews themes; `/theme <id>`; custom themes in `~/.robota/themes/`                                       |
+| Theme               | `/theme` lists and previews themes; `/theme <id>`; custom themes in `<user-state>/themes/`                                       |
 | Syntax highlighting | `/theme syntax on\|off`                                                                                                       |
-| Animation           | `--reduced-motion` / `--no-reduced-motion`, `ROBOTA_REDUCED_MOTION=1\|0`, setting `reducedMotion`, or `/theme motion on\|off` |
+| Animation           | `--reduced-motion` / `--no-reduced-motion`, `__PRODUCT_ENV_PREFIX__REDUCED_MOTION=1\|0`, setting `reducedMotion`, or `/theme motion on\|off` |
 | Status line         | `/statusline on \| off \| reset \| git on \| git off`                                                                         |
-| Keyboard shortcuts  | `/keybindings` opens `~/.robota/keybindings.json`; see [TUI Keybindings](./keybindings.md)                                    |
+| Keyboard shortcuts  | `/keybindings` opens `<user-state>/keybindings.json`; see [TUI Keybindings](./keybindings.md)                                    |
 | Screen reader       | see below                                                                                                                     |
 
 For animation and screen-reader mode, the flag wins over the environment variable, which wins over
@@ -344,26 +346,26 @@ finishes. It is never turned on by detection.
 | ------------------------------ | ----------------------------------------------------------------------- |
 | `--screen-reader`              | on for this run                                                         |
 | `--no-screen-reader`           | off for this run                                                        |
-| `ROBOTA_SCREEN_READER=1`, `=0` | on / off for the environment; `INK_SCREEN_READER=true` also turns it on |
-| `"screenReader": true`         | on, in `~/.robota/settings.json`                                        |
+| `__PRODUCT_ENV_PREFIX__SCREEN_READER=1`, `=0` | on / off for the environment; `INK_SCREEN_READER=true` also turns it on |
+| `"screenReader": true`         | on, in `<user-state>/settings.json`                                        |
 
 The first line the UI prints names the mode and what set it, for example
-`[Screen reader mode: on via flag]`. `ROBOTA_SCREEN_READER_STARTUP_QUIET_MS` (default `900`) is how
+`[Screen reader mode: on via flag]`. `__PRODUCT_ENV_PREFIX__SCREEN_READER_STARTUP_QUIET_MS` (default `900`) is how
 long the CLI waits after that line before drawing the prompt; any key ends the wait and `0` skips it.
 
 ### Updates
 
-`robota` checks npm for a newer `@robota-sdk/agent-cli` at startup (not in print mode) and prints the
+`__PRODUCT_CLI_NAME__` checks npm for a newer `@robota-sdk/agent-cli` at startup (not in print mode) and prints the
 `npm install -g '@robota-sdk/agent-cli@latest'` command when one exists. It never updates itself. The
-check is cached in `~/.robota/update-check.json`; `--disable-update-check` skips it for one run and
+check is cached in `<user-state>/update-check.json`; `--disable-update-check` skips it for one run and
 `--check-update` checks now and exits.
 
 ### When something misbehaves
 
-- `robota doctor` (also `checkup`, `diagnose`) checks the configuration and runtime without starting
-  a session, including how shell commands are contained. `robota doctor --repair <check-id> [-y]`
+- `__PRODUCT_CLI_NAME__ doctor` (also `checkup`, `diagnose`) checks the configuration and runtime without starting
+  a session, including how shell commands are contained. `__PRODUCT_CLI_NAME__ doctor --repair <check-id> [-y]`
   applies one allowlisted fix. In a session, `/doctor` runs the same checks.
-- `robota --safe-mode` starts with every customization off: project and user instruction files
+- `__PRODUCT_CLI_NAME__ --safe-mode` starts with every customization off: project and user instruction files
   (`AGENTS.md`, `CLAUDE.md`), skills, custom commands, agent definitions, output styles, external
   presets, plugins, hooks from every settings layer, and MCP servers. Your provider, model, built-in
   tools, permission rules, themes and keybindings still apply, and nothing on disk changes. If the
@@ -393,7 +395,7 @@ Every tool call is checked against the permission mode and your allow, deny and 
 - `/sandbox auto-allow | regular | off` controls the OS sandbox for shell commands.
 - Built-in read-only commands (`ls`, `cat`, `grep`, `git status`, `git diff` and similar) run
   without asking in every mode, `plan` included.
-- `ask` rules, removing a critical path, and writes into protected paths such as `.git`, `.robota`,
+- `ask` rules, removing a critical path, and writes into protected paths such as `.git`, `<project-state>`,
   `.claude` or `.agents` never run without asking, even under `bypassPermissions`.
 
 The full rules, the `auto` classifier, the sandbox and hooks are in
@@ -401,11 +403,11 @@ The full rules, the `auto` classifier, the sandbox and hooks are in
 
 ## Skills
 
-A skill is a folder with a `SKILL.md` file that the agent loads when needed. `robota` discovers skills
+A skill is a folder with a `SKILL.md` file that the agent loads when needed. `__PRODUCT_CLI_NAME__` discovers skills
 in a trusted project and then in your home folder, checking these paths in each, first match per name
 winning:
 
-1. `.robota/skills/<name>/SKILL.md`
+1. `<project-state>/skills/<name>/SKILL.md`
 2. `.claude/skills/<name>/SKILL.md` (Claude Code compatible)
 3. `.claude/commands/<name>.md` (Claude Code's older command format)
 4. `.agents/skills/<name>/SKILL.md`
@@ -414,7 +416,7 @@ Each skill becomes a slash command: `/audit src/index.ts` runs the `audit` skill
 `/skills` lists them. Skills from plugins show their plugin (`/audit (my-plugin) ...`), and plugin
 commands use `plugin:command` (`/my-plugin:audit`).
 
-The agent activates a skill through the `/skills` command tool (`robota_command_skills` with
+The agent activates a skill through the `/skills` command tool (`__PRODUCT_MODEL_TOOL_PREFIX___command_skills` with
 `args: "<skill-name> [args]"`), guided by the skill descriptions in its system prompt. Mentioning a
 skill in text does not activate it.
 
@@ -438,14 +440,14 @@ skill from a plugin, `${CLAUDE_PLUGIN_ROOT}` (the plugin's folder). A `` !`comma
 is replaced by that command's output, run in the project folder; the `CLAUDE_` variables are in its
 environment, so `` !`bash "${CLAUDE_SKILL_DIR}/check.sh"` `` works.
 
-Agent definitions for subagents are discovered in `.robota/agents/`, `.agents/agents/` and
+Agent definitions for subagents are discovered in `<project-state>/agents/`, `.agents/agents/` and
 `.claude/agents/`; the built-in ones are `general-purpose`, `Explore` and `Plan`.
 
 ## Plugins
 
 A CLI plugin is a folder that adds skills, commands, agent definitions, hooks (`hooks/hooks.json`) and
 MCP servers (`.mcp.json`) at once. Plugins come from marketplaces (a GitHub `owner/repo` or git URL)
-and are installed under `~/.robota/plugins/` (user) or `.robota/plugins/` (project).
+and are installed under `<user-state>/plugins/` (user) or `<project-state>/plugins/` (project).
 
 `/plugin` opens a menu to add marketplaces, browse and install plugins, and uninstall them. The same
 actions as text:
@@ -482,7 +484,7 @@ different from the SDK's runtime plugins for the `Robota` class; both are covere
   lets each iteration choose its next delay (1 to 60 minutes); bare `/loop` does bounded maintenance of
   the current work. `/loop list` and `/loop stop <id>` manage loops; Esc also stops a waiting
   self-paced loop when it is the only one. Loops expire after seven days, and a session has at most
-  three. For a bare `/loop`, a trusted project's `.robota/loop.md` is used, else `~/.robota/loop.md`
+  three. For a bare `/loop`, a trusted project's `<project-state>/loop.md` is used, else `<user-state>/loop.md`
   (at most 4096 bytes; it grants no permissions).
 - **Wake later.** `/schedule in <N><s|m|h|d> <instruction>` or `/schedule cron "<expr>" <instruction>`
   wakes the agent later; `list`, `pause <id>`, `resume <id>` and `edit <id> <spec>` manage schedules.
@@ -529,29 +531,29 @@ other subcommands are yours.
 
 ## Usage, logs and evals
 
-`robota usage` summarizes your local session history without calling a provider or printing prompts,
+`__PRODUCT_CLI_NAME__ usage` summarizes your local session history without calling a provider or printing prompts,
 responses, paths or tool payloads: sessions, turns, tokens, cost (with how confident the estimate is),
 daily totals and breakdowns by model and surface.
 
 ```bash
-robota usage                                   # last 7 days
-robota usage --period 30d --timezone Asia/Seoul
-robota usage --format json                     # versioned JSON (schemaVersion: 1)
-robota usage export --endpoint http://127.0.0.1:4318              # metrics to a local OTLP collector
-robota usage export --signal traces --endpoint http://127.0.0.1:4318
+__PRODUCT_CLI_NAME__ usage                                   # last 7 days
+__PRODUCT_CLI_NAME__ usage --period 30d --timezone Asia/Seoul
+__PRODUCT_CLI_NAME__ usage --format json                     # versioned JSON (schemaVersion: 1)
+__PRODUCT_CLI_NAME__ usage export --endpoint http://127.0.0.1:4318              # metrics to a local OTLP collector
+__PRODUCT_CLI_NAME__ usage export --signal traces --endpoint http://127.0.0.1:4318
 ```
 
 `usage export` sends content-free OTLP/HTTP JSON (`--signal metrics`, `traces` or `logs`) to a
-loopback collector only. `robota session analyze` reports timing for the latest session
+loopback collector only. `__PRODUCT_CLI_NAME__ session analyze` reports timing for the latest session
 (`--session <id>`, `--last <n>`, or `--usage` for tokens by agent and background task). The desktop app
 shows the same usage report.
 
 Each session keeps a JSONL event log (provider requests and responses, tool calls and results,
-background task events) with its saved record: in the trusted project's `.robota/` folder on Linux,
-under `~/.robota/` otherwise. Background subagents write their own transcripts next to it. `/validate-session` checks that the
+background task events) with its saved record: in the trusted project's `<project-state>/` folder on Linux,
+under `<user-state>/` otherwise. Background subagents write their own transcripts next to it. `/validate-session` checks that the
 current log is complete enough to replay.
 
-`robota eval <definition.mjs> [--threshold <0..1>]` runs an evals-as-code definition (cases, metrics
+`__PRODUCT_CLI_NAME__ eval <definition.mjs> [--threshold <0..1>]` runs an evals-as-code definition (cases, metrics
 and a threshold) against the configured provider and exits `1` when the score falls below the
 threshold, so it can gate CI.
 
@@ -560,13 +562,13 @@ threshold, so it can gate CI.
 MCP servers are defined under `mcpServers` in the settings files, and none is used until you approve
 it. `/mcp` shows every server's approval and sign-in state; `/mcp approve|reject|revoke <server>`
 decides trust, and `/mcp login <server>` signs in to an OAuth server from inside the session. Outside
-a session, `robota mcp login <name>` and `robota mcp logout <name>` do the same. In the `robota`
-executable, approvals persist in `~/.robota/mcp-approvals.json`; approving retries the connection in
+a session, `__PRODUCT_CLI_NAME__ mcp login <name>` and `__PRODUCT_CLI_NAME__ mcp logout <name>` do the same. In the `__PRODUCT_CLI_NAME__`
+executable, approvals persist in `<user-state>/mcp-approvals.json`; approving retries the connection in
 this session, and `/mcp reload` retries later. OAuth servers also need sign-in; a stdio server needs
 an authority that a host embedding the CLI supplies. A changed definition or trust generation needs
 fresh approval.
 
-`robota mcp serve` turns `robota` into an MCP server for one session, over stdio, authenticated
+`__PRODUCT_CLI_NAME__ mcp serve` turns `__PRODUCT_CLI_NAME__` into an MCP server for one session, over stdio, authenticated
 loopback HTTP (`--http-token-file`, `--http-port`), or remote HTTP as an OAuth resource server
 (`--http-public-url`, `--http-host`, `--oauth-issuer`, `--oauth-scopes`, `--oauth-allowed-subjects`,
 `--trusted-proxy`).
@@ -634,8 +636,8 @@ another session or device. All four are user-only. See [Devices, Peers and Remot
 | `--external-event-grant <file>`                                                                                                                           | Admit verified external events into this terminal session (repeatable)    |
 | `--external-event-port <port>`                                                                                                                            | Loopback port for external events                                         |
 | `--external-event-trusted-proxy <ip>`                                                                                                                     | Proxy whose `X-Forwarded-For` is believed (repeatable)                    |
-| `--http-token-file`, `--http-port`, `--http-host`, `--http-public-url`, `--oauth-issuer`, `--oauth-scopes`, `--oauth-allowed-subjects`, `--trusted-proxy` | Transport options for `robota mcp serve`                                  |
-| `--reset`                                                                                                                                                 | Delete `~/.robota/settings.json` after confirming                         |
+| `--http-token-file`, `--http-port`, `--http-host`, `--http-public-url`, `--oauth-issuer`, `--oauth-scopes`, `--oauth-allowed-subjects`, `--trusted-proxy` | Transport options for `__PRODUCT_CLI_NAME__ mcp serve`                                  |
+| `--reset`                                                                                                                                                 | Delete `<user-state>/settings.json` after confirming                         |
 | `-y`, `--yes`                                                                                                                                             | Skip confirmations (required for `--reset` without a terminal)            |
 | `--check-update`                                                                                                                                          | Check npm for a newer version and exit                                    |
 | `--disable-update-check`                                                                                                                                  | Skip the startup update check                                             |
@@ -646,28 +648,28 @@ another session or device. All four are user-only. See [Devices, Peers and Remot
 
 | Command                                                                                            | Meaning                                                                                                                                        |
 | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `robota init`                                                                                      | Write `AGENTS.md` and `.robota/settings.json`                                                                                                  |
-| `robota trust [status\|grant\|revoke] [--yes]`                                                     | Show or change this folder's trust decision                                                                                                    |
-| `robota doctor [--repair <check-id>] [-y]`                                                         | Diagnose configuration and runtime readiness (aliases `checkup`, `diagnose`)                                                                   |
-| `robota open '<robota://open?v=1&prompt=...&cwd=...>'`                                             | Start a session in a trusted folder with the prompt filled in, unsent                                                                          |
-| `robota usage [--period 7d\|30d] [--timezone <IANA>] [--format text\|json]`                        | Personal usage report                                                                                                                          |
-| `robota usage export [--signal metrics\|traces\|logs] --endpoint <url>`                            | Export content-free usage to a loopback OTLP collector                                                                                         |
-| `robota session list [--format text\|json]`                                                        | Live processes, saved sessions and supervised sessions                                                                                         |
-| `robota session view [--cwd <dir>] [--name <text>] [--pr <n>] [--state <state>]`                   | Browse live supervised sessions (terminal only)                                                                                                |
-| `robota session start --background [--name <name>] [--restricted-workspace] [event-grant options]` | Start a supervised session that outlives the terminal; `--restricted-workspace` starts it Restricted in a folder not trusted yet               |
-| `robota session attach <id> [--observe]`                                                           | Drive or watch a supervised session                                                                                                            |
-| `robota session stop <id>`                                                                         | Stop a supervised session                                                                                                                      |
-| `robota session rename <id> <name>`                                                                | Rename a supervised session                                                                                                                    |
-| `robota session link-pr <id> <https-pr-url>` / `unlink-pr <id>`                                    | Set or clear a supervised session's PR link                                                                                                    |
-| `robota session events list <id> [--json]` / `events revoke <id> <grant-id>`                       | External-event grants of a supervised session                                                                                                  |
-| `robota session analyze [--session <id>\|--last <n>\|--usage]`                                     | Timing and token analysis of saved sessions                                                                                                    |
-| `robota daemon start [--json] [--restricted-workspace]`                                            | Start or reuse this folder's daemon; `--json` prints its id and URL; `--restricted-workspace` starts it Restricted in a folder not trusted yet |
-| `robota daemon status [--json]` / `stop` / `unlock`                                                | Check, stop, or clear a stale start lock                                                                                                       |
-| `robota mcp serve [options]`                                                                       | Serve one session as an MCP server                                                                                                             |
-| `robota mcp login <name> [--client-secret] [--no-browser]`                                         | Sign in to an OAuth MCP server                                                                                                                 |
-| `robota mcp logout <name>`                                                                         | Sign out and revoke its tokens                                                                                                                 |
-| `robota eval <definition> [--threshold <0..1>]`                                                    | Run an eval definition; exit 1 below the threshold                                                                                             |
-| `robota user-local storage list \| memory ...`                                                     | The `/user-local` command outside a session                                                                                                    |
+| `__PRODUCT_CLI_NAME__ init`                                                                                      | Write `AGENTS.md` and `<project-state>/settings.json`                                                                                                  |
+| `__PRODUCT_CLI_NAME__ trust [status\|grant\|revoke] [--yes]`                                                     | Show or change this folder's trust decision                                                                                                    |
+| `__PRODUCT_CLI_NAME__ doctor [--repair <check-id>] [-y]`                                                         | Diagnose configuration and runtime readiness (aliases `checkup`, `diagnose`)                                                                   |
+| `__PRODUCT_CLI_NAME__ open '<__PRODUCT_PROTOCOL_SCHEME__://open?v=1&prompt=...&cwd=...>'`                                             | Start a session in a trusted folder with the prompt filled in, unsent                                                                          |
+| `__PRODUCT_CLI_NAME__ usage [--period 7d\|30d] [--timezone <IANA>] [--format text\|json]`                        | Personal usage report                                                                                                                          |
+| `__PRODUCT_CLI_NAME__ usage export [--signal metrics\|traces\|logs] --endpoint <url>`                            | Export content-free usage to a loopback OTLP collector                                                                                         |
+| `__PRODUCT_CLI_NAME__ session list [--format text\|json]`                                                        | Live processes, saved sessions and supervised sessions                                                                                         |
+| `__PRODUCT_CLI_NAME__ session view [--cwd <dir>] [--name <text>] [--pr <n>] [--state <state>]`                   | Browse live supervised sessions (terminal only)                                                                                                |
+| `__PRODUCT_CLI_NAME__ session start --background [--name <name>] [--restricted-workspace] [event-grant options]` | Start a supervised session that outlives the terminal; `--restricted-workspace` starts it Restricted in a folder not trusted yet               |
+| `__PRODUCT_CLI_NAME__ session attach <id> [--observe]`                                                           | Drive or watch a supervised session                                                                                                            |
+| `__PRODUCT_CLI_NAME__ session stop <id>`                                                                         | Stop a supervised session                                                                                                                      |
+| `__PRODUCT_CLI_NAME__ session rename <id> <name>`                                                                | Rename a supervised session                                                                                                                    |
+| `__PRODUCT_CLI_NAME__ session link-pr <id> <https-pr-url>` / `unlink-pr <id>`                                    | Set or clear a supervised session's PR link                                                                                                    |
+| `__PRODUCT_CLI_NAME__ session events list <id> [--json]` / `events revoke <id> <grant-id>`                       | External-event grants of a supervised session                                                                                                  |
+| `__PRODUCT_CLI_NAME__ session analyze [--session <id>\|--last <n>\|--usage]`                                     | Timing and token analysis of saved sessions                                                                                                    |
+| `__PRODUCT_CLI_NAME__ daemon start [--json] [--restricted-workspace]`                                            | Start or reuse this folder's daemon; `--json` prints its id and URL; `--restricted-workspace` starts it Restricted in a folder not trusted yet |
+| `__PRODUCT_CLI_NAME__ daemon status [--json]` / `stop` / `unlock`                                                | Check, stop, or clear a stale start lock                                                                                                       |
+| `__PRODUCT_CLI_NAME__ mcp serve [options]`                                                                       | Serve one session as an MCP server                                                                                                             |
+| `__PRODUCT_CLI_NAME__ mcp login <name> [--client-secret] [--no-browser]`                                         | Sign in to an OAuth MCP server                                                                                                                 |
+| `__PRODUCT_CLI_NAME__ mcp logout <name>`                                                                         | Sign out and revoke its tokens                                                                                                                 |
+| `__PRODUCT_CLI_NAME__ eval <definition> [--threshold <0..1>]`                                                    | Run an eval definition; exit 1 below the threshold                                                                                             |
+| `__PRODUCT_CLI_NAME__ user-local storage list \| memory ...`                                                     | The `/user-local` command outside a session                                                                                                    |
 
 ### Slash commands
 

@@ -101,7 +101,7 @@ describe('createPluginCommandModule', () => {
     expect(module.commandSources?.[0]?.getCommands()).toEqual([
       expect.objectContaining({
         name: 'plugin',
-        description: 'Manage plugins',
+        description: expect.stringContaining('returns operation status'),
         source: 'plugin-manager',
         modelInvocable: false,
         argumentHint: expect.stringContaining('install'),
@@ -193,8 +193,8 @@ describe('executePluginCommand', () => {
   it('lists installed plugins through the adapter, for the Settings screen (#3282 §4 part b-2)', async () => {
     const adapter = createPluginAdapter({
       listInstalled: vi.fn().mockResolvedValue([
-        { name: 'formatter@robota', description: 'Formats code.', enabled: true },
-        { name: 'linter@robota', description: 'Lints code.', enabled: false },
+        { name: 'formatter@fixture-agent', description: 'Formats code.', enabled: true },
+        { name: 'linter@fixture-agent', description: 'Lints code.', enabled: false },
       ]),
     });
 
@@ -203,12 +203,12 @@ describe('executePluginCommand', () => {
     expect(result.success).toBe(true);
     expect(result.data).toEqual({
       plugins: [
-        { name: 'formatter@robota', description: 'Formats code.', enabled: true },
-        { name: 'linter@robota', description: 'Lints code.', enabled: false },
+        { name: 'formatter@fixture-agent', description: 'Formats code.', enabled: true },
+        { name: 'linter@fixture-agent', description: 'Lints code.', enabled: false },
       ],
     });
-    expect(result.message).toContain('formatter@robota');
-    expect(result.message).toContain('linter@robota (disabled)');
+    expect(result.message).toContain('formatter@fixture-agent');
+    expect(result.message).toContain('linter@fixture-agent (disabled)');
   });
 
   it('no plugins installed reports a plain empty list', async () => {

@@ -5,6 +5,17 @@ import { createOtlpUsageSnapshot } from '../otlp-usage-snapshot.js';
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 describe('OTLP usage snapshot projection', () => {
+  it('uses each caller-selected service identity across repeated and concurrent projections', async () => {
+    const at = new Date('2026-09-24T00:00:00Z');
+    const project = (name: string) => createOtlpUsageSnapshot([], at, 'test', name).resourceMetrics[0];
+    const cedar = project('cedar-service');
+    const birch = project('birch-service');
+    expect(cedar).toMatchObject({ resource: { attributes: expect.arrayContaining([{ key: 'service.name', value: { stringValue: 'cedar-service' } }]) } });
+    expect(birch).toMatchObject({ resource: { attributes: expect.arrayContaining([{ key: 'service.name', value: { stringValue: 'birch-service' } }]) } });
+    expect(project('cedar-service')).toEqual(cedar);
+    expect(await Promise.all(['cedar-service', 'birch-service'].map(async (name) => project(name)))).toEqual([cedar, birch]);
+  });
+
   it('exports separate accepted-call gauges without adding call tokens to turn totals', () => {
     const record: IInteractiveSessionRecord = {
       id: 'private-session', cwd: '/private/path', createdAt: '2026-09-24T00:00:00.000Z', updatedAt: '2026-09-24T00:01:00.000Z', messages: [],
@@ -23,15 +34,15 @@ describe('OTLP usage snapshot projection', () => {
       ],
     };
     const at = new Date('2026-09-24T02:00:00.000Z');
-    const metrics = (createOtlpUsageSnapshot([record], at, 'test').resourceMetrics[0] as { scopeMetrics: [{ metrics: Array<{ name: string; gauge: { dataPoints: [{ asDouble: number }] } }> }] }).scopeMetrics[0].metrics;
+    const metrics = (createOtlpUsageSnapshot([record], at, 'test', 'agent').resourceMetrics[0] as { scopeMetrics: [{ metrics: Array<{ name: string; gauge: { dataPoints: [{ asDouble: number }] } }> }] }).scopeMetrics[0].metrics;
     const value = (name: string) => metrics.find((metric) => metric.name === name)?.gauge.dataPoints[0].asDouble;
-    expect(value('robota.token.total')).toBe(150);
-    expect(value('robota.provider_call.count')).toBe(1);
-    expect(value('robota.provider_call.token.input.known')).toBe(100);
-    expect(value('robota.provider_call.cost.usd.estimated')).toBeCloseTo(0.00075);
+    expect(value('agent.token.total')).toBe(150);
+    expect(value('agent.provider_call.count')).toBe(1);
+    expect(value('agent.provider_call.token.input.known')).toBe(100);
+    expect(value('agent.provider_call.cost.usd.estimated')).toBeCloseTo(0.00075);
     record.history!.push({ ...record.history![1]!, id: 'duplicate' });
-    const duplicateMetrics = (createOtlpUsageSnapshot([record], at, 'test').resourceMetrics[0] as { scopeMetrics: [{ metrics: Array<{ name: string; gauge: { dataPoints: [{ asDouble: number }] } }> }] }).scopeMetrics[0].metrics;
-    expect(duplicateMetrics.find((metric) => metric.name === 'robota.provider_call.count')?.gauge.dataPoints[0].asDouble).toBe(0);
+    const duplicateMetrics = (createOtlpUsageSnapshot([record], at, 'test', 'agent').resourceMetrics[0] as { scopeMetrics: [{ metrics: Array<{ name: string; gauge: { dataPoints: [{ asDouble: number }] } }> }] }).scopeMetrics[0].metrics;
+    expect(duplicateMetrics.find((metric) => metric.name === 'agent.provider_call.count')?.gauge.dataPoints[0].asDouble).toBe(0);
   });
   it('keeps missing cost and token split visibly unknown', () => {
     const record: IInteractiveSessionRecord = {
@@ -64,7 +75,7 @@ describe('OTLP usage snapshot projection', () => {
         },
       ],
     };
-    const payload = createOtlpUsageSnapshot([record], new Date('2026-09-24T02:00:00.000Z'), 'test');
+    const payload = createOtlpUsageSnapshot([record], new Date('2026-09-24T02:00:00.000Z'), 'test', 'agent');
     const json = JSON.stringify(payload);
     const metrics = (
       payload.resourceMetrics[0] as {
@@ -75,11 +86,11 @@ describe('OTLP usage snapshot projection', () => {
     ).scopeMetrics[0].metrics;
     const value = (name: string) =>
       metrics.find((metric) => metric.name === name)?.gauge.dataPoints[0].asDouble;
-    expect(value('robota.token.total')).toBe(12);
-    expect(value('robota.token.input.known')).toBe(0);
-    expect(value('robota.token.split_unknown_observations')).toBe(1);
-    expect(value('robota.cost.usd.known')).toBe(0);
-    expect(value('robota.cost.unknown_observations')).toBe(1);
+    expect(value('agent.token.total')).toBe(12);
+    expect(value('agent.token.input.known')).toBe(0);
+    expect(value('agent.token.split_unknown_observations')).toBe(1);
+    expect(value('agent.cost.usd.known')).toBe(0);
+    expect(value('agent.cost.unknown_observations')).toBe(1);
     expect(json).not.toMatch(/private|turn-private/);
   });
 
@@ -133,7 +144,7 @@ describe('OTLP usage snapshot projection', () => {
         },
       ],
     };
-    const payload = createOtlpUsageSnapshot([record], new Date('2026-09-24T02:00:00.000Z'), 'test');
+    const payload = createOtlpUsageSnapshot([record], new Date('2026-09-24T02:00:00.000Z'), 'test', 'agent');
     const metrics = (
       payload.resourceMetrics[0] as {
         scopeMetrics: [
@@ -143,8 +154,8 @@ describe('OTLP usage snapshot projection', () => {
     ).scopeMetrics[0].metrics;
     const value = (name: string) =>
       metrics.find((metric) => metric.name === name)?.gauge.dataPoints[0].asDouble;
-    expect(value('robota.turn.count')).toBe(1);
-    expect(value('robota.token.total')).toBe(12);
+    expect(value('agent.turn.count')).toBe(1);
+    expect(value('agent.token.total')).toBe(12);
   });
 
   it('marks a failed canonical turn with no usage as unknown cost and token split', () => {
@@ -164,7 +175,7 @@ describe('OTLP usage snapshot projection', () => {
         },
       ],
     };
-    const payload = createOtlpUsageSnapshot([record], new Date('2026-09-24T02:00:00.000Z'), 'test');
+    const payload = createOtlpUsageSnapshot([record], new Date('2026-09-24T02:00:00.000Z'), 'test', 'agent');
     const metrics = (
       payload.resourceMetrics[0] as {
         scopeMetrics: [
@@ -174,8 +185,8 @@ describe('OTLP usage snapshot projection', () => {
     ).scopeMetrics[0].metrics;
     const value = (name: string) =>
       metrics.find((metric) => metric.name === name)?.gauge.dataPoints[0].asDouble;
-    expect(value('robota.turn.count')).toBe(1);
-    expect(value('robota.token.split_unknown_observations')).toBe(1);
-    expect(value('robota.cost.unknown_observations')).toBe(1);
+    expect(value('agent.turn.count')).toBe(1);
+    expect(value('agent.token.split_unknown_observations')).toBe(1);
+    expect(value('agent.cost.unknown_observations')).toBe(1);
   });
 });

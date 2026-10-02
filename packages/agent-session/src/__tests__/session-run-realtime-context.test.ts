@@ -14,7 +14,7 @@ import type { IRunContext } from '../session-run.js';
 import type {
   IAIProvider,
   IContextWindowState,
-  Robota,
+  ConversationAgent,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
 
@@ -29,12 +29,12 @@ function assistantMessage(id: string, contentLength: number): TUniversalMessage 
 }
 
 /**
- * Fake Robota whose `run()` drives `onExecutionEvent('assistant_message_committed', …)`
+ * Fake ConversationAgent whose `run()` drives `onExecutionEvent('assistant_message_committed', …)`
  * `rounds` times, pushing a growing assistant message each round so the context tracker's
  * usedTokens is non-decreasing across emissions.
  */
-function createFakeRobota(rounds: number): {
-  agent: Robota;
+function createFakeConversationAgent(rounds: number): {
+  agent: ConversationAgent;
   run: ReturnType<typeof vi.fn>;
 } {
   const messages: TUniversalMessage[] = [];
@@ -57,7 +57,7 @@ function createFakeRobota(rounds: number): {
   const agent = {
     getHistory: (): TUniversalMessage[] => [...messages],
     run,
-  } as unknown as Robota;
+  } as unknown as ConversationAgent;
   return { agent, run };
 }
 
@@ -73,7 +73,7 @@ function createProvider(): IAIProvider {
 }
 
 function createContext(
-  agent: Robota,
+  agent: ConversationAgent,
   onContextUpdate: (state: IContextWindowState) => void,
 ): IRunContext {
   return {
@@ -98,7 +98,7 @@ function createContext(
 
 describe('executeRun real-time context updates (BEHAVIOR-002)', () => {
   it('forwards only content-free provider completion fields to the session event owner', async () => {
-    const { agent, run } = createFakeRobota(0);
+    const { agent, run } = createFakeConversationAgent(0);
     run.mockImplementation(
       async (
         _message: string,
@@ -146,7 +146,7 @@ describe('executeRun real-time context updates (BEHAVIOR-002)', () => {
   });
 
   it('forwards providerRequestId only for an invoked call, never a non-string value', async () => {
-    const { agent, run } = createFakeRobota(0);
+    const { agent, run } = createFakeConversationAgent(0);
     run.mockImplementation(
       async (
         _message: string,
@@ -199,7 +199,7 @@ describe('executeRun real-time context updates (BEHAVIOR-002)', () => {
 
   it('TC-01: emits a context update per round, not only at start and end', async () => {
     const updates: IContextWindowState[] = [];
-    const { agent } = createFakeRobota(2);
+    const { agent } = createFakeConversationAgent(2);
     const ctx = createContext(agent, (state) => updates.push(state));
 
     await executeRun('hello', undefined, ctx, new AbortController().signal);
@@ -210,7 +210,7 @@ describe('executeRun real-time context updates (BEHAVIOR-002)', () => {
 
   it('TC-02: emitted usedTokens are non-decreasing across the turn', async () => {
     const updates: IContextWindowState[] = [];
-    const { agent } = createFakeRobota(3);
+    const { agent } = createFakeConversationAgent(3);
     const ctx = createContext(agent, (state) => updates.push(state));
 
     await executeRun('hello', undefined, ctx, new AbortController().signal);
@@ -222,7 +222,7 @@ describe('executeRun real-time context updates (BEHAVIOR-002)', () => {
 
   it('TC-03: only assistant_message_committed triggers a per-round update, not other events', async () => {
     const updates: IContextWindowState[] = [];
-    const { agent } = createFakeRobota(2);
+    const { agent } = createFakeConversationAgent(2);
     const ctx = createContext(agent, (state) => updates.push(state));
 
     await executeRun('hello', undefined, ctx, new AbortController().signal);

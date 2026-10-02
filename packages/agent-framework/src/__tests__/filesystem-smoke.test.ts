@@ -57,7 +57,7 @@ describe('Filesystem smoke: skill discovery', () => {
   let homeDir: string;
 
   beforeEach(() => {
-    tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-smoke-')));
+    tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-smoke-')));
     homeDir = join(tempDir, 'fake-home');
     mkdirSync(homeDir, { recursive: true });
   });
@@ -217,9 +217,9 @@ describe('Filesystem smoke: skill discovery', () => {
       'utf-8',
     );
 
-    // ~/.robota/skills (user home)
+    // ~/.agent/skills (user home)
     createSkillDir(
-      join(homeDir, '.robota', 'skills'),
+      join(homeDir, '.agent', 'skills'),
       'gamma',
       '---\nname: gamma\ndescription: Third\n---\n',
     );
@@ -266,7 +266,7 @@ describe('Filesystem smoke: variable substitution', () => {
   let homeDir: string;
 
   beforeEach(() => {
-    tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-smoke-vars-')));
+    tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-smoke-vars-')));
     homeDir = join(tempDir, 'fake-home');
     mkdirSync(homeDir, { recursive: true });
   });
@@ -386,7 +386,7 @@ describe('Filesystem smoke: hook config loading', () => {
   const originalHome = process.env.HOME;
 
   beforeEach(() => {
-    tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-smoke-hooks-')));
+    tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-smoke-hooks-')));
     // Override HOME so loadConfig doesn't read user's real settings
     process.env.HOME = join(tempDir, 'fake-home');
     mkdirSync(process.env.HOME, { recursive: true });
@@ -513,7 +513,7 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-smoke-plugin-')));
+    tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-smoke-plugin-')));
   });
 
   afterEach(() => {
@@ -630,10 +630,10 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
       }),
     );
 
-    // Invalid plugin (missing required fields)
+    // Invalid plugin (wrong type for optional version)
     createFile(
       join(pluginsDir, 'cache', 'market', 'invalid', '1.0.0', '.claude-plugin', 'plugin.json'),
-      JSON.stringify({ name: 'invalid' }),
+      JSON.stringify({ name: 'invalid', version: 1 }),
     );
 
     // Directory without manifest

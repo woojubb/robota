@@ -30,7 +30,7 @@ export default async function BetaPage({ params }: { params: Promise<{ locale: s
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <a
-            href={`https://docs.robota.io/${locale}/getting-started/`}
+            href={`__PROJECT_DOCS_URL__/${locale}/getting-started/`}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-lg bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
@@ -38,7 +38,7 @@ export default async function BetaPage({ params }: { params: Promise<{ locale: s
             {t('ctaDocs')}
           </a>
           <a
-            href="https://github.com/woojubb/robota/discussions"
+            href="__PROJECT_REPOSITORY_URL__/discussions"
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-5 py-2.5 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"

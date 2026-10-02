@@ -41,7 +41,10 @@ export type TModelListSnapshot = Omit<
 /** The host's sessions in this workspace, which one is current, and the records it could not read. */
 export type TSessionListing = Extract<TServerMessage, { type: 'sessions' }>['listing'];
 /** Why the host did not list its sessions: it cannot (`not_available`), or listing failed. */
-export type TSessionsError = Omit<Extract<TServerMessage, { type: 'sessions_error' }>, 'type' | 'requestId'>;
+export type TSessionsError = Omit<
+  Extract<TServerMessage, { type: 'sessions_error' }>,
+  'type' | 'requestId'
+>;
 
 export type TCurrentSessionUsageReport = Extract<
   TServerMessage,
@@ -98,10 +101,7 @@ export interface IChangedFilesEntry {
 }
 
 export type TConversationEntry =
-  | IConversationMessage
-  | ICommandOutputEntry
-  | IToolGroupEntry
-  | IChangedFilesEntry;
+  IConversationMessage | ICommandOutputEntry | IToolGroupEntry | IChangedFilesEntry;
 
 export interface IActiveTool {
   id: string;
@@ -117,6 +117,8 @@ export interface IActiveTool {
   diffFile?: string;
   /** #3288: the tool's raw result payload (Shell output, Read content, …), already capped server-side. */
   toolResultData?: string;
+  /** Admitted observations; opaque resource URIs do not authorize a client-side fetch. */
+  toolResultParts?: IToolState['toolResultParts'];
   /** #3288: a workspace-relative display form of a path argument, additive to `input`/`firstArg`. */
   displayPath?: string;
   /** #3288: set when this call is a projected `/command` tool — render "Ran /<commandName>". */

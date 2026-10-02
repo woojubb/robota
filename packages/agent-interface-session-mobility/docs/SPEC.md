@@ -59,8 +59,9 @@ one user's devices, trust, locality and workspace stay separate fields of the ad
 proves the user, the carrier the locality, and the workspace is only the peer's claim. Authority comes
 from trust and the capabilities local policy leaves of the certificate's, never from the other two.
 Some capabilities also need the receiving operator's yes: observing and driving for every connection,
-because an earlier connection's yes says nothing about who holds this one, and delegating, hand-off
-and sending a file for every request. Without an operator to ask they are refused. The operator must be someone
+because an earlier connection's yes says nothing about who holds this one; admission is fixed for
+that connection and its authority ends when the carrier closes, replaces or revokes it. Delegating, hand-off
+and sending a file require the receiving operator's yes for every request. Without an operator to ask they are refused. The operator must be someone
 no connected surface can speak for, or one device could approve the next. A delegated task or a file, like a
 message, carries no authority: the turn a task starts is decided by the receiver's ordinary
 permissions, nothing the sender attaches to the request travels with it, and a file is kept aside

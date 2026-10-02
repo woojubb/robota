@@ -56,7 +56,7 @@ function seedSession(homeDir: string, cwd: string): void {
       });
     }
   }
-  const sessionsDir = join(homeDir, '.robota', 'sessions');
+  const sessionsDir = join(homeDir, 'state', 'sessions');
   mkdirSync(sessionsDir, { recursive: true });
   writeFileSync(
     join(sessionsDir, `${SESSION_ID}.json`),
@@ -81,7 +81,7 @@ describe('SCREEN-1993 TC-10: the resumed transcript lives in native scrollback',
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-1993-scrollback-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-1993-scrollback-')));
     writeTuiProviderSettings(projectDir);
     seedSession(join(projectDir, 'home'), projectDir);
   });

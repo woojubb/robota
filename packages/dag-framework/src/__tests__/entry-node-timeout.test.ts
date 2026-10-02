@@ -30,7 +30,7 @@ const HANGING_NODE: IDagNodeDefinition = {
 const WORKER_DEFAULT_TIMEOUT_MS = 1_500;
 
 beforeEach(async () => {
-  tmpDir = await mkdtemp(path.join(os.tmpdir(), 'robota-dag-entry-timeout-'));
+  tmpDir = await mkdtemp(path.join(os.tmpdir(), 'agent-test-dag-entry-timeout-'));
   framework = await createDagFramework({
     nodes: [...createDefaultNodeRegistrySync(), HANGING_NODE],
     paths: { storageRoot: path.join(tmpDir, 'storage'), assetRoot: path.join(tmpDir, 'assets') },

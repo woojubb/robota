@@ -22,6 +22,39 @@ const batch = {
 } as unknown as ILivePromptTraceBatch;
 
 describe('live console telemetry', () => {
+  it('exports duration totals separately from capped detail without copying summary content', async () => {
+    const lines: string[] = [];
+    const port = createConfiguredNodeOtlpLiveTelemetryPort({ PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'console' }, undefined, (line) => { lines.push(line); })!;
+    port.enqueue({ ...batch, timingTotals: {
+      provider: { durationMs: 200, samples: 101, invalid: 0, private: 'private summary' },
+      tool: { durationMs: 300, samples: 100, invalid: 0 },
+      queue: { durationMs: 10, samples: 100, invalid: 0, admissionStarted: 99, notDispatched: 1 },
+    } } as unknown as ILivePromptTraceBatch);
+    await port.shutdown();
+    expect(JSON.parse(lines[0]).spans[0]).toHaveProperty('timingTotals', {
+      provider: { durationMs: 200, samples: 101, invalid: 0 }, tool: { durationMs: 300, samples: 100, invalid: 0 },
+      queue: { durationMs: 10, samples: 100, invalid: 0, admissionStarted: 99, notDispatched: 1 },
+    });
+    expect(lines[0]).not.toContain('private summary');
+  });
+  it('drops malformed aggregate evidence while retaining valid tool timing', async () => {
+    for (const invalid of [
+      { durationMs: -1, samples: 1, invalid: 0 },
+      { durationMs: NaN, samples: 1, invalid: 0 },
+      { durationMs: Number.MAX_SAFE_INTEGER + 1, samples: 1, invalid: 0 },
+      { durationMs: 1, samples: 0, invalid: 0 },
+    ]) {
+      const lines: string[] = [];
+      const port = createConfiguredNodeOtlpLiveTelemetryPort({ PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'console' }, undefined, (line) => { lines.push(line); })!;
+      port.enqueue({ ...batch, timingTotals: {
+        provider: invalid, tool: { durationMs: 3, samples: 1, invalid: 0 },
+        queue: { durationMs: 10, samples: 2, invalid: 0, admissionStarted: 1, notDispatched: 0, secret: 'private summary' },
+      } } as unknown as ILivePromptTraceBatch);
+      await port.shutdown();
+      expect(JSON.parse(lines[0]).spans[0].timingTotals).toEqual({ tool: { durationMs: 3, samples: 1, invalid: 0 } });
+      expect(lines[0]).not.toContain('private summary');
+    }
+  });
   it('correlates tool completion in trace and log output without a metric label', async () => {
     const input = { ...batch, children: [{ kind: 'tool', trace: {
       traceId: batch.root.traceId, parentSpanId: batch.root.spanId,
@@ -32,7 +65,7 @@ describe('live console telemetry', () => {
     for (const signal of ['traces', 'logs', 'metrics'] as const) {
       const lines: string[] = [];
       const port = createConfiguredNodeOtlpLiveTelemetryPort({
-        ROBOTA_TELEMETRY_ENABLED: '1', [`ROBOTA_TELEMETRY_${signal.toUpperCase()}`]: 'console',
+        PRODUCT_TELEMETRY_ENABLED: '1', [`PRODUCT_TELEMETRY_${signal.toUpperCase()}`]: 'console',
       }, undefined, (line) => { lines.push(line); })!;
       port.enqueue(input);
       await port.shutdown();
@@ -48,12 +81,12 @@ describe('live console telemetry', () => {
     for (const signal of ['traces', 'logs'] as const) {
       const lines: string[] = [];
       const port = createConfiguredNodeOtlpLiveTelemetryPort({
-        ROBOTA_TELEMETRY_ENABLED: '1', [`ROBOTA_TELEMETRY_${signal.toUpperCase()}`]: 'console',
+        PRODUCT_TELEMETRY_ENABLED: '1', [`PRODUCT_TELEMETRY_${signal.toUpperCase()}`]: 'console',
       }, undefined, (line) => { lines.push(line); })!;
       port.enqueue(unsafe);
       await port.shutdown();
       expect(lines[0]).not.toContain('private');
-      expect(lines[0]).not.toContain('robota.tool.call_id');
+      expect(lines[0]).not.toContain('agent.tool.call_id');
     }
   });
 
@@ -65,7 +98,7 @@ describe('live console telemetry', () => {
     for (const signal of ['traces', 'logs', 'metrics'] as const) {
       const lines: string[] = [];
       const port = createConfiguredNodeOtlpLiveTelemetryPort({
-        ROBOTA_TELEMETRY_ENABLED: '1', [`ROBOTA_TELEMETRY_${signal.toUpperCase()}`]: 'console',
+        PRODUCT_TELEMETRY_ENABLED: '1', [`PRODUCT_TELEMETRY_${signal.toUpperCase()}`]: 'console',
       }, undefined, (line) => { lines.push(line); })!;
       port.enqueue(input);
       await port.shutdown();
@@ -79,12 +112,12 @@ describe('live console telemetry', () => {
     for (const signal of ['traces', 'logs'] as const) {
       const lines: string[] = [];
       const port = createConfiguredNodeOtlpLiveTelemetryPort({
-        ROBOTA_TELEMETRY_ENABLED: '1', [`ROBOTA_TELEMETRY_${signal.toUpperCase()}`]: 'console',
+        PRODUCT_TELEMETRY_ENABLED: '1', [`PRODUCT_TELEMETRY_${signal.toUpperCase()}`]: 'console',
       }, undefined, (line) => { lines.push(line); })!;
       port.enqueue(unsafe);
       await port.shutdown();
       expect(lines[0]).not.toContain('private');
-      expect(lines[0]).not.toContain('robota.provider.request_id');
+      expect(lines[0]).not.toContain('agent.provider.request_id');
     }
   });
 
@@ -103,21 +136,21 @@ describe('live console telemetry', () => {
     for (const signal of ['traces', 'logs', 'metrics'] as const) {
       const lines: string[] = [];
       const port = createConfiguredNodeOtlpLiveTelemetryPort({
-        ROBOTA_TELEMETRY_ENABLED: '1', [`ROBOTA_TELEMETRY_${signal.toUpperCase()}`]: 'console',
+        PRODUCT_TELEMETRY_ENABLED: '1', [`PRODUCT_TELEMETRY_${signal.toUpperCase()}`]: 'console',
       }, undefined, (line) => { lines.push(line); })!;
       port.enqueue(input);
       await port.shutdown();
       const record = JSON.parse(lines[0]!);
       if (signal === 'traces') {
         expect((record.spans as Array<{ name: string }>).map((span) => span.name))
-          .not.toContain('robota.tool_permission');
+          .not.toContain('agent.tool_permission');
         expect(record.spans).toHaveLength(2); // root + tool body only, never the permission decision
       } else if (signal === 'logs') {
-        expect(lines[0]).toContain('robota.tool_permission.decided');
+        expect(lines[0]).toContain('agent.tool_permission.decided');
         expect(lines[0]).toContain('allowed');
         expect(lines[0]).toContain('call-123');
       } else {
-        expect(lines[0]).toContain('robota.tool.permission_decisions');
+        expect(lines[0]).toContain('agent.tool.permission_decisions');
         expect(lines[0]).not.toContain('call-123');
       }
     }
@@ -128,7 +161,7 @@ describe('live console telemetry', () => {
     for (const signal of ['logs', 'metrics'] as const) {
       const lines: string[] = [];
       const port = createConfiguredNodeOtlpLiveTelemetryPort({
-        ROBOTA_TELEMETRY_ENABLED: '1', [`ROBOTA_TELEMETRY_${signal.toUpperCase()}`]: 'console',
+        PRODUCT_TELEMETRY_ENABLED: '1', [`PRODUCT_TELEMETRY_${signal.toUpperCase()}`]: 'console',
       }, undefined, (line) => { lines.push(line); })!;
       port.enqueue(input);
       await port.shutdown();
@@ -144,7 +177,7 @@ describe('live console telemetry', () => {
     'emits only the selected %s signal without a network destination or protocol', async (signal) => {
       const lines: string[] = [];
       const port = createConfiguredNodeOtlpLiveTelemetryPort({
-        ROBOTA_TELEMETRY_ENABLED: '1', [`ROBOTA_TELEMETRY_${signal.toUpperCase()}`]: 'console',
+        PRODUCT_TELEMETRY_ENABLED: '1', [`PRODUCT_TELEMETRY_${signal.toUpperCase()}`]: 'console',
       }, undefined, (line) => { lines.push(line); });
       expect(port).toBeDefined();
       port!.enqueue(batch);
@@ -156,12 +189,12 @@ describe('live console telemetry', () => {
       expect(lines[0]).not.toContain('authorization');
       if (signal === 'metrics') {
         expect(lines[0]).not.toMatch(/session-1|turn-1|test-provider|gpt-4o/);
-        expect(lines[0]).toContain('robota.provider.calls');
+        expect(lines[0]).toContain('agent.provider.calls');
       } else if (signal === 'logs') {
         expect(lines[0]).not.toMatch(/session-1|turn-1|test-provider|gpt-4o/);
-        expect(lines[0]).toContain('robota.provider_call.completed');
+        expect(lines[0]).toContain('agent.provider_call.completed');
       } else {
-        expect(lines[0]).toContain('robota.prompt_execution');
+        expect(lines[0]).toContain('agent.prompt_execution');
         expect(lines[0]).toContain(batch.root.traceId);
         expect(lines[0]).toContain('session-1');
         expect(lines[0]).toContain('turn-1');
@@ -172,14 +205,14 @@ describe('live console telemetry', () => {
     },
   );
 
-  it('requires explicit Robota opt-in and isolates a failing console sink', async () => {
+  it('requires explicit Product opt-in and isolates a failing console sink', async () => {
     const write = vi.fn(() => { throw new Error('sink failed'); });
     expect(createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_TRACES: 'console', OTEL_TRACES_EXPORTER: 'console',
+      PRODUCT_TELEMETRY_TRACES: 'console', OTEL_TRACES_EXPORTER: 'console',
     }, undefined, write)).toBeUndefined();
     const onFailure = vi.fn();
     const port = createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'console',
+      PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'console',
     }, onFailure, write);
     expect(() => port!.enqueue(batch)).not.toThrow();
     await port!.shutdown();
@@ -187,7 +220,7 @@ describe('live console telemetry', () => {
 
     const asyncFailure = vi.fn();
     const asyncPort = createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_LOGS: 'console',
+      PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_LOGS: 'console',
     }, asyncFailure, async () => { throw new Error('async sink failed'); });
     expect(() => asyncPort!.enqueue(batch)).not.toThrow();
     await asyncPort!.shutdown();
@@ -199,7 +232,7 @@ describe('live console telemetry', () => {
     const blocked = new Promise<void>((resolve) => { unblock = resolve; });
     const write = vi.fn(() => blocked);
     const port = createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'console',
+      PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'console',
     }, undefined, write)!;
     for (let index = 0; index < 9; index++) port.enqueue(batch);
     expect(() => port.enqueue(batch)).toThrow(/queue/i);
@@ -219,7 +252,7 @@ describe('live console telemetry', () => {
     try {
       const onFailure = vi.fn();
       const port = createConfiguredNodeOtlpLiveTelemetryPort({
-        ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'console',
+        PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'console',
       }, onFailure, () => blocked)!;
       port.enqueue(batch);
       let settled = false;

@@ -1,5 +1,5 @@
 /**
- * End to end, CLI side: two devices, each with its own `HOME` (its own `~/.robota/devices` and its
+ * End to end, CLI side: two devices, each with its own `HOME` (its own `~/.agent-fixture/devices` and its
  * own credential store), connect through a relay over WebRTC, admit each other with the device
  * handshake, and deliver a message. The identity each endpoint uses is only what `/devices` left
  * under its `HOME`.
@@ -33,6 +33,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createFileCredentialStore } from '../../credentials/file-credential-store.js';
+import { createTestRuntimeContext } from './runtime-context-fixture.js';
 import { addressCachePath } from '../address-cache.js';
 import { createDeviceIdentityService } from '../device-identity-service.js';
 import { reissueDueLists } from '../device-list-reissue.js';
@@ -56,8 +57,7 @@ import { openHandoffWire } from '../../handoff/handoff-wire.js';
 import { prepareOutgoingFile } from '../../peer-files/outgoing-file.js';
 import { parseMeshInternetSettings } from '../mesh-internet-settings.js';
 import {
-  DEVICE_KA_KEY,
-  DEVICE_SIGN_KEY,
+  deviceIdentityCredentialKeys,
   loadDevicePrivateKeys,
   loadSigningKey,
   storeKeyPair,
@@ -76,6 +76,7 @@ import type { ICredentialStore } from '@robota-sdk/agent-core';
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 import type { ICapabilityApprovalRequest } from '@robota-sdk/agent-interface-session-mobility';
 import type { IDeviceMeshLink } from '@robota-sdk/agent-transport-webrtc';
+import type { ICliRuntimeContext } from '../../product/runtime-context.js';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -84,21 +85,23 @@ interface IHome {
   readonly root: string;
   readonly directory: string;
   readonly store: ICredentialStore;
+  readonly productRuntime: ICliRuntimeContext;
 }
 
 function makeHome(label: string): IHome {
-  const home = mkdtempSync(join(tmpdir(), `robota-mesh-${label}-`));
-  const root = join(home, '.robota');
+  const home = mkdtempSync(join(tmpdir(), `agent-fixture-mesh-${label}-`));
+  const root = join(home, '.agent-fixture');
   return {
     home,
     root,
     directory: join(root, 'devices'),
     store: createFileCredentialStore(join(root, 'credentials'), { withinRoot: root }),
+    productRuntime: createTestRuntimeContext(root),
   };
 }
 
 function stateOf(home: IHome): IDeviceIdentityState {
-  const state = readIdentityState(home.directory);
+  const state = readIdentityState(home.productRuntime.cryptoContext, home.directory);
   if (state === undefined) throw new Error('no identity');
   return state;
 }
@@ -111,6 +114,7 @@ const endpointErrors: unknown[] = [];
 
 function service(home: IHome) {
   return createDeviceIdentityService({
+    productRuntime: home.productRuntime,
     directory: home.directory,
     withinRoot: home.root,
     store: home.store,
@@ -126,13 +130,13 @@ function service(home: IHome) {
  */
 async function enrolDesktop(): Promise<string> {
   const held = stateOf(laptop);
-  const signingKey = await loadSigningKey(laptop.store, held.signingKeyCertificate);
+  const signingKey = await loadSigningKey(laptop.store, laptop.productRuntime.config.credentials.serviceNamespace, held.signingKeyCertificate);
   if (signingKey === undefined) throw new Error('no signing key');
   const [sign, ka] = await Promise.all([
     generateDeviceSignKeyPair(true),
     generateDeviceKeyAgreementKeyPair(true),
   ]);
-  const certificate = await certifyDevice({
+  const certificate = await certifyDevice(laptop.productRuntime.cryptoContext, {
     signingKey,
     signPublicKey: sign.publicKey,
     kaPublicKey: ka.publicKey,
@@ -141,15 +145,16 @@ async function enrolDesktop(): Promise<string> {
     capabilities: ['message', 'presence'],
     issuedAt: clock,
   });
-  const roster = await issueDeviceRoster({
+  const roster = await issueDeviceRoster(laptop.productRuntime.cryptoContext, {
     signingKey,
     seq: held.roster.seq + 1,
     issuedAt: clock,
     devices: [...held.roster.devices, certificate],
   });
   writeIdentityState(laptop.directory, { ...held, roster }, laptop.root);
-  await storeKeyPair(desktop.store, DEVICE_SIGN_KEY, sign);
-  await storeKeyPair(desktop.store, DEVICE_KA_KEY, ka);
+  const keys = deviceIdentityCredentialKeys(desktop.productRuntime.config.credentials.serviceNamespace);
+  await storeKeyPair(desktop.store, keys.deviceSign, sign);
+  await storeKeyPair(desktop.store, keys.deviceKeyAgreement, ka);
   writeIdentityState(
     desktop.directory,
     { ...held, roster, deviceCertificate: certificate, holdsSigningKey: false, marks: {} },
@@ -180,6 +185,8 @@ async function endpoint(
   const opened = await openDeviceMesh({
     ...extra,
     root: home.root,
+    cryptoContext: home.productRuntime.cryptoContext,
+    credentialServiceNamespace: home.productRuntime.config.credentials.serviceNamespace,
     store: home.store,
     relay: hub.connect(),
     now: () => clock,
@@ -222,6 +229,7 @@ describe('device mesh between two HOMEs', () => {
     clock += 20 * HOUR;
     await expect(
       reissueDueLists({
+        productRuntime: laptop.productRuntime,
         directory: laptop.directory,
         withinRoot: laptop.root,
         store: laptop.store,
@@ -274,6 +282,8 @@ describe('device mesh between two HOMEs', () => {
     const openFar = async (home: IHome) => {
       const opened = await openDeviceMesh({
         root: home.root,
+        cryptoContext: home.productRuntime.cryptoContext,
+        credentialServiceNamespace: home.productRuntime.config.credentials.serviceNamespace,
         store: home.store,
         relay: createInMemoryMeshRelayHub().connect(),
         lan: { host: '127.0.0.1', mdns: false },
@@ -316,6 +326,8 @@ describe('device mesh between two HOMEs', () => {
     ) {
       const opened = await openDeviceMesh({
         root: home.root,
+        cryptoContext: home.productRuntime.cryptoContext,
+        credentialServiceNamespace: home.productRuntime.config.credentials.serviceNamespace,
         store: home.store,
         relay: hub.connect(),
         lan: { host: '127.0.0.1', mdns: false },
@@ -508,7 +520,7 @@ describe('device mesh between two HOMEs', () => {
         atDesktop.connect(laptopId),
       ]);
       // The desktop saves what it takes into a session store under its own HOME.
-      const store = createUserSessionStore(join(desktop.home, '.robota', 'sessions'));
+      const store = createUserSessionStore(join(desktop.home, '.agent-fixture', 'sessions'));
       const outcomes: TReceiveHandoffOutcome[] = [];
       const receiverAt = (
         home: IHome,
@@ -517,9 +529,10 @@ describe('device mesh between two HOMEs', () => {
       ) => ({
         deviceId,
         receive: createHandoffReceiver({
+          productRuntime: home.productRuntime,
           root: home.root,
           composition,
-          identity: () => readHandoffIdentity(home.root),
+          identity: () => readHandoffIdentity(home.root, home.productRuntime),
           resolveCredential: () => true,
           persist,
           deviceLabel: 'this device',
@@ -534,7 +547,7 @@ describe('device mesh between two HOMEs', () => {
       });
       // The laptop takes hand-offs too, so a pull reaches a receiver that could take one.
       acceptDeviceChannels(toDesktop, { handoff: receiverAt(laptop, laptopId, () => true) });
-      const keys = await loadDevicePrivateKeys(laptop.store, stateOf(laptop).deviceCertificate);
+      const keys = await loadDevicePrivateKeys(laptop.store, laptop.productRuntime.config.credentials.serviceNamespace, stateOf(laptop).deviceCertificate);
       if (keys === undefined) throw new Error('no laptop keys');
       const signer = { userId: stateOf(laptop).userId, signPrivateKey: keys.signPrivateKey };
       return { toDesktop, toLaptop, desktopId, laptopId, asked, store, outcomes, signer };
@@ -548,6 +561,7 @@ describe('device mesh between two HOMEs', () => {
       onReadOnly: () => void,
     ) {
       return handoffToDevice(link, {
+        cryptoContext: laptop.productRuntime.cryptoContext,
         composition,
         request: {
           handoffId: 'handoff-laptop-1',
@@ -559,7 +573,7 @@ describe('device mesh between two HOMEs', () => {
           offeredAt: clock,
         },
         mintGrant: (manifest, fingerprint) =>
-          mintHandoffGrant(signer, manifest, fingerprint, Date.now()),
+          mintHandoffGrant(laptop.productRuntime.cryptoContext, signer, manifest, fingerprint, Date.now()),
         onReadOnly,
       });
     }
@@ -631,6 +645,8 @@ describe('device mesh between two HOMEs', () => {
     const open2 = async (home: IHome) => {
       const opened = await openDeviceMesh({
         root: home.root,
+        cryptoContext: home.productRuntime.cryptoContext,
+        credentialServiceNamespace: home.productRuntime.config.credentials.serviceNamespace,
         store: home.store,
         relay: createInMemoryMeshRelayHub().connect(),
         lan,
@@ -666,21 +682,21 @@ describe('device mesh between two HOMEs', () => {
 
 describe('saving lists a peer handed over', () => {
   async function laptopSigningKey() {
-    const key = await loadSigningKey(laptop.store, stateOf(laptop).signingKeyCertificate);
+    const key = await loadSigningKey(laptop.store, laptop.productRuntime.config.credentials.serviceNamespace, stateOf(laptop).signingKeyCertificate);
     if (key === undefined) throw new Error('no signing key');
     return key;
   }
 
   it('ignores a list that is not newer', async () => {
     const before = stateOf(laptop);
-    const older = await issueDeviceRevocationList({
+    const older = await issueDeviceRevocationList(laptop.productRuntime.cryptoContext, {
       signingKey: await laptopSigningKey(),
       seq: before.revocation.seq - 1,
       issuedAt: clock,
       revokedDeviceIds: [],
     });
     await expect(
-      saveAdoptedLists(laptop.directory, laptop.root, { revocation: older, marks: {} }, clock),
+      saveAdoptedLists(laptop.productRuntime.cryptoContext, laptop.directory, laptop.root, { revocation: older, marks: {} }, clock),
     ).resolves.toBe(false);
     expect(stateOf(laptop).revocation.sig).toBe(before.revocation.sig);
   });
@@ -693,14 +709,14 @@ describe('saving lists a peer handed over', () => {
       signingKeyId: 'x'.repeat(43),
     };
     await expect(
-      saveAdoptedLists(laptop.directory, laptop.root, { revocation: foreign, marks: {} }, clock),
+      saveAdoptedLists(laptop.productRuntime.cryptoContext, laptop.directory, laptop.root, { revocation: foreign, marks: {} }, clock),
     ).resolves.toBe(false);
     expect(stateOf(laptop).revocation.sig).toBe(before.revocation.sig);
   });
 
   it('refuses, and saves nothing, when the list does not verify for this device', async () => {
     const before = stateOf(laptop);
-    const revokingSelf = await issueDeviceRevocationList({
+    const revokingSelf = await issueDeviceRevocationList(laptop.productRuntime.cryptoContext, {
       signingKey: await laptopSigningKey(),
       seq: before.revocation.seq + 1,
       issuedAt: clock,
@@ -708,6 +724,7 @@ describe('saving lists a peer handed over', () => {
     });
     await expect(
       saveAdoptedLists(
+        laptop.productRuntime.cryptoContext,
         laptop.directory,
         laptop.root,
         { revocation: revokingSelf, marks: {} },

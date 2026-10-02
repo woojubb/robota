@@ -59,8 +59,8 @@ describe('project-relative writer containment', () => {
   it.runIf(process.platform === 'linux')(
     'does not redirect a write when a verified parent is replaced with an outside link',
     () => {
-      const root = fs.mkdtempSync(join(tmpdir(), 'robota-project-write-root-'));
-      const outside = fs.mkdtempSync(join(tmpdir(), 'robota-project-write-outside-'));
+      const root = fs.mkdtempSync(join(tmpdir(), 'agent-project-write-root-'));
+      const outside = fs.mkdtempSync(join(tmpdir(), 'agent-project-write-outside-'));
       roots.push(root, outside);
       const parent = join(root, 'state');
       const movedParent = join(root, 'state-original');
@@ -88,8 +88,8 @@ describe('project-relative writer containment', () => {
   it.runIf(process.platform === 'linux')(
     'does not redirect a delete when a verified parent is replaced with an outside link',
     () => {
-      const root = fs.mkdtempSync(join(tmpdir(), 'robota-project-delete-root-'));
-      const outside = fs.mkdtempSync(join(tmpdir(), 'robota-project-delete-outside-'));
+      const root = fs.mkdtempSync(join(tmpdir(), 'agent-project-delete-root-'));
+      const outside = fs.mkdtempSync(join(tmpdir(), 'agent-project-delete-outside-'));
       roots.push(root, outside);
       const parent = join(root, 'state');
       const movedParent = join(root, 'state-original');
@@ -119,7 +119,7 @@ describe('project-relative writer containment', () => {
   it.runIf(process.platform === 'linux')(
     'uses one stable boundary for write, append, and delete operations',
     () => {
-      const root = fs.mkdtempSync(join(tmpdir(), 'robota-project-boundary-root-'));
+      const root = fs.mkdtempSync(join(tmpdir(), 'agent-project-boundary-root-'));
       roots.push(root);
       const identity = Object.freeze({
         repositoryKey: `test:${root}`,
@@ -143,8 +143,8 @@ describe('project-relative writer containment', () => {
   it.runIf(process.platform === 'linux')(
     'refuses a final target symlink without touching its outside target',
     () => {
-      const root = fs.mkdtempSync(join(tmpdir(), 'robota-project-target-root-'));
-      const outside = fs.mkdtempSync(join(tmpdir(), 'robota-project-target-outside-'));
+      const root = fs.mkdtempSync(join(tmpdir(), 'agent-project-target-root-'));
+      const outside = fs.mkdtempSync(join(tmpdir(), 'agent-project-target-outside-'));
       roots.push(root, outside);
       fs.writeFileSync(join(outside, 'entry.txt'), 'outside canary');
       fs.symlinkSync(join(outside, 'entry.txt'), join(root, 'entry.txt'));
@@ -167,8 +167,8 @@ describe('project-relative writer containment', () => {
   it.runIf(process.platform === 'linux')(
     'refuses when the workspace identity changes during boundary setup',
     () => {
-      const root = fs.mkdtempSync(join(tmpdir(), 'robota-project-stale-root-'));
-      const replacement = fs.mkdtempSync(join(tmpdir(), 'robota-project-stale-replacement-'));
+      const root = fs.mkdtempSync(join(tmpdir(), 'agent-project-stale-root-'));
+      const replacement = fs.mkdtempSync(join(tmpdir(), 'agent-project-stale-replacement-'));
       roots.push(root, replacement);
       const identity = Object.freeze({
         repositoryKey: `test:${root}`,
@@ -194,7 +194,7 @@ describe('project-relative writer containment', () => {
   );
 
   it('fails closed on hosts without stable root-anchored mutation support', () => {
-    const root = fs.mkdtempSync(join(tmpdir(), 'robota-project-unsupported-root-'));
+    const root = fs.mkdtempSync(join(tmpdir(), 'agent-project-unsupported-root-'));
     roots.push(root);
     const identity = Object.freeze({
       repositoryKey: `test:${root}`,

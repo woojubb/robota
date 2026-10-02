@@ -43,6 +43,8 @@ export interface IMCPDefinitionProjection {
   /** Every value is `[REDACTED]`; the keys are the information. */
   readonly headers?: Readonly<Record<string, string>>;
   readonly timeout?: number;
+  readonly protocolVersion?: '2026-07-28';
+  readonly skills?: boolean;
   /** OAuth sign-in settings; none of them is a secret. */
   readonly oauth?: IMCPOAuthConfig;
   /** Declared authentication this version cannot perform; the server is listed but not connected. */
@@ -99,6 +101,9 @@ export function projectEntry(entry: IMCPResolvedEntry): IMCPDefinitionProjection
       projection.url = displayValue(definition, 'url', definition.url);
     if (definition.headers !== undefined) projection.headers = redactValues(definition.headers);
     if (definition.timeout !== undefined) projection.timeout = definition.timeout;
+    if (definition.protocolVersion !== undefined)
+      projection.protocolVersion = definition.protocolVersion;
+    if (definition.skills !== undefined) projection.skills = definition.skills;
     if (definition.oauth !== undefined) {
       const { clientId, authServerMetadataUrl } = definition.oauth;
       projection.oauth = {

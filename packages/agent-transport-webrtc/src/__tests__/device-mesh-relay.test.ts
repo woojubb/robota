@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 /**
  * The device mesh through a TURN relay, on a network where no direct path works: every candidate
  * but a relayed one is dropped on the way (a symmetric NAT on both sides), and the connections are
@@ -130,7 +132,7 @@ function recordingDataChannel(): {
 }
 
 async function pairOf(own: IMeshTestDevice, peer: IMeshTestDevice) {
-  return derivePairRendezvous({
+  return derivePairRendezvous(testIdentity, {
     ownKaPrivateKey: own.ka.privateKey,
     own: own.cert,
     peerDeviceId: peer.cert.deviceId,
@@ -167,7 +169,7 @@ function node(
   log: INatLog,
   over: Partial<IDeviceMeshNodeOptions> = {},
 ): DeviceMeshNode {
-  const created = new DeviceMeshNode({
+  const created = new DeviceMeshNode({cryptoContext: testIdentity,
     identity: world.identity(device),
     sessionDescriptor: device.session,
     localPolicy: ALL_CAPABILITIES,
@@ -260,7 +262,7 @@ describe('DeviceMeshNode — through the embedded TURN relay behind symmetric NA
           ...signal,
         }),
       startHandshake: (binding) =>
-        startDeviceHandshake({
+        startDeviceHandshake(testIdentity, {
           role: 'initiator',
           identity: world.identity(world.third),
           sessionDescriptor: world.third.session,
@@ -415,7 +417,7 @@ describe('DeviceMeshNode — relay fallback order', () => {
       },
     });
     const low = node(hub, world.low, log, { connectTimeoutMs: 2_000 });
-    const high = new DeviceMeshNode({
+    const high = new DeviceMeshNode({cryptoContext: testIdentity,
       identity: world.identity(world.high),
       sessionDescriptor: world.high.session,
       localPolicy: ALL_CAPABILITIES,

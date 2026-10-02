@@ -5,6 +5,7 @@ import type {
   IProviderCallTraceEntry,
   IToolBodyTraceEntry,
   IToolPermissionDecisionEntry,
+  ILivePromptQueueSummary,
 } from '@robota-sdk/agent-interface-analytics';
 import { isSafeSessionId } from '@robota-sdk/agent-session';
 
@@ -62,7 +63,7 @@ export function reportTraceContextUnavailable(port: ILivePromptTracePort, provid
   reportedUnavailableProviders.add(id);
   try {
     void Promise.resolve(
-      port.onDiagnostic?.(`Robota telemetry: provider ${id} cannot propagate trace context; its requests are sent without traceparent.`),
+      port.onDiagnostic?.(`ConversationAgent telemetry: provider ${id} cannot propagate trace context; its requests are sent without traceparent.`),
     ).catch(() => undefined);
   } catch {
     // Diagnostics are isolated from the turn.
@@ -170,9 +171,20 @@ export class LivePromptTraceAccumulator {
   private omittedProvider = 0;
   private omittedTool = 0;
   private omittedPermission = 0;
+  private readonly providerTotal = { durationMs: 0, samples: 0, invalid: 0 };
+  private readonly toolTotal = { durationMs: 0, samples: 0, invalid: 0 };
+  private queueSummary?: ILivePromptQueueSummary;
+
+  setQueueSummary(summary: ILivePromptQueueSummary | undefined): void {
+    if (summary !== undefined) this.queueSummary = {
+      durationMs: summary.durationMs, samples: summary.samples, invalid: summary.invalid,
+      admissionStarted: summary.admissionStarted, notDispatched: summary.notDispatched,
+    };
+  }
 
   addProvider(value: IProviderCallTraceEntry): void {
     const trace = projectProvider(value);
+    this.addDuration(this.providerTotal, trace);
     if (!trace || this.children.length >= MAX_CHILDREN) this.omittedProvider += 1;
     else this.children.push({ kind: 'provider', trace });
   }
@@ -180,6 +192,7 @@ export class LivePromptTraceAccumulator {
   /** True when the child was kept, so its span is one the exported trace has. */
   addTool(value: IToolBodyTraceEntry): boolean {
     const trace = projectTool(value);
+    this.addDuration(this.toolTotal, trace);
     if (!trace || this.children.length >= MAX_CHILDREN) {
       this.omittedTool += 1;
       return false;
@@ -198,6 +211,19 @@ export class LivePromptTraceAccumulator {
     this.omittedProvider += counts.provider;
     this.omittedTool += counts.tool;
     this.omittedPermission += counts.permission ?? 0;
+    this.providerTotal.invalid += counts.provider;
+    this.toolTotal.invalid += counts.tool;
+  }
+
+  private addDuration(total: { durationMs: number; samples: number; invalid: number },
+    trace: { startedAt: string; endedAt: string } | undefined): void {
+    const duration = trace ? Date.parse(trace.endedAt) - Date.parse(trace.startedAt) : NaN;
+    if (!Number.isSafeInteger(duration) || duration < 0 || !Number.isSafeInteger(total.durationMs + duration)) {
+      total.invalid++;
+      return;
+    }
+    total.durationMs += duration;
+    total.samples++;
   }
 
   finish(input: {
@@ -215,6 +241,8 @@ export class LivePromptTraceAccumulator {
       sessionId: input.sessionId,
       turnId: input.turnId,
       root: { ...input.root },
+      timingTotals: { provider: { ...this.providerTotal }, tool: { ...this.toolTotal },
+        ...(this.queueSummary !== undefined ? { queue: { ...this.queueSummary } } : {}) },
       children: [...this.children],
       omittedChildren: {
         provider: this.omittedProvider,

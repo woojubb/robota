@@ -11,5 +11,5 @@ project settings outrank. A worktree child also missed the parent's untracked lo
 - `agent-subagent-runner` (minor): the runner factory takes `parentSandboxSettings`, read at each
   spawn. The start payload carries it, the IPC guard checks it is a record, and the worker hands it to
   `createSandbox` as `parentSettings`.
-- `agent-cli` (patch): robota sends its live sandbox's settings, and a child builds its sandbox from
+- `agent-cli` (patch): the configured CLI sends its live sandbox's settings, and a child builds its sandbox from
   them. It refuses settings it cannot read rather than falling back to the files.

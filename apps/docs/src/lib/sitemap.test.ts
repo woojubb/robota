@@ -9,17 +9,17 @@ describe('buildSitemapEntries', () => {
       ['guide'],
       ['guide', 'cli'],
       ['packages', 'agent-core'],
-    ]).map((e) => e.url);
+    ], 'https://docs.example.test').map((e) => e.url);
 
     expect(urls).toEqual([
-      'https://docs.robota.io/en/',
-      'https://docs.robota.io/en/guide/',
-      'https://docs.robota.io/en/guide/cli/',
-      'https://docs.robota.io/en/packages/agent-core/',
-      'https://docs.robota.io/ko/',
-      'https://docs.robota.io/ko/guide/',
-      'https://docs.robota.io/ko/guide/cli/',
-      'https://docs.robota.io/ko/packages/agent-core/',
+      'https://docs.example.test/en/',
+      'https://docs.example.test/en/guide/',
+      'https://docs.example.test/en/guide/cli/',
+      'https://docs.example.test/en/packages/agent-core/',
+      'https://docs.example.test/ko/',
+      'https://docs.example.test/ko/guide/',
+      'https://docs.example.test/ko/guide/cli/',
+      'https://docs.example.test/ko/packages/agent-core/',
     ]);
   });
 });

@@ -21,7 +21,7 @@ const directories: TWorkspaceProjectStateDirectories = {
 };
 
 function service(projectStateDirectories?: TWorkspaceProjectStateDirectories) {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-state-root-')));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-state-root-')));
   roots.push(root);
   const identity: IWorkspaceIdentity = {
     repositoryKey: `test:${root}`,
@@ -101,7 +101,7 @@ describe('host-selected project state directories', () => {
         expect(storage.readText('probe.txt', 'test host-selected state read')).toBe(namespace);
         expect(existsSync(join(root, relativeRoot, 'probe.txt'))).toBe(true);
       }
-      expect(existsSync(join(root, '.robota', 'sessions', 'probe.txt'))).toBe(false);
+      expect(existsSync(join(root, '.agent', 'sessions', 'probe.txt'))).toBe(false);
     },
   );
 

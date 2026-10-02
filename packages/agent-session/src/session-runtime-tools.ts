@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
 
 import type { TurnClaim } from './turn-claim.js';
-import type { Robota, IToolExecutionResult, TToolParameters } from '@robota-sdk/agent-core';
+import type { ConversationAgent, IToolExecutionResult, TToolParameters } from '@robota-sdk/agent-core';
 
 /** Direct calls share the session claim and retain their completion for graceful disposal. */
 export class SessionRuntimeTools {
   private execution: Promise<IToolExecutionResult> | null = null;
 
   constructor(
-    private readonly agent: Robota,
+    private readonly agent: ConversationAgent,
     private readonly claim: TurnClaim,
     private readonly sessionId: string,
   ) {}

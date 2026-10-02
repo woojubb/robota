@@ -52,6 +52,7 @@ export function buildTuiSessionOptions(
     ...(opts.userSettingsSources !== undefined
       ? { userSettingsSources: opts.userSettingsSources }
       : {}),
+    ...(opts.environment !== undefined ? { environment: opts.environment } : {}),
     ...(opts.editCheckpointStore !== undefined
       ? { editCheckpointStore: opts.editCheckpointStore }
       : {}),
@@ -98,6 +99,9 @@ export function buildTuiSessionOptions(
     ...(opts.pluginDirectories !== undefined ? { pluginDirectories: opts.pluginDirectories } : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
     ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
+    ...(opts.toolExecutionPolicy !== undefined
+      ? { toolExecutionPolicy: opts.toolExecutionPolicy }
+      : {}),
     ...(opts.sandboxClient !== undefined ? { sandboxClient: opts.sandboxClient } : {}),
     commandModules: opts.commandModules,
     commandHostAdapters: opts.commandHostAdapters,

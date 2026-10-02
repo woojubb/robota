@@ -125,8 +125,8 @@ describe('createDefaultNodeRegistry — collapsed llm-text provider injection (A
 
 describe('createDefaultNodeRegistry — host-owned skill discovery', () => {
   it('resolves a skill from the supplied host source and root', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'robota-dag-skill-root-'));
-    const home = mkdtempSync(join(tmpdir(), 'robota-dag-skill-home-'));
+    const root = mkdtempSync(join(tmpdir(), 'agent-test-dag-skill-root-'));
+    const home = mkdtempSync(join(tmpdir(), 'agent-test-dag-skill-home-'));
     vi.stubEnv('HOME', home);
     try {
       const skillDirectory = join(root, 'custom', 'skills', 'audit');
@@ -137,7 +137,7 @@ describe('createDefaultNodeRegistry — host-owned skill discovery', () => {
           '\n',
         ),
       );
-      const homeSkillDirectory = join(home, '.robota', 'skills', 'home-only');
+      const homeSkillDirectory = join(home, '.fixture-state', 'skills', 'home-only');
       mkdirSync(homeSkillDirectory, { recursive: true });
       writeFileSync(
         join(homeSkillDirectory, 'SKILL.md'),
@@ -147,7 +147,7 @@ describe('createDefaultNodeRegistry — host-owned skill discovery', () => {
       );
       const skillRoots = [
         { root: join('custom', 'skills'), kind: 'skills' as const },
-        { root: join('.robota', 'skills'), kind: 'skills' as const },
+        { root: join('.fixture-state', 'skills'), kind: 'skills' as const },
       ];
       const nodes = await createDefaultNodeRegistry(
         [],

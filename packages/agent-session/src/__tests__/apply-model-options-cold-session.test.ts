@@ -4,13 +4,13 @@
  * Bug (2026-06-14): on a freshly-constructed interactive session, running `/preset` (or any live
  * model re-apply) BEFORE the first message threw
  *   `ConfigurationError: Agent must be fully initialized before changing model configuration`
- * because the Robota agent initializes lazily on the first `run()`, while `setModel` requires full
+ * because the ConversationAgent agent initializes lazily on the first `run()`, while `setModel` requires full
  * initialization.
  *
- * The original PRESET-013 unit test mocked the entire `Robota` class (so `setModel`'s init guard was
- * never exercised). This test uses a REAL Robota + real provider and never calls `run()`, so it
+ * The original PRESET-013 unit test mocked the entire `ConversationAgent` class (so `setModel`'s init guard was
+ * never exercised). This test uses a REAL ConversationAgent + real provider and never calls `run()`, so it
  * drives the exact path that failed in production. `applyModelOptions` must bring the agent to a
- * ready state (`robota.ensureReady()`) and succeed.
+ * ready state (`agent.ensureReady()`) and succeed.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -20,7 +20,7 @@ import { Session } from '../session.js';
 
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
-/** Minimal real provider — no network; enough for a real Robota to initialize. */
+/** Minimal real provider — no network; enough for a real ConversationAgent to initialize. */
 class ColdTestProvider extends AbstractAIProvider {
   readonly name = 'cold-test-provider';
   readonly version = '1.0.0';

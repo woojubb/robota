@@ -18,7 +18,7 @@ package's contract is in its `docs/SPEC.md`.
   (`agent-interface-*`). A transport can talk to a session through those contracts without
   depending on the package that builds sessions.
 - **Keep product opinions at the edge.** Library packages stay neutral: they read no ambient config
-  and pick no file locations on their own. The `robota` CLI is one application built on top of them,
+  and pick no file locations on their own. The `__PRODUCT_CLI_NAME__` CLI is one application built on top of them,
   and it is where product decisions (which settings files to read, which commands to offer) live.
 
 ## The layers
@@ -177,14 +177,14 @@ together. See [Deployment](./deployment.md).
 | Package                                 | What it is                                                                       |
 | --------------------------------------- | -------------------------------------------------------------------------------- |
 | `agent-ui-terminal`                     | The terminal UI (React + Ink), including `renderApp` and `TuiInteractionChannel` |
-| `agent-cli`                             | The `robota` command — a reference application built from the packages above     |
+| `agent-cli`                             | The `__PRODUCT_CLI_NAME__` command — a maintained agent interface built from the packages above     |
 | `agent-ui-web` (internal)               | GUI components and a session reducer over the transport wire protocol            |
-| `agent-gui-web` (internal)              | The GUI web app served by `robota --serve --open` and loaded by the desktop app  |
+| `agent-gui-web` (internal)              | The GUI web app served by `__PRODUCT_CLI_NAME__ --serve --open` and loaded by the desktop app  |
 | `agent-transport-webrtc-web` (internal) | The browser side of a WebRTC remote-control connection                           |
 
 `agent-cli` bundles the Robota packages it uses into its own build, so installing it does not
 install the SDK packages separately. The desktop app (`apps/agent-app`) is an Electron shell: it
-starts or reuses the workspace's `robota` daemon, connects to it over loopback, and loads
+starts or reuses the workspace's `__PRODUCT_CLI_NAME__` daemon, connects to it over loopback, and loads
 `agent-gui-web`.
 
 React and Ink appear only in these surface packages: Ink in `agent-ui-terminal` (and `agent-cli`,
@@ -220,7 +220,7 @@ such as tool starts and ends. The same history drives display and persistence.
 User input
   → InteractiveSession.submit()
   → history: IHistoryEntry (category 'chat', user message)
-  → Session.run() → Robota.run()
+  → Session.run() → ConversationAgent.run()
   → the provider receives only the chat entries, converted to messages
   → streaming reply → text_delta events; tool calls → tool_start / tool_end events
   → history: assistant message (category 'chat') and tool entries (category 'event')

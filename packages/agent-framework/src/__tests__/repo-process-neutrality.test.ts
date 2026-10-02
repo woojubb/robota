@@ -1,7 +1,7 @@
 /**
  * NEUT-001 — the published library must not serialize THIS repository's process.
  *
- * Red-first floor: no framework source file may embed Robota repo-process literals
+ * Red-first floor: no framework source file may embed ConversationAgent repo-process literals
  * (`pnpm harness:verify`, `origin/develop`, `pnpm --filter`). The repo-specific
  * a composition root injects its own command templates.
  */
@@ -33,7 +33,7 @@ function collectSourceFiles(dir: string): string[] {
 }
 
 describe('repo-process neutrality (NEUT-001)', () => {
-  it('framework source carries no Robota repo-process literals', () => {
+  it('framework source carries no ConversationAgent repo-process literals', () => {
     const offenders: string[] = [];
     for (const file of collectSourceFiles(SRC_ROOT)) {
       const content = readFileSync(file, 'utf8');

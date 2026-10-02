@@ -21,7 +21,7 @@ describe.runIf(process.platform !== 'win32')('POSIX native library retention', (
   it('loads libc once per process, so no library handle is ever left for the garbage collector', async () => {
     const { PosixStableFileHostBackend } = await import('../posix-backend.js');
     for (let index = 0; index < 3; index += 1) {
-      const root = mkdtempSync(join(tmpdir(), 'robota-posix-retention-'));
+      const root = mkdtempSync(join(tmpdir(), 'agent-posix-retention-'));
       roots.push(root);
       new PosixStableFileHostBackend(root).close();
     }

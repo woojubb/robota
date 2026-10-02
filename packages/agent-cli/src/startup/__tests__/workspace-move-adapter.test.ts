@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync } from 'node:fs';
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,7 +11,7 @@ import { argvCarryingSafeMode, createWorkspaceMoveAdapter } from '../workspace-m
 
 import type { IWorkspaceMoveRequest } from '@robota-sdk/agent-framework';
 
-/** Issue #3081 — `/cd` in the TUI: save the conversation for the target, then run robota there. */
+/** Issue #3081 — `/cd` in the TUI: save the conversation for the target, then run the product there. */
 describe('buildWorkspaceMoveArgv', () => {
   it('keeps this run\'s flags and drops what to resume and what to run', () => {
     expect(
@@ -77,7 +78,7 @@ describe('createWorkspaceMoveAdapter', () => {
   let target: string;
 
   beforeEach(() => {
-    home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-cd-home-')));
+    home = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-cd-home-')));
     target = join(home, 'target');
     mkdirSync(target);
     vi.stubEnv('HOME', home);
@@ -112,11 +113,24 @@ describe('createWorkspaceMoveAdapter', () => {
     const requestExit = vi.fn();
     const runSync = vi.fn().mockReturnValue({ status: 7 });
     const resolveAccess = vi.fn();
-    const adapter = createWorkspaceMoveAdapter({
+    const selectedFile = join(home, 'selected.env');
+    const runtime = createTestProductRuntime('test-product', {
+      HOME: home,
+      PRODUCT_CONFIG_FILE: selectedFile,
+      SYNTHETIC_MOVE_KEY: 'synthetic-move-value',
+      UNRELATED_PRIVATE_TOKEN: 'must-stay-parent-only',
+    });
+    mkdirSync(runtime.layout.userRoot, { recursive: true });
+    writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({
+      currentProvider: 'selected',
+      providers: { selected: { type: 'synthetic', model: 'fixture', apiKey: '$ENV:SYNTHETIC_MOVE_KEY' } },
+    }));
+    const adapter = createWorkspaceMoveAdapter({productRuntime: runtime,
+      providerDefinitions: [],
       userHome: home,
       argv: ['--model', 'm1'],
       requestExit,
-      environment: { ROBOTA_TELEMETRY_ENDPOINT: 'http://collector' },
+      environment: { PRODUCT_TELEMETRY_ENDPOINT: 'http://collector' },
       resolveAccess,
       onProcessExit: (listener) => {
         exitListener = listener;
@@ -142,9 +156,12 @@ describe('createWorkspaceMoveAdapter', () => {
     expect(args).toContain('--restricted-workspace');
     expect(options).toEqual(expect.objectContaining({ cwd: target, stdio: 'inherit' }));
     // Telemetry startup took out of process.env is handed to the target run.
-    expect((options as { env: Record<string, string> }).env['ROBOTA_TELEMETRY_ENDPOINT']).toBe(
+    expect((options as { env: Record<string, string> }).env['PRODUCT_TELEMETRY_ENDPOINT']).toBe(
       'http://collector',
     );
+    expect((options as { env: Record<string, string> }).env['PRODUCT_CONFIG_FILE']).toBe(selectedFile);
+    expect((options as { env: Record<string, string> }).env['SYNTHETIC_MOVE_KEY']).toBe('synthetic-move-value');
+    expect((options as { env: Record<string, string> }).env['UNRELATED_PRIVATE_TOKEN']).toBeUndefined();
     expect(process.exitCode).toBe(7);
     process.exitCode = previousExitCode;
   });
@@ -155,7 +172,7 @@ describe('createWorkspaceMoveAdapter', () => {
       reason: 'WorkspaceAuthorityRequired',
       trustState: 'untrusted',
     });
-    const adapter = createWorkspaceMoveAdapter({
+    const adapter = createWorkspaceMoveAdapter({productRuntime: createTestProductRuntime('test-product', { HOME: home }),
       userHome: home,
       argv: [],
       requestExit: vi.fn(),
@@ -173,12 +190,12 @@ describe('a /cd target never widens access (issue #3081)', () => {
   it('starts restricted under the flag, whatever access the directory would get', async () => {
     const trusted = { status: 'trusted' } as never;
     const access = await resolveStartupWorkspaceProjectAccess(
-      ['node', 'robota', '--restricted-workspace'],
+      ['node', 'test-product', '--restricted-workspace'],
       '/w/b',
       { projectAccess: trusted },
     );
     expect(access.status).toBe('restricted');
-    const without = await resolveStartupWorkspaceProjectAccess(['node', 'robota'], '/w/b', {
+    const without = await resolveStartupWorkspaceProjectAccess(['node', 'test-product'], '/w/b', {
       projectAccess: trusted,
     });
     expect(without).toBe(trusted);

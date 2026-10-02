@@ -1,5 +1,5 @@
 /**
- * A run's provider usage, as a consumer of `Robota` reads it: the prompt-cache read a provider
+ * A run's provider usage, as a consumer of `ConversationAgent` reads it: the prompt-cache read a provider
  * reported reaches the committed assistant message and the provider-call event, one run's usage is
  * summed straight from `getHistory()`, and every commit path — the forced summary included — keeps
  * the usage a provider reported without a total.
@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { Robota } from '../../core/robota';
+import { ConversationAgent } from '../../core/conversation-agent';
 import { AbstractTool } from '../../abstracts/abstract-tool';
 import { estimateContextTokensFromMessages } from '../../context/estimation';
 import { readTokenUsageFromMessage } from '../../context/token-usage';
@@ -94,12 +94,12 @@ function build(
   replies: readonly IReply[],
   overrides: Partial<IAgentConfig> = {},
 ): {
-  agent: Robota;
+  agent: ConversationAgent;
   events: ICapturedEvent[];
   onExecutionEvent: (event: string, data: unknown) => void;
 } {
   const events: ICapturedEvent[] = [];
-  const agent = new Robota({
+  const agent = new ConversationAgent({
     name: 'run-usage',
     aiProviders: [new UsageReportingProvider(replies) as unknown as IAIProvider],
     defaultModel: { provider: 'usage-provider', model: 'usage-model' },
@@ -115,7 +115,7 @@ function build(
   };
 }
 
-function assistants(agent: Robota): TUniversalMessage[] {
+function assistants(agent: ConversationAgent): TUniversalMessage[] {
   return agent.getHistory().filter((message) => message.role === 'assistant');
 }
 

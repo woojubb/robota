@@ -1,7 +1,7 @@
 # @robota-sdk/agent-command
 
-The slash-command (`/cmd`) implementations for Robota agents, as command modules you register with an
-`agent-framework` runtime. The `robota` CLI builds its command set from this package; your own agent can
+The slash-command (`/cmd`) implementations for agents, as command modules you register with an
+`agent-framework` runtime. The configured CLI builds its command set from this package; your own agent can
 take the whole default set, a filtered subset, or individual modules.
 
 ## Installation
@@ -67,8 +67,11 @@ provides `/schedule`, `/monitor`, and `/loop`.
 | Agents and work    | `/agent`, `/background`, `/goal`, `/plan`, `/schedule`, `/monitor`, `/loop`                                      |
 | Terminal           | `/shell`, `/editor`, `/keybindings`, `/theme`, `/statusline`                                                     |
 | Project and tools  | `/git`, `/memory`, `/skills`, `/mcp`, `/plugin`, `/reload-plugins`                                               |
+
 | Settings and state | `/settings`, `/reset`, `/user-local`, `/doctor`                                                                  |
 | Other sessions     | `/peers`, `/handoff`, `/events`, `/remote-control`, `/devices`                                                   |
+
+`/memory correct <user|feedback|project|reference> <topic> <text>` replaces **every entry** in that topic. `/memory forget <topic>` removes the source topic file and its active index entries. Both operations are user-only and block subsequent automatic or model additions to that topic; use `correct` to deliberately restore it. Project memory retains only the current replacement or a topic tombstone in `lifecycle.json`, which remains authoritative if source cleanup is interrupted. Historical transcripts and backups remain. A configured semantic backend must support `removeTopic` for these commands; an index cleanup failure is reported, while active recall continues to read current durable source content. The next model turn refreshes its retained startup memory.
 
 `/doctor` and `/devices` are registered only when the host supplies their inputs (`doctorInputs`,
 `devicesPort`). `/shell`, `/editor`, `/keybindings` and `/theme` belong to the terminal the user sits at:
@@ -94,4 +97,4 @@ authority-backed store is refused explicitly.
 ## Documentation
 
 - [docs/SPEC.md](./docs/SPEC.md) — package contract and per-command guarantees
-- [CLI guide](../../content/guide/cli.md) — using the commands in the `robota` CLI
+- [CLI guide](../../content/guide/cli.md) — using the commands in the configured CLI

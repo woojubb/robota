@@ -8,7 +8,7 @@ import { checkNodeHostSettingsFile } from '../command-api/provider/settings-chec
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-settings-check-test-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-settings-check-test-')));
 const providerDefinitions: readonly IProviderDefinition[] = [
   {
     type: 'openai',

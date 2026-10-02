@@ -35,7 +35,7 @@ afterEach(async () => {
 
 describe('user-local storage', () => {
   it('rejects an omitted storage root instead of selecting the process home', async () => {
-    const workspace = await createTempRoot('robota-user-local-required-root-');
+    const workspace = await createTempRoot('agent-user-local-required-root-');
     const repo = path.join(workspace, 'repo');
     await fs.mkdir(repo);
 
@@ -45,7 +45,7 @@ describe('user-local storage', () => {
   });
 
   it('resolves an explicit root outside the active repository', async () => {
-    const workspace = await createTempRoot('robota-user-local-default-');
+    const workspace = await createTempRoot('agent-user-local-default-');
     const repo = path.join(workspace, 'repo');
     const home = path.join(workspace, 'home');
     await fs.mkdir(repo);
@@ -53,29 +53,29 @@ describe('user-local storage', () => {
 
     const root = await resolveUserLocalStorageRoot({
       activeRepositoryRoot: repo,
-      storageRoot: path.join(home, '.robota'),
+      storageRoot: path.join(home, '.agent'),
     });
 
-    expect(root).toBe(path.join(home, '.robota'));
+    expect(root).toBe(path.join(home, '.agent'));
   });
 
   it('rejects storage roots inside the active repository', async () => {
-    const workspace = await createTempRoot('robota-user-local-reject-');
+    const workspace = await createTempRoot('agent-user-local-reject-');
     const repo = path.join(workspace, 'repo');
     await fs.mkdir(repo);
 
     await expect(
       resolveUserLocalStorageRoot({
         activeRepositoryRoot: repo,
-        storageRoot: path.join(repo, '.robota'),
+        storageRoot: path.join(repo, '.agent'),
       }),
     ).rejects.toThrow('outside the active repository');
   });
 
   it('rejects symlinked roots that resolve inside the active repository', async () => {
-    const workspace = await createTempRoot('robota-user-local-symlink-');
+    const workspace = await createTempRoot('agent-user-local-symlink-');
     const repo = path.join(workspace, 'repo');
-    const target = path.join(repo, '.robota');
+    const target = path.join(repo, '.agent');
     const link = path.join(workspace, 'linked-root');
     await fs.mkdir(target, { recursive: true });
     await fs.symlink(target, link);
@@ -89,7 +89,7 @@ describe('user-local storage', () => {
   });
 
   it('projects stable categories without writing repository-local state', async () => {
-    const workspace = await createTempRoot('robota-user-local-inspect-');
+    const workspace = await createTempRoot('agent-user-local-inspect-');
     const repo = path.join(workspace, 'repo');
     const home = path.join(workspace, 'home');
     await fs.mkdir(repo);
@@ -97,12 +97,12 @@ describe('user-local storage', () => {
 
     const inspection = await inspectUserLocalStorage({
       activeRepositoryRoot: repo,
-      storageRoot: path.join(home, '.robota'),
+      storageRoot: path.join(home, '.agent'),
       now: () => new Date('2026-05-09T00:00:00.000Z'),
     });
 
     expect(inspection).toMatchObject({
-      root: path.join(home, '.robota'),
+      root: path.join(home, '.agent'),
       activeRepositoryRoot: repo,
       generatedAt: '2026-05-09T00:00:00.000Z',
     });
@@ -111,6 +111,6 @@ describe('user-local storage', () => {
     ]);
     expect(inspection.categories.every((item) => item.mayExecuteCommands === false)).toBe(true);
     expect(inspection.categories.every((item) => item.itemCount === 0)).toBe(true);
-    expect(await pathExists(path.join(repo, '.robota'))).toBe(false);
+    expect(await pathExists(path.join(repo, '.agent'))).toBe(false);
   });
 });

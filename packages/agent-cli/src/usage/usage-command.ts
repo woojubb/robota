@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { createUserSessionStore } from '@robota-sdk/agent-framework';
 import {
   formatPersonalUsageReport,
@@ -28,14 +29,14 @@ interface IUsageCommandResult {
   readonly stderr: string;
 }
 
-const USAGE_HELP = `Usage: robota usage [options]
+const USAGE_HELP = `Usage: {{cli}} usage [options]
 
 To export a content-free metric snapshot to a local OTLP collector:
-  robota usage export --endpoint http://127.0.0.1:4318
+  {{cli}} usage export --endpoint http://127.0.0.1:4318
 To export recorded prompt root traces to a local OTLP collector:
-  robota usage export --signal traces --endpoint http://127.0.0.1:4318
+  {{cli}} usage export --signal traces --endpoint http://127.0.0.1:4318
 To export content-free recorded completion events to a local OTLP collector:
-  robota usage export --signal logs --endpoint http://127.0.0.1:4318
+  {{cli}} usage export --signal logs --endpoint http://127.0.0.1:4318
 
 Options:
   --period <7d|30d>       Calendar period including the current partial day (default: 7d)
@@ -155,9 +156,10 @@ export function enumerateUsageSnapshot(
 }
 
 export function createPersonalUsageReporter(
+  runtime: ICliRuntimeContext,
   projectSessionStore?: IInteractiveSessionStore,
 ): (request: IPersonalUsageRequest) => IPersonalUsageReport {
-  const userSessionStore = createUserSessionStore(userPaths().sessions);
+  const userSessionStore = createUserSessionStore(userPaths(runtime).sessions);
   return (request) =>
     createPersonalUsageReport(request, {
       userSessionStore,
@@ -166,9 +168,10 @@ export function createPersonalUsageReporter(
 }
 
 export function createStoredSessionUsageReporter(
+  runtime: ICliRuntimeContext,
   projectSessionStore?: IInteractiveSessionStore,
 ): (sessionId: string) => ReturnType<typeof summarizeUsageBySource> {
-  const userSessionStore = createUserSessionStore(userPaths().sessions);
+  const userSessionStore = createUserSessionStore(userPaths(runtime).sessions);
   return (sessionId) => {
     const projectOutcome = projectSessionStore?.load(sessionId);
     const outcome =
@@ -189,9 +192,10 @@ export function createStoredSessionUsageReporter(
 export function executeUsageCommand(
   argv: readonly string[],
   dependencies: IUsageCommandDependencies,
+  cliName: string,
 ): IUsageCommandResult {
   if (argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h')) {
-    return { exitCode: 0, stdout: USAGE_HELP, stderr: '' };
+    return { exitCode: 0, stdout: USAGE_HELP.replaceAll('{{cli}}', cliName), stderr: '' };
   }
   const args = parseUsageArgs(argv);
   if ('exitCode' in args) return args;
@@ -227,12 +231,13 @@ export function executeUsageCommand(
 
 export function runUsageCommand(
   argv: readonly string[],
+  runtime: ICliRuntimeContext,
   projectSessionStore?: IInteractiveSessionStore,
 ): number {
   const result = executeUsageCommand(argv, {
-    userSessionStore: createUserSessionStore(userPaths().sessions),
+    userSessionStore: createUserSessionStore(userPaths(runtime).sessions),
     ...(projectSessionStore ? { projectSessionStore } : {}),
-  });
+  }, runtime.config.identity.cliName);
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   return result.exitCode;

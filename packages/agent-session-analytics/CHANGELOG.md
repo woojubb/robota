@@ -69,7 +69,7 @@
     itself is held to the control endpoint's line limit.
   - `agent-framework`: the surface a turn was submitted on now reaches its usage observation. It was
     dropped before, so remote-control turns were counted as `unknown`.
-  - The terminal client (`robota session attach`) and the view keys come separately.
+  - The terminal client (`__PRODUCT_CLI_NAME__ session attach`) and the view keys come separately.
 
 - 57280bf: Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
   packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
@@ -155,7 +155,7 @@
   with an advisor. Sending history to a destination (provider type and endpoint host) the main model
   does not already use needs a one-time consent per destination, kept in the user settings file; a
   refusal is remembered for the session. The organization's `allowedProviders` applies, and
-  `ROBOTA_DISABLE_ADVISOR=1` turns it off completely. In-process subagents inherit the advisor, bound
+  `PRODUCT_DISABLE_ADVISOR=1` turns it off completely. In-process subagents inherit the advisor, bound
   to their own conversation; child-process subagents do not get it.
 
   **`@robota-sdk/agent-framework` is `major` for one reason: `ICommandHostSessionAccess` gains a

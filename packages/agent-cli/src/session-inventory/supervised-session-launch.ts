@@ -1,3 +1,5 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
+import { childProductEnvironment } from '../product/child-environment.js';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
@@ -59,19 +61,23 @@ function hasExited(child: ChildProcess): boolean {
  * Issue #3282 §3: the tail of what the child wrote to stderr before it died — the real reason (e.g.
  * "No provider configuration found...", before setup mode existed to avoid it entirely; still the
  * reason for anything else that kills the child early), where a plain "the readiness channel closed"
- * or "the process exited" said nothing a caller — `robota daemon start --json`, the desktop fatal
+ * or "the process exited" said nothing a caller — `the CLI daemon start --json`, the desktop fatal
  * screen — could act on. Bounded so one runaway child cannot grow this without limit.
  */
 const STDERR_TAIL_LIMIT = 4_000;
 /** Keeps the reported message readable — the failing line is almost always near the end. */
 const STDERR_TAIL_MAX_LINES = 20;
 
-function trackStderrTail(child: ChildProcess): () => string {
+function trackStderrTail(child: ChildProcess): { read: () => string; stop: () => void } {
   let tail = '';
-  child.stderr?.on('data', (chunk: Buffer | string) => {
+  const onData = (chunk: Buffer | string): void => {
     tail = (tail + String(chunk)).slice(-STDERR_TAIL_LIMIT);
-  });
-  return () => tail;
+  };
+  child.stderr?.on('data', onData);
+  return {
+    read: () => tail,
+    stop: () => { child.stderr?.off('data', onData); },
+  };
 }
 
 /** A complete ANSI CSI sequence (color/cursor codes) or OSC sequence (titles/hyperlinks). */
@@ -113,7 +119,7 @@ function lastLines(text: string, maxLines: number): string {
 }
 
 /**
- * Before a captured stderr tail leaves this process (`robota daemon start --json`, the desktop fatal
+ * Before a captured stderr tail leaves this process (`the CLI daemon start --json`, the desktop fatal
  * screen) it is never shown raw: (a) ANSI/control characters, (b) this process's own env-credential
  * values, and (c) `scrubSecrets`'s known secret patterns (agent-core) are stripped, in that order, then
  * (d) only the last ~20 lines are kept. The child inherits this process's full environment, so (a)+(b)
@@ -191,6 +197,7 @@ async function terminateFailedStart(child: ChildProcess): Promise<boolean> {
 export async function launchSupervisedSession(
   cwd: string,
   options: {
+    readonly productRuntime: ICliRuntimeContext;
     readonly entrypoint?: string;
     readonly execArgs?: readonly string[];
     readonly env?: NodeJS.ProcessEnv;
@@ -208,7 +215,7 @@ export async function launchSupervisedSession(
     readonly daemon?: boolean;
     /** Start it Restricted: a person chose to run this untrusted folder without its own configuration. */
     readonly restricted?: boolean;
-  } = {},
+  },
 ): Promise<string> {
   if (options.name !== undefined && !isSupervisedSessionName(options.name)) {
     throw new Error('Supervised session name is invalid or too long.');
@@ -218,7 +225,7 @@ export async function launchSupervisedSession(
     throw new Error('External event grants need the port their endpoint listens on.');
   }
   const sentGrantIds = grants.map((grant) => grant.grantId);
-  const root = grants.length > 0 ? (options.root ?? resolveSupervisedDirectory()) : undefined;
+  const root = grants.length > 0 ? (options.root ?? resolveSupervisedDirectory(options.productRuntime)) : undefined;
   const self = resolveSelfForkWorkerEntry();
   const entryArgs = options.entrypoint ? [options.entrypoint] : self.args;
   const execArgs = options.execArgs ?? self.execArgv ?? [];
@@ -229,7 +236,7 @@ export async function launchSupervisedSession(
   if (root !== undefined) writeSupervisedGrantHandoff(root, id, grants);
   // #3282 §3: the same env handed to the child — reused to redact its own credential values out of
   // whatever the child echoes back on stderr, in `sanitizeStderrTail`.
-  const childEnv = options.env ?? process.env;
+  const childEnv = options.env ?? childProductEnvironment(options.productRuntime);
   let child: ChildProcess;
   try {
     child = spawn(self.execPath, [
@@ -258,7 +265,7 @@ export async function launchSupervisedSession(
     discardHandoff();
     throw error;
   }
-  const readStderrTail = trackStderrTail(child);
+  const stderrTail = trackStderrTail(child);
   try {
     options.onSpawn?.(child);
   } catch {
@@ -278,8 +285,15 @@ export async function launchSupervisedSession(
       if (done) return;
       done = true;
       clearTimeout(timer);
-      child.stderr?.destroy();
       if (result.ok) {
+        stderrTail.stop();
+        // Keep the pipe readable while this launcher lives, but do not keep a detached launcher's
+        // event loop open. Closing its read end here makes a later host error an EPIPE.
+        child.stderr?.resume();
+        if (child.stderr !== null && child.stderr !== undefined &&
+          'unref' in child.stderr && typeof child.stderr.unref === 'function') {
+          child.stderr.unref();
+        }
         try {
           child.disconnect();
           child.unref();
@@ -288,6 +302,7 @@ export async function launchSupervisedSession(
           void terminateFailedStart(child).then(() => reject(new Error('Supervised session could not detach.')));
         }
       } else {
+        child.stderr?.destroy();
         // A child that never read its grants must not leave them behind.
         discardHandoff();
         void terminateFailedStart(child).then((exited) => {
@@ -302,7 +317,7 @@ export async function launchSupervisedSession(
     // reason and are never replaced by incidental stderr output.
     const failFromChild = (fallback: string): void => {
       void stderrFlushed(child).then(() => {
-        const said = sanitizeStderrTail(readStderrTail(), childEnv);
+        const said = sanitizeStderrTail(stderrTail.read(), childEnv);
         fail(said.length > 0 ? said : fallback);
       });
     };

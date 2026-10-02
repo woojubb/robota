@@ -14,8 +14,12 @@ import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
 
 import { catalogIdentityOf, sameCatalogIdentity } from '../catalog/types.js';
 import { MCPAuthenticationError } from '../client/authentication.js';
+import { MCPTransportEgressRefusedError } from '../client/pinned-http-fetch.js';
 import { MCPSessionError } from '../client/session.js';
 import { MCPStdioError } from '../client/stdio-transport.js';
+import { MCPStatelessProtocolError } from '../client/stateless-result.js';
+import { MCPSkillError } from '../skills/manifest.js';
+import type { IMCPSkillRequestOptions, IMCPSkillsSession } from '../skills/types.js';
 import {
   MCPTransportRedirectRefusedError,
   MCPTransportResponseLimitError,
@@ -256,6 +260,9 @@ function isTransientFailure(
 /** Classify a thrown failure; owned here so every caller reads one answer (TC-13). */
 export function classifyMcpFailure(error: unknown): TMCPFailureClass {
   if (error instanceof MCPSupervisorError) return error.classification;
+  if (error instanceof MCPStatelessProtocolError) return 'config';
+  if (error instanceof MCPTransportEgressRefusedError)
+    return error.reason === 'unresolvable' ? 'transient' : 'config';
   // Typed refusals first: a redirect refusal embeds the `Location` text in its message, so it must
   // never reach the message heuristics below (a target path containing "unauthorized" is not auth).
   if (
@@ -474,6 +481,38 @@ export class MCPConnectionSupervisor {
 
   getLastKnownGood(): IMCPLastKnownGood | undefined {
     return this.lastKnownGood;
+  }
+
+  /** A carrier-bound Skills view under the same budgets and connection owner as tools/discovery. */
+  async getSkillsSession(signal?: AbortSignal): Promise<IMCPSkillsSession | undefined> {
+    const session = await this.ensureConnected(signal);
+    const skills = session.skills;
+    if (!skills) return undefined;
+    const use = <T>(
+      options: IMCPSkillRequestOptions | undefined,
+      run: (options: IMCPSkillRequestOptions) => Promise<T>,
+    ): Promise<T> =>
+      this.withDefaultBudget(options?.signal, async (effectiveSignal) => {
+        const current = await this.ensureConnected(effectiveSignal);
+        if (current !== session) throw new MCPSkillError('changed-manifest');
+        this.noteActivity();
+        try {
+          return await run({
+            ...options,
+            signal: effectiveSignal,
+            timeoutMs: options?.timeoutMs ?? this.options.timeouts.perCallMs,
+          });
+        } catch (error) {
+          this.retireSelfClosedStdioSession(session, error);
+          throw error;
+        }
+      });
+    return {
+      list: (options) =>
+        use(options, (bounded) => skills.list({ ...bounded, maxPages: options.maxPages })),
+      get: (uri, options) => use(options, (bounded) => skills.get(uri, bounded)),
+      read: (entry, uri, options) => use(options, (bounded) => skills.read(entry, uri, bounded)),
+    };
   }
 
   /** The most recent `list_changed`-triggered background refresh failure, if any (never thrown — see `refreshInBackground`). */

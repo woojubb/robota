@@ -1,5 +1,5 @@
 /**
- * A command hook's child receives Robota's `TRACEPARENT` through its environment only: never in the
+ * A command hook's child receives ConversationAgent's `TRACEPARENT` through its environment only: never in the
  * stdin JSON, never in an HTTP hook body, and never over a `TRACEPARENT` the user's group sets.
  */
 import { createServer, type Server } from 'node:http';
@@ -76,7 +76,7 @@ describe('command hook trace environment', () => {
     expect(stdouts[0]!.split('\n')[0]).toBe(`${USER_TRACEPARENT}|vendor=ambient`);
   });
 
-  it.runIf(posix)('leaves the ambient trace untouched without a Robota value', async () => {
+  it.runIf(posix)('leaves the ambient trace untouched without a ConversationAgent value', async () => {
     const { executors, stdouts } = recording();
     await runHooks(hooksWith(), 'UserPromptSubmit', input, executors);
     expect(stdouts[0]!.split('\n')[0]).toBe(
@@ -120,7 +120,7 @@ describe('HTTP hook body', () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
-  it('never carries the Robota value in the body or headers', async () => {
+  it('never carries the ConversationAgent value in the body or headers', async () => {
     const config: THooksConfig = { UserPromptSubmit: [{ matcher: '', hooks: [{ type: 'http', url }] }] };
     await runHooks(config, 'UserPromptSubmit', input, [new CommandExecutor(), new HttpExecutor()], TRACE);
     expect(body.length).toBeGreaterThan(0);

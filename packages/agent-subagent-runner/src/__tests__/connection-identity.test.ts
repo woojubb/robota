@@ -96,7 +96,7 @@ function runner(
     workerEntry: FIXTURE_WORKER_ENTRY,
     worktreeAdapter: STUB_WORKTREE_ADAPTER,
     providerDefinitions: [OPENAI_LIKE],
-    env: { ROBOTA_FIXTURE_MODE: 'echo-profile', ...env },
+    env: { AGENT_FIXTURE_MODE: 'echo-profile', ...env },
   });
 }
 
@@ -165,6 +165,52 @@ describe('provider connection identity (alternate-endpoint canary)', () => {
     },
     TEST_TIMEOUT_MS,
   );
+
+  it('uses a selected parent snapshot for one referenced key without serializing its value', async () => {
+    const keyName = 'SYNTHETIC_SELECTED_FILE_KEY';
+    const keyValue = 'synthetic-selected-value';
+    const selected = new ChildProcessSubagentRunner(deps({ apiKey: keyValue, apiKeyEnv: keyName }), {
+      workerEntry: FIXTURE_WORKER_ENTRY,
+      worktreeAdapter: STUB_WORKTREE_ADAPTER,
+      providerDefinitions: [OPENAI_LIKE],
+      expectedEnvironment: { ...process.env, [keyName]: keyValue },
+      env: { AGENT_FIXTURE_MODE: 'echo-profile', [keyName]: keyValue },
+    });
+    const result = await selected.start(job()).result;
+    const profile = JSON.parse((result as { output: string }).output) as Record<string, unknown>;
+    expect(profile.apiKeyEnv).toBe(keyName);
+    expect(profile.apiKey).toBeUndefined();
+    expect(JSON.stringify(profile)).not.toContain(keyValue);
+  }, TEST_TIMEOUT_MS);
+
+  it('spawns from only the selected environment across A/B/A invocations', async () => {
+    const keyName = 'SYNTHETIC_SELECTED_PROVIDER_KEY';
+    const unrelatedName = 'SYNTHETIC_UNRELATED_PARENT_SECRET';
+    const previous = process.env[unrelatedName];
+    process.env[unrelatedName] = 'synthetic-unrelated-parent-value';
+    try {
+      const run = async (value: string): Promise<Record<string, unknown>> => {
+        const selected = new ChildProcessSubagentRunner(deps({ apiKey: value, apiKeyEnv: keyName }), {
+          workerEntry: FIXTURE_WORKER_ENTRY,
+          worktreeAdapter: STUB_WORKTREE_ADAPTER,
+          providerDefinitions: [OPENAI_LIKE],
+          inheritEnvironment: false,
+          expectedEnvironment: { [keyName]: value },
+          env: { AGENT_FIXTURE_MODE: 'echo-selected-environment', [keyName]: value },
+        });
+        const result = await selected.start(job()).result;
+        return JSON.parse((result as { output: string }).output) as Record<string, unknown>;
+      };
+      expect([await run('synthetic-a'), await run('synthetic-b'), await run('synthetic-a')]).toEqual([
+        { selected: 'synthetic-a' },
+        { selected: 'synthetic-b' },
+        { selected: 'synthetic-a' },
+      ]);
+    } finally {
+      if (previous === undefined) delete process.env[unrelatedName];
+      else process.env[unrelatedName] = previous;
+    }
+  }, TEST_TIMEOUT_MS);
 
   it(
     'the child refuses when its environment changed after the parent checked it',

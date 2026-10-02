@@ -41,23 +41,27 @@ describe('Node live telemetry resource identity', () => {
       const address = server.address();
       if (!address || typeof address === 'string') throw new Error('Expected TCP listener');
       const port = createConfiguredNodeOtlpLiveTelemetryPort({
-        ROBOTA_TELEMETRY_ENABLED: '1',
-        ROBOTA_TELEMETRY_TRACES: 'otlp', ROBOTA_TELEMETRY_METRICS: 'otlp',
-        ROBOTA_TELEMETRY_LOGS: 'otlp', ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
-        ROBOTA_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
-      }, undefined, undefined, { serviceVersion: '3.0.0-test', surface: 'print' });
+        PRODUCT_TELEMETRY_ENABLED: '1',
+        PRODUCT_TELEMETRY_TRACES: 'otlp', PRODUCT_TELEMETRY_METRICS: 'otlp',
+        PRODUCT_TELEMETRY_LOGS: 'otlp', PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+        PRODUCT_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
+      }, undefined, undefined, {
+        telemetryServiceName: 'test-service', serviceVersion: '3.0.0-test', surface: 'print',
+      });
       port!.enqueue(batch);
       await port!.shutdown();
       expect(requests.map((request) => request.path).sort()).toEqual(['/v1/logs', '/v1/metrics', '/v1/traces']);
       for (const request of requests) {
         expect(request.text).toContain('service.version');
         expect(request.text).toContain('3.0.0-test');
-        expect(request.text).toContain('robota.surface');
+        expect(request.text).toContain('service.name');
+        expect(request.text).toContain('test-service');
+        expect(request.text).toContain('agent.surface');
         expect(request.text).toContain('print');
         expect(request.text).not.toContain('ambient-secret');
         if (request.path === '/v1/metrics') expect(request.text).not.toContain('call-123');
         else {
-          expect(request.text).toContain('robota.tool.call_id');
+          expect(request.text).toContain('agent.tool.call_id');
           expect(request.text).toContain('call-123');
         }
       }
@@ -93,17 +97,19 @@ describe('Node live telemetry resource identity', () => {
       const address = server.address();
       if (!address || typeof address === 'string') throw new Error('Expected TCP listener');
       const port = createConfiguredNodeOtlpLiveTelemetryPort({
-        ROBOTA_TELEMETRY_ENABLED: '1',
-        ROBOTA_TELEMETRY_TRACES: 'otlp', ROBOTA_TELEMETRY_METRICS: 'otlp',
-        ROBOTA_TELEMETRY_LOGS: 'otlp', ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
-        ROBOTA_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
-      }, undefined, undefined, { serviceVersion: '3.0.0-test', surface: 'print' });
+        PRODUCT_TELEMETRY_ENABLED: '1',
+        PRODUCT_TELEMETRY_TRACES: 'otlp', PRODUCT_TELEMETRY_METRICS: 'otlp',
+        PRODUCT_TELEMETRY_LOGS: 'otlp', PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+        PRODUCT_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
+      }, undefined, undefined, {
+        telemetryServiceName: 'test-service', serviceVersion: '3.0.0-test', surface: 'print',
+      });
       port!.enqueue(providerBatch);
       await port!.shutdown();
       for (const request of requests) {
         if (request.path === '/v1/metrics') expect(request.text).not.toContain('req_abc123');
         else {
-          expect(request.text).toContain('robota.provider.request_id');
+          expect(request.text).toContain('agent.provider.request_id');
           expect(request.text).toContain('req_abc123');
         }
       }
@@ -115,31 +121,38 @@ describe('Node live telemetry resource identity', () => {
   it('shows the same safe resource fields in console and rejects unsafe host fields', async () => {
     const lines: string[] = [];
     const port = createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'console',
-    }, undefined, (line) => { lines.push(line); }, { serviceVersion: '3.0.0-test', surface: 'interactive' });
+      PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'console',
+    }, undefined, (line) => { lines.push(line); }, {
+      telemetryServiceName: 'fixture-service', serviceVersion: '3.0.0-test', surface: 'interactive',
+    });
     port!.enqueue(batch);
     await port!.shutdown();
     expect(JSON.parse(lines[0]!).resource).toMatchObject({
-      'service.name': 'robota', 'service.version': '3.0.0-test',
-      'robota.surface': 'interactive',
+      'service.name': 'fixture-service', 'service.version': '3.0.0-test',
+      'agent.surface': 'interactive',
     });
     expect(() => createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'console',
-    }, undefined, undefined, { serviceVersion: 'private\nvalue', surface: 'interactive' }))
+      PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'console',
+    }, undefined, undefined, {
+      telemetryServiceName: 'test-service', serviceVersion: 'private\nvalue', surface: 'interactive',
+    }))
       .toThrow(/resource/i);
     expect(() => createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'console',
-    }, undefined, undefined, { serviceVersion: '3.0.0', surface: 'private' as never }))
+      PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'console',
+    }, undefined, undefined, {
+      telemetryServiceName: 'test-service', serviceVersion: '3.0.0', surface: 'private' as never,
+    }))
       .toThrow(/resource/i);
     const extra: string[] = [];
     const allowlisted = createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_LOGS: 'console',
+      PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_LOGS: 'console',
     }, undefined, (line) => { extra.push(line); }, {
-      serviceVersion: '3.0.0', surface: 'print', 'service.name': 'untrusted',
+      telemetryServiceName: 'trusted-service', serviceVersion: '3.0.0', surface: 'print',
+      'service.name': 'untrusted',
     } as never);
     allowlisted!.enqueue(batch);
     await allowlisted!.shutdown();
-    expect(JSON.parse(extra[0]!).resource['service.name']).toBe('robota');
+    expect(JSON.parse(extra[0]!).resource['service.name']).toBe('trusted-service');
     expect(extra[0]).not.toContain('untrusted');
   });
 });

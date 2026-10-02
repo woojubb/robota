@@ -6,7 +6,8 @@
  * diff reply — superseded by clicking a different file before the first one answered — is dropped).
  */
 
-import { act, renderHook } from '@testing-library/react';
+import { renderHook } from '../../testing/product-provider.js';
+import { act } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { useSessionClient } from '../useSessionClient.js';

@@ -11,7 +11,7 @@ import {
   type TPortPayload,
 } from '@robota-sdk/dag-core';
 import {
-  Robota,
+  ConversationAgent,
   createProviderFromConfig,
   findProviderDefinition,
   getProviderCredentialRequirement,
@@ -143,7 +143,7 @@ export class LlmTextNodeDefinition extends AbstractNodeDefinition<typeof LlmText
     signal?: AbortSignal,
   ): Promise<string> {
     const provider = createProviderFromConfig(providerConfig, this.providers);
-    const agent = new Robota({
+    const agent = new ConversationAgent({
       name: 'DagLlmTextNodeAgent',
       aiProviders: [provider],
       defaultModel: {

@@ -65,7 +65,7 @@ describe('extractToolCalls', () => {
 
   it('truncates long argument values with middle ellipsis', () => {
     const longPath =
-      '/Users/jungyoun/Documents/dev/robota/packages/agent-sdk/src/plugins/very-long-directory-name/file.ts';
+      '/Users/example/robota/workspace/packages/agent-sdk/src/plugins/very-long-directory-name/file.ts';
     const history = [
       {
         role: 'assistant',

@@ -1,18 +1,4 @@
-/**
- * #3288 §2 (history replay): projects STORED chat history into the same display shapes a live stream
- * produces — text runs and finished tool calls, in chronological order — so a reload, a reconnect, or
- * a session resume shows the same tool rows, diffs, and Shell output a live turn would have shown,
- * instead of losing them back to bare text (the pre-existing gap `case 'messages'` in
- * `useSessionClient.ts` left: only `role: 'user'|'assistant'` text survived a replay; every tool call
- * and its result were simply dropped).
- *
- * `IHistoryEntry`'s `category: 'chat'` entries already hold everything needed: an assistant message's
- * `toolCalls` (id, name, JSON-string arguments) and each call's paired result as a SEPARATE
- * `role: 'tool'` entry whose `toolCallId` equals that same id (`@robota-sdk/agent-core`'s
- * `messages.ts`). Pairing a call to its result is by that id — the same id a model can reuse across
- * PARALLEL calls of the same tool name in one turn, so matching by name would pair the wrong result to
- * the wrong call exactly when it matters most.
- */
+/** Projects stored chat messages and interactive tool events without running tools or reading files. */
 import {
   buildDiffState,
   extractFirstArg,
@@ -84,7 +70,9 @@ function buildHistoricalToolState(
   const firstArg = extractFirstArg(toolArgs);
   const filePathArg = getStringArg(toolArgs, 'file_path', 'filePath');
   const displayPath =
-    options.cwd && filePathArg ? toWorkspaceRelativeDisplayPath(options.cwd, filePathArg) : undefined;
+    options.cwd && filePathArg
+      ? toWorkspaceRelativeDisplayPath(options.cwd, filePathArg)
+      : undefined;
   const commandName = options.modelCommandToolNames?.get(toolName);
   const internal = toolName === GOAL_SIGNAL_TOOL_NAME;
 
@@ -106,23 +94,36 @@ function buildHistoricalToolState(
     toolResultData: resultMessage.content,
   });
   const diffFile =
-    options.cwd && rawDiffFile ? toWorkspaceRelativeDisplayPath(options.cwd, rawDiffFile) : rawDiffFile;
+    options.cwd && rawDiffFile
+      ? toWorkspaceRelativeDisplayPath(options.cwd, rawDiffFile)
+      : rawDiffFile;
 
   return {
     ...base,
     toolResultData: resultMessage.content,
+    ...(resultMessage.parts ? { toolResultParts: resultMessage.parts } : {}),
     ...(diffFile ? { diffFile } : {}),
     ...(diffLines ? { diffLines } : {}),
   };
 }
 
-/** Every tool-result entry, keyed by the call id it answers — built once, read for every call. */
-function indexToolResultsById(messages: readonly TUniversalMessage[]): Map<string, IToolMessage> {
-  const byCallId = new Map<string, IToolMessage>();
+/** Pair each occurrence; a provider may reuse a call ID after its earlier call finished. */
+function indexToolResults(messages: readonly TUniversalMessage[]): Map<IToolCall, IToolMessage> {
+  const results = new Map<IToolCall, IToolMessage>();
+  const pending = new Map<string, IToolCall[]>();
   for (const message of messages) {
-    if (message.role === 'tool') byCallId.set(message.toolCallId, message);
+    if (message.role === 'assistant') {
+      for (const call of message.toolCalls ?? []) {
+        const queue = pending.get(call.id) ?? [];
+        queue.push(call);
+        pending.set(call.id, queue);
+      }
+    } else if (message.role === 'tool') {
+      const call = pending.get(message.toolCallId)?.shift();
+      if (call) results.set(call, message);
+    }
   }
-  return byCallId;
+  return results;
 }
 
 /**
@@ -131,7 +132,7 @@ function indexToolResultsById(messages: readonly TUniversalMessage[]): Map<strin
  */
 function projectAssistantMessage(
   message: IAssistantMessage,
-  resultsByCallId: ReadonlyMap<string, IToolMessage>,
+  resultsByCallId: ReadonlyMap<IToolCall, IToolMessage>,
   options: IHistoryProjectionOptions,
 ): IHistoryDisplaySegment[] {
   const segments: IHistoryDisplaySegment[] = [];
@@ -139,29 +140,115 @@ function projectAssistantMessage(
     segments.push({ type: 'text', role: 'assistant', content: message.content });
   }
   for (const toolCall of message.toolCalls ?? []) {
-    const tool = buildHistoricalToolState(toolCall, resultsByCallId.get(toolCall.id), options);
+    const tool = buildHistoricalToolState(toolCall, resultsByCallId.get(toolCall), options);
     segments.push({ type: 'tool', tool });
   }
   return segments;
 }
 
-/**
- * Turns STORED history into the chronological sequence of display segments described at the top of
- * this file. `history` is the session's full timeline (`getFullHistory()`); only `category: 'chat'`
- * entries carry a message — anything else (an event entry, a tool-summary entry, …) is skipped, the
- * same filter `getMessages()` itself applies.
- */
+function storedTool(value: unknown): IToolState | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const candidate = value as Partial<IToolState>;
+  return typeof candidate.toolName === 'string' && typeof candidate.isRunning === 'boolean'
+    ? (candidate as IToolState)
+    : undefined;
+}
+
+/** Interactive turns store tools as events; imported chat transcripts carry call/result messages. */
 export function projectHistoryForDisplay(
   history: readonly IHistoryEntry[],
   options: IHistoryProjectionOptions = {},
 ): IHistoryDisplaySegment[] {
+  const segments: IHistoryDisplaySegment[] = [];
+  let start = 0;
+  for (let index = 0; index < history.length; index++) {
+    const entry = history[index]!;
+    if (entry.category === 'chat' && (entry.data as TUniversalMessage).role === 'user') {
+      segments.push(...projectTurnHistory(history.slice(start, index), options));
+      start = index;
+    }
+  }
+  segments.push(...projectTurnHistory(history.slice(start), options));
+  return segments;
+}
+
+function projectTurnHistory(
+  history: readonly IHistoryEntry[],
+  options: IHistoryProjectionOptions,
+): IHistoryDisplaySegment[] {
   const messages = history
     .filter((entry) => entry.category === 'chat')
     .map((entry) => entry.data as TUniversalMessage);
-  const resultsByCallId = indexToolResultsById(messages);
+  const resultsByCallId = indexToolResults(messages);
+  const chatCalls = new Map<string, number>();
+  for (const message of messages) {
+    if (message.role !== 'assistant') continue;
+    for (const call of message.toolCalls ?? [])
+      chatCalls.set(call.id, (chatCalls.get(call.id) ?? 0) + 1);
+  }
+  const finishedByStart = new Map<IHistoryEntry, IToolState>();
+  const matchedEnds = new Set<IHistoryEntry>();
+  const pendingStarts = new Map<string, IHistoryEntry[]>();
+  for (const entry of history) {
+    if (entry.category !== 'event') continue;
+    const tool = storedTool(entry.data);
+    if (!tool?.executionId) continue;
+    if (entry.type === 'tool-start') {
+      const queue = pendingStarts.get(tool.executionId) ?? [];
+      queue.push(entry);
+      pendingStarts.set(tool.executionId, queue);
+    } else if (entry.type === 'tool-end') {
+      const start = pendingStarts.get(tool.executionId)?.shift();
+      if (start) {
+        finishedByStart.set(start, tool);
+        matchedEnds.add(entry);
+      }
+    }
+  }
 
   const segments: IHistoryDisplaySegment[] = [];
-  for (const message of messages) {
+  const summaryOccurrences = new Map<string, number>();
+  const consume = (counts: Map<string, number>, id: string | undefined): boolean => {
+    const remaining = id ? (counts.get(id) ?? 0) : 0;
+    if (!id || remaining === 0) return false;
+    counts.set(id, remaining - 1);
+    return true;
+  };
+  const emitStoredTool = (tool: IToolState): void => {
+    if (consume(chatCalls, tool.executionId)) return;
+    const snapshot = tool;
+    segments.push({
+      type: 'tool',
+      tool: {
+        ...snapshot,
+        isRunning: false,
+        ...(snapshot.isRunning ? { result: 'error' as const } : {}),
+      },
+    });
+  };
+  for (const entry of history) {
+    if (entry.category === 'event') {
+      if (entry.type === 'tool-start' || entry.type === 'tool-end') {
+        const tool = storedTool(entry.data);
+        // Old event records lack IDs; their summary carries the durable identity instead.
+        if (tool?.executionId && !matchedEnds.has(entry)) {
+          summaryOccurrences.set(
+            tool.executionId,
+            (summaryOccurrences.get(tool.executionId) ?? 0) + 1,
+          );
+          emitStoredTool(finishedByStart.get(entry) ?? tool);
+        }
+      } else if (entry.type === 'tool-summary') {
+        const data = entry.data as { tools?: unknown[] } | undefined;
+        for (const value of Array.isArray(data?.tools) ? data.tools : []) {
+          const tool = storedTool(value);
+          if (tool && !consume(summaryOccurrences, tool.executionId)) emitStoredTool(tool);
+        }
+      }
+      continue;
+    }
+    if (entry.category !== 'chat') continue;
+    const message = entry.data as TUniversalMessage;
     if (message.role === 'user') {
       segments.push({ type: 'text', role: 'user', content: message.content });
     } else if (message.role === 'assistant') {

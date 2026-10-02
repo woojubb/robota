@@ -1,3 +1,4 @@
+import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -20,10 +21,10 @@ describe('attach to a detached supervised runtime from the CLI command', () => {
     const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     let id: string | undefined;
     try {
-      id = await launchSupervisedSession(process.cwd(), {
+      id = await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
         execArgs: ['--import', 'tsx', '--conditions=source'],
-        env: { ROBOTA_TEST_SUPERVISED_ROOT: root },
+        env: { PRODUCT_TEST_SUPERVISED_ROOT: root },
       });
       const first: ISessionAttachCommandOptions['render'] = async ({ connection, driverId }) => {
         expect(driverId).toBe('attach:1');
@@ -37,7 +38,7 @@ describe('attach to a detached supervised runtime from the CLI command', () => {
         );
         return 'user';
       };
-      expect(await runSessionAttachCommand([id], {
+      expect(await runSessionAttachCommand([id], { productRuntime: createTestProductRuntime(),
         isTTY: true, root, confirm: async () => true, render: first,
       })).toBe(0);
       expect(await listSupervisedSessions(root)).toEqual([
@@ -56,7 +57,7 @@ describe('attach to a detached supervised runtime from the CLI command', () => {
         }, { timeout: 15_000 });
         return 'user';
       };
-      expect(await runSessionAttachCommand([id, '--observe'], {
+      expect(await runSessionAttachCommand([id, '--observe'], { productRuntime: createTestProductRuntime(),
         isTTY: true, root, confirm: async () => true, render: again,
       })).toBe(0);
       await stopSupervisedSession(id, root);

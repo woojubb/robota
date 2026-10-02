@@ -80,6 +80,7 @@ export interface ITuiInteractionChannelOptions {
   contributionSources?: ICreateSessionOptions['contributionSources'];
   skillRoots?: ICreateSessionOptions['skillRoots'];
   userSettingsSources?: readonly INodeHostSettingsSource[];
+  environment?: Readonly<Record<string, string | undefined>>;
   /**
    * Explicit authority- and permission-backed edit checkpoint capability for this channel's one
    * session. Never shared with another channel's session: a store holds one turn in progress.
@@ -131,6 +132,7 @@ export interface ITuiInteractionChannelOptions {
   defaultTools?: readonly IToolWithEventService[];
   /** The sandbox the shell tools run under, so the session can let a confined command skip the prompt. */
   sandboxClient?: ICreateSessionOptions['sandboxClient'];
+  toolExecutionPolicy?: ICreateSessionOptions['toolExecutionPolicy'];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;

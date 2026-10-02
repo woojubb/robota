@@ -64,7 +64,7 @@ describe('remote skill attribution', () => {
   afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
 
   async function build() {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-remote-skill-')));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-remote-skill-')));
     dirs.push(cwd);
     const skillDir = join(cwd, '.agents', 'skills', 'audit');
     mkdirSync(skillDir, { recursive: true });

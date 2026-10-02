@@ -43,7 +43,7 @@ afterEach(async () => {
 });
 
 function seedSkill(root: string, name: string, disabled: string, body: string): void {
-  const directory = join(root, '.robota', 'skills', name);
+  const directory = join(root, '.agent', 'skills', name);
   mkdirSync(directory, { recursive: true });
   writeFileSync(
     join(directory, 'SKILL.md'),
@@ -62,13 +62,13 @@ describe('strict skill discovery through a real session', () => {
   it(
     'omits disabled skills from the provider prompt and refuses model activation',
     async () => {
-      workspace = realpathSync(mkdtempSync(join(tmpdir(), 'robota-strict-skills-')));
+      workspace = realpathSync(mkdtempSync(join(tmpdir(), 'agent-strict-skills-')));
       seedSkill(workspace, 'visible-strict-skill', 'false', 'Visible skill body.');
       seedSkill(workspace, 'private-strict-skill', 'true', PRIVATE_BODY);
       harness = scriptedSession({
         cwd: workspace,
         contributionSources: createNodeHostContributionSourcesFixture(workspace),
-        skillRoots: [{ root: join('.robota', 'skills'), kind: 'skills' }],
+        skillRoots: [{ root: join('.agent', 'skills'), kind: 'skills' }],
         projectAccess: await createTrustedProjectAccessFixture(workspace),
         commandModules: [skillActivationModule],
         turns: [
@@ -94,13 +94,13 @@ describe('strict skill discovery through a real session', () => {
   it(
     'starts the session without a skill whose authority metadata is malformed',
     async () => {
-      workspace = realpathSync(mkdtempSync(join(tmpdir(), 'robota-strict-skills-')));
+      workspace = realpathSync(mkdtempSync(join(tmpdir(), 'agent-strict-skills-')));
       seedSkill(workspace, 'malformed-strict-skill', 'treu', PRIVATE_BODY);
       seedSkill(workspace, 'visible-strict-skill', 'false', 'Visible skill body.');
       harness = scriptedSession({
         cwd: workspace,
         contributionSources: createNodeHostContributionSourcesFixture(workspace),
-        skillRoots: [{ root: join('.robota', 'skills'), kind: 'skills' }],
+        skillRoots: [{ root: join('.agent', 'skills'), kind: 'skills' }],
         projectAccess: await createTrustedProjectAccessFixture(workspace),
         commandModules: [skillActivationModule],
         turns: [

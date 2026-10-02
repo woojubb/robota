@@ -20,7 +20,8 @@ npm install @robota-sdk/agent-interface-session-mobility
 ## Usage
 
 Construct one `ConnectionAuthority` per connection from what admission established about the
-peer, and ask it before acting on a request:
+peer, and ask it before acting on a request. The carrier calls `authority.close()` when that
+connection ends, including replacement or revocation; a new connection gets a new authority:
 
 ```ts
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
@@ -57,7 +58,9 @@ if (decision.allowed) {
 
 Messages and presence need no approval. Delegating a task, sending a file and handing off a
 session ask the operator for every request; observing and driving ask once per connection. With no
-approver, those capabilities are refused.
+approver, those capabilities are refused. Closing cancels outstanding questions and denies cached
+approvals as well as messaging. The admitted capability set is copied at construction; changing
+the input object cannot widen it. A supplied abort signal is rechecked when sharing cached approval.
 
 ## What it provides
 
@@ -95,4 +98,4 @@ task carries no authority, and a peer's driver id is for attribution only.
 
 ## License
 
-Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

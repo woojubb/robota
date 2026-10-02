@@ -152,7 +152,7 @@ export function decodeMetadataMap(
     if (key === undefined || key.length === 0) {
       return invalidType(context, pair.key, field, 'metadata with non-empty string keys');
     }
-    // Nested or empty entries belong to other hosts' conventions; robota reads only scalar metadata.
+    // Nested or empty entries belong to other hosts' conventions; agent reads only scalar metadata.
     if (!isScalar(pair.value) || pair.value.value === null) continue;
     const value = pair.value.value;
     if (

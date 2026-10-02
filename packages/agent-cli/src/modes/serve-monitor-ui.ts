@@ -8,6 +8,9 @@
  * server-injected URL is the token-delivery channel for this co-located browser client.
  */
 
+import { publicProductConfig } from '@robota-sdk/product-config';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
+
 import { spawn } from 'node:child_process';
 import { closeSync, existsSync, fstatSync, openSync, readFileSync, realpathSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -38,11 +41,11 @@ export interface IMonitorUiServer {
 }
 
 /**
- * #3289 §3: what `--serve --open` prints once the page is up. "Robota", not "web monitor" — the
+ * #3289 §3: what `--serve --open` prints once the page is up. "The product", not "web monitor" — the
  * person opening it is looking at their own running session, not a separate observability tool.
  */
-export function servedAtMessage(url: string): string {
-  return `Robota is open at ${url}\n`;
+export function servedAtMessage(url: string, runtime: ICliRuntimeContext): string {
+  return `${runtime.config.identity.displayName} is open at ${url}\n`;
 }
 
 /**
@@ -68,8 +71,9 @@ function isLoopbackHostHeader(host: string | undefined): boolean {
 }
 
 /** Inject `<meta name="ws-url" content="…">` into the served index.html so the SPA reaches the live WS. */
-function injectWsUrl(html: string, wsUrl: string): string {
-  const meta = `<meta name="ws-url" content="${wsUrl}" />`;
+function injectWsUrl(html: string, wsUrl: string, runtime: ICliRuntimeContext): string {
+  const config = JSON.stringify(publicProductConfig(runtime.config)).replaceAll("<", "\\u003c");
+  const meta = `<meta name="ws-url" content="${wsUrl}" /><script id="product-config" type="application/json">${config}</script>`;
   return html.includes('</head>')
     ? html.replace('</head>', `    ${meta}\n  </head>`)
     : `${meta}\n${html}`;
@@ -82,6 +86,7 @@ function injectWsUrl(html: string, wsUrl: string): string {
 export async function startMonitorUiServer(
   webRoot: string,
   wsUrl: string,
+  runtime: ICliRuntimeContext,
 ): Promise<IMonitorUiServer> {
   // Canonicalized once: webRoot is a fixed build output for the life of the server, and every
   // request's containment decision is made against this resolved form.
@@ -159,7 +164,7 @@ export async function startMonitorUiServer(
         res.writeHead(404).end('Not found');
         return;
       }
-      body = isIndex ? injectWsUrl(readFileSync(fd, 'utf8'), wsUrl) : readFileSync(fd);
+      body = isIndex ? injectWsUrl(readFileSync(fd, 'utf8'), wsUrl, runtime) : readFileSync(fd);
     } catch {
       // allow-fallback: an unreadable asset is a 404, for the same reason as above.
       res.writeHead(404).end('Not found');

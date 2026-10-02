@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { UnsupportedShellError, resolvePlatformShell } from './platform-shell.js';
 
 describe('resolvePlatformShell', () => {
-  it("does not inherit another product's ROBOTA_SHELL policy", () => {
+  it("does not inherit another product's AGENT_SHELL policy", () => {
     const shell = resolvePlatformShell({
-      env: { ROBOTA_SHELL: '/bin/bash', SHELL: '/bin/sh' },
+      env: { AGENT_SHELL: '/bin/bash', SHELL: '/bin/sh' },
       platform: 'linux',
     });
     expect(shell.command).toBe('/bin/sh');
@@ -32,7 +32,7 @@ describe('resolvePlatformShell', () => {
     expect(
       resolvePlatformShell({
         executable: '/requested/bash',
-        env: { ROBOTA_SHELL: '/env/sh', SHELL: '/login/zsh' },
+        env: { AGENT_SHELL: '/env/sh', SHELL: '/login/zsh' },
         platform: 'linux',
       }).command,
     ).toBe('/requested/bash');

@@ -1,6 +1,6 @@
 # @robota-sdk/agent-command-workflows
 
-The `/workflows` command module for the `robota` CLI. It brings the DAG workflow engine into an agent
+The `/workflows` command module for the configured CLI. It brings the DAG workflow engine into an agent
 session by composing `@robota-sdk/dag-framework` in-process: author a workflow from a description,
 validate it, and run it.
 

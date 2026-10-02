@@ -158,7 +158,7 @@
     The tool reaches only files inside the workspace whose path does not look like it holds secrets
     (`.env*`, `~/.ssh`, keys and credentials), and it does not exist in a turn a peer's message started.
   - The receiving operator approves every file. A received file is kept as an inert copy (mode 0600)
-    under `~/.robota/peer-files/<sender>/`. It is never run and never placed in the model's context.
+    under `$PRODUCT_USER_STATE_DIR/peer-files/<sender>/`. It is never run and never placed in the model's context.
     The conversation is told only its name, size and sha256. A name that leaves that directory is
     refused, a symbolic link is never written through, and nothing is overwritten.
   - Transfers travel on a channel of their own (a separate connection on this host, a separate data
@@ -276,7 +276,7 @@
     workspace or sign in is named to the model at the start of an interactive session with the
     command to suggest, and a
     signed-in OAuth server that refuses a call tells the model to suggest `/mcp login <server>` — or, in print and serve runs, the terminal
-    `robota mcp login <server>`.
+    `__PRODUCT_CLI_NAME__ mcp login <server>`.
 
   A command whose bare form is a complete action declares `runsBare`, so choosing `/cost` or `/mcp`
   from the autocomplete menu still runs it even though they now declare subcommands.
@@ -284,13 +284,13 @@
 - 9843fe6: Sign in to a remote MCP server from inside a session, and use its tools without restarting.
 
   - **`/mcp login <server> [--no-browser]`** runs the same per-server OAuth sign-in as
-    `robota mcp login` (discovery checks, PKCE, `state`, RFC 9207 `iss`, RFC 8707 resource, the
+    `__PRODUCT_CLI_NAME__ mcp login` (discovery checks, PKCE, `state`, RFC 9207 `iss`, RFC 8707 resource, the
     loopback listener, the lock-guarded store). It opens the browser through the argv opener; with
     `--no-browser`, or when no browser can be opened, it shows the authorization URL and asks for the
     redirect URL in the session's own prompt (masked), held to the same rules as a pasted redirect in
     the terminal. A failed, refused, timed-out or cancelled sign-in changes nothing and is reported by
     a fixed reason only. `/mcp login <server> --client-secret` is refused: a secret is never typed into
-    a session, and `robota mcp login <server> --client-secret` is named instead (also after a failed
+    a session, and `__PRODUCT_CLI_NAME__ mcp login <server> --client-secret` is named instead (also after a failed
     token exchange for a pre-registered client). `/mcp` stays user-only (`modelInvocable: false`).
   - **Connected in the same session:** after a sign-in, a server that could not connect for want of
     one goes through the normal admission (approval, fingerprint, trust) and connects, and its tools
@@ -315,7 +315,7 @@
   - **`ICommandMCPActivationAdapter.oauthLogin`** (`ICommandMCPOAuthLoginRequest`,
     `ICommandMCPOAuthLoginResult`, `ICommandMCPOAuthRedirectPrompt`) is the port behind it.
   - The sign-in notice and `/mcp status` now suggest `/mcp login <server>` in a session and
-    `robota mcp login <server>` in a terminal; the server's name is shown only when it is safe to paste
+    `__PRODUCT_CLI_NAME__ mcp login <server>` in a terminal; the server's name is shown only when it is safe to paste
     into any shell, otherwise `<server>`.
 
 ### Patch Changes
@@ -441,7 +441,7 @@
   with an advisor. Sending history to a destination (provider type and endpoint host) the main model
   does not already use needs a one-time consent per destination, kept in the user settings file; a
   refusal is remembered for the session. The organization's `allowedProviders` applies, and
-  `ROBOTA_DISABLE_ADVISOR=1` turns it off completely. In-process subagents inherit the advisor, bound
+  `PRODUCT_DISABLE_ADVISOR=1` turns it off completely. In-process subagents inherit the advisor, bound
   to their own conversation; child-process subagents do not get it.
 
   **`@robota-sdk/agent-framework` is `major` for one reason: `ICommandHostSessionAccess` gains a
@@ -496,8 +496,8 @@
     construction alongside `allow` and `deny`.
   - **Never auto-approved, bypass included:** removing a critical path with `rm`/`rmdir` (the root, a
     top-level directory, home, the working directory or a parent), and a modify-class write into
-    `.git`, `.robota`, `.claude`, `.agents`, `.mcp.json`, `.gitconfig`, `.npmrc` or a shell rc file.
-    Files inside an isolated worktree (`.robota/worktrees/<name>/…`) are ordinary files. With no
+    `.git`, `.__PRODUCT_DISPLAY_NAME__`, `.claude`, `.agents`, `.mcp.json`, `.gitconfig`, `.npmrc` or a shell rc file.
+    Files inside an isolated worktree (`$PRODUCT_PROJECT_STATE_DIR/worktrees/<name>/…`) are ordinary files. With no
     approver attached, an ask is a denial.
   - **A ceiling is checked before bypass and before any ask.** A subagent's `inherit-allowlist` ceiling
     is now the parent's _effective_ rules, read live at spawn: settings, preset lists and command
@@ -563,7 +563,7 @@
     - Deny rules, ask rules, critical removals and plan mode still apply first.
   - **Exclusions:** `sandbox.excludedCommands` run unconfined, through the ordinary permission path.
   - **When the sandbox cannot run:** a missing or unusable backend is reported at startup, in
-    `robota doctor` and in `/sandbox`, and commands then run unconfined.
+    `__PRODUCT_CLI_NAME__ doctor` and in `/sandbox`, and commands then run unconfined.
     `sandbox.failIfUnavailable` refuses to start instead.
   - **New contracts:**
     - `OsSandboxClient`, `detectOsSandbox`, `bubblewrapArguments`, `seatbeltProfile`.
@@ -617,7 +617,7 @@
   the session-owned compaction trigger unchanged to PreCompact, PostCompact, logging, and callbacks.
 - 4b76cfa: NEUT-005 (wave 2): restore an actionable context-capacity hint at the surface tier, neutrally. The zero-dependency `agent-core` layer emits a product-neutral hard-capacity notice and exposes the `IAgentConfig.contextCapacityHint` seam (wave 1). This wave wires that seam end-to-end without baking product vocabulary into a neutral library:
 
-  - `agent-session`: `ISessionOptions.contextCapacityHint` is forwarded into the Robota agent config (`buildRobota`), making the core seam reachable from the consuming layer.
+  - `agent-session`: `ISessionOptions.contextCapacityHint` is forwarded into the agent configuration factory, making the core seam reachable from the consuming layer.
   - `agent-framework`: new `deriveContextCapacityHint(commandModules)` derives the concrete remediation wording from the surface's OWN registered command set (names a registered `compact` command → `"Run /compact and retry."`; `undefined` when none, leaving the neutral core default). It is applied automatically in interactive session assembly across the TUI, print, and `--serve` surfaces.
   - `agent-cli`: the default command set registers `/compact`, so end users regain the actionable hint.
   - `agent-interface-transport`: reworded the `'allow-project'` permission comment so it no longer hardcodes a storage path (the location is owned by the consuming layer), matching the `agent-session` twin.
@@ -860,8 +860,8 @@
 ### Patch Changes
 
 - DQ-AUDIT-002 — consolidate duplicated domain data onto single owners: one model-pricing SSOT in agent-core (`MODEL_PRICES`/`lookupModelPrice`/`calculateModelCost`/`estimateBlendedCostPer1000`) consumed by agent-command and agent-plugin (drops two embedded/stale price tables); the `len/4` token estimator replaced by core `CONTEXT_ESTIMATE_CHARS_PER_TOKEN`; TUI `TContextState` derived from core `IContextWindowState`; dead pass-through re-exports removed from agent-session.
-- DQ-AUDIT-006 — error/observability hygiene: replace raw `throw new Error()` on core-service and provider hot paths with typed `RobotaError` subclasses (`ConfigurationError`/`ValidationError`) so error-handling can branch on category/recoverable; surface fire-and-forget hook failures via `logger.warn` instead of silent `.catch(() => {})`; wire the error-handling plugin's `totalRetries`/`successfulRecoveries` stats to real counters.
-- 576af62: Fix `ConfigurationError: Agent must be fully initialized before changing model configuration` when running `/preset` (or any live model re-apply) on a fresh interactive session before the first message. The Robota agent initialized lazily on the first `run()`, but `setModel` requires full initialization. `Session.applyModelOptions` now awaits the new idempotent `Robota.ensureReady()` before `setModel`, and the preset live-switch path (`applyPresetToSession` → `executePresetCommand`) is async end-to-end. Adds a real cold-session regression test (no mocked Robota).
+- DQ-AUDIT-006 — error/observability hygiene: replace raw `throw new Error()` on core-service and provider hot paths with typed `AgentRuntimeError` subclasses (`ConfigurationError`/`ValidationError`) so error-handling can branch on category/recoverable; surface fire-and-forget hook failures via `logger.warn` instead of silent `.catch(() => {})`; wire the error-handling plugin's `totalRetries`/`successfulRecoveries` stats to real counters.
+- 576af62: Fix `ConfigurationError: Agent must be fully initialized before changing model configuration` when running `/preset` (or any live model re-apply) on a fresh interactive session before the first message. The __PRODUCT_DISPLAY_NAME__ agent initialized lazily on the first `run()`, but `setModel` requires full initialization. `Session.applyModelOptions` now awaits the new idempotent `__PRODUCT_DISPLAY_NAME__.ensureReady()` before `setModel`, and the preset live-switch path (`applyPresetToSession` → `executePresetCommand`) is async end-to-end. Adds a real cold-session regression test (no mocked __PRODUCT_DISPLAY_NAME__).
 - Updated dependencies
 - Updated dependencies
 - Updated dependencies
@@ -876,7 +876,7 @@
 
   - **Preset system (PRESET-001~017):** new `@robota-sdk/agent-preset` package layering framework
     assembly options into named, selectable profiles (`default`, `autonomous-builder`, `careful-reviewer`,
-    `neutral-executor`) plus user-authored external presets loaded from `~/.robota/presets/*.json`.
+    `neutral-executor`) plus user-authored external presets loaded from `$PRODUCT_USER_STATE_DIR/presets/*.json`.
   - **Live preset switching:** `/preset` command (list + active marker + switch) and a TUI active-preset
     display. Switching live re-applies permission posture, model/effort, persona, command-module
     selection, parallel-subagents gating, and a self-verification system-prompt section via the single
@@ -1007,7 +1007,7 @@
 
 ### Patch Changes
 
-- Refresh package docs and robota.io content for the beta 57 feature set.
+- Refresh package docs and __PRODUCT_DISPLAY_NAME__.io content for the beta 57 feature set.
 - Updated dependencies
   - @robota-sdk/agent-core@3.0.0-beta.58
 
@@ -1132,8 +1132,8 @@
   - IHistoryEntry as universal history type across all 4 packages (core → sessions → sdk → cli)
   - Tool summary stored as event entry in history (category: 'event', type: 'tool-summary')
   - TuiStateManager pure TypeScript class for CLI rendering state
-  - MessageList renders IHistoryEntry[] with Tool:/System:/You:/Robota: labels
-  - Display order fixed: Tool → Robota (both streaming and abort)
+  - MessageList renders IHistoryEntry[] with Tool:/System:/You:/__PRODUCT_DISPLAY_NAME__: labels
+  - Display order fixed: Tool → __PRODUCT_DISPLAY_NAME__ (both streaming and abort)
   - Remove 25 tautological, duplicate, and hardcoded tests
 
 - Updated dependencies
@@ -1178,7 +1178,7 @@
   - **Smaller footprint**: Reduced JavaScript bundle sizes for web applications
   - **Universal API**: Same API works across all environments
 
-  This update completes the browser compatibility optimization phase, making Robota SDK production-ready for web applications with optimal performance characteristics.
+  This update completes the browser compatibility optimization phase, making __PRODUCT_DISPLAY_NAME__ SDK production-ready for web applications with optimal performance characteristics.
 
 - Updated dependencies
   - @robota-sdk/agent-core@2.0.9
@@ -1198,7 +1198,7 @@
   - **All Providers**: `client` is now optional, automatically created from `apiKey`
 
   ### **Centralized Model Configuration**
-  - Model configuration is now exclusively handled through `defaultModel` in Robota constructor
+  - Model configuration is now exclusively handled through `defaultModel` in __PRODUCT_DISPLAY_NAME__ constructor
   - Providers are simplified to handle only connection-related settings
   - Runtime model switching via `setModel()` method is now the recommended approach
 
@@ -1232,7 +1232,7 @@
   ## 🔧 **Migration Guide**
   1. **Remove model settings from Provider constructors**
   2. **Use `apiKey` instead of `client` injection (recommended)**
-  3. **Ensure `defaultModel` is properly configured in Robota constructor**
+  3. **Ensure `defaultModel` is properly configured in __PRODUCT_DISPLAY_NAME__ constructor**
   4. **Update any hardcoded model references to use runtime switching**
 
   ## 🎯 **Benefits**
@@ -1272,7 +1272,7 @@
   - Update OpenAI stream handlers to work in browser environments
   - Maintain 100% backward compatibility with existing Node.js applications
 
-  This update enables Robota SDK to run seamlessly in both Node.js and browser environments without breaking changes.
+  This update enables __PRODUCT_DISPLAY_NAME__ SDK to run seamlessly in both Node.js and browser environments without breaking changes.
 
 - Updated dependencies
   - @robota-sdk/agent-core@2.0.6
@@ -1300,7 +1300,7 @@
 - **Production-Ready Architecture**: Complete refactoring from experimental to production-ready state
   - **Purpose Redefinition**: Focused on managing multiple independent AI agents in isolated workspaces
   - **Removed Message Editing**: Eliminated message editing/deletion functionality to focus on core purpose
-  - **Simplified Architecture**: ChatInstance now wraps Robota agents with clean delegation
+  - **Simplified Architecture**: ChatInstance now wraps __PRODUCT_DISPLAY_NAME__ agents with clean delegation
   - **SessionManager Implementation**: Complete multi-session management with workspace isolation
   - **Template Integration**: Integrated with agents package AgentFactory and AgentTemplates
   - **File Cleanup**: Removed duplicate implementations that existed in agents package
@@ -1339,7 +1339,7 @@
 
 ### Major Changes
 
-- a3a464c: # Robota SDK v2.0.0-rc.1 - Unified Architecture
+- a3a464c: # __PRODUCT_DISPLAY_NAME__ SDK v2.0.0-rc.1 - Unified Architecture
 
   ## 🚀 Major Changes
 
@@ -1400,7 +1400,7 @@
 
 - Refactor examples and improve resource management
   - Simplified examples from 18+ files to 4 core examples (basic conversation, tool calling, multi-providers, advanced features)
-  - Added proper resource cleanup with `robota.close()` method to prevent hanging processes
+  - Added proper resource cleanup with `__PRODUCT_DISPLAY_NAME__.close()` method to prevent hanging processes
   - Implemented `ToolProviderManager.close()` for proper tool provider cleanup
   - Added BaseAIProvider abstract class with common functionality for all AI providers
   - Updated package.json scripts and README documentation for better user experience
@@ -1433,7 +1433,7 @@
 ### Patch Changes
 
 - Major code quality improvements and architectural refactoring:
-  - **Facade Pattern Implementation**: Simplified Robota class interface with manager-based architecture (ai, system, functions, analytics, tools, limits, conversation)
+  - **Facade Pattern Implementation**: Simplified __PRODUCT_DISPLAY_NAME__ class interface with manager-based architecture (ai, system, functions, analytics, tools, limits, conversation)
   - **Deprecated Methods Removal**: Removed 20+ deprecated methods, replaced with clean option-based constructor
   - **File Modularization**: Split large files into focused modules (function.ts → 4 modules, conversation-history refactoring)
   - **State Management Enhancement**: Implemented state machine pattern for sessions with improved error handling

@@ -1,7 +1,7 @@
 # Skill Node
 
 `@robota-sdk/dag-node-skill` (internal) exports `SkillNodeDefinition`, node type `skill` (category
-`Integration`). It resolves a Robota skill (a `SKILL.md`) by name to its expanded inject-mode prompt.
+`Integration`). It resolves an agent runtime skill (a `SKILL.md`) by name to its expanded inject-mode prompt.
 It does not run a model: a downstream node such as `llm-text` runs the prompt. The package also
 exports `SkillResolverRuntime` and `SkillNodeConfigSchema`.
 

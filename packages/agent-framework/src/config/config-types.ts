@@ -1,5 +1,5 @@
 /**
- * Zod schemas and TypeScript types for Robota CLI settings
+ * Zod schemas and TypeScript types for ConversationAgent CLI settings
  */
 import { z } from 'zod';
 

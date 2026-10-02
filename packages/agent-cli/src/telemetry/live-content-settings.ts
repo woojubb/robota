@@ -1,10 +1,10 @@
 import type { ILivePromptContentPolicy } from '@robota-sdk/agent-interface-analytics';
 
-export const LOG_USER_PROMPTS_SETTING = 'ROBOTA_TELEMETRY_LOG_USER_PROMPTS';
-export const LOG_ASSISTANT_RESPONSES_SETTING = 'ROBOTA_TELEMETRY_LOG_ASSISTANT_RESPONSES';
-export const LOG_TOOL_ARGUMENTS_SETTING = 'ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS';
-export const LOG_TOOL_OUTPUT_SETTING = 'ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT';
-export const LOG_CONTENT_MAX_BYTES_SETTING = 'ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES';
+export const LOG_USER_PROMPTS_SETTING = 'PRODUCT_TELEMETRY_LOG_USER_PROMPTS';
+export const LOG_ASSISTANT_RESPONSES_SETTING = 'PRODUCT_TELEMETRY_LOG_ASSISTANT_RESPONSES';
+export const LOG_TOOL_ARGUMENTS_SETTING = 'PRODUCT_TELEMETRY_LOG_TOOL_ARGUMENTS';
+export const LOG_TOOL_OUTPUT_SETTING = 'PRODUCT_TELEMETRY_LOG_TOOL_OUTPUT';
+export const LOG_CONTENT_MAX_BYTES_SETTING = 'PRODUCT_TELEMETRY_LOG_CONTENT_MAX_BYTES';
 export const LIVE_CONTENT_SETTINGS = [
   LOG_USER_PROMPTS_SETTING, LOG_ASSISTANT_RESPONSES_SETTING, LOG_TOOL_ARGUMENTS_SETTING,
   LOG_TOOL_OUTPUT_SETTING, LOG_CONTENT_MAX_BYTES_SETTING,
@@ -29,7 +29,7 @@ function gate(env: Readonly<Record<string, string | undefined>>, name: string): 
 export function resolveLiveContentPolicy(
   env: Readonly<Record<string, string | undefined>>,
 ): ILivePromptContentPolicy | undefined {
-  if (env['ROBOTA_TELEMETRY_ENABLED'] !== '1') return undefined;
+  if (env['PRODUCT_TELEMETRY_ENABLED'] !== '1') return undefined;
   const userPrompts = gate(env, LOG_USER_PROMPTS_SETTING);
   const assistantResponses = gate(env, LOG_ASSISTANT_RESPONSES_SETTING);
   const toolArguments = gate(env, LOG_TOOL_ARGUMENTS_SETTING);
@@ -41,11 +41,11 @@ export function resolveLiveContentPolicy(
     }
     return undefined;
   }
-  const logs = env['ROBOTA_TELEMETRY_LOGS'];
+  const logs = env['PRODUCT_TELEMETRY_LOGS'];
   if (logs === 'console') {
-    throw new Error('Robota telemetry content capture cannot use console logs; console output never carries content.');
+    throw new Error('Product telemetry content capture cannot use console logs; console output never carries content.');
   }
-  if (logs !== 'otlp') throw new Error('Robota telemetry content capture requires ROBOTA_TELEMETRY_LOGS=otlp.');
+  if (logs !== 'otlp') throw new Error('Product telemetry content capture requires PRODUCT_TELEMETRY_LOGS=otlp.');
   let maxBytes = DEFAULT_MAX_BYTES;
   if (rawMax !== undefined) {
     maxBytes = /^[0-9]{1,6}$/u.test(rawMax) ? Number(rawMax) : Number.NaN;

@@ -1,3 +1,4 @@
+import { resolveCliRuntimeContext } from './product-bootstrap.js';
 import { promptInput } from '../cli-input.js';
 import { ProviderConfigError } from '@robota-sdk/agent-framework';
 
@@ -40,7 +41,10 @@ export async function routeProjectSetup(
   options: IProjectSetupRoutingOptions,
 ): Promise<IProjectSetupRoutingResult> {
   const { cwd, args, terminal, providerDefinitions, workspace } = options;
+  const runtime = resolveCliRuntimeContext(options.startOptions);
   const settingsAccess = {
+    cliName: runtime.config.identity.cliName,
+    env: runtime.environment,
     settingsSources: workspace.settingsSources,
     settingsStores: workspace.settingsStores,
   };
@@ -93,11 +97,12 @@ export async function routeProjectSetup(
 
 async function runProjectInit(
   options: IProjectSetupRoutingOptions,
-  settingsAccess: Pick<ICliWorkspaceComposition, 'settingsSources' | 'settingsStores'>,
+  settingsAccess: Pick<ICliWorkspaceComposition, 'settingsSources' | 'settingsStores'> & {readonly cliName: string; readonly env: Readonly<Record<string, string | undefined>>},
 ): Promise<void> {
   const { cwd, args, startOptions, terminal, providerDefinitions, workspace } = options;
   try {
     await runInitCommand(terminal, {
+      productRuntime: resolveCliRuntimeContext(startOptions),
       projectAccess: workspace.projectAccess,
       ...(startOptions.projectMutation === undefined
         ? {}

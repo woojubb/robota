@@ -70,10 +70,11 @@ function createMockRuntimeSession() {
   };
 }
 
-function createInteractiveSession(): InteractiveSession {
+function createInteractiveSession(commandProductVocabulary?: { cliName: string; displayName: string }): InteractiveSession {
   return new InteractiveSession({
     session: createMockRuntimeSession() as never,
     commandModules: [createRewindCommandModule()],
+    commandProductVocabulary,
   });
 }
 
@@ -260,13 +261,13 @@ describe('executeRewindCommand', () => {
 
     it('tells a restricted workspace to trust it, for every subcommand', async () => {
       vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
-      const session = createInteractiveSession();
+      const session = createInteractiveSession({ cliName: 'test-agent', displayName: 'Test Agent' });
 
       for (const args of ['', 'list', 'inspect turn-0001', 'restore turn-0001', 'branches']) {
         const result = await session.executeCommand('rewind', args);
         expect(result?.success).toBe(false);
         expect(result?.message).toBe(
-          'Edit checkpoints need a trusted workspace: run robota trust --yes, then restart robota.',
+          'Edit checkpoints need a trusted workspace: run test-agent trust --yes, then restart test-agent.',
         );
       }
     });

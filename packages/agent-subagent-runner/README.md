@@ -22,7 +22,7 @@ composition root (e.g. agent-cli)
         └── ChildProcessSubagentRunner  ← this package
               ├── spawn()               ← a copy of the running artifact in worker mode
               ├── IPC messages          ← TSubagentWorkerParentMessage / TSubagentWorkerChildMessage
-              └── worktree isolation    ← via agent-executor, with an injected worktree adapter
+              └── worktree isolation    ← vian agent-executor, with an injected worktree adapter
 ```
 
 The runner composes nothing itself. The composition root supplies how to start a copy of itself
@@ -68,7 +68,7 @@ const factory = createChildProcessSubagentRunnerFactory({
   workerEntry: { execPath: process.execPath, args: [process.argv[1] ?? ''] },
   providerConfig,
   providerDefinitions: myProviderDefinitions, // required: a job whose provider is not here is refused
-  logsDir: '.robota/logs',
+  logsDir: hostSelectedLogDirectory,
   worktreeAdapter, // required: no concrete git default — inject the port at the composition root
 });
 ```
@@ -134,4 +134,4 @@ how the provider connection is checked across the process boundary.
 
 ## License
 
-Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

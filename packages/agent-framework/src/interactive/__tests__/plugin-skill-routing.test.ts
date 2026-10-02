@@ -56,7 +56,7 @@ afterEach(() => {
 });
 
 function tempRoot(): string {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-plugin-skill-')));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-plugin-skill-')));
   roots.push(root);
   return root;
 }
@@ -332,7 +332,7 @@ describe('a bundle plugin skill', () => {
       cwd,
       home,
       pluginsDir: join(home, 'no-user-plugins'),
-      projectPluginsDir: installHelperPlugin(join(cwd, '.robota')),
+      projectPluginsDir: installHelperPlugin(join(cwd, '.agent')),
       untrusted: true,
     });
 
@@ -354,7 +354,7 @@ describe('a bundle plugin skill', () => {
       cwd,
       home,
       pluginsDir: join(home, 'no-user-plugins'),
-      projectPluginsDir: installHelperPlugin(join(cwd, '.robota')),
+      projectPluginsDir: installHelperPlugin(join(cwd, '.agent')),
     });
 
     expect(session.listSkills().map((skill) => skill.name)).toContain('tidy');
@@ -403,7 +403,7 @@ describe('a bundle plugin skill', () => {
       cwd,
       home,
       pluginsDir: installHelperPlugin(home, 'user-helper'),
-      projectPluginsDir: installHelperPlugin(join(cwd, '.robota'), 'project-helper'),
+      projectPluginsDir: installHelperPlugin(join(cwd, '.agent'), 'project-helper'),
     });
 
     expect(session.listSkills().filter((skill) => skill.name === 'tidy')).toHaveLength(1);

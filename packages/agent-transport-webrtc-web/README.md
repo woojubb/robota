@@ -6,7 +6,7 @@ and only after the host admits the connection renders the live session over the 
 browser counterpart of the Node host transport
 [`@robota-sdk/agent-transport-webrtc`](../agent-transport-webrtc/README.md).
 
-This package is internal to the Robota monorepo (`private: true`, not published to npm). The web app's
+This package is internal to the agent runtime monorepo (`private: true`, not published to npm). The web app's
 `/remote` page (`apps/agent-web`) loads it from the `./client` entry point. It needs React 18 or later.
 
 ## Where it sits

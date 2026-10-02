@@ -18,9 +18,9 @@ ARCH-005 Stage S1 — the external product-composition layer. Three new publishe
   construction to `agent-framework`'s `buildRuntimeSession` seam (never re-implemented). Its neutrality is
   enforced by three mechanical guards (dependency-graph neutrality, purity/no-IO, no product-name
   conditionals), coupling the amended project-structure L129 carve-out to the guards.
-- **`@robota-sdk/pack-coding`** (new) — robota's coding capability as one `ICapabilityPack` (the built-in
+- **`@robota-sdk/pack-coding`** (new) — the configured product's coding capability as one `ICapabilityPack` (the built-in
   coding tools, the `/shell` + `/editor` command modules, and the coding subagents) — the additive-axis
-  proof and robota's first pack.
+  proof and the configured product's first pack.
 - **`@robota-sdk/agent-preset`** — adds `createPresetRegistry`, a per-call instance-scoped resolver that
   never mutates the module-level external-preset global (consumed by `assembleProduct`).
 

@@ -136,7 +136,7 @@ export function listUnreadableSessions(
 /**
  * The unreadable sessions of ONE workspace (#3289 §1).
  *
- * A store shared across workspaces (the user-level `~/.robota/sessions`) holds unreadable records
+ * A store shared across workspaces (the user-level `~/.agent/sessions`) holds unreadable records
  * from every folder ever worked in there, and a brand-new folder used to be told about all of them —
  * "191 sessions could not be read" on a folder that had never seen one. An unreadable record still
  * carries its raw `cwd` when the bytes are readable enough for that (TRANS-007's best-effort peek);

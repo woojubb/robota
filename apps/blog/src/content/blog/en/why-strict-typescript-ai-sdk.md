@@ -3,7 +3,6 @@ title: 'Why We Built a Strict TypeScript AI Agent SDK (and Banned `any`)'
 subtitle: 'Type safety is not a style preference — it is a production requirement'
 date: '2026-05-18'
 author: 'Jung Youn Hwang'
-authorUrl: 'https://github.com/woojubb'
 lang: 'en'
 ---
 
@@ -102,4 +101,4 @@ For teams adopting Robota in production codebases, this matters. Code review bec
 
 ---
 
-Robota SDK is open source under the AGPL-3.0 (with a commercial license available). If this approach resonates with you, [try it out](https://robota.io/getting-started/) or [contribute on GitHub](https://github.com/woojubb/robota).
+Robota SDK is open source under the AGPL-3.0 (with a commercial license available). If this approach resonates with you, [try it out](__PROJECT_WEBSITE_URL__/getting-started/) or [contribute on GitHub](__PROJECT_REPOSITORY_URL__).

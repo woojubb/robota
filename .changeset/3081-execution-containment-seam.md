@@ -15,7 +15,7 @@ The execution containment seam states where tools run.
     the host under the path guard, and only commands go through the sandbox.
 - **`describeExecutionContainment` / `routesFilesThroughSandbox`** name the containment (`host`,
   `sandbox-shared`, `sandbox-separate`) instead of inferring it from an absent value.
-- **`robota doctor` reports `execution.containment`.** Robota composes no sandbox today, so the
+- **`robota doctor` reports `execution.containment`.** the agent runtime composes no sandbox today, so the
   doctor says shell commands run unconfined on the host and the permission rules are the only
   boundary. The CLI composition and the doctor read the same value.
 - **The `Agent` and `BackgroundProcess` tools no longer fall back to `process.cwd()`** when they

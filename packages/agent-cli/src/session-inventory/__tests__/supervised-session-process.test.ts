@@ -1,3 +1,4 @@
+import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
@@ -23,15 +24,44 @@ const stderrSecretsFixture = fileURLToPath(
 const SECRET_MARKER = 'SUPERVISED_SECRET_MUST_NOT_APPEAR';
 
 describe('detached supervised runtime', () => {
+  it.skipIf(process.platform === 'win32')('keeps a ready host alive when it writes a later error', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-stderr-'));
+    const root = join(scratch, 'supervised');
+    let child: ChildProcess | undefined;
+    let id: string | undefined;
+    try {
+      id = await launchSupervisedSession(process.cwd(), {
+        productRuntime: createTestProductRuntime(),
+        entrypoint: fixture,
+        execArgs: ['--import', 'tsx', '--conditions=source'],
+        env: { PRODUCT_TEST_SUPERVISED_ROOT: root, PRODUCT_TEST_LATE_STDERR: '1' },
+        onSpawn: (spawned) => { child = spawned; },
+      });
+      expect(await listSupervisedSessions(root)).toEqual([
+        expect.objectContaining({ id, liveness: 'alive', control: 'available' }),
+      ]);
+      child?.kill('SIGUSR2');
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      expect(await listSupervisedSessions(root)).toEqual([
+        expect.objectContaining({ id, liveness: 'alive', control: 'available' }),
+      ]);
+    } finally {
+      if (id) {
+        try { await stopSupervisedSession(id, root); } catch { /* already stopped */ }
+      }
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  }, 30_000);
+
   it('forwards an explicit launch name from the owner without storing it in registration', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-np-'));
     const root = join(scratch, 'supervised');
     let id: string | undefined;
     try {
-      id = await launchSupervisedSession(process.cwd(), {
+      id = await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
         execArgs: ['--import', 'tsx', '--conditions=source'],
-        env: { ROBOTA_TEST_SUPERVISED_ROOT: root },
+        env: { PRODUCT_TEST_SUPERVISED_ROOT: root },
         name: 'Morning review',
       });
       await vi.waitFor(async () => expect(await listSupervisedSessions(root, undefined, { includeName: true })).toEqual([{
@@ -70,10 +100,10 @@ describe('detached supervised runtime', () => {
     let child: ChildProcess | undefined;
     let id: string | undefined;
     try {
-      id = await launchSupervisedSession(process.cwd(), {
+      id = await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
         execArgs: ['--import', 'tsx', '--conditions=source'],
-        env: { ROBOTA_TEST_SUPERVISED_ROOT: root, ROBOTA_WS_TOKEN: token },
+        env: { PRODUCT_TEST_SUPERVISED_ROOT: root, PRODUCT_WS_TOKEN: token },
         daemon: true,
         onSpawn: (spawned) => { child = spawned; },
       });
@@ -98,10 +128,10 @@ describe('detached supervised runtime', () => {
     const root = join(scratch, 'supervised');
     let child: ChildProcess | undefined;
     try {
-      await expect(launchSupervisedSession(process.cwd(), {
+      await expect(launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
         execArgs: ['--import', 'tsx', '--conditions=source'],
-        env: { ROBOTA_TEST_SUPERVISED_ROOT: root, ROBOTA_WS_TOKEN: 'd'.repeat(64), ROBOTA_TEST_NO_WS_URL: '1' },
+        env: { PRODUCT_TEST_SUPERVISED_ROOT: root, PRODUCT_WS_TOKEN: 'd'.repeat(64), PRODUCT_TEST_NO_WS_URL: '1' },
         daemon: true,
         onSpawn: (spawned) => { child = spawned; },
       })).rejects.toThrow('The daemon has no WebSocket endpoint; enable the ws transport.');
@@ -117,14 +147,14 @@ describe('detached supervised runtime', () => {
     const root = join(scratch, 'x'.repeat(100), 'supervised');
     let child: ChildProcess | undefined;
     try {
-      const start = launchSupervisedSession(process.cwd(), {
+      const start = launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
         execArgs: ['--import', 'tsx', '--conditions=source'],
-        env: { ROBOTA_TEST_SUPERVISED_ROOT: root },
+        env: { PRODUCT_TEST_SUPERVISED_ROOT: root },
         onSpawn: (spawned) => { child = spawned; },
       });
       await expect(start).rejects.toThrow(`Supervised session control socket path is too long under ${root}`);
-      await expect(start).rejects.toThrow('Use a shorter HOME, or set XDG_RUNTIME_DIR to a short private directory');
+      await expect(start).rejects.toThrow('Set PRODUCT_USER_STATE_DIR to a shorter absolute path, or set XDG_RUNTIME_DIR to a short private directory');
       expect(child?.exitCode !== null || child?.signalCode !== null).toBe(true);
     } finally {
       rmSync(scratch, { recursive: true, force: true });
@@ -137,10 +167,10 @@ describe('detached supervised runtime', () => {
     let child: ChildProcess | undefined;
     let id: string | undefined;
     try {
-      id = await launchSupervisedSession(process.cwd(), {
+      id = await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
         execArgs: ['--import', 'tsx', '--conditions=source'],
-        env: { ROBOTA_TEST_SUPERVISED_ROOT: root, ROBOTA_TEST_SECRET_MARKER: SECRET_MARKER },
+        env: { PRODUCT_TEST_SUPERVISED_ROOT: root, PRODUCT_TEST_SECRET_MARKER: SECRET_MARKER },
         onSpawn: (spawned) => { child = spawned; },
       });
       expect(child?.connected).toBe(false);
@@ -182,10 +212,10 @@ describe('detached supervised runtime', () => {
     const root = join(scratch, 'supervised');
     let child: ChildProcess | undefined;
     try {
-      const id = await launchSupervisedSession(process.cwd(), {
+      const id = await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
         execArgs: ['--import', 'tsx', '--conditions=source'],
-        env: { ROBOTA_TEST_SUPERVISED_ROOT: root },
+        env: { PRODUCT_TEST_SUPERVISED_ROOT: root },
         onSpawn: (spawned) => { child = spawned; },
       });
       const stopped = new Promise<void>((resolve) => child?.once('exit', () => resolve()));
@@ -202,24 +232,10 @@ describe('detached supervised runtime', () => {
     }
   }, 30_000);
 
-  it('#3282 §3: a child that dies before readiness reports its own stderr, not a generic message', async () => {
+  it('#3282 §3: a child that dies before readiness reports its benign stderr exactly', async () => {
     let child: ChildProcess | undefined;
     try {
-      await expect(launchSupervisedSession(process.cwd(), {
-        entrypoint: stderrCrashFixture,
-        execArgs: [],
-        env: {},
-        onSpawn: (spawned) => { child = spawned; },
-      })).rejects.toThrow('No provider configuration found. Configure a provider before starting a session.');
-    } finally {
-      if (child?.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
-    }
-  }, 10_000);
-
-  it('#3282 §3: a benign stderr message survives sanitization unchanged', async () => {
-    let child: ChildProcess | undefined;
-    try {
-      await expect(launchSupervisedSession(process.cwd(), {
+      await expect(launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: stderrCrashFixture,
         execArgs: [],
         env: {},
@@ -237,7 +253,7 @@ describe('detached supervised runtime', () => {
     let child: ChildProcess | undefined;
     let message = '';
     try {
-      await launchSupervisedSession(process.cwd(), {
+      await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: stderrSecretsFixture,
         execArgs: [],
         env: { SUPERVISED_TEST_API_KEY: envSecret },
@@ -263,7 +279,7 @@ describe('detached supervised runtime', () => {
   it('reaps a detached runtime that refuses startup and ignores graceful termination', async () => {
     let child: ChildProcess | undefined;
     try {
-      await expect(launchSupervisedSession(process.cwd(), {
+      await expect(launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: hungFixture,
         execArgs: [],
         env: {},
@@ -286,7 +302,7 @@ describe('detached supervised runtime', () => {
     ], {
       cwd: process.cwd(),
       stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
-      env: { ROBOTA_TEST_SUPERVISED_ROOT: root },
+      env: { PRODUCT_TEST_SUPERVISED_ROOT: root },
     });
     try {
       await new Promise<void>((resolve, reject) => {

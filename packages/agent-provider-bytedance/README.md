@@ -4,7 +4,7 @@ ByteDance (ModelArk) video generation provider for the Robota SDK. `BytedancePro
 the `IVideoGenerationProvider` contract from `@robota-sdk/agent-core`: it creates a video
 generation task, reads its status, and cancels it, over a small built-in HTTP client (`fetch`, no
 vendor SDK). It is a media provider, not a chat provider, so it is used directly rather than passed
-to a `Robota` agent's `aiProviders`.
+to a `ConversationAgent` agent's `aiProviders`.
 
 ## Installation
 
@@ -90,4 +90,4 @@ See [docs/SPEC.md](docs/SPEC.md) for the package contract.
 
 ## License
 
-Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

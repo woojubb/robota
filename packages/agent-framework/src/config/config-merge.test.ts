@@ -87,7 +87,7 @@ describe('hook settings source tracking', () => {
   it('tracks only effective definitions through per-event merge and disabledHook filtering', () => {
     const merged = mergeSettingsWithHookSources([
       {
-        source: '/home/alice/.robota/settings.json',
+        source: '/home/alice/.agent/settings.json',
         settings: {
           hooks: {
             PreToolUse: [{ matcher: '', hooks: [{ type: 'prompt', prompt: 'first' }] }],
@@ -97,7 +97,7 @@ describe('hook settings source tracking', () => {
         },
       },
       {
-        source: '.robota/settings.local.json',
+        source: '.agent/settings.local.json',
         settings: {
           hooks: {
             PreToolUse: [{ matcher: '', hooks: [{ type: 'prompt', prompt: 'second' }] }],
@@ -123,9 +123,9 @@ describe('hook settings source tracking', () => {
       'agent',
     ]);
     expect(merged.hookSources).toEqual([
-      { event: 'PreToolUse', type: 'prompt', source: '/home/alice/.robota/settings.json' },
-      { event: 'PostToolUse', type: 'agent', source: '/home/alice/.robota/settings.json' },
-      { event: 'PreToolUse', type: 'prompt', source: '.robota/settings.local.json' },
+      { event: 'PreToolUse', type: 'prompt', source: '/home/alice/.agent/settings.json' },
+      { event: 'PostToolUse', type: 'agent', source: '/home/alice/.agent/settings.json' },
+      { event: 'PreToolUse', type: 'prompt', source: '.agent/settings.local.json' },
       { event: 'PostToolUse', type: 'agent', source: '.claude/settings.json' },
     ]);
   });

@@ -22,6 +22,7 @@ import { readIdentityState, writeIdentityState, type IDeviceIdentityState } from
 import { SecretInputCancelled } from '../secret-terminal.js';
 import { scriptedOperator, type IScriptedOperator } from './fake-secret-terminal.js';
 import { filesUnder, leakedIn, phraseFragments } from './secret-leak.js';
+import { createTestRuntimeContext } from './runtime-context-fixture.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
 import type { IDevicesCommandPort } from '@robota-sdk/agent-command';
@@ -36,13 +37,15 @@ let root: string;
 let directory: string;
 let store: ICredentialStore;
 let clock: number;
+let productRuntime: ReturnType<typeof createTestRuntimeContext>;
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), 'robota-devices-'));
-  root = join(home, '.robota');
+  home = mkdtempSync(join(tmpdir(), 'agent-fixture-devices-'));
+  root = join(home, '.agent-fixture');
   directory = join(root, 'devices');
   store = createFileCredentialStore(join(root, 'credentials'), { withinRoot: root });
   clock = START;
+  productRuntime = createTestRuntimeContext(root, 'test-identity-service');
 });
 
 afterEach(() => {
@@ -51,6 +54,7 @@ afterEach(() => {
 
 function service(operator: IScriptedOperator | undefined): IDevicesCommandPort {
   return createDeviceIdentityService({
+    productRuntime,
     directory,
     withinRoot: root,
     store,
@@ -62,13 +66,13 @@ function service(operator: IScriptedOperator | undefined): IDevicesCommandPort {
 }
 
 function state(): IDeviceIdentityState {
-  const current = readIdentityState(directory);
+  const current = readIdentityState(productRuntime.cryptoContext, directory);
   if (current === undefined) throw new Error('no identity state');
   return current;
 }
 
 async function verifySelf(s: IDeviceIdentityState, now = clock) {
-  return verifyDeviceChain({
+  return verifyDeviceChain(productRuntime.cryptoContext, {
     masterPublicKey: s.masterPublicKey,
     signingKeyCert: s.signingKeyCertificate,
     deviceCert: s.deviceCertificate,
@@ -83,13 +87,13 @@ async function verifySelf(s: IDeviceIdentityState, now = clock) {
 /** Enrol a second device the way `add` will: certified by the held signing key, added to the roster. */
 async function enrolSecondDevice(name = 'desktop') {
   const s = state();
-  const signingKey = await loadSigningKey(store, s.signingKeyCertificate);
+  const signingKey = await loadSigningKey(store, productRuntime.config.credentials.serviceNamespace, s.signingKeyCertificate);
   if (signingKey === undefined) throw new Error('no signing key');
   const [sign, ka] = await Promise.all([
     generateDeviceSignKeyPair(false),
     generateDeviceKeyAgreementKeyPair(false),
   ]);
-  const certificate = await certifyDevice({
+  const certificate = await certifyDevice(productRuntime.cryptoContext, {
     signingKey,
     signPublicKey: sign.publicKey,
     kaPublicKey: ka.publicKey,
@@ -98,7 +102,7 @@ async function enrolSecondDevice(name = 'desktop') {
     capabilities: ['message', 'presence'],
     issuedAt: clock,
   });
-  const roster = await issueDeviceRoster({
+  const roster = await issueDeviceRoster(productRuntime.cryptoContext, {
     signingKey,
     seq: s.roster.seq + 1,
     issuedAt: clock,
@@ -165,20 +169,20 @@ describe('/devices init', () => {
   it('writes nothing when the re-typed words do not match', async () => {
     const operator = scriptedOperator({ wrongConfirmation: 'zoo' });
     expect(await service(operator).init({})).toEqual({ ok: false, reason: 'confirmation-failed' });
-    expect(readIdentityState(directory)).toBeUndefined();
+    expect(readIdentityState(productRuntime.cryptoContext, directory)).toBeUndefined();
     expect(await service(undefined).list()).toBeUndefined();
   });
 
   it('writes nothing when the passphrase is not repeated exactly', async () => {
     const operator = scriptedOperator({ passphrase: PASSPHRASE, passphraseTypo: true });
     expect(await service(operator).init({})).toEqual({ ok: false, reason: 'confirmation-failed' });
-    expect(readIdentityState(directory)).toBeUndefined();
+    expect(readIdentityState(productRuntime.cryptoContext, directory)).toBeUndefined();
   });
 
   it('reports a cancellation at the terminal', async () => {
     const operator = scriptedOperator({ failWith: new SecretInputCancelled() });
     expect(await service(operator).init({})).toEqual({ ok: false, reason: 'cancelled' });
-    expect(readIdentityState(directory)).toBeUndefined();
+    expect(readIdentityState(productRuntime.cryptoContext, directory)).toBeUndefined();
   });
 
   it('refuses init, recover and revoke without an interactive terminal (fail closed)', async () => {
@@ -274,7 +278,7 @@ describe('/devices revoke', () => {
     expect(after.revocation.seq).toBeGreaterThan(before.revocation.seq);
     expect(after.roster.seq).toBeGreaterThan(before.roster.seq);
 
-    const verdict = await verifyDeviceChain({
+    const verdict = await verifyDeviceChain(productRuntime.cryptoContext, {
       masterPublicKey: after.masterPublicKey,
       signingKeyCert: after.signingKeyCertificate,
       deviceCert: other,
@@ -335,7 +339,7 @@ describe('/devices recover', () => {
     const { words } = await initialized(PASSPHRASE);
     await enrolSecondDevice();
     const before = state();
-    const oldAccount = signingKeyCredentialKey(before.signingKeyCertificate.signingKeyId);
+    const oldAccount = signingKeyCredentialKey(productRuntime.config.credentials.serviceNamespace, before.signingKeyCertificate.signingKeyId);
     clock += DAY;
 
     const operator = scriptedOperator({ phrase: () => words, passphrase: PASSPHRASE });
@@ -356,7 +360,7 @@ describe('/devices recover', () => {
     expect(await verifySelf(after)).toMatchObject({ ok: true });
 
     // The old chain, checked against the new signing-key revocation, is refused.
-    const old = await verifyDeviceChain({
+    const old = await verifyDeviceChain(productRuntime.cryptoContext, {
       masterPublicKey: after.masterPublicKey,
       signingKeyCert: before.signingKeyCertificate,
       deviceCert: before.deviceCertificate,
@@ -367,7 +371,7 @@ describe('/devices recover', () => {
 
     // The retired signing key is gone from the store; the new one is there.
     expect(await store.get(oldAccount)).toBeUndefined();
-    expect(await loadSigningKey(store, after.signingKeyCertificate)).toBeDefined();
+    expect(await loadSigningKey(store, productRuntime.config.credentials.serviceNamespace, after.signingKeyCertificate)).toBeDefined();
 
     const fragments = phraseFragments(words, PASSPHRASE);
     for (const file of filesUnder(home)) expect(leakedIn(file.text, fragments)).toEqual([]);

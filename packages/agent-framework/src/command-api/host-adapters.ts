@@ -1,4 +1,8 @@
-import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
+import type {
+  ICommandPluginAdapter,
+  ICommandSource,
+  TCommandInvocationSource,
+} from '@robota-sdk/agent-interface-command';
 import type { IPresetApplicationOptions } from './preset/preset-application-types.js';
 import type { ICommandSessionModel } from './session-roles.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
@@ -59,7 +63,7 @@ export interface ICommandPermissionModeAdapter {
 
 /** The permission rules one settings layer declares, named the way the user would find the file. */
 export interface IPermissionRuleLayer {
-  /** The file as the user would find it, e.g. `~/.robota/settings.json`. */
+  /** The file as the user would find it, e.g. `~/.agent/settings.json`. */
   readonly source: string;
   readonly scope: string;
   readonly allow: readonly string[];
@@ -296,8 +300,40 @@ export interface ICommandMCPOAuthLoginResult {
   readonly tools: readonly IToolWithEventService[];
 }
 
+export interface ICommandMCPSkillSummary {
+  readonly serverId: string;
+  readonly uri: string;
+  readonly name: string;
+  readonly description: string;
+  readonly invocationName?: string;
+  readonly unavailableReason?: string;
+}
+
+export interface ICommandMCPSkillPreview extends ICommandMCPSkillSummary {
+  readonly namespace: string;
+  readonly fingerprint: string;
+  readonly frontmatter: TUniversalValue;
+  readonly content: string;
+}
+
+/** Host-controlled content consent. Discovery does not activate instructions or frontmatter. */
+export interface ICommandMCPSkillsAdapter {
+  /** Discovered metadata projected into the host's neutral, lazily admitted skill source. */
+  readonly commandSource?: ICommandSource;
+  list(serverId: string): Promise<readonly ICommandMCPSkillSummary[]>;
+  inspect(serverId: string, uri: string): Promise<ICommandMCPSkillPreview>;
+  approve(
+    serverId: string,
+    uri: string,
+    fingerprint: string,
+    source: TCommandInvocationSource,
+  ): Promise<ICommandMCPSkillPreview>;
+  withdraw(serverId: string, uri: string, source: TCommandInvocationSource): void;
+}
+
 /** MCP activation lifecycle port. Implemented by the composition root over the MCP policy service. */
 export interface ICommandMCPActivationAdapter {
+  readonly skills?: ICommandMCPSkillsAdapter;
   list(): readonly ICommandMCPActivationSummary[];
   /**
    * Where the user acts on a command the model suggests: `session` when they can type a `/mcp`
@@ -614,6 +650,8 @@ export interface ICommandCostBudgetAdapter {
 }
 
 export interface ICommandHostAdapters {
+  /** Host-selected lazy skill metadata; the framework does not know its transport. */
+  skillCommands?: ICommandSource;
   settings?: ICommandSettingsAdapter;
   effort?: ICommandEffortAdapter;
   /** The live advisor: `/advisor` changes its target without touching the session's tools. */

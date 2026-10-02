@@ -3,7 +3,7 @@
 ## Purpose
 
 Robota's coding capability as a single `ICapabilityPack` — the proof that capabilities compose
-additively, and robota's first capability pack. `createCodingPack(options)` bundles the default coding tools, coding
+additively, and the first capability pack. `createCodingPack(options)` bundles the default coding tools, coding
 command modules, and coding subagents into one additive composition unit that `assembleProduct` can
 compose on top of any product's base command modules — including when a product profile lets it own
 the entire tool surface. It imports the real published tools/commands/subagents; it
