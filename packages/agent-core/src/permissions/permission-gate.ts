@@ -26,7 +26,7 @@
  * - `github__*`     — a glob in the tool-name position (allow only after a literal `<server>__`)
  */
 
-import { globToRegex, matchCommand, matchPath, matchUrl } from './argument-matchers.js';
+import { globToRegex, matchCommand, matchPath, matchUrl, matchWebFetchUrl } from './argument-matchers.js';
 import { RISK_CLASS_POLICY, UNCLASSIFIED_TOOL_FALLBACK } from './permission-mode.js';
 import { isProtectedPath, removesCriticalPath } from './permission-safeguards.js';
 import { isReadOnlyCommandLine } from './read-only-commands.js';
@@ -350,7 +350,9 @@ function evaluateArgumentPattern(
 
   switch (argument.kind) {
     case 'url':
-      return matchUrl(parsed.argPattern, primary);
+      return toolName === 'WebFetch'
+        ? matchWebFetchUrl(parsed.argPattern, primary)
+        : matchUrl(parsed.argPattern, primary);
     case 'path':
       return matchPath(parsed.argPattern, primary);
     case 'command':

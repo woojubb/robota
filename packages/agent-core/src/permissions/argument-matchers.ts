@@ -214,7 +214,7 @@ function labelToASCII(label: string): string | null {
  * argument's punycode form; a label the parser refuses or splits makes the pattern unevaluable. `a**b` inside a label
  * is not a rule this grammar states and yields null (unevaluable).
  */
-function hostPatternToRegex(hostPattern: string): RegExp | null {
+function hostPatternToRegex(hostPattern: string, domainRule = false): RegExp | null {
   // Adjacent `**` labels mean what one means.
   const labels = canonicalHostText(hostPattern)
     .replace(/\*\*(?:\.\*\*)+/g, '**')
@@ -234,7 +234,7 @@ function hostPatternToRegex(hostPattern: string): RegExp | null {
     }
     const previousWasAnyLabels = !first && labels[index - 1] === '**';
     const dot = first || previousWasAnyLabels ? '' : '\\.';
-    if (label === '*') parts.push(`${dot}${LABELS}`);
+    if (label === '*') parts.push(`${dot}${domainRule && !first ? '[^.]*' : LABELS}`);
     else if (label.includes('**')) return null;
     else if (label.includes('*')) {
       parts.push(`${dot}${label.replace(REGEX_SPECIALS, '\\$&').replace(/\*/g, '[^.]*')}`);
@@ -281,9 +281,9 @@ function parseComparableUrl(argument: string): URL | null {
 }
 
 /** The host clause: a wildcard pattern by regex, a literal one canonicalised like the argument. */
-function matchHost(hostPattern: string, host: string): TPatternMatch {
+function matchHost(hostPattern: string, host: string, domainRule = false): TPatternMatch {
   if (hostPattern.includes('*')) {
-    const regex = hostPatternToRegex(hostPattern);
+    const regex = hostPatternToRegex(hostPattern, domainRule);
     if (regex === null) return 'unevaluable';
     return regex.test(host) ? 'match' : 'no-match';
   }
@@ -332,4 +332,23 @@ export function matchUrl(pattern: string, argument: string): TPatternMatch {
   if (!matchPort(portPattern, url, scheme)) return 'no-match';
   if (pathPattern !== undefined) return matchPathname(pathPattern, url.pathname);
   return 'match';
+}
+
+/**
+ * Claude's WebFetch domain form scopes only an HTTP/S hostname, regardless of port or path.
+ * A leading `*.` spans subdomain labels without the apex; every other `*` stays within a label.
+ * Existing URL patterns retain the generic URL grammar and matching behavior.
+ */
+export function matchWebFetchUrl(pattern: string, argument: string): TPatternMatch {
+  if (!pattern.startsWith('domain:')) return matchUrl(pattern, argument);
+  const grammar = /^domain:([^/\\:?#@[\]\s]+)$/.exec(pattern);
+  if (grammar === null) return 'unevaluable';
+  const hostPattern = canonicalHostText(grammar[1]!);
+  if (hostPattern.includes('**') || hostPattern.split('.').some((label) => label === '')) {
+    return 'unevaluable';
+  }
+
+  const url = parseComparableUrl(argument);
+  if (url === null || (url.protocol !== 'http:' && url.protocol !== 'https:')) return 'unevaluable';
+  return matchHost(hostPattern, canonicalHostText(url.hostname), true);
 }

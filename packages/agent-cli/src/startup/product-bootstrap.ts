@@ -1,4 +1,4 @@
-import { productConfigEntries, resolveProductConfig } from '@robota-sdk/product-config';
+import { embeddedProductIdentity, productConfigEntries, resolveProductConfig } from '@robota-sdk/product-config';
 import { loadProductConfigSelection } from '@robota-sdk/product-config/node';
 import { homedir } from 'node:os';
 import { robotaEnvironment } from '../../../../products/robota.mjs';
@@ -26,19 +26,23 @@ export function resolveCliRuntimeContext(options: IStartCliOptions): ICliRuntime
   }
   const suppliedEnvironment: TConfigEnvironment =
     options.environment ?? Object.freeze({ ...process.env });
-  const environment =
-    embeddedIdentity !== undefined ||
+  const environment = suppliedEnvironment;
+  const defaults =
     options.productConfigFile !== undefined ||
     options.productConfig !== undefined
-      ? suppliedEnvironment
+      ? undefined
       : robotaEnvironment(
           suppliedEnvironment,
           suppliedEnvironment.HOME ?? suppliedEnvironment.USERPROFILE ?? homedir(),
+          embeddedIdentity === undefined ? undefined : (profileEnvironment) =>
+            JSON.stringify(embeddedProductIdentity(resolveProductConfig({ environment: profileEnvironment }))) ===
+            JSON.stringify(embeddedIdentity),
         );
   const selection =
     options.productConfig === undefined
       ? loadProductConfigSelection({
           environment,
+          ...(defaults !== undefined ? { defaults } : {}),
           ...(options.productConfigFile !== undefined
             ? { filePath: options.productConfigFile }
             : {}),

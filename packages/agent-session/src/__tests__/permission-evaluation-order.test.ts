@@ -232,6 +232,54 @@ describe('parameter rules on tools whose parameters arrive with the schema (issu
   });
 });
 
+describe('Claude WebFetch rules survive permission initialization', () => {
+  it('accepts imported domain rules after wrapping and keeps deny/ask effective', async () => {
+    registerToolPermissionProfile('WebFetch', {
+      argument: { key: 'url', kind: 'url' },
+      riskClass: 'inspect',
+    });
+    const handler = vi.fn().mockResolvedValue(false);
+    const enforcer = makeEnforcer({
+      config: {
+        permissions: {
+          allow: ['WebFetch(domain:github.com)'],
+          deny: ['WebFetch(domain:blocked.example)'],
+          ask: ['WebFetch(domain:*.review.example)'],
+        },
+      },
+      permissionHandler: handler,
+    });
+    const execute = vi.fn();
+    expect(() =>
+      enforcer.wrapTools([
+        {
+          schema: {
+            name: 'WebFetch',
+            description: 'fetch',
+            parameters: {
+              type: 'object',
+              properties: { url: { type: 'string' }, prompt: { type: 'string' } },
+            },
+          },
+          execute,
+        } as unknown as Parameters<PermissionEnforcer['wrapTools']>[0][number],
+      ]),
+    ).not.toThrow();
+    await expect(
+      enforcer.checkPermission('WebFetch', { url: 'https://github.com/path' }),
+    ).resolves.toBe(true);
+    await expect(
+      enforcer.checkPermission('WebFetch', { url: 'https://blocked.example/' }),
+    ).resolves.toBe(false);
+    expect(handler).not.toHaveBeenCalled();
+    await expect(
+      enforcer.checkPermission('WebFetch', { url: 'https://a.b.review.example/' }),
+    ).resolves.toBe(false);
+    expect(handler).toHaveBeenCalledOnce();
+    expect(execute).not.toHaveBeenCalled();
+  });
+});
+
 describe('read-only commands follow symlinks before trusting a path (issue #3082)', () => {
   let root: string;
   beforeEach(() => {

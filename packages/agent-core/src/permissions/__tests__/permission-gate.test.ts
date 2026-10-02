@@ -109,6 +109,111 @@ const UNEVALUABLE_PATTERNS = [
   'WebFetch(https://exa mple.com/**)', // grammar-accepted, but the literal host does not parse
 ];
 
+describe('Claude WebFetch domain rules', () => {
+  const rule = (domain: string) => `WebFetch(domain:${domain})`;
+
+  it.each([
+    ['example.com', 'https://example.com/path?host=other.example#fragment'],
+    ['EXAMPLE.COM.', 'http://example.com./path'],
+    ['example.com', 'https://example.com:8443/another/path'],
+    ['*.example.com', 'https://api.example.com/'],
+    ['*.example.com', 'https://a.b.example.com/'],
+    ['api-*.example.com', 'https://api-one.example.com/'],
+    ['example.*', 'https://example.org/'],
+    ['a.*.example.com', 'https://a.b.example.com/'],
+    ['*', 'http://unrelated.example:8080/'],
+  ])('matches only the HTTP/S hostname for %s against %s', (domain, url) => {
+    expect(matchesAnyPattern('WebFetch', { url }, [rule(domain)])).toBe(true);
+  });
+
+  it.each([
+    ['example.com', 'https://api.example.com/'],
+    ['example.com', 'https://example.com.evil.test/'],
+    ['example.com', 'https://evilexample.com/'],
+    ['example.com', 'https://evil.test/example.com?host=example.com#example.com'],
+    ['*.example.com', 'https://example.com/'],
+    ['*.example.com', 'https://sub.evilexample.com/'],
+    ['example.*', 'https://example.evil.com/'],
+    ['a.*.example.com', 'https://a.b.c.example.com/'],
+  ])('does not widen %s to %s', (domain, url) => {
+    expect(matchesAnyPattern('WebFetch', { url }, [rule(domain)])).toBe(false);
+    expect(hasUnevaluableArgumentPattern('WebFetch', { url }, [rule(domain)])).toBe(false);
+  });
+
+  it.each([
+    'not a url',
+    'file:///etc/passwd',
+    'ftp://example.com/',
+    'ws://example.com/',
+    'https://example.com@evil.test/',
+    'https://user:password@example.com/',
+  ])('refuses an invalid WebFetch URL without authorizing it: %s', (url) => {
+    expect(matchesAnyPattern('WebFetch', { url }, [rule('*')])).toBe(false);
+    expect(hasUnevaluableArgumentPattern('WebFetch', { url }, [rule('*')])).toBe(true);
+    expect(
+      evaluatePermission('WebFetch', { url }, 'bypassPermissions', {
+        allow: ['WebFetch'],
+        deny: [rule('*')],
+      }),
+    ).toBe('approve');
+  });
+
+  it('preserves deny, ask and ceiling boundaries even with bypass or a broad allow', () => {
+    const args = { url: 'https://api.example.com/' };
+    expect(
+      evaluatePermission('WebFetch', args, 'bypassPermissions', {
+        allow: ['WebFetch'],
+        deny: [rule('*.example.com')],
+      }),
+    ).toBe('deny');
+    expect(
+      evaluatePermission('WebFetch', args, 'bypassPermissions', {
+        allow: ['WebFetch'],
+        ask: [rule('*.example.com')],
+      }),
+    ).toBe('approve');
+    expect(
+      evaluatePermission(
+        'WebFetch',
+        args,
+        'bypassPermissions',
+        {},
+        {
+          ceiling: [rule('*.example.com')],
+        },
+      ),
+    ).toBe('auto');
+    expect(
+      evaluatePermission(
+        'WebFetch',
+        { url: 'https://example.com/' },
+        'bypassPermissions',
+        {},
+        {
+          ceiling: [rule('*.example.com')],
+        },
+      ),
+    ).toBe('deny');
+  });
+
+  it('leaves other URL tools on their declared URL grammar', () => {
+    registerToolPermissionProfile('OtherFetch', {
+      argument: { key: 'url', kind: 'url' },
+      riskClass: 'inspect',
+    });
+    expect(
+      matchesAnyPattern('OtherFetch', { url: 'https://example.com/' }, [
+        'OtherFetch(domain:example.com)',
+      ]),
+    ).toBe(false);
+    expect(
+      hasUnevaluableArgumentPattern('OtherFetch', { url: 'https://example.com/' }, [
+        'OtherFetch(domain:example.com)',
+      ]),
+    ).toBe(true);
+  });
+});
+
 describe('CORE-049 — url kind: a host pattern means a host', () => {
   const allow = { allow: ['WebFetch(https://*.example.com/**)'] };
   const auto = (url: string) => evaluatePermission('WebFetch', { url }, 'default', allow);

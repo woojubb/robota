@@ -1,7 +1,9 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { embeddedProductIdentity, resolveProductConfig } from '@robota-sdk/product-config';
+import { robotaEnvironment } from '../../../../../products/robota.mjs';
 import {
   createNodeHostSettingsSource,
   createRestrictedWorkspaceProjectAccess,
@@ -30,6 +32,7 @@ import { readCliProviderSettings } from '../../startup/provider-startup.js';
 
 const temporary: string[] = [];
 afterEach(() => {
+  vi.unstubAllGlobals();
   temporary.splice(0).forEach((directory) => rmSync(directory, { recursive: true, force: true }));
   cleanupTestProductRuntimes();
 });
@@ -86,6 +89,102 @@ describe('per-invocation CLI product isolation', () => {
     expect(resolveCliRuntimeContext({
       environment: { HOME: userHome, PRODUCT_LOG_DIR: logs, ROBOTA_LOG_DIR: logs },
     }).environment.PRODUCT_LOG_DIR).toBe(logs);
+  });
+
+  it('uses each invocation home for embedded Robota defaults without embedding build storage', () => {
+    const buildHome = home();
+    const identity = embeddedProductIdentity(resolveProductConfig({
+      environment: robotaEnvironment({}, buildHome),
+    }));
+    vi.stubGlobal('__PRODUCT_CONFIG_IDENTITY__', identity);
+    expect(JSON.stringify(identity)).not.toContain(buildHome);
+    for (const userHome of [home(), home()]) {
+      const runtime = resolveCliRuntimeContext({ environment: { HOME: userHome } });
+      const root = join(userHome, '.robota');
+      expect(runtime.layout.userRoot).toBe(root);
+      expect(runtime.layout.projectDirectory).toBe('.robota');
+      expect(runtime.environment.PRODUCT_CACHE_DIR).toBe(join(root, 'cache'));
+      expect(runtime.environment.PRODUCT_LOG_DIR).toBe(join(root, 'logs'));
+      expect(embeddedProductIdentity(runtime.config)).toEqual(identity);
+    }
+  });
+
+  it('preserves embedded Robota operational overrides, empty inputs and identity conflicts', () => {
+    const userHome = home();
+    vi.stubGlobal('__PRODUCT_CONFIG_IDENTITY__', embeddedProductIdentity(resolveProductConfig({
+      environment: robotaEnvironment({}, userHome),
+    })));
+    const root = join(userHome, 'selected-state');
+    const logs = join(userHome, 'selected-logs');
+    const runtime = resolveCliRuntimeContext({
+      environment: { HOME: userHome, ROBOTA_USER_STATE_DIR: root, PRODUCT_LOG_DIR: logs },
+    });
+    expect(runtime.layout.userRoot).toBe(root);
+    expect(runtime.environment.PRODUCT_CACHE_DIR).toBe(join(root, 'cache'));
+    expect(runtime.environment.PRODUCT_LOG_DIR).toBe(logs);
+    for (const environment of [
+      { PRODUCT_USER_STATE_DIR: '' },
+      { ROBOTA_LOG_DIR: '' },
+      { PRODUCT_LOG_DIR: logs, ROBOTA_LOG_DIR: root },
+      { PRODUCT_CLI_NAME: 'other' },
+      { ROBOTA_MASTER_KEY_DERIVATION_PATH: '[7240,1]' },
+    ]) {
+      expect(() => resolveCliRuntimeContext({ environment: { HOME: userHome, ...environment } })).toThrow();
+    }
+    for (const selector of [
+      { PRODUCT_ID: 'robota' },
+      { PRODUCT_ENV_PREFIX: 'ROBOTA_' },
+      { PRODUCT_CONFIG_FILE: '' },
+    ]) {
+      expect(() => resolveCliRuntimeContext({ environment: { HOME: userHome, ...selector } })).toThrow('PRODUCT_USER_STATE_DIR');
+    }
+  });
+
+  it('keeps explicit files and injected config authoritative for embedded Robota', () => {
+    const directory = home();
+    const config = resolveProductConfig({ environment: robotaEnvironment({}, directory) });
+    vi.stubGlobal('__PRODUCT_CONFIG_IDENTITY__', embeddedProductIdentity(config));
+    const filePath = join(directory, 'selected.env');
+    writeFileSync(filePath, Object.entries({
+      ...robotaEnvironment({}, directory),
+      PRODUCT_USER_STATE_DIR: './selected-state',
+      PRODUCT_CACHE_DIR: './selected-cache',
+      PRODUCT_LOG_DIR: './selected-logs',
+    }).map(([key, value]) => `${key}=${value}`).join('\n'));
+    for (const options of [
+      { productConfigFile: filePath, environment: { HOME: home() } },
+      { environment: { HOME: home(), PRODUCT_CONFIG_FILE: filePath } },
+    ]) {
+      expect(resolveCliRuntimeContext(options).layout.userRoot).toBe(join(directory, 'selected-state'));
+    }
+    expect(resolveCliRuntimeContext({ productConfig: config, environment: { HOME: home() } }).layout.userRoot)
+      .toBe(join(directory, '.robota'));
+    writeFileSync(filePath, 'PRODUCT_LOG_DIR=\n');
+    expect(() => resolveCliRuntimeContext({ productConfigFile: filePath, environment: { HOME: home() } }))
+      .toThrow('PRODUCT_USER_STATE_DIR');
+  });
+
+  it.each(['cedar', 'amber'])('requires explicit host settings for embedded %s', (label) => {
+    const runtime = createTestProductRuntime(label, { HOME: home() });
+    vi.stubGlobal('__PRODUCT_CONFIG_IDENTITY__', embeddedProductIdentity(runtime.config));
+    expect(() => resolveCliRuntimeContext({ environment: { HOME: home() } })).toThrow('PRODUCT_USER_STATE_DIR');
+    expect(resolveCliRuntimeContext({ environment: runtime.environment }).config).toEqual(runtime.config);
+  });
+
+  it('does not apply Robota defaults to a same-ID artifact with another embedded profile', () => {
+    const directory = home();
+    const environment = {
+      ...robotaEnvironment({}, directory),
+      PRODUCT_PACKAGE_SCOPE: '@other-sdk',
+      PRODUCT_PROTOCOL_SCHEME: 'other',
+      PRODUCT_DISPLAY_NAME: 'Other Host',
+      PRODUCT_CREDENTIAL_SERVICE: 'other',
+      SECURITY_MASTER_KEY_DERIVATION_PATH: '[173,0]',
+    };
+    const config = resolveProductConfig({ environment });
+    vi.stubGlobal('__PRODUCT_CONFIG_IDENTITY__', embeddedProductIdentity(config));
+    expect(() => resolveCliRuntimeContext({ environment: { HOME: home() } })).toThrow('PRODUCT_USER_STATE_DIR');
+    expect(resolveCliRuntimeContext({ environment }).config).toEqual(config);
   });
 
   it('keeps A/B/A and concurrent settings, plugin and contribution roots independent under one home', async () => {
