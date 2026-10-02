@@ -1,10 +1,22 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { bindLocalPeerStatus } from '../local-peer-status.js';
 import { announceLocalPeerPresence } from '../local-peer-presence.js';
+import { createTestRuntimeContext } from '../../devices/__tests__/runtime-context-fixture.js';
+
+const runtimeRoots: string[] = [];
+afterAll(() => {
+  for (const root of runtimeRoots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
+
+function runtimeContext() {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'peer-status-runtime-')));
+  runtimeRoots.push(root);
+  return createTestRuntimeContext(root);
+}
 
 describe('#2726 — passive session activity observation', () => {
   it('follows actual execution and pending-input state without subscribing to prompts', () => {
@@ -75,6 +87,7 @@ describe('#2726 — passive session activity observation', () => {
     try {
       let fail = false;
       const presence = announceLocalPeerPresence({
+        productRuntime: runtimeContext(),
         sessionId: 'self',
         guardedDirectory: dir,
         registry: {
@@ -118,6 +131,7 @@ describe('#2726 — passive session activity observation', () => {
     try {
       let fail = false;
       const presence = announceLocalPeerPresence({
+        productRuntime: runtimeContext(),
         sessionId: 'self',
         guardedDirectory: dir,
         registry: {

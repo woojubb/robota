@@ -10,7 +10,7 @@
     "typecheck": "tsgo --noEmit",
     "lint": "next lint",
     "test": "vitest run",
-    "deploy": "pnpm build && wrangler pages deploy out --project-name robota-docs --branch main"
+    "deploy": "pnpm build && wrangler pages deploy out --project-name __DEPLOY_DOCS_PROJECT_NAME__ --branch main"
   },
   "dependencies": {
     "gray-matter": "^4.0.3",

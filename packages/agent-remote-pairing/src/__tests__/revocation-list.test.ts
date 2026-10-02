@@ -1,3 +1,5 @@
+import { createIdentityContext } from '../identity/crypto-context.js';
+const testIdentity = createIdentityContext('test-product');
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -32,7 +34,7 @@ async function user() {
 }
 
 async function list(
-  overrides: Partial<Parameters<typeof issueRevocationList>[0]> = {},
+  overrides: Partial<Parameters<typeof issueRevocationList>[1]> = {},
   signer?: CryptoKey,
   userId?: string,
 ): Promise<{ list: IRevocationList; root: CryptoKeyPair; userId: string }> {
@@ -45,7 +47,7 @@ async function list(
     ...overrides,
   };
   return {
-    list: await issueRevocationList(claims, signer ?? u.root.privateKey),
+    list: await issueRevocationList(testIdentity, claims, signer ?? u.root.privateKey),
     root: u.root,
     userId: u.userId,
   };
@@ -54,7 +56,7 @@ async function list(
 describe('a usable list', () => {
   it('verifies and hands back exactly the ids it was signed over', async () => {
     const { list: l, root, userId } = await list({ revokedDeviceIds: ['dev-a', 'dev-b'] });
-    const verdict = await verifyRevocationList(l, {
+    const verdict = await verifyRevocationList(testIdentity, l, {
       rootPublicKey: root.publicKey,
       expectedUserId: userId,
       now: NOW + 1,
@@ -68,7 +70,7 @@ describe('a usable list', () => {
     // when something is revoked — a user who has revoked nothing still needs a fresh one, or every
     // verifier goes permanently stale.
     const { list: l, root, userId } = await list({ revokedDeviceIds: [] });
-    const verdict = await verifyRevocationList(l, {
+    const verdict = await verifyRevocationList(testIdentity, l, {
       rootPublicKey: root.publicKey,
       expectedUserId: userId,
       now: NOW + 1,
@@ -82,16 +84,19 @@ describe('a usable list', () => {
     // statement — and two verifiers comparing bytes would call them different lists.
     const u = await user();
     const a = await issueRevocationList(
+      testIdentity,
       { userId: u.userId, revokedDeviceIds: ['b', 'a'], issuedAt: NOW, expiresAt: NOW + HOUR },
       u.root.privateKey,
     );
     const b = await issueRevocationList(
+      testIdentity,
       { userId: u.userId, revokedDeviceIds: ['a', 'b'], issuedAt: NOW, expiresAt: NOW + HOUR },
       u.root.privateKey,
     );
     // ECDSA is randomised, so the SIGNATURES differ. What must match is that each verifies against
     // the other's claim ordering — which is what proves the signed bytes are the same.
     const verdict = await verifyRevocationList(
+      testIdentity,
       { ...b, revokedDeviceIds: ['b', 'a'] },
       { rootPublicKey: u.root.publicKey, expectedUserId: u.userId, now: NOW + 1 },
     );
@@ -110,6 +115,7 @@ describe('every claim is inside the signature', () => {
     // the expiry out, or roll the issue time back while the signature still verifies.
     const { list: l, root, userId } = await list({ revokedDeviceIds: ['dev-a'] });
     const verdict = await verifyRevocationList(
+      testIdentity,
       { ...l, ...edit },
       { rootPublicKey: root.publicKey, expectedUserId: userId, now: NOW + 1 },
     );
@@ -121,10 +127,11 @@ describe('every claim is inside the signature', () => {
     const other = await user();
     const mine = await user();
     const l = await issueRevocationList(
+      testIdentity,
       { userId: mine.userId, revokedDeviceIds: ['dev-a'], issuedAt: NOW, expiresAt: NOW + HOUR },
       other.root.privateKey,
     );
-    const verdict = await verifyRevocationList(l, {
+    const verdict = await verifyRevocationList(testIdentity, l, {
       rootPublicKey: mine.root.publicKey,
       expectedUserId: mine.userId,
       now: NOW + 1,
@@ -136,10 +143,11 @@ describe('every claim is inside the signature', () => {
   it('a genuine list for a DIFFERENT user is refused, not silently applied', async () => {
     const other = await user();
     const l = await issueRevocationList(
+      testIdentity,
       { userId: other.userId, revokedDeviceIds: ['dev-a'], issuedAt: NOW, expiresAt: NOW + HOUR },
       other.root.privateKey,
     );
-    const verdict = await verifyRevocationList(l, {
+    const verdict = await verifyRevocationList(testIdentity, l, {
       rootPublicKey: other.root.publicKey,
       expectedUserId: 'someone-else',
       now: NOW + 1,
@@ -152,7 +160,7 @@ describe('every claim is inside the signature', () => {
 describe('freshness, which is what makes withholding fail closed', () => {
   it('refuses an expired list rather than reading it as "no revocations"', async () => {
     const { list: l, root, userId } = await list({ revokedDeviceIds: ['dev-a'] });
-    const verdict = await verifyRevocationList(l, {
+    const verdict = await verifyRevocationList(testIdentity, l, {
       rootPublicKey: root.publicKey,
       expectedUserId: userId,
       now: NOW + HOUR,
@@ -165,7 +173,7 @@ describe('freshness, which is what makes withholding fail closed', () => {
 
   it('accepts it one millisecond before it expires, so the bound is the bound', async () => {
     const { list: l, root, userId } = await list();
-    const verdict = await verifyRevocationList(l, {
+    const verdict = await verifyRevocationList(testIdentity, l, {
       rootPublicKey: root.publicKey,
       expectedUserId: userId,
       now: NOW + HOUR - 1,
@@ -178,10 +186,11 @@ describe('freshness, which is what makes withholding fail closed', () => {
     // revocation the attacker cares about, and replaying it is the whole attack.
     const u = await user();
     const older = await issueRevocationList(
+      testIdentity,
       { userId: u.userId, revokedDeviceIds: [], issuedAt: NOW, expiresAt: NOW + HOUR },
       u.root.privateKey,
     );
-    const verdict = await verifyRevocationList(older, {
+    const verdict = await verifyRevocationList(testIdentity, older, {
       rootPublicKey: u.root.publicKey,
       expectedUserId: u.userId,
       now: NOW + 1,
@@ -193,7 +202,7 @@ describe('freshness, which is what makes withholding fail closed', () => {
 
   it('accepts a list issued at exactly the high-water mark — a re-delivery is not a rollback', async () => {
     const { list: l, root, userId } = await list();
-    const verdict = await verifyRevocationList(l, {
+    const verdict = await verifyRevocationList(testIdentity, l, {
       rootPublicKey: root.publicKey,
       expectedUserId: userId,
       now: NOW + 1,
@@ -204,7 +213,7 @@ describe('freshness, which is what makes withholding fail closed', () => {
 
   it('accepts the first list on a machine with no high-water mark', async () => {
     const { list: l, root, userId } = await list();
-    const verdict = await verifyRevocationList(l, {
+    const verdict = await verifyRevocationList(testIdentity, l, {
       rootPublicKey: root.publicKey,
       expectedUserId: userId,
       now: NOW + 1,
@@ -219,7 +228,7 @@ describe('the list actually retires a device', () => {
     // certificate below is genuine — it is the revocation that refuses it.
     const u = await user();
     const device = await generateIdentityKeyPair(true);
-    const certificate = await issueDeviceCertificate({
+    const certificate = await issueDeviceCertificate(testIdentity, {
       rootPrivateKey: u.root.privateKey,
       userId: u.userId,
       devicePublicKey: device.publicKey,
@@ -227,7 +236,7 @@ describe('the list actually retires a device', () => {
       expiresAt: NOW + HOUR,
     });
 
-    const before = await verifyDeviceCertificate(certificate, {
+    const before = await verifyDeviceCertificate(testIdentity, certificate, {
       rootPublicKey: u.root.publicKey,
       expectedUserId: u.userId,
       now: NOW + 1,
@@ -235,6 +244,7 @@ describe('the list actually retires a device', () => {
     expect(before.valid).toBe(true);
 
     const l = await issueRevocationList(
+      testIdentity,
       {
         userId: u.userId,
         revokedDeviceIds: [certificate.deviceId],
@@ -243,14 +253,14 @@ describe('the list actually retires a device', () => {
       },
       u.root.privateKey,
     );
-    const verdict = await verifyRevocationList(l, {
+    const verdict = await verifyRevocationList(testIdentity, l, {
       rootPublicKey: u.root.publicKey,
       expectedUserId: u.userId,
       now: NOW + 1,
     });
     expect(verdict.usable).toBe(true);
 
-    const after = await verifyDeviceCertificate(certificate, {
+    const after = await verifyDeviceCertificate(testIdentity, certificate, {
       rootPublicKey: u.root.publicKey,
       expectedUserId: u.userId,
       now: NOW + 1,

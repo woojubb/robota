@@ -45,7 +45,7 @@
     missing-token challenge, 403 `insufficient_scope` or a revoked grant, 400 a malformed event, 404 an unknown
     grant, 413 a body over 16 KiB, 429 over the grant's rate or the address's failure budget, 503 when the issuer
     or the session cannot take it. `--external-event-port <port>` (required with grants) and
-    `--external-event-trusted-proxy <ip>` work on the TUI and on `robota session start --background`. A background
+    `--external-event-trusted-proxy <ip>` work on the TUI and on `__PRODUCT_CLI_NAME__ session start --background`. A background
     session writes an owner-only, bounded JSONL trail of refusals and settlements under its supervised directory;
     the TUI reports them on one line each.
 
@@ -123,8 +123,8 @@
   or `TuiInteractionChannel`, which honestly own their session lifecycle.
 
 - e13c30c: MCP servers now publish a neutral submission tool by default. Hosts that need the previous
-  `robota_submit` tool must pass `submitTool: { name: 'robota_submit', description: '...' }` to
-  `createAgentMcpServer`, `createMcpTransport`, or `createMcpHttpHost`. The Robota CLI supplies its
+  `PRODUCT_submit` tool must pass `submitTool: { name: 'PRODUCT_submit', description: '...' }` to
+  `createAgentMcpServer`, `createMcpTransport`, or `createMcpHttpHost`. The __PRODUCT_DISPLAY_NAME__ CLI supplies its
   existing name and description for both stdio and HTTP carriers.
 - 5134b3b: **BREAKING — RUNTIME-003 P2: `submit` hands back the submission's identity, so an answer belongs to
   the caller who asked for it.**
@@ -177,7 +177,7 @@
 
 ### Minor Changes
 
-- 3131209: `robota mcp serve` can serve a remote MCP client as an OAuth resource server.
+- 3131209: `__PRODUCT_CLI_NAME__ mcp serve` can serve a remote MCP client as an OAuth resource server.
 
   `agent-transport-mcp` gains `createMcpRemoteHttpHost`, which admits requests only by an OAuth access
   token checked by an injected `IAccessTokenVerifier`. Its endpoint path and its RFC 9728
@@ -191,7 +191,7 @@
   no `Mcp-Session-Id`. The loopback `createMcpHttpHost` is unchanged.
 
   `agent-cli` adds `--http-public-url`, `--http-host`, `--oauth-issuer`, `--oauth-scopes`,
-  `--oauth-allowed-subjects` and `--trusted-proxy` to `robota mcp serve`. It binds an address other than
+  `--oauth-allowed-subjects` and `--trusted-proxy` to `__PRODUCT_CLI_NAME__ mcp serve`. It binds an address other than
   `127.0.0.1` only with the public URL and the OAuth settings, and never with `--http-token-file`.
   Refusals are logged on stderr without token text.
 

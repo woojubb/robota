@@ -76,7 +76,7 @@ describe('SessionStore', () => {
   let store: NodeSessionStore;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), 'robota-session-test-'));
+    tmpDir = mkdtempSync(join(tmpdir(), 'agent-session-test-'));
     store = new NodeSessionStore(tmpDir);
   });
 
@@ -96,7 +96,7 @@ describe('SessionStore', () => {
     it.runIf(process.platform === 'linux')(
       'persists project session CRUD only through minted project state facets',
       async () => {
-        const cwd = mkdtempSync(join(tmpdir(), 'robota-project-session-'));
+        const cwd = mkdtempSync(join(tmpdir(), 'agent-project-session-'));
         try {
           const project = await projectStore(cwd);
           const record = makeRecord({ id: 'authority-session', cwd });
@@ -113,8 +113,8 @@ describe('SessionStore', () => {
     );
 
     it('rejects session and log facets derived from different authority instances', async () => {
-      const left = mkdtempSync(join(tmpdir(), 'robota-project-session-left-'));
-      const right = mkdtempSync(join(tmpdir(), 'robota-project-session-right-'));
+      const left = mkdtempSync(join(tmpdir(), 'agent-project-session-left-'));
+      const right = mkdtempSync(join(tmpdir(), 'agent-project-session-right-'));
       try {
         const leftAccess = await createTrustedProjectAccessFixture(left);
         const rightAccess = await createTrustedProjectAccessFixture(right);
@@ -189,7 +189,7 @@ describe('SessionStore', () => {
     it.runIf(process.platform === 'linux')(
       'falls back to append-only replay logs when project session json is missing',
       async () => {
-        const cwd = mkdtempSync(join(tmpdir(), 'robota-project-session-'));
+        const cwd = mkdtempSync(join(tmpdir(), 'agent-project-session-'));
         const access = await createTrustedProjectAccessFixture(cwd);
         if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
         const logStorage = getWorkspaceProjectStateStorage(access.authority, 'session-logs');
@@ -304,7 +304,7 @@ describe('SessionStore', () => {
     it.runIf(process.platform === 'linux')(
       'enforces the caller-supplied payload read budget',
       async () => {
-        const cwd = mkdtempSync(join(tmpdir(), 'robota-project-log-budget-'));
+        const cwd = mkdtempSync(join(tmpdir(), 'agent-project-log-budget-'));
         try {
           const access = await createTrustedProjectAccessFixture(cwd);
           if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
@@ -328,7 +328,7 @@ describe('SessionStore', () => {
     );
 
     it('rejects a mismatched payload digest before authority-backed I/O', async () => {
-      const cwd = mkdtempSync(join(tmpdir(), 'robota-project-log-digest-'));
+      const cwd = mkdtempSync(join(tmpdir(), 'agent-project-log-digest-'));
       try {
         const access = await createTrustedProjectAccessFixture(cwd);
         if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
@@ -345,11 +345,11 @@ describe('SessionStore', () => {
     });
 
     it('warn-only disables logging when the authority-backed log target is linked', async () => {
-      const cwd = mkdtempSync(join(tmpdir(), 'robota-project-log-failure-'));
-      const outside = mkdtempSync(join(tmpdir(), 'robota-project-log-outside-'));
+      const cwd = mkdtempSync(join(tmpdir(), 'agent-project-log-failure-'));
+      const outside = mkdtempSync(join(tmpdir(), 'agent-project-log-outside-'));
       try {
-        mkdirSync(join(cwd, '.robota'), { recursive: true });
-        symlinkSync(outside, join(cwd, '.robota', 'logs'));
+        mkdirSync(join(cwd, '.agent'), { recursive: true });
+        symlinkSync(outside, join(cwd, '.agent', 'logs'));
         const access = await createTrustedProjectAccessFixture(cwd);
         if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
         const sink = new WorkspaceSessionLogSink(

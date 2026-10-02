@@ -5,7 +5,7 @@
  * Resolution is a pure function of one request so every branch is testable without the host shell.
  */
 
-import { RobotaError } from './errors.js';
+import { AgentRuntimeError } from './errors.js';
 
 /** Shell family — drives non-interactive arg shape, quoting, and LLM syntax guidance. */
 export type TShellKind = 'bash' | 'sh' | 'powershell' | 'cmd';
@@ -39,7 +39,7 @@ export interface IPlatformShellResolutionRequest {
 }
 
 /** An explicit executable whose basename has no supported command argument family. */
-export class UnsupportedShellError extends RobotaError {
+export class UnsupportedShellError extends AgentRuntimeError {
   readonly code = 'UNSUPPORTED_SHELL';
   readonly category = 'user' as const;
   readonly recoverable = false;

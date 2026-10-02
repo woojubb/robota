@@ -45,6 +45,10 @@ function createPluginSystemCommand(): ISystemCommand {
     modelInvocable: false,
     argumentHint: entry.argumentHint,
     lifecycle: 'inline',
+    canRunDuringTurn: (args) => {
+      const parts = args.trim().split(/\s+/);
+      return parts.length === 2 && ['disable', 'uninstall'].includes(parts[0]!);
+    },
     subcommands: entry.subcommands,
     execute: executePluginCommand,
   };

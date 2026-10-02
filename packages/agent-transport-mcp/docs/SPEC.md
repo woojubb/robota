@@ -51,7 +51,7 @@ approval prompts.
   The bearer is minted when the host is created (`createMcpHttpHost`) and returned only to the trusted process owner, which must keep
   it out of argv, logs, URLs, and world-readable files. The loopback host refuses a non-loopback bind; only the remote
   host, which cannot be built without a verifier and an `https` public URL, binds elsewhere.
-- The external wire schema and protocol errors are MCP-SDK owned, not a Robota REST envelope.
+- The external wire schema and protocol errors are MCP-SDK owned, not an agent runtime REST envelope.
 
 ## Canonical catalog and invocation
 

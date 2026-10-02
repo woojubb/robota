@@ -325,11 +325,16 @@ describe('command-api contracts', () => {
       'list',
       'show',
       'add',
+      'correct',
+      'forget',
       'pending',
       'approve',
       'reject',
       'used',
     ]);
+    for (const name of ['correct', 'forget']) {
+      expect(buildMemoryCommandSubcommands().find((command) => command.name === name)?.modelInvocable).toBe(false);
+    }
     expect(isCommandMemoryType('project')).toBe(true);
     expect(isCommandMemoryType('secret')).toBe(false);
     expect(hasSensitiveCommandMemoryContent('api key is sk-test-secret')).toBe(true);
@@ -417,7 +422,7 @@ describe('command-api contracts', () => {
     const replayContext = {
       ...context,
       validateCurrentSessionReplayLog: () => ({
-        logFile: '/workspace/.robota/logs/session_1.jsonl',
+        logFile: '/workspace/.agent/logs/session_1.jsonl',
         entryCount: 1,
         validation: {
           ok: false,

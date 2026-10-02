@@ -17,7 +17,7 @@ if (mode === 'ok') {
   process.stdout.write(
     JSON.stringify({
       Authorization: `Bearer helper-run-${count}`,
-      'X-Server': process.env.ROBOTA_MCP_SERVER_NAME ?? '',
+      'X-Server': process.env.PRODUCT_MCP_SERVER_NAME ?? '',
     }) + '\n',
   );
 } else if (mode === 'env') {
@@ -25,7 +25,7 @@ if (mode === 'ok') {
     JSON.stringify({
       'X-Env': Object.keys(process.env).sort().join(','),
       'X-Cwd': process.cwd(),
-      'X-Url': process.env.ROBOTA_MCP_SERVER_URL ?? '',
+      'X-Url': process.env.PRODUCT_MCP_SERVER_URL ?? '',
     }),
   );
 } else if (mode === 'fail') {

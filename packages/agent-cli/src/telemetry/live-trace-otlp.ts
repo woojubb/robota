@@ -5,6 +5,7 @@ import { resourceFromAttributes } from '@opentelemetry/resources';
 import { BatchSpanProcessor, TracerProvider } from '@opentelemetry/sdk-trace';
 import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+import { liveTimingAttributes } from './live-timing.js';
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
 import type { TSubprocessTraceClass } from '@robota-sdk/agent-core';
 import { createNodeOtlpLiveMetricPort } from './live-metric-otlp.js';
@@ -49,9 +50,9 @@ const SUPPORTED_SETTINGS = new Set([
   'OTLP_TRACES_ENDPOINT', 'OTLP_METRICS_ENDPOINT', 'OTLP_LOGS_ENDPOINT',
   'OTLP_HEADERS', 'OTLP_TRACES_HEADERS', 'OTLP_METRICS_HEADERS', 'OTLP_LOGS_HEADERS',
   'METRIC_ATTRIBUTES', 'PROPAGATE_TO', 'PROPAGATE_TO_SUBPROCESSES',
-].map((suffix) => `ROBOTA_TELEMETRY_${suffix}`).concat(LIVE_CONTENT_SETTINGS));
+].map((suffix) => `PRODUCT_TELEMETRY_${suffix}`).concat(LIVE_CONTENT_SETTINGS));
 
-const METRIC_ATTRIBUTES_SETTING = 'ROBOTA_TELEMETRY_METRIC_ATTRIBUTES';
+const METRIC_ATTRIBUTES_SETTING = 'PRODUCT_TELEMETRY_METRIC_ATTRIBUTES';
 const METRIC_ATTRIBUTE_TOKENS: ReadonlySet<TLiveMetricAttribute> = new Set(['session', 'provider', 'model']);
 
 /**
@@ -65,7 +66,7 @@ function resolveMetricAttributesSetting(
 ): ReadonlySet<TLiveMetricAttribute> {
   const raw = env[METRIC_ATTRIBUTES_SETTING];
   if (raw === undefined) return new Set();
-  const selector = env['ROBOTA_TELEMETRY_METRICS'];
+  const selector = env['PRODUCT_TELEMETRY_METRICS'];
   if (selector !== 'otlp' && selector !== 'console') {
     throw new Error(`${METRIC_ATTRIBUTES_SETTING} is set but metrics are not exported over otlp or console.`);
   }
@@ -79,7 +80,7 @@ function resolveMetricAttributesSetting(
   return result;
 }
 
-const PROPAGATE_TO_SETTING = 'ROBOTA_TELEMETRY_PROPAGATE_TO';
+const PROPAGATE_TO_SETTING = 'PRODUCT_TELEMETRY_PROPAGATE_TO';
 const MAX_PROPAGATION_ORIGINS = 16;
 const MAX_PROPAGATION_ORIGIN_LENGTH = 256;
 
@@ -92,11 +93,11 @@ export interface ILiveTraceContextPropagation {
   readonly subprocesses?: readonly TSubprocessTraceClass[];
 }
 
-const PROPAGATE_TO_SUBPROCESSES_SETTING = 'ROBOTA_TELEMETRY_PROPAGATE_TO_SUBPROCESSES';
+const PROPAGATE_TO_SUBPROCESSES_SETTING = 'PRODUCT_TELEMETRY_PROPAGATE_TO_SUBPROCESSES';
 const SUBPROCESS_TRACE_CLASSES: ReadonlySet<TSubprocessTraceClass> = new Set(['shell', 'hooks']);
 
 /**
- * Subprocess propagation is a closed list, not a pattern: each entry names a class Robota knows how
+ * Subprocess propagation is a closed list, not a pattern: each entry names a class Product knows how
  * to hand the trace to, written exactly, once. Like the origin list it exists only while traces are
  * exported, and its errors name the setting and a 1-based position only.
  */
@@ -105,7 +106,7 @@ function resolvePropagateToSubprocessesSetting(
 ): readonly TSubprocessTraceClass[] | undefined {
   const raw = env[PROPAGATE_TO_SUBPROCESSES_SETTING];
   if (raw === undefined) return undefined;
-  const traces = env['ROBOTA_TELEMETRY_TRACES'];
+  const traces = env['PRODUCT_TELEMETRY_TRACES'];
   if (traces !== 'otlp' && traces !== 'console') {
     throw new Error(`${PROPAGATE_TO_SUBPROCESSES_SETTING} is set but traces are not exported over otlp or console.`);
   }
@@ -131,7 +132,7 @@ function resolvePropagateToSetting(
 ): ILiveTraceContextPropagation | undefined {
   const raw = env[PROPAGATE_TO_SETTING];
   if (raw === undefined) return undefined;
-  const traces = env['ROBOTA_TELEMETRY_TRACES'];
+  const traces = env['PRODUCT_TELEMETRY_TRACES'];
   if (traces !== 'otlp' && traces !== 'console') {
     throw new Error(`${PROPAGATE_TO_SETTING} is set but traces are not exported over otlp or console.`);
   }
@@ -179,16 +180,16 @@ function isExactTrustedOrigin(entry: string): boolean {
  */
 function rejectUnsupportedSettings(env: Readonly<Record<string, string | undefined>>): void {
   for (const name of Object.keys(env)) {
-    if (!name.startsWith('ROBOTA_TELEMETRY_') || SUPPORTED_SETTINGS.has(name) || env[name] === undefined) continue;
-    if (/HEADERS/u.test(name)) throw new Error(`Robota telemetry headers are not supported (${name}); refusing to export without them.`);
+    if (!name.startsWith('PRODUCT_TELEMETRY_') || SUPPORTED_SETTINGS.has(name) || env[name] === undefined) continue;
+    if (/HEADERS/u.test(name)) throw new Error(`Product telemetry headers are not supported (${name}); refusing to export without them.`);
     if (/CERTIFICATE|CLIENT_KEY|(^|_)CA(_|$)|MTLS/u.test(name)) {
-      throw new Error(`Robota telemetry client certificates and custom CAs are not supported (${name}); refusing to export without them.`);
+      throw new Error(`Product telemetry client certificates and custom CAs are not supported (${name}); refusing to export without them.`);
     }
-    if (/LOCK|MANAGED/u.test(name)) throw new Error(`A Robota telemetry managed destination lock cannot be enforced (${name}); refusing to start telemetry.`);
+    if (/LOCK|MANAGED/u.test(name)) throw new Error(`A Product telemetry managed destination lock cannot be enforced (${name}); refusing to start telemetry.`);
     if (/PROMPT|RESPONSE|CONTENT|BOD(?:Y|IES)|ARGUMENT|OUTPUT/u.test(name)) {
-      throw new Error(`Robota telemetry content capture is not supported (${name}); exports stay content-free.`);
+      throw new Error(`Product telemetry content capture is not supported (${name}); exports stay content-free.`);
     }
-    throw new Error(`Unknown Robota telemetry setting ${name}.`);
+    throw new Error(`Unknown Product telemetry setting ${name}.`);
   }
 }
 
@@ -203,21 +204,21 @@ function resolveNodeOtlpLiveSignal(
   env: Readonly<Record<string, string | undefined>>,
   signal: TOtlpSignal,
 ): IResolvedOtlpSignal | undefined {
-  const enabled = env['ROBOTA_TELEMETRY_ENABLED'];
+  const enabled = env['PRODUCT_TELEMETRY_ENABLED'];
   if (enabled === undefined || enabled === '0') return undefined;
-  if (enabled !== '1') throw new Error('Invalid Robota telemetry enable switch.');
+  if (enabled !== '1') throw new Error('Invalid Product telemetry enable switch.');
   rejectUnsupportedSettings(env);
   const label = signal === 'traces' ? 'trace' : signal === 'metrics' ? 'metric' : 'log';
-  const selector = env[`ROBOTA_TELEMETRY_${signal.toUpperCase()}`];
+  const selector = env[`PRODUCT_TELEMETRY_${signal.toUpperCase()}`];
   if (selector === undefined || selector === 'off') return undefined;
   if (selector === 'console') return undefined;
-  if (selector !== 'otlp') throw new Error(`Unsupported Robota ${label} exporter.`);
-  if (env['ROBOTA_TELEMETRY_OTLP_PROTOCOL'] !== 'http/protobuf') {
-    throw new Error(`Robota ${label} export requires explicit http/protobuf protocol.`);
+  if (selector !== 'otlp') throw new Error(`Unsupported Product ${label} exporter.`);
+  if (env['PRODUCT_TELEMETRY_OTLP_PROTOCOL'] !== 'http/protobuf') {
+    throw new Error(`Product ${label} export requires explicit http/protobuf protocol.`);
   }
-  const exact = env[`ROBOTA_TELEMETRY_OTLP_${signal.toUpperCase()}_ENDPOINT`];
-  const input = exact ?? env['ROBOTA_TELEMETRY_OTLP_ENDPOINT'];
-  if (!input || input.length > 2048) throw new Error(`Invalid Robota ${label} destination.`);
+  const exact = env[`PRODUCT_TELEMETRY_OTLP_${signal.toUpperCase()}_ENDPOINT`];
+  const input = exact ?? env['PRODUCT_TELEMETRY_OTLP_ENDPOINT'];
+  if (!input || input.length > 2048) throw new Error(`Invalid Product ${label} destination.`);
   try {
     const url = new URL(input);
     const loopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]';
@@ -230,7 +231,7 @@ function resolveNodeOtlpLiveSignal(
     if (exact === undefined) url.pathname = `${url.pathname.replace(/\/$/u, '')}/v1/${signal}`;
     return { endpoint: url.toString(), usesGenericEndpoint: exact === undefined };
   } catch {
-    throw new Error(`Invalid Robota ${label} destination.`);
+    throw new Error(`Invalid Product ${label} destination.`);
   }
 }
 
@@ -240,8 +241,8 @@ function resolveNodeOtlpLiveSignalEndpoint(
 ): string | undefined { return resolveNodeOtlpLiveSignal(env, signal)?.endpoint; }
 
 const OTLP_SIGNALS = ['traces', 'metrics', 'logs'] as const;
-const GENERIC_HEADERS = 'ROBOTA_TELEMETRY_OTLP_HEADERS';
-const signalHeadersVariable = (signal: TOtlpSignal): string => `ROBOTA_TELEMETRY_OTLP_${signal.toUpperCase()}_HEADERS`;
+const GENERIC_HEADERS = 'PRODUCT_TELEMETRY_OTLP_HEADERS';
+const signalHeadersVariable = (signal: TOtlpSignal): string => `PRODUCT_TELEMETRY_OTLP_${signal.toUpperCase()}_HEADERS`;
 
 interface IOtlpDestination {
   readonly endpoint: string;
@@ -258,7 +259,7 @@ function resolveNodeOtlpLiveDestinations(
   env: Readonly<Record<string, string | undefined>>,
 ): Partial<Record<TOtlpSignal, IOtlpDestination>> {
   const resolved = OTLP_SIGNALS.map((signal) => [signal, resolveNodeOtlpLiveSignal(env, signal)] as const);
-  const enabled = env['ROBOTA_TELEMETRY_ENABLED'];
+  const enabled = env['PRODUCT_TELEMETRY_ENABLED'];
   if (enabled === undefined || enabled === '0') return {};
   const parse = (variable: string): TOtlpHeaderMap | undefined => {
     const raw = env[variable];
@@ -274,7 +275,7 @@ function resolveNodeOtlpLiveDestinations(
   const genericUsers = resolved.filter(([, destination]) => destination?.usesGenericEndpoint === true);
   if (generic !== undefined) {
     if (genericUsers.length === 0) {
-      throw new Error(`${GENERIC_HEADERS} is set but no OTLP signal uses ROBOTA_TELEMETRY_OTLP_ENDPOINT.`);
+      throw new Error(`${GENERIC_HEADERS} is set but no OTLP signal uses PRODUCT_TELEMETRY_OTLP_ENDPOINT.`);
     }
     for (const [signal, destination] of resolved) {
       if (destination && !destination.usesGenericEndpoint && own.get(signal) === undefined) {
@@ -386,17 +387,18 @@ async function sendBatch(
     })],
   });
   try {
-    const tracer = provider.getTracer('robota.live-prompt-trace', '1');
-    const root = tracer.startSpan('robota.prompt_execution', {
+    const tracer = provider.getTracer('agent.live-prompt-trace', '1');
+    const root = tracer.startSpan('agent.prompt_execution', {
       kind: SpanKind.INTERNAL,
       startTime: new Date(batch.root.startedAt),
       attributes: {
-        'robota.session.id': batch.sessionId,
-        'robota.turn.id': batch.turnId,
-        'robota.outcome': batch.root.outcome,
-        'robota.omitted.provider_count': batch.omittedChildren.provider,
-        'robota.omitted.tool_count': batch.omittedChildren.tool,
-        'robota.omitted.permission_count': batch.omittedChildren.permission,
+        'agent.session.id': batch.sessionId,
+        'agent.turn.id': batch.turnId,
+        'agent.outcome': batch.root.outcome,
+        'agent.omitted.provider_count': batch.omittedChildren.provider,
+        'agent.omitted.tool_count': batch.omittedChildren.tool,
+        'agent.omitted.permission_count': batch.omittedChildren.permission,
+        ...liveTimingAttributes(batch.timingTotals),
       },
     }, ROOT_CONTEXT);
     const parent = trace.setSpan(ROOT_CONTEXT, root);
@@ -404,25 +406,25 @@ async function sendBatch(
       const toolCallId = child.kind === 'tool' ? safeLiveToolCallId(child.trace.toolCallId) : undefined;
       const providerRequestId = child.kind === 'provider'
         ? safeLiveProviderRequestId(child.trace.providerRequestId) : undefined;
-      const span = tracer.startSpan(child.kind === 'provider' ? 'robota.provider_call' : 'robota.tool_body', {
+      const span = tracer.startSpan(child.kind === 'provider' ? 'agent.provider_call' : 'agent.tool_body', {
         kind: SpanKind.INTERNAL,
         startTime: new Date(child.trace.startedAt),
         attributes: child.kind === 'provider' ? {
-          'robota.outcome': child.trace.outcome,
-          'robota.provider.round': child.trace.round,
-          ...(child.trace.disposition ? { 'robota.provider.disposition': child.trace.disposition } : {}),
-          ...(child.trace.providerId ? { 'robota.provider.id': child.trace.providerId } : {}),
-          ...(child.trace.modelId ? { 'robota.model.id': child.trace.modelId } : {}),
-          ...(child.trace.usageProvenance ? { 'robota.usage.provenance': child.trace.usageProvenance } : {}),
+          'agent.outcome': child.trace.outcome,
+          'agent.provider.round': child.trace.round,
+          ...(child.trace.disposition ? { 'agent.provider.disposition': child.trace.disposition } : {}),
+          ...(child.trace.providerId ? { 'agent.provider.id': child.trace.providerId } : {}),
+          ...(child.trace.modelId ? { 'agent.model.id': child.trace.modelId } : {}),
+          ...(child.trace.usageProvenance ? { 'agent.usage.provenance': child.trace.usageProvenance } : {}),
           ...(child.trace.usageProvenance === 'complete' ? {
-            'robota.usage.input_tokens': child.trace.promptTokens ?? 0,
-            'robota.usage.output_tokens': child.trace.completionTokens ?? 0,
-            'robota.usage.total_tokens': child.trace.totalTokens ?? 0,
+            'agent.usage.input_tokens': child.trace.promptTokens ?? 0,
+            'agent.usage.output_tokens': child.trace.completionTokens ?? 0,
+            'agent.usage.total_tokens': child.trace.totalTokens ?? 0,
           } : {}),
-          ...(providerRequestId ? { 'robota.provider.request_id': providerRequestId } : {}),
+          ...(providerRequestId ? { 'agent.provider.request_id': providerRequestId } : {}),
         } : {
-          'robota.outcome': child.trace.outcome,
-          ...(toolCallId ? { 'robota.tool.call_id': toolCallId } : {}),
+          'agent.outcome': child.trace.outcome,
+          ...(toolCallId ? { 'agent.tool.call_id': toolCallId } : {}),
         },
       }, parent);
       if (child.trace.outcome === 'failure') span.setStatus({ code: SpanStatusCode.ERROR });
@@ -490,12 +492,12 @@ export function validateNodeOtlpLiveTelemetrySettings(
   const destinations = resolveNodeOtlpLiveDestinations(env);
   const contentPolicy = resolveLiveContentPolicy(env);
   if (contentPolicy && hostResource && hostResource.surface !== 'interactive') {
-    throw new Error(`Robota telemetry content capture is available only in the interactive terminal, not in ${hostResource.surface} mode.`);
+    throw new Error(`Product telemetry content capture is available only in the interactive terminal, not in ${hostResource.surface} mode.`);
   }
   if (contentPolicy && !destinations.logs) {
-    throw new Error('Robota telemetry content capture requires ROBOTA_TELEMETRY_LOGS=otlp.');
+    throw new Error('Product telemetry content capture requires PRODUCT_TELEMETRY_LOGS=otlp.');
   }
-  if (env['ROBOTA_TELEMETRY_ENABLED'] === '1') {
+  if (env['PRODUCT_TELEMETRY_ENABLED'] === '1') {
     resolveMetricAttributesSetting(env);
     resolvePropagation(env);
   }
@@ -520,13 +522,13 @@ export function createConfiguredNodeOtlpLiveTelemetryPort(
   // Content follows prompt history, which only the interactive terminal records; any other mode
   // would leave the setting silently unused, so it refuses to start instead.
   if (contentPolicy && hostResource && hostResource.surface !== 'interactive') {
-    throw new Error(`Robota telemetry content capture is available only in the interactive terminal, not in ${hostResource.surface} mode.`);
+    throw new Error(`Product telemetry content capture is available only in the interactive terminal, not in ${hostResource.surface} mode.`);
   }
-  const metricAttributes = env['ROBOTA_TELEMETRY_ENABLED'] === '1'
+  const metricAttributes = env['PRODUCT_TELEMETRY_ENABLED'] === '1'
     ? resolveMetricAttributesSetting(env) : new Set<TLiveMetricAttribute>();
-  const propagation = env['ROBOTA_TELEMETRY_ENABLED'] === '1' ? resolvePropagation(env) : undefined;
-  const hasConsole = env['ROBOTA_TELEMETRY_ENABLED'] === '1' &&
-    ['traces', 'metrics', 'logs'].some((signal) => env[`ROBOTA_TELEMETRY_${signal.toUpperCase()}`] === 'console');
+  const propagation = env['PRODUCT_TELEMETRY_ENABLED'] === '1' ? resolvePropagation(env) : undefined;
+  const hasConsole = env['PRODUCT_TELEMETRY_ENABLED'] === '1' &&
+    ['traces', 'metrics', 'logs'].some((signal) => env[`PRODUCT_TELEMETRY_${signal.toUpperCase()}`] === 'console');
   if (!traces && !metrics && !logs && !hasConsole) return undefined;
   const resource = createLiveTelemetryResource(hostResource);
   const ports: INodeOtlpLiveTracePort[] = [];
@@ -535,9 +537,9 @@ export function createConfiguredNodeOtlpLiveTelemetryPort(
   }));
   if (metrics) ports.push(createNodeOtlpLiveMetricPort(metrics.endpoint, onFailure, resource, metrics.headers, metricAttributes));
   if (logs) ports.push(createNodeOtlpLiveLogPort(logs.endpoint, onFailure, resource, logs.headers));
-  if (env['ROBOTA_TELEMETRY_ENABLED'] === '1') {
+  if (env['PRODUCT_TELEMETRY_ENABLED'] === '1') {
     for (const signal of ['traces', 'metrics', 'logs'] as const) {
-      if (env[`ROBOTA_TELEMETRY_${signal.toUpperCase()}`] === 'console') {
+      if (env[`PRODUCT_TELEMETRY_${signal.toUpperCase()}`] === 'console') {
         ports.push(createNodeLiveConsolePort(signal, writeConsole, onFailure, resource, metricAttributes));
       }
     }
@@ -546,8 +548,8 @@ export function createConfiguredNodeOtlpLiveTelemetryPort(
   let content: INodeOtlpLiveContentPort | undefined;
   if (contentPolicy) {
     // A gate on implies LOGS=otlp, so the logs destination exists; content reuses it exactly.
-    if (!logs) throw new Error('Robota telemetry content capture requires ROBOTA_TELEMETRY_LOGS=otlp.');
-    if (!contentRedaction) throw new Error('Robota telemetry content capture needs the host redaction context.');
+    if (!logs) throw new Error('Product telemetry content capture requires PRODUCT_TELEMETRY_LOGS=otlp.');
+    if (!contentRedaction) throw new Error('Product telemetry content capture needs the host redaction context.');
     // A header value and, for an `Authorization: <scheme> <credential>` form, the credential alone.
     const headerValues = OTLP_SIGNALS.flatMap((signal) => [...(destinations[signal]?.headers.values() ?? [])])
       .flatMap((value) => [value, ...(/^[A-Za-z][\w.-]*\s+(\S.*)$/u.exec(value)?.slice(1) ?? [])]);

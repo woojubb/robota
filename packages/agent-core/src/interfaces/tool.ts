@@ -1,3 +1,4 @@
+import type { TUniversalMessagePart } from './messages';
 import type { IEventService, IOwnerPathSegment } from './event-service';
 import type { IUserInteraction } from './interaction';
 import type { IToolSchema } from './provider';
@@ -17,8 +18,29 @@ export type TToolEffectAdmission<TParameters = TToolParameters> = (
   parameters: TParameters,
 ) => Promise<void>;
 
+/** Trusted caller scheduling; plugin annotations grant neither authority nor retry permission. */
+export interface IToolCallScheduling {
+  dependsOn?: readonly string[];
+  /** Omitted means unknown shared state; an empty array explicitly declares independence. */
+  resources?: readonly { key: string; access: 'read' | 'write' }[];
+}
+
+export interface IToolExecutionPolicy {
+  mode?: 'parallel' | 'sequential';
+  maxConcurrency?: number;
+  continueOnError?: boolean;
+  scheduling?: ReadonlyMap<string, IToolCallScheduling>;
+}
+
 export type TToolContextExtensionValue =
-  TUniversalValue | Date | Error | TLoggerData | TContextData | TToolParameters | TToolMetadata;
+  | TUniversalValue
+  | Date
+  | Error
+  | TLoggerData
+  | TContextData
+  | TToolParameters
+  | TToolMetadata
+  | TUniversalMessagePart[];
 
 /**
  * Tool metadata structure - specific type definition
@@ -41,6 +63,8 @@ export type TToolMetadata = Record<
 export interface IToolResult {
   success: boolean;
   data?: TUniversalValue;
+  /** Ordered observations accompanying structured data; images stay typed through history. */
+  parts?: TUniversalMessagePart[];
   error?: string;
   metadata?: TToolMetadata;
   [key: string]: TToolContextExtensionValue | undefined;
@@ -56,6 +80,8 @@ export interface IToolExecutionResult {
   toolName?: string;
   /** Execution result or data */
   result?: TUniversalValue;
+  /** Ordered observations retained with the durable execution settlement. */
+  parts?: TUniversalMessagePart[];
   /** Error message if execution failed */
   error?: string;
   /** Execution duration in milliseconds */
@@ -219,7 +245,19 @@ export type TToolExecutor<TParams = TToolParameters, TResult = TUniversalValue> 
 /**
  * Base tool interface
  */
+/** Host-declared tool attribution. It identifies a source; it never grants execution authority. */
+export interface IToolProvenance {
+  readonly sourceId: string;
+  readonly component: string;
+  readonly origin: string;
+  /** A declared source version, not proof of installed bytes. */
+  readonly version?: string;
+  readonly protocolVersion?: string;
+  readonly generation?: string;
+}
+
 export interface ITool {
+  readonly provenance?: IToolProvenance;
   /** Tool schema */
   schema: IToolSchema;
 

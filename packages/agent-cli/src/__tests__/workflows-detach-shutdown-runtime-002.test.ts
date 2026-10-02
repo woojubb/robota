@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from './helpers/product-runtime.js';
 /**
  * RUNTIME-002 (#2845) conformance evidence, folded into issue #2875 criterion 4: the SERVED host —
  * `agent-cli`'s own composition root (`buildCommandSetup`, the desktop's presentation-free
@@ -9,7 +10,7 @@
  *
  *   1. `run --detach` is accepted when the host is served (not print mode, no `--goal`) — the exact
  *      condition `buildCommandSetup` uses to compute `allowDetachedRuns`.
- *   2. Shutting the served host down goes through the SAME path `robota --serve` uses —
+ *   2. Shutting the served host down goes through the SAME path `the product --serve` uses —
  *      `startRuntimeHost` → `IRuntimeHostHandle.shutdown()` → `InteractiveSession.shutdown()` → every
  *      command module's `shutdown(host)` — which races the session shutdown against a hard
  *      `RUNTIME_SHUTDOWN_TIMEOUT_MS` (5000ms, `agent-framework`'s `runtime-host.ts`) so a wedged
@@ -20,10 +21,8 @@
  * Only the LLM/prompt provider is a held test double; everything else — the workflows command
  * module, the DAG runtime, `startRuntimeHost`, the session — is the real production wiring.
  *
- * `HOME` is stubbed to this test's own temp root before `buildCommandSetup` runs: the composition
- * root reads `~/.robota` (org policy, user settings, workspace-trust state) via `os.homedir()`
- * (`node:os` resolves it from `HOME` on POSIX at call time, not at import time), and this test must
- * not depend on — or perturb — whatever happens to live in the real developer/CI home directory.
+ * The explicit product runtime selects this test's temporary home before command composition,
+ * so the scenario never reads the developer or CI user's state.
  */
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
@@ -40,7 +39,7 @@ import { createAssistantMessage } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
 import { buildCommandSetup } from '../startup/command-setup.js';
-import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../product/robota-project-state-directories.js';
+import { productProjectStateDirectories } from '../product/project-state-directories.js';
 
 import type {
   ICommandModule,
@@ -52,6 +51,8 @@ import type {
 } from '@robota-sdk/agent-framework';
 import type { IAIProvider, IProviderDefinition, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
+const PRODUCT_PROJECT_STATE_DIRECTORIES = productProjectStateDirectories(createTestProductRuntime());
+
 
 /** Mirrors the private `RUNTIME_SHUTDOWN_TIMEOUT_MS` in `agent-framework`'s `runtime-host.ts`.
  * Nothing compares the two, so update this value if that bound changes. */
@@ -65,7 +66,7 @@ beforeEach(async () => {
   roots.push(home);
   vi.stubEnv('HOME', home);
   // Canary: os.homedir() must actually honor the stub in this runtime (it reads HOME on POSIX at
-  // call time), or every "reads ~/.robota" assumption below is untested.
+  // call time), or every "reads the configured user root" assumption below is untested.
   expect(homedir()).toBe(home);
 });
 
@@ -100,7 +101,7 @@ async function trustedRoot(prefix: string): Promise<{
       grant: async () => trusted,
       revoke: async () => ({ state: 'revoked', generation: 2 }),
     },
-    projectStateDirectories: ROBOTA_PROJECT_STATE_DIRECTORIES,
+    projectStateDirectories: PRODUCT_PROJECT_STATE_DIRECTORIES,
   }).inspect(root);
   if (access.status !== 'trusted') throw new Error('Expected trusted RUNTIME-002 fixture root.');
   const mutation = createWorkspaceProjectMutation(access.authority, {
@@ -189,7 +190,7 @@ describe('RUNTIME-002 (#2845): the served host owns a live detached /workflows r
     const setup = buildCommandSetup(
       root,
       MINIMAL_ARGS,
-      { projectAccess: access, projectMutation: mutation, providerDefinitions: held.definitions },
+      { productRuntime: createTestProductRuntime('test-product', { HOME: root }), projectAccess: access, projectMutation: mutation, providerDefinitions: held.definitions },
       '0.0.0-test',
     );
     const workflowsModule: ICommandModule | undefined = setup.fixedCommandModules.find(
@@ -199,7 +200,7 @@ describe('RUNTIME-002 (#2845): the served host owns a live detached /workflows r
     if (!workflowsModule) return;
 
     // The real served-host lifecycle: `startRuntimeHost` builds the same `InteractiveSession` that
-    // `robota --serve` runs (via `runServeMode`), and its `shutdown()` is the same bounded race.
+    // `the product --serve` runs (via `runServeMode`), and its `shutdown()` is the same bounded race.
     const scripted = createScriptedProvider([{ text: 'unused' }]);
     handle = await startRuntimeHost({
       session: {

@@ -4,7 +4,8 @@
 
 `@robota-sdk/agent-framework` is the assembly layer of the Robota SDK. It composes `agent-core`,
 `agent-session`, `agent-tools`, `agent-executor`, and the `agent-interface-transport` type contracts
-into a single, provider-neutral SDK surface. `InteractiveSession` is the primary entry point; a
+into a single, provider-neutral SDK surface. `InteractiveSession` is the primary entry point,
+preserving observed tool outcomes across live and restored presentation without replaying effects; a
 `createQuery({ provider })` factory covers single-shot prompt use; `createAgentRuntime()` composes a
 headless/multi-session runtime.
 
@@ -65,8 +66,14 @@ React/Ink UI.
   consumers still receive an actionable session identifier.
 - **User contributions are host-selected.** Skill discovery uses only explicitly supplied
   contribution sources and roots; neutral SDK helpers do not infer the current process home.
+  Discovered metadata does not admit instructions: lazy content remains under the host's current
+  consent and source authority, and its activation belongs to the actual model turn or isolated
+  fork that uses it, including access to its verified supporting bytes. Forks cannot borrow another
+  execution's activations; ending or cancelling an execution closes its activation so a later turn
+  cannot inherit it; the framework owns this lifetime without knowing the source's protocol.
 - **Headless shell execution is host-owned.** The host supplies the shell adapter for explicit
-  skill interpolation; the framework does not construct a child-process fallback.
+  local skill interpolation; the framework does not construct a child-process fallback or treat
+  consent to lazily supplied instructions as authority to execute their shell expressions.
 - **Hosts own product identifiers; command modules own product behavior.** Attached file
   references and projected command tools use neutral identifiers unless the host supplies its own,
   and subagent lifecycle hooks add product environment aliases only when the host supplies their names.
@@ -76,7 +83,8 @@ React/Ink UI.
   module opens to the model is all the model is offered or can run — a per-subcommand declaration is
   an allowlist enforced before the command runs, so an alias or a later subcommand stays user-only
   until its owner opens it. The SDK does
-  not know command ids in advance; on session shutdown it settles every module's host-scoped work
+  not know command ids in advance; host-declared inline human controls can withdraw authority while
+  a turn remains active under the same invocation and host policy, and on session shutdown it settles every module's host-scoped work
   before closing the session, even when another module's shutdown fails.
 
 ## Architecture position
@@ -105,7 +113,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   either grant alone is enough, and subagent, worker and background runs never inherit it — and it does not
   prove final turn settlement. A provider-call child's span ID is derived from core's call ID and a
   tool child's from core's minted body ID, never invented, so the propagated parent and the exported
-  span are the same span; a tool body reported without that ID is counted as omitted.
+  span are the same span; a tool body reported without that ID is counted as omitted. Valid interval
+  totals preserve measured work when detail is omitted by the bound, while invalid observations remain
+  explicit; queue totals end at selection for admission or refusal and never grant tool ownership.
   Prompt, response and tool text travels only through the host's separate content channel, only
   when the host provides one, and only for the owner-typed turns prompt history records — one shared
   predicate decides both; otherwise the framework copies no text. Tool content is limited to the
@@ -239,7 +249,8 @@ These are behaviors a caller cannot infer from a type signature alone.
   naming accident. The same session-context wraps are applied to the final assembled set and to a
   tool the session adds mid-session, so a contributed `Write`/`Edit` is checkpointed exactly like a
   default one and a tool that became usable later is held to the same policy as one present from
-  the start; a late tool whose name the session already has is dropped by the same rule.
+  the start; a late tool whose name the session already has is dropped by the same rule. Scheduling
+  remains a current host decision through assembly, independent of contributor and permission authority.
 - **Deferred-tool residency has a fixed assembly order.** A tool may declare itself deferred
   (withheld until the model searches for it); deduplication preserves the surviving entry's own
   residency marker rather than the first-seen one's. A configuration where every tool is deferred is

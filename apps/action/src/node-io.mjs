@@ -1,3 +1,5 @@
+import { cliPackageSpec } from './build-invocation.mjs';
+import { executableName } from '../../../packages/product-config/src/executable-name.mjs';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -22,7 +24,11 @@ const runNpm = (file, args, options) => {
  * @returns {string} the CLI's entry script
  */
 export function installCli(packageSpec, env, options) {
-  const prefix = join(options.tempDir, 'robota-cli');
+  const scope = env.PRODUCT_PACKAGE_SCOPE ?? '';
+  const cliName = env.PRODUCT_CLI_NAME ?? '';
+  cliPackageSpec('latest', scope);
+  executableName(cliName);
+  const prefix = join(options.tempDir, 'action-cli');
   mkdirSync(prefix, { recursive: true });
   (options.runNpm ?? runNpm)(
     'npm',
@@ -38,11 +44,11 @@ export function installCli(packageSpec, env, options) {
     ],
     { cwd: prefix, env },
   );
-  const packageDir = join(prefix, 'node_modules', '@robota-sdk', 'agent-cli');
+  const packageDir = join(prefix, 'node_modules', scope, 'agent-cli');
   /** @type {{ bin?: string | Record<string, string> }} */
   const manifest = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'));
-  const bin = typeof manifest.bin === 'string' ? manifest.bin : manifest.bin?.['robota'];
-  if (bin === undefined) throw new Error('the installed package declares no robota command');
+  const bin = typeof manifest.bin === 'string' ? manifest.bin : manifest.bin?.[cliName];
+  if (bin === undefined) throw new Error('the installed package does not declare the configured CLI command');
   return join(packageDir, bin);
 }
 

@@ -1,0 +1,24 @@
+{
+  "kind": "tui-model-configuration-failure",
+  "records": [
+    {
+      "id": "actual-tui-boot-and-idle",
+      "observed": {
+        "rendered": true,
+        "modelRequests": 0
+      },
+      "passed": true
+    },
+    {
+      "id": "slash-help-without-model-authority",
+      "observed": {
+        "commandOutputAfterEnter": true,
+        "modelRequests": 0
+      },
+      "passed": true
+    }
+  ],
+  "complete": false,
+  "observedFailure": "Manual profile used baseUrl instead of baseURL; provider used its default endpoint and rejected the synthetic non-secret key with 401. The local model saw zero requests.",
+  "correction": "Configure through the real CLI --configure-provider command and assert the persisted baseURL is the owned loopback endpoint before launching TUI."
+}

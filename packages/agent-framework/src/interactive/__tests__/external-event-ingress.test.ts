@@ -33,9 +33,9 @@ function grant(overrides: Partial<IExternalEventGrant> = {}): IExternalEventGran
     grantId: 'ci',
     verifier: {
       issuer: 'https://issuer.example',
-      resource: 'https://robota.example/events/ci',
+      resource: 'https://agent.example/events/ci',
       algorithms: ['ES256'],
-      requiredScopes: ['robota.events.submit'],
+      requiredScopes: ['agent.events.submit'],
       allowedClients: ['ci-bot'],
     },
     kinds: ['message'],

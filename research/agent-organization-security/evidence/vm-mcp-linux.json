@@ -1,0 +1,30 @@
+{
+  "kind": "actual-cli-mcp-stdio-guest",
+  "records": [
+    {
+      "id": "mcp-initialize",
+      "passed": true
+    },
+    {
+      "id": "mcp-catalog",
+      "passed": true
+    },
+    {
+      "id": "mcp-actual-cli-submit",
+      "passed": true
+    },
+    {
+      "id": "mcp-clean-stop",
+      "passed": true,
+      "observed": {
+        "code": 0,
+        "signal": null
+      }
+    },
+    {
+      "id": "mcp-stdout-is-protocol",
+      "passed": true
+    }
+  ],
+  "limitations": ["Remote HTTP issuer/JWK policy and desktop remote UI are not exercised by stdio."]
+}

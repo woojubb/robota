@@ -54,8 +54,8 @@ export function headersHelperEnvironment(
     if (scrubCredentials && isCredentialShapedName(name)) continue;
     env[name] = value;
   }
-  env['ROBOTA_MCP_SERVER_NAME'] = serverName;
-  env['ROBOTA_MCP_SERVER_URL'] = serverUrl;
+  env['PRODUCT_MCP_SERVER_NAME'] = serverName;
+  env['PRODUCT_MCP_SERVER_URL'] = serverUrl;
   return env;
 }
 

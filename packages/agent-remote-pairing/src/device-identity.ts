@@ -1,3 +1,4 @@
+import type { IIdentityContext } from './identity/crypto-context.js';
 /**
  * Device + host identity keys and the channel-bound reconnect challenge (REMOTE-012 Stage E3).
  *
@@ -94,9 +95,9 @@ export interface IReconnectChallenge {
  * lossless separator. Binds the identity ids (defense-in-depth), both fresh nonces (replay resistance), and
  * the sorted DTLS-fingerprint pair (MITM-relay resistance — the same binding B3 uses).
  */
-function transcriptBytes(c: IReconnectChallenge): ArrayBuffer {
+function transcriptBytes(cryptoContext: IIdentityContext, c: IReconnectChallenge): ArrayBuffer {
   const canonical = [
-    'robota-reconnect/v1',
+    `${cryptoContext.namespace}-reconnect/v1`,
     c.deviceId,
     c.hostIdentityId,
     c.nonceHost,
@@ -108,15 +109,21 @@ function transcriptBytes(c: IReconnectChallenge): ArrayBuffer {
 
 /** Sign the reconnect transcript with this side's private key → base64url signature. */
 export async function signChallenge(
+  cryptoContext: IIdentityContext,
   privateKey: CryptoKey,
   challenge: IReconnectChallenge,
 ): Promise<string> {
-  const signature = await webcrypto.subtle.sign(ECDSA_SIGN, privateKey, transcriptBytes(challenge));
+  const signature = await webcrypto.subtle.sign(
+    ECDSA_SIGN,
+    privateKey,
+    transcriptBytes(cryptoContext, challenge),
+  );
   return toBase64Url(new Uint8Array(signature));
 }
 
 /** Verify a counterpart's reconnect signature against its pinned public key. Fail-closed on any error. */
 export async function verifyChallenge(
+  cryptoContext: IIdentityContext,
   publicKey: CryptoKey,
   signature: string,
   challenge: IReconnectChallenge,
@@ -126,7 +133,7 @@ export async function verifyChallenge(
       ECDSA_SIGN,
       publicKey,
       ab(fromBase64Url(signature)),
-      transcriptBytes(challenge),
+      transcriptBytes(cryptoContext, challenge),
     );
   } catch {
     // allow-fallback: a signature verification that throws is a failed verification (false)

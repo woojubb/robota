@@ -4,9 +4,9 @@ import type { IPromptRootTraceCoverage } from './otlp-prompt-root-traces.js';
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 type TEventName =
-  | 'robota.prompt_execution.completed'
-  | 'robota.provider_call.completed'
-  | 'robota.tool_body.completed';
+  | 'agent.prompt_execution.completed'
+  | 'agent.provider_call.completed'
+  | 'agent.tool_body.completed';
 
 interface IOtlpLogRecord {
   readonly timeUnixNano: string;
@@ -54,12 +54,13 @@ export function createOtlpPromptEvents(
   records: readonly IInteractiveSessionRecord[],
   version: string,
   observedAt: Date,
+  serviceName: string,
 ): {
   readonly exported: number;
   readonly coverage: IPromptRootTraceCoverage;
   readonly payload: IOtlpPromptEvents;
 } {
-  const traces = createOtlpPromptRootTraces(records, version);
+  const traces = createOtlpPromptRootTraces(records, version, serviceName);
   const spans = traces.payload.resourceSpans[0]?.scopeSpans[0]?.spans ?? [];
   if (spans.length === 0) {
     return { exported: 0, coverage: traces.coverage, payload: { resourceLogs: [] } };
@@ -67,15 +68,15 @@ export function createOtlpPromptEvents(
   const observedTimeUnixNano = observedUnixNano(observedAt);
   const logRecords: IOtlpLogRecord[] = spans.map((span) => {
     const outcomeAttribute = span.attributes.find((attribute) =>
-      attribute.key === 'robota.prompt.outcome' ||
-      attribute.key === 'robota.provider.outcome' ||
-      attribute.key === 'robota.tool.outcome');
+      attribute.key === 'agent.prompt.outcome' ||
+      attribute.key === 'agent.provider.outcome' ||
+      attribute.key === 'agent.tool.outcome');
     const eventName: TEventName =
-      span.name === 'robota.prompt_execution'
-        ? 'robota.prompt_execution.completed'
-        : span.name === 'robota.provider_call'
-          ? 'robota.provider_call.completed'
-          : 'robota.tool_body.completed';
+      span.name === 'agent.prompt_execution'
+        ? 'agent.prompt_execution.completed'
+        : span.name === 'agent.provider_call'
+          ? 'agent.provider_call.completed'
+          : 'agent.tool_body.completed';
     const severityNumber = span.status.code === 1 ? 9 : span.status.code === 2 ? 17 : 13;
     const severityText = severityNumber === 9 ? 'INFO' : severityNumber === 17 ? 'ERROR' : 'WARN';
     return {

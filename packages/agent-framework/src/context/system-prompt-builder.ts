@@ -47,7 +47,7 @@ export interface ISystemPromptParams {
   agentsMd: string;
   /** Concatenated CLAUDE.md content (may be empty string) */
   projectNotesMd: string;
-  /** Startup project memory index loaded from .robota/memory/MEMORY.md */
+  /** Startup project memory index loaded from .agent/memory/MEMORY.md */
   memoryMd?: string;
   /** Formatted active task context loaded from .agents/tasks/*.md */
   taskContext?: string;

@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 import { createServer } from 'node:net';
 import { hostname } from 'node:os';
 
@@ -64,7 +66,7 @@ afterEach(async () => {
 });
 
 async function routeOf(own: IMeshTestDevice, peer: IMeshTestDevice): Promise<IMeshPeerRoute> {
-  const rendezvous = await derivePairRendezvous({
+  const rendezvous = await derivePairRendezvous(testIdentity, {
     ownKaPrivateKey: own.ka.privateKey,
     own: own.cert,
     peerDeviceId: peer.cert.deviceId,
@@ -121,13 +123,13 @@ describe('mDNS announcement', () => {
     );
 
     const announced = JSON.stringify(bus.responses).toLowerCase();
-    expect(announced).not.toContain('robota');
+    expect(announced).not.toContain('agent');
     for (const device of [world.low, world.high, world.third]) {
       expect(announced).not.toContain(device.cert.deviceId.toLowerCase());
       expect(announced).not.toContain(device.cert.name.toLowerCase());
     }
     expect(announced).not.toContain(hostname().toLowerCase());
-    expect(MESH_MDNS_SERVICE.toLowerCase()).not.toContain('robota');
+    expect(MESH_MDNS_SERVICE.toLowerCase()).not.toContain('agent');
     for (const ptr of ptrs(bus.responses[0]!)) {
       expect(ptr.name).toBe(MESH_MDNS_SERVICE);
       expect(ptr.data).toMatch(
@@ -337,7 +339,7 @@ async function lanDevice(
       ? { admissionTimeoutMs: options.admissionTimeoutMs }
       : {}),
   });
-  const node = new DeviceMeshNode({
+  const node = new DeviceMeshNode({cryptoContext: testIdentity,
     identity: world.identity(device),
     sessionDescriptor: device.session,
     localPolicy: ALL_CAPABILITIES,
@@ -551,7 +553,7 @@ describe('discovery grants nothing', () => {
           createPeer: () => new RtcPeer(),
           sendSignal: send,
           startHandshake: (binding) =>
-            startDeviceHandshake({
+            startDeviceHandshake(testIdentity, {
               role: 'responder',
               identity: stranger.identity(impostor),
               sessionDescriptor: impostor.session,

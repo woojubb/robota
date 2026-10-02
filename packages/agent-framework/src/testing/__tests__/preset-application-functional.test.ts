@@ -7,7 +7,7 @@
  * system prompt is delivered as exactly one message per turn (no per-turn duplication).
  *
  * This is the regression guard for the system-prompt single-source-of-truth fix: live updates flow
- * through Session.updateSystemMessage → Robota.updateSystemPrompt → config.systemMessage + the live
+ * through Session.updateSystemMessage → ConversationAgent.updateSystemPrompt → config.systemMessage + the live
  * conversation store head. A config-only update would never reach the model.
  */
 import { afterEach, describe, expect, it } from 'vitest';

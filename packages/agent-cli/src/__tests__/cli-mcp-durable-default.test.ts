@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from './helpers/product-runtime.js';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -36,7 +37,7 @@ const request: IMCPActivationRequest = {
 
 describe('the CLI MCP composition default', () => {
   it('persists an approval without host options, then admits it on the next start', async () => {
-    const home = mkdtempSync(join(tmpdir(), 'robota-cli-mcp-default-'));
+    const home = mkdtempSync(join(tmpdir(), 'test-product-cli-mcp-default-'));
     roots.push(home);
     mkdirSync(join(home, 'project'));
     vi.stubEnv('HOME', home);
@@ -44,7 +45,7 @@ describe('the CLI MCP composition default', () => {
     const argv = process.argv;
     process.argv = [
       'node',
-      'robota',
+      'test-product',
       '-p',
       'hello',
       '--restricted-workspace',
@@ -63,14 +64,14 @@ describe('the CLI MCP composition default', () => {
       for (let i = 0; i < 2; i++) {
         await expect(
           startCliCore(
-            { projectAccess: createRestrictedWorkspaceProjectAccess('untrusted') },
+            {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),  projectAccess: createRestrictedWorkspaceProjectAccess('untrusted') },
             () => [],
           ),
         ).rejects.toThrow('composition inspected');
       }
       expect(startup.compose).toHaveBeenCalledTimes(2);
       expect(
-        JSON.parse(readFileSync(join(home, '.robota', 'mcp-approvals.json'), 'utf8')).records,
+        JSON.parse(readFileSync(join(home, '.test-product', 'mcp-approvals.json'), 'utf8')).records,
       ).toHaveLength(1);
     } finally {
       process.argv = argv;

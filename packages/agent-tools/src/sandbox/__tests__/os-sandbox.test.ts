@@ -24,16 +24,22 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createBashTool } from '../../builtins/shell-tool.js';
-import { detectOsSandbox, OsSandboxClient } from '../os-sandbox-client.js';
+import { detectOsSandbox, OsSandboxClient, type IOsSandboxClientOptions } from '../os-sandbox-client.js';
 import { bubblewrapArguments, seatbeltProfile } from '../os-sandbox-policy.js';
 import { unixSocketSeccompFilter } from '../os-sandbox-seccomp.js';
 
 import type { IToolInvocationResult } from '../../types/tool-result.js';
 import type { IOsSandboxPolicy } from '../os-sandbox-policy.js';
 
+const pathProtection = { protectedDirectoryNames: ['.test-product'], protectedPaths: [], writableWorktreeContainers: ['.test-product/worktrees'] };
+function testSandbox(options: Omit<IOsSandboxClientOptions, 'projectStateDirectory' | 'userQuarantineDirectory'>): OsSandboxClient {
+  return new OsSandboxClient({ ...options, pathProtection, projectStateDirectory: '.test-product', userQuarantineDirectory: join(options.homeDirectory ?? options.root, '.test-product', 'sandbox-quarantine') });
+}
+
 const SPAWN_TIMEOUT_MS = 60_000;
 
 const policy: IOsSandboxPolicy = {
+  pathProtection,
   root: '/w/project',
   tempDirectories: ['/tmp'],
   allowWrite: ['/home/me/.cache'],
@@ -46,13 +52,13 @@ const policy: IOsSandboxPolicy = {
 
 describe('bubblewrap arguments', () => {
   const listDirectory = (path: string): string[] =>
-    path === '/w/project/.robota/worktrees' ? ['feature'] : [];
+    path === '/w/project/.test-product/worktrees' ? ['feature'] : [];
   const exists = (path: string): boolean =>
     [
       '/w/project/.git',
-      '/w/project/.robota/worktrees/feature/.git',
-      '/w/project/.robota',
-      '/w/project/.robota/worktrees',
+      '/w/project/.test-product/worktrees/feature/.git',
+      '/w/project/.test-product',
+      '/w/project/.test-product/worktrees',
       '/home/me/.ssh',
       '/home/me/.netrc',
     ].includes(path);
@@ -86,13 +92,13 @@ describe('bubblewrap arguments', () => {
       command: 'sh',
       args: [],
     }).join(' ');
-    expect(joined).toContain('--ro-bind /w/project/.robota /w/project/.robota');
+    expect(joined).toContain('--ro-bind /w/project/.test-product /w/project/.test-product');
     // `.git` is read-only as a whole; a worktree's `.git` file stays put too.
     expect(joined).toContain('--ro-bind /w/project/.git /w/project/.git');
     expect(joined).toContain(
-      '--ro-bind /w/project/.robota/worktrees/feature/.git /w/project/.robota/worktrees/feature/.git',
+      '--ro-bind /w/project/.test-product/worktrees/feature/.git /w/project/.test-product/worktrees/feature/.git',
     );
-    expect(joined).toContain('--bind /w/project/.robota/worktrees /w/project/.robota/worktrees');
+    expect(joined).toContain('--bind /w/project/.test-product/worktrees /w/project/.test-product/worktrees');
     // A missing entry is not bound: the bind would create it on the host.
     expect(joined).not.toContain('/w/project/.mcp.json');
     expect(joined).toContain('--tmpfs /home/me/.ssh');
@@ -133,11 +139,11 @@ describe('Seatbelt profile', () => {
     const lines = profile.split('\n');
     expect(lines.slice(0, 3)).toEqual(['(version 1)', '(allow default)', '(deny file-write*)']);
     expect(lines[3]).toContain('(subpath "/w/project")');
-    expect(lines[4]).toContain('(subpath "/w/project/.robota")');
+    expect(lines[4]).toContain('(subpath "/w/project/.test-product")');
     expect(lines[4]).toContain('(literal "/w/project/.mcp.json")');
-    expect(lines[5]).toContain('(subpath "/w/project/.robota/worktrees")');
+    expect(lines[5]).toContain('(subpath "/w/project/.test-product/worktrees")');
     expect(lines[6]).toContain('(literal "/w/project/.git")');
-    expect(lines[6]).toContain('/w/project/\\.robota/worktrees/[^/]+/\\.git$');
+    expect(lines[6]).toContain('/w/project/\\.test-product/worktrees/[^/]+/\\.git$');
     expect(profile).toContain(
       '(deny file-read* (subpath "/home/me/.ssh") (literal "/home/me/.netrc"))',
     );
@@ -152,7 +158,7 @@ describe('Seatbelt profile', () => {
     seatbeltProfile({ ...policy, root });
     expect(performance.now() - started).toBeLessThan(1_000);
     expect(seatbeltProfile({ ...policy, root: '/w/project//' })).toContain(
-      '(subpath "/w/project/.robota")',
+      '(subpath "/w/project/.test-product")',
     );
   });
 
@@ -165,7 +171,7 @@ describe('OsSandboxClient', () => {
   const available = { backend: 'bubblewrap' as const, executable: 'bwrap', missing: [] };
 
   it('confines nothing until enabled, and nothing an exclusion names', () => {
-    const client = new OsSandboxClient({ root: '/w', availability: available });
+    const client = testSandbox({ root: '/w', availability: available });
     expect(client.confines('ls')).toBe(false);
     client.configure({ enabled: true, excludedCommands: ['docker'] });
     expect(client.confines('ls')).toBe(true);
@@ -175,7 +181,7 @@ describe('OsSandboxClient', () => {
   });
 
   it('auto-approves a confined command unless auto-allow is off', () => {
-    const client = new OsSandboxClient({
+    const client = testSandbox({
       root: '/w',
       availability: available,
       settings: { enabled: true },
@@ -186,7 +192,7 @@ describe('OsSandboxClient', () => {
   });
 
   it('tells its watchers each change until they stop watching (issue #3256)', () => {
-    const client = new OsSandboxClient({ root: '/w', availability: available });
+    const client = testSandbox({ root: '/w', availability: available });
     const seen: boolean[] = [];
     const unwatch = client.watchSettings((settings) => seen.push(settings.autoAllowBashIfSandboxed));
 
@@ -198,7 +204,7 @@ describe('OsSandboxClient', () => {
   });
 
   it('keeps a line that runs more than an excluded program confined', () => {
-    const client = new OsSandboxClient({
+    const client = testSandbox({
       root: '/w',
       availability: available,
       settings: { enabled: true, excludedCommands: ['docker'] },
@@ -208,7 +214,7 @@ describe('OsSandboxClient', () => {
   });
 
   it('is inactive where the backend cannot run, and says what is missing', () => {
-    const client = new OsSandboxClient({
+    const client = testSandbox({
       root: '/w',
       availability: {
         backend: 'bubblewrap',
@@ -251,16 +257,16 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
   let home: string;
 
   beforeEach(() => {
-    home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-os-sandbox-home-')));
-    root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-os-sandbox-')));
-    mkdirSync(join(root, '.robota'));
-    writeFileSync(join(root, '.robota', 'settings.json'), '{}');
+    home = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-os-sandbox-home-')));
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-os-sandbox-')));
+    mkdirSync(join(root, '.test-product'));
+    writeFileSync(join(root, '.test-product', 'settings.json'), '{}');
     // Outside the workspace and outside every temp directory.
     outside = mkdtempSync(join(process.cwd(), '.os-sandbox-outside-'));
     writeFileSync(join(outside, 'secret'), 'SECRET');
     // Paths reach the confined command through its environment; the command text stays literal.
-    vi.stubEnv('ROBOTA_TEST_OUTSIDE', outside);
-    vi.stubEnv('ROBOTA_TEST_NODE', process.execPath);
+    vi.stubEnv('PRODUCT_TEST_OUTSIDE', outside);
+    vi.stubEnv('PRODUCT_TEST_NODE', process.execPath);
   });
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -278,7 +284,7 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
   it(
     'writes inside the workspace, not outside it or to protected files, and has no network',
     async () => {
-      const client = new OsSandboxClient({
+      const client = testSandbox({
         root,
         homeDirectory: home,
         availability: bubblewrap,
@@ -287,11 +293,11 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
       await bash(client, 'echo ok > inside.txt');
       expect(readFileSync(join(root, 'inside.txt'), 'utf8')).toBe('ok\n');
 
-      await bash(client, 'echo pwned > "$ROBOTA_TEST_OUTSIDE/written"');
+      await bash(client, 'echo pwned > "$PRODUCT_TEST_OUTSIDE/written"');
       expect(existsSync(join(outside, 'written'))).toBe(false);
 
-      await bash(client, 'echo pwned > .robota/settings.json');
-      expect(readFileSync(join(root, '.robota', 'settings.json'), 'utf8')).toBe('{}');
+      await bash(client, 'echo pwned > .test-product/settings.json');
+      expect(readFileSync(join(root, '.test-product', 'settings.json'), 'utf8')).toBe('{}');
 
       // The command's own network namespace holds only the loopback device.
       const net = await bash(client, "tail -n +3 /proc/net/dev | cut -d: -f1 | tr -d ' '");
@@ -310,14 +316,14 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
       });
       await new Promise<void>((resolveListen) => server.listen(socketPath, resolveListen));
       try {
-        const client = new OsSandboxClient({
+        const client = testSandbox({
           root,
           availability: bubblewrap,
           settings: { enabled: true },
         });
-        vi.stubEnv('ROBOTA_TEST_SOCKET', socketPath);
-        const script = `require('net').connect(process.env.ROBOTA_TEST_SOCKET).on('connect', function () { this.end('escaped') }).on('error', (e) => console.log(e.code))`;
-        const result = await bash(client, `"$ROBOTA_TEST_NODE" -e ${JSON.stringify(script)}`);
+        vi.stubEnv('PRODUCT_TEST_SOCKET', socketPath);
+        const script = `require('net').connect(process.env.PRODUCT_TEST_SOCKET).on('connect', function () { this.end('escaped') }).on('error', (e) => console.log(e.code))`;
+        const result = await bash(client, `"$PRODUCT_TEST_NODE" -e ${JSON.stringify(script)}`);
         await new Promise((resolveWait) => setTimeout(resolveWait, 200));
         expect(received).toEqual([]);
         expect(result.output).toContain('EAFNOSUPPORT');
@@ -335,7 +341,7 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
     'removes protected configuration a command creates, and cannot rename .git away',
     async () => {
       execFileSync('git', ['init', '-q', root]);
-      const client = new OsSandboxClient({
+      const client = testSandbox({
         root,
         homeDirectory: home,
         availability: bubblewrap,
@@ -345,8 +351,8 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
       expect(existsSync(join(root, '.mcp.json'))).toBe(false);
       expect(created.output).toContain('moved');
       // Moved aside, not deleted.
-      // In the workspace's own `.robota`, which the command cannot write.
-      const quarantine = join(root, '.robota', 'sandbox-quarantine');
+      // In the workspace's own `.test-product`, which the command cannot write.
+      const quarantine = join(root, '.test-product', 'sandbox-quarantine');
       expect(readdirSync(quarantine).length).toBe(1);
 
       // `.git` is read-only whole: git cannot be pointed at another config through `commondir`.
@@ -372,7 +378,7 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
       mkdirSync(join(root, 'shared-claude'));
       writeFileSync(join(root, 'shared-claude', 'settings.json'), '{}');
       symlinkSync('shared-claude', join(root, '.claude'));
-      const client = new OsSandboxClient({
+      const client = testSandbox({
         root,
         homeDirectory: home,
         availability: bubblewrap,
@@ -392,7 +398,7 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
     async () => {
       writeFileSync(join(outside, 'npmrc'), 'registry=x\n');
       symlinkSync(join(outside, 'npmrc'), join(root, '.npmrc'));
-      const client = new OsSandboxClient({
+      const client = testSandbox({
         root,
         homeDirectory: home,
         availability: bubblewrap,
@@ -409,7 +415,7 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
   it(
     'still moves a planted entry aside after a command that could not start',
     async () => {
-      const client = new OsSandboxClient({
+      const client = testSandbox({
         root,
         homeDirectory: home,
         availability: bubblewrap,
@@ -427,7 +433,7 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
   it(
     'fails closed when a planted entry cannot be moved out, and retries it',
     async () => {
-      const client = new OsSandboxClient({
+      const client = testSandbox({
         root,
         homeDirectory: home,
         availability: bubblewrap,
@@ -435,7 +441,7 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
       });
       await bash(client, 'true');
       // Block the quarantine so the clean-up cannot move anything.
-      writeFileSync(join(root, '.robota', 'sandbox-quarantine'), 'blocked');
+      writeFileSync(join(root, '.test-product', 'sandbox-quarantine'), 'blocked');
       const planted = await bash(
         client,
         'C=.cla; mkdir ${C}ude && echo pwn > ${C}ude/settings.json',
@@ -443,7 +449,7 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
       expect(planted.output).toContain('could not restore');
       expect(client.autoApproves('ls')).toBe(false);
 
-      rmSync(join(root, '.robota', 'sandbox-quarantine'));
+      rmSync(join(root, '.test-product', 'sandbox-quarantine'));
       await bash(client, 'true');
       expect(existsSync(join(root, '.claude'))).toBe(false);
       expect(client.autoApproves('ls')).toBe(true);
@@ -454,7 +460,7 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
   it(
     'restores against the state before any of several concurrent commands started',
     async () => {
-      const client = new OsSandboxClient({
+      const client = testSandbox({
         root,
         homeDirectory: home,
         availability: bubblewrap,
@@ -474,7 +480,7 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
     mkdirSync(join(root, 'config'));
     writeFileSync(join(root, 'config', 'mcp.json'), '{}');
     symlinkSync('config/mcp.json', join(root, '.mcp.json'));
-    const client = new OsSandboxClient({
+    const client = testSandbox({
       root,
       homeDirectory: home,
       availability: bubblewrap,
@@ -484,12 +490,12 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
   });
 
   it(
-    'restores a replaced robota symlink without crashing, even into itself',
+    'restores a replaced product-state symlink without crashing, even into itself',
     async () => {
-      mkdirSync(join(root, 'robota-real'));
-      rmSync(join(root, '.robota'), { recursive: true, force: true });
-      symlinkSync('robota-real', join(root, '.robota'));
-      const client = new OsSandboxClient({
+      mkdirSync(join(root, 'agent-test-real'));
+      rmSync(join(root, '.test-product'), { recursive: true, force: true });
+      symlinkSync('agent-test-real', join(root, '.test-product'));
+      const client = testSandbox({
         root,
         homeDirectory: home,
         availability: bubblewrap,
@@ -497,18 +503,18 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
       });
       const result = await bash(
         client,
-        `rm .robota && mkdir .robota && echo '{"hooks":1}' > .robota/settings.json`,
+        `rm .test-product && mkdir .test-product && echo '{"hooks":1}' > .test-product/settings.json`,
       );
       expect(result.output).toContain('[sandbox]');
-      expect(readlinkSync(join(root, '.robota'))).toBe('robota-real');
-      expect(existsSync(join(root, 'robota-real', 'settings.json'))).toBe(false);
+      expect(readlinkSync(join(root, '.test-product'))).toBe('agent-test-real');
+      expect(existsSync(join(root, 'agent-test-real', 'settings.json'))).toBe(false);
     },
     SPAWN_TIMEOUT_MS,
   );
 
   it('does not auto-approve while a protected entry is a dangling symlink', () => {
     symlinkSync('missing-target', join(root, '.agents'));
-    const client = new OsSandboxClient({
+    const client = testSandbox({
       root,
       availability: bubblewrap,
       settings: { enabled: true },
@@ -520,17 +526,17 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
   it(
     'hides denyRead paths and runs excluded commands on the host',
     async () => {
-      const client = new OsSandboxClient({
+      const client = testSandbox({
         root,
         homeDirectory: home,
         availability: bubblewrap,
         settings: { enabled: true, denyRead: [outside] },
       });
-      expect((await bash(client, 'cat "$ROBOTA_TEST_OUTSIDE/secret"')).output).not.toContain(
+      expect((await bash(client, 'cat "$PRODUCT_TEST_OUTSIDE/secret"')).output).not.toContain(
         'SECRET',
       );
       client.configure({ excludedCommands: ['cat'] });
-      expect((await bash(client, 'cat "$ROBOTA_TEST_OUTSIDE/secret"')).output).toContain('SECRET');
+      expect((await bash(client, 'cat "$PRODUCT_TEST_OUTSIDE/secret"')).output).toContain('SECRET');
     },
     SPAWN_TIMEOUT_MS,
   );

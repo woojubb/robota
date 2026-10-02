@@ -1,9 +1,9 @@
 /**
- * A real `Robota` run over a `FallbackProvider`: what the loop records when a turn moves to another
+ * A real `ConversationAgent` run over a `FallbackProvider`: what the loop records when a turn moves to another
  * model, and that the conversation it keeps is the same one it would keep had the primary answered.
  */
 
-import { FunctionTool, ProviderError, Robota } from '@robota-sdk/agent-core';
+import { FunctionTool, ProviderError, ConversationAgent } from '@robota-sdk/agent-core';
 import { describe, expect, it } from 'vitest';
 
 import { FallbackProvider } from '../fallback-provider.js';
@@ -76,8 +76,8 @@ class ScriptedProvider implements IAIProvider {
   }
 }
 
-function createAgent(provider: IAIProvider): Robota {
-  return new Robota({
+function createAgent(provider: IAIProvider): ConversationAgent {
+  return new ConversationAgent({
     name: 'fallback-run',
     aiProviders: [provider],
     defaultModel: { provider: 'anthropic', model: 'claude-primary' },
@@ -92,7 +92,7 @@ function createAgent(provider: IAIProvider): Robota {
 
 type TEvent = { event: string; data: Record<string, unknown> };
 
-async function runTurn(agent: Robota, events: TEvent[] = []): Promise<void> {
+async function runTurn(agent: ConversationAgent, events: TEvent[] = []): Promise<void> {
   await agent.run('find it', {
     onExecutionEvent: (event, data) =>
       events.push({ event, data: data as Record<string, unknown> }),

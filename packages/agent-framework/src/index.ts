@@ -1,6 +1,10 @@
 // @robota-sdk/agent-framework — Universal AI agent SDK
 // Provider-neutral. InteractiveSession is the single entry point.
 
+export { decodeFrontmatterJson } from './frontmatter/frontmatter-json.js';
+export { decodeFrontmatter } from './frontmatter/frontmatter-decoder.js';
+export type { TFrontmatterJsonResult } from './frontmatter/frontmatter-json.js';
+
 // Runtime-host implementations (STRUCT-012): these symbols are owned here.
 export { HeadlessInteractionChannel } from './transport-host/headless/HeadlessInteractionChannel.js';
 export type { IHeadlessInteractionChannelOptions } from './transport-host/headless/HeadlessInteractionChannel.js';
@@ -156,6 +160,7 @@ export {
   BuiltinCommandSource,
   createBuiltinCommandModule,
   SkillCommandSource,
+  createSkillCommand,
   inspectSkillSources,
   PluginCommandSource,
   SystemCommandExecutor,
@@ -757,7 +762,12 @@ export {
   createWorkspaceProjectContributionSource,
   listFrameworkProjectContributionPaths,
 } from './contributions/index.js';
-export type { IContributionSource, IProjectContributionPath } from './contributions/index.js';
+export type {
+  IContributionSource,
+  IProjectContributionPath,
+  IContributionDescriptor,
+} from './contributions/index.js';
+export { describeBundleContribution } from './contributions/index.js';
 
 // ── Task context ───────────────────────────────────────────
 export {
@@ -1025,6 +1035,7 @@ export type {
   ICommandHostGoal,
   ICommandHostMemory,
   ICommandHostNoCapability,
+  ICommandProductVocabulary,
   ICommandHostPlan,
   ICommandHostPresetApplication,
   ICommandHostSessionAccess,

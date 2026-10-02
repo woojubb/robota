@@ -9,12 +9,12 @@ import { LlmTextConfigSchema } from './config.js';
 import { LlmTextNodeDefinition } from './index.js';
 
 // Keep the real credential-resolution functions (normalizeProviderConfig / createProviderFromConfig /
-// findProviderDefinition / getProviderCredentialRequirement) — only stub the Robota agent so no real
+// findProviderDefinition / getProviderCredentialRequirement) — only stub a ConversationAgent so no real
 // provider call is made (ARCH-PROVIDER-003 TC-03 / common-mistakes #76).
 const mockRun = vi.fn();
 vi.mock('@robota-sdk/agent-core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@robota-sdk/agent-core')>();
-  return { ...actual, Robota: vi.fn(() => ({ run: mockRun })) };
+  return { ...actual, ConversationAgent: vi.fn(() => ({ run: mockRun })) };
 });
 
 let capturedConfig: IProviderDefinitionConfig | undefined;

@@ -41,7 +41,7 @@ function byId(report: IDoctorReport, id: string) {
 const CLEAN_SETTINGS = {
   currentProvider: 'doctor-env',
   providers: {
-    'doctor-env': { type: 'fixture', model: 'fixture-model', apiKey: '$ENV:ROBOTA_DOCTOR_MARKER' },
+    'doctor-env': { type: 'fixture', model: 'fixture-model', apiKey: '$ENV:FIXTURE_DOCTOR_MARKER' },
     'doctor-inactive': { type: 'fixture', model: 'fixture-model', apiKey: MARKERS.profile },
   },
 };
@@ -50,8 +50,8 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
   it('uses neutral provider and trust guidance unless the host supplies its own commands', async () => {
     const f = fixture({ env: {} });
     const neutral = await runDoctor(f.inputs, f.deps);
-    expect(byId(neutral, 'provider.resolution').detail?.join(' ')).not.toMatch(/robota/i);
-    expect(byId(neutral, 'workspace.trust').detail?.join(' ')).not.toMatch(/robota/i);
+    expect(byId(neutral, 'provider.resolution').detail?.join(' ')).not.toMatch(/fixture-agent/i);
+    expect(byId(neutral, 'workspace.trust').detail?.join(' ')).not.toMatch(/fixture-agent/i);
 
     const hosted = await runDoctor(
       {
@@ -70,7 +70,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
   it('shows each effective settings hook source without embedding payloads in provenance', async () => {
     const f = fixture({ env: {} });
     const userPath = f.write(
-      '.robota/settings.json',
+      '.fixture-product/settings.json',
       JSON.stringify({
         disabledHooks: ['project-muted'],
         hooks: {
@@ -118,18 +118,18 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
   });
 
   it('TC-05/TC-02: names every failing path and cause in the broken HOME and exits 1', async () => {
-    const f = fixture({ env: { ROBOTA_DOCTOR_MARKER: MARKERS.env } });
+    const f = fixture({ env: { FIXTURE_DOCTOR_MARKER: MARKERS.env } });
     installBrokenHome(f);
     const report = await runDoctor(f.inputs, f.deps);
 
     expect(report.exitCode).toBe(1);
     expect(byId(report, 'host.fixture').status).toBe('ok');
-    const user = byId(report, 'settings.user.robota');
+    const user = byId(report, 'settings.user.fixture-product');
     expect(user).toMatchObject({
       status: 'fail',
       cause: 'empty',
-      path: join(f.home, '.robota', 'settings.json'),
-      repair: 'settings.user.robota',
+      path: join(f.home, '.fixture-product', 'settings.json'),
+      repair: 'settings.user.fixture-product',
     });
     const claude = byId(report, 'settings.user.claude');
     expect(claude.status).toBe('fail');
@@ -145,7 +145,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(broken.path).toContain(join('broken-plugin', '1.0.0', '.claude-plugin', 'plugin.json'));
     const ghost = byId(report, 'mcp.plugin.mcp-plugin@fixture-market.ghost');
     expect(ghost).toMatchObject({ status: 'warn' });
-    expect(ghost.cause).toContain('robota-doctor-missing-binary');
+    expect(ghost.cause).toContain('agent-test-doctor-missing-binary');
     const declaration = byId(report, 'mcp.plugin.mcp-plugin@fixture-market.ready');
     expect(declaration.status).toBe('warn');
     expect(declaration.detail?.join(' ')).toContain('not a runtime source');
@@ -155,11 +155,11 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(byId(report, 'storage.user').status).toBe('ok');
     expect(byId(report, 'storage.project').status).toBe('not-configured');
     expect(byId(report, 'workspace.trust').status).toBe('warn');
-    expect(report.repairable).toEqual(['settings.user.robota']);
+    expect(report.repairable).toEqual(['settings.user.fixture-product']);
   });
 
   it('TC-03: no rendered line carries a marker secret from any input', async () => {
-    const f = fixture({ env: { ROBOTA_DOCTOR_MARKER: MARKERS.env } });
+    const f = fixture({ env: { FIXTURE_DOCTOR_MARKER: MARKERS.env } });
     installBrokenHome(f);
     // Overwrite the schema-invalid layer with a syntax error beside a secret (the parser-snippet case).
     f.write('.claude/settings.json', `{"providers":{"x":{"apiKey": ${MARKERS.adjacent}}}}`);
@@ -170,10 +170,10 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
   });
 
   it('TC-03: masks the resolved credential and inactive-profile literals in a clean configuration', async () => {
-    const f = fixture({ env: { ROBOTA_DOCTOR_MARKER: MARKERS.env } });
-    f.mkdir('.robota');
-    f.mkdir('.robota/sessions');
-    f.write('.robota/settings.json', JSON.stringify(CLEAN_SETTINGS));
+    const f = fixture({ env: { FIXTURE_DOCTOR_MARKER: MARKERS.env } });
+    f.mkdir('.fixture-product');
+    f.mkdir('.fixture-product/sessions');
+    f.write('.fixture-product/settings.json', JSON.stringify(CLEAN_SETTINGS));
     const report = await runDoctor(f.inputs, f.deps);
     const text = renderDoctorReport(report).join('\n');
     expect(report.exitCode).toBe(0);
@@ -184,15 +184,15 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
 
   it('TC-03: a parse error in a settings layer never renders the file excerpt around the fault', async () => {
     const f = fixture({ env: {} });
-    f.mkdir('.robota');
-    f.mkdir('.robota/sessions');
+    f.mkdir('.fixture-product');
+    f.mkdir('.fixture-product/sessions');
     // Unquoted value: JSON.parse's message quotes the bytes around the fault, i.e. the credential.
     f.write(
-      '.robota/settings.json',
+      '.fixture-product/settings.json',
       `{"currentProvider":"p","providers":{"p":{"apiKey": ${MARKERS.adjacent}}}}`,
     );
     const report = await runDoctor(f.inputs, f.deps);
-    const text = renderDoctorReport(report, 'robota doctor').join('\n');
+    const text = renderDoctorReport(report, 'fixture-agent doctor').join('\n');
     expect(text).not.toContain(MARKERS.adjacent);
     expect(text).not.toContain(MARKERS.adjacent.slice(0, 10));
     expect(text).not.toContain('..."');
@@ -200,14 +200,14 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
       status: 'fail',
       cause: expect.stringContaining('SettingsParseError'),
     });
-    expect(byId(report, 'settings.user.robota')).toMatchObject({ status: 'fail' });
+    expect(byId(report, 'settings.user.fixture-product')).toMatchObject({ status: 'fail' });
   });
 
   it('an unparseable user settings file is a failed plugin check, not a crash', async () => {
     const f = fixture({ env: {} });
-    f.mkdir('.robota');
-    f.mkdir('.robota/sessions');
-    f.write('.robota/settings.json', '{ "enabledPlugins": { "helper": false }, }');
+    f.mkdir('.fixture-product');
+    f.mkdir('.fixture-product/sessions');
+    f.write('.fixture-product/settings.json', '{ "enabledPlugins": { "helper": false }, }');
 
     const report = await runDoctor(f.inputs, f.deps);
 
@@ -220,7 +220,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
   it('TC-04: derives the reachability host from profile baseURL, then defaults.baseURL, then endpoint', async () => {
     const profile = fixture({ env: {} });
     profile.write(
-      '.robota/settings.json',
+      '.fixture-product/settings.json',
       JSON.stringify({
         currentProvider: 'p',
         providers: {
@@ -241,7 +241,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
       ],
     });
     defaults.write(
-      '.robota/settings.json',
+      '.fixture-product/settings.json',
       JSON.stringify({
         currentProvider: 'p',
         providers: { p: { type: 'fixture', model: 'm', apiKey: 'k1234' } },
@@ -252,7 +252,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
 
     const endpoint = fixture({ env: {} });
     endpoint.write(
-      '.robota/settings.json',
+      '.fixture-product/settings.json',
       JSON.stringify({
         currentProvider: 'p',
         providers: { p: { type: 'fixture', model: 'm', apiKey: 'k1234' } },
@@ -267,7 +267,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
       providerDefinitions: [fixtureProviderDefinition({ endpoint: undefined })],
     });
     none.write(
-      '.robota/settings.json',
+      '.fixture-product/settings.json',
       JSON.stringify({
         currentProvider: 'p',
         providers: { p: { type: 'fixture', model: 'm', apiKey: 'k1234' } },
@@ -280,10 +280,10 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
 
   it('TC-04: an unreachable host is warn, not fail, so an offline doctor still exits 0', async () => {
     const f = fixture({ env: {}, reachable: false });
-    f.mkdir('.robota');
-    f.mkdir('.robota/sessions');
+    f.mkdir('.fixture-product');
+    f.mkdir('.fixture-product/sessions');
     f.write(
-      '.robota/settings.json',
+      '.fixture-product/settings.json',
       JSON.stringify({
         currentProvider: 'p',
         providers: { p: { type: 'fixture', model: 'm', apiKey: 'k1234' } },
@@ -301,15 +301,15 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(byId(report, 'provider.resolution').status).toBe('fail');
 
     const win = fixture({ env: {}, guarantee: 'windows-acl' });
-    win.mkdir('.robota');
-    win.mkdir('.robota/sessions');
+    win.mkdir('.fixture-product');
+    win.mkdir('.fixture-product/sessions');
     expect(byId(await runDoctor(win.inputs, win.deps), 'storage.user').status).toBe('not-probed');
   });
 
   it('TC-05: a too-open storage directory is warn and repairable', async () => {
     const f = fixture({ env: {} });
-    f.mkdir('.robota', 0o755);
-    f.mkdir('.robota/sessions', 0o755);
+    f.mkdir('.fixture-product', 0o755);
+    f.mkdir('.fixture-product/sessions', 0o755);
     const report = await runDoctor(f.inputs, f.deps);
     expect(byId(report, 'storage.user')).toMatchObject({ status: 'warn', repair: 'storage.user' });
   });
@@ -317,13 +317,13 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
   it('TC-07: repair rewrites only an empty user settings file, re-reads before writing, and is idempotent', async () => {
     const f = fixture({ env: {} });
     installBrokenHome(f);
-    const path = join(f.home, '.robota', 'settings.json');
+    const path = join(f.home, '.fixture-product', 'settings.json');
 
     expect(planDoctorRepair('nope', f.inputs, f.deps)).toMatchObject({ ok: false });
     expect(planDoctorRepair('settings.user.claude', f.inputs, f.deps)).toMatchObject({ ok: false });
 
     const refused = await applyDoctorRepair(
-      'settings.user.robota',
+      'settings.user.fixture-product',
       f.inputs,
       f.deps,
       async () => false,
@@ -332,26 +332,26 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(readFileSync(path, 'utf8')).toBe('');
 
     // The state changes between confirmation and write: refused, nothing overwritten.
-    const raced = await applyDoctorRepair('settings.user.robota', f.inputs, f.deps, async () => {
-      f.write('.robota/settings.json', '{"language":"ko"}');
+    const raced = await applyDoctorRepair('settings.user.fixture-product', f.inputs, f.deps, async () => {
+      f.write('.fixture-product/settings.json', '{"language":"ko"}');
       return true;
     });
     expect(raced).toMatchObject({ applied: false });
     expect(readFileSync(path, 'utf8')).toBe('{"language":"ko"}');
 
-    f.write('.robota/settings.json', '');
+    f.write('.fixture-product/settings.json', '');
     const applied = await applyDoctorRepair(
-      'settings.user.robota',
+      'settings.user.fixture-product',
       f.inputs,
       f.deps,
       async () => true,
     );
     expect(applied.applied).toBe(true);
     expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual({});
-    expect(byId(await runDoctor(f.inputs, f.deps), 'settings.user.robota').status).toBe('ok');
+    expect(byId(await runDoctor(f.inputs, f.deps), 'settings.user.fixture-product').status).toBe('ok');
 
     const again = await applyDoctorRepair(
-      'settings.user.robota',
+      'settings.user.fixture-product',
       f.inputs,
       f.deps,
       async () => true,
@@ -363,7 +363,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     const f = fixture({ env: {} });
     const applied = await applyDoctorRepair('storage.user', f.inputs, f.deps, async () => true);
     expect(applied.applied).toBe(true);
-    expect(statSync(join(f.home, '.robota', 'sessions')).mode & 0o077).toBe(0);
+    expect(statSync(join(f.home, '.fixture-product', 'sessions')).mode & 0o077).toBe(0);
     expect(byId(await runDoctor(f.inputs, f.deps), 'storage.user').status).toBe('ok');
     expect(
       await applyDoctorRepair('storage.user', f.inputs, f.deps, async () => true),
@@ -372,14 +372,14 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
 
   it('TC-05 (skills): a skill definition session discovery throws on is a fail check, not a warning', async () => {
     const f = fixture({ env: {} });
-    f.mkdir('.robota');
-    f.mkdir('.robota/sessions');
-    f.write('.robota/settings.json', JSON.stringify(CLEAN_SETTINGS));
-    f.write('.robota/skills/bad-effort/SKILL.md', '---\nname: bad\neffort: extreme\n---\nbody\n');
-    f.write('.robota/skills/no-frontmatter/SKILL.md', 'just text\n');
+    f.mkdir('.fixture-product');
+    f.mkdir('.fixture-product/sessions');
+    f.write('.fixture-product/settings.json', JSON.stringify(CLEAN_SETTINGS));
+    f.write('.fixture-product/skills/bad-effort/SKILL.md', '---\nname: bad\neffort: extreme\n---\nbody\n');
+    f.write('.fixture-product/skills/no-frontmatter/SKILL.md', 'just text\n');
     const report = await runDoctor(f.inputs, f.deps);
     expect(
-      byId(report, `skill.${join('.robota', 'skills', 'bad-effort', 'SKILL.md')}`),
+      byId(report, `skill.${join('.fixture-product', 'skills', 'bad-effort', 'SKILL.md')}`),
     ).toMatchObject({
       status: 'fail',
       cause: 'frontmatter-invalid',
@@ -387,7 +387,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     });
     expect(JSON.stringify(report)).not.toContain('received "extreme"');
     expect(
-      byId(report, `skill.${join('.robota', 'skills', 'no-frontmatter', 'SKILL.md')}`).status,
+      byId(report, `skill.${join('.fixture-product', 'skills', 'no-frontmatter', 'SKILL.md')}`).status,
     ).toBe('warn');
     expect(report.exitCode).toBe(1);
   });
@@ -417,10 +417,10 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
 
   it('TC-05: reports the quarantined provider endpoint without printing either credential', async () => {
     const f = fixture({ env: {} });
-    f.mkdir('.robota');
-    f.mkdir('.robota/sessions');
+    f.mkdir('.fixture-product');
+    f.mkdir('.fixture-product/sessions');
     f.write(
-      '.robota/settings.json',
+      '.fixture-product/settings.json',
       JSON.stringify({
         currentProvider: 'q',
         providers: {
@@ -442,16 +442,16 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
       status: 'warn',
       cause: expect.stringContaining('quarantined'),
     });
-    const text = renderDoctorReport(report, 'robota doctor').join('\n');
+    const text = renderDoctorReport(report, 'fixture-agent doctor').join('\n');
     expect(text).not.toContain(MARKERS.profile);
     expect(text).toContain('[provider.security] warn');
   });
 
   it('a throwing endpoint probe is a provider fail check, not a rejected run', async () => {
     const f = fixture({ env: {} });
-    f.mkdir('.robota');
-    f.mkdir('.robota/sessions');
-    f.write('.robota/settings.json', JSON.stringify(CLEAN_SETTINGS));
+    f.mkdir('.fixture-product');
+    f.mkdir('.fixture-product/sessions');
+    f.write('.fixture-product/settings.json', JSON.stringify(CLEAN_SETTINGS));
     const deps = {
       ...f.deps,
       probeEndpoint: () => Promise.reject(new RangeError('socket table exhausted')),

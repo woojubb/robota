@@ -179,6 +179,6 @@ export function createScheduleCommandModule(options: ILoopCommandOptions = {}): 
       createMonitorSystemCommand(),
       createLoopSystemCommand(options),
     ],
-    sessionRequirements: ['agent-runtime'],
+    sessionRequirements: ['runtime'],
   };
 }

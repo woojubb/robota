@@ -4,7 +4,8 @@
  * description, where each is defined), checks the current one, and choosing a row runs the same
  * path as `/agent <name>` — never a form the sheet builds its own write around.
  */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { render } from '../../testing/product-provider.js';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 

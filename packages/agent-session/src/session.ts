@@ -10,7 +10,7 @@ import {
 import { SessionBase } from './session-base.js';
 import {
   buildPermissionEnforcer,
-  buildRobota,
+  buildConversationAgent,
   buildSessionTrackers,
 } from './session-components.js';
 import { buildCompactContext, compact, persistSession } from './session-history-ops.js';
@@ -71,7 +71,7 @@ import type {
   IHookTypeExecutor,
   ISubprocessTraceEnv,
 } from '@robota-sdk/agent-core';
-import type { Robota } from '@robota-sdk/agent-core';
+import type { ConversationAgent } from '@robota-sdk/agent-core';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export type {
@@ -88,9 +88,9 @@ export type {
 };
 export type { TAutoCompactThreshold } from './context-window-tracker.js';
 
-/** Wraps a Robota agent with project context, permission state, and optional persistence. */
+/** Wraps a ConversationAgent agent with project context, permission state, and optional persistence. */
 export class Session extends SessionBase {
-  protected readonly agent: Robota;
+  protected readonly agent: ConversationAgent;
   /**
    * SELFHOST-004: session-owned observable event bus. Injected into the agent so tools (incl. the
    * `FunctionTool` span-completion emit) publish here; the interactive turn subscribes to it to
@@ -191,7 +191,7 @@ export class Session extends SessionBase {
     );
     this.contextTracker = contextTracker;
     this.compactionOrchestrator = compactionOrchestrator;
-    this.agent = buildRobota(
+    this.agent = buildConversationAgent(
       options,
       this.permissionEnforcer,
       tools,

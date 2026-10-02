@@ -34,6 +34,7 @@ import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IHistoryEntry, IRunTraceContext } from '@robota-sdk/agent-core';
 import type { Session } from '@robota-sdk/agent-session';
 import type {
+  ISpanCollector,
   ISpanCollectorOptions,
   IToolBodyTraceObservation,
   IToolPermissionDecisionObservation,
@@ -96,6 +97,7 @@ export interface IPromptTurnContext {
   onProviderCallCompleted?: (observation: TRawProviderCallTraceObservation) => void;
   onToolBodyCompleted?: (observation: IToolBodyTraceObservation) => void;
   onToolPermissionDecided?: (observation: IToolPermissionDecisionObservation) => void;
+  onQueueSummary?: (summary: ISpanCollector['queueSummary']) => void;
   /** Synchronous, per event: which tool calls reached this turn's own collector. */
   onToolCallObserved?: ISpanCollectorOptions['onToolCallObserved'];
   onCompletionsOmitted?: (counts: { readonly provider: number; readonly tool: number; readonly permission: number }) => void;
@@ -265,6 +267,7 @@ export async function executePromptTurn(
       else ctx.onToolPermissionDecided?.(completion.observation);
     }
     ctx.onCompletionsOmitted?.(spanCollector.omittedCompletions);
+    ctx.onQueueSummary?.(spanCollector.queueSummary);
     // SELFHOST-004: always unsubscribe the span collector so a completed turn leaves no listener.
     spanCollector.dispose();
   }

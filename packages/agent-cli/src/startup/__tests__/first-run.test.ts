@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { mkdtempSync, existsSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -10,7 +11,7 @@ describe('first-run', () => {
   let tempHome: string;
 
   beforeEach(() => {
-    tempHome = realpathSync(mkdtempSync(join(tmpdir(), 'robota-first-run-')));
+    tempHome = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-first-run-')));
   });
 
   afterEach(() => {
@@ -18,7 +19,7 @@ describe('first-run', () => {
   });
 
   it('TC-03: isFirstRun is true without marker and false after markOnboarded', () => {
-    const marker = join(tempHome, '.robota', 'onboarded');
+    const marker = join(tempHome, '.test-product', 'onboarded');
     expect(isFirstRun(marker)).toBe(true);
     markOnboarded(marker);
     expect(isFirstRun(marker)).toBe(false);
@@ -27,7 +28,7 @@ describe('first-run', () => {
 
   it('TC-03: printFirstRunWelcome writes the welcome banner to the injected terminal', () => {
     const { terminal, lines } = createCapturingTerminal();
-    printFirstRunWelcome(terminal);
+    printFirstRunWelcome(terminal, createTestProductRuntime());
     const output = lines.join('\n');
     expect(output).toContain('Welcome to');
     expect(output).toContain('/help');
@@ -38,7 +39,7 @@ describe('first-run', () => {
   // name were five columns short and the right border stair-stepped.
   it('PM-031: every welcome-box line is exactly the same display width', () => {
     const { terminal, lines } = createCapturingTerminal();
-    printFirstRunWelcome(terminal);
+    printFirstRunWelcome(terminal, createTestProductRuntime());
     const boxLines = lines
       .join('\n')
       .split('\n')

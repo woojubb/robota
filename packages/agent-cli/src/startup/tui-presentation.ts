@@ -1,24 +1,23 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
  * The presentation a terminal UI renders with, resolved the same way for every entry that renders
- * one: the TUI that builds its own session, and the TUI attached to a daemon's (`robota --attach`).
+ * one: the TUI that builds its own session, and the TUI attached to a daemon's (`the product --attach`).
  * Only presentation lives here — nothing that shapes a session — so an attached terminal looks and
  * reads the way the plain one does without resolving a runtime it does not run.
  *
  * The TUI implementation is referenced by type only: the headless entry reaches this module and
  * must never load it. The full CLI supplies the factories.
  */
-import { homedir } from 'node:os';
 
-import { formatRobotaResumeCommand } from '../product/robota-command-vocabulary.js';
-import { createRobotaKeybindingsOptions } from '../product/robota-keybindings.js';
+import { createProductKeybindingsOptions } from '../product/keybindings.js';
 import {
-  createRobotaUserSettingsSources,
-  robotaUserSettingsPath,
-} from '../product/robota-user-settings.js';
+  createProductUserSettingsSources,
+  productUserSettingsPath,
+} from '../product/user-settings.js';
 import { resolveFocusReportingOverride } from './focus-reporting-enablement.js';
 import { resolvePromptHistoryRenderFields } from './prompt-history-enablement.js';
-import { resolveRobotaScreenReaderPacing } from './screen-reader-pacing-projection.js';
-import { resolveRobotaTerminalCapabilities } from './terminal-capabilities-projection.js';
+import { resolveProductScreenReaderPacing } from './screen-reader-pacing-projection.js';
+import { resolveProductTerminalCapabilities } from './terminal-capabilities-projection.js';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
@@ -56,6 +55,7 @@ export function createTuiPresentationSources(
   presentation: Pick<ITuiPresentationFactories, 'createThemeSurface' | 'createNodeKeybindingsSource'>,
   inputs: {
     /** Whether this run renders a terminal UI at all; print, goal and serve runs do not. */
+    readonly productRuntime: ICliRuntimeContext;
     readonly enabled: boolean;
     readonly cwd: string;
     readonly projectAccess: TWorkspaceProjectAccess;
@@ -66,7 +66,7 @@ export function createTuiPresentationSources(
 ): ITuiPresentationSources {
   const keybindingsSource = inputs.enabled
     ? presentation.createNodeKeybindingsSource({
-        ...createRobotaKeybindingsOptions(homedir()),
+        ...createProductKeybindingsOptions(inputs.productRuntime),
         onDiagnostic: (diagnostic) =>
           process.stderr.write(
             `Keybindings ${diagnostic.file} ${diagnostic.path}: ${diagnostic.message}\n`,
@@ -76,8 +76,9 @@ export function createTuiPresentationSources(
   // SCREEN-2002: one registry, reaching both `/theme` (through its port) and the renderer.
   const theme = presentation.createThemeSurface({
     cwd: inputs.cwd,
+    productRuntime: inputs.productRuntime,
     projectAccess: inputs.projectAccess,
-    userHome: homedir(),
+    userHome: inputs.productRuntime.userHome ?? inputs.productRuntime.layout.userRoot,
     enabled: keybindingsSource !== undefined,
     settings: inputs.settings,
     reducedMotionFlag: inputs.reducedMotionFlag,
@@ -95,6 +96,7 @@ export type TTuiRenderFields = IScreenReaderRenderFields &
 
 /** What the renderer takes from the settings and the environment, beside the theme and keybindings. */
 export function resolveTuiRenderFields(inputs: {
+  readonly productRuntime: ICliRuntimeContext;
   readonly screenReader: IScreenReaderRenderFields;
   readonly settings: TSettingsData;
   readonly env: TEnv;
@@ -104,12 +106,13 @@ export function resolveTuiRenderFields(inputs: {
   return {
     // CLI-2004: off ⇒ today's byte stream is unchanged.
     ...inputs.screenReader,
-    screenReaderPacing: resolveRobotaScreenReaderPacing(inputs.env),
-    terminalCapabilities: resolveRobotaTerminalCapabilities(inputs.env),
+    screenReaderPacing: resolveProductScreenReaderPacing(inputs.env),
+    terminalCapabilities: resolveProductTerminalCapabilities(inputs.env),
     // SCREEN-1992: the focus-reporting kill switch is the shell's; the TUI's TTY gate decides otherwise.
     focusReporting: resolveFocusReportingOverride(inputs.env),
     // SCREEN-1993: prompt history is a TUI-only surface (print and serve receive no writer).
     ...resolvePromptHistoryRenderFields({
+      productRuntime: inputs.productRuntime,
       settings: inputs.settings,
       env: inputs.env,
       access: inputs.access,
@@ -118,10 +121,11 @@ export function resolveTuiRenderFields(inputs: {
   };
 }
 
-/** The renderer's read-only seam to Robota's settings, provider names and resume command. */
-export function createRobotaTuiCliAdapter(
+/** The renderer's read-only seam to The product's settings, provider names and resume command. */
+export function createProductTuiCliAdapter(
   createDefaultTuiCliAdapter: ITuiPresentationFactories['createDefaultTuiCliAdapter'],
   inputs: {
+    readonly productRuntime: ICliRuntimeContext;
     readonly providerDefinitions: readonly IProviderDefinition[];
     readonly reloadPluginCommandSource: (registry: CommandRegistry) => void;
   },
@@ -129,8 +133,8 @@ export function createRobotaTuiCliAdapter(
   return createDefaultTuiCliAdapter({
     providerDefinitions: inputs.providerDefinitions,
     reloadPluginCommandSource: inputs.reloadPluginCommandSource,
-    userSettingsPath: robotaUserSettingsPath(),
-    settingsSources: createRobotaUserSettingsSources(),
-    formatResumeCommand: formatRobotaResumeCommand,
+    userSettingsPath: productUserSettingsPath(inputs.productRuntime),
+    settingsSources: createProductUserSettingsSources(inputs.productRuntime),
+    formatResumeCommand: inputs.productRuntime.vocabulary.resumeCommand,
   });
 }

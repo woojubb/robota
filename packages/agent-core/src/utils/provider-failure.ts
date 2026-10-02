@@ -13,7 +13,7 @@ import {
   NetworkError,
   ProviderError,
   RateLimitError,
-  RobotaError,
+  AgentRuntimeError,
 } from './errors';
 
 import type { IProviderFailureDetails, TErrorContextData } from './errors';
@@ -179,7 +179,7 @@ export function readProviderFailureDetails(error: unknown): IProviderFailureDeta
     stringField(record, 'type') ??
     stringField(nested, 'type') ??
     (bodyType === 'error' ? undefined : bodyType) ??
-    (status !== undefined && !(error instanceof RobotaError)
+    (status !== undefined && !(error instanceof AgentRuntimeError)
       ? stringField(record, 'code')
       : undefined);
   return {
@@ -252,7 +252,7 @@ function failureContext(details: IProviderFailureDetails): TErrorContextData | u
  * disclosure built from `message` downstream never has less to say than the vendor did.
  */
 export function toProviderError(error: unknown, provider: string, operation: string): Error {
-  if (error instanceof RobotaError || isAbort(error)) return error as Error;
+  if (error instanceof AgentRuntimeError || isAbort(error)) return error as Error;
   const originalError =
     error instanceof Error ? error : new Error(typeof error === 'string' ? error : '');
   const details = readProviderFailureDetails(error);
@@ -359,7 +359,7 @@ function detailsOf(layer: unknown): IProviderFailureDetails {
 }
 
 function hasModelUnavailableCode(layer: unknown): boolean {
-  if (layer instanceof RobotaError) return false;
+  if (layer instanceof AgentRuntimeError) return false;
   const code = stringField(asRecord(layer), 'code');
   return code !== undefined && MODEL_UNAVAILABLE_CODES.has(code);
 }

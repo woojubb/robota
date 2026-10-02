@@ -45,6 +45,8 @@ export type TOpenAIProviderOptionValue =
  * OpenAI provider options
  */
 export interface IOpenAIProviderOptions {
+  /** Emit one operation ID per model request, preserved by SDK retries, for durable company gateways. */
+  durableOperations?: boolean;
   /**
    * Additional provider-specific options
    */
@@ -165,7 +167,7 @@ export interface IOpenAIProviderOptions {
   /**
    * Provider-native hosted web tool request from provider profile options.
    *
-   * OpenAI-compatible Chat Completions endpoints do not support this Robota
+   * OpenAI-compatible Chat Completions endpoints do not support this ConversationAgent
    * native web contract. The provider rejects unsupported configurations before
    * any model request is sent.
    */

@@ -22,7 +22,7 @@ afterEach(() => {
 });
 
 it('records an injected offline provider through the real goal loop and replays its cassette', async () => {
-  const directory = mkdtempSync(join(tmpdir(), 'robota-goal-record-test-'));
+  const directory = mkdtempSync(join(tmpdir(), 'agent-test-goal-record-test-'));
   temporaryDirectories.push(directory);
   const toCassette = join(directory, 'nested', 'goal.cassette.json');
   const originalCassette = readFileSync(GOAL_CASSETTE_PATH);
@@ -67,7 +67,7 @@ it('records an injected offline provider through the real goal loop and replays 
 }, 20_000);
 
 it('disposes the real harness when the asynchronous goal driver rejects', async () => {
-  const directory = mkdtempSync(join(tmpdir(), 'robota-goal-record-failure-'));
+  const directory = mkdtempSync(join(tmpdir(), 'agent-test-goal-record-failure-'));
   temporaryDirectories.push(directory);
   const failure = new Error('recording driver rejected');
   let harness: ScriptedSessionHarness | undefined;

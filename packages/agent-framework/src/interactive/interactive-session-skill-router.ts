@@ -40,6 +40,17 @@ import type { IContributionSource } from '../contributions/index.js';
 import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
 import type { TDriverId } from '@robota-sdk/agent-interface-session';
+import type {
+  ISkillContentActivation,
+  ISkillResource,
+} from '@robota-sdk/agent-interface-command';
+
+interface ISkillResourceWindow {
+  readonly bindings: Map<string, ISkillContentActivation>;
+  readonly activations: Set<ISkillContentActivation>;
+  readonly signal?: AbortSignal;
+  closed: boolean;
+}
 
 function normalizeNameToken(name: string): string {
   return name.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
@@ -52,6 +63,62 @@ function getQualifiedSkillName(rawInput?: string): string | undefined {
 }
 
 export class SessionSkillRouter {
+  private readonly forkResourceWindow = new AsyncLocalStorage<ISkillResourceWindow>();
+  private skillWindow?: {
+    readonly turnId: string | symbol;
+    readonly stop: AbortController;
+    readonly signal: AbortSignal;
+    readonly activations: Set<ISkillContentActivation>;
+    readonly bindings: Map<string, ISkillContentActivation>;
+    closed: boolean;
+  };
+
+  beginTurnSkillActivation(turnId: string | symbol, signal?: AbortSignal): void {
+    if (this.skillWindow) throw new Error('A skill activation turn is already active.');
+    const stop = new AbortController();
+    const effective = signal ? AbortSignal.any([signal, stop.signal]) : stop.signal;
+    this.skillWindow = {
+      turnId,
+      stop,
+      signal: effective,
+      activations: new Set(),
+      bindings: new Map(),
+      closed: false,
+    };
+  }
+
+  endTurnSkillActivation(turnId: string | symbol): readonly Error[] {
+    const window = this.skillWindow;
+    if (!window || window.turnId !== turnId) return [];
+    window.closed = true;
+    this.skillWindow = undefined;
+    window.stop.abort();
+    const errors: Error[] = [];
+    for (const activation of window.activations) {
+      try {
+        activation.close();
+      } catch (error) {
+        errors.push(error instanceof Error ? error : new Error(String(error)));
+      }
+    }
+    window.activations.clear();
+    window.bindings.clear();
+    return errors;
+  }
+
+  abortSkillActivations(): readonly Error[] {
+    return this.skillWindow ? this.endTurnSkillActivation(this.skillWindow.turnId) : [];
+  }
+
+  async validateTurnSkillActivations(turnId: string): Promise<void> {
+    const window = this.skillWindow;
+    if (!window || window.turnId !== turnId) throw new Error('Skill activation turn has ended.');
+    for (const activation of window.activations) {
+      await activation.validate();
+      window.signal.throwIfAborted();
+      if (this.skillWindow !== window) throw new Error('Skill activation turn has ended.');
+    }
+  }
   readonly commandExecutor: SystemCommandExecutor;
   /** Command modules received at construction — retained for live re-selection (PRESET-015). */
   private readonly allCommandModules: readonly ICommandModule[];
@@ -101,6 +168,13 @@ export class SessionSkillRouter {
     private readonly remoteCommandPolicy?: IRemoteCommandPolicy,
     /** Skills from the bundle plugins the session loaded. */
     private pluginSkills: readonly ICommand[] = [],
+    /** Defer host-supplied instructions until their submitted turn owns execution. */
+    private readonly onSubmitPreparedSkill?: (
+      preparePrompt: () => Promise<string>,
+      displayInput: string | undefined,
+      rawInput: string | undefined,
+      originDriverId: TDriverId | undefined,
+    ) => Promise<void>,
   ) {
     this.allCommandModules = commandModules;
     this.commandExecutor = new SystemCommandExecutor(
@@ -127,20 +201,34 @@ export class SessionSkillRouter {
   }
 
   async shutdownModules(): Promise<unknown[]> {
+    const activationErrors = this.abortSkillActivations();
     const host = this.getSession();
     const results = await Promise.allSettled(
       this.allCommandModules.map((module) => Promise.resolve().then(() => module.shutdown?.(host))),
     );
-    return results.flatMap((result) => (result.status === 'rejected' ? [result.reason] : []));
+    return [
+      ...activationErrors,
+      ...results.flatMap((result) => (result.status === 'rejected' ? [result.reason] : [])),
+    ];
   }
 
   getCommandInvocationSource(): TCommandInvocationSource {
     return this.commandScope.getStore()?.source ?? 'user';
   }
 
+  canRunDuringTurn(name: string, args: string, source: TCommandInvocationSource): boolean {
+    if (source !== 'user' && source !== 'remote') return false;
+    const command = this.commandExecutor.getCommand(normalizeNameToken(name));
+    return command?.lifecycle === 'inline' && command.canRunDuringTurn?.(args.trim()) === true;
+  }
+
   /** #3282 §4 part b-2: allow-by-default, matching every other transport-origin default here. */
   getCommandSurfaceLocality(): TCommandSurfaceLocality {
     return this.commandScope.getStore()?.locality ?? 'local';
+  }
+
+  getCommandSurfaceLocalityEvidence(): TCommandSurfaceLocality | undefined {
+    return this.commandScope.getStore()?.locality;
   }
 
   getCommandOriginDriverId(): TDriverId | undefined {
@@ -163,9 +251,31 @@ export class SessionSkillRouter {
     return this.allSkills().map(toSkillListEntry);
   }
 
+  async readSkillResource(name: string, uri: string): Promise<ISkillResource> {
+    const fork = this.forkResourceWindow.getStore();
+    const window = fork ?? this.skillWindow;
+    const check = () => {
+      if (!window || window.closed || (!fork && this.skillWindow !== window))
+        throw new Error('No active skill resource window.');
+      window.signal?.throwIfAborted();
+    };
+    check();
+    const activation = window?.bindings.get(normalizeNameToken(name).toLowerCase());
+    if (!activation?.resources)
+      throw new Error(`No active supporting resources for skill: ${name}`);
+    if (!activation.resources.manifest.some((resource) => resource.uri === uri))
+      throw new Error('Resource is outside the active skill manifest.');
+    const resource = await activation.resources.read(uri, window?.signal);
+    check();
+    return resource;
+  }
+
   /** The session's own skills, then the plugin skills whose names they do not already use. */
   private allSkills(): ICommand[] {
-    return mergeSkillCommands(this.skillCommandSource.getCommands(), this.pluginSkills);
+    return mergeSkillCommands(
+      mergeSkillCommands(this.skillCommandSource.getCommands(), this.pluginSkills),
+      this.commandHostAdapters?.skillCommands?.getCommands() ?? [],
+    );
   }
 
   listModelInvocableCommands(): Array<{ name: string; description: string }> {
@@ -305,6 +415,28 @@ export class SessionSkillRouter {
       return this.onForkSkill(skill, args, displayInput, qualifiedName, invocation);
     }
 
+    if (skill.skillContentLoader) {
+      if (!this.onSubmitPreparedSkill)
+        throw new Error('Lazy user skills require turn preparation.');
+      await this.onSubmitPreparedSkill(
+        async () => {
+          const result = await this.executeSkillWithActivation(
+            skill,
+            args,
+            invocation,
+            qualifiedName,
+          );
+          if (result.mode !== 'inject' || !result.prompt)
+            throw new Error('Lazy user skill did not produce instructions for its turn.');
+          return result.prompt;
+        },
+        displayInput,
+        rawInput,
+        originDriverId,
+      );
+      return { mode: 'inject' };
+    }
+
     const result = await this.executeSkillWithActivation(skill, args, invocation, qualifiedName);
     if (result.mode === 'inject') {
       // The turn belongs to whoever issued the command: a remote co-driver's skill is its turn, attributed
@@ -329,13 +461,62 @@ export class SessionSkillRouter {
     invocation: ISkillActivationEvent['invocation'],
     qualifiedName?: string,
   ): Promise<ISkillExecutionResult> {
+    const window = this.skillWindow;
+    const fork = this.forkResourceWindow.getStore();
+    const owner = fork ?? window;
+    if (fork?.closed) throw new Error('Skill activation fork has ended.');
     this.emitSkillActivation(skill, invocation, 'started', qualifiedName);
     try {
       const result = await executeSkill(
         skill,
         args,
         {
-          runInFork: (content, options) => this.runSkillInFork(content, options),
+          ...(owner?.signal ? { signal: owner.signal } : {}),
+          retainActivation: (activation) => {
+            if (!owner || owner.closed || (!fork && this.skillWindow !== window))
+              throw new Error('Lazy skill injection requires its owning turn.');
+            owner.signal?.throwIfAborted();
+            owner.activations.add(activation);
+            owner.bindings.set(skill.name.toLowerCase(), activation);
+          },
+          describeResources: (activation) => {
+            if (!activation.resources?.manifest.length) return '';
+            const command = this.commandExecutor.getSemanticRoles().skillResourceRead;
+            if (!command || !this.commandExecutor.isModelInvocable(command))
+              return 'Supporting-file access is unavailable on this command surface.';
+            return `Supporting resources remain verified data within this execution; reading a nested SKILL.md does not activate it. Invoke the projected command with id ${JSON.stringify(command)} and args as a JSON array [${JSON.stringify(skill.name)}, "<resource-uri>"]. Available resources: ${JSON.stringify(activation.resources.manifest)}.`;
+          },
+          runInFork: async (content, options, activation) => {
+            const scope: ISkillResourceWindow = {
+              bindings: new Map(activation ? [[skill.name.toLowerCase(), activation]] : []),
+              activations: new Set(),
+              ...(options.signal ? { signal: options.signal } : {}),
+              closed: false,
+            };
+            let result = '';
+            const errors: unknown[] = [];
+            try {
+              result = await this.forkResourceWindow.run(scope, () =>
+                this.runSkillInFork(content, options),
+              );
+            } catch (error) {
+              errors.push(error);
+            }
+            scope.closed = true;
+            scope.bindings.clear();
+            for (const admitted of scope.activations) {
+              try {
+                admitted.close();
+              } catch (error) {
+                errors.push(error);
+              }
+            }
+            scope.activations.clear();
+            if (errors.length === 1) throw errors[0];
+            if (errors.length)
+              throw new AggregateError(errors, 'Fork skill execution or cleanup failed.');
+            return result;
+          },
           ...(this.shellExec ? { shellExec: this.shellExec } : {}),
         },
         {

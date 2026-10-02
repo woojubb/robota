@@ -21,7 +21,7 @@ async function projectReader(root: string) {
 }
 
 async function createWorkspace(): Promise<string> {
-  return mkdtemp(join(tmpdir(), 'robota-file-ref-'));
+  return mkdtemp(join(tmpdir(), 'agent-file-ref-'));
 }
 
 describe('prompt file references', () => {

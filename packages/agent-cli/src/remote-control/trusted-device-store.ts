@@ -1,7 +1,7 @@
 /**
  * Host trusted-device store for TOFU reconnect (REMOTE-012 Stage E3).
  *
- * A JSON file under `~/.robota` keyed by `deviceId`, holding each enrolled device's **public** key only — no
+ * A JSON file under the configured user storage root keyed by `deviceId`, holding each enrolled device's **public** key only — no
  * private material, so a leak of this file cannot impersonate a device. Enrollment happens at first pair
  * (after the explicit host accept); reconnect looks a device up by id and authenticates it against its pinned
  * public key. Corruption **throws** (fail-fast, mirroring `settings-io`'s `SettingsParseError`) — a truncated
@@ -9,10 +9,9 @@
  * re-pair or, worse, mask tampering.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 
 import { ensureOwnerOnlyDirectory, tightenExistingFile } from '@robota-sdk/agent-core/node';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 
 /** One enrolled device. `publicKey` is a base64url SPKI; timestamps are ISO-8601 strings supplied by the caller. */
 export interface ITrustedDeviceRecord {
@@ -43,11 +42,6 @@ interface ITrustedDeviceFile {
   readonly devices: Record<string, ITrustedDeviceRecord>;
 }
 
-/** Default on-disk location for the trusted-device store. */
-function defaultTrustedDeviceStorePath(): string {
-  return join(homedir(), '.robota', 'remote-trusted-devices.json');
-}
-
 function readFile(filePath: string): ITrustedDeviceFile {
   if (!existsSync(filePath)) return { version: 1, devices: {} };
   let parsed: ITrustedDeviceFile;
@@ -76,7 +70,7 @@ function writeFile(filePath: string, file: ITrustedDeviceFile): void {
  * `settings-io`), so an external edit or `revoke` is seen immediately.
  */
 export function createTrustedDeviceStore(
-  filePath: string = defaultTrustedDeviceStorePath(),
+  filePath: string,
 ): ITrustedDeviceStore {
   return {
     list(): ITrustedDeviceRecord[] {

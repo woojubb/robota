@@ -4,7 +4,7 @@
  * ## Why this exists
  *
  * `/memory add` is `modelInvocable: true` and `requiresPermission: false`, so the MODEL can write
- * `.robota/memory/MEMORY.md` and the per-topic files. That content is then injected two ways:
+ * `.agent/memory/MEMORY.md` and the per-topic files. That content is then injected two ways:
  *
  *  - into the system prompt at priority 25, in the same `project-instructions` band as the
  *    operator-authored `AGENTS.md` (priority 10) and `CLAUDE.md` (20); and

@@ -63,7 +63,7 @@ describe('decodeDagFile is total over the workflow-file format', () => {
     last_node_id: 1,
     last_link_id: 0,
     version: 0.4,
-    nodes: [{ id: 1, type: 'RobotaInput', pos: [0, 0] }],
+    nodes: [{ id: 1, type: 'ConversationAgentInput', pos: [0, 0] }],
     links: [],
   };
 

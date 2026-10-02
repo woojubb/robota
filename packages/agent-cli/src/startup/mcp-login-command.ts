@@ -1,5 +1,6 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * `robota mcp login <name> [--client-secret] [--no-browser]` and `robota mcp logout <name>`: sign
+ * `the product mcp login <name> [--client-secret] [--no-browser]` and `the product mcp logout <name>`: sign
  * in to a configured remote MCP server that declares `oauth` and keep its tokens for later
  * sessions, or sign out of it.
  *
@@ -33,6 +34,7 @@ import type {
 } from '@robota-sdk/agent-mcp';
 
 export interface IMcpLoginCommandDeps {
+  readonly productRuntime: ICliRuntimeContext;
   readonly settingsSources: readonly TSettingsSource[];
   readonly env: NodeJS.ProcessEnv;
   readonly stdout: (text: string) => void;
@@ -43,13 +45,13 @@ export interface IMcpLoginCommandDeps {
   /** Reads the redirect URL pasted with `--no-browser`; defaults to a hidden prompt. */
   readonly promptRedirect?: (signal: AbortSignal) => Promise<string>;
   readonly network?: IMCPOAuthNetwork;
-  /** Defaults to `~/.robota/mcp-credentials`. */
+  /** Defaults to `the configured user root/mcp-credentials`. */
   readonly credentialDirectory?: string;
   readonly callbackTimeoutMs?: number;
 }
 
-const LOGIN_USAGE = 'Usage: robota mcp login <name> [--client-secret] [--no-browser]\n';
-const LOGOUT_USAGE = 'Usage: robota mcp logout <name>\n';
+const LOGIN_USAGE = 'Usage: {{cli}} mcp login <name> [--client-secret] [--no-browser]\n';
+const LOGOUT_USAGE = 'Usage: {{cli}} mcp logout <name>\n';
 
 const TOKEN_LABEL = { refresh_token: 'refresh token', access_token: 'access token' } as const;
 
@@ -132,7 +134,7 @@ export async function runMcpLoginCommand(
 ): Promise<number> {
   const withSecret = args.includes('--client-secret');
   const noBrowser = args.includes('--no-browser');
-  const name = onlyName(args, ['--client-secret', '--no-browser'], LOGIN_USAGE, deps);
+  const name = onlyName(args, ['--client-secret', '--no-browser'], LOGIN_USAGE.replaceAll('{{cli}}', deps.productRuntime.config.identity.cliName), deps);
   if (name === undefined) return 1;
   const server = findOAuthServer(name, deps);
   if (server === undefined) return 1;
@@ -172,9 +174,10 @@ export async function runMcpLoginCommand(
         ? new MCPOAuthError('redirect-too-long')
         : error;
     });
-  const directory = deps.credentialDirectory ?? mcpCredentialDirectory();
+  const directory = deps.credentialDirectory ?? mcpCredentialDirectory(deps.productRuntime);
   try {
     await runMCPOAuthLogin({
+      clientName: deps.productRuntime.config.identity.mcpClientName,
       securityIdentity: securityIdentity(entry),
       serverUrl: definition.url ?? '',
       config: oauth,
@@ -216,11 +219,11 @@ export async function runMcpLogoutCommand(
   args: readonly string[],
   deps: IMcpLoginCommandDeps,
 ): Promise<number> {
-  const name = onlyName(args, [], LOGOUT_USAGE, deps);
+  const name = onlyName(args, [], LOGOUT_USAGE.replaceAll('{{cli}}', deps.productRuntime.config.identity.cliName), deps);
   if (name === undefined) return 1;
   const server = findOAuthServer(name, deps);
   if (server === undefined) return 1;
-  const directory = deps.credentialDirectory ?? mcpCredentialDirectory();
+  const directory = deps.credentialDirectory ?? mcpCredentialDirectory(deps.productRuntime);
   let result: IMCPOAuthLogoutResult;
   try {
     result = await runMCPOAuthLogout({

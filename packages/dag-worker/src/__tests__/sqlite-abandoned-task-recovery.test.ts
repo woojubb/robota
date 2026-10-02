@@ -28,7 +28,7 @@ describe('SQLite abandoned-task recovery (DAG-001)', () => {
   });
 
   it('reopens persisted abandoned work and advances the task and run to success through idle sweep', async () => {
-    root = await realpath(await mkdtemp(path.join(tmpdir(), 'robota-dag001-sqlite-')));
+    root = await realpath(await mkdtemp(path.join(tmpdir(), 'agent-test-dag001-sqlite-')));
     const databasePath = path.join(root, 'dag.sqlite');
     const beforeCrashStorage = track(new SqliteStorageAdapter(databasePath));
     const beforeCrashQueue = track(new SqliteQueueAdapter(databasePath));
@@ -93,7 +93,7 @@ describe('SQLite abandoned-task recovery (DAG-001)', () => {
   });
 
   it('aborts an active attempt when another SQLite owner commits cancellation', async () => {
-    root = await realpath(await mkdtemp(path.join(tmpdir(), 'robota-dag-cancel-sqlite-')));
+    root = await realpath(await mkdtemp(path.join(tmpdir(), 'agent-test-dag-cancel-sqlite-')));
     const databasePath = path.join(root, 'dag.sqlite');
     const workerStorage = track(new SqliteStorageAdapter(databasePath));
     const cancellingStorage = track(new SqliteStorageAdapter(databasePath));

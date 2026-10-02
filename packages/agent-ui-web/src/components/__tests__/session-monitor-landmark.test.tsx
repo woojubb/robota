@@ -5,7 +5,8 @@
  * must carry the landmark itself, same as the connected branch's `ConversationView` already does.
  */
 
-import { cleanup, render } from '@testing-library/react';
+import { render } from '../../testing/product-provider.js';
+import { cleanup } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../hooks/useSessionClient.js', async (importOriginal) => ({

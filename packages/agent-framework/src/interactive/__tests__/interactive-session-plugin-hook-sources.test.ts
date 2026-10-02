@@ -22,7 +22,7 @@ function writeJson(path: string, value: unknown): void {
 }
 
 function addPlugin(name: string, type: 'prompt' | 'agent'): string {
-  const pluginDir = join(cwd, '.robota', 'plugins', 'cache', 'market', name, '1.0.0');
+  const pluginDir = join(cwd, '.agent', 'plugins', 'cache', 'market', name, '1.0.0');
   writeJson(join(pluginDir, '.claude-plugin', 'plugin.json'), {
     name,
     version: '1.0.0',
@@ -43,11 +43,11 @@ async function start(): Promise<Error | undefined> {
       projectAccess: await createTrustedProjectAccessFixture(cwd),
       projectSettingsPaths: TEST_PROJECT_SETTINGS_PATHS,
       userSettingsSources: [
-        createNodeHostSettingsSource('user', join(home, '.robota', 'settings.json')),
+        createNodeHostSettingsSource('user', join(home, '.agent', 'settings.json')),
       ],
       pluginDirectories: {
-        project: join(cwd, '.robota', 'plugins'),
-        user: join(home, '.robota', 'plugins'),
+        project: join(cwd, '.agent', 'plugins'),
+        user: join(home, '.agent', 'plugins'),
       },
       provider: createScriptedProvider([]).provider,
       onTextDelta: () => {},
@@ -62,7 +62,7 @@ async function start(): Promise<Error | undefined> {
 
 describe('startup hook diagnostics retain effective plugin sources', () => {
   beforeEach(() => {
-    root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-plugin-hook-source-')));
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-plugin-hook-source-')));
     cwd = join(root, 'project');
     home = join(root, 'home');
     mkdirSync(cwd, { recursive: true });
@@ -100,7 +100,7 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
       cwd,
       projectAccess: await createTrustedProjectAccessFixture(cwd),
       userSettingsSources: [
-        createNodeHostSettingsSource('user', join(home, '.robota', 'settings.json')),
+        createNodeHostSettingsSource('user', join(home, '.agent', 'settings.json')),
       ],
       pluginDirectories: { project: join(cwd, 'custom-plugins'), user: join(home, 'custom-plugins') },
       provider: createScriptedProvider([]).provider,
@@ -142,7 +142,7 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
 
   it('uses the supplied settings file for plugin enablement instead of HOME', async () => {
     addPlugin('custom-disabled', 'prompt');
-    writeJson(join(home, '.robota', 'settings.json'), {
+    writeJson(join(home, '.agent', 'settings.json'), {
       enabledPlugins: { 'custom-disabled@market': true },
     });
     const customSettingsPath = join(home, 'custom-settings.json');
@@ -163,11 +163,11 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
 
   it('names both settings and plugin sources for the same type, excluding disabled settings groups', async () => {
     const hooksPath = addPlugin('mixed', 'prompt');
-    writeJson(join(home, '.robota', 'settings.json'), {
+    writeJson(join(home, '.agent', 'settings.json'), {
       disabledHooks: ['disabled-project-group'],
       hooks: { PreToolUse: [{ matcher: '', hooks: [{ type: 'prompt', prompt: 'user' }] }] },
     });
-    writeJson(join(cwd, '.robota', 'settings.json'), {
+    writeJson(join(cwd, '.agent', 'settings.json'), {
       hooks: {
         PreToolUse: [
           {
@@ -179,7 +179,7 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
       },
     });
     const error = await start();
-    expect(error?.message).toContain(join(home, '.robota', 'settings.json'));
+    expect(error?.message).toContain(join(home, '.agent', 'settings.json'));
     expect(error?.message).toContain(hooksPath);
     expect(error?.message).not.toContain('"agent"');
   });
@@ -187,7 +187,7 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
   it('does not include a disabled plugin in startup hook diagnostics', async () => {
     const disabledHooksPath = addPlugin('disabled', 'agent');
     const activeHooksPath = addPlugin('active', 'prompt');
-    writeJson(join(home, '.robota', 'settings.json'), {
+    writeJson(join(home, '.agent', 'settings.json'), {
       enabledPlugins: { 'disabled@market': false },
     });
     const error = await start();

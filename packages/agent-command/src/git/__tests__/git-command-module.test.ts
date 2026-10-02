@@ -40,7 +40,7 @@ const providerSettingsAdapter: IProviderCommandSettingsAdapter = {
   writeTargetSettings: () => undefined,
 };
 /** User-local storage lives in a private per-run directory, never a fixed name under /tmp. */
-const USER_LOCAL_STORAGE_ROOT = mkdtempSync(join(tmpdir(), 'robota-test-'));
+const USER_LOCAL_STORAGE_ROOT = mkdtempSync(join(tmpdir(), 'agent-test-test-'));
 afterAll(() => rmSync(USER_LOCAL_STORAGE_ROOT, { recursive: true, force: true }));
 
 const BASE_OPTIONS = { cwd: '/tmp', userLocalStorageRoot: USER_LOCAL_STORAGE_ROOT, providerDefinitions, providerSettingsAdapter } as const;

@@ -1,6 +1,6 @@
 # @robota-sdk/agent-transport-webrtc-web
 
-The **browser** WebRTC transport peer for a Robota session — the browser mirror of the Node host transport
+The **browser** WebRTC transport peer for an agent session — the browser mirror of the Node host transport
 [`@robota-sdk/agent-transport-webrtc`](../../agent-transport-webrtc/docs/README.md). It answers the host's
 WebRTC offer over a native `RTCPeerConnection`, runs the directional-HMAC pairing handshake as the
 responder behind a fail-closed gate, and co-drives the same session over an `RTCDataChannel`, reusing the

@@ -1,4 +1,4 @@
-/** Metadata embedded in a third-party node package's package.json under the "robota-dag" key. */
+/** Metadata embedded in a third-party node package's package.json under the "agent-dag" key. */
 export interface INodePackageManifestEntry {
   readonly nodeType: string;
   readonly displayName: string;
@@ -8,7 +8,7 @@ export interface INodePackageManifestEntry {
   readonly defaultOutputPort?: string;
 }
 
-/** The "robota-dag" field shape in a third-party node package's package.json. */
+/** The "agent-dag" field shape in a third-party node package's package.json. */
 export interface INodePackageManifest {
   readonly type: 'node-package';
   readonly schemaVersion: '1';

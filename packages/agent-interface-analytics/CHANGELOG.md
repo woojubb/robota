@@ -44,7 +44,7 @@
     itself is held to the control endpoint's line limit.
   - `agent-framework`: the surface a turn was submitted on now reaches its usage observation. It was
     dropped before, so remote-control turns were counted as `unknown`.
-  - The terminal client (`robota session attach`) and the view keys come separately.
+  - The terminal client (`__PRODUCT_CLI_NAME__ session attach`) and the view keys come separately.
 
 ### Patch Changes
 

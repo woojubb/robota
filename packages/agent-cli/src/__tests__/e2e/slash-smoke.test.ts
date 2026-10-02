@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../helpers/product-runtime.js';
 /**
  * Slash-command smoke E2E (CLI-074 TC-06).
  *
@@ -21,12 +22,12 @@ import { createTrustedWorkspaceProjectAccess } from '../helpers/trusted-workspac
 import type { IScriptedProvider } from '@robota-sdk/agent-core/testing';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-slash-smoke-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-slash-smoke-')));
 const ORIGINAL_ARGV = process.argv;
 const ORIGINAL_HOME = process.env.HOME;
 
 function writeScriptedSettings(projectDir: string): void {
-  const settingsDir = join(projectDir, '.robota');
+  const settingsDir = join(projectDir, '.test-product');
   mkdirSync(settingsDir, { recursive: true });
   writeFileSync(
     join(settingsDir, 'settings.json'),
@@ -56,7 +57,7 @@ async function runPrintJson(prompt: string): Promise<{ exitCode: number; stdout:
   ]);
   process.argv = [
     'node',
-    'robota',
+    'test-product',
     '-p',
     prompt,
     '--output-format',
@@ -71,7 +72,7 @@ async function runPrintJson(prompt: string): Promise<{ exitCode: number; stdout:
   vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   let exitCode = -1;
   try {
-    await startCli({
+    await startCli({productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
       providerDefinitions: [scriptedDefinition(scripted)],
       projectAccess: await createTrustedWorkspaceProjectAccess(process.cwd()),
     });

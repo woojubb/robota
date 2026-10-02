@@ -26,10 +26,10 @@ interface IMetricWindow {
 }
 
 /**
- * Metric labels are opt-in (`ROBOTA_TELEMETRY_METRIC_ATTRIBUTES`, parsed by the CLI's config
- * boundary): `session` stamps `robota.session.id` on every datapoint; `provider`/`model` split
+ * Metric labels are opt-in (`PRODUCT_TELEMETRY_METRIC_ATTRIBUTES`, parsed by the CLI's config
+ * boundary): `session` stamps `agent.session.id` on every datapoint; `provider`/`model` split
  * only provider-derived metrics into per-group datapoints keyed by the enabled id(s), using the
- * same `robota.provider.id`/`robota.model.id` keys as the matching trace spans.
+ * same `agent.provider.id`/`agent.model.id` keys as the matching trace spans.
  */
 export type TLiveMetricAttribute = 'session' | 'provider' | 'model';
 
@@ -53,7 +53,7 @@ export function projectLivePromptMetrics(
   const { startTime, endTime } = window;
   const metrics: MetricData[] = [];
   const includeSession = metricAttributes.has('session');
-  const sessionAttributes: Record<string, string> = includeSession ? { 'robota.session.id': batch.sessionId } : {};
+  const sessionAttributes: Record<string, string> = includeSession ? { 'agent.session.id': batch.sessionId } : {};
   const addSum = (name: string, value: number, unit: string, valueType = ValueType.INT,
     attributes: Record<string, string> = {}, includeZero = false): void => {
     if (value < 0 || (value === 0 && !includeZero)) return;
@@ -66,13 +66,13 @@ export function projectLivePromptMetrics(
     });
   };
 
-  addSum('robota.prompt.executions', 1, '1');
-  addSum('robota.telemetry.tool_events_omitted', batch.omittedChildren.tool, '1');
+  addSum('agent.prompt.executions', 1, '1');
+  addSum('agent.telemetry.tool_events_omitted', batch.omittedChildren.tool, '1');
   if (batch.omittedChildren.tool === 0) {
-    addSum('robota.tool.body_completions', batch.children.filter((child) => child.kind === 'tool').length, '1');
+    addSum('agent.tool.body_completions', batch.children.filter((child) => child.kind === 'tool').length, '1');
   }
-  addSum('robota.telemetry.provider_events_omitted', batch.omittedChildren.provider, '1');
-  addSum('robota.telemetry.permission_events_omitted', batch.omittedChildren.permission, '1');
+  addSum('agent.telemetry.provider_events_omitted', batch.omittedChildren.provider, '1');
+  addSum('agent.telemetry.permission_events_omitted', batch.omittedChildren.permission, '1');
   if (batch.omittedChildren.permission === 0) {
     const decisionCounts = new Map<string, number>();
     for (const child of batch.children) {
@@ -83,10 +83,10 @@ export function projectLivePromptMetrics(
       .filter(([, count]) => count > 0)
       .map(([decision, count]) => ({
         startTime, endTime,
-        attributes: { ...sessionAttributes, 'robota.permission.decision': decision }, value: count,
+        attributes: { ...sessionAttributes, 'agent.permission.decision': decision }, value: count,
       }));
     if (dataPoints.length > 0) metrics.push({
-      descriptor: { name: 'robota.tool.permission_decisions', description: '', unit: '1', valueType: ValueType.INT },
+      descriptor: { name: 'agent.tool.permission_decisions', description: '', unit: '1', valueType: ValueType.INT },
       aggregationTemporality: AggregationTemporality.DELTA,
       dataPointType: DataPointType.SUM,
       isMonotonic: true,
@@ -107,8 +107,8 @@ export function projectLivePromptMetrics(
       let group = groups.get(key);
       if (!group) {
         const attributes: Record<string, string> = { ...sessionAttributes };
-        if (splitByProvider && providerId !== undefined) attributes['robota.provider.id'] = providerId;
-        if (splitByModel && modelId !== undefined) attributes['robota.model.id'] = modelId;
+        if (splitByProvider && providerId !== undefined) attributes['agent.provider.id'] = providerId;
+        if (splitByModel && modelId !== undefined) attributes['agent.model.id'] = modelId;
         group = {
           attributes, calls: 0, inputTokens: 0, outputTokens: 0,
           missingUsage: 0, unpricedCalls: 0, pricedCalls: 0, estimatedCost: 0,
@@ -152,29 +152,29 @@ export function projectLivePromptMetrics(
         dataPoints,
       });
     };
-    addGroupedSum('robota.provider.calls', '1', ValueType.INT, (group) => group.calls);
-    addGroupedSum('robota.provider.input_tokens', '{token}', ValueType.INT, (group) => group.inputTokens);
-    addGroupedSum('robota.provider.output_tokens', '{token}', ValueType.INT, (group) => group.outputTokens);
-    addGroupedSum('robota.provider.usage_unavailable_calls', '1', ValueType.INT, (group) => group.missingUsage);
-    addGroupedSum('robota.provider.cost_unpriced_calls', '1', ValueType.INT, (group) => group.unpricedCalls);
+    addGroupedSum('agent.provider.calls', '1', ValueType.INT, (group) => group.calls);
+    addGroupedSum('agent.provider.input_tokens', '{token}', ValueType.INT, (group) => group.inputTokens);
+    addGroupedSum('agent.provider.output_tokens', '{token}', ValueType.INT, (group) => group.outputTokens);
+    addGroupedSum('agent.provider.usage_unavailable_calls', '1', ValueType.INT, (group) => group.missingUsage);
+    addGroupedSum('agent.provider.cost_unpriced_calls', '1', ValueType.INT, (group) => group.unpricedCalls);
     const pricedGroups = orderedGroups.filter((group) => group.pricedCalls > 0 && group.estimatedCost >= 0);
     if (pricedGroups.length > 0) metrics.push({
-      descriptor: { name: 'robota.provider.estimated_cost_usd', description: '', unit: 'USD', valueType: ValueType.DOUBLE },
+      descriptor: { name: 'agent.provider.estimated_cost_usd', description: '', unit: 'USD', valueType: ValueType.DOUBLE },
       aggregationTemporality: AggregationTemporality.DELTA,
       dataPointType: DataPointType.SUM,
       isMonotonic: true,
       dataPoints: pricedGroups.map((group) => ({
         startTime, endTime,
-        attributes: { ...group.attributes, 'robota.cost.provenance': 'price-table-calculated' },
+        attributes: { ...group.attributes, 'agent.cost.provenance': 'price-table-calculated' },
         value: group.estimatedCost,
       })),
     });
   }
   return {
     resource: resourceFromAttributes(window.resource?.attributes ?? {
-      'service.name': 'robota', 'service.instance.id': window.instanceId,
+      'service.instance.id': window.instanceId,
     }),
-    scopeMetrics: [{ scope: { name: 'robota.live-prompt-metrics', version: '1' }, metrics }],
+    scopeMetrics: [{ scope: { name: 'agent.live-prompt-metrics', version: '1' }, metrics }],
   };
 }
 
@@ -221,7 +221,7 @@ export function createNodeOtlpLiveMetricPort(
   resource: ILiveTelemetryResource = createLiveTelemetryResource(),
   /** Static headers prebuilt at startup; the sender's own content type always overrides them. */
   headers?: Headers,
-  /** Parsed once at the config boundary from `ROBOTA_TELEMETRY_METRIC_ATTRIBUTES`; empty by default. */
+  /** Parsed once at the config boundary from `PRODUCT_TELEMETRY_METRIC_ATTRIBUTES`; empty by default. */
   metricAttributes: ReadonlySet<TLiveMetricAttribute> = new Set(),
 ): ILivePromptTracePort & { shutdown(): Promise<void> } {
   const pending: ILivePromptTraceBatch[] = [];

@@ -5,6 +5,7 @@ import type { TLiveMetricAttribute } from './live-metric-otlp.js';
 import { projectLivePromptLogs } from './live-log-otlp.js';
 import { createLiveTelemetryResource, safeLiveProviderRequestId, safeLiveToolCallId } from './live-resource.js';
 import type { ILiveTelemetryResource } from './live-resource.js';
+import { projectLiveTimingTotals } from './live-timing.js';
 
 type TSignal = 'traces' | 'metrics' | 'logs';
 type TSpannedChild = Exclude<ILivePromptTraceBatch['children'][number], { readonly kind: 'permission' }>;
@@ -56,18 +57,20 @@ function projectConsoleRecord(
       time: log.hrTime, attributes: log.attributes,
     })) };
   }
+  const timingTotals = projectLiveTimingTotals(batch.timingTotals);
   return {
     signal, resource: resource.attributes, traceId: batch.root.traceId,
     sessionId: boundedLabel(batch.sessionId), turnId: boundedLabel(batch.turnId),
     spans: [
-      { name: 'robota.prompt_execution', spanId: batch.root.spanId,
+      { name: 'agent.prompt_execution', spanId: batch.root.spanId,
         startedAt: batch.root.startedAt, endedAt: batch.root.endedAt,
         outcome: batch.root.outcome,
         omittedProviderCount: batch.omittedChildren.provider,
         omittedToolCount: batch.omittedChildren.tool,
-        omittedPermissionCount: batch.omittedChildren.permission },
+        omittedPermissionCount: batch.omittedChildren.permission,
+        ...(timingTotals ? { timingTotals } : {}) },
       ...batch.children.filter(hasSpan).map((child) => ({
-        name: child.kind === 'provider' ? 'robota.provider_call' : 'robota.tool_body',
+        name: child.kind === 'provider' ? 'agent.provider_call' : 'agent.tool_body',
         spanId: child.trace.spanId, parentSpanId: child.trace.parentSpanId,
         startedAt: child.trace.startedAt, endedAt: child.trace.endedAt,
         outcome: child.trace.outcome,
@@ -93,7 +96,7 @@ export function createNodeLiveConsolePort(
   write: (line: string) => void | Promise<void>,
   onFailure?: (code: 'projection-failed' | 'enqueue-failed' | 'delivery-failed') => void,
   resource: ILiveTelemetryResource = createLiveTelemetryResource(),
-  /** Parsed once at the config boundary from `ROBOTA_TELEMETRY_METRIC_ATTRIBUTES`; empty by default. */
+  /** Parsed once at the config boundary from `PRODUCT_TELEMETRY_METRIC_ATTRIBUTES`; empty by default. */
   metricAttributes: ReadonlySet<TLiveMetricAttribute> = new Set(),
 ): ILivePromptTracePort & { shutdown(): Promise<void> } {
   const pending: ILivePromptTraceBatch[] = [];

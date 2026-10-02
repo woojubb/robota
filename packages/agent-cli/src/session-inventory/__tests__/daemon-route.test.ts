@@ -1,3 +1,4 @@
+import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -20,11 +21,11 @@ async function route(argv: readonly string[]): Promise<{ code: unknown; out: str
   try {
     mkdirSync(cwd);
     const handled = await runPreparsedCliCommand(
-      {
+      { productRuntime: createTestProductRuntime(),
         providerDefinitions: [],
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', realpathSync(cwd)),
       },
-      ['node', 'robota', 'daemon', ...argv],
+      ['node', 'test-product', 'daemon', ...argv],
       cwd,
     );
     expect(handled).toBe(true);
@@ -42,11 +43,11 @@ async function route(argv: readonly string[]): Promise<{ code: unknown; out: str
   }
 }
 
-describe('robota daemon route', () => {
+describe('test-product daemon route', () => {
   it('prints usage for an unknown action', async () => {
     const result = await route(['restart']);
     expect(result.code).toBe(1);
-    expect(result.err).toMatch(/^Usage: robota daemon start \[--json\]/u);
+    expect(result.err).toMatch(/^Usage: test-product daemon start \[--json\]/u);
   });
 
   it('reports no daemon for a workspace without one', async () => {

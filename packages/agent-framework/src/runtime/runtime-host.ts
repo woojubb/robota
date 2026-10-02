@@ -2,7 +2,7 @@
  * RUNTIME-001 (Design C) — the shared, presentation-free runtime host.
  *
  * `buildRuntimeSession` is the single session-construction seam: every presentation — the TUI channel, the
- * print channel, and the headless `robota --serve` entry — builds its `InteractiveSession` here from a normalized
+ * print channel, and the headless `agent --serve` entry — builds its `InteractiveSession` here from a normalized
  * `SessionRecipe`, instead of each calling the constructor. `startRuntimeHost` adds the
  * transport `startAll/stopAll` lifecycle + a bounded shutdown handle on top; it is used by the headless
  * `--serve` path, which builds and starts atomically. (The TUI channel builds via `buildRuntimeSession` in its

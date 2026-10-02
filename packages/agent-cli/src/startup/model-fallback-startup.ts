@@ -33,6 +33,7 @@ export interface IApplyModelFallbackChainInput {
   /** `--provider`, when given. */
   providerOverride?: string;
   providerDefinitions: readonly IProviderDefinition[];
+  environment?: Readonly<Record<string, string | undefined>>;
   orgPolicy?: IOrgPolicy;
   /** Where a dropped entry is announced. */
   notice: (message: string) => void;
@@ -57,6 +58,7 @@ export function applyModelFallbackChain(input: IApplyModelFallbackChainInput): I
     settings,
     primary: { ...(profile !== undefined && { profile }), config: input.primaryConfig },
     providerDefinitions: input.providerDefinitions,
+    ...(input.environment !== undefined && { environment: input.environment }),
     ...(input.orgPolicy?.allowedProviders !== undefined && {
       allowedProviders: input.orgPolicy.allowedProviders,
     }),

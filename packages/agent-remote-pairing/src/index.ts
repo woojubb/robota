@@ -110,10 +110,9 @@ export type {
 // The three-tier identity model (master → signing key → device) with purpose-tagged signatures.
 // It supersedes the single-root `user-identity` certificate above, which stays until the hand-off
 // grant moves onto this chain.
-export { IDENTITY_CLOCK_SKEW_MS, IDENTITY_PURPOSES } from './identity/encoding.js';
+export { IDENTITY_CLOCK_SKEW_MS } from './identity/encoding.js';
 export type { TIdentityPurpose, TSignatureAlg } from './identity/encoding.js';
 export {
-  MASTER_KEY_DERIVATION_PATH,
   RECOVERY_PHRASE_WORDS,
   deriveMasterKey,
   generateRecoveryPhrase,
@@ -121,6 +120,7 @@ export {
   validateRecoveryPhrase,
 } from './identity/master-key.js';
 export type {
+  IDeriveMasterKeyOptions,
   IMasterKey,
   TRecoveryPhraseRejection,
   TRecoveryPhraseVerdict,
@@ -186,7 +186,7 @@ export type {
 } from './identity/verify-chain.js';
 // The device handshake: two of one user's devices admit each other over a channel bound to its
 // negotiated DTLS fingerprints, starting from a pairwise pre-proof that discloses no identity.
-export { PAIRWISE_SECRET_LABEL, derivePairwiseSecret } from './identity/pairwise-secret.js';
+export { derivePairwiseSecret } from './identity/pairwise-secret.js';
 export type { IDerivePairwiseSecretInput } from './identity/pairwise-secret.js';
 export {
   RENDEZVOUS_EPOCH_MS,
@@ -263,3 +263,6 @@ export type {
   TEnrollmentRefusal,
   TEnrollmentRole,
 } from './identity/enrollment.js';
+
+export { createIdentityContext } from './identity/crypto-context.js';
+export type { IIdentityContext } from './identity/crypto-context.js';

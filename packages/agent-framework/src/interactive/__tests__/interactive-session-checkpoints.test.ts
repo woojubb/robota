@@ -19,7 +19,7 @@ import { InteractiveSession } from '../interactive-session.js';
 
 import type { IAIProvider, IAssistantMessage, TUniversalMessage } from '@robota-sdk/agent-core';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-interactive-checkpoints-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-interactive-checkpoints-')));
 const ORIGINAL_HOME = process.env.HOME;
 
 function makeProject(): string {

@@ -18,7 +18,7 @@ import { NodeToolResultSpillStore } from './tool-result-spill-store.js';
 const parents: string[] = [];
 
 function parent(): string {
-  const path = mkdtempSync(join(tmpdir(), 'robota-spill-test-'));
+  const path = mkdtempSync(join(tmpdir(), 'agent-spill-test-'));
   parents.push(path);
   return path;
 }
@@ -41,8 +41,7 @@ describe('NodeToolResultSpillStore', () => {
 
     const [directoryName] = readdirSync(root);
     expect(directoryName).toBeDefined();
-    expect(directoryName).toMatch(/^agent-tool-results-/u);
-    expect(directoryName).not.toContain('robota');
+    expect(directoryName).toMatch(/^agent-tool-results-[A-Za-z0-9_-]+$/u);
     const directory = join(root, directoryName!);
     const [fileName] = readdirSync(directory);
     expect(fileName).toBeDefined();

@@ -18,7 +18,7 @@ describe('/handoff command module', () => {
     const description =
       createHandoffCommandModule().commandSources?.[0]?.getCommands()[0]?.description;
     expect(description).toContain('/handoff <session-or-device-id>');
-    expect(description).toMatch(/linked over the device mesh/);
+    expect(description).toMatch(/another linked device/);
     expect(description).toMatch(/user-only/i);
     expect(description).toContain('saved, not started');
   });

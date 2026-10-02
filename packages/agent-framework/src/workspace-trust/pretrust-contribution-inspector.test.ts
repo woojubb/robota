@@ -10,7 +10,7 @@ import { createNodeWorkspaceIdentityResolver, inspectPreTrustProjectPaths } from
 const roots: string[] = [];
 
 function temporaryDirectory(): string {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-pretrust-paths-')));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-pretrust-paths-')));
   roots.push(root);
   return root;
 }
@@ -24,31 +24,31 @@ describe('pre-trust project contribution inspection', () => {
     const project = temporaryDirectory();
     const outside = temporaryDirectory();
     execFileSync('git', ['init', '--quiet', project]);
-    mkdirSync(join(project, '.robota'), { recursive: true });
-    writeFileSync(join(project, '.robota', 'settings.json'), '{ private content');
+    mkdirSync(join(project, '.agent'), { recursive: true });
+    writeFileSync(join(project, '.agent', 'settings.json'), '{ private content');
     mkdirSync(join(outside, 'agents'), { recursive: true });
     symlinkSync(join(outside, 'agents'), join(project, '.agents'));
-    symlinkSync(join(outside, 'agents'), join(project, '.robota', 'plugins'));
+    symlinkSync(join(outside, 'agents'), join(project, '.agent', 'plugins'));
     const identity = createNodeWorkspaceIdentityResolver().resolve(project);
 
     expect(
       inspectPreTrustProjectPaths(identity, [
-        '.robota/settings.json',
-        '.robota/skills',
-        '.robota/plugins',
+        '.agent/settings.json',
+        '.agent/skills',
+        '.agent/plugins',
         '.agents/agents',
       ]),
     ).toEqual([
       {
-        relativePath: '.robota/settings.json',
+        relativePath: '.agent/settings.json',
         kind: process.platform === 'linux' ? 'file' : 'unavailable',
       },
       {
-        relativePath: '.robota/skills',
+        relativePath: '.agent/skills',
         kind: process.platform === 'linux' ? 'absent' : 'unavailable',
       },
       {
-        relativePath: '.robota/plugins',
+        relativePath: '.agent/plugins',
         kind: process.platform === 'linux' ? 'link' : 'unavailable',
       },
       { relativePath: '.agents/agents', kind: 'unavailable' },
@@ -62,9 +62,9 @@ describe('pre-trust project contribution inspection', () => {
 
     expect(
       inspectPreTrustProjectPaths({ ...identity, repositoryKey: 'different-repository' }, [
-        '.robota/settings.json',
+        '.agent/settings.json',
       ]),
-    ).toEqual([{ relativePath: '.robota/settings.json', kind: 'unavailable' }]);
+    ).toEqual([{ relativePath: '.agent/settings.json', kind: 'unavailable' }]);
   });
 
   it('does not inspect project path metadata on platforms without a stable no-follow walk', () => {

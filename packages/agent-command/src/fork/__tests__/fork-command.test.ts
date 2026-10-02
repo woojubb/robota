@@ -144,7 +144,7 @@ describe('/fork writes the copy and starts the job that resumes it (CLI-1994 TC-
     expect(result.success).toBe(false);
     expect(result.message).toContain('depth limit reached');
     expect(result.message).toContain(FORK_SESSION_ID);
-    expect(result.message).not.toContain('robota');
+    expect(result.message).not.toContain('fixture-agent');
   });
 
   it('renders a host-selected resume command after a fork spawn failure', async () => {

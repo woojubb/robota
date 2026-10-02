@@ -20,6 +20,16 @@ const raw = (entry: Record<string, unknown>, name = 'alpha'): IMCPServerDefiniti
 });
 
 describe('decodeEntry', () => {
+  it('preserves explicit stateless selection and refuses unsupported selections', () => {
+    expect(decodeEntry(raw({ type: 'http', url: 'https://a.example', protocolVersion: '2026-07-28' }))).toMatchObject({ protocolVersion: '2026-07-28' });
+    for (const protocolVersion of ['2025-11-25', 'future', 42, null]) {
+      expect(decodeEntry(raw({ type: 'http', url: 'https://a.example', protocolVersion }))).toMatchObject({ reason: expect.stringMatching(/protocolVersion/) });
+    }
+    for (const type of ['sse', 'ws']) {
+      expect(decodeEntry(raw({ type, url: 'https://a.example', protocolVersion: '2026-07-28' }))).toMatchObject({ reason: expect.stringMatching(/protocolVersion.*transport/) });
+    }
+  });
+
   it('decodes a stdio definition', () => {
     const decoded = decodeEntry(
       raw({ type: 'stdio', command: 'server', args: ['--port', '1'], cwd: 'work' }),

@@ -51,7 +51,7 @@ Files, network and integrations:
   request and emits the response.
 - [`@robota-sdk/dag-node-tool`](tool/docs/README.md) — `tool`: runs one allowlisted
   `@robota-sdk/agent-tools` builtin as a step.
-- [`@robota-sdk/dag-node-skill`](skill/docs/README.md) — `skill`: resolves a Robota skill to its
+- [`@robota-sdk/dag-node-skill`](skill/docs/README.md) — `skill`: resolves an agent runtime skill to its
   prompt for a downstream LLM node.
 
 Test helpers:

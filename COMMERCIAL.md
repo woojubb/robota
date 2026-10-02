@@ -42,8 +42,8 @@ pricing, and support are defined in the signed commercial agreement.
 Commercial licensing and enterprise terms are handled by Robota. To request a
 quote or discuss terms:
 
-- Website: <https://robota.io>
-- GitHub: <https://github.com/woojubb/robota> (open an issue or use the contact
+- Website: <__PROJECT_WEBSITE_URL__>
+- GitHub: <__PROJECT_REPOSITORY_URL__> (open an issue or use the contact
   links on the project page)
 
 > Replace this section with a dedicated licensing email/URL when available.

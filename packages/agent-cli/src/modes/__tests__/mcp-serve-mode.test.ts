@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { mkdtemp, readFile, stat, access, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -45,7 +46,7 @@ import type { IMcpRemoteHttpHostOptions } from '@robota-sdk/agent-transport-mcp'
 
 const REMOTE = {
   host: '0.0.0.0',
-  publicUrl: 'https://agents.example.test/robota/mcp',
+  publicUrl: 'https://agents.example.test/test-product/mcp',
   issuer: 'https://auth.example.test',
   scopes: ['mcp:use'],
   allowedSubjects: ['alice'],
@@ -59,7 +60,7 @@ describe('MCP serve startup lifecycle', () => {
     mock.stop.mockResolvedValue(undefined);
     mock.shutdown.mockResolvedValue(undefined);
     const previous = new Set(process.listeners('SIGTERM'));
-    const running = runMcpServeMode({} as TInteractiveSessionOptions, '1', new PassThrough());
+    const running = runMcpServeMode(createTestProductRuntime(), {} as TInteractiveSessionOptions, '1', new PassThrough());
     await vi.waitFor(() => expect(mock.start).toHaveBeenCalledOnce());
     const listener = process.listeners('SIGTERM').find((entry) => !previous.has(entry));
     expect(listener).toBeDefined();
@@ -70,7 +71,7 @@ describe('MCP serve startup lifecycle', () => {
   });
 
   it('writes an owner-only HTTP bearer file and removes it on signal', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'robota-mcp-http-'));
+    const root = await mkdtemp(join(tmpdir(), 'test-product-mcp-http-'));
     const tokenFile = join(root, 'token');
     mock.httpStart.mockResolvedValue({ url: 'http://127.0.0.1:12345/mcp', token: 'secret-token' });
     mock.httpWaitForClose.mockImplementation(() => new Promise<void>(() => {}));
@@ -78,7 +79,7 @@ describe('MCP serve startup lifecycle', () => {
     mock.shutdown.mockResolvedValue(undefined);
     const previous = new Set(process.listeners('SIGTERM'));
     try {
-      const running = runMcpServeMode({} as TInteractiveSessionOptions, '1', new PassThrough(), {
+      const running = runMcpServeMode(createTestProductRuntime(), {} as TInteractiveSessionOptions, '1', new PassThrough(), {
         tokenFile,
       });
       await vi.waitFor(async () =>
@@ -96,7 +97,7 @@ describe('MCP serve startup lifecycle', () => {
   });
 
   it('tears down HTTP mode when a signal arrives before catalog validation completes', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'robota-mcp-http-pending-'));
+    const root = await mkdtemp(join(tmpdir(), 'test-product-mcp-http-pending-'));
     const tokenFile = join(root, 'token');
     let release: (() => void) | undefined;
     mock.httpStart.mockImplementation(
@@ -108,7 +109,7 @@ describe('MCP serve startup lifecycle', () => {
     mock.httpStop.mockResolvedValue(undefined);
     mock.shutdown.mockResolvedValue(undefined);
     const previous = new Set(process.listeners('SIGTERM'));
-    const running = runMcpServeMode({} as TInteractiveSessionOptions, '1', new PassThrough(), {
+    const running = runMcpServeMode(createTestProductRuntime(), {} as TInteractiveSessionOptions, '1', new PassThrough(), {
       tokenFile,
     });
     try {
@@ -131,7 +132,7 @@ describe('MCP serve startup lifecycle', () => {
     mock.remoteOptions.mockClear();
     mock.httpStart.mockResolvedValue({
       listening: '0.0.0.0:8443',
-      url: 'https://agents.example.test/robota/mcp',
+      url: 'https://agents.example.test/test-product/mcp',
     });
     mock.httpWaitForClose.mockImplementation(() => new Promise<void>(() => {}));
     mock.httpStop.mockResolvedValue(undefined);
@@ -139,7 +140,7 @@ describe('MCP serve startup lifecycle', () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const previous = new Set(process.listeners('SIGTERM'));
     try {
-      const running = runMcpServeMode({} as TInteractiveSessionOptions, '1', new PassThrough(), {
+      const running = runMcpServeMode(createTestProductRuntime(), {} as TInteractiveSessionOptions, '1', new PassThrough(), {
         port: 8443,
         remote: REMOTE,
       });
@@ -175,7 +176,7 @@ describe('MCP serve startup lifecycle', () => {
   it('refuses the loopback bearer file together with remote authorization', async () => {
     mock.remoteOptions.mockClear();
     await expect(
-      runMcpServeMode({} as TInteractiveSessionOptions, '1', new PassThrough(), {
+      runMcpServeMode(createTestProductRuntime(), {} as TInteractiveSessionOptions, '1', new PassThrough(), {
         tokenFile: '/private/token',
         remote: REMOTE,
       }),

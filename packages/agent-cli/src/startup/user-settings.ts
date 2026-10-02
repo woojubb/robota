@@ -1,5 +1,6 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { readSettings, SettingsParseError } from '@robota-sdk/agent-framework';
-import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
+import { productUserSettingsPath } from '../product/user-settings.js';
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';
 
@@ -16,7 +17,7 @@ import type { TSettingsData } from '@robota-sdk/agent-framework';
  * as a **stack trace** — and almost none of the message `SettingsParseError` was written to carry
  * survives that:
  *
- * > `Settings file <path> contains invalid JSON: <reason>. Fix or delete the file. Run robota doctor
+ * > `Settings file <path> contains invalid JSON: <reason>. Fix or delete the file. Run ${runtime.vocabulary.cliName} doctor
  * > for diagnostics.`
  *
  * It names the file and the remedy, which is the whole point of having a typed error.
@@ -30,13 +31,13 @@ import type { TSettingsData } from '@robota-sdk/agent-framework';
  * second reason survives the first being removed — the presentation of a read failure belongs beside
  * the read rather than in the shell that happens to call it.
  */
-export function readUserSettingsOrExit(): TSettingsData {
+export function readUserSettingsOrExit(runtime: ICliRuntimeContext): TSettingsData {
   try {
-    return readSettings(robotaUserSettingsPath());
+    return readSettings(productUserSettingsPath(runtime));
   } catch (error) {
     if (!(error instanceof SettingsParseError)) throw error;
     // allow-fallback: an unreadable settings file is terminal — surface the file and the remedy, exit
-    process.stderr.write(`${error.message} Run robota doctor for diagnostics.\n`);
+    process.stderr.write(`${error.message} Run ${runtime.vocabulary.cliName} doctor for diagnostics.\n`);
     process.exit(1);
   }
 }

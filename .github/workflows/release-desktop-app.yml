@@ -6,8 +6,12 @@ on:
     types: [completed]
   workflow_dispatch:
     inputs:
+      product_env:
+        description: 'Non-secret product environment file contents; otherwise uses vars.PRODUCT_BUILD_ENV.'
+        required: false
+        type: string
       tag:
-        description: 'Existing release tag to build + attach installers to (e.g. v3.0.0-beta.79). Must already exist.'
+        description: 'Existing configured-prefix release tag to build and attach installers to. Must already exist.'
         required: true
         type: string
       verify_only:
@@ -43,11 +47,12 @@ concurrency:
 jobs:
   desktop:
     name: Package + publish (${{ matrix.os }})
+    env:
+      PRODUCT_BUILD_ENV: ${{ github.event.inputs.product_env || vars.PRODUCT_BUILD_ENV }}
     if: >-
       ${{ github.event.inputs.verify_only != 'true' && (github.event_name != 'workflow_run'
         || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
-          && github.event.workflow_run.head_repository.full_name == github.repository
-          && startsWith(github.event.workflow_run.head_branch, 'v'))) }}
+          && github.event.workflow_run.head_repository.full_name == github.repository)) }}
     strategy:
       fail-fast: false
       matrix:
@@ -89,24 +94,6 @@ jobs:
           fi
           echo "ref=$source" >> "$GITHUB_OUTPUT"
 
-      - name: Require the native release before publishing installers
-        if: github.event.inputs.publish != 'false'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          TAG: ${{ steps.tag.outputs.tag }}
-        run: |
-          set -euo pipefail
-          names=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || true)
-          required="robota-darwin-arm64 robota-darwin-x64 robota-linux-arm64 robota-linux-x64 robota-windows-x64.exe SHA256SUMS.txt"
-          for name in $required; do
-            if ! printf '%s\n' "$names" | grep -Fqx "$name"; then
-              echo "::error::Native release asset $name is missing. Run release-bun-binaries.yml for $TAG before retrying installers."
-              exit 1
-            fi
-          done
-
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -138,12 +125,65 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Apply release packaging and verification tooling
+        shell: bash
+        run: |
+          cp .release-tools/apps/agent-app/scripts/bundle-runtime.mjs apps/agent-app/scripts/bundle-runtime.mjs
+          cp .release-tools/apps/agent-app/e2e/bundled-runtime-e2e.mjs apps/agent-app/e2e/bundled-runtime-e2e.mjs
+          if [ "$RUNNER_OS" = macOS ]; then
+            cp .release-tools/apps/agent-app/electron-builder.yml apps/agent-app/electron-builder.yml
+          fi
+
+      - name: Generate selected product workspace
+        id: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          if [ -z "${PRODUCT_BUILD_ENV:-}" ]; then
+            echo "::error::Select product_env or configure vars.PRODUCT_BUILD_ENV before building a release."
+            exit 1
+          fi
+          printf '%s' "$PRODUCT_BUILD_ENV" > "$RUNNER_TEMP/selected-product.env"
+          pnpm exec tsx scripts/product/generate-workspace.mjs --env "$RUNNER_TEMP/selected-product.env" --out "$RUNNER_TEMP/product-workspace" --github-env "$GITHUB_ENV" --github-output "$GITHUB_OUTPUT"
+
+      - name: Validate configured release tag
+        shell: bash
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PROJECT_RELEASE_TAG_PREFIX" ] || [[ "$TAG" != "$PROJECT_RELEASE_TAG_PREFIX"* ]]; then
+            echo "::error::The selected tag must use the configured PROJECT_RELEASE_TAG_PREFIX."
+            exit 1
+          fi
+
+      - name: Require the native release before publishing installers
+        if: github.event.inputs.publish != 'false'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          names=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || true)
+          required="${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-arm64 ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-x64 ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-linux-arm64 ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-linux-x64 ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-windows-x64.exe SHA256SUMS.txt"
+          for name in $required; do
+            if ! printf '%s\n' "$names" | grep -Fqx "$name"; then
+              echo "::error::Native release asset $name is missing. Run release-bun-binaries.yml for $TAG before retrying installers."
+              exit 1
+            fi
+          done
+
       - name: Verify Windows native control transport
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}
         if: runner.os == 'Windows'
-        run: pnpm --filter @robota-sdk/agent-cli exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/windows-security.test.ts src/session-inventory/__tests__/windows-control-pipe.test.ts
+        run: pnpm install --frozen-lockfile && pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/windows-security.test.ts src/session-inventory/__tests__/windows-control-pipe.test.ts
 
       - name: Build workspace
-        run: pnpm build
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}
+        run: pnpm install --frozen-lockfile && pnpm build
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -151,13 +191,8 @@ jobs:
           bun-version: 1.4.2
 
       - name: Compile the host CLI binary
-        run: pnpm --filter @robota-sdk/agent-cli build:bun:${{ matrix.bun_target }}
-
-      - name: Apply release packaging and verification tooling
-        shell: bash
-        run: |
-          cp .release-tools/apps/agent-app/scripts/bundle-runtime.mjs apps/agent-app/scripts/bundle-runtime.mjs
-          cp .release-tools/apps/agent-app/e2e/bundled-runtime-e2e.mjs apps/agent-app/e2e/bundled-runtime-e2e.mjs
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}
+        run: pnpm --filter './packages/agent-cli' build:bun:${{ matrix.bun_target }}
 
       - name: Prepare macOS release credentials
         if: runner.os == 'macOS'
@@ -173,30 +208,31 @@ jobs:
       - name: Sign the bundled macOS runtime with Bun's entitlements
         if: runner.os == 'macOS'
         env:
-          BINARY: packages/agent-cli/dist-bun/robota-${{ matrix.bun_target }}
+          BINARY: ${{ env.PRODUCT_WORKSPACE }}/packages/agent-cli/dist-bun/${{ steps.product.outputs.artifact_prefix }}-${{ matrix.bun_target }}
         run: |
           node .release-tools/scripts/release/macos-signing.mjs sign-runtime "$BINARY"
-          cp .release-tools/apps/agent-app/electron-builder.yml apps/agent-app/electron-builder.yml
 
       - name: Package the desktop app (bundles the runtime)
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}
         shell: bash
         run: |
           if [ "$RUNNER_OS" = macOS ]; then
-            pnpm --filter @robota-sdk/agent-app dist:app --config.forceCodeSigning=true
+            pnpm --filter './apps/agent-app' dist:app --config.forceCodeSigning=true
           else
-            pnpm --filter @robota-sdk/agent-app dist:app
+            pnpm --filter './apps/agent-app' dist:app
           fi
 
       - name: Sign, notarize and staple the macOS disk image
         if: runner.os == 'macOS'
-        run: node .release-tools/scripts/release/macos-signing.mjs notarize-dmgs apps/agent-app/release
+        run: node .release-tools/scripts/release/macos-signing.mjs notarize-dmgs "${{ env.PRODUCT_WORKSPACE }}/apps/agent-app/release"
 
       - name: Exercise the packaged runtime
-        run: pnpm --filter @robota-sdk/agent-app test:e2e:bundled
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}
+        run: pnpm --filter './apps/agent-app' test:e2e:bundled
 
       - name: Assert packaged artifacts exist and are non-trivial
         shell: bash
-        working-directory: apps/agent-app
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}/apps/agent-app
         env:
           ASSETS: ${{ matrix.assets }}
           MATCHES_FILE: ${{ runner.temp }}/list-release-assets-assert.txt
@@ -229,7 +265,7 @@ jobs:
 
       - name: Generate SHA-256 checksums for this OS's installers
         shell: bash
-        working-directory: apps/agent-app
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}/apps/agent-app
         env:
           ASSETS: ${{ matrix.assets }}
           MANIFEST: SHA256SUMS-desktop-${{ matrix.os }}.txt
@@ -273,24 +309,25 @@ jobs:
         shell: bash
         env:
           TAG: ${{ steps.tag.outputs.tag }}
-        run: node scripts/release/generate-release-notes.mjs --tag "$TAG" --notes-file "${{ runner.temp }}/release-notes.md"
+        run: node scripts/release/generate-release-notes.mjs --tag "$TAG" --tag-prefix "$PROJECT_RELEASE_TAG_PREFIX" --notes-file "${{ runner.temp }}/release-notes.md"
 
       - name: Publish installers to the GitHub Release
         if: github.event.inputs.publish != 'false'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ steps.tag.outputs.tag }}
           NOTES: ${{ runner.temp }}/release-notes.md
           ASSETS: ${{ matrix.assets }}
           MANIFEST: release/SHA256SUMS-desktop-${{ matrix.os }}.txt
         run: |
           set -euo pipefail
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes-file "$NOTES"
+          gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GH_REPO" --title "$TAG" --notes-file "$NOTES"
           # `# reason`, not `-- reason`: shellcheck cannot PARSE the `--` form, and a directive it
           # shellcheck disable=SC2086 # $ASSETS is an intentional multi-pattern glob list.
-          gh release upload "$TAG" $ASSETS "$MANIFEST" --clobber
-        working-directory: apps/agent-app
+          gh release upload "$TAG" --repo "$GH_REPO" $ASSETS "$MANIFEST" --clobber
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}/apps/agent-app
 
       - name: Remove macOS release credentials
         if: ${{ always() && runner.os == 'macOS' }}
@@ -301,6 +338,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [desktop]
     if: ${{ !cancelled() && github.event.inputs.publish != 'false' && (github.event.inputs.verify_only == 'true' || needs.desktop.result == 'success') }}
+    env:
+      PRODUCT_BUILD_ENV: ${{ github.event.inputs.product_env || vars.PRODUCT_BUILD_ENV }}
     steps:
       - name: Resolve release tag
         id: tag
@@ -309,6 +348,27 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
         run: echo "tag=${INPUT_TAG:-$REF_NAME}" >> "$GITHUB_OUTPUT"
 
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 8.15.4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - run: pnpm install --frozen-lockfile
+      - name: Generate selected product workspace
+        id: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          if [ -z "${PRODUCT_BUILD_ENV:-}" ]; then
+            echo "::error::Select product_env or configure vars.PRODUCT_BUILD_ENV before building a release."
+            exit 1
+          fi
+          printf '%s' "$PRODUCT_BUILD_ENV" > "$RUNNER_TEMP/selected-product.env"
+          pnpm exec tsx scripts/product/generate-workspace.mjs --env "$RUNNER_TEMP/selected-product.env" --out "$RUNNER_TEMP/product-workspace" --github-env "$GITHUB_ENV" --github-output "$GITHUB_OUTPUT"
+
       - name: Poll until every macOS asset exists
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -316,7 +376,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          required="robota-darwin-arm64 robota-darwin-x64 SHA256SUMS.txt"
+          required="${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-arm64 ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-x64 SHA256SUMS.txt"
           deadline=$(( $(date +%s) + 1500 ))   # 25 minutes
           # allow-runner-wait: a release runs with a human or agent already driving it, and this
           while :; do
@@ -344,6 +404,8 @@ jobs:
     runs-on: macos-latest
     needs: [await-published-assets]
     if: ${{ !cancelled() && needs.await-published-assets.result == 'success' }}
+    env:
+      PRODUCT_BUILD_ENV: ${{ github.event.inputs.product_env || vars.PRODUCT_BUILD_ENV }}
     steps:
       - name: Resolve release tag
         id: tag
@@ -353,6 +415,25 @@ jobs:
         run: echo "tag=${INPUT_TAG:-$REF_NAME}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 8.15.4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - run: pnpm install --frozen-lockfile
+      - name: Generate selected product workspace
+        id: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          if [ -z "${PRODUCT_BUILD_ENV:-}" ]; then
+            echo "::error::Select product_env or configure vars.PRODUCT_BUILD_ENV before building a release."
+            exit 1
+          fi
+          printf '%s' "$PRODUCT_BUILD_ENV" > "$RUNNER_TEMP/selected-product.env"
+          pnpm exec tsx scripts/product/generate-workspace.mjs --env "$RUNNER_TEMP/selected-product.env" --out "$RUNNER_TEMP/product-workspace" --github-env "$GITHUB_ENV" --github-output "$GITHUB_OUTPUT"
 
       - name: Download the PUBLISHED macOS assets
         env:
@@ -364,8 +445,8 @@ jobs:
           mkdir -p "${{ runner.temp }}/published"
           cd "${{ runner.temp }}/published"
           gh release download "$TAG" \
-            -p 'robota-darwin-arm64' \
-            -p 'robota-darwin-x64' \
+            -p "${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-arm64" \
+            -p "${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-x64" \
             -p 'SHA256SUMS*.txt' \
             -p '*.dmg' \
             --clobber
@@ -374,4 +455,5 @@ jobs:
       - name: Verify the artifacts a user actually downloads
         env:
           TAG: ${{ steps.tag.outputs.tag }}
+          PRODUCT_ARTIFACT_PREFIX: ${{ steps.product.outputs.artifact_prefix }}
         run: bash scripts/harness/verify-macos-release-artifacts.sh "$TAG" "${{ runner.temp }}/published"

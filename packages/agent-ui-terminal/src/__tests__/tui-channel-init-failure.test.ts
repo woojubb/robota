@@ -37,7 +37,7 @@ vi.mock('@robota-sdk/agent-framework', async (importOriginal) => {
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 
 /** The session's working directory: private to this run, never a fixed name under /tmp. */
-const PROJECT_DIR = mkdtempSync(join(tmpdir(), 'robota-tui-init-failure-'));
+const PROJECT_DIR = mkdtempSync(join(tmpdir(), 'agent-test-tui-init-failure-'));
 afterAll(() => rmSync(PROJECT_DIR, { recursive: true, force: true }));
 
 describe('TuiInteractionChannel init failure surfacing', () => {

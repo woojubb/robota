@@ -74,7 +74,7 @@ describe('FileHistoryStorage (PLUGIN-001: real persistence)', () => {
   let storage: FileHistoryStorage;
 
   function freshStorage(): { dir: string; storage: FileHistoryStorage } {
-    const d = realpathSync(mkdtempSync(join(tmpdir(), 'robota-hist-')));
+    const d = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-hist-')));
     return { dir: d, storage: new FileHistoryStorage(join(d, 'history.json')) };
   }
 

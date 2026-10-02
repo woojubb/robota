@@ -35,7 +35,7 @@ vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
   return {
     ...actual,
-    Robota: vi.fn().mockImplementation(() => ({
+    ConversationAgent: vi.fn().mockImplementation(() => ({
       run: vi.fn(),
       getHistory: vi.fn().mockImplementation(() => mockHistory),
       clearHistory: vi.fn().mockImplementation(() => {

@@ -3,7 +3,7 @@
 ## Purpose
 
 `@robota-sdk/starter-nextjs` is a minimal Next.js starter template demonstrating how to embed the
-Robota SDK into a web application: a single chat API route that invokes the Robota agent runtime and
+Robota SDK into a web application: a single chat API route that invokes the configured agent runtime and
 returns its reply. It is the canonical reference for wiring `@robota-sdk/agent-framework` and
 `@robota-sdk/agent-provider-anthropic` together inside a Next.js App Router API route.
 

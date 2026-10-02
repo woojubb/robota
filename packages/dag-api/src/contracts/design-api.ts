@@ -112,7 +112,7 @@ export function toProblemDetails(
             : 'Task execution failed';
 
   return {
-    type: `urn:robota:problems:dag:${error.category}`,
+    type: `urn:agent:problems:dag:${error.category}`,
     title,
     status,
     detail: error.message,

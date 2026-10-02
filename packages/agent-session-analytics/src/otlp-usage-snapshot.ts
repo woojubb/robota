@@ -8,6 +8,7 @@ export function createOtlpUsageSnapshot(
   records: readonly IInteractiveSessionRecord[],
   at: Date,
   version: string,
+  serviceName: string,
 ): { resourceMetrics: unknown[] } {
   const seen = new Set<string>();
   let turns = 0;
@@ -46,7 +47,7 @@ export function createOtlpUsageSnapshot(
   }
   // The trace projection is the single accepted-call selector: parent/time/duplicate checks must
   // agree between traces and metrics. These are separate non-additive Gauges, never turn totals.
-  const acceptedCalls = createOtlpPromptRootTraces(records, version);
+  const acceptedCalls = createOtlpPromptRootTraces(records, version, serviceName);
   const calls = acceptedCalls.callMetrics;
 
   const timeUnixNano = String(BigInt(at.getTime()) * 1_000_000n);
@@ -61,7 +62,7 @@ export function createOtlpUsageSnapshot(
       {
         resource: {
           attributes: [
-            { key: 'service.name', value: { stringValue: 'robota' } },
+            { key: 'service.name', value: { stringValue: serviceName } },
             { key: 'service.version', value: { stringValue: version } },
           ],
         },
@@ -69,34 +70,34 @@ export function createOtlpUsageSnapshot(
           {
             scope: { name: '@robota-sdk/agent-session-analytics' },
             metrics: [
-              gauge('robota.session.count', '{session}', records.length),
-              gauge('robota.turn.count', '{turn}', turns),
-              gauge('robota.token.total', '{token}', totalTokens),
-              gauge('robota.token.input.known', '{token}', inputTokens),
-              gauge('robota.token.output.known', '{token}', outputTokens),
+              gauge('agent.session.count', '{session}', records.length),
+              gauge('agent.turn.count', '{turn}', turns),
+              gauge('agent.token.total', '{token}', totalTokens),
+              gauge('agent.token.input.known', '{token}', inputTokens),
+              gauge('agent.token.output.known', '{token}', outputTokens),
               gauge(
-                'robota.token.split_unknown_observations',
+                'agent.token.split_unknown_observations',
                 '{observation}',
                 unknownTokenSplitObservations,
               ),
-              gauge('robota.cost.usd.known', 'USD', knownCost),
-              gauge('robota.cost.unknown_observations', '{observation}', unknownCostObservations),
+              gauge('agent.cost.usd.known', 'USD', knownCost),
+              gauge('agent.cost.unknown_observations', '{observation}', unknownCostObservations),
               gauge(
-                'robota.cost.estimated_observations',
+                'agent.cost.estimated_observations',
                 '{observation}',
                 estimatedCostObservations,
               ),
-              gauge('robota.provider_call.count', '{call}', calls.invoked),
-              gauge('robota.provider_call.usage.complete_count', '{call}', calls.completeUsage),
-              gauge('robota.provider_call.token.input.known', '{token}', calls.inputTokens),
-              gauge('robota.provider_call.token.output.known', '{token}', calls.outputTokens),
-              gauge('robota.provider_call.cost.usd.estimated', 'USD', calls.estimatedCostUsd),
-              gauge('robota.provider_call.cost.unknown_count', '{call}', calls.unknownCost),
-              gauge('robota.provider_call.usage.partial_count', '{call}', acceptedCalls.coverage.providerUsage.partial),
-              gauge('robota.provider_call.usage.invalid_count', '{call}', acceptedCalls.coverage.providerUsage.invalid),
-              gauge('robota.provider_call.usage.legacy_count', '{call}', acceptedCalls.coverage.providerUsage.legacy),
-              gauge('robota.provider_call.price.exact_id_count', '{call}', calls.exactPriceMatches),
-              gauge('robota.provider_call.price.family_fallback_count', '{call}', calls.familyPriceMatches),
+              gauge('agent.provider_call.count', '{call}', calls.invoked),
+              gauge('agent.provider_call.usage.complete_count', '{call}', calls.completeUsage),
+              gauge('agent.provider_call.token.input.known', '{token}', calls.inputTokens),
+              gauge('agent.provider_call.token.output.known', '{token}', calls.outputTokens),
+              gauge('agent.provider_call.cost.usd.estimated', 'USD', calls.estimatedCostUsd),
+              gauge('agent.provider_call.cost.unknown_count', '{call}', calls.unknownCost),
+              gauge('agent.provider_call.usage.partial_count', '{call}', acceptedCalls.coverage.providerUsage.partial),
+              gauge('agent.provider_call.usage.invalid_count', '{call}', acceptedCalls.coverage.providerUsage.invalid),
+              gauge('agent.provider_call.usage.legacy_count', '{call}', acceptedCalls.coverage.providerUsage.legacy),
+              gauge('agent.provider_call.price.exact_id_count', '{call}', calls.exactPriceMatches),
+              gauge('agent.provider_call.price.family_fallback_count', '{call}', calls.familyPriceMatches),
             ],
           },
         ],

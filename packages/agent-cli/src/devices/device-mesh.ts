@@ -1,6 +1,6 @@
 /**
  * This device's endpoint in the user's device mesh, from the identity `/devices` keeps under
- * `~/.robota/devices` and the private keys in the credential store.
+ * the configured devices directory and the private keys in the credential store.
  *
  * Opening it announces this device at its peers' relay inboxes and lets a peer device connect;
  * every connection is admitted by the device handshake before anything but the handshake crosses it.
@@ -54,6 +54,7 @@ import {
 } from './identity-state.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
+import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 import type { IOperatorApprover } from '@robota-sdk/agent-interface-session-mobility';
 
 /**
@@ -68,8 +69,10 @@ export const DEFAULT_MESH_POLICY: readonly TDeviceCapability[] = [
 ];
 
 export interface IOpenDeviceMeshOptions {
-  /** `~/.robota` of the `HOME` this device runs under. */
+  /** the configured user storage root of the `HOME` this device runs under. */
   readonly root: string;
+  readonly cryptoContext: IIdentityContext;
+  readonly credentialServiceNamespace: string;
   readonly store: ICredentialStore;
   /** The user's own relay, the last way signals travel. Absent: the local network finds peers. */
   readonly relay?: IMeshRelay;
@@ -180,6 +183,7 @@ function relayBindRemedy(error: unknown): string {
 }
 
 async function startInternet(
+  cryptoContext: IIdentityContext,
   internet: IDeviceMeshInternetOptions,
   directory: string,
 ): Promise<IInternetParts> {
@@ -223,7 +227,7 @@ async function startInternet(
             : {}),
           // The lists on disk are the newest this device holds, whoever handed them over.
           lists: () => {
-            const state = readIdentityState(directory);
+            const state = readIdentityState(cryptoContext, directory);
             return state === undefined
               ? undefined
               : { revocation: state.revocation, signingKeyRevocation: state.signingKeyRevocation };
@@ -262,13 +266,14 @@ function randomSessionId(): string {
 
 /** Save lists adopted in a handshake: only newer ones, only from this device's signing key, only if they verify. */
 export async function saveAdoptedLists(
+  cryptoContext: IIdentityContext,
   directory: string,
   withinRoot: string | undefined,
   update: IListUpdate,
   now: number,
 ): Promise<boolean> {
   return withExclusiveFileLock(join(directory, 'identity.lock'), async () => {
-    const current = readIdentityState(directory);
+    const current = readIdentityState(cryptoContext, directory);
     if (current === undefined) return false;
     const signingKeyId = current.signingKeyCertificate.signingKeyId;
     const next: IDeviceIdentityState = {
@@ -296,7 +301,7 @@ export async function saveAdoptedLists(
       return false;
     }
     // Refuses — and saves nothing — when the lists do not verify for this device, e.g. revoke it.
-    const state = await checked(next, now);
+    const state = await checked(cryptoContext, next, now);
     writeIdentityState(directory, state, withinRoot);
     return true;
   });
@@ -345,13 +350,15 @@ export async function openDeviceMesh(
 ): Promise<IDeviceMeshEndpoint> {
   const now = options.now ?? Date.now;
   const directory = join(options.root, 'devices');
-  const state = readIdentityState(directory);
+  const state = readIdentityState(options.cryptoContext, directory);
   if (state === undefined) {
     throw new DeviceIdentityError(
       'this device has no identity yet; run `/devices join` to join your other devices, or `/devices init` on your first device',
     );
   }
-  const keys = await loadDevicePrivateKeys(options.store, state.deviceCertificate);
+  const keys = await loadDevicePrivateKeys(
+    options.store, options.credentialServiceNamespace, state.deviceCertificate,
+  );
   if (keys === undefined) {
     throw new DeviceIdentityError(
       "this device's private keys are missing from the credential store",
@@ -359,15 +366,16 @@ export async function openDeviceMesh(
   }
   const deviceId = state.deviceCertificate.deviceId;
   const describe = (): Promise<ISessionDescriptor> =>
-    signSessionDescriptor({
+    signSessionDescriptor(options.cryptoContext, {
       signPrivateKey: keys.signPrivateKey,
       deviceId,
       sessionId: randomSessionId(),
       startedAt: now(),
     });
   let descriptor = await describe();
-  const internet =
-    options.internet === undefined ? {} : await startInternet(options.internet, directory);
+  const internet = options.internet === undefined
+    ? {}
+    : await startInternet(options.cryptoContext, options.internet, directory);
   // Beyond the local network needs the direct endpoint too: DHT records point at it. Without a relay
   // of the user's own, the local network is the way left.
   const lan: IDeviceMeshLanOptions | undefined =
@@ -416,6 +424,7 @@ export async function openDeviceMesh(
   let node: DeviceMeshNode | undefined;
   try {
     node = new DeviceMeshNode({
+      cryptoContext: options.cryptoContext,
       identity: handshakeIdentity(state, keys),
       sessionDescriptor: descriptor,
       localPolicy: options.localPolicy ?? DEFAULT_MESH_POLICY,
@@ -425,7 +434,7 @@ export async function openDeviceMesh(
         : {}),
       onListsAdopted: (update) => {
         // A list that cannot be saved is adopted again from the next peer that has it; say so meanwhile.
-        void saveAdoptedLists(directory, options.root, update, now()).catch((error: unknown) =>
+        void saveAdoptedLists(options.cryptoContext, directory, options.root, update, now()).catch((error: unknown) =>
           options.onError?.(error),
         );
       },
@@ -448,7 +457,7 @@ export async function openDeviceMesh(
   }
 
   const refresh = async (): Promise<void> => {
-    const current = readIdentityState(directory);
+    const current = readIdentityState(options.cryptoContext, directory);
     // The device's own certificate changed (recovery): a new endpoint is needed for its new keys.
     if (current === undefined || current.deviceCertificate.deviceId !== deviceId) return;
     if (descriptor.expiresAt - now() < DESCRIPTOR_RENEW_MS) descriptor = await describe();

@@ -38,7 +38,7 @@ describe('dag-framework manifest dependency boundary', () => {
     expect(dependencies.length).toBeGreaterThan(0);
   });
 
-  it('the manifest depends on no concrete provider or upper agent-runtime package', () => {
+  it('the manifest depends on no concrete provider or upper robota package', () => {
     const violations = dependencies.filter((name) =>
       FORBIDDEN.some((pattern) => pattern.test(name)),
     );

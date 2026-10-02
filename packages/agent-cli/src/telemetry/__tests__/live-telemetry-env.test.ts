@@ -1,58 +1,59 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { startCliCore } from '../../cli-core.js';
-import { applyLaunchInvocation } from '../../launch-intent/open-invocation-host.js';
-import { takeRobotaTelemetryEnvironment } from '../live-telemetry-env.js';
-
-vi.mock('../../launch-intent/open-invocation-host.js', () => ({ applyLaunchInvocation: vi.fn() }));
+import { takeProductTelemetryEnvironment } from '../live-telemetry-env.js';
 
 const SENTINEL = 'Authorization=Bearer%20sentinel-strip-k4';
 
-describe('Robota telemetry environment handover', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.clearAllMocks();
-  });
-
-  it('removes every Robota telemetry setting from the environment and returns a frozen snapshot', () => {
-    const env: NodeJS.ProcessEnv = {
-      ROBOTA_TELEMETRY_ENABLED: '1',
-      ROBOTA_TELEMETRY_OTLP_HEADERS: SENTINEL,
-      ROBOTA_TELEMETRY_SOMETHING_UNKNOWN: 'x',
-      ROBOTA_TELEMETRY_UNDEFINED: undefined,
-      ROBOTA_OTHER: 'kept',
+describe('product telemetry environment snapshots', () => {
+  it('copies only canonical telemetry values without mutating the source environment', () => {
+    const env: Record<string, string | undefined> = {
+      PRODUCT_TELEMETRY_ENABLED: '1',
+      PRODUCT_TELEMETRY_OTLP_HEADERS: SENTINEL,
+      PRODUCT_TELEMETRY_SOMETHING_UNKNOWN: 'x',
+      PRODUCT_TELEMETRY_UNDEFINED: undefined,
+      CEDAR_TELEMETRY_OTLP_ENDPOINT: 'https://alias.example',
+      OTHER_SETTING: 'kept',
       PATH: '/usr/bin',
     };
-    const snapshot = takeRobotaTelemetryEnvironment(env);
+    const before = { ...env };
+
+    const snapshot = takeProductTelemetryEnvironment(env);
+
     expect(snapshot).toEqual({
-      ROBOTA_TELEMETRY_ENABLED: '1',
-      ROBOTA_TELEMETRY_OTLP_HEADERS: SENTINEL,
-      ROBOTA_TELEMETRY_SOMETHING_UNKNOWN: 'x',
+      PRODUCT_TELEMETRY_ENABLED: '1',
+      PRODUCT_TELEMETRY_OTLP_HEADERS: SENTINEL,
+      PRODUCT_TELEMETRY_SOMETHING_UNKNOWN: 'x',
     });
     expect(Object.isFrozen(snapshot)).toBe(true);
-    expect(env).toEqual({ ROBOTA_OTHER: 'kept', PATH: '/usr/bin' });
-    expect(Object.keys(env).some((key) => key.startsWith('ROBOTA_TELEMETRY_'))).toBe(false);
+    expect(env).toEqual(before);
   });
 
-  it('strips process.env as the first step of CLI startup, even when telemetry is not enabled', async () => {
-    const saved = { ...process.env };
-    let seenAtLaunch: string[] | undefined;
-    vi.mocked(applyLaunchInvocation).mockImplementation(async () => {
-      seenAtLaunch = Object.keys(process.env).filter((key) => key.startsWith('ROBOTA_TELEMETRY_'));
-      return { kind: 'refused' };
+  it('does not reuse or mix snapshots across A, B, empty, and A invocations', () => {
+    const a = {
+      PRODUCT_TELEMETRY_ENABLED: '1',
+      PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'https://collector-a.example',
+      PRODUCT_TELEMETRY_OTLP_HEADERS: 'authorization=Bearer%20a-only',
+    };
+    const b = {
+      PRODUCT_TELEMETRY_ENABLED: '1',
+      PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'https://collector-b.example',
+    };
+
+    const firstA = takeProductTelemetryEnvironment(a);
+    const snapshotB = takeProductTelemetryEnvironment(b);
+    const empty = takeProductTelemetryEnvironment({ PATH: '/usr/bin' });
+    const secondA = takeProductTelemetryEnvironment(a);
+
+    expect(firstA).toMatchObject({ PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'https://collector-a.example' });
+    expect(snapshotB).toEqual(b);
+    expect(snapshotB).not.toHaveProperty('PRODUCT_TELEMETRY_OTLP_HEADERS');
+    expect(empty).toEqual({});
+    expect(secondA).toEqual(firstA);
+    expect(secondA).not.toBe(firstA);
+    expect(a).toEqual({
+      PRODUCT_TELEMETRY_ENABLED: '1',
+      PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'https://collector-a.example',
+      PRODUCT_TELEMETRY_OTLP_HEADERS: 'authorization=Bearer%20a-only',
     });
-    try {
-      delete process.env['ROBOTA_TELEMETRY_ENABLED'];
-      process.env['ROBOTA_TELEMETRY_OTLP_HEADERS'] = SENTINEL;
-      process.env['ROBOTA_TELEMETRY_OTLP_ENDPOINT'] = 'https://collector.example';
-      await startCliCore({ providerDefinitions: [] }, () => []);
-      expect(applyLaunchInvocation).toHaveBeenCalledTimes(1);
-      expect(seenAtLaunch).toEqual([]);
-      expect(process.env['ROBOTA_TELEMETRY_OTLP_HEADERS']).toBeUndefined();
-      expect(process.env['ROBOTA_TELEMETRY_OTLP_ENDPOINT']).toBeUndefined();
-    } finally {
-      for (const key of Object.keys(process.env)) if (!(key in saved)) delete process.env[key];
-      Object.assign(process.env, saved);
-    }
   });
 });

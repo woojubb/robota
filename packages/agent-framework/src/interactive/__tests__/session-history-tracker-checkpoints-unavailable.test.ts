@@ -22,7 +22,7 @@ afterEach(() => {
 });
 
 function tempRoot(): string {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-checkpoints-unavailable-')));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-checkpoints-unavailable-')));
   roots.push(root);
   return root;
 }

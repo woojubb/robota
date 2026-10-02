@@ -1,3 +1,5 @@
+const fixtureImage =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
 /**
  * TC-08 — a discovered tool registers through the EXISTING generic dynamic-tool contract (MCP-002).
  *
@@ -100,7 +102,7 @@ describe('a discovered MCP tool satisfies the runtime tool slot', () => {
 
   it('registers into the SAME slot a plain object array of IToolWithEventService would use', () => {
     // No MCP-specific runtime branch: a caller that just wants "things with this shape" (what
-    // `robota-initializer.ts` iterates over as `config.tools`) can hold this next to any other
+    // the host initializer can keep as `config.tools`) can hold this next to any other
     // IToolWithEventService without special-casing it.
     const tool = createDiscoveredTool(buildToolEntry(), { callTool: async () => okResult() });
     const registry: Array<{ getName(): string; setEventService(s: unknown): void }> = [tool];
@@ -130,10 +132,14 @@ describe('a discovered MCP tool satisfies the runtime tool slot', () => {
       callTool: async () => ({ content: [{ type: 'text', text: 'hello' }], isError: false }),
     });
     const result = await tool.execute({ path: '/x' }, { toolName: 'probe__read', parameters: {} });
-    expect(result).toEqual({ success: true, data: 'hello' });
+    expect(result).toEqual({
+      success: true,
+      data: 'hello',
+      parts: [{ type: 'text', text: 'hello' }],
+    });
   });
 
-  it('execute() prefers structuredContent over joined text when both are present', async () => {
+  it('execute() retains text alongside structuredContent when both are present', async () => {
     const tool = createDiscoveredTool(buildToolEntry(), {
       callTool: async () => ({
         content: [{ type: 'text', text: 'ignored' }],
@@ -142,7 +148,11 @@ describe('a discovered MCP tool satisfies the runtime tool slot', () => {
       }),
     });
     const result = await tool.execute({ path: '/x' }, { toolName: 'probe__read', parameters: {} });
-    expect(result).toEqual({ success: true, data: { ok: true } });
+    expect(result).toEqual({
+      success: true,
+      data: { ok: true },
+      parts: [{ type: 'text', text: 'ignored' }],
+    });
   });
 
   it('execute() maps isError:true to success:false with an error message', async () => {
@@ -247,3 +257,86 @@ describe('a discovered MCP tool satisfies the runtime tool slot', () => {
     expect(tool.validate({ path: '/x' })).toBe(true);
   });
 });
+
+it('retains ordered image and text observations with structured state', async () => {
+  const tool = createDiscoveredTool(buildToolEntry(), {
+    callTool: async () => ({
+      content: [
+        { type: 'text', text: 'Before' },
+        { type: 'image', mimeType: 'image/png', data: fixtureImage },
+        { type: 'text', text: 'After' },
+      ],
+      structuredContent: { revision: 1 },
+      isError: false,
+    }),
+  });
+  expect(await tool.execute({ path: '/x' }, { toolName: 'probe__read', parameters: {} })).toEqual({
+    success: true,
+    data: { revision: 1 },
+    parts: [
+      { type: 'text', text: 'Before' },
+      { type: 'image_inline', mimeType: 'image/png', data: fixtureImage },
+      { type: 'text', text: 'After' },
+    ],
+  });
+});
+
+it.each([null, false, 0, '', ['value']])(
+  'retains structured JSON scalar or array %j',
+  async (structuredContent) => {
+    const tool = createDiscoveredTool(buildToolEntry(), {
+      callTool: async () => ({ content: [], structuredContent, isError: false }),
+    });
+    expect(
+      await tool.execute({ path: '/x' }, { toolName: 'probe__read', parameters: {} }),
+    ).toMatchObject({ success: true, data: structuredContent });
+  },
+);
+
+it('retains structured error state with text and image evidence', async () => {
+  const tool = createDiscoveredTool(buildToolEntry(), {
+    callTool: async () => ({
+      content: [
+        { type: 'text', text: 'Partial failure' },
+        { type: 'image', mimeType: 'image/png', data: fixtureImage },
+      ],
+      structuredContent: { applied: true, revision: 2 },
+      isError: true,
+    }),
+  });
+  expect(
+    await tool.execute({ path: '/x' }, { toolName: 'probe__read', parameters: {} }),
+  ).toMatchObject({
+    success: false,
+    error: 'Partial failure',
+    data: { applied: true, revision: 2 },
+    parts: [
+      { type: 'text', text: 'Partial failure' },
+      { type: 'image_inline', mimeType: 'image/png', data: fixtureImage },
+    ],
+  });
+});
+
+it.each([
+  ['application/json', 'e30=', 'unsupported MIME type'],
+  ['image/png', 'not-base64!', 'invalid base64 data'],
+  ['image/png', '', 'invalid base64 data'],
+  ['image/png', 'e30=', 'invalid image data'],
+  ['image/png', 'iVBORw0KGgo=', 'invalid image data'],
+])(
+  'refuses malformed external image %s without losing structured reconciliation state',
+  async (mimeType, data, diagnostic) => {
+    const tool = createDiscoveredTool(buildToolEntry(), {
+      callTool: async () => ({
+        content: [{ type: 'image', mimeType, data }],
+        structuredContent: { applied: true },
+        isError: false,
+      }),
+    });
+    const result = await tool.execute({ path: '/x' }, { toolName: 'probe__read', parameters: {} });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain(diagnostic);
+    expect(result.data).toEqual({ applied: true });
+    expect(result.parts?.every((part) => part.type === 'text')).toBe(true);
+  },
+);

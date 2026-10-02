@@ -2,7 +2,7 @@
 
 Every model has a context window — the number of tokens it can read in one request. A session sends
 its whole conversation on every turn, so the conversation eventually outgrows the window. This page
-explains how a Robota session tracks usage, compacts the conversation before it overflows, and what
+explains how an Robota session tracks usage, compacts the conversation before it overflows, and what
 happens when you interrupt a turn.
 
 ## Token tracking
@@ -70,7 +70,7 @@ declare const session: InteractiveSession;
 await session.compactContext('Focus on the API design decisions');
 ```
 
-The optional argument adds instructions to the summarization prompt. In the `robota` CLI the same
+The optional argument adds instructions to the summarization prompt. In the `__PRODUCT_CLI_NAME__` CLI the same
 thing is `/compact focus on API changes`.
 
 ### Compact Instructions

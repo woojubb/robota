@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { createScriptedProvider } from '../../testing/scripted-provider';
 import { createLogger, setGlobalLoggerSink, type ILogger } from '../../utils/logger';
-import { Robota } from '../robota';
+import { ConversationAgent } from '../conversation-agent';
 
 import type { IAgentConfig } from '../../interfaces/agent';
 
@@ -37,9 +37,9 @@ function recordingSink(): { sink: ILogger; lines: string[] } {
   };
 }
 
-function buildAgent(logging: IAgentConfig['logging']): Robota {
+function buildAgent(logging: IAgentConfig['logging']): ConversationAgent {
   const scripted = createScriptedProvider([{ text: 'done' }]);
-  return new Robota({
+  return new ConversationAgent({
     name: 'Logging Test Agent',
     aiProviders: [scripted.provider],
     defaultModel: { provider: PROVIDER_NAME, model: 'test-model' },

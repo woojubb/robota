@@ -1,8 +1,8 @@
 /**
  * The doctor's evidence model (OBSERVABILITY-1991).
  *
- * `fail` is the only status that raises the exit code — the CLI-067 contract `robota diagnose`
- * shipped with. `not-configured` names an absent optional capability out loud instead of treating
+ * `fail` is the only status that raises the exit code — the diagnostic command contract shipped
+ * with. `not-configured` names an absent optional capability out loud instead of treating
  * it as healthy. `not-probed` is a CLOSED list of probes the read-only doctor deliberately does not
  * run (see {@link TDoctorNotProbed}); an UNEXPECTED inability to probe is `warn` with its reason,
  * never `not-probed` — the third state `enforcement-architecture.md` says must never read as a pass.

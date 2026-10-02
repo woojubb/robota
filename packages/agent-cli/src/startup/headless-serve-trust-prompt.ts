@@ -1,5 +1,6 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * Issue #3282 §3: `robota --serve --open` opens a browser for whoever ran it — unlike a daemon-launched
+ * Issue #3282 §3: `the product --serve --open` opens a browser for whoever ran it — unlike a daemon-launched
  * or scripted `--serve`, a person is at this terminal. In an untrusted folder, with a TTY to ask on,
  * this asks the same three-way question `pnpm gui:dev`'s sidecar wrapper (`sidecar-trust.mjs`) asks,
  * instead of refusing outright the way every other headless start does (see
@@ -13,6 +14,7 @@ import { canAskToTrust, grantWorkspaceTrust, trustQuestionFor } from './interact
 import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 
 export interface IServeOpenTrustPromptOptions {
+  readonly productRuntime: ICliRuntimeContext;
   readonly write?: (text: string) => void;
   readonly ask?: (question: string) => Promise<string>;
   readonly grant?: (cwd: string) => Promise<TWorkspaceProjectAccess>;
@@ -45,16 +47,16 @@ export function canAskServeOpenTrustQuestion(access: TWorkspaceProjectAccess): b
 export async function askServeOpenTrustQuestion(
   access: TWorkspaceProjectAccess,
   cwd: string,
-  options: IServeOpenTrustPromptOptions = {},
+  options: IServeOpenTrustPromptOptions,
 ): Promise<TServeOpenTrustAnswer> {
-  const question = trustQuestionFor(access, cwd);
+  const question = trustQuestionFor(access, cwd, options.productRuntime);
   if (question === undefined) return { decision: 'restricted', access };
   const write = options.write ?? ((text: string) => void process.stdout.write(text));
   write(
     [
       `This folder is not trusted: ${question.folder}`,
-      "Trusting it lets Robota load the project's own settings, hooks, plugins, skills, agent " +
-        'definitions, provider overrides and MCP servers. Without it, Robota starts Restricted.',
+      `Trusting it lets ${options.productRuntime.config.identity.displayName} load the project's own settings, hooks, plugins, skills, agent ` +
+        `definitions, provider overrides and MCP servers. Without it, ${options.productRuntime.config.identity.displayName} starts Restricted.`,
       ...question.loads,
       '',
     ].join('\n'),
@@ -68,7 +70,7 @@ export async function askServeOpenTrustQuestion(
     .toLowerCase();
   if (answer === 'y' || answer === 'yes') {
     try {
-      return { decision: 'trust', access: await (options.grant ?? grantWorkspaceTrust)(cwd) };
+      return { decision: 'trust', access: await (options.grant ?? ((path) => grantWorkspaceTrust(path, options.productRuntime)))(cwd) };
     } catch (error) {
       write(
         `Could not record trust (${error instanceof Error ? error.message : String(error)}). ` +
@@ -81,6 +83,6 @@ export async function askServeOpenTrustQuestion(
     write('Starting Restricted.\n');
     return { decision: 'restricted', access };
   }
-  write('robota --serve --open: not started. Trust it later with: robota trust --yes\n');
+  write(`${options.productRuntime.config.identity.cliName} --serve --open: not started. Trust it later with: ${options.productRuntime.config.identity.cliName} trust --yes\n`);
   return { decision: 'quit' };
 }

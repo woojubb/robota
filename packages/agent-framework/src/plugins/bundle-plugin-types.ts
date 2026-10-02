@@ -6,6 +6,7 @@
  */
 import type { IBundleSkillFrontmatter } from '../frontmatter/frontmatter-types.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
+import type { IContributionDescriptor } from '../contributions/contribution-descriptor.js';
 
 /** Feature flags indicating what a bundle plugin provides. */
 export interface IBundlePluginFeatures {
@@ -19,9 +20,15 @@ export interface IBundlePluginFeatures {
 /** Manifest read from `.claude-plugin/plugin.json`. */
 export interface IBundlePluginManifest {
   name: string;
-  version: string;
-  description: string;
+  version?: string;
+  description?: string;
+  /** Foreign MCP declarations: root-relative JSON paths, inline maps, or an ordered array of either. */
+  mcpServers?: TUniversalValue;
   features: IBundlePluginFeatures;
+  commands?: TUniversalValue;
+  skills?: TUniversalValue;
+  hooks?: TUniversalValue;
+  agents?: TUniversalValue;
 }
 
 /** A skill loaded from a bundle plugin's `skills/` directory. */
@@ -35,19 +42,23 @@ export interface IBundleSkill extends IBundleSkillFrontmatter {
 
 /** A fully loaded bundle plugin with all its assets. */
 export interface ILoadedBundlePlugin {
+  /** Declarative installed-source snapshot; never an execution approval. */
+  descriptor?: IContributionDescriptor;
   manifest: IBundlePluginManifest;
   skills: IBundleSkill[];
   commands: IBundleSkill[];
   hooks: Record<string, unknown>;
   /** The parsed `.mcp.json` document, when the plugin ships one. */
   mcpConfig?: TUniversalValue;
+  /** Declaring file for each resulting server, after source-order replacement. */
+  mcpSourcePaths?: Readonly<Record<string, string>>;
   agents: string[];
   pluginDir: string;
 }
 
 /** Why a discovered plugin was not loaded (OBSERVABILITY-1991 inspection). */
 export type TBundlePluginSkipReason =
-  'manifest-unreadable' | 'manifest-invalid' | 'disabled' | 'load-failed';
+  'manifest-unreadable' | 'manifest-invalid' | 'disabled' | 'load-failed' | 'revision-unselected';
 
 /** A plugin the loader discovered but did not load, and why. */
 export interface IBundlePluginSkip {

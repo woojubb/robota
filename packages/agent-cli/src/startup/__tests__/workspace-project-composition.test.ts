@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,12 +14,15 @@ import {
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createCliWorkspaceComposition } from '../workspace-project-composition.js';
-import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../../product/robota-project-state-directories.js';
+import { productProjectStateDirectories } from '../../product/project-state-directories.js';
 import { listProjectContributionPaths } from '../project-contribution-preview.js';
-import { ROBOTA_SKILL_ROOTS } from '../../product/robota-skill-roots.js';
+import { productSkillRoots } from '../../product/skill-roots.js';
 import { SkillCommandSource } from '@robota-sdk/agent-framework';
 
 import type { IWorkspaceIdentity, IWorkspaceTrustStoreSnapshot } from '@robota-sdk/agent-framework';
+const PRODUCT_PROJECT_STATE_DIRECTORIES = productProjectStateDirectories(createTestProductRuntime());
+const PRODUCT_SKILL_ROOTS = productSkillRoots(createTestProductRuntime());
+
 
 const roots: string[] = [];
 
@@ -30,7 +34,7 @@ function tempRoot(prefix: string): string {
 
 async function trustedAccess(
   root: string,
-  projectStateDirectories = ROBOTA_PROJECT_STATE_DIRECTORIES,
+  projectStateDirectories = PRODUCT_PROJECT_STATE_DIRECTORIES,
 ) {
   const identity: IWorkspaceIdentity = {
     repositoryKey: `fixture:${root}`,
@@ -59,17 +63,17 @@ afterEach(() => {
 
 describe('CLI workspace project composition', () => {
   it('keeps project sources and state absent when the initial decision is restricted', () => {
-    const cwd = tempRoot('robota-cli-restricted-project-');
-    const userHome = tempRoot('robota-cli-restricted-user-');
-    mkdirSync(join(cwd, '.robota'), { recursive: true });
-    writeFileSync(join(cwd, '.robota', 'settings.json'), JSON.stringify({ canary: 'project' }));
-    mkdirSync(join(cwd, '.robota', 'skills', 'project-only'), { recursive: true });
+    const cwd = tempRoot('test-product-cli-restricted-project-');
+    const userHome = tempRoot('test-product-cli-restricted-user-');
+    mkdirSync(join(cwd, '.test-product'), { recursive: true });
+    writeFileSync(join(cwd, '.test-product', 'settings.json'), JSON.stringify({ canary: 'project' }));
+    mkdirSync(join(cwd, '.test-product', 'skills', 'project-only'), { recursive: true });
     writeFileSync(
-      join(cwd, '.robota', 'skills', 'project-only', 'SKILL.md'),
+      join(cwd, '.test-product', 'skills', 'project-only', 'SKILL.md'),
       '---\nname: project-only\n---\n',
     );
 
-    const composition = createCliWorkspaceComposition({
+    const composition = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: userHome }),
       cwd,
       userHome,
       projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
@@ -77,7 +81,7 @@ describe('CLI workspace project composition', () => {
 
     expect(composition.projectAccess.status).toBe('restricted');
     expect(composition.contributionSources.map((source) => source.kind)).toEqual(['host']);
-    expect(composition.skillRoots).toBe(ROBOTA_SKILL_ROOTS);
+    expect(composition.skillRoots).toEqual(PRODUCT_SKILL_ROOTS);
     expect(
       new SkillCommandSource(composition.contributionSources, composition.skillRoots).getCommands(),
     ).toEqual([]);
@@ -92,20 +96,20 @@ describe('CLI workspace project composition', () => {
       updatedAt: '2026-08-22T00:00:00.000Z',
       messages: [],
     });
-    expect(readdirSync(join(userHome, '.robota', 'sessions')).length).toBeGreaterThan(0);
-    expect(existsSync(join(cwd, ROBOTA_PROJECT_STATE_DIRECTORIES.sessions))).toBe(false);
+    expect(readdirSync(join(userHome, '.test-product', 'sessions')).length).toBeGreaterThan(0);
+    expect(existsSync(join(cwd, PRODUCT_PROJECT_STATE_DIRECTORIES.sessions))).toBe(false);
   });
 
   // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'derives project readers and state only from the supplied trusted authority',
     async () => {
-      const cwd = tempRoot('robota-cli-trusted-project-');
-      const userHome = tempRoot('robota-cli-trusted-user-');
+      const cwd = tempRoot('test-product-cli-trusted-project-');
+      const userHome = tempRoot('test-product-cli-trusted-user-');
       const access = await trustedAccess(cwd);
       if (access.status !== 'trusted') throw new Error('Expected trusted access.');
 
-      const composition = createCliWorkspaceComposition({ cwd, userHome, projectAccess: access });
+      const composition = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: userHome }),  cwd, userHome, projectAccess: access });
 
       expect(composition.projectAccess).toBe(access);
       expect(composition.sessionStoreScope).toBe('project');
@@ -137,19 +141,19 @@ describe('CLI workspace project composition', () => {
           return o.status === 'valid' ? o.record.cwd : undefined;
         })(),
       ).toBe(cwd);
-      const preview = listProjectContributionPaths('');
-      for (const [namespace, relativePath] of Object.entries(ROBOTA_PROJECT_STATE_DIRECTORIES)) {
+      const preview = listProjectContributionPaths('', createTestProductRuntime());
+      for (const [namespace, relativePath] of Object.entries(PRODUCT_PROJECT_STATE_DIRECTORIES)) {
         expect(preview.find((entry) => entry.id === `state:${namespace}`)?.relativePath).toBe(
           relativePath,
         );
         expect(
           getWorkspaceProjectStateStorage(
             access.authority,
-            namespace as keyof typeof ROBOTA_PROJECT_STATE_DIRECTORIES,
+            namespace as keyof typeof PRODUCT_PROJECT_STATE_DIRECTORIES,
           ).rootRelativePath,
         ).toBe(relativePath);
       }
-      expect(readdirSync(join(cwd, ROBOTA_PROJECT_STATE_DIRECTORIES.sessions))).toContain(
+      expect(readdirSync(join(cwd, PRODUCT_PROJECT_STATE_DIRECTORIES.sessions))).toContain(
         'trusted-session.json',
       );
     },
@@ -167,10 +171,10 @@ describe('CLI workspace project composition', () => {
     }
 
     it('saves a trusted workspace session to the user store and lists it for that workspace', async () => {
-      const cwd = tempRoot('robota-cli-trusted-darwin-project-');
-      const userHome = tempRoot('robota-cli-trusted-darwin-user-');
+      const cwd = tempRoot('test-product-cli-trusted-darwin-project-');
+      const userHome = tempRoot('test-product-cli-trusted-darwin-user-');
       const access = await trustedAccess(cwd);
-      const composition = createCliWorkspaceComposition({
+      const composition = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: userHome }),
         cwd,
         userHome,
         projectAccess: access,
@@ -184,23 +188,23 @@ describe('CLI workspace project composition', () => {
       expect(
         listResumableSessionSummaries(composition.sessionStore, cwd).map((summary) => summary.id),
       ).toEqual(['trusted-darwin-session']);
-      expect(readdirSync(join(userHome, '.robota', 'sessions'))).toContain(
+      expect(readdirSync(join(userHome, '.test-product', 'sessions'))).toContain(
         'trusted-darwin-session.json',
       );
       expect(readdirSync(cwd)).toEqual([]);
     });
 
     it("lists only this workspace's sessions from the shared user store", async () => {
-      const cwd = tempRoot('robota-cli-trusted-darwin-own-');
-      const otherCwd = tempRoot('robota-cli-trusted-darwin-other-');
-      const userHome = tempRoot('robota-cli-trusted-darwin-shared-user-');
-      const own = createCliWorkspaceComposition({
+      const cwd = tempRoot('test-product-cli-trusted-darwin-own-');
+      const otherCwd = tempRoot('test-product-cli-trusted-darwin-other-');
+      const userHome = tempRoot('test-product-cli-trusted-darwin-shared-user-');
+      const own = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: userHome }),
         cwd,
         userHome,
         projectAccess: await trustedAccess(cwd),
         platform: 'darwin',
       });
-      const other = createCliWorkspaceComposition({
+      const other = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: userHome }),
         cwd: otherCwd,
         userHome,
         projectAccess: await trustedAccess(otherCwd),
@@ -225,10 +229,10 @@ describe('CLI workspace project composition', () => {
     it.each(['darwin', 'win32'] as const)(
       'is not composed for a trusted workspace on %s, and nothing is written for it',
       async (platform) => {
-        const cwd = tempRoot(`robota-cli-trusted-${platform}-memory-`);
-        const userHome = tempRoot(`robota-cli-trusted-${platform}-memory-user-`);
+        const cwd = tempRoot(`test-product-cli-trusted-${platform}-memory-`);
+        const userHome = tempRoot(`test-product-cli-trusted-${platform}-memory-user-`);
 
-        const composition = createCliWorkspaceComposition({
+        const composition = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: userHome }),
           cwd,
           userHome,
           projectAccess: await trustedAccess(cwd),
@@ -238,7 +242,7 @@ describe('CLI workspace project composition', () => {
         expect(composition.projectAccess.status).toBe('trusted');
         expect(composition.memoryStore).toBeUndefined();
         expect(readdirSync(cwd)).toEqual([]);
-        expect(existsSync(join(userHome, '.robota'))).toBe(false);
+        expect(existsSync(join(userHome, '.test-product'))).toBe(false);
       },
     );
 
@@ -246,11 +250,11 @@ describe('CLI workspace project composition', () => {
     it.runIf(process.platform === 'linux')(
       "stays in each trusted project on Linux, and one project's memory is not another's",
       async () => {
-        const cwd = tempRoot('robota-cli-trusted-linux-memory-');
-        const otherCwd = tempRoot('robota-cli-trusted-linux-memory-other-');
-        const userHome = tempRoot('robota-cli-trusted-linux-memory-user-');
+        const cwd = tempRoot('test-product-cli-trusted-linux-memory-');
+        const otherCwd = tempRoot('test-product-cli-trusted-linux-memory-other-');
+        const userHome = tempRoot('test-product-cli-trusted-linux-memory-user-');
         const compose = async (root: string) =>
-          createCliWorkspaceComposition({
+          createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: userHome }),
             cwd: root,
             userHome,
             projectAccess: await trustedAccess(root),
@@ -263,19 +267,19 @@ describe('CLI workspace project composition', () => {
 
         expect((await own?.list())?.topics.map((topic) => topic.name)).toEqual(['own-canary']);
         expect((await other?.list())?.topics).toEqual([]);
-        expect(existsSync(join(cwd, ROBOTA_PROJECT_STATE_DIRECTORIES.memory))).toBe(true);
-        expect(existsSync(join(otherCwd, ROBOTA_PROJECT_STATE_DIRECTORIES.memory))).toBe(false);
-        expect(existsSync(join(userHome, '.robota', 'memory'))).toBe(false);
+        expect(existsSync(join(cwd, PRODUCT_PROJECT_STATE_DIRECTORIES.memory))).toBe(true);
+        expect(existsSync(join(otherCwd, PRODUCT_PROJECT_STATE_DIRECTORIES.memory))).toBe(false);
+        expect(existsSync(join(userHome, '.test-product', 'memory'))).toBe(false);
       },
     );
   });
 
   describe('edit checkpoints', () => {
     it('are composed for a trusted workspace on Linux, one store per call', async () => {
-      const cwd = tempRoot('robota-cli-trusted-linux-checkpoints-');
-      const composition = createCliWorkspaceComposition({
+      const cwd = tempRoot('test-product-cli-trusted-linux-checkpoints-');
+      const composition = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: tempRoot('test-product-cli-trusted-linux-checkpoints-user-') }),
         cwd,
-        userHome: tempRoot('robota-cli-trusted-linux-checkpoints-user-'),
+        userHome: tempRoot('test-product-cli-trusted-linux-checkpoints-user-'),
         projectAccess: await trustedAccess(cwd),
         platform: 'linux',
       });
@@ -292,10 +296,10 @@ describe('CLI workspace project composition', () => {
     it.each(['darwin', 'win32'] as const)(
       'are not composed for a trusted workspace on %s, where a restore could not write back',
       async (platform) => {
-        const cwd = tempRoot(`robota-cli-trusted-${platform}-checkpoints-`);
-        const composition = createCliWorkspaceComposition({
+        const cwd = tempRoot(`test-product-cli-trusted-${platform}-checkpoints-`);
+        const composition = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: tempRoot(`test-product-cli-trusted-${platform}-checkpoints-user-`) }),
           cwd,
-          userHome: tempRoot(`robota-cli-trusted-${platform}-checkpoints-user-`),
+          userHome: tempRoot(`test-product-cli-trusted-${platform}-checkpoints-user-`),
           projectAccess: await trustedAccess(cwd),
           platform,
         });
@@ -306,10 +310,10 @@ describe('CLI workspace project composition', () => {
     );
 
     it('are not composed for a restricted workspace', () => {
-      const cwd = tempRoot('robota-cli-restricted-checkpoints-');
-      const composition = createCliWorkspaceComposition({
+      const cwd = tempRoot('test-product-cli-restricted-checkpoints-');
+      const composition = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: tempRoot('test-product-cli-restricted-checkpoints-user-') }),
         cwd,
-        userHome: tempRoot('robota-cli-restricted-checkpoints-user-'),
+        userHome: tempRoot('test-product-cli-restricted-checkpoints-user-'),
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
         platform: 'linux',
       });
@@ -319,54 +323,54 @@ describe('CLI workspace project composition', () => {
   });
 
   it('refuses trusted project access minted for a different CLI workspace root', async () => {
-    const trustedRoot = tempRoot('robota-cli-trusted-root-');
-    const cwd = tempRoot('robota-cli-other-root-');
-    const userHome = tempRoot('robota-cli-other-root-user-');
+    const trustedRoot = tempRoot('test-product-cli-trusted-root-');
+    const cwd = tempRoot('test-product-cli-other-root-');
+    const userHome = tempRoot('test-product-cli-other-root-user-');
     const access = await trustedAccess(trustedRoot);
 
-    expect(() => createCliWorkspaceComposition({ cwd, userHome, projectAccess: access })).toThrow(
+    expect(() => createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: userHome }),  cwd, userHome, projectAccess: access })).toThrow(
       'Trusted project access does not cover the requested working directory.',
     );
   });
 
   it('refuses an externally minted authority with state roots that disagree with preview', async () => {
-    const cwd = tempRoot('robota-cli-state-root-mismatch-');
-    const userHome = tempRoot('robota-cli-state-root-user-');
+    const cwd = tempRoot('test-product-cli-state-root-mismatch-');
+    const userHome = tempRoot('test-product-cli-state-root-user-');
     const access = await trustedAccess(cwd, {
-      ...ROBOTA_PROJECT_STATE_DIRECTORIES,
+      ...PRODUCT_PROJECT_STATE_DIRECTORIES,
       sessions: join('.other', 'sessions'),
     });
 
-    expect(() => createCliWorkspaceComposition({ cwd, userHome, projectAccess: access })).toThrow(
+    expect(() => createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: userHome }),  cwd, userHome, projectAccess: access })).toThrow(
       'Trusted project state directories do not match this CLI product.',
     );
   });
 
   it('accepts an in-root CLI descendant whose name begins with two dots', async () => {
-    const trustedRoot = tempRoot('robota-cli-descendant-root-');
+    const trustedRoot = tempRoot('test-product-cli-descendant-root-');
     const cwd = join(trustedRoot, '..cache');
     mkdirSync(cwd);
-    const userHome = tempRoot('robota-cli-descendant-user-');
+    const userHome = tempRoot('test-product-cli-descendant-user-');
     const access = await trustedAccess(trustedRoot);
 
     expect(
-      createCliWorkspaceComposition({ cwd, userHome, projectAccess: access }).projectAccess,
+      createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: userHome }),  cwd, userHome, projectAccess: access }).projectAccess,
     ).toBe(access);
   });
 
   it('adds a project settings store only with a writer minted for the same authority', async () => {
-    const cwd = tempRoot('robota-cli-project-settings-');
-    const userHome = tempRoot('robota-cli-project-settings-user-');
+    const cwd = tempRoot('test-product-cli-project-settings-');
+    const userHome = tempRoot('test-product-cli-project-settings-user-');
     const access = await trustedAccess(cwd);
     if (access.status !== 'trusted') throw new Error('Expected trusted access.');
     const writer = createWorkspaceProjectSettingsWriter(access.authority, {
       status: 'approved',
       target: 'project-local',
-      relativePath: join('.robota', 'settings.local.json'),
+      relativePath: join('.test-product', 'settings.local.json'),
       purpose: 'CLI provider configuration test',
     });
 
-    const composition = createCliWorkspaceComposition({
+    const composition = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: userHome }),
       cwd,
       userHome,
       projectAccess: access,

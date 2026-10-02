@@ -9,7 +9,7 @@ import { wrapEditCheckpointTools } from '../edit-checkpoint-tools.js';
 
 import type { IEditCheckpointRecorder } from '../edit-checkpoint-types.js';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-edit-checkpoint-tools-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-edit-checkpoint-tools-')));
 
 function makeProject(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { AbstractTool } from '../../abstracts/abstract-tool';
-import { Robota } from '../../core/robota';
+import { ConversationAgent } from '../../core/conversation-agent';
 import { PROVIDER_CALL_EVENTS } from '../../event-service/span-events';
 import { createScriptedProvider } from '../../testing/scripted-provider';
 import { providerCallSpanId } from '../../utils/trace-context';
@@ -28,8 +28,8 @@ class PingTool extends AbstractTool {
   }
 }
 
-function agentWith(provider: IAIProvider, extra: Partial<IAgentConfig> = {}): Robota {
-  return new Robota({
+function agentWith(provider: IAIProvider, extra: Partial<IAgentConfig> = {}): ConversationAgent {
+  return new ConversationAgent({
     name: 'trace-context',
     aiProviders: [provider],
     defaultModel: { provider: 'scripted-test-provider', model: 'test-model' },

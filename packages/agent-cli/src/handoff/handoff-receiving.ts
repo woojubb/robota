@@ -18,6 +18,7 @@ import { checkHandoffGrant } from './handoff-grant.js';
 import { receiveHandoff, type TReceiveHandoffOutcome } from './handoff-receive.js';
 
 import type { IDeviceCertificate } from '@robota-sdk/agent-remote-pairing';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 /** What this side knows of its identity when a hand-off arrives. */
 export interface IHandoffReceiverIdentity {
@@ -27,7 +28,8 @@ export interface IHandoffReceiverIdentity {
 }
 
 export interface IHandoffReceiving {
-  /** `~/.robota` of this side's `HOME`. */
+  readonly productRuntime: ICliRuntimeContext;
+  /** the configured user storage root of this side's `HOME`. */
   readonly root: string;
   readonly composition: IHandoffComposition;
   /** Read when a hand-off arrives; `undefined` when this device has no identity, which refuses it. */
@@ -77,6 +79,7 @@ export function createHandoffReceiver(
     });
     try {
       return await receiveHandoff({
+        cryptoContext: receiving.productRuntime.cryptoContext,
         channel: arrival.channel,
         carrierBinding: arrival.carrierBinding,
         destinationId: arrival.destinationId,
@@ -91,7 +94,7 @@ export function createHandoffReceiver(
               reason: 'this device holds no certificate for the sender; run `/devices` to check',
             };
           }
-          return checkHandoffGrant(grant, {
+          return checkHandoffGrant(receiving.productRuntime.cryptoContext, grant, {
             sender,
             sourceId: arrival.sourceId,
             userId: identity.userId,

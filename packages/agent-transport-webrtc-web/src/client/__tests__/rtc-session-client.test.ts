@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,7 +50,7 @@ function makeFakePeer() {
 
 function makeHandshakeStub(sessionKey = 'k') {
   let resolveResult!: (v: { sessionKey: string }) => void;
-  const start: typeof startPairingHandshake = (options) => {
+  const start: typeof startPairingHandshake = (_cryptoContext, options) => {
     options.send({ t: 'pair-nonce', nonce: 'stub' });
     return {
       result: new Promise<{ sessionKey: string }>((res) => (resolveResult = res)),
@@ -76,7 +78,7 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
     const messages: TServerMessage[] = [];
 
     const client = createRtcSessionClient(
-      {
+      {cryptoContext: testIdentity,
         relayUrl: 'wss://r',
         rendezvous: 'rv',
         secret: 's',
@@ -139,7 +141,7 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
     const hs = makeHandshakeStub();
     const statuses: TRtcConnectionStatus[] = [];
     const client = createRtcSessionClient(
-      {
+      {cryptoContext: testIdentity,
         relayUrl: 'wss://r',
         rendezvous: 'rv',
         secret: 's',
@@ -175,7 +177,7 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
     const peers: ReturnType<typeof makeFakePeer>[] = [];
     const statuses: TRtcConnectionStatus[] = [];
     const client = createRtcSessionClient(
-      {
+      {cryptoContext: testIdentity,
         relayUrl: 'wss://r',
         rendezvous: 'rv',
         secret: 's',
@@ -379,7 +381,7 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
     };
     const { peer } = makeFakePeer();
     const client = createRtcSessionClient(
-      {
+      {cryptoContext: testIdentity,
         relayUrl: 'wss://r',
         rendezvous: 'rv',
         secret: 's',
@@ -411,7 +413,7 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
     const { peer } = makeFakePeer();
     const statuses: TRtcConnectionStatus[] = [];
     const client = createRtcSessionClient(
-      {
+      {cryptoContext: testIdentity,
         relayUrl: 'wss://r',
         rendezvous: 'rv',
         secret: 's',
@@ -435,7 +437,7 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
     const iceServers = [{ urls: 'turn:turn.example:3478', username: 'u', credential: 'p' }];
     let peerConfig: RTCConfiguration | undefined;
     createRtcSessionClient(
-      {
+      {cryptoContext: testIdentity,
         relayUrl: 'wss://r',
         rendezvous: 'rv',
         secret: 's',
@@ -456,7 +458,7 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
     const statuses: TRtcConnectionStatus[] = [];
     let capturedOnError: (() => void) | undefined;
     const client = createRtcSessionClient(
-      {
+      {cryptoContext: testIdentity,
         relayUrl: 'wss://r',
         rendezvous: 'rv',
         secret: 's',

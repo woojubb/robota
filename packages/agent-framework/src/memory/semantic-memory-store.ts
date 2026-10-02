@@ -1,32 +1,10 @@
 /**
- * SELFHOST-008 P4 — the neutral semantic-memory adapter decorator.
- *
- * `SemanticMemoryStore` implements `IMemoryStore` by DECORATING any base `IMemoryStore` (the keyword fs reference
- * adapter, or another store) with an injected, duck-typed `ISemanticMemoryAdapter` (the surface's embedder + vector-DB
- * backend). It upgrades exactly two paths and delegates the rest:
- *
- *  - `recall(query, budget)` — **tiered**: the semantic `adapter.query()` is the primary recall; if it throws, recall
- *    DEGRADES to the keyword `base.recall()` (a genuine equivalent mechanism — the always-present baseline — declared
- *    below, NOT a fabricated/silent result). recall drives P3 per-turn recall + the `/memory` recall command, so a
- *    semantic-backend outage must never break a turn.
- *  - `append(input)` — the base durable write is awaited FIRST and is authoritative; then, ONLY when the base did not
- *    deduplicate the entry (`!result.deduplicated`), `adapter.index()` is awaited, guarded so an index failure SKIPS
- *    the vector write but keeps the durable write (declared below). Skipping index on dedup prevents duplicate vectors.
- *
- * All other `IMemoryStore` methods are pure delegation to `base` — semantic search touches only recall + index.
- *
- * **Neutrality:** this decorator imports NO vector-DB SDK; the concrete adapter is surface-injected (mirrors how
- * `E2BSandboxClient` duck-types the E2B SDK via `IE2BSandboxAdapter`). Because it IS an `IMemoryStore`, a surface
- * composes it and injects it through the existing `memoryStore` seam — the live consumers (P3 per-turn recall, P2
- * capture, `/memory`) reach it transparently with no `agent-framework` change.
- *
- * **Two sanctioned degradations** (HARNESS-028): recall-query error → keyword base; index error → skip (durable write
- * kept). Both degrade a best-effort SEMANTIC enhancement to the always-present KEYWORD baseline.
- *
- * **Known v1 limitation:** an entry durably written BEFORE the adapter was injected (or during a prior index failure)
- * returns `deduplicated: true` on re-capture and is thus permanently skipped from the vector index — it stays
- * keyword-recallable (today's behavior), but a healthy semantic `query()` (which falls back to keyword only on ERROR)
- * omits it. Bounded by the eventual-consistency posture; the robust fix is `upsert-by-id` (reserved v2 verb).
+ * Semantic recall ranks references; durable source files supply the current knowledge. Hits with
+ * unknown topics or paths are discarded, so stale or foreign index content cannot restore memory.
+ * Query failures degrade to keyword recall; automatic indexing remains best-effort after a durable
+ * append. User correction/forgetting requires explicit topic removal support and reports failures.
+ * Mutations through this instance run in order, preventing an earlier index write from overtaking
+ * a later removal. Concrete adapters own consistency across clients and durable deletion guarantees.
  */
 
 import type {
@@ -44,6 +22,7 @@ import type {
 } from './types.js';
 
 export class SemanticMemoryStore implements IMemoryStore {
+  private mutations: Promise<void> = Promise.resolve();
   constructor(
     private readonly base: IMemoryStore,
     private readonly adapter: ISemanticMemoryAdapter,
@@ -68,28 +47,84 @@ export class SemanticMemoryStore implements IMemoryStore {
    * skipped (re-indexable later).
    */
   async append(input: IAppendMemoryInput): Promise<IAppendMemoryResult> {
-    const result = await this.base.append(input);
-    if (!result.deduplicated) {
-      try {
-        // ADAPTER CONTRACT: `index` receives the RAW `IAppendMemoryInput`. The durable store may normalize the topic
-        // (truncate/default) when writing; a query hit's `references.topic` must resolve to the durable topic file, so
-        // the injected adapter MUST normalize its index/query keys the same way the durable store does (or key off a
-        // stable id). This is a surface-adapter responsibility — the neutral decorator passes the input through.
-        await this.adapter.index(input);
-      } catch {
-        // allow-fallback: semantic index is best-effort over the authoritative durable keyword write (SELFHOST-008 P4
-        // declared degradation); an index failure keeps the durable entry (keyword-recallable, re-indexable) and never
-        // throws out of append.
+    return this.mutate(async () => {
+      const result = await this.base.append(input);
+      if (!result.deduplicated) {
+        try {
+          // ADAPTER CONTRACT: `index` receives the RAW `IAppendMemoryInput`. The durable store may normalize the topic
+          // (truncate/default) when writing; a query hit's `references.topic` must resolve to the durable topic file, so
+          // the injected adapter MUST normalize its index/query keys the same way the durable store does (or key off a
+          // stable id). This is a surface-adapter responsibility — the neutral decorator passes the input through.
+          await this.adapter.index(input);
+        } catch {
+          // allow-fallback: semantic index is best-effort over the authoritative durable keyword write (SELFHOST-008 P4
+          // declared degradation); an index failure keeps the durable entry (keyword-recallable, re-indexable) and never
+          // throws out of append.
+        }
       }
-    }
-    return result;
+      return result;
+    });
+  }
+
+  private mutate<T>(operation: () => Promise<T>): Promise<T> {
+    const next = this.mutations.then(operation);
+    this.mutations = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  }
+
+  async replaceTopic(input: IAppendMemoryInput) {
+    if (!this.base.replaceTopic || !this.adapter.removeTopic)
+      throw new Error(
+        'Memory correction requires durable replaceTopic and semantic removeTopic support.',
+      );
+    return this.mutate(async () => {
+      const result = await this.base.replaceTopic!(input);
+      await this.adapter.removeTopic!(result.topic);
+      await this.adapter.index({ ...input, topic: result.topic });
+      return result;
+    });
+  }
+
+  async forgetTopic(topic: string) {
+    if (!this.base.forgetTopic || !this.adapter.removeTopic)
+      throw new Error(
+        'Memory forgetting requires durable forgetTopic and semantic removeTopic support.',
+      );
+    return this.mutate(async () => {
+      const result = await this.base.forgetTopic!(topic);
+      await this.adapter.removeTopic!(result.topic);
+      return result;
+    });
   }
 
   // ── budgeted recall (tiered: semantic primary, keyword fallback) ────────
   async recall(query: string, budget: IMemoryBudget): Promise<IMemoryRetrievalResult> {
     try {
       const hit = await this.adapter.query(query, budget);
-      return { content: hit.content, references: hit.references, truncated: false };
+      // The index ranks topics; only current durable source content is knowledge. This prevents a
+      // stale index or a foreign project reference from restoring corrected/forgotten text.
+      const summary = await this.base.list();
+      const known = new Map(summary.topics.map((topic) => [topic.name, topic.path]));
+      const references: IMemoryRetrievalResult['references'] = [];
+      const sections: string[] = [];
+      const seen = new Set<string>();
+      let truncated = false;
+      for (const reference of hit.references) {
+        if (references.length >= Math.max(0, budget.maxTopics)) break;
+        if (seen.has(reference.topic) || known.get(reference.topic) !== reference.path) continue;
+        seen.add(reference.topic);
+        const content = await this.base.readTopic(reference.topic);
+        if (!content.trim()) continue;
+        const limited = content.slice(0, Math.max(0, budget.maxTopicChars));
+        const cut = limited.length < content.length;
+        truncated ||= cut;
+        sections.push(`### ${reference.topic}\n${limited}`);
+        references.push({ ...reference, truncated: cut });
+      }
+      return { content: sections.join('\n\n'), references, truncated };
     } catch {
       // allow-fallback: on a semantic-backend error, recall degrades to the always-present keyword base recall (a
       // genuine equivalent mechanism, not a fabricated result) so a turn's recall is never broken (SELFHOST-008 P4

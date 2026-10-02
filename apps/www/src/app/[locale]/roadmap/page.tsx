@@ -30,7 +30,7 @@ export default async function RoadmapPage({ params }: { params: Promise<{ locale
         <p className="mt-1 text-sm text-[var(--muted-foreground)]">
           {t('lastUpdated')}{' '}
           <a
-            href="https://github.com/woojubb/robota/issues"
+            href="__PROJECT_REPOSITORY_URL__/issues"
             target="_blank"
             rel="noopener noreferrer"
             className="text-[var(--primary)] hover:underline"
@@ -121,7 +121,7 @@ export default async function RoadmapPage({ params }: { params: Promise<{ locale
         <p className="text-sm text-[var(--muted-foreground)] mb-4">{t('vote.description')}</p>
         <div className="flex flex-wrap gap-3">
           <a
-            href="https://github.com/woojubb/robota/discussions"
+            href="__PROJECT_REPOSITORY_URL__/discussions"
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
@@ -129,7 +129,7 @@ export default async function RoadmapPage({ params }: { params: Promise<{ locale
             {t('vote.githubDiscussions')}
           </a>
           <a
-            href="https://github.com/woojubb/robota/issues"
+            href="__PROJECT_REPOSITORY_URL__/issues"
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-lg border border-[var(--border)] bg-[var(--muted)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--muted)]/80 transition-colors"

@@ -147,7 +147,7 @@ async function askQuestions(
 }
 
 /**
- * Create an `AskUserQuestion` tool instance — register with the Robota agent tools registry.
+ * Create an `AskUserQuestion` tool instance — register with the agent tools registry.
  */
 export function createAskUserQuestionTool(
   options: IBuiltinToolDescriptionOptions = {},
@@ -168,5 +168,5 @@ export function createAskUserQuestionTool(
   );
 }
 
-/** `AskUserQuestion` tool instance — register with the Robota agent tools registry. */
+/** `AskUserQuestion` tool instance — register with the agent tools registry. */
 export const askUserQuestionTool = createAskUserQuestionTool();

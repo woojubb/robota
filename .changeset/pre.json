@@ -104,7 +104,8 @@
     "@robota-sdk/dag-nodes-default": "0.1.0-beta.0",
     "@robota-sdk/pack-coding": "3.0.0-beta.79",
     "@robota-sdk/agent-roundtable": "3.0.0-beta.83",
-    "@robota-sdk/agent-roundtable-robota": "3.0.0-beta.83"
+    "@robota-sdk/agent-roundtable-robota": "3.0.0-beta.83",
+    "@robota-sdk/product-config": "3.0.0-beta.86"
   },
   "changesets": [
     "1994-fork-conversation-into-background-session",

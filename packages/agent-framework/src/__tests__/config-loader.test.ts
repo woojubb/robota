@@ -10,7 +10,7 @@ import {
 } from '../config/config-loader.js';
 import { createTrustedSettingsSourcesFixture } from '../testing/trusted-project-state-fixture.js';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-cli-test-'));
+const TMP_BASE = mkdtempSync(join(tmpdir(), 'agent-cli-test-'));
 
 function setupDir(path: string): void {
   mkdirSync(path, { recursive: true });
@@ -20,8 +20,8 @@ function writeJson(path: string, data: unknown): void {
   writeFileSync(path, JSON.stringify(data, null, 2), 'utf-8');
 }
 
-async function loadConfig(cwd: string) {
-  return loadConfigFromSources(await createTrustedSettingsSourcesFixture(cwd));
+async function loadConfig(cwd: string, environment: Readonly<Record<string, string | undefined>> = {}) {
+  return loadConfigFromSources(await createTrustedSettingsSourcesFixture(cwd), environment);
 }
 
 describe('loadConfig', () => {
@@ -34,10 +34,10 @@ describe('loadConfig', () => {
 
   beforeEach(() => {
     cwd = join(TMP_BASE, 'cwd-' + Math.random().toString(36).slice(2));
-    projectDir = join(cwd, '.robota');
+    projectDir = join(cwd, '.agent');
     claudeProjectDir = join(cwd, '.claude');
     const homeBase = join(TMP_BASE, 'home-' + Math.random().toString(36).slice(2));
-    userDir = join(homeBase, '.robota');
+    userDir = join(homeBase, '.agent');
     claudeUserDir = join(homeBase, '.claude');
     setupDir(cwd);
     setupDir(projectDir);
@@ -86,7 +86,7 @@ describe('loadConfig', () => {
     expect(detailed.config).toEqual(await loadConfigFromSources(sources));
     expect(detailed.hookSources).toEqual([
       { event: 'PreToolUse', type: 'prompt', source: join(userDir, 'settings.json') },
-      { event: 'PreToolUse', type: 'prompt', source: join('.robota', 'settings.json') },
+      { event: 'PreToolUse', type: 'prompt', source: join('.agent', 'settings.json') },
     ]);
     expect(detailed.config).not.toHaveProperty('hookSources');
   });
@@ -131,7 +131,7 @@ describe('loadConfig', () => {
     expect('memory' in config).toBe(false);
   });
 
-  it('loads project settings from .robota/settings.json', async () => {
+  it('loads project settings from .agent/settings.json', async () => {
     writeJson(join(projectDir, 'settings.json'), {
       defaultTrustLevel: 'safe',
       currentProvider: 'anthropic',
@@ -162,7 +162,7 @@ describe('loadConfig', () => {
     expect(config.autoCompactThreshold).toBe(false);
   });
 
-  it('loads user settings from ~/.robota/settings.json', async () => {
+  it('loads user settings from ~/.agent/settings.json', async () => {
     writeJson(join(userDir, 'settings.json'), {
       defaultTrustLevel: 'full',
     });
@@ -281,14 +281,26 @@ describe('loadConfig', () => {
   });
 
   it('resolves $ENV: prefix in apiKey', async () => {
-    process.env.TEST_API_KEY_XYZ = 'sk-test-value';
     writeJson(join(projectDir, 'settings.json'), {
       currentProvider: 'anthropic',
       providers: { anthropic: { type: 'anthropic', apiKey: '$ENV:TEST_API_KEY_XYZ' } },
     });
-    const config = await loadConfig(cwd);
+    const config = await loadConfig(cwd, { TEST_API_KEY_XYZ: 'sk-test-value' });
     expect(config.provider.apiKey).toBe('sk-test-value');
-    delete process.env.TEST_API_KEY_XYZ;
+  });
+
+  it('keeps env references isolated across sequential and concurrent loads', async () => {
+    writeJson(join(projectDir, 'settings.json'), {
+      currentProvider: 'anthropic',
+      providers: { anthropic: { type: 'anthropic', apiKey: '$ENV:TEST_ISOLATED_KEY' } },
+    });
+    const a = { TEST_ISOLATED_KEY: 'synthetic-a' };
+    const b = { TEST_ISOLATED_KEY: 'synthetic-b' };
+    const [firstA, firstB] = await Promise.all([loadConfig(cwd, a), loadConfig(cwd, b)]);
+    expect(firstA.provider.apiKey).toBe('synthetic-a');
+    expect(firstB.provider.apiKey).toBe('synthetic-b');
+    expect((await loadConfig(cwd, a)).provider.apiKey).toBe('synthetic-a');
+    expect((await loadConfig(cwd)).provider.apiKey).toBe('$ENV:TEST_ISOLATED_KEY');
   });
 
   it('resolves active provider profile from currentProvider and providers', async () => {
@@ -347,7 +359,6 @@ describe('loadConfig', () => {
   });
 
   it('resolves $ENV: prefix in active provider profile apiKey', async () => {
-    process.env.TEST_OPENAI_COMPAT_KEY = 'sk-profile-value';
     writeJson(join(projectDir, 'settings.json'), {
       currentProvider: 'openai',
       providers: {
@@ -360,10 +371,9 @@ describe('loadConfig', () => {
       },
     });
 
-    const config = await loadConfig(cwd);
+    const config = await loadConfig(cwd, { TEST_OPENAI_COMPAT_KEY: 'sk-profile-value' });
 
     expect(config.provider.apiKey).toBe('sk-profile-value');
-    delete process.env.TEST_OPENAI_COMPAT_KEY;
   });
 
   // SEC-009. These assert through loadConfig deliberately: the first version of this fix recorded
@@ -372,7 +382,6 @@ describe('loadConfig', () => {
   // by field and was not copying `apiKeyEnv`. The fix therefore changed nothing on the real path
   // while its test passed. Only an assertion on what loadConfig RETURNS can catch that.
   it('records which env var the active profile apiKey came from (SEC-009)', async () => {
-    process.env.TEST_SEC_009_KEY = 'sk-must-not-cross-a-process-boundary';
     writeJson(join(projectDir, 'settings.json'), {
       currentProvider: 'openai',
       providers: {
@@ -380,11 +389,10 @@ describe('loadConfig', () => {
       },
     });
 
-    const config = await loadConfig(cwd);
+    const config = await loadConfig(cwd, { TEST_SEC_009_KEY: 'sk-must-not-cross-a-process-boundary' });
 
     expect(config.provider.apiKey).toBe('sk-must-not-cross-a-process-boundary');
     expect(config.provider.apiKeyEnv).toBe('TEST_SEC_009_KEY');
-    delete process.env.TEST_SEC_009_KEY;
   });
 
   it('records no credential origin when the profile stores a literal key (SEC-009)', async () => {
@@ -509,11 +517,11 @@ describe('loadConfig', () => {
     expect(config.defaultTrustLevel).toBe('safe');
   });
 
-  it('.claude/ paths win over legacy .robota/ paths', async () => {
+  it('.claude/ paths win over legacy .agent/ paths', async () => {
     writeJson(join(projectDir, 'settings.json'), {
       defaultTrustLevel: 'safe',
       currentProvider: 'anthropic',
-      providers: { anthropic: { type: 'anthropic', model: 'robota-model' } },
+      providers: { anthropic: { type: 'anthropic', model: 'agent-model' } },
     });
     writeJson(join(claudeProjectDir, 'settings.json'), {
       defaultTrustLevel: 'full',
@@ -521,8 +529,8 @@ describe('loadConfig', () => {
     const config = await loadConfig(cwd);
     // The most restrictive layer wins for trust level.
     expect(config.defaultTrustLevel).toBe('safe');
-    // .robota/ provider profile is inherited since .claude/ didn't set it
-    expect(config.provider.model).toBe('robota-model');
+    // .agent/ provider profile is inherited since .claude/ didn't set it
+    expect(config.provider.model).toBe('agent-model');
   });
 
   it('full 6-file precedence: .claude/settings.local.json wins over all', async () => {

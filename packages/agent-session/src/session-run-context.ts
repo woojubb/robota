@@ -2,7 +2,7 @@ import type { ContextWindowTracker } from './context-window-tracker.js';
 import type { TSessionLogData } from './session-logger.js';
 import type { IProviderCallTraceObservation, ISessionOptions } from './session-types.js';
 import type {
-  Robota,
+  ConversationAgent,
   IAIProvider,
   IExecutionJournal,
   IContextWindowState,
@@ -24,7 +24,7 @@ export interface IRunContext {
   permissionMode?: string;
   /** Absolute path to session transcript file — passed to all hook inputs as transcript_path */
   transcriptPath?: string;
-  agent: Robota;
+  agent: ConversationAgent;
   aiProvider: IAIProvider;
   contextTracker: ContextWindowTracker;
   hooks: Record<string, unknown> | undefined;

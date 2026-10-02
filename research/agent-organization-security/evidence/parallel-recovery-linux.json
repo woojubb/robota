@@ -1,0 +1,279 @@
+{
+  "kind": "actual-two-kvm-worker-organization-policy-poc",
+  "records": [
+    {
+      "id": "cross-task",
+      "expected": "denied with no external effect",
+      "observed": {
+        "status": 403,
+        "result": {
+          "reason": "scope"
+        }
+      },
+      "passed": true
+    },
+    {
+      "id": "actor-impersonation",
+      "expected": "denied with no external effect",
+      "observed": {
+        "status": 403,
+        "result": {
+          "reason": "invalid-proof-or-schema"
+        }
+      },
+      "passed": true
+    },
+    {
+      "id": "unsigned-proof",
+      "expected": "denied with no external effect",
+      "observed": {
+        "status": 403,
+        "result": {
+          "reason": "invalid-proof-or-schema"
+        }
+      },
+      "passed": true
+    },
+    {
+      "id": "expired-identity",
+      "expected": "denied with no external effect",
+      "observed": {
+        "status": 403,
+        "result": {
+          "reason": "audience-or-ttl"
+        }
+      },
+      "passed": true
+    },
+    {
+      "id": "approval-missing",
+      "expected": "denied with no external effect",
+      "observed": {
+        "status": 403,
+        "result": {
+          "reason": "invalid-proof-or-schema"
+        }
+      },
+      "passed": true
+    },
+    {
+      "id": "management-api-inaccessible",
+      "expected": "denied with no external effect",
+      "observed": {
+        "status": 404,
+        "result": {
+          "reason": "no-such-endpoint"
+        }
+      },
+      "passed": true
+    },
+    {
+      "id": "sibling-ancestor-budget-race",
+      "expected": "one admitted, one 429; aggregate parent use 60 of 100",
+      "observed": {
+        "statuses": [200, 429],
+        "parentUsed": 60,
+        "effects": 1
+      },
+      "passed": true
+    },
+    {
+      "id": "parallel-idempotent-external-effect",
+      "expected": "two matching receipts, exactly one surrogate transaction",
+      "observed": {
+        "statuses": [200, 200],
+        "effects": 1
+      },
+      "passed": true
+    },
+    {
+      "id": "idempotency-argument-conflict",
+      "expected": "409 and no second effect",
+      "observed": {
+        "status": 409,
+        "result": {
+          "reason": "idempotency-conflict"
+        }
+      },
+      "passed": true
+    },
+    {
+      "id": "approval-argument-binding",
+      "expected": "403, no effect",
+      "observed": {
+        "status": 403,
+        "result": {
+          "reason": "approval-binding"
+        }
+      },
+      "passed": true
+    },
+    {
+      "id": "approval-actor-binding",
+      "expected": "403/approval-binding for unused key, no effect",
+      "observed": {
+        "status": 403,
+        "result": {
+          "reason": "approval-binding"
+        }
+      },
+      "passed": true
+    },
+    {
+      "id": "approval-single-use",
+      "expected": "409 even if trusted issuer accidentally rebinds approval ID",
+      "observed": {
+        "status": 409,
+        "result": {
+          "reason": "approval-reuse"
+        }
+      },
+      "passed": true
+    },
+    {
+      "id": "signed-request-replay",
+      "expected": "first receipt 200, replay nonce 409",
+      "observed": [200, 409],
+      "passed": true
+    },
+    {
+      "id": "parallel-shared-state-cas",
+      "expected": "one revision accepted, one stale writer rejected",
+      "observed": [200, 409],
+      "passed": true
+    },
+    {
+      "id": "expired-lease-fencing",
+      "expected": "409 for old fence with correct revision",
+      "observed": {
+        "status": 409,
+        "result": {
+          "reason": "stale-fence"
+        }
+      },
+      "passed": true
+    },
+    {
+      "id": "crash-after-external-effect-before-ack",
+      "expected": "process exit 72, connection lost, durable pending and one external effect",
+      "observed": {
+        "exit": 72,
+        "status": 0,
+        "journalStatus": "pending",
+        "effects": 1
+      },
+      "passed": true
+    },
+    {
+      "id": "restart-reconcile-idempotent-provider",
+      "expected": "same external receipt, no duplicate charge/reservation",
+      "observed": {
+        "status": 200,
+        "effects": 1,
+        "parentUsed": 75
+      },
+      "passed": true
+    },
+    {
+      "id": "non-idempotent-unknown-requires-owner",
+      "expected": "lost response retains reservation and denies automatic reissue",
+      "observed": {
+        "initialStatus": 0,
+        "retry": {
+          "status": 503,
+          "result": {
+            "reason": "external-reconciliation-required"
+          }
+        },
+        "effects": 1,
+        "journalStatus": "pending",
+        "parentUsed": 80
+      },
+      "passed": true
+    },
+    {
+      "id": "trusted-owner-external-reconciliation",
+      "expected": "owner receipt returns without a second non-idempotent effect",
+      "observed": {
+        "status": 200,
+        "effects": 1
+      },
+      "passed": true
+    },
+    {
+      "id": "integrated-revoke-stop-disk-restore",
+      "expected": "real saved identity restored but denied; descendant stopped and control journal retained",
+      "observed": {
+        "priorAdmission": true,
+        "savedIdentityFileRestored": true,
+        "descendantAbsent": true,
+        "diskDigestVerifiedBeforeBoot": true,
+        "activeBrokerTunnelTerminated": true,
+        "durationMs": 39423,
+        "restoredIdentityRequest": {
+          "status": 403,
+          "result": {
+            "reason": "revoked-or-epoch"
+          }
+        }
+      },
+      "passed": true
+    },
+    {
+      "id": "fresh-identity-with-current-journal",
+      "expected": "new scoped key/epoch admitted, parent use continues at 81 rather than snapshot rollback",
+      "observed": {
+        "status": 200,
+        "parentUsed": 81,
+        "effects": 1
+      },
+      "passed": true
+    },
+    {
+      "id": "revoked-saved-identity",
+      "expected": "403 even for previously complete operation after broker restart",
+      "observed": {
+        "status": 403,
+        "result": {
+          "reason": "revoked-or-epoch"
+        }
+      },
+      "passed": true
+    },
+    {
+      "id": "ancestor-emergency-admission-stop",
+      "expected": "403 descendants denied",
+      "observed": {
+        "status": 403,
+        "result": {
+          "reason": "revoked-or-epoch"
+        }
+      },
+      "passed": true
+    },
+    {
+      "id": "audit-redaction-and-anchor-validation",
+      "expected": "canary/key absent; mutation/deletion/reordering rejected against independent anchor",
+      "observed": {
+        "valid": true,
+        "mutationRejected": true,
+        "deletionRejected": true,
+        "reorderRejected": true,
+        "canaryAbsent": true,
+        "upstreamKeyAbsent": true
+      },
+      "passed": true
+    }
+  ],
+  "cleanup": {
+    "controlProcessesStopped": true,
+    "sshTunnelsStopped": true
+  },
+  "limitations": [
+    "Research broker is not integrated into production CLI or backed by workload attestation/KMS.",
+    "Charges are independent synthetic external effects, not a real payment provider.",
+    "Integrated local worker disk restore was enabled.",
+    "Money ledger race is tested; token, CPU, time and tenant-wide limits are not implemented by this prototype.",
+    "Controller anchor survives broker restart; independent remote audit service and controller compromise remain untested."
+  ]
+}

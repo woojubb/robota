@@ -15,6 +15,8 @@ export interface IWorkflowsAuthoringDeps {
   readonly providerDefinitions?: readonly IProviderDefinition[];
   /** Explicit provider settings layers; project layers require an authority-backed source. */
   readonly settingsSources?: readonly TSettingsSource[];
+  /** Host-selected environment for provider credentials; absence retains SDK host behavior. */
+  readonly environment?: Readonly<Record<string, string | undefined>>;
   /** Override provider resolution (tests inject a stub). Default: the active provider from settings. */
   readonly resolveProvider?: (cwd: string) => IAIProvider;
   /** Model passed to the authoring chat call. Default path resolves it from settings. */

@@ -203,7 +203,7 @@ const DEFAULT_GLOB_DESCRIPTION =
   "Fast file pattern matching tool that works with any codebase size.\n\nSupports glob patterns like '**/*.js' or 'src/**/*.ts'. Returns matching file paths sorted by modification time.\n\nUse this tool when you need to find files by name patterns.\n\nDefault limit is 1000 results. Use the limit parameter if you need fewer results to save context space.";
 
 /**
- * Create a GlobTool instance — register with Robota agent tools registry.
+ * Create a GlobTool instance — register with agent tools registry.
  */
 export function createGlobTool(options: IContainedBuiltinToolOptions): FunctionTool {
   return createZodFunctionTool(

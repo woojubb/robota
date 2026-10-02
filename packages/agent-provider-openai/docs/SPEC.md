@@ -14,7 +14,7 @@ This package depends on `@robota-sdk/agent-core` only among framework packages (
 
 ### Diagnostic endpoint vs. runtime base URL
 
-The provider definition states the vendor SDK's default endpoint host/port on the Robota side purely for the pre-session doctor's TCP reachability check. This is deliberately kept separate from the runtime-effective base URL (the one persisted into profiles and passed to provider construction): a profile that sets its own base URL is probed at that host instead, not the vendor default.
+The provider definition states the vendor SDK's default endpoint host/port on the agent runtime side purely for the pre-session doctor's TCP reachability check. This is deliberately kept separate from the runtime-effective base URL (the one persisted into profiles and passed to provider construction): a profile that sets its own base URL is probed at that host instead, not the vendor default.
 
 ### Reasoning effort is verified per-model, not assumed
 

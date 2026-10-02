@@ -1,22 +1,22 @@
 # Print Mode
 
-`robota -p` runs one prompt without the terminal UI, prints the answer and exits — for scripts, CI
+`__PRODUCT_CLI_NAME__ -p` runs one prompt without the terminal UI, prints the answer and exits — for scripts, CI
 jobs and shell pipelines.
 
 ## Basic usage
 
 ```bash
-robota -p "List all TypeScript files in src/"
+__PRODUCT_CLI_NAME__ -p "List all TypeScript files in src/"
 ```
 
 `-p` takes no value: the command's non-option text is the prompt, so quote it. With the default
-`text` output format, `robota` prints the final response to stdout when the turn completes; errors go
+`text` output format, `__PRODUCT_CLI_NAME__` prints the final response to stdout when the turn completes; errors go
 to stderr.
 
 In a Git repository you have not trusted yet, print mode does not run: it prints
 `Workspace trust is required before headless startup` and exits with code 1, rather than silently
 running without the project's settings, hooks and skills. Trust the folder once with
-`robota trust --yes`, or pass `--safe-mode` to run with every customization off.
+`__PRODUCT_CLI_NAME__ trust --yes`, or pass `--safe-mode` to run with every customization off.
 
 ## Permissions
 
@@ -26,31 +26,31 @@ task needs:
 
 ```bash
 # Read-only: plan and inspect, change nothing (same as --dry-run)
-robota -p "Explain this project" --permission-mode plan
+__PRODUCT_CLI_NAME__ -p "Explain this project" --permission-mode plan
 
 # Allow file edits; shell commands that would ask are still denied
-robota -p "Generate JSDoc for all exported functions in src/utils.ts" --permission-mode acceptEdits
+__PRODUCT_CLI_NAME__ -p "Generate JSDoc for all exported functions in src/utils.ts" --permission-mode acceptEdits
 
 # Allow tool calls without asking
-robota -p "Run all tests and fix the failures" --permission-mode bypassPermissions
+__PRODUCT_CLI_NAME__ -p "Run all tests and fix the failures" --permission-mode bypassPermissions
 ```
 
 `bypassPermissions` still applies your `permissions.deny` and `permissions.ask` rules, and it never
 auto-approves `rm` on the filesystem root, a top-level directory, your home or the working directory,
-or writes into `.git`, `.robota`, `.claude`, `.agents` and shell or tool configuration files. The
+or writes into `.git`, `<project-state>`, `.claude`, `.agents` and shell or tool configuration files. The
 [permissions guide](../guide/permissions-and-hooks.md) lists what each mode allows.
 
 ## Other options
 
 ```bash
 # Use a specific model
-robota -p "Explain this project" --model claude-opus-4-6
+__PRODUCT_CLI_NAME__ -p "Explain this project" --model claude-opus-4-6
 
 # Limit agentic turns
-robota -p "Find and fix the bug" --max-turns 5
+__PRODUCT_CLI_NAME__ -p "Find and fix the bug" --max-turns 5
 
 # Append to the default system prompt
-robota -p "Fix the bug" --append-system-prompt "Focus on error handling"
+__PRODUCT_CLI_NAME__ -p "Fix the bug" --append-system-prompt "Focus on error handling"
 ```
 
 ## Piping input
@@ -60,16 +60,16 @@ stdin is not read.
 
 ```bash
 # The piped text is the prompt
-echo "Summarize the README.md" | robota -p
+echo "Summarize the README.md" | __PRODUCT_CLI_NAME__ -p
 
 # Combine an instruction with a file's content
-{ echo "Analyze this error log:"; cat error.log; } | robota -p
+{ echo "Analyze this error log:"; cat error.log; } | __PRODUCT_CLI_NAME__ -p
 
 # Or pass the content as part of the prompt argument
-robota -p "Review the changes in this diff: $(git diff)" --permission-mode plan
+__PRODUCT_CLI_NAME__ -p "Review the changes in this diff: $(git diff)" --permission-mode plan
 
 # Capture the answer in a variable
-REVIEW=$(robota -p "Summarize the README.md" --permission-mode plan)
+REVIEW=$(__PRODUCT_CLI_NAME__ -p "Summarize the README.md" --permission-mode plan)
 echo "$REVIEW"
 ```
 
@@ -77,16 +77,16 @@ echo "$REVIEW"
 
 ```bash
 # One JSON object when the turn ends
-robota -p "Summarize this project" --output-format json
+__PRODUCT_CLI_NAME__ -p "Summarize this project" --output-format json
 
 # Extract the answer with jq
-robota -p "Summarize this project" --output-format json | jq -r '.result'
+__PRODUCT_CLI_NAME__ -p "Summarize this project" --output-format json | jq -r '.result'
 
 # One JSON object per line while the turn runs, ending with the result object
-robota -p "Explain recursion" --output-format stream-json
+__PRODUCT_CLI_NAME__ -p "Explain recursion" --output-format stream-json
 
 # Ask the model for JSON matching a schema
-robota -p "Describe this package" --json-schema '{"type":"object"}'
+__PRODUCT_CLI_NAME__ -p "Describe this package" --json-schema '{"type":"object"}'
 ```
 
 The `json` result object has `type: "result"`, `result` (the answer), `session_id` and `subtype`

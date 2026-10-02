@@ -69,6 +69,6 @@ export function describeUiIntentForGui(intent: TCommandUiIntent): string {
     default:
       // Spec-mandated unsupported signal for an intent kind this build does not know (not a
       // fallback: the explicit notice IS the defined behavior for an unrenderable intent).
-      return `Robota does not have a screen for '${(intent as { type: string }).type}' yet.`;
+      return `This client does not have a screen for '${(intent as { type: string }).type}' yet.`;
   }
 }

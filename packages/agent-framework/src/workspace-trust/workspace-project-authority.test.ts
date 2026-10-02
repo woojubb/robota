@@ -76,7 +76,7 @@ describe('WorkspaceTrustService project authority', () => {
     root: string;
     service: WorkspaceTrustService;
   } {
-    const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-arch-042-')));
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-arch-042-')));
     roots.push(root);
     const identity: IWorkspaceIdentity = {
       repositoryKey: `test:${root}`,
@@ -162,7 +162,7 @@ describe('WorkspaceTrustService project authority', () => {
     const settingsWriter = createWorkspaceProjectSettingsWriter(authority, {
       status: 'approved',
       target: 'project-local',
-      relativePath: '.robota/settings.local.json',
+      relativePath: '.agent/settings.local.json',
       purpose: 'test settings revocation',
     });
     const mutation = createWorkspaceProjectMutation(authority, {
@@ -204,7 +204,7 @@ describe('WorkspaceTrustService project authority', () => {
     const { root, service } = fixture();
     mkdirSync(join(root, 'nested'));
     writeFileSync(join(root, 'nested', 'canary.txt'), 'trusted canary', 'utf8');
-    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'robota-arch-042-outside-')));
+    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'agent-arch-042-outside-')));
     roots.push(outside);
     writeFileSync(join(outside, 'secret.txt'), 'outside secret', 'utf8');
     symlinkSync(outside, join(root, 'linked-outside'));
@@ -250,10 +250,10 @@ describe('WorkspaceTrustService project authority', () => {
     'binds application state to a closed namespace and refuses linked write targets',
     async () => {
       const { root, service } = fixture();
-      const outside = realpathSync(mkdtempSync(join(tmpdir(), 'robota-arch-042-state-outside-')));
+      const outside = realpathSync(mkdtempSync(join(tmpdir(), 'agent-arch-042-state-outside-')));
       roots.push(outside);
-      mkdirSync(join(root, '.robota'), { recursive: true });
-      symlinkSync(outside, join(root, '.robota', 'sessions'));
+      mkdirSync(join(root, '.agent'), { recursive: true });
+      symlinkSync(outside, join(root, '.agent', 'sessions'));
 
       const granted = await service.grant(root);
       if (granted.status !== 'trusted') throw new Error('expected trusted access');
@@ -262,7 +262,7 @@ describe('WorkspaceTrustService project authority', () => {
       expect(() => sessions.writeText('session.json', '{}', 'persist session')).toThrowError(
         WorkspaceAuthorityRequiredError,
       );
-      rmSync(join(root, '.robota', 'sessions'));
+      rmSync(join(root, '.agent', 'sessions'));
       sessions.writeText('session.json', '{"ok":true}', 'persist session');
       expect(sessions.readText('session.json', 'resume session')).toBe('{"ok":true}');
       sessions.appendText('events.log', 'first\n', 'append session event');
@@ -309,7 +309,7 @@ describe('WorkspaceTrustService project authority', () => {
       ).toBe('{"permission":"allow"}\n');
       expect(
         getWorkspaceProjectReader(granted.authority).readText(
-          '.robota/settings.json',
+          '.agent/settings.json',
           'verify unapproved target',
         ),
       ).toBeUndefined();

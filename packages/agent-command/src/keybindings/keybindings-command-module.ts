@@ -31,7 +31,7 @@ export function createKeybindingsCommandEntry(): ICommand {
 // A host without a terminal (the desktop app's sidecar) still answers, so the command is never
 // "unknown" there — it says where key bindings live instead.
 const KEYBINDINGS_UNAVAILABLE =
-  'Key bindings belong to the robota terminal, and this surface has none. Run /keybindings in the robota terminal.';
+  'Key bindings are available in an interactive terminal. Run /keybindings there.';
 
 export async function executeKeybindingsCommand(
   file: IKeybindingsFilePort | undefined,

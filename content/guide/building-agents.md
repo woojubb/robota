@@ -12,10 +12,10 @@ prompts, project instructions and session persistence, use `@robota-sdk/agent-fr
 ## The Robota class
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'MyAgent',
   aiProviders: [new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })],
   defaultModel: {
@@ -125,7 +125,7 @@ A few provider-specific notes:
 ### Several providers in one agent
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 declare const anthropicProvider: IAIProvider;
@@ -133,7 +133,7 @@ declare const openaiProvider: IAIProvider;
 declare const geminiProvider: IAIProvider;
 declare const qwenProvider: IAIProvider;
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'FlexAgent',
   aiProviders: [anthropicProvider, openaiProvider, geminiProvider, qwenProvider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
@@ -201,14 +201,14 @@ const timeTool = createFunctionTool(
 ### Registering tools
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import type { FunctionTool, IAIProvider } from '@robota-sdk/agent-core';
 
 declare const provider: IAIProvider;
 declare const weatherTool: FunctionTool;
 declare const timeTool: FunctionTool;
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'ToolAgent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
@@ -220,7 +220,7 @@ const response = await agent.run('What time is it in Seoul, and is it warm there
 
 ### Built-in tools
 
-`@robota-sdk/agent-tools` also ships the tools the `robota` CLI gives its agent. File and shell tools
+`@robota-sdk/agent-tools` also ships the tools the `__PRODUCT_CLI_NAME__` CLI gives its agent. File and shell tools
 are factories that take the directory they may work in — `createReadTool({ cwd })` — because a file
 tool with no root would have no boundary.
 
@@ -252,7 +252,7 @@ returned text may be empty.
 
 ```typescript
 import { z } from 'zod';
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 
@@ -269,7 +269,7 @@ const routeTool = createZodFunctionTool(
   },
 );
 
-const router = new Robota({
+const router = new ConversationAgent({
   name: 'Router',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-haiku-4-5' },
@@ -298,9 +298,9 @@ fed back (`outputRetries`, default 2); if retries run out, `run()` throws `Struc
 
 ```typescript
 import { z } from 'zod';
-import type { Robota } from '@robota-sdk/agent-core';
+import type { ConversationAgent } from '@robota-sdk/agent-core';
 
-declare const agent: Robota;
+declare const agent: ConversationAgent;
 
 const sentiment = await agent.run('Classify: "The new API is confusing."', {
   output: z.object({
@@ -332,13 +332,13 @@ lifecycle hooks.
 | `WebhookPlugin`             | HTTP notifications on agent events                   |
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { LoggingPlugin } from '@robota-sdk/agent-plugin';
 
 declare const provider: IAIProvider;
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'PluginAgent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
@@ -386,9 +386,9 @@ class ResponseLengthPlugin extends AbstractPlugin {
 `runStream()` yields text as the model produces it and returns the complete reply at the end:
 
 ```typescript
-import type { Robota } from '@robota-sdk/agent-core';
+import type { ConversationAgent } from '@robota-sdk/agent-core';
 
-declare const agent: Robota;
+declare const agent: ConversationAgent;
 
 for await (const chunk of agent.runStream('Write a haiku about TypeScript')) {
   process.stdout.write(chunk);
@@ -398,9 +398,9 @@ for await (const chunk of agent.runStream('Write a haiku about TypeScript')) {
 With `run()`, pass an `onTextDelta` callback instead:
 
 ```typescript
-import type { Robota } from '@robota-sdk/agent-core';
+import type { ConversationAgent } from '@robota-sdk/agent-core';
 
-declare const agent: Robota;
+declare const agent: ConversationAgent;
 
 const full = await agent.run('Write a haiku about TypeScript', {
   onTextDelta: (delta) => process.stdout.write(delta),
@@ -413,12 +413,12 @@ A `Robota` instance keeps its conversation across `run()` calls. Every message h
 `state` of `'complete'` or `'interrupted'`.
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import type { IAgentConfig } from '@robota-sdk/agent-core';
 
 declare const config: IAgentConfig;
 
-const agent = new Robota(config);
+const agent = new ConversationAgent(config);
 
 await agent.run('My name is Alice.');
 const response = await agent.run('What is my name?');
@@ -443,12 +443,12 @@ on every call**, so token cost rises with every turn until you act:
   on every call. In this mode `getHistory()` is empty after a run — read the reply from `run()`.
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 declare const provider: IAIProvider;
 
-const stateless = new Robota({
+const stateless = new ConversationAgent({
   name: 'Coordinator',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-haiku-4-5' },
@@ -481,9 +481,9 @@ per run or in the config; `0` means no cap. `maxSameToolInputs` separately stops
 same tool with identical input too many times (it throws `SameToolInputLoopError`).
 
 ```typescript
-import type { Robota } from '@robota-sdk/agent-core';
+import type { ConversationAgent } from '@robota-sdk/agent-core';
 
-declare const agent: Robota;
+declare const agent: ConversationAgent;
 
 await agent.run('Research this topic and summarize.', { maxExecutionRounds: 5 });
 ```
@@ -503,9 +503,9 @@ is safe. Every cleanup step (modules, plugin subscriptions, event listeners) run
 one fails; failures are logged and returned as `{ errors: Error[] }`:
 
 ```typescript
-import type { Robota } from '@robota-sdk/agent-core';
+import type { ConversationAgent } from '@robota-sdk/agent-core';
 
-declare const agent: Robota;
+declare const agent: ConversationAgent;
 
 const { errors } = await agent.destroy();
 if (errors.length > 0) {
@@ -517,7 +517,7 @@ if (errors.length > 0) {
 
 ## Errors
 
-Errors thrown by the SDK extend `RobotaError`, which carries a `code`, a `category` and a
+Errors thrown by the SDK extend `AgentRuntimeError`, which carries a `code`, a `category` and a
 `recoverable` flag. Provider failures arrive as `RateLimitError`, `AuthenticationError`,
 `ModelNotAvailableError`, `NetworkError` or, for anything else, `ProviderError` (which carries the HTTP
 `status`). See [Error Handling](./error-handling.md) for the full list and retry patterns.

@@ -6,7 +6,7 @@ import {
 } from './agent-factory';
 import type { IAgent, IAgentConfig, IAgentTemplate } from '../interfaces/agent';
 import { ConfigurationError } from '../utils/errors';
-import { Robota } from '../core/robota';
+import { ConversationAgent } from '../core/conversation-agent';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { IChatOptions } from '../interfaces/provider';
@@ -116,9 +116,9 @@ describe('AgentFactory', () => {
     };
 
     it('should create agent successfully', async () => {
-      const agent = (await factory.createAgent(Robota, basicConfig)) as Robota;
+      const agent = (await factory.createAgent(ConversationAgent, basicConfig)) as ConversationAgent;
 
-      expect(agent).toBeInstanceOf(Robota);
+      expect(agent).toBeInstanceOf(ConversationAgent);
       expect(agent.name).toBe('TestAgent');
       const stats = agent.getStats();
       expect(stats.currentProvider).toBe('mock-provider');
@@ -131,7 +131,7 @@ describe('AgentFactory', () => {
       await noDefaultsFactory.initialize();
 
       await expect(
-        noDefaultsFactory.createAgent(Robota, {
+        noDefaultsFactory.createAgent(ConversationAgent, {
           name: 'NoModelAgent',
           aiProviders: [new MockAIProvider()],
         }),
@@ -139,7 +139,7 @@ describe('AgentFactory', () => {
     });
 
     it('should apply default configuration', async () => {
-      const agent = await factory.createAgent(Robota, {
+      const agent = await factory.createAgent(ConversationAgent, {
         name: 'TestAgent',
         aiProviders: [new MockAIProvider()],
         defaultModel: {
@@ -148,9 +148,9 @@ describe('AgentFactory', () => {
         },
       });
 
-      expect(agent).toBeInstanceOf(Robota);
-      if (!(agent instanceof Robota)) {
-        throw new Error('Expected a Robota instance from createAgent');
+      expect(agent).toBeInstanceOf(ConversationAgent);
+      if (!(agent instanceof ConversationAgent)) {
+        throw new Error('Expected a ConversationAgent instance from createAgent');
       }
 
       const model = agent.getModel();
@@ -159,8 +159,8 @@ describe('AgentFactory', () => {
     });
 
     it('should track active agents', async () => {
-      await factory.createAgent(Robota, { ...basicConfig, name: 'Agent1' });
-      await factory.createAgent(Robota, { ...basicConfig, name: 'Agent2' });
+      await factory.createAgent(ConversationAgent, { ...basicConfig, name: 'Agent1' });
+      await factory.createAgent(ConversationAgent, { ...basicConfig, name: 'Agent2' });
 
       const activeAgents = factory.getActiveAgents();
       expect(activeAgents.size).toBe(2);
@@ -171,18 +171,18 @@ describe('AgentFactory', () => {
 
       // Create 5 agents (at the limit)
       for (let i = 0; i < 5; i++) {
-        promises.push(factory.createAgent(Robota as any, { ...basicConfig, name: `Agent${i}` }));
+        promises.push(factory.createAgent(ConversationAgent as any, { ...basicConfig, name: `Agent${i}` }));
       }
       await Promise.all(promises);
 
       // Try to create one more (should fail)
       await expect(
-        factory.createAgent(Robota as any, { ...basicConfig, name: 'Agent6' }),
+        factory.createAgent(ConversationAgent as any, { ...basicConfig, name: 'Agent6' }),
       ).rejects.toThrow(ConfigurationError);
     });
 
     it('should call lifecycle events', async () => {
-      const agent = await factory.createAgent(Robota as any, basicConfig);
+      const agent = await factory.createAgent(ConversationAgent as any, basicConfig);
 
       expect(mockLifecycleEvents.beforeCreate).toHaveBeenCalledWith(
         expect.objectContaining(basicConfig),
@@ -201,11 +201,11 @@ describe('AgentFactory', () => {
     });
 
     it('should create agent from template', async () => {
-      const agent = await factory.createFromTemplate(Robota as any, 'test-template');
+      const agent = await factory.createFromTemplate(ConversationAgent as any, 'test-template');
 
-      expect(agent).toBeInstanceOf(Robota);
-      if (!(agent instanceof Robota)) {
-        throw new Error('Expected a Robota instance from template');
+      expect(agent).toBeInstanceOf(ConversationAgent);
+      if (!(agent instanceof ConversationAgent)) {
+        throw new Error('Expected a ConversationAgent instance from template');
       }
 
       expect(agent.name).toBe('TemplateAgent');
@@ -222,11 +222,11 @@ describe('AgentFactory', () => {
           model: 'gpt-4',
         },
       };
-      const agent = await factory.createFromTemplate(Robota as any, 'test-template', overrides);
+      const agent = await factory.createFromTemplate(ConversationAgent as any, 'test-template', overrides);
 
-      expect(agent).toBeInstanceOf(Robota);
-      if (!(agent instanceof Robota)) {
-        throw new Error('Expected a Robota instance from template');
+      expect(agent).toBeInstanceOf(ConversationAgent);
+      if (!(agent instanceof ConversationAgent)) {
+        throw new Error('Expected a ConversationAgent instance from template');
       }
 
       expect(agent.name).toBe('OverriddenAgent');
@@ -235,7 +235,7 @@ describe('AgentFactory', () => {
     });
 
     it('should throw error for non-existent template', async () => {
-      await expect(factory.createFromTemplate(Robota as any, 'non-existent')).rejects.toThrow(
+      await expect(factory.createFromTemplate(ConversationAgent as any, 'non-existent')).rejects.toThrow(
         ConfigurationError,
       );
     });
@@ -255,7 +255,7 @@ describe('AgentFactory', () => {
 
   describe('Agent Lifecycle Management', () => {
     it('should destroy agent successfully', async () => {
-      await factory.createAgent(Robota as any, {
+      await factory.createAgent(ConversationAgent as any, {
         name: 'TestAgent',
         aiProviders: [new MockAIProvider()],
         defaultModel: {
@@ -284,7 +284,7 @@ describe('AgentFactory', () => {
   describe('Statistics and Monitoring', () => {
     it('should track creation statistics', async () => {
       // Create a custom configured agent
-      await factory.createAgent(Robota as any, {
+      await factory.createAgent(ConversationAgent as any, {
         name: 'Agent1',
         aiProviders: [new MockAIProvider()],
         defaultModel: {
@@ -294,7 +294,7 @@ describe('AgentFactory', () => {
       });
 
       // Create an agent from template
-      await factory.createFromTemplate(Robota as any, 'test-template');
+      await factory.createFromTemplate(ConversationAgent as any, 'test-template');
 
       const stats = factory.getCreationStats();
       expect(stats.totalCreated).toBe(2);
@@ -305,7 +305,7 @@ describe('AgentFactory', () => {
     });
 
     it('should update active count when agents are destroyed', async () => {
-      await factory.createAgent(Robota as any, {
+      await factory.createAgent(ConversationAgent as any, {
         name: 'TestAgent',
         aiProviders: [new MockAIProvider()],
         defaultModel: {

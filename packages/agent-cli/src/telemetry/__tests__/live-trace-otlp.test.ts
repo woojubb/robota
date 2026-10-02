@@ -117,9 +117,9 @@ describe('Node live OTLP trace export', () => {
       const address = server.address();
       if (!address || typeof address === 'string') throw new Error('Expected TCP listener');
       const port = createConfiguredNodeOtlpLiveTelemetryPort({
-        ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_METRICS: 'otlp',
-        ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
-        ROBOTA_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
+        PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_METRICS: 'otlp',
+        PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+        PRODUCT_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
       });
       expect(port).toBeDefined();
       const providerChild = batch().children[0] as unknown as { kind: 'provider'; trace: Record<string, unknown> };
@@ -129,7 +129,7 @@ describe('Node live OTLP trace export', () => {
       await port!.shutdown();
       expect(requests).toHaveLength(1);
       expect(requests[0]!.path).toBe('/v1/metrics');
-      expect(requests[0]!.body.toString('utf8')).toContain('robota.provider.estimated_cost_usd');
+      expect(requests[0]!.body.toString('utf8')).toContain('agent.provider.estimated_cost_usd');
       expect(requests[0]!.body.toString('utf8')).not.toContain('session.1');
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
@@ -137,7 +137,7 @@ describe('Node live OTLP trace export', () => {
   });
 
   it('turns an explicitly enabled CLI host setting into an actual live prompt export', async () => {
-    const temporaryHome = mkdtempSync(join(tmpdir(), 'robota-live-trace-'));
+    const temporaryHome = mkdtempSync(join(tmpdir(), 'agent-test-live-trace-'));
     vi.stubEnv('HOME', temporaryHome);
     let requests = 0;
     const server = createServer(async (request, response) => {
@@ -151,11 +151,11 @@ describe('Node live OTLP trace export', () => {
       const address = server.address();
       if (!address || typeof address === 'string') throw new Error('Expected TCP listener');
       const env = {
-        ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'otlp',
-        ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
-        ROBOTA_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
+        PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'otlp',
+        PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+        PRODUCT_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
       };
-      expect(createConfiguredNodeOtlpLiveTelemetryPort({ ...env, ROBOTA_TELEMETRY_ENABLED: '0' })).toBeUndefined();
+      expect(createConfiguredNodeOtlpLiveTelemetryPort({ ...env, PRODUCT_TELEMETRY_ENABLED: '0' })).toBeUndefined();
       const port = createConfiguredNodeOtlpLiveTelemetryPort(env);
       expect(port).toBeDefined();
       const history: unknown[] = [];
@@ -183,36 +183,36 @@ describe('Node live OTLP trace export', () => {
     }
   });
 
-  it('requires Robota opt-in, an explicit protocol, and a validated destination', () => {
+  it('requires Product opt-in, an explicit protocol, and a validated destination', () => {
     expect(resolveNodeOtlpLiveTraceEndpoint({
       OTEL_EXPORTER_OTLP_ENDPOINT: 'https://ambient.example',
-      ROBOTA_TELEMETRY_TRACES: 'otlp',
+      PRODUCT_TELEMETRY_TRACES: 'otlp',
     })).toBeUndefined();
     expect(() => resolveNodeOtlpLiveTraceEndpoint({
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'otlp',
-      ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
+      PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'otlp',
+      PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
     })).toThrow(/protocol/i);
     expect(() => resolveNodeOtlpLiveTraceEndpoint({
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'otlp',
-      ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/json',
-      ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
+      PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'otlp',
+      PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/json',
+      PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
     })).toThrow(/protocol/i);
     const enabled = {
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'otlp',
-      ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+      PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'otlp',
+      PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
     };
     expect(resolveNodeOtlpLiveTraceEndpoint({
-      ...enabled, ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
+      ...enabled, PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
     })).toBe('http://127.0.0.1:4318/v1/traces');
     expect(resolveNodeOtlpLiveTraceEndpoint({
-      ...enabled, ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
-      ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT: 'https://collector.example/custom',
+      ...enabled, PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
+      PRODUCT_TELEMETRY_OTLP_TRACES_ENDPOINT: 'https://collector.example/custom',
     })).toBe('https://collector.example/custom');
     expect(() => resolveNodeOtlpLiveTraceEndpoint({
-      ...enabled, ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT: 'http://collector.example/v1/traces',
+      ...enabled, PRODUCT_TELEMETRY_OTLP_TRACES_ENDPOINT: 'http://collector.example/v1/traces',
     })).toThrow(/destination/i);
     expect(() => resolveNodeOtlpLiveTraceEndpoint({
-      ...enabled, ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT: 'https://user:secret@collector.example/v1/traces',
+      ...enabled, PRODUCT_TELEMETRY_OTLP_TRACES_ENDPOINT: 'https://user:secret@collector.example/v1/traces',
     })).toThrow(/destination/i);
   });
 
@@ -294,16 +294,25 @@ describe('Node live OTLP trace export', () => {
           } },
         ],
         omittedChildren: { provider: 0, tool: 0, permission: 1 },
+        timingTotals: {
+          provider: { durationMs: 200, samples: 101, invalid: 0 },
+          tool: { durationMs: 300, samples: 100, invalid: 0 },
+          queue: { durationMs: 10, samples: 100, invalid: 0, admissionStarted: 99, notDispatched: 1 },
+        },
       };
       port.enqueue(input);
       await port.shutdown();
       expect(onFailure).not.toHaveBeenCalled();
       expect(requests).toHaveLength(1);
       const spans = decodeExportedSpans(requests[0]!);
-      expect(spans.map((span) => span.name).sort()).toEqual(['robota.prompt_execution', 'robota.tool_body']);
+      expect(spans.map((span) => span.name).sort()).toEqual(['agent.prompt_execution', 'agent.tool_body']);
       expect(spans.some((span) => span.name.includes('permission'))).toBe(false);
-      const root = spans.find((span) => span.name === 'robota.prompt_execution')!;
-      expect(root.attributes.get('robota.omitted.permission_count')).toBe(1);
+      const root = spans.find((span) => span.name === 'agent.prompt_execution')!;
+      expect(root.attributes.get('agent.omitted.permission_count')).toBe(1);
+      expect(root.attributes.get('agent.timing.provider.duration_ms')).toBe(200);
+      expect(root.attributes.get('agent.timing.tool.samples')).toBe(100);
+      expect(root.attributes.get('agent.timing.queue.duration_ms')).toBe(10);
+      expect(root.attributes.get('agent.timing.queue.not_dispatched')).toBe(1);
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     }

@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { realpathSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
@@ -10,16 +11,16 @@ import {
 import type { IContributionSource, TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import type { IOutputStyleFile, IOutputStyleSource } from '@robota-sdk/agent-preset';
 
-export const OUTPUT_STYLE_DIRECTORY = join('.robota', 'output-styles');
+
 const USER_OUTPUT_STYLE_PRECEDENCE = 10;
 const PROJECT_OUTPUT_STYLE_PRECEDENCE = 20;
 const MANAGED_OUTPUT_STYLE_PRECEDENCE = 1000;
 
 /** Project output-style directories are searched at every ancestor from the root to cwd. */
-export function projectOutputStyleDirectories(cwdRelative: string): readonly string[] {
+export function projectOutputStyleDirectories(cwdRelative: string, runtime: ICliRuntimeContext): readonly string[] {
   const segments = cwdRelative.length === 0 ? [] : cwdRelative.split(sep);
   return Array.from({ length: segments.length + 1 }, (_, depth) =>
-    join(...segments.slice(0, depth), OUTPUT_STYLE_DIRECTORY),
+    join(...segments.slice(0, depth), join(runtime.layout.projectDirectory, 'output-styles')),
   );
 }
 
@@ -38,19 +39,20 @@ function readStyleFiles(source: IStyleFileSource, directory: string): readonly I
     }));
 }
 
-function userOutputStyleSource(userHome: string): IOutputStyleSource {
-  const source = createNodeHostContributionSource(userHome);
+function userOutputStyleSource(runtime: ICliRuntimeContext): IOutputStyleSource {
+  const source = createNodeHostContributionSource(runtime.layout.userRoot);
   return {
     scope: 'user',
-    displayName: `${userHome}/${OUTPUT_STYLE_DIRECTORY}`,
+    displayName: `${runtime.layout.userRoot}/output-styles`,
     precedence: USER_OUTPUT_STYLE_PRECEDENCE,
-    files: readStyleFiles(source, OUTPUT_STYLE_DIRECTORY),
+    files: readStyleFiles(source, 'output-styles'),
   };
 }
 
 function projectOutputStyleSources(
   cwd: string,
   projectAccess: TWorkspaceProjectAccess,
+  runtime: ICliRuntimeContext,
 ): readonly IOutputStyleSource[] {
   if (projectAccess.status !== 'trusted') return [];
   const identity = getWorkspaceProjectIdentity(projectAccess.authority);
@@ -59,7 +61,7 @@ function projectOutputStyleSources(
   const cwdRelative = relative(identity.worktreeRoot, resolvedCwd);
   const sources: IOutputStyleSource[] = [];
 
-  for (const [depth, directory] of projectOutputStyleDirectories(cwdRelative).entries()) {
+  for (const [depth, directory] of projectOutputStyleDirectories(cwdRelative, runtime).entries()) {
     const files = readStyleFiles(reader, directory);
     if (files.length === 0) continue;
     sources.push({
@@ -75,6 +77,7 @@ function projectOutputStyleSources(
 
 /** Build trusted output-style source inputs. The registry/parser owns decoding and precedence. */
 export function buildOutputStyleSources(options: {
+  readonly productRuntime: ICliRuntimeContext;
   readonly cwd: string;
   readonly userHome: string;
   readonly projectAccess: TWorkspaceProjectAccess;
@@ -89,8 +92,8 @@ export function buildOutputStyleSources(options: {
   }));
   if (options.safeMode === true) return managed;
   return [
-    userOutputStyleSource(options.userHome),
-    ...projectOutputStyleSources(options.cwd, options.projectAccess),
+    userOutputStyleSource(options.productRuntime),
+    ...projectOutputStyleSources(options.cwd, options.projectAccess, options.productRuntime),
     ...managed,
   ];
 }

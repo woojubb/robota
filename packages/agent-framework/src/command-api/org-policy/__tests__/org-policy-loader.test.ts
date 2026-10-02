@@ -19,12 +19,12 @@ let home = '';
 
 /** Put a policy file in this case's home, or leave the directory empty. */
 function withPolicyFile(contents?: string): void {
-  mkdirSync(join(home, '.robota'), { recursive: true });
-  if (contents !== undefined) writeFileSync(join(home, '.robota', 'org-policy.json'), contents);
+  mkdirSync(join(home, '.agent'), { recursive: true });
+  if (contents !== undefined) writeFileSync(join(home, '.agent', 'org-policy.json'), contents);
 }
 
 function policyPath(): string {
-  return join(home, '.robota', 'org-policy.json');
+  return join(home, '.agent', 'org-policy.json');
 }
 
 beforeEach(() => {

@@ -14,8 +14,8 @@ It has three main entry points:
   one configuration, for headless and multi-session hosts.
 
 The package has no React dependency, and it never imports a concrete provider: you create the
-provider (for example from `@robota-sdk/agent-provider-anthropic`) and pass it in. The `robota` CLI
-(`@robota-sdk/agent-cli`) is a reference app built on this package.
+provider (for example from `@robota-sdk/agent-provider-anthropic`) and pass it in. The configured CLI
+(`@robota-sdk/agent-cli`) is a maintained agent interface built on this package.
 
 For walkthroughs, see the [SDK guide](../../content/guide/sdk.md) and
 [Building agents](../../content/guide/building-agents.md).
@@ -26,7 +26,7 @@ For walkthroughs, see the [SDK guide](../../content/guide/sdk.md) and
 npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic
 ```
 
-Requires Node.js 22.12 or later. `InteractiveSession` and `createQuery` work with any Robota provider
+Requires Node.js 22.12 or later. `InteractiveSession` and `createQuery` work with any provider
 package given a `model`; without one they use the settings files, or Anthropic's default model.
 
 ## Quick start
@@ -230,7 +230,7 @@ const session = runtime.createSession({ permissionMode: 'plan' });
 
 `buildRuntimeSession()` is the one place a session is built from resolved options, and
 `startRuntimeHost()` adds transport start/stop and a bounded shutdown on top of it; the CLI's
-`robota --serve` uses both. `SessionPool` keeps several live sessions for a runtime that serves more
+`<cli-name> --serve` uses both. `SessionPool` keeps several live sessions for a runtime that serves more
 than one client. Headless output is available through `createHeadlessRunner` and
 `createHeadlessTransport`, and `createProgrammaticAgent` drives a session from code.
 
@@ -378,15 +378,60 @@ that supports snapshots, `shutdown()` stores the sandbox snapshot ID, and resumi
 | Self-hosting verification   | `planSelfHostingVerification`, `transitionSelfHostingLoop`                                            |
 
 Bundle plugins use the Claude Code plugin layout: a directory with `.claude-plugin/plugin.json`
-(`name`, `version`, `description`, `features`) that can contribute skills, commands, hooks, MCP
-server configuration and agent definitions.
+(`name` is required; `version` and `description` are optional) that can contribute skills,
+commands, hooks, MCP server configuration and agent definitions. The loader selects the source
+recorded in `installed_plugins.json`, validates its cache location and refuses invalid or missing
+selected sources. Without a registry, a single cached revision is supported; multiple revisions
+require an explicit installation record and are reported as `revision-unselected`. Cache directory
+sorting never selects an execution source. Missing manifest versions remain absent. Enablement
+checks both the installed identity and the manifest name, so renaming a manifest cannot bypass a
+disabled installation. MCP dispatch revalidates this selection; other component lifetimes remain
+owned by their host execution surfaces.
+
+The loader also exposes a versioned `IContributionDescriptor` on each loaded bundle. It binds
+installed identity, cache revision and source location to namespaced contributions and required
+host capabilities without importing contributor code or exposing MCP credential values. A
+supported declaration still requires host admission. Agent names without execution definitions
+are unavailable; unconsumed custom component paths and invalid transports carry compatibility
+diagnostics. The descriptor records host ownership of active-call policy; it does not establish
+live retirement behavior for every component kind.
+
+The documented MCP declaration subset supports `mcpServers` as a plugin-relative `./` JSON path,
+an inline server map, or an ordered array of either. The default `.mcp.json` is read first; later
+declarations replace whole server entries, with each winning entry retaining its declaring file.
+Paths are checked against the selected installed revision, including symlinks. Unsupported paths
+and malformed declarations produce value-free compatibility codes. Binary MCP bundles are not
+supported by this adapter. See the [foreign manifest reference](https://code.claude.com/docs/en/plugins-reference).
+
+CLI and app startup route these definitions through the existing `plugin` MCP source tier, with
+`plugin-name:server-name` identities, ordinary precedence, workspace trust, approval and host stdio
+authority. Inspection never connects. `${CLAUDE_PLUGIN_ROOT}` resolves to the selected plugin root;
+other environment materialization remains owned by the MCP definition layer. Startup honors the
+current disable overlay. Before each MCP call the host rereads enablement and the selected source;
+disable, uninstall, source replacement or changed trust refuses new dispatch. Already dispatched
+calls settle with their real outcomes. Fresh startup reuses durable approvals only when their
+source identity and trust still match; a new revision cannot silently replace an in-flight tool.
+
+The documented MCP declaration subset supports `mcpServers` as a plugin-relative `./` JSON path,
+an inline server map, or an ordered array of either. The default `.mcp.json` is read first; later
+declarations replace whole server entries, with each winning entry retaining its declaring file.
+Paths are checked against the selected installed revision, including symlinks. Unsupported paths
+and malformed declarations produce value-free compatibility codes. Binary MCP bundles are not
+supported by this adapter. See the [foreign manifest reference](https://code.claude.com/docs/en/plugins-reference).
+
+CLI and app startup route these definitions through the existing `plugin` MCP source tier, with
+`plugin-name:server-name` identities, ordinary precedence, workspace trust, approval and host stdio
+authority. Inspection never connects. `${CLAUDE_PLUGIN_ROOT}` resolves to the selected plugin root;
+other environment materialization remains owned by the MCP definition layer. Startup honors the
+current disable overlay; active-chain update/disable and restored-work revalidation still require
+their separate lifecycle implementation.
 
 ## Settings
 
 Settings are JSON files merged in the order the host gives them, later layers winning.
-`$ENV:NAME` values in provider credentials are replaced with the environment variable. The Robota
-CLI reads `~/.robota/settings.json`, `~/.claude/settings.json`, `.robota/settings.json`,
-`.robota/settings.local.json`, `.claude/settings.json` and `.claude/settings.local.json`, in that
+`$ENV:NAME` values in provider credentials are replaced with the environment variable. The configured
+CLI reads `$PRODUCT_USER_STATE_DIR/settings.json`, `~/.claude/settings.json`, `$PRODUCT_PROJECT_STATE_DIR/settings.json`,
+`$PRODUCT_PROJECT_STATE_DIR/settings.local.json`, `.claude/settings.json` and `.claude/settings.local.json`, in that
 order; project files are read only in a trusted project.
 
 ```json
@@ -433,4 +478,4 @@ examples (no provider credentials needed).
 
 ## License
 
-Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

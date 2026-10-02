@@ -544,7 +544,7 @@ describe('createSessionCommandModule', () => {
     const context = {
       ...createCommandContext(),
       validateCurrentSessionReplayLog: () => ({
-        logFile: '/workspace/.robota/logs/session_1.jsonl',
+        logFile: '/workspace/.fixture-state/logs/session_1.jsonl',
         entryCount: 2,
         validation: {
           ok: false,
@@ -565,7 +565,7 @@ describe('createSessionCommandModule', () => {
     expect(result?.success).toBe(false);
     expect(result?.message).toContain('PROVIDER_NATIVE_RAW_PAYLOAD_MISSING');
     expect(result?.data).toEqual({
-      logFile: '/workspace/.robota/logs/session_1.jsonl',
+      logFile: '/workspace/.fixture-state/logs/session_1.jsonl',
       entryCount: 2,
       issueCount: 1,
       ok: false,

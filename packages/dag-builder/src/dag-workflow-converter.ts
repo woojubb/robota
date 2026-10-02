@@ -2,7 +2,7 @@
 //
 // Node type naming convention:
 //   internal kebab-case: "llm-text"
-//   workflow PascalCase: "RobotaLlmText"  (prefix "Robota" + each segment capitalized)
+//   workflow PascalCase: "ConversationAgentLlmText"  (prefix "ConversationAgent" + each segment capitalized)
 
 import { decodeDagDefinition, decodeDagWorkflowFile } from '@robota-sdk/dag-core';
 
@@ -14,8 +14,8 @@ import type {
   INodeConfigObject,
 } from '@robota-sdk/dag-core';
 import type {
-  IDagRobotaCompanion,
-  IDagRobotaCompanionNodeMeta,
+  IDagConversationAgentCompanion,
+  IDagConversationAgentCompanionNodeMeta,
   IDagWorkflowFile,
   IDagWorkflowNode,
   IDagWorkflowNodeInput,
@@ -24,26 +24,26 @@ import type {
 } from '@robota-sdk/dag-core';
 
 const WORKFLOW_VERSION = 0.4;
-const ROBOTA_PREFIX = 'Robota';
-const ROBOTA_CONFIG_PROPERTY = 'robota_config';
+const AGENT_PREFIX = 'ConversationAgent';
+const AGENT_CONFIG_PROPERTY = 'agent_config';
 
 // ---------------------------------------------------------------------------
 // Node type name mapping
 // ---------------------------------------------------------------------------
 
-/** Converts internal kebab-case nodeType to workflow PascalCase type (e.g. "llm-text" → "RobotaLlmText"). */
+/** Converts internal kebab-case nodeType to workflow PascalCase type (e.g. "llm-text" → "ConversationAgentLlmText"). */
 export function toWorkflowNodeType(nodeType: string): string {
   const pascal = nodeType
     .split('-')
     .map((seg) => (seg.length > 0 ? seg[0]!.toUpperCase() + seg.slice(1) : ''))
     .join('');
-  return `${ROBOTA_PREFIX}${pascal}`;
+  return `${AGENT_PREFIX}${pascal}`;
 }
 
-/** Converts workflow PascalCase type back to internal kebab-case (e.g. "RobotaLlmText" → "llm-text"). */
+/** Converts workflow PascalCase type back to internal kebab-case (e.g. "ConversationAgentLlmText" → "llm-text"). */
 export function fromWorkflowNodeType(workflowType: string): string {
-  const withoutPrefix = workflowType.startsWith(ROBOTA_PREFIX)
-    ? workflowType.slice(ROBOTA_PREFIX.length)
+  const withoutPrefix = workflowType.startsWith(AGENT_PREFIX)
+    ? workflowType.slice(AGENT_PREFIX.length)
     : workflowType;
   return withoutPrefix
     .replace(/([A-Z])/g, (_, ch: string) => `-${ch.toLowerCase()}`)
@@ -51,15 +51,15 @@ export function fromWorkflowNodeType(workflowType: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// IDagDefinition → IDagWorkflowFile + IDagRobotaCompanion
+// IDagDefinition → IDagWorkflowFile + IDagConversationAgentCompanion
 // ---------------------------------------------------------------------------
 
 export interface IToWorkflowFileResult {
   readonly workflowFile: IDagWorkflowFile;
-  readonly companion: IDagRobotaCompanion;
+  readonly companion: IDagConversationAgentCompanion;
 }
 
-/** Converts an `IDagDefinition` to the `.dag.json` + `.dag.robota.json` pair. */
+/** Converts an `IDagDefinition` to the `.dag.json` + `.dag.agent.json` pair. */
 export function toDagWorkflowFile(definition: IDagDefinition): IToWorkflowFileResult {
   // Assign stable numeric IDs (1-based) in node-array order.
   const nodeToNumId = new Map<string, number>();
@@ -141,7 +141,7 @@ export function toDagWorkflowFile(definition: IDagDefinition): IToWorkflowFileRe
       type: toWorkflowNodeType(node.nodeType),
       pos: [node.position?.x ?? 0, node.position?.y ?? 0],
       properties: {
-        [ROBOTA_CONFIG_PROPERTY]: node.config,
+        [AGENT_CONFIG_PROPERTY]: node.config,
       },
       widgets_values: Object.values(node.config),
     };
@@ -161,17 +161,17 @@ export function toDagWorkflowFile(definition: IDagDefinition): IToWorkflowFileRe
   };
 
   // Build companion.
-  const companionNodes: Record<string, IDagRobotaCompanionNodeMeta> = {};
+  const companionNodes: Record<string, IDagConversationAgentCompanionNodeMeta> = {};
   for (const node of definition.nodes) {
     const numId = nodeToNumId.get(node.nodeId)!;
-    const meta: IDagRobotaCompanionNodeMeta = { nodeId: node.nodeId };
+    const meta: IDagConversationAgentCompanionNodeMeta = { nodeId: node.nodeId };
     if (node.retryPolicy) meta.retryPolicy = node.retryPolicy;
     if (node.timeoutMs !== undefined) meta.timeoutMs = node.timeoutMs;
     if (node.costPolicy) meta.costPolicy = node.costPolicy;
     companionNodes[String(numId)] = meta;
   }
 
-  const companion: IDagRobotaCompanion = {
+  const companion: IDagConversationAgentCompanion = {
     dagId: definition.dagId,
     version: definition.version,
     status: definition.status,
@@ -191,7 +191,7 @@ export function toDagWorkflowFile(definition: IDagDefinition): IToWorkflowFileRe
 /** Converts a `.dag.json` workflow file (optionally with companion) back to `IDagDefinition`. */
 export function fromDagWorkflowFile(
   workflowFile: IDagWorkflowFile,
-  companion?: IDagRobotaCompanion,
+  companion?: IDagConversationAgentCompanion,
 ): IDagDefinition {
   // Build linkId → link map for edge reconstruction.
   const linkMap = new Map<number, TWorkflowLink>();
@@ -208,9 +208,9 @@ export function fromDagWorkflowFile(
     const nodeId = meta?.nodeId ?? `node-${wfNode.id}`;
     const nodeType = fromWorkflowNodeType(wfNode.type);
 
-    // Recover config from properties.robota_config (authoritative) or fallback to widgets_values.
+    // Recover config from properties.agent_config (authoritative) or fallback to widgets_values.
     const rawConfig =
-      (wfNode.properties?.[ROBOTA_CONFIG_PROPERTY] as INodeConfigObject | undefined) ?? {};
+      (wfNode.properties?.[AGENT_CONFIG_PROPERTY] as INodeConfigObject | undefined) ?? {};
 
     const node: IDagNode = {
       nodeId,

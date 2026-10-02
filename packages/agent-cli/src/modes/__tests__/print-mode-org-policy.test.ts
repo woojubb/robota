@@ -1,9 +1,12 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { runPrintMode } from '../print-mode.js';
-import { ROBOTA_PERMISSION_BASELINE } from '../../product/robota-permission-baseline.js';
+import { productPermissionBaseline } from '../../product/permission-baseline.js';
 
 import type { IOrgPolicy } from '@robota-sdk/agent-framework';
+const PRODUCT_PERMISSION_BASELINE = productPermissionBaseline(createTestProductRuntime());
+
 
 const seen = vi.hoisted(() => vi.fn());
 
@@ -56,7 +59,7 @@ describe('print and goal session-capability projection', () => {
 
       await expect(
         runPrintMode(
-          '/work',
+          createTestProductRuntime(), '/work',
           { goal, positional, outputFormat: 'text' } as never,
           {} as never,
           {} as never,
@@ -83,11 +86,11 @@ describe('print and goal session-capability projection', () => {
           undefined,
           undefined,
           undefined,
-          'ROBOTA_BACKGROUND_OBSERVER_FAILURE',
+          'PRODUCT_BACKGROUND_OBSERVER_FAILURE',
         ),
       ).rejects.toBeInstanceOf(ExitSentinel);
       expect(seen).toHaveBeenCalledWith(expect.objectContaining({
-        baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,
+        baselinePermissionAllow: PRODUCT_PERMISSION_BASELINE,
       }));
 
       expect(seen).toHaveBeenCalledOnce();
@@ -98,7 +101,7 @@ describe('print and goal session-capability projection', () => {
         language: 'ko',
         presetSystemPrompt: 'Preset seed',
         responseFormat,
-        observerFailureWarningCode: 'ROBOTA_BACKGROUND_OBSERVER_FAILURE',
+        observerFailureWarningCode: 'PRODUCT_BACKGROUND_OBSERVER_FAILURE',
       });
     },
   );

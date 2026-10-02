@@ -4,6 +4,7 @@
  * output with the fatal state; an untrusted workspace, for one, names the command that fixes it.
  */
 
+import { testProduct } from './product-fixture.js';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -35,18 +36,18 @@ function hostThatStops(
 describe('the fatal screen', () => {
   it("shows what the sidecar said before it stopped", () => {
     const { host, stop } = hostThatStops(
-      'Workspace trust is required before headless startup (state: untrusted).\nGrant access with: robota trust --yes',
+      'Workspace trust is required before headless startup (state: untrusted).\nGrant access with: fixture-agent trust --yes',
     );
-    render(<App host={host} />);
+    render(<App product={testProduct} host={host} />);
     act(() => stop());
     const alert = screen.getByRole('alert');
     expect(alert.textContent).toContain('The agent process stopped');
-    expect(alert.textContent).toContain('robota trust --yes');
+    expect(alert.textContent).toContain('fixture-agent trust --yes');
   });
 
   it('keeps the plain message when the sidecar said nothing', () => {
     const { host, stop } = hostThatStops();
-    render(<App host={host} />);
+    render(<App product={testProduct} host={host} />);
     act(() => stop());
     expect(screen.getByRole('alert').textContent).toContain('Restart the app to reconnect');
   });
@@ -56,7 +57,7 @@ describe('the fatal screen', () => {
       throw new Error('the daemon refused to start');
     });
     const { host, stop } = hostThatStops('No provider configuration found.', restartRuntime);
-    render(<App host={host} />);
+    render(<App product={testProduct} host={host} />);
     act(() => stop());
 
     const button = screen.getByRole('button', { name: 'Try again' });

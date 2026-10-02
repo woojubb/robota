@@ -1,3 +1,4 @@
+import type { IIdentityContext } from './identity/crypto-context.js';
 /**
  * Pairing handshake (REMOTE-005 Stage B3) — transport-agnostic protocol run over the WebRTC data channel BEFORE
  * any session is exposed. It drives the directional, nonce-bound channel-confirmation exchange and resolves
@@ -59,7 +60,10 @@ export function settleMessage(error: unknown): string {
  * **only** accept signal — the caller MUST await it before exposing any session, and MUST close the channel if it
  * rejects.
  */
-export function startPairingHandshake(options: IPairingHandshakeOptions): IPairingController {
+export function startPairingHandshake(
+  cryptoContext: IIdentityContext,
+  options: IPairingHandshakeOptions,
+): IPairingController {
   const localNonce = generateNonce();
   let peerNonce: string | undefined;
   let expectPeer: string | undefined;
@@ -108,7 +112,7 @@ export function startPairingHandshake(options: IPairingHandshakeOptions): IPairi
   async function maybeSendConfirmation(): Promise<void> {
     if (peerNonce === undefined || expectPeer !== undefined) return;
     const { nonceInitiator, nonceResponder } = nonces();
-    const { send, expectPeer: expected } = await computeConfirmations({
+    const { send, expectPeer: expected } = await computeConfirmations(cryptoContext, {
       secret: options.secret,
       role: options.role,
       nonceInitiator,
@@ -128,7 +132,7 @@ export function startPairingHandshake(options: IPairingHandshakeOptions): IPairi
       fail('pairing rejected: channel-confirmation mismatch (possible MITM relay)');
       return;
     }
-    succeed(await deriveSessionKey(options.secret));
+    succeed(await deriveSessionKey(cryptoContext, options.secret));
   }
 
   options.send({ t: 'pair-nonce', nonce: localNonce });

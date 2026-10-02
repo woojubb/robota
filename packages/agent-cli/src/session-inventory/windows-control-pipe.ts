@@ -16,7 +16,7 @@ export interface IControlChannel extends Duplex {
 
 export function windowsControlPipePath(root: string, id: string): string {
   const name = createHash('sha256').update(root).update('\0').update(id).digest('hex').slice(0, 32);
-  return `\\\\.\\pipe\\robota-supervised-${name}`;
+  return `\\\\.\\pipe\\agent-supervised-${name}`;
 }
 
 function loadPipeApi() {

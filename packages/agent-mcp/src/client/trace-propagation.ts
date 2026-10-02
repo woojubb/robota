@@ -1,5 +1,5 @@
 /**
- * Trusted `traceparent` for MCP tool calls over Streamable HTTP.
+ * Request-scoped cancellation and trusted `traceparent` for MCP calls over Streamable HTTP.
  *
  * The async context only identifies WHICH tool call is running; it never decides that a header is
  * sent. The SDK's response stream keeps running inside the call's context, so a `tools/list`
@@ -17,16 +17,20 @@ import type { IOutboundTraceContext } from '@robota-sdk/agent-core';
 
 type TJsonRpcId = string | number;
 
-/** One tool call's trace: what it may send, and the JSON-RPC id its `tools/call` went out under. */
+/** One tool call's lifetime and optional trace, bound to the JSON-RPC id it went out under. */
 export interface IMCPCallTraceScope {
-  readonly outbound: IOutboundTraceContext;
+  readonly outbound?: IOutboundTraceContext;
+  readonly requestAbortController?: AbortController;
   requestId?: TJsonRpcId;
 }
 
 const activeCall = new AsyncLocalStorage<IMCPCallTraceScope>();
 
-/** Runs one tool call with its trace scope as the async context. */
-export function runInCallTraceScope<T>(scope: IMCPCallTraceScope, run: () => Promise<T>): Promise<T> {
+/** Runs one tool call with its lifetime and optional trace as the async context. */
+export function runInCallTraceScope<T>(
+  scope: IMCPCallTraceScope,
+  run: () => Promise<T>,
+): Promise<T> {
   return activeCall.run(scope, run);
 }
 
@@ -36,7 +40,7 @@ export function currentCallTraceScope(): IMCPCallTraceScope | undefined {
 }
 
 /**
- * The in-flight traced tool calls of one session, by JSON-RPC id, so a cancellation — sent from
+ * The in-flight HTTP tool calls of one session, by JSON-RPC id, so a cancellation — sent from
  * wherever the abort or timeout fired — finds the call it cancels.
  */
 export class MCPCallTraceRegistry {
@@ -106,6 +110,22 @@ export function cancelledRequestId(message: unknown): TJsonRpcId | undefined {
   return isJsonRpcId(requestId) ? requestId : undefined;
 }
 
+/** Only the matching tool POST inherits its cancellation; notifications and refreshes stay live. */
+export function callRequestSignal(init: RequestInit | undefined): AbortSignal | undefined {
+  if (init?.method !== 'POST' || typeof init.body !== 'string') return undefined;
+  let message: unknown;
+  try {
+    message = JSON.parse(init.body);
+  } catch {
+    return undefined;
+  }
+  const running = activeCall.getStore();
+  const callId = toolsCallRequestId(message);
+  return callId !== undefined && running?.requestId === callId
+    ? running.requestAbortController?.signal
+    : undefined;
+}
+
 /**
  * The trace header for one outgoing HTTP request, decided from what the request is rather than from
  * the async context alone. Anything other than a POST whose string body is a single `tools/call`
@@ -126,10 +146,12 @@ export function callTraceHeaders(
   const running = activeCall.getStore();
   const callId = toolsCallRequestId(message);
   if (callId !== undefined) {
-    return running?.requestId === callId ? traceHeadersFor(admittedUrl, running.outbound) : {};
+    return running?.requestId === callId && running.outbound
+      ? traceHeadersFor(admittedUrl, running.outbound)
+      : {};
   }
   const cancelledId = cancelledRequestId(message);
   if (cancelledId === undefined) return {};
   const cancelled = running?.requestId === cancelledId ? running : registry.lookup(cancelledId);
-  return cancelled ? traceHeadersFor(admittedUrl, cancelled.outbound) : {};
+  return cancelled?.outbound ? traceHeadersFor(admittedUrl, cancelled.outbound) : {};
 }

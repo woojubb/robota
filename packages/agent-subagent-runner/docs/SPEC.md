@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Optional package providing child-process subagent execution for the Robota agent runtime. It
+Optional package providing child-process subagent execution for the agent runtime. It
 implements `ISubagentRunner` (from `agent-executor`) by forking Node.js child processes, routing
 jobs over an IPC protocol, and returning lifecycle handles to the caller. Opt-in: install only
 when child-process subagent support is needed, so applications that don't use subagents carry no

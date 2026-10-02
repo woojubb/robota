@@ -85,6 +85,8 @@ export interface ICompletedToolExecution {
 /** Options threaded through submit/executePrompt for non-user turns (FLOW-002). */
 export interface ITurnOptions extends ISubmitOptions {
   turnSource?: TTurnSource;
+  /** Host-owned preparation runs only after this accepted turn owns foreground execution. */
+  preparePrompt?: () => Promise<string>;
   /** When set, the in-flight wake for this background task id is cleared on turn completion. */
   wakeTaskId?: string;
 }

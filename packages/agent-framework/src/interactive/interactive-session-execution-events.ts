@@ -1,3 +1,4 @@
+import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
 import {
   createAssistantMessage,
   createSystemMessage,
@@ -39,7 +40,7 @@ export function projectCompactEvent(
 export function projectToolExecution(
   activeTools: IToolState[],
   history: ReturnType<SessionHistoryTracker['getHistory']>,
-  callbacks: IExecutionControllerCallbacks,
+  callbacks: Pick<IExecutionControllerCallbacks, 'getCwd' | 'emit' | 'modelCommandToolNames'>,
   commitActiveTools: (tools: IToolState[]) => void,
   event: {
     type: 'start' | 'end';
@@ -48,6 +49,7 @@ export function projectToolExecution(
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    toolResultParts?: TUniversalMessagePart[];
     executionId?: string;
   },
   startLabel?: string,
@@ -71,6 +73,25 @@ export function projectToolExecution(
     commitActiveTools(streamingState.activeTools);
     callbacks.emit('tool_start', toolState);
   } else {
+    // A refusal can finish before the body starts. Give its observed outcome a row without dispatch.
+    const hasCall = streamingState.activeTools.some((tool) =>
+      event.executionId !== undefined
+        ? tool.executionId === event.executionId && tool.isRunning
+        : tool.toolName === event.toolName && tool.isRunning,
+    );
+    if (!hasCall && event.success === false) {
+      const refused = applyToolStart(
+        streamingState,
+        {
+          ...event,
+          commandName: callbacks.modelCommandToolNames?.get(event.toolName),
+          internal: event.toolName === GOAL_SIGNAL_TOOL_NAME,
+        },
+        startLabel,
+        cwd,
+      );
+      callbacks.emit('tool_start', refused);
+    }
     const finished = applyToolEnd(streamingState, event, cwd);
     commitActiveTools(streamingState.activeTools);
     if (finished) callbacks.emit('tool_end', finished);

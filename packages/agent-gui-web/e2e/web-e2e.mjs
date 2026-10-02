@@ -9,6 +9,7 @@
  * (`pnpm exec playwright install chromium` once, or `PLAYWRIGHT_CHANNEL=chrome` for an installed Chrome).
  */
 
+import { loadProductConfig } from '@robota-sdk/product-config/node';
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
@@ -22,6 +23,7 @@ import { preview } from 'vite';
 /** One line of output (scripts write to the streams directly). */
 const line = (text) => `${text}\n`;
 
+const product = loadProductConfig({ environment: { ...process.env } });
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 function freePort() {
@@ -52,7 +54,13 @@ const sidecar = spawn(process.execPath, [join(packageRoot, 'e2e', 'scripted-side
   // #3282 §3: starts as a served runtime with no provider configured would — the first scenario below
   // exercises the setup panel and clears it via /provider add, then every later scenario runs exactly
   // as it did before setup mode existed.
-  env: { ...process.env, ROBOTA_WS_TOKEN: token, ROBOTA_WS_PORT: String(port), ROBOTA_E2E_SETUP_REQUIRED: '1' },
+  env: {
+    ...process.env,
+    PRODUCT_CLI_NAME: product.identity.cliName,
+    PRODUCT_WS_TOKEN: token,
+    PRODUCT_WS_PORT: String(port),
+    PRODUCT_E2E_SETUP_REQUIRED: '1',
+  },
   stdio: ['ignore', 'ignore', 'pipe'],
 });
 await new Promise((resolve) => sidecar.stderr.once('data', resolve));
@@ -184,7 +192,7 @@ try {
 
   await scenario('#3282 §4e: typing /theme by hand shows its plain sentence, never "not available"', async () => {
     await send('/theme');
-    await page.getByText('Robota follows your system appearance.').waitFor();
+    await page.getByText('This app follows your system appearance.').waitFor();
     if ((await page.getByText(/not available on this surface/).count()) !== 0) {
       throw new Error('/theme still printed the "not available" line');
     }
@@ -383,7 +391,7 @@ try {
     await page.getByRole('button', { name: 'Settings' }).click();
     await page.getByRole('dialog', { name: 'Settings' }).waitFor();
     await page.getByRole('button', { name: 'Plugins' }).click();
-    await page.getByText('formatter@robota').waitFor();
+    await page.getByText('formatter@example').waitFor();
     await page.getByText('Formats code on save.').waitFor();
 
     await page.getByRole('button', { name: 'Close Settings' }).click();
@@ -396,7 +404,7 @@ try {
     if ((await page.getByText(/plugin manager is not available/).count()) !== 0) {
       throw new Error('/plugin still printed the unavailable line');
     }
-    await page.getByText('formatter@robota').waitFor();
+    await page.getByText('formatter@example').waitFor();
 
     await page.getByRole('button', { name: 'Close Settings' }).click();
     await page.getByRole('dialog', { name: 'Settings' }).waitFor({ state: 'detached' });
@@ -693,7 +701,7 @@ try {
     // The scripted sidecar's workspace cwd defaults to '/scripted/workspace' (#3282 §4d); the folder
     // name shown here is its basename, 'workspace'.
     await page.getByText('workspace', { exact: true }).waitFor();
-    if ((await page.title()) !== 'workspace — Robota') {
+    if ((await page.title()) !== `workspace — ${product.identity.displayName}`) {
       throw new Error(`unexpected page title: ${await page.title()}`);
     }
   });

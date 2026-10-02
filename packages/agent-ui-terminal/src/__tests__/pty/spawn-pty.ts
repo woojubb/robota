@@ -6,7 +6,7 @@
  * in a user terminal) and exposes per-key paced input plus marker/exit waiting. Two convenience
  * spawners build on the core:
  *
- * - `spawnPty` — drive any command (e.g. the built robota CLI binary).
+ * - `spawnPty` — drive any command (e.g. the built CLI binary).
  * - `spawnPtyFixture` — drive a TSX fixture through the `tsx/esm` import hook (no build step),
  *   the pattern used for focused source-level E2E.
  *
@@ -96,8 +96,8 @@ export function spawnPty(options: IPtyRunOptions): IPtyRunSession {
     rows: options.rows ?? 32,
     cwd: options.cwd,
     // HARNESS-025: the default HOME is a throwaway directory, never the developer's real one — a
-    // PTY child that reads `~/.robota` (or any user rc) must not make the suite machine-dependent.
-    env: options.env ?? createPtyEnv(),
+    // Configured state and HOME are both isolated so the run cannot depend on the developer profile.
+    env: createPtyEnv(options.env ?? {}),
   });
 
   pty.onData((data) => {

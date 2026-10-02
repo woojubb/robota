@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -25,13 +26,13 @@ describe('prompt-history enablement (SCREEN-1993 TC-06)', () => {
     expect(resolvePromptHistoryEnablement({ settings: undefined, env: {} })).toBe(true);
     expect(resolvePromptHistoryEnablement({ settings: false, env: {} })).toBe(false);
     expect(
-      resolvePromptHistoryEnablement({ settings: true, env: { ROBOTA_PROMPT_HISTORY: '0' } }),
+      resolvePromptHistoryEnablement({ settings: true, env: { PRODUCT_PROMPT_HISTORY: '0' } }),
     ).toBe(false);
     expect(
-      resolvePromptHistoryEnablement({ settings: false, env: { ROBOTA_PROMPT_HISTORY: '1' } }),
+      resolvePromptHistoryEnablement({ settings: false, env: { PRODUCT_PROMPT_HISTORY: '1' } }),
     ).toBe(true);
     expect(
-      resolvePromptHistoryEnablement({ settings: false, env: { ROBOTA_PROMPT_HISTORY: 'yes' } }),
+      resolvePromptHistoryEnablement({ settings: false, env: { PRODUCT_PROMPT_HISTORY: 'yes' } }),
     ).toBe(false);
     expect(readPromptHistorySetting({ promptHistory: false })).toBe(false);
     expect(readPromptHistorySetting({ promptHistory: 'off' })).toBeUndefined();
@@ -58,14 +59,14 @@ describe('prompt-history enablement (SCREEN-1993 TC-06)', () => {
     expect(resolvePromptHistoryProject(restricted('stale/replaced', true), '/elsewhere')).toBe(
       '/repo/root',
     );
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-prompt-history-cwd-')));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-prompt-history-cwd-')));
     roots.push(cwd);
     expect(resolvePromptHistoryProject(restricted('identity-unavailable', false), cwd)).toBe(cwd);
   });
 
   it('yields no writer and no source when disabled, and one file serving both when enabled', () => {
-    expect(createPromptHistorySurface({ enabled: false, project: '/p' })).toEqual({});
-    const surface = createPromptHistorySurface({ enabled: true, project: '/p' });
+    expect(createPromptHistorySurface({productRuntime: createTestProductRuntime(),  enabled: false, project: '/p' })).toEqual({});
+    const surface = createPromptHistorySurface({productRuntime: createTestProductRuntime(),  enabled: true, project: '/p' });
     expect(surface.promptHistory?.project).toBe('/p');
     expect(surface.promptHistoryProject).toBe('/p');
     expect(surface.promptHistorySource).toBe(surface.promptHistory?.writer);
@@ -83,7 +84,7 @@ describe('prompt-history composition (SCREEN-1993 TC-07)', () => {
   };
 
   it('hands the TUI the writer, the source and the project key in one resolved surface', () => {
-    const fields = resolvePromptHistoryRenderFields({
+    const fields = resolvePromptHistoryRenderFields({productRuntime: createTestProductRuntime(),
       settings: undefined,
       env: {},
       access: trusted,
@@ -96,9 +97,9 @@ describe('prompt-history composition (SCREEN-1993 TC-07)', () => {
 
   it('hands the TUI nothing when the kill switch is set', () => {
     expect(
-      resolvePromptHistoryRenderFields({
+      resolvePromptHistoryRenderFields({productRuntime: createTestProductRuntime(),
         settings: { promptHistory: true },
-        env: { ROBOTA_PROMPT_HISTORY: '0' },
+        env: { PRODUCT_PROMPT_HISTORY: '0' },
         access: trusted,
         cwd: '/elsewhere',
       }),
@@ -106,7 +107,7 @@ describe('prompt-history composition (SCREEN-1993 TC-07)', () => {
   });
 
   it('the serve projection carries no writer: prompt intake is TUI state', () => {
-    const options = buildServeSessionOptions({
+    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: {
         permissionMode: undefined,

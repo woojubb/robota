@@ -1,3 +1,4 @@
+import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
 /**
  * OS-level confinement of shell commands over the host filesystem (issue #3082): bubblewrap on
  * Linux and WSL2, Seatbelt (`sandbox-exec`) on macOS. Other platforms have no backend; the client
@@ -131,6 +132,9 @@ export function detectOsSandbox(options: IDetectOsSandboxOptions = {}): IOsSandb
 }
 
 export interface IOsSandboxClientOptions {
+  readonly pathProtection?: IPathProtectionPolicy;
+  readonly projectStateDirectory: string;
+  readonly userQuarantineDirectory: string;
   /** The workspace root. */
   readonly root: string;
   readonly availability: IOsSandboxAvailability;
@@ -190,6 +194,9 @@ function firstProgram(shellCommand: string): string | undefined {
 export class OsSandboxClient implements ISandboxClient {
   readonly filesystem = 'shared' as const;
   private readonly root: string;
+  private readonly pathProtection: IPathProtectionPolicy;
+  private readonly projectStateDirectory: string;
+  private readonly userQuarantineDirectory: string;
   private readonly availability: IOsSandboxAvailability;
   private readonly homeDirectory: string;
   private current: IOsSandboxSettings;
@@ -200,6 +207,17 @@ export class OsSandboxClient implements ISandboxClient {
   private readonly watchers = new Set<(settings: IOsSandboxSettings) => void>();
 
   constructor(options: IOsSandboxClientOptions) {
+    if (!/^[a-zA-Z0-9._-]+$/.test(options.projectStateDirectory) || ['.', '..'].includes(options.projectStateDirectory)) {
+      throw new Error('A safe project state directory is required');
+    }
+    if (!isAbsolute(options.userQuarantineDirectory)) throw new Error('An absolute quarantine directory is required');
+    this.projectStateDirectory = options.projectStateDirectory;
+    this.userQuarantineDirectory = options.userQuarantineDirectory;
+    this.pathProtection = Object.freeze({
+      protectedDirectoryNames: Object.freeze([...new Set([options.projectStateDirectory, ...(options.pathProtection?.protectedDirectoryNames ?? [])])]),
+      protectedPaths: Object.freeze([...(options.pathProtection?.protectedPaths ?? [])]),
+      writableWorktreeContainers: Object.freeze([...(options.pathProtection?.writableWorktreeContainers ?? [])]),
+    });
     this.root = realPathOrSelf(options.root);
     this.availability = options.availability;
     this.homeDirectory = options.homeDirectory ?? homedir();
@@ -263,14 +281,14 @@ export class OsSandboxClient implements ISandboxClient {
       };
     }
     const filter = policy.network ? undefined : unixSocketSeccompFilter();
-    // `.robota` is robota's own state directory: made before the command, so it is mounted
+    // The configured directory contains host state: made before the command, so it is mounted
     // read-only and nothing the host writes there is caught up in `restoreProtectedEntries`.
     if (
       !this.protectedEntryStates().some(
-        (state) => state.path.endsWith('/.robota') && state.kind === 'symlink',
+        (state) => state.path === `${this.root}/${this.projectStateDirectory}` && state.kind === 'symlink',
       )
     ) {
-      mkdirSync(`${this.root}/.robota`, { recursive: true });
+      mkdirSync(`${this.root}/${this.projectStateDirectory}`, { recursive: true });
     }
     // One baseline for every confined command in flight: taken when the first starts, restored
     // against when the last ends. A per-command baseline taken while another command runs would
@@ -318,7 +336,7 @@ export class OsSandboxClient implements ISandboxClient {
    * while the link itself stays replaceable. Read with `lstat`, so a dangling link is not "missing".
    */
   private protectedEntryStates(): IProtectedEntryState[] {
-    return protectedWorkspaceEntries().map((entry) => {
+    return protectedWorkspaceEntries(this.pathProtection).map((entry) => {
       const path = `${this.root}/${entry}`;
       try {
         const stat = lstatSync(path);
@@ -333,7 +351,7 @@ export class OsSandboxClient implements ISandboxClient {
 
   /**
    * Undo what the command did to protected entries it could reach: one it created where none
-   * existed is moved into `.robota/sandbox-quarantine`, and a symlink it replaced is restored. Moved,
+   * existed is moved into the selected quarantine directory, and a symlink it replaced is restored. Moved,
    * not deleted, so nothing the host wrote meanwhile is lost.
    */
   /** Whether a path's real location is under the read-only mounts: not the workspace, temp or `allowWrite`. */
@@ -353,7 +371,7 @@ export class OsSandboxClient implements ISandboxClient {
   /**
    * Never throws: this runs as the command's process closes, and an exception there would take the
    * host down and leave the entry in place. The quarantine is outside the workspace, under the
-   * user's `~/.robota`, where the command cannot reach it; what cannot be moved there is removed.
+   * configured user state directory, where the command cannot reach it; what cannot be moved there is removed.
    */
   private restoreProtectedEntries(before: readonly IProtectedEntryState[]): string | undefined {
     const quarantine = `${this.quarantineRoot(before)}/${Date.now()}-${randomUUID()}`;
@@ -392,17 +410,17 @@ export class OsSandboxClient implements ISandboxClient {
   }
 
   /**
-   * Where set-aside entries go: the workspace's own `.robota`, when it was a real directory before
+   * Where set-aside entries go: the configured workspace state directory, when it was a real directory before
    * the command — then it was mounted read-only, so the command could not reach it, and a rename
-   * within one filesystem needs no permission inside the entry. Otherwise the user's `~/.robota`.
+   * within one filesystem needs no permission inside the entry. Otherwise the configured user quarantine directory.
    * Decided from the baseline: what is there now may be the command's own replacement.
    */
   private quarantineRoot(before: readonly IProtectedEntryState[]): string {
-    const robota = `${this.root}/.robota`;
-    const wasDirectory = before.some((state) => state.path === robota && state.kind === 'present');
+    const stateRoot = `${this.root}/${this.projectStateDirectory}`;
+    const wasDirectory = before.some((state) => state.path === stateRoot && state.kind === 'present');
     return wasDirectory
-      ? `${robota}/sandbox-quarantine`
-      : `${this.homeDirectory}/.robota/sandbox-quarantine`;
+      ? `${stateRoot}/sandbox-quarantine`
+      : this.userQuarantineDirectory;
   }
 
   private setAside(path: string, quarantine: string): string {
@@ -437,6 +455,7 @@ export class OsSandboxClient implements ISandboxClient {
     const temp = [...new Set([tmpdir(), '/tmp'].filter(existsSync).map(realPathOrSelf))];
     return {
       root: this.root,
+      pathProtection: this.pathProtection,
       tempDirectories: temp,
       allowWrite: this.current.allowWrite.map(absolute),
       denyRead: this.current.denyRead.map((path) => {

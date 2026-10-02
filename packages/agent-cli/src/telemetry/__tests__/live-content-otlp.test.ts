@@ -71,19 +71,19 @@ describe('live content OTLP projection', () => {
     ]), new Date(ENDED_AT), resource, policy, (text, max, pre) => ({ text: `R(${text})`, truncated: pre && max > 0 }));
     expect(chunks).toHaveLength(1);
     const records = chunks[0]!;
-    expect(records.map((record) => record.eventName)).toEqual(['robota.content.captured', 'robota.content.captured']);
+    expect(records.map((record) => record.eventName)).toEqual(['agent.content.captured', 'agent.content.captured']);
     expect(records[0]!.spanContext).toMatchObject({ traceId: TRACE_ID, spanId: SPAN_ID });
     expect(records[0]!.body).toBe('R(key sekret-value-1234 in /nonexistent/repo/a.ts)');
     expect(records[0]!.attributes).toEqual({
-      'robota.content.kind': 'user-prompt',
-      'robota.content.truncated': false,
-      'robota.content.original_bytes': 47,
+      'agent.content.kind': 'user-prompt',
+      'agent.content.truncated': false,
+      'agent.content.original_bytes': 47,
     });
     expect(records[1]!.attributes).toEqual({
-      'robota.content.kind': 'assistant-response',
-      'robota.content.truncated': false,
-      'robota.content.original_bytes': 4,
-      'robota.content.partial': true,
+      'agent.content.kind': 'assistant-response',
+      'agent.content.truncated': false,
+      'agent.content.original_bytes': 4,
+      'agent.content.partial': true,
     });
   });
 
@@ -99,25 +99,25 @@ describe('live content OTLP projection', () => {
     const records = chunks[0]!;
     expect(records[0]!.spanContext).toMatchObject({ traceId: TRACE_ID, spanId: 'aaaaaaaaaaaaaaaa' });
     expect(records[0]!.attributes).toEqual({
-      'robota.content.kind': 'tool-arguments',
-      'robota.content.truncated': false,
-      'robota.content.original_bytes': 16,
-      'robota.tool.call_id': 'call_1',
-      'robota.tool.name': 'Bash',
-      'robota.tool.outcome': 'success',
+      'agent.content.kind': 'tool-arguments',
+      'agent.content.truncated': false,
+      'agent.content.original_bytes': 16,
+      'agent.tool.call_id': 'call_1',
+      'agent.tool.name': 'Bash',
+      'agent.tool.outcome': 'success',
     });
-    expect(records[1]!.attributes).toMatchObject({ 'robota.content.kind': 'tool-output', 'robota.tool.call_id': 'call_1' });
+    expect(records[1]!.attributes).toMatchObject({ 'agent.content.kind': 'tool-output', 'agent.tool.call_id': 'call_1' });
     // An unsafe call ID is left out, an unsafe name becomes `unknown`, a bad span falls back to the root.
     expect(records[2]!.spanContext).toMatchObject({ spanId: SPAN_ID });
     expect(records[2]!.attributes).toEqual({
-      'robota.content.kind': 'tool-arguments',
-      'robota.content.truncated': false,
-      'robota.content.original_bytes': 2,
-      'robota.tool.name': 'unknown',
-      'robota.tool.outcome': 'denied',
+      'agent.content.kind': 'tool-arguments',
+      'agent.content.truncated': false,
+      'agent.content.original_bytes': 2,
+      'agent.tool.name': 'unknown',
+      'agent.tool.outcome': 'denied',
     });
     expect(records[3]!.spanContext).toMatchObject({ spanId: SPAN_ID });
-    expect(records[3]!.attributes).toMatchObject({ 'robota.tool.name': 'unknown', 'robota.tool.outcome': 'failure' });
+    expect(records[3]!.attributes).toMatchObject({ 'agent.tool.name': 'unknown', 'agent.tool.outcome': 'failure' });
   });
 
   it('splits one batch into requests of at most 64 items and the post-redaction budget, in order', () => {
@@ -146,16 +146,16 @@ describe('live content OTLP projection', () => {
     ];
     const chunks = projectLiveContentLogs({ ...contentBatch(items), omitted: { 'tool-arguments': 3, 'tool-output': 1 } },
       new Date(ENDED_AT), resource, policy, identity);
-    const captured = chunks.flat().filter((record) => record.eventName === 'robota.content.captured');
+    const captured = chunks.flat().filter((record) => record.eventName === 'agent.content.captured');
     expect(captured).toHaveLength(130);
-    expect(chunks.slice(0, -1).flat().some((record) => record.eventName === 'robota.content.omitted')).toBe(false);
+    expect(chunks.slice(0, -1).flat().some((record) => record.eventName === 'agent.content.omitted')).toBe(false);
     const omitted = chunks.at(-1)!.at(-1)!;
-    expect(omitted.eventName).toBe('robota.content.omitted');
+    expect(omitted.eventName).toBe('agent.content.omitted');
     expect(omitted.body).toBeUndefined();
     expect(omitted.attributes).toEqual({
-      'robota.telemetry.omitted_content_items': 16,
-      'robota.telemetry.omitted_content_items.tool_arguments': 9,
-      'robota.telemetry.omitted_content_items.tool_output': 7,
+      'agent.telemetry.omitted_content_items': 16,
+      'agent.telemetry.omitted_content_items.tool_arguments': 9,
+      'agent.telemetry.omitted_content_items.tool_output': 7,
     });
   });
 
@@ -164,7 +164,7 @@ describe('live content OTLP projection', () => {
       { ...contentBatch(Array.from({ length: 64 }, (_, index) => item(`i${index}`))), omitted: { 'tool-output': 1 } },
       new Date(ENDED_AT), resource, policy, identity);
     expect(chunks.map((chunk) => chunk.length)).toEqual([64, 1]);
-    expect(chunks[1]![0]!.eventName).toBe('robota.content.omitted');
+    expect(chunks[1]![0]!.eventName).toBe('agent.content.omitted');
     for (const chunk of chunks) expect(chunk.length).toBeLessThanOrEqual(64);
   });
 
@@ -175,12 +175,12 @@ describe('live content OTLP projection', () => {
         return { text, truncated: false };
       });
     expect(chunks.flat().map((record) => [record.eventName, record.body])).toEqual([
-      ['robota.content.captured', 'fine'],
-      ['robota.content.omitted', undefined],
+      ['agent.content.captured', 'fine'],
+      ['agent.content.omitted', undefined],
     ]);
     expect(chunks.flat().at(-1)!.attributes).toEqual({
-      'robota.telemetry.omitted_content_items': 1,
-      'robota.telemetry.omitted_content_items.user_prompt': 1,
+      'agent.telemetry.omitted_content_items': 1,
+      'agent.telemetry.omitted_content_items.user_prompt': 1,
     });
   });
 
@@ -189,14 +189,14 @@ describe('live content OTLP projection', () => {
       new Date(ENDED_AT), resource, policy, undefined);
     expect(chunks).toHaveLength(1);
     expect(chunks[0]!).toHaveLength(1);
-    expect(chunks[0]![0]!.eventName).toBe('robota.content.omitted');
+    expect(chunks[0]![0]!.eventName).toBe('agent.content.omitted');
     expect(JSON.stringify(chunks)).not.toContain('secret text');
   });
 
   it('exports an omission record alone when the framework omitted everything', () => {
     const chunks = projectLiveContentLogs({ ...contentBatch([]), omitted: { 'tool-output': 2 } },
       new Date(ENDED_AT), resource, policy, identity);
-    expect(chunks.flat().map((record) => record.eventName)).toEqual(['robota.content.omitted']);
+    expect(chunks.flat().map((record) => record.eventName)).toEqual(['agent.content.omitted']);
   });
 });
 
@@ -224,7 +224,7 @@ describe('live content OTLP delivery', () => {
     });
     expect(bodies).toHaveLength(3);
     expect(bodies[0]).toContain('has [redacted]');
-    expect(bodies[1]).toContain('robota.content.omitted');
+    expect(bodies[1]).toContain('agent.content.omitted');
     expect(bodies[1]).not.toContain('dropped');
     expect(bodies[2]).toContain('has [redacted]');
     expect(bodies.join('')).not.toMatch(/secret-number/u);
@@ -234,8 +234,8 @@ describe('live content OTLP delivery', () => {
   it('a failing content export never clears content-free logs', async () => {
     const paths: string[] = [];
     await withServer((request, body, response) => {
-      paths.push(body.toString('utf8').includes('robota.content.captured') ? 'content' : 'logs');
-      if (body.toString('utf8').includes('robota.content.captured')) {
+      paths.push(body.toString('utf8').includes('agent.content.captured') ? 'content' : 'logs');
+      if (body.toString('utf8').includes('agent.content.captured')) {
         response.writeHead(500);
         response.end();
         return;
@@ -263,7 +263,7 @@ describe('live content OTLP delivery', () => {
   it('a failing content-free export never clears content', async () => {
     const paths: string[] = [];
     await withServer((_request, body, response) => {
-      const isContent = body.toString('utf8').includes('robota.content.captured');
+      const isContent = body.toString('utf8').includes('agent.content.captured');
       paths.push(isContent ? 'content' : 'logs');
       if (!isContent) {
         response.writeHead(500);
@@ -315,7 +315,7 @@ describe('live content OTLP delivery', () => {
     expect(requests).toBe(2);
     expect(bodies[0]).toContain('first-0');
     expect(bodies[1]).toContain('first-64');
-    expect(bodies.join('')).not.toMatch(/first-129|second-|robota\.content\.omitted/u);
+    expect(bodies.join('')).not.toMatch(/first-129|second-|agent\.content\.omitted/u);
     expect(onFailure).toHaveBeenCalledExactlyOnceWith('content-delivery-failed');
   });
 
@@ -334,9 +334,9 @@ describe('live content OTLP delivery', () => {
 
 describe('configured content capture', () => {
   const base = {
-    ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_LOGS: 'otlp', ROBOTA_TELEMETRY_TRACES: 'console',
-    ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
-    ROBOTA_TELEMETRY_LOG_USER_PROMPTS: '1',
+    PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_LOGS: 'otlp', PRODUCT_TELEMETRY_TRACES: 'console',
+    PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+    PRODUCT_TELEMETRY_LOG_USER_PROMPTS: '1',
   };
 
   it('sends content in its own POST to the logs destination with its headers, masking header values, never to the console', async () => {
@@ -348,8 +348,8 @@ describe('configured content capture', () => {
     }, async (url) => {
       const port = createConfiguredNodeOtlpLiveTelemetryPort({
         ...base,
-        ROBOTA_TELEMETRY_OTLP_ENDPOINT: url,
-        ROBOTA_TELEMETRY_OTLP_HEADERS: 'authorization=Bearer%20collector-token-xyz',
+        PRODUCT_TELEMETRY_OTLP_ENDPOINT: url,
+        PRODUCT_TELEMETRY_OTLP_HEADERS: 'authorization=Bearer%20collector-token-xyz',
       }, undefined, (line) => void consoleLines.push(line), undefined, undefined, redaction);
       expect(port?.content?.policy).toEqual({
         userPrompts: true, assistantResponses: false, toolArguments: false, toolOutput: false, maxBytes: 2048,
@@ -358,8 +358,8 @@ describe('configured content capture', () => {
       port!.content!.enqueue(contentBatch([item('token collector-token-xyz and sekret-value-1234')]));
       await port!.shutdown();
     });
-    const content = requests.filter((request) => request.body.includes('robota.content.captured'));
-    const logs = requests.filter((request) => request.body.includes('robota.prompt_execution.completed'));
+    const content = requests.filter((request) => request.body.includes('agent.content.captured'));
+    const logs = requests.filter((request) => request.body.includes('agent.prompt_execution.completed'));
     expect(content).toHaveLength(1);
     expect(logs).toHaveLength(1);
     expect(content[0]!.path).toBe('/v1/logs');

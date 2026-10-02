@@ -28,15 +28,15 @@
 
 ### Minor Changes
 
-- e8d70ac: A first run finds a provider, instead of a dead end. `robota --serve` (and the daemon it starts) no
+- e8d70ac: A first run finds a provider, instead of a dead end. `__PRODUCT_CLI_NAME__ --serve` (and the daemon it starts) no
   longer refuses when no provider is configured: it starts in setup mode, and the GUI's conversation area
   shows a "Connect a model provider to start" panel with a "Set up provider" button in place of the
   composer. Answering it configures and swaps in the first provider live, with no restart. A startup
-  failure now says why — `robota daemon start --json` and the desktop app's fatal screen report the
+  failure now says why — `__PRODUCT_CLI_NAME__ daemon start --json` and the desktop app's fatal screen report the
   child's own reason instead of a generic "readiness channel closed", and the fatal screen gets a Try
   again button. `trust status --json` and the desktop trust dialog list only sources whose state trust
   would actually change, instead of naming one this platform could not determine; the dialog shows one
-  sentence and a collapsed Details section. `robota --serve --open` in an untrusted folder now asks at
+  sentence and a collapsed Details section. `__PRODUCT_CLI_NAME__ --serve --open` in an untrusted folder now asks at
   the terminal (trust it, start Restricted, or quit) when someone is there to ask, instead of refusing
   outright.
 
@@ -77,12 +77,12 @@
     - Session notices keep only `session-error` and `protocol-error`.
     - The state gains `commandCatalog` and `sessionStatus`.
   - `agent-command` registers `/theme` and `/keybindings` even without a terminal. They then answer
-    that they belong to the robota terminal, instead of being unknown.
+    that they belong to the __PRODUCT_DISPLAY_NAME__ terminal, instead of being unknown.
   - `agent-framework`:
     - `InteractiveSession.getStatusSnapshot()`.
     - The main-thread row previews the last chat message instead of the last record's type.
   - `agent-cli` serves the full GUI web app, renamed from `agent-cli-web` to `agent-gui-web`, on
-    `robota --serve --open`.
+    `__PRODUCT_CLI_NAME__ --serve --open`.
 
 - 6ae3f28: A served runtime can list its workspace's sessions, start a new one and switch to another without the
   process or any client connection restarting. The GUI shows them in a sessions sidebar.
@@ -108,7 +108,7 @@
     - `IWsSessionState` gains session listing state and actions.
     - It adds a `SessionSidebar`.
     - `/resume` opens the sidebar.
-  - `agent-cli`: `robota --serve` provides the session directory, and refuses a switch that would lose
+  - `agent-cli`: `__PRODUCT_CLI_NAME__ --serve` provides the session directory, and refuses a switch that would lose
     work in progress. External-event grants belong to the run: a switch reopens them on the new session,
     as the TUI already does.
   - External-event grant history (spent tokens, rate windows, revocations) belongs to the run. The new
@@ -129,8 +129,8 @@
   - `agent-interface-command` (minor): `ICommandListEntry` gains optional `argumentHint` and
     `subcommands` (`ICommandSubcommandEntry`).
   - `agent-cli` (minor):
-    - `robota session attach` and an attach from `robota session view` open the full terminal UI,
-      the one `robota --attach` opens, in drive mode or, with `--observe`, read-only. The reduced
+    - `__PRODUCT_CLI_NAME__ session attach` and an attach from `__PRODUCT_CLI_NAME__ session view` open the full terminal UI,
+      the one `__PRODUCT_CLI_NAME__ --attach` opens, in drive mode or, with `--observe`, read-only. The reduced
       attached view is gone.
     - A served runtime names each of its sessions after the session's first real turn.
   - `agent-framework` (minor):
@@ -199,7 +199,7 @@
     `code`, instead of `protocol_error`; both requests take an optional `requestId` that it echoes.
   - `agent-transport-ws`: the `sessionBinder` option binds each connection to its own session and
     releases the binding when the connection closes.
-  - `agent-cli`: `robota --serve` and the daemon keep up to four sessions live. Each WebSocket client and
+  - `agent-cli`: `__PRODUCT_CLI_NAME__ --serve` and the daemon keep up to four sessions live. Each WebSocket client and
     attached terminal is bound to its own session; leaving a busy session is no longer refused, and only
     the last driver of a session with a pending prompt is kept from leaving it. Grants and the supervised
     name stay on the runtime's first session, and its reported activity covers every live session.

@@ -1,6 +1,6 @@
 # agent-subagent-runner — Documentation
 
-`@robota-sdk/agent-subagent-runner` is the optional child-process runner for Robota subagents. It
+`@robota-sdk/agent-subagent-runner` is the optional child-process runner for agent runtime subagents. It
 implements `agent-executor`'s `ISubagentRunner` by starting a copy of the running program in worker
 mode, sending the job over a validated IPC protocol, and returning a lifecycle handle to the parent
 session; worktree isolation wraps each job when enabled.

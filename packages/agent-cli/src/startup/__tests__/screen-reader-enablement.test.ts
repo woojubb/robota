@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * CLI-2004 TC-01 — the screen-reader enablement resolver and its flag pair.
  *
@@ -30,7 +31,7 @@ describe('resolveScreenReaderEnablement — CLI-2004 TC-01', () => {
     });
   });
 
-  it('ROBOTA_SCREEN_READER=1 alone enables the mode via the env channel', () => {
+  it('PRODUCT_SCREEN_READER=1 alone enables the mode via the env channel', () => {
     expect(resolveScreenReaderEnablement({ env: '1' })).toEqual({
       enabled: true,
       channel: 'env',
@@ -51,14 +52,14 @@ describe('resolveScreenReaderEnablement — CLI-2004 TC-01', () => {
     });
   });
 
-  it('ROBOTA_SCREEN_READER=0 keeps the mode off against a true setting', () => {
+  it('PRODUCT_SCREEN_READER=0 keeps the mode off against a true setting', () => {
     expect(resolveScreenReaderEnablement({ settings: true, env: '0' })).toEqual({
       enabled: false,
       channel: undefined,
     });
   });
 
-  it('--screen-reader wins over ROBOTA_SCREEN_READER=0 AND a false setting', () => {
+  it('--screen-reader wins over PRODUCT_SCREEN_READER=0 AND a false setting', () => {
     expect(resolveScreenReaderEnablement({ settings: false, env: '0', flagEnabled: true })).toEqual(
       { enabled: true, channel: 'flag' },
     );
@@ -75,7 +76,7 @@ describe('resolveScreenReaderEnablement — CLI-2004 TC-01', () => {
     ).toEqual({ enabled: false, channel: undefined });
   });
 
-  it('an unrecognised ROBOTA_SCREEN_READER value leaves the lower tier standing', () => {
+  it('an unrecognised PRODUCT_SCREEN_READER value leaves the lower tier standing', () => {
     expect(resolveScreenReaderEnablement({ settings: true, env: 'yes' })).toEqual({
       enabled: true,
       channel: 'settings',
@@ -134,11 +135,11 @@ describe('the advisory line is withheld from an operator who said no', () => {
     });
   });
 
-  it('says nothing under ROBOTA_SCREEN_READER=0, the other explicit off', () => {
+  it('says nothing under PRODUCT_SCREEN_READER=0, the other explicit off', () => {
     expect(
       resolveScreenReaderRenderFields(undefined, undefined, {
         ...READER_ENV,
-        ROBOTA_SCREEN_READER: '0',
+        PRODUCT_SCREEN_READER: '0',
       }),
     ).toMatchObject({ screenReader: false, screenReaderHint: false });
   });
@@ -164,7 +165,7 @@ describe('--screen-reader / --no-screen-reader (§ Solution 2)', () => {
   });
 
   function parseWith(...flags: string[]): ReturnType<typeof parseCliArgs> {
-    process.argv = ['node', 'robota', ...flags];
+    process.argv = ['node', 'test-product', ...flags];
     return parseCliArgs();
   }
 
@@ -182,7 +183,7 @@ describe('--screen-reader / --no-screen-reader (§ Solution 2)', () => {
   });
 
   it('the help catalogue documents both halves of the flag pair', () => {
-    expect(printHelp()).toContain('--screen-reader');
-    expect(printHelp()).toContain('--no-screen-reader');
+    expect(printHelp(createTestProductRuntime())).toContain('--screen-reader');
+    expect(printHelp(createTestProductRuntime())).toContain('--no-screen-reader');
   });
 });

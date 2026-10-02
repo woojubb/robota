@@ -1,3 +1,5 @@
+import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
 /**
  * Subagent session factory — assembles an isolated child Session for subagent execution.
  *
@@ -68,6 +70,7 @@ export interface ISubagentParentContext {
 
 /** Options for creating a subagent session. */
 export interface ISubagentOptions {
+  readonly pathProtection?: IPathProtectionPolicy;
   /** Agent definition (built-in or custom). */
   agentDefinition: IAgentDefinition;
   /**
@@ -152,6 +155,7 @@ export interface ISubagentOptions {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    toolResultParts?: TUniversalMessagePart[];
     executionId?: string;
   }) => void;
   /** Selected command semantic roles inherited from the parent session. */
@@ -284,6 +288,7 @@ export function createSubagentSession(options: ISubagentOptions): Session {
   const provider = options.provider;
 
   childSession = new Session({
+    pathProtection: options.pathProtection,
     tools,
     provider,
     systemMessage,

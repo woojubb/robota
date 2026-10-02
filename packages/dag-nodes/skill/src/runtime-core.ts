@@ -31,7 +31,7 @@ export interface ISkillResolveResult {
 }
 
 /**
- * Resolves a Robota skill (by name) to its inject-mode prompt string through the injected
+ * Resolves a configured skill (by name) to its inject-mode prompt string through the injected
  * {@link ISkillExecutionPort}. No LLM, no provider, no shell: the port resolves with empty callbacks so shell
  * interpolations are stripped rather than executed, and fork skills are rejected here before resolution.
  */

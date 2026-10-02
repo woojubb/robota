@@ -32,6 +32,11 @@ set -uo pipefail
 
 TAG="${1:?usage: verify-macos-release-artifacts.sh <tag> <download-dir>}"
 DOWNLOAD_DIR="${2:?usage: verify-macos-release-artifacts.sh <tag> <download-dir>}"
+ARTIFACT_PREFIX="${PRODUCT_ARTIFACT_PREFIX:?Set PRODUCT_ARTIFACT_PREFIX from the selected product configuration.}"
+if [[ ! "$ARTIFACT_PREFIX" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  echo "FATAL: PRODUCT_ARTIFACT_PREFIX contains unsupported filename characters." >&2
+  exit 2
+fi
 
 BLOCKING_FAILURES=0
 BLOCKING_TOTAL=0
@@ -146,7 +151,7 @@ verify_checksum() {
 }
 
 # ---------------------------------------------------------------------------------------------
-# A flat Mach-O CLI binary (robota-darwin-*). `--deep` is not used here: it is meaningless for a
+# A flat Mach-O CLI binary. `--deep` is not used here: it is meaningless for a
 # non-bundle and deprecated by Apple.
 # ---------------------------------------------------------------------------------------------
 verify_cli_binary() {
@@ -187,7 +192,7 @@ verify_cli_binary() {
 
 # ---------------------------------------------------------------------------------------------
 # The desktop .dmg, and the .app inside it. `--deep` IS meaningful here: a bundle's nested code
-# (Electron framework, helper apps, and this app's bundled `robota` sidecar) is what notarization
+# (Electron framework, helper apps, and this app's bundled CLI sidecar) is what notarization
 # rejects a bundle over.
 # ---------------------------------------------------------------------------------------------
 verify_dmg() {
@@ -247,7 +252,7 @@ echo "download dir: $DOWNLOAD_DIR"
 echo "macOS: $(sw_vers -productVersion 2>/dev/null || echo unknown)"
 ls -la "$DOWNLOAD_DIR"
 
-for asset in robota-darwin-arm64 robota-darwin-x64; do
+for asset in "$ARTIFACT_PREFIX-darwin-arm64" "$ARTIFACT_PREFIX-darwin-x64"; do
   verify_cli_binary "$DOWNLOAD_DIR/$asset"
 done
 

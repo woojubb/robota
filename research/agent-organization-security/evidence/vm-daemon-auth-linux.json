@@ -1,0 +1,39 @@
+{
+  "kind": "actual-cli-daemon-guest-auth",
+  "daemonReused": true,
+  "records": [
+    {
+      "id": "token-missing",
+      "expected": "refused",
+      "observed": "closed-without-session-data",
+      "passed": true
+    },
+    {
+      "id": "token-wrong",
+      "expected": "refused",
+      "observed": "closed-without-session-data",
+      "passed": true
+    },
+    {
+      "id": "origin-untrusted",
+      "expected": "refused",
+      "observed": "refused",
+      "passed": true
+    },
+    {
+      "id": "host-untrusted",
+      "expected": "refused",
+      "observed": "refused",
+      "passed": true
+    },
+    {
+      "id": "token-valid",
+      "expected": "received-session-data",
+      "observed": "received-session-data",
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "Loopback authentication is verified; remote UI authentication and hosted organization policy remain separate work."
+  ]
+}

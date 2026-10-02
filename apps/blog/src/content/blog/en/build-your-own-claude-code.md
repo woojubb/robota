@@ -3,7 +3,6 @@ title: 'Build Your Own Claude Code in 50 Lines of TypeScript'
 subtitle: 'A vendor-neutral AI coding assistant you own and control'
 date: '2026-05-18'
 author: 'Jung Youn Hwang'
-authorUrl: 'https://github.com/woojubb'
 lang: 'en'
 ---
 
@@ -15,7 +14,7 @@ With Robota SDK, you can. Here's how.
 
 ```bash
 npm install -g @robota-sdk/agent-cli
-robota
+__PRODUCT_CLI_NAME__
 ```
 
 That's it. On first run, you'll be asked to choose a provider (Anthropic, OpenAI, DeepSeek, Gemini, or a local LM Studio model) and enter your API key. Then you get the same interactive coding assistant experience — file reading, editing, bash execution, multi-turn conversations — all in your terminal.
@@ -95,12 +94,12 @@ If you want to experiment without spending money, use LM Studio:
 1. Install [LM Studio](https://lmstudio.ai/)
 2. Download any model (Llama, Mistral, Phi, etc.)
 3. Start the local server in LM Studio
-4. Run `robota` — select "LM Studio" when prompted
+4. Run `__PRODUCT_CLI_NAME__` — select "LM Studio" when prompted
 
 No API key. No cost. Same experience.
 
 ## What's Next
 
-- [GitHub →](https://github.com/woojubb/robota) — star the repo, open an issue
-- [Full docs →](https://robota.io/getting-started/) — more examples
-- [Architecture →](https://robota.io/guide/architecture) — how the layers fit together
+- [GitHub →](__PROJECT_REPOSITORY_URL__) — star the repo, open an issue
+- [Full docs →](__PROJECT_WEBSITE_URL__/getting-started/) — more examples
+- [Architecture →](__PROJECT_WEBSITE_URL__/guide/architecture) — how the layers fit together

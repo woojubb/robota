@@ -1,3 +1,4 @@
+import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -44,21 +45,22 @@ describe('session view background start route', () => {
       await expect(options?.start?.(cwd)).resolves.toBe('8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4');
       expect(launchSupervisedSession).toHaveBeenCalledExactlyOnceWith(cwd, {
         env: expect.any(Object),
+        productRuntime: expect.any(Object),
       });
-      expect(await runWorkspaceTrustCommand(['revoke', '--yes'], cwd)).toBe(0);
+      expect(await runWorkspaceTrustCommand(['revoke', '--yes'], cwd, createTestProductRuntime())).toBe(0);
       await expect(options?.start?.(cwd)).rejects.toThrow(/Workspace trust is required/);
       expect(launchSupervisedSession).toHaveBeenCalledTimes(1);
       return 0;
     });
     try {
-      expect(await runWorkspaceTrustCommand(['--yes'], cwd)).toBe(0);
+      expect(await runWorkspaceTrustCommand(['--yes'], cwd, createTestProductRuntime())).toBe(0);
       expect(
         await runPreparsedCliCommand(
-          {
+          { productRuntime: createTestProductRuntime(),
             providerDefinitions: [],
             projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
           },
-          ['node', 'robota', 'session', 'view'],
+          ['node', 'test-product', 'session', 'view'],
           cwd,
           {},
           renderer,
@@ -87,13 +89,13 @@ describe('session view background start route', () => {
     vi.mocked(runSessionViewCommand).mockImplementation(async (_argv, options) => {
       // The question names the folder and what trust would load. #3282 §3: a row appears only when
       // its state is known — only Linux's pinned handle-walk can tell a not-yet-created
-      // `.robota/settings.json` apart from one it cannot describe safely, so elsewhere `loads`
+      // `.test-product/settings.json` apart from one it cannot describe safely, so elsewhere `loads`
       // reports none of the candidate paths before trust.
       await expect(options?.startTrustQuestion?.(cwd)).resolves.toMatchObject({
         folder: expect.any(String),
         loads:
           process.platform === 'linux'
-            ? expect.arrayContaining([expect.stringContaining('.robota/settings.json')])
+            ? expect.arrayContaining([expect.stringContaining('.test-product/settings.json')])
             : [],
       });
       // Without an answer an untrusted folder is still refused.
@@ -102,17 +104,19 @@ describe('session view background start route', () => {
       await options?.start?.(cwd, 'restricted');
       expect(launchSupervisedSession).toHaveBeenLastCalledWith(cwd, {
         env: expect.any(Object),
+        productRuntime: expect.any(Object),
         restricted: true,
       });
       await expect(options?.startTrustQuestion?.(cwd)).resolves.toBeDefined();
       // Trust: the grant is recorded, and the session starts Trusted.
       await options?.start?.(cwd, 'trust');
-      expect(launchSupervisedSession).toHaveBeenLastCalledWith(cwd, { env: expect.any(Object) });
+      expect(launchSupervisedSession).toHaveBeenLastCalledWith(cwd, { env: expect.any(Object), productRuntime: expect.any(Object) });
       await expect(options?.startTrustQuestion?.(cwd)).resolves.toBeUndefined();
       // A Restricted answer holds though the folder is trusted now: it never widens.
       await options?.start?.(cwd, 'restricted');
       expect(launchSupervisedSession).toHaveBeenLastCalledWith(cwd, {
         env: expect.any(Object),
+        productRuntime: expect.any(Object),
         restricted: true,
       });
       return 0;
@@ -120,11 +124,11 @@ describe('session view background start route', () => {
     try {
       expect(
         await runPreparsedCliCommand(
-          {
+          { productRuntime: createTestProductRuntime(),
             providerDefinitions: [],
             projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
           },
-          ['node', 'robota', 'session', 'view'],
+          ['node', 'test-product', 'session', 'view'],
           cwd,
           {},
           vi.fn(async () => undefined),
@@ -140,7 +144,7 @@ describe('session view background start route', () => {
     }
   });
 
-  it('attaches with the same full terminal UI as robota --attach and robota session attach', async () => {
+  it('attaches with the same full terminal UI as test-product --attach and test-product session attach', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'rs-view-route-app-'));
     // The renderer reads this user's settings, keybindings and themes: a home of the test's own.
     vi.stubEnv('HOME', cwd);
@@ -154,11 +158,11 @@ describe('session view background start route', () => {
     try {
       expect(
         await runPreparsedCliCommand(
-          {
+          { productRuntime: createTestProductRuntime(),
             providerDefinitions: [],
             projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
           },
-          ['node', 'robota', 'session', 'view'],
+          ['node', 'test-product', 'session', 'view'],
           cwd,
           {},
           vi.fn(),
@@ -215,8 +219,8 @@ describe('session view background start route', () => {
     vi.mocked(launchSupervisedSession).mockResolvedValue('8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4');
     const start = (...extra: string[]) =>
       runPreparsedCliCommand(
-        { providerDefinitions: [] },
-        ['node', 'robota', 'session', 'start', '--background', ...extra],
+        { productRuntime: createTestProductRuntime(), providerDefinitions: [] },
+        ['node', 'test-product', 'session', 'start', '--background', ...extra],
         cwd,
       );
     try {
@@ -233,6 +237,7 @@ describe('session view background start route', () => {
       expect(process.exitCode).toBeUndefined();
       expect(launchSupervisedSession).toHaveBeenCalledExactlyOnceWith(cwd, {
         env: expect.any(Object),
+        productRuntime: expect.any(Object),
         name: 'review',
         restricted: true,
       });

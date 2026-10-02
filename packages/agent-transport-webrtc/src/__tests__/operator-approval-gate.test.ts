@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import {
   deriveIdentityId,
@@ -58,7 +60,7 @@ function makeGate(over: Partial<IPairingGateOptions> = {}) {
     result: Promise.resolve({ sessionKey: 'k' }),
     onFrame: () => {},
   })) as never;
-  const gate = new PairingGate({
+  const gate = new PairingGate({cryptoContext: testIdentity,
     channel,
     session: createTestInteractiveSession(),
     secret: 's',
@@ -274,7 +276,7 @@ describe('operator approval with trusted-device enrollment', () => {
     let deviceCtrl!: ReturnType<typeof startDeviceReconnect>;
     const onAccept = vi.fn();
     const onReject = vi.fn();
-    const gate = new PairingGate({
+    const gate = new PairingGate({cryptoContext: testIdentity,
       channel: {
         send: (d: string) => deviceCtrl.onFrame(JSON.parse(d) as TReconnectFrame),
         close: () => {},
@@ -288,7 +290,7 @@ describe('operator approval with trusted-device enrollment', () => {
       onAccept,
       onReject,
     });
-    deviceCtrl = startDeviceReconnect({
+    deviceCtrl = startDeviceReconnect(testIdentity, {
       deviceId,
       hostIdentityId: cfg.hostIdentityId,
       localFingerprint: FP.remoteFingerprint,

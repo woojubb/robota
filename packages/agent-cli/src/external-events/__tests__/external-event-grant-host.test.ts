@@ -17,9 +17,9 @@ function grant(grantId: string, principal: 'subject' | 'client' = 'client'): IEx
     grantId,
     verifier: {
       issuer: 'https://issuer.example',
-      resource: `https://robota.example/events/${grantId}`,
+      resource: `https://test-product.example/events/${grantId}`,
       algorithms: ['ES256'],
-      requiredScopes: ['robota.events.submit'],
+      requiredScopes: ['test-product.events.submit'],
       ...(principal === 'client'
         ? { allowedClients: ['PRINCIPAL-VALUE'] }
         : { allowedSubjects: ['PRINCIPAL-VALUE'] }),

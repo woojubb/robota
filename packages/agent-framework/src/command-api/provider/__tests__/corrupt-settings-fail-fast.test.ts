@@ -29,8 +29,8 @@ describe('corrupt settings fail fast (CLI-069)', () => {
   let cwd: string;
 
   beforeEach(() => {
-    home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-069-home-')));
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-069-cwd-')));
+    home = realpathSync(mkdtempSync(join(tmpdir(), 'agent-069-home-')));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-069-cwd-')));
     vi.stubEnv('HOME', home);
   });
 
@@ -41,8 +41,8 @@ describe('corrupt settings fail fast (CLI-069)', () => {
   });
 
   function writeSettingsFile(dir: string, content: string): string {
-    mkdirSync(join(dir, '.robota'), { recursive: true });
-    const path = join(dir, '.robota', 'settings.json');
+    mkdirSync(join(dir, '.agent'), { recursive: true });
+    const path = join(dir, '.agent', 'settings.json');
     writeFileSync(path, content);
     return path;
   }
@@ -51,7 +51,7 @@ describe('corrupt settings fail fast (CLI-069)', () => {
     const access = await createTrustedProjectAccessFixture(cwd);
     if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
     return [
-      createNodeHostSettingsSource('user', join(home, '.robota', 'settings.json')),
+      createNodeHostSettingsSource('user', join(home, '.agent', 'settings.json')),
       createNodeHostSettingsSource('user', join(home, '.claude', 'settings.json')),
       ...createWorkspaceProjectSettingsSources(
         getWorkspaceProjectReader(access.authority),
@@ -87,7 +87,7 @@ describe('corrupt settings fail fast (CLI-069)', () => {
     try {
       readProviderSettings(settingsSources, { env: {} });
     } catch (error) {
-      expect((error as SettingsParseError).filePath).toBe('.robota/settings.json');
+      expect((error as SettingsParseError).filePath).toBe('.agent/settings.json');
     }
   });
 
@@ -121,7 +121,7 @@ describe('corrupt settings fail fast (CLI-069)', () => {
     }
     expect(thrown).toBeInstanceOf(SettingsParseError);
     expect((thrown as SettingsParseError).message).toContain('Fix or delete the file');
-    expect((thrown as SettingsParseError).message).not.toContain('robota doctor');
+    expect((thrown as SettingsParseError).message).not.toContain('agent doctor');
     expect(stderrSpy).not.toHaveBeenCalled();
     stderrSpy.mockRestore();
 

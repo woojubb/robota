@@ -1,5 +1,5 @@
 /**
- * Issue #3282 §3 — first run in the GUI. When `robota --serve` (or a daemon-launched child, which is
+ * Issue #3282 §3 — first run in the GUI. When `the product --serve` (or a daemon-launched child, which is
  * the same serve path) finds no usable provider configuration, it no longer exits: it starts in setup
  * mode with this placeholder standing in for `IAIProvider`, so the runtime session, transport and GUI
  * all come up normally. The placeholder never reaches a model — every call path throws a plain `Error`

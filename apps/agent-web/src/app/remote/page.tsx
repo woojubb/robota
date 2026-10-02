@@ -1,30 +1,9 @@
-'use client';
-
-import dynamic from 'next/dynamic';
-
 import type { ReactElement } from 'react';
+import { RemoteSurface } from './RemoteSurface';
+import { loadWebProductConfig } from '../../lib/product-config';
 
-/**
- * GUI-007 — the hosted Stage-D browser remote client (REMOTE-009), relocated here from the retired standalone
- * web-monitor SPA. Connection inputs come from THIS page's URL — the relay from `?relay=`, the
- * rendezvous + secret from the `#` fragment (the secret never leaves the browser). ssr:false because it reads
- * `window.location` + opens a WebRTC peer.
- */
-const RemoteClient = dynamic(
-  () =>
-    import('@robota-sdk/agent-transport-webrtc-web/client').then((m) => ({
-      default: m.RemoteClient,
-    })),
-  {
-    ssr: false,
-    loading: () => <main className="p-6 text-sm text-gray-500">Loading remote client…</main>,
-  },
-);
-
+/** Resolve on the server; only the allowlisted public projection enters the client boundary. */
 export default function RemotePage(): ReactElement {
-  return (
-    <div className="h-screen w-screen overflow-hidden">
-      <RemoteClient />
-    </div>
-  );
+  const product = loadWebProductConfig({ ...process.env });
+  return <RemoteSurface product={product} />;
 }

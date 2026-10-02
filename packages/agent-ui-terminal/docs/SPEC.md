@@ -42,8 +42,8 @@ it owns the real interactive session and subscribes to the session's full event 
 because the generic channel's narrower event stream cannot carry the full state a terminal UI
 needs. The generic channel port remains for other in-process consumers.
 
-Render options and channel-construction options both carry the composition root's project-access
-decision, session-loop toggle, and organization policy through unchanged to the session — the
+Render options and channel-construction options preserve the composition root's authority and
+current scheduling intent through to the session without making their own admission decisions — the
 terminal never decides on its own whether a persisted loop may re-arm, whether project discovery
 is enabled from a bare `cwd`, or which commands an org policy blocks. Session-capability
 projections declare every field's forwarding, rename, or presentation-only disposition explicitly;

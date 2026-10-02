@@ -21,14 +21,14 @@ const RUN_OPTION_CONSUMERS: Record<keyof Required<IRunOptions>, string> = {
   toolChoice: 'execution-round-provider.ts chatOptions (CORE-017)',
   withholdHostedTools:
     'execution-round-streaming.ts round overrides → chatOptions.nativeWebTools false (peer turns)',
-  sessionId: 'robota-execution.ts buildRunContext → IExecutionContext / plugin payload',
-  userId: 'robota-execution.ts buildRunContext → IExecutionContext / plugin payload',
+  sessionId: 'agent-execution.ts buildRunContext → IExecutionContext / plugin payload',
+  userId: 'agent-execution.ts buildRunContext → IExecutionContext / plugin payload',
   driverId:
-    'robota-execution.ts buildRunContext → IExecutionContext → execution-service.ts addUserMessage metadata (PEER-007)',
+    'agent-execution.ts buildRunContext → IExecutionContext → execution-service.ts addUserMessage metadata (PEER-007)',
   turnSource:
-    'robota-execution.ts buildRunContext → IExecutionContext → execution-service.ts addUserMessage metadata',
-  metadata: 'robota-execution.ts buildRunContext → IExecutionContext',
-  signal: 'robota.ts run queue + execution-round-provider.ts provider call',
+    'agent-execution.ts buildRunContext → IExecutionContext → execution-service.ts addUserMessage metadata',
+  metadata: 'agent-execution.ts buildRunContext → IExecutionContext',
+  signal: 'agent.ts run queue + execution-round-provider.ts provider call',
   awaitProviderSettlement: 'execution-provider-call.ts provider completion join',
   onTextDelta: 'execution-round-streaming.ts text delta dispatch; the streaming entry sinks it',
   onExecutionEvent: 'execution-round-streaming.ts replay event dispatch',
@@ -40,8 +40,8 @@ const RUN_OPTION_CONSUMERS: Record<keyof Required<IRunOptions>, string> = {
     'execution-round.ts derived providerMessages — transient system block, not persisted (SELFHOST-008 P3)',
   traceContext:
     'execution-trace-context.ts resolveProviderCallTraceContext at the round and forced-summary invocation',
-  output: 'robota-execution-structured.ts robotaRunStructured (CORE-015)',
-  outputRetries: 'robota-execution-structured.ts structured-output retry budget (CORE-015)',
+  output: 'agent-execution-structured.ts agentRunStructured (CORE-015)',
+  outputRetries: 'agent-execution-structured.ts structured-output retry budget (CORE-015)',
 };
 
 describe('IRunOptions threading audit (CORE-017)', () => {

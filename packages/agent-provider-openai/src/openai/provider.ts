@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
 import { createModelEffortOutcome } from '@robota-sdk/agent-core';
 import { PERMISSIVE_TOOL_SCHEMA_PROFILE, STRICT_TOOL_SCHEMA_PROFILE } from '@robota-sdk/agent-core';
@@ -27,9 +28,9 @@ import type {
 } from '@robota-sdk/agent-core';
 
 /**
- * OpenAI provider implementation for Robota
+ * OpenAI provider implementation for ConversationAgent
  *
- * Provides integration with OpenAI models through the Robota provider contract.
+ * Provides integration with OpenAI models through the ConversationAgent provider contract.
  * Uses OpenAI SDK native types internally for optimal performance and feature support.
  *
  * @public
@@ -226,8 +227,12 @@ export class OpenAIProvider extends AbstractAIProvider {
   }
 
   private traceRequestHeaders(options: IChatOptions | undefined): Readonly<Record<string, string>> {
-    if (!this.canPropagateTraceContext()) return {};
-    return traceHeadersFor(this.effectiveBaseUrl(), options?.outboundTraceContext);
+    return {
+      ...(this.canPropagateTraceContext()
+        ? traceHeadersFor(this.effectiveBaseUrl(), options?.outboundTraceContext)
+        : {}),
+      ...(this.options.durableOperations === true ? { 'Idempotency-Key': randomUUID() } : {}),
+    };
   }
 
   override effortTable(): IProviderModelEffortTable | undefined {
@@ -376,7 +381,7 @@ function getOpenAIUnsupportedNativeWebReason(
   if (apiSurface === 'chat-completions') {
     return `OpenAI-compatible Chat Completions endpoints support declared function tools, not provider-native web ${toolKind}.`;
   }
-  return `OpenAI Responses native web ${toolKind} is not wired in this Robota provider version.`;
+  return `OpenAI Responses native web ${toolKind} is not wired in this provider version.`;
 }
 
 function validateOpenAIProviderNativeWebTools(
@@ -387,6 +392,6 @@ function validateOpenAIProviderNativeWebTools(
     return;
   }
   throw new Error(
-    `Provider openai native web search/fetch is not supported for apiSurface ${apiSurface} in this Robota provider version.`,
+    `Provider openai native web search/fetch is not supported for apiSurface ${apiSurface} in this provider version.`,
   );
 }

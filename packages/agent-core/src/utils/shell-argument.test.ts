@@ -16,7 +16,7 @@ describe('shellArgumentForDisplay', () => {
     ['a space', 'a b'],
     ['a leading dash, read as an option', '-rf'],
     ['a leading equals sign', '=cmd'],
-    ['a newline', 'x\nrobota mcp login good'],
+    ['a newline', 'x\nagent mcp login good'],
     ['an escape sequence', 'x\u001b[2Kgood'],
     ['a right-to-left override', 'x‮good'],
     ['a zero-width space', 'x​good'],

@@ -73,13 +73,13 @@ transports share one session at the same time.
 
 ## Surfaces built on this pattern
 
-- **`robota` terminal UI** runs the session in the same process as the terminal UI.
-- **`robota --serve`** runs a headless runtime that serves the session over a loopback WebSocket
+- **`__PRODUCT_CLI_NAME__` terminal UI** runs the session in the same process as the terminal UI.
+- **`__PRODUCT_CLI_NAME__ --serve`** runs a headless runtime that serves the session over a loopback WebSocket
   with a per-launch token; `--serve --open` also serves the web GUI on localhost.
-- **`robota daemon start`** keeps one such runtime per workspace; the desktop app, `robota --attach`
+- **`__PRODUCT_CLI_NAME__ daemon start`** keeps one such runtime per workspace; the desktop app, `__PRODUCT_CLI_NAME__ --attach`
   and the served GUI connect to it. See
   [Sessions, Background Sessions and the Daemon](./sessions-and-daemon.md).
-- **`robota mcp serve`** serves one session to MCP clients (`@robota-sdk/agent-transport-mcp`). See
+- **`__PRODUCT_CLI_NAME__ mcp serve`** serves one session to MCP clients (`@robota-sdk/agent-transport-mcp`). See
   [Model Context Protocol (MCP)](./mcp.md).
 - **Remote control** attaches a pairing-gated WebRTC transport to the running session. See
   [Devices, Peers and Remote Control](./devices-and-remote.md).

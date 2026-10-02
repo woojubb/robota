@@ -68,6 +68,7 @@ export function createOpenAIProviderDefinition(): IProviderDefinition {
         ...(config.timeout !== undefined && { timeout: config.timeout }),
         ...(apiSurface !== undefined && { apiSurface }),
         ...(nativeWebTools !== undefined && { nativeWebTools }),
+        ...(config.options?.durableOperations === true && { durableOperations: true }),
         defaultModel: config.model,
       });
     },
@@ -130,10 +131,10 @@ function validateOpenAINativeWebTools(
   }
   if (baseURL !== undefined || apiSurface === 'chat-completions') {
     throw new Error(
-      'Provider openai profile uses an OpenAI-compatible Chat Completions endpoint; native web search/fetch is not supported for this profile. Use Robota local WebSearch/WebFetch tools or a provider with documented hosted web support.',
+      'Provider openai profile uses an OpenAI-compatible Chat Completions endpoint; native web search/fetch is not supported for this profile. Use local WebSearch/WebFetch tools or a provider with documented hosted web support.',
     );
   }
   throw new Error(
-    'Provider openai native web search/fetch is not wired in this Robota provider version. Use Robota local WebSearch/WebFetch tools or a provider with documented hosted web support.',
+    'Provider openai native web search/fetch is not wired in this provider version. Use local WebSearch/WebFetch tools or a provider with documented hosted web support.',
   );
 }

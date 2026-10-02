@@ -4,7 +4,7 @@ import type { IAgentDefinition, ICommandModule } from '@robota-sdk/agent-framewo
 /**
  * ARCH-005 — the additive capability-bundle contract.
  *
- * An `ICapabilityPack` is the *additive* composition unit of the Robota product surface: a plain data
+ * An `ICapabilityPack` is the *additive* composition unit of a product surface: a plain data
  * record of named capability buckets a consumer brings on top of a product's base command modules. It is
  * the additive analog of `IPreset` — where a preset dials **behavior** (subtractive tool/command
  * selection, persona, permission posture), a pack contributes **capability** (new tools, command modules,

@@ -140,7 +140,7 @@ export class InMemoryMCPActivationApprovalStore implements IMCPActivationApprova
 
 /** Sources whose approvals bind to no repository or trust generation. Everything else requires a trusted workspace — deny by default, so a member added later fails closed (MCP-002, TC-29). */
 const TRUST_NOT_REQUIRED_SOURCES: ReadonlySet<TMCPActivationSource> = new Set(['managed', 'user']);
-function requiresTrustedWorkspace(source: TMCPActivationSource): boolean {
+export function requiresTrustedWorkspace(source: TMCPActivationSource): boolean {
   return !TRUST_NOT_REQUIRED_SOURCES.has(source);
 }
 

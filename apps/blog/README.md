@@ -1,11 +1,11 @@
 # Robota Blog
 
-Astro-based blog with a terminal-themed dark UI, published at https://blog.robota.io. It is internal to
+Astro-based blog with a terminal-themed dark UI, published at __PROJECT_BLOG_URL__. It is internal to
 the monorepo (`robota-blog`, private) and imports no Robota packages.
 
-- **URL**: https://blog.robota.io
+- **URL**: __PROJECT_BLOG_URL__
 - **Framework**: Astro (static output, English and Korean locales)
-- **Hosting**: Cloudflare Pages (project `robota`)
+- **Hosting**: Cloudflare Pages (project `__DEPLOY_BLOG_PROJECT_NAME__`)
 - **Design**: Terminal dark theme (JetBrains Mono + Noto Sans KR, #39ff85 green accent)
 
 ## Local Development
@@ -21,8 +21,8 @@ pnpm --filter robota-blog typecheck  # astro sync + TypeScript check
 
 ## Deployment
 
-The Cloudflare Pages project `robota` is connected to the GitHub repository. A push to `main` builds and
-deploys production (`blog.robota.io`); deploying needs nothing run by hand. Other branches get no
+The Cloudflare Pages project `__DEPLOY_BLOG_PROJECT_NAME__` is connected to the GitHub repository. A push to `main` builds and
+deploys production (`blog.__PROJECT_WEBSITE_HOST__`); deploying needs nothing run by hand. Other branches get no
 usable preview, so check a change locally: `pnpm --filter robota-blog build`, then
 `pnpm --filter robota-blog run preview`.
 
@@ -41,7 +41,7 @@ Environment variable: `NODE_VERSION` = `22` (the package requires Node `>=22.12.
 
 ```sh
 pnpm --filter robota-blog run deploy
-# astro build && wrangler pages deploy dist --project-name robota --branch main
+# astro build && wrangler pages deploy dist --project-name __DEPLOY_BLOG_PROJECT_NAME__ --branch main
 ```
 
 This uploads a local build straight to production and needs a Wrangler login with access to the

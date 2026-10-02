@@ -84,10 +84,10 @@ async function main(): Promise<void> {
     identityResolver: resolver,
     store: new MemoryTrustStore(),
     projectStateDirectories: {
-      sessions: join('.robota', 'sessions'),
-      'session-logs': join('.robota', 'logs'),
-      memory: join('.robota', 'memory'),
-      checkpoints: join('.robota', 'checkpoints'),
+      sessions: join('.fixture-state', 'sessions'),
+      'session-logs': join('.fixture-state', 'logs'),
+      memory: join('.fixture-state', 'memory'),
+      checkpoints: join('.fixture-state', 'checkpoints'),
     },
   });
   let revoked = false;
@@ -102,7 +102,7 @@ async function main(): Promise<void> {
     const settings = createWorkspaceProjectSettingsWriter(access.authority, {
       status: 'approved',
       target: 'project-local',
-      relativePath: '.robota/settings.local.json',
+      relativePath: '.fixture-state/settings.local.json',
       purpose: 'ARCH-2151 public settings scenario',
     });
     const sessions = getWorkspaceProjectStateStorage(access.authority, 'sessions');

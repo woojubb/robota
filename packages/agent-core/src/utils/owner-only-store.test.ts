@@ -148,7 +148,7 @@ describe('SEC-020 — the guarantee is named, not assumed', () => {
   it('TC-13: Windows cannot express owner-only through chmod, and says so', () => {
     // Asserted through the injected platform so the case runs on Linux CI. The point is that the
     // module reports which guarantee is in force rather than making the POSIX claim everywhere —
-    // on win32 inherited NTFS ACLs govern, and a project-local `.robota` inside a world-writable
+    // on win32 inherited NTFS ACLs govern, and a project-local `.agent` inside a world-writable
     // directory is NOT protected by this module.
     expect(ownerOnlyGuarantee('win32')).toBe('windows-acl');
     expect(ownerOnlyGuarantee('linux')).toBe('posix-mode');

@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * SCREEN-2002 TC-08 — the run's theme surface.
  *
@@ -18,9 +19,9 @@ const SETTINGS = { theme: 'light', syntaxHighlighting: false, reducedMotion: fal
 
 const temporaryRoots: string[] = [];
 
-/** An isolated HOME, so a developer's own `~/.robota/themes` cannot change what these assert. */
+/** An isolated HOME, so a developer's own `the configured user root/themes` cannot change what these assert. */
 function emptyHome(): string {
-  const root = mkdtempSync(join(tmpdir(), 'robota-surface-home-'));
+  const root = mkdtempSync(join(tmpdir(), 'test-product-surface-home-'));
   temporaryRoots.push(root);
   return root;
 }
@@ -31,7 +32,7 @@ afterEach(() => {
 
 describe('the theme surface (SCREEN-2002 TC-08)', () => {
   it('hands the SAME registry to the command port and the renderer', () => {
-    const surface = createThemeSurface({
+    const surface = createThemeSurface({productRuntime: createTestProductRuntime('test-product', { HOME: emptyHome() }),
       cwd: undefined,
       userHome: emptyHome(),
       enabled: true,
@@ -49,7 +50,7 @@ describe('the theme surface (SCREEN-2002 TC-08)', () => {
   });
 
   it('carries the flag s override to the RENDERER, not only to the command port', () => {
-    const surface = createThemeSurface({
+    const surface = createThemeSurface({productRuntime: createTestProductRuntime('test-product', { HOME: emptyHome() }),
       cwd: undefined,
       userHome: emptyHome(),
       enabled: true,
@@ -70,13 +71,13 @@ describe('the theme surface (SCREEN-2002 TC-08)', () => {
   });
 
   it('carries an environment override the same way', () => {
-    const surface = createThemeSurface({
+    const surface = createThemeSurface({productRuntime: createTestProductRuntime('test-product', { HOME: emptyHome() }),
       cwd: undefined,
       userHome: emptyHome(),
       enabled: true,
       settings: SETTINGS,
       reducedMotionFlag: undefined,
-      env: { ROBOTA_REDUCED_MOTION: '1' },
+      env: { PRODUCT_REDUCED_MOTION: '1' },
     });
 
     expect(surface.reducedMotion).toBe(true);
@@ -84,7 +85,7 @@ describe('the theme surface (SCREEN-2002 TC-08)', () => {
   });
 
   it('omits the override entirely when the settings decided', () => {
-    const surface = createThemeSurface({
+    const surface = createThemeSurface({productRuntime: createTestProductRuntime('test-product', { HOME: emptyHome() }),
       cwd: undefined,
       userHome: emptyHome(),
       enabled: true,
@@ -98,7 +99,7 @@ describe('the theme surface (SCREEN-2002 TC-08)', () => {
   });
 
   it('renders no themes and registers no command when the surface is disabled', () => {
-    const surface = createThemeSurface({
+    const surface = createThemeSurface({productRuntime: createTestProductRuntime('test-product', { HOME: emptyHome() }),
       cwd: undefined,
       userHome: emptyHome(),
       enabled: false,
@@ -119,12 +120,12 @@ describe('the theme surface (SCREEN-2002 TC-08)', () => {
 describe('the theme surface over real theme files (SCREEN-2002 TC-11)', () => {
   it('puts user themes in the same registry as the built-ins, and skips beside them', () => {
     const home = emptyHome();
-    const directory = join(home, '.robota', 'themes');
+    const directory = join(home, '.test-product', 'themes');
     mkdirSync(directory, { recursive: true });
     writeFileSync(join(directory, 'mine.json'), JSON.stringify({ name: 'Mine' }));
     writeFileSync(join(directory, 'broken.json'), '{ not json');
 
-    const surface = createThemeSurface({
+    const surface = createThemeSurface({productRuntime: createTestProductRuntime('test-product', { HOME: home }),
       cwd: undefined,
       userHome: home,
       enabled: true,
@@ -144,11 +145,11 @@ describe('the theme surface over real theme files (SCREEN-2002 TC-11)', () => {
 
   it('composes no registry and reports no skip when this run renders no terminal UI', () => {
     const home = emptyHome();
-    const directory = join(home, '.robota', 'themes');
+    const directory = join(home, '.test-product', 'themes');
     mkdirSync(directory, { recursive: true });
     writeFileSync(join(directory, 'mine.json'), JSON.stringify({ name: 'Mine' }));
 
-    const surface = createThemeSurface({
+    const surface = createThemeSurface({productRuntime: createTestProductRuntime('test-product', { HOME: home }),
       cwd: undefined,
       userHome: home,
       enabled: false,

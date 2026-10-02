@@ -11,7 +11,8 @@ export function createMCPActivationCommandEntry(): ICommand {
       "Show each MCP server's trust approval and OAuth sign-in state, or change one server: " +
       'approve, reject or revoke its trust; sign in to it (login, which connects it in this ' +
       'session) or out of it (logout). Use when an MCP server is not approved, needs a sign-in, or ' +
-      'should stop being used. Returns the status list, or what the one action did.',
+      'should stop being used. List MCP Skills metadata, inspect exact instructions, approve their ' +
+      'content fingerprint or withdraw content consent separately from server trust. Returns the status list, verified preview, or what the action did.',
     // Model-invocable for `status` only: when an MCP server's tools are missing or failing, the
     // model can see why and name the command the user should run. Approving, rejecting and revoking
     // a server are trust decisions and signing in or out is a credential action, so those stay
@@ -21,7 +22,11 @@ export function createMCPActivationCommandEntry(): ICommand {
       'server or its tools are missing, a tool call reports that a server needs sign-in or approval, ' +
       'or the user asks about MCP servers. Returns one line per server: its name, activation state, ' +
       'sign-in state, and the command to suggest to the user when the server needs their approval, ' +
-      'sign-in or workspace trust. You cannot approve, sign in or sign out yourself.',
+      'sign-in or workspace trust. Use skill-list <server> to discover advertised skill names, URIs ' +
+      'and descriptions without loading instructions. Returns an invocation name for each supported ' +
+      'skill; use the session skill activation command with that exact name when its workflow fits ' +
+      'the task. If content consent is needed, ask the user to ' +
+      'run /mcp skill-inspect <server> <uri> and approve the reviewed fingerprint. You cannot approve, inspect instructions, sign in or sign out yourself.',
     argumentHint:
       '[status] | <approve|reject|revoke|logout> <server> | login <server> [--no-browser]',
     source: 'mcp-activation',
@@ -35,6 +40,26 @@ export function createMCPActivationCommandEntry(): ICommand {
         source: 'mcp-activation',
         modelInvocable: true,
       },
+      {
+        name: 'skill-list',
+        description:
+          'Discover MCP skill metadata and exact invocation names, or reasons they are unavailable, without activating instructions',
+        argumentHint: '<server>',
+        source: 'mcp-activation',
+        modelInvocable: true,
+      },
+      ...(['skill-inspect', 'skill-approve', 'skill-withdraw'] as const).map((verb) => ({
+        name: verb,
+        description:
+          verb === 'skill-inspect'
+            ? 'Review verified MCP skill instructions and frontmatter without activation'
+            : verb === 'skill-approve'
+              ? 'Grant consent for an exactly reviewed MCP skill content fingerprint'
+              : 'Withdraw MCP skill content consent',
+        argumentHint: verb === 'skill-approve' ? '<server> <uri> <fingerprint>' : '<server> <uri>',
+        source: 'mcp-activation',
+        modelInvocable: false,
+      })),
       {
         name: 'reload',
         description: 'Retry connecting every MCP server that is not currently connected',

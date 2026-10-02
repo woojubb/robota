@@ -1,3 +1,4 @@
+import { nonVisualObservationText } from '@robota-sdk/agent-core';
 import type { Content, Part } from '@google/genai';
 import type {
   IAssistantMessage,
@@ -41,7 +42,9 @@ export function mapMessagePartsToGeminiParts(
       });
       continue;
     }
-    throw new Error(`Google provider does not support image URI parts directly: ${part.uri}`);
+    if (part.type === 'image_uri')
+      throw new Error(`Google provider does not support image URI parts directly: ${part.uri}`);
+    parts.push({ text: nonVisualObservationText(part) ?? 'Unsupported observation' });
   }
   if (parts.length === 0 && typeof message.content === 'string' && message.content.length > 0) {
     parts.push({ text: message.content });
@@ -162,10 +165,15 @@ function convertAssistantMessage(assistantMsg: IAssistantMessage): Content {
 }
 
 function convertToolMessage(toolMessage: IToolMessage): Content {
+  const observations = (toolMessage.parts ?? []).flatMap((part) => {
+    const observation = nonVisualObservationText(part);
+    return observation === undefined ? [] : [observation];
+  });
+  const output = parseToolResponseContent(toolMessage.content);
   const functionResponse = {
     id: toolMessage.toolCallId,
     name: requireToolMessageName(toolMessage),
-    response: parseToolResponseContent(toolMessage.content),
+    response: observations.length > 0 ? { output, observations } : output,
   };
   return {
     role: 'user',

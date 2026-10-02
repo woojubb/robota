@@ -18,6 +18,7 @@ import { createFileCredentialStore } from '../../credentials/file-credential-sto
 import { createDevicesCommandPort } from '../index.js';
 import { scriptedOperator, type IScriptedOperator } from './fake-secret-terminal.js';
 import { filesUnder, leakedIn, phraseFragments } from './secret-leak.js';
+import { createTestRuntimeContext } from './runtime-context-fixture.js';
 
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
@@ -28,7 +29,7 @@ let previousHome: string | undefined;
 let session: ScriptedSessionHarness | undefined;
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), 'robota-devices-home-'));
+  home = mkdtempSync(join(tmpdir(), 'agent-fixture-devices-home-'));
   previousHome = process.env.HOME;
   process.env.HOME = home;
 });
@@ -43,9 +44,10 @@ afterEach(async () => {
 
 describe('the recovery phrase never leaves the secret terminal', () => {
   it('after init and recover, it is in no file, request, history, transcript, event or result', async () => {
-    const root = join(home, '.robota');
+    const root = join(home, '.agent-fixture');
     let operator: IScriptedOperator = scriptedOperator({ passphrase: PASSPHRASE });
     const port = createDevicesCommandPort({
+      productRuntime: createTestRuntimeContext(root),
       // The real keychain is never touched from a test.
       credentials: {
         store: createFileCredentialStore(join(root, 'credentials'), { withinRoot: root }),

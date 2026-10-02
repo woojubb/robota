@@ -1,5 +1,5 @@
 /**
- * The advisor as `robota` composes it: which model advises (the `--advisor` flag, else the saved
+ * The advisor as `the product` composes it: which model advises (the `--advisor` flag, else the saved
  * `advisorModel` setting), whether the organization allows it, the kill switch, and where per-destination
  * consent is kept.
  */
@@ -31,7 +31,7 @@ import type {
 } from '@robota-sdk/agent-framework';
 
 /** Set to `1` (or `true`) to turn the advisor off everywhere, whatever is configured. */
-export const ADVISOR_KILL_SWITCH_ENV = 'ROBOTA_DISABLE_ADVISOR';
+export const ADVISOR_KILL_SWITCH_ENV = 'PRODUCT_DISABLE_ADVISOR';
 
 /** The user-settings key holding the destinations the user agreed to send conversation history to. */
 export const ADVISOR_CONSENT_SETTING_KEY = 'advisorConsentDestinations';
@@ -95,9 +95,10 @@ export interface ICliAdvisor {
 function targetResolver(
   sources: readonly TSettingsSource[],
   providerDefinitions: readonly IProviderDefinition[],
+  env: Readonly<Record<string, string | undefined>>,
 ): (spec: IAdvisorSpec) => IAdvisorTarget {
   return (spec) => {
-    const options = { providerOverride: spec.profile, providerDefinitions };
+    const options = { providerOverride: spec.profile, providerDefinitions, env };
     const settings = readProviderSettings(sources, options);
     const model = spec.model ?? settings.model;
     const provider = createProviderFromSettings(sources, model, options);
@@ -121,7 +122,7 @@ export function composeCliAdvisor(input: ICliAdvisorInput): ICliAdvisor {
   );
   const controller = new AdvisorController({
     ...(spec !== undefined ? { spec } : {}),
-    resolveTarget: targetResolver(input.settingsSources, input.providerDefinitions),
+    resolveTarget: targetResolver(input.settingsSources, input.providerDefinitions, input.env),
     consent: createSettingsAdvisorConsentStore(input.userSettingsPath),
     ...(allowedProfiles !== undefined ? { allowedProfiles } : {}),
     killSwitch: isAdvisorKillSwitchOn(input.env),

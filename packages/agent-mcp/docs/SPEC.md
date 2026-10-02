@@ -27,14 +27,19 @@ had no discovery, and two client stacks cannot both be authoritative.
   adapters and never silent.
 - MCP activation policy is transport-neutral and host-injected: this package owns the admission
   port, identity matching, and the approval/audit store, but does not decide workspace trust or
-  read project/plugin files.
+  read project/plugin files or activate skill instructions.
 
 ## Invariants and guarantees
 
-- **URL admission**: the shared egress policy runs BEFORE any connection attempt; `http:` outside
-  loopback, private ranges and cloud-metadata addresses are refused, and a redirect is refused
-  rather than followed. There is no second admission path, so definition headers never reach a
-  host the policy did not admit.
+- **URL admission**: the default HTTP transport applies the shared destination policy to every
+  actual request and reconnect under the owner policy and resolver captured at admission. It
+  connects only to that exchange's validated address set while retaining the admitted URL and its
+  normal Host/TLS identity, and refuses redirects rather than handing credentials to another
+  endpoint. Each response owns its connection until body completion, cancellation or failure,
+  with request cancellation preserving unrelated calls and its cancellation notification;
+  closing the transport withdraws its requests and waits for cleanup. Explicit trusted fetch
+  injection owns its own socket policy and lifetime rather than inheriting the default's pinning
+  guarantee. This is an application HTTP boundary, not physical worker egress containment.
 - **Precedence fails closed on the managed tier, not just per name**: a malformed highest-precedence
   entry already resolves `unresolved` rather than falling through to a lower source; when the
   managed tier cannot be read AT ALL (its configuration root, `mcpServers`, or its whole document is
@@ -45,7 +50,9 @@ had no discovery, and two client stacks cannot both be authoritative.
   still resolve normally.
 - **Authentication is bound to one server and never optional once asked for**: a host registers an
   authenticator for one server identity, and the HTTP transport asks it for headers on every request
-  to that server only, after admission — never across a redirect, which stays refused. Its headers
+  to that server only, after admission and under the transport lifetime — never across a redirect,
+  which stays refused. A closed transport never starts another authorization or dispatches its
+  late result. Its headers
   override a static header of the same name and never enter a projection, log, audit record or
   error. A refused credential is retried at most once, with fresh authorization, and only when the
   authenticator allows it; a failure is a typed, content-free refusal, and there is never an
@@ -129,9 +136,15 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
   under bounded backoff; other classes surface for the caller to act on rather than looping
   silently. A stale catalog from a failed `list_changed` refresh is kept (marked `stale`) rather
   than emptied. A retained catalog is bound to an explicit identity (server id, negotiated protocol
-  version, server version); a reconnect whose identity differs invalidates it.
-- **The legacy protocol era is a recorded limit**: the pinned SDK generation speaks the
-  pre-2026-07-28 protocol; a server that refuses the negotiated version is disconnected, not used.
+  version, server version); a reconnect whose identity differs invalidates it. Runtime tools retain
+  the catalog's source attribution so an observation can be traced to its contributing definition
+  and declared version without treating that declaration as authority or verification of bytes.
+- **Protocol selection is explicit and never grants authority**: the default retains legacy
+  negotiation, while a stateless peer receives self-contained requests through the same admitted
+  carrier. Unsupported results cannot become completed observations or trigger a mutation replay;
+  connection-local catalog identity prevents private disclosures carrying into a later carrier.
+  Host-selected skill disclosures remain bound to their server and current verified manifest;
+  receiving metadata or supporting files cannot authorize instructions or tool permissions.
 
 ## Design decision: definition precedence, with plugins last
 
@@ -141,7 +154,7 @@ winner still shadows the name rather than handing it down. Plugins rank last bec
 the least-trusted source and plugin server names are not namespaced: ranking it above `user`
 would let an installed plugin silently replace a server the user configured under the same name,
 while ranking it last still lets a plugin add servers under names of its own. Claude Code ranks
-plugin-provided servers above user scope; Robota deliberately does not.
+plugin-provided servers above user scope; agent runtime deliberately does not.
 
 ## Design decision: narrowing, not refusing, third-party schemas
 

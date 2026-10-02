@@ -16,5 +16,5 @@ auto-approving confined commands after the user turned auto-allow off.
   exits or fails to start. A composed sandbox may define `applyParentSettings`. The worker applies
   each change through it. On settings it cannot take, it aborts the run, lets a running command
   finish, and ends the run with that error.
-- `agent-cli` (patch): robota watches its live sandbox, and a child applies each change to the
+- `agent-cli` (patch): the configured CLI watches its live sandbox, and a child applies each change to the
   instance its tools and approval read.

@@ -1,5 +1,5 @@
 /**
- * SELFHOST-011 P2 — `robota eval` exit-code contract (TC-03, the CI gate).
+ * SELFHOST-011 P2 — `the product eval` exit-code contract (TC-03, the CI gate).
  *
  * `runEvalCommand` returns 1 on a failing eval and 0 on a passing one. Tests inject `loadDefinition` + `runFn`
  * so no filesystem module or live provider is touched.
@@ -92,7 +92,7 @@ describe('runEvalCommand — exit-code contract (TC-03)', () => {
   it('returns 1 (usage on stderr) when no definition path is given', async () => {
     const code = await runEvalCommand([], '/tmp', {});
     expect(code).toBe(1);
-    expect(stderrText).toContain('Usage: robota eval');
+    expect(stderrText).toContain('Usage: eval');
   });
 
   it('rejects a malformed --threshold instead of silently ignoring it (no false PASS on the wrong bar)', async () => {
@@ -102,7 +102,7 @@ describe('runEvalCommand — exit-code contract (TC-03)', () => {
       runFn,
     });
     expect(code).toBe(1);
-    expect(stderrText).toContain('Usage: robota eval');
+    expect(stderrText).toContain('Usage: eval');
     expect(runFn).not.toHaveBeenCalled(); // bailed before any run
   });
 
@@ -122,4 +122,29 @@ describe('runEvalCommand — exit-code contract (TC-03)', () => {
     expect(code).toBe(1);
     expect(stderrText).toContain('Eval run failed');
   });
+});
+
+it('cannot bypass required environment outcomes with a CLI threshold override', async () => {
+  const code = await runEvalCommand(['demo.mjs', '--threshold', '0'], '/tmp', {
+    loadDefinition: () =>
+      Promise.resolve(
+        definition({
+          metrics: [
+            { name: 'files-fixed', required: true, score: () => false },
+            { name: 'claims-done', score: () => true },
+          ],
+        }),
+      ),
+    runFn: () => Promise.resolve(makeResult('Done')),
+  });
+  expect(code).toBe(1);
+  expect(stdoutText).toContain('FAIL');
+});
+
+it('returns failure for interrupted runs despite passing response metrics', async () => {
+  const code = await runEvalCommand(['demo.mjs'], '/tmp', {
+    loadDefinition: () => Promise.resolve(definition()),
+    runFn: () => Promise.resolve({ ...makeResult('see index.ts'), interrupted: true }),
+  });
+  expect(code).toBe(1);
 });

@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * Issue #3242: a served session consults the same sandbox the shell tools run under, so a confined
  * command the sandbox approves runs without a prompt.
@@ -23,7 +24,7 @@ function makeArgs(): never {
 
 describe('the serve projection carries the sandbox client', () => {
   it('forwards a supplied sandbox into the session options', () => {
-    const options = buildServeSessionOptions({
+    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: makeArgs(),
       preset: {},
@@ -34,7 +35,7 @@ describe('the serve projection carries the sandbox client', () => {
   });
 
   it('carries none when none was supplied', () => {
-    const options = buildServeSessionOptions({
+    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: makeArgs(),
       preset: {},

@@ -120,6 +120,9 @@ describe('extractDtlsFingerprint — exactly one fingerprint', () => {
   it('accepts one value repeated per m-section, in any case', () => {
     const sdp =
       'a=fingerprint:sha-256 ab:cd:ef\r\nm=application 9\r\na=fingerprint:SHA-256 AB:CD:EF\r\n';
-    expect(extractDtlsFingerprintAttribute(sdp)).toEqual({ algorithm: 'sha-256', value: 'AB:CD:EF' });
+    expect(extractDtlsFingerprintAttribute(sdp)).toEqual({
+      algorithm: 'sha-256',
+      value: 'AB:CD:EF',
+    });
   });
 });

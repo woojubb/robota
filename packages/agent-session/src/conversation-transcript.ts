@@ -11,12 +11,26 @@
  * reader was told to trust.
  */
 
-import { peerDriverOf, printablePeerDriver } from '@robota-sdk/agent-core';
+import {
+  nonVisualObservationText,
+  peerDriverOf,
+  printablePeerDriver,
+} from '@robota-sdk/agent-core';
 
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
 function encode(content: unknown): string {
   return JSON.stringify(typeof content === 'string' ? content : (content ?? ''));
+}
+
+function encodeMessage(message: TUniversalMessage): string {
+  const observations = (message.parts ?? []).flatMap((part) => {
+    const observation = nonVisualObservationText(part);
+    return observation === undefined ? [] : [observation];
+  });
+  return observations.length > 0
+    ? JSON.stringify({ content: message.content, observations })
+    : encode(message.content);
 }
 
 /**
@@ -31,11 +45,11 @@ function userLabel(message: TUniversalMessage): string {
 function formatMessage(message: TUniversalMessage): string[] {
   switch (message.role) {
     case 'user':
-      return [`${userLabel(message)}: ${encode(message.content)}`];
+      return [`${userLabel(message)}: ${encodeMessage(message)}`];
     case 'assistant': {
       const lines: string[] = [];
       if (message.content !== null && message.content !== '') {
-        lines.push(`assistant: ${encode(message.content)}`);
+        lines.push(`assistant: ${encodeMessage(message)}`);
       }
       for (const call of message.toolCalls ?? []) {
         lines.push(
@@ -46,10 +60,10 @@ function formatMessage(message: TUniversalMessage): string[] {
     }
     case 'tool':
       return [
-        `tool result${message.name ? ` ${JSON.stringify(message.name)}` : ''} [${JSON.stringify(message.toolCallId)}]: ${encode(message.content)}`,
+        `tool result${message.name ? ` ${JSON.stringify(message.name)}` : ''} [${JSON.stringify(message.toolCallId)}]: ${encodeMessage(message)}`,
       ];
     case 'system':
-      return [`system: ${encode(message.content)}`];
+      return [`system: ${encodeMessage(message)}`];
   }
 }
 

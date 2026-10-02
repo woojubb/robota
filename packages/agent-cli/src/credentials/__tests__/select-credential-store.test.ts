@@ -24,7 +24,7 @@ import { createFakeKeyring } from './fake-keyring.js';
 let root: string;
 
 beforeEach(() => {
-  root = join(realpathSync(mkdtempSync(join(tmpdir(), 'credential-select-'))), '.robota');
+  root = join(realpathSync(mkdtempSync(join(tmpdir(), 'credential-select-'))), '.test-product');
 });
 
 afterEach(() => {
@@ -41,7 +41,7 @@ const absent = (): never => {
 describe('selectCredentialStore', () => {
   it('uses the OS keychain when the binding loads and a probe round-trips, and records it', async () => {
     const { module, controls } = createFakeKeyring();
-    const selected = await selectCredentialStore({
+    const selected = await selectCredentialStore({serviceNamespace: 'org.example.test.credentials',
       root,
       loadKeyring: () => module,
       platform: 'darwin',
@@ -54,7 +54,7 @@ describe('selectCredentialStore', () => {
   });
 
   it('falls back to the owner-only file when the binding is absent, and says why', async () => {
-    const selected = await selectCredentialStore({ root, loadKeyring: absent });
+    const selected = await selectCredentialStore({serviceNamespace: 'org.example.test.credentials',  root, loadKeyring: absent });
 
     expect(selected.backend).toBe('owner-only-file');
     expect(selected.description).toContain(join(root, 'credentials'));
@@ -65,7 +65,7 @@ describe('selectCredentialStore', () => {
   it('falls back when the keychain loads but cannot store', async () => {
     const { module, controls } = createFakeKeyring();
     controls.failSet = 'no Secret Service on the session bus';
-    const selected = await selectCredentialStore({ root, loadKeyring: () => module });
+    const selected = await selectCredentialStore({serviceNamespace: 'org.example.test.credentials',  root, loadKeyring: () => module });
     expect(selected.backend).toBe('owner-only-file');
     expect(selected.description).toMatch(/no Secret Service/);
   });
@@ -73,24 +73,24 @@ describe('selectCredentialStore', () => {
   it('falls back when the keychain accepts a write and does not keep it', async () => {
     const { module, controls } = createFakeKeyring();
     controls.dropWrites = true;
-    const selected = await selectCredentialStore({ root, loadKeyring: () => module });
+    const selected = await selectCredentialStore({serviceNamespace: 'org.example.test.credentials',  root, loadKeyring: () => module });
     expect(selected.backend).toBe('owner-only-file');
   });
 
   it('fails closed when the recorded keychain is unavailable now, instead of degrading to a file', async () => {
     const { module } = createFakeKeyring();
-    await selectCredentialStore({ root, loadKeyring: () => module });
+    await selectCredentialStore({serviceNamespace: 'org.example.test.credentials',  root, loadKeyring: () => module });
 
-    await expect(selectCredentialStore({ root, loadKeyring: absent })).rejects.toThrow(
+    await expect(selectCredentialStore({serviceNamespace: 'org.example.test.credentials',  root, loadKeyring: absent })).rejects.toThrow(
       /OS keychain.*unavailable/,
     );
     expect(recorded()).toBe('os-keychain');
   });
 
   it('keeps the recorded file backend even once a keychain becomes available', async () => {
-    await selectCredentialStore({ root, loadKeyring: absent });
+    await selectCredentialStore({serviceNamespace: 'org.example.test.credentials',  root, loadKeyring: absent });
     const { module } = createFakeKeyring();
-    const selected = await selectCredentialStore({ root, loadKeyring: () => module });
+    const selected = await selectCredentialStore({serviceNamespace: 'org.example.test.credentials',  root, loadKeyring: () => module });
     expect(selected.backend).toBe('owner-only-file');
     expect(selected.description).toMatch(/recorded/);
   });
@@ -98,8 +98,8 @@ describe('selectCredentialStore', () => {
   it('two processes choosing at once agree on the keychain instead of one probe spoiling the other', async () => {
     const { module } = createFakeKeyring();
     const [first, second] = await Promise.all([
-      selectCredentialStore({ root, loadKeyring: () => module }),
-      selectCredentialStore({ root, loadKeyring: () => module }),
+      selectCredentialStore({serviceNamespace: 'org.example.test.credentials',  root, loadKeyring: () => module }),
+      selectCredentialStore({serviceNamespace: 'org.example.test.credentials',  root, loadKeyring: () => module }),
     ]);
     expect(first.backend).toBe('os-keychain');
     expect(second.backend).toBe('os-keychain');
@@ -109,7 +109,7 @@ describe('selectCredentialStore', () => {
   it('fails fast on a record it cannot read', async () => {
     mkdirSync(join(root, 'credentials'), { recursive: true });
     writeFileSync(markerPath(), '{ nope');
-    await expect(selectCredentialStore({ root, loadKeyring: absent })).rejects.toThrow(
+    await expect(selectCredentialStore({serviceNamespace: 'org.example.test.credentials',  root, loadKeyring: absent })).rejects.toThrow(
       /backend\.json/,
     );
   });
@@ -118,7 +118,7 @@ describe('selectCredentialStore', () => {
 describe('createHostCredentialStore', () => {
   it('chooses nothing until a secret is first needed, then reports the choice', async () => {
     const notices: string[] = [];
-    const host = createHostCredentialStore({
+    const host = createHostCredentialStore({serviceNamespace: 'org.example.test.credentials',
       root,
       loadKeyring: absent,
       notify: (message) => notices.push(message),
@@ -126,40 +126,40 @@ describe('createHostCredentialStore', () => {
     expect(host.describe()).toBeUndefined();
     expect(existsSync(markerPath())).toBe(false);
 
-    await host.store.set({ service: 'robota.test', account: 'a' }, 'v');
+    await host.store.set({ service: 'test-product.test', account: 'a' }, 'v');
     expect(host.describe()).toMatch(/owner-only file/);
     expect(notices).toHaveLength(1);
     expect(notices[0]).toMatch(/OS keychain unavailable/);
 
-    await host.store.get({ service: 'robota.test', account: 'a' });
+    await host.store.get({ service: 'test-product.test', account: 'a' });
     expect(notices).toHaveLength(1); // told once, not on every use
   });
 
   it('says nothing extra when the keychain is in use', async () => {
     const notices: string[] = [];
     const { module } = createFakeKeyring();
-    const host = createHostCredentialStore({
+    const host = createHostCredentialStore({serviceNamespace: 'org.example.test.credentials',
       root,
       loadKeyring: () => module,
       notify: (message) => notices.push(message),
     });
-    await host.store.get({ service: 'robota.test', account: 'a' });
+    await host.store.get({ service: 'test-product.test', account: 'a' });
     expect(host.describe()).toMatch(/OS keychain/);
     expect(notices).toEqual([]);
   });
 
   it('retries a failed selection on the next use rather than remembering the failure', async () => {
     const { module } = createFakeKeyring();
-    await selectCredentialStore({ root, loadKeyring: () => module });
+    await selectCredentialStore({serviceNamespace: 'org.example.test.credentials',  root, loadKeyring: () => module });
     let available = false;
-    const host = createHostCredentialStore({
+    const host = createHostCredentialStore({serviceNamespace: 'org.example.test.credentials',
       root,
       loadKeyring: () => (available ? module : absent()),
       notify: () => undefined,
     });
-    await expect(host.store.get({ service: 'robota.test', account: 'a' })).rejects.toThrow();
+    await expect(host.store.get({ service: 'test-product.test', account: 'a' })).rejects.toThrow();
     expect(host.describe()).toMatch(/^unavailable \(.*OS keychain/);
     available = true;
-    await expect(host.store.get({ service: 'robota.test', account: 'a' })).resolves.toBeUndefined();
+    await expect(host.store.get({ service: 'test-product.test', account: 'a' })).resolves.toBeUndefined();
   });
 });

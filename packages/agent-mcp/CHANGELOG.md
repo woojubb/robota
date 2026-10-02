@@ -10,8 +10,8 @@
 
 ### Patch Changes
 
-- db35dcd: MCP approvals now outlive the process, and an approval takes effect at once. The `robota` CLI keeps
-  activation decisions in `~/.robota/mcp-approvals.json` (owner-only) unless the host passes its own
+- db35dcd: MCP approvals now outlive the process, and an approval takes effect at once. The `__PRODUCT_CLI_NAME__` CLI keeps
+  activation decisions in `$PRODUCT_USER_STATE_DIR/mcp-approvals.json` (owner-only) unless the host passes its own
   `mcpApprovalStore`, so an approved server connects at later starts until its definition changes.
   `/mcp approve <server>` now also connects the server in the running session, the way `/mcp reload`
   does, instead of waiting for a restart. A remote server without OAuth therefore connects once
@@ -41,7 +41,7 @@
   - `agent-mcp` (breaking) — `MCP_EXTERNAL_EVENT_CAPABILITY`, `MCP_EXTERNAL_EVENT_METHOD`, `IMCPExternalEvent` and
     `TMCPExternalEventListener` are removed, as are `IMCPSession.externalEventsDeclared`,
     `IMCPSession.onExternalEvent`, `IMCPSession.onClose` and `MCPConnectionSupervisor.onExternalEvent`. A server
-    that declares `com.robota.external-event` or sends its notification is served as any other server and the
+    that declares `com.__PRODUCT_DISPLAY_NAME__.external-event` or sends its notification is served as any other server and the
     notification is ignored. The `zod` dependency is dropped.
   - `agent-cli` (breaking) — `IMcpClientComposition.subscribeExternalEvent` and
     `IMcpServerConnection.onExternalEvent` are removed.
@@ -117,7 +117,7 @@
     workspace or sign in is named to the model at the start of an interactive session with the
     command to suggest, and a
     signed-in OAuth server that refuses a call tells the model to suggest `/mcp login <server>` — or, in print and serve runs, the terminal
-    `robota mcp login <server>`.
+    `__PRODUCT_CLI_NAME__ mcp login <server>`.
 
   A command whose bare form is a complete action declares `runsBare`, so choosing `/cost` or `/mcp`
   from the autocomplete menu still runs it even though they now declare subcommands.
@@ -125,13 +125,13 @@
 - 9843fe6: Sign in to a remote MCP server from inside a session, and use its tools without restarting.
 
   - **`/mcp login <server> [--no-browser]`** runs the same per-server OAuth sign-in as
-    `robota mcp login` (discovery checks, PKCE, `state`, RFC 9207 `iss`, RFC 8707 resource, the
+    `__PRODUCT_CLI_NAME__ mcp login` (discovery checks, PKCE, `state`, RFC 9207 `iss`, RFC 8707 resource, the
     loopback listener, the lock-guarded store). It opens the browser through the argv opener; with
     `--no-browser`, or when no browser can be opened, it shows the authorization URL and asks for the
     redirect URL in the session's own prompt (masked), held to the same rules as a pasted redirect in
     the terminal. A failed, refused, timed-out or cancelled sign-in changes nothing and is reported by
     a fixed reason only. `/mcp login <server> --client-secret` is refused: a secret is never typed into
-    a session, and `robota mcp login <server> --client-secret` is named instead (also after a failed
+    a session, and `__PRODUCT_CLI_NAME__ mcp login <server> --client-secret` is named instead (also after a failed
     token exchange for a pre-registered client). `/mcp` stays user-only (`modelInvocable: false`).
   - **Connected in the same session:** after a sign-in, a server that could not connect for want of
     one goes through the normal admission (approval, fingerprint, trust) and connects, and its tools
@@ -156,7 +156,7 @@
   - **`ICommandMCPActivationAdapter.oauthLogin`** (`ICommandMCPOAuthLoginRequest`,
     `ICommandMCPOAuthLoginResult`, `ICommandMCPOAuthRedirectPrompt`) is the port behind it.
   - The sign-in notice and `/mcp status` now suggest `/mcp login <server>` in a session and
-    `robota mcp login <server>` in a terminal; the server's name is shown only when it is safe to paste
+    `__PRODUCT_CLI_NAME__ mcp login <server>` in a terminal; the server's name is shown only when it is safe to paste
     into any shell, otherwise `<server>`.
 
 ### Patch Changes
@@ -170,7 +170,7 @@
 
 ### Major Changes
 
-- 796ddb4: Use a neutral default MCP client name and let hosts supply their own protocol identity. Robota CLI startup now explicitly supplies its prior `robota-agent-mcp` name, preserving its initialize handshake; embedders relying on that implicit name can set `clientInfo` explicitly.
+- 796ddb4: Use a neutral default MCP client name and let hosts supply their own protocol identity. __PRODUCT_DISPLAY_NAME__ CLI startup now explicitly supplies its prior `__PRODUCT_DISPLAY_NAME__-agent-mcp` name, preserving its initialize handshake; embedders relying on that implicit name can set `clientInfo` explicitly.
 
 ### Minor Changes
 
@@ -238,10 +238,10 @@
 
   - **Running it** (`agent-cli`):
     - No shell. It runs in the project directory for a `project`/`local` definition, and in
-      `~/.robota` otherwise.
+      `$PRODUCT_USER_STATE_DIR` otherwise.
     - Its environment is the host's without runtime-loading variables (`NODE_OPTIONS`, `LD_*`,
       `BASH_ENV`, …). A `project`/`local` helper also gets no credential-shaped variables.
-      `ROBOTA_MCP_SERVER_NAME` and `ROBOTA_MCP_SERVER_URL` are set. For a `project`/`local` helper
+      `PRODUCT_MCP_SERVER_NAME` and `PRODUCT_MCP_SERVER_URL` are set. For a `project`/`local` helper
       the URL keeps its `${VAR}` references instead of what the environment expanded them to.
     - Limits: 10 s and 64 KiB of stdout. Stderr is discarded. The process tree is killed on timeout
       or cancel.
@@ -264,7 +264,7 @@
 - d4189b9: The rest of the per-server MCP OAuth lifecycle: signing in to a server without a local browser,
   signing out of it with token revocation, and each server's sign-in state in `/mcp`.
 
-  - **`robota mcp login <name> --no-browser`** prints the authorization URL and reads the redirect URL
+  - **`__PRODUCT_CLI_NAME__ mcp login <name> --no-browser`** prints the authorization URL and reads the redirect URL
     the user pastes back (not echoed). `runMCPOAuthLogin` takes `readRedirect` for this; nothing
     listens on the redirect URI then. The pasted URL is held to the loopback listener's rules through
     `createPastedRedirectAcceptor`: it must be the registered redirect URI (same origin and path, no
@@ -273,7 +273,7 @@
     check applies as before. `openBrowser` now also receives the redirect URI. `readRedirect` gets a
     signal that aborts on cancel or at `callbackTimeoutMs` (5 minutes by default, as for the loopback
     listener); a paste longer than the prompt accepts fails as `redirect-too-long`.
-  - **Signing out** (`runMCPOAuthLogout`; `robota mcp logout <name>`; `/mcp logout <serverId>`):
+  - **Signing out** (`runMCPOAuthLogout`; `__PRODUCT_CLI_NAME__ mcp logout <name>`; `/mcp logout <serverId>`):
     deletes the stored credential under the refresh lock, then revokes the refresh token and the
     access token (RFC 7009) when the stored issuer advertises `revocation_endpoint`. Revocation is a
     POST through the egress policy that never follows a redirect and is byte-bounded; it authenticates
@@ -288,7 +288,7 @@
     OAuth server; a server this session was told needs a sign-in reads `sign-in-required`.
     `ICommandMCPActivationAdapter` gains optional `oauthStatus` and `oauthLogout`
     (`ICommandMCPOAuthStatus`, `ICommandMCPOAuthLogoutResult`).
-  - **No in-session sign-in:** signing in stays `robota mcp login <server>` in a terminal, since it
+  - **No in-session sign-in:** signing in stays `__PRODUCT_CLI_NAME__ mcp login <server>` in a terminal, since it
     needs the terminal (browser, pasted redirect, hidden secret prompt) a running session owns. `/mcp`
     names that command for a server that needs a sign-in, as does the session's sign-in notice; the
     server name is shown there only when it is safe to paste into any shell — a plain token not
@@ -300,7 +300,7 @@
     The expiry skew is capped at half the token's lifetime, so a short-lived token is not refreshed on
     every request; credentials now record `issuedAt` for this.
 
-- 9edae52: Remote MCP servers can authenticate with OAuth: `robota mcp login <name>` signs in, and sessions
+- 9edae52: Remote MCP servers can authenticate with OAuth: `__PRODUCT_CLI_NAME__ mcp login <name>` signs in, and sessions
   send the stored token.
 
   - **Declaring it:** `"oauth": { "clientId"?, "callbackPort"?, "authServerMetadataUrl"?, "scopes"? }`
@@ -312,7 +312,7 @@
       or on a stdio server, is refused.
     - `oauth` is no longer reported as unsupported authentication, and it is part of the definition
       fingerprint.
-  - **Signing in** (`runMCPOAuthLogin`; `robota mcp login <name> [--client-secret]`):
+  - **Signing in** (`runMCPOAuthLogin`; `__PRODUCT_CLI_NAME__ mcp login <name> [--client-secret]`):
     - Discovery is done here, not by the SDK's `discoverOAuthServerInfo`: the protected-resource
       metadata `resource` must be the canonical server URL, the authorization server's `issuer` must
       be the server it was fetched for, the server, authorization, token and registration
@@ -334,7 +334,7 @@
     of following it; registration, token and refresh requests use it.
   - **Storage:** `IMCPOAuthCredentialStore` (`get`/`set`/`delete`), keyed by the server's security
     identity and canonical URL together. `createFileOAuthCredentialStore` keeps 0600 files in a 0700
-    `~/.robota/mcp-credentials/`. The issuer, token endpoint and client (with its secret, if any, and
+    `$PRODUCT_USER_STATE_DIR/mcp-credentials/`. The issuer, token endpoint and client (with its secret, if any, and
     the client authentication method dynamic registration returned) are stored with the tokens. A
     sign-in stores its credential under the refresh lock, so a refresh in flight cannot overwrite it.
   - **Sessions** (`createOAuthAuthenticator`, wired for every `oauth` definition):
@@ -345,7 +345,7 @@
       stale lock is taken over, and a lock released, only after it is renamed aside and proven to be
       the one judged — never another process's fresh lock.
     - A 401 rediscovers, then refreshes once and retries; an authorization server that changed clears
-      the tokens — compared, under the lock, with what is stored then, so a newer sign-in is kept. `invalid_grant`, or nothing stored, asks the user to run `robota mcp login <name>`. A 403
+      the tokens — compared, under the lock, with what is stored then, so a newer sign-in is kept. `invalid_grant`, or nothing stored, asks the user to run `__PRODUCT_CLI_NAME__ mcp login <name>`. A 403
       `insufficient_scope` fails and names the scope.
     - An `oauth` definition is never connected without the authenticator (`oauth-unavailable`).
   - Failures are `MCPOAuthError` with a fixed reason; no code, verifier, token, secret or

@@ -58,7 +58,7 @@ function originOf(url: string): string | undefined {
 }
 
 /**
- * Gemini provider implementation for Robota
+ * Gemini provider implementation for the agent runtime
  *
  * IMPORTANT PROVIDER-SPECIFIC RULES:
  * 1. This provider MUST extend BaseAIProvider from @robota-sdk/agent-core

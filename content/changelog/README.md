@@ -9,7 +9,7 @@ Highlights of user-facing changes, new features, and notable fixes in past relea
 package also ships its own `CHANGELOG.md` with the complete record for each version — for example
 [`@robota-sdk/agent-cli`](../../packages/agent-cli/CHANGELOG.md) and
 [`@robota-sdk/agent-core`](../../packages/agent-core/CHANGELOG.md). The commit history is on
-[GitHub](https://github.com/woojubb/robota).
+[GitHub](__PROJECT_REPOSITORY_URL__).
 
 ---
 
@@ -18,7 +18,7 @@ package also ships its own `CHANGELOG.md` with the complete record for each vers
 ### New features
 
 **`/workflows create` — natural-language workflow authoring (FLOW-007)** — The `/workflows` CLI
-command can now author a workflow from a plain-English description. `robota` → `/workflows create
+command can now author a workflow from a plain-English description. `__PRODUCT_CLI_NAME__` → `/workflows create
 "fetch the issues, summarize each, then post a digest"` asks the active provider to design the
 workflow, saves it as a reusable `.workflows/<name>.json` artifact (with any prompt-backed nodes
 under `.workflows/nodes/`), and runs it immediately. `create` is model-invocable, so the agent can
@@ -61,7 +61,7 @@ packages instead of sub-paths of `@robota-sdk/agent-transport`. Update imports:
 
 ### New features
 
-**`@robota-sdk/agent-session-analytics`** — A new package that analyzes `~/.robota/sessions/*.json`
+**`@robota-sdk/agent-session-analytics`** — A new package that analyzes `<user-state>/sessions/*.json`
 session logs to report timing breakdowns (LLM wait vs. tool/code time, slow intervals). Session-log
 analysis moved out of the `agent-cli` thin shell into this dedicated package.
 
@@ -79,7 +79,7 @@ paths above.
 
 **Plugin development guide and directory** — A new [Building Plugins](../guide/plugins.md) guide covers the full lifecycle for writing, testing, and publishing community plugins. The [Plugin Directory](../plugins/README.md) page lists official plugins with a process for submitting community plugins.
 
-**`robota init` — project initialization** — Running `robota init` in any directory creates a starter `AGENTS.md` and `.robota/settings.json`. If a `.claude/` directory is detected, it offers to migrate Claude Code settings automatically.
+**`__PRODUCT_CLI_NAME__ init` — project initialization** — Running `__PRODUCT_CLI_NAME__ init` in any directory creates a starter `AGENTS.md` and `<project-state>/settings.json`. If a `.claude/` directory is detected, it offers to migrate Claude Code settings automatically.
 
 **Local LLM support guide** — A dedicated [Local LLM Setup](../guide/local-llm.md) guide covers Ollama, LM Studio, and llama.cpp with per-model recommendations. No API key needed for any local inference server.
 
@@ -87,7 +87,7 @@ paths above.
 
 **Improved `/compact` output** — Running `/compact` now reports how many messages were removed, the percentage reduction, and before/after context window usage.
 
-**3-level permission memory** — The permission prompt now has a third option: "Allow always (this project)." Choosing it writes the tool pattern to `.robota/settings.local.json` so the permission persists across sessions in that project.
+**3-level permission memory** — The permission prompt now has a third option: "Allow always (this project)." Choosing it writes the tool pattern to `<project-state>/settings.local.json` so the permission persists across sessions in that project.
 
 ---
 
@@ -122,7 +122,7 @@ See the [full release notes for Beta 59](../guide/release-2026-05-02.md) for a d
 | 3.0.0-beta.79    | 2026-07-06 | Instant-node provider SSOT (DATA-003), single-OTP publish (INFRA-029)              |
 | 3.0.0-beta.77–78 | 2026-07-05 | `/workflows create` NL authoring (FLOW-007), self-contained CLI bundle (INFRA-028) |
 | 3.0.0-beta.68–76 | 2026-06-14 | Transport package split, `agent-session-analytics`, design-quality audit           |
-| 3.0.0-beta.67    | 2026-05-23 | Plugin guide, `robota init`, local LLM guide, UX improvements                      |
+| 3.0.0-beta.67    | 2026-05-23 | Plugin guide, `__PRODUCT_CLI_NAME__ init`, local LLM guide, UX improvements                      |
 | 3.0.0-beta.60–66 | 2026-05-10 | Safety limits, session log correlation                                             |
 | 3.0.0-beta.59    | 2026-05-02 | Subagents, multi-provider, session replay, parallel agents                         |
 | 3.0.0-beta.56–58 | 2026-05-01 | [See release notes](../guide/release-2026-05-02.md)                                |
@@ -131,5 +131,5 @@ See the [full release notes for Beta 59](../guide/release-2026-05-02.md) for a d
 
 ## Stay updated
 
-- Watch [GitHub releases](https://github.com/woojubb/robota/releases) for tagged versions
+- Watch [GitHub releases](__PROJECT_REPOSITORY_URL__/releases) for tagged versions
 - Subscribe to [npm](https://www.npmjs.com/package/@robota-sdk/agent-cli) for package updates

@@ -6,17 +6,17 @@
  * `throw` inside `createExecutionRequestsWithContext`'s `.map()` — before `executeTools` ever runs,
  * so `continueOnError: true` (hardcoded for the production round in `execution-round-tools.ts`)
  * never got a chance to apply. A provider batch with one malformed call and one valid call in it
- * made `Robota.run()` reject: the valid call never executed, the provider was never called again,
+ * made `ConversationAgent.run()` reject: the valid call never executed, the provider was never called again,
  * and history was left holding an assistant message with two tool calls and no tool results at all
  * — not even for the well-formed one.
  *
- * These tests drive that scenario through the real `Robota.run()` (not the lower-level services in
+ * These tests drive that scenario through the real `ConversationAgent.run()` (not the lower-level services in
  * isolation) because the bug was specifically about ordering between decode and `executeTools`,
  * which only the full round reproduces.
  */
 import { describe, expect, it } from 'vitest';
 
-import { Robota } from '../../core/robota';
+import { ConversationAgent } from '../../core/conversation-agent';
 import { AbstractTool } from '../../abstracts/abstract-tool';
 
 import type { IAgentConfig } from '../../interfaces/agent';
@@ -102,8 +102,8 @@ function buildAgent(
   provider: IAIProvider,
   tool: SearchTool,
   overrides: Partial<IAgentConfig> = {},
-): Robota {
-  return new Robota({
+): ConversationAgent {
+  return new ConversationAgent({
     name: 'batch-isolation',
     aiProviders: [provider],
     defaultModel: { provider: 'raw-test-provider', model: 'test-model' },

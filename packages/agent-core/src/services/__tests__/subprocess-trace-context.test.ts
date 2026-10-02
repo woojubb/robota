@@ -6,7 +6,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { AbstractTool } from '../../abstracts/abstract-tool';
-import { Robota } from '../../core/robota';
+import { ConversationAgent } from '../../core/conversation-agent';
 import { createScriptedProvider } from '../../testing/scripted-provider';
 import { spanIdFromMintedId } from '../../utils/trace-context';
 import { executeBatch } from '../tool-execution-batch';
@@ -86,7 +86,7 @@ describe('classes without origins on provider calls', () => {
   it('reaches the tool body and emits no provider diagnostic for a provider without the capability', async () => {
     const tool = new PingTool();
     const scripted = createScriptedProvider([{ toolCalls: [{ name: 'ping', args: {} }] }, { text: 'done' }]);
-    const agent = new Robota({
+    const agent = new ConversationAgent({
       name: 'subprocess-trace',
       aiProviders: [scripted.provider],
       defaultModel: { provider: 'scripted-test-provider', model: 'test-model' },

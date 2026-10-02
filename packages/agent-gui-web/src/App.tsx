@@ -1,5 +1,8 @@
 import {
   CenteredChrome,
+  ProductIdentityProvider,
+  useProductIdentity,
+  type IWebProductIdentity,
   SessionSurface,
   rememberSessionForRestore,
   useWsSession,
@@ -21,6 +24,7 @@ import type { IGuiHost, IGuiTrustQuestion, TGuiTrustChoice } from './gui-host.js
  * and remembering the session to switch back to once the restart's reload reconnects.
  */
 function SessionView({ url, host }: { url: string; host: IGuiHost }): React.ReactElement {
+  const { storage } = useProductIdentity();
   const state = useWsSession(url);
   useEffect(() => {
     if (state.status === 'connected') host.signalReady();
@@ -33,7 +37,7 @@ function SessionView({ url, host }: { url: string; host: IGuiHost }): React.Reac
   const currentSessionId = state.sessionListing?.currentSessionId ?? null;
   const onReconnect = restart
     ? async (): Promise<void> => {
-        if (currentSessionId) rememberSessionForRestore(currentSessionId);
+        if (currentSessionId) rememberSessionForRestore(storage.browserNamespace, currentSessionId);
         await restart();
       }
     : undefined;
@@ -118,6 +122,7 @@ function TrustQuestion({
   question: IGuiTrustQuestion;
   answer: (choice: TGuiTrustChoice) => Promise<{ error?: string }>;
 }): React.ReactElement {
+  const { identity } = useProductIdentity();
   const [answering, setAnswering] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   const choose = (choice: TGuiTrustChoice): void => {
@@ -145,7 +150,7 @@ function TrustQuestion({
         </h1>
         <p className="mt-2 break-all font-mono text-[13px] text-foreground">{question.folder}</p>
         <p className="mt-3">
-          Trusting this folder lets Robota use the project&apos;s own settings, hooks, skills and MCP
+          Trusting this folder lets {identity.displayName} use the project&apos;s own settings, hooks, skills and MCP
           servers. Restricted starts without them.
         </p>
         {/* #3282 §3: a row appears only when its state is known (never "[unavailable]" noise), and
@@ -200,7 +205,11 @@ function TrustQuestion({
 }
 
 /** Resolve the endpoint from the host, watch for a fatal sidecar state, then mount. */
-export function App({ host }: { host: IGuiHost }): React.ReactElement {
+export function App({ host, product }: { host: IGuiHost; product: IWebProductIdentity }): React.ReactElement {
+  return <ProductIdentityProvider value={product}><AppContent host={host} /></ProductIdentityProvider>;
+}
+
+function AppContent({ host }: { host: IGuiHost }): React.ReactElement {
   const [url, setUrl] = useState<string | null>(null);
   // `detail` is what the sidecar said before it stopped — the reason, and often the fix.
   const [fatal, setFatal] = useState<{ detail?: string } | null>(null);

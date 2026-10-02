@@ -19,7 +19,7 @@ const THEME_ARGUMENT_HINT = 'list | <theme-id> | syntax on|off | motion on|off';
 // A host without a terminal (the desktop app's sidecar) still answers, so the command is never
 // "unknown" there — it says where themes live instead.
 const THEME_UNAVAILABLE =
-  'Themes belong to the robota terminal, and this surface has none. Run /theme in the robota terminal.';
+  'Themes are available in an interactive terminal. Run /theme there.';
 
 function formatToggle(value: boolean): string {
   return value ? 'on' : 'off';

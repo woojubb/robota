@@ -1,10 +1,11 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { closeSync, constants, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import type { ICommandCostBudget, ICommandCostBudgetAdapter } from '@robota-sdk/agent-framework';
 
 /**
- * CMD-007 (issue #2058): this product's `/cost budget` storage — `.robota/budget.json` under the
+ * CMD-007 (issue #2058): this product's `/cost budget` storage — `the configured project directory/budget.json` under the
  * workspace. The command package sees only `ICommandCostBudgetAdapter`; the path literal and every
  * filesystem call live here, at the shell, where product storage policy belongs.
  *
@@ -16,11 +17,11 @@ import type { ICommandCostBudget, ICommandCostBudgetAdapter } from '@robota-sdk/
  *    `ELOOP` rather than followed. Windows has no such flag; the write falls back to a plain one
  *    rather than silently claiming a protection the platform cannot give.
  */
-export const COST_BUDGET_FILE = '.robota/budget.json';
+export function costBudgetFile(runtime: ICliRuntimeContext): string { return join(runtime.layout.projectDirectory, 'budget.json'); }
 
-function writeBudgetFile(cwd: string, contents: string): void {
-  mkdirSync(join(cwd, dirname(COST_BUDGET_FILE)), { recursive: true });
-  const file = join(cwd, COST_BUDGET_FILE);
+function writeBudgetFile(cwd: string, fileName: string, contents: string): void {
+  mkdirSync(join(cwd, dirname(fileName)), { recursive: true });
+  const file = join(cwd, fileName);
   const noFollow = constants.O_NOFOLLOW;
   if (noFollow === undefined) {
     writeFileSync(file, contents);
@@ -34,7 +35,7 @@ function writeBudgetFile(cwd: string, contents: string): void {
     // firing, not a permissions problem, and the message must say which
     if ((error as NodeJS.ErrnoException | undefined)?.code === 'ELOOP') {
       throw new Error(
-        `Refused: ${COST_BUDGET_FILE} is a symbolic link, and the budget is never written through one. ` +
+        `Refused: ${fileName} is a symbolic link, and the budget is never written through one. ` +
           'Replace it with a regular file, or remove it.',
       );
     }
@@ -47,12 +48,13 @@ function writeBudgetFile(cwd: string, contents: string): void {
   }
 }
 
-export function createFileCostBudgetAdapter(cwd: string): ICommandCostBudgetAdapter {
+export function createFileCostBudgetAdapter(cwd: string, runtime: ICliRuntimeContext): ICommandCostBudgetAdapter {
+  const fileName = costBudgetFile(runtime);
   return {
     read(): ICommandCostBudget | undefined {
       let raw: string;
       try {
-        raw = readFileSync(join(cwd, COST_BUDGET_FILE), 'utf-8');
+        raw = readFileSync(join(cwd, fileName), 'utf-8');
       } catch {
         // allow-fallback: an absent or unreadable budget file means no budget is set
         return undefined;
@@ -70,12 +72,12 @@ export function createFileCostBudgetAdapter(cwd: string): ICommandCostBudgetAdap
       return typeof monthly === 'number' && Number.isFinite(monthly) ? { monthly } : undefined;
     },
     write(budget: ICommandCostBudget): void {
-      writeBudgetFile(cwd, JSON.stringify(budget, null, 2));
+      writeBudgetFile(cwd, fileName, JSON.stringify(budget, null, 2));
     },
     // Clearing writes an empty document rather than unlinking: `read` treats `{}` and absence alike,
     // and an unconditional write has no check-then-use window.
     clear(): void {
-      writeBudgetFile(cwd, '{}');
+      writeBudgetFile(cwd, fileName, '{}');
     },
   };
 }

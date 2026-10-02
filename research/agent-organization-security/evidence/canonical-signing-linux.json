@@ -1,0 +1,65 @@
+{
+  "kind": "cross-language-canonical-ed25519-regression",
+  "records": [
+    {
+      "id": "canonical-vector-0",
+      "sameBytes": true,
+      "nodeProofVerifiedByPython": true,
+      "passed": true
+    },
+    {
+      "id": "canonical-vector-1",
+      "sameBytes": true,
+      "nodeProofVerifiedByPython": true,
+      "passed": true
+    },
+    {
+      "id": "canonical-vector-2",
+      "sameBytes": true,
+      "nodeProofVerifiedByPython": true,
+      "passed": true
+    },
+    {
+      "id": "canonical-vector-3",
+      "sameBytes": true,
+      "nodeProofVerifiedByPython": true,
+      "passed": true
+    },
+    {
+      "id": "canonical-vector-4",
+      "sameBytes": true,
+      "nodeProofVerifiedByPython": true,
+      "passed": true
+    },
+    {
+      "id": "canonical-vector-5",
+      "sameBytes": true,
+      "nodeProofVerifiedByPython": true,
+      "passed": true
+    },
+    {
+      "id": "invalid-domain-0",
+      "pythonRejected": true,
+      "nodeRejected": true,
+      "passed": true
+    },
+    {
+      "id": "invalid-domain-1",
+      "pythonRejected": true,
+      "nodeRejected": true,
+      "passed": true
+    },
+    {
+      "id": "invalid-domain-2",
+      "pythonRejected": true,
+      "nodeRejected": true,
+      "passed": true
+    },
+    {
+      "id": "invalid-domain-3",
+      "pythonRejected": true,
+      "nodeRejected": true,
+      "passed": true
+    }
+  ]
+}

@@ -2,7 +2,7 @@
   "name": "robota-example-batch-processor",
   "version": "0.1.0",
   "private": true,
-  "description": "Robota SDK — batch document processor using parallel AI analysis",
+  "description": "Robota SDK \u2014 batch document processor using parallel AI analysis",
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",

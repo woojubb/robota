@@ -18,7 +18,7 @@ export interface IReadProviderSettingsOptions {
   providerOverride?: string;
   providerDefinitions?: readonly IProviderDefinition[];
   /** Environment map for env-default synthesis (test seam, default: process.env). */
-  env?: Record<string, string | undefined>;
+  env?: Readonly<Record<string, string | undefined>>;
 }
 
 /**
@@ -46,7 +46,7 @@ export function readMergedProviderSettings(
  */
 export function resolveEnvDefaultProvider(
   providerDefinitions: readonly IProviderDefinition[],
-  env: Record<string, string | undefined> = process.env,
+  env: Readonly<Record<string, string | undefined>> = process.env,
 ): IProviderDefinitionConfig | undefined {
   for (const definition of providerDefinitions) {
     const defaults = definition.defaults;
@@ -68,6 +68,7 @@ export function resolveEnvDefaultProvider(
       ...(defaults.options !== undefined && { options: defaults.options }),
       source: 'env-default',
       sourceEnvVar: envName,
+      apiKeyEnv: envName,
     };
   }
   return undefined;
@@ -82,6 +83,7 @@ export function readProviderSettings(
     merged,
     options.providerOverride,
     options.providerDefinitions ?? [],
+    options.env,
   );
   if (providerConfig !== undefined) {
     return providerConfig;

@@ -1,6 +1,6 @@
 /**
  * SCREEN-005 User Execution Test Scenarios — prompt footers and key-hint affordance on the BUILT
- * robota binary in a real PTY (run by `test:pty`; requires `pnpm build:deps` first).
+ * CLI binary in a real PTY (run by `test:pty`; requires `pnpm build:deps` first).
  *
  * Scenario 1: `/` opens the autocomplete → unified footer + `> ` indicator on the selected row.
  * Scenario 2: a replayed model turn drives a CMD-004 ask in each shape (single-select,
@@ -41,7 +41,7 @@ describe('SCREEN-005 prompt footers through the real binary', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-screen005-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-screen005-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 

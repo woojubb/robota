@@ -1,5 +1,6 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * #3282 §1 — a served session (`robota daemon start`, `robota --serve`) needs the same provider
+ * #3282 §1 — a served session (`the product daemon start`, `the product --serve`) needs the same provider
  * definitions the TUI gets.
  *
  * `buildServeSessionOptions` never forwarded `providerDefinitions`, so a served session's
@@ -46,7 +47,7 @@ const DEFINITIONS: readonly IProviderDefinition[] = [
 
 describe('#3282 — provider definitions reach a served session', () => {
   it('buildServeSessionOptions forwards them into the session options', () => {
-    const options = buildServeSessionOptions({
+    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true } as never,
       preset: {},
@@ -60,7 +61,7 @@ describe('#3282 — provider definitions reach a served session', () => {
     // An explicit `[]` would look like "the caller supplied none" and read as configured. Absent is
     // the honest shape for "this surface did not provide them" — see the identical reasoning in the
     // TUI's own version of this case.
-    const options = buildServeSessionOptions({
+    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true } as never,
       preset: {},
@@ -70,7 +71,7 @@ describe('#3282 — provider definitions reach a served session', () => {
   });
 
   it('a session built like a served session switches profiles and the next turn uses the new one', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'robota-3282-serve-switch-'));
+    const dir = mkdtempSync(join(tmpdir(), 'test-product-3282-serve-switch-'));
     try {
       const settingsPath = join(dir, 'settings.json');
       const readDoc = (): TProviderSettingsDocument =>
@@ -116,7 +117,7 @@ describe('#3282 — provider definitions reach a served session', () => {
       // Built exactly the way `runServeMode` builds a served session's options — `providerDefinitions`
       // included (the fix) and a `/provider` command module sharing the same definitions and the same
       // settings file the CLI composition root wires both to.
-      const sessionOptions = buildServeSessionOptions({
+      const sessionOptions = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
         cwd: dir,
         args: { noSessionPersistence: true } as never,
         preset: {},

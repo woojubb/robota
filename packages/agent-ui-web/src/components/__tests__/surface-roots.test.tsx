@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, render } from '@testing-library/react';
+import { render } from '../../testing/product-provider.js';
+import { cleanup } from '@testing-library/react';
 import React from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -11,9 +12,9 @@ import type { TPendingPrompt } from '../../hooks/prompt-state.js';
 
 /**
  * A host can render one of the surface's components on its own, inside an app whose tokens share the
- * surface's names. Each root the package exports opens the `robota-ui` scope itself.
+ * surface's names. Each root the package exports opens the `agent-ui` scope itself.
  */
-describe('the surface components open their own robota-ui scope', () => {
+describe('the surface components open their own agent-ui scope', () => {
   beforeAll(() => {
     // jsdom has no layout; the conversation scrolls itself to the end after each render.
     Element.prototype.scrollIntoView = vi.fn();
@@ -30,7 +31,7 @@ describe('the surface components open their own robota-ui scope', () => {
         ownDriverId={null}
       />,
     );
-    expect((container.firstElementChild as HTMLElement).classList).toContain('robota-ui');
+    expect((container.firstElementChild as HTMLElement).classList).toContain('agent-ui');
   });
 
   it('PermissionPrompt, docked and as a modal', () => {
@@ -49,13 +50,13 @@ describe('the surface components open their own robota-ui scope', () => {
           onAnswerAsk={vi.fn()}
         />,
       );
-      expect((container.firstElementChild as HTMLElement).classList).toContain('robota-ui');
+      expect((container.firstElementChild as HTMLElement).classList).toContain('agent-ui');
       cleanup();
     }
   });
 
   it('AgentActivityPanel', () => {
     const { container } = render(<AgentActivityPanel tasks={[]} />);
-    expect((container.firstElementChild as HTMLElement).classList).toContain('robota-ui');
+    expect((container.firstElementChild as HTMLElement).classList).toContain('agent-ui');
   });
 });

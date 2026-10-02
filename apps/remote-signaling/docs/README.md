@@ -1,13 +1,13 @@
 # @robota-sdk/remote-signaling
 
-Minimal, content-blind WebRTC **signaling relay** for Robota's remote control (internal, not published to
+Minimal, content-blind WebRTC **signaling relay** for a configured CLI remote-control client (internal, not published to
 npm).
 
 Two NAT'd peers — a host running `agent-cli` with remote control enabled and an external remote client —
 exchange SDP offers/answers and ICE candidates through this relay to open a direct P2P `RTCDataChannel`.
 The relay pairs peers by an opaque rendezvous id and forwards their SDP/ICE blobs verbatim. It also carries
 opaque messages between device inboxes (see below). It holds **no session content**, never inspects a
-payload, and uses no Robota runtime package at run time.
+payload, and uses no runtime SDK package at run time.
 
 The relay has no authentication of its own. The peers authenticate each other end to end over the data channel
 (a pairing secret bound to the DTLS channel, `@robota-sdk/agent-remote-pairing`), so the relay cannot
@@ -16,7 +16,7 @@ rendezvous ids, expiry of half-open rendezvous, frame-size, connection and messa
 add its own admission check through the `onJoinAttempt` hook.
 
 It binds loopback on an ephemeral port by default and is not part of any published or deployed artifact: you
-run it yourself, point the CLI's `transports.webrtc.options.relayUrl` setting at it, and pass the same URL to
+run it yourself, point the configured CLI's `transports.webrtc.options.relayUrl` setting at it, and pass the same URL to
 the browser client in the `relay` query parameter of its page (see the
 [`apps/agent-web` deployment guide](../../agent-web/docs/DEPLOYMENT.md)).
 

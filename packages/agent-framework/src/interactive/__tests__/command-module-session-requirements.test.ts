@@ -8,7 +8,7 @@ import type { IInitOptions } from '../interactive-session-options.js';
 
 /**
  * CMD-008: `sessionRequirements` is a demand switch. A composed module that declares
- * `'agent-runtime'` makes the projection enable the runtime; without such a module the key stays
+ * `'runtime'` makes the projection enable the runtime; without such a module the key stays
  * absent (a conditional spread, never `enableAgentRuntime: undefined`).
  */
 const DEPS: ICreateSessionProjectionDeps = {
@@ -27,8 +27,8 @@ function initOptions(extra: Partial<IInitOptions>): IInitOptions {
 }
 
 describe('CMD-008 — sessionRequirements is a demand switch', () => {
-  it('enables the agent runtime when a composed module declares agent-runtime', () => {
-    const demanding: ICommandModule = { name: 'demanding', sessionRequirements: ['agent-runtime'] };
+  it('enables the agent runtime when a composed module declares runtime', () => {
+    const demanding: ICommandModule = { name: 'demanding', sessionRequirements: ['runtime'] };
 
     const built = buildCreateSessionOptions(initOptions({ commandModules: [demanding] }), DEPS);
 

@@ -1,3 +1,5 @@
+import { createIdentityContext } from '../identity/crypto-context.js';
+const testIdentity = createIdentityContext('test-product');
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -30,10 +32,10 @@ async function root() {
   return { pair, userId: await deriveUserId(pair.publicKey) };
 }
 
-async function rotation(overrides: Partial<Parameters<typeof issueRootRotation>[0]> = {}) {
+async function rotation(overrides: Partial<Parameters<typeof issueRootRotation>[1]> = {}) {
   const previous = await root();
   const next = await root();
-  const value = await issueRootRotation({
+  const value = await issueRootRotation(testIdentity, {
     previousUserId: previous.userId,
     nextUserId: next.userId,
     previousRootPrivateKey: previous.pair.privateKey,
@@ -48,7 +50,7 @@ async function rotation(overrides: Partial<Parameters<typeof issueRootRotation>[
 describe('a rotation both roots signed', () => {
   it('is accepted, and names the successor a verifier should start trusting', async () => {
     const { rotation: r, previous, next } = await rotation();
-    const verdict = await verifyRootRotation(r, {
+    const verdict = await verifyRootRotation(testIdentity, r, {
       previousRootPublicKey: previous.pair.publicKey,
       expectedPreviousUserId: previous.userId,
       now: NOW + 1,
@@ -60,7 +62,7 @@ describe('a rotation both roots signed', () => {
 
   it('bounds how long the retiring root stays acceptable', async () => {
     const { rotation: r, previous } = await rotation();
-    const verdict = await verifyRootRotation(r, {
+    const verdict = await verifyRootRotation(testIdentity, r, {
       previousRootPublicKey: previous.pair.publicKey,
       expectedPreviousUserId: previous.userId,
       now: NOW + 1,
@@ -85,7 +87,7 @@ describe('the successor must countersign, or the user is locked out', () => {
     const impostor = await root();
     const forged = { ...r, nextRootPublicKey: await exportPublicKey(impostor.pair.publicKey) };
 
-    const verdict = await verifyRootRotation(forged, {
+    const verdict = await verifyRootRotation(testIdentity, forged, {
       previousRootPublicKey: previous.pair.publicKey,
       expectedPreviousUserId: previous.userId,
       now: NOW + 1,
@@ -100,6 +102,7 @@ describe('the successor must countersign, or the user is locked out', () => {
     const { rotation: r, previous } = await rotation();
     const other = await rotation();
     const verdict = await verifyRootRotation(
+      testIdentity,
       { ...r, nextSignature: other.rotation.nextSignature },
       {
         previousRootPublicKey: previous.pair.publicKey,
@@ -120,6 +123,7 @@ describe('every claim is inside both signatures', () => {
   ])('editing %s invalidates it', async (_field, edit) => {
     const { rotation: r, previous } = await rotation();
     const verdict = await verifyRootRotation(
+      testIdentity,
       { ...r, ...edit },
       {
         previousRootPublicKey: previous.pair.publicKey,
@@ -137,7 +141,7 @@ describe('what a verifier refuses on its own terms', () => {
     // A genuine rotation for someone else's identity is not this machine's business, and applying
     // it would move a verifier onto an unrelated user's root.
     const { rotation: r, previous } = await rotation();
-    const verdict = await verifyRootRotation(r, {
+    const verdict = await verifyRootRotation(testIdentity, r, {
       previousRootPublicKey: previous.pair.publicKey,
       expectedPreviousUserId: 'a-different-user',
       now: NOW + 1,
@@ -148,7 +152,7 @@ describe('what a verifier refuses on its own terms', () => {
 
   it('refuses one dated in the future', async () => {
     const { rotation: r, previous } = await rotation();
-    const verdict = await verifyRootRotation(r, {
+    const verdict = await verifyRootRotation(testIdentity, r, {
       previousRootPublicKey: previous.pair.publicKey,
       expectedPreviousUserId: previous.userId,
       now: NOW - 1,
@@ -161,7 +165,7 @@ describe('what a verifier refuses on its own terms', () => {
     // Malformed, not "no overlap". Reading it as zero overlap would silently invalidate every
     // enrolled device at a moment the signer may not have intended.
     const { rotation: r, previous } = await rotation({ previousValidUntil: NOW - DAY });
-    const verdict = await verifyRootRotation(r, {
+    const verdict = await verifyRootRotation(testIdentity, r, {
       previousRootPublicKey: previous.pair.publicKey,
       expectedPreviousUserId: previous.userId,
       now: NOW + 1,
@@ -174,7 +178,7 @@ describe('what a verifier refuses on its own terms', () => {
     // The boundary the case above is about. Without this, "inverted" and "immediate" would be one
     // rejection and a user who wanted no grace period could not express it.
     const { rotation: r, previous } = await rotation({ previousValidUntil: NOW });
-    const verdict = await verifyRootRotation(r, {
+    const verdict = await verifyRootRotation(testIdentity, r, {
       previousRootPublicKey: previous.pair.publicKey,
       expectedPreviousUserId: previous.userId,
       now: NOW + 1,
@@ -192,7 +196,7 @@ describe('a device caught mid-rotation (TC-08)', () => {
     const previous = await root();
     const next = await root();
     const device = await generateIdentityKeyPair(true);
-    const certificate = await issueDeviceCertificate({
+    const certificate = await issueDeviceCertificate(testIdentity, {
       rootPrivateKey: previous.pair.privateKey,
       userId: previous.userId,
       devicePublicKey: device.publicKey,
@@ -200,7 +204,7 @@ describe('a device caught mid-rotation (TC-08)', () => {
       expiresAt: NOW + 30 * DAY,
     });
 
-    const r = await issueRootRotation({
+    const r = await issueRootRotation(testIdentity, {
       previousUserId: previous.userId,
       nextUserId: next.userId,
       previousRootPrivateKey: previous.pair.privateKey,
@@ -208,7 +212,7 @@ describe('a device caught mid-rotation (TC-08)', () => {
       rotatedAt: NOW,
       previousValidUntil: NOW + 7 * DAY,
     });
-    const verdict = await verifyRootRotation(r, {
+    const verdict = await verifyRootRotation(testIdentity, r, {
       previousRootPublicKey: previous.pair.publicKey,
       expectedPreviousUserId: previous.userId,
       now: NOW + 1,
@@ -217,7 +221,7 @@ describe('a device caught mid-rotation (TC-08)', () => {
 
     // Inside the window the certificate still verifies against the retiring root.
     expect(previousRootStillAccepted(verdict, NOW + DAY)).toBe(true);
-    const inside = await verifyDeviceCertificate(certificate, {
+    const inside = await verifyDeviceCertificate(testIdentity, certificate, {
       rootPublicKey: previous.pair.publicKey,
       expectedUserId: previous.userId,
       now: NOW + DAY,
@@ -228,7 +232,7 @@ describe('a device caught mid-rotation (TC-08)', () => {
     // what refuses it. Asserting the certificate alone would miss that: it does not expire until day
     // 30, so nothing about the certificate says the device should stop.
     expect(previousRootStillAccepted(verdict, NOW + 8 * DAY)).toBe(false);
-    const stillIntact = await verifyDeviceCertificate(certificate, {
+    const stillIntact = await verifyDeviceCertificate(testIdentity, certificate, {
       rootPublicKey: previous.pair.publicKey,
       expectedUserId: previous.userId,
       now: NOW + 8 * DAY,
@@ -243,7 +247,7 @@ describe('a device caught mid-rotation (TC-08)', () => {
     const previous = await root();
     const next = await root();
     const device = await generateIdentityKeyPair(true);
-    const reissued = await issueDeviceCertificate({
+    const reissued = await issueDeviceCertificate(testIdentity, {
       rootPrivateKey: next.pair.privateKey,
       userId: next.userId,
       devicePublicKey: device.publicKey,
@@ -252,7 +256,7 @@ describe('a device caught mid-rotation (TC-08)', () => {
     });
 
     expect(next.userId).not.toBe(previous.userId);
-    const underNext = await verifyDeviceCertificate(reissued, {
+    const underNext = await verifyDeviceCertificate(testIdentity, reissued, {
       rootPublicKey: next.pair.publicKey,
       expectedUserId: next.userId,
       now: NOW + 1,
@@ -261,7 +265,7 @@ describe('a device caught mid-rotation (TC-08)', () => {
 
     // And a verifier still expecting the OLD user refuses it, rather than accepting a certificate
     // for an identity it has not been told to trust.
-    const underPrevious = await verifyDeviceCertificate(reissued, {
+    const underPrevious = await verifyDeviceCertificate(testIdentity, reissued, {
       rootPublicKey: next.pair.publicKey,
       expectedUserId: previous.userId,
       now: NOW + 1,

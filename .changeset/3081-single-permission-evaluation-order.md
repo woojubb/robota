@@ -19,8 +19,8 @@ bypassPermissions → allow → mode.
   construction alongside `allow` and `deny`.
 - **Never auto-approved, bypass included:** removing a critical path with `rm`/`rmdir` (the root, a
   top-level directory, home, the working directory or a parent), and a modify-class write into
-  `.git`, `.robota`, `.claude`, `.agents`, `.mcp.json`, `.gitconfig`, `.npmrc` or a shell rc file.
-  Files inside an isolated worktree (`.robota/worktrees/<name>/…`) are ordinary files. With no
+  `.git`, the configured project-state directory, `.claude`, `.agents`, `.mcp.json`, `.gitconfig`, `.npmrc` or a shell rc file.
+  Files inside an isolated worktree (`the configured project-state directory/worktrees/<name>/…`) are ordinary files. With no
   approver attached, an ask is a denial.
 - **A ceiling is checked before bypass and before any ask.** A subagent's `inherit-allowlist` ceiling
   is now the parent's *effective* rules, read live at spawn: settings, preset lists and command

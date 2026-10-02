@@ -1,3 +1,4 @@
+import { createTestProductEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { describe, it, expect, afterEach } from 'vitest';
 import { rmSync, readFileSync, mkdirSync, writeFileSync, mkdtempSync, realpathSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -14,6 +15,7 @@ import type { ITerminalOutput, ISpinner } from '@robota-sdk/agent-core';
 import { createWorkspaceProjectSettingsWriter } from '@robota-sdk/agent-framework';
 import { createTrustedWorkspaceProjectAccess } from '../../__tests__/helpers/trusted-workspace-project-access.js';
 import { createCliWorkspaceComposition } from '../workspace-project-composition.js';
+import { resolveCliRuntimeContext } from '../product-bootstrap.js';
 
 const NOOP_TERMINAL: ITerminalOutput = {
   write: () => {},
@@ -25,7 +27,7 @@ const NOOP_TERMINAL: ITerminalOutput = {
   spinner: (): ISpinner => ({ stop: () => {}, update: () => {} }),
 };
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-provider-startup-test-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-provider-startup-test-')));
 const ORIGINAL_HOME = process.env.HOME;
 const ORIGINAL_STDIN_TTY = process.stdin.isTTY;
 const ORIGINAL_STDOUT_TTY = process.stdout.isTTY;
@@ -181,7 +183,7 @@ function baseArgs(): IParsedCliArgs {
 }
 
 function readUserSettings(home: string): Record<string, unknown> {
-  return JSON.parse(readFileSync(join(home, '.robota', 'settings.json'), 'utf8')) as Record<
+  return JSON.parse(readFileSync(join(home, '.test-product', 'settings.json'), 'utf8')) as Record<
     string,
     unknown
   >;
@@ -193,20 +195,27 @@ function writeJson(path: string, data: unknown): void {
 }
 
 async function projectSettingsAccess(project: string, home: string) {
+  mkdirSync(project, { recursive: true });
   const projectAccess = await createTrustedWorkspaceProjectAccess(project);
   const projectSettingsWriter = createWorkspaceProjectSettingsWriter(projectAccess.authority, {
     status: 'approved',
     target: 'project-local',
-    relativePath: join('.robota', 'settings.local.json'),
+    relativePath: join('.test-product', 'settings.local.json'),
     purpose: 'provider startup test',
   });
-  const composition = createCliWorkspaceComposition({
+  const composition = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: home }),
     cwd: project,
     userHome: home,
     projectAccess,
     projectSettingsWriter,
   });
   return {
+    cliName: 'test-product',
+    env: {
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+      DASHSCOPE_API_KEY: process.env.DASHSCOPE_API_KEY,
+      DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
+    },
     settingsSources: composition.settingsSources,
     settingsStores: composition.settingsStores,
   };
@@ -242,6 +251,7 @@ describe('provider startup', () => {
       promptInput,
       NOOP_TERMINAL,
       providerDefinitions,
+      await projectSettingsAccess(join(TMP_BASE, 'project'), home),
     );
 
     const settings = readUserSettings(home);
@@ -273,6 +283,7 @@ describe('provider startup', () => {
       promptInput,
       NOOP_TERMINAL,
       providerDefinitions,
+      await projectSettingsAccess(join(TMP_BASE, 'project'), home),
     );
 
     const settings = readUserSettings(home);
@@ -306,6 +317,7 @@ describe('provider startup', () => {
       promptInput,
       NOOP_TERMINAL,
       providerDefinitions,
+      await projectSettingsAccess(join(TMP_BASE, 'project'), home),
     );
 
     const settings = readUserSettings(home);
@@ -340,6 +352,7 @@ describe('provider startup', () => {
         NOOP_TERMINAL,
         providerDefinitions,
         false,
+        await projectSettingsAccess(join(TMP_BASE, 'project'), join(TMP_BASE, 'home-missing')),
       ),
     ).rejects.toThrow('No provider configuration found');
     expect(prompted).toBe(false);
@@ -351,14 +364,14 @@ describe('provider startup', () => {
     process.env.HOME = home;
     Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true });
     Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true });
-    writeJson(join(home, '.robota', 'settings.json'), {
+    writeJson(join(home, '.test-product', 'settings.json'), {
       provider: {
         name: 'anthropic',
         model: 'claude-sonnet-4-6',
         apiKey: 'sk-ant-test',
       },
     });
-    writeJson(join(project, '.robota', 'settings.local.json'), {
+    writeJson(join(project, '.test-product', 'settings.local.json'), {
       currentProvider: 'qwen',
       providers: {
         qwen: {
@@ -397,14 +410,14 @@ describe('provider startup', () => {
       process.env.HOME = home;
       Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
       Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
-      writeJson(join(home, '.robota', 'settings.json'), {
+      writeJson(join(home, '.test-product', 'settings.json'), {
         provider: {
           name: 'anthropic',
           model: 'claude-sonnet-4-6',
           apiKey: 'sk-ant-user',
         },
       });
-      writeJson(join(project, '.robota', 'settings.local.json'), {
+      writeJson(join(project, '.test-product', 'settings.local.json'), {
         currentProvider: 'qwen',
         providers: {
           qwen: {
@@ -428,7 +441,7 @@ describe('provider startup', () => {
       );
 
       const settings = JSON.parse(
-        readFileSync(join(project, '.robota', 'settings.local.json'), 'utf8'),
+        readFileSync(join(project, '.test-product', 'settings.local.json'), 'utf8'),
       ) as {
         currentProvider?: string;
         language?: string;
@@ -455,7 +468,7 @@ describe('provider startup', () => {
       const home = join(TMP_BASE, 'home-provider-switch');
       const project = join(TMP_BASE, 'project-provider-switch');
       process.env.HOME = home;
-      writeJson(join(home, '.robota', 'settings.json'), {
+      writeJson(join(home, '.test-product', 'settings.json'), {
         currentProvider: 'anthropic',
         providers: {
           anthropic: {
@@ -465,7 +478,7 @@ describe('provider startup', () => {
           },
         },
       });
-      writeJson(join(project, '.robota', 'settings.local.json'), {
+      writeJson(join(project, '.test-product', 'settings.local.json'), {
         currentProvider: 'anthropic',
         providers: {
           qwen: {
@@ -485,10 +498,10 @@ describe('provider startup', () => {
       );
 
       const userSettings = JSON.parse(
-        readFileSync(join(home, '.robota', 'settings.json'), 'utf8'),
+        readFileSync(join(home, '.test-product', 'settings.json'), 'utf8'),
       ) as { currentProvider?: string };
       const projectSettings = JSON.parse(
-        readFileSync(join(project, '.robota', 'settings.local.json'), 'utf8'),
+        readFileSync(join(project, '.test-product', 'settings.local.json'), 'utf8'),
       ) as { currentProvider?: string };
       expect(handled).toBe(true);
       expect(userSettings.currentProvider).toBe('anthropic');
@@ -497,12 +510,47 @@ describe('provider startup', () => {
   );
 
   it('formats missing-config guidance from injected provider definitions', () => {
-    const message = formatMissingProviderConfigMessage(providerDefinitions);
+    const message = formatMissingProviderConfigMessage(providerDefinitions, 'test-product');
 
     expect(message).toContain('Supported providers: anthropic, openai, qwen');
     expect(message).toContain(
-      'robota --configure-provider qwen --type qwen --base-url <url> --model <model> --api-key-env <ENV_NAME> --set-current',
+      'test-product --configure-provider qwen --type qwen --base-url <url> --model <model> --api-key-env <ENV_NAME> --set-current',
     );
     expect(message).not.toContain('supergemma4-26b-uncensored-v2');
+  });
+
+  it('configures an env-referenced provider using the selected host snapshot', async () => {
+    const home = join(TMP_BASE, 'home-selected-provider-key');
+    const project = join(TMP_BASE, 'project-selected-provider-key');
+    const access = await projectSettingsAccess(project, home);
+    const filePath = join(TMP_BASE, 'selected-provider.env');
+    writeFileSync(filePath, Object.entries({
+      ...createTestProductEnvironment('test-product'),
+      SELECTED_PROVIDER_KEY: 'synthetic-selected-key',
+    }).map(([key, value]) => `${key}=${value}`).join('\n'));
+    const runtime = resolveCliRuntimeContext({
+      environment: { HOME: home, PRODUCT_CONFIG_FILE: filePath },
+    });
+    delete process.env.SELECTED_PROVIDER_KEY;
+
+    const handled = handleProviderConfigurationArgs(
+      project,
+      {
+        ...baseArgs(),
+        configureProvider: 'openai',
+        providerType: 'openai',
+        model: 'gpt-test',
+        apiKeyEnv: 'SELECTED_PROVIDER_KEY',
+        setCurrent: true,
+      },
+      NOOP_TERMINAL,
+      providerDefinitions,
+      { ...access, env: runtime.environment },
+    );
+
+    expect(handled).toBe(true);
+    expect(readUserSettings(home).providers).toMatchObject({
+      openai: { apiKey: '$ENV:SELECTED_PROVIDER_KEY' },
+    });
   });
 });

@@ -35,8 +35,9 @@ export interface ISelectedCredentialStore {
 }
 
 export interface ISelectCredentialStoreOptions {
-  /** The host's storage root (`~/.robota`); the file backend and the recorded choice live under it. */
+  /** The host's storage root (`the configured user root`); the file backend and the recorded choice live under it. */
   readonly root: string;
+  readonly serviceNamespace: string;
   /** Loads the keychain binding or throws; defaults to the optional `@napi-rs/keyring`. */
   readonly loadKeyring?: () => IKeyringModule;
   /** Defaults to `process.platform`. */
@@ -44,7 +45,6 @@ export interface ISelectCredentialStoreOptions {
 }
 
 const MARKER_VERSION = 1;
-const PROBE_SERVICE = 'robota.credential-store';
 
 const KEYCHAIN_NAMES: Readonly<Record<string, string>> = {
   darwin: 'macOS Keychain',
@@ -89,13 +89,14 @@ function readRecordedBackend(markerPath: string): TCredentialBackend | undefined
 async function openKeychain(
   loadKeyring: () => IKeyringModule,
   platform: string,
+  serviceNamespace: string,
 ): Promise<{ store: ICredentialStore } | { reason: string }> {
   try {
     const store = createKeychainCredentialStore(loadKeyring(), { platform });
     const probe = randomBytes(16).toString('hex');
     // A probe account of its own, so another process probing at the same moment cannot overwrite or
     // delete this one's value and make a working keychain look broken.
-    const probeKey: ICredentialKey = { service: PROBE_SERVICE, account: `probe-${probe}` };
+    const probeKey: ICredentialKey = { service: `${serviceNamespace}.credential-store`, account: `probe-${probe}` };
     await store.set(probeKey, probe);
     const readBack = await store.get(probeKey);
     await store.delete(probeKey);
@@ -113,6 +114,7 @@ async function openKeychain(
 export async function selectCredentialStore(
   options: ISelectCredentialStoreOptions,
 ): Promise<ISelectedCredentialStore> {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(options.serviceNamespace)) throw new CredentialStoreError('credential service namespace is required');
   const directory = credentialDirectory(options.root);
   ensureOwnerOnlyDirectory(directory, { withinRoot: options.root });
   return withExclusiveFileLock(join(directory, 'backend.lock'), () => chooseBackend(options));
@@ -140,7 +142,7 @@ async function chooseBackend(
     };
   }
 
-  const keychain = await openKeychain(options.loadKeyring ?? (() => loadKeyringModule()), platform);
+  const keychain = await openKeychain(options.loadKeyring ?? (() => loadKeyringModule()), platform, options.serviceNamespace);
   if ('store' in keychain) {
     if (recorded === undefined) record('os-keychain');
     return {

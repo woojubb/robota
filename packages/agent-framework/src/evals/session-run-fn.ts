@@ -9,7 +9,7 @@
  *
  * Each per-case session is torn down with `shutdown()` in a `finally` once the run settles — the fresh-per-case
  * design would otherwise leak N live sessions (+ their background runners) across an N-case eval and could keep
- * the `robota eval` CI process from exiting.
+ * the `agent eval` CI process from exiting.
  *
  * Security posture: programmatic eval runs default to `bypassPermissions` (below) so the agent is not blocked on
  * interactive approvals in a headless CI run — the agent may execute any tool (shell/write) without prompting.
@@ -19,7 +19,7 @@
 import type { TEvalRunFn } from './eval-types.js';
 import type { InteractiveSession } from '../interactive/interactive-session.js';
 import type { IExecutionResult } from '../interactive/types.js';
-import type { IAgentRuntime, IHeadlessSessionOptions } from '../runtime/agent-runtime.js';
+import type { IAgentRuntime, IHeadlessSessionOptions } from '../runtime/session-runtime.js';
 
 /** Programmatic eval runs default to bypass so the agent is not blocked on interactive approvals. */
 const DEFAULT_SESSION_OPTIONS: IHeadlessSessionOptions = { permissionMode: 'bypassPermissions' };

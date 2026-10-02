@@ -18,7 +18,7 @@ native ESM cannot read an uninitialized value through that path.
 ## Diagnostic endpoint
 
 The provider definition declares a diagnostic endpoint (the vendor SDK's embedded host/port), stated
-on the Robota side purely for the pre-session doctor's TCP reachability check. It is deliberately
+on the agent runtime side purely for the pre-session doctor's TCP reachability check. It is deliberately
 **not** the runtime-effective base URL: that field is persisted into created profiles and passed to
 provider construction, while the diagnostic endpoint is read by no setup, persistence, or
 provider-construction path. A profile that sets its own base URL is probed at that host instead.

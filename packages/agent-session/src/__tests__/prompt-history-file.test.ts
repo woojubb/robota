@@ -10,7 +10,7 @@ import type { IPromptHistoryBlock, IPromptHistoryEntry } from '@robota-sdk/agent
 
 const roots: string[] = [];
 function temp(): string {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-prompt-history-')));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-prompt-history-')));
   roots.push(root);
   return root;
 }
@@ -39,7 +39,7 @@ async function collect(
 describe('NodePromptHistoryFile (SCREEN-1993 TC-01)', () => {
   it('appends one JSON line per entry with owner-only directory and file modes', () => {
     const root = temp();
-    const path = join(root, '.robota', 'history.jsonl');
+    const path = join(root, '.agent', 'history.jsonl');
     const file = new NodePromptHistoryFile(path, { ownedRoot: root });
     file.append(entry(1));
     file.append(entry(2));
@@ -48,7 +48,7 @@ describe('NodePromptHistoryFile (SCREEN-1993 TC-01)', () => {
     expect(JSON.parse(lines[0]!)).toEqual(entry(1));
     if (process.platform !== 'win32') {
       expect(statSync(path).mode & 0o777).toBe(0o600);
-      expect(statSync(join(root, '.robota')).mode & 0o777).toBe(0o700);
+      expect(statSync(join(root, '.agent')).mode & 0o777).toBe(0o700);
     }
   });
 

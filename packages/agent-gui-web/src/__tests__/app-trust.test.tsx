@@ -4,6 +4,7 @@
  * the folder, start Restricted, or quit. A grant the CLI refuses keeps the question up with its reason.
  */
 
+import { testProduct } from './product-fixture.js';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -17,7 +18,7 @@ const QUESTION: IGuiTrustQuestion = {
   folder: '/work/repo',
   loads: [
     '  [file] AGENTS.md — Agent instructions',
-    '  [directory] .robota/skills — Project skills',
+    '  [directory] .fixture-state/skills — Project skills',
   ],
 };
 
@@ -38,7 +39,7 @@ function desktopHost(overrides: Partial<IGuiHost> = {}): IGuiHost {
 describe('the trust question', () => {
   it('names the folder and what trust would load, before asking for the endpoint', async () => {
     const host = desktopHost();
-    render(<App host={host} />);
+    render(<App product={testProduct} host={host} />);
     const dialog = await screen.findByRole('dialog', { name: 'Do you trust this folder?' });
     expect(dialog.textContent).toContain('/work/repo');
     expect(screen.getByLabelText('What trust would load').textContent).toContain('AGENTS.md');
@@ -53,7 +54,7 @@ describe('the trust question', () => {
     const host = desktopHost({
       answerTrust: vi.fn(() => new Promise<{ error?: string }>(() => {})),
     });
-    render(<App host={host} />);
+    render(<App product={testProduct} host={host} />);
     fireEvent.click(await screen.findByRole('button', { name: label }));
     expect(host.answerTrust).toHaveBeenCalledWith(choice);
     // One answer at a time: the host reloads the page once it has one.
@@ -66,7 +67,7 @@ describe('the trust question', () => {
     const host = desktopHost({
       answerTrust: vi.fn(async () => ({ error: 'Workspace trust store is unavailable.' })),
     });
-    render(<App host={host} />);
+    render(<App product={testProduct} host={host} />);
     const trust = await screen.findByRole('button', { name: 'Trust folder' });
     await act(async () => {
       fireEvent.click(trust);
@@ -79,7 +80,7 @@ describe('the trust question', () => {
 
   it('asks nothing and connects when the host has no question', async () => {
     const host = desktopHost({ trustQuestion: vi.fn(async () => null) });
-    render(<App host={host} />);
+    render(<App product={testProduct} host={host} />);
     await vi.waitFor(() => expect(host.getEndpoint).toHaveBeenCalled());
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getByText('Starting the agent…')).toBeTruthy();
@@ -87,17 +88,17 @@ describe('the trust question', () => {
 
   it('#3282 §3: the load list is a collapsed Details, closed to a plain sentence', async () => {
     const host = desktopHost();
-    render(<App host={host} />);
+    render(<App product={testProduct} host={host} />);
     const dialog = await screen.findByRole('dialog', { name: 'Do you trust this folder?' });
     expect(dialog.textContent).toContain(
-      "Trusting this folder lets Robota use the project's own settings, hooks, skills and MCP servers.",
+      "Trusting this folder lets Test Product use the project's own settings, hooks, skills and MCP servers.",
     );
     expect(screen.getByText('Details').closest('details')).toBeTruthy();
   });
 
   it('#3282 §3: no per-path noise — nothing known (e.g. non-Linux) shows no Details at all', async () => {
     const host = desktopHost({ trustQuestion: vi.fn(async () => ({ folder: '/work/repo', loads: [] })) });
-    render(<App host={host} />);
+    render(<App product={testProduct} host={host} />);
     await screen.findByRole('dialog', { name: 'Do you trust this folder?' });
     expect(screen.queryByText('Details')).toBeNull();
     expect(screen.queryByLabelText('What trust would load')).toBeNull();

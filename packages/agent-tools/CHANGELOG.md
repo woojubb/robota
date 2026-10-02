@@ -51,7 +51,7 @@
     exits or fails to start. A composed sandbox may define `applyParentSettings`. The worker applies
     each change through it. On settings it cannot take, it aborts the run, lets a running command
     finish, and ends the run with that error.
-  - `agent-cli` (patch): robota watches its live sandbox, and a child applies each change to the
+  - `agent-cli` (patch): __PRODUCT_DISPLAY_NAME__ watches its live sandbox, and a child applies each change to the
     instance its tools and approval read.
 
 ### Patch Changes
@@ -193,7 +193,7 @@
       the host under the path guard, and only commands go through the sandbox.
   - **`describeExecutionContainment` / `routesFilesThroughSandbox`** name the containment (`host`,
     `sandbox-shared`, `sandbox-separate`) instead of inferring it from an absent value.
-  - **`robota doctor` reports `execution.containment`.** Robota composes no sandbox today, so the
+  - **`__PRODUCT_CLI_NAME__ doctor` reports `execution.containment`.** __PRODUCT_DISPLAY_NAME__ composes no sandbox today, so the
     doctor says shell commands run unconfined on the host and the permission rules are the only
     boundary. The CLI composition and the doctor read the same value.
   - **The `Agent` and `BackgroundProcess` tools no longer fall back to `process.cwd()`** when they
@@ -215,7 +215,7 @@
     - Deny rules, ask rules, critical removals and plan mode still apply first.
   - **Exclusions:** `sandbox.excludedCommands` run unconfined, through the ordinary permission path.
   - **When the sandbox cannot run:** a missing or unusable backend is reported at startup, in
-    `robota doctor` and in `/sandbox`, and commands then run unconfined.
+    `__PRODUCT_CLI_NAME__ doctor` and in `/sandbox`, and commands then run unconfined.
     `sandbox.failIfUnavailable` refuses to start instead.
   - **New contracts:**
     - `OsSandboxClient`, `detectOsSandbox`, `bubblewrapArguments`, `seatbeltProfile`.

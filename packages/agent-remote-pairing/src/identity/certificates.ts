@@ -1,3 +1,4 @@
+import type { IIdentityContext } from './crypto-context.js';
 /**
  * The two certificates of the identity chain: master → signing key, and signing key → device.
  *
@@ -10,7 +11,6 @@
 import { webcrypto } from '../crypto-primitives.js';
 import {
   DAY_MS,
-  IDENTITY_PURPOSES,
   canonicalBytes,
   exportSpki,
   isCount,
@@ -50,7 +50,7 @@ export const DEVICE_NAME_MAX_CHARS = 64;
 // ── Signing-key certificate ─────────────────────────────────────────────────────────────────────
 
 export interface ISigningKeyCertificate {
-  readonly ctx: typeof IDENTITY_PURPOSES.signingKeyCert;
+  readonly ctx: string;
   readonly userId: string;
   /** base64url `SHA-256(SPKI)` of `publicKey`. */
   readonly signingKeyId: string;
@@ -64,9 +64,10 @@ export interface ISigningKeyCertificate {
 }
 
 export function signingKeyCertificateBytes(
+  cryptoContext: IIdentityContext,
   cert: Omit<ISigningKeyCertificate, 'sig' | 'ctx'>,
 ): Uint8Array {
-  return canonicalBytes(IDENTITY_PURPOSES.signingKeyCert, [
+  return canonicalBytes(cryptoContext.purposes.signingKeyCert, [
     cert.userId,
     cert.signingKeyId,
     cert.alg,
@@ -86,8 +87,15 @@ const SIGNING_KEY_CERT_FIELDS = [
   'sig',
 ] as const;
 
-export function decodeSigningKeyCertificate(value: unknown): TDecoded<ISigningKeyCertificate> {
-  const opened = openStatement(value, IDENTITY_PURPOSES.signingKeyCert, SIGNING_KEY_CERT_FIELDS);
+export function decodeSigningKeyCertificate(
+  cryptoContext: IIdentityContext,
+  value: unknown,
+): TDecoded<ISigningKeyCertificate> {
+  const opened = openStatement(
+    value,
+    cryptoContext.purposes.signingKeyCert,
+    SIGNING_KEY_CERT_FIELDS,
+  );
   if (!opened.ok) return opened;
   const r = opened.value;
   if (!isId(r['userId'])) return malformed('userId');
@@ -101,7 +109,7 @@ export function decodeSigningKeyCertificate(value: unknown): TDecoded<ISigningKe
   return {
     ok: true,
     value: {
-      ctx: IDENTITY_PURPOSES.signingKeyCert,
+      ctx: cryptoContext.purposes.signingKeyCert,
       userId: r['userId'],
       signingKeyId: r['signingKeyId'],
       alg,
@@ -139,6 +147,7 @@ export interface ICertifySigningKeyOptions {
 
 /** Master-sign a signing key into this user's chain. */
 export async function certifySigningKey(
+  cryptoContext: IIdentityContext,
   options: ICertifySigningKeyOptions,
 ): Promise<ISigningKeyCertificate> {
   const alg = signatureAlgOf(options.signingPublicKey);
@@ -151,8 +160,11 @@ export async function certifySigningKey(
     issuedAt: options.issuedAt,
     expiresAt: options.expiresAt ?? options.issuedAt + SIGNING_KEY_CERTIFICATE_VALIDITY_MS,
   };
-  const sig = await signCanonical(options.masterPrivateKey, signingKeyCertificateBytes(unsigned));
-  return { ctx: IDENTITY_PURPOSES.signingKeyCert, ...unsigned, sig };
+  const sig = await signCanonical(
+    options.masterPrivateKey,
+    signingKeyCertificateBytes(cryptoContext, unsigned),
+  );
+  return { ctx: cryptoContext.purposes.signingKeyCert, ...unsigned, sig };
 }
 
 /** A signing key ready to issue: its certificate and its private key. */
@@ -164,7 +176,7 @@ export interface ISigningKey {
 // ── Device certificate ──────────────────────────────────────────────────────────────────────────
 
 export interface IDeviceCertificate {
-  readonly ctx: typeof IDENTITY_PURPOSES.deviceCert;
+  readonly ctx: string;
   readonly userId: string;
   readonly signingKeyId: string;
   /** base64url `SHA-256(signKey SPKI)`. */
@@ -207,8 +219,11 @@ export function deviceCertificateFields(
   ];
 }
 
-export function deviceCertificateBytes(cert: Omit<IDeviceCertificate, 'sig' | 'ctx'>): Uint8Array {
-  return canonicalBytes(IDENTITY_PURPOSES.deviceCert, deviceCertificateFields(cert));
+export function deviceCertificateBytes(
+  cryptoContext: IIdentityContext,
+  cert: Omit<IDeviceCertificate, 'sig' | 'ctx'>,
+): Uint8Array {
+  return canonicalBytes(cryptoContext.purposes.deviceCert, deviceCertificateFields(cert));
 }
 
 const DEVICE_CERT_FIELDS = [
@@ -253,8 +268,11 @@ function isCapabilities(value: unknown): value is readonly TDeviceCapability[] {
   return true;
 }
 
-export function decodeDeviceCertificate(value: unknown): TDecoded<IDeviceCertificate> {
-  const opened = openStatement(value, IDENTITY_PURPOSES.deviceCert, DEVICE_CERT_FIELDS);
+export function decodeDeviceCertificate(
+  cryptoContext: IIdentityContext,
+  value: unknown,
+): TDecoded<IDeviceCertificate> {
+  const opened = openStatement(value, cryptoContext.purposes.deviceCert, DEVICE_CERT_FIELDS);
   if (!opened.ok) return opened;
   const r = opened.value;
   if (!isId(r['userId'])) return malformed('userId');
@@ -273,7 +291,7 @@ export function decodeDeviceCertificate(value: unknown): TDecoded<IDeviceCertifi
   return {
     ok: true,
     value: {
-      ctx: IDENTITY_PURPOSES.deviceCert,
+      ctx: cryptoContext.purposes.deviceCert,
       userId: r['userId'],
       signingKeyId: r['signingKeyId'],
       deviceId: r['deviceId'],
@@ -319,7 +337,10 @@ export interface ICertifyDeviceOptions {
 }
 
 /** Signing-key-sign a device into this user's set. */
-export async function certifyDevice(options: ICertifyDeviceOptions): Promise<IDeviceCertificate> {
+export async function certifyDevice(
+  cryptoContext: IIdentityContext,
+  options: ICertifyDeviceOptions,
+): Promise<IDeviceCertificate> {
   if (signatureAlgOf(options.signPublicKey) !== 'ES256') {
     throw new Error('device certificate: signKey must be ECDSA P-256');
   }
@@ -342,6 +363,9 @@ export async function certifyDevice(options: ICertifyDeviceOptions): Promise<IDe
     issuedAt: options.issuedAt,
     expiresAt: options.expiresAt ?? options.issuedAt + DEVICE_CERTIFICATE_VALIDITY_MS,
   };
-  const sig = await signCanonical(options.signingKey.privateKey, deviceCertificateBytes(unsigned));
-  return { ctx: IDENTITY_PURPOSES.deviceCert, ...unsigned, sig };
+  const sig = await signCanonical(
+    options.signingKey.privateKey,
+    deviceCertificateBytes(cryptoContext, unsigned),
+  );
+  return { ctx: cryptoContext.purposes.deviceCert, ...unsigned, sig };
 }

@@ -40,7 +40,7 @@ afterEach(() => {
 
 describe('Node host workspace trust', () => {
   it('resolves the same repository identity from a nested working directory', () => {
-    const root = tempRoot('robota-workspace-nested-cwd-');
+    const root = tempRoot('agent-workspace-nested-cwd-');
     gitInit(root);
     const nested = join(root, 'packages', 'example');
     mkdirSync(nested, { recursive: true });
@@ -50,11 +50,11 @@ describe('Node host workspace trust', () => {
   });
 
   it('uses the canonical Git identity for aliases and grants only the current generation', async () => {
-    const root = tempRoot('robota-workspace-trust-');
+    const root = tempRoot('agent-workspace-trust-');
     gitInit(root);
-    const alias = join(tempRoot('robota-workspace-alias-'), 'repo');
+    const alias = join(tempRoot('agent-workspace-alias-'), 'repo');
     symlinkSync(root, alias);
-    const storePath = join(tempRoot('robota-workspace-store-'), 'workspace-trust.json');
+    const storePath = join(tempRoot('agent-workspace-store-'), 'workspace-trust.json');
     const resolver = createNodeWorkspaceIdentityResolver();
     const store = createNodeWorkspaceTrustStore(storePath);
     const service = new WorkspaceTrustService({ identityResolver: resolver, store });
@@ -83,10 +83,10 @@ describe('Node host workspace trust', () => {
   });
 
   it('does not inherit a grant when the repository at the same path is replaced', async () => {
-    const root = tempRoot('robota-workspace-replacement-');
+    const root = tempRoot('agent-workspace-replacement-');
     gitInit(root);
     const store = createNodeWorkspaceTrustStore(
-      join(tempRoot('robota-workspace-store-'), 'trust.json'),
+      join(tempRoot('agent-workspace-store-'), 'trust.json'),
     );
     const service = new WorkspaceTrustService({
       identityResolver: createNodeWorkspaceIdentityResolver(),
@@ -117,23 +117,23 @@ describe('Node host workspace trust', () => {
       if (stat.birthtimeNs > 0n && stat.birthtimeNs < stat.ctimeNs) return true;
       if (stat.birthtimeNs <= 0n || Date.now() > deadline) return false;
       Atomics.wait(pause, 0, 0, 5);
-      const probe = join(dir, 'robota-birth-probe');
+      const probe = join(dir, 'agent-birth-probe');
       writeFileSync(probe, '');
       rmSync(probe);
     }
   }
 
   it('keeps a grant across git commands that rewrite the repository config', async (context) => {
-    const root = tempRoot('robota-workspace-config-');
+    const root = tempRoot('agent-workspace-config-');
     gitInit(root);
     const git = (...args: string[]): void => {
       execFileSync('git', ['-C', root, ...args], { stdio: 'ignore' });
     };
     git(
       '-c',
-      'user.name=robota',
+      'user.name=agent',
       '-c',
-      'user.email=robota@example.invalid',
+      'user.email=agent@example.invalid',
       'commit',
       '--allow-empty',
       '--quiet',
@@ -145,14 +145,14 @@ describe('Node host workspace trust', () => {
     if (!settleBirthTime(join(root, '.git'))) context.skip();
     const service = new WorkspaceTrustService({
       identityResolver: createNodeWorkspaceIdentityResolver(),
-      store: createNodeWorkspaceTrustStore(join(tempRoot('robota-workspace-store-'), 'trust.json')),
+      store: createNodeWorkspaceTrustStore(join(tempRoot('agent-workspace-store-'), 'trust.json')),
     });
     await service.grant(root);
     const key = createNodeWorkspaceIdentityResolver().resolve(root).repositoryKey;
     expect(key).toMatch(/^git:born:/u);
 
     // Each of these replaces .git/config with a new file (new inode and ctime).
-    git('config', 'robota.probe', 'one');
+    git('config', 'agent.probe', 'one');
     git('remote', 'add', 'origin', 'https://example.invalid/repo.git');
     git('branch', 'feature');
     git('branch', '-m', 'feature', 'renamed');
@@ -163,7 +163,7 @@ describe('Node host workspace trust', () => {
   });
 
   it('keys a repository without the device number, which macOS renumbers', () => {
-    const root = tempRoot('robota-workspace-device-');
+    const root = tempRoot('agent-workspace-device-');
     gitInit(root);
     const key = createNodeWorkspaceIdentityResolver().resolve(root).repositoryKey;
     const device = statSync(join(root, '.git'), { bigint: true }).dev.toString(16);
@@ -172,9 +172,9 @@ describe('Node host workspace trust', () => {
   });
 
   it('a new grant retires a record left for the same worktree under an earlier key', async () => {
-    const root = tempRoot('robota-workspace-rekey-');
+    const root = tempRoot('agent-workspace-rekey-');
     gitInit(root);
-    const storePath = join(tempRoot('robota-workspace-store-'), 'trust.json');
+    const storePath = join(tempRoot('agent-workspace-store-'), 'trust.json');
     // A grant recorded under the previous key format, which no longer matches this repository.
     writeFileSync(
       storePath,
@@ -213,9 +213,9 @@ describe('Node host workspace trust', () => {
 
   it('never hands a repository back a generation, when another held its root in between', async () => {
     // Approvals (project MCP servers) match on the generation, so one revoked must never recur.
-    const storePath = join(tempRoot('robota-workspace-store-'), 'trust.json');
+    const storePath = join(tempRoot('agent-workspace-store-'), 'trust.json');
     const store = createNodeWorkspaceTrustStore(storePath);
-    const root = tempRoot('robota-workspace-shared-root-');
+    const root = tempRoot('agent-workspace-shared-root-');
     const first = { repositoryKey: 'git:born:1:1:first', worktreeRoot: root, displayPath: root };
     const second = { repositoryKey: 'git:born:2:2:second', worktreeRoot: root, displayPath: root };
 
@@ -228,9 +228,9 @@ describe('Node host workspace trust', () => {
   });
 
   it('retires a trusted record at the root when another repository is granted there', async () => {
-    const storePath = join(tempRoot('robota-workspace-store-'), 'trust.json');
+    const storePath = join(tempRoot('agent-workspace-store-'), 'trust.json');
     const store = createNodeWorkspaceTrustStore(storePath);
-    const root = tempRoot('robota-workspace-shared-root-');
+    const root = tempRoot('agent-workspace-shared-root-');
     const first = { repositoryKey: 'git:born:1:1:first', worktreeRoot: root, displayPath: root };
     const second = { repositoryKey: 'git:born:2:2:second', worktreeRoot: root, displayPath: root };
 
@@ -242,7 +242,7 @@ describe('Node host workspace trust', () => {
   });
 
   it('resolves nested repositories independently and distinguishes linked worktrees', () => {
-    const outer = tempRoot('robota-workspace-outer-');
+    const outer = tempRoot('agent-workspace-outer-');
     const nested = join(outer, 'nested');
     mkdirSync(nested);
     gitInit(outer);
@@ -253,7 +253,7 @@ describe('Node host workspace trust', () => {
     expect(nestedIdentity.worktreeRoot).toBe(nested);
     expect(nestedIdentity.repositoryKey).not.toBe(outerIdentity.repositoryKey);
 
-    const parent = tempRoot('robota-workspace-worktrees-');
+    const parent = tempRoot('agent-workspace-worktrees-');
     const main = join(parent, 'main');
     const linked = join(parent, 'linked');
     mkdirSync(main);
@@ -266,7 +266,7 @@ describe('Node host workspace trust', () => {
         '-C',
         main,
         '-c',
-        'user.name=Robota Test',
+        'user.name=ConversationAgent Test',
         '-c',
         'user.email=test@example.invalid',
         'commit',
@@ -284,11 +284,11 @@ describe('Node host workspace trust', () => {
   });
 
   it('rejects non-Git paths and corrupt or group-readable trust stores', async () => {
-    const root = tempRoot('robota-workspace-non-git-');
+    const root = tempRoot('agent-workspace-non-git-');
     const resolver = createNodeWorkspaceIdentityResolver();
     expect(() => resolver.resolve(root)).toThrow(/Git workspace identity/i);
 
-    const storeRoot = tempRoot('robota-workspace-store-');
+    const storeRoot = tempRoot('agent-workspace-store-');
     const storePath = join(storeRoot, 'trust.json');
     writeFileSync(storePath, '{not-json', 'utf8');
     chmodSync(storePath, 0o644);
@@ -303,9 +303,9 @@ describe('Node host workspace trust', () => {
   });
 
   it('keeps the persistent store owner-only and supports a clean restart', async () => {
-    const root = tempRoot('robota-workspace-persist-');
+    const root = tempRoot('agent-workspace-persist-');
     gitInit(root);
-    const storeRoot = tempRoot('robota-workspace-store-');
+    const storeRoot = tempRoot('agent-workspace-store-');
     const storePath = join(storeRoot, 'trust.json');
     const resolver = createNodeWorkspaceIdentityResolver();
     const identity = resolver.resolve(root);

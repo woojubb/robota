@@ -15,7 +15,7 @@ function assertCondition(condition: boolean, message: string): void {
 }
 
 async function main(): Promise<void> {
-  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-fork-record-')));
+  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-fork-record-')));
   const sessionStore = createNodeHostSessionStore(join(cwd, 'sessions'));
   sessionStore.save({
     id: RESUME_SESSION_ID,
@@ -41,7 +41,7 @@ async function main(): Promise<void> {
       cwd,
       provider: scripted.provider,
       sessionStore,
-      commandModules: [{ name: 'agent-runtime-example', sessionRequirements: ['agent-runtime'] }],
+      commandModules: [{ name: 'robota-example', sessionRequirements: ['runtime'] }],
     });
     const session = runtime.createSession({});
     const job = await session.spawnAgentJob({

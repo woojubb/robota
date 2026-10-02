@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { describe, expect, it } from 'vitest';
 
 import { buildPresetSurfaceOptions, toSessionOptions } from '../preset-surface-options.js';
@@ -36,6 +37,8 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
     // If either mode re-declares its own shape, a field the shared type has and the copy lacks makes
     // these assignments stop compiling — which is the failure this case exists to cause.
     const everyField: Required<IPresetSurfaceOptions> = {
+      pathProtection: createTestProductRuntime().layout.pathProtection,
+      commandProductVocabulary: createTestProductRuntime().vocabulary,
       model: 'some-model',
       outputStyle: {
         id: 'concise',
@@ -73,7 +76,7 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
     // The field that measured the drift. It reaches the shared projection now, so it arrives at all
     // three surfaces rather than at the one someone remembered.
     const resolved = { model: 'preset-model', agentName: 'acme-bot' } as IResolvedPresetOptions;
-    expect(buildPresetSurfaceOptions(resolved, 'acme', 'default').model).toBe('preset-model');
+    expect(buildPresetSurfaceOptions(createTestProductRuntime(), resolved, 'acme', 'default').model).toBe('preset-model');
   });
 
   it('projects the model group’s other two dials (ARCH-040 Group E)', () => {
@@ -83,14 +86,14 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
     // stage 1. They reach the session's agent config at construction now, on the same two channels
     // `applyModelOptions` writes, so the two answers are one answer.
     const resolved = { temperature: 0.2, maxOutputTokens: 4096 } as IResolvedPresetOptions;
-    const surface = buildPresetSurfaceOptions(resolved, 'acme', 'default');
+    const surface = buildPresetSurfaceOptions(createTestProductRuntime(), resolved, 'acme', 'default');
     expect(surface.temperature).toBe(0.2);
     expect(surface.maxOutputTokens).toBe(4096);
   });
 
   it('keeps an auto selection for the provider boundary instead of projecting its display fallback', () => {
     const surface = buildPresetSurfaceOptions(
-      {} as IResolvedPresetOptions,
+      createTestProductRuntime(), {} as IResolvedPresetOptions,
       'acme',
       'default',
       undefined,
@@ -112,7 +115,7 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
     // composes a response-language section, so this wires the existing mechanism. A preset stating a
     // language is more specific than the ambient `config.language`, so it wins at the session level.
     const resolved = { language: 'ko' } as IResolvedPresetOptions;
-    expect(buildPresetSurfaceOptions(resolved, 'acme', 'default').language).toBe('ko');
+    expect(buildPresetSurfaceOptions(createTestProductRuntime(), resolved, 'acme', 'default').language).toBe('ko');
   });
 
   it('renames the seed onto the SESSION key that seeds, never the one that replaces', () => {
@@ -121,7 +124,7 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
     // replacing one and silently drop the AGENTS.md and capability sections — the opposite of the
     // decision, and invisible. Renamed in ONE place so the three shells cannot disagree.
     const surface = buildPresetSurfaceOptions(
-      { systemPrompt: 'seed text' } as IResolvedPresetOptions,
+      createTestProductRuntime(), { systemPrompt: 'seed text' } as IResolvedPresetOptions,
       'acme',
       'default',
     );
@@ -134,7 +137,7 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
     // The shell computes `resolvedPreset.model ?? providerSettings.model` and spreads this object
     // over its own key. An explicitly-undefined `model` would clobber that fallback; an ABSENT key
     // cannot. The two answers can never disagree, which is why the fallback stays where it is.
-    const surface = buildPresetSurfaceOptions({} as IResolvedPresetOptions, 'acme', 'default');
+    const surface = buildPresetSurfaceOptions(createTestProductRuntime(), {} as IResolvedPresetOptions, 'acme', 'default');
     expect('model' in surface).toBe(false);
   });
 });

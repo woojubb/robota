@@ -5,8 +5,8 @@ limits, logging, performance metrics, usage tracking and webhooks. Each plugin e
 `AbstractPlugin` from `@robota-sdk/agent-core` and receives the agent's lifecycle hooks (before and
 after a run, on error, and so on).
 
-Plugins are opt-in: neither the SDK nor the Robota CLI adds them by default. You pass plugin
-instances to `Robota` in `plugins`.
+Plugins are opt-in: neither the SDK nor the agent runtime CLI adds them by default. You pass plugin
+instances to `ConversationAgent` in `plugins`.
 
 ## Installation
 
@@ -32,12 +32,12 @@ Requires Node.js 22.12 or later.
 ## Quick Start
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { ConversationHistoryPlugin, LoggingPlugin, UsagePlugin } from '@robota-sdk/agent-plugin';
 import type { IAgentConfig } from '@robota-sdk/agent-core';
 
 declare const base: IAgentConfig; // name, aiProviders, defaultModel, …
-const agent = new Robota({
+const agent = new ConversationAgent({
   ...base,
   plugins: [
     new ConversationHistoryPlugin({ storage: 'memory' }),
@@ -117,4 +117,4 @@ new WebhookPlugin({ endpoints: [{ url: 'https://example.com/hook' }] });
 
 ## License
 
-Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

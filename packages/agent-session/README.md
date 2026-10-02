@@ -1,6 +1,6 @@
 # @robota-sdk/agent-session
 
-Session lifecycle for the Robota SDK. A `Session` wraps a `Robota` agent from
+Session lifecycle for the Robota SDK. A `Session` wraps a `ConversationAgent` agent from
 `@robota-sdk/agent-core` and adds permission-gated tool execution, lifecycle hooks, context-window
 tracking, conversation compaction, session logs and optional persistence.
 
@@ -161,7 +161,7 @@ This API alone does not provide arbitrary-effect recovery or durable Roundtable 
 
 | Export                                                                                                       | Kind                | Description                                                                              |
 | ------------------------------------------------------------------------------------------------------------ | ------------------- | ---------------------------------------------------------------------------------------- |
-| `Session`                                                                                                    | Class               | Wraps `Robota` with permissions, hooks, compaction, logging and persistence              |
+| `Session`                                                                                                    | Class               | Wraps `ConversationAgent` with permissions, hooks, compaction, logging and persistence              |
 | `ISessionOptions`, `ISessionRunOptions`, `ISessionShutdownOptions`                                           | Types               | Constructor, run and shutdown options                                                    |
 | `SessionBusyError`, `TurnClaim`                                                                              | Classes             | The refusal of a concurrent turn, and the identity of the running turn                   |
 | `PermissionEnforcer`                                                                                         | Class               | Tool permission checks, hook execution and output truncation                             |
@@ -188,11 +188,11 @@ This API alone does not provide arbitrary-effect recovery or durable Roundtable 
 
 `IContextWindowState` (the `getContextState()` result) is exported by `@robota-sdk/agent-core`.
 
-## Session vs Robota
+## Session vs ConversationAgent
 
-- **`Robota`** (`agent-core`): the raw agent — conversation, tools and plugins. No permissions, no
+- **`ConversationAgent`** (`agent-core`): the raw agent — conversation, tools and plugins. No permissions, no
   hooks.
-- **`Session`** (this package): `Robota` plus permissions, hooks, compaction, logging and
+- **`Session`** (this package): `ConversationAgent` plus permissions, hooks, compaction, logging and
   persistence. `@robota-sdk/agent-framework` builds its sessions from it.
 
 ## Persistence
@@ -241,7 +241,7 @@ checks the conversion on disposable files without touching your sessions.
 
 ## Dependencies
 
-- `@robota-sdk/agent-core` — the `Robota` agent, permissions, hooks and core types
+- `@robota-sdk/agent-core` — `ConversationAgent`, permissions, hooks and core types
 - `@robota-sdk/agent-interface-session` — the session record and store contracts
 - `@robota-sdk/agent-interface-execution` — background task contracts stored in the session record
 - `@robota-sdk/agent-file-authority` — bounded, root-relative file reads for log payloads
@@ -253,4 +253,4 @@ checks the conversion on disposable files without touching your sessions.
 
 ## License
 
-Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

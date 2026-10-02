@@ -37,7 +37,7 @@ afterEach(() => {
 
 describe('spill write failure', () => {
   it('reports disk exhaustion without publishing a partial result or secret diagnostics', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'robota-spill-failure-'));
+    const root = mkdtempSync(join(tmpdir(), 'agent-spill-failure-'));
     parents.push(root);
     const store = new NodeToolResultSpillStore({ parentDirectory: root });
     const secret = 'private-payload-body';
@@ -55,7 +55,7 @@ describe('spill write failure', () => {
   });
 
   it('distinguishes cleanup failure when a partial write cannot be removed', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'robota-spill-failure-'));
+    const root = mkdtempSync(join(tmpdir(), 'agent-spill-failure-'));
     parents.push(root);
     const store = new NodeToolResultSpillStore({ parentDirectory: root });
     flags.failCleanup = true;

@@ -105,7 +105,7 @@ describe('agent command module', () => {
   it('requests agent runtime wiring through the command module contract', () => {
     const module = createAgentCommandModule();
 
-    expect(module.sessionRequirements).toEqual(['agent-runtime']);
+    expect(module.sessionRequirements).toEqual(['runtime']);
     expect(module.commandSources).toHaveLength(1);
     expect(module.systemCommands).toHaveLength(1);
   });
@@ -179,8 +179,8 @@ describe('agent command module', () => {
           cwd: '/workspace',
           promptPreview: 'change files',
           updatedAt: '2026-05-01T00:00:00.000Z',
-          worktreePath: '/workspace/.robota/worktrees/agent_1',
-          branchName: 'robota/agent_1',
+          worktreePath: '/workspace/.fixture-state/worktrees/agent_1',
+          branchName: 'agent/worker_1',
         },
       ]),
     });
@@ -188,8 +188,8 @@ describe('agent command module', () => {
     const result = await executor.execute('agent', session, 'list');
 
     expect(result?.success).toBe(true);
-    expect(result?.message).toContain('worktree=/workspace/.robota/worktrees/agent_1');
-    expect(result?.message).toContain('branch=robota/agent_1');
+    expect(result?.message).toContain('worktree=/workspace/.fixture-state/worktrees/agent_1');
+    expect(result?.message).toContain('branch=agent/worker_1');
   });
 
   it('spawns a background agent from direct natural-language /agent input', async () => {

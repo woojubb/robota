@@ -1,5 +1,6 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * FLOW-2006: the node wiring for `robota open <url>` — the only place this feature touches the host.
+ * FLOW-2006: the node wiring for `the product open <url>` — the only place this feature touches the host.
  *
  * It composes the deps from what the repository already owns: the node workspace-trust store and
  * identity resolver (`agent-framework`) and the argv-only git port (`agent-command`, BEHAVIOR-2437).
@@ -42,11 +43,13 @@ function isMainWorktree(root: string): boolean {
 }
 
 /** Build the host deps. `inspectTrust` answers `unknown` when the directory has no git identity. */
-function createLaunchInvocationDeps(): IResolveLaunchInvocationDeps {
-  const store = createNodeWorkspaceTrustStore(userPaths().workspaceTrust);
+function createLaunchInvocationDeps(runtime: ICliRuntimeContext): IResolveLaunchInvocationDeps {
+  const store = createNodeWorkspaceTrustStore(userPaths(runtime).workspaceTrust);
   const resolver = createNodeWorkspaceIdentityResolver();
   const remoteUrl = createRemoteUrlReader(createGitProcess());
   return {
+    protocolScheme: runtime.config.identity.protocolScheme,
+    cliName: runtime.vocabulary.cliName,
     listGrants: async () => (store.listGrants ? store.listGrants() : undefined),
     inspectTrust: async (cwd: string): Promise<TLaunchTargetTrust> => {
       let identity;
@@ -66,18 +69,18 @@ function createLaunchInvocationDeps(): IResolveLaunchInvocationDeps {
 }
 
 /**
- * Apply a `robota open <url>` invocation, if this is one.
+ * Apply a `the product open <url>` invocation, if this is one.
  *
  * Returns the prompt to prefill on success (possibly `undefined` when the link carried none), or
  * `'refused'` when the caller must stop. On success the process has already changed directory and
  * `process.argv` no longer carries the two tokens.
  */
-export async function applyLaunchInvocation(): Promise<
+export async function applyLaunchInvocation(runtime: ICliRuntimeContext): Promise<
   | { readonly kind: 'continue' }
   | { readonly kind: 'refused' }
   | { readonly kind: 'launched'; readonly initialInput: string | undefined }
 > {
-  const outcome = await resolveLaunchInvocation(process.argv, createLaunchInvocationDeps());
+  const outcome = await resolveLaunchInvocation(process.argv, createLaunchInvocationDeps(runtime));
   if (outcome.kind === 'not-an-open-invocation') return { kind: 'continue' };
   if (outcome.kind === 'refused') {
     process.stderr.write(`${outcome.message}\n`);

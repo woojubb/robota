@@ -1,7 +1,7 @@
 /**
  * TERM-003 / TEST-007: real-binary terminal-handoff evidence.
  *
- * Runs in the dedicated PTY vitest project (vitest.pty.config.ts) against the BUILT robota binary
+ * Runs in the dedicated PTY vitest project (vitest.pty.config.ts) against the BUILT CLI binary
  * (`pnpm --filter @robota-sdk/agent-cli build` first). Unlike the source-level fixture E2E
  * (`terminal-handoff-pty-e2e` / `command-handoff-pty-e2e`), this drives the WHOLE user path —
  * real CLI → real command pipeline → real `TerminalHandoffController` injected by `render.tsx` →
@@ -25,7 +25,7 @@ describe('terminal handoff through the real binary (TERM-003)', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-handoff-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-handoff-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 

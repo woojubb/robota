@@ -121,12 +121,12 @@ const OAUTH_KEYS: ReadonlySet<string> = new Set([
 /**
  * OAuth sign-in settings. None is a secret and none is templated: they say which client signs in
  * where, so they are compared, stored beside the tokens and fingerprinted as written. A client
- * secret is never accepted here — `robota mcp login --client-secret` asks for it and stores it.
+ * secret is never accepted here — the MCP login command with `--client-secret` asks for it and stores it.
  */
 function decodeOAuth(value: unknown): IMCPOAuthConfig | string {
   if (!isPlainObject(value)) return '`oauth` must be an object';
   if (Object.hasOwn(value, 'clientSecret')) {
-    return '`oauth.clientSecret` is not accepted in a definition; `robota mcp login <name> --client-secret` asks for it and stores it';
+    return '`oauth.clientSecret` is not accepted in a definition; the MCP login command with `--client-secret` asks for it and stores it';
   }
   const unknown = Object.keys(value).filter((key) => !OAUTH_KEYS.has(key));
   if (unknown.length > 0) {
@@ -268,6 +268,23 @@ export function decodeEntry(
   const definition: {
     -readonly [K in keyof IMCPServerDefinition]: IMCPServerDefinition[K];
   } = { name, source, origin, transport };
+
+  const protocolVersion = entry['protocolVersion'];
+  if (protocolVersion !== undefined) {
+    if (protocolVersion !== '2026-07-28')
+      return problem('`protocolVersion` must be "2026-07-28"; omit it for legacy negotiation');
+    if (transport !== 'http' && transport !== 'stdio')
+      return problem('`protocolVersion` is unavailable for this transport');
+    definition.protocolVersion = protocolVersion;
+  }
+
+  const skills = entry['skills'];
+  if (skills !== undefined) {
+    if (typeof skills !== 'boolean') return problem('`skills` must be a boolean');
+    if (skills && protocolVersion !== '2026-07-28')
+      return problem('`skills` requires explicit `protocolVersion: "2026-07-28"`');
+    definition.skills = skills;
+  }
 
   if (transport === 'stdio') {
     const command = entry['command'];

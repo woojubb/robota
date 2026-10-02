@@ -1,0 +1,7 @@
+{
+  "kind": "tui-experiment-setup-failure",
+  "complete": false,
+  "observed": "The Vitest-specific spawnTui convenience wrapper uses __dirname and cannot be imported directly by this ESM tsx research entry point (ERR_AMBIGUOUS_MODULE_SYNTAX).",
+  "runtimeObservationsExecuted": 0,
+  "correction": "Use the existing reusable spawnPty driver with an explicit built CLI URL and temporary fixture HOME; do not change the product or test harness."
+}

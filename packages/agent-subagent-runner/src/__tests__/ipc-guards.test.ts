@@ -177,7 +177,7 @@ describe('isSubagentWorkerChildMessage', () => {
 describe('subagent worker mode', () => {
   it('recognises the flag only when it is actually present', () => {
     expect(isSubagentWorkerModeArgv(['node', 'bin.js', SUBAGENT_WORKER_MODE_FLAG])).toBe(true);
-    expect(isSubagentWorkerModeArgv(['/opt/robota', SUBAGENT_WORKER_MODE_FLAG])).toBe(true);
+    expect(isSubagentWorkerModeArgv(['/opt/agent', SUBAGENT_WORKER_MODE_FLAG])).toBe(true);
     expect(isSubagentWorkerModeArgv(['node', 'bin.js'])).toBe(false);
     expect(isSubagentWorkerModeArgv([])).toBe(false);
   });

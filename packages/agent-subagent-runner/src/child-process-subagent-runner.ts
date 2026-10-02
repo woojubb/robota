@@ -82,6 +82,10 @@ export interface IChildProcessSubagentRunnerOptions {
    */
   handshakeBudgetMs?: number;
   env?: NodeJS.ProcessEnv;
+  /** Explicit host snapshot used to resolve this provider; defaults to the live process environment. */
+  expectedEnvironment?: NodeJS.ProcessEnv;
+  /** A host can supply a curated child environment without inheriting unrelated process secrets. */
+  inheritEnvironment?: boolean;
   worktreeIsolation?: boolean;
   worktreeAdapter: ISubagentWorktreeAdapter;
   logsDir?: string;
@@ -121,6 +125,8 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   private readonly providerConfig?: IProviderDefinitionConfig;
   private readonly providerDefinitions: readonly IProviderDefinition[];
   private readonly env?: NodeJS.ProcessEnv;
+  private readonly expectedEnvironment?: NodeJS.ProcessEnv;
+  private readonly inheritEnvironment: boolean;
   private readonly logsDir?: string;
   private readonly parentSandboxSettings?: () => TParentSandboxSettings | undefined;
   private readonly watchParentSandboxSettings?: IChildProcessSubagentRunnerOptions['watchParentSandboxSettings'];
@@ -135,6 +141,11 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     this.providerConfig = options.providerConfig;
     this.providerDefinitions = options.providerDefinitions;
     this.env = options.env;
+    this.expectedEnvironment = options.expectedEnvironment;
+    this.inheritEnvironment = options.inheritEnvironment !== false;
+    if (!this.inheritEnvironment && this.expectedEnvironment === undefined) {
+      throw new Error('An explicit expected environment is required when child inheritance is disabled.');
+    }
     this.logsDir = options.logsDir;
     this.parentSandboxSettings = options.parentSandboxSettings;
     this.watchParentSandboxSettings = options.watchParentSandboxSettings;
@@ -145,7 +156,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     // an ipc stdio, and the module is exactly the thing that cannot be named for every artifact.
     // Stating execPath and args outright is the same mechanism without the assumption.
     const entry = this.workerEntry;
-    const env = { ...process.env, ...(this.env ?? {}) };
+    const env = this.inheritEnvironment ? { ...process.env, ...(this.env ?? {}) } : { ...(this.env ?? {}) };
     // Checked BEFORE spawning: a child whose environment would point the provider elsewhere never
     // starts, so the parent's credential is never handed to it.
     const connection = projectProviderConnection(
@@ -155,7 +166,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
         ...(this.providerConfig !== undefined ? { providerConfig: this.providerConfig } : {}),
         providerDefinitions: this.providerDefinitions,
       },
-      process.env,
+      this.expectedEnvironment ?? process.env,
       env,
     );
     const child = spawn(

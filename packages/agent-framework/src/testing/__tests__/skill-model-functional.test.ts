@@ -17,7 +17,7 @@ let workspace: string | undefined;
 let harness: ScriptedSessionHarness | undefined;
 const skillActivationModule: ICommandModule = {
   name: 'skill-model-fixture',
-  sessionRequirements: ['agent-runtime'],
+  sessionRequirements: ['runtime'],
   systemCommands: [
     {
       name: 'skills',
@@ -76,7 +76,7 @@ function seedAgent(): void {
 
 describe('fork skill model through a real scripted child Session', () => {
   it('applies a skill model for one child request without changing agent or parent defaults', async () => {
-    workspace = realpathSync(mkdtempSync(join(tmpdir(), 'robota-skill-model-')));
+    workspace = realpathSync(mkdtempSync(join(tmpdir(), 'agent-skill-model-')));
     seedAgent();
     seedSkill('override', 'skill-model');
     seedSkill('inherit');
@@ -166,7 +166,7 @@ describe('fork skill model through a real scripted child Session', () => {
   }, 20_000);
 
   it('starts the session without an inject skill carrying a model', async () => {
-    workspace = realpathSync(mkdtempSync(join(tmpdir(), 'robota-invalid-skill-model-')));
+    workspace = realpathSync(mkdtempSync(join(tmpdir(), 'agent-invalid-skill-model-')));
     const directory = join(workspace, '.agents', 'skills', 'invalid');
     mkdirSync(directory, { recursive: true });
     writeFileSync(

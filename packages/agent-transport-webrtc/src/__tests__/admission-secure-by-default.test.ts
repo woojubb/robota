@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 /**
  * SEC-008 — a WebRTC transport with no pairing secret must not expose the session by omission.
  *
@@ -25,17 +27,17 @@ const signaling = {
 
 describe('SEC-008: the WebRTC transport requires an admission decision', () => {
   it('refuses to construct with neither a secret nor an explicit open', () => {
-    expect(() => new WebRtcTransport({ signaling })).toThrow(/openReason|secret/);
+    expect(() => new WebRtcTransport({cryptoContext: testIdentity,  signaling })).toThrow(/openReason|secret/);
   });
 
   it('constructs with a pairing secret', () => {
-    expect(() => new WebRtcTransport({ signaling, secret: 'pairing-secret' })).not.toThrow();
+    expect(() => new WebRtcTransport({cryptoContext: testIdentity,  signaling, secret: 'pairing-secret' })).not.toThrow();
   });
 
   it('constructs open when the host says so, in writing', () => {
     expect(
       () =>
-        new WebRtcTransport({
+        new WebRtcTransport({cryptoContext: testIdentity,
           signaling,
           open: true,
           openReason: 'loopback only — no remote peer',
@@ -46,7 +48,7 @@ describe('SEC-008: the WebRTC transport requires an admission decision', () => {
   it('refuses an open transport with no reason', () => {
     // Without this the fix would be an option that means nothing: `open: true` alone would restore
     // exactly the silent exposure the case above forbids, one keyword further along.
-    expect(() => new WebRtcTransport({ signaling, open: true })).toThrow(/openReason/);
+    expect(() => new WebRtcTransport({cryptoContext: testIdentity,  signaling, open: true })).toThrow(/openReason/);
   });
 
   it('refuses a secret AND an explicit open together', () => {
@@ -55,7 +57,7 @@ describe('SEC-008: the WebRTC transport requires an admission decision', () => {
     // cannot know which they meant, so it does not choose.
     expect(
       () =>
-        new WebRtcTransport({ signaling, secret: 'pairing-secret', open: true, openReason: 'x' }),
+        new WebRtcTransport({cryptoContext: testIdentity,  signaling, secret: 'pairing-secret', open: true, openReason: 'x' }),
     ).toThrow(/contradictory/);
   });
 });

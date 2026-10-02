@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createMcpHttpHost } from '../mcp-http-host.js';
 
 const schema = {
-  name: 'robota_command_help',
+  name: 'fixture_command_help',
   description: 'Canonical command',
   parameters: { type: 'object' as const, properties: {} },
 };
@@ -46,7 +46,7 @@ async function rawStatus(url: string, headers: Record<string, string>): Promise<
 describe('loopback MCP HTTP host', () => {
   it.each([false, true])('serves a real %s-era SDK client through one session', async (modern) => {
     const session = fixture();
-    const host = createMcpHttpHost({ name: 'robota', version: '1', session });
+    const host = createMcpHttpHost({ name: 'fixture-agent', version: '1', session });
     const endpoint = await host.start();
     const client = await connect(endpoint.url, endpoint.token, modern);
     try {
@@ -67,7 +67,7 @@ describe('loopback MCP HTTP host', () => {
 
   it('rejects missing bearer and hostile Host/Origin before execution', async () => {
     const session = fixture();
-    const host = createMcpHttpHost({ name: 'robota', version: '1', session });
+    const host = createMcpHttpHost({ name: 'fixture-agent', version: '1', session });
     const endpoint = await host.start();
     const hostName = new URL(endpoint.url).host;
     const base = {
@@ -88,13 +88,13 @@ describe('loopback MCP HTTP host', () => {
 
   it('refuses non-loopback binding before listening', () => {
     expect(() =>
-      createMcpHttpHost({ name: 'robota', version: '1', session: fixture(), host: '0.0.0.0' }),
+      createMcpHttpHost({ name: 'fixture-agent', version: '1', session: fixture(), host: '0.0.0.0' }),
     ).toThrow(/loopback/);
   });
 
   it('rejects an oversized HTTP body before the SDK or runtime sees it', async () => {
     const session = fixture();
-    const host = createMcpHttpHost({ name: 'robota', version: '1', session });
+    const host = createMcpHttpHost({ name: 'fixture-agent', version: '1', session });
     const endpoint = await host.start();
     try {
       const response = await fetch(endpoint.url, {
@@ -122,7 +122,7 @@ describe('loopback MCP HTTP host', () => {
       );
       return { success: false, error: 'cancelled' };
     });
-    const host = createMcpHttpHost({ name: 'robota', version: '1', session });
+    const host = createMcpHttpHost({ name: 'fixture-agent', version: '1', session });
     const endpoint = await host.start();
     const client = await connect(endpoint.url, endpoint.token, true);
     try {
@@ -150,7 +150,7 @@ describe('loopback MCP HTTP host', () => {
           release = () => resolve([schema]);
         }),
     );
-    const host = createMcpHttpHost({ name: 'robota', version: '1', session });
+    const host = createMcpHttpHost({ name: 'fixture-agent', version: '1', session });
     const start = host.start();
     await vi.waitFor(() => expect(release).toBeDefined());
     await host.stop();
@@ -161,7 +161,7 @@ describe('loopback MCP HTTP host', () => {
 
   it('admits only one concurrent start, leaving no hidden listener after stop', async () => {
     const session = fixture();
-    const host = createMcpHttpHost({ name: 'robota', version: '1', session });
+    const host = createMcpHttpHost({ name: 'fixture-agent', version: '1', session });
     const first = host.start();
     await expect(host.start()).rejects.toThrow(/already started/);
     const endpoint = await first;

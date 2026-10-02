@@ -88,7 +88,7 @@
     under. `sandboxApprovalFor` is exported.
   - `agent-subagent-runner` (minor): `ISubagentWorkerComposition` takes an optional `createSandbox`. The
     worker builds that sandbox once and hands the same instance to `createTools` and to the session.
-  - `agent-cli` (patch): robota's worker composition builds the OS sandbox through `createSandbox`, so
+  - `agent-cli` (patch): __PRODUCT_DISPLAY_NAME__'s worker composition builds the OS sandbox through `createSandbox`, so
     a child-process subagent approves what its parent approves.
 
 - 122e82b: A child-process subagent confines and approves commands with its parent's sandbox settings as they
@@ -99,7 +99,7 @@
   - `agent-subagent-runner` (minor): the runner factory takes `parentSandboxSettings`, read at each
     spawn. The start payload carries it, the IPC guard checks it is a record, and the worker hands it to
     `createSandbox` as `parentSettings`.
-  - `agent-cli` (patch): robota sends its live sandbox's settings, and a child builds its sandbox from
+  - `agent-cli` (patch): __PRODUCT_DISPLAY_NAME__ sends its live sandbox's settings, and a child builds its sandbox from
     them. It refuses settings it cannot read rather than falling back to the files.
 
 - 0368058: A running child-process subagent follows a `/sandbox` change made in its parent session. Before, it
@@ -114,7 +114,7 @@
     exits or fails to start. A composed sandbox may define `applyParentSettings`. The worker applies
     each change through it. On settings it cannot take, it aborts the run, lets a running command
     finish, and ends the run with that error.
-  - `agent-cli` (patch): robota watches its live sandbox, and a child applies each change to the
+  - `agent-cli` (patch): __PRODUCT_DISPLAY_NAME__ watches its live sandbox, and a child applies each change to the
     instance its tools and approval read.
 
 ### Patch Changes
@@ -241,7 +241,7 @@
 
 - 0c07176: **BREAKING — ARCH-021: child-process subagents compose the PRODUCT's surface, not imported defaults.**
 
-  The child-process worker built its surface from `createDefaultProviderDefinitions()` and `createDefaultTools()` — a fixed six-vendor registry and the framework's default tool tier — while the composition root had already handed the runner the fully composed surface and the runner dropped it. So a product's custom providers and pack-contributed tools reached an **in-process** subagent and not a **child-process** one, and ARCH-006's landed invariant "every tool robota runs comes from a pack" was **false in the child**: dropping a pack did not drop its tools.
+  The child-process worker built its surface from `createDefaultProviderDefinitions()` and `createDefaultTools()` — a fixed six-vendor registry and the framework's default tool tier — while the composition root had already handed the runner the fully composed surface and the runner dropped it. So a product's custom providers and pack-contributed tools reached an **in-process** subagent and not a **child-process** one, and ARCH-006's landed invariant "every tool __PRODUCT_DISPLAY_NAME__ runs comes from a pack" was **false in the child**: dropping a pack did not drop its tools.
 
   This is the second finding at that line. ARCH-010 — judged BLOCKER, a subagent `Read` returning `/etc/hostname` — patched one argument there and left the reconstruction standing.
 
@@ -325,7 +325,7 @@
   string-literal keys are now typed against the contract, so the next rename is a compile error instead of a
   runtime rejection of every start payload.
 
-- 6fab98f: **BREAKING — DIST-006: the built `robota` binary could not spawn a subagent at all.**
+- 6fab98f: **BREAKING — DIST-006: the built `__PRODUCT_CLI_NAME__` binary could not spawn a subagent at all.**
 
   `/agent run` failed on every distributed build with `Subagent worker exited before result: exit code 1`. The child's real stderr was `Cannot find module '…/agent-cli/dist/node/child-process-subagent-worker.js'`. `getDefaultSubagentWorkerPath()` resolved the worker relative to its own `import.meta.url`; INFRA-028 bundles every workspace package into `agent-cli/dist/node/bin.js`, so at runtime that directory is **agent-cli's** dist, where the worker was never emitted. It worked from source, which is why nothing caught it.
 
@@ -345,7 +345,7 @@
   }
   ```
 
-  `IChildProcessSubagentRunnerOptions.workerPath` → **`workerEntry`**, and the runner `spawn`s `execPath args… --__robota-subagent-worker` instead of forking a module path. `robota`'s own entry enters worker mode through the new `runSubagentWorkerMain()`, so **there is no second artifact and no path to get wrong**. The one seam satisfies all three shapes: a bundled Node build names the file it is executing, a `tsx` source run names the same and adds `--import tsx`, and a compiled binary names _nothing_ — `process.execPath` is the binary, and re-executing it re-enters its embedded entry.
+  `IChildProcessSubagentRunnerOptions.workerPath` → **`workerEntry`**, and the runner `spawn`s `execPath args… --__agent-subagent-worker` instead of forking a module path. `__PRODUCT_CLI_NAME__`'s own entry enters worker mode through the new `runSubagentWorkerMain()`, so **there is no second artifact and no path to get wrong**. The one seam satisfies all three shapes: a bundled Node build names the file it is executing, a `tsx` source run names the same and adds `--import tsx`, and a compiled binary names _nothing_ — `process.execPath` is the binary, and re-executing it re-enters its embedded entry.
 
   **Per package, classified against each barrel:**
 
@@ -442,8 +442,8 @@
     construction alongside `allow` and `deny`.
   - **Never auto-approved, bypass included:** removing a critical path with `rm`/`rmdir` (the root, a
     top-level directory, home, the working directory or a parent), and a modify-class write into
-    `.git`, `.robota`, `.claude`, `.agents`, `.mcp.json`, `.gitconfig`, `.npmrc` or a shell rc file.
-    Files inside an isolated worktree (`.robota/worktrees/<name>/…`) are ordinary files. With no
+    `.git`, `.__PRODUCT_DISPLAY_NAME__`, `.claude`, `.agents`, `.mcp.json`, `.gitconfig`, `.npmrc` or a shell rc file.
+    Files inside an isolated worktree (`$PRODUCT_PROJECT_STATE_DIR/worktrees/<name>/…`) are ordinary files. With no
     approver attached, an ask is a denial.
   - **A ceiling is checked before bypass and before any ask.** A subagent's `inherit-allowlist` ceiling
     is now the parent's _effective_ rules, read live at spawn: settings, preset lists and command

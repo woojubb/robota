@@ -1,5 +1,5 @@
 /**
- * `robota eval <definition>` — the evals-as-code CI gate (SELFHOST-011 P2).
+ * `the product eval <definition>` — the evals-as-code CI gate (SELFHOST-011 P2).
  *
  * Thin CLI wiring around the neutral `@robota-sdk/agent-framework` eval runner (`runEval`): it loads the
  * consumer's eval definition module, builds the default `runFn` from the CLI-resolved provider
@@ -33,7 +33,6 @@ import type {
   TSettingsSource,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
-import { createRobotaUserSettingsSources } from '../product/robota-user-settings.js';
 
 /** Injection seams so the exit-code contract test can run without a live provider (TC-03). */
 export interface IRunEvalDeps {
@@ -43,6 +42,8 @@ export interface IRunEvalDeps {
   loadDefinition?: (absPath: string) => Promise<IEvalDefinition>;
   /** Explicit settings layers for the default provider resolver. */
   settingsSources?: readonly TSettingsSource[];
+  /** Per-invocation host environment, including values from the explicitly selected config file. */
+  environment?: Readonly<Record<string, string | undefined>>;
   /** Initial project decision forwarded to the eval agent runtime. */
   projectAccess?: TWorkspaceProjectAccess;
 }
@@ -98,12 +99,13 @@ async function loadEvalDefinition(absPath: string): Promise<IEvalDefinition> {
 
 /** Build the default `runFn` from the CLI-resolved provider (a live agent run per case). */
 function buildDefaultRunFn(cwd: string, deps: IRunEvalDeps): TEvalRunFn {
-  const settingsSources = deps.settingsSources ?? createRobotaUserSettingsSources();
+  const settingsSources = deps.settingsSources ?? (() => { throw new Error('Eval startup requires explicit host settings sources.'); })();
   const provider = createProviderFromSettings(
     settingsSources,
     undefined,
     {
       providerDefinitions: createDefaultProviderDefinitions(),
+      ...(deps.environment !== undefined ? { env: deps.environment } : {}),
     },
   );
   const runtime = createAgentRuntime({
@@ -129,7 +131,7 @@ export async function runEvalCommand(
 ): Promise<number> {
   const args = parseEvalArgs(argv);
   if (!args.definitionPath || args.thresholdInvalid) {
-    process.stderr.write('Usage: robota eval <definition-file> [--threshold <0..1>]\n');
+    process.stderr.write('Usage: eval <definition-file> [--threshold <0..1>]\n');
     return 1;
   }
 

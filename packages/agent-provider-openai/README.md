@@ -1,7 +1,7 @@
 # @robota-sdk/agent-provider-openai
 
 OpenAI provider for the Robota SDK, built on the official `openai` SDK. `OpenAIProvider` implements
-the `@robota-sdk/agent-core` provider contract, so a `Robota` agent can run on OpenAI models with
+the `@robota-sdk/agent-core` provider contract, so a `ConversationAgent` agent can run on OpenAI models with
 streaming and tool calling. It is a protocol client rather than a vendor lock: set `baseURL` and the
 same provider talks to any OpenAI-compatible endpoint (AI gateways such as Vercel AI Gateway,
 LiteLLM or OpenRouter, Azure OpenAI, vLLM, Ollama, LM Studio), with model ids passed through
@@ -16,12 +16,12 @@ npm install @robota-sdk/agent-provider-openai @robota-sdk/agent-core
 ## Usage
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'MyAgent',
   aiProviders: [provider],
   defaultModel: { provider: 'openai', model: 'gpt-4o' },
@@ -66,7 +66,7 @@ OpenAI-compatible endpoint that rejects the `strict` field needs `strictTools` l
 
 ### Reasoning effort and web tools
 
-A reasoning-effort selection (`defaultModel.effort` on a `Robota` agent, or `effort` on a chat call)
+A reasoning-effort selection (`defaultModel.effort` on a `ConversationAgent` agent, or `effort` on a chat call)
 is sent as `reasoning.effort` only on the official Responses API (no `baseURL`) and only for models
 in the provider's verified effort table. On Chat Completions, behind a custom `baseURL`, or for other
 models, the effort is reported as not applied and no native field is sent. When a call selects an
@@ -121,7 +121,7 @@ unchanged. See [Provider failures](../../content/guide/error-handling.md#provide
 
 ## Related packages
 
-- [`@robota-sdk/agent-core`](../agent-core/README.md): the `Robota` agent and the provider contract.
+- [`@robota-sdk/agent-core`](../agent-core/README.md): the `ConversationAgent` agent and the provider contract.
 - [`@robota-sdk/agent-provider-openai-compatible`](../agent-provider-openai-compatible/README.md):
   DeepSeek, Qwen and Gemma providers, plus the shared OpenAI-compatible protocol code this package
   uses.
@@ -132,4 +132,4 @@ See [docs/SPEC.md](docs/SPEC.md) for the package contract.
 
 ## License
 
-Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

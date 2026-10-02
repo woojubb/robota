@@ -163,8 +163,9 @@ function candidatesOf(source: TSettingsSource): IMCPSourceCandidates | undefined
 export function resolveMcpDefinitions(
   settingsSources: readonly TSettingsSource[],
   env: NodeJS.ProcessEnv,
+  contributedSources: readonly IMCPSourceCandidates[] = [],
 ): IMcpDefinitionResolution {
-  const candidates: IMCPSourceCandidates[] = [];
+  const candidates: IMCPSourceCandidates[] = [...contributedSources];
   for (const source of settingsSources) {
     const result = candidatesOf(source);
     if (result !== undefined) candidates.push(result);

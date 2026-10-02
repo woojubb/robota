@@ -46,7 +46,7 @@ const themeCataloguePort: IThemeCataloguePort = {
 };
 
 /** User-local storage lives in a private per-run directory, never a fixed name under /tmp. */
-const USER_LOCAL_STORAGE_ROOT = mkdtempSync(join(tmpdir(), 'robota-test-'));
+const USER_LOCAL_STORAGE_ROOT = mkdtempSync(join(tmpdir(), 'agent-test-test-'));
 afterAll(() => rmSync(USER_LOCAL_STORAGE_ROOT, { recursive: true, force: true }));
 
 const fixtures: IDoctorFixture[] = [];
@@ -66,7 +66,8 @@ function allBuiltInCommands(): ISystemCommand[] {
   });
   // /keybindings and /theme are in the default set; built here with their capabilities instead.
   const withoutPortless = modules.filter(
-    (module) => module.name !== 'agent-command-keybindings' && module.name !== 'agent-command-theme',
+    (module) =>
+      module.name !== 'agent-command-keybindings' && module.name !== 'agent-command-theme',
   );
   return [
     ...withoutPortless,
@@ -97,6 +98,7 @@ const MODEL_INVOCABLE = [
   'memory',
   'monitor',
   'schedule',
+  'skill-read',
   'skills',
 ];
 
@@ -151,7 +153,17 @@ const USER_ONLY_COMMANDS = [
 
 /** User-only subcommands of commands the model IS offered; `list` is an alias `/mcp` accepts for the user. */
 const USER_ONLY_SUBCOMMANDS: Record<string, readonly string[]> = {
-  mcp: ['approve', 'reject', 'revoke', 'logout', 'login', 'list'],
+  mcp: [
+    'approve',
+    'reject',
+    'revoke',
+    'logout',
+    'login',
+    'list',
+    'skill-inspect',
+    'skill-approve',
+    'skill-withdraw',
+  ],
   memory: ['approve', 'reject'],
   context: ['add', 'remove', 'clear', 'auto'],
   cost: ['budget'],
@@ -212,7 +224,7 @@ describe('built-in commands offered to the model', () => {
       const offeredBlock = descriptor?.description.split('Subcommands you may run')[1] ?? '';
       for (const sub of subcommands) {
         expect(descriptor?.argumentHint ?? '', `${name} ${sub}`).not.toMatch(
-          new RegExp(`\\b${sub}\\b`),
+          new RegExp(`(?:^|\\s|\\[|\\|)${sub}(?=\\s|\\]|\\||$)`),
         );
         expect(offeredBlock, `${name} ${sub}`).not.toContain(`- ${sub}:`);
         const result = await executor.executeModelInvocable(name, host, `${sub} some-arg`);
@@ -228,6 +240,7 @@ describe('built-in commands offered to the model', () => {
     for (const [name, args] of [
       ['mcp', ''],
       ['mcp', 'status'],
+      ['mcp', 'skill-list docs'],
       ['memory', 'list'],
       ['context', ''],
       ['context', 'list'],
@@ -235,7 +248,7 @@ describe('built-in commands offered to the model', () => {
     ] as const) {
       expect((await executor.executeModelInvocable(name, host, args))?.message).toBe('ran');
     }
-    expect(executed).toHaveBeenCalledTimes(6);
+    expect(executed).toHaveBeenCalledTimes(7);
   });
 
   it('skips the by-name prompt only where the model reaches nothing that needs it', () => {

@@ -20,7 +20,7 @@ import {
 import { holdExclusiveFileLock } from '../credentials/exclusive-file-lock.js';
 import { createHostCredentialStore } from '../credentials/select-credential-store.js';
 import { describeReceived } from '../peer-files/receiving.js';
-import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
+import { productUserSettingsPath } from '../product/user-settings.js';
 import { userLocalStorageRoot } from '../product/user-paths.js';
 import {
   openDeviceMesh,
@@ -51,11 +51,13 @@ import type {
   IPeerMessageAck,
 } from '@robota-sdk/agent-interface-session-mobility';
 import type { IDeviceMeshLink } from '@robota-sdk/agent-transport-webrtc';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 export interface IDeviceMeshHostOptions {
+  readonly productRuntime: ICliRuntimeContext;
   /** Where things are said to the operator. */
   readonly report: (message: string) => void;
-  /** Defaults to `~/.robota` under the current `HOME`. */
+  /** Defaults to the configured user storage root. */
   readonly root?: string;
   /** Defaults to the host credential store. */
   readonly store?: ICredentialStore;
@@ -116,8 +118,8 @@ interface ILinked {
   readonly stop: () => void;
 }
 
-function userTransports(): unknown {
-  return readSettings(robotaUserSettingsPath()).transports;
+function userTransports(productRuntime: ICliRuntimeContext): unknown {
+  return readSettings(productUserSettingsPath(productRuntime)).transports;
 }
 
 /** `transports.webrtc.options.relayUrl`, when set. */
@@ -203,13 +205,13 @@ async function holdUntilReleased(
 
 /** Said when the mesh is on but this device has no identity to open it with. */
 export const NO_IDENTITY_FOR_MESH =
-  'The device mesh is on in your settings, but this device has no identity yet. If you already use ' +
-  'Robota on another device, run `/devices add` there and `/devices join` here, typing the code it ' +
+  'The device mesh is on in your settings, but this device has no identity yet. If you already have ' +
+  'a linked device, run `/devices add` there and `/devices join` here, typing the code it ' +
   'shows. Run `/devices init` only for your first device: it creates a separate identity that can ' +
   'never link to your other devices. The mesh opens as soon as this device has an identity.';
 
 const TAKEN_OVER =
-  'another Robota session on this device took it over while this one was stalled (e.g. the machine ' +
+  'another session on this device took it over while this one was stalled (e.g. the machine ' +
   'slept); your devices link there now';
 
 function notLinked(deviceId: string): string {
@@ -217,7 +219,7 @@ function notLinked(deviceId: string): string {
 }
 
 export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMeshHost {
-  const root = options.root ?? userLocalStorageRoot();
+  const root = options.root ?? userLocalStorageRoot(options.productRuntime);
   const links = new Map<string, ILinked>();
   let binding: IDeviceMeshBinding = {};
   let state: IDevicesMeshStatus['state'] = 'off';
@@ -259,7 +261,7 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
 
   const nameOf = (deviceId: string): string | undefined => {
     try {
-      return readIdentityState(join(root, 'devices'))?.roster.devices.find(
+      return readIdentityState(options.productRuntime.cryptoContext, join(root, 'devices'))?.roster.devices.find(
         (device) => device.deviceId === deviceId,
       )?.name;
     } catch {
@@ -346,7 +348,7 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
     let settings: IMeshSettings;
     let transports: unknown;
     try {
-      transports = (options.readTransports ?? userTransports)();
+      transports = (options.readTransports ?? (() => userTransports(options.productRuntime)))();
       settings = parseMeshSettings(transports);
     } catch (error) {
       fail(message(error));
@@ -355,7 +357,7 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
     if (!settings.enabled) return;
     let identity;
     try {
-      identity = readIdentityState(join(root, 'devices'));
+      identity = readIdentityState(options.productRuntime.cryptoContext, join(root, 'devices'));
     } catch (error) {
       fail(message(error));
       return;
@@ -373,7 +375,7 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
       () => lost(),
     );
     if (held === undefined) {
-      fail('another Robota session on this device has it open, and links the devices there');
+      fail('another session on this device has the mesh open, and links the devices there');
       return;
     }
     release = held;
@@ -406,11 +408,16 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
     sources = describeSources(settings, lan !== undefined, ownRelay !== undefined);
     let opened: IDeviceMeshEndpoint;
     try {
-      const store =
-        options.store ?? createHostCredentialStore({ root, notify: () => undefined }).store;
+      const store = options.store ?? createHostCredentialStore({
+        root,
+        serviceNamespace: options.productRuntime.config.credentials.serviceNamespace,
+        notify: () => undefined,
+      }).store;
       opened = await (options.open ?? openDeviceMesh)({
         root,
         store,
+        cryptoContext: options.productRuntime.cryptoContext,
+        credentialServiceNamespace: options.productRuntime.config.credentials.serviceNamespace,
         localPolicy: settings.policy,
         ...(ownRelay !== undefined ? { relay: ownRelay } : {}),
         ...(lan !== undefined ? { lan } : {}),

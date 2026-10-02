@@ -9,7 +9,7 @@ export function shouldAskToTrust(status, interactive) {
 }
 
 /** The lines shown before the question: the folder and what trust would load, capped. */
-export function trustQuestionLines(status, limit = 12) {
+export function trustQuestionLines(status, cliName, limit = 12) {
   const loads = status.loads ?? [];
   const shown = loads.slice(0, limit);
   return [
@@ -17,7 +17,7 @@ export function trustQuestionLines(status, limit = 12) {
     "Trusting it lets the GUI's session load the project's own settings, hooks, plugins, skills and MCP servers:",
     ...shown,
     ...(loads.length > shown.length
-      ? [`  … ${loads.length - shown.length} more — see robota trust status`]
+      ? [`  … ${loads.length - shown.length} more — see ${cliName} trust status`]
       : []),
   ];
 }

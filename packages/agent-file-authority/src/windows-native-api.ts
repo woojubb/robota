@@ -99,13 +99,13 @@ interface IWindowsTypes {
 const FILE_ID_BYTES = 16;
 
 function defineWindowsTypes(): IWindowsTypes {
-  const handleType = koffi.pointer('RobotaStableFileHandle', koffi.opaque());
-  const unicodeStringType = koffi.struct('RobotaUnicodeString', {
+  const handleType = koffi.pointer('ConversationAgentStableFileHandle', koffi.opaque());
+  const unicodeStringType = koffi.struct('ConversationAgentUnicodeString', {
     Length: 'uint16_t',
     MaximumLength: 'uint16_t',
     Buffer: koffi.pointer('char16_t'),
   });
-  const objectAttributesType = koffi.struct('RobotaObjectAttributes', {
+  const objectAttributesType = koffi.struct('ConversationAgentObjectAttributes', {
     Length: 'uint32_t',
     RootDirectory: handleType,
     ObjectName: koffi.pointer(unicodeStringType),
@@ -117,19 +117,19 @@ function defineWindowsTypes(): IWindowsTypes {
     handleType,
     unicodeStringType,
     objectAttributesType,
-    ioStatusBlockType: koffi.struct('RobotaIoStatusBlock', {
+    ioStatusBlockType: koffi.struct('ConversationAgentIoStatusBlock', {
       Status: 'intptr_t',
       Information: 'uintptr_t',
     }),
-    attributeTagInfoType: koffi.struct('RobotaFileAttributeTagInfo', {
+    attributeTagInfoType: koffi.struct('ConversationAgentFileAttributeTagInfo', {
       FileAttributes: 'uint32_t',
       ReparseTag: 'uint32_t',
     }),
-    fileIdInfoType: koffi.struct('RobotaFileIdInfo', {
+    fileIdInfoType: koffi.struct('ConversationAgentFileIdInfo', {
       VolumeSerialNumber: 'uint64_t',
       FileId: koffi.array('uint8_t', FILE_ID_BYTES, 'Typed'),
     }),
-    standardInfoType: koffi.struct('RobotaFileStandardInfo', {
+    standardInfoType: koffi.struct('ConversationAgentFileStandardInfo', {
       AllocationSize: 'int64_t',
       EndOfFile: 'int64_t',
       NumberOfLinks: 'uint32_t',

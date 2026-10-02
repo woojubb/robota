@@ -1,7 +1,7 @@
 /**
  * Capability: one agent definition → many channels (SELFHOST-013).
  *
- * Robota needs no "gateway" to serve one agent over many surfaces. You build ONE session from one definition
+ * The runtime needs no "gateway" to serve one agent over many surfaces. You build ONE session from one definition
  * (`createAgentRuntime(...).createSession(...)` / `buildRuntimeSession`), then bind it to as many transports as
  * you like through the `TransportRegistry` — every transport `attach()`es the SAME session instance. This is the
  * "deploy target is an abstraction" pattern (Hermes/ADK) realized as the transport DIP.
@@ -32,7 +32,7 @@ const runtime = createAgentRuntime({
 const session = runtime.createSession({});
 
 // 2. Bind that ONE session to MANY channels — no gateway, just the registry.
-const settingsPath = path.join(os.tmpdir(), `robota-multi-surface-${process.pid}.json`);
+const settingsPath = path.join(os.tmpdir(), `robota-example-${process.pid}.json`);
 const registry = new TransportRegistry(settingsPath);
 registry.register(bindTransportAdapter(new WsTransport({ port: 45678 }), session)); // network channel
 const http = createHttpTransport(); // plain ITransportAdapter → mounted out-of-band on the same session

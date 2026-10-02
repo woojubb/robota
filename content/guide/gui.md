@@ -1,24 +1,24 @@
 ---
 title: The GUI and the Desktop App
-description: Use Robota in a window instead of a terminal — in a browser with robota --serve --open or in the desktop app. First run, sessions, prompts, settings, and what the GUI cannot do yet.
+description: Use Robota in a window instead of a terminal — in a browser with __PRODUCT_CLI_NAME__ --serve --open or in the desktop app. First run, sessions, prompts, settings, and what the GUI cannot do yet.
 ---
 
 # The GUI and the Desktop App
 
-The Robota GUI shows a `robota` session in a window: the conversation, the questions it asks you,
+The Robota GUI shows a `__PRODUCT_CLI_NAME__` session in a window: the conversation, the questions it asks you,
 its settings and the work it runs in the background. Like the CLI, the GUI and the desktop app are
-reference apps built from the Robota libraries — the page is `agent-gui-web` over the
+maintained interfaces built from the Robota libraries — the page is `agent-gui-web` over the
 `agent-ui-web` presentation library, and the desktop app (`apps/agent-app`) is an Electron shell
 around that page. They hold no agent runtime of their own: every turn, command and permission check
-runs in a `robota` runtime on your machine, and the window is one more client of it, beside the
+runs in a `__PRODUCT_CLI_NAME__` runtime on your machine, and the window is one more client of it, beside the
 terminal UI.
 
 ## Two ways in
 
 | Way in                  | What runs                                                                     | What you need                                                          |
 | ----------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `robota --serve --open` | A runtime of its own, for as long as the command runs                         | The `robota` CLI ([Getting Started](../getting-started/README.md))     |
-| The desktop app         | The folder's workspace daemon, which keeps running after you close the window | The app (see below for its current state); it bundles its own `robota` |
+| `__PRODUCT_CLI_NAME__ --serve --open` | A runtime of its own, for as long as the command runs                         | The `__PRODUCT_CLI_NAME__` CLI ([Getting Started](../getting-started/README.md))     |
+| The desktop app         | The folder's workspace daemon, which keeps running after you close the window | The app (see below for its current state); it bundles its own `__PRODUCT_CLI_NAME__` |
 
 Both show the same page.
 
@@ -27,52 +27,52 @@ Both show the same page.
 Run this in your project folder:
 
 ```bash
-robota --serve --open
+__PRODUCT_CLI_NAME__ --serve --open
 ```
 
 It starts a runtime, serves the GUI on `http://127.0.0.1:<port>` and opens it in your default
 browser. The page connects to the runtime over a loopback WebSocket with a token the CLI puts in the
 page, so another page in your browser cannot connect to it. The runtime stops when you stop the
-command (Ctrl+C). It is not the workspace daemon: `robota --attach` and the desktop app do not see
+command (Ctrl+C). It is not the workspace daemon: `__PRODUCT_CLI_NAME__ --attach` and the desktop app do not see
 it.
 
-In a folder you have not decided about, `robota --serve --open` asks in the terminal before it
+In a folder you have not decided about, `__PRODUCT_CLI_NAME__ --serve --open` asks in the terminal before it
 starts: `y` trusts the folder, `r` starts Restricted, and anything else quits. Plain `--serve`, and
 `--serve --open` with no terminal to ask on, refuse instead and name both ways past:
-`robota trust --yes`, or `--restricted-workspace`. See [the first run](#the-first-run).
+`__PRODUCT_CLI_NAME__ trust --yes`, or `--restricted-workspace`. See [the first run](#the-first-run).
 
 ### The desktop app
 
 The desktop app is released as installers on
-[GitHub Releases](https://github.com/woojubb/robota/releases), named
-`robota-desktop-<version>-<arch>`: a `.dmg` or `.zip` for macOS, an `.exe` for Windows, and an
+[GitHub Releases](__PROJECT_REPOSITORY_URL__/releases), named
+`__PRODUCT_ARTIFACT_PREFIX__-desktop-<version>-<arch>`: a `.dmg` or `.zip` for macOS, an `.exe` for Windows, and an
 `.AppImage` or `.deb` for Linux. It is not published to npm.
 
 > **The published installers are out of date.** The release workflow has not produced installers
-> since 3.0.0-beta.79 ([#3356](https://github.com/woojubb/robota/issues/3356)), and that app predates
+> since 3.0.0-beta.79 ([#3356](__PROJECT_REPOSITORY_URL__/issues/3356)), and that app predates
 > most of this guide, including the trust question, provider setup and Settings. Until new installers
-> are published, use `robota --serve --open`, which serves the same page from the CLI, or build the
+> are published, use `__PRODUCT_CLI_NAME__ --serve --open`, which serves the same page from the CLI, or build the
 > app from source as described in [its README](../../apps/agent-app/docs/README.md).
 
 The installers are **not code-signed** yet (tracked in
-[#3349](https://github.com/woojubb/robota/issues/3349)), so the operating system stops or warns on the
+[#3349](__PROJECT_REPOSITORY_URL__/issues/3349)), so the operating system stops or warns on the
 first launch:
 
 - **macOS** refuses to open it. After the first attempt, open **System Settings → Privacy & Security**
   and choose **Open Anyway** for Robota.
 - **Windows** SmartScreen warns. Choose **More info**, then **Run anyway**.
-- **Linux**: make the AppImage executable (`chmod +x robota-desktop-*.AppImage`) before running it.
+- **Linux**: make the AppImage executable (`chmod +x __PRODUCT_ARTIFACT_PREFIX__-desktop-*.AppImage`) before running it.
 
 The app starts the workspace daemon for its folder, or connects to the one already running. Closing
 the window leaves the daemon running and the next launch reconnects to it; if the daemon stops while
-the window is open, the window offers **Reconnect**. With the CLI installed, `robota daemon stop` in
+the window is open, the window offers **Reconnect**. With the CLI installed, `__PRODUCT_CLI_NAME__ daemon stop` in
 the folder stops it. See [the workspace daemon](./sessions-and-daemon.md#walkthrough-the-workspace-daemon).
 
 > **Which folder the app works on.** The app has no Open Folder command yet
-> ([#3354](https://github.com/woojubb/robota/issues/3354)). It works on the folder its own process
+> ([#3354](__PROJECT_REPOSITORY_URL__/issues/3354)). It works on the folder its own process
 > was started in, and an app started from Finder, the Dock, the Start menu or a desktop launcher does
 > not start in your project — on macOS it starts in `/`. That folder is not a Git repository, so the
-> daemon starts there Restricted without asking. Until this is fixed, use `robota --serve --open` in
+> daemon starts there Restricted without asking. Until this is fixed, use `__PRODUCT_CLI_NAME__ --serve --open` in
 > your project folder.
 
 ## The first run
@@ -87,8 +87,8 @@ decided about, the desktop app asks **Do you trust this folder?** before it star
   overrides and MCP servers are not loaded.
 - **Quit** — nothing starts.
 
-**Details** lists what the project would load. `robota --serve --open` asks the same question in the
-terminal before the page opens. The answer is the same trust decision `robota trust` records,
+**Details** lists what the project would load. `__PRODUCT_CLI_NAME__ --serve --open` asks the same question in the
+terminal before the page opens. The answer is the same trust decision `__PRODUCT_CLI_NAME__ trust` records,
 described in [workspace trust](./sessions-and-daemon.md#workspace-trust). A folder that is not in a
 Git repository has nothing to trust, so Robota runs there Restricted without asking.
 
@@ -103,7 +103,7 @@ terminal:
 2. Answer that type's questions: its base URL where it has one, the API key (the field is masked; a
    local server needs none) and the model, with a default offered.
 
-The answers are saved as a provider profile in `~/.robota/settings.json`, and the conversation
+The answers are saved as a provider profile in `<user-state>/settings.json`, and the conversation
 appears without a restart. Add more profiles, or change this one, later in
 [Settings → Providers & Models](#settings). The providers and their options are described in
 [Providers](./providers.md).
@@ -194,7 +194,7 @@ sections, and every change applies at once — there is no Save button:
 - The **Agents** panel lists background agents and tasks, scheduled tasks and the current `/goal`,
   with Stop, Pause and Resume where they apply. Selecting an entry opens its transcript and result.
 - **Usage** shows your token use and cost for the current session and for the last 7 or 30 days, by
-  model. It is shown in the desktop app and in `robota --serve --open`, not in the browser remote
+  model. It is shown in the desktop app and in `__PRODUCT_CLI_NAME__ --serve --open`, not in the browser remote
   client.
 
 ### Keyboard shortcuts
@@ -209,14 +209,14 @@ sections, and every change applies at once — there is no Save button:
 
 ## The GUI and the terminal together
 
-The desktop app and `robota --attach` both connect to the folder's workspace daemon, so you can use
+The desktop app and `__PRODUCT_CLI_NAME__ --attach` both connect to the folder's workspace daemon, so you can use
 the window and the full terminal UI on the same runtime at once. Each client is on its own session
 and switches independently; two clients on the same session share its turns, prompts and background
 tasks, and a message or prompt that came from the other kind of client is labelled, for example
 _from the terminal_. The limits — four live sessions, the idle grace period — are in
 [several sessions in one runtime](./sessions-and-daemon.md#several-sessions-in-one-runtime).
 
-A `robota --serve --open` runtime is separate from the daemon, so a terminal cannot attach to it.
+A `__PRODUCT_CLI_NAME__ --serve --open` runtime is separate from the daemon, so a terminal cannot attach to it.
 
 ## What the GUI cannot do yet
 
@@ -232,16 +232,16 @@ A `robota --serve --open` runtime is separate from the daemon, so a terminal can
 - **Show Advisor settings, or sandbox options beyond on and off, on a screen.** Use `/advisor` and
   `/sandbox`.
 - **Install a current desktop app.** The published installers are out of date
-  ([#3356](https://github.com/woojubb/robota/issues/3356)) and unsigned
-  ([#3349](https://github.com/woojubb/robota/issues/3349)).
+  ([#3356](__PROJECT_REPOSITORY_URL__/issues/3356)) and unsigned
+  ([#3349](__PROJECT_REPOSITORY_URL__/issues/3349)).
 
 ## Troubleshooting
 
 | Message or symptom                                                                                  | What to do                                                                                                                                           |
 | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Workspace trust is required before headless startup (state: …)`                                    | Plain `--serve`, or `--serve --open` with no terminal to ask on, in an untrusted folder. Run `robota trust --yes`, or add `--restricted-workspace`.  |
+| `Workspace trust is required before headless startup (state: …)`                                    | Plain `--serve`, or `--serve --open` with no terminal to ask on, in an untrusted folder. Run `__PRODUCT_CLI_NAME__ trust --yes`, or add `--restricted-workspace`.  |
 | `Robota web assets not found (dist/web) — run a full CLI build.`                                    | A source checkout without the GUI build. Run `pnpm build` at the repository root.                                                                    |
-| The desktop app shows `/` or another folder you did not expect, and project settings are not loaded | The app was not started in your project ([#3354](https://github.com/woojubb/robota/issues/3354)). Use `robota --serve --open` in the project folder. |
+| The desktop app shows `/` or another folder you did not expect, and project settings are not loaded | The app was not started in your project ([#3354](__PROJECT_REPOSITORY_URL__/issues/3354)). Use `__PRODUCT_CLI_NAME__ --serve --open` in the project folder. |
 | **The agent process stopped:** …                                                                    | Follow the message, then choose **Try again**.                                                                                                       |
 
 ## Related

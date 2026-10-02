@@ -234,7 +234,7 @@ export class RtcPeer {
 
   public constructor(options: IRtcPeerOptions = {}) {
     const module = (options.loadDataChannel ?? loadDataChannel)();
-    this.native = new module.PeerConnection('robota', {
+    this.native = new module.PeerConnection('agent', {
       iceServers: (options.iceServers ?? []).map(toNativeIceServer),
       ...(options.forceTurn === true ? { iceTransportPolicy: 'relay' as const } : {}),
       disableAutoNegotiation: true,

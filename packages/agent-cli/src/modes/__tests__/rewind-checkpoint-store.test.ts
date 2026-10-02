@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * Every session the CLI builds for a trusted workspace gets an edit checkpoint store, so `/rewind`
  * has something to rewind. A store holds its session's turn in progress, so a served runtime gives
@@ -20,11 +21,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runPrintMode } from '../print-mode.js';
 import { buildPooledSessionOptions, buildServeSessionOptions } from '../serve-mode.js';
 import { createCliWorkspaceComposition } from '../../startup/workspace-project-composition.js';
-import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../../product/robota-project-state-directories.js';
+import { productProjectStateDirectories } from '../../product/project-state-directories.js';
 
 import type { IServeModeOptions } from '../serve-mode.js';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { IWorkspaceIdentity, InteractiveSession } from '@robota-sdk/agent-framework';
+const PRODUCT_PROJECT_STATE_DIRECTORIES = productProjectStateDirectories(createTestProductRuntime());
+
 
 const roots: string[] = [];
 const ORIGINAL_HOME = process.env['HOME'];
@@ -36,7 +39,7 @@ function tempRoot(prefix: string): string {
 }
 
 beforeEach(() => {
-  process.env['HOME'] = tempRoot('robota-rewind-home-');
+  process.env['HOME'] = tempRoot('test-product-rewind-home-');
 });
 
 afterEach(() => {
@@ -58,7 +61,7 @@ async function trustedAccess(root: string) {
   };
   return new WorkspaceTrustService({
     identityResolver: { resolve: () => identity },
-    projectStateDirectories: ROBOTA_PROJECT_STATE_DIRECTORIES,
+    projectStateDirectories: PRODUCT_PROJECT_STATE_DIRECTORIES,
     store: {
       inspect: async () => snapshot,
       grant: async () => snapshot,
@@ -108,7 +111,7 @@ function editingProvider(): IAIProvider {
 }
 
 function serveOptions(cwd: string, overrides: Partial<IServeModeOptions> = {}): IServeModeOptions {
-  return {
+  return {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
     cwd,
     args: {
       permissionMode: 'acceptEdits',
@@ -172,14 +175,14 @@ describe('the served session options', () => {
 
 describe('a session built with the CLI options for a trusted workspace', () => {
   it('captures the file an edit tool is about to change', async () => {
-    const cwd = tempRoot('robota-rewind-capture-');
+    const cwd = tempRoot('test-product-rewind-capture-');
     const filePath = join(cwd, 'example.txt');
     writeFileSync(filePath, 'initial', 'utf8');
     // The platform is the composition's decision; the store's own writes are stubbed, so this
     // runs on a host whose project writes are refused.
-    const composition = createCliWorkspaceComposition({
+    const composition = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: tempRoot('test-product-rewind-capture-user-') }),
       cwd,
-      userHome: tempRoot('robota-rewind-capture-user-'),
+      userHome: tempRoot('test-product-rewind-capture-user-'),
       projectAccess: await trustedAccess(cwd),
       platform: 'linux',
     });
@@ -212,12 +215,12 @@ describe('a session built with the CLI options for a trusted workspace', () => {
   });
 
   it("captures a print run's edit too, so resuming it can rewind the edit", async () => {
-    const cwd = tempRoot('robota-rewind-print-');
+    const cwd = tempRoot('test-product-rewind-print-');
     const filePath = join(cwd, 'example.txt');
     writeFileSync(filePath, 'initial', 'utf8');
-    const composition = createCliWorkspaceComposition({
+    const composition = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: tempRoot('test-product-rewind-print-user-') }),
       cwd,
-      userHome: tempRoot('robota-rewind-print-user-'),
+      userHome: tempRoot('test-product-rewind-print-user-'),
       projectAccess: await trustedAccess(cwd),
       platform: 'linux',
     });
@@ -261,6 +264,7 @@ describe('a session built with the CLI options for a trusted workspace', () => {
       {},
     ];
     params[30] = store;
+    params.unshift(createTestProductRuntime());
 
     await expect(run(...params)).rejects.toThrow('exit 0');
 
@@ -271,13 +275,13 @@ describe('a session built with the CLI options for a trusted workspace', () => {
   it('resumes a session whose record points at a checkpoint branch', async () => {
     // A resume restores the record before the session exists; the pointer it carries must wait for
     // the session instead of asking it for its id (which failed every `-c` run with a store).
-    const cwd = tempRoot('robota-rewind-resume-');
+    const cwd = tempRoot('test-product-rewind-resume-');
     const filePath = join(cwd, 'example.txt');
-    const sessionStore = createNodeHostSessionStore(tempRoot('robota-rewind-resume-sessions-'));
+    const sessionStore = createNodeHostSessionStore(tempRoot('test-product-rewind-resume-sessions-'));
     const pointer = { branchId: 'main', checkpointId: 'turn-0001' };
-    const composition = createCliWorkspaceComposition({
+    const composition = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: tempRoot('test-product-rewind-resume-user-') }),
       cwd,
-      userHome: tempRoot('robota-rewind-resume-user-'),
+      userHome: tempRoot('test-product-rewind-resume-user-'),
       projectAccess: await trustedAccess(cwd),
       platform: 'linux',
     });
@@ -338,12 +342,12 @@ describe('a session built with the CLI options for a trusted workspace', () => {
   it.runIf(process.platform === 'linux')(
     '/rewind restores the file a later turn changed',
     async () => {
-      const cwd = tempRoot('robota-rewind-restore-');
+      const cwd = tempRoot('test-product-rewind-restore-');
       const filePath = join(cwd, 'example.txt');
       writeFileSync(filePath, 'initial', 'utf8');
-      const composition = createCliWorkspaceComposition({
+      const composition = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: tempRoot('test-product-rewind-restore-user-') }),
         cwd,
-        userHome: tempRoot('robota-rewind-restore-user-'),
+        userHome: tempRoot('test-product-rewind-restore-user-'),
         projectAccess: await trustedAccess(cwd),
       });
       const session = buildRuntimeSession(

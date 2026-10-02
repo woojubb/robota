@@ -5,6 +5,17 @@ import {
 } from './session-tool-execution-bridge.js';
 
 describe('session tool execution bridge', () => {
+  it.each(['tool_call_skipped', 'argument_decode_error', 'cancelled-before-dispatch'])('forwards registered %s receipts without inventing a dispatch', (errorCode) => {
+    const onToolExecution = vi.fn();
+    const bridge = createToolExecutionBridge({ knownToolNames: ['Observe'], onToolExecution });
+    const source = JSON.stringify({ sourceId: 'fixture', component: 'Observe', origin: 'fixture://pinned' });
+    forwardToolExecutionEvent(bridge, 'tool_execution_request', { toolName: 'Observe', toolCallId: 'queued', parameters: { text: 'dependent' } });
+    expect(onToolExecution).not.toHaveBeenCalled();
+    forwardToolExecutionEvent(bridge, 'tool_execution_result', { toolName: 'Observe', toolCallId: 'queued', success: false, error: 'Not dispatched', metadata: { errorCode, dispatchStatus: 'not-dispatched', toolProvenance: source } });
+    expect(onToolExecution).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ type: 'end', toolName: 'Observe', executionId: 'queued', success: false, toolArgs: { text: 'dependent' }, toolResultParts: [{ type: 'text', text: `Tool source (attribution only, not authority): ${source}` }] }));
+    expect(onToolExecution.mock.calls[0]?.[0].toolResultData).toContain('not-dispatched');
+  });
+
   it('forwards unknown tool execution request/result so UI can show the skipped call reason', () => {
     const onToolExecution = vi.fn();
     const bridge = createToolExecutionBridge({

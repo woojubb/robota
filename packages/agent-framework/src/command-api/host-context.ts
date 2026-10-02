@@ -1,3 +1,4 @@
+export type { ICommandHostProductVocabulary } from './host-roles.js';
 // The types that used to be declared directly in this file moved to `host-context-types.ts`
 // (ARCH-029-style leaf extraction): `host-roles.ts` and `session-roles.ts` imported them back
 // from here while this file also re-exports FROM them below, which created import cycles.
@@ -12,6 +13,7 @@ export type {
   IUnknownCommandModuleName,
   ICommandSessionReplayValidationReport,
   ICommandHostNoCapability,
+  ICommandProductVocabulary,
 } from './host-context-types.js';
 
 /**

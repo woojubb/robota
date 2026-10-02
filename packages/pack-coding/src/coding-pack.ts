@@ -10,7 +10,7 @@ import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 
 /**
- * The session context robota's coding tools are bound to.
+ * The session context agent's coding tools are bound to.
  *
  * `cwd` is **required, not optional** — and that is the whole point of this factory. `agent-tools`'
  * `checkPathWithinCwd` USED TO BE a no-op when `cwd` was `undefined`, so file tools constructed with no
@@ -27,6 +27,8 @@ import type { ISandboxClient } from '@robota-sdk/agent-tools';
 export interface ICodingPackOptions {
   /** Product-host shell choice for tools and the interactive /shell command. */
   shellExecutable?: string;
+  /** HTTP identity selected by the product host. */
+  httpUserAgent?: string;
   /** Product-owned prefix for the interactive editor's temporary directory. */
   editorTemporaryDirectoryPrefix?: string;
   /**
@@ -43,10 +45,10 @@ export interface ICodingPackOptions {
 }
 
 /**
- * Build robota's coding capability as a single {@link ICapabilityPack}, bound to one session context.
+ * Build agent's coding capability as a single {@link ICapabilityPack}, bound to one session context.
  *
- * This is the additive-axis proof for ARCH-005 and robota's first capability pack: a pack can bundle
- * robota's real coding capability (tools + command modules + subagents) and be composed additively by
+ * This is the additive-axis proof for ARCH-005 and agent's first capability pack: a pack can bundle
+ * agent's real coding capability (tools + command modules + subagents) and be composed additively by
  * `assembleProduct` on top of any product's base — and, since ARCH-006, can OWN the product's tool surface
  * outright when the profile suppresses the framework tier with `defaultTools: []`.
  *
@@ -60,7 +62,7 @@ export interface ICodingPackOptions {
  *   The relationship is structural now, so there is no drift left to pin.
  * - **commandModules** — the coding command modules: `/shell`, `/editor` and `/git` (the capability-level
  *   command modules, distinct from product-shell/settings/provider command infrastructure).
- * - **subagents** — robota's built-in coding subagents (`general-purpose`, `Explore`, `Plan`).
+ * - **subagents** — agent's built-in coding subagents (`general-purpose`, `Explore`, `Plan`).
  *
  * This pack contributes only when a product profile lists it (opt-in); every contributed command/tool runs
  * only through the permission-gated runtime at call time.
@@ -73,6 +75,7 @@ export interface ICodingPackOptions {
 export function createCodingPack(options: ICodingPackOptions): ICapabilityPack {
   const toolOptions = {
     cwd: options.cwd,
+    httpUserAgent: options.httpUserAgent,
     ...(options.shellExecutable !== undefined ? { shellExecutable: options.shellExecutable } : {}),
     ...(options.sandboxClient ? { sandboxClient: options.sandboxClient } : {}),
   };
@@ -81,7 +84,7 @@ export function createCodingPack(options: ICodingPackOptions): ICapabilityPack {
     id: 'coding',
     title: 'Coding',
     description:
-      "Robota's built-in coding capability: file/shell tools, /shell + /editor + /git commands, and the coding subagents.",
+      "Built-in coding capability: file/shell tools, /shell + /editor + /git commands, and the coding subagents.",
     // ARCH-035: the always-present default set, consumed from its owner rather than rebuilt here.
     //
     // This list used to be hand-maintained, identical to `createDefaultTools()`'s always-present

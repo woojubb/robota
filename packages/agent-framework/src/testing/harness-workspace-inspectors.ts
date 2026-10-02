@@ -17,7 +17,7 @@ import { join, relative, sep } from 'node:path';
 
 /** The real session-log directory the framework writes to, under the workspace. */
 export function logsDirOf(cwd: string): string {
-  return join(cwd, '.robota', 'logs');
+  return join(cwd, '.agent', 'logs');
 }
 
 /** Path of the real JSONL transcript the framework writes for one session. */
@@ -70,7 +70,7 @@ export function workspaceFiles(cwd: string): string[] {
   const out: string[] = [];
   const walk = (dir: string): void => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.name === '.robota') continue;
+      if (entry.name === '.agent') continue;
       const abs = join(dir, entry.name);
       if (entry.isDirectory()) walk(abs);
       else out.push(relative(cwd, abs).split(sep).join('/'));

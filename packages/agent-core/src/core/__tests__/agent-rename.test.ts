@@ -12,12 +12,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { Robota } from '../robota.js';
+import { ConversationAgent } from '../conversation-agent.js';
 
 import type { IAgentConfig } from '../../interfaces/agent.js';
 
-function agent(): Robota {
-  return new Robota({
+function makeAgent(): ConversationAgent {
+  return new ConversationAgent({
     name: 'before',
     aiProviders: [
       { name: 'mock', version: '1', chat: async () => ({}), supportsTools: () => true },
@@ -29,38 +29,38 @@ function agent(): Robota {
 
 describe('renaming a live agent (ARCH-040)', () => {
   it('changes what `name` reports', async () => {
-    const robota = agent();
-    expect(robota.name).toBe('before');
+    const agent = makeAgent();
+    expect(agent.name).toBe('before');
 
-    await robota.updateConfiguration({ name: 'after' });
+    await agent.updateConfiguration({ name: 'after' });
 
-    expect(robota.name).toBe('after');
+    expect(agent.name).toBe('after');
   });
 
   it('keeps `getConfig()` in step with `name`', async () => {
     // The half a copied field breaks: before ARCH-040 the instance held its own `name`, so a config
     // write moved one reader and not the other. Asserting both is what rules that out.
-    const robota = agent();
-    await robota.updateConfiguration({ name: 'after' });
+    const agent = makeAgent();
+    await agent.updateConfiguration({ name: 'after' });
 
-    expect(robota.getConfig().name).toBe('after');
-    expect(robota.getConfig().name).toBe(robota.name);
+    expect(agent.getConfig().name).toBe('after');
+    expect(agent.getConfig().name).toBe(agent.name);
   });
 
   it('leaves the rest of the config alone', async () => {
-    const robota = agent();
-    await robota.updateConfiguration({ name: 'after' });
+    const agent = makeAgent();
+    await agent.updateConfiguration({ name: 'after' });
 
-    expect(robota.getConfig().systemMessage).toBe('test');
-    expect(robota.getConfig().defaultModel.model).toBe('mock-model');
+    expect(agent.getConfig().systemMessage).toBe('test');
+    expect(agent.getConfig().defaultModel.model).toBe('mock-model');
   });
 
   it('still refuses a patch it does not support', async () => {
     // The seam stays narrow. Accepting `name` must not turn `updateConfiguration` into a general
     // config setter, which is what the original error was guarding.
-    const robota = agent();
+    const agent = makeAgent();
     await expect(
-      robota.updateConfiguration({ systemMessage: 'nope' } as Partial<IAgentConfig>),
+      agent.updateConfiguration({ systemMessage: 'nope' } as Partial<IAgentConfig>),
     ).rejects.toThrow(/only .tools. and .name./);
   });
 });

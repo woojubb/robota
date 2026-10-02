@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { runSubagentWorkerMain } from '../../../dist/node/index.js';
 
-if (!process.argv.includes('--__robota-subagent-worker')) {
+if (!process.argv.includes('--__agent-subagent-worker')) {
   process.stderr.write('fork persistence fixture started without the worker-mode flag\n');
   process.exit(2);
 }

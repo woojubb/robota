@@ -11,7 +11,9 @@ import type {
   IToolExecutionContext,
   IToolExecutionResult,
   TToolParameters,
+  IToolCallScheduling,
 } from '../interfaces/tool';
+export type { IToolCallScheduling } from '../interfaces/tool';
 
 export interface IToolExecutionBatchContext {
   requests: IToolExecutionRequest[];
@@ -19,6 +21,8 @@ export interface IToolExecutionBatchContext {
   timeout?: number;
   continueOnError?: boolean;
   maxConcurrency?: number;
+  /** Call-ID policy, snapshotted and validated before dispatch. Missing calls are conservative. */
+  scheduling?: ReadonlyMap<string, IToolCallScheduling>;
   parentContext?: IToolExecutionContext;
   /** AbortSignal — queued tools are skipped when aborted */
   signal?: AbortSignal;

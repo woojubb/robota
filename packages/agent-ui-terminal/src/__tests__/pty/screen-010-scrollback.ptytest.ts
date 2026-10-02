@@ -1,7 +1,7 @@
 /**
  * SCREEN-010 TC-05: chat-window scrollback layout, on the real binary.
  *
- * Runs in the PTY vitest project against the BUILT robota CLI. Automates the former "manual" smoke
+ * Runs in the PTY vitest project against the BUILT CLI. Automates the former "manual" smoke
  * (per the never-ask-the-user-to-test rule): generates committed output larger than a small viewport
  * and asserts the committed history is emitted to the terminal's native scrollback while the input
  * prompt + status bar stay pinned at the bottom. Once committed content is in scrollback and the input
@@ -47,7 +47,7 @@ describe('SCREEN-010 chat-window scrollback layout (real binary)', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-scrollback-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-scrollback-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 
@@ -97,7 +97,7 @@ describe('SCREEN-010 chat-window scrollback layout (real binary)', () => {
         homeDir: join(projectDir, 'home'),
         rows: 16,
         args: ['--screen-reader'],
-        env: { ROBOTA_SCREEN_READER_STARTUP_QUIET_MS: '0' },
+        env: { PRODUCT_SCREEN_READER_STARTUP_QUIET_MS: '0' },
       });
 
       await session.waitFor(/Type a message or \/help/, PROMPT_WAIT_MS);

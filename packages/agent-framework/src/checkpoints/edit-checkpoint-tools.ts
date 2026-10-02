@@ -36,6 +36,10 @@ class EditCheckpointToolWrapper implements IToolWithEventService {
     this.delegate.setEventService(eventService);
   }
 
+  get provenance() {
+    return this.delegate.provenance;
+  }
+
   async execute(parameters: TToolParameters, context: IToolExecutionContext): Promise<IToolResult> {
     const filePath = extractFilePath(parameters);
     if (filePath) {

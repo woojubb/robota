@@ -62,7 +62,7 @@ async function writeFileTool(args: TWriteArgs, options: ISandboxToolOptions): Pr
 }
 
 /**
- * Create a WriteTool instance — register with Robota agent tools registry.
+ * Create a WriteTool instance — register with agent tools registry.
  */
 export function createWriteTool(options: ISandboxBuiltinToolOptions): FunctionTool {
   return createZodFunctionTool(

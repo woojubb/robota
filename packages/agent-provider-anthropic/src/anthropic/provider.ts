@@ -40,7 +40,7 @@ import type {
 } from '@robota-sdk/agent-core';
 
 /**
- * Anthropic provider implementation for Robota
+ * Anthropic provider implementation for the agent runtime
  *
  * IMPORTANT PROVIDER-SPECIFIC RULES:
  * 1. This provider MUST extend BaseAIProvider from @robota-sdk/agent-core

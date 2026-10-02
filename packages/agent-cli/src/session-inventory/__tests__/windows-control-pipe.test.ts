@@ -14,12 +14,12 @@ import { readWindowsProcessStartTime } from '../windows-security.js';
 
 describe('Windows supervised pipe endpoint', () => {
   it('uses the local Windows pipe namespace with a bounded unique name', () => {
-    const path = windowsControlPipePath('C:\\Users\\person\\.robota\\supervised', 'daemon-id');
-    expect(path).toMatch(/^\\\\\.\\pipe\\robota-supervised-[0-9a-f]{32}$/);
-    expect(windowsControlPipePath('C:\\Users\\other\\.robota\\supervised', 'daemon-id')).not.toBe(
+    const path = windowsControlPipePath('C:\\Users\\person\\.test-product\\supervised', 'daemon-id');
+    expect(path).toMatch(/^\\\\\.\\pipe\\agent-supervised-[0-9a-f]{32}$/);
+    expect(windowsControlPipePath('C:\\Users\\other\\.test-product\\supervised', 'daemon-id')).not.toBe(
       path,
     );
-    expect(windowsControlPipePath('C:\\Users\\person\\.robota\\supervised', 'other-id')).not.toBe(
+    expect(windowsControlPipePath('C:\\Users\\person\\.test-product\\supervised', 'other-id')).not.toBe(
       path,
     );
   });

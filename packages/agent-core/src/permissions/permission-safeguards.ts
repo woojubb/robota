@@ -15,7 +15,7 @@
 import { splitCommandSegments } from './command-segments.js';
 
 /** Directories whose contents configure the repository, the agent or its hooks. */
-export const PROTECTED_DIRECTORY_NAMES: readonly string[] = ['.git', '.robota', '.claude', '.agents'];
+export const PROTECTED_DIRECTORY_NAMES: readonly string[] = ['.git', '.claude', '.agents'];
 
 /** Files that configure git, npm, MCP servers or the user's shell, wherever they sit. */
 export const PROTECTED_FILE_NAMES: readonly string[] = [
@@ -31,12 +31,12 @@ export const PROTECTED_FILE_NAMES: readonly string[] = [
   '.profile',
 ];
 
-/**
- * An isolated subagent's worktree lives under `.robota/worktrees/<name>` (and Claude Code's under
- * `.claude/worktrees`). Its files are ordinary workspace files; protection resumes for any protected
- * name inside the worktree.
- */
-const WORKTREE_CONTAINER = 'worktrees';
+/** Additional host-owned state protection; common repository and shell protection always applies. */
+export interface IPathProtectionPolicy {
+  readonly protectedDirectoryNames: readonly string[];
+  readonly protectedPaths: readonly string[];
+  readonly writableWorktreeContainers: readonly string[];
+}
 
 function pathSegments(path: string): string[] {
   return path
@@ -47,7 +47,7 @@ function pathSegments(path: string): string[] {
 
 /**
  * Collapse `.` and `..` lexically, keeping a leading `..` of a relative path. Without this a path
- * like `.robota/worktrees/../settings.json` reads as a worktree file while naming the settings file.
+ * like `.product/worktrees/../settings.json` reads as a worktree file while naming the settings file.
  */
 function resolvedSegments(path: string): string[] {
   const out: string[] = [];
@@ -60,19 +60,29 @@ function resolvedSegments(path: string): string[] {
 }
 
 /** Whether a path names a protected directory, something inside one, or a protected file. */
-export function isProtectedPath(path: string): boolean {
-  const segments = resolvedSegments(path);
+export function isProtectedPath(path: string, context: ICriticalPathContext = {}): boolean {
+  const policy = context.pathProtection;
+  const home = HOME_PREFIX.exec(path);
+  const expanded = home !== null && context.homeDirectory !== undefined
+    ? `${context.homeDirectory}/${home[1] ?? ''}` : path;
+  const absolute = expanded.startsWith('/') ? normaliseAbsolute(expanded)
+    : context.cwd !== undefined ? normaliseAbsolute(`${context.cwd}/${expanded}`) : undefined;
+  if (absolute !== undefined && policy?.protectedPaths.some((entry) => {
+    const protectedPath = normaliseAbsolute(entry);
+    return absolute === protectedPath || absolute.startsWith(`${protectedPath}/`);
+  })) return true;
+  const segments = resolvedSegments(expanded);
   const last = segments[segments.length - 1];
   if (last !== undefined && PROTECTED_FILE_NAMES.includes(last)) return true;
+  const protectedNames = [...PROTECTED_DIRECTORY_NAMES, ...(policy?.protectedDirectoryNames ?? [])];
+  const containers = ['.claude/worktrees', ...(policy?.writableWorktreeContainers ?? [])].map(resolvedSegments);
   for (let index = 0; index < segments.length; index += 1) {
-    const segment = segments[index]!;
-    if (!PROTECTED_DIRECTORY_NAMES.includes(segment)) continue;
-    const isWorktreeEntry =
-      (segment === '.robota' || segment === '.claude') &&
-      segments[index + 1] === WORKTREE_CONTAINER &&
-      segments[index + 2] !== undefined;
-    if (isWorktreeEntry) {
-      index += 2;
+    if (!protectedNames.includes(segments[index]!)) continue;
+    const container = containers.find((parts) => parts.length > 0 &&
+      parts.every((part, offset) => segments[index + offset] === part) &&
+      segments[index + parts.length] !== undefined);
+    if (container !== undefined) {
+      index += container.length;
       continue;
     }
     return true;
@@ -82,6 +92,7 @@ export function isProtectedPath(path: string): boolean {
 
 /** Where a removal is judged from. Either may be unknown; what is unknown is not guessed. */
 export interface ICriticalPathContext {
+  readonly pathProtection?: IPathProtectionPolicy;
   /** The session's execution root. */
   cwd?: string;
   /** The user's home directory. */

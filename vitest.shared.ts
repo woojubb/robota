@@ -115,7 +115,7 @@ for (const name of GIT_AMBIENT_ENV) delete process.env[name];
  * Four production entry points default their `userHome` parameter to the real home —
  * `createDefaultUserSettingsSources`, `createDefaultUserContributionSources`,
  * `createContributionSourcesForProjectAccess`, `UpdateCheckCache` — so any test that constructs a
- * session without threading a home reads whatever `~/.claude`, `~/.robota` and `~/.claude/skills`
+ * session without threading a home reads whatever `~/.claude` and the configured user state directory (plus `~/.claude/skills`)
  * happen to hold on the machine running it. Its result then moves with the machine rather than with
  * the code, in BOTH directions: issue #2300 was filed from a suite that passed locally because the
  * developer had 13 unrelated skills installed and failed on CI, where there are none; issue #2383 is
@@ -154,7 +154,7 @@ const ISOLATED_HOME = mkdtempSync(join(tmpdir(), 'robota-vitest-home-'));
 // which is precisely the state being removed.
 process.env.HOME = ISOLATED_HOME;
 process.env.USERPROFILE = ISOLATED_HOME;
-process.env.ROBOTA_VITEST_ISOLATED_HOME = ISOLATED_HOME;
+process.env.AGENT_VITEST_ISOLATED_HOME = ISOLATED_HOME;
 
 // The forks die before this process does, so nothing is still reading the directory here. `force`
 // keeps a failed run from adding a second failure on the way out.

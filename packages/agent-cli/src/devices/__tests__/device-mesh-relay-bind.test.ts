@@ -15,19 +15,23 @@ import { createDeviceIdentityService } from '../device-identity-service.js';
 import { openDeviceMesh } from '../device-mesh.js';
 import { parseMeshInternetSettings } from '../mesh-internet-settings.js';
 import { scriptedOperator } from './fake-secret-terminal.js';
+import { createTestRuntimeContext } from './runtime-context-fixture.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
 
 let home: string;
 let root: string;
 let store: ICredentialStore;
+let productRuntime: ReturnType<typeof createTestRuntimeContext>;
 const holders: Socket[] = [];
 
 beforeEach(async () => {
-  home = mkdtempSync(join(tmpdir(), 'robota-mesh-relay-bind-'));
-  root = join(home, '.robota');
+  home = mkdtempSync(join(tmpdir(), 'agent-fixture-mesh-relay-bind-'));
+  root = join(home, '.agent-fixture');
   store = createFileCredentialStore(join(root, 'credentials'), { withinRoot: root });
+  productRuntime = createTestRuntimeContext(root);
   const service = createDeviceIdentityService({
+    productRuntime,
     directory: join(root, 'devices'),
     withinRoot: root,
     store,
@@ -45,6 +49,8 @@ afterEach(() => {
 function openWithRelay(relay: Record<string, unknown>): Promise<unknown> {
   return openDeviceMesh({
     root,
+    cryptoContext: productRuntime.cryptoContext,
+    credentialServiceNamespace: productRuntime.config.credentials.serviceNamespace,
     store,
     lan: { host: '127.0.0.1', mdns: false },
     internet: {

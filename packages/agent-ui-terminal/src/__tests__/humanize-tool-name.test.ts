@@ -9,7 +9,7 @@ describe('humanizeToolName (SCREEN-012)', () => {
   });
 
   it('uses a host-selected prefix without changing other tool names', () => {
-    expect(humanizeToolName('robota_command_agent', 'robota_command_')).toBe('agent');
+    expect(humanizeToolName('fixture_agent_command_agent', 'fixture_agent_command_')).toBe('agent');
     expect(humanizeToolName('acme_command_agent', 'acme_command_')).toBe('agent');
     expect(humanizeToolName('acme_command_agent')).toBe('acme_command_agent');
   });

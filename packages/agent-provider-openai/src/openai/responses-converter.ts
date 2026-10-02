@@ -1,3 +1,4 @@
+import { nonVisualObservationText } from '@robota-sdk/agent-core';
 import type {
   IOpenAIResponsesFunctionTool,
   IOpenAIResponsesMessageInput,
@@ -57,7 +58,15 @@ function convertMessage(message: TUniversalMessage): TOpenAIResponsesInputItem[]
       {
         type: 'function_call_output',
         call_id: message.toolCallId,
-        output: message.content || '',
+        output: message.parts?.length
+          ? [
+              ...(message.content &&
+              !message.parts.some((part) => part.type === 'text' && part.text === message.content)
+                ? [{ type: 'input_text' as const, text: message.content }]
+                : []),
+              ...message.parts.map(convertPart),
+            ]
+          : message.content || '',
       },
     ];
   }
@@ -105,10 +114,11 @@ function convertPart(part: TUniversalMessagePart): TOpenAIResponsesInputContent 
   if (part.type === 'image_uri') {
     return { type: 'input_image', image_url: part.uri };
   }
-  return {
+  if (part.type === 'image_inline') return {
     type: 'input_image',
     image_url: `data:${part.mimeType};base64,${part.data}`,
   };
+  return { type: 'input_text', text: nonVisualObservationText(part) ?? 'Unsupported observation' };
 }
 
 function createMessageInput(

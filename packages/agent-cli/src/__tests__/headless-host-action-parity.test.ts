@@ -122,7 +122,7 @@ describe('CMD-004 Stage D — programmatic driver surface (no adapters wired)', 
   let driver: IAgentDriver | undefined;
 
   beforeEach(() => {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-parity-')));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-parity-')));
   });
   afterEach(async () => {
     await driver?.stop();

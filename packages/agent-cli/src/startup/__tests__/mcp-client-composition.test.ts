@@ -16,7 +16,10 @@ import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync } from 'no
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { InMemoryMCPActivationApprovalStore, MCPDefinitionRegistry } from '@robota-sdk/agent-mcp';
+import {
+  InMemoryMCPActivationApprovalStore,
+  MCPDefinitionRegistry,
+} from '@robota-sdk/agent-mcp';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildMcpClientTimeouts, createMcpClientComposition } from '../mcp-client-composition.js';
@@ -35,7 +38,7 @@ function definition(
   return {
     name: 'weather',
     source: 'user',
-    origin: '~/.robota/settings.json',
+    origin: '~/.test-product/settings.json',
     transport: 'http',
     url: 'https://mcp.example.com/weather',
     unsetVariables: [],
@@ -47,7 +50,7 @@ function resolvedEntry(overrides: Partial<IMCPResolvedEntry> = {}): IMCPResolved
   return {
     name: 'weather',
     source: 'user',
-    origin: '~/.robota/settings.json',
+    origin: '~/.test-product/settings.json',
     status: 'resolved',
     definition: definition(),
     shadowed: [],
@@ -193,6 +196,61 @@ describe('createMcpClientComposition', () => {
     await composition.shutdown();
   });
 
+  it.each(['reject', 'revoke'] as const)(
+    'blocks new calls after %s while preserving the outcome of an already dispatched call',
+    async (decision) => {
+      const entries = [resolvedEntry()];
+      const { connection, calls } = fakeConnection(discoveryWithOneTool());
+      let settle!: () => void;
+      const pending = new Promise<void>((resolve) => {
+        settle = resolve;
+      });
+      const original = connection.callTool;
+      connection.callTool = async (...args) => {
+        const result = await original(...args);
+        await pending;
+        return result;
+      };
+      const composition = createMcpClientComposition({
+        resolvedEntries: entries,
+        approvalStore: approvedApprovalStore(entries),
+        transport: { lookup: async () => ['93.184.216.34'] },
+        createSupervisor: () => connection,
+        reportDiagnostic: () => undefined,
+      });
+      const [tool] = await composition.connect();
+      const first = tool!.execute({}, { toolName: tool!.getName(), parameters: {} });
+      await vi.waitFor(() => expect(calls).toHaveLength(1));
+      await composition.activationAdapter[decision]('weather');
+      // Settle first so the unfixed second call cannot leave this test hanging.
+      settle();
+      expect(await first).toMatchObject({ success: true, data: 'sunny' });
+      expect(await tool!.execute({}, { toolName: tool!.getName(), parameters: {} })).toMatchObject({
+        success: false,
+      });
+      expect(calls).toHaveLength(1);
+      await composition.shutdown();
+    },
+  );
+
+  it('refuses a retained tool after its composition shuts down', async () => {
+    const entries = [resolvedEntry()];
+    const { connection, calls } = fakeConnection(discoveryWithOneTool());
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore: approvedApprovalStore(entries),
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: () => connection,
+      reportDiagnostic: () => undefined,
+    });
+    const [tool] = await composition.connect();
+    await composition.shutdown();
+    expect(await tool!.execute({}, { toolName: tool!.getName(), parameters: {} })).toMatchObject({
+      success: false,
+    });
+    expect(calls).toHaveLength(0);
+  });
+
   it('spills an oversized MCP result before product observers receive it and cleans up on shutdown', async () => {
     const entries = [resolvedEntry()];
     const diagnostics = diagnosticsSink();
@@ -221,14 +279,14 @@ describe('createMcpClientComposition', () => {
     const result = await tools[0]!.execute({}, { toolName: 'weather__forecast', parameters: {} });
     expect(result).toEqual({ success: true, data: 'tool-result:abcdefghijklmnopqrstuv' });
     expect(write).toHaveBeenCalledExactlyOnceWith(raw);
-    const reader = tools.find((tool) => tool.getName() === 'robota_read_mcp_result');
+    const reader = tools.find((tool) => tool.getName() === 'agent_read_mcp_result');
     expect(reader).toBeDefined();
     const retrieved = await reader!.execute(
       {
         reference: 'tool-result:abcdefghijklmnopqrstuv',
         offset: 14,
       },
-      { toolName: 'robota_read_mcp_result', parameters: {} },
+      { toolName: 'agent_read_mcp_result', parameters: {} },
     );
     expect(retrieved.success).toBe(true);
     const chunk = retrieved.data as { content: string; totalChars: number; nextOffset: number };
@@ -268,12 +326,12 @@ describe('createMcpClientComposition', () => {
     const tools = await composition.connect();
     try {
       await tools[0]!.execute({}, { toolName: 'weather__forecast', parameters: {} });
-      const reader = tools.find((tool) => tool.getName() === 'robota_read_mcp_result');
+      const reader = tools.find((tool) => tool.getName() === 'agent_read_mcp_result');
       expect(reader).toBeDefined();
       await expect(
         reader!.execute(
           { reference, offset: 0 },
-          { toolName: 'robota_read_mcp_result', parameters: {} },
+          { toolName: 'agent_read_mcp_result', parameters: {} },
         ),
       ).rejects.toThrow('Tool result read limit too small');
     } finally {
@@ -931,7 +989,7 @@ describe('stdio client host authority (MCP-2522)', () => {
         definition: {
           name,
           source: 'user',
-          origin: '~/.robota/settings.json',
+          origin: '~/.test-product/settings.json',
           unsetVariables: [],
           transport: 'stdio',
           command: process.execPath,

@@ -6,13 +6,17 @@
  */
 
 import { runHooks, createLogger } from '@robota-sdk/agent-core';
+import {
+  collectCompactionToolReceipts,
+  compactionReceiptMessage,
+} from './compaction-tool-receipts.js';
 
 import type { CompactionOrchestrator } from './compaction-orchestrator.js';
 import type { ContextWindowTracker } from './context-window-tracker.js';
 import type { TSessionLogData } from './session-logger.js';
 import type { ICompactEvent, TCompactTrigger } from './session-types.js';
 import type { IToolSchema } from '@robota-sdk/agent-core';
-import type { Robota } from '@robota-sdk/agent-core';
+import type { ConversationAgent } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
   IExecutionJournal,
@@ -34,7 +38,7 @@ export interface ICompactContext {
   sessionId: string;
   cwd: string;
   systemMessage: string;
-  agent: Robota;
+  agent: ConversationAgent;
   aiProvider: IAIProvider;
   compactionOrchestrator: CompactionOrchestrator;
   contextTracker: ContextWindowTracker;
@@ -108,6 +112,7 @@ export async function compact(
 
   ctx.contextTracker.updateFromHistory(history);
   const before = ctx.contextTracker.getContextState();
+  const receipts = collectCompactionToolReceipts(history);
 
   // RUNTIME-004: the orchestrator throws if the turn was cancelled, so the history replacement below
   // is not reached — the same guarantee CORE-019 gives for an invalid summary.
@@ -127,6 +132,7 @@ export async function compact(
   ctx.agent.clearHistory();
   ctx.agent.injectMessage('system', ctx.systemMessage);
   ctx.agent.injectMessage('assistant', `[Context Summary]\n${summary}`);
+  if (receipts.length > 0) ctx.agent.injectRawMessage(compactionReceiptMessage(receipts));
 
   // Reset token tracking based on the new shorter history
   ctx.contextTracker.updateFromHistory(ctx.agent.getHistory());
@@ -167,7 +173,7 @@ export interface IPersistContext {
   systemPrompt: string;
   toolSchemas: IToolSchema[];
   sessionStore: IInteractiveSessionStore;
-  agent: Robota;
+  agent: ConversationAgent;
   getFullHistory: () => Array<{
     id: string;
     timestamp: Date;

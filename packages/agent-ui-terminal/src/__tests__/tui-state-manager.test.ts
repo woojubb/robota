@@ -346,7 +346,7 @@ describe('TuiStateManager', () => {
     expect(mgr.executionWorkspaceSnapshot?.selectedEntryId).toBe('task:agent_1');
   });
 
-  // ── Display order: Tool → Robota ──────────────────────────────
+  // ── Display order: Tool → Fixture Agent ──────────────────────────────
 
   it('streaming state is cleared on complete (tools moved to messages)', () => {
     const mgr = new TuiStateManager();
@@ -432,7 +432,7 @@ describe('TuiStateManager', () => {
     expect(mgr.history[2]!.type).toBe('assistant');
   });
 
-  it('after abort: streaming cleared, messages synced with tool → robota → system', () => {
+  it('after abort: streaming cleared, messages synced with tool → agent → system', () => {
     const mgr = new TuiStateManager();
 
     mgr.onThinking(true);

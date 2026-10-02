@@ -31,7 +31,7 @@ import type { IFileFrameChannel } from '@robota-sdk/agent-interface-session-mobi
 import type { IDeviceMeshLink } from '@robota-sdk/agent-transport-webrtc';
 
 export interface IDeviceFileReceiving {
-  /** `~/.robota` of this device's `HOME`. */
+  /** the configured user storage root of this device's `HOME`. */
   readonly root: string;
   readonly maxBytes?: number;
   /** Told how each offered file ended. */

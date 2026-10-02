@@ -133,7 +133,7 @@ export function Dialog({
 
   return (
     <div
-      className="robota-ui fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px]"
+      className="agent-ui fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px]"
       onMouseDown={(event) => {
         if (destructive) return;
         if (event.target === event.currentTarget) onClose();

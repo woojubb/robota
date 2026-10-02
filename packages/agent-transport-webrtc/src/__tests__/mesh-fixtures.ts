@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 /**
  * One user's identity with three devices, for device mesh tests: `low` and `high` are ordered by
  * device id, so `low` is the offerer of their pair; `third` is a third rostered device.
@@ -61,7 +63,7 @@ async function makeDevice(
 ): Promise<IMeshTestDevice> {
   const sign = await generateDeviceSignKeyPair(false);
   const ka = await generateDeviceKeyAgreementKeyPair(false);
-  const cert = await certifyDevice({
+  const cert = await certifyDevice(testIdentity, {
     signingKey,
     signPublicKey: sign.publicKey,
     kaPublicKey: ka.publicKey,
@@ -70,7 +72,7 @@ async function makeDevice(
     capabilities: ALL_CAPABILITIES,
     issuedAt: now,
   });
-  const session = await signSessionDescriptor({
+  const session = await signSessionDescriptor(testIdentity, {
     signPrivateKey: sign.privateKey,
     deviceId: cert.deviceId,
     sessionId: `c2Vzc2lvbi${name}`,
@@ -80,9 +82,9 @@ async function makeDevice(
 }
 
 export async function buildMeshWorld(now = Date.now()): Promise<IMeshTestWorld> {
-  const master = await deriveMasterKey(PHRASE);
+  const master = await deriveMasterKey(PHRASE, { derivationPath: [100, 0] });
   const pair = await generateSigningKeyPair({ extractable: false });
-  const certificate = await certifySigningKey({
+  const certificate = await certifySigningKey(testIdentity, {
     masterPrivateKey: master.keyPair.privateKey,
     userId: master.userId,
     signingPublicKey: pair.publicKey,
@@ -98,19 +100,19 @@ export async function buildMeshWorld(now = Date.now()): Promise<IMeshTestWorld> 
     x.cert.deviceId < y.cert.deviceId ? -1 : 1,
   ) as [IMeshTestDevice, IMeshTestDevice];
   const third = made[2]!;
-  const roster = await issueDeviceRoster({
+  const roster = await issueDeviceRoster(testIdentity, {
     signingKey,
     seq: 10,
     issuedAt: now,
     devices: made.map((d) => d.cert),
   });
-  const revocation = await issueDeviceRevocationList({
+  const revocation = await issueDeviceRevocationList(testIdentity, {
     signingKey,
     seq: 10,
     issuedAt: now,
     revokedDeviceIds: [],
   });
-  const signingKeyRevocation = await issueSigningKeyRevocation({
+  const signingKeyRevocation = await issueSigningKeyRevocation(testIdentity, {
     masterPrivateKey: master.keyPair.privateKey,
     userId: master.userId,
     seq: 1,
@@ -136,7 +138,7 @@ export async function buildMeshWorld(now = Date.now()): Promise<IMeshTestWorld> 
       ...over,
     }),
     revoking: (device) =>
-      issueDeviceRevocationList({
+      issueDeviceRevocationList(testIdentity, {
         signingKey,
         seq: 11,
         issuedAt: now,

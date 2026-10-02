@@ -1,7 +1,12 @@
 # Architecture — Robota Monorepo
 
-High-level system architecture for the Robota AI agent monorepo: which packages exist, how they
-depend on each other, and which apps are built from them.
+The architecture supports one direction: [our agents develop and advance our agents](VISION.md).
+Owned layers provide a reusable construction and execution foundation; the SDK and maintained
+interfaces are ways to build and use agents on it. This structure supports the ambition without
+claiming that autonomous self-development is already achieved.
+
+This document describes which packages exist, how they depend on each other, and which apps are
+built from them.
 
 ## System Overview
 
@@ -36,7 +41,7 @@ SDK packages (@robota-sdk/*)
   Transports            agent-transport (wire protocol, delivery), and the carriers built on it:
                         agent-transport-ws · -http · -mcp · -webrtc
   Runtime               agent-session · agent-executor · agent-tool-defaults ·
-                        agent-roundtable-robota (runs Session/Robota as roundtable participants and
+                        agent-roundtable-robota (runs a session or agent as a roundtable participant and
                         selectors) ·
                         agent-provider-replay (private: replays recorded provider responses in tests)
   Building blocks       agent-tools · agent-plugin · agent-mcp · agent-session-analytics ·
@@ -46,6 +51,7 @@ SDK packages (@robota-sdk/*)
                         analytics,transport,tui}
   Foundation            agent-core
   Leaves                agent-process · agent-file-authority · agent-remote-pairing ·
+                        agent-organization (operator-owned Node broker and durable authority) ·
                         agent-roundtable (no @robota-sdk dependency)
 
 DAG / workflow subsystem (private; depends on the SDK packages, never the reverse)

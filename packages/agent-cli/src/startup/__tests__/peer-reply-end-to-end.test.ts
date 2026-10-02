@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * Two live sessions on one host, over the real carrier: the operator of A messages B, B's agent
  * answers with `peer_reply`, and the answer arrives at A — which was idle — as a peer turn threaded
@@ -71,7 +72,7 @@ async function liveSession(sessionId: string, turns: readonly TScriptedTurn[]) {
     presence(sessionId),
     () => session,
     report,
-  );
+  createTestProductRuntime(),);
   return { session, adapters, scripted, messaging, report, asked };
 }
 

@@ -11,22 +11,29 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 import { buildBundledRuntimeChildEnv } from './child-env.mjs';
+import { buildProductTestEnvironment, readDesktopTestIdentity } from './product-fixture.mjs';
 import { buildDaemonStartSpawn, parseDaemonStartOutput } from '../dist/electron/sidecar.js';
 
+const appDirectory = pjoin(dirname(fileURLToPath(import.meta.url)), '..');
+const identity = readDesktopTestIdentity(pjoin(appDirectory, 'dist', 'electron'));
+if (!identity) throw new Error('Generated desktop product identity not found.');
+const home = mkdtempSync(join(tmpdir(), 'gui003-home-'));
+const productFixture = buildProductTestEnvironment(join(home, 'product-config'), identity);
+const desktopExecutable = identity.identity.desktopExecutableName;
 const releaseDir = pjoin(dirname(fileURLToPath(import.meta.url)), '..', 'release');
 const BIN =
   process.platform === 'darwin'
     ? pjoin(
         releaseDir,
-        `mac-${process.arch}`,
-        'robota-desktop.app',
+        `mac${process.arch === 'x64' ? '' : `-${process.arch}`}`,
+        `${identity.identity.cliName}-desktop.app`,
         'Contents',
         'Resources',
-        'robota',
+        desktopExecutable,
       )
     : process.platform === 'win32'
-      ? pjoin(releaseDir, 'win-unpacked', 'resources', 'robota.exe')
-      : pjoin(releaseDir, 'linux-unpacked', 'resources', 'robota');
+      ? pjoin(releaseDir, `win${process.arch === 'x64' ? '' : `-${process.arch}`}-unpacked`, 'resources', `${desktopExecutable}.exe`)
+      : pjoin(releaseDir, `linux${process.arch === 'x64' ? '' : `-${process.arch}`}-unpacked`, 'resources', desktopExecutable);
 if (!existsSync(BIN)) throw new Error(`Packaged runtime not found: ${BIN}`);
 
 const freePort = () =>
@@ -88,13 +95,14 @@ const drive = (url, onOpen, predicate, timeout) =>
   });
 
 const binCwd = mkdtempSync(join(tmpdir(), 'gui003-bin-'));
-const home = mkdtempSync(join(tmpdir(), 'gui003-home-'));
 // macOS's default temp directory is too long for the daemon's Unix control socket.
 const runtime = mkdtempSync(join(process.platform === 'darwin' ? '/tmp' : tmpdir(), 'rg-'));
-mkdirSync(join(binCwd, '.robota'), { recursive: true });
-mkdirSync(join(home, '.robota'), { recursive: true });
+const userRoot = productFixture.environment.PRODUCT_USER_STATE_DIR;
+const projectState = productFixture.environment.PRODUCT_PROJECT_STATE_DIR;
+mkdirSync(join(binCwd, projectState), { recursive: true });
+mkdirSync(userRoot, { recursive: true });
 writeFileSync(
-  join(home, '.robota', 'settings.json'),
+  join(userRoot, 'settings.json'),
   JSON.stringify({
     currentProvider: 'anthropic',
     providers: {
@@ -113,8 +121,9 @@ const serveEnv = buildBundledRuntimeChildEnv({
   token,
   port,
   systemRoot: process.env.SystemRoot,
+  productEnvironment: productFixture.environment,
 });
-const { ROBOTA_WS_TOKEN: _token, ROBOTA_WS_PORT: _port, ...baseCliEnv } = serveEnv;
+const { PRODUCT_WS_TOKEN: _token, PRODUCT_WS_PORT: _port, ...baseCliEnv } = serveEnv;
 const cliEnv = { ...baseCliEnv, XDG_RUNTIME_DIR: runtime };
 const exec = promisify(execFile);
 const runCli = (args) => exec(BIN, args, { cwd: binCwd, env: cliEnv, timeout: 30000 });

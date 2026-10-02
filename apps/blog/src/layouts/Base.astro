@@ -1,5 +1,8 @@
 ---
-const { title = 'Robota Blog', description = '', lang = 'en', translationUrl = '' } = Astro.props;
+import { productPublicConfig } from '../lib/product-config.generated.mjs';
+const { title = '__PRODUCT_DISPLAY_NAME__ Blog', description = '', lang = 'en', translationUrl = '' } = Astro.props;
+const productName = productPublicConfig.identity.displayName;
+const measurementId = productPublicConfig.services?.analyticsMeasurementId;
 const enUrl = lang === 'en' ? '' : translationUrl;
 const koUrl = lang === 'ko' ? '' : translationUrl;
 ---
@@ -9,9 +12,12 @@ const koUrl = lang === 'ko' ? '' : translationUrl;
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZPV4BX97JF"></script>
-  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-ZPV4BX97JF');</script>
+  {measurementId && <>
+    <script async src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}></script>
+    <script is:inline define:vars={{ measurementId }}>
+      window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config',measurementId);
+    </script>
+  </>}
   <title>{title}</title>
   {description && <meta name="description" content={description} />}
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -27,7 +33,7 @@ const koUrl = lang === 'ko' ? '' : translationUrl;
 </head>
 <body>
   <header class="site-header">
-    <a href={lang === 'en' ? '/' : '/ko/'} class="logo">Robota</a>
+    <a href={lang === 'en' ? '/' : '/ko/'} class="logo">{productName}</a>
     <nav>
       <span class="switcher">
         {enUrl ? <a href={enUrl}>EN</a> : <span class="active">EN</span>}
@@ -69,8 +75,8 @@ const koUrl = lang === 'ko' ? '' : translationUrl;
 
   <footer class="site-footer">
     <p>
-      <a href="https://github.com/woojubb">woojubb</a> ·
-      <a href="https://robota.io">robota.io</a>
+      {productPublicConfig.identity.repositoryUrl && <a href={productPublicConfig.identity.repositoryUrl}>Source repository</a>}
+      {productPublicConfig.identity.websiteUrl && <a href={productPublicConfig.identity.websiteUrl}>{new URL(productPublicConfig.identity.websiteUrl).host}</a>}
     </p>
   </footer>
 </body>

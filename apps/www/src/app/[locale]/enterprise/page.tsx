@@ -39,7 +39,7 @@ export default async function EnterprisePage({ params }: { params: Promise<{ loc
         </p>
         <div className="flex flex-wrap gap-3">
           <a
-            href="https://github.com/woojubb/robota/discussions"
+            href="__PROJECT_REPOSITORY_URL__/discussions"
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
@@ -47,7 +47,7 @@ export default async function EnterprisePage({ params }: { params: Promise<{ loc
             {t('contact.githubDiscussions')}
           </a>
           <a
-            href="mailto:enterprise@robota.io"
+            href="__PROJECT_REPOSITORY_URL__/discussions"
             className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
           >
             {t('contact.email')}
@@ -170,8 +170,8 @@ export default async function EnterprisePage({ params }: { params: Promise<{ loc
         </h2>
         <p className="text-sm text-[var(--muted-foreground)]">
           {t('vulnerabilityDisclosure.description')}{' '}
-          <a href="mailto:security@robota.io" className="text-[var(--primary)] hover:underline">
-            security@robota.io
+          <a href="__PROJECT_REPOSITORY_URL__/discussions" className="text-[var(--primary)] hover:underline">
+            project discussions
           </a>{' '}
           {t('vulnerabilityDisclosure.descriptionSuffix')}{' '}
           <strong className="text-[var(--foreground)]">

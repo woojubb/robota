@@ -10,9 +10,9 @@
 
   Direct `createExecutionComposition` callers that wrap a `LifecycleTaskExecutorPort` must pass `lifecycleCreditAdmission: true` in the composition dependencies so the worker recognizes that the wrapped lifecycle reserves credits before execution.
 
-- cd848eb: Require host-selected storage and asset paths (or supplied ports) when composing the in-process DAG framework. The neutral factory no longer selects environment or Robota home-directory storage defaults; existing hosts can preserve their layout by passing the former paths explicitly.
+- cd848eb: Require host-selected storage and asset paths (or supplied ports) when composing the in-process DAG framework. The neutral factory no longer selects environment or __PRODUCT_DISPLAY_NAME__ home-directory storage defaults; existing hosts can preserve their layout by passing the former paths explicitly.
 
-  Require a host-selected database path for both SQLite adapters. Callers that used the implicit `./robota-dag.db` file can pass that path explicitly.
+  Require a host-selected database path for both SQLite adapters. Callers that used the implicit `./__PRODUCT_DISPLAY_NAME__-dag.db` file can pass that path explicitly.
 
 ### Minor Changes
 

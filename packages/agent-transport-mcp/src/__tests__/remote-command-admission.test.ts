@@ -13,7 +13,7 @@ async function connect() {
   const session = createTestInteractiveSession({
     listRuntimeTools: async () => [
       {
-        name: 'robota_command_clear',
+        name: 'fixture_command_clear',
         description: 'Clear history',
         parameters: { type: 'object', properties: {} },
       },
@@ -34,10 +34,10 @@ describe('canonical command admission', () => {
   it('never constructs a second command catalog or invokes commands directly', async () => {
     const { session, client } = await connect();
     const names = (await client.listTools()).tools.map((tool) => tool.name);
-    expect(names).toContain('robota_command_clear');
-    expect(names).not.toContain('robota_command_plugin');
+    expect(names).toContain('fixture_command_clear');
+    expect(names).not.toContain('fixture_command_plugin');
     expect(names).not.toContain('command_clear');
-    await client.callTool({ name: 'robota_command_clear' });
+    await client.callTool({ name: 'fixture_command_clear' });
     expect(session.invokeRuntimeTool).toHaveBeenCalledOnce();
     expect(session.listCommands).not.toHaveBeenCalled();
     expect(session.executeCommand).not.toHaveBeenCalled();
@@ -46,7 +46,7 @@ describe('canonical command admission', () => {
   it('refuses an unregistered command even when the peer guesses its canonical name', async () => {
     const { session, client } = await connect();
     const result = await client.callTool({
-      name: 'robota_command_plugin',
+      name: 'fixture_command_plugin',
       arguments: { args: 'install x' },
     });
     expect(result).toMatchObject({ isError: true });

@@ -5,7 +5,7 @@
  * turned it on, so the TUI can print a self-diagnostic first line that does not lie about why the
  * mode is active.
  *
- * Precedence (lowest → highest): `screenReader` in settings.json ← `ROBOTA_SCREEN_READER=1|0` /
+ * Precedence (lowest → highest): `screenReader` in settings.json ← `PRODUCT_SCREEN_READER=1|0` /
  * `INK_SCREEN_READER=true` ← `--screen-reader` / `--no-screen-reader` (the flag wins).
  *
  * This is a DELIBERATE inversion of the only existing precedent in this package —
@@ -17,7 +17,7 @@
  * `INK_SCREEN_READER` is honoured as an equal env-tier input rather than shadowed: Ink 7 reads it
  * itself (`process.env['INK_SCREEN_READER'] === 'true'`), so a run that only sets it would otherwise
  * get Ink's own behaviour while the confirmation line claimed the mode was off. Ink matches the
- * literal `'true'`, not `1` — the `ROBOTA_*=1` convention is mapped explicitly, never inherited.
+ * literal `'true'`, not `1` — the `PRODUCT_*=1` convention is mapped explicitly, never inherited.
  */
 
 // The channel vocabulary is owned by the presentation package that prints it — importing it here
@@ -38,7 +38,7 @@ export interface IScreenReaderEnablementInputs {
   settings?: boolean | undefined;
   /** `--screen-reader` (true) / `--no-screen-reader` (false); `undefined` when neither is given. */
   flagEnabled?: boolean | undefined;
-  /** Raw `ROBOTA_SCREEN_READER` value (`'1'` enables, `'0'` disables; anything else ignored). */
+  /** Raw `PRODUCT_SCREEN_READER` value (`'1'` enables, `'0'` disables; anything else ignored). */
   env?: string | undefined;
   /** Raw `INK_SCREEN_READER` value. Only Ink's own literal `'true'` enables. */
   inkEnv?: string | undefined;
@@ -67,7 +67,7 @@ export function readScreenReaderSetting(settings: TSettingsData | undefined): bo
 
 /**
  * Pure enablement resolver: settings ← env ← flag (flag wins). Default OFF.
- * `ROBOTA_SCREEN_READER=0` keeps the mode off against a `true` setting but loses to an explicit
+ * `PRODUCT_SCREEN_READER=0` keeps the mode off against a `true` setting but loses to an explicit
  * `--screen-reader`, which is the difference between "off for one command" and "edit a JSON file".
  */
 export function resolveScreenReaderEnablement(
@@ -76,7 +76,7 @@ export function resolveScreenReaderEnablement(
   let enabled = inputs.settings ?? false;
   let channel: TScreenReaderChannel | undefined = enabled ? 'settings' : undefined;
 
-  // Env tier: the Robota switch and Ink's own variable are equal inputs at this level.
+  // Env tier: the The product switch and Ink's own variable are equal inputs at this level.
   const env = inputs.env?.trim();
   if (env === '1' || inputs.inkEnv?.trim() === INK_SCREEN_READER_ON) {
     enabled = true;
@@ -121,7 +121,7 @@ export interface IScreenReaderRenderFields {
 
 /**
  * True when the operator said "off" in so many words — `--no-screen-reader`, or
- * `ROBOTA_SCREEN_READER=0`. Distinct from merely being off by default, which is the state the
+ * `PRODUCT_SCREEN_READER=0`. Distinct from merely being off by default, which is the state the
  * advisory line exists to tell someone about.
  */
 function isExplicitlyDisabled(
@@ -129,7 +129,7 @@ function isExplicitlyDisabled(
   env: Readonly<Record<string, string | undefined>>,
 ): boolean {
   if (flagEnabled === false) return true;
-  return env['ROBOTA_SCREEN_READER']?.trim() === '0';
+  return env['PRODUCT_SCREEN_READER']?.trim() === '0';
 }
 
 /**
@@ -148,7 +148,7 @@ export function resolveScreenReaderRenderFields(
   const resolved = resolveScreenReaderEnablement({
     settings: readScreenReaderSetting(settings),
     flagEnabled,
-    env: env['ROBOTA_SCREEN_READER'],
+    env: env['PRODUCT_SCREEN_READER'],
     inkEnv: env['INK_SCREEN_READER'],
   });
   return {

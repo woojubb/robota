@@ -1,3 +1,4 @@
+import type { IIdentityContext } from './identity/crypto-context.js';
 /**
  * SEC-011 (#1812): proving two DEVICES belong to one USER.
  *
@@ -69,10 +70,13 @@ export interface IUserDeviceCertificate {
 }
 
 /** The bytes a certificate signature covers. Every field but the signature itself, in a fixed order. */
-function certificateBytes(cert: Omit<IUserDeviceCertificate, 'signature'>): Uint8Array {
+function certificateBytes(
+  cryptoContext: IIdentityContext,
+  cert: Omit<IUserDeviceCertificate, 'signature'>,
+): Uint8Array {
   return encoder.encode(
     JSON.stringify([
-      'robota.user-device-certificate.v1',
+      `${cryptoContext.namespace}.user-device-certificate.v1`,
       cert.userId,
       cert.deviceId,
       cert.devicePublicKey,
@@ -110,6 +114,7 @@ export interface IIssueCertificateOptions {
 
 /** Sign a device key into this user's set. */
 export async function issueDeviceCertificate(
+  cryptoContext: IIdentityContext,
   options: IIssueCertificateOptions,
 ): Promise<IUserDeviceCertificate> {
   const devicePublicKeySpki = await exportPublicKey(options.devicePublicKey);
@@ -124,7 +129,7 @@ export async function issueDeviceCertificate(
   const signature = await webcrypto.subtle.sign(
     SIGN_PARAMS,
     options.rootPrivateKey,
-    ab(certificateBytes(unsigned)),
+    ab(certificateBytes(cryptoContext, unsigned)),
   );
   return { ...unsigned, signature: toBase64Url(new Uint8Array(signature)) };
 }
@@ -156,6 +161,7 @@ export interface IVerifyCertificateOptions {
  * mean reasoning about attacker-controlled values.
  */
 export async function verifyDeviceCertificate(
+  cryptoContext: IIdentityContext,
   certificate: IUserDeviceCertificate,
   options: IVerifyCertificateOptions,
 ): Promise<ICertificateVerification> {
@@ -164,7 +170,7 @@ export async function verifyDeviceCertificate(
     SIGN_PARAMS,
     options.rootPublicKey,
     ab(fromBase64Url(signature)),
-    ab(certificateBytes(unsigned)),
+    ab(certificateBytes(cryptoContext, unsigned)),
   );
   if (!signatureOk) return { valid: false, rejection: 'signature-invalid' };
 

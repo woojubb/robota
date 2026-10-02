@@ -1,3 +1,4 @@
+import type { IIdentityContext } from './crypto-context.js';
 /**
  * The device handshake's wire frames, their total decoder, and the bytes each proof covers.
  *
@@ -13,13 +14,7 @@ import {
   type IDeviceCertificate,
   type ISigningKeyCertificate,
 } from './certificates.js';
-import {
-  IDENTITY_PURPOSES,
-  canonicalBase64Url,
-  isCount,
-  isSignature,
-  type TCanonical,
-} from './encoding.js';
+import { canonicalBase64Url, isCount, isSignature, type TCanonical } from './encoding.js';
 import {
   decodeDeviceRevocationList,
   decodeDeviceRoster,
@@ -35,7 +30,6 @@ import {
 export const DEVICE_HANDSHAKE_PROTOCOL = 1;
 
 /** The label of the pairwise pre-proof MAC. */
-export const PRE_PROOF_LABEL = 'robota/pre/v1';
 
 export const HANDSHAKE_NONCE_BYTES = 16;
 const MAC_BYTES = 32;
@@ -52,7 +46,7 @@ export interface IDevicePreFrame {
 
 export interface IDeviceHelloFrame {
   readonly t: 'dh-hello';
-  readonly ctx: typeof IDENTITY_PURPOSES.handshake;
+  readonly ctx: string;
   readonly proto: number;
   readonly rosterSeq: number;
   readonly revocationSeq: number;
@@ -111,7 +105,10 @@ function optionalList<T>(
 }
 
 /** Decode one inbound frame. Total: never throws, and a failure names a field, never a value. */
-export function decodeDeviceHandshakeFrame(value: unknown): TDeviceFrameDecodeResult {
+export function decodeDeviceHandshakeFrame(
+  cryptoContext: IIdentityContext,
+  value: unknown,
+): TDeviceFrameDecodeResult {
   try {
     if (typeof value !== 'object' || value === null || Array.isArray(value))
       return malformed('frame');
@@ -142,13 +139,13 @@ export function decodeDeviceHandshakeFrame(value: unknown): TDeviceFrameDecodeRe
       ] as const;
       const missing = openFrame(r, fields);
       if (missing !== undefined) return malformed(missing);
-      if (r['ctx'] !== IDENTITY_PURPOSES.handshake) return malformed('ctx');
+      if (r['ctx'] !== cryptoContext.purposes.handshake) return malformed('ctx');
       for (const field of fields.slice(1)) if (!isCount(r[field])) return malformed(field);
       return {
         ok: true,
         frame: {
           t,
-          ctx: IDENTITY_PURPOSES.handshake,
+          ctx: cryptoContext.purposes.handshake,
           proto: r['proto'] as number,
           rosterSeq: r['rosterSeq'] as number,
           revocationSeq: r['revocationSeq'] as number,
@@ -163,18 +160,22 @@ export function decodeDeviceHandshakeFrame(value: unknown): TDeviceFrameDecodeRe
         ['roster', 'revocation', 'signingKeyRevocation'],
       );
       if (missing !== undefined) return malformed(missing);
-      const signingKeyCert = decodeSigningKeyCertificate(r['signingKeyCert']);
+      const signingKeyCert = decodeSigningKeyCertificate(cryptoContext, r['signingKeyCert']);
       if (!signingKeyCert.ok) return malformed('signingKeyCert');
-      const deviceCert = decodeDeviceCertificate(r['deviceCert']);
+      const deviceCert = decodeDeviceCertificate(cryptoContext, r['deviceCert']);
       if (!deviceCert.ok) return malformed('deviceCert');
-      const sessionDescriptor = decodeSessionDescriptor(r['sessionDescriptor']);
+      const sessionDescriptor = decodeSessionDescriptor(cryptoContext, r['sessionDescriptor']);
       if (!sessionDescriptor.ok) return malformed('sessionDescriptor');
       if (!isSignature(r['sig'])) return malformed('sig');
-      const roster = optionalList(r, 'roster', decodeDeviceRoster);
+      const roster = optionalList(r, 'roster', (value) => decodeDeviceRoster(cryptoContext, value));
       if (!roster.ok) return malformed('roster');
-      const revocation = optionalList(r, 'revocation', decodeDeviceRevocationList);
+      const revocation = optionalList(r, 'revocation', (value) =>
+        decodeDeviceRevocationList(cryptoContext, value),
+      );
       if (!revocation.ok) return malformed('revocation');
-      const skr = optionalList(r, 'signingKeyRevocation', decodeSigningKeyRevocation);
+      const skr = optionalList(r, 'signingKeyRevocation', (value) =>
+        decodeSigningKeyRevocation(cryptoContext, value),
+      );
       if (!skr.ok) return malformed('signingKeyRevocation');
       return {
         ok: true,
@@ -201,16 +202,19 @@ export function decodeDeviceHandshakeFrame(value: unknown): TDeviceFrameDecodeRe
  * The bytes a pre-proof MAC covers. Fingerprints and nonces are in role order, and the sender's
  * role is named, so each side's proof differs from the one it expects: a reflected frame fails.
  */
-export function preProofBytes(input: {
-  readonly senderRole: TPairingRole;
-  readonly fingerprintInitiator: string;
-  readonly fingerprintResponder: string;
-  readonly nonceInitiator: string;
-  readonly nonceResponder: string;
-}): Uint8Array {
+export function preProofBytes(
+  cryptoContext: IIdentityContext,
+  input: {
+    readonly senderRole: TPairingRole;
+    readonly fingerprintInitiator: string;
+    readonly fingerprintResponder: string;
+    readonly nonceInitiator: string;
+    readonly nonceResponder: string;
+  },
+): Uint8Array {
   return encoder.encode(
     JSON.stringify([
-      PRE_PROOF_LABEL,
+      `${cryptoContext.namespace}/pre/v1`,
       DEVICE_HANDSHAKE_PROTOCOL,
       input.senderRole,
       input.fingerprintInitiator,
@@ -245,7 +249,7 @@ function helloFields(hello: IDeviceHelloFrame): TCanonical {
   ];
 }
 
-/** The fields a `prove` signature covers, under the `robota/handshake/v1` purpose. */
+/** The fields a `prove` signature covers, under the configured handshake purpose. */
 export function handshakeTranscriptFields(input: IHandshakeTranscriptInput): TCanonical[] {
   return [
     DEVICE_HANDSHAKE_PROTOCOL,

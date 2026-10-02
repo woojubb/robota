@@ -43,7 +43,7 @@ function runProblem(
   status = error.code.endsWith('_NOT_FOUND') ? 404 : 400,
 ) {
   return {
-    type: `urn:robota:problems:dag:${error.category ?? 'validation'}`,
+    type: `urn:agent:problems:dag:${error.category ?? 'validation'}`,
     title,
     status,
     detail: error.message,
@@ -109,7 +109,7 @@ function costReply<T>(
       status,
       errors: [
         {
-          type: `urn:robota:problems:dag:${result.error.code.toLowerCase()}`,
+          type: `urn:agent:problems:dag:${result.error.code.toLowerCase()}`,
           title: 'Cost metadata operation failed',
           status,
           detail,
@@ -153,7 +153,7 @@ function runDraftReply<T>(
       status,
       errors: [
         {
-          type: `urn:robota:problems:dag:${result.error.code.toLowerCase()}`,
+          type: `urn:agent:problems:dag:${result.error.code.toLowerCase()}`,
           title: 'Run draft operation failed',
           status,
           detail: status >= 500 ? 'Run draft operation failed.' : result.error.message,
@@ -311,7 +311,7 @@ export function createDagRuntimeServer(
           status: 404,
           errors: [
             {
-              type: 'urn:robota:problems:dag:validation',
+              type: 'urn:agent:problems:dag:validation',
               title: 'Validation failed',
               status: 400,
               detail: 'Definition does not exist',
@@ -373,7 +373,7 @@ export function createDagRuntimeServer(
           status: 404,
           errors: [
             {
-              type: 'urn:robota:problems:dag:not_found',
+              type: 'urn:agent:problems:dag:not_found',
               title: 'Resource not found',
               status: 404,
               detail: 'DAG definition not found',
@@ -531,7 +531,7 @@ export function createDagRuntimeServer(
           status: 400,
           errors: [
             {
-              type: 'urn:robota:problems:dag:validation',
+              type: 'urn:agent:problems:dag:validation',
               title: 'DAG build failed',
               status: 400,
               detail: result.error.message,

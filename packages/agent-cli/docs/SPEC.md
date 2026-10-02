@@ -7,14 +7,14 @@ line. The CLI is a **thin shell** over `@robota-sdk/agent-framework`'s `Interact
 session lifecycle, slash-command execution, tool orchestration, and abort handling live in the SDK.
 The CLI resolves inputs (args, settings, env), assembles a product via `assembleProduct`, and binds
 one of several presentations: interactive TUI (default), print/headless (`-p`/`--goal`), the
-headless runtime host (`--serve`), or an MCP server process (`robota mcp serve`).
+headless runtime host (`--serve`), or an MCP server process (`__PRODUCT_CLI_NAME__ mcp serve`).
 
-**Product shell, not a composition root.** `robota`'s product identity — branding,
+**Product shell, not a composition root.** `__PRODUCT_CLI_NAME__`'s product identity — branding,
 provider surface, presets, capability packs, base command modules, and injected
-transports/runners/subagent factory — is declared as DATA in `src/product/robota-profile.ts` and
+transports/runners/subagent factory — is declared as DATA in `src/product/product-profile.ts` and
 folded by the product-neutral `assembleProduct` (`@robota-sdk/agent-product`). The CLI parses args,
 performs user-owned settings/env reads, accepts the host's trusted/restricted project-access
-decision, and dispatches print/serve/TUI mode; it no longer hand-wires the assembly. `robota` is one
+decision, and dispatches print/serve/TUI mode; it no longer hand-wires the assembly. `__PRODUCT_CLI_NAME__` is one
 profile among many — an external repo brings its own and reuses the same kernel.
 
 ## Boundaries
@@ -31,7 +31,15 @@ lifecycle contracts, transparent-workflow provenance/state vocabulary, baseline 
 Ink TUI components/hooks (owned by `@robota-sdk/agent-ui-terminal`). Non-UI behavior exposed through
 the CLI is owned below it first unless it is listed as CLI-owned below.
 
-The CLI owns: argument parsing and process lifecycle assembly, which transports each mode registers
+The CLI owns argument parsing and process lifecycle assembly: hosted execution requires current,
+signed admission bound to the task and its root for a separate worker and company broker and a host-owned execution owner
+that dispatches the immutable captured invocation inside the admitted worker, projecting only
+worker product metadata and broker-issued task access rather than host environment or credentials;
+recovery restores verified task files and conversation into a clean worker with current identity and epoch while preserving the logical task root,
+rebuilding execution and authority rather than restoring old process memory or authority state;
+missing, unavailable or invalid authority or resume state refuses execution without entering local
+host adapters; current broker accounting and owner-selected limits remain outside recovered task state,
+and stopping retains ownership of execution and teardown. Remote desktop admission additionally binds current company authority to an owner-selected user, workload and session; reconnect withdraws prior access, while trusted operation approval uses a separate operator capability with durable replay protection outside worker state. It owns which transports each mode registers
 (the `TransportRegistry` class itself is agent-framework's), provider
 composition (selecting an injected `IProviderDefinition`, not implementing providers), concrete local
 host adapters (background runner, child-process subagent, Git worktree, settings I/O), package-version
@@ -39,15 +47,17 @@ update checks, and the per-mode host-action adapters (`/remote-control`, process
 Remote control is host-owned: it receives only the session capabilities its wire protocol needs, and
 promoting a confirmed reconnect winner replaces the registered peer so host shutdown always reaches
 the live connection; pairing failure or reconnect-window expiry releases the transport, signaling,
-and resume bridge, and an expired or stopped window cannot start a room after the fact. The host
+and resume bridge. Stop or device revocation withdraws the affected activation and connection;
+late identity, enrollment and reconnect work cannot revive its authority or publish a stale pairing link. The host
 identity key devices pin is kept in the host credential store, never in a plain file; a malformed
 stored key fails closed rather than being replaced.
 The CLI selects every user- and project-scoped path and identity a session needs — storage root,
 presets, agent-definition roots, project settings layers, project-state layout, context-discovery
 permissions, plugin/skill/command roots, task-context directory, organization policy, keybindings,
-and display name — and passes them explicitly to the neutral SDK and framework packages, which never
+and display name — and passes them explicitly to the neutral SDK and framework packages, preserving
+explicit local embedding-host scheduling intent without deriving it from settings or plugin claims; they never
 infer a path or identity on their own; a second product supplies its own values without inheriting
-Robota's. Restricted (untrusted) composition never gains a project settings or contribution source
+product-specific. Restricted (untrusted) composition never gains a project settings or contribution source
 merely by knowing its path, and an externally supplied trusted authority whose project-state layout
 differs from the CLI's is refused rather than read or written. Project-wide tool-permission approvals
 persist only through the CLI-selected project-local settings path and the live workspace authority;
@@ -55,7 +65,7 @@ an unavailable writer rejects the approval explicitly. Disabled plugins stay dis
 command, theme, and discovery surface. The CLI attaches its own setup, diagnostics, and resume
 guidance to typed SDK failures — missing provider configuration, invalid settings, or a completed
 fork — and supplies the product's diagnostic and resume commands to command modules, which name no
-Robota executable or product on their own.
+configured executable or product on their own.
 
 Local peer-activity publishing exposes only fixed, content-free activity states for the current
 interactive session into a guarded, same-user rendezvous, kept separate from process-liveness checks
@@ -78,7 +88,7 @@ claim, and it decides where an answer goes and whom the turn is attributed to �
 may do, which the session's ordinary permissions decide as for its own work, wherever the peer runs.
 
 A file from another session or device is kept only with the operator's yes to that file, as an inert
-copy in a directory of the sender's under this user's `~/.robota`, under a name that cannot leave it,
+copy in a directory of the sender's under this user's `$PRODUCT_USER_STATE_DIR`, under a name that cannot leave it,
 replace anything or follow a link; the conversation is told its name, size and hash, never its
 content. Sending is the operator's command for any readable file, and the model's only within the
 workspace and away from anything that looks like a secret, because a model steered by what it read
@@ -133,7 +143,7 @@ answer is denied, and a reader that stops reading is cut off instead of holding 
 restart is not offered, so no client's command stops or restarts a supervised session: it serves every
 other client, and nothing would start it again.
 A workspace's daemon is such a session, at most one per workspace even when starts race, marked so
-that a client in that workspace, the desktop app or a terminal attached with `robota --attach`, connects
+that a client in that workspace, the desktop app or a terminal attached with `__PRODUCT_CLI_NAME__ --attach`, connects
 to the one already running instead of spawning a runtime of its own, so no launch option of the
 client's shapes that session. The one exception is Restricted: a daemon reports whether it runs
 Restricted, and a Restricted start is never handed one with the project's configuration, because a
@@ -150,12 +160,14 @@ local-only action over the same authorized stores as local usage reporting: its 
 verified content-free execution traces, or completion snapshots go only to a caller-named loopback
 collector, never including transcript, tool names, session identity, or provider/model labels.
 It fails visibly on an incomplete store or collector rejection and never auto-exports. The separate
-live telemetry path needs an explicit Robota enable switch, individually selected signals, and an
+live telemetry path needs an explicit enable switch, individually selected signals, and an
 explicit protocol with a validated destination (OTLP or a local console sink). It uses host-owned
 resource and trace identity, never ambient OpenTelemetry identity, trace context or credentials, and
 sends a trace's identifiers to a provider only at origins the operator listed exactly, and to a
 child process only of a class the operator listed, while traces are exported — the collector's origin and credentials are never implied by that. Its spans, metrics
-and console output are always content-free, correlated by validated IDs; the only content it can
+and console output are always content-free, correlated by validated IDs; duration totals remain
+measured interval sums when detail is bounded, with invalid evidence explicit and queue selection
+distinct from execution. The only content it can
 send is the typed prompt, the final response and the arguments and output of the turn's own tool
 calls, of an owner-typed turn in the interactive terminal (other modes refuse the opt-in rather than
 leave it unused), as OTLP log records, after an explicit per-kind opt-in, bounded per turn so a turn
@@ -169,14 +181,14 @@ It does not replay stored usage or invent lifecycle events, delivery failure nev
 result, and an unsupported telemetry setting, or a credential that would be silently unused, refuses
 startup instead of being ignored. Telemetry credentials are scoped to the destination they were
 configured for and are never sent elsewhere, printed, or written to console output, logs or resource
-attributes. Robota telemetry settings are not inherited by child processes, except the explicit
+attributes. Product telemetry settings are not inherited by child processes, except the explicit
 handover to a supervised runtime launched by a session command; this is a guarantee about
 inheritance, not about hiding them from the same OS user. Because they are removed from
 `process.env` at startup, an embedding host that calls `startCli` has its own `process.env` mutated;
 a later in-process `startCli` call that sets none of its own reuses the whole settings a previous
 call captured, and one that sets any of its own uses only those, in full — settings from different
 calls are never mixed key by key, so a destination and the credentials configured for it always come
-from the same call, and `ROBOTA_TELEMETRY_ENABLED=0` alone turns export off for every later call
+from the same call, and `PRODUCT_TELEMETRY_ENABLED=0` alone turns export off for every later call
 until one sets its own again. None of this is ever written back to `process.env`.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
@@ -184,16 +196,16 @@ Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`)
 
 ### Import Rules
 
-| Source                    | Allowed                                                                                                      |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `agent-framework`         | SDK-owned APIs and facades                                                                                   |
-| `agent-core`              | Public types + utilities only; internal engine (`Robota`, `ExecutionService`, `ConversationStore`) forbidden |
-| `agent-session`           | Forbidden — the SDK provides its own session/permission types                                                |
-| `agent-tools`             | The OS sandbox only (its client, detection and settings) — the SDK assembles tools internally                |
-| `agent-command`           | Slash-command modules only                                                                                   |
-| `agent-subagent-runner`   | Subagent/background runner only                                                                              |
-| `agent-builtin-providers` | Provider definition assembly only                                                                            |
-| `agent-preset`            | Preset id selection + resolution only — `resolvePreset` owns the precedence merge                            |
+| Source                    | Allowed                                                                                                                 |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `agent-framework`         | SDK-owned APIs and facades                                                                                              |
+| `agent-core`              | Public types + utilities only; internal engine (`ConversationAgent`, `ExecutionService`, `ConversationStore`) forbidden |
+| `agent-session`           | Forbidden — the SDK provides its own session/permission types                                                           |
+| `agent-tools`             | The OS sandbox only (its client, detection and settings) — the SDK assembles tools internally                           |
+| `agent-command`           | Slash-command modules only                                                                                              |
+| `agent-subagent-runner`   | Subagent/background runner only                                                                                         |
+| `agent-builtin-providers` | Provider definition assembly only                                                                                       |
+| `agent-preset`            | Preset id selection + resolution only — `resolvePreset` owns the precedence merge                                       |
 
 ## Design decisions
 
@@ -221,7 +233,7 @@ not bundled in published installs.
 The CLI implements `agent-core`'s credential store port for its own secrets — the remote-control host
 key and this device's identity keys: the OS keychain through
 the optional `@napi-rs/keyring` binding when it loads and keeps a probe value, else an owner-only file
-under `~/.robota`. The choice is made at first use, told to the operator when it is the file, named
+under `$PRODUCT_USER_STATE_DIR`. The choice is made at first use, told to the operator when it is the file, named
 by `/remote-control status`, and recorded: a recorded keychain that stops working fails closed
 instead of degrading to the file, because secrets already in the keychain would silently stop being
 found. On Linux only the Secret Service counts as a keychain — the binding's kernel-keyring fallback
@@ -273,7 +285,7 @@ composition and skips it entirely.
 policy before reaching the session's permission, callback, log, or provider path. The default
 warning/hard/repository ceiling is 10,000/25,000/500,000 UTF-16 code units; embedding hosts may
 configure limits within the repository ceiling. A failed spill produces a secret-free refusal — raw
-server output is never substituted back into context. `robota_read_mcp_result` returns at most 4,000
+server output is never substituted back into context. `__PRODUCT_MODEL_TOOL_PREFIX__read_mcp_result` returns at most 4,000
 characters per read (less under a host-configured hard limit), with the total size and next offset;
 missing or expired references fail with a fixed, payload-free error.
 
@@ -285,12 +297,12 @@ trusted. A repository's helper also runs without the user's credential-shaped en
 the user allowed the program, not handing their credentials to wherever that repository points it.
 Stdio and helper diagnostics never include raw child or SDK errors or anything a helper printed, and
 the ordinary executable does not auto-approve package-runner commands. An OAuth server's tokens come
-only from the user's own per-server sign-in — `robota mcp login` in a terminal or `/mcp login` in a
-session — kept owner-only under the user's Robota home. A sign-in inside a session asks for a pasted
+only from the user's own per-server sign-in — `__PRODUCT_CLI_NAME__ mcp login` in a terminal or `/mcp login` in a
+session — kept owner-only under `$PRODUCT_USER_STATE_DIR`. A sign-in inside a session asks for a pasted
 redirect only through the session's own prompt, never the terminal the session owns, and never asks
 for a client secret, because what is typed there becomes part of the conversation; a secret is
 entered only in a terminal. A server signed in to mid-session connects through the same admission as
-at startup, so a sign-in never widens what the user approved. A command Robota tells the user to run
+at startup, so a sign-in never widens what the user approved. A command suggestion tells the user to run
 names the server only when its name is safe to paste into any shell, since a repository chooses that
 name and quoting rules differ between shells. The authorization page opens by argv and only for an `https` URL,
 and a client secret or pasted redirect is asked for without echo, never read from an argument or a
@@ -300,7 +312,13 @@ definition.
 user's storage unless the host supplies its own `IMCPActivationApprovalStore`, and `/mcp approve`
 connects the approved server in the running session. A decision binds to the definition's
 fingerprint and security identity, so a changed definition asks again. A store that cannot be read
-reads as no decisions: it can only withhold approval, never grant it.
+reads as no decisions: it can only withhold approval, never grant it. Opted-in distributed skill
+content needs separate consent from a known local user, bound to verified instructions, complete
+frontmatter, manifest, origin, workspace and URI, and a live activation remains conditional on
+that consent and its original source. Supporting bytes are accessible only within that activation's
+verified manifest and owning execution; discovery and resource reads confer no other activation.
+Observing changed or removed content withdraws consent permanently, so restoring older
+bytes or restarting cannot resurrect it, and another workspace cannot reuse or erase the decision.
 
 **External events need a verified grant.** The CLI admits no sender-name grant: a sender name relayed
 by an MCP server does not prove who sent an event, and a flag asking for one is refused with that
@@ -335,7 +353,8 @@ diagnostic when the setting would otherwise apply.
 ### `--serve` runtime host
 
 `--serve` runs `startRuntimeHost` over the resolved runtime options and the loopback `WsTransport`,
-rendering no UI, until SIGTERM. This is the backend the desktop GUI spawns: TUI and GUI are sibling
+rendering no UI, until its owner requests shutdown; a request made during initialization remains
+binding on the acquired host. This is the backend the desktop GUI spawns: TUI and GUI are sibling
 presentations over the same runtime host, and the GUI never controls the CLI. The composition root
 assigns trusted WS driver identities (`app`, `browser`, `remote:ws`) so a turn's persisted usage
 surface reflects the launch path rather than a client-provided claim.
@@ -355,7 +374,7 @@ nonzero runner outcome without waiting for unrelated runners, and serve mode ass
 code. A rejected runner wait assigns exit 1; no runners, all-success, or stop-abandonment leave the
 service alive.
 
-### `robota mcp serve`
+### `__PRODUCT_CLI_NAME__ mcp serve`
 
 A separate headless process mode: one normally assembled session plus one `agent-transport-mcp`
 stdio, loopback HTTP (`--http-token-file`) or remote HTTP (`--http-public-url` with the `--oauth-*`
@@ -380,14 +399,14 @@ Each of these product surfaces is **opt-in and resolved by the CLI**, not the li
 here because the reasoning differs between them:
 
 - **Durable memory:** default OFF. Precedence lowest→highest: `settings.json`
-  `memory.enabled` → `--memory`/`--no-memory` flag → `ROBOTA_MEMORY` env (**env wins** — a
+  `memory.enabled` → `--memory`/`--no-memory` flag → `PRODUCT_MEMORY` env (**env wins** — a
   machine-level policy a CI runner sets once). Capture + recall are enabled together by one switch;
-  scope is repo/project (`<cwd>/.robota/memory/`), because project memory is shared through the
+  scope is repo/project (`$PRODUCT_PROJECT_STATE_DIR/memory/`), because project memory is shared through the
   repository, so it never moves to a per-user store: on a host that cannot write under the project
   safely, memory stays off and says why once. A one-time enable notice is printed to stderr on first
   enable; no blocking prompt.
 - **Screen-reader mode:** default OFF. Precedence lowest→highest: `settings.json`
-  `screenReader` → `ROBOTA_SCREEN_READER`/`INK_SCREEN_READER` env → `--screen-reader`/
+  `screenReader` → `PRODUCT_SCREEN_READER`/`INK_SCREEN_READER` env → `--screen-reader`/
   `--no-screen-reader` flag (**flag wins**). This is a deliberate divergence from memory's
   precedence: accessibility must let a per-invocation flag turn the mode ON for one run on a machine
   whose environment has it off (e.g. SSH into a shared host), while memory is a machine-level policy.
@@ -396,10 +415,10 @@ here because the reasoning differs between them:
   user's interface with no telemetry to ever catch it.
 - **Prompt history:** default ON (prompts are already persisted verbatim per session,
   and this is a shell-history analogue). Precedence: `settings.json` `promptHistory: false` ←
-  `ROBOTA_PROMPT_HISTORY` env (**env wins**, same direction as memory — a machine-level policy).
+  `PRODUCT_PROMPT_HISTORY` env (**env wins**, same direction as memory — a machine-level policy).
   TUI only; print/serve receive no writer.
 - **Advisor:** default OFF. Precedence: `settings.json` `advisorModel` ← `--advisor` flag (**flag
-  wins**, a per-run choice like the screen-reader flag), and `ROBOTA_DISABLE_ADVISOR` above both as a
+  wins**, a per-run choice like the screen-reader flag), and `PRODUCT_DISABLE_ADVISOR` above both as a
   kill switch nothing inside a session can undo — it is how an operator guarantees that conversation
   history is not sent to a second model. Per-destination consent lives in the user settings file, so
   it is asked once per destination rather than once per session.
@@ -444,31 +463,31 @@ collector, and generic credentials belong to the generic destination.
 
 ### Exact-origin trace propagation
 
-`ROBOTA_TELEMETRY_PROPAGATE_TO` takes exact origins rather than hosts, suffixes or wildcards: a
+`PRODUCT_TELEMETRY_PROPAGATE_TO` takes exact origins rather than hosts, suffixes or wildcards: a
 `traceparent` lets whoever receives it join their own logs to the operator's trace, so each recipient
 is named on purpose and a subdomain, port or scheme change is a different recipient. One list covers
 providers and MCP HTTP servers alike, because the trust is in the origin, not in the kind of client
 that reaches it. An entry must
 already be its own origin, so the value compared is exactly the value written.
-`ROBOTA_TELEMETRY_PROPAGATE_TO_SUBPROCESSES` is a closed list of classes rather than a pattern,
-because each class is a place Robota knows how to hand the trace to — the foreground shell and
+`PRODUCT_TELEMETRY_PROPAGATE_TO_SUBPROCESSES` is a closed list of classes rather than a pattern,
+because each class is a supported child target for trace handoff — the foreground shell and
 command hooks — and every other child (the `!` passthrough, background, managed and scheduled
 shells, stdio MCP servers, HTTP, prompt and agent hooks) must never receive it. It is independent of
 the origin list, since a child process is not an origin.
 
 ### Opt-in metric attributes
 
-`ROBOTA_TELEMETRY_METRIC_ATTRIBUTES` keys its labels `robota.session.id`, `robota.provider.id` and
-`robota.model.id` — matching the live trace spans — rather than `session.id` or `gen_ai.*`: a
+`PRODUCT_TELEMETRY_METRIC_ATTRIBUTES` keys its labels `agent.session.id`, `agent.provider.id` and
+`agent.model.id` — matching the live trace spans — rather than `session.id` or `gen_ai.*`: a
 metric/trace join needs the same key on both sides, the provider id is whatever the host configured
 rather than a well-known system, and which model actually answered a request cannot be verified
 against which model the request named.
 
-### Deep links (`robota open`)
+### Deep links (`__PRODUCT_CLI_NAME__ open`)
 
 Decided BEFORE argument parsing and before any workspace composition, so a malformed or untrusted
 link is named as such rather than reported as a missing terminal. The grammar is closed: verb
-`robota://open` (case-insensitive) and exactly four keys (`v` required as `1`, `prompt`, `cwd`,
+`__PRODUCT_PROTOCOL_SCHEME__://open` (case-insensitive) and exactly four keys (`v` required as `1`, `prompt`, `cwd`,
 `repo`). An unknown/duplicate key, wrong/missing `v`, an oversized link or prompt, a prompt starting
 with `/`, a relative/UNC/`..`-bearing `cwd`, or a second link in argv discards the WHOLE url and exits
 non-zero without starting a session; every echoed value is escaped first. The target must already be
@@ -512,30 +531,30 @@ are what they can rely on.
 ### Modes and flags
 
 ```bash
-robota                               # Interactive TUI
-robota init                          # Initialize project (AGENTS.md + .robota/settings.json)
-robota open '<robota://open?v=1...>' # Open a deep link into a trusted directory
-robota trust status | --yes | revoke --yes   # Inspect/grant/revoke workspace trust
-robota doctor [--repair <id> -y]     # Diagnose configuration/runtime readiness (aliases: checkup, diagnose)
-robota usage [--period 30d] [--timezone UTC] [--format json]  # Local personal usage summary
-robota eval ./my-eval.mjs            # Run an evals-as-code definition; exit 1 on a metric breach
-robota -p "prompt"                   # Print mode (one-shot, headless)
-robota --serve                       # Headless runtime host
-robota mcp serve [--http-token-file <path> | --http-public-url <https> --oauth-*] [--http-port <port>]  # MCP server process
-robota -c | --continue                       # Continue the most recent session for this cwd
-robota -r <id> | --resume [id]               # Resume a session by id/name, or show a picker
-robota -c --fork-session                     # Fork from the last session (new id, restored context)
-robota --name <name> | --reset | --model <model> | --language <lang>
-robota --permission-mode <plan|default|acceptEdits|bypassPermissions>
-robota --max-turns <n> | --goal <objective> [--goal-max-iterations <n>]
-robota --allowed-tools <list> | --denied-tools <list>
-robota --json-schema <schema> | --output-format <text|json|stream-json>
-robota --system-prompt <text> | --append-system-prompt <text>
-robota --check-update | --disable-update-check | --version
+__PRODUCT_CLI_NAME__                               # Interactive TUI
+__PRODUCT_CLI_NAME__ init                          # Initialize project (AGENTS.md + $PRODUCT_PROJECT_STATE_DIR/settings.json)
+__PRODUCT_CLI_NAME__ open '<__PRODUCT_PROTOCOL_SCHEME__://open?v=1...>' # Open a deep link into a trusted directory
+__PRODUCT_CLI_NAME__ trust status | --yes | revoke --yes   # Inspect/grant/revoke workspace trust
+__PRODUCT_CLI_NAME__ doctor [--repair <id> -y]     # Diagnose configuration/runtime readiness (aliases: checkup, diagnose)
+__PRODUCT_CLI_NAME__ usage [--period 30d] [--timezone UTC] [--format json]  # Local personal usage summary
+__PRODUCT_CLI_NAME__ eval ./my-eval.mjs            # Run an evals-as-code definition; exit 1 on a metric breach
+__PRODUCT_CLI_NAME__ -p "prompt"                   # Print mode (one-shot, headless)
+__PRODUCT_CLI_NAME__ --serve                       # Headless runtime host
+__PRODUCT_CLI_NAME__ mcp serve [--http-token-file <path> | --http-public-url <https> --oauth-*] [--http-port <port>]  # MCP server process
+__PRODUCT_CLI_NAME__ -c | --continue                       # Continue the most recent session for this cwd
+__PRODUCT_CLI_NAME__ -r <id> | --resume [id]               # Resume a session by id/name, or show a picker
+__PRODUCT_CLI_NAME__ -c --fork-session                     # Fork from the last session (new id, restored context)
+__PRODUCT_CLI_NAME__ --name <name> | --reset | --model <model> | --language <lang>
+__PRODUCT_CLI_NAME__ --permission-mode <plan|default|acceptEdits|bypassPermissions>
+__PRODUCT_CLI_NAME__ --max-turns <n> | --goal <objective> [--goal-max-iterations <n>]
+__PRODUCT_CLI_NAME__ --allowed-tools <list> | --denied-tools <list>
+__PRODUCT_CLI_NAME__ --json-schema <schema> | --output-format <text|json|stream-json>
+__PRODUCT_CLI_NAME__ --system-prompt <text> | --append-system-prompt <text>
+__PRODUCT_CLI_NAME__ --check-update | --disable-update-check | --version
 ```
 
 `--output-style <id>` selects the provider-neutral response style (flag > persisted `outputStyle`
-setting > `default`); `--effort` (or `ROBOTA_EFFORT`/settings/preset) selects the model-effort tier
+setting > `default`); `--effort` (or `PRODUCT_EFFORT`/settings/preset) selects the model-effort tier
 from `auto`, `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` — invalid values are terminal
 startup errors.
 
@@ -552,8 +571,8 @@ combined with `-c`/`-r`.
 
 Every destructive CLI flag (e.g. `--reset`) follows one contract: nothing is deleted without consent.
 On a TTY without `--yes` it prompts `Delete <path>? [y/N]`; on a non-TTY without `--yes` it refuses and
-names the flag; `--yes`, or `CI=true` for `robota init`'s confirmations, skips the prompt. `--yes`
-means "non-interactive with documented defaults", not "answer yes to everything" — `robota init` never
+names the flag; `--yes`, or `CI=true` for `__PRODUCT_CLI_NAME__ init`'s confirmations, skips the prompt. `--yes`
+means "non-interactive with documented defaults", not "answer yes to everything" — `__PRODUCT_CLI_NAME__ init` never
 overwrites existing files even with `--yes`.
 
 ### Exit codes
@@ -579,7 +598,7 @@ execution never schedules or emits update checks, keeping automation and structu
 contracts deterministic. The CLI may print the install command but must never execute install/update
 commands without explicit user confirmation.
 
-- `robota trust status` previews the project sources that trusting the current workspace would enable,
+- `__PRODUCT_CLI_NAME__ trust status` previews the project sources that trusting the current workspace would enable,
   using metadata only: it never follows links, never reads file content and never prints credentials
   or project-controlled content. Where safe metadata is unavailable, the plain-text preview and the
   TUI's own interactive ask list the candidate with its metadata marked unavailable; `--json` (and the

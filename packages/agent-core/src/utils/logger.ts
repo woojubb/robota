@@ -109,7 +109,7 @@ export class ConsoleLogger implements ILogger {
    * This logger's own threshold. `undefined` means "follow the process-wide level".
    *
    * CORE-029: the field existed and nothing ever set it, so the only way to change a level was
-   * `setGlobalLogLevel` — and `Robota`'s constructor called it from `config.logging`, which meant one
+   * `setGlobalLogLevel` — and `ConversationAgent`'s constructor called it from `config.logging`, which meant one
    * agent's per-agent setting silenced every other agent AND every other package in the process.
    * A per-agent option has to reach a per-agent logger.
    */
@@ -122,7 +122,7 @@ export class ConsoleLogger implements ILogger {
    *
    * It used to be `logger || SilentLogger`, decided once in the constructor. No call site in the
    * repository ever passed one and there was no way to set one afterwards, so every diagnostic this
-   * package emits — 157 `logger.*` calls, including "Robota initialization failed" and every
+   * package emits — 157 `logger.*` calls, including "ConversationAgent initialization failed" and every
    * catch-and-log-only path — went to `SilentLogger` by construction. Not "was not configured":
    * could not be.
    *

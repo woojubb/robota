@@ -1,6 +1,6 @@
 ---
 title: Model Context Protocol (MCP)
-description: Connect the robota CLI to remote MCP servers, sign in with OAuth, serve a Robota session to other MCP clients with robota mcp serve, and admit verified external events.
+description: Connect the __PRODUCT_CLI_NAME__ CLI to remote MCP servers, sign in with OAuth, serve an Robota session to other MCP clients with __PRODUCT_CLI_NAME__ mcp serve, and admit verified external events.
 ---
 
 # Model Context Protocol (MCP)
@@ -8,9 +8,9 @@ description: Connect the robota CLI to remote MCP servers, sign in with OAuth, s
 The [Model Context Protocol](https://modelcontextprotocol.io) lets an agent use tools that other
 programs serve, and lets other programs use an agent. Robota does both:
 
-- **As a client**, the `robota` CLI reads MCP server definitions from your settings and offers the
+- **As a client**, the `__PRODUCT_CLI_NAME__` CLI reads MCP server definitions from your settings and offers the
   servers' tools to the model, once you approve each server (and sign in, for OAuth servers).
-- **As a server**, `robota mcp serve` exposes one Robota session to another MCP client — over stdio,
+- **As a server**, `__PRODUCT_CLI_NAME__ mcp serve` exposes one Robota session to another MCP client — over stdio,
   authenticated loopback HTTP, or as an OAuth-protected remote HTTP endpoint.
 
 The same building blocks are libraries: [`@robota-sdk/agent-mcp`](../../packages/agent-mcp/docs/README.md)
@@ -23,9 +23,9 @@ That is deliberately not done over MCP.
 
 ## Prerequisites
 
-- The `robota` CLI installed — see [Getting Started](../getting-started/README.md).
-- MCP servers defined in project settings, and `robota mcp serve`, need a **trusted workspace**
-  (`robota trust --yes`; see [Workspace trust](./sessions-and-daemon.md#workspace-trust)). Servers in
+- The `__PRODUCT_CLI_NAME__` CLI installed — see [Getting Started](../getting-started/README.md).
+- MCP servers defined in project settings, and `__PRODUCT_CLI_NAME__ mcp serve`, need a **trusted workspace**
+  (`__PRODUCT_CLI_NAME__ trust --yes`; see [Workspace trust](./sessions-and-daemon.md#workspace-trust)). Servers in
   your user settings do not.
 - Signing in, approving servers and choosing grants are your actions: the model can read `/mcp`
   status and suggest the command, but cannot run them.
@@ -35,10 +35,10 @@ That is deliberately not done over MCP.
 ### What the CLI can connect
 
 Read this first. `/mcp approve <server>` connects the server in the session where you run it, and
-the approval is kept in `~/.robota/mcp-approvals.json`, so the server also connects at later starts
+the approval is kept in `<user-state>/mcp-approvals.json`, so the server also connects at later starts
 until its definition, its source or the workspace changes. So:
 
-| Server definition                                   | In the `robota` CLI                                                                                                                   |
+| Server definition                                   | In the `__PRODUCT_CLI_NAME__` CLI                                                                                                                   |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | Remote (`"type": "http"`) with `oauth`              | Connects once you run `/mcp approve <server>` and then `/mcp login <server>`.                                                         |
 | Remote without `oauth` (static headers or a helper) | Connects once you run `/mcp approve <server>`; a helper must also be allowed (see below).                                             |
@@ -56,9 +56,9 @@ configuration:
 
 | File                                                         | Scope                              |
 | ------------------------------------------------------------ | ---------------------------------- |
-| `~/.robota/settings.json`, `~/.claude/settings.json`         | user                               |
-| `.robota/settings.json`, `.claude/settings.json`             | project (loaded only when trusted) |
-| `.robota/settings.local.json`, `.claude/settings.local.json` | local (loaded only when trusted)   |
+| `<user-state>/settings.json`, `~/.claude/settings.json`         | user                               |
+| `<project-state>/settings.json`, `.claude/settings.json`             | project (loaded only when trusted) |
+| `<project-state>/settings.local.json`, `.claude/settings.local.json` | local (loaded only when trusted)   |
 
 When the same server name appears in more than one scope, the whole entry from the highest scope wins
 — local over project over user — and entries are never merged field by field. The CLI connects only
@@ -116,7 +116,7 @@ silently disappears.
 
 ### Walkthrough: approve, sign in, use the tools
 
-Start `robota` and check the servers:
+Start `__PRODUCT_CLI_NAME__` and check the servers:
 
 ```text
 /mcp
@@ -149,10 +149,10 @@ Sign out and revoke the tokens with `/mcp logout tracker`.
 ### Signing in from a terminal
 
 ```bash
-robota mcp login tracker               # opens the browser; keeps the tokens for later sessions
-robota mcp login tracker --no-browser  # prints the URL; you paste the redirect back
-robota mcp login tracker --client-secret  # pre-registered client: asks for its secret without echo
-robota mcp logout tracker              # deletes the tokens, then asks the server to revoke them
+__PRODUCT_CLI_NAME__ mcp login tracker               # opens the browser; keeps the tokens for later sessions
+__PRODUCT_CLI_NAME__ mcp login tracker --no-browser  # prints the URL; you paste the redirect back
+__PRODUCT_CLI_NAME__ mcp login tracker --client-secret  # pre-registered client: asks for its secret without echo
+__PRODUCT_CLI_NAME__ mcp logout tracker              # deletes the tokens, then asks the server to revoke them
 ```
 
 A client secret is asked for only here, never inside a session, because what you type in a session
@@ -170,13 +170,13 @@ non-integer value discards that file's whole `mcp` object. If `autoBackgroundMs`
 `callTimeoutMs`, the handoff is off and a diagnostic says so. Print mode (`-p`) never hands off; a
 call there runs to completion, bounded by `callTimeoutMs`.
 
-## Serving a Robota session over MCP
+## Serving an Robota session over MCP
 
-`robota mcp serve` runs one Robota session as an MCP server, in the directory you start it from. It
+`__PRODUCT_CLI_NAME__ mcp serve` runs one Robota session as an MCP server, in the directory you start it from. It
 passes the same trust check as other headless starts. All notices go to stderr; stdout carries only
 MCP frames.
 
-The server offers the session's tools under their own names, plus `robota_submit`, which takes
+The server offers the session's tools under their own names, plus `__PRODUCT_MODEL_TOOL_PREFIX___submit`, which takes
 `{ "prompt": "..." }`, runs a turn and returns its response. It does not advertise MCP resources or
 prompts. There is nobody to answer a permission prompt, so a call that would ask fails as a tool
 error — allow what the client should use with [permission rules](./permissions-and-hooks.md).
@@ -184,7 +184,7 @@ error — allow what the client should use with [permission rules](./permissions
 ### stdio
 
 ```bash
-robota mcp serve
+__PRODUCT_CLI_NAME__ mcp serve
 ```
 
 Configure your MCP client to launch this command with the project directory as its working
@@ -194,8 +194,8 @@ authentication.
 ### Loopback HTTP with a bearer token
 
 ```bash
-robota mcp serve --http-token-file /home/me/.robota/mcp-token
-# stderr: MCP HTTP listening at http://127.0.0.1:<port>/...; bearer token file: /home/me/.robota/mcp-token
+__PRODUCT_CLI_NAME__ mcp serve --http-token-file /home/me/<project-state>/mcp-token
+# stderr: MCP HTTP listening at http://127.0.0.1:<port>/...; bearer token file: /home/me/<project-state>/mcp-token
 ```
 
 The token file path must be absolute and must not exist yet. Robota creates it owner-only (`0600`),
@@ -206,7 +206,7 @@ checks the `Host` and `Origin` headers and the bearer token before reading a req
 ### Remote HTTP as an OAuth resource server
 
 ```bash
-robota mcp serve \
+__PRODUCT_CLI_NAME__ mcp serve \
   --http-public-url https://agent.example.com/mcp \
   --oauth-issuer https://auth.example.com \
   --oauth-scopes mcp:use \
@@ -255,8 +255,8 @@ A grant is a JSON file of public configuration only (at most 16 KiB):
 Any other field is refused. Start the TUI or a background session with the grant and a loopback port:
 
 ```bash
-robota --external-event-grant ./ci-alerts.json --external-event-port 8787
-robota session start --background --external-event-grant ./ci-alerts.json --external-event-port 8787
+__PRODUCT_CLI_NAME__ --external-event-grant ./ci-alerts.json --external-event-port 8787
+__PRODUCT_CLI_NAME__ session start --background --external-event-grant ./ci-alerts.json --external-event-port 8787
 ```
 
 Your own HTTPS proxy or tunnel serves the grant's `resource` URL and forwards to
@@ -279,7 +279,7 @@ The turn an event starts has **no tools and cannot reply**. A name in the payloa
 shown only as a claim and never used to decide who sent it.
 
 List and withdraw grants with `/events` and `/events revoke <grant-id>` in the session, or, for a
-background session, `robota session events list <id>` and `robota session events revoke <id>
+background session, `__PRODUCT_CLI_NAME__ session events list <id>` and `__PRODUCT_CLI_NAME__ session events revoke <id>
 <grant-id>`. Grants are created only by the start flags; the model can neither list nor change them.
 
 ## Reference
@@ -295,9 +295,9 @@ background session, `robota session events list <id>` and `robota session events
 | `/mcp revoke <server>`                                     | Withdraw an earlier approval.                                                                     |
 | `/mcp login <server> [--no-browser]`                       | Sign in to an OAuth server and connect it in this session.                                        |
 | `/mcp logout <server>`                                     | Sign out and revoke the tokens.                                                                   |
-| `robota mcp login <name> [--client-secret] [--no-browser]` | Sign in from a terminal; tokens are kept for later sessions.                                      |
-| `robota mcp logout <name>`                                 | Sign out from a terminal.                                                                         |
-| `robota mcp serve [options]`                               | Serve one session over stdio, loopback HTTP or remote HTTP.                                       |
+| `__PRODUCT_CLI_NAME__ mcp login <name> [--client-secret] [--no-browser]` | Sign in from a terminal; tokens are kept for later sessions.                                      |
+| `__PRODUCT_CLI_NAME__ mcp logout <name>`                                 | Sign out from a terminal.                                                                         |
+| `__PRODUCT_CLI_NAME__ mcp serve [options]`                               | Serve one session over stdio, loopback HTTP or remote HTTP.                                       |
 | `/events`, `/events revoke <grant-id>`                     | List or withdraw this session's external-event grants.                                            |
 
 Approval states: `approved`, `pending` (no decision yet), `rejected`, `revoked`, `stale` (the
@@ -305,7 +305,7 @@ definition, its source or the workspace changed since approval), `untrusted` (a 
 definition in an untrusted workspace). Sign-in states: signed in, token expired (will refresh),
 sign-in required, signed out.
 
-### `robota mcp serve` flags
+### `__PRODUCT_CLI_NAME__ mcp serve` flags
 
 | Flag                             | Meaning                                                                          |
 | -------------------------------- | -------------------------------------------------------------------------------- |
@@ -334,7 +334,7 @@ sign-in required, signed out.
 | `mcpServers`                                | Server definitions, in any settings file listed above.   |
 | `mcpHeaderHelpers`                          | Allowed header-helper command lines; user settings only. |
 | `mcp.autoBackgroundMs`, `mcp.callTimeoutMs` | Tool-call handoff threshold and time limit.              |
-| `~/.robota/mcp-credentials/`                | OAuth tokens for remote servers, owner-only.             |
+| `<user-state>/mcp-credentials/`                | OAuth tokens for remote servers, owner-only.             |
 
 ### Security model
 
@@ -365,9 +365,9 @@ sign-in required, signed out.
 
 - A remote server on `localhost` or a private network address is refused by the CLI's default
   address policy.
-- `robota mcp serve` in remote mode serves one session shared by every admitted subject.
+- `__PRODUCT_CLI_NAME__ mcp serve` in remote mode serves one session shared by every admitted subject.
 - There is no in-session way to use a pre-registered client's secret; use
-  `robota mcp login <name> --client-secret` in a terminal.
+  `__PRODUCT_CLI_NAME__ mcp login <name> --client-secret` in a terminal.
 
 ### Troubleshooting
 
@@ -375,12 +375,12 @@ sign-in required, signed out.
 | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | ``MCP definition "<name>" … was refused: no `type` …``                                    | Add `"type": "http"` (or `"stdio"`) to the entry.                                                   |
 | `MCP server "<name>" was not admitted (pending)`                                          | Run `/mcp approve <name>`, then `/mcp login <name>` for an OAuth server.                            |
-| `MCP server "<name>" was not admitted (untrusted)`                                        | The definition is in project settings; run `robota trust --yes`.                                    |
+| `MCP server "<name>" was not admitted (untrusted)`                                        | The definition is in project settings; run `__PRODUCT_CLI_NAME__ trust --yes`.                                    |
 | `MCP server "<name>" stdio was refused: missing host authority.`                          | The CLI does not start stdio servers from settings (see above).                                     |
 | `Signed in to MCP server <name>, but it is not approved for this session`                 | Run `/mcp approve <name>`; it retries the connection using the existing sign-in.                    |
 | `Sign-in … failed (browser-failed)`                                                       | Use `/mcp login <name> --no-browser`.                                                               |
-| `A client secret is never typed into a session.`                                          | Run `robota mcp login <name> --client-secret` in a terminal.                                        |
-| `"mcpHeaderHelpers" in <file> was ignored: only user settings may allow a header helper.` | Move the list to `~/.robota/settings.json` or `~/.claude/settings.json`.                            |
+| `A client secret is never typed into a session.`                                          | Run `__PRODUCT_CLI_NAME__ mcp login <name> --client-secret` in a terminal.                                        |
+| `"mcpHeaderHelpers" in <file> was ignored: only user settings may allow a header helper.` | Move the list to `<user-state>/settings.json` or `~/.claude/settings.json`.                            |
 | `Remote authorization requires … together`                                                | Pass all of `--http-public-url`, `--oauth-issuer`, `--oauth-scopes` and `--oauth-allowed-subjects`. |
 
 ## Related

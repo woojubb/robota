@@ -1,7 +1,7 @@
 /**
  * ARCH-021 TC-01: a composition-root stand-in that enters the REAL worker entry point.
  *
- * The bintest asserts what robota composes, but `composedToolNames` is computed from the composition
+ * The bintest asserts what the configured product composes, but `composedToolNames` is computed from the composition
  * independently of `runInitialPrompt` — so reverting `parentTools:` to an empty array, or building
  * the tools at the parent's cwd instead of `subagentExecutionRoot(payload)`, leaves that test green.
  * This entry closes that gap: its `createTools` RECORDS the cwd it is called with, so a test can
@@ -23,9 +23,16 @@ function record(event) {
 }
 
 runSubagentWorkerMain({
-  createTools: ({ cwd }) => {
+  sandboxFactories: {
+    scratch: async (snapshotId) => ({ filesystem: 'separate', snapshotId }),
+  },
+  createHookTypeExecutors: (context) => {
+    record({ hookCwd: context?.cwd, hookSnapshot: context?.sandboxClient?.snapshotId });
+    return [];
+  },
+  createTools: ({ cwd, sandboxClient }) => {
     // The observation the whole fixture exists for: WHICH root the worker asked for, and when.
-    record({ createToolsCwd: cwd });
+    record({ createToolsCwd: cwd, toolSnapshot: sandboxClient?.snapshotId });
     return [
       {
         schema: { name: SCRATCH_TOOL_NAME, description: 'scratch', parameters: {} },

@@ -2,7 +2,11 @@ import { isExecutionError, PREVIEW_LENGTH } from './execution-types';
 import { ARGUMENT_DECODE_ERROR_CODE, UNKNOWN_TOOL_ERROR_CODE } from './tool-execution-service';
 import { estimateContextTokensFromMessages } from '../context/estimation';
 
-import type { IToolCall, TUniversalMessageMetadata } from '../interfaces/messages';
+import type {
+  IToolCall,
+  TUniversalMessageMetadata,
+  TUniversalMessagePart,
+} from '../interfaces/messages';
 import type { TToolMetadata } from '../interfaces/tool';
 import type { ConversationStore } from '../managers/conversation-history-manager';
 import type { ILogger } from '../utils/logger';
@@ -15,9 +19,6 @@ export interface IToolResultsOutcome {
   unknownToolFailureCount: number;
   unknownToolNames: string[];
 }
-
-const CONTEXT_OVERFLOW_TOOL_SKIP_MESSAGE =
-  'Error: Context window near capacity. Tool execution result skipped. Respond with available results and re-request skipped tools if needed.';
 
 export function isUnknownToolExecutionResult(result: {
   success: boolean;
@@ -43,6 +44,7 @@ export function addToolResultsToHistory(
       toolName?: string;
       success: boolean;
       result?: unknown;
+      parts?: TUniversalMessagePart[];
       error?: string;
       metadata?: TToolMetadata;
     }>;
@@ -67,22 +69,6 @@ export function addToolResultsToHistory(
       throw new Error(`[EXECUTION] Tool call "${toolCall.id}" missing function name`);
     }
 
-    if (contextOverflowed) {
-      logger.warn('[ROUND] Skipping tool result due to context overflow', {
-        toolCallId: toolCall.id,
-        toolName: toolCallName,
-        round: currentRound,
-      });
-      conversationStore.addToolMessageWithId(
-        CONTEXT_OVERFLOW_TOOL_SKIP_MESSAGE,
-        toolCall.id,
-        toolCallName,
-        { round: currentRound, success: false, error: 'context_overflow', toolName: toolCallName },
-      );
-      skippedCount++;
-      continue;
-    }
-
     const result = toolSummary.results.find((r) => r.executionId === toolCall.id);
     const error = toolSummary.errors.find(
       (e) => isExecutionError(e) && e.executionId === toolCall.id,
@@ -90,19 +76,27 @@ export function addToolResultsToHistory(
 
     let content: string;
     const metadata: TUniversalMessageMetadata = { round: currentRound };
+    if (typeof result?.metadata?.toolProvenance === 'string')
+      metadata['toolProvenance'] = result.metadata.toolProvenance;
 
     if (result && result.success) {
       if (typeof result.result === 'undefined') {
         throw new Error('[EXECUTION] Tool result missing result payload');
       }
-      content = typeof result.result === 'string' ? result.result : JSON.stringify(result.result);
+      content = contextOverflowed
+        ? ''
+        : typeof result.result === 'string'
+          ? result.result
+          : JSON.stringify(result.result);
       metadata['success'] = true;
       if (result.toolName) metadata['toolName'] = result.toolName;
     } else if (result && !result.success) {
       if (!result.error || result.error.length === 0) {
         throw new Error('[EXECUTION] Tool result missing error message');
       }
-      content = `Error: ${result.error}`;
+      content = contextOverflowed
+        ? ''
+        : `Error: ${result.error}${result.result !== undefined ? `\n${typeof result.result === 'string' ? result.result : JSON.stringify(result.result)}` : ''}`;
       metadata['success'] = false;
       metadata['error'] = result.error;
       if (result.toolName) metadata['toolName'] = result.toolName;
@@ -133,12 +127,38 @@ export function addToolResultsToHistory(
       if (!execMessage || execMessage.length === 0) {
         throw new Error('[EXECUTION] Tool execution error missing message');
       }
-      content = `Error: ${execMessage}`;
+      content = contextOverflowed ? '' : `Error: ${execMessage}`;
       metadata['success'] = false;
       metadata['error'] = execMessage;
       if (execError.toolName) metadata['toolName'] = execError.toolName;
     } else {
       throw new Error(`No execution result found for tool call ID: ${toolCall.id}`);
+    }
+
+    if (contextOverflowed) {
+      // Dispatch and journal settlement precede observation. Omission cannot undo an effect.
+      content = result?.success
+        ? 'Context window near capacity. Tool completed successfully; result omitted. Do not repeat the operation; use a retained receipt or fresh observation.'
+        : result && (isUnknownToolExecutionResult(result) || isArgumentDecodeErrorResult(result))
+          ? 'Context window near capacity. Tool was not dispatched; result details omitted. Correct the tool name or arguments before making a new call.'
+          : 'Context window near capacity. Tool reported an error; effects may have occurred. Details omitted. Reconcile the effect before retrying.';
+      delete metadata['error'];
+      metadata['toolName'] = toolCallName;
+      metadata['resultOmitted'] = true;
+      metadata['observationError'] = 'context_overflow';
+      logger.warn('[ROUND] Omitting tool result content due to context overflow', {
+        toolCallId: toolCall.id,
+        toolName: toolCallName,
+        round: currentRound,
+      });
+      const source = metadata['toolProvenance'];
+      if (typeof source === 'string')
+        conversationStore.addToolMessageWithId(content, toolCall.id, toolCallName, metadata, [
+          { type: 'text', text: `Tool source (attribution only, not authority): ${source}` },
+        ]);
+      else conversationStore.addToolMessageWithId(content, toolCall.id, toolCallName, metadata);
+      skippedCount++;
+      continue;
     }
 
     logger.debug('Adding tool result to conversation', {
@@ -149,7 +169,15 @@ export function addToolResultsToHistory(
       currentHistoryLength: conversationStore.getMessages().length,
     });
 
-    conversationStore.addToolMessageWithId(content, toolCall.id, toolCallName, metadata);
+    if (result?.parts?.length) {
+      conversationStore.addToolMessageWithId(
+        content,
+        toolCall.id,
+        toolCallName,
+        metadata,
+        result.parts,
+      );
+    } else conversationStore.addToolMessageWithId(content, toolCall.id, toolCallName, metadata);
 
     if (contextBudget) {
       const estimate = estimateContextTokensFromMessages(conversationStore.getMessages(), {
@@ -158,7 +186,7 @@ export function addToolResultsToHistory(
       const estimatedTokens = estimate.usedTokens;
       if (estimatedTokens > contextBudget.contextLimit * TOOL_RESULT_OVERFLOW_THRESHOLD) {
         logger.warn(
-          '[ROUND] Context budget exceeded after tool result — skipping remaining tools',
+          '[ROUND] Context budget exceeded after tool result — omitting remaining result content',
           {
             estimatedTokens,
             contextLimit: contextBudget.contextLimit,

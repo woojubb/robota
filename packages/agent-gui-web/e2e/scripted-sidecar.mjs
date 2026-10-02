@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * GUI-002 e2e fixture — a deterministic "robota" sidecar (no LLM / API key).
+ * GUI-002 e2e fixture — a deterministic "the CLI" sidecar (no LLM / API key).
  *
  * The web e2e and `gui:dev --scripted` start it directly; the desktop app's smoke test has Electron
- * spawn it via `ROBOTA_GUI_SIDECAR_CMD`. Either way it gets `ROBOTA_WS_TOKEN` + `ROBOTA_WS_PORT` in the
+ * spawn it via `PRODUCT_GUI_SIDECAR_CMD`. Either way it gets `PRODUCT_WS_TOKEN` + `PRODUCT_WS_PORT` in the
  * env exactly as the real CLI would. It stands up the **REAL**
  * `WsTransport` (so the GUI-002 T5 loopback-auth — reject-before-emit on a bad/missing token — is
  * exercised for real against the token the GUI presents) and attaches a **scripted** EventEmitter session
@@ -15,14 +15,14 @@
  * and deletes a stored session (#3289 §1), and its status snapshot carries a workspace folder.
  *
  * Run as `daemon start --json` (how the desktop app attaches) it plays the CLI's daemon starter instead: it
- * reuses the daemon recorded in `$ROBOTA_E2E_DAEMON_STATE` while that process lives, or starts itself
- * detached as a new one, and prints the `{id,url}` line. `ROBOTA_E2E_DAEMON_FAIL=1` makes it refuse the way
- * an untrusted workspace does, as does the file `$ROBOTA_E2E_DAEMON_FAIL_FILE` once it exists (so a start
- * the app asks for later can fail while the first succeeded). With `$ROBOTA_E2E_TRUST_FILE` set it also
+ * reuses the daemon recorded in `$PRODUCT_E2E_DAEMON_STATE` while that process lives, or starts itself
+ * detached as a new one, and prints the `{id,url}` line. `PRODUCT_E2E_DAEMON_FAIL=1` makes it refuse the way
+ * an untrusted workspace does, as does the file `$PRODUCT_E2E_DAEMON_FAIL_FILE` once it exists (so a start
+ * the app asks for later can fail while the first succeeded). With `$PRODUCT_E2E_TRUST_FILE` set it also
  * plays `trust status --json` (askable until the file says `trusted`) and `trust --yes` (writes it), and a
  * `daemon start --json --restricted-workspace` records that choice in the daemon state.
  *
- * With `ROBOTA_E2E_SETUP_REQUIRED=1` (issue #3282 §3) the session starts as a served runtime with no
+ * With `PRODUCT_E2E_SETUP_REQUIRED=1` (issue #3282 §3) the session starts as a served runtime with no
  * provider configured would: `getStatusSnapshot()` reports `setupRequired: true` and `submit()` refuses,
  * until `/provider add` (the GUI setup panel's one button) runs, asks one question the same way the
  * real wizard does, and clears the flag on an answer — proving the setup panel, its docked ask, and the
@@ -79,14 +79,16 @@ const isAlive = (pid) => {
 
 /** `daemon start --json`: reuse the recorded live daemon, or start one detached, then print its line. */
 async function daemonStart(restricted) {
-  const failFile = process.env.ROBOTA_E2E_DAEMON_FAIL_FILE;
-  if (process.env.ROBOTA_E2E_DAEMON_FAIL === '1' || (failFile && existsSync(failFile))) {
-    process.stderr.write(line('Workspace is not trusted. Run: robota trust --yes'));
+  const failFile = process.env.PRODUCT_E2E_DAEMON_FAIL_FILE;
+  if (process.env.PRODUCT_E2E_DAEMON_FAIL === '1' || (failFile && existsSync(failFile))) {
+    const cliName = process.env.PRODUCT_CLI_NAME;
+    if (!cliName) throw new Error('PRODUCT_CLI_NAME is required by the scripted sidecar.');
+    process.stderr.write(line(`Workspace is not trusted. Run: ${cliName} trust --yes`));
     process.exit(1);
   }
-  const statePath = process.env.ROBOTA_E2E_DAEMON_STATE;
+  const statePath = process.env.PRODUCT_E2E_DAEMON_STATE;
   if (!statePath) {
-    process.stderr.write(line('scripted-sidecar: ROBOTA_E2E_DAEMON_STATE required for daemon start'));
+    process.stderr.write(line('scripted-sidecar: PRODUCT_E2E_DAEMON_STATE required for daemon start'));
     process.exit(1);
   }
   // Read directly rather than after an existence check: a missing state file is the only error
@@ -106,7 +108,7 @@ async function daemonStart(restricted) {
   const child = spawn(process.execPath, [fileURLToPath(import.meta.url)], {
     detached: true,
     stdio: 'ignore',
-    env: { ...process.env, ROBOTA_WS_TOKEN: daemonToken, ROBOTA_WS_PORT: String(daemonPort) },
+    env: { ...process.env, PRODUCT_WS_TOKEN: daemonToken, PRODUCT_WS_PORT: String(daemonPort) },
   });
   child.unref();
   const deadline = Date.now() + 15_000;
@@ -119,7 +121,18 @@ async function daemonStart(restricted) {
   }
   const url = `ws://127.0.0.1:${daemonPort}?token=${daemonToken}`;
   // The URL carries the daemon's token, so a state file this creates is owner-only.
-  writeFileSync(statePath, JSON.stringify({ pid: child.pid, id: 'scripted-daemon', url, restricted }), {
+  writeFileSync(statePath, JSON.stringify({
+    pid: child.pid,
+    id: 'scripted-daemon',
+    url,
+    restricted,
+    providerEnvironment: {
+      customProviderKey: process.env.CUSTOM_PROVIDER_KEY,
+      destination: process.env.PROVIDER_DESTINATION_URL,
+      proxy: process.env.HTTPS_PROXY,
+      unrelated: process.env.AMBIENT_PRIVATE_SENTINEL,
+    },
+  }), {
     mode: 0o600,
   });
   process.stdout.write(line(JSON.stringify({ id: 'scripted-daemon', url })));
@@ -128,9 +141,9 @@ async function daemonStart(restricted) {
 
 /** `trust status --json` / `trust --yes`, when the test gives the folder's trust a file to live in. */
 function trust(command) {
-  const trustFile = process.env.ROBOTA_E2E_TRUST_FILE;
+  const trustFile = process.env.PRODUCT_E2E_TRUST_FILE;
   if (!trustFile) {
-    process.stderr.write(line('scripted-sidecar: ROBOTA_E2E_TRUST_FILE required for trust'));
+    process.stderr.write(line('scripted-sidecar: PRODUCT_E2E_TRUST_FILE required for trust'));
     process.exit(1);
   }
   if (command === 'trust --yes') {
@@ -144,7 +157,13 @@ function trust(command) {
     line(
       JSON.stringify(
         trusted
-          ? { state: 'trusted', workspace, askable: false, loads: [] }
+          ? {
+              state: 'trusted',
+              workspace,
+              askable: false,
+              loads: [],
+              providerEnvRefs: ['CUSTOM_PROVIDER_KEY', 'PROVIDER_DESTINATION_URL', 'HTTPS_PROXY'],
+            }
           : {
               state: 'untrusted',
               workspace,
@@ -163,14 +182,14 @@ if (command === 'daemon start --json') await daemonStart(false);
 if (command === 'daemon start --json --restricted-workspace') await daemonStart(true);
 if (command === 'trust status --json' || command === 'trust --yes') trust(command);
 
-const token = process.env.ROBOTA_WS_TOKEN;
-const port = Number.parseInt(process.env.ROBOTA_WS_PORT ?? '0', 10);
+const token = process.env.PRODUCT_WS_TOKEN;
+const port = Number.parseInt(process.env.PRODUCT_WS_PORT ?? '0', 10);
 // #3282 §4d: the composer resolves a picked/dropped file's path against `getStatusSnapshot().workspace.path`.
 // A real absolute directory only when a test needs a real on-disk file to attach; the placeholder
 // otherwise, matching the fake `cwd` the session-directory listing already uses below.
-const workspaceCwd = process.env.ROBOTA_E2E_WORKSPACE_CWD ?? '/scripted/workspace';
+const workspaceCwd = process.env.PRODUCT_E2E_WORKSPACE_CWD ?? '/scripted/workspace';
 if (!token || !port) {
-  process.stderr.write(line('scripted-sidecar: ROBOTA_WS_TOKEN + ROBOTA_WS_PORT required'));
+  process.stderr.write(line('scripted-sidecar: PRODUCT_WS_TOKEN + PRODUCT_WS_PORT required'));
   process.exit(1);
 }
 
@@ -277,7 +296,7 @@ class ScriptedSession extends EventEmitter {
   #model = 'scripted-model';
   #current = storedSessions[0];
   #busy = false;
-  #setupRequired = process.env.ROBOTA_E2E_SETUP_REQUIRED === '1';
+  #setupRequired = process.env.PRODUCT_E2E_SETUP_REQUIRED === '1';
   #pendingSetupAsk = null;
   #resolveSetupCommand = null;
   #executionWorkspaceEntries = [];
@@ -867,7 +886,7 @@ class ScriptedSession extends EventEmitter {
       ...(this.#setupRequired ? { setupRequired: true } : {}),
       // #3289 §1: the folder the title bar and document.title show; #3282 §4d resolves attached
       // files' paths against it, so it defaults to the same '/scripted/workspace' but can be pointed
-      // at a real temp directory via ROBOTA_E2E_WORKSPACE_CWD.
+      // at a real temp directory via PRODUCT_E2E_WORKSPACE_CWD.
       workspace: { name: basename(workspaceCwd), path: workspaceCwd },
     };
   }
@@ -1028,7 +1047,7 @@ const PERMISSION_MODE_CHOICES = [
   { id: 'bypassPermissions', label: 'Skip all checks', description: 'Skip all permission checks' },
 ];
 let permissionRules = [
-  { scope: 'user', source: '~/.robota/settings.json', kind: 'allow', pattern: 'Bash(git status:*)' },
+  { scope: 'user', source: '~/.test-product/settings.json', kind: 'allow', pattern: 'Bash(git status:*)' },
 ];
 /** #3282 §4 part b-2: the MCP Servers and Plugins sections' in-memory, scripted state. */
 let scriptedMcpServers = [
@@ -1042,7 +1061,7 @@ let scriptedMcpServers = [
   },
 ];
 let scriptedPlugins = [
-  { id: 'formatter@robota', name: 'formatter@robota', description: 'Formats code on save.', enabled: true },
+  { id: 'formatter@example', name: 'formatter@example', description: 'Formats code on save.', enabled: true },
 ];
 
 // #3282 §4b: backs the "Providers & Models" Settings section — one profile ('scripted'), its model
@@ -1060,7 +1079,7 @@ function buildSettingsSnapshot(session) {
         { id: 'en', label: 'English', description: 'en' },
         { id: 'ja', label: 'Japanese', description: 'ja' },
       ],
-      appliesNote: 'Takes effect the next time Robota starts — changing it here never restarts it.',
+      appliesNote: 'Takes effect the next time the app starts — changing it here never restarts it.',
     },
     outputStyle: { current: scriptedSettings.outputStyle, choices: OUTPUT_STYLES },
     preset: { current: scriptedSettings.preset, choices: PRESETS, skipsAllChecksPresetIds: [] },

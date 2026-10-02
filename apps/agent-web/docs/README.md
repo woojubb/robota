@@ -1,6 +1,6 @@
 # Web App Docs Index
 
-`robota-web` (internal) is a minimal Next.js host for the browser client for the CLI's remote control
+`robota-web` (internal) is a minimal Next.js host for the browser client for the configured CLI remote control
 (`/remote`).
 
 - [`SPEC.md`](./SPEC.md): web app scope, runtime ownership, and integration boundaries.

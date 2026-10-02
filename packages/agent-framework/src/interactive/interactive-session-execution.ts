@@ -15,6 +15,7 @@ import {
   PROVIDER_FALLBACK_EVENTS,
   readModelFallbackNotice,
   TOOL_BODY_EVENTS,
+  TOOL_QUEUE_EVENTS,
   TOOL_PERMISSION_EVENTS,
 } from '@robota-sdk/agent-core';
 
@@ -34,6 +35,8 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { IUsageSource, ISpanEntry } from '@robota-sdk/agent-interface-analytics';
 import type { IProviderCallTraceObservation } from '@robota-sdk/agent-session';
+import type { ILivePromptQueueSummary } from '@robota-sdk/agent-interface-analytics';
+import { LiveQueueSummary } from './interactive-session-queue-summary.js';
 
 export { createUsageObservationEntry } from './interactive-session-usage-observation.js';
 
@@ -188,6 +191,7 @@ export type TRawProviderCallTraceObservation = Omit<IProviderCallTraceObservatio
 
 /** A live span collector: buffers span entries seen on the bus until disposed. */
 export interface ISpanCollector {
+  readonly queueSummary: ILivePromptQueueSummary | undefined;
   /** The span entries observed since subscription, in emit order. */
   readonly entries: IHistoryEntry<ISpanEntry>[];
   readonly providerCalls: IProviderCallTraceObservation[];
@@ -263,7 +267,12 @@ export function collectSpanEntries(
   const toolBodies: IToolBodyTraceObservation[] = [];
   const completions: ISpanCollector['completions'] = [];
   const omittedCompletions = { provider: 0, tool: 0, permission: 0 };
+  const queue = new LiveQueueSummary();
   const listener: TEventListener = (eventType, data) => {
+    if (eventType === `tool.${TOOL_QUEUE_EVENTS.COMPLETED}`) {
+      queue.observe(data);
+      return;
+    }
     if (eventType === PROVIDER_FALLBACK_EVENTS.SWITCHED) {
       const notice = readModelFallbackNotice(data);
       if (notice !== undefined) options.onProviderFallback?.(notice);
@@ -354,6 +363,7 @@ export function collectSpanEntries(
   };
   eventService.subscribe(listener);
   return {
+    get queueSummary() { return queue.finish(); },
     entries,
     providerCalls,
     toolBodies,

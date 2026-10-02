@@ -1,7 +1,7 @@
 /**
  * TEST-003/005: verify a feature through the framework's OWN durable session log.
  *
- * When the framework runs it writes a real JSONL transcript ({cwd}/.robota/logs/{sessionId}.jsonl).
+ * When the framework runs it writes a real JSONL transcript ({cwd}/.agent/logs/{sessionId}.jsonl).
  * The harness exposes it via transcript()/logEntries(), so a functional test can assert on what the
  * system actually recorded — not only in-memory state. This is the same artifact a real run
  * produces, so it is a first-class self-verification surface.

@@ -19,7 +19,7 @@ export function resolveCliModelEffort(
 ): IModelEffortResolution {
   return resolveModelEffort({
     flag: args.effort,
-    environment: parseModelEffort(environment.ROBOTA_EFFORT, 'ROBOTA_EFFORT'),
+    environment: parseModelEffort(environment.PRODUCT_EFFORT, 'PRODUCT_EFFORT'),
     settings: parseModelEffort(settings.effort, 'settings.effort'),
     preset: preset.effort,
     modelDefault,

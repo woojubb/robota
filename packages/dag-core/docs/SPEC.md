@@ -3,7 +3,7 @@
 ## Purpose
 
 `@robota-sdk/dag-core` is the single source of truth (SSOT) for all DAG domain contracts, state
-rules, and validation logic in the Robota monorepo. It owns the canonical type definitions for DAG
+rules, and validation logic in the agent runtime monorepo. It owns the canonical type definitions for DAG
 definitions, runs, tasks, ports, nodes, edges, errors, and state machines. Every other `dag-*`
 package depends on `dag-core` and must import its contracts from this package rather than
 re-declaring them. It defines what the DAG domain looks like, not how it executes at scale.

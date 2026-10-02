@@ -2,16 +2,8 @@
   "name": "robota-monorepo",
   "version": "0.1.0",
   "private": true,
-  "description": "A simple, powerful TypeScript library for building AI agents with function calling, tool integration, and multi-provider support for OpenAI, Anthropic, and Google AI",
+  "description": "An adaptable TypeScript foundation for AI agents, working toward our agents developing and advancing our agents",
   "type": "module",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/woojubb/robota.git"
-  },
-  "homepage": "https://robota.io/",
-  "bugs": {
-    "url": "https://github.com/woojubb/robota/issues"
-  },
   "scripts": {
     "build": "pnpm -r --filter \"./packages/**\" run build && node scripts/build-agent-app-if-full.mjs",
     "build:all": "pnpm run build && pnpm run docs:build",
@@ -36,9 +28,9 @@
     "changeset": "changeset",
     "version": "changeset version",
     "release": "bash scripts/publish/publish-packages.sh",
-    "cli:dev": "scripts/dev/robota",
-    "cli:trust": "scripts/dev/robota trust --yes",
-    "cli:dev:trust": "(scripts/dev/robota trust status | grep '^Workspace trust: trusted$' >/dev/null || scripts/dev/robota trust --yes) && scripts/dev/robota",
+    "cli:dev": "scripts/dev/agent",
+    "cli:trust": "scripts/dev/agent trust --yes",
+    "cli:dev:trust": "(scripts/dev/agent trust status | grep '^Workspace trust: trusted$' >/dev/null || scripts/dev/agent trust --yes) && scripts/dev/agent",
     "gui:dev": "node packages/agent-gui-web/scripts/dev-web.mjs",
     "app:dev": "node scripts/dev/app-dev.mjs",
     "web:dev": "pnpm --filter robota-web run dev",
@@ -147,7 +139,7 @@
       "minimatch@^9.0.0": "^9.0.9",
       "picomatch@^2.0.0": "^2.3.2",
       "picomatch@^4.0.0": "^4.0.4",
-      "next": "^15.5.15",
+      "next": "^15.5.24",
       "express@^4>path-to-regexp": "^0.1.13",
       "router>path-to-regexp": "^8.4.2",
       "defu": ">=6.1.5",

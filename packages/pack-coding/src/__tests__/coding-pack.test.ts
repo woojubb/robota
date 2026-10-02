@@ -11,7 +11,7 @@ import { createCodingPack } from '../coding-pack.js';
 
 /**
  * ARCH-005 S1 — `@robota-sdk/pack-coding` is the additive-axis proof: an `ICapabilityPack` that bundles
- * EXACTLY robota's current coding toolset (the built-in tools), the coding command modules, and the coding
+ * EXACTLY agent's current coding toolset (the built-in tools), the coding command modules, and the coding
  * subagents. The pack consumes `createDefaultTools()` and the assertion checks that composition does not
  * add, drop, or reorder that owned set.
  *
@@ -22,7 +22,7 @@ import { createCodingPack } from '../coding-pack.js';
  */
 
 /** Both roots sit, unmade, in one private per-run directory rather than at a fixed name under /tmp. */
-const PRIVATE_BASE = mkdtempSync(join(tmpdir(), 'robota-pack-coding-'));
+const PRIVATE_BASE = mkdtempSync(join(tmpdir(), 'agent-pack-coding-'));
 afterAll(() => rmSync(PRIVATE_BASE, { recursive: true, force: true }));
 const CWD = join(PRIVATE_BASE, 'pack-coding-scope');
 /** The minimal execution context the built-in file tools read — typed structurally so this package needs
@@ -44,7 +44,7 @@ async function invoke(
   };
 }
 
-describe("codingPack — contributes exactly robota's current coding toolset", () => {
+describe("codingPack — contributes exactly agent's current coding toolset", () => {
   it('contributes the default tool set itself, not a copy of it', () => {
     // ARCH-035 replaced a NAME-equality pin here. That pin compared this pack's hand-built list against
     // `createDefaultTools()` and could not fail once the two were kept in sync by hand — it is the pin
@@ -67,7 +67,7 @@ describe("codingPack — contributes exactly robota's current coding toolset", (
     ).not.toContain('CodebaseRetrieval');
   });
 
-  it("bundles robota's built-in coding subagents", () => {
+  it("bundles agent's built-in coding subagents", () => {
     const packSubagentNames = (createCodingPack({ cwd: CWD }).subagents ?? []).map(
       (agent) => agent.name,
     );

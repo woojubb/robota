@@ -1,3 +1,4 @@
+import type { IIdentityContext } from './identity/crypto-context.js';
 /**
  * Mutual trusted-device reconnect handshake (REMOTE-012 Stage E3) — the dual of the B3 first-pair handshake,
  * but authenticating a previously-pinned device/host pair by asymmetric signatures instead of a shared
@@ -96,7 +97,10 @@ export interface IDeviceReconnectOptions {
  * Device side. Emits `rc-hello`, then on `rc-host` verifies the host against the pinned host key (fail-closed
  * on a rogue/absent host signature), signs its own proof, sends `rc-device`, and accepts.
  */
-export function startDeviceReconnect(options: IDeviceReconnectOptions): IReconnectController {
+export function startDeviceReconnect(
+  cryptoContext: IIdentityContext,
+  options: IDeviceReconnectOptions,
+): IReconnectController {
   const nonceDevice = generateNonce();
   let resolve!: (r: IReconnectResult) => void;
   let reject!: (e: Error) => void;
@@ -121,13 +125,18 @@ export function startDeviceReconnect(options: IDeviceReconnectOptions): IReconne
           localFingerprint: options.localFingerprint,
           remoteFingerprint: options.remoteFingerprint,
         };
-        const hostOk = await verifyChallenge(options.pinnedHostPublicKey, frame.sig, challenge);
+        const hostOk = await verifyChallenge(
+          cryptoContext,
+          options.pinnedHostPublicKey,
+          frame.sig,
+          challenge,
+        );
         if (settle.settled()) return;
         if (!hostOk) {
           settle.fail('reconnect rejected: host authentication failed (possible rogue host)');
           return;
         }
-        const sig = await signChallenge(options.devicePrivateKey, challenge);
+        const sig = await signChallenge(cryptoContext, options.devicePrivateKey, challenge);
         if (settle.settled()) return;
         options.send({ t: 'rc-device', sig });
         settle.succeed({ deviceId: options.deviceId });
@@ -152,7 +161,10 @@ export interface IHostReconnectOptions {
  * Host side. On `rc-hello` it looks up the pinned device key (unknown → fail closed), signs and sends
  * `rc-host`, then on `rc-device` verifies the device proof and accepts.
  */
-export function startHostReconnect(options: IHostReconnectOptions): IReconnectController {
+export function startHostReconnect(
+  cryptoContext: IIdentityContext,
+  options: IHostReconnectOptions,
+): IReconnectController {
   let resolve!: (r: IReconnectResult) => void;
   let reject!: (e: Error) => void;
   const result = new Promise<IReconnectResult>((res, rej) => {
@@ -185,7 +197,7 @@ export function startHostReconnect(options: IHostReconnectOptions): IReconnectCo
             localFingerprint: options.localFingerprint,
             remoteFingerprint: options.remoteFingerprint,
           };
-          const sig = await signChallenge(options.hostPrivateKey, challenge);
+          const sig = await signChallenge(cryptoContext, options.hostPrivateKey, challenge);
           if (settle.settled()) return;
           pending = { deviceId: frame.deviceId, devicePublicKey, challenge };
           options.send({ t: 'rc-host', nonceHost, sig });
@@ -198,6 +210,7 @@ export function startHostReconnect(options: IHostReconnectOptions): IReconnectCo
         }
         guarded(settle, async (): Promise<void> => {
           const deviceOk = await verifyChallenge(
+            cryptoContext,
             current.devicePublicKey,
             frame.sig,
             current.challenge,

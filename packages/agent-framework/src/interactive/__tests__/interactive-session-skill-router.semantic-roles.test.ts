@@ -30,7 +30,7 @@ function makeRouter(cwd: string, command: ISystemCommand): SessionSkillRouter {
 }
 
 function withSkill(run: (cwd: string) => Promise<void>): Promise<void> {
-  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-semantic-skill-')));
+  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-semantic-skill-')));
   const directory = join(cwd, '.agents', 'skills', 'audit');
   mkdirSync(directory, { recursive: true });
   writeFileSync(

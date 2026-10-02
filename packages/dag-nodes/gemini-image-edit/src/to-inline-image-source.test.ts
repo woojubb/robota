@@ -2,8 +2,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { IPortBinaryValue } from '@robota-sdk/dag-core';
 import { toInlineImageSource } from './runtime-helpers.js';
 
-// Mock global fetch for HTTP and asset resolution tests
-const mockFetch = vi.fn();
+const { mockFetch } = vi.hoisted(() => ({ mockFetch: vi.fn() }));
+// HTTP image conversion uses an explicit trusted test carrier; asset resolution still uses global fetch.
+vi.mock('@robota-sdk/agent-core/node', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@robota-sdk/agent-core/node')>();
+  return {
+    ...actual,
+    fetchWithEgressPolicy: (...args: Parameters<typeof actual.fetchWithEgressPolicy>) =>
+      actual.fetchWithEgressPolicy(args[0], args[1], args[2], {
+        fetch: mockFetch,
+        lookup: async () => ['93.184.216.34'],
+      }),
+  };
+});
 vi.stubGlobal('fetch', mockFetch);
 
 function makeImageBinary(overrides?: Partial<IPortBinaryValue>): IPortBinaryValue {

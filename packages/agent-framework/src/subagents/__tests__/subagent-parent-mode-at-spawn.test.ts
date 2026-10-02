@@ -25,7 +25,7 @@ describe('a subagent takes the parent mode it starts under', () => {
     const runtime = createAgentRuntime({
       cwd,
       provider: createScriptedProvider([]).provider,
-      commandModules: [{ name: 'needs-agents', sessionRequirements: ['agent-runtime'] }],
+      commandModules: [{ name: 'needs-agents', sessionRequirements: ['runtime'] }],
       subagentRunnerFactory: (received) => {
         deps = received;
         return { start: vi.fn() };

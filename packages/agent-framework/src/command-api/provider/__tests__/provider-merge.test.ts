@@ -133,6 +133,16 @@ describe('mergeProviders', () => {
 });
 
 describe('resolveActiveProvider', () => {
+  it('resolves a profile from the supplied host environment without consulting ambient keys', () => {
+    const settings: TProviderSettingsDocument = {
+      currentProvider: 'selected',
+      providers: { selected: { type: 'anthropic', model: 'fixture-model', apiKey: '$ENV:SYNTHETIC_PROVIDER_KEY' } },
+    };
+    expect(resolveActiveProvider(settings, undefined, stubDefs, { SYNTHETIC_PROVIDER_KEY: 'file-only-a' })?.apiKey).toBe('file-only-a');
+    expect(resolveActiveProvider(settings, undefined, stubDefs, { SYNTHETIC_PROVIDER_KEY: 'file-only-a' })?.apiKeyEnv).toBe('SYNTHETIC_PROVIDER_KEY');
+    expect(resolveActiveProvider(settings, undefined, stubDefs, { SYNTHETIC_PROVIDER_KEY: 'file-only-b' })?.apiKey).toBe('file-only-b');
+    expect(resolveActiveProvider(settings, undefined, stubDefs, {})?.apiKey).toBeUndefined();
+  });
   it('resolves from currentProvider profile', () => {
     const settings: TProviderSettingsDocument = {
       currentProvider: 'myprofile',

@@ -185,7 +185,7 @@ export function createRunObservers(
       }
       // BEHAVIOR-002: recompute and emit context per agentic round so the status bar
       // climbs live during a turn instead of jumping once at completion. The agent loop
-      // runs entirely inside this single robota.run() call; assistant_message_committed
+      // runs entirely inside this single agent.run() call; assistant_message_committed
       // fires once per round with the round's usage already committed to history, which is
       // the right cadence — frequent enough to feel live, sparse enough to avoid render flooding.
       if (event === 'assistant_message_committed') {

@@ -38,7 +38,7 @@ function track<T extends { close(): void }>(reader: T): T {
 }
 
 function fixture(): { root: string; outside: string; cleanupRoot: string } {
-  const cleanupRoot = mkdtempSync(join(tmpdir(), 'robota-file-authority-'));
+  const cleanupRoot = mkdtempSync(join(tmpdir(), 'agent-file-authority-'));
   temporaryDirectories.push(cleanupRoot);
   const root = join(cleanupRoot, 'root');
   const outside = join(cleanupRoot, 'outside');

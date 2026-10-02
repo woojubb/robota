@@ -1,0 +1,138 @@
+{
+  "kind": "actual-local-kvm-configuration",
+  "records": [
+    {
+      "name": "worker-a",
+      "qemuArguments": [
+        "qemu-system-x86_64",
+        "-enable-kvm",
+        "-machine",
+        "q35",
+        "-cpu",
+        "host",
+        "-m",
+        "1536",
+        "-smp",
+        "2",
+        "-drive",
+        "file=$TASK_VM_DIR/worker-a.qcow2,if=virtio,format=qcow2",
+        "-drive",
+        "file=$TASK_VM_DIR/seed-worker-a.iso,media=cdrom,readonly=on",
+        "-nic",
+        "user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:22243-:22",
+        "-display",
+        "none",
+        "-serial",
+        "file:$TASK_VM_DIR/worker-a-serial.log",
+        "-qmp",
+        "unix:$TASK_VM_DIR/worker-a-qmp.sock,server,nowait",
+        "-pidfile",
+        "$TASK_VM_DIR/worker-a.pid"
+      ],
+      "kvm": {
+        "enabled": true,
+        "present": true
+      },
+      "status": {
+        "status": "running",
+        "running": true
+      },
+      "diskFiles": ["worker-a.qcow2", "seed-worker-a.iso"],
+      "network": [
+        {
+          "host": "10.0.2.2",
+          "connected": false,
+          "errorType": "ConnectionRefusedError",
+          "errno": 111
+        },
+        {
+          "host": "169.254.169.254",
+          "connected": false,
+          "errorType": "OSError",
+          "errno": 101
+        },
+        {
+          "host": "1.1.1.1",
+          "connected": false,
+          "errorType": "OSError",
+          "errno": 101
+        }
+      ],
+      "hostCanaryPositiveControl": true,
+      "passed": true
+    },
+    {
+      "name": "worker-b",
+      "qemuArguments": [
+        "qemu-system-x86_64",
+        "-enable-kvm",
+        "-machine",
+        "q35",
+        "-cpu",
+        "host",
+        "-m",
+        "1536",
+        "-smp",
+        "2",
+        "-drive",
+        "file=$TASK_VM_DIR/worker-b.qcow2,if=virtio,format=qcow2",
+        "-drive",
+        "file=$TASK_VM_DIR/seed-worker-b.iso,media=cdrom,readonly=on",
+        "-nic",
+        "user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:22244-:22",
+        "-display",
+        "none",
+        "-serial",
+        "file:$TASK_VM_DIR/worker-b-serial.log",
+        "-qmp",
+        "unix:$TASK_VM_DIR/worker-b-qmp.sock,server,nowait",
+        "-pidfile",
+        "$TASK_VM_DIR/worker-b.pid"
+      ],
+      "kvm": {
+        "enabled": true,
+        "present": true
+      },
+      "status": {
+        "status": "running",
+        "running": true
+      },
+      "diskFiles": ["worker-b.qcow2", "seed-worker-b.iso"],
+      "network": [
+        {
+          "host": "10.0.2.2",
+          "connected": false,
+          "errorType": "ConnectionRefusedError",
+          "errno": 111
+        },
+        {
+          "host": "169.254.169.254",
+          "connected": false,
+          "errorType": "OSError",
+          "errno": 101
+        },
+        {
+          "host": "1.1.1.1",
+          "connected": false,
+          "errorType": "OSError",
+          "errno": 101
+        }
+      ],
+      "hostCanaryPositiveControl": true,
+      "passed": true
+    }
+  ],
+  "artifactSha256": {
+    "runtime.qcow2": "1252749ece04e8d358af70678097940364ab5efe77c8e1bb7c80f4a400b56317",
+    "node-runtime.tar.gz": "9f8f49245ec1eb68d1326ffccb51095d0255e79dc21aa0ed4d061a98a6383085",
+    "cli-deployed-artifact.tar.gz": "c5e931ec40ea35f0eeb9ad31cfed09f4ac69f2d406f516a18cd86866d479eaa6",
+    "seed-worker-a/user-data": "9b965f3ca6bf7bd585d6a9eb2294ea69ff758f9214cfc8ba57d74d6613d64e2f",
+    "seed-worker-a/meta-data": "036e2ebadced7ff80623ba32b1bbb953085734c159aa5426b85482e104c333ad",
+    "seed-worker-b/user-data": "9b965f3ca6bf7bd585d6a9eb2294ea69ff758f9214cfc8ba57d74d6613d64e2f",
+    "seed-worker-b/meta-data": "6061429cb646bb30a45053e1679a539ef1011cefb533c114159aae8818bebae5"
+  },
+  "limitations": [
+    "Three direct TCP destinations tested; this is not a provider DNS/egress policy result.",
+    "Guest VM escape and hardware side channels are not exhaustively tested."
+  ]
+}

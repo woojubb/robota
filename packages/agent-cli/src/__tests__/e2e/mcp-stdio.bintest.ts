@@ -1,3 +1,4 @@
+import { createTestBinaryEnvironment } from '../helpers/product-runtime.js';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync, spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -8,7 +9,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { describe, expect, it } from 'vitest';
 
-const ROBOTA_BIN = fileURLToPath(new URL('../../../bin/robota.cjs', import.meta.url));
+const PRODUCT_BIN = fileURLToPath(new URL('../../../bin/agent.cjs', import.meta.url));
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'cross-fidelity.jsonl');
 const BIDIRECTIONAL_HOST = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -121,15 +122,15 @@ async function startExternalMcpProbe(): Promise<{
   };
 }
 
-describe('robota mcp serve built binary', () => {
+describe('test-product mcp serve built binary', () => {
   it('serves and consumes MCP tools through one admitted product session', async () => {
     const server = await startExternalMcpProbe();
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-mcp-bidirectional-cwd-'));
-    const home = mkdtempSync(join(tmpdir(), 'robota-mcp-bidirectional-home-'));
-    mkdirSync(join(home, '.robota'));
+    const cwd = mkdtempSync(join(tmpdir(), 'test-product-mcp-bidirectional-cwd-'));
+    const home = mkdtempSync(join(tmpdir(), 'test-product-mcp-bidirectional-home-'));
+    mkdirSync(join(home, '.test-product'));
     writeFileSync(join(cwd, 'served-after-client-close.txt'), 'SERVED_STILL_READY');
     writeFileSync(
-      join(home, '.robota', 'settings.json'),
+      join(home, '.test-product', 'settings.json'),
       JSON.stringify({
         currentProvider: 'anthropic',
         providers: {
@@ -152,7 +153,7 @@ describe('robota mcp serve built binary', () => {
         '--no-session-persistence',
       ],
       cwd,
-      env: { HOME: home, PATH: process.env['PATH'] ?? '' },
+      env: createTestBinaryEnvironment(home),
       stderr: 'pipe',
     });
     const client = new Client({ name: 'bidirectional-test', version: '1' });
@@ -167,9 +168,9 @@ describe('robota mcp serve built binary', () => {
       });
       const names = (await client.listTools()).tools.map((tool) => tool.name);
       expect(names).toContain('probe__echo');
-      expect(names).toContain('robota_submit');
+      expect(names).toContain('test-product_submit');
       const turn = await client.callTool({
-        name: 'robota_submit',
+        name: 'test-product_submit',
         arguments: { prompt: 'Use probe' },
       });
       expect(turn.isError, diagnostics).not.toBe(true);
@@ -214,11 +215,11 @@ describe('robota mcp serve built binary', () => {
   }, 30000);
 
   it('serves canonical tools, executes an allowed tool, denies a blocked tool and exits on stdin close', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-mcp-cwd-'));
-    const home = mkdtempSync(join(tmpdir(), 'robota-mcp-home-'));
-    mkdirSync(join(home, '.robota'));
+    const cwd = mkdtempSync(join(tmpdir(), 'test-product-mcp-cwd-'));
+    const home = mkdtempSync(join(tmpdir(), 'test-product-mcp-home-'));
+    mkdirSync(join(home, '.test-product'));
     writeFileSync(
-      join(home, '.robota', 'settings.json'),
+      join(home, '.test-product', 'settings.json'),
       JSON.stringify({
         currentProvider: 'anthropic',
         providers: {
@@ -228,7 +229,7 @@ describe('robota mcp serve built binary', () => {
     );
     writeFileSync(join(cwd, 'message.txt'), 'MCP_STDIO_OK');
     const serveArgs = [
-      ROBOTA_BIN,
+      PRODUCT_BIN,
       '--allowed-tools',
       'Read',
       'mcp',
@@ -237,7 +238,7 @@ describe('robota mcp serve built binary', () => {
       FIXTURE,
       '--no-session-persistence',
     ];
-    const env = { HOME: home, PATH: process.env['PATH'] ?? '' };
+    const env = createTestBinaryEnvironment(home);
     // Control: without the deny, the same server lists `Shell`, so its absence below is the deny's doing.
     const control = new Client({ name: 'binary-test-control', version: '1' });
     await control.connect(
@@ -266,7 +267,7 @@ describe('robota mcp serve built binary', () => {
       await client.connect(transport);
       const names = (await client.listTools()).tools.map((tool) => tool.name);
       expect(names).toContain('Read');
-      expect(names).toContain('robota_submit');
+      expect(names).toContain('test-product_submit');
       // A tool denied outright by name is withheld from the catalog rather than listed and then refused.
       expect(names).not.toContain('Shell');
       // `Bash` is an alias of the same shell tool, so denying `Shell` withholds it too.
@@ -289,8 +290,10 @@ describe('robota mcp serve built binary', () => {
   }, 30000);
 
   it('keeps startup refusal off stdout and exits nonzero', async () => {
-    const child = spawn(process.execPath, [ROBOTA_BIN, 'mcp', 'serve', '--serve'], {
+    const home = mkdtempSync(join(tmpdir(), 'test-product-mcp-invalid-home-'));
+    const child = spawn(process.execPath, [PRODUCT_BIN, 'mcp', 'serve', '--serve'], {
       stdio: ['pipe', 'pipe', 'pipe'],
+      env: createTestBinaryEnvironment(home),
     });
     let stdout = '';
     let stderr = '';
@@ -300,15 +303,16 @@ describe('robota mcp serve built binary', () => {
     expect(exit).toBe(1);
     expect(stdout).toBe('');
     expect(stderr).toContain('cannot be combined');
+    rmSync(home, { recursive: true, force: true });
   }, 10000);
 
   it('refuses an untrusted Git workspace before connecting the carrier', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-mcp-untrusted-cwd-'));
-    const home = mkdtempSync(join(tmpdir(), 'robota-mcp-untrusted-home-'));
+    const cwd = mkdtempSync(join(tmpdir(), 'test-product-mcp-untrusted-cwd-'));
+    const home = mkdtempSync(join(tmpdir(), 'test-product-mcp-untrusted-home-'));
     execFileSync('git', ['init', '-q', cwd]);
-    const child = spawn(process.execPath, [ROBOTA_BIN, 'mcp', 'serve'], {
+    const child = spawn(process.execPath, [PRODUCT_BIN, 'mcp', 'serve'], {
       cwd,
-      env: { HOME: home, PATH: process.env['PATH'] ?? '' },
+      env: createTestBinaryEnvironment(home),
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     let stdout = '';
@@ -328,11 +332,11 @@ describe('robota mcp serve built binary', () => {
   }, 10000);
 
   it('exits cleanly on SIGTERM after the carrier is ready', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-mcp-signal-cwd-'));
-    const home = mkdtempSync(join(tmpdir(), 'robota-mcp-signal-home-'));
-    mkdirSync(join(home, '.robota'));
+    const cwd = mkdtempSync(join(tmpdir(), 'test-product-mcp-signal-cwd-'));
+    const home = mkdtempSync(join(tmpdir(), 'test-product-mcp-signal-home-'));
+    mkdirSync(join(home, '.test-product'));
     writeFileSync(
-      join(home, '.robota', 'settings.json'),
+      join(home, '.test-product', 'settings.json'),
       JSON.stringify({
         currentProvider: 'anthropic',
         providers: {
@@ -342,10 +346,10 @@ describe('robota mcp serve built binary', () => {
     );
     const child = spawn(
       process.execPath,
-      [ROBOTA_BIN, 'mcp', 'serve', '--session-log', FIXTURE, '--no-session-persistence'],
+      [PRODUCT_BIN, 'mcp', 'serve', '--session-log', FIXTURE, '--no-session-persistence'],
       {
         cwd,
-        env: { HOME: home, PATH: process.env['PATH'] ?? '' },
+        env: createTestBinaryEnvironment(home),
         stdio: ['pipe', 'pipe', 'pipe'],
       },
     );

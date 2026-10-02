@@ -28,10 +28,10 @@ import type { IReadProviderSettingsOptions } from '@robota-sdk/agent-framework';
 function nodeHostProviderSettingsPaths(cwd: string): string[] {
   const userHome = process.env.HOME ?? process.env.USERPROFILE ?? '/';
   return [
-    join(userHome, '.robota', 'settings.json'),
+    join(userHome, '.test-product', 'settings.json'),
     join(userHome, '.claude', 'settings.json'),
-    join(cwd, '.robota', 'settings.json'),
-    join(cwd, '.robota', 'settings.local.json'),
+    join(cwd, '.test-product', 'settings.json'),
+    join(cwd, '.test-product', 'settings.local.json'),
     join(cwd, '.claude', 'settings.json'),
     join(cwd, '.claude', 'settings.local.json'),
   ];
@@ -252,7 +252,7 @@ const DEFAULT_PROVIDER_DEFINITIONS = [
   createDeepSeekProviderDefinition(),
 ];
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-provider-factory-test-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-provider-factory-test-')));
 const ORIGINAL_HOME = process.env.HOME;
 
 function writeJson(path: string, data: unknown): void {
@@ -266,12 +266,12 @@ describe('provider-factory', () => {
     vi.clearAllMocks();
     cwd = join(TMP_BASE, Math.random().toString(36).slice(2));
     process.env.HOME = join(cwd, 'home');
-    mkdirSync(join(cwd, '.robota'), { recursive: true });
+    mkdirSync(join(cwd, '.test-product'), { recursive: true });
   });
 
   afterEach(() => {
     process.env.HOME = ORIGINAL_HOME;
-    delete process.env.ROBOTA_TEST_ANTHROPIC_API_KEY;
+    delete process.env.PRODUCT_TEST_ANTHROPIC_API_KEY;
     delete process.env.DASHSCOPE_API_KEY;
     delete process.env.DEEPSEEK_API_KEY;
     rmSync(TMP_BASE, { recursive: true, force: true });
@@ -284,12 +284,12 @@ describe('provider-factory', () => {
       throw new Error('HOME is required for this test');
     }
 
-    expect(paths[0]).toBe(join(home, '.robota', 'settings.json'));
+    expect(paths[0]).toBe(join(home, '.test-product', 'settings.json'));
     expect(paths[1]).toBe(join(home, '.claude', 'settings.json'));
   });
 
   it('reads active OpenAI-compatible provider profile', () => {
-    writeJson(join(cwd, '.robota', 'settings.json'), {
+    writeJson(join(cwd, '.test-product', 'settings.json'), {
       currentProvider: 'openai',
       provider: {
         name: 'anthropic',
@@ -319,7 +319,7 @@ describe('provider-factory', () => {
   });
 
   it('selects a provider override without changing settings', () => {
-    const settingsPath = join(cwd, '.robota', 'settings.json');
+    const settingsPath = join(cwd, '.test-product', 'settings.json');
     writeJson(settingsPath, {
       currentProvider: 'openai',
       providers: {
@@ -349,7 +349,7 @@ describe('provider-factory', () => {
   });
 
   it('creates OpenAIProvider for an OpenAI-compatible profile', () => {
-    writeJson(join(cwd, '.robota', 'settings.json'), {
+    writeJson(join(cwd, '.test-product', 'settings.json'), {
       currentProvider: 'openai',
       providers: {
         openai: {
@@ -374,7 +374,7 @@ describe('provider-factory', () => {
   });
 
   it('creates GemmaProvider for a Gemma OpenAI-compatible profile', () => {
-    writeJson(join(cwd, '.robota', 'settings.json'), {
+    writeJson(join(cwd, '.test-product', 'settings.json'), {
       currentProvider: 'gemma',
       providers: {
         gemma: {
@@ -399,7 +399,7 @@ describe('provider-factory', () => {
   });
 
   it('keeps Anthropic provider creation working when legacy settings are present', () => {
-    writeJson(join(cwd, '.robota', 'settings.json'), {
+    writeJson(join(cwd, '.test-product', 'settings.json'), {
       currentProvider: 'anthropic',
       providers: {
         anthropic: {
@@ -427,20 +427,20 @@ describe('provider-factory', () => {
   });
 
   it('resolves env references in provider api keys', () => {
-    process.env.ROBOTA_TEST_ANTHROPIC_API_KEY = 'sk-ant-from-env';
-    writeJson(join(cwd, '.robota', 'settings.json'), {
+    process.env.PRODUCT_TEST_ANTHROPIC_API_KEY = 'sk-ant-from-env';
+    writeJson(join(cwd, '.test-product', 'settings.json'), {
       currentProvider: 'anthropic',
       providers: {
         anthropic: {
           type: 'anthropic',
           model: 'claude-sonnet-4-6',
-          apiKey: '$ENV:ROBOTA_TEST_ANTHROPIC_API_KEY',
+          apiKey: '$ENV:PRODUCT_TEST_ANTHROPIC_API_KEY',
         },
       },
       provider: {
         name: 'anthropic',
         model: 'claude-sonnet-4-6',
-        apiKey: '$ENV:ROBOTA_TEST_ANTHROPIC_API_KEY',
+        apiKey: '$ENV:PRODUCT_TEST_ANTHROPIC_API_KEY',
       },
     });
 
@@ -497,7 +497,7 @@ describe('provider-factory', () => {
   });
 
   it('creates QwenProvider for a Qwen OpenAI-compatible profile', () => {
-    writeJson(join(cwd, '.robota', 'settings.json'), {
+    writeJson(join(cwd, '.test-product', 'settings.json'), {
       currentProvider: 'qwen',
       providers: {
         qwen: {
@@ -524,7 +524,7 @@ describe('provider-factory', () => {
   });
 
   it('passes provider-owned options through the generic provider config bag', () => {
-    writeJson(join(cwd, '.robota', 'settings.json'), {
+    writeJson(join(cwd, '.test-product', 'settings.json'), {
       currentProvider: 'qwen',
       providers: {
         qwen: {
@@ -576,7 +576,7 @@ describe('provider-factory', () => {
   });
 
   it('creates DeepSeekProvider for a DeepSeek OpenAI-compatible profile', () => {
-    writeJson(join(cwd, '.robota', 'settings.json'), {
+    writeJson(join(cwd, '.test-product', 'settings.json'), {
       currentProvider: 'deepseek',
       providers: {
         deepseek: {
@@ -609,7 +609,7 @@ describe('provider-factory', () => {
   });
 
   it('creates GeminiProvider for canonical Gemini provider profiles', () => {
-    writeJson(join(cwd, '.robota', 'settings.json'), {
+    writeJson(join(cwd, '.test-product', 'settings.json'), {
       currentProvider: 'gemini',
       providers: {
         gemini: {
@@ -632,7 +632,7 @@ describe('provider-factory', () => {
   });
 
   it('creates GeminiProvider for compatibility Google provider profiles through aliases', () => {
-    writeJson(join(cwd, '.robota', 'settings.json'), {
+    writeJson(join(cwd, '.test-product', 'settings.json'), {
       currentProvider: 'google',
       providers: {
         google: {
@@ -655,7 +655,7 @@ describe('provider-factory', () => {
 
   it('fails before provider construction when an API key environment reference is unset', () => {
     delete process.env.DASHSCOPE_API_KEY;
-    writeJson(join(cwd, '.robota', 'settings.json'), {
+    writeJson(join(cwd, '.test-product', 'settings.json'), {
       currentProvider: 'qwen',
       providers: {
         qwen: {
@@ -684,7 +684,7 @@ describe('provider-factory', () => {
       supportsTools: () => true,
       validateConfig: () => true,
     }));
-    writeJson(join(cwd, '.robota', 'settings.json'), {
+    writeJson(join(cwd, '.test-product', 'settings.json'), {
       currentProvider: 'custom',
       providers: {
         custom: {

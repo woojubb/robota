@@ -9,6 +9,7 @@ import type { IEventService } from '../interfaces/event-service';
 import type { IToolSchema } from '../interfaces/provider';
 import type {
   IToolResult,
+  IToolProvenance,
   IToolExecutionContext,
   IParameterValidationResult,
   TToolParameters,
@@ -66,6 +67,7 @@ export interface IAbstractTool<TParams = TToolParameters, TResult = IToolResult>
  */
 export interface IToolContract<TParameters = TToolParameters, TResult = IToolResult> {
   readonly schema: IToolSchema;
+  readonly provenance?: IToolProvenance;
   execute(parameters: TParameters, context: IToolExecutionContext): Promise<TResult>;
   /**
    * Wrappers await admission exactly once with final canonical arguments after preconditions and before
@@ -83,10 +85,10 @@ export interface IToolContract<TParameters = TToolParameters, TResult = IToolRes
 }
 
 /**
- * Runtime tool instance contract used by Robota internals.
+ * Runtime tool instance contract used by ConversationAgent internals.
  *
  * Tools passed into Agent configuration must support EventService injection
- * so Robota can emit unified tool lifecycle events.
+ * so ConversationAgent can emit unified tool lifecycle events.
  */
 export interface IToolWithEventService<
   TParameters = TToolParameters,

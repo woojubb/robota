@@ -6,7 +6,7 @@ const mockRun = vi.hoisted(() => vi.fn().mockResolvedValue('mocked response'));
 // provider-definition registry, which keeps this leaf test independent of vendor SDK packages.
 vi.mock('@robota-sdk/agent-core', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@robota-sdk/agent-core')>()),
-  Robota: vi.fn().mockImplementation(() => ({
+  ConversationAgent: vi.fn().mockImplementation(() => ({
     run: mockRun,
   })),
 }));

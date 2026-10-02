@@ -26,13 +26,13 @@ function response() {
 describe('shared bearer resource-server gate', () => {
   it('places the RFC 9728 metadata before the resource path and points every challenge at it', () => {
     const resource = describeProtectedResource({
-      resource: 'https://robota.example/hooks/events/ci',
+      resource: 'https://agent.example.invalid/hooks/events/ci',
       issuer: 'https://auth.example',
       scopes: ['a', 'b'],
       label: 'Test',
     });
     expect(resource.wellKnownPath).toBe('/.well-known/oauth-protected-resource/hooks/events/ci');
-    const metadata = 'https://robota.example/.well-known/oauth-protected-resource/hooks/events/ci';
+    const metadata = 'https://agent.example.invalid/.well-known/oauth-protected-resource/hooks/events/ci';
     expect(resource.challenges).toEqual({
       missing: `Bearer resource_metadata="${metadata}"`,
       invalid: `Bearer error="invalid_token", resource_metadata="${metadata}"`,
@@ -42,7 +42,7 @@ describe('shared bearer resource-server gate', () => {
 
   it('believes X-Forwarded-For only from a trusted proxy, and only its rightmost untrusted hop', () => {
     const server = createBearerResourceServer({
-      publicUrl: 'https://robota.example',
+      publicUrl: 'https://agent.example.invalid',
       trustedProxies: ['127.0.0.1', '10.0.0.2'],
       label: 'Test',
     });
@@ -94,22 +94,22 @@ describe('shared bearer resource-server gate', () => {
   it('checks Host and Origin against the public URL and counts only the failures it is told of', () => {
     let clock = 0;
     const server = createBearerResourceServer({
-      publicUrl: 'https://robota.example/hooks',
+      publicUrl: 'https://agent.example.invalid/hooks',
       label: 'Test',
       now: () => clock,
     });
     const ok = response();
-    expect(server.checkNames(request({ host: 'robota.example' }), ok.res)).toBe(true);
+    expect(server.checkNames(request({ host: 'agent.example.invalid' }), ok.res)).toBe(true);
     expect(
       server.checkNames(
-        request({ host: 'robota.example:443', origin: 'https://robota.example' }),
+        request({ host: 'agent.example.invalid:443', origin: 'https://agent.example.invalid' }),
         ok.res,
       ),
     ).toBe(true);
     const bad = response();
     expect(server.checkNames(request({ host: '127.0.0.1' }), bad.res)).toBe(false);
     expect(bad.written.status).toBe(403);
-    const peer = request({ host: 'robota.example' }, '203.0.113.9');
+    const peer = request({ host: 'agent.example.invalid' }, '203.0.113.9');
     let last = server.fail(peer);
     for (let index = 1; index < 21; index += 1) last = server.fail(peer);
     expect(last).toMatchObject({ remote: 'public', throttled: true });

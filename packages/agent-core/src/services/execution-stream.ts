@@ -36,12 +36,12 @@ export type TRunExecute = (
  *
  * The RESULT is returned, not the response string, because `execute()` reports failure by resolving
  * with `success: false` and an `error` rather than by rejecting (CORE-020). Throwing that here would
- * put the failure rule in two layers; the caller applies the same check `robotaRun` applies, so one
+ * put the failure rule in two layers; the caller applies the same check `agentRun` applies, so one
  * rule lives in one place.
  *
  * The generator OWNS cancellation, not merely draining. A consumer that stops iterating (`break`,
  * `return`, an exception) must not leave the turn running: `execute()` is an in-flight promise here,
- * and an abandoned turn would keep writing to the conversation store after `Robota.runStream`'s
+ * and an abandoned turn would keep writing to the conversation store after `ConversationAgent.runStream`'s
  * `finally` has already released the CORE-012 run slot and reset ephemeral history — interleaving a
  * dead turn's writes into the next run. So the `finally` aborts the turn and awaits it to settlement
  * before returning.

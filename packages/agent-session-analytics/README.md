@@ -1,13 +1,13 @@
 # @robota-sdk/agent-session-analytics
 
-Timing and usage analysis over persisted Robota session records.
+Timing and usage analysis over persisted agent session records.
 
 Given session records, it computes per-turn timing intervals (LLM wait vs. tool execution), attributes
 token usage and cost to the source that spent it (main thread, subagents, background tasks, tools,
 commands, skills), aggregates cross-session personal usage into
 complete local-calendar days, projects usage into OpenTelemetry (OTLP) payloads, and renders text
 reports. Everything is a pure function: no file I/O, no `process.*`, no network. Callers load the
-records and write or send the output; the `robota usage` command is one such caller.
+records and write or send the output; a host CLI's `usage` command is one such caller.
 
 ## Installation
 
@@ -57,7 +57,7 @@ process.stdout.write(formatUsageReport(summarizeUsageBySource(record)) + '\n');
 ### OTLP export
 
 These build OTLP/JSON payloads from session records; sending them to a collector is the caller's job
-(`robota usage export` does it). The payloads are content-free: no prompt or reply text, no session
+(a host CLI's `usage export` command does it). The payloads are content-free: no prompt or reply text, no session
 identity.
 
 | Export                                                 | Description                                                                                                   |

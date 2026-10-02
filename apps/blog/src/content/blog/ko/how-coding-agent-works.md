@@ -3,7 +3,6 @@ title: '코딩 에이전트 CLI는 어떻게 만들까'
 subtitle: '직접 만들어본 코딩 에이전트 CLI'
 date: '2026-03-28'
 author: '황정연'
-authorUrl: 'https://github.com/woojubb'
 lang: 'ko'
 ---
 
@@ -326,11 +325,11 @@ agent-core에 `IHistoryEntry` 타입을 추가하고 리팩토링해서 모든 �
 
 이제 이 구조 위에서 만들고 싶은 게 계속 떠오른다. 앞으로 하나씩 만들어볼 생각이다.
 
-궁금한 점이나 피드백이 있다면 [GitHub](https://github.com/woojubb/robota)에 남겨주세요.
+궁금한 점이나 피드백이 있다면 [GitHub](__PROJECT_REPOSITORY_URL__)에 남겨주세요.
 
 ```
-# https://robota.io
+# __PROJECT_WEBSITE_URL__
 
 $ npm install -g @robota-sdk/agent-cli
-$ robota
+$ __PRODUCT_CLI_NAME__
 ```

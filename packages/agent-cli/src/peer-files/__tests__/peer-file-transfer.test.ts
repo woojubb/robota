@@ -1,7 +1,7 @@
 /**
  * Files between two sessions on one host, over real sockets, each session with its own `HOME`: what
  * one sends arrives only with the receiving operator's yes, only as a verified copy kept aside under
- * the receiver's `~/.robota`, and never over anything already there.
+ * the receiver's `the configured user root`, and never over anything already there.
  */
 
 import { createHash } from 'node:crypto';
@@ -90,7 +90,7 @@ async function sessions(
     list: alive,
     report: (message) => reports.push(message),
     files: {
-      root: path.join(homeB, '.robota'),
+      root: path.join(homeB, '.test-product'),
       ...(approver !== undefined ? { approver } : {}),
       ...(maxBytes !== undefined ? { maxBytes } : {}),
     },
@@ -119,7 +119,7 @@ async function prepared(name: string, content: string): Promise<IOutgoingFile> {
   return result.file;
 }
 
-const quarantine = (): string => path.join(homeB, '.robota', 'peer-files', 'local-A');
+const quarantine = (): string => path.join(homeB, '.test-product', 'peer-files', 'local-A');
 
 describe('file transfer between two sessions on one host', () => {
   it('delivers a verified copy into the receiver quarantine, and says only name, size and hash', async () => {
@@ -189,7 +189,7 @@ describe('file transfer between two sessions on one host', () => {
     expect(result.state).toBe('refused');
     expect(result.reason).toMatch(/name/);
     expect(approver.asked).toHaveLength(0);
-    for (const where of [homeB, path.join(homeB, '.robota'), scratch]) {
+    for (const where of [homeB, path.join(homeB, '.test-product'), scratch]) {
       expect(existsSync(path.join(where, 'escaped.txt'))).toBe(false);
     }
   });
@@ -211,7 +211,7 @@ describe('file transfer between two sessions on one host', () => {
     const { a } = await sessions(operator(true));
     const elsewhere = path.join(scratch, 'elsewhere');
     mkdirSync(elsewhere, { mode: 0o700 });
-    mkdirSync(path.join(homeB, '.robota', 'peer-files'), { recursive: true, mode: 0o700 });
+    mkdirSync(path.join(homeB, '.test-product', 'peer-files'), { recursive: true, mode: 0o700 });
     symlinkSync(elsewhere, quarantine());
 
     const result = await a.sendFile('B', await prepared('notes.txt', 'redirected?'));
@@ -296,7 +296,7 @@ describe('what may be sent', () => {
 
 describe('keeping a received file', () => {
   it('does not take a name that something claimed while the content arrived', async () => {
-    const root = path.join(homeB, '.robota');
+    const root = path.join(homeB, '.test-product');
     const target = await quarantineTarget({ root, senderId: 'local-A', name: 'late.txt' });
     if (!('ok' in target)) throw new Error('expected a target');
     const sink = await openQuarantineSink(target);

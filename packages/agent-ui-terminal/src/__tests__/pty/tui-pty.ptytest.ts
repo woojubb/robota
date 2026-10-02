@@ -2,7 +2,7 @@
  * Real-PTY TUI suites (CLI-074 TC-07/08).
  *
  * Runs in the dedicated PTY vitest project (vitest.pty.config.ts) against the
- * BUILT robota binary — `pnpm --filter @robota-sdk/agent-cli build` first.
+ * BUILT CLI binary — `pnpm --filter @robota-sdk/agent-cli build` first.
  */
 
 import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
@@ -20,7 +20,7 @@ describe('TUI through a real PTY (CLI-074)', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 

@@ -1,6 +1,6 @@
 # @robota-sdk/agent-ui-terminal
 
-React + Ink terminal UI for the Robota SDK — the interactive renderer the `robota` CLI uses. It owns its
+React + Ink terminal UI for the Robota SDK — the interactive renderer the configured CLI uses. It owns its
 interactive session through `TuiInteractionChannel`; it is not a borrowed-session `ITransportAdapter`.
 
 ## Installation
@@ -22,7 +22,7 @@ import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-ui-term
 - `renderAttachedApp(options)` — render the full TUI as a thin client of a session another host (a
   workspace daemon) runs. Leaving only detaches; the session keeps running.
 - `renderSupervisedSessionView(options)` — the list view of supervised sessions behind
-  `robota session view`.
+  `<cli-name> session view`.
 - `TuiInteractionChannel` — the session-owning interaction channel `renderApp` builds.
 - `createDefaultTuiCliAdapter(options)` — the default settings/plugin seam the renderer reads through.
 - Theme and key-binding helpers (`createThemeRegistry`, `createThemeCataloguePort`,

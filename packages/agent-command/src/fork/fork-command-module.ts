@@ -56,6 +56,6 @@ export function createForkCommandModule(
     systemCommands: [createForkSystemCommand(formatResumeCommand)],
     // A fork is a background agent job resuming a session record; a host with no agent runtime has
     // neither half, so the command is not offered rather than offered and refused.
-    sessionRequirements: ['agent-runtime'],
+    sessionRequirements: ['runtime'],
   };
 }

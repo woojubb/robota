@@ -18,7 +18,7 @@ latest release before reporting.
 Report a vulnerability privately through GitHub's private vulnerability reporting:
 
 - Go to the repository's **Security** tab → **Report a vulnerability**
-  (<https://github.com/woojubb/robota/security/advisories/new>).
+  (<__PROJECT_REPOSITORY_URL__/security/advisories/new>).
 
 <!-- maintainers: to enable the "Report a vulnerability" button, turn on
      Settings → Code security and analysis → Private vulnerability reporting. -->
@@ -42,6 +42,6 @@ Please include, as much as you can:
 
 This policy covers the code in this repository (the `@robota-sdk/*` packages, the CLI, and the apps under
 `apps/`). Vulnerabilities in third-party dependencies should be reported upstream; if a dependency issue
-affects Robota, we still want to hear about it so we can pin or patch.
+affects the agent runtime, we still want to hear about it so we can pin or patch.
 
-Thank you for helping keep Robota and its users safe.
+Thank you for helping keep the agent runtime and its users safe.

@@ -2,7 +2,7 @@ import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { AbstractAIProvider, Robota, type IChatOptions, type TUniversalMessage } from '@robota-sdk/agent-core';
+import { AbstractAIProvider, ConversationAgent, type IChatOptions, type TUniversalMessage } from '@robota-sdk/agent-core';
 import { RootCreditBudget } from '@robota-sdk/dag-core';
 import type { IDagDefinition, IDagNodeDefinition } from '@robota-sdk/dag-core';
 import { LocalDagRuntimeProvider } from '../local-dag-runtime-provider.js';
@@ -30,7 +30,7 @@ describe('local provider active cancellation', () => {
       }
       override async *chatStream(): AsyncIterable<TUniversalMessage> { yield await this.chat([]); }
     }
-    const agent = new Robota({
+    const agent = new ConversationAgent({
       name: 'prompt', aiProviders: [new HungProvider()],
       defaultModel: { provider: 'hung', model: 'test' },
       logging: { level: 'silent', enabled: false },

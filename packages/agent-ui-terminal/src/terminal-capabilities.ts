@@ -41,7 +41,7 @@ export function supportsImeCursorPositioning(
  * CLI-2004 — may this process write OSC 133 shell-integration marks at agent-turn boundaries?
  *
  * The marks are otherwise harmless: every emulator surveyed discards an unknown OSC sequence, so
- * this gate carries DOCUMENTED negatives, not a capability probe. Robota's support table (the TUI
+ * this gate carries DOCUMENTED negatives, not a capability probe. The support table (the TUI
  * package's docs/SPEC.md) is the user-facing half of the same list.
  *
  * Precedence:

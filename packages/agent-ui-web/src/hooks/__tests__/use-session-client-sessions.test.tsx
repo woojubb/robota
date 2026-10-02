@@ -5,7 +5,8 @@
  * sessions through their wire messages, and re-reads everything the session shows after a switch.
  */
 
-import { act, renderHook } from '@testing-library/react';
+import { renderHook } from '../../testing/product-provider.js';
+import { act } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { rememberSessionForRestore } from '../use-session-directory.js';
@@ -362,10 +363,10 @@ describe("#3280 §5 — remembering the session across a desktop Reconnect's rel
       clients: row.id === currentSessionId ? 1 : 0,
     })),
   });
-  const RESTORE_KEY = 'robota.restoreSessionId';
+  const RESTORE_KEY = 'test-product.restoreSessionId';
 
   it('a remembered id switches to it once the first listing lists it, then forgets it', () => {
-    rememberSessionForRestore('b');
+    rememberSessionForRestore('test-product', 'b');
     const { result, wire, connect, deliver } = setup();
     connect();
     deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: liveListing('a') });
@@ -382,7 +383,7 @@ describe("#3280 §5 — remembering the session across a desktop Reconnect's rel
   });
 
   it('a remembered id the listing does not include is not switched to, and is still forgotten', () => {
-    rememberSessionForRestore('ghost');
+    rememberSessionForRestore('test-product', 'ghost');
     const { wire, connect, deliver } = setup();
     connect();
     deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: liveListing('a') });
@@ -392,7 +393,7 @@ describe("#3280 §5 — remembering the session across a desktop Reconnect's rel
   });
 
   it('a remembered id already current is not switched to, and is still forgotten', () => {
-    rememberSessionForRestore('a');
+    rememberSessionForRestore('test-product', 'a');
     const { wire, connect, deliver } = setup();
     connect();
     deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: liveListing('a') });
@@ -414,7 +415,7 @@ describe("#3280 §5 — remembering the session across a desktop Reconnect's rel
       throw new Error('storage disabled');
     };
     try {
-      expect(() => rememberSessionForRestore('b')).not.toThrow();
+      expect(() => rememberSessionForRestore('test-product', 'b')).not.toThrow();
     } finally {
       window.sessionStorage.setItem = original;
     }

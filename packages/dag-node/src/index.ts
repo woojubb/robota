@@ -1,5 +1,5 @@
 // @robota-sdk/dag-node
-// Node authoring infrastructure for Robota DAG system.
+// Node authoring infrastructure for a DAG system.
 
 export * from './lifecycle/abstract-node-definition.js';
 export * from './lifecycle/define-dag-node.js';

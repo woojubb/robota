@@ -25,7 +25,7 @@ describe('output style registry', () => {
     expect(registry.getOutputStyle('concise')?.instructions).toContain(
       'security warnings and destructive-action confirmations',
     );
-    expect(registry.getOutputStyle('default')?.description).not.toMatch(/Robota/i);
+    expect(registry.getOutputStyle('default')?.description).not.toMatch(/ConversationAgent/i);
   });
 
   it('loads Markdown styles with defaults and lets a higher-precedence source replace an id', () => {

@@ -23,6 +23,7 @@ import {
   type ISigningKeyCertificate,
   type ISigningKeyRevocation,
 } from '@robota-sdk/agent-remote-pairing';
+import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 import {
   ensureOwnerOnlyDirectory,
   tightenExistingFile,
@@ -94,7 +95,10 @@ function decodeMarks(value: unknown): IListHighWaterMarks {
 }
 
 /** The stored state, `undefined` when this device has no identity, or a throw when it is unreadable. */
-export function readIdentityState(directory: string): IDeviceIdentityState | undefined {
+export function readIdentityState(
+  cryptoContext: IIdentityContext,
+  directory: string,
+): IDeviceIdentityState | undefined {
   const path = identityStatePath(directory);
   let text: string;
   try {
@@ -122,17 +126,17 @@ export function readIdentityState(directory: string): IDeviceIdentityState | und
     userId,
     holdsSigningKey,
     deviceCertificate: decoded(
-      decodeDeviceCertificate(raw['deviceCertificate']),
+      decodeDeviceCertificate(cryptoContext, raw['deviceCertificate']),
       'deviceCertificate',
     ),
     signingKeyCertificate: decoded(
-      decodeSigningKeyCertificate(raw['signingKeyCertificate']),
+      decodeSigningKeyCertificate(cryptoContext, raw['signingKeyCertificate']),
       'signingKeyCertificate',
     ),
-    roster: decoded(decodeDeviceRoster(raw['roster']), 'roster'),
-    revocation: decoded(decodeDeviceRevocationList(raw['revocation']), 'revocation'),
+    roster: decoded(decodeDeviceRoster(cryptoContext, raw['roster']), 'roster'),
+    revocation: decoded(decodeDeviceRevocationList(cryptoContext, raw['revocation']), 'revocation'),
     signingKeyRevocation: decoded(
-      decodeSigningKeyRevocation(raw['signingKeyRevocation']),
+      decodeSigningKeyRevocation(cryptoContext, raw['signingKeyRevocation']),
       'signingKeyRevocation',
     ),
     marks: decodeMarks(raw['marks']),

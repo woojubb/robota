@@ -13,7 +13,7 @@ import type {
 import { createDefaultCommandModules } from '../default-command-modules.js';
 
 /** User-local storage lives in a private per-run directory, never a fixed name under /tmp. */
-const USER_LOCAL_STORAGE_ROOT = mkdtempSync(join(tmpdir(), 'robota-test-'));
+const USER_LOCAL_STORAGE_ROOT = mkdtempSync(join(tmpdir(), 'agent-test-test-'));
 afterAll(() => rmSync(USER_LOCAL_STORAGE_ROOT, { recursive: true, force: true }));
 
 const providerDefinitions: readonly IProviderDefinition[] = [
@@ -112,7 +112,7 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
       expect(command, name).toBeDefined();
       const result = await command!.execute({} as never, '');
       expect(result).toMatchObject({ success: false });
-      expect(result.message).toMatch(/robota terminal/);
+      expect(result.message).toMatch(/interactive terminal/);
     }
   });
 

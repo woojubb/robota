@@ -40,9 +40,9 @@ export {
   type TDagDefinitionDecodeResult,
 } from './services/dag-definition-decoder.js';
 export {
-  decodeDagRobotaCompanion,
+  decodeDagConversationAgentCompanion,
   decodeDagWorkflowFile,
-  type TDagRobotaCompanionDecodeResult,
+  type TDagConversationAgentCompanionDecodeResult,
   type TDagWorkflowFileDecodeResult,
 } from './services/dag-workflow-file-decoder.js';
 export * from './services/definition-service.js';

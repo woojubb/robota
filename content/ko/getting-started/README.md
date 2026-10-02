@@ -1,11 +1,13 @@
 # 시작하기
 
-Robota는 AI 에이전트를 만들기 위한 TypeScript 라이브러리 모음입니다. `robota` CLI는 같은 라이브러리로
-만든 레퍼런스 코딩 어시스턴트입니다. 이 페이지는 설치부터 첫 에이전트, 내장 도구가 있는 세션, CLI 사용까지
-안내합니다.
+Robota provides composable TypeScript libraries and agent interfaces on the same foundation.
+Our direction is [our agents developing and advancing our agents](__PROJECT_REPOSITORY_URL__/blob/develop/VISION.md);
+this guide covers current capabilities. Use the SDK to build an agent or the `__PRODUCT_CLI_NAME__` CLI
+as a coding assistant. This page takes you from installation to a first agent, a session with
+built-in tools, and the CLI.
 
 > **베타** — 패키지는 `3.0.0-beta` 버전으로 배포됩니다. 정식 릴리스 전에 API가 바뀔 수 있습니다.
-> [이슈 보고](https://github.com/woojubb/robota/issues).
+> [이슈 보고](__PROJECT_REPOSITORY_URL__/issues).
 
 ## 어떤 경로가 적합한가요?
 
@@ -90,13 +92,13 @@ npx @robota-sdk/agent-cli
 
 # 계속 사용하려면 전역 설치
 npm install -g @robota-sdk/agent-cli
-robota
+__PRODUCT_CLI_NAME__
 ```
 
 처음 실행하면 CLI가 API 키가 있는지 묻고, 프로바이더 설정, 무료 Gemini 키 발급, 로컬 모델 연결 중 하나를
 안내합니다. `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `DASHSCOPE_API_KEY`, `DEEPSEEK_API_KEY` 중 하나가 이미
 설정되어 있으면 묻지 않고 그 프로바이더의 기본 모델로 시작합니다. 나중에 프로바이더를 바꾸려면
-`robota --configure`를 실행하세요.
+`__PRODUCT_CLI_NAME__ --configure`를 실행하세요.
 
 아직 신뢰하지 않은 Git 저장소에서는 프로젝트의 지침 파일, 설정, 스킬, 훅을 불러오기 전에 이 워크스페이스를
 신뢰할지 묻습니다. 거절하면 이것들 없이 Restricted 상태로 세션을 시작합니다.
@@ -105,7 +107,7 @@ robota
 만들어 바로 실행합니다:
 
 ```bash
-robota
+__PRODUCT_CLI_NAME__
 > /workflows create "CLI 도구의 태그라인을 세 개 쓰고, 가장 좋은 것을 골라 이유를 설명해줘"
 ```
 
@@ -129,14 +131,14 @@ robota
 ### 1. 간단한 대화형 에이전트 만들기
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'Assistant',
   aiProviders: [provider],
   defaultModel: {
@@ -156,7 +158,7 @@ console.log(response);
 입력의 타입을 정합니다.
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { z } from 'zod';
@@ -174,7 +176,7 @@ const weatherTool = createZodFunctionTool(
   async ({ city }) => ({ city, temperature: 22, condition: 'sunny' }),
 );
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'WeatherBot',
   aiProviders: [provider],
   defaultModel: {
@@ -193,11 +195,11 @@ console.log(response);
 ### 3. 프로바이더 동적 전환
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'MultiProviderAgent',
   aiProviders: [
     new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
@@ -252,13 +254,13 @@ const { response } = await turn.completed;
 
 ```bash
 # 인터랙티브 TUI
-robota
+__PRODUCT_CLI_NAME__
 
-# 원샷(print 모드. Git 저장소에서는 먼저 `robota trust --yes`로 신뢰하세요)
-robota -p "이 프로젝트의 모든 TODO 주석을 나열해줘"
+# 원샷(print 모드. Git 저장소에서는 먼저 `__PRODUCT_CLI_NAME__ trust --yes`로 신뢰하세요)
+__PRODUCT_CLI_NAME__ -p "이 프로젝트의 모든 TODO 주석을 나열해줘"
 
 # 모델 오버라이드
-robota --model claude-opus-4-6
+__PRODUCT_CLI_NAME__ --model claude-opus-4-6
 ```
 
 ## 다음 단계
@@ -279,15 +281,15 @@ robota --model claude-opus-4-6
 ## 문제 해결
 
 **macOS Terminal.app + 한글/CJK 입력**: IME 조합 중 macOS Terminal.app이 크래시될 수 있습니다.
-**[iTerm2](https://iterm2.com/)** 같은 다른 터미널을 쓰거나 print 모드(`robota -p`)를 사용하세요. CLI는
+**[iTerm2](https://iterm2.com/)** 같은 다른 터미널을 쓰거나 print 모드(`__PRODUCT_CLI_NAME__ -p`)를 사용하세요. CLI는
 Terminal.app에서 시작하면 경고를 표시합니다.
 
 **Node.js 버전**: Robota는 Node.js 22.12 이상이 필요합니다. `node --version`으로 확인하세요.
 [Volta](https://volta.sh/)나 [nvm](https://github.com/nvm-sh/nvm)으로 버전을 관리할 수 있습니다.
 
 **API 키를 찾을 수 없음**: 환경 변수로 키를 설정(`export ANTHROPIC_API_KEY=...`)하거나
-`robota --configure`를 실행해 안내를 따르세요.
+`__PRODUCT_CLI_NAME__ --configure`를 실행해 안내를 따르세요.
 
-**"Workspace trust is required before headless startup"**: print 모드(`robota -p`)는 신뢰하지 않은 Git
-저장소에서 시작하지 않습니다. 그 저장소에서 `robota trust --yes`를 실행하거나, `--safe-mode`를 붙여 모든
+**"Workspace trust is required before headless startup"**: print 모드(`__PRODUCT_CLI_NAME__ -p`)는 신뢰하지 않은 Git
+저장소에서 시작하지 않습니다. 그 저장소에서 `__PRODUCT_CLI_NAME__ trust --yes`를 실행하거나, `--safe-mode`를 붙여 모든
 사용자 정의(지침 파일, 스킬, 플러그인, 훅, MCP 서버)를 끈 채로 실행하세요.

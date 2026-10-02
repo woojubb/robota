@@ -15,12 +15,13 @@ import { createServer, connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fixtureArtifactPrefix, fixtureProcessEnvironment, selectedFixtureIdentity } from './product-fixture-environment.mjs';
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const target = `${process.platform === 'win32' ? 'windows' : process.platform}-${process.arch}`;
 const exe = process.platform === 'win32' ? '.exe' : '';
-const fullName = `robota-${target}${exe}`;
-const headlessName = `robota-headless-${target}${exe}`;
+const fullName = `${fixtureArtifactPrefix()}-${target}${exe}`;
+const headlessName = `${fixtureArtifactPrefix()}-headless-${target}${exe}`;
 const nodeRoot = join(packageRoot, 'dist', 'node');
 const digestOf = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
 const inputDigest = digestOf(join(nodeRoot, 'headless.js'));
@@ -84,7 +85,9 @@ assert(
 
 async function workerReady(binary) {
   return new Promise((resolve, reject) => {
-    const child = spawn(binary, ['--__robota-subagent-worker'], {
+    const workerHome = mkdtempSync(join(tmpdir(), 'agent-worker-home-'));
+    const child = spawn(binary, ['--__agent-subagent-worker'], {
+      env: fixtureProcessEnvironment(workerHome),
       stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
     });
     let stderr = '';
@@ -93,15 +96,18 @@ async function workerReady(binary) {
     });
     const timer = setTimeout(() => {
       child.kill('SIGKILL');
+      rmSync(workerHome, { recursive: true, force: true });
       reject(new Error(`worker timeout: ${stderr}`));
     }, 10000);
     child.once('message', (message) => {
       clearTimeout(timer);
       child.kill('SIGTERM');
+      rmSync(workerHome, { recursive: true, force: true });
       resolve(message);
     });
     child.once('error', (error) => {
       clearTimeout(timer);
+      rmSync(workerHome, { recursive: true, force: true });
       reject(error);
     });
   });
@@ -175,8 +181,9 @@ function framesAt(url, ms) {
 async function serve(binary) {
   const cwd = mkdtempSync(join(tmpdir(), 'runtime002-cwd-'));
   const home = mkdtempSync(join(tmpdir(), 'runtime002-home-'));
-  mkdirSync(join(cwd, '.robota'));
-  mkdirSync(join(home, '.robota'));
+  const env = fixtureProcessEnvironment(home);
+  mkdirSync(join(cwd, env.PRODUCT_PROJECT_STATE_DIR));
+  mkdirSync(env.PRODUCT_USER_STATE_DIR, { recursive: true });
   const settings = JSON.stringify({
     currentProvider: 'anthropic',
     providers: {
@@ -184,12 +191,12 @@ async function serve(binary) {
     },
     mcpServers: { probe: { type: 'http', url: 'http://127.0.0.1:9/mcp' } },
   });
-  writeFileSync(join(home, '.robota', 'settings.json'), settings);
+  writeFileSync(join(env.PRODUCT_USER_STATE_DIR, 'settings.json'), settings);
   const token = 'runtime002-test-token';
   const port = await freePort();
   const child = spawn(binary, ['--serve', '--no-session-persistence'], {
     cwd,
-    env: { ...process.env, HOME: home, ROBOTA_WS_TOKEN: token, ROBOTA_WS_PORT: String(port) },
+    env: { ...env, PRODUCT_WS_TOKEN: token, PRODUCT_WS_PORT: String(port) },
     stdio: ['ignore', 'ignore', 'pipe'],
   });
   let stderr = '';
@@ -239,21 +246,25 @@ const fullServe = await serve(fullBin);
 const headlessServe = await serve(headlessBin);
 assert(fullServe.firstType === headlessServe.firstType, 'initial wire frame diverged');
 const appDir = join(packageRoot, '..', '..', 'apps', 'agent-app');
+const bundleHome = mkdtempSync(join(tmpdir(), 'agent-desktop-bundle-home-'));
 const bundled = spawnSync(process.execPath, [join(appDir, 'scripts', 'bundle-runtime.mjs')], {
   encoding: 'utf8',
+  env: fixtureProcessEnvironment(bundleHome),
 });
+rmSync(bundleHome, { recursive: true, force: true });
 assert(bundled.status === 0, `desktop bundle source failed: ${bundled.stderr}`);
 const resource = join(
   appDir,
   'resources-bin',
-  process.platform === 'win32' ? 'robota.exe' : 'robota',
+  `${selectedFixtureIdentity().identity.desktopExecutableName}${exe}`,
 );
 assert(
-  digest(resource) === digest(headlessBin),
-  'desktop resource is not the verified headless binary',
+  digest(resource) === digest(fullBin),
+  'desktop resource is not the verified CLI binary',
 );
-assert(digest(resource) !== digest(fullBin), 'desktop accidentally bundled the full CLI binary');
-console.log(`desktop resource: ${digest(resource)} (verified headless artifact)`);
+// The desktop shell uses the full CLI's trust and daemon commands; the headless entry serves sessions.
+assert(digest(resource) !== digest(headlessBin), 'desktop accidentally bundled the headless binary');
+console.log(`desktop resource: ${digest(resource)} (verified CLI artifact)`);
 console.log(
   `serve parity: ${fullServe.firstType}, nonce rejection, SIGTERM exit 0; worker ready parity; graph ${visited.size} modules`,
 );

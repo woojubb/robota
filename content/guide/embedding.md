@@ -38,7 +38,7 @@ session behaves the same wherever it runs. See [What a session loads](./sdk.md#w
 
 ```
 createZodFunctionTool / createFunctionTool  →  @robota-sdk/agent-tools      (tool definitions)
-Robota, FunctionTool                        →  @robota-sdk/agent-core       (engine; no sessions)
+ConversationAgent, FunctionTool                        →  @robota-sdk/agent-core       (engine; no sessions)
 createAgentRuntime / InteractiveSession     →  @robota-sdk/agent-framework  (events, permissions, sessions)
 createQuery()                               →  @robota-sdk/agent-framework  (prompt-in, text-out wrapper)
 ```

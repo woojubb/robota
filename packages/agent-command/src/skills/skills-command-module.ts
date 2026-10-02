@@ -1,4 +1,5 @@
 import { SkillCommandSource } from '@robota-sdk/agent-framework';
+import { createSkillReadCommandEntry, createSkillReadSystemCommand } from './skill-read-command.js';
 
 import {
   executeSkillsCommand,
@@ -57,7 +58,7 @@ export class SkillsCommandSource implements ICommandSource {
   readonly name = 'skills';
 
   getCommands(): ICommand[] {
-    return [createSkillsCommandEntry()];
+    return [createSkillsCommandEntry(), createSkillReadCommandEntry()];
   }
 }
 
@@ -70,6 +71,6 @@ export function createSkillsCommandModule(options: ISkillsCommandModuleOptions):
   return {
     name: 'agent-command-skills',
     commandSources,
-    systemCommands: [createSkillsSystemCommand()],
+    systemCommands: [createSkillsSystemCommand(), createSkillReadSystemCommand()],
   };
 }

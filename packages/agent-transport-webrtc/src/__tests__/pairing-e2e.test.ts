@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { extractDtlsFingerprint, startPairingHandshake } from '@robota-sdk/agent-remote-pairing';
@@ -75,7 +77,7 @@ function connectRemotePaired(signaling: ISignalingClient, secret: string): IRemo
   peer.onDataChannel((channel) => {
     remoteChannel = channel;
     let accepted = false;
-    const controller = startPairingHandshake({
+    const controller = startPairingHandshake(testIdentity, {
       secret,
       role: 'responder',
       localFingerprint: localFingerprint!,
@@ -118,7 +120,7 @@ describe('WebRtc pairing end-to-end (REMOTE-008)', () => {
   it('matching secrets: both peers pair, the session is exposed, and get-messages round-trips', async () => {
     const secret = 'shared-secret-256bit-base64url-xyz';
     const [hostSig, remoteSig] = createInMemorySignalingPair();
-    const transport = new WebRtcTransport({ signaling: hostSig, secret });
+    const transport = new WebRtcTransport({cryptoContext: testIdentity,  signaling: hostSig, secret });
     transport.attach(createStubSession());
 
     const remote = connectRemotePaired(remoteSig, secret);
@@ -133,7 +135,7 @@ describe('WebRtc pairing end-to-end (REMOTE-008)', () => {
   it('mismatched secrets: both reject, the session is never exposed (fail closed)', async () => {
     const [hostSig, remoteSig] = createInMemorySignalingPair();
     const session = createStubSession();
-    const transport = new WebRtcTransport({ signaling: hostSig, secret: 'host-secret' });
+    const transport = new WebRtcTransport({cryptoContext: testIdentity,  signaling: hostSig, secret: 'host-secret' });
     transport.attach(session);
 
     const remote = connectRemotePaired(remoteSig, 'different-secret');
@@ -151,7 +153,7 @@ describe('WebRtc pairing end-to-end (REMOTE-008)', () => {
     const session = createStubSession();
     const approve = vi.fn(async () => false);
     const onPaired = vi.fn();
-    const transport = new WebRtcTransport({
+    const transport = new WebRtcTransport({cryptoContext: testIdentity,
       signaling: hostSig,
       secret,
       connectionApproval: { approve },
@@ -183,7 +185,7 @@ describe('WebRtc pairing end-to-end (REMOTE-008)', () => {
     const onPaired = vi.fn();
     const onPairingFailed = vi.fn();
     const session = createStubSession();
-    const transport = new WebRtcTransport({
+    const transport = new WebRtcTransport({cryptoContext: testIdentity,
       signaling: hostSig,
       secret,
       connectionApproval: { approve },
@@ -216,7 +218,7 @@ describe('WebRtc pairing end-to-end (REMOTE-008)', () => {
       await new Promise((resolve) => setTimeout(resolve, 300));
       return true;
     });
-    const transport = new WebRtcTransport({
+    const transport = new WebRtcTransport({cryptoContext: testIdentity,
       signaling: hostSig,
       secret,
       connectionApproval: { approve },

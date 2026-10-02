@@ -3,11 +3,14 @@ import { ToolRegistry, FunctionTool, isDeferredTool, projectOfferedTools } from 
 import { ToolExecutionError } from '../utils/errors';
 import { isExecutionControlError } from '../utils/execution-control-error';
 import { logger } from '../utils/logger';
+import { snapshotToolProvenance, withToolProvenance } from '../utils/tool-provenance';
 
 import type { IToolManager } from '../interfaces/manager';
 import type { IToolSchema } from '../interfaces/provider';
 import type {
   ITool,
+  IToolResult,
+  IToolProvenance,
   TToolExecutor,
   TToolParameters,
   IToolExecutionContext,
@@ -45,7 +48,7 @@ export class Tools extends AbstractManager implements IToolManager {
 
   constructor(options: IToolManagerOptions) {
     // CORE-045: `doInitialize` below only logs, so this registry is usable the moment it exists.
-    // Without this declaration `Robota.registerTool()` threw on every freshly constructed agent,
+    // Without this declaration `ConversationAgent.registerTool()` threw on every freshly constructed agent,
     // because the only thing that awaited `initialize()` was the first run.
     super({ readyOnConstruction: true });
     this.registry = new ToolRegistry();
@@ -80,6 +83,21 @@ export class Tools extends AbstractManager implements IToolManager {
     this.registry.register(tool);
 
     logger.debug(`Tool "${schema.name}" registered successfully`);
+  }
+
+  /** Register a typed result executor without discarding its observations or failure envelope. */
+  addResultTool(
+    schema: IToolSchema,
+    executor: TToolExecutor<TToolParameters, IToolResult>,
+    provenance?: IToolProvenance,
+  ): void {
+    this.ensureInitialized();
+    const tool = FunctionTool.fromResult(schema, executor);
+    Object.defineProperty(tool, 'provenance', {
+      value: snapshotToolProvenance(provenance),
+      enumerable: true,
+    });
+    this.registry.register(tool);
   }
 
   /**
@@ -186,6 +204,20 @@ export class Tools extends AbstractManager implements IToolManager {
     parameters: TToolParameters,
     context?: IToolExecutionContext,
   ): Promise<TUniversalValue> {
+    const result = await this.executeToolResult(name, parameters, context);
+    if (!result.success)
+      throw new ToolExecutionError(result.error || 'Tool execution failed', name);
+    if (result.data === undefined)
+      throw new ToolExecutionError('Tool execution succeeded but returned no data', name);
+    return result.data;
+  }
+
+  /** Execute the full result envelope for runtime observation and durable settlement. */
+  async executeToolResult(
+    name: string,
+    parameters: TToolParameters,
+    context?: IToolExecutionContext,
+  ): Promise<IToolResult> {
     this.ensureInitialized();
 
     // Check if tool is allowed
@@ -198,6 +230,7 @@ export class Tools extends AbstractManager implements IToolManager {
       throw new ToolExecutionError(`Tool "${name}" is not registered`, name);
     }
 
+    const provenance = snapshotToolProvenance(tool.provenance);
     let result;
     try {
       result = await tool.execute(parameters, context);
@@ -211,17 +244,7 @@ export class Tools extends AbstractManager implements IToolManager {
       throw new ToolExecutionError(String(error), name);
     }
 
-    if (!result.success) {
-      throw new ToolExecutionError(result.error || 'Tool execution failed', name, undefined, {
-        parameters: JSON.stringify(parameters),
-        result: JSON.stringify(result),
-      });
-    }
-
-    if (typeof result.data === 'undefined') {
-      throw new ToolExecutionError('Tool execution succeeded but returned no data', name);
-    }
-    return result.data;
+    return withToolProvenance(result, provenance);
   }
 
   /**

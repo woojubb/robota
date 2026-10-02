@@ -113,7 +113,7 @@ describe('BOTH import branches are validated, not just one (DAG-002)', () => {
   it('a COMPANION carrying an out-of-union status is rejected too', () => {
     // Review round 3. `assertStatusInUnion` guarded only the legacy-definition branch; the
     // workflow-file branch returned `companion?.status ?? 'draft'` unchecked. `tryReadCompanion` in
-    // A former standalone reader parsed a companion with a bare `as IDagRobotaCompanion`, so a
+    // A former standalone reader parsed a companion with a bare `as IDagConversationAgentCompanion`, so a
     // pre-DAG-002 companion carrying 'active' would have walked straight through — the same defect,
     // reachable through the branch nobody red-proved. The decoder must retain this boundary even
     // when a current caller does not pass a companion.

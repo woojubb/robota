@@ -20,7 +20,7 @@ import { createTrustedProjectStateFixture } from '../../testing/trusted-project-
 
 import type { IMemoryCandidate } from '../automatic-memory-types.js';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-automatic-memory-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-automatic-memory-')));
 const NOW = new Date('2026-05-02T00:00:00.000Z');
 
 function makeProject(): string {
@@ -168,7 +168,7 @@ describe('automatic memory pipeline', () => {
 
       expect(result.queued).toEqual([]);
       expect(result.saved).toHaveLength(1);
-      expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
+      expect(readFileSync(join(cwd, '.agent', 'memory', 'MEMORY.md'), 'utf8')).toContain(
         '(project/project) this project uses pnpm',
       );
     },
@@ -227,7 +227,7 @@ describe('automatic memory pipeline', () => {
       expect(retrieval.references).toEqual([
         expect.objectContaining({
           topic: 'build',
-          path: join('.robota', 'memory', 'topics', 'build.md'),
+          path: join('.agent', 'memory', 'topics', 'build.md'),
         }),
       ]);
       expect(retrieval.content).toContain('Use pnpm for package scripts.');

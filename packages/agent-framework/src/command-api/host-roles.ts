@@ -12,6 +12,7 @@ import type {
   ICommandSkillActivationRequest,
   ICommandSkillListEntry,
   ICommandSessionReplayValidationReport,
+  ICommandProductVocabulary,
   IUnknownCommandModuleName,
   TAutoCompactThresholdSource,
 } from './host-context-types.js';
@@ -37,6 +38,7 @@ import type {
   ICommandListEntry,
   TCommandInvocationSource,
   TCommandSurfaceLocality,
+  ISkillResource,
 } from '@robota-sdk/agent-interface-command';
 import type {
   IBackgroundTaskListFilter,
@@ -154,12 +156,16 @@ export interface ICommandHostWorkspace {
    * same as `'local'` (allow-by-default, matching the rest of the command layer).
    */
   getCommandSurfaceLocality?(): TCommandSurfaceLocality;
+  /** Raw locality supplied by the carrier; absent is not evidence for granting new authority. */
+  getCommandSurfaceLocalityEvidence?(): TCommandSurfaceLocality | undefined;
 }
 
 /** What commands and skills this host can dispatch. */
 export interface ICommandHostCatalog {
   listCommands(): ICommandListEntry[];
   listSkills(): ICommandSkillListEntry[];
+  /** Read only within an existing host-owned skill activation; never acquire authority here. */
+  readSkillResource?(name: string, uri: string): Promise<ISkillResource>;
   executeSkillCommandByName(
     name: string,
     args: string,
@@ -251,6 +257,11 @@ export interface ICommandHostAdapterAccess {
   getCommandHostAdapters?(): ICommandHostAdapters;
 }
 
+/** Optional product names used only when commands need to suggest a terminal command. */
+export interface ICommandHostProductVocabulary {
+  getCommandProductVocabulary?(): ICommandProductVocabulary | undefined;
+}
+
 /** Aggregate: all 48 members remain source-compatible. Declare a role port instead of this. */
 export interface ICommandHostContext
   extends
@@ -269,4 +280,5 @@ export interface ICommandHostContext
     ICommandHostGoal,
     ICommandHostPlan,
     ICommandHostTerminalHandoff,
-    ICommandHostAdapterAccess {}
+    ICommandHostAdapterAccess,
+    ICommandHostProductVocabulary {}

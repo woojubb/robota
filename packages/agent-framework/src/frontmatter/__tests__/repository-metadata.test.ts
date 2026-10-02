@@ -15,7 +15,7 @@ interface IMetadataFile {
 
 function repositoryFiles(): IMetadataFile[] {
   const files: IMetadataFile[] = [];
-  for (const root of ['.robota/skills', '.agents/skills', '.claude/skills']) {
+  for (const root of ['.agent/skills', '.agents/skills', '.claude/skills']) {
     const directory = join(REPOSITORY_ROOT, root);
     if (!existsSync(directory)) continue;
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -24,7 +24,7 @@ function repositoryFiles(): IMetadataFile[] {
       if (existsSync(join(REPOSITORY_ROOT, path))) files.push({ path, profile: 'skill' });
     }
   }
-  for (const root of ['.robota/agents', '.agents/agents', '.claude/agents', '.claude/commands']) {
+  for (const root of ['.agent/agents', '.agents/agents', '.claude/agents', '.claude/commands']) {
     const directory = join(REPOSITORY_ROOT, root);
     if (!existsSync(directory)) continue;
     for (const entry of readdirSync(directory, { withFileTypes: true })) {

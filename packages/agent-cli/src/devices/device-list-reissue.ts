@@ -16,6 +16,7 @@ import { checked, nextSeq } from './identity-lists.js';
 import { readIdentityState, writeIdentityState } from './identity-state.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 /** Reissue once less than this is left, so an hourly check never lets a list lapse. */
@@ -35,7 +36,8 @@ export type TListReissueOutcome =
   | 'signing-key-expired';
 
 export interface IDeviceListReissueOptions {
-  /** Where the identity state is kept, e.g. `~/.robota/devices`. */
+  readonly productRuntime: ICliRuntimeContext;
+  /** Where the identity state is kept, e.g. the configured devices directory. */
   readonly directory: string;
   readonly withinRoot?: string;
   readonly store: ICredentialStore;
@@ -48,7 +50,7 @@ export async function reissueDueLists(
 ): Promise<TListReissueOutcome> {
   const now = options.now ?? Date.now;
   const due = (): TListReissueOutcome | undefined => {
-    const state = readIdentityState(options.directory);
+    const state = readIdentityState(options.productRuntime.cryptoContext, options.directory);
     if (state === undefined) return 'not-initialized';
     if (!state.holdsSigningKey) return 'not-holder';
     const expiresAt = Math.min(state.roster.expiresAt, state.revocation.expiresAt);
@@ -61,23 +63,24 @@ export async function reissueDueLists(
   return withExclusiveFileLock(join(options.directory, 'identity.lock'), async () => {
     const again = due();
     if (again !== undefined) return again;
-    const current = readIdentityState(options.directory);
+    const current = readIdentityState(options.productRuntime.cryptoContext, options.directory);
     if (current === undefined) return 'not-initialized';
-    const signingKey = await loadSigningKey(options.store, current.signingKeyCertificate);
+    const serviceNamespace = options.productRuntime.config.credentials.serviceNamespace;
+    const signingKey = await loadSigningKey(options.store, serviceNamespace, current.signingKeyCertificate);
     if (signingKey === undefined) return 'no-signing-key';
     const issuedAt = now();
     if (issuedAt >= signingKey.certificate.expiresAt) return 'signing-key-expired';
     const marks = current.marks.bySigningKey?.[current.signingKeyCertificate.signingKeyId];
-    const state = await checked(
+    const state = await checked(options.productRuntime.cryptoContext,
       {
         ...current,
-        roster: await issueDeviceRoster({
+        roster: await issueDeviceRoster(options.productRuntime.cryptoContext, {
           signingKey,
           seq: nextSeq(Math.max(current.roster.seq, marks?.rosterSeq ?? 0), issuedAt),
           issuedAt,
           devices: current.roster.devices,
         }),
-        revocation: await issueDeviceRevocationList({
+        revocation: await issueDeviceRevocationList(options.productRuntime.cryptoContext, {
           signingKey,
           seq: nextSeq(Math.max(current.revocation.seq, marks?.revocationSeq ?? 0), issuedAt),
           issuedAt,

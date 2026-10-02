@@ -77,9 +77,9 @@ export function notarizeArtifact(artifact, { env = process.env, run = runCommand
 }
 
 function notarizeCli(binary) {
-  const scratch = mkdtempSync(join(tmpdir(), 'robota-notarize-'));
+  const scratch = mkdtempSync(join(tmpdir(), 'agent-notarize-'));
   try {
-    const archive = join(scratch, 'robota.zip');
+    const archive = join(scratch, 'artifact.zip');
     runCommand('ditto', ['-c', '-k', '--keepParent', binary, archive]);
     console.log(`Apple accepted CLI submission: ${notarizeArtifact(archive)}`);
   } finally {

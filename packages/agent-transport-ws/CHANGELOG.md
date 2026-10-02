@@ -94,7 +94,7 @@
     - `IWsSessionState` gains session listing state and actions.
     - It adds a `SessionSidebar`.
     - `/resume` opens the sidebar.
-  - `agent-cli`: `robota --serve` provides the session directory, and refuses a switch that would lose
+  - `agent-cli`: `__PRODUCT_CLI_NAME__ --serve` provides the session directory, and refuses a switch that would lose
     work in progress. External-event grants belong to the run: a switch reopens them on the new session,
     as the TUI already does.
   - External-event grant history (spent tokens, rate windows, revocations) belongs to the run. The new
@@ -113,7 +113,7 @@
     `code`, instead of `protocol_error`; both requests take an optional `requestId` that it echoes.
   - `agent-transport-ws`: the `sessionBinder` option binds each connection to its own session and
     releases the binding when the connection closes.
-  - `agent-cli`: `robota --serve` and the daemon keep up to four sessions live. Each WebSocket client and
+  - `agent-cli`: `__PRODUCT_CLI_NAME__ --serve` and the daemon keep up to four sessions live. Each WebSocket client and
     attached terminal is bound to its own session; leaving a busy session is no longer refused, and only
     the last driver of a session with a pending prompt is kept from leaving it. Grants and the supervised
     name stay on the runtime's first session, and its reported activity covers every live session.

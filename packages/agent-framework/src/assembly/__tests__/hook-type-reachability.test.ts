@@ -69,9 +69,9 @@ describe('configured hook source diagnostics', () => {
     };
     expect(() =>
       assertConfiguredHookTypesExecutable(hooks, BUILTINS, [
-        { event: 'PreToolUse', type: 'prompt', source: '/tmp/project/.robota/settings.json' },
+        { event: 'PreToolUse', type: 'prompt', source: '/tmp/project/.agent/settings.json' },
       ]),
-    ).toThrow(/"prompt".*providerFactory.*source.*\/tmp\/project\/.robota\/settings\.json/);
+    ).toThrow(/"prompt".*providerFactory.*source.*\/tmp\/project\/.agent\/settings\.json/);
   });
 
   it('keeps programmatic configs fail closed without fabricating a source path', () => {

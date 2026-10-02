@@ -56,7 +56,7 @@ function record(id = SESSION_ID, cwd = '/work'): IInteractiveSessionRecord {
 
 async function projectFixture(): Promise<{ root: string; sessionsDir: string }> {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'trans-007-project-')));
-  return { root, sessionsDir: join(root, '.robota', 'sessions') };
+  return { root, sessionsDir: join(root, '.agent', 'sessions') };
 }
 
 describe('TC-01: the replay log is reached by missing and by nothing else', () => {

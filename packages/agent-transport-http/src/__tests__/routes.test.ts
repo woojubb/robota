@@ -1020,7 +1020,7 @@ describe('a session that builds itself in the background', () => {
   });
 
   it('answers 500 without the reason when the session fails to start', async () => {
-    const failed = Promise.reject(new Error('settings at /home/me/.robota are broken'));
+    const failed = Promise.reject(new Error('settings at /home/me/.fixture-state are broken'));
     const session = createStartingSession(failed);
 
     const response = await submit(session);

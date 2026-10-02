@@ -99,12 +99,12 @@
     - Session notices keep only `session-error` and `protocol-error`.
     - The state gains `commandCatalog` and `sessionStatus`.
   - `agent-command` registers `/theme` and `/keybindings` even without a terminal. They then answer
-    that they belong to the robota terminal, instead of being unknown.
+    that they belong to the __PRODUCT_DISPLAY_NAME__ terminal, instead of being unknown.
   - `agent-framework`:
     - `InteractiveSession.getStatusSnapshot()`.
     - The main-thread row previews the last chat message instead of the last record's type.
   - `agent-cli` serves the full GUI web app, renamed from `agent-cli-web` to `agent-gui-web`, on
-    `robota --serve --open`.
+    `__PRODUCT_CLI_NAME__ --serve --open`.
 
 - 6ae3f28: A served runtime can list its workspace's sessions, start a new one and switch to another without the
   process or any client connection restarting. The GUI shows them in a sessions sidebar.
@@ -130,7 +130,7 @@
     - `IWsSessionState` gains session listing state and actions.
     - It adds a `SessionSidebar`.
     - `/resume` opens the sidebar.
-  - `agent-cli`: `robota --serve` provides the session directory, and refuses a switch that would lose
+  - `agent-cli`: `__PRODUCT_CLI_NAME__ --serve` provides the session directory, and refuses a switch that would lose
     work in progress. External-event grants belong to the run: a switch reopens them on the new session,
     as the TUI already does.
   - External-event grant history (spent tokens, rate windows, revocations) belongs to the run. The new
@@ -149,7 +149,7 @@
     `code`, instead of `protocol_error`; both requests take an optional `requestId` that it echoes.
   - `agent-transport-ws`: the `sessionBinder` option binds each connection to its own session and
     releases the binding when the connection closes.
-  - `agent-cli`: `robota --serve` and the daemon keep up to four sessions live. Each WebSocket client and
+  - `agent-cli`: `__PRODUCT_CLI_NAME__ --serve` and the daemon keep up to four sessions live. Each WebSocket client and
     attached terminal is bound to its own session; leaving a busy session is no longer refused, and only
     the last driver of a session with a pending prompt is kept from leaving it. Grants and the supervised
     name stay on the runtime's first session, and its reported activity covers every live session.
@@ -172,8 +172,8 @@
   - `agent-interface-command` (minor): `ICommandListEntry` gains optional `argumentHint` and
     `subcommands` (`ICommandSubcommandEntry`).
   - `agent-cli` (minor):
-    - `robota session attach` and an attach from `robota session view` open the full terminal UI,
-      the one `robota --attach` opens, in drive mode or, with `--observe`, read-only. The reduced
+    - `__PRODUCT_CLI_NAME__ session attach` and an attach from `__PRODUCT_CLI_NAME__ session view` open the full terminal UI,
+      the one `__PRODUCT_CLI_NAME__ --attach` opens, in drive mode or, with `--observe`, read-only. The reduced
       attached view is gone.
     - A served runtime names each of its sessions after the session's first real turn.
   - `agent-framework` (minor):
@@ -245,7 +245,7 @@
     missing-token challenge, 403 `insufficient_scope` or a revoked grant, 400 a malformed event, 404 an unknown
     grant, 413 a body over 16 KiB, 429 over the grant's rate or the address's failure budget, 503 when the issuer
     or the session cannot take it. `--external-event-port <port>` (required with grants) and
-    `--external-event-trusted-proxy <ip>` work on the TUI and on `robota session start --background`. A background
+    `--external-event-trusted-proxy <ip>` work on the TUI and on `__PRODUCT_CLI_NAME__ session start --background`. A background
     session writes an owner-only, bounded JSONL trail of refusals and settlements under its supervised directory;
     the TUI reports them on one line each.
 
@@ -323,7 +323,7 @@
     The tool reaches only files inside the workspace whose path does not look like it holds secrets
     (`.env*`, `~/.ssh`, keys and credentials), and it does not exist in a turn a peer's message started.
   - The receiving operator approves every file. A received file is kept as an inert copy (mode 0600)
-    under `~/.robota/peer-files/<sender>/`. It is never run and never placed in the model's context.
+    under `$PRODUCT_USER_STATE_DIR/peer-files/<sender>/`. It is never run and never placed in the model's context.
     The conversation is told only its name, size and sha256. A name that leaves that directory is
     refused, a symbolic link is never written through, and nothing is overwritten.
   - Transfers travel on a channel of their own (a separate connection on this host, a separate data
@@ -462,7 +462,7 @@
 
   Nothing is wired to a listener yet.
 
-- 4c5148e: ARCH-005 Stage S2 — `robota` is now expressed as an `IProductProfile` and assembled by `assembleProduct`;
+- 4c5148e: ARCH-005 Stage S2 — `__PRODUCT_CLI_NAME__` is now expressed as an `IProductProfile` and assembled by `assembleProduct`;
   the hand-wired composition root in `agent-cli` is gone.
 
   - **`@robota-sdk/agent-product`** — provider construction returns IN-KERNEL. `assembleProduct` builds the
@@ -479,21 +479,21 @@
     project/user definitions > injected > built-in. `AgentDefinitionLoader` now dedupes within that tier
     (first wins). Absent ⇒ unchanged behavior.
   - **`@robota-sdk/agent-transport` / `@robota-sdk/agent-transport-tui`** — forward the optional
-    `agentDefinitions` through the headless and TUI channels so every robota surface carries the seam.
-  - **`@robota-sdk/agent-cli`** — `robota`'s identity (branding, provider surface, presets,
+    `agentDefinitions` through the headless and TUI channels so every __PRODUCT_DISPLAY_NAME__ surface carries the seam.
+  - **`@robota-sdk/agent-cli`** — `__PRODUCT_CLI_NAME__`'s identity (branding, provider surface, presets,
     `packs: [codingPack]`, base command modules, injected transports/runners/subagent factory) is declared as
     data in a product profile and folded by `assembleProduct`. The coding command modules (`/shell`,
     `/editor`) now come from `pack-coding` rather than the base set, so the pack is load-bearing. What remains
     in the CLI is product-shell only: arg parsing, settings/file IO, terminal notices, first-run/init/
     `--configure`, memory + session-resume UX, and print/serve/TUI mode dispatch.
 
-  End-user `robota` behavior is unchanged in substance — the assembled command-module set, provider surface,
+  End-user `__PRODUCT_CLI_NAME__` behavior is unchanged in substance — the assembled command-module set, provider surface,
   tool set, subagent roster, and preset resolution all match the pre-change assembly — with one accepted
   cosmetic delta: `/shell` and `/editor` now appear at the END of `/help` output and of the slash-command
   autocomplete popup rather than mid-list, because they arrive from `pack-coding` and both surfaces render in
   module-insertion order. Same commands, same behavior, different position.
 
-- 0116a29: ARCH-006 completion — robota's capability packs now OWN its tool surface, and `pack-coding` is built by a
+- 0116a29: ARCH-006 completion — __PRODUCT_DISPLAY_NAME__'s capability packs now OWN its tool surface, and `pack-coding` is built by a
   context-bound factory.
 
   - **`@robota-sdk/pack-coding` (BREAKING)** — the module-level `codingPack` constant is **removed** and
@@ -506,16 +506,16 @@
     is gone rather than deprecated. Each call returns fresh instances bound to the supplied context, so two
     products in one process get independently-scoped file tools. Migration: replace `codingPack` with
     `createCodingPack({ cwd: process.cwd() })`.
-  - **`@robota-sdk/agent-cli`** — `robota`'s packs are built from the shell's resolved `cwd`
-    (`createRobotaPacks({ cwd })`) before command setup, and the runtime seam passes
-    `ROBOTA_PACKS_OWN_TOOL_SURFACE` (an empty `defaultTools`) so the framework's `createDefaultTools()` tier
-    is REPLACED. Every tool robota runs now arrives from a capability pack: dropping a pack drops its tools,
+  - **`@robota-sdk/agent-cli`** — `__PRODUCT_CLI_NAME__`'s packs are built from the shell's resolved `cwd`
+    (`createProductCapabilityPacks({ cwd })`) before command setup, and the runtime seam passes
+    `PRODUCT_PACKS_OWN_TOOL_SURFACE` (an empty `defaultTools`) so the framework's `createDefaultTools()` tier
+    is REPLACED. Every tool __PRODUCT_DISPLAY_NAME__ runs now arrives from a capability pack: dropping a pack drops its tools,
     exactly as it already dropped its command modules and subagents.
   - **`@robota-sdk/agent-transport` / `@robota-sdk/agent-transport-tui`** — forward the optional
     `additionalTools` and `defaultTools` through the headless and TUI channels, mirroring the existing
     `agentDefinitions` pass-through, so print, serve and TUI carry an identical tool surface.
 
-  End-user `robota` behavior is unchanged, including the security property: the real binary still answers a
+  End-user `__PRODUCT_CLI_NAME__` behavior is unchanged, including the security property: the real binary still answers a
   read outside the working directory with `Access denied: "…" is outside the working directory`.
 
 - 9db63ee: Add named session capability roles and explicit capability-host queries while preserving the legacy
@@ -539,7 +539,7 @@
   branch events through protocol transports, and render deterministic bounded notices in the TUI.
   Transport-owned delivery failures now enter the owning carrier cleanup lifecycle without reversing
   an already-committed session operation.
-- 3244fb8: Fix a headless-run race (CI-001): the headless runner now resolves its exit code only AFTER the underlying `session.submit()` operation has fully settled, not off the terminal `complete`/`interrupted`/`error` event alone. Those events fire from inside the turn, BEFORE the turn's awaited `finally` runs session persistence / checkpoint finalize, so `run()`/`start()` previously returned while the session was still writing `.robota/` under cwd — a race a caller (or a test's cleanup) could lose (`ENOTEMPTY`). Each run now also emits exactly one terminal record. No change to exit codes or output shape.
+- 3244fb8: Fix a headless-run race (CI-001): the headless runner now resolves its exit code only AFTER the underlying `session.submit()` operation has fully settled, not off the terminal `complete`/`interrupted`/`error` event alone. Those events fire from inside the turn, BEFORE the turn's awaited `finally` runs session persistence / checkpoint finalize, so `run()`/`start()` previously returned while the session was still writing `$PRODUCT_PROJECT_STATE_DIR/` under cwd — a race a caller (or a test's cleanup) could lose (`ENOTEMPTY`). Each run now also emits exactly one terminal record. No change to exit codes or output shape.
 - 4f3c075: Assemble complete, verified package generations before switching build output; preserve the previous generation on build failure and pack only verified regular-file images. Include copied CLI web assets in affected-build ordering and artifact transfer. Preserve the CLI version in managed build paths. Public runtime contracts remain compatible (patch).
 - Updated dependencies [9c19c50]
 - Updated dependencies [7b6234c]
@@ -673,7 +673,7 @@
 
   - **Preset system (PRESET-001~017):** new `@robota-sdk/agent-preset` package layering framework
     assembly options into named, selectable profiles (`default`, `autonomous-builder`, `careful-reviewer`,
-    `neutral-executor`) plus user-authored external presets loaded from `~/.robota/presets/*.json`.
+    `neutral-executor`) plus user-authored external presets loaded from `$PRODUCT_USER_STATE_DIR/presets/*.json`.
   - **Live preset switching:** `/preset` command (list + active marker + switch) and a TUI active-preset
     display. Switching live re-applies permission posture, model/effort, persona, command-module
     selection, parallel-subagents gating, and a self-verification system-prompt section via the single

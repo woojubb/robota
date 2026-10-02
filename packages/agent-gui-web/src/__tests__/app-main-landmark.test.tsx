@@ -8,6 +8,7 @@
  * nesting a `main` in one is not the same class of bug as nesting `main` in `main`).
  */
 
+import { testProduct } from './product-fixture.js';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -59,14 +60,14 @@ function desktopHostWithTrustQuestion(): IGuiHost {
 describe('App renders exactly one main landmark on every pre-session screen (#3289 §3 review)', () => {
   it('while starting (no endpoint yet)', async () => {
     const host = desktopHostAwaitingEndpoint();
-    const { container } = render(<App host={host} />);
+    const { container } = render(<App product={testProduct} host={host} />);
     await screen.findByText('Starting the agent…');
     expect(container.querySelectorAll('main')).toHaveLength(1);
   });
 
   it('the fatal screen', () => {
     const { host, stop } = hostThatStops();
-    const { container } = render(<App host={host} />);
+    const { container } = render(<App product={testProduct} host={host} />);
     act(() => stop());
     expect(screen.getByRole('alert').textContent).toContain('The agent process stopped');
     expect(container.querySelectorAll('main')).toHaveLength(1);
@@ -74,7 +75,7 @@ describe('App renders exactly one main landmark on every pre-session screen (#32
 
   it('the trust question', async () => {
     const host = desktopHostWithTrustQuestion();
-    const { container } = render(<App host={host} />);
+    const { container } = render(<App product={testProduct} host={host} />);
     await screen.findByRole('dialog', { name: 'Do you trust this folder?' });
     expect(container.querySelectorAll('main')).toHaveLength(1);
   });

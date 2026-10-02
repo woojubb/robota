@@ -1,6 +1,6 @@
 ---
 title: Plugins
-description: Observe and extend a Robota agent with runtime plugins, use the ready-made plugins in @robota-sdk/agent-plugin, and package skills and hooks as robota CLI plugins.
+description: Observe and extend an Robota agent with runtime plugins, use the ready-made plugins in @robota-sdk/agent-plugin, and package skills and hooks as __PRODUCT_CLI_NAME__ CLI plugins.
 ---
 
 # Plugins
@@ -10,10 +10,10 @@ description: Observe and extend a Robota agent with runtime plugins, use the rea
 | Kind               | What it is                                                                                 | Where it runs                                  |
 | ------------------ | ------------------------------------------------------------------------------------------ | ---------------------------------------------- |
 | **Runtime plugin** | A class that observes a `Robota` agent's lifecycle: runs, provider calls, messages, errors | Your code, through `@robota-sdk/agent-core`    |
-| **CLI plugin**     | A folder of skills, commands, agent definitions, hooks and MCP declarations                | The `robota` CLI, installed from a marketplace |
+| **CLI plugin**     | A folder of skills, commands, agent definitions, hooks and MCP declarations                | The `__PRODUCT_CLI_NAME__` CLI, installed from a marketplace |
 
 Runtime plugins are for cross-cutting concerns in code you write: logging, usage and cost tracking,
-limits, notifications, audit trails. CLI plugins extend the `robota` assistant for its users. The
+limits, notifications, audit trails. CLI plugins extend the `__PRODUCT_CLI_NAME__` assistant for its users. The
 rest of this page covers runtime plugins first, then CLI plugins.
 
 ---
@@ -40,12 +40,12 @@ npm install @robota-sdk/agent-core @robota-sdk/agent-plugin
 Plugins are passed to the `Robota` constructor in its `plugins` array:
 
 ```typescript
-import { Robota, type IAIProvider } from '@robota-sdk/agent-core';
+import { ConversationAgent, type IAIProvider } from '@robota-sdk/agent-core';
 import { LimitsPlugin, LoggingPlugin, UsagePlugin } from '@robota-sdk/agent-plugin';
 
 declare const provider: IAIProvider;
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'my-agent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
@@ -307,7 +307,7 @@ uses the application's copy. Robota is on the `3.0.0` beta line; a caret range o
 subscribe to without writing a class:
 
 ```typescript
-import { EVENT_EMITTER_EVENTS, EventEmitterPlugin, Robota } from '@robota-sdk/agent-core';
+import { EVENT_EMITTER_EVENTS, EventEmitterPlugin, ConversationAgent } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 declare const provider: IAIProvider;
@@ -326,7 +326,7 @@ events.on(EVENT_EMITTER_EVENTS.AGENT_EXECUTION_COMPLETE, (event) => {
   console.log('Run complete in', event.data?.['duration'], 'ms');
 });
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'EventAgent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
@@ -356,7 +356,7 @@ By default the plugin emits only the agent-execution and tool events; pass
 
 ## CLI plugins
 
-A `robota` CLI plugin is a folder with a manifest at `.claude-plugin/plugin.json` (`name`, `version`,
+A `__PRODUCT_CLI_NAME__` CLI plugin is a folder with a manifest at `.claude-plugin/plugin.json` (`name`, `version`,
 `description`, `features`), the same layout Claude Code plugins use:
 
 | Path in the plugin       | Contributes                                                            |
@@ -369,7 +369,7 @@ A `robota` CLI plugin is a folder with a manifest at `.claude-plugin/plugin.json
 | `themes/`                | Terminal themes                                                        |
 
 Plugins are published in marketplaces (a GitHub `owner/repo` or a git URL) and installed with
-`/plugin`, under `~/.robota/plugins/` for the user or `.robota/plugins/` for a project. See
+`/plugin`, under `<user-state>/plugins/` for the user or `<project-state>/plugins/` for a project. See
 [CLI Reference — Plugins](./cli.md#plugins) for the commands, and
 [Permissions and Hooks — Plugin Hooks](./permissions-and-hooks.md#plugin-hooks) for the environment a
 plugin hook runs with.

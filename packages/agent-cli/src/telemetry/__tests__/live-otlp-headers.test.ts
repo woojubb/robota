@@ -25,12 +25,12 @@ const batch: ILivePromptTraceBatch = {
   } }], omittedChildren: { provider: 0, tool: 0, permission: 0 },
 };
 
-const GENERIC = 'ROBOTA_TELEMETRY_OTLP_HEADERS';
+const GENERIC = 'PRODUCT_TELEMETRY_OTLP_HEADERS';
 const base = {
-  ROBOTA_TELEMETRY_ENABLED: '1',
-  ROBOTA_TELEMETRY_TRACES: 'otlp',
-  ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
-  ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
+  PRODUCT_TELEMETRY_ENABLED: '1',
+  PRODUCT_TELEMETRY_TRACES: 'otlp',
+  PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+  PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
 };
 
 function startupError(env: Record<string, string>): Error {
@@ -154,13 +154,13 @@ describe('static OTLP header parsing', () => {
   });
 
   it('keeps disabled telemetry inert whatever the header settings contain', () => {
-    const invalid = { [GENERIC]: 'x%41=%0D%0A', ROBOTA_TELEMETRY_OTLP_LOGS_HEADERS: '=' };
+    const invalid = { [GENERIC]: 'x%41=%0D%0A', PRODUCT_TELEMETRY_OTLP_LOGS_HEADERS: '=' };
     expect(createConfiguredNodeOtlpLiveTelemetryPort(invalid)).toBeUndefined();
-    expect(createConfiguredNodeOtlpLiveTelemetryPort({ ...invalid, ROBOTA_TELEMETRY_ENABLED: '0' })).toBeUndefined();
+    expect(createConfiguredNodeOtlpLiveTelemetryPort({ ...invalid, PRODUCT_TELEMETRY_ENABLED: '0' })).toBeUndefined();
   });
 
   it('still rejects header helpers and other header-shaped settings', () => {
-    for (const name of ['ROBOTA_TELEMETRY_OTLP_HEADERS_HELPER', 'ROBOTA_TELEMETRY_HEADERS', 'ROBOTA_TELEMETRY_OTLP_TRACE_HEADERS']) {
+    for (const name of ['PRODUCT_TELEMETRY_OTLP_HEADERS_HELPER', 'PRODUCT_TELEMETRY_HEADERS', 'PRODUCT_TELEMETRY_OTLP_TRACE_HEADERS']) {
       const error = startupError({ ...base, [name]: SENTINEL_VALUE });
       expect(error.message).toMatch(/headers are not supported/u);
       expect(error.message).toContain(name);
@@ -172,11 +172,11 @@ describe('static OTLP header parsing', () => {
 describe('destination-scoped OTLP header rules', () => {
   it('refuses generic headers that no OTLP signal would send', () => {
     for (const env of [
-      { ...base, ROBOTA_TELEMETRY_TRACES: 'console', [GENERIC]: `${SENTINEL_NAME}=${SENTINEL_VALUE}` },
+      { ...base, PRODUCT_TELEMETRY_TRACES: 'console', [GENERIC]: `${SENTINEL_NAME}=${SENTINEL_VALUE}` },
       {
         ...base, [GENERIC]: `${SENTINEL_NAME}=${SENTINEL_VALUE}`,
-        ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT: 'http://127.0.0.1:4318/v1/traces',
-        ROBOTA_TELEMETRY_OTLP_TRACES_HEADERS: 'x-own=1',
+        PRODUCT_TELEMETRY_OTLP_TRACES_ENDPOINT: 'http://127.0.0.1:4318/v1/traces',
+        PRODUCT_TELEMETRY_OTLP_TRACES_HEADERS: 'x-own=1',
       },
     ]) {
       const error = startupError(env);
@@ -188,22 +188,22 @@ describe('destination-scoped OTLP header rules', () => {
   it('refuses a signal\'s headers when that signal does not export over OTLP', () => {
     for (const selector of [undefined, 'off', 'console']) {
       const env: Record<string, string> = {
-        ...base, ROBOTA_TELEMETRY_OTLP_METRICS_HEADERS: `${SENTINEL_NAME}=${SENTINEL_VALUE}`,
+        ...base, PRODUCT_TELEMETRY_OTLP_METRICS_HEADERS: `${SENTINEL_NAME}=${SENTINEL_VALUE}`,
       };
-      if (selector) env['ROBOTA_TELEMETRY_METRICS'] = selector;
+      if (selector) env['PRODUCT_TELEMETRY_METRICS'] = selector;
       const error = startupError(env);
-      expect(error.message).toContain('ROBOTA_TELEMETRY_OTLP_METRICS_HEADERS');
-      expectSecretFree(error.message, env['ROBOTA_TELEMETRY_OTLP_METRICS_HEADERS']!);
+      expect(error.message).toContain('PRODUCT_TELEMETRY_OTLP_METRICS_HEADERS');
+      expectSecretFree(error.message, env['PRODUCT_TELEMETRY_OTLP_METRICS_HEADERS']!);
     }
   });
 
   it('refuses a per-signal endpoint left without headers while generic headers are in use', () => {
     const error = startupError({
       ...base, [GENERIC]: `${SENTINEL_NAME}=${SENTINEL_VALUE}`,
-      ROBOTA_TELEMETRY_METRICS: 'otlp',
-      ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT: 'http://127.0.0.1:4318/v1/metrics',
+      PRODUCT_TELEMETRY_METRICS: 'otlp',
+      PRODUCT_TELEMETRY_OTLP_METRICS_ENDPOINT: 'http://127.0.0.1:4318/v1/metrics',
     });
-    expect(error.message).toContain('ROBOTA_TELEMETRY_OTLP_METRICS_HEADERS');
+    expect(error.message).toContain('PRODUCT_TELEMETRY_OTLP_METRICS_HEADERS');
     expectSecretFree(error.message, `${SENTINEL_NAME}=${SENTINEL_VALUE}`);
   });
 
@@ -211,22 +211,22 @@ describe('destination-scoped OTLP header rules', () => {
     const error = startupError({
       ...base,
       [GENERIC]: `x-a=${'a'.repeat(3000)},x-b=${'b'.repeat(3000)}`,
-      ROBOTA_TELEMETRY_OTLP_TRACES_HEADERS: `x-c=${'c'.repeat(3000)}`,
+      PRODUCT_TELEMETRY_OTLP_TRACES_HEADERS: `x-c=${'c'.repeat(3000)}`,
     });
-    expect(error.message).toMatch(/ROBOTA_TELEMETRY_OTLP_(TRACES_)?HEADERS/u);
+    expect(error.message).toMatch(/PRODUCT_TELEMETRY_OTLP_(TRACES_)?HEADERS/u);
     expect(error.message).not.toContain('aaaa');
   });
 
   it('merges generic and signal headers with the signal winning, and never sends generic headers to a per-signal endpoint', async () => {
     await withCollector(async (url, requests) => {
       const port = createConfiguredNodeOtlpLiveTelemetryPort({
-        ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
-        ROBOTA_TELEMETRY_TRACES: 'otlp', ROBOTA_TELEMETRY_METRICS: 'otlp', ROBOTA_TELEMETRY_LOGS: 'otlp',
-        ROBOTA_TELEMETRY_OTLP_ENDPOINT: url,
+        PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+        PRODUCT_TELEMETRY_TRACES: 'otlp', PRODUCT_TELEMETRY_METRICS: 'otlp', PRODUCT_TELEMETRY_LOGS: 'otlp',
+        PRODUCT_TELEMETRY_OTLP_ENDPOINT: url,
         [GENERIC]: `Authorization=Bearer%20generic-token,x-generic=${SENTINEL_VALUE}`,
-        ROBOTA_TELEMETRY_OTLP_TRACES_HEADERS: 'authorization=Bearer%20trace-token',
-        ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT: `${url}/custom/logs`,
-        ROBOTA_TELEMETRY_OTLP_LOGS_HEADERS: 'x-logs-only=l1',
+        PRODUCT_TELEMETRY_OTLP_TRACES_HEADERS: 'authorization=Bearer%20trace-token',
+        PRODUCT_TELEMETRY_OTLP_LOGS_ENDPOINT: `${url}/custom/logs`,
+        PRODUCT_TELEMETRY_OTLP_LOGS_HEADERS: 'x-logs-only=l1',
       });
       port!.enqueue(batch);
       await port!.shutdown();
@@ -280,9 +280,9 @@ describe('destination-scoped OTLP header rules', () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const failures: unknown[] = [];
     const port = createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
-      ROBOTA_TELEMETRY_TRACES: 'otlp', ROBOTA_TELEMETRY_METRICS: 'otlp', ROBOTA_TELEMETRY_LOGS: 'otlp',
-      ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'https://collector.example',
+      PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+      PRODUCT_TELEMETRY_TRACES: 'otlp', PRODUCT_TELEMETRY_METRICS: 'otlp', PRODUCT_TELEMETRY_LOGS: 'otlp',
+      PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'https://collector.example',
       [GENERIC]: `${SENTINEL_NAME}=${SENTINEL_VALUE}`,
     }, (...args) => { failures.push(args); });
     port!.enqueue(batch);
@@ -303,7 +303,7 @@ describe('destination-scoped OTLP header rules', () => {
     const lines: string[] = [];
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error(SENTINEL_VALUE); }));
     const port = createConfiguredNodeOtlpLiveTelemetryPort({
-      ...base, ROBOTA_TELEMETRY_METRICS: 'console', ROBOTA_TELEMETRY_LOGS: 'console',
+      ...base, PRODUCT_TELEMETRY_METRICS: 'console', PRODUCT_TELEMETRY_LOGS: 'console',
       [GENERIC]: `${SENTINEL_NAME}=${SENTINEL_VALUE}`,
     }, () => undefined, (line) => { lines.push(line); });
     port!.enqueue(batch);

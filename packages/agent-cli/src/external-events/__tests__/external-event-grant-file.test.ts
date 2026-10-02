@@ -21,9 +21,9 @@ const VARIED: IExternalEventGrant[] = [
     grantId: 'ci',
     verifier: {
       issuer: 'https://issuer.example/tenant',
-      resource: 'https://robota.example/base/events/ci',
+      resource: 'https://test-product.example/base/events/ci',
       algorithms: ['EdDSA'],
-      requiredScopes: ['robota.events.submit', 'ci.read'],
+      requiredScopes: ['test-product.events.submit', 'ci.read'],
       allowedClients: ['ci-bot'],
     },
     kinds: ['message'],
@@ -36,9 +36,9 @@ const VARIED: IExternalEventGrant[] = [
     grantId: 'chat_bridge-2',
     verifier: {
       issuer: 'https://login.example',
-      resource: 'https://robota.example/events/chat_bridge-2',
+      resource: 'https://test-product.example/events/chat_bridge-2',
       algorithms: ['RS256', 'ES256'],
-      requiredScopes: ['robota.events.submit'],
+      requiredScopes: ['test-product.events.submit'],
       allowedSubjects: ['bridge@example'],
     },
     kinds: ['message'],
@@ -48,9 +48,9 @@ const VARIED: IExternalEventGrant[] = [
 const VALID = {
   grantId: 'ci',
   issuer: 'https://issuer.example',
-  resource: 'https://robota.example/events/ci',
+  resource: 'https://test-product.example/events/ci',
   client: 'ci-bot',
-  scopes: ['robota.events.submit'],
+  scopes: ['test-product.events.submit'],
 };
 
 describe('external event grant files', () => {
@@ -72,9 +72,9 @@ describe('external event grant files', () => {
         grantId: 'ci',
         verifier: {
           issuer: 'https://issuer.example',
-          resource: 'https://robota.example/events/ci',
+          resource: 'https://test-product.example/events/ci',
           algorithms: ['RS256', 'ES256', 'EdDSA'],
-          requiredScopes: ['robota.events.submit'],
+          requiredScopes: ['test-product.events.submit'],
           allowedClients: ['ci-bot'],
         },
         kinds: ['message'],
@@ -102,7 +102,7 @@ describe('external event grant files', () => {
     ['an http issuer', { ...VALID, issuer: 'http://issuer.example' }, /grant ci: invalid issuer/],
     [
       'a resource for another grant',
-      { ...VALID, resource: 'https://robota.example/events/other' },
+      { ...VALID, resource: 'https://test-product.example/events/other' },
       /grant ci: invalid resource/,
     ],
     ['no scope', { ...VALID, scopes: [] }, /grant ci: invalid scopes/],
@@ -128,7 +128,7 @@ describe('external event grant files', () => {
       'issuer.example',
       'ci-bot',
       'alice',
-      'robota.events.submit',
+      'test-product.events.submit',
       'SECRETVALUE',
       dir,
     ]) {

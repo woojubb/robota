@@ -5,10 +5,11 @@
  * for subdirectories containing `.claude-plugin/plugin.json`,
  * reads manifests, loads skills (with frontmatter parsing), hooks, and agent definitions.
  *
- * For each plugin, the latest version directory (lexicographically last) is loaded.
+ * Each plugin loads its installed revision; an unregistered single revision is supported.
  */
 
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { assertContainedPath, assertSafePluginSegment } from './plugin-paths.js';
 
 import { createLogger } from '@robota-sdk/agent-core';
 
@@ -22,6 +23,8 @@ import { validateManifest, getSortedSubdirs } from './bundle-plugin-utils.js';
 import { NodeFileSystem } from '../adapters/node-file-system.js';
 import { decodeFrontmatter } from '../frontmatter/frontmatter-decoder.js';
 import { FrontmatterDecodeError } from '../frontmatter/frontmatter-error.js';
+import { describeBundleContribution } from '../contributions/bundle-contribution-descriptor.js';
+import { loadDeclaredMcpConfig } from './declared-mcp-config.js';
 
 import type { IInspectionSink } from './bundle-plugin-inspection.js';
 import type {
@@ -32,9 +35,14 @@ import type {
   TEnabledPlugins,
 } from './bundle-plugin-types.js';
 import type { IBundleSkillFrontmatter } from '../frontmatter/frontmatter-types.js';
-import type { IFileSystem, TUniversalValue } from '@robota-sdk/agent-core';
+import type { IFileSystem } from '@robota-sdk/agent-core';
 
 const logger = createLogger('BundlePluginLoader');
+
+interface IInstalledSelection {
+  records?: Record<string, unknown>;
+  error?: Error;
+}
 
 interface IDecodedBundleSkill {
   metadata: IBundleSkillFrontmatter;
@@ -95,10 +103,12 @@ export class BundlePluginLoader {
    * and the manifest path. Read-only; the owner's view a pre-session doctor renders.
    *
    * Directory structure: `<pluginsDir>/cache/<marketplace>/<plugin>/<version>/`
-   * For each marketplace/plugin pair, the latest version (lexicographically last) is loaded.
+   * Installed records select revisions; ambiguous unregistered caches are refused.
    */
   inspectPluginsSync(): IBundlePluginInspection {
     const cacheDir = join(this.pluginsDir, 'cache');
+    const selection = this.snapshotInstalledSelection();
+    const discovered = new Set<string>();
     const sink: IInspectionSink = {
       loaded: [],
       skipped: [],
@@ -111,33 +121,67 @@ export class BundlePluginLoader {
       for (const marketplace of getSortedSubdirs(cacheDir, this.fs)) {
         const marketplaceDir = join(cacheDir, marketplace);
         for (const pluginName of getSortedSubdirs(marketplaceDir, this.fs)) {
-          this.inspectPluginDir(marketplace, pluginName, join(marketplaceDir, pluginName), sink);
+          discovered.add(`${pluginName}@${marketplace}`);
+          this.inspectPluginDir(
+            marketplace,
+            pluginName,
+            join(marketplaceDir, pluginName),
+            sink,
+            selection,
+          );
         }
       }
+    }
+    for (const pluginId of Object.keys(selection.records ?? {})) {
+      if (!discovered.has(pluginId)) {
+        sink.skipped.push({
+          pluginId,
+          manifestPath: join(this.pluginsDir, 'installed_plugins.json'),
+          reason: 'revision-unselected',
+          detail: 'Selected plugin source is missing from cache',
+        });
+      }
+    }
+    if (selection.error && discovered.size === 0) {
+      sink.skipped.push({
+        pluginId: 'installed_plugins.json',
+        manifestPath: join(this.pluginsDir, 'installed_plugins.json'),
+        reason: 'revision-unselected',
+        detail: skipDetail(selection.error),
+      });
     }
     return { pluginsDir: this.pluginsDir, cacheDirPresent, ...sink };
   }
 
-  /** Classify one `<marketplace>/<plugin>` directory: its latest version is loaded or skipped by name. */
+  /** Classify one selected installed source without guessing between cached revisions. */
   private inspectPluginDir(
     marketplace: string,
     pluginName: string,
     pluginDir: string,
     sink: IInspectionSink,
+    selection: IInstalledSelection,
   ): void {
     const versions = getSortedSubdirs(pluginDir, this.fs);
-    if (versions.length === 0) return;
-    // Use the latest version (lexicographically last)
-    const versionDir = join(pluginDir, versions[versions.length - 1]!);
+    const discoveredId = `${pluginName}@${marketplace}`;
+    let versionDir: string;
+    try {
+      versionDir = this.selectRevision(pluginDir, marketplace, pluginName, versions, selection);
+    } catch (error) {
+      sink.skipped.push({
+        pluginId: discoveredId,
+        manifestPath: join(pluginDir, '.claude-plugin', 'plugin.json'),
+        reason: 'revision-unselected',
+        detail: skipDetail(error instanceof Error ? error : undefined),
+      });
+      return;
+    }
     const manifestPath = join(versionDir, '.claude-plugin', 'plugin.json');
-    if (!this.fs.existsSync(manifestPath)) return;
 
     // CORE-029: one broken plugin used to take down ALL of them. `readManifest` throws on
     // unparseable JSON, that throw escaped discovery, and the caller answered with a bare
     // `catch {}` — so a single malformed manifest silently disabled every installed plugin and the
     // user's hooks just did not run. A plugin that cannot be read is skipped, by name, out loud;
     // its neighbours still load.
-    const discoveredId = `${pluginName}@${marketplace}`;
     let manifest: IBundlePluginManifest | null;
     try {
       manifest = this.readManifest(manifestPath);
@@ -159,19 +203,77 @@ export class BundlePluginLoader {
     }
     // Check enabled/disabled state using pluginName@marketplace key
     const pluginId = `${manifest.name}@${marketplace}`;
-    if (this.isDisabled(pluginId, manifest.name)) {
+    if (this.isDisabled(discoveredId, pluginName) || this.isDisabled(pluginId, manifest.name)) {
       sink.skipped.push({ pluginId, manifestPath, reason: 'disabled' });
       return;
     }
     try {
       const plugin = this.loadPlugin(versionDir, manifest);
+      plugin.descriptor = describeBundleContribution(plugin, discoveredId);
       sink.loaded.push(plugin);
       inspectHooks(pluginId, versionDir, plugin.hooks, sink.hookIssues);
-      inspectMcpConfig(pluginId, versionDir, plugin.mcpConfig, sink);
+      inspectMcpConfig(pluginId, versionDir, plugin.mcpConfig, sink, plugin.mcpSourcePaths);
     } catch (error) {
       const detail = skipDetail(error instanceof Error ? error : undefined);
       sink.skipped.push({ pluginId, manifestPath, reason: 'load-failed', detail });
     }
+  }
+
+  private snapshotInstalledSelection(): IInstalledSelection {
+    const registryPath = join(this.pluginsDir, 'installed_plugins.json');
+    if (!this.fs.existsSync(registryPath)) return {};
+    try {
+      const records: unknown = JSON.parse(this.fs.readFileSync(registryPath, 'utf-8'));
+      if (typeof records !== 'object' || records === null || Array.isArray(records))
+        throw new Error('Invalid installed registry');
+      return { records: records as Record<string, unknown> };
+    } catch (error) {
+      return { error: error instanceof Error ? error : new Error('Invalid installed registry') };
+    }
+  }
+
+  private selectRevision(
+    pluginDir: string,
+    marketplace: string,
+    pluginName: string,
+    versions: string[],
+    selection: IInstalledSelection,
+  ): string {
+    if (selection.error) throw selection.error;
+    let revision: string;
+    if (!selection.records) {
+      if (versions.length !== 1)
+        throw new Error('Select an installed revision before loading multiple cached sources');
+      revision = versions[0]!;
+    } else {
+      const record = Object.hasOwn(selection.records, `${pluginName}@${marketplace}`)
+        ? selection.records[`${pluginName}@${marketplace}`]
+        : undefined;
+      if (typeof record !== 'object' || record === null || Array.isArray(record))
+        throw new Error('No selected installation');
+      const fields = record as Record<string, unknown>;
+      assertSafePluginSegment(fields.version, 'installed revision');
+      revision = fields.version;
+      if (
+        fields.pluginName !== pluginName ||
+        fields.marketplace !== marketplace ||
+        typeof fields.installPath !== 'string' ||
+        resolve(fields.installPath) !== resolve(pluginDir, revision)
+      )
+        throw new Error('Installed record does not match its cached source');
+    }
+    assertSafePluginSegment(revision, 'source revision');
+    const selected = join(pluginDir, revision);
+    if (!versions.includes(revision)) throw new Error('Selected revision is not installed');
+    assertContainedPath(join(this.pluginsDir, 'cache'), selected, 'load installed source', this.fs);
+    assertContainedPath(pluginDir, selected, 'load selected plugin revision', this.fs);
+    assertContainedPath(
+      selected,
+      join(selected, '.claude-plugin', 'plugin.json'),
+      'read plugin manifest',
+      this.fs,
+    );
+    return selected;
   }
 
   /** Read and validate a plugin.json manifest. Returns null if the manifest structure is invalid. */
@@ -199,12 +301,22 @@ export class BundlePluginLoader {
 
   /** Load a single plugin's skills, hooks, agents, and MCP config. */
   private loadPlugin(pluginDir: string, manifest: IBundlePluginManifest): ILoadedBundlePlugin {
+    let mcpSourcePaths: Record<string, string> = {};
+    const mcpConfig = loadDeclaredMcpConfig(
+      pluginDir,
+      manifest.mcpServers,
+      this.fs,
+      (name, path) => {
+        mcpSourcePaths = { ...mcpSourcePaths, [name]: path };
+      },
+    );
     return {
       manifest,
       skills: this.loadSkills(pluginDir, manifest.name),
       commands: this.loadCommands(pluginDir, manifest.name),
       hooks: this.loadHooks(pluginDir),
-      mcpConfig: this.loadMcpConfig(pluginDir),
+      mcpConfig,
+      mcpSourcePaths,
       agents: this.loadAgents(pluginDir),
       pluginDir,
     };
@@ -285,15 +397,6 @@ export class BundlePluginLoader {
       return data as Record<string, unknown>;
     }
     return {};
-  }
-
-  /** Load MCP server configuration from `.mcp.json` at the plugin root if present. */
-  private loadMcpConfig(pluginDir: string): TUniversalValue | undefined {
-    const mcpPath = join(pluginDir, '.mcp.json');
-    if (!this.fs.existsSync(mcpPath)) return undefined;
-
-    const raw = this.fs.readFileSync(mcpPath, 'utf-8');
-    return JSON.parse(raw) as TUniversalValue;
   }
 
   /** Load agent definitions from agents/ directory if present. */

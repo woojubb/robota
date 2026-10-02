@@ -77,11 +77,11 @@ describe('/doctor command module (OBSERVABILITY-1991 TC-06)', () => {
     expect(command?.name).toBe('doctor');
     const result = await command!.execute(contextWith(undefined), '');
     expect(result.success).toBe(false);
-    expect(result.message).toContain('settings.user.robota');
+    expect(result.message).toContain('settings.user.fixture-product');
     expect(result.message).toContain('plugin.broken-plugin@fixture-market');
     expect(result.data).toMatchObject({
       failCount: expect.any(Number),
-      repairable: ['settings.user.robota'],
+      repairable: ['settings.user.fixture-product'],
     });
     expect(createProvider).not.toHaveBeenCalled();
   });
@@ -100,7 +100,7 @@ describe('/doctor command module (OBSERVABILITY-1991 TC-06)', () => {
     const result = await command.execute(contextWith(undefined), '');
     expect(result.message).toContain('Atlas doctor');
     expect(result.message).toContain('Atlas');
-    expect(result.message).toContain('atlas doctor --repair settings.user.robota');
+    expect(result.message).toContain('atlas doctor --repair settings.user.fixture-product');
     expect(result.message).toContain('run atlas doctor --repair <check-id>');
   });
 
@@ -108,15 +108,15 @@ describe('/doctor command module (OBSERVABILITY-1991 TC-06)', () => {
     const fixture = createDoctorFixture({ env: {} });
     fixtures.push(fixture);
     installBrokenHome(fixture);
-    const path = join(fixture.home, '.robota', 'settings.json');
+    const path = join(fixture.home, '.fixture-product', 'settings.json');
     const command = createDoctorCommandModule(fixture.inputs, fixture.deps).systemCommands![0]!;
 
-    const noPort = await command.execute(contextWith(undefined), 'repair settings.user.robota');
+    const noPort = await command.execute(contextWith(undefined), 'repair settings.user.fixture-product');
     expect(noPort.success).toBe(false);
     expect(readFileSync(path, 'utf8')).toBe('');
 
     const cancelled = answering({ type: 'cancelled' });
-    const declined = await command.execute(contextWith(cancelled), 'repair settings.user.robota');
+    const declined = await command.execute(contextWith(cancelled), 'repair settings.user.fixture-product');
     expect(declined.success).toBe(false);
     expect(cancelled.ask).toHaveBeenCalledTimes(1);
     expect(readFileSync(path, 'utf8')).toBe('');
@@ -129,17 +129,17 @@ describe('/doctor command module (OBSERVABILITY-1991 TC-06)', () => {
     const fixture = createDoctorFixture({ env: {} });
     fixtures.push(fixture);
     installBrokenHome(fixture);
-    const path = join(fixture.home, '.robota', 'settings.json');
+    const path = join(fixture.home, '.fixture-product', 'settings.json');
     const command = createDoctorCommandModule(fixture.inputs, fixture.deps).systemCommands![0]!;
     const yes = answering({ type: 'answer', values: ['yes'] });
-    const result = await command.execute(contextWith(yes), 'repair settings.user.robota');
+    const result = await command.execute(contextWith(yes), 'repair settings.user.fixture-product');
     expect(result.success).toBe(true);
     expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual({});
     expect(result.data).toMatchObject({
-      repair: 'settings.user.robota',
+      repair: 'settings.user.fixture-product',
       applied: true,
       status: 'ok',
     });
-    expect(yes.ask.mock.calls[0]?.[0]).toMatchObject({ id: 'doctor-repair:settings.user.robota' });
+    expect(yes.ask.mock.calls[0]?.[0]).toMatchObject({ id: 'doctor-repair:settings.user.fixture-product' });
   });
 });

@@ -253,7 +253,7 @@ describe('sessionParticipant: speak path', () => {
     await lease.release();
   });
 
-  // A plain Robota agent's `agent.run()` always RESOLVES on abort (agent-core CORE-027) with
+  // A plain ConversationAgent agent's `agent.run()` always RESOLVES on abort (agent-core CORE-027) with
   // the text it had committed so far, marked `interrupted`, rather than rejecting — the same tool
   // round shape reproduces that here, but `Session`'s own executeRun already turns an aborted,
   // resolved execution into a rejection before it ever reaches sessionParticipant, so this asserts
@@ -432,7 +432,7 @@ describe('sessionParticipant: speak path', () => {
   // entirely separate `createDefaultTools({cwd})` calls, sharing nothing on purpose — collided in
   // the resource guard the moment both were open at once.
   it('two participants each built from a separate createDefaultTools({cwd}) open together', async () => {
-    const base = mkdtempSync(join(tmpdir(), 'roundtable-robota-default-tools-'));
+    const base = mkdtempSync(join(tmpdir(), 'roundtable-agent-default-tools-'));
     mkdirSync(join(base, 'A'));
     mkdirSync(join(base, 'B'));
     try {

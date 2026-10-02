@@ -101,9 +101,10 @@ export interface IRenderOptions {
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
   userSettingsSources?: readonly INodeHostSettingsSource[];
+  environment?: Readonly<Record<string, string | undefined>>;
   /**
    * CLI-083 (issue #2287) — the org policy, forwarded to the session so `blockedCommands` is
-   * enforced on the plain `robota` path as well as under `--serve`.
+   * enforced on the direct CLI path as well as under `--serve`.
    *
    * DECLARED, not merely spread through. The shell forwards this with
    * `...(orgPolicy === null ? {} : { orgPolicy })`, and a spread bypasses TypeScript's
@@ -186,6 +187,7 @@ export interface IRenderOptions {
   defaultTools?: readonly IToolWithEventService[];
   /** The sandbox the shell tools run under, so the session can let a confined command skip the prompt. */
   sandboxClient?: ICreateSessionOptions['sandboxClient'];
+  toolExecutionPolicy?: ICreateSessionOptions['toolExecutionPolicy'];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
@@ -305,6 +307,7 @@ export function toChannelOptions(
     ...(options.userSettingsSources !== undefined
       ? { userSettingsSources: options.userSettingsSources }
       : {}),
+    ...(options.environment !== undefined ? { environment: options.environment } : {}),
     ...(options.orgPolicy !== undefined ? { orgPolicy: options.orgPolicy } : {}),
     ...(options.externalEventVerifierFactory !== undefined
       ? { externalEventVerifierFactory: options.externalEventVerifierFactory }
@@ -351,6 +354,9 @@ export function toChannelOptions(
       : {}),
     ...(options.additionalTools !== undefined ? { additionalTools: options.additionalTools } : {}),
     ...(options.defaultTools !== undefined ? { defaultTools: options.defaultTools } : {}),
+    ...(options.toolExecutionPolicy !== undefined
+      ? { toolExecutionPolicy: options.toolExecutionPolicy }
+      : {}),
     ...(options.sandboxClient !== undefined ? { sandboxClient: options.sandboxClient } : {}),
     commandModules: options.commandModules,
     commandHostAdapters: options.commandHostAdapters,

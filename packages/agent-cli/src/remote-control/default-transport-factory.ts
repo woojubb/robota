@@ -20,6 +20,7 @@ import type { IPairingResult } from '@robota-sdk/agent-remote-pairing';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import { SessionResumeBridge } from '@robota-sdk/agent-transport';
 import type { IProtocolSession, ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
+import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 
 export type TUsageReporters = Pick<
   ISessionMessageHandlerOptions,
@@ -62,6 +63,7 @@ export interface IIceOptions {
  * unconditionally would refuse every legitimate remote session).
  */
 export function defaultCreateTransport(
+  cryptoContext: IIdentityContext,
   signaling: ISignalingClient,
   secret: string,
   hooks: ITransportHooks,
@@ -72,6 +74,7 @@ export function defaultCreateTransport(
   usageReporters?: TUsageReporters,
 ): IConfigurableTransport<IProtocolSession> {
   return new WebRtcTransport({
+    cryptoContext,
     signaling,
     secret,
     onPaired: hooks.onPaired,

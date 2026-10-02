@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createKeychainCredentialStore, loadKeyringModule } from '../keychain-credential-store.js';
 import { createFakeKeyring } from './fake-keyring.js';
 
-const KEY = { service: 'robota.test', account: 'alpha' } as const;
+const KEY = { service: 'test-product.test', account: 'alpha' } as const;
 const SECRET = 'SECRET-VALUE-9b2e';
 
 async function rejection(promise: Promise<unknown>): Promise<Error> {
@@ -25,7 +25,7 @@ describe('OS keychain credential store', () => {
     controls.failSet = 'Platform secure storage failure';
     const error = await rejection(createKeychainCredentialStore(module).set(KEY, SECRET));
 
-    expect(error.message).toMatch(/robota\.test\/alpha/);
+    expect(error.message).toMatch(/test-product\.test\/alpha/);
     expect(error.message).toMatch(/Platform secure storage failure/);
     expect(everything(error)).not.toContain(SECRET);
     expect(error.cause).toBeUndefined();
@@ -35,7 +35,7 @@ describe('OS keychain credential store', () => {
     const { module, controls } = createFakeKeyring();
     controls.failGet = 'keychain is locked';
     const error = await rejection(createKeychainCredentialStore(module).get(KEY));
-    expect(error.message).toMatch(/robota\.test\/alpha/);
+    expect(error.message).toMatch(/test-product\.test\/alpha/);
     expect(error.message).toMatch(/locked/);
   });
 
@@ -43,7 +43,7 @@ describe('OS keychain credential store', () => {
     const { module, controls } = createFakeKeyring();
     controls.failDelete = 'access denied';
     await expect(createKeychainCredentialStore(module).delete(KEY)).rejects.toThrow(
-      /robota\.test\/alpha/,
+      /test-product\.test\/alpha/,
     );
   });
 

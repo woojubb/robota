@@ -25,3 +25,6 @@ export const UNKNOWN_TOOL_ERROR_CODE = 'unknown_tool' as const;
  * requests are unaffected.
  */
 export const ARGUMENT_DECODE_ERROR_CODE = 'argument_decode_error' as const;
+
+/** A supplied call was never dispatched because its batch stopped after an earlier failure. */
+export const TOOL_CALL_SKIPPED_ERROR_CODE = 'tool_call_skipped' as const;

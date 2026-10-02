@@ -1,3 +1,4 @@
+import type { IIdentityContext } from './crypto-context.js';
 /**
  * Where two of one user's devices find each other: every value they meet under is derived from
  * their pairwise secret and separated by direction.
@@ -29,12 +30,7 @@ export function rendezvousEpoch(now: number): number {
 
 /** What a rotating tag is for; each purpose yields unrelated values. */
 export type TRendezvousTagPurpose =
-  | 'mdns'
-  | 'lan-inbox'
-  | 'bep44-salt'
-  | 'bep44-revocation-salt'
-  | 'nostr-kind'
-  | 'relay-user';
+  'mdns' | 'lan-inbox' | 'bep44-salt' | 'bep44-revocation-salt' | 'nostr-kind' | 'relay-user';
 
 /**
  * What a one-time key and a sealed record are for: connection hints, the device lists a peer hands
@@ -137,6 +133,7 @@ function isCurrent(lists: IRendezvousLists, device: IDeviceCertificate): boolean
  * device of the lists, and as {@link derivePairwiseSecret} does.
  */
 export async function derivePairRendezvous(
+  cryptoContext: IIdentityContext,
   input: IDerivePairRendezvousInput,
 ): Promise<IPairRendezvous> {
   const { own, lists, peerDeviceId } = input;
@@ -147,7 +144,11 @@ export async function derivePairRendezvous(
   if (!isCurrent(lists, own) || peer === undefined || !isCurrent(lists, peer)) {
     throw new Error('pair rendezvous: not a current, unrevoked device of the lists in force');
   }
-  const secret = await derivePairwiseSecret({ ownKaPrivateKey: input.ownKaPrivateKey, own, peer });
+  const secret = await derivePairwiseSecret(cryptoContext, {
+    ownKaPrivateKey: input.ownKaPrivateKey,
+    own,
+    peer,
+  });
   const macKey = await webcrypto.subtle.importKey(
     'raw',
     ab(secret),

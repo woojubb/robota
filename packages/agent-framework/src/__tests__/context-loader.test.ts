@@ -12,7 +12,7 @@ import {
 } from '../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectReader } from '../workspace-trust/index.js';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-context-test-'));
+const TMP_BASE = mkdtempSync(join(tmpdir(), 'agent-context-test-'));
 
 function setupDir(path: string): void {
   mkdirSync(path, { recursive: true });
@@ -61,7 +61,7 @@ describe('loadContext', () => {
 
   // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
-    'loads project memory index when .robota/memory/MEMORY.md exists',
+    'loads project memory index when .agent/memory/MEMORY.md exists',
     async () => {
       const memoryStore = createWorkspaceMemoryStore(
         await createTrustedProjectStateFixture(rootDir, 'memory'),

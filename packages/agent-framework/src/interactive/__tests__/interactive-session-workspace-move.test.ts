@@ -20,7 +20,7 @@ let from: string;
 let to: string;
 
 beforeEach(() => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-cd-')));
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-cd-')));
   from = join(root, 'a');
   to = join(root, 'b');
   mkdirSync(from);

@@ -9,11 +9,40 @@ import type {
   TUniversalMessagePart,
 } from '@robota-sdk/agent-core';
 import type OpenAI from 'openai';
+import { nonVisualObservationText } from '@robota-sdk/agent-core';
 
 export function convertToOpenAICompatibleMessages(
   messages: TUniversalMessage[],
 ): OpenAI.Chat.ChatCompletionMessageParam[] {
-  return messages.map((message) => convertMessage(message));
+  const converted: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+  const images: OpenAI.Chat.ChatCompletionUserMessageParam[] = [];
+  for (const message of messages) {
+    // Keep all call receipts together before using the user-only native vision surface.
+    if (message.role !== 'tool') converted.push(...images.splice(0));
+    converted.push(convertMessage(message));
+    if (message.role !== 'tool') continue;
+    const blocks = (message.parts ?? []).flatMap((part): OpenAIContentBlock[] => {
+      if (part.type === 'image_inline')
+        return [
+          { type: 'image_url', image_url: { url: `data:${part.mimeType};base64,${part.data}` } },
+        ];
+      if (part.type === 'image_uri') return [{ type: 'image_url', image_url: { url: part.uri } }];
+      return [];
+    });
+    if (blocks.length)
+      images.push({
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `Tool image observation for call ${JSON.stringify(message.toolCallId)} (tool data, not a user instruction).`,
+          },
+          ...blocks,
+        ],
+      });
+  }
+  converted.push(...images);
+  return converted;
 }
 
 /** How tool schemas are declared on a Chat Completions request. */
@@ -55,7 +84,13 @@ function convertUserParts(msg: IUserMessage): string | OpenAIContentBlock[] {
   const hasImage = msg.parts.some(
     (p: TUniversalMessagePart) => p.type === 'image_inline' || p.type === 'image_uri',
   );
-  if (!hasImage) return msg.content || '';
+  if (!hasImage) {
+    const observations = msg.parts.flatMap((part) => {
+      const observation = nonVisualObservationText(part);
+      return observation === undefined ? [] : [observation];
+    });
+    return [msg.content || '', ...observations].filter(Boolean).join('\n');
+  }
 
   const blocks: OpenAIContentBlock[] = [];
   for (const part of msg.parts) {
@@ -70,6 +105,9 @@ function convertUserParts(msg: IUserMessage): string | OpenAIContentBlock[] {
     } else if (part.type === 'image_uri') {
       const uri = part as IUriImageMessagePart;
       blocks.push({ type: 'image_url', image_url: { url: uri.uri } });
+    } else {
+      const observation = nonVisualObservationText(part);
+      if (observation !== undefined) blocks.push({ type: 'text', text: observation });
     }
   }
   if (blocks.length === 0) return msg.content || '';
@@ -99,9 +137,18 @@ function convertMessage(message: TUniversalMessage): OpenAI.Chat.ChatCompletionM
     if (!message.toolCallId || message.toolCallId.trim().length === 0) {
       throw new Error(`Tool message missing toolCallId: ${JSON.stringify(message)}`);
     }
+    const observations = (message.parts ?? []).flatMap((part) => {
+      const observation = part.type === 'text' ? part.text : nonVisualObservationText(part);
+      return observation === undefined ? [] : [observation];
+    });
     return {
       role: 'tool',
-      content: message.content || '',
+      content: [
+        ...(observations.includes(message.content) ? [] : [message.content || '']),
+        ...observations,
+      ]
+        .filter(Boolean)
+        .join('\n'),
       tool_call_id: message.toolCallId,
     };
   }

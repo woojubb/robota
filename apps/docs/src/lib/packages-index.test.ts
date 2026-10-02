@@ -70,4 +70,8 @@ describe('getAllSlugs', () => {
   it('includes the packages index route that the header and sidebar link to', () => {
     expect(getAllSlugs()).toContainEqual(['packages']);
   });
+
+  it('includes the product configuration landing page linked by the sidebar', () => {
+    expect(getAllSlugs()).toContainEqual(['packages', 'product-config']);
+  });
 });

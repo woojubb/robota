@@ -24,7 +24,7 @@ export type TResumeSessionStore = Parameters<typeof restoreSessionRecordIntoSess
  * `createDefaultProviderDefinitions()` and building the child's surface from them, while the
  * composition root had already handed the runner the fully composed surface. So a product's custom
  * providers and pack-owned tools reached an in-process subagent and not a child-process one, and
- * ARCH-006's invariant — every tool robota runs comes from a pack — was false in the child.
+ * ARCH-006's invariant — every tool agent runs comes from a pack — was false in the child.
  *
  * **Why a recipe rather than the instances.** A composition cannot be projected across a process
  * boundary, because it is code: `createProvider` is a function and a tool carries `execute`. The two
@@ -35,8 +35,11 @@ export type TResumeSessionStore = Parameters<typeof restoreSessionRecordIntoSess
  * comparable product does.
  */
 export interface ISubagentWorkerComposition {
-  /** Product-selected hook executors for the child session. */
-  createHookTypeExecutors?: () => IHookTypeExecutor[];
+  /** Product-selected hooks receive the same execution boundary as the child tools. */
+  createHookTypeExecutors?: (context: {
+    readonly cwd: string;
+    readonly sandboxClient?: TProjectedSandboxClient;
+  }) => IHookTypeExecutor[];
   /**
    * The product's tool surface for THIS subagent's execution root.
    *

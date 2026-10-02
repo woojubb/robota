@@ -1,9 +1,9 @@
 # Agent CLI Docs
 
-`@robota-sdk/agent-cli` is the `robota` command: an AI coding assistant for the terminal and the
-reference app built from the Robota libraries. The CLI owns argument parsing, the choice of
+`@robota-sdk/agent-cli` provides `__PRODUCT_CLI_NAME__`, an AI coding assistant for the terminal and the
+maintained agent interface built from the Robota libraries. The CLI owns argument parsing, the choice of
 presentation — the terminal UI, print mode (`-p`), the headless runtime behind `--serve` and the
-desktop app, and `robota mcp serve` — and the local host adapters those need. Sessions, commands,
+desktop app, and `__PRODUCT_CLI_NAME__ mcp serve` — and the local host adapters those need. Sessions, commands,
 tools and permissions live in the SDK packages below it, chiefly `@robota-sdk/agent-framework`; the
 terminal UI itself is `@robota-sdk/agent-ui-terminal`.
 
@@ -21,7 +21,7 @@ These describe internals for contributors; nothing in them is a promise to users
 
 - [design/command-registry.md](./design/command-registry.md) — how a slash command or skill travels
   from an input line to the prompt the model runs.
-- [design/composition.md](./design/composition.md) — how one `robota` run assembles the product,
+- [design/composition.md](./design/composition.md) — how one `__PRODUCT_CLI_NAME__` run assembles the product,
   binds it to a mode and registers transports.
 - [design/internal-structure.md](./design/internal-structure.md) — a map of the CLI's source.
 - [design/message-architecture.md](./design/message-architecture.md) — which message type the

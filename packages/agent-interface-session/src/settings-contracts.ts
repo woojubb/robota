@@ -24,7 +24,7 @@ export interface ISettingsPermissionRule {
   readonly id: string;
   /** `user` | `project` | `project-local` | `managed`, matching the settings layer it came from. */
   readonly scope: string;
-  /** The file the rule lives in, as a person would find it (e.g. `~/.robota/settings.json`). */
+  /** The file the rule lives in, as a person would find it (for example, a path under the configured user state directory). */
   readonly source: string;
   readonly kind: 'allow' | 'deny' | 'ask';
   readonly pattern: string;

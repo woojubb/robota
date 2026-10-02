@@ -9,7 +9,7 @@ const isolatedHome = await vi.hoisted(async () => {
   const fs = await import('node:fs');
   const os = await import('node:os');
   const path = await import('node:path');
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'robota-runtime-tools-home-'));
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'robota-tools-home-'));
 });
 vi.mock('node:os', async (original) => ({
   ...(await original<typeof import('node:os')>()),

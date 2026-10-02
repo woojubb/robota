@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from './helpers/product-runtime.js';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -31,10 +32,10 @@ import type {
 const createProviderSettingsAdapter = (cwd: string): IProviderCommandSettingsAdapter => {
   const userHome = process.env.HOME ?? process.env.USERPROFILE ?? '/';
   const paths = [
-    join(userHome, '.robota', 'settings.json'),
+    join(userHome, '.test-product', 'settings.json'),
     join(userHome, '.claude', 'settings.json'),
-    join(cwd, '.robota', 'settings.json'),
-    join(cwd, '.robota', 'settings.local.json'),
+    join(cwd, '.test-product', 'settings.json'),
+    join(cwd, '.test-product', 'settings.local.json'),
     join(cwd, '.claude', 'settings.json'),
     join(cwd, '.claude', 'settings.local.json'),
   ];
@@ -89,7 +90,7 @@ function parseJsonObject(output: string): Record<string, unknown> {
 
 describe('default CLI command composition', () => {
   it('exposes permissions mode subcommands and standalone mode command', () => {
-    const userLocalStorageRoot = mkdtempSync(join(tmpdir(), 'robota-test-'));
+    const userLocalStorageRoot = mkdtempSync(join(tmpdir(), 'test-product-test-'));
     onTestFinished(() => rmSync(userLocalStorageRoot, { recursive: true, force: true }));
     const registry = new CommandRegistry();
 
@@ -114,14 +115,14 @@ describe('default CLI command composition', () => {
   });
 
   it('routes direct user-local storage inspection before provider setup', async () => {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-direct-user-local-')));
-    const home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-direct-user-local-home-')));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-direct-user-local-')));
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-direct-user-local-home-')));
     const originalArgv = process.argv;
     const originalHome = process.env.HOME;
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(cwd);
     const writes: string[] = [];
     const originalWrite = process.stdout.write;
-    process.argv = ['node', 'robota', 'user-local', 'storage', 'list', '--format', 'json'];
+    process.argv = ['node', 'test-product', 'user-local', 'storage', 'list', '--format', 'json'];
     process.env.HOME = home;
     process.stdout.write = ((chunk: string) => {
       writes.push(chunk);
@@ -129,9 +130,9 @@ describe('default CLI command composition', () => {
     }) as typeof process.stdout.write;
 
     try {
-      await startCli({ providerDefinitions: [] });
+      await startCli({productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),  providerDefinitions: [] });
       const output = parseJsonObject(writes.join('').trim());
-      expect(output['root']).toBe(join(home, '.robota'));
+      expect(output['root']).toBe(join(home, '.test-product'));
       const categories = output['categories'];
       expect(Array.isArray(categories)).toBe(true);
       if (!Array.isArray(categories)) {
@@ -155,7 +156,7 @@ describe('default CLI command composition', () => {
         'workflow-metadata',
         'inspection-index',
       ]);
-      expect(existsSync(join(cwd, '.robota'))).toBe(false);
+      expect(existsSync(join(cwd, '.test-product'))).toBe(false);
     } finally {
       process.stdout.write = originalWrite;
       process.argv = originalArgv;
@@ -171,8 +172,8 @@ describe('default CLI command composition', () => {
   });
 
   it('routes direct user-local memory commands before provider setup', async () => {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-direct-user-local-memory-')));
-    const home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-direct-user-local-memory-home-')));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-direct-user-local-memory-')));
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-direct-user-local-memory-home-')));
     const originalArgv = process.argv;
     const originalHome = process.env.HOME;
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(cwd);
@@ -180,7 +181,7 @@ describe('default CLI command composition', () => {
     const originalWrite = process.stdout.write;
     process.argv = [
       'node',
-      'robota',
+      'test-product',
       'user-local',
       'memory',
       'set',
@@ -199,9 +200,9 @@ describe('default CLI command composition', () => {
     }) as typeof process.stdout.write;
 
     try {
-      await startCli({ providerDefinitions: [] });
+      await startCli({productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),  providerDefinitions: [] });
       expect(writes.join('')).toContain('Stored user-local memory item view-preference/last-panel');
-      expect(existsSync(join(cwd, '.robota'))).toBe(false);
+      expect(existsSync(join(cwd, '.test-product'))).toBe(false);
     } finally {
       process.stdout.write = originalWrite;
       process.argv = originalArgv;
@@ -217,7 +218,7 @@ describe('default CLI command composition', () => {
   });
 
   it('runs permissions mode changes through headless slash-command execution', async () => {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-headless-permissions-')));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-headless-permissions-')));
     const session = new InteractiveSession({
       cwd,
       provider: createFakeProvider(),
@@ -272,10 +273,10 @@ describe('default CLI command composition', () => {
   });
 
   it('prints provider profile lists in headless mode without blocking on TUI interactions', async () => {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-headless-provider-')));
-    mkdirSync(join(cwd, '.robota'), { recursive: true });
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-headless-provider-')));
+    mkdirSync(join(cwd, '.test-product'), { recursive: true });
     writeFileSync(
-      join(cwd, '.robota', 'settings.local.json'),
+      join(cwd, '.test-product', 'settings.local.json'),
       JSON.stringify({
         currentProvider: 'openai',
         providers: {

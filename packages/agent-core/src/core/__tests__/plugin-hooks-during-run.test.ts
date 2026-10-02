@@ -1,5 +1,5 @@
 /**
- * The conversation-start and streaming-chunk plugin hooks are called during a real `Robota` run,
+ * The conversation-start and streaming-chunk plugin hooks are called during a real `ConversationAgent` run,
  * and the event emitter plugin reports a failed tool call as a tool error.
  */
 
@@ -10,7 +10,7 @@ import { AbstractTool } from '../../abstracts/abstract-tool';
 import { EventEmitterPlugin } from '../../plugins/event-emitter-plugin';
 import { EVENT_EMITTER_EVENTS } from '../../plugins/event-emitter/types';
 import { createScriptedProvider, type TScriptedTurn } from '../../testing/scripted-provider';
-import { Robota } from '../robota';
+import { ConversationAgent } from '../conversation-agent';
 
 import type { IPluginExecutionContext } from '../../abstracts/abstract-plugin-types';
 import type { IAgentConfig, IToolMessage } from '../../interfaces/agent';
@@ -88,8 +88,8 @@ const TURNS: readonly TScriptedTurn[] = [
   { text: 'all done' },
 ];
 
-function agentWith(plugins: IAgentConfig['plugins'], provider?: IAIProvider): Robota {
-  return new Robota({
+function agentWith(plugins: IAgentConfig['plugins'], provider?: IAIProvider): ConversationAgent {
+  return new ConversationAgent({
     name: 'Plugin Hooks Agent',
     aiProviders: [provider ?? createScriptedProvider(TURNS).provider],
     defaultModel: { provider: 'scripted-test-provider', model: 'test-model' },

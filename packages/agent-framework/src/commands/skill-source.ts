@@ -28,7 +28,7 @@ function decodeSkill(
 }
 
 /** Build a command from frontmatter, content, and a fallback name */
-function buildCommand(
+export function createSkillCommand(
   frontmatter: ISkillFrontmatter,
   content: string,
   fallbackName: string,
@@ -71,7 +71,7 @@ function discovered(
   skillDirectory: string | undefined,
 ): IDiscoveredCommand {
   if (frontmatter === undefined) return { name: fallbackName };
-  const command = buildCommand(frontmatter, content, fallbackName, skillDirectory);
+  const command = createSkillCommand(frontmatter, content, fallbackName, skillDirectory);
   return { name: command.name, command };
 }
 

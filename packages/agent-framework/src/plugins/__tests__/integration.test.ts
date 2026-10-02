@@ -8,7 +8,7 @@ import { BundlePluginLoader } from '../bundle-plugin-loader.js';
 
 import type { IBundlePluginManifest } from '../bundle-plugin-types.js';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-bundle-integration-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-bundle-integration-')));
 
 function setupDir(path: string): void {
   mkdirSync(path, { recursive: true });
@@ -283,7 +283,7 @@ Content.
     expect(plugins[0].hooks).toEqual(hooks);
   });
 
-  it('should load latest version when multiple versions exist', async () => {
+  it('loads the selected installed revision when multiple versions exist', async () => {
     createPluginInCache(pluginsDir, 'market', 'multi-ver', '1.0.0', {
       name: 'multi-ver',
       version: '1.0.0',
@@ -297,6 +297,15 @@ Content.
       features: {},
     });
 
+    writeJson(join(pluginsDir, 'installed_plugins.json'), {
+      'multi-ver@market': {
+        pluginName: 'multi-ver',
+        marketplace: 'market',
+        version: '2.0.0',
+        installPath: join(pluginsDir, 'cache', 'market', 'multi-ver', '2.0.0'),
+        installedAt: 'fixture',
+      },
+    });
     const loader = new BundlePluginLoader(pluginsDir);
     const plugins = await loader.loadAll();
 

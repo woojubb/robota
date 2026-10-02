@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Owns the default node catalog composition for the Robota DAG framework. Exports
+Owns the default node catalog composition for the agent runtime DAG framework. Exports
 `createDefaultNodeRegistrySync()` (the base node set used by CLI `/workflows`) and
 `createDefaultNodeRegistry()` (a private workspace async catalog: base set + the collapsed
 `llm-text` node bound to an injected/lazy provider registry + dynamically loaded media/skill

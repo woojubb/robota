@@ -6,8 +6,8 @@ Owns the **product-assembly kernel**: the `IProductProfile` declarative product 
 `IAssembledProduct` runtime-materials result, and the single composition function
 `assembleProduct`. `assembleProduct(profile)` is a **pure, deterministic, IO-free fold** over
 `IProductProfile` data with **zero product-specific branching** — the composition mechanism a
-third party imports to build their own product on Robota's published runtime. `robota` is one
-profile among many; an external repo brings its own.
+third party imports to build their own product on the published runtime. Product identity comes from
+the host's profile.
 
 ## The pure-fold property
 

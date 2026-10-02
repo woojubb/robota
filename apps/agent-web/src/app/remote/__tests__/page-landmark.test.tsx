@@ -15,11 +15,12 @@ interface IDynamicOptions {
 jest.mock('next/dynamic', () => (_loader: unknown, options: IDynamicOptions) => options.loading);
 
 // eslint-disable-next-line import/first -- must follow the mock above, which next/dynamic needs hoisted
-import RemotePage from '../page';
+import { RemoteSurface } from '../RemoteSurface';
+import type { IPublicProductConfig } from '@robota-sdk/product-config';
 
 describe('/remote renders exactly one main landmark (#3289 §3 review)', () => {
   it('while the remote client bundle is still loading', () => {
-    const { container } = render(<RemotePage />);
+    const { container } = render(<RemoteSurface product={{ identity: { displayName: 'Test Product', cliName: 'test-product' }, storage: { browserNamespace: 'test-product', browserCredentialDatabase: 'test-product-credentials' }, crypto: { namespace: 'test-product' } } as IPublicProductConfig} />);
     expect(container.querySelectorAll('main')).toHaveLength(1);
   });
 });

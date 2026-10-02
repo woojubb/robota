@@ -1,8 +1,10 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { randomBytes } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 
 import {
   acquireSupervisedDaemonStartLock,
+  resolveSupervisedDirectory,
   connectSupervisedDaemon,
   listSupervisedSessions,
   removeSupervisedDaemonStartLock,
@@ -11,17 +13,18 @@ import {
 } from './supervised-session-control.js';
 import { launchSupervisedSession } from './supervised-session-launch.js';
 
-export const DAEMON_USAGE =
-  'Usage: robota daemon start [--json] [--restricted-workspace]\n' +
-  '       robota daemon status [--json]\n' +
-  '       robota daemon stop\n' +
-  '       robota daemon unlock\n';
+export const DAEMON_USAGE = (cliName: string): string =>
+  `Usage: ${cliName} daemon start [--json] [--restricted-workspace]\n` +
+  `       ${cliName} daemon status [--json]\n` +
+  `       ${cliName} daemon stop\n` +
+  `       ${cliName} daemon unlock\n`;
 
 export interface IDaemonCommandOptions {
+  readonly productRuntime: ICliRuntimeContext;
   /** The directory the command runs in; its real path names the workspace. */
   readonly cwd: string;
   /** The environment a started daemon inherits; the transport token is added to it here. */
-  readonly env: () => NodeJS.ProcessEnv;
+  readonly env: (workspace: string) => NodeJS.ProcessEnv;
   /**
    * Throws, with the message to show, when a daemon may not start in this workspace. `restricted` is
    * a person's choice to start it without the project's own configuration.
@@ -37,7 +40,7 @@ export interface IDaemonCommandOptions {
   readonly launch?: typeof launchSupervisedSession;
   readonly stop?: typeof stopSupervisedSession;
   /** Serializes starts in one workspace; resolves to the release. */
-  readonly lock?: (workspace: string, root?: string) => Promise<() => void>;
+  readonly lock?: typeof acquireSupervisedDaemonStartLock;
 }
 
 type TAction =
@@ -69,7 +72,7 @@ export type TWorkspaceDaemon = ISupervisedSessionRow & { readonly generation: st
  */
 export async function findWorkspaceDaemon(
   workspace: string,
-  lookup: { readonly root?: string; readonly list?: typeof listSupervisedSessions } = {},
+  lookup: { readonly root: string; readonly list?: typeof listSupervisedSessions },
 ): Promise<TWorkspaceDaemon | undefined> {
   const rows = await (lookup.list ?? listSupervisedSessions)(lookup.root, undefined, {
     cwd: workspace, includeCwd: true, includeGeneration: true, includeDaemon: true, includeName: true,
@@ -82,7 +85,7 @@ export async function findWorkspaceDaemon(
 }
 
 function findDaemon(options: IDaemonCommandOptions, workspace: string): Promise<TWorkspaceDaemon | undefined> {
-  return findWorkspaceDaemon(workspace, options);
+  return findWorkspaceDaemon(workspace, { ...options, root: options.root ?? resolveSupervisedDirectory(options.productRuntime) });
 }
 
 /** A running daemon that cannot hand over its connection blocks every later start until it is stopped. */
@@ -90,11 +93,12 @@ async function connectRunning(
   options: IDaemonCommandOptions,
   running: TWorkspaceDaemon,
 ): Promise<string> {
+  const cliName = options.productRuntime.vocabulary.cliName;
   try {
-    return await (options.connect ?? connectSupervisedDaemon)(running.id, options.root, running.generation);
+    return await (options.connect ?? connectSupervisedDaemon)(running.id, (options.root ?? resolveSupervisedDirectory(options.productRuntime)), running.generation);
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'The daemon did not hand over its connection.';
-    throw new Error(`${reason} Daemon ${running.id} is running but cannot be connected to. Run: robota daemon stop`);
+    throw new Error(`${reason} Daemon ${running.id} is running but cannot be connected to. Run: ${cliName} daemon stop`);
   }
 }
 
@@ -108,22 +112,24 @@ async function launchDaemon(
   // The token reaches the child only through its environment, never its command line. With a
   // token the transport also accepts the desktop app's `file://` origin. The port is left to
   // the transport's default so a busy one is retried.
-  const env: NodeJS.ProcessEnv = { ...options.env(), ROBOTA_WS_TOKEN: randomBytes(32).toString('hex') };
-  delete env['ROBOTA_WS_PORT'];
+  const env: NodeJS.ProcessEnv = { ...options.env(workspace), PRODUCT_WS_TOKEN: randomBytes(32).toString('hex') };
+  delete env['PRODUCT_WS_PORT'];
   const id = await (options.launch ?? launchSupervisedSession)(workspace, {
     env,
+    productRuntime: options.productRuntime,
+    root: options.root ?? resolveSupervisedDirectory(options.productRuntime),
     daemon: true,
     ...(restricted ? { restricted: true } : {}),
   });
   try {
-    return { id, url: await (options.connect ?? connectSupervisedDaemon)(id, options.root) };
+    return { id, url: await (options.connect ?? connectSupervisedDaemon)(id, (options.root ?? resolveSupervisedDirectory(options.productRuntime))) };
   } catch (error) {
     try {
-      const rows = await (options.list ?? listSupervisedSessions)(options.root, undefined, {
+      const rows = await (options.list ?? listSupervisedSessions)((options.root ?? resolveSupervisedDirectory(options.productRuntime)), undefined, {
         cwd: workspace, includeGeneration: true,
       });
       const started = rows.find((row) => row.id === id);
-      await (options.stop ?? stopSupervisedSession)(id, options.root, started?.generation);
+      await (options.stop ?? stopSupervisedSession)(id, (options.root ?? resolveSupervisedDirectory(options.productRuntime)), started?.generation);
     } catch {
       // Best effort: the start already failed and says so below.
     }
@@ -132,7 +138,7 @@ async function launchDaemon(
 }
 
 /**
- * `robota daemon start|status|stop`: one supervised runtime per workspace that a client, the desktop
+ * `the CLI daemon start|status|stop`: one supervised runtime per workspace that a client, the desktop
  * app first, connects to over WebSocket instead of spawning a runtime of its own. The token-bearing
  * URL is printed only with `--json`, for the program that connects.
  */
@@ -140,16 +146,17 @@ export async function runDaemonCommand(
   args: readonly string[],
   options: IDaemonCommandOptions,
 ): Promise<number> {
+  const cliName = options.productRuntime.vocabulary.cliName;
   const parsed = parseDaemonArgs(args);
   if (parsed === undefined) {
-    options.stderr(DAEMON_USAGE);
+    options.stderr(DAEMON_USAGE(cliName));
     return 1;
   }
   try {
     const workspace = realpathSync(options.cwd);
     if (parsed.action === 'unlock') {
       // Only at the user's request: a start never removes a lock it did not take.
-      const removed = removeSupervisedDaemonStartLock(workspace, options.root);
+      const removed = removeSupervisedDaemonStartLock(workspace, (options.root ?? resolveSupervisedDirectory(options.productRuntime)));
       if (removed.outcome === 'held') {
         options.stderr(`A daemon start (process ${removed.pid}) is still running in ${workspace}; its lock was kept.\n`);
         return 1;
@@ -165,7 +172,7 @@ export async function runDaemonCommand(
         options.stdout(`No daemon is running in ${workspace}.\n`);
         return 0;
       }
-      await (options.stop ?? stopSupervisedSession)(running.id, options.root, running.generation);
+      await (options.stop ?? stopSupervisedSession)(running.id, (options.root ?? resolveSupervisedDirectory(options.productRuntime)), running.generation);
       options.stdout(`Stopped daemon ${running.id}.\n`);
       return 0;
     }
@@ -189,12 +196,12 @@ export async function runDaemonCommand(
     const refuseMismatch = async (daemon: TWorkspaceDaemon): Promise<void> => {
       if (parsed.restricted && daemon.restricted !== true) {
         throw new Error(
-          `Daemon ${daemon.id} is running in ${workspace} with the project's configuration, so it cannot be started Restricted. Run: robota daemon stop`,
+          `Daemon ${daemon.id} is running in ${workspace} with the project's configuration, so it cannot be started Restricted. Run: ${cliName} daemon stop`,
         );
       }
       if (!parsed.restricted && daemon.restricted === true && await options.trusted(workspace)) {
         throw new Error(
-          `Daemon ${daemon.id} is running Restricted in ${workspace}, which is trusted now. To start it with the project's configuration, run: robota daemon stop`,
+          `Daemon ${daemon.id} is running Restricted in ${workspace}, which is trusted now. To start it with the project's configuration, run: ${cliName} daemon stop`,
         );
       }
     };
@@ -204,7 +211,7 @@ export async function runDaemonCommand(
       url = await connectRunning(options, running);
     } else {
       // Starts in one workspace take turns; the one that waited finds the winner's daemon and reuses it.
-      const release = await (options.lock ?? acquireSupervisedDaemonStartLock)(workspace, options.root);
+      const release = await (options.lock ?? acquireSupervisedDaemonStartLock)(workspace, (options.root ?? resolveSupervisedDirectory(options.productRuntime)), { cliName });
       try {
         const winner = await findDaemon(options, workspace);
         if (winner !== undefined) {

@@ -3,7 +3,7 @@ export {
   LAUNCH_INTENT_KEYS,
   LAUNCH_INTENT_MAX_PROMPT,
   LAUNCH_INTENT_MAX_URL,
-  LAUNCH_INTENT_USAGE,
+  launchIntentUsage,
   LAUNCH_INTENT_VERSION,
   type ILaunchIntent,
   type TLaunchIntentParse,

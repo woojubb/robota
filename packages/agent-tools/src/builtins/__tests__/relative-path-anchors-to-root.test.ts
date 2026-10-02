@@ -13,7 +13,7 @@ import { resolveHostPath } from '../path-guard.js';
 import { createReadTool } from '../read-tool.js';
 import { createWriteTool } from '../write-tool.js';
 
-const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-2429-')));
+const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-2429-')));
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 interface IInvocation {

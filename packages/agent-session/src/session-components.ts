@@ -1,4 +1,4 @@
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 
 import { CompactionOrchestrator } from './compaction-orchestrator.js';
 import { ContextWindowTracker } from './context-window-tracker.js';
@@ -21,6 +21,7 @@ export function buildPermissionEnforcer(
   transcriptPath: string | undefined,
 ): PermissionEnforcer {
   return new PermissionEnforcer({
+    pathProtection: options.pathProtection,
     sessionId,
     cwd,
     getPermissionMode,
@@ -77,7 +78,7 @@ export function buildSessionTrackers(
   return { contextTracker, compactionOrchestrator };
 }
 
-export function buildRobota(
+export function buildConversationAgent(
   options: ISessionOptions,
   permissionEnforcer: PermissionEnforcer,
   tools: IToolWithEventService[],
@@ -85,7 +86,7 @@ export function buildRobota(
   model: string,
   systemMessage: string,
   eventService: IEventService,
-): Robota {
+): ConversationAgent {
   const wrappedTools = permissionEnforcer.wrapTools(tools);
   const agentConfig: IAgentConfig = {
     name: options.agentName ?? 'agent',
@@ -102,6 +103,9 @@ export function buildRobota(
     // Single source of truth for the system prompt (agent-level, not model config).
     systemMessage,
     tools: wrappedTools,
+    ...(options.toolExecutionPolicy !== undefined
+      ? { toolExecutionPolicy: options.toolExecutionPolicy }
+      : {}),
     // Issue #3081: a tool denied outright by name is withheld from the model, not offered and refused.
     isToolVisible: (toolName) => permissionEnforcer.isToolVisible(toolName),
     logging: { enabled: false },
@@ -119,5 +123,5 @@ export function buildRobota(
       ? { contextCapacityHint: options.contextCapacityHint }
       : {}),
   };
-  return new Robota(agentConfig);
+  return new ConversationAgent(agentConfig);
 }

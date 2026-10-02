@@ -1,3 +1,4 @@
+import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 /**
  * The contract a `PairingGate` is constructed with (REMOTE-008 / -012 / -013, SEC-010, SEC-011).
  *
@@ -48,7 +49,7 @@ export interface IHostReconnectConfig {
   readonly hostPrivateKey: CryptoKey;
   /** Resolve a pinned device public key by id (undefined → unknown/revoked → fail closed). */
   readonly resolveDevicePublicKey: (deviceId: string) => Promise<CryptoKey | undefined>;
-  /** Pin a device's public key on first-pair enrollment (deviceId, base64url SPKI). */
+  /** Pin a device's public key on first-pair enrollment; throw to refuse before session attachment. */
   readonly onEnroll: (deviceId: string, deviceSpki: string) => void;
 }
 
@@ -71,6 +72,7 @@ export interface IConnectionApproval {
 }
 
 export interface IPairingGateOptions {
+  readonly cryptoContext: IIdentityContext;
   readonly channel: IPairingChannel;
   readonly session: IProtocolSession;
   readonly secret: string;

@@ -1,4 +1,4 @@
-import type { IProviderDefinition, IToolResultAdmissionOptions } from '@robota-sdk/agent-core';
+import type { IAgentConfig, IProviderDefinition, IToolResultAdmissionOptions } from '@robota-sdk/agent-core';
 import type {
   IMCPActivationApprovalStore,
   IMCPHttpTransportDeps,
@@ -12,6 +12,9 @@ import type {
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type { IOutputStyleSource } from '@robota-sdk/agent-preset';
+import type { IProductConfig, TConfigEnvironment } from '@robota-sdk/product-config';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
+import type { THostedRuntimeExecutorFactory } from '../hosted/hosted-runtime-types.js';
 
 /**
  * Leaf type module: holds {@link IStartCliOptions} so it can be imported by both
@@ -19,6 +22,16 @@ import type { IOutputStyleSource } from '@robota-sdk/agent-preset';
  * Re-exported from `command-setup.ts` so existing imports keep working.
  */
 export interface IStartCliOptions {
+  /** Optional operator override for the installed hosted worker execution owner. */
+  hostedRuntimeExecutorFactory?: THostedRuntimeExecutorFactory;
+  /** Host-owned product configuration resolved once per invocation. */
+  productConfig?: IProductConfig;
+  /** Explicit source/development environment snapshot; never retained across invocations. */
+  environment?: TConfigEnvironment;
+  /** Explicit absolute product environment-file selection. */
+  productConfigFile?: string;
+  /** Already-resolved context shared by this invocation and its mode branches. */
+  productRuntime?: ICliRuntimeContext;
   commandModules?: readonly ICommandModule[];
   providerDefinitions?: readonly IProviderDefinition[];
   /** Initial trusted-or-restricted workspace decision. Absence is Restricted. */
@@ -37,6 +50,8 @@ export interface IStartCliOptions {
   mcpApprovalStore?: IMCPActivationApprovalStore;
   /** Host-owned HTTP transport policy; never supplied by MCP settings or a remote caller. */
   mcpHttpTransportDeps?: IMCPHttpTransportDeps;
+  /** Local embedding-host policy; worker hosts supply their own, never a serialized host function. */
+  toolExecutionPolicy?: IAgentConfig['toolExecutionPolicy'];
   /** Host-configured character limits; generic admission validates the ordering and ceiling. */
   mcpResultAdmissionLimits?: Pick<
     IToolResultAdmissionOptions,

@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { AbstractTool } from '../../abstracts/abstract-tool';
-import { Robota } from '../robota';
+import { ConversationAgent } from '../conversation-agent';
 
 import type { IRunOptions } from '../../interfaces/agent';
 import type { TUniversalMessage } from '../../interfaces/messages';
@@ -26,15 +26,15 @@ type TEntryPoint = (typeof ENTRY_POINTS)[number];
 const PROVIDER_NAME = 'forced-summary-test-provider';
 
 async function drive(
-  robota: Robota,
+  agent: ConversationAgent,
   entry: TEntryPoint,
   input: string,
   options?: IRunOptions,
 ): Promise<string> {
   if (entry === 'run') {
-    return robota.run(input, options);
+    return agent.run(input, options);
   }
-  const stream = robota.runStream(input, options);
+  const stream = agent.runStream(input, options);
   for (;;) {
     const next = await stream.next();
     if (next.done === true) {
@@ -98,8 +98,8 @@ function toolThenSummaryProvider(
   };
 }
 
-function buildAgent(provider: IAIProvider): Robota {
-  return new Robota({
+function buildAgent(provider: IAIProvider): ConversationAgent {
+  return new ConversationAgent({
     name: 'Forced Summary Agent',
     aiProviders: [provider],
     defaultModel: { provider: PROVIDER_NAME, model: 'test-model' },
@@ -111,9 +111,9 @@ function buildAgent(provider: IAIProvider): Robota {
 describe.each(ENTRY_POINTS)('forced summary failure — %s()', (entry) => {
   it("rejects with the summary call's own error", async () => {
     const rejected = new HttpStatusError(400);
-    const robota = buildAgent(toolThenSummaryProvider(() => Promise.reject(rejected)));
+    const agent = buildAgent(toolThenSummaryProvider(() => Promise.reject(rejected)));
 
-    const outcome = await drive(robota, entry, 'decide', { maxExecutionRounds: 1 }).then(
+    const outcome = await drive(agent, entry, 'decide', { maxExecutionRounds: 1 }).then(
       () => undefined,
       (error: unknown) => error,
     );
@@ -123,12 +123,12 @@ describe.each(ENTRY_POINTS)('forced summary failure — %s()', (entry) => {
   });
 
   it('announces the failure record it adds to history', async () => {
-    const robota = buildAgent(
+    const agent = buildAgent(
       toolThenSummaryProvider(() => Promise.reject(new HttpStatusError(503))),
     );
     const appended: Array<Record<string, unknown>> = [];
 
-    await drive(robota, entry, 'decide', {
+    await drive(agent, entry, 'decide', {
       maxExecutionRounds: 1,
       onExecutionEvent: (event, data) => {
         if (event === 'history_mutation') appended.push(data);
@@ -149,14 +149,14 @@ describe.each(ENTRY_POINTS)('forced summary failure — %s()', (entry) => {
     ['the provider reports an abort of its own', false],
   ])('resolves as interrupted when %s', async (_case, cancelRun) => {
     const controller = new AbortController();
-    const robota = buildAgent(
+    const agent = buildAgent(
       toolThenSummaryProvider(() => {
         if (cancelRun) controller.abort();
         return Promise.reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
       }),
     );
 
-    const answer = await drive(robota, entry, 'decide', {
+    const answer = await drive(agent, entry, 'decide', {
       maxExecutionRounds: 1,
       signal: controller.signal,
     });

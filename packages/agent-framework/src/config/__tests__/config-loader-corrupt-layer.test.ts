@@ -28,7 +28,7 @@ import { createNodeHostSettingsSource } from '../settings-source.js';
 const roots: string[] = [];
 
 function tempRoot(): string {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-config-002-')));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-config-002-')));
   roots.push(root);
   return root;
 }
@@ -36,8 +36,8 @@ function tempRoot(): string {
 /** A host settings source backed by a real file, which is what the loader reads in production. */
 function hostSourceWith(contents: string): ReturnType<typeof createNodeHostSettingsSource> {
   const root = tempRoot();
-  mkdirSync(join(root, '.robota'), { recursive: true });
-  const path = join(root, '.robota', 'settings.json');
+  mkdirSync(join(root, '.agent'), { recursive: true });
+  const path = join(root, '.agent', 'settings.json');
   writeFileSync(path, contents, 'utf8');
   return createNodeHostSettingsSource('user', path);
 }
@@ -71,7 +71,7 @@ describe('CONFIG-002: a corrupt layer is an error, not an absence', () => {
 
   it('leaves a genuinely MISSING file missing — absence is still absence', async () => {
     const root = tempRoot();
-    const source = createNodeHostSettingsSource('user', join(root, '.robota', 'settings.json'));
+    const source = createNodeHostSettingsSource('user', join(root, '.agent', 'settings.json'));
 
     const config = await loadConfig([source]);
     expect(config.permissions.deny).toEqual([]);

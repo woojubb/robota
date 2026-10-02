@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 function tempRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), 'robota-plugin-settings-'));
+  const root = mkdtempSync(join(tmpdir(), 'agent-plugin-settings-'));
   roots.push(root);
   return root;
 }

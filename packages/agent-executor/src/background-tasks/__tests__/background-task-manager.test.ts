@@ -195,10 +195,10 @@ describe('BackgroundTaskManager', () => {
             kind: 'agent',
             output: 'done',
             metadata: {
-              worktreePath: '/tmp/robota-worktree',
-              branchName: 'robota/agent_1',
+              worktreePath: '/tmp/agent-test-worktree',
+              branchName: 'agent/worker_1',
               worktreeStatus: ' M changed.ts',
-              worktreeNextAction: 'Review /tmp/robota-worktree.',
+              worktreeNextAction: 'Review /tmp/agent-test-worktree.',
               worktreeBaseRevision: '1234567890abcdef',
               parentWorktreeStatus: ' M README.md',
             },
@@ -218,10 +218,10 @@ describe('BackgroundTaskManager', () => {
     if (completed?.kind !== 'agent') throw new Error('expected an agent-kind task');
 
     expect(completed.isolation).toBe('worktree');
-    expect(completed.worktreePath).toBe('/tmp/robota-worktree');
-    expect(completed.branchName).toBe('robota/agent_1');
+    expect(completed.worktreePath).toBe('/tmp/agent-test-worktree');
+    expect(completed.branchName).toBe('agent/worker_1');
     expect(completed.worktreeStatus).toBe(' M changed.ts');
-    expect(completed.worktreeNextAction).toBe('Review /tmp/robota-worktree.');
+    expect(completed.worktreeNextAction).toBe('Review /tmp/agent-test-worktree.');
     expect(completed.worktreeBaseRevision).toBe('1234567890abcdef');
     expect(completed.parentWorktreeStatus).toBe(' M README.md');
   });

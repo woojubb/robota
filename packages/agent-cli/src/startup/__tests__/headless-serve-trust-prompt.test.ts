@@ -1,5 +1,6 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * Issue #3282 §3: `robota --serve --open` asks the same trust question the TUI does, but with the
+ * Issue #3282 §3: `the product --serve --open` asks the same trust question the TUI does, but with the
  * `pnpm gui:dev` sidecar wrapper's three-way answer (trust / start Restricted / quit) instead of the
  * TUI's plain yes-means-trust-no-means-Restricted, since a headless start also needs a way to not start
  * at all.
@@ -37,7 +38,7 @@ function stubTty(stdin: boolean, stdout: boolean): () => void {
 
 /** An untrusted Git workspace, with the trust store in a temporary HOME. */
 function untrustedRepository(): string {
-  const scratch = realpathSync(mkdtempSync(join(tmpdir(), 'robota-serve-open-trust-')));
+  const scratch = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-serve-open-trust-')));
   cleanup.push(() => rmSync(scratch, { recursive: true, force: true }));
   const home = join(scratch, 'home');
   const repo = join(scratch, 'repo');
@@ -55,7 +56,7 @@ function untrustedRepository(): string {
 describe('canAskServeOpenTrustQuestion', () => {
   it('is true only with an askable state and a TTY on both streams', async () => {
     const repo = untrustedRepository();
-    const access = await resolveInitialCliWorkspaceProjectAccess(repo);
+    const access = await resolveInitialCliWorkspaceProjectAccess(repo, { productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) });
 
     let restore = stubTty(true, true);
     try {
@@ -87,11 +88,11 @@ describe('canAskServeOpenTrustQuestion', () => {
 describe('askServeOpenTrustQuestion', () => {
   it('trusts and starts on a "y" answer, recording the grant', async () => {
     const repo = untrustedRepository();
-    const access = await resolveInitialCliWorkspaceProjectAccess(repo);
+    const access = await resolveInitialCliWorkspaceProjectAccess(repo, { productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) });
     const written: string[] = [];
     const ask = vi.fn(async () => 'y');
 
-    const answer = await askServeOpenTrustQuestion(access, repo, {
+    const answer = await askServeOpenTrustQuestion(access, repo, {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
       ask,
       write: (text) => written.push(text),
     });
@@ -104,48 +105,48 @@ describe('askServeOpenTrustQuestion', () => {
     if (answer.decision !== 'trust') throw new Error('expected trust');
     expect(answer.access.status).toBe('trusted');
     // Recorded, so the next start is Trusted without asking.
-    await expect(resolveInitialCliWorkspaceProjectAccess(repo)).resolves.toMatchObject({
+    await expect(resolveInitialCliWorkspaceProjectAccess(repo, { productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) })).resolves.toMatchObject({
       status: 'trusted',
     });
   });
 
   it('starts Restricted on an "r" answer, without recording anything', async () => {
     const repo = untrustedRepository();
-    const access = await resolveInitialCliWorkspaceProjectAccess(repo);
+    const access = await resolveInitialCliWorkspaceProjectAccess(repo, { productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) });
     const written: string[] = [];
 
-    const answer = await askServeOpenTrustQuestion(access, repo, {
+    const answer = await askServeOpenTrustQuestion(access, repo, {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
       ask: async () => 'r',
       write: (text) => written.push(text),
     });
 
     expect(answer).toEqual({ decision: 'restricted', access });
     expect(written.join('')).toContain('Starting Restricted.');
-    await expect(resolveInitialCliWorkspaceProjectAccess(repo)).resolves.toMatchObject({
+    await expect(resolveInitialCliWorkspaceProjectAccess(repo, { productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) })).resolves.toMatchObject({
       status: 'restricted',
     });
   });
 
   it.each([['N'], [''], ['nope'], ['no']])('quits on %j, same as sidecar-trust.mjs', async (raw) => {
     const repo = untrustedRepository();
-    const access = await resolveInitialCliWorkspaceProjectAccess(repo);
+    const access = await resolveInitialCliWorkspaceProjectAccess(repo, { productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) });
     const written: string[] = [];
 
-    const answer = await askServeOpenTrustQuestion(access, repo, {
+    const answer = await askServeOpenTrustQuestion(access, repo, {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
       ask: async () => raw,
       write: (text) => written.push(text),
     });
 
     expect(answer).toEqual({ decision: 'quit' });
-    expect(written.join('')).toContain('Trust it later with: robota trust --yes');
+    expect(written.join('')).toContain('Trust it later with: test-product trust --yes');
   });
 
   it('falls back to Restricted, saying so, when recording the grant fails', async () => {
     const repo = untrustedRepository();
-    const access = await resolveInitialCliWorkspaceProjectAccess(repo);
+    const access = await resolveInitialCliWorkspaceProjectAccess(repo, { productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) });
     const written: string[] = [];
 
-    const answer = await askServeOpenTrustQuestion(access, repo, {
+    const answer = await askServeOpenTrustQuestion(access, repo, {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
       ask: async () => 'y',
       write: (text) => written.push(text),
       grant: async () => {
@@ -163,7 +164,7 @@ describe('askServeOpenTrustQuestion', () => {
     const ask = vi.fn(async () => 'y');
     const access = createRestrictedWorkspaceProjectAccess('store-unavailable', '/nowhere');
 
-    const answer = await askServeOpenTrustQuestion(access, '/nowhere', { ask });
+    const answer = await askServeOpenTrustQuestion(access, '/nowhere', {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),  ask });
 
     expect(ask).not.toHaveBeenCalled();
     expect(answer).toEqual({ decision: 'restricted', access });

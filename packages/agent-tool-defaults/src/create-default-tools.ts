@@ -44,6 +44,7 @@ export interface ICreateDefaultToolsOptions {
   sandboxClient?: ISandboxClient;
   /** Host-selected executable for Shell and Bash. */
   shellExecutable?: string;
+  httpUserAgent?: string;
   /**
    * The execution root every file tool is contained by. REQUIRED — ARCH-010.
    *
@@ -95,7 +96,7 @@ export function createDefaultTools(options: ICreateDefaultToolsOptions): Functio
     // module-level singletons in `agent-tools`, so two concurrently open sessions built from this
     // set (e.g. two `sessionParticipant`s) shared them and tripped `resource-reused` even though
     // nothing about a WebFetch/WebSearch tool actually needs to be shared across sessions.
-    createWebFetchTool(),
+    createWebFetchTool({ userAgent: options.httpUserAgent }),
     createWebSearchTool(),
     createAskUserQuestionTool(),
     // Retrieval is adapter-gated: absent when no adapter is supplied (there is no host fallback).

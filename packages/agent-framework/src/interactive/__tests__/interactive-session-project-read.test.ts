@@ -75,7 +75,7 @@ describe('InteractiveSession project reads', () => {
       const status = await harness.session.readProjectStatus();
       if (status.kind !== 'status') throw new Error(`expected status, got ${JSON.stringify(status)}`);
       expect(status.branch).toBe('main');
-      // The harness itself writes `.robota/` session state into the workspace (untracked) — filter it
+      // The harness itself writes `.agent/` session state into the workspace (untracked) — filter it
       // out rather than asserting the exact file set, which is this test's business, not the harness's.
       expect(status.files.find((f) => f.path === 'a.txt')).toEqual({
         path: 'a.txt',

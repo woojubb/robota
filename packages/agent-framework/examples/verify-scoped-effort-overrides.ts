@@ -40,7 +40,7 @@ const terminal = {
 };
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'robota-behavior-009-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'agent-behavior-009-'));
   const provider = new RecordingProvider();
   const session = new Session({
     cwd,

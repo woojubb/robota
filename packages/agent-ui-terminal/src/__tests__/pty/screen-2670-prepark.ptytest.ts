@@ -1,5 +1,5 @@
 /**
- * SCREEN-2670 TC-09 — the pre-write park on the BUILT robota binary, in a real PTY.
+ * SCREEN-2670 TC-09 — the pre-write park on the BUILT CLI binary, in a real PTY.
  *
  * A screen reader sees bytes and time, nothing else, so the claim is checked where both exist: the
  * raw PTY stream is sampled every few milliseconds and each growth is stamped. A COMMIT the park
@@ -157,7 +157,7 @@ function spawnScenario(projectDir: string, mode: 'park' | 'zero' | 'off'): IPtyS
     projectDir,
     homeDir: join(projectDir, 'home'),
     args: ['--session-log', REPLAY_FIXTURE, ...screenReader, '--name', 'prepark-scenario'],
-    env: { ROBOTA_SCREEN_READER_STARTUP_QUIET_MS: '0', ROBOTA_SCREEN_READER_PREPARK_MS: prepark },
+    env: { PRODUCT_SCREEN_READER_STARTUP_QUIET_MS: '0', PRODUCT_SCREEN_READER_PREPARK_MS: prepark },
   });
 }
 
@@ -171,7 +171,7 @@ describe('SCREEN-2670 the pre-write park through the real binary', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-prepark-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-prepark-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 

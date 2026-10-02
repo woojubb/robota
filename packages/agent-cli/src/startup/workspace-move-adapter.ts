@@ -1,13 +1,15 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * `/cd` in the TUI (issue #3081): the move is a new robota run in the target directory.
+ * `/cd` in the TUI (issue #3081): the move is a new the product run in the target directory.
  *
  * Startup already composes everything a session needs from `(cwd, access)` — settings, trust, tools,
  * skills, MCP, instructions — so the move reuses it exactly rather than re-deriving any of it
  * in-process: this adapter saves the conversation copy where the target's session store will find
- * it, lets the TUI end through its normal end-of-life flow, and when this process exits runs robota
+ * it, lets the TUI end through its normal end-of-life flow, and when this process exits runs the product
  * again in the target directory resuming that copy. The process boundary is what makes the move
  * atomic — no tool call can straddle it.
  */
+import { restartProductEnvironment } from '../product/restart-environment.js';
 import { spawnSync } from 'node:child_process';
 
 import {
@@ -29,6 +31,7 @@ import type {
   IWorkspaceMoveRequest,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
 /**
  * The arguments a `/cd` target starts with keep safe mode on however it was turned on — by the flag,
@@ -44,13 +47,15 @@ export function argvCarryingSafeMode(argv: readonly string[], safeMode: boolean)
 }
 
 export interface IWorkspaceMoveAdapterDeps {
+  readonly productRuntime: ICliRuntimeContext;
+  readonly providerDefinitions?: readonly IProviderDefinition[];
   readonly userHome: string;
   /** This run's own arguments, carried into the target run minus what to resume. */
   readonly argv: readonly string[];
   /** End the TUI through its normal end-of-life flow. */
   readonly requestExit: () => void;
   /**
-   * Variables startup took out of `process.env` (telemetry) and hands back to a robota it starts,
+   * Variables startup took out of `process.env` (telemetry) and hands back to a the product it starts,
    * so the target run is configured exactly as this one was.
    */
   readonly environment?: Readonly<Record<string, string>>;
@@ -73,7 +78,7 @@ async function targetAccess(
 
 export function createWorkspaceMoveAdapter(deps: IWorkspaceMoveAdapterDeps): ICommandWorkspaceAdapter {
   const resolveAccess =
-    deps.resolveAccess ?? ((cwd: string) => resolveInitialCliWorkspaceProjectAccess(cwd));
+    deps.resolveAccess ?? ((cwd: string) => resolveInitialCliWorkspaceProjectAccess(cwd, { productRuntime: deps.productRuntime }));
   const onProcessExit =
     deps.onProcessExit ?? ((listener: () => void) => void process.once('exit', listener));
   const runSync = deps.runSync ?? spawnSync;
@@ -81,6 +86,7 @@ export function createWorkspaceMoveAdapter(deps: IWorkspaceMoveAdapterDeps): ICo
     async move(request) {
       const projectAccess = await targetAccess(request, resolveAccess);
       const target = createCliWorkspaceComposition({
+        productRuntime: deps.productRuntime,
         cwd: request.targetCwd,
         userHome: deps.userHome,
         projectAccess,
@@ -95,11 +101,14 @@ export function createWorkspaceMoveAdapter(deps: IWorkspaceMoveAdapterDeps): ICo
       const entry = resolveSelfForkWorkerEntry();
       onProcessExit(() => {
         // Synchronous: an `exit` listener may do nothing else. This process waits for the target
-        // run and ends with its status, so a shell or supervisor sees one robota session.
+        // run and ends with its status, so a shell or supervisor sees one the product session.
         const result = runSync(entry.execPath, [...(entry.execArgv ?? []), ...entry.args, ...args], {
           cwd: request.targetCwd,
           stdio: 'inherit',
-          env: { ...process.env, ...deps.environment },
+          env: {
+            ...restartProductEnvironment(deps.productRuntime, target.settingsSources, deps.providerDefinitions ?? []),
+            ...deps.environment,
+          },
         });
         process.exitCode = result.status ?? 1;
       });

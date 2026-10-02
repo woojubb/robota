@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { warnIfTerminalAppOnMacOS } from '../terminal-check.js';
 import { createCapturingTerminal } from './test-terminal.js';
@@ -19,7 +20,7 @@ describe('warnIfTerminalAppOnMacOS', () => {
     const restore = stubPlatform('darwin');
     vi.stubEnv('TERM_PROGRAM', 'Apple_Terminal');
     const { terminal, errors } = createCapturingTerminal();
-    warnIfTerminalAppOnMacOS(terminal);
+    warnIfTerminalAppOnMacOS(terminal, { TERM_PROGRAM: process.env['TERM_PROGRAM'] });
     restore();
     expect(errors.join('\n')).toContain('Terminal.app');
   });
@@ -28,7 +29,7 @@ describe('warnIfTerminalAppOnMacOS', () => {
     const restore = stubPlatform('darwin');
     vi.stubEnv('TERM_PROGRAM', 'iTerm.app');
     const { terminal, errors } = createCapturingTerminal();
-    warnIfTerminalAppOnMacOS(terminal);
+    warnIfTerminalAppOnMacOS(terminal, { TERM_PROGRAM: process.env['TERM_PROGRAM'] });
     restore();
     expect(errors).toHaveLength(0);
   });
@@ -37,7 +38,7 @@ describe('warnIfTerminalAppOnMacOS', () => {
     const restore = stubPlatform('linux');
     vi.stubEnv('TERM_PROGRAM', 'Apple_Terminal');
     const { terminal, errors } = createCapturingTerminal();
-    warnIfTerminalAppOnMacOS(terminal);
+    warnIfTerminalAppOnMacOS(terminal, { TERM_PROGRAM: process.env['TERM_PROGRAM'] });
     restore();
     expect(errors).toHaveLength(0);
   });

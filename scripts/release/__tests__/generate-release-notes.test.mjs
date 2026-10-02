@@ -7,7 +7,7 @@ import {
   updateChangelog,
 } from '../generate-release-notes.mjs';
 
-const REPO_URL = 'https://github.com/woojubb/robota';
+const REPO_URL = 'https://github.com/example/runtime';
 
 /** Build a minimal raw-commit record (single parent = non-merge). */
 function commit(subject, parents = ['p1']) {
@@ -52,7 +52,7 @@ describe('parseConventional', () => {
   });
 
   it('returns null for merge-commit subjects', () => {
-    expect(parseConventional('Merge pull request #1166 from woojubb/develop')).toBeNull();
+    expect(parseConventional('Merge pull request #1166 from example/develop')).toBeNull();
   });
 
   it('returns null for non-conventional subjects', () => {
@@ -77,7 +77,7 @@ describe('groupCommits', () => {
   it('excludes merge commits even when the subject looks conventional', () => {
     const groups = groupCommits([
       commit('feat(cli): sneaky merge subject (#1)', ['p1', 'p2']),
-      commit('Merge pull request #1166 from woojubb/develop', ['p1', 'p2']),
+      commit('Merge pull request #1166 from example/develop', ['p1', 'p2']),
     ]);
     expect(groups.features).toHaveLength(0);
     expect(groups.internal).toHaveLength(0);

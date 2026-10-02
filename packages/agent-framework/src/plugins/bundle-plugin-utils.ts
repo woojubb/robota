@@ -8,7 +8,7 @@
 import { NodeFileSystem } from '../adapters/node-file-system.js';
 
 import type { IBundlePluginManifest } from './bundle-plugin-types.js';
-import type { IFileSystem } from '@robota-sdk/agent-core';
+import type { IFileSystem, TUniversalValue } from '@robota-sdk/agent-core';
 
 /**
  * Validate that a parsed JSON object has the required manifest fields.
@@ -18,9 +18,9 @@ export function validateManifest(data: unknown): IBundlePluginManifest | null {
   if (typeof data !== 'object' || data === null) return null;
 
   const obj = data as Record<string, unknown>;
-  if (typeof obj.name !== 'string') return null;
-  if (typeof obj.version !== 'string') return null;
-  if (typeof obj.description !== 'string') return null;
+  if (typeof obj.name !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(obj.name)) return null;
+  if (obj.version !== undefined && typeof obj.version !== 'string') return null;
+  if (obj.description !== undefined && typeof obj.description !== 'string') return null;
 
   const features =
     typeof obj.features === 'object' && obj.features !== null
@@ -29,8 +29,14 @@ export function validateManifest(data: unknown): IBundlePluginManifest | null {
 
   return {
     name: obj.name,
-    version: obj.version,
-    description: obj.description,
+    ...(typeof obj.version === 'string' ? { version: obj.version } : {}),
+    ...(typeof obj.description === 'string' ? { description: obj.description } : {}),
+    ...Object.fromEntries(
+      ['commands', 'skills', 'hooks', 'agents']
+        .filter((key) => Object.hasOwn(obj, key))
+        .map((key) => [key, obj[key] as TUniversalValue]),
+    ),
+    ...(obj.mcpServers !== undefined ? { mcpServers: obj.mcpServers as TUniversalValue } : {}),
     features: {
       commands: features.commands === true ? true : undefined,
       agents: features.agents === true ? true : undefined,

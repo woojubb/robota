@@ -1,6 +1,6 @@
 name: Release — tag on version bump
 
-# RELEASE-001 — when a version bump for @robota-sdk/agent-cli lands on main, push the matching `v<version>` tag.
+# RELEASE-001 — when the CLI version changes on main, push the tag using the configured release prefix.
 # That tag fires release-bun-binaries.yml; its successful completion starts release-desktop-app.yml.
 # A tag pushed with GITHUB_TOKEN cannot fire another workflow (anti-recursion), so tagging uses the deploy key below.
 # npm publish is OUT OF SCOPE — it is the separate Publish to npm workflow (publish.yml, trusted publishing).
@@ -8,18 +8,16 @@ name: Release — tag on version bump
 # Requires an owner-provisioned repo DEPLOY KEY (write) as `secrets.RELEASE_DEPLOY_KEY`. Inert without it
 # (the tag push fails loudly). See the release skill (.agents/skills/release/SKILL.md).
 #
-# AUDIT NOTE (2026-07-26): as of this change the tag-pushing branch of this workflow had NEVER executed.
-# Every one of its ~19 runs took the `version unchanged` early return, because agent-cli has sat at
-# 3.0.0-beta.79 since before RELEASE-001 shipped. The repo's only real tag, v3.0.0-beta.79, was pushed BY
-# HAND on 2026-07-15T17:06:02Z — 39 seconds BEFORE `RELEASE_DEPLOY_KEY` was created (17:06:41Z), so the key
-# has never authenticated a push either. The `workflow_dispatch` dry run below exists so this path can be
-# exercised deliberately instead of debuting during a real release.
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
     inputs:
+      product_env:
+        description: 'Non-secret product environment file contents; otherwise uses vars.PRODUCT_BUILD_ENV.'
+        required: false
+        type: string
       dry_run:
         description: 'Resolve the version and the would-be tag, verify the deploy key authenticates, but push nothing.'
         required: false
@@ -37,27 +35,14 @@ concurrency:
 
 jobs:
   tag-on-bump:
-    name: Push v<version> tag when agent-cli is bumped
+    name: Push the configured release tag when agent-cli is bumped
+    env:
+      PRODUCT_BUILD_ENV: ${{ github.event.inputs.product_env || vars.PRODUCT_BUILD_ENV }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 2 # need HEAD^ to detect a version change
-          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }} # push over SSH so the tag fires the v* workflows
-
-      # An unset RELEASE_DEPLOY_KEY makes actions/checkout fall back to HTTPS + GITHUB_TOKEN, and the push
-      # then fails deep in the script with an opaque permissions error. Say so up front instead.
-      - name: Assert the deploy key is provisioned
-        env:
-          KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
-        run: |
-          set -euo pipefail
-          if [ -z "$KEY" ]; then
-            echo "::error::secrets.RELEASE_DEPLOY_KEY is not set. A tag pushed with GITHUB_TOKEN cannot"
-            echo "::error::trigger the v* release workflows, so the release would produce no assets."
-            exit 1
-          fi
-          echo "RELEASE_DEPLOY_KEY is present."
 
       - name: Resolve the version change
         id: resolve
@@ -83,8 +68,69 @@ jobs:
           else
             echo "agent-cli bumped ${PREV:-<none>} -> $CUR"
             echo "bumped=true" >> "$GITHUB_OUTPUT"
-            echo "tag=v$CUR" >> "$GITHUB_OUTPUT"
           fi
+
+      - if: steps.resolve.outputs.bumped == 'true' || github.event.inputs.dry_run == 'true'
+        uses: pnpm/action-setup@v6
+        with:
+          version: 8.15.4
+          run_install: false
+      - if: steps.resolve.outputs.bumped == 'true' || github.event.inputs.dry_run == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - if: steps.resolve.outputs.bumped == 'true' || github.event.inputs.dry_run == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Generate selected product workspace
+        if: steps.resolve.outputs.bumped == 'true' || github.event.inputs.dry_run == 'true'
+        id: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          if [ -z "${PRODUCT_BUILD_ENV:-}" ]; then
+            echo "::error::Select product_env or configure vars.PRODUCT_BUILD_ENV before release tagging."
+            exit 1
+          fi
+          printf '%s' "$PRODUCT_BUILD_ENV" > "$RUNNER_TEMP/selected-product.env"
+          pnpm exec tsx scripts/product/generate-workspace.mjs --env "$RUNNER_TEMP/selected-product.env" --out "$RUNNER_TEMP/product-workspace" --github-output "$GITHUB_OUTPUT"
+
+      - name: Resolve configured release tag
+        id: tag
+        if: steps.resolve.outputs.bumped == 'true' || github.event.inputs.dry_run == 'true'
+        env:
+          TAG_PREFIX: ${{ steps.product.outputs.tag_prefix }}
+          CUR: ${{ steps.resolve.outputs.current }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TAG_PREFIX" ]; then
+            echo "::error::PROJECT_RELEASE_TAG_PREFIX must be configured for release tagging."
+            exit 1
+          fi
+          echo "tag=$TAG_PREFIX$CUR" >> "$GITHUB_OUTPUT"
+
+      # An unset RELEASE_DEPLOY_KEY makes actions/checkout fall back to HTTPS + GITHUB_TOKEN, and the push
+      # then fails deep in the script with an opaque permissions error. Say so up front instead.
+      - name: Assert the deploy key is provisioned
+        if: steps.resolve.outputs.bumped == 'true' || github.event.inputs.dry_run == 'true'
+        env:
+          KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEY" ]; then
+            echo "::error::secrets.RELEASE_DEPLOY_KEY is not set. A tag pushed with GITHUB_TOKEN cannot"
+            echo "::error::trigger the native release workflow, so the release would produce no assets."
+            exit 1
+          fi
+          echo "RELEASE_DEPLOY_KEY is present."
+
+      - name: Prepare release write authentication
+        if: steps.resolve.outputs.bumped == 'true' || github.event.inputs.dry_run == 'true'
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
       # Proves the key authenticates against this repo without mutating anything. On a dry run this is the
       # whole point — the credential path has never once executed, so it must be reachable WITHOUT a bump,
@@ -101,7 +147,7 @@ jobs:
         if: steps.resolve.outputs.bumped == 'true' && github.event.inputs.dry_run != 'true'
         id: push
         env:
-          TAG: ${{ steps.resolve.outputs.tag }}
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
           set -euo pipefail
           if git ls-remote --tags origin "refs/tags/$TAG" | grep -q "refs/tags/$TAG"; then
@@ -123,7 +169,7 @@ jobs:
         if: github.event.inputs.dry_run == 'true'
         env:
           BUMPED: ${{ steps.resolve.outputs.bumped }}
-          TAG: ${{ steps.resolve.outputs.tag }}
+          TAG: ${{ steps.tag.outputs.tag }}
           PREV: ${{ steps.resolve.outputs.previous }}
           CUR: ${{ steps.resolve.outputs.current }}
         run: |
@@ -142,7 +188,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          TAG: ${{ steps.resolve.outputs.tag }}
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
           set -euo pipefail
           deadline=$(( $(date +%s) + 300 ))   # 5 minutes; a push trigger dispatches within seconds

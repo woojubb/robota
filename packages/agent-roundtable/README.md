@@ -4,7 +4,7 @@ Coordinates independent agents and people in one shared conversation. Each parti
 runtime and private state; the roundtable decides who speaks next, runs a turn or a parallel group of
 turns, and publishes their messages to a shared transcript in a stable order. The host supplies the
 participants, the selector that picks the next turn, and the store that holds conversation progress.
-The package runs no model and imports no provider: a participant can wrap a Robota session, another
+The package runs no model and imports no provider: a participant can wrap an agent session, another
 agent runtime, or plain code.
 
 ## Installation
@@ -98,7 +98,7 @@ Omitting `store` uses the same in-memory store. A durable `ConversationStore` to
 Everything else this package exports is a type: the participant/session/selector contracts
 (`ParticipantDefinition`, `ParticipantSession`, `TurnSelector`, …), the store contract
 (`ConversationStore`, `ConversationEnvelope`, …), and the usage/pricing types consumed by
-`TurnServices`. `@robota-sdk/agent-roundtable-robota` implements these contracts against Robota; a
+`TurnServices`. `@robota-sdk/agent-roundtable-robota` implements these contracts against agent runtime; a
 host can implement them against any other runtime.
 
 ## Run results
@@ -172,8 +172,8 @@ dependencies. It needs only standard globals: `AbortController`, `AbortSignal.an
 current browsers.
 
 A participant can be a plain object like `echo` above, or come from
-`@robota-sdk/agent-roundtable-robota`'s `sessionParticipant` (a permission-gated Robota `Session`) or
-`robotaParticipant` (a plain Robota agent) — this package never depends on either.
+`@robota-sdk/agent-roundtable-robota`'s `sessionParticipant` (a permission-gated agent runtime `Session`) or
+`runtimeParticipant` (a plain agent) — this package never depends on either.
 
 ## Version and compatibility
 

@@ -1,3 +1,4 @@
+import type { IIdentityContext } from './crypto-context.js';
 /**
  * Enrolling a new device from a one-time code: the new device ("joiner") proves it holds the code the
  * operator read off an existing device, over the channel both negotiated, before anything else is
@@ -33,7 +34,6 @@ import {
   type ISigningKeyCertificate,
 } from './certificates.js';
 import {
-  IDENTITY_PURPOSES,
   canonicalBase64Url,
   canonicalBytes,
   decodeBase64Url,
@@ -57,7 +57,6 @@ import {
 const CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const CODE_CHARS = 25;
 const CODE_GROUP = 5;
-const HKDF_SALT = encoder.encode('robota/enroll/v1');
 const NONCE_BYTES = 16;
 /** A contribution to the short string: committed to or revealed, never chosen after the other one. */
 const CONTRIBUTION_BYTES = 32;
@@ -102,9 +101,18 @@ export interface IEnrollmentMaterial {
   readonly sasKey: CryptoKey;
 }
 
-async function hkdf(base: CryptoKey, label: string): Promise<Uint8Array> {
+async function hkdf(
+  cryptoContext: IIdentityContext,
+  base: CryptoKey,
+  label: string,
+): Promise<Uint8Array> {
   const bits = await webcrypto.subtle.deriveBits(
-    { name: 'HKDF', hash: 'SHA-256', salt: ab(HKDF_SALT), info: ab(encoder.encode(label)) },
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: ab(encoder.encode(`${cryptoContext.namespace}/enroll/v1`)),
+      info: ab(encoder.encode(label)),
+    },
     base,
     256,
   );
@@ -119,7 +127,10 @@ function hmacKey(bytes: Uint8Array): Promise<CryptoKey> {
 }
 
 /** Derive the topics and keys of an enrollment from its code. Throws when `code` is not a code. */
-export async function deriveEnrollmentMaterial(code: string): Promise<IEnrollmentMaterial> {
+export async function deriveEnrollmentMaterial(
+  cryptoContext: IIdentityContext,
+  code: string,
+): Promise<IEnrollmentMaterial> {
   const canonical = normalizeEnrollmentCode(code);
   if (canonical === undefined) throw new Error('not an enrollment code');
   const base = await webcrypto.subtle.importKey(
@@ -130,10 +141,10 @@ export async function deriveEnrollmentMaterial(code: string): Promise<IEnrollmen
     ['deriveBits'],
   );
   const [existingInbox, joinerInbox, proof, sas] = await Promise.all([
-    hkdf(base, 'topic/existing'),
-    hkdf(base, 'topic/joiner'),
-    hkdf(base, 'proof'),
-    hkdf(base, 'sas'),
+    hkdf(cryptoContext, base, 'topic/existing'),
+    hkdf(cryptoContext, base, 'topic/joiner'),
+    hkdf(cryptoContext, base, 'proof'),
+    hkdf(cryptoContext, base, 'sas'),
   ]);
   return {
     existingInbox: toBase64Url(existingInbox),
@@ -236,7 +247,10 @@ function shapeError(
 }
 
 /** Decode one inbound enrollment frame. Total: never throws; a failure names a field, never a value. */
-export function decodeEnrollmentFrame(value: unknown): TEnrollmentFrameDecodeResult {
+export function decodeEnrollmentFrame(
+  cryptoContext: IIdentityContext,
+  value: unknown,
+): TEnrollmentFrameDecodeResult {
   try {
     if (typeof value !== 'object' || value === null || Array.isArray(value))
       return malformed('frame');
@@ -314,15 +328,15 @@ export function decodeEnrollmentFrame(value: unknown): TEnrollmentFrameDecodeRes
           'signingKeyRevocation',
         ]);
         if (bad !== undefined) return malformed(bad);
-        const signingKeyCert = decodeSigningKeyCertificate(r['signingKeyCert']);
+        const signingKeyCert = decodeSigningKeyCertificate(cryptoContext, r['signingKeyCert']);
         if (!signingKeyCert.ok) return malformed('signingKeyCert');
-        const deviceCert = decodeDeviceCertificate(r['deviceCert']);
+        const deviceCert = decodeDeviceCertificate(cryptoContext, r['deviceCert']);
         if (!deviceCert.ok) return malformed('deviceCert');
-        const roster = decodeDeviceRoster(r['roster']);
+        const roster = decodeDeviceRoster(cryptoContext, r['roster']);
         if (!roster.ok) return malformed('roster');
-        const revocation = decodeDeviceRevocationList(r['revocation']);
+        const revocation = decodeDeviceRevocationList(cryptoContext, r['revocation']);
         if (!revocation.ok) return malformed('revocation');
-        const skr = decodeSigningKeyRevocation(r['signingKeyRevocation']);
+        const skr = decodeSigningKeyRevocation(cryptoContext, r['signingKeyRevocation']);
         if (!skr.ok) return malformed('signingKeyRevocation');
         return {
           ok: true,
@@ -387,8 +401,12 @@ function bindingFields(binding: IEnrollmentBinding): string[] {
   ];
 }
 
-function proofBytes(sender: TEnrollmentRole, binding: IEnrollmentBinding): Uint8Array {
-  return canonicalBytes(IDENTITY_PURPOSES.enrollProof, [sender, ...bindingFields(binding)]);
+function proofBytes(
+  cryptoContext: IIdentityContext,
+  sender: TEnrollmentRole,
+  binding: IEnrollmentBinding,
+): Uint8Array {
+  return canonicalBytes(cryptoContext.purposes.enrollProof, [sender, ...bindingFields(binding)]);
 }
 
 export interface IEnrollmentProofOptions {
@@ -411,7 +429,10 @@ export interface IEnrollmentProofController {
 }
 
 /** Start one side of the proof. Sends this side's nonce at once. */
-export function startEnrollmentProof(options: IEnrollmentProofOptions): IEnrollmentProofController {
+export function startEnrollmentProof(
+  cryptoContext: IIdentityContext,
+  options: IEnrollmentProofOptions,
+): IEnrollmentProofController {
   const peerRole: TEnrollmentRole = options.role === 'joiner' ? 'existing' : 'joiner';
   const localNonce = toBase64Url(randomBytes(NONCE_BYTES));
   let expecting: 'en-nonce' | 'en-proof' | 'done' = 'en-nonce';
@@ -461,7 +482,7 @@ export function startEnrollmentProof(options: IEnrollmentProofOptions): IEnrollm
         await webcrypto.subtle.sign(
           'HMAC',
           options.material.proofKey,
-          ab(proofBytes(options.role, binding)),
+          ab(proofBytes(cryptoContext, options.role, binding)),
         ),
       );
       if (settled) return;
@@ -476,7 +497,7 @@ export function startEnrollmentProof(options: IEnrollmentProofOptions): IEnrollm
       'HMAC',
       options.material.proofKey,
       ab(decodeBase64Url(frame.mac)),
-      ab(proofBytes(peerRole, binding)),
+      ab(proofBytes(cryptoContext, peerRole, binding)),
     );
     if (!ok) throw new EnrollmentError('proof-failed');
     if (settled) return;
@@ -491,7 +512,7 @@ export function startEnrollmentProof(options: IEnrollmentProofOptions): IEnrollm
     result,
     onFrame(frame: unknown): void {
       if (settled) return;
-      const decoded = decodeEnrollmentFrame(frame);
+      const decoded = decodeEnrollmentFrame(cryptoContext, frame);
       if (!decoded.ok) {
         fail(new EnrollmentError('malformed-frame', decoded.field));
         return;
@@ -511,10 +532,11 @@ export interface IEnrollmentRequestFields {
 }
 
 function requestBytes(
+  cryptoContext: IIdentityContext,
   binding: IEnrollmentBinding,
   fields: IEnrollmentRequestFields & { readonly commit: string },
 ): Uint8Array {
-  return canonicalBytes(IDENTITY_PURPOSES.enrollRequest, [
+  return canonicalBytes(cryptoContext.purposes.enrollRequest, [
     ...bindingFields(binding),
     fields.name,
     fields.signKey,
@@ -534,10 +556,11 @@ export function newEnrollmentContribution(): string {
  * nor anyone between them who knows the code, can choose its part after seeing the other's.
  */
 export async function enrollmentCommitment(
+  cryptoContext: IIdentityContext,
   binding: IEnrollmentBinding,
   contribution: string,
 ): Promise<string> {
-  const bytes = canonicalBytes(IDENTITY_PURPOSES.enrollCommit, [
+  const bytes = canonicalBytes(cryptoContext.purposes.enrollCommit, [
     ...bindingFields(binding),
     contribution,
   ]);
@@ -546,15 +569,17 @@ export async function enrollmentCommitment(
 
 /** Whether `contribution` opens `commit` on this channel. */
 export async function verifyEnrollmentReveal(
+  cryptoContext: IIdentityContext,
   binding: IEnrollmentBinding,
   commit: string,
   contribution: string,
 ): Promise<boolean> {
-  return (await enrollmentCommitment(binding, contribution)) === commit;
+  return (await enrollmentCommitment(cryptoContext, binding, contribution)) === commit;
 }
 
 /** The joiner's request, signed with its new device key over the proven binding. */
 export async function signEnrollmentRequest(
+  cryptoContext: IIdentityContext,
   options: IEnrollmentRequestFields & {
     readonly binding: IEnrollmentBinding;
     readonly signPrivateKey: CryptoKey;
@@ -567,18 +592,22 @@ export async function signEnrollmentRequest(
     kaKey: options.kaKey,
     commit: options.commit,
   };
-  const sig = await signCanonical(options.signPrivateKey, requestBytes(options.binding, fields));
+  const sig = await signCanonical(
+    options.signPrivateKey,
+    requestBytes(cryptoContext, options.binding, fields),
+  );
   return { t: 'en-request', ...fields, sig };
 }
 
 /** Whether `request` was signed by the key it names, over this binding. */
 export async function verifyEnrollmentRequest(
+  cryptoContext: IIdentityContext,
   binding: IEnrollmentBinding,
   request: IEnrollmentRequestFrame,
 ): Promise<boolean> {
   const key = await importVerifyKey('ES256', request.signKey);
   if (key === undefined) return false;
-  return verifyCanonical(key, request.sig, requestBytes(binding, request));
+  return verifyCanonical(key, request.sig, requestBytes(cryptoContext, binding, request));
 }
 
 // ── Short authentication string ─────────────────────────────────────────────────────────────────
@@ -588,14 +617,17 @@ export async function verifyEnrollmentRequest(
  * both contributions, so a party in the middle that knows the code gets matching digits on the two
  * screens only by a one-in-a-million chance per attempt.
  */
-export async function enrollmentSas(options: {
-  readonly material: IEnrollmentMaterial;
-  readonly binding: IEnrollmentBinding;
-  readonly request: IEnrollmentRequestFields;
-  readonly anchor: { readonly masterPublicKey: string; readonly userId: string };
-  readonly contributions: { readonly joiner: string; readonly existing: string };
-}): Promise<string> {
-  const bytes = canonicalBytes(IDENTITY_PURPOSES.enrollSas, [
+export async function enrollmentSas(
+  cryptoContext: IIdentityContext,
+  options: {
+    readonly material: IEnrollmentMaterial;
+    readonly binding: IEnrollmentBinding;
+    readonly request: IEnrollmentRequestFields;
+    readonly anchor: { readonly masterPublicKey: string; readonly userId: string };
+    readonly contributions: { readonly joiner: string; readonly existing: string };
+  },
+): Promise<string> {
+  const bytes = canonicalBytes(cryptoContext.purposes.enrollSas, [
     ...bindingFields(options.binding),
     options.request.name,
     options.request.signKey,

@@ -2,7 +2,7 @@
   "name": "@robota-sdk/agent-gui-web",
   "version": "3.0.0-beta.86",
   "private": true,
-  "description": "agent-gui-web — the robota GUI as a web app (Vite + React over @robota-sdk/agent-ui-web). One frontend for every host: the desktop app (apps/agent-app) loads its build, the CLI serves it on `robota --serve --open`, and `pnpm gui:dev` runs it in a browser against the repo CLI. Private product shell; not an importable library.",
+  "description": "agent-gui-web \u2014 the robota GUI as a web app (Vite + React over @robota-sdk/agent-ui-web). One frontend for every host: the desktop app (apps/agent-app) loads its build, the CLI serves it on `robota --serve --open`, and `pnpm gui:dev` runs it in a browser against the repo CLI. Private product shell; not an importable library.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,6 +12,11 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "node e2e/web-e2e.mjs",
+    "test:e2e:runtime": "../agent-cli/node_modules/.bin/tsx --conditions=source e2e/runtime-outcomes.mjs",
+    "test:e2e:graphs": "../agent-cli/node_modules/.bin/tsx --conditions=source e2e/tool-graphs.mjs",
+    "test:e2e:images": "../agent-cli/node_modules/.bin/tsx --conditions=source e2e/oversized-images.mjs",
+    "test:e2e:plugins": "../agent-cli/node_modules/.bin/tsx --conditions=source e2e/plugin-lifecycle.mjs",
+    "test:e2e:memory": "../agent-cli/node_modules/.bin/tsx --conditions=source e2e/memory-lifecycle.mjs",
     "typecheck": "tsgo --noEmit",
     "lint": "eslint . --max-warnings 0",
     "build:js": "pnpm run build",
@@ -36,7 +41,8 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
     "vite": "^6.0.7",
-    "vitest": "^3.2.6"
+    "vitest": "^3.2.6",
+    "@robota-sdk/product-config": "workspace:*"
   },
   "volta": {
     "extends": "../../package.json"

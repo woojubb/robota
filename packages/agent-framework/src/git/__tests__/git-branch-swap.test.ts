@@ -38,7 +38,7 @@ vi.mock('node:fs', async (importOriginal) => {
 describe('resolveGitBranchFromNodeHost against a swapped .git', () => {
   let base: string;
   beforeEach(() => {
-    base = realpathSync(mkdtempSync(join(tmpdir(), 'robota-git-branch-swap-')));
+    base = realpathSync(mkdtempSync(join(tmpdir(), 'agent-git-branch-swap-')));
   });
   afterEach(() => {
     swap.path = undefined;

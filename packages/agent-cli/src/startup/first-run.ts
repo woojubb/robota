@@ -1,23 +1,22 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import stringWidth from 'string-width';
 
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
-import { AGENT_CLI_BIN } from '../constants.js';
-import { userPaths } from '../product/user-paths.js';
 
-export function isFirstRun(markerPath: string = userPaths().onboarded): boolean {
+export function isFirstRun(markerPath: string): boolean {
   return !existsSync(markerPath);
 }
 
-export function markOnboarded(markerPath: string = userPaths().onboarded): void {
+export function markOnboarded(markerPath: string): void {
   mkdirSync(dirname(markerPath), { recursive: true });
   writeFileSync(markerPath, new Date().toISOString());
 }
 
-const WELCOME_LINES = [
-  `Welcome to ${AGENT_CLI_BIN}!  — AI coding assistant`,
+function welcomeLines(runtime: ICliRuntimeContext): readonly string[] { return [
+  `Welcome to ${runtime.vocabulary.cliName}!  — AI coding assistant`,
   '',
   'Try asking:',
   '  "Explain this project structure"',
@@ -30,8 +29,8 @@ const WELCOME_LINES = [
   '  /cost      show token usage and estimated cost',
   '  /clear     clear conversation history',
   '',
-  `${AGENT_CLI_BIN} diagnose   — check your setup`,
-];
+  `${runtime.vocabulary.cliName} diagnose   — check your setup`,
+]; }
 
 /** Horizontal padding between the box border and the text on each side. */
 const BOX_PADDING = 2;
@@ -53,14 +52,14 @@ function drawBox(lines: readonly string[]): string {
   return [`╭${'─'.repeat(inner)}╮`, ...body, `╰${'─'.repeat(inner)}╯`].join('\n');
 }
 
-const WELCOME_MESSAGE = `\n${drawBox(WELCOME_LINES)}\n`;
+
 
 /**
  * CLI-2004: the same copy without the frame. The box is chrome — a screen reader announces every
  * `│` and every run of `─` before it reaches a word of the welcome, which is the first thing a
  * first-run user would hear. The content is kept; only the drawing goes.
  */
-const WELCOME_MESSAGE_PLAIN = `\n${WELCOME_LINES.join('\n')}\n`;
+
 
 export interface IFirstRunWelcomeOptions {
   /** Screen-reader mode ⇒ the unframed form. */
@@ -69,7 +68,9 @@ export interface IFirstRunWelcomeOptions {
 
 export function printFirstRunWelcome(
   terminal: ITerminalOutput,
+  runtime: ICliRuntimeContext,
   options: IFirstRunWelcomeOptions = {},
 ): void {
-  terminal.writeLine(options.screenReader === true ? WELCOME_MESSAGE_PLAIN : WELCOME_MESSAGE);
+  const lines = welcomeLines(runtime);
+  terminal.writeLine(`\n${options.screenReader === true ? lines.join('\n') : drawBox(lines)}\n`);
 }

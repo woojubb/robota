@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * #3282 §3 — a served runtime with no provider configured starts in setup mode instead of exiting:
  * `buildServeSessionOptions` forwards `setupRequired` into the session options, and a session built
@@ -23,7 +24,7 @@ import type { TActionResponse } from '@robota-sdk/agent-core';
 
 describe('#3282 §3 — a served runtime starts in setup mode with no provider', () => {
   it('buildServeSessionOptions forwards setupRequired', () => {
-    const options = buildServeSessionOptions({
+    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true } as never,
       preset: {},
@@ -34,7 +35,7 @@ describe('#3282 §3 — a served runtime starts in setup mode with no provider',
   });
 
   it('omits the key entirely when setup is not required, rather than setting it false', () => {
-    const options = buildServeSessionOptions({
+    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true } as never,
       preset: {},
@@ -44,7 +45,7 @@ describe('#3282 §3 — a served runtime starts in setup mode with no provider',
   });
 
   it('a session built like a served runtime refuses a turn, then hot-swaps live once /provider add configures the first profile', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'robota-3282-setup-mode-'));
+    const dir = mkdtempSync(join(tmpdir(), 'test-product-3282-setup-mode-'));
     try {
       const settingsPath = join(dir, 'settings.json');
       const readDoc = (): TProviderSettingsDocument =>
@@ -91,7 +92,7 @@ describe('#3282 §3 — a served runtime starts in setup mode with no provider',
       // Built exactly the way `runServeMode` builds a served session's options in setup mode: the
       // placeholder provider, `setupRequired: true`, and a `/provider` command module sharing the
       // same settings file this session reads its provider from.
-      const sessionOptions = buildServeSessionOptions({
+      const sessionOptions = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
         cwd: dir,
         args: { noSessionPersistence: true } as never,
         preset: {},

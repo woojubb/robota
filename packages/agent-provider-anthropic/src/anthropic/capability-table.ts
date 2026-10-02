@@ -16,7 +16,7 @@ import type { IProviderCapabilityTable } from '@robota-sdk/agent-core';
 export const ANTHROPIC_CAPABILITY_TABLE: IProviderCapabilityTable = {
   // CLI-1990: `tool_search` records that THIS vendor documents a server-side tool search — deferred
   // definitions the API expands on demand (`tool_search_tool_*_20251119`, per-tool `defer_loading`).
-  // It is a DECLARATION, not a switch: Robota v1 runs its own client-side catalog on every provider
+  // It is a DECLARATION, not a switch: the current runtime uses its own client-side catalog for every provider
   // and emits no vendor block, because the vendor feature keeps definitions out of the context
   // window while still sending every one of them in the request. The flag exists so a later offload
   // can be gated on this table rather than on a provider name. Anthropic is the only table in the

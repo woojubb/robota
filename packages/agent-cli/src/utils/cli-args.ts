@@ -33,7 +33,7 @@ export interface IParsedCliArgs {
   positional: string[];
   /**
    * The positionals came after `--`, so they are text (a prompt), never a subcommand:
-   * `robota -p -- init` asks the model about "init" instead of running `robota init`.
+   * `the product -p -- init` asks the model about "init" instead of running `the product init`.
    */
   literalPositionals?: true;
   help: boolean;
@@ -55,7 +55,7 @@ export interface IParsedCliArgs {
   /** MCP-2533: selecting HTTP also requires an exclusive owner-only token file. */
   mcpHttpTokenFile?: string;
   mcpHttpPort?: number;
-  /** `robota mcp serve` remote resource-server settings; a non-loopback bind requires them. */
+  /** `the product mcp serve` remote resource-server settings; a non-loopback bind requires them. */
   mcpHttpHost?: string;
   mcpHttpPublicUrl?: string;
   mcpOauthIssuer?: string;
@@ -456,7 +456,7 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
   }
   if (args.daemon === true && args.supervisedSessionId === undefined) {
     throw new Error(
-      '--daemon is set only by a supervised launch; start one with `robota daemon start`',
+      '--daemon is set only by a supervised launch; start one with `daemon start`',
     );
   }
   if ((args.externalEventGrantFiles?.length ?? 0) > 0) {
@@ -474,7 +474,7 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     ) {
       throw new Error(
         '--external-event-grant is available only in the interactive TUI; ' +
-          'a background session takes it on `robota session start --background`',
+          'a background session takes it on `session start --background`',
       );
     }
     if (args.permissionMode === 'bypassPermissions') {

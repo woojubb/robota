@@ -281,11 +281,14 @@ function shortenDirectoryFromLeft(path: string, maxChars: number = PATH_DISPLAY_
 /** Best-effort read of a tool's raw JSON result payload (`IToolInvocationResult`-shaped). */
 function parseToolResult(
   raw: string | undefined,
-): { output?: string; error?: string; exitCode?: number } | undefined {
+): { output?: string; error?: string; exitCode?: number; structured?: string } | undefined {
   if (!raw) return undefined;
   try {
-    const parsed = JSON.parse(raw) as { output?: unknown; error?: unknown; exitCode?: unknown };
+    const value: unknown = JSON.parse(raw);
+    if (typeof value !== 'object' || value === null) return { output: raw };
+    const parsed = value as Record<string, unknown>;
     return {
+      structured: raw,
       ...(typeof parsed.output === 'string' && parsed.output ? { output: parsed.output } : {}),
       ...(typeof parsed.error === 'string' && parsed.error ? { error: parsed.error } : {}),
       ...(typeof parsed.exitCode === 'number' ? { exitCode: parsed.exitCode } : {}),
@@ -317,7 +320,9 @@ function FoldedOutput({ text }: { text: string }): React.ReactElement {
         {shown.join('\n')}
       </pre>
       {open && lines.length > OUTPUT_EXPANDED_CAP_LINES && (
-        <p className="text-[12px] text-subtle">{lines.length - OUTPUT_EXPANDED_CAP_LINES} more lines</p>
+        <p className="text-[12px] text-subtle">
+          {lines.length - OUTPUT_EXPANDED_CAP_LINES} more lines
+        </p>
       )}
       <button
         type="button"
@@ -330,6 +335,62 @@ function FoldedOutput({ text }: { text: string }): React.ReactElement {
   );
 }
 
+function ToolObservations({ tool }: { tool: IActiveTool }): React.ReactElement {
+  return (
+    <div className="flex flex-col gap-2">
+      {tool.executionId && <code className="text-[12px] text-subtle">{tool.executionId}</code>}
+      {tool.toolResultParts?.map((part, index) => {
+        switch (part.type) {
+          case 'text':
+            return <FoldedOutput key={index} text={part.text} />;
+          case 'image_inline':
+            if (/^image\/(png|jpeg|gif|webp)$/.test(part.mimeType)) {
+              return (
+                <img
+                  key={index}
+                  src={`data:${part.mimeType};base64,${part.data}`}
+                  alt={`Observation from ${tool.name}`}
+                  className="max-h-96 max-w-full object-contain"
+                />
+              );
+            }
+            return <p key={index}>Image preview unavailable ({part.mimeType}).</p>;
+          case 'image_uri':
+            return (
+              <div key={index}>
+                <p>Image reference; an admitted read is required.</p>
+                <code>{part.uri}</code>
+              </div>
+            );
+          case 'resource_link':
+            return (
+              <div key={index}>
+                <p>{part.title ?? part.name}</p>
+                <code>{part.uri}</code>
+                <p>An admitted read is required.</p>
+              </div>
+            );
+          case 'resource_embedded':
+            return (
+              <div key={index}>
+                <code>{part.uri}</code>
+                {part.text !== undefined ? (
+                  <FoldedOutput text={part.text} />
+                ) : (
+                  <p>
+                    Embedded binary resource ({part.mimeType ?? 'unknown type'}); preview
+                    unavailable.
+                  </p>
+                )}
+              </div>
+            );
+          case 'audio_inline':
+            return <p key={index}>Audio preview unavailable ({part.mimeType}).</p>;
+        }
+      })}
+    </div>
+  );
+}
 
 function ToolCard({ tool }: { tool: IActiveTool }): React.ReactElement {
   const running = tool.status === 'running';
@@ -337,8 +398,12 @@ function ToolCard({ tool }: { tool: IActiveTool }): React.ReactElement {
   const [open, setOpen] = useState(false);
   const parsedResult = parseToolResult(tool.toolResultData);
   const hasDiff = tool.diffLines !== undefined && tool.diffLines.length > 0;
-  const hasOutput = Boolean(parsedResult?.output) || Boolean(parsedResult?.error);
-  const expandable = hasDiff || hasOutput;
+  const hasOutput =
+    Boolean(parsedResult?.output) ||
+    Boolean(parsedResult?.error) ||
+    Boolean(parsedResult?.structured);
+  const hasObservations = Boolean(tool.toolResultParts?.length);
+  const expandable = hasDiff || hasOutput || hasObservations;
   // #3288: a projected `/command` tool shows its command, never the internal provider tool name.
   const label = tool.commandName ? `Ran /${tool.commandName}` : tool.name;
 
@@ -376,7 +441,9 @@ function ToolCard({ tool }: { tool: IActiveTool }): React.ReactElement {
         ) : (
           typeof tool.input === 'string' &&
           tool.input && (
-            <span className="min-w-0 truncate font-mono text-[12.5px] text-subtle">{tool.input}</span>
+            <span className="min-w-0 truncate font-mono text-[12.5px] text-subtle">
+              {tool.input}
+            </span>
           )
         )}
         <span className="ml-auto flex flex-shrink-0 items-center gap-1.5 text-[12.5px] text-subtle">
@@ -388,10 +455,7 @@ function ToolCard({ tool }: { tool: IActiveTool }): React.ReactElement {
             <Check size={14} aria-label="done" />
           )}
           {expandable && (
-            <ChevronRight
-              size={13}
-              className={`transition-transform ${open ? 'rotate-90' : ''}`}
-            />
+            <ChevronRight size={13} className={`transition-transform ${open ? 'rotate-90' : ''}`} />
           )}
         </span>
       </button>
@@ -405,6 +469,8 @@ function ToolCard({ tool }: { tool: IActiveTool }): React.ReactElement {
           {typeof parsedResult?.exitCode === 'number' && (
             <p className="text-[12px] text-subtle">exit {parsedResult.exitCode}</p>
           )}
+          {parsedResult?.structured && <FoldedOutput text={parsedResult.structured} />}
+          {hasObservations && <ToolObservations tool={tool} />}
         </div>
       )}
     </div>
@@ -491,9 +557,9 @@ function ToolGroup({ tools }: { tools: readonly IActiveTool[] }): React.ReactEle
   // bar shows progress instead. A group made up ENTIRELY of internal tools renders nothing at all.
   const visible = tools.filter((tool) => !tool.internal);
   const failed = visible.filter((tool) => tool.status === 'error').length;
-  const names = [...new Set(visible.map((tool) => (tool.commandName ? `/${tool.commandName}` : tool.name)))].join(
-    ', ',
-  );
+  const names = [
+    ...new Set(visible.map((tool) => (tool.commandName ? `/${tool.commandName}` : tool.name))),
+  ].join(', ');
   if (visible.length === 0) return null;
   return (
     <div className="text-[14px]">
@@ -637,7 +703,7 @@ export function ConversationView({
   const showJumpToLatest = !isAtBottom && (hasNewBelow || isReplyStreaming);
 
   return (
-    <div className="robota-ui relative flex h-full min-h-0 flex-col">
+    <div className="agent-ui relative flex h-full min-h-0 flex-col">
       <main
         ref={containerRef}
         onScroll={handleScroll}

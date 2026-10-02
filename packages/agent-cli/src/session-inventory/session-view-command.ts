@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { realpathSync, statSync } from 'node:fs';
 
 import open from 'open';
@@ -28,8 +29,8 @@ import type {
 
 const VIEW_STATES = ['needs-input', 'working', 'idle', 'unknown', 'unverified', 'dead'] as const;
 type TViewState = (typeof VIEW_STATES)[number];
-const HELP =
-  'Usage: robota session view [--cwd <directory>] [--name <text>] [--pr <number>] [--state <state>] [--screen-reader|--no-screen-reader]\n' +
+const HELP = (cliName: string): string =>
+  `Usage: ${cliName} session view [--cwd <directory>] [--name <text>] [--pr <number>] [--state <state>] [--screen-reader|--no-screen-reader]\n` +
   `States: ${VIEW_STATES.join(', ')}\n`;
 
 function isViewState(value: string | undefined): value is TViewState {
@@ -37,6 +38,7 @@ function isViewState(value: string | undefined): value is TViewState {
 }
 
 export interface ISessionViewCommandOptions {
+  readonly productRuntime: ICliRuntimeContext;
   readonly isTTY?: boolean;
   readonly settings?: TSettingsData;
   readonly env?: Readonly<Record<string, string | undefined>>;
@@ -62,10 +64,11 @@ export interface ISessionViewCommandOptions {
 /** Run the global supervised view without constructing a foreground interactive session. */
 export async function runSessionViewCommand(
   argv: readonly string[],
-  options: ISessionViewCommandOptions = {},
+  options: ISessionViewCommandOptions,
 ): Promise<number> {
+  const cliName = options.productRuntime.vocabulary.cliName;
   if (argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h')) {
-    process.stdout.write(HELP);
+    process.stdout.write(HELP(cliName));
     return 0;
   }
   let flag: boolean | undefined;
@@ -77,7 +80,7 @@ export async function runSessionViewCommand(
     const arg = argv[index];
     if (arg === '--screen-reader' || arg === '--no-screen-reader') {
       if (flag !== undefined) {
-        process.stderr.write(HELP);
+        process.stderr.write(HELP(cliName));
         return 1;
       }
       flag = arg === '--screen-reader';
@@ -104,20 +107,20 @@ export async function runSessionViewCommand(
     } else if (arg === '--state' && stateFilter === undefined && isViewState(argv[index + 1])) {
       stateFilter = argv[++index] as TViewState;
     } else {
-      process.stderr.write(HELP);
+      process.stderr.write(HELP(cliName));
       return 1;
     }
   }
   if (!(options.isTTY ?? (process.stdin.isTTY === true && process.stdout.isTTY === true))) {
     process.stderr.write(
-      'Session view requires an interactive TTY; use robota session list for finite text or JSON output.\n',
+      `Session view requires an interactive TTY; use ${cliName} session list for finite text or JSON output.\n`,
     );
     return 1;
   }
   const screenReader = resolveScreenReaderRenderFields(
-    options.settings ?? readUserSettingsOrExit(),
+    options.settings ?? readUserSettingsOrExit(options.productRuntime),
     flag,
-    options.env ?? process.env,
+    options.env ?? options.productRuntime.environment,
   );
   let cwd: string | undefined;
   if (cwdArg !== undefined) {
@@ -131,12 +134,12 @@ export async function runSessionViewCommand(
   }
   if (!options.render) {
     process.stderr.write(
-      'robota session view needs the interactive CLI; this runtime has no terminal UI.\n',
+      `${cliName} session view needs the interactive CLI; this runtime has no terminal UI.\n`,
     );
     return 1;
   }
   try {
-    const root = options.root ?? resolveSupervisedDirectory();
+    const root = options.root ?? resolveSupervisedDirectory(options.productRuntime);
     const start = options.start;
     const startTrustQuestion = options.startTrustQuestion;
     const startCwd = cwd ?? options.launchCwd ?? process.cwd();
@@ -169,6 +172,7 @@ export async function runSessionViewCommand(
       ...(startTrustQuestion === undefined
         ? {}
         : { startTrustQuestion: () => startTrustQuestion(startCwd) }),
+      trustStatusCommand: `${cliName} trust status`,
       filteredByCwd: cwd !== undefined,
       filteredByName: nameFilter !== undefined,
       filteredByPr: prFilter !== undefined,
@@ -198,7 +202,7 @@ export async function runSessionViewCommand(
         // The view already printed this process's screen-reader line.
         render: (open) =>
           renderAttached({ ...open, mode, sessionLabel, screenReaderFlag: flag, announce: false }),
-        messages: supervisedSessionAttachMessages(ended.id),
+        messages: supervisedSessionAttachMessages(ended.id, cliName),
       });
     }
   } catch {

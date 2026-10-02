@@ -26,11 +26,11 @@ afterEach(() => {
 });
 
 const backends: ReadonlyArray<[string, () => ICredentialStore]> = [
-  ['owner-only file', () => createFileCredentialStore(join(dir, '.robota', 'credentials'))],
+  ['owner-only file', () => createFileCredentialStore(join(dir, '.test-product', 'credentials'))],
   ['OS keychain', () => createKeychainCredentialStore(createFakeKeyring().module)],
 ];
 
-const KEY = { service: 'robota.test', account: 'alpha' } as const;
+const KEY = { service: 'test-product.test', account: 'alpha' } as const;
 
 describe.each(backends)('credential store contract: %s', (_name, create) => {
   it('reads nothing for a key never stored', async () => {
@@ -54,11 +54,11 @@ describe.each(backends)('credential store contract: %s', (_name, create) => {
   it('keeps keys apart by service and by account', async () => {
     const store = create();
     await store.set(KEY, 'a');
-    await store.set({ service: 'robota.test', account: 'beta' }, 'b');
-    await store.set({ service: 'robota.other', account: 'alpha' }, 'c');
+    await store.set({ service: 'test-product.test', account: 'beta' }, 'b');
+    await store.set({ service: 'test-product.other', account: 'alpha' }, 'c');
     expect(await store.get(KEY)).toBe('a');
-    expect(await store.get({ service: 'robota.test', account: 'beta' })).toBe('b');
-    expect(await store.get({ service: 'robota.other', account: 'alpha' })).toBe('c');
+    expect(await store.get({ service: 'test-product.test', account: 'beta' })).toBe('b');
+    expect(await store.get({ service: 'test-product.other', account: 'alpha' })).toBe('c');
   });
 
   it('does not confuse keys whose concatenation is the same', async () => {

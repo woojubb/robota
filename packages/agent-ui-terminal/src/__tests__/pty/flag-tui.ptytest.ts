@@ -4,7 +4,7 @@
  * The headless flag matrix (Phase 1) asserts request/output effects; this asserts the *rendered*
  * effect a flag has on the live TUI. `--permission-mode <mode>` is shown in the status bar whenever it
  * is not the default — so booting with `plan` / `acceptEdits` must render that mode. Runs in the
- * dedicated PTY project against the BUILT robota binary (`pnpm --filter @robota-sdk/agent-cli build`).
+ * dedicated PTY project against the BUILT CLI binary (`pnpm --filter @robota-sdk/agent-cli build`).
  */
 
 import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
@@ -22,7 +22,7 @@ describe('CLI flag → TUI rendering through a real PTY (TEST-009 Phase 3)', () 
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-flagtui-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-flagtui-')));
     writeTuiProviderSettings(projectDir);
   });
 

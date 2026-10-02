@@ -1,5 +1,5 @@
 /**
- * Total decoders for the `.dag.json` workflow file and its `.dag.robota.json` companion
+ * Total decoders for the `.dag.json` workflow file and its `.dag.agent.json` companion
  * (issue #2077 / DAG-005). The second on-disk DAG format, decoded field by field like the first.
  */
 
@@ -21,8 +21,8 @@ import { DAG_DEFINITION_STATUSES, decodeCostPolicy } from './dag-definition-deco
 
 import type { TResult } from '../types/result.js';
 import type {
-  IDagRobotaCompanion,
-  IDagRobotaCompanionNodeMeta,
+  IDagConversationAgentCompanion,
+  IDagConversationAgentCompanionNodeMeta,
   IDagWorkflowFile,
   IDagWorkflowNode,
   IDagWorkflowNodeInput,
@@ -31,7 +31,7 @@ import type {
 } from '../types/workflow-file.js';
 
 export type TDagWorkflowFileDecodeResult = TResult<IDagWorkflowFile, IDagDecodeIssue[]>;
-export type TDagRobotaCompanionDecodeResult = TResult<IDagRobotaCompanion, IDagDecodeIssue[]>;
+export type TDagConversationAgentCompanionDecodeResult = TResult<IDagConversationAgentCompanion, IDagDecodeIssue[]>;
 
 export function decodeDagWorkflowFile(value: unknown): TDagWorkflowFileDecodeResult {
   const issues: TDagDecodeIssues = [];
@@ -41,7 +41,7 @@ export function decodeDagWorkflowFile(value: unknown): TDagWorkflowFileDecodeRes
     : { ok: false, error: issues };
 }
 
-export function decodeDagRobotaCompanion(value: unknown): TDagRobotaCompanionDecodeResult {
+export function decodeDagConversationAgentCompanion(value: unknown): TDagConversationAgentCompanionDecodeResult {
   const issues: TDagDecodeIssues = [];
   const companion = decodeCompanion(value, '', issues);
   return companion !== undefined && issues.length === 0
@@ -211,7 +211,7 @@ function decodeCompanionNodeMeta(
   value: unknown,
   path: string,
   issues: TDagDecodeIssues,
-): TDecoded<IDagRobotaCompanionNodeMeta> {
+): TDecoded<IDagConversationAgentCompanionNodeMeta> {
   const record = decodeRecord(value, path, issues);
   if (record === undefined) return undefined;
   const nodeId = decodeString(record['nodeId'], childPath(path, 'nodeId'), issues);
@@ -234,7 +234,7 @@ function decodeCompanionNodeMeta(
     decodeCostPolicy,
   );
   if (nodeId === undefined) return undefined;
-  const meta: IDagRobotaCompanionNodeMeta = { nodeId };
+  const meta: IDagConversationAgentCompanionNodeMeta = { nodeId };
   if (retryPolicy !== undefined) meta.retryPolicy = retryPolicy;
   if (timeoutMs !== undefined) meta.timeoutMs = timeoutMs;
   if (costPolicy !== undefined) meta.costPolicy = costPolicy;
@@ -245,7 +245,7 @@ function decodeCompanion(
   value: unknown,
   path: string,
   issues: TDagDecodeIssues,
-): TDecoded<IDagRobotaCompanion> {
+): TDecoded<IDagConversationAgentCompanion> {
   const record = decodeRecord(value, path, issues);
   if (record === undefined) return undefined;
   const at = (key: string): string => childPath(path, key);
@@ -272,7 +272,7 @@ function decodeCompanion(
   );
   const nodeFiles = decodeOptional(record['nodeFiles'], at('nodeFiles'), issues, decodeStringArray);
   const nodesRecord = decodeRecord(record['nodes'], at('nodes'), issues);
-  let nodes: Record<string, IDagRobotaCompanionNodeMeta> | undefined;
+  let nodes: Record<string, IDagConversationAgentCompanionNodeMeta> | undefined;
   if (nodesRecord !== undefined) {
     const before = issues.length;
     nodes = {};
@@ -285,7 +285,7 @@ function decodeCompanion(
   if (dagId === undefined || version === undefined || status === undefined || nodes === undefined) {
     return undefined;
   }
-  const companion: IDagRobotaCompanion = { dagId, version, status, nodes };
+  const companion: IDagConversationAgentCompanion = { dagId, version, status, nodes };
   if (costPolicy !== undefined) companion.costPolicy = costPolicy;
   if (inputSchema !== undefined) companion.inputSchema = inputSchema;
   if (outputSchema !== undefined) companion.outputSchema = outputSchema;

@@ -63,7 +63,7 @@ describe('run draft stores', () => {
   });
 
   it('persists drafts on the filesystem', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'robota-run-drafts-'));
+    const root = await mkdtemp(path.join(os.tmpdir(), 'agent-test-run-drafts-'));
     try {
       const draft = createDraft();
       const writer = new FileRunDraftStore(root);

@@ -130,7 +130,7 @@ describe('ChildProcessSubagentRunner', () => {
   it(
     'persists a resumed fork turn into the copied record',
     async () => {
-      const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-cli-1994-child-')));
+      const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-cli-1994-child-')));
       const resumeSessionId = 'session_cli-1994-child-fork';
       const record = {
         id: resumeSessionId,
@@ -197,7 +197,7 @@ describe('ChildProcessSubagentRunner', () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
         workerEntry: {
           execPath: process.execPath,
-          args: [join(tmpdir(), 'robota-dist-006-no-such-worker.mjs')],
+          args: [join(tmpdir(), 'agent-dist-006-no-such-worker.mjs')],
           execArgv: [],
         },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
@@ -215,7 +215,7 @@ describe('ChildProcessSubagentRunner', () => {
     "keeps the END of a noisy child's stderr, not its beginning (DIST-006)",
     async () => {
       // The tail is bounded, so which END it keeps is the whole question: a subagent worker is
-      // routinely noisy (the CLI installs a `[robota]` stderr sink in it), and the cause of a death
+      // routinely noisy (the CLI installs a `[agent]` stderr sink in it), and the cause of a death
       // is the LAST thing written, never the first. This child writes ~240 KB of noise before the
       // line that matters, so a tail that kept the head would hold only warmup.
       //
@@ -223,7 +223,7 @@ describe('ChildProcessSubagentRunner', () => {
       // the mechanism — see the comment at the read site — so this pins the bound's direction
       // rather than a wait.
       const noisyWorker = join(
-        realpathSync(mkdtempSync(join(tmpdir(), 'robota-dist-006-noisy-'))),
+        realpathSync(mkdtempSync(join(tmpdir(), 'agent-dist-006-noisy-'))),
         'noisy.mjs',
       );
       writeFileSync(
@@ -261,7 +261,7 @@ describe('ChildProcessSubagentRunner', () => {
       // optional, so without a handshake deadline the parent waits forever — a silent hang, where
       // the seam this replaced failed loudly.
       const silentEntry = join(
-        realpathSync(mkdtempSync(join(tmpdir(), 'robota-dist-006-silent-'))),
+        realpathSync(mkdtempSync(join(tmpdir(), 'agent-dist-006-silent-'))),
         'silent.mjs',
       );
       writeFileSync(silentEntry, 'setTimeout(() => {}, 60_000);\n', 'utf8');
@@ -294,7 +294,7 @@ describe('ChildProcessSubagentRunner', () => {
       const worktreePath = realpathSync(mkdtempSync(join(tmpdir(), 'arch-031-worktree-')));
       const runner = new ChildProcessSubagentRunner(createDeps(), {
         workerEntry: FIXTURE_WORKER_ENTRY,
-        env: { ROBOTA_FIXTURE_MODE: 'cwd' },
+        env: { AGENT_FIXTURE_MODE: 'cwd' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
@@ -316,7 +316,7 @@ describe('ChildProcessSubagentRunner', () => {
     async () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
         workerEntry: FIXTURE_WORKER_ENTRY,
-        env: { ROBOTA_FIXTURE_MODE: 'usage' },
+        env: { AGENT_FIXTURE_MODE: 'usage' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
@@ -337,7 +337,7 @@ describe('ChildProcessSubagentRunner', () => {
       const events: TBackgroundTaskRunnerEvent[] = [];
       const runner = new ChildProcessSubagentRunner(createDeps(), {
         workerEntry: FIXTURE_WORKER_ENTRY,
-        env: { ROBOTA_FIXTURE_MODE: 'progress' },
+        env: { AGENT_FIXTURE_MODE: 'progress' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
@@ -363,7 +363,7 @@ describe('ChildProcessSubagentRunner', () => {
   it(
     'exposes a deterministic transcript path and reads transcript pages',
     async () => {
-      const logsDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-subagent-logs-')));
+      const logsDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-subagent-logs-')));
       const transcriptDir = join(logsDir, 'session_1', 'subagents');
       mkdirSync(transcriptDir, { recursive: true });
       writeFileSync(join(transcriptDir, 'agent_1.jsonl'), 'line1\nline2\n', 'utf8');
@@ -390,7 +390,7 @@ describe('ChildProcessSubagentRunner', () => {
     async () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
         workerEntry: FIXTURE_WORKER_ENTRY,
-        env: { ROBOTA_FIXTURE_MODE: 'wait' },
+        env: { AGENT_FIXTURE_MODE: 'wait' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
@@ -409,7 +409,7 @@ describe('ChildProcessSubagentRunner', () => {
     async () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
         workerEntry: FIXTURE_WORKER_ENTRY,
-        env: { ROBOTA_FIXTURE_MODE: 'wait' },
+        env: { AGENT_FIXTURE_MODE: 'wait' },
         killGraceMs: 1_000,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
@@ -443,7 +443,7 @@ describe('ChildProcessSubagentRunner forwards a child permission request to the 
       };
       const runner = new ChildProcessSubagentRunner(deps, {
         workerEntry: FIXTURE_WORKER_ENTRY,
-        env: { ROBOTA_FIXTURE_MODE: 'permission-request' },
+        env: { AGENT_FIXTURE_MODE: 'permission-request' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
@@ -467,7 +467,7 @@ describe('ChildProcessSubagentRunner forwards a child permission request to the 
       };
       const runner = new ChildProcessSubagentRunner(deps, {
         workerEntry: FIXTURE_WORKER_ENTRY,
-        env: { ROBOTA_FIXTURE_MODE: 'permission-request' },
+        env: { AGENT_FIXTURE_MODE: 'permission-request' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
@@ -494,7 +494,7 @@ describe('ChildProcessSubagentRunner forwards a child permission request to the 
     async () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
         workerEntry: FIXTURE_WORKER_ENTRY,
-        env: { ROBOTA_FIXTURE_MODE: 'permission-request' },
+        env: { AGENT_FIXTURE_MODE: 'permission-request' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
@@ -538,7 +538,7 @@ describe('ChildProcessSubagentRunner forwards a child permission request to the 
       };
       const runner = new ChildProcessSubagentRunner(deps, {
         workerEntry: FIXTURE_WORKER_ENTRY,
-        env: { ROBOTA_FIXTURE_MODE: 'permission-request-wait' },
+        env: { AGENT_FIXTURE_MODE: 'permission-request-wait' },
         killGraceMs: 1_000,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
@@ -567,7 +567,7 @@ describe('ChildProcessSubagentRunner forwards a child permission request to the 
       };
       const runner = new ChildProcessSubagentRunner(deps, {
         workerEntry: FIXTURE_WORKER_ENTRY,
-        env: { ROBOTA_FIXTURE_MODE: 'permission-request' },
+        env: { AGENT_FIXTURE_MODE: 'permission-request' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
@@ -611,7 +611,7 @@ describe('ChildProcessSubagentRunner forwards a child permission request to the 
       };
       const runner = new ChildProcessSubagentRunner(deps, {
         workerEntry: FIXTURE_WORKER_ENTRY,
-        env: { ROBOTA_FIXTURE_MODE: 'permission-request-then-result' },
+        env: { AGENT_FIXTURE_MODE: 'permission-request-then-result' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
@@ -750,7 +750,7 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
         workerEntry: FIXTURE_WORKER_ENTRY,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
-        env: { ROBOTA_FIXTURE_MODE: 'echo-projection' },
+        env: { AGENT_FIXTURE_MODE: 'echo-projection' },
       },
     ),
   ): Promise<{
@@ -827,7 +827,7 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
         workerEntry: FIXTURE_WORKER_ENTRY,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
-        env: { ROBOTA_FIXTURE_MODE: 'echo-projection' },
+        env: { AGENT_FIXTURE_MODE: 'echo-projection' },
         parentSandboxSettings: () => live,
       });
 
@@ -854,7 +854,7 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
         workerEntry: FIXTURE_WORKER_ENTRY,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
-        env: { ROBOTA_FIXTURE_MODE: 'echo-sandbox-updates' },
+        env: { AGENT_FIXTURE_MODE: 'echo-sandbox-updates' },
         parentSandboxSettings: () => live,
         watchParentSandboxSettings: (listener) => {
           listeners.add(listener);
@@ -883,7 +883,7 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
     async () => {
       const listeners = new Set<() => void>();
       const runner = new ChildProcessSubagentRunner(createDeps(), {
-        workerEntry: { execPath: join(tmpdir(), 'robota-no-such-worker-binary'), args: [] },
+        workerEntry: { execPath: join(tmpdir(), 'agent-no-such-worker-binary'), args: [] },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
         watchParentSandboxSettings: (listener) => {
@@ -957,7 +957,7 @@ describe('ChildProcessSubagentRunner — credential on the wire (SEC-009)', () =
         workerEntry: FIXTURE_WORKER_ENTRY,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
-        env: { ROBOTA_FIXTURE_MODE: 'echo-profile' },
+        env: { AGENT_FIXTURE_MODE: 'echo-profile' },
       },
     );
     const result = await runner.start(createJob()).result;

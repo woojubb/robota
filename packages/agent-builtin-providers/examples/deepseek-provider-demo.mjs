@@ -5,7 +5,7 @@
  * Usage (from this package): node examples/deepseek-provider-demo.mjs
  * Prerequisites: built agent-builtin-providers and its provider dependencies.
  * This creates definitions only: no provider instances, environment-key resolution or requests.
- * Actual CLI wiring is covered by agent-cli/src/__tests__/robota-assembly-equivalence.test.ts
+ * Actual CLI wiring is covered by agent-cli/src/__tests__/product-assembly-equivalence.test.ts
  * ("offers the same provider surface"), not by inspecting generated bundle chunks.
  */
 import { createDeepSeekProviderDefinition } from '@robota-sdk/agent-provider-openai-compatible';

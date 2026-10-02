@@ -63,6 +63,10 @@ export interface IMCPOAuthConfig {
 
 /** A raw entry that decoded cleanly. Environment templates are NOT yet materialized. */
 export interface IMCPServerDefinition {
+  /** Explicit stateless wire selection; absence retains legacy negotiation. */
+  readonly protocolVersion?: '2026-07-28';
+  /** Explicit selection of Skills metadata and verified reads; instruction consent remains separate. */
+  readonly skills?: boolean;
   readonly name: string;
   readonly source: TMCPDefinitionSource;
   readonly origin: string;

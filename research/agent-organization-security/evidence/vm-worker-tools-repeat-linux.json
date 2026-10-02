@@ -1,0 +1,54 @@
+{
+  "kind": "actual-cli-disposable-vm-smoke",
+  "records": [
+    {
+      "id": "headless",
+      "runId": "14f87c35a358437db692c2dbf2dece77",
+      "cliExitCode": 0,
+      "artifactCheckExitCode": 0,
+      "markerPresent": true,
+      "durationMs": 1027,
+      "passed": true
+    },
+    {
+      "id": "shell-default-denied",
+      "runId": "14f87c35a358437db692c2dbf2dece77",
+      "cliExitCode": 0,
+      "artifactCheckExitCode": 0,
+      "markerPresent": true,
+      "durationMs": 1004,
+      "passed": true
+    },
+    {
+      "id": "shell-explicit-allow",
+      "runId": "14f87c35a358437db692c2dbf2dece77",
+      "cliExitCode": 0,
+      "artifactCheckExitCode": 0,
+      "markerPresent": true,
+      "durationMs": 1072,
+      "passed": true
+    },
+    {
+      "id": "file-read-write-git",
+      "runId": "14f87c35a358437db692c2dbf2dece77",
+      "cliExitCode": 0,
+      "artifactCheckExitCode": 0,
+      "markerPresent": true,
+      "durationMs": 1080,
+      "passed": true
+    },
+    {
+      "id": "subagent-child-file",
+      "runId": "14f87c35a358437db692c2dbf2dece77",
+      "cliExitCode": 0,
+      "artifactCheckExitCode": 0,
+      "markerPresent": true,
+      "durationMs": 1724,
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "No cloud provider or multi-worker result follows from these CLI probes.",
+    "The model is deterministic; CLI and tools are production implementations."
+  ]
+}

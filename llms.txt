@@ -1,11 +1,14 @@
-# Robota SDK
+# Robota — SDK and agent interfaces
 
-> A composable TypeScript **library collection** for building AI agents — strict types,
-> multi-provider, plugin/event architecture. It is not a coding-agent product:
-> `@robota-sdk/agent-cli` is a reference app assembled FROM these libraries, and you embed the
-> libraries directly the same way.
+> Our agents develop and advance our agents. [VISION.md](VISION.md) owns this direction: building
+> a dependable, adaptable foundation for agents to carry their own development forward.
+> Reliable autonomous self-evolution is an ambition, not a shipped guarantee.
 
-This file is a map for agent consumers evaluating or embedding robota. Facts live in their owner
+Today, composable TypeScript libraries provide strict types, multi-provider support and a
+plugin/event architecture. The SDK and maintained interfaces form one environment;
+`@robota-sdk/agent-cli` delivers a coding-capable terminal agent built from those same libraries.
+
+This file is a map for agent consumers evaluating or embedding the Robota SDK. Facts live in their owner
 documents — follow the links; do not infer capabilities from package counts or quickstart defaults.
 (`AGENTS.md`/`CLAUDE.md` are contributor-harness docs, not consumer docs.)
 
@@ -14,7 +17,7 @@ documents — follow the links; do not infer capabilities from package counts or
 `agent-core` plus one provider package; add `agent-tools` for tools. The other `@robota-sdk/*`
 packages are optional assembly on top of them. Published packages need Node.js >= 22.12.
 
-- [packages/agent-core/README.md](packages/agent-core/README.md): `Robota` class — `run`/`runStream`, conversation history, plugins, structured output
+- [packages/agent-core/README.md](packages/agent-core/README.md): `ConversationAgent` class — `run`/`runStream`, conversation history, plugins, structured output
 - [content/guide/providers.md](content/guide/providers.md): one provider package per vendor — `agent-provider-anthropic`, `-openai`, `-gemini`, `-openai-compatible` (DeepSeek / Qwen / Gemma), `-bytedance` (video)
 - [packages/agent-tools/README.md](packages/agent-tools/README.md): zod-validated function tools + built-in tool factories
 

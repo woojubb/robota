@@ -2,9 +2,10 @@
 
 ## Purpose
 
-Consolidated command module for the Robota SDK CLI. Provides all slash-command implementations as a
-single importable package. Plugin commands consume an injected `ICommandPluginAdapter`; the CLI owns
-the concrete adapter and plugin source loader.
+Consolidated command module for the configured SDK CLI. Provides all slash-command implementations as a
+single importable package. Plugin commands consume an injected `ICommandPluginAdapter`; human
+withdrawal controls remain reachable during active execution without activating new contributions,
+while the CLI owns the concrete adapter and plugin source loader.
 
 ## Non-goals / Boundaries
 
@@ -30,10 +31,11 @@ selects product directories or reconstructs project reads from `cwd`.
 
 **User-local commands.** The direct command and the assembled slash command share the host-supplied
 storage root for inspection and memory operations; neither chooses a home directory itself when the
-host omits that root.
+host omits that root, and memory curation preserves the user's control across authenticated attached
+surfaces subject to host command policy, without granting the model destructive curation authority.
 
 **Demand-switch sessions.** The `agent` and `schedule` command modules declare
-`sessionRequirements: ['agent-runtime']`: composing either module makes the session layer enable the
+`sessionRequirements: ['runtime']`: composing either module makes the session layer enable the
 agent runtime. This is a demand switch, not a gate — it does not assume the runtime is available
 beforehand.
 
@@ -63,7 +65,7 @@ watcher, or TUI implementation — it only asks an injected capability port to e
 and hands back the returned path. Key bindings belong to the terminal the user sits at, so that
 terminal runs the command: one attached to a workspace daemon runs it in its own process, never on
 the daemon, and does so even without the port, so a missing port cannot send it there. Without that
-port the command still exists and answers that key bindings belong to the robota terminal, so a host
+port the command still exists and answers that key bindings belong to the configured CLI terminal, so a host
 without a terminal never replies "Unknown command".
 
 **`/git` (host-only, blocking).** Every verb runs through an injected process port whose production
@@ -167,15 +169,14 @@ are absent.
 
 **`/theme`.** Works through an injected theme-catalogue port. Themes belong to the terminal the user
 sits at, so, as with `/keybindings`, an attached terminal runs it itself and writes the patch to its
-own settings; without the port it still exists and answers that themes belong to the robota terminal.
+own settings; without the port it still exists and answers that themes belong to the configured CLI terminal.
 It emits at most one appearance-settings patch per invocation, and an unknown theme id writes
 nothing, not even the toggles submitted alongside it.
 
-**Semantic command roles.** `skills`, `compact`, and `agent` declare framework-owned semantic roles
-(`skillActivation`, `contextReduction`, `subagentSpawn` respectively) as metadata on their
-`ISystemCommand` values. This package does not maintain a separate role-to-name registry; renaming an
-owner command changes only that command's value, and the framework's projection follows the
-declaration.
+**Semantic command roles.** Commands declare framework-owned semantic roles so model guidance follows
+the composed command's identity rather than a separately maintained name. Reading skill supporting
+bytes consumes the owning execution's existing activation; it cannot create consent or activate
+another skill.
 
 **Model invocation.** Trust, credential and permission-widening actions are never model-invocable,
 and neither are exits or UI-only preferences: the model may suggest them, the user runs them. A
@@ -212,7 +213,7 @@ guessing. The CLI does not hard-code command-specific dialog logic.
 
 This package does not define custom error classes. All execution errors surface as `ICommandResult`
 values with `success: false` and a human-readable message. The one thrown condition is the
-`agent-runtime` capability being unavailable when a command that requires it executes — a
+`runtime` capability being unavailable when a command that requires it executes — a
 non-recoverable session configuration error.
 
 The CLI-owned plugin adapter treats a marketplace manifest fetch failure as non-fatal and returns an

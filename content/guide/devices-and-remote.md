@@ -22,23 +22,23 @@ you enrol. It is not a way to share a session with another person.
 
 ## Prerequisites
 
-- The `robota` CLI installed on every computer involved — see [Getting Started](../getting-started/README.md).
+- The `__PRODUCT_CLI_NAME__` CLI installed on every computer involved — see [Getting Started](../getting-started/README.md).
 - An **interactive terminal**. `/devices`, `/peers`, `/handoff` and `/remote-control` are commands for
   the person at the host terminal: the model cannot run them, and every secret (recovery phrase,
   enrollment code) is typed and shown only on that terminal.
 - For enrolling devices and for remote control: a **signaling relay** you run yourself
   ([`apps/remote-signaling`](../../apps/remote-signaling/docs/README.md) in this repository), set as
-  `transports.webrtc.options.relayUrl` in `~/.robota/settings.json`.
+  `transports.webrtc.options.relayUrl` in `<user-state>/settings.json`.
 - For remote control only: the browser client page hosted somewhere you control (the `/remote` route
   of [`apps/agent-web`](../../apps/agent-web/docs/DEPLOYMENT.md)), set as
   `transports.webrtc.options.clientUrl`.
 
-All `transports.*` settings in this guide are read from `~/.robota/settings.json` only. A project's
+All `transports.*` settings in this guide are read from `<user-state>/settings.json` only. A project's
 settings cannot turn on the mesh or remote control.
 
 ## Talk to another session on this machine
 
-Start two `robota` sessions. In either one:
+Start two `__PRODUCT_CLI_NAME__` sessions. In either one:
 
 ```text
 /peers
@@ -71,7 +71,7 @@ receiving operator, who must accept it; it is kept aside and never run.
    passphrase, it is the only way to recover the identity. Do not run `init` on your other computers —
    there it creates a separate identity that can never link to the first.
 
-2. **On each computer**, turn the mesh on and point at your relay in `~/.robota/settings.json`:
+2. **On each computer**, turn the mesh on and point at your relay in `<user-state>/settings.json`:
 
    ```json
    {
@@ -82,7 +82,7 @@ receiving operator, who must accept it; it is kept aside and never run.
    }
    ```
 
-   Restart `robota`. The mesh opens when an interactive session starts; print and serve runs never
+   Restart `__PRODUCT_CLI_NAME__`. The mesh opens when an interactive session starts; print and serve runs never
    open it.
 
 3. **Enrol the second computer.** On the first one:
@@ -124,13 +124,13 @@ With no argument, `/handoff` lists where the conversation can go. With a target,
 does **not** travel — uncommitted changes in the working tree and running processes stay on this
 machine, and the destination uses its own provider credential — and asks you to confirm. The
 receiving operator must also accept. The conversation arrives **saved, not started**; resume it there
-with `robota --resume <id>`. This session ends once the destination confirms it saved the session;
+with `__PRODUCT_CLI_NAME__ --resume <id>`. This session ends once the destination confirms it saved the session;
 until then the session stays here. If the confirmation is lost, running `/handoff` to the same
 target again resends the same transfer, which is not saved twice.
 
 ## Co-drive a session from a browser
 
-Set both settings in `~/.robota/settings.json`:
+Set both settings in `<user-state>/settings.json`:
 
 ```json
 {
@@ -138,7 +138,7 @@ Set both settings in `~/.robota/settings.json`:
     "webrtc": {
       "options": {
         "relayUrl": "wss://relay.example.com",
-        "clientUrl": "https://robota.example.com/remote"
+        "clientUrl": "https://product.example.test/remote"
       }
     }
   }
@@ -157,7 +157,7 @@ including one from a device that paired before, and without an interactive termi
 Once approved, the browser sends prompts and answers the session's questions alongside the host
 terminal.
 
-A paired browser is remembered in `~/.robota/remote-trusted-devices.json` so it can reconnect
+A paired browser is remembered in `<user-state>/remote-trusted-devices.json` so it can reconnect
 without a new pairing link (still with your approval each time). List and remove them with
 `/remote-control devices` and `/remote-control revoke <device-id>`. `/remote-control stop` ends
 remote control.
@@ -195,7 +195,7 @@ offered in a peer's turn.
 
 ### Settings
 
-All keys live in `~/.robota/settings.json`.
+All keys live in `<user-state>/settings.json`.
 
 | Key                                               | Default                                      | Meaning                                                                                                         |
 | ------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -227,15 +227,15 @@ relay.
 
 | Path                                     | Contents                                                                                                |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| OS keychain, or `~/.robota/credentials/` | Private keys: device identity and the remote-control host key. `/devices init` names which one is used. |
-| `~/.robota/devices/`                     | Device roster, certificates, revocation list and the address cache.                                     |
-| `~/.robota/peer-files/<sender>/<name>`   | Files other sessions and devices sent you (mode `0600`, never executable).                              |
-| `~/.robota/handoff/`                     | A handed-over session, staged until it is verified and saved.                                           |
-| `~/.robota/remote-trusted-devices.json`  | Browsers trusted for remote-control reconnect.                                                          |
+| OS keychain, or `<user-state>/credentials/` | Private keys: device identity and the remote-control host key. `/devices init` names which one is used. |
+| `<user-state>/devices/`                     | Device roster, certificates, revocation list and the address cache.                                     |
+| `<user-state>/peer-files/<sender>/<name>`   | Files other sessions and devices sent you (mode `0600`, never executable).                              |
+| `<user-state>/handoff/`                     | A handed-over session, staged until it is verified and saved.                                           |
+| `<user-state>/remote-trusted-devices.json`  | Browsers trusted for remote-control reconnect.                                                          |
 
 The keychain is used through the optional `@napi-rs/keyring` package (macOS Keychain, Windows
 Credential Manager, Linux Secret Service); where no keychain works, keys go to an owner-only file
-under `~/.robota/credentials`.
+under `<user-state>/credentials`.
 
 ### Security model
 
@@ -278,14 +278,14 @@ under `~/.robota/credentials`.
 
 | Message                                                                        | Fix                                                                                                                                                        |
 | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Device mesh: off. Set transports.mesh.enabled to true in your user settings…` | Add the setting to `~/.robota/settings.json` and restart `robota`.                                                                                         |
+| `Device mesh: off. Set transports.mesh.enabled to true in your user settings…` | Add the setting to `<user-state>/settings.json` and restart `__PRODUCT_CLI_NAME__`.                                                                                         |
 | `This device has no identity yet…`                                             | On a second computer, use `/devices add` on the first and `/devices join` here — not `/devices init`.                                                      |
 | `Enrolling a device needs a signaling relay…`                                  | Set `transports.webrtc.options.relayUrl` on both computers.                                                                                                |
 | `No device accepted that code…`                                                | The code was wrong, expired or used. Run `/devices add` again for a new one.                                                                               |
 | `This device does not hold the signing key.`                                   | Run `add` or `revoke` on the device that holds it (see `/devices`), or `/devices recover`.                                                                 |
 | `The signing key on this device has expired.`                                  | Run `/devices recover`.                                                                                                                                    |
 | `Remote control needs a signaling relay…` / `…needs a browser client page…`    | Set `relayUrl` / `clientUrl` under `transports.webrtc.options`.                                                                                            |
-| `Local peer discovery is off for this session: …` (at startup)                 | The private rendezvous directory (`$XDG_RUNTIME_DIR/robota/peers`, else `~/.robota/peers`) is not usable; the message says why. Linked devices still work. |
+| `Local peer discovery is off for this session: …` (at startup)                 | The private rendezvous directory (`$XDG_RUNTIME_DIR/<daemon-namespace>/peers`, else `<user-state>/peers`) is not usable; the message says why. Linked devices still work. |
 | `This session has no hand-off carrier…`                                        | The session reaches neither other local sessions nor a device mesh — see the previous row, or turn on the mesh.                                            |
 | `No other machine is reachable for a hand-off right now.`                      | Start the other session, or check `/devices` for linked devices.                                                                                           |
 

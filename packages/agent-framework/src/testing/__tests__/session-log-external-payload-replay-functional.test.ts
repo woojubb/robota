@@ -45,7 +45,7 @@ describe('session-log external-payload replay (framework functional)', () => {
       const replayProvider = createReplayProviderFromSource(
         new NodeSessionLogSource(source.transcriptPath()),
       );
-      replayWorkspace = realpathSync(mkdtempSync(join(tmpdir(), 'robota-replay-functional-')));
+      replayWorkspace = realpathSync(mkdtempSync(join(tmpdir(), 'agent-replay-functional-')));
       replaySession = new InteractiveSession({
         cwd: replayWorkspace,
         provider: replayProvider,
@@ -79,7 +79,7 @@ describe('versioned session-log replay (framework functional)', () => {
   it(
     'preserves a real recorded turn and rejects a malformed diagnostic before replay',
     async () => {
-      const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-log-codec-functional-')));
+      const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-log-codec-functional-')));
       const lines: string[] = [];
       const recorded = new InteractiveSession({
         cwd: root,

@@ -1,7 +1,7 @@
 /**
  * What the terminal UI's prompt starts with, unsent: a deep link's prompt (shown as coming from a
- * link), else the words given after `robota` (`robota "fix the failing test"`), else nothing. Words
- * that begin with a subcommand's name (a mistyped `robota session …`) are not a prompt.
+ * link), else the words given after `the product` (`the product "fix the failing test"`), else nothing. Words
+ * that begin with a subcommand's name (a mistyped `the product session …`) are not a prompt.
  */
 export function tuiInitialInputProps(
   linkPrompt: string | undefined,

@@ -31,15 +31,6 @@
     },
     "./package.json": "./package.json"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/woojubb/robota.git",
-    "directory": "packages/agent-transport-mcp"
-  },
-  "homepage": "https://docs.robota.io/en/packages/agent-transport-mcp/",
-  "bugs": {
-    "url": "https://github.com/woojubb/robota/issues"
-  },
   "engines": {
     "node": ">=22.12.0"
   },

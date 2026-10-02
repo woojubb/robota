@@ -1,3 +1,4 @@
+import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
 /**
  * Session event-map contracts — the permission/ask/prompt vocabulary, the goal and plan-artifact
  * persisted shapes, and {@link IInteractiveSessionEvents} itself.
@@ -48,6 +49,7 @@ export interface IToolState {
   diffLines?: IDiffLine[];
   diffFile?: string;
   toolResultData?: string;
+  toolResultParts?: TUniversalMessagePart[];
   executionId?: string;
   /**
    * #3288: a workspace-relative display form of the tool's path argument (Edit/Write/Read), computed

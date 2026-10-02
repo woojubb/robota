@@ -27,6 +27,16 @@ export interface IMCPServerIdentity {
   readonly serverName: string;
   readonly serverVersion: string;
   readonly protocolVersion: string;
+  /** Host-issued carrier generation; keeps stateless private catalogs out of later connections. */
+  readonly catalogGeneration?: string;
+  /** An omitted optional stateless serverInfo is not an invented server version. */
+  readonly serverInfoProvided?: false;
+}
+
+export interface IMCPResponseCacheHint {
+  readonly ttlMs: number;
+  readonly cacheScope: 'public' | 'private';
+  readonly receivedAtMs: number;
 }
 
 export interface IMCPDiscoveredTool {
@@ -62,6 +72,8 @@ export interface IMCPDiscoveryDomainResult<TItem> {
   readonly state: TMCPCapabilityState;
   readonly items: readonly TItem[];
   readonly pages: number;
+  /** One freshness/scope hint for each stateless page; no cache reuse is implied. */
+  readonly cacheHints?: readonly IMCPResponseCacheHint[];
 }
 
 /** Everything one initialized session disclosed. Pure data; no live handle. */
@@ -183,6 +195,7 @@ export interface IMCPCatalogIdentity {
   readonly serverId: string;
   readonly protocolVersion: string;
   readonly serverVersion: string;
+  readonly catalogGeneration?: string;
 }
 
 export function catalogIdentityOf(identity: IMCPServerIdentity): IMCPCatalogIdentity {
@@ -190,6 +203,9 @@ export function catalogIdentityOf(identity: IMCPServerIdentity): IMCPCatalogIden
     serverId: identity.serverId,
     protocolVersion: identity.protocolVersion,
     serverVersion: identity.serverVersion,
+    ...(identity.catalogGeneration === undefined
+      ? {}
+      : { catalogGeneration: identity.catalogGeneration }),
   };
 }
 
@@ -197,6 +213,7 @@ export function sameCatalogIdentity(a: IMCPCatalogIdentity, b: IMCPCatalogIdenti
   return (
     a.serverId === b.serverId &&
     a.protocolVersion === b.protocolVersion &&
-    a.serverVersion === b.serverVersion
+    a.serverVersion === b.serverVersion &&
+    a.catalogGeneration === b.catalogGeneration
   );
 }

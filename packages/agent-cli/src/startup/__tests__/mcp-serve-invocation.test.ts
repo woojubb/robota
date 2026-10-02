@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { mcpServeProtocolArgs } from '../mcp-serve-invocation.js';
 
 describe('mcpServeProtocolArgs', () => {
-  it('recognizes a robota mcp serve run, which speaks MCP on stdout', () => {
+  it('recognizes a test-product mcp serve run, which speaks MCP on stdout', () => {
     expect(mcpServeProtocolArgs(['mcp', 'serve'])?.positional).toEqual(['mcp', 'serve']);
   });
 

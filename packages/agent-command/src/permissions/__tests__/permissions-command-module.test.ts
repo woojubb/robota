@@ -160,14 +160,14 @@ describe('createPermissionsCommandModule', () => {
         rules: { allow: ['Read', 'mcp__docs__*'], deny: ['Bash(rm *)'], ask: ['Bash(git push*)'] },
         layers: [
           {
-            source: '~/.robota/settings.json',
+            source: '~/.fixture-state/settings.json',
             scope: 'user',
             allow: ['Read'],
             deny: ['Bash(rm *)'],
             ask: [],
           },
           {
-            source: '.robota/settings.json',
+            source: '.fixture-state/settings.json',
             scope: 'project',
             allow: ['Read', 'Stale'],
             deny: [],
@@ -181,10 +181,10 @@ describe('createPermissionsCommandModule', () => {
     expect(result?.message).toContain(
       [
         'Rules (checked deny, then ask, then allow):',
-        '  ~/.robota/settings.json [user]',
+        '  ~/.fixture-state/settings.json [user]',
         '    deny: Bash(rm *)',
         '    allow: Read',
-        '  .robota/settings.json [project]',
+        '  .fixture-state/settings.json [project]',
         '    ask: Bash(git push*)',
         '    allow: Read',
         '  this session (CLI flags, preset, commands)',

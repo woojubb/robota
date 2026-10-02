@@ -63,6 +63,7 @@ import type {
   TCommandSurfaceLocality,
 } from '../commands/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
+import type { ISkillResource } from '@robota-sdk/agent-interface-command';
 import type {
   IContextReferenceAddResult,
   IContextReferenceClearResult,
@@ -71,7 +72,11 @@ import type {
 } from '../context/context-reference-inventory.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
-import type { IHistoryEntry, TUniversalMessage, IContextWindowState } from '@robota-sdk/agent-core';
+import type {
+  IHistoryEntry,
+  TUniversalMessage,
+  IContextWindowState,
+} from '@robota-sdk/agent-core';
 import type { IScheduleEditPatch } from '@robota-sdk/agent-executor';
 import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
 import type {
@@ -127,7 +132,7 @@ export abstract class InteractiveSessionBase {
     locality?: TCommandSurfaceLocality,
   ): Promise<ICommandResult | null> {
     await this.ensureInitialized();
-    if (this.execCtrl.executing)
+    if (this.execCtrl.executing && !this.skillRouter.canRunDuringTurn(name, args, source))
       return {
         success: false,
         message: 'Another prompt or command is already running. Wait for it to finish.',
@@ -152,6 +157,10 @@ export abstract class InteractiveSessionBase {
   getCommandSurfaceLocality(): TCommandSurfaceLocality {
     return this.skillRouter.getCommandSurfaceLocality();
   }
+
+  getCommandSurfaceLocalityEvidence(): TCommandSurfaceLocality | undefined {
+    return this.skillRouter.getCommandSurfaceLocalityEvidence();
+  }
   async executeSkillCommandByName(
     name: string,
     args: string,
@@ -165,6 +174,10 @@ export abstract class InteractiveSessionBase {
   }
   listSkills(): ICommandSkillListEntry[] {
     return this.skillRouter.listSkills();
+  }
+  async readSkillResource(name: string, uri: string): Promise<ISkillResource> {
+    await this.ensureInitialized();
+    return this.skillRouter.readSkillResource(name, uri);
   }
   listModelInvocableCommands(): Array<{ name: string; description: string }> {
     return this.skillRouter.listModelInvocableCommands();

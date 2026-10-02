@@ -10,7 +10,7 @@ accepts), an RTC data-channel session client with the same contract as the WS cl
 fragment-injected `spa/remote.html` static entry, and the REMOTE-007 permission/ask render+answer
 (the paired owner answers its own prompts — local == remote) shared by both the WS and RTC clients. It
 reuses the isomorphic `@robota-sdk/agent-remote-pairing` leaf and takes no node/werift dependency.
-`agent-cli` removes the fabricated `robota-remote://pair` client-URL default and fails closed when
+`agent-cli` removes the fabricated client-URL default and fails closed when
 `transports.webrtc.options.clientUrl` is unset (no dead link).
 
 (Bump targets corrected during REL-023 triage: `@robota-sdk/agent-web-ui` was dissolved by GUI-006 (#1141, 2026-07-12) before this work was ever published; the browser client described here now lives in `@robota-sdk/agent-transport-webrtc-web`.)

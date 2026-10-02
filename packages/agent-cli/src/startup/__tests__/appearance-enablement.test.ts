@@ -91,7 +91,7 @@ describe('the render fields the CLI passes down (SCREEN-2002 TC-08)', () => {
   });
 
   it('reads the environment variable by its documented name', () => {
-    const fields = resolveAppearanceRenderFields({}, undefined, { ROBOTA_REDUCED_MOTION: '1' });
+    const fields = resolveAppearanceRenderFields({}, undefined, { PRODUCT_REDUCED_MOTION: '1' });
 
     expect(fields.reducedMotion).toBe(true);
     expect(fields.reducedMotionOverride).toBe('environment');

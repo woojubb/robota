@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { closeSync, mkdirSync, openSync, readFileSync, unlinkSync } from 'node:fs';
 import { dirname } from 'node:path';
 
@@ -149,7 +150,7 @@ export function createFileMcpApprovalStore(filePath: string): IMCPActivationAppr
  */
 export function resolveMcpApprovalStore(
   supplied: IMCPActivationApprovalStore | undefined,
-  home?: string,
+  runtime: ICliRuntimeContext,
 ): IMCPActivationApprovalStore {
-  return supplied ?? createFileMcpApprovalStore(userPaths(home).mcpApprovals);
+  return supplied ?? createFileMcpApprovalStore(userPaths(runtime).mcpApprovals);
 }

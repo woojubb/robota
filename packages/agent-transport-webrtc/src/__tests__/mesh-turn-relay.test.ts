@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 import { derivePairRendezvous, type IPairRendezvous } from '@robota-sdk/agent-remote-pairing';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -32,7 +34,7 @@ function pair(
   peer: IMeshTestDevice,
   devices: readonly IMeshTestDevice[] = [world.low, world.high, world.third],
 ): Promise<IPairRendezvous> {
-  return derivePairRendezvous({
+  return derivePairRendezvous(testIdentity, {
     ownKaPrivateKey: own.ka.privateKey,
     own: own.cert,
     peerDeviceId: peer.cert.deviceId,

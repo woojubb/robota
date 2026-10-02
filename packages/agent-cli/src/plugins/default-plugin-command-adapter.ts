@@ -1,6 +1,5 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { execFileSync } from 'node:child_process';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 
 import {
   createHostBundlePluginLoader,
@@ -19,9 +18,10 @@ import type {
   ICommandPluginAdapter,
   TPluginInstallScope,
 } from '@robota-sdk/agent-interface-command';
-import { ROBOTA_PLUGIN_DIRECTORY } from '../product/robota-plugin-paths.js';
+import { productPluginDirectories } from '../product/plugin-paths.js';
 
 interface IPluginServices {
+  readonly projectPluginsDir: string;
   cwd: string;
   marketplace: MarketplaceClient;
   installer: BundlePluginInstaller;
@@ -36,6 +36,7 @@ interface IPluginServices {
    */
   createLoader: () => BundlePluginLoader;
   settingsStore: NodeHostPluginSettingsStore;
+  gitExec: (file: string, args: readonly string[], options: { timeout: number; stdio?: string }) => Buffer;
 }
 
 /**
@@ -67,7 +68,7 @@ const GIT_ENV_ALLOWLIST = [
 ] as const;
 
 /** The inherited environment, reduced to the allowlist. */
-export function scrubbedGitEnv(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+export function scrubbedGitEnv(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
   for (const key of GIT_ENV_ALLOWLIST) {
     const value = source[key];
@@ -87,27 +88,28 @@ export function runGit(
   file: string,
   args: readonly string[],
   options: { timeout: number; stdio?: string },
+  sourceEnvironment: NodeJS.ProcessEnv,
 ): Buffer {
   return execFileSync(file, [...args], {
     timeout: options.timeout,
     stdio: (options.stdio ?? 'pipe') as 'pipe' | 'inherit' | 'ignore',
     shell: false,
-    env: scrubbedGitEnv(),
+    env: scrubbedGitEnv(sourceEnvironment),
   });
 }
 
-function createPluginServices(cwd: string): IPluginServices {
-  const home = homedir();
-  const pluginsDir = join(home, ROBOTA_PLUGIN_DIRECTORY);
-  const userSettingsPath = join(home, '.robota', 'settings.json');
+function createPluginServices(cwd: string, runtime: ICliRuntimeContext): IPluginServices {
+  const pluginsDir = productPluginDirectories(cwd, runtime).user;
+  const userSettingsPath = runtime.layout.userPaths.settings;
 
   const settingsStore = new NodeHostPluginSettingsStore(userSettingsPath);
-  const marketplace = new MarketplaceClient({ pluginsDir, exec: runGit });
+  const gitExec: IPluginServices['gitExec'] = (file, args, options) => runGit(file, args, options, runtime.environment);
+  const marketplace = new MarketplaceClient({ pluginsDir, exec: gitExec });
   const installer = new BundlePluginInstaller({
     pluginsDir,
     settingsStore,
     marketplaceClient: marketplace,
-    exec: runGit,
+    exec: gitExec,
   });
   // PLG-021 / issue #2025: the enablement state was never unreachable here — `settingsStore` is
   // built above and knows exactly which plugins the user disabled. It simply was not passed, and
@@ -121,10 +123,12 @@ function createPluginServices(cwd: string): IPluginServices {
 
   return {
     cwd,
+    projectPluginsDir: productPluginDirectories(cwd, runtime).project,
     marketplace,
     installer,
     createLoader,
     settingsStore,
+    gitExec,
   };
 }
 
@@ -142,7 +146,7 @@ async function listInstalledPlugins(
       : plugin.manifest.name;
     return {
       name: fullId,
-      description: plugin.manifest.description,
+      description: plugin.manifest.description ?? '',
       enabled: enabledMap[fullId] !== false && enabledMap[plugin.manifest.name] !== false,
     };
   });
@@ -178,12 +182,12 @@ async function installPlugin(
     throw new Error('Plugin ID must be in format: name@marketplace');
   }
   if (scope === 'project') {
-    const projectPluginsDir = join(services.cwd, ROBOTA_PLUGIN_DIRECTORY);
+    const projectPluginsDir = services.projectPluginsDir;
     const projectInstaller = new BundlePluginInstaller({
       pluginsDir: projectPluginsDir,
       settingsStore: services.settingsStore,
       marketplaceClient: services.marketplace,
-      exec: runGit,
+      exec: services.gitExec,
     });
     await projectInstaller.install(name, marketplaceName);
     return;
@@ -206,8 +210,8 @@ function listMarketplaces(services: IPluginServices): readonly ICommandMarketpla
   }));
 }
 
-export function createDefaultPluginCommandAdapter(cwd: string): ICommandPluginAdapter {
-  const services = createPluginServices(cwd);
+export function createDefaultPluginCommandAdapter(cwd: string, runtime: ICliRuntimeContext): ICommandPluginAdapter {
+  const services = createPluginServices(cwd, runtime);
   return {
     listInstalled: () => listInstalledPlugins(services),
     listAvailablePlugins: (marketplaceName) => listAvailablePlugins(services, marketplaceName),

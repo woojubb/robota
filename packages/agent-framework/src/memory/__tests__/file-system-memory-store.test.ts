@@ -15,7 +15,7 @@ import type {
   ISemanticMemoryAdapter,
 } from '../types.js';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-fs-memory-store-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-fs-memory-store-')));
 
 function makeWorkspace(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));

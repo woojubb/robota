@@ -24,7 +24,10 @@ const MEMORY_COMMAND_MODEL_DESCRIPTION =
   'topics. In plan mode `add` is refused: save after plan mode ends. Returns the requested topics ' +
   'or entries, or a confirmation of what was saved. Approving ' +
   'or rejecting a pending candidate is the user’s review: suggest `/memory approve <id>` or ' +
-  '`/memory reject <id>`.';
+  '`/memory reject <id>`. Correcting or forgetting saved knowledge is also user-only: ' +
+  'suggest `/memory correct <type> <topic> <text>` to replace every entry in a topic or ' +
+  '`/memory forget <topic>` to remove it from active recall. These operations block automatic ' +
+  'restoration of that topic; historical transcripts and backups remain.';
 
 export function createMemoryCommandEntry(): ICommand {
   return {

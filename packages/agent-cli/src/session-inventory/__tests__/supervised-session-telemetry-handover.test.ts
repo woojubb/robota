@@ -1,3 +1,4 @@
+import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -19,11 +20,11 @@ const ID = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
 // A validly resolvable configuration: the parent now validates it (without starting an exporter)
 // before spawning the child, the same way the child validates it when it starts.
 const snapshot = Object.freeze({
-  ROBOTA_TELEMETRY_ENABLED: '1',
-  ROBOTA_TELEMETRY_TRACES: 'otlp',
-  ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
-  ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'https://collector.example',
-  ROBOTA_TELEMETRY_OTLP_HEADERS: 'authorization=Bearer%20handover-sentinel',
+  PRODUCT_TELEMETRY_ENABLED: '1',
+  PRODUCT_TELEMETRY_TRACES: 'otlp',
+  PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+  PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'https://collector.example',
+  PRODUCT_TELEMETRY_OTLP_HEADERS: 'authorization=Bearer%20handover-sentinel',
 });
 
 describe('supervised session telemetry handover', () => {
@@ -44,20 +45,21 @@ describe('supervised session telemetry handover', () => {
       return 0;
     });
     try {
-      expect(await runWorkspaceTrustCommand(['--yes'], cwd)).toBe(0);
-      const options = {
+      expect(await runWorkspaceTrustCommand(['--yes'], cwd, createTestProductRuntime())).toBe(0);
+      const options = { productRuntime: createTestProductRuntime(),
         providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
       };
-      expect(await runPreparsedCliCommand(options, ['node', 'robota', 'session', 'view'], cwd, snapshot)).toBe(true);
-      expect(await runPreparsedCliCommand({ providerDefinitions: [] },
-        ['node', 'robota', 'session', 'start', '--background', '--name', 'Morning'], cwd, snapshot)).toBe(true);
+      expect(await runPreparsedCliCommand(options, ['node', 'test-product', 'session', 'view'], cwd, snapshot)).toBe(true);
+      expect(await runPreparsedCliCommand({ productRuntime: createTestProductRuntime(), providerDefinitions: [] },
+        ['node', 'test-product', 'session', 'start', '--background', '--name', 'Morning'], cwd, snapshot)).toBe(true);
       expect(launchSupervisedSession).toHaveBeenCalledTimes(2);
       for (const [target, launchOptions] of vi.mocked(launchSupervisedSession).mock.calls) {
         expect(target).toBe(cwd);
-        expect(launchOptions?.env).toMatchObject({ ...snapshot, RS_HANDOVER_MARKER: 'kept', HOME: home });
+        expect(launchOptions?.env).toMatchObject({ ...snapshot, HOME: home });
+        expect(launchOptions.env?.['RS_HANDOVER_MARKER']).toBeUndefined();
       }
       expect(vi.mocked(launchSupervisedSession).mock.calls[1]?.[1]?.name).toBe('Morning');
-      expect(process.env['ROBOTA_TELEMETRY_OTLP_HEADERS']).toBeUndefined();
+      expect(process.env['PRODUCT_TELEMETRY_OTLP_HEADERS']).toBeUndefined();
     } finally {
       if (previousHome === undefined) delete process.env['HOME'];
       else process.env['HOME'] = previousHome;

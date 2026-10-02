@@ -16,7 +16,7 @@ Converts a declarative pipeline spec, or a `.dag.json` workflow file, into a ful
 - `dagDefinitionFromParsedFile` is where the on-disk workflow-file format should be read. The
   execution contract is the domain model (`IDagRuntimeProvider.execute` takes an
   `IDagDefinition`), so import at the edge is the only job the file format has.
-- Decoding is pure and synchronous: a caller that also reads a `.dag.robota.json` companion off disk
+- Decoding is pure and synchronous: a caller that also reads a product-named `.dag.<identifier>.json` companion off disk
   performs that IO itself and passes the result in. The companion supplies what the file format
   cannot record (original node ids, retry/cost policies) — without it, an imported workflow's nodes
   are named `node-<n>` because that is genuinely all the file records.

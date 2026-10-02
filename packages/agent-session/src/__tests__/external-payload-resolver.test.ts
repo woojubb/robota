@@ -24,7 +24,7 @@ afterEach(() => {
 
 describe('resolveSessionLogExternalPayloads', () => {
   it('ARCH-014: resolves a valid content-addressed JSON sidecar', () => {
-    const baseDirectory = realpathSync(mkdtempSync(join(tmpdir(), 'robota-payload-resolver-')));
+    const baseDirectory = realpathSync(mkdtempSync(join(tmpdir(), 'agent-payload-resolver-')));
     temporaryDirectories.push(baseDirectory);
     const payloadDirectory = join(baseDirectory, 'session.payloads');
     mkdirSync(payloadDirectory);
@@ -299,7 +299,7 @@ function payloadOptions(baseDirectory: string): { source: NodeExternalPayloadSou
 }
 
 function createTemporaryDirectory(): string {
-  const directory = realpathSync(mkdtempSync(join(tmpdir(), 'robota-payload-resolver-')));
+  const directory = realpathSync(mkdtempSync(join(tmpdir(), 'agent-payload-resolver-')));
   temporaryDirectories.push(directory);
   return directory;
 }

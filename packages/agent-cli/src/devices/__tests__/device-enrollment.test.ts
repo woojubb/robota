@@ -11,6 +11,7 @@ import { join } from 'node:path';
 
 import {
   decodeEnrollmentFrame,
+  createIdentityContext,
   deriveEnrollmentMaterial,
   enrollmentCommitment,
   generateDeviceKeyAgreementKeyPair,
@@ -37,7 +38,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createFileCredentialStore } from '../../credentials/file-credential-store.js';
 import { openDeviceMesh, type IDeviceMeshEndpoint } from '../device-mesh.js';
-import { DEVICE_SIGN_KEY } from '../identity-keys.js';
+import { deviceIdentityCredentialKeys } from '../identity-keys.js';
 import { readIdentityState } from '../identity-state.js';
 import { createDevicesCommandPort } from '../index.js';
 import {
@@ -46,6 +47,7 @@ import {
   type IScriptedOperatorOptions,
 } from './fake-secret-terminal.js';
 import { filesUnder } from './secret-leak.js';
+import { createTestRuntimeContext } from './runtime-context-fixture.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
 import type { IDevicesCommandPort, TDevicesOutcome } from '@robota-sdk/agent-command';
@@ -55,6 +57,7 @@ interface IHome {
   readonly root: string;
   readonly directory: string;
   readonly store: ICredentialStore;
+  readonly productRuntime: ReturnType<typeof createTestRuntimeContext>;
   operator: IScriptedOperator;
 }
 
@@ -62,9 +65,10 @@ let world: string;
 let previousHome: string | undefined;
 const sessions: ScriptedSessionHarness[] = [];
 const endpoints: IDeviceMeshEndpoint[] = [];
+const cryptoContext = createIdentityContext('test-agent-domain');
 
 beforeEach(() => {
-  world = mkdtempSync(join(tmpdir(), 'robota-enrol-'));
+  world = mkdtempSync(join(tmpdir(), 'agent-fixture-enrol-'));
   previousHome = process.env.HOME;
   process.env.HOME = world;
 });
@@ -78,12 +82,13 @@ afterEach(async () => {
 });
 
 function makeHome(label: string): IHome {
-  const root = join(world, label, '.robota');
+  const root = join(world, label, '.agent-fixture');
   mkdirSync(root, { recursive: true });
   return {
     root,
     directory: join(root, 'devices'),
     store: createFileCredentialStore(join(root, 'credentials'), { withinRoot: root }),
+    productRuntime: createTestRuntimeContext(root),
     operator: scriptedOperator(),
   };
 }
@@ -94,6 +99,7 @@ function portOf(
   enrollment: { ttlMs?: number; maxFailedAttempts?: number } = {},
 ): IDevicesCommandPort {
   return createDevicesCommandPort({
+    productRuntime: home.productRuntime,
     root: home.root,
     credentials: { store: home.store, describe: () => 'owner-only file (test)' },
     openTerminal: () => home.operator.session,
@@ -119,7 +125,7 @@ function reason<T>(outcome: TDevicesOutcome<T>): string {
 }
 
 function snapshot(home: IHome): string {
-  return JSON.stringify(readIdentityState(home.directory) ?? null);
+  return JSON.stringify(readIdentityState(home.productRuntime.cryptoContext, home.directory) ?? null);
 }
 
 /** Resolves with `read()` once it is defined. */
@@ -154,7 +160,7 @@ function attackerSide(
     queue.length > 0
       ? Promise.resolve(queue.shift())
       : new Promise((resolve) => waiters.push(resolve));
-  const proof = startEnrollmentProof({
+  const proof = startEnrollmentProof(cryptoContext, {
     role,
     material,
     localFingerprint: channel.localFingerprint,
@@ -166,7 +172,7 @@ function attackerSide(
     proof.onFrame(await next());
   })();
   const nextFrame = async (): Promise<TEnrollmentFrame> => {
-    const decoded = decodeEnrollmentFrame(await next());
+    const decoded = decodeEnrollmentFrame(cryptoContext, await next());
     if (!decoded.ok) throw new Error(`unexpected frame (${decoded.field})`);
     return decoded.frame;
   };
@@ -234,8 +240,8 @@ describe('/devices add and /devices join between two HOMEs', () => {
     expect(joined?.success).toBe(true);
     expect(joined?.message).toMatch(/Joined the devices/);
 
-    const laptopState = readIdentityState(laptop.directory)!;
-    const desktopState = readIdentityState(desktop.directory)!;
+    const laptopState = readIdentityState(laptop.productRuntime.cryptoContext, laptop.directory)!;
+    const desktopState = readIdentityState(desktop.productRuntime.cryptoContext, desktop.directory)!;
     expect(laptopState.roster.devices.map((d) => d.name).sort()).toEqual(['desktop', 'laptop']);
     expect(desktopState.deviceCertificate.name).toBe('desktop');
     expect(desktopState.holdsSigningKey).toBe(false);
@@ -255,6 +261,8 @@ describe('/devices add and /devices join between two HOMEs', () => {
     const open = async (home: IHome) => {
       const endpoint = await openDeviceMesh({
         root: home.root,
+        cryptoContext: home.productRuntime.cryptoContext,
+        credentialServiceNamespace: home.productRuntime.config.credentials.serviceNamespace,
         store: home.store,
         relay: hub.connect(),
         connectTimeoutMs: 10_000,
@@ -316,8 +324,8 @@ describe('/devices add and /devices join between two HOMEs', () => {
     expect(reason(joined)).toBe('code-not-accepted');
     expect(reason(added)).toBe('enrollment-expired');
     expect(snapshot(laptop)).toBe(before);
-    expect(readIdentityState(desktop.directory)).toBeUndefined();
-    expect(await desktop.store.get(DEVICE_SIGN_KEY)).toBeUndefined();
+    expect(readIdentityState(desktop.productRuntime.cryptoContext, desktop.directory)).toBeUndefined();
+    expect(await desktop.store.get(deviceIdentityCredentialKeys(desktop.productRuntime.config.credentials.serviceNamespace).deviceSign)).toBeUndefined();
   }, 30_000);
 
   it('refuses an expired code, and a code already used', async () => {
@@ -345,8 +353,8 @@ describe('/devices add and /devices join between two HOMEs', () => {
     const replay = makeHome('replay');
     operate(replay, { code: () => usedCode });
     expect(reason(await portOf(replay, hub).join({}))).toBe('code-not-accepted');
-    expect(readIdentityState(replay.directory)).toBeUndefined();
-    expect(readIdentityState(laptop.directory)!.roster.devices).toHaveLength(2);
+    expect(readIdentityState(replay.productRuntime.cryptoContext, replay.directory)).toBeUndefined();
+    expect(readIdentityState(laptop.productRuntime.cryptoContext, laptop.directory)!.roster.devices).toHaveLength(2);
   }, 60_000);
 
   it('a relay in the middle cannot enrol anyone: the proof is bound to the DTLS fingerprints', async () => {
@@ -362,7 +370,7 @@ describe('/devices add and /devices join between two HOMEs', () => {
       portOf(laptop, towardLaptop, { maxFailedAttempts: 1 }),
       async (code) => {
         // A relay sees the topics; it is handed them here, and never the keys.
-        const { existingInbox, joinerInbox } = await deriveEnrollmentMaterial(code);
+        const { existingInbox, joinerInbox } = await deriveEnrollmentMaterial(cryptoContext, code);
         const listener = listenForEnrollment({
           relay: relays[1]!,
           inbound: existingInbox,
@@ -392,7 +400,7 @@ describe('/devices add and /devices join between two HOMEs', () => {
     expect(reason(joined)).toBe('code-not-accepted');
     expect(reason(added)).toBe('too-many-attempts');
     expect(snapshot(laptop)).toBe(before);
-    expect(readIdentityState(desktop.directory)).toBeUndefined();
+    expect(readIdentityState(desktop.productRuntime.cryptoContext, desktop.directory)).toBeUndefined();
   }, 30_000);
 
   it('bounds guessing: after failed proofs the code stops working, even for the right device', async () => {
@@ -406,8 +414,8 @@ describe('/devices add and /devices join between two HOMEs', () => {
      * the laptop counts the failure in the same step, and the next guess is then heard.
      */
     const guessOnce = async (code: string): Promise<string> => {
-      const right = await deriveEnrollmentMaterial(code);
-      const guess = await deriveEnrollmentMaterial('0000000000000000000000000');
+      const right = await deriveEnrollmentMaterial(cryptoContext, code);
+      const guess = await deriveEnrollmentMaterial(cryptoContext, '0000000000000000000000000');
       const material = { ...right, proofKey: guess.proofKey, sasKey: guess.sasKey };
       const relay = hub.connect();
       try {
@@ -444,7 +452,7 @@ describe('/devices add and /devices join between two HOMEs', () => {
     operate(desktop, { code: () => shownCode });
     expect(reason(await portOf(desktop, hub).join({ name: 'desktop' }))).toBe('code-not-accepted');
     expect(snapshot(laptop)).toBe(before);
-    expect(readIdentityState(desktop.directory)).toBeUndefined();
+    expect(readIdentityState(desktop.productRuntime.cryptoContext, desktop.directory)).toBeUndefined();
   }, 60_000);
 
   it('someone who knows the code and sits in the middle cannot make the two screens agree', async () => {
@@ -494,11 +502,11 @@ describe('/devices add and /devices join between two HOMEs', () => {
       };
       const mine = newEnrollmentContribution();
       toLaptop.send(
-        await signEnrollmentRequest({
+        await signEnrollmentRequest(cryptoContext, {
           binding: laptopBinding,
           signPrivateKey: sign.privateKey,
           ...fields,
-          commit: await enrollmentCommitment(laptopBinding, mine),
+          commit: await enrollmentCommitment(cryptoContext, laptopBinding, mine),
         }),
       );
       const laptopAnchor = (await laptopSide.next()) as IEnrollmentAnchorFrame;
@@ -519,7 +527,7 @@ describe('/devices add and /devices join between two HOMEs', () => {
       laptop,
       portOf(laptop, towardLaptop),
       async (code) => {
-        attacking = attack(await deriveEnrollmentMaterial(code));
+        attacking = attack(await deriveEnrollmentMaterial(cryptoContext, code));
         operate(desktop, { code: () => code, joinAnswer: comparing(() => laptop) });
         return portOf(desktop, towardDesktop).join({ name: 'desktop' });
       },
@@ -533,8 +541,8 @@ describe('/devices add and /devices join between two HOMEs', () => {
     expect(reason(added)).toBe('enrollment-declined');
     expect(reason(joined)).toBe('enrollment-declined');
     expect(snapshot(laptop)).toBe(before);
-    expect(readIdentityState(desktop.directory)).toBeUndefined();
-    expect(await desktop.store.get(DEVICE_SIGN_KEY)).toBeUndefined();
+    expect(readIdentityState(desktop.productRuntime.cryptoContext, desktop.directory)).toBeUndefined();
+    expect(await desktop.store.get(deviceIdentityCredentialKeys(desktop.productRuntime.config.credentials.serviceNamespace).deviceSign)).toBeUndefined();
   }, 30_000);
 
   it("stores nothing and issues nothing when the new device's operator declines", async () => {
@@ -549,8 +557,8 @@ describe('/devices add and /devices join between two HOMEs', () => {
     expect(reason(joined)).toBe('enrollment-declined');
     expect(reason(added)).toBe('enrollment-declined');
     expect(snapshot(laptop)).toBe(before);
-    expect(readIdentityState(desktop.directory)).toBeUndefined();
-    expect(await desktop.store.get(DEVICE_SIGN_KEY)).toBeUndefined();
+    expect(readIdentityState(desktop.productRuntime.cryptoContext, desktop.directory)).toBeUndefined();
+    expect(await desktop.store.get(deviceIdentityCredentialKeys(desktop.productRuntime.config.credentials.serviceNamespace).deviceSign)).toBeUndefined();
   }, 30_000);
 
   it('issues nothing when the operator declines', async () => {
@@ -571,8 +579,8 @@ describe('/devices add and /devices join between two HOMEs', () => {
     expect(reason(joined)).toBe('enrollment-declined');
     expect(laptop.operator.shownSas()).toBe(desktop.operator.shownSas());
     expect(snapshot(laptop)).toBe(before);
-    expect(readIdentityState(desktop.directory)).toBeUndefined();
-    expect(await desktop.store.get(DEVICE_SIGN_KEY)).toBeUndefined();
+    expect(readIdentityState(desktop.productRuntime.cryptoContext, desktop.directory)).toBeUndefined();
+    expect(await desktop.store.get(deviceIdentityCredentialKeys(desktop.productRuntime.config.credentials.serviceNamespace).deviceSign)).toBeUndefined();
   }, 30_000);
 
   it('refuses without an interactive terminal, without a relay, and a code typed as an argument', async () => {
@@ -582,6 +590,7 @@ describe('/devices add and /devices join between two HOMEs', () => {
     const headless = (home: IHome): IDevicesCommandPort =>
       createDevicesCommandPort({
         root: home.root,
+        productRuntime: home.productRuntime,
         credentials: { store: home.store, describe: () => undefined },
         openTerminal: () => undefined,
         openEnrollmentRelay: () => hub.connect(),
@@ -598,6 +607,6 @@ describe('/devices add and /devices join between two HOMEs', () => {
     operate(laptop, { cancelWaiting: true });
     expect(reason(await portOf(laptop, hub).add())).toBe('cancelled');
     expect(snapshot(laptop)).toBe(before);
-    expect(readIdentityState(desktop.directory)).toBeUndefined();
+    expect(readIdentityState(desktop.productRuntime.cryptoContext, desktop.directory)).toBeUndefined();
   }, 30_000);
 });

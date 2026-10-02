@@ -1,3 +1,4 @@
+import { createTestTelemetryRuntime } from './helpers/product-runtime.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -8,7 +9,7 @@ import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
 const originalArgv = process.argv;
 const originalHome = process.env.HOME;
-const KEY_VARIABLE = 'ROBOTA_LIVE_CONTENT_TEST_KEY';
+const KEY_VARIABLE = 'PRODUCT_LIVE_CONTENT_TEST_KEY';
 const API_KEY = 'content-test-api-key-9f8e7d';
 let responseText = '';
 
@@ -33,11 +34,11 @@ describe('CLI live content opt-in', () => {
     process.argv = originalArgv;
     process.env.HOME = originalHome;
     delete process.env[KEY_VARIABLE];
-    for (const key of Object.keys(process.env)) if (key.startsWith('ROBOTA_TELEMETRY_')) delete process.env[key];
+    for (const key of Object.keys(process.env)) if (key.startsWith('PRODUCT_TELEMETRY_')) delete process.env[key];
   });
 
   it('sends no content without a gate, and refuses content gates outside the interactive terminal', async () => {
-    const home = mkdtempSync(join(tmpdir(), 'robota-cli-live-content-home-'));
+    const home = mkdtempSync(join(tmpdir(), 'test-product-cli-live-content-home-'));
     process.env.HOME = home;
     process.env[KEY_VARIABLE] = API_KEY;
     responseText = `the key is ${API_KEY}; notes are in ${home}/notes.txt`;
@@ -47,7 +48,7 @@ describe('CLI live content opt-in', () => {
     }) as never);
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    process.argv = ['node', 'robota', '-p', 'what is in my notes', '--no-session-persistence'];
+    process.argv = ['node', 'test-product', '-p', 'what is in my notes', '--no-session-persistence'];
 
     const bodies: string[] = [];
     const server = createServer(async (request, response) => {
@@ -64,13 +65,13 @@ describe('CLI live content opt-in', () => {
       if (!address || typeof address === 'string') throw new Error('Expected TCP listener');
       const setTelemetry = (settings: Record<string, string>): void => {
         for (const [key, value] of Object.entries({
-          ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_LOGS: 'otlp',
-          ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
-          ROBOTA_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`, ...settings,
+          PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_LOGS: 'otlp',
+          PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+          PRODUCT_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`, ...settings,
         })) process.env[key] = value;
       };
       setTelemetry({});
-      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      await expect(startCli({productRuntime: createTestTelemetryRuntime(home),  providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(bodies).toHaveLength(1);
       expect(bodies.join('')).not.toMatch(/what is in my notes|the key is/u);
 
@@ -79,20 +80,20 @@ describe('CLI live content opt-in', () => {
       bodies.length = 0;
       const stderr = vi.mocked(process.stderr.write);
       stderr.mockClear();
-      setTelemetry({ ROBOTA_TELEMETRY_LOG_USER_PROMPTS: '1', ROBOTA_TELEMETRY_LOG_ASSISTANT_RESPONSES: '1' });
+      setTelemetry({ PRODUCT_TELEMETRY_LOG_USER_PROMPTS: '1', PRODUCT_TELEMETRY_LOG_ASSISTANT_RESPONSES: '1' });
       let error: unknown;
-      try { await startCli({ providerDefinitions: [providerDefinition] }); } catch (caught) { error = caught; }
+      try { await startCli({productRuntime: createTestTelemetryRuntime(home),  providerDefinitions: [providerDefinition] }); } catch (caught) { error = caught; }
       const reported = `${error instanceof Error ? error.message : String(error)} ${stderr.mock.calls.join(' ')}`;
       expect(reported).toMatch(/content capture is available only in the interactive terminal, not in print mode/u);
       expect(reported).not.toContain(API_KEY);
       expect(bodies).toEqual([]);
 
       // Tool content gates start only where the owner types, too.
-      for (const key of Object.keys(process.env)) if (key.startsWith('ROBOTA_TELEMETRY_')) delete process.env[key];
+      for (const key of Object.keys(process.env)) if (key.startsWith('PRODUCT_TELEMETRY_')) delete process.env[key];
       stderr.mockClear();
-      setTelemetry({ ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS: '1', ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT: '1' });
+      setTelemetry({ PRODUCT_TELEMETRY_LOG_TOOL_ARGUMENTS: '1', PRODUCT_TELEMETRY_LOG_TOOL_OUTPUT: '1' });
       error = undefined;
-      try { await startCli({ providerDefinitions: [providerDefinition] }); } catch (caught) { error = caught; }
+      try { await startCli({productRuntime: createTestTelemetryRuntime(home),  providerDefinitions: [providerDefinition] }); } catch (caught) { error = caught; }
       const toolReported = `${error instanceof Error ? error.message : String(error)} ${stderr.mock.calls.join(' ')}`;
       expect(toolReported).toMatch(/content capture is available only in the interactive terminal, not in print mode/u);
       expect(toolReported).not.toMatch(/not yet supported/u);

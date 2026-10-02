@@ -11,13 +11,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFileCredentialStore } from '../../credentials/file-credential-store.js';
 import { createDevicesCommandPort } from '../index.js';
 import { scriptedOperator } from './fake-secret-terminal.js';
+import { createTestRuntimeContext } from './runtime-context-fixture.js';
 
 let home: string;
 let root: string;
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), 'robota-devices-port-'));
-  root = join(home, '.robota');
+  home = mkdtempSync(join(tmpdir(), 'agent-fixture-devices-port-'));
+  root = join(home, '.agent-fixture');
 });
 
 afterEach(() => {
@@ -29,6 +30,7 @@ describe('the /devices port and the running session', () => {
     const changed = vi.fn();
     const port = createDevicesCommandPort({
       root,
+      productRuntime: createTestRuntimeContext(root),
       credentials: {
         store: createFileCredentialStore(join(root, 'credentials'), { withinRoot: root }),
         describe: () => undefined,

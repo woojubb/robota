@@ -24,7 +24,7 @@ import { createWriteTool } from '../builtins/write-tool.js';
  * visible rather than implied, and it is a private directory made under the OS temp directory rather
  * than the repo, so a case that ever did reach the disk could not read the source tree.
  */
-const DESCRIPTION_ROOT = mkdtempSync(join(tmpdir(), 'robota-descriptions-'));
+const DESCRIPTION_ROOT = mkdtempSync(join(tmpdir(), 'agent-test-descriptions-'));
 afterAll(() => rmSync(DESCRIPTION_ROOT, { recursive: true, force: true }));
 /** A second inert root, used only to show the default description does not vary with it. */
 const OTHER_DESCRIPTION_ROOT = join(DESCRIPTION_ROOT, 'neut002-other-root');

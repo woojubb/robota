@@ -17,10 +17,10 @@ provider type, `gemma`, shown in setup as **Ollama / LM Studio / llama.cpp**.
 ## Quick Start
 
 1. Start your local model server (see the options below).
-2. Configure the `robota` CLI to use it:
+2. Configure the `__PRODUCT_CLI_NAME__` CLI to use it:
 
    ```bash
-   robota --configure
+   __PRODUCT_CLI_NAME__ --configure
    ```
 
    Choose **Ollama / LM Studio / llama.cpp (gemma)**, then answer the three prompts. Press Enter to
@@ -32,17 +32,17 @@ provider type, `gemma`, shown in setup as **Ollama / LM Studio / llama.cpp**.
    | Model    | `supergemma4-26b-uncensored-v2` | The model name exactly as your server lists it |
    | API key  | `lm-studio`                     | Any value; local servers do not check it       |
 
-On a first run with no provider configured, `robota` offers the same setup: answer "No — use a local
+On a first run with no provider configured, `__PRODUCT_CLI_NAME__` offers the same setup: answer "No — use a local
 model", and after a short LM Studio guide it asks these three prompts.
 
 To configure without prompts (for example in a setup script):
 
 ```bash
-robota --configure-provider local --type gemma \
+__PRODUCT_CLI_NAME__ --configure-provider local --type gemma \
   --base-url http://localhost:11434/v1 --model llama3.2 --api-key ollama --set-current
 ```
 
-The profile is saved in `~/.robota/settings.json`, so you configure it once. Run `robota --configure`
+The profile is saved in `<user-state>/settings.json`, so you configure it once. Run `__PRODUCT_CLI_NAME__ --configure`
 again, or use `/provider` inside a session, to change the provider, URL or model.
 
 ---
@@ -67,9 +67,9 @@ curl http://localhost:11434/v1/models
 
 Ollama listens on `http://localhost:11434`.
 
-### Configure Robota
+### Configure ConversationAgent
 
-Run `robota --configure`, choose **Ollama / LM Studio / llama.cpp (gemma)**, and enter:
+Run `__PRODUCT_CLI_NAME__ --configure`, choose **Ollama / LM Studio / llama.cpp (gemma)**, and enter:
 
 - **Base URL**: `http://localhost:11434/v1`
 - **Model**: the model name exactly as `ollama list` shows it (e.g. `llama3.2`)
@@ -99,11 +99,11 @@ built-in local API server.
 2. Search for and download a model (for example a Gemma, Llama or Qwen Coder model).
 3. Start the local server from the **Developer** tab.
 
-The server runs on `http://localhost:1234` by default, which is also Robota's default base URL.
+The server runs on `http://localhost:1234` by default, which is also ConversationAgent's default base URL.
 
 ### Configure Robota
 
-Run `robota --configure`, choose **Ollama / LM Studio / llama.cpp (gemma)**, and enter:
+Run `__PRODUCT_CLI_NAME__ --configure`, choose **Ollama / LM Studio / llama.cpp (gemma)**, and enter:
 
 - **Base URL**: `http://localhost:1234/v1` (the default)
 - **Model**: the model name exactly as LM Studio shows it for the loaded model
@@ -119,7 +119,7 @@ If you build and run `llama.cpp` yourself:
 ./llama-server -m models/your-model.gguf --port 8080
 ```
 
-Then run `robota --configure`, choose **Ollama / LM Studio / llama.cpp (gemma)**, and enter
+Then run `__PRODUCT_CLI_NAME__ --configure`, choose **Ollama / LM Studio / llama.cpp (gemma)**, and enter
 `http://localhost:8080/v1` as the base URL and any value as the API key.
 
 ---

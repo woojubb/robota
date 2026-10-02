@@ -91,8 +91,8 @@ describe('SkillCommandSource multi-path', () => {
       '---\nname: beta\ndescription: from claude commands\n---\n',
     );
 
-    // ~/.robota/skills (priority 3)
-    const userSkills = join(homeDir, '.robota', 'skills');
+    // ~/.agent/skills (priority 3)
+    const userSkills = join(homeDir, '.agent', 'skills');
     mkdirSync(userSkills, { recursive: true });
     createSkillDir(userSkills, 'gamma', '---\nname: gamma\ndescription: from user skills\n---\n');
 
@@ -315,11 +315,11 @@ describe('SkillCommandSource multi-path', () => {
   });
 
   it.each([
-    ['.robota/skills', 'project'],
+    ['.agent/skills', 'project'],
     ['.agents/skills', 'project'],
     ['.claude/skills', 'project'],
     ['.claude/commands', 'project'],
-    ['.robota/skills', 'home'],
+    ['.agent/skills', 'home'],
   ])('refuses a malformed disabling flag in %s from %s', (root, sourceKind) => {
     const base = sourceKind === 'home' ? homeDir : projectDir;
     const directory = join(base, root);
@@ -339,7 +339,7 @@ describe('SkillCommandSource multi-path', () => {
     expect(warnings).toContain('disable-model-invocation');
   });
 
-  it('ignores fields robota does not own and keeps loading beside a refused skill', () => {
+  it('ignores fields agent does not own and keeps loading beside a refused skill', () => {
     const claudeSkills = join(projectDir, '.claude', 'skills');
     createSkillDir(
       claudeSkills,
@@ -370,8 +370,8 @@ describe('SkillCommandSource multi-path', () => {
   });
 
   it('does not let a lower-priority skill stand in for a refused one of the same name', () => {
-    createSkillDir(join(projectDir, '.robota', 'skills'), 'shared', '---\neffort: extreme\n---\n');
-    createSkillDir(join(homeDir, '.robota', 'skills'), 'shared', '---\nname: shared\n---\nHome');
+    createSkillDir(join(projectDir, '.agent', 'skills'), 'shared', '---\neffort: extreme\n---\n');
+    createSkillDir(join(homeDir, '.agent', 'skills'), 'shared', '---\nname: shared\n---\nHome');
 
     const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(projectDir, homeDir),

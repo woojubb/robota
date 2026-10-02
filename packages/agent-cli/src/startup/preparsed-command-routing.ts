@@ -1,3 +1,9 @@
+import { resolveCliRuntimeContext } from './product-bootstrap.js';
+import { restartProductEnvironment } from '../product/restart-environment.js';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { realpathSync } from 'node:fs';
 import { isIP } from 'node:net';
 
 import { runEvalCommand } from '../eval/eval-command.js';
@@ -8,6 +14,7 @@ import { runSessionAnalyze } from '../session-analyzer/session-analyze-command.j
 import { runSessionListCommand } from '../session-inventory/session-list-command.js';
 import { launchSupervisedSession } from '../session-inventory/supervised-session-launch.js';
 import {
+  resolveSupervisedDirectory,
   isSupervisedSessionName,
   linkSupervisedPr,
   listSupervisedExternalEvents,
@@ -54,18 +61,21 @@ import {
   trustQuestionFor,
 } from './interactive-trust-prompt.js';
 
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
+import type { TSettingsSource } from '@robota-sdk/agent-framework';
+
 import type { IStartCliOptions } from './command-setup.js';
 
 const SUBCOMMAND_INDEX = 2;
 const ACTION_INDEX = 3;
 const SUBCOMMAND_ARGUMENT_INDEX = 4;
 const START_USAGE =
-  'Usage: robota session start --background [--name <name>] [--restricted-workspace]\n' +
+  'Usage: {{cli}} session start --background [--name <name>] [--restricted-workspace]\n' +
   '         [--external-event-grant <file>]... [--external-event-port <port>]\n' +
   '         [--external-event-trusted-proxy <ip>]...\n';
 const EVENTS_USAGE =
-  'Usage: robota session events list <supervised-id> [--json]\n' +
-  '       robota session events revoke <supervised-id> <grant-id>\n';
+  'Usage: {{cli}} session events list <supervised-id> [--json]\n' +
+  '       {{cli}} session events revoke <supervised-id> <grant-id>\n';
 
 /** `session start` arguments; `undefined` when they do not fit the usage. */
 function parseStartArgs(args: readonly string[]):
@@ -136,7 +146,7 @@ function parseEventEndpoint(start: {
  * `session events list|revoke` — the owner's view of a background session's external-event grants,
  * and the way to withdraw one. Bound to the live registration like every other control action.
  */
-async function runSessionEventsCommand(args: readonly string[]): Promise<number> {
+async function runSessionEventsCommand(args: readonly string[], root: string, productRuntime: ICliRuntimeContext): Promise<number> {
   const [action, id, argument, extra] = args;
   const list =
     action === 'list' &&
@@ -145,18 +155,18 @@ async function runSessionEventsCommand(args: readonly string[]): Promise<number>
   const revoke =
     action === 'revoke' && id !== undefined && argument !== undefined && extra === undefined;
   if (!list && !revoke) {
-    process.stderr.write(EVENTS_USAGE);
+    process.stderr.write(EVENTS_USAGE.replaceAll('{{cli}}', productRuntime.config.identity.cliName));
     return 1;
   }
   try {
     if (revoke) {
-      await revokeSupervisedExternalEventGrant(id!, argument!);
+      await revokeSupervisedExternalEventGrant(id!, argument!, root);
       process.stdout.write(
         `Revoked external event grant ${argument} on supervised session ${id}.\n`,
       );
       return 0;
     }
-    const grants = await listSupervisedExternalEvents(id!);
+    const grants = await listSupervisedExternalEvents(id!, root);
     process.stdout.write(
       argument === '--json'
         ? `${JSON.stringify({ id, grants })}\n`
@@ -173,19 +183,34 @@ async function runSessionEventsCommand(args: readonly string[]): Promise<number>
 
 /** Route subcommands whose own flags must bypass the strict global CLI parser. */
 export async function runPreparsedCliCommand(
-  options: IStartCliOptions,
+  initialOptions: IStartCliOptions,
   argv: readonly string[] = process.argv,
   cwd: string = process.cwd(),
   telemetryEnvironment: Readonly<Record<string, string>> = {},
   renderSessionView?: ISessionViewCommandOptions['render'],
   attachedAppPresentation?: IAttachedAppPresentation,
 ): Promise<boolean> {
-  // The Robota telemetry settings were removed from process.env at startup; the supervised runtime is
+  // Product telemetry settings were removed from process.env at startup; the supervised runtime is
   // the one child that receives them, through its explicit spawn environment.
-  const supervisedEnv = (): NodeJS.ProcessEnv => ({ ...process.env, ...telemetryEnvironment });
-  // `robota <subcommand> --help` prints that subcommand's help before anything runs: no command's own
+  const productRuntime = resolveCliRuntimeContext(initialOptions);
+  const options = { ...initialOptions, productRuntime };
+  const supervisedRoot = resolveSupervisedDirectory(productRuntime);
+  const admittedSettings = new Map<string, readonly TSettingsSource[]>();
+  const supervisedEnv = (workspace: string = cwd): NodeJS.ProcessEnv => {
+    const sources = admittedSettings.get(workspace) ?? (workspace === cwd ? composition.settingsSources : undefined);
+    if (sources === undefined) throw new Error('Supervised workspace settings have not been admitted.');
+    return {
+      ...restartProductEnvironment(
+        productRuntime,
+        sources,
+        options.providerDefinitions ?? createDefaultProviderDefinitions(),
+      ),
+      ...telemetryEnvironment,
+    };
+  };
+  // `the product <subcommand> --help` prints that subcommand's help before anything runs: no command's own
   // option parser, trust check or terminal UI ever sees the flag.
-  const subcommandHelp = subcommandHelpFor(argv.slice(SUBCOMMAND_INDEX));
+  const subcommandHelp = subcommandHelpFor(argv.slice(SUBCOMMAND_INDEX), productRuntime);
   if (subcommandHelp !== undefined) {
     process.stdout.write(subcommandHelp);
     process.exitCode = 0;
@@ -214,6 +239,7 @@ export async function runPreparsedCliCommand(
     attachedAppPresentation === undefined
       ? undefined
       : createAttachedAppRender(attachedAppPresentation, {
+          productRuntime,
           cwd,
           projectAccess: await resolveInitialCliWorkspaceProjectAccess(cwd, options),
           ...(options.providerDefinitions !== undefined
@@ -221,24 +247,25 @@ export async function runPreparsedCliCommand(
             : {}),
           ...(options.safeMode === true ? { safeMode: true } : {}),
         });
-  // `robota --attach`: the full TUI on this workspace's daemon. Its only flags are presentation
+  // `the product --attach`: the full TUI on this workspace's daemon. Its only flags are presentation
   // flags, so the strict global parser, which knows the session-shaping ones, never sees it.
   if (isDaemonAttachInvocation(optionArgv(argv).slice(SUBCOMMAND_INDEX))) {
     const render = await attachedAppRender();
     process.exitCode = await runDaemonAttachCommand(argv.slice(SUBCOMMAND_INDEX), {
       cwd,
+      productRuntime,
       ...(render === undefined ? {} : { render }),
     });
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'stop') {
     if (argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 1) {
-      process.stderr.write('Usage: robota session stop <supervised-id>\n');
+      process.stderr.write(`Usage: ${productRuntime.config.identity.cliName} session stop <supervised-id>\n`);
       process.exitCode = 1;
       return true;
     }
     try {
-      await stopSupervisedSession(argv[SUBCOMMAND_ARGUMENT_INDEX]!);
+      await stopSupervisedSession(argv[SUBCOMMAND_ARGUMENT_INDEX]!, supervisedRoot);
       process.stdout.write(`Stopped supervised session ${argv[SUBCOMMAND_ARGUMENT_INDEX]}.\n`);
     } catch (error) {
       process.stderr.write(
@@ -249,7 +276,7 @@ export async function runPreparsedCliCommand(
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'events') {
-    process.exitCode = await runSessionEventsCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX));
+    process.exitCode = await runSessionEventsCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), supervisedRoot, productRuntime);
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'rename') {
@@ -257,13 +284,13 @@ export async function runPreparsedCliCommand(
       argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 2 ||
       !isSupervisedSessionName(argv[SUBCOMMAND_ARGUMENT_INDEX + 1])
     ) {
-      process.stderr.write('Usage: robota session rename <supervised-id> <name>\n');
+      process.stderr.write(`Usage: ${productRuntime.config.identity.cliName} session rename <supervised-id> <name>\n`);
       process.exitCode = 1;
       return true;
     }
     try {
       const id = argv[SUBCOMMAND_ARGUMENT_INDEX]!;
-      await renameSupervisedSession(id, argv[SUBCOMMAND_ARGUMENT_INDEX + 1]!);
+      await renameSupervisedSession(id, argv[SUBCOMMAND_ARGUMENT_INDEX + 1]!, supervisedRoot);
       process.stdout.write(`Renamed supervised session ${id}.\n`);
       process.exitCode = 0;
     } catch (error) {
@@ -279,13 +306,13 @@ export async function runPreparsedCliCommand(
       argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 2 ||
       !parseSupervisedPr(argv[SUBCOMMAND_ARGUMENT_INDEX + 1])
     ) {
-      process.stderr.write('Usage: robota session link-pr <supervised-id> <https-pr-url>\n');
+      process.stderr.write(`Usage: ${productRuntime.config.identity.cliName} session link-pr <supervised-id> <https-pr-url>\n`);
       process.exitCode = 1;
       return true;
     }
     try {
       const id = argv[SUBCOMMAND_ARGUMENT_INDEX]!;
-      await linkSupervisedPr(id, argv[SUBCOMMAND_ARGUMENT_INDEX + 1]!);
+      await linkSupervisedPr(id, argv[SUBCOMMAND_ARGUMENT_INDEX + 1]!, supervisedRoot);
       process.stdout.write(`Linked PR to supervised session ${id}.\n`);
       process.exitCode = 0;
     } catch (error) {
@@ -298,13 +325,13 @@ export async function runPreparsedCliCommand(
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'unlink-pr') {
     if (argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 1) {
-      process.stderr.write('Usage: robota session unlink-pr <supervised-id>\n');
+      process.stderr.write(`Usage: ${productRuntime.config.identity.cliName} session unlink-pr <supervised-id>\n`);
       process.exitCode = 1;
       return true;
     }
     try {
       const id = argv[SUBCOMMAND_ARGUMENT_INDEX]!;
-      await unlinkSupervisedPr(id);
+      await unlinkSupervisedPr(id, supervisedRoot);
       process.stdout.write(`Unlinked PR from supervised session ${id}.\n`);
       process.exitCode = 0;
     } catch (error) {
@@ -318,6 +345,7 @@ export async function runPreparsedCliCommand(
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'attach') {
     const render = await attachedAppRender();
     process.exitCode = await runSessionAttachCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
+      productRuntime,
       ...(render === undefined ? {} : { render }),
     });
     return true;
@@ -325,18 +353,19 @@ export async function runPreparsedCliCommand(
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'view') {
     const renderAttached = await attachedAppRender();
     process.exitCode = await runSessionViewCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
+      productRuntime,
       launchCwd: cwd,
       render: renderSessionView,
       ...(renderAttached === undefined ? {} : { renderAttached }),
       startTrustQuestion: async (targetCwd) =>
-        trustQuestionFor(await resolveInitialCliWorkspaceProjectAccess(targetCwd), targetCwd),
+        trustQuestionFor(await resolveInitialCliWorkspaceProjectAccess(targetCwd, { productRuntime }), targetCwd, productRuntime),
       start: async (targetCwd, choice) => {
-        let access = await resolveInitialCliWorkspaceProjectAccess(targetCwd);
+        let access = await resolveInitialCliWorkspaceProjectAccess(targetCwd, { productRuntime });
         // A person in the view answered for a folder not trusted yet: trust it, or run it Restricted.
         // A Restricted answer holds even if the folder became trusted meanwhile; it never widens.
         const restricted = choice === 'restricted';
         if (choice === 'trust' && canAskToTrust(access))
-          access = await grantWorkspaceTrust(targetCwd);
+          access = await grantWorkspaceTrust(targetCwd, productRuntime);
         if (requiresHeadlessWorkspaceTrust(access) && !(restricted && canAskToTrust(access))) {
           throw new Error(formatHeadlessWorkspaceTrustError(access, targetCwd));
         }
@@ -345,11 +374,17 @@ export async function runPreparsedCliCommand(
         // generic "Start failed" text and points the user at `session start`, where this message
         // (thrown here, not swallowed there) actually surfaces.
         validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
+          telemetryServiceName: productRuntime.config.identity.telemetryServiceName,
           serviceVersion: readVersion(),
           surface: 'serve',
         });
+        admittedSettings.set(targetCwd, createInitialCliWorkspaceComposition(targetCwd, {
+          productRuntime,
+          projectAccess: restricted ? createRestrictedWorkspaceProjectAccess('untrusted', targetCwd) : access,
+        }).settingsSources);
         return launchSupervisedSession(targetCwd, {
-          env: supervisedEnv(),
+          productRuntime,
+          env: supervisedEnv(targetCwd),
           ...(restricted ? { restricted: true } : {}),
         });
       },
@@ -358,22 +393,28 @@ export async function runPreparsedCliCommand(
   }
   if (argv[SUBCOMMAND_INDEX] === 'daemon') {
     process.exitCode = await runDaemonCommand(argv.slice(ACTION_INDEX), {
+      productRuntime,
       cwd,
       env: supervisedEnv,
       // The same admission as `session start`, asked before anything is spawned.
       admit: async (workspace, { restricted }) => {
-        const access = await resolveInitialCliWorkspaceProjectAccess(workspace, options);
+        const access = await resolveInitialCliWorkspaceProjectAccess(workspace, workspace === realpathSync(cwd) ? options : { productRuntime });
         // A person chose to run this folder Restricted (a front end asked them).
         if (requiresHeadlessWorkspaceTrust(access) && !(restricted && canAskToTrust(access))) {
           throw new Error(formatHeadlessWorkspaceTrustError(access, workspace));
         }
         validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
+          telemetryServiceName: productRuntime.config.identity.telemetryServiceName,
           serviceVersion: readVersion(),
           surface: 'serve',
         });
+        admittedSettings.set(workspace, createInitialCliWorkspaceComposition(workspace, {
+          productRuntime,
+          projectAccess: restricted ? createRestrictedWorkspaceProjectAccess('untrusted', workspace) : access,
+        }).settingsSources);
       },
       trusted: async (workspace) =>
-        (await resolveInitialCliWorkspaceProjectAccess(workspace, options)).status === 'trusted',
+        (await resolveInitialCliWorkspaceProjectAccess(workspace, workspace === realpathSync(cwd) ? options : { productRuntime })).status === 'trusted',
       stdout: (text) => process.stdout.write(text),
       stderr: (text) => process.stderr.write(text),
     });
@@ -391,14 +432,17 @@ export async function runPreparsedCliCommand(
     const run = argv[ACTION_INDEX] === 'login' ? runMcpLoginCommand : runMcpLogoutCommand;
     process.exitCode = await run(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
       settingsSources: composition.settingsSources,
-      env: process.env,
+      env: productRuntime.environment,
+      productRuntime,
       stdout: (text) => process.stdout.write(text),
       stderr: (text) => process.stderr.write(text),
     });
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'trust') {
-    process.exitCode = await runWorkspaceTrustCommand(argv.slice(ACTION_INDEX), cwd);
+    process.exitCode = await runWorkspaceTrustCommand(
+      argv.slice(ACTION_INDEX), cwd, productRuntime, undefined, options.providerDefinitions,
+    );
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'usage') {
@@ -407,8 +451,8 @@ export async function runPreparsedCliCommand(
       composition.sessionStoreScope === 'project' ? composition.sessionStore : undefined;
     process.exitCode =
       usageArgs[0] === 'export'
-        ? await runUsageExportCommand(usageArgs.slice(1), projectSessionStore)
-        : runUsageCommand(usageArgs, projectSessionStore);
+        ? await runUsageExportCommand(usageArgs.slice(1), productRuntime, projectSessionStore)
+        : runUsageCommand(usageArgs, productRuntime, projectSessionStore);
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'analyze') {
@@ -416,12 +460,14 @@ export async function runPreparsedCliCommand(
       argv.slice(SUBCOMMAND_ARGUMENT_INDEX),
       cwd,
       composition.sessionStoreScope === 'project' ? composition.sessionStore : undefined,
+      createUserSessionStore(productRuntime.layout.userPaths.sessions),
     );
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'list') {
     process.exitCode = await runSessionListCommand(
       argv.slice(SUBCOMMAND_ARGUMENT_INDEX),
+      productRuntime,
       composition.sessionStoreScope === 'project' ? composition.sessionStore : undefined,
     );
     return true;
@@ -429,7 +475,7 @@ export async function runPreparsedCliCommand(
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'start') {
     const start = parseStartArgs(argv.slice(SUBCOMMAND_ARGUMENT_INDEX));
     if (start === undefined) {
-      process.stderr.write(START_USAGE);
+      process.stderr.write(START_USAGE.replaceAll('{{cli}}', productRuntime.config.identity.cliName));
       process.exitCode = 1;
       return true;
     }
@@ -463,10 +509,18 @@ export async function runPreparsedCliCommand(
       // Validated here, before spawning, so a refused telemetry setting is reported with the real
       // message instead of only the child's generic "exited before it was ready".
       validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
-        serviceVersion: readVersion(),
+        telemetryServiceName: productRuntime.config.identity.telemetryServiceName,
+          serviceVersion: readVersion(),
         surface: 'serve',
       });
+      if (start.restricted) {
+        admittedSettings.set(cwd, createInitialCliWorkspaceComposition(cwd, {
+          productRuntime,
+          projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
+        }).settingsSources);
+      }
       const id = await launchSupervisedSession(cwd, {
+        productRuntime,
         env: supervisedEnv(),
         ...(start.name !== undefined ? { name: start.name } : {}),
         ...(start.restricted ? { restricted: true } : {}),
@@ -485,6 +539,7 @@ export async function runPreparsedCliCommand(
   process.exitCode = await runEvalCommand(argv.slice(ACTION_INDEX), cwd, {
     settingsSources: composition.settingsSources,
     projectAccess: composition.projectAccess,
+    environment: productRuntime.environment,
   });
   return true;
 }

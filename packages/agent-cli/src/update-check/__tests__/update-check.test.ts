@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import {
   existsSync,
   mkdirSync,
@@ -33,7 +34,7 @@ import {
 
 import type { IUpdateCheckCache } from '../update-check-cache.js';
 
-const TEST_DIR = realpathSync(mkdtempSync(join(tmpdir(), 'robota-update-check-test-')));
+const TEST_DIR = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-update-check-test-')));
 
 function cleanup(): void {
   rmSync(TEST_DIR, { recursive: true, force: true });
@@ -67,7 +68,7 @@ describe('checkForCliUpdate', () => {
   it('builds a registry URL from a long slash run in linear time', async () => {
     cleanup();
     const started = performance.now();
-    await checkForCliUpdate({
+    await checkForCliUpdate({productRuntime: createTestProductRuntime(),
       currentVersion: '1.0.0',
       force: true,
       registryUrl: `https://x${'/'.repeat(200_000)}y`,
@@ -80,7 +81,7 @@ describe('checkForCliUpdate', () => {
   it('strips exactly the trailing slashes from a registry URL', async () => {
     cleanup();
     const seen: string[] = [];
-    await checkForCliUpdate({
+    await checkForCliUpdate({productRuntime: createTestProductRuntime(),
       currentVersion: '1.0.0',
       force: true,
       registryUrl: 'https://registry.npmjs.org///',
@@ -90,7 +91,7 @@ describe('checkForCliUpdate', () => {
         return jsonResponse({ 'dist-tags': { latest: '9.9.9' } });
       }) as typeof fetch,
     });
-    expect(seen).toEqual(['https://registry.npmjs.org/%40robota-sdk%2Fagent-cli']);
+    expect(seen).toEqual(['https://registry.npmjs.org/%40test-product-sdk%2Fagent-cli']);
   });
 
   it('returns cached update notice when cache is fresh', async () => {
@@ -99,7 +100,7 @@ describe('checkForCliUpdate', () => {
     const now = new Date('2026-05-01T00:00:00.000Z');
     const fetchImpl = vi.fn(async () => jsonResponse({ 'dist-tags': { latest: '3.0.0-beta.57' } }));
 
-    await checkForCliUpdate({
+    await checkForCliUpdate({productRuntime: createTestProductRuntime(),
       currentVersion: '3.0.0-beta.56',
       cachePath,
       now,
@@ -110,7 +111,7 @@ describe('checkForCliUpdate', () => {
       packageName: '@robota-sdk/agent-cli',
     });
 
-    const result = await checkForCliUpdate({
+    const result = await checkForCliUpdate({productRuntime: createTestProductRuntime(),
       currentVersion: '3.0.0-beta.56',
       cachePath,
       now: new Date(now.getTime() + CLI_UPDATE_CACHE_TTL_MS - 1),
@@ -128,7 +129,7 @@ describe('checkForCliUpdate', () => {
   it('skips registry access when disabled for the invocation', async () => {
     const fetchImpl = vi.fn();
 
-    const result = await checkForCliUpdate({
+    const result = await checkForCliUpdate({productRuntime: createTestProductRuntime(),
       currentVersion: '3.0.0-beta.56',
       disabled: true,
       fetchImpl,
@@ -140,20 +141,21 @@ describe('checkForCliUpdate', () => {
 
   it('writes only the operational cache file and does not create settings', async () => {
     cleanup();
-    const cachePath = getUserUpdateCheckCachePath(TEST_DIR);
-    const settingsPath = join(TEST_DIR, '.robota', 'settings.json');
+    const cachePath = getUserUpdateCheckCachePath(createTestProductRuntime('test-product', { HOME: TEST_DIR }));
+    const settingsPath = join(TEST_DIR, '.test-product', 'settings.json');
 
-    await checkForCliUpdate({
+    await checkForCliUpdate({productRuntime: createTestProductRuntime(),
       currentVersion: '3.0.0-beta.56',
       cachePath,
       force: true,
+      registryUrl: 'https://registry.example.test',
       fetchImpl: async () => jsonResponse({ 'dist-tags': { latest: '3.0.0-beta.57' } }),
     });
 
     expect(existsSync(cachePath)).toBe(true);
     expect(existsSync(settingsPath)).toBe(false);
     expect(readUpdateCheckCache(cachePath)).toMatchObject({
-      packageName: '@robota-sdk/agent-cli',
+      packageName: '@test-product-sdk/agent-cli',
       currentVersion: '3.0.0-beta.56',
       latestVersion: '3.0.0-beta.57',
     });
@@ -163,10 +165,11 @@ describe('checkForCliUpdate', () => {
     cleanup();
     const cachePath = join(TEST_DIR, 'update-check.json');
 
-    const result = await checkForCliUpdate({
+    const result = await checkForCliUpdate({productRuntime: createTestProductRuntime(),
       currentVersion: '3.0.0-beta.56',
       cachePath,
       force: true,
+      registryUrl: 'https://registry.example.test',
       fetchImpl: async () => {
         throw new Error('offline');
       },
@@ -183,10 +186,11 @@ describe('checkForCliUpdate', () => {
     const cachePath = join(TEST_DIR, 'cache-as-directory');
     mkdirSync(cachePath, { recursive: true });
 
-    const result = await checkForCliUpdate({
+    const result = await checkForCliUpdate({productRuntime: createTestProductRuntime(),
       currentVersion: '3.0.0-beta.56',
       cachePath,
       force: true,
+      registryUrl: 'https://registry.example.test',
       fetchImpl: async () => jsonResponse({ 'dist-tags': { latest: '3.0.0-beta.57' } }),
     });
 
@@ -248,7 +252,7 @@ describe('shouldRunStartupCliUpdateCheck', () => {
 });
 
 /**
- * SEC-020 (issue #2021) made every writer into `~/.robota` owner-only and scoped `update-check.json`
+ * SEC-020 (issue #2021) made every writer into `the configured user root` owner-only and scoped `update-check.json`
  * out. Issue #2229 is that exception: it left one file the CLI creates in its own store at 0644.
  *
  * The umask is set EXPLICITLY in each case and restored afterwards. A case that inherits a
@@ -273,22 +277,22 @@ describe('writeUpdateCheckCache owner-only mode (issue #2229)', () => {
   }
 
   it('writes 0600 into a 0700 directory under a permissive umask', () => {
-    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-update-check-mode-')));
-    const cachePath = join(dir, '.robota', 'update-check.json');
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-update-check-mode-')));
+    const cachePath = join(dir, '.test-product', 'update-check.json');
 
     withPermissiveUmask(() => writeUpdateCheckCache(cachePath, { ...CACHE }));
 
     expect(statSync(cachePath).mode & 0o777).toBe(0o600);
-    expect(statSync(join(dir, '.robota')).mode & 0o777).toBe(0o700);
+    expect(statSync(join(dir, '.test-product')).mode & 0o777).toBe(0o700);
     rmSync(dir, { recursive: true, force: true });
   });
 
   it('repairs a 0644 cache an older version left behind', () => {
-    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-update-check-repair-')));
-    const cachePath = join(dir, '.robota', 'update-check.json');
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-update-check-repair-')));
+    const cachePath = join(dir, '.test-product', 'update-check.json');
 
     withPermissiveUmask(() => {
-      mkdirSync(join(dir, '.robota'), { recursive: true });
+      mkdirSync(join(dir, '.test-product'), { recursive: true });
       writeFileSync(cachePath, '{}\n', { encoding: 'utf8', mode: 0o644 });
       // The pre-condition is the point of the case: without it a green says nothing about repair.
       expect(statSync(cachePath).mode & 0o777).toBe(0o644);

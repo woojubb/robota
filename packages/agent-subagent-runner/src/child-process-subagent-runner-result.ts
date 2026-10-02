@@ -123,7 +123,7 @@ class ChildProcessSubagentResultController {
     this.timeoutTimer = createTimeoutTimer(this.options.runtime, (error) => this.rejectOnce(error));
     // DIST-006: a worker that never answers must not hang the parent forever. The old seam failed
     // LOUDLY when the entry was wrong (`Cannot find module`, then exit); this one re-executes the
-    // host artifact, so a caller who wires `workerEntry` to something that is not a robota entry
+    // host artifact, so a caller who wires `workerEntry` to something that is not a agent entry
     // gets a second copy of their app with an IPC channel and no `ready` — and `request.timeoutMs`
     // is optional, so without this the wait is unbounded. Occurrence #3 self-reports either way.
     this.handshakeTimer = setTimeout(() => {

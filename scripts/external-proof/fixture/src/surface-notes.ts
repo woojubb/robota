@@ -15,7 +15,7 @@
  * three lines), but the kernel could return the input's branch and remove the step entirely.
  *
  * STILL OPEN after ARCH-007, and now the reference product meets it too: `agent-cli`'s
- * `buildRobotaRuntimeOptions` performs the identical narrowing (and throws on the injected branch) to read
+ * `buildProductRuntimeOptions` performs the identical narrowing (and throws on the injected branch) to read
  * back `additionalTools` / `agentDefinitions`. Two independent consumers writing the same three lines is
  * the signal that the kernel should return the input's branch.
  *

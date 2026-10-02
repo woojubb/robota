@@ -2,19 +2,17 @@
 
 /**
  * Backfill history for legacy session files; populated history is left unchanged.
- * Usage from this package: node scripts/migrate-session-history.mjs [--sessions-dir <absolute-directory>]
- * No arguments retain the production homedir()/.robota/sessions default.
+ * Usage from this package: node scripts/migrate-session-history.mjs --sessions-dir <absolute-directory>
  * Verification must always supply an explicit disposable directory.
  */
 
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
-import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const USAGE =
-  'Usage: node scripts/migrate-session-history.mjs [--sessions-dir <absolute-directory>]';
+  'Usage: node scripts/migrate-session-history.mjs --sessions-dir <absolute-directory>';
 
 function validateDirectory(sessionsDir) {
   if (typeof sessionsDir !== 'string' || !isAbsolute(sessionsDir) || sessionsDir.includes('\0')) {
@@ -76,11 +74,11 @@ export function migrateSessionHistory(sessionsDir) {
 
 function main(args) {
   // Validate the complete argument list before resolving the default or inspecting storage.
-  if (args.length !== 0 && (args.length !== 2 || args[0] !== '--sessions-dir')) {
+  if (args.length !== 2 || args[0] !== '--sessions-dir') {
     throw new Error(USAGE);
   }
-  if (args.length === 2) validateDirectory(args[1]);
-  const sessionsDir = args.length === 0 ? join(homedir(), '.robota', 'sessions') : args[1];
+  validateDirectory(args[1]);
+  const sessionsDir = args[1];
   const result = migrateSessionHistory(sessionsDir);
   console.log(
     result.missing

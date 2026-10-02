@@ -1,8 +1,8 @@
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 import type { JsonValue, ParticipantCheckpoint } from '@robota-sdk/agent-roundtable';
-import { RobotaParticipantError } from './errors';
+import { RuntimeParticipantError } from './errors';
 
-export const ROBOTA_SESSION_CHECKPOINT_VERSION = 'robota-session/1';
+export const AGENT_SESSION_CHECKPOINT_VERSION = 'robota-session/1';
 
 /** Private state `sessionParticipant` checkpoints at a settled turn boundary or a parked wait. */
 export interface SessionCheckpointState {
@@ -16,7 +16,7 @@ export interface SessionCheckpointState {
 }
 
 function invalid(field: string): never {
-  throw new RobotaParticipantError('checkpoint-invalid', `Checkpoint field is invalid: ${field}`);
+  throw new RuntimeParticipantError('checkpoint-invalid', `Checkpoint field is invalid: ${field}`);
 }
 
 /**
@@ -50,7 +50,7 @@ function encodeValue(value: unknown): JsonValue {
   }
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
     return value;
-  throw new RobotaParticipantError(
+  throw new RuntimeParticipantError(
     'checkpoint-invalid',
     `Cannot encode a ${typeof value} value into a checkpoint`,
   );
@@ -122,7 +122,7 @@ export function decodeMessage(value: JsonValue): TUniversalMessage {
 /** Encode {@link SessionCheckpointState} as a `robota-session/1` {@link ParticipantCheckpoint}. */
 export function encodeSessionCheckpoint(state: SessionCheckpointState): ParticipantCheckpoint {
   return {
-    version: ROBOTA_SESSION_CHECKPOINT_VERSION,
+    version: AGENT_SESSION_CHECKPOINT_VERSION,
     data: {
       sessionId: state.sessionId,
       cwd: state.cwd,
@@ -137,8 +137,8 @@ export function encodeSessionCheckpoint(state: SessionCheckpointState): Particip
 
 /** Decode a `robota-session/1` checkpoint; any other version or a malformed shape is rejected. */
 export function decodeSessionCheckpoint(checkpoint: ParticipantCheckpoint): SessionCheckpointState {
-  if (checkpoint.version !== ROBOTA_SESSION_CHECKPOINT_VERSION)
-    throw new RobotaParticipantError(
+  if (checkpoint.version !== AGENT_SESSION_CHECKPOINT_VERSION)
+    throw new RuntimeParticipantError(
       'checkpoint-invalid',
       `Unsupported checkpoint version: ${checkpoint.version}`,
     );
@@ -167,19 +167,19 @@ export function decodeSessionCheckpoint(checkpoint: ParticipantCheckpoint): Sess
   return { sessionId, cwd, firstTurnDone, history: decodedHistory, pending: decodedPending };
 }
 
-export const ROBOTA_AGENT_CHECKPOINT_VERSION = 'robota-agent/1';
+export const RUNTIME_AGENT_CHECKPOINT_VERSION = 'robota-agent/1';
 
-/** Encode a `robotaParticipant` Robota agent's full history as a `robota-agent/1` checkpoint. */
+/** Encode a `runtimeParticipant` ConversationAgent agent's full history as a `robota-agent/1` checkpoint. */
 export function encodeAgentCheckpoint(
   history: readonly TUniversalMessage[],
 ): ParticipantCheckpoint {
-  return { version: ROBOTA_AGENT_CHECKPOINT_VERSION, data: history.map(encodeMessage) };
+  return { version: RUNTIME_AGENT_CHECKPOINT_VERSION, data: history.map(encodeMessage) };
 }
 
 /** Decode a `robota-agent/1` checkpoint back into its history array. */
 export function decodeAgentCheckpoint(checkpoint: ParticipantCheckpoint): TUniversalMessage[] {
-  if (checkpoint.version !== ROBOTA_AGENT_CHECKPOINT_VERSION)
-    throw new RobotaParticipantError(
+  if (checkpoint.version !== RUNTIME_AGENT_CHECKPOINT_VERSION)
+    throw new RuntimeParticipantError(
       'checkpoint-invalid',
       `Unsupported checkpoint version: ${checkpoint.version}`,
     );

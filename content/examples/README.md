@@ -1,6 +1,6 @@
 # Examples
 
-Short walkthroughs, each focused on one task with the Robota libraries or the `robota` CLI. Every
+Short walkthroughs, each focused on one task with the Robota libraries or the `__PRODUCT_CLI_NAME__` CLI. Every
 snippet uses the packages' current public APIs. For complete projects you can clone and run (web
 servers, bots, scripts, single-capability demos), see [examples/](../../examples/README.md) in the
 repository.
@@ -24,7 +24,7 @@ repository.
 
 - [Interactive Mode](./interactive-mode.md) — the terminal UI: slash commands, permission prompts,
   status line
-- [Print Mode](./print-mode.md) — `robota -p` for scripts and pipelines
+- [Print Mode](./print-mode.md) — `__PRODUCT_CLI_NAME__ -p` for scripts and pipelines
 
 ## Transports
 

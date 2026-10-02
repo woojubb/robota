@@ -1,0 +1,59 @@
+name: CI check
+on:
+  workflow_call:
+    inputs:
+      kind:
+        required: true
+        type: string
+      plan:
+        required: true
+        type: string
+      artifact-id:
+        type: string
+        default: ''
+    outputs:
+      artifact-id:
+        value: ${{ jobs.check.outputs.artifact-id }}
+permissions:
+  contents: read
+jobs:
+  check:
+    name: ${{ inputs.kind }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      artifact-id: ${{ steps.archive.outputs.artifact-id }}
+    env:
+      CI_PLAN: ${{ inputs.plan }}
+      CI_VALIDATION: 'true'
+      IS_PULL_REQUEST: 'true'
+      FIXTURE_PRODUCT: cedar
+      VITEST_MAX_FORKS: 2
+      NODE_OPTIONS: --max-old-space-size=6144
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/ci-setup
+      - name: Require the successful build's artifact ID
+        if: (inputs.kind == 'static' || inputs.kind == 'tests') && !fromJSON(inputs.plan).developerDocs
+        shell: bash
+        run: test -n "$CI_ARTIFACT_ID"
+        env:
+          CI_ARTIFACT_ID: ${{ inputs.artifact-id }}
+      - uses: actions/download-artifact@v5
+        if: (inputs.kind == 'static' || inputs.kind == 'tests') && !fromJSON(inputs.plan).developerDocs
+        with:
+          artifact-ids: ${{ inputs.artifact-id }}
+          merge-multiple: true
+          path: ${{ runner.temp }}
+      - run: node scripts/ci.mjs "${CI_KIND}"
+        env:
+          CI_KIND: ${{ inputs.kind }}
+      - uses: actions/upload-artifact@v4
+        id: archive
+        if: inputs.kind == 'build'
+        with:
+          name: workspace-build-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/workspace-build.tgz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1

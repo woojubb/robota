@@ -1,3 +1,4 @@
+import type { IIdentityContext } from './crypto-context.js';
 /**
  * The signed statements around device certificates: the roster, the two revocation lists, and the
  * session descriptor a device signs for itself.
@@ -9,7 +10,6 @@
 
 import {
   DAY_MS,
-  IDENTITY_PURPOSES,
   canonicalBytes,
   isCount,
   isId,
@@ -48,7 +48,7 @@ export const IDENTITY_STATEMENT_LIMITS = {
 // ── Roster ──────────────────────────────────────────────────────────────────────────────────────
 
 export interface IDeviceRoster {
-  readonly ctx: typeof IDENTITY_PURPOSES.roster;
+  readonly ctx: string;
   readonly userId: string;
   readonly signingKeyId: string;
   readonly seq: number;
@@ -63,8 +63,11 @@ function rosterEntry(device: IDeviceCertificate): TCanonical {
   return [device.ctx, ...deviceCertificateFields(device), device.sig];
 }
 
-export function rosterBytes(roster: Omit<IDeviceRoster, 'sig' | 'ctx'>): Uint8Array {
-  return canonicalBytes(IDENTITY_PURPOSES.roster, [
+export function rosterBytes(
+  cryptoContext: IIdentityContext,
+  roster: Omit<IDeviceRoster, 'sig' | 'ctx'>,
+): Uint8Array {
+  return canonicalBytes(cryptoContext.purposes.roster, [
     roster.userId,
     roster.signingKeyId,
     roster.seq,
@@ -89,8 +92,11 @@ const ROSTER_FIELDS = [
   'sig',
 ] as const;
 
-export function decodeDeviceRoster(value: unknown): TDecoded<IDeviceRoster> {
-  const opened = openStatement(value, IDENTITY_PURPOSES.roster, ROSTER_FIELDS);
+export function decodeDeviceRoster(
+  cryptoContext: IIdentityContext,
+  value: unknown,
+): TDecoded<IDeviceRoster> {
+  const opened = openStatement(value, cryptoContext.purposes.roster, ROSTER_FIELDS);
   if (!opened.ok) return opened;
   const r = opened.value;
   if (!isId(r['userId'])) return malformed('userId');
@@ -104,7 +110,7 @@ export function decodeDeviceRoster(value: unknown): TDecoded<IDeviceRoster> {
   }
   const devices: IDeviceCertificate[] = [];
   for (const raw of rawDevices) {
-    const decoded = decodeDeviceCertificate(raw);
+    const decoded = decodeDeviceCertificate(cryptoContext, raw);
     if (!decoded.ok) return malformed('devices');
     const previous = devices[devices.length - 1];
     if (previous !== undefined && !(previous.deviceId < decoded.value.deviceId)) {
@@ -116,7 +122,7 @@ export function decodeDeviceRoster(value: unknown): TDecoded<IDeviceRoster> {
   return {
     ok: true,
     value: {
-      ctx: IDENTITY_PURPOSES.roster,
+      ctx: cryptoContext.purposes.roster,
       userId: r['userId'],
       signingKeyId: r['signingKeyId'],
       seq: r['seq'],
@@ -141,7 +147,10 @@ export interface IIssueRosterOptions {
   readonly devices: readonly IDeviceCertificate[];
 }
 
-export async function issueDeviceRoster(options: IIssueRosterOptions): Promise<IDeviceRoster> {
+export async function issueDeviceRoster(
+  cryptoContext: IIdentityContext,
+  options: IIssueRosterOptions,
+): Promise<IDeviceRoster> {
   const byId = new Map<string, IDeviceCertificate>();
   for (const device of options.devices) {
     if (byId.has(device.deviceId)) throw new Error('roster: a device may appear only once');
@@ -156,14 +165,17 @@ export async function issueDeviceRoster(options: IIssueRosterOptions): Promise<I
     expiresAt: options.expiresAt ?? options.issuedAt + ROSTER_VALIDITY_MS,
     devices: [...byId.keys()].sort().map((id) => byId.get(id) as IDeviceCertificate),
   };
-  const sig = await signCanonical(options.signingKey.privateKey, rosterBytes(unsigned));
-  return { ctx: IDENTITY_PURPOSES.roster, ...unsigned, sig };
+  const sig = await signCanonical(
+    options.signingKey.privateKey,
+    rosterBytes(cryptoContext, unsigned),
+  );
+  return { ctx: cryptoContext.purposes.roster, ...unsigned, sig };
 }
 
 // ── Device revocation list ──────────────────────────────────────────────────────────────────────
 
 export interface IDeviceRevocationList {
-  readonly ctx: typeof IDENTITY_PURPOSES.revocation;
+  readonly ctx: string;
   readonly userId: string;
   readonly signingKeyId: string;
   readonly seq: number;
@@ -174,8 +186,11 @@ export interface IDeviceRevocationList {
   readonly sig: string;
 }
 
-export function revocationListBytes(list: Omit<IDeviceRevocationList, 'sig' | 'ctx'>): Uint8Array {
-  return canonicalBytes(IDENTITY_PURPOSES.revocation, [
+export function revocationListBytes(
+  cryptoContext: IIdentityContext,
+  list: Omit<IDeviceRevocationList, 'sig' | 'ctx'>,
+): Uint8Array {
+  return canonicalBytes(cryptoContext.purposes.revocation, [
     list.userId,
     list.signingKeyId,
     list.seq,
@@ -195,8 +210,11 @@ const REVOCATION_FIELDS = [
   'sig',
 ] as const;
 
-export function decodeDeviceRevocationList(value: unknown): TDecoded<IDeviceRevocationList> {
-  const opened = openStatement(value, IDENTITY_PURPOSES.revocation, REVOCATION_FIELDS);
+export function decodeDeviceRevocationList(
+  cryptoContext: IIdentityContext,
+  value: unknown,
+): TDecoded<IDeviceRevocationList> {
+  const opened = openStatement(value, cryptoContext.purposes.revocation, REVOCATION_FIELDS);
   if (!opened.ok) return opened;
   const r = opened.value;
   if (!isId(r['userId'])) return malformed('userId');
@@ -211,7 +229,7 @@ export function decodeDeviceRevocationList(value: unknown): TDecoded<IDeviceRevo
   return {
     ok: true,
     value: {
-      ctx: IDENTITY_PURPOSES.revocation,
+      ctx: cryptoContext.purposes.revocation,
       userId: r['userId'],
       signingKeyId: r['signingKeyId'],
       seq: r['seq'],
@@ -234,6 +252,7 @@ export interface IIssueRevocationListOptions {
 }
 
 export async function issueDeviceRevocationList(
+  cryptoContext: IIdentityContext,
   options: IIssueRevocationListOptions,
 ): Promise<IDeviceRevocationList> {
   const issuer = options.signingKey.certificate;
@@ -245,8 +264,11 @@ export async function issueDeviceRevocationList(
     expiresAt: options.expiresAt ?? options.issuedAt + REVOCATION_LIST_VALIDITY_MS,
     revokedDeviceIds: sortedUnique(options.revokedDeviceIds),
   };
-  const sig = await signCanonical(options.signingKey.privateKey, revocationListBytes(unsigned));
-  return { ctx: IDENTITY_PURPOSES.revocation, ...unsigned, sig };
+  const sig = await signCanonical(
+    options.signingKey.privateKey,
+    revocationListBytes(cryptoContext, unsigned),
+  );
+  return { ctx: cryptoContext.purposes.revocation, ...unsigned, sig };
 }
 
 // ── Signing-key revocation ──────────────────────────────────────────────────────────────────────
@@ -256,7 +278,7 @@ export async function issueDeviceRevocationList(
  * that is never online, and a signing key once retired never comes back.
  */
 export interface ISigningKeyRevocation {
-  readonly ctx: typeof IDENTITY_PURPOSES.signingKeyRevocation;
+  readonly ctx: string;
   readonly userId: string;
   readonly seq: number;
   readonly issuedAt: number;
@@ -266,9 +288,10 @@ export interface ISigningKeyRevocation {
 }
 
 export function signingKeyRevocationBytes(
+  cryptoContext: IIdentityContext,
   list: Omit<ISigningKeyRevocation, 'sig' | 'ctx'>,
 ): Uint8Array {
-  return canonicalBytes(IDENTITY_PURPOSES.signingKeyRevocation, [
+  return canonicalBytes(cryptoContext.purposes.signingKeyRevocation, [
     list.userId,
     list.seq,
     list.issuedAt,
@@ -284,10 +307,13 @@ const SIGNING_KEY_REVOCATION_FIELDS = [
   'sig',
 ] as const;
 
-export function decodeSigningKeyRevocation(value: unknown): TDecoded<ISigningKeyRevocation> {
+export function decodeSigningKeyRevocation(
+  cryptoContext: IIdentityContext,
+  value: unknown,
+): TDecoded<ISigningKeyRevocation> {
   const opened = openStatement(
     value,
-    IDENTITY_PURPOSES.signingKeyRevocation,
+    cryptoContext.purposes.signingKeyRevocation,
     SIGNING_KEY_REVOCATION_FIELDS,
   );
   if (!opened.ok) return opened;
@@ -302,7 +328,7 @@ export function decodeSigningKeyRevocation(value: unknown): TDecoded<ISigningKey
   return {
     ok: true,
     value: {
-      ctx: IDENTITY_PURPOSES.signingKeyRevocation,
+      ctx: cryptoContext.purposes.signingKeyRevocation,
       userId: r['userId'],
       seq: r['seq'],
       issuedAt: r['issuedAt'],
@@ -322,6 +348,7 @@ export interface IIssueSigningKeyRevocationOptions {
 }
 
 export async function issueSigningKeyRevocation(
+  cryptoContext: IIdentityContext,
   options: IIssueSigningKeyRevocationOptions,
 ): Promise<ISigningKeyRevocation> {
   const unsigned = {
@@ -330,15 +357,18 @@ export async function issueSigningKeyRevocation(
     issuedAt: options.issuedAt,
     revokedSigningKeyIds: sortedUnique(options.revokedSigningKeyIds),
   };
-  const sig = await signCanonical(options.masterPrivateKey, signingKeyRevocationBytes(unsigned));
-  return { ctx: IDENTITY_PURPOSES.signingKeyRevocation, ...unsigned, sig };
+  const sig = await signCanonical(
+    options.masterPrivateKey,
+    signingKeyRevocationBytes(cryptoContext, unsigned),
+  );
+  return { ctx: cryptoContext.purposes.signingKeyRevocation, ...unsigned, sig };
 }
 
 // ── Session descriptor ──────────────────────────────────────────────────────────────────────────
 
 /** A device's own signed statement of a session it runs. Signed by the device `signKey`. */
 export interface ISessionDescriptor {
-  readonly ctx: typeof IDENTITY_PURPOSES.sessionDesc;
+  readonly ctx: string;
   /** Opaque base64url session id. */
   readonly sessionId: string;
   readonly deviceId: string;
@@ -349,8 +379,11 @@ export interface ISessionDescriptor {
   readonly sig: string;
 }
 
-export function sessionDescriptorBytes(desc: Omit<ISessionDescriptor, 'sig' | 'ctx'>): Uint8Array {
-  return canonicalBytes(IDENTITY_PURPOSES.sessionDesc, [
+export function sessionDescriptorBytes(
+  cryptoContext: IIdentityContext,
+  desc: Omit<ISessionDescriptor, 'sig' | 'ctx'>,
+): Uint8Array {
+  return canonicalBytes(cryptoContext.purposes.sessionDesc, [
     desc.sessionId,
     desc.deviceId,
     desc.workspaceClaim ?? null,
@@ -365,10 +398,13 @@ function isOpaque(value: unknown, maxChars: number): value is string {
   return typeof value === 'string' && value.length <= maxChars && OPAQUE.test(value);
 }
 
-export function decodeSessionDescriptor(value: unknown): TDecoded<ISessionDescriptor> {
+export function decodeSessionDescriptor(
+  cryptoContext: IIdentityContext,
+  value: unknown,
+): TDecoded<ISessionDescriptor> {
   const opened = openStatement(
     value,
-    IDENTITY_PURPOSES.sessionDesc,
+    cryptoContext.purposes.sessionDesc,
     ['sessionId', 'deviceId', 'startedAt', 'expiresAt', 'sig'],
     ['workspaceClaim'],
   );
@@ -389,7 +425,7 @@ export function decodeSessionDescriptor(value: unknown): TDecoded<ISessionDescri
   return {
     ok: true,
     value: {
-      ctx: IDENTITY_PURPOSES.sessionDesc,
+      ctx: cryptoContext.purposes.sessionDesc,
       sessionId: r['sessionId'],
       deviceId: r['deviceId'],
       ...(hasClaim ? { workspaceClaim: claim as string } : {}),
@@ -411,6 +447,7 @@ export interface ISignSessionDescriptorOptions {
 }
 
 export async function signSessionDescriptor(
+  cryptoContext: IIdentityContext,
   options: ISignSessionDescriptorOptions,
 ): Promise<ISessionDescriptor> {
   if (!isOpaque(options.sessionId, IDENTITY_STATEMENT_LIMITS.sessionIdChars)) {
@@ -429,6 +466,9 @@ export async function signSessionDescriptor(
     startedAt: options.startedAt,
     expiresAt: options.expiresAt ?? options.startedAt + SESSION_DESCRIPTOR_VALIDITY_MS,
   };
-  const sig = await signCanonical(options.signPrivateKey, sessionDescriptorBytes(unsigned));
-  return { ctx: IDENTITY_PURPOSES.sessionDesc, ...unsigned, sig };
+  const sig = await signCanonical(
+    options.signPrivateKey,
+    sessionDescriptorBytes(cryptoContext, unsigned),
+  );
+  return { ctx: cryptoContext.purposes.sessionDesc, ...unsigned, sig };
 }

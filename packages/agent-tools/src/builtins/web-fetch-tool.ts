@@ -37,6 +37,8 @@ export interface IWebFetchEgressOptions {
 
 export interface IWebFetchToolOptions extends IBuiltinToolDescriptionOptions {
   egress?: IWebFetchEgressOptions;
+  /** Host-selected HTTP identity; omitted for SDK consumers that do not identify a product. */
+  userAgent?: string;
 }
 
 /**
@@ -154,6 +156,7 @@ export function classifyFetchError(err: unknown): string {
 async function runWebFetch(
   args: TWebFetchArgs,
   egress: IWebFetchEgressOptions,
+  userAgent: string | undefined,
   signal?: AbortSignal,
 ): Promise<string> {
   const { url, headers } = args;
@@ -176,7 +179,7 @@ async function runWebFetch(
     const response = await fetchWithEgressPolicy(
       url,
       {
-        headers: { 'User-Agent': 'Robota-CLI/3.0', ...(headers ?? {}) },
+        headers: { ...(userAgent === undefined ? {} : { 'User-Agent': userAgent }), ...(headers ?? {}) },
         signal,
         timeoutMs: DEFAULT_TIMEOUT_MS,
         maxResponseBytes: MAX_RESPONSE_BYTES,
@@ -233,7 +236,7 @@ const DEFAULT_WEB_FETCH_DESCRIPTION =
   'Fetch a URL and return its content as text. HTML pages are converted to plain text.';
 
 /**
- * Create a WebFetchTool instance — register with Robota agent tools registry.
+ * Create a WebFetchTool instance — register with agent tools registry.
  */
 export function createWebFetchTool(options: IWebFetchToolOptions = {}): FunctionTool {
   const egress = options.egress ?? {};
@@ -241,11 +244,11 @@ export function createWebFetchTool(options: IWebFetchToolOptions = {}): Function
     'WebFetch',
     options.description ?? DEFAULT_WEB_FETCH_DESCRIPTION,
     WebFetchSchema,
-    async (params, context) => runWebFetch(params, egress, context?.signal),
+    async (params, context) => runWebFetch(params, egress, options.userAgent, context?.signal),
   );
 }
 
 /**
- * WebFetchTool instance — register with Robota agent tools registry.
+ * WebFetchTool instance — register with agent tools registry.
  */
 export const webFetchTool = createWebFetchTool();

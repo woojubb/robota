@@ -22,10 +22,10 @@ describe('readProviderSettings error typing (CLI-064)', () => {
   });
 
   it('TC-04: throws ProviderConfigError when no provider configuration exists', () => {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-provider-factory-')));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-provider-factory-')));
     try {
       // Issue #1929: `cwd` isolates the PROJECT settings and nothing else — the default list also
-      // reads the developer's real `~/.robota/settings.json`, so "no configuration exists" has to be
+      // reads the developer's real `~/.agent/settings.json`, so "no configuration exists" has to be
       // stated rather than assumed of the host. `env: {}` closes the other environment-shaped input.
       readProviderSettings([], { env: {} });
       expect.unreachable('readProviderSettings must throw without configuration');
@@ -33,7 +33,7 @@ describe('readProviderSettings error typing (CLI-064)', () => {
       expect(error).toBeInstanceOf(ProviderConfigError);
       expect(error).toBeInstanceOf(Error);
       expect((error as Error).message).toContain('No provider configuration found');
-      expect((error as Error).message).not.toContain('robota');
+      expect((error as Error).message).not.toContain('agent');
     }
   });
 });

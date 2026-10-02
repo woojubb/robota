@@ -133,6 +133,26 @@ export interface IToolPermissionDecisionEntry {
   decision: 'allowed' | 'denied' | 'hook-blocked';
 }
 
+/** Valid observed interval totals; invalid evidence never becomes a measured duration. */
+export interface ILivePromptDurationTotal {
+  readonly durationMs: number;
+  readonly samples: number;
+  readonly invalid: number;
+}
+
+/** Scheduler submission to selection for admission or refusal, excluding the admission itself. */
+export interface ILivePromptQueueSummary extends ILivePromptDurationTotal {
+  readonly admissionStarted: number;
+  readonly notDispatched: number;
+}
+
+/** Valid interval sums can overlap; they are not the prompt's wall time. */
+export interface ILivePromptTimingTotals {
+  readonly provider: ILivePromptDurationTotal;
+  readonly tool: ILivePromptDurationTotal;
+  readonly queue?: ILivePromptQueueSummary;
+}
+
 /** One bounded, content-free live prompt execution; not a final turn result or delivery receipt. */
 export interface ILivePromptTraceBatch {
   readonly schemaVersion: 1;
@@ -145,6 +165,8 @@ export interface ILivePromptTraceBatch {
     readonly endedAt: string;
     readonly outcome: 'success' | 'failure' | 'interrupted';
   };
+  /** Valid duration aggregates include children omitted solely by the detail bound. */
+  readonly timingTotals?: ILivePromptTimingTotals;
   /** Callback order, not an inferred causal sequence. Retry joins are unavailable. */
   readonly children: readonly (
     | { readonly kind: 'provider'; readonly trace: IProviderCallTraceEntry }

@@ -15,7 +15,7 @@ function decode(oauth: unknown, extra: Record<string, unknown> = {}) {
   return decodeEntry({
     name: 'files',
     source: 'user',
-    origin: '~/.robota/settings.json',
+    origin: '~/.fixture-state/settings.json',
     entry: { type: 'http', url: 'https://mcp.example.test/mcp', oauth, ...extra },
   });
 }
@@ -28,14 +28,14 @@ function reasonOf(result: ReturnType<typeof decode>): string {
 describe('oauth definition', () => {
   it('decodes every field into a typed block', () => {
     const decoded = decode({
-      clientId: 'robota-cli',
+      clientId: 'agent-test-cli',
       callbackPort: 8765,
       authServerMetadataUrl: 'https://auth.example.test/',
       scopes: ['files:read', 'files:write'],
     });
     if ('reason' in decoded) throw new Error(decoded.reason);
     expect(decoded.oauth).toEqual({
-      clientId: 'robota-cli',
+      clientId: 'agent-test-cli',
       callbackPort: 8765,
       authServerMetadataUrl: 'https://auth.example.test/',
       scopes: ['files:read', 'files:write'],
@@ -44,7 +44,7 @@ describe('oauth definition', () => {
   });
 
   it('requires callbackPort beside a pre-registered clientId', () => {
-    expect(reasonOf(decode({ clientId: 'robota-cli' }))).toContain('callbackPort');
+    expect(reasonOf(decode({ clientId: 'agent-test-cli' }))).toContain('callbackPort');
   });
 
   it('requires an https metadata URL', () => {
@@ -98,7 +98,7 @@ describe('oauth definition', () => {
     const none = decodeEntry({
       name: 'files',
       source: 'user',
-      origin: '~/.robota/settings.json',
+      origin: '~/.fixture-state/settings.json',
       entry: { type: 'http', url: 'https://mcp.example.test/mcp' },
     }) as IMCPServerDefinition;
     const base = fingerprint({});

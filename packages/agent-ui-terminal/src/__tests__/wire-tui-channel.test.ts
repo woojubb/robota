@@ -327,13 +327,13 @@ describe('WireTuiChannel', () => {
     });
     const pending = channel.getSnapshot().pendingUserAction;
     expect(pending).toMatchObject({ title: 'Name?' });
-    channel.resolveUserAction(pending!, { type: 'answer', values: [], text: 'Robota' });
+    channel.resolveUserAction(pending!, { type: 'answer', values: [], text: 'Fixture Agent' });
     await flush();
     expect(link.sent).toEqual([
       {
         type: 'ask-response',
         id: 'a1',
-        response: { type: 'answer', values: [], text: 'Robota' },
+        response: { type: 'answer', values: [], text: 'Fixture Agent' },
       },
     ]);
     await channel.stop();

@@ -10,6 +10,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildCatalog } from '../catalog/build.js';
+import { createDiscoveredTool } from '../catalog/discovered-tool.js';
 
 import type { IMCPDiscovery, IMCPServerIdentity } from '../catalog/types.js';
 
@@ -56,6 +57,18 @@ describe('catalog provenance', () => {
       protocolVersion: '2025-06-18',
       origin: '/definitions/srv.json',
     });
+    if (entry.kind !== 'tool') throw new Error('Expected a tool catalog entry');
+    const tool = createDiscoveredTool(entry, {
+      callTool: async () => ({ content: [{ type: 'text', text: 'pong' }], isError: false }),
+    });
+    expect(tool.provenance).toEqual({
+      sourceId: 'srv',
+      component: 'ping',
+      origin: '/definitions/srv.json',
+      version: '9.9.9',
+      protocolVersion: '2025-06-18',
+    });
+    expect(Object.isFrozen(tool.provenance)).toBe(true);
   });
 
   it('an adapted tool (renamed) names "renamed" as the reason and still carries provenance', () => {

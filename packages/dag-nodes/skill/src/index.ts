@@ -45,7 +45,7 @@ const SKILL_OUTPUTS: IPortDefinition[] = [
 ];
 
 /**
- * DAG node that resolves a Robota skill to its inject-mode prompt string.
+ * DAG node that resolves a configured skill to its inject-mode prompt string.
  *
  * Emits the expanded `<skill>` prompt for a downstream LLM node to execute;
  * it does not run the skill itself.

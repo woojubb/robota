@@ -76,7 +76,7 @@ export interface IMCPOAuthLoginInput {
    * The browser showed the user nothing then, so this is where the authorization URL is shown.
    */
   readonly readRedirectWhenBrowserFails?: (signal: AbortSignal) => Promise<string>;
-  readonly clientName?: string;
+  readonly clientName: string;
   readonly callbackTimeoutMs?: number;
   readonly now?: () => number;
   readonly signal?: AbortSignal;
@@ -135,7 +135,7 @@ async function clientFor(
     return await registerClient(server.issuer, {
       metadata: server.metadata,
       clientMetadata: {
-        client_name: input.clientName ?? 'Robota',
+        client_name: input.clientName,
         redirect_uris: [redirectUri],
         grant_types: ['authorization_code', 'refresh_token'],
         response_types: ['code'],

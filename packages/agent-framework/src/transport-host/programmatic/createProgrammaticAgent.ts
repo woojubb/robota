@@ -35,6 +35,7 @@ export interface ICreateProgrammaticAgentOptions {
   projectAccess?: TWorkspaceProjectAccess;
   /** Explicit user settings layers for the underlying interactive session. */
   userSettingsSources?: readonly INodeHostSettingsSource[];
+  environment?: Readonly<Record<string, string | undefined>>;
   /** Slash-command modules to register (defaults to none). */
   commandModules?: readonly ICommandModule[];
   /** Optional session store for persistence. */
@@ -58,6 +59,7 @@ export function createProgrammaticAgent(options: ICreateProgrammaticAgentOptions
     ...(options.userSettingsSources !== undefined
       ? { userSettingsSources: options.userSettingsSources }
       : {}),
+    ...(options.environment !== undefined ? { environment: options.environment } : {}),
     sessionStore: options.sessionStore,
     permissionMode: options.permissionMode,
   });

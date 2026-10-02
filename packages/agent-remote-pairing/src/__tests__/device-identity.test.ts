@@ -1,3 +1,5 @@
+import { createIdentityContext } from '../identity/crypto-context.js';
+const testIdentity = createIdentityContext('test-product');
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -36,38 +38,46 @@ describe('device-identity signChallenge/verifyChallenge (REMOTE-012 TC-01)', () 
     const spki = await exportPublicKey(pair.publicKey);
     const pub = await importPublicKey(spki);
     const c = challenge();
-    const sig = await signChallenge(pair.privateKey, c);
-    expect(await verifyChallenge(pub, sig, c)).toBe(true);
+    const sig = await signChallenge(testIdentity, pair.privateKey, c);
+    expect(await verifyChallenge(testIdentity, pub, sig, c)).toBe(true);
   });
 
   it('fails closed for a different nonce (host or device), a different fingerprint pair, or a different key', async () => {
     const pair = await generateIdentityKeyPair(false);
     const pub = await importPublicKey(await exportPublicKey(pair.publicKey));
     const c = challenge();
-    const sig = await signChallenge(pair.privateKey, c);
+    const sig = await signChallenge(testIdentity, pair.privateKey, c);
 
-    expect(await verifyChallenge(pub, sig, challenge({ nonceHost: 'b3RoZXI' }))).toBe(false);
-    expect(await verifyChallenge(pub, sig, challenge({ nonceDevice: 'b3RoZXI' }))).toBe(false);
-    expect(await verifyChallenge(pub, sig, challenge({ remoteFingerprint: '99:99:99' }))).toBe(
+    expect(await verifyChallenge(testIdentity, pub, sig, challenge({ nonceHost: 'b3RoZXI' }))).toBe(
       false,
     );
-    expect(await verifyChallenge(pub, sig, challenge({ deviceId: 'other-device' }))).toBe(false);
+    expect(
+      await verifyChallenge(testIdentity, pub, sig, challenge({ nonceDevice: 'b3RoZXI' })),
+    ).toBe(false);
+    expect(
+      await verifyChallenge(testIdentity, pub, sig, challenge({ remoteFingerprint: '99:99:99' })),
+    ).toBe(false);
+    expect(
+      await verifyChallenge(testIdentity, pub, sig, challenge({ deviceId: 'other-device' })),
+    ).toBe(false);
 
     const other = await generateIdentityKeyPair(false);
     const otherPub = await importPublicKey(await exportPublicKey(other.publicKey));
-    expect(await verifyChallenge(otherPub, sig, c)).toBe(false);
+    expect(await verifyChallenge(testIdentity, otherPub, sig, c)).toBe(false);
   });
 
   it('is order-independent in the fingerprint pair (sortedPair binding)', async () => {
     const pair = await generateIdentityKeyPair(false);
     const pub = await importPublicKey(await exportPublicKey(pair.publicKey));
     const sig = await signChallenge(
+      testIdentity,
       pair.privateKey,
       challenge({ localFingerprint: 'AA', remoteFingerprint: 'BB' }),
     );
     // The counterpart observes the same two fingerprints with local/remote swapped.
     expect(
       await verifyChallenge(
+        testIdentity,
         pub,
         sig,
         challenge({ localFingerprint: 'BB', remoteFingerprint: 'AA' }),
@@ -91,7 +101,14 @@ describe('device-identity ids + key export/import (REMOTE-012 TC-02)', () => {
     const spki = await exportPublicKey(reloaded.publicKey);
     const pub = await importPublicKey(spki);
     const c = challenge();
-    expect(await verifyChallenge(pub, await signChallenge(reloaded.privateKey, c), c)).toBe(true);
+    expect(
+      await verifyChallenge(
+        testIdentity,
+        pub,
+        await signChallenge(testIdentity, reloaded.privateKey, c),
+        c,
+      ),
+    ).toBe(true);
   });
 
   it('a non-extractable device private key cannot be exported', async () => {

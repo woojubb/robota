@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render } from '../../testing/product-provider.js';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -262,7 +263,7 @@ describe('Composer — remove and persist attachments (#3282 §4d)', () => {
     fireEvent.keyDown(screen.getByLabelText('message'), { key: 'Enter' });
     expect(onSubmit).toHaveBeenCalledWith('@./a.ts');
     expect(screen.queryByText('a.ts')).toBeNull();
-    expect(window.localStorage.getItem('robota.draft.s1')).toBeNull();
+    expect(window.localStorage.getItem('test-product.draft.s1')).toBeNull();
   });
 
   // Cheap hardening: a stored draft is `localStorage`, not this component's own state — it can be
@@ -271,7 +272,7 @@ describe('Composer — remove and persist attachments (#3282 §4d)', () => {
   // as a broken/empty @-reference.
   it('drops a malformed stored attachment instead of showing a broken chip', () => {
     window.localStorage.setItem(
-      'robota.draft.s1',
+      'test-product.draft.s1',
       JSON.stringify({
         text: '',
         attachments: [

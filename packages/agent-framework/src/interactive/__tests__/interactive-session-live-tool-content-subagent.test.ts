@@ -40,7 +40,7 @@ afterEach(() => {
 
 describe('live tool content and subagents', () => {
   it('captures the parent call and never the call its subagent made through the shared tool', async () => {
-    workspace = realpathSync(mkdtempSync(join(tmpdir(), 'robota-live-tool-subagent-')));
+    workspace = realpathSync(mkdtempSync(join(tmpdir(), 'agent-live-tool-subagent-')));
     const cwd = workspace;
     const contents: ILivePromptContentBatch[] = [];
     const traces: ILivePromptTraceBatch[] = [];

@@ -1,3 +1,4 @@
+import type { IIdentityContext } from './identity/crypto-context.js';
 /**
  * SEC-011 (issue #1865): how a revocation REACHES the machine doing the checking.
  *
@@ -77,10 +78,10 @@ export interface IRevocationList extends IRevocationListClaims {
 }
 
 /** The bytes a list signature covers — every claim, in a fixed order, versioned. */
-function listBytes(claims: IRevocationListClaims): Uint8Array {
+function listBytes(cryptoContext: IIdentityContext, claims: IRevocationListClaims): Uint8Array {
   return encoder.encode(
     JSON.stringify([
-      'robota.device-revocation-list.v1',
+      `${cryptoContext.namespace}.device-revocation-list.v1`,
       claims.userId,
       // Sorted, so two lists with the same members produce the same bytes whatever order they were
       // assembled in. Without this a re-issue with a reordered array is a different signature over
@@ -94,10 +95,15 @@ function listBytes(claims: IRevocationListClaims): Uint8Array {
 
 /** Sign a revocation list for this user. */
 export async function issueRevocationList(
+  cryptoContext: IIdentityContext,
   claims: IRevocationListClaims,
   rootPrivateKey: CryptoKey,
 ): Promise<IRevocationList> {
-  const signature = await webcrypto.subtle.sign(SIGN_PARAMS, rootPrivateKey, ab(listBytes(claims)));
+  const signature = await webcrypto.subtle.sign(
+    SIGN_PARAMS,
+    rootPrivateKey,
+    ab(listBytes(cryptoContext, claims)),
+  );
   return { ...claims, signature: toBase64Url(new Uint8Array(signature)) };
 }
 
@@ -140,6 +146,7 @@ export interface IVerifyRevocationListOptions {
  * that merely travelled alongside a signature.
  */
 export async function verifyRevocationList(
+  cryptoContext: IIdentityContext,
   list: IRevocationList,
   options: IVerifyRevocationListOptions,
 ): Promise<IRevocationVerdict> {
@@ -148,7 +155,7 @@ export async function verifyRevocationList(
     SIGN_PARAMS,
     options.rootPublicKey,
     ab(fromBase64Url(signature)),
-    ab(listBytes(claims)),
+    ab(listBytes(cryptoContext, claims)),
   );
   if (!signatureOk) return { usable: false, rejection: 'signature-invalid' };
 

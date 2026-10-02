@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 import { describe, expect, it, vi } from 'vitest';
 
 import { ResponderGate, type IResponderGateOptions } from '../rtc-responder-gate.js';
@@ -14,7 +16,7 @@ function makeHandshakeStub() {
   const received: TPairingFrame[] = [];
   let resolveResult!: (v: { sessionKey: string }) => void;
   let rejectResult!: (e: Error) => void;
-  const start: typeof startPairingHandshake = (options) => {
+  const start: typeof startPairingHandshake = (_cryptoContext, options) => {
     options.send({ t: 'pair-nonce', nonce: 'stub' }); // responder emits its nonce on start
     return {
       result: new Promise<{ sessionKey: string }>((res, rej) => {
@@ -37,7 +39,7 @@ function makeGate(over: Partial<IResponderGateOptions> = {}) {
   const channel = { send: (d: string) => channelSends.push(d), close: vi.fn() };
   const onMessage = vi.fn();
   const hs = makeHandshakeStub();
-  const gate = new ResponderGate({
+  const gate = new ResponderGate({cryptoContext: testIdentity,
     channel,
     secret: 's',
     localFingerprint: 'AA',

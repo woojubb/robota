@@ -38,10 +38,10 @@ export function createSessionEventRenderingProjectAccess(
     identityResolver: { resolve: () => identity },
     store: new ScenarioTrustStore(),
     projectStateDirectories: {
-      sessions: join('.robota', 'sessions'),
-      'session-logs': join('.robota', 'logs'),
-      memory: join('.robota', 'memory'),
-      checkpoints: join('.robota', 'checkpoints'),
+      sessions: join('.fixture-state', 'sessions'),
+      'session-logs': join('.fixture-state', 'logs'),
+      memory: join('.fixture-state', 'memory'),
+      checkpoints: join('.fixture-state', 'checkpoints'),
     },
   }).inspect(canonicalRoot);
 }

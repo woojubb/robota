@@ -67,7 +67,7 @@
 - 6ee8725: A user settings file that does not parse no longer reads as "no plugin is disabled". Plugin settings
   now refuse to read it: no plugin loads (skills, commands, hooks and themes alike), a plugin command
   such as `/plugin enable` fails instead of rewriting the whole settings file with the plugin keys
-  alone, and `robota doctor` reports the plugin check as failed while still inspecting each installed
+  alone, and `__PRODUCT_CLI_NAME__ doctor` reports the plugin check as failed while still inspecting each installed
   plugin. The CLI already refuses to start with such a file; this covers a session started later in
   the same process.
 - 6072e9a: Bundle plugin skills and commands now run. They were listed in the command menu, but typing one
@@ -112,15 +112,15 @@
 
 ### Minor Changes
 
-- e8d70ac: A first run finds a provider, instead of a dead end. `robota --serve` (and the daemon it starts) no
+- e8d70ac: A first run finds a provider, instead of a dead end. `__PRODUCT_CLI_NAME__ --serve` (and the daemon it starts) no
   longer refuses when no provider is configured: it starts in setup mode, and the GUI's conversation area
   shows a "Connect a model provider to start" panel with a "Set up provider" button in place of the
   composer. Answering it configures and swaps in the first provider live, with no restart. A startup
-  failure now says why — `robota daemon start --json` and the desktop app's fatal screen report the
+  failure now says why — `__PRODUCT_CLI_NAME__ daemon start --json` and the desktop app's fatal screen report the
   child's own reason instead of a generic "readiness channel closed", and the fatal screen gets a Try
   again button. `trust status --json` and the desktop trust dialog list only sources whose state trust
   would actually change, instead of naming one this platform could not determine; the dialog shows one
-  sentence and a collapsed Details section. `robota --serve --open` in an untrusted folder now asks at
+  sentence and a collapsed Details section. `__PRODUCT_CLI_NAME__ --serve --open` in an untrusted folder now asks at
   the terminal (trust it, start Restricted, or quit) when someone is there to ask, instead of refusing
   outright.
 
@@ -176,7 +176,7 @@
     - `IWsSessionState` gains session listing state and actions.
     - It adds a `SessionSidebar`.
     - `/resume` opens the sidebar.
-  - `agent-cli`: `robota --serve` provides the session directory, and refuses a switch that would lose
+  - `agent-cli`: `__PRODUCT_CLI_NAME__ --serve` provides the session directory, and refuses a switch that would lose
     work in progress. External-event grants belong to the run: a switch reopens them on the new session,
     as the TUI already does.
   - External-event grant history (spent tokens, rate windows, revocations) belongs to the run. The new
@@ -202,12 +202,12 @@
     `/events revoke <grant-id>` withdraws one. User-only.
   - `agent-cli` — a grant file (`grantId`, `issuer`, `resource` ending in `/events/<grantId>`, exactly one of
     `subject` or `client`, `scopes`, optional `algorithms` and `rate`) is validated before anything starts, with a
-    reason that names the grant and no configured value. `robota --external-event-grant <file>` (TUI) and
-    `robota session start --background --external-event-grant <file>` open every grant or fail the start; a
+    reason that names the grant and no configured value. `__PRODUCT_CLI_NAME__ --external-event-grant <file>` (TUI) and
+    `__PRODUCT_CLI_NAME__ session start --background --external-event-grant <file>` open every grant or fail the start; a
     background session receives its grants through a private file, opens them before it reports ready, and the
-    launcher refuses a readiness that names other grants. `robota session events list <id> [--json]` and
-    `robota session events revoke <id> <grant-id>` work over the generation-bound control socket, and
-    `robota session list --format json` shows each grant's counts. The retired `--external-event-allow` now points
+    launcher refuses a readiness that names other grants. `__PRODUCT_CLI_NAME__ session events list <id> [--json]` and
+    `__PRODUCT_CLI_NAME__ session events revoke <id> <grant-id>` work over the generation-bound control socket, and
+    `__PRODUCT_CLI_NAME__ session list --format json` shows each grant's counts. The retired `--external-event-allow` now points
     at `--external-event-grant`.
 
 - bfe8ed5: An external event is admitted only by a bearer access token the session verifies itself, and its sender is the
@@ -275,21 +275,21 @@
     - Session notices keep only `session-error` and `protocol-error`.
     - The state gains `commandCatalog` and `sessionStatus`.
   - `agent-command` registers `/theme` and `/keybindings` even without a terminal. They then answer
-    that they belong to the robota terminal, instead of being unknown.
+    that they belong to the __PRODUCT_DISPLAY_NAME__ terminal, instead of being unknown.
   - `agent-framework`:
     - `InteractiveSession.getStatusSnapshot()`.
     - The main-thread row previews the last chat message instead of the last record's type.
   - `agent-cli` serves the full GUI web app, renamed from `agent-cli-web` to `agent-gui-web`, on
-    `robota --serve --open`.
+    `__PRODUCT_CLI_NAME__ --serve --open`.
 
 - 9721162: A trusted workspace saves its sessions on macOS and other hosts without Linux's project-write guarantee.
 
   - **`agent-framework`:** `supportsWorkspaceProjectMutation(platform?)` tells a host in advance whether project writes can be proven to stay under the trusted root. The project writer uses the same answer, so the two cannot disagree.
   - **`agent-cli`:**
-    - Where project writes cannot be proven safe, a trusted workspace keeps its sessions in the user session store (`~/.robota/sessions`). They are listed for that workspace by their working directory, so `/resume`, the sessions sidebar, `--continue` and `robota session list` find them. Nothing is written under the project root.
+    - Where project writes cannot be proven safe, a trusted workspace keeps its sessions in the user session store (`$PRODUCT_USER_STATE_DIR/sessions`). They are listed for that workspace by their working directory, so `/resume`, the sessions sidebar, `--continue` and `__PRODUCT_CLI_NAME__ session list` find them. Nothing is written under the project root.
     - Before this, every save in a trusted git workspace on macOS was refused, and those surfaces listed nothing.
     - Linux keeps trusted sessions in the project, as before.
-    - `robota session list`, `robota usage` and `robota session analyze` report such sessions as user sessions, never as project sessions.
+    - `__PRODUCT_CLI_NAME__ session list`, `__PRODUCT_CLI_NAME__ usage` and `__PRODUCT_CLI_NAME__ session analyze` report such sessions as user sessions, never as project sessions.
 
 - 57f57f5: A daemon keeps several sessions live, and each client is bound to its own: one client's switch moves
   only that client.
@@ -302,7 +302,7 @@
     `code`, instead of `protocol_error`; both requests take an optional `requestId` that it echoes.
   - `agent-transport-ws`: the `sessionBinder` option binds each connection to its own session and
     releases the binding when the connection closes.
-  - `agent-cli`: `robota --serve` and the daemon keep up to four sessions live. Each WebSocket client and
+  - `agent-cli`: `__PRODUCT_CLI_NAME__ --serve` and the daemon keep up to four sessions live. Each WebSocket client and
     attached terminal is bound to its own session; leaving a busy session is no longer refused, and only
     the last driver of a session with a pending prompt is kept from leaving it. Grants and the supervised
     name stay on the runtime's first session, and its reported activity covers every live session.
@@ -325,8 +325,8 @@
   - `agent-interface-command` (minor): `ICommandListEntry` gains optional `argumentHint` and
     `subcommands` (`ICommandSubcommandEntry`).
   - `agent-cli` (minor):
-    - `robota session attach` and an attach from `robota session view` open the full terminal UI,
-      the one `robota --attach` opens, in drive mode or, with `--observe`, read-only. The reduced
+    - `__PRODUCT_CLI_NAME__ session attach` and an attach from `__PRODUCT_CLI_NAME__ session view` open the full terminal UI,
+      the one `__PRODUCT_CLI_NAME__ --attach` opens, in drive mode or, with `--observe`, read-only. The reduced
       attached view is gone.
     - A served runtime names each of its sessions after the session's first real turn.
   - `agent-framework` (minor):
@@ -407,7 +407,7 @@
     stays inside the project (every platform but Linux), none is composed: a checkpoint could be
     neither saved nor restored there.
   - `agent-command` (patch): where a session has no checkpoints, `/rewind` says why: a restricted
-    workspace is told to run `robota trust --yes` and restart robota, and a host that cannot write
+    workspace is told to run `__PRODUCT_CLI_NAME__ trust --yes` and restart __PRODUCT_DISPLAY_NAME__, and a host that cannot write
     the project safely says so. `/rewind list` reports this as a failed command instead of throwing.
   - `agent-framework` (minor): a checkpoint operation on a session without a store throws
     `EditCheckpointsUnavailableError`, whose `reason` is `host-cannot-write-project`,
@@ -442,7 +442,7 @@
     under. `sandboxApprovalFor` is exported.
   - `agent-subagent-runner` (minor): `ISubagentWorkerComposition` takes an optional `createSandbox`. The
     worker builds that sandbox once and hands the same instance to `createTools` and to the session.
-  - `agent-cli` (patch): robota's worker composition builds the OS sandbox through `createSandbox`, so
+  - `agent-cli` (patch): __PRODUCT_DISPLAY_NAME__'s worker composition builds the OS sandbox through `createSandbox`, so
     a child-process subagent approves what its parent approves.
 
 ### Patch Changes
@@ -469,7 +469,7 @@
     itself is held to the control endpoint's line limit.
   - `agent-framework`: the surface a turn was submitted on now reaches its usage observation. It was
     dropped before, so remote-control turns were counted as `unknown`.
-  - The terminal client (`robota session attach`) and the view keys come separately.
+  - The terminal client (`__PRODUCT_CLI_NAME__ session attach`) and the view keys come separately.
 
 - 997f2fb: A revoked or closed external-event grant checks the token before it answers, so only a caller holding a valid
   token for that grant learns it was revoked; anyone else gets exactly the refusal a live grant gives. The TUI keeps
@@ -540,7 +540,7 @@
   marked revoked rather than deleted, so a repository that returns to that path never regains a
   generation an approval (such as a project MCP server's) was recorded against.
 
-  Grants made before this change are keyed the old way: run `robota trust --yes` once more in each
+  Grants made before this change are keyed the old way: run `__PRODUCT_CLI_NAME__ trust --yes` once more in each
   workspace. A workspace revoked before shows as untrusted until it is trusted or revoked again.
 
 - Updated dependencies [3c81769]
@@ -587,7 +587,7 @@
     The tool reaches only files inside the workspace whose path does not look like it holds secrets
     (`.env*`, `~/.ssh`, keys and credentials), and it does not exist in a turn a peer's message started.
   - The receiving operator approves every file. A received file is kept as an inert copy (mode 0600)
-    under `~/.robota/peer-files/<sender>/`. It is never run and never placed in the model's context.
+    under `$PRODUCT_USER_STATE_DIR/peer-files/<sender>/`. It is never run and never placed in the model's context.
     The conversation is told only its name, size and sha256. A name that leaves that directory is
     refused, a symbolic link is never written through, and nothing is overwritten.
   - Transfers travel on a channel of their own (a separate connection on this host, a separate data
@@ -632,13 +632,13 @@
 - 9843fe6: Sign in to a remote MCP server from inside a session, and use its tools without restarting.
 
   - **`/mcp login <server> [--no-browser]`** runs the same per-server OAuth sign-in as
-    `robota mcp login` (discovery checks, PKCE, `state`, RFC 9207 `iss`, RFC 8707 resource, the
+    `__PRODUCT_CLI_NAME__ mcp login` (discovery checks, PKCE, `state`, RFC 9207 `iss`, RFC 8707 resource, the
     loopback listener, the lock-guarded store). It opens the browser through the argv opener; with
     `--no-browser`, or when no browser can be opened, it shows the authorization URL and asks for the
     redirect URL in the session's own prompt (masked), held to the same rules as a pasted redirect in
     the terminal. A failed, refused, timed-out or cancelled sign-in changes nothing and is reported by
     a fixed reason only. `/mcp login <server> --client-secret` is refused: a secret is never typed into
-    a session, and `robota mcp login <server> --client-secret` is named instead (also after a failed
+    a session, and `__PRODUCT_CLI_NAME__ mcp login <server> --client-secret` is named instead (also after a failed
     token exchange for a pre-registered client). `/mcp` stays user-only (`modelInvocable: false`).
   - **Connected in the same session:** after a sign-in, a server that could not connect for want of
     one goes through the normal admission (approval, fingerprint, trust) and connects, and its tools
@@ -663,7 +663,7 @@
   - **`ICommandMCPActivationAdapter.oauthLogin`** (`ICommandMCPOAuthLoginRequest`,
     `ICommandMCPOAuthLoginResult`, `ICommandMCPOAuthRedirectPrompt`) is the port behind it.
   - The sign-in notice and `/mcp status` now suggest `/mcp login <server>` in a session and
-    `robota mcp login <server>` in a terminal; the server's name is shown only when it is safe to paste
+    `__PRODUCT_CLI_NAME__ mcp login <server>` in a terminal; the server's name is shown only when it is safe to paste
     into any shell, otherwise `<server>`.
 
 ### Minor Changes
@@ -720,9 +720,9 @@
     session on an earlier version cannot confirm, so its messages are refused; both sessions need this
     version to message each other.
 
-- ec5e477: Add a credential store port (`ICredentialStore` in `agent-core`) and keep the CLI's secrets behind it: the OS keychain through the optional `@napi-rs/keyring` binding (macOS Keychain, Windows Credential Manager, Linux Secret Service), else an owner-only file under `~/.robota/credentials`. The backend is chosen at first use, recorded, and named by `/remote-control status`; a recorded keychain that stops working fails closed instead of degrading to the file.
+- ec5e477: Add a credential store port (`ICredentialStore` in `agent-core`) and keep the CLI's secrets behind it: the OS keychain through the optional `@napi-rs/keyring` binding (macOS Keychain, Windows Credential Manager, Linux Secret Service), else an owner-only file under `$PRODUCT_USER_STATE_DIR/credentials`. The backend is chosen at first use, recorded, and named by `/remote-control status`; a recorded keychain that stops working fails closed instead of degrading to the file.
 
-  The remote-control host identity key moves into the store. The old `~/.robota/remote-host-identity.json` may have been copied by backups or dotfile sync, so it is not carried over: on the first run after upgrading a new host key is generated, the old file is removed, and the operator is told once that trusted devices must pair again.
+  The remote-control host identity key moves into the store. The old `$PRODUCT_USER_STATE_DIR/remote-host-identity.json` may have been copied by backups or dotfile sync, so it is not carried over: on the first run after upgrading a new host key is generated, the old file is removed, and the operator is told once that trusted devices must pair again.
 
 - 18b52cc: Built-in commands are offered to the model deliberately, each described for the model, and never
   with a trust, credential or permission-widening action.
@@ -757,7 +757,7 @@
     workspace or sign in is named to the model at the start of an interactive session with the
     command to suggest, and a
     signed-in OAuth server that refuses a call tells the model to suggest `/mcp login <server>` — or, in print and serve runs, the terminal
-    `robota mcp login <server>`.
+    `__PRODUCT_CLI_NAME__ mcp login <server>`.
 
   A command whose bare form is a complete action declares `runsBare`, so choosing `/cost` or `/mcp`
   from the autocomplete menu still runs it even though they now declare subcommands.
@@ -873,7 +873,7 @@
   with an advisor. Sending history to a destination (provider type and endpoint host) the main model
   does not already use needs a one-time consent per destination, kept in the user settings file; a
   refusal is remembered for the session. The organization's `allowedProviders` applies, and
-  `ROBOTA_DISABLE_ADVISOR=1` turns it off completely. In-process subagents inherit the advisor, bound
+  `PRODUCT_DISABLE_ADVISOR=1` turns it off completely. In-process subagents inherit the advisor, bound
   to their own conversation; child-process subagents do not get it.
 
   **`@robota-sdk/agent-framework` is `major` for one reason: `ICommandHostSessionAccess` gains a
@@ -910,8 +910,8 @@
     construction alongside `allow` and `deny`.
   - **Never auto-approved, bypass included:** removing a critical path with `rm`/`rmdir` (the root, a
     top-level directory, home, the working directory or a parent), and a modify-class write into
-    `.git`, `.robota`, `.claude`, `.agents`, `.mcp.json`, `.gitconfig`, `.npmrc` or a shell rc file.
-    Files inside an isolated worktree (`.robota/worktrees/<name>/…`) are ordinary files. With no
+    `.git`, `.__PRODUCT_DISPLAY_NAME__`, `.claude`, `.agents`, `.mcp.json`, `.gitconfig`, `.npmrc` or a shell rc file.
+    Files inside an isolated worktree (`$PRODUCT_PROJECT_STATE_DIR/worktrees/<name>/…`) are ordinary files. With no
     approver attached, an ask is a denial.
   - **A ceiling is checked before bypass and before any ask.** A subagent's `inherit-allowlist` ceiling
     is now the parent's _effective_ rules, read live at spawn: settings, preset lists and command
@@ -1204,10 +1204,10 @@
   `MODEL_COMMAND_TOOL_PREFIX`, `createProviderSafeModelCommandToolName`,
   `createModelCommandToolProjection`, and `buildPromptWithFileReferences` for SDK consumers.
 
-  To preserve the previous identifiers, pass `modelCommandToolPrefix: 'robota_command_'` and
-  `promptFileReferenceTag: 'robota_file_references'` in session options, or pass those values to
-  the projection and prompt-format helpers. The Robota product profile supplies both values, so
-  the Robota CLI keeps its existing model tool names and prompt enclosure.
+  To preserve the previous identifiers, pass `modelCommandToolPrefix: '__PRODUCT_MODEL_TOOL_PREFIX__'` and
+  `promptFileReferenceTag: 'PRODUCT_file_references'` in session options, or pass those values to
+  the projection and prompt-format helpers. The __PRODUCT_DISPLAY_NAME__ product profile supplies both values, so
+  the __PRODUCT_DISPLAY_NAME__ CLI keeps its existing model tool names and prompt enclosure.
 
 - 5134b3b: **BREAKING — RUNTIME-003 P2: `submit` hands back the submission's identity, so an answer belongs to
   the caller who asked for it.**
@@ -1287,7 +1287,7 @@
 - d4189b9: The rest of the per-server MCP OAuth lifecycle: signing in to a server without a local browser,
   signing out of it with token revocation, and each server's sign-in state in `/mcp`.
 
-  - **`robota mcp login <name> --no-browser`** prints the authorization URL and reads the redirect URL
+  - **`__PRODUCT_CLI_NAME__ mcp login <name> --no-browser`** prints the authorization URL and reads the redirect URL
     the user pastes back (not echoed). `runMCPOAuthLogin` takes `readRedirect` for this; nothing
     listens on the redirect URI then. The pasted URL is held to the loopback listener's rules through
     `createPastedRedirectAcceptor`: it must be the registered redirect URI (same origin and path, no
@@ -1296,7 +1296,7 @@
     check applies as before. `openBrowser` now also receives the redirect URI. `readRedirect` gets a
     signal that aborts on cancel or at `callbackTimeoutMs` (5 minutes by default, as for the loopback
     listener); a paste longer than the prompt accepts fails as `redirect-too-long`.
-  - **Signing out** (`runMCPOAuthLogout`; `robota mcp logout <name>`; `/mcp logout <serverId>`):
+  - **Signing out** (`runMCPOAuthLogout`; `__PRODUCT_CLI_NAME__ mcp logout <name>`; `/mcp logout <serverId>`):
     deletes the stored credential under the refresh lock, then revokes the refresh token and the
     access token (RFC 7009) when the stored issuer advertises `revocation_endpoint`. Revocation is a
     POST through the egress policy that never follows a redirect and is byte-bounded; it authenticates
@@ -1311,7 +1311,7 @@
     OAuth server; a server this session was told needs a sign-in reads `sign-in-required`.
     `ICommandMCPActivationAdapter` gains optional `oauthStatus` and `oauthLogout`
     (`ICommandMCPOAuthStatus`, `ICommandMCPOAuthLogoutResult`).
-  - **No in-session sign-in:** signing in stays `robota mcp login <server>` in a terminal, since it
+  - **No in-session sign-in:** signing in stays `__PRODUCT_CLI_NAME__ mcp login <server>` in a terminal, since it
     needs the terminal (browser, pasted redirect, hidden secret prompt) a running session owns. `/mcp`
     names that command for a server that needs a sign-in, as does the session's sign-in notice; the
     server name is shown there only when it is safe to paste into any shell — a plain token not
@@ -1326,10 +1326,10 @@
 - 4078a72: Model fallback chain. `--fallback-model a,b` (or the `fallbackModel` settings array; the flag wins) names up to three models a turn moves to when its model is overloaded, unavailable or failing on the server. An entry is a provider profile, `profile:model`, a bare model on the primary's provider, or `default`. The move happens only before any output has streamed, lasts for the current turn, and is shown as a system note; entries that cannot be built are passed over and entries outside the organization's `allowedProviders` are dropped with a notice. `FallbackProvider` in agent-framework implements it over the session's provider; `IChatOptions` gains `executionId`, `onModelFallback` and `preserveContextWindow`, `IAIProvider` gains optional `resolveModelRoute`, and the execution loop emits a `provider_fallback` event and attributes requests, call observations, committed replies, the response cache and usage to the model that answered. A turn that ran on more than one model records per-model `modelShares` on its usage observation, which personal usage reports split by model and provider. A `/provider` switch keeps the chain, read again for the new primary.
 - af2f2ad: `/cd <directory>` continues the conversation in another directory.
 
-  - **A move is a new session in the target directory.** In the TUI, robota saves a copy of the
+  - **A move is a new session in the target directory.** In the TUI, __PRODUCT_DISPLAY_NAME__ saves a copy of the
     conversation where the target's session store will find it, ends the current run through its
     normal end-of-life flow, and starts again in the target directory resuming that copy. The target's
-    settings, trust decision, tools, skills and `AGENTS.md` apply, exactly as if robota had been
+    settings, trust decision, tools, skills and `AGENTS.md` apply, exactly as if __PRODUCT_DISPLAY_NAME__ had been
     launched there. The process boundary makes the move atomic, so no tool call can straddle it.
   - **The system prompt is kept as recorded**, so a provider's prompt cache survives. One appended
     `<workspace-move>` message tells the model the new directory, and which project instructions now
@@ -1390,7 +1390,7 @@
     - Deny rules, ask rules, critical removals and plan mode still apply first.
   - **Exclusions:** `sandbox.excludedCommands` run unconfined, through the ordinary permission path.
   - **When the sandbox cannot run:** a missing or unusable backend is reported at startup, in
-    `robota doctor` and in `/sandbox`, and commands then run unconfined.
+    `__PRODUCT_CLI_NAME__ doctor` and in `/sandbox`, and commands then run unconfined.
     `sandbox.failIfUnavailable` refuses to start instead.
   - **New contracts:**
     - `OsSandboxClient`, `detectOsSandbox`, `bubblewrapArguments`, `seatbeltProfile`.
@@ -1411,7 +1411,7 @@
     and `getPermissionRules` / `listRecentDenials` on `ICommandPermissionModeAdapter`. Settings
     provenance now covers `permissions.ask`.
 
-- b70fa3d: `robota --safe-mode` starts a session with every customization off, to rule one out in one run.
+- b70fa3d: `__PRODUCT_CLI_NAME__ --safe-mode` starts a session with every customization off, to rule one out in one run.
 
   - **Off:** project and user instruction files, skills, custom commands, agent definitions, output
     styles, external presets, plugins, hooks from every settings layer, and MCP servers.
@@ -1427,7 +1427,7 @@
 - 2711ec6: One broken skill or agent file no longer stops the session.
 
   Skill, command and agent definitions are shared with other hosts through `.claude`, and those hosts
-  define fields of their own. The frontmatter decoder now validates only the fields robota owns and
+  define fields of their own. The frontmatter decoder now validates only the fields __PRODUCT_DISPLAY_NAME__ owns and
   ignores the rest (nested `metadata` entries included); a malformed value of an owned field is still
   refused. A refused file is skipped with a single warning and still claims its name, so a
   lower-priority definition cannot stand in for it. An empty `argument-hint` reads as no hint. When
@@ -1458,7 +1458,7 @@
   `workspaceRelation` and `workspaceClaim`, and `ICommandLocalPeersAdapter` the optional
   `listWithWorkspace()`.
 
-- 4c5148e: ARCH-005 Stage S2 — `robota` is now expressed as an `IProductProfile` and assembled by `assembleProduct`;
+- 4c5148e: ARCH-005 Stage S2 — `__PRODUCT_CLI_NAME__` is now expressed as an `IProductProfile` and assembled by `assembleProduct`;
   the hand-wired composition root in `agent-cli` is gone.
 
   - **`@robota-sdk/agent-product`** — provider construction returns IN-KERNEL. `assembleProduct` builds the
@@ -1475,22 +1475,22 @@
     project/user definitions > injected > built-in. `AgentDefinitionLoader` now dedupes within that tier
     (first wins). Absent ⇒ unchanged behavior.
   - **`@robota-sdk/agent-transport` / `@robota-sdk/agent-transport-tui`** — forward the optional
-    `agentDefinitions` through the headless and TUI channels so every robota surface carries the seam.
-  - **`@robota-sdk/agent-cli`** — `robota`'s identity (branding, provider surface, presets,
+    `agentDefinitions` through the headless and TUI channels so every __PRODUCT_DISPLAY_NAME__ surface carries the seam.
+  - **`@robota-sdk/agent-cli`** — `__PRODUCT_CLI_NAME__`'s identity (branding, provider surface, presets,
     `packs: [codingPack]`, base command modules, injected transports/runners/subagent factory) is declared as
     data in a product profile and folded by `assembleProduct`. The coding command modules (`/shell`,
     `/editor`) now come from `pack-coding` rather than the base set, so the pack is load-bearing. What remains
     in the CLI is product-shell only: arg parsing, settings/file IO, terminal notices, first-run/init/
     `--configure`, memory + session-resume UX, and print/serve/TUI mode dispatch.
 
-  End-user `robota` behavior is unchanged in substance — the assembled command-module set, provider surface,
+  End-user `__PRODUCT_CLI_NAME__` behavior is unchanged in substance — the assembled command-module set, provider surface,
   tool set, subagent roster, and preset resolution all match the pre-change assembly — with one accepted
   cosmetic delta: `/shell` and `/editor` now appear at the END of `/help` output and of the slash-command
   autocomplete popup rather than mid-list, because they arrive from `pack-coding` and both surfaces render in
   module-insertion order. Same commands, same behavior, different position.
 
 - 37af5dc: ARCH-006 + ARCH-007 — the capability-pack TOOL axis reaches parity with the command and subagent axes,
-  and `robota` consumes the composition kernel's RUNTIME SEAM instead of only its materials.
+  and `__PRODUCT_CLI_NAME__` consumes the composition kernel's RUNTIME SEAM instead of only its materials.
 
   - **`@robota-sdk/agent-framework` (ARCH-006)** — the default tool set is no longer hard-coded.
     `createSession` accepts `defaultTools`, which REPLACES the `createDefaultTools()` tier (`[]` suppresses
@@ -1509,7 +1509,7 @@
     path is byte-identical.
   - **`@robota-sdk/agent-product` (ARCH-007)** — `buildRuntimeOptions` no longer overwrites a
     caller-supplied `commandModules`. A shell that has already narrowed the merged `base ⊕ packs` superset
-    (as `robota` does with its preset's enabled/disabled delta) keeps that selection; the assembled set is
+    (as `__PRODUCT_CLI_NAME__` does with its preset's enabled/disabled delta) keeps that selection; the assembled set is
     overlaid only when the caller left it unset — the same rule `permissionMode` already followed.
   - **`@robota-sdk/agent-cli` (ARCH-007)** — `startCli` now routes through
     `product.buildRuntimeOptions(...)`. The shell resolves its own session inputs and the kernel lays the
@@ -1519,7 +1519,7 @@
     `args.permissionMode ?? resolvedPreset.permissionMode` expressions are gone — every surface binds to
     the one kernel result.
 
-  End-user `robota` behavior is unchanged: the assembled command-module set, provider surface, tool set,
+  End-user `__PRODUCT_CLI_NAME__` behavior is unchanged: the assembled command-module set, provider surface, tool set,
   subagent roster, preset resolution, and permission posture all match the pre-change assembly.
 
 - 2ebff01: Emit the complete persisted checkpoint and branch lifecycle, forward plan, context-refresh, and
@@ -1578,7 +1578,7 @@
   every `packages/*/src` production tree.
 - 4b76cfa: NEUT-005 (wave 2): restore an actionable context-capacity hint at the surface tier, neutrally. The zero-dependency `agent-core` layer emits a product-neutral hard-capacity notice and exposes the `IAgentConfig.contextCapacityHint` seam (wave 1). This wave wires that seam end-to-end without baking product vocabulary into a neutral library:
 
-  - `agent-session`: `ISessionOptions.contextCapacityHint` is forwarded into the Robota agent config (`buildRobota`), making the core seam reachable from the consuming layer.
+  - `agent-session`: `ISessionOptions.contextCapacityHint` is forwarded into the agent configuration factory, making the core seam reachable from the consuming layer.
   - `agent-framework`: new `deriveContextCapacityHint(commandModules)` derives the concrete remediation wording from the surface's OWN registered command set (names a registered `compact` command → `"Run /compact and retry."`; `undefined` when none, leaving the neutral core default). It is applied automatically in interactive session assembly across the TUI, print, and `--serve` surfaces.
   - `agent-cli`: the default command set registers `/compact`, so end users regain the actionable hint.
   - `agent-interface-transport`: reworded the `'allow-project'` permission comment so it no longer hardcodes a storage path (the location is owned by the consuming layer), matching the `agent-session` twin.
@@ -1591,9 +1591,9 @@
   constructor-injectable with the previous bilingual/dev set as the documented default; session-name
   sanitizer is Unicode-aware (non-Latin titles preserved).
 - 90e7a10: The default background observer warning code and exported `OBSERVER_FAILURE_WARNING_CODE` value
-  change from `ROBOTA_BACKGROUND_OBSERVER_FAILURE` to `BACKGROUND_OBSERVER_FAILURE`. Hosts matching
+  change from `PRODUCT_BACKGROUND_OBSERVER_FAILURE` to `BACKGROUND_OBSERVER_FAILURE`. Hosts matching
   the old warning code should match the new neutral code or provide `observerFailureWarningCode` in
-  their background manager or session options. The Robota CLI supplies its existing code explicitly
+  their background manager or session options. The __PRODUCT_DISPLAY_NAME__ CLI supplies its existing code explicitly
   across print, goal, serve, MCP, and TUI sessions.
 - fcb0da3: PAYLOAD-2153: make external-payload replay stable across Linux, macOS, and Windows.
 
@@ -1711,7 +1711,7 @@
       the host under the path guard, and only commands go through the sandbox.
   - **`describeExecutionContainment` / `routesFilesThroughSandbox`** name the containment (`host`,
     `sandbox-shared`, `sandbox-separate`) instead of inferring it from an absent value.
-  - **`robota doctor` reports `execution.containment`.** Robota composes no sandbox today, so the
+  - **`__PRODUCT_CLI_NAME__ doctor` reports `execution.containment`.** __PRODUCT_DISPLAY_NAME__ composes no sandbox today, so the
     doctor says shell commands run unconfined on the host and the permission rules are the only
     boundary. The CLI composition and the doctor read the same value.
   - **The `Agent` and `BackgroundProcess` tools no longer fall back to `process.cwd()`** when they
@@ -1977,7 +1977,7 @@
 
   The default transport-registry wiring (pre-registering `WsTransport`) moves to the CLI composition root, removing the core→ws edge.
 
-- 576af62: Fix `ConfigurationError: Agent must be fully initialized before changing model configuration` when running `/preset` (or any live model re-apply) on a fresh interactive session before the first message. The Robota agent initialized lazily on the first `run()`, but `setModel` requires full initialization. `Session.applyModelOptions` now awaits the new idempotent `Robota.ensureReady()` before `setModel`, and the preset live-switch path (`applyPresetToSession` → `executePresetCommand`) is async end-to-end. Adds a real cold-session regression test (no mocked Robota).
+- 576af62: Fix `ConfigurationError: Agent must be fully initialized before changing model configuration` when running `/preset` (or any live model re-apply) on a fresh interactive session before the first message. The __PRODUCT_DISPLAY_NAME__ agent initialized lazily on the first `run()`, but `setModel` requires full initialization. `Session.applyModelOptions` now awaits the new idempotent `__PRODUCT_DISPLAY_NAME__.ensureReady()` before `setModel`, and the preset live-switch path (`applyPresetToSession` → `executePresetCommand`) is async end-to-end. Adds a real cold-session regression test (no mocked __PRODUCT_DISPLAY_NAME__).
 - Updated dependencies
 - Updated dependencies
 - Updated dependencies
@@ -1996,7 +1996,7 @@
 
   - **Preset system (PRESET-001~017):** new `@robota-sdk/agent-preset` package layering framework
     assembly options into named, selectable profiles (`default`, `autonomous-builder`, `careful-reviewer`,
-    `neutral-executor`) plus user-authored external presets loaded from `~/.robota/presets/*.json`.
+    `neutral-executor`) plus user-authored external presets loaded from `$PRODUCT_USER_STATE_DIR/presets/*.json`.
   - **Live preset switching:** `/preset` command (list + active marker + switch) and a TUI active-preset
     display. Switching live re-applies permission posture, model/effort, persona, command-module
     selection, parallel-subagents gating, and a self-verification system-prompt section via the single
@@ -2217,7 +2217,7 @@
 
 ### Patch Changes
 
-- Refresh package docs and robota.io content for the beta 57 feature set.
+- Refresh package docs and __PRODUCT_DISPLAY_NAME__.io content for the beta 57 feature set.
 - Updated dependencies
   - @robota-sdk/agent-core@3.0.0-beta.58
   - @robota-sdk/agent-executor@3.0.0-beta.58
@@ -2407,8 +2407,8 @@
   - IHistoryEntry as universal history type across all 4 packages (core → sessions → sdk → cli)
   - Tool summary stored as event entry in history (category: 'event', type: 'tool-summary')
   - TuiStateManager pure TypeScript class for CLI rendering state
-  - MessageList renders IHistoryEntry[] with Tool:/System:/You:/Robota: labels
-  - Display order fixed: Tool → Robota (both streaming and abort)
+  - MessageList renders IHistoryEntry[] with Tool:/System:/You:/__PRODUCT_DISPLAY_NAME__: labels
+  - Display order fixed: Tool → __PRODUCT_DISPLAY_NAME__ (both streaming and abort)
   - Remove 25 tautological, duplicate, and hardcoded tests
 
 - Updated dependencies

@@ -11,8 +11,8 @@ export const promptInput = (label: string, masked = false): Promise<string> =>
         new Error(
           'Cannot prompt for input: stdin is not a TTY.\n' +
             'Set your API key via environment variable instead:\n' +
-            '  ANTHROPIC_API_KEY=<key> robota\n' +
-            '  OPENAI_API_KEY=<key> robota',
+            '  ANTHROPIC_API_KEY=<key>\n' +
+            '  OPENAI_API_KEY=<key>',
         ),
       );
       return;

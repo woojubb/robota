@@ -16,7 +16,7 @@ import type { IRetrievalAdapter, IComputerDriver } from '@robota-sdk/agent-tools
  * Every root sits, unmade, inside one private per-run directory rather than at a fixed name under
  * /tmp that another local user could create first.
  */
-const PRIVATE_BASE = mkdtempSync(join(tmpdir(), 'robota-create-tools-'));
+const PRIVATE_BASE = mkdtempSync(join(tmpdir(), 'agent-test-create-tools-'));
 afterAll(() => rmSync(PRIVATE_BASE, { recursive: true, force: true }));
 const ASSEMBLY_ROOT = join(PRIVATE_BASE, 'create-tools-assembly-root');
 

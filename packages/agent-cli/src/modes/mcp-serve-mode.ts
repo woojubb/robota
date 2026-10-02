@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { open, lstat, unlink } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 
@@ -17,10 +18,7 @@ import type { Writable } from 'node:stream';
 const SHUTDOWN_TIMEOUT_MS = 5000;
 /** Every signature algorithm the verifier supports; each is still bound to its own key shape. */
 const ACCESS_TOKEN_ALGORITHMS: readonly TAccessTokenAlgorithm[] = ['RS256', 'ES256', 'EdDSA'];
-const ROBOTA_SUBMIT_TOOL = {
-  name: 'robota_submit',
-  description: 'Robota extension: submit a prompt to the agent and await its own turn',
-};
+function productSubmitTool(runtime: ICliRuntimeContext) { return { name: `${runtime.config.identity.cliName}_submit`, description: 'Submit a prompt to the agent and await its own turn' }; }
 
 async function shutdownSession(
   session: ReturnType<typeof buildRuntimeSession>,
@@ -42,7 +40,7 @@ async function shutdownSession(
   }
 }
 
-/** Remote resource-server settings for `robota mcp serve`; the bearer file never applies here. */
+/** Remote resource-server settings for `the product mcp serve`; the bearer file never applies here. */
 export interface IMcpServeRemoteOptions {
   /** Literal IP address to bind. */
   host: string;
@@ -107,6 +105,7 @@ function auditToStderr(record: IMcpRemoteAuditRecord): void {
 
 /** One product session, one MCP carrier; process signals and exit policy belong to this shell. */
 export async function runMcpServeMode(
+  productRuntime: ICliRuntimeContext,
   sessionOptions: TInteractiveSessionOptions,
   version: string,
   stdout: Writable,
@@ -128,12 +127,12 @@ export async function runMcpServeMode(
     let host: ReturnType<typeof createMcpRemoteHttpHost>;
     try {
       host = createMcpRemoteHttpHost({
-        name: 'robota',
+        name: productRuntime.config.identity.mcpClientName,
         version,
         session,
         host: remote.host,
         port: http.port,
-        submitTool: ROBOTA_SUBMIT_TOOL,
+        submitTool: productSubmitTool(productRuntime),
         authorization: {
           publicUrl: remote.publicUrl,
           issuer: remote.issuer,
@@ -168,11 +167,11 @@ export async function runMcpServeMode(
   if (http.tokenFile !== undefined) {
     const tokenFile = http.tokenFile;
     const host = createMcpHttpHost({
-      name: 'robota',
+      name: productRuntime.config.identity.mcpClientName,
       version,
       session,
       port: http.port,
-      submitTool: ROBOTA_SUBMIT_TOOL,
+      submitTool: productSubmitTool(productRuntime),
     });
     let createdFile: { dev: number; ino: number } | undefined;
     await serveHttpCarrier(
@@ -206,10 +205,10 @@ export async function runMcpServeMode(
     return;
   }
   const transport = createMcpTransport({
-    name: 'robota',
+    name: productRuntime.config.identity.mcpClientName,
     version,
     stdout,
-    submitTool: ROBOTA_SUBMIT_TOOL,
+    submitTool: productSubmitTool(productRuntime),
   });
   transport.attach(session);
   let onStop: (() => void) | undefined;

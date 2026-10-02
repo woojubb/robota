@@ -10,7 +10,7 @@
  *
  * - `definitionFingerprint` covers every value that decides what runs or where it connects: the
  *   transport, command, arguments, requested cwd, url, every header and environment entry, the
- *   timeout, the header helper, the OAuth settings, and any authentication the definition declares
+ *   timeout, explicit wire protocol, the header helper, the OAuth settings, and any authentication the definition declares
  *   but this version cannot perform. The helper is covered because its output is sent to the url:
  *   approving one pairing must not approve the helper's output going somewhere else, or another
  *   helper's output going there. Change any of it — a `NODE_OPTIONS` value included — and a prior
@@ -81,6 +81,10 @@ export function definitionFingerprint(definition: IMCPServerDefinitionResolved):
     FINGERPRINT_VERSION,
     'transport',
     definition.transport,
+    ...(definition.protocolVersion === undefined
+      ? []
+      : ['protocolVersion', definition.protocolVersion]),
+    ...(definition.skills === true ? ['skills', 'enabled'] : []),
     'command',
     clean('command', definition.command),
     ...listParts(
@@ -144,18 +148,21 @@ function displayArgument(part: string): string {
  * function, so the registry that builds a request and the transport that re-checks it agree.
  */
 export function activationEndpoint(definition: IMCPServerDefinitionResolved): string {
+  const protocol =
+    (definition.protocolVersion === undefined ? '' : ` (MCP ${definition.protocolVersion})`) +
+    (definition.skills === true ? ' (Skills enabled)' : '');
   if (definition.url !== undefined) {
     const url = displayValue(definition, 'url', definition.url);
     const helper = definition.headersHelper;
-    if (helper === undefined) return url;
+    if (helper === undefined) return url + protocol;
     const argv = [helper.command, ...helper.args].map((part) =>
       displayArgument(maskCredentials(part)),
     );
-    return `${url} (headers from ${argv.join(' ')})`;
+    return `${url} (headers from ${argv.join(' ')})${protocol}`;
   }
   const command =
     definition.command === undefined ? '' : displayValue(definition, 'command', definition.command);
-  return [command, ...displayArgs(definition, definition.args ?? [])].join(' ').trim();
+  return [command, ...displayArgs(definition, definition.args ?? [])].join(' ').trim() + protocol;
 }
 
 /** Which configured subject this is — name, source, origin. */

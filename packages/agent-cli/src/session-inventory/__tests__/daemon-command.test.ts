@@ -1,3 +1,4 @@
+import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -46,9 +47,9 @@ function harness(rows: readonly ISupervisedSessionRow[], overrides: Partial<IDae
   const stop = vi.fn(async () => undefined);
   const admit = vi.fn(async () => undefined);
   const trusted = vi.fn(async () => false);
-  const options: IDaemonCommandOptions = {
+  const options: IDaemonCommandOptions = { productRuntime: createTestProductRuntime(),
     cwd: scratch,
-    env: () => ({ PATH: '/bin', ROBOTA_WS_PORT: '7777', ROBOTA_WS_TOKEN: 'inherited' }),
+    env: () => ({ PATH: '/bin', PRODUCT_WS_PORT: '7777', PRODUCT_WS_TOKEN: 'inherited' }),
     admit,
     trusted,
     stdout: (text) => { stdout += text; },
@@ -63,7 +64,7 @@ function harness(rows: readonly ISupervisedSessionRow[], overrides: Partial<IDae
   return { options, list, connect, launch, stop, admit, trusted, out: () => stdout, err: () => stderr };
 }
 
-describe('robota daemon', () => {
+describe('test-product daemon', () => {
   it('reuses the live daemon of this workspace without admitting or launching', async () => {
     const h = harness([daemonRow(OTHER), daemonRow(LIVE)]);
     expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(0);
@@ -96,9 +97,9 @@ describe('robota daemon', () => {
     const [cwd, launchOptions] = h.launch.mock.calls[0] as unknown as [string, { env: NodeJS.ProcessEnv; daemon: boolean }];
     expect(cwd).toBe(workspace);
     expect(launchOptions.daemon).toBe(true);
-    expect(launchOptions.env['ROBOTA_WS_TOKEN']).toMatch(/^[0-9a-f]{64}$/u);
-    expect(launchOptions.env['ROBOTA_WS_TOKEN']).not.toBe('inherited');
-    expect(launchOptions.env).not.toHaveProperty('ROBOTA_WS_PORT');
+    expect(launchOptions.env['PRODUCT_WS_TOKEN']).toMatch(/^[0-9a-f]{64}$/u);
+    expect(launchOptions.env['PRODUCT_WS_TOKEN']).not.toBe('inherited');
+    expect(launchOptions.env).not.toHaveProperty('PRODUCT_WS_PORT');
     expect(launchOptions.env['PATH']).toBe('/bin');
     expect(h.connect).toHaveBeenCalledWith(STARTED, h.options.root);
     expect(h.out()).toBe(`${JSON.stringify({ id: STARTED, url: URL_WITH_TOKEN })}\n`);
@@ -163,7 +164,7 @@ describe('robota daemon', () => {
     expect(h.connect).not.toHaveBeenCalled();
     expect(h.launch).not.toHaveBeenCalled();
     expect(h.out()).toBe('');
-    expect(h.err()).toContain('cannot be started Restricted. Run: robota daemon stop');
+    expect(h.err()).toContain('cannot be started Restricted. Run: test-product daemon stop');
   });
 
   it('reuses a running Restricted daemon for a Restricted start, as a relaunched app asks (#3268)', async () => {
@@ -179,7 +180,7 @@ describe('robota daemon', () => {
     expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(1);
     expect(h.connect).not.toHaveBeenCalled();
     expect(h.err()).toContain(
-      `is running Restricted in ${workspace}, which is trusted now. To start it with the project's configuration, run: robota daemon stop`,
+      `is running Restricted in ${workspace}, which is trusted now. To start it with the project's configuration, run: test-product daemon stop`,
     );
   });
 
@@ -203,7 +204,7 @@ describe('robota daemon', () => {
     ]) {
       const h = harness([]);
       expect(await runDaemonCommand(args, h.options)).toBe(1);
-      expect(h.err()).toMatch(/^Usage: robota daemon start/u);
+      expect(h.err()).toMatch(/^Usage: test-product daemon start/u);
       expect(h.list).not.toHaveBeenCalled();
     }
   });
@@ -214,7 +215,7 @@ describe('robota daemon', () => {
     expect(h.launch).not.toHaveBeenCalled();
     expect(h.stop).not.toHaveBeenCalled();
     expect(h.out()).toBe('');
-    expect(h.err()).toMatch(/Run: robota daemon stop\n$/u);
+    expect(h.err()).toMatch(/Run: test-product daemon stop\n$/u);
   });
 
   it('stops the daemon it just launched when that daemon cannot hand over its connection', async () => {
@@ -234,7 +235,7 @@ describe('robota daemon', () => {
     it('waits for a start in progress, then reuses its daemon instead of launching another', async () => {
       const h = harness([]);
       const root = h.options.root as string;
-      const first = await acquireSupervisedDaemonStartLock(workspace, root);
+      const first = await acquireSupervisedDaemonStartLock(workspace, root, { cliName: 'test-product' });
       expect(readdirSync(root)).toEqual([expect.stringMatching(/^\.daemon-[0-9a-f]{16}\.lock$/u)]);
       let released = false;
       h.list.mockImplementation(async () => (released ? [daemonRow(LIVE)] : []));
@@ -257,7 +258,7 @@ describe('robota daemon', () => {
       writeFileSync(lockFile(root), `${gone} Mon Jan  1 00:00:00 2024`, { mode: 0o600 });
       expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(1);
       expect(h.launch).not.toHaveBeenCalled();
-      expect(h.err()).toMatch(/no longer running.*robota daemon unlock\n$/u);
+      expect(h.err()).toMatch(/no longer running.*test-product daemon unlock\n$/u);
       expect(existsSync(lockFile(root))).toBe(true);
     });
 
@@ -283,7 +284,7 @@ describe('robota daemon', () => {
       // This pid is alive, but not the process that took the lock.
       writeFileSync(lockFile(root), `${process.pid} Mon Jan  1 00:00:00 2024`, { mode: 0o600 });
       expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(1);
-      expect(h.err()).toMatch(/no longer running.*robota daemon unlock\n$/u);
+      expect(h.err()).toMatch(/no longer running.*test-product daemon unlock\n$/u);
       expect(h.launch).not.toHaveBeenCalled();
       expect(await runDaemonCommand(['unlock'], h.options)).toBe(0);
       expect(existsSync(lockFile(root))).toBe(false);
@@ -304,8 +305,8 @@ describe('robota daemon', () => {
       const root = h.options.root as string;
       mkdirSync(root, { mode: 0o700 });
       writeFileSync(lockFile(root), `${process.pid} ${readProcessStartTime(process.pid)}`, { mode: 0o600 });
-      await expect(acquireSupervisedDaemonStartLock(workspace, root, { timeoutMs: 200, pollMs: 20 }))
-        .rejects.toThrow(/Another daemon start is still running.*robota daemon unlock/u);
+      await expect(acquireSupervisedDaemonStartLock(workspace, root, { cliName: 'test-product', timeoutMs: 200, pollMs: 20 }))
+        .rejects.toThrow(/Another daemon start is still running.*test-product daemon unlock/u);
       expect(existsSync(lockFile(root))).toBe(true);
     });
   });

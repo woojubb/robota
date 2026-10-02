@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import {
   mkdtempSync,
   mkdirSync,
@@ -61,7 +62,7 @@ describe('startMonitorUiServer (GUI-007)', () => {
     // symlinks INSIDE webRoot that escape it — a lexical containment check cannot see through these
     symlinkSync(join(webRoot, '..'), join(webRoot, 'escape'));
     symlinkSync(join(webRoot, '..', 'secret.txt'), join(webRoot, 'secret-link.txt'));
-    server = await startMonitorUiServer(webRoot, wsUrl);
+    server = await startMonitorUiServer(webRoot, wsUrl, createTestProductRuntime());
   });
   afterAll(async () => {
     await server.close();
@@ -89,7 +90,7 @@ describe('startMonitorUiServer (GUI-007)', () => {
     mkdirSync(replacement);
     writeFileSync(join(replacement, 'index.html'), '<html>replacement</html>');
     symlinkSync(webRoot, pointer, 'junction');
-    const pinnedServer = await startMonitorUiServer(pointer, wsUrl);
+    const pinnedServer = await startMonitorUiServer(pointer, wsUrl, createTestProductRuntime());
     try {
       symlinkSync(replacement, nextPointer, 'junction');
       // Windows replacement is explicitly non-atomic; the server must still pin its generation.
@@ -174,13 +175,13 @@ describe('startMonitorUiServer (GUI-007)', () => {
  * rather than the running session the person just opened.
  */
 describe('servedAtMessage (#3289 §3)', () => {
-  it('says Robota is open, not "Web monitor"', () => {
-    expect(servedAtMessage('http://127.0.0.1:4321')).toBe(
-      'Robota is open at http://127.0.0.1:4321\n',
+  it('says test-product Agent is open, not "Web monitor"', () => {
+    expect(servedAtMessage('http://127.0.0.1:4321', createTestProductRuntime())).toBe(
+      'test-product Agent is open at http://127.0.0.1:4321\n',
     );
   });
 
   it('never says "web monitor"', () => {
-    expect(servedAtMessage('http://127.0.0.1:1').toLowerCase()).not.toContain('monitor');
+    expect(servedAtMessage('http://127.0.0.1:1', createTestProductRuntime()).toLowerCase()).not.toContain('monitor');
   });
 });

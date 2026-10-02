@@ -3,7 +3,7 @@
  *
  * Verifies:
  * - compact() injects summary as assistant message with actual content
- * - compact() does not call robota.run() (no streaming interference)
+ * - compact() does not call agent.run() (no streaming interference)
  * - compact() forwards instructions to the compaction prompt
  * - compact() on empty history is a no-op
  * - onTextDelta is disabled during compaction
@@ -14,7 +14,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Session } from '../session.js';
 import type { ICompactEvent } from '../session-types.js';
 
-// Track calls to mock Robota
+// Track calls to mock ConversationAgent
 let mockHistory: Array<{
   role: string;
   content: string | null;
@@ -28,7 +28,7 @@ vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
   return {
     ...actual,
-    Robota: vi.fn().mockImplementation(() => ({
+    ConversationAgent: vi.fn().mockImplementation(() => ({
       run: vi.fn().mockImplementation(async (msg: string) => {
         mockRunCalls.push(msg);
         mockHistory.push({ role: 'user', content: msg });
@@ -166,7 +166,7 @@ describe('Session compaction', () => {
     expect(compactEvents[0].after.usedPercentage).toBeGreaterThanOrEqual(0);
   });
 
-  it('compact() does not call robota.run() (no streaming interference)', async () => {
+  it('compact() does not call agent.run() (no streaming interference)', async () => {
     const session = createSession();
     mockHistory = [
       { role: 'user', content: 'hello' },
@@ -248,7 +248,7 @@ describe('Session compaction', () => {
     expect(mockInjectCalls[1].content).toContain('[Context Summary]');
     expect(providerChatCalls[0]?.options).toMatchObject({ toolChoice: 'none' });
 
-    // The user's message was still processed (robota.run called)
+    // The user's message was still processed (agent.run called)
     expect(mockRunCalls).toContain('next question');
   });
 
@@ -350,12 +350,12 @@ describe('Session compaction', () => {
     ]);
   });
 
-  it('run() logs error and re-throws when robota.run() fails', async () => {
+  it('run() logs error and re-throws when agent.run() fails', async () => {
     // Create a session with a provider whose chat will work for compaction
     const session = createSession();
 
-    // Override mockRunCalls to simulate an error on robota.run()
-    // The mock Robota's run is set up in the vi.mock — we need to make it throw
+    // Override mockRunCalls to simulate an error on agent.run()
+    // The mock ConversationAgent's run is set up in the vi.mock — we need to make it throw
     // We can't easily override the mock per-test, so we test the catch block
     // by verifying the error propagates
     mockHistory = [];

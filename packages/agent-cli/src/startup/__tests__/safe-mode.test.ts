@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -15,7 +16,7 @@ import {
 /** Issue #3082 — `--safe-mode` turns every customization off. */
 let home: string;
 beforeEach(() => {
-  home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-safe-mode-unit-')));
+  home = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-safe-mode-unit-')));
 });
 afterEach(() => rmSync(home, { recursive: true, force: true }));
 
@@ -28,7 +29,7 @@ describe('--safe-mode', () => {
   it('starts Restricted whatever the trust store says', async () => {
     const trusted = { status: 'trusted' } as never;
     const access = await resolveStartupWorkspaceProjectAccess(
-      ['node', 'robota', '--safe-mode'],
+      ['node', 'test-product', '--safe-mode'],
       home,
       {
         projectAccess: trusted,
@@ -38,14 +39,14 @@ describe('--safe-mode', () => {
   });
 
   it('composes no skill, command or agent source, the user scope included', () => {
-    const normal = createCliWorkspaceComposition({ cwd: home, userHome: home });
+    const normal = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: home }),  cwd: home, userHome: home });
     expect(normal.contributionSources.length).toBeGreaterThan(0);
-    const safe = createCliWorkspaceComposition({ cwd: home, userHome: home, safeMode: true });
+    const safe = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: home }),  cwd: home, userHome: home, safeMode: true });
     expect(safe.contributionSources).toEqual([]);
   });
 
   it('loads no plugin commands', () => {
     const registry = new CommandRegistry();
-    expect(reloadPluginCommandSource(registry, home, undefined, false)).toBe(0);
+    expect(reloadPluginCommandSource(registry, createTestProductRuntime(), home, undefined, false)).toBe(0);
   });
 });

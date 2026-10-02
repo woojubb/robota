@@ -7,7 +7,7 @@ import type { IMcpTransportSession } from '../mcp-session.js';
 import type { IMcpSubmitToolIdentity } from '../mcp-tool-surface.js';
 
 const schema = {
-  name: 'robota_command_help',
+  name: 'fixture_command_help',
   description: 'Canonical command',
   parameters: { type: 'object' as const, properties: { args: { type: 'string' as const } } },
 };
@@ -45,7 +45,7 @@ describe('canonical MCP runtime tools', () => {
     const client = await connect();
     const tools = (await client.listTools()).tools;
     expect(tools.map((tool) => tool.name)).toContain('agent_submit');
-    expect(tools.map((tool) => tool.name)).not.toContain('robota_submit');
+    expect(tools.map((tool) => tool.name)).not.toContain('fixture_submit');
     expect(
       await client.callTool({ name: 'agent_submit', arguments: { prompt: 'hello' } }),
     ).toMatchObject({
@@ -55,14 +55,14 @@ describe('canonical MCP runtime tools', () => {
 
   it('uses the host-selected submission identity without changing invocation', async () => {
     const client = await connect(sessions(), {
-      name: 'robota_submit',
-      description: 'Robota extension: submit a prompt to the agent and await its own turn',
+      name: 'fixture_submit',
+      description: 'Host extension: submit a prompt to the agent and await its own turn',
     });
     const tools = (await client.listTools()).tools;
-    expect(tools.map((tool) => tool.name)).toContain('robota_submit');
+    expect(tools.map((tool) => tool.name)).toContain('fixture_submit');
     expect(tools.map((tool) => tool.name)).not.toContain('agent_submit');
     expect(
-      await client.callTool({ name: 'robota_submit', arguments: { prompt: 'hello' } }),
+      await client.callTool({ name: 'fixture_submit', arguments: { prompt: 'hello' } }),
     ).toMatchObject({
       content: [{ type: 'text', text: '' }],
     });
@@ -154,9 +154,9 @@ describe('canonical MCP runtime tools', () => {
       createAgentMcpServer({
         name: 'test',
         version: '1',
-        submitTool: { name: 'robota_submit', description: 'Product submission' },
+        submitTool: { name: 'fixture_submit', description: 'Product submission' },
         session: sessions({
-          listRuntimeTools: vi.fn().mockResolvedValue([{ ...schema, name: 'robota_submit' }]),
+          listRuntimeTools: vi.fn().mockResolvedValue([{ ...schema, name: 'fixture_submit' }]),
         }),
       }),
     ).rejects.toThrow(/reserved/i);

@@ -2,7 +2,7 @@
  * SELFHOST-011 P1 — neutral evals-as-code contracts.
  *
  * An eval is `{ dataset of cases } × { metrics that score a run } × { pass threshold }` (the shape shared by
- * Mastra scorers / Google ADK evalsets / OpenAI Agents traces). Robota's library layer stays NEUTRAL: it ships
+ * Mastra scorers / Google ADK evalsets / OpenAI Agents traces). ConversationAgent's library layer stays NEUTRAL: it ships
  * only these definition/runner contracts + the metric-as-function type. Concrete metrics and datasets are
  * CONSUMER-supplied (an example lives in `examples/`, never in `packages/`).
  *
@@ -16,11 +16,13 @@ import type { IExecutionResult } from '../interactive/types.js';
 
 /**
  * A metric scores one run's SSOT result. A `boolean` is a direct pass/fail; a `number` is a score in `[0, 1]`
- * where higher is better (compared against the definition threshold). A numeric score outside `[0, 1]` is
+ * where higher is better (compared against the definition threshold). Required assertions must score 1. A numeric score outside `[0, 1]` is
  * clamped by the runner. Pure — no IO, no provider.
  */
 export interface IMetric {
   readonly name: string;
+  /** A required assertion must score 1 in every case, independently of the aggregate threshold. */
+  readonly required?: boolean;
   // SELFHOST-011 P3: the eval CASE is threaded in (optional, backward-compatible — an existing `(result) => …`
   // metric still satisfies this) so a per-case metric (e.g. `exactMatch()`) can read `evalCase.expected`.
   score(result: IExecutionResult, evalCase?: IEvalCase): number | boolean;
@@ -60,8 +62,8 @@ export interface IEvalCaseResult {
 
 /**
  * The eval report: per-case results, the aggregate `overallScore` (mean of every case×metric normalized score),
- * the resolved `threshold`, and the overall `passed` verdict (`overallScore >= threshold`). This verdict is what
- * the `robota eval` CI gate (P2) maps to a process exit code.
+ * the resolved `threshold`, and the overall `passed` verdict (all runs completed, aggregate threshold met and every required assertion passes). This verdict is what
+ * the `agent eval` CI gate (P2) maps to a process exit code.
  */
 export interface IEvalReport {
   readonly name?: string;
