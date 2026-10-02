@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
-import { appendFile, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { appendFile, lstat, mkdir, mkdtemp, open, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -310,7 +311,6 @@ async function injectPublicSiteConfig(outputDirectory, publicConfig, packageScop
       appName === 'agent-web'
         ? `import type { IPublicProductConfig } from '${packageScope}/product-config';`
         : "import type { IProductPublicConfig } from './product-config.types';",
-      appName === 'agent-web' ? 'export const isProductBuildConfig = true;' : '',
       appName === 'agent-web'
         ? `export const productPublicConfig = Object.freeze(${JSON.stringify(publicConfig, null, 2)}) as IPublicProductConfig;`
         : `export const productPublicConfig = Object.freeze(${JSON.stringify(publicConfig, null, 2)}) as IProductPublicConfig;`,
@@ -332,7 +332,6 @@ async function injectPublicSiteConfig(outputDirectory, publicConfig, packageScop
         `import type { IPublicProductConfig } from '${packageScope}/product-config';`,
         '',
         'export function loadWebProductConfig(_environment?: Readonly<Record<string, string | undefined>>): IPublicProductConfig {',
-        '  if (productPublicConfig === undefined) throw new Error(\'Generated web product configuration is missing.\');',
         '  return productPublicConfig as IPublicProductConfig;',
         '}',
         '',
@@ -591,16 +590,24 @@ function resolveOutsideSource(sourceRoot, outputDirectory) {
 async function copyFiles(sourceRoot, outputDirectory, files, packageMap, scope) {
   for (const relativeFile of files) {
     const sourceFile = path.join(sourceRoot, relativeFile);
-    let sourceStat;
+    let handle;
     try {
-      sourceStat = await lstat(sourceFile);
-    } catch {
-      continue;
+      handle = await open(sourceFile, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    } catch (error) {
+      if (['ENOENT', 'ELOOP', 'EMLINK', 'ENXIO'].includes(error?.code)) continue;
+      throw error;
     }
-    if (!sourceStat.isFile()) continue;
+    let sourceStat;
+    let content;
+    try {
+      sourceStat = await handle.stat();
+      if (!sourceStat.isFile()) continue;
+      content = await handle.readFile();
+    } finally {
+      await handle.close();
+    }
     const destinationFile = path.join(outputDirectory, relativeFile);
     await mkdir(path.dirname(destinationFile), { recursive: true });
-    const content = await readFile(sourceFile);
     const mode = sourceStat.mode & 0o777;
     if (BINARY_EXTENSIONS.has(path.extname(relativeFile).toLowerCase())) {
       await writeFile(destinationFile, content, { mode });

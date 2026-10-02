@@ -1,4 +1,3 @@
-import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { warnIfTerminalAppOnMacOS } from '../terminal-check.js';
 import { createCapturingTerminal } from './test-terminal.js';

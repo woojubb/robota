@@ -1,4 +1,3 @@
-import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { describe, expect, it } from 'vitest';
 
 import { runShellCommand } from '../shell-exec.js';
