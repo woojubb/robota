@@ -13,7 +13,11 @@ const root = fileURLToPath(new URL('../../../../..', import.meta.url));
 /** Simulated provider transport; real stock CLI/tools/processes, with disposable state. */
 export async function hostedWorkerCliFixture(
   settings: Record<string, unknown> = {},
-  options: { readonly runTimeoutMs?: number; readonly taskToken?: string } = {},
+  options: {
+    readonly runTimeoutMs?: number;
+    readonly taskToken?: string;
+    readonly outputDuringDelete?: 'stdout' | 'stderr';
+  } = {},
 ) {
   const f = await hostedFixture();
   try {
@@ -147,14 +151,35 @@ Sandbox.connect = async () => ({ sandboxId: ${JSON.stringify(admission.config.wo
   const child = spawn('/bin/sh', ['-c', command], { cwd: options.cwd, env: options.envs ?? {}, detached: true, stdio: ['pipe','pipe','pipe'] });
   children.add(child);
   if (child.pid) appendFileSync(${JSON.stringify(groups)}, JSON.stringify({ pid: child.pid }) + String.fromCharCode(10));
-  let stdout = '', stderr = '';
-  child.stdout.on('data', data => { stdout += data; options.onStdout?.(data.toString()); });
-  child.stderr.on('data', data => { stderr += data; options.onStderr?.(data.toString()); });
-  const waiting = new Promise((resolve, reject) => { child.once('error', reject); child.once('close', exitCode => { children.delete(child); resolve({ exitCode, stdout, stderr }); }); });
-  if (!options.background) return waiting;
-  return { pid: child.pid, wait: () => waiting, sendStdin: data => new Promise((resolve, reject) => child.stdin.write(data, error => error ? reject(error) : resolve())), closeStdin: async () => { child.stdin.end(); }, disconnect: async () => {} };
+  let stdout = '', stderr = '', disconnected = false, streamFailed = false, streamError, settleWait;
+  const waiting = new Promise(resolve => { settleWait = resolve; });
+  // The SDK contains callback exceptions in wait() and suppresses delivery after disconnect.
+  const failStream = error => { streamFailed = true; streamError = error; disconnected = true; settleWait(); };
+  const receive = (channel, data) => {
+    if (disconnected) return;
+    const text = data.toString();
+    if (channel === 'stdout') stdout += text; else stderr += text;
+    try { options[channel === 'stdout' ? 'onStdout' : 'onStderr']?.(text); }
+    catch (error) { failStream(error); }
+  };
+  child.stdout.on('data', data => receive('stdout', data));
+  child.stderr.on('data', data => receive('stderr', data));
+  child.once('error', failStream);
+  child.once('close', exitCode => { children.delete(child); settleWait({ exitCode, stdout, stderr }); });
+  const wait = async () => { const result = await waiting; if (streamFailed) throw streamError; return result; };
+  if (!options.background) return wait();
+  return { pid: child.pid, wait, sendStdin: data => new Promise((resolve, reject) => child.stdin.write(data, error => error ? reject(error) : resolve())), closeStdin: async () => { child.stdin.end(); }, disconnect: async () => { disconnected = true; } };
 } } });
-Sandbox.kill = async () => { await appendFile(${JSON.stringify(receipts)}, JSON.stringify({ kind: 'delete', sandboxId: ${JSON.stringify(admission.config.worker.resource)}, at: Date.now() }) + String.fromCharCode(10)); for (const child of children) { try { process.kill(-child.pid, 'SIGKILL'); } catch {} } return true; };
+Sandbox.kill = async () => {
+  const outputDuringDelete = ${JSON.stringify(options.outputDuringDelete ?? null)};
+  if (outputDuringDelete) await new Promise(resolve => queueMicrotask(() => {
+    for (const child of children) child[outputDuringDelete].emit('data', Buffer.from('late-provider-output-after-withdrawal'));
+    resolve();
+  }));
+  await appendFile(${JSON.stringify(receipts)}, JSON.stringify({ kind: 'delete', sandboxId: ${JSON.stringify(admission.config.worker.resource)}, at: Date.now() }) + String.fromCharCode(10));
+  for (const child of children) { try { process.kill(-child.pid, 'SIGKILL'); } catch {} }
+  return true;
+};
 startCli().catch(error => { process.stderr.write(error.message + '\\n'); process.exitCode = 1; });
 `,
     );
