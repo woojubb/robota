@@ -1,3 +1,4 @@
+import { createTestBinaryEnvironment } from '../helpers/product-runtime.js';
 /**
  * DIST-006 — black-box e2e proving the BUILT binary can start a subagent worker.
  *
@@ -29,13 +30,15 @@ import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
+import { mkdtempSync, rmSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
 /** The built Node bundle — the artifact that could not spawn a subagent. */
 const BUILT_BUNDLE = fileURLToPath(new URL('../../../dist/node/bin.js', import.meta.url));
 /** Kept in step with `SUBAGENT_WORKER_MODE_FLAG`; spelled out so the wire contract is visible here. */
-const WORKER_MODE_FLAG = '--__robota-subagent-worker';
+const WORKER_MODE_FLAG = '--__agent-subagent-worker';
 const HANDSHAKE_BUDGET_MS = 30_000;
 const TEST_TIMEOUT_MS = 45_000;
 const MISUSE_EXIT_CODE = 2;
@@ -48,8 +51,10 @@ interface IWorkerHandshake {
 /** Spawn the built bundle in worker mode over an IPC channel and wait for its first message. */
 function handshakeWithWorker(): Promise<IWorkerHandshake> {
   return new Promise<IWorkerHandshake>((resolve, reject) => {
+    const home = mkdtempSync(join(tmpdir(), 'agent-worker-home-'));
     const child = spawn(process.execPath, [BUILT_BUNDLE, WORKER_MODE_FLAG], {
       stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+      env: createTestBinaryEnvironment(home),
     });
     let stderr = '';
     child.stderr?.setEncoding('utf8');
@@ -65,10 +70,12 @@ function handshakeWithWorker(): Promise<IWorkerHandshake> {
     child.once('message', (message: unknown) => {
       clearTimeout(timer);
       child.kill('SIGKILL');
+      rmSync(home, { recursive: true, force: true });
       resolve({ message, stderr });
     });
     child.once('exit', (code) => {
       clearTimeout(timer);
+      rmSync(home, { recursive: true, force: true });
       reject(new Error(`worker exited before any message (code ${code}); stderr: ${stderr}`));
     });
     child.once('error', (error) => {
@@ -95,15 +102,17 @@ describe('DIST-006 — the built binary is its own subagent worker', () => {
     'TC-B refuses the flag when there is no IPC channel',
     async () => {
       const result = await new Promise<{ code: number | null; stderr: string }>((resolve) => {
+        const home = mkdtempSync(join(tmpdir(), 'agent-worker-home-'));
         const child = spawn(process.execPath, [BUILT_BUNDLE, WORKER_MODE_FLAG], {
           stdio: ['ignore', 'ignore', 'pipe'],
+          env: createTestBinaryEnvironment(home),
         });
         let stderr = '';
         child.stderr?.setEncoding('utf8');
         child.stderr?.on('data', (chunk: string) => {
           stderr += chunk;
         });
-        child.on('exit', (code) => resolve({ code, stderr }));
+        child.on('exit', (code) => { rmSync(home, { recursive: true, force: true }); resolve({ code, stderr }); });
       });
 
       expect(result.code).toBe(MISUSE_EXIT_CODE);
@@ -113,7 +122,7 @@ describe('DIST-006 — the built binary is its own subagent worker', () => {
   );
 
   it(
-    "ARCH-021: the built binary composes ROBOTA's pack tools, not an imported default set",
+    "ARCH-021: the built binary composes PRODUCT's pack tools, not an imported default set",
     async () => {
       // The strongest available real-artifact check, and the one the scratch-pack scenario could not
       // reach: the built binary composes statically, so there is no runtime pack-injection path. The
@@ -121,7 +130,7 @@ describe('DIST-006 — the built binary is its own subagent worker', () => {
       //
       // Red against unfixed code in the direction that matters: before ARCH-021 the child built from
       // `createDefaultTools()` regardless of the product, so this assertion was about the DEFAULT
-      // tier and said nothing about robota's packs. It now reads the product's own surface.
+      // tier and said nothing about the product's packs. It now reads the product's own surface.
       const { message } = await handshakeWithWorker();
       const names = (message as { composedToolNames?: readonly string[] }).composedToolNames;
 

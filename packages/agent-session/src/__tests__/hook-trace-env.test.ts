@@ -19,7 +19,7 @@ import type {
   IHookTypeExecutor,
   IRunTraceContext,
   IToolExecutionContext,
-  Robota,
+  ConversationAgent,
   THookEvent,
   THooksConfig,
   TUniversalMessage,
@@ -60,7 +60,7 @@ async function flush(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-function fakeRobota(fail = false): Robota {
+function fakeConversationAgent(fail = false): ConversationAgent {
   const messages: TUniversalMessage[] = [];
   return {
     getHistory: () => [...messages],
@@ -71,10 +71,10 @@ function fakeRobota(fail = false): Robota {
       if (fail) throw new Error('provider failed');
       return 'final';
     }),
-  } as unknown as Robota;
+  } as unknown as ConversationAgent;
 }
 
-function runContext(agent: Robota, executor: IHookTypeExecutor, compact = vi.fn(async () => {})): IRunContext {
+function runContext(agent: ConversationAgent, executor: IHookTypeExecutor, compact = vi.fn(async () => {})): IRunContext {
   return {
     sessionId: 's', cwd: '/tmp', model: 'm', effort: 'high', agent,
     aiProvider: { name: 'p', chat: vi.fn(), supportsTools: () => true } as unknown as IAIProvider,
@@ -92,7 +92,7 @@ const traced = (classes: IRunTraceContext['subprocessClasses']): IRunTraceContex
 describe('prompt hooks', () => {
   it('hand every prompt hook the root span when hooks are enabled', async () => {
     const { executor, calls } = recorder();
-    await executeRun('hi', undefined, runContext(fakeRobota(), executor), new AbortController().signal, {
+    await executeRun('hi', undefined, runContext(fakeConversationAgent(), executor), new AbortController().signal, {
       traceContext: traced(['hooks']),
     });
     await flush();
@@ -105,7 +105,7 @@ describe('prompt hooks', () => {
 
   it('hands StopFailure the root span too', async () => {
     const { executor, calls } = recorder();
-    await expect(executeRun('hi', undefined, runContext(fakeRobota(true), executor), new AbortController().signal, {
+    await expect(executeRun('hi', undefined, runContext(fakeConversationAgent(true), executor), new AbortController().signal, {
       traceContext: traced(['hooks']),
     })).rejects.toThrow('provider failed');
     await flush();
@@ -115,7 +115,7 @@ describe('prompt hooks', () => {
   it('hands nothing when hooks are not enabled or the turn is untraced', async () => {
     for (const traceContext of [traced(['shell']), undefined]) {
       const { executor, calls } = recorder();
-      await executeRun('hi', undefined, runContext(fakeRobota(), executor), new AbortController().signal,
+      await executeRun('hi', undefined, runContext(fakeConversationAgent(), executor), new AbortController().signal,
         traceContext ? { traceContext } : undefined);
       await flush();
       expect(calls.length).toBeGreaterThan(0);
@@ -126,7 +126,7 @@ describe('prompt hooks', () => {
   it('hands the in-prompt auto compaction the root span', async () => {
     const { executor } = recorder();
     const compact = vi.fn(async () => {});
-    const ctx = runContext(fakeRobota(), executor, compact);
+    const ctx = runContext(fakeConversationAgent(), executor, compact);
     ctx.contextTracker.shouldAutoCompact = () => true;
     await executeRun('hi', undefined, ctx, new AbortController().signal, { traceContext: traced(['hooks']) });
     expect(compact).toHaveBeenCalledWith(expect.any(AbortSignal), ROOT);
@@ -153,7 +153,7 @@ describe('post-compaction hook', () => {
     const history = [createUserMessage('x')];
     await compactHistory(undefined, {
       sessionId: 's', cwd: '/tmp', systemMessage: 'sys',
-      agent: { getHistory: () => history, clearHistory: vi.fn(), injectMessage: vi.fn() } as unknown as Robota,
+      agent: { getHistory: () => history, clearHistory: vi.fn(), injectMessage: vi.fn() } as unknown as ConversationAgent,
       aiProvider: {} as IAIProvider,
       compactionOrchestrator: { compact: vi.fn(async () => 'summary') } as never,
       contextTracker: { getContextState: () => ({}), updateFromHistory: vi.fn() } as never,

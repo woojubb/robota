@@ -2,7 +2,7 @@
  * Tests for the PRESET-013 live model/effort re-application seam on Session.
  *
  * SessionBase.applyModelOptions propagates model/effort/temperature/maxOutputTokens to the agent
- * via robota.setModel and updates this.model so getModelId() stays accurate. The preset
+ * via agent.setModel and updates this.model so getModelId() stays accurate. The preset
  * maxOutputTokens field maps to the agent's maxTokens channel.
  */
 
@@ -15,7 +15,7 @@ vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
   return {
     ...actual,
-    Robota: vi.fn().mockImplementation(() => ({
+    ConversationAgent: vi.fn().mockImplementation(() => ({
       run: vi.fn().mockResolvedValue('mock response'),
       getHistory: vi.fn().mockReturnValue([]),
       clearHistory: vi.fn(),
@@ -62,7 +62,7 @@ function buildSession(): Session {
 }
 
 describe('SessionBase.applyModelOptions (PRESET-013)', () => {
-  it('TC-02: applyModelOptions({ effort }) calls robota.setModel with the effort', async () => {
+  it('TC-02: applyModelOptions({ effort }) calls agent.setModel with the effort', async () => {
     setModelSpy.mockClear();
     const session = buildSession();
 

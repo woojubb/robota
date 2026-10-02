@@ -249,10 +249,8 @@ function createProviderProfile(
   // SEC-009: carry the REFERENCE, not the secret. Config loading resolves a `$ENV:` value into the
   // credential itself, so copying `apiKey` here put plaintext into a structured-clone IPC message —
   // a second copy of the secret, in a second process, reachable by anything observing the channel.
-  // The child already inherits this process's environment (`env:` at the spawn in the runner), and
-  // `resolveProfileApiKey` already reads `apiKeyEnv`, so the reference resolves on the far side with
-  // no new plumbing. When no reference was recorded the config genuinely holds a literal and the
-  // literal is all there is to send.
+  // The host supplies the referenced variable in the worker environment, and
+  // `resolveProfileApiKey` reads `apiKeyEnv` there. No credential value crosses IPC.
   // allow-fallback: a profile storing a plaintext credential has no reference to carry; the
   // org policy `requireApiKeyFromEnv` is the documented way to forbid that storage form.
   const credential = projectCredential(provider, defaults.apiKey);

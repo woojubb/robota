@@ -30,12 +30,12 @@ runtime in `@robota-sdk/agent-core`. All are registered via the `Robota` constru
 | `EventEmitterPlugin`        | `@robota-sdk/agent-core`   | Pub/sub event subscriptions — listen to `EXECUTION_START`, `TOOL_BEFORE_EXECUTE`, `ERROR_OCCURRED`, and more |
 
 ```typescript
-import { Robota, type IAIProvider } from '@robota-sdk/agent-core';
+import { ConversationAgent, type IAIProvider } from '@robota-sdk/agent-core';
 import { LoggingPlugin, UsagePlugin, LimitsPlugin } from '@robota-sdk/agent-plugin';
 
 declare const provider: IAIProvider;
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'my-agent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },

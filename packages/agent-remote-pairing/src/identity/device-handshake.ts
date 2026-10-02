@@ -1,3 +1,4 @@
+import type { IIdentityContext } from './crypto-context.js';
 /**
  * The device handshake: how two of one user's devices admit each other over a channel whose
  * negotiated DTLS fingerprints the caller supplies. Transport-agnostic (`send` + `onFrame`).
@@ -28,7 +29,6 @@ import type {
 import {
   HOUR_MS,
   IDENTITY_CLOCK_SKEW_MS,
-  IDENTITY_PURPOSES,
   canonicalBytes,
   decodeBase64Url,
   importVerifyKey,
@@ -272,7 +272,10 @@ function advanceMarks(
 }
 
 /** Start one side of a device handshake. Sends this side's nonce immediately. */
-export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceHandshakeController {
+export function startDeviceHandshake(
+  cryptoContext: IIdentityContext,
+  options: IDeviceHandshakeOptions,
+): IDeviceHandshakeController {
   const now = options.now ?? Date.now;
   const self = options.identity.deviceCertificate;
   const signingKeyId = options.identity.signingKeyCertificate.signingKeyId;
@@ -285,7 +288,7 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
   };
   const ownHello: IDeviceHelloFrame = {
     t: 'dh-hello',
-    ctx: IDENTITY_PURPOSES.handshake,
+    ctx: cryptoContext.purposes.handshake,
     proto: DEVICE_HANDSHAKE_PROTOCOL,
     rosterSeq: held.roster.seq,
     revocationSeq: held.revocation.seq,
@@ -374,7 +377,7 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
   function pairwiseKey(device: IDeviceCertificate): Promise<CryptoKey> {
     let key = secretKeys.get(device.deviceId);
     if (key === undefined) {
-      key = derivePairwiseSecret({
+      key = derivePairwiseSecret(cryptoContext, {
         ownKaPrivateKey: options.identity.kaPrivateKey,
         own: self,
         peer: device,
@@ -390,7 +393,7 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
   }
 
   function preBytes(senderRole: TPairingRole): Uint8Array {
-    return preProofBytes({ senderRole, ...fingerprints(), ...nonces() });
+    return preProofBytes(cryptoContext, { senderRole, ...fingerprints(), ...nonces() });
   }
 
   async function verifyPre(device: IDeviceCertificate, mac: string): Promise<boolean> {
@@ -460,7 +463,7 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
     });
     const sig = await signCanonical(
       options.identity.signPrivateKey,
-      canonicalBytes(IDENTITY_PURPOSES.handshake, fields),
+      canonicalBytes(cryptoContext.purposes.handshake, fields),
     );
     const gossip: { -readonly [K in TListKind]?: IHeldLists[K] } = {};
     for (const kind of LIST_KINDS) {
@@ -491,18 +494,24 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
   ): Promise<IHeldLists[TListKind] | undefined> {
     const issuer = options.identity.signingKeyCertificate;
     if (kind === 'signingKeyRevocation') {
-      const decoded = decodeSigningKeyRevocation(value);
+      const decoded = decodeSigningKeyRevocation(cryptoContext, value);
       if (!decoded.ok || decoded.value.userId !== issuer.userId) return undefined;
       if (decoded.value.issuedAt > now() + IDENTITY_CLOCK_SKEW_MS) return undefined;
       masterKey ??= importVerifyKey('Ed25519', options.identity.masterPublicKey);
       const key = await masterKey;
       const ok =
         key !== undefined &&
-        (await verifyCanonical(key, decoded.value.sig, signingKeyRevocationBytes(decoded.value)));
+        (await verifyCanonical(
+          key,
+          decoded.value.sig,
+          signingKeyRevocationBytes(cryptoContext, decoded.value),
+        ));
       return ok ? decoded.value : undefined;
     }
     const decoded =
-      kind === 'roster' ? decodeDeviceRoster(value) : decodeDeviceRevocationList(value);
+      kind === 'roster'
+        ? decodeDeviceRoster(cryptoContext, value)
+        : decodeDeviceRevocationList(cryptoContext, value);
     if (!decoded.ok) return undefined;
     const list = decoded.value;
     if (list.userId !== issuer.userId || list.signingKeyId !== issuer.signingKeyId) {
@@ -513,7 +522,9 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
     const key = await issuerKey;
     if (key === undefined) return undefined;
     const bytes =
-      list.ctx === IDENTITY_PURPOSES.roster ? rosterBytes(list) : revocationListBytes(list);
+      'devices' in list
+        ? rosterBytes(cryptoContext, list)
+        : revocationListBytes(cryptoContext, list);
     return (await verifyCanonical(key, list.sig, bytes)) ? list : undefined;
   }
 
@@ -579,7 +590,7 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
     }
 
     const at = now();
-    const chain = await verifyDeviceChain({
+    const chain = await verifyDeviceChain(cryptoContext, {
       masterPublicKey: options.identity.masterPublicKey,
       signingKeyCert: frame.signingKeyCert,
       deviceCert: frame.deviceCert,
@@ -615,11 +626,11 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
       sessionDescriptorSig: frame.sessionDescriptor.sig,
     });
     const signKey = await importVerifyKey('ES256', proven.signKey);
-    const bytes = canonicalBytes(IDENTITY_PURPOSES.handshake, fields);
+    const bytes = canonicalBytes(cryptoContext.purposes.handshake, fields);
     if (signKey === undefined || !(await verifyCanonical(signKey, frame.sig, bytes)))
       refuse('signature-invalid');
 
-    const session = await verifySessionDescriptor(frame.sessionDescriptor, {
+    const session = await verifySessionDescriptor(cryptoContext, frame.sessionDescriptor, {
       deviceCertificate: proven,
       now: at,
     });
@@ -714,7 +725,7 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
     result,
     onFrame(value: unknown): void {
       if (settled) return;
-      const decoded = decodeDeviceHandshakeFrame(value);
+      const decoded = decodeDeviceHandshakeFrame(cryptoContext, value);
       if (!decoded.ok) {
         fail(new DeviceHandshakeError('malformed-frame', { field: decoded.field }));
         return;

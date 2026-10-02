@@ -28,7 +28,7 @@ describe.runIf(process.platform === 'linux')('fork restores conversation context
   let storeFilePath: string | undefined;
 
   beforeEach(async () => {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-073-')));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-073-')));
     store = await createTrustedProjectSessionStoreFixture(cwd);
     store.save({
       id: SOURCE_ID,
@@ -52,7 +52,7 @@ describe.runIf(process.platform === 'linux')('fork restores conversation context
         },
       ] as TUniversalMessage[],
     });
-    storeFilePath = join(cwd, '.robota', 'sessions', `${SOURCE_ID}.json`);
+    storeFilePath = join(cwd, '.agent', 'sessions', `${SOURCE_ID}.json`);
   });
 
   afterEach(() => {
@@ -115,14 +115,14 @@ describe('a fork inherits the persisted system prompt (CLI-1994 TC-04)', () => {
   async function persistedParent(): Promise<{ cwd: string; id: string; store: NodeSessionStore }> {
     // The test owns the workspace (a harness deletes only one it created), so the parent can be
     // shut down before its record is rewritten and the fork can still read it afterwards.
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-1994-tc04-')));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-1994-tc04-')));
     sharedCwd = cwd;
     const parent = scriptedSession({ turns: [{ text: 'noted: 42' }], persistence: true, cwd });
     await parent.submit('Remember the number 42');
     const id = parent.session.getSession().getSessionId();
     // Shut the parent down first: its own persist on shutdown would otherwise rewrite the prompt.
     await parent.dispose();
-    const store = new NodeSessionStore(join(cwd, '.robota', 'sessions'));
+    const store = new NodeSessionStore(join(cwd, '.agent', 'sessions'));
     store.save({ ...loadedRecord(store, id), systemPrompt: SENTINEL });
     return { cwd, id, store };
   }
@@ -211,12 +211,12 @@ describe('a /cd target keeps the recorded prompt and announces the move', () => 
   });
 
   it('sends the recorded system head, then the conversation, then the move notice', async () => {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-3081-cd-')));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-3081-cd-')));
     const parent = scriptedSession({ turns: [{ text: 'noted: 42' }], persistence: true, cwd });
     await parent.submit('Remember the number 42');
     const id = parent.session.getSession().getSessionId();
     await parent.dispose();
-    const store = new NodeSessionStore(join(cwd, '.robota', 'sessions'));
+    const store = new NodeSessionStore(join(cwd, '.agent', 'sessions'));
     store.save({ ...loadedRecord(store, id), systemPrompt: SENTINEL });
 
     const moved = scriptedSession({

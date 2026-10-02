@@ -5,10 +5,12 @@ import type { TCapabilitySafety } from '../capabilities/types.js';
 import type { TCommandRunner, TCommandSurface } from '@robota-sdk/agent-interface-command';
 
 export type TSystemCommandLifecycle = 'inline' | 'blocking' | 'background';
-export type TSystemCommandSemanticRole = 'skillActivation' | 'contextReduction' | 'subagentSpawn';
+export type TSystemCommandSemanticRole =
+  'skillActivation' | 'skillResourceRead' | 'contextReduction' | 'subagentSpawn';
 
 export interface ISystemCommandSemanticRoles {
   readonly skillActivation?: string;
+  readonly skillResourceRead?: string;
   readonly contextReduction?: string;
   readonly subagentSpawn?: string;
 }
@@ -50,6 +52,11 @@ export interface ISystemCommand {
   /** The surfaces a `'client'` command can run on. See `ICommand.surfaces`. */
   surfaces?: readonly TCommandSurface[];
   lifecycle?: TSystemCommandLifecycle;
+  /**
+   * Host-owned inline control operations that remain reachable during an active turn.
+   * This only relaxes the busy gate for human commands; invocation and host policy still apply.
+   */
+  canRunDuringTurn?: (args: string) => boolean;
   /**
    * Whether executing this command requires explicit user permission/confirmation.
    * - `false`: runs immediately without any approval gate

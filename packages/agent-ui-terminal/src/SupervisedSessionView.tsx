@@ -71,6 +71,8 @@ export interface ISupervisedSessionViewProps {
   readonly onStart?: (choice?: TSupervisedStartTrustChoice) => Promise<string>;
   /** The question to ask when the folder a new session starts in is not trusted yet; none otherwise. */
   readonly startTrustQuestion?: () => Promise<ISupervisedStartTrustQuestion | undefined>;
+  /** Product-owned command shown when a long trust question is shortened. */
+  readonly trustStatusCommand?: string;
   readonly onOpenPr?: (id: string, url: string, generation: string) => Promise<void>;
   readonly filteredByCwd?: boolean;
   readonly filteredByName?: boolean;
@@ -89,10 +91,13 @@ const TRUST_SUMMARY =
   "Trusting it loads the project's own settings, hooks, plugins, skills and MCP servers:";
 
 /** `lines` in at most `room` lines, the last one saying how many more there are. */
-function fitLines(lines: readonly string[], room: number): readonly string[] {
+function fitLines(lines: readonly string[], room: number, trustStatusCommand?: string): readonly string[] {
   if (lines.length <= room) return lines;
   const shown = Math.max(1, room - 1);
-  return [...lines.slice(0, shown), `… ${lines.length - shown} more — see robota trust status`];
+  const hint = trustStatusCommand === undefined
+    ? 'check workspace trust in the terminal'
+    : `see ${trustStatusCommand}`;
+  return [...lines.slice(0, shown), `… ${lines.length - shown} more — ${hint}`];
 }
 type TGroup = (typeof GROUP_ORDER)[number];
 type TDisplayLine =
@@ -227,6 +232,7 @@ export default function SupervisedSessionView({
   onStop,
   onStart,
   startTrustQuestion,
+  trustStatusCommand,
   onOpenPr,
   onAttach,
   filteredByCwd = false,
@@ -651,6 +657,7 @@ export default function SupervisedSessionView({
       : fitLines(
           [`Not trusted: ${trustQuestion.folder}`, TRUST_SUMMARY, ...trustQuestion.loads],
           screenReader ? Number.POSITIVE_INFINITY : viewport,
+          trustStatusCommand,
         );
   const chromeWrap = screenReader ? {} : { wrap: 'truncate-end' as const };
   // Attach and peek are offered only for a row this terminal could actually attach to.
@@ -829,6 +836,9 @@ export async function renderSupervisedSessionView(
     });
   }
   let attach: ISupervisedAttachRequest | undefined;
+  // The attached App pauses stdin when it unmounts. A view reopened after detach must resume it
+  // before Ink subscribes again, otherwise the view paints but ignores q/Escape and other keys.
+  process.stdin.resume();
   const instance = render(
     <ScreenReaderProvider enabled={options.screenReader}>
       <SupervisedSessionView

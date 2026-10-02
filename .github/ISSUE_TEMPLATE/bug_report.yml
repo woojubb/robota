@@ -33,7 +33,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Include OS, Node.js, Robota version, provider, and other relevant configuration.
+      description: Include OS, Node.js, application version, provider, and other relevant configuration.
     validations:
       required: true
   - type: checkboxes

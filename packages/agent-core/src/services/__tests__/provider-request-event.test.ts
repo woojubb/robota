@@ -6,14 +6,14 @@
  * provider with no schema parameter, the session log recorded a request the model never received,
  * and a replay driven from that log could not reproduce the turn.
  *
- * This drives a real `Robota` turn rather than calling the round helper directly, because the defect
+ * This drives a real `ConversationAgent` turn rather than calling the round helper directly, because the defect
  * lives in the ORDER of two calls in `execution-round-streaming.ts`: emit, then assemble. A test that
  * calls the assembler cannot see that ordering, which is exactly why the emit path had no guard.
  */
 
 import { describe, expect, it } from 'vitest';
 
-import { Robota } from '../../core/robota';
+import { ConversationAgent } from '../../core/conversation-agent';
 import { TOOL_SEARCH_TOOL_NAME } from '../../interfaces/tool-search';
 import { DEFERRED_WITHOUT_LOADER_MESSAGE, FunctionTool } from '../../tool-registry';
 
@@ -79,7 +79,7 @@ describe('CORE-043 — provider_request describes what was sent', () => {
   it('carries the schema instruction the transport guard added', async () => {
     const provider = new NoSchemaProvider();
     const events: Array<{ event: string; data: Record<string, unknown> }> = [];
-    const agent = new Robota({
+    const agent = new ConversationAgent({
       name: 'provider-request-event',
       aiProviders: [provider as unknown as IAIProvider],
       defaultModel: { provider: 'no-schema', model: 'some-model' },
@@ -116,7 +116,7 @@ describe('CORE-043 — provider_request describes what was sent', () => {
 
   it('DATA-2577 assigns one stable usage identity to each provider round', async () => {
     const provider = new NoSchemaProvider();
-    const agent = new Robota({
+    const agent = new ConversationAgent({
       name: 'usage-observation-identity',
       aiProviders: [provider as unknown as IAIProvider],
       defaultModel: { provider: 'no-schema', model: 'some-model' },
@@ -153,7 +153,7 @@ describe('CORE-043 — provider_request describes what was sent', () => {
   it('TC-08: carries the tools actually sent, not the registry the round was assembled from', async () => {
     const provider = new NoSchemaProvider();
     const events: Array<{ event: string; data: Record<string, unknown> }> = [];
-    const agent = new Robota({
+    const agent = new ConversationAgent({
       name: 'provider-request-event-tools',
       aiProviders: [provider as unknown as IAIProvider],
       defaultModel: { provider: 'no-schema', model: 'some-model' },
@@ -213,7 +213,7 @@ describe('CORE-043 — provider_request describes what was sent', () => {
    */
   it('refuses to defer a schema when no loader is offered', async () => {
     const provider = new NoSchemaProvider();
-    const agent = new Robota({
+    const agent = new ConversationAgent({
       name: 'provider-request-event-no-loader',
       aiProviders: [provider as unknown as IAIProvider],
       defaultModel: { provider: 'no-schema', model: 'some-model' },

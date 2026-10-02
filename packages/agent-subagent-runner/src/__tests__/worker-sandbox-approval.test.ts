@@ -38,7 +38,7 @@ function runWorker(
   /** Ask for the change from inside the running command rather than before the first model call. */
   duringCommand = false,
 ): Promise<IRecord[]> {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-worker-sandbox-')));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-worker-sandbox-')));
   const recordPath = join(dir, 'records.jsonl');
   return new Promise<IRecord[]>((resolve, reject) => {
     const child = spawn(process.execPath, [ENTRY, SUBAGENT_WORKER_MODE_FLAG], {

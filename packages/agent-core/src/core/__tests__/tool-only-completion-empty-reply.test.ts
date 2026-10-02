@@ -6,11 +6,11 @@
  * completion fail — that case already resolves normally (asserted below as a contrast). But a round
  * that produces NEITHER a tool call NOR any text is genuinely unanswered: without the flag it is
  * recovered by one more provider call (`forceSummaryCall`), and the flag is exactly what turns that
- * rescue off. Before the fix, that combination reached `robotaRun`'s CORE-020 invariant — "every
+ * rescue off. Before the fix, that combination reached `agentRun`'s CORE-020 invariant — "every
  * failed result must carry its error" — with no error attached, and threw the internal
  * `[STRICT-POLICY]` message instead of a typed, catchable error.
  *
- * Every case below runs through the public `Robota` API only (`run`/`runStream`), the same surface
+ * Every case below runs through the public `ConversationAgent` API only (`run`/`runStream`), the same surface
  * an external consumer (e.g. a tool-calling decision agent) uses.
  */
 
@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest';
 import { EmptyCompletionError } from '../../utils/errors';
 import { AbstractTool } from '../../abstracts/abstract-tool';
 import { createScriptedProvider } from '../../testing/scripted-provider';
-import { Robota } from '../robota';
+import { ConversationAgent } from '../conversation-agent';
 
 import type { IAgentConfig, IRunOptions } from '../../interfaces/agent';
 import type { IExecutionJournal } from '../../interfaces/execution-journal';
@@ -45,13 +45,13 @@ class NoopTool extends AbstractTool {
 }
 
 async function drive(
-  robota: Robota,
+  agent: ConversationAgent,
   entry: TEntryPoint,
   input: string,
   options?: IRunOptions,
 ): Promise<string> {
-  if (entry === 'run') return robota.run(input, options);
-  const stream = robota.runStream(input, options);
+  if (entry === 'run') return agent.run(input, options);
+  const stream = agent.runStream(input, options);
   for (;;) {
     const next = await stream.next();
     if (next.done === true) return next.value;
@@ -59,7 +59,7 @@ async function drive(
 }
 
 function buildAgent(text: string): {
-  robota: Robota;
+  agent: ConversationAgent;
   scripted: ReturnType<typeof createScriptedProvider>;
 } {
   const scripted = createScriptedProvider([{ text }]);
@@ -70,7 +70,7 @@ function buildAgent(text: string): {
     logging: { level: 'silent', enabled: false },
     tools: [new NoopTool()],
   };
-  return { robota: new Robota(config), scripted };
+  return { agent: new ConversationAgent(config), scripted };
 }
 
 function discardingJournal(): IExecutionJournal {
@@ -79,9 +79,9 @@ function discardingJournal(): IExecutionJournal {
 
 describe.each(ENTRY_POINTS)('allowToolOnlyCompletion, empty round — %s()', (entry) => {
   it('rejects with a typed EmptyCompletionError, not the internal [STRICT-POLICY] message', async () => {
-    const { robota } = buildAgent('   ');
+    const { agent } = buildAgent('   ');
 
-    const outcome = await drive(robota, entry, 'decide', {
+    const outcome = await drive(agent, entry, 'decide', {
       maxExecutionRounds: 1,
       allowToolOnlyCompletion: true,
     }).then(
@@ -95,9 +95,9 @@ describe.each(ENTRY_POINTS)('allowToolOnlyCompletion, empty round — %s()', (en
   });
 
   it('rejects the same way through the execution journal path', async () => {
-    const { robota } = buildAgent('   ');
+    const { agent } = buildAgent('   ');
 
-    const outcome = await drive(robota, entry, 'decide', {
+    const outcome = await drive(agent, entry, 'decide', {
       maxExecutionRounds: 1,
       allowToolOnlyCompletion: true,
       executionJournal: discardingJournal(),
@@ -114,16 +114,16 @@ describe('allowToolOnlyCompletion, ordinary text-only reply (contrast)', () => {
   it.each(ENTRY_POINTS)(
     'still completes normally with the reply text and no forced follow-up call — %s()',
     async (entry) => {
-      const { robota, scripted } = buildAgent('just text, no tool call');
+      const { agent, scripted } = buildAgent('just text, no tool call');
 
-      const answer = await drive(robota, entry, 'decide', {
+      const answer = await drive(agent, entry, 'decide', {
         maxExecutionRounds: 1,
         allowToolOnlyCompletion: true,
       });
 
       expect(answer).toBe('just text, no tool call');
       expect(scripted.requests).toHaveLength(1);
-      const history = robota.getHistory();
+      const history = agent.getHistory();
       expect(history.at(-1)).toMatchObject({
         role: 'assistant',
         content: 'just text, no tool call',

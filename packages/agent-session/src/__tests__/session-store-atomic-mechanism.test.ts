@@ -26,7 +26,7 @@ import { NodeSessionStore } from '../session-store.js';
 
 describe('SessionStore atomic write mechanism (CORE-019)', () => {
   it('save() writes to a same-directory temp path, then renames into place', () => {
-    const baseDir = mkdtempSync(join(tmpdir(), 'robota-store-mech-'));
+    const baseDir = mkdtempSync(join(tmpdir(), 'agent-store-mech-'));
     try {
       const store = new NodeSessionStore(baseDir);
       const finalPath = join(baseDir, 'mech.json');

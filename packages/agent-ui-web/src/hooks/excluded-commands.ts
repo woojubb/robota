@@ -24,8 +24,8 @@ export interface IExcludableCommandEntry {
  * `exit` and `devices` do not, and are excluded here only because the GUI has its own, better answer.
  */
 const EXCLUDED_COMMAND_MESSAGES: ReadonlyMap<string, string> = new Map([
-  ['theme', 'Robota follows your system appearance.'],
-  ['keybindings', 'Robota uses standard keyboard shortcuts here.'],
+  ['theme', 'This app follows your system appearance.'],
+  ['keybindings', 'This app uses standard keyboard shortcuts here.'],
   ['editor', 'Type your message directly in the composer.'],
   ['statusline', 'The GUI shows session status in its own status row, not a terminal status line.'],
   ['shell', 'Use the Terminal app for shell commands.'],
@@ -34,7 +34,7 @@ const EXCLUDED_COMMAND_MESSAGES: ReadonlyMap<string, string> = new Map([
 ]);
 
 /** A terminal-client command with no curated sentence above still gets a plain, honest one. */
-const GENERIC_CLIENT_MESSAGE = 'This command runs in the robota terminal.';
+const GENERIC_CLIENT_MESSAGE = 'This command runs in the host terminal.';
 
 /**
  * Whether a catalog entry is left out of the GUI: named above, or declared `runner: 'client'` for

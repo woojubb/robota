@@ -22,7 +22,7 @@ describe('FileCostMetaStorage', () => {
   };
 
   beforeEach(() => {
-    TEST_DIR = realpathSync(mkdtempSync(join(tmpdir(), 'robota-cost-meta-test-')));
+    TEST_DIR = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-cost-meta-test-')));
     storage = new FileCostMetaStorage(TEST_DIR);
   });
 

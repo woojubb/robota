@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://docs.robota.io/schemas/keybindings.schema.json",
-  "title": "Robota TUI keybindings",
-  "description": "Sparse contextual keybinding overrides for the Robota terminal UI.",
+  "$id": "__PROJECT_DOCS_URL__/schemas/keybindings.schema.json",
+  "title": "__PRODUCT_DISPLAY_NAME__ TUI keybindings",
+  "description": "Sparse contextual keybinding overrides for the __PRODUCT_DISPLAY_NAME__ terminal UI.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "bindings"],

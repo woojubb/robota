@@ -234,7 +234,7 @@ async function buildSnapshot(
         label: entry.description,
         description: entry.code,
       })),
-      appliesNote: 'Takes effect the next time Robota starts — changing it here never restarts it.',
+      appliesNote: 'Takes effect the next time The agent starts — changing it here never restarts it.',
     },
     outputStyle: { current: activeOutputStyle, choices: outputStyleChoices },
     preset: { current: activePreset, choices: presetChoices, skipsAllChecksPresetIds },

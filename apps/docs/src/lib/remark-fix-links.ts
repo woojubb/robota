@@ -19,10 +19,14 @@ import fs from 'fs';
 import path from 'path';
 
 import type { IMdastNode } from './mdast-types';
+import { productPublicConfig } from './product-config.generated';
 
-export const GITHUB_BLOB_BASE = 'https://github.com/woojubb/robota/blob/main';
-export const GITHUB_TREE_BASE = 'https://github.com/woojubb/robota/tree/main';
-export const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/woojubb/robota/main';
+const configuredRepository = productPublicConfig.identity.repositoryUrl?.replace(/\.git$/u, '');
+export const GITHUB_BLOB_BASE = configuredRepository ? `${configuredRepository}/blob/main` : undefined;
+export const GITHUB_TREE_BASE = configuredRepository ? `${configuredRepository}/tree/main` : undefined;
+export const GITHUB_RAW_BASE = configuredRepository
+  ? configuredRepository.replace('https://github.com/', 'https://raw.githubusercontent.com/') + '/main'
+  : undefined;
 
 /** Content directories the site does not render as routes. */
 const UNROUTED_CONTENT_DIRS = new Set(['v2.0.0', 'images']);
@@ -35,6 +39,7 @@ export interface IRemarkFixLinksOptions {
   locale: string;
   /** Absolute path of the monorepo root. */
   repoRoot: string;
+  repositoryUrl?: string;
 }
 
 export function remarkFixLinks(options: IRemarkFixLinksOptions) {
@@ -90,8 +95,10 @@ export function resolveDocLink(href: string, options: IRemarkFixLinksOptions): s
   }
 
   const isDir = fs.statSync(target).isDirectory();
+  const repository = options.repositoryUrl?.replace(/\.git$/u, '') ?? configuredRepository;
+  if (!repository) return '#';
   const repoPath = parts.join('/');
-  return `${isDir ? GITHUB_TREE_BASE : GITHUB_BLOB_BASE}/${repoPath}${hash}`;
+  return `${repository}/${isDir ? 'tree' : 'blob'}/main/${repoPath}${hash}`;
 }
 
 /**
@@ -113,7 +120,10 @@ export function resolveDocImage(src: string, options: IRemarkFixLinksOptions): s
   if (relToRoot.startsWith('..') || path.isAbsolute(relToRoot) || !fs.existsSync(target)) {
     return src;
   }
-  return `${GITHUB_RAW_BASE}/${relToRoot.split(path.sep).join('/')}`;
+  const repository = options.repositoryUrl?.replace(/\.git$/u, '') ?? configuredRepository;
+  if (!repository) return src;
+  const rawRepository = repository.replace('https://github.com/', 'https://raw.githubusercontent.com/');
+  return `${rawRepository}/main/${relToRoot.split(path.sep).join('/')}`;
 }
 
 /**

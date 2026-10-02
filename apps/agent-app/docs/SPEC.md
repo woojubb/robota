@@ -1,21 +1,19 @@
-# SPEC.md — @robota-sdk/agent-app
+# SPEC.md — Electron desktop host
 
 ## Purpose
 
-`agent-app` is a thin Electron desktop application (macOS / Linux / Windows) that drives a live
-`robota` session graphically. It is a shell only: it attaches to the workspace's `robota` daemon, owns
+The Electron desktop host is a thin desktop application (macOS / Linux / Windows) that drives a live
+Robota session graphically. It is a shell only: it attaches to the workspace's runtime CLI daemon or an owner-authorized remote task, owns
 the window, and loads the GUI web app (`@robota-sdk/agent-gui-web`), which it reaches only through
 that package's build output.
 
 ## Contract
 
-- All session/command/permission logic lives below the wire, in the workspace's `robota` daemon
-  reached over a loopback WebSocket. The GUI never imports `@robota-sdk/agent-framework` or
+- All session/command/permission logic lives below the wire, in the workspace's runtime CLI daemon
+  reached through an authenticated host connection. The GUI never imports `@robota-sdk/agent-framework` or
   `agent-core`, and does not own the wire protocol or session contract (owned by `agent-transport`
   / `agent-interface-transport`).
-- The shell never mints or places a secret itself: the CLI starts the daemon (or reuses the live one)
-  and answers with its loopback address and token, which the shell hands only to its own renderer. An
-  answer that is not a loopback address with a token is refused rather than followed.
+- The renderer receives only a loopback endpoint with a local nonce. Remote issuer and operator credentials stay in the main process, bound to the owner-selected HTTPS task and session; remote task paths never confer access to the local filesystem. Remote permission approval requires a native owner decision and a separate scoped operator credential, never a renderer response or model text. Invalid remote configuration refuses startup rather than selecting a local runtime.
 - The transport closes any connection that does not present the correct token (constant-time compare)
   before emitting any session data, closing the otherwise-unauthenticated loopback port against a
   co-resident browser page. This contract is owned by `@robota-sdk/agent-transport-ws`.
@@ -40,5 +38,5 @@ that package's build output.
 
 ## Design decisions
 
-- Packaging embeds the platform CLI because the window delegates workspace trust and daemon
+- Packaging embeds the configured platform CLI because the window delegates workspace trust and daemon
   ownership to the CLI; a serve-only host cannot fulfill that contract.

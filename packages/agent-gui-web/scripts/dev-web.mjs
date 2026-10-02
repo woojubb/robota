@@ -2,15 +2,18 @@
 /**
  * `pnpm gui:dev` — the GUI in a browser, with hot reload.
  *
- * Starts a sidecar (`robota --serve`, the repo CLI from source via `scripts/dev/robota`) on a free
+ * Starts a sidecar (`the CLI --serve`, the repo CLI from source via `scripts/dev/agent`) on a free
  * loopback port with a fresh token, then the Vite dev server, and prints the page URL that carries the
  * sidecar address (`?ws=`). The sidecar runs in the directory you ran the command from (or
- * `ROBOTA_DEV_CWD`) and uses your own `~/.robota`. In a folder that is not trusted yet it asks first,
+ * `PRODUCT_DEV_CWD`) and uses your own the configured user state directory. In a folder that is not trusted yet it asks first,
  * at this terminal: trust it, start Restricted, or quit.
  *
  *   --scripted   use the deterministic test sidecar (e2e/scripted-sidecar.mjs): no model, no key.
  */
 
+import { loadProductConfig } from '@robota-sdk/product-config/node';
+import { robotaEnvironment } from '../../../products/robota.mjs';
+import { homedir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { createServer as createNetServer } from 'node:net';
@@ -24,14 +27,16 @@ import { shouldAskToTrust, sidecarTrustDecision, trustQuestionLines } from './si
 /** One line of output (scripts write to the streams directly). */
 const line = (text) => `${text}\n`;
 
+const product = loadProductConfig({ environment: robotaEnvironment({ ...process.env }, process.env.HOME ?? homedir()) });
+const cliName = product.identity.cliName;
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const scripted = process.argv.includes('--scripted');
 const [sidecarCommand, sidecarArgs] = scripted
   ? [process.execPath, [join(packageRoot, 'e2e', 'scripted-sidecar.mjs'), '--serve']]
-  : [join(packageRoot, '..', '..', 'scripts', 'dev', 'robota'), ['--serve']];
-const sidecarCwd = process.env.ROBOTA_DEV_CWD ?? process.env.INIT_CWD ?? process.cwd();
+  : [join(packageRoot, '..', '..', 'scripts', 'dev', 'agent'), ['--serve']];
+const sidecarCwd = process.env.PRODUCT_DEV_CWD ?? process.env.INIT_CWD ?? process.cwd();
 
-/** The folder's trust, as `robota trust status --json` reports it; undefined when it cannot say. */
+/** The folder's trust, as `the CLI trust status --json` reports it; undefined when it cannot say. */
 function trustStatus() {
   const result = spawnSync(sidecarCommand, ['trust', 'status', '--json'], {
     cwd: sidecarCwd,
@@ -64,12 +69,12 @@ async function ask(question) {
 if (!scripted) {
   const status = trustStatus();
   if (shouldAskToTrust(status, process.stdin.isTTY === true && process.stdout.isTTY === true)) {
-    process.stdout.write(trustQuestionLines(status).map(line).join(''));
+    process.stdout.write(trustQuestionLines(status, cliName).map(line).join(''));
     const decision = sidecarTrustDecision(
       await ask('Trust this folder? [y] trust and start / [r] start Restricted / [N] quit: '),
     );
     if (decision === 'quit') {
-      process.stdout.write(line('gui:dev: not started. Trust it later with: robota trust --yes'));
+      process.stdout.write(line(`gui:dev: not started. Trust it later with: ${cliName} trust --yes`));
       process.exit(1);
     }
     if (decision === 'trust') {
@@ -99,7 +104,7 @@ const port = await freePort();
 const token = randomBytes(32).toString('hex');
 const sidecar = spawn(sidecarCommand, sidecarArgs, {
   cwd: sidecarCwd,
-  env: { ...process.env, ROBOTA_WS_TOKEN: token, ROBOTA_WS_PORT: String(port) },
+  env: { ...process.env, PRODUCT_CLI_NAME: cliName, PRODUCT_WS_TOKEN: token, PRODUCT_WS_PORT: String(port) },
   stdio: 'inherit',
 });
 
@@ -111,7 +116,7 @@ await vite.listen();
 const pageUrl = new URL(vite.resolvedUrls.local[0]);
 pageUrl.searchParams.set('ws', `ws://127.0.0.1:${port}?token=${token}`);
 process.stdout.write(
-  line(`\n  GUI (${scripted ? 'scripted sidecar' : 'robota --serve'}): ${pageUrl.href}\n`),
+  line(`\n  GUI (${scripted ? 'scripted sidecar' : `${cliName} --serve`}): ${pageUrl.href}\n`),
 );
 
 let stopping = false;

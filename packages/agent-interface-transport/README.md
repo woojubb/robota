@@ -136,7 +136,7 @@ A runner fixture also supplies `completeRunner`, which releases the runner's pen
   `@robota-sdk/agent-transport` implements admission and the payload-channel wire codec.
 - `@robota-sdk/agent-ui-terminal` shows and edits transport settings through the registry views,
   and `@robota-sdk/agent-product` takes an `ITransportRegistryView` in a product profile. The
-  reference CLI, `@robota-sdk/agent-cli`, creates and registers the transports.
+  CLI, `@robota-sdk/agent-cli`, creates and registers the transports.
 
 ## Documentation
 
@@ -145,4 +145,4 @@ A runner fixture also supplies `completeRunner`, which releases the runner's pen
 
 ## License
 
-Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

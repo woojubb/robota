@@ -1,7 +1,7 @@
 /**
  * One refresh at a time per credential, across every process that shares the store.
  *
- * Two robota processes signed in to the same server share its stored refresh token. When an
+ * Two agent runtime processes signed in to the same server share its stored refresh token. When an
  * authorization server rotates refresh tokens, the second of two concurrent refreshes presents a
  * token the first already spent and is answered `invalid_grant` — which would sign the user out.
  * So a refresh runs under this lock, and whoever holds it re-reads the store first: a token another

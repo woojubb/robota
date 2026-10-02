@@ -1,3 +1,4 @@
+import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 /**
  * Issue #3268: a daemon a person chose to start Restricted (the desktop app asked them) passes the
  * trust admission and is launched Restricted; without that choice an untrusted workspace is refused.
@@ -30,8 +31,8 @@ async function route(argv: readonly string[]): Promise<{ code: unknown; err: str
     mkdirSync(cwd);
     execFileSync('git', ['init', '--quiet', cwd]);
     await runPreparsedCliCommand(
-      { providerDefinitions: [] },
-      ['node', 'robota', 'daemon', ...argv],
+      { productRuntime: createTestProductRuntime(), providerDefinitions: [] },
+      ['node', 'test-product', 'daemon', ...argv],
       cwd,
     );
     return {
@@ -47,7 +48,7 @@ async function route(argv: readonly string[]): Promise<{ code: unknown; err: str
   }
 }
 
-describe('robota daemon start in an untrusted workspace', () => {
+describe('test-product daemon start in an untrusted workspace', () => {
   it('is refused before anything is launched', async () => {
     const result = await route(['start', '--json']);
     expect(result.code).toBe(1);

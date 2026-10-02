@@ -1,6 +1,7 @@
 import { approvePendingMemoryCandidate } from './memory-approval.js';
 import { RegexMemoryCandidateExtractor } from './memory-candidate-extractor.js';
 import { MemoryPolicyEvaluator } from './memory-policy-evaluator.js';
+import { MemoryTopicCuratedError } from './project-memory-store.js';
 import { PROJECT_MEMORY_TRUST_NOTE, RECALLED_MEMORY_TRUST_NOTE } from './memory-trust-framing.js';
 
 import type {
@@ -67,7 +68,20 @@ export class AutomaticMemoryController {
       events.push(this.event('memory_candidate_extracted', candidate.id, candidate.topic));
       const decision = this.evaluator.evaluate(candidate, this.config);
       if (decision.action === 'save') {
-        await this.store.append(candidate);
+        try {
+          await this.store.append(candidate);
+        } catch (error) {
+          if (!(error instanceof MemoryTopicCuratedError)) throw error;
+          events.push(
+            this.event(
+              'memory_candidate_skipped',
+              candidate.id,
+              candidate.topic,
+              'user-curated-topic',
+            ),
+          );
+          continue;
+        }
         await this.store.upsertPending(candidate, 'saved', decision.reason);
         saved.push(candidate.id);
         events.push(
@@ -76,7 +90,18 @@ export class AutomaticMemoryController {
       } else if (decision.action === 'queue') {
         await this.store.upsertPending(candidate, 'pending', decision.reason);
         const record = await this.store.getPending(candidate.id);
-        if (record) queued.push(record);
+        if (!record) {
+          events.push(
+            this.event(
+              'memory_candidate_skipped',
+              candidate.id,
+              candidate.topic,
+              'candidate-not-persisted',
+            ),
+          );
+          continue;
+        }
+        queued.push(record);
         events.push(
           this.event('memory_candidate_queued', candidate.id, candidate.topic, decision.reason),
         );

@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { createUserSessionStore } from '@robota-sdk/agent-framework';
 import {
   createOtlpPromptEvents,
@@ -11,6 +12,7 @@ import { readVersion } from '../startup/version.js';
 import { enumerateUsageSnapshot } from './usage-command.js';
 
 interface IUsageExportDependencies {
+  readonly serviceName: string;
   readonly userSessionStore: IInteractiveSessionStore;
   readonly projectSessionStore?: IInteractiveSessionStore;
   readonly fetcher?: typeof fetch;
@@ -41,7 +43,7 @@ function endpointFrom(
     return {
       exitCode: 0,
       stdout:
-        'Usage: robota usage export [--signal metrics|traces|logs] --endpoint http://127.0.0.1:4318\nExports content-free OTLP/HTTP JSON usage, prompt traces, or completion events to a loopback collector.\n',
+        'Usage: usage export [--signal metrics|traces|logs] --endpoint http://127.0.0.1:4318\nExports content-free OTLP/HTTP JSON usage, prompt traces, or completion events to a loopback collector.\n',
       stderr: '',
     };
   }
@@ -53,7 +55,7 @@ function endpointFrom(
     const value = argv[index + 1];
     if (!value)
       return invalid(
-        'Usage: robota usage export [--signal metrics|traces|logs] --endpoint http://127.0.0.1:4318',
+        'Usage: usage export [--signal metrics|traces|logs] --endpoint http://127.0.0.1:4318',
       );
     if (flag === '--endpoint' && endpointValue === undefined) endpointValue = value;
     else if (
@@ -65,13 +67,13 @@ function endpointFrom(
       signalSpecified = true;
     } else {
       return invalid(
-        'Usage: robota usage export [--signal metrics|traces|logs] --endpoint http://127.0.0.1:4318',
+        'Usage: usage export [--signal metrics|traces|logs] --endpoint http://127.0.0.1:4318',
       );
     }
   }
   if (!endpointValue)
     return invalid(
-      'Usage: robota usage export [--signal metrics|traces|logs] --endpoint http://127.0.0.1:4318',
+      'Usage: usage export [--signal metrics|traces|logs] --endpoint http://127.0.0.1:4318',
     );
   let url: URL;
   try {
@@ -184,11 +186,11 @@ export async function executeUsageExportCommand(
 
   const version = dependencies.version ?? readVersion();
   const traces =
-    signal === 'traces' ? createOtlpPromptRootTraces(snapshot.records, version) : undefined;
+    signal === 'traces' ? createOtlpPromptRootTraces(snapshot.records, version, dependencies.serviceName) : undefined;
   let logs: ReturnType<typeof createOtlpPromptEvents> | undefined;
   if (signal === 'logs') {
     try {
-      logs = createOtlpPromptEvents(snapshot.records, version, dependencies.now ?? new Date());
+      logs = createOtlpPromptEvents(snapshot.records, version, dependencies.now ?? new Date(), dependencies.serviceName);
     } catch {
       return invalid('Unable to project recorded completion events.');
     }
@@ -206,7 +208,7 @@ export async function executeUsageExportCommand(
   const payload =
     logs?.payload ??
     traces?.payload ??
-    createOtlpUsageSnapshot(snapshot.records, dependencies.now ?? new Date(), version);
+    createOtlpUsageSnapshot(snapshot.records, dependencies.now ?? new Date(), version, dependencies.serviceName);
   const body = JSON.stringify(payload);
   if ((traces || logs) && Buffer.byteLength(body, 'utf8') > MAX_SIGNAL_REQUEST_BYTES) {
     return invalid('OTLP request exceeded the size limit; nothing was sent.');
@@ -245,10 +247,12 @@ export async function executeUsageExportCommand(
 
 export async function runUsageExportCommand(
   argv: readonly string[],
+  runtime: ICliRuntimeContext,
   projectSessionStore?: IInteractiveSessionStore,
 ): Promise<number> {
   const result = await executeUsageExportCommand(argv, {
-    userSessionStore: createUserSessionStore(userPaths().sessions),
+    serviceName: runtime.config.identity.telemetryServiceName,
+    userSessionStore: createUserSessionStore(userPaths(runtime).sessions),
     ...(projectSessionStore ? { projectSessionStore } : {}),
     version: readVersion(),
   });

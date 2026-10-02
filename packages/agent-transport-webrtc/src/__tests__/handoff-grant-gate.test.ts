@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { describe, expect, it, vi } from 'vitest';
@@ -41,7 +43,7 @@ const LOCAL_ADMITTED: IPeerAdmission = {
 
 function makeHandshakeStub() {
   let resolveResult!: (value: { sessionKey: string }) => void;
-  const start: typeof startPairingHandshake = (options) => {
+  const start: typeof startPairingHandshake = (_cryptoContext, options) => {
     const controller = {
       result: new Promise<{ sessionKey: string }>((res) => {
         resolveResult = res;
@@ -62,7 +64,7 @@ function makeGate(handoffGrant?: IHandoffGrantProof, over: Partial<IPairingGateO
     cleanup: vi.fn(),
   });
   const hs = makeHandshakeStub();
-  const gate = new PairingGate({
+  const gate = new PairingGate({cryptoContext: testIdentity,
     channel,
     session: createTestInteractiveSession(),
     secret: 's',

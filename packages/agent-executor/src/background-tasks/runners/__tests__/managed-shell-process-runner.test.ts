@@ -19,7 +19,7 @@ const VITEST_PROCESS_TEST_TIMEOUT_MS = 20_000;
  * stays a literal and the shell expands the variable. Absolute still matters — the PATH-hijack case
  * below replaces PATH, so a bare `node` would not resolve.
  */
-const NODE_BINARY_ENV = 'ROBOTA_TEST_NODE';
+const NODE_BINARY_ENV = 'PRODUCT_TEST_NODE';
 
 function nodeCommand(script: string): string {
   return `"$${NODE_BINARY_ENV}" -e ${JSON.stringify(script)}`;

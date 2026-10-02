@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Robota CLI binary entry point.
+ * The product CLI binary entry point.
  *
  * Boots the CLI and handles any uncaught top-level errors gracefully.
  *
@@ -11,9 +11,11 @@ import { installCliDiagnostics } from './bootstrap-diagnostics.js';
 import { isSubagentWorkerModeArgv, runSubagentWorkerMain } from '@robota-sdk/agent-subagent-runner';
 
 import { startCli } from './cli.js';
-import { createRobotaSubagentComposition } from './product/robota-subagent-composition.js';
+import { createProductSubagentComposition } from './product/subagent-composition.js';
 import { areTuiProcessGuardsActive, classifyUncaughtException } from './process-guards.js';
 import { optionArgv } from './utils/option-argv.js';
+import { resolveCliRuntimeContext } from './startup/product-bootstrap.js';
+import { assertLocalWorkerPosture } from './hosted/hosted-runtime-config.js';
 
 installCliDiagnostics();
 
@@ -28,7 +30,7 @@ process.on('uncaughtException', (err) => {
     process.stderr.write(
       '\n[robota] CJK/IME input error — this is a known issue with macOS Terminal.app.\n' +
         '  Workaround: use iTerm2 (https://iterm2.com) or input your prompt in English.\n' +
-        '  Alternatively, use headless mode: robota -p "your prompt here"\n\n',
+        '  Alternatively, use headless mode: -p "your prompt here"\n\n',
     );
     return;
   }
@@ -42,9 +44,16 @@ process.on('uncaughtException', (err) => {
 // `runSubagentWorkerMain` refuses loudly when there is no IPC channel, so a hand-typed flag fails
 // where someone can see it instead of looking started.
 if (isSubagentWorkerModeArgv(optionArgv(process.argv))) {
-  // ARCH-021: the child composes robota's OWN surface, from the same packs the parent uses. The
+  // ARCH-021: the child composes the product's OWN surface, from the same packs the parent uses. The
   // neutral runner no longer imports product defaults — it is handed the recipe.
-  runSubagentWorkerMain(createRobotaSubagentComposition());
+  try {
+    const runtime = resolveCliRuntimeContext({});
+    assertLocalWorkerPosture(runtime.environment);
+    runSubagentWorkerMain(createProductSubagentComposition(runtime));
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 1;
+  }
 } else {
   startCli().catch((err) => {
     const message = err instanceof Error ? err.message : String(err);

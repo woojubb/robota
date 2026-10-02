@@ -15,7 +15,7 @@ interface IPair {
 async function connectedPair(tamperAnswer: (sdp: string) => string = (sdp) => sdp): Promise<IPair> {
   const host = new RtcPeer();
   const remote = new RtcPeer();
-  host.createDataChannel('robota-session');
+  host.createDataChannel('agent-session');
   const toRemote: { candidate: string; mid: string }[] = [];
   const toHost: { candidate: string; mid: string }[] = [];
   host.onLocalCandidate((c) => toRemote.push(c));

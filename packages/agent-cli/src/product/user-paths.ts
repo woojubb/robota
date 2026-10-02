@@ -1,29 +1,10 @@
-import { homedir } from 'node:os';
-import { join } from 'node:path';
+import type { ICliRuntimeContext } from './runtime-context.js';
 
-/** Robota's user-owned runtime storage layout. */
-export function userPaths(home: string = homedir()): {
-  settings: string;
-  sessions: string;
-  onboarded: string;
-  history: string;
-  workspaceTrust: string;
-  orgPolicy: string;
-  mcpApprovals: string;
-} {
-  const base = userLocalStorageRoot(home);
-  return {
-    settings: join(base, 'settings.json'),
-    sessions: join(base, 'sessions'),
-    onboarded: join(base, 'onboarded'),
-    history: join(base, 'history.jsonl'),
-    workspaceTrust: join(base, 'workspace-trust.json'),
-    orgPolicy: join(base, 'org-policy.json'),
-    mcpApprovals: join(base, 'mcp-approvals.json'),
-  };
+/** Every path belongs to the caller's resolved product instance. */
+export function userPaths(runtime: ICliRuntimeContext): ICliRuntimeContext['layout']['userPaths'] {
+  return runtime.layout.userPaths;
 }
 
-/** CLI-owned root for commands that persist user-local state. */
-export function userLocalStorageRoot(home: string = process.env.HOME ?? homedir()): string {
-  return join(home, '.robota');
+export function userLocalStorageRoot(runtime: ICliRuntimeContext): string {
+  return runtime.layout.userRoot;
 }

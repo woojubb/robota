@@ -151,15 +151,23 @@ function baseActiveToolFrom(state: IToolState): Omit<IActiveTool, 'status'> {
 /** The fields a `tool_end` state contributes to the matched `IActiveTool`. */
 function toolEndFields(
   state: IToolState,
-): Pick<IActiveTool, 'status' | 'result' | 'diffLines' | 'diffFile' | 'toolResultData'> {
+): Pick<
+  IActiveTool,
+  'status' | 'result' | 'diffLines' | 'diffFile' | 'toolResultData' | 'toolResultParts'
+> {
   return {
     // A tool that finished with an error result renders failed (ToolCard/ToolGroup key off
     // `status === 'error'`) — `isRunning` alone cannot tell success from failure.
-    status: state.isRunning ? 'running' : state.result === 'error' ? 'error' : 'done',
+    status: state.isRunning
+      ? 'running'
+      : state.result === 'error' || state.result === 'denied'
+        ? 'error'
+        : 'done',
     result: state.result,
     ...(state.diffLines ? { diffLines: state.diffLines } : {}),
     ...(state.diffFile ? { diffFile: state.diffFile } : {}),
     ...(state.toolResultData !== undefined ? { toolResultData: state.toolResultData } : {}),
+    ...(state.toolResultParts ? { toolResultParts: state.toolResultParts } : {}),
   };
 }
 
@@ -245,7 +253,10 @@ function buildConversationEntriesFromDisplaySegments(
     } else if (segment.type === 'text') {
       turnSegments = appendTextDeltaToSegments(turnSegments, segment.content);
     } else {
-      turnSegments = pushToolStartSegment(turnSegments, activeToolFromHistoricalState(segment.tool));
+      turnSegments = pushToolStartSegment(
+        turnSegments,
+        activeToolFromHistoricalState(segment.tool),
+      );
     }
   }
   flushTurn();
@@ -296,10 +307,13 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   // is created, so the model it names is a snapshot from that moment — never the live status, which
   // `case 'error'` itself just asked the host to refresh and which the person may since have changed.
   const sessionStatusRef = useRef<TSessionStatus | null>(null);
-  const updateActiveTools = useCallback((next: (previous: IActiveTool[]) => IActiveTool[]): void => {
-    activeToolsRef.current = next(activeToolsRef.current);
-    setActiveTools(activeToolsRef.current);
-  }, []);
+  const updateActiveTools = useCallback(
+    (next: (previous: IActiveTool[]) => IActiveTool[]): void => {
+      activeToolsRef.current = next(activeToolsRef.current);
+      setActiveTools(activeToolsRef.current);
+    },
+    [],
+  );
   const appendEntry = useCallback((entry: TConversationEntry): void => {
     setMessages((previous) => [...previous, entry]);
   }, []);
@@ -415,15 +429,17 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     [send],
   );
   const { handleUsageMessage, ...personalUsageState } = usePersonalUsageState(send);
-  const {
-    handleExecutionDetailMessage,
-    closeExecutionDetail,
-    ...executionDetailState
-  } = useExecutionDetailState(send);
+  const { handleExecutionDetailMessage, closeExecutionDetail, ...executionDetailState } =
+    useExecutionDetailState(send);
   const { handleModelListMessage, ...modelListState } = useModelListState(send);
   const { handleProjectMessage, ...projectPanelState } = useProjectPanelState(send);
-  const { handleSessionsMessage, canListSessions, markCurrent, armRestore, ...sessionDirectoryState } =
-    useSessionDirectoryState(send);
+  const {
+    handleSessionsMessage,
+    canListSessions,
+    markCurrent,
+    armRestore,
+    ...sessionDirectoryState
+  } = useSessionDirectoryState(send);
   const { requestSessions, setSessionSidebarOpen } = sessionDirectoryState;
   const { handleSettingsMessage, openSettings, refreshSettings, ...settingsState } =
     useSettingsState(send);
@@ -562,7 +578,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
             setSessionSidebarOpen(true);
             requestSessions();
             if (commandsInFlightRef.current > 0) {
-              pendingIntentRef.current = { name: uiIntentCommandName(msg.event.intent), text: null };
+              pendingIntentRef.current = {
+                name: uiIntentCommandName(msg.event.intent),
+                text: null,
+              };
             }
             break;
           }
@@ -570,7 +589,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           if (guiScreenForUiIntent(msg.event.intent) === 'settings') {
             openSettings();
             if (commandsInFlightRef.current > 0) {
-              pendingIntentRef.current = { name: uiIntentCommandName(msg.event.intent), text: null };
+              pendingIntentRef.current = {
+                name: uiIntentCommandName(msg.event.intent),
+                text: null,
+              };
             }
             break;
           }
@@ -579,7 +601,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           if (guiScreenForUiIntent(msg.event.intent) === 'settings-plugins') {
             openSettings('plugins');
             if (commandsInFlightRef.current > 0) {
-              pendingIntentRef.current = { name: uiIntentCommandName(msg.event.intent), text: null };
+              pendingIntentRef.current = {
+                name: uiIntentCommandName(msg.event.intent),
+                text: null,
+              };
             }
             break;
           }
@@ -588,7 +613,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           if (guiScreenForUiIntent(msg.event.intent) === 'agent-switcher') {
             openAgentSwitcher();
             if (commandsInFlightRef.current > 0) {
-              pendingIntentRef.current = { name: uiIntentCommandName(msg.event.intent), text: null };
+              pendingIntentRef.current = {
+                name: uiIntentCommandName(msg.event.intent),
+                text: null,
+              };
             }
             break;
           }
@@ -602,7 +630,13 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
             pendingIntentRef.current = unavailable;
           } else {
             // No command of ours awaits a reply (a model-run command, a broadcast): say it now.
-            appendEntry({ id: nextId(), role: 'command', name: unavailable.name, content: unavailable.text, tone: 'info' });
+            appendEntry({
+              id: nextId(),
+              role: 'command',
+              name: unavailable.name,
+              content: unavailable.text,
+              tone: 'info',
+            });
           }
           break;
         }
@@ -728,7 +762,13 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           const unavailable = pendingIntentRef.current;
           pendingIntentRef.current = null;
           if (unavailable !== null && unavailable.text !== null) {
-            appendEntry({ id: nextId(), role: 'command', name: unavailable.name, content: unavailable.text, tone: 'info' });
+            appendEntry({
+              id: nextId(),
+              role: 'command',
+              name: unavailable.name,
+              content: unavailable.text,
+              tone: 'info',
+            });
           }
           setSessionNotices((previous) => [
             ...previous,
@@ -763,7 +803,8 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           // #3282 §2 (part 2): identify silence by THIS reply's own `requestId`, not by position or
           // count — see `silentCommandRequestIdsRef` above. No `requestId` (an older host, or a typed
           // command) always falls through to `silent = false`, never the reverse.
-          const silent = msg.requestId !== undefined && silentCommandRequestIdsRef.current.delete(msg.requestId);
+          const silent =
+            msg.requestId !== undefined && silentCommandRequestIdsRef.current.delete(msg.requestId);
           // #3282 §4 part b-3: a selection made in the agent switcher sheet — its own plain
           // confirmation line answers it, never a conversation card (issue #3282 §4's decided design).
           if (resolveSwitchResult(msg.requestId, msg)) break;
@@ -772,7 +813,13 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           if (unavailable !== null && msg.success) {
             // The screen that opened is the answer; otherwise the line saying it cannot open is.
             if (unavailable.text !== null) {
-              appendEntry({ id: nextId(), role: 'command', name: msg.name, content: unavailable.text, tone: 'info' });
+              appendEntry({
+                id: nextId(),
+                role: 'command',
+                name: msg.name,
+                content: unavailable.text,
+                tone: 'info',
+              });
             }
             break;
           }
@@ -925,7 +972,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   };
 }
 
-/** Connect to a `robota` sidecar over WebSocket (loopback / localhost path). */
+/** Connect to a `agent` sidecar over WebSocket (loopback / localhost path). */
 export function useWsSession(
   url: string,
 ): IWsSessionState<TConnectionStatus> & { connectionLost: boolean } {

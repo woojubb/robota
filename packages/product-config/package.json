@@ -1,0 +1,33 @@
+{
+  "name": "@robota-sdk/product-config",
+  "version": "3.0.0-beta.86",
+  "description": "Explicit product configuration contracts and host loading",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "import": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+      "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
+    },
+    "./node": {
+      "source": "./src/node.ts",
+      "import": { "types": "./dist/node.d.ts", "default": "./dist/node.js" },
+      "require": { "types": "./dist/node.d.cts", "default": "./dist/node.cjs" }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "README.md", "CHANGELOG.md"],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsgo --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src/ --ext .ts",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "devDependencies": { "tsdown": "^0.22.14", "vitest": "^3.2.6" },
+  "engines": { "node": ">=22.12.0" },
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "publishConfig": { "access": "public" }
+}

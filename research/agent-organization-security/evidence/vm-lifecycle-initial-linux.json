@@ -1,0 +1,38 @@
+{
+  "kind": "actual-kvm-worker-lifecycle",
+  "records": [
+    {
+      "id": "separate-task-and-host-filesystems",
+      "expected": "own write/read succeeds, same path absent in sibling and host path absent in guest",
+      "observed": {
+        "createExit": 0,
+        "ownCheck": 0,
+        "siblingCheck": 0,
+        "hostCheck": 0
+      },
+      "passed": true
+    },
+    {
+      "id": "qmp-pause-resume",
+      "expected": "paused then running, guest still readable",
+      "observed": {
+        "paused": {
+          "status": "paused",
+          "running": false
+        },
+        "running": {
+          "status": "running",
+          "running": true
+        },
+        "durationMs": 305
+      },
+      "passed": true
+    },
+    {
+      "id": "shutdown-wait-initial",
+      "expected": "QEMU stops within 20 seconds",
+      "observed": "Timeout after 20 seconds; serial later reached poweroff and owned process exited",
+      "passed": false
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,9 +12,9 @@ import { createDefaultPluginCommandAdapter } from '../default-plugin-command-ada
 
 describe('production plugin reload', () => {
   it('removes runnable skills and the model catalogue when the real adapter cannot parse settings', async () => {
-    const home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-live-plugin-reload-')));
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-live-plugin-reload-')));
     vi.stubEnv('HOME', home);
-    const pluginsDir = join(home, '.robota', 'plugins');
+    const pluginsDir = join(home, '.test-product', 'plugins');
     const pluginRoot = join(pluginsDir, 'cache', 'fixture', 'helper', '1.0.0');
     mkdirSync(join(pluginRoot, '.claude-plugin'), { recursive: true });
     writeFileSync(
@@ -25,7 +26,7 @@ describe('production plugin reload', () => {
       join(pluginRoot, 'skills', 'tidy', 'SKILL.md'),
       '---\nname: tidy\ndescription: tidy fixture\n---\nTidy.',
     );
-    const settingsPath = join(home, '.robota', 'settings.json');
+    const settingsPath = join(home, '.test-product', 'settings.json');
     writeFileSync(settingsPath, '{}');
     const session = new InteractiveSession({
       cwd: home,
@@ -41,7 +42,7 @@ describe('production plugin reload', () => {
           contributionSources: [createNodeHostContributionSource(home)],
         }),
       ],
-      commandHostAdapters: { plugin: createDefaultPluginCommandAdapter(home) },
+      commandHostAdapters: { plugin: createDefaultPluginCommandAdapter(home, createTestProductRuntime('test-product', { HOME: process.env['HOME'] })) },
     });
     try {
       await session.whenInitialized();

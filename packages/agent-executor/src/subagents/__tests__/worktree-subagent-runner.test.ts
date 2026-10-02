@@ -28,8 +28,8 @@ interface IFakeWorktreeAdapter extends ISubagentWorktreeAdapter {
 
 const TEST_WORKTREE: IPreparedSubagentWorktree = {
   repoRoot: '/repo',
-  worktreePath: '/repo/.robota/worktrees/agent_1',
-  branchName: 'robota/agent_1',
+  worktreePath: '/repo/.fixture-state/worktrees/agent_1',
+  branchName: 'agent/worker_1',
 };
 
 function createJob(isolation?: TBackgroundTaskIsolation): ISubagentJobStart {

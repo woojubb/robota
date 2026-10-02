@@ -12,7 +12,7 @@ three carriers:
 
 Token signature checks and the shared bearer gate live in `@robota-sdk/agent-transport/node`. The MCP
 client side (connecting an agent to other MCP servers) is `@robota-sdk/agent-mcp`. For the task-level
-walkthrough, including serving a session with `robota mcp serve`, see the [MCP guide](../../../content/guide/mcp.md).
+walkthrough, including serving a session with the configured CLI's `mcp serve` command, see the [MCP guide](../../../content/guide/mcp.md).
 
 ## Documents
 

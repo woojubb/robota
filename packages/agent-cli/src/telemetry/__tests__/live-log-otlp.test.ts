@@ -32,16 +32,16 @@ describe('Node live OTLP logs', () => {
       const address = server.address();
       if (!address || typeof address === 'string') throw new Error('Expected TCP listener');
       const port = createConfiguredNodeOtlpLiveTelemetryPort({
-        ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_LOGS: 'otlp',
-        ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
-        ROBOTA_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
+        PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_LOGS: 'otlp',
+        PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+        PRODUCT_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
       });
       expect(port).toBeDefined();
       port!.enqueue(batch);
       await port!.shutdown();
       expect(requests).toHaveLength(1);
       expect(requests[0]!.path).toBe('/v1/logs');
-      expect(requests[0]!.body.toString('utf8')).toContain('robota.prompt_execution.completed');
+      expect(requests[0]!.body.toString('utf8')).toContain('agent.prompt_execution.completed');
       expect(requests[0]!.body.includes(Buffer.from(batch.root.traceId, 'hex'))).toBe(true);
       expect(requests[0]!.body.includes(Buffer.from(batch.root.spanId, 'hex'))).toBe(true);
       expect(requests[0]!.body.toString('utf8')).not.toContain('private-session');
@@ -84,52 +84,52 @@ describe('Node live OTLP logs', () => {
     };
     const records = projectLivePromptLogs(input, new Date('2026-09-24T00:00:03.000Z'));
     expect(records.map((record) => record.eventName)).toEqual([
-      'robota.provider_call.completed', 'robota.tool_body.completed',
-      'robota.prompt_execution.completed',
+      'agent.provider_call.completed', 'agent.tool_body.completed',
+      'agent.prompt_execution.completed',
     ]);
     expect(records.map((record) => record.severityText)).toEqual(['ERROR', 'INFO', 'WARN']);
     expect(records[0]).toMatchObject({
       hrTime: [1790208001, 0], hrTimeObserved: [1790208003, 0],
       spanContext: { traceId: batch.root.traceId, spanId: '1111111111111111' },
-      attributes: { 'robota.provider.outcome': 'failure' },
+      attributes: { 'agent.provider.outcome': 'failure' },
     });
     expect(records[2]!.attributes).toMatchObject({
-      'robota.prompt.outcome': 'interrupted',
-      'robota.telemetry.omitted_provider_events': 2,
-      'robota.telemetry.omitted_tool_events': 1,
+      'agent.prompt.outcome': 'interrupted',
+      'agent.telemetry.omitted_provider_events': 2,
+      'agent.telemetry.omitted_tool_events': 1,
     });
     const text = JSON.stringify(records);
     expect(text).not.toMatch(/private-session|private-turn|private-provider|private-model/);
     expect(records.every((record) => record.body === undefined)).toBe(true);
   });
 
-  it('requires Robota opt-in, an explicit protocol and an independently resolved logs URL', () => {
-    expect(resolveNodeOtlpLiveLogEndpoint({ ROBOTA_TELEMETRY_LOGS: 'otlp' })).toBeUndefined();
+  it('requires Product opt-in, an explicit protocol and an independently resolved logs URL', () => {
+    expect(resolveNodeOtlpLiveLogEndpoint({ PRODUCT_TELEMETRY_LOGS: 'otlp' })).toBeUndefined();
     const enabled = {
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_LOGS: 'otlp',
-      ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+      PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_LOGS: 'otlp',
+      PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
     };
     expect(resolveNodeOtlpLiveLogEndpoint({
-      ...enabled, ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318/prefix',
+      ...enabled, PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318/prefix',
     })).toBe('http://127.0.0.1:4318/prefix/v1/logs');
     expect(resolveNodeOtlpLiveLogEndpoint({
-      ...enabled, ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT: 'https://collector.example/custom',
+      ...enabled, PRODUCT_TELEMETRY_OTLP_LOGS_ENDPOINT: 'https://collector.example/custom',
     })).toBe('https://collector.example/custom');
     expect(() => resolveNodeOtlpLiveLogEndpoint({
-      ...enabled, ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT: 'http://collector.example/v1/logs',
+      ...enabled, PRODUCT_TELEMETRY_OTLP_LOGS_ENDPOINT: 'http://collector.example/v1/logs',
     })).toThrow(/destination/i);
     expect(() => resolveNodeOtlpLiveLogEndpoint({
-      ...enabled, ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT: 'https://user:secret@collector.example/v1/logs',
+      ...enabled, PRODUCT_TELEMETRY_OTLP_LOGS_ENDPOINT: 'https://user:secret@collector.example/v1/logs',
     })).toThrow(/destination/i);
     expect(() => resolveNodeOtlpLiveLogEndpoint({
-      ...enabled, ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT: 'https://collector.example/v1/metrics',
+      ...enabled, PRODUCT_TELEMETRY_OTLP_LOGS_ENDPOINT: 'https://collector.example/v1/metrics',
     })).toThrow(/destination/i);
     expect(() => resolveNodeOtlpLiveLogEndpoint({
-      ...enabled, ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'https://collector.example/v1/traces',
+      ...enabled, PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'https://collector.example/v1/traces',
     })).toThrow(/destination/i);
     expect(() => resolveNodeOtlpLiveLogEndpoint({
-      ...enabled, ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/json',
-      ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
+      ...enabled, PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/json',
+      PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
     })).toThrow(/protocol/i);
   });
 

@@ -96,12 +96,12 @@
     - Session notices keep only `session-error` and `protocol-error`.
     - The state gains `commandCatalog` and `sessionStatus`.
   - `agent-command` registers `/theme` and `/keybindings` even without a terminal. They then answer
-    that they belong to the robota terminal, instead of being unknown.
+    that they belong to the __PRODUCT_DISPLAY_NAME__ terminal, instead of being unknown.
   - `agent-framework`:
     - `InteractiveSession.getStatusSnapshot()`.
     - The main-thread row previews the last chat message instead of the last record's type.
   - `agent-cli` serves the full GUI web app, renamed from `agent-cli-web` to `agent-gui-web`, on
-    `robota --serve --open`.
+    `__PRODUCT_CLI_NAME__ --serve --open`.
 
 - ba822c1: An attached client reads a workspace entry's detail, stops a waiting self-paced loop, completes
   subcommands, and sees status changes another client made.
@@ -116,8 +116,8 @@
   - `agent-interface-command` (minor): `ICommandListEntry` gains optional `argumentHint` and
     `subcommands` (`ICommandSubcommandEntry`).
   - `agent-cli` (minor):
-    - `robota session attach` and an attach from `robota session view` open the full terminal UI,
-      the one `robota --attach` opens, in drive mode or, with `--observe`, read-only. The reduced
+    - `__PRODUCT_CLI_NAME__ session attach` and an attach from `__PRODUCT_CLI_NAME__ session view` open the full terminal UI,
+      the one `__PRODUCT_CLI_NAME__ --attach` opens, in drive mode or, with `--observe`, read-only. The reduced
       attached view is gone.
     - A served runtime names each of its sessions after the session's first real turn.
   - `agent-framework` (minor):
@@ -211,7 +211,7 @@
     workspace or sign in is named to the model at the start of an interactive session with the
     command to suggest, and a
     signed-in OAuth server that refuses a call tells the model to suggest `/mcp login <server>` — or, in print and serve runs, the terminal
-    `robota mcp login <server>`.
+    `__PRODUCT_CLI_NAME__ mcp login <server>`.
 
   A command whose bare form is a complete action declares `runsBare`, so choosing `/cost` or `/mcp`
   from the autocomplete menu still runs it even though they now declare subcommands.
@@ -255,10 +255,10 @@
 
 - af2f2ad: `/cd <directory>` continues the conversation in another directory.
 
-  - **A move is a new session in the target directory.** In the TUI, robota saves a copy of the
+  - **A move is a new session in the target directory.** In the TUI, __PRODUCT_DISPLAY_NAME__ saves a copy of the
     conversation where the target's session store will find it, ends the current run through its
     normal end-of-life flow, and starts again in the target directory resuming that copy. The target's
-    settings, trust decision, tools, skills and `AGENTS.md` apply, exactly as if robota had been
+    settings, trust decision, tools, skills and `AGENTS.md` apply, exactly as if __PRODUCT_DISPLAY_NAME__ had been
     launched there. The process boundary makes the move atomic, so no tool call can straddle it.
   - **The system prompt is kept as recorded**, so a provider's prompt cache survives. One appended
     `<workspace-move>` message tells the model the new directory, and which project instructions now

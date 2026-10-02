@@ -1,0 +1,59 @@
+{
+  "kind": "actual-cli-disposable-vm-smoke",
+  "records": [
+    {
+      "id": "headless",
+      "runId": "4efe9aa5f00944a3b337c55afce47069",
+      "cliExitCode": 0,
+      "artifactCheckExitCode": 0,
+      "markerPresent": true,
+      "expectedArtifactPredicate": true,
+      "durationMs": 1030,
+      "passed": true
+    },
+    {
+      "id": "shell-default-denied",
+      "runId": "4efe9aa5f00944a3b337c55afce47069",
+      "cliExitCode": 0,
+      "artifactCheckExitCode": 0,
+      "markerPresent": true,
+      "expectedArtifactPredicate": true,
+      "durationMs": 1050,
+      "passed": true
+    },
+    {
+      "id": "shell-explicit-allow",
+      "runId": "4efe9aa5f00944a3b337c55afce47069",
+      "cliExitCode": 0,
+      "artifactCheckExitCode": 0,
+      "markerPresent": true,
+      "expectedArtifactPredicate": true,
+      "durationMs": 1025,
+      "passed": true
+    },
+    {
+      "id": "file-read-write-git-negative-deny-Bash",
+      "runId": "4efe9aa5f00944a3b337c55afce47069",
+      "cliExitCode": 0,
+      "artifactCheckExitCode": 1,
+      "markerPresent": true,
+      "expectedArtifactPredicate": false,
+      "durationMs": 1084,
+      "passed": true
+    },
+    {
+      "id": "subagent-child-file",
+      "runId": "4efe9aa5f00944a3b337c55afce47069",
+      "cliExitCode": 0,
+      "artifactCheckExitCode": 0,
+      "markerPresent": true,
+      "expectedArtifactPredicate": true,
+      "durationMs": 1779,
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "No cloud provider or multi-worker result follows from these CLI probes.",
+    "The model is deterministic; CLI and tools are production implementations."
+  ]
+}

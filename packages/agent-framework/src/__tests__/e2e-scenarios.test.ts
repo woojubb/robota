@@ -41,7 +41,7 @@ async function loadConfig(cwd: string) {
 }
 
 function createTempDir(prefix = 'e2e-'): string {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), `robota-${prefix}`)));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), `agent-${prefix}`)));
   tempDirs.push(dir);
   return dir;
 }

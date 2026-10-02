@@ -9,7 +9,7 @@ import { createTrustedProjectAccessFixture } from '../../testing/trusted-project
 import { getWorkspaceProjectReader } from '../../workspace-trust/index.js';
 import { loadContext } from '../context-loader.js';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-task-context-opt-in-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-task-context-opt-in-')));
 
 function makeWorkspace(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));

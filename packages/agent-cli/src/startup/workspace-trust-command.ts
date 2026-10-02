@@ -1,3 +1,6 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import {
   createNodeWorkspaceTrustService,
   type TWorkspaceProjectAccess,
@@ -7,7 +10,8 @@ import {
 import { formatProjectContributionPreview } from './project-contribution-preview.js';
 import { userPaths } from '../product/user-paths.js';
 import { trustQuestionFor } from './interactive-trust-prompt.js';
-import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../product/robota-project-state-directories.js';
+import { createInitialCliWorkspaceComposition } from './workspace-project-composition.js';
+import { providerEnvironmentReferences } from '../product/restart-environment.js';
 
 type TWorkspaceTrustAction = 'status' | 'grant' | 'revoke';
 
@@ -19,7 +23,7 @@ function accessPath(access: TWorkspaceProjectAccess): string | undefined {
   return access.status === 'trusted' ? access.identity.displayPath : access.displayPath;
 }
 
-function printAccess(access: TWorkspaceProjectAccess): void {
+function printAccess(access: TWorkspaceProjectAccess, runtime: ICliRuntimeContext): void {
   process.stdout.write(`Workspace trust: ${accessState(access)}\n`);
   const displayPath = accessPath(access);
   if (displayPath !== undefined) process.stdout.write(`Workspace: ${displayPath}\n`);
@@ -28,39 +32,52 @@ function printAccess(access: TWorkspaceProjectAccess): void {
       'Project settings, hooks, plugins, skills, and provider overrides are disabled.\n',
     );
     if (access.trustState !== 'identity-unavailable') {
-      process.stdout.write('Grant access with: robota trust --yes\n');
+      process.stdout.write(`Grant access with: ${runtime.config.identity.cliName} trust --yes\n`);
     }
   }
 }
 
 /** The state, the folder, whether a person can be asked, and what trust would load. */
-function trustStatusJson(access: TWorkspaceProjectAccess, cwd: string): Record<string, unknown> {
-  const question = trustQuestionFor(access, cwd);
+function trustStatusJson(
+  access: TWorkspaceProjectAccess,
+  cwd: string,
+  runtime: ICliRuntimeContext,
+  providerDefinitions: readonly IProviderDefinition[],
+): Record<string, unknown> {
+  const question = trustQuestionFor(access, cwd, runtime);
   return {
     state: accessState(access),
     workspace: accessPath(access) ?? cwd,
     askable: question !== undefined,
     loads: question?.loads ?? [],
+    ...(access.status === 'trusted' ? {
+      providerEnvRefs: providerEnvironmentReferences(
+        createInitialCliWorkspaceComposition(cwd, { productRuntime: runtime, projectAccess: access }).settingsSources,
+        providerDefinitions,
+      ),
+    } : {}),
   };
 }
 
-/** Handle the pre-parse `robota trust` lifecycle command without loading project settings. */
+/** Handle trust before normal startup; load project settings only after trusted admission. */
 export async function runWorkspaceTrustCommand(
   argv: readonly string[],
   cwd: string,
+  runtime: ICliRuntimeContext,
   service: WorkspaceTrustService = createNodeWorkspaceTrustService(
-    userPaths().workspaceTrust,
-    ROBOTA_PROJECT_STATE_DIRECTORIES,
+    userPaths(runtime).workspaceTrust,
+    runtime.layout.projectStateDirectories,
   ),
+  providerDefinitions?: readonly IProviderDefinition[],
 ): Promise<number> {
   const action = (argv.find((argument) => !argument.startsWith('-')) ??
     (argv.includes('--yes') ? 'grant' : 'status')) as TWorkspaceTrustAction;
   if (!['status', 'grant', 'revoke'].includes(action)) {
-    process.stderr.write('Usage: robota trust [status [--json]|grant|revoke] [--yes]\n');
+    process.stderr.write(`Usage: ${runtime.config.identity.cliName} trust [status [--json]|grant|revoke] [--yes]\n`);
     return 1;
   }
   if (action !== 'status' && process.stdin.isTTY !== true && !argv.includes('--yes')) {
-    process.stderr.write(`robota trust ${action} requires --yes in headless mode.\n`);
+    process.stderr.write(`${runtime.config.identity.cliName} trust ${action} requires --yes in headless mode.\n`);
     return 1;
   }
   try {
@@ -72,12 +89,12 @@ export async function runWorkspaceTrustCommand(
           : await service.inspect(cwd);
     if (action === 'status' && argv.includes('--json')) {
       // For a client that asks a person itself (the desktop app) before it starts a runtime here.
-      process.stdout.write(`${JSON.stringify(trustStatusJson(access, cwd))}\n`);
+      process.stdout.write(`${JSON.stringify(trustStatusJson(access, cwd, runtime, providerDefinitions ?? createDefaultProviderDefinitions()))}\n`);
       return 0;
     }
-    printAccess(access);
+    printAccess(access, runtime);
     if (action === 'status' && access.status !== 'trusted') {
-      process.stdout.write(formatProjectContributionPreview(access.identity, cwd));
+      process.stdout.write(formatProjectContributionPreview(access.identity, cwd, runtime));
     }
     // A grant succeeds when the folder ends up trusted; a revoke when it no longer is.
     if (action === 'grant') return access.status === 'trusted' ? 0 : 1;

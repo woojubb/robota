@@ -1,3 +1,5 @@
+import { createIdentityContext } from '../identity/crypto-context.js';
+const testIdentity = createIdentityContext('test-product');
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -57,7 +59,7 @@ function connect(
   const toHost = (f: TReconnectFrame): void => host.onFrame(f);
   const toDevice = (f: TReconnectFrame): void => device.onFrame(f);
 
-  host = startHostReconnect({
+  host = startHostReconnect(testIdentity, {
     hostIdentityId: h.hostIdentityId,
     ...HOST_FP,
     hostPrivateKey: h.hostKeyPair.privateKey,
@@ -66,7 +68,7 @@ function connect(
     send: toDevice,
     timeoutMs: 1000,
   });
-  device = startDeviceReconnect({
+  device = startDeviceReconnect(testIdentity, {
     deviceId: h.deviceId,
     hostIdentityId: h.hostIdentityId,
     ...DEVICE_FP,
@@ -116,7 +118,7 @@ describe('mutual reconnect (REMOTE-012 TC-03)', () => {
     const captured: TReconnectFrame[] = [];
     let host1!: ReturnType<typeof startHostReconnect>;
     let device1!: ReturnType<typeof startDeviceReconnect>;
-    host1 = startHostReconnect({
+    host1 = startHostReconnect(testIdentity, {
       hostIdentityId: h.hostIdentityId,
       ...HOST_FP,
       hostPrivateKey: h.hostKeyPair.privateKey,
@@ -124,7 +126,7 @@ describe('mutual reconnect (REMOTE-012 TC-03)', () => {
       send: (f) => device1.onFrame(f),
       timeoutMs: 1000,
     });
-    device1 = startDeviceReconnect({
+    device1 = startDeviceReconnect(testIdentity, {
       deviceId: h.deviceId,
       hostIdentityId: h.hostIdentityId,
       ...DEVICE_FP,
@@ -141,7 +143,7 @@ describe('mutual reconnect (REMOTE-012 TC-03)', () => {
     expect(staleProof?.t).toBe('rc-device');
 
     // A fresh host handshake issues a new nonce; replaying the stale proof must fail its verify.
-    const host2 = startHostReconnect({
+    const host2 = startHostReconnect(testIdentity, {
       hostIdentityId: h.hostIdentityId,
       ...HOST_FP,
       hostPrivateKey: h.hostKeyPair.privateKey,
@@ -159,7 +161,7 @@ describe('mutual reconnect (REMOTE-012 TC-03)', () => {
 
   it('fail-closed: times out if the counterpart never answers', async () => {
     const h = await setup();
-    const device = startDeviceReconnect({
+    const device = startDeviceReconnect(testIdentity, {
       deviceId: h.deviceId,
       hostIdentityId: h.hostIdentityId,
       ...DEVICE_FP,

@@ -8,7 +8,10 @@ API surface or compatibility layer.
 ```ts
 import { startDagRuntimeServer } from '@robota-sdk/dag-runtime-server';
 
-const handle = await startDagRuntimeServer({ port: 3939 });
+const handle = await startDagRuntimeServer({
+  port: 3939,
+  userStateRoot: config.storage.userRoot,
+});
 // ... later
 await handle.stop();
 ```
@@ -18,12 +21,12 @@ only need the Hono app.
 
 ## Configuration
 
-| Setting            | Source                                                                                     |
-| ------------------ | ------------------------------------------------------------------------------------------ |
-| Port               | `options.port`, else `DAG_RUNTIME_SERVER_PORT`, else `3939`                                |
-| DAG storage root   | `DAG_STORAGE_ROOT`, else `$XDG_DATA_HOME/robota-dag/storage`, else `~/.robota-dag/storage` |
-| Asset storage root | `ASSET_STORAGE_ROOT`, else `$XDG_DATA_HOME/robota-dag/assets`, else `~/.robota-dag/assets` |
-| Execution root     | The server process's working directory                                                     |
+| Setting            | Source                                                               |
+| ------------------ | -------------------------------------------------------------------- |
+| Port               | `options.port`, else `options.environment.DAG_RUNTIME_SERVER_PORT`, else `3939` |
+| DAG storage root   | `DAG_STORAGE_ROOT`, else `options.userStateRoot/dag/storage`        |
+| Asset storage root | `ASSET_STORAGE_ROOT`, else `options.userStateRoot/dag/assets`       |
+| Execution root     | The server process's working directory                               |
 
 The routes themselves are defined in [`src/app.ts`](../src/app.ts) and
 [`src/asset-routes.ts`](../src/asset-routes.ts).

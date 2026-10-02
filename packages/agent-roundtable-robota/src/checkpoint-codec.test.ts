@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
-import { RobotaParticipantError } from './errors';
+import { RuntimeParticipantError } from './errors';
 import {
-  ROBOTA_AGENT_CHECKPOINT_VERSION,
-  ROBOTA_SESSION_CHECKPOINT_VERSION,
+  RUNTIME_AGENT_CHECKPOINT_VERSION,
+  AGENT_SESSION_CHECKPOINT_VERSION,
   decodeAgentCheckpoint,
   decodeSessionCheckpoint,
   encodeAgentCheckpoint,
@@ -22,6 +22,16 @@ function message(overrides: Partial<TUniversalMessage> = {}): TUniversalMessage 
 }
 
 describe('session checkpoint codec (robota-session/1)', () => {
+  it('restores a literal legacy parked approval checkpoint', () => {
+    const data = {
+      sessionId: 'saved',
+      cwd: '/work',
+      firstTurnDone: false,
+      history: null,
+      pending: { executionId: 'exec-legacy', requestIds: ['approval-legacy'] },
+    };
+    expect(decodeSessionCheckpoint({ version: 'robota-session/1', data })).toEqual(data);
+  });
   it('round-trips a settled checkpoint, including message Date timestamps', () => {
     const checkpoint = encodeSessionCheckpoint({
       sessionId: 'sess-1',
@@ -30,7 +40,7 @@ describe('session checkpoint codec (robota-session/1)', () => {
       history: [message()],
       pending: null,
     });
-    expect(checkpoint.version).toBe(ROBOTA_SESSION_CHECKPOINT_VERSION);
+    expect(checkpoint.version).toBe(AGENT_SESSION_CHECKPOINT_VERSION);
     const decoded = decodeSessionCheckpoint(checkpoint);
     expect(decoded.history?.[0].timestamp).toBeInstanceOf(Date);
     expect(decoded).toEqual({
@@ -60,13 +70,13 @@ describe('session checkpoint codec (robota-session/1)', () => {
   });
 
   it('rejects an unsupported version', () => {
-    expect(() => decodeSessionCheckpoint({ version: 'robota-session/2', data: {} })).toThrowError(
-      RobotaParticipantError,
+    expect(() => decodeSessionCheckpoint({ version: 'agent-session/2', data: {} })).toThrowError(
+      RuntimeParticipantError,
     );
     try {
-      decodeSessionCheckpoint({ version: 'robota-session/2', data: {} });
+      decodeSessionCheckpoint({ version: 'agent-session/2', data: {} });
     } catch (error) {
-      expect((error as RobotaParticipantError).code).toBe('checkpoint-invalid');
+      expect((error as RuntimeParticipantError).code).toBe('checkpoint-invalid');
     }
   });
 
@@ -83,8 +93,8 @@ describe('session checkpoint codec (robota-session/1)', () => {
     },
   ])('rejects malformed checkpoint data %#', (data) => {
     expect(() =>
-      decodeSessionCheckpoint({ version: ROBOTA_SESSION_CHECKPOINT_VERSION, data }),
-    ).toThrowError(RobotaParticipantError);
+      decodeSessionCheckpoint({ version: AGENT_SESSION_CHECKPOINT_VERSION, data }),
+    ).toThrowError(RuntimeParticipantError);
   });
 
   // Optional: `{ "$date": "..." }` is also a value a tool's saved arguments could genuinely
@@ -151,26 +161,29 @@ describe('session checkpoint codec (robota-session/1)', () => {
 });
 
 describe('agent checkpoint codec (robota-agent/1)', () => {
+  it('restores a literal legacy settled agent checkpoint', () => {
+    expect(decodeAgentCheckpoint({ version: 'robota-agent/1', data: [] })).toEqual([]);
+  });
   it('round-trips a history array, including Date timestamps', () => {
     const checkpoint = encodeAgentCheckpoint([message(), message({ id: 'm2', role: 'user' })]);
-    expect(checkpoint.version).toBe(ROBOTA_AGENT_CHECKPOINT_VERSION);
+    expect(checkpoint.version).toBe(RUNTIME_AGENT_CHECKPOINT_VERSION);
     const decoded = decodeAgentCheckpoint(checkpoint);
     expect(decoded).toEqual([message(), message({ id: 'm2', role: 'user' })]);
     expect(decoded[0].timestamp).toBeInstanceOf(Date);
   });
 
   it('rejects an unsupported version', () => {
-    expect(() => decodeAgentCheckpoint({ version: 'robota-agent/2', data: [] })).toThrowError(
-      RobotaParticipantError,
+    expect(() => decodeAgentCheckpoint({ version: 'agent-agent/2', data: [] })).toThrowError(
+      RuntimeParticipantError,
     );
   });
 
   it('rejects malformed data', () => {
     expect(() =>
       decodeAgentCheckpoint({
-        version: ROBOTA_AGENT_CHECKPOINT_VERSION,
+        version: RUNTIME_AGENT_CHECKPOINT_VERSION,
         data: { not: 'an array' },
       }),
-    ).toThrowError(RobotaParticipantError);
+    ).toThrowError(RuntimeParticipantError);
   });
 });

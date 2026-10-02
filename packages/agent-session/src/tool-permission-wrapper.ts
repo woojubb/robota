@@ -6,6 +6,8 @@ import {
   isAbortFailure,
   TOOL_BODY_EVENTS,
   TOOL_PERMISSION_EVENTS,
+  snapshotToolProvenance,
+  withToolProvenance,
 } from '@robota-sdk/agent-core';
 import { canonicaliseToolArguments } from './tool-argument-canonicalisation.js';
 import {
@@ -94,6 +96,15 @@ export function wrapToolWithPermission(
 ): IToolWithEventService {
   const originalExecute = tool.execute.bind(tool);
   const originalExecuteWithAdmission = tool.executeWithAdmission?.bind(tool);
+  const provenance = snapshotToolProvenance(tool.provenance);
+  const onToolExecution: IToolWrapperDeps['onToolExecution'] = (event) => {
+    if (event.type !== 'end' || !provenance) return enforcer.onToolExecution?.(event);
+    const observation = withToolProvenance(
+      { success: event.success ?? false, parts: event.toolResultParts },
+      provenance,
+    );
+    enforcer.onToolExecution?.({ ...event, toolResultParts: observation.parts });
+  };
   // What this session gave the tool with `setEventService`. The tool instance may be shared with
   // other sessions, and the service set on it is whichever session set one last, so each call
   // carries this one instead. Until the session sets one, calls carry the no-op service: its calls
@@ -101,6 +112,7 @@ export function wrapToolWithPermission(
   let sessionEventService: IEventService = DEFAULT_ABSTRACT_EVENT_SERVICE;
 
   const wrappedTool = Object.create(tool) as IToolWithEventService;
+  Object.defineProperty(wrappedTool, 'provenance', { value: provenance, enumerable: true });
   const execute = async (
     rawParameters: TToolParameters,
     context?: IToolExecutionContext,
@@ -163,7 +175,7 @@ export function wrapToolWithPermission(
       if (verdict !== true) {
         enforcer.log('tool_denied', { tool: toolName, reason: 'permission' });
         emitPermissionDecision(context, 'denied');
-        enforcer.onToolExecution?.({
+        onToolExecution({
           type: 'end',
           toolName,
           toolArgs: parameters as TToolArgs,
@@ -179,7 +191,7 @@ export function wrapToolWithPermission(
 
       emitPermissionDecision(context, 'allowed');
       context?.signal?.throwIfAborted();
-      enforcer.onToolExecution?.({
+      onToolExecution({
         type: 'start',
         toolName,
         toolArgs: structuredClone(parameters) as TToolArgs,
@@ -303,7 +315,7 @@ export function wrapToolWithPermission(
         );
       }
 
-      enforcer.onToolExecution?.({
+      onToolExecution({
         type: 'end',
         toolName,
         toolArgs: parameters as TToolArgs,
@@ -312,6 +324,7 @@ export function wrapToolWithPermission(
           typeof truncatedResult.data === 'string'
             ? truncatedResult.data
             : JSON.stringify(truncatedResult.data),
+        toolResultParts: truncatedResult.parts,
         executionId: context?.executionId,
       });
 
@@ -337,7 +350,7 @@ export function wrapToolWithPermission(
       if (isExecutionControlError(err)) throw err;
       if (err instanceof DeferredPermissionRefusal) return err.result;
       // CORE-027 — beside the envelope it returns, in `permission-types.ts`.
-      return reportToolCrash(err, enforcer.onToolExecution, {
+      return reportToolCrash(err, onToolExecution, {
         toolName,
         toolArgs: parameters as TToolArgs,
         executionId: context?.executionId,
@@ -345,8 +358,10 @@ export function wrapToolWithPermission(
     }
   };
 
-  wrappedTool.execute = execute;
-  wrappedTool.executeWithAdmission = execute;
+  const executeAttributed: typeof execute = async (...args) =>
+    withToolProvenance(await execute(...args), provenance);
+  wrappedTool.execute = executeAttributed;
+  wrappedTool.executeWithAdmission = executeAttributed;
 
   // SELFHOST-004: kept for the calls above, and still forwarded to the original tool, because
   // `Object.create(tool)` would otherwise shadow it onto the wrapper: a tool that reads only the

@@ -2,8 +2,10 @@
 
 ## Purpose
 
-OpenAI-compatible providers (DeepSeek, Qwen, Gemma) plus the shared OpenAI-compatible protocol
-implementation used by them and by `@robota-sdk/agent-provider-openai`. Users who need a provider
+OpenAI-compatible providers (DeepSeek, Qwen, Gemma) and the shared protocol implementation used by
+them and by `@robota-sdk/agent-provider-openai` preserve admitted observations, call identity
+and host source attribution without treating the wire role of native vision data as contributor
+authority. Users who need a provider
 not included here can implement `IAIProvider` from `@robota-sdk/agent-core` and register it
 directly.
 

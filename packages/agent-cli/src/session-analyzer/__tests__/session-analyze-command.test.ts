@@ -1,6 +1,6 @@
 /**
  * OBS-001 integration tests: the `session analyze` command must read sessions from the
- * PROJECT store (cwd/.robota/sessions) — where print/TUI actually persist them — as well as
+ * PROJECT store (cwd/the configured project directory/sessions) — where print/TUI actually persist them — as well as
  * the user level, and its --last/--session flags must work. These cover the two integration
  * bugs that the parser/reporter unit tests could not catch (TC-01/02/06/07).
  */
@@ -54,8 +54,8 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
   let exitCode: number | undefined;
 
   beforeEach(() => {
-    home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-obs-home-')));
-    project = realpathSync(mkdtempSync(join(tmpdir(), 'robota-obs-proj-')));
+    home = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-obs-home-')));
+    project = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-obs-proj-')));
     stdout = [];
     stderr = [];
     exitCode = undefined;
@@ -81,8 +81,8 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
 
   async function run(
     argv: string[],
-    store = createNodeHostSessionStore(join(project, '.robota', 'sessions')),
-    userStore = createNodeHostSessionStore(join(home, '.robota', 'sessions')),
+    store = createNodeHostSessionStore(join(project, '.test-product', 'sessions')),
+    userStore = createNodeHostSessionStore(join(home, '.test-product', 'sessions')),
   ): Promise<void> {
     try {
       await runSessionAnalyze(argv, project, store, userStore);
@@ -92,7 +92,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
   }
 
   it('TC-01: analyzes the most recent PROJECT-level session (the real storage location)', async () => {
-    writeSession(join(project, '.robota', 'sessions'), 'session_1781000001000_aaa', project);
+    writeSession(join(project, '.test-product', 'sessions'), 'session_1781000001000_aaa', project);
 
     await run([]);
 
@@ -103,7 +103,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
   });
 
   it('TC-02: --last aggregates multiple sessions (flag is delivered, not rejected)', async () => {
-    const dir = join(project, '.robota', 'sessions');
+    const dir = join(project, '.test-product', 'sessions');
     writeSession(dir, 'session_1781000001000_aaa', project);
     writeSession(dir, 'session_1781000002000_bbb', project);
 
@@ -124,7 +124,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
   });
 
   it('TC-07: --session <prefix> selects a specific session', async () => {
-    const dir = join(project, '.robota', 'sessions');
+    const dir = join(project, '.test-product', 'sessions');
     writeSession(dir, 'session_1781000001000_aaa', project);
     writeSession(dir, 'session_1781000002000_bbb', project);
     const store = createNodeHostSessionStore(dir);
@@ -140,8 +140,8 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
 
   it('loads an exact session id without enumerating the project store', async () => {
     const id = 'session_1781000002000_bbb';
-    const dir = join(project, '.robota', 'sessions');
-    writeSession(join(home, '.robota', 'sessions'), id, home);
+    const dir = join(project, '.test-product', 'sessions');
+    writeSession(join(home, '.test-product', 'sessions'), id, home);
     writeSession(dir, id, project);
     const store = createNodeHostSessionStore(dir);
     const list = vi.spyOn(store, 'list').mockImplementation(() => {
@@ -158,10 +158,10 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
 
   it('loads an exact session from the injected user store without enumerating either store', async () => {
     const id = 'session_1781000002000_user';
-    const userDirectory = join(home, '.robota', 'sessions');
+    const userDirectory = join(home, '.test-product', 'sessions');
     writeSession(userDirectory, id, home);
     const userStore = createNodeHostSessionStore(userDirectory);
-    const projectStore = createNodeHostSessionStore(join(project, '.robota', 'sessions'));
+    const projectStore = createNodeHostSessionStore(join(project, '.test-product', 'sessions'));
     const userList = vi.spyOn(userStore, 'list').mockImplementation(() => {
       throw new Error('exact lookup enumerated the injected user store');
     });
@@ -179,7 +179,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
   });
 
   it('TC-07b: --session with an unknown id → error + exit 1', async () => {
-    writeSession(join(project, '.robota', 'sessions'), 'session_1781000001000_aaa', project);
+    writeSession(join(project, '.test-product', 'sessions'), 'session_1781000001000_aaa', project);
 
     await run(['--session', 'doesnotexist']);
 
@@ -188,7 +188,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
   });
 
   it('does not send an unsafe session selector to an exact store lookup', async () => {
-    const dir = join(project, '.robota', 'sessions');
+    const dir = join(project, '.test-product', 'sessions');
     writeSession(dir, 'session_1781000001000_aaa', project);
     const store = createNodeHostSessionStore(dir);
     const load = vi.spyOn(store, 'load');
@@ -210,8 +210,8 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
   });
 
   it('merges user-level and project-level sessions (project wins on id collision)', async () => {
-    writeSession(join(home, '.robota', 'sessions'), 'session_1781000000500_user', project);
-    writeSession(join(project, '.robota', 'sessions'), 'session_1781000003000_proj', project);
+    writeSession(join(home, '.test-product', 'sessions'), 'session_1781000000500_user', project);
+    writeSession(join(project, '.test-product', 'sessions'), 'session_1781000003000_proj', project);
 
     await run(['--last', '10']);
 
@@ -257,7 +257,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
         },
       ],
     };
-    const dir = join(project, '.robota', 'sessions');
+    const dir = join(project, '.test-product', 'sessions');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, `${id}.json`), JSON.stringify({ schemaVersion: 1, record }), 'utf8');
     const store = createNodeHostSessionStore(dir);

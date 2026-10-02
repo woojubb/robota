@@ -83,7 +83,7 @@ export { ScriptKind, SyntaxKind };
  * A directory no tsconfig in this repo covers, so every file presented here resolves to tsgo's
  * inferred project rather than pulling a configured project into memory.
  */
-const VIRTUAL_ROOT = '/__robota_ts_ast__';
+const VIRTUAL_ROOT = '/__agent_runtime_ts_ast__';
 
 /** Virtual path → source text. Only the files this module has parsed are ever present. */
 const virtualFiles = new Map();

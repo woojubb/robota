@@ -1,7 +1,7 @@
 /**
  * INFRA-018: deterministic conversation through the real binary via `--session-log` (replay).
  *
- * Runs in the PTY vitest project against the BUILT robota CLI. Boots with
+ * Runs in the PTY vitest project against the BUILT CLI. Boots with
  * `--session-log <fixture>` so the INFRA-017 ReplayProvider answers from a recorded log (no model
  * key, no network), sends a user message, and asserts the recorded assistant response renders and
  * commits to `<Static>` scrollback while the input stays pinned — closing SCREEN-010 TC-02/03
@@ -30,7 +30,7 @@ describe('replay conversation through the real binary (INFRA-018)', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-replay-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-replay-pty-')));
     writeTuiProviderSettings(projectDir); // dummy provider profile so the CLI boots; key never used
   });
 

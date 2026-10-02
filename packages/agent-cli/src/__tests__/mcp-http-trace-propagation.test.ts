@@ -78,7 +78,7 @@ describe('MCP HTTP trace propagation through a real session', () => {
   let supervisor: MCPConnectionSupervisor;
 
   beforeEach(async () => {
-    home = mkdtempSync(join(tmpdir(), 'robota-mcp-traceparent-'));
+    home = mkdtempSync(join(tmpdir(), 'test-product-mcp-traceparent-'));
     vi.stubEnv('HOME', home);
     server = await startFakeMcpServer();
     const admission = await admitHttpEndpoint(

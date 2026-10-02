@@ -3,6 +3,11 @@ import { spawn } from 'node:child_process';
 
 import { DEFAULT_INHERITED_ENV_VARS } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { deserializeMessage, serializeMessage } from '@modelcontextprotocol/sdk/shared/stdio.js';
+import {
+  DEFAULT_MCP_RECEIVE_BYTES,
+  SKILL_RESOURCE_RECEIVE_BYTES,
+  skillReceiveBudgetEnabled,
+} from './receive-budget.js';
 
 import type { IMCPStdioSnapshot } from './stdio-types.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
@@ -10,7 +15,6 @@ import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 
 const MAX_STDERR_COUNT = 65_536;
-const MAX_STDOUT_MESSAGE_BYTES = 8 * 1024 * 1024;
 
 export class MCPStdioError extends Error {
   constructor(
@@ -60,6 +64,7 @@ export class MCPStdioTransport implements Transport {
   private stderrTruncated = false;
   private stdoutParts: Buffer[] = [];
   private stdoutBytes = 0;
+  private readonly resourceReads = new Set<string | number>();
   private resolveChildClose?: () => void;
   private readonly childClose = new Promise<void>((resolve) => {
     this.resolveChildClose = resolve;
@@ -103,7 +108,11 @@ export class MCPStdioTransport implements Transport {
       const newline = chunk.indexOf(10, offset);
       const end = newline < 0 ? chunk.length : newline;
       const part = chunk.subarray(offset, end);
-      if (this.stdoutBytes + part.length > MAX_STDOUT_MESSAGE_BYTES) {
+      const maxBytes =
+        skillReceiveBudgetEnabled(this) && this.resourceReads.size > 0
+          ? SKILL_RESOURCE_RECEIVE_BYTES
+          : DEFAULT_MCP_RECEIVE_BYTES;
+      if (this.stdoutBytes + part.length > maxBytes) {
         this.onerror?.(new MCPStdioError('receive-limit'));
         void this.close().catch(() => this.onerror?.(new MCPStdioError('cleanup')));
         return;
@@ -111,13 +120,24 @@ export class MCPStdioTransport implements Transport {
       this.stdoutParts.push(part);
       this.stdoutBytes += part.length;
       if (newline >= 0) {
+        const lineBytes = this.stdoutBytes;
         const line = Buffer.concat(this.stdoutParts, this.stdoutBytes)
           .toString('utf8')
           .replace(/\r$/u, '');
         this.stdoutParts = [];
         this.stdoutBytes = 0;
         try {
-          this.onmessage?.(deserializeMessage(line));
+          const message = deserializeMessage(line);
+          const resourceRead =
+            'id' in message && message.id !== undefined && this.resourceReads.has(message.id);
+          if (lineBytes > DEFAULT_MCP_RECEIVE_BYTES && !resourceRead) {
+            this.onerror?.(new MCPStdioError('receive-limit'));
+            void this.close().catch(() => this.onerror?.(new MCPStdioError('cleanup')));
+            return;
+          }
+          if ('id' in message && message.id !== undefined && !('method' in message))
+            this.resourceReads.delete(message.id);
+          this.onmessage?.(message);
         } catch {
           this.onerror?.(new MCPStdioError('receive-invalid'));
           void this.close().catch(() => this.onerror?.(new MCPStdioError('cleanup')));
@@ -174,6 +194,13 @@ export class MCPStdioTransport implements Transport {
   async send(message: JSONRPCMessage): Promise<void> {
     const child = this.child;
     if (child === undefined || this.childClosed) throw new MCPStdioError('send');
+    if (
+      'method' in message &&
+      message.method === 'resources/read' &&
+      'id' in message &&
+      skillReceiveBudgetEnabled(this)
+    )
+      this.resourceReads.add(message.id);
     try {
       await new Promise<void>((resolve, reject) => {
         child.stdin.write(serializeMessage(message), (error) => {
@@ -196,6 +223,7 @@ export class MCPStdioTransport implements Transport {
     const child = this.child;
     this.stdoutParts = [];
     this.stdoutBytes = 0;
+    this.resourceReads.clear();
     if (child === undefined) {
       this.notifyClose();
       return;

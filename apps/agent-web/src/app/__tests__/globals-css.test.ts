@@ -10,7 +10,7 @@ import path from 'node:path';
 const entry = readFileSync(path.join(__dirname, '..', 'globals.css'), 'utf8');
 
 describe('the Tailwind entry', () => {
-  it('imports the surface styles scoped to .robota-ui, not the whole-page theme', () => {
+  it('imports the surface styles scoped to .agent-ui, not the whole-page theme', () => {
     expect(entry).toContain("@import '@robota-sdk/agent-ui-web/styles/surface.css';");
     expect(entry).not.toContain('agent-ui-web/styles/theme.css');
   });

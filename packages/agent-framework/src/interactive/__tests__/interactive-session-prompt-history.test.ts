@@ -41,7 +41,7 @@ function recorder(writer: IPromptHistoryWriter, notify = vi.fn()) {
 }
 
 /** The session's working directory: private to this run, never a fixed name under /tmp. */
-const PROJECT_DIR = mkdtempSync(join(tmpdir(), 'robota-prompt-history-'));
+const PROJECT_DIR = mkdtempSync(join(tmpdir(), 'agent-prompt-history-'));
 afterAll(() => rmSync(PROJECT_DIR, { recursive: true, force: true }));
 
 describe('createPromptHistoryRecorder (SCREEN-1993 TC-02)', () => {

@@ -21,16 +21,16 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { installCli, runCli } from '../src/node-io.mjs';
 
-/** A package directory whose `robota` command prints `ran:<label>` and its argv. */
+/** A package directory whose `agent` command prints `ran:<label>` and its argv. */
 function writeFakeCli(packageDir: string, label: string, marker?: string): void {
   mkdirSync(join(packageDir, 'bin'), { recursive: true });
   writeFileSync(
     join(packageDir, 'package.json'),
-    JSON.stringify({ name: '@robota-sdk/agent-cli', bin: { robota: 'bin/robota.cjs' } }),
+    JSON.stringify({ name: '@robota-sdk/agent-cli', bin: { agent: 'bin/agent.cjs' } }),
   );
   const touch = marker ? `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'x');` : '';
   writeFileSync(
-    join(packageDir, 'bin', 'robota.cjs'),
+    join(packageDir, 'bin', 'agent.cjs'),
     `${touch}process.stdout.write('ran:${label} ' + JSON.stringify(process.argv.slice(2)));\n`,
   );
 }
@@ -66,20 +66,20 @@ describe('installing and running the CLI next to an untrusted checkout', () => {
 
     const entry = installCli(
       '@robota-sdk/agent-cli@latest',
-      {},
+      { PRODUCT_PACKAGE_SCOPE: '@robota-sdk', PRODUCT_CLI_NAME: 'agent' },
       {
         tempDir: temp,
         runNpm: (file, args, options) => {
           calls.push({ file, args, cwd: options.cwd });
           writeFakeCli(
-            join(temp, 'robota-cli', 'node_modules', '@robota-sdk', 'agent-cli'),
+            join(temp, 'action-cli', 'node_modules', '@robota-sdk', 'agent-cli'),
             'installed',
           );
         },
       },
     );
 
-    const prefix = join(temp, 'robota-cli');
+    const prefix = join(temp, 'action-cli');
     expect(calls).toEqual([
       {
         file: 'npm',
@@ -93,16 +93,30 @@ describe('installing and running the CLI next to an untrusted checkout', () => {
       },
     ]);
     expect(entry).toBe(
-      join(prefix, 'node_modules', '@robota-sdk', 'agent-cli', 'bin', 'robota.cjs'),
+      join(prefix, 'node_modules', '@robota-sdk', 'agent-cli', 'bin', 'agent.cjs'),
     );
   });
 
+  it.each(['cedar.agent', 'Cedar_Agent', 'agent-2', '7agent'])('installs the centrally valid command %s', (cliName) => {
+    const entry = installCli('@robota-sdk/agent-cli@latest', {
+      PRODUCT_PACKAGE_SCOPE: '@robota-sdk', PRODUCT_CLI_NAME: cliName,
+    }, {
+      tempDir: temp,
+      runNpm: () => {
+        const packageDir = join(temp, 'action-cli', 'node_modules', '@robota-sdk', 'agent-cli');
+        writeFakeCli(packageDir, 'installed');
+        writeFileSync(join(packageDir, 'package.json'), JSON.stringify({ bin: { [cliName]: 'bin/agent.cjs' } }));
+      },
+    });
+    expect(runCli(entry, [], { PATH: process.env.PATH }, checkout)).toBe('ran:installed []');
+  });
+
   it('runs the installed CLI in the checkout, not the copy the checkout carries', () => {
-    const installed = join(temp, 'robota-cli', 'node_modules', '@robota-sdk', 'agent-cli');
+    const installed = join(temp, 'action-cli', 'node_modules', '@robota-sdk', 'agent-cli');
     writeFakeCli(installed, 'installed');
 
     const stdout = runCli(
-      join(installed, 'bin', 'robota.cjs'),
+      join(installed, 'bin', 'agent.cjs'),
       ['--safe-mode', '-p', '--', 'hi; touch x'],
       { PATH: process.env.PATH },
       checkout,

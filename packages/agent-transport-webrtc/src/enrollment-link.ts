@@ -23,7 +23,7 @@ import type { IMeshRelay } from './mesh-relay.js';
 import type { IIceServer } from './webrtc-transport-options.js';
 
 const SIGNAL_VERSION = 1;
-const CHANNEL_LABEL = 'robota-enroll';
+const CHANNEL_LABEL = 'agent-enroll';
 const DEFAULT_CONNECT_TIMEOUT_MS = 20_000;
 const MAX_CANDIDATES = 64;
 /** Frames kept for a consumer that has not subscribed yet; an enrollment says a handful. */

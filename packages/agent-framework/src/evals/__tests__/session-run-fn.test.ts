@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createSessionRunFn } from '../session-run-fn.js';
 
 import type { IExecutionResult } from '../../interactive/types.js';
-import type { IAgentRuntime } from '../../runtime/agent-runtime.js';
+import type { IAgentRuntime } from '../../runtime/session-runtime.js';
 
 /**
  * SELFHOST-011 P1 — the default eval `runFn` event wiring (review CONSIDER: cover the leak/error/interrupted

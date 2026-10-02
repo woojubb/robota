@@ -20,7 +20,7 @@ The provider packages (`@robota-sdk/agent-provider-anthropic`, `-openai`, `-gemi
 Look up a chat provider definition by type and build the provider from it:
 
 ```typescript
-import { Robota, findProviderDefinition, resolveEnvReference } from '@robota-sdk/agent-core';
+import { ConversationAgent, findProviderDefinition, resolveEnvReference } from '@robota-sdk/agent-core';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 
 const definition = findProviderDefinition(createDefaultProviderDefinitions(), 'anthropic');
@@ -32,7 +32,7 @@ const apiKey = resolveEnvReference(definition.defaults?.apiKey ?? '');
 
 const provider = definition.createProvider({ name: definition.type, model, apiKey });
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'MyAgent',
   aiProviders: [provider],
   defaultModel: { provider: provider.name, model },
@@ -170,7 +170,7 @@ It checks the DeepSeek definition from `@robota-sdk/agent-provider-openai-compat
 name, default model, API-key reference and base URL, active and deprecated catalog models) and
 DeepSeek's place in `createDefaultProviderDefinitions()`. It creates no provider and sends no
 request; a failed check exits nonzero. The CLI's use of the same definitions is tested separately in
-[`robota-assembly-equivalence.test.ts`](../agent-cli/src/__tests__/robota-assembly-equivalence.test.ts),
+[`product-assembly-equivalence.test.ts`](../agent-cli/src/__tests__/product-assembly-equivalence.test.ts),
 under `offers the same provider surface`.
 
 ## Related packages
@@ -191,4 +191,4 @@ See [docs/SPEC.md](docs/SPEC.md) for the package contract.
 
 ## License
 
-Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

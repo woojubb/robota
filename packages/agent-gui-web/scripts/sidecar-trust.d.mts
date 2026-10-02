@@ -8,5 +8,5 @@ export function shouldAskToTrust(
   status: ISidecarTrustStatus | undefined,
   interactive: boolean,
 ): boolean;
-export function trustQuestionLines(status: ISidecarTrustStatus, limit?: number): string[];
+export function trustQuestionLines(status: ISidecarTrustStatus, cliName: string, limit?: number): string[];
 export function sidecarTrustDecision(answer: string): 'trust' | 'restricted' | 'quit';

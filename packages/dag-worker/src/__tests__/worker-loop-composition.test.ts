@@ -116,7 +116,7 @@ describe('createWorkerLoopService', () => {
     expect(retriedMessage).toBeUndefined();
   });
 
-  it.each([undefined, '', '.', '/definitely/missing/robota-execution-root'])(
+  it.each([undefined, '', '.', '/definitely/missing/agent-test-execution-root'])(
     'rejects an invalid execution root before polling the queue: %s',
     (executionRoot) => {
       const storage = new InMemoryStoragePort();

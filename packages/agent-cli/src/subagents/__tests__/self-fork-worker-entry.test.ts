@@ -39,11 +39,11 @@ afterEach(() => {
 
 describe('resolveSelfForkWorkerEntry', () => {
   it('names the entry file for a bundled Node artifact', () => {
-    withEntry('/opt/robota/dist/node/bin.js');
+    withEntry('/opt/test-product/dist/node/bin.js');
 
     expect(resolveSelfForkWorkerEntry()).toEqual({
       execPath: process.execPath,
-      args: ['/opt/robota/dist/node/bin.js'],
+      args: ['/opt/test-product/dist/node/bin.js'],
     });
   });
 
@@ -91,7 +91,7 @@ describe('resolveSelfForkWorkerEntry', () => {
   });
 
   it('does not add a loader for a compiled entry', () => {
-    withEntry('/opt/robota/dist/node/bin.js', ['--enable-source-maps']);
+    withEntry('/opt/test-product/dist/node/bin.js', ['--enable-source-maps']);
 
     expect(resolveSelfForkWorkerEntry().execArgv).toBeUndefined();
   });

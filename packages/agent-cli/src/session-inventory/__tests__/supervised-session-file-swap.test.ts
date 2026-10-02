@@ -49,9 +49,9 @@ function grant(grantId: string): IExternalEventGrant {
     grantId,
     verifier: {
       issuer: 'https://issuer.example',
-      resource: `https://robota.example/events/${grantId}`,
+      resource: `https://test-product.example/events/${grantId}`,
       algorithms: ['ES256'],
-      requiredScopes: ['robota.events.submit'],
+      requiredScopes: ['test-product.events.submit'],
       allowedClients: ['ci-bot'],
     },
     kinds: ['message'],

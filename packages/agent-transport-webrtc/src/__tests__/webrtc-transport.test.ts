@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-transport/testing';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
@@ -59,7 +61,7 @@ function connectRemote(signaling: ISignalingClient): Promise<Record<string, unkn
 
 describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
   it('accepts only the protocol session roles required by the carrier', () => {
-    const transport = new WebRtcTransport({
+    const transport = new WebRtcTransport({cryptoContext: testIdentity,
       signaling: createInMemorySignalingPair()[0],
       open: true,
       openReason: 'type compatibility test',
@@ -70,7 +72,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
 
   it('has the collapsed webrtc metadata and is disabled by default', () => {
     const [sig] = createInMemorySignalingPair();
-    const t = new WebRtcTransport({
+    const t = new WebRtcTransport({cryptoContext: testIdentity,
       signaling: sig,
       open: true,
       openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing',
@@ -81,7 +83,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
 
   it('start() before attach() throws', async () => {
     const [sig] = createInMemorySignalingPair();
-    const t = new WebRtcTransport({
+    const t = new WebRtcTransport({cryptoContext: testIdentity,
       signaling: sig,
       open: true,
       openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing',
@@ -113,7 +115,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
     });
     const onDeliveryError = vi.fn();
     const onDropped = vi.fn();
-    const transport = new WebRtcTransport({
+    const transport = new WebRtcTransport({cryptoContext: testIdentity,
       signaling: { send: () => {}, onSignal: () => () => {}, close: () => {} },
       open: true,
       openReason: 'delivery lifecycle regression',
@@ -181,7 +183,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
       close: () => {},
     };
     const fake = fakeDataChannel({ setRemoteDescription });
-    const transport = new WebRtcTransport({
+    const transport = new WebRtcTransport({cryptoContext: testIdentity,
       signaling,
       secret: 'pairing-secret',
       onDropped,
@@ -220,7 +222,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
       subjectId: '@robota-sdk/agent-transport-webrtc#WebRtcTransport',
       kind: 'service',
       createAdapter: () =>
-        new WebRtcTransport({
+        new WebRtcTransport({cryptoContext: testIdentity,
           signaling,
           open: true,
           openReason: 'ARCH-011 lifecycle conformance',
@@ -238,7 +240,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
     // A fake module captures the configuration (a real relay-only peer with a dead TURN would never gather).
     const fake = fakeDataChannel();
     const [sig] = createInMemorySignalingPair();
-    const t = new WebRtcTransport({
+    const t = new WebRtcTransport({cryptoContext: testIdentity,
       open: true,
       openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing',
       signaling: sig,
@@ -271,7 +273,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
   it('contacts no ICE server unless one is configured', async () => {
     const fake = fakeDataChannel();
     const [sig] = createInMemorySignalingPair();
-    const t = new WebRtcTransport({
+    const t = new WebRtcTransport({cryptoContext: testIdentity,
       open: true,
       openReason: 'configuration test',
       signaling: sig,
@@ -286,7 +288,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
   it('TC-03: establishes an RTCDataChannel between two peers and round-trips TClient→session→TServer through the shared handler', async () => {
     const [hostSig, remoteSig] = createInMemorySignalingPair();
     const session = createStubSession();
-    const host = new WebRtcTransport({
+    const host = new WebRtcTransport({cryptoContext: testIdentity,
       signaling: hostSig,
       open: true,
       openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing',

@@ -662,6 +662,36 @@ describe('execution-round helpers', () => {
       );
     });
 
+    it('does not serialize omitted payloads while retaining their successful outcome', () => {
+      const serialize = vi.fn(() => {
+        throw new Error('Omitted payload must not be serialized');
+      });
+      const toolCalls = ['Read', 'Write'].map((name, index) => ({
+        id: `tc-${index}`,
+        type: 'function' as const,
+        function: { name, arguments: '{}' },
+      }));
+      const messages: Array<{ role: string; content: string }> = [];
+      const session = {
+        getMessages: () => messages,
+        addToolMessageWithId: vi.fn((content: string) => messages.push({ role: 'tool', content })),
+      };
+      expect(() => addToolResultsToHistory(
+        toolCalls,
+        { results: [
+          { executionId: 'tc-0', toolName: 'Read', success: true, result: 'x'.repeat(4000) },
+          { executionId: 'tc-1', toolName: 'Write', success: true, result: { toJSON: serialize } },
+        ], errors: [] },
+        session as any, 1, logger, { contextLimit: 1000, cumulativeInputTokens: 0 },
+      )).not.toThrow();
+      expect(serialize).not.toHaveBeenCalled();
+      expect(session.addToolMessageWithId).toHaveBeenCalledTimes(2);
+      expect(session.addToolMessageWithId.mock.calls[1]).toEqual([
+        expect.stringContaining('completed successfully'), 'tc-1', 'Write',
+        expect.objectContaining({ success: true, resultOmitted: true, observationError: 'context_overflow' }),
+      ]);
+    });
+
     it('does not skip when context budget has enough room', () => {
       const toolCalls = [
         { id: 'tc-1', type: 'function' as const, function: { name: 'Read', arguments: '{}' } },
@@ -729,7 +759,7 @@ describe('execution-round helpers', () => {
       );
     });
 
-    it('skipped tool results have context_overflow error metadata', () => {
+    it('omitted result content preserves success with separate observation metadata', () => {
       const toolCalls = [
         { id: 'tc-1', type: 'function' as const, function: { name: 'Read', arguments: '{}' } },
         { id: 'tc-2', type: 'function' as const, function: { name: 'Bash', arguments: '{}' } },
@@ -758,12 +788,13 @@ describe('execution-round helpers', () => {
         cumulativeInputTokens: 0,
       });
 
-      // Second call (skipped) should have context_overflow metadata
+      // The second tool completed; only its observation was omitted.
       const skippedCall = session.addToolMessageWithId.mock.calls[1];
       expect(skippedCall[3]).toEqual(
         expect.objectContaining({
-          success: false,
-          error: 'context_overflow',
+          success: true,
+          resultOmitted: true,
+          observationError: 'context_overflow',
           toolName: 'Bash',
         }),
       );

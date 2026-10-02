@@ -66,7 +66,7 @@ export default async function ShowcasePage({ params }: { params: Promise<{ local
         <p className="text-sm text-[var(--muted-foreground)] mb-3">
           {t('submitDescription')}{' '}
           <a
-            href="https://github.com/woojubb/robota"
+            href="__PROJECT_REPOSITORY_URL__"
             target="_blank"
             rel="noopener noreferrer"
             className="text-[var(--primary)] hover:underline"
@@ -84,7 +84,7 @@ export default async function ShowcasePage({ params }: { params: Promise<{ local
           ))}
         </ul>
         <a
-          href="https://github.com/woojubb/robota/pulls"
+          href="__PROJECT_REPOSITORY_URL__/pulls"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-block rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"

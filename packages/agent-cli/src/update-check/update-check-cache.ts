@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
  * Persistence for the CLI update-check cache: where it lives, how it is read, how it is written.
  *
@@ -30,9 +31,9 @@ export interface IUpdateCheckCache {
   errorMessage?: string;
 }
 export function getUserUpdateCheckCachePath(
-  home = process.env.HOME ?? process.env.USERPROFILE ?? '/',
+  runtime: ICliRuntimeContext,
 ): string {
-  return join(home, '.robota', 'update-check.json');
+  return join(runtime.config.storage.cacheRoot, 'update-check.json');
 }
 export function readUpdateCheckCache(path: string): IUpdateCheckCache | undefined {
   if (!existsSync(path)) {

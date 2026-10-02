@@ -18,6 +18,7 @@ import {
   type IDeviceIdentityState,
 } from '../identity-state.js';
 import { scriptedOperator } from './fake-secret-terminal.js';
+import { createTestRuntimeContext } from './runtime-context-fixture.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
 
@@ -30,14 +31,17 @@ let root: string;
 let directory: string;
 let store: ICredentialStore;
 let clock: number;
+let productRuntime: ReturnType<typeof createTestRuntimeContext>;
 
 beforeEach(async () => {
-  home = mkdtempSync(join(tmpdir(), 'robota-reissue-'));
-  root = join(home, '.robota');
+  home = mkdtempSync(join(tmpdir(), 'agent-fixture-reissue-'));
+  root = join(home, '.agent-fixture');
   directory = join(root, 'devices');
   store = createFileCredentialStore(join(root, 'credentials'), { withinRoot: root });
   clock = START;
+  productRuntime = createTestRuntimeContext(root, 'test-list-reissue');
   const outcome = await createDeviceIdentityService({
+    productRuntime,
     directory,
     withinRoot: root,
     store,
@@ -53,13 +57,13 @@ afterEach(() => {
 });
 
 function state(): IDeviceIdentityState {
-  const current = readIdentityState(directory);
+  const current = readIdentityState(productRuntime.cryptoContext, directory);
   if (current === undefined) throw new Error('no identity state');
   return current;
 }
 
 function reissue() {
-  return reissueDueLists({ directory, withinRoot: root, store, now: () => clock });
+  return reissueDueLists({ productRuntime, directory, withinRoot: root, store, now: () => clock });
 }
 
 describe('revocation list and roster reissue', () => {
@@ -85,7 +89,7 @@ describe('revocation list and roster reissue', () => {
     );
     // What a peer would check a day after the original lists expired.
     clock = START + DAY + 12 * HOUR;
-    const verdict = await verifyDeviceChain({
+    const verdict = await verifyDeviceChain(productRuntime.cryptoContext, {
       masterPublicKey: after.masterPublicKey,
       signingKeyCert: after.signingKeyCertificate,
       deviceCert: after.deviceCertificate,
@@ -124,6 +128,7 @@ describe('revocation list and roster reissue', () => {
     clock = START + 2 * DAY;
     const errors: unknown[] = [];
     const stop = scheduleListReissue({
+      productRuntime,
       directory,
       withinRoot: root,
       store,
@@ -139,6 +144,7 @@ describe('revocation list and roster reissue', () => {
     const reissued: string[] = [];
     clock = START + 2 * DAY;
     const stop = scheduleListReissue({
+      productRuntime,
       directory,
       withinRoot: root,
       store,
@@ -151,6 +157,7 @@ describe('revocation list and roster reissue', () => {
     // Nothing due: nothing said.
     const quiet: string[] = [];
     const again = scheduleListReissue({
+      productRuntime,
       directory,
       withinRoot: root,
       store,

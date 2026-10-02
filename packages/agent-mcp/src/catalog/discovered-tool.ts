@@ -17,6 +17,7 @@ import { admitToolResult } from '@robota-sdk/agent-core';
 import { classifyMcpFailure } from '../supervisor/connection.js';
 import { ThirdPartySchemaValidator } from '../third-party-schema.js';
 import { toUniversalValue } from './universal-value.js';
+import { additionalObservation } from './content-observations.js';
 
 import type { IMCPToolCallResult } from '../client/session.js';
 import type { TUnenforceableSchemaReporter } from '../third-party-schema.js';
@@ -29,12 +30,55 @@ import type {
   IParameterValidationResult,
   IToolExecutionContext,
   IToolResult,
+  IToolProvenance,
   IToolSchema,
   IToolWithEventService,
   IUniversalObjectValue,
   IToolResultAdmissionOptions,
   TToolParameters,
+  TUniversalMessagePart,
 } from '@robota-sdk/agent-core';
+
+function imageDiagnostic(mimeType: unknown, data: unknown): string | undefined {
+  if (
+    typeof mimeType !== 'string' ||
+    !['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(mimeType)
+  )
+    return 'MCP image omitted: unsupported MIME type';
+  if (
+    typeof data !== 'string' ||
+    !data.length ||
+    data.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]+={0,2}$/u.test(data)
+  )
+    return 'MCP image omitted: invalid base64 data';
+  // Check the declared format against its binary signature without decoding an unbounded body.
+  const header = atob(data.slice(0, 48));
+  const tail = atob(data.slice(-48));
+  const decodedBytes =
+    (data.length / 4) * 3 - (data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0);
+  const matches =
+    mimeType === 'image/png'
+      ? header.startsWith('\x89PNG\r\n\x1a\n') &&
+        header.slice(12, 16) === 'IHDR' &&
+        decodedBytes >= 45 &&
+        tail.endsWith('\x00\x00\x00\x00IEND\xaeB\x60\x82')
+      : mimeType === 'image/jpeg'
+        ? header.startsWith('\xff\xd8\xff') && decodedBytes >= 20 && tail.endsWith('\xff\xd9')
+        : mimeType === 'image/gif'
+          ? (header.startsWith('GIF87a') || header.startsWith('GIF89a')) &&
+            decodedBytes >= 14 &&
+            tail.endsWith(';')
+          : header.startsWith('RIFF') &&
+            header.slice(8, 12) === 'WEBP' &&
+            decodedBytes >= 20 &&
+            header.charCodeAt(4) +
+              header.charCodeAt(5) * 256 +
+              header.charCodeAt(6) * 65536 +
+              header.charCodeAt(7) * 16777216 ===
+              decodedBytes - 8;
+  return matches ? undefined : 'MCP image omitted: invalid image data';
+}
 
 /** The narrow shape `createDiscoveredTool` needs from a connection supervisor. */
 export interface IMCPToolInvoker {
@@ -49,6 +93,8 @@ export interface IMCPToolInvoker {
 }
 
 export interface ICreateDiscoveredToolOptions {
+  /** Host revalidation immediately before transport dispatch; this never grants authority. */
+  readonly isDispatchAdmitted?: () => boolean | Promise<boolean>;
   /** Host-owned generic admission policy and spill storage; MCP only supplies validated metadata. */
   readonly admission?: IToolResultAdmissionOptions;
   /**
@@ -101,6 +147,7 @@ function joinTextContent(content: readonly IUniversalObjectValue[]): string {
  */
 class DiscoveredMCPTool implements IToolWithEventService {
   readonly schema: IToolSchema;
+  readonly provenance: IToolProvenance;
 
   /** Held for the runtime's benefit; see `setEventService`. This tool emits nothing of its own. */
   private eventService: IEventService | undefined;
@@ -113,6 +160,13 @@ class DiscoveredMCPTool implements IToolWithEventService {
     private readonly invoker: IMCPToolInvoker,
     private readonly options?: ICreateDiscoveredToolOptions,
   ) {
+    this.provenance = Object.freeze({
+      sourceId: entry.provenance.serverId,
+      component: entry.sourceName,
+      origin: entry.provenance.origin,
+      ...(entry.provenance.serverVersion ? { version: entry.provenance.serverVersion } : {}),
+      protocolVersion: entry.provenance.protocolVersion,
+    });
     this.schema = {
       name: entry.canonicalName,
       description: entry.description ?? '',
@@ -149,6 +203,15 @@ class DiscoveredMCPTool implements IToolWithEventService {
   ): Promise<IToolResult> {
     let result: IMCPToolCallResult;
     try {
+      if (this.options?.isDispatchAdmitted && !(await this.options.isDispatchAdmitted())) {
+        return {
+          success: false,
+          error:
+            'MCP call refused: admission or installed source changed. Review /mcp status and restart after approving the current source.',
+        };
+      }
+      if (context?.signal?.aborted)
+        throw new DOMException('Execution interrupted by user', 'AbortError');
       result = await this.invoker.callTool(this.entry.sourceName, parameters, {
         signal: context?.signal,
         ...(context?.outboundTraceContext
@@ -169,26 +232,60 @@ class DiscoveredMCPTool implements IToolWithEventService {
       throw new Error('MCP tool call failed');
     }
 
-    if (result.isError) {
+    const parts: TUniversalMessagePart[] = [];
+    let invalidObservation: string | undefined;
+    for (const content of result.content) {
+      if (content['type'] === 'text' && typeof content['text'] === 'string')
+        parts.push({ type: 'text', text: content['text'] });
+      else if (content['type'] === 'image') {
+        const diagnostic = imageDiagnostic(content['mimeType'], content['data']);
+        if (diagnostic) {
+          invalidObservation ??= diagnostic;
+          parts.push({ type: 'text', text: diagnostic });
+        } else if (typeof content['mimeType'] === 'string' && typeof content['data'] === 'string') {
+          parts.push({
+            type: 'image_inline',
+            mimeType: content['mimeType'],
+            data: content['data'],
+          });
+        }
+      } else {
+        const observation = additionalObservation(content);
+        if (observation && 'part' in observation) parts.push(observation.part);
+        else if (observation) {
+          invalidObservation ??= observation.diagnostic;
+          parts.push({ type: 'text', text: observation.diagnostic });
+        }
+      }
+    }
+
+    if (result.isError || invalidObservation) {
       const message = joinTextContent(result.content);
       return admitToolResult(
         this.schema.name,
         {
           success: false,
-          error: message.length > 0 ? message : `${this.schema.name} reported an error`,
+          ...(result.structuredContent !== undefined
+            ? { data: toUniversalValue(result.structuredContent) }
+            : {}),
+          ...(parts.length ? { parts } : {}),
+          error:
+            [message, invalidObservation].filter(Boolean).join('\n') ||
+            `${this.schema.name} reported an error`,
         },
         this.options?.admission,
         this.entry.maxResultChars,
       );
     }
 
-    const data = result.structuredContent
-      ? toUniversalValue(result.structuredContent)
-      : joinTextContent(result.content);
+    const data =
+      result.structuredContent !== undefined
+        ? toUniversalValue(result.structuredContent)
+        : joinTextContent(result.content);
 
     return admitToolResult(
       this.schema.name,
-      { success: true, data },
+      { success: true, data, ...(parts.length ? { parts } : {}) },
       this.options?.admission,
       this.entry.maxResultChars,
     );

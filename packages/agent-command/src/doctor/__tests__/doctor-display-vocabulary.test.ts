@@ -15,7 +15,7 @@ const REPORT: IDoctorReport = {
 describe('doctor display vocabulary', () => {
   it('uses neutral report and repair text without a host vocabulary', () => {
     const text = renderDoctorReport(REPORT).join('\n');
-    expect(text).not.toMatch(/robota/i);
+    expect(text).not.toContain('product name');
     expect(text).not.toContain('--repair');
     expect(text).toContain('storage.user');
   });

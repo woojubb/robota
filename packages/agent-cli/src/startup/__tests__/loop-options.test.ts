@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,7 +12,7 @@ import type { IWorkspaceIdentity, IWorkspaceTrustStoreSnapshot } from '@robota-s
 
 const roots: string[] = [];
 function root(): string {
-  const path = realpathSync(mkdtempSync(join(tmpdir(), 'robota-loop-prompt-')));
+  const path = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-loop-prompt-')));
   roots.push(path);
   return path;
 }
@@ -37,13 +38,13 @@ describe('live default loop prompt', () => {
   it('prefers the trusted project file, re-reads edits, then falls back to user and built-in', async () => {
     const project = root();
     const userHome = root();
-    mkdirSync(join(project, '.robota'));
-    mkdirSync(join(userHome, '.robota'));
-    const projectFile = join(project, '.robota', 'loop.md');
-    const userFile = join(userHome, '.robota', 'loop.md');
+    mkdirSync(join(project, '.test-product'));
+    mkdirSync(join(userHome, '.test-product'));
+    const projectFile = join(project, '.test-product', 'loop.md');
+    const userFile = join(userHome, '.test-product', 'loop.md');
     writeFileSync(userFile, 'user prompt');
     writeFileSync(projectFile, 'project first');
-    const resolve = createLoopDefaultPromptResolver({
+    const resolve = createLoopDefaultPromptResolver({productRuntime: createTestProductRuntime('test-product', { HOME: userHome }),
       projectAccess: await trustedAccess(project), userHome,
     });
     expect(resolve()).toBe('project first');
@@ -58,16 +59,16 @@ describe('live default loop prompt', () => {
   it('rejects oversized and symlinked prompt files instead of silently falling back', async () => {
     const project = root();
     const userHome = root();
-    mkdirSync(join(project, '.robota'));
-    mkdirSync(join(userHome, '.robota'));
-    const projectFile = join(project, '.robota', 'loop.md');
+    mkdirSync(join(project, '.test-product'));
+    mkdirSync(join(userHome, '.test-product'));
+    const projectFile = join(project, '.test-product', 'loop.md');
     writeFileSync(projectFile, 'x'.repeat(4_097));
-    const resolve = createLoopDefaultPromptResolver({
+    const resolve = createLoopDefaultPromptResolver({productRuntime: createTestProductRuntime('test-product', { HOME: userHome }),
       projectAccess: await trustedAccess(project), userHome,
     });
     expect(resolve).toThrow(/limit|4096/i);
     rmSync(projectFile);
-    symlinkSync(join(userHome, '.robota'), projectFile);
+    symlinkSync(join(userHome, '.test-product'), projectFile);
     expect(resolve).toThrow(/unsafe|symlink|authority/i);
   });
 });

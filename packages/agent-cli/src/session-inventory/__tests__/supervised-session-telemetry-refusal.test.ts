@@ -1,3 +1,4 @@
+import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -24,17 +25,17 @@ describe('supervised session start reports a real telemetry refusal', () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     try {
-      expect(await runWorkspaceTrustCommand(['--yes'], cwd)).toBe(0);
+      expect(await runWorkspaceTrustCommand(['--yes'], cwd, createTestProductRuntime())).toBe(0);
       // Enabled with an OTLP trace export, but missing the required explicit protocol setting:
       // `createConfiguredNodeOtlpLiveTelemetryPort` (and the new parent-side validator) refuse this.
       const invalidTelemetry = Object.freeze({
-        ROBOTA_TELEMETRY_ENABLED: '1',
-        ROBOTA_TELEMETRY_TRACES: 'otlp',
-        ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'https://collector.example',
+        PRODUCT_TELEMETRY_ENABLED: '1',
+        PRODUCT_TELEMETRY_TRACES: 'otlp',
+        PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'https://collector.example',
       });
-      const options = { providerDefinitions: [] };
+      const options = { productRuntime: createTestProductRuntime(), providerDefinitions: [] };
       const handled = await runPreparsedCliCommand(
-        options, ['node', 'robota', 'session', 'start', '--background'], cwd, invalidTelemetry,
+        options, ['node', 'test-product', 'session', 'start', '--background'], cwd, invalidTelemetry,
       );
       expect(handled).toBe(true);
       expect(launchSupervisedSession).not.toHaveBeenCalled();

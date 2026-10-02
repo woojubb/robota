@@ -1,8 +1,9 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
  * SCREEN-2002 — the theme files a run can see, and the ones it refuses.
  *
- * Two sources, one policy. The user directory is `~/.robota/themes`, read through the same
- * root-bounded host contribution source `~/.robota/output-styles` is read through — home-only,
+ * Two sources, one policy. The user directory is `the configured user root/themes`, read through the same
+ * root-bounded host contribution source `the configured user root/output-styles` is read through — home-only,
  * because a theme is a preference of the person at the terminal rather than of the checkout. Plugin
  * themes come from `<pluginDir>/themes` for each installed plugin. The project plugin scope is
  * visible only after workspace trust is granted.
@@ -17,7 +18,7 @@
 import { join } from 'node:path';
 
 import { pluginScopeDirs } from '../plugins/default-plugin-command-source-loader.js';
-import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
+import { productUserSettingsPath } from '../product/user-settings.js';
 import {
   createNodeHostContributionSource,
   loadHostBundlePluginsFromScopes,
@@ -32,7 +33,7 @@ import {
 import type { IContributionSource, TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import type { IThemeSkip, ITuiTheme, TThemeSource } from '@robota-sdk/agent-ui-terminal';
 
-const USER_THEME_DIRECTORY = join('.robota', 'themes');
+const USER_THEME_DIRECTORY = 'themes';
 const PLUGIN_THEME_DIRECTORY = 'themes';
 const THEME_FILE_SUFFIX = '.json';
 
@@ -57,6 +58,7 @@ export interface IThemePluginDirectory {
 }
 
 export interface IThemeSourcesOptions {
+  readonly productRuntime: ICliRuntimeContext;
   readonly cwd: string | undefined;
   readonly userHome: string;
   readonly projectAccess?: TWorkspaceProjectAccess;
@@ -164,14 +166,14 @@ function collectFrom(
  */
 function installedPlugins(
   cwd: string | undefined,
-  userHome: string,
+  runtime: ICliRuntimeContext,
   collector: ICollector,
   projectAccess?: TWorkspaceProjectAccess,
 ): IThemePluginDirectory[] {
-  const scopes = pluginScopeDirs(cwd, userHome, projectAccess);
+  const scopes = pluginScopeDirs(cwd, runtime, projectAccess);
   try {
     return loadHostBundlePluginsFromScopes(scopes, {
-      settingsPath: robotaUserSettingsPath(userHome),
+      settingsPath: productUserSettingsPath(runtime),
     }).map((plugin) => ({
       name: plugin.manifest.name,
       pluginDir: plugin.pluginDir,
@@ -195,14 +197,14 @@ function installedPlugins(
 export function loadThemeSources(options: IThemeSourcesOptions): IThemeSources {
   const collector: ICollector = { themes: [], skipped: [], claimed: new Set() };
   collectFrom(collector, {
-    root: options.userHome,
+    root: options.productRuntime.layout.userRoot,
     directory: USER_THEME_DIRECTORY,
     source: 'user',
     idPrefix: 'custom:',
   });
   const plugins =
     options.plugins ??
-    installedPlugins(options.cwd, options.userHome, collector, options.projectAccess);
+    installedPlugins(options.cwd, options.productRuntime, collector, options.projectAccess);
   for (const plugin of plugins) {
     if (!SAFE_SLUG.test(plugin.name)) {
       const quoted = quoteThemeText(plugin.name);

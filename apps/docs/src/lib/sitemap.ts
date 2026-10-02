@@ -1,4 +1,6 @@
-export const SITE_URL = 'https://docs.robota.io';
+import { productPublicConfig } from './product-config.generated';
+
+export const SITE_URL = productPublicConfig.identity.docsUrl;
 export const SITE_LOCALES = ['en', 'ko'] as const;
 
 export interface ISitemapEntry {
@@ -8,8 +10,9 @@ export interface ISitemapEntry {
 /** One sitemap entry per page per locale, in the trailing-slash form the static export serves. */
 export function buildSitemapEntries(
   slugs: string[][],
-  siteUrl: string = SITE_URL,
+  siteUrl: string | undefined = SITE_URL,
 ): ISitemapEntry[] {
+  if (!siteUrl) return [];
   const entries: ISitemapEntry[] = [];
   for (const locale of SITE_LOCALES) {
     for (const slug of slugs) {

@@ -74,7 +74,7 @@ vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
   return {
     ...actual,
-    Robota: vi.fn().mockImplementation(() => ({
+    ConversationAgent: vi.fn().mockImplementation(() => ({
       run: vi.fn().mockResolvedValue('mock AI response'),
       getHistory: vi.fn().mockReturnValue([]),
       getFullHistory: vi.fn().mockReturnValue([]),
@@ -152,7 +152,7 @@ function createSnapshottingSandboxClient(snapshotId: string): ISandboxClient {
 }
 
 /** The session's working directory: private to this run, never a fixed name under /tmp. */
-const SESSION_CWD = mkdtempSync(join(tmpdir(), 'robota-sandbox-snapshot-'));
+const SESSION_CWD = mkdtempSync(join(tmpdir(), 'agent-sandbox-snapshot-'));
 afterAll(() => rmSync(SESSION_CWD, { recursive: true, force: true }));
 
 describe('InteractiveSession sandbox snapshot hydration', () => {

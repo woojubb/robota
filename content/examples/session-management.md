@@ -144,17 +144,17 @@ missing. A damaged log is reported as `corrupt` rather than partly replayed.
 
 ```bash
 # Continue the most recent session
-robota -c
+__PRODUCT_CLI_NAME__ -c
 
 # Resume a session by name or ID
-robota -r my-feature
+__PRODUCT_CLI_NAME__ -r my-feature
 
 # Fork into a new session with the same history
-robota -c --fork-session
-robota -r my-feature --fork-session
+__PRODUCT_CLI_NAME__ -c --fork-session
+__PRODUCT_CLI_NAME__ -r my-feature --fork-session
 
 # Name a new session
-robota --name "auth-refactor"
+__PRODUCT_CLI_NAME__ --name "auth-refactor"
 ```
 
 Inside the terminal UI, `/resume` opens a session picker and `/rename <name>` renames the current

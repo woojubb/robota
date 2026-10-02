@@ -3,31 +3,46 @@
  *
  * Every other cell reads the cursor out of the byte stream our own VT interpreter replays. tmux is
  * a full, independent terminal emulator that can be driven headlessly AND queried: it runs the
- * built robota binary in a real pane, receives the Korean keystrokes through its own input path,
+ * built CLI binary in a real pane, receives the Korean keystrokes through its own input path,
  * and then reports where ITS state machine put the hardware cursor
  * (`#{cursor_x}` / `#{cursor_y}` / `#{cursor_flag}`). That makes this the strongest available
  * confirmation short of macOS hardware: a second implementation agrees the cursor sits on the
  * input row at the composition column — which is the cell an OS IME anchors its window to.
  *
- * Skipped when tmux is not installed; `ROBOTA_TMUX_BIN` overrides the binary. GitHub's ubuntu
+ * Skipped when tmux is not installed; `PRODUCT_TMUX_BIN` overrides the binary. GitHub's ubuntu
  * runner images ship tmux, so this runs in CI rather than quietly evaporating there.
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+  realpathSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { fixtureProductEnvironment } from './isolated-home.js';
+
 const REPO_ROOT = resolve(__dirname, '../../../../..');
-const ROBOTA_BIN = join(REPO_ROOT, 'packages/agent-cli/bin/robota.cjs');
+const AGENT_BIN = join(REPO_ROOT, 'packages/agent-cli/bin/agent.cjs');
+const GIT_BIN =
+  (process.env['PATH'] ?? '/usr/bin:/bin')
+    .split(':')
+    .map((directory) => join(directory, 'git'))
+    .find((candidate) => existsSync(candidate)) ?? '/usr/bin/git';
 const COLS = 80;
 const COMPOSITION = '안녕';
 const COMPOSITION_WIDTH = 4;
 
 function resolveTmux(): string | undefined {
-  const override = process.env['ROBOTA_TMUX_BIN'];
+  const override = process.env['PRODUCT_TMUX_BIN'];
   if (override !== undefined && override !== '') return override;
   const which = spawnSync('sh', ['-c', 'command -v tmux'], { encoding: 'utf8' });
   const found = which.stdout.trim();
@@ -49,14 +64,16 @@ interface ITmuxRun {
   socket: string;
 }
 
-/** Run robota inside a real tmux pane and ask tmux where the cursor ended up. */
+/** Run the CLI inside a real tmux pane and ask tmux where the cursor ended up. */
 function runInTmux(run: ITmuxRun, rows: number, imeCursor: string | undefined): ITmuxProbe {
   const tmux = TMUX!;
   const projectDir = join(run.root, 'proj');
   const homeDir = join(run.root, 'home');
-  mkdirSync(join(homeDir, '.robota'), { recursive: true });
+  mkdirSync(projectDir, { recursive: true });
+  mkdirSync(join(homeDir, 'state'), { recursive: true });
+  writeFileSync(join(homeDir, 'state/onboarded'), new Date().toISOString(), 'utf8');
   writeFileSync(
-    join(homeDir, '.robota/settings.json'),
+    join(homeDir, 'state/settings.json'),
     JSON.stringify({
       currentProvider: 'anthropic',
       providers: {
@@ -69,14 +86,42 @@ function runInTmux(run: ITmuxRun, rows: number, imeCursor: string | undefined): 
   // A wrapper keeps the pane's env explicit (never inheriting real provider keys) while letting
   // tmux itself set TERM/TERM_PROGRAM for the pane — the handshake under test.
   const wrapper = join(run.root, 'wrap.sh');
-  const imeAssignment = imeCursor === undefined ? '' : `ROBOTA_IME_CURSOR=${imeCursor} `;
+  const imeAssignment = imeCursor === undefined ? '' : `PRODUCT_IME_CURSOR=${imeCursor} `;
+  const productAssignments = Object.entries(fixtureProductEnvironment(homeDir))
+    .map(([key, value]) => `${key}='${value.replaceAll("'", "'\\''")}'`)
+    .join(' ');
+  const fixtureEnv = {
+    PATH: process.env['PATH'] || '/usr/bin:/bin:/opt/homebrew/bin',
+    HOME: homeDir,
+    ...fixtureProductEnvironment(homeDir),
+  };
+  execFileSync(GIT_BIN, ['init', '-q', '-b', 'main'], { cwd: projectDir });
+  execFileSync(
+    GIT_BIN,
+    [
+      '-c',
+      'user.name=PTY Fixture',
+      '-c',
+      'user.email=pty@example.invalid',
+      'commit',
+      '--allow-empty',
+      '-q',
+      '-m',
+      'fixture',
+    ],
+    { cwd: projectDir, env: fixtureEnv },
+  );
+  execFileSync(process.execPath, [AGENT_BIN, 'trust', '--yes'], {
+    cwd: projectDir,
+    env: fixtureEnv,
+  });
   writeFileSync(
     wrapper,
     [
       '#!/bin/sh',
       `cd "${projectDir}"`,
-      `exec env -i PATH="$PATH" HOME="${homeDir}" TERM="$TERM" TERM_PROGRAM="$TERM_PROGRAM" ${imeAssignment}` +
-        `"${process.execPath}" "${ROBOTA_BIN}" --name tmux-fixture`,
+      `exec env -i PATH="$PATH" HOME="${homeDir}" TERM="$TERM" TERM_PROGRAM="$TERM_PROGRAM" ${productAssignments} ${imeAssignment}` +
+        `"${process.execPath}" "${AGENT_BIN}" --name tmux-fixture`,
       '',
     ].join('\n'),
     'utf8',
@@ -95,7 +140,7 @@ function runInTmux(run: ITmuxRun, rows: number, imeCursor: string | undefined): 
     if (pane.includes('Type a message')) break;
     sleepSync(250);
   }
-  expect(pane, 'robota never reached the prompt inside tmux').toContain('Type a message');
+  expect(pane, 'the CLI never reached the prompt inside tmux').toContain('Type a message');
   sleepSync(400);
 
   tmuxCall('send-keys', '-l', COMPOSITION);
@@ -127,7 +172,7 @@ describe.skipIf(TMUX === undefined)(
     let run: ITmuxRun;
 
     beforeEach(() => {
-      const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-tmux-ime-')));
+      const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-tmux-ime-')));
       run = { root, socket: join(root, 'sock') };
     });
 
@@ -154,7 +199,7 @@ describe.skipIf(TMUX === undefined)(
       expect(probe.cursorVisible).toBe(false);
     }, 90_000);
 
-    it('ROBOTA_IME_CURSOR=0 kill switch: tmux reports the cursor hidden even at 24 rows', () => {
+    it('PRODUCT_IME_CURSOR=0 kill switch: tmux reports the cursor hidden even at 24 rows', () => {
       const probe = runInTmux(run, 24, '0');
       const inputRow = probe.pane.findIndex((line) => line.includes(`> ${COMPOSITION}`));
       expect(inputRow).toBeGreaterThanOrEqual(0);

@@ -41,10 +41,10 @@ class TrustedFixtureStore implements IWorkspaceTrustStore {
 
 /** Explicit test-product layout; the neutral trust service has no runtime default. */
 export const TEST_PROJECT_STATE_DIRECTORIES: TWorkspaceProjectStateDirectories = {
-  sessions: join('.robota', 'sessions'),
-  'session-logs': join('.robota', 'logs'),
-  memory: join('.robota', 'memory'),
-  checkpoints: join('.robota', 'checkpoints'),
+  sessions: join('.agent', 'sessions'),
+  'session-logs': join('.agent', 'logs'),
+  memory: join('.agent', 'memory'),
+  checkpoints: join('.agent', 'checkpoints'),
 };
 
 /** Test-only helper that still exercises the production service mint path. */
@@ -96,7 +96,7 @@ export async function createTrustedSettingsSourcesFixture(
   const access = await createTrustedProjectAccessFixture(root);
   if (access.status !== 'trusted') throw new Error('Fixture trust service did not return trusted.');
   return [
-    createNodeHostSettingsSource('user', join(userHome, '.robota', 'settings.json')),
+    createNodeHostSettingsSource('user', join(userHome, '.agent', 'settings.json')),
     createNodeHostSettingsSource('user', join(userHome, '.claude', 'settings.json')),
     ...createWorkspaceProjectSettingsSources(
       getWorkspaceProjectReader(access.authority),

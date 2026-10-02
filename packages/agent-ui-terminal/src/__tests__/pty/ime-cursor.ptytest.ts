@@ -1,7 +1,7 @@
 /**
  * CLI-062 — PTY regression for real-terminal-cursor positioning (the OS-IME evidence).
  *
- * Runs the BUILT robota binary in a real pseudo-terminal and interprets the raw ANSI stream the
+ * Runs the BUILT CLI binary in a real pseudo-terminal and interprets the raw ANSI stream the
  * way a terminal emulator (and the OS IME) does. Two geometries from the implementation contract
  * (.design/investigations/2026-07-25-cli-062-ime-cursor-design.md):
  *
@@ -105,7 +105,7 @@ describe('CLI-062 — IME hardware-cursor positioning through a real PTY', () =>
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-pty-ime-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-pty-ime-')));
     writeTuiProviderSettings(projectDir);
   });
 
@@ -132,7 +132,7 @@ describe('CLI-062 — IME hardware-cursor positioning through a real PTY', () =>
  * PROVES, per cell: the built binary's observable cursor contract under exactly the environment
  * that terminal exports — positioned on the input row when the capability gate says yes, and no
  * cursor shown at all when it says no (Terminal.app's default-off I5 branch, and the
- * `ROBOTA_IME_CURSOR=0` kill switch).
+ * `PRODUCT_IME_CURSOR=0` kill switch).
  *
  * DOES NOT PROVE, for a `documented` row: anything about that emulator's own rendering, its
  * pre-edit display, or its OS IME. Terminal.app's historical Korean-IME SIGSEGV in particular is
@@ -145,7 +145,7 @@ describe('CLI-062 terminal matrix — observable cursor contract per terminal', 
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-pty-ime-matrix-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-pty-ime-matrix-')));
     writeTuiProviderSettings(projectDir);
   });
 

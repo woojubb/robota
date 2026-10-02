@@ -138,12 +138,12 @@ describe('executeRemoteControlCommand (REMOTE-008)', () => {
     const result = executeRemoteControlCommand(
       e3ctx({
         describeKeyStorage: () =>
-          'owner-only file in /h/.robota/credentials (OS keychain unavailable: absent)',
+          'owner-only file in /h/.fixture-state/credentials (OS keychain unavailable: absent)',
       }),
       'status',
     );
     expect(result.message).toContain(
-      'Host key storage: owner-only file in /h/.robota/credentials (OS keychain unavailable: absent)',
+      'Host key storage: owner-only file in /h/.fixture-state/credentials (OS keychain unavailable: absent)',
     );
   });
 

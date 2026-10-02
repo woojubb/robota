@@ -144,7 +144,7 @@ export function createGroupChatSelector(
   errorBox: GroupChatErrorBox,
 ): TurnSelector {
   return {
-    reference: { id: 'robota-sdk/group-chat-selector', version: '1' },
+    reference: { id: 'agent-sdk/group-chat-selector', version: '1' },
     modelCalls: 'none',
     select(context): Selection {
       try {
@@ -191,7 +191,7 @@ export function createGroupChatParticipants(
   return [...byId.entries()].map(([id, step]): AgentParticipant => ({
     kind: 'agent',
     id,
-    runtime: { id: 'robota-sdk/group-chat-step', version: '1' },
+    runtime: { id: 'agent-sdk/group-chat-step', version: '1' },
     factory: {
       modelCalls: 'metered',
       openSession: async () => ({
@@ -202,7 +202,7 @@ export function createGroupChatParticipants(
               const prompt = threadPrompt(step.prompt, renderHistory(history));
               await options.services.admitModelCall({
                 callId: turn.attemptId,
-                providerId: 'robota-subagent',
+                providerId: 'agent-subagent',
                 // `??` alone still passes through an explicit `''`; a step can carry an empty
                 // `model` or (with no model at all) an empty `agentType`, and neither may reach the
                 // ledger's non-empty identity check — `step.id` is filtered non-empty before any

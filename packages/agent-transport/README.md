@@ -1,6 +1,6 @@
 # @robota-sdk/agent-transport
 
-The shared protocol layer under every Robota transport. It defines the transport-neutral wire messages
+The shared protocol layer under every agent runtime transport. It defines the transport-neutral wire messages
 (`TClientMessage` / `TServerMessage`), the session bridge that turns those messages into calls on a live
 session, and the delivery helpers a carrier needs (backpressure, resumable delivery, channel framing,
 handoff payload chunking). The WebSocket and WebRTC transports carry its wire protocol, and the HTTP and
@@ -117,4 +117,4 @@ dependencies of the individual transport packages, not of this one.
 
 - [docs/SPEC.md](./docs/SPEC.md) — package contract and boundaries
 - [npm](https://www.npmjs.com/package/@robota-sdk/agent-transport) ·
-  [GitHub](https://github.com/woojubb/robota)
+  [GitHub](__PROJECT_REPOSITORY_URL__)

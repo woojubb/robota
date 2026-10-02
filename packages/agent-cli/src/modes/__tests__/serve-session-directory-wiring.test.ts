@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * #3189 — serve mode keeps its sessions in a pool: the directory is attached to it before the
  * transports start, a switched-to session is built with the runtime's own options, a switch moves
@@ -133,7 +134,7 @@ function serveOptions(
   bindTransports = vi.fn(),
   overrides: { cwd?: string; args?: Record<string, unknown> } = {},
 ): IServeModeOptions {
-  return {
+  return {productRuntime: createTestProductRuntime(),
     cwd: overrides.cwd ?? '/work/project',
     args: {
       forkSession: true,

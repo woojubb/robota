@@ -45,12 +45,12 @@
     `/events revoke <grant-id>` withdraws one. User-only.
   - `agent-cli` — a grant file (`grantId`, `issuer`, `resource` ending in `/events/<grantId>`, exactly one of
     `subject` or `client`, `scopes`, optional `algorithms` and `rate`) is validated before anything starts, with a
-    reason that names the grant and no configured value. `robota --external-event-grant <file>` (TUI) and
-    `robota session start --background --external-event-grant <file>` open every grant or fail the start; a
+    reason that names the grant and no configured value. `__PRODUCT_CLI_NAME__ --external-event-grant <file>` (TUI) and
+    `__PRODUCT_CLI_NAME__ session start --background --external-event-grant <file>` open every grant or fail the start; a
     background session receives its grants through a private file, opens them before it reports ready, and the
-    launcher refuses a readiness that names other grants. `robota session events list <id> [--json]` and
-    `robota session events revoke <id> <grant-id>` work over the generation-bound control socket, and
-    `robota session list --format json` shows each grant's counts. The retired `--external-event-allow` now points
+    launcher refuses a readiness that names other grants. `__PRODUCT_CLI_NAME__ session events list <id> [--json]` and
+    `__PRODUCT_CLI_NAME__ session events revoke <id> <grant-id>` work over the generation-bound control socket, and
+    `__PRODUCT_CLI_NAME__ session list --format json` shows each grant's counts. The retired `--external-event-allow` now points
     at `--external-event-grant`.
 
 - bfe8ed5: An external event is admitted only by a bearer access token the session verifies itself, and its sender is the
@@ -487,7 +487,7 @@
 
 - 4b76cfa: NEUT-005 (wave 2): restore an actionable context-capacity hint at the surface tier, neutrally. The zero-dependency `agent-core` layer emits a product-neutral hard-capacity notice and exposes the `IAgentConfig.contextCapacityHint` seam (wave 1). This wave wires that seam end-to-end without baking product vocabulary into a neutral library:
 
-  - `agent-session`: `ISessionOptions.contextCapacityHint` is forwarded into the Robota agent config (`buildRobota`), making the core seam reachable from the consuming layer.
+  - `agent-session`: `ISessionOptions.contextCapacityHint` is forwarded into the agent configuration factory, making the core seam reachable from the consuming layer.
   - `agent-framework`: new `deriveContextCapacityHint(commandModules)` derives the concrete remediation wording from the surface's OWN registered command set (names a registered `compact` command → `"Run /compact and retry."`; `undefined` when none, leaving the neutral core default). It is applied automatically in interactive session assembly across the TUI, print, and `--serve` surfaces.
   - `agent-cli`: the default command set registers `/compact`, so end users regain the actionable hint.
   - `agent-interface-transport`: reworded the `'allow-project'` permission comment so it no longer hardcodes a storage path (the location is owned by the consuming layer), matching the `agent-session` twin.

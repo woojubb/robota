@@ -40,7 +40,7 @@ afterEach(() => {
 });
 
 function temporaryDirectory(): string {
-  const directory = mkdtempSync(join(tmpdir(), 'robota-oauth-'));
+  const directory = mkdtempSync(join(tmpdir(), 'agent-test-oauth-'));
   directories.push(directory);
   return join(directory, 'mcp-credentials');
 }
@@ -147,6 +147,7 @@ describe('signing in with a pasted redirect', () => {
     const store = createFileOAuthCredentialStore(directory);
     const shown: { url: URL; redirectUri: string }[] = [];
     const result = runMCPOAuthLogin({
+    clientName: 'Test Client',
       securityIdentity: 'identity-1',
       serverUrl: MCP_URL,
       config: {},
@@ -192,6 +193,7 @@ describe('signing in with a pasted redirect', () => {
     ) => {
       let readSignal: AbortSignal | undefined;
       const result = runMCPOAuthLogin({
+    clientName: 'Test Client',
         securityIdentity: 'identity-1',
         serverUrl: MCP_URL,
         config: {},
@@ -227,6 +229,7 @@ describe('signing in with a pasted redirect', () => {
     const store = createFileOAuthCredentialStore(directory);
     const shown: { url: URL; redirectUri: string }[] = [];
     const result = runMCPOAuthLogin({
+    clientName: 'Test Client',
       securityIdentity: 'identity-1',
       serverUrl: MCP_URL,
       config: {},
@@ -248,6 +251,7 @@ describe('signing in with a pasted redirect', () => {
 
     // Without the fallback, the same failure still ends the sign-in.
     const without = runMCPOAuthLogin({
+    clientName: 'Test Client',
       securityIdentity: 'identity-1',
       serverUrl: MCP_URL,
       config: {},
@@ -264,6 +268,7 @@ describe('signing in with a pasted redirect', () => {
     // A sign-in the user cancelled before the browser opened is not turned into a paste.
     let asked = 0;
     const cancelled = runMCPOAuthLogin({
+    clientName: 'Test Client',
       securityIdentity: 'identity-1',
       serverUrl: MCP_URL,
       config: {},
@@ -377,7 +382,7 @@ describe('signing out', () => {
     await createFileOAuthCredentialStore(directory).set(
       KEY,
       credential({
-        clientId: 'robota-cli',
+        clientId: 'agent-test-cli',
         clientSecret: 'cs-value',
         tokenEndpointAuthMethods: ['none', 'client_secret_basic'],
       }),
@@ -385,7 +390,7 @@ describe('signing out', () => {
     await logout(server, directory).result;
     for (const request of revocations(server)) {
       expect(request.headers.get('authorization')).toBe(
-        `Basic ${Buffer.from('robota-cli:cs-value').toString('base64')}`,
+        `Basic ${Buffer.from('agent-test-cli:cs-value').toString('base64')}`,
       );
       expect(new URLSearchParams(request.body).has('client_secret')).toBe(false);
     }
@@ -455,7 +460,7 @@ describe('signing out', () => {
     await createFileOAuthCredentialStore(directory).set(
       KEY,
       credential({
-        clientId: 'robota-cli',
+        clientId: 'agent-test-cli',
         clientSecret: 'cs-value',
         tokenEndpointAuthMethods: ['client_secret_basic'],
       }),

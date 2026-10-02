@@ -13,7 +13,7 @@ vi.mock('@robota-sdk/agent-provider-anthropic', async () => {
   const { createScriptedProvider } = await import('@robota-sdk/agent-core/testing');
   return {
     AnthropicProvider: vi.fn(() => {
-      const double = createScriptedProvider([{ text: 'Hello from Robota' }]);
+      const double = createScriptedProvider([{ text: 'Hello from the test agent' }]);
       scripted.chatOptions = double.chatOptions as typeof scripted.chatOptions;
       return double.provider;
     }),
@@ -44,7 +44,7 @@ describe('POST /api/chat', () => {
   it("replies with the agent's text", async () => {
     const response = await POST(chat({ message: 'hi' }));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ reply: 'Hello from Robota' });
+    expect(await response.json()).toEqual({ reply: 'Hello from the test agent' });
   });
 
   it('offers the model only tools that act on nothing outside the conversation', async () => {

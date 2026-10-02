@@ -212,7 +212,7 @@ describe('CLI-1990 TC-11 — tool residency through session assembly', () => {
   });
 
   it('refuses a session in which every tool is deferred, naming the invariant', async () => {
-    // The vendor's own 400 as a Robota-level error: a request that withholds every tool offers the
+    // The vendor's own 400 as a ConversationAgent-level error: a request that withholds every tool offers the
     // model nothing to call and nothing to search with.
     await expect(
       assembleToolNames({

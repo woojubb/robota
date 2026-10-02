@@ -39,6 +39,9 @@ import {
   refuseHeadersHelper,
 } from '@robota-sdk/agent-mcp';
 import { mcpUserActionNotice } from '@robota-sdk/agent-command';
+import { McpSkillRegistry } from './mcp-skill-registry.js';
+import { createMcpSkillCommandSource } from './mcp-skill-command-source.js';
+import type { IMcpSkillApprovalStore } from './mcp-skill-registry.js';
 import { DEFAULT_TOOL_RESULT_HARD_CHARS, FunctionTool } from '@robota-sdk/agent-core';
 import type {
   IMCPActivationApprovalStore,
@@ -56,6 +59,7 @@ import type {
   IMCPHeadersHelperAuthenticator,
   IMCPHttpTransportDeps,
   IMCPResolvedEntry,
+  IMCPSkillsSession,
   IMCPServerDefinitionResolved,
   IMCPStdioAuthority,
   IMCPSupervisorClock,
@@ -127,7 +131,7 @@ export interface IMcpOAuthSignInOptions {
  */
 export interface IMcpOAuthHost {
   /**
-   * Sign in to the server and store its credential, as `robota mcp login` does. Rejects with an
+   * Sign in to the server and store its credential, as `the product mcp login` does. Rejects with an
    * `MCPOAuthError`, named by its reason only.
    */
   signIn?(
@@ -165,8 +169,14 @@ export interface IMcpHeadersHelperHost {
 }
 
 export interface IMcpClientCompositionDeps {
+  readonly skillApprovalStore?: IMcpSkillApprovalStore;
+  readonly resultReadToolName?: string;
   /** MCP-001's resolved definitions — see the module doc for why this is injected, not sourced. */
   readonly resolvedEntries: readonly IMCPResolvedEntry[];
+  /** Host source/enablement revalidation; missing or changed definitions must refuse new dispatch. */
+  readonly isDefinitionCurrent?: (
+    definition: IMCPServerDefinitionResolved,
+  ) => boolean | Promise<boolean>;
   /**
    * Every problem that named no server at all (issue #2794): a config root that is not an object,
    * no `mcpServers`, `mcpServers` not an object, or a layer that failed to parse. Surfaced through
@@ -228,6 +238,7 @@ export interface IMcpClientCompositionDeps {
    * `/mcp` command, `terminal` for a run with no such prompt, so sign-in names the terminal command.
    */
   readonly userActionSurface?: TMCPUserActionSurface;
+  readonly cliName?: string;
 }
 
 /**
@@ -243,6 +254,7 @@ export interface IMcpConnectedToolProvenance {
 }
 
 export interface IMcpClientComposition {
+  readonly skillRegistry: McpSkillRegistry;
   /** Wire directly into `IStartCliOptions.mcpActivationAdapter` — the `/mcp` command port. */
   readonly activationAdapter: ICommandMCPActivationAdapter;
   /**
@@ -276,6 +288,7 @@ export interface IMcpClientComposition {
  * the difference; production code never supplies anything but a real supervisor.
  */
 export interface IMcpServerConnection {
+  getSkillsSession?(signal?: AbortSignal): Promise<IMCPSkillsSession | undefined>;
   discover(signal?: AbortSignal): Promise<IMCPDiscovery>;
   callTool(
     name: string,
@@ -448,6 +461,7 @@ function helperAuthenticatorSlot(
 /** The per-server options a real `MCPConnectionSupervisor` (or the test fake standing in for it) needs. */
 function buildSupervisorOptions<TInput, TAdmitted>(
   request: IMCPActivationRequest,
+  definition: IMCPServerDefinitionResolved,
   transportAdapter: IMCPTransportAdapter<TInput, TAdmitted>,
   admittedEndpoint: TAdmitted,
   timeouts: IMCPTimeouts,
@@ -457,15 +471,25 @@ function buildSupervisorOptions<TInput, TAdmitted>(
   return {
     serverId: request.serverId,
     awaitOpenCleanupOnTimeout: transportAdapter.kind === 'stdio',
-    openSession: (openSignal) => {
+    openSession: async (openSignal) => {
       onOpen?.();
-      return openMcpSession({
+      const session = await openMcpSession({
         serverId: request.serverId,
+        ...(definition.protocolVersion === undefined
+          ? {}
+          : { protocolVersion: definition.protocolVersion }),
+        ...(definition.skills === true ? { skills: true } : {}),
         transport: transportAdapter.construct(admittedEndpoint),
         timeouts: { startupMs: timeouts.startupMs, perCallMs: timeouts.perCallMs },
         ...(deps.clientInfo === undefined ? {} : { clientInfo: deps.clientInfo }),
         signal: openSignal,
       });
+      for (const diagnostic of session.compatibilityDiagnostics ?? []) {
+        deps.reportDiagnostic(
+          `MCP server "${request.serverId}" capability "${diagnostic.capability}" unavailable: ${diagnostic.reason}`,
+        );
+      }
+      return session;
     },
     timeouts,
     ...(deps.backoff === undefined ? {} : { backoff: deps.backoff }),
@@ -482,6 +506,20 @@ async function connectOneServer(
 ): Promise<IConnectedServer | 'not-admitted' | undefined> {
   const { admission, createSupervisor, timeouts, deps, signal } = context;
 
+  if (deps.isDefinitionCurrent) {
+    let current = false;
+    try {
+      current = await deps.isDefinitionCurrent(definition);
+    } catch {
+      /* refuse unavailable source */
+    }
+    if (!current) {
+      deps.reportDiagnostic(
+        'MCP connection refused: admission or installed source changed; restart with the current source.',
+      );
+      return 'not-admitted';
+    }
+  }
   const admissionResult = admission.admit(request);
   if (!admissionResult.allowed) {
     deps.reportDiagnostic(
@@ -515,7 +553,14 @@ async function connectOneServer(
       context.connectionFailures.set(request.serverId, result.reason);
       return undefined;
     }
-    supervisorOptions = buildSupervisorOptions(request, adapter, result.admitted, timeouts, deps);
+    supervisorOptions = buildSupervisorOptions(
+      request,
+      definition,
+      adapter,
+      result.admitted,
+      timeouts,
+      deps,
+    );
   } else {
     const adapter = createStreamableHttpAdapter(deps.transport);
     const helper = definition.headersHelper;
@@ -600,6 +645,7 @@ async function connectOneServer(
     }
     supervisorOptions = buildSupervisorOptions(
       request,
+      definition,
       adapter,
       result.admitted,
       timeouts,
@@ -781,6 +827,7 @@ function collectToolsFromCatalog(
   provenanceByCanonicalName: Map<string, IMcpConnectedToolProvenance>,
   admission: IToolResultAdmissionOptions,
   authFailureNoticeByServerId: ReadonlyMap<string, string>,
+  isDispatchAdmitted: (serverId: string, connection: IMcpServerConnection) => Promise<boolean>,
 ): IToolWithEventService[] {
   const tools: IToolWithEventService[] = [];
   for (const entry of [...catalog.adopted, ...catalog.adapted]) {
@@ -790,6 +837,7 @@ function collectToolsFromCatalog(
     const authFailureNotice = authFailureNoticeByServerId.get(entry.provenance.serverId);
     const tool = createDiscoveredTool(entry, connection, {
       admission,
+      isDispatchAdmitted: () => isDispatchAdmitted(entry.provenance.serverId, connection),
       ...(authFailureNotice === undefined ? {} : { authFailureNotice }),
     });
     tools.push(tool);
@@ -816,6 +864,54 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   const openConnections: IMcpServerConnection[] = [];
   const helperSlots = new Map<string, IHelperAuthenticatorSlot>();
   const connectedByServerId = new Map<string, IMcpServerConnection>();
+  async function isDispatchAdmitted(
+    serverId: string,
+    connection: IMcpServerConnection,
+  ): Promise<boolean> {
+    const definition = deps.resolvedEntries.find((entry) => entry.name === serverId)?.definition;
+    if (!definition) return false;
+    try {
+      if (deps.isDefinitionCurrent && !(await deps.isDefinitionCurrent(definition))) return false;
+    } catch {
+      return false;
+    }
+    // Check live approval and connection after any asynchronous source read.
+    return (
+      connectedByServerId.get(serverId) === connection &&
+      controller.list().some((summary) => summary.serverId === serverId && summary.allowed)
+    );
+  }
+  const skillRegistry = new McpSkillRegistry(
+    async (serverId) => {
+      const connection = connectedByServerId.get(serverId);
+      const definition = deps.resolvedEntries.find((entry) => entry.name === serverId)?.definition;
+      const request = registry.list().find((entry) => entry.serverId === serverId);
+      if (
+        !connection?.getSkillsSession ||
+        !request ||
+        definition?.skills !== true ||
+        !(await isDispatchAdmitted(serverId, connection))
+      )
+        return undefined;
+      const skills = await connection.getSkillsSession();
+      if (!skills || !(await isDispatchAdmitted(serverId, connection))) return undefined;
+      return {
+        serverId,
+        securityIdentity: JSON.stringify([
+          request.securityIdentity,
+          request.definitionFingerprint,
+          request.source,
+          request.provenance,
+          request.workspace?.repositoryKey ?? null,
+          request.workspace?.generation ?? null,
+        ]),
+        skills,
+        isCurrent: () => isDispatchAdmitted(serverId, connection),
+      };
+    },
+    deps.skillApprovalStore,
+    deps.workspace?.repositoryKey ?? 'user',
+  );
   const timeouts = deps.timeouts ?? DEFAULT_MCP_CLIENT_TIMEOUTS;
   const createSupervisor =
     deps.createSupervisor ??
@@ -827,7 +923,25 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   /** #3282 §4 part b-2: the plain reason an admitted server did not connect, by server id. */
   const connectionFailures = new Map<string, string>();
 
+  const skillCommandSource = createMcpSkillCommandSource(skillRegistry);
   const activationAdapter: ICommandMCPActivationAdapter = {
+    skills: {
+      commandSource: skillCommandSource,
+      list: async (serverId) => {
+        const entries = await skillRegistry.refreshMetadata(serverId, 32);
+        return entries.map((metadata) => ({
+          serverId,
+          uri: metadata.entry.uri,
+          name: metadata.entry.frontmatter.name,
+          description: metadata.entry.frontmatter.description,
+          ...skillCommandSource.describe(metadata),
+        }));
+      },
+      inspect: async (serverId, uri) => skillPreview(await skillRegistry.inspect(serverId, uri)),
+      approve: async (serverId, uri, fingerprint, source) =>
+        skillPreview(await skillRegistry.approve(serverId, uri, fingerprint, source)),
+      withdraw: (serverId, uri, source) => skillRegistry.withdraw(serverId, uri, source),
+    },
     ...buildActivationAdapter(controller, deps.sourceProblems ?? [], deps.resolvedEntries, {
       discovered,
       connectedToolProvenance,
@@ -845,6 +959,19 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     reloadToolsAdded,
     ...(deps.userActionSurface === undefined ? {} : { userActionSurface: deps.userActionSurface }),
   };
+
+  function skillPreview(preview: Awaited<ReturnType<McpSkillRegistry['inspect']>>) {
+    return {
+      serverId: preview.serverId,
+      uri: preview.entry.uri,
+      namespace: preview.namespace,
+      fingerprint: preview.fingerprint,
+      name: preview.entry.frontmatter.name as string,
+      description: preview.entry.frontmatter.description as string,
+      frontmatter: preview.entry.frontmatter,
+      content: preview.content,
+    };
+  }
 
   /** A sign-in's tools, by server, until the session says which it took. */
   const pendingProvenance = new Map<string, Map<string, IMcpConnectedToolProvenance>>();
@@ -920,7 +1047,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
    * is then told to suggest signing in again, not handed the server's error.
    */
   const authFailureNotice = (serverId: string): string =>
-    mcpUserActionNotice(serverId, 'sign-in', deps.userActionSurface ?? 'session');
+    mcpUserActionNotice(serverId, 'sign-in', deps.userActionSurface ?? 'session', deps.cliName);
 
   /**
    * After a sign-in, the server is admitted again first — approval, fingerprint and trust as they
@@ -991,6 +1118,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       entry.definition.oauth === undefined
         ? new Map<string, string>()
         : new Map([[serverId, authFailureNotice(serverId)]]),
+      isDispatchAdmitted,
     );
     // Recorded once the session says which of these it took.
     pendingProvenance.set(serverId, provenance);
@@ -1085,6 +1213,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       connectedToolProvenance,
       resultAdmission,
       authFailureNoticeByServerId,
+      isDispatchAdmitted,
     );
     return withResultReadTool(tools);
   }
@@ -1196,6 +1325,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       provenance,
       resultAdmission,
       authFailureNoticeByServerId,
+      isDispatchAdmitted,
     );
     // Recorded once the session says which of these it took (`reloadToolsAdded`), keyed to this
     // call's own token — never committed here, so a tool name collision with one the session
@@ -1234,7 +1364,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   function createResultReadTool(): IToolWithEventService {
     return new FunctionTool(
       {
-        name: 'robota_read_mcp_result',
+        name: deps.resultReadToolName ?? 'agent_read_mcp_result',
         description:
           'Read up to 4,000 characters of a saved MCP tool result using its opaque tool-result reference and a zero-based character offset.',
         parameters: {
@@ -1308,6 +1438,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
 
   return {
     activationAdapter,
+    skillRegistry,
     connect,
     shutdown,
     connectedToolProvenance,

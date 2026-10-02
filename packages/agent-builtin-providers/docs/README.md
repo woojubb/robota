@@ -1,6 +1,6 @@
 # agent-builtin-providers Docs Index
 
-This package is the default provider set that ships with Robota: the definitions of the built-in chat
+This package is the default provider set that ships with agent runtime: the definitions of the built-in chat
 providers (anthropic, openai, gemini, gemma, qwen, deepseek), the default media provider definitions
 (Gemini image and Seedance video), and the default role-to-model mapping (`DEFAULT_ROLE_MODELS`). The
 [package README](../README.md) shows how to use each.

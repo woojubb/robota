@@ -23,15 +23,6 @@
     },
     "./package.json": "./package.json"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/woojubb/robota.git",
-    "directory": "packages/agent-ui-terminal"
-  },
-  "homepage": "https://docs.robota.io/en/packages/agent-ui-terminal/",
-  "bugs": {
-    "url": "https://github.com/woojubb/robota/issues"
-  },
   "engines": {
     "node": ">=22.12.0"
   },

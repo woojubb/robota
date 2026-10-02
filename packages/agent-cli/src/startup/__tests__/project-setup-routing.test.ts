@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * #3282 §3 — a served runtime (`--serve`, and a daemon's spawned child, which is also `--serve`) with
  * no usable provider configuration starts in setup mode instead of exiting. The TUI and print mode are
@@ -27,7 +28,7 @@ const NOOP_TERMINAL: ITerminalOutput = {
   spinner: (): ISpinner => ({ stop: () => {}, update: () => {} }),
 };
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-project-setup-routing-test-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-project-setup-routing-test-')));
 const ORIGINAL_STDIN_TTY = process.stdin.isTTY;
 const ORIGINAL_STDOUT_TTY = process.stdout.isTTY;
 
@@ -49,8 +50,9 @@ function emptyWorkspace(name: string) {
   const home = join(TMP_BASE, `${name}-home`);
   Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true });
   Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true });
-  const workspace = createCliWorkspaceComposition({ cwd: project, userHome: home });
-  return { cwd: project, workspace };
+  const productRuntime = createTestProductRuntime('test-product', { HOME: home });
+  const workspace = createCliWorkspaceComposition({productRuntime,  cwd: project, userHome: home });
+  return { cwd: project, workspace, productRuntime };
 }
 
 describe('routeProjectSetup — #3282 §3 setup mode', () => {
@@ -61,13 +63,13 @@ describe('routeProjectSetup — #3282 §3 setup mode', () => {
   });
 
   it('a served runtime with no provider continues in setup mode instead of exiting', async () => {
-    const { cwd, workspace } = emptyWorkspace('serve');
+    const { cwd, workspace, productRuntime } = emptyWorkspace('serve');
     const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
     try {
       const result = await routeProjectSetup({
         cwd,
         args: baseArgs({ serve: true }),
-        startOptions: {} as IStartCliOptions,
+        startOptions: { productRuntime } as IStartCliOptions,
         terminal: NOOP_TERMINAL,
         providerDefinitions: [],
         workspace,
@@ -81,14 +83,14 @@ describe('routeProjectSetup — #3282 §3 setup mode', () => {
   });
 
   it('the TUI (no --serve) with no provider still exits, unchanged', async () => {
-    const { cwd, workspace } = emptyWorkspace('tui');
+    const { cwd, workspace, productRuntime } = emptyWorkspace('tui');
     const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
       const result = await routeProjectSetup({
         cwd,
         args: baseArgs({ serve: false }),
-        startOptions: {} as IStartCliOptions,
+        startOptions: { productRuntime } as IStartCliOptions,
         terminal: NOOP_TERMINAL,
         providerDefinitions: [],
         workspace,
@@ -107,14 +109,14 @@ describe('routeProjectSetup — #3282 §3 setup mode', () => {
   });
 
   it('print mode with no provider still exits with the print-mode exit code, unchanged', async () => {
-    const { cwd, workspace } = emptyWorkspace('print');
+    const { cwd, workspace, productRuntime } = emptyWorkspace('print');
     const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
       await routeProjectSetup({
         cwd,
         args: baseArgs({ printMode: true }),
-        startOptions: {} as IStartCliOptions,
+        startOptions: { productRuntime } as IStartCliOptions,
         terminal: NOOP_TERMINAL,
         providerDefinitions: [],
         workspace,

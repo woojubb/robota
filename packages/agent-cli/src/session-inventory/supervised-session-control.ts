@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { createHash, randomBytes } from 'node:crypto';
 import {
   closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync,
@@ -194,8 +195,8 @@ function probePid(pid: number): 'present' | 'absent' | 'unknown' {
   }
 }
 
-export function resolveSupervisedDirectory(): string {
-  return join(dirname(resolveRendezvousDirectory()), 'supervised');
+export function resolveSupervisedDirectory(productRuntime: ICliRuntimeContext): string {
+  return join(dirname(resolveRendezvousDirectory(productRuntime)), 'supervised');
 }
 
 function verifyExistingDirectory(directory: string): void {
@@ -241,8 +242,8 @@ const MAX_SOCKET_PATH_BYTES = 100;
 export class SupervisedControlPathTooLongError extends Error {
   constructor(readonly directory: string) {
     super(`Supervised session control socket path is too long under ${directory}: a local socket path ` +
-      `allows ${MAX_SOCKET_PATH_BYTES} bytes. Use a shorter HOME, or set XDG_RUNTIME_DIR to a short ` +
-      'private directory for every robota command.');
+      `allows ${MAX_SOCKET_PATH_BYTES} bytes. Set PRODUCT_USER_STATE_DIR to a shorter absolute path, or set XDG_RUNTIME_DIR to a short ` +
+      'private directory for every CLI command.');
     this.name = 'SupervisedControlPathTooLongError';
   }
 }
@@ -423,7 +424,7 @@ function optionalGrants(
 }
 
 export async function listSupervisedSessions(
-  root = resolveSupervisedDirectory(),
+  root: string,
   signal?: AbortSignal,
   options: { readonly cwd?: string; readonly name?: string; readonly pr?: number;
     readonly includeName?: boolean; readonly includeCwd?: boolean; readonly includePr?: boolean;
@@ -508,7 +509,7 @@ export async function listSupervisedSessions(
  */
 export async function stopSupervisedSession(
   id: string,
-  root = resolveSupervisedDirectory(),
+  root: string,
   expectedGeneration?: string,
 ): Promise<void> {
   const { directory, record, generation } = verifyLiveOwner(root, id, expectedGeneration);
@@ -538,7 +539,7 @@ export async function stopSupervisedSession(
 export async function renameSupervisedSession(
   id: string,
   name: string,
-  root = resolveSupervisedDirectory(),
+  root: string,
   expectedGeneration?: string,
 ): Promise<void> {
   sessionDirectory(root, id);
@@ -575,7 +576,7 @@ function verifyLiveOwner(
 export async function linkSupervisedPr(
   id: string,
   url: string,
-  root = resolveSupervisedDirectory(),
+  root: string,
   expectedGeneration?: string,
 ): Promise<void> {
   if (!parseSupervisedPr(url)) throw new Error('Invalid supervised session PR URL.');
@@ -588,7 +589,7 @@ export async function linkSupervisedPr(
 
 export async function unlinkSupervisedPr(
   id: string,
-  root = resolveSupervisedDirectory(),
+  root: string,
   expectedGeneration?: string,
 ): Promise<void> {
   const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
@@ -601,7 +602,7 @@ export async function unlinkSupervisedPr(
 /** Re-probe the selected owner immediately before a user-triggered open action. */
 export async function getVerifiedSupervisedPr(
   id: string,
-  root = resolveSupervisedDirectory(),
+  root: string,
   expectedGeneration?: string,
 ): Promise<ISupervisedPr | undefined> {
   const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
@@ -620,7 +621,7 @@ export async function getVerifiedSupervisedPr(
  */
 export async function connectSupervisedDaemon(
   id: string,
-  root = resolveSupervisedDirectory(),
+  root: string,
   expectedGeneration?: string,
 ): Promise<string> {
   const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
@@ -655,7 +656,7 @@ export interface ISupervisedAttachSocket {
 export async function openSupervisedAttachSocket(
   id: string,
   mode: 'drive' | 'observe',
-  root = resolveSupervisedDirectory(),
+  root: string,
   expectedGeneration?: string,
 ): Promise<ISupervisedAttachSocket> {
   const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
@@ -696,7 +697,7 @@ export async function openSupervisedAttachSocket(
 /** The owner's grants on a live session: labels, principal kinds, states and counts. */
 export async function listSupervisedExternalEvents(
   id: string,
-  root = resolveSupervisedDirectory(),
+  root: string,
   expectedGeneration?: string,
 ): Promise<readonly IExternalEventGrantRow[]> {
   const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
@@ -711,7 +712,7 @@ export async function listSupervisedExternalEvents(
 export async function revokeSupervisedExternalEventGrant(
   id: string,
   grantId: string,
-  root = resolveSupervisedDirectory(),
+  root: string,
   expectedGeneration?: string,
 ): Promise<void> {
   if (!GRANT_ID_PATTERN.test(grantId)) throw new Error('Invalid external event grant label.');
@@ -764,19 +765,19 @@ function readDaemonStartLockOwner(
   return { pid, state: readProcessStartTime(pid) === match[2] ? 'live' : 'gone' };
 }
 
-const UNLOCK_HINT = 'If no daemon start is running, remove it with: robota daemon unlock';
+const unlockHint = (cliName: string): string => `If no daemon start is running, remove it with: ${cliName} daemon unlock`;
 
 /**
- * Serialize `robota daemon start` in one workspace, so two starts never launch two daemons. The lock
+ * Serialize `the CLI daemon start` in one workspace, so two starts never launch two daemons. The lock
  * is a file created exclusively in the private supervised directory, holding its owner's pid. A live
  * owner is waited for. A lock this start did not take is never removed here: one left by a start
- * that is gone refuses the start and names `robota daemon unlock`, so removing it is the user's call.
+ * that is gone refuses the start and names `the CLI daemon unlock`, so removing it is the user's call.
  * Resolves to the release of this start's own lock.
  */
 export async function acquireSupervisedDaemonStartLock(
   workspace: string,
-  root = resolveSupervisedDirectory(),
-  options: { readonly timeoutMs?: number; readonly pollMs?: number } = {},
+  root: string,
+  options: { readonly cliName: string; readonly timeoutMs?: number; readonly pollMs?: number },
 ): Promise<() => void> {
   ensurePrivateDirectory(root);
   const file = daemonStartLockFile(workspace, root);
@@ -800,12 +801,12 @@ export async function acquireSupervisedDaemonStartLock(
     const holder = readDaemonStartLockOwner(file);
     if (holder?.state === 'gone') {
       throw new Error(
-        `A daemon start lock left by process ${holder.pid}, which is no longer running, remains at ${file}. ${UNLOCK_HINT}`,
+        `A daemon start lock left by process ${holder.pid}, which is no longer running, remains at ${file}. ${unlockHint(options.cliName)}`,
       );
     }
     if (Date.now() >= deadline) {
       throw new Error(
-        `Another daemon start is still running in ${workspace}, or its lock remains at ${file}. ${UNLOCK_HINT}`,
+        `Another daemon start is still running in ${workspace}, or its lock remains at ${file}. ${unlockHint(options.cliName)}`,
       );
     }
     await new Promise((resolve) => setTimeout(resolve, options.pollMs ?? 100));
@@ -813,12 +814,12 @@ export async function acquireSupervisedDaemonStartLock(
 }
 
 /**
- * `robota daemon unlock`: remove this workspace's daemon start lock at the user's request. A lock whose
+ * `the CLI daemon unlock`: remove this workspace's daemon start lock at the user's request. A lock whose
  * owner is still running is kept, since that start is still in progress.
  */
 export function removeSupervisedDaemonStartLock(
   workspace: string,
-  root = resolveSupervisedDirectory(),
+  root: string,
 ): { readonly outcome: 'removed' | 'none' } | { readonly outcome: 'held'; readonly pid: number } {
   try {
     verifyExistingDirectory(root);
@@ -898,7 +899,7 @@ export interface ISupervisedControl {
 export async function startSupervisedControl(
   id: string,
   onStop: () => void,
-  root = resolveSupervisedDirectory(),
+  root: string,
   getActivity?: () => Exclude<TSupervisedActivity, 'unknown'> | undefined,
   getCwd?: () => string | undefined,
   getNextLoopAt?: () => string | undefined,

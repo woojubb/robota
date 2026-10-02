@@ -19,7 +19,7 @@ import { NodeHostPluginSettingsStore } from '../plugin-settings-store.js';
 
 import type { TExecFn } from '../marketplace-types.js';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-installer-test-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-installer-test-')));
 
 function setupDir(path: string): void {
   mkdirSync(path, { recursive: true });

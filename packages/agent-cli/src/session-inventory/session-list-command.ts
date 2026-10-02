@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { lstatSync } from 'node:fs';
 
 import { createUserSessionStore } from '@robota-sdk/agent-framework';
@@ -6,7 +7,7 @@ import { admitLocalPeerDirectory } from '@robota-sdk/agent-remote-pairing/local'
 import { listPeers } from '../remote-control/local-peer-registry.js';
 import { resolveRendezvousDirectory } from '../remote-control/local-peer-rendezvous.js';
 import { userPaths } from '../product/user-paths.js';
-import { listSupervisedSessions } from './supervised-session-control.js';
+import { listSupervisedSessions, resolveSupervisedDirectory } from './supervised-session-control.js';
 
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
@@ -17,6 +18,7 @@ interface IPeer {
 }
 
 export interface ISessionListDependencies {
+  readonly cliName: string;
   readonly userSessionStore: IInteractiveSessionStore;
   readonly projectSessionStore?: IInteractiveSessionStore;
   readonly readPeers: () =>
@@ -30,11 +32,11 @@ interface IResult {
   readonly stderr: string;
 }
 
-const HELP = 'Usage: robota session list [--format text|json]\n';
+const HELP = (cliName: string): string => `Usage: ${cliName} session list [--format text|json]\n`;
 
 /** Inspect, but never create or change, the guarded same-user peer rendezvous. */
 export function readLocalPeersForInventory(
-  directory: string = resolveRendezvousDirectory(),
+  directory: string,
 ): ReturnType<ISessionListDependencies['readPeers']> {
   try {
     if (lstatSync(directory).isSymbolicLink()) return { status: 'unavailable' };
@@ -65,12 +67,12 @@ export function executeSessionListCommand(
   dependencies: ISessionListDependencies,
 ): IResult {
   if (argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h')) {
-    return { exitCode: 0, stdout: HELP, stderr: '' };
+    return { exitCode: 0, stdout: HELP(dependencies.cliName), stderr: '' };
   }
   const format =
     argv.length === 0 ? 'text' : argv.length === 2 && argv[0] === '--format' ? argv[1] : undefined;
   if (format !== 'text' && format !== 'json') {
-    return { exitCode: 1, stdout: '', stderr: HELP };
+    return { exitCode: 1, stdout: '', stderr: HELP(dependencies.cliName) };
   }
 
   try {
@@ -147,12 +149,14 @@ export function executeSessionListCommand(
 
 export async function runSessionListCommand(
   argv: readonly string[],
+  productRuntime: ICliRuntimeContext,
   projectSessionStore?: IInteractiveSessionStore,
 ): Promise<number> {
   const result = executeSessionListCommand(argv, {
-    userSessionStore: createUserSessionStore(userPaths().sessions),
+    cliName: productRuntime.vocabulary.cliName,
+    userSessionStore: createUserSessionStore(userPaths(productRuntime).sessions),
     ...(projectSessionStore ? { projectSessionStore } : {}),
-    readPeers: readLocalPeersForInventory,
+    readPeers: () => readLocalPeersForInventory(resolveRendezvousDirectory(productRuntime)),
   });
   if (argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h')) {
     process.stdout.write(result.stdout);
@@ -166,7 +170,7 @@ export async function runSessionListCommand(
   try {
     supervised = {
       status: 'available',
-      sessions: await listSupervisedSessions(undefined, undefined, { includeExternalEvents: true }),
+      sessions: await listSupervisedSessions(resolveSupervisedDirectory(productRuntime), undefined, { includeExternalEvents: true }),
     };
   } catch {
     supervised = { status: 'unavailable', sessions: [] };

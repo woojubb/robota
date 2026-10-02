@@ -1,3 +1,4 @@
+import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 /**
  * What a caller CONFIGURES on the WebRTC host transport.
  *
@@ -32,6 +33,7 @@ export interface IIceServer {
  * settings schema of its own (`optionsSchema` is empty).
  */
 export interface IWebRtcTransportOptions {
+  readonly cryptoContext: IIdentityContext;
   /** Host-owned usage read models, available only after admission. */
   readonly personalUsageReporter?: ISessionMessageHandlerOptions['personalUsageReporter'];
   readonly usageReporter?: ISessionMessageHandlerOptions['usageReporter'];

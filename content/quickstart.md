@@ -1,6 +1,6 @@
 # 5-Minute Quick Start
 
-Two ways to get something running: the reference CLI, or the SDK in your own code.
+Two ways to use the same agent foundation: the CLI, or the SDK in your own code.
 
 ## Prerequisites
 

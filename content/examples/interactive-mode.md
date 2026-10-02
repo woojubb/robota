@@ -1,22 +1,22 @@
 # Interactive Mode
 
-Running `robota` without `-p` opens the terminal UI: a coding-assistant session in the current
+Running `__PRODUCT_CLI_NAME__` without `-p` opens the terminal UI: a coding-assistant session in the current
 directory, built from the same Robota libraries as the SDK examples. This page walks through what you
 see on screen. The [CLI guide](../guide/cli.md) is the full reference.
 
 ## Starting
 
 ```bash
-robota                    # Start a new session
-robota "Fix the bug"      # Start with an initial prompt
-robota -c                 # Continue the most recent session
-robota -r session_123     # Resume a session by ID or name
+__PRODUCT_CLI_NAME__                    # Start a new session
+__PRODUCT_CLI_NAME__ "Fix the bug"      # Start with an initial prompt
+__PRODUCT_CLI_NAME__ -c                 # Continue the most recent session
+__PRODUCT_CLI_NAME__ -r session_123     # Resume a session by ID or name
 ```
 
-When you start a new session in a Git repository you have not trusted yet, `robota` first lists what
+When you start a new session in a Git repository you have not trusted yet, `__PRODUCT_CLI_NAME__` first lists what
 trusting it would load (the project's settings, hooks, plugins, skills, agent definitions, provider
 overrides and MCP servers) and asks `Trust this folder? [y/N]`. Answering no starts the session
-Restricted, without any of those; `robota trust --yes` trusts the folder later.
+Restricted, without any of those; `__PRODUCT_CLI_NAME__ trust --yes` trusts the folder later.
 
 ## Slash commands
 
@@ -44,7 +44,7 @@ input without running it, so you can add arguments. Enter runs it.
 
 `/help` lists every command available in your session.
 
-Skills and commands appear in the same menu. The CLI reads them from `.robota/skills/`,
+Skills and commands appear in the same menu. The CLI reads them from `<project-state>/skills/`,
 `.claude/skills/`, `.claude/commands/` and `.agents/skills/`, in your home directory and, once the
 folder is trusted, in the project.
 
@@ -96,4 +96,4 @@ restores the defaults.
 ## Session name
 
 The session name appears on the input box border, in the terminal title and in the status line. Set
-it with `robota --name <name>` or `/rename <name>`.
+it with `__PRODUCT_CLI_NAME__ --name <name>` or `/rename <name>`.

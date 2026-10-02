@@ -5,7 +5,7 @@
  * the registry once and every round spread the same array. A tool registered — or loaded — in round
  * N was therefore invisible to round N+1, which is precisely the property a search tool needs.
  *
- * These cases drive a real `Robota` turn against the scripted provider and read the `IChatOptions`
+ * These cases drive a real `ConversationAgent` turn against the scripted provider and read the `IChatOptions`
  * it recorded, because the defect lives in WHEN the registry is read, and a test that calls the
  * round helper directly cannot see that. The search tool here is a test-local driver of the real
  * `IToolExecutionContext.deferredTools` port — agent-core owns the port and the residency mechanism,
@@ -22,7 +22,7 @@ import { UNKNOWN_TOOL_ERROR_CODE } from '../../services/tool-execution-service';
 import { DEFERRED_WITHOUT_LOADER_MESSAGE } from '../../tool-registry';
 import { evaluatePermission } from '../../permissions/permission-gate';
 import { createScriptedProvider, type TScriptedTurn } from '../../testing/scripted-provider';
-import { Robota } from '../robota';
+import { ConversationAgent } from '../conversation-agent';
 
 import type { IToolWithEventService } from '../../abstracts/abstract-tool';
 import type { IAgentConfig, IToolMessage } from '../../interfaces/agent';
@@ -144,7 +144,7 @@ function defaultTools(): IToolWithEventService[] {
 function buildAgent(
   turns: readonly TScriptedTurn[],
   options: { tools?: IToolWithEventService[]; toolSearch?: TToolSearchSetting } = {},
-): { robota: Robota; scripted: ReturnType<typeof createScriptedProvider> } {
+): { agent: ConversationAgent; scripted: ReturnType<typeof createScriptedProvider> } {
   const scripted = createScriptedProvider(turns);
   const config: IAgentConfig = {
     name: 'Deferred Tools Agent',
@@ -154,25 +154,25 @@ function buildAgent(
     toolSearch: options.toolSearch ?? 'on',
     logging: { level: 'silent', enabled: false },
   };
-  return { robota: new Robota(config), scripted };
+  return { agent: new ConversationAgent(config), scripted };
 }
 
 function toolNames(scripted: ReturnType<typeof createScriptedProvider>, round: number): string[] {
   return (scripted.chatOptions[round]?.tools ?? []).map((tool) => tool.name);
 }
 
-function toolMessages(robota: Robota): IToolMessage[] {
-  return robota.getHistory().filter((message): message is IToolMessage => message.role === 'tool');
+function toolMessages(agent: ConversationAgent): IToolMessage[] {
+  return agent.getHistory().filter((message): message is IToolMessage => message.role === 'tool');
 }
 
 describe('CLI-1990 — deferred tool schemas reach the model only once loaded', () => {
   it('TC-02: a deferred tool is withheld in round 0 and offered in round 1 after ToolSearch loads it', async () => {
-    const { robota, scripted } = buildAgent([
+    const { agent, scripted } = buildAgent([
       { toolCalls: [{ name: TOOL_SEARCH_TOOL_NAME, args: { query: 'deferred' } }] },
       { text: 'done' },
     ]);
 
-    await robota.run('find me the probe');
+    await agent.run('find me the probe');
 
     const round0 = toolNames(scripted, 0);
     expect(round0).toContain(TOOL_SEARCH_TOOL_NAME);
@@ -191,23 +191,23 @@ describe('CLI-1990 — deferred tool schemas reach the model only once loaded', 
   });
 
   it('TC-01 companion: with nothing deferred the projection is the identity', async () => {
-    const { robota, scripted } = buildAgent([{ text: 'done' }], {
+    const { agent, scripted } = buildAgent([{ text: 'done' }], {
       tools: [new SchemaTool(RESIDENT_SCHEMA), new LocalToolSearch()],
       toolSearch: 'auto',
     });
 
-    await robota.run('hello');
+    await agent.run('hello');
 
     expect(toolNames(scripted, 0)).toEqual([RESIDENT_SCHEMA.name, TOOL_SEARCH_TOOL_NAME]);
   });
 
   it('TC-03: ToolSearch({ names }) loads exactly the named tool', async () => {
-    const { robota, scripted } = buildAgent([
+    const { agent, scripted } = buildAgent([
       { toolCalls: [{ name: TOOL_SEARCH_TOOL_NAME, args: { names: ['Grep'] } }] },
       { text: 'done' },
     ]);
 
-    await robota.run('load grep');
+    await agent.run('load grep');
 
     const round1 = toolNames(scripted, 1);
     expect(round1).toContain('Grep');
@@ -215,14 +215,14 @@ describe('CLI-1990 — deferred tool schemas reach the model only once loaded', 
   });
 
   it('TC-03: an empty match is a normal result, and the next round is unchanged', async () => {
-    const { robota, scripted } = buildAgent([
+    const { agent, scripted } = buildAgent([
       { toolCalls: [{ name: TOOL_SEARCH_TOOL_NAME, args: { query: 'nothing matches this' } }] },
       { text: 'done' },
     ]);
 
-    await robota.run('search for nothing');
+    await agent.run('search for nothing');
 
-    const [searchResult] = toolMessages(robota);
+    const [searchResult] = toolMessages(agent);
     expect(searchResult).toBeDefined();
     expect(JSON.parse(String(searchResult?.content))).toEqual({
       loaded: [],
@@ -232,27 +232,27 @@ describe('CLI-1990 — deferred tool schemas reach the model only once loaded', 
   });
 
   it('TC-03: an unknown entry in names is an error naming the entry', async () => {
-    const { robota } = buildAgent([
+    const { agent } = buildAgent([
       { toolCalls: [{ name: TOOL_SEARCH_TOOL_NAME, args: { names: ['NoSuchTool'] } }] },
       { text: 'done' },
     ]);
 
-    await robota.run('load a tool that does not exist');
+    await agent.run('load a tool that does not exist');
 
-    const [searchResult] = toolMessages(robota);
+    const [searchResult] = toolMessages(agent);
     expect(String(searchResult?.content)).toMatch(/^Error:/);
     expect(String(searchResult?.content)).toContain('NoSuchTool');
   });
 
   it('TC-06: calling an unloaded deferred tool yields the unknown-tool error naming ToolSearch, without a forced summary', async () => {
-    const { robota, scripted } = buildAgent([
+    const { agent, scripted } = buildAgent([
       { toolCalls: [{ name: DEFERRED_PROBE_SCHEMA.name, args: { target: 'x' } }] },
       { text: 'recovered' },
     ]);
 
-    const response = await robota.run('probe without loading');
+    const response = await agent.run('probe without loading');
 
-    const [probeResult] = toolMessages(robota);
+    const [probeResult] = toolMessages(agent);
     expect(probeResult?.metadata?.['errorCode']).toBe(UNKNOWN_TOOL_ERROR_CODE);
     expect(String(probeResult?.content)).toContain(TOOL_SEARCH_TOOL_NAME);
     expect(String(probeResult?.content)).toContain(DEFERRED_PROBE_SCHEMA.name);
@@ -265,18 +265,18 @@ describe('CLI-1990 — deferred tool schemas reach the model only once loaded', 
   });
 
   it('TC-07: a run forcing a deferred tool loads it before the first request instead of throwing', async () => {
-    const { robota, scripted } = buildAgent([
+    const { agent, scripted } = buildAgent([
       { toolCalls: [{ name: DEFERRED_PROBE_SCHEMA.name, args: { target: 'forced' } }] },
       { text: 'done' },
     ]);
 
     await expect(
-      robota.run('probe now', { toolChoice: { tool: DEFERRED_PROBE_SCHEMA.name } }),
+      agent.run('probe now', { toolChoice: { tool: DEFERRED_PROBE_SCHEMA.name } }),
     ).resolves.toBe('done');
 
     expect(toolNames(scripted, 0)).toContain(DEFERRED_PROBE_SCHEMA.name);
     expect(scripted.chatOptions[0]?.toolChoice).toEqual({ tool: DEFERRED_PROBE_SCHEMA.name });
-    const [probeResult] = toolMessages(robota);
+    const [probeResult] = toolMessages(agent);
     expect(JSON.parse(String(probeResult?.content))).toEqual({ ran: DEFERRED_PROBE_SCHEMA.name });
   });
 
@@ -289,7 +289,7 @@ describe('CLI-1990 — deferred tool schemas reach the model only once loaded', 
     // load, which is what "deferral never widens authority" means.
     expect(gate()).toBe('deny');
 
-    const { robota, scripted } = buildAgent(
+    const { agent, scripted } = buildAgent(
       [
         {
           toolCalls: [
@@ -308,10 +308,10 @@ describe('CLI-1990 — deferred tool schemas reach the model only once loaded', 
       },
     );
 
-    await robota.run('load it, then call it');
+    await agent.run('load it, then call it');
 
     expect(toolNames(scripted, 1)).toContain(DEFERRED_PROBE_SCHEMA.name);
-    const [, probeResult] = toolMessages(robota);
+    const [, probeResult] = toolMessages(agent);
     expect(String(probeResult?.content)).toContain('Permission denied');
     expect(gate()).toBe('deny');
   });
@@ -322,19 +322,19 @@ describe('CLI-1990 review — a withheld schema needs a loader', () => {
     // The framework adds the loader whenever a declared tool is deferred; an SDK-direct configuration
     // that defers tools without registering it would otherwise withhold them silently — the model
     // could neither see nor load them, and the unknown-tool remedy would name a tool that is not there.
-    const { robota } = buildAgent([{ text: 'done' }], {
+    const { agent } = buildAgent([{ text: 'done' }], {
       tools: [new SchemaTool(RESIDENT_SCHEMA), new SchemaTool(DEFERRED_PROBE_SCHEMA)],
       toolSearch: 'on',
     });
-    await expect(robota.run('probe something')).rejects.toThrow(DEFERRED_WITHOUT_LOADER_MESSAGE);
+    await expect(agent.run('probe something')).rejects.toThrow(DEFERRED_WITHOUT_LOADER_MESSAGE);
   });
 
   it('still runs when deferral is off, the identity projection needing no loader', async () => {
-    const { robota, scripted } = buildAgent([{ text: 'done' }], {
+    const { agent, scripted } = buildAgent([{ text: 'done' }], {
       tools: [new SchemaTool(RESIDENT_SCHEMA), new SchemaTool(DEFERRED_PROBE_SCHEMA)],
       toolSearch: 'off',
     });
-    await robota.run('probe something');
+    await agent.run('probe something');
     expect((scripted.chatOptions[0]?.tools ?? []).map((tool) => tool.name)).toEqual([
       RESIDENT_SCHEMA.name,
       DEFERRED_PROBE_SCHEMA.name,

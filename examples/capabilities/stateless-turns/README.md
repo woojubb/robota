@@ -1,6 +1,6 @@
 # Capability: run-isolated (stateless) turns
 
-By default one `Robota` instance accumulates history and sends **all of it on every call** —
+By default one `ConversationAgent` instance accumulates history and sends **all of it on every call** —
 token cost grows every turn. `retainHistory: false` makes the store ephemeral per run: each
 run sees the system prompt (+ anything you inject before the run) and the prompt only, and
 the store resets after the run settles.

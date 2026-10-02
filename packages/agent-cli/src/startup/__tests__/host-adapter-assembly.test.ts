@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * PEER-004 (#1863) — the composition step, and what it does when a capability cannot be assembled.
  *
@@ -55,7 +56,7 @@ describe('assembling the host adapters', () => {
         publishStatus: (status: string | undefined) => published.push(status),
         withdraw: () => {},
       };
-      const start = attachHostAdapters({}, CONTROLLER, reporter(), () => presence);
+      const start = attachHostAdapters({}, CONTROLLER, reporter(), createTestProductRuntime(), () => presence);
       const sessions = [0, 1].map(() => ({
         status: 'idle' as 'idle' | 'working',
         submit: async () => ({}),
@@ -95,7 +96,7 @@ describe('assembling the host adapters', () => {
       withdraw: () => undefined,
     };
 
-    attachHostAdapters(adapters, CONTROLLER, report, () => presence);
+    attachHostAdapters(adapters, CONTROLLER, report, createTestProductRuntime(), () => presence);
 
     expect(adapters.localPeers?.ownSessionId()).toBe('session-one');
     expect(adapters.localPeers?.list()).toEqual([{ sessionId: 'session-one', liveness: 'alive' }]);
@@ -107,7 +108,7 @@ describe('assembling the host adapters', () => {
     // caller for one would let two call sites disagree about what a session is, which is the exact
     // question the registry keys its entries on.
     const seen: string[] = [];
-    attachHostAdapters({}, CONTROLLER, reporter(), (options) => {
+    attachHostAdapters({}, CONTROLLER, reporter(), createTestProductRuntime(), (options) => {
       seen.push(options.sessionId);
       return {
         sessionId: options.sessionId,
@@ -130,7 +131,7 @@ describe('assembling the host adapters', () => {
     const adapters: ICommandHostAdapters = {};
     const report = reporter();
 
-    attachHostAdapters(adapters, CONTROLLER, report, () => {
+    attachHostAdapters(adapters, CONTROLLER, report, createTestProductRuntime(), () => {
       throw new Error('the rendezvous directory was not admitted');
     });
 
@@ -143,7 +144,7 @@ describe('assembling the host adapters', () => {
 
   it('does not let a refusal stop the session', () => {
     expect(() =>
-      attachHostAdapters({}, CONTROLLER, reporter(), () => {
+      attachHostAdapters({}, CONTROLLER, reporter(), createTestProductRuntime(), () => {
         throw new Error('no');
       }),
     ).not.toThrow();
@@ -164,7 +165,7 @@ describe('PEER-006 — messaging is attached separately from discovery', () => {
 
   it('fills in `send` once messaging starts', async () => {
     const adapters: ICommandHostAdapters = {};
-    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE);
+    attachHostAdapters(adapters, CONTROLLER, reporter(), createTestProductRuntime(), () => PRESENCE);
 
     expect(adapters.localPeers?.send).toBeUndefined();
 
@@ -173,7 +174,7 @@ describe('PEER-006 — messaging is attached separately from discovery', () => {
       PRESENCE,
       () => ({ submit: async () => ({}) }) as never,
       reporter(),
-      (async () => ({
+      createTestProductRuntime(), (async () => ({
         socketPath: '/tmp/x.sock',
         send: async () => ({ id: '1', sequence: 1, state: 'acknowledged' as const }),
         close: async () => {},
@@ -188,14 +189,14 @@ describe('PEER-006 — messaging is attached separately from discovery', () => {
 
   it('fills in `prepareFile` once messaging starts, keeping the model to its workspace', async () => {
     const adapters: ICommandHostAdapters = {};
-    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE);
+    attachHostAdapters(adapters, CONTROLLER, reporter(), createTestProductRuntime(), () => PRESENCE);
     const sent: unknown[] = [];
     await attachLocalPeerMessaging(
       adapters,
       PRESENCE,
       () => ({ submit: async () => ({}) }) as never,
       reporter(),
-      (async () => ({
+      createTestProductRuntime(), (async () => ({
         socketPath: '/tmp/x.sock',
         send: async () => ({ id: '1', sequence: 1, state: 'acknowledged' as const }),
         sendFile: async (target: string, file: unknown) => {
@@ -228,9 +229,9 @@ describe('PEER-006 — messaging is attached separately from discovery', () => {
     const adapters: ICommandHostAdapters = {};
     const messages: string[] = [];
     const report = { writeError: (message: string) => messages.push(message) };
-    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE);
+    attachHostAdapters(adapters, CONTROLLER, reporter(), createTestProductRuntime(), () => PRESENCE);
 
-    await attachLocalPeerMessaging(adapters, PRESENCE, () => ({}) as never, report, (() =>
+    await attachLocalPeerMessaging(adapters, PRESENCE, () => ({}) as never, report, createTestProductRuntime(), (() =>
       Promise.reject(new Error('the socket could not bind'))) as never);
 
     // Listing peers and addressing them are different capabilities. Taking discovery down with
@@ -243,7 +244,7 @@ describe('PEER-006 — messaging is attached separately from discovery', () => {
   it('does nothing when discovery never came up', async () => {
     const adapters: ICommandHostAdapters = {};
     let started = false;
-    await attachLocalPeerMessaging(adapters, undefined, () => ({}) as never, reporter(), (() => {
+    await attachLocalPeerMessaging(adapters, undefined, () => ({}) as never, reporter(), createTestProductRuntime(), (() => {
       started = true;
       return Promise.resolve({}) as never;
     }) as never);
@@ -283,20 +284,20 @@ describe('PEER-006 — a session switch does not leak a listener', () => {
       };
     }) as never;
 
-    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE2);
+    attachHostAdapters(adapters, CONTROLLER, reporter(), createTestProductRuntime(), () => PRESENCE2);
     const first = await attachLocalPeerMessaging(
       adapters,
       PRESENCE2,
       () => ({}) as never,
       reporter(),
-      start,
+      createTestProductRuntime(), start,
     );
     await attachLocalPeerMessaging(
       adapters,
       PRESENCE2,
       () => ({}) as never,
       reporter(),
-      start,
+      createTestProductRuntime(), start,
       Promise.resolve(first),
     );
 
@@ -319,7 +320,7 @@ describe('PEER-006 — a session switch does not leak a listener', () => {
       };
     }) as never;
 
-    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE2);
+    attachHostAdapters(adapters, CONTROLLER, reporter(), createTestProductRuntime(), () => PRESENCE2);
     const stubborn = Promise.resolve({
       socketPath: '/tmp/old.sock',
       send: async () => ({ id: '1', sequence: 1, state: 'acknowledged' as const }),
@@ -333,7 +334,7 @@ describe('PEER-006 — a session switch does not leak a listener', () => {
       PRESENCE2,
       () => ({}) as never,
       report,
-      start,
+      createTestProductRuntime(), start,
       stubborn,
     );
 
@@ -382,7 +383,7 @@ describe('linked devices of the device mesh reach /peers and /handoff', () => {
   it('lists linked devices and sends to one over the mesh', async () => {
     const adapters: ICommandHostAdapters = {};
     const mesh = fakeMesh();
-    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE3, undefined, mesh);
+    attachHostAdapters(adapters, CONTROLLER, reporter(), createTestProductRuntime(), () => PRESENCE3, undefined, mesh);
 
     expect(adapters.localPeers?.listDevices?.()).toEqual(mesh.devices());
     await expect(adapters.localPeers?.send?.(DEVICE, 'hi', { inReplyTo: 'm-0' })).resolves.toEqual({
@@ -394,7 +395,7 @@ describe('linked devices of the device mesh reach /peers and /handoff', () => {
   it('sends a file to a linked device over the mesh', async () => {
     const adapters: ICommandHostAdapters = {};
     const mesh = fakeMesh();
-    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE3, undefined, mesh);
+    attachHostAdapters(adapters, CONTROLLER, reporter(), createTestProductRuntime(), () => PRESENCE3, undefined, mesh);
     const workspace = mkdtempSync(join(tmpdir(), 'mesh-file-'));
     try {
       writeFileSync(join(workspace, 'a.txt'), 'abc');
@@ -413,7 +414,7 @@ describe('linked devices of the device mesh reach /peers and /handoff', () => {
   it('lists linked devices as /handoff destinations', async () => {
     const adapters: ICommandHostAdapters = {};
     const mesh = fakeMesh();
-    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE3, HANDOFF, mesh);
+    attachHostAdapters(adapters, CONTROLLER, reporter(), createTestProductRuntime(), () => PRESENCE3, HANDOFF, mesh);
     await expect(adapters.handoff?.destinations()).resolves.toEqual([
       { deviceId: DEVICE, name: 'desktop, another of your devices' },
     ]);
@@ -427,7 +428,7 @@ describe('linked devices of the device mesh reach /peers and /handoff', () => {
       adapters,
       CONTROLLER,
       report,
-      () => {
+      createTestProductRuntime(), () => {
         throw new Error('the rendezvous directory was not admitted');
       },
       HANDOFF,
@@ -454,7 +455,7 @@ describe('linked devices of the device mesh reach /peers and /handoff', () => {
       adapters,
       CONTROLLER,
       reporter(),
-      () => PRESENCE3,
+      createTestProductRuntime(), () => PRESENCE3,
       HANDOFF,
       mesh,
     );

@@ -10,7 +10,7 @@ dist-bun-headless
 dist-ssr
 *.tgz
 # Left behind by the former custom build in older checkouts; safe to delete.
-.robota-artifacts/
+.build-artifacts/
 packages/**/.dist-*
 
 # generated files
@@ -38,6 +38,7 @@ lerna-debug.log*
 .env
 .env.*
 !.env.example
+!.env.default
 .env.local
 .env.development.local
 .env.test.local
@@ -130,7 +131,6 @@ bun.lock
 
 # Runtime/backup directories
 .backup/
-.robota/
 
 # Audit script output (local-only, not committed)
 scripts/audit/output/

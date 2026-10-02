@@ -84,6 +84,6 @@ export function createAgentCommandModule(): ICommandModule {
     name: 'agent-command-agent',
     commandSources: [new AgentCommandSource()],
     systemCommands: [createAgentSystemCommand()],
-    sessionRequirements: ['agent-runtime'],
+    sessionRequirements: ['runtime'],
   };
 }

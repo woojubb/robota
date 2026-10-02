@@ -15,6 +15,7 @@ import {
   decodeDeclaredObject,
   decodeOpenMap,
   decodeOptional,
+  decodeNumber,
   decodeString,
   decodeUniversalValue,
 } from './scalars.js';
@@ -93,7 +94,7 @@ function decodeMessagePart(
 ): TUniversalMessagePart | undefined {
   const kind = decodeLiteral(
     (value as { type?: unknown } | null)?.type,
-    ['text', 'image_inline', 'image_uri'],
+    ['text', 'image_inline', 'image_uri', 'audio_inline', 'resource_link', 'resource_embedded'],
     atKey(path, 'type'),
     issues,
   );
@@ -106,13 +107,68 @@ function decodeMessagePart(
     return text === undefined ? undefined : { type: 'text', text };
   }
 
-  if (kind === 'image_inline') {
+  if (kind === 'image_inline' || kind === 'audio_inline') {
     const raw = decodeDeclaredObject(value, path, issues, ['type', 'mimeType', 'data']);
     if (raw === undefined) return undefined;
     const mimeType = decodeString(raw['mimeType'], atKey(path, 'mimeType'), issues);
     const data = decodeString(raw['data'], atKey(path, 'data'), issues);
     if (mimeType === undefined || data === undefined) return undefined;
-    return { type: 'image_inline', mimeType, data };
+    return { type: kind, mimeType, data };
+  }
+
+  if (kind === 'resource_link') {
+    const raw = decodeDeclaredObject(value, path, issues, [
+      'type',
+      'uri',
+      'name',
+      'mimeType',
+      'title',
+      'description',
+      'size',
+    ]);
+    if (raw === undefined) return undefined;
+    const uri = decodeString(raw['uri'], atKey(path, 'uri'), issues);
+    const name = decodeString(raw['name'], atKey(path, 'name'), issues);
+    if (uri === undefined || name === undefined) return undefined;
+    const part: Extract<TUniversalMessagePart, { type: 'resource_link' }> = {
+      type: kind,
+      uri,
+      name,
+    };
+    for (const key of ['mimeType', 'title', 'description'] as const) {
+      setOptional(part, key, decodeOptional(raw[key], atKey(path, key), issues, decodeString));
+    }
+    const size = decodeOptional(raw['size'], atKey(path, 'size'), issues, decodeNumber);
+    if (size !== undefined && (!Number.isSafeInteger(size) || size < 0)) {
+      addIssue(issues, atKey(path, 'size'), 'expected a nonnegative safe integer');
+    }
+    setOptional(part, 'size', size);
+    return part;
+  }
+
+  if (kind === 'resource_embedded') {
+    const raw = decodeDeclaredObject(value, path, issues, [
+      'type',
+      'uri',
+      'mimeType',
+      'text',
+      'blob',
+    ]);
+    if (raw === undefined) return undefined;
+    const uri = decodeString(raw['uri'], atKey(path, 'uri'), issues);
+    const mimeType = decodeOptional(raw['mimeType'], atKey(path, 'mimeType'), issues, decodeString);
+    if (uri === undefined) return undefined;
+    const identity = { type: kind, uri, ...(mimeType !== undefined ? { mimeType } : {}) };
+    if (raw['text'] !== undefined && raw['blob'] === undefined) {
+      const text = decodeString(raw['text'], atKey(path, 'text'), issues);
+      return text === undefined ? undefined : { ...identity, text };
+    }
+    if (raw['blob'] !== undefined && raw['text'] === undefined) {
+      const blob = decodeString(raw['blob'], atKey(path, 'blob'), issues);
+      return blob === undefined ? undefined : { ...identity, blob };
+    }
+    addIssue(issues, path, 'expected exactly one text or blob payload');
+    return undefined;
   }
 
   const raw = decodeDeclaredObject(value, path, issues, ['type', 'uri', 'mimeType']);

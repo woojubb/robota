@@ -1,0 +1,400 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterAll, describe, expect, it } from 'vitest';
+
+import { createProductSandbox, liveSandboxSettings } from '../execution-containment.js';
+import { createProductCapabilityPacks } from '../product-profile.js';
+import {
+  assertChildProcessSubagentsCanReproduce,
+  createProductPackSet,
+  createProductSubagentComposition,
+  nonReproducibleCapabilities,
+  OS_SANDBOX_TYPE,
+  packTools,
+  parentSandboxSettingsOf,
+  watchParentSandboxSettingsOf,
+  type IProductPackContext,
+} from '../subagent-composition.js';
+
+import type { IToolWithEventService } from '@robota-sdk/agent-core';
+
+/** Roots sit, unmade, in one private per-run directory rather than at a fixed name under /tmp. */
+const PRIVATE_BASE = mkdtempSync(join(tmpdir(), 'test-product-arch-021-'));
+afterAll(() => rmSync(PRIVATE_BASE, { recursive: true, force: true }));
+const CWD = join(PRIVATE_BASE, 'workspace');
+
+/** A stand-in for a live, unrepeatable handle. Its shape is irrelevant — its presence is the point. */
+const SANDBOX_CLIENT = {} as IProductPackContext['sandboxClient'];
+
+function toolNames(tools: readonly { schema: { name: string } }[]): string[] {
+  return tools.map((tool) => tool.schema.name).sort();
+}
+
+/**
+ * A pack contributing a tool NO default tier contains. This is the discriminator: the product's own packs
+ * mirror `createDefaultTools()` by name (`pack-coding` is pinned to that set by its own test), so
+ * comparing the product's two name sets passes whether the child composes from packs or from imported
+ * defaults — a check that cannot fail on the defect it names. A uniquely-named pack tool can.
+ */
+const UNIQUE_TOOL_NAME = 'arch021UniquelyNamedPackTool';
+
+function createScratchPacks(context: IProductPackContext): ReturnType<typeof createProductCapabilityPacks> {
+  const tool = {
+    schema: { name: UNIQUE_TOOL_NAME, description: 'scratch', parameters: {} },
+    execute: () => Promise.resolve({ success: true, data: context.cwd }),
+  } as unknown as IToolWithEventService;
+  return [{ name: 'scratch-pack', tools: [tool] }] as unknown as ReturnType<
+    typeof createProductCapabilityPacks
+  >;
+}
+
+describe('ARCH-021 — test-product composes its own child-process subagents', () => {
+  it('TC-05: a pack tool outside the default mirror reaches the child composition', () => {
+    // Red against the pre-ARCH-021 behaviour: a child built from `createDefaultTools()` cannot
+    // contain this name, because no default tier contributes it.
+    const composition = createProductSubagentComposition(createTestProductRuntime(), createScratchPacks);
+
+    expect(toolNames(composition.createTools({ cwd: CWD }))).toEqual([UNIQUE_TOOL_NAME]);
+  });
+
+  it('TC-05: dropping a pack drops its tools from the child (ARCH-006, in the child too)', () => {
+    // The invariant that was true in the parent and false in the child. With imported defaults the
+    // child's surface is independent of the pack set, so an empty pack list would still yield tools.
+    const composition = createProductSubagentComposition(createTestProductRuntime(), () => []);
+
+    expect(composition.createTools({ cwd: CWD })).toEqual([]);
+  });
+
+  it('TC-05: the worker composition and the parent composition read one expression', () => {
+    const parentNames = toolNames(
+      createProductCapabilityPacks({ cwd: CWD }, createTestProductRuntime()).flatMap((p) => [...(p.tools ?? [])]),
+    );
+    const childNames = toolNames(createProductSubagentComposition(createTestProductRuntime()).createTools({ cwd: CWD }));
+
+    expect(childNames).toEqual(parentNames);
+    expect(childNames.length).toBeGreaterThan(0);
+  });
+
+  it('TC-05: the composition binds tools to the cwd it is given, not to a captured one', () => {
+    // ARCH-010: a child that inherited the parent's root read outside its own worktree. The root
+    // travels through the call for exactly that reason.
+    const composition = createProductSubagentComposition(createTestProductRuntime());
+
+    const here = composition.createTools({ cwd: CWD });
+    const there = composition.createTools({ cwd: join(PRIVATE_BASE, 'other-workspace') });
+
+    expect(there).not.toBe(here);
+    expect(toolNames(there)).toEqual(toolNames(here));
+  });
+
+  it('carries test-product provider definitions, so a child resolves what the parent resolves', () => {
+    const { providerDefinitions } = createProductSubagentComposition(createTestProductRuntime());
+
+    expect(providerDefinitions.length).toBeGreaterThan(0);
+    // `type` is the field `createProviderFromProfile` matches on — the one that threw
+    // `Unknown provider` in the child while the parent resolved it fine.
+    expect(providerDefinitions.map((definition) => definition.type)).toContain('openai');
+  });
+
+  it('TC-06: refuses child-process subagents when the parent composed a sandbox client', () => {
+    const context: IProductPackContext = { cwd: CWD, sandboxClient: SANDBOX_CLIENT };
+
+    expect(nonReproducibleCapabilities(context)).toEqual(['sandboxClient']);
+    expect(() => assertChildProcessSubagentsCanReproduce(context)).toThrow(/sandboxClient/);
+    // Fail CLOSED, and say why: a silently-dropped sandbox is a sandboxed parent with a host-tool
+    // child, which is ARCH-010's measured shape.
+    expect(() => assertChildProcessSubagentsCanReproduce(context)).toThrow(/ARCH-033/);
+  });
+
+  it('TC-06: allows child-process subagents for the composition test-product actually ships', () => {
+    expect(nonReproducibleCapabilities({ cwd: CWD })).toEqual([]);
+    expect(() => assertChildProcessSubagentsCanReproduce({ cwd: CWD })).not.toThrow();
+    // The OS sandbox is rebuilt in the child from the same settings files (issue #3082).
+    const os: IProductPackContext = {
+      cwd: CWD,
+      sandboxClient: SANDBOX_CLIENT,
+      sandboxType: OS_SANDBOX_TYPE,
+    };
+    expect(nonReproducibleCapabilities(os)).toEqual([]);
+  });
+
+  it('packTools is the one expression both processes read', () => {
+    expect(toolNames(packTools({ cwd: CWD }, (context) => createProductCapabilityPacks(context, createTestProductRuntime())))).toEqual(
+      toolNames(createProductSubagentComposition(createTestProductRuntime()).createTools({ cwd: CWD })),
+    );
+  });
+});
+
+describe('ARCH-033 — the guard runs on the real composition path, not just in its own test', () => {
+  it('refuses to compose a pack set when a capability the child cannot reproduce is present', () => {
+    // The reason this case exists: `assertChildProcessSubagentsCanReproduce` was exported,
+    // unit-tested and called by NOTHING. Calling it directly (as the cases above do) proves the
+    // function works; it does not prove the product ever asks. This asserts through
+    // `createProductPackSet`, which is what `cli.ts` actually calls, so deleting the guard's call site
+    // turns this red while the direct-call cases above stay green.
+    // A minimal stand-in rather than a real client: the guard asks whether the capability is
+    // PRESENT, never what it does, and `agent-cli` takes no dependency on `agent-tools`.
+    const sandboxClient = {
+      run: async () => ({ stdout: '', stderr: '', exitCode: 0 }),
+      readFile: async () => '',
+      writeFile: async () => {},
+    } as IProductPackContext['sandboxClient'];
+
+    expect(() => createProductPackSet(CWD, createTestProductRuntime(), { sandboxClient })).toThrow(/sandboxClient/);
+  });
+
+  it('composes normally when every capability is reproducible', () => {
+    expect(() => createProductPackSet(CWD, createTestProductRuntime())).not.toThrow();
+  });
+});
+
+describe('ARCH-033 — a projectable sandbox is no longer a refusal', () => {
+  /** A client that can produce a snapshot reference — the half the parent contributes. */
+  const projectableClient = {
+    run: async () => ({ stdout: '', stderr: '', exitCode: 0 }),
+    readFile: async () => '',
+    writeFile: async () => {},
+    snapshot: async () => 'snap-1',
+    restore: async () => {},
+  } as IProductPackContext['sandboxClient'];
+
+  /** A client that cannot: `snapshot()` is optional on the contract, and this one omits it. */
+  const unprojectableClient = {
+    run: async () => ({ stdout: '', stderr: '', exitCode: 0 }),
+    readFile: async () => '',
+    writeFile: async () => {},
+  } as IProductPackContext['sandboxClient'];
+
+  it('composes when the sandbox can be snapshotted AND its type is named', () => {
+    // This is the item's whole point: the refusal was never about sandboxes being forbidden, it was
+    // about the child having no way to rebuild one. Give it both halves and there is nothing to
+    // refuse.
+    expect(() =>
+      createProductPackSet(CWD, createTestProductRuntime(), { sandboxClient: projectableClient, sandboxType: 'e2b' }),
+    ).not.toThrow();
+  });
+
+  it('still refuses when the type is unnamed — a snapshot nothing knows how to open', () => {
+    expect(() => createProductPackSet(CWD, createTestProductRuntime(), { sandboxClient: projectableClient })).toThrow(
+      /sandboxClient/,
+    );
+  });
+
+  it('still refuses when the client cannot snapshot, however well-named its type', () => {
+    // `snapshot()` is optional on `ISandboxClient`. A registered factory with no reference to hand it
+    // would rebuild an EMPTY sandbox — a child that looks sandboxed while sharing none of the
+    // parent's state, which is worse than refusing.
+    expect(() =>
+      createProductPackSet(CWD, createTestProductRuntime(), { sandboxClient: unprojectableClient, sandboxType: 'e2b' }),
+    ).toThrow(/sandboxClient/);
+  });
+});
+
+describe('ARCH-034 — the runner choice is packaging, not capability', () => {
+  it('gives a child-process subagent the goal tool when the parent session had it', () => {
+    // In-process subagents receive the parent's fully ASSEMBLED surface, which includes the goal tool
+    // when `includeGoalTool` is set. The child rebuilds the product's set at its own root, and the
+    // goal tool is added by session assembly rather than by any pack — so before this it was missing
+    // from one runner and present in the other, silently, because both paths succeed.
+    const composition = createProductSubagentComposition(createTestProductRuntime());
+
+    const withTier = composition
+      .createTools({ cwd: CWD, sessionTiers: { includeGoalTool: true } })
+      .map((tool) => tool.getName());
+
+    expect(withTier).toContain('report_goal_status');
+  });
+
+  it('omits it when the parent session did not, rather than adding it unconditionally', () => {
+    // Parity means MATCHING the parent, not maximising. A child that always got the goal tool would
+    // diverge from an in-process sibling in the other direction.
+    const composition = createProductSubagentComposition(createTestProductRuntime());
+
+    expect(composition.createTools({ cwd: CWD }).map((tool) => tool.getName())).not.toContain(
+      'report_goal_status',
+    );
+    expect(
+      composition
+        .createTools({ cwd: CWD, sessionTiers: { includeGoalTool: false } })
+        .map((tool) => tool.getName()),
+    ).not.toContain('report_goal_status');
+  });
+
+  it('leaves the pack tools identical either way — only the tier differs', () => {
+    const composition = createProductSubagentComposition(createTestProductRuntime());
+    const base = composition.createTools({ cwd: CWD }).map((tool) => tool.getName());
+    const withTier = composition
+      .createTools({ cwd: CWD, sessionTiers: { includeGoalTool: true } })
+      .map((tool) => tool.getName());
+
+    expect(withTier.filter((name) => name !== 'report_goal_status')).toEqual(base);
+  });
+});
+
+/**
+ * CLI-1994 — a `/fork` job names a record to resume, and the composition is what tells the worker
+ * where records live.
+ *
+ * The existing cases in this file all build the child's deps by hand, so none of them can see the
+ * one arrangement that ships: `bin.ts` passes `createProductSubagentComposition()` with no arguments,
+ * and if that composition registers no `openSessionStore`, every fork job dies in the worker with
+ * "this composition opens no session store" AFTER `/fork` has already told the operator it worked.
+ * That is what this asserts — against the product composition itself, not a hand-built one.
+ */
+describe('CLI-1994 — the product composition can resume a forked record', () => {
+  it('registers openSessionStore, which a fork job requires and nothing else supplies', () => {
+    expect(createProductSubagentComposition(createTestProductRuntime()).openSessionStore).toBeTypeOf('function');
+  });
+
+  it('opens a store for the PARENT cwd, since a worktree-isolated child holds no records', () => {
+    const composition = createProductSubagentComposition(createTestProductRuntime());
+    const store = composition.openSessionStore?.({ cwd: CWD });
+    // The port the resume path calls, present and callable — not merely a truthy object.
+    expect(store).toBeDefined();
+    expect(store?.load).toBeTypeOf('function');
+    expect(store?.list).toBeTypeOf('function');
+  });
+});
+
+describe('issue #3248 — a child builds one sandbox for its tools and its session', () => {
+  it('builds the tools under the sandbox the worker hands it, not a second one', () => {
+    const seen: IProductPackContext[] = [];
+    const composition = createProductSubagentComposition(createTestProductRuntime(), (context) => {
+      seen.push(context);
+      return [];
+    });
+    const handed = { filesystem: 'shared' } as object;
+
+    composition.createTools({ cwd: CWD, sandboxClient: handed });
+
+    expect(seen[0]?.sandboxClient).toBe(handed);
+    expect(seen[0]?.sandboxType).toBe(OS_SANDBOX_TYPE);
+  });
+
+  it('composes the sandbox with the approval it gives, whenever the host has a backend', () => {
+    const composed = createProductSubagentComposition(createTestProductRuntime()).createSandbox?.({ cwd: CWD });
+
+    expect(createProductSubagentComposition(createTestProductRuntime()).createSandbox).toBeDefined();
+    // A host with no backend composes none; one with a backend hands over both halves together.
+    if (composed !== undefined) expect(composed.commandSandbox).toBeDefined();
+  });
+});
+
+describe('issue #3254 — a child builds its sandbox from the parent’s live settings', () => {
+  const PARENT_SETTINGS = {
+    enabled: true,
+    autoAllowBashIfSandboxed: false,
+    excludedCommands: ['docker'],
+    allowWrite: [],
+    denyRead: [],
+    network: false,
+  };
+
+  it('reads the parent’s live client, a /sandbox change included', () => {
+    const parent = createProductSandbox({productRuntime: createTestProductRuntime(),
+      cwd: CWD,
+      settingsSources: [],
+      settings: { ...PARENT_SETTINGS, autoAllowBashIfSandboxed: true },
+    }).client;
+    parent?.configure({ autoAllowBashIfSandboxed: false });
+
+    if (parent !== undefined) expect(liveSandboxSettings(parent)).toEqual(PARENT_SETTINGS);
+    expect(liveSandboxSettings(undefined)).toBeUndefined();
+  });
+
+  it('composes the child sandbox from the settings the parent sent, not the files', () => {
+    const composed = createProductSubagentComposition(createTestProductRuntime()).createSandbox?.({
+      cwd: CWD,
+      parentSettings: PARENT_SETTINGS,
+    });
+
+    if (composed !== undefined) {
+      expect(liveSandboxSettings(composed.client as never)).toEqual(PARENT_SETTINGS);
+    }
+  });
+
+  it('refuses settings it cannot read rather than falling back to the files', () => {
+    expect(() =>
+      createProductSubagentComposition(createTestProductRuntime()).createSandbox?.({
+        cwd: CWD,
+        parentSettings: { enabled: 'yes' },
+      }),
+    ).toThrow(/sandbox settings/);
+  });
+});
+
+describe('issue #3254 — test-product tells each spawn what the parent sandbox holds now', () => {
+  it('reads the live client at every call, so a /sandbox change reaches the next child', () => {
+    const client = createProductSandbox({productRuntime: createTestProductRuntime(),
+      cwd: CWD,
+      settingsSources: [],
+      // A backend is named so the client exists on every host; nothing here runs a command.
+      detect: () => ({ backend: 'bubblewrap', missing: [] }),
+      settings: {
+        enabled: true,
+        autoAllowBashIfSandboxed: true,
+        excludedCommands: [],
+        allowWrite: [],
+        denyRead: [],
+        network: false,
+      },
+    }).client;
+    const read = parentSandboxSettingsOf({ cwd: CWD, sandboxClient: client });
+
+    expect(read()).toMatchObject({ autoAllowBashIfSandboxed: true });
+    client?.configure({ autoAllowBashIfSandboxed: false });
+    expect(read()).toMatchObject({ autoAllowBashIfSandboxed: false });
+  });
+
+  it('tells a child nothing when the parent holds no OS sandbox', () => {
+    expect(parentSandboxSettingsOf({ cwd: CWD })()).toBeUndefined();
+  });
+});
+
+describe('issue #3256 — a running child follows the parent’s /sandbox changes', () => {
+  const SETTINGS = {
+    enabled: true,
+    autoAllowBashIfSandboxed: true,
+    excludedCommands: [],
+    allowWrite: [],
+    denyRead: [],
+    network: false,
+  };
+  const withBackend = () => ({ backend: 'bubblewrap' as const, missing: [] });
+
+  it('tells a watcher each change on the parent’s live client, until it stops watching', () => {
+    const client = createProductSandbox({productRuntime: createTestProductRuntime(),
+      cwd: CWD,
+      settingsSources: [],
+      detect: withBackend,
+      settings: SETTINGS,
+    }).client;
+    const seen: unknown[] = [];
+    const unwatch = watchParentSandboxSettingsOf({ cwd: CWD, sandboxClient: client })((settings) =>
+      seen.push(settings.autoAllowBashIfSandboxed),
+    );
+
+    client?.configure({ autoAllowBashIfSandboxed: false });
+    unwatch();
+    client?.configure({ autoAllowBashIfSandboxed: true });
+
+    expect(seen).toEqual([false]);
+  });
+
+  it('applies a change to the sandbox the child composed, and refuses one it cannot read', () => {
+    const composed = createProductSubagentComposition(createTestProductRuntime()).createSandbox?.({
+      cwd: CWD,
+      parentSettings: SETTINGS,
+    });
+    if (composed === undefined) return;
+
+    composed.applyParentSettings?.({ ...SETTINGS, autoAllowBashIfSandboxed: false });
+    expect(liveSandboxSettings(composed.client as never)).toMatchObject({
+      autoAllowBashIfSandboxed: false,
+    });
+    expect(() => composed.applyParentSettings?.({ enabled: 'no' })).toThrow(/sandbox settings/);
+  });
+});

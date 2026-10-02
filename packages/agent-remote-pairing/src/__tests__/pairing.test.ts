@@ -1,3 +1,5 @@
+import { createIdentityContext } from '../identity/crypto-context.js';
+const testIdentity = createIdentityContext('test-product');
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -24,8 +26,8 @@ async function exchange(
   a: IConfirmationInput,
   b: IConfirmationInput,
 ): Promise<{ aAccepts: boolean; bAccepts: boolean }> {
-  const aOut = await computeConfirmations(a);
-  const bOut = await computeConfirmations(b);
+  const aOut = await computeConfirmations(testIdentity, a);
+  const bOut = await computeConfirmations(testIdentity, b);
   return {
     aAccepts: await verifyPeerConfirmation(aOut.expectPeer, bOut.send),
     bAccepts: await verifyPeerConfirmation(bOut.expectPeer, aOut.send),
@@ -114,7 +116,7 @@ describe('pairing crypto (REMOTE-005 B3)', () => {
     const secret = generatePairingSecret().secret;
     const nI = generateNonce();
     const nR = generateNonce();
-    const a = await computeConfirmations({
+    const a = await computeConfirmations(testIdentity, {
       secret,
       role: 'initiator',
       nonceInitiator: nI,
@@ -152,7 +154,7 @@ describe('pairing crypto (REMOTE-005 B3)', () => {
 
   it('TC-08: replay — a confirmation from one handshake fails under a fresh nonce set', async () => {
     const secret = generatePairingSecret().secret;
-    const b1 = await computeConfirmations({
+    const b1 = await computeConfirmations(testIdentity, {
       secret,
       role: 'responder',
       nonceInitiator: generateNonce(),
@@ -161,7 +163,7 @@ describe('pairing crypto (REMOTE-005 B3)', () => {
       remoteFingerprint: FP_A,
     });
     // Fresh handshake with different nonces; A expects a value bound to the NEW nonces.
-    const a2 = await computeConfirmations({
+    const a2 = await computeConfirmations(testIdentity, {
       secret,
       role: 'initiator',
       nonceInitiator: generateNonce(),
@@ -174,7 +176,7 @@ describe('pairing crypto (REMOTE-005 B3)', () => {
 
   it('TC-13: session key is domain-separated (byte-distinct from the confirmation key material)', async () => {
     const secret = generatePairingSecret().secret;
-    const sessionKey = await deriveSessionKey(secret);
+    const sessionKey = await deriveSessionKey(testIdentity, secret);
     // Reproduce the confirmation-key bits with the SAME salt but the "confirm" info; must differ from "session".
     const enc = new TextEncoder();
     const base = await crypto.subtle.importKey(
@@ -189,7 +191,7 @@ describe('pairing crypto (REMOTE-005 B3)', () => {
         {
           name: 'HKDF',
           hash: 'SHA-256',
-          salt: enc.encode('robota-remote-pairing/v1'),
+          salt: enc.encode('agent-test-remote-pairing/v1'),
           info: enc.encode('confirm'),
         },
         base,

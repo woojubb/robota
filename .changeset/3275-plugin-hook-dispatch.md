@@ -3,7 +3,7 @@
 '@robota-sdk/agent-plugin': patch
 ---
 
-A `Robota` run now calls `beforeConversation`, with `beforeExecution`, and `onStreamingChunk` for
+A `the agent runtime` run now calls `beforeConversation`, with `beforeExecution`, and `onStreamingChunk` for
 each streamed piece of text, in order; the round waits for those chunk hooks before it goes on,
 whether the provider call returned, failed or was interrupted. `EventEmitterPlugin` therefore emits
 `CONVERSATION_START`.

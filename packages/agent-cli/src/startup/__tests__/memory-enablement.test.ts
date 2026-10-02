@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -41,7 +42,7 @@ describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
       ).toBe(false);
     });
 
-    it('ROBOTA_MEMORY=1|0 wins over both settings and flag', () => {
+    it('PRODUCT_MEMORY=1|0 wins over both settings and flag', () => {
       expect(
         resolveMemoryEnablement({ settings: { enabled: false }, flagEnabled: false, env: '1' })
           .enabled,
@@ -52,7 +53,7 @@ describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
       ).toBe(false);
     });
 
-    it('ignores an unrecognized ROBOTA_MEMORY value (falls through to flag/settings)', () => {
+    it('ignores an unrecognized PRODUCT_MEMORY value (falls through to flag/settings)', () => {
       expect(resolveMemoryEnablement({ settings: { enabled: true }, env: 'yes' }).enabled).toBe(
         true,
       );
@@ -109,12 +110,12 @@ describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
   });
 
   describe('printMemoryEnableNoticeOnce (TC-07 notice)', () => {
-    it('prints once per process, then is a no-op', () => {
+    it('prints for each explicitly configured invocation', () => {
       resetMemoryEnableNoticeForTests();
       const lines: string[] = [];
-      printMemoryEnableNoticeOnce('/repo', (m) => lines.push(m));
-      printMemoryEnableNoticeOnce('/repo', (m) => lines.push(m));
-      expect(lines).toHaveLength(1);
+      printMemoryEnableNoticeOnce('/repo', createTestProductRuntime(), (m) => lines.push(m));
+      printMemoryEnableNoticeOnce('/repo', createTestProductRuntime(), (m) => lines.push(m));
+      expect(lines).toHaveLength(2);
       expect(lines[0]).toContain('Memory is ON');
       expect(lines[0]).toContain('/memory');
     });
@@ -124,7 +125,7 @@ describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
     const enabled = { memory: true, memoryAutoSave: false };
 
     beforeEach(() => {
-      vi.stubEnv('ROBOTA_MEMORY', '');
+      vi.stubEnv('PRODUCT_MEMORY', '');
     });
 
     afterEach(() => {
@@ -135,7 +136,7 @@ describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
       resetMemoryEnableNoticeForTests();
       const lines: string[] = [];
       const resolve = () =>
-        resolveMemorySurfaceOptions({
+        resolveMemorySurfaceOptions({productRuntime: createTestProductRuntime(),
           settings: undefined,
           args: enabled,
           memoryStore: undefined,
@@ -146,7 +147,7 @@ describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
 
       expect(resolve()).toEqual({});
       expect(resolve()).toEqual({});
-      expect(lines).toHaveLength(1);
+      expect(lines).toHaveLength(2);
       expect(lines[0]).toContain('Memory is OFF');
       expect(lines[0]).toContain('darwin');
     });
@@ -154,7 +155,7 @@ describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
     it('still refuses on Linux, where only a missing authority leaves memory without a store', () => {
       resetMemoryEnableNoticeForTests();
       expect(() =>
-        resolveMemorySurfaceOptions({
+        resolveMemorySurfaceOptions({productRuntime: createTestProductRuntime(),
           settings: undefined,
           args: enabled,
           memoryStore: undefined,
@@ -169,7 +170,7 @@ describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
       resetMemoryEnableNoticeForTests();
       const lines: string[] = [];
       expect(
-        resolveMemorySurfaceOptions({
+        resolveMemorySurfaceOptions({productRuntime: createTestProductRuntime(),
           settings: undefined,
           args: { memory: false, memoryAutoSave: false },
           memoryStore: undefined,

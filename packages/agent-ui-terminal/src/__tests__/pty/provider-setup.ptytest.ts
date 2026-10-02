@@ -1,7 +1,7 @@
 /**
  * Real-PTY provider-setup ask suite (CMD-004 TC-09 done-gate).
  *
- * Drives the BUILT robota binary through `/provider add` so the unified ask seam renders end-to-end on
+ * Drives the BUILT CLI binary through `/provider add` so the unified ask seam renders end-to-end on
  * a real terminal: the provider command self-asks (via the injected `askHandler` → `TuiInteractionChannel.askUser`)
  * and the TUI renders the request through `PendingActionPrompt`. Proves the masked secret field hides
  * the typed API key on the real CLI — the User Execution evidence the done-gate requires (no human
@@ -26,7 +26,7 @@ describe('provider setup ask through a real PTY (CMD-004 TC-09)', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-pty-provider-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-pty-provider-')));
     writeTuiProviderSettings(projectDir);
   });
 

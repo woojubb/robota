@@ -1,0 +1,6 @@
+interface:
+  display_name: "Audit project"
+  short_description: "Manually review project quality and readiness"
+  default_prompt: "Use $audit-project to run the complete repository audit and report evidence, gaps and changes since the prior run."
+policy:
+  allow_implicit_invocation: false

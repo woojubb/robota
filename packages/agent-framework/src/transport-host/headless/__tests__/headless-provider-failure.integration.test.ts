@@ -87,7 +87,7 @@ describe('headless provider failure exit codes (CLI-064)', () => {
   });
 
   it('TC-02: text format exits 1 and writes the auth failure to stderr', async () => {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-headless-fail-')));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-headless-fail-')));
     const session = new InteractiveSession({
       cwd,
       provider: createAuthFailingProvider(),
@@ -113,7 +113,7 @@ describe('headless provider failure exit codes (CLI-064)', () => {
   });
 
   it('TC-02: json format exits 1 with subtype error and error_code api_error', async () => {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-headless-fail-')));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-headless-fail-')));
     const session = new InteractiveSession({
       cwd,
       provider: createAuthFailingProvider(),
@@ -153,7 +153,7 @@ describe('headless provider failure exit codes (CLI-064)', () => {
     // isAbortFailure fix). What it pins is the end-to-end exit contract through a real
     // InteractiveSession and headless transport; the identity-preservation red-proofs live in
     // the agent-core unit tests beside execution-failure.ts.
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-headless-fail-')));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-headless-fail-')));
     const provider = createAuthFailingProvider();
     provider.chat = async () => {
       throw new Error('connection aborted by peer');

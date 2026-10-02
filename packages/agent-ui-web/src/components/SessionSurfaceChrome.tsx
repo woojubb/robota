@@ -1,7 +1,8 @@
+import { useProductIdentity } from '../product-identity.js';
 import { X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import { RobotaWordmark } from './Brand.js';
+import { ProductWordmark } from './Brand.js';
 
 import type { ISessionNotice } from '../hooks/session-client-types.js';
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
@@ -28,13 +29,14 @@ const VIEW_LABEL: Readonly<Record<TSessionView, string>> = {
  * browser tab) and the desktop window that loads it (Electron follows the page's title unless told
  * otherwise, and nothing in `apps/agent-app/electron/main.ts` overrides it — see its own SPEC note).
  * Absent while the host has not said, so a not-yet-connected surface keeps whatever title it loaded
- * with rather than announcing "undefined — Robota".
+ * with rather than announcing "undefined — the agent".
  */
 function useWorkspaceDocumentTitle(workspace: { readonly name: string } | undefined): void {
+  const { identity } = useProductIdentity();
   useEffect(() => {
     if (typeof document === 'undefined' || workspace === undefined) return;
-    document.title = `${workspace.name} — Robota`;
-  }, [workspace]);
+    document.title = `${workspace.name} — ${identity.displayName}`;
+  }, [workspace, identity.displayName]);
 }
 
 /**
@@ -79,7 +81,7 @@ export function SessionTitleBar({
     if (status === 'connected') everConnectedRef.current = true;
   }, [status]);
   const bannerShown = status !== 'connected' && (connectionLost || everConnectedRef.current);
-  // #3282 §4c principle 4 (#3277): everything Robota implements is usable from the GUI through
+  // #3282 §4c principle 4 (#3277): everything the agent implements is usable from the GUI through
   // organized screens — the Project panel (git status/diff, project memory) is one, offered next to
   // Chat on every surface, desktop and browser alike; Usage stays surface-gated.
   const items: readonly TSessionView[] = personalUsageEnabled
@@ -90,7 +92,7 @@ export function SessionTitleBar({
       className="agent-gui-status flex h-12 flex-shrink-0 items-center gap-3 px-5"
       data-status={status}
     >
-      {showBrand ? <RobotaWordmark surface={surface} /> : null}
+      {showBrand ? <ProductWordmark surface={surface} /> : null}
       {/* The usage/project views title themselves; the chat view is titled by its session and workspace. */}
       {view === 'chat' && title ? (
         <h1 className="min-w-0 truncate text-[14px] font-medium text-foreground/90">{title}</h1>
@@ -160,6 +162,7 @@ export function ConnectionBanner({
   useEffect(() => {
     if (status === 'connected') everConnectedRef.current = true;
   }, [status]);
+  const { identity } = useProductIdentity();
   const [reconnecting, setReconnecting] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
@@ -193,11 +196,11 @@ export function ConnectionBanner({
         <div className="flex flex-wrap items-center gap-3">
           <span className="h-2 w-2 flex-shrink-0 rounded-full bg-destructive" aria-hidden="true" />
           <span className="min-w-0 flex-1">
-            Robota stopped.
+            {identity.displayName} stopped.
             {!onReconnect && (
               <>
                 {' '}
-                Run <code className="font-mono">robota --serve --open</code> again to reopen it.
+                Run <code className="font-mono">{identity.cliName} --serve --open</code> again to reopen it.
               </>
             )}
           </span>

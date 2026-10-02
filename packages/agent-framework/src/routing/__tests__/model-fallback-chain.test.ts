@@ -56,6 +56,31 @@ const refs = (chain: ReturnType<typeof resolveModelFallbackChain>): string[] =>
   chain.targets.map((target) => `${target.ref.provider}/${target.ref.model}`);
 
 describe('resolveModelFallbackChain', () => {
+  it('resolves a lazy fallback profile against its own selected environment', () => {
+    const settings: TProviderSettingsDocument = {
+      ...SETTINGS,
+      providers: {
+        ...SETTINGS.providers,
+        openai: { type: 'openai', model: 'gpt-profile', apiKey: '$ENV:SYNTHETIC_FALLBACK_KEY' },
+      },
+    };
+    const captured: string[] = [];
+    const definitions: IProviderDefinition[] = [{
+      type: 'openai',
+      createProvider: (config) => {
+        captured.push(config.apiKey ?? 'missing');
+        return { name: 'openai' } as unknown as IAIProvider;
+      },
+    }];
+    for (const key of ['selected-a', 'selected-b', 'selected-a']) {
+      resolveModelFallbackChain(input(['openai'], {
+        settings,
+        providerDefinitions: definitions,
+        environment: { SYNTHETIC_FALLBACK_KEY: key },
+      })).targets[0]!.create();
+    }
+    expect(captured).toEqual(['selected-a', 'selected-b', 'selected-a']);
+  });
   it('reads each entry form: profile, profile:model, bare model, and default', () => {
     const chain = resolveModelFallbackChain(
       input(['openai', 'gemini:gemini-pro', 'claude-smaller'], {

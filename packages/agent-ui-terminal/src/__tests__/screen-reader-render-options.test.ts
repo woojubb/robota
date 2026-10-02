@@ -44,7 +44,7 @@ vi.mock('ink', async (importOriginal) => {
 
 // The App boots a channel and starts I/O; the mode's threading is what is under test, not the App.
 vi.mock('../App.js', () => ({
-  default: (): React.ReactElement => React.createElement('robota-app'),
+  default: (): React.ReactElement => React.createElement('agent-test-app'),
 }));
 
 function baseOptions(): IRenderOptions {
@@ -231,8 +231,8 @@ describe('SCREEN-2670 TC-05: with the mode off, render() is called with no stdou
     expect(Object.keys(inkRender.mock.calls[0]?.[1] ?? {})).not.toContain('stdout');
   });
 
-  it('ignores an ambient Robota park override when the host supplies no park choice', async () => {
-    vi.stubEnv('ROBOTA_SCREEN_READER_PREPARK_MS', '0');
+  it('ignores an ambient Fixture Agent park override when the host supplies no park choice', async () => {
+    vi.stubEnv('PRODUCT_SCREEN_READER_PREPARK_MS', '0');
     const { renderApp } = await import('../render.js');
     await renderApp({
       ...baseOptions(),

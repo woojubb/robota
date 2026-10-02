@@ -1,10 +1,12 @@
+import { ProductIdentityProvider, type IWebProductIdentity } from '@robota-sdk/agent-ui-web';
+import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 'use client';
 
 import {
   ConversationView,
   PermissionPrompt,
-  RobotaMark,
-  RobotaWordmark,
+  ProductMark,
+  ProductWordmark,
 } from '@robota-sdk/agent-ui-web';
 import React, { useMemo } from 'react';
 
@@ -15,7 +17,7 @@ import { useRtcSession, type TSessionStatus } from '../hooks/useRtcSession.js';
  * Stage-D browser remote client root (REMOTE-009). Reads its connection inputs from its own URL
  * (relay ← query, rendezvous + secret ← fragment), pairs with the host over WebRTC, and co-drives the
  * session — rendering the pairing-UX states and the owner's permission/ask prompts. Its root carries the
- * GUI surface's `robota-ui` scope, so it looks like the desktop app on any host that loads the surface
+ * GUI surface's `agent-ui` scope, so it looks like the desktop app on any host that loads the surface
  * styles, without touching that host's own tokens.
  */
 
@@ -31,11 +33,18 @@ const STATUS_LABEL: Record<TSessionStatus, string> = {
 };
 
 interface IRemoteClientProps {
+  readonly product: IWebProductIdentity;
+  readonly cryptoContext: IIdentityContext;
+  readonly credentialDatabase: string;
   /** The page href (defaults to `window.location.href`; injectable for tests). */
   href?: string;
 }
 
-export function RemoteClient({ href }: IRemoteClientProps): React.ReactElement {
+export function RemoteClient(props: IRemoteClientProps): React.ReactElement {
+  return <ProductIdentityProvider value={props.product}><RemoteClientContent {...props} /></ProductIdentityProvider>;
+}
+
+function RemoteClientContent({ href, cryptoContext, credentialDatabase }: IRemoteClientProps): React.ReactElement {
   const parsed = useMemo(() => {
     try {
       return { location: parseRemoteClientLocation(href ?? window.location.href), error: null };
@@ -49,9 +58,9 @@ export function RemoteClient({ href }: IRemoteClientProps): React.ReactElement {
     // in — a host has no way to know which of its states, if any, already supplies one. This state
     // (an unusable pairing link) never reaches `ConversationView`, so it is the one to carry it here.
     return (
-      <main className="robota-ui flex h-full min-h-screen items-center justify-center bg-background p-8">
+      <main className="agent-ui flex h-full min-h-screen items-center justify-center bg-background p-8">
         <div className="flex max-w-md flex-col items-center gap-4 text-center">
-          <RobotaMark size={40} />
+          <ProductMark size={40} />
           <h1 className="text-[22px] font-semibold tracking-[-0.02em]">Cannot pair</h1>
           <p className="text-[15px] leading-relaxed text-muted-foreground">
             {parsed.error ?? 'Invalid pairing link.'}
@@ -65,7 +74,7 @@ export function RemoteClient({ href }: IRemoteClientProps): React.ReactElement {
     );
   }
 
-  return <RemoteClientConnected location={parsed.location} />;
+  return <RemoteClientConnected location={parsed.location} cryptoContext={cryptoContext} credentialDatabase={credentialDatabase} />;
 }
 
 /** Where the pairing stands, as the title bar's dot. */
@@ -83,10 +92,14 @@ const DOT: Record<ReturnType<typeof statusTone>, string> = {
 
 function RemoteClientConnected({
   location,
+  cryptoContext,
+  credentialDatabase,
 }: {
   location: NonNullable<ReturnType<typeof parseRemoteClientLocation>>;
+  cryptoContext: IIdentityContext;
+  credentialDatabase: string;
 }): React.ReactElement {
-  const session = useRtcSession(location);
+  const session = useRtcSession({ ...location, cryptoContext, credentialDatabase });
   const tone = statusTone(session.status);
   const hasConversation =
     session.messages.length > 0 ||
@@ -94,9 +107,9 @@ function RemoteClientConnected({
     session.isThinking ||
     session.streamingText !== '';
   return (
-    <div className="robota-ui flex h-screen w-screen flex-col overflow-hidden bg-background">
+    <div className="agent-ui flex h-screen w-screen flex-col overflow-hidden bg-background">
       <header className="flex h-12 flex-shrink-0 items-center gap-3 px-5">
-        <RobotaWordmark surface="remote" />
+        <ProductWordmark surface="remote" />
         <span className="ml-auto flex items-center gap-2 text-[13px] text-muted-foreground">
           <span className={`h-2 w-2 rounded-full ${DOT[tone]}`} />
           <span role="status">{STATUS_LABEL[session.status]}</span>
@@ -118,7 +131,7 @@ function RemoteClientConnected({
       ) : (
         <main className="flex min-h-0 flex-1 items-center justify-center p-8">
           <div className="gui-rise flex max-w-md flex-col items-center gap-4 text-center">
-            <RobotaMark size={40} />
+            <ProductMark size={40} />
             <p className="text-[18px] font-medium">{STATUS_LABEL[session.status]}</p>
             {tone === 'stopped' ? (
               <p className="text-[15px] text-muted-foreground">

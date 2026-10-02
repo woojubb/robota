@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-transport-webrtc-web",
   "version": "3.0.0-beta.86",
-  "description": "Browser WebRTC transport peer for a robota session (REMOTE-009 Stage D) — native RTCPeerConnection answerer + fail-closed pairing gate + RemoteClient page + useRtcSession, over the shared GUI core. The browser mirror of the node-side agent-transport-webrtc host transport.",
+  "description": "Browser WebRTC transport peer for a robota session (REMOTE-009 Stage D) \u2014 native RTCPeerConnection answerer + fail-closed pairing gate + RemoteClient page + useRtcSession, over the shared GUI core. The browser mirror of the node-side agent-transport-webrtc host transport.",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -25,14 +25,6 @@
       },
       "default": "./dist/browser/index.js"
     }
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/woojubb/robota.git"
-  },
-  "homepage": "https://robota.io/",
-  "bugs": {
-    "url": "https://github.com/woojubb/robota/issues"
   },
   "files": [
     "dist"

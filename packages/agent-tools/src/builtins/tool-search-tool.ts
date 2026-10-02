@@ -158,5 +158,5 @@ export function createToolSearchTool(options: IBuiltinToolDescriptionOptions = {
   );
 }
 
-/** `ToolSearch` tool instance — register with the Robota agent tools registry. */
+/** `ToolSearch` tool instance — register with the agent tools registry. */
 export const toolSearchTool = createToolSearchTool();

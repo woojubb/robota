@@ -14,6 +14,7 @@ import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 import type {
   IMemoryStore,
+  IRemoteCommandPolicy,
   IWorkspaceIdentity,
   IWorkspaceTrustStore,
   IWorkspaceTrustStoreSnapshot,
@@ -21,7 +22,7 @@ import type {
 
 // SEC-003 (js/insecure-temporary-file): `mkdtempSync` yields a 0700 directory with an unpredictable
 // name, so no other user can pre-create or read the paths this suite writes under it.
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-command-memory-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-command-memory-')));
 const memoryStores = new Map<string, Promise<IMemoryStore>>();
 
 class TrustedStore implements IWorkspaceTrustStore {
@@ -52,10 +53,10 @@ function createMemoryStore(cwd: string): Promise<IMemoryStore> {
       identityResolver: { resolve: () => identity },
       store: new TrustedStore(),
       projectStateDirectories: {
-        sessions: join('.robota', 'sessions'),
-        'session-logs': join('.robota', 'logs'),
-        memory: join('.robota', 'memory'),
-        checkpoints: join('.robota', 'checkpoints'),
+        sessions: join('.fixture-state', 'sessions'),
+        'session-logs': join('.fixture-state', 'logs'),
+        memory: join('.fixture-state', 'memory'),
+        checkpoints: join('.fixture-state', 'checkpoints'),
       },
     });
     const access = await service.inspect(root);
@@ -104,6 +105,7 @@ function createMockRuntimeSession() {
 async function createInteractiveSession(
   cwd = makeProject(),
   permissionMode: 'default' | 'plan' = 'default',
+  remoteCommandPolicy?: IRemoteCommandPolicy,
 ): Promise<InteractiveSession> {
   const runtime = createMockRuntimeSession();
   runtime.getPermissionMode.mockReturnValue(permissionMode);
@@ -112,6 +114,7 @@ async function createInteractiveSession(
     session: runtime as never,
     memoryStore: await createMemoryStore(cwd),
     commandModules: [createMemoryCommandModule()],
+    ...(remoteCommandPolicy ? { remoteCommandPolicy } : {}),
   });
 }
 
@@ -152,6 +155,8 @@ describe('createMemoryCommandModule', () => {
       'list',
       'show',
       'add',
+      'correct',
+      'forget',
       'pending',
       'approve',
       'reject',
@@ -203,7 +208,14 @@ describe('createMemoryCommandModule', () => {
     const spied = { ...command!, execute };
     const gated = new SystemCommandExecutor([spied]);
 
-    for (const args of ['approve cand-1', 'reject cand-1', 'APPROVE cand-1']) {
+    for (const args of [
+      'approve cand-1',
+      'reject cand-1',
+      'APPROVE cand-1',
+      'correct project build Use pnpm.',
+      'forget build',
+      'FORGET build',
+    ]) {
       const result = await gated.executeModelInvocable('memory', host, args);
       expect(result?.success).toBe(false);
       expect(result?.message).toContain('only the user can');
@@ -217,6 +229,67 @@ describe('createMemoryCommandModule', () => {
 });
 
 describe('executeMemoryCommand', () => {
+  it.runIf(process.platform === 'linux').each(['user', 'remote'] as const)(
+    'lets an authenticated %s command replace and forget a topic through the shared slash handler',
+    async (source) => {
+      const cwd = makeProject();
+      const session = await createInteractiveSession(cwd);
+      await session.executeCommand('memory', 'add project build Use npm for builds.');
+      const corrected = await session.executeCommand(
+        'memory',
+        'correct project build Use pnpm for builds.',
+        source,
+      );
+      expect(corrected?.success).toBe(true);
+      expect((await session.readProjectMemory()).kind).toBe('memory');
+      expect((await session.executeCommand('memory', 'show build'))?.message).toContain('Use pnpm');
+      expect((await session.executeCommand('memory', 'show build'))?.message).not.toContain(
+        'Use npm',
+      );
+      const forgotten = await session.executeCommand('memory', 'forget build', source);
+      expect(forgotten?.success).toBe(true);
+      expect((await session.executeCommand('memory', 'show'))?.message).not.toContain('Use pnpm');
+      expect(forgotten?.message).toContain('transcripts');
+    },
+  );
+
+  it.runIf(process.platform === 'linux')(
+    'keeps attached memory curation subject to the host remote command policy',
+    async () => {
+      const cwd = makeProject();
+      const session = await createInteractiveSession(cwd, 'default', { isAllowed: () => false });
+      const store = session.getMemoryStore();
+      await store.append({ type: 'project', topic: 'build', text: 'Use pnpm for builds.' });
+      for (const args of ['correct project build Use npm.', 'forget build']) {
+        const result = await session.executeCommand('memory', args, 'remote');
+        expect(result?.success).toBe(false);
+        expect(result?.message).toContain('configured remote-command policy');
+        expect(await store.readTopic('build')).toContain('Use pnpm');
+      }
+    },
+  );
+
+  it.runIf(process.platform === 'linux')(
+    'refuses direct model calls to destructive memory operations',
+    async () => {
+      const cwd = makeProject();
+      const session = await createInteractiveSession(cwd);
+      await session.executeCommand('memory', 'add project build Use pnpm for builds.');
+      const corrected = await executeMemoryCommand(
+        {
+          ...createTestCommandHost(),
+          getCwd: () => cwd,
+          getMemoryStore: () => session.getMemoryStore(),
+          getCommandInvocationSource: () => 'model',
+        },
+        'correct project build Use npm for builds.',
+      );
+      expect(corrected.success).toBe(false);
+      expect(corrected.message).toContain('only the user');
+      expect(await session.getMemoryStore().readTopic('build')).toContain('Use pnpm');
+    },
+  );
+
   it('lists configured memory paths', async () => {
     const cwd = makeProject();
     const session = await createInteractiveSession(cwd);
@@ -224,7 +297,7 @@ describe('executeMemoryCommand', () => {
     const result = await session.executeCommand('memory', 'list');
 
     expect(result?.success).toBe(true);
-    expect(result?.message).toContain(join('.robota', 'memory', 'MEMORY.md'));
+    expect(result?.message).toContain(join('.fixture-state', 'memory', 'MEMORY.md'));
   });
 
   // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
@@ -240,7 +313,7 @@ describe('executeMemoryCommand', () => {
       );
 
       expect(result?.success).toBe(true);
-      expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
+      expect(readFileSync(join(cwd, '.fixture-state', 'memory', 'MEMORY.md'), 'utf8')).toContain(
         '(project/build) Use pnpm for scripts.',
       );
     },
@@ -257,7 +330,7 @@ describe('executeMemoryCommand', () => {
     );
 
     expect(result?.success).toBe(true);
-    expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
+    expect(readFileSync(join(cwd, '.fixture-state', 'memory', 'MEMORY.md'), 'utf8')).toContain(
       '(project/build) Use pnpm for package scripts.',
     );
   });
@@ -273,7 +346,7 @@ describe('executeMemoryCommand', () => {
 
     expect(result?.success).toBe(false);
     expect(result?.message).toContain('sensitive');
-    expect(existsSync(join(cwd, '.robota', 'memory', 'MEMORY.md'))).toBe(false);
+    expect(existsSync(join(cwd, '.fixture-state', 'memory', 'MEMORY.md'))).toBe(false);
   });
 
   // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
@@ -303,7 +376,7 @@ describe('executeMemoryCommand', () => {
 
       expect(result?.success).toBe(true);
       expect(result?.message).toContain('Saved memory candidate mem_123');
-      expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
+      expect(readFileSync(join(cwd, '.fixture-state', 'memory', 'MEMORY.md'), 'utf8')).toContain(
         '(project/build) Use pnpm for package scripts.',
       );
       expect((await (await createMemoryStore(cwd)).getPending('mem_123'))?.status).toBe('saved');
@@ -342,7 +415,7 @@ describe('executeMemoryCommand', () => {
     vi.spyOn(session, 'getUsedMemoryReferences').mockReturnValue([
       {
         topic: 'build',
-        path: join(cwd, '.robota', 'memory', 'topics', 'build.md'),
+        path: join(cwd, '.fixture-state', 'memory', 'topics', 'build.md'),
         score: 5,
         truncated: false,
       },
@@ -352,7 +425,7 @@ describe('executeMemoryCommand', () => {
 
     expect(result?.success).toBe(true);
     expect(result?.message).toContain('build');
-    expect(result?.message).toContain(join(cwd, '.robota', 'memory', 'topics', 'build.md'));
+    expect(result?.message).toContain(join(cwd, '.fixture-state', 'memory', 'topics', 'build.md'));
   });
 
   it('returns usage for invalid arguments without mutating state', async () => {
@@ -365,7 +438,7 @@ describe('executeMemoryCommand', () => {
     expect(result.success).toBe(false);
     expect(result.message).toContain('Usage: memory');
     expect(unknownResult.success).toBe(false);
-    expect(existsSync(join(cwd, '.robota', 'memory', 'MEMORY.md'))).toBe(false);
+    expect(existsSync(join(cwd, '.fixture-state', 'memory', 'MEMORY.md'))).toBe(false);
   });
 
   describe('in plan mode', () => {
@@ -377,7 +450,7 @@ describe('executeMemoryCommand', () => {
 
       expect(result?.success).toBe(false);
       expect(result?.message).toContain('Plan mode saves no memory');
-      expect(existsSync(join(cwd, '.robota', 'memory', 'MEMORY.md'))).toBe(false);
+      expect(existsSync(join(cwd, '.fixture-state', 'memory', 'MEMORY.md'))).toBe(false);
     });
 
     // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
@@ -390,7 +463,7 @@ describe('executeMemoryCommand', () => {
         const result = await session.executeCommand('memory', 'add project build Use pnpm.');
 
         expect(result?.success).toBe(true);
-        expect(existsSync(join(cwd, '.robota', 'memory', 'MEMORY.md'))).toBe(true);
+        expect(existsSync(join(cwd, '.fixture-state', 'memory', 'MEMORY.md'))).toBe(true);
       },
     );
 

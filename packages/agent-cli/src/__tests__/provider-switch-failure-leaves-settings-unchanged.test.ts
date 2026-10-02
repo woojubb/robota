@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from './helpers/product-runtime.js';
 /**
  * #3282 §1 — a `/provider switch` that fails must change nothing on disk.
  *
@@ -37,8 +38,8 @@ afterEach(() => {
 function homeWithSettings(settings: unknown): { home: string; settingsPath: string } {
   const home = realpathSync(mkdtempSync(join(tmpdir(), 'issue-3282-home-')));
   homes.push(home);
-  mkdirSync(join(home, '.robota'), { recursive: true });
-  const settingsPath = join(home, '.robota', 'settings.json');
+  mkdirSync(join(home, '.test-product'), { recursive: true });
+  const settingsPath = join(home, '.test-product', 'settings.json');
   writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
   return { home, settingsPath };
 }
@@ -56,7 +57,7 @@ describe('#3282: a failing /provider switch changes nothing on disk', () => {
     const rawBefore = readFileSync(settingsPath, 'utf8');
     vi.stubEnv('HOME', home);
 
-    const setup = buildCommandSetup(home, MINIMAL_ARGS, {}, '0.0.0-test');
+    const setup = buildCommandSetup(home, MINIMAL_ARGS, { productRuntime: createTestProductRuntime('test-product', { HOME: home }) }, '0.0.0-test');
     const provider = setup.baseCommandModules.find((m) => m.name === 'agent-command-provider');
     if (provider === undefined) throw new Error('the provider command module was not built');
     const executor = new SystemCommandExecutor([...(provider.systemCommands ?? [])]);

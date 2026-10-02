@@ -13,7 +13,7 @@ import type {
 /**
  * Port interface for prompt-compatible backends.
  * Method signatures derived from OpenAPI spec operations.
- * Implemented by Robota DAG runtime adapter or external HTTP proxy.
+ * Implemented by ConversationAgent DAG runtime adapter or external HTTP proxy.
  */
 export interface IPromptBackendPort {
   submitPrompt(request: IPromptRequest): Promise<TResult<IPromptResponse, IDagError>>;

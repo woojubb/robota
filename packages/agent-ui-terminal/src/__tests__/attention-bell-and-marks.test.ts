@@ -123,22 +123,22 @@ describe('TC-09: the OSC 133 turn marks', () => {
 
 describe('supportsTurnMarks — the documented negatives', () => {
   it('is off in WezTerm, which owns OSC 133 itself', () => {
-    vi.stubEnv('ROBOTA_TURN_MARKS', '');
+    vi.stubEnv('PRODUCT_TURN_MARKS', '');
     vi.stubEnv('TERM_PROGRAM', 'WezTerm');
     expect(supportsTurnMarks()).toBe(false);
   });
 
   it('honours the explicit opt-in and the kill switch over everything else', () => {
     vi.stubEnv('TERM_PROGRAM', 'WezTerm');
-    vi.stubEnv('ROBOTA_TURN_MARKS', '1');
+    vi.stubEnv('PRODUCT_TURN_MARKS', '1');
     expect(supportsTurnMarks({ override: true })).toBe(true);
-    vi.stubEnv('ROBOTA_TURN_MARKS', '0');
+    vi.stubEnv('PRODUCT_TURN_MARKS', '0');
     expect(supportsTurnMarks({ override: false })).toBe(false);
   });
 
-  it('ignores an ambient Robota override without a host choice', () => {
+  it('ignores an ambient Fixture Agent override without a host choice', () => {
     vi.stubEnv('TERM_PROGRAM', 'WezTerm');
-    vi.stubEnv('ROBOTA_TURN_MARKS', '1');
+    vi.stubEnv('PRODUCT_TURN_MARKS', '1');
     expect(supportsTurnMarks()).toBe(false);
   });
 });

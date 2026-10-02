@@ -2,7 +2,7 @@
 
 ## Scope
 
-Thin operational HTTP client and response contracts for Robota DAG orchestration endpoints.
+Thin operational HTTP client and response contracts for agent runtime DAG orchestration endpoints.
 It is the client side of a DAG orchestration HTTP server (e.g. `@robota-sdk/dag-runtime-server`): `dag-framework` uses it to run DAGs against a remote runtime, and the server shares its response contracts.
 
 ## Boundaries

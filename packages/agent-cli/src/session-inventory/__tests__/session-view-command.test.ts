@@ -1,3 +1,4 @@
+import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -72,7 +73,7 @@ describe('session view command', () => {
         expect(openUrl).toHaveBeenCalledExactlyOnceWith(next);
       });
       expect(
-        await runSessionViewCommand(['--pr', '123'], {
+        await runSessionViewCommand(['--pr', '123'], { productRuntime: createTestProductRuntime(),
           isTTY: true,
           settings: {},
           env: {},
@@ -103,7 +104,7 @@ describe('session view command', () => {
         observed = await options.loadRows(new AbortController().signal);
       });
       expect(
-        await runSessionViewCommand([], {
+        await runSessionViewCommand([], { productRuntime: createTestProductRuntime(),
           isTTY: true,
           settings: {},
           env: {},
@@ -129,7 +130,7 @@ describe('session view command', () => {
       return true;
     });
     try {
-      expect(await runSessionViewCommand([], { isTTY: true, settings: {}, env: {} })).toBe(1);
+      expect(await runSessionViewCommand([], { productRuntime: createTestProductRuntime(), isTTY: true, settings: {}, env: {} })).toBe(1);
       expect(errors.join('')).toMatch(/interactive CLI/);
     } finally {
       write.mockRestore();
@@ -139,10 +140,10 @@ describe('session view command', () => {
   it('honors settings, environment, and flag precedence before rendering', async () => {
     const render = vi.fn(async () => undefined);
     expect(
-      await runSessionViewCommand(['--screen-reader'], {
+      await runSessionViewCommand(['--screen-reader'], { productRuntime: createTestProductRuntime(),
         isTTY: true,
         settings: { screenReader: true },
-        env: { ROBOTA_SCREEN_READER: '0' },
+        env: { PRODUCT_SCREEN_READER: '0' },
         render,
       }),
     ).toBe(0);
@@ -154,10 +155,10 @@ describe('session view command', () => {
     );
     render.mockClear();
     expect(
-      await runSessionViewCommand(['--no-screen-reader'], {
+      await runSessionViewCommand(['--no-screen-reader'], { productRuntime: createTestProductRuntime(),
         isTTY: true,
         settings: { screenReader: true },
-        env: { ROBOTA_SCREEN_READER: '1' },
+        env: { PRODUCT_SCREEN_READER: '1' },
         render,
       }),
     ).toBe(0);
@@ -169,7 +170,7 @@ describe('session view command', () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
       expect(
-        await runSessionViewCommand(['--state', 'idle'], {
+        await runSessionViewCommand(['--state', 'idle'], { productRuntime: createTestProductRuntime(),
           isTTY: true,
           settings: {},
           env: {},
@@ -179,7 +180,7 @@ describe('session view command', () => {
       expect(render).toHaveBeenCalledWith(expect.objectContaining({ stateFilter: 'idle' }));
       render.mockClear();
       expect(
-        await runSessionViewCommand(['--cwd', '.', '--state', 'working', '--screen-reader'], {
+        await runSessionViewCommand(['--cwd', '.', '--state', 'working', '--screen-reader'], { productRuntime: createTestProductRuntime(),
           isTTY: true,
           settings: {},
           env: {},
@@ -195,7 +196,7 @@ describe('session view command', () => {
       );
       render.mockClear();
       expect(
-        await runSessionViewCommand(['--state', 'completed'], {
+        await runSessionViewCommand(['--state', 'completed'], { productRuntime: createTestProductRuntime(),
           isTTY: true,
           settings: {},
           env: {},
@@ -236,7 +237,7 @@ describe('session view command', () => {
     });
     try {
       expect(
-        await runSessionViewCommand(['--name', 'REVIEW'], {
+        await runSessionViewCommand(['--name', 'REVIEW'], { productRuntime: createTestProductRuntime(),
           isTTY: true,
           settings: {},
           env: {},
@@ -254,7 +255,7 @@ describe('session view command', () => {
     const render = vi.fn(async () => undefined);
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
-      expect(await runSessionViewCommand([], { isTTY: false, render })).toBe(1);
+      expect(await runSessionViewCommand([], { productRuntime: createTestProductRuntime(), isTTY: false, render })).toBe(1);
       expect(render).not.toHaveBeenCalled();
       expect(stderr.mock.calls.map(([value]) => String(value)).join('')).toMatch(
         /TTY.*session list/i,
@@ -275,7 +276,7 @@ describe('session view command', () => {
       await options.onStop?.(id, 'G'.repeat(22));
     });
     expect(
-      await runSessionViewCommand([], {
+      await runSessionViewCommand([], { productRuntime: createTestProductRuntime(),
         isTTY: true,
         settings: {},
         env: {},
@@ -297,7 +298,7 @@ describe('session view command', () => {
     });
     try {
       expect(
-        await runSessionViewCommand(['--cwd', project], {
+        await runSessionViewCommand(['--cwd', project], { productRuntime: createTestProductRuntime(),
           isTTY: true,
           settings: {},
           env: {},
@@ -335,7 +336,7 @@ describe('session view command', () => {
     });
     try {
       expect(
-        await runSessionViewCommand(['--screen-reader', '--cwd', project], {
+        await runSessionViewCommand(['--screen-reader', '--cwd', project], { productRuntime: createTestProductRuntime(),
           isTTY: true,
           settings: {},
           env: {},
@@ -354,7 +355,7 @@ describe('session view command', () => {
         },
       ]);
       expect(
-        await runSessionViewCommand(['--cwd', other, '--no-screen-reader'], {
+        await runSessionViewCommand(['--cwd', other, '--no-screen-reader'], { productRuntime: createTestProductRuntime(),
           isTTY: true,
           settings: {},
           env: {},
@@ -364,7 +365,7 @@ describe('session view command', () => {
       ).toBe(0);
       expect(observed[1]).toEqual([]);
       expect(
-        await runSessionViewCommand(['--cwd', projectLink], {
+        await runSessionViewCommand(['--cwd', projectLink], { productRuntime: createTestProductRuntime(),
           isTTY: true,
           settings: {},
           env: {},
@@ -383,9 +384,9 @@ describe('session view command', () => {
     const render = vi.fn(async () => undefined);
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
-      expect(await runSessionViewCommand(['--cwd'], { isTTY: true, render })).toBe(1);
+      expect(await runSessionViewCommand(['--cwd'], { productRuntime: createTestProductRuntime(), isTTY: true, render })).toBe(1);
       expect(
-        await runSessionViewCommand(['--cwd', '/a/nonexistent/robota-view-filter'], {
+        await runSessionViewCommand(['--cwd', '/a/nonexistent/test-product-view-filter'], { productRuntime: createTestProductRuntime(),
           isTTY: true,
           settings: {},
           env: {},
@@ -437,7 +438,7 @@ describe('session view command', () => {
         });
         return 'user' as const;
       });
-      expect(await runSessionViewCommand(['--screen-reader'], {
+      expect(await runSessionViewCommand(['--screen-reader'], { productRuntime: createTestProductRuntime(),
         isTTY: true, settings: {}, env: {}, root, render, renderAttached,
       })).toBe(0);
       expect(render).toHaveBeenCalledTimes(3);
@@ -497,9 +498,9 @@ describe('session view command', () => {
           createDefaultTuiCliAdapter,
           installTuiProcessGuards: vi.fn(),
         },
-        { cwd: scratch, projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch), providerDefinitions: [] },
+        { productRuntime: createTestProductRuntime(), cwd: scratch, projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch), providerDefinitions: [] },
       );
-      expect(await runSessionViewCommand([], { isTTY: true, settings: {}, env: {}, root, render, renderAttached })).toBe(0);
+      expect(await runSessionViewCommand([], { productRuntime: createTestProductRuntime(), isTTY: true, settings: {}, env: {}, root, render, renderAttached })).toBe(0);
       expect(renderStub).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
         mode: 'drive', announce: false, sessionLabel: 'Morning review', driverId: 'attach:1',
       }));

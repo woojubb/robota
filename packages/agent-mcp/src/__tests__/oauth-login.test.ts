@@ -33,7 +33,7 @@ afterEach(() => {
 });
 
 function temporaryDirectory(): string {
-  const directory = mkdtempSync(join(tmpdir(), 'robota-oauth-'));
+  const directory = mkdtempSync(join(tmpdir(), 'agent-test-oauth-'));
   directories.push(directory);
   return join(directory, 'mcp-credentials');
 }
@@ -80,6 +80,7 @@ function login(
   const fileLock = createFileOAuthRefreshLock(directory);
   const locked: string[] = [];
   const result = runMCPOAuthLogin({
+    clientName: 'Test Client',
     lock: {
       withLock: (key, critical, signal) => {
         locked.push(key.serverUrl);
@@ -162,7 +163,7 @@ describe('OAuth sign-in', () => {
     const server = createFakeOAuthServer();
     const port = 40_000 + Math.floor(Math.random() * 20_000);
     const { result, store, opened } = login(server, {
-      config: { clientId: 'robota-cli', callbackPort: port },
+      config: { clientId: 'agent-test-cli', callbackPort: port },
       clientSecret: 'client-secret-value',
     });
     await result;
@@ -171,7 +172,7 @@ describe('OAuth sign-in', () => {
     const token = server.requests.find((request) => request.url.endsWith('/token'))!;
     expect(token.headers.get('authorization')).toMatch(/^Basic /);
     const stored = await store.get(oauthCredentialKey('identity-1', MCP_URL));
-    expect(stored).toMatchObject({ clientId: 'robota-cli', clientSecret: 'client-secret-value' });
+    expect(stored).toMatchObject({ clientId: 'agent-test-cli', clientSecret: 'client-secret-value' });
   });
 
   it('refuses a client secret for a dynamically registered client', async () => {
@@ -195,6 +196,7 @@ describe('OAuth sign-in', () => {
     const server = createFakeOAuthServer();
     const directory = temporaryDirectory();
     const result = runMCPOAuthLogin({
+    clientName: 'Test Client',
       securityIdentity: 'identity-1',
       serverUrl: MCP_URL,
       config: {},

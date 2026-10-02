@@ -1,3 +1,4 @@
+import { productEnvironment } from '../../../packages/product-config/src/__tests__/product-environment.js';
 /**
  * SEC-006 — `task` (and every other action input) is untrusted: the documented use of this action is
  * `task: ${{ github.event.issue.body }}`, i.e. text an arbitrary GitHub user wrote. The action used to
@@ -91,7 +92,7 @@ describe('a task that names a subcommand is still only a prompt', () => {
   });
 
   it('does not let a task of "eval" load a file from the checkout', () => {
-    // As an argument, `robota -p -- eval` ran `robota eval`, which imported the next word — the
+    // As an argument, `agent -p -- eval` ran `agent eval`, which imported the next word — the
     // output format, `text` — from the checkout as an eval definition.
     const checkout = join(root, 'checkout');
     const home = join(root, 'home');
@@ -103,13 +104,13 @@ describe('a task that names a subcommand is still only a prompt', () => {
       `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'x');\n`,
     );
     const cliPackage = createRequire(import.meta.url).resolve('@robota-sdk/agent-cli/package.json');
-    const entry = join(dirname(cliPackage), 'bin', 'robota.cjs');
+    const entry = join(dirname(cliPackage), 'bin', 'agent.cjs');
     // Without the built CLI the run fails before reading anything, and the test would prove nothing.
     expect(existsSync(join(dirname(cliPackage), 'dist', 'node', 'bin.js'))).toBe(true);
 
     // No provider is configured, so the CLI fails; what matters is what it ran first.
     expect(() =>
-      runCli(entry, buildCliArgs(ARGS), { PATH: process.env.PATH, HOME: home }, checkout, 'eval'),
+      runCli(entry, buildCliArgs(ARGS), { ...productEnvironment('cedar'), PRODUCT_USER_STATE_DIR: join(home, 'state'), PRODUCT_CACHE_DIR: join(home, 'cache'), PRODUCT_LOG_DIR: join(home, 'logs'), PATH: process.env.PATH, HOME: home }, checkout, 'eval'),
     ).toThrow();
     expect(existsSync(marker)).toBe(false);
   });

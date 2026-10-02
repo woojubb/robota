@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
  * Preset selection glue — thin shell over `@robota-sdk/agent-preset`.
  * The CLI only selects the preset id and forwards CLI flags as overrides; the
@@ -5,13 +6,12 @@
  *
  * ARCH-008: the shell resolves over the kernel's PER-CALL instance registry (`createPresetRegistry`,
  * R8) — not `agent-preset`'s module-global `resolvePreset`. {@link resolveShellPreset} returns the
- * registry it resolved over together with the id and the override context, and `createRobotaProfile`
+ * registry it resolved over together with the id and the override context, and `createSelectedProductProfile`
  * takes that whole result, so `assembleProduct` adopts the SAME registry and replays the SAME context.
  * One registry, one resolution: the shell and `product.defaultPreset` cannot drift apart, and the
- * module-global registry is no longer on robota's startup resolution path.
+ * module-global registry is no longer on the product's startup resolution path.
  */
 
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { createPresetRegistry, loadExternalPresetsFromDir } from '@robota-sdk/agent-preset';
@@ -43,9 +43,9 @@ export type TShellPresetArgs = Partial<
   >
 >;
 
-/** Robota's user-local preset directory is a shell choice, not a preset-package default. */
-export function loadRobotaExternalPresets(homeDirectory = homedir()): IExternalPresetLoadResult {
-  return loadExternalPresetsFromDir(join(homeDirectory, '.robota', 'presets'));
+/** The product's user-local preset directory is a shell choice, not a preset-package default. */
+export function loadProductExternalPresets(runtime: ICliRuntimeContext): IExternalPresetLoadResult {
+  return loadExternalPresetsFromDir(join(runtime.layout.userRoot, 'presets'));
 }
 
 /** Pick the preset id: --preset flag > settings.preset > 'default'. Pure selection glue (shell). */
@@ -85,7 +85,7 @@ function buildPresetCliOverrides(args: TShellPresetArgs): IResolvedPresetOptions
  * override layers it applied, and the resolved option bundle every shell surface binds to.
  *
  * Carried as a single value (rather than four loose locals) so the profile cannot be handed a registry,
- * id, or context other than the ones the resolution actually used: `IRobotaProfileInput` takes this
+ * id, or context other than the ones the resolution actually used: `IProductProfileInput` takes this
  * object, so a mismatch is not expressible.
  */
 export interface IShellPresetResolution {
@@ -108,7 +108,7 @@ export interface IShellPresetResolution {
 /**
  * PRESET-002/004/007/011 + ARCH-008/ARCH-009 — the shell's ONE preset resolution.
  *
- * `loadRobotaExternalPresets` reads `~/.robota/presets/*.json` (per-file problems are warnings, never
+ * `loadProductExternalPresets` reads `the configured user root/presets/*.json` (per-file problems are warnings, never
  * fatal) and REGISTERS NOTHING — it returns the presets it loaded. This builds the kernel's per-call
  * registry (R8) over them and resolves the selected id against it, returning registry + id +
  * override context as ONE value that travels whole into the profile. `assembleProduct` adopts that
@@ -141,6 +141,7 @@ export function resolveShellPreset(
  * command modules as the plain TUI started with the same settings.
  */
 export function resolveShellPresetOrExit(input: {
+  readonly productRuntime: ICliRuntimeContext;
   readonly args: TShellPresetArgs;
   readonly settings: TSettingsData;
   readonly safeMode: boolean;
@@ -148,7 +149,7 @@ export function resolveShellPresetOrExit(input: {
 }): IShellPresetResolution {
   const { args, settings, safeMode, writeError } = input;
   const settingsPreset = typeof settings.preset === 'string' ? settings.preset : undefined;
-  const externalPresetLoad = safeMode ? { presets: [], errors: [] } : loadRobotaExternalPresets();
+  const externalPresetLoad = safeMode ? { presets: [], errors: [] } : loadProductExternalPresets(input.productRuntime);
   for (const { file, error } of externalPresetLoad.errors) {
     writeError(`Skipped external preset "${file}": ${error}`);
   }

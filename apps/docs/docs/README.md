@@ -1,6 +1,6 @@
 # Docs App Docs Index
 
-`robota-docs` (internal) builds the documentation site at https://docs.robota.io: a Next.js static export
+`robota-docs` (internal) builds the documentation site at __PROJECT_DOCS_URL__: a Next.js static export
 with English and Korean locales and Pagefind full-text search. It renders Markdown from the monorepo at
 build time; it does not own any of that content.
 
@@ -8,7 +8,7 @@ build time; it does not own any of that content.
 
 - `content/**` at `/{en,ko}/<path without .md>/` (a `README.md` is its folder's index). A Korean page
   comes from `content/ko/` when that file exists and falls back to the English one otherwise.
-  `content/v2.0.0/` and `content/images/` are not rendered.
+  `content/images/` is not rendered. Historical v2.0.0 documentation has been retired from the current workspace.
 - `packages/<dir>/docs/*.md` at `/{en,ko}/packages/<dir>/` (`docs/README.md`) and
   `/{en,ko}/packages/<dir>/<FILE>/`, in English for both locales. `apps/*/docs/` is not rendered.
 - A generated packages index at `/{en,ko}/packages/`: one entry per package that has a
@@ -44,7 +44,7 @@ pnpm --filter robota-docs test   # unit tests
 ## Deployment
 
 The Cloudflare Pages project `robota-docs` is connected to the GitHub repository: a push to `main`
-deploys production (`docs.robota.io`). Other branches get no usable preview, so check a change
+deploys production (`docs.__PROJECT_WEBSITE_HOST__`). Other branches get no usable preview, so check a change
 locally: `pnpm --filter robota-docs dev` while writing, or build and serve the static export the way
 production does (search and `_redirects` included) with
 `pnpm --filter robota-docs build && pnpm --filter robota-docs exec wrangler pages dev out --compatibility-date=2026-08-01` — opening

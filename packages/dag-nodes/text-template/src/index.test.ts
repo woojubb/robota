@@ -136,7 +136,7 @@ describe('TextTemplateNodeDefinition', () => {
 
   it('preserves input placeholders and sentinel-like text literally', async () => {
     const node = new TextTemplateNodeDefinition();
-    const text = '%s __ROBOTA_TEXT_TEMPLATE_ESCAPED_PERCENT_S__';
+    const text = '%s __AGENT_TEXT_TEMPLATE_ESCAPED_PERCENT_S__';
     const result = await node.taskHandler.execute({ text }, createContext('%%s {{text}} %s'));
     expect(result).toMatchObject({ ok: true, value: { text: `%s ${text} ${text}` } });
   });

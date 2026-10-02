@@ -1,3 +1,4 @@
+import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
 /** InteractiveSession execution lifecycle, queue, streaming, and tool state. */
 
 import { randomBytes } from 'node:crypto';
@@ -203,6 +204,7 @@ export class SessionExecutionController {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    toolResultParts?: TUniversalMessagePart[];
     executionId?: string;
   }): void {
     if (event.type === 'end') {
@@ -232,6 +234,7 @@ export class SessionExecutionController {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    toolResultParts?: TUniversalMessagePart[];
     executionId?: string;
   }): void {
     const capture = this.liveToolCapture;
@@ -289,7 +292,7 @@ export class SessionExecutionController {
   }
 
   async executePrompt(
-    input: string,
+    submittedInput: string,
     displayInput: string | undefined,
     rawInput: string | undefined,
     agentsFileEntries: IContextFileEntry[],
@@ -300,6 +303,7 @@ export class SessionExecutionController {
     turnId: string,
     turnOptions: ITurnOptions = {},
   ): Promise<void> {
+    let input = submittedInput;
     // RUNTIME-12: claim synchronously before any await so a concurrent submit queues rather than also
     // starting. The `finally` releases this claim even when context refresh or execution throws.
     let executionClaim: IExecutionClaim;
@@ -346,8 +350,8 @@ export class SessionExecutionController {
     // Tool content needs to know which calls are this turn's own; only then is ownership tracked.
     const toolOwnership = liveContent?.capturesTools ? new LiveToolCallOwnership() : undefined;
     const toolSpanIds = new Map<string, string>();
-    this.liveToolCapture = toolOwnership && liveContent
-      ? { ownership: toolOwnership, content: liveContent } : undefined;
+    this.liveToolCapture =
+      toolOwnership && liveContent ? { ownership: toolOwnership, content: liveContent } : undefined;
     const closePromptRoot = (outcome: 'success' | 'failure' | 'interrupted'): void => {
       if (!promptRoot || promptRoot.endedAt) return;
       promptRoot.endedAt = new Date(Math.max(Date.now(), promptRoot.startedAtMs)).toISOString();
@@ -357,6 +361,10 @@ export class SessionExecutionController {
     // MEM-2055: recall runs before the turn's own messages reach history — stash events, record in `finally`.
     let pendingMemoryEvents: IMemoryEvent[] = [];
     try {
+      this.skillRouter.beginTurnSkillActivation(turnId, turnOptions.signal);
+      turnOptions.signal?.throwIfAborted();
+      if (turnOptions.preparePrompt) input = await turnOptions.preparePrompt();
+      turnOptions.signal?.throwIfAborted();
       await checkAndRefreshContextIfStale(
         agentsFileEntries,
         projectNotesFileEntries,
@@ -400,6 +408,7 @@ export class SessionExecutionController {
         spanId: randomOtelId(8),
       };
       const traceContext = this.promptTraceContext(promptRoot);
+      await this.skillRouter.validateTurnSkillActivations(turnId);
       await executePromptTurn(input, displayInput, rawInput, {
         providerErrorGuidance: this.callbacks.providerErrorGuidance,
         promptFileReferenceTag: this.callbacks.promptFileReferenceTag,
@@ -421,8 +430,12 @@ export class SessionExecutionController {
         clearStreaming: () => this.clearStreaming(),
         getStreamingText: () => this.streamingText,
         ...(toolOwnership
-          ? { onToolCallObserved: (id: string, phase: Parameters<LiveToolCallOwnership['observe']>[1]) =>
-              toolOwnership.observe(id, phase) }
+          ? {
+              onToolCallObserved: (
+                id: string,
+                phase: Parameters<LiveToolCallOwnership['observe']>[1],
+              ) => toolOwnership.observe(id, phase),
+            }
           : {}),
         onWorkspaceUpdated: () => this.emitExecutionWorkspaceUpdated('main_thread'),
         onComplete: (result: IExecutionResult) => {
@@ -498,7 +511,9 @@ export class SessionExecutionController {
           // any parent it propagated. A body without a usable one is counted, never given an
           // invented span a server could not have been told about.
           const spanId =
-            observation.toolBodyId === undefined ? undefined : spanIdFromMintedId(observation.toolBodyId);
+            observation.toolBodyId === undefined
+              ? undefined
+              : spanIdFromMintedId(observation.toolBodyId);
           if (spanId === undefined || !isMintedSpanId(spanId)) {
             liveTrace?.omit({ provider: 0, tool: 1 });
             return;
@@ -550,6 +565,7 @@ export class SessionExecutionController {
           }
         },
         onCompletionsOmitted: (counts) => liveTrace?.omit(counts),
+        onQueueSummary: (summary) => liveTrace?.setQueueSummary(summary),
         onInterrupted: (result: IExecutionResult) => {
           closePromptRoot('interrupted');
           // RUNTIME-003: an interrupted turn RAN — resolve, do not reject.
@@ -572,30 +588,54 @@ export class SessionExecutionController {
       turnError = error instanceof Error ? error : new Error(String(error));
       throw error;
     } finally {
-      this.liveToolCapture = undefined;
-      if (liveTrace && promptRoot?.endedAt && promptRoot.outcome && this.callbacks.livePromptTrace) {
+      for (const error of this.skillRouter.endTurnSkillActivation(turnId)) {
         try {
-          enqueueLivePromptTrace(this.callbacks.livePromptTrace, liveTrace.finish({
-            sessionId: this.callbacks.getSessionOrThrow().getSessionId(),
-            turnId,
-            root: {
-              traceId: promptRoot.traceId,
-              spanId: promptRoot.spanId,
-              startedAt: promptRoot.startedAt,
-              endedAt: promptRoot.endedAt,
-              outcome: promptRoot.outcome,
-            },
-          }));
+          this.callbacks.emit('error', error);
+        } catch (notificationError) {
+          turnError =
+            notificationError instanceof Error
+              ? notificationError
+              : new Error(String(notificationError));
+          terminalResult = undefined;
+        }
+      }
+      this.liveToolCapture = undefined;
+      if (
+        liveTrace &&
+        promptRoot?.endedAt &&
+        promptRoot.outcome &&
+        this.callbacks.livePromptTrace
+      ) {
+        try {
+          enqueueLivePromptTrace(
+            this.callbacks.livePromptTrace,
+            liveTrace.finish({
+              sessionId: this.callbacks.getSessionOrThrow().getSessionId(),
+              turnId,
+              root: {
+                traceId: promptRoot.traceId,
+                spanId: promptRoot.spanId,
+                startedAt: promptRoot.startedAt,
+                endedAt: promptRoot.endedAt,
+                outcome: promptRoot.outcome,
+              },
+            }),
+          );
         } catch {
           reportLivePromptTraceProjectionFailure(this.callbacks.livePromptTrace);
         }
       }
       if (liveContent && promptRoot?.endedAt && this.callbacks.livePromptTrace) {
-        enqueueLivePromptContent(this.callbacks.livePromptTrace, liveContent, {
-          traceId: promptRoot.traceId,
-          spanId: promptRoot.spanId,
-          endedAt: promptRoot.endedAt,
-        }, toolSpanIds);
+        enqueueLivePromptContent(
+          this.callbacks.livePromptTrace,
+          liveContent,
+          {
+            traceId: promptRoot.traceId,
+            spanId: promptRoot.spanId,
+            endedAt: promptRoot.endedAt,
+          },
+          toolSpanIds,
+        );
       }
       try {
         await this.histTracker.finalizeEditCheckpointTurn();
@@ -681,7 +721,10 @@ export class SessionExecutionController {
    * exists and only when the host configured origins or subprocess classes. Built per prompt, so no
    * other run can inherit it.
    */
-  private promptTraceContext(promptRoot: { traceId: string; spanId: string }): IRunTraceContext | undefined {
+  private promptTraceContext(promptRoot: {
+    traceId: string;
+    spanId: string;
+  }): IRunTraceContext | undefined {
     const port = this.callbacks.livePromptTrace;
     const allowedOrigins = port?.traceContextPropagation?.allowedOrigins ?? [];
     const subprocessClasses = port?.traceContextPropagation?.subprocesses ?? [];
@@ -692,7 +735,10 @@ export class SessionExecutionController {
       allowedOrigins: [...allowedOrigins],
       ...(subprocessClasses.length > 0 ? { subprocessClasses: [...subprocessClasses] } : {}),
       ...(allowedOrigins.length > 0
-        ? { onPropagationUnavailable: (providerId: string) => reportTraceContextUnavailable(port, providerId) }
+        ? {
+            onPropagationUnavailable: (providerId: string) =>
+              reportTraceContextUnavailable(port, providerId),
+          }
         : {}),
     };
   }
@@ -711,6 +757,7 @@ export class SessionExecutionController {
     const executionClaim = this.executionClaim.acquire('fork-skill');
 
     try {
+      if (skill.skillContentLoader) this.skillRouter.beginTurnSkillActivation(executionClaim.id);
       this.clearStreaming();
       this.callbacks.emit('thinking', true);
       this.histTracker.append(
@@ -738,7 +785,16 @@ export class SessionExecutionController {
       this.callbacks.emit('error', error);
       return { mode: 'fork', result: '' };
     } finally {
-      this.executionClaim.complete(executionClaim, () => this.drainPendingQueue(resumeQueuedTurn));
+      try {
+        if (skill.skillContentLoader) {
+          for (const error of this.skillRouter.endTurnSkillActivation(executionClaim.id))
+            this.callbacks.emit('error', error);
+        }
+      } finally {
+        this.executionClaim.complete(executionClaim, () =>
+          this.drainPendingQueue(resumeQueuedTurn),
+        );
+      }
     }
   }
 

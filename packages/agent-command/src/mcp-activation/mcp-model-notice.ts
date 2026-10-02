@@ -26,15 +26,20 @@ export function mcpUserActionCommand(
   serverId: string,
   action: TMCPUserAction,
   surface: TMCPUserActionSurface = 'session',
-): string {
+  cliName?: string,
+): string | undefined {
   const name = shellArgumentForDisplay(serverId) ?? '<server>';
   switch (action) {
     case 'approve':
       return `/mcp approve ${name}`;
     case 'sign-in':
-      return surface === 'terminal' ? `robota mcp login ${name}` : `/mcp login ${name}`;
+      return surface === 'terminal'
+        ? cliName === undefined
+          ? undefined
+          : `${cliName} mcp login ${name}`
+        : `/mcp login ${name}`;
     case 'trust-workspace':
-      return 'robota trust';
+      return cliName === undefined ? undefined : `${cliName} trust`;
   }
 }
 
@@ -56,13 +61,21 @@ export function mcpUserActionNotice(
   serverId: string,
   action: TMCPUserAction,
   surface: TMCPUserActionSurface = 'session',
+  cliName?: string,
 ): string {
   const inTerminal =
     action === 'trust-workspace' || (action === 'sign-in' && surface === 'terminal');
   const where = inTerminal ? ' in a terminal, then restart the session' : '';
+  const command = mcpUserActionCommand(serverId, action, surface, cliName);
+  const ask =
+    command === undefined
+      ? action === 'trust-workspace'
+        ? 'ask the user to trust this workspace in a terminal'
+        : 'ask the user to sign in from a terminal'
+      : `ask the user to run \`${command}\`${where}`;
   return (
     `${subject(serverId)} ${NEED[action]}, so its tools are unavailable. You cannot do this ` +
-    `yourself; ask the user to run \`${mcpUserActionCommand(serverId, action, surface)}\`${where}.`
+    `yourself; ${ask}.`
   );
 }
 
@@ -72,10 +85,11 @@ export function mcpUserActionNotice(
  */
 export function mcpUnavailableServersNotice(
   servers: ReadonlyMap<string, TMCPUserAction>,
+  cliName?: string,
 ): string | undefined {
   if (servers.size === 0) return undefined;
   const lines = [...servers].map(
-    ([serverId, action]) => `- ${mcpUserActionNotice(serverId, action)}`,
+    ([serverId, action]) => `- ${mcpUserActionNotice(serverId, action, 'session', cliName)}`,
   );
   return [
     'MCP servers that did not start this session. Mention this only when the user needs one of ' +

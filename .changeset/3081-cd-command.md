@@ -8,10 +8,10 @@
 
 `/cd <directory>` continues the conversation in another directory.
 
-- **A move is a new session in the target directory.** In the TUI, robota saves a copy of the
+- **A move is a new session in the target directory.** In the TUI, the configured CLI saves a copy of the
   conversation where the target's session store will find it, ends the current run through its
   normal end-of-life flow, and starts again in the target directory resuming that copy. The target's
-  settings, trust decision, tools, skills and `AGENTS.md` apply, exactly as if robota had been
+  settings, trust decision, tools, skills and `AGENTS.md` apply, exactly as if the configured CLI had been
   launched there. The process boundary makes the move atomic, so no tool call can straddle it.
 - **The system prompt is kept as recorded**, so a provider's prompt cache survives. One appended
   `<workspace-move>` message tells the model the new directory, and which project instructions now

@@ -1,3 +1,5 @@
+import { createIdentityContext } from '../identity/crypto-context.js';
+const testIdentity = createIdentityContext('test-product');
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -57,7 +59,7 @@ function run(joiner: ISide, existing: ISide, tap: TTap = (_from, frame) => frame
   };
   let toExisting: (frame: unknown) => void = () => undefined;
   let toJoiner: (frame: unknown) => void = () => undefined;
-  const j = startEnrollmentProof({
+  const j = startEnrollmentProof(testIdentity, {
     ...joiner,
     timeoutMs,
     send: (frame) => {
@@ -66,7 +68,7 @@ function run(joiner: ISide, existing: ISide, tap: TTap = (_from, frame) => frame
       queueMicrotask(() => void Promise.resolve(tap('joiner', copy)).then(toExisting));
     },
   });
-  const e = startEnrollmentProof({
+  const e = startEnrollmentProof(testIdentity, {
     ...existing,
     timeoutMs,
     send: (frame) => {
@@ -104,22 +106,22 @@ describe('enrollment code', () => {
 
   it('derives two relay topics, one per direction, that name nothing and differ per code', async () => {
     const code = generateEnrollmentCode();
-    const a = await deriveEnrollmentMaterial(code);
-    const again = await deriveEnrollmentMaterial(code.toLowerCase());
-    const other = await deriveEnrollmentMaterial(generateEnrollmentCode());
+    const a = await deriveEnrollmentMaterial(testIdentity, code);
+    const again = await deriveEnrollmentMaterial(testIdentity, code.toLowerCase());
+    const other = await deriveEnrollmentMaterial(testIdentity, generateEnrollmentCode());
     expect(a.existingInbox).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(a.joinerInbox).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(a.existingInbox).not.toBe(a.joinerInbox);
     expect(again.existingInbox).toBe(a.existingInbox);
     expect(other.existingInbox).not.toBe(a.existingInbox);
     expect(a.existingInbox).not.toContain(code.replace(/-/g, ''));
-    await expect(deriveEnrollmentMaterial('not a code')).rejects.toThrow(/code/);
+    await expect(deriveEnrollmentMaterial(testIdentity, 'not a code')).rejects.toThrow(/code/);
   });
 });
 
 describe('enrollment proof — knowledge of the code, bound to the negotiated channel', () => {
   it('both sides prove the code over the same fingerprints and agree on the binding', async () => {
-    const material = await deriveEnrollmentMaterial(generateEnrollmentCode());
+    const material = await deriveEnrollmentMaterial(testIdentity, generateEnrollmentCode());
     const { joiner, existing } = run(
       { role: 'joiner', material, localFingerprint: FP_J, remoteFingerprint: FP_E },
       { role: 'existing', material, localFingerprint: FP_E, remoteFingerprint: FP_J },
@@ -131,7 +133,7 @@ describe('enrollment proof — knowledge of the code, bound to the negotiated ch
   });
 
   it('refuses a relay in the middle: each side sees the relay, so neither proof verifies', async () => {
-    const material = await deriveEnrollmentMaterial(generateEnrollmentCode());
+    const material = await deriveEnrollmentMaterial(testIdentity, generateEnrollmentCode());
     const { joiner, existing } = run(
       { role: 'joiner', material, localFingerprint: FP_J, remoteFingerprint: FP_R1 },
       { role: 'existing', material, localFingerprint: FP_E, remoteFingerprint: FP_R2 },
@@ -145,7 +147,7 @@ describe('enrollment proof — knowledge of the code, bound to the negotiated ch
     // can refuse while the test still waits on the existing device. Force that order: the joiner's
     // proof reaches the existing device only a turn after the joiner's own check has finished, when
     // Node has already reported the joiner's refusal if nothing was listening to it.
-    const material = await deriveEnrollmentMaterial(generateEnrollmentCode());
+    const material = await deriveEnrollmentMaterial(testIdentity, generateEnrollmentCode());
     const subtle = globalThis.crypto.subtle;
     const verify = subtle.verify.bind(subtle);
     const spy = vi.spyOn(subtle, 'verify');
@@ -176,8 +178,8 @@ describe('enrollment proof — knowledge of the code, bound to the negotiated ch
   });
 
   it('refuses a wrong code', async () => {
-    const right = await deriveEnrollmentMaterial(generateEnrollmentCode());
-    const wrong = await deriveEnrollmentMaterial(generateEnrollmentCode());
+    const right = await deriveEnrollmentMaterial(testIdentity, generateEnrollmentCode());
+    const wrong = await deriveEnrollmentMaterial(testIdentity, generateEnrollmentCode());
     const { joiner, existing } = run(
       { role: 'joiner', material: wrong, localFingerprint: FP_J, remoteFingerprint: FP_E },
       { role: 'existing', material: right, localFingerprint: FP_E, remoteFingerprint: FP_J },
@@ -187,10 +189,10 @@ describe('enrollment proof — knowledge of the code, bound to the negotiated ch
   });
 
   it("refuses a side's own proof reflected back to it", async () => {
-    const material = await deriveEnrollmentMaterial(generateEnrollmentCode());
+    const material = await deriveEnrollmentMaterial(testIdentity, generateEnrollmentCode());
     const sent: TEnrollmentProofFrame[] = [];
     let feed: (frame: unknown) => void = () => undefined;
-    const existing = startEnrollmentProof({
+    const existing = startEnrollmentProof(testIdentity, {
       role: 'existing',
       material,
       localFingerprint: FP_E,
@@ -207,8 +209,8 @@ describe('enrollment proof — knowledge of the code, bound to the negotiated ch
   });
 
   it('takes nothing but its nonce and proof before the proof passes', async () => {
-    const material = await deriveEnrollmentMaterial(generateEnrollmentCode());
-    const existing = startEnrollmentProof({
+    const material = await deriveEnrollmentMaterial(testIdentity, generateEnrollmentCode());
+    const existing = startEnrollmentProof(testIdentity, {
       role: 'existing',
       material,
       localFingerprint: FP_E,
@@ -221,8 +223,8 @@ describe('enrollment proof — knowledge of the code, bound to the negotiated ch
   });
 
   it('times out when the peer never proves', async () => {
-    const material = await deriveEnrollmentMaterial(generateEnrollmentCode());
-    const existing = startEnrollmentProof({
+    const material = await deriveEnrollmentMaterial(testIdentity, generateEnrollmentCode());
+    const existing = startEnrollmentProof(testIdentity, {
       role: 'existing',
       material,
       localFingerprint: FP_E,
@@ -236,7 +238,7 @@ describe('enrollment proof — knowledge of the code, bound to the negotiated ch
 
 describe('enrollment request and short authentication string', () => {
   async function proven(): Promise<{ material: IEnrollmentMaterial; binding: IEnrollmentBinding }> {
-    const material = await deriveEnrollmentMaterial(generateEnrollmentCode());
+    const material = await deriveEnrollmentMaterial(testIdentity, generateEnrollmentCode());
     const { joiner } = run(
       { role: 'joiner', material, localFingerprint: FP_J, remoteFingerprint: FP_E },
       { role: 'existing', material, localFingerprint: FP_E, remoteFingerprint: FP_J },
@@ -250,13 +252,13 @@ describe('enrollment request and short authentication string', () => {
     const contribution = newEnrollmentContribution();
     return {
       contribution,
-      frame: await signEnrollmentRequest({
+      frame: await signEnrollmentRequest(testIdentity, {
         binding,
         signPrivateKey: sign.privateKey,
         name,
         signKey: await exportSpki(sign.publicKey),
         kaKey: await exportSpki(ka.publicKey),
-        commit: await enrollmentCommitment(binding, contribution),
+        commit: await enrollmentCommitment(testIdentity, binding, contribution),
       }),
     };
   }
@@ -264,35 +266,46 @@ describe('enrollment request and short authentication string', () => {
   it("the request proves possession of the joiner's signing key over this channel", async () => {
     const { binding } = await proven();
     const { frame } = await request(binding);
-    const decoded = decodeEnrollmentFrame(JSON.parse(JSON.stringify(frame)));
+    const decoded = decodeEnrollmentFrame(testIdentity, JSON.parse(JSON.stringify(frame)));
     expect(decoded.ok).toBe(true);
-    expect(await verifyEnrollmentRequest(binding, frame)).toBe(true);
-    expect(await verifyEnrollmentRequest(binding, { ...frame, name: 'laptop' })).toBe(false);
+    expect(await verifyEnrollmentRequest(testIdentity, binding, frame)).toBe(true);
+    expect(await verifyEnrollmentRequest(testIdentity, binding, { ...frame, name: 'laptop' })).toBe(
+      false,
+    );
     const other = await proven();
-    expect(await verifyEnrollmentRequest(other.binding, frame)).toBe(false);
+    expect(await verifyEnrollmentRequest(testIdentity, other.binding, frame)).toBe(false);
   });
 
   it('the commitment opens only with its own contribution, on its own channel', async () => {
     const { binding } = await proven();
     const { frame, contribution } = await request(binding);
-    expect(await verifyEnrollmentReveal(binding, frame.commit, contribution)).toBe(true);
-    expect(await verifyEnrollmentReveal(binding, frame.commit, newEnrollmentContribution())).toBe(
-      false,
+    expect(await verifyEnrollmentReveal(testIdentity, binding, frame.commit, contribution)).toBe(
+      true,
     );
+    expect(
+      await verifyEnrollmentReveal(
+        testIdentity,
+        binding,
+        frame.commit,
+        newEnrollmentContribution(),
+      ),
+    ).toBe(false);
     const other = await proven();
-    expect(await verifyEnrollmentReveal(other.binding, frame.commit, contribution)).toBe(false);
+    expect(
+      await verifyEnrollmentReveal(testIdentity, other.binding, frame.commit, contribution),
+    ).toBe(false);
     // A signed request cannot swap in another commitment.
     const swapped = {
       ...frame,
-      commit: await enrollmentCommitment(binding, newEnrollmentContribution()),
+      commit: await enrollmentCommitment(testIdentity, binding, newEnrollmentContribution()),
     };
-    expect(await verifyEnrollmentRequest(binding, swapped)).toBe(false);
+    expect(await verifyEnrollmentRequest(testIdentity, binding, swapped)).toBe(false);
   });
 
   it('refuses a request whose name carries invisible characters', async () => {
     const { binding } = await proven();
     const { frame } = await request(binding, 'desk\u202Etop');
-    expect(decodeEnrollmentFrame(JSON.parse(JSON.stringify(frame)))).toEqual({
+    expect(decodeEnrollmentFrame(testIdentity, JSON.parse(JSON.stringify(frame)))).toEqual({
       ok: false,
       field: 'name',
     });
@@ -306,34 +319,46 @@ describe('enrollment request and short authentication string', () => {
       joiner: newEnrollmentContribution(),
       existing: newEnrollmentContribution(),
     };
-    const sas = await enrollmentSas({ material, binding, request: fields, anchor, contributions });
+    const sas = await enrollmentSas(testIdentity, {
+      material,
+      binding,
+      request: fields,
+      anchor,
+      contributions,
+    });
     expect(sas).toMatch(/^\d{3} \d{3}$/);
-    expect(await enrollmentSas({ material, binding, request: fields, anchor, contributions })).toBe(
-      sas,
-    );
+    expect(
+      await enrollmentSas(testIdentity, {
+        material,
+        binding,
+        request: fields,
+        anchor,
+        contributions,
+      }),
+    ).toBe(sas);
     const variants = await Promise.all([
-      enrollmentSas({
+      enrollmentSas(testIdentity, {
         material,
         binding,
         request: fields,
         contributions,
         anchor: { ...anchor, masterPublicKey: 'n' },
       }),
-      enrollmentSas({
+      enrollmentSas(testIdentity, {
         material,
         binding,
         anchor,
         contributions,
         request: { ...fields, name: 'laptop' },
       }),
-      enrollmentSas({
+      enrollmentSas(testIdentity, {
         material,
         binding,
         request: fields,
         anchor,
         contributions: { ...contributions, existing: newEnrollmentContribution() },
       }),
-      enrollmentSas({
+      enrollmentSas(testIdentity, {
         material,
         binding,
         request: fields,
@@ -346,27 +371,27 @@ describe('enrollment request and short authentication string', () => {
   });
 
   it('decodes each frame strictly and names the field, never the value', () => {
-    expect(decodeEnrollmentFrame({ t: 'en-declined' })).toEqual({
+    expect(decodeEnrollmentFrame(testIdentity, { t: 'en-declined' })).toEqual({
       ok: true,
       frame: { t: 'en-declined' },
     });
-    expect(decodeEnrollmentFrame({ t: 'en-declined', extra: 1 })).toEqual({
+    expect(decodeEnrollmentFrame(testIdentity, { t: 'en-declined', extra: 1 })).toEqual({
       ok: false,
       field: 'frame',
     });
     expect(
-      decodeEnrollmentFrame({
+      decodeEnrollmentFrame(testIdentity, {
         t: 'en-anchor',
         masterPublicKey: 'x',
         userId: 'y',
         contribution: 'z',
       }),
     ).toEqual({ ok: false, field: 'masterPublicKey' });
-    expect(decodeEnrollmentFrame({ t: 'en-reveal', contribution: 'short' })).toEqual({
+    expect(decodeEnrollmentFrame(testIdentity, { t: 'en-reveal', contribution: 'short' })).toEqual({
       ok: false,
       field: 'contribution',
     });
-    expect(decodeEnrollmentFrame({ t: 'en-grant' })).toMatchObject({ ok: false });
-    expect(decodeEnrollmentFrame('nope')).toEqual({ ok: false, field: 'frame' });
+    expect(decodeEnrollmentFrame(testIdentity, { t: 'en-grant' })).toMatchObject({ ok: false });
+    expect(decodeEnrollmentFrame(testIdentity, 'nope')).toEqual({ ok: false, field: 'frame' });
   });
 });

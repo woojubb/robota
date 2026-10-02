@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -5,7 +6,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
-  loadRobotaExternalPresets,
+  loadProductExternalPresets,
   resolveShellPreset,
   selectPresetId,
 } from '../preset-selection.js';
@@ -80,20 +81,20 @@ afterEach(() => {
   for (const home of temporaryHomes.splice(0)) rmSync(home, { recursive: true, force: true });
 });
 
-describe('Robota external preset source', () => {
+describe('test-product Agent external preset source', () => {
   it('loads from the supplied home without leaking another home’s presets', () => {
-    const firstHome = mkdtempSync(join(tmpdir(), 'robota-preset-home-'));
-    const secondHome = mkdtempSync(join(tmpdir(), 'robota-preset-home-'));
+    const firstHome = mkdtempSync(join(tmpdir(), 'test-product-preset-home-'));
+    const secondHome = mkdtempSync(join(tmpdir(), 'test-product-preset-home-'));
     temporaryHomes.push(firstHome, secondHome);
-    const firstPresets = join(firstHome, '.robota', 'presets');
+    const firstPresets = join(firstHome, '.test-product', 'presets');
     mkdirSync(firstPresets, { recursive: true });
     writeFileSync(
       join(firstPresets, 'first.json'),
       JSON.stringify({ id: 'first', title: 'First', description: 'First home preset' }),
     );
 
-    expect(loadRobotaExternalPresets(firstHome).loaded).toEqual(['first']);
-    expect(loadRobotaExternalPresets(secondHome).loaded).toEqual([]);
+    expect(loadProductExternalPresets(createTestProductRuntime('test-product', { HOME: firstHome })).loaded).toEqual(['first']);
+    expect(loadProductExternalPresets(createTestProductRuntime('test-product', { HOME: secondHome })).loaded).toEqual([]);
   });
 });
 

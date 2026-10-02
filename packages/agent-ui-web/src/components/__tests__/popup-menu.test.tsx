@@ -5,8 +5,9 @@
  * labelled sections, and full keyboard support (arrows move focus, Enter/Space activates, Esc closes
  * and returns focus to the trigger that opened it).
  */
+import { render } from '../../testing/product-provider.js';
 import { useRef, useState } from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PopupMenu } from '../PopupMenu.js';

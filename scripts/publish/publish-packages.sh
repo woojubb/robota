@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# publish-packages.sh — publish every public @robota-sdk package at the release version.
+# publish-packages.sh — publish every public package in the selected scope at the release version.
 #
 # Usage:
 #   pnpm publish:beta                     # build, check, publish (prompts for OTP)
@@ -20,7 +20,25 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT_DIR"
 
-REGISTRY=https://registry.npmjs.org/
+PACKAGE_SCOPE="${PRODUCT_PACKAGE_SCOPE:?Set PRODUCT_PACKAGE_SCOPE from the selected product configuration.}"
+PROJECT_REPOSITORY_URL="${PROJECT_REPOSITORY_URL:?Set PROJECT_REPOSITORY_URL from the selected product configuration.}"
+REGISTRY="${PROJECT_NPM_REGISTRY_URL:?Set PROJECT_NPM_REGISTRY_URL from the selected product configuration.}"
+if [[ ! "$PACKAGE_SCOPE" =~ ^@[a-z0-9][a-z0-9._-]*$ ]]; then
+  echo "❌ Invalid PRODUCT_PACKAGE_SCOPE." >&2
+  exit 1
+fi
+if [[ "$REGISTRY" != https://* ]]; then
+  echo "❌ PROJECT_NPM_REGISTRY_URL must use HTTPS." >&2
+  exit 1
+fi
+export npm_config_registry="$REGISTRY"
+if [ -n "${PROJECT_PACKAGE_ACCESS:-}" ]; then
+  case "$PROJECT_PACKAGE_ACCESS" in public|restricted) export npm_config_access="$PROJECT_PACKAGE_ACCESS" ;; *)
+    echo "❌ PROJECT_PACKAGE_ACCESS must be public or restricted." >&2
+    exit 1
+    ;;
+  esac
+fi
 OTP=""
 SKIP_BUILD="false"
 DRY_RUN="false"
@@ -60,19 +78,20 @@ echo "🔎 Release checks..."
 node scripts/harness/check-publish-safety.mjs
 node scripts/harness/check-sdk-public-surface.mjs
 
-# Public packages that belong to this lockstep release (name and directory).
+# Public packages in the selected scope that belong to this lockstep release (name and directory).
 PACKAGES=()
 PACKAGE_DIRS=()
 while IFS=$'\t' read -r NAME DIR; do
   PACKAGES+=("$NAME")
   PACKAGE_DIRS+=("$DIR")
 done < <(
-  pnpm -r --depth -1 --json list | RELEASE_VERSION="$VERSION" node -e '
+  pnpm -r --depth -1 --json list | RELEASE_VERSION="$VERSION" PRODUCT_PACKAGE_SCOPE="$PACKAGE_SCOPE" node -e '
 let input = "";
 process.stdin.on("data", (chunk) => (input += chunk));
 process.stdin.on("end", () => {
+  const scope = process.env.PRODUCT_PACKAGE_SCOPE;
   for (const pkg of JSON.parse(input)) {
-    if (pkg.name?.startsWith("@robota-sdk/") && pkg.private === false && pkg.version === process.env.RELEASE_VERSION) {
+    if (pkg.name?.startsWith(`${scope}/`) && pkg.private === false && pkg.version === process.env.RELEASE_VERSION) {
       console.log(`${pkg.name}\t${pkg.path}`);
     }
   }
@@ -80,14 +99,14 @@ process.stdin.on("end", () => {
 '
 )
 if [ "${#PACKAGES[@]}" -eq 0 ]; then
-  echo "❌ No public @robota-sdk packages at $VERSION."
+  echo "❌ No public packages in $PACKAGE_SCOPE at $VERSION."
   exit 1
 fi
 echo "📋 ${#PACKAGES[@]} public packages at $VERSION"
 
 # Pack and inspect every tarball before anything reaches the registry.
 echo "📦 Packing and verifying tarballs..."
-PACK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/robota-pack.XXXXXX")
+PACK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/package-pack.XXXXXX")
 for DIR in "${PACKAGE_DIRS[@]}"; do
   (cd "$DIR" && pnpm pack --pack-destination "$PACK_DIR" >/dev/null)
 done

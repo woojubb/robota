@@ -351,7 +351,7 @@ describe('AIProviders (AI Provider Manager)', () => {
     // These cases used to assert the opposite: that every method throws
     // `AIProviders is not initialized` on a freshly constructed manager. That was the DEFECT, pinned
     // as a contract. `doInitialize` only emits a debug log, so there was no asynchronous state a
-    // caller could race and the refusal protected nothing -- while making `Robota.swapDefaultProvider`
+    // caller could race and the refusal protected nothing -- while making `ConversationAgent.swapDefaultProvider`
     // unusable on a fresh agent, because nothing initialized the manager except the first run.
     //
     // What the flag genuinely marks is teardown, so that is what is asserted now.

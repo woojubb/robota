@@ -19,9 +19,9 @@ export type TErrorExternalInput =
   Error | string | Record<string, string | number | boolean> | null | undefined;
 
 /**
- * Base error class for all Robota errors
+ * Base error class for all ConversationAgent errors
  */
-export abstract class RobotaError extends Error {
+export abstract class AgentRuntimeError extends Error {
   abstract readonly code: string;
   abstract readonly category: 'user' | 'system' | 'provider';
   abstract readonly recoverable: boolean;
@@ -41,7 +41,7 @@ export abstract class RobotaError extends Error {
 /**
  * Configuration related errors
  */
-export class ConfigurationError extends RobotaError {
+export class ConfigurationError extends AgentRuntimeError {
   readonly code = 'CONFIGURATION_ERROR';
   readonly category = 'user' as const;
   readonly recoverable = false;
@@ -54,7 +54,7 @@ export class ConfigurationError extends RobotaError {
 /**
  * Input validation errors
  */
-export class ValidationError extends RobotaError {
+export class ValidationError extends AgentRuntimeError {
   readonly code = 'VALIDATION_ERROR';
   readonly category = 'user' as const;
   readonly recoverable = false;
@@ -76,7 +76,7 @@ export class ValidationError extends RobotaError {
  * validation messages from the last attempt; `attempts` is the total number of
  * provider turns spent (initial + retries).
  */
-export class StructuredOutputError extends RobotaError {
+export class StructuredOutputError extends AgentRuntimeError {
   readonly code = 'STRUCTURED_OUTPUT_ERROR';
   readonly category = 'provider' as const;
   readonly recoverable = true;
@@ -102,7 +102,7 @@ export interface IProviderFailureDetails {
 /**
  * Provider related errors
  */
-export class ProviderError extends RobotaError {
+export class ProviderError extends AgentRuntimeError {
   readonly code = 'PROVIDER_ERROR';
   readonly category = 'provider' as const;
   readonly recoverable = true;
@@ -125,7 +125,7 @@ export class ProviderError extends RobotaError {
 /**
  * Authentication errors
  */
-export class AuthenticationError extends RobotaError {
+export class AuthenticationError extends AgentRuntimeError {
   readonly code = 'AUTHENTICATION_ERROR';
   readonly category = 'user' as const;
   readonly recoverable = false;
@@ -142,7 +142,7 @@ export class AuthenticationError extends RobotaError {
 /**
  * Rate limit errors
  */
-export class RateLimitError extends RobotaError {
+export class RateLimitError extends AgentRuntimeError {
   readonly code = 'RATE_LIMIT_ERROR';
   readonly category = 'provider' as const;
   readonly recoverable = true;
@@ -160,7 +160,7 @@ export class RateLimitError extends RobotaError {
 /**
  * Network/connectivity errors
  */
-export class NetworkError extends RobotaError {
+export class NetworkError extends AgentRuntimeError {
   readonly code = 'NETWORK_ERROR';
   readonly category = 'system' as const;
   readonly recoverable = true;
@@ -179,7 +179,7 @@ export class NetworkError extends RobotaError {
 /**
  * Tool execution errors
  */
-export class ToolExecutionError extends RobotaError {
+export class ToolExecutionError extends AgentRuntimeError {
   readonly code = 'TOOL_EXECUTION_ERROR';
   readonly category = 'system' as const;
   readonly recoverable = false;
@@ -203,13 +203,13 @@ export class ToolExecutionError extends RobotaError {
  * `success: true, interrupted: true` — reporting a run that produced no answer as a success.
  *
  * Named rather than a bare `Error` for the reason the SPEC was reaching for by naming a type at all:
- * a caller must be able to tell "the agent looped" from "the network died". `RobotaError` carries
+ * a caller must be able to tell "the agent looped" from "the network died". `AgentRuntimeError` carries
  * `code`/`category`/`recoverable` out through CORE-027's failure path intact.
  *
  * `recoverable` is TRUE: the loop is a property of this turn's prompt and tool set, not of the
  * system, and a caller that varies either can reasonably try again.
  */
-export class SameToolInputLoopError extends RobotaError {
+export class SameToolInputLoopError extends AgentRuntimeError {
   readonly code = 'SAME_TOOL_INPUT_LOOP';
   readonly category = 'system' as const;
   readonly recoverable = true;
@@ -243,7 +243,7 @@ export class SameToolInputLoopError extends RobotaError {
  * `recoverable` is TRUE: like `SameToolInputLoopError`, this is a property of this turn's prompt and
  * model response, not of the system, and a caller that varies either can reasonably try again.
  */
-export class EmptyCompletionError extends RobotaError {
+export class EmptyCompletionError extends AgentRuntimeError {
   readonly code = 'EMPTY_COMPLETION';
   readonly category = 'provider' as const;
   readonly recoverable = true;
@@ -263,7 +263,7 @@ export class EmptyCompletionError extends RobotaError {
 /**
  * Model not available errors
  */
-export class ModelNotAvailableError extends RobotaError {
+export class ModelNotAvailableError extends AgentRuntimeError {
   readonly code = 'MODEL_NOT_AVAILABLE';
   readonly category = 'user' as const;
   readonly recoverable = false;
@@ -293,7 +293,7 @@ export class ModelNotAvailableError extends RobotaError {
 /**
  * Circuit breaker open error
  */
-export class CircuitBreakerOpenError extends RobotaError {
+export class CircuitBreakerOpenError extends AgentRuntimeError {
   readonly code = 'CIRCUIT_BREAKER_OPEN';
   readonly category = 'system' as const;
   readonly recoverable = true;
@@ -306,7 +306,7 @@ export class CircuitBreakerOpenError extends RobotaError {
 /**
  * Plugin errors
  */
-export class PluginError extends RobotaError {
+export class PluginError extends AgentRuntimeError {
   readonly code = 'PLUGIN_ERROR';
   readonly category = 'system' as const;
   readonly recoverable = false;
@@ -323,7 +323,7 @@ export class PluginError extends RobotaError {
 /**
  * Storage related errors
  */
-export class StorageError extends RobotaError {
+export class StorageError extends AgentRuntimeError {
   readonly code = 'STORAGE_ERROR';
   readonly category = 'system' as const;
   readonly recoverable = true;
@@ -336,7 +336,7 @@ export class StorageError extends RobotaError {
 /**
  * Cache integrity validation errors
  */
-export class CacheIntegrityError extends RobotaError {
+export class CacheIntegrityError extends AgentRuntimeError {
   readonly code = 'CACHE_INTEGRITY_ERROR';
   readonly category = 'system' as const;
   readonly recoverable = false;

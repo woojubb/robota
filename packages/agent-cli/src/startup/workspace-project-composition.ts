@@ -1,11 +1,11 @@
 import { realpathSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { isAbsolute, relative, sep } from 'node:path';
 
 import {
   EditCheckpointStore,
   WorkspaceAuthorityRequiredError,
-  createContributionSourcesForProjectAccess,
+  createWorkspaceProjectContributionSource,
+  createNodeHostContributionSource,
   createNodeHostSettingsStore,
   createNodeWorkspaceTrustService,
   createProjectSessionStore,
@@ -31,16 +31,15 @@ import type {
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
-import { userPaths } from '../product/user-paths.js';
-import { ROBOTA_PROJECT_SETTINGS } from '../product/robota-project-settings.js';
-import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../product/robota-project-state-directories.js';
-import { createRobotaUserSettingsSources } from '../product/robota-user-settings.js';
-import { ROBOTA_SKILL_ROOTS } from '../product/robota-skill-roots.js';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
+
+import { createProductUserSettingsSources } from '../product/user-settings.js';
 import { optionArgv } from '../utils/option-argv.js';
 
 export interface ICreateCliWorkspaceCompositionOptions {
   readonly cwd: string;
-  readonly userHome: string;
+  readonly userHome?: string;
+  readonly productRuntime: ICliRuntimeContext;
   readonly projectAccess?: TWorkspaceProjectAccess;
   readonly projectSettingsWriter?: IWorkspaceProjectSettingsWriter;
   /** `--safe-mode`: no skills, commands or agents from any scope, the user's included. */
@@ -52,7 +51,7 @@ export interface ICreateCliWorkspaceCompositionOptions {
 export interface ICliWorkspaceComposition {
   readonly projectAccess: TWorkspaceProjectAccess;
   readonly contributionSources: readonly IContributionSource[];
-  readonly skillRoots: typeof ROBOTA_SKILL_ROOTS;
+  readonly skillRoots: ICliRuntimeContext['layout']['skillRoots'];
   readonly settingsSources: readonly TSettingsSource[];
   readonly settingsStores: readonly ISettingsDocumentStore[];
   readonly sessionStore: IInteractiveSessionStore;
@@ -68,10 +67,10 @@ export interface ICliWorkspaceComposition {
   readonly createEditCheckpointStore?: () => EditCheckpointStore;
 }
 
-export type TCliWorkspaceCompositionOverrides = Pick<
+export type TCliWorkspaceCompositionOverrides = Partial<Pick<
   ICreateCliWorkspaceCompositionOptions,
-  'projectAccess' | 'projectSettingsWriter' | 'safeMode'
->;
+  'projectAccess' | 'projectSettingsWriter' | 'safeMode' | 'productRuntime'
+>>;
 
 /**
  * A run that must start Restricted: set by `/cd` into a Restricted folder (issue #3081), and for a
@@ -96,6 +95,7 @@ export async function resolveStartupWorkspaceProjectAccess(
   argv: readonly string[],
   cwd: string,
   options: {
+    readonly productRuntime?: ICliRuntimeContext;
     readonly projectAccess?: TWorkspaceProjectAccess;
     /** An embedder's `startCli({ safeMode: true })`, which leaves no flag in argv. */
     readonly safeMode?: boolean;
@@ -116,12 +116,14 @@ export async function resolveStartupWorkspaceProjectAccess(
 /** Resolve one host-owned admission decision before any project source is composed. */
 export async function resolveInitialCliWorkspaceProjectAccess(
   cwd: string,
-  options: TCliWorkspaceCompositionOverrides = {},
+  options: Partial<TCliWorkspaceCompositionOverrides> = {},
 ): Promise<TWorkspaceProjectAccess> {
   if (options.projectAccess !== undefined) return options.projectAccess;
+  const runtime = options.productRuntime;
+  if (runtime === undefined) throw new Error('Workspace admission requires an explicit CLI runtime context.');
   return createNodeWorkspaceTrustService(
-    userPaths().workspaceTrust,
-    ROBOTA_PROJECT_STATE_DIRECTORIES,
+    runtime.layout.userPaths.workspaceTrust,
+    runtime.layout.projectStateDirectories,
   ).inspect(cwd);
 }
 
@@ -134,7 +136,7 @@ function createTrustedCliWorkspaceComposition(
   for (const namespace of ['sessions', 'session-logs', 'memory', 'checkpoints'] as const) {
     if (
       getWorkspaceProjectStateStorage(authority, namespace).rootRelativePath !==
-      ROBOTA_PROJECT_STATE_DIRECTORIES[namespace]
+      options.productRuntime.layout.projectStateDirectories[namespace]
     ) {
       throw new WorkspaceAuthorityRequiredError(
         'Trusted project state directories do not match this CLI product.',
@@ -150,13 +152,13 @@ function createTrustedCliWorkspaceComposition(
         ];
   return {
     projectAccess,
-    contributionSources: createContributionSourcesForProjectAccess(projectAccess, options.userHome),
-    skillRoots: ROBOTA_SKILL_ROOTS,
+    contributionSources: createProductContributionSources(projectAccess, options.productRuntime),
+    skillRoots: options.productRuntime.layout.skillRoots,
     settingsSources: [
-      ...createRobotaUserSettingsSources(options.userHome),
+      ...createProductUserSettingsSources(options.productRuntime),
       ...createWorkspaceProjectSettingsSources(
         getWorkspaceProjectReader(authority),
-        ROBOTA_PROJECT_SETTINGS,
+        options.productRuntime.layout.projectSettingsPaths,
       ),
     ],
     settingsStores,
@@ -213,7 +215,7 @@ function trustedSessionStore(
 ): Pick<ICliWorkspaceComposition, 'sessionStore' | 'sessionStoreScope'> {
   if (!supportsWorkspaceProjectMutation(options.platform)) {
     return {
-      sessionStore: createUserSessionStore(userPaths(options.userHome).sessions),
+      sessionStore: createUserSessionStore(options.productRuntime.layout.userPaths.sessions),
       sessionStoreScope: 'user',
     };
   }
@@ -230,7 +232,7 @@ export function createInitialCliWorkspaceComposition(
   cwd: string,
   overrides: TCliWorkspaceCompositionOverrides,
 ): ICliWorkspaceComposition {
-  return createCliWorkspaceComposition({ cwd, userHome: homedir(), ...overrides });
+  return createCliWorkspaceComposition({ cwd, ...overrides, productRuntime: requiredProductRuntime(overrides.productRuntime) });
 }
 
 export function createCliWorkspaceComposition(
@@ -259,7 +261,7 @@ export function createCliWorkspaceComposition(
   }
   const userSettingsStore = createNodeHostSettingsStore(
     'user',
-    userPaths(options.userHome).settings,
+    options.productRuntime.layout.userPaths.settings,
   );
 
   if (projectAccess.status === 'restricted') {
@@ -273,14 +275,43 @@ export function createCliWorkspaceComposition(
       contributionSources:
         options.safeMode === true
           ? []
-          : createContributionSourcesForProjectAccess(projectAccess, options.userHome),
-      skillRoots: ROBOTA_SKILL_ROOTS,
-      settingsSources: createRobotaUserSettingsSources(options.userHome),
+          : createProductContributionSources(projectAccess, options.productRuntime),
+      skillRoots: options.productRuntime.layout.skillRoots,
+      settingsSources: createProductUserSettingsSources(options.productRuntime),
       settingsStores: [userSettingsStore],
-      sessionStore: createUserSessionStore(userPaths(options.userHome).sessions),
+      sessionStore: createUserSessionStore(options.productRuntime.layout.userPaths.sessions),
       sessionStoreScope: 'user',
     };
   }
 
   return createTrustedCliWorkspaceComposition(projectAccess, options, userSettingsStore);
+}
+
+/** Product user roots are independent of the workspace state directory and third-party home roots. */
+export function createProductContributionSources(projectAccess: TWorkspaceProjectAccess, runtime: ICliRuntimeContext): readonly IContributionSource[] {
+  const projectSources = projectAccess.status === 'trusted' ? [createWorkspaceProjectContributionSource(
+    getWorkspaceProjectReader(projectAccess.authority), getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot,
+  )] : [];
+  const owned = createNodeHostContributionSource(runtime.layout.userRoot);
+  const compatibility = runtime.userHome === undefined ? undefined : createNodeHostContributionSource(runtime.userHome);
+  const prefix = `${runtime.layout.projectDirectory}/`;
+  const route = (path: string): { source: IContributionSource; path: string } | undefined => {
+    const normalized = path.replace(/\\/gu, '/');
+    if (normalized.startsWith(prefix)) return { source: owned, path: normalized.slice(prefix.length) };
+    if (/^\.(?:agents|claude)\//u.test(normalized) && compatibility !== undefined) return { source: compatibility, path: normalized };
+    return undefined;
+  };
+  const user: IContributionSource = Object.freeze({
+    kind: 'host', displayName: runtime.layout.userRoot,
+    readText: (path: string, purpose: string) => { const entry = route(path); return entry?.source.readText(entry.path, purpose); },
+    listDirectory: (path: string, purpose: string) => { const entry = route(path); return entry?.source.listDirectory(entry.path, purpose) ?? []; },
+    inspectKind: (path: string, purpose: string) => { const entry = route(path); return entry?.source.inspectKind(entry.path, purpose); },
+    locate: (path: string) => { const entry = route(path); if (entry?.source.locate === undefined) throw new Error('Unconfigured host contribution path.'); return entry.source.locate(entry.path); },
+  });
+  return [...projectSources, user];
+}
+
+function requiredProductRuntime(runtime: ICliRuntimeContext | undefined): ICliRuntimeContext {
+  if (runtime === undefined) throw new Error('Workspace composition requires an explicit CLI runtime context.');
+  return runtime;
 }

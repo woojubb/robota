@@ -1,6 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 
+import type { IWebProductIdentity } from '@robota-sdk/agent-ui-web/client';
+declare const __PRODUCT_PUBLIC_CONFIG__: IWebProductIdentity;
+
+import { resolvePageProductIdentity } from './product-identity.js';
 import { App } from './App.js';
 import { ErrorBoundary } from './error-boundary.js';
 import { resolveGuiHost } from './gui-host.js';
@@ -22,7 +26,7 @@ ReactDOM.createRoot(requireRootElement(document)).render(
   <React.StrictMode>
     <ErrorBoundary>
       <div className="h-screen w-screen overflow-hidden">
-        <App host={host} />
+        <App host={host} product={resolvePageProductIdentity(document, __PRODUCT_PUBLIC_CONFIG__)} />
       </div>
     </ErrorBoundary>
   </React.StrictMode>,

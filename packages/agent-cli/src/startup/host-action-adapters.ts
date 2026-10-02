@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
  * CMD-004 Phase 2 (Stage B) — composition-root wiring for host-executed command actions.
  *
@@ -9,7 +10,6 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { homedir } from 'node:os';
 
 import { DEFAULT_MAX_FILE_BYTES } from '@robota-sdk/agent-transport/node';
 
@@ -24,7 +24,6 @@ import {
 } from '../handoff/handoff-host-adapter.js';
 import { createHandoffReceiver } from '../handoff/handoff-receiving.js';
 import { prepareOutgoingFile } from '../peer-files/outgoing-file.js';
-import { formatRobotaResumeCommand } from '../product/robota-command-vocabulary.js';
 import { userLocalStorageRoot } from '../product/user-paths.js';
 
 import { announceLocalPeerPresence } from '../remote-control/local-peer-presence.js';
@@ -104,6 +103,7 @@ function buildRemoteControlHostAdapter(
 function buildLocalPeersHostAdapter(
   presence: ILocalPeerPresence,
   mesh: TMeshPeers | undefined,
+  productRuntime: ICliRuntimeContext,
 ): NonNullable<ICommandHostAdapters['localPeers']> {
   return {
     list: () => presence.list(),
@@ -111,7 +111,7 @@ function buildLocalPeersHostAdapter(
     ownSessionId: () => presence.sessionId,
     // A linked device is addressable from the start; sessions here once local messaging is up.
     ...(mesh !== undefined
-      ? { listDevices: () => mesh.devices(), ...peerRoutes(undefined, mesh) }
+      ? { listDevices: () => mesh.devices(), ...peerRoutes(undefined, mesh, productRuntime) }
       : {}),
   };
 }
@@ -127,6 +127,7 @@ type TPeerRoutes = Required<
 function peerRoutes(
   messaging: IPeerMessaging | undefined,
   mesh: TMeshPeers | undefined,
+  productRuntime: ICliRuntimeContext,
 ): TPeerRoutes {
   const offline = {
     state: 'failed' as const,
@@ -148,9 +149,10 @@ function peerRoutes(
       const prepared = await prepareOutgoingFile({
         path,
         cwd,
-        home: homedir(),
+        home: productRuntime.userHome ?? (() => { throw new Error('File paths using home require an explicit host home.'); })(),
         origin,
         maxBytes: DEFAULT_MAX_FILE_BYTES,
+        pathProtection: productRuntime.layout.pathProtection,
       });
       if (!prepared.ok) return prepared;
       const { file } = prepared;
@@ -181,13 +183,14 @@ function buildMeshOnlyPeersAdapter(
   mesh: TMeshPeers,
   sessionId: string,
   why: string,
+  productRuntime: ICliRuntimeContext,
 ): NonNullable<ICommandHostAdapters['localPeers']> {
   return {
     list: () => [],
     ownSessionId: () => sessionId,
     localDiscoveryOff: why,
     listDevices: () => mesh.devices(),
-    ...peerRoutes(undefined, mesh),
+    ...peerRoutes(undefined, mesh, productRuntime),
   };
 }
 
@@ -208,7 +211,8 @@ function buildMeshOnlyPeersAdapter(
 function attachLocalPeerDiscovery(
   adapters: ICommandHostAdapters,
   report: IAdapterReporter,
-  announce: (options: { sessionId: string }) => ILocalPeerPresence = announceLocalPeerPresence,
+  productRuntime: ICliRuntimeContext,
+  announce: (options: { sessionId: string; productRuntime: ICliRuntimeContext }) => ILocalPeerPresence = announceLocalPeerPresence,
   mesh?: TMeshPeers,
 ): ILocalPeerPresence | undefined {
   // Generated here, not passed in. A session id identifies THIS process for its whole life and has
@@ -216,13 +220,13 @@ function attachLocalPeerDiscovery(
   // session is, which is the question the registry keys on.
   const sessionId = randomUUID();
   try {
-    const presence = announce({ sessionId });
-    adapters.localPeers = buildLocalPeersHostAdapter(presence, mesh);
+    const presence = announce({ sessionId, productRuntime });
+    adapters.localPeers = buildLocalPeersHostAdapter(presence, mesh, productRuntime);
     return presence;
   } catch (error) {
     const why = error instanceof Error ? error.message : String(error);
     report.writeError(`Local peer discovery is off for this session: ${why}`);
-    if (mesh !== undefined) adapters.localPeers = buildMeshOnlyPeersAdapter(mesh, sessionId, why);
+    if (mesh !== undefined) adapters.localPeers = buildMeshOnlyPeersAdapter(mesh, sessionId, why, productRuntime);
     return undefined;
   }
 }
@@ -244,6 +248,7 @@ export function attachLocalPeerMessaging(
   presence: ILocalPeerPresence | undefined,
   getSession: () => IPeerIngressSession,
   report: IAdapterReporter,
+  productRuntime: ICliRuntimeContext,
   start: typeof startLocalPeerMessaging = startLocalPeerMessaging,
   previous?: Promise<IPeerMessaging | undefined>,
   files?: IPeerFileReceiving,
@@ -259,7 +264,7 @@ export function attachLocalPeerMessaging(
   // second bind SUCCEEDS and the first server is simply orphaned: a listener and its fd per switch,
   // leaking silently because nothing errors.
   return closeQuietly(previous, report).then(() =>
-    startMessaging(adapter, presence, getSession, report, start, files, onHandoff, mesh),
+    startMessaging(adapter, presence, getSession, report, start, files, onHandoff, mesh, productRuntime),
   );
 }
 
@@ -291,6 +296,7 @@ function startMessaging(
   files: IPeerFileReceiving | undefined,
   onHandoff: IPeerMessagingOptions['onHandoff'],
   mesh: TMeshPeers | undefined,
+  productRuntime: ICliRuntimeContext,
 ): Promise<IPeerMessaging | undefined> {
   return start({
     ...(files !== undefined ? { files } : {}),
@@ -303,7 +309,7 @@ function startMessaging(
     ingress: sessionPeerIngress(getSession),
   }).then(
     (messaging) => {
-      Object.assign(adapter, peerRoutes(messaging, mesh));
+      Object.assign(adapter, peerRoutes(messaging, mesh, productRuntime));
       return messaging;
     },
     (error: unknown) => {
@@ -329,7 +335,8 @@ export function attachHostAdapters(
   adapters: ICommandHostAdapters,
   controller: RemoteControlController,
   report: IAdapterReporter,
-  announce?: (options: { sessionId: string }) => ILocalPeerPresence,
+  productRuntime: ICliRuntimeContext,
+  announce?: (options: { sessionId: string; productRuntime: ICliRuntimeContext }) => ILocalPeerPresence,
   handoff?: IHandoffWiring,
   /** The device mesh, which the interactive session may open later; its links appear as they come. */
   mesh?: TMeshPeers,
@@ -338,12 +345,12 @@ export function attachHostAdapters(
   readonly isActiveForPeerStatus?: boolean;
 }) => void {
   adapters.remoteControl = buildRemoteControlHostAdapter(controller);
-  const presence = attachLocalPeerDiscovery(adapters, report, announce, mesh);
+  const presence = attachLocalPeerDiscovery(adapters, report, productRuntime, announce, mesh);
   let live: { session?: IPeerIngressSession; messaging?: IPeerMessaging } = {};
   // Without local discovery, `/handoff` still reaches the linked devices.
   const onHandoff =
     handoff !== undefined && (presence !== undefined || mesh !== undefined)
-      ? attachHandoff(adapters, presence, controller, report, handoff, () => live, mesh)
+      ? attachHandoff(adapters, presence, controller, report, handoff, () => live, mesh, productRuntime)
       : undefined;
   // Returns the ACTIVATOR rather than the presence, so the composition root names one thing and
   // never learns what messaging needs from it.
@@ -380,11 +387,12 @@ export function attachHostAdapters(
       presence,
       () => channel.getSession(),
       report,
+      productRuntime,
       startLocalPeerMessaging,
       running,
       // Files are kept under this HOME, and each one is put to the operator at this terminal.
       {
-        root: userLocalStorageRoot(),
+        root: userLocalStorageRoot(productRuntime),
         ...(controller.operatorApprover !== undefined
           ? { approver: controller.operatorApprover }
           : {}),
@@ -434,11 +442,13 @@ function attachHandoff(
   wiring: IHandoffWiring,
   live: () => { session?: IPeerIngressSession; messaging?: IPeerMessaging },
   mesh: TMeshPeers | undefined,
+  productRuntime: ICliRuntimeContext,
 ): NonNullable<IPeerMessagingOptions['onHandoff']> {
-  const root = userLocalStorageRoot();
-  const credentials = createHostCredentialStore({ root, notify: () => {} });
+  const root = userLocalStorageRoot(productRuntime);
+  const credentials = createHostCredentialStore({ root, serviceNamespace: productRuntime.config.credentials.serviceNamespace, notify: () => {} });
   const composition = createHandoffComposition();
   adapters.handoff = createHandoffHostAdapter({
+    productRuntime,
     root,
     store: credentials.store,
     composition,
@@ -466,9 +476,10 @@ function attachHandoff(
     onHandedOff: wiring.onHandedOff,
   });
   const receive = createHandoffReceiver({
+    productRuntime,
     root,
     composition,
-    identity: () => readHandoffIdentity(root),
+    identity: () => readHandoffIdentity(root, productRuntime),
     resolveCredential: wiring.hasOwnProvider,
     // Saved into this session's project, where the operator resumes it; the source's path means
     // nothing here. Nothing starts it.
@@ -485,7 +496,7 @@ function attachHandoff(
       receive,
       onOutcome: (from, outcome) =>
         report.writeError(
-          describeHandoffArrival(`device ${from}`, outcome, formatRobotaResumeCommand),
+          describeHandoffArrival(`device ${from}`, outcome, productRuntime.vocabulary.resumeCommand),
         ),
     },
   });
@@ -498,6 +509,7 @@ function attachHandoff(
     const arrival = localHandoffArrival(
       {
         sessionId: presence.sessionId,
+        productRuntime,
         root,
         ...(controller.operatorApprover !== undefined
           ? { approver: controller.operatorApprover }
@@ -508,7 +520,7 @@ function attachHandoff(
     );
     void receive(arrival).then((outcome) =>
       report.writeError(
-        describeHandoffArrival(sender.sessionId, outcome, formatRobotaResumeCommand),
+        describeHandoffArrival(sender.sessionId, outcome, productRuntime.vocabulary.resumeCommand),
       ),
     );
   };

@@ -25,7 +25,7 @@ import type {
   IToolResult,
   IToolWithEventService,
   ITerminalOutput,
-  Robota,
+  ConversationAgent,
   THooksConfig,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -58,7 +58,7 @@ function allEventsConfig(): THooksConfig {
   };
 }
 
-function createFakeRobota(behavior: 'ok' | 'throw'): Robota {
+function createFakeConversationAgent(behavior: 'ok' | 'throw'): ConversationAgent {
   const messages: TUniversalMessage[] = [];
   const run = vi.fn(async (message: string): Promise<string> => {
     messages.push(createUserMessage(message));
@@ -68,7 +68,7 @@ function createFakeRobota(behavior: 'ok' | 'throw'): Robota {
   return {
     getHistory: (): TUniversalMessage[] => [...messages],
     run,
-  } as unknown as Robota;
+  } as unknown as ConversationAgent;
 }
 
 function createProvider(): IAIProvider {
@@ -83,7 +83,7 @@ function createProvider(): IAIProvider {
 }
 
 function createContext(
-  agent: Robota,
+  agent: ConversationAgent,
   hooks: THooksConfig,
   executor: IHookTypeExecutor,
 ): IRunContext {
@@ -132,7 +132,7 @@ async function flush(): Promise<void> {
 describe('SELFHOST-009 TC-04 — existing events still fire (agent-session sites)', () => {
   it('fires UserPromptSubmit and Stop on the executeRun happy path', async () => {
     const { executor, events } = makeRecordingExecutor();
-    const ctx = createContext(createFakeRobota('ok'), allEventsConfig(), executor);
+    const ctx = createContext(createFakeConversationAgent('ok'), allEventsConfig(), executor);
 
     await executeRun('hello', undefined, ctx, new AbortController().signal);
     await flush();
@@ -143,7 +143,7 @@ describe('SELFHOST-009 TC-04 — existing events still fire (agent-session sites
 
   it('fires StopFailure when the run throws', async () => {
     const { executor, events } = makeRecordingExecutor();
-    const ctx = createContext(createFakeRobota('throw'), allEventsConfig(), executor);
+    const ctx = createContext(createFakeConversationAgent('throw'), allEventsConfig(), executor);
 
     await expect(executeRun('hello', undefined, ctx, new AbortController().signal)).rejects.toThrow(
       'provider exploded',

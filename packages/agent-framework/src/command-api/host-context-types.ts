@@ -23,6 +23,12 @@ import type { ISessionReplayValidationResult } from '@robota-sdk/agent-session';
 // lists skills to every client.
 export type { ICommandListEntry, ICommandSkillListEntry, TCommandInvocationSource };
 
+/** Stable product-facing names commands use when they must suggest a terminal command. */
+export interface ICommandProductVocabulary {
+  readonly cliName: string;
+  readonly displayName: string;
+}
+
 export interface ICommandSkillActivationRequest {
   readonly invocationSource: TCommandInvocationSource;
   readonly displayInput?: string;

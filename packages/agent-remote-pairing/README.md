@@ -118,5 +118,5 @@ another connection.
 ## Related
 
 - [devices and remote access guide](../../content/guide/devices-and-remote.md) — remote control and
-  connecting your own devices from the Robota CLI.
+  connecting your own devices from the agent runtime CLI.
 - [docs/SPEC.md](docs/SPEC.md) — the security model, the identity chain and the pre-auth wire contract.

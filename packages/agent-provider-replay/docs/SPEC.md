@@ -2,7 +2,7 @@
 
 ## Purpose
 
-A deterministic AI provider that replays a recorded Robota session log instead of calling a network
+A deterministic AI provider that replays a recorded agent session log instead of calling a network
 model, letting a real conversation run offline with no model key by re-emitting the recorded
 provider responses. Used to drive the real agent programmatically for deterministic, offline
 end-to-end tests.

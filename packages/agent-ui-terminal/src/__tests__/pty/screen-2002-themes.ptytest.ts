@@ -50,7 +50,7 @@ function snippetLine(raw: string): string {
 }
 
 function seedThemeFiles(homeDir: string): void {
-  const themes = join(homeDir, '.robota', 'themes');
+  const themes = join(homeDir, 'state', 'themes');
   mkdirSync(themes, { recursive: true });
   writeFileSync(
     join(themes, 'mine.json'),
@@ -76,7 +76,7 @@ function seedThemeFiles(homeDir: string): void {
 
   const pluginVersionDir = join(
     homeDir,
-    '.robota',
+    'state',
     'plugins',
     'cache',
     'fixtures',
@@ -106,7 +106,7 @@ describe('SCREEN-2002 themes through the real binary', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-screen2002-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-screen2002-pty-')));
     writeTuiProviderSettings(projectDir);
     homeDir = join(projectDir, 'home');
     seedThemeFiles(homeDir);

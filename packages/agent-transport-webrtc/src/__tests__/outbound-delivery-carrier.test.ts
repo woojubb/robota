@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 /**
  * ARCH-030 at the WebRTC carrier.
  *
@@ -40,7 +42,7 @@ async function withUnhandledRejectionCapture(run: () => void | Promise<void>): P
 /** A controllable handshake stub: the test decides when pairing accepts. */
 function makeHandshakeStub(): { start: typeof startPairingHandshake; accept: () => void } {
   let resolveResult!: (value: { sessionKey: string }) => void;
-  const start: typeof startPairingHandshake = (options) => {
+  const start: typeof startPairingHandshake = (_cryptoContext, options) => {
     const controller = {
       result: new Promise<{ sessionKey: string }>((res) => {
         resolveResult = res;
@@ -89,7 +91,7 @@ async function acceptedGate(session: IInteractiveSession): Promise<{
   const { channel, close, drop } = createDroppableChannel();
   const deliveryErrors: Array<{ message: string; event: string }> = [];
   const handshake = makeHandshakeStub();
-  const gate = new PairingGate({
+  const gate = new PairingGate({cryptoContext: testIdentity,
     channel,
     session,
     secret: 's',

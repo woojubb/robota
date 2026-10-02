@@ -34,6 +34,11 @@ const remote: IMCPResolvedEntry = {
 };
 
 describe('projectEntry', () => {
+  it('makes explicit protocol selection visible without exposing credentials', () => {
+    const definition = { ...remote.definition!, protocolVersion: '2026-07-28' as const };
+    expect(projectEntry({ ...remote, definition })).toMatchObject({ protocolVersion: '2026-07-28', headers: { Authorization: REDACTED, 'X-Tenant': REDACTED } });
+  });
+
   it('projects stdio command, arguments and cwd readable, with the credential masked', () => {
     const projection = projectEntry({
       name: 'stdio',

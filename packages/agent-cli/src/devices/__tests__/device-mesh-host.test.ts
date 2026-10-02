@@ -14,6 +14,8 @@ import { createDeviceIdentityService } from '../device-identity-service.js';
 import { createDeviceMeshHost } from '../device-mesh-host.js';
 import { parseMeshSettings } from '../mesh-settings.js';
 import { scriptedOperator } from './fake-secret-terminal.js';
+import { createTestRuntimeContext } from './runtime-context-fixture.js';
+import type { ICliRuntimeContext } from '../../product/runtime-context.js';
 
 import type { IDeviceMeshEndpoint, IOpenDeviceMeshOptions } from '../device-mesh.js';
 import type { IOperatorApprover } from '@robota-sdk/agent-interface-session-mobility';
@@ -25,11 +27,13 @@ import {
 
 let home: string;
 let root: string;
+let productRuntime: ICliRuntimeContext;
 const store = () => createFileCredentialStore(join(root, 'credentials'), { withinRoot: root });
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), 'robota-mesh-host-'));
-  root = join(home, '.robota');
+  home = mkdtempSync(join(tmpdir(), 'agent-fixture-mesh-host-'));
+  root = join(home, '.agent-fixture');
+  productRuntime = createTestRuntimeContext(root);
 });
 
 afterEach(() => {
@@ -38,6 +42,7 @@ afterEach(() => {
 
 async function withIdentity(): Promise<void> {
   const service = createDeviceIdentityService({
+    productRuntime,
     directory: join(root, 'devices'),
     withinRoot: root,
     store: store(),
@@ -80,6 +85,7 @@ function host(
   lockStaleMs?: number,
 ) {
   return createDeviceMeshHost({
+    productRuntime,
     root,
     store: store(),
     readTransports: () => transports,
@@ -138,6 +144,7 @@ describe('where the setting is read', () => {
   function hostUnderHome(open: ReturnType<typeof fakeOpen>['open']) {
     process.env.HOME = home;
     return createDeviceMeshHost({
+      productRuntime,
       store: store(),
       open,
       lan: false,
@@ -161,8 +168,8 @@ describe('where the setting is read', () => {
     const project = join(home, 'project');
     const on = { transports: { mesh: { enabled: true, options: NO_INTERNET } } };
     for (const file of [
-      join('.robota', 'settings.json'),
-      join('.robota', 'settings.local.json'),
+      join('.agent-fixture', 'settings.json'),
+      join('.agent-fixture', 'settings.local.json'),
       join('.claude', 'settings.json'),
       join('.claude', 'settings.local.json'),
     ]) {
@@ -269,8 +276,8 @@ describe('opening the mesh at startup', () => {
     expect(first.open).toHaveBeenCalledTimes(1);
     expect(second.open).not.toHaveBeenCalled();
     expect(other.status()).toMatchObject({ state: 'failed' });
-    expect(other.status().reason).toMatch(/another Robota session/);
-    expect(said.join('\n')).toMatch(/another Robota session/);
+    expect(other.status().reason).toMatch(/another session on this device has the mesh open/);
+    expect(said.join('\n')).toMatch(/another session on this device has the mesh open/);
 
     // Once the holder exits, the lock is gone before `close` returns — a process exiting right after
     // leaves none behind — and the next session opens it.
@@ -297,7 +304,7 @@ describe('opening the mesh at startup', () => {
 
     await vi.waitFor(() => expect(close).toHaveBeenCalledTimes(1), { timeout: 2_000 });
     expect(mesh.status().state).toBe('failed');
-    expect(mesh.status().reason).toMatch(/another Robota session .* took it over/);
+    expect(mesh.status().reason).toMatch(/another session on this device took it over/);
     expect(mesh.ownDeviceId()).toBeUndefined();
     expect(said.join('\n')).toMatch(/took it over/);
     // The session that took it over keeps its lock, and this one does not reopen on its own.
@@ -389,6 +396,7 @@ describe('opening the mesh at startup', () => {
     await withIdentity();
     const { open } = fakeOpen();
     const mesh = createDeviceMeshHost({
+      productRuntime,
       root,
       store: store(),
       readTransports: () => ({ mesh: { enabled: true, options: { pkarrRelays: [] } } }),

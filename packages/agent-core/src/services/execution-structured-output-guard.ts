@@ -9,7 +9,7 @@
  * first was spent discovering something the capability table already knew.
  *
  * Both are fixed where the request is assembled, because that is the only point that holds the
- * resolved provider AND the outgoing messages at once. `robotaRunStructured` holds neither: it
+ * resolved provider AND the outgoing messages at once. `agentRunStructured` holds neither: it
  * composes a turn out of the public API and never learns which model will serve it.
  */
 

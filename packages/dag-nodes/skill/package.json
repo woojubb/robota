@@ -2,7 +2,7 @@
   "name": "@robota-sdk/dag-node-skill",
   "version": "3.0.0-beta.70",
   "private": true,
-  "description": "DAG skill node for Robota — resolve a Robota skill to its inject-mode prompt as a DAG step",
+  "description": "DAG skill node for Robota \u2014 resolve a Robota skill to its inject-mode prompt as a DAG step",
   "type": "module",
   "main": "dist/node/index.js",
   "module": "dist/node/index.js",

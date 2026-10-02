@@ -3,7 +3,7 @@ import {
   formatSupportedProviderTypes,
   getProviderCredentialRequirement,
 } from '../interfaces/provider-definition.js';
-import { resolveEnvReference } from '../utils/env-ref.js';
+import { ENV_REFERENCE_PREFIX, isEnvReference, resolveEnvReference } from '../utils/env-ref.js';
 import { processEnvResolver, type TEnvResolver } from '../utils/env-resolver.js';
 
 import type {
@@ -46,12 +46,16 @@ export function normalizeProviderConfig(
     throw new Error(`Provider ${settings.name} requires model`);
   }
   const apiKeyReference = settings.apiKey ?? defaults.apiKey;
+  const apiKeyEnv = apiKeyReference !== undefined && isEnvReference(apiKeyReference)
+    ? apiKeyReference.slice(ENV_REFERENCE_PREFIX.length).trim()
+    : undefined;
   const options = settings.options ?? defaults.options;
   return {
     name: settings.name,
     model,
     apiKey:
       apiKeyReference !== undefined ? resolveEnvReference(apiKeyReference, resolve) : undefined,
+    ...(apiKeyEnv ? { apiKeyEnv } : {}),
     baseURL: settings.baseURL ?? defaults.baseURL,
     timeout: settings.timeout,
     ...(options !== undefined && { options }),

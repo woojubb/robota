@@ -99,7 +99,7 @@ function requireProblems(tarball, manifest) {
   if (subpaths.length === 0) return [];
   const packageDir = workspaceDir(manifest.name);
   if (!packageDir) return [`has no workspace package to take its dependencies from`];
-  const scratch = mkdtempSync(path.join(os.tmpdir(), 'robota-require-'));
+  const scratch = mkdtempSync(path.join(os.tmpdir(), 'package-require-'));
   try {
     execFileSync('tar', ['-xzf', tarball, '-C', scratch]);
     symlinkSync(path.join(packageDir, 'node_modules'), path.join(scratch, 'node_modules'));

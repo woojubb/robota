@@ -1,7 +1,7 @@
 /**
- * Where files other sessions send are kept: `~/.robota/peer-files/<sender>/<name>`, one directory
+ * Where files other sessions send are kept: `the configured user root/peer-files/<sender>/<name>`, one directory
  * per sender, owned by this user and closed to everyone else. A session handed over to this one is
- * kept the same way under `~/.robota/handoff/` until it is verified and saved.
+ * kept the same way under `the configured user root/handoff/` until it is verified and saved.
  *
  * A received file is inert. It is written without execute permission, it is never opened by anything
  * here once kept, and it reaches the model only if someone later reads it through the session's
@@ -91,7 +91,7 @@ async function exists(file: string): Promise<boolean> {
 }
 
 export interface IQuarantineOptions {
-  /** `~/.robota` of this session's `HOME`. */
+  /** `the configured user root` of this session's `HOME`. */
   readonly root: string;
   /** Who sent it: a device id, or a session id on this host. */
   readonly senderId: string;

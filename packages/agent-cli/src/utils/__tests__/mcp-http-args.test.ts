@@ -5,7 +5,7 @@ import { resolveMcpHttpOptions } from '../mcp-http-args.js';
 
 const REMOTE = [
   '--http-public-url',
-  'https://agents.example.test/robota/mcp',
+  'https://agents.example.test/test-product/mcp',
   '--oauth-issuer',
   'https://auth.example.test',
   '--oauth-scopes',
@@ -19,7 +19,7 @@ function resolve(argv: string[], mcpServe = true) {
   return resolveMcpHttpOptions(args, mcpServe);
 }
 
-describe('robota mcp serve HTTP flags', () => {
+describe('mcp serve HTTP flags', () => {
   it('keeps stdio and the loopback token file exactly as before', () => {
     expect(resolve([])).toBeUndefined();
     expect(resolve(['--http-token-file', '/private/token', '--http-port', '8765'])).toEqual({
@@ -27,10 +27,10 @@ describe('robota mcp serve HTTP flags', () => {
       port: 8765,
     });
     expect(() => resolve(['--http-port', '8765'])).toThrow(
-      '--http-token-file and --http-port are only valid for robota mcp serve HTTP mode',
+      '--http-token-file and --http-port are only valid for mcp serve HTTP mode',
     );
     expect(() => resolve(['--http-token-file', '/private/token'], false)).toThrow(
-      '--http-token-file and --http-port are only valid for robota mcp serve HTTP mode',
+      '--http-token-file and --http-port are only valid for mcp serve HTTP mode',
     );
   });
 
@@ -54,7 +54,7 @@ describe('robota mcp serve HTTP flags', () => {
       /requires --http-public-url, --oauth-issuer, --oauth-scopes and --oauth-allowed-subjects/,
     );
     const plain = [...REMOTE];
-    plain[1] = 'http://agents.example.test/robota/mcp';
+    plain[1] = 'http://agents.example.test/test-product/mcp';
     expect(() => resolve(plain)).toThrow('--http-public-url must be an https URL');
     expect(() => resolve([...REMOTE, '--trusted-proxy', 'proxy.internal'])).toThrow(
       /--trusted-proxy must be a literal IP/,
@@ -78,7 +78,7 @@ describe('robota mcp serve HTTP flags', () => {
       port: 8443,
       remote: {
         host: '0.0.0.0',
-        publicUrl: 'https://agents.example.test/robota/mcp',
+        publicUrl: 'https://agents.example.test/test-product/mcp',
         issuer: 'https://auth.example.test',
         scopes: ['mcp:use', 'mcp:admin'],
         allowedSubjects: ['alice', 'bob'],
@@ -88,7 +88,7 @@ describe('robota mcp serve HTTP flags', () => {
     expect(resolve(REMOTE)?.remote?.host).toBe('127.0.0.1');
   });
 
-  it('refuses remote flags outside robota mcp serve', () => {
-    expect(() => resolve(REMOTE, false)).toThrow(/only valid for robota mcp serve/);
+  it('refuses remote flags outside mcp serve', () => {
+    expect(() => resolve(REMOTE, false)).toThrow(/only valid for mcp serve/);
   });
 });

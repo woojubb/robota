@@ -1,5 +1,5 @@
 /**
- * Which HTTP carrier `robota mcp serve` runs, decided from its flags before anything starts.
+ * Which HTTP carrier `the product mcp serve` runs, decided from its flags before anything starts.
  *
  * The loopback carrier admits by a bearer the process mints and writes to a private file; that
  * bearer is only as safe as the machine boundary, so it is never offered beyond loopback. A bind to
@@ -33,17 +33,17 @@ export function resolveMcpHttpOptions(
       (args.mcpHttpPort !== undefined && args.mcpHttpTokenFile === undefined && !remoteRequested))
   ) {
     throw new Error(
-      '--http-token-file and --http-port are only valid for robota mcp serve HTTP mode',
+      '--http-token-file and --http-port are only valid for mcp serve HTTP mode',
     );
   }
   if ((remoteRequested || args.mcpHttpHost !== undefined) && !mcpServe) {
     throw new Error(
-      '--http-host, --http-public-url, --oauth-* and --trusted-proxy are only valid for robota mcp serve',
+      '--http-host, --http-public-url, --oauth-* and --trusted-proxy are only valid for mcp serve',
     );
   }
   if (!remoteRequested) {
     if (args.mcpHttpHost !== undefined && args.mcpHttpHost !== LOOPBACK) {
-      throw new Error(`robota mcp serve binds a non-loopback address only with ${REMOTE_FLAGS}`);
+      throw new Error(`mcp serve binds a non-loopback address only with ${REMOTE_FLAGS}`);
     }
     if (args.mcpHttpHost !== undefined && args.mcpHttpTokenFile === undefined) {
       throw new Error('--http-host requires --http-token-file or remote authorization');

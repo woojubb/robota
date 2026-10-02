@@ -22,12 +22,12 @@ afterEach(async () => {
 
 describe('user-local command', () => {
   it('does not advertise a specific product from the neutral command entry', async () => {
-    const module = createUserLocalCommandModule(await createTempRoot('robota-selected-storage-'));
-    expect(module.commandSources?.[0]?.getCommands()[0]?.description).not.toMatch(/Robota/i);
+    const module = createUserLocalCommandModule(await createTempRoot('agent-test-selected-storage-'));
+    expect(module.commandSources?.[0]?.getCommands()[0]?.description).not.toMatch(/ConversationAgent/i);
   });
 
   it('fails closed when a direct caller omits the storage root', async () => {
-    const workspace = await createTempRoot('robota-user-local-missing-root-');
+    const workspace = await createTempRoot('agent-test-user-local-missing-root-');
     const repo = path.join(workspace, 'repo');
     await fs.mkdir(repo);
 
@@ -40,9 +40,9 @@ describe('user-local command', () => {
   });
 
   it('uses the explicit root for slash commands', async () => {
-    const workspace = await createTempRoot('robota-user-local-slash-root-');
+    const workspace = await createTempRoot('agent-test-user-local-slash-root-');
     const repo = path.join(workspace, 'repo');
-    const selectedRoot = path.join(workspace, 'selected', '.robota');
+    const selectedRoot = path.join(workspace, 'selected', '.fixture-state');
     await fs.mkdir(repo);
     vi.stubEnv('HOME', path.join(workspace, 'ambient-home'));
 
@@ -65,7 +65,7 @@ describe('user-local command', () => {
   });
 
   it('prints storage inspection JSON without provider configuration', async () => {
-    const workspace = await createTempRoot('robota-user-local-command-');
+    const workspace = await createTempRoot('agent-test-user-local-command-');
     const repo = path.join(workspace, 'repo');
     const home = path.join(workspace, 'home');
     await fs.mkdir(repo);
@@ -74,7 +74,7 @@ describe('user-local command', () => {
 
     const result = await executeUserLocalDirectCommand({
       cwd: repo,
-      storageRoot: path.join(home, '.robota'),
+      storageRoot: path.join(home, '.fixture-state'),
       argv: ['storage', 'list'],
       format: 'json',
     });
@@ -84,7 +84,7 @@ describe('user-local command', () => {
     };
 
     expect(result.success).toBe(true);
-    expect(parsed.root).toBe(path.join(home, '.robota'));
+    expect(parsed.root).toBe(path.join(home, '.fixture-state'));
     expect(parsed.categories.map((item) => item.category)).toEqual([
       'preferences',
       'view-state',
@@ -97,7 +97,7 @@ describe('user-local command', () => {
   });
 
   it('stores, lists, inspects, disables, and deletes user-local memory items', async () => {
-    const workspace = await createTempRoot('robota-user-local-memory-command-');
+    const workspace = await createTempRoot('agent-test-user-local-memory-command-');
     const repo = path.join(workspace, 'repo');
     const home = path.join(workspace, 'home');
     await fs.mkdir(repo);
@@ -106,7 +106,7 @@ describe('user-local command', () => {
 
     const setResult = await executeUserLocalDirectCommand({
       cwd: repo,
-      storageRoot: path.join(home, '.robota'),
+      storageRoot: path.join(home, '.fixture-state'),
       argv: ['memory', 'set', 'view-preference', 'last-panel', 'background'],
       summary: 'Open the background panel',
       source: 'user-input',
@@ -116,7 +116,7 @@ describe('user-local command', () => {
 
     const listResult = await executeUserLocalDirectCommand({
       cwd: repo,
-      storageRoot: path.join(home, '.robota'),
+      storageRoot: path.join(home, '.fixture-state'),
       argv: ['memory', 'list'],
       format: 'json',
     });
@@ -133,7 +133,7 @@ describe('user-local command', () => {
 
     const inspectResult = await executeUserLocalDirectCommand({
       cwd: repo,
-      storageRoot: path.join(home, '.robota'),
+      storageRoot: path.join(home, '.fixture-state'),
       argv: ['memory', 'inspect', 'view-preference', 'last-panel'],
       format: 'json',
     });
@@ -147,14 +147,14 @@ describe('user-local command', () => {
 
     const disableResult = await executeUserLocalDirectCommand({
       cwd: repo,
-      storageRoot: path.join(home, '.robota'),
+      storageRoot: path.join(home, '.fixture-state'),
       argv: ['memory', 'disable', 'view-preference', 'last-panel'],
     });
     expect(disableResult.success).toBe(true);
 
     const disabledInspectResult = await executeUserLocalDirectCommand({
       cwd: repo,
-      storageRoot: path.join(home, '.robota'),
+      storageRoot: path.join(home, '.fixture-state'),
       argv: ['memory', 'inspect', 'view-preference', 'last-panel'],
       format: 'json',
     });
@@ -163,14 +163,14 @@ describe('user-local command', () => {
 
     const deleteResult = await executeUserLocalDirectCommand({
       cwd: repo,
-      storageRoot: path.join(home, '.robota'),
+      storageRoot: path.join(home, '.fixture-state'),
       argv: ['memory', 'delete', 'view-preference', 'last-panel'],
     });
     expect(deleteResult.success).toBe(true);
 
     const missingResult = await executeUserLocalDirectCommand({
       cwd: repo,
-      storageRoot: path.join(home, '.robota'),
+      storageRoot: path.join(home, '.fixture-state'),
       argv: ['memory', 'inspect', 'view-preference', 'last-panel'],
       format: 'json',
     });

@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
  * SELFHOST-008 P6 — memory enablement resolver (agent-cli owned).
  *
@@ -7,7 +8,7 @@
  * here — the neutral `agent-framework` memory library is untouched (HARNESS-029 neutrality).
  *
  * Precedence (lowest → highest): `settings.json` `memory.enabled` (SSOT) ← `--memory`/`--no-memory`
- * CLI flag ← `ROBOTA_MEMORY=1|0` env (env wins). Default OFF ⇒ NO memory options injected (today's
+ * CLI flag ← `PRODUCT_MEMORY=1|0` env (env wins). Default OFF ⇒ NO memory options injected (today's
  * behavior exactly).
  */
 
@@ -62,7 +63,7 @@ export interface IMemoryEnablementInputs {
   flagEnabled?: boolean | undefined;
   /** `--memory-autosave` flag. */
   flagAutoSave?: boolean | undefined;
-  /** Raw `ROBOTA_MEMORY` env value (`'1'` enables, `'0'` disables; anything else ignored). */
+  /** Raw `PRODUCT_MEMORY` env value (`'1'` enables, `'0'` disables; anything else ignored). */
   env?: string | undefined;
 }
 
@@ -88,7 +89,7 @@ export function readMemorySettings(
 
 /**
  * Pure enablement resolver: `settings.json` `memory.enabled` (SSOT) ← `--memory`/`--no-memory` ←
- * `ROBOTA_MEMORY=1|0` (env wins). Default OFF. `autoSave` = settings.autoSave OR `--memory-autosave`.
+ * `PRODUCT_MEMORY=1|0` (env wins). Default OFF. `autoSave` = settings.autoSave OR `--memory-autosave`.
  */
 export function resolveMemoryEnablement(
   inputs: IMemoryEnablementInputs,
@@ -97,7 +98,7 @@ export function resolveMemoryEnablement(
   let enabled = inputs.settings?.enabled ?? false;
   // Override: --memory / --no-memory (when either flag is present).
   if (inputs.flagEnabled !== undefined) enabled = inputs.flagEnabled;
-  // Override (wins): ROBOTA_MEMORY=1|0 env escape hatch.
+  // Override (wins): PRODUCT_MEMORY=1|0 env escape hatch.
   const env = inputs.env?.trim();
   if (env === '1') enabled = true;
   else if (env === '0') enabled = false;
@@ -142,6 +143,7 @@ export function buildMemorySessionOptions(
  * memory on there prints why it stays off instead of refusing the whole run.
  */
 export function resolveMemorySurfaceOptions(inputs: {
+  productRuntime: ICliRuntimeContext;
   settings: Record<string, unknown> | undefined;
   args: { memory: boolean | undefined; memoryAutoSave: boolean };
   memoryStore: IMemoryStore | undefined;
@@ -153,7 +155,7 @@ export function resolveMemorySurfaceOptions(inputs: {
     settings: readMemorySettings(inputs.settings),
     flagEnabled: inputs.args.memory,
     flagAutoSave: inputs.args.memoryAutoSave,
-    env: process.env['ROBOTA_MEMORY'],
+    env: inputs.productRuntime.environment['PRODUCT_MEMORY'],
   });
   const platform = inputs.platform ?? process.platform;
   if (
@@ -161,15 +163,14 @@ export function resolveMemorySurfaceOptions(inputs: {
     inputs.memoryStore === undefined &&
     !supportsWorkspaceProjectMutation(platform)
   ) {
-    printMemoryUnavailableNoticeOnce(platform, inputs.write);
+    printMemoryUnavailableNoticeOnce(platform, inputs.productRuntime, inputs.write);
     return {};
   }
   const options = buildMemorySessionOptions(enablement, inputs.memoryStore);
-  if (enablement.enabled) printMemoryEnableNoticeOnce(inputs.cwd, inputs.write);
+  if (enablement.enabled) printMemoryEnableNoticeOnce(inputs.cwd, inputs.productRuntime, inputs.write);
   return options;
 }
 
-let enableNoticePrinted = false;
 
 function writeToStderr(message: string): void {
   process.stderr.write(message);
@@ -181,11 +182,10 @@ function writeToStderr(message: string): void {
  */
 export function printMemoryEnableNoticeOnce(
   cwd: string,
+  runtime: ICliRuntimeContext,
   write: (message: string) => void = writeToStderr,
 ): void {
-  if (enableNoticePrinted) return;
-  enableNoticePrinted = true;
-  const storePath = join(cwd, '.robota', 'memory');
+  const storePath = join(cwd, runtime.layout.projectStateDirectories.memory);
   write(
     `Memory is ON (opt-in): capturing and recalling durable memory in ${storePath}. ` +
       `Inspect with /memory; disable with --no-memory or "memory": { "enabled": false } in settings.json.\n`,
@@ -195,18 +195,17 @@ export function printMemoryEnableNoticeOnce(
 /** Say once why memory that was turned on stays off on this host. */
 function printMemoryUnavailableNoticeOnce(
   platform: NodeJS.Platform,
+  runtime: ICliRuntimeContext,
   write: (message: string) => void = writeToStderr,
 ): void {
-  if (enableNoticePrinted) return;
-  enableNoticePrinted = true;
   write(
-    `Memory is OFF: project memory is kept in the project's .robota/memory, and on this host ` +
-      `(${platform}) Robota cannot prove a write stays inside the project, so nothing is captured ` +
+    `Memory is OFF: project memory is kept in ${runtime.layout.projectStateDirectories.memory}, and on this host ` +
+      `(${platform}) The agent cannot prove a write stays inside the project, so nothing is captured ` +
       `or recalled.\n`,
   );
 }
 
 /** Test-only: reset the process-level one-time-notice latch. */
 export function resetMemoryEnableNoticeForTests(): void {
-  enableNoticePrinted = false;
+  // Notices are invocation-local; no process-level latch remains.
 }

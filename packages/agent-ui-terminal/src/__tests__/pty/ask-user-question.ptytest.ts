@@ -1,6 +1,6 @@
 /**
  * CMD-005 TC-03: a model-issued AskUserQuestion renders as the Ink dialog mid-turn and the picked
- * answer returns to the model — end to end against the BUILT robota binary.
+ * answer returns to the model — end to end against the BUILT CLI binary.
  *
  * Boots with `--session-log` (INFRA-018 replay, no model key): the replayed assistant turn calls the
  * AskUserQuestion tool; the real TUI renders the CMD-004 PendingActionPrompt while the turn is
@@ -30,7 +30,7 @@ describe('AskUserQuestion dialog through the real binary (CMD-005)', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-ask-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-ask-pty-')));
     writeTuiProviderSettings(projectDir); // dummy provider profile; replay answers every call
   });
 

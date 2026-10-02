@@ -18,6 +18,9 @@ export type {
 // ── Command-system contracts ─────────────────────────────────
 export type {
   ICommand,
+  ISkillContentActivation,
+  ISkillResourceDescriptor,
+  ISkillResource,
   ICommandSource,
   ISkillExecutionPort,
   ISkillResolutionResult,

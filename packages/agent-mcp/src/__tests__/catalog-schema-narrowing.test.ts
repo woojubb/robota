@@ -11,6 +11,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildCatalog } from '../catalog/build.js';
+import { createDiscoveredTool } from '../catalog/discovered-tool.js';
+import { narrowToUniversalSubset } from '../third-party-schema.js';
 
 import type { IMCPDiscovery, IMCPServerIdentity } from '../catalog/types.js';
 
@@ -40,6 +42,63 @@ function discoveryWithTools(
 }
 
 describe('CORE-040 narrowing at catalog registration', () => {
+  it('projects a foreign dialect declaration out of the portable schema and reports it', () => {
+    const report = vi.fn();
+    const discovery = discoveryWithTools('browser', [
+      {
+        name: 'observe',
+        inputSchema: {
+          $schema: 'https://json-schema.org/draft/2020-12/schema',
+          type: 'object',
+          properties: { target: { type: 'string' } },
+          required: ['target'],
+        } as never,
+      },
+    ]);
+    const catalog = buildCatalog(
+      [{ serverId: 'browser', origin: 'fixture', transport: 'stdio', discovery }],
+      { report },
+    );
+    const entry = catalog.adapted.find((entry) => entry.kind === 'tool');
+    expect(entry).toBeDefined();
+    if (entry?.kind !== 'tool') throw new Error('Missing portable tool');
+    expect(entry.schema).toEqual({
+      type: 'object',
+      properties: { target: { type: 'string' } },
+      required: ['target'],
+    });
+    expect(entry.unenforceablePaths).toEqual(['.$schema']);
+    expect(report).toHaveBeenCalledWith('browser__observe', ['.$schema']);
+    expect(discovery.tools.items[0].inputSchema).toHaveProperty('$schema');
+    const tool = createDiscoveredTool(entry, {
+      callTool: async () => ({ content: [], isError: false }),
+    });
+    expect(tool.validateParameters({ target: 'Save' }).isValid).toBe(true);
+    expect(tool.validateParameters({ target: 1 }).isValid).toBe(false);
+    expect(tool.validateParameters({}).isValid).toBe(false);
+  });
+
+  it('removes dialect declarations in every supported schema position', () => {
+    const declared = {
+      type: 'object',
+      properties: {
+        nested: { $schema: 'foreign', type: 'object', properties: {} },
+        list: { type: 'array', items: { $schema: 'foreign', type: 'string' } },
+        choice: { anyOf: [{ $schema: 'foreign', type: 'string' }, { type: 'null' }] },
+      },
+      additionalProperties: { $schema: 'foreign', type: 'string' },
+    } as never;
+    const { schema, unenforceable } = narrowToUniversalSubset(declared);
+    expect(unenforceable).toEqual([
+      '.additionalProperties.$schema',
+      '.nested.$schema',
+      '.list[].$schema',
+      '.choice.anyOf[0].$schema',
+    ]);
+    expect(JSON.stringify(schema)).not.toContain('$schema');
+    expect(JSON.stringify(declared)).toContain('$schema');
+  });
+
   it('a tool with an inexpressible subtree is narrowed and the reporter is told once', () => {
     const report = vi.fn();
     const discovery = discoveryWithTools('srv', [

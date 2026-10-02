@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RobotaParticipantError } from './errors';
+import { RuntimeParticipantError } from './errors';
 import { claimLease } from './resource-guard';
 
 describe('claimLease', () => {
@@ -13,13 +13,13 @@ describe('claimLease', () => {
   it('rejects reuse of a resource still held by a live lease', () => {
     const provider = {};
     claimLease([provider]);
-    expect(() => claimLease([provider])).toThrow(RobotaParticipantError);
+    expect(() => claimLease([provider])).toThrow(RuntimeParticipantError);
     try {
       claimLease([provider]);
       throw new Error('expected claimLease to throw');
     } catch (error) {
-      expect(error).toBeInstanceOf(RobotaParticipantError);
-      expect((error as RobotaParticipantError).code).toBe('resource-reused');
+      expect(error).toBeInstanceOf(RuntimeParticipantError);
+      expect((error as RuntimeParticipantError).code).toBe('resource-reused');
     }
   });
 
@@ -27,7 +27,7 @@ describe('claimLease', () => {
     const held = {};
     const fresh = {};
     claimLease([held]);
-    expect(() => claimLease([fresh, held])).toThrow(RobotaParticipantError);
+    expect(() => claimLease([fresh, held])).toThrow(RuntimeParticipantError);
     // `fresh` must not have been left claimed by the failed attempt.
     expect(() => claimLease([fresh])).not.toThrow();
   });

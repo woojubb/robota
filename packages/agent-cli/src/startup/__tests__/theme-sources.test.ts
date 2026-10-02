@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * SCREEN-2002 TC-11 — where theme files come from, and what happens to the ones that are wrong.
  *
@@ -33,9 +34,9 @@ afterEach(() => {
 
 describe('loadThemeSources', () => {
   it('reads the user directory through the host contribution source and namespaces its ids', () => {
-    const home = temporaryDirectory('robota-theme-home-');
+    const home = temporaryDirectory('test-product-theme-home-');
     writeTheme(
-      join(home, '.robota', 'themes'),
+      join(home, '.test-product', 'themes'),
       'mine.json',
       JSON.stringify({
         name: 'Mine',
@@ -44,7 +45,7 @@ describe('loadThemeSources', () => {
       }),
     );
 
-    const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
+    const sources = loadThemeSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),  cwd: undefined, userHome: home, plugins: [] });
 
     expect(sources.skipped).toEqual([]);
     expect(sources.themes).toHaveLength(1);
@@ -54,17 +55,17 @@ describe('loadThemeSources', () => {
   });
 
   it('cannot shadow a built-in, whatever the file is called', () => {
-    const home = temporaryDirectory('robota-theme-home-');
-    writeTheme(join(home, '.robota', 'themes'), 'dark.json', '{}');
+    const home = temporaryDirectory('test-product-theme-home-');
+    writeTheme(join(home, '.test-product', 'themes'), 'dark.json', '{}');
 
-    const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
+    const sources = loadThemeSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),  cwd: undefined, userHome: home, plugins: [] });
 
     expect(sources.themes[0]?.id).toBe('custom:dark');
   });
 
   it('skips a file it cannot apply, by name and with its diagnostic, and keeps its neighbours', () => {
-    const home = temporaryDirectory('robota-theme-home-');
-    const directory = join(home, '.robota', 'themes');
+    const home = temporaryDirectory('test-product-theme-home-');
+    const directory = join(home, '.test-product', 'themes');
     writeTheme(directory, 'good.json', '{}');
     writeTheme(
       directory,
@@ -73,7 +74,7 @@ describe('loadThemeSources', () => {
     );
     writeTheme(directory, 'garbage.json', '{ not json');
 
-    const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
+    const sources = loadThemeSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),  cwd: undefined, userHome: home, plugins: [] });
 
     expect(sources.themes.map((theme) => theme.id)).toEqual(['custom:good']);
     expect(sources.skipped.map((skip) => skip.fileName).sort()).toEqual([
@@ -86,29 +87,29 @@ describe('loadThemeSources', () => {
   });
 
   it('ignores anything that is not a .json file', () => {
-    const home = temporaryDirectory('robota-theme-home-');
-    writeTheme(join(home, '.robota', 'themes'), 'notes.md', 'not a theme');
+    const home = temporaryDirectory('test-product-theme-home-');
+    writeTheme(join(home, '.test-product', 'themes'), 'notes.md', 'not a theme');
 
-    const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
+    const sources = loadThemeSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),  cwd: undefined, userHome: home, plugins: [] });
 
     expect(sources.themes).toEqual([]);
     expect(sources.skipped).toEqual([]);
   });
 
   it('is the empty state, not an error, when the directory is absent', () => {
-    const home = temporaryDirectory('robota-theme-home-');
+    const home = temporaryDirectory('test-product-theme-home-');
 
-    const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
+    const sources = loadThemeSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),  cwd: undefined, userHome: home, plugins: [] });
 
     expect(sources).toEqual({ themes: [], skipped: [] });
   });
 
   it('reads a plugin directory and namespaces its ids under the plugin', () => {
-    const home = temporaryDirectory('robota-theme-home-');
-    const pluginDir = temporaryDirectory('robota-theme-plugin-');
+    const home = temporaryDirectory('test-product-theme-home-');
+    const pluginDir = temporaryDirectory('test-product-theme-plugin-');
     writeTheme(join(pluginDir, 'themes'), 'plugged.json', JSON.stringify({ name: 'Plugged' }));
 
-    const sources = loadThemeSources({
+    const sources = loadThemeSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),
       cwd: undefined,
       userHome: home,
       plugins: [{ name: 'theme-fixture', pluginDir }],
@@ -124,13 +125,13 @@ describe('loadThemeSources', () => {
     // Claiming before the parse made a second file read "already taken by a theme loaded earlier"
     // when the first was refused and nothing was loaded — a reason naming a theme the run has not
     // got, and a second file that could have been fine.
-    const home = temporaryDirectory('robota-theme-home-');
-    const first = temporaryDirectory('robota-theme-plugin-a-');
-    const second = temporaryDirectory('robota-theme-plugin-b-');
+    const home = temporaryDirectory('test-product-theme-home-');
+    const first = temporaryDirectory('test-product-theme-plugin-a-');
+    const second = temporaryDirectory('test-product-theme-plugin-b-');
     writeTheme(join(first, 'themes'), 'one.json', '{ not json');
     writeTheme(join(second, 'themes'), 'one.json', JSON.stringify({ name: 'Second' }));
 
-    const sources = loadThemeSources({
+    const sources = loadThemeSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),
       cwd: undefined,
       userHome: home,
       plugins: [
@@ -145,13 +146,13 @@ describe('loadThemeSources', () => {
   });
 
   it('keeps the first file to claim an id and skips the second, rather than silently replacing it', () => {
-    const home = temporaryDirectory('robota-theme-home-');
-    const first = temporaryDirectory('robota-theme-plugin-a-');
-    const second = temporaryDirectory('robota-theme-plugin-b-');
+    const home = temporaryDirectory('test-product-theme-home-');
+    const first = temporaryDirectory('test-product-theme-plugin-a-');
+    const second = temporaryDirectory('test-product-theme-plugin-b-');
     writeTheme(join(first, 'themes'), 'one.json', JSON.stringify({ name: 'First' }));
     writeTheme(join(second, 'themes'), 'one.json', JSON.stringify({ name: 'Second' }));
 
-    const sources = loadThemeSources({
+    const sources = loadThemeSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),
       cwd: undefined,
       userHome: home,
       plugins: [
@@ -167,10 +168,10 @@ describe('loadThemeSources', () => {
   it('finds a plugin theme through the REAL scope layout, not only through an injected list', () => {
     // The injected `plugins` list above proves the reading; it cannot prove the discovery. Without
     // this, `pluginScopeDirs` could name the wrong directory and every test would still be green.
-    const home = temporaryDirectory('robota-theme-home-');
+    const home = temporaryDirectory('test-product-theme-home-');
     const versionDir = join(
       home,
-      '.robota',
+      '.test-product',
       'plugins',
       'cache',
       'fixtures',
@@ -196,7 +197,7 @@ describe('loadThemeSources', () => {
     process.env['HOME'] = home;
     let sources;
     try {
-      sources = loadThemeSources({ cwd: undefined, userHome: home });
+      sources = loadThemeSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),  cwd: undefined, userHome: home });
     } finally {
       if (previousHome === undefined) delete process.env['HOME'];
       else process.env['HOME'] = previousHome;
@@ -207,11 +208,11 @@ describe('loadThemeSources', () => {
   });
 
   it('does not discover themes from project plugins before workspace trust', () => {
-    const home = temporaryDirectory('robota-theme-home-');
-    const project = temporaryDirectory('robota-theme-project-');
+    const home = temporaryDirectory('test-product-theme-home-');
+    const project = temporaryDirectory('test-product-theme-project-');
     const versionDir = join(
       project,
-      '.robota',
+      '.test-product',
       'plugins',
       'cache',
       'fixtures',
@@ -228,7 +229,7 @@ describe('loadThemeSources', () => {
     const previousHome = process.env['HOME'];
     process.env['HOME'] = home;
     try {
-      const sources = loadThemeSources({
+      const sources = loadThemeSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),
         cwd: project,
         userHome: home,
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', project),
@@ -246,10 +247,10 @@ describe('a file name that cannot become an id', () => {
     // `/theme <id>` splits its arguments on whitespace and the picker commits through that same
     // command, so a slug with a space is listed, is selectable, and answers the usage line when
     // chosen — the one failure mode worse than not loading the file at all.
-    const home = temporaryDirectory('robota-theme-home-');
-    writeTheme(join(home, '.robota', 'themes'), 'My Theme.json', '{}');
+    const home = temporaryDirectory('test-product-theme-home-');
+    writeTheme(join(home, '.test-product', 'themes'), 'My Theme.json', '{}');
 
-    const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
+    const sources = loadThemeSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),  cwd: undefined, userHome: home, plugins: [] });
 
     expect(sources.themes).toEqual([]);
     expect(sources.skipped).toHaveLength(1);
@@ -262,10 +263,10 @@ describe('a file name that cannot become an id', () => {
   it('refuses a name too long to be drawn in the row it lands in', () => {
     // The bound is on the ID SEGMENT, not only on a document-supplied name: the id is rendered
     // beside the name whether or not the file supplies one.
-    const home = temporaryDirectory('robota-theme-home-');
-    writeTheme(join(home, '.robota', 'themes'), `${'x'.repeat(MAX_ID_SEGMENT + 1)}.json`, '{}');
+    const home = temporaryDirectory('test-product-theme-home-');
+    writeTheme(join(home, '.test-product', 'themes'), `${'x'.repeat(MAX_ID_SEGMENT + 1)}.json`, '{}');
 
-    const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
+    const sources = loadThemeSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),  cwd: undefined, userHome: home, plugins: [] });
 
     expect(sources.themes).toEqual([]);
     expect(sources.skipped[0]?.reason).toContain(`at most ${MAX_ID_SEGMENT} characters`);
@@ -275,11 +276,11 @@ describe('a file name that cannot become an id', () => {
     // A manifest `name` is checked for being a string and nothing else, so it is third-party text
     // on its way into an id, a `/theme list` row and — for a file that omits `name` — the rendered
     // name of an APPLIED theme.
-    const home = temporaryDirectory('robota-theme-home-');
-    const pluginDir = temporaryDirectory('robota-theme-plugin-');
+    const home = temporaryDirectory('test-product-theme-home-');
+    const pluginDir = temporaryDirectory('test-product-theme-plugin-');
     writeTheme(join(pluginDir, 'themes'), 'ocean.json', JSON.stringify({ name: 'Ocean' }));
 
-    const sources = loadThemeSources({
+    const sources = loadThemeSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),
       cwd: undefined,
       userHome: home,
       plugins: [{ name: 'my plugin', pluginDir }],
@@ -293,12 +294,12 @@ describe('a file name that cannot become an id', () => {
   });
 
   it('keeps a control character in a plugin name off the terminal', () => {
-    const home = temporaryDirectory('robota-theme-home-');
-    const pluginDir = temporaryDirectory('robota-theme-plugin-');
+    const home = temporaryDirectory('test-product-theme-home-');
+    const pluginDir = temporaryDirectory('test-product-theme-plugin-');
     const csi = String.fromCharCode(0x9b);
     writeTheme(join(pluginDir, 'themes'), 'ocean.json', '{}');
 
-    const sources = loadThemeSources({
+    const sources = loadThemeSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),
       cwd: undefined,
       userHome: home,
       plugins: [{ name: `${csi}2J`, pluginDir }],
@@ -311,13 +312,13 @@ describe('a file name that cannot become an id', () => {
   it('LOADS the longest id it can mint, so the two bounds are sized against each other', () => {
     // The pair that has to hold: `custom:` + a 24-character plugin segment + `:` + a 24-character
     // file segment must be a legal NAME, because it IS the name when the file supplies none.
-    const home = temporaryDirectory('robota-theme-home-');
-    const pluginDir = temporaryDirectory('robota-theme-plugin-');
+    const home = temporaryDirectory('test-product-theme-home-');
+    const pluginDir = temporaryDirectory('test-product-theme-plugin-');
     // Derived from the bound, not transcribed: raising `MAX_ID_SEGMENT` past what the parser's
     // name bound allows must turn THIS red, which a hardcoded 24 would not.
     writeTheme(join(pluginDir, 'themes'), `${'s'.repeat(MAX_ID_SEGMENT)}.json`, '{}');
 
-    const sources = loadThemeSources({
+    const sources = loadThemeSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),
       cwd: undefined,
       userHome: home,
       plugins: [{ name: 'p'.repeat(MAX_ID_SEGMENT), pluginDir }],
@@ -329,11 +330,11 @@ describe('a file name that cannot become an id', () => {
   });
 
   it('keeps a control character in a file name off the terminal', () => {
-    const home = temporaryDirectory('robota-theme-home-');
+    const home = temporaryDirectory('test-product-theme-home-');
     const escape = String.fromCharCode(27);
-    writeTheme(join(home, '.robota', 'themes'), `${escape}[2J.json`, '{}');
+    writeTheme(join(home, '.test-product', 'themes'), `${escape}[2J.json`, '{}');
 
-    const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
+    const sources = loadThemeSources({productRuntime: createTestProductRuntime('test-product', { HOME: home }),  cwd: undefined, userHome: home, plugins: [] });
 
     expect(sources.skipped).toHaveLength(1);
     expect(sources.skipped[0]?.reason).not.toContain(escape);

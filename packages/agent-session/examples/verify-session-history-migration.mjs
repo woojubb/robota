@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const script = fileURLToPath(new URL('../scripts/migrate-session-history.mjs', import.meta.url));
-const fixture = mkdtempSync(join(tmpdir(), 'robota-session-migration-example-'));
+const fixture = mkdtempSync(join(tmpdir(), 'agent-session-migration-example-'));
 
 function run(sessionsDir) {
   const output = execFileSync(process.execPath, [script, '--sessions-dir', sessionsDir], {

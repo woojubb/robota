@@ -9,7 +9,7 @@ import { openLocalPeerRendezvous, revokeRendezvousOnExit } from '../local-peer-a
  * answer it gets is the one the ledger justifies, and that it degrades to a refusal rather than to
  * a weaker admission.
  */
-const GUARDED = '/run/user/1000/robota/peers';
+const GUARDED = '/run/user/1000/fixture-agent/peers';
 
 function rendezvous(now = () => 1_000) {
   return openLocalPeerRendezvous({ guardedDirectory: GUARDED, now });

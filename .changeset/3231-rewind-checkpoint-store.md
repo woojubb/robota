@@ -15,7 +15,7 @@ project authority."
   stays inside the project (every platform but Linux), none is composed: a checkpoint could be
   neither saved nor restored there.
 - `agent-command` (patch): where a session has no checkpoints, `/rewind` says why: a restricted
-  workspace is told to run `robota trust --yes` and restart robota, and a host that cannot write
+  workspace is told to run `robota trust --yes` and restart the configured CLI, and a host that cannot write
   the project safely says so. `/rewind list` reports this as a failed command instead of throwing.
 - `agent-framework` (minor): a checkpoint operation on a session without a store throws
   `EditCheckpointsUnavailableError`, whose `reason` is `host-cannot-write-project`,

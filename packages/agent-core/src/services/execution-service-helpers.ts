@@ -184,7 +184,7 @@ export function initializeConversationStore(
   // Inject the system prompt into the session log ONCE — only when the log has no system message yet
   // (session start, or the first turn after resume). Thereafter the log is reused as-is; the prompt
   // is never re-attached per turn. Live changes (persona, self-verification, AGENTS.md/CLAUDE.md
-  // staleness refresh) update the head in place via Robota.updateSystemPrompt, which keeps
+  // staleness refresh) update the head in place via ConversationAgent.updateSystemPrompt, which keeps
   // config.systemMessage and the log head in sync (CORE-010; see agent-core SPEC → System Prompt).
   const hasSystemMessage = session.getMessages().some((m) => m.role === 'system');
   if (config.systemMessage && !hasSystemMessage) {

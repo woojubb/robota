@@ -77,7 +77,7 @@ describe('BashTool', () => {
 
   it('returns error for non-existent workingDirectory', async () => {
     // Missing inside a private directory, so no other user can create it first.
-    const parent = mkdtempSync(join(tmpdir(), 'robota-bash-missing-'));
+    const parent = mkdtempSync(join(tmpdir(), 'agent-bash-missing-'));
     onTestFinished(() => rmSync(parent, { recursive: true, force: true }));
     const result = await run({
       command: 'echo hello',

@@ -4,19 +4,19 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = { title: 'Compare' };
 
 const FEATURE_ROW_DATA = [
-  { robota: true, claudeCode: false, cursor: false, aider: true, cline: true },
+  { agentRuntime: true, claudeCode: false, cursor: false, aider: true, cline: true },
   {
-    robota: true,
+    agentRuntime: true,
     claudeCode: true,
     cursor: false,
     aider: true,
     cline: true,
     cursorNote: 'subscription',
   },
-  { robota: true, claudeCode: false, cursor: false, aider: true, cline: true },
-  { robota: true, claudeCode: false, cursor: false, aider: false, cline: false },
+  { agentRuntime: true, claudeCode: false, cursor: false, aider: true, cline: true },
+  { agentRuntime: true, claudeCode: false, cursor: false, aider: false, cline: false },
   {
-    robota: true,
+    agentRuntime: true,
     claudeCode: false,
     cursor: false,
     aider: true,
@@ -25,18 +25,18 @@ const FEATURE_ROW_DATA = [
     cursorNote: 'proprietary',
     aiderNote: 'Apache 2',
   },
-  { robota: true, claudeCode: true, cursor: true, aider: false, cline: true, aiderNote: 'Python' },
+  { agentRuntime: true, claudeCode: true, cursor: true, aider: false, cline: true, aiderNote: 'Python' },
   {
-    robota: true,
+    agentRuntime: true,
     claudeCode: true,
     cursor: false,
     aider: true,
     cline: true,
     cursorNote: 'IDE only',
   },
-  { robota: true, claudeCode: true, cursor: true, aider: false, cline: false },
-  { robota: true, claudeCode: true, cursor: false, aider: false, cline: false },
-  { robota: true, claudeCode: false, cursor: false, aider: true, cline: true },
+  { agentRuntime: true, claudeCode: true, cursor: true, aider: false, cline: false },
+  { agentRuntime: true, claudeCode: true, cursor: false, aider: false, cline: false },
+  { agentRuntime: true, claudeCode: false, cursor: false, aider: true, cline: true },
 ];
 
 function Check() {
@@ -93,7 +93,7 @@ export default async function ComparePage({ params }: { params: Promise<{ locale
                   {t('featureColumnHeader')}
                 </th>
                 <th className="px-4 py-3 text-center font-semibold text-[var(--primary)]">
-                  Robota
+                  ConversationAgent
                 </th>
                 <th className="px-4 py-3 text-center font-semibold text-[var(--muted-foreground)]">
                   Claude Code
@@ -116,7 +116,7 @@ export default async function ComparePage({ params }: { params: Promise<{ locale
                   className={`border-b border-[var(--border)] ${i % 2 === 0 ? 'bg-[var(--background)]' : 'bg-[var(--card)]/50'}`}
                 >
                   <td className="px-4 py-3 text-[var(--foreground)]">{row.feature}</td>
-                  <td className="px-4 py-3 text-center">{row.robota ? <Check /> : <Cross />}</td>
+                  <td className="px-4 py-3 text-center">{row.agentRuntime ? <Check /> : <Cross />}</td>
                   <td className="px-4 py-3 text-center">
                     {row.claudeCode ? <Check /> : <Cross note={noteLabel(row.claudeCodeNote)} />}
                   </td>
@@ -166,7 +166,7 @@ export default async function ComparePage({ params }: { params: Promise<{ locale
 
       <div className="text-center">
         <a
-          href={`https://docs.robota.io/${locale}/getting-started/`}
+          href={`__PROJECT_DOCS_URL__/${locale}/getting-started/`}
           target="_blank"
           rel="noopener noreferrer"
           className="rounded-lg bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"

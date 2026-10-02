@@ -81,6 +81,7 @@ export {
 export {
   InMemoryMCPActivationApprovalStore,
   MCPActivationAdmissionService,
+  requiresTrustedWorkspace,
   MCPActivationPolicyError,
   createFailClosedMCPActivationAdmission,
   type IMCPActivationAdmission,
@@ -116,6 +117,7 @@ export {
   type TMCPTransportAdmission,
   type TMCPTransportKind,
 } from './client/transport.js';
+export { MCPTransportEgressRefusedError } from './client/pinned-http-fetch.js';
 // The client authentication port: a host-registered authenticator for one server identity.
 export {
   MCPAuthenticationError,
@@ -238,6 +240,7 @@ export {
   type IMCPDiscovery,
   type IMCPDiscoveryDomainResult,
   type IMCPDiscoveryFailure,
+  type IMCPResponseCacheHint,
   type IMCPServerIdentity,
   type TMCPCanonicalName,
   type TMCPCapabilityDomain,
@@ -283,3 +286,12 @@ export {
   type INarrowedSchema,
   type TUnenforceableSchemaReporter,
 } from './third-party-schema';
+
+export type {
+  IMCPSkillEntry,
+  IMCPSkillResource,
+  IMCPSkillRequestOptions,
+  IMCPSkillsSession,
+  IMCPVerifiedSkillResource,
+} from './skills/types.js';
+export { MCPSkillError } from './skills/manifest.js';

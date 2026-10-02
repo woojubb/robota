@@ -172,7 +172,7 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
     const peer = this.createPeer();
     this.peer = peer;
     const signaling = this.options.signaling;
-    const channel = peer.createDataChannel('robota-session');
+    const channel = peer.createDataChannel('agent-session');
     this.wireChannel(channel, session, generation);
     this.wireSignaling(peer, channel, session, generation);
 
@@ -245,6 +245,7 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
     const secret = this.options.secret;
     if (!secret || !this.localFingerprint) return;
     this.pairingGate = new PairingGate({
+      cryptoContext: this.options.cryptoContext,
       channel: { send: (d) => channel.send(d), close: () => channel.close() },
       session,
       secret,

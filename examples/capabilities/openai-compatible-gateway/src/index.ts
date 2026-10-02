@@ -11,7 +11,7 @@
  *   GATEWAY_MODEL=anthropic/claude-sonnet-4-5 \
  *   pnpm dev
  */
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const baseURL = process.env.GATEWAY_BASE_URL;
@@ -22,7 +22,7 @@ if (!baseURL || !apiKey) {
   process.exit(1);
 }
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'GatewayDemo',
   aiProviders: [new OpenAIProvider({ apiKey, baseURL, defaultModel: model })],
   defaultModel: { provider: 'openai', model, maxTokens: 200 },

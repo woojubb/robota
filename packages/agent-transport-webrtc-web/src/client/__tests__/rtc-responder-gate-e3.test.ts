@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 import {
   deriveIdentityId,
   exportPublicKey,
@@ -65,7 +67,7 @@ describe('ResponderGate E3 first-pair enrollment (REMOTE-012)', () => {
     })) as never;
     const { channel, sent } = stubChannel();
 
-    const gate = new ResponderGate({
+    const gate = new ResponderGate({cryptoContext: testIdentity,
       channel,
       secret: 's',
       ...FP,
@@ -100,7 +102,7 @@ describe('ResponderGate E3 reconnect (REMOTE-012)', () => {
 
     // The device (gate) initiates reconnect in its constructor, so the host controller must exist FIRST.
     let gate!: ResponderGate;
-    const hostCtrl = startHostReconnect({
+    const hostCtrl = startHostReconnect(testIdentity, {
       hostIdentityId,
       localFingerprint: FP.remoteFingerprint,
       remoteFingerprint: FP.localFingerprint,
@@ -111,7 +113,7 @@ describe('ResponderGate E3 reconnect (REMOTE-012)', () => {
     });
     const { channel } = stubChannel((frame) => hostCtrl.onFrame(frame as TReconnectFrame));
     const onAccept = vi.fn();
-    gate = new ResponderGate({
+    gate = new ResponderGate({cryptoContext: testIdentity,
       channel,
       secret: 's',
       ...FP,
@@ -139,7 +141,7 @@ describe('ResponderGate E3 reconnect (REMOTE-012)', () => {
     const devicePub = await importPublicKey(identity.devicePublicSpki);
 
     let gate!: ResponderGate;
-    const hostCtrl = startHostReconnect({
+    const hostCtrl = startHostReconnect(testIdentity, {
       hostIdentityId,
       localFingerprint: FP.remoteFingerprint,
       remoteFingerprint: FP.localFingerprint,
@@ -150,7 +152,7 @@ describe('ResponderGate E3 reconnect (REMOTE-012)', () => {
     });
     const { channel, closed } = stubChannel((frame) => hostCtrl.onFrame(frame as TReconnectFrame));
     const onReject = vi.fn();
-    gate = new ResponderGate({
+    gate = new ResponderGate({cryptoContext: testIdentity,
       channel,
       secret: 's',
       ...FP,

@@ -1,5 +1,5 @@
 /**
- * FLOW-2006: the `robota open <url>` pre-parse step.
+ * FLOW-2006: the `the product open <url>` pre-parse step.
  *
  * It is not a subcommand route. Every route in `preparsed-command-routing.ts` TERMINATES the
  * process — `runPreparsedCliCommand` returning true means "handled, exit" — while `open` must
@@ -7,7 +7,7 @@
  * the top of `startCli`, before `process.cwd()` is read and before the workspace is resolved, and
  * hands back either a refusal or the directory and prompt the normal startup path then uses.
  */
-import { parseLaunchIntent, LAUNCH_INTENT_USAGE } from './launch-intent.js';
+import { parseLaunchIntent, launchIntentUsage } from './launch-intent.js';
 import { resolveLaunchTarget } from './resolve-launch-target.js';
 
 import type { IResolveLaunchTargetDeps } from './resolve-launch-target.js';
@@ -19,6 +19,8 @@ const SUBCOMMAND_INDEX = 2;
 const SUBCOMMAND_ARGS_INDEX = SUBCOMMAND_INDEX + 1;
 
 export interface IResolveLaunchInvocationDeps extends IResolveLaunchTargetDeps {
+  readonly protocolScheme: string;
+  readonly cliName: string;
   /** False when there is no composer to prefill — a prefilled session needs a terminal. */
   isInteractive: () => boolean;
 }
@@ -37,12 +39,12 @@ function refused(message: string): TLaunchInvocation {
  *
  * Exactly one LINK may follow `open`. Microsoft documents that a handler's command line can be
  * extended by an attacker's quotes and backslashes, and Electron documents that a second instance's
- * argv can arrive with arguments appended — both shapes append another `robota:` token, and that is
+ * argv can arrive with arguments appended — both shapes append another `the product:` token, and that is
  * what is refused here rather than ignored. The user's own flags (`--name`, `--screen-reader`, …)
  * and their values stay in the argv the ordinary parser reads: a link changes where the session
  * starts and what is typed into it, and nothing else about how the user invoked the CLI.
  *
- * A trailing token that is NEITHER a link nor a flag (`robota open <url> junk`) is not refused here:
+ * A trailing token that is NEITHER a link nor a flag (`the product open <url> junk`) is not refused here:
  * telling it apart from a flag's value needs the parser's own flag-arity table, and unknown
  * positionals are discarded silently across the whole CLI — the defect filed as CLI-2670. This
  * grammar does not paper over half of it.
@@ -52,27 +54,28 @@ export async function resolveLaunchInvocation(
   deps: IResolveLaunchInvocationDeps,
 ): Promise<TLaunchInvocation> {
   if (argv[SUBCOMMAND_INDEX] !== OPEN_SUBCOMMAND) return { kind: 'not-an-open-invocation' };
+  const usage = launchIntentUsage(deps.cliName, deps.protocolScheme);
   const rest = argv.slice(SUBCOMMAND_ARGS_INDEX);
-  // `robota open --help` asks for help, not a launch: the help router answers it, and nothing reads
+  // `the product open --help` asks for help, not a launch: the help router answers it, and nothing reads
   // a link or changes directory first.
   if (rest.includes('--help') || rest.includes('-h')) return { kind: 'not-an-open-invocation' };
   const link = rest[0];
   if (link === undefined) {
-    return refused(`\`${OPEN_SUBCOMMAND}\` needs a link.\n${LAUNCH_INTENT_USAGE}`);
+    return refused(`\`${OPEN_SUBCOMMAND}\` needs a link.\n${usage}`);
   }
-  // Exactly ONE link. A second `robota:` token later in the argv is the smuggling shape the
+  // Exactly ONE link. A second `the product:` token later in the argv is the smuggling shape the
   // platform documents — Windows' `ShellExecute` splitting on an attacker's quotes, Electron's
   // second-instance argv arriving with arguments appended — so it is refused rather than ignored.
   // Ordinary flags and their values are left alone: they are the user's invocation, not the link's.
-  if (rest.slice(1).some((token) => token.toLowerCase().startsWith('robota:'))) {
+  if (rest.slice(1).some((token) => token.toLowerCase().startsWith(`${deps.protocolScheme}:`))) {
     return refused(
-      `\`${OPEN_SUBCOMMAND}\` takes exactly one link; a second one was given.\n${LAUNCH_INTENT_USAGE}`,
+      `\`${OPEN_SUBCOMMAND}\` takes exactly one link; a second one was given.\n${usage}`,
     );
   }
   // The link is judged BEFORE the terminal is: a malformed or untrusted link must be named as such
   // wherever it is run, or a scripted check would learn only that it lacks a TTY. Both steps are
   // read-only, so nothing happens on a run that is about to be refused anyway.
-  const parsed = parseLaunchIntent(link);
+  const parsed = parseLaunchIntent(link, deps.protocolScheme);
   if (!parsed.ok) return refused(`Link refused: ${parsed.reason}`);
   const target = await resolveLaunchTarget(parsed.intent, deps);
   if (!target.ok) return refused(`Link refused: ${target.reason}`);

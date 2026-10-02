@@ -31,7 +31,9 @@ at the layer-0 packages names a type from here.
 The interaction channel is an in-process port, not the universal transport contract — the TUI owns
 a session and subscribes to its full event map directly, while headless and remote transports use
 the session capability/configurable-transport families instead. A surface must not nominally
-implement the channel port while making its central `write()` operation a no-op.
+implement the channel port while making its central `write()` operation a no-op. Tool observations
+remain typed and attached to their call identity when projected for live or historical display;
+an opaque resource reference conveys provenance, never permission to retrieve its contents.
 
 Prompt settlement belongs to the interactive-session event/capability family, not the interaction
 channel: surfaces receive `permission_request` / `ask_request`, answer through `resolvePermission`

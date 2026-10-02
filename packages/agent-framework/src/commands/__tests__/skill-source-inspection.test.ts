@@ -18,9 +18,9 @@ afterEach(() => {
 
 describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
   it('reports discovered skills and the entries discovery silently skips, per root', () => {
-    const home = mkdtempSync(join(tmpdir(), 'robota-skill-inspection-'));
+    const home = mkdtempSync(join(tmpdir(), 'agent-skill-inspection-'));
     roots.push(home);
-    const skills = join(home, '.robota', 'skills');
+    const skills = join(home, '.agent', 'skills');
     mkdirSync(join(skills, 'good'), { recursive: true });
     writeFileSync(join(skills, 'good', 'SKILL.md'), '---\nname: good\n---\nbody\n', 'utf8');
     mkdirSync(join(skills, 'no-file'), { recursive: true });
@@ -33,17 +33,17 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
       [createNodeHostContributionSource(home)],
       TEST_SKILL_ROOTS,
     );
-    const robota = inspection.roots.find((root) => root.root === join('.robota', 'skills'));
-    expect(robota?.present).toBe(true);
-    expect(robota?.discovered).toEqual(['good', 'no-frontmatter']);
-    expect(robota?.skipped).toEqual([
-      { path: join('.robota', 'skills', 'no-file'), reason: 'missing-skill-file' },
+    const agent = inspection.roots.find((root) => root.root === join('.agent', 'skills'));
+    expect(agent?.present).toBe(true);
+    expect(agent?.discovered).toEqual(['good', 'no-frontmatter']);
+    expect(agent?.skipped).toEqual([
+      { path: join('.agent', 'skills', 'no-file'), reason: 'missing-skill-file' },
       {
-        path: join('.robota', 'skills', 'no-frontmatter', 'SKILL.md'),
+        path: join('.agent', 'skills', 'no-frontmatter', 'SKILL.md'),
         reason: 'frontmatter-missing',
       },
       {
-        path: join('.robota', 'skills', 'open-frontmatter', 'SKILL.md'),
+        path: join('.agent', 'skills', 'open-frontmatter', 'SKILL.md'),
         reason: 'frontmatter-unterminated',
         detail: expect.stringContaining('[unterminated]'),
       },
@@ -55,9 +55,9 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
   });
 
   it('reports the frontmatter value session discovery refuses, as a skip and not a discovery', () => {
-    const home = mkdtempSync(join(tmpdir(), 'robota-skill-inspection-'));
+    const home = mkdtempSync(join(tmpdir(), 'agent-skill-inspection-'));
     roots.push(home);
-    const skills = join(home, '.robota', 'skills');
+    const skills = join(home, '.agent', 'skills');
     mkdirSync(join(skills, 'bad-effort'), { recursive: true });
     writeFileSync(
       join(skills, 'bad-effort', 'SKILL.md'),
@@ -74,18 +74,18 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
     // The premise: the session's own discovery does not register this file.
     expect(createTestSkillCommandSource(sources).getCommands()).toEqual([]);
 
-    const robota = inspectSkillSources(sources, TEST_SKILL_ROOTS).roots.find(
-      (root) => root.root === join('.robota', 'skills'),
+    const agent = inspectSkillSources(sources, TEST_SKILL_ROOTS).roots.find(
+      (root) => root.root === join('.agent', 'skills'),
     );
-    expect(robota?.discovered).toEqual([]);
-    expect(robota?.skipped).toEqual([
+    expect(agent?.discovered).toEqual([]);
+    expect(agent?.skipped).toEqual([
       {
-        path: join('.robota', 'skills', 'bad-effort', 'SKILL.md'),
+        path: join('.agent', 'skills', 'bad-effort', 'SKILL.md'),
         reason: 'frontmatter-invalid',
         detail: expect.stringContaining('[invalid-value] effort:'),
       },
       {
-        path: join('.robota', 'skills', 'bad-effort-open', 'SKILL.md'),
+        path: join('.agent', 'skills', 'bad-effort-open', 'SKILL.md'),
         reason: 'frontmatter-unterminated',
         detail: expect.stringContaining('[unterminated]'),
       },
@@ -93,7 +93,7 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
   });
 
   it('inspects host-selected non-default roots without adding framework defaults', () => {
-    const home = mkdtempSync(join(tmpdir(), 'robota-skill-inspection-custom-'));
+    const home = mkdtempSync(join(tmpdir(), 'agent-skill-inspection-custom-'));
     roots.push(home);
     const customRoot = join('vendor', 'extensions');
     mkdirSync(join(home, customRoot, 'custom'), { recursive: true });

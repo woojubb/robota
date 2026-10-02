@@ -7,7 +7,7 @@
  * for a ceiling to be blocking.
  */
 
-import { ConfigurationError, ProviderError, RobotaError } from './errors';
+import { ConfigurationError, ProviderError, AgentRuntimeError } from './errors';
 
 import type { TErrorExternalInput } from './errors';
 
@@ -19,7 +19,7 @@ export class ErrorUtils {
    * Check if error is recoverable
    */
   static isRecoverable(error: Error): boolean {
-    if (error instanceof RobotaError) {
+    if (error instanceof AgentRuntimeError) {
       return error.recoverable;
     }
     return false;
@@ -29,7 +29,7 @@ export class ErrorUtils {
    * Extract error code from any error
    */
   static getErrorCode(error: Error): string {
-    if (error instanceof RobotaError) {
+    if (error instanceof AgentRuntimeError) {
       return error.code;
     }
     return 'UNKNOWN_ERROR';
@@ -41,8 +41,8 @@ export class ErrorUtils {
   static fromUnknown(
     error: TErrorExternalInput,
     defaultMessage = 'An unknown error occurred',
-  ): RobotaError {
-    if (error instanceof RobotaError) {
+  ): AgentRuntimeError {
+    if (error instanceof AgentRuntimeError) {
       return error;
     }
 

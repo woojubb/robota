@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * PM-031: record `docs/demo.gif` — the README demo — from the REAL robota binary.
+ * PM-031: record `docs/demo.gif` — the README demo — from the built CLI using a synthetic product identity.
  *
  * Three deterministic stages, no external binaries (no asciinema/agg/ffmpeg needed):
  *
- *  1. RECORD  — spawn the built `bin/robota.cjs` in a real pseudo-terminal (the same PTY substrate the
+ *  1. RECORD  — spawn the built `bin/agent.cjs` in a real pseudo-terminal (the same PTY substrate the
  *               `*.ptytest.ts` suites use), drive a scripted keystroke sequence, and capture the raw
  *               terminal bytes into an asciicast-v2 file. Model answers come from the offline
  *               `--session-log` replay provider (`agent-provider-replay`) — no network, no API key, no live provider.
@@ -36,6 +36,7 @@ import { createRequire } from 'node:module';
 import { homedir, hostname, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { syntheticFixtureIdentity, syntheticFixtureProductEnvironment } from './product-fixture-environment.mjs';
 
 const require = createRequire(import.meta.url);
 const { GIFEncoder, applyPalette, quantize } = require('gifenc');
@@ -44,22 +45,24 @@ const pty = require('@homebridge/node-pty-prebuilt-multiarch');
 const { chromium } = require('playwright');
 
 const PKG_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const ROBOTA_BIN = join(PKG_ROOT, 'bin/robota.cjs');
+const CLI_BIN = join(PKG_ROOT, 'bin/agent.cjs');
 const XTERM_ROOT = dirname(require.resolve('@xterm/xterm/package.json'));
 
 /**
  * Everything the demo run touches lives under here — never the real HOME.
  *
- * `mkdtemp`, not a fixed `/tmp/robota-demo`: a predictable path in a world-writable directory can be
+ * `mkdtemp`, not a fixed `/tmp/agent-demo`: a predictable path in a world-writable directory can be
  * pre-created by another user on a shared host as a symlink, so the recorder would follow it out of
  * the sandbox on the very first write (CodeQL `js/insecure-temporary-file`). `mkdtemp` creates the
  * root itself, mode 0700, under a name nobody can guess; the files inside are written 0600. The
  * random name never reaches the screen — the demo's tool call reads a project-relative path.
  */
-const DEMO_ROOT = mkdtempSync(join(tmpdir(), 'robota-demo-'));
+const DEMO_ROOT = mkdtempSync(join(tmpdir(), 'agent-demo-'));
 const PROJECT_DIR = join(DEMO_ROOT, 'task-board');
 const HOME_DIR = join(DEMO_ROOT, 'home');
 const SESSION_LOG = join(DEMO_ROOT, 'demo-session-log.jsonl');
+const PRODUCT_ENV = syntheticFixtureProductEnvironment(HOME_DIR);
+const PROJECT_STATE = PRODUCT_ENV.PRODUCT_PROJECT_STATE_DIR;
 /** Owner-only file/directory modes for everything the recorder writes into that root. */
 const FILE_MODE = 0o600;
 const DIR_MODE = 0o700;
@@ -110,7 +113,7 @@ export function loadTasks(path: string): ITask[] {
 }
 `,
   'tasks.json': `[{ "title": "ship the demo", "done": false }]\n`,
-  'README.md': `# task-board\n\nA tiny HTTP task board used as the robota demo project.\n`,
+  'README.md': `# task-board\n\nA tiny HTTP task board used as ${syntheticFixtureIdentity().identity.displayName} demo project.\n`,
 };
 
 /** The prompt typed in the demo. */
@@ -167,7 +170,7 @@ function demoSessionLog() {
     },
   ].map((entry) => ({
     timestamp: '2026-07-26T00:00:00.000Z',
-    sessionId: 'robota-demo',
+    sessionId: 'agent-demo',
     ...entry,
   }));
 }
@@ -185,11 +188,11 @@ function writeDemoWorkspace() {
     writeFileSync(target, contents, { encoding: 'utf8', mode: FILE_MODE });
   }
   mkdirSync(HOME_DIR, { recursive: true, mode: DIR_MODE });
-  mkdirSync(join(PROJECT_DIR, '.robota'), { recursive: true, mode: DIR_MODE });
+  mkdirSync(join(PROJECT_DIR, PROJECT_STATE), { recursive: true, mode: DIR_MODE });
   // A provider profile so the CLI boots straight into the REPL instead of the first-run wizard. The
   // key is a placeholder and is never used: `--session-log` replaces the provider with the replay one.
   writeFileSync(
-    join(PROJECT_DIR, '.robota/settings.json'),
+    join(PROJECT_DIR, PROJECT_STATE, 'settings.json'),
     `${JSON.stringify(
       {
         currentProvider: 'anthropic',
@@ -226,7 +229,7 @@ function stripAnsi(text) {
 }
 
 async function record() {
-  if (!existsSync(ROBOTA_BIN) || !existsSync(join(PKG_ROOT, 'dist/node/bin.js'))) {
+  if (!existsSync(CLI_BIN) || !existsSync(join(PKG_ROOT, 'dist/node/bin.js'))) {
     throw new Error(
       'the built CLI is missing — run `pnpm --filter @robota-sdk/agent-cli build` before recording',
     );
@@ -235,7 +238,7 @@ async function record() {
 
   const child = pty.spawn(
     process.execPath,
-    [ROBOTA_BIN, '--session-log', SESSION_LOG, '--name', 'demo'],
+    [CLI_BIN, '--session-log', SESSION_LOG, '--name', 'demo'],
     {
       name: 'xterm-256color',
       cols: options.cols,
@@ -243,7 +246,7 @@ async function record() {
       cwd: PROJECT_DIR,
       // Deliberately minimal: no inherited environment, so no real provider key, token or personal
       // path can reach the recording.
-      env: { PATH: '/usr/local/bin:/usr/bin:/bin', HOME: HOME_DIR, TERM: 'xterm-256color' },
+      env: { ...PRODUCT_ENV, PATH: process.env.PATH ?? '/usr/bin:/bin', TERM: 'xterm-256color' },
     },
   );
 

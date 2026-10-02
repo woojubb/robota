@@ -49,7 +49,7 @@ online or offline event.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders
 responsible for enforcement by opening a private report through
-[GitHub's private reporting](https://github.com/woojubb/robota/security/advisories/new) or by contacting the
+[GitHub's private reporting](__PROJECT_REPOSITORY_URL__/security/advisories/new) or by contacting the
 maintainers. <!-- maintainers: set a dedicated conduct contact email here if you prefer one. -->
 
 All complaints will be reviewed and investigated promptly and fairly. All community leaders are obligated to

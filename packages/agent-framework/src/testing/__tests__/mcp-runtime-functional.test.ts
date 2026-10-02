@@ -15,7 +15,7 @@ const isolatedHome = await vi.hoisted(async () => {
   const fs = await import('node:fs');
   const os = await import('node:os');
   const path = await import('node:path');
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'robota-mcp-functional-home-'));
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'agent-mcp-functional-home-'));
 });
 vi.mock('node:os', async (original) => ({
   ...(await original<typeof import('node:os')>()),
@@ -144,7 +144,7 @@ describe('in-memory MCP with real session execution', () => {
     const names = (await client.listTools()).tools.map((tool) => tool.name);
     expect(names).toContain('command_echo');
     expect(names).not.toContain('command_hidden');
-    expect(names).not.toContain('robota_command_echo');
+    expect(names).not.toContain('agent_command_echo');
     const echoed = await client.callTool({ name: 'command_echo', arguments: { args: '' } });
     expect(echoed.isError).toBe(false);
     expect(JSON.stringify(echoed)).toContain('echoed');

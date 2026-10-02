@@ -41,8 +41,38 @@ export interface IUriImageMessagePart {
   mimeType?: string;
 }
 
+/** An inline audio observation; provider support is determined by the adapter. */
+export interface IInlineAudioMessagePart {
+  type: 'audio_inline';
+  mimeType: string;
+  data: string;
+}
+
+/** An opaque reference, never authority to fetch its URI. */
+export interface IResourceLinkMessagePart {
+  type: 'resource_link';
+  uri: string;
+  name: string;
+  mimeType?: string;
+  title?: string;
+  description?: string;
+  size?: number;
+}
+
+/** Embedded untrusted resource content, tied to the contributor's opaque URI. */
+export type TEmbeddedResourceMessagePart = {
+  type: 'resource_embedded';
+  uri: string;
+  mimeType?: string;
+} & ({ text: string; blob?: never } | { blob: string; text?: never });
+
 export type TUniversalMessagePart =
-  ITextMessagePart | IInlineImageMessagePart | IUriImageMessagePart;
+  | ITextMessagePart
+  | IInlineImageMessagePart
+  | IUriImageMessagePart
+  | IInlineAudioMessagePart
+  | IResourceLinkMessagePart
+  | TEmbeddedResourceMessagePart;
 
 /**
  * Tool call (OpenAI tool calling format).

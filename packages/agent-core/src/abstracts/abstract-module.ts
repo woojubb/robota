@@ -1,7 +1,7 @@
 /**
  * Abstract Module Base Class
  *
- * Defines the core lifecycle contract for Robota modules.
+ * Defines the core lifecycle contract for ConversationAgent modules.
  * Type definitions live in ./abstract-module-types.ts.
  */
 import {
@@ -65,7 +65,7 @@ const ID_RANDOM_LENGTH = 9;
  * Abstract base class for all modules with type parameter support.
  *
  * Every Module must be an optional extension feature:
- * - Robota must work normally without any Module
+ * - ConversationAgent must work normally without any Module
  * - Adding a Module should only grant new capabilities or features
  */
 export abstract class AbstractModule<

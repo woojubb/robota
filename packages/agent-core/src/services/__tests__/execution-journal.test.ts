@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Robota } from '../../core/robota';
+import { ConversationAgent } from '../../core/conversation-agent';
 import { createScriptedProvider, type TScriptedTurn } from '../../testing/scripted-provider';
 import { FunctionTool } from '../../tool-registry';
 import type { IRunOptions } from '../../interfaces/run-options';
@@ -15,14 +15,18 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-const agents: Robota[] = [];
+const agents: ConversationAgent[] = [];
 afterEach(async () => {
   await Promise.all(agents.splice(0).map((agent) => agent.destroy()));
 });
 
 function fixture(turns: TScriptedTurn[], effect = vi.fn(async () => 'tool answer')) {
   const scripted = createScriptedProvider(turns);
-  const agent = new Robota({
+  const agent = new ConversationAgent({
+    // These fixtures exercise independent calls settling concurrently.
+    toolExecutionPolicy: (calls) => ({
+      scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
+    }),
     name: 'journal-test',
     aiProviders: [scripted.provider],
     defaultModel: { provider: scripted.provider.name, model: 'test-model' },
@@ -37,7 +41,7 @@ function fixture(turns: TScriptedTurn[], effect = vi.fn(async () => 'tool answer
   return { agent, effect, ...scripted };
 }
 
-async function execute(agent: Robota, options: IRunOptions, streaming: boolean) {
+async function execute(agent: ConversationAgent, options: IRunOptions, streaming: boolean) {
   if (!streaming) return agent.run('test', options);
   for await (const _text of agent.runStream('test', options)) {
     /* Drive the same runtime through streaming. */
@@ -45,7 +49,7 @@ async function execute(agent: Robota, options: IRunOptions, streaming: boolean) 
   return undefined;
 }
 
-describe('awaited execution journal through public Robota runs', () => {
+describe('awaited execution journal through public ConversationAgent runs', () => {
   it('applies effect admission to custom replacement tools without relying on a base class', async () => {
     const { agent } = fixture([
       { text: 'ready' },

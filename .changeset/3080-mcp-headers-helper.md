@@ -23,10 +23,10 @@ Remote MCP servers can take their request headers from a header helper.
 
 - **Running it** (`agent-cli`):
   - No shell. It runs in the project directory for a `project`/`local` definition, and in
-    `~/.robota` otherwise.
+    `the configured user data directory` otherwise.
   - Its environment is the host's without runtime-loading variables (`NODE_OPTIONS`, `LD_*`,
     `BASH_ENV`, …). A `project`/`local` helper also gets no credential-shaped variables.
-    `ROBOTA_MCP_SERVER_NAME` and `ROBOTA_MCP_SERVER_URL` are set. For a `project`/`local` helper
+    `PRODUCT_MCP_SERVER_NAME` and `PRODUCT_MCP_SERVER_URL` are set. For a `project`/`local` helper
     the URL keeps its `${VAR}` references instead of what the environment expanded them to.
   - Limits: 10 s and 64 KiB of stdout. Stderr is discarded. The process tree is killed on timeout
     or cancel.

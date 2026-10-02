@@ -30,10 +30,36 @@ export class FunctionTool implements IFunctionTool {
   readonly fn: TToolExecutor;
   private eventService: IEventService | undefined;
 
-  constructor(schema: IToolSchema, fn: TToolExecutor) {
+  constructor(
+    schema: IToolSchema,
+    fn: TToolExecutor,
+    private readonly resultExecutor?: TToolExecutor<TToolParameters, IToolResult>,
+  ) {
     this.schema = schema;
     this.fn = fn;
     this.validateConstructorInputs();
+  }
+
+  /** Register an envelope executor explicitly; ordinary function values remain domain data. */
+  static fromResult(
+    schema: IToolSchema,
+    execute: TToolExecutor<TToolParameters, IToolResult>,
+  ): FunctionTool {
+    return new FunctionTool(
+      schema,
+      async (parameters, context) => {
+        const result = await execute(parameters, context);
+        if (!result.success)
+          throw new ToolExecutionError(result.error ?? 'Tool execution failed', schema.name);
+        if (result.data === undefined)
+          throw new ToolExecutionError(
+            'Tool execution succeeded but returned no data',
+            schema.name,
+          );
+        return result.data;
+      },
+      execute,
+    );
   }
 
   /**
@@ -75,9 +101,13 @@ export class FunctionTool implements IFunctionTool {
 
     // Execute the function
     const startTime = Date.now();
-    let result: TUniversalValue;
+    let result: TUniversalValue | undefined;
+    let envelope: IToolResult | undefined;
     try {
-      result = await this.fn(parameters, context);
+      if (this.resultExecutor) {
+        envelope = await this.resultExecutor(parameters, context);
+        result = envelope.data;
+      } else result = await this.fn(parameters, context);
     } catch (error) {
       if (isExecutionControlError(error)) throw error;
       if (error instanceof ToolExecutionError || error instanceof ValidationError) {
@@ -101,7 +131,7 @@ export class FunctionTool implements IFunctionTool {
 
     // SELFHOST-005: validate the tool OUTPUT against its declared schema (beside the tool-input
     // validation above), throwing before the result returns — same layer as the input validator.
-    if (this.schema.outputSchema) {
+    if (this.schema.outputSchema && (!envelope || envelope.success)) {
       validateToolOutput(toolName, result, this.schema.outputSchema);
     }
 
@@ -122,6 +152,7 @@ export class FunctionTool implements IFunctionTool {
       eventService.emit(SPAN_EVENTS.COMPLETED, spanEvent);
     }
 
+    if (envelope) return envelope;
     return {
       success: true,
       data: result,

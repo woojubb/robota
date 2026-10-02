@@ -7,6 +7,11 @@ name: Publish to npm
 # still needs the owner's OTP (a trusted publisher can only be configured for an existing package).
 on:
   workflow_dispatch:
+    inputs:
+      product_env:
+        description: 'Non-secret product environment file contents; otherwise uses vars.PRODUCT_BUILD_ENV.'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -21,6 +26,8 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: npm-publish
+    env:
+      PRODUCT_BUILD_ENV: ${{ github.event.inputs.product_env || vars.PRODUCT_BUILD_ENV }}
     permissions:
       contents: read
       id-token: write
@@ -37,4 +44,18 @@ jobs:
       # release run is reproducible.
       - run: npm install -g npm@11.20.0
       - run: pnpm install --frozen-lockfile
-      - run: bash scripts/publish/publish-packages.sh --trusted
+      - name: Generate selected product workspace
+        shell: bash
+        run: |
+          pnpm exec tsx -e '
+            import { writeFileSync } from "node:fs";
+            import { join } from "node:path";
+            if (!process.env.PRODUCT_BUILD_ENV?.trim()) throw new Error("Select product_env or configure vars.PRODUCT_BUILD_ENV before publication.");
+            writeFileSync(join(process.env.RUNNER_TEMP, "selected-product.env"), process.env.PRODUCT_BUILD_ENV, { mode: 0o600 });
+          '
+          pnpm exec tsx scripts/product/generate-workspace.mjs --env "$RUNNER_TEMP/selected-product.env" --out "$RUNNER_TEMP/product-workspace" --github-env "$GITHUB_ENV"
+      - name: Publish the configured product packages
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}
+        run: |
+          pnpm install --frozen-lockfile
+          bash scripts/publish/publish-packages.sh --trusted

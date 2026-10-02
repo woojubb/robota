@@ -15,8 +15,8 @@ let directory: string;
 let clock: number;
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), 'robota-address-cache-'));
-  directory = join(home, '.robota', 'devices');
+  home = mkdtempSync(join(tmpdir(), 'agent-fixture-address-cache-'));
+  directory = join(home, '.agent-fixture', 'devices');
   clock = Date.now();
 });
 
@@ -26,7 +26,7 @@ afterEach(() => {
 
 function open() {
   return createFileMeshAddressCache(directory, {
-    withinRoot: join(home, '.robota'),
+    withinRoot: join(home, '.agent-fixture'),
     now: () => clock,
   });
 }

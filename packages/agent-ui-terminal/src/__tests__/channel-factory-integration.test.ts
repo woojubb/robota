@@ -72,7 +72,7 @@ describe('channel factory restores persisted context (CLI-B11 TC-02)', () => {
   let channel: TuiInteractionChannel | undefined;
 
   beforeEach(() => {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-b11-int-')));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-b11-int-')));
   });
 
   afterEach(async () => {
@@ -82,7 +82,7 @@ describe('channel factory restores persisted context (CLI-B11 TC-02)', () => {
   });
 
   it('createChannel(sessionId) over a real FileSessionStore yields usedTokens > 0', async () => {
-    const store = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
+    const store = createNodeHostSessionStore(join(cwd, 'state', 'sessions'));
     const sessionId = 'b11-restore-session';
     persistConversation(store, sessionId, cwd);
 
@@ -118,7 +118,7 @@ describe('channel factory restores persisted context (CLI-B11 TC-02)', () => {
   });
 
   it('a channel created WITHOUT resumeSessionId starts with an empty context (control)', async () => {
-    const store = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
+    const store = createNodeHostSessionStore(join(cwd, 'state', 'sessions'));
     persistConversation(store, 'b11-other-session', cwd);
 
     const scripted = createScriptedProvider([{ text: 'unused' }]);

@@ -12,7 +12,7 @@ import { createRestrictedWorkspaceProjectAccess } from '../../workspace-trust/in
 const directories: string[] = [];
 
 function tempDirectory(): string {
-  const directory = realpathSync(mkdtempSync(join(tmpdir(), 'robota-project-settings-paths-')));
+  const directory = realpathSync(mkdtempSync(join(tmpdir(), 'agent-project-settings-paths-')));
   directories.push(directory);
   return directory;
 }
@@ -25,8 +25,8 @@ afterEach(() => {
 describe('interactive project settings paths', () => {
   it('does not read ambient user settings without host-provided sources', async () => {
     const home = tempDirectory();
-    mkdirSync(join(home, '.robota'), { recursive: true });
-    writeFileSync(join(home, '.robota', 'settings.json'), '{"language":"ko"}');
+    mkdirSync(join(home, '.agent'), { recursive: true });
+    writeFileSync(join(home, '.agent', 'settings.json'), '{"language":"ko"}');
     vi.stubEnv('HOME', home);
 
     const result = await loadInteractiveProjectConfig(undefined, undefined);
@@ -35,8 +35,8 @@ describe('interactive project settings paths', () => {
 
   it('reads exactly the user settings source supplied by the host', async () => {
     const home = tempDirectory();
-    mkdirSync(join(home, '.robota'), { recursive: true });
-    writeFileSync(join(home, '.robota', 'settings.json'), '{"language":"ko"}');
+    mkdirSync(join(home, '.agent'), { recursive: true });
+    writeFileSync(join(home, '.agent', 'settings.json'), '{"language":"ko"}');
     const customPath = join(home, 'custom-settings.json');
     writeFileSync(customPath, '{"language":"ja"}');
     vi.stubEnv('HOME', home);
@@ -51,9 +51,9 @@ describe('interactive project settings paths', () => {
     const root = tempDirectory();
     vi.stubEnv('HOME', tempDirectory());
     mkdirSync(join(root, '.custom'), { recursive: true });
-    mkdirSync(join(root, '.robota'), { recursive: true });
+    mkdirSync(join(root, '.agent'), { recursive: true });
     writeFileSync(join(root, '.custom', 'settings.json'), '{"language":"ja"}');
-    writeFileSync(join(root, '.robota', 'settings.json'), '{"language":"ko"}');
+    writeFileSync(join(root, '.agent', 'settings.json'), '{"language":"ko"}');
     const paths = [{ scope: 'project' as const, relativePath: join('.custom', 'settings.json') }];
     const trusted = await createTrustedProjectAccessFixture(root);
     if (trusted.status !== 'trusted') throw new Error('Expected trusted project access.');

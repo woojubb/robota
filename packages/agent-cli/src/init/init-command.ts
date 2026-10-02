@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { promptInput } from '../cli-input.js';
 import {
   assertWorkspaceProjectMutationForAuthority,
@@ -6,7 +7,6 @@ import {
 } from '@robota-sdk/agent-framework';
 
 import { writeRuntimeDataIgnore } from './runtime-data-ignore.js';
-import { AGENT_CLI_BIN } from '../constants.js';
 
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 import type {
@@ -47,12 +47,7 @@ npm run build
 <!-- Anything the agent should know before making changes -->
 `;
 
-const SETTINGS_TEMPLATE = {
-  permissions: {
-    allow: ['Read(.robota/**)', 'Read(.claude/**)', 'Read(.agents/**)'],
-    deny: [],
-  },
-};
+
 
 function readClaudeSettings(reader: IWorkspaceProjectReader): Record<string, unknown> | null {
   const raw = reader.readText('.claude/settings.json', 'migrate Claude project settings');
@@ -76,6 +71,7 @@ export class InitPromptUnavailableError extends Error {
 }
 
 export interface IInitCommandOptions {
+  productRuntime: ICliRuntimeContext;
   /** Initial trusted-or-restricted workspace decision. */
   projectAccess: TWorkspaceProjectAccess;
   /** Separately approved mutation capability for this exact project authority. */
@@ -141,13 +137,17 @@ export async function runInitCommand(
     options.projectAccess.authority,
   );
 
+  const runtime = options.productRuntime;
+  const settingsPath = `${runtime.layout.projectDirectory}/settings.json`;
+  const ignorePath = `${runtime.layout.projectDirectory}/.gitignore`;
+  const settingsTemplate = { permissions: { allow: runtime.layout.baselinePermissionAllow, deny: [] } };
   terminal.writeLine('');
-  terminal.writeLine(`${AGENT_CLI_BIN} project initialization`);
+  terminal.writeLine(`${runtime.vocabulary.cliName} project initialization`);
   terminal.writeLine('─'.repeat(40));
 
   const confirmCtx: IConfirmContext = {
     yes: options.yes === true,
-    ci: options.ci ?? process.env['CI'] === 'true',
+    ci: options.ci ?? options.productRuntime.environment['CI'] === 'true',
     isTTY: options.isTTY ?? process.stdin.isTTY === true,
     promptFn: options.promptFn ?? promptInput,
     terminal,
@@ -155,26 +155,26 @@ export async function runInitCommand(
 
   // SEC-020: BEFORE the overwrite prompt, deliberately. These rules are additive and protective —
   // the merge below never removes a line — and the path that reaches the prompt is precisely the one
-  // where `.robota/` is already populated, so transcripts may already be sitting in the tree waiting
+  // where `the configured project directory/` is already populated, so transcripts may already be sitting in the tree waiting
   // to be committed. Declining to overwrite AGENTS.md is not a reason to leave them exposed, and a
   // second call site for the cancel path would be one more thing to remember.
-  const ignoreOutcome = writeRuntimeDataIgnore(reader, mutation);
+  const ignoreOutcome = writeRuntimeDataIgnore(reader, mutation, runtime);
   terminal.writeLine('');
   terminal.writeLine(
     ignoreOutcome === 'unchanged'
-      ? 'Unchanged: .robota/.gitignore (already covers runtime session data)'
-      : `${ignoreOutcome === 'created' ? 'Created' : 'Updated'}: .robota/.gitignore`,
+      ? `Unchanged: ${ignorePath} (already covers runtime session data)`
+      : `${ignoreOutcome === 'created' ? 'Created' : 'Updated'}: ${ignorePath}`,
   );
 
   const hasClaudeDir =
     reader.inspectKind('.claude', 'inspect Claude project settings') === 'directory';
   const hasSettings =
-    reader.inspectKind('.robota/settings.json', 'inspect Robota project settings') === 'file';
+    reader.inspectKind(settingsPath, 'inspect product project settings') === 'file';
   const hasAgentsMd = reader.inspectKind('AGENTS.md', 'inspect project instructions') === 'file';
 
   if (hasSettings && hasAgentsMd) {
     terminal.writeLine('');
-    terminal.writeLine('Both AGENTS.md and .robota/settings.json already exist.');
+    terminal.writeLine(`Both AGENTS.md and ${settingsPath} already exist.`);
     const overwrite = await confirm('Overwrite existing files?', false, confirmCtx);
     if (!overwrite) {
       terminal.writeLine('Init cancelled.');
@@ -182,12 +182,12 @@ export async function runInitCommand(
     }
   }
 
-  let settingsData: Record<string, unknown> = { ...SETTINGS_TEMPLATE };
+  let settingsData: Record<string, unknown> = { ...settingsTemplate };
 
   if (hasClaudeDir) {
     terminal.writeLine('');
     terminal.writeLine('Detected .claude/ directory (Claude Code configuration).');
-    const migrate = await confirm('Migrate Claude Code settings to .robota/?', false, confirmCtx);
+    const migrate = await confirm(`Migrate Claude Code settings to ${runtime.layout.projectDirectory}/?`, false, confirmCtx);
     if (migrate) {
       const claudeSettings = readClaudeSettings(reader);
       if (claudeSettings === null) {
@@ -204,7 +204,7 @@ export async function runInitCommand(
             claudeSettings.permissions !== null
               ? (claudeSettings.permissions as Record<string, unknown>)
               : {}),
-            allow: [...SETTINGS_TEMPLATE.permissions.allow, ...(claudePerms?.allow ?? [])],
+            allow: [...settingsTemplate.permissions.allow, ...(claudePerms?.allow ?? [])],
             deny: claudePerms?.deny ?? [],
           },
         };
@@ -214,12 +214,12 @@ export async function runInitCommand(
   }
 
   mutation.writeBytes(
-    '.robota/settings.json',
+    settingsPath,
     new TextEncoder().encode(`${JSON.stringify(settingsData, null, 2)}\n`),
-    'initialize Robota project settings',
+    'initialize product project settings',
   );
   terminal.writeLine('');
-  terminal.writeLine('Created: .robota/settings.json');
+  terminal.writeLine(`Created: ${settingsPath}`);
 
   mutation.writeBytes(
     'AGENTS.md',
@@ -233,8 +233,8 @@ export async function runInitCommand(
   terminal.writeLine('');
   terminal.writeLine('Next steps:');
   terminal.writeLine('  1. Edit AGENTS.md to describe your project conventions');
-  terminal.writeLine(`  2. Run \`${AGENT_CLI_BIN} --configure\` to set up your AI provider`);
-  terminal.writeLine(`  3. Run \`${AGENT_CLI_BIN}\` to start the assistant`);
+  terminal.writeLine(`  2. Run \`${runtime.vocabulary.cliName} --configure\` to set up your AI provider`);
+  terminal.writeLine(`  3. Run \`${runtime.vocabulary.cliName}\` to start the assistant`);
   terminal.writeLine('');
 
   // Provider setup is an optional trailing step: init has already completed, so a

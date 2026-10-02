@@ -348,7 +348,7 @@ export class ExecutionService {
         this.eventEmitter,
       );
       // CORE-020: a failed result carries the error itself — never error text disguised
-      // as a response. robotaRun throws result.error so callers receive a rejection.
+      // as a response. agentRun throws result.error so callers receive a rejection.
       return {
         response: '',
         messages: [],

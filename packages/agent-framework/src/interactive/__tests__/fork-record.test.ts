@@ -104,7 +104,7 @@ describe('buildForkedSessionRecord (CLI-1994)', () => {
   let store: NodeSessionStore;
 
   beforeEach(() => {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-1994-fork-')));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-1994-fork-')));
     store = new NodeSessionStore(join(cwd, 'sessions'));
     store.save(sourceRecord(cwd));
   });

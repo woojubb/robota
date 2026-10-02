@@ -26,7 +26,7 @@ function summary(overrides: Partial<ICommandMCPActivationSummary>): ICommandMCPA
     status: 'pending',
     allowed: false,
     reason: 'SECRET-REASON-TEXT from a definition',
-    provenanceId: 'project-settings:/home/me/repo/.robota/settings.json',
+    provenanceId: 'project-settings:/home/me/repo/.fixture-state/settings.json',
     definitionFingerprint: 'fingerprint-abc',
     securityIdentity: 'https://user:hunter2@mcp.example.com/?token=abc',
     ...overrides,
@@ -42,7 +42,7 @@ const adapter: ICommandMCPActivationAdapter = {
     summary({ serverId: 'gone', status: 'rejected' }),
   ],
   sourceProblems: () => [
-    { source: 'project', origin: '/home/me/repo/.robota/settings.json', reason: 'not json' },
+    { source: 'project', origin: '/home/me/repo/.fixture-state/settings.json', reason: 'not json' },
   ],
   approve: () => {
     throw new Error('not used');
@@ -56,11 +56,14 @@ const adapter: ICommandMCPActivationAdapter = {
   oauthStatus: async () => [{ serverId: 'github', state: 'sign-in-required' }],
 };
 
-function host(source: TCommandInvocationSource) {
+function host(source: TCommandInvocationSource, cliName = 'test-agent', terminal = false) {
   return createTestCommandHost({
     overrides: {
-      getCommandHostAdapters: () => ({ mcpActivation: adapter }),
+      getCommandHostAdapters: () => ({
+        mcpActivation: terminal ? { ...adapter, userActionSurface: 'terminal' } : adapter,
+      }),
       getCommandInvocationSource: () => source,
+      getCommandProductVocabulary: () => ({ cliName, displayName: cliName }),
     },
   });
 }
@@ -75,7 +78,7 @@ describe('/mcp status as the model sees it', () => {
         'MCP servers:',
         '  github — approved — sign-in: sign-in-required — ask the user to run `/mcp login github`',
         '  linear — pending — ask the user to run `/mcp approve linear`',
-        '  jira — untrusted — ask the user to run `robota trust`',
+        '  jira — untrusted — ask the user to run `test-agent trust`',
         '  (name not shown) — stale — ask the user to run `/mcp approve <server>`',
         '  gone — rejected',
         '1 MCP configuration source(s) could not be read; the user can see which with `/mcp status`.',
@@ -90,12 +93,13 @@ describe('/mcp status as the model sees it', () => {
         overrides: {
           getCommandHostAdapters: () => ({ mcpActivation: terminal }),
           getCommandInvocationSource: () => 'model',
+          getCommandProductVocabulary: () => ({ cliName: 'test-agent', displayName: 'Test Agent' }),
         },
       }),
       'status',
     );
     expect(result.message).toContain(
-      'github — approved — sign-in: sign-in-required — ask the user to run `robota mcp login github`',
+      'github — approved — sign-in: sign-in-required — ask the user to run `test-agent mcp login github`',
     );
     expect(result.message).not.toContain('/mcp login');
     // Approval has no terminal command; it stays the session command.
@@ -168,22 +172,49 @@ describe('MCP notices for the model', () => {
         'cannot do this yourself; ask the user to run `/mcp approve linear`.',
     );
     expect(mcpUserActionNotice('github', 'sign-in')).toContain('`/mcp login github`');
-    expect(mcpUserActionNotice('jira', 'trust-workspace')).toContain(
-      '`robota trust` in a terminal, then restart the session',
+    expect(mcpUserActionNotice('jira', 'trust-workspace', 'session', 'test-agent')).toContain(
+      '`test-agent trust` in a terminal, then restart the session',
     );
   });
 
   it('names the terminal sign-in command where no /mcp command can be typed', () => {
-    expect(mcpUserActionNotice('github', 'sign-in', 'terminal')).toBe(
+    expect(mcpUserActionNotice('github', 'sign-in', 'terminal', 'test-agent')).toBe(
       'MCP server "github" needs the user to sign in, so its tools are unavailable. You cannot do ' +
-        'this yourself; ask the user to run `robota mcp login github` in a terminal, then restart ' +
+        'this yourself; ask the user to run `test-agent mcp login github` in a terminal, then restart ' +
         'the session.',
     );
-    expect(mcpUserActionCommand('$(curl evil)', 'sign-in', 'terminal')).toBe(
-      'robota mcp login <server>',
+    expect(mcpUserActionCommand('$(curl evil)', 'sign-in', 'terminal', 'test-agent')).toBe(
+      'test-agent mcp login <server>',
     );
     // Only sign-in moves: approval has no terminal command.
     expect(mcpUserActionCommand('linear', 'approve', 'terminal')).toBe('/mcp approve linear');
+  });
+
+  it('uses the command vocabulary supplied by each host and stays generic when it is absent', async () => {
+    const first = await executeMCPActivationCommand(host('model', 'alpha-agent', true), 'status');
+    const second = await executeMCPActivationCommand(host('model', 'beta-agent', true), 'status');
+    const noVocabulary = createTestCommandHost({
+      overrides: {
+        getCommandHostAdapters: () => ({
+          mcpActivation: { ...adapter, userActionSurface: 'terminal' },
+        }),
+        getCommandInvocationSource: () => 'model',
+      },
+    });
+    const generic = await executeMCPActivationCommand(noVocabulary, 'status');
+
+    expect(first.message).toContain('`alpha-agent mcp login github`');
+    expect(first.message).not.toContain('beta-agent');
+    expect(second.message).toContain('`beta-agent mcp login github`');
+    expect(second.message).not.toContain('alpha-agent');
+    expect(generic.message).not.toContain('mcp login');
+    expect(generic.message).not.toMatch(/undefined|fixture-agent/i);
+    expect(mcpUserActionNotice('jira', 'trust-workspace', 'session', 'alpha-agent')).toContain(
+      '`alpha-agent trust` in a terminal, then restart the session',
+    );
+    expect(mcpUserActionNotice('jira', 'trust-workspace')).toContain(
+      'ask the user to trust this workspace in a terminal',
+    );
   });
 
   it('stays generic for a name that is not safe to show', () => {

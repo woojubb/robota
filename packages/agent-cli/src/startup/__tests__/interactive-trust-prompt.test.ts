@@ -1,9 +1,11 @@
+import { createTestProductEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { resolveCliRuntimeContext } from '../product-bootstrap.js';
 /**
  * Issue #3268: an interactive start in an untrusted workspace asks whether to trust it, before the
  * project is composed; a run no one is at, or whose access was decided for it, is not asked.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -34,7 +36,7 @@ afterEach(() => {
 
 /** An untrusted Git workspace, with the trust store in a temporary HOME. */
 function untrustedRepository(): string {
-  const scratch = realpathSync(mkdtempSync(join(tmpdir(), 'robota-trust-prompt-')));
+  const scratch = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-trust-prompt-')));
   cleanup.push(() => rmSync(scratch, { recursive: true, force: true }));
   const home = join(scratch, 'home');
   const repo = join(scratch, 'repo');
@@ -47,11 +49,11 @@ function untrustedRepository(): string {
 describe('askToTrustWorkspace', () => {
   it('asks at an interactive start, and a yes starts it Trusted and records the grant', async () => {
     const repo = untrustedRepository();
-    const access = await resolveInitialCliWorkspaceProjectAccess(repo);
+    const access = await resolveInitialCliWorkspaceProjectAccess(repo, { productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) });
     const written: string[] = [];
     const confirm = vi.fn(async () => true);
 
-    const result = await askToTrustWorkspace(access, repo, {
+    const result = await askToTrustWorkspace(access, repo, {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
       interactive: true,
       accessFixed: false,
       confirm,
@@ -64,17 +66,17 @@ describe('askToTrustWorkspace', () => {
     expect(written.join('')).toContain('Project sources');
     expect(result.status).toBe('trusted');
     // Recorded, so the next start is Trusted without asking.
-    await expect(resolveInitialCliWorkspaceProjectAccess(repo)).resolves.toMatchObject({
+    await expect(resolveInitialCliWorkspaceProjectAccess(repo, { productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) })).resolves.toMatchObject({
       status: 'trusted',
     });
   });
 
   it('starts Restricted on a no, and says how to trust it later', async () => {
     const repo = untrustedRepository();
-    const access = await resolveInitialCliWorkspaceProjectAccess(repo);
+    const access = await resolveInitialCliWorkspaceProjectAccess(repo, { productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) });
     const written: string[] = [];
 
-    const result = await askToTrustWorkspace(access, repo, {
+    const result = await askToTrustWorkspace(access, repo, {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
       interactive: true,
       accessFixed: false,
       confirm: async () => false,
@@ -83,9 +85,9 @@ describe('askToTrustWorkspace', () => {
 
     expect(result).toBe(access);
     expect(written.join('')).toContain(
-      'Starting Restricted. Trust it later with: robota trust --yes',
+      'Starting Restricted. Trust it later with: test-product trust --yes',
     );
-    await expect(resolveInitialCliWorkspaceProjectAccess(repo)).resolves.toMatchObject({
+    await expect(resolveInitialCliWorkspaceProjectAccess(repo, { productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) })).resolves.toMatchObject({
       status: 'restricted',
     });
   });
@@ -98,10 +100,10 @@ describe('askToTrustWorkspace', () => {
     ],
   ])('does not ask for %s', async (_case, flags) => {
     const repo = untrustedRepository();
-    const access = await resolveInitialCliWorkspaceProjectAccess(repo);
+    const access = await resolveInitialCliWorkspaceProjectAccess(repo, { productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) });
     const confirm = vi.fn(async () => true);
 
-    const result = await askToTrustWorkspace(access, repo, {
+    const result = await askToTrustWorkspace(access, repo, {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
       ...flags,
       confirm,
       write: () => undefined,
@@ -115,7 +117,7 @@ describe('askToTrustWorkspace', () => {
     const confirm = vi.fn(async () => true);
     for (const state of ['identity-unavailable', 'store-unavailable'] as const) {
       const access = createRestrictedWorkspaceProjectAccess(state, '/nowhere');
-      await askToTrustWorkspace(access, '/nowhere', {
+      await askToTrustWorkspace(access, '/nowhere', {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
         interactive: true,
         accessFixed: false,
         confirm,
@@ -165,10 +167,10 @@ describe('startsNewTuiSession', () => {
 describe('askToTrustWorkspace when the grant fails', () => {
   it('says so and starts Restricted rather than failing the start', async () => {
     const repo = untrustedRepository();
-    const access = await resolveInitialCliWorkspaceProjectAccess(repo);
+    const access = await resolveInitialCliWorkspaceProjectAccess(repo, { productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) });
     const written: string[] = [];
 
-    const result = await askToTrustWorkspace(access, repo, {
+    const result = await askToTrustWorkspace(access, repo, {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
       interactive: true,
       accessFixed: false,
       confirm: async () => true,
@@ -188,7 +190,7 @@ describe('askToTrustWorkspace when the grant fails', () => {
 describe('trustQuestionFor — #3282 §3 rows with an unknown state are omitted', () => {
   it('lists only rows whose kind is known, in the same order', async () => {
     const repo = untrustedRepository();
-    const access = await resolveInitialCliWorkspaceProjectAccess(repo);
+    const access = await resolveInitialCliWorkspaceProjectAccess(repo, { productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) });
     // Deliberately mixed and out of the candidate list's own order, so a passing test cannot be an
     // accident of "everything happens to line up".
     inspectPreTrustProjectPaths.mockImplementationOnce((_identity: unknown, paths: readonly string[]) =>
@@ -197,7 +199,7 @@ describe('trustQuestionFor — #3282 §3 rows with an unknown state are omitted'
       ),
     );
 
-    const question = trustQuestionFor(access, repo);
+    const question = trustQuestionFor(access, repo, createTestProductRuntime('test-product', { HOME: process.env['HOME'] }));
 
     expect(question?.loads.length).toBeGreaterThan(0);
     expect(question?.loads.every((line) => !line.startsWith('  [unavailable]'))).toBe(true);
@@ -207,23 +209,82 @@ describe('trustQuestionFor — #3282 §3 rows with an unknown state are omitted'
 
   it('every row unknown leaves no rows — no "[unavailable]" noise', async () => {
     const repo = untrustedRepository();
-    const access = await resolveInitialCliWorkspaceProjectAccess(repo);
+    const access = await resolveInitialCliWorkspaceProjectAccess(repo, { productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) });
     inspectPreTrustProjectPaths.mockImplementationOnce((_identity: unknown, paths: readonly string[]) =>
       paths.map(() => ({ kind: 'unavailable' })),
     );
 
-    const question = trustQuestionFor(access, repo);
+    const question = trustQuestionFor(access, repo, createTestProductRuntime('test-product', { HOME: process.env['HOME'] }));
 
     expect(question?.loads).toEqual([]);
   });
 });
 
-describe('robota trust status --json', () => {
+describe('test-product trust status --json', () => {
+  it('reveals only admitted provider environment names, including selected-file references', async () => {
+    const repo = untrustedRepository();
+    const home = process.env['HOME']!;
+    const selectedFile = join(home, 'selected.env');
+    writeFileSync(selectedFile, Object.entries({
+      ...createTestProductEnvironment('test-product'),
+      PRODUCT_USER_STATE_DIR: join(home, '.test-product'),
+      PRODUCT_CACHE_DIR: join(home, '.test-product', 'cache'),
+      PRODUCT_LOG_DIR: join(home, '.test-product', 'logs'),
+      SYNTHETIC_PROJECT_KEY: 'synthetic-key-value',
+      SYNTHETIC_USER_KEY: 'synthetic-user-value',
+      SYNTHETIC_DEFAULT_KEY: 'synthetic-default-value',
+      SYNTHETIC_DESTINATION: 'https://fixture.invalid',
+      UNRELATED_PRIVATE_TOKEN: 'unrelated-secret-value',
+    }).map(([key, value]) => `${key}=${value}`).join('\n'));
+    const runtime = resolveCliRuntimeContext({ environment: { HOME: home, PRODUCT_CONFIG_FILE: selectedFile } });
+    const projectSettings = join(repo, runtime.layout.projectDirectory, 'settings.json');
+    mkdirSync(join(repo, runtime.layout.projectDirectory));
+    writeFileSync(projectSettings, '{ malformed until trusted }');
+    const definitions = [{
+      type: 'openai',
+      defaults: { model: 'fixture-model', apiKey: '$ENV:SYNTHETIC_DEFAULT_KEY' },
+      destinationEnvironment: ['SYNTHETIC_DESTINATION'],
+      createProvider: () => { throw new Error('provider must not be created by trust status'); },
+    }];
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      expect(await runWorkspaceTrustCommand(['status', '--json'], repo, runtime, undefined, definitions)).toBe(0);
+      expect(JSON.parse(stdout.mock.calls.map(([text]) => String(text)).join(''))).not.toHaveProperty('providerEnvRefs');
+
+      writeFileSync(projectSettings, JSON.stringify({
+        currentProvider: 'project',
+        providers: { project: { type: 'openai', model: 'fixture-model', apiKey: '$ENV:SYNTHETIC_PROJECT_KEY' } },
+      }));
+      mkdirSync(runtime.layout.userRoot, { recursive: true });
+      writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({
+        providers: { user: { type: 'openai', model: 'fixture-model', apiKey: '$ENV:SYNTHETIC_USER_KEY' } },
+      }));
+      stdout.mockClear();
+      expect(await runWorkspaceTrustCommand(['--yes'], repo, runtime)).toBe(0);
+      stdout.mockClear();
+      expect(await runWorkspaceTrustCommand(['status', '--json'], repo, runtime, undefined, definitions)).toBe(0);
+      const output = stdout.mock.calls.map(([text]) => String(text)).join('');
+      const report = JSON.parse(output) as { state: string; providerEnvRefs: string[] };
+      expect(report.state).toBe('trusted');
+      expect(report.providerEnvRefs).toEqual(expect.arrayContaining([
+        'SYNTHETIC_PROJECT_KEY', 'SYNTHETIC_USER_KEY', 'SYNTHETIC_DEFAULT_KEY',
+        'SYNTHETIC_DESTINATION', 'HTTPS_PROXY',
+      ]));
+      expect(report.providerEnvRefs).not.toContain('UNRELATED_PRIVATE_TOKEN');
+      expect(output).not.toContain('synthetic-key-value');
+      expect(output).not.toContain('synthetic-user-value');
+      expect(output).not.toContain('synthetic-default-value');
+      expect(output).not.toContain('unrelated-secret-value');
+    } finally {
+      stdout.mockRestore();
+    }
+  });
+
   it('reports what a client needs to ask a person: state, folder, askable, what trust loads', async () => {
     const repo = untrustedRepository();
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     try {
-      expect(await runWorkspaceTrustCommand(['status', '--json'], repo)).toBe(0);
+      expect(await runWorkspaceTrustCommand(['status', '--json'], repo, createTestProductRuntime('test-product', { HOME: process.env['HOME'] }))).toBe(0);
       const report = JSON.parse(stdout.mock.calls.map(([text]) => String(text)).join('')) as {
         state: string;
         workspace: string;
@@ -232,19 +293,19 @@ describe('robota trust status --json', () => {
       };
       expect(report).toMatchObject({ state: 'untrusted', workspace: repo, askable: true });
       // #3282 §3: a row appears only when its state is known. Only Linux's pinned handle-walk can
-      // tell a not-yet-created `.robota/settings.json` apart from one it cannot describe safely, so
+      // tell a not-yet-created `the configured project directory/settings.json` apart from one it cannot describe safely, so
       // elsewhere every candidate is unknown before trust and `loads` reports none of them — no
       // `[unavailable]` noise, rather than a claim about every path this platform cannot verify.
       if (process.platform === 'linux') {
-        expect(report.loads.some((line) => line.includes('.robota/settings.json'))).toBe(true);
+        expect(report.loads.some((line) => line.includes('.test-product/settings.json'))).toBe(true);
       } else {
         expect(report.loads).toEqual([]);
       }
 
       stdout.mockClear();
-      expect(await runWorkspaceTrustCommand(['--yes'], repo)).toBe(0);
+      expect(await runWorkspaceTrustCommand(['--yes'], repo, createTestProductRuntime('test-product', { HOME: process.env['HOME'] }))).toBe(0);
       stdout.mockClear();
-      await runWorkspaceTrustCommand(['status', '--json'], repo);
+      await runWorkspaceTrustCommand(['status', '--json'], repo, createTestProductRuntime('test-product', { HOME: process.env['HOME'] }));
       expect(JSON.parse(stdout.mock.calls.map(([text]) => String(text)).join(''))).toMatchObject({
         state: 'trusted',
         askable: false,

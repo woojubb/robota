@@ -3,6 +3,7 @@
 import { InternalLink } from './ui';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
+import { productPublicConfig } from '@/lib/product-config.generated';
 
 export function Header() {
   const t = useTranslations('common');
@@ -24,7 +25,7 @@ export function Header() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-14 items-center justify-between">
           <InternalLink href={`/${locale}`} className="flex items-center gap-2">
-            <span className="text-lg font-bold text-[var(--foreground)]">robota</span>
+            <span className="text-lg font-bold text-[var(--foreground)]">{productPublicConfig.identity.displayName}</span>
             <span className="rounded-full bg-[var(--accent-dim)] px-2 py-0.5 text-xs font-medium text-[var(--accent)]">
               beta
             </span>
@@ -35,7 +36,7 @@ export function Header() {
               href={`/${locale}/compare`}
               className="inline-flex min-h-[44px] items-center rounded-md px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
             >
-              {t('nav.whyRobota')}
+              {t('nav.whyProduct')}
             </InternalLink>
             <InternalLink
               href={`/${locale}/showcase`}
@@ -59,22 +60,22 @@ export function Header() {
             >
               {t(`lang.${otherLocale}`)}
             </button>
-            <a
-              href={`https://docs.robota.io/${locale}/`}
+            {productPublicConfig.identity.docsUrl && <a
+              href={`${productPublicConfig.identity.docsUrl}/${locale}/`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex min-h-[44px] items-center rounded-md px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
             >
               {t('nav.docs')} ↗
-            </a>
-            <a
-              href="https://github.com/woojubb/robota"
+            </a>}
+            {productPublicConfig.identity.repositoryUrl && <a
+              href={productPublicConfig.identity.repositoryUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex min-h-[44px] items-center rounded-md bg-[var(--primary)] px-3 text-sm font-medium text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
             >
               {t('nav.github')}
-            </a>
+            </a>}
           </div>
         </div>
       </div>

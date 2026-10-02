@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * #3189 — a client's command never stops or restarts a supervised session, the workspace daemon
  * included. A command that asks the host to exit or restart (`/reset`, `/language`, a provider switch)
@@ -10,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createLanguageCommandModule, createResetCommandModule } from '@robota-sdk/agent-command';
-import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { InteractiveSession, startRuntimeHost } from '@robota-sdk/agent-framework';
 import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -24,12 +25,12 @@ vi.mock('@robota-sdk/agent-framework', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@robota-sdk/agent-framework')>();
   return {
     ...actual,
-    startRuntimeHost: async () => ({
+    startRuntimeHost: vi.fn(async () => ({
       session: { current: {} },
       shutdown,
       waitForCompletion: async () => [],
       waitForFailure: () => new Promise(() => undefined),
-    }),
+    })),
   };
 });
 
@@ -87,7 +88,7 @@ function serveOptions(
   args: Partial<IServeModeOptions['args']>,
   adapters: ICommandHostAdapters,
 ): IServeModeOptions {
-  return {
+  return {productRuntime: createTestProductRuntime(),
     cwd: '/work/project',
     args: args as IServeModeOptions['args'],
     provider: {} as IServeModeOptions['provider'],
@@ -176,6 +177,50 @@ function settingsAdapter(): NonNullable<ICommandHostAdapters['settings']> & {
 }
 
 describe('a command in a served runtime (#3189)', () => {
+  it.each(['SIGTERM', 'SIGINT'] as const)(
+    'retains %s while the runtime host is starting',
+    async (signal) => {
+      const started = await startRuntimeHost({} as Parameters<typeof startRuntimeHost>[0]);
+      let release!: (host: typeof started) => void;
+      const pending = new Promise<typeof started>((resolve) => {
+        release = resolve;
+      });
+      vi.mocked(startRuntimeHost).mockImplementationOnce(() => pending);
+      const before = new Map(
+        (['SIGTERM', 'SIGINT'] as const).map((name) => [name, new Set(process.listeners(name))]),
+      );
+      const options = serveOptions({}, {});
+      const run = runServeMode(options);
+      const early = process.listeners(signal).find((listener) => !before.get(signal)!.has(listener));
+      early?.(signal);
+      expect(shutdown).not.toHaveBeenCalled();
+      release(started);
+      await vi.waitFor(() => expect(options.commandHostAdapters.process).toBeDefined());
+      // Before the fix, stop the host after startup so the failed assertion leaves no live runtime.
+      if (!early)
+        process.listeners(signal).find((listener) => !before.get(signal)!.has(listener))?.(signal);
+      await run;
+      for (const [name, previous] of before)
+        expect(new Set(process.listeners(name))).toEqual(previous);
+      expect(
+        early,
+        'A signal handler must own the host before startup can expose a client',
+      ).toBeDefined();
+      expect(shutdown).toHaveBeenCalledExactlyOnceWith(`received ${signal}`);
+    },
+  );
+
+  it('releases startup signal ownership when host initialization fails', async () => {
+    const before = new Map(
+      (['SIGTERM', 'SIGINT'] as const).map((name) => [name, new Set(process.listeners(name))]),
+    );
+    const failure = new Error('Fixture startup failed');
+    vi.mocked(startRuntimeHost).mockRejectedValueOnce(failure);
+    await expect(runServeMode(serveOptions({}, {}))).rejects.toBe(failure);
+    for (const [name, previous] of before) expect(new Set(process.listeners(name))).toEqual(previous);
+    expect(shutdown).not.toHaveBeenCalled();
+  });
+
   it('never stops or restarts a daemon, and tells the client how to restart it', async () => {
     const settings = settingsAdapter();
     const options = serveOptions({ daemon: true }, { settings });
@@ -191,7 +236,7 @@ describe('a command in a served runtime (#3189)', () => {
     for (const result of [language, reset]) {
       expect(result).toMatchObject({ type: 'command_result', success: false });
       expect(result.type === 'command_result' && result.message).toMatch(
-        /robota daemon stop[\s\S]*robota daemon start/,
+        /test-product daemon stop[\s\S]*test-product daemon start/,
       );
     }
     expect(language.type === 'command_result' && language.message).toContain('The change is saved');
@@ -210,7 +255,7 @@ describe('a command in a served runtime (#3189)', () => {
   it('never stops or restarts a supervised session, and names the command that stops it', async () => {
     const launcher = actAsLauncher();
     const settings = settingsAdapter();
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-serve-daemon-'));
+    const cwd = mkdtempSync(join(tmpdir(), 'test-product-serve-daemon-'));
     restores.push(() => rmSync(cwd, { recursive: true, force: true }));
     const options = {
       ...serveOptions({ supervisedSessionId: SUPERVISED_ID }, { settings }),
@@ -230,9 +275,9 @@ describe('a command in a served runtime (#3189)', () => {
     for (const result of [language, reset]) {
       expect(result).toMatchObject({ type: 'command_result', success: false });
       const message = result.type === 'command_result' ? result.message : '';
-      expect(message).toContain(`robota session stop ${SUPERVISED_ID}`);
-      expect(message).toContain('robota session start');
-      expect(message).not.toContain('robota daemon');
+      expect(message).toContain(`test-product session stop ${SUPERVISED_ID}`);
+      expect(message).toContain('test-product session start');
+      expect(message).not.toContain('test-product daemon');
     }
     expect(language.type === 'command_result' && language.message).toContain('The change is saved');
     expect(reset.type === 'command_result' && reset.message).toContain(

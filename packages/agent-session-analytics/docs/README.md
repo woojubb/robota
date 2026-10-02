@@ -1,6 +1,6 @@
 # agent-session-analytics — Documentation
 
-`@robota-sdk/agent-session-analytics` analyzes persisted Robota session records: per-turn timing (LLM
+`@robota-sdk/agent-session-analytics` analyzes persisted agent session records: per-turn timing (LLM
 wait vs. tool execution), token usage and cost per source, cross-session personal usage, and
 content-free OTLP projections of that usage. It renders text reports and builds OTLP payloads, but
 performs no file I/O and no network delivery — callers load records and send or print the output.

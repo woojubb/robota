@@ -74,7 +74,7 @@ describe.runIf(process.platform === 'linux')('EditCheckpointStore.captureFile co
     await store.captureFile(join(outside, 'secret.txt'));
     await store.finalizeTurn();
 
-    expect(leakedInto(join(sandbox, '.robota'))).toEqual([]);
+    expect(leakedInto(join(sandbox, '.agent'))).toEqual([]);
   });
 
   // Containment is decided on the canonical path, so a symlink planted inside the tree cannot be
@@ -89,7 +89,7 @@ describe.runIf(process.platform === 'linux')('EditCheckpointStore.captureFile co
     await store.captureFile(link);
     await store.finalizeTurn();
 
-    expect(leakedInto(join(sandbox, '.robota'))).toEqual([]);
+    expect(leakedInto(join(sandbox, '.agent'))).toEqual([]);
   });
 
   // The guard must not break what checkpoints are for: an in-sandbox file still gets its snapshot,
@@ -104,6 +104,6 @@ describe.runIf(process.platform === 'linux')('EditCheckpointStore.captureFile co
     await store.captureFile(target);
     await store.finalizeTurn();
 
-    expect(leakedInto(join(sandbox, '.robota')).length).toBeGreaterThan(0);
+    expect(leakedInto(join(sandbox, '.agent')).length).toBeGreaterThan(0);
   });
 });

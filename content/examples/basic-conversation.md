@@ -3,14 +3,14 @@
 A `Robota` agent keeps the conversation in memory, so each `run()` sees the turns before it.
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'ChatBot',
   aiProviders: [provider],
   defaultModel: {

@@ -30,6 +30,7 @@ function makeNoopTerminal(): ITerminalOutput {
 function makeEnforcer(overrides: Partial<IPermissionEnforcerOptions> = {}): PermissionEnforcer {
   return new PermissionEnforcer({
     sessionId: 'test-session',
+    pathProtection: { protectedDirectoryNames: ['.test-product'], protectedPaths: [], writableWorktreeContainers: ['.test-product/worktrees'] },
     cwd: '/w/project',
     homeDirectory: '/home/me',
     getPermissionMode: () => 'bypassPermissions',
@@ -81,7 +82,7 @@ describe('bypassPermissions no longer proceeds past what must reach a person', (
   it('writing a settings file is not auto-approved', async () => {
     const enforcer = makeEnforcer();
     await expect(
-      enforcer.checkPermission('Write', { filePath: '/w/project/.robota/settings.json' }),
+      enforcer.checkPermission('Write', { filePath: '/w/project/.test-product/settings.json' }),
     ).resolves.toBe(false);
   });
 
@@ -148,7 +149,7 @@ describe('a remembered consent never answers a call that must reach a person', (
   it('an "allow always" answer to a protected write is not remembered', async () => {
     const handler = vi.fn().mockResolvedValue('allow-session');
     const enforcer = makeEnforcer({ permissionHandler: handler });
-    const filePath = '/w/project/.robota/settings.json';
+    const filePath = '/w/project/.test-product/settings.json';
     await expect(enforcer.checkPermission('Write', { filePath })).resolves.toBe(true);
     expect(enforcer.getSessionAllowedTools()).toEqual([]);
     handler.mockResolvedValue(false);
@@ -234,7 +235,7 @@ describe('parameter rules on tools whose parameters arrive with the schema (issu
 describe('read-only commands follow symlinks before trusting a path (issue #3082)', () => {
   let root: string;
   beforeEach(() => {
-    root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-readonly-')));
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-readonly-')));
     mkdirSync(join(root, 'ws'));
     writeFileSync(join(root, 'secret'), 'SECRET');
     writeFileSync(join(root, 'ws', 'notes.txt'), 'notes');

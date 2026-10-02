@@ -15,10 +15,17 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { rejectDestination } from '@robota-sdk/agent-core/node';
 
 import { MCPAuthenticationError, type IMCPBoundAuthenticator } from './authentication.js';
+import { createMcpPinnedFetch } from './pinned-http-fetch.js';
+import {
+  DEFAULT_MCP_RECEIVE_BYTES,
+  SKILL_RESOURCE_RECEIVE_BYTES,
+  skillReceiveBudgetEnabled,
+} from './receive-budget.js';
 import {
   MCPCallTraceRegistry,
   bindCallTraceRegistry,
   callTraceHeaders,
+  callRequestSignal,
   cancelledRequestId,
   currentCallTraceScope,
   runInCallTraceScope,
@@ -63,6 +70,8 @@ export interface IMCPAdmittedHttpEndpoint {
   readonly url: URL;
   readonly headers: Readonly<Record<string, string>>;
   readonly authentication?: IMCPBoundAuthenticator;
+  /** Owner policy/resolver captured at admission, also used at every actual request/reconnect. */
+  readonly egress?: { readonly policy: IEgressPolicy; readonly lookup?: TEgressLookup };
 }
 
 export interface IMCPHttpTransportDeps {
@@ -70,7 +79,7 @@ export interface IMCPHttpTransportDeps {
   readonly policy?: IEgressPolicy;
   /** Hostname resolver injected so tests never touch DNS. */
   readonly lookup?: TEgressLookup;
-  /** Fetch used by the SDK transport; default is the global one. */
+  /** Trusted owner/test carrier; it owns its connection policy instead of the default's pinning guarantee. */
   readonly fetch?: typeof globalThis.fetch;
 }
 
@@ -80,7 +89,6 @@ const POLICY_REFUSAL = 'egress-policy';
 const HTTP_REDIRECT_STATUS_MIN = 300;
 const HTTP_REDIRECT_STATUS_MAX_EXCLUSIVE = 400;
 /** Includes JSON framing and metadata around the 500,000-character admitted result ceiling. */
-const MAX_HTTP_RESPONSE_BYTES = 8 * 1024 * 1024;
 
 export class MCPTransportResponseLimitError extends Error {
   constructor() {
@@ -90,14 +98,14 @@ export class MCPTransportResponseLimitError extends Error {
 }
 
 /** Count bytes before the SDK parses JSON or SSE; cancellation propagates to the fetch body. */
-function boundResponseBody(response: Response): Response {
+function boundResponseBody(response: Response, maxBytes: number): Response {
   if (!response.body) return response;
   let received = 0;
   const body = response.body.pipeThrough(
     new TransformStream<Uint8Array, Uint8Array>({
       transform(chunk, controller) {
         received += chunk.byteLength;
-        if (received > MAX_HTTP_RESPONSE_BYTES) {
+        if (received > maxBytes) {
           throw new MCPTransportResponseLimitError();
         }
         controller.enqueue(chunk);
@@ -181,9 +189,16 @@ export async function admitHttpEndpoint(
     return { ok: false, reason: 'invalid-url', message: 'The configured URL is not a valid URL' };
   }
   const url = new URL(endpoint.url);
-  const rejection = deps.lookup
-    ? await rejectDestination(url, deps.policy ?? {}, deps.lookup)
-    : await rejectDestination(url, deps.policy ?? {});
+  const policy = Object.freeze({
+    ...deps.policy,
+    ...(deps.policy?.allowedHosts
+      ? { allowedHosts: Object.freeze([...deps.policy.allowedHosts]) }
+      : {}),
+  });
+  const lookup = deps.lookup;
+  const rejection = lookup
+    ? await rejectDestination(url, policy, lookup)
+    : await rejectDestination(url, policy);
   if (rejection) {
     return {
       ok: false,
@@ -198,6 +213,10 @@ export async function admitHttpEndpoint(
       url,
       headers: { ...(endpoint.headers ?? {}) },
       ...(endpoint.authentication === undefined ? {} : { authentication: endpoint.authentication }),
+      egress: {
+        policy,
+        ...(lookup ? { lookup } : {}),
+      },
     },
   };
 }
@@ -213,8 +232,13 @@ class TracingStreamableHTTPClientTransport extends StreamableHTTPClientTransport
     url: URL,
     options: ConstructorParameters<typeof StreamableHTTPClientTransport>[1],
     private readonly callTraces: MCPCallTraceRegistry,
+    private readonly closeCarrier: () => Promise<void>,
   ) {
     super(url, options);
+  }
+
+  override async close(): Promise<void> {
+    await Promise.all([this.closeCarrier(), super.close()]);
   }
 
   override send(
@@ -229,6 +253,7 @@ class TracingStreamableHTTPClientTransport extends StreamableHTTPClientTransport
     const cancelledId = cancelledRequestId(message);
     const cancelled = cancelledId === undefined ? undefined : this.callTraces.lookup(cancelledId);
     if (cancelled !== undefined) {
+      cancelled.requestAbortController?.abort();
       return runInCallTraceScope(cancelled, () => super.send(message, options));
     }
     return super.send(message, options);
@@ -257,12 +282,14 @@ async function authorizedHeaders(
   bound: IMCPBoundAuthenticator,
 ): Promise<{ headers: Headers; credential: Readonly<Record<string, string>> }> {
   try {
+    init?.signal?.throwIfAborted();
     const credential = await bound.authenticator.authorize({
       serverId: bound.serverId,
       securityIdentity: bound.securityIdentity,
       url: admitted.url,
       ...(init?.signal ? { signal: init.signal } : {}),
     });
+    init?.signal?.throwIfAborted();
     const headers = new Headers(init?.headers);
     // Inside the try: an invalid header value makes `Headers` throw an error that quotes it.
     for (const [name, value] of Object.entries(credential)) headers.set(name, value);
@@ -297,6 +324,7 @@ async function fetchAuthenticated(
   const wwwAuthenticate = first.headers.get('www-authenticate');
   // The refusal's body is never read; release the connection now rather than at collection.
   await first.body?.cancel().catch(() => undefined);
+  init?.signal?.throwIfAborted();
   let answer: 'retry' | 'fail';
   try {
     answer = await bound.authenticator.onRejected({
@@ -322,44 +350,87 @@ export function constructStreamableHttpTransport(
   admitted: IMCPAdmittedHttpEndpoint,
   deps: IMCPHttpTransportDeps = {},
 ): StreamableHTTPClientTransport {
-  const baseFetch = deps.fetch ?? globalThis.fetch;
   const admittedUrl = admitted.url.toString();
+  // Snapshot the endpoint before async authorization; later owner-object mutation cannot retarget a request.
+  const boundEndpoint = {
+    ...admitted,
+    url: new URL(admittedUrl),
+    headers: Object.freeze({ ...admitted.headers }),
+  };
+  const lookup = boundEndpoint.egress?.lookup ?? deps.lookup;
+  const carrier = createMcpPinnedFetch(
+    admittedUrl,
+    boundEndpoint.egress?.policy ?? deps.policy ?? {},
+    {
+      ...(deps.fetch ? { fetch: deps.fetch } : {}),
+      ...(lookup ? { lookup } : {}),
+    },
+  );
+  const baseFetch = carrier.fetch;
   const callTraces = new MCPCallTraceRegistry();
 
   // The admitted URL is the only URL spoken to: every call this transport makes is forced to
   // `redirect: 'manual'` (never trusting the SDK's default of following one), and any 3xx response
   // from the admitted origin is refused rather than chased to a second, un-admitted destination.
   const redirectRefusingFetch: typeof globalThis.fetch = async (input, init) => {
-    const traced = withTraceHeaders(init, callTraceHeaders(init, admittedUrl, callTraces));
+    carrier.signal.throwIfAborted();
+    const signals = [carrier.signal];
+    if (init?.signal) signals.push(init.signal);
+    const toolSignal = callRequestSignal(init);
+    if (toolSignal) signals.push(toolSignal);
+    const signal = AbortSignal.any(signals);
+    let effectiveInit = init;
+    if (new Headers(init?.headers).get('mcp-protocol-version') === '2026-07-28') {
+      // A legacy SDK may remember an unsolicited session header; stateless requests cannot inherit it.
+      const headers = new Headers(init?.headers);
+      headers.delete('mcp-session-id');
+      effectiveInit = { ...init, headers };
+      if (init?.method !== 'POST')
+        throw new Error('Stateless MCP automatic stream resumption is unavailable');
+    }
+    const traced = withTraceHeaders(
+      { ...effectiveInit, signal },
+      callTraceHeaders(effectiveInit, admittedUrl, callTraces),
+    );
     const response = await fetchAuthenticated(
       (headers) =>
         baseFetch(input, { ...traced, ...(headers ? { headers } : {}), redirect: 'manual' }),
       traced,
-      admitted,
+      boundEndpoint,
     );
     if (
       response.status >= HTTP_REDIRECT_STATUS_MIN &&
       response.status < HTTP_REDIRECT_STATUS_MAX_EXCLUSIVE
     ) {
+      await response.body?.cancel().catch(() => undefined);
       throw new MCPTransportRedirectRefusedError(
         response.status,
         response.headers.get('location') ?? undefined,
         admittedUrl,
       );
     }
-    return boundResponseBody(response);
+    const resourceRead =
+      typeof init?.body === 'string' && JSON.parse(init.body).method === 'resources/read';
+    const maxBytes =
+      resourceRead && skillReceiveBudgetEnabled(transport)
+        ? SKILL_RESOURCE_RECEIVE_BYTES
+        : DEFAULT_MCP_RECEIVE_BYTES;
+    return boundResponseBody(response, maxBytes);
   };
 
   const transport = new TracingStreamableHTTPClientTransport(
-    admitted.url,
+    boundEndpoint.url,
     {
       requestInit: {
         redirect: 'manual',
-        ...(Object.keys(admitted.headers).length > 0 ? { headers: admitted.headers } : {}),
+        ...(Object.keys(boundEndpoint.headers).length > 0
+          ? { headers: boundEndpoint.headers }
+          : {}),
       },
       fetch: redirectRefusingFetch,
     },
     callTraces,
+    () => carrier.close(),
   );
   bindCallTraceRegistry(transport, callTraces);
   return transport;

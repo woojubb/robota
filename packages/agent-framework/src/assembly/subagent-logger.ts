@@ -22,7 +22,7 @@ import type { IFileSystem } from '@robota-sdk/agent-core';
  *
  * @param parentSessionId - ID of the parent session (used as directory name)
  * @param agentId - Unique identifier for this subagent run
- * @param baseLogsDir - Root logs directory (e.g., `.robota/logs`)
+ * @param baseLogsDir - Root logs directory (e.g., `.agent/logs`)
  * @returns A FileSessionLogger writing to the subagent directory
  */
 export function createSubagentLogger(

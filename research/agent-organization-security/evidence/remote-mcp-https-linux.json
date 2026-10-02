@@ -1,0 +1,125 @@
+{
+  "kind": "actual-cli-remote-mcp-local-https",
+  "records": [
+    {
+      "id": "actual-cli-valid-jwt-initialize",
+      "observed": {
+        "status": 200,
+        "issuerRequests": 2,
+        "protocolResponse": true
+      },
+      "passed": true
+    },
+    {
+      "id": "missing-token",
+      "observed": {
+        "status": 401,
+        "responseBodyEmpty": true
+      },
+      "passed": true
+    },
+    {
+      "id": "wrong-audience",
+      "observed": {
+        "status": 401,
+        "responseBodyEmpty": true
+      },
+      "passed": true
+    },
+    {
+      "id": "missing-scope",
+      "observed": {
+        "status": 403,
+        "responseBodyEmpty": true
+      },
+      "passed": true
+    },
+    {
+      "id": "wrong-subject",
+      "observed": {
+        "status": 401,
+        "responseBodyEmpty": true
+      },
+      "passed": true
+    },
+    {
+      "id": "bad-signature",
+      "observed": {
+        "status": 401,
+        "responseBodyEmpty": true
+      },
+      "passed": true
+    },
+    {
+      "id": "expired-token",
+      "observed": {
+        "status": 401,
+        "responseBodyEmpty": true
+      },
+      "passed": true
+    },
+    {
+      "id": "host-header-refused",
+      "observed": {
+        "status": 403
+      },
+      "passed": true
+    },
+    {
+      "id": "cold-issuer-outage",
+      "observed": {
+        "admitted": false,
+        "refusal": "keys-unavailable"
+      },
+      "passed": true
+    },
+    {
+      "id": "cli-young-cache-during-outage",
+      "observed": {
+        "status": 200
+      },
+      "passed": true
+    },
+    {
+      "id": "hard-cache-age-with-real-https-outage",
+      "observed": {
+        "admitted": false,
+        "refusal": "keys-unavailable"
+      },
+      "passed": true
+    },
+    {
+      "id": "issuer-redirect-not-followed",
+      "observed": {
+        "verdict": {
+          "admitted": false,
+          "refusal": "keys-unavailable"
+        },
+        "redirectTargetRequests": 0
+      },
+      "passed": true
+    },
+    {
+      "id": "token-and-protocol-output-hygiene",
+      "observed": {
+        "tokenAbsent": true,
+        "stdoutEmpty": true
+      },
+      "passed": true
+    },
+    {
+      "id": "owned-cli-and-issuer-stopped",
+      "observed": {
+        "cliExited": true,
+        "issuerStopped": true
+      },
+      "passed": true
+    }
+  ],
+  "complete": true,
+  "limitations": [
+    "HTTPS issuer/JWKS and bearer crypto are real; public resource URL is a synthetic Host header over an owned loopback HTTP listener, not a remote deployment.",
+    "Only the standalone verifier hard-cache-age observation advances its monotonic dependency; it does not wait an hour or change the CLI clock.",
+    "No Electron remote pairing, trusted proxy deployment, provider authentication or cloud egress is proven."
+  ]
+}

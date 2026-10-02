@@ -1,6 +1,6 @@
 # websocket-chat
 
-Real-time AI chat over WebSocket using Robota SDK with streaming text deltas.
+Real-time AI chat over WebSocket using the agent runtime SDK with streaming text deltas.
 
 ## Features
 

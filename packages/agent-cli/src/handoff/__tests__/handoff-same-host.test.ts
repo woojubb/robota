@@ -15,6 +15,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { createFileCredentialStore } from '../../credentials/file-credential-store.js';
 import { scriptedOperator } from '../../devices/__tests__/fake-secret-terminal.js';
 import { createDeviceIdentityService } from '../../devices/device-identity-service.js';
+import { createTestRuntimeContext } from '../../devices/__tests__/runtime-context-fixture.js';
 import { loadDevicePrivateKeys } from '../../devices/identity-keys.js';
 import { readIdentityState } from '../../devices/identity-state.js';
 import {
@@ -22,7 +23,13 @@ import {
   type IPeerMessaging,
 } from '../../remote-control/local-peer-messaging.js';
 import { createHandoffComposition } from '../handoff-composition-root.js';
-import { localCarrierBinding, mintHandoffGrant, type IHandoffSigner } from '../handoff-grant.js';
+import {
+  checkHandoffGrant,
+  handoffChannelFingerprint,
+  localCarrierBinding,
+  mintHandoffGrant,
+  type IHandoffSigner,
+} from '../handoff-grant.js';
 import {
   createHandoffHostAdapter,
   describeHandoffArrival,
@@ -40,6 +47,7 @@ import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-sess
 import type {
   ICapabilityApprovalRequest,
   IFileFrameChannel,
+  IHandoffManifest,
   IOperatorApprover,
 } from '@robota-sdk/agent-interface-session-mobility';
 
@@ -47,6 +55,7 @@ const composition = createHandoffComposition();
 
 let home: string;
 let root: string;
+let productRuntime: ReturnType<typeof createTestRuntimeContext>;
 let signer: IHandoffSigner;
 let credentialStore: ICredentialStore;
 let scratch: string;
@@ -55,11 +64,13 @@ const open: IPeerMessaging[] = [];
 
 beforeAll(async () => {
   home = realpathSync(mkdtempSync(path.join(tmpdir(), 'handoff-home-')));
-  root = path.join(home, '.robota');
+  root = path.join(home, '.agent-fixture');
+  productRuntime = createTestRuntimeContext(root);
   const store = createFileCredentialStore(path.join(root, 'credentials'), { withinRoot: root });
   credentialStore = store;
   const directory = path.join(root, 'devices');
   const service = createDeviceIdentityService({
+    productRuntime,
     directory,
     withinRoot: root,
     store,
@@ -67,9 +78,9 @@ beforeAll(async () => {
     defaultDeviceName: () => 'desk',
   });
   expect((await service.init({})).ok).toBe(true);
-  const state = readIdentityState(directory);
+  const state = readIdentityState(productRuntime.cryptoContext, directory);
   if (state === undefined) throw new Error('no identity');
-  const keys = await loadDevicePrivateKeys(store, state.deviceCertificate);
+  const keys = await loadDevicePrivateKeys(store, productRuntime.config.credentials.serviceNamespace, state.deviceCertificate);
   if (keys === undefined) throw new Error('no keys');
   signer = { userId: state.userId, signPrivateKey: keys.signPrivateKey };
 }, 60_000);
@@ -82,6 +93,51 @@ beforeEach(() => {
   scratch = realpathSync(mkdtempSync(path.join(tmpdir(), 'handoff-')));
   guardedDirectory = path.join(scratch, 'rv');
   mkdirSync(guardedDirectory, { mode: 0o700 });
+});
+
+describe('handoff product crypto domains', () => {
+  it('rejects a grant signed with the same key under another product context', async () => {
+    const state = readIdentityState(productRuntime.cryptoContext, path.join(root, 'devices'));
+    if (state === undefined) throw new Error('no identity');
+    const alternate = createTestRuntimeContext(root, 'another-test-agent-domain');
+    const manifest: IHandoffManifest = {
+      handoffId: 'domain-check',
+      sessionId: 'session-1',
+      sourceDeviceId: state.deviceCertificate.deviceId,
+      destinationDeviceId: 'destination-device',
+      inventory: [],
+      integrity: { digest: 'A'.repeat(43), byteLength: 0 },
+      offeredAt: Date.now(),
+    };
+    const now = Date.now();
+    const channelA = handoffChannelFingerprint(productRuntime.cryptoContext, 'local:B', 'nonce');
+    const channelB = handoffChannelFingerprint(alternate.cryptoContext, 'local:B', 'nonce');
+    const grant = await mintHandoffGrant(
+      productRuntime.cryptoContext,
+      signer,
+      manifest,
+      channelA,
+      now,
+    );
+    const check = {
+      sender: state.deviceCertificate,
+      sourceId: manifest.sourceDeviceId,
+      userId: signer.userId,
+      manifest,
+      destinationId: manifest.destinationDeviceId,
+      channelFingerprint: channelA,
+      now,
+      seenNonces: new Set<string>(),
+    };
+
+    expect(channelA).not.toBe(channelB);
+    expect((await checkHandoffGrant(productRuntime.cryptoContext, grant, check)).admitted).toBe(true);
+    const crossProduct = await checkHandoffGrant(alternate.cryptoContext, grant, {
+      ...check,
+      seenNonces: new Set<string>(),
+    });
+    expect(crossProduct).toMatchObject({ admitted: false, reason: 'the grant was refused: signature-invalid' });
+  });
 });
 
 afterEach(async () => {
@@ -147,9 +203,10 @@ async function sessions(options: IDestinationOptions = {}) {
   const outcomes: TReceiveHandoffOutcome[] = [];
   const receiverFor = (approver: IOperatorApprover | undefined) => {
     const receive = createHandoffReceiver({
+      productRuntime,
       root,
       composition,
-      identity: () => readHandoffIdentity(root),
+      identity: () => readHandoffIdentity(root, productRuntime),
       resolveCredential: options.resolveCredential ?? (() => true),
       persist:
         options.persist ??
@@ -162,7 +219,7 @@ async function sessions(options: IDestinationOptions = {}) {
     return (sessionId: string) => (sender: { sessionId: string }, channel: IFileFrameChannel) =>
       void receive(
         localHandoffArrival(
-          { sessionId, root, ...(approver !== undefined ? { approver } : {}) },
+          { sessionId, root, productRuntime, ...(approver !== undefined ? { approver } : {}) },
           sender,
           channel,
         ),
@@ -195,6 +252,7 @@ function push(
   const onReadOnly = vi.fn();
   const openChannel = vi.fn(() => a.openHandoffChannel('B'));
   const result = pushHandoff({
+    cryptoContext: productRuntime.cryptoContext,
     composition,
     request: {
       handoffId: 'handoff-1',
@@ -208,7 +266,7 @@ function push(
     openChannel,
     carrierBinding: localCarrierBinding('B'),
     mintGrant: (manifest, fingerprint) =>
-      mintHandoffGrant(signer, manifest, fingerprint, Date.now()),
+      mintHandoffGrant(productRuntime.cryptoContext, signer, manifest, fingerprint, Date.now()),
     onReadOnly,
     ...overrides,
   });
@@ -520,6 +578,7 @@ describe('the /handoff adapter over the peer channel', () => {
     const onHandedOff = vi.fn();
     const stored = record();
     const deps: IHandoffHostAdapterDeps = {
+      productRuntime,
       root,
       store: credentialStore,
       composition,
@@ -585,7 +644,7 @@ describe('the /handoff adapter over the peer channel', () => {
     const [target, options] = push.mock.calls[0]!;
     expect(target).toBe('D1');
     expect(options.request).toMatchObject({
-      sourceDeviceId: readIdentityState(path.join(root, 'devices'))?.deviceCertificate.deviceId,
+      sourceDeviceId: readIdentityState(productRuntime.cryptoContext, path.join(root, 'devices'))?.deviceCertificate.deviceId,
       destinationDeviceId: 'D1',
       sessionId: 'session-1',
     });
@@ -769,9 +828,9 @@ describe('the /handoff adapter over the peer channel', () => {
     const said = describeHandoffArrival(
       'A',
       { received: true, manifest: { sessionId: 'session-1' } as never, record: record() },
-      (id) => `robota --resume ${id}`,
+      (id) => `test-agent --resume ${id}`,
     );
     expect(said).toContain('was not started');
-    expect(said).toContain('robota --resume session-1');
+    expect(said).toContain('test-agent --resume session-1');
   });
 });

@@ -11,7 +11,7 @@ import {
 const roots: string[] = [];
 
 async function temporaryRoot(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), 'robota-keybindings-'));
+  const root = await mkdtemp(join(tmpdir(), 'agent-test-keybindings-'));
   roots.push(root);
   return root;
 }
@@ -34,6 +34,13 @@ afterEach(async () => {
 });
 
 describe('Node keybindings source', () => {
+  it('omits the schema when the host has no documentation URL', async () => {
+    const root = await temporaryRoot();
+    const source = createNodeKeybindingsSource({ filePath: join(root, 'keys.json') });
+    expect(JSON.parse(await readFile(await source.ensureFile(), 'utf8'))).toEqual({ version: 1, bindings: {} });
+    source.dispose();
+  });
+
   it('uses only the host-selected file and schema when creating the sparse document', async () => {
     const root = await temporaryRoot();
     const filePath = join(root, 'host-config', 'keys.json');

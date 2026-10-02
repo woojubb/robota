@@ -7,7 +7,7 @@ changesets — is in [CONTRIBUTING.md](../../CONTRIBUTING.md).
 ## Setup
 
 ```bash
-git clone https://github.com/woojubb/robota.git
+git clone __PROJECT_REPOSITORY_URL__.git
 cd robota
 pnpm install
 pnpm build
@@ -39,12 +39,12 @@ pnpm --filter @robota-sdk/<pkg> build
 pnpm --filter @robota-sdk/<pkg> test
 ```
 
-Running the CLI writes to `~/.robota/`. A script or test that runs it points `HOME` at a temporary
+Running the CLI writes to `<user-state>/`. A script or test that runs it points `HOME` at a temporary
 directory.
 
 ## Run From Source
 
-Each surface runs this checkout's code, not a `robota` installed on PATH:
+Each surface runs this checkout's code, not a `__PRODUCT_CLI_NAME__` installed on PATH:
 
 ```bash
 pnpm cli:dev                # the terminal UI, from source — no build needed
@@ -53,18 +53,18 @@ pnpm gui:dev --scripted     # the same page with a deterministic sidecar: no mod
 pnpm app:dev                # the desktop app: builds the page and what it bundles, then opens the window
 ```
 
-The CLI always runs through `scripts/dev/robota`, which starts `packages/agent-cli/src/bin.ts` with the
+The CLI always runs through `scripts/dev/agent`, which starts `packages/agent-cli/src/bin.ts` with the
 `source` export condition. `cli:dev` works in the repo root; the GUI and the desktop app serve the directory
-the command was started from (or `ROBOTA_DEV_CWD`). In a folder not trusted yet, `cli:dev` asks at the
+the command was started from (or `AGENT_RUNTIME_DEV_CWD`). In a folder not trusted yet, `cli:dev` asks at the
 terminal whether to trust it (no starts Restricted); `gui:dev` asks the same at the terminal and
 `app:dev` in its window, each with trust, start Restricted, or quit. `pnpm cli:trust` trusts the repo
-root ahead of time. All of them use your own `~/.robota`.
+root ahead of time. All of them use your own `<user-state>`.
 
 The desktop app reattaches to the workspace's running daemon when there is one. After changing CLI code, stop
 it in the directory the app serves, so the next `app:dev` starts a daemon on the new code:
 
 ```bash
-<repo>/scripts/dev/robota daemon stop
+<repo>/scripts/dev/agent daemon stop
 ```
 
 ## Repository Layout
@@ -84,10 +84,10 @@ The apps:
 
 | App                  | What it is                                                                                             |
 | -------------------- | ------------------------------------------------------------------------------------------------------ |
-| `docs`               | The docs site, docs.robota.io (Next.js static export)                                                  |
-| `www`                | The marketing site, robota.io                                                                          |
-| `blog`               | The blog, blog.robota.io (Astro)                                                                       |
-| `agent-app`          | The Electron desktop app: starts or reuses the workspace's `robota` daemon and loads the GUI           |
+| `docs`               | The docs site, docs.__PROJECT_WEBSITE_HOST__ (Next.js static export)                                                  |
+| `www`                | The marketing site, __PROJECT_WEBSITE_HOST__                                                                          |
+| `blog`               | The blog, blog.__PROJECT_WEBSITE_HOST__ (Astro)                                                                       |
+| `agent-app`          | The Electron desktop app: starts or reuses the workspace's `__PRODUCT_CLI_NAME__` daemon and loads the GUI           |
 | `agent-web`          | Next.js host for the browser remote-control client (`/remote`)                                         |
 | `dag-runtime-server` | HTTP server for the DAG runtime (`/v1/dag/*`)                                                          |
 | `remote-signaling`   | WebRTC signaling relay for remote control                                                              |
@@ -111,10 +111,10 @@ The apps:
 
 Where each kind of doc lives:
 
-- `content/**` — guides, examples and these pages. The docs site at docs.robota.io serves them at
+- `content/**` — guides, examples and these pages. The docs site at docs.__PROJECT_WEBSITE_HOST__ serves them at
   `/{en,ko}/<path without .md>/` (a `README.md` is its folder's page). A Korean page comes from
-  `content/ko/` when that file exists; otherwise the English page is shown. `content/v2.0.0/` and
-  `content/images/` are not rendered.
+  `content/ko/` when that file exists; otherwise the English page is shown. `content/images/` is not
+  rendered. Historical v2.0.0 documentation has been retired from the current workspace.
 - `packages/<pkg>/docs/*.md` — the package's pages on the site, at `/{en,ko}/packages/<pkg>/` (English
   only). `docs/README.md` opens with a one-paragraph summary, which the packages index shows.
 - `packages/<pkg>/docs/SPEC.md` — the package contract.
@@ -143,10 +143,10 @@ pnpm docs:build   # static export to apps/docs/out, then the Pagefind search ind
 ```
 
 The docs site deploys itself: its Cloudflare Pages project is connected to the GitHub repository, a
-push to `main` updates docs.robota.io. Other branches get no usable preview, so check a docs change
+push to `main` updates docs.__PROJECT_WEBSITE_HOST__. Other branches get no usable preview, so check a docs change
 locally with `pnpm docs:dev` (see [apps/docs/docs/README.md](../../apps/docs/docs/README.md) for
-serving a production build). The marketing site (`apps/www`, robota.io) and the blog
-(`apps/blog`, blog.robota.io) deploy the same way from their own projects. See
+serving a production build). The marketing site (`apps/www`, __PROJECT_WEBSITE_HOST__) and the blog
+(`apps/blog`, blog.__PROJECT_WEBSITE_HOST__) deploy the same way from their own projects. See
 [apps/docs/docs/README.md](../../apps/docs/docs/README.md) for the details.
 
 ## Publishing

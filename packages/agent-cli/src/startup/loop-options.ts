@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { createNodeHostContributionSource, getWorkspaceProjectReader } from '@robota-sdk/agent-framework';
 
 import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
@@ -7,25 +8,25 @@ export const DEFAULT_LOOP_MAINTENANCE_PROMPT =
   'Resume only the current authorized work, tend its existing PR and checks, and report blockers. ' +
   'Do not start a new initiative or take an irreversible action without its existing authorization.';
 
-const LOOP_PROMPT_FILE = '.robota/loop.md';
 const MAX_LOOP_PROMPT_BYTES = 4_096;
 
 /** A default prompt is content, never an authorization bypass. Both sources are read afresh per turn. */
 export function createLoopDefaultPromptResolver(options: {
+  productRuntime: ICliRuntimeContext;
   projectAccess?: TWorkspaceProjectAccess;
   userHome: string;
 }): () => string {
   const projectReader = options.projectAccess?.status === 'trusted'
     ? getWorkspaceProjectReader(options.projectAccess.authority)
     : undefined;
-  const userSource = createNodeHostContributionSource(options.userHome);
+  const userSource = createNodeHostContributionSource(options.productRuntime.layout.userRoot);
 
   return () => {
-    const projectBytes = projectReader?.readBytes(LOOP_PROMPT_FILE, 'load default loop prompt', MAX_LOOP_PROMPT_BYTES);
+    const projectBytes = projectReader?.readBytes(`${options.productRuntime.layout.projectDirectory}/loop.md`, 'load default loop prompt', MAX_LOOP_PROMPT_BYTES);
     if (projectBytes !== undefined) {
       return validatePrompt(new TextDecoder('utf-8', { fatal: true }).decode(projectBytes), 'Project');
     }
-    const userText = userSource.readText(LOOP_PROMPT_FILE, 'load default loop prompt');
+    const userText = userSource.readText('loop.md', 'load default loop prompt');
     if (userText !== undefined) return validatePrompt(userText, 'User');
     return DEFAULT_LOOP_MAINTENANCE_PROMPT;
   };
@@ -41,5 +42,5 @@ function validatePrompt(content: string, source: string): string {
 }
 
 export function areSessionLoopsDisabled(env: NodeJS.ProcessEnv): boolean {
-  return env['ROBOTA_DISABLE_SESSION_LOOPS'] === '1';
+  return env['PRODUCT_DISABLE_SESSION_LOOPS'] === '1';
 }

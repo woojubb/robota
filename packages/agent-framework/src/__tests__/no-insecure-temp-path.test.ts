@@ -45,7 +45,7 @@ describe('SEC-003 floor: no insecure temp paths in agent-framework', () => {
       // HARNESS-052: matched over the WHOLE SOURCE, not line by line. The detector used to run
       // inside `lines.forEach`, so its `\s*` could never cross a newline and it only fired when
       // `join(` and `tmpdir()` landed on the same physical line — which Prettier's 100-column wrap
-      // routinely prevents. Falsified: a verbatim CWE-377 `join(\n  tmpdir(),\n  'robota-cache.json',\n)`
+      // routinely prevents. Falsified: a verbatim CWE-377 `join(\n  tmpdir(),\n  'agent-cache.json',\n)`
       // in a non-test source left `offenders` empty and this floor green.
       for (const match of source.matchAll(/\bjoin\(\s*tmpdir\(\)/g)) {
         const index = match.index ?? 0;

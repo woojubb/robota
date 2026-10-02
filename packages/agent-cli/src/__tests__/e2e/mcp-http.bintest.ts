@@ -1,3 +1,4 @@
+import { createTestBinaryEnvironment } from '../helpers/product-runtime.js';
 import { spawn, spawnSync } from 'node:child_process';
 import { request as httpRequest } from 'node:http';
 import {
@@ -19,17 +20,17 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { describe, expect, it, vi } from 'vitest';
 
-const ROBOTA_BIN = fileURLToPath(new URL('../../../bin/robota.cjs', import.meta.url));
+const PRODUCT_BIN = fileURLToPath(new URL('../../../bin/agent.cjs', import.meta.url));
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'cross-fidelity.jsonl');
 
-describe('robota mcp serve loopback HTTP binary', () => {
+describe('test-product mcp serve loopback HTTP binary', () => {
   it('issues a private token, serves a real client, and cleans up on SIGTERM', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-mcp-http-cwd-'));
-    const home = mkdtempSync(join(tmpdir(), 'robota-mcp-http-home-'));
+    const cwd = mkdtempSync(join(tmpdir(), 'test-product-mcp-http-cwd-'));
+    const home = mkdtempSync(join(tmpdir(), 'test-product-mcp-http-home-'));
     const tokenFile = join(home, 'mcp-token');
-    mkdirSync(join(home, '.robota'));
+    mkdirSync(join(home, '.test-product'));
     writeFileSync(
-      join(home, '.robota', 'settings.json'),
+      join(home, '.test-product', 'settings.json'),
       JSON.stringify({
         currentProvider: 'anthropic',
         providers: {
@@ -41,7 +42,7 @@ describe('robota mcp serve loopback HTTP binary', () => {
     const child = spawn(
       process.execPath,
       [
-        ROBOTA_BIN,
+        PRODUCT_BIN,
         'mcp',
         'serve',
         '--http-token-file',
@@ -54,7 +55,7 @@ describe('robota mcp serve loopback HTTP binary', () => {
       ],
       {
         cwd,
-        env: { HOME: home, PATH: process.env['PATH'] ?? '' },
+        env: createTestBinaryEnvironment(home),
         stdio: ['pipe', 'pipe', 'pipe'],
       },
     );
@@ -93,10 +94,9 @@ describe('robota mcp serve loopback HTTP binary', () => {
         }),
       );
       const tools = (await client.listTools()).tools;
-      expect(tools.map((tool) => tool.name)).toContain('robota_submit');
-      expect(tools.map((tool) => tool.name)).not.toContain('agent_submit');
-      expect(tools.find((tool) => tool.name === 'robota_submit')?.description).toBe(
-        'Robota extension: submit a prompt to the agent and await its own turn',
+      expect(tools.map((tool) => tool.name)).toContain('test-product_submit');
+      expect(tools.find((tool) => tool.name === 'test-product_submit')?.description).toBe(
+        'Submit a prompt to the agent and await its own turn',
       );
       const result = await client.callTool({
         name: 'Read',
@@ -125,9 +125,9 @@ describe('robota mcp serve loopback HTTP binary', () => {
 function prepareHome(prefix: string): { cwd: string; home: string } {
   const cwd = mkdtempSync(join(tmpdir(), `${prefix}-cwd-`));
   const home = mkdtempSync(join(tmpdir(), `${prefix}-home-`));
-  mkdirSync(join(home, '.robota'));
+  mkdirSync(join(home, '.test-product'));
   writeFileSync(
-    join(home, '.robota', 'settings.json'),
+    join(home, '.test-product', 'settings.json'),
     JSON.stringify({
       currentProvider: 'anthropic',
       providers: {
@@ -172,15 +172,15 @@ function get(
   });
 }
 
-describe('robota mcp serve remote authorization binary', () => {
+describe('test-product mcp serve remote authorization binary', () => {
   it('refuses a non-loopback bind with the loopback token file', () => {
-    const { cwd, home } = prepareHome('robota-mcp-refuse');
+    const { cwd, home } = prepareHome('test-product-mcp-refuse');
     const tokenFile = join(home, 'mcp-token');
     try {
       const result = spawnSync(
         process.execPath,
-        [ROBOTA_BIN, 'mcp', 'serve', '--http-host', '0.0.0.0', '--http-token-file', tokenFile],
-        { cwd, env: { HOME: home, PATH: process.env['PATH'] ?? '' }, encoding: 'utf8' },
+        [PRODUCT_BIN, 'mcp', 'serve', '--http-host', '0.0.0.0', '--http-token-file', tokenFile],
+        { cwd, env: createTestBinaryEnvironment(home), encoding: 'utf8' },
       );
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain('non-loopback address only with --http-public-url');
@@ -192,15 +192,15 @@ describe('robota mcp serve remote authorization binary', () => {
   });
 
   it('serves protected-resource metadata and challenges a request without a token', async () => {
-    const { cwd, home } = prepareHome('robota-mcp-remote');
+    const { cwd, home } = prepareHome('test-product-mcp-remote');
     const child = spawn(
       process.execPath,
       [
-        ROBOTA_BIN,
+        PRODUCT_BIN,
         'mcp',
         'serve',
         '--http-public-url',
-        'https://agents.example.test/robota/mcp',
+        'https://agents.example.test/test-product/mcp',
         '--oauth-issuer',
         'https://auth.example.test',
         '--oauth-scopes',
@@ -215,7 +215,7 @@ describe('robota mcp serve remote authorization binary', () => {
       ],
       {
         cwd,
-        env: { HOME: home, PATH: process.env['PATH'] ?? '' },
+        env: createTestBinaryEnvironment(home),
         stdio: ['pipe', 'pipe', 'pipe'],
       },
     );
@@ -229,18 +229,18 @@ describe('robota mcp serve remote authorization binary', () => {
         { timeout: 15000 },
       );
       const port = Number(diagnostics.match(/127\.0\.0\.1:(\d+)/)?.[1]);
-      const metadata = await get(port, '/.well-known/oauth-protected-resource/robota/mcp', 'GET');
+      const metadata = await get(port, '/.well-known/oauth-protected-resource/test-product/mcp', 'GET');
       expect(metadata.status).toBe(200);
       expect(JSON.parse(metadata.body)).toMatchObject({
-        resource: 'https://agents.example.test/robota/mcp',
+        resource: 'https://agents.example.test/test-product/mcp',
         authorization_servers: ['https://auth.example.test'],
         scopes_supported: ['mcp:use'],
       });
-      const refused = await get(port, '/robota/mcp', 'POST');
+      const refused = await get(port, '/test-product/mcp', 'POST');
       expect(refused.status).toBe(401);
       expect(refused.body).toBe('');
       expect(refused.challenge).toBe(
-        'Bearer resource_metadata="https://agents.example.test/.well-known/oauth-protected-resource/robota/mcp"',
+        'Bearer resource_metadata="https://agents.example.test/.well-known/oauth-protected-resource/test-product/mcp"',
       );
       await vi.waitFor(() =>
         expect(diagnostics).toContain('MCP HTTP refused: missing-token (loopback)'),

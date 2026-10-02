@@ -1,6 +1,6 @@
 /**
  * SCREEN-006 User Execution Test Scenarios — color/motion degradation and palette-token colors on
- * the BUILT robota binary in a real PTY (run by `test:pty`; requires `pnpm build:deps` first).
+ * the BUILT CLI binary in a real PTY (run by `test:pty`; requires `pnpm build:deps` first).
  *
  * Scenario 1 (NO_COLOR legibility): `NO_COLOR=1` through a replayed conversation → the raw pty
  *   transcript contains ZERO SGR color sequences (30-38/40-48/90-97/100-107 params, incl. 38;5 /
@@ -60,7 +60,7 @@ describe('SCREEN-006 color/motion through the real binary', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-screen006-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-screen006-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 
@@ -126,9 +126,9 @@ describe('SCREEN-006 color/motion through the real binary', () => {
     // eslint-disable-next-line no-control-regex -- asserting on raw SGR escape bytes by design
     expect(raw).toMatch(/\x1b\[32m[^\x1b]*✓ Shell/);
 
-    // Assistant label renders the accent token (cyan → ESC[36m ... "Robota:").
+    // Assistant label renders the accent token (cyan → ESC[36m ... "Fixture Agent:").
     // eslint-disable-next-line no-control-regex -- asserting on raw SGR escape bytes by design
-    expect(raw).toMatch(/\x1b\[36m(?:\x1b\[[0-9;]*m)*Robota:/);
+    expect(raw).toMatch(/\x1b\[36m(?:\x1b\[[0-9;]*m)*Fixture Agent:/);
 
     // Markdown diff block carries the resolved theme's SGR pair (added line: light green on a dark
     // green background) — SCREEN-2002 moved the values into the theme, the bytes are unchanged.

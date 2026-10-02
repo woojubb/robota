@@ -103,7 +103,10 @@ never happened.
   unknown root parameters.
 - `ISandboxClient` lets a consumer inject a provider-backed execution plane into sandbox-aware
   built-ins; its optional snapshot/restore methods return and hydrate provider-owned resumable
-  workspace references. When no sandbox client is supplied, tools fall back to host-local
+  workspace references. The E2B structural client requires an explicit, valid command completion and
+  withdraws prior worker access while restoring; failed restoration and late responses cannot
+  recover the previous worker's authority, and a connector must name the requested worker.
+  Provider process termination remains the execution owner's responsibility. When no sandbox client is supplied, tools fall back to host-local
   execution. A client declares whether its filesystem is shared with the host (commands confined
   over the host's files) or separate (a remote or VM filesystem), because that decides where file
   tools may look: on a separate filesystem every file tool goes through the sandbox and the

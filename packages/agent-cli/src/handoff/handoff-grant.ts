@@ -27,10 +27,11 @@ import type {
   IHandoffManifest,
   IPeerAdmission,
 } from '@robota-sdk/agent-interface-session-mobility';
+import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 
 /** How long a grant is good for once minted; it is presented at once, before anyone is asked. */
 const GRANT_VALIDITY_MS = 60_000;
-const PURPOSE = 'robota/handoff-channel/v1';
+const PURPOSE_SUFFIX = 'handoff-channel/v1';
 
 /** A fresh value for one channel. */
 export function newChannelNonce(): string {
@@ -38,8 +39,12 @@ export function newChannelNonce(): string {
 }
 
 /** The channel a grant is bound to: what the carrier bound, and the receiver's value for this channel. */
-export function handoffChannelFingerprint(carrierBinding: string, nonce: string): string {
-  return JSON.stringify([PURPOSE, carrierBinding, nonce]);
+export function handoffChannelFingerprint(
+  cryptoContext: IIdentityContext,
+  carrierBinding: string,
+  nonce: string,
+): string {
+  return JSON.stringify([`${cryptoContext.namespace}/${PURPOSE_SUFFIX}`, carrierBinding, nonce]);
 }
 
 /** Between devices: the DTLS fingerprint the receiving side presented on this connection. */
@@ -60,12 +65,13 @@ export interface IHandoffSigner {
 
 /** Mint the grant for exactly this manifest over exactly this channel. */
 export function mintHandoffGrant(
+  cryptoContext: IIdentityContext,
   signer: IHandoffSigner,
   manifest: IHandoffManifest,
   channelFingerprint: string,
   now: number,
 ): Promise<IHandoffGrant> {
-  return issueHandoffGrant(
+  return issueHandoffGrant(cryptoContext,
     {
       userId: signer.userId,
       sourceDeviceId: manifest.sourceDeviceId,
@@ -127,6 +133,7 @@ export interface IHandoffGrantCheck {
  * the ends and the channel are the ones this side observes.
  */
 export async function checkHandoffGrant(
+  cryptoContext: IIdentityContext,
   presented: unknown,
   check: IHandoffGrantCheck,
 ): Promise<IPeerAdmission> {
@@ -140,7 +147,7 @@ export async function checkHandoffGrant(
   ) {
     return { admitted: false, trust: 'unproven', reason: 'the grant names another source' };
   }
-  const verdict = await verifyHandoffGrant(grant, {
+  const verdict = await verifyHandoffGrant(cryptoContext, grant, {
     sourcePublicKey: await importPublicKey('ES256', check.sender.signKey),
     expectedUserId: check.userId,
     expectedDestinationDeviceId: check.destinationId,

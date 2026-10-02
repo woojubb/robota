@@ -5,6 +5,7 @@
 
 // Core interfaces, abstracts, utils
 export * from './interfaces';
+export { snapshotToolProvenance, withToolProvenance } from './utils/tool-provenance';
 export * from './abstracts';
 export * from './utils';
 export { callJournaledProvider } from './services/execution-journal';
@@ -102,6 +103,9 @@ export type {
   ITextMessagePart,
   IInlineImageMessagePart,
   IUriImageMessagePart,
+  IInlineAudioMessagePart,
+  IResourceLinkMessagePart,
+  TEmbeddedResourceMessagePart,
   TUniversalMessagePart,
 } from './interfaces/messages';
 
@@ -186,7 +190,7 @@ export {
 } from './tool-registry';
 
 // Core agent
-export { Robota } from './core/robota';
+export { ConversationAgent, ConversationAgent as Robota } from './core/conversation-agent';
 export {
   DEFAULT_TOOL_RESULT_WARNING_CHARS,
   DEFAULT_TOOL_RESULT_HARD_CHARS,
@@ -198,7 +202,7 @@ export {
   type IToolResultSpillStore,
   type TToolResultAdmissionErrorCode,
 } from './core/tool-result-admission';
-export type { IDestroyResult } from './core/robota-lifecycle';
+export type { IDestroyResult } from './core/agent-lifecycle';
 
 // Managers
 export {
@@ -278,6 +282,7 @@ export {
   PROVIDER_FALLBACK_EVENTS,
   readModelFallbackNotice,
   TOOL_BODY_EVENTS,
+  TOOL_QUEUE_EVENTS,
   TOOL_PERMISSION_EVENTS,
   SPAN_EVENTS,
   SPAN_EVENT_PREFIX,
@@ -365,3 +370,5 @@ export type {
   IHookTypeExecutor,
 } from './hooks/index.js';
 export { runHooks, GuardrailExecutor, decodeHookVerdict, isEnforcing } from './hooks/index.js';
+
+export { nonVisualObservationText } from './utils/non-visual-observation-text.js';

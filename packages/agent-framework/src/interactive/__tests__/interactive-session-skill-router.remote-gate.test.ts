@@ -52,6 +52,23 @@ function mutating(name = 'shell'): ISystemCommand {
 }
 
 describe('SessionSkillRouter remote-command policy (REMOTE-006 — allow-by-default)', () => {
+  it('retains explicit carrier locality separately from the compatibility default', async () => {
+    let router: SessionSkillRouter;
+    const evidence: (string | undefined)[] = [];
+    const command = makeCommand('inspect', {
+      execute: async () => {
+        evidence.push(router.getCommandSurfaceLocalityEvidence());
+        return { success: true, message: 'inspected' };
+      },
+    });
+    router = makeRouter([command]);
+    await router.executeCommand('inspect', '', 'remote');
+    await router.executeCommand('inspect', '', 'remote', undefined, 'local');
+    await router.executeCommand('inspect', '', 'remote', undefined, 'remote');
+    expect(evidence).toEqual([undefined, 'local', 'remote']);
+    expect(router.getCommandSurfaceLocalityEvidence()).toBeUndefined();
+    expect(router.getCommandSurfaceLocality()).toBe('local');
+  });
   it('TC-01: with the default allow-all policy, a non-read-only remote command executes (was denied under B1)', async () => {
     const cmd = mutating();
     const router = makeRouter([cmd], createDefaultRemoteCommandPolicy());

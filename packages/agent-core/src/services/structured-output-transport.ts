@@ -1,14 +1,14 @@
 /**
  * Deciding — before the first model call — which transport can carry a schema. CORE-043.
  *
- * `robotaRunStructured` wrapped an ordinary run in a validate-and-retry loop and asked the provider
+ * `agentRunStructured` wrapped an ordinary run in a validate-and-retry loop and asked the provider
  * for `responseFormat: 'json_schema'` unconditionally. A provider whose surface cannot express that
  * accepted the option and ignored it, so the schema never reached the model; the loop then spent its
  * full retry budget rediscovering that, and reported "failed schema validation after 3 attempts" —
  * a description of the symptom, on a fact that was knowable before anything was sent.
  *
  * The decision lives HERE, at the seam that builds the wire option, rather than in
- * `robotaRunStructured`. That function has no provider — it composes a run out of the public API and
+ * `agentRunStructured`. That function has no provider — it composes a run out of the public API and
  * never sees which model will serve it, so a decision made there would have to guess at exactly the
  * thing being decided. `buildChatResponseFormat` is the one place every structured request passes
  * through with the resolved provider in hand.

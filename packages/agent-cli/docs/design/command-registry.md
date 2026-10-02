@@ -9,7 +9,7 @@ How a slash command, and a skill in particular, travels from an input line to a 
 runs. Almost none of this pipeline is CLI code: the presentation channel forwards the input,
 `InteractiveSession` in `@robota-sdk/agent-framework` routes it, the `/skills` command module in
 `@robota-sdk/agent-command` activates the skill, and the framework's `executeSkill()` builds the
-prompt. The CLI supplies the inputs that make it robota's: the skill roots, the model command-tool
+prompt. The CLI supplies the inputs that make it __PRODUCT_CLI_NAME__'s: the skill roots, the model command-tool
 prefix, and the shell function used for skill preprocessing.
 
 ## Constraints
@@ -30,9 +30,9 @@ prefix, and the shell function used for skill preprocessing.
 
 | Input                     | Where it comes from                                                           | Used for                                                                         |
 | ------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Skill roots               | `ROBOTA_SKILL_ROOTS` in `src/product/robota-skill-roots.ts`                   | Where `SkillCommandSource` looks for skill folders and command files             |
+| Skill roots               | `PRODUCT_SKILL_ROOTS` in `src/product/skill-roots.ts`                   | Where `SkillCommandSource` looks for skill folders and command files             |
 | Contribution sources      | `createCliWorkspaceComposition()`                                             | Project sources only when the workspace is trusted, plus user sources            |
-| Model command-tool prefix | `ROBOTA_MODEL_COMMAND_TOOL_PREFIX` (`robota_command_`) in `robota-profile.ts` | Names the tools that expose model-invocable commands                             |
+| Model command-tool prefix | `PRODUCT_MODEL_COMMAND_TOOL_PREFIX` (`__PRODUCT_MODEL_TOOL_PREFIX__`) in `product-profile.ts` | Names the tools that expose model-invocable commands                             |
 | `shellExec`               | `runShellCommand()` in `src/startup/shell-exec.ts`                            | Runs `` !`cmd` `` lines in skill bodies (synchronous, 5 s timeout, piped output) |
 
 ### Routing inside the session
@@ -65,7 +65,7 @@ activation result, including the built prompt, goes back to the model as the too
 
 ### Model-invoked skills
 
-`/skills` is model-invocable, so the session projects it as the tool `robota_command_skills`. The
+`/skills` is model-invocable, so the session projects it as the tool `__PRODUCT_MODEL_TOOL_PREFIX__skills`. The
 model passes the skill name and its arguments in `args`. The system prompt lists skill names and
 descriptions only; a skill's body is loaded when `/skills` activates it.
 

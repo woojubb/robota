@@ -13,6 +13,7 @@ import { createNodeHostSettingsSource } from '../../config/node-host-settings-so
 import { FallbackProvider } from '../../routing/fallback-provider.js';
 import { applyModelFallback } from '../../routing/model-fallback-chain.js';
 import { InteractiveSession } from '../interactive-session.js';
+import { resolveUserSettingsProviderSwitch } from '../interactive-session-provider-switch.js';
 
 import { ProviderError } from '@robota-sdk/agent-core';
 
@@ -83,7 +84,7 @@ const SETTINGS = {
 
 let dir: string;
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'robota-switch-'));
+  dir = mkdtempSync(join(tmpdir(), 'agent-switch-'));
 });
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
@@ -116,6 +117,28 @@ function startSession(allowedProviders?: string[], entries = ['openai', 'gemini'
 }
 
 describe('/provider switch with a model fallback chain', () => {
+  it('uses the selected host environment when switching to a saved profile', () => {
+    const path = join(dir, 'env-settings.json');
+    writeFileSync(path, JSON.stringify({
+      currentProvider: 'cloud',
+      providers: { cloud: { type: 'synthetic', model: 'fixture-model', apiKey: '$ENV:SYNTHETIC_SWITCH_KEY' } },
+    }));
+    const keys: string[] = [];
+    const definitions: IProviderDefinition[] = [{
+      type: 'synthetic',
+      createProvider: (config) => {
+        keys.push(config.apiKey ?? 'missing');
+        return { name: 'synthetic' } as unknown as IAIProvider;
+      },
+    }];
+    const sources = [createNodeHostSettingsSource('user', path)];
+    for (const key of ['file-a', 'file-b', 'file-a']) {
+      expect(resolveUserSettingsProviderSwitch('cloud', definitions, sources, {
+        SYNTHETIC_SWITCH_KEY: key,
+      }).settings.apiKey).toBe(key);
+    }
+    expect(keys).toEqual(['file-a', 'file-b', 'file-a']);
+  });
   it('reads the chain again with the new profile as primary', async () => {
     const { mockSession, switchProvider, onFallback } = startSession();
 

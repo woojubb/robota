@@ -11,7 +11,7 @@ import { createRestrictedWorkspaceProjectAccess } from '../../workspace-trust/in
 const roots: string[] = [];
 
 function tempRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), 'robota-project-permission-'));
+  const root = mkdtempSync(join(tmpdir(), 'agent-project-permission-'));
   roots.push(root);
   return root;
 }
@@ -63,7 +63,7 @@ describe('project permission persistence', () => {
         theme: 'dark',
         permissions: { deny: ['Bash(rm *)'], allow: ['Read(*)', 'Bash(git *)'] },
       });
-      expect(() => readFileSync(join(root, '.robota', 'settings.local.json'))).toThrow();
+      expect(() => readFileSync(join(root, '.agent', 'settings.local.json'))).toThrow();
     },
   );
 });

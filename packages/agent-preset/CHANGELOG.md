@@ -12,7 +12,7 @@
 
 - 3ab2eca: - External presets accept every permission mode a session does, `auto` included; `auto` used to fail validation.
   - `createDagFramework({ ports: { costMeta } })` wires cost-metadata management; without it cost operations still report that they are unsupported.
-  - `startCli()` runs the subagent worker when a subagent starts the embedder's entry script again, as the `robota` executable already did; an embedded CLI used to start a second CLI there.
+  - `startCli()` runs the subagent worker when a subagent starts the embedder's entry script again, as the `__PRODUCT_CLI_NAME__` executable already did; an embedded CLI used to start a second CLI there.
   - The provider `executor` option docs no longer import a `RemoteExecutor` that does not exist, and `IRemoteExecutorConfig` is marked deprecated: nothing implements a remote executor.
 - Updated dependencies [4e11579]
 - Updated dependencies [193a0bc]
@@ -109,9 +109,9 @@
     construction to `agent-framework`'s `buildRuntimeSession` seam (never re-implemented). Its neutrality is
     enforced by three mechanical guards (dependency-graph neutrality, purity/no-IO, no product-name
     conditionals), coupling the amended project-structure L129 carve-out to the guards.
-  - **`@robota-sdk/pack-coding`** (new) — robota's coding capability as one `ICapabilityPack` (the built-in
+  - **`@robota-sdk/pack-coding`** (new) — __PRODUCT_DISPLAY_NAME__'s coding capability as one `ICapabilityPack` (the built-in
     coding tools, the `/shell` + `/editor` command modules, and the coding subagents) — the additive-axis
-    proof and robota's first pack.
+    proof and __PRODUCT_DISPLAY_NAME__'s first pack.
   - **`@robota-sdk/agent-preset`** — adds `createPresetRegistry`, a per-call instance-scoped resolver that
     never mutates the module-level external-preset global (consumed by `assembleProduct`).
 
@@ -218,7 +218,7 @@
 
   - **Preset system (PRESET-001~017):** new `@robota-sdk/agent-preset` package layering framework
     assembly options into named, selectable profiles (`default`, `autonomous-builder`, `careful-reviewer`,
-    `neutral-executor`) plus user-authored external presets loaded from `~/.robota/presets/*.json`.
+    `neutral-executor`) plus user-authored external presets loaded from `$PRODUCT_USER_STATE_DIR/presets/*.json`.
   - **Live preset switching:** `/preset` command (list + active marker + switch) and a TUI active-preset
     display. Switching live re-applies permission posture, model/effort, persona, command-module
     selection, parallel-subagents gating, and a self-verification system-prompt section via the single

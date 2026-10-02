@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { describe, expect, it, vi } from 'vitest';
@@ -20,7 +22,7 @@ function makeHandshakeStub() {
   const received: TPairingFrame[] = [];
   let resolveResult!: (value: { sessionKey: string }) => void;
   let rejectResult!: (error: Error) => void;
-  const start: typeof startPairingHandshake = (options) => {
+  const start: typeof startPairingHandshake = (_cryptoContext, options) => {
     // Record what the gate asked us to send (it wraps this over the channel).
     const controller = {
       result: new Promise<{ sessionKey: string }>((res, rej) => {
@@ -53,7 +55,7 @@ function makeGate(over: Partial<IPairingGateOptions> = {}) {
     cleanup: handlerCleanup,
   });
   const hs = makeHandshakeStub();
-  const gate = new PairingGate({
+  const gate = new PairingGate({cryptoContext: testIdentity,
     channel,
     session,
     secret: 's',
@@ -200,7 +202,7 @@ describe('PairingGate (REMOTE-008 Step 1 — fail-closed routing switch)', () =>
     };
     const onDeliveryError = vi.fn();
     const hs = makeHandshakeStub();
-    new PairingGate({
+    new PairingGate({cryptoContext: testIdentity,
       channel,
       session,
       secret: 's',
@@ -261,7 +263,7 @@ describe('PairingGate (REMOTE-008 Step 1 — fail-closed routing switch)', () =>
     });
     lifecycle.reset(1);
     const hs = makeHandshakeStub();
-    gate = new PairingGate({
+    gate = new PairingGate({cryptoContext: testIdentity,
       channel,
       session,
       secret: 's',

@@ -14,6 +14,7 @@ import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import { parseMCPResultSizeMetadata } from '../catalog/result-size-metadata.js';
 import { MCPDiscoveryError } from '../catalog/types.js';
 import { toUniversalObject } from '../catalog/universal-value.js';
+import { statelessCacheHint } from './stateless-result.js';
 
 import type { IMCPDiscoverOptions } from './session-types.js';
 import type {
@@ -22,6 +23,7 @@ import type {
   IMCPDiscoveredTool,
   IMCPDiscovery,
   IMCPDiscoveryDomainResult,
+  IMCPResponseCacheHint,
   IMCPServerIdentity,
   TMCPCapabilityDomain,
 } from '../catalog/types.js';
@@ -32,13 +34,21 @@ type TDeclaredCapabilities = Readonly<
   Record<TMCPCapabilityDomain, { readonly listChanged: boolean } | undefined>
 >;
 
-type TRawTool = Awaited<ReturnType<Client['listTools']>>['tools'][number];
+type TLegacyToolPage = Awaited<ReturnType<Client['listTools']>>;
+type TRawTool = Omit<TLegacyToolPage['tools'][number], 'inputSchema' | 'outputSchema'> & {
+  readonly inputSchema: Readonly<Record<string, unknown>>;
+  readonly outputSchema?: Readonly<Record<string, unknown>>;
+};
+type TDiscoveryClient = Pick<Client, 'listPrompts' | 'listResources'> & {
+  listTools(...args: Parameters<Client['listTools']>): Promise<{ tools: TRawTool[]; nextCursor?: string; _meta?: TLegacyToolPage['_meta']; [key: string]: unknown }>;
+};
 type TRawPrompt = Awaited<ReturnType<Client['listPrompts']>>['prompts'][number];
 type TRawResource = Awaited<ReturnType<Client['listResources']>>['resources'][number];
 
 interface IListPage<TRaw> {
   readonly items: readonly TRaw[];
   readonly nextCursor?: string;
+  readonly cacheHint?: IMCPResponseCacheHint;
 }
 
 /** Structural boundary conversion: the SDK's JSON-Schema-shaped `inputSchema` into our subset. */
@@ -182,6 +192,7 @@ async function discoverDomain<TRaw, TItem>(
   }
 
   const items: TItem[] = [];
+  const cacheHints: IMCPResponseCacheHint[] = [];
   let cursor: string | undefined;
   let pages = 0;
 
@@ -191,6 +202,7 @@ async function discoverDomain<TRaw, TItem>(
     const page = await fetchPageOrThrow(domain, pages, cursor, options, listPage);
     pages += 1;
     items.push(...page.items.map(map));
+    if (page.cacheHint) cacheHints.push(page.cacheHint);
 
     const nextCursor = resolveNextCursor(domain, pages, page.nextCursor);
     if (nextCursor === undefined) {
@@ -203,12 +215,13 @@ async function discoverDomain<TRaw, TItem>(
     state: { kind: 'supported', count: items.length, listChanged: declared.listChanged },
     items,
     pages,
+    ...(cacheHints.length === 0 ? {} : { cacheHints }),
   };
 }
 
 /** Paginated discovery over every domain the server declared; never reports a partial catalog. */
 export async function discoverAll(
-  client: Client,
+  client: TDiscoveryClient,
   declaredCapabilities: TDeclaredCapabilities,
   identity: IMCPServerIdentity,
   instructions: string | undefined,
@@ -223,7 +236,13 @@ export async function discoverAll(
         cursor === undefined ? undefined : { cursor },
         requestOptions,
       );
-      return { items: result.tools, nextCursor: result.nextCursor };
+      return {
+        items: result.tools,
+        nextCursor: result.nextCursor,
+        ...(identity.protocolVersion === '2026-07-28'
+          ? { cacheHint: statelessCacheHint(result) }
+          : {}),
+      };
     },
     mapTool,
   );
@@ -237,7 +256,13 @@ export async function discoverAll(
         cursor === undefined ? undefined : { cursor },
         requestOptions,
       );
-      return { items: result.prompts, nextCursor: result.nextCursor };
+      return {
+        items: result.prompts,
+        nextCursor: result.nextCursor,
+        ...(identity.protocolVersion === '2026-07-28'
+          ? { cacheHint: statelessCacheHint(result) }
+          : {}),
+      };
     },
     mapPrompt,
   );
@@ -251,7 +276,13 @@ export async function discoverAll(
         cursor === undefined ? undefined : { cursor },
         requestOptions,
       );
-      return { items: result.resources, nextCursor: result.nextCursor };
+      return {
+        items: result.resources,
+        nextCursor: result.nextCursor,
+        ...(identity.protocolVersion === '2026-07-28'
+          ? { cacheHint: statelessCacheHint(result) }
+          : {}),
+      };
     },
     mapResource,
   );

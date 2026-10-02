@@ -143,7 +143,7 @@ describe('dag-runtime-server contract', () => {
       status: 404,
       errors: [
         {
-          type: 'urn:robota:problems:dag:validation',
+          type: 'urn:agent:problems:dag:validation',
           title: 'Validation failed',
           status: 400,
           detail: 'Definition does not exist',
@@ -182,7 +182,7 @@ describe('dag-runtime-server contract', () => {
       status: 400,
       errors: [
         {
-          type: 'urn:robota:problems:dag:validation',
+          type: 'urn:agent:problems:dag:validation',
           title: 'Validation failed',
           status: 400,
           instance: '/v1/dag/definitions/mutation-contract/versions/1',
@@ -269,7 +269,7 @@ describe('dag-runtime-server contract', () => {
       status: 404,
       errors: [
         {
-          type: 'urn:robota:problems:dag:not_found',
+          type: 'urn:agent:problems:dag:not_found',
           title: 'Resource not found',
           status: 404,
           detail: 'DAG definition not found',
@@ -418,7 +418,7 @@ describe('dag-runtime-server contract', () => {
       status: 400,
       errors: [
         {
-          type: 'urn:robota:problems:dag:validation',
+          type: 'urn:agent:problems:dag:validation',
           title: 'DAG build failed',
           status: 400,
           detail: 'Node type "missing-node" is not registered',
@@ -741,7 +741,7 @@ describe('dag-runtime-server contract', () => {
     });
     expect(invalid.status).toBe(400);
     expect(await invalid.json()).toMatchObject({
-      errors: [{ type: 'urn:robota:error:dag:dag_asset_invalid_input' }],
+      errors: [{ type: 'urn:agent:problems:dag:dag_asset_invalid_input' }],
     });
     expect(await framework.assets.getMetadata('bad')).toBeUndefined();
 

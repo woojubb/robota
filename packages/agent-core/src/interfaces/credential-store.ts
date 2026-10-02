@@ -11,7 +11,7 @@
 
 /** A secret's name: the owning service and the account within it, both chosen by the caller. */
 export interface ICredentialKey {
-  /** A namespace for the caller, e.g. `robota.remote-control`. */
+  /** A namespace for the caller, e.g. `agent.remote-control`. */
   readonly service: string;
   /** The secret's name within that namespace. */
   readonly account: string;

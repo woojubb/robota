@@ -1,64 +1,82 @@
 name: CI
-
 on:
   pull_request:
     branches: [develop, main]
   push:
     branches: [develop, main]
   workflow_dispatch:
-
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
-
 permissions:
   contents: read
-
 jobs:
-  pr-validation:
-    name: pr-validation
+  scope:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    outputs:
+      plan: ${{ steps.scope.outputs.plan }}
+      release: ${{ steps.scope.outputs.release }}
+      developer_docs: ${{ steps.scope.outputs.developer_docs }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: pnpm/action-setup@v6
+      - uses: ./.github/actions/ci-setup
         with:
-          version: 8.15.4
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - name: Harness size cap (AGENTS.md <= 50 lines, harness <= 12000 lines)
+          install: 'false'
+      - name: Harness size cap
         run: |
-          harness=$(git ls-files AGENTS.md CLAUDE.md .agents .claude scripts/harness .github/workflows | xargs cat | wc -l)
+          harness=$(git ls-files AGENTS.md CLAUDE.md .agents .claude scripts/harness .github | xargs cat | wc -l)
           agents=$(wc -l < AGENTS.md)
-          echo "harness=${harness} AGENTS.md=${agents}"
           if [ "$agents" -gt 50 ] || [ "$harness" -gt 12000 ]; then
-            echo "::error::Harness over its cap. Remove as much as you add (AGENTS.md, Keeping the harness small)."
+            echo "::error::Harness over its cap. Remove as much as you add."
             exit 1
           fi
-      - run: pnpm install --frozen-lockfile
-      # Pull requests that touch only package directories typecheck and test the changed packages and
-      # everything that depends on them (pnpm's `...[ref]` filter). Anything else runs the full suite.
-      - name: Select scope
+      - id: scope
+        run: node scripts/ci.mjs scope
         env:
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          if [ "${{ github.event_name }}" = pull_request ] \
-            && ! git diff --name-only "origin/${BASE_REF}...HEAD" | grep -qvE '^(packages|apps|examples)/'; then
-            echo "SCOPE=--filter=...[origin/${BASE_REF}]" >> "$GITHUB_ENV"
-          fi
-      - run: pnpm build
-      - run: pnpm -r ${SCOPE} --workspace-concurrency=-1 --if-present run typecheck
-      - run: pnpm lint
-      - run: pnpm -r ${SCOPE} --if-present run test
-      - run: pnpm test:scripts
-      - run: pnpm deps:check
-      - name: Release checks (publish safety, SDK surface, pack + publint + attw)
-        run: bash scripts/publish/publish-packages.sh --skip-build --dry-run
-
+          CI_EVENT: ${{ github.event_name }}
+          CI_BASE: ${{ github.event.pull_request.base.sha }}
+  workspace-build:
+    needs: scope
+    if: needs.scope.outputs.developer_docs != 'true'
+    uses: ./.github/workflows/ci-check.yml
+    with:
+      kind: build
+      plan: ${{ needs.scope.outputs.plan }}
+  static-checks:
+    needs: [scope, workspace-build]
+    if: needs.scope.outputs.developer_docs != 'true'
+    uses: ./.github/workflows/ci-check.yml
+    with:
+      kind: static
+      plan: ${{ needs.scope.outputs.plan }}
+      artifact-id: ${{ needs.workspace-build.outputs.artifact-id }}
+  tests:
+    needs: [scope, workspace-build]
+    if: ${{ !cancelled() && needs.scope.result == 'success' && (needs.scope.outputs.developer_docs == 'true' || needs.workspace-build.result == 'success') }}
+    uses: ./.github/workflows/ci-check.yml
+    with:
+      kind: tests
+      plan: ${{ needs.scope.outputs.plan }}
+      artifact-id: ${{ needs.workspace-build.outputs.artifact-id }}
+  release-checks:
+    needs: scope
+    if: needs.scope.outputs.release == 'true'
+    uses: ./.github/workflows/ci-check.yml
+    with:
+      kind: release
+      plan: ${{ needs.scope.outputs.plan }}
+  pr-validation:
+    name: pr-validation
+    needs: [scope, workspace-build, static-checks, tests, release-checks]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: node scripts/ci.mjs gate
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
   secret-scan:
     name: secret-scan
     permissions:
@@ -67,7 +85,6 @@ jobs:
     with:
       base_ref: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event_name == 'push' && github.event.before || 'HEAD~1' }}
       head_ref: ''
-
   security:
     name: security
     needs: [secret-scan]

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { fireSubagentLifecycleHook } from '../background-task-hooks.js';
-import { buildAgentRuntime } from '../build-agent-runtime.js';
+import { buildAgentRuntime } from '../build-runtime.js';
 
 import type { IHookInput, IHookTypeExecutor, THooksConfig } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
@@ -55,8 +55,8 @@ describe('subagent hook environment ownership', () => {
     const input = await captureHookInput();
     expect(input.agent_id).toBe('agent-1');
     expect(input.agent_type).toBe('research');
-    expect(input.env).not.toHaveProperty('ROBOTA_AGENT_ID');
-    expect(input.env).not.toHaveProperty('ROBOTA_AGENT_TYPE');
+    expect(input.env).not.toHaveProperty('AGENT_AGENT_ID');
+    expect(input.env).not.toHaveProperty('AGENT_AGENT_TYPE');
   });
 
   it('injects only the host-selected aliases for a product host', async () => {
@@ -64,7 +64,7 @@ describe('subagent hook environment ownership', () => {
     expect(input.env).toMatchObject({
       ATLAS_AGENT_ID: 'agent-1', ATLAS_AGENT_TYPE: 'research',
     });
-    expect(input.env).not.toHaveProperty('ROBOTA_AGENT_ID');
+    expect(input.env).not.toHaveProperty('AGENT_AGENT_ID');
   });
 
   it('carries host aliases through runtime assembly into a real task lifecycle hook', async () => {
@@ -98,7 +98,7 @@ describe('subagent hook environment ownership', () => {
     });
     const input = await seenInput;
     expect(input.env).toHaveProperty('ACME_AGENT_ID', task.id);
-    expect(input.env).not.toHaveProperty('ROBOTA_AGENT_ID');
+    expect(input.env).not.toHaveProperty('AGENT_AGENT_ID');
     await runtime.backgroundTaskManager.wait(task.id);
   });
 });

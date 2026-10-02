@@ -1,3 +1,5 @@
+import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
 /**
  * Permission types — interfaces and type aliases for permission enforcement.
  */
@@ -69,6 +71,7 @@ export type TPermissionHandler = (
 ) => Promise<TPermissionResult>;
 
 export interface IPermissionEnforcerOptions {
+  readonly pathProtection?: IPathProtectionPolicy;
   sessionId: string;
   cwd: string;
   getPermissionMode: () => TPermissionMode;
@@ -109,6 +112,7 @@ export interface IPermissionEnforcerOptions {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    toolResultParts?: TUniversalMessagePart[];
     executionId?: string;
   }) => void;
   /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */

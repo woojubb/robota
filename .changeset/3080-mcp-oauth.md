@@ -38,7 +38,7 @@ send the stored token.
   of following it; registration, token and refresh requests use it.
 - **Storage:** `IMCPOAuthCredentialStore` (`get`/`set`/`delete`), keyed by the server's security
   identity and canonical URL together. `createFileOAuthCredentialStore` keeps 0600 files in a 0700
-  `~/.robota/mcp-credentials/`. The issuer, token endpoint and client (with its secret, if any, and
+  `the configured user data directory`. The issuer, token endpoint and client (with its secret, if any, and
   the client authentication method dynamic registration returned) are stored with the tokens. A
   sign-in stores its credential under the refresh lock, so a refresh in flight cannot overwrite it.
 - **Sessions** (`createOAuthAuthenticator`, wired for every `oauth` definition):

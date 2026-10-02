@@ -9,7 +9,7 @@
     "start": "next start --port 3010",
     "lint": "next lint",
     "typecheck": "tsgo --noEmit",
-    "deploy": "next build && wrangler pages deploy out --project-name robota-www --branch main"
+    "deploy": "next build && wrangler pages deploy out --project-name __DEPLOY_PROJECT_NAME__ --branch main"
   },
   "dependencies": {
     "lucide-react": "^1.26.0",

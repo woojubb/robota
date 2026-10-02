@@ -1,11 +1,16 @@
-name: 'Robota Action'
-description: 'Run the Robota coding assistant on a task in a workflow'
-author: 'robota-sdk'
+name: 'Agent Action'
+description: 'Run the configured coding assistant on a task in a workflow'
 branding:
   icon: 'cpu'
   color: 'blue'
 
 inputs:
+  package-scope:
+    description: 'Configured product package scope'
+    required: true
+  cli-name:
+    description: 'Configured installed CLI command name'
+    required: true
   task:
     description: 'The task or prompt to send to the agent'
     required: true
@@ -24,7 +29,7 @@ inputs:
     required: false
   load-project:
     description: >-
-      Trust the checked-out repository so Robota loads its settings, hooks, skills and MCP servers.
+      Trust the checked-out repository so the CLI loads its settings, hooks, skills and MCP servers.
       Leave it 'false' (safe mode) when the checkout may contain untrusted code, such as a pull request.
     required: false
     default: 'false'
@@ -36,12 +41,12 @@ inputs:
 outputs:
   result:
     description: 'The agent response text'
-    value: ${{ steps.run-robota.outputs.result }}
+    value: ${{ steps.run-agent.outputs.result }}
 
 runs:
   using: 'composite'
   steps:
-    # The Robota CLI needs Node.js 22.12 or later; a cached older 22.x does not satisfy the range.
+    # The selected CLI needs Node.js 22.12 or later; a cached older 22.x does not satisfy the range.
     # No package-manager cache: this job holds an API key, and the checkout's package.json must not
     # decide what gets cached or restored.
     - uses: actions/setup-node@v6
@@ -49,14 +54,16 @@ runs:
         node-version: '^22.12.0'
         package-manager-cache: false
     # Inputs reach the script only through the environment, never written into the script itself.
-    - id: run-robota
+    - id: run-agent
       shell: bash
       env:
-        ROBOTA_TASK: ${{ inputs.task }}
-        ROBOTA_MODEL: ${{ inputs.model }}
-        ROBOTA_OUTPUT: ${{ inputs.output }}
-        ROBOTA_MAX_TURNS: ${{ inputs.max-turns }}
-        ROBOTA_LOAD_PROJECT: ${{ inputs.load-project }}
-        ROBOTA_API_KEY: ${{ inputs.api-key }}
-        ROBOTA_CLI_VERSION: ${{ inputs.cli-version }}
+        PRODUCT_PACKAGE_SCOPE: ${{ inputs.package-scope }}
+        PRODUCT_CLI_NAME: ${{ inputs.cli-name }}
+        ACTION_TASK: ${{ inputs.task }}
+        ACTION_MODEL: ${{ inputs.model }}
+        ACTION_OUTPUT: ${{ inputs.output }}
+        ACTION_MAX_TURNS: ${{ inputs.max-turns }}
+        ACTION_LOAD_PROJECT: ${{ inputs.load-project }}
+        ACTION_API_KEY: ${{ inputs.api-key }}
+        ACTION_CLI_VERSION: ${{ inputs.cli-version }}
       run: node "$GITHUB_ACTION_PATH/src/main.mjs"

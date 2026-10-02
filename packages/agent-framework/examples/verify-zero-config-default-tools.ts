@@ -23,7 +23,7 @@ import { createAgentRuntime, type InteractiveSession } from '../src/index.js';
  * The tool list is read from what the PROVIDER was actually asked to use, not from the session. The
  * framework exposes no public accessor for a built session's final tool list, so the scripted
  * provider's recorded request is the observable channel — the same data a user sees in
- * `.robota/logs/<id>.jsonl`.
+ * the host-configured session log path.
  */
 const PROMPT = 'ARCH-035 zero-config default tools';
 const RESPONSE = 'ARCH-035 ok';

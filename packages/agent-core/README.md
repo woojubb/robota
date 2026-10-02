@@ -1,9 +1,9 @@
 # @robota-sdk/agent-core
 
-The foundation of the Robota SDK. It provides the `Robota` agent class (a conversation loop with
+The foundation of the Robota SDK. It provides the `ConversationAgent` class (a conversation loop with
 tool calling), the provider, tool and plugin contracts with their abstract base classes, the
 permission evaluator, the hook runner, event services, typed errors, model metadata, and structured
-output. It has no `@robota-sdk/*` dependencies; every other Robota package builds on it.
+output. It has no `@robota-sdk/*` dependencies; every other agent runtime package builds on it.
 
 ## Installation
 
@@ -17,12 +17,12 @@ Requires Node.js 22.12 or later. A provider package supplies the model connectio
 ## Quick Start
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'MyAgent',
   aiProviders: [provider],
   defaultModel: {
@@ -40,7 +40,7 @@ console.log(response);
 
 ## What it provides
 
-- **`Robota`** — an agent with conversation history, automatic tool execution, plugins, streaming
+- **`ConversationAgent`** — an agent with conversation history, automatic tool execution, plugins, streaming
   (`runStream`) and structured output. By default history accumulates across runs; set
   `retainHistory: false` to start every run from the system prompt.
 - **Messages** — every message (`TUniversalMessage`) has a unique `id` and a `state`
@@ -52,27 +52,27 @@ console.log(response);
 - **Tools** — `FunctionTool` and `ToolRegistry` live here, next to the `AbstractTool` base class and
   the tool schema contract. Ready-made tools are in `@robota-sdk/agent-tools`.
 - **Permissions** — `evaluatePermission` decides a tool call from the permission mode and
-  allow/deny/ask rules; it is the one evaluator every Robota caller uses.
+  allow/deny/ask rules; it is the one evaluator every agent runtime caller uses.
 - **Hooks** — `runHooks` runs the lifecycle hooks configured for an event. See the
   [hook event catalog](./docs/HOOK-CATALOG.md).
 - **Plugins** — `AbstractPlugin` with lifecycle hooks (`beforeRun`, `afterRun`, `onError`, …).
   Ready-made plugins are in `@robota-sdk/agent-plugin`.
 - **Events** — event services with owner-path tracking and `EventEmitterPlugin`.
-- **Errors** — typed errors extending `RobotaError`, such as `ProviderError`, `RateLimitError`,
+- **Errors** — typed errors extending `AgentRuntimeError`, such as `ProviderError`, `RateLimitError`,
   `ToolExecutionError` and `StructuredOutputError`.
 - **Model metadata** — providers register their own models with `registerModelMetadata()`; core
   owns the registry and the lookups (`getModelContextWindow()`, `getModelMaxOutput()`, …), not any
   vendor's catalogue.
 - **Cancellation** — an `AbortSignal` passed in run options reaches the provider call.
 
-## Robota API
+## agent runtime API
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import type { IAgentConfig } from '@robota-sdk/agent-core';
 
 declare const config: IAgentConfig;
-const agent = new Robota(config);
+const agent = new ConversationAgent(config);
 
 // Send a message (tool calls are executed automatically)
 const response = await agent.run('Hello');
@@ -97,11 +97,11 @@ exists, and the response is always validated by core with a bounded retry on vio
 
 ```typescript
 import { z } from 'zod';
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import type { IAgentConfig } from '@robota-sdk/agent-core';
 
 declare const config: IAgentConfig;
-const agent = new Robota(config);
+const agent = new ConversationAgent(config);
 
 const reportSchema = z.object({
   title: z.string(),
@@ -140,11 +140,11 @@ applies to the run's first model call only; later rounds revert to `'auto'` so t
 tool results and finish.
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import type { IAgentConfig } from '@robota-sdk/agent-core';
 
 declare const config: IAgentConfig;
-const agent = new Robota(config);
+const agent = new ConversationAgent(config);
 
 // Force the model to answer through a router tool (decision-agent pattern)
 const decision = await agent.run('Route this request.', {
@@ -179,7 +179,7 @@ including `provider_request`, `provider_native_raw_payload`, `provider_stream_ra
 and `history_mutation`. `@robota-sdk/agent-session` writes these events to its session log.
 
 Capturing a vendor SDK's exact payloads stays in the provider package: a provider calls
-`IChatOptions.onProviderNativeRawPayload`, and `Robota` forwards it as a
+`IChatOptions.onProviderNativeRawPayload`, and `ConversationAgent` forwards it as a
 `provider_native_raw_payload` event without importing vendor SDK types.
 
 Each provider call gets a `usageObservationId`. Streaming fragments of one call share it, and a
@@ -189,11 +189,11 @@ separately billed call gets a new one, so stored analytics can deduplicate usage
 one run, tool rounds included, is the sum over the messages that run appended:
 
 ```typescript
-import { Robota, sumMessagesUsage } from '@robota-sdk/agent-core';
+import { ConversationAgent, sumMessagesUsage } from '@robota-sdk/agent-core';
 import type { IAgentConfig } from '@robota-sdk/agent-core';
 
 declare const config: IAgentConfig;
-const agent = new Robota(config);
+const agent = new ConversationAgent(config);
 
 const before = agent.getHistory().length;
 await agent.run('Summarize the open issues.');
@@ -220,6 +220,21 @@ The main fields:
 | `maxExecutionRounds`    | `number?`                  | Cap on model-call rounds per run (`0` means no cap)        |
 | `isToolVisible`         | `(name) => boolean`        | Hide a registered tool from the model, checked every round |
 
+`toolExecutionPolicy(calls)` is a trusted host callback evaluated for each model tool round.
+It receives a copy of that round's calls and returns a policy keyed by call ID. `dependsOn`
+requires successful predecessor results before dispatch; failed predecessors produce skipped
+receipts. Resource claims use a host-chosen asset identity shared across plugins: readers may
+share a resource, while a writer excludes readers and other writers. Omitted claims mean unknown
+shared state and serialize conservatively; `resources: []` explicitly permits independent work.
+`maxConcurrency` bounds active calls, and `continueOnError: false` skips queued calls after a
+failure while retaining already started outcomes. `mode: 'sequential'` limits dispatch to one call.
+
+Claims are copied and validated before dispatch. Unknown IDs, cycles, and invalid resource claims
+refuse the batch with paired skipped results. The policy grants no permissions and does not retry
+mutations. Coordination is within one batch; hosts sharing assets across sessions must provide
+coordination at their effect boundary. Callers of the lower-level batch service opt into resource
+scheduling by supplying `scheduling`; its existing unplanned strategies retain their behavior.
+
 ## Entry points
 
 | Import path                      | What it contains                                                                                                                                                                                           |
@@ -235,7 +250,7 @@ needs Node). Import them from `@robota-sdk/agent-core/node` only to pass them ex
 
 | Area                   | Exports                                                                                                                                                                                                                  |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Agent**              | `Robota`, `ConversationStore`, `ConversationHistory`, `AbstractAgent`, `AgentFactory`, `AgentTemplates`                                                                                                                  |
+| **Agent**              | `ConversationAgent`, `ConversationStore`, `ConversationHistory`, `AbstractAgent`, `AgentFactory`, `AgentTemplates`                                                                                                                  |
 | **Providers**          | `AbstractAIProvider`, `IAIProvider`, `IChatOptions`, `IProviderCapabilities`, `getProviderCapabilities`, `assertProviderNativeWebToolsAvailable`, `IProviderDefinition`, `createProviderFromConfig`                      |
 | **Media providers**    | `IImageGenerationProvider`, `IVideoGenerationProvider`, `isImageGenerationProvider`, `isVideoGenerationProvider`, `createImageProviderFromDefinition`, `createVideoProviderFromDefinition`, `resolveMediaProviderConfig` |
 | **Tools**              | `FunctionTool`, `ToolRegistry`, `AbstractTool`, `IToolSchema`, `IToolResult`, `zodToJsonSchema`                                                                                                                          |
@@ -247,7 +262,7 @@ needs Node). Import them from `@robota-sdk/agent-core/node` only to pass them ex
 | **Models**             | `registerModelMetadata`, `getModelContextWindow`, `getModelMaxOutput`, `getModelName`, `formatTokenCount`, `DEFAULT_CONTEXT_WINDOW`, `DEFAULT_MAX_OUTPUT`, `IModelDefinition`                                            |
 | **Context and usage**  | `estimateContextTokensFromMessages`, `estimateSerializedContextTokens`, `readTokenUsageFromMessage`, `sumMessagesUsage`, `IContextWindowState`, `IContextTokenUsage`                                                     |
 | **Messages**           | `TUniversalMessage`, `IBaseMessage`, `TMessageState`, `createUserMessage`, `createAssistantMessage`, `isAssistantMessage`, …                                                                                             |
-| **Errors**             | `RobotaError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, `StructuredOutputError`, `classifyProviderFailure`, `toProviderError`                                                     |
+| **Errors**             | `AgentRuntimeError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, `StructuredOutputError`, `classifyProviderFailure`, `toProviderError`                                                     |
 
 ## Where it sits
 
@@ -258,7 +273,7 @@ agent-tools, agent-session, agent-plugin, agent-mcp, agent-provider-* (one packa
   ↑
 agent-framework       ← assembles sessions, commands, permissions and hooks
   ↑
-agent-cli             ← the `robota` reference app
+agent-cli             ← the reference host
 ```
 
 - Built-in tools (Shell, Read, Edit, …): `@robota-sdk/agent-tools`
@@ -272,14 +287,33 @@ From `packages/agent-core` in a built checkout of the repository, these scripts 
 without a live model: `node examples/hook-block-demo.mjs`, `node examples/hook-json-response-demo.mjs`,
 `node examples/hook-permission-mode-demo.mjs` and `node examples/hook-timeout-demo.mjs`.
 
+The default outbound HTTP transport uses the installed Undici entry so Bun's built-in replacement
+cannot discard its connection pinning. After `pnpm --filter @robota-sdk/agent-core build`, run the
+same disposable HTTP fixture from the repository root in each runtime:
+
+```sh
+node packages/agent-core/src/utils/fixtures/egress-runtime-smoke.mjs
+bun packages/agent-core/src/utils/fixtures/egress-runtime-smoke.mjs
+egress_fixture_dir=$(mktemp -d)
+bun build --compile --minify packages/agent-core/src/utils/fixtures/egress-runtime-smoke.mjs --outfile "$egress_fixture_dir/egress-smoke"
+"$egress_fixture_dir/egress-smoke"
+rm -rf "$egress_fixture_dir"
+```
+
+The fixture explicitly permits its local server and connects an otherwise unresolvable hostname
+to an injected address. It checks the built helper and Bun compilation, not a full CLI session,
+provider isolation or physical worker egress. The socket and TLS test suites cover destination
+refusal, redirects, cleanup and certificate identity separately. A trusted injected `fetch` owns
+its own connection policy; it does not inherit the default transport's pinning guarantee.
+
 ## Documentation
 
 - [docs/SPEC.md](./docs/SPEC.md) — package contract and design decisions
 - [docs/HOOK-CATALOG.md](./docs/HOOK-CATALOG.md) — hook events, input fields and blocking semantics
-- [Building agents](../../content/guide/building-agents.md) — a walkthrough of `Robota`, tools and
+- [Building agents](../../content/guide/building-agents.md) — a walkthrough of `ConversationAgent`, tools and
   structured output
 - [Permissions and hooks](../../content/guide/permissions-and-hooks.md)
 
 ## License
 
-Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

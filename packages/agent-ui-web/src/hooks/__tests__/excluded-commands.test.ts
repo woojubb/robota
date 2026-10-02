@@ -41,6 +41,6 @@ describe('excludedCommandMessage (#3282 §4e)', () => {
   });
 
   it('falls back to an honest generic sentence for an uncurated client-only command', () => {
-    expect(excludedCommandMessage('some-future-command')).toBe('This command runs in the robota terminal.');
+    expect(excludedCommandMessage('some-future-command')).toBe('This command runs in the host terminal.');
   });
 });

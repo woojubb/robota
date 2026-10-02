@@ -1,6 +1,6 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
-import { homedir } from 'node:os';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type {
   EditCheckpointStore,
@@ -20,7 +20,6 @@ import type {
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
 import { HeadlessInteractionChannel } from '@robota-sdk/agent-framework';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
-import { ROBOTA_PERMISSION_BASELINE } from '../product/robota-permission-baseline.js';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
@@ -33,13 +32,14 @@ import { runShellCommand } from '../startup/shell-exec.js';
 
 /**
  * ARCH-006: the tool surface the kernel overlay resolved. `additionalTools` carries the capability packs'
- * tools; `defaultTools` REPLACES `agent-framework`'s `createDefaultTools()` tier (`robota` passes an empty
+ * tools; `defaultTools` REPLACES `agent-framework`'s `createDefaultTools()` tier (`the product` passes an empty
  * array, so its packs are the sole source of tools).
  */
 export interface IPrintModeToolOptions {
   additionalTools?: IToolWithEventService[];
   defaultTools?: readonly IToolWithEventService[];
   sandboxClient?: ISandboxClient;
+  toolExecutionPolicy?: ICreateSessionOptions['toolExecutionPolicy'];
 }
 
 export interface IPrintModeSessionResolution {
@@ -61,6 +61,7 @@ export interface IPrintModeSessionResolution {
 export type IPrintModePresetOptions = Partial<IPresetSurfaceOptions>;
 
 export async function runPrintMode(
+  productRuntime: ICliRuntimeContext,
   cwd: string,
   args: IParsedCliArgs,
   provider: IAIProvider,
@@ -132,7 +133,7 @@ export async function runPrintMode(
     cwd,
     ...(livePromptTrace ? { livePromptTrace } : {}),
     provider,
-    shellExec: runShellCommand,
+    shellExec: (command, env) => runShellCommand(command, productRuntime.environment, env),
     ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),
     ...(promptFileReferenceTag !== undefined ? { promptFileReferenceTag } : {}),
     ...(modelCommandToolPrefix !== undefined ? { modelCommandToolPrefix } : {}),
@@ -143,6 +144,7 @@ export async function runPrintMode(
     ...(projectAccess !== undefined ? { projectAccess } : {}),
     ...(projectSettingsPaths !== undefined ? { projectSettingsPaths } : {}),
     ...(userSettingsSources !== undefined ? { userSettingsSources } : {}),
+    environment: productRuntime.environment,
     ...(contributionSources !== undefined ? { contributionSources } : {}),
     ...(skillRoots !== undefined ? { skillRoots } : {}),
     ...(taskContext !== undefined ? { taskContext } : {}),
@@ -154,13 +156,14 @@ export async function runPrintMode(
     // Issue #3081: `default`, not bypass. Print mode has no approver, so anything that would ask is
     // denied; `--permission-mode` (or a preset) states a wider mode where one is wanted.
     permissionMode: args.permissionMode ?? presetOptions.permissionMode ?? 'default',
-    baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,
+    baselinePermissionAllow: productRuntime.layout.baselinePermissionAllow,
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
-    disableSessionLoops: areSessionLoopsDisabled(process.env),
+    disableSessionLoops: areSessionLoopsDisabled(productRuntime.environment),
     resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({
+      productRuntime,
       projectAccess,
-      userHome: homedir(),
+      userHome: productRuntime.userHome ?? productRuntime.layout.userRoot,
     }),
     resumeSessionId: sessionResolution.resumeSessionId,
     forkSession: sessionResolution.forkSession,
@@ -206,6 +209,9 @@ export async function runPrintMode(
       ? { additionalTools: toolOptions.additionalTools }
       : {}),
     ...(toolOptions.defaultTools !== undefined ? { defaultTools: toolOptions.defaultTools } : {}),
+    ...(toolOptions.toolExecutionPolicy !== undefined
+      ? { toolExecutionPolicy: toolOptions.toolExecutionPolicy }
+      : {}),
     ...(toolOptions.sandboxClient !== undefined
       ? { sandboxClient: toolOptions.sandboxClient }
       : {}),

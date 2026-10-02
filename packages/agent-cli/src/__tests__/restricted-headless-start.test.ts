@@ -1,3 +1,4 @@
+import { createTestBinaryEnvironment } from './helpers/product-runtime.js';
 /**
  * Issue #3268: a headless start that a person chose to run Restricted (a background session started
  * Restricted from the session view) is not refused for want of trust; without that choice it still is.
@@ -13,8 +14,8 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
-const launcher = path.join(repoRoot, 'scripts', 'dev', 'robota');
-const scratch = realpathSync(mkdtempSync(path.join(tmpdir(), 'robota-restricted-headless-')));
+const launcher = path.join(repoRoot, 'scripts', 'dev', 'agent');
+const scratch = realpathSync(mkdtempSync(path.join(tmpdir(), 'test-product-restricted-headless-')));
 const home = path.join(scratch, 'home');
 const repo = path.join(scratch, 'repo');
 mkdirSync(home);
@@ -25,7 +26,7 @@ afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 function printRun(extra: readonly string[]): { status: number | null; stderr: string } {
   const result = spawnSync(launcher, ['-p', 'hello', ...extra], {
     cwd: repo,
-    env: { ...process.env, HOME: home },
+    env: createTestBinaryEnvironment(home),
     encoding: 'utf8',
     timeout: 60_000,
   });

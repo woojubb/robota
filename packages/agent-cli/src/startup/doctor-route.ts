@@ -1,5 +1,5 @@
 /**
- * `robota doctor` / `checkup` / `diagnose` — the shell route over the `agent-command` doctor runner
+ * `the product doctor` / `checkup` / `diagnose` — the shell route over the `agent-command` doctor runner
  * (OBSERVABILITY-1991).
  *
  * Reachable without a working session: matched in `runPreparsedCliCommand` BEFORE the route's shared
@@ -20,7 +20,7 @@ import {
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 
 import { buildDoctorInputs, resolveDoctorProjectAccess } from './doctor-inputs.js';
-import { ROBOTA_DOCTOR_DISPLAY } from '../product/robota-command-vocabulary.js';
+import { resolveCliRuntimeContext } from './product-bootstrap.js';
 
 import type { IStartCliOptions } from './command-setup.js';
 import type { IDoctorRepairPlan } from '@robota-sdk/agent-command';
@@ -58,7 +58,7 @@ export function parseDoctorRouteArgs(args: readonly string[]): IDoctorRouteArgs 
     } else {
       return {
         yes,
-        error: `Unknown option '${arg}' for robota doctor (accepted: --repair <check-id>, --yes)`,
+        error: `Unknown option '${arg}' for doctor (accepted: --repair <check-id>, --yes)`,
       };
     }
   }
@@ -99,7 +99,8 @@ export async function runDoctorRoute(
     ctx.terminal.writeError(parsed.error);
     return 1;
   }
-  const env = ctx.env ?? process.env;
+  const runtime = resolveCliRuntimeContext(ctx.options);
+  const env = ctx.env ?? runtime.environment;
   const access = await resolveDoctorProjectAccess(ctx.cwd, ctx.options);
   const inputs = buildDoctorInputs({
     cwd: ctx.cwd,
@@ -133,7 +134,7 @@ export async function runDoctorRoute(
   }
 
   const report = await runDoctor(inputs, deps);
-  for (const line of renderDoctorReport(report, `robota ${commandName}`, ROBOTA_DOCTOR_DISPLAY))
+  for (const line of renderDoctorReport(report, `${runtime.vocabulary.cliName} ${commandName}`, runtime.vocabulary.doctor))
     ctx.terminal.writeLine(line);
   return report.exitCode;
 }

@@ -87,7 +87,7 @@ export default function Chat() {
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: 24, fontFamily: 'sans-serif' }}>
-      <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 16 }}>Robota SDK — Chat</h1>
+      <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 16 }}>ConversationAgent SDK — Chat</h1>
 
       <div
         style={{

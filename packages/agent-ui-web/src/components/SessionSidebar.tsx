@@ -148,7 +148,7 @@ export function SessionSidebar({
   return (
     <aside
       aria-label="Sessions"
-      className={`robota-ui flex w-[272px] flex-shrink-0 flex-col overflow-hidden bg-sidebar ${className ?? ''}`}
+      className={`agent-ui flex w-[272px] flex-shrink-0 flex-col overflow-hidden bg-sidebar ${className ?? ''}`}
     >
       <div className="flex h-12 flex-shrink-0 items-center gap-2 px-4">
         {brand}

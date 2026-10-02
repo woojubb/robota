@@ -1,10 +1,11 @@
+import { createTestProductRuntime } from './helpers/product-runtime.js';
 /**
  * NEUT-005 wave 2 — CLI-tier context-capacity hint.
  *
  * The zero-dependency core emits a product-neutral hard-capacity notice; the actionable
  * remediation wording is a SURFACE concern. The CLI registers a `/compact` command, so its
  * built command-module set must derive the concrete hint ("Run /compact and retry.") that the
- * framework injects into the session's Robota config via `IAgentConfig.contextCapacityHint`.
+ * framework injects into the session's The product config via `IAgentConfig.contextCapacityHint`.
  */
 import { describe, it, expect } from 'vitest';
 
@@ -18,7 +19,7 @@ const MINIMAL_ARGS = { noUpdateCheck: true } as unknown as IParsedCliArgs;
 
 describe('CLI-tier context-capacity hint (NEUT-005)', () => {
   it('registers a compact command in the default module set', () => {
-    const setup = buildCommandSetup('/tmp', MINIMAL_ARGS, {}, '0.0.0-test');
+    const setup = buildCommandSetup('/tmp', MINIMAL_ARGS, { productRuntime: createTestProductRuntime() }, '0.0.0-test');
     const hasCompact = setup.baseCommandModules.some((m) =>
       m.systemCommands?.some((c) => c.name === 'compact'),
     );
@@ -26,7 +27,7 @@ describe('CLI-tier context-capacity hint (NEUT-005)', () => {
   });
 
   it('derives the actionable /compact hint from the CLI-built command set', () => {
-    const setup = buildCommandSetup('/tmp', MINIMAL_ARGS, {}, '0.0.0-test');
+    const setup = buildCommandSetup('/tmp', MINIMAL_ARGS, { productRuntime: createTestProductRuntime() }, '0.0.0-test');
     const contextReductionCommand = setup.baseCommandModules
       .flatMap((module) => module.systemCommands ?? [])
       .find((command) => command.semanticRole === 'contextReduction');

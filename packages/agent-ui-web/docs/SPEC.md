@@ -7,7 +7,7 @@ other transport has already admitted a peer onto, and opens no socket of its own
 
 ## Purpose
 
-The GUI presentation layer for a running robota session — the graphical analog of the terminal
+The GUI presentation layer for a running agent session — the graphical analog of the terminal
 presentation package. It reconstructs conversation state from the transport-neutral server-message
 stream and renders it as React components, and it ships the session shell (title/status bar,
 conversation column, background-activity rail, and a composer with the pending question docked above
@@ -32,8 +32,10 @@ does not own session lifecycle, conversation history, or agent runtime state.
   would have shown. A change made through a status control instead confirms itself through the
   control's own label — never a conversation entry — with a failed change surfaced as a toast instead.
   Session and protocol failures are also toasts, beside the conversation rather than in it.
-- A tool call's diff or output is server-computed and shown on demand, never recomputed here and
-  never buried behind a truncated path or argument; an internal signal tool never renders as a call,
+- A tool call's diff or output is server-computed and shown on demand, preserving its observation
+  types, call identity and success or denial/failure through live delivery and replay. Resource references remain inert because
+  displaying a contributor's URI grants no read authority; unsupported media is explained rather than
+  silently discarded. Output is never recomputed here or buried behind a truncated path or argument; an internal signal tool never renders as a call,
   and a projected `/command` tool shows the command it ran, not the provider-facing tool name.
 - A UI-intent opens its GUI screen when there is one — the session picker is the session sidebar
   (unless the host cannot list sessions), settings and the plugin manager both open the Settings
@@ -91,7 +93,7 @@ does not own session lifecycle, conversation history, or agent runtime state.
   the socket handler.
 - The package ships no compiled CSS — it authors Tailwind utility classes as source, and the
   consumer owns the Tailwind entry point that compiles them. Its design applies only inside the
-  `robota-ui` scope that each of its root components opens, so a host with tokens of its own under the
+  `agent-ui` scope that each of its root components opens, so a host with tokens of its own under the
   same names can embed the surface without either overriding the other.
 
 ## Non-goals / boundaries

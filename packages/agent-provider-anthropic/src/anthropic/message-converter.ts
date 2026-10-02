@@ -1,3 +1,4 @@
+import { nonVisualObservationText } from '@robota-sdk/agent-core';
 import type Anthropic from '@anthropic-ai/sdk';
 import type {
   TUniversalMessage,
@@ -30,7 +31,7 @@ function parseAnthropicToolCallInput(serializedArguments: string): Record<string
 
 /** Convert IUserMessage parts to Anthropic content blocks (text + images). */
 function convertUserParts(
-  msg: IUserMessage,
+  msg: Pick<IUserMessage, 'content' | 'parts'>,
 ): Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam> {
   if (!msg.parts || msg.parts.length === 0) {
     return [{ type: 'text', text: msg.content || '' }];
@@ -54,6 +55,8 @@ function convertUserParts(
         type: 'image',
         source: { type: 'url', url: part.uri },
       });
+    } else {
+      blocks.push({ type: 'text', text: nonVisualObservationText(part) ?? 'Unsupported observation' });
     }
   }
   return blocks;
@@ -121,7 +124,18 @@ export function convertToAnthropicFormat(messages: TUniversalMessage[]): Anthrop
           {
             type: 'tool_result' as const,
             tool_use_id: toolMsg.toolCallId ?? '',
-            content: msg.content || '',
+            ...(toolMsg.metadata?.['success'] === false ? { is_error: true } : {}),
+            content: toolMsg.parts?.length
+              ? [
+                  ...(toolMsg.content &&
+                  !toolMsg.parts.some(
+                    (part) => part.type === 'text' && part.text === toolMsg.content,
+                  )
+                    ? [{ type: 'text' as const, text: toolMsg.content }]
+                    : []),
+                  ...convertUserParts(toolMsg),
+                ]
+              : msg.content || '',
           },
         ],
       };

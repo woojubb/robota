@@ -97,17 +97,17 @@ describe('explicit OTLP usage snapshot export', () => {
       const address = collector.address();
       if (!address || typeof address === 'string') throw new Error('Expected TCP collector');
       const endpoint = `http://127.0.0.1:${address.port}`;
-      const traces = await executeUsageExportCommand(['--signal', 'traces', '--endpoint', endpoint], { userSessionStore, version: 'test' });
-      const metrics = await executeUsageExportCommand(['--signal', 'metrics', '--endpoint', endpoint], { userSessionStore, version: 'test' });
+      const traces = await executeUsageExportCommand(['--signal', 'traces', '--endpoint', endpoint], {serviceName: 'test-product.agent',  userSessionStore, version: 'test' });
+      const metrics = await executeUsageExportCommand(['--signal', 'metrics', '--endpoint', endpoint], {serviceName: 'test-product.agent',  userSessionStore, version: 'test' });
       expect(traces.exitCode).toBe(0);
       expect(metrics.exitCode).toBe(1);
       expect(metrics.stderr).toMatch(/rejected/);
       expect(requests.map((request) => request.path)).toEqual(['/v1/traces', '/v1/metrics']);
       const traceBody = JSON.parse(requests[0]!.body);
-      expect(traceBody.resourceSpans[0].scopeSpans[0].spans[1].attributes).toContainEqual({ key: 'robota.provider.usage.input_tokens', value: { intValue: '7' } });
+      expect(traceBody.resourceSpans[0].scopeSpans[0].spans[1].attributes).toContainEqual({ key: 'agent.provider.usage.input_tokens', value: { intValue: '7' } });
       expect(requests[0]!.body).not.toMatch(/secret|gpt-4o|turn-1/);
       const metricBody = JSON.parse(requests[1]!.body);
-      expect(metricBody.resourceMetrics[0].scopeMetrics[0].metrics).toContainEqual(expect.objectContaining({ name: 'robota.provider_call.count' }));
+      expect(metricBody.resourceMetrics[0].scopeMetrics[0].metrics).toContainEqual(expect.objectContaining({ name: 'agent.provider_call.count' }));
     } finally {
       await new Promise<void>((resolve, reject) => collector.close((error) => error ? reject(error) : resolve()));
     }
@@ -119,7 +119,7 @@ describe('explicit OTLP usage snapshot export', () => {
     );
     const result = await executeUsageExportCommand(
       ['--signal', 'traces', '--endpoint', 'http://127.0.0.1:4318'],
-      { userSessionStore: store(), fetcher, version: 'test-version' },
+      {serviceName: 'test-product.agent',  userSessionStore: store(), fetcher, version: 'test-version' },
     );
 
     expect(result.exitCode).toBe(0);
@@ -129,7 +129,7 @@ describe('explicit OTLP usage snapshot export', () => {
     const payload = JSON.parse(init!.body as string);
     const span = payload.resourceSpans[0].scopeSpans[0].spans[0];
     expect(span).toMatchObject({
-      name: 'robota.prompt_execution',
+      name: 'agent.prompt_execution',
       kind: 1,
       traceId: '1234567890abcdef1234567890abcdef',
       spanId: '1234567890abcdef',
@@ -148,7 +148,7 @@ describe('explicit OTLP usage snapshot export', () => {
     );
     const result = await executeUsageExportCommand(
       ['--signal', 'logs', '--endpoint', 'http://127.0.0.1:4318'],
-      {
+      {serviceName: 'test-product.agent',
         userSessionStore: store(),
         fetcher,
         version: 'test-version',
@@ -161,7 +161,7 @@ describe('explicit OTLP usage snapshot export', () => {
     const body = JSON.parse(init!.body as string);
     expect(body.resourceLogs[0].scopeLogs[0].logRecords).toMatchObject([
       {
-        eventName: 'robota.prompt_execution.completed',
+        eventName: 'agent.prompt_execution.completed',
         severityNumber: 9,
         traceId: '1234567890abcdef1234567890abcdef',
         spanId: '1234567890abcdef',
@@ -175,7 +175,7 @@ describe('explicit OTLP usage snapshot export', () => {
   it('treats an OTLP log partial rejection as a failed export', async () => {
     const result = await executeUsageExportCommand(
       ['--signal', 'logs', '--endpoint', 'http://127.0.0.1:4318'],
-      {
+      {serviceName: 'test-product.agent',
         userSessionStore: store(),
         fetcher: vi.fn(
           async () =>
@@ -193,7 +193,7 @@ describe('explicit OTLP usage snapshot export', () => {
   it('does not misread an underflowed log rejection as full success', async () => {
     const result = await executeUsageExportCommand(
       ['--signal', 'logs', '--endpoint', 'http://127.0.0.1:4318'],
-      {
+      {serviceName: 'test-product.agent',
         userSessionStore: store(),
         fetcher: vi.fn(
           async () =>
@@ -226,7 +226,7 @@ describe('explicit OTLP usage snapshot export', () => {
     });
     const result = await executeUsageExportCommand(
       ['--signal', 'logs', '--endpoint', 'http://127.0.0.1:4318'],
-      {
+      {serviceName: 'test-product.agent',
         userSessionStore: {
           ...store(),
           list: () => [{ id: session.id, outcome: { status: 'valid', record: session } }],
@@ -261,7 +261,7 @@ describe('explicit OTLP usage snapshot export', () => {
     const fetcher = vi.fn();
     const result = await executeUsageExportCommand(
       ['--signal', 'logs', '--endpoint', 'http://127.0.0.1:4318'],
-      {
+      {serviceName: 'test-product.agent',
         userSessionStore: {
           ...store(),
           list: () => [{ id: session.id, outcome: { status: 'valid', record: session } }],
@@ -317,7 +317,7 @@ describe('explicit OTLP usage snapshot export', () => {
 
     const result = await executeUsageExportCommand(
       ['--signal', 'traces', '--endpoint', 'http://127.0.0.1:4318'],
-      {
+      {serviceName: 'test-product.agent',
         userSessionStore: {
           ...store(),
           list: () => [{ id: session.id, outcome: { status: 'valid', record: session } }],
@@ -350,7 +350,7 @@ describe('explicit OTLP usage snapshot export', () => {
     const fetcher = vi.fn();
     const result = await executeUsageExportCommand(
       ['--signal', 'traces', '--endpoint', 'http://127.0.0.1:4318'],
-      {
+      {serviceName: 'test-product.agent',
         userSessionStore: {
           ...store(),
           list: () => [{ id: old.id, outcome: { status: 'valid', record: old } }],
@@ -374,7 +374,7 @@ describe('explicit OTLP usage snapshot export', () => {
   ])('fails a partial or malformed trace response %j', async (body) => {
     const result = await executeUsageExportCommand(
       ['--signal', 'traces', '--endpoint', 'http://127.0.0.1:4318'],
-      {
+      {serviceName: 'test-product.agent',
         userSessionStore: store(),
         fetcher: vi.fn(
           async () =>
@@ -396,11 +396,11 @@ describe('explicit OTLP usage snapshot export', () => {
     );
     const traces = await executeUsageExportCommand(
       ['--signal', 'traces', '--endpoint', 'http://127.0.0.1:4318'],
-      { userSessionStore: store(), fetcher: vi.fn(async () => response) },
+      {serviceName: 'test-product.agent',  userSessionStore: store(), fetcher: vi.fn(async () => response) },
     );
     expect(traces.exitCode).toBe(0);
 
-    const metrics = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {
+    const metrics = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {serviceName: 'test-product.agent',
       userSessionStore: store(),
       fetcher: vi.fn(
         async () =>
@@ -427,7 +427,7 @@ describe('explicit OTLP usage snapshot export', () => {
   ])('fails a bad or oversized trace collector response', async (response) => {
     const result = await executeUsageExportCommand(
       ['--signal', 'traces', '--endpoint', 'http://127.0.0.1:4318'],
-      {
+      {serviceName: 'test-product.agent',
         userSessionStore: store(),
         fetcher: vi.fn(async (_input: Parameters<typeof fetch>[0], init?: RequestInit) => {
           expect(init?.redirect).toBe('error');
@@ -443,7 +443,7 @@ describe('explicit OTLP usage snapshot export', () => {
     const fetcher = vi.fn();
     const result = await executeUsageExportCommand(
       ['--signal', 'traces', '--endpoint', 'http://127.0.0.1:4318'],
-      { userSessionStore: store(), fetcher, version: 'x'.repeat(8 * 1024 * 1024) },
+      {serviceName: 'test-product.agent',  userSessionStore: store(), fetcher, version: 'x'.repeat(8 * 1024 * 1024) },
     );
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toMatch(/size limit/);
@@ -458,7 +458,7 @@ describe('explicit OTLP usage snapshot export', () => {
       ['--signal', 'profiles', '--endpoint', 'http://127.0.0.1:4318'],
       ['--signal', 'traces', '--signal', 'traces', '--endpoint', 'http://127.0.0.1:4318'],
     ]) {
-      const result = await executeUsageExportCommand(argv, {
+      const result = await executeUsageExportCommand(argv, {serviceName: 'test-product.agent',
         userSessionStore: { ...store(), list },
         fetcher,
       });
@@ -473,7 +473,7 @@ describe('explicit OTLP usage snapshot export', () => {
       async (_input: Parameters<typeof fetch>[0], _init?: RequestInit) =>
         new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }),
     );
-    const result = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {
+    const result = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {serviceName: 'test-product.agent',
       userSessionStore: store(),
       fetcher,
       now: new Date('2026-09-24T01:00:00.000Z'),
@@ -487,10 +487,10 @@ describe('explicit OTLP usage snapshot export', () => {
     const value = (name: string) =>
       metrics.find((metric: { name: string }) => metric.name === name)?.gauge.dataPoints[0]
         .asDouble;
-    expect(value('robota.session.count')).toBe(1);
-    expect(value('robota.turn.count')).toBe(1);
-    expect(value('robota.token.total')).toBe(9);
-    expect(value('robota.cost.usd.known')).toBe(0.02);
+    expect(value('agent.session.count')).toBe(1);
+    expect(value('agent.turn.count')).toBe(1);
+    expect(value('agent.token.total')).toBe(9);
+    expect(value('agent.cost.usd.known')).toBe(0.02);
     expect(JSON.stringify(payload)).not.toMatch(/secret|sess-1|turn-1|openai/);
   });
 
@@ -504,7 +504,7 @@ describe('explicit OTLP usage snapshot export', () => {
   ])('rejects non-allowlisted target %s before reading records', async (endpoint) => {
     const list = vi.fn(() => []);
     const fetcher = vi.fn();
-    const result = await executeUsageExportCommand(['--endpoint', endpoint], {
+    const result = await executeUsageExportCommand(['--endpoint', endpoint], {serviceName: 'test-product.agent',
       userSessionStore: { ...store(), list },
       fetcher,
     });
@@ -515,7 +515,7 @@ describe('explicit OTLP usage snapshot export', () => {
 
   it('refuses an incomplete store rather than exporting a misleading total', async () => {
     const fetcher = vi.fn();
-    const result = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {
+    const result = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {serviceName: 'test-product.agent',
       userSessionStore: {
         ...store(),
         list: () => [
@@ -537,7 +537,7 @@ describe('explicit OTLP usage snapshot export', () => {
           headers: { 'content-type': 'application/json' },
         }),
     );
-    const result = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {
+    const result = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {serviceName: 'test-product.agent',
       userSessionStore: store(),
       fetcher,
     });
@@ -548,7 +548,7 @@ describe('explicit OTLP usage snapshot export', () => {
   it.each(['1e-9999', '-1e-9999'])(
     'rejects an underflowed metric rejection count %s',
     async (rejectedDataPoints) => {
-      const result = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {
+      const result = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {serviceName: 'test-product.agent',
         userSessionStore: store(),
         fetcher: vi.fn(
           async () =>
@@ -567,13 +567,13 @@ describe('explicit OTLP usage snapshot export', () => {
       expect(init?.redirect).toBe('error');
       return new Response('', { status: 302 });
     });
-    const redirected = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {
+    const redirected = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {serviceName: 'test-product.agent',
       userSessionStore: store(),
       fetcher: redirect,
     });
     expect(redirected.exitCode).toBe(1);
 
-    const malformed = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {
+    const malformed = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {serviceName: 'test-product.agent',
       userSessionStore: store(),
       fetcher: vi.fn(async () => new Response('not JSON', { status: 200 })),
     });
@@ -583,7 +583,7 @@ describe('explicit OTLP usage snapshot export', () => {
   it.each(['', '[]', '{"partialSuccess":[]}'])(
     'rejects a malformed HTTP 200 OTLP body %j',
     async (body) => {
-      const result = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {
+      const result = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {serviceName: 'test-product.agent',
         userSessionStore: store(),
         fetcher: vi.fn(
           async () =>

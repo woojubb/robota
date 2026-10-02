@@ -1,4 +1,4 @@
-# robota-web
+# __PRODUCT_DISPLAY_NAME__-web
 
 ## 0.1.1-beta.6
 

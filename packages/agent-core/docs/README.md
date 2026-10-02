@@ -1,6 +1,6 @@
 # agent-core Docs
 
-`@robota-sdk/agent-core` is the foundation package of the Robota SDK. It owns the `Robota` agent and
+`@robota-sdk/agent-core` is the foundation package of the Robota SDK. It owns the `ConversationAgent` agent and
 its execution loop, the provider, tool and plugin contracts, message and history types, permission
 evaluation, the hook runner, event services, usage metadata and typed errors. It has no
 `@robota-sdk/*` dependencies.

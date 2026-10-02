@@ -30,7 +30,7 @@ model's prompt cache is not invalidated mid-session; the tool is added only when
 with an advisor. Sending history to a destination (provider type and endpoint host) the main model
 does not already use needs a one-time consent per destination, kept in the user settings file; a
 refusal is remembered for the session. The organization's `allowedProviders` applies, and
-`ROBOTA_DISABLE_ADVISOR=1` turns it off completely. In-process subagents inherit the advisor, bound
+`PRODUCT_DISABLE_ADVISOR=1` turns it off completely. In-process subagents inherit the advisor, bound
 to their own conversation; child-process subagents do not get it.
 
 **`@robota-sdk/agent-framework` is `major` for one reason: `ICommandHostSessionAccess` gains a

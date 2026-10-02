@@ -2,9 +2,9 @@
 
 ## Purpose
 
-`@robota-sdk/action` is the official Robota GitHub Actions runner: it turns Actions inputs into a
+`@robota-sdk/action` is a GitHub Actions runner: it turns Actions inputs into a
 call to `@robota-sdk/agent-cli` and surfaces the agent's reply as an Actions output. It is the sole
-integration point between GitHub CI/CD workflows and the Robota agent CLI.
+integration point between GitHub CI/CD workflows and the configured agent CLI.
 
 ## Contract
 

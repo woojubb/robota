@@ -2,10 +2,10 @@
  * Config loader — discovers, merges, and validates settings files.
  *
  * Precedence (lowest → highest):
- *   1. ~/.robota/settings.json       (user)
+ *   1. ~/.agent/settings.json       (user)
  *   2. ~/.claude/settings.json       (user, Claude Code compat)
- *   3. .robota/settings.json         (project)
- *   4. .robota/settings.local.json   (project-local)
+ *   3. .agent/settings.json         (project)
+ *   4. .agent/settings.local.json   (project-local)
  *   5. .claude/settings.json         (project, Claude Code compat)
  *   6. .claude/settings.local.json   (project-local, highest priority)
  */
@@ -61,11 +61,11 @@ function throwReadPhaseError(layer: IReadSettingsLayer): void {
  * Resolve a string value that may use the `$ENV:VAR_NAME` prefix to
  * substitute an environment variable.
  */
-function resolveEnvRef(value: string): string {
+function resolveEnvRef(value: string, environment: Readonly<Record<string, string | undefined>>): string {
   const ENV_PREFIX = '$ENV:';
   if (value.startsWith(ENV_PREFIX)) {
     const varName = value.slice(ENV_PREFIX.length);
-    return process.env[varName] ?? value;
+    return environment[varName] ?? value;
   }
   return value;
 }
@@ -73,17 +73,17 @@ function resolveEnvRef(value: string): string {
 /**
  * Apply env-ref resolution to all string fields in a settings object.
  */
-function resolveEnvRefs(settings: TSettings): TEnvResolvedSettings {
+function resolveEnvRefs(settings: TSettings, environment: Readonly<Record<string, string | undefined>>): TEnvResolvedSettings {
   const provider =
     settings.provider?.apiKey !== undefined
-      ? resolveProviderCredentialEnvRefs(settings.provider)
+      ? resolveProviderCredentialEnvRefs(settings.provider, environment)
       : settings.provider;
 
   if (settings.providers !== undefined) {
     const providers = Object.fromEntries(
       Object.entries(settings.providers).map(([name, profile]) => [
         name,
-        resolveProviderCredentialEnvRefs(profile),
+        resolveProviderCredentialEnvRefs(profile, environment),
       ]),
     );
     return {
@@ -109,13 +109,14 @@ function resolveEnvRefs(settings: TSettings): TEnvResolvedSettings {
  */
 function resolveProviderCredentialEnvRefs<TProvider extends { apiKey?: string }>(
   provider: TProvider,
+  environment: Readonly<Record<string, string | undefined>>,
 ): TProvider & { apiKeyEnv?: string } {
   if (provider.apiKey === undefined) return provider;
   const ENV_PREFIX = '$ENV:';
   const wasReference = provider.apiKey.startsWith(ENV_PREFIX);
   return {
     ...provider,
-    apiKey: resolveEnvRef(provider.apiKey),
+    apiKey: resolveEnvRef(provider.apiKey, environment),
     ...(wasReference && { apiKeyEnv: provider.apiKey.slice(ENV_PREFIX.length) }),
   };
 }
@@ -186,13 +187,17 @@ function toResolvedConfig(merged: TEnvResolvedSettings): IResolvedConfig {
 /**
  * Load and merge all settings files, validate with Zod, return resolved config.
  */
-export async function loadConfig(sources: readonly TSettingsSource[]): Promise<IResolvedConfig> {
-  return (await loadConfigWithHookSources(sources)).config;
+export async function loadConfig(
+  sources: readonly TSettingsSource[],
+  environment: Readonly<Record<string, string | undefined>> = {},
+): Promise<IResolvedConfig> {
+  return (await loadConfigWithHookSources(sources, environment)).config;
 }
 
 /** Internal composition metadata; intentionally not re-exported from the package root. */
 export async function loadConfigWithHookSources(
   sources: readonly TSettingsSource[],
+  environment: Readonly<Record<string, string | undefined>> = {},
 ): Promise<{ config: IResolvedConfig; hookSources: readonly IHookDefinitionSource[] }> {
   const layers = readSettingsLayers(sources);
   // Read-phase errors first, across every layer, then the first schema failure — the order the
@@ -205,7 +210,7 @@ export async function loadConfigWithHookSources(
       throw new Error(`Invalid settings in ${layer.source.displayName}: ${layer.schemaMessage}`);
     }
     parsedLayers.push({
-      settings: resolveEnvRefs(layer.settings),
+      settings: resolveEnvRefs(layer.settings, environment),
       source: layer.source.displayName,
     });
   }

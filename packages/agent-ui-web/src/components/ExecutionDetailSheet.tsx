@@ -64,7 +64,7 @@ export function ExecutionDetailSheet({
           onClose();
         }
       }}
-      className="robota-ui absolute inset-y-0 right-0 z-30 flex w-96 flex-col overflow-hidden border-l border-subtle/20 bg-background shadow-2xl shadow-black/40"
+      className="agent-ui absolute inset-y-0 right-0 z-30 flex w-96 flex-col overflow-hidden border-l border-subtle/20 bg-background shadow-2xl shadow-black/40"
     >
       <div className="flex flex-shrink-0 items-center gap-2 border-b border-subtle/15 px-4 py-3">
         <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-foreground">

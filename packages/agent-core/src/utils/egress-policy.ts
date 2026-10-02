@@ -21,15 +21,17 @@
  * - ESCAPE HATCHES: `allowedHosts` (exact hostnames that may resolve privately) and
  *   `allowPrivateAddresses` (an explicit enterprise opt-out), both declared by the composition root.
  *
- * What it does NOT yet do: pin the connection to the validated address (Node's global `fetch` exposes
- * no connect-time lookup hook without the `undici` package). Resolve-then-validate on every hop narrows
- * the DNS-rebinding window; it does not close it, and this comment is the record of that gap.
+ * The default Node transport connects only to the validated address set through a request-owned
+ * dispatcher. The original URL/Host/TLS name is preserved. A trusted injected fetch owns its own
+ * socket policy; it is never an automatic fallback when the default pinned transport fails.
  *
  * Node-only (`node:dns`, `node:net`): exported from `@robota-sdk/agent-core/node`, never the browser barrel.
  */
 
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+// Bun replaces the bare specifier with a shim that ignores dispatcher; this subpath loads the pinned package.
+import { Agent, fetch as pinnedFetch } from 'undici/index.js';
 
 import { isPrivateAddress } from './ip-address.js';
 
@@ -54,6 +56,7 @@ export interface IEgressFetchOptions {
 }
 
 export interface IEgressDeps {
+  /** Trusted owner/test carrier: this override owns connect-time policy and socket lifetime. */
   readonly fetch?: typeof globalThis.fetch;
   readonly lookup?: TEgressLookup;
 }
@@ -162,6 +165,116 @@ async function resolve(
   }
 }
 
+export interface IEgressExchange {
+  readonly response: Response;
+  close(): Promise<void>;
+}
+
+/** The bounded resolver can finish later, but an aborted exchange never dispatches its result. */
+async function lookupUnderSignal(
+  hostname: string,
+  lookup: TEgressLookup,
+  signal: AbortSignal,
+): Promise<readonly string[]> {
+  signal.throwIfAborted();
+  let aborted: (() => void) | undefined;
+  try {
+    return await Promise.race([
+      lookup(hostname),
+      new Promise<never>((_, reject) => {
+        aborted = () => reject(signal.reason);
+        signal.addEventListener('abort', aborted, { once: true });
+        if (signal.aborted) aborted();
+      }),
+    ]);
+  } finally {
+    if (aborted) signal.removeEventListener('abort', aborted);
+  }
+}
+
+/**
+ * Open one manually redirected exchange without buffering its response. A streaming owner supplies
+ * the lifetime/deadline signal and must close the exchange on completion, cancellation and failure.
+ * No ambient dispatcher, second DNS resolution, URL rewrite or transport downgrade is selected.
+ */
+export async function openEgressExchange(
+  url: URL,
+  init: RequestInit,
+  policy: IEgressPolicy,
+  deps: IEgressDeps,
+  signal: AbortSignal,
+): Promise<IEgressExchange | IEgressRejection> {
+  const hostname = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  let addresses: readonly string[] | undefined;
+  const lookup: TEgressLookup = async (host) => {
+    const resolved = await lookupUnderSignal(host, deps.lookup ?? defaultLookup, signal);
+    if (resolved.length === 0 || resolved.some((address) => isIP(address) === 0))
+      throw new Error('Invalid DNS answer');
+    addresses = Object.freeze([...resolved]);
+    return addresses;
+  };
+  const rejection = await rejectDestination(url, policy, lookup);
+  signal.throwIfAborted();
+  if (rejection) return rejection;
+  if (deps.fetch) {
+    const response = await deps.fetch(url.href, { ...init, signal, redirect: 'manual' });
+    return {
+      response,
+      close: async () => {
+        if (response.body && !response.body.locked)
+          await response.body.cancel().catch(() => undefined);
+      },
+    };
+  }
+  // Explicit private/host allowlisting skips destination blocking, never the connection's one resolution.
+  addresses ??= isIP(hostname) ? [hostname] : await resolve(hostname, lookup);
+  signal.throwIfAborted();
+  if (!addresses || addresses.length === 0)
+    return {
+      reason: 'unresolvable',
+      url: url.href,
+      message: 'Destination did not resolve to valid IP addresses.',
+    };
+  const pinned = addresses.map((address) => ({ address, family: isIP(address) }));
+  const dispatcher = new Agent({
+    connections: 1,
+    pipelining: 0,
+    connect: {
+      lookup: (host, options, callback) => {
+        if (host.toLowerCase() !== hostname || signal.aborted) {
+          callback(new Error('Connection authority unavailable'), '', 4);
+          return;
+        }
+        const family = typeof options === 'number' ? options : options.family;
+        const candidates = pinned.filter((record) => !family || record.family === family);
+        if (candidates.length === 0) {
+          callback(new Error('No validated address family'), '', 4);
+          return;
+        }
+        if (typeof options === 'object' && options.all) callback(null, candidates);
+        else callback(null, candidates[0]!.address, candidates[0]!.family);
+      },
+    },
+  });
+  if (typeof dispatcher.dispatch !== 'function' || typeof dispatcher.destroy !== 'function')
+    throw new Error('Pinned HTTP transport is unavailable in this runtime');
+  try {
+    const response = await pinnedFetch(url.href, { ...init, signal, redirect: 'manual', dispatcher } as Parameters<
+      typeof pinnedFetch
+    >[1]);
+    // undici implements the standard Response/Headers/body contract used below; DOM/Node type names differ.
+    return {
+      response: response as unknown as Response,
+      close: async () => {
+        await dispatcher.destroy();
+      },
+    };
+  } catch (error) {
+    await dispatcher.destroy();
+    throw error;
+  }
+}
+
 /**
  * Fetch `url` under the egress policy. Policy outcomes are RETURNED (`ok: false`); transport errors
  * (DNS failure at connect, refused connection, TLS, abort) are THROWN, as `fetch` throws them, so the
@@ -173,8 +286,6 @@ export async function fetchWithEgressPolicy(
   policy: IEgressPolicy = {},
   deps: IEgressDeps = {},
 ): Promise<TEgressFetchResult> {
-  const doFetch = deps.fetch ?? ((input, init) => globalThis.fetch(input, init));
-  const lookup = deps.lookup ?? defaultLookup;
   const maxBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
   const maxRedirects = policy.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
   const deadline = AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
@@ -183,37 +294,47 @@ export async function fetchWithEgressPolicy(
   let current = new URL(url);
   let headers: Record<string, string> = { ...(options.headers ?? {}) };
   for (let hop = 0; ; hop += 1) {
-    const rejection = await rejectDestination(current, policy, lookup);
-    if (rejection !== undefined) return { ok: false, rejection };
+    const exchange = await openEgressExchange(
+      current,
+      { headers, signal, redirect: 'manual' },
+      policy,
+      deps,
+      signal,
+    );
+    if (!('response' in exchange)) return { ok: false, rejection: exchange };
+    try {
+      const response = exchange.response;
+      if (!REDIRECT_STATUSES.has(response.status)) {
+        return await readUnderCap(response, current.href, maxBytes, signal);
+      }
 
-    const response = await doFetch(current.href, { headers, signal, redirect: 'manual' });
-    if (!REDIRECT_STATUSES.has(response.status)) {
-      return readUnderCap(response, current.href, maxBytes, signal);
+      const location = response.headers.get('location');
+      if (location === null) {
+        return {
+          ok: false,
+          rejection: {
+            reason: 'redirect_without_location',
+            url: current.href,
+            message: `HTTP ${response.status} without a Location header.`,
+          },
+        };
+      }
+      if (hop >= maxRedirects) {
+        return {
+          ok: false,
+          rejection: {
+            reason: 'redirect_limit',
+            url: current.href,
+            message: `More than ${maxRedirects} redirects.`,
+          },
+        };
+      }
+      const next = new URL(location, current);
+      if (next.origin !== current.origin) headers = stripSensitiveHeaders(headers);
+      current = next;
+    } finally {
+      await exchange.close();
     }
-    const location = response.headers.get('location');
-    if (location === null) {
-      return {
-        ok: false,
-        rejection: {
-          reason: 'redirect_without_location',
-          url: current.href,
-          message: `HTTP ${response.status} without a Location header.`,
-        },
-      };
-    }
-    if (hop >= maxRedirects) {
-      return {
-        ok: false,
-        rejection: {
-          reason: 'redirect_limit',
-          url: current.href,
-          message: `More than ${maxRedirects} redirects.`,
-        },
-      };
-    }
-    const next = new URL(location, current);
-    if (next.origin !== current.origin) headers = stripSensitiveHeaders(headers);
-    current = next;
   }
 }
 
@@ -232,32 +353,41 @@ export async function postWithEgressPolicy(
   policy: IEgressPolicy = {},
   deps: IEgressDeps = {},
 ): Promise<TEgressFetchResult> {
-  const doFetch = deps.fetch ?? ((input, init) => globalThis.fetch(input, init));
   const maxBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
   const deadline = AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   const signal = options.signal ? AbortSignal.any([deadline, options.signal]) : deadline;
   const target = new URL(url);
-  const rejection = await rejectDestination(target, policy, deps.lookup ?? defaultLookup);
-  if (rejection !== undefined) return { ok: false, rejection };
-  const response = await doFetch(target.href, {
-    method: 'POST',
-    headers: { ...(options.headers ?? {}) },
-    body: options.body,
+  const exchange = await openEgressExchange(
+    target,
+    {
+      method: 'POST',
+      headers: { ...(options.headers ?? {}) },
+      body: options.body,
+      signal,
+      redirect: 'manual',
+    },
+    policy,
+    deps,
     signal,
-    redirect: 'manual',
-  });
-  if (response.status >= 300 && response.status < 400) {
-    await response.body?.cancel().catch(() => undefined);
-    return {
-      ok: false,
-      rejection: {
-        reason: 'redirect_refused',
-        url: target.href,
-        message: `HTTP ${response.status}: a POST is never redirected.`,
-      },
-    };
+  );
+  if (!('response' in exchange)) return { ok: false, rejection: exchange };
+  try {
+    const response = exchange.response;
+    if (response.status >= 300 && response.status < 400) {
+      await response.body?.cancel().catch(() => undefined);
+      return {
+        ok: false,
+        rejection: {
+          reason: 'redirect_refused',
+          url: target.href,
+          message: `HTTP ${response.status}: a POST is never redirected.`,
+        },
+      };
+    }
+    return await readUnderCap(response, target.href, maxBytes, signal);
+  } finally {
+    await exchange.close();
   }
-  return readUnderCap(response, target.href, maxBytes, signal);
 }
 
 /** On a cross-origin hop nothing the caller supplied travels on — only the identifying User-Agent. */

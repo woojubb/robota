@@ -9,8 +9,8 @@ import type { IMockMcpServer } from './mock-mcp-server.js';
 import type { IMCPSession } from '../client/session.js';
 
 /** The retired sender-string event protocol a server may still declare and send. */
-const RETIRED_CAPABILITY = 'com.robota.external-event';
-const RETIRED_METHOD = 'notifications/com.robota/external-event';
+const RETIRED_CAPABILITY = 'com.fixture-state.external-event';
+const RETIRED_METHOD = 'notifications/com.fixture-state/external-event';
 
 async function openSession(server: IMockMcpServer): Promise<IMCPSession> {
   const admission = await admitHttpEndpoint(

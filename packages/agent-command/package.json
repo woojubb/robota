@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-command",
   "version": "3.0.0-beta.86",
-  "description": "Slash-command modules for Robota SDK sessions (/help, /permissions, /mcp, /rewind, …)",
+  "description": "Slash-command modules for Robota SDK sessions (/help, /permissions, /mcp, /rewind, \u2026)",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -67,12 +67,6 @@
     "vitest": "^3.2.6"
   },
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/woojubb/robota.git",
-    "directory": "packages/agent-command"
-  },
-  "homepage": "https://docs.robota.io/en/packages/agent-command/",
   "publishConfig": {
     "access": "public"
   },

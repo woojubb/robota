@@ -1,3 +1,4 @@
+import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -27,19 +28,19 @@ describe('supervised session view start callback refuses before spawning', () =>
     // Enabled with an OTLP trace export, but missing the required explicit protocol setting:
     // the parent-side validator refuses this before the callback ever reaches `launchSupervisedSession`.
     const invalidTelemetry = Object.freeze({
-      ROBOTA_TELEMETRY_ENABLED: '1',
-      ROBOTA_TELEMETRY_TRACES: 'otlp',
-      ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'https://collector.example',
+      PRODUCT_TELEMETRY_ENABLED: '1',
+      PRODUCT_TELEMETRY_TRACES: 'otlp',
+      PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'https://collector.example',
     });
     vi.mocked(runSessionViewCommand).mockImplementation(async (_argv, options) => {
       await expect(options?.start?.(cwd)).rejects.toThrow('http/protobuf');
       return 0;
     });
     try {
-      expect(await runWorkspaceTrustCommand(['--yes'], cwd)).toBe(0);
-      const options = { providerDefinitions: [] };
+      expect(await runWorkspaceTrustCommand(['--yes'], cwd, createTestProductRuntime())).toBe(0);
+      const options = { productRuntime: createTestProductRuntime(), providerDefinitions: [] };
       expect(await runPreparsedCliCommand(
-        options, ['node', 'robota', 'session', 'view'], cwd, invalidTelemetry,
+        options, ['node', 'test-product', 'session', 'view'], cwd, invalidTelemetry,
       )).toBe(true);
       expect(launchSupervisedSession).not.toHaveBeenCalled();
     } finally {

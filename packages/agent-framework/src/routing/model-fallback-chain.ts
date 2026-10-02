@@ -42,6 +42,8 @@ export interface IResolveModelFallbackChainInput {
   settings: TProviderSettingsDocument;
   primary: IModelFallbackPrimary;
   providerDefinitions: readonly IProviderDefinition[];
+  /** Host-selected environment for lazy profile credential resolution. */
+  environment?: Readonly<Record<string, string | undefined>>;
   /** The organization's provider allowlist, by profile name. */
   allowedProviders?: readonly string[];
 }
@@ -164,7 +166,7 @@ function buildTarget(
     create: () => {
       const config =
         entry.profile !== undefined && entry.profile !== primary.profile
-          ? resolveActiveProvider(settings, entry.profile, providerDefinitions)
+          ? resolveActiveProvider(settings, entry.profile, providerDefinitions, input.environment)
           : primary.config;
       if (config === undefined)
         throw new Error(`Provider profile "${entry.profile}" has no configuration`);

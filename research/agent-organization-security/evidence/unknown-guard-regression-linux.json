@@ -1,0 +1,25 @@
+{
+  "kind": "unknown-outcome-guard-sensitivity",
+  "records": [
+    {
+      "id": "current",
+      "initialStatus": 0,
+      "crashExit": 72,
+      "retryStatus": 503,
+      "externalEffects": 1,
+      "passed": true
+    },
+    {
+      "id": "negative-control-without-unknown-guard",
+      "initialStatus": 0,
+      "crashExit": 72,
+      "retryStatus": 200,
+      "externalEffects": 2,
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "Local signed HTTP requests; this complements and does not replace the two-guest recovery experiment.",
+    "Negative control removes exactly the retry-denial branch in a temporary in-memory module; repository source is unchanged."
+  ]
+}

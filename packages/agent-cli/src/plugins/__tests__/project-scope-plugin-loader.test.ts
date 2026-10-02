@@ -1,7 +1,8 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
  * Issue #2487 (PLG-021 residual) — a project-scope install must be visible to the reload path.
  *
- * `installPlugin(..., 'project')` writes under `<cwd>/.robota/plugins`; a trusted reload must read
+ * `installPlugin(..., 'project')` writes under `<cwd>/the configured project directory/plugins`; a trusted reload must read
  * that scope, while a restricted reload must not consume project-controlled plugin content.
  */
 
@@ -30,7 +31,7 @@ let originalHome: string | undefined;
 function writePluginBundle(root: string, plugin: string, description: string): void {
   const metaDir = join(
     root,
-    '.robota',
+    '.test-product',
     'plugins',
     'cache',
     MARKET,
@@ -47,8 +48,8 @@ function writePluginBundle(root: string, plugin: string, description: string): v
 }
 
 beforeEach(() => {
-  home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-2487-home-')));
-  cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-2487-cwd-')));
+  home = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-2487-home-')));
+  cwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-2487-cwd-')));
   originalHome = process.env.HOME;
   process.env.HOME = home;
 });
@@ -68,19 +69,19 @@ describe('issue #2487: project-scope plugin installs reach the reload path', () 
     expect(
       reloadPluginCommandSource(
         new CommandRegistry(),
-        cwd,
+        createTestProductRuntime('test-product', { HOME: process.env['HOME'] }), cwd,
         createRestrictedWorkspaceProjectAccess('untrusted', cwd),
       ),
     ).toBe(0);
   });
 
-  it('a plugin installed under <cwd>/.robota/plugins is loaded when the workspace is trusted', async () => {
+  it('a plugin installed under <cwd>/.test-product/plugins is loaded when the workspace is trusted', async () => {
     writePluginBundle(cwd, 'project-only', 'project scope');
 
     expect(
       reloadPluginCommandSource(
         new CommandRegistry(),
-        cwd,
+        createTestProductRuntime('test-product', { HOME: process.env['HOME'] }), cwd,
         await createTrustedWorkspaceProjectAccess(cwd),
       ),
     ).toBe(1);
@@ -92,7 +93,7 @@ describe('issue #2487: project-scope plugin installs reach the reload path', () 
     expect(
       reloadPluginCommandSource(
         new CommandRegistry(),
-        cwd,
+        createTestProductRuntime('test-product', { HOME: process.env['HOME'] }), cwd,
         await createTrustedWorkspaceProjectAccess(home),
       ),
     ).toBe(0);
@@ -121,13 +122,13 @@ describe('issue #2487: project-scope plugin installs reach the reload path', () 
     expect(access.status).toBe('trusted');
     await service.revoke(cwd);
 
-    expect(reloadPluginCommandSource(new CommandRegistry(), cwd, access)).toBe(0);
+    expect(reloadPluginCommandSource(new CommandRegistry(), createTestProductRuntime('test-product', { HOME: process.env['HOME'] }), cwd, access)).toBe(0);
   });
 
   it('without cwd only the user scope is read — the former behaviour, now opt-in', () => {
     writePluginBundle(cwd, 'project-only', 'project scope');
 
-    expect(reloadPluginCommandSource(new CommandRegistry())).toBe(0);
+    expect(reloadPluginCommandSource(new CommandRegistry(), createTestProductRuntime('test-product', { HOME: process.env['HOME'] }))).toBe(0);
   });
 
   it('a plugin present in both scopes is loaded once, from the project scope when trusted', async () => {
@@ -138,7 +139,7 @@ describe('issue #2487: project-scope plugin installs reach the reload path', () 
     expect(
       reloadPluginCommandSource(
         new CommandRegistry(),
-        cwd,
+        createTestProductRuntime('test-product', { HOME: process.env['HOME'] }), cwd,
         await createTrustedWorkspaceProjectAccess(cwd),
       ),
     ).toBe(2);

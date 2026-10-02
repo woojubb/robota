@@ -8,10 +8,10 @@ Show text as the model generates it instead of waiting for the whole answer.
 the complete response.
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'StreamAgent',
   aiProviders: [new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })],
   defaultModel: {
@@ -33,10 +33,10 @@ When you want the complete response as the return value and the deltas on the si
 `onTextDelta` to `run()`. The callback applies to that run only.
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'StreamAgent',
   aiProviders: [new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },

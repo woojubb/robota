@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import {
@@ -86,7 +88,7 @@ describe('PairingGate E3 first-pair enrollment (REMOTE-012 TC-05)', () => {
     })) as never;
 
     const { channel, sent } = stubChannel();
-    const gate = new PairingGate({
+    const gate = new PairingGate({cryptoContext: testIdentity,
       channel,
       session: stubSession(),
       secret: 's',
@@ -141,7 +143,7 @@ describe('PairingGate E3 reconnect (REMOTE-012 TC-05)', () => {
     let deviceCtrl!: ReturnType<typeof startDeviceReconnect>;
     // Route host→device frames into the device controller.
     const { channel } = stubChannel((frame) => deviceCtrl.onFrame(frame as TReconnectFrame));
-    gate = new PairingGate({
+    gate = new PairingGate({cryptoContext: testIdentity,
       channel,
       session: stubSession(),
       secret: 's',
@@ -152,7 +154,7 @@ describe('PairingGate E3 reconnect (REMOTE-012 TC-05)', () => {
       onReject,
     });
     // Device drives the reconnect; its frames go into the gate.
-    deviceCtrl = startDeviceReconnect({
+    deviceCtrl = startDeviceReconnect(testIdentity, {
       deviceId: device.deviceId,
       hostIdentityId: cfg.hostIdentityId,
       localFingerprint: FP.remoteFingerprint,
@@ -174,7 +176,7 @@ describe('PairingGate E3 reconnect (REMOTE-012 TC-05)', () => {
     const onAccept = vi.fn();
     const onReject = vi.fn();
     const { channel, closed } = stubChannel();
-    const gate = new PairingGate({
+    const gate = new PairingGate({cryptoContext: testIdentity,
       channel,
       session: stubSession(),
       secret: 's',

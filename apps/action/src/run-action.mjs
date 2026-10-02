@@ -4,7 +4,7 @@ import { buildCliArgs, buildTrustArgs, cliPackageSpec } from './build-invocation
 
 /**
  * @typedef {object} IActionIo
- * @property {NodeJS.ProcessEnv} env The step's environment; `action.yml` maps each input to a `ROBOTA_*` variable.
+ * @property {NodeJS.ProcessEnv} env The step's environment; `action.yml` maps each input to a `ACTION_*` variable.
  * @property {(packageSpec: string, env: NodeJS.ProcessEnv) => string} install
  *   Installs the CLI outside the checkout and returns the path of its entry script.
  * @property {(entry: string, args: string[], env: NodeJS.ProcessEnv, input?: string) => string} run
@@ -15,13 +15,13 @@ import { buildCliArgs, buildTrustArgs, cliPackageSpec } from './build-invocation
  */
 
 const INPUT_VARIABLES = [
-  'ROBOTA_TASK',
-  'ROBOTA_MODEL',
-  'ROBOTA_OUTPUT',
-  'ROBOTA_MAX_TURNS',
-  'ROBOTA_LOAD_PROJECT',
-  'ROBOTA_API_KEY',
-  'ROBOTA_CLI_VERSION',
+  'ACTION_TASK',
+  'ACTION_MODEL',
+  'ACTION_OUTPUT',
+  'ACTION_MAX_TURNS',
+  'ACTION_LOAD_PROJECT',
+  'ACTION_API_KEY',
+  'ACTION_CLI_VERSION',
 ];
 
 /** How many lines of a failed step's own output the error repeats. */
@@ -99,22 +99,22 @@ function runStep(step, action, options) {
  * @returns {number}
  */
 export function runAction(io) {
-  const task = io.env.ROBOTA_TASK ?? '';
+  const task = io.env.ACTION_TASK ?? '';
   if (task.trim() === '') {
-    io.log('::error::Robota Action: the task input is required.');
+    io.log('::error::Agent Action: the task input is required.');
     return 1;
   }
-  const loadProject = io.env.ROBOTA_LOAD_PROJECT === 'true';
+  const loadProject = io.env.ACTION_LOAD_PROJECT === 'true';
   /** @type {NodeJS.ProcessEnv} */
   const env = { ...io.env };
   // The inputs reach the CLI as stdin (the task), argv and ANTHROPIC_API_KEY, never as these names.
   for (const name of INPUT_VARIABLES) delete env[name];
   // npm and the install scripts it runs never see the key.
   const { ANTHROPIC_API_KEY: _jobKey, ...installEnv } = env;
-  if (io.env.ROBOTA_API_KEY) env.ANTHROPIC_API_KEY = io.env.ROBOTA_API_KEY;
+  if (io.env.ACTION_API_KEY) env.ANTHROPIC_API_KEY = io.env.ACTION_API_KEY;
   try {
-    const spec = cliPackageSpec(io.env.ROBOTA_CLI_VERSION || 'latest');
-    const entry = runStep('Installing the Robota CLI', () => io.install(spec, installEnv), {
+    const spec = cliPackageSpec(io.env.ACTION_CLI_VERSION || 'latest', io.env.PRODUCT_PACKAGE_SCOPE ?? '');
+    const entry = runStep('Installing the selected CLI', () => io.install(spec, installEnv), {
       withOutput: false,
     });
     if (loadProject) {
@@ -124,9 +124,9 @@ export function runAction(io) {
       });
     }
     const args = buildCliArgs({
-      model: io.env.ROBOTA_MODEL ?? '',
-      output: io.env.ROBOTA_OUTPUT || 'text',
-      maxTurns: io.env.ROBOTA_MAX_TURNS ?? '',
+      model: io.env.ACTION_MODEL ?? '',
+      output: io.env.ACTION_OUTPUT || 'text',
+      maxTurns: io.env.ACTION_MAX_TURNS ?? '',
       loadProject,
     });
     // The runner reads no workflow commands out of what the CLI prints while it runs (its stderr
@@ -137,7 +137,7 @@ export function runAction(io) {
     try {
       // The task goes on stdin, never as an argument. The CLI's own output is the agent's reply,
       // which is untrusted: a failure does not repeat it.
-      result = runStep('The Robota CLI', () => io.run(entry, args, env, task), {
+      result = runStep('The selected CLI', () => io.run(entry, args, env, task), {
         withOutput: false,
       });
     } finally {
@@ -149,12 +149,12 @@ export function runAction(io) {
     io.log(`::stop-commands::${replyToken}`);
     io.log(result);
     io.log(`::${replyToken}::`);
-    const delimiter = `ROBOTA_RESULT_${randomUUID()}`;
+    const delimiter = `ACTION_RESULT_${randomUUID()}`;
     io.appendOutput(`result<<${delimiter}\n${result}\n${delimiter}\n`);
     return 0;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    io.log(`::error::${escapeCommandData(`Robota Action: ${message}`)}`);
+    io.log(`::error::${escapeCommandData(`Agent Action: ${message}`)}`);
     return 1;
   }
 }

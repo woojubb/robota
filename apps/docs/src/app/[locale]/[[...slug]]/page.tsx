@@ -64,7 +64,7 @@ export async function generateMetadata({
   const { slug, locale } = await params;
   const resolvedSlug = slug ?? [];
   if (isPackagesIndex(resolvedSlug)) {
-    return { title: 'Packages', description: 'Every Robota SDK package and its documentation.' };
+    return { title: 'Packages', description: 'Every __PRODUCT_DISPLAY_NAME__ SDK package and its documentation.' };
   }
   const page = await getPageContent(resolvedSlug, locale);
   if (!page) return { title: 'Not Found' };

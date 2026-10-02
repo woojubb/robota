@@ -120,7 +120,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     // become a reason to stay alive: the losing side of a `Promise.race` is not cancelled, so an
     // un-unref'd bound keeps the process alive for its full 5s even when shutdown finished in 1ms.
     //
-    // Measured on `robota --serve` before the fix: teardown done at 1ms, process exit at 5006ms,
+    // Measured on `agent --serve` before the fix: teardown done at 1ms, process exit at 5006ms,
     // with zero handles and a single `Timeout` as the only live resource. The bintest's 8s budget
     // was passing with a 3s margin over a cost paid on every shutdown.
     //

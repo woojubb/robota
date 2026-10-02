@@ -1,7 +1,7 @@
 import { AbstractPlugin } from '../../abstracts/abstract-plugin';
 import type { IAgentConfig } from '../../interfaces/agent';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Robota } from '../../core/robota';
+import { ConversationAgent } from '../../core/conversation-agent';
 import { FunctionTool } from '../../tool-registry';
 import { createScriptedProvider, type TScriptedTurn } from '../../testing/scripted-provider';
 import type {
@@ -12,7 +12,7 @@ import type {
 import type { IToolWaitRequest } from '../../interfaces/tool-continuation';
 import type { TExecutionJournalRecord } from '../../interfaces/execution-journal';
 
-const agents: Robota[] = [];
+const agents: ConversationAgent[] = [];
 afterEach(async () => {
   await Promise.all(agents.splice(0).map((agent) => agent.destroy()));
 });
@@ -91,7 +91,11 @@ function fixture(
       return base.execute(parameters, context);
     },
   });
-  const agent = new Robota({
+  const agent = new ConversationAgent({
+    // These fixtures exercise independent calls settling concurrently.
+    toolExecutionPolicy: (calls) => ({
+      scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
+    }),
     name: 'suspension',
     aiProviders: [scripted.provider],
     defaultModel: { provider: scripted.provider.name, model: 'test-model' },

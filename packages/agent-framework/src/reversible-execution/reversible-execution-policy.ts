@@ -143,6 +143,10 @@ class ReversibleExecutionToolWrapper implements IToolWithEventService {
     this.delegate.setEventService(eventService);
   }
 
+  get provenance() {
+    return this.delegate.provenance;
+  }
+
   async execute(parameters: TToolParameters, context: IToolExecutionContext): Promise<IToolResult> {
     const report = evaluateReversibleToolSafety({
       toolName: this.getName(),

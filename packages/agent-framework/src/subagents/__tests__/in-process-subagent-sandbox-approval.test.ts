@@ -33,7 +33,7 @@ afterEach(() => {
 });
 
 async function runSubagentBash(sandboxClient?: ISandboxClient): Promise<string[]> {
-  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-subagent-sandbox-')));
+  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-subagent-sandbox-')));
   cleanup.push(() => rmSync(cwd, { recursive: true, force: true }));
   const ran: string[] = [];
   const bash = new FunctionTool(

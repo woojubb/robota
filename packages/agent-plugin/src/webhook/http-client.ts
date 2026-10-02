@@ -38,7 +38,6 @@ export class WebhookHttpClient {
       // Prepare headers
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'User-Agent': 'robota-webhook/1.0.0',
         ...endpoint.headers,
       };
 

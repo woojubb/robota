@@ -11,7 +11,7 @@ import { commandToCapabilityDescriptor } from '../../commands/capability-descrip
 
 import type { IBundlePluginManifest, TEnabledPlugins } from '../bundle-plugin-types.js';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-bundle-plugin-test-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-bundle-plugin-test-')));
 
 function setupDir(path: string): void {
   mkdirSync(path, { recursive: true });
@@ -102,7 +102,7 @@ describe('BundlePluginLoader', () => {
     expect(plugins[0].manifest.version).toBe('1.0.0');
   });
 
-  it('should load the latest version directory for a plugin', async () => {
+  it('loads the selected installed revision when multiple versions exist', async () => {
     const manifestV1: IBundlePluginManifest = {
       name: 'ver-plugin',
       version: '1.0.0',
@@ -118,6 +118,15 @@ describe('BundlePluginLoader', () => {
     createPluginInCache(pluginsDir, 'market', 'ver-plugin', '1.0.0', manifestV1);
     createPluginInCache(pluginsDir, 'market', 'ver-plugin', '2.0.0', manifestV2);
 
+    writeJson(join(pluginsDir, 'installed_plugins.json'), {
+      'ver-plugin@market': {
+        pluginName: 'ver-plugin',
+        marketplace: 'market',
+        version: '2.0.0',
+        installPath: join(pluginsDir, 'cache', 'market', 'ver-plugin', '2.0.0'),
+        installedAt: 'fixture',
+      },
+    });
     const loader = new BundlePluginLoader(pluginsDir);
     const plugins = await loader.loadAll();
 

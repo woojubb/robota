@@ -45,6 +45,7 @@ export async function runSkillInFork(
   options: IForkExecutionOptions,
   parentSession: Session,
 ): Promise<string> {
+  options.signal?.throwIfAborted();
   const deps = retrieveAgentToolDeps(parentSession);
   if (!deps) {
     throw new Error('Fork execution is not available. Agent runtime deps may not be initialized.');
@@ -52,6 +53,7 @@ export async function runSkillInFork(
   const agentType = options.agent ?? 'general-purpose';
   const agentDefinition = resolveForkAgentDefinition(agentType, options, parentSession);
   const forkSession = createSubagentSession({
+    pathProtection: deps.pathProtection,
     agentDefinition,
     // Issue #3081: the rules the parent's gate enforces now (presets included), not the settings file.
     parentConfig: parentConfigWithEffectiveRules(deps),
@@ -74,5 +76,7 @@ export async function runSkillInFork(
     onTextDelta: deps.onTextDelta,
     onToolExecution: deps.onToolExecution,
   });
-  return forkSession.run(content);
+  return options.signal
+    ? forkSession.run(content, undefined, { signal: options.signal })
+    : forkSession.run(content);
 }

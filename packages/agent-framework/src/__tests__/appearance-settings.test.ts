@@ -19,11 +19,11 @@ import {
   readAppearanceSettings,
 } from '../command-api/appearance/appearance-command-api.js';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-appearance-settings-test-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-appearance-settings-test-')));
 
 function settingsFile(contents: Record<string, unknown>): string {
-  const path = join(TMP_BASE, '.robota', 'settings.json');
-  mkdirSync(join(TMP_BASE, '.robota'), { recursive: true });
+  const path = join(TMP_BASE, '.agent', 'settings.json');
+  mkdirSync(join(TMP_BASE, '.agent'), { recursive: true });
   writeFileSync(path, JSON.stringify(contents), 'utf8');
   return path;
 }

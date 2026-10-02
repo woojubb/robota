@@ -107,6 +107,7 @@ export class PermissionEnforcer {
   private readonly onProjectAllowTool?: (toolName: string) => void;
   private readonly permissionPolicy?: IPermissionEnforcerOptions['permissionPolicy'];
   private readonly taskPermissions?: IPermissionEnforcerOptions['taskPermissions'];
+  private readonly pathProtection: IPermissionEnforcerOptions['pathProtection'];
   private readonly homeDirectory: string;
   private readonly resolveInWorkspace: TResolveInWorkspace;
   private readonly commandSandbox?: IPermissionEnforcerOptions['commandSandbox'];
@@ -142,6 +143,7 @@ export class PermissionEnforcer {
     this.permissionPolicy = options.permissionPolicy;
     this.taskPermissions = options.taskPermissions;
     this.homeDirectory = options.homeDirectory ?? homedir();
+    this.pathProtection = options.pathProtection;
     this.resolveInWorkspace = createWorkspacePathResolver(options.cwd);
     this.commandSandbox = options.commandSandbox;
     if (options.permissionClassifier !== undefined) {
@@ -445,7 +447,7 @@ export class PermissionEnforcer {
       deny: [...this.config.permissions.deny, ...(policy?.deny ?? [])],
       ask: this.config.permissions.ask ?? [],
     };
-    const where = { cwd: this.cwd, homeDirectory: this.homeDirectory };
+    const where = { cwd: this.cwd, homeDirectory: this.homeDirectory, pathProtection: this.pathProtection };
     const decision = evaluatePermission(toolName, toolArgs, mode, rules, {
       ...where,
       resolveInWorkspace: this.resolveInWorkspace,

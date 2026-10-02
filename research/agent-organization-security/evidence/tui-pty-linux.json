@@ -1,0 +1,69 @@
+{
+  "kind": "actual-built-cli-tui-pty",
+  "records": [
+    {
+      "id": "actual-tui-boot-and-idle",
+      "observed": {
+        "rendered": true,
+        "modelRequests": 0
+      },
+      "passed": true
+    },
+    {
+      "id": "slash-help-no-model-request",
+      "observed": {
+        "commandOutputAfterEnter": true,
+        "modelRequests": 0
+      },
+      "passed": true
+    },
+    {
+      "id": "invalid-model-request-negative-control",
+      "observed": {
+        "status": 400,
+        "requestDelta": 1,
+        "noRequestPredicate": false
+      },
+      "passed": true
+    },
+    {
+      "id": "real-tui-model-turn",
+      "observed": {
+        "uniqueResponseRendered": true,
+        "modelRequests": 1,
+        "matchingPromptRequests": 1,
+        "markerWasNotInput": true
+      },
+      "passed": true
+    },
+    {
+      "id": "confirmed-tui-exit",
+      "observed": {
+        "exitCode": 0
+      },
+      "passed": true
+    },
+    {
+      "id": "isolated-product-state-selected",
+      "observed": {
+        "temporaryStatePresent": true,
+        "configuredSyntheticProvider": "fixture"
+      },
+      "passed": true
+    },
+    {
+      "id": "owned-tui-model-and-state-cleanup",
+      "observed": {
+        "terminalExited": true,
+        "modelStopped": true,
+        "temporaryStateRemoved": true
+      },
+      "passed": true
+    }
+  ],
+  "complete": true,
+  "limitations": [
+    "PTY uses the actual built CLI and existing test-only terminal driver; this is Linux terminal observation, not Electron or macOS UI evidence.",
+    "The owned loopback model is deterministic. One plain-text turn and user slash commands do not prove model attack resistance, hosted isolation or tool execution containment."
+  ]
+}

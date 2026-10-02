@@ -2,11 +2,11 @@
  * TEST-010 / SCREEN-013: the background-work drill-in entry point, observed through a real PTY.
  *
  * Component tests cover the switcher selection + detail pane in isolation; this asserts the
- * App-level wiring end to end against the BUILT robota binary: pressing `Ctrl+B` in the live TUI
+ * App-level wiring end to end against the BUILT CLI binary: pressing `Ctrl+B` in the live TUI
  * opens the execution-workspace switcher (the only way into a background task), and `Esc` returns to
  * the prompt. The switcher always lists the main thread, so this is assertable without seeding
  * background work. Runs in the dedicated PTY project (`pnpm --filter @robota-sdk/agent-ui-terminal
- * test:pty`) against `packages/agent-cli/bin/robota.cjs`.
+ * test:pty`) against `packages/agent-cli/bin/agent.cjs`.
  */
 
 import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
@@ -26,7 +26,7 @@ describe('Background-work drill-in entry point through a real PTY (TEST-010 / SC
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-bgwork-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-bgwork-')));
     writeTuiProviderSettings(projectDir);
   });
 

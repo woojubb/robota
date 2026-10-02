@@ -21,7 +21,7 @@ run in this order and the first one that decides wins:
    - an `ask` pattern match;
    - removing a critical path with `rm`/`rmdir` (the root, a top-level directory, home, the working
      directory or a parent);
-   - a write into `.git`, `.robota`, `.claude`, `.agents`, `.mcp.json`, `.gitconfig`, `.npmrc` or a
+   - a write into `.git`, `<project-state>`, `.claude`, `.agents`, `.mcp.json`, `.gitconfig`, `.npmrc` or a
      shell rc file.
 6. **Ask for everything**: when the caller routes every remaining call to a person (a background
    task whose policy is `prompt`), return `approve`.
@@ -33,7 +33,7 @@ run in this order and the first one that decides wins:
 
 `approve` goes to the attached approver, and with no approver it is a denial. In `plan` mode, `approve` for anything but a read-only tool is a denial.
 
-Print mode (`robota -p`), `createQuery()` and headless sessions default to `default` mode and have no approver, so a call that would ask is denied. Pass `--permission-mode` / `permissionMode` to choose another mode.
+Print mode (`__PRODUCT_CLI_NAME__ -p`), `createQuery()` and headless sessions default to `default` mode and have no approver, so a call that would ask is denied. Pass `--permission-mode` / `permissionMode` to choose another mode.
 
 ### Permission Modes
 
@@ -112,20 +112,20 @@ A compound command qualifies only when each part does on its own. A command does
 Shell commands (`Bash`, `Shell`) can run inside an OS-level sandbox that confines the command and
 every process it starts. Linux and WSL2 use [bubblewrap](https://github.com/containers/bubblewrap)
 (`bwrap`, installed from the `bubblewrap` package); macOS uses the built-in Seatbelt
-(`sandbox-exec`). Native Windows has no backend; run robota inside WSL2 to use it.
+(`sandbox-exec`). Native Windows has no backend; run __PRODUCT_CLI_NAME__ inside WSL2 to use it.
 
 Inside the sandbox:
 
 - the whole filesystem is readable, except the paths in `filesystem.denyRead`;
 - writes are allowed only in the working directory, the temporary directories and
   `filesystem.allowWrite`;
-- inside the working directory, `.git`, `.robota`, `.claude`, `.agents`, `.mcp.json` and shell or
-  npm config files stay read-only (isolated worktrees under `.robota/worktrees` stay writable).
+- inside the working directory, `.git`, `<project-state>`, `.claude`, `.agents`, `.mcp.json` and shell or
+  npm config files stay read-only (isolated worktrees under `<project-state>/worktrees` stay writable).
   `.git` is read-only as a whole, so git commands that write — `commit`, `checkout`, `fetch` —
   fail inside the sandbox; add `git` to `excludedCommands` to run them on the host through the
   ordinary prompt. On Linux, when a command exits, one of these entries it created where none
-  existed is moved to `.robota/sandbox-quarantine` (or `~/.robota/sandbox-quarantine` when the
-  project has no `.robota` directory), and a symlink it replaced is restored, with a note in its
+  existed is moved to `<project-state>/sandbox-quarantine` (or `<user-state>/sandbox-quarantine` when the
+  project has no `<project-state>` directory), and a symlink it replaced is restored, with a note in its
   output. Until that command exits the entry is on disk, so a session started meanwhile could read
   it. If an entry cannot be moved, commands ask until it is gone. While one of these entries is a
   symlink into a writable place (the working directory, a temporary directory, `allowWrite`) or
@@ -139,7 +139,7 @@ Inside the sandbox:
   sockets are closed too, so a daemon on the host (a container engine, the session bus, an ssh
   agent) is out of reach. With the network on, those sockets are reachable, and a container
   engine's socket is as good as running on the host. There is no per-domain list;
-- the command runs in its own process namespace and cannot signal or inspect robota or other host
+- the command runs in its own process namespace and cannot signal or inspect __PRODUCT_CLI_NAME__ or other host
   processes.
 
 ```json
@@ -174,12 +174,12 @@ applies to a line that runs only that program, so `docker ps; rm -rf build` stay
 cannot ask to leave the sandbox.
 
 **When it cannot run.** If `bwrap` is missing or cannot create a sandbox (for example where user
-namespaces are disabled), robota prints a warning at startup and runs commands unconfined;
-`robota doctor` and `/sandbox` say what is missing. With `failIfUnavailable: true` robota refuses to
+namespaces are disabled), __PRODUCT_CLI_NAME__ prints a warning at startup and runs commands unconfined;
+`__PRODUCT_CLI_NAME__ doctor` and `/sandbox` say what is missing. With `failIfUnavailable: true` __PRODUCT_CLI_NAME__ refuses to
 start instead.
 
 **Containers and VMs.** The sandbox confines what a command can write and reach; it does not
-isolate robota itself, its file tools, or its model traffic. A dev container or VM isolates the
+isolate __PRODUCT_CLI_NAME__ itself, its file tools, or its model traffic. A dev container or VM isolates the
 whole process, including everything the sandbox leaves readable. Use the sandbox to stop a command
 from changing things outside the project, and a container or VM when nothing on the host should be
 visible at all.

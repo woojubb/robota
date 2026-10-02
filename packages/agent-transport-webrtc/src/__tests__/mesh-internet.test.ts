@@ -1,3 +1,5 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 /**
  * Beyond the local network: rendezvous records on public item stores (the Mainline DHT, pkarr
  * relays) and live signaling over public Nostr relays — all through in-process fakes; nothing here
@@ -77,7 +79,7 @@ async function routeOf(
   peer: IMeshTestDevice,
   of: IMeshTestWorld = world,
 ): Promise<IMeshPeerRoute> {
-  const rendezvous = await derivePairRendezvous({
+  const rendezvous = await derivePairRendezvous(testIdentity, {
     ownKaPrivateKey: own.ka.privateKey,
     own: own.cert,
     peerDeviceId: peer.cert.deviceId,
@@ -108,7 +110,7 @@ function dhtOn(
  * names are left out: random ciphertext contains them by chance.
  */
 function identifying(): string[] {
-  const out = ['robota', 'Robota'];
+  const out = ['agent', 'ConversationAgent'];
   for (const device of [world.low, world.high, world.third]) {
     out.push(device.cert.deviceId, device.cert.userId);
   }
@@ -349,7 +351,7 @@ describe('rendezvous records', () => {
 
   it('hand on every list candidate newest first, and a list too large for one record in chunks', async () => {
     const network = createInMemoryItemNetwork();
-    const many = await issueDeviceRevocationList({
+    const many = await issueDeviceRevocationList(testIdentity, {
       signingKey: world.signingKey,
       seq: 12,
       issuedAt: NOW,
@@ -436,13 +438,13 @@ describe('rendezvous records', () => {
   it('a read that finds the chunks of two versions of a list yields no list', async () => {
     const ids = (fill: number): string[] =>
       Array.from({ length: 40 }, (_, i) => Buffer.alloc(32, fill + i).toString('base64url'));
-    const older = await issueDeviceRevocationList({
+    const older = await issueDeviceRevocationList(testIdentity, {
       signingKey: world.signingKey,
       seq: 12,
       issuedAt: NOW,
       revokedDeviceIds: ids(1),
     });
-    const newer = await issueDeviceRevocationList({
+    const newer = await issueDeviceRevocationList(testIdentity, {
       signingKey: world.signingKey,
       seq: 13,
       issuedAt: NOW,
@@ -694,7 +696,7 @@ async function internetDevice(
       ? { admissionTimeoutMs: options.admissionTimeoutMs }
       : {}),
   });
-  const node = new DeviceMeshNode({
+  const node = new DeviceMeshNode({cryptoContext: testIdentity,
     identity: options.identity ?? world.identity(device),
     sessionDescriptor: device.session,
     localPolicy: ALL_CAPABILITIES,
@@ -838,7 +840,7 @@ describe('two devices beyond the local network', () => {
               ...s,
             }),
           startHandshake: (binding) =>
-            startDeviceHandshake({
+            startDeviceHandshake(testIdentity, {
               role: 'responder',
               identity: stranger.identity(impostor),
               sessionDescriptor: impostor.session,

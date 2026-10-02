@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
+import { createTestBinaryEnvironment, createTestProductRuntime } from '../src/__tests__/helpers/product-runtime.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
@@ -14,7 +15,7 @@ if (!existsSync(cliBinary)) {
   throw new Error('Build @robota-sdk/agent-cli before running the personal-usage scenario.');
 }
 
-const scenarioRoot = mkdtempSync(join(tmpdir(), 'robota-personal-usage-'));
+const scenarioRoot = mkdtempSync(join(tmpdir(), 'agent-personal-usage-'));
 const isolatedHome = join(scenarioRoot, 'home');
 const now = new Date();
 const timestamp = now.toISOString();
@@ -81,13 +82,14 @@ const record: IInteractiveSessionRecord = {
 };
 
 try {
-  const store = createNodeHostSessionStore(join(isolatedHome, '.robota', 'sessions'));
+  const productRuntime = createTestProductRuntime('test-product', { HOME: isolatedHome });
+  const store = createNodeHostSessionStore(productRuntime.layout.userPaths.sessions);
   store.save(record);
 
   const run = (args: readonly string[]) =>
     spawnSync(process.execPath, [cliBinary, 'usage', ...args], {
       cwd: scenarioRoot,
-      env: { ...process.env, HOME: isolatedHome },
+      env: createTestBinaryEnvironment(isolatedHome),
       encoding: 'utf8',
     });
 

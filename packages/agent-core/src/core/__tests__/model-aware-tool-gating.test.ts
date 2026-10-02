@@ -18,7 +18,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { AbstractAIProvider, AbstractTool } from '../../index';
-import { Robota } from '../robota';
+import { ConversationAgent } from '../conversation-agent';
 
 import type { IAgentConfig } from '../../interfaces/agent';
 import type { TUniversalMessage } from '../../interfaces/messages';
@@ -86,7 +86,7 @@ class EchoTool extends AbstractTool {
   }
 }
 
-function buildAgent(provider: CatalogProvider, model: string): Robota {
+function buildAgent(provider: CatalogProvider, model: string): ConversationAgent {
   const config: IAgentConfig = {
     name: 'Capability Test Agent',
     aiProviders: [provider],
@@ -94,7 +94,7 @@ function buildAgent(provider: CatalogProvider, model: string): Robota {
     tools: [new EchoTool()],
     logging: { level: 'silent', enabled: false },
   };
-  return new Robota(config);
+  return new ConversationAgent(config);
 }
 
 describe('PROV-006 — per-model tool gating', () => {

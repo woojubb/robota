@@ -1,3 +1,5 @@
+import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
 /**
  * Session types — interfaces and type aliases for Session construction.
  */
@@ -14,6 +16,7 @@ import type {
 import type { ISessionLogger } from './session-logger.js';
 import type {
   IAIProvider,
+  IAgentConfig,
   IExecutionJournal,
   IContextWindowState,
   IToolWithEventService,
@@ -30,7 +33,10 @@ import type {
   IResponseFormatConfig,
   IRunTraceContext,
 } from '@robota-sdk/agent-core';
-import type { ICompactEvent, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type {
+  ICompactEvent,
+  IInteractiveSessionStore,
+} from '@robota-sdk/agent-interface-session';
 
 export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-interface-session';
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
@@ -42,8 +48,11 @@ export interface ISessionShutdownOptions {
 
 /** Options for constructing a Session */
 export interface ISessionOptions {
+  readonly pathProtection?: IPathProtectionPolicy;
   /** Pre-constructed tools to register with the agent */
   tools: IToolWithEventService[];
+  /** Host-owned scheduling declarations; they do not grant tool permission or replay authority. */
+  toolExecutionPolicy?: IAgentConfig['toolExecutionPolicy'];
   /**
    * Applies to a tool added after construction (`Session.addTools`) the wrappers the assembler
    * applied to `tools`, so a late tool is held to the same safety policy as one present from the
@@ -107,7 +116,7 @@ export interface ISessionOptions {
    * true (current behavior). Only meaningful when the agent runtime was built at assembly.
    */
   enableParallelSubagents?: boolean;
-  /** Model name (for context window sizing and Robota config) */
+  /** Model name (for context window sizing and ConversationAgent config) */
   model?: string;
   /** Provider idle timeout in milliseconds for each model call */
   providerTimeout?: number;
@@ -143,6 +152,7 @@ export interface ISessionOptions {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    toolResultParts?: TUniversalMessagePart[];
     executionId?: string;
   }) => void;
   /** Callback when context is compacted */
@@ -158,7 +168,7 @@ export interface ISessionOptions {
    */
   compactionBasePrompt?: string;
   /**
-   * Concrete remediation wording for the core's hard-capacity notice, forwarded to the Robota
+   * Concrete remediation wording for the core's hard-capacity notice, forwarded to the ConversationAgent
    * agent config as `IAgentConfig.contextCapacityHint`. The zero-dependency core emits a
    * product-neutral default; a surface tier that owns a real remediation command (e.g. a
    * `/compact` slash command) injects its own actionable hint here. Absent ⇒ the neutral
@@ -175,7 +185,7 @@ export interface ISessionOptions {
   transcriptPath?: string;
   /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
   hookTypeExecutors?: IHookTypeExecutor[];
-  /** Name reported to the Robota agent config. Defaults to 'agent' if not provided. */
+  /** Name reported to the ConversationAgent agent config. Defaults to 'agent' if not provided. */
   agentName?: string;
   /**
    * Request structured output from the provider for this session. Issue #2056: the agent config's
@@ -183,7 +193,7 @@ export interface ISessionOptions {
    */
   responseFormat?: IResponseFormatConfig;
   /**
-   * Reasoning-effort selection threaded to the Robota agent config and provider boundary.
+   * Reasoning-effort selection threaded to the ConversationAgent agent config and provider boundary.
    * When unset, Core preserves provider-default selection as `auto`.
    */
   effort?: TModelEffortSelection;

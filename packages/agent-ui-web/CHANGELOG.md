@@ -31,17 +31,17 @@
   ("Not connected"). A banner above the conversation — never a full-screen replacement — says "Connection
   lost. Reconnecting…" while retries continue, and once they give up either offers a working Reconnect
   (a host that can restart the runtime) or says how to reopen the page (a browser served by
-  `robota --serve --open`). A desktop Reconnect remembers the session the person was in and returns to it
+  `__PRODUCT_CLI_NAME__ --serve --open`). A desktop Reconnect remembers the session the person was in and returns to it
   once the restart's reload reconnects.
-- e8d70ac: A first run finds a provider, instead of a dead end. `robota --serve` (and the daemon it starts) no
+- e8d70ac: A first run finds a provider, instead of a dead end. `__PRODUCT_CLI_NAME__ --serve` (and the daemon it starts) no
   longer refuses when no provider is configured: it starts in setup mode, and the GUI's conversation area
   shows a "Connect a model provider to start" panel with a "Set up provider" button in place of the
   composer. Answering it configures and swaps in the first provider live, with no restart. A startup
-  failure now says why — `robota daemon start --json` and the desktop app's fatal screen report the
+  failure now says why — `__PRODUCT_CLI_NAME__ daemon start --json` and the desktop app's fatal screen report the
   child's own reason instead of a generic "readiness channel closed", and the fatal screen gets a Try
   again button. `trust status --json` and the desktop trust dialog list only sources whose state trust
   would actually change, instead of naming one this platform could not determine; the dialog shows one
-  sentence and a collapsed Details section. `robota --serve --open` in an untrusted folder now asks at
+  sentence and a collapsed Details section. `__PRODUCT_CLI_NAME__ --serve --open` in an untrusted folder now asks at
   the terminal (trust it, start Restricted, or quit) when someone is there to ask, instead of refusing
   outright.
 
@@ -81,12 +81,12 @@
     - Session notices keep only `session-error` and `protocol-error`.
     - The state gains `commandCatalog` and `sessionStatus`.
   - `agent-command` registers `/theme` and `/keybindings` even without a terminal. They then answer
-    that they belong to the robota terminal, instead of being unknown.
+    that they belong to the __PRODUCT_DISPLAY_NAME__ terminal, instead of being unknown.
   - `agent-framework`:
     - `InteractiveSession.getStatusSnapshot()`.
     - The main-thread row previews the last chat message instead of the last record's type.
   - `agent-cli` serves the full GUI web app, renamed from `agent-cli-web` to `agent-gui-web`, on
-    `robota --serve --open`.
+    `__PRODUCT_CLI_NAME__ --serve --open`.
 
 - 6ae3f28: A served runtime can list its workspace's sessions, start a new one and switch to another without the
   process or any client connection restarting. The GUI shows them in a sessions sidebar.
@@ -112,7 +112,7 @@
     - `IWsSessionState` gains session listing state and actions.
     - It adds a `SessionSidebar`.
     - `/resume` opens the sidebar.
-  - `agent-cli`: `robota --serve` provides the session directory, and refuses a switch that would lose
+  - `agent-cli`: `__PRODUCT_CLI_NAME__ --serve` provides the session directory, and refuses a switch that would lose
     work in progress. External-event grants belong to the run: a switch reopens them on the new session,
     as the TUI already does.
   - External-event grant history (spent tokens, rate windows, revocations) belongs to the run. The new
@@ -122,14 +122,14 @@
 
 ### Minor Changes
 
-- 9ecffed: `robota daemon start | status | stop | unlock` runs one long-lived runtime per workspace for clients to attach to.
+- 9ecffed: `__PRODUCT_CLI_NAME__ daemon start | status | stop | unlock` runs one long-lived runtime per workspace for clients to attach to.
 
   - **What a daemon is.** A supervised session marked as the workspace's daemon.
     - Its control socket answers `connect` with the loopback WebSocket address, and only to a caller that names the daemon's current start.
     - The token never touches disk or argv. The daemon removes it from its own environment, so its tools do not inherit it.
   - **Starting.** `daemon start --json` prints one line, `{"id","url"}`, for a client host to read.
     - Starts in one workspace take turns through a lock.
-    - A lock left behind by a start that is gone is never removed automatically. The start refuses and names `robota daemon unlock`.
+    - A lock left behind by a start that is gone is never removed automatically. The start refuses and names `__PRODUCT_CLI_NAME__ daemon unlock`.
     - A daemon that cannot hand over its address fails its start and is not left running.
   - **The desktop app attaches** to the workspace daemon and starts one only when none is running.
     - Closing the window leaves the daemon running.
@@ -147,7 +147,7 @@
     `code`, instead of `protocol_error`; both requests take an optional `requestId` that it echoes.
   - `agent-transport-ws`: the `sessionBinder` option binds each connection to its own session and
     releases the binding when the connection closes.
-  - `agent-cli`: `robota --serve` and the daemon keep up to four sessions live. Each WebSocket client and
+  - `agent-cli`: `__PRODUCT_CLI_NAME__ --serve` and the daemon keep up to four sessions live. Each WebSocket client and
     attached terminal is bound to its own session; leaving a busy session is no longer refused, and only
     the last driver of a session with a pending prompt is kept from leaving it. Grants and the supervised
     name stay on the runtime's first session, and its reported activity covers every live session.
@@ -172,16 +172,16 @@
     - `createTerminalClientCommands()` builds the same four commands, from the same execute functions, for a terminal client to run itself. The set follows the preset's module selection.
   - **`agent-ui-web` (minor).** The `/` menu marks a command that runs in the terminal with a "terminal" badge.
 
-- 227ff3a: The GUI session surface (desktop app, `robota --serve --open`) is redesigned as a calm desktop app: readable
+- 227ff3a: The GUI session surface (desktop app, `__PRODUCT_CLI_NAME__ --serve --open`) is redesigned as a calm desktop app: readable
   type in a bundled Pretendard, monospace only for code and paths, surfaces separated by tone instead of
   outlines, and light and dark themes that follow the system. Agent replies read as prose, your messages sit
   in bubbles, tool calls are single quiet lines, and the composer carries the model, mode and effort. The
   permission prompt now shows what the tool was asked to run, and the title bar names the current session.
-- f8a8a4d: The GUI surface's design now applies inside a `robota-ui` scope that each of its root components opens,
+- f8a8a4d: The GUI surface's design now applies inside a `agent-ui` scope that each of its root components opens,
   so an app with design tokens of its own can embed the surface without either overriding the other. Such
   an app imports `@robota-sdk/agent-ui-web/styles/surface.css` into its Tailwind entry; a page that is only
-  the surface keeps importing `styles/theme.css` and puts `robota-ui` on its `<html>`. `RobotaMark` and
-  `RobotaWordmark` are exported. The browser remote client (`RemoteClient`) follows the same design, with
+  the surface keeps importing `styles/theme.css` and puts `agent-ui` on its `<html>`. `ProductMark` and
+  `ProductWordmark` are exported. The browser remote client (`RemoteClient`) follows the same design, with
   its pairing states centred on the page.
 
 ### Patch Changes

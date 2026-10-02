@@ -1,3 +1,4 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import {
   getUserUpdateCheckCachePath,
   readUpdateCheckCache,
@@ -11,8 +12,6 @@ import {
 
 import type { IUpdateCheckCache, TJsonValue } from './update-check-cache.js';
 
-export const CLI_UPDATE_PACKAGE_NAME = '@robota-sdk/agent-cli';
-export const CLI_UPDATE_REGISTRY_URL = 'https://registry.npmjs.org';
 const HOURS_PER_DAY = 24;
 const MINUTES_PER_HOUR = 60;
 const SECONDS_PER_MINUTE = 60;
@@ -21,7 +20,6 @@ export const CLI_UPDATE_CACHE_TTL_MS =
   HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND;
 export const CLI_UPDATE_TIMEOUT_MS = 1500;
 
-const DEFAULT_INSTALL_COMMAND = "npm install -g '@robota-sdk/agent-cli@latest'";
 
 export interface ICliUpdateNotice {
   currentVersion: string;
@@ -36,6 +34,7 @@ export type TCliUpdateCheckResult =
   | { status: 'error'; errorMessage: string };
 
 export interface ICheckForCliUpdateOptions {
+  productRuntime: ICliRuntimeContext;
   currentVersion: string;
   disabled?: boolean;
   force?: boolean;
@@ -63,19 +62,19 @@ export { compareSemverVersions, isNewerSemverVersion };
 export async function checkForCliUpdate(
   options: ICheckForCliUpdateOptions,
 ): Promise<TCliUpdateCheckResult> {
-  if (options.disabled === true) {
+  if (options.disabled === true || (options.registryUrl === undefined && options.productRuntime.config.release.npmRegistryUrl === undefined)) {
     return { status: 'skipped', reason: 'disabled' };
   }
 
-  const packageName = options.packageName ?? CLI_UPDATE_PACKAGE_NAME;
-  const cachePath = options.cachePath ?? getUserUpdateCheckCachePath();
+  const packageName = options.packageName ?? `${options.productRuntime.config.identity.packageScope}/agent-cli`;
+  const cachePath = options.cachePath ?? getUserUpdateCheckCachePath(options.productRuntime);
   const now = options.now ?? new Date();
   const ttlMs = options.ttlMs ?? CLI_UPDATE_CACHE_TTL_MS;
 
   if (options.force !== true) {
     const cached = readUpdateCheckCache(cachePath);
     if (cached !== undefined && isFreshCache(cached, now, ttlMs, packageName)) {
-      return resultFromCache(cached, options.currentVersion);
+      return resultFromCache(cached, options.currentVersion, packageName);
     }
   }
 
@@ -83,7 +82,7 @@ export async function checkForCliUpdate(
   if (typeof latestVersion !== 'string') {
     return latestVersion;
   }
-  return resultFromLatestVersion(options.currentVersion, latestVersion);
+  return resultFromLatestVersion(options.currentVersion, latestVersion, packageName);
 }
 
 async function fetchLatestVersionOrError(
@@ -95,7 +94,7 @@ async function fetchLatestVersionOrError(
   const result = await attemptFetchLatestVersion({
     fetchImpl: options.fetchImpl ?? fetch,
     packageName,
-    registryUrl: options.registryUrl ?? CLI_UPDATE_REGISTRY_URL,
+    registryUrl: options.registryUrl ?? options.productRuntime.config.release.npmRegistryUrl ?? (() => { throw new Error('Update registry URL is required.'); })(),
     timeoutMs: options.timeoutMs ?? CLI_UPDATE_TIMEOUT_MS,
   });
   if (result.ok) {
@@ -137,7 +136,7 @@ export function shouldRunStartupCliUpdateCheck(input: IStartupCliUpdatePolicyInp
 
 export function formatCliUpdateNotice(notice: ICliUpdateNotice): string {
   return [
-    `Robota update available: ${notice.currentVersion} -> ${notice.latestVersion}.`,
+    `Update available: ${notice.currentVersion} -> ${notice.latestVersion}.`,
     `Run ${notice.installCommand}`,
   ].join(' ');
 }
@@ -147,27 +146,28 @@ export function formatCliUpdateCheckMessage(result: TCliUpdateCheckResult): stri
     return formatCliUpdateNotice(result.notice);
   }
   if (result.status === 'current') {
-    return `Robota is up to date (${result.currentVersion}).`;
+    return `Up to date (${result.currentVersion}).`;
   }
   if (result.status === 'skipped') {
-    return 'Robota update check skipped.';
+    return 'Update check skipped.';
   }
-  return `Robota update check failed: ${result.errorMessage}`;
+  return `Update check failed: ${result.errorMessage}`;
 }
 
-function resultFromCache(cache: IUpdateCheckCache, currentVersion: string): TCliUpdateCheckResult {
+function resultFromCache(cache: IUpdateCheckCache, currentVersion: string, packageName: string): TCliUpdateCheckResult {
   if (cache.errorMessage !== undefined) {
     return { status: 'error', errorMessage: cache.errorMessage };
   }
   if (cache.latestVersion === undefined) {
     return { status: 'error', errorMessage: 'Cached update check has no latest version' };
   }
-  return resultFromLatestVersion(currentVersion, cache.latestVersion);
+  return resultFromLatestVersion(currentVersion, cache.latestVersion, packageName);
 }
 
 function resultFromLatestVersion(
   currentVersion: string,
   latestVersion: string,
+  packageName: string,
 ): TCliUpdateCheckResult {
   if (isNewerSemverVersion(latestVersion, currentVersion)) {
     return {
@@ -175,7 +175,7 @@ function resultFromLatestVersion(
       notice: {
         currentVersion,
         latestVersion,
-        installCommand: DEFAULT_INSTALL_COMMAND,
+        installCommand: `npm install -g ${JSON.stringify(`${packageName}@latest`)}`,
       },
     };
   }

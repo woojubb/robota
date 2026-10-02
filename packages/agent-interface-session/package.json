@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-interface-session",
   "version": "3.0.0-beta.86",
-  "description": "Session contract interfaces for the Robota SDK — interactive sessions, interaction channels, session events, turns and persistence",
+  "description": "Session contract interfaces for the Robota SDK \u2014 interactive sessions, interaction channels, session events, turns and persistence",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -53,15 +53,6 @@
       }
     },
     "./package.json": "./package.json"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/woojubb/robota.git",
-    "directory": "packages/agent-interface-session"
-  },
-  "homepage": "https://docs.robota.io/en/packages/agent-interface-session/",
-  "bugs": {
-    "url": "https://github.com/woojubb/robota/issues"
   },
   "engines": {
     "node": ">=22.12.0"

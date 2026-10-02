@@ -1,4 +1,5 @@
 ---
+import { productPublicConfig } from '../lib/product-config.generated.mjs';
 const { frontmatter, lang = 'en', translationUrl = '' } = Astro.props;
 const { title, subtitle, date, image, author, authorUrl } = frontmatter;
 const dateLocale = lang === 'ko' ? 'ko-KR' : 'en-US';
@@ -9,8 +10,10 @@ const formattedDate = new Date(date).toLocaleDateString(dateLocale, {
 });
 const enUrl = lang === 'en' ? '' : translationUrl;
 const koUrl = lang === 'ko' ? '' : translationUrl;
-const currentUrl = `https://blog.robota.io${Astro.url.pathname}`;
+const blogUrl = productPublicConfig.identity.blogUrl;
+const currentUrl = blogUrl ? `${blogUrl}${Astro.url.pathname}` : undefined;
 const altLang = lang === 'en' ? 'ko' : 'en';
+const measurementId = productPublicConfig.services?.analyticsMeasurementId;
 ---
 
 <html lang={lang}>
@@ -18,20 +21,23 @@ const altLang = lang === 'en' ? 'ko' : 'en';
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZPV4BX97JF"></script>
-  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-ZPV4BX97JF');</script>
-  <title>{title} — Robota</title>
+  {measurementId && <>
+    <script async src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}></script>
+    <script is:inline define:vars={{ measurementId }}>
+      window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config',measurementId);
+    </script>
+  </>}
+  <title>{title} — {productPublicConfig.identity.displayName}</title>
   <meta name="description" content={subtitle || title} />
   {author && <meta name="author" content={author} />}
-  <link rel="canonical" href={`https://blog.robota.io${Astro.url.pathname}`} />
-  <link rel="alternate" hreflang={lang} href={currentUrl} />
-  {translationUrl && <link rel="alternate" hreflang={altLang} href={`https://blog.robota.io${translationUrl}`} />}
+  {currentUrl && <link rel="canonical" href={currentUrl} />}
+  {currentUrl && <link rel="alternate" hreflang={lang} href={currentUrl} />}
+  {blogUrl && translationUrl && <link rel="alternate" hreflang={altLang} href={`${blogUrl}${translationUrl}`} />}
   <meta property="og:title" content={title} />
   <meta property="og:description" content={subtitle || title} />
   <meta property="og:type" content="article" />
-  <meta property="og:url" content={`https://blog.robota.io${Astro.url.pathname}`} />
-  <meta property="og:site_name" content="Robota" />
+  {currentUrl && <meta property="og:url" content={currentUrl} />}
+  <meta property="og:site_name" content={productPublicConfig.identity.displayName} />
   {image && <meta property="og:image" content={image} />}
   <meta name="twitter:card" content={image ? "summary_large_image" : "summary"} />
   <meta name="twitter:title" content={title} />
@@ -50,7 +56,7 @@ const altLang = lang === 'en' ? 'ko' : 'en';
 </head>
 <body>
   <header class="site-header">
-    <a href={lang === 'en' ? '/' : '/ko/'} class="logo">Robota</a>
+    <a href={lang === 'en' ? '/' : '/ko/'} class="logo">{productPublicConfig.identity.displayName}</a>
     <nav>
       <span class="switcher">
         {enUrl ? <a href={enUrl}>EN</a> : <span class="active">EN</span>}
@@ -82,8 +88,8 @@ const altLang = lang === 'en' ? 'ko' : 'en';
 
   <footer class="site-footer">
     <p>
-      <a href="https://github.com/woojubb">woojubb</a> ·
-      <a href="https://robota.io">robota.io</a>
+      <a href="__PROJECT_REPOSITORY_URL__">Source repository</a> ·
+      <a href="__PROJECT_WEBSITE_URL__">__PROJECT_WEBSITE_HOST__</a>
     </p>
   </footer>
   <script is:inline>

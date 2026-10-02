@@ -1,5 +1,6 @@
+import { render } from './product-provider.js';
 // @vitest-environment jsdom
-import { act, render, screen, fireEvent, cleanup, within } from '@testing-library/react';
+import { act, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 
 import { SessionSurface } from '@robota-sdk/agent-ui-web/client';
@@ -790,7 +791,7 @@ describe('#3280 §5 — a lost connection keeps the conversation and the draft',
     expect(screen.getByText('hello')).toBeTruthy();
   });
 
-  it('once retries give up, a desktop host shows "Robota stopped." with a working Reconnect; the conversation stays', () => {
+  it('once retries give up, a desktop host shows "Test Product stopped." with a working Reconnect; the conversation stays', () => {
     const onReconnect = vi.fn(() => new Promise<void>(() => {}));
     render(
       <SessionSurface
@@ -800,7 +801,7 @@ describe('#3280 §5 — a lost connection keeps the conversation and the draft',
     );
     expect(screen.getByText('hello')).toBeTruthy();
     const alert = screen.getByRole('alert');
-    expect(alert.textContent).toContain('Robota stopped.');
+    expect(alert.textContent).toContain('Test Product stopped.');
 
     fireEvent.click(within(alert).getByRole('button', { name: 'Reconnect' }));
     expect(onReconnect).toHaveBeenCalledTimes(1);
@@ -809,7 +810,7 @@ describe('#3280 §5 — a lost connection keeps the conversation and the draft',
   it('once retries give up, a browser host (no onReconnect) shows the restart instruction and no button', () => {
     render(<SessionSurface state={stubState({ status: 'disconnected', connectionLost: true })} />);
     const alert = screen.getByRole('alert');
-    expect(alert.textContent).toContain('robota --serve --open');
+    expect(alert.textContent).toContain('test-product --serve --open');
     expect(within(alert).queryByRole('button')).toBeNull();
   });
 });

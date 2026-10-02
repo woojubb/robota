@@ -20,9 +20,9 @@ import type {
 import type { CryptoKey, JWK } from 'jose';
 
 const ISSUER = 'https://auth.example.com';
-const PUBLIC = 'https://robota.example/hooks';
-const HOST = 'robota.example';
-const SCOPE = 'robota.events.submit';
+const PUBLIC = 'https://test-product.example/hooks';
+const HOST = 'test-product.example';
+const SCOPE = 'test-product.events.submit';
 
 let signing: { privateKey: CryptoKey; jwk: JWK };
 let stranger: { privateKey: CryptoKey };
@@ -229,7 +229,7 @@ describe('external event HTTPS endpoint', () => {
 
   it('answers a missing or invalid token with an empty 401 and only the challenge', async () => {
     const { port } = await start();
-    const metadata = `https://robota.example/.well-known/oauth-protected-resource/hooks/events/ci`;
+    const metadata = `https://test-product.example/.well-known/oauth-protected-resource/hooks/events/ci`;
     const missing = await send(port);
     expect(missing).toMatchObject({ status: 401, body: '' });
     expect(missing.headers['www-authenticate']).toBe(`Bearer resource_metadata="${metadata}"`);
@@ -557,7 +557,7 @@ describe('external event HTTPS endpoint', () => {
       ...grant('chat', 'chat-bot'),
       verifier: {
         ...grant('chat', 'chat-bot').verifier,
-        resource: 'https://ROBOTA.example/hooks/events/chat',
+        resource: 'https://TEST-PRODUCT.example/hooks/events/chat',
       },
     };
     expect(() =>
@@ -596,7 +596,7 @@ describe('external event HTTPS endpoint', () => {
     ).toThrow(/one public URL/);
     const http = {
       ...grant('ci', 'ci-bot'),
-      verifier: { ...grant('ci', 'ci-bot').verifier, resource: 'http://robota.example/events/ci' },
+      verifier: { ...grant('ci', 'ci-bot').verifier, resource: 'http://test-product.example/events/ci' },
     };
     expect(() => createExternalEventHttpHost({ ...base, grants: [http] })).toThrow(/https/);
     expect(() =>

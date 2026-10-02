@@ -1,3 +1,4 @@
+import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 /**
  * This device's place in the user's device mesh: present at one relay inbox per peer device, and at
  * most one WebRTC connection per device pair, each admitted by the device handshake.
@@ -114,6 +115,7 @@ export interface IDeviceMeshRelayOptions {
 type TRelayStage = 'direct' | 'embedded' | 'configured';
 
 export interface IDeviceMeshNodeOptions {
+  readonly cryptoContext: IIdentityContext;
   readonly identity: IDeviceHandshakeIdentity;
   /** This device's signed descriptor of the session it offers to peers. */
   readonly sessionDescriptor: ISessionDescriptor;
@@ -440,9 +442,12 @@ export class DeviceMeshNode {
    */
   private async receiveLists(frame: Record<string, unknown>): Promise<void> {
     const current = this.identity;
-    const roster = decodeDeviceRoster(frame['roster']);
-    const revocation = decodeDeviceRevocationList(frame['revocation']);
-    const signingKeyRevocation = decodeSigningKeyRevocation(frame['signingKeyRevocation']);
+    const roster = decodeDeviceRoster(this.options.cryptoContext, frame['roster']);
+    const revocation = decodeDeviceRevocationList(this.options.cryptoContext, frame['revocation']);
+    const signingKeyRevocation = decodeSigningKeyRevocation(
+      this.options.cryptoContext,
+      frame['signingKeyRevocation'],
+    );
     const offered: { -readonly [K in keyof IListUpdate]?: IListUpdate[K] } = {
       ...(roster.ok && newer(current.roster, roster.value) ? { roster: roster.value } : {}),
       ...(revocation.ok && newer(current.revocation, revocation.value)
@@ -454,7 +459,7 @@ export class DeviceMeshNode {
         : {}),
     };
     if (Object.keys(offered).length === 0) return;
-    const verdict = await verifyDeviceChain({
+    const verdict = await verifyDeviceChain(this.options.cryptoContext, {
       masterPublicKey: current.masterPublicKey,
       signingKeyCert: current.signingKeyCertificate,
       deviceCert: current.deviceCertificate,
@@ -517,7 +522,7 @@ export class DeviceMeshNode {
         let rendezvous: IPairRendezvous;
         let topics: IRelayInboxTopics;
         try {
-          rendezvous = await derivePairRendezvous({
+          rendezvous = await derivePairRendezvous(this.options.cryptoContext, {
             ownKaPrivateKey: identity.kaPrivateKey,
             own: self,
             peerDeviceId: deviceId,
@@ -767,7 +772,7 @@ export class DeviceMeshNode {
       },
       sendSignal: send,
       startHandshake: (binding) =>
-        startDeviceHandshake({
+        startDeviceHandshake(this.options.cryptoContext, {
           role: state.role === 'offerer' ? 'initiator' : 'responder',
           identity: this.identity,
           sessionDescriptor: this.sessionDescriptor,
@@ -840,6 +845,7 @@ export class DeviceMeshNode {
       },
       this.options.operatorApprover,
     );
+    link.onEnd(() => authority.close());
     // A message from the peer is delivered only when this connection's authority allows it; the
     // decision is taken once and every message waits on it, so order is kept.
     const messaging = authority.authorize('message');
@@ -859,7 +865,7 @@ export class DeviceMeshNode {
         link.onMessage((body) => {
           if (listsFrame(body) !== undefined) return;
           void messaging.then((decision) => {
-            if (decision.allowed) handler(body);
+            if (decision.allowed && !link.ended) handler(body);
             else link.close();
           });
         }),

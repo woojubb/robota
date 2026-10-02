@@ -8,4 +8,4 @@ could never load: it pulls in Ink, whose `yoga-layout` dependency starts with a 
 `require()` failed on every Node version with `ERR_REQUIRE_ASYNC_MODULE`. The packages no longer
 declare a `require` condition or ship `index.cjs`/`index.d.cts`, so `require()` now fails at resolution
 with `ERR_PACKAGE_PATH_NOT_EXPORTED`. Load them with `import` or `import()`, which is unchanged. The
-`robota` executable is unaffected.
+configured CLI executable is unaffected.

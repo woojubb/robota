@@ -10,9 +10,9 @@ import { resolveGuiHost } from '../gui-host.js';
 
 import type { IDesktopBridge } from '../gui-host.js';
 
-function page(options: { meta?: string; search?: string; host?: string } = {}): Parameters<
-  typeof resolveGuiHost
->[0] {
+function page(
+  options: { meta?: string; search?: string; host?: string } = {},
+): Parameters<typeof resolveGuiHost>[0] {
   return {
     bridge: undefined,
     document: {
@@ -50,7 +50,9 @@ describe('resolveGuiHost', () => {
     await host.answerTrust?.('restricted');
     expect(bridge.answerTrust).toHaveBeenCalledWith('restricted');
     // #3282 §4d: the composer's attach button and drop handler reach the bridge through these two.
-    await expect(host.pickFiles?.()).resolves.toEqual([{ path: '/repo/a.ts', name: 'a.ts', size: 10 }]);
+    await expect(host.pickFiles?.()).resolves.toEqual([
+      { path: '/repo/a.ts', name: 'a.ts', size: 10 },
+    ]);
     const file = new File(['x'], 'dropped.ts');
     expect(host.getPathForFile?.(file)).toBe('/repo/dropped.ts');
     expect(bridge.getPathForFile).toHaveBeenCalledWith(file);
@@ -58,12 +60,36 @@ describe('resolveGuiHost', () => {
     host.onOpenSettings(listener);
     expect(bridge.onOpenSettings).toHaveBeenCalledWith(listener);
     // #3282 §4c: the Project panel's Memory "Open in editor" reaches the bridge's openPath.
-    host.openMemoryInEditor?.('.robota/memory/MEMORY.md');
-    expect(bridge.openPath).toHaveBeenCalledWith('.robota/memory/MEMORY.md');
+    host.openMemoryInEditor?.('.fixture-state/memory/MEMORY.md');
+    expect(bridge.openPath).toHaveBeenCalledWith('.fixture-state/memory/MEMORY.md');
+  });
+
+  it('keeps remote task paths outside the local desktop filesystem', () => {
+    const bridge = {
+      runtimeMode: 'remote',
+      getEndpoint: vi.fn(),
+      signalReady: vi.fn(),
+      onState: vi.fn(),
+      restartRuntime: vi.fn(),
+      trustQuestion: vi.fn(),
+      answerTrust: vi.fn(),
+      pickFiles: vi.fn(),
+      getPathForFile: vi.fn(),
+      openPath: vi.fn(),
+      onOpenSettings: vi.fn(),
+    } as unknown as IDesktopBridge;
+    const host = resolveGuiHost({ ...page(), bridge });
+    expect(host.pickFiles).toBeUndefined();
+    expect(host.getPathForFile).toBeUndefined();
+    expect(host.openMemoryInEditor).toBeUndefined();
+    expect(host.trustQuestion).toBeUndefined();
+    expect(host.restartRuntime).toBeDefined();
   });
 
   it('in a browser, prefers the address the CLI injected into the page', async () => {
-    const host = resolveGuiHost(page({ meta: 'ws://127.0.0.1:4321?token=a', search: '?ws=ws%3A%2F%2Fother' }));
+    const host = resolveGuiHost(
+      page({ meta: 'ws://127.0.0.1:4321?token=a', search: '?ws=ws%3A%2F%2Fother' }),
+    );
     expect(host.kind).toBe('browser');
     expect(host.restartRuntime).toBeUndefined();
     // A browser page is served by a runtime that already started; there is nothing to ask first.

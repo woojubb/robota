@@ -25,8 +25,8 @@ describe.runIf(process.platform === 'linux')(
       store: Awaited<ReturnType<typeof createTrustedProjectSessionStoreFixture>>;
       cwd: string;
     }> {
-      const cwd = await realpath(await mkdtemp(join(tmpdir(), 'robota-sdk-session-roundtrip-')));
-      mkdirSync(join(cwd, '.robota'), { recursive: true });
+      const cwd = await realpath(await mkdtemp(join(tmpdir(), 'agent-sdk-session-roundtrip-')));
+      mkdirSync(join(cwd, '.agent'), { recursive: true });
       return { store: await createTrustedProjectSessionStoreFixture(cwd), cwd };
     }
 

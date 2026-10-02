@@ -16,5 +16,5 @@ runs.
   under. `sandboxApprovalFor` is exported.
 - `agent-subagent-runner` (minor): `ISubagentWorkerComposition` takes an optional `createSandbox`. The
   worker builds that sandbox once and hands the same instance to `createTools` and to the session.
-- `agent-cli` (patch): robota's worker composition builds the OS sandbox through `createSandbox`, so
+- `agent-cli` (patch): the configured product's worker composition builds the OS sandbox through `createSandbox`, so
   a child-process subagent approves what its parent approves.

@@ -19,7 +19,7 @@ Connected sessions can send each other files.
   The tool reaches only files inside the workspace whose path does not look like it holds secrets
   (`.env*`, `~/.ssh`, keys and credentials), and it does not exist in a turn a peer's message started.
 - The receiving operator approves every file. A received file is kept as an inert copy (mode 0600)
-  under `~/.robota/peer-files/<sender>/`. It is never run and never placed in the model's context.
+  under `the configured user data directory<sender>/`. It is never run and never placed in the model's context.
   The conversation is told only its name, size and sha256. A name that leaves that directory is
   refused, a symbolic link is never written through, and nothing is overwritten.
 - Transfers travel on a channel of their own (a separate connection on this host, a separate data

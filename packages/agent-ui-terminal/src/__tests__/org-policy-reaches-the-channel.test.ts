@@ -3,7 +3,7 @@
  *
  * `toChannelOptions` builds the channel's options field by field. `orgPolicy` was not among them, so
  * a policy forwarded from the shell arrived here and was dropped, and `blockedCommands` enforcement
- * stayed dead on the plain `robota` path — the most common one — after two rounds of wiring it.
+ * stayed dead on the plain `agent` path — the most common one — after two rounds of wiring it.
  *
  * The reason it was silent is worth keeping: the shell forwards with
  * `...(orgPolicy === null ? {} : { orgPolicy })`, and a SPREAD BYPASSES TypeScript's excess-property
@@ -51,13 +51,13 @@ describe('CLI-083: the TUI projection carries the org policy', () => {
   });
 
   it('enforces a blocked command from a policy file in a real TUI-owned session', async () => {
-    const home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-tui-policy-')));
-    mkdirSync(join(home, '.robota'));
-    writeFileSync(join(home, '.robota', 'org-policy.json'), JSON.stringify(POLICY));
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-tui-policy-')));
+    mkdirSync(join(home, 'state'));
+    writeFileSync(join(home, 'state', 'org-policy.json'), JSON.stringify(POLICY));
     vi.stubEnv('HOME', home);
     let channel: TuiInteractionChannel | undefined;
     try {
-      const policy = loadOrgPolicy(join(home, '.robota', 'org-policy.json'));
+      const policy = loadOrgPolicy(join(home, 'state', 'org-policy.json'));
       expect(policy).not.toBeNull();
       channel = new TuiInteractionChannel(
         toChannelOptions(renderOptions({ cwd: home, orgPolicy: policy ?? undefined })),

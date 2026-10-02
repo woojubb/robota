@@ -1,3 +1,4 @@
+import type { IIdentityContext } from './identity/crypto-context.js';
 /**
  * SEC-011 (issue #1865): rotating the user root key, and what happens to what it signed.
  *
@@ -81,10 +82,10 @@ export interface IRootRotation extends IRootRotationClaims {
 }
 
 /** The bytes both signatures cover — every claim, in a fixed order, versioned. */
-function rotationBytes(claims: IRootRotationClaims): Uint8Array {
+function rotationBytes(cryptoContext: IIdentityContext, claims: IRootRotationClaims): Uint8Array {
   return encoder.encode(
     JSON.stringify([
-      'robota.user-root-rotation.v1',
+      `${cryptoContext.namespace}.user-root-rotation.v1`,
       claims.previousUserId,
       claims.nextUserId,
       claims.nextRootPublicKey,
@@ -110,7 +111,10 @@ export interface IIssueRotationOptions {
  * goes into the claims — and a caller that supplied them separately could sign over one key while
  * countersigning with another, producing a statement that verifies and names the wrong successor.
  */
-export async function issueRootRotation(options: IIssueRotationOptions): Promise<IRootRotation> {
+export async function issueRootRotation(
+  cryptoContext: IIdentityContext,
+  options: IIssueRotationOptions,
+): Promise<IRootRotation> {
   const claims: IRootRotationClaims = {
     previousUserId: options.previousUserId,
     nextUserId: options.nextUserId,
@@ -118,7 +122,7 @@ export async function issueRootRotation(options: IIssueRotationOptions): Promise
     rotatedAt: options.rotatedAt,
     previousValidUntil: options.previousValidUntil,
   };
-  const bytes = ab(rotationBytes(claims));
+  const bytes = ab(rotationBytes(cryptoContext, claims));
   const [previousSignature, nextSignature] = await Promise.all([
     webcrypto.subtle.sign(SIGN_PARAMS, options.previousRootPrivateKey, bytes),
     webcrypto.subtle.sign(SIGN_PARAMS, options.nextRootKeyPair.privateKey, bytes),
@@ -168,11 +172,12 @@ export interface IVerifyRotationOptions {
  * every later comparison must be about fields that were actually signed.
  */
 export async function verifyRootRotation(
+  cryptoContext: IIdentityContext,
   rotation: IRootRotation,
   options: IVerifyRotationOptions,
 ): Promise<IRotationVerdict> {
   const { previousSignature, nextSignature, ...claims } = rotation;
-  const bytes = ab(rotationBytes(claims));
+  const bytes = ab(rotationBytes(cryptoContext, claims));
 
   const previousOk = await webcrypto.subtle.verify(
     SIGN_PARAMS,

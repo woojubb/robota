@@ -10,9 +10,9 @@ session's tools and submit prompts to it. The same session can be served three w
 | Streamable HTTP, loopback | `createMcpHttpHost`       | Local clients holding the bearer token minted for this host         |
 | Streamable HTTP, remote   | `createMcpRemoteHttpHost` | Clients presenting an OAuth access token that your verifier accepts |
 
-This package is the MCP _server_ side. To connect a Robota agent to other MCP servers as a client, use
-[`@robota-sdk/agent-mcp`](../agent-mcp/README.md). The Robota CLI serves a session this way with
-`robota mcp serve`; see the [MCP guide](../../content/guide/mcp.md).
+This package is the MCP _server_ side. To connect an agent to other MCP servers as a client, use
+[`@robota-sdk/agent-mcp`](../agent-mcp/README.md). The agent runtime CLI serves a session this way with
+the configured CLI's `mcp serve` command; see the [MCP guide](../../content/guide/mcp.md).
 
 ## Installation
 

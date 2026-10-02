@@ -58,7 +58,7 @@ describe('supportsImeCursorPositioning (CLI-062)', () => {
   });
 
   it('on for a plain interactive TTY, off for a non-TTY', () => {
-    vi.stubEnv('ROBOTA_IME_CURSOR', undefined);
+    vi.stubEnv('PRODUCT_IME_CURSOR', undefined);
     vi.stubEnv('TERM_PROGRAM', undefined);
     setTty(true);
     expect(supportsImeCursorPositioning()).toBe(true);
@@ -67,30 +67,30 @@ describe('supportsImeCursorPositioning (CLI-062)', () => {
   });
 
   it('I5: Apple_Terminal is OFF by default (Korean-IME SIGSEGV is an Apple-side bug)', () => {
-    vi.stubEnv('ROBOTA_IME_CURSOR', undefined);
+    vi.stubEnv('PRODUCT_IME_CURSOR', undefined);
     setTty(true);
     vi.stubEnv('TERM_PROGRAM', 'Apple_Terminal');
     expect(supportsImeCursorPositioning()).toBe(false);
   });
 
-  it('I5: ROBOTA_IME_CURSOR=1 opts Apple_Terminal in explicitly', () => {
+  it('I5: PRODUCT_IME_CURSOR=1 opts Apple_Terminal in explicitly', () => {
     setTty(true);
     vi.stubEnv('TERM_PROGRAM', 'Apple_Terminal');
-    vi.stubEnv('ROBOTA_IME_CURSOR', '1');
+    vi.stubEnv('PRODUCT_IME_CURSOR', '1');
     expect(supportsImeCursorPositioning({ override: true })).toBe(true);
   });
 
-  it('ignores an ambient Robota override without a host choice', () => {
+  it('ignores an ambient Fixture Agent override without a host choice', () => {
     setTty(true);
     vi.stubEnv('TERM_PROGRAM', 'Apple_Terminal');
-    vi.stubEnv('ROBOTA_IME_CURSOR', '1');
+    vi.stubEnv('PRODUCT_IME_CURSOR', '1');
     expect(supportsImeCursorPositioning()).toBe(false);
   });
 
-  it('ROBOTA_IME_CURSOR=0 is a kill switch even on a capable terminal', () => {
+  it('PRODUCT_IME_CURSOR=0 is a kill switch even on a capable terminal', () => {
     setTty(true);
     vi.stubEnv('TERM_PROGRAM', undefined);
-    vi.stubEnv('ROBOTA_IME_CURSOR', '0');
+    vi.stubEnv('PRODUCT_IME_CURSOR', '0');
     expect(supportsImeCursorPositioning({ override: false })).toBe(false);
   });
 });
@@ -122,7 +122,7 @@ describe('CLI-062 terminal matrix — supportsImeCursorPositioning per terminal'
           vi.stubEnv(key, undefined);
         }
         for (const [key, value] of Object.entries(profile.env)) vi.stubEnv(key, value);
-        vi.stubEnv('ROBOTA_IME_CURSOR', override);
+        vi.stubEnv('PRODUCT_IME_CURSOR', override);
 
         expect(
           supportsImeCursorPositioning({

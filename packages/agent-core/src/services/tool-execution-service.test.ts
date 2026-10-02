@@ -4,6 +4,7 @@ import type { IToolExecutionContext } from '../interfaces/tool';
 import type { IBaseEventData, IEventService, TEventListener } from '../interfaces/event-service';
 import type { IToolExecutionRequest } from '../interfaces/service';
 import { ValidationError } from '../utils/errors';
+import { FunctionTool } from '../tool-registry/function-tool';
 
 // Mock logger before importing ToolExecutionService
 vi.mock('../utils/logger', () => ({
@@ -31,6 +32,42 @@ vi.mock('../utils/logger', () => ({
 }));
 
 import { ToolExecutionService, TOOL_EVENTS, TOOL_EVENT_PREFIX } from './tool-execution-service';
+
+describe('registered attribution for undispatched batch outcomes', () => {
+  it.each(['dependency', 'cancelled', 'malformed'] as const)('retains the intent source for %s and its journal settlement', async (variant) => {
+    const provenance = { sourceId: 'installed-fixture', component: 'Observe', origin: 'fixture://pinned', version: '1' };
+    const registered = Object.assign(new FunctionTool({ name: 'Observe', description: 'Fixture observation', parameters: { type: 'object', properties: {} } }, async () => 'unused'), { provenance });
+    const executeTool = vi.fn().mockRejectedValue(new Error('controlled failure'));
+    const service = new ToolExecutionService(createMockToolManager({ getTool: () => registered, executeTool }), createMockLogger());
+    const calls = ['first', 'queued'].map((id) => ({ id, function: { name: 'Observe', arguments: variant === 'malformed' && id === 'queued' ? '{' : '{}' } }));
+    const requests = service.createExecutionRequestsWithContext(calls, { ownerPathBase: [], metadataFactory: () => ({ toolProvenance: 'foreign-claim' }) });
+    provenance.version = '2';
+    const abort = new AbortController(); if (variant === 'cancelled') abort.abort();
+    const onResult = vi.fn().mockResolvedValue(undefined);
+    const output = await service.executeTools({ requests, mode: 'parallel', maxConcurrency: 2, continueOnError: true, signal: abort.signal,
+      scheduling: new Map([['first', { resources: [] }], ['queued', { resources: [], dependsOn: variant === 'dependency' ? ['first'] : [] }]]),
+      journal: { beforeDispatch: vi.fn().mockResolvedValue(undefined), onResult },
+    });
+    const result = output.results.find((entry) => entry.executionId === 'queued');
+    expect(result?.success).toBe(false);
+    expect(result?.metadata?.toolProvenance).toBe(JSON.stringify({ ...provenance, version: '1' }));
+    expect(JSON.stringify(result)).not.toContain('foreign-claim');
+    expect(onResult).toHaveBeenCalledWith(1, result);
+    expect(executeTool).toHaveBeenCalledTimes(variant === 'cancelled' ? 0 : 1);
+  });
+
+  it('does not reattribute recovered receipts to the currently registered source', async () => {
+    const current = { sourceId: 'current', component: 'Observe', origin: 'fixture://current' };
+    const registered = Object.assign(new FunctionTool({ name: 'Observe', description: 'Fixture observation', parameters: { type: 'object', properties: {} } }, async () => 'unused'), { provenance: current });
+    const tools = createMockToolManager({ getTool: () => registered });
+    const service = new ToolExecutionService(tools, createMockLogger());
+    const requests = service.createExecutionRequestsWithContext([{ id: 'old', function: { name: 'Observe', arguments: '{}' } }], { ownerPathBase: [] });
+    const recovered = { executionId: 'old', toolName: 'Observe', success: true, result: 'already observed', metadata: { toolProvenance: JSON.stringify({ ...current, sourceId: 'prior', origin: 'fixture://prior' }) } };
+    const output = await service.executeTools({ requests, mode: 'sequential', recoveredResults: new Map([[0, recovered]]) });
+    expect(output.results).toEqual([recovered]);
+    expect(tools.executeTool).not.toHaveBeenCalled();
+  });
+});
 
 /**
  * Create a mock IToolManager.
@@ -302,7 +339,9 @@ describe('ToolExecutionService', () => {
       const requests = service.createExecutionRequestsWithContext(toolCalls, { ownerPathBase: [] });
 
       expect(requests).toHaveLength(1);
-      expect(requests[0]?.argumentDecodeError).toMatch(/tool "tool_a" \(call call_bad\): invalid JSON/);
+      expect(requests[0]?.argumentDecodeError).toMatch(
+        /tool "tool_a" \(call call_bad\): invalid JSON/,
+      );
       expect(requests[0]?.toolName).toBe('tool_a');
       expect(requests[0]?.executionId).toBe('call_bad');
     });
@@ -544,8 +583,14 @@ describe('ToolExecutionService', () => {
         });
 
         // First tool fails (executeTool catches error and returns {success: false})
-        // which triggers errors.push and then break (continueOnError=false)
-        expect(results).toHaveLength(1);
+        // The remaining call receives a settlement without entering its body.
+        expect(results).toHaveLength(2);
+        expect(results[1]).toMatchObject({
+          executionId: 's2',
+          success: false,
+          metadata: { errorCode: 'tool_call_skipped', dispatchStatus: 'not-dispatched' },
+        });
+        expect(tools.executeTool).toHaveBeenCalledTimes(1);
         expect(results[0]?.success).toBe(false);
         expect(errors).toHaveLength(1);
       });
@@ -563,7 +608,8 @@ describe('ToolExecutionService', () => {
             createRequest({
               executionId: 's1',
               ownerId: 's1',
-              argumentDecodeError: 'Failed to parse arguments for tool "batch-tool" (call s1): invalid JSON',
+              argumentDecodeError:
+                'Failed to parse arguments for tool "batch-tool" (call s1): invalid JSON',
             }),
             createRequest({ executionId: 's2', ownerId: 's2' }),
           ],
@@ -571,7 +617,12 @@ describe('ToolExecutionService', () => {
           continueOnError: false,
         });
 
-        expect(results).toHaveLength(1);
+        expect(results).toHaveLength(2);
+        expect(results[1]).toMatchObject({
+          executionId: 's2',
+          success: false,
+          metadata: { errorCode: 'tool_call_skipped', dispatchStatus: 'not-dispatched' },
+        });
         expect(results[0]?.success).toBe(false);
         expect(results[0]?.error).toContain('invalid JSON');
         expect(errors).toHaveLength(1);
@@ -588,7 +639,8 @@ describe('ToolExecutionService', () => {
             createRequest({
               executionId: 's1',
               ownerId: 's1',
-              argumentDecodeError: 'Failed to parse arguments for tool "batch-tool" (call s1): invalid JSON',
+              argumentDecodeError:
+                'Failed to parse arguments for tool "batch-tool" (call s1): invalid JSON',
             }),
             createRequest({ executionId: 's2', ownerId: 's2' }),
           ],
@@ -624,7 +676,8 @@ describe('ToolExecutionService', () => {
               executionId: 's1',
               ownerId: 's1',
               eventService,
-              argumentDecodeError: 'Failed to parse arguments for tool "batch-tool" (call s1): invalid JSON',
+              argumentDecodeError:
+                'Failed to parse arguments for tool "batch-tool" (call s1): invalid JSON',
             }),
           ],
           mode: 'sequential',

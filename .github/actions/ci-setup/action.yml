@@ -1,0 +1,26 @@
+name: CI dependencies and isolated fixture
+description: Install the pinned runtime and optionally dependencies and a disposable Cedar product environment.
+inputs:
+  install:
+    description: Install workspace dependencies and prepare the fixture environment.
+    default: 'true'
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v6
+      with:
+        version: 8.15.4
+    - uses: actions/setup-node@v6
+      with:
+        node-version-file: .nvmrc
+        cache: ${{ inputs.install == 'true' && 'pnpm' || '' }}
+    - if: inputs.install == 'true'
+      shell: bash
+      run: pnpm install --frozen-lockfile
+    - if: inputs.install == 'true'
+      shell: bash
+      run: pnpm exec tsx scripts/product/prepare-workflow-workspace.mjs --environment-only
+      env:
+        CI_VALIDATION: 'true'
+        IS_PULL_REQUEST: 'true'
+        FIXTURE_PRODUCT: cedar

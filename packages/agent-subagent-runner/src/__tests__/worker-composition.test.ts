@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,7 +12,7 @@ import { sealConnectionEnvironment } from '@robota-sdk/agent-executor';
 /**
  * ARCH-021 TC-01 — the injected composition is what the worker uses, on the REAL entry point.
  *
- * `agent-cli`'s bintest asserts what robota composes, but `composedToolNames` is derived from the
+ * `agent-cli`'s bintest asserts what agent composes, but `composedToolNames` is derived from the
  * composition independently of `runInitialPrompt`, so it stays green if `parentTools:` is reverted or
  * built at the wrong root. This spawns the actual `runSubagentWorkerMain` over a real IPC channel and
  * observes which root it asked the composition for.
@@ -27,12 +27,17 @@ const TEST_TIMEOUT_MS = 30_000;
 
 interface IWorkerObservation {
   ready: { composedToolNames?: readonly string[] } | undefined;
-  records: { createToolsCwd?: string }[];
+  records: {
+    createToolsCwd?: string;
+    toolSnapshot?: string;
+    hookCwd?: string;
+    hookSnapshot?: string;
+  }[];
 }
 
 /** Drive the real worker entry, optionally sending a `start` so `runInitialPrompt` runs. */
 function runWorker(options: {
-  start?: { cwd: string; worktree?: string };
+  start?: { cwd: string; worktree?: string; snapshotId?: string };
 }): Promise<IWorkerObservation> {
   const recordPath = join(realpathSync(mkdtempSync(join(tmpdir(), 'arch-021-'))), 'records.jsonl');
   return new Promise<IWorkerObservation>((resolve, reject) => {
@@ -84,6 +89,9 @@ function runWorker(options: {
             prompt: 'do work',
           },
           ...(options.start.worktree ? { worktree: { path: options.start.worktree } } : {}),
+          ...(options.start.snapshotId
+            ? { sandboxProjection: { type: 'scratch', snapshotId: options.start.snapshotId } }
+            : {}),
           // ARCH-044: both DTOs are decoded totally at the worker, so the fixture carries every
           // required field — a payload the guard refuses never reaches `createTools` at all.
           agentDefinition: {
@@ -140,6 +148,27 @@ describe.skipIf(!existsSync(DIST))(
         // The worktree wins over `request.cwd` — that is `subagentExecutionRoot`.
         expect(roots).toContain(worktree);
         expect(roots).not.toContain(requestCwd);
+      },
+      TEST_TIMEOUT_MS,
+    );
+    it(
+      'hands the restored sandbox and execution root to the hook factory',
+      async () => {
+        const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'hook-boundary-parent-')));
+        const worktree = realpathSync(mkdtempSync(join(tmpdir(), 'hook-boundary-child-')));
+        try {
+          const { records } = await runWorker({
+            start: { cwd, worktree, snapshotId: 'task-checkpoint' },
+          });
+          expect(records).toContainEqual({
+            createToolsCwd: worktree,
+            toolSnapshot: 'task-checkpoint',
+          });
+          expect(records).toContainEqual({ hookCwd: worktree, hookSnapshot: 'task-checkpoint' });
+        } finally {
+          rmSync(cwd, { recursive: true, force: true });
+          rmSync(worktree, { recursive: true, force: true });
+        }
       },
       TEST_TIMEOUT_MS,
     );

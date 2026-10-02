@@ -60,14 +60,14 @@ describe('Node live OTLP metrics', () => {
       },
     });
     const complete = { ...base, children: [tool('1111111111111111'), tool('2222222222222222')] };
-    expect(value(complete, 'robota.prompt.executions')).toBe(1);
-    expect(value(complete, 'robota.tool.body_completions')).toBe(2);
+    expect(value(complete, 'agent.prompt.executions')).toBe(1);
+    expect(value(complete, 'agent.tool.body_completions')).toBe(2);
     const truncated = { ...complete, omittedChildren: { provider: 0, tool: 3, permission: 0 } };
-    expect(value(truncated, 'robota.telemetry.tool_events_omitted')).toBe(3);
-    expect(value(truncated, 'robota.tool.body_completions')).toBeUndefined();
-    expect(value(truncated, 'robota.prompt.executions')).toBe(1);
+    expect(value(truncated, 'agent.telemetry.tool_events_omitted')).toBe(3);
+    expect(value(truncated, 'agent.tool.body_completions')).toBeUndefined();
+    expect(value(truncated, 'agent.prompt.executions')).toBe(1);
     expect(value({ ...complete, omittedChildren: { provider: 4, tool: 0, permission: 0 } },
-      'robota.tool.body_completions')).toBe(2);
+      'agent.tool.body_completions')).toBe(2);
     const metrics = projectLivePromptMetrics(complete, metricWindow).scopeMetrics[0]!.metrics;
     expect(JSON.stringify(metrics)).not.toMatch(/private-session|private-turn/);
   });
@@ -88,12 +88,12 @@ describe('Node live OTLP metrics', () => {
       provider('cache-hit', 'complete', 'gpt-4o'),
       provider('preflight-refused', 'complete', 'gpt-4o'),
     ] } as ILivePromptTraceBatch;
-    expect(value(batch, 'robota.provider.calls')).toBe(3);
-    expect(value(batch, 'robota.provider.input_tokens')).toBe(200);
-    expect(value(batch, 'robota.provider.output_tokens')).toBe(100);
-    expect(value(batch, 'robota.provider.usage_unavailable_calls')).toBe(1);
-    expect(value(batch, 'robota.provider.cost_unpriced_calls')).toBe(1);
-    expect(value(batch, 'robota.provider.estimated_cost_usd')).toBe(calculateModelCost('gpt-4o', 100, 50));
+    expect(value(batch, 'agent.provider.calls')).toBe(3);
+    expect(value(batch, 'agent.provider.input_tokens')).toBe(200);
+    expect(value(batch, 'agent.provider.output_tokens')).toBe(100);
+    expect(value(batch, 'agent.provider.usage_unavailable_calls')).toBe(1);
+    expect(value(batch, 'agent.provider.cost_unpriced_calls')).toBe(1);
+    expect(value(batch, 'agent.provider.estimated_cost_usd')).toBe(calculateModelCost('gpt-4o', 100, 50));
     const metrics = projectLivePromptMetrics(batch, metricWindow).scopeMetrics[0]!.metrics;
     expect(metrics.every((metric) => metric.dataPoints.every((point) =>
       !Object.hasOwn(point.attributes, 'sessionId') && !Object.hasOwn(point.attributes, 'turnId')))).toBe(true);
@@ -104,9 +104,9 @@ describe('Node live OTLP metrics', () => {
   it('does not misrepresent a truncated child batch as a complete usage or cost total', () => {
     const batch = { ...base, children: [provider('invoked', 'complete', 'gpt-4o')],
       omittedChildren: { provider: 5, tool: 0, permission: 0 } } as ILivePromptTraceBatch;
-    expect(value(batch, 'robota.telemetry.provider_events_omitted')).toBe(5);
-    expect(value(batch, 'robota.provider.calls')).toBeUndefined();
-    expect(value(batch, 'robota.provider.estimated_cost_usd')).toBeUndefined();
+    expect(value(batch, 'agent.telemetry.provider_events_omitted')).toBe(5);
+    expect(value(batch, 'agent.provider.calls')).toBeUndefined();
+    expect(value(batch, 'agent.provider.estimated_cost_usd')).toBeUndefined();
   });
 
   it('retains a verified zero-dollar estimate instead of making its cost look unknown', () => {
@@ -115,8 +115,8 @@ describe('Node live OTLP metrics', () => {
     const batch = { ...base, children: [{ kind: 'provider', trace: {
       ...child.trace, promptTokens: 0, completionTokens: 0, totalTokens: 0,
     } }] } as ILivePromptTraceBatch;
-    expect(value(batch, 'robota.provider.calls')).toBe(1);
-    expect(value(batch, 'robota.provider.estimated_cost_usd')).toBe(0);
+    expect(value(batch, 'agent.provider.calls')).toBe(1);
+    expect(value(batch, 'agent.provider.estimated_cost_usd')).toBe(0);
   });
 
   it('gives each exporter a unique writer and successive nonoverlapping delta windows', async () => {
@@ -159,29 +159,29 @@ describe('Node live OTLP metrics', () => {
   });
 
   it('requires independent opt-in and resolves metrics-specific destinations', () => {
-    expect(resolveNodeOtlpLiveMetricEndpoint({ ROBOTA_TELEMETRY_METRICS: 'otlp' })).toBeUndefined();
+    expect(resolveNodeOtlpLiveMetricEndpoint({ PRODUCT_TELEMETRY_METRICS: 'otlp' })).toBeUndefined();
     const enabled = {
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_METRICS: 'otlp',
-      ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+      PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_METRICS: 'otlp',
+      PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
     };
     expect(resolveNodeOtlpLiveMetricEndpoint({
-      ...enabled, ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318/prefix',
+      ...enabled, PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318/prefix',
     })).toBe('http://127.0.0.1:4318/prefix/v1/metrics');
     expect(resolveNodeOtlpLiveMetricEndpoint({
-      ...enabled, ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT: 'https://collector.example/custom',
+      ...enabled, PRODUCT_TELEMETRY_OTLP_METRICS_ENDPOINT: 'https://collector.example/custom',
     })).toBe('https://collector.example/custom');
     expect(() => resolveNodeOtlpLiveMetricEndpoint({
-      ...enabled, ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT: 'http://collector.example/v1/metrics',
+      ...enabled, PRODUCT_TELEMETRY_OTLP_METRICS_ENDPOINT: 'http://collector.example/v1/metrics',
     })).toThrow(/destination/i);
     expect(() => resolveNodeOtlpLiveMetricEndpoint({
-      ...enabled, ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT: 'https://user:secret@collector.example/v1/metrics',
+      ...enabled, PRODUCT_TELEMETRY_OTLP_METRICS_ENDPOINT: 'https://user:secret@collector.example/v1/metrics',
     })).toThrow(/destination/i);
     expect(() => resolveNodeOtlpLiveMetricEndpoint({
-      ...enabled, ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT: 'https://collector.example/v1/traces',
+      ...enabled, PRODUCT_TELEMETRY_OTLP_METRICS_ENDPOINT: 'https://collector.example/v1/traces',
     })).toThrow(/destination/i);
     expect(() => resolveNodeOtlpLiveMetricEndpoint({
-      ...enabled, ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/json',
-      ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
+      ...enabled, PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/json',
+      PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
     })).toThrow(/protocol/i);
   });
 
@@ -201,9 +201,9 @@ describe('Node live OTLP metrics', () => {
       const address = server.address();
       if (!address || typeof address === 'string') throw new Error('Expected TCP listener');
       const port = createConfiguredNodeOtlpLiveTelemetryPort({
-        ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_METRICS: 'otlp',
-        ROBOTA_TELEMETRY_TRACES: 'otlp', ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
-        ROBOTA_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
+        PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_METRICS: 'otlp',
+        PRODUCT_TELEMETRY_TRACES: 'otlp', PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+        PRODUCT_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
       });
       port!.enqueue({ ...base, children: [provider('invoked', 'complete', 'gpt-4o')] });
       await port!.shutdown();

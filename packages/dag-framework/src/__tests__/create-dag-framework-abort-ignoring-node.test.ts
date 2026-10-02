@@ -30,7 +30,7 @@ let tmpDir: string;
 let framework: IDagFramework;
 
 beforeEach(async () => {
-  tmpDir = await mkdtemp(path.join(os.tmpdir(), 'robota-dag-abort-ignoring-'));
+  tmpDir = await mkdtemp(path.join(os.tmpdir(), 'agent-test-dag-abort-ignoring-'));
   framework = await createDagFramework({
     nodes: [...createDefaultNodeRegistrySync(), abortIgnoringSleepNode],
     paths: { storageRoot: path.join(tmpDir, 'storage'), assetRoot: path.join(tmpDir, 'assets') },

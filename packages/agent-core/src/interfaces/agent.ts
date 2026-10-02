@@ -10,6 +10,8 @@ import type {
 import type { IResponseFormatConfig, ISafetySetting } from './response-format';
 import type { IRunOptions } from './run-options';
 import type { TToolSearchSetting } from './tool-search';
+import type { IToolExecutionPolicy } from './tool';
+import type { IToolCall } from './messages';
 import type { TConfigValue } from './types';
 import type { IModule } from '../abstracts/abstract-module-types';
 import type {
@@ -99,6 +101,8 @@ export interface IAgentConfig {
 
   // Tools and plugins
   tools?: Array<IToolWithEventService>;
+  /** Host-owned per-round policy. Absent declarations serialize unknown shared-state operations. */
+  toolExecutionPolicy?: (calls: readonly IToolCall[]) => IToolExecutionPolicy;
   /**
    * CLI-1990: whether tools that declare `deferLoading` are withheld from the model until loaded.
    * `'auto'` (the default) decides by threshold — `resolveToolSearchMode` — so a small tool set is

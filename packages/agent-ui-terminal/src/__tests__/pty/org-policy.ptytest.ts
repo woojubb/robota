@@ -1,7 +1,7 @@
 /**
  * Real-PTY organization-policy engineering regression scenario (CLI-083).
  *
- * Drives the built Robota CLI with an isolated HOME. Nothing injects a policy object into the
+ * Drives the built Fixture Agent CLI with an isolated HOME. Nothing injects a policy object into the
  * command module: the refusal can only come from the shipped `loadOrgPolicy()` startup path. The
  * update check is disabled so this isolated scenario performs no startup network request.
  */
@@ -17,7 +17,7 @@ import { spawnTui } from './pty-driver.js';
 import type { IPtySession } from './pty-driver.js';
 
 function writeOrgPolicyFixture(homeDir: string): void {
-  const settingsDir = join(homeDir, '.robota');
+  const settingsDir = join(homeDir, 'state');
   mkdirSync(settingsDir, { recursive: true });
   writeFileSync(
     join(settingsDir, 'settings.json'),
@@ -43,7 +43,7 @@ describe('organization policy through the built CLI (CLI-083)', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-pty-org-policy-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-pty-org-policy-')));
     homeDir = join(projectDir, 'home');
     writeOrgPolicyFixture(homeDir);
   });

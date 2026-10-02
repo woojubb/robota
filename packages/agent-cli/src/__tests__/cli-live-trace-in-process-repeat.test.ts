@@ -1,3 +1,4 @@
+import { createTestTelemetryRuntime } from './helpers/product-runtime.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -8,16 +9,16 @@ import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
 const originalArgv = process.argv;
 const originalHome = process.env.HOME;
-const originalFakeKey = process.env['ROBOTA_LIVE_TRACE_TEST_KEY'];
+const originalFakeKey = process.env['PRODUCT_LIVE_TRACE_TEST_KEY'];
 const telemetryKeys = [
-  'ROBOTA_TELEMETRY_ENABLED', 'ROBOTA_TELEMETRY_TRACES',
-  'ROBOTA_TELEMETRY_OTLP_PROTOCOL', 'ROBOTA_TELEMETRY_OTLP_ENDPOINT',
+  'PRODUCT_TELEMETRY_ENABLED', 'PRODUCT_TELEMETRY_TRACES',
+  'PRODUCT_TELEMETRY_OTLP_PROTOCOL', 'PRODUCT_TELEMETRY_OTLP_ENDPOINT',
 ] as const;
 const originalTelemetry = Object.fromEntries(telemetryKeys.map((key) => [key, process.env[key]]));
 
 const providerDefinition: IProviderDefinition = {
   type: 'livetrace-repeat-test',
-  defaults: { model: 'test-model', apiKey: '$ENV:ROBOTA_LIVE_TRACE_TEST_KEY' },
+  defaults: { model: 'test-model', apiKey: '$ENV:PRODUCT_LIVE_TRACE_TEST_KEY' },
   requiresApiKey: true,
   createProvider: (): IAIProvider => ({
     name: 'livetrace-repeat-test', version: 'test',
@@ -36,8 +37,8 @@ describe('CLI live trace across a second in-process startCli', () => {
     vi.restoreAllMocks();
     process.argv = originalArgv;
     process.env.HOME = originalHome;
-    if (originalFakeKey === undefined) delete process.env['ROBOTA_LIVE_TRACE_TEST_KEY'];
-    else process.env['ROBOTA_LIVE_TRACE_TEST_KEY'] = originalFakeKey;
+    if (originalFakeKey === undefined) delete process.env['PRODUCT_LIVE_TRACE_TEST_KEY'];
+    else process.env['PRODUCT_LIVE_TRACE_TEST_KEY'] = originalFakeKey;
     for (const key of telemetryKeys) {
       const original = originalTelemetry[key];
       if (original === undefined) delete process.env[key];
@@ -46,16 +47,16 @@ describe('CLI live trace across a second in-process startCli', () => {
   });
 
   it('exports from a second in-process startCli even though the first already stripped process.env', async () => {
-    const home = mkdtempSync(join(tmpdir(), 'robota-cli-live-trace-repeat-home-'));
+    const home = mkdtempSync(join(tmpdir(), 'test-product-cli-live-trace-repeat-home-'));
     process.env.HOME = home;
-    process.env['ROBOTA_LIVE_TRACE_TEST_KEY'] = 'test-only-key';
+    process.env['PRODUCT_LIVE_TRACE_TEST_KEY'] = 'test-only-key';
     vi.spyOn(process, 'cwd').mockReturnValue(home);
     vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
       throw new Error(`process.exit:${String(code ?? 0)}`);
     }) as never);
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    process.argv = ['node', 'robota', '-p', 'private prompt', '--no-session-persistence'];
+    process.argv = ['node', 'test-product', '-p', 'private prompt', '--no-session-persistence'];
 
     const requests: Array<{ path: string }> = [];
     const server = createServer(async (request, response) => {
@@ -69,23 +70,22 @@ describe('CLI live trace across a second in-process startCli', () => {
       if (!address || typeof address === 'string') throw new Error('Expected TCP listener');
       const endpoint = `http://127.0.0.1:${address.port}`;
 
-      // Telemetry is configured only once, before the FIRST in-process startCli. Nothing re-sets it
-      // before the second call — the first call strips these from process.env as its first step, so
-      // without a retained snapshot the second call would silently run with telemetry off.
-      process.env['ROBOTA_TELEMETRY_ENABLED'] = '1';
-      process.env['ROBOTA_TELEMETRY_TRACES'] = 'otlp';
-      process.env['ROBOTA_TELEMETRY_OTLP_PROTOCOL'] = 'http/protobuf';
-      process.env['ROBOTA_TELEMETRY_OTLP_ENDPOINT'] = endpoint;
+      // A caller keeps one explicit invocation snapshot across two starts; startup still strips
+      // the ambient settings so subprocesses cannot inherit collector credentials.
+      process.env['PRODUCT_TELEMETRY_ENABLED'] = '1';
+      process.env['PRODUCT_TELEMETRY_TRACES'] = 'otlp';
+      process.env['PRODUCT_TELEMETRY_OTLP_PROTOCOL'] = 'http/protobuf';
+      process.env['PRODUCT_TELEMETRY_OTLP_ENDPOINT'] = endpoint;
 
-      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      const runtime = createTestTelemetryRuntime(home);
+      await expect(startCli({ productRuntime: runtime, providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests.map((request) => request.path)).toEqual(['/v1/traces']);
-      expect(Object.keys(process.env).filter((key) => key.startsWith('ROBOTA_TELEMETRY_'))).toEqual([]);
+      expect(Object.keys(process.env).filter((key) => key.startsWith('PRODUCT_TELEMETRY_') && key !== 'PRODUCT_TELEMETRY_SERVICE_NAME')).toEqual([]);
 
-      // Second in-process call, same process, nothing re-set: it must still export, from the
-      // settings the first call captured — not silently run with no telemetry.
-      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      // The second start uses the caller-held snapshot; there is no module-global telemetry state.
+      await expect(startCli({ productRuntime: runtime, providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests.map((request) => request.path)).toEqual(['/v1/traces', '/v1/traces']);
-      expect(Object.keys(process.env).filter((key) => key.startsWith('ROBOTA_TELEMETRY_'))).toEqual([]);
+      expect(Object.keys(process.env).filter((key) => key.startsWith('PRODUCT_TELEMETRY_') && key !== 'PRODUCT_TELEMETRY_SERVICE_NAME')).toEqual([]);
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
       rmSync(home, { recursive: true, force: true });

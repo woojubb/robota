@@ -12,7 +12,7 @@ import { createQuery } from '../index.js';
 const roots: string[] = [];
 
 function tempCwd(): string {
-  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-query-options-')));
+  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-query-options-')));
   roots.push(cwd);
   return cwd;
 }

@@ -10,7 +10,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsgo -p tsconfig.json --noEmit",
-    "test": "jest",
+    "test": "node --test scripts/verify-image-security.mjs && jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:ci": "jest --ci --coverage --watchAll=false",
@@ -21,9 +21,11 @@
     "@robota-sdk/agent-core": "workspace:^",
     "@robota-sdk/agent-ui-web": "workspace:^",
     "@robota-sdk/agent-transport-webrtc-web": "workspace:*",
-    "next": "^15.5.19",
+    "next": "^15.5.24",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "@robota-sdk/product-config": "workspace:*",
+    "@robota-sdk/agent-remote-pairing": "workspace:*"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.6",

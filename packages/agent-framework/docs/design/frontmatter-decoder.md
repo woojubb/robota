@@ -28,7 +28,7 @@ another host never stops the session. There is no public frontmatter parser.
 - YAML is untrusted input. Duplicate keys, aliases, merge keys, invalid roots, unsupported shapes,
   malformed syntax and unterminated delimiter blocks fail closed.
 - A profile validates only the keys it owns and ignores the rest: `.claude` definitions are shared
-  with hosts that define their own fields, and a key Robota does not read grants nothing. A malformed
+  with hosts that define their own fields, and a key the runtime does not read grants nothing. A malformed
   value of an owned key still fails closed. The skill `metadata` map keeps string keys with string,
   finite-number or boolean values and ignores nested entries; prototype-named keys stay ordinary data
   and cannot reach object prototypes.

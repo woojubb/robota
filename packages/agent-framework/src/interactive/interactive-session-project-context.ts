@@ -33,6 +33,7 @@ export async function loadInteractiveProjectConfig(
   projectAccess: TWorkspaceProjectAccess | undefined,
   projectSettingsPaths: readonly IProjectSettingsPath[] = [],
   userSettingsSources: readonly INodeHostSettingsSource[] = [],
+  environment: Readonly<Record<string, string | undefined>> = {},
 ): Promise<{ config: IResolvedConfig; hookSources: readonly IHookDefinitionSource[] }> {
   if (supplied !== undefined) return { config: supplied, hookSources: [] };
   const projectReader =
@@ -44,7 +45,7 @@ export async function loadInteractiveProjectConfig(
     ...(projectReader === undefined
       ? []
       : createWorkspaceProjectSettingsSources(projectReader, projectSettingsPaths)),
-  ]);
+  ], environment);
 }
 
 async function resolveInteractiveProjectConfig(
@@ -57,6 +58,7 @@ async function resolveInteractiveProjectConfig(
       projectAccess,
       options.projectSettingsPaths,
       options.userSettingsSources,
+      options.environment,
     );
   return { config: options.config, hookSources: options.hookSources ?? [] };
 }

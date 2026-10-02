@@ -74,11 +74,11 @@ export interface IDefaultCommandModulesOptions {
    * red when the producer dropped it.
    */
   orgPolicy?: IOrgPolicy;
-  /** Optional TUI-owned file capability; absent, `/keybindings` says it belongs to the robota terminal. */
+  /** Optional TUI-owned file capability; absent, `/keybindings` says it belongs to an interactive terminal. */
   keybindingsFilePort?: IKeybindingsFilePort;
   /**
    * SCREEN-2002: the surface's theme catalogue. Absent (print mode, `--serve`), `/theme` is still
-   * listed and says it belongs to the robota terminal, which runs it itself when attached.
+   * listed and says it belongs to an interactive terminal, which runs it when attached.
    */
   themeCataloguePort?: IThemeCataloguePort;
   /**

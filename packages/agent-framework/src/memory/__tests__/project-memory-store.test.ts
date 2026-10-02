@@ -19,7 +19,7 @@ import {
 } from '../project-memory-store.js';
 import { createTrustedProjectStateFixture } from '../../testing/trusted-project-state-fixture.js';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-memory-store-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-memory-store-')));
 
 function makeProject(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));
@@ -48,7 +48,7 @@ describe('ProjectMemoryStore', () => {
 
   it('Given a MEMORY.md longer than the line cap When loading startup memory Then only first 200 lines are returned', async () => {
     const cwd = makeProject();
-    const memoryDir = join(cwd, '.robota', 'memory');
+    const memoryDir = join(cwd, '.agent', 'memory');
     mkdirSync(memoryDir, { recursive: true });
     const lines = Array.from({ length: MEMORY_INDEX_MAX_LINES + 3 }, (_, index) => `line-${index}`);
     writeFileSync(join(memoryDir, 'MEMORY.md'), lines.join('\n'), 'utf8');
@@ -65,7 +65,7 @@ describe('ProjectMemoryStore', () => {
 
   it('Given a MEMORY.md larger than the byte cap When loading startup memory Then it is truncated without exceeding cap', async () => {
     const cwd = makeProject();
-    const memoryDir = join(cwd, '.robota', 'memory');
+    const memoryDir = join(cwd, '.agent', 'memory');
     mkdirSync(memoryDir, { recursive: true });
     writeFileSync(join(memoryDir, 'MEMORY.md'), 'x'.repeat(MEMORY_INDEX_MAX_BYTES + 20), 'utf8');
     const store = await makeStore(cwd);
@@ -90,7 +90,7 @@ describe('ProjectMemoryStore', () => {
       });
 
       expect(result.topic).toBe('build-commands');
-      expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
+      expect(readFileSync(join(cwd, '.agent', 'memory', 'MEMORY.md'), 'utf8')).toContain(
         '[2026-05-02] (project/build-commands) Use pnpm for package scripts.',
       );
       expect(readFileSync(join(cwd, result.topicPath), 'utf8')).toContain(
@@ -124,14 +124,14 @@ describe('ProjectMemoryStore', () => {
 
   it('Given topic files When listing memory Then returns topic names and paths', async () => {
     const cwd = makeProject();
-    const topicsDir = join(cwd, '.robota', 'memory', 'topics');
+    const topicsDir = join(cwd, '.agent', 'memory', 'topics');
     mkdirSync(topicsDir, { recursive: true });
     writeFileSync(join(topicsDir, 'build.md'), '# Build\n', 'utf8');
 
     const summary = (await makeStore(cwd)).list();
 
     expect(summary.topics).toEqual([
-      { name: 'build', path: join('.robota', 'memory', 'topics', 'build.md') },
+      { name: 'build', path: join('.agent', 'memory', 'topics', 'build.md') },
     ]);
   });
 });

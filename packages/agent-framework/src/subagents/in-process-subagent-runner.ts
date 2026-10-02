@@ -1,3 +1,5 @@
+import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
 import { sumHistoryUsage } from '@robota-sdk/agent-core';
 import { subagentExecutionRoot } from '@robota-sdk/agent-executor';
 
@@ -34,6 +36,7 @@ type TSubagentToolExecutionEvent = Parameters<
 >[0];
 
 export interface IInProcessSubagentRunnerDeps {
+  readonly pathProtection?: IPathProtectionPolicy;
   config: IResolvedConfig;
   /**
    * The parent's EFFECTIVE rules, read live at spawn (issue #3081): settings plus preset lists plus
@@ -62,6 +65,7 @@ export interface IInProcessSubagentRunnerDeps {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    toolResultParts?: TUniversalMessagePart[];
     executionId?: string;
   }) => void;
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
@@ -270,6 +274,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
       const definition = resolveAgentDefinition(job.request.agentType, deps);
       const resumeSessionId = job.request.resumeSessionId;
       const session = createSubagentSession({
+        pathProtection: deps.pathProtection,
         agentDefinition: applyRequestOverrides(definition, job),
         parentConfig: parentConfigWithEffectiveRules(deps),
         parentContext: deps.context,

@@ -34,6 +34,7 @@ import {
 } from './local-peer-workspace.js';
 
 import type { ICommandHostAdapters } from '@robota-sdk/agent-framework';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 /**
  * The summary shape, DERIVED from the port rather than imported beside it.
@@ -72,6 +73,7 @@ export interface ILocalPeerPresence {
 }
 
 export interface IPresenceOptions {
+  readonly productRuntime: ICliRuntimeContext;
   readonly sessionId: string;
   readonly name?: string;
   /** Injected so a case can drive the exit path without ending the test runner. */
@@ -94,8 +96,8 @@ export interface IPresenceOptions {
  * absent is not "unknown but probably fine". Reading a directory out of a REFUSED admission would
  * undo that design one call site away, so the refusal is re-raised with the reason the guard gave.
  */
-function resolveGuardedDirectory(): string {
-  const admission = ensureRendezvousDirectory();
+function resolveGuardedDirectory(productRuntime: ICliRuntimeContext): string {
+  const admission = ensureRendezvousDirectory(productRuntime);
   if (!admission.admitted || admission.binding === undefined) {
     throw new Error(
       'local peer presence: the rendezvous directory was not admitted, so this session cannot be ' +
@@ -161,7 +163,7 @@ function scheduleBirthSecondCertification(
  * publish this session into a place the guard never approved.
  */
 export function announceLocalPeerPresence(options: IPresenceOptions): ILocalPeerPresence {
-  const guardedDirectory = options.guardedDirectory ?? resolveGuardedDirectory();
+  const guardedDirectory = options.guardedDirectory ?? resolveGuardedDirectory(options.productRuntime);
   const registry: IRegistryOptions = { guardedDirectory, ...options.registry };
   const announcement = {
     sessionId: options.sessionId,

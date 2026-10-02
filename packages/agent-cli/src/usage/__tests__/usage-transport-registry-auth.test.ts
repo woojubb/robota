@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createCliUsageTransportRegistry, resolveCliUsageAttribution } from '../usage-transport-registry.js';
@@ -8,21 +9,23 @@ afterEach(() => vi.unstubAllEnvs());
 
 describe('CLI WebSocket admission', () => {
   it('uses the transport auto-minted token when no desktop token is supplied', () => {
-    vi.stubEnv('ROBOTA_WS_TOKEN', undefined);
+    vi.stubEnv('PRODUCT_WS_TOKEN', undefined);
     const store = {} as IInteractiveSessionStore;
-    const first = createCliUsageTransportRegistry(store, false, false);
-    const second = createCliUsageTransportRegistry(store, false, false);
+    const first = createCliUsageTransportRegistry(createTestProductRuntime(), store, false, false);
+    const second = createCliUsageTransportRegistry(createTestProductRuntime(), store, false, false);
 
     expect(first.wsTransport.resolvedToken).toBeTruthy();
     expect(second.wsTransport.resolvedToken).toBeTruthy();
     expect(first.wsTransport.resolvedToken).not.toBe(second.wsTransport.resolvedToken);
   });
 
-  it('takes a supplied token out of the environment once the transport holds it', () => {
-    vi.stubEnv('ROBOTA_WS_TOKEN', 'e'.repeat(64));
-    const registry = createCliUsageTransportRegistry({} as IInteractiveSessionStore, false, false);
+  it('uses the supplied invocation token and removes the ambient copy', () => {
+    vi.stubEnv('PRODUCT_WS_TOKEN', 'e'.repeat(64));
+    const runtime = createTestProductRuntime('test-product', { PRODUCT_WS_TOKEN: 'e'.repeat(64) });
+    const registry = createCliUsageTransportRegistry(runtime, {} as IInteractiveSessionStore, false, false);
     expect(registry.wsTransport.resolvedToken).toBe('e'.repeat(64));
-    expect(process.env).not.toHaveProperty('ROBOTA_WS_TOKEN');
+    expect(runtime.environment['PRODUCT_WS_TOKEN']).toBe('e'.repeat(64));
+    expect(process.env).not.toHaveProperty('PRODUCT_WS_TOKEN');
   });
 });
 

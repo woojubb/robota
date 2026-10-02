@@ -9,6 +9,7 @@
  */
 export {
   ProjectMemoryStore,
+  MemoryTopicCuratedError,
   MEMORY_INDEX_MAX_LINES,
   MEMORY_INDEX_MAX_BYTES,
   isMemoryType,
@@ -25,6 +26,7 @@ export type { IApprovedMemoryCandidate } from './memory-approval.js';
 export { SemanticMemoryStore, createSemanticMemoryStore } from './semantic-memory-store.js';
 export type {
   IMemoryStore,
+  IMemoryTopicMutationResult,
   IDurableMemoryReader,
   IMemoryWriter,
   IMemoryRecaller,

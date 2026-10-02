@@ -7,7 +7,7 @@ import type { TSubagentRunnerFactory } from '@robota-sdk/agent-framework';
  * subagent runner follows from the answer.
  *
  * Separate from the recipe next door because it answers a different question. That file says what
- * robota composes; this one says what survives a process boundary, which is a property OF a
+ * the product composes; this one says what survives a process boundary, which is a property OF a
  * composition rather than a part of one — and the file-size floor is what made the distinction
  * worth acting on rather than only noticing.
  */
@@ -35,6 +35,10 @@ export interface IProviderReproduction {
    * It is bound to a log file and a read cursor, so it is not something two processes can share.
    */
   readonly replayProvider: boolean;
+  /** A stored literal credential has no safe environment reference to send across IPC. */
+  readonly literalCredential?: boolean;
+  /** A destination-sensitive host variable differs from the spawned process environment. */
+  readonly connectionEnvironmentDiffers?: boolean;
 }
 
 /**
@@ -51,6 +55,8 @@ export function nonReproducibleProviderComposition(
   const missing: string[] = [];
   if (reproduction.replayProvider) missing.push('a replay provider (--session-log)');
   if (reproduction.callerSuppliedDefinitions) missing.push('caller-supplied providerDefinitions');
+  if (reproduction.literalCredential) missing.push('a literal provider credential');
+  if (reproduction.connectionEnvironmentDiffers) missing.push('a provider connection environment that differs from the child');
   return missing;
 }
 
@@ -83,7 +89,7 @@ export function nonReproducibleProviderComposition(
  * is a containment property, where the safe direction is to stop. An unreproducible PROVIDER has a
  * correct fallback, and stopping would be the unsafe direction for the user's session.
  */
-export function selectRobotaSubagentRunner(options: {
+export function selectProductSubagentRunner(options: {
   readonly reproduction: IProviderReproduction;
   readonly buildChildProcess: () => TSubagentRunnerFactory;
   /** Told what was given up, so a lost isolation guarantee is never silent. */
@@ -96,7 +102,7 @@ export function selectRobotaSubagentRunner(options: {
   // `--session-log` is something a person typed, and it changes what they will observe, so staying
   // quiet about it would be the silent half of a behaviour change they asked for. Caller-supplied
   // `providerDefinitions` is a composition an embedding PROGRAM made — writing to its stderr on
-  // every startup is noise it cannot act on (robota exposes no paired worker entry to fix it with)
+  // every startup is noise it cannot act on (the product exposes no paired worker entry to fix it with)
   // and it is a contract break for the print and JSON modes, where stderr is part of the output.
   // Measured: four existing tests assert an empty stderr for exactly those runs.
   if (options.reproduction.replayProvider) {

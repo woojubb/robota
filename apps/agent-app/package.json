@@ -2,13 +2,12 @@
   "name": "@robota-sdk/agent-app",
   "version": "3.0.0-beta.84",
   "private": true,
-  "description": "agent-app — the Electron shell of the robota desktop app: starts or reuses the workspace's `robota` daemon, hands its loopback address to the page, and loads the GUI web app @robota-sdk/agent-gui-web.",
+  "description": "agent-app \u2014 the Electron shell of the robota desktop app: starts or reuses the workspace's `robota` daemon, hands its loopback address to the page, and loads the GUI web app @robota-sdk/agent-gui-web.",
   "author": "Robota",
-  "homepage": "https://github.com/woojubb/robota",
   "main": "dist/electron/main.js",
   "scripts": {
     "build:renderer": "node scripts/copy-renderer.mjs",
-    "build:electron": "tsc -p electron/tsconfig.build.json",
+    "build:electron": "tsc -p electron/tsconfig.build.json && node scripts/copy-product-identity.mjs",
     "build": "pnpm build:renderer && pnpm build:electron",
     "start": "electron dist/electron/main.js",
     "bundle:runtime": "node scripts/bundle-runtime.mjs",
@@ -18,15 +17,21 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "xvfb-run -a node e2e/run-e2e.mjs",
     "test:e2e:bundled": "node e2e/bundled-runtime-e2e.mjs",
-    "lint": "eslint . --max-warnings 0"
+    "lint": "eslint . --max-warnings 0",
+    "test:e2e:remote": "node e2e/remote-runtime-e2e.mjs"
   },
   "devDependencies": {
     "@robota-sdk/agent-gui-web": "workspace:*",
-    "electron": "^43.2.0",
+    "@types/ws": "^8.18.1",
+    "electron": "^43.5.0",
     "electron-builder": "26.15.7",
     "playwright": "^1.49.1",
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
+  },
+  "dependencies": {
+    "@robota-sdk/product-config": "workspace:*",
+    "ws": "^8.21.1"
   },
   "volta": {
     "extends": "../../package.json"

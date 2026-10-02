@@ -13,7 +13,7 @@ import {
  *
  * `createLogger(name, sink?)` fell back to `SilentLogger` when no sink was passed, no call site in
  * the repository ever passed one, and nothing could install one afterwards. So 157 `logger.*` calls
- * — including "Robota initialization failed" and every catch-and-log-only path — had no reachable
+ * — including "ConversationAgent initialization failed" and every catch-and-log-only path — had no reachable
  * destination. That is not "logging was not configured"; it could not be.
  *
  * The assertions below are about REACHABILITY, which is the thing that was missing. Each fails
@@ -54,8 +54,8 @@ describe('global logger sink (CORE-029)', () => {
   it('delivers a diagnostic to an installed sink', () => {
     const { sink, lines } = recordingSink();
     setGlobalLoggerSink(sink);
-    createLogger('pkg').error('Robota initialization failed');
-    expect(lines.some((l) => l.includes('Robota initialization failed'))).toBe(true);
+    createLogger('pkg').error('ConversationAgent initialization failed');
+    expect(lines.some((l) => l.includes('ConversationAgent initialization failed'))).toBe(true);
   });
 
   it('reaches a logger that was CREATED BEFORE the sink was installed', () => {

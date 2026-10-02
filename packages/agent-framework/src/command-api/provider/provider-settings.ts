@@ -139,7 +139,7 @@ export function validateProviderProfile(
   const credentialRequirement = getProviderCredentialRequirement(definition);
   if (
     credentialRequirement !== undefined &&
-    !hasUsableRequiredProviderCredential(profile, definition?.defaults, credentialRequirement)
+    !hasUsableRequiredProviderCredential(profile, definition?.defaults, credentialRequirement, options.env)
   ) {
     throw new Error(
       `Provider profile "${profileName}" is missing ${formatCredentialRequirement(credentialRequirement)}`,
@@ -223,9 +223,13 @@ function hasUsableRequiredProviderCredential(
   profile: IProviderProfileSettings,
   defaults: IProviderDefinition['defaults'],
   requirement: IProviderCredentialRequirement,
+  env: Readonly<Record<string, string | undefined>> | undefined,
 ): boolean {
   return requirement.anyOf.some((field) =>
-    hasUsableSecretReference(resolveProviderCredentialValue(field, profile, defaults)),
+    hasUsableSecretReference(
+      resolveProviderCredentialValue(field, profile, defaults),
+      env === undefined ? undefined : (name) => env[name],
+    ),
   );
 }
 

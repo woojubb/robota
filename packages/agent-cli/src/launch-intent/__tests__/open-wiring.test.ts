@@ -1,14 +1,15 @@
-/** FLOW-2006 TC-06 — the wiring: the pre-parse step runs before the parser, and `--help` says so. */
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+/** Local launch resolution precedes workspace/parser composition; hosted admission is separate. */
 import { describe, expect, it } from 'vitest';
 
 import { printHelp } from '../../utils/cli-help.js';
 import { OPEN_SUBCOMMAND } from '../open-invocation.js';
 
 describe('TC-06: `open` is wired where it must be, and claimed nowhere else', () => {
-  it('shared CLI bootstrap consults the launch invocation before it reads the cwd or parses argv', () => {
+  it('local CLI bootstrap resolves launch before any local cwd read or argv parse', () => {
     const cli = new URL('../../cli-core.ts', import.meta.url);
     const source = readFileSyncUtf8(cli);
-    const launch = source.indexOf('applyLaunchInvocation()');
+    const launch = source.indexOf('applyLaunchInvocation(productRuntime)');
     const cwd = source.indexOf('const cwd = process.cwd()');
     const parse = source.indexOf('parseCliArgs()');
     expect(launch).toBeGreaterThan(-1);
@@ -17,9 +18,9 @@ describe('TC-06: `open` is wired where it must be, and claimed nowhere else', ()
   });
 
   it('the help catalogue documents the form, including that it takes exactly one link', () => {
-    const help = printHelp();
-    expect(help).toContain(`robota ${OPEN_SUBCOMMAND}`);
-    expect(help).toContain('robota://open?v=1');
+    const help = printHelp(createTestProductRuntime());
+    expect(help).toContain(`test-product ${OPEN_SUBCOMMAND}`);
+    expect(help).toContain('test-product://open?v=1');
     expect(help.replace(/\s+/g, ' ')).toContain('It takes exactly one link');
   });
 

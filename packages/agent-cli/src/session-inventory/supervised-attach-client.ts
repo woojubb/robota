@@ -35,7 +35,7 @@ export interface ISupervisedAttachConnection {
 export async function openSupervisedAttach(
   id: string,
   mode: 'drive' | 'observe',
-  root?: string,
+  root: string,
   expectedGeneration?: string,
 ): Promise<ISupervisedAttachConnection> {
   const { socket, driverId, rest } = await openSupervisedAttachSocket(id, mode, root, expectedGeneration);

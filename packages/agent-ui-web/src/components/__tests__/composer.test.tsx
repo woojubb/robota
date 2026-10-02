@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { render } from '../../testing/product-provider.js';
+import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -449,7 +450,7 @@ describe('Composer — the draft survives a remount, per session', () => {
   });
 
   it('restores a draft saved under the current session id, on mount', () => {
-    window.localStorage.setItem('robota.draft.s1', 'unsent thought');
+    window.localStorage.setItem('test-product.draft.s1', 'unsent thought');
     render(<Composer {...baseProps()} status={statusFor('s1')} />);
     expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe('unsent thought');
   });
@@ -471,13 +472,13 @@ describe('Composer — the draft survives a remount, per session', () => {
     expect(input.value).toBe('');
     unmount();
 
-    expect(window.localStorage.getItem('robota.draft.s1')).toBeNull();
+    expect(window.localStorage.getItem('test-product.draft.s1')).toBeNull();
     render(<Composer {...baseProps()} status={statusFor('s1')} />);
     expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe('');
   });
 
   it('switching sessions shows the new session\'s own draft, not the old one\'s', () => {
-    window.localStorage.setItem('robota.draft.s2', 'already waiting in session 2');
+    window.localStorage.setItem('test-product.draft.s2', 'already waiting in session 2');
     const { rerender } = render(<Composer {...baseProps()} status={statusFor('s1')} />);
     fireEvent.change(screen.getByLabelText('message'), { target: { value: 'typing in session 1' } });
 
@@ -486,7 +487,7 @@ describe('Composer — the draft survives a remount, per session', () => {
       'already waiting in session 2',
     );
     // Session 1's own draft was not lost — it stayed under its own key.
-    expect(storedDraftText(window.localStorage.getItem('robota.draft.s1'))).toBe('typing in session 1');
+    expect(storedDraftText(window.localStorage.getItem('test-product.draft.s1'))).toBe('typing in session 1');
   });
 
   it('switching to a session with nothing saved shows an empty composer', () => {
@@ -512,13 +513,13 @@ describe('Composer — the draft survives a remount, per session', () => {
 
     rerender(<Composer {...baseProps()} status={statusFor('s2')} />);
     expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe('');
-    expect(window.localStorage.getItem('robota.draft.s2')).toBeNull();
+    expect(window.localStorage.getItem('test-product.draft.s2')).toBeNull();
     // What was typed mid-switch belongs to s1 (the last known session while typing), not s2.
-    expect(storedDraftText(window.localStorage.getItem('robota.draft.s1'))).toBe('typing during the switch');
+    expect(storedDraftText(window.localStorage.getItem('test-product.draft.s1'))).toBe('typing during the switch');
   });
 
   it('B\'s own already-saved draft still shows after the same transient null step', () => {
-    window.localStorage.setItem('robota.draft.s2', 'already waiting in s2');
+    window.localStorage.setItem('test-product.draft.s2', 'already waiting in s2');
     const { rerender } = render(<Composer {...baseProps()} status={statusFor('s1')} />);
     rerender(<Composer {...baseProps()} status={null} />);
 
@@ -529,14 +530,14 @@ describe('Composer — the draft survives a remount, per session', () => {
   it('typed before the session id was known (the fallback key) carries over once it arrives', () => {
     const { rerender } = render(<Composer {...baseProps()} status={null} />);
     fireEvent.change(screen.getByLabelText('message'), { target: { value: 'typing before connected' } });
-    expect(storedDraftText(window.localStorage.getItem('robota.draft'))).toBe('typing before connected');
+    expect(storedDraftText(window.localStorage.getItem('test-product.draft'))).toBe('typing before connected');
 
     rerender(<Composer {...baseProps()} status={statusFor('s1')} />);
     expect((screen.getByLabelText('message') as HTMLTextAreaElement).value).toBe(
       'typing before connected',
     );
-    expect(storedDraftText(window.localStorage.getItem('robota.draft.s1'))).toBe('typing before connected');
-    expect(window.localStorage.getItem('robota.draft')).toBeNull();
+    expect(storedDraftText(window.localStorage.getItem('test-product.draft.s1'))).toBe('typing before connected');
+    expect(window.localStorage.getItem('test-product.draft')).toBeNull();
   });
 
   it('a storage failure does not throw, and typing still works in memory', () => {

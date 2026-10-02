@@ -16,7 +16,7 @@ import type { TCommandInvocationSource } from '@robota-sdk/agent-interface-comma
  * arbitrary on-disk DAG (LLM, http and file nodes) with no prompt.
  *
  * These assert the gate on the DISPATCHER, which is where the per-subcommand flag can be read at
- * all — the framework only ever sees `robota_command_workflows` with a free-form args string.
+ * all — the framework only ever sees `agent_command_workflows` with a free-form args string.
  */
 /**
  * The published conformant double, with only the capability under test overridden.

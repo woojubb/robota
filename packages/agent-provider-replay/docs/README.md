@@ -1,7 +1,7 @@
 # agent-provider-replay Docs Index
 
 `@robota-sdk/agent-provider-replay` is an internal test utility (`private`, not published to npm). It
-is a provider that answers each chat call with the next response recorded in a Robota session log,
+is a provider that answers each chat call with the next response recorded in an agent session log,
 so a real conversation can run offline, deterministically and without a model key. The monorepo uses
 it for end-to-end tests, and the CLI's `--session-log <file>` option uses it when the CLI runs inside
 this monorepo. The published CLI does not include it and reports that option as unavailable.

@@ -1,3 +1,4 @@
+import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
 /**
  * The INTERNAL async-init option shape.
  *
@@ -63,6 +64,7 @@ export interface IInitOptions {
   /** Host-selected default task-context directory; resolved settings may override or disable it. */
   taskContext?: IResolvedConfig['taskContext'];
   userSettingsSources?: readonly INodeHostSettingsSource[];
+  environment?: Readonly<Record<string, string | undefined>>;
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
   /** The plugin skills the session loaded when it was built. */
@@ -91,6 +93,7 @@ export interface IInitOptions {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    toolResultParts?: TUniversalMessagePart[];
   }) => void;
   /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
   bare?: boolean;
@@ -173,7 +176,7 @@ export interface IInitOptions {
   sandboxWorkspaceRoot?: string;
   /** Provider sandbox snapshot id to restore before replaying saved messages. */
   sandboxSnapshotId?: string;
-  /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
+  /** Name reported to the underlying ConversationAgent agent config. Defaults to 'agent'. */
   agentName?: string;
   /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
   activePresetId?: string;
@@ -183,6 +186,8 @@ export interface IInitOptions {
   selfVerification?: boolean | string;
   /** Additional tools registered alongside the default CLI tools. */
   additionalTools?: IToolWithEventService[];
+  /** Scheduling is a current host decision, never restored permission or plugin authority. */
+  toolExecutionPolicy?: ICreateSessionOptions['toolExecutionPolicy'];
   /** The session's answer route to a peer; its tool is offered only in a peer turn. */
   peerReply?: IPeerReplyPort;
   /** How the model sends a file to another session; every file asks the operator. */

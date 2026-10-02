@@ -36,7 +36,7 @@ const skillsModule = {
 const roots: string[] = [];
 
 function tempRoot(): string {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-skill-dir-')));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-skill-dir-')));
   roots.push(root);
   return root;
 }
@@ -60,12 +60,12 @@ describe('${CLAUDE_SKILL_DIR}', () => {
     const home = tempRoot();
     const skillDir = writeSkill(
       home,
-      join('.robota', 'skills', 'audit'),
+      join('.agent', 'skills', 'audit'),
       'Run ${CLAUDE_SKILL_DIR}/check.sh',
     );
     const port = createSkillExecutionPort(
       [createNodeHostContributionSource(home)],
-      [{ root: join('.robota', 'skills'), kind: 'skills' }],
+      [{ root: join('.agent', 'skills'), kind: 'skills' }],
     );
     const [skill] = port.loadCommands();
 

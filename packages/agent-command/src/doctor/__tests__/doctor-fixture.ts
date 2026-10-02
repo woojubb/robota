@@ -37,7 +37,7 @@ export function fixtureProviderDefinition(
   return {
     type: 'fixture',
     displayName: 'Fixture',
-    defaults: { model: 'fixture-model', apiKey: '$ENV:ROBOTA_DOCTOR_FIXTURE_KEY' },
+    defaults: { model: 'fixture-model', apiKey: '$ENV:FIXTURE_DOCTOR_API_KEY' },
     endpoint: { host: 'api.fixture.example', port: 443 },
     createProvider: () => {
       throw new Error('the doctor must never construct a provider');
@@ -74,7 +74,7 @@ function fixtureDeps(
 }
 
 export function createDoctorFixture(options: IDoctorFixtureOptions = {}): IDoctorFixture {
-  const home = mkdtempSync(join(tmpdir(), 'robota-doctor-fixture-'));
+  const home = mkdtempSync(join(tmpdir(), 'agent-doctor-fixture-'));
   const write = (relative: string, content: string): string => {
     const path = join(home, relative);
     mkdirSync(join(path, '..'), { recursive: true });
@@ -92,18 +92,18 @@ export function createDoctorFixture(options: IDoctorFixtureOptions = {}): IDocto
   const inputs: IDoctorInputs = {
     cwd: home,
     userHome: home,
-    userSettingsPath: join(home, '.robota', 'settings.json'),
-    userStorage: { root: join(home, '.robota'), sessions: join(home, '.robota', 'sessions') },
+    userSettingsPath: join(home, '.fixture-product', 'settings.json'),
+    userStorage: { root: join(home, '.fixture-product'), sessions: join(home, '.fixture-product', 'sessions') },
     settingsSources: [
-      createNodeHostSettingsSource('user', join(home, '.robota', 'settings.json')),
+      createNodeHostSettingsSource('user', join(home, '.fixture-product', 'settings.json')),
       createNodeHostSettingsSource('user', join(home, '.claude', 'settings.json')),
     ],
     projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', home),
     providerDefinitions: options.providerDefinitions ?? [fixtureProviderDefinition()],
     env,
     contributionSources: [createNodeHostContributionSource(home)],
-    skillRoots: [{ root: join('.robota', 'skills'), kind: 'skills' }],
-    pluginsDirs: [join(home, '.robota', 'plugins')],
+    skillRoots: [{ root: join('.fixture-product', 'skills'), kind: 'skills' }],
+    pluginsDirs: [join(home, '.fixture-product', 'plugins')],
     hostChecks: [
       { id: 'host.fixture', label: 'Fixture host check', status: 'ok', cause: 'present' },
     ],
@@ -122,23 +122,23 @@ export function createDoctorFixture(options: IDoctorFixtureOptions = {}): IDocto
 
 /** The "broken HOME" of the built-CLI scenario, as a unit fixture. */
 export function installBrokenHome(fixture: IDoctorFixture): void {
-  fixture.mkdir('.robota');
-  fixture.mkdir('.robota/sessions');
-  fixture.write('.robota/settings.json', '');
+  fixture.mkdir('.fixture-product');
+  fixture.mkdir('.fixture-product/sessions');
+  fixture.write('.fixture-product/settings.json', '');
   fixture.write('.claude/settings.json', '{"defaultTrustLevel":42}');
   fixture.write(
-    '.robota/plugins/cache/fixture-market/broken-plugin/1.0.0/.claude-plugin/plugin.json',
+    '.fixture-product/plugins/cache/fixture-market/broken-plugin/1.0.0/.claude-plugin/plugin.json',
     '{',
   );
   fixture.write(
-    '.robota/plugins/cache/fixture-market/mcp-plugin/1.0.0/.claude-plugin/plugin.json',
+    '.fixture-product/plugins/cache/fixture-market/mcp-plugin/1.0.0/.claude-plugin/plugin.json',
     JSON.stringify({ name: 'mcp-plugin', version: '1.0.0', description: 'doctor fixture' }),
   );
   fixture.write(
-    '.robota/plugins/cache/fixture-market/mcp-plugin/1.0.0/.mcp.json',
+    '.fixture-product/plugins/cache/fixture-market/mcp-plugin/1.0.0/.mcp.json',
     JSON.stringify({
       mcpServers: {
-        ghost: { command: 'robota-doctor-missing-binary', env: { GHOST_TOKEN: MARKERS.mcp } },
+        ghost: { command: 'agent-test-doctor-missing-binary', env: { GHOST_TOKEN: MARKERS.mcp } },
         ready: { type: 'http', url: 'https://mcp.example.test' },
       },
     }),

@@ -14,9 +14,9 @@ afterEach(async () => {
 });
 
 async function logOnlyStoreText(text: string) {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'robota-log-codec-')));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'agent-log-codec-')));
   roots.push(root);
-  const logs = join(root, '.robota', 'logs');
+  const logs = join(root, '.agent', 'logs');
   await mkdir(logs, { recursive: true });
   await writeFile(join(logs, 'log-only.jsonl'), text);
   return createTrustedProjectSessionStoreFixture(root);

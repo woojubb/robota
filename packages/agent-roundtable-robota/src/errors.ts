@@ -1,5 +1,5 @@
-/** Raised by `sessionParticipant`/`robotaParticipant` sessions; never by the roundtable core. */
-export class RobotaParticipantError extends Error {
+/** Raised by `sessionParticipant`/`runtimeParticipant` sessions; never by the roundtable core. */
+export class RuntimeParticipantError extends Error {
   constructor(
     public readonly code:
       | 'unsupported-wait'
@@ -10,11 +10,11 @@ export class RobotaParticipantError extends Error {
     message: string,
   ) {
     super(message);
-    this.name = 'RobotaParticipantError';
+    this.name = 'RuntimeParticipantError';
   }
 }
 
-/** Raised by `robotaSelector` while turning a model decision into a `Selection`. */
+/** Raised by `runtimeSelector` while turning a model decision into a `Selection`. */
 export class SelectorDecisionError extends Error {
   constructor(
     public readonly code:

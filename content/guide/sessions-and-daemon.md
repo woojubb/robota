@@ -5,14 +5,14 @@ description: Keep Robota sessions running after the terminal closes, attach to t
 
 # Sessions, Background Sessions and the Daemon
 
-A `robota` session normally lives inside the terminal that started it. The commands in this guide run
+A `__PRODUCT_CLI_NAME__` session normally lives inside the terminal that started it. The commands in this guide run
 a session as its own process instead, so you can close the terminal, come back to the session from
 another terminal, the browser GUI or the desktop app, and see every running session across your
 projects.
 
-- Use a **background session** (`robota session start --background`) for long work you want to check
+- Use a **background session** (`__PRODUCT_CLI_NAME__ session start --background`) for long work you want to check
   on or steer later.
-- Use the **workspace daemon** (`robota daemon start`) when several clients — the desktop app, the
+- Use the **workspace daemon** (`__PRODUCT_CLI_NAME__ daemon start`) when several clients — the desktop app, the
   browser GUI, attached terminals — should share one long-lived runtime for a project.
 
 Continuing, resuming, forking and naming saved sessions from the command line (`-c`, `-r`, `--name`,
@@ -21,11 +21,11 @@ Continuing, resuming, forking and naming saved sessions from the command line (`
 
 ## Prerequisites
 
-- The `robota` CLI installed (Node.js 22.12 or later) — see [Getting Started](../getting-started/README.md).
-- A **trusted workspace**. Background sessions, the daemon and `robota --serve` refuse to start in a
-  Git repository that is not trusted, before anything is spawned. Run `robota trust --yes` in the
+- The `__PRODUCT_CLI_NAME__` CLI installed (Node.js 22.12 or later) — see [Getting Started](../getting-started/README.md).
+- A **trusted workspace**. Background sessions, the daemon and `__PRODUCT_CLI_NAME__ --serve` refuse to start in a
+  Git repository that is not trusted, before anything is spawned. Run `__PRODUCT_CLI_NAME__ trust --yes` in the
   repository first (see [Workspace trust](#workspace-trust)), or start the daemon Restricted with
-  `robota daemon start --restricted-workspace`.
+  `__PRODUCT_CLI_NAME__ daemon start --restricted-workspace`.
 - An **interactive terminal** to attach. Attaching asks for your confirmation on the terminal itself,
   so a script or an agent cannot attach; it can only print the command for you to run.
 
@@ -34,8 +34,8 @@ Continuing, resuming, forking and naming saved sessions from the command line (`
 | Term                     | Meaning                                                                                                                                                                                                                            |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Session                  | One conversation and its history, saved as a record you can resume.                                                                                                                                                                |
-| Background session       | A `robota` runtime process started with `robota session start --background`. It outlives the terminal and has an id (a UUID). The CLI output calls these _supervised sessions_.                                                    |
-| Daemon                   | The one background session marked as a workspace's daemon. `robota daemon start` reuses it if it is already running. The desktop app connects to it, and in a folder not trusted yet asks first: trust, start Restricted, or quit. |
+| Background session       | A `__PRODUCT_CLI_NAME__` runtime process started with `__PRODUCT_CLI_NAME__ session start --background`. It outlives the terminal and has an id (a UUID). The CLI output calls these _supervised sessions_.                                                    |
+| Daemon                   | The one background session marked as a workspace's daemon. `__PRODUCT_CLI_NAME__ daemon start` reuses it if it is already running. The desktop app connects to it, and in a folder not trusted yet asks first: trust, start Restricted, or quit. |
 | Client                   | Anything that shows a session: an attached terminal, the browser GUI, the desktop app. One runtime can serve several clients at once.                                                                                              |
 | Workspace (for a daemon) | The real path of the directory you ran the command in. It is not the repository root: a subdirectory is a different workspace with its own daemon.                                                                                 |
 
@@ -44,12 +44,12 @@ Continuing, resuming, forking and naming saved sessions from the command line (`
 Trust decides whether Robota reads a project's own configuration. In an untrusted repository Robota
 runs **Restricted**: project settings, hooks, plugins, skills, agent definitions, provider overrides
 and MCP servers from the project are not loaded. Trust is recorded per Git repository in
-`~/.robota/workspace-trust.json`.
+`<user-state>/workspace-trust.json`.
 
 ```bash
-robota trust              # show the state, and what trust would load
-robota trust --yes        # grant trust without a prompt
-robota trust revoke --yes # withdraw it
+__PRODUCT_CLI_NAME__ trust              # show the state, and what trust would load
+__PRODUCT_CLI_NAME__ trust --yes        # grant trust without a prompt
+__PRODUCT_CLI_NAME__ trust revoke --yes # withdraw it
 ```
 
 `grant` and `revoke` need `--yes` when no terminal is attached. Starting a new interactive session
@@ -64,23 +64,23 @@ in an untrusted repository asks `Trust this folder? [y/N]` first; answering no s
 | `store-unavailable`    | The trust store could not be read.                                                                     |
 | `identity-unavailable` | The directory is not inside a Git repository, so it has nothing to trust. Robota runs Restricted.      |
 
-Headless starts — a background session, the daemon, `--serve`, `robota mcp serve` and print mode
+Headless starts — a background session, the daemon, `--serve`, `__PRODUCT_CLI_NAME__ mcp serve` and print mode
 (`-p`) — refuse the `untrusted`, `revoked`, `stale/replaced` and `store-unavailable` states with
 `Workspace trust is required before headless startup`, so an untrusted project never runs silently
 without its configuration. `--safe-mode` starts Restricted on purpose and is not refused, and neither
 is `--restricted-workspace` on the daemon, a background session, `--serve`, print mode or `--goal`, for a front end whose
-person chose Restricted. `robota --serve --open` run at a terminal asks there first: trust, start
-Restricted, or quit. A Restricted `robota daemon start` reuses a running daemon only when it runs
+person chose Restricted. `__PRODUCT_CLI_NAME__ --serve --open` run at a terminal asks there first: trust, start
+Restricted, or quit. A Restricted `__PRODUCT_CLI_NAME__ daemon start` reuses a running daemon only when it runs
 Restricted too, and a plain `daemon start` in a folder you
-have trusted since does not reuse a Restricted daemon; either refusal names `robota daemon stop`.
-`robota trust status --json` prints the trust state as one JSON line for a front end that asks the
+have trusted since does not reuse a Restricted daemon; either refusal names `__PRODUCT_CLI_NAME__ daemon stop`.
+`__PRODUCT_CLI_NAME__ trust status --json` prints the trust state as one JSON line for a front end that asks the
 person.
 
 ## Walkthrough: a background session
 
 ```bash
-robota trust --yes
-robota session start --background --name nightly-refactor
+__PRODUCT_CLI_NAME__ trust --yes
+__PRODUCT_CLI_NAME__ session start --background --name nightly-refactor
 ```
 
 The start prints the session id:
@@ -92,8 +92,8 @@ Supervised session: 3f6c1d2e-8a4b-4c1f-9e2d-7b5a0c9d1e23
 List what is running, then attach this terminal to the session:
 
 ```bash
-robota session list
-robota session attach 3f6c1d2e-8a4b-4c1f-9e2d-7b5a0c9d1e23
+__PRODUCT_CLI_NAME__ session list
+__PRODUCT_CLI_NAME__ session attach 3f6c1d2e-8a4b-4c1f-9e2d-7b5a0c9d1e23
 ```
 
 Attaching asks on the terminal, naming the session and the role:
@@ -109,7 +109,7 @@ session keeps running. To follow it without being able to send anything, attach 
 Stop it when you are done:
 
 ```bash
-robota session stop 3f6c1d2e-8a4b-4c1f-9e2d-7b5a0c9d1e23
+__PRODUCT_CLI_NAME__ session stop 3f6c1d2e-8a4b-4c1f-9e2d-7b5a0c9d1e23
 ```
 
 While no client is driving a background session, a permission request it raises is denied and a
@@ -122,9 +122,9 @@ Start the daemon in the project directory. A second `daemon start` in the same d
 running daemon instead of starting another.
 
 ```bash
-robota daemon start
+__PRODUCT_CLI_NAME__ daemon start
 # Daemon 9b2e… started in /home/me/project.
-robota daemon status
+__PRODUCT_CLI_NAME__ daemon status
 # Daemon 9b2e… running in /home/me/project.
 ```
 
@@ -138,7 +138,7 @@ carries the connection token, so it is printed only in this mode:
 From another terminal in the same directory, open the full terminal UI on the daemon:
 
 ```bash
-robota --attach
+__PRODUCT_CLI_NAME__ --attach
 ```
 
 It asks for confirmation like `session attach`. It takes no option that shapes a session (model,
@@ -152,22 +152,22 @@ the window offers Reconnect.
 Stop the daemon when you no longer need it:
 
 ```bash
-robota daemon stop
+__PRODUCT_CLI_NAME__ daemon stop
 ```
 
 ## The browser GUI
 
-`robota --serve --open` starts a runtime of its own (not the daemon), serves the GUI web app over
+`__PRODUCT_CLI_NAME__ --serve --open` starts a runtime of its own (not the daemon), serves the GUI web app over
 `http://127.0.0.1:<port>` and opens it in your browser. The runtime lasts as long as the command
 runs. The GUI shows a sessions sidebar; `/resume` in the GUI opens it. Using the GUI and the desktop
 app is covered in [The GUI and the Desktop App](./gui.md).
 
 ## The session view
 
-`robota session view` is a live, full-screen list of your background sessions across all projects.
+`__PRODUCT_CLI_NAME__ session view` is a live, full-screen list of your background sessions across all projects.
 Filter it with `--cwd <directory>`, `--name <text>`, `--pr <number>` or `--state <state>`, where the
 state is one of `needs-input`, `working`, `idle`, `unknown`, `unverified`, `dead`. It needs an
-interactive terminal; `robota session list` is the scriptable equivalent.
+interactive terminal; `__PRODUCT_CLI_NAME__ session list` is the scriptable equivalent.
 
 | Key      | Action                                                                           |
 | -------- | -------------------------------------------------------------------------------- |
@@ -203,7 +203,7 @@ background tasks.
   else could answer.
 - A client's command cannot stop or restart the daemon or a background session. `/reset`,
   `/language` and provider setup or switch save their change, which applies after
-  `robota daemon stop` and `robota daemon start` (or to a new background session).
+  `__PRODUCT_CLI_NAME__ daemon stop` and `__PRODUCT_CLI_NAME__ daemon start` (or to a new background session).
 
 These limits are fixed in code, not settings.
 
@@ -213,21 +213,21 @@ These limits are fixed in code, not settings.
 
 | Command                                                                          | What it does                                                                                                                                                        |
 | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `robota trust [status\|grant\|revoke] [--yes]`                                   | Show or change this repository's trust. Bare `--yes` grants.                                                                                                        |
-| `robota daemon start [--json] [--restricted-workspace]`                          | Start this workspace's daemon, or reuse the running one. `--json` prints `{"id","url"}`; `--restricted-workspace` starts it Restricted in a folder not trusted yet. |
-| `robota daemon status [--json]`                                                  | Whether this workspace's daemon runs. `--json` prints `{"running":false}` or `{"running":true,"id","url"}`.                                                         |
-| `robota daemon stop`                                                             | Stop this workspace's daemon.                                                                                                                                       |
-| `robota daemon unlock`                                                           | Remove a start lock left by a `daemon start` that is gone. Refuses while the start is still running.                                                                |
-| `robota --attach [--screen-reader\|--no-screen-reader]`                          | Open the full terminal UI on this workspace's running daemon. TTY and confirmation required.                                                                        |
-| `robota --serve --open`                                                          | Serve the GUI web app on localhost and open it in a browser.                                                                                                        |
-| `robota session list [--format text\|json]`                                      | List live processes on this machine, saved sessions, and background sessions, in separate groups.                                                                   |
-| `robota session view [--cwd <dir>] [--name <text>] [--pr <n>] [--state <state>]` | Live view of background sessions across projects (TTY only).                                                                                                        |
-| `robota session start --background [--name <name>] [--restricted-workspace]`     | Start a background session that outlives this terminal. Prints its id.                                                                                              |
-| `robota session attach <id> [--observe]`                                         | Attach this terminal to drive a background session, or observe it read-only.                                                                                        |
-| `robota session stop <id>`                                                       | Stop a background session you own.                                                                                                                                  |
-| `robota session rename <id> <name>`                                              | Rename a live background session.                                                                                                                                   |
-| `robota session link-pr <id> <https-url>` / `unlink-pr <id>`                     | Link or clear a pull/merge request URL shown in the session view.                                                                                                   |
-| `robota session events list <id> [--json]` / `events revoke <id> <grant-id>`     | Inspect or withdraw a background session's external-event grants — see [MCP and external events](./mcp.md#external-events).                                         |
+| `__PRODUCT_CLI_NAME__ trust [status\|grant\|revoke] [--yes]`                                   | Show or change this repository's trust. Bare `--yes` grants.                                                                                                        |
+| `__PRODUCT_CLI_NAME__ daemon start [--json] [--restricted-workspace]`                          | Start this workspace's daemon, or reuse the running one. `--json` prints `{"id","url"}`; `--restricted-workspace` starts it Restricted in a folder not trusted yet. |
+| `__PRODUCT_CLI_NAME__ daemon status [--json]`                                                  | Whether this workspace's daemon runs. `--json` prints `{"running":false}` or `{"running":true,"id","url"}`.                                                         |
+| `__PRODUCT_CLI_NAME__ daemon stop`                                                             | Stop this workspace's daemon.                                                                                                                                       |
+| `__PRODUCT_CLI_NAME__ daemon unlock`                                                           | Remove a start lock left by a `daemon start` that is gone. Refuses while the start is still running.                                                                |
+| `__PRODUCT_CLI_NAME__ --attach [--screen-reader\|--no-screen-reader]`                          | Open the full terminal UI on this workspace's running daemon. TTY and confirmation required.                                                                        |
+| `__PRODUCT_CLI_NAME__ --serve --open`                                                          | Serve the GUI web app on localhost and open it in a browser.                                                                                                        |
+| `__PRODUCT_CLI_NAME__ session list [--format text\|json]`                                      | List live processes on this machine, saved sessions, and background sessions, in separate groups.                                                                   |
+| `__PRODUCT_CLI_NAME__ session view [--cwd <dir>] [--name <text>] [--pr <n>] [--state <state>]` | Live view of background sessions across projects (TTY only).                                                                                                        |
+| `__PRODUCT_CLI_NAME__ session start --background [--name <name>] [--restricted-workspace]`     | Start a background session that outlives this terminal. Prints its id.                                                                                              |
+| `__PRODUCT_CLI_NAME__ session attach <id> [--observe]`                                         | Attach this terminal to drive a background session, or observe it read-only.                                                                                        |
+| `__PRODUCT_CLI_NAME__ session stop <id>`                                                       | Stop a background session you own.                                                                                                                                  |
+| `__PRODUCT_CLI_NAME__ session rename <id> <name>`                                              | Rename a live background session.                                                                                                                                   |
+| `__PRODUCT_CLI_NAME__ session link-pr <id> <https-url>` / `unlink-pr <id>`                     | Link or clear a pull/merge request URL shown in the session view.                                                                                                   |
+| `__PRODUCT_CLI_NAME__ session events list <id> [--json]` / `events revoke <id> <grant-id>`     | Inspect or withdraw a background session's external-event grants — see [MCP and external events](./mcp.md#external-events).                                         |
 
 `session attach`, `session view` and `--attach` also accept `--screen-reader` / `--no-screen-reader`.
 
@@ -246,13 +246,13 @@ See the [CLI reference](./cli.md) for `/rename`, `/rewind`, `/cost` and the othe
 
 | Path                                                                | Contents                                                                                        |
 | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `~/.robota/workspace-trust.json`                                    | Trust grants.                                                                                   |
-| `~/.robota/sessions/`                                               | Saved sessions for Restricted workspaces, and for trusted workspaces on hosts other than Linux. |
-| `.robota/sessions/`, `.robota/logs/` (in the project)               | Saved sessions and session logs for a trusted workspace on Linux.                               |
-| `$XDG_RUNTIME_DIR/robota/supervised/`, else `~/.robota/supervised/` | Background-session control state and daemon start locks. Must be private to your user.          |
+| `<user-state>/workspace-trust.json`                                    | Trust grants.                                                                                   |
+| `<user-state>/sessions/`                                               | Saved sessions for Restricted workspaces, and for trusted workspaces on hosts other than Linux. |
+| `<project-state>/sessions/`, `<project-state>/logs/` (in the project)               | Saved sessions and session logs for a trusted workspace on Linux.                               |
+| `$XDG_RUNTIME_DIR/robota/supervised/`, else `<user-state>/supervised/` | Background-session control state and daemon start locks. Must be private to your user.          |
 
 On hosts other than Linux, Robota cannot prove that a write under the project stays inside it, so a
-trusted workspace's sessions are saved in `~/.robota/sessions` instead and nothing is written under
+trusted workspace's sessions are saved in `<user-state>/sessions` instead and nothing is written under
 the project root.
 
 ### Security model
@@ -276,22 +276,22 @@ the project root.
 ### Limitations
 
 - One daemon per directory, matched by exact real path — not per repository.
-- `robota --attach` always opens the daemon's session; switch sessions from inside with `/resume`.
+- `__PRODUCT_CLI_NAME__ --attach` always opens the daemon's session; switch sessions from inside with `/resume`.
 - At most four live sessions per runtime; not configurable.
 - In an attached terminal, the plugin manager, background task details and sending to an agent job
   report that they are unavailable, because they belong to the runtime process.
-- `robota session list` has no directory filter; `robota session view --cwd` narrows the view.
+- `__PRODUCT_CLI_NAME__ session list` has no directory filter; `__PRODUCT_CLI_NAME__ session view --cwd` narrows the view.
 
 ### Troubleshooting
 
 | Message or symptom                                                           | Cause and fix                                                                                                                           |
 | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `Workspace trust is required before headless startup (state: …)`             | Run `robota trust --yes` in the repository, or start the daemon with `--restricted-workspace`.                                          |
+| `Workspace trust is required before headless startup (state: …)`             | Run `__PRODUCT_CLI_NAME__ trust --yes` in the repository, or start the daemon with `--restricted-workspace`.                                          |
 | `Attaching needs an interactive terminal and the user's confirmation.`       | The command ran without a TTY (a script or an agent). Run the printed command yourself.                                                 |
-| `No daemon is running in <dir>. Start one with: robota daemon start`         | `--attach` looks for the daemon of the exact directory; run it where the daemon was started.                                            |
-| `If no daemon start is running, remove it with: robota daemon unlock`        | A previous start died holding the lock. Run `robota daemon unlock`, then start again.                                                   |
-| `Daemon <id> is running but cannot be connected to. Run: robota daemon stop` | Stop it and start again.                                                                                                                |
-| `<id> is not a live supervised session this terminal can attach to.`         | The session stopped, or is not controllable. Check `robota session list`.                                                               |
+| `No daemon is running in <dir>. Start one with: __PRODUCT_CLI_NAME__ daemon start`         | `--attach` looks for the daemon of the exact directory; run it where the daemon was started.                                            |
+| `If no daemon start is running, remove it with: __PRODUCT_CLI_NAME__ daemon unlock`        | A previous start died holding the lock. Run `__PRODUCT_CLI_NAME__ daemon unlock`, then start again.                                                   |
+| `Daemon <id> is running but cannot be connected to. Run: __PRODUCT_CLI_NAME__ daemon stop` | Stop it and start again.                                                                                                                |
+| `<id> is not a live supervised session this terminal can attach to.`         | The session stopped, or is not controllable. Check `__PRODUCT_CLI_NAME__ session list`.                                                               |
 | `Supervised session directory is not private to this user.`                  | Make the control directory (see above) owned by you with mode `0700`.                                                                   |
 | `Robota web assets not found (dist/web) — run a full CLI build.`             | The GUI assets are missing (for example, a source checkout without a full build).                                                       |
 | A saved session is listed as `corrupt` or `unsupported`                      | The file is not a session record, or was written by a build this one does not read. It is kept, not overwritten, and cannot be resumed. |

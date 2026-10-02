@@ -1,6 +1,6 @@
 /**
  * A tiny, dependency-free assertion harness. The external consumer deliberately does NOT install
- * vitest or any Robota test utility — it must prove the RUNTIME surface works with nothing but the
+ * vitest or any agent runtime test utility — it must prove the RUNTIME surface works with nothing but the
  * published packages, exactly as a third party would have.
  */
 

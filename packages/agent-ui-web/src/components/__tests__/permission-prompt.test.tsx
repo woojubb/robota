@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { render } from '../../testing/product-provider.js';
+import { act, cleanup, fireEvent, screen } from '@testing-library/react';
 import React, { useRef } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';

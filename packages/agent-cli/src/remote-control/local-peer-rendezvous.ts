@@ -9,11 +9,11 @@
  * `XDG_RUNTIME_DIR` is created by the system per login session, already `0700`, and — the part that
  * matters — it is REMOVED when the last session of that user ends. A rendezvous is only meaningful
  * while a session is alive, so a location the system cleans up is a better fit than one that
- * accumulates: a stale socket under `~/.robota` outlives the process that made it and the next run
+ * accumulates: a stale socket under the configured user storage root outlives the process that made it and the next run
  * has to reason about whether it is live.
  *
  * The home directory is the fallback rather than the default for the same reason it is the right
- * fallback: this package already keeps host identity and trusted devices under `~/.robota`, so a
+ * fallback: this package already keeps host identity and trusted devices under the configured user storage root, so a
  * host with no runtime directory (a bare container, a non-systemd Unix, Windows) still has a
  * per-user place that exists. `ensureGuardedDirectory` then does the work the runtime directory
  * would have done for free — create it, force the mode, and verify.
@@ -23,37 +23,30 @@
  * security decision.
  */
 
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import {
   ensureGuardedDirectory,
   type ILocalPeerAdmission,
 } from '@robota-sdk/agent-remote-pairing/local';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 /** Directory name under whichever root is chosen. */
 const RENDEZVOUS_DIR = 'peers';
-
-export interface IRendezvousLocationOptions {
-  /** Environment to read `XDG_RUNTIME_DIR` from. Injected so the choice is testable. */
-  readonly env?: NodeJS.ProcessEnv;
-  /** Home directory resolver, injected for the same reason. */
-  readonly home?: () => string;
-}
 
 /**
  * The path this host should use, without creating anything.
  *
  * Separate from creation so a diagnostic can report where the rendezvous WOULD be without the side
- * effect of making it — `robota diagnose` should be able to say what it inspected.
+ * effect of making it — the host diagnostics command should be able to say what it inspected.
  */
-export function resolveRendezvousDirectory(options: IRendezvousLocationOptions = {}): string {
-  const env = options.env ?? process.env;
-  const runtimeDir = env['XDG_RUNTIME_DIR'];
+export function resolveRendezvousDirectory(productRuntime: ICliRuntimeContext): string {
+  const runtimeDir = productRuntime.environment['XDG_RUNTIME_DIR'];
+  const namespace = productRuntime.config.identity.daemonNamespace;
   if (runtimeDir !== undefined && runtimeDir.trim().length > 0) {
-    return join(runtimeDir, 'robota', RENDEZVOUS_DIR);
+    return join(runtimeDir, namespace, RENDEZVOUS_DIR);
   }
-  return join((options.home ?? homedir)(), '.robota', RENDEZVOUS_DIR);
+  return join(productRuntime.layout.userRoot, RENDEZVOUS_DIR);
 }
 
 /**
@@ -65,9 +58,9 @@ export function resolveRendezvousDirectory(options: IRendezvousLocationOptions =
  * which would be the copyable-credential failure SEC-010 exists to prevent, wearing a path.
  */
 export function ensureRendezvousDirectory(
-  options: IRendezvousLocationOptions = {},
+  productRuntime: ICliRuntimeContext,
 ): ILocalPeerAdmission {
-  return ensureGuardedDirectory(resolveRendezvousDirectory(options), {
+  return ensureGuardedDirectory(resolveRendezvousDirectory(productRuntime), {
     expectedUid: process.getuid?.() ?? 0,
   });
 }

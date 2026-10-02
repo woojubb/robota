@@ -3,7 +3,7 @@
  * browser in packages/agent-gui-web (`test:e2e`).
  *
  * Launches the REAL built app (Playwright `_electron`) with the deterministic scripted sidecar as its
- * "robota", and checks: the shell starts the workspace daemon and the page connects with its token (TC-01);
+ * configured CLI fixture, and checks: the shell starts the workspace daemon and the page connects with its token (TC-01);
  * a turn round-trips (TC-01); closing the window leaves the daemon running, and the next launch reattaches
  * to that same daemon and its conversation (#3189); a daemon that stops while the window is open leaves the
  * window saying so, and Reconnect starts a new daemon and attaches to it (or, when the new start fails,
@@ -22,6 +22,8 @@ import { fileURLToPath } from 'node:url';
 
 import electronPath from 'electron';
 import { _electron as electron } from 'playwright';
+
+import { buildProductTestEnvironment, readDesktopTestIdentity } from './product-fixture.mjs';
 
 
 /** One line of output (scripts write to the streams directly). */
@@ -42,8 +44,18 @@ const check = (label, ok) => {
 };
 
 const failFile = join(stateDir, 'fail-next-start');
+const home = join(stateDir, 'home');
+const productFixture = buildProductTestEnvironment(
+  join(stateDir, 'product'),
+  readDesktopTestIdentity(dirname(mainJs)),
+);
+const inheritedRuntimeEnvironment = Object.fromEntries(
+  ['PATH', 'DISPLAY', 'WAYLAND_DISPLAY', 'XAUTHORITY', 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS', 'SystemRoot', 'APPDATA', 'TMPDIR', 'TEMP', 'LANG']
+    .filter((key) => typeof process.env[key] === 'string')
+    .map((key) => [key, process.env[key]]),
+);
 
-/** Stop the attached daemon the way `robota daemon stop` does, and wait for the window to say so. */
+/** Stop the attached daemon through its fixture control file, then wait for the window to say so. */
 const stopDaemonAndAwaitReconnect = async (page) => {
   const pid = readDaemonPid();
   process.kill(pid, 'SIGTERM');
@@ -67,18 +79,36 @@ const isAlive = (pid) => {
   }
 };
 
-const launch = (extraEnv = {}) =>
-  electron.launch({
+const launch = async (extraEnv = {}) => {
+  const application = await electron.launch({
     executablePath: electronPath,
     args: ['--no-sandbox', '--disable-gpu', mainJs],
-    // The shell runs THIS as `robota daemon start --json`; it records its daemon in the state file.
+    // The shell runs the deterministic CLI fixture; state and trust are isolated to this test.
     env: {
-      ...process.env,
-      ROBOTA_GUI_SIDECAR_CMD: sidecar,
-      ROBOTA_E2E_DAEMON_STATE: statePath,
+      ...inheritedRuntimeEnvironment,
+      HOME: home,
+      USERPROFILE: home,
+      ...productFixture.environment,
+      PRODUCT_GUI_SIDECAR_CMD: sidecar,
+      PRODUCT_E2E_DAEMON_STATE: statePath,
       ...extraEnv,
     },
   });
+  // A detached daemon can retain Electron's output pipes after the window's process exits.
+  // Playwright waits for those pipes to close; only the shell process owns this launch's lifetime.
+  const shell = application.process();
+  shell.once('exit', () => {
+    for (const stream of shell.stdio) stream?.destroy();
+  });
+  return application;
+};
+
+async function closeApplication(application) {
+  const closed = application.waitForEvent('close', { timeout: 10_000 });
+  // Return the debugger reply before quitting; the detached daemon may retain its socket too.
+  await application.evaluate(({ app }) => { setImmediate(() => app.quit()); });
+  await closed;
+}
 
 const connected = (page) =>
   page.locator('.agent-gui-status[data-status="connected"]').waitFor({ timeout: 20_000 });
@@ -118,7 +148,7 @@ try {
   } catch (err) {
     check(`first launch threw: ${err?.message ?? err}`, false);
   } finally {
-    await app.close();
+    await closeApplication(app);
   }
   check('#3189: closing the window leaves the daemon running', isAlive(firstPid));
 
@@ -132,7 +162,7 @@ try {
   } catch (err) {
     check(`second launch threw: ${err?.message ?? err}`, false);
   } finally {
-    await again.close();
+    await closeApplication(again);
   }
 
   const stopped = await launch();
@@ -151,22 +181,22 @@ try {
   } catch (err) {
     check(`reconnect check threw: ${err?.message ?? err}`, false);
   } finally {
-    await stopped.close();
+    await closeApplication(stopped);
   }
 
-  const unrestartable = await launch({ ROBOTA_E2E_DAEMON_FAIL_FILE: failFile });
+  const unrestartable = await launch({ PRODUCT_E2E_DAEMON_FAIL_FILE: failFile });
   try {
     const page = await unrestartable.firstWindow();
     await connected(page);
     const { reconnect } = await stopDaemonAndAwaitReconnect(page);
     writeFileSync(failFile, '');
     await reconnect.click();
-    await page.getByRole('alert').getByText(/robota trust/).waitFor({ timeout: 20_000 });
+    await page.getByRole('alert').getByText(new RegExp(`${productFixture.identity.identity.cliName} trust`)).waitFor({ timeout: 20_000 });
     check('#3189: a Reconnect whose start fails shows the CLI reason', true);
   } catch (err) {
     check(`failed-reconnect check threw: ${err?.message ?? err}`, false);
   } finally {
-    await unrestartable.close();
+    await closeApplication(unrestartable);
     rmSync(failFile, { force: true });
   }
 
@@ -177,7 +207,13 @@ try {
     rmSync(statePath, { force: true });
   };
   stopRecordedDaemon();
-  const askedRestricted = await launch({ ROBOTA_E2E_TRUST_FILE: trustFile });
+  const askedRestricted = await launch({
+    PRODUCT_E2E_TRUST_FILE: trustFile,
+    CUSTOM_PROVIDER_KEY: 'must-not-reach-restricted-daemon',
+    PROVIDER_DESTINATION_URL: 'https://provider.example.test/api',
+    HTTPS_PROXY: 'https://proxy.example.test:8443',
+    AMBIENT_PRIVATE_SENTINEL: 'must-not-reach-cli',
+  });
   try {
     const page = await askedRestricted.firstWindow();
     const dialog = page.getByRole('dialog', { name: 'Do you trust this folder?' });
@@ -186,6 +222,10 @@ try {
     await dialog.getByRole('button', { name: 'Start Restricted' }).click();
     await connected(page);
     check('#3268: Start Restricted starts the daemon Restricted and connects', readDaemon()?.restricted === true);
+    check(
+      '#3268: Restricted daemon receives no provider or transport environment references',
+      JSON.stringify(readDaemon()?.providerEnvironment) === '{}',
+    );
     check('#3268: Start Restricted leaves the folder untrusted', !existsSync(trustFile));
     const { reconnect } = await stopDaemonAndAwaitReconnect(page);
     await reconnect.click();
@@ -194,11 +234,17 @@ try {
   } catch (err) {
     check(`restricted-answer check threw: ${err?.message ?? err}`, false);
   } finally {
-    await askedRestricted.close();
+    await closeApplication(askedRestricted);
   }
 
   stopRecordedDaemon();
-  const askedTrust = await launch({ ROBOTA_E2E_TRUST_FILE: trustFile });
+  const askedTrust = await launch({
+    PRODUCT_E2E_TRUST_FILE: trustFile,
+    CUSTOM_PROVIDER_KEY: 'synthetic-provider-reference',
+    PROVIDER_DESTINATION_URL: 'https://provider.example.test/api',
+    HTTPS_PROXY: 'https://proxy.example.test:8443',
+    AMBIENT_PRIVATE_SENTINEL: 'must-not-reach-cli',
+  });
   try {
     const page = await askedTrust.firstWindow();
     const dialog = page.getByRole('dialog', { name: 'Do you trust this folder?' });
@@ -209,10 +255,27 @@ try {
       '#3268: Trust folder records the grant, then starts the daemon with the project configuration',
       readFileSync(trustFile, 'utf8') === 'trusted' && readDaemon()?.restricted === false,
     );
+    check(
+      '#3268: daemon receives trusted named provider/destination/proxy refs and excludes unrelated ambient secrets',
+      JSON.stringify(readDaemon()?.providerEnvironment) === JSON.stringify({
+        customProviderKey: 'synthetic-provider-reference',
+        destination: 'https://provider.example.test/api',
+        proxy: 'https://proxy.example.test:8443',
+      }),
+    );
+    const { pid, reconnect } = await stopDaemonAndAwaitReconnect(page);
+    rmSync(trustFile, { force: true });
+    rmSync(statePath, { force: true });
+    await reconnect.click();
+    await page.getByRole('dialog', { name: 'Do you trust this folder?' }).waitFor({ timeout: 20_000 });
+    check(
+      '#3268: reconnect refreshes trust before reusing provider refs and asks again after revocation',
+      !isAlive(pid) && !existsSync(statePath),
+    );
   } catch (err) {
     check(`trust-answer check threw: ${err?.message ?? err}`, false);
   } finally {
-    await askedTrust.close();
+    await closeApplication(askedTrust);
   }
 
   // #3282 §4d: the composer's attach button through the REAL Electron bridge — preload -> IPC ->
@@ -224,7 +287,7 @@ try {
   const attachDir = mkdtempSync(join(tmpdir(), 'agent-app-e2e-attach-'));
   const attachFilePath = join(attachDir, 'notes.txt');
   writeFileSync(attachFilePath, 'scripted attachment contents');
-  const attach = await launch({ ROBOTA_E2E_WORKSPACE_CWD: attachDir });
+  const attach = await launch({ PRODUCT_E2E_WORKSPACE_CWD: attachDir });
   try {
     const page = await attach.firstWindow();
     await connected(page);
@@ -240,29 +303,29 @@ try {
   } catch (err) {
     check(`attach check threw: ${err?.message ?? err}`, false);
   } finally {
-    await attach.close();
+    await closeApplication(attach);
     rmSync(attachDir, { recursive: true, force: true });
   }
 
-  const refused = await launch({ ROBOTA_E2E_DAEMON_FAIL: '1' });
+  const refused = await launch({ PRODUCT_E2E_DAEMON_FAIL: '1' });
   try {
     const page = await refused.firstWindow();
-    await page.getByRole('alert').getByText(/robota trust/).waitFor({ timeout: 20_000 });
+    await page.getByRole('alert').getByText(new RegExp(`${productFixture.identity.identity.cliName} trust`)).waitFor({ timeout: 20_000 });
     check('#3189: a daemon that cannot start reaches the fatal screen with the CLI reason', true);
   } catch (err) {
     check(`fatal-state check threw: ${err?.message ?? err}`, false);
   } finally {
-    await refused.close();
+    await closeApplication(refused);
   }
 
   // #3282 §3: the fatal screen's Try again reuses the same restart flow as Reconnect — it must connect
   // once whatever stopped the very first start is gone, not just redraw the same failure.
   stopRecordedDaemon();
   writeFileSync(failFile, '');
-  const neverStarted = await launch({ ROBOTA_E2E_DAEMON_FAIL_FILE: failFile });
+  const neverStarted = await launch({ PRODUCT_E2E_DAEMON_FAIL_FILE: failFile });
   try {
     const page = await neverStarted.firstWindow();
-    await page.getByRole('alert').getByText(/robota trust/).waitFor({ timeout: 20_000 });
+    await page.getByRole('alert').getByText(new RegExp(`${productFixture.identity.identity.cliName} trust`)).waitFor({ timeout: 20_000 });
     const tryAgain = page.getByRole('alert').getByRole('button', { name: 'Try again' });
     await tryAgain.waitFor();
     rmSync(failFile, { force: true });
@@ -272,7 +335,7 @@ try {
   } catch (err) {
     check(`fatal try-again check threw: ${err?.message ?? err}`, false);
   } finally {
-    await neverStarted.close();
+    await closeApplication(neverStarted);
     rmSync(failFile, { force: true });
   }
 } finally {

@@ -21,5 +21,5 @@ Two of one user's devices can connect to each other over WebRTC, admitted by the
   pairwise secret (`derivePairRendezvous(...).relayInbox()`).
 - `agent-cli` — a device holding the signing key reissues its roster and revocation list before they
   expire while an interactive session runs. The host can open this device's mesh endpoint from the
-  identity under `~/.robota/devices`, saving newer lists a peer hands over; no command starts it yet.
+  identity under `the configured user data directory`, saving newer lists a peer hands over; no command starts it yet.
 - `agent-command` — `/devices add|join` still reports that enrolment is not available yet.

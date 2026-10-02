@@ -72,13 +72,13 @@ function record(): IInteractiveSessionRecord {
 
 describe('content-free OTLP completion events', () => {
   it('exports only verified root and child completions with actual end and export observation times', () => {
-    const result = createOtlpPromptEvents([record()], 'test-version', NOW);
+    const result = createOtlpPromptEvents([record()], 'test-version', NOW, 'agent');
     const logRecords = result.payload.resourceLogs[0]?.scopeLogs[0]?.logRecords ?? [];
     expect(result.exported).toBe(3);
     expect(logRecords.map((log) => log.eventName)).toEqual([
-      'robota.prompt_execution.completed',
-      'robota.provider_call.completed',
-      'robota.tool_body.completed',
+      'agent.prompt_execution.completed',
+      'agent.provider_call.completed',
+      'agent.tool_body.completed',
     ]);
     expect(logRecords.map((log) => log.severityNumber)).toEqual([9, 17, 13]);
     expect(logRecords[0]).toMatchObject({
@@ -86,9 +86,9 @@ describe('content-free OTLP completion events', () => {
       spanId: ROOT_ID,
       timeUnixNano: '1790208060000000000',
       observedTimeUnixNano: '1790208300000000000',
-      attributes: [{ key: 'robota.prompt.outcome', value: { stringValue: 'success' } }],
+      attributes: [{ key: 'agent.prompt.outcome', value: { stringValue: 'success' } }],
     });
-    expect(logRecords[1]?.attributes).toEqual([{ key: 'robota.provider.outcome', value: { stringValue: 'failure' } }]);
+    expect(logRecords[1]?.attributes).toEqual([{ key: 'agent.provider.outcome', value: { stringValue: 'failure' } }]);
     expect(JSON.stringify(result.payload)).not.toMatch(
       /secret|private|turn-private|response|toolResult|prompt:/,
     );
@@ -98,7 +98,7 @@ describe('content-free OTLP completion events', () => {
     const session = record();
     const root = session.history![0]!.data as Record<string, unknown>;
     delete root['promptExecutionSpanId'];
-    expect(createOtlpPromptEvents([session], 'test-version', NOW).exported).toBe(0);
+    expect(createOtlpPromptEvents([session], 'test-version', NOW, 'agent').exported).toBe(0);
 
     root['promptExecutionSpanId'] = ROOT_ID;
     session.history!.push({
@@ -106,17 +106,17 @@ describe('content-free OTLP completion events', () => {
       id: 'duplicate-tool',
       data: { ...(session.history![2]!.data as object), endedAt: 'bad' },
     });
-    const result = createOtlpPromptEvents([session], 'test-version', NOW);
+    const result = createOtlpPromptEvents([session], 'test-version', NOW, 'agent');
     expect(result.exported).toBe(2);
     expect(result.coverage.toolChildren.duplicate).toBe(2);
   });
 
   it('rejects an invalid or unsigned-fixed64-overflow export observation time', () => {
-    expect(() => createOtlpPromptEvents([record()], 'test-version', new Date('bad'))).toThrow(
+    expect(() => createOtlpPromptEvents([record()], 'test-version', new Date('bad'), 'agent')).toThrow(
       /observation time/,
     );
     expect(() =>
-      createOtlpPromptEvents([record()], 'test-version', new Date('9999-01-01T00:00:00.000Z')),
+      createOtlpPromptEvents([record()], 'test-version', new Date('9999-01-01T00:00:00.000Z'), 'agent'),
     ).toThrow(/out of range/);
   });
 });

@@ -2,7 +2,7 @@
 
 OpenAI-compatible providers for the Robota SDK: `DeepSeekProvider`, `QwenProvider` and
 `GemmaProvider`. Each one speaks the OpenAI-compatible protocol through the `openai` SDK and
-implements the `@robota-sdk/agent-core` provider contract, so it can be passed to a `Robota` agent
+implements the `@robota-sdk/agent-core` provider contract, so it can be passed to a `ConversationAgent` agent
 like any other provider. The package also ships the shared OpenAI-compatible protocol code
 (message and tool conversion, request building, response parsing, stream assembly) under its
 `./shared` entry; these providers and `@robota-sdk/agent-provider-openai` are built on it.
@@ -16,12 +16,12 @@ npm install @robota-sdk/agent-provider-openai-compatible @robota-sdk/agent-core
 ## Usage
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
 
 const provider = new DeepSeekProvider({ apiKey: process.env.DEEPSEEK_API_KEY });
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'MyAgent',
   aiProviders: [provider],
   defaultModel: { provider: 'deepseek', model: 'deepseek-v4-flash' },
@@ -99,7 +99,7 @@ Streaming calls map failures the same way. An aborted call rethrows the abort un
 
 ## Related packages
 
-- [`@robota-sdk/agent-core`](../agent-core/README.md): the `Robota` agent and the provider contract.
+- [`@robota-sdk/agent-core`](../agent-core/README.md): the `ConversationAgent` agent and the provider contract.
 - [`@robota-sdk/agent-provider-openai`](../agent-provider-openai/README.md): the OpenAI provider,
   which also reaches OpenAI-compatible gateways through `baseURL`.
 - [`@robota-sdk/agent-builtin-providers`](../agent-builtin-providers/README.md): the default provider
@@ -109,4 +109,4 @@ See [docs/SPEC.md](docs/SPEC.md) for the package contract.
 
 ## License
 
-Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

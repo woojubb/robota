@@ -24,7 +24,7 @@ interface IOtlpSpan {
   readonly traceId: string;
   readonly spanId: string;
   readonly parentSpanId?: string;
-  readonly name: 'robota.prompt_execution' | 'robota.provider_call' | 'robota.tool_body';
+  readonly name: 'agent.prompt_execution' | 'agent.provider_call' | 'agent.tool_body';
   readonly kind: 1;
   readonly startTimeUnixNano: string;
   readonly endTimeUnixNano: string;
@@ -130,11 +130,11 @@ function rootSpan(data: Record<string, unknown>): IOtlpSpan | undefined {
   return {
     traceId,
     spanId,
-    name: 'robota.prompt_execution',
+    name: 'agent.prompt_execution',
     kind: 1,
     startTimeUnixNano: String(started),
     endTimeUnixNano: String(ended),
-    attributes: [{ key: 'robota.prompt.outcome', value: { stringValue: outcome } }],
+    attributes: [{ key: 'agent.prompt.outcome', value: { stringValue: outcome } }],
     status: { code: outcome === 'success' ? 1 : outcome === 'failure' ? 2 : 0 },
   };
 }
@@ -166,13 +166,13 @@ function childSpan(data: unknown, kind: 'provider' | 'tool'): IOtlpSpan | undefi
     traceId,
     parentSpanId,
     spanId,
-    name: kind === 'provider' ? 'robota.provider_call' : 'robota.tool_body',
+    name: kind === 'provider' ? 'agent.provider_call' : 'agent.tool_body',
     kind: 1,
     startTimeUnixNano: String(started),
     endTimeUnixNano: String(ended),
     attributes: [
       {
-        key: kind === 'provider' ? 'robota.provider.outcome' : 'robota.tool.outcome',
+        key: kind === 'provider' ? 'agent.provider.outcome' : 'agent.tool.outcome',
         value: { stringValue: outcome },
       },
     ],
@@ -238,8 +238,8 @@ function enrichProviderSpan(
   metrics.outputTokens += output;
   const attrs: IOtlpSpan['attributes'][number][] = [
     ...span.attributes,
-    { key: 'robota.provider.usage.input_tokens', value: { intValue: String(input) } },
-    { key: 'robota.provider.usage.output_tokens', value: { intValue: String(output) } },
+    { key: 'agent.provider.usage.input_tokens', value: { intValue: String(input) } },
+    { key: 'agent.provider.usage.output_tokens', value: { intValue: String(output) } },
   ];
   const model = data['modelId'];
   const estimated = typeof model === 'string' && model.length > 0 && model.length <= 128 &&
@@ -251,7 +251,7 @@ function enrichProviderSpan(
     metrics.estimatedCostUsd += estimated;
     if (typeof model === 'string' && Object.hasOwn(MODEL_PRICES, model)) metrics.exactPriceMatches += 1;
     else metrics.familyPriceMatches += 1;
-    attrs.push({ key: 'robota.provider.cost.usd.estimated', value: { doubleValue: estimated } });
+    attrs.push({ key: 'agent.provider.cost.usd.estimated', value: { doubleValue: estimated } });
   }
   return { ...span, attributes: attrs };
 }
@@ -260,6 +260,7 @@ function enrichProviderSpan(
 export function createOtlpPromptRootTraces(
   records: readonly IInteractiveSessionRecord[],
   version: string,
+  serviceName: string,
 ): { readonly payload: IOtlpPromptRootTraces; readonly coverage: IPromptRootTraceCoverage; readonly callMetrics: IAcceptedProviderCallMetrics } {
   const candidates: ICandidate[] = [];
   const observationCounts = new Map<string, number>();
@@ -392,7 +393,7 @@ export function createOtlpPromptRootTraces(
             {
               resource: {
                 attributes: [
-                  { key: 'service.name', value: { stringValue: 'robota' } },
+                  { key: 'service.name', value: { stringValue: serviceName } },
                   { key: 'service.version', value: { stringValue: version } },
                 ],
               },

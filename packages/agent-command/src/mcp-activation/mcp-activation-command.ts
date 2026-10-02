@@ -15,6 +15,7 @@ import type {
   ICommandMCPOAuthStatus,
   ICommandMCPSourceProblem,
 } from '@robota-sdk/agent-framework';
+import type { ICommandProductVocabulary } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 function adapter(context: ICommandHostAdapterAccess): ICommandMCPActivationAdapter | undefined {
@@ -66,9 +67,13 @@ function serverArgument(serverId: string): string {
 }
 
 /** How to sign in to one server: in this session, or from a terminal. */
-function signInHint(serverId: string): string {
+function signInHint(serverId: string, cliName?: string): string {
   const argument = serverArgument(serverId);
-  const how = `run /mcp login ${argument}, or robota mcp login ${argument} in a terminal`;
+  const terminal =
+    cliName === undefined
+      ? 'sign in from a terminal'
+      : `run ${cliName} mcp login ${argument} in a terminal`;
+  const how = `run /mcp login ${argument}, or ${terminal}`;
   return shellArgumentForDisplay(serverId) === undefined
     ? ` (${how}; its name cannot be shown safely here)`
     : ` (${how})`;
@@ -77,13 +82,14 @@ function signInHint(serverId: string): string {
 function formatSummary(
   summary: ICommandMCPActivationSummary,
   oauth: ICommandMCPOAuthStatus['state'] | undefined,
+  cliName?: string,
 ): string {
   const label = summary.displayName ? ` (${summary.displayName})` : '';
   // A fixed word per state: nothing token-derived ever reaches this line.
   const signIn =
     oauth === undefined
       ? ''
-      : ` — OAuth: ${OAUTH_STATE_LABEL[oauth]}${oauth === 'sign-in-required' || oauth === 'signed-out' ? signInHint(summary.serverId) : ''}`;
+      : ` — OAuth: ${OAUTH_STATE_LABEL[oauth]}${oauth === 'sign-in-required' || oauth === 'signed-out' ? signInHint(summary.serverId, cliName) : ''}`;
   return `  ${summary.serverId}${label} — ${summary.status} — ${summary.source} — ${summary.reason}${signIn}`;
 }
 
@@ -108,7 +114,10 @@ async function oauthStates(
   return new Map(states.map((status) => [status.serverId, status.state]));
 }
 
-async function listResult(mcp: ICommandMCPActivationAdapter | undefined): Promise<ICommandResult> {
+async function listResult(
+  mcp: ICommandMCPActivationAdapter | undefined,
+  cliName?: string,
+): Promise<ICommandResult> {
   if (!mcp) {
     return {
       message: 'MCP activation management is not available in this environment.',
@@ -139,7 +148,7 @@ async function listResult(mcp: ICommandMCPActivationAdapter | undefined): Promis
   return {
     message: [
       `MCP activation status:\n${entries
-        .map((entry) => formatSummary(entry, oauth.get(entry.serverId)))
+        .map((entry) => formatSummary(entry, oauth.get(entry.serverId), cliName))
         .join('\n')}`,
       ...sourceProblemLines,
     ].join('\n\n'),
@@ -171,7 +180,10 @@ async function listResult(mcp: ICommandMCPActivationAdapter | undefined): Promis
 export type TMCPActivationCommandContext = ICommandHostAdapterAccess &
   Pick<ICommandHostSessionAccess, 'getSession'> &
   ICommandHostUserInteraction &
-  Partial<Pick<ICommandHostWorkspace, 'getCommandInvocationSource'>>;
+  Partial<Pick<ICommandHostWorkspace, 'getCommandInvocationSource'>> & {
+    getCommandSurfaceLocalityEvidence?(): 'local' | 'remote' | undefined;
+    getCommandProductVocabulary?(): ICommandProductVocabulary | undefined;
+  };
 
 export async function executeMCPActivationCommand(
   context: TMCPActivationCommandContext,
@@ -179,15 +191,18 @@ export async function executeMCPActivationCommand(
 ): Promise<ICommandResult> {
   const trimmed = args.trim();
   const spaceAt = trimmed.indexOf(' ');
+  const cliName = context.getCommandProductVocabulary?.()?.cliName;
   const verb = (spaceAt === -1 ? trimmed : trimmed.slice(0, spaceAt)).toLowerCase();
   const serverId = spaceAt === -1 ? '' : trimmed.slice(spaceAt + 1).trim();
+
+  if (verb.startsWith('skill-')) return skillResult(context, verb, serverId);
 
   if (verb === '' || verb === 'status' || verb === 'list') {
     // The full view only for a caller known to be a person; an unknown caller gets the model's view.
     const source = context.getCommandInvocationSource?.();
     return source === 'user' || source === 'remote'
-      ? listResult(adapter(context))
-      : mcpModelStatusResult(adapter(context));
+      ? listResult(adapter(context), cliName)
+      : mcpModelStatusResult(adapter(context), cliName);
   }
   if (verb === 'login') return loginResult(context, serverId);
   if (verb === 'reload') return reloadResult(context);
@@ -249,6 +264,115 @@ export async function executeMCPActivationCommand(
     return {
       message: error instanceof Error ? error.message : String(error),
       success: false,
+    };
+  }
+}
+
+/** JSON arrays preserve opaque identities; ordinary whitespace-separated arguments remain convenient. */
+function skillArguments(args: string): string[] | undefined {
+  if (!args.startsWith('[')) return args.split(/\s+/).filter(Boolean);
+  try {
+    const parsed: unknown = JSON.parse(args);
+    return Array.isArray(parsed) && parsed.every((value) => typeof value === 'string')
+      ? parsed
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function skillResult(
+  context: TMCPActivationCommandContext,
+  verb: string,
+  rest: string,
+): Promise<ICommandResult> {
+  const source = context.getCommandInvocationSource?.();
+  const localUser =
+    source === 'user' ||
+    (source === 'remote' && context.getCommandSurfaceLocalityEvidence?.() === 'local');
+  if (verb !== 'skill-list' && !localUser)
+    return {
+      success: false,
+      message: 'Only a known local user can inspect, approve or withdraw MCP skill instructions.',
+    };
+  const words = skillArguments(rest);
+  const count = verb === 'skill-list' ? 1 : verb === 'skill-approve' ? 3 : 2;
+  if (
+    !['skill-list', 'skill-inspect', 'skill-approve', 'skill-withdraw'].includes(verb) ||
+    !words ||
+    words.length !== count ||
+    words.some((word) => word.length === 0)
+  )
+    return {
+      success: false,
+      message:
+        'Usage: /mcp skill-list <server> | skill-inspect <server> <uri> | skill-approve <server> <uri> <fingerprint> | skill-withdraw <server> <uri>. JSON string arrays also accept opaque arguments.',
+    };
+  const skills = adapter(context)?.skills;
+  if (!skills)
+    return { success: false, message: 'MCP Skills are not available in this environment.' };
+  const serverId = words[0]!;
+  const uri = words[1]!;
+  try {
+    if (verb === 'skill-list') {
+      const entries = await skills.list(serverId);
+      return {
+        success: true,
+        message:
+          entries.length === 0
+            ? 'No MCP skills are advertised.'
+            : entries
+                .map(
+                  (entry) =>
+                    `${entry.name} — ${entry.uri}\n${entry.description}` +
+                    (entry.invocationName ? `\nInvoke skill: ${entry.invocationName}` : '') +
+                    (entry.unavailableReason ? `\nUnavailable: ${entry.unavailableReason}` : ''),
+                )
+                .join('\n\n'),
+        data: {
+          skills: entries.map((entry) => ({
+            serverId: entry.serverId,
+            uri: entry.uri,
+            name: entry.name,
+            description: entry.description,
+            ...(entry.invocationName ? { invocationName: entry.invocationName } : {}),
+            ...(entry.unavailableReason ? { unavailableReason: entry.unavailableReason } : {}),
+          })),
+        },
+      };
+    }
+    if (verb === 'skill-withdraw') {
+      skills.withdraw(serverId, uri, 'user');
+      return { success: true, message: 'MCP skill content consent withdrawn.' };
+    }
+    const preview =
+      verb === 'skill-approve'
+        ? await skills.approve(serverId, uri, words[2]!, 'user')
+        : await skills.inspect(serverId, uri);
+    const args = [serverId, uri, preview.fingerprint];
+    const approveArgs = args.every((arg) => /^[\w:./%-]+$/.test(arg))
+      ? args.join(' ')
+      : JSON.stringify(args);
+    return {
+      success: true,
+      message:
+        verb === 'skill-approve'
+          ? 'MCP skill content consent saved; activation remains a separate action.'
+          : `${preview.content}\n\nFrontmatter: ${JSON.stringify(preview.frontmatter)}\n\nApprove exactly this content: /mcp skill-approve ${approveArgs}`,
+      data: {
+        serverId: preview.serverId,
+        uri: preview.uri,
+        namespace: preview.namespace,
+        fingerprint: preview.fingerprint,
+        frontmatter: preview.frontmatter,
+        ...(verb === 'skill-inspect' ? { content: preview.content } : {}),
+      },
+    };
+  } catch {
+    return {
+      success: false,
+      message:
+        'MCP skill request refused. Check /mcp status; run /mcp skill-inspect <server> <uri> before granting content consent.',
     };
   }
 }
@@ -389,7 +513,7 @@ function redirectReader(
 }
 
 /** Why a sign-in did not complete, and what to run instead, by fixed words only. */
-function loginFailureText(result: ICommandMCPOAuthLoginResult): string {
+function loginFailureText(result: ICommandMCPOAuthLoginResult, cliName?: string): string {
   const { serverId, failure } = result;
   const argument = serverArgument(serverId);
   switch (failure) {
@@ -400,9 +524,12 @@ function loginFailureText(result: ICommandMCPOAuthLoginResult): string {
     case 'sign-in-in-progress':
       return `A sign-in to MCP server ${serverId} is already in progress.`;
     case 'prompt-unavailable':
+      if (cliName === undefined) {
+        return 'Signing in without a browser needs a redirect URL pasted in a terminal, but no product command name is available in this session.';
+      }
       return (
         'Signing in without a browser needs the redirect URL pasted here, and nothing here can ask ' +
-        `for it; run robota mcp login ${argument} --no-browser in a terminal.`
+        `for it; run ${cliName} mcp login ${argument} --no-browser in a terminal.`
       );
     case 'browser-failed':
       return (
@@ -412,7 +539,9 @@ function loginFailureText(result: ICommandMCPOAuthLoginResult): string {
     default: {
       const secret =
         failure === 'token-exchange-failed' && result.preRegisteredClient
-          ? ` If its pre-registered client needs a secret, run robota mcp login ${argument} --client-secret in a terminal.`
+          ? cliName === undefined
+            ? ' If its pre-registered client needs a secret, sign in from a terminal configured for this product.'
+            : ` If its pre-registered client needs a secret, run ${cliName} mcp login ${argument} --client-secret in a terminal.`
           : '';
       return `Sign-in to MCP server ${serverId} failed (${failure ?? 'unexpected-error'}); nothing was changed.${secret}`;
     }
@@ -443,6 +572,7 @@ async function loginResult(
   context: TMCPActivationCommandContext,
   rest: string,
 ): Promise<ICommandResult> {
+  const cliName = context.getCommandProductVocabulary?.()?.cliName;
   const words = rest.split(/\s+/).filter((word) => word !== '');
   const noBrowser = words.includes('--no-browser');
   const withSecret = words.includes('--client-secret');
@@ -456,8 +586,9 @@ async function loginResult(
     // A secret typed here would become part of the conversation; it is asked for only in a terminal.
     return {
       message:
-        'A client secret is never typed into a session. Run robota mcp login ' +
-        `${argument} --client-secret in a terminal.`,
+        cliName === undefined
+          ? 'A client secret is never typed into a session. Sign in from a terminal configured for this product.'
+          : `A client secret is never typed into a session. Run ${cliName} mcp login ${argument} --client-secret in a terminal.`,
       success: false,
     };
   }
@@ -470,7 +601,10 @@ async function loginResult(
   }
   if (mcp.oauthLogin === undefined) {
     return {
-      message: `Signing in is not available in this session; run robota mcp login ${argument} in a terminal.`,
+      message:
+        cliName === undefined
+          ? 'Signing in is not available in this session; sign in from a terminal configured for this product.'
+          : `Signing in is not available in this session; run ${cliName} mcp login ${argument} in a terminal.`,
       success: false,
     };
   }
@@ -503,7 +637,7 @@ async function loginResult(
   });
   if (result.failure !== undefined) {
     return {
-      message: loginFailureText(result),
+      message: loginFailureText(result, cliName),
       success: false,
       data: { serverId, failure: result.failure },
     };

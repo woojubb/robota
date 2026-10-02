@@ -193,7 +193,7 @@ describe('sensitive memory candidates', () => {
     ['plain fact', 'this project uses pnpm for package scripts'],
     ['git commit sha', 'the fix landed in 63b515f017804de9408d52d54f58ffe5152916a1'],
     ['uuid', 'session 3f2b8c1e-9d4a-4b7e-8c21-5a6f0e9d1b2c was resumed'],
-    ['url', 'see https://github.com/woojubb/robota/pull/2972 for context'],
+    ['url', 'see https://github.com/woojubb/agent/pull/2972 for context'],
     ['camelCase identifier', 'call resolveActiveProviderModelCatalogState first'],
     ['source path with digits', 'edit packages/agent-provider-anthropic/src/v2/ClaudeAdapter.ts'],
     [
@@ -210,8 +210,8 @@ describe('sensitive memory candidates', () => {
 
   describe('pending store on disk', () => {
     async function storeWithLegacySkipped(): Promise<{ cwd: string; store: PendingMemoryStore }> {
-      const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-pending-memory-')));
-      mkdirSync(join(cwd, '.robota', 'memory'), { recursive: true });
+      const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-pending-memory-')));
+      mkdirSync(join(cwd, '.agent', 'memory'), { recursive: true });
       const legacy: IMemoryPendingRecord = {
         ...candidate('the deploy password is hunter2', 'mem_secret'),
         status: 'skipped',
@@ -219,7 +219,7 @@ describe('sensitive memory candidates', () => {
         decisionReason: 'sensitive-content',
       };
       writeFileSync(
-        join(cwd, '.robota', 'memory', 'pending.json'),
+        join(cwd, '.agent', 'memory', 'pending.json'),
         JSON.stringify({ version: 1, records: [legacy] }),
       );
       const storage = await createTrustedProjectStateFixture(cwd, 'memory');
@@ -241,7 +241,7 @@ describe('sensitive memory candidates', () => {
 
         store.upsert(candidate('the api_key is abc', 'mem_new'), 'skipped', 'sensitive-content');
 
-        const onDisk = readFileSync(join(cwd, '.robota', 'memory', 'pending.json'), 'utf8');
+        const onDisk = readFileSync(join(cwd, '.agent', 'memory', 'pending.json'), 'utf8');
         expect(onDisk).not.toContain('hunter2');
         expect(onDisk).not.toContain('api_key');
       },

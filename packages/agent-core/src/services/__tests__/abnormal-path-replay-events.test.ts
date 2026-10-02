@@ -22,7 +22,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { Robota } from '../../core/robota';
+import { ConversationAgent } from '../../core/conversation-agent';
 import { createScriptedProvider } from '../../testing/scripted-provider';
 import { AbstractTool } from '../../abstracts/abstract-tool';
 
@@ -54,13 +54,13 @@ function build(
   turns: readonly TScriptedTurn[],
   overrides: Partial<IAgentConfig> = {},
 ): {
-  agent: Robota;
+  agent: ConversationAgent;
   events: ICapturedEvent[];
   scripted: ReturnType<typeof createScriptedProvider>;
 } {
   const scripted = createScriptedProvider(turns);
   const events: ICapturedEvent[] = [];
-  const agent = new Robota({
+  const agent = new ConversationAgent({
     name: 'core-033',
     aiProviders: [scripted.provider],
     defaultModel: { provider: 'scripted-test-provider', model: 'test-model' },
@@ -164,7 +164,7 @@ describe('CORE-033 — diagnostic appends announce themselves', () => {
       },
     };
     const events: ICapturedEvent[] = [];
-    const agent = new Robota({
+    const agent = new ConversationAgent({
       name: 'core-033-failure',
       aiProviders: [failing],
       defaultModel: { provider: 'scripted-test-provider', model: 'test-model' },
@@ -192,7 +192,7 @@ describe('CORE-033 — diagnostic appends announce themselves', () => {
     // not fit. 780k chars is ~195k tokens, past 95% of the 200k default window.
     const scripted = createScriptedProvider([{ text: 'never reached' }]);
     const events: ICapturedEvent[] = [];
-    const agent = new Robota({
+    const agent = new ConversationAgent({
       name: 'core-033-capacity',
       aiProviders: [scripted.provider],
       defaultModel: { provider: 'scripted-test-provider', model: 'test-model' },

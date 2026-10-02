@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../../__tests__/helpers/product-runtime.js';
 import { createUserSessionStore } from '@robota-sdk/agent-framework';
 
 import { runServeMode, type IServeModeOptions } from '../../../modes/serve-mode.js';
@@ -8,10 +9,13 @@ import type { IAIProvider } from '@robota-sdk/agent-core';
 
 const id = process.argv[process.argv.indexOf('--supervised-session-id') + 1];
 const nameArg = process.argv.find((arg) => arg.startsWith('--name='));
-const supervisedRoot = process.env['ROBOTA_TEST_SUPERVISED_ROOT'];
-// Given, the runtime saves its sessions there and offers them, as `robota daemon start` does.
-const sessionsDirectory = process.env['ROBOTA_TEST_SESSIONS_DIR'];
+const supervisedRoot = process.env['PRODUCT_TEST_SUPERVISED_ROOT'];
+// Given, the runtime saves its sessions there and offers them, as `test-product daemon start` does.
+const sessionsDirectory = process.env['PRODUCT_TEST_SESSIONS_DIR'];
 if (!id || !supervisedRoot) throw new Error('supervised test fixture requires an id and private root');
+if (process.env['PRODUCT_TEST_LATE_STDERR'] === '1' && process.platform !== 'win32') {
+  process.on('SIGUSR2', () => { process.stderr.write('late fixture stderr\n'); });
+}
 
 const provider: IAIProvider = {
   name: 'supervised-test',
@@ -24,6 +28,7 @@ const provider: IAIProvider = {
 
 const never = new Promise<never>(() => undefined);
 const options = {
+  productRuntime: createTestProductRuntime('test-product', { PRODUCT_USER_STATE_DIR: supervisedRoot }),
   cwd: process.cwd(),
   supervisedRoot,
   args: parseCliArgs([
@@ -34,8 +39,8 @@ const options = {
       ? ['--supervised-external-event-grants'] : []),
     ...process.argv.filter((arg) => arg.startsWith('--external-event-')),
     ...(process.argv.includes('--daemon') ? ['--daemon'] : []),
-    ...(process.env['ROBOTA_TEST_PERMISSION_MODE'] === undefined
-      ? [] : ['--permission-mode', process.env['ROBOTA_TEST_PERMISSION_MODE']]),
+    ...(process.env['PRODUCT_TEST_PERMISSION_MODE'] === undefined
+      ? [] : ['--permission-mode', process.env['PRODUCT_TEST_PERMISSION_MODE']]),
   ]),
   provider,
   sessionStore: sessionsDirectory === undefined ? {} : createUserSessionStore(sessionsDirectory),
@@ -53,9 +58,9 @@ const options = {
   },
   preset: {},
   // Stands in for the bound transport: the URL carries the token the launcher put in the environment.
-  // `ROBOTA_TEST_NO_WS_URL` stands in for a disabled ws transport.
-  getMonitorWsUrl: () => process.env['ROBOTA_TEST_NO_WS_URL'] === undefined
-    ? `ws://127.0.0.1:9?token=${process.env['ROBOTA_WS_TOKEN'] ?? ''}`
+  // `PRODUCT_TEST_NO_WS_URL` stands in for a disabled ws transport.
+  getMonitorWsUrl: () => process.env['PRODUCT_TEST_NO_WS_URL'] === undefined
+    ? `ws://127.0.0.1:9?token=${process.env['PRODUCT_WS_TOKEN'] ?? ''}`
     : undefined,
 } as unknown as IServeModeOptions;
 

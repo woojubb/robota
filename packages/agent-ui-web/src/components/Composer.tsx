@@ -1,3 +1,4 @@
+import { useProductIdentity } from '../product-identity.js';
 import { ArrowUp, Paperclip, Square, Target, X } from 'lucide-react';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
@@ -56,8 +57,8 @@ function menuGroupLabel(item: ICommandMenuItem): 'Commands' | 'Skills' {
 /**
  * #3280 §4: the unsent draft survives a Chat → Usage → Chat switch (the composer unmounts), a page
  * reload, and a desktop relaunch — `localStorage`, not `sessionStorage`, since only `localStorage`
- * survives a closed window/tab being reopened. Namespaced (`robota.draft.`, matching
- * `robota.restoreSessionId` in `use-session-directory.ts`) so a page hosting other state under the
+ * survives a closed window/tab being reopened. Namespaced (the configured draft prefix, matching
+ * the configured restore key in `use-session-directory.ts`) so a page hosting other state under the
  * same origin does not collide. Per session id when one is known; a single fallback key before the
  * first status arrives (the gap is brief and is reconciled once it does — see the effect below).
  *
@@ -65,11 +66,9 @@ function menuGroupLabel(item: ICommandMenuItem): 'Commands' | 'Skills' {
  * `parseStoredDraft` treats anything that does not parse as that shape (including a draft saved
  * before this change shipped) as plain text with no attachments, so an old stored draft still loads.
  */
-const DRAFT_STORAGE_PREFIX = 'robota.draft.';
-const DRAFT_STORAGE_FALLBACK_KEY = 'robota.draft';
 
-function draftStorageKey(sessionId: string | undefined): string {
-  return sessionId ? `${DRAFT_STORAGE_PREFIX}${sessionId}` : DRAFT_STORAGE_FALLBACK_KEY;
+function draftStorageKey(namespace: string, sessionId: string | undefined): string {
+  return sessionId ? `${namespace}.draft.${sessionId}` : `${namespace}.draft`;
 }
 
 /**
@@ -107,18 +106,18 @@ function parseStoredDraft(raw: string | null): IStoredDraft {
 }
 
 /** Best-effort: a private window, cleared site data, or a full quota still leaves typing working. */
-function readDraft(sessionId: string | undefined): IStoredDraft {
+function readDraft(namespace: string, sessionId: string | undefined): IStoredDraft {
   try {
-    return parseStoredDraft(window.localStorage.getItem(draftStorageKey(sessionId)));
+    return parseStoredDraft(window.localStorage.getItem(draftStorageKey(namespace, sessionId)));
   } catch {
     // allow-fallback: storage unavailable — the draft still lives in component state this session.
     return EMPTY_DRAFT;
   }
 }
 
-function writeDraft(sessionId: string | undefined, value: IStoredDraft): void {
+function writeDraft(namespace: string, sessionId: string | undefined, value: IStoredDraft): void {
   try {
-    const key = draftStorageKey(sessionId);
+    const key = draftStorageKey(namespace, sessionId);
     if (!value.text && value.attachments.length === 0) window.localStorage.removeItem(key);
     else window.localStorage.setItem(key, JSON.stringify(value));
   } catch {
@@ -196,6 +195,7 @@ export const Composer = forwardRef<
   },
   ref,
 ): React.ReactElement {
+  const { identity, storage: { browserNamespace } } = useProductIdentity();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   useImperativeHandle(ref, () => ({ focus: () => textareaRef.current?.focus() }), []);
   const sessionId = status?.sessionId;
@@ -211,7 +211,7 @@ export const Composer = forwardRef<
   // state below by `setDraft`/`setAttachments`, the only two places that mutate it.
   const stateRef = useRef<IStoredDraft>(EMPTY_DRAFT);
   const [draft, setDraftState] = useState(() => {
-    const initial = readDraft(sessionId);
+    const initial = readDraft(browserNamespace, sessionId);
     stateRef.current = initial;
     return initial.text;
   });
@@ -237,7 +237,7 @@ export const Composer = forwardRef<
   const setDraft = (value: string): void => {
     stateRef.current = { ...stateRef.current, text: value };
     setDraftState(value);
-    writeDraft(sessionIdRef.current, stateRef.current);
+    writeDraft(browserNamespace, sessionIdRef.current, stateRef.current);
   };
   /** #3282 §4d: attachment chips persist alongside the text, under the same per-session draft key. */
   const setAttachments = (
@@ -246,7 +246,7 @@ export const Composer = forwardRef<
     const next = typeof updater === 'function' ? updater(stateRef.current.attachments) : updater;
     stateRef.current = { ...stateRef.current, attachments: next };
     setAttachmentsState(next);
-    writeDraft(sessionIdRef.current, stateRef.current);
+    writeDraft(browserNamespace, sessionIdRef.current, stateRef.current);
   };
   // #3280 §4: a session switch shows THAT session's own saved draft, never what was typed for
   // another one. The session id becoming known for the very FIRST time (the fallback key was in use
@@ -262,19 +262,19 @@ export const Composer = forwardRef<
     const previous = sessionIdRef.current;
     sessionIdRef.current = sessionId;
     if (sessionId !== undefined) hasKnownSessionRef.current = true;
-    const stored = readDraft(sessionId);
+    const stored = readDraft(browserNamespace, sessionId);
     const hasStored = stored.text !== '' || stored.attachments.length > 0;
     const hasCarryOver = stateRef.current.text !== '' || stateRef.current.attachments.length > 0;
     if (firstArrival && !hasStored && hasCarryOver) {
-      writeDraft(sessionId, stateRef.current);
-      writeDraft(previous, EMPTY_DRAFT);
+      writeDraft(browserNamespace, sessionId, stateRef.current);
+      writeDraft(browserNamespace, previous, EMPTY_DRAFT);
       return;
     }
     stateRef.current = stored;
     setDraftState(stored.text);
     setAttachmentsState(stored.attachments);
     setAttachmentNotice(null); // a notice belongs to the attempt just made in the session left behind
-  }, [sessionId]);
+  }, [browserNamespace, sessionId]);
 
   const submit = (): void => {
     if (!connected) return;
@@ -591,7 +591,7 @@ export const Composer = forwardRef<
               submit();
             }
           }}
-          placeholder="Ask robota anything — type / for commands"
+          placeholder={`Ask ${identity.displayName} anything — type / for commands`}
           className="block max-h-[220px] min-h-[48px] w-full resize-none bg-transparent px-2 py-1 text-[15px] leading-relaxed text-foreground [field-sizing:content] focus:outline-none"
         />
         <div className="mt-1 flex items-center gap-1">

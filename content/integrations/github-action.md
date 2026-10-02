@@ -1,7 +1,7 @@
 # Running Robota in GitHub Actions
 
-To use Robota in a GitHub Actions workflow today, install the reference CLI in a step and run it in
-print mode (`robota -p`): it answers one prompt, writes the answer to stdout, and exits. The repository
+To use Robota in a GitHub Actions workflow today, install the CLI in a step and run it in
+print mode (`__PRODUCT_CLI_NAME__ -p`): it answers one prompt, writes the answer to stdout, and exits. The repository
 also contains a packaged GitHub Action, but it is not released yet — see
 [The Robota GitHub Action](#the-robota-github-action-not-released) below.
 
@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install the Robota CLI
+      - name: Install the ConversationAgent CLI
         run: npm install -g @robota-sdk/agent-cli
 
       - name: Review the pull request
@@ -39,7 +39,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           BASE_REF: ${{ github.base_ref }}
         run: |
-          robota --safe-mode -p "Review the changes between origin/$BASE_REF and HEAD (use git diff). List correctness problems and missing tests." > review.md
+          __PRODUCT_CLI_NAME__ --safe-mode -p "Review the changes between origin/$BASE_REF and HEAD (use git diff). List correctness problems and missing tests." > review.md
 
       - name: Post the review
         env:
@@ -56,7 +56,7 @@ What the steps rely on:
 - **Workspace trust.** Print mode refuses to start in a Git repository that is not trusted, and a fresh
   checkout is not. `--safe-mode` starts with every customization off — instruction files, skills,
   commands, plugins, hooks and MCP servers — and runs Restricted, so it needs no trust. To load the
-  repository's `AGENTS.md`, settings, skills and hooks instead, run `robota trust --yes` before the
+  repository's `AGENTS.md`, settings, skills and hooks instead, run `__PRODUCT_CLI_NAME__ trust --yes` before the
   prompt; do that only for code you trust, because it runs the repository's hooks.
 - **Permissions.** Print mode uses the `default` permission mode: reads, searches and read-only commands
   such as `git diff` run, and anything that would ask for approval (an edit, another shell command) is
@@ -94,7 +94,7 @@ tag or `uses:` reference is published for it, so until it is, use the CLI as sho
 It is a composite action for Linux and macOS runners. It sets up Node.js 22.12 or later with
 `actions/setup-node` (so later steps in the job see that Node.js too), installs
 `@robota-sdk/agent-cli` with npm in the runner's temp directory, and runs it in the checkout as
-`robota --safe-mode --output-format <output> -p` with the task on stdin, adding `--model` and
+`__PRODUCT_CLI_NAME__ --safe-mode --output-format <output> -p` with the task on stdin, adding `--model` and
 `--max-turns` when they are set, with `api-key` passed to the CLI as `ANTHROPIC_API_KEY`. It sets the
 `result` output to what the CLI printed, and fails the step if the CLI exits with an error.
 
@@ -107,7 +107,7 @@ What the checkout can and cannot do:
   ever a prompt: it cannot inject shell commands, CLI options or a subcommand. The other inputs are
   separate arguments, never passed through a shell.
 - By default the CLI runs with `--safe-mode`, so the checkout's settings, hooks, skills and MCP
-  servers do not load. Set `load-project: 'true'` to run `robota trust --yes` first and load them
+  servers do not load. Set `load-project: 'true'` to run `__PRODUCT_CLI_NAME__ trust --yes` first and load them
   instead — only for code you trust, never for a pull request from a fork.
 
 ### Inputs

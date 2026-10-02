@@ -5,7 +5,7 @@ description: How Robota SDK surfaces errors and how to handle them reliably in y
 
 # Error Handling
 
-Robota uses a typed error hierarchy. Errors thrown by the SDK extend `RobotaError`, which carries a
+Robota uses a typed error hierarchy. Errors thrown by the SDK extend `AgentRuntimeError`, which carries a
 `code`, a `category` and a `recoverable` flag, so you can handle kinds of errors instead of matching
 message text. All the classes below are exported from `@robota-sdk/agent-core`.
 
@@ -38,7 +38,7 @@ message text. All the classes below are exported from `@robota-sdk/agent-core`.
 
 **Recoverable:** when `true`, retrying or falling back can make sense. `ErrorUtils.isRecoverable()`
 and `ErrorUtils.getErrorCode()` read these fields from any error (`false` and `'UNKNOWN_ERROR'` for
-an error that is not a `RobotaError`).
+an error that is not a `AgentRuntimeError`).
 
 ```typescript
 import { ErrorUtils } from '@robota-sdk/agent-core';
@@ -101,7 +101,7 @@ A query function returns a promise; a failed turn rejects it.
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { RobotaError, classifyProviderFailure } from '@robota-sdk/agent-core';
+import { AgentRuntimeError, classifyProviderFailure } from '@robota-sdk/agent-core';
 
 const query = createQuery({
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! }),
@@ -115,7 +115,7 @@ try {
     console.error('The API key was rejected — check ANTHROPIC_API_KEY.');
   } else if (reason === 'rate-limit') {
     console.error('Rate limited — try again later.');
-  } else if (error instanceof RobotaError) {
+  } else if (error instanceof AgentRuntimeError) {
     console.error(`[${error.code}] ${error.message}`, error.context);
   } else {
     throw error;
@@ -246,7 +246,7 @@ the first call, as an `AuthenticationError`, which `classifyProviderFailure` rep
 
 ---
 
-## What the robota CLI shows
+## What the __PRODUCT_CLI_NAME__ CLI shows
 
 In the interactive terminal UI, a failed turn is shown and the session carries on:
 

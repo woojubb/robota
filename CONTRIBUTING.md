@@ -18,8 +18,8 @@ Requirements:
 - **pnpm 8.15.4** (the root `packageManager` field).
 
 ```bash
-git clone https://github.com/woojubb/robota.git
-cd robota
+git clone __PROJECT_REPOSITORY_URL__
+cd <checkout-directory>
 pnpm install
 pnpm build
 ```
@@ -49,11 +49,11 @@ Other useful commands:
 pnpm --filter @robota-sdk/<pkg> build   # one package
 pnpm --filter @robota-sdk/<pkg> test
 pnpm lint:fix                           # ESLint --fix, then Prettier over the repository
-pnpm cli:dev                            # run the repository's robota CLI from source, no build
+pnpm cli:dev                            # run the configured CLI from source, no build
 pnpm docs:dev                           # docs site dev server
 ```
 
-The CLI stores its settings and sessions under `~/.robota/`. A script or test that runs the CLI must
+The CLI stores settings and sessions under its configured user state directory. A script or test that runs the CLI must
 point `HOME` at a temporary directory so it never touches your real one. Shell commands in scripts
 must work on both macOS and Linux.
 
@@ -79,7 +79,7 @@ must work on both macOS and Linux.
    `develop` or `main` directly; `develop` is promoted to `main` when maintainers cut a release.
 
 Issues labeled `good first issue` are a good place to start when there are open ones. For
-questions and ideas, use [GitHub Discussions](https://github.com/woojubb/robota/discussions).
+questions and ideas, use [GitHub Discussions](__PROJECT_REPOSITORY_URL__/discussions).
 
 ## Commit messages
 
@@ -141,5 +141,5 @@ Maintainers apply the version bumps and publish; do not bump versions in your pu
 
 ## License
 
-Robota is dual-licensed under AGPL-3.0 and a commercial license. Unless you state otherwise, your
+The project is dual-licensed under AGPL-3.0 and a commercial license. Unless you state otherwise, your
 contributions are provided under the same dual-license terms; see [LICENSING.md](LICENSING.md).

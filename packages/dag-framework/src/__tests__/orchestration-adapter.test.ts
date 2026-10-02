@@ -12,7 +12,7 @@ let tmpDir: string;
 let framework: IDagFramework;
 
 beforeEach(async () => {
-  tmpDir = await mkdtemp(path.join(os.tmpdir(), 'robota-dag-test-'));
+  tmpDir = await mkdtemp(path.join(os.tmpdir(), 'agent-test-dag-test-'));
   framework = await createDagFramework({
     nodes: createDefaultNodeRegistrySync(),
     paths: { storageRoot: path.join(tmpDir, 'storage'), assetRoot: path.join(tmpDir, 'assets') },
@@ -160,7 +160,7 @@ describe('listNodes', () => {
 describe('cost-meta capability', () => {
   it('is the host-wired cost-meta port when one is given', async () => {
     const costMeta = new UnsupportedCostMetaOperations();
-    const root = await mkdtemp(path.join(os.tmpdir(), 'robota-dag-cost-meta-'));
+    const root = await mkdtemp(path.join(os.tmpdir(), 'agent-test-dag-cost-meta-'));
     try {
       const wired = await createDagFramework({
         executionRoot: root,

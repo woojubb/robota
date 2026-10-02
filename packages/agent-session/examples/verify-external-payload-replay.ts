@@ -11,7 +11,7 @@ import {
 } from '@robota-sdk/agent-session';
 
 const sessionId = 'stable-replay-example';
-const fixtureRoot = mkdtempSync(join(tmpdir(), 'robota-stable-replay-'));
+const fixtureRoot = mkdtempSync(join(tmpdir(), 'agent-stable-replay-'));
 const logDirectory = join(fixtureRoot, 'logs');
 const payloadDirectory = join(logDirectory, `${sessionId}.payloads`);
 const outsideDirectory = join(fixtureRoot, 'outside');

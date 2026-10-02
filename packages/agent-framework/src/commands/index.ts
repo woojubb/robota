@@ -105,7 +105,7 @@ export {
 } from '../command-api/provider/provider-model-catalog.js';
 export { buildProviderProfilesSnapshot } from '../command-api/provider/provider-profile-summary.js';
 export { commandToCapabilityDescriptor } from './capability-descriptors.js';
-export { SkillCommandSource, inspectSkillSources } from './skill-source.js';
+export { SkillCommandSource, inspectSkillSources, createSkillCommand } from './skill-source.js';
 export type {
   ISkillRootDescriptor,
   ISkillRootInspection,

@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { describe, expect, it } from 'vitest';
 
 import { createStoredSessionUsageReporter, executeUsageCommand } from '../usage-command.js';
@@ -73,7 +74,7 @@ function store(entries: readonly ISessionListEntry[]): IInteractiveSessionStore 
   };
 }
 
-describe('robota usage', () => {
+describe('test-product usage', () => {
   it('reports de-duplicated user and project sessions as stable JSON', () => {
     const sharedUser = record('shared', 10);
     const sharedProject = record('shared', 25);
@@ -89,8 +90,7 @@ describe('robota usage', () => {
           { id: 'future', outcome: { status: 'unsupported', schemaVersion: 99 } },
         ]),
         now: new Date('2026-09-06T03:00:00.000Z'),
-      },
-    );
+      }, 'test-product');
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
@@ -120,8 +120,7 @@ describe('robota usage', () => {
           ]),
           projectSessionStore: store([{ id: 'shared', outcome: projectOutcome }]),
           now: new Date('2026-09-06T03:00:00.000Z'),
-        },
-      );
+        }, 'test-product');
 
       expect(JSON.parse(result.stdout)).toMatchObject({
         totals: { sessions: 1, turns: 1, totalTokens: 5 },
@@ -144,7 +143,7 @@ describe('robota usage', () => {
         },
       },
       now: new Date('2026-09-06T03:00:00.000Z'),
-    });
+    }, 'test-product');
 
     expect(result).toEqual({
       exitCode: 1,
@@ -164,18 +163,17 @@ describe('robota usage', () => {
           return [];
         },
       },
-    });
+    }, 'test-product');
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('Usage: robota usage');
+    expect(result.stdout).toContain('Usage: test-product usage');
     expect(listed).toBe(false);
   });
 
   it('returns a versioned empty report when both configured stores are empty', () => {
     const result = executeUsageCommand(
       ['--period', '7d', '--timezone', 'UTC', '--format', 'json'],
-      { userSessionStore: store([]), now: new Date('2026-09-06T03:00:00.000Z') },
-    );
+      { userSessionStore: store([]), now: new Date('2026-09-06T03:00:00.000Z') }, 'test-product');
 
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toMatchObject({
@@ -190,7 +188,7 @@ describe('robota usage', () => {
       ...store([]),
       load: () => ({ status: 'valid', record: value }),
     });
-    const reporter = createStoredSessionUsageReporter(loadStore(projectRecord));
+    const reporter = createStoredSessionUsageReporter(createTestProductRuntime(), loadStore(projectRecord));
 
     // The reporter creates its user store internally; the valid project result must win before it.
     expect(reporter('shared')).toMatchObject({ sessionId: 'shared', totalTokens: 25 });
@@ -256,8 +254,7 @@ describe('robota usage', () => {
           { id: 'leaky-session', outcome: { status: 'valid', record: leaky } },
         ]),
         now: new Date('2026-09-06T03:00:00.000Z'),
-      },
-    );
+      }, 'test-product');
 
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toMatchObject({ totals: { sessions: 1, totalTokens: 10 } });

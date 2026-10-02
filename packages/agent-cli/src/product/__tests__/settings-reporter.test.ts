@@ -5,12 +5,12 @@
  * refusal the Settings screen gives. `language` writes the same settings document `/language` writes,
  * without its restart.
  *
- * Every adapter but one is an in-memory fake, so nothing here touches `~/.robota` — there is nothing
+ * Every adapter but one is an in-memory fake, so nothing here touches `the configured user root` — there is nothing
  * to point HOME at. The one exception: the `providers` section is read through
  * `readMergedProviderSettings(settingsSources)`, the same merged, multi-layer read `/provider` itself
  * uses, and `TSettingsSource`'s "host" kind can only be backed by a real file (ARCH-042 gives its
  * "project" kind no fakeable constructor from outside `agent-framework`) — those tests alone use an
- * isolated temp file, cleaned up with `onTestFinished`, never `~/.robota`.
+ * isolated temp file, cleaned up with `onTestFinished`, never `the configured user root`.
  */
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -36,7 +36,7 @@ import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 /** An isolated temp-file-backed provider settings source, cleaned up when the test ends. */
 function tempProviderSettingsSource(document: TProviderSettingsDocument): ICreateSettingsReporterOptions['settingsSources'][number] {
-  const dir = mkdtempSync(join(tmpdir(), 'robota-settings-reporter-test-'));
+  const dir = mkdtempSync(join(tmpdir(), 'test-product-settings-reporter-test-'));
   onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
   const path = join(dir, 'settings.json');
   writeFileSync(path, JSON.stringify(document));
@@ -476,7 +476,7 @@ describe('createSettingsReporter (#3282 §4a)', () => {
       }
       if (name === 'plugin' && args === 'list') {
         return listResult({
-          plugins: [{ name: 'formatter@robota', description: 'Formats code.', enabled: true }],
+          plugins: [{ name: 'formatter@test-product', description: 'Formats code.', enabled: true }],
         });
       }
       return null;
@@ -505,7 +505,7 @@ describe('createSettingsReporter (#3282 §4a)', () => {
       },
     ]);
     expect(settings.plugins.plugins).toEqual([
-      { id: 'formatter@robota', name: 'formatter@robota', description: 'Formats code.', enabled: true },
+      { id: 'formatter@test-product', name: 'formatter@test-product', description: 'Formats code.', enabled: true },
     ]);
   });
 
@@ -595,7 +595,7 @@ describe('createSettingsReporter (#3282 §4a)', () => {
     const executeCommand = vi.fn(async (name: string, args: string) => {
       if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
       if (name === 'preset' && args === 'list') return listResult({ presets: [] });
-      if (name === 'plugin' && (args === 'enable demo@robota' || args === 'disable demo@robota')) {
+      if (name === 'plugin' && (args === 'enable demo@test-product' || args === 'disable demo@test-product')) {
         return { success: true, message: 'ok' };
       }
       return null;
@@ -604,10 +604,10 @@ describe('createSettingsReporter (#3282 §4a)', () => {
 
     await reporter.updateSettings(session, {
       field: 'pluginEnabled',
-      pluginId: 'demo@robota',
+      pluginId: 'demo@test-product',
       enabled: false,
     });
-    expect(executeCommand).toHaveBeenCalledWith('plugin', 'disable demo@robota', 'remote');
+    expect(executeCommand).toHaveBeenCalledWith('plugin', 'disable demo@test-product', 'remote');
   });
 
   describe('installPlugin/uninstallPlugin forward this connection\'s locality to /plugin, the same rule the command uses (#3282 §4 part b-2)', () => {
@@ -615,8 +615,8 @@ describe('createSettingsReporter (#3282 §4a)', () => {
       const executeCommand = vi.fn(async (name: string, args: string) => {
         if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
         if (name === 'preset' && args === 'list') return listResult({ presets: [] });
-        if (name === 'plugin' && args === 'install demo@robota') {
-          return { success: true, message: 'Installed plugin: demo@robota' };
+        if (name === 'plugin' && args === 'install demo@test-product') {
+          return { success: true, message: 'Installed plugin: demo@test-product' };
         }
         return null;
       });
@@ -624,13 +624,13 @@ describe('createSettingsReporter (#3282 §4a)', () => {
 
       const outcome = await reporter.updateSettings(
         session,
-        { field: 'installPlugin', pluginId: 'demo@robota' },
+        { field: 'installPlugin', pluginId: 'demo@test-product' },
         'local',
       );
 
       expect(executeCommand).toHaveBeenCalledWith(
         'plugin',
-        'install demo@robota',
+        'install demo@test-product',
         'remote',
         undefined,
         'local',
@@ -642,7 +642,7 @@ describe('createSettingsReporter (#3282 §4a)', () => {
       const executeCommand = vi.fn(async (name: string, args: string) => {
         if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
         if (name === 'preset' && args === 'list') return listResult({ presets: [] });
-        if (name === 'plugin' && args === 'install demo@robota') {
+        if (name === 'plugin' && args === 'install demo@test-product') {
           return {
             success: false,
             message:
@@ -656,13 +656,13 @@ describe('createSettingsReporter (#3282 §4a)', () => {
 
       const outcome = await reporter.updateSettings(
         session,
-        { field: 'installPlugin', pluginId: 'demo@robota' },
+        { field: 'installPlugin', pluginId: 'demo@test-product' },
         'remote',
       );
 
       expect(executeCommand).toHaveBeenCalledWith(
         'plugin',
-        'install demo@robota',
+        'install demo@test-product',
         'remote',
         undefined,
         'remote',
@@ -680,7 +680,7 @@ describe('createSettingsReporter (#3282 §4a)', () => {
       const executeCommand = vi.fn(async (name: string, args: string) => {
         if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
         if (name === 'preset' && args === 'list') return listResult({ presets: [] });
-        if (name === 'plugin' && args === 'uninstall demo@robota') {
+        if (name === 'plugin' && args === 'uninstall demo@test-product') {
           return { success: false, message: 'not from a remote device.' };
         }
         return null;
@@ -689,13 +689,13 @@ describe('createSettingsReporter (#3282 §4a)', () => {
 
       const outcome = await reporter.updateSettings(
         session,
-        { field: 'uninstallPlugin', pluginId: 'demo@robota' },
+        { field: 'uninstallPlugin', pluginId: 'demo@test-product' },
         'remote',
       );
 
       expect(executeCommand).toHaveBeenCalledWith(
         'plugin',
-        'uninstall demo@robota',
+        'uninstall demo@test-product',
         'remote',
         undefined,
         'remote',

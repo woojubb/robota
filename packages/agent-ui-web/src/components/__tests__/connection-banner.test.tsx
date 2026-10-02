@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { render } from '../../testing/product-provider.js';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -44,13 +45,13 @@ describe('ConnectionBanner', () => {
     expect(screen.queryByRole('status')).toBeNull();
   });
 
-  it('once retries give up, a desktop host (onReconnect present) gets "Robota stopped." and a working Reconnect', async () => {
+  it('once retries give up, a desktop host (onReconnect present) gets "Test Product stopped." and a working Reconnect', async () => {
     const onReconnect = vi.fn(() => Promise.resolve());
     render(
       <ConnectionBanner status="disconnected" connectionLost onReconnect={onReconnect} />,
     );
     const alert = screen.getByRole('alert');
-    expect(alert.textContent).toContain('Robota stopped.');
+    expect(alert.textContent).toContain('Test Product stopped.');
 
     fireEvent.click(within(alert).getByRole('button', { name: 'Reconnect' }));
     expect(onReconnect).toHaveBeenCalledTimes(1);
@@ -81,14 +82,14 @@ describe('ConnectionBanner', () => {
   it('once retries give up, a browser host (no onReconnect) shows how to reopen it, with no button', () => {
     render(<ConnectionBanner status="disconnected" connectionLost />);
     const alert = screen.getByRole('alert');
-    expect(alert.textContent).toContain('Robota stopped.');
-    expect(alert.textContent).toContain('robota --serve --open');
+    expect(alert.textContent).toContain('Test Product stopped.');
+    expect(alert.textContent).toContain('test-product --serve --open');
     expect(within(alert).queryByRole('button')).toBeNull();
   });
 
   it('give-up wins even on a first connect that never succeeded', () => {
     render(<ConnectionBanner status="disconnected" connectionLost />);
-    expect(screen.getByRole('alert').textContent).toContain('Robota stopped.');
+    expect(screen.getByRole('alert').textContent).toContain('Test Product stopped.');
   });
 });
 

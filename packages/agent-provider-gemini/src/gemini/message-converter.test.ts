@@ -187,7 +187,13 @@ describe('convertToGeminiFormat', () => {
       return {
         role: 'assistant',
         content: null,
-        toolCalls: [{ id: 'call_1', type: 'function' as const, function: { name: 'search', arguments: args } }],
+        toolCalls: [
+          {
+            id: 'call_1',
+            type: 'function' as const,
+            function: { name: 'search', arguments: args },
+          },
+        ],
         timestamp: new Date(),
       } as IAssistantMessage;
     }
@@ -241,7 +247,11 @@ describe('convertToGeminiFormat', () => {
           content: null,
           timestamp: new Date(),
           toolCalls: [
-            { id: 'call_bad', type: 'function' as const, function: { name: 'search', arguments: '[1]' } },
+            {
+              id: 'call_bad',
+              type: 'function' as const,
+              function: { name: 'search', arguments: '[1]' },
+            },
             {
               id: 'call_good',
               type: 'function' as const,
@@ -719,4 +729,28 @@ describe('generateCallId', () => {
     expect(timestamp).toBeGreaterThanOrEqual(before);
     expect(timestamp).toBeLessThanOrEqual(after);
   });
+});
+
+it('retains embedded resources and audio diagnostics in linked function responses', () => {
+  const result = convertToGeminiFormat([
+    {
+      id: 'receipt',
+      role: 'tool',
+      state: 'complete',
+      timestamp: new Date(0),
+      toolCallId: 'call',
+      name: 'observe',
+      content: '{"saved":true}',
+      parts: [
+        { type: 'resource_embedded', uri: 'fixture://receipt', text: 'persisted state' },
+        { type: 'audio_inline', mimeType: 'audio/wav', data: 'YXVkaW8=' },
+      ],
+    },
+  ]);
+  const serialized = JSON.stringify(result);
+  expect(serialized).toContain('persisted state');
+  expect(serialized).toContain('does not transmit audio');
+  expect(serialized).toContain('saved');
+  expect(serialized).toContain('call');
+  expect(serialized).not.toContain('YXVkaW8=');
 });

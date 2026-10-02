@@ -2,7 +2,9 @@ import { mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { projectToolExecution } from '../interactive-session-execution-events.js';
 
 import {
   applyToolEnd,
@@ -18,6 +20,78 @@ function createState(): IStreamingState {
     history: [],
   };
 }
+
+it('projects a refused call without dispatch as a finished denied row', () => {
+  const state = createState();
+  const emit = vi.fn();
+  projectToolExecution(
+    state.activeTools,
+    state.history,
+    { getCwd: () => '/workspace', emit },
+    (tools) => {
+      state.activeTools = tools;
+    },
+    {
+      type: 'end',
+      toolName: 'fixture__write',
+      toolArgs: { text: 'refused' },
+      executionId: 'denied-call',
+      success: false,
+      denied: true,
+    },
+  );
+  expect(emit.mock.calls.map(([type]) => type)).toEqual(['tool_start', 'tool_end']);
+  expect(state.activeTools[0]).toMatchObject({
+    executionId: 'denied-call',
+    result: 'denied',
+    isRunning: false,
+  });
+  expect(state.history.at(-1)?.data).toMatchObject({
+    executionId: 'denied-call',
+    result: 'denied',
+  });
+});
+
+it('retains a refusal when its ID was used by an earlier completed call', () => {
+  const state = createState();
+  applyToolStart(state, { toolName: 'same', executionId: 'reused' });
+  applyToolEnd(state, { toolName: 'same', executionId: 'reused', success: true });
+  const emit = vi.fn();
+  projectToolExecution(
+    state.activeTools,
+    state.history,
+    { getCwd: () => '/workspace', emit },
+    (tools) => {
+      state.activeTools = tools;
+    },
+    { type: 'end', toolName: 'same', executionId: 'reused', success: false, denied: true },
+  );
+  expect(emit.mock.calls.map(([type]) => type)).toEqual(['tool_start', 'tool_end']);
+  expect(state.activeTools.map((tool) => tool.result)).toEqual(['success', 'denied']);
+});
+
+it('keeps admitted mixed parts on the matching live call and summary', () => {
+  const state = createState();
+  applyToolStart(state, { toolName: 'fixture__observe', executionId: 'call-7' });
+  const parts = [{ type: 'image_inline' as const, mimeType: 'image/png', data: 'iVBORw0KGgo=' }];
+  expect(
+    applyToolEnd(state, {
+      toolName: 'fixture__observe',
+      executionId: 'call-7',
+      success: true,
+      toolResultParts: parts,
+    }),
+  ).toMatchObject({ executionId: 'call-7', toolResultParts: parts });
+  pushToolSummaryToHistory(state);
+  expect(state.history.at(-1)?.data).toMatchObject({
+    tools: [
+      expect.objectContaining({
+        executionId: 'call-7',
+        toolResultParts: parts,
+      }),
+    ],
+  });
+});
 
 describe('interactive-session-streaming edit diffs', () => {
   let tmpDir: string | undefined;
@@ -178,7 +252,10 @@ describe('#3288: extending the diff builder to Write', () => {
   it('caps a large Write with a truncated marker rather than emitting every line', () => {
     const state = createState();
     const bigContent = Array.from({ length: 520 }, (_, i) => `line ${i}`).join('\n');
-    applyToolStart(state, { toolName: 'Write', toolArgs: { filePath: '/tmp/big.md', content: bigContent } });
+    applyToolStart(state, {
+      toolName: 'Write',
+      toolArgs: { filePath: '/tmp/big.md', content: bigContent },
+    });
     const finished = applyToolEnd(state, {
       type: 'end',
       toolName: 'Write',
@@ -216,12 +293,12 @@ describe('#3288 review SHOULD 3: Edit diffs are capped like Write', () => {
     // also pass a builder that capped only one side, or capped at some other, wrong length.
     expect(removeLines.length).toBe(500);
     expect(addLines.length).toBe(500);
-    expect(diffLines.some((l) => l.type === 'hunk' && /more removed lines truncated/.test(l.text))).toBe(
-      true,
-    );
-    expect(diffLines.some((l) => l.type === 'hunk' && /more added lines truncated/.test(l.text))).toBe(
-      true,
-    );
+    expect(
+      diffLines.some((l) => l.type === 'hunk' && /more removed lines truncated/.test(l.text)),
+    ).toBe(true);
+    expect(
+      diffLines.some((l) => l.type === 'hunk' && /more added lines truncated/.test(l.text)),
+    ).toBe(true);
   });
 });
 
@@ -258,7 +335,12 @@ describe('#3288: relative display paths (server-side, additive to firstArg)', ()
     );
     const finished = applyToolEnd(
       state,
-      { type: 'end', toolName: 'Write', toolArgs: { filePath: '/etc/hosts', content: 'x' }, success: true },
+      {
+        type: 'end',
+        toolName: 'Write',
+        toolArgs: { filePath: '/etc/hosts', content: 'x' },
+        success: true,
+      },
       '/workspace',
     );
     expect(finished?.diffFile).toBe('/etc/hosts');
@@ -268,8 +350,16 @@ describe('#3288: relative display paths (server-side, additive to firstArg)', ()
 describe('#3288: parallel same-named tool_end attribution (executionId-first)', () => {
   it('attributes tool_end by executionId, not by "first running with this name"', () => {
     const state = createState();
-    applyToolStart(state, { toolName: 'Read', toolArgs: { filePath: 'a.ts' }, executionId: 'exec-a' });
-    applyToolStart(state, { toolName: 'Read', toolArgs: { filePath: 'b.ts' }, executionId: 'exec-b' });
+    applyToolStart(state, {
+      toolName: 'Read',
+      toolArgs: { filePath: 'a.ts' },
+      executionId: 'exec-a',
+    });
+    applyToolStart(state, {
+      toolName: 'Read',
+      toolArgs: { filePath: 'b.ts' },
+      executionId: 'exec-b',
+    });
 
     // The SECOND call (exec-b) finishes first. A name-only `findIndex` would close the FIRST
     // matching running entry (exec-a) instead — attributing exec-b's result to exec-a's call.

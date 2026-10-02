@@ -15,11 +15,11 @@ afterEach(() => {
 });
 
 function createGitRepo(): string {
-  const repo = realpathSync(mkdtempSync(join(tmpdir(), 'robota-worktree-test-')));
+  const repo = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-worktree-test-')));
   tempRepos.push(repo);
   runGit(repo, ['init']);
   runGit(repo, ['config', 'user.email', 'test@example.com']);
-  runGit(repo, ['config', 'user.name', 'Robota Test']);
+  runGit(repo, ['config', 'user.name', 'test-product Agent Test']);
   writeFileSync(join(repo, 'README.md'), 'initial\n');
   runGit(repo, ['add', 'README.md']);
   runGit(repo, ['commit', '-m', 'initial']);
@@ -54,13 +54,13 @@ describe('GitWorktreeIsolationAdapter', () => {
     'creates and removes a clean git worktree',
     () => {
       const repo = createGitRepo();
-      const adapter = new GitWorktreeIsolationAdapter();
+      const adapter = new GitWorktreeIsolationAdapter({ worktreeDir: '.test-product/worktrees', branchPrefix: 'test-product', environment: createGitEnvironment() });
 
       const worktree = adapter.prepare({ taskId: 'agent_1', cwd: repo });
 
       expect(worktree.repoRoot).toBe(realpathSync(repo));
-      expect(worktree.worktreePath).toContain(join('.robota', 'worktrees'));
-      expect(worktree.branchName).toContain('robota/agent_1');
+      expect(worktree.worktreePath).toContain(join('.test-product', 'worktrees'));
+      expect(worktree.branchName).toContain('test-product/agent_1');
       expect(worktree.baseRevision).toMatch(/^[0-9a-f]{40}$/);
       expect(worktree.parentStatus).toBe('');
       expect(existsSync(worktree.worktreePath)).toBe(true);
@@ -83,7 +83,7 @@ describe('GitWorktreeIsolationAdapter', () => {
       process.env.GIT_WORK_TREE = process.cwd();
 
       try {
-        const adapter = new GitWorktreeIsolationAdapter();
+        const adapter = new GitWorktreeIsolationAdapter({ worktreeDir: '.test-product/worktrees', branchPrefix: 'test-product', environment: createGitEnvironment() });
         const worktree = adapter.prepare({ taskId: 'agent_1', cwd: repo });
 
         expect(worktree.repoRoot).toBe(realpathSync(repo));
@@ -110,15 +110,15 @@ describe('GitWorktreeIsolationAdapter', () => {
     'retries when a generated branch name already exists',
     () => {
       const repo = createGitRepo();
-      runGit(repo, ['branch', 'robota/agent_1-fixed']);
+      runGit(repo, ['branch', 'test-product/agent_1-fixed']);
       const ids = ['fixed', 'second'];
-      const adapter = new GitWorktreeIsolationAdapter({
+      const adapter = new GitWorktreeIsolationAdapter({worktreeDir: '.test-product/worktrees', branchPrefix: 'test-product', environment: createGitEnvironment(),
         idFactory: () => ids.shift() ?? 'fallback',
       });
 
       const worktree = adapter.prepare({ taskId: 'agent_1', cwd: repo });
 
-      expect(worktree.branchName).toBe('robota/agent_1-second');
+      expect(worktree.branchName).toBe('test-product/agent_1-second');
       expect(worktree.worktreePath).toContain('agent_1-second');
 
       adapter.remove(worktree);
@@ -130,7 +130,7 @@ describe('GitWorktreeIsolationAdapter', () => {
     'detects dirty worktrees so the SDK runner can preserve them',
     () => {
       const repo = createGitRepo();
-      const adapter = new GitWorktreeIsolationAdapter();
+      const adapter = new GitWorktreeIsolationAdapter({ worktreeDir: '.test-product/worktrees', branchPrefix: 'test-product', environment: createGitEnvironment() });
 
       const worktree = adapter.prepare({ taskId: 'agent_1', cwd: repo });
       writeFileSync(join(worktree.worktreePath, 'dirty.txt'), 'dirty\n');
@@ -147,7 +147,7 @@ describe('GitWorktreeIsolationAdapter', () => {
       const repo = createGitRepo();
       const nested = join(repo, 'packages', 'nested');
       mkdirSync(nested, { recursive: true });
-      const adapter = new GitWorktreeIsolationAdapter();
+      const adapter = new GitWorktreeIsolationAdapter({ worktreeDir: '.test-product/worktrees', branchPrefix: 'test-product', environment: createGitEnvironment() });
 
       const worktree = adapter.prepare({ taskId: 'agent_1', cwd: nested });
 
@@ -164,7 +164,7 @@ describe('GitWorktreeIsolationAdapter', () => {
     () => {
       const repo = createGitRepo();
       writeFileSync(join(repo, 'README.md'), 'changed\n');
-      const adapter = new GitWorktreeIsolationAdapter();
+      const adapter = new GitWorktreeIsolationAdapter({ worktreeDir: '.test-product/worktrees', branchPrefix: 'test-product', environment: createGitEnvironment() });
 
       const worktree = adapter.prepare({ taskId: 'agent_1', cwd: repo });
 
@@ -181,12 +181,12 @@ describe('GitWorktreeIsolationAdapter', () => {
     () => {
       const repo = createGitRepo();
       runGit(repo, ['checkout', '--detach', 'HEAD']);
-      const adapter = new GitWorktreeIsolationAdapter();
+      const adapter = new GitWorktreeIsolationAdapter({ worktreeDir: '.test-product/worktrees', branchPrefix: 'test-product', environment: createGitEnvironment() });
 
       const worktree = adapter.prepare({ taskId: 'agent_1', cwd: repo });
 
       expect(existsSync(worktree.worktreePath)).toBe(true);
-      expect(worktree.branchName).toContain('robota/agent_1');
+      expect(worktree.branchName).toContain('test-product/agent_1');
 
       adapter.remove(worktree);
     },
@@ -196,9 +196,9 @@ describe('GitWorktreeIsolationAdapter', () => {
   it(
     'fails with an actionable message outside a git repository',
     () => {
-      const directory = realpathSync(mkdtempSync(join(tmpdir(), 'robota-nongit-test-')));
+      const directory = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-nongit-test-')));
       tempRepos.push(directory);
-      const adapter = new GitWorktreeIsolationAdapter();
+      const adapter = new GitWorktreeIsolationAdapter({ worktreeDir: '.test-product/worktrees', branchPrefix: 'test-product', environment: createGitEnvironment() });
 
       expect(() => adapter.prepare({ taskId: 'agent_1', cwd: directory })).toThrow(
         'Worktree isolation requires a Git repository',

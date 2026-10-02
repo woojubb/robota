@@ -7,6 +7,7 @@ import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transpo
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import { RemoteControlController } from '../remote-control-controller.js';
 import { createRemoteControlTransportHost } from '../transport-host-adapter.js';
+import { createTestRuntimeContext } from '../../devices/__tests__/runtime-context-fixture.js';
 
 const directories: string[] = [];
 afterEach(() => { for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true }); });
@@ -34,6 +35,7 @@ describe('remote control host boundary', () => {
     const session = {} as IProtocolSession;
     const host = { registerInitial: vi.fn(), promoteWinner: vi.fn() };
     const controller = new RemoteControlController({
+      productRuntime: createTestRuntimeContext('/tmp/remote-host-port-test'),
       host,
       readRelayUrl: () => undefined,
       readClientUrl: () => undefined,

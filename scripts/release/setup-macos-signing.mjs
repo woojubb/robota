@@ -16,6 +16,7 @@ function setup() {
   const env = process.env;
   for (const name of [
     'RUNNER_TEMP',
+    'PRODUCT_CREDENTIAL_SERVICE',
     'GITHUB_ENV',
     'MACOS_CERTIFICATE_P12',
     'MACOS_CERTIFICATE_PASSWORD',
@@ -28,7 +29,7 @@ function setup() {
   }
   if (!/^[A-Z0-9]{10}$/.test(env.APPLE_TEAM_ID)) throw new Error('Invalid Apple release team ID.');
   process.umask(0o077);
-  const directory = mkdtempSync(join(env.RUNNER_TEMP, 'robota-signing-'));
+  const directory = mkdtempSync(join(env.RUNNER_TEMP, 'release-signing-'));
   const keychain = join(directory, 'release.keychain-db');
   const certificate = join(directory, 'certificate.p12');
   const apiKey = join(directory, 'notary-key.p8');
@@ -70,7 +71,7 @@ function setup() {
     runCommand('xcrun', [
       'notarytool',
       'store-credentials',
-      'robota-release',
+      `${env.PRODUCT_CREDENTIAL_SERVICE}.release`,
       '--key',
       apiKey,
       '--key-id',
@@ -86,7 +87,7 @@ function setup() {
       CSC_KEYCHAIN: keychain,
       MACOS_SIGNING_IDENTITY: identity,
       APPLE_KEYCHAIN: keychain,
-      APPLE_KEYCHAIN_PROFILE: 'robota-release',
+      APPLE_KEYCHAIN_PROFILE: `${env.PRODUCT_CREDENTIAL_SERVICE}.release`,
       MACOS_SIGNING_DIR: directory,
     };
     for (const [name, value] of Object.entries(values)) {

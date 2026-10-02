@@ -71,12 +71,12 @@ vi.mock('@robota-sdk/agent-session', async () => {
   };
 });
 
-// Mock agent-core to avoid real Robota construction
+// Mock agent-core to avoid real ConversationAgent construction
 vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
   return {
     ...actual,
-    Robota: vi.fn().mockImplementation(() => ({
+    ConversationAgent: vi.fn().mockImplementation(() => ({
       run: vi.fn().mockResolvedValue('mock AI response'),
       getHistory: vi.fn().mockReturnValue([]),
       clearHistory: vi.fn(),
@@ -101,7 +101,7 @@ const NOOP_DELTA = (): void => {};
 const NOOP_TOOL = (): void => {};
 
 /** The session's working directory: private to this run, never a fixed name under /tmp. */
-const SESSION_CWD = mkdtempSync(join(tmpdir(), 'robota-bare-session-'));
+const SESSION_CWD = mkdtempSync(join(tmpdir(), 'agent-bare-session-'));
 afterAll(() => rmSync(SESSION_CWD, { recursive: true, force: true }));
 
 describe('createInteractiveSession — bare mode', () => {
@@ -222,13 +222,14 @@ describe('createInteractiveSession — bare mode', () => {
       cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
+      environment: { SYNTHETIC_PROVIDER_KEY: 'fixture-only' },
       onTextDelta: NOOP_DELTA,
       onToolExecution: NOOP_TOOL,
     });
 
     // Config loading is always needed even in bare mode
     expect(mockLoadConfigWithHookSources).toHaveBeenCalledTimes(1);
-    expect(mockLoadConfigWithHookSources).toHaveBeenCalledWith([]);
+    expect(mockLoadConfigWithHookSources).toHaveBeenCalledWith([], { SYNTHETIC_PROVIDER_KEY: 'fixture-only' });
   });
 });
 

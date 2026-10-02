@@ -156,3 +156,56 @@ describe('runEval — TC-06: reaches the agent only through the injected runFn s
     expect(seam).toHaveBeenNthCalledWith(2, 'b');
   });
 });
+
+describe('required outcome assertions', () => {
+  it('rejects false completion even when soft scores meet the threshold', async () => {
+    const report = await runEval(
+      {
+        cases: [{ input: 'fix the disposable repository' }],
+        metrics: [
+          { name: 'actual-files-fixed', required: true, score: () => false },
+          { name: 'claims-done', score: () => true },
+          { name: 'style', score: () => true },
+        ],
+        threshold: 0.5,
+      },
+      fixedRunFn(makeResult({ response: 'Done' })),
+    );
+    expect(report.overallScore).toBeGreaterThan(0.5);
+    expect(report.passed).toBe(false);
+  });
+
+  it('requires a perfect required assertion in every trial', async () => {
+    const report = await runEval(
+      {
+        cases: [{ input: 'complete' }, { input: 'interrupted' }],
+        metrics: [
+          { name: 'terminal-outcome', required: true, score: (r) => r.response === 'complete' },
+        ],
+        threshold: 0.5,
+      },
+      (input) => Promise.resolve(makeResult({ response: input })),
+    );
+    expect(report.passed).toBe(false);
+  });
+
+  it('passes when required assertions and the aggregate both pass', async () => {
+    const report = await runEval(
+      {
+        cases: [{ input: 'a' }],
+        metrics: [{ name: 'outcome', required: true, score: () => true }],
+      },
+      fixedRunFn(makeResult()),
+    );
+    expect(report.passed).toBe(true);
+  });
+});
+
+it('does not pass an interrupted run even when every metric passes', async () => {
+  const report = await runEval(
+    { cases: [{ input: 'work' }], metrics: [{ name: 'soft', score: () => true }] },
+    fixedRunFn(makeResult({ interrupted: true })),
+  );
+  expect(report.overallScore).toBe(1);
+  expect(report.passed).toBe(false);
+});

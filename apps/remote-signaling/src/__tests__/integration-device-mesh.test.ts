@@ -1,5 +1,6 @@
 import {
   certifyDevice,
+  createIdentityContext,
   certifySigningKey,
   deriveMasterKey,
   generateDeviceKeyAgreementKeyPair,
@@ -26,14 +27,16 @@ import { startSignalingServer, type ISignalingServerHandle } from '../server.js'
  * The relay sees only opaque inbox topics and signaling blobs.
  */
 
+const testIdentityContext = createIdentityContext('remote-signaling-test');
+
 const PHRASE =
   'hamster diagram private dutch cause delay private meat slide toddler razor book happy fancy gospel tennis maple dilemma loan word shrug inflict delay length';
 
 async function twoDevices(): Promise<[IDeviceHandshakeIdentity, ISessionDescriptor][]> {
   const now = Date.now();
-  const master = await deriveMasterKey(PHRASE);
+  const master = await deriveMasterKey(PHRASE, { derivationPath: [100, 0] });
   const pair = await generateSigningKeyPair({ extractable: false });
-  const certificate = await certifySigningKey({
+  const certificate = await certifySigningKey(testIdentityContext, {
     masterPrivateKey: master.keyPair.privateKey,
     userId: master.userId,
     signingPublicKey: pair.publicKey,
@@ -44,7 +47,7 @@ async function twoDevices(): Promise<[IDeviceHandshakeIdentity, ISessionDescript
     ['laptop', 'desktop'].map(async (name) => {
       const sign = await generateDeviceSignKeyPair(false);
       const ka = await generateDeviceKeyAgreementKeyPair(false);
-      const cert = await certifyDevice({
+      const cert = await certifyDevice(testIdentityContext, {
         signingKey,
         signPublicKey: sign.publicKey,
         kaPublicKey: ka.publicKey,
@@ -53,7 +56,7 @@ async function twoDevices(): Promise<[IDeviceHandshakeIdentity, ISessionDescript
         capabilities: ['message', 'presence'],
         issuedAt: now,
       });
-      const session = await signSessionDescriptor({
+      const session = await signSessionDescriptor(testIdentityContext, {
         signPrivateKey: sign.privateKey,
         deviceId: cert.deviceId,
         sessionId: `c2Vzc2lvbi${name}`,
@@ -62,19 +65,19 @@ async function twoDevices(): Promise<[IDeviceHandshakeIdentity, ISessionDescript
       return { cert, sign, ka, session };
     }),
   );
-  const roster = await issueDeviceRoster({
+  const roster = await issueDeviceRoster(testIdentityContext, {
     signingKey,
     seq: 1,
     issuedAt: now,
     devices: devices.map((d) => d.cert),
   });
-  const revocation = await issueDeviceRevocationList({
+  const revocation = await issueDeviceRevocationList(testIdentityContext, {
     signingKey,
     seq: 1,
     issuedAt: now,
     revokedDeviceIds: [],
   });
-  const signingKeyRevocation = await issueSigningKeyRevocation({
+  const signingKeyRevocation = await issueSigningKeyRevocation(testIdentityContext, {
     masterPrivateKey: master.keyPair.privateKey,
     userId: master.userId,
     seq: 1,
@@ -128,6 +131,7 @@ describe('device mesh over the real signaling relay', () => {
       const relay = new WsMeshRelayClient({ url, onError: (error) => errors.push(error) });
       const created = new DeviceMeshNode({
         identity,
+        cryptoContext: testIdentityContext,
         sessionDescriptor: session,
         localPolicy: ['message'],
         relay,

@@ -1,10 +1,10 @@
 # @robota-sdk/agent-roundtable-robota
 
-Runs a Robota `Session` or a plain `Robota` agent as an `@robota-sdk/agent-roundtable` participant,
-and a Robota agent as its selector. `agent-roundtable` stays free of both runtimes; this is the only
+Runs an agent `Session` or a plain `ConversationAgent` as an `@robota-sdk/agent-roundtable` participant,
+and an agent as its selector. `agent-roundtable` stays free of both runtimes; this is the only
 package that imports `@robota-sdk/agent-core` and `@robota-sdk/agent-session` to bridge them in.
 
-The package root (`robotaParticipant`, `robotaSelector`, `meterJournal`, ...) only ever needs
+The package root (`runtimeParticipant`, `runtimeSelector`, `meterJournal`, ...) only ever needs
 `@robota-sdk/agent-core`. `sessionParticipant`, which needs `@robota-sdk/agent-session` as well, is
 exported from the `/session` subpath instead — see below.
 
@@ -22,7 +22,7 @@ so your own project needs it as a direct dependency too — install it explicitl
 pnpm's default strict `node_modules` or under Yarn PnP, importing a package your project never
 declared fails even though this package's install brought a copy of it in transitively).
 `@robota-sdk/agent-core` is a peer dependency, and `@robota-sdk/agent-session` an optional one needed
-only by the `/session` subpath. This package runs the `Robota`/`Session` instances the host
+only by the `/session` subpath. This package runs the `ConversationAgent`/`Session` instances the host
 constructs with them, so the host's copies and this package's must be the same install. See "Version
 and compatibility" below for what version range that peer dependency actually pins to.
 
@@ -38,12 +38,12 @@ platform-neutral — only this adapter, and the runtimes it wraps, are Node-only
 | Kind                                                                              | Wait continuation                                               | Checkpoint             | Model calls                                            |
 | --------------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------- | ------------------------------------------------------ |
 | `sessionParticipant`                                                              | Yes — a tool call awaiting approval (`robota-session/approval`) | `robota-session/1`     | Metered (`'metered'`)                                  |
-| `robotaParticipant`                                                               | No — a suspended execution fails the turn outright              | `robota-agent/1`       | Metered (`'metered'`)                                  |
+| `runtimeParticipant`                                                               | No — a suspended execution fails the turn outright              | `robota-agent/1`       | Metered (`'metered'`)                                  |
 | Custom (write your own `AgentParticipant` against `@robota-sdk/agent-roundtable`) | Whatever you implement                                          | Whatever you implement | Declare `factory.modelCalls` yourself (see note below) |
 
-A custom participant needs neither this package nor Robota at all — `@robota-sdk/agent-roundtable`'s
+A custom participant needs neither this package nor agent runtime at all — `@robota-sdk/agent-roundtable`'s
 own README shows one wrapping plain code. Use `sessionParticipant` when the turn needs tools,
-permissions or approval; use `robotaParticipant` for a model-only agent with no continuation to
+permissions or approval; use `runtimeParticipant` for a model-only agent with no continuation to
 manage; write a custom participant for any other runtime.
 
 Leaving a custom factory's `modelCalls` undeclared behaves like `'none'` only while the roundtable has
@@ -54,13 +54,13 @@ participant nobody metered can never end up silently governed by a limit it neve
 
 ## Quick start
 
-A minimal, runnable example — no API key or real provider needed. It plugs a `Robota` agent in as a
+A minimal, runnable example — no API key or real provider needed. It plugs a `ConversationAgent` instance in as a
 participant, runs one turn, and reads the message it published:
 
 ```typescript
-import { Robota, type IAIProvider } from '@robota-sdk/agent-core';
+import { ConversationAgent, type IAIProvider } from '@robota-sdk/agent-core';
 import { createRoundtable, MemoryConversationStore } from '@robota-sdk/agent-roundtable';
-import { robotaParticipant } from '@robota-sdk/agent-roundtable-robota';
+import { runtimeParticipant } from '@robota-sdk/agent-roundtable-robota';
 
 // A minimal provider so this example runs with no external service or API key.
 const provider: IAIProvider = {
@@ -83,11 +83,11 @@ const provider: IAIProvider = {
   validateConfig: () => true,
 };
 
-const assistant = robotaParticipant({
+const assistant = runtimeParticipant({
   id: 'assistant',
-  runtime: { id: 'demo/robota', version: '1' },
+  runtime: { id: 'demo/conversation-agent', version: '1' },
   createAgent: async () =>
-    new Robota({
+    new ConversationAgent({
       name: 'assistant',
       aiProviders: [provider],
       defaultModel: { provider: provider.name, model: 'demo-model' },
@@ -113,7 +113,7 @@ changes.
 
 ## `sessionParticipant`: a real, permission-gated agent turn
 
-`sessionParticipant` wraps a Robota `Session` — the same runtime `agent-cli`/`agent-framework` build
+`sessionParticipant` wraps an agent runtime `Session` — the same runtime `agent-cli`/`agent-framework` build
 on, with tools, permissions and hooks — as a participant. The host supplies everything Session-specific
 through `createSessionOptions`; this package owns turning a shared increment into that Session's input,
 metering every provider call it makes, and mapping its one supported wait shape (a tool call awaiting
@@ -121,7 +121,7 @@ approval, `robota-session/approval`) onto the roundtable's own wait/resume proto
 
 It is imported from the `/session` subpath, not the package root: `sessionParticipant` pulls in
 `@robota-sdk/agent-session` — and, through it, `@robota-sdk/agent-file-authority`'s native binary — a
-cost a consumer of `robotaParticipant`/`robotaSelector` alone should never pay:
+cost a consumer of `runtimeParticipant`/`runtimeSelector` alone should never pay:
 
 ```typescript
 import { sessionParticipant } from '@robota-sdk/agent-roundtable-robota/session';
@@ -157,17 +157,17 @@ That default also only ever frees a session's records once its execution settles
 a parked wait whose conversation fails or is simply never resumed keeps its records in memory for the
 life of the process. A host that expects abandoned waits supplies its own `journal` to clean those up.
 
-## `robotaParticipant`: a plain agent turn, no continuation
+## `runtimeParticipant`: a plain agent turn, no continuation
 
-`robotaParticipant` wraps a plain `Robota` agent the host already constructed. It metering-wraps every
+`runtimeParticipant` wraps a plain `ConversationAgent` agent the host already constructed. It metering-wraps every
 provider call the same way `sessionParticipant` does, but supports no wait continuation at all: an
 agent whose tool suspends execution fails that turn outright rather than parking it. Its checkpoint
 (`robota-agent/1`) restores a fresh agent's history at a settled boundary; there is no parked-wait
 checkpoint to restore, because there is no wait to restore into.
 
-## `robotaSelector`: picking the next speaker with a Robota agent
+## `runtimeSelector`: picking the next speaker with an agent
 
-`robotaSelector` asks a Robota agent to decide who speaks next by calling one decision tool, exactly
+`runtimeSelector` asks an agent to decide who speaks next by calling one decision tool, exactly
 once; `agent-roundtable` never has to know that a model made the choice. The agent `createAgent()`
 returns must carry no tool of its own — the decision tool is the only one this package ever adds, and
 only for the call that needs it — so a decision can only ever have been reached the one way this
@@ -175,7 +175,7 @@ package can verify. A decision that never calls the tool, calls it more than onc
 the conversation's current participants, or names the same participant twice, fails the selection; the
 roundtable's own run then fails too, with no retry from inside the selector.
 
-The `robotaSelector` a call to this function returns is one conversation's selector: its reused agent's
+The `runtimeSelector` a call to this function returns is one conversation's selector: its reused agent's
 history and tools are private, mutable state a second, overlapping `select()` call on the same instance
 would corrupt, so a second such call is rejected outright (`resource-reused`) rather than left to race
 the first. Give each conversation its own instance instead of sharing one across conversations.
@@ -194,8 +194,8 @@ input passes its own `render` function to either participant.
 
 ## `meterJournal`: metering a host's own selector or participant
 
-Both `robotaParticipant` and `robotaSelector` wrap the `IExecutionJournal` they hand to a `Robota`
-run with `meterJournal`, which is exported so a host writing its own Robota-backed selector or
+Both `runtimeParticipant` and `runtimeSelector` wrap the `IExecutionJournal` they hand to a `ConversationAgent`
+run with `meterJournal`, which is exported so a host writing its own agent runtime-backed selector or
 participant gets the same guarantee without reimplementing it:
 
 ```typescript
@@ -213,11 +213,11 @@ it settles. A `Session`-backed, checkpoint-resumable journal uses `meterRecovera
 
 ## Errors
 
-`RobotaParticipantError` (`unsupported-wait`, `identity-mismatch`, `checkpoint-invalid`,
+`RuntimeParticipantError` (`unsupported-wait`, `identity-mismatch`, `checkpoint-invalid`,
 `journal-missing`, `resource-reused`) is thrown by a participant's `runTurn`/`resumeTurn`/`openSession`.
 `SelectorDecisionError` (`no-candidates`, `no-decision`, `multiple-decisions`, `invalid-decision`,
-`unknown-participant`) is thrown by `robotaSelector`'s `select`, which also throws
-`RobotaParticipantError('resource-reused')` if one selector instance is asked to decide for two
+`unknown-participant`) is thrown by `runtimeSelector`'s `select`, which also throws
+`RuntimeParticipantError('resource-reused')` if one selector instance is asked to decide for two
 conversations at the same time.
 
 ## Provider SDK retries
@@ -240,11 +240,11 @@ the `/session` subpath, since that peer is optional.
 That API version is separate from **checkpoint format compatibility**, which this package owns
 independently of any of those three:
 
-- `sessionParticipant`'s checkpoint is versioned `robota-session/1`; `robotaParticipant`'s is
+- `sessionParticipant`'s checkpoint is versioned `robota-session/1`; `runtimeParticipant`'s is
   `robota-agent/1`. Both decoders reject any other `version` string outright — there is no silent
   best-effort decode of an unrecognized or future format.
 - A checkpoint format changes only by minting a new version string (e.g. a hypothetical
-  `robota-session/2`), never by changing what `/1` means in place. An API-compatible minor or patch
+  `agent-session/2`), never by changing what `/1` means in place. An API-compatible minor or patch
   release of this package never changes what an existing checkpoint version decodes to.
 - Restoring also re-validates identity: `sessionParticipant`'s `openSession` rejects a checkpoint
   built under a different `cwd`, and a parked wait's checkpoint is a receipt, not a substitute for the

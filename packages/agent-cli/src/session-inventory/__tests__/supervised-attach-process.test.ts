@@ -1,3 +1,4 @@
+import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import { type ChildProcess } from 'node:child_process';
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { createConnection } from 'node:net';
@@ -33,10 +34,10 @@ async function withAttachedRuntime(
   let id: string | undefined;
   let child: ChildProcess | undefined;
   try {
-    id = await launchSupervisedSession(process.cwd(), {
+    id = await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
       entrypoint: fixture,
       execArgs: ['--import', 'tsx', '--conditions=source'],
-      env: { ROBOTA_TEST_SUPERVISED_ROOT: root, ...env },
+      env: { PRODUCT_TEST_SUPERVISED_ROOT: root, ...env },
       onSpawn: (spawned) => { child = spawned; },
     });
     const generation = String((JSON.parse(readFileSync(join(root, id, 'state.json'), 'utf8')) as {
@@ -97,7 +98,7 @@ describe('attach to a detached supervised runtime', () => {
   it('lists the sessions the runtime serves to an attached terminal, as it does to its WebSocket clients', async () => {
     const sessions = mkdtempSync(join(tmpdir(), 'rs-atp-sessions-'));
     try {
-      await withAttachedRuntime('rs-atl-', { ROBOTA_TEST_SESSIONS_DIR: sessions }, 'drive', async ({ lines, send }) => {
+      await withAttachedRuntime('rs-atl-', { PRODUCT_TEST_SESSIONS_DIR: sessions }, 'drive', async ({ lines, send }) => {
         expect(lines[0]).toMatchObject({ status: 'attached' });
         send({ type: 'list-sessions', requestId: 'r1' });
         await expect.poll(() => lines.find((line) => line['requestId'] === 'r1'), { timeout: 10_000 })

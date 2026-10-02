@@ -36,6 +36,7 @@ const FIXTURE_DIR = path.join(SCRIPT_DIR, 'fixture');
  * mechanically below, so adding a dependency to any of them cannot silently break the proof.
  */
 const ENTRY_PACKAGES = [
+  '@robota-sdk/agent-cli',
   '@robota-sdk/agent-product',
   '@robota-sdk/agent-capability-pack',
   '@robota-sdk/pack-coding',
@@ -128,7 +129,7 @@ export function writeConsumerManifest(consumerDir, tarballs) {
     version: '0.0.0',
     private: true,
     type: 'module',
-    description: 'ARCH-005 S3 — a third-party product built on the published Robota packages.',
+    description: 'ARCH-005 S3 — a third-party product built on the published agent runtime packages.',
     scripts: { build: 'tsc -p tsconfig.json', proof: 'node dist/proof.js' },
     dependencies: specs,
     devDependencies: { '@types/node': '^20.19.43', typescript: '^5.9.3' },

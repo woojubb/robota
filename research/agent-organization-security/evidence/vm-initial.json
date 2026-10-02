@@ -1,0 +1,46 @@
+{
+  "kind": "disposable-kvm-runtime-initial-results",
+  "platform": "Ubuntu 24.04 x64 KVM",
+  "sourceCommit": "2d49741f5aa715edde98d8e5fd2678356226e482",
+  "artifactHashes": {
+    "cli-deployed-artifact.tar.gz": "c5e931ec40ea35f0eeb9ad31cfed09f4ac69f2d406f516a18cd86866d479eaa6",
+    "node-runtime.tar.gz": "9f8f49245ec1eb68d1326ffccb51095d0255e79dc21aa0ed4d061a98a6383085"
+  },
+  "image": {
+    "url": "https://cloud-images.ubuntu.com/noble/20260926/noble-server-cloudimg-amd64.img",
+    "sha256": "6a81c37564db9b1ee84e141922625e1d7c5b389b99bb3c572e0243607d5bb4d2"
+  },
+  "records": [
+    {
+      "id": "raw-cli-without-external-dependencies",
+      "result": "failed",
+      "reason": "chalk external dependency absent"
+    },
+    {
+      "id": "deployed-cli-session-log-without-provider",
+      "result": "failed",
+      "reason": "provider configuration required; replay package is development-only"
+    },
+    {
+      "id": "headless-cli-mock-provider",
+      "result": "passed",
+      "expectedMarker": "RESEARCH_HEADLESS_VM_OK",
+      "observedMarker": true
+    },
+    {
+      "id": "default-shell-without-approver",
+      "result": "passed",
+      "criterion": "shell-result.txt absent after request; SSH command exit 0"
+    },
+    {
+      "id": "explicitly-allowed-shell",
+      "result": "passed",
+      "criterion": "shell-result.txt equals shell-ok; SSH command exit 0"
+    }
+  ],
+  "limitations": [
+    "Model surrogate runs on guest loopback; no external model credentials or costs.",
+    "This first guest hosts runtime and command together, so it does not establish separation of runtime keys from job code.",
+    "Cloud platform lifecycle/cost and multi-worker isolation are still unverified."
+  ]
+}

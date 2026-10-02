@@ -1,12 +1,14 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 
 import { resetUserConfig } from '@robota-sdk/agent-framework';
-import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
+import { productUserSettingsPath } from '../product/user-settings.js';
 
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
 export interface IResetConfigOptions {
+  readonly productRuntime: ICliRuntimeContext;
   /** --yes flag: skip the confirmation prompt. */
   yes: boolean;
   /** Whether stdin is a TTY (non-TTY without --yes refuses to delete). */
@@ -35,7 +37,7 @@ export async function runResetConfig(
   terminal: ITerminalOutput,
   options: IResetConfigOptions,
 ): Promise<number> {
-  const path = robotaUserSettingsPath();
+  const path = productUserSettingsPath(options.productRuntime);
   if (!existsSync(path)) {
     terminal.writeLine('No user settings found.');
     return 0;

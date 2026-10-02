@@ -18,7 +18,7 @@ describe('FileLogStorage (PLUGIN-001: real persistence)', () => {
   let filePath: string;
 
   function freshStorage(): FileLogStorage {
-    dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-log-')));
+    dir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-log-')));
     filePath = join(dir, 'app.log');
     return new FileLogStorage(filePath);
   }

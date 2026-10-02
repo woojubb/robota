@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { Robota, clearRegisteredToolProfiles } from '@robota-sdk/agent-core';
+import { ConversationAgent, clearRegisteredToolProfiles } from '@robota-sdk/agent-core';
 import type { IExecutionJournal } from '@robota-sdk/agent-core';
 import type { ModelCallIntent, TurnServices, UsageReport } from '@robota-sdk/agent-roundtable';
 // Imported from the package's PUBLIC entry, not a relative path: this is the surface a host
@@ -34,15 +34,15 @@ function discardingJournal(): IExecutionJournal {
 describe('meterJournal, exported for a host-defined selector or participant', () => {
   it('records exactly one usage record per provider call a custom selector makes', async () => {
     const scripted = createScriptedProvider([{ text: 'speak: a' }]);
-    const agent = new Robota({
+    const agent = new ConversationAgent({
       name: 'host-custom-selector',
       aiProviders: [scripted.provider],
       defaultModel: { provider: scripted.provider.name, model: 'test-model' },
     });
     const svc = services();
 
-    // A host's own selector — no `TurnSelector`/`robotaSelector` from this package involved, just
-    // the exported metering helper wrapping the journal handed to a plain `Robota#run`.
+    // A host's own selector — no `TurnSelector`/`runtimeSelector` from this package involved, just
+    // the exported metering helper wrapping the journal handed to a plain `ConversationAgent#run`.
     async function customSelect(prompt: string): Promise<string> {
       const metered = meterJournal(discardingJournal(), svc);
       const response = await agent.run(prompt, {

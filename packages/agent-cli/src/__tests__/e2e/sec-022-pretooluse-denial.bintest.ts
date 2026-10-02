@@ -1,3 +1,5 @@
+import { createTestBinaryEnvironment } from '../helpers/product-runtime.js';
+import { createTestProductRuntime } from '../helpers/product-runtime.js';
 /**
  * SEC-022 (issue #2225): the provider-free route to a real `PreToolUse` denial, through the CLI.
  *
@@ -29,7 +31,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createBinaryAgentDriver } from '../../testing/binary-agent-driver.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const CLI = join(HERE, '..', '..', '..', 'bin', 'robota.cjs');
+const CLI = join(HERE, '..', '..', '..', 'bin', 'agent.cjs');
 /** The fixture SEC-016 committed for whoever resolved its blocker; until now no test read it. */
 const FIXTURE = join(HERE, 'fixtures', 'sec-016-tool-call.jsonl');
 const PROBE_NAME = 'SEC-016-PROBE.txt';
@@ -69,7 +71,7 @@ function providerSettings(withHook: boolean): string {
 }
 
 function writeSettings(homeDir: string, withHook: boolean): void {
-  const dir = join(homeDir, '.robota');
+  const dir = join(homeDir, '.test-product');
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'settings.json'), providerSettings(withHook), 'utf8');
 }
@@ -91,7 +93,7 @@ function runCli(homeDir: string, projectDir: string): Promise<IRunResult> {
       ],
       {
         cwd: projectDir,
-        env: { PATH: process.env['PATH'] ?? '', HOME: homeDir },
+        env: createTestBinaryEnvironment(homeDir),
       },
     );
     let stdout = '';
@@ -127,7 +129,7 @@ function readSessionId(stdout: string): string {
 
 /** The `tool` message the run persisted — the surface that carries the denial. */
 function readToolMessageContent(homeDir: string, sessionId: string): string {
-  const file = join(homeDir, '.robota', 'sessions', `${sessionId}.json`);
+  const file = join(homeDir, '.test-product', 'sessions', `${sessionId}.json`);
   const envelope = JSON.parse(readFileSync(file, 'utf8')) as {
     record?: { messages?: readonly IRecordedMessage[] };
   };
@@ -145,8 +147,8 @@ describe('SEC-022: the provider-free route to a PreToolUse denial (issue #2225)'
   let projectDir: string;
 
   beforeEach(() => {
-    homeDir = mkdtempSync(join(tmpdir(), 'robota-sec022-home-'));
-    projectDir = mkdtempSync(join(tmpdir(), 'robota-sec022-proj-'));
+    homeDir = mkdtempSync(join(tmpdir(), 'test-product-sec022-home-'));
+    projectDir = mkdtempSync(join(tmpdir(), 'test-product-sec022-proj-'));
     writeFileSync(join(projectDir, PROBE_NAME), `${PROBE_CONTENT}\n`, 'utf8');
   });
 
@@ -186,10 +188,10 @@ describe('SEC-022: the provider-free route to a PreToolUse denial (issue #2225)'
 
   it('reports the tool call that ran through the binary fidelity of IAgentDriver (TC-05)', async () => {
     writeSettings(homeDir, false);
-    const driver = createBinaryAgentDriver({
+    const driver = createBinaryAgentDriver({productRuntime: createTestProductRuntime('test-product', { HOME: homeDir }),
       cwd: projectDir,
       sessionLog: FIXTURE,
-      env: { PATH: process.env['PATH'] ?? '', HOME: homeDir },
+      env: createTestBinaryEnvironment(homeDir),
     });
     await driver.start();
     await driver.send('read the probe file');

@@ -1,12 +1,17 @@
 /**
- * GUI-002 — Electron main process (Node). Thin shell: ask the `robota` CLI to start this workspace's daemon
+ * GUI-002 — Electron main process (Node). Thin shell: ask the configured CLI to start this workspace's daemon
  * (or reuse the live one), load the GUI web app (agent-gui-web) in a hardened BrowserWindow, and hand the
  * page the daemon's loopback address. The daemon belongs to the CLI and outlives the window. NO session/
  * command/permission logic lives here — all of that is in the daemon, reached over the loopback WS.
  */
 
 import { spawn } from 'node:child_process';
-import { statSync } from 'node:fs';
+import {
+  DesktopRemoteRuntime,
+  loadDesktopRemoteConfig,
+  REMOTE_RUNTIME_FAILURE,
+} from './remote-runtime.js';
+import { mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -31,19 +36,52 @@ import {
   isTrustChoice,
   parseDaemonStartOutput,
   parseTrustStatusOutput,
+  parseTrustedProviderEnvironmentReferences,
   resolveOpenPathTarget,
   resolveSidecarCommand,
   type IPickedFile,
   type ITrustQuestion,
   type TDaemonStart,
 } from './sidecar.js';
+import {
+  desktopCliEnvironment,
+  desktopDaemonEnvironment,
+  desktopIdentityPath,
+  desktopUserDataPath,
+  loadDesktopProductConfigSelection,
+  resolveDesktopIdentity,
+} from './product-config.js';
 
-// GUI-003: packaged → the bundled runtime under process.resourcesPath; dev/e2e → $ROBOTA_GUI_SIDECAR_CMD / PATH.
-const robota = (): string =>
+const productIdentityFile = desktopIdentityPath(__dirname);
+const hostEnvironment = Object.freeze({ ...process.env });
+const remoteMode = hostEnvironment.PRODUCT_DESKTOP_REMOTE_CONNECTION_CONFIG !== undefined;
+let remoteRuntime: DesktopRemoteRuntime | undefined;
+const productSelection = loadDesktopProductConfigSelection({
+  environment: hostEnvironment,
+  identityFile: productIdentityFile,
+  isPackaged: app.isPackaged,
+});
+const productConfig = productSelection.config;
+let admittedProviderEnvironmentReferences: readonly string[] = [];
+const allowScriptedE2eVariables =
+  !app.isPackaged &&
+  hostEnvironment.PRODUCT_GUI_SIDECAR_CMD?.endsWith(join('e2e', 'scripted-sidecar.mjs')) === true;
+const trustEnvironment = desktopCliEnvironment(productConfig, hostEnvironment, {
+  allowScriptedE2eVariables,
+});
+const productIdentity = resolveDesktopIdentity(productConfig, productIdentityFile);
+app.setName(productConfig.identity.displayName);
+const desktopUserData = desktopUserDataPath(productConfig);
+mkdirSync(desktopUserData, { recursive: true, mode: 0o700 });
+app.setPath('userData', desktopUserData);
+
+// GUI-003: packaged → the configured bundled runtime; dev/e2e → explicit fixture override / configured PATH CLI.
+const productCli = (): string =>
   resolveSidecarCommand({
     isPackaged: app.isPackaged,
     resourcesPath: process.resourcesPath,
     platform: process.platform,
+    productIdentity,
     env: process.env,
   });
 
@@ -81,7 +119,7 @@ function runCli(
   });
 }
 
-const cliEnv = (): Record<string, string> => buildDaemonStartSpawn('', process.env).env;
+const cliEnv = (): Record<string, string> => buildDaemonStartSpawn('', trustEnvironment).env;
 
 /**
  * A person chose to run this folder Restricted: every daemon start this window asks for says so, the
@@ -89,13 +127,50 @@ const cliEnv = (): Record<string, string> => buildDaemonStartSpawn('', process.e
  */
 let restricted = false;
 
-/** Run `robota daemon start --json` and read its answer. */
+/** Run the daemon start command and read its answer. */
 async function startDaemon(): Promise<TDaemonStart> {
-  const invocation = buildDaemonStartSpawn(robota(), process.env, { restricted });
+  if (remoteMode) {
+    try {
+      await remoteRuntime?.close();
+      const config = loadDesktopRemoteConfig(
+        hostEnvironment.PRODUCT_DESKTOP_REMOTE_CONNECTION_CONFIG!,
+      );
+      remoteRuntime = new DesktopRemoteRuntime(config, async (event) => {
+        const printable = JSON.stringify(event)
+          .replace(
+            // eslint-disable-next-line no-control-regex -- Native approval text must not contain display controls.
+            /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]/gu,
+            ' ',
+          )
+          .slice(0, 4000);
+        const answer = await dialog.showMessageBox({
+          type: 'question',
+          message: 'Remote task requests permission',
+          detail: `Connection: ${config.binding}\n${printable}`,
+          buttons: ['Deny', 'Allow once'],
+          defaultId: 0,
+          cancelId: 0,
+          noLink: true,
+        });
+        return answer.response === 1;
+      });
+      return { ok: true, endpoint: await remoteRuntime.start() };
+    } catch {
+      return { ok: false, detail: REMOTE_RUNTIME_FAILURE };
+    }
+  }
+  const childEnvironment = desktopDaemonEnvironment(productConfig, hostEnvironment, {
+    restricted,
+    providerEnvironmentReferences: admittedProviderEnvironmentReferences,
+    allowScriptedE2eVariables,
+  });
+  const invocation = buildDaemonStartSpawn(productCli(), childEnvironment, { restricted });
   const run = await runCli(invocation.command, invocation.args, invocation.env);
   if (!run.spawned) return { ok: false, detail: run.detail };
   const endpoint = run.exitCode === 0 ? parseDaemonStartOutput(run.stdout) : undefined;
-  return endpoint ? { ok: true, endpoint } : { ok: false, detail: describeDaemonStartFailure(run) };
+  return endpoint
+    ? { ok: true, endpoint }
+    : { ok: false, detail: describeDaemonStartFailure(run, productConfig.identity.cliName) };
 }
 
 /**
@@ -103,7 +178,12 @@ async function startDaemon(): Promise<TDaemonStart> {
  * that. The CLI decides; when it cannot say, nothing is asked and the daemon start gives its reason.
  */
 async function readTrustQuestion(): Promise<ITrustQuestion | undefined> {
-  const run = await runCli(robota(), ['trust', 'status', '--json'], cliEnv());
+  if (remoteMode) return undefined;
+  const run = await runCli(productCli(), ['trust', 'status', '--json'], cliEnv());
+  admittedProviderEnvironmentReferences =
+    run.spawned && run.exitCode === 0
+      ? (parseTrustedProviderEnvironmentReferences(run.stdout) ?? [])
+      : [];
   return run.spawned && run.exitCode === 0 ? parseTrustStatusOutput(run.stdout) : undefined;
 }
 
@@ -180,7 +260,9 @@ function buildMenu(win: BrowserWindow): Menu {
     { role: 'togglefullscreen' },
     // Dev tools stay out of a packaged build's menu — nothing here toggles a debugging surface a
     // shipped app should not offer.
-    ...(app.isPackaged ? [] : [{ type: 'separator' } as const, { role: 'toggleDevTools' } as const]),
+    ...(app.isPackaged
+      ? []
+      : [{ type: 'separator' } as const, { role: 'toggleDevTools' } as const]),
   ];
   const template: MenuItemConstructorOptions[] = [
     ...(isMac
@@ -244,6 +326,10 @@ async function createWindow(): Promise<void> {
  * The renderer asks (via preload) for its endpoint once, after the DOM is ready and after it has
  * subscribed to state. A failed start answers `null` and reports `fatal` with the reason to that page.
  */
+ipcMain.on('agent-gui:runtime-mode', (event) => {
+  event.returnValue = remoteMode ? 'remote' : 'local';
+});
+
 ipcMain.handle('agent-gui:endpoint', async (event): Promise<string | null> => {
   if (pendingTrust !== undefined) return null;
   const current = daemon.current();
@@ -261,7 +347,12 @@ ipcMain.handle('agent-gui:endpoint', async (event): Promise<string | null> => {
 ipcMain.handle('agent-gui:restart', async (event): Promise<void> => {
   // Nothing starts before the trust question is answered.
   if (pendingTrust !== undefined) return;
-  await daemon.start();
+  if (restricted) {
+    admittedProviderEnvironmentReferences = [];
+  } else {
+    pendingTrust = await readTrustQuestion();
+  }
+  if (pendingTrust === undefined) await daemon.start();
   if (!event.sender.isDestroyed()) event.sender.reload();
 });
 
@@ -273,6 +364,7 @@ ipcMain.handle('agent-gui:trust-question', (): ITrustQuestion | null => pendingT
  * is modal to it rather than the whole app. Cancelling answers an empty list, same as picking nothing.
  */
 ipcMain.handle('agent-gui:pick-files', async (event): Promise<IPickedFile[]> => {
+  if (remoteMode) return [];
   const win = BrowserWindow.fromWebContents(event.sender);
   const properties: Array<'openFile' | 'multiSelections'> = ['openFile', 'multiSelections'];
   const result = win
@@ -294,13 +386,17 @@ ipcMain.handle('agent-gui:pick-files', async (event): Promise<IPickedFile[]> => 
  * local daemon itself reported it — in the OS default app for it. `resolveOpenPathTarget` refuses a
  * path that resolves outside this workspace before anything is opened.
  */
-ipcMain.handle('agent-gui:open-path', async (_event, path: unknown): Promise<{ error?: string }> => {
-  if (typeof path !== 'string') return { error: 'path must be a string' };
-  const target = resolveOpenPathTarget(process.cwd(), path);
-  if (target === undefined) return { error: 'That path is outside the workspace.' };
-  const error = await shell.openPath(target);
-  return error ? { error } : {};
-});
+ipcMain.handle(
+  'agent-gui:open-path',
+  async (_event, path: unknown): Promise<{ error?: string }> => {
+    if (remoteMode) return { error: 'Remote task paths cannot open files on this computer.' };
+    if (typeof path !== 'string') return { error: 'path must be a string' };
+    const target = resolveOpenPathTarget(process.cwd(), path);
+    if (target === undefined) return { error: 'That path is outside the workspace.' };
+    const error = await shell.openPath(target);
+    return error ? { error } : {};
+  },
+);
 
 /**
  * The person answered. Trust records the grant (a grant the CLI refuses keeps the question up, with
@@ -318,20 +414,24 @@ ipcMain.handle(
     answering = true;
     try {
       if (choice === 'trust') {
-        const granted = await runCli(robota(), ['trust', '--yes'], cliEnv());
+        const granted = await runCli(productCli(), ['trust', '--yes'], cliEnv());
         if (!granted.spawned) return { error: granted.detail };
         if (granted.exitCode !== 0) {
           return {
             error:
               granted.stderr.trim() ||
               granted.stdout.trim() ||
-              `robota trust --yes failed (exit ${granted.exitCode ?? 'signal'}).`,
+              `${productConfig.identity.cliName} trust --yes failed (exit ${granted.exitCode ?? 'signal'}).`,
           };
         }
       } else {
         restricted = true;
+        admittedProviderEnvironmentReferences = [];
       }
       pendingTrust = undefined;
+      // Trust grant has completed. Re-read the now-admitted settings projection before starting
+      // the daemon so only explicitly referenced provider/transport variables cross the boundary.
+      if (choice === 'trust') await readTrustQuestion();
       await daemon.start();
       if (!event.sender.isDestroyed()) event.sender.reload();
       return {};
@@ -356,6 +456,14 @@ app
     console.error('[agent-app] failed to create the main window:', error);
     app.quit();
   });
+
+let closingRemote = false;
+app.on('before-quit', (event) => {
+  if (!remoteRuntime || closingRemote) return;
+  event.preventDefault();
+  closingRemote = true;
+  void remoteRuntime.close().finally(() => app.quit());
+});
 
 // Closing the window leaves the daemon running: it is the workspace's, and the next launch reattaches.
 app.on('window-all-closed', () => {

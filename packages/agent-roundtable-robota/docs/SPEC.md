@@ -1,11 +1,11 @@
-# Roundtable Robota Adapter
+# Roundtable agent runtime Adapter
 
 ## Purpose
 
-Let a Robota `Session` or a plain `Robota` agent take a turn, or pick the next speaker, inside an
+Let an agent runtime `Session` or a plain `ConversationAgent` agent take a turn, or pick the next speaker, inside an
 `@robota-sdk/agent-roundtable` conversation — without `agent-roundtable` ever depending on either
 runtime, and without a host reimplementing rendering, per-call metering, wait mapping or checkpoint
-restoration for every product that wants a Robota-backed participant or selector.
+restoration for every product that wants an agent runtime-backed participant or selector.
 
 ## Contract
 
@@ -26,7 +26,7 @@ permission gate produces for a tool awaiting approval — and maps it to a round
 runtime's exact identity: the same execution, action and tool-call identifiers a host would need to
 reason about what is being asked. Answering it neither grants standing consent nor runs the tool twice;
 denying it completes the turn without ever entering the tool's effect. Any other suspended request, and
-a plain `Robota` agent's suspension (which supports no continuation at all), fail the turn outright
+a plain `ConversationAgent` agent's suspension (which supports no continuation at all), fail the turn outright
 rather than being reported as an answerable wait.
 
 A settled turn's checkpoint restores a fresh runtime instance to the same private history, given the
@@ -37,7 +37,7 @@ durable record of the execution it names, still being reachable. A lease's sessi
 belong to it exclusively until it is released; a second lease over any of them while the first still
 holds it is refused, and releasing an already-released lease changes nothing.
 
-A selector backed by a Robota agent trusts a decision only when the agent reaches it through the one
+A selector backed by an agent trusts a decision only when the agent reaches it through the one
 channel offered for reaching it, unambiguously, and only when it names conversation participants that
 are actually present; every other outcome fails the selection outright, with no retry of its own — a
 host that wants one decides how, at the roundtable level.

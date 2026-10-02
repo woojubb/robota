@@ -1,5 +1,6 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * RUNTIME-001 — the headless `robota --serve` runtime host entry.
+ * RUNTIME-001 — the headless `the product --serve` runtime host entry.
  *
  * Runs the shared `startRuntimeHost` (builds the session + serves the transports) and keeps the process alive
  * until signaled, then shuts the runtime down cleanly. Renders NO ink — this is the backend `apps/agent-app`
@@ -44,16 +45,14 @@ import {
 } from '@robota-sdk/agent-framework';
 import type { IServeSessionDirectory } from './serve-session-directory.js';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
-import { ROBOTA_PERMISSION_BASELINE } from '../product/robota-permission-baseline.js';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type { InteractiveSession, IOrgPolicy, SessionSlot } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
 import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from '../startup/loop-options.js';
-import { homedir } from 'node:os';
 import { realpathSync } from 'node:fs';
-import type { IAIProvider, IProviderDefinition, IToolWithEventService } from '@robota-sdk/agent-core';
+import type { IAgentConfig, IAIProvider, IProviderDefinition, IToolWithEventService } from '@robota-sdk/agent-core';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type {
   EditCheckpointStore,
@@ -85,6 +84,7 @@ import type { IInteractiveSession, ISessionLoopState } from '@robota-sdk/agent-i
 export type IServeModePresetOptions = Partial<IPresetSurfaceOptions>;
 
 export interface IServeModeOptions {
+  productRuntime: ICliRuntimeContext;
   cwd: string;
   livePromptTrace?: ILivePromptTracePort;
   /** Explicit host-owned control root for isolated embedded runtimes and tests. */
@@ -141,8 +141,9 @@ export interface IServeModeOptions {
    * tier (first occurrence wins — see `agent-framework/docs/SPEC.md` § "Session-level tool composition").
    */
   additionalTools?: IToolWithEventService[];
+  toolExecutionPolicy?: IAgentConfig['toolExecutionPolicy'];
   /**
-   * ARCH-006: REPLACES `agent-framework`'s `createDefaultTools()` tier. `robota` passes an empty array so
+   * ARCH-006: REPLACES `agent-framework`'s `createDefaultTools()` tier. `the product` passes an empty array so
    * its capability packs are the SOLE source of the session's tools.
    */
   defaultTools?: readonly IToolWithEventService[];
@@ -235,6 +236,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(opts.userSettingsSources !== undefined
       ? { userSettingsSources: opts.userSettingsSources }
       : {}),
+    environment: opts.productRuntime.environment,
     ...(opts.contributionSources !== undefined
       ? { contributionSources: opts.contributionSources }
       : {}),
@@ -253,13 +255,13 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
           externalEventGrantHistory: createExternalEventGrantHistory(),
         }
       : {}),
-    baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,
+    baselinePermissionAllow: opts.productRuntime.layout.baselinePermissionAllow,
     // Issue #1937: the CLI-sourced prompt addition, composed once at the projection. Before this it
     // was built at print mode only, so these flags did nothing in a served session.
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : opts.sessionStore,
-    disableSessionLoops: areSessionLoopsDisabled(process.env),
-    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({ projectAccess: opts.projectAccess, userHome: homedir() }),
+    disableSessionLoops: areSessionLoopsDisabled(opts.productRuntime.environment),
+    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({ productRuntime: opts.productRuntime, projectAccess: opts.projectAccess, userHome: opts.productRuntime.userHome ?? opts.productRuntime.layout.userRoot }),
     resumeSessionId: opts.resumeSessionId,
     forkSession: args.forkSession,
     sessionName: args.sessionName,
@@ -277,6 +279,9 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
       : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
     ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
+    ...(opts.toolExecutionPolicy !== undefined
+      ? { toolExecutionPolicy: opts.toolExecutionPolicy }
+      : {}),
     ...(opts.sandboxClient !== undefined ? { sandboxClient: opts.sandboxClient } : {}),
     ...(opts.toolCallHandoff !== undefined ? { toolCallHandoff: opts.toolCallHandoff } : {}),
     commandModules: opts.commandModules,
@@ -369,38 +374,38 @@ export function nextWaitingLoopAt(loops: readonly ISessionLoopState[], nowMs: nu
  * restart only after saving its change (a language, a provider profile, a settings reset), so the
  * next start applies it.
  */
-const DAEMON_COMMAND_PROCESS: ICommandProcessAdapter = {
+function daemonCommandProcess(productRuntime: ICliRuntimeContext): ICommandProcessAdapter { return {
   requestExit: () => {
     throw new Error(
       'A command does not stop the workspace daemon, which serves every client attached to it. ' +
-        'Detach this client to leave. To stop the daemon, run robota daemon stop; anything this ' +
-        'command changed applies when you next run robota daemon start.',
+        `Detach this client to leave. To stop the daemon, run ${productRuntime.config.identity.cliName} daemon stop; anything this ` +
+        `command changed applies when you next run ${productRuntime.config.identity.cliName} daemon start.`,
     );
   },
   requestRestart: () => {
     throw new Error(
       'A command does not restart the workspace daemon, which serves every client attached to it. ' +
-        'The change is saved and applies once you restart the daemon: run robota daemon stop, ' +
-        'then robota daemon start.',
+        `The change is saved and applies once you restart the daemon: run ${productRuntime.config.identity.cliName} daemon stop, ` +
+        `then ${productRuntime.config.identity.cliName} daemon start.`,
     );
   },
-};
+}; }
 
 /** The same refusal for a supervised session that is not a daemon, naming the commands that stop and start one. */
-function supervisedSessionCommandProcess(id: string): ICommandProcessAdapter {
+function supervisedSessionCommandProcess(id: string, productRuntime: ICliRuntimeContext): ICommandProcessAdapter {
   return {
     requestExit: () => {
       throw new Error(
         'A command does not stop this supervised session, which serves every client attached to it. ' +
-          `Detach this client to leave. To stop the session, run robota session stop ${id}; anything ` +
-          'this command changed applies to the next session you start with robota session start --background.',
+          `Detach this client to leave. To stop the session, run ${productRuntime.config.identity.cliName} session stop ${id}; anything ` +
+          `this command changed applies to the next session you start with ${productRuntime.config.identity.cliName} session start --background.`,
       );
     },
     requestRestart: () => {
       throw new Error(
         'A command does not restart this supervised session, which serves every client attached to it. ' +
-          'The change is saved and applies to a new session started with robota session start --background; ' +
-          `to end this one, run robota session stop ${id}.`,
+          `The change is saved and applies to a new session started with ${productRuntime.config.identity.cliName} session start --background; ` +
+          `to end this one, run ${productRuntime.config.identity.cliName} session stop ${id}.`,
       );
     },
   };
@@ -408,6 +413,22 @@ function supervisedSessionCommandProcess(id: string): ICommandProcessAdapter {
 
 export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   const { args } = opts;
+  let pendingSignal: NodeJS.Signals | undefined;
+  let settleFromSignal: ((reason: string) => void) | undefined;
+  const onSignal = (signal: NodeJS.Signals): void => {
+    if (settleFromSignal) settleFromSignal(`received ${signal}`);
+    else pendingSignal ??= signal;
+  };
+  // Transports can expose the session before startRuntimeHost settles; its owner already owns stop.
+  process.once('SIGTERM', onSignal);
+  process.once('SIGINT', onSignal);
+  // A detached launcher's stderr pipe eventually closes when its short-lived parent exits.
+  // That must not turn a later provider diagnostic into a fatal unhandled stream error.
+  const onStderrError = (error: NodeJS.ErrnoException): void => {
+    if (error.code !== 'EPIPE') throw error;
+  };
+  if (args.supervisedSessionId !== undefined) process.stderr.on('error', onStderrError);
+  try {
   const sessionOptions = buildServeSessionOptions(opts);
 
   // Declared before the host starts: the directory is attached in `bindTransports`, ahead of the
@@ -460,11 +481,11 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     const wsUrl = opts.getMonitorWsUrl?.();
     const webRoot = resolveWebRoot();
     if (wsUrl && webRoot) {
-      monitorUi = await startMonitorUiServer(webRoot, wsUrl);
-      process.stdout.write(servedAtMessage(monitorUi.url));
+      monitorUi = await startMonitorUiServer(webRoot, wsUrl, opts.productRuntime);
+      process.stdout.write(servedAtMessage(monitorUi.url, opts.productRuntime));
       openInBrowser(monitorUi.url);
     } else if (!webRoot) {
-      process.stderr.write('Robota web assets not found (dist/web) — run a full CLI build.\n');
+      process.stderr.write(`${opts.productRuntime.config.identity.displayName} web assets not found (dist/web) — run a full CLI build.\n`);
     }
   }
 
@@ -493,9 +514,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         .finally(() => resolve());
     };
     requestSettle = settle;
-    const onSignal = (signal: NodeJS.Signals): void => settle(`received ${signal}`);
-    process.once('SIGTERM', onSignal);
-    process.once('SIGINT', onSignal);
+    settleFromSignal = settle;
     // A nonzero runner result is a normal typed outcome, not an exception. The failure wait resolves
     // immediately for the first such record and does not wait for an unrelated runner that remains
     // alive. No runners/all-success/stop abandonment resolve `undefined` and leave serve mode alive.
@@ -526,15 +545,16 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     };
     opts.commandHostAdapters.process =
       args.daemon === true
-        ? DAEMON_COMMAND_PROCESS
+        ? daemonCommandProcess(opts.productRuntime)
         : args.supervisedSessionId !== undefined
-          ? supervisedSessionCommandProcess(args.supervisedSessionId)
+          ? supervisedSessionCommandProcess(args.supervisedSessionId, opts.productRuntime)
           : {
               requestExit: (reason) => scheduleSettle(`command exit${reason ? ` (${reason})` : ''}`),
               requestRestart: (_reason, message) => scheduleSettle(`command restart: ${message}`),
             };
   });
-  if (args.supervisedSessionId !== undefined) {
+  if (pendingSignal !== undefined) requestSettle(`received ${pendingSignal}`);
+  if (args.supervisedSessionId !== undefined && !settling) {
     try {
       // A daemon exists to hand its owner a WebSocket URL; one without an endpoint would only block
       // every later start in its workspace, so it does not become ready.
@@ -543,7 +563,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       let linkedPr: ISupervisedPr | undefined;
       // Every grant the launcher handed over is open before readiness, or the start fails.
       if (args.supervisedExternalEventGrants === true) {
-        const root = opts.supervisedRoot ?? resolveSupervisedDirectory();
+        const root = opts.supervisedRoot ?? resolveSupervisedDirectory(opts.productRuntime);
         const grants = takeSupervisedGrantHandoff(root, args.supervisedSessionId);
         // Refusals are recorded by the endpoint that answered them, settlements by the session.
         const audit = createExternalEventAuditRing(
@@ -582,7 +602,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       supervisedControl = await startSupervisedControl(
         args.supervisedSessionId,
         () => requestSettle('supervised session stopped'),
-        opts.supervisedRoot,
+        opts.supervisedRoot ?? resolveSupervisedDirectory(opts.productRuntime),
         // Activity and the next loop cover every live session, so a session no client is on that
         // still works keeps the runtime from reading idle.
         () => settling ? undefined : poolActivity(liveSessions()),
@@ -661,6 +681,11 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     }
   }
   await lifetime;
+  } finally {
+    process.off('SIGTERM', onSignal);
+    process.off('SIGINT', onSignal);
+    if (args.supervisedSessionId !== undefined) process.stderr.off('error', onStderrError);
+  }
 }
 
 /** The external-event endpoint could not listen on its port; the start fails naming only that. */

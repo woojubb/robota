@@ -313,7 +313,7 @@ describe('supervised session control', () => {
   });
 
   it('refuses a linked or world-readable control directory', async () => {
-    const scratch = mkdtempSync(join(tmpdir(), 'robota-supervised-unsafe-'));
+    const scratch = mkdtempSync(join(tmpdir(), 'test-product-supervised-unsafe-'));
     try {
       const unsafe = join(scratch, 'unsafe');
       mkdirSync(unsafe);

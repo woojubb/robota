@@ -1,6 +1,6 @@
 # Robota SDK — Embedding Examples
 
-Fully-typed TypeScript examples that embed Robota's `@robota-sdk/*` libraries in your own application: web
+Fully-typed TypeScript examples that embed the `@robota-sdk/*` libraries in your own application: web
 servers, bots, scripts and focused single-capability demos.
 
 ## Examples
@@ -78,7 +78,7 @@ calculator and clock). Add your own tools with `additionalTools` and approve the
 | Package                                 | Purpose                                                  |
 | --------------------------------------- | -------------------------------------------------------- |
 | `@robota-sdk/agent-framework`           | `createAgentRuntime`, `createQuery` — high-level runtime |
-| `@robota-sdk/agent-core`                | `Robota` — low-level agent                               |
+| `@robota-sdk/agent-core`                | `ConversationAgent` — low-level agent                   |
 | `@robota-sdk/agent-tools`               | `createZodFunctionTool` — Zod-schema function tools      |
 | `@robota-sdk/agent-tool-defaults`       | `createDefaultTools` — the default file and shell tools  |
 | `@robota-sdk/agent-transport-{http,ws}` | HTTP and WebSocket transports for one session            |

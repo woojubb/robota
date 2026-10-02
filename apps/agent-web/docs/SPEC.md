@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Owns the Robota web application: a Next.js host that serves the browser client for the CLI's remote
+Owns the browser remote application: a Next.js host that serves the client for the configured CLI's remote
 control, a second screen for a running session.
 
 ## Contract

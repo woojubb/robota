@@ -5,7 +5,7 @@
  *
  * `vitest.shared.ts` points `HOME`/`USERPROFILE` at a created, empty, per-run directory so that no
  * test can be satisfied — or broken — by whatever the runner happens to have in `~/.claude`,
- * `~/.robota` or `~/.claude/skills`. That assignment lives in a config file, which no test executes.
+ * `~/.agent` or `~/.claude/skills`. That assignment lives in a config file, which no test executes.
  * Without an assertion taken INSIDE a test process, the isolation could be deleted, reordered or
  * quietly defeated by a runner change and every suite would keep reporting green.
  *
@@ -35,7 +35,7 @@ import { createTestSkillCommandSource } from '../testing/contribution-source-fix
 import { createDefaultUserContributionSources } from '../contributions/initial-contribution-sources.js';
 
 /** The variable `vitest.shared.ts` publishes so a test can name the directory it should be given. */
-const ISOLATED_HOME_ENV = 'ROBOTA_VITEST_ISOLATED_HOME';
+const ISOLATED_HOME_ENV = 'AGENT_VITEST_ISOLATED_HOME';
 
 describe('vitest home isolation (TEST-013)', () => {
   it('publishes the isolated home directory it created', () => {

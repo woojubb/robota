@@ -5,7 +5,7 @@ import type { ContextWindowTracker, TAutoCompactThreshold } from './context-wind
 import type { PermissionEnforcer } from './permission-enforcer.js';
 import type { IPermissionDenial } from './permission-denial-log.js';
 import type {
-  Robota,
+  ConversationAgent,
   IAIProvider,
   IContextWindowState,
   IHistoryEntry,
@@ -18,7 +18,7 @@ import type {
 } from '@robota-sdk/agent-core';
 
 export abstract class SessionBase {
-  protected abstract readonly agent: Robota;
+  protected abstract readonly agent: ConversationAgent;
   protected abstract readonly permissionEnforcer: PermissionEnforcer;
   protected abstract readonly contextTracker: ContextWindowTracker;
   protected abstract permissionMode: TPermissionMode;
@@ -106,7 +106,7 @@ export abstract class SessionBase {
   /**
    * Replace the active system message and propagate it so the next provider request carries it.
    * Records the live value on `this.systemMessage` (re-injected on compaction) and delegates to
-   * `Robota.updateSystemPrompt`, which updates the single-source `config.systemMessage` and the live
+   * `ConversationAgent.updateSystemPrompt`, which updates the single-source `config.systemMessage` and the live
    * conversation store head. The system prompt is an agent-level concern, not model config, so this
    * does not route through `setModel`. Used by persona application, the self-verification toggle, and
    * AGENTS.md/CLAUDE.md staleness refresh.
@@ -119,7 +119,7 @@ export abstract class SessionBase {
   /**
    * Re-apply model options to the live session (PRESET-013 model/effort re-application seam).
    *
-   * Propagates model/effort/temperature/maxOutputTokens to the agent via `robota.setModel` so the
+   * Propagates model/effort/temperature/maxOutputTokens to the agent via `agent.setModel` so the
    * next call reflects them, and updates `this.model` to keep `getModelId()` accurate. The preset
    * `maxOutputTokens` field maps to the agent's `maxTokens` channel. Absent fields are left untouched.
    */
@@ -149,9 +149,9 @@ export abstract class SessionBase {
   /** Read the selection for the next model call; provider default remains `auto`. */
   getModelEffort(): TModelEffortSelection {
     // Some lightweight session doubles intentionally implement only the execution surface. Keep
-    // this read-only projection total for those callers; the real Robota instance exposes getModel.
+    // this read-only projection total for those callers; the real ConversationAgent instance exposes getModel.
     const getModel = (
-      this.agent as Robota & { getModel?: () => { effort?: TModelEffortSelection } }
+      this.agent as ConversationAgent & { getModel?: () => { effort?: TModelEffortSelection } }
     ).getModel;
     if (getModel === undefined) return 'auto';
     try {

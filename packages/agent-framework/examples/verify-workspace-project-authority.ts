@@ -132,7 +132,7 @@ function observeCanaries(projectAccess: TWorkspaceProjectAccess, userHome: strin
   if (projectAccess.status === 'trusted') {
     const reader = getWorkspaceProjectReader(projectAccess.authority);
     for (const source of createWorkspaceProjectSettingsSources(reader, [
-      { scope: 'project', relativePath: '.robota/settings.json' },
+      { scope: 'project', relativePath: '.fixture-state/settings.json' },
     ])) {
       const text = readSettingsSourceText(source, 'run ARCH-042 public authority scenario');
       if (text?.includes(SETTINGS_CANARY) === true) observed.push(SETTINGS_CANARY);
@@ -169,11 +169,11 @@ async function main(): Promise<void> {
   try {
     initializeGitProject(projectRoot);
     initializeGitProject(otherProjectRoot);
-    mkdirSync(join(projectRoot, '.robota'), { recursive: true });
+    mkdirSync(join(projectRoot, '.fixture-state'), { recursive: true });
     mkdirSync(userHome, { recursive: true });
     writeFileSync(join(projectRoot, 'AGENTS.md'), `# ${CONTEXT_CANARY}\n`, 'utf8');
     writeFileSync(
-      join(projectRoot, '.robota', 'settings.json'),
+      join(projectRoot, '.fixture-state', 'settings.json'),
       `${JSON.stringify({ canary: SETTINGS_CANARY })}\n`,
       'utf8',
     );

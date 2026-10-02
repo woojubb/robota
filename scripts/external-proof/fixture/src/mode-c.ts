@@ -1,7 +1,7 @@
 /**
  * MODE C — consume OUR preset by id while adding your OWN capability pack.
  *
- * Three claims: a Robota built-in preset (`careful-reviewer`) is reusable by id with nothing registered;
+ * Three claims: an agent runtime built-in preset (`careful-reviewer`) is reusable by id with nothing registered;
  * a consumer-authored `ICapabilityPack` merges ADDITIVELY on top of the product's base modules and our
  * `pack-coding`; and a deliberate id collision is REPORTED on the rejection channel rather than silently
  * dropped or silently overridden.
@@ -34,7 +34,7 @@ import { check, checkEqual, mode, note, section } from './harness.js';
 /**
  * ARCH-006: the pack is built by a FACTORY bound to the session's working directory — a context-free pack
  * would carry a disarmed working-directory path guard on its file tools (ARCH-010 has since made that guard fail closed; the pack's rule is now the same one stated a layer up). A consumer builds it exactly as
- * robota's own shell does, with the cwd it assembles the session under.
+ * configured product's own shell does, with the cwd it assembles the session under.
  */
 const codingPack = createCodingPack({ cwd: process.cwd() });
 import { asStandardOptions } from './surface-notes.js';
@@ -342,9 +342,9 @@ export async function runModeC(): Promise<void> {
       'src/__tests__/create-session-default-tools.test.ts, 8 red-first cases). What this proof measures ' +
       'from the published surface is the seam that makes it reachable: the `defaultTools` option on the ' +
       'shipped session-options type, the overlay that carries the pack tools into it, and the scoping of ' +
-      'the pack-owned file tools. `robota` itself now consumes exactly this shape — its profile builds ' +
+      'the pack-owned file tools. the reference CLI now consumes exactly this shape — its profile builds ' +
       'pack-coding with the shell cwd and passes `defaultTools: []`, so its coding tools come FROM the ' +
-      'pack (asserted in-repo by agent-cli src/__tests__/robota-runtime-seam.test.ts).',
+      'pack (asserted in-repo by agent-cli src/__tests__/product-runtime-seam.test.ts).',
   );
   note(
     'COMMAND + SUBAGENT AXES: fully additive — command modules are passed as data and subagents arrive ' +

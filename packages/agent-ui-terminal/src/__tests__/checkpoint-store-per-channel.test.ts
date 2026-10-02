@@ -57,7 +57,7 @@ describe('#3231: the in-process channel factory', () => {
   });
 
   it('gives each channel, including a switched-to one, its own checkpoint store', () => {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-store-per-channel-')));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-store-per-channel-')));
     const createEditCheckpointStore = vi.fn(() => ({}) as EditCheckpointStore);
     const options: IRenderOptions = {
       cwd,

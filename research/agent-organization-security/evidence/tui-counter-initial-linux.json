@@ -1,0 +1,31 @@
+{
+  "kind": "actual-built-cli-tui-pty",
+  "records": [
+    {
+      "id": "actual-tui-boot-and-idle",
+      "observed": {
+        "rendered": true,
+        "modelRequests": 0
+      },
+      "passed": true
+    },
+    {
+      "id": "slash-help-without-model-authority",
+      "observed": {
+        "commandOutputAfterEnter": true,
+        "modelRequests": 0
+      },
+      "passed": true
+    },
+    {
+      "id": "invalid-model-request-negative-control",
+      "observed": {
+        "status": 400,
+        "requestDelta": 0,
+        "noRequestPredicate": true
+      },
+      "passed": false
+    }
+  ],
+  "complete": false
+}

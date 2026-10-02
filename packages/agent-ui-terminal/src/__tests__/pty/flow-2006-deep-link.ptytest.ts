@@ -31,7 +31,9 @@ import { spawnTui } from './pty-driver.js';
 import type { IPtySession } from './pty-driver.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..');
-const ROBOTA_BIN = join(REPO_ROOT, 'packages/agent-cli/bin/robota.cjs');
+const AGENT_BIN = join(REPO_ROOT, 'packages/agent-cli/bin/agent.cjs');
+const CLI_NAME = 'fixture-agent';
+const PROTOCOL_SCHEME = 'fixture-agent';
 const WAIT_MS = 20_000;
 const CASE_TIMEOUT_MS = 120_000;
 const PROMPT = 'Summarize the README in one sentence';
@@ -42,11 +44,12 @@ interface IFixture {
   trusted: string;
   untrusted: string;
   elsewhere: string;
+  userStateRoot: string;
   env: NodeJS.ProcessEnv;
 }
 
 function writeProviderSettings(home: string): void {
-  const dir = join(home, '.robota');
+  const dir = join(home, 'state');
   mkdirSync(dir, { recursive: true });
   // Skip the first-run welcome: it is an onboarding screen, not what this scenario observes.
   writeFileSync(join(dir, 'onboarded'), new Date().toISOString(), 'utf8');
@@ -68,7 +71,7 @@ function initRepo(path: string, env: NodeJS.ProcessEnv): void {
     execFileSync('git', args, { cwd: path, env, stdio: ['ignore', 'ignore', 'pipe'] });
   };
   run('init', '-q', '-b', 'main');
-  run('config', 'user.name', 'Robota Scenario');
+  run('config', 'user.name', 'Scenario Fixture');
   run('config', 'user.email', 'scenario@example.invalid');
   writeFileSync(join(path, 'README.md'), 'fixture\n');
   run('add', '--', 'README.md');
@@ -76,13 +79,37 @@ function initRepo(path: string, env: NodeJS.ProcessEnv): void {
 }
 
 function makeFixture(): IFixture {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-flow2006-')));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-flow2006-')));
   const home = join(root, 'home');
   mkdirSync(home, { recursive: true });
   writeProviderSettings(home);
+  const userStateRoot = join(home, 'state');
   const env: NodeJS.ProcessEnv = {
     PATH: process.env['PATH'] ?? '',
     HOME: home,
+    PRODUCT_ID: CLI_NAME,
+    PRODUCT_DISPLAY_NAME: 'Fixture Agent',
+    PRODUCT_CLI_NAME: CLI_NAME,
+    PRODUCT_ENV_PREFIX: 'FIXTURE_AGENT_',
+    PRODUCT_PACKAGE_SCOPE: '@fixture-agent',
+    PRODUCT_APP_ID: 'org.example.fixture-agent',
+    PRODUCT_PROTOCOL_SCHEME: PROTOCOL_SCHEME,
+    PRODUCT_TELEMETRY_SERVICE_NAME: 'fixture-agent',
+    PRODUCT_DAEMON_NAMESPACE: 'fixture-agent-daemon',
+    PRODUCT_DESKTOP_EXECUTABLE: 'fixture-robota',
+    PRODUCT_MCP_CLIENT_NAME: 'fixture-agent-client',
+    PRODUCT_MODEL_TOOL_PREFIX: 'fixture_agent_command_',
+    PRODUCT_PROMPT_TAG: 'fixture_agent_references',
+    PRODUCT_EDITOR_TEMP_PREFIX: 'fixture-agent-editor-',
+    PRODUCT_USER_STATE_DIR: userStateRoot,
+    PRODUCT_PROJECT_STATE_DIR: '.fixture-agent',
+    PRODUCT_CACHE_DIR: join(userStateRoot, 'cache'),
+    PRODUCT_LOG_DIR: join(userStateRoot, 'logs'),
+    PRODUCT_BROWSER_NAMESPACE: 'fixture-agent-browser',
+    PRODUCT_BROWSER_CREDENTIAL_DATABASE: 'fixture-agent-credentials',
+    PRODUCT_CREDENTIAL_SERVICE: 'org.example.fixture-agent.credentials',
+    PRODUCT_CRYPTO_NAMESPACE: 'fixture-agent-crypto',
+    SECURITY_MASTER_KEY_DERIVATION_PATH: '[123,0]',
     TERM: 'xterm-256color',
     GIT_CONFIG_NOSYSTEM: '1',
     GIT_CONFIG_GLOBAL: join(home, 'gitconfig'),
@@ -94,13 +121,14 @@ function makeFixture(): IFixture {
     trusted: join(root, 'trusted'),
     untrusted: join(root, 'untrusted'),
     elsewhere: join(root, 'elsewhere'),
+    userStateRoot,
     env,
   };
   initRepo(fixture.trusted, env);
   initRepo(fixture.untrusted, env);
   mkdirSync(fixture.elsewhere, { recursive: true });
   // Grant trust to the one repository a link is allowed to open.
-  const granted = spawnSync(process.execPath, [ROBOTA_BIN, 'trust', '--yes'], {
+  const granted = spawnSync(process.execPath, [AGENT_BIN, 'trust', '--yes'], {
     cwd: fixture.trusted,
     env,
     encoding: 'utf8',
@@ -110,16 +138,16 @@ function makeFixture(): IFixture {
 }
 
 function link(fixture: IFixture, extra = ''): string {
-  return `robota://open?v=1&prompt=${encodeURIComponent(PROMPT)}&cwd=${fixture.trusted}${extra}`;
+  return `${PROTOCOL_SCHEME}://open?v=1&prompt=${encodeURIComponent(PROMPT)}&cwd=${fixture.trusted}${extra}`;
 }
 
-/** Run `robota open <url>` as a process, headless — used for the refusal scenarios. */
+/** Run the fixture CLI's `open` command as a process, headless — used for the refusal scenarios. */
 function openHeadless(
   fixture: IFixture,
   url: string,
   cwd = fixture.elsewhere,
 ): ReturnType<typeof spawnSync> {
-  return spawnSync(process.execPath, [ROBOTA_BIN, 'open', url], {
+  return spawnSync(process.execPath, [AGENT_BIN, 'open', url], {
     cwd,
     env: { ...fixture.env, TERM: 'dumb' },
     encoding: 'utf8',
@@ -134,7 +162,7 @@ function openHeadless(
  */
 function sessionRecords(home: string): readonly string[] {
   try {
-    return readdirSync(join(home, '.robota', 'peers')).sort();
+    return readdirSync(join(home, 'state', 'peers')).sort();
   } catch {
     return [];
   }
@@ -143,7 +171,7 @@ function sessionRecords(home: string): readonly string[] {
 /** The trust store's bytes — a refused link must not add, remove or touch a grant. */
 function trustStoreDigest(home: string): string {
   return createHash('sha256')
-    .update(readFileSync(join(home, '.robota', 'workspace-trust.json')))
+    .update(readFileSync(join(home, 'state', 'workspace-trust.json')))
     .digest('hex');
 }
 
@@ -155,19 +183,19 @@ function malformedLinks(fixture: IFixture): readonly (readonly [string, string])
   return [
     [link(fixture, '&provider=anthropic'), 'provider'],
     [link(fixture, `&prompt=${encodeURIComponent('second')}`), 'more than once'],
-    [`robota://open?prompt=hi&cwd=${fixture.trusted}`, 'no `v`'],
-    [`robota://open?v=2&prompt=hi&cwd=${fixture.trusted}`, 'version 1'],
+    [`${PROTOCOL_SCHEME}://open?prompt=hi&cwd=${fixture.trusted}`, 'no `v`'],
+    [`${PROTOCOL_SCHEME}://open?v=2&prompt=hi&cwd=${fixture.trusted}`, 'version 1'],
     [
-      `robota://open?v=1&prompt=${encodeURIComponent('/mode bypassPermissions')}&cwd=${fixture.trusted}`,
+      `${PROTOCOL_SCHEME}://open?v=1&prompt=${encodeURIComponent('/mode bypassPermissions')}&cwd=${fixture.trusted}`,
       'not a command',
     ],
-    ['robota://open?v=1&prompt=hi&cwd=relative/path', 'absolute'],
-    [`robota://open?v=1&prompt=hi&cwd=${fixture.trusted}/../untrusted`, '`..`'],
-    [`robota://open?v=1&prompt=hi&cwd=${join(fixture.root, 'absent')}`, 'does not exist'],
+    [`${PROTOCOL_SCHEME}://open?v=1&prompt=hi&cwd=relative/path`, 'absolute'],
+    [`${PROTOCOL_SCHEME}://open?v=1&prompt=hi&cwd=${fixture.trusted}/../untrusted`, '`..`'],
+    [`${PROTOCOL_SCHEME}://open?v=1&prompt=hi&cwd=${join(fixture.root, 'absent')}`, 'does not exist'],
   ];
 }
 
-describe('robota open through the real binary (FLOW-2006 TC-09)', () => {
+describe('configured open deep link through the CLI binary (FLOW-2006 TC-09)', () => {
   let fixture: IFixture | undefined;
   let session: IPtySession | undefined;
 
@@ -191,6 +219,7 @@ describe('robota open through the real binary (FLOW-2006 TC-09)', () => {
         projectDir: current.elsewhere,
         homeDir: current.home,
         args: ['open', link(current), '--name', 'flow2006'],
+        env: current.env as Record<string, string>,
       });
 
       // The PREFILLED TEXT is the arrival signal, not the empty-composer placeholder (which never
@@ -227,7 +256,7 @@ describe('robota open through the real binary (FLOW-2006 TC-09)', () => {
       const current = fixture;
       if (!current) throw new Error('fixture');
       const recordsBefore = sessionRecords(current.home);
-      const settingsBefore = readFileSync(join(current.home, '.robota', 'settings.json'), 'utf8');
+      const settingsBefore = readFileSync(join(current.userStateRoot, 'settings.json'), 'utf8');
       const cases = malformedLinks(current);
       for (const [url, expected] of cases) {
         const result = openHeadless(current, url);
@@ -238,7 +267,7 @@ describe('robota open through the real binary (FLOW-2006 TC-09)', () => {
       // A SECOND LINK after the first is refused — the argv-appending shape the platforms document.
       const twoArgs = spawnSync(
         process.execPath,
-        [ROBOTA_BIN, 'open', link(current), link(current)],
+        [AGENT_BIN, 'open', link(current), link(current)],
         {
           cwd: current.elsewhere,
           env: { ...current.env, TERM: 'dumb' },
@@ -251,7 +280,7 @@ describe('robota open through the real binary (FLOW-2006 TC-09)', () => {
       // Nothing was started and nothing was configured: no session record appeared, and the
       // settings the `/mode bypassPermissions` link tried to reach are byte-identical.
       expect(sessionRecords(current.home)).toEqual(recordsBefore);
-      expect(readFileSync(join(current.home, '.robota', 'settings.json'), 'utf8')).toBe(
+      expect(readFileSync(join(current.userStateRoot, 'settings.json'), 'utf8')).toBe(
         settingsBefore,
       );
     },
@@ -266,19 +295,19 @@ describe('robota open through the real binary (FLOW-2006 TC-09)', () => {
       const digestBefore = trustStoreDigest(current.home);
       const untrusted = openHeadless(
         current,
-        `robota://open?v=1&prompt=hi&cwd=${current.untrusted}`,
+        `${PROTOCOL_SCHEME}://open?v=1&prompt=hi&cwd=${current.untrusted}`,
       );
       expect(untrusted.status).toBe(1);
-      expect(`${untrusted.stderr}`).toContain('robota trust --yes');
+      expect(`${untrusted.stderr}`).toContain(`${CLI_NAME} trust --yes`);
 
-      const slug = openHeadless(current, 'robota://open?v=1&prompt=hi&repo=nobody/not-a-clone');
+      const slug = openHeadless(current, `${PROTOCOL_SCHEME}://open?v=1&prompt=hi&repo=nobody/not-a-clone`);
       expect(slug.status).toBe(1);
       expect(`${slug.stderr}`).toContain('nobody/not-a-clone');
       expect(`${slug.stderr}`).not.toContain('cloning');
 
       // A refused link grants nothing and records nothing: the untrusted repository is still
       // untrusted and the store is byte-identical to what it was before the two invocations.
-      const status = spawnSync(process.execPath, [ROBOTA_BIN, 'trust', 'status'], {
+      const status = spawnSync(process.execPath, [AGENT_BIN, 'trust', 'status'], {
         cwd: current.untrusted,
         env: current.env,
         encoding: 'utf8',

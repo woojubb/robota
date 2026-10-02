@@ -141,16 +141,16 @@
     construction to `agent-framework`'s `buildRuntimeSession` seam (never re-implemented). Its neutrality is
     enforced by three mechanical guards (dependency-graph neutrality, purity/no-IO, no product-name
     conditionals), coupling the amended project-structure L129 carve-out to the guards.
-  - **`@robota-sdk/pack-coding`** (new) — robota's coding capability as one `ICapabilityPack` (the built-in
+  - **`@robota-sdk/pack-coding`** (new) — __PRODUCT_DISPLAY_NAME__'s coding capability as one `ICapabilityPack` (the built-in
     coding tools, the `/shell` + `/editor` command modules, and the coding subagents) — the additive-axis
-    proof and robota's first pack.
+    proof and __PRODUCT_DISPLAY_NAME__'s first pack.
   - **`@robota-sdk/agent-preset`** — adds `createPresetRegistry`, a per-call instance-scoped resolver that
     never mutates the module-level external-preset global (consumed by `assembleProduct`).
 
   `agent-framework` and `agent-core` are unchanged. The CLI is not yet wired to `assembleProduct` (that is
   Stage S2).
 
-- 4c5148e: ARCH-005 Stage S2 — `robota` is now expressed as an `IProductProfile` and assembled by `assembleProduct`;
+- 4c5148e: ARCH-005 Stage S2 — `__PRODUCT_CLI_NAME__` is now expressed as an `IProductProfile` and assembled by `assembleProduct`;
   the hand-wired composition root in `agent-cli` is gone.
 
   - **`@robota-sdk/agent-product`** — provider construction returns IN-KERNEL. `assembleProduct` builds the
@@ -167,22 +167,22 @@
     project/user definitions > injected > built-in. `AgentDefinitionLoader` now dedupes within that tier
     (first wins). Absent ⇒ unchanged behavior.
   - **`@robota-sdk/agent-transport` / `@robota-sdk/agent-transport-tui`** — forward the optional
-    `agentDefinitions` through the headless and TUI channels so every robota surface carries the seam.
-  - **`@robota-sdk/agent-cli`** — `robota`'s identity (branding, provider surface, presets,
+    `agentDefinitions` through the headless and TUI channels so every __PRODUCT_DISPLAY_NAME__ surface carries the seam.
+  - **`@robota-sdk/agent-cli`** — `__PRODUCT_CLI_NAME__`'s identity (branding, provider surface, presets,
     `packs: [codingPack]`, base command modules, injected transports/runners/subagent factory) is declared as
     data in a product profile and folded by `assembleProduct`. The coding command modules (`/shell`,
     `/editor`) now come from `pack-coding` rather than the base set, so the pack is load-bearing. What remains
     in the CLI is product-shell only: arg parsing, settings/file IO, terminal notices, first-run/init/
     `--configure`, memory + session-resume UX, and print/serve/TUI mode dispatch.
 
-  End-user `robota` behavior is unchanged in substance — the assembled command-module set, provider surface,
+  End-user `__PRODUCT_CLI_NAME__` behavior is unchanged in substance — the assembled command-module set, provider surface,
   tool set, subagent roster, and preset resolution all match the pre-change assembly — with one accepted
   cosmetic delta: `/shell` and `/editor` now appear at the END of `/help` output and of the slash-command
   autocomplete popup rather than mid-list, because they arrive from `pack-coding` and both surfaces render in
   module-insertion order. Same commands, same behavior, different position.
 
 - 37af5dc: ARCH-006 + ARCH-007 — the capability-pack TOOL axis reaches parity with the command and subagent axes,
-  and `robota` consumes the composition kernel's RUNTIME SEAM instead of only its materials.
+  and `__PRODUCT_CLI_NAME__` consumes the composition kernel's RUNTIME SEAM instead of only its materials.
 
   - **`@robota-sdk/agent-framework` (ARCH-006)** — the default tool set is no longer hard-coded.
     `createSession` accepts `defaultTools`, which REPLACES the `createDefaultTools()` tier (`[]` suppresses
@@ -201,7 +201,7 @@
     path is byte-identical.
   - **`@robota-sdk/agent-product` (ARCH-007)** — `buildRuntimeOptions` no longer overwrites a
     caller-supplied `commandModules`. A shell that has already narrowed the merged `base ⊕ packs` superset
-    (as `robota` does with its preset's enabled/disabled delta) keeps that selection; the assembled set is
+    (as `__PRODUCT_CLI_NAME__` does with its preset's enabled/disabled delta) keeps that selection; the assembled set is
     overlaid only when the caller left it unset — the same rule `permissionMode` already followed.
   - **`@robota-sdk/agent-cli` (ARCH-007)** — `startCli` now routes through
     `product.buildRuntimeOptions(...)`. The shell resolves its own session inputs and the kernel lays the
@@ -211,10 +211,10 @@
     `args.permissionMode ?? resolvedPreset.permissionMode` expressions are gone — every surface binds to
     the one kernel result.
 
-  End-user `robota` behavior is unchanged: the assembled command-module set, provider surface, tool set,
+  End-user `__PRODUCT_CLI_NAME__` behavior is unchanged: the assembled command-module set, provider surface, tool set,
   subagent roster, preset resolution, and permission posture all match the pre-change assembly.
 
-- d157f4b: ARCH-008 — `robota` resolves presets through the composition kernel's per-call registry, so there is one
+- d157f4b: ARCH-008 — `__PRODUCT_CLI_NAME__` resolves presets through the composition kernel's per-call registry, so there is one
   preset resolution path instead of two.
 
   - **`@robota-sdk/agent-product`** — `IProductProfile` gains two optional fields. `presetRegistry` lets a
@@ -229,15 +229,15 @@
     existing `presets` + `defaultPresetId` shape behaves exactly as before.
   - **`@robota-sdk/agent-cli`** — `resolveCliPreset` is replaced by `resolveShellPreset(externalPresets,
 args, settingsPreset)`, which builds the per-call registry, resolves over it, and returns
-    `{ registry, presetId, context, options }` as one value. `createRobotaProfile` takes that whole value,
+    `{ registry, presetId, context, options }` as one value. `createSelectedProductProfile` takes that whole value,
     so the shell cannot hand the kernel a registry, id, or override context other than the ones it actually
-    resolved with. `robota`'s startup path no longer reads `agent-preset`'s module-global resolver; that
+    resolved with. `__PRODUCT_CLI_NAME__`'s startup path no longer reads `agent-preset`'s module-global resolver; that
     registry remains only as the in-session `/preset` DISCOVERY surface, which is executed inside the
     session and has no handle on the assembled product. Both surfaces are fed by the one
     `loadExternalPresets()` call, so they cannot disagree.
 
-  End-user `robota` behavior is unchanged: the same preset resolves to the same options, external presets
-  in `~/.robota/presets/*.json` remain visible to both `--preset <id>` and `/preset`, and the assembled
+  End-user `__PRODUCT_CLI_NAME__` behavior is unchanged: the same preset resolves to the same options, external presets
+  in `$PRODUCT_USER_STATE_DIR/presets/*.json` remain visible to both `--preset <id>` and `/preset`, and the assembled
   command-module set, provider surface, tool set, subagent roster, and permission posture are untouched.
 
 - 2d3b2c0: ARCH-027 makes product and capability-pack composition contracts exhaustive and observable. Capability
@@ -250,9 +250,9 @@ args, settingsPreset)`, which builds the per-call registry, resolves over it, an
   require `packId`.
 
 - 90e7a10: The default background observer warning code and exported `OBSERVER_FAILURE_WARNING_CODE` value
-  change from `ROBOTA_BACKGROUND_OBSERVER_FAILURE` to `BACKGROUND_OBSERVER_FAILURE`. Hosts matching
+  change from `PRODUCT_BACKGROUND_OBSERVER_FAILURE` to `BACKGROUND_OBSERVER_FAILURE`. Hosts matching
   the old warning code should match the new neutral code or provide `observerFailureWarningCode` in
-  their background manager or session options. The Robota CLI supplies its existing code explicitly
+  their background manager or session options. The __PRODUCT_DISPLAY_NAME__ CLI supplies its existing code explicitly
   across print, goal, serve, MCP, and TUI sessions.
 
 ### Patch Changes

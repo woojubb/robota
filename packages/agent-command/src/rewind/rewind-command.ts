@@ -15,7 +15,12 @@ import type {
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
 } from '@robota-sdk/agent-framework';
+import type { ICommandProductVocabulary } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+
+type TRewindCommandContext = ICommandHostCheckpoints & {
+  getCommandProductVocabulary?(): ICommandProductVocabulary | undefined;
+};
 
 const SUBCOMMAND_INDEX = 0;
 const CHECKPOINT_ID_INDEX = 1;
@@ -123,17 +128,18 @@ function formatRollbackResult(result: IEditCheckpointRestoreResult): ICommandRes
 }
 
 /** A restricted workspace is the one case the user fixes with a command; the rest say why. */
-function unavailableMessage(error: EditCheckpointsUnavailableError): string {
-  return error.reason === 'restricted-workspace'
-    ? 'Edit checkpoints need a trusted workspace: run robota trust --yes, then restart robota.'
-    : error.message;
+function unavailableMessage(error: EditCheckpointsUnavailableError, cliName?: string): string {
+  if (error.reason !== 'restricted-workspace') return error.message;
+  return cliName === undefined
+    ? 'Edit checkpoints need a trusted workspace. Trust it from a terminal, then restart the session.'
+    : `Edit checkpoints need a trusted workspace: run ${cliName} trust --yes, then restart ${cliName}.`;
 }
 
-function formatError(error: Error | string): ICommandResult {
+function formatError(error: Error | string, cliName?: string): ICommandResult {
   return {
     message:
       error instanceof EditCheckpointsUnavailableError
-        ? unavailableMessage(error)
+        ? unavailableMessage(error, cliName)
         : error instanceof Error
           ? error.message
           : String(error),
@@ -141,53 +147,53 @@ function formatError(error: Error | string): ICommandResult {
   };
 }
 
-function list(context: ICommandHostCheckpoints): ICommandResult {
+function list(context: TRewindCommandContext): ICommandResult {
   try {
     return formatList(listCommandEditCheckpoints(context));
   } catch (error) {
-    return formatError(error instanceof Error ? error : String(error));
+    return formatError(error instanceof Error ? error : String(error), context.getCommandProductVocabulary?.()?.cliName);
   }
 }
 
 function inspect(
-  context: ICommandHostCheckpoints,
+  context: TRewindCommandContext,
   checkpointId: string | undefined,
 ): ICommandResult {
   if (!checkpointId) return usage();
   try {
     return formatInspection(inspectCommandEditCheckpoint(context, checkpointId));
   } catch (error) {
-    return formatError(error instanceof Error ? error : String(error));
+    return formatError(error instanceof Error ? error : String(error), context.getCommandProductVocabulary?.()?.cliName);
   }
 }
 
 async function restore(
-  context: ICommandHostCheckpoints,
+  context: TRewindCommandContext,
   checkpointId: string | undefined,
 ): Promise<ICommandResult> {
   if (!checkpointId) return usage();
   try {
     return formatRestoreResult(await restoreCommandEditCheckpoint(context, checkpointId));
   } catch (error) {
-    return formatError(error instanceof Error ? error : String(error));
+    return formatError(error instanceof Error ? error : String(error), context.getCommandProductVocabulary?.()?.cliName);
   }
 }
 
 async function rollback(
-  context: ICommandHostCheckpoints,
+  context: TRewindCommandContext,
   checkpointId: string | undefined,
 ): Promise<ICommandResult> {
   if (!checkpointId) return usage();
   try {
     return formatRollbackResult(await rollbackCommandEditCheckpoint(context, checkpointId));
   } catch (error) {
-    return formatError(error instanceof Error ? error : String(error));
+    return formatError(error instanceof Error ? error : String(error), context.getCommandProductVocabulary?.()?.cliName);
   }
 }
 
 // SELFHOST-007: branching time-travel handlers.
 async function fork(
-  context: ICommandHostCheckpoints,
+  context: TRewindCommandContext,
   checkpointId: string | undefined,
 ): Promise<ICommandResult> {
   if (!checkpointId) return usage();
@@ -202,12 +208,12 @@ async function fork(
       data: { target: result.target, restoredFileCount: result.restoredFileCount },
     };
   } catch (error) {
-    return formatError(error instanceof Error ? error : String(error));
+    return formatError(error instanceof Error ? error : String(error), context.getCommandProductVocabulary?.()?.cliName);
   }
 }
 
 function switchBranch(
-  context: ICommandHostCheckpoints,
+  context: TRewindCommandContext,
   checkpointId: string | undefined,
 ): ICommandResult {
   if (!checkpointId) return usage();
@@ -215,11 +221,11 @@ function switchBranch(
     switchCommandEditCheckpointBranch(context, checkpointId);
     return { message: `Switched to checkpoint branch ${checkpointId}.`, success: true };
   } catch (error) {
-    return formatError(error instanceof Error ? error : String(error));
+    return formatError(error instanceof Error ? error : String(error), context.getCommandProductVocabulary?.()?.cliName);
   }
 }
 
-function branches(context: ICommandHostCheckpoints): ICommandResult {
+function branches(context: TRewindCommandContext): ICommandResult {
   try {
     const tips = listCommandEditCheckpointBranches(context);
     return {
@@ -231,12 +237,12 @@ function branches(context: ICommandHostCheckpoints): ICommandResult {
       data: { branches: tips },
     };
   } catch (error) {
-    return formatError(error instanceof Error ? error : String(error));
+    return formatError(error instanceof Error ? error : String(error), context.getCommandProductVocabulary?.()?.cliName);
   }
 }
 
 export async function executeRewindCommand(
-  context: ICommandHostCheckpoints,
+  context: TRewindCommandContext,
   rawArgs: string,
 ): Promise<ICommandResult> {
   const args = rawArgs.trim().split(/\s+/).filter(Boolean);

@@ -17,7 +17,7 @@ const GOOGLE_SCHEMA_TYPE_BY_JSON_KIND: Record<Exclude<TJSONSchemaKind, 'null'>, 
   object: Type.OBJECT,
 };
 
-/** Converts Robota tool schemas to Gemini function declarations. */
+/** Converts agent runtime tool schemas to Gemini function declarations. */
 export function convertToolsToGeminiFormat(tools: IToolSchema[]): FunctionDeclaration[] {
   return tools.map((tool) => ({
     name: tool.name,

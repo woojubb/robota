@@ -4,13 +4,7 @@ import path from 'path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import {
-  GITHUB_BLOB_BASE,
-  GITHUB_RAW_BASE,
-  GITHUB_TREE_BASE,
-  resolveDocImage,
-  resolveDocLink,
-} from './remark-fix-links';
+import { resolveDocImage, resolveDocLink } from './remark-fix-links';
 
 let repoRoot: string;
 
@@ -20,8 +14,10 @@ function touch(relPath: string): void {
   fs.writeFileSync(abs, '# x\n');
 }
 
+const TEST_REPOSITORY_URL = 'https://github.com/example/robota';
+
 function resolveFrom(sourceRel: string, href: string, locale = 'en'): string {
-  return resolveDocLink(href, { sourcePath: path.join(repoRoot, sourceRel), locale, repoRoot });
+  return resolveDocLink(href, { sourcePath: path.join(repoRoot, sourceRel), locale, repoRoot, repositoryUrl: TEST_REPOSITORY_URL });
 }
 
 beforeAll(() => {
@@ -33,7 +29,6 @@ beforeAll(() => {
     'content/guide/plugins.md',
     'content/ko/getting-started/README.md',
     'content/getting-started/README.md',
-    'content/v2.0.0/README.md',
     'packages/agent-core/README.md',
     'packages/agent-core/docs/README.md',
     'packages/agent-core/docs/SPEC.md',
@@ -41,7 +36,7 @@ beforeAll(() => {
     'packages/dag-nodes/docs/README.md',
     'packages/dag-nodes/llm-text/docs/README.md',
     'examples/express/src/index.ts',
-    'packages/agent-cli/docs/demo.gif',
+    'packages/agent-cli/docs/fixture-image.svg',
   ]) {
     touch(f);
   }
@@ -88,19 +83,16 @@ describe('resolveDocLink', () => {
 
   it('sends files the site does not render to GitHub', () => {
     expect(resolveFrom('content/guide/cli.md', '../../packages/agent-core/README.md')).toBe(
-      `${GITHUB_BLOB_BASE}/packages/agent-core/README.md`,
+      `${TEST_REPOSITORY_URL}/blob/main/packages/agent-core/README.md`,
     );
     expect(resolveFrom('content/guide/cli.md', '../../packages/agent-core/src/index.ts')).toBe(
-      `${GITHUB_BLOB_BASE}/packages/agent-core/src/index.ts`,
+      `${TEST_REPOSITORY_URL}/blob/main/packages/agent-core/src/index.ts`,
     );
     expect(resolveFrom('content/guide/cli.md', '../../examples/express')).toBe(
-      `${GITHUB_TREE_BASE}/examples/express`,
-    );
-    expect(resolveFrom('content/guide/cli.md', '../v2.0.0/README.md')).toBe(
-      `${GITHUB_BLOB_BASE}/content/v2.0.0/README.md`,
+      `${TEST_REPOSITORY_URL}/tree/main/examples/express`,
     );
     expect(resolveFrom('packages/dag-nodes/docs/README.md', '../llm-text/docs/README.md')).toBe(
-      `${GITHUB_BLOB_BASE}/packages/dag-nodes/llm-text/docs/README.md`,
+      `${TEST_REPOSITORY_URL}/blob/main/packages/dag-nodes/llm-text/docs/README.md`,
     );
   });
 
@@ -128,12 +120,13 @@ describe('resolveDocImage', () => {
       sourcePath: path.join(repoRoot, sourceRel),
       locale: 'en',
       repoRoot,
+      repositoryUrl: TEST_REPOSITORY_URL,
     });
   }
 
   it('serves a relative image from GitHub raw content, resolved against the source file', () => {
-    expect(imageFrom('packages/agent-core/docs/README.md', '../../agent-cli/docs/demo.gif')).toBe(
-      `${GITHUB_RAW_BASE}/packages/agent-cli/docs/demo.gif`,
+    expect(imageFrom('packages/agent-core/docs/README.md', '../../agent-cli/docs/fixture-image.svg')).toBe(
+      `https://raw.githubusercontent.com/example/robota/main/packages/agent-cli/docs/fixture-image.svg`,
     );
   });
 

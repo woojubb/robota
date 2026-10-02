@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { AbstractTool } from '../../abstracts/abstract-tool';
-import { Robota } from '../../core/robota';
+import { ConversationAgent } from '../../core/conversation-agent';
 import { createScriptedProvider } from '../../testing/scripted-provider';
 import { spanIdFromMintedId } from '../../utils/trace-context';
 import { executeBatch } from '../tool-execution-batch';
@@ -98,7 +98,7 @@ describe('run trace context reaches tool bodies', () => {
   async function run(traceContext?: IRunTraceContext): Promise<IToolExecutionContext[]> {
     const tool = new CapturingTool();
     const scripted = createScriptedProvider([{ toolCalls: [{ name: 'ping', args: {} }] }, { text: 'done' }]);
-    const agent = new Robota({
+    const agent = new ConversationAgent({
       name: 'tool-trace-context',
       aiProviders: [scripted.provider],
       defaultModel: { provider: 'scripted-test-provider', model: 'test-model' },

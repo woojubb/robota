@@ -7,7 +7,8 @@
  * (the model menu's last item) opens Settings at the Providers & Models section instead (#3282 §4b,
  * `onManageProviders`).
  */
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { render } from '../../testing/product-provider.js';
+import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { StatusRow } from '../StatusControls.js';

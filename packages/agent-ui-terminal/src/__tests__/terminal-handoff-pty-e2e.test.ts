@@ -39,7 +39,7 @@ describe('terminal handoff PTY E2E', () => {
   it(
     'hands the real terminal to a child, receives its input, and resumes the TUI',
     async () => {
-      const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-handoff-pty-')));
+      const dir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-handoff-pty-')));
       tempDirs.push(dir);
       const outputPath = join(dir, 'result.json');
 

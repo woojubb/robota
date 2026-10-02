@@ -8,7 +8,7 @@
  * Run: `pnpm scenario:verify:mcp-background` from `packages/agent-cli`.
  *
  * `HOME` is redirected to an isolated temp directory before anything in this package (or a
- * transitive import) gets a chance to read it — this scenario never touches the real `~/.robota`.
+ * transitive import) gets a chance to read it — this scenario never touches the real user state.
  * A static `import` of framework/executor/mcp modules above that reassignment would defeat the
  * ordering (static imports evaluate before any top-level statement runs), so those imports are
  * deferred behind a dynamic `import()`, exactly as `agent-mcp`'s own

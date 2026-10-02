@@ -14,7 +14,7 @@ import type {
 
 /**
  * #3282 §4c — the Project panel: git status (Changes), one file's diff on click, and project memory as
- * readable text. The owner's design principle 4 (#3277): everything Robota implements is usable from
+ * readable text. The owner's design principle 4 (#3277): everything the host implements is usable from
  * the GUI through organized screens — this is git status/diff and project memory's screen. Checkpoints
  * (rewind) are deliberately absent (see `agent-gui-web/docs/SPEC.md`'s design decisions): edit
  * checkpoints only work on a host that can prove a write stays inside the project
@@ -231,7 +231,7 @@ export function ProjectPanel({
   const [openPath, setOpenPath] = useState<string | null>(null);
 
   return (
-    <div className={`robota-ui flex flex-col overflow-hidden ${className ?? ''}`}>
+    <div className={`agent-ui flex flex-col overflow-hidden ${className ?? ''}`}>
       <div className="flex h-12 flex-shrink-0 items-center gap-2 px-4">
         <GitBranch size={15} className="text-subtle" />
         <span className="text-[14px] font-medium text-foreground">Project</span>

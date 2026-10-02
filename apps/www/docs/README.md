@@ -1,7 +1,7 @@
 # apps/www — robota-www
 
-Public marketing website for the Robota project (https://robota.io), in English and Korean, deployed to
-Cloudflare Pages. Documentation is not served here; it lives at https://docs.robota.io (`apps/docs`).
+Public marketing website for the Robota project (__PROJECT_WEBSITE_URL__), in English and Korean, deployed to
+Cloudflare Pages. Documentation is not served here; it lives at __PROJECT_DOCS_URL__ (`apps/docs`).
 
 ## Package
 
@@ -19,7 +19,7 @@ pnpm --filter robota-www lint      # ESLint
 ## Deploy
 
 The Cloudflare Pages project `robota-www` is connected to the GitHub repository: a push to `main` deploys
-production (`robota.io`, `www.robota.io`). Other branches get no usable preview, so check a change
+production (`__PROJECT_WEBSITE_HOST__`, `www.__PROJECT_WEBSITE_HOST__`). Other branches get no usable preview, so check a change
 locally with `pnpm --filter robota-www dev`, or build and serve the static export (with `_redirects`)
 via `pnpm --filter robota-www build && pnpm --filter robota-www exec wrangler pages dev out --compatibility-date=2026-08-01`.
 
@@ -33,9 +33,9 @@ pnpm --filter robota-www run deploy
 
 ## Legacy documentation redirects
 
-The documentation used to be served from `robota.io`. [`public/_redirects`](../public/_redirects) forwards
+The documentation used to be served from `__PROJECT_WEBSITE_HOST__`. [`public/_redirects`](../public/_redirects) forwards
 those old URLs (`/guide/...`, `/examples/...`, `/getting-started/...`, `/packages/...` and similar, including
-the old `.html` pages) to the matching English page on `docs.robota.io` with a permanent (301) redirect.
+the old `.html` pages) to the matching English page on `docs.__PROJECT_WEBSITE_HOST__` with a permanent (301) redirect.
 When a docs route is renamed, update the matching rule there.
 
 ## Spec

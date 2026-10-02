@@ -50,6 +50,7 @@ import type {
   IHandoffOutcome,
   IOperatorApprover,
 } from '@robota-sdk/agent-interface-session-mobility';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 /** What `/handoff` reads of the live session. */
 export interface IHandoffSourceSession {
@@ -65,8 +66,9 @@ const LIVE_TASK = new Set(['queued', 'running', 'waiting_permission', 'sleeping'
 /** This device's identity, as a hand-off reads it: who it is, and the certificates it holds. */
 export function readHandoffIdentity(
   root: string,
+  productRuntime: ICliRuntimeContext,
 ): (IHandoffReceiverIdentity & { readonly deviceId: string }) | undefined {
-  const state = readIdentityState(join(root, 'devices'));
+  const state = readIdentityState(productRuntime.cryptoContext, join(root, 'devices'));
   if (state === undefined) return undefined;
   const own = state.deviceCertificate;
   return {
@@ -100,7 +102,8 @@ async function hasUncommittedChanges(cwd: string): Promise<boolean> {
 }
 
 export interface IHandoffHostAdapterDeps {
-  /** `~/.robota` of this `HOME`. */
+  readonly productRuntime: ICliRuntimeContext;
+  /** the configured user storage root of this `HOME`. */
   readonly root: string;
   readonly store: ICredentialStore;
   readonly composition: IHandoffComposition;
@@ -135,10 +138,13 @@ export interface IHandoffHostAdapterDeps {
 async function loadSigner(
   root: string,
   store: ICredentialStore,
+  productRuntime: ICliRuntimeContext,
 ): Promise<(IHandoffSigner & { readonly deviceId: string }) | undefined> {
-  const state = readIdentityState(join(root, 'devices'));
+  const state = readIdentityState(productRuntime.cryptoContext, join(root, 'devices'));
   if (state === undefined) return undefined;
-  const keys = await loadDevicePrivateKeys(store, state.deviceCertificate);
+  const keys = await loadDevicePrivateKeys(
+    store, productRuntime.config.credentials.serviceNamespace, state.deviceCertificate,
+  );
   return keys === undefined
     ? undefined
     : {
@@ -212,7 +218,7 @@ export function createHandoffHostAdapter(deps: IHandoffHostAdapterDeps): IComman
     if (session === undefined || (!toDevice && open === undefined)) {
       return stopped('this session cannot reach other sessions yet');
     }
-    const signer = await loadSigner(deps.root, deps.store);
+    const signer = await loadSigner(deps.root, deps.store, deps.productRuntime);
     if (signer === undefined) {
       return stopped(
         'this device has no identity to sign the hand-off with; run `/devices join` to join your other devices, or `/devices init` on your first device',
@@ -264,9 +270,12 @@ export function createHandoffHostAdapter(deps: IHandoffHostAdapterDeps): IComman
             offeredAt: now(),
           };
     const options: Omit<IPushHandoffOptions, 'openChannel' | 'carrierBinding'> = {
+      cryptoContext: deps.productRuntime.cryptoContext,
       composition: deps.composition,
       request,
-      mintGrant: (manifest, fingerprint) => mintHandoffGrant(signer, manifest, fingerprint, now()),
+      mintGrant: (manifest, fingerprint) => mintHandoffGrant(
+        deps.productRuntime.cryptoContext, signer, manifest, fingerprint, now(),
+      ),
       onReadOnly: () => {
         current = { state: 'done', stillMine: false };
       },
@@ -329,6 +338,7 @@ export function createHandoffHostAdapter(deps: IHandoffHostAdapterDeps): IComman
 }
 
 export interface ILocalHandoffArrivalDeps {
+  readonly productRuntime: ICliRuntimeContext;
   /** This session's id on this machine. */
   readonly sessionId: string;
   readonly root: string;
@@ -344,7 +354,7 @@ export function localHandoffArrival(
   sender: IPeerSender,
   channel: IFileFrameChannel,
 ): IHandoffArrival {
-  const identity = readHandoffIdentity(deps.root);
+  const identity = readHandoffIdentity(deps.root, deps.productRuntime);
   return {
     channel,
     carrierBinding: localCarrierBinding(deps.sessionId),

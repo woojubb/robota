@@ -15,7 +15,7 @@ import { AbstractPlugin } from '../../abstracts/abstract-plugin';
 import { AbstractTool } from '../../abstracts/abstract-tool';
 import { ExecutionService } from '../../services/execution-service';
 import { createScriptedProvider } from '../../testing/scripted-provider';
-import { Robota } from '../robota';
+import { ConversationAgent } from '../conversation-agent';
 
 import type {
   IPluginExecutionContext,
@@ -35,15 +35,15 @@ type TEntryPoint = (typeof ENTRY_POINTS)[number];
 const PROVIDER_NAME = 'scripted-test-provider';
 
 async function drive(
-  robota: Robota,
+  agent: ConversationAgent,
   entry: TEntryPoint,
   input: string,
   options?: IRunOptions,
 ): Promise<string> {
   if (entry === 'run') {
-    return robota.run(input, options);
+    return agent.run(input, options);
   }
-  const stream = robota.runStream(input, options);
+  const stream = agent.runStream(input, options);
   for (;;) {
     const next = await stream.next();
     if (next.done === true) {
@@ -82,8 +82,8 @@ class TokensUsedRecorder extends AbstractPlugin {
   }
 }
 
-function buildAgent(provider: IAIProvider, overrides: Partial<IAgentConfig> = {}): Robota {
-  return new Robota({
+function buildAgent(provider: IAIProvider, overrides: Partial<IAgentConfig> = {}): ConversationAgent {
+  return new ConversationAgent({
     name: 'Turn Result Agent',
     aiProviders: [provider],
     defaultModel: { provider: PROVIDER_NAME, model: 'test-model' },
@@ -121,8 +121,8 @@ function partialThenHangProvider(before: readonly TScriptedTurn[] = []): IAIProv
   };
 }
 
-function lastAssistant(robota: Robota): TUniversalMessage | undefined {
-  return [...robota.getHistory()].reverse().find((message) => message.role === 'assistant');
+function lastAssistant(agent: ConversationAgent): TUniversalMessage | undefined {
+  return [...agent.getHistory()].reverse().find((message) => message.role === 'assistant');
 }
 
 afterEach(() => {
@@ -136,9 +136,9 @@ describe.each(ENTRY_POINTS)('turn-scoped run result — %s()', (entry) => {
       { toolCalls: [{ name: 'record_decision', args: {} }] },
     ]);
     const tool = new RecordDecisionTool();
-    const robota = buildAgent(scripted.provider, { tools: [tool] });
+    const agent = buildAgent(scripted.provider, { tools: [tool] });
 
-    const answer = await drive(robota, entry, 'decide', {
+    const answer = await drive(agent, entry, 'decide', {
       allowToolOnlyCompletion: true,
       maxExecutionRounds: 1,
     });
@@ -153,10 +153,10 @@ describe.each(ENTRY_POINTS)('turn-scoped run result — %s()', (entry) => {
       { text: 'first answer' },
       { toolCalls: [{ name: 'record_decision', args: {} }] },
     ]);
-    const robota = buildAgent(scripted.provider, { tools: [new RecordDecisionTool()] });
+    const agent = buildAgent(scripted.provider, { tools: [new RecordDecisionTool()] });
 
-    await drive(robota, entry, 'first');
-    const second = await drive(robota, entry, 'decide', {
+    await drive(agent, entry, 'first');
+    const second = await drive(agent, entry, 'decide', {
       allowToolOnlyCompletion: true,
       maxExecutionRounds: 1,
     });
@@ -170,24 +170,24 @@ describe.each(ENTRY_POINTS)('turn-scoped run result — %s()', (entry) => {
       { text: 'two', usage: { inputTokens: 20, outputTokens: 7 } },
     ]);
     const recorder = new TokensUsedRecorder();
-    const robota = buildAgent(scripted.provider, { plugins: [recorder] });
+    const agent = buildAgent(scripted.provider, { plugins: [recorder] });
 
-    await drive(robota, entry, 'first');
-    await drive(robota, entry, 'second');
+    await drive(agent, entry, 'first');
+    await drive(agent, entry, 'second');
 
     expect(recorder.tokensUsed).toEqual([15, 27]);
   });
 
   it('answers an aborted turn with the text history keeps for it', async () => {
     const controller = new AbortController();
-    const robota = buildAgent(partialThenHangProvider());
+    const agent = buildAgent(partialThenHangProvider());
 
-    const answer = await drive(robota, entry, 'talk', {
+    const answer = await drive(agent, entry, 'talk', {
       signal: controller.signal,
       onTextDelta: () => controller.abort(),
     });
 
-    const committed = lastAssistant(robota);
+    const committed = lastAssistant(agent);
     expect(committed?.state).toBe('interrupted');
     expect(committed?.content).toBe('partial');
     expect(answer).toBe('partial');
@@ -196,12 +196,12 @@ describe.each(ENTRY_POINTS)('turn-scoped run result — %s()', (entry) => {
   it('reports the tools that ran before the abort', async () => {
     const execute = vi.spyOn(ExecutionService.prototype, 'execute');
     const controller = new AbortController();
-    const robota = buildAgent(
+    const agent = buildAgent(
       partialThenHangProvider([{ toolCalls: [{ name: 'record_decision', args: {} }] }]),
       { tools: [new RecordDecisionTool()] },
     );
 
-    await drive(robota, entry, 'act', {
+    await drive(agent, entry, 'act', {
       signal: controller.signal,
       onTextDelta: () => controller.abort(),
     });

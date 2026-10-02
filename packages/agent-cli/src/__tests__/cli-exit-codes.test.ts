@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from './helpers/product-runtime.js';
 /**
  * Exit-code contract tests (CLI-064).
  *
@@ -21,7 +22,7 @@ import type {
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-cli-exit-codes-test-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-cli-exit-codes-test-')));
 const ORIGINAL_ARGV = process.argv;
 const ORIGINAL_HOME = process.env.HOME;
 
@@ -69,19 +70,19 @@ describe('provider config error exit codes (CLI-064)', () => {
   });
 
   it('TC-03: print mode with no provider configuration exits 3 with guidance on stderr', async () => {
-    process.argv = ['node', 'robota', '-p', 'say hi'];
+    process.argv = ['node', 'test-product', '-p', 'say hi'];
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
-    await expect(startCli()).rejects.toThrow('process.exit:3');
+    await expect(startCli({ productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) })).rejects.toThrow('process.exit:3');
 
     expect(stderr.mock.calls.join('')).toContain('No provider configuration found');
   });
 
   it('TC-03: non-print startup with no provider configuration keeps exit 1', async () => {
-    process.argv = ['node', 'robota'];
+    process.argv = ['node', 'test-product'];
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
-    await expect(startCli()).rejects.toThrow('process.exit:1');
+    await expect(startCli({ productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) })).rejects.toThrow('process.exit:1');
 
     expect(stderr.mock.calls.join('')).toContain('No provider configuration found');
   });
@@ -89,7 +90,7 @@ describe('provider config error exit codes (CLI-064)', () => {
   it('TC-06 (CLI-066): env-default startup runs print mode and prints the notice exactly once', async () => {
     process.env['FAKE_ZERO_CONF_KEY'] = 'fake-secret-value';
     try {
-      process.argv = ['node', 'robota', '-p', 'say hi', '--no-session-persistence'];
+      process.argv = ['node', 'test-product', '-p', 'say hi', '--no-session-persistence'];
       const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
       const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
@@ -100,9 +101,15 @@ describe('provider config error exit codes (CLI-064)', () => {
         createProvider: () => createFakeProvider(),
       };
 
-      await expect(startCli({ providerDefinitions: [zeroConfDefinition] })).rejects.toThrow(
-        'process.exit:0',
-      );
+      await expect(
+        startCli({
+          productRuntime: createTestProductRuntime('test-product', {
+            HOME: process.env['HOME'],
+            FAKE_ZERO_CONF_KEY: process.env['FAKE_ZERO_CONF_KEY'],
+          }),
+          providerDefinitions: [zeroConfDefinition],
+        }),
+      ).rejects.toThrow('process.exit:0');
 
       const stderrText = stderr.mock.calls.join('');
       const noticeCount =

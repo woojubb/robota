@@ -4,7 +4,7 @@ Streaming AI chat embedded in a Next.js App Router application using `@robota-sd
 
 ## What this shows
 
-- Mounting the Robota runtime inside a Next.js API route
+- Mounting the agent runtime inside a Next.js API route
 - Streaming the response as Server-Sent Events (SSE)
 - Consuming the SSE stream from a React client component
 

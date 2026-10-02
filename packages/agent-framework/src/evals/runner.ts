@@ -62,7 +62,7 @@ export function defineEval(def: IEvalDefinition): IEvalDefinition {
  * Run every case through `runFn`, score each run-result with each metric, and aggregate to a report.
  *
  * Cases run sequentially (deterministic; a shared provider is not hammered in parallel). `overallScore` is the
- * mean of every case×metric normalized score, and `passed = overallScore >= threshold` — the verdict the CI
+ * mean of every case×metric normalized score. Every run must complete and required assertions must pass; the CI
  * gate maps to an exit code.
  */
 export async function runEval(def: IEvalDefinition, runFn: TEvalRunFn): Promise<IEvalReport> {
@@ -70,11 +70,18 @@ export async function runEval(def: IEvalDefinition, runFn: TEvalRunFn): Promise<
   const threshold = normalized.threshold ?? DEFAULT_THRESHOLD;
 
   const results: IEvalCaseResult[] = [];
+  let requiredAssertionsPassed = true;
+  let allRunsCompleted = true;
   for (const evalCase of normalized.cases) {
     const result = await runFn(evalCase.input);
+    if (result.interrupted) allRunsCompleted = false;
     const scores: IEvalMetricScore[] = normalized.metrics.map((metric) => {
       const raw = metric.score(result, evalCase);
-      return { metric: metric.name, score: raw, normalized: normalizeScore(raw) };
+      const score = normalizeScore(raw);
+      if (metric.required && score !== 1) {
+        requiredAssertionsPassed = false;
+      }
+      return { metric: metric.name, score: raw, normalized: score };
     });
     results.push({
       input: evalCase.input,
@@ -89,6 +96,6 @@ export async function runEval(def: IEvalDefinition, runFn: TEvalRunFn): Promise<
     results,
     overallScore,
     threshold,
-    passed: overallScore >= threshold,
+    passed: allRunsCompleted && requiredAssertionsPassed && overallScore >= threshold,
   };
 }

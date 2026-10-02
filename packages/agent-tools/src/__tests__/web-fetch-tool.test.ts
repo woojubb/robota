@@ -95,12 +95,14 @@ describe('webFetchTool — fetch behaviour', () => {
   async function callWebFetch(
     url: string,
     headers?: Record<string, string>,
+    userAgent?: string,
   ): Promise<IToolInvocationResult> {
     const { createWebFetchTool } = await import('../builtins/web-fetch-tool.js');
-    // #2026: the tool resolves every destination before fetching; a hermetic test injects the
-    // lookup (a public address) so no DNS leaves the process, while `fetch` stays the stubbed global.
+    // Inject the trusted test carrier explicitly; replacing global fetch must not replace the
+    // default connection-pinned transport. Neither DNS nor a socket leaves these unit tests.
     const webFetchTool = createWebFetchTool({
-      egress: { deps: { lookup: async () => ['93.184.216.34'] } },
+      userAgent,
+      egress: { deps: { lookup: async () => ['93.184.216.34'], fetch: globalThis.fetch } },
     });
     const args: Record<string, unknown> = { url };
     if (headers !== undefined) args['headers'] = headers;
@@ -111,6 +113,18 @@ describe('webFetchTool — fetch behaviour', () => {
         : String(result);
     return JSON.parse(raw) as IToolInvocationResult;
   }
+
+  it('keeps host-selected HTTP identities separate without a product default', async () => {
+    const headers: Array<string | null> = [];
+    vi.mocked(globalThis.fetch).mockImplementation(async (_url, init) => {
+      headers.push(new Headers(init?.headers).get('user-agent'));
+      return new Response('ok');
+    });
+    for (const name of ['cedar/1', 'birch/1', 'cedar/1', undefined]) {
+      await callWebFetch('https://example.com', undefined, name);
+    }
+    expect(headers).toEqual(['cedar/1', 'birch/1', 'cedar/1', null]);
+  });
 
   it('returns success result for a 200 response with plain text', async () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce({

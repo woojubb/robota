@@ -8,6 +8,7 @@
  * browser host (no `restartRuntime`) gets no `onReconnect` at all.
  */
 
+import { testProduct } from './product-fixture.js';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -64,7 +65,7 @@ function host(kind: IGuiHost['kind'], restartRuntime?: () => Promise<void>): IGu
 
 describe('#3280 §5 — a connection lost while attached', () => {
   it('the session surface stays mounted through a connection loss (no full-screen replacement)', async () => {
-    render(<App host={host('desktop', vi.fn())} />);
+    render(<App product={testProduct} host={host('desktop', vi.fn())} />);
     await screen.findByText('session surface');
 
     act(() => connection.giveUp());
@@ -74,19 +75,19 @@ describe('#3280 §5 — a connection lost while attached', () => {
 
   it('desktop: passes a Reconnect action that remembers the current session, then restarts the runtime', async () => {
     const restartRuntime = vi.fn(() => new Promise<void>(() => {}));
-    render(<App host={host('desktop', restartRuntime)} />);
+    render(<App product={testProduct} host={host('desktop', restartRuntime)} />);
     await screen.findByText('session surface');
     act(() => connection.giveUp());
 
-    expect(window.sessionStorage.getItem('robota.restoreSessionId')).toBeNull();
+    expect(window.sessionStorage.getItem('test-product.restoreSessionId')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Reconnect' }));
 
-    expect(window.sessionStorage.getItem('robota.restoreSessionId')).toBe('sess-1');
+    expect(window.sessionStorage.getItem('test-product.restoreSessionId')).toBe('sess-1');
     expect(restartRuntime).toHaveBeenCalledTimes(1);
   });
 
   it('browser: no restartRuntime means no Reconnect action at all', async () => {
-    render(<App host={host('browser')} />);
+    render(<App product={testProduct} host={host('browser')} />);
     await screen.findByText('session surface');
 
     act(() => connection.giveUp());

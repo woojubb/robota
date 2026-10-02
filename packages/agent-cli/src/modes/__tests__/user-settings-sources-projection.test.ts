@@ -1,13 +1,16 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { describe, expect, it } from 'vitest';
 
-import { createRobotaUserSettingsSources } from '../../product/robota-user-settings.js';
-import { ROBOTA_PERMISSION_BASELINE } from '../../product/robota-permission-baseline.js';
+import { createProductUserSettingsSources } from '../../product/user-settings.js';
+import { productPermissionBaseline } from '../../product/permission-baseline.js';
 import { buildServeSessionOptions } from '../serve-mode.js';
+const PRODUCT_PERMISSION_BASELINE = productPermissionBaseline(createTestProductRuntime());
+
 
 describe('served session user settings sources', () => {
   it('forwards the CLI-selected sources into the runtime session', () => {
-    const sources = createRobotaUserSettingsSources('/test-home');
-    const options = buildServeSessionOptions({
+    const sources = createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: '/test-home' }));
+    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true } as never,
       preset: {},
@@ -18,11 +21,11 @@ describe('served session user settings sources', () => {
     if (!('baselinePermissionAllow' in options)) {
       throw new Error('Served session must keep the CLI permission baseline.');
     }
-    expect(options.baselinePermissionAllow).toBe(ROBOTA_PERMISSION_BASELINE);
+    expect(options.baselinePermissionAllow).toEqual(PRODUCT_PERMISSION_BASELINE);
   });
 
   it('keeps safe mode in the runtime session (issue #3082)', () => {
-    const options = buildServeSessionOptions({
+    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true } as never,
       preset: {},

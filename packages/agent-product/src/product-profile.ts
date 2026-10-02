@@ -31,7 +31,7 @@ import type {
 /**
  * A declarative "this is my product" object — the sole argument of {@link assembleProduct}. Everything
  * product-specific lives here as DATA (identity, provider, presets, packs, injected plumbing); the
- * assembler hard-codes no product's choices. `robota` is one profile among many; an external repo brings
+ * assembler hard-codes no product's choices. the configured CLI is one profile among many; an external host brings
  * its own.
  *
  * The responsibility split (ARCH-005): **preset = behavior/persona**, **pack = capability**, **profile =
@@ -67,7 +67,7 @@ export interface IProductProfile {
   providerSettings?: IProviderDefinitionConfig;
   /**
    * OPTIONAL injected provider override for advanced/test consumers — a pre-built provider that takes
-   * precedence over {@link providerSettings}. `robota` uses it for `--session-log` replay, where the
+   * precedence over {@link providerSettings}. the configured CLI uses it for `--session-log` replay, where the
    * provider answers from a recorded log instead of a vendor definition.
    */
   provider?: IAIProvider;
@@ -93,7 +93,7 @@ export interface IProductProfile {
    *
    * This is the seam for a shell that must resolve a preset BEFORE it can build the profile — a preset
    * can carry the `model` and `agentName` the profile itself is constructed from, so "resolve, then
-   * assemble" is a real ordering constraint, not a robota quirk. Handing the registry in (rather than the
+   * assemble" is a real ordering constraint, not a product-specific quirk. Handing the registry in (rather than the
    * presets) is what keeps that pre-assembly resolution and `assembleProduct`'s own resolution on ONE
    * registry instead of two equivalent-but-separate ones (ARCH-008). R8 is unaffected: the registry is
    * still instance-scoped and no module-level state is read or mutated.

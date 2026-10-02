@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from './helpers/product-runtime.js';
 /**
  * CLI-083 (issue #2287) — the org policy is actually LOADED, not merely forwardable.
  *
@@ -34,13 +35,13 @@ const SETTINGS_JSON = JSON.stringify({
   },
 });
 
-/** A HOME with a real `~/.robota/org-policy.json`, which is the only thing `loadOrgPolicy` reads. */
+/** A HOME with a real `the configured user root/org-policy.json`, which is the only thing `loadOrgPolicy` reads. */
 function homeWithPolicy(policy: unknown): string {
   const home = realpathSync(mkdtempSync(join(tmpdir(), 'cli-083-home-')));
   homes.push(home);
-  mkdirSync(join(home, '.robota'), { recursive: true });
-  writeFileSync(join(home, '.robota', 'org-policy.json'), JSON.stringify(policy), 'utf8');
-  writeFileSync(join(home, '.robota', 'settings.json'), SETTINGS_JSON, 'utf8');
+  mkdirSync(join(home, '.test-product'), { recursive: true });
+  writeFileSync(join(home, '.test-product', 'org-policy.json'), JSON.stringify(policy), 'utf8');
+  writeFileSync(join(home, '.test-product', 'settings.json'), SETTINGS_JSON, 'utf8');
   return home;
 }
 
@@ -48,14 +49,14 @@ function homeWithPolicy(policy: unknown): string {
 function homeWithRawPolicy(raw: string): string {
   const home = realpathSync(mkdtempSync(join(tmpdir(), 'issue-2023-home-')));
   homes.push(home);
-  mkdirSync(join(home, '.robota'), { recursive: true });
-  writeFileSync(join(home, '.robota', 'org-policy.json'), raw, 'utf8');
-  writeFileSync(join(home, '.robota', 'settings.json'), SETTINGS_JSON, 'utf8');
+  mkdirSync(join(home, '.test-product'), { recursive: true });
+  writeFileSync(join(home, '.test-product', 'org-policy.json'), raw, 'utf8');
+  writeFileSync(join(home, '.test-product', 'settings.json'), SETTINGS_JSON, 'utf8');
   return home;
 }
 
 function providerExecutor(cwd: string): SystemCommandExecutor {
-  const setup = buildCommandSetup(cwd, MINIMAL_ARGS, {}, '0.0.0-test');
+  const setup = buildCommandSetup(cwd, MINIMAL_ARGS, { productRuntime: createTestProductRuntime('test-product', { HOME: cwd }) }, '0.0.0-test');
   const provider = setup.baseCommandModules.find((m) => m.name === 'agent-command-provider');
   if (provider === undefined) throw new Error('the provider command module was not built');
   return new SystemCommandExecutor([...(provider.systemCommands ?? [])]);
@@ -79,7 +80,7 @@ describe('CLI-083: the loaded policy is SURFACED, not only consumed in place', (
     const home = homeWithPolicy({ blockedCommands: ['clear'], adminContact: 'ops@x' });
     vi.stubEnv('HOME', home);
 
-    const setup = buildCommandSetup(home, MINIMAL_ARGS, {}, '0.0.0-test');
+    const setup = buildCommandSetup(home, MINIMAL_ARGS, { productRuntime: createTestProductRuntime('test-product', { HOME: home }) }, '0.0.0-test');
 
     expect(setup.orgPolicy).toEqual({ blockedCommands: ['clear'], adminContact: 'ops@x' });
   });
@@ -87,16 +88,16 @@ describe('CLI-083: the loaded policy is SURFACED, not only consumed in place', (
   it('returns undefined when there is no policy file, so absence stays distinguishable', () => {
     const home = realpathSync(mkdtempSync(join(tmpdir(), 'cli-083-surface-none-')));
     homes.push(home);
-    mkdirSync(join(home, '.robota'), { recursive: true });
-    writeFileSync(join(home, '.robota', 'settings.json'), SETTINGS_JSON, 'utf8');
+    mkdirSync(join(home, '.test-product'), { recursive: true });
+    writeFileSync(join(home, '.test-product', 'settings.json'), SETTINGS_JSON, 'utf8');
     vi.stubEnv('HOME', home);
 
-    expect(buildCommandSetup(home, MINIMAL_ARGS, {}, '0.0.0-test').orgPolicy).toBeUndefined();
+    expect(buildCommandSetup(home, MINIMAL_ARGS, { productRuntime: createTestProductRuntime('test-product', { HOME: home }) }, '0.0.0-test').orgPolicy).toBeUndefined();
   });
 });
 
 describe('CLI-083: a policy file on disk reaches the enforcement', () => {
-  it('blocks a provider switch forbidden only by ~/.robota/org-policy.json', async () => {
+  it('blocks a provider switch forbidden only by ~/.test-product/org-policy.json', async () => {
     const home = homeWithPolicy({ allowedProviders: ['anthropic'], adminContact: 'ops@x' });
     vi.stubEnv('HOME', home);
 
@@ -119,8 +120,8 @@ describe('CLI-083: a policy file on disk reaches the enforcement', () => {
     // satisfy the case above.
     const home = realpathSync(mkdtempSync(join(tmpdir(), 'cli-083-nopolicy-')));
     homes.push(home);
-    mkdirSync(join(home, '.robota'), { recursive: true });
-    writeFileSync(join(home, '.robota', 'settings.json'), SETTINGS_JSON, 'utf8');
+    mkdirSync(join(home, '.test-product'), { recursive: true });
+    writeFileSync(join(home, '.test-product', 'settings.json'), SETTINGS_JSON, 'utf8');
     vi.stubEnv('HOME', home);
 
     const result = await providerExecutor(home).execute(
@@ -136,7 +137,7 @@ describe('CLI-083: a policy file on disk reaches the enforcement', () => {
 describe('issue #2023: an unreadable policy is presented, not thrown at the user', () => {
   it('writes the message and exits 1 instead of escaping as an unhandled exception', () => {
     // Review finding on PR #2324: `loadOrgPolicy` throws now, and its only production caller did not
-    // catch it — so a corrupted `~/.robota/org-policy.json` crashed the CLI with a stack trace. That
+    // catch it — so a corrupted `the configured user root/org-policy.json` crashed the CLI with a stack trace. That
     // is the outcome the comment this change replaced was protecting against, and a stack trace does
     // not tell an administrator which file to fix.
     const home = homeWithRawPolicy('{"allowedProviders": ["anthropic"');
@@ -150,7 +151,7 @@ describe('issue #2023: an unreadable policy is presented, not thrown at the user
       throw new Error('exited');
     }) as never);
 
-    expect(() => buildCommandSetupOrExit(home, MINIMAL_ARGS, {}, '0.0.0-test')).toThrow('exited');
+    expect(() => buildCommandSetupOrExit(home, MINIMAL_ARGS, { productRuntime: createTestProductRuntime('test-product', { HOME: home }) }, '0.0.0-test')).toThrow('exited');
 
     expect(exit).toHaveBeenCalledWith(1);
     expect(written.join('')).toContain('org-policy.json');
@@ -167,13 +168,13 @@ describe('issue #2023: an unreadable policy is presented, not thrown at the user
     // `buildCommandSetup` actually throws for an unrelated reason is `SettingsParseError` — a
     // corrupt `settings.json` beside a perfectly good policy. That mutant now dies.
     const home = homeWithRawPolicy(JSON.stringify({ allowedProviders: ['anthropic'] }));
-    writeFileSync(join(home, '.robota', 'settings.json'), '{ not json', 'utf8');
+    writeFileSync(join(home, '.test-product', 'settings.json'), '{ not json', 'utf8');
     vi.stubEnv('HOME', home);
     const exit = vi.spyOn(process, 'exit').mockImplementation((() => {
       throw new Error('exited');
     }) as never);
 
-    expect(() => buildCommandSetupOrExit(home, MINIMAL_ARGS, {}, '0.0.0-test')).toThrow(
+    expect(() => buildCommandSetupOrExit(home, MINIMAL_ARGS, { productRuntime: createTestProductRuntime('test-product', { HOME: home }) }, '0.0.0-test')).toThrow(
       /invalid JSON/,
     );
     expect(exit).not.toHaveBeenCalled();

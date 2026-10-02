@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import {
   constants,
   mkdirSync,
@@ -13,7 +14,9 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { COST_BUDGET_FILE, createFileCostBudgetAdapter } from '../cost-budget-adapter.js';
+import { costBudgetFile, createFileCostBudgetAdapter } from '../cost-budget-adapter.js';
+const COST_BUDGET_FILE = costBudgetFile(createTestProductRuntime());
+
 
 /**
  * CMD-007 (issue #2058): the file adapter owns this product's budget storage policy — the path, the
@@ -22,16 +25,16 @@ import { COST_BUDGET_FILE, createFileCostBudgetAdapter } from '../cost-budget-ad
 describe('createFileCostBudgetAdapter', () => {
   let cwd: string;
   beforeEach(() => {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-budget-adapter-')));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-budget-adapter-')));
   });
   afterEach(() => {
     rmSync(cwd, { recursive: true, force: true });
   });
 
   it('reads no budget from an absent, empty, malformed or non-numeric document', () => {
-    const adapter = createFileCostBudgetAdapter(cwd);
+    const adapter = createFileCostBudgetAdapter(cwd, createTestProductRuntime());
     expect(adapter.read()).toBeUndefined();
-    mkdirSync(join(cwd, '.robota'), { recursive: true });
+    mkdirSync(join(cwd, '.test-product'), { recursive: true });
     for (const contents of ['{}', 'not json', '[5]', '{"monthly":"5"}']) {
       writeFileSync(join(cwd, COST_BUDGET_FILE), contents);
       expect(adapter.read()).toBeUndefined();
@@ -39,8 +42,8 @@ describe('createFileCostBudgetAdapter', () => {
   });
 
   it('persists a budget across adapter instances (set, restart, read) and clears to an empty document', () => {
-    createFileCostBudgetAdapter(cwd).write({ monthly: 5 });
-    const restarted = createFileCostBudgetAdapter(cwd);
+    createFileCostBudgetAdapter(cwd, createTestProductRuntime()).write({ monthly: 5 });
+    const restarted = createFileCostBudgetAdapter(cwd, createTestProductRuntime());
     expect(restarted.read()).toEqual({ monthly: 5 });
     restarted.clear();
     expect(readFileSync(join(cwd, COST_BUDGET_FILE), 'utf-8')).toBe('{}');
@@ -48,7 +51,7 @@ describe('createFileCostBudgetAdapter', () => {
   });
 
   it('clears a project that never had the file without checking first (CodeQL js/file-system-race)', () => {
-    expect(() => createFileCostBudgetAdapter(cwd).clear()).not.toThrow();
+    expect(() => createFileCostBudgetAdapter(cwd, createTestProductRuntime()).clear()).not.toThrow();
     expect(readFileSync(join(cwd, COST_BUDGET_FILE), 'utf-8')).toBe('{}');
   });
 
@@ -57,9 +60,9 @@ describe('createFileCostBudgetAdapter', () => {
     () => {
       const outside = join(cwd, 'outside.txt');
       writeFileSync(outside, 'ORIGINAL');
-      mkdirSync(join(cwd, '.robota'), { recursive: true });
+      mkdirSync(join(cwd, '.test-product'), { recursive: true });
       symlinkSync(outside, join(cwd, COST_BUDGET_FILE));
-      const adapter = createFileCostBudgetAdapter(cwd);
+      const adapter = createFileCostBudgetAdapter(cwd, createTestProductRuntime());
       expect(() => adapter.write({ monthly: 5 })).toThrow(/symbolic link/);
       expect(() => adapter.clear()).toThrow(/symbolic link/);
       expect(readFileSync(outside, 'utf-8')).toBe('ORIGINAL');

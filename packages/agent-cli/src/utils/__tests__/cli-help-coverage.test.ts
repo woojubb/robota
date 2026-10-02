@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { MODEL_EFFORT_VALUES } from '@robota-sdk/agent-core';
@@ -16,7 +17,7 @@ const NOT_IN_GLOBAL_HELP = new Set([
   'supervised-external-event-grants',
   'daemon',
   'external-event-allow',
-  // `robota session list --format` is listed with that command; `--summary` and `--source` belong
+  // `the product session list --format` is listed with that command; `--summary` and `--source` belong
   // to an internal command.
   'format',
   'summary',
@@ -30,9 +31,9 @@ const NOT_IN_GLOBAL_HELP = new Set([
   'help',
 ]);
 
-describe('robota --help', () => {
+describe('test-product --help', () => {
   it('lists every option the parser accepts, except those not meant for people', () => {
-    const help = printHelp();
+    const help = printHelp(createTestProductRuntime());
     const missing = CLI_OPTION_NAMES.filter(
       (name) => !NOT_IN_GLOBAL_HELP.has(name) && !new RegExp(`--${name}(?![\\w-])`).test(help),
     );
@@ -40,7 +41,7 @@ describe('robota --help', () => {
   });
 
   it('lists every effort level --effort accepts', () => {
-    const effortLine = printHelp()
+    const effortLine = printHelp(createTestProductRuntime())
       .split('\n')
       .find((line) => line.trimStart().startsWith('--effort'));
     for (const level of ['auto', ...MODEL_EFFORT_VALUES]) {
@@ -49,7 +50,7 @@ describe('robota --help', () => {
   });
 
   it('describes --bare as what it does: skipping instruction files and plugins', () => {
-    const bareLine = printHelp()
+    const bareLine = printHelp(createTestProductRuntime())
       .split('\n')
       .find((line) => line.trimStart().startsWith('--bare'));
     expect(bareLine).toContain('instruction files');
@@ -57,21 +58,21 @@ describe('robota --help', () => {
   });
 });
 
-describe('robota <subcommand> --help', () => {
+describe('test-product <subcommand> --help', () => {
   it('prints only that subcommand’s entries', () => {
-    const trust = subcommandHelpFor(['trust', '--help']);
-    expect(trust).toContain('robota trust [status|grant|revoke]');
-    expect(trust).not.toContain('robota daemon');
+    const trust = subcommandHelpFor(['trust', '--help'], createTestProductRuntime());
+    expect(trust).toContain('test-product trust [status|grant|revoke]');
+    expect(trust).not.toContain('test-product daemon');
 
-    const session = subcommandHelpFor(['session', 'start', '-h']);
-    expect(session).toContain('robota session start --background');
-    expect(session).toContain('robota session list');
-    expect(session).not.toContain('robota trust');
+    const session = subcommandHelpFor(['session', 'start', '-h'], createTestProductRuntime());
+    expect(session).toContain('test-product session start --background');
+    expect(session).toContain('test-product session list');
+    expect(session).not.toContain('test-product trust');
   });
 
   it('treats the doctor aliases as doctor and lists mcp serve’s transport options with mcp', () => {
-    expect(subcommandHelpFor(['checkup', '--help'])).toContain('robota doctor --repair');
-    expect(subcommandHelpFor(['mcp', 'serve', '--help'])).toContain('--http-token-file');
+    expect(subcommandHelpFor(['checkup', '--help'], createTestProductRuntime())).toContain('test-product doctor --repair');
+    expect(subcommandHelpFor(['mcp', 'serve', '--help'], createTestProductRuntime())).toContain('--http-token-file');
   });
 
   it('leaves --help to a command that prints fuller help of its own', () => {
@@ -82,13 +83,13 @@ describe('robota <subcommand> --help', () => {
       ['session', 'view', '-h'],
       ['session', 'attach', '--help'],
     ]) {
-      expect(subcommandHelpFor(args)).toBeUndefined();
+      expect(subcommandHelpFor(args, createTestProductRuntime())).toBeUndefined();
     }
   });
 
   it('is undefined without --help, or for something that is not a subcommand', () => {
-    expect(subcommandHelpFor(['trust', 'status'])).toBeUndefined();
-    expect(subcommandHelpFor(['-p', 'hello', '--help'])).toBeUndefined();
+    expect(subcommandHelpFor(['trust', 'status'], createTestProductRuntime())).toBeUndefined();
+    expect(subcommandHelpFor(['-p', 'hello', '--help'], createTestProductRuntime())).toBeUndefined();
   });
 
   describe('through the pre-parse router', () => {
@@ -109,22 +110,22 @@ describe('robota <subcommand> --help', () => {
       ['daemon'],
       ['eval'],
     ])(
-      'robota %s --help prints help and exits 0 instead of running the command',
+      'test-product %s --help prints help and exits 0 instead of running the command',
       async (...subcommand: string[]) => {
         const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
         const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
         process.exitCode = undefined;
 
         const handled = await runPreparsedCliCommand(
-          { providerDefinitions: [] },
-          ['node', 'robota', ...subcommand, '--help'],
-          '/nonexistent-robota-help-cwd',
+          {productRuntime: createTestProductRuntime(),  providerDefinitions: [] },
+          ['node', 'test-product', ...subcommand, '--help'],
+          '/nonexistent-test-product-help-cwd',
         );
 
         expect(handled).toBe(true);
         expect(process.exitCode).toBe(0);
         expect(stderr).not.toHaveBeenCalled();
-        expect(stdout.mock.calls.flat().join('')).toContain(`robota ${subcommand[0]}`);
+        expect(stdout.mock.calls.flat().join('')).toContain(`test-product ${subcommand[0]}`);
       },
     );
   });
@@ -142,22 +143,22 @@ describe('the help router hands --help to commands with their own help', () => {
     [['usage', 'export'], '--signal'],
     [['session', 'view'], '--state'],
     [['session', 'attach'], '--observe'],
-  ])('robota %j --help prints the command’s own help', async (subcommand, expected) => {
+  ])('test-product %j --help prints the command’s own help', async (subcommand, expected) => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     process.exitCode = undefined;
 
     await runPreparsedCliCommand(
-      { providerDefinitions: [] },
-      ['node', 'robota', ...subcommand, '--help'],
-      '/nonexistent-robota-help-cwd',
+      {productRuntime: createTestProductRuntime(),  providerDefinitions: [] },
+      ['node', 'test-product', ...subcommand, '--help'],
+      '/nonexistent-test-product-help-cwd',
     );
 
     expect(stdout.mock.calls.flat().join('')).toContain(expected);
   });
 
   it('lists every option daemon start and eval accept in their entries', () => {
-    expect(subcommandHelpFor(['daemon', '--help'])).toContain('--restricted-workspace');
-    expect(subcommandHelpFor(['eval', '--help'])).toContain('--threshold');
+    expect(subcommandHelpFor(['daemon', '--help'], createTestProductRuntime())).toContain('--restricted-workspace');
+    expect(subcommandHelpFor(['eval', '--help'], createTestProductRuntime())).toContain('--threshold');
   });
 });

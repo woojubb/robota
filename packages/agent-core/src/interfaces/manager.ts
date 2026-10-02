@@ -1,5 +1,11 @@
 import type { IAIProvider, IToolSchema } from './provider';
-import type { ITool, TToolExecutor, IToolExecutionContext, TToolParameters } from './tool';
+import type {
+  ITool,
+  IToolResult,
+  TToolExecutor,
+  IToolExecutionContext,
+  TToolParameters,
+} from './tool';
 import type { TUniversalValue } from './types';
 
 /**
@@ -118,6 +124,13 @@ export interface IToolManager {
     parameters: TToolParameters,
     context?: IToolExecutionContext,
   ): Promise<TUniversalValue>;
+
+  /** Full result port; absent on legacy value-only manager implementations. */
+  executeToolResult?(
+    name: string,
+    parameters: TToolParameters,
+    context?: IToolExecutionContext,
+  ): Promise<IToolResult>;
 
   /**
    * Check if tool exists

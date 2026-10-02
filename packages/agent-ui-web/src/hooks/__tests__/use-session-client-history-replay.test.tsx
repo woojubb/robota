@@ -12,7 +12,8 @@
  * `'assistant'` text entries).
  */
 
-import { act, renderHook } from '@testing-library/react';
+import { renderHook } from '../../testing/product-provider.js';
+import { act } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { useSessionClient } from '../useSessionClient.js';
@@ -59,6 +60,45 @@ function editToolState(overrides: Partial<IToolState> = {}): IToolState {
 }
 
 describe('#3288 §2: a messages frame with display rebuilds tool rows, diffs and Changed files', () => {
+  it('renders a denied tool as failed in both live and restored views', () => {
+    const state = editToolState({ result: 'denied' });
+    const live = setup();
+    live.deliver({ type: 'tool_start', state: { ...state, isRunning: true } });
+    live.deliver({ type: 'tool_end', state });
+    expect(live.result.current.activeTools[0]?.status).toBe('error');
+    const restored = setup();
+    restored.deliver({ type: 'messages', messages: [], display: [{ type: 'tool', tool: state }] });
+    expect(restored.result.current.messages[0]).toMatchObject({
+      role: 'tools',
+      tools: [expect.objectContaining({ status: 'error', result: 'denied' })],
+    });
+  });
+
+  it('preserves mixed observations through both live settlement and replay', () => {
+    const parts = [{ type: 'resource_link' as const, uri: 'fixture:receipt/7', name: 'receipt' }];
+    const state: IToolState = {
+      toolName: 'fixture__observe',
+      firstArg: '',
+      executionId: 'call-7',
+      isRunning: false,
+      result: 'success',
+      toolResultParts: parts,
+    };
+    const live = setup();
+    live.deliver({ type: 'tool_start', state: { ...state, isRunning: true } });
+    live.deliver({ type: 'tool_end', state });
+    expect(live.result.current.activeTools[0]).toMatchObject({
+      executionId: 'call-7',
+      toolResultParts: parts,
+    });
+    const replay = setup();
+    replay.deliver({ type: 'messages', messages: [], display: [{ type: 'tool', tool: state }] });
+    expect(replay.result.current.messages[0]).toMatchObject({
+      role: 'tools',
+      tools: [expect.objectContaining({ executionId: 'call-7', toolResultParts: parts })],
+    });
+  });
+
   it('a finished Edit call becomes a tools row carrying the SAME diff a live tool_end would', () => {
     const { result, deliver } = setup();
     deliver({
@@ -118,7 +158,9 @@ describe('#3288 §2: a messages frame with display rebuilds tool rows, diffs and
     const toolsEntry = result.current.messages.find((m) => m.role === 'tools');
     expect(toolsEntry).toMatchObject({
       role: 'tools',
-      tools: [expect.objectContaining({ name: 'Bash', status: 'error', toolResultData: shellResult })],
+      tools: [
+        expect.objectContaining({ name: 'Bash', status: 'error', toolResultData: shellResult }),
+      ],
     });
   });
 

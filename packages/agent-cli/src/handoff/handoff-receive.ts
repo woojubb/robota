@@ -31,6 +31,7 @@ import { handoffChannelFingerprint, newChannelNonce } from './handoff-grant.js';
 import { openHandoffWire, type IHandoffWire, type THandoffWireRefusal } from './handoff-wire.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 
 const IDLE_MS = 30_000;
 /** After this side's last word, how long it waits for the source to close first. */
@@ -51,6 +52,8 @@ const PUSH_ONLY_DETAIL =
   'a session is only ever sent by the machine that holds it; its operator starts that with /handoff';
 
 export interface IReceiveHandoffOptions {
+  /** Product-specific crypto domain used to bind the channel fingerprint. */
+  readonly cryptoContext: IIdentityContext;
   readonly channel: IFileFrameChannel;
   /** What the carrier bound the connection to, as this side sees its own end of it. */
   readonly carrierBinding: string;
@@ -67,7 +70,7 @@ export interface IReceiveHandoffOptions {
   /** Ask the operator here. Called only for a grant that verified. */
   readonly consent: (admission: IPeerAdmission, manifest: IHandoffManifest) => Promise<boolean>;
   readonly composition: IHandoffComposition;
-  /** `~/.robota` of this side's `HOME`; the payload is kept aside under it until saved. */
+  /** the configured user storage root of this side's `HOME`; the payload is kept aside under it until saved. */
   readonly root: string;
   readonly resolveCredential: TCredentialResolver;
   readonly persist: TRecordPersister;
@@ -196,7 +199,11 @@ export async function receiveHandoff(
     }
 
     // The gate: the grant first, then — for a transfer not already saved — the person here.
-    const channelFingerprint = handoffChannelFingerprint(options.carrierBinding, nonce);
+    const channelFingerprint = handoffChannelFingerprint(
+      options.cryptoContext,
+      options.carrierBinding,
+      nonce,
+    );
     let asked = false;
     const admission = await judgeHandoffGrant(handoffGrantFrame(offer.grant), {
       verify: (grant) => options.verifyGrant(grant, manifest, channelFingerprint),

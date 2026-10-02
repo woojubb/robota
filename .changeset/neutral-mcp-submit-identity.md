@@ -4,6 +4,6 @@
 ---
 
 MCP servers now publish a neutral submission tool by default. Hosts that need the previous
-`robota_submit` tool must pass `submitTool: { name: 'robota_submit', description: '...' }` to
-`createAgentMcpServer`, `createMcpTransport`, or `createMcpHttpHost`. The Robota CLI supplies its
+`<configured-submit-tool>` tool must pass `submitTool: { name: '<configured-submit-tool>', description: '...' }` to
+`createAgentMcpServer`, `createMcpTransport`, or `createMcpHttpHost`. The configured CLI supplies its
 existing name and description for both stdio and HTTP carriers.

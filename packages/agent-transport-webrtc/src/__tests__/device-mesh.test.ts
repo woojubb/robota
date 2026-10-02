@@ -1,10 +1,12 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
 import {
   DeviceHandshakeError,
   derivePairRendezvous,
   startDeviceHandshake,
   type IListUpdate,
 } from '@robota-sdk/agent-remote-pairing';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   DeviceMeshNode,
@@ -51,7 +53,7 @@ function countingDataChannel(): { load: () => IDataChannelModule; created: () =>
 /** An offer SDP from a real connection, with its connection for closing. */
 async function realOffer(): Promise<{ sdp: string; close: () => void }> {
   const peer = new RtcPeer();
-  peer.createDataChannel('robota-mesh');
+  peer.createDataChannel('agent-mesh');
   const sdp = await peer.createOffer();
   return { sdp, close: () => peer.close() };
 }
@@ -62,6 +64,7 @@ function node(
   over: Partial<IDeviceMeshNodeOptions> = {},
 ): DeviceMeshNode {
   const created = new DeviceMeshNode({
+    cryptoContext: testIdentity,
     identity: world.identity(device),
     sessionDescriptor: device.session,
     localPolicy: ALL_CAPABILITIES,
@@ -177,7 +180,7 @@ describe('DeviceMeshNode — CLI↔CLI connection over WebRTC', () => {
     // The higher-id side of the pair (anyone who can reach the pair's inbox) sends an offer to the
     // lower-id device, as if the higher one had decided to open the connection itself.
     const topics = await (
-      await derivePairRendezvous({
+      await derivePairRendezvous(testIdentity, {
         ownKaPrivateKey: world.high.ka.privateKey,
         own: world.high.cert,
         peerDeviceId: world.low.cert.deviceId,
@@ -253,10 +256,12 @@ describe('DeviceMeshNode — CLI↔CLI connection over WebRTC', () => {
 
   it('one connection per pair: a peer that restarts gets a fresh connection that replaces the old one', async () => {
     const hub = createInMemoryMeshRelayHub();
-    const low = node(hub, world.low);
+    const approve = vi.fn(async () => true);
+    const low = node(hub, world.low, { operatorApprover: { approve } });
     const first = node(hub, world.high);
     await Promise.all([low.start(), first.start()]);
     const before = await low.connect(world.high.cert.deviceId);
+    await expect(before.authority.authorize('drive')).resolves.toEqual({ allowed: true });
     let beforeClosed = false;
     before.onClose(() => (beforeClosed = true));
 
@@ -272,7 +277,17 @@ describe('DeviceMeshNode — CLI↔CLI connection over WebRTC', () => {
       })
       .toBe(true);
     expect(beforeClosed).toBe(true);
+    await expect(before.authority.authorize('drive')).resolves.toEqual({
+      allowed: false,
+      reason: 'declined',
+    });
+    await expect(before.authority.authorize('message')).resolves.toEqual({
+      allowed: false,
+      reason: 'declined',
+    });
     const after = low.link(world.high.cert.deviceId)!;
+    await expect(after.authority.authorize('drive')).resolves.toEqual({ allowed: true });
+    expect(approve).toHaveBeenCalledTimes(2);
     const received = nextMessage(atSecond);
     after.send('to the new run');
     await expect(received).resolves.toBe('to the new run');
@@ -291,7 +306,7 @@ describe('DeviceMeshNode — CLI↔CLI connection over WebRTC', () => {
 
     // Anyone who can reach the pair's inbox (the relay) announces 50 "new runs" of the peer.
     const topics = await (
-      await derivePairRendezvous({
+      await derivePairRendezvous(testIdentity, {
         ownKaPrivateKey: world.high.ka.privateKey,
         own: world.high.cert,
         peerDeviceId: world.low.cert.deviceId,
@@ -319,10 +334,11 @@ describe('DeviceMeshNode — CLI↔CLI connection over WebRTC', () => {
 
   it('lists handed over later apply to the running node: a revoked peer loses its connection', async () => {
     const hub = createInMemoryMeshRelayHub();
-    const low = node(hub, world.low);
+    const low = node(hub, world.low, { operatorApprover: { approve: async () => true } });
     const high = node(hub, world.high);
     await Promise.all([low.start(), high.start()]);
     const established = await low.connect(world.high.cert.deviceId);
+    await expect(established.authority.authorize('drive')).resolves.toEqual({ allowed: true });
     let closed = false;
     established.onClose(() => (closed = true));
 
@@ -331,10 +347,42 @@ describe('DeviceMeshNode — CLI↔CLI connection over WebRTC', () => {
     });
 
     expect(closed).toBe(true);
+    await expect(established.authority.authorize('drive')).resolves.toEqual({
+      allowed: false,
+      reason: 'declined',
+    });
+    await expect(established.authority.authorize('message')).resolves.toEqual({
+      allowed: false,
+      reason: 'declined',
+    });
     expect(low.link(world.high.cert.deviceId)).toBeUndefined();
     await expect(low.connect(world.high.cert.deviceId)).rejects.toThrow(
       /not a rostered, unrevoked/,
     );
+  }, 40_000);
+
+  it('closing an admitted link withdraws an unresolved operator question and ends its authority', async () => {
+    const hub = createInMemoryMeshRelayHub();
+    let questionSignal: AbortSignal | undefined;
+    const low = node(hub, world.low, {
+      operatorApprover: {
+        approve: (_request, signal) => {
+          questionSignal = signal;
+          return new Promise<boolean>(() => {});
+        },
+      },
+    });
+    const high = node(hub, world.high);
+    await Promise.all([low.start(), high.start()]);
+    const established = await low.connect(world.high.cert.deviceId);
+    const pending = established.authority.authorize('drive');
+    established.close();
+    expect(questionSignal?.aborted).toBe(true);
+    await expect(pending).resolves.toEqual({ allowed: false, reason: 'declined' });
+    await expect(established.authority.authorize('message')).resolves.toEqual({
+      allowed: false,
+      reason: 'declined',
+    });
   }, 40_000);
 
   it('stopping rejects a pending connect at once', async () => {
@@ -350,6 +398,7 @@ describe('DeviceMeshNode — CLI↔CLI connection over WebRTC', () => {
     const hub = createInMemoryMeshRelayHub();
     const revocation = await world.revoking(world.high);
     const low = new DeviceMeshNode({
+      cryptoContext: testIdentity,
       identity: world.identity(world.low, { revocation }),
       sessionDescriptor: world.low.session,
       localPolicy: ALL_CAPABILITIES,
@@ -473,7 +522,7 @@ describe('DeviceMeshNode — the peer is the device its inbox belongs to', () =>
 
     // The relay moves a third device's offer into the low–high inbox and returns high's answer to it.
     const topics = await (
-      await derivePairRendezvous({
+      await derivePairRendezvous(testIdentity, {
         ownKaPrivateKey: world.low.ka.privateKey,
         own: world.low.cert,
         peerDeviceId: world.high.cert.deviceId,
@@ -491,7 +540,7 @@ describe('DeviceMeshNode — the peer is the device its inbox belongs to', () =>
       sendSignal: (signal) =>
         relay.send(topics.outbound, { v: 1, from: instance, to: high.instance, cid, ...signal }),
       startHandshake: (binding) =>
-        startDeviceHandshake({
+        startDeviceHandshake(testIdentity, {
           role: 'initiator',
           identity: world.identity(world.third),
           sessionDescriptor: world.third.session,
@@ -569,7 +618,7 @@ describe('MeshPeerLink — admission gate', () => {
 
     // A peer holding the pair's inbox that smuggles a message ahead of its handshake.
     const topics = await (
-      await derivePairRendezvous({
+      await derivePairRendezvous(testIdentity, {
         ownKaPrivateKey: world.high.ka.privateKey,
         own: world.high.cert,
         peerDeviceId: world.low.cert.deviceId,
@@ -603,7 +652,7 @@ describe('MeshPeerLink — admission gate', () => {
           sendSignal: send,
           startHandshake: (binding) => {
             binding.send({ t: 'mesh-msg', body: 'smuggled' });
-            return startDeviceHandshake({
+            return startDeviceHandshake(testIdentity, {
               role: 'responder',
               identity: world.identity(world.high),
               sessionDescriptor: world.high.session,

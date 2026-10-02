@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-interface-command",
   "version": "3.0.0-beta.86",
-  "description": "Command contract interfaces for the Robota SDK — commands, command results, plugin adapters and capability descriptors",
+  "description": "Command contract interfaces for the Robota SDK \u2014 commands, command results, plugin adapters and capability descriptors",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -30,15 +30,6 @@
       }
     },
     "./package.json": "./package.json"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/woojubb/robota.git",
-    "directory": "packages/agent-interface-command"
-  },
-  "homepage": "https://docs.robota.io/en/packages/agent-interface-command/",
-  "bugs": {
-    "url": "https://github.com/woojubb/robota/issues"
   },
   "engines": {
     "node": ">=22.12.0"

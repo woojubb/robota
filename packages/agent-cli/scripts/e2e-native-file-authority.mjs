@@ -14,6 +14,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fixtureProcessEnvironment } from './product-fixture-environment.mjs';
 
 function run(command, arguments_, cwd, env) {
   return spawnSync(command, arguments_, { cwd, env, encoding: 'utf8' });
@@ -38,7 +39,7 @@ export function assertStandaloneNativeRuntime(binaryPath) {
 }
 
 /** Use the same canonical Git root that the production trust resolver binds into its authority. */
-export function resolveNativeFixtureWorkspace(cwd, env = process.env) {
+export function resolveNativeFixtureWorkspace(cwd, env) {
   const result = run('git', ['rev-parse', '--show-toplevel'], cwd, env);
   if (result.status !== 0 || (result.stdout ?? '').trim().length === 0) {
     throw commandFailure('git workspace root resolution', result);
@@ -64,7 +65,7 @@ function supportsProjectFileAuthority(platform = process.platform) {
 
 /**
  * Linux scenario: a session's replay log and its externalized payload live under the trusted
- * project (`<workspace>/.robota/logs`). `session analyze` must replay it, and must refuse to follow
+ * project (`<workspace>/<product project directory>/logs`). `session analyze` must replay it, and must refuse to follow
  * the payload directory when it has been swapped for a symlink into an untrusted parent.
  */
 function runProjectFileAuthorityScenario(
@@ -79,7 +80,7 @@ function runProjectFileAuthorityScenario(
   const sha256 = createHash('sha256').update(serializedPayload).digest('hex');
   const payloadName = `${sha256}.json`;
   const marker = 'outside-secret-marker';
-  const logs = join(workspace, '.robota', 'logs');
+  const logs = join(workspace, env.PRODUCT_PROJECT_STATE_DIR, 'logs');
   const payloadDirectory = join(logs, `${sessionId}.payloads`);
 
   mkdirSync(payloadDirectory, { recursive: true });
@@ -149,7 +150,7 @@ function runProjectFileAuthorityScenario(
     env,
   );
   if (analyze.status !== 0 || !(analyze.stdout ?? '').includes(sessionId)) {
-    throw commandFailure('robota session analyze', analyze);
+    throw commandFailure(`${env.PRODUCT_CLI_NAME} session analyze`, analyze);
   }
   const replaySucceeded = true;
 
@@ -180,10 +181,10 @@ function runProjectFileAuthorityScenario(
 
 /**
  * Non-Linux scenario: a trusted workspace's sessions are served from the user store
- * (`~/.robota/sessions/<id>.json`), never from the project — there is no project-relative write for
+ * (under the configured user session root), never from the project — there is no project-relative write for
  * `session analyze` to protect, so the meaningful assertion is that the CLI still serves a session
  * through the store it actually uses here, and that it never fell through to writing (or reading)
- * anything project-relative in `workspace/.robota` while doing it.
+ * anything project-relative in the configured project state directory while doing it.
  */
 function runUserSessionStoreScenario(command, prefixArguments, home, workspace, env, sessionId) {
   const timestamp = '2026-09-21T00:00:00.000Z';
@@ -202,7 +203,7 @@ function runUserSessionStoreScenario(command, prefixArguments, home, workspace, 
       },
     ],
   };
-  const sessionsDirectory = join(home, '.robota', 'sessions');
+  const sessionsDirectory = join(env.PRODUCT_USER_STATE_DIR, 'sessions');
   mkdirSync(sessionsDirectory, { recursive: true });
   // Same versioned envelope `NodeSessionStore.save` writes (session-record-codec's
   // SESSION_RECORD_ENVELOPE_VERSION); written directly here so the fixture proves the CLI's own
@@ -219,10 +220,10 @@ function runUserSessionStoreScenario(command, prefixArguments, home, workspace, 
     env,
   );
   if (analyze.status !== 0 || !(analyze.stdout ?? '').includes(sessionId)) {
-    throw commandFailure('robota session analyze', analyze);
+    throw commandFailure(`${env.PRODUCT_CLI_NAME} session analyze`, analyze);
   }
 
-  const projectStateWritten = existsSync(join(workspace, '.robota'));
+  const projectStateWritten = existsSync(join(workspace, env.PRODUCT_PROJECT_STATE_DIR));
   if (projectStateWritten) {
     throw new Error(
       'A trusted workspace wrote project-relative state on a host without project file authority.',
@@ -234,16 +235,16 @@ function runUserSessionStoreScenario(command, prefixArguments, home, workspace, 
 
 export function runNativeFileAuthorityE2e(binaryPath, options = {}) {
   const binary = resolve(binaryPath);
-  if (!existsSync(binary)) throw new Error(`The packaged Robota executable is missing: ${binary}`);
+  if (!existsSync(binary)) throw new Error(`The packaged agent executable is missing: ${binary}`);
   if (options.node !== true) assertStandaloneNativeRuntime(binary);
   const command = options.node === true ? process.execPath : binary;
   const prefixArguments = options.node === true ? [binary] : [];
 
-  const fixtureRoot = realpathSync(mkdtempSync(join(tmpdir(), 'robota-native-cli-')));
+  const fixtureRoot = realpathSync(mkdtempSync(join(tmpdir(), 'agent-native-cli-')));
   const home = join(fixtureRoot, 'home');
   const workspaceDirectory = join(fixtureRoot, 'workspace');
   const sessionId = 'session_1781000001000_native';
-  const env = { ...process.env, HOME: home, USERPROFILE: home };
+  const env = fixtureProcessEnvironment(home);
   const projectAuthority = supportsProjectFileAuthority();
   let scenario;
 
@@ -256,7 +257,7 @@ export function runNativeFileAuthorityE2e(binaryPath, options = {}) {
 
     const trust = run(command, [...prefixArguments, 'trust', '--yes'], workspace, env);
     if (trust.status !== 0 || !/Workspace trust: trusted/u.test(trust.stdout ?? '')) {
-      throw commandFailure('robota trust --yes', trust);
+      throw commandFailure(`${env.PRODUCT_CLI_NAME} trust --yes`, trust);
     }
 
     scenario = projectAuthority
@@ -289,7 +290,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const nodeMode = process.argv[2] === '--node';
     const binaryPath = process.argv[nodeMode ? 3 : 2];
     if (!binaryPath) {
-      throw new Error('Usage: e2e-native-file-authority.mjs [--node] <robota-executable>');
+      throw new Error('Usage: e2e-native-file-authority.mjs [--node] <agent-executable>');
     }
     process.stdout.write(`${runNativeFileAuthorityE2e(binaryPath, { node: nodeMode })}\n`);
   } catch (error) {

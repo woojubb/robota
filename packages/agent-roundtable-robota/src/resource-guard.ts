@@ -1,4 +1,4 @@
-import { RobotaParticipantError } from './errors';
+import { RuntimeParticipantError } from './errors';
 
 /**
  * Module-level set of every session, provider and tool object currently held by a live lease.
@@ -37,7 +37,7 @@ function describeResource(resource: object): string {
 export function claimLease(resources: readonly object[]): () => void {
   const reused = resources.find((resource) => held.has(resource));
   if (reused)
-    throw new RobotaParticipantError(
+    throw new RuntimeParticipantError(
       'resource-reused',
       `${describeResource(reused)} is already held by another live lease`,
     );

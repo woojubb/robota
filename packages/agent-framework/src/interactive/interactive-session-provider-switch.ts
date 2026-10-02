@@ -15,11 +15,16 @@ export function resolveUserSettingsProviderSwitch(
   profileName: string,
   providerDefinitions: readonly IProviderDefinition[],
   sources: readonly INodeHostSettingsSource[],
+  environment?: Readonly<Record<string, string | undefined>>,
 ): {
   settings: ReturnType<typeof readProviderSettings>;
   provider: ReturnType<typeof createProviderFromSettings>;
 } {
-  const options = { providerOverride: profileName, providerDefinitions };
+  const options = {
+    providerOverride: profileName,
+    providerDefinitions,
+    ...(environment !== undefined && { env: environment }),
+  };
   const settings = readProviderSettings(sources, options);
   const provider = createProviderFromSettings(sources, undefined, options);
   // The advisor compares where it would send the conversation with where the main model now does.

@@ -1,5 +1,5 @@
 /**
- * CLI-2004 TC-11 / TC-12 — screen-reader mode on the BUILT robota binary, in a real PTY.
+ * CLI-2004 TC-11 / TC-12 — screen-reader mode on the BUILT CLI binary, in a real PTY.
  *
  * This is the only level at which the claim can be checked. A screen reader has no `aria-live`: the
  * ONLY channel to it is which bytes land in the terminal buffer, so a component test asserting on a
@@ -42,7 +42,7 @@ const CASE_TIMEOUT_MS = 90_000;
  * is the case where "the first line confirms the mode" is the claim being made.
  */
 function markOnboarded(homeDir: string): void {
-  writeFileSync(join(homeDir, '.robota', 'onboarded'), new Date().toISOString());
+  writeFileSync(join(homeDir, 'state', 'onboarded'), new Date().toISOString());
 }
 
 describe('CLI-2004 screen-reader mode through the real binary', () => {
@@ -50,7 +50,7 @@ describe('CLI-2004 screen-reader mode through the real binary', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-screenreader-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-screenreader-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 
@@ -68,7 +68,7 @@ describe('CLI-2004 screen-reader mode through the real binary', () => {
         homeDir: join(projectDir, 'home'),
         args: ['--session-log', REPLAY_FIXTURE, '--screen-reader'],
         // The waits are exercised by their own unit test; a real one here only slows the fixture.
-        env: { ROBOTA_SCREEN_READER_STARTUP_QUIET_MS: '0' },
+        env: { PRODUCT_SCREEN_READER_STARTUP_QUIET_MS: '0' },
       });
 
       await session.waitFor(/Type a message or \/help/, WAIT_MS);
@@ -100,7 +100,7 @@ describe('CLI-2004 the same fixture with the mode off', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-screenreader-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-screenreader-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 
@@ -117,7 +117,7 @@ describe('CLI-2004 the same fixture with the mode off', () => {
         projectDir,
         homeDir: join(projectDir, 'home'),
         args: ['--session-log', REPLAY_FIXTURE],
-        env: { ROBOTA_TURN_MARKS: '1' },
+        env: { PRODUCT_TURN_MARKS: '1' },
       });
 
       await session.waitFor(/Type a message or \/help/, WAIT_MS);
@@ -136,12 +136,12 @@ describe('CLI-2004 the same fixture with the mode off', () => {
   );
 });
 
-describe('Robota turn-mark override through the real binary', () => {
+describe('configured turn-mark override through the real binary', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-turn-marks-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-turn-marks-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 
@@ -152,8 +152,8 @@ describe('Robota turn-mark override through the real binary', () => {
 
   for (const [label, env, expected] of [
     ['WezTerm default', { TERM_PROGRAM: 'WezTerm' }, false],
-    ['WezTerm opt-in', { TERM_PROGRAM: 'WezTerm', ROBOTA_TURN_MARKS: '1' }, true],
-    ['TTY kill switch', { ROBOTA_TURN_MARKS: '0' }, false],
+    ['WezTerm opt-in', { TERM_PROGRAM: 'WezTerm', PRODUCT_TURN_MARKS: '1' }, true],
+    ['TTY kill switch', { PRODUCT_TURN_MARKS: '0' }, false],
   ] as const) {
     it(
       `${label} ${expected ? 'emits' : 'withholds'} OSC 133`,
@@ -162,7 +162,7 @@ describe('Robota turn-mark override through the real binary', () => {
           projectDir,
           homeDir: join(projectDir, 'home'),
           args: ['--screen-reader'],
-          env: { ...env, ROBOTA_SCREEN_READER_STARTUP_QUIET_MS: '0' },
+          env: { ...env, PRODUCT_SCREEN_READER_STARTUP_QUIET_MS: '0' },
         });
         await session.waitFor(/Type a message or \/help/, WAIT_MS);
         expect(session.raw().includes(OSC_133_PROMPT_START)).toBe(expected);
@@ -177,7 +177,7 @@ describe('CLI-2004 the channel the mode was enabled through', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-screenreader-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-screenreader-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 
@@ -188,13 +188,13 @@ describe('CLI-2004 the channel the mode was enabled through', () => {
   });
 
   it(
-    'TC-12: ROBOTA_SCREEN_READER=1 with no flag announces the env channel first',
+    'TC-12: PRODUCT_SCREEN_READER=1 with no flag announces the env channel first',
     async () => {
       markOnboarded(join(projectDir, 'home'));
       session = spawnTui({
         projectDir,
         homeDir: join(projectDir, 'home'),
-        env: { ROBOTA_SCREEN_READER: '1', ROBOTA_SCREEN_READER_STARTUP_QUIET_MS: '0' },
+        env: { PRODUCT_SCREEN_READER: '1', PRODUCT_SCREEN_READER_STARTUP_QUIET_MS: '0' },
       });
 
       await session.waitFor(/Type a message or \/help/, WAIT_MS);
@@ -207,14 +207,14 @@ describe('CLI-2004 the channel the mode was enabled through', () => {
   );
 
   it(
-    'TC-12: --screen-reader beats ROBOTA_SCREEN_READER=0 and says so',
+    'TC-12: --screen-reader beats PRODUCT_SCREEN_READER=0 and says so',
     async () => {
       markOnboarded(join(projectDir, 'home'));
       session = spawnTui({
         projectDir,
         homeDir: join(projectDir, 'home'),
         args: ['--screen-reader'],
-        env: { ROBOTA_SCREEN_READER: '0', ROBOTA_SCREEN_READER_STARTUP_QUIET_MS: '0' },
+        env: { PRODUCT_SCREEN_READER: '0', PRODUCT_SCREEN_READER_STARTUP_QUIET_MS: '0' },
       });
 
       await session.waitFor(/Type a message or \/help/, WAIT_MS);

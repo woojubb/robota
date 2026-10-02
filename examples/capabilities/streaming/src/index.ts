@@ -4,7 +4,7 @@
  *
  * Run: ANTHROPIC_API_KEY=... pnpm dev
  */
-import { Robota } from '@robota-sdk/agent-core';
+import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { z } from 'zod';
 
@@ -14,7 +14,7 @@ if (!apiKey) {
   process.exit(1);
 }
 
-const agent = new Robota({
+const agent = new ConversationAgent({
   name: 'StreamingDemo',
   aiProviders: [new AnthropicProvider({ apiKey })],
   defaultModel: { provider: 'anthropic', model: 'claude-haiku-4-5', maxTokens: 300 },

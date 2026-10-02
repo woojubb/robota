@@ -1,4 +1,5 @@
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 
 import { describe, expect, it, vi } from 'vitest';
 import { RtcPeer, WebRtcTransport, WsSignalingClient } from '@robota-sdk/agent-transport-webrtc';
@@ -82,6 +83,7 @@ describe('WebRtc P2P over the real signaling relay (REMOTE-004 B2 — TC-01)', (
     const hostSignaling = new WsSignalingClient({ url, rendezvous });
     const host = new WebRtcTransport({
       signaling: hostSignaling,
+      cryptoContext: createIdentityContext('remote-signaling-test'),
       // SEC-008: this case is about the SIGNALLING RELAY — that an offer and an answer find each
       // other through it and a message round-trips. Pairing is a different subject with its own
       // suite, so the transport is opened deliberately rather than by omitting a field.

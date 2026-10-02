@@ -3,7 +3,6 @@ title: 'How to Build a Coding Agent CLI'
 subtitle: 'A coding agent CLI built from scratch'
 date: '2026-03-28'
 author: 'Jung Youn Hwang'
-authorUrl: 'https://github.com/woojubb'
 lang: 'en'
 ---
 
@@ -326,11 +325,11 @@ On the other hand, since it runs on my own library, swapping providers, customiz
 
 Now I keep thinking of things I want to build on top of this. I plan to tackle them one by one.
 
-If you have questions or feedback, feel free to leave them on [GitHub](https://github.com/woojubb/robota).
+If you have questions or feedback, feel free to leave them on [GitHub](__PROJECT_REPOSITORY_URL__).
 
 ```
-# https://robota.io
+# __PROJECT_WEBSITE_URL__
 
 $ npm install -g @robota-sdk/agent-cli
-$ robota
+$ __PRODUCT_CLI_NAME__
 ```

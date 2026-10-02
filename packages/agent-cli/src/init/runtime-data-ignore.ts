@@ -1,5 +1,6 @@
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * `robota init` keeps runtime session data out of Git (SEC-020, issue #2021).
+ * `the product init` keeps runtime session data out of Git (SEC-020, issue #2021).
  *
  * Its own module rather than a helper inside the command, for two reasons that agree. It is a
  * separate responsibility — the command decides what a NEW project looks like, this decides what
@@ -13,10 +14,9 @@ import type {
   IWorkspaceProjectReader,
 } from '@robota-sdk/agent-framework';
 
-const IGNORE_PATH = '.robota/.gitignore';
 
 const HEADER =
-  '# Robota runtime session data — transcripts, tool output and machine-local settings.';
+  '# Agent runtime session data — transcripts, tool output and machine-local settings.';
 
 /**
  * The runtime data that must not be committed.
@@ -41,19 +41,21 @@ const RUNTIME_DATA_IGNORE_ENTRIES = [
 export type TRuntimeDataIgnoreOutcome = 'created' | 'updated' | 'unchanged';
 
 /**
- * Write `.robota/.gitignore` rather than touching the project's root `.gitignore`.
+ * Write `the configured project directory/.gitignore` rather than touching the project's root `.gitignore`.
  *
  * Nested, so the patterns are relative to the directory they govern and live beside the data; git
- * reads it exactly the same way. Targeted, so `.robota/settings.json` and `.robota/agents/` stay
- * tracked — a blanket `.robota/` would hide reviewable project configuration along with the
+ * reads it exactly the same way. Targeted, so `the configured project directory/settings.json` and `the configured project directory/agents/` stay
+ * tracked — a blanket `the configured project directory/` would hide reviewable project configuration along with the
  * transcripts. And a merge rather than an overwrite, so running `init` twice is a no-op and a line
  * the user added by hand survives.
  */
 export function writeRuntimeDataIgnore(
   reader: IWorkspaceProjectReader,
   mutation: IWorkspaceProjectMutation,
+  runtime: ICliRuntimeContext,
 ): TRuntimeDataIgnoreOutcome {
-  const existing = reader.readText(IGNORE_PATH, 'inspect runtime data ignore rules');
+  const ignorePath = `${runtime.layout.projectDirectory}/.gitignore`;
+  const existing = reader.readText(ignorePath, 'inspect runtime data ignore rules');
   const lines = existing === undefined ? [] : existing.split('\n');
   const present = new Set(lines.map((line) => line.trim()));
   const missing = RUNTIME_DATA_IGNORE_ENTRIES.filter((entry) => !present.has(entry));
@@ -67,7 +69,7 @@ export function writeRuntimeDataIgnore(
           ...missing,
         ].join('\n');
   mutation.writeBytes(
-    IGNORE_PATH,
+    ignorePath,
     new TextEncoder().encode(`${body}\n`),
     'initialize runtime data ignore rules',
   );

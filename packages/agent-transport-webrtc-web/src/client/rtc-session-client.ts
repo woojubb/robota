@@ -1,3 +1,4 @@
+import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 /**
  * Browser data-channel session client (REMOTE-009 Stage D). The browser is the WebRTC ANSWERER: it joins the
  * relay by rendezvous, answers the host's offer over a native `RTCPeerConnection`, runs the pairing handshake
@@ -56,6 +57,7 @@ export interface IRtcSessionClient {
 }
 
 export interface IRtcSessionClientOptions {
+  readonly cryptoContext: IIdentityContext;
   /** Relay URL (from config / the page). */
   readonly relayUrl: string;
   /** Rendezvous id + high-entropy secret from the pairing URL fragment. */
@@ -188,7 +190,7 @@ export function createRtcSessionClient(
           const hostIdentityId = await deriveIdentityId(hostPublicSpki);
           // REMOTE-013 E4: derive + persist the reconnect seed (from the pairing sessionKey) + counter 0, so a
           // future drop can rediscover the host at the rotating rendezvous and resume without re-pairing.
-          const reconnectSeed = sessionKey ? await deriveReconnectSeed(sessionKey) : undefined;
+          const reconnectSeed = sessionKey ? await deriveReconnectSeed(options.cryptoContext, sessionKey) : undefined;
           await store.save(relayOrigin, hostIdentityId, {
             deviceKeyPair,
             hostPublicSpki,
@@ -215,6 +217,7 @@ export function createRtcSessionClient(
     deviceIdentity?: IDeviceIdentityConfig,
   ): ResponderGate {
     return new ResponderGate({
+      cryptoContext: options.cryptoContext,
       channel: { send: (d) => channel.send(d), close: () => channel.close() },
       secret: options.secret,
       localFingerprint: localFingerprint as string,
@@ -414,7 +417,7 @@ export function createRtcSessionClient(
             pinnedHostPublicKey: ctx.pinnedHostPublicKey,
           },
         };
-        const rendezvous = await deriveReconnectRendezvous(ctx.seed, counter);
+        const rendezvous = await deriveReconnectRendezvous(options.cryptoContext, ctx.seed, counter);
         if (!live()) return;
         teardownPeer();
         connectAt(rendezvous);

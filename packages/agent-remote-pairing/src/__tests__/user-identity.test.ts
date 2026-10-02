@@ -1,3 +1,5 @@
+import { createIdentityContext } from '../identity/crypto-context.js';
+const testIdentity = createIdentityContext('test-product');
 import { describe, expect, it } from 'vitest';
 
 import { deriveIdentityId, exportPublicKey, generateIdentityKeyPair } from '../device-identity.js';
@@ -25,7 +27,7 @@ async function aUser() {
 
 async function aDevice(user: { root: CryptoKeyPair; userId: string }) {
   const keyPair = await generateIdentityKeyPair(true);
-  const certificate = await issueDeviceCertificate({
+  const certificate = await issueDeviceCertificate(testIdentity, {
     rootPrivateKey: user.root.privateKey,
     userId: user.userId,
     devicePublicKey: keyPair.publicKey,
@@ -46,7 +48,7 @@ describe('SEC-011 — same user, proven by the destination rather than asserted 
     const destination = await aDevice(user);
 
     for (const device of [source, destination]) {
-      const result = await verifyDeviceCertificate(device.certificate, {
+      const result = await verifyDeviceCertificate(testIdentity, device.certificate, {
         rootPublicKey: user.root.publicKey,
         expectedUserId: user.userId,
         now: NOW,
@@ -62,7 +64,7 @@ describe('SEC-011 — same user, proven by the destination rather than asserted 
     const theirs = await aUser();
     const theirDevice = await aDevice(theirs);
 
-    const result = await verifyDeviceCertificate(theirDevice.certificate, {
+    const result = await verifyDeviceCertificate(testIdentity, theirDevice.certificate, {
       rootPublicKey: mine.root.publicKey,
       expectedUserId: mine.userId,
       now: NOW,
@@ -86,6 +88,7 @@ describe('SEC-011 — same user, proven by the destination rather than asserted 
 
     for (const mutation of mutations) {
       const result = await verifyDeviceCertificate(
+        testIdentity,
         { ...device.certificate, ...mutation },
         { rootPublicKey: user.root.publicKey, expectedUserId: user.userId, now: NOW },
       );
@@ -97,12 +100,12 @@ describe('SEC-011 — same user, proven by the destination rather than asserted 
     const user = await aUser();
     const device = await aDevice(user);
 
-    const expired = await verifyDeviceCertificate(device.certificate, {
+    const expired = await verifyDeviceCertificate(testIdentity, device.certificate, {
       rootPublicKey: user.root.publicKey,
       expectedUserId: user.userId,
       now: NOW + 2 * HOUR,
     });
-    const early = await verifyDeviceCertificate(device.certificate, {
+    const early = await verifyDeviceCertificate(testIdentity, device.certificate, {
       rootPublicKey: user.root.publicKey,
       expectedUserId: user.userId,
       now: NOW - 1,
@@ -118,7 +121,7 @@ describe('SEC-011 — same user, proven by the destination rather than asserted 
     const user = await aUser();
     const device = await aDevice(user);
 
-    const result = await verifyDeviceCertificate(device.certificate, {
+    const result = await verifyDeviceCertificate(testIdentity, device.certificate, {
       rootPublicKey: user.root.publicKey,
       expectedUserId: user.userId,
       now: NOW,
@@ -176,7 +179,7 @@ describe('SEC-011 — a grant authorizes ONE transfer, to ONE destination, over 
       expiresAt: NOW + HOUR,
       ...over,
     };
-    const grant = await issueHandoffGrant(claims, source.keyPair.privateKey);
+    const grant = await issueHandoffGrant(testIdentity, claims, source.keyPair.privateKey);
     return { user, source, destination, grant, claims };
   }
 
@@ -193,7 +196,7 @@ describe('SEC-011 — a grant authorizes ONE transfer, to ONE destination, over 
   it('authorizes the intended transfer', async () => {
     const ctx = await aGrant();
 
-    const result = await verifyHandoffGrant(ctx.grant, baseOptions(ctx));
+    const result = await verifyHandoffGrant(testIdentity, ctx.grant, baseOptions(ctx));
 
     expect(result.authorized).toBe(true);
     expect(result.trust).toBe('same-user-different-host');
@@ -202,7 +205,7 @@ describe('SEC-011 — a grant authorizes ONE transfer, to ONE destination, over 
   it('TC-03: refuses a grant addressed to a different destination', async () => {
     const ctx = await aGrant();
 
-    const result = await verifyHandoffGrant(ctx.grant, {
+    const result = await verifyHandoffGrant(testIdentity, ctx.grant, {
       ...baseOptions(ctx),
       expectedDestinationDeviceId: 'some-other-device',
     });
@@ -216,11 +219,11 @@ describe('SEC-011 — a grant authorizes ONE transfer, to ONE destination, over 
     // audience rather than only the one that is easier to check.
     const ctx = await aGrant();
 
-    const otherHandoff = await verifyHandoffGrant(ctx.grant, {
+    const otherHandoff = await verifyHandoffGrant(testIdentity, ctx.grant, {
       ...baseOptions(ctx),
       expectedHandoffId: 'handoff_2',
     });
-    const otherSession = await verifyHandoffGrant(ctx.grant, {
+    const otherSession = await verifyHandoffGrant(testIdentity, ctx.grant, {
       ...baseOptions(ctx),
       expectedSessionId: 'session_2',
     });
@@ -232,7 +235,7 @@ describe('SEC-011 — a grant authorizes ONE transfer, to ONE destination, over 
   it('TC-07: refuses a grant presented over a substituted channel', async () => {
     const ctx = await aGrant();
 
-    const result = await verifyHandoffGrant(ctx.grant, {
+    const result = await verifyHandoffGrant(testIdentity, ctx.grant, {
       ...baseOptions(ctx),
       observedChannelFingerprint: 'DD:EE:FF',
     });
@@ -243,11 +246,11 @@ describe('SEC-011 — a grant authorizes ONE transfer, to ONE destination, over 
   it('TC-05: refuses a replayed nonce and an expired grant', async () => {
     const ctx = await aGrant();
 
-    const replayed = await verifyHandoffGrant(ctx.grant, {
+    const replayed = await verifyHandoffGrant(testIdentity, ctx.grant, {
       ...baseOptions(ctx),
       seenNonces: new Set(['nonce_1']),
     });
-    const expired = await verifyHandoffGrant(ctx.grant, {
+    const expired = await verifyHandoffGrant(testIdentity, ctx.grant, {
       ...baseOptions(ctx),
       now: NOW + 2 * HOUR,
     });
@@ -274,6 +277,7 @@ describe('SEC-011 — a grant authorizes ONE transfer, to ONE destination, over 
 
     for (const mutation of mutations) {
       const result = await verifyHandoffGrant(
+        testIdentity,
         { ...ctx.grant, ...mutation },
         { ...baseOptions(ctx), observedChannelFingerprint: 'AA:BB:CC' },
       );
@@ -284,9 +288,9 @@ describe('SEC-011 — a grant authorizes ONE transfer, to ONE destination, over 
   it('TC-02: refuses a grant signed by a device that is not the source', async () => {
     const ctx = await aGrant();
     const impostor = await generateIdentityKeyPair(true);
-    const forged = await issueHandoffGrant(ctx.claims, impostor.privateKey);
+    const forged = await issueHandoffGrant(testIdentity, ctx.claims, impostor.privateKey);
 
-    const result = await verifyHandoffGrant(forged, baseOptions(ctx));
+    const result = await verifyHandoffGrant(testIdentity, forged, baseOptions(ctx));
 
     expect(result.rejection).toBe('signature-invalid');
   });
@@ -296,7 +300,7 @@ describe('SEC-011 — a grant authorizes ONE transfer, to ONE destination, over 
     // check that wanted same-machine, or a hand-off could be authorized by a local admission.
     const ctx = await aGrant();
 
-    const result = await verifyHandoffGrant(ctx.grant, baseOptions(ctx));
+    const result = await verifyHandoffGrant(testIdentity, ctx.grant, baseOptions(ctx));
 
     expect(result.trust).toBe('same-user-different-host');
     expect(result.trust).not.toBe('same-user-same-host');

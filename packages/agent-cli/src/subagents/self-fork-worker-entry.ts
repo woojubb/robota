@@ -1,7 +1,7 @@
 import type { ISubagentWorkerEntry } from '@robota-sdk/agent-subagent-runner';
 
 /**
- * DIST-006: how `robota` starts a copy of ITSELF in subagent-worker mode.
+ * DIST-006: how `the product` starts a copy of ITSELF in subagent-worker mode.
  *
  * This is composition-root knowledge by construction: the only party that knows how a process is
  * packaged is that process. The seam this replaced asked a library to find a worker file on disk,
@@ -9,7 +9,7 @@ import type { ISubagentWorkerEntry } from '@robota-sdk/agent-subagent-runner';
  * emitted, and again when bundling `agent-subagent-runner` into this package moved the resolver's
  * notion of "next to me" one package along.
  *
- * `robota` ships in three artifact shapes and this answers for all of them:
+ * `the product` ships in three artifact shapes and this answers for all of them:
  *
  * | Artifact                                   | `process.execPath` | entry            |
  * | ------------------------------------------ | ------------------ | ---------------- |

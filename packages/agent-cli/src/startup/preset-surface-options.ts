@@ -1,4 +1,4 @@
-import { ROBOTA_DEFAULT_AGENT_NAME } from '../product/robota-preset-defaults.js';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 import { buildAppendSystemPrompt } from './append-system-prompt.js';
 import { buildJsonSchemaResponseFormat } from './json-schema-response-format.js';
@@ -31,6 +31,8 @@ import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
  * into `createSession` — so the two together span the chain.
  */
 export interface IPresetSurfaceOptions {
+  pathProtection?: ICreateSessionOptions['pathProtection'];
+  commandProductVocabulary?: {readonly cliName: string; readonly displayName: string};
   /**
    * CLI-076 / ARCH-040: the resolved model id — the same value the CLI header displays. Forwarded so
    * an explicit `--model` reaches the provider chat call rather than being silently replaced by the
@@ -124,6 +126,7 @@ export interface IPresetSurfaceOptions {
  *   `appendSystemPrompt`, whose merge order against this is ARCH-040 Group D's call.
  */
 export function buildPresetSurfaceOptions(
+  runtime: ICliRuntimeContext,
   resolved: IResolvedPresetOptions,
   presetId: string,
   permissionMode: ICreateSessionOptions['permissionMode'] | undefined,
@@ -138,7 +141,9 @@ export function buildPresetSurfaceOptions(
   return {
     ...(resolved.model !== undefined ? { model: resolved.model } : {}),
     ...(outputStyle !== undefined ? { outputStyle } : {}),
-    agentName: resolved.agentName ?? ROBOTA_DEFAULT_AGENT_NAME,
+    agentName: resolved.agentName ?? runtime.config.identity.displayName,
+    pathProtection: runtime.layout.pathProtection,
+    commandProductVocabulary: runtime.vocabulary,
     activePresetId: presetId,
     persona: resolved.persona,
     ...(permissionMode !== undefined ? { permissionMode } : {}),

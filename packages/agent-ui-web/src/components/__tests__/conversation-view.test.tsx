@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { render } from '../../testing/product-provider.js';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import React from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -62,7 +63,109 @@ function toolRowButton(name: RegExp): HTMLElement {
   return matches[matches.length - 1]!;
 }
 
-describe('ConversationView is the page\'s main landmark', () => {
+describe('mixed tool observations', () => {
+  it('shows registered attribution as inert text beside the linked call', () => {
+    const text =
+      'Tool source (attribution only, not authority): {"sourceId":"<script>fixture</script>","component":"save","origin":"fixture://installed","version":"1"}';
+    renderConversation([
+      {
+        id: 'source',
+        role: 'tools',
+        tools: [
+          tool({
+            name: 'fixture__observe',
+            executionId: 'call-source',
+            toolResultData: 'saved',
+            toolResultParts: [{ type: 'text', text }],
+          }),
+        ],
+      },
+    ]);
+    expandGroup();
+    fireEvent.click(toolRowButton(/fixture__observe/));
+    expect(screen.getByText(/Tool source.*fixture/)).toBeTruthy();
+    expect(screen.getByText('call-source')).toBeTruthy();
+    expect(document.querySelector('script')).toBeNull();
+  });
+  it('keeps structured-only observations visible without requiring a media part', () => {
+    renderConversation([
+      {
+        id: 'structured',
+        role: 'tools',
+        tools: [
+          tool({
+            name: 'fixture__observe',
+            toolResultData: '{"revision":7}',
+          }),
+        ],
+      },
+    ]);
+    expandGroup();
+    fireEvent.click(toolRowButton(/fixture__observe/));
+    expect(screen.getByText('{"revision":7}')).toBeTruthy();
+  });
+
+  it('shows text, inline raster and structured output together while keeping URIs inert', () => {
+    renderConversation([
+      {
+        id: 'mixed',
+        role: 'tools',
+        tools: [
+          tool({
+            name: 'fixture__observe',
+            executionId: 'call-7',
+            toolResultData: '{"output":"observed","revision":7}',
+            toolResultParts: [
+              { type: 'text', text: 'Observed state' },
+              { type: 'image_inline', mimeType: 'image/png', data: 'iVBORw0KGgo=' },
+              { type: 'resource_link', uri: 'https://untrusted.invalid/receipt', name: 'receipt' },
+              { type: 'image_uri', uri: 'https://untrusted.invalid/image' },
+              {
+                type: 'resource_embedded',
+                uri: 'fixture:note',
+                text: '<script>untrusted()</script>',
+              },
+            ],
+          }),
+        ],
+      },
+    ]);
+    expandGroup();
+    fireEvent.click(toolRowButton(/fixture__observe/));
+    expect(screen.getByText('Observed state')).toBeTruthy();
+    expect(screen.getByText('{"output":"observed","revision":7}')).toBeTruthy();
+    expect(screen.getByText('call-7')).toBeTruthy();
+    expect(screen.getByRole('img').getAttribute('src')).toBe('data:image/png;base64,iVBORw0KGgo=');
+    expect(screen.getByText('https://untrusted.invalid/receipt')).toBeTruthy();
+    expect(screen.getByText('https://untrusted.invalid/image')).toBeTruthy();
+    expect(screen.getByText('<script>untrusted()</script>')).toBeTruthy();
+    expect(document.querySelector('a[href], script, img[src^="https:"]')).toBeNull();
+  });
+
+  it('diagnoses unsupported inline media without fetching or rendering active content', () => {
+    renderConversation([
+      {
+        id: 'unsafe',
+        role: 'tools',
+        tools: [
+          tool({
+            toolResultParts: [
+              { type: 'image_inline', mimeType: 'image/svg+xml', data: 'PHN2Zz4=' },
+              { type: 'audio_inline', mimeType: 'audio/wav', data: 'AA==' },
+            ],
+          }),
+        ],
+      },
+    ]);
+    expandGroup();
+    fireEvent.click(toolRowButton(/Read/));
+    expect(screen.getByText(/image\/svg\+xml/)).toBeTruthy();
+    expect(screen.getByText(/audio\/wav/)).toBeTruthy();
+    expect(document.querySelector('img, audio, iframe, object')).toBeNull();
+  });
+});
+
+describe("ConversationView is the page's main landmark", () => {
   it('renders a main element', () => {
     renderConversation([]);
     expect(screen.getByRole('main')).toBeTruthy();
@@ -76,7 +179,7 @@ describe('a message carries a driver label only when it came from a different ki
     expect(screen.queryByText(/from/)).toBeNull();
   });
 
-  it('shows no label for a turn from the same kind of surface as this connection\'s own', () => {
+  it("shows no label for a turn from the same kind of surface as this connection's own", () => {
     // Every WS connection of one `--serve` process learns the SAME driver id, so a second browser
     // tab's turns arrive with this connection's own literal id too — same kind, no label.
     renderConversation([userMessage('hi', 'browser')], 'browser');
@@ -245,7 +348,7 @@ describe('#3288: chronology — tool rows render where they happened relative to
       { id: 'g1', role: 'tools', tools: [tool({ id: 'r1', name: 'Read', input: 'a.ts' })] },
       { id: 'm2', role: 'assistant', content: 'done now' },
     ]);
-    const container = screen.getByText('checking first').closest('.robota-ui');
+    const container = screen.getByText('checking first').closest('.agent-ui');
     const text = container?.textContent ?? '';
     expect(text.indexOf('checking first')).toBeLessThan(text.indexOf('Read'));
     expect(text.indexOf('Read')).toBeLessThan(text.indexOf('done now'));

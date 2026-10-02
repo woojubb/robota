@@ -19,7 +19,7 @@ import {
 const roots: string[] = [];
 
 function tempRoot(): string {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-settings-source-')));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-settings-source-')));
   roots.push(root);
   return root;
 }
@@ -32,9 +32,9 @@ describe('discriminated settings sources', () => {
   it('loads only the project settings paths supplied by the host', async () => {
     const root = tempRoot();
     mkdirSync(join(root, '.custom'), { recursive: true });
-    mkdirSync(join(root, '.robota'), { recursive: true });
+    mkdirSync(join(root, '.agent'), { recursive: true });
     writeFileSync(join(root, '.custom', 'settings.json'), '{"custom":true}', 'utf8');
-    writeFileSync(join(root, '.robota', 'settings.json'), '{"robota":true}', 'utf8');
+    writeFileSync(join(root, '.agent', 'settings.json'), '{"agent":true}', 'utf8');
     const access = await createTrustedProjectAccessFixture(root);
     if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
     const reader = getWorkspaceProjectReader(access.authority);
@@ -51,8 +51,8 @@ describe('discriminated settings sources', () => {
 
   it('reads project layers only through a production-minted reader', async () => {
     const root = tempRoot();
-    mkdirSync(join(root, '.robota'), { recursive: true });
-    writeFileSync(join(root, '.robota', 'settings.json'), '{"project":true}', 'utf8');
+    mkdirSync(join(root, '.agent'), { recursive: true });
+    writeFileSync(join(root, '.agent', 'settings.json'), '{"project":true}', 'utf8');
     const access = await createTrustedProjectAccessFixture(root);
     if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
 
@@ -74,8 +74,8 @@ describe('discriminated settings sources', () => {
     const forged = {
       kind: 'project',
       scope: 'project',
-      displayName: '.robota/settings.json',
-      relativePath: '.robota/settings.json',
+      displayName: '.agent/settings.json',
+      relativePath: '.agent/settings.json',
       reader: { readText: () => '{"forged":true}' },
     } as never;
 

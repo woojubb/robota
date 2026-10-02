@@ -1,8 +1,8 @@
 /**
  * #3186 — the seam between the GUI web app and whatever hosts it.
  *
- * The same build runs in the desktop app, in a browser tab the CLI serves (`robota --serve --open`),
- * and in the Vite dev server. The desktop app attaches to the workspace's robota daemon and hands the
+ * The same build runs in the desktop app, in a browser tab the configured CLI serves (`--serve --open`),
+ * and in the Vite dev server. The desktop app attaches to the workspace's configured local daemon and hands the
  * page its address through the Electron preload bridge; a browser page finds the address in the page itself. Nothing
  * else in the app knows which host it is in.
  */
@@ -35,6 +35,7 @@ export interface IPickedFile {
 
 /** What the Electron preload exposes as `window.agentGui` (apps/agent-app/electron/preload.ts). */
 export interface IDesktopBridge {
+  readonly runtimeMode?: 'local' | 'remote';
   getEndpoint(): Promise<string | null>;
   signalReady(): void;
   onState(listener: (state: TGuiHostState, detail?: string) => void): () => void;
@@ -122,16 +123,21 @@ export function resolveGuiHost(environment: IGuiHostEnvironment): IGuiHost {
       signalReady: () => bridge.signalReady(),
       onState: (listener) => bridge.onState(listener),
       restartRuntime: () => bridge.restartRuntime(),
-      trustQuestion: () => bridge.trustQuestion(),
-      answerTrust: (choice) => bridge.answerTrust(choice),
-      pickFiles: () => bridge.pickFiles(),
-      getPathForFile: (file) => bridge.getPathForFile(file),
+      trustQuestion: bridge.runtimeMode === 'remote' ? undefined : () => bridge.trustQuestion(),
+      answerTrust:
+        bridge.runtimeMode === 'remote' ? undefined : (choice) => bridge.answerTrust(choice),
+      pickFiles: bridge.runtimeMode === 'remote' ? undefined : () => bridge.pickFiles(),
+      getPathForFile:
+        bridge.runtimeMode === 'remote' ? undefined : (file) => bridge.getPathForFile(file),
       onOpenSettings: (listener) => bridge.onOpenSettings(listener),
       // Best-effort, like `shell.openExternal` elsewhere in the main process — the person already
       // sees the memory content in the panel; a failed open is not worth a blocking error surface.
-      openMemoryInEditor: (path) => {
-        void bridge.openPath(path);
-      },
+      openMemoryInEditor:
+        bridge.runtimeMode === 'remote'
+          ? undefined
+          : (path) => {
+              void bridge.openPath(path);
+            },
     };
   }
   const endpoint = browserEndpoint(environment);

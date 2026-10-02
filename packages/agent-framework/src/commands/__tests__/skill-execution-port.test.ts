@@ -60,7 +60,7 @@ describe('createSkillExecutionPort (ARCH-PROVIDER-005 TC-02)', () => {
   });
 
   it('discovers skills only under host-selected roots', () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-skill-port-roots-'));
+    const cwd = mkdtempSync(join(tmpdir(), 'agent-skill-port-roots-'));
     try {
       const skillDir = join(cwd, 'custom', 'skills', 'audit');
       mkdirSync(skillDir, { recursive: true });

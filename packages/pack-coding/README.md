@@ -3,7 +3,7 @@
 Robota's coding capability as a single
 [`ICapabilityPack`](../agent-capability-pack/README.md): the built-in coding tools, the coding command
 modules, and the coding subagents in one unit that `assembleProduct` can add to any product. The
-`robota` CLI uses it for its own coding assistant.
+The host CLI can compose it for its coding assistant.
 
 ## Installation
 

@@ -1,7 +1,7 @@
 /**
  * Purpose-tagged canonical signatures — the one encoding every identity statement is signed in.
  *
- * Every signed structure's first field is `ctx: "robota/<purpose>/v<n>"`, and the signed bytes are
+ * Every signed structure's first field is `ctx: "<namespace>/<purpose>/v<n>"`, and the signed bytes are
  * `JSON.stringify([ctx, ...fields])` over an explicit, per-structure field list. Putting the purpose
  * INSIDE the signed bytes is what makes a signature for one purpose worthless for every other: the
  * same key signs certificates and revocations, and without the tag a statement of one kind could be
@@ -13,22 +13,8 @@
 
 import { ab, encoder, toBase64Url, webcrypto } from '../crypto-primitives.js';
 
-/** Every purpose an identity signature may carry. A verifier refuses any `ctx` but its own. */
-export const IDENTITY_PURPOSES = {
-  signingKeyCert: 'robota/signing-key-cert/v1',
-  deviceCert: 'robota/device-cert/v1',
-  roster: 'robota/roster/v1',
-  revocation: 'robota/revocation/v1',
-  signingKeyRevocation: 'robota/signing-key-revocation/v1',
-  sessionDesc: 'robota/session-desc/v1',
-  handshake: 'robota/handshake/v1',
-  enrollProof: 'robota/enroll-proof/v1',
-  enrollRequest: 'robota/enroll-request/v1',
-  enrollCommit: 'robota/enroll-commit/v1',
-  enrollSas: 'robota/enroll-sas/v1',
-} as const;
-
-export type TIdentityPurpose = (typeof IDENTITY_PURPOSES)[keyof typeof IDENTITY_PURPOSES];
+/** A product-scoped protocol purpose, supplied by the verifying host. */
+export type TIdentityPurpose = string;
 
 /**
  * Tolerance applied to every not-before and expiry comparison. Two devices of one user disagree

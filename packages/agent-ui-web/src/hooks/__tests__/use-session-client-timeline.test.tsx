@@ -4,7 +4,8 @@
  * them, not to banners stacked above it.
  */
 
-import { act, renderHook } from '@testing-library/react';
+import { renderHook } from '../../testing/product-provider.js';
+import { act } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { useSessionClient } from '../useSessionClient.js';

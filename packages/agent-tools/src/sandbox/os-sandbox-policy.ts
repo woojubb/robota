@@ -10,9 +10,10 @@
  *   process the OS cannot enforce, and a boundary here is only worth what the OS enforces.
  */
 
-import { PROTECTED_DIRECTORY_NAMES, PROTECTED_FILE_NAMES } from '@robota-sdk/agent-core';
+import { PROTECTED_DIRECTORY_NAMES, PROTECTED_FILE_NAMES, type IPathProtectionPolicy } from '@robota-sdk/agent-core';
 
 export interface IOsSandboxPolicy {
+  readonly pathProtection?: IPathProtectionPolicy;
   /** The workspace root, real path. Writable. */
   readonly root: string;
   /** Temporary directories, real paths. Writable. */
@@ -25,7 +26,9 @@ export interface IOsSandboxPolicy {
 }
 
 /** An isolated worktree's files are ordinary workspace files. */
-const WRITABLE_INSIDE_PROTECTED = ['.robota/worktrees', '.claude/worktrees'];
+function writableContainers(policy?: IPathProtectionPolicy): readonly string[] {
+  return [...new Set(['.claude/worktrees', ...(policy?.writableWorktreeContainers ?? [])])];
+}
 
 function join(root: string, relative: string): string {
   // A loop, not `/\/+$/`: that pattern rescans every run of slashes and is quadratic on a long one.
@@ -40,8 +43,8 @@ function join(root: string, relative: string): string {
  * config) are too many and too easy to add to for a list inside it to stay complete, so git
  * commands that write run unconfined, through the ordinary permission path.
  */
-export function protectedWorkspaceEntries(): readonly string[] {
-  return [...PROTECTED_DIRECTORY_NAMES, ...PROTECTED_FILE_NAMES];
+export function protectedWorkspaceEntries(policy?: IPathProtectionPolicy): readonly string[] {
+  return [...new Set([...PROTECTED_DIRECTORY_NAMES, ...(policy?.protectedDirectoryNames ?? []), ...PROTECTED_FILE_NAMES])];
 }
 
 export interface IBubblewrapInput {
@@ -69,11 +72,11 @@ export function bubblewrapArguments(input: IBubblewrapInput): string[] {
   }
   // A bind over a path that does not exist would create it on the host, so only existing entries
   // are mounted read-only; the client moves aside one a command creates (see the client).
-  for (const entry of protectedWorkspaceEntries()) {
+  for (const entry of protectedWorkspaceEntries(policy.pathProtection)) {
     const path = join(policy.root, entry);
     if (input.exists(path)) args.push('--ro-bind', path, path);
   }
-  for (const entry of WRITABLE_INSIDE_PROTECTED) {
+  for (const entry of writableContainers(policy.pathProtection)) {
     const path = join(policy.root, entry);
     if (!input.exists(path)) continue;
     args.push('--bind', path, path);
@@ -82,6 +85,9 @@ export function bubblewrapArguments(input: IBubblewrapInput): string[] {
       const gitFile = join(path, `${name}/.git`);
       if (input.exists(gitFile)) args.push('--ro-bind', gitFile, gitFile);
     }
+  }
+  for (const path of policy.pathProtection?.protectedPaths ?? []) {
+    if (input.exists(path)) args.push('--ro-bind', path, path);
   }
   for (const hidden of policy.denyRead) {
     if (!input.exists(hidden.path)) continue;
@@ -116,19 +122,19 @@ export function seatbeltProfile(policy: IOsSandboxPolicy): string {
   const writable = [policy.root, ...policy.tempDirectories, ...policy.allowWrite]
     .map((path) => `(subpath ${quote(path)})`)
     .join(' ');
-  const protectedEntries = protectedWorkspaceEntries().map((entry) => {
+  const protectedEntries = protectedWorkspaceEntries(policy.pathProtection).map((entry) => {
     const path = join(policy.root, entry);
     return PROTECTED_FILE_NAMES.includes(entry)
       ? `(literal ${quote(path)})`
       : `(subpath ${quote(path)})`;
   });
-  const worktrees = WRITABLE_INSIDE_PROTECTED.map(
+  const worktrees = writableContainers(policy.pathProtection).map(
     (entry) => `(subpath ${quote(join(policy.root, entry))})`,
   );
   // `.git` itself cannot be renamed or replaced, and neither can a worktree's `.git` file.
   const pinned = [
     `(literal ${quote(join(policy.root, '.git'))})`,
-    ...WRITABLE_INSIDE_PROTECTED.map(
+    ...writableContainers(policy.pathProtection).map(
       (entry) => `(regex #"^${regexEscape(join(policy.root, entry))}/[^/]+/\\.git$")`,
     ),
   ];
@@ -140,6 +146,7 @@ export function seatbeltProfile(policy: IOsSandboxPolicy): string {
     `(deny file-write* ${protectedEntries.join(' ')})`,
     `(allow file-write* ${worktrees.join(' ')})`,
     `(deny file-write* ${pinned.join(' ')})`,
+    ...((policy.pathProtection?.protectedPaths.length ?? 0) > 0 ? [`(deny file-write* ${policy.pathProtection!.protectedPaths.map((path) => `(subpath ${quote(path)})`).join(' ')})`] : []),
   ];
   if (policy.denyRead.length > 0) {
     const hidden = policy.denyRead.map((entry) =>

@@ -1,4 +1,5 @@
-import { createDefaultTransportRegistry } from '../product/robota-plumbing.js';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
+import { createDefaultTransportRegistry } from '../product/runtime-plumbing.js';
 import { createPersonalUsageReporter, createStoredSessionUsageReporter } from './usage-command.js';
 
 import type {
@@ -11,6 +12,7 @@ import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 
 /** Compose the host-owned report producers into the default WebSocket transport. */
 function createDefaultUsageTransportRegistry(
+  runtime: ICliRuntimeContext,
   projectStore: IInteractiveSessionStore,
   projectTrusted: boolean,
   driverId: TDriverId,
@@ -19,9 +21,10 @@ function createDefaultUsageTransportRegistry(
   settingsReporter: ISessionMessageHandlerOptions['settingsReporter'] | undefined,
 ): ReturnType<typeof createDefaultTransportRegistry> {
   const admittedProjectStore = projectTrusted ? projectStore : undefined;
-  const personalUsageReporter = createPersonalUsageReporter(admittedProjectStore);
-  const storedSessionUsageReporter = createStoredSessionUsageReporter(admittedProjectStore);
+  const personalUsageReporter = createPersonalUsageReporter(runtime, admittedProjectStore);
+  const storedSessionUsageReporter = createStoredSessionUsageReporter(runtime, admittedProjectStore);
   return createDefaultTransportRegistry(
+    runtime,
     personalUsageReporter,
     storedSessionUsageReporter,
     driverId,
@@ -48,6 +51,7 @@ export function resolveCliUsageAttribution(options: {
 
 /** Resolve the trusted CLI/desktop/browser attribution before constructing the shared transports. */
 export function createCliUsageTransportRegistry(
+  runtime: ICliRuntimeContext,
   projectStore: IInteractiveSessionStore,
   projectTrusted: boolean,
   open: boolean,
@@ -59,9 +63,10 @@ export function createCliUsageTransportRegistry(
 ): ReturnType<typeof createDefaultTransportRegistry> {
   // Read before the registry takes the token out of the environment.
   const { driverId, surface } = resolveCliUsageAttribution({
-    desktopToken: Boolean(process.env['ROBOTA_WS_TOKEN']), open, daemon,
+    desktopToken: Boolean(runtime.environment['PRODUCT_WS_TOKEN']), open, daemon,
   });
   return createDefaultUsageTransportRegistry(
+    runtime,
     projectStore,
     projectTrusted,
     driverId,

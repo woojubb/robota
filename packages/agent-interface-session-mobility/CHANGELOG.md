@@ -77,7 +77,7 @@
     The tool reaches only files inside the workspace whose path does not look like it holds secrets
     (`.env*`, `~/.ssh`, keys and credentials), and it does not exist in a turn a peer's message started.
   - The receiving operator approves every file. A received file is kept as an inert copy (mode 0600)
-    under `~/.robota/peer-files/<sender>/`. It is never run and never placed in the model's context.
+    under `$PRODUCT_USER_STATE_DIR/peer-files/<sender>/`. It is never run and never placed in the model's context.
     The conversation is told only its name, size and sha256. A name that leaves that directory is
     refused, a symbolic link is never written through, and nothing is overwritten.
   - Transfers travel on a channel of their own (a separate connection on this host, a separate data
@@ -100,7 +100,7 @@
 
 - 004fe7f: `/handoff` moves a session over a real connection.
 
-  - `/handoff <session-id>` pushes this conversation to another Robota session on this machine. The
+  - `/handoff <session-id>` pushes this conversation to another __PRODUCT_DISPLAY_NAME__ session on this machine. The
     same carrier also runs between two of the user's devices over their mesh connection; no command
     opens that connection yet.
   - A hand-off is push-only: only the operator of the session that holds it starts one. A session or
@@ -109,7 +109,7 @@
     hand-off needs the device identity from `/devices init`. The receiving side checks it against the
     sender's certificate, then asks its own operator; without a yes nothing is sent.
   - The session travels on the file-transfer carrier, is kept aside until it matches the manifest, and
-    is saved without being started. The operator there resumes it with `robota --resume <id>`.
+    is saved without being started. The operator there resumes it with `__PRODUCT_CLI_NAME__ --resume <id>`.
   - The source gives the session up, and ends, only once the receiving side confirms it saved it.
     Every other outcome leaves the session where it was; if the confirmation is lost, `/handoff` to the
     same session again resends the same transfer, which the receiver settles without saving it twice.
@@ -171,7 +171,7 @@
   - `agent-remote-pairing` — `startDeviceHandshake` runs the transport-agnostic device handshake
     (`send` + `onFrame`): a pairwise pre-proof that discloses no identity, then hello and prove, with
     the chain verified against the pinned master key, roster, revocation lists and high-water marks,
-    and possession proved by a `robota/handshake/v1` signature over the transcript. The side with the
+    and possession proved by a `__PRODUCT_DISPLAY_NAME__/handshake/v1` signature over the transcript. The side with the
     newer roster or revocation list hands it over and the receiver adopts it only once it verifies.
     Before a remote admission an optional lookup for newer lists runs for at most
     `FRESHNESS_LOOKUP_MS` (3 s); without a newer list a remote peer is admitted with a warning for

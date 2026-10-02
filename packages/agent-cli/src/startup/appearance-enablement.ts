@@ -4,7 +4,7 @@
  * Two of the three appearance settings are read and passed through unchanged; the third,
  * `reducedMotion`, is the one a single run can override, so it gets a precedence chain:
  *
- *   settings.json `reducedMotion` ← `ROBOTA_REDUCED_MOTION=1|0` ← `--reduced-motion` /
+ *   settings.json `reducedMotion` ← `PRODUCT_REDUCED_MOTION=1|0` ← `--reduced-motion` /
  *   `--no-reduced-motion` (the flag wins).
  *
  * Flag-wins, matching `screen-reader-enablement.ts` rather than the env-wins `memory-enablement.ts`:
@@ -24,14 +24,14 @@ import type { IAppearanceSettings, TSettingsData } from '@robota-sdk/agent-frame
 import type { TReducedMotionOverride } from '@robota-sdk/agent-command';
 
 /** `1` enables, `0` disables; anything else is not an opinion. */
-const REDUCED_MOTION_ENV = 'ROBOTA_REDUCED_MOTION';
+const REDUCED_MOTION_ENV = 'PRODUCT_REDUCED_MOTION';
 
 export interface IReducedMotionInputs {
   /** What the settings document persists. */
   settings: boolean;
   /** `--reduced-motion` (true) / `--no-reduced-motion` (false); `undefined` when neither is given. */
   flag?: boolean | undefined;
-  /** Raw `ROBOTA_REDUCED_MOTION` value. */
+  /** Raw `PRODUCT_REDUCED_MOTION` value. */
   env?: string | undefined;
 }
 

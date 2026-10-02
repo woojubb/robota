@@ -2,6 +2,8 @@ import type { IPresetSurfaceOptions } from './preset-surface-options.js';
 
 /** The session fields taken from the preset surface rather than from raw CLI flags. */
 export interface IPresetSessionFields {
+  pathProtection?: IPresetSurfaceOptions['pathProtection'];
+  commandProductVocabulary?: IPresetSurfaceOptions['commandProductVocabulary'];
   appendSystemPrompt?: string;
   allowedTools?: readonly string[];
   deniedTools?: readonly string[];
@@ -25,6 +27,8 @@ export interface IPresetSessionFields {
  */
 export function presetSessionFields(preset: Partial<IPresetSurfaceOptions>): IPresetSessionFields {
   return {
+    ...(preset.commandProductVocabulary !== undefined ? { commandProductVocabulary: preset.commandProductVocabulary } : {}),
+    ...(preset.pathProtection !== undefined ? { pathProtection: preset.pathProtection } : {}),
     ...(preset.cliAppendSystemPrompt !== undefined
       ? { appendSystemPrompt: preset.cliAppendSystemPrompt }
       : {}),

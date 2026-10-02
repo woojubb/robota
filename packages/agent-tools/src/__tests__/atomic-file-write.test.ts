@@ -23,14 +23,14 @@ interface IValueModule {
 }
 
 async function makeTempDir(): Promise<string> {
-  return mkdtemp(join(tmpdir(), `robota-atomic-write-${process.pid}-`));
+  return mkdtemp(join(tmpdir(), `agent-test-atomic-write-${process.pid}-`));
 }
 
 async function importValueModule(moduleUrl: string): Promise<IValueModule> {
   return import(moduleUrl) as Promise<IValueModule>;
 }
 
-async function listRobotaTempFiles(directory: string): Promise<string[]> {
+async function listAgentRuntimeTempFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory);
   return entries.filter((entry) => entry.includes('.atomic-tmp-'));
 }
@@ -56,7 +56,7 @@ describe('atomicWriteUtf8File', () => {
     await atomicWriteUtf8File(filePath, 'after');
 
     expect(readFileSync(filePath, 'utf8')).toBe('after');
-    expect(await listRobotaTempFiles(dirname(filePath))).toEqual([]);
+    expect(await listAgentRuntimeTempFiles(dirname(filePath))).toEqual([]);
   });
 
   it('Given an executable target file When writing replacement content Then the target permissions are preserved', async () => {
@@ -81,7 +81,7 @@ describe('atomicWriteUtf8File', () => {
     await expect(atomicWriteUtf8File(targetDir, 'content')).rejects.toThrow();
 
     expect(statSync(targetDir).isDirectory()).toBe(true);
-    expect(await listRobotaTempFiles(dirname(targetDir))).toEqual([]);
+    expect(await listAgentRuntimeTempFiles(dirname(targetDir))).toEqual([]);
   });
 
   it('Given a running process loaded old code When disk code is replaced Then a child process sees new code without replacing the current runtime', async () => {

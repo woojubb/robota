@@ -1,6 +1,6 @@
 # @robota-sdk/agent-command-workflows
 
-The `robota` CLI's `/workflows` command module (internal, not published). It surfaces the DAG workflow
+The configured CLI's `/workflows` command module (internal, not published). It surfaces the DAG workflow
 engine inside an agent session by composing `@robota-sdk/dag-framework` in-process, and owns the
 natural-language authoring pipeline behind `/workflows create` and `/workflows build`.
 

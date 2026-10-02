@@ -17,7 +17,7 @@ import { MarketplaceClient } from '../marketplace-client.js';
 import type { TMarketplaceSource } from '../marketplace-client.js';
 import type { TExecFn } from '../marketplace-types.js';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-marketplace-test-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-marketplace-test-')));
 
 function setupDir(path: string): void {
   mkdirSync(path, { recursive: true });

@@ -5,7 +5,7 @@
 ---
 
 ARCH-006 + ARCH-007 — the capability-pack TOOL axis reaches parity with the command and subagent axes,
-and `robota` consumes the composition kernel's RUNTIME SEAM instead of only its materials.
+and `configured CLI` consumes the composition kernel's RUNTIME SEAM instead of only its materials.
 
 - **`@robota-sdk/agent-framework` (ARCH-006)** — the default tool set is no longer hard-coded.
   `createSession` accepts `defaultTools`, which REPLACES the `createDefaultTools()` tier (`[]` suppresses
@@ -24,7 +24,7 @@ and `robota` consumes the composition kernel's RUNTIME SEAM instead of only its 
   path is byte-identical.
 - **`@robota-sdk/agent-product` (ARCH-007)** — `buildRuntimeOptions` no longer overwrites a
   caller-supplied `commandModules`. A shell that has already narrowed the merged `base ⊕ packs` superset
-  (as `robota` does with its preset's enabled/disabled delta) keeps that selection; the assembled set is
+  (as `configured CLI` does with its preset's enabled/disabled delta) keeps that selection; the assembled set is
   overlaid only when the caller left it unset — the same rule `permissionMode` already followed.
 - **`@robota-sdk/agent-cli` (ARCH-007)** — `startCli` now routes through
   `product.buildRuntimeOptions(...)`. The shell resolves its own session inputs and the kernel lays the
@@ -34,5 +34,5 @@ and `robota` consumes the composition kernel's RUNTIME SEAM instead of only its 
   `args.permissionMode ?? resolvedPreset.permissionMode` expressions are gone — every surface binds to
   the one kernel result.
 
-End-user `robota` behavior is unchanged: the assembled command-module set, provider surface, tool set,
+End-user `configured CLI` behavior is unchanged: the assembled command-module set, provider surface, tool set,
 subagent roster, preset resolution, and permission posture all match the pre-change assembly.

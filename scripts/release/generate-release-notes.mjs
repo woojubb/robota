@@ -6,7 +6,7 @@
  * notes: grouped Features / Fixes / Performance / Security sections plus a
  * collapsed Internal section, with PR links and a compare link. Replaces
  * `gh release create --generate-notes` (raw, uncategorized PR-title dumps)
- * in the two v* tag release workflows, and maintains generated sections in
+ * in the configured tag release workflows, and maintains generated sections in
  * the root CHANGELOG.md.
  *
  * Pure core (exported, no I/O): parseConventional, groupCommits, renderNotes,
@@ -17,15 +17,16 @@
  *
  * Options:
  *   --tag <tag>          Target ref/tag (default: Unreleased mode over HEAD)
- *   --prev <tag>         Previous tag (default: auto-detect — nearest v* tag
- *                        reachable from <tag>^; falls back to the newest v*
- *                        tag by creation date, since historical v* tags are
+ *   --prev <tag>         Previous tag (default: auto-detect — nearest tag matching
+ *                        the configured prefix reachable from <tag>^; falls back to
+ *                        the newest matching tag by creation date, since historical tags are
  *                        not all ancestors of the current line)
  *   --unreleased         Render lastTag..HEAD as an "Unreleased" section
  *   --notes-file <path>  Write just the section body (for `gh release create --notes-file`)
  *   --write-changelog    Prepend/replace the section in the root CHANGELOG.md (idempotent)
  *   --changelog <path>   Changelog path override (default: <repo root>/CHANGELOG.md)
  *   --repo <url>         Repository URL override
+ *   --tag-prefix <text>  Required when auto-detecting the previous tag; defaults to PROJECT_RELEASE_TAG_PREFIX
  *
  * Without --notes-file/--write-changelog the rendered section is printed to stdout.
  *
@@ -39,7 +40,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
-const DEFAULT_REPO_URL = 'https://github.com/woojubb/robota';
+
 
 const GROUP_ORDER = [
   { key: 'features', title: '🚀 Features' },
@@ -151,7 +152,7 @@ export function groupCommits(commits) {
 function renderLine(entry, repoUrl) {
   const scopePrefix = entry.scope ? `**${entry.scope}**: ` : '';
   const breaking = entry.breaking ? ' **BREAKING**' : '';
-  const prLink = entry.pr === null ? '' : ` ([#${entry.pr}](${repoUrl}/pull/${entry.pr}))`;
+  const prLink = entry.pr === null || !repoUrl ? '' : ` ([#${entry.pr}](${repoUrl}/pull/${entry.pr}))`;
   return `- ${scopePrefix}${entry.description}${breaking}${prLink}`;
 }
 
@@ -174,7 +175,7 @@ export function renderNotes({ groups, repoUrl, ref, prevRef, date, headingLevel 
   const h = '#'.repeat(headingLevel);
   const parts = [];
 
-  if (prevRef !== null) {
+  if (repoUrl && prevRef !== null) {
     parts.push(
       `**${date}** · [Full changelog: ${prevRef}...${ref}](${repoUrl}/compare/${prevRef}...${ref})`,
     );
@@ -284,20 +285,20 @@ function git(args, { cwd }) {
 }
 
 /**
- * Auto-detect the previous v* tag for a ref. Prefers the nearest v* tag
- * reachable from <ref>^; when none is reachable (this repo's older v* tags
- * are not ancestors of the current line), uses the newest v* tag by
+ * Auto-detect the previous tag using the configured prefix. Prefers the nearest
+ * matching tag reachable from <ref>^; when none is reachable, uses the newest matching tag by
  * creation date that is not the ref itself.
  *
  * @param {string} ref
  * @param {{ cwd: string }} opts
  * @returns {string | null}
  */
-function detectPrevTag(ref, opts) {
-  const described = tryGit(['describe', '--tags', '--abbrev=0', '--match', 'v*', `${ref}^`], opts);
+function detectPrevTag(ref, tagPrefix, opts) {
+  const pattern = `${tagPrefix}*`;
+  const described = tryGit(['describe', '--tags', '--abbrev=0', '--match', pattern, `${ref}^`], opts);
   if (described !== null && described !== '') return described;
 
-  const tags = git(['tag', '-l', 'v*', '--sort=-creatordate'], opts)
+  const tags = git(['tag', '-l', pattern, '--sort=-creatordate'], opts)
     .split('\n')
     .filter((t) => t !== '');
   const prev = tags.find((t) => t !== ref);
@@ -328,13 +329,15 @@ function main() {
       'write-changelog': { type: 'boolean', default: false },
       changelog: { type: 'string' },
       repo: { type: 'string' },
+      'tag-prefix': { type: 'string' },
     },
   });
 
   const cwd = process.cwd();
   const repoRoot = git(['rev-parse', '--show-toplevel'], { cwd });
   const gitOpts = { cwd: repoRoot };
-  const repoUrl = values.repo ?? DEFAULT_REPO_URL;
+  const repoUrl = values.repo ?? process.env.PROJECT_REPOSITORY_URL;
+  const tagPrefix = values['tag-prefix'] ?? process.env.PROJECT_RELEASE_TAG_PREFIX;
 
   const unreleased = values.unreleased || values.tag === undefined;
   const ref = unreleased ? 'HEAD' : values.tag;
@@ -346,7 +349,11 @@ function main() {
     process.exit(1);
   }
 
-  const prevRef = values.prev ?? detectPrevTag(ref, gitOpts);
+  if (values.prev === undefined && !tagPrefix) {
+    console.error('error: PROJECT_RELEASE_TAG_PREFIX or --tag-prefix is required to detect the previous release.');
+    process.exit(1);
+  }
+  const prevRef = values.prev ?? detectPrevTag(ref, tagPrefix, gitOpts);
   const range = prevRef === null ? ref : `${prevRef}..${ref}`;
   const date = git(['log', '-1', '--format=%cs', ref], gitOpts);
   const groups = groupCommits(readCommits(range, gitOpts));

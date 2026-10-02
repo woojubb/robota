@@ -1,10 +1,10 @@
 # @robota-sdk/agent-ui-web
 
-The **GUI presentation layer** for a robota session — the graphical analog of `@robota-sdk/agent-ui-terminal`.
+The **GUI presentation layer** for an agent session — the graphical analog of `@robota-sdk/agent-ui-terminal`.
 It reconstructs conversation state from the transport-neutral `TServerMessage` stream and renders it as React
 components, and it ships the desktop **session shell** (title/status bar, conversation column, background
 activity rail, composer, permission modal). It is an internal workspace package (`private: true`), consumed
-by the GUI web app (`@robota-sdk/agent-gui-web`, which the desktop app loads and `robota --serve` serves)
+by the GUI web app (`@robota-sdk/agent-gui-web`, which the desktop app loads and the configured CLI serves with `--serve`)
 and by the browser-remote surface (`@robota-sdk/agent-transport-webrtc-web`).
 
 ## What it owns
@@ -17,11 +17,11 @@ and by the browser-remote surface (`@robota-sdk/agent-transport-webrtc-web`).
 - Components: `SessionSurface`, `CenteredChrome`, `ConversationView`, `AgentActivityPanel`,
   `PermissionPrompt`, `SessionSidebar` (the host's sessions; switch or start one), `SessionMonitor` (a
   self-contained session page for a WebSocket URL), and `PersonalUsageDashboard` (7- and 30-day usage).
-- Brand marks: `RobotaMark`, `RobotaWordmark` — render them inside a `robota-ui` scope.
-- `styles/surface.css` — the design scoped to `.robota-ui` (bundled Pretendard, light and dark tokens, Tailwind
+- Brand marks: `ProductMark`, `ProductWordmark` — render them inside a `agent-ui` scope.
+- `styles/surface.css` — the design scoped to `.agent-ui` (bundled Pretendard, light and dark tokens, Tailwind
   token map, base layers); import it into a host app's Tailwind entry to embed the surface.
 - `styles/theme.css` — `surface.css` plus what a page that is only the surface owns (height, background,
-  scrollbars); that page puts `robota-ui` on its `<html>`.
+  scrollbars); that page puts `agent-ui` on its `<html>`.
 
 ## Using it
 

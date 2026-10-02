@@ -46,7 +46,7 @@ vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
   return {
     ...actual,
-    Robota: vi.fn().mockImplementation(() => ({
+    ConversationAgent: vi.fn().mockImplementation(() => ({
       run: vi.fn().mockResolvedValue('mock AI response'),
       getHistory: vi.fn().mockReturnValue([]),
       clearHistory: vi.fn(),
@@ -88,6 +88,25 @@ function baseConfig(): IResolvedConfig {
 }
 
 describe('createSession — generated session id', () => {
+  it('replaces retained startup memory and keeps the replacement through later prompt rebuilds', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const created = await createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', projectNotesMd: '', memoryMd: 'Use npm for builds.' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+    });
+    const corrected = created.rebuildSystemMessage('', '', { memoryMd: 'Use pnpm for builds.' });
+    expect(corrected).toContain('Use pnpm');
+    expect(corrected).not.toContain('Use npm');
+    expect(created.rebuildSystemMessage('', '', { persona: 'Review carefully.' })).not.toContain(
+      'Use npm',
+    );
+    const forgotten = created.rebuildSystemMessage('', '', { memoryMd: '' });
+    expect(forgotten).not.toContain('Use pnpm');
+    expect(created.rebuildSystemMessage('', '')).not.toContain('Use pnpm');
+  });
+
   beforeEach(() => {
     sessionCtorCalls.length = 0;
   });
@@ -303,8 +322,8 @@ describe('createSession — appendSystemPrompt option', () => {
 
   it('includes discovered agent metadata without registering a duplicate Agent tool', async () => {
     const { createSession } = await import('../assembly/create-session.js');
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-create-session-agents-')));
-    const agentsDir = join(cwd, '.robota', 'agents');
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-create-session-agents-')));
+    const agentsDir = join(cwd, '.agent', 'agents');
     mkdirSync(agentsDir, { recursive: true });
     writeFileSync(
       join(agentsDir, 'reviewer.md'),
@@ -323,7 +342,7 @@ describe('createSession — appendSystemPrompt option', () => {
         config: baseConfig(),
         cwd,
         contributionSources: createNodeHostContributionSourcesFixture(cwd),
-        agentDefinitionRoots: [join('.robota', 'agents')],
+        agentDefinitionRoots: [join('.agent', 'agents')],
         context: { agentsMd: '', projectNotesMd: '' },
         terminal: MOCK_TERMINAL,
         provider: createMockProvider(),
@@ -377,7 +396,7 @@ describe('createSession — command descriptor tool guidance', () => {
 
   it('does not expose skill metadata when the skills command is not model-invocable', async () => {
     const { createSession } = await import('../assembly/create-session.js');
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-create-session-skills-hidden-')));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-create-session-skills-hidden-')));
     mkdirSync(join(cwd, '.agents', 'skills', 'audit'), { recursive: true });
     writeFileSync(
       join(cwd, '.agents', 'skills', 'audit', 'SKILL.md'),
@@ -407,7 +426,7 @@ describe('createSession — command descriptor tool guidance', () => {
 
   it('exposes skill metadata for an alternate model-invocable skill-activation command id', async () => {
     const { createSession } = await import('../assembly/create-session.js');
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-create-session-skills-visible-')));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-create-session-skills-visible-')));
     mkdirSync(join(cwd, '.agents', 'skills', 'audit'), { recursive: true });
     writeFileSync(
       join(cwd, '.agents', 'skills', 'audit', 'SKILL.md'),
@@ -451,7 +470,7 @@ describe('createSession — command descriptor tool guidance', () => {
   it('does not infer skill activation from an unannotated coincidental command name', async () => {
     const { createSession } = await import('../assembly/create-session.js');
     const cwd = realpathSync(
-      mkdtempSync(join(tmpdir(), 'robota-create-session-skills-unannotated-')),
+      mkdtempSync(join(tmpdir(), 'agent-create-session-skills-unannotated-')),
     );
     mkdirSync(join(cwd, '.agents', 'skills', 'audit'), { recursive: true });
     writeFileSync(
@@ -512,7 +531,7 @@ describe('createSession — command descriptor tool guidance', () => {
     expect(tools.some((tool) => tool.getName() === 'ExecuteCommand')).toBe(false);
     expect(compactTool?.schema.description).toContain('explicitly requests compaction');
     expect(compactTool?.schema.description).toContain('Command id: compact.');
-    expect(compactTool?.schema.description).not.toContain('Robota');
+    expect(compactTool?.schema.description).not.toContain('ConversationAgent');
     expect(compactTool?.schema.description).not.toContain('/compact');
   });
 });
@@ -677,7 +696,7 @@ describe('createSession — PRESET-004 execution capabilities', () => {
     });
 
     // Subagent dispatch capability is active: the runner factory (built only inside the
-    // agent-runtime branch) was constructed with the assembled deps.
+    // robota branch) was constructed with the assembled deps.
     expect(subagentRunnerFactory).toHaveBeenCalledTimes(1);
     const deps = subagentRunnerFactory.mock.calls[0]![0];
     expect(deps.tools.map((tool: { getName: () => string }) => tool.getName())).toContain('Bash');

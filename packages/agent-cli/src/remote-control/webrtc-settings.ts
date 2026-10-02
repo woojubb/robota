@@ -4,11 +4,12 @@
  */
 import { readSettings } from '@robota-sdk/agent-framework';
 
-import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
+import { productUserSettingsPath } from '../product/user-settings.js';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 /** Read a raw (untyped) value under `transports.webrtc.options.<key>` — for structured values (REMOTE-010). */
-export function readWebrtcRawOption(key: string): unknown {
-  const settings = readSettings(robotaUserSettingsPath());
+export function readWebrtcRawOption(productRuntime: ICliRuntimeContext, key: string): unknown {
+  const settings = readSettings(productUserSettingsPath(productRuntime));
   const transports = settings.transports;
   if (typeof transports !== 'object' || transports === null) return undefined;
   const webrtc = (transports as Record<string, unknown>).webrtc;
@@ -19,7 +20,7 @@ export function readWebrtcRawOption(key: string): unknown {
 }
 
 /** A non-empty string under `transports.webrtc.options.<key>`, or undefined. */
-export function readWebrtcOption(key: string): string | undefined {
-  const value = readWebrtcRawOption(key);
+export function readWebrtcOption(productRuntime: ICliRuntimeContext, key: string): string | undefined {
+  const value = readWebrtcRawOption(productRuntime, key);
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }

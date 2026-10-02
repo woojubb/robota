@@ -12,17 +12,17 @@ import type {
 } from '@robota-sdk/agent-interface-transport';
 import type { IncomingHttpHeaders } from 'node:http';
 
-const PUBLIC_URL = 'https://mcp.example.test/team/robota/mcp';
+const PUBLIC_URL = 'https://mcp.example.test/team/fixture-agent/mcp';
 const PUBLIC_HOST = 'mcp.example.test';
 const ISSUER = 'https://auth.example.test';
-const METADATA_PATH = '/.well-known/oauth-protected-resource/team/robota/mcp';
+const METADATA_PATH = '/.well-known/oauth-protected-resource/team/fixture-agent/mcp';
 const METADATA_URL = `https://${PUBLIC_HOST}${METADATA_PATH}`;
 const GOOD = 'good-token-text';
 const SCOPELESS = 'scopeless-token-text';
 const KEYS_DOWN = 'keys-down-token-text';
 
 const schema = {
-  name: 'robota_command_help',
+  name: 'fixture_command_help',
   description: 'Canonical command',
   parameters: { type: 'object' as const, properties: {} },
 };
@@ -62,7 +62,7 @@ async function raw(
       {
         host: '127.0.0.1',
         port,
-        path: options.path ?? '/team/robota/mcp',
+        path: options.path ?? '/team/fixture-agent/mcp',
         method: options.method ?? 'POST',
         headers: {
           Host: PUBLIC_HOST,
@@ -96,7 +96,7 @@ async function startHost(overrides: { trustedProxies?: string[] } = {}): Promise
   const verifier = fakeVerifier();
   const audit: IMcpRemoteAuditRecord[] = [];
   const host = createMcpRemoteHttpHost({
-    name: 'robota',
+    name: 'fixture-agent',
     version: '1',
     session,
     authorization: {
@@ -116,7 +116,7 @@ async function startHost(overrides: { trustedProxies?: string[] } = {}): Promise
 
 describe('remote MCP HTTP host', () => {
   it('refuses a public URL that is not https, and a non-literal bind address', () => {
-    const base = { name: 'robota', version: '1', session: fixture() };
+    const base = { name: 'fixture-agent', version: '1', session: fixture() };
     const authorization = {
       publicUrl: 'http://mcp.example.test/mcp',
       issuer: ISSUER,
@@ -341,7 +341,7 @@ describe('remote MCP HTTP host', () => {
 
   it('leaves the loopback host on its minted bearer, blind to access tokens', async () => {
     const session = fixture();
-    const host = createMcpHttpHost({ name: 'robota', version: '1', session });
+    const host = createMcpHttpHost({ name: 'fixture-agent', version: '1', session });
     const endpoint = await host.start();
     const port = Number(new URL(endpoint.url).port);
     try {

@@ -72,9 +72,9 @@ export function traceEnvFor(
 }
 
 /**
- * A fresh child environment: `base`, then Robota's trace, then `overrides`. When Robota's value
+ * A fresh child environment: `base`, then ConversationAgent's trace, then `overrides`. When ConversationAgent's value
  * applies, the ambient `TRACESTATE` is dropped because it belongs to a different parent. When
- * `overrides` sets its own `TRACEPARENT`, Robota's value does not apply and `base` passes unchanged.
+ * `overrides` sets its own `TRACEPARENT`, ConversationAgent's value does not apply and `base` passes unchanged.
  * `base` itself is never modified.
  */
 export function subprocessTraceEnvironment(

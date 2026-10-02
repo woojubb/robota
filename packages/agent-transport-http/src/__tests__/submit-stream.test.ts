@@ -39,7 +39,7 @@ describe('what a client learns from a stream that failed after it opened', () =>
     // that the stream failed, which is the part it can act on.
     const { stream, written } = fakeStream();
 
-    await reportStreamFailure(new Error('ENOENT /home/op/.robota/providers/key.json'), stream);
+    await reportStreamFailure(new Error('ENOENT /home/op/.fixture-state/providers/key.json'), stream);
 
     expect(written).toHaveLength(1);
     expect(written[0].data).not.toContain('key.json');
@@ -63,7 +63,7 @@ describe('a failure in the callback never escapes to the runner', () => {
     const detail = vi.fn();
     const session = createTestInteractiveSession({
       on: ((event: string) => {
-        if (event === 'text_delta') throw new Error('ENOENT /home/op/.robota/key.json');
+        if (event === 'text_delta') throw new Error('ENOENT /home/op/.fixture-state/key.json');
       }) as IInteractiveSession['on'],
     });
     const { stream, written } = fakeStream();

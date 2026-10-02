@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { Robota } from '../../core/robota';
+import { ConversationAgent } from '../../core/conversation-agent';
 import { createScriptedProvider } from '../../testing/scripted-provider';
 
 import type { IAgentConfig } from '../../interfaces/agent';
@@ -29,34 +29,34 @@ function createConfig(
 describe('PEER-007 — driverId reaches the stored user message', () => {
   it('stores the driver id on the user message it drove', async () => {
     const scripted = createScriptedProvider([{ text: 'done' }]);
-    const robota = new Robota(createConfig('scripted-test-provider', scripted.provider));
+    const agent = new ConversationAgent(createConfig('scripted-test-provider', scripted.provider));
 
-    await robota.run('summarise the release notes', { driverId: 'peer:session-abc' });
+    await agent.run('summarise the release notes', { driverId: 'peer:session-abc' });
 
-    const user = robota.getHistory().find((m) => m.role === 'user');
+    const user = agent.getHistory().find((m) => m.role === 'user');
     expect(user?.metadata?.driverId).toBe('peer:session-abc');
   });
 
   it('stores where the turn came from beside who drove it', async () => {
     const scripted = createScriptedProvider([{ text: 'done' }]);
-    const robota = new Robota(createConfig('scripted-test-provider', scripted.provider));
+    const agent = new ConversationAgent(createConfig('scripted-test-provider', scripted.provider));
 
-    await robota.run('summarise the release notes', {
+    await agent.run('summarise the release notes', {
       driverId: 'peer:session-abc',
       turnSource: 'peer',
     });
 
-    const user = robota.getHistory().find((m) => m.role === 'user');
+    const user = agent.getHistory().find((m) => m.role === 'user');
     expect(user?.metadata).toMatchObject({ driverId: 'peer:session-abc', turnSource: 'peer' });
   });
 
   it('leaves the user message unattributed when no driver is given', async () => {
     const scripted = createScriptedProvider([{ text: 'done' }]);
-    const robota = new Robota(createConfig('scripted-test-provider', scripted.provider));
+    const agent = new ConversationAgent(createConfig('scripted-test-provider', scripted.provider));
 
-    await robota.run('summarise the release notes');
+    await agent.run('summarise the release notes');
 
-    const user = robota.getHistory().find((m) => m.role === 'user');
+    const user = agent.getHistory().find((m) => m.role === 'user');
     expect(user?.metadata?.driverId).toBeUndefined();
     expect(user?.metadata?.turnSource).toBeUndefined();
   });
@@ -65,12 +65,12 @@ describe('PEER-007 — driverId reaches the stored user message', () => {
     // The defect this pins: a driver carried on the agent config (or cached on the instance) would
     // stamp every later turn with the first turn's driver. Attribution is per-run.
     const scripted = createScriptedProvider([{ text: 'one' }, { text: 'two' }]);
-    const robota = new Robota(createConfig('scripted-test-provider', scripted.provider));
+    const agent = new ConversationAgent(createConfig('scripted-test-provider', scripted.provider));
 
-    await robota.run('first', { driverId: 'peer:session-abc' });
-    await robota.run('second', { driverId: 'owner' });
+    await agent.run('first', { driverId: 'peer:session-abc' });
+    await agent.run('second', { driverId: 'owner' });
 
-    const users = robota.getHistory().filter((m) => m.role === 'user');
+    const users = agent.getHistory().filter((m) => m.role === 'user');
     expect(users.map((m) => m.metadata?.driverId)).toEqual(['peer:session-abc', 'owner']);
   });
 });

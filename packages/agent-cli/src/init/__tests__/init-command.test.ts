@@ -1,5 +1,6 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * `robota init` prompt-matrix tests (CLI-065).
+ * `the product init` prompt-matrix tests (CLI-065).
  *
  * `--yes` (and CI=true) must skip every Y/n prompt and apply the documented
  * defaults: overwrite N (idempotent "Init cancelled."), migrate N, provider
@@ -52,7 +53,7 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
   let projectMutation: IWorkspaceProjectMutation;
 
   beforeEach(async () => {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-init-test-')));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-init-test-')));
     promptSpy = vi.fn<(question: string) => Promise<string>>(async () => 'y');
     projectAccess = await createTrustedWorkspaceProjectAccess(cwd);
     projectMutation = createWorkspaceProjectMutation(projectAccess.authority, {
@@ -67,7 +68,7 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
 
   function seedExistingFiles(): { agentsMd: string; settings: string } {
     const agentsMd = join(cwd, 'AGENTS.md');
-    const settingsDir = join(cwd, '.robota');
+    const settingsDir = join(cwd, '.test-product');
     mkdirSync(settingsDir, { recursive: true });
     const settings = join(settingsDir, 'settings.json');
     writeFileSync(agentsMd, '# existing agents file\n', 'utf8');
@@ -82,7 +83,7 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
       const { agentsMd, settings } = seedExistingFiles();
       const { terminal, output } = createTerminal();
 
-      await runInitCommand(terminal, {
+      await runInitCommand(terminal, {productRuntime: createTestProductRuntime(),
         projectAccess,
         projectMutation,
         yes: true,
@@ -110,7 +111,7 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
       );
       const { terminal } = createTerminal();
 
-      await runInitCommand(terminal, {
+      await runInitCommand(terminal, {productRuntime: createTestProductRuntime(),
         projectAccess,
         projectMutation,
         yes: true,
@@ -120,7 +121,7 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
       });
 
       expect(promptSpy).not.toHaveBeenCalled();
-      const written = JSON.parse(readFileSync(join(cwd, '.robota', 'settings.json'), 'utf8')) as {
+      const written = JSON.parse(readFileSync(join(cwd, '.test-product', 'settings.json'), 'utf8')) as {
         permissions: { allow: string[] };
       };
       // Migration default is N: the Claude allowlist entry must NOT be imported.
@@ -135,7 +136,7 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
       seedExistingFiles();
       const { terminal, output } = createTerminal();
 
-      await runInitCommand(terminal, {
+      await runInitCommand(terminal, {productRuntime: createTestProductRuntime(),
         projectAccess,
         projectMutation,
         promptFn: promptSpy as never,
@@ -157,7 +158,7 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
 
       let thrown: unknown;
       try {
-        await runInitCommand(terminal, {
+        await runInitCommand(terminal, {productRuntime: createTestProductRuntime(),
           projectAccess,
           projectMutation,
           promptFn: promptSpy as never,
@@ -185,7 +186,7 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
       const { terminal, output } = createTerminal();
       promptSpy.mockResolvedValueOnce('n');
 
-      await runInitCommand(terminal, {
+      await runInitCommand(terminal, {productRuntime: createTestProductRuntime(),
         projectAccess,
         projectMutation,
         promptFn: promptSpy as never,
@@ -214,7 +215,7 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
       promptSpy.mockResolvedValueOnce('y'); // overwrite
       promptSpy.mockResolvedValueOnce('n'); // migrate
 
-      await runInitCommand(terminal, {
+      await runInitCommand(terminal, {productRuntime: createTestProductRuntime(),
         projectAccess,
         projectMutation,
         promptFn: promptSpy as never,
@@ -224,7 +225,7 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
 
       expect(promptSpy).toHaveBeenCalledTimes(2);
       expect(output()).toContain('Initialization complete.');
-      const written = JSON.parse(readFileSync(join(cwd, '.robota', 'settings.json'), 'utf8')) as {
+      const written = JSON.parse(readFileSync(join(cwd, '.test-product', 'settings.json'), 'utf8')) as {
         permissions: { allow: string[] };
       };
       expect(written.permissions.allow).not.toContain('Bash(*)');
@@ -238,7 +239,7 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
       const { terminal } = createTerminal();
       const onProviderSetup = vi.fn(async () => {});
 
-      await runInitCommand(terminal, {
+      await runInitCommand(terminal, {productRuntime: createTestProductRuntime(),
         projectAccess,
         projectMutation,
         yes: true,
@@ -260,7 +261,7 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
       const { terminal, output } = createTerminal();
       const onProviderSetup = vi.fn(async () => {});
 
-      await runInitCommand(terminal, {
+      await runInitCommand(terminal, {productRuntime: createTestProductRuntime(),
         projectAccess,
         projectMutation,
         onProviderSetup,
@@ -279,7 +280,7 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
     const { terminal, output } = createTerminal();
 
     await expect(
-      runInitCommand(terminal, {
+      runInitCommand(terminal, {productRuntime: createTestProductRuntime(),
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
         yes: true,
       }),

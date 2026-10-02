@@ -25,7 +25,7 @@ import {
 } from '../stun-message.js';
 
 /** Like a real client's, it makes the first request as large as the challenge that answers it. */
-const SOFTWARE = { type: 0x8022, value: Buffer.from('robota turn test client') };
+const SOFTWARE = { type: 0x8022, value: Buffer.from('agent turn test client') };
 
 export interface ITurnAnswer {
   readonly ok: boolean;

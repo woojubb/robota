@@ -52,7 +52,7 @@ function isRecordFor(value: unknown, key: ICredentialKey): value is ICredentialR
 
 export interface IFileCredentialStoreOptions {
   /**
-   * An ancestor of the directory that this host also owns (e.g. `~/.robota`), tightened to 0700
+   * An ancestor of the directory that this host also owns (e.g. `the configured user root`), tightened to 0700
    * along with it — a root an older version created at 0755 would otherwise stay that way.
    */
   readonly withinRoot?: string;

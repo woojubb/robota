@@ -16,7 +16,7 @@ describe('/peers command module', () => {
   it('tells the model it covers linked devices, what it returns, and what to suggest', () => {
     const description =
       createPeersCommandModule().commandSources?.[0]?.getCommands()[0]?.description;
-    expect(description).toMatch(/linked over the device mesh/);
+    expect(description).toMatch(/linked devices/);
     expect(description).toMatch(/returns/i);
     expect(description).toMatch(/user-only/i);
     expect(description).toContain('`/peers`');

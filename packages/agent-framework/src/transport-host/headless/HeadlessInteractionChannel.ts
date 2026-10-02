@@ -11,7 +11,7 @@ import { buildRuntimeSession } from '../../runtime/runtime-host.js';
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { ICreateSessionOptions } from '../../assembly/create-session-types.js';
 import type { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js';
-import type { IProjectSettingsPath } from '../../config/settings-source.js';
+import type { INodeHostSettingsSource, IProjectSettingsPath } from '../../config/settings-source.js';
 import type { IResolvedConfig } from '../../config/config-types.js';
 import type { IContributionSource } from '../../contributions/index.js';
 import type { ISkillRootDescriptor } from '../../commands/skill-source.js';
@@ -47,6 +47,8 @@ export interface IHeadlessInteractionChannelOptions {
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  userSettingsSources?: readonly INodeHostSettingsSource[];
+  environment?: Readonly<Record<string, string | undefined>>;
   baselinePermissionAllow?: readonly string[];
   /** Host-selected task-context root; absent means the framework scans no task directory. */
   taskContext?: IResolvedConfig['taskContext'];
@@ -205,6 +207,10 @@ export class HeadlessInteractionChannel {
       ...(this.opts.projectSettingsPaths !== undefined
         ? { projectSettingsPaths: this.opts.projectSettingsPaths }
         : {}),
+      ...(this.opts.userSettingsSources !== undefined
+        ? { userSettingsSources: this.opts.userSettingsSources }
+        : {}),
+      ...(this.opts.environment !== undefined ? { environment: this.opts.environment } : {}),
       ...(this.opts.taskContext !== undefined ? { taskContext: this.opts.taskContext } : {}),
       ...(this.opts.contributionSources !== undefined
         ? { contributionSources: this.opts.contributionSources }

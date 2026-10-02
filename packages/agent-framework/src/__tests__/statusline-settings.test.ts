@@ -9,7 +9,7 @@ import {
   readStatusLineSettings,
 } from '../command-api/statusline/statusline-command-api.js';
 
-const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-statusline-settings-test-')));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-statusline-settings-test-')));
 
 function readJson(path: string): Record<string, unknown> {
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
@@ -30,8 +30,8 @@ describe('statusline settings', () => {
   });
 
   it('merges a patch into existing statusline settings', () => {
-    const settingsPath = join(TMP_BASE, '.robota', 'settings.json');
-    mkdirSync(join(TMP_BASE, '.robota'), { recursive: true });
+    const settingsPath = join(TMP_BASE, '.agent', 'settings.json');
+    mkdirSync(join(TMP_BASE, '.agent'), { recursive: true });
     writeFileSync(
       settingsPath,
       JSON.stringify({

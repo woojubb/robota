@@ -1,0 +1,56 @@
+{
+  "kind": "actual-kvm-worker-lifecycle",
+  "records": [
+    {
+      "id": "separate-task-and-host-filesystems",
+      "expected": "own write/read succeeds, same path absent in sibling and host path absent in guest",
+      "observed": {
+        "createExit": 0,
+        "ownCheck": 0,
+        "siblingCheck": 0,
+        "hostCheck": 0
+      },
+      "passed": true
+    },
+    {
+      "id": "qmp-pause-resume",
+      "expected": "paused then running, guest still readable",
+      "observed": {
+        "paused": {
+          "status": "paused",
+          "running": false
+        },
+        "running": {
+          "status": "running",
+          "running": true
+        },
+        "durationMs": 305
+      },
+      "passed": true
+    },
+    {
+      "id": "offline-disk-checkpoint-restore-and-descendant-death",
+      "expected": "old filesystem restored, no parent/child process resumes",
+      "observed": {
+        "restoreDurationMs": 8895,
+        "restoredCheckExit": 0,
+        "descendantAbsenceExit": 0
+      },
+      "passed": true
+    },
+    {
+      "id": "owned-vm-cleanup",
+      "expected": "QEMU stopped and SSH unavailable",
+      "observed": {
+        "exitCode": 0,
+        "sshExit": 255
+      },
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "Disk checkpoint and saved-credential revocation are independently tested, not a single production resume flow.",
+    "Offline disk restore does not resume memory, connections or sessions.",
+    "Three short observations do not establish long-running reliability or provider cleanup/cost."
+  ]
+}

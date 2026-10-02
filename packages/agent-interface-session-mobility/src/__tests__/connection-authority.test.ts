@@ -98,6 +98,69 @@ describe('ConnectionAuthority', () => {
     expect(operator.requests).toHaveLength(1);
   });
 
+  it.each(['observe', 'drive'] as const)(
+    'refuses cached %s after its connection signal aborts',
+    async (cap) => {
+      const operator = approver(true);
+      const authority = new ConnectionAuthority(peer(), operator);
+      const connection = new AbortController();
+      await expect(authority.authorize(cap, { signal: connection.signal })).resolves.toEqual({
+        allowed: true,
+      });
+      connection.abort();
+      await expect(authority.authorize(cap)).resolves.toEqual({
+        allowed: false,
+        reason: 'declined',
+      });
+      expect(operator.requests).toHaveLength(1);
+    },
+  );
+
+  it.each(['presence', 'message'] as const)(
+    'refuses %s on an already aborted connection',
+    async (cap) => {
+      const authority = new ConnectionAuthority(peer());
+      const connection = new AbortController();
+      connection.abort();
+      await expect(authority.authorize(cap, { signal: connection.signal })).resolves.toEqual({
+        allowed: false,
+        reason: 'declined',
+      });
+    },
+  );
+
+  it('cannot widen the admitted capabilities by mutating the input after construction', async () => {
+    const capabilities: TMeshCapability[] = ['presence'];
+    const admitted = peer({ capabilities });
+    const operator = approver(true);
+    const authority = new ConnectionAuthority(admitted, operator);
+    capabilities.push('drive');
+    await expect(authority.authorize('drive')).resolves.toEqual({
+      allowed: false,
+      reason: 'not-granted',
+    });
+    expect(operator.requests).toHaveLength(0);
+  });
+
+  it('does not reuse a cached approval for a caller that aborted while sharing an outstanding ask', async () => {
+    let resolve!: (answer: boolean) => void;
+    const operator = approver(
+      () =>
+        new Promise<boolean>((res) => {
+          resolve = res;
+        }),
+    );
+    const authority = new ConnectionAuthority(peer(), operator);
+    const first = authority.authorize('drive');
+    const connection = new AbortController();
+    const second = authority.authorize('drive', { signal: connection.signal });
+    connection.abort();
+    resolve(true);
+    await expect(first).resolves.toEqual({ allowed: true });
+    await expect(second).resolves.toEqual({ allowed: false, reason: 'declined' });
+    expect(operator.requests).toHaveLength(1);
+  });
+
   it('treats an approver that fails as a refusal', async () => {
     const authority = new ConnectionAuthority(
       peer(),
@@ -124,8 +187,9 @@ describe('ConnectionAuthority', () => {
   it('hands the approver the signal, and a yes after the connection went away is a no', async () => {
     const leaving = new AbortController();
     const approve = vi.fn(async (_request: ICapabilityApprovalRequest, signal?: AbortSignal) => {
-      expect(signal).toBe(leaving.signal);
+      expect(signal?.aborted).toBe(false);
       leaving.abort();
+      expect(signal?.aborted).toBe(true);
       return true;
     });
     const authority = new ConnectionAuthority(peer(), { approve });
@@ -134,6 +198,47 @@ describe('ConnectionAuthority', () => {
       reason: 'declined',
     });
     expect(approve).toHaveBeenCalledTimes(1);
+  });
+
+  it('closing the carrier refuses every capability, including cached approvals', async () => {
+    const operator = approver(true);
+    const authority = new ConnectionAuthority(peer(), operator);
+    await authority.authorize('drive');
+    await authority.authorize('observe');
+    authority.close();
+    authority.close();
+    for (const capability of ALL) {
+      await expect(authority.authorize(capability)).resolves.toEqual({
+        allowed: false,
+        reason: 'declined',
+      });
+    }
+    expect(operator.requests).toHaveLength(2);
+  });
+
+  it('closing withdraws an outstanding question even if the approver never settles', async () => {
+    let signal: AbortSignal | undefined;
+    const authority = new ConnectionAuthority(peer(), {
+      approve: (_request, active) => {
+        signal = active;
+        return new Promise<boolean>(() => {});
+      },
+    });
+    const pending = authority.authorize('drive');
+    authority.close();
+    expect(signal?.aborted).toBe(true);
+    await expect(pending).resolves.toEqual({ allowed: false, reason: 'declined' });
+  });
+
+  it('request cancellation settles a question even if the approver never settles', async () => {
+    const authority = new ConnectionAuthority(
+      peer(),
+      approver(() => new Promise<boolean>(() => {})),
+    );
+    const connection = new AbortController();
+    const pending = authority.authorize('delegate', { signal: connection.signal });
+    connection.abort();
+    await expect(pending).resolves.toEqual({ allowed: false, reason: 'declined' });
   });
 
   it('refuses a capability the admission did not grant, without asking', async () => {

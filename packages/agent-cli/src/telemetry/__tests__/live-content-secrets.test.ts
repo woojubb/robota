@@ -18,9 +18,9 @@ describe('live content secrets', () => {
   const write = (settings: unknown): void => writeFileSync(settingsPath, JSON.stringify(settings));
 
   beforeEach(() => {
-    home = mkdtempSync(join(tmpdir(), 'robota-content-secrets-'));
-    mkdirSync(join(home, '.robota'), { recursive: true });
-    settingsPath = join(home, '.robota', 'settings.json');
+    home = mkdtempSync(join(tmpdir(), 'agent-test-content-secrets-'));
+    mkdirSync(join(home, '.fixture-agent'), { recursive: true });
+    settingsPath = join(home, '.fixture-agent', 'settings.json');
   });
   afterEach(() => {
     vi.unstubAllEnvs();

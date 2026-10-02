@@ -302,7 +302,7 @@ describe('Subagent integration', () => {
   });
 
   it('AgentDefinitionLoader finds built-in agents when dirs are empty', () => {
-    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-test-')));
+    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-')));
     mkdirSync(tmpDir, { recursive: true });
 
     try {
@@ -321,7 +321,7 @@ describe('Subagent integration', () => {
   });
 
   it('Custom agent overrides built-in', () => {
-    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-test-')));
+    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-')));
     const agentsDir = join(tmpDir, '.claude', 'agents');
     mkdirSync(agentsDir, { recursive: true });
 
@@ -373,7 +373,7 @@ describe('Subagent transcript logger', () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-logger-test-')));
+    tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-logger-test-')));
     mkdirSync(tmpDir, { recursive: true });
   });
 

@@ -1,7 +1,8 @@
 import { realpathSync } from 'node:fs';
 
 import { WorkspaceTrustService } from '@robota-sdk/agent-framework';
-import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../src/product/robota-project-state-directories.js';
+import { productProjectStateDirectories } from '../src/product/project-state-directories.js';
+import type { ICliRuntimeContext } from '../src/product/runtime-context.js';
 
 import type {
   IWorkspaceIdentity,
@@ -27,6 +28,7 @@ class ScenarioTrustStore implements IWorkspaceTrustStore {
 /** Mint scenario project access through the same production service path used by hosts. */
 export function createSessionEventDeliveryProjectAccess(
   cwd: string,
+  runtime: ICliRuntimeContext,
 ): Promise<TWorkspaceProjectAccess> {
   const canonicalRoot = realpathSync(cwd);
   const identity: IWorkspaceIdentity = {
@@ -37,6 +39,6 @@ export function createSessionEventDeliveryProjectAccess(
   return new WorkspaceTrustService({
     identityResolver: { resolve: () => identity },
     store: new ScenarioTrustStore(),
-    projectStateDirectories: ROBOTA_PROJECT_STATE_DIRECTORIES,
+    projectStateDirectories: productProjectStateDirectories(runtime),
   }).inspect(canonicalRoot);
 }

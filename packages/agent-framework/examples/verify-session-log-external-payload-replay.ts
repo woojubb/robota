@@ -23,7 +23,7 @@ let replaySession: InteractiveSession | undefined;
 let replayWorkspace: string | undefined;
 
 try {
-  sourceWorkspace = mkdtempSync(join(tmpdir(), 'robota-arch-014-source-'));
+  sourceWorkspace = mkdtempSync(join(tmpdir(), 'agent-arch-014-source-'));
   const sourceWorkspacePath = sourceWorkspace;
   const sourceProvider = createScriptedProvider([
     { text: LARGE_RESPONSE },
@@ -33,27 +33,27 @@ try {
     cwd: sourceWorkspacePath,
     provider: sourceProvider,
     resumeSessionId: 'arch-014-source',
-    sessionLogSink: new NodeSessionLogSink(join(sourceWorkspacePath, '.robota', 'logs')),
+    sessionLogSink: new NodeSessionLogSink(join(sourceWorkspacePath, 'state', 'logs')),
     bare: true,
     permissionMode: 'bypassPermissions',
   });
   await submitAndWait(sourceSession, 'first recorded turn');
   await submitAndWait(sourceSession, 'second recorded turn');
 
-  const transcriptPath = join(sourceWorkspacePath, '.robota', 'logs', 'arch-014-source.jsonl');
+  const transcriptPath = join(sourceWorkspacePath, 'state', 'logs', 'arch-014-source.jsonl');
   const entries = readFileSync(transcriptPath, 'utf8')
     .split('\n')
     .filter((line) => line.trim().length > 0)
     .map((line) => JSON.parse(line) as unknown);
   const reference = findExternalPayloadReference(entries);
   if (!reference) throw new Error('No external payload reference was written to the source JSONL.');
-  const logDirectory = join(sourceWorkspacePath, '.robota', 'logs');
+  const logDirectory = join(sourceWorkspacePath, 'state', 'logs');
   const sidecarExists = existsSync(join(logDirectory, reference.relativePath));
   if (!sidecarExists)
     throw new Error(`External payload sidecar is missing: ${reference.relativePath}`);
 
   const replayProvider = createReplayProviderFromSource(new NodeSessionLogSource(transcriptPath));
-  replayWorkspace = mkdtempSync(join(tmpdir(), 'robota-arch-014-replay-'));
+  replayWorkspace = mkdtempSync(join(tmpdir(), 'agent-arch-014-replay-'));
   const replayWorkspacePath = replayWorkspace;
   replaySession = new InteractiveSession({
     cwd: replayWorkspacePath,

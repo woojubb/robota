@@ -1,5 +1,6 @@
-/** robota's mark: a rounded face with two eyes, in the accent colour. */
-export function RobotaMark({ size = 20 }: { size?: number }): React.ReactElement {
+import { useProductIdentity } from '../product-identity.js';
+/** Shared mark: a rounded face with two eyes, in the accent colour. */
+export function ProductMark({ size = 20 }: { size?: number }): React.ReactElement {
   return (
     <svg
       width={size}
@@ -16,11 +17,12 @@ export function RobotaMark({ size = 20 }: { size?: number }): React.ReactElement
 }
 
 /** The mark and the wordmark, as the app's name in its chrome. */
-export function RobotaWordmark({ surface }: { surface?: string }): React.ReactElement {
+export function ProductWordmark({ surface }: { surface?: string }): React.ReactElement {
+  const { identity } = useProductIdentity();
   return (
     <span className="flex items-center gap-2">
-      <RobotaMark />
-      <span className="text-[15px] font-semibold tracking-[-0.01em] text-foreground">robota</span>
+      <ProductMark />
+      <span className="text-[15px] font-semibold tracking-[-0.01em] text-foreground">{identity.displayName}</span>
       {surface ? (
         <span className="rounded-md bg-raised px-1.5 py-px text-[11px] font-medium text-muted-foreground">
           {surface}

@@ -1,3 +1,4 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -18,7 +19,7 @@ const silentTerminal = {} as ITerminalOutput;
 const HOST_DECISION = createRestrictedWorkspaceProjectAccess('revoked', '/workspace');
 
 describe('words after `--` are text, never a subcommand', () => {
-  it('reads `robota -p -- init` as a prompt, not as `robota init`', () => {
+  it('reads `test-product -p -- init` as a prompt, not as `test-product init`', () => {
     const args = parseCliArgs(['--safe-mode', '-p', '--', 'init']);
 
     expect(args.printMode).toBe(true);
@@ -40,11 +41,11 @@ describe('words after `--` are text, never a subcommand', () => {
     const args = parseCliArgs(['-p', '--', 'user-local', 'list']);
 
     await expect(
-      runUserLocalDirectCommandIfRequested(args, '/nonexistent-robota-cwd', silentTerminal),
+      runUserLocalDirectCommandIfRequested(args, '/nonexistent-test-product-cwd', silentTerminal, createTestProductRuntime()),
     ).resolves.toBe(false);
   });
 
-  it('opens the terminal UI for `robota -- init`, since "init" is text there', () => {
+  it('opens the terminal UI for `test-product -- init`, since "init" is text there', () => {
     expect(startsNewTuiSession(parseCliArgs(['--', 'init']))).toBe(true);
     expect(startsNewTuiSession(parseCliArgs(['init']))).toBe(false);
   });
@@ -52,12 +53,12 @@ describe('words after `--` are text, never a subcommand', () => {
 
 describe('flags are read only from the part of argv before `--`', () => {
   it('cuts argv at the first `--`', () => {
-    expect(optionArgv(['node', 'robota', '-p', '--', '--attach'])).toEqual([
+    expect(optionArgv(['node', 'test-product', '-p', '--', '--attach'])).toEqual([
       'node',
-      'robota',
+      'test-product',
       '-p',
     ]);
-    expect(optionArgv(['node', 'robota', '--attach'])).toEqual(['node', 'robota', '--attach']);
+    expect(optionArgv(['node', 'test-product', '--attach'])).toEqual(['node', 'test-product', '--attach']);
   });
 
   it('does not start the attach command for a prompt that spells --attach', async () => {
@@ -65,9 +66,9 @@ describe('flags are read only from the part of argv before `--`', () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
       const handled = await runPreparsedCliCommand(
-        { providerDefinitions: [] },
-        ['node', 'robota', '-p', '--', '--attach'],
-        '/nonexistent-robota-attach-cwd',
+        {productRuntime: createTestProductRuntime(),  providerDefinitions: [] },
+        ['node', 'test-product', '-p', '--', '--attach'],
+        '/nonexistent-test-product-attach-cwd',
       );
       expect(handled).toBe(false);
     } finally {
@@ -78,8 +79,8 @@ describe('flags are read only from the part of argv before `--`', () => {
 
   it('does not force a Restricted start for a prompt that spells --safe-mode', async () => {
     const access = await resolveStartupWorkspaceProjectAccess(
-      ['node', 'robota', '-p', '--', '--safe-mode'],
-      '/nonexistent-robota-safe-mode-cwd',
+      ['node', 'test-product', '-p', '--', '--safe-mode'],
+      '/nonexistent-test-product-safe-mode-cwd',
       { projectAccess: HOST_DECISION },
     );
     expect(access).toBe(HOST_DECISION);
@@ -88,8 +89,8 @@ describe('flags are read only from the part of argv before `--`', () => {
   it("starts Restricted under an embedder's safe mode even with a prompt after `--`", async () => {
     const trusted = { status: 'trusted' } as never;
     const access = await resolveStartupWorkspaceProjectAccess(
-      ['node', 'robota', '-p', '--', 'hello'],
-      '/nonexistent-robota-safe-mode-cwd',
+      ['node', 'test-product', '-p', '--', 'hello'],
+      '/nonexistent-test-product-safe-mode-cwd',
       { projectAccess: trusted, safeMode: true },
     );
     expect(access.status).toBe('restricted');

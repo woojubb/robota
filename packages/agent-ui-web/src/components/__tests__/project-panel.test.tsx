@@ -4,7 +4,8 @@
  * clicking one shows its diff via `DiffLines`, Refresh re-requests the status, and a non-repository
  * folder shows one plain sentence instead of a file list.
  */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { render } from '../../testing/product-provider.js';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
