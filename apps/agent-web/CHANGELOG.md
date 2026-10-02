@@ -1,5 +1,26 @@
 # __PRODUCT_DISPLAY_NAME__-web
 
+## 0.1.1-beta.7
+
+### Patch Changes
+
+- Updated dependencies [66af868]
+- Updated dependencies
+- Updated dependencies [66af868]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+  - @robota-sdk/product-config@3.0.0-beta.87
+  - @robota-sdk/agent-core@3.0.0-beta.87
+  - @robota-sdk/agent-remote-pairing@3.0.0-beta.87
+  - @robota-sdk/agent-ui-web@3.0.0-beta.87
+  - @robota-sdk/agent-transport-webrtc-web@3.0.0-beta.87
+
 ## 0.1.1-beta.6
 
 ### Patch Changes

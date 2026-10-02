@@ -1,5 +1,29 @@
 # @robota-sdk/agent-interface-session
 
+## 3.0.0-beta.87
+
+### Patch Changes
+
+- Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- 7d9cc66: Retain mixed tool observations alongside structured results through live session events and history
+  display. The shared app renderer previews inline raster images and keeps resource URIs inert, with
+  explicit diagnostics for unsupported media instead of silently dropping it.
+- Updated dependencies
+- Updated dependencies [66af868]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+  - @robota-sdk/agent-core@3.0.0-beta.87
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.87
+  - @robota-sdk/agent-interface-command@3.0.0-beta.87
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.87
+
 ## 3.0.0-beta.86
 
 ### Patch Changes

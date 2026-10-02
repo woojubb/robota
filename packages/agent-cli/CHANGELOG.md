@@ -1,5 +1,45 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.87
+
+### Minor Changes
+
+- 7d9cc66: Preserve an explicitly supplied host tool scheduling policy through session assembly and CLI presentation modes, retaining permission admission and conservative handling of undeclared resources.
+
+### Patch Changes
+
+- 66af868: Restore portable default startup for generated Robota artifacts while preserving explicit product selection and immutable identity. Keep shared product configuration internal because existing SDK and CLI artifacts bundle its implementation and types.
+- Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- 7d9cc66: Expose declarative contribution descriptors for installed bundles and resolved MCP sources,
+  including source generations, host capability requirements and compatibility diagnostics.
+  Revalidate MCP approval, source identity and workspace trust before new dispatch, preserving
+  outcomes of calls already started and refusing retained tools after shutdown.
+- 7d9cc66: Resume hosted conversations in freshly provisioned workers using verified checkpoint records while rebuilding current prompts, policy and execution state.
+- 7d9cc66: Load declared JSON and inline bundle MCP configurations with selected-source containment, ordered whole-server replacement and file provenance. Route packaged servers through normal CLI/app MCP startup with namespaced identities, existing trust/approval/authority gates, disable overlays and value-free compatibility diagnostics.
+- 7d9cc66: Add owner-side clean E2B worker provisioning and verified filesystem recovery with fresh identity and epoch, explicit failure reconciliation, and no paused-memory execution fallback.
+- 7d9cc66: Add owner-hosted organization control and OpenAI-wire gateway composition with anchored authority, mandatory verified audit, durable effect reservations, provider inventory cleanup and private content receipts. OpenAI profiles can opt into operation identities preserved across SDK retries.
+- 7d9cc66: Load external name-only plugin manifests without inventing optional metadata. Select the recorded
+  installed source instead of the lexically last cached directory, refusing invalid, missing or
+  ambiguous revisions. Check the installed identity as well as the manifest name for disablement.
+- 7d9cc66: Pass the child execution root and restored sandbox to hook composition. The stock CLI explicitly refuses command and HTTP hooks for separate task workers whose hook capabilities are unavailable, instead of executing those hooks on the host.
+- 7d9cc66: Connect explicitly selected stateless MCP servers through product startup. Preserve and expose the selected protocol, bind activation approval to it, refuse unsupported selections, and report unavailable protocol capabilities without widening process or network authority.
+- 7d9cc66: Add explicit MCP Skills selection, bounded supervisor access and persistent host content consent.
+  Users can inspect verified instructions, approve the exact content fingerprint and withdraw consent;
+  models can discover metadata only. Consent stays separate from server admission and model-turn activation.
+- 7d9cc66: Route discovered MCP Skills through the shared skill command runtime with lazy verified content, source-bound invocation names, current user consent and execution-owned activation cleanup. Keep remote shell expressions inert and defer queued user skill reads until their own turn executes.
+- 7d9cc66: Connect the desktop to an owner-bound remote task through scoped TLS credentials, durable replay protection, current company authority and a separate native operator approval channel. Keep remote credentials and local filesystem capabilities outside the renderer's remote task connection.
+- 7d9cc66: Reconstruct visible session history from verified hosted conversation checkpoints without importing old system messages or execution events.
+- 7d9cc66: Retain an owner shutdown signal received while a served runtime initializes, and release its signal handlers when the run settles.
+- 7d9cc66: Require hosted admission protocol v2 with signed root-task ownership. Add a pinned E2B SDK connector that checks admitted worker ownership and network configuration before connecting, keeps management credentials outside task operations, and retains provider teardown failures.
+- 7d9cc66: Expose verified skill supporting resources only within their owning turn or fork, using the current host consent and manifest.
+- 7d9cc66: Run the stock hosted CLI inside an admitted E2B task worker with broker-signed scoped access, pinned worker artifacts, runtime-owned input/output and provider cleanup.
+- 7d9cc66: Observe scheduler queue intervals separately from pre-dispatch admission, permission and tool work.
+  Preserve valid duration totals when live trace detail is bounded, reporting invalid evidence explicitly
+  through content-free console and OTLP traces without altering dispatch, recovery or settlement.
+- 7d9cc66: Require version-3 hosted admission with broker-signed cumulative usage and owner-selected runtime ceilings. Collect accounting before dispatch, on refresh and at completion; stop and release owned execution when accounting or limits fail. Operator deployments and issuers must migrate from version 2.
+
+  Connect authenticated runtime loopback clients to the stock hosted worker daemon through owned provider command streams. Hosted serve requires a private owner-selected ingress configuration and uses a separate worker launch token; stop closes clients and the listener before cleanup settles.
+
 ## 3.0.0-beta.86
 
 ### Patch Changes

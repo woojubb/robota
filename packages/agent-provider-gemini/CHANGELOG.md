@@ -1,5 +1,22 @@
 # @robota-sdk/agent-provider-gemini
 
+## 3.0.0-beta.87
+
+### Patch Changes
+
+- Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- 7d9cc66: Retain typed resource and audio observations alongside structured tool results through history, durable receipts, recovery, size admission, and session persistence. Preserve opaque resource references without fetching them, project embedded text and explicit unsupported binary/audio diagnostics into provider requests and compaction transcripts, and validate persisted observation shapes on reload.
+- Updated dependencies
+- Updated dependencies [66af868]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+  - @robota-sdk/agent-core@3.0.0-beta.87
+
 ## 3.0.0-beta.86
 
 ### Patch Changes

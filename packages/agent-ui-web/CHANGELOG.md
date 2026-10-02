@@ -1,5 +1,21 @@
 # @robota-sdk/agent-ui-web
 
+## 3.0.0-beta.87
+
+### Patch Changes
+
+- 7d9cc66: Restore actual interactive tool observations, identities and outcomes from persisted event history.
+  Show denied calls as failed in live and restored GUI conversation views.
+- Updated dependencies
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+  - @robota-sdk/agent-interface-command@3.0.0-beta.87
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.87
+  - @robota-sdk/agent-interface-session@3.0.0-beta.87
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.87
+  - @robota-sdk/agent-transport@3.0.0-beta.87
+
 ## 3.0.0-beta.86
 
 ### Patch Changes

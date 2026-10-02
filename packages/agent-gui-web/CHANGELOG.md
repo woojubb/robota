@@ -1,5 +1,13 @@
 # @robota-sdk/agent-cli-web
 
+## 3.0.0-beta.87
+
+### Patch Changes
+
+- 7d9cc66: Connect the desktop to an owner-bound remote task through scoped TLS credentials, durable replay protection, current company authority and a separate native operator approval channel. Keep remote credentials and local filesystem capabilities outside the renderer's remote task connection.
+- Updated dependencies [7d9cc66]
+  - @robota-sdk/agent-ui-web@3.0.0-beta.87
+
 ## 3.0.0-beta.86
 
 ### Patch Changes

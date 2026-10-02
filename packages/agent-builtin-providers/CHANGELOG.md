@@ -1,5 +1,28 @@
 # @robota-sdk/agent-builtin-providers
 
+## 3.0.0-beta.87
+
+### Patch Changes
+
+- Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- Updated dependencies
+- Updated dependencies [66af868]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+  - @robota-sdk/agent-core@3.0.0-beta.87
+  - @robota-sdk/agent-provider-anthropic@3.0.0-beta.87
+  - @robota-sdk/agent-provider-bytedance@3.0.0-beta.87
+  - @robota-sdk/agent-provider-gemini@3.0.0-beta.87
+  - @robota-sdk/agent-provider-openai@3.0.0-beta.87
+  - @robota-sdk/agent-provider-openai-compatible@3.0.0-beta.87
+
 ## 3.0.0-beta.86
 
 ### Patch Changes

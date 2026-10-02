@@ -1,5 +1,35 @@
 # @robota-sdk/agent-session
 
+## 3.0.0-beta.87
+
+### Minor Changes
+
+- 7d9cc66: Preserve an explicitly supplied host tool scheduling policy through session assembly and CLI presentation modes, retaining permission admission and conservative handling of undeclared resources.
+
+### Patch Changes
+
+- Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- 7d9cc66: Retain typed resource and audio observations alongside structured tool results through history, durable receipts, recovery, size admission, and session persistence. Preserve opaque resource references without fetching them, project embedded text and explicit unsupported binary/audio diagnostics into provider requests and compaction transcripts, and validate persisted observation shapes on reload.
+- 7d9cc66: Retain registered tool source attribution in observations and preserve ordered outcome receipts independently of conversation summaries.
+- 7d9cc66: Retain mixed tool observations alongside structured results through live session events and history
+  display. The shared app renderer previews inline raster images and keeps resource URIs inert, with
+  explicit diagnostics for unsupported media instead of silently dropping it.
+- 7d9cc66: Retain registered attribution on refused and interrupted call receipts without replacing the source of actual or recovered settlements, and project undispatched registered calls into live and restored presentation history.
+- Updated dependencies
+- Updated dependencies [66af868]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+  - @robota-sdk/agent-core@3.0.0-beta.87
+  - @robota-sdk/agent-file-authority@3.0.0-beta.87
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.87
+  - @robota-sdk/agent-interface-session@3.0.0-beta.87
+
 ## 3.0.0-beta.86
 
 ### Patch Changes

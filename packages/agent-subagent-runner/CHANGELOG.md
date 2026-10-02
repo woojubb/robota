@@ -1,5 +1,38 @@
 # @robota-sdk/agent-subagent-runner
 
+## 3.0.0-beta.87
+
+### Patch Changes
+
+- Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- 7d9cc66: Pass the child execution root and restored sandbox to hook composition. The stock CLI explicitly refuses command and HTTP hooks for separate task workers whose hook capabilities are unavailable, instead of executing those hooks on the host.
+- Updated dependencies
+- Updated dependencies [66af868]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+  - @robota-sdk/agent-core@3.0.0-beta.87
+  - @robota-sdk/agent-executor@3.0.0-beta.87
+  - @robota-sdk/agent-framework@3.0.0-beta.87
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.87
+  - @robota-sdk/agent-process@3.0.0-beta.87
+
 ## 3.0.0-beta.86
 
 ### Patch Changes
