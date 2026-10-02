@@ -1,6 +1,7 @@
+'use client';
+
 import { ProductIdentityProvider, type IWebProductIdentity } from '@robota-sdk/agent-ui-web';
 import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
-'use client';
 
 import {
   ConversationView,

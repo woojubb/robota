@@ -17,9 +17,16 @@ async function renderLayout(layout, measurementId) {
     const configFile = path.join(root, 'config.mjs');
     await writeFile(configFile, `export const productPublicConfig = ${JSON.stringify(config)};`);
     const source = await readFile(new URL(`../../../apps/blog/src/layouts/${layout}.astro`, import.meta.url), 'utf8');
-    const { code } = await transform(source.replace(/<style[\s\S]*?<\/style>/gu, ''), { filename: `${layout}.astro`, resultScopedSlot: true, resolvePath: (specifier) => specifier, astroGlobalArgs: 'undefined', internalURL: pathToFileURL(blogRequire.resolve('astro/compiler-runtime')).href });
-    const module = code.replaceAll('"astro/runtime/server/index.js"', JSON.stringify(pathToFileURL(blogRequire.resolve('astro/runtime/server/index.js')).href))
+    const { code, css } = await transform(source, { filename: `${layout}.astro`, resultScopedSlot: true, resolvePath: (specifier) => specifier, astroGlobalArgs: 'undefined', internalURL: pathToFileURL(blogRequire.resolve('astro/compiler-runtime')).href });
+    let module = code.replaceAll('"astro/runtime/server/index.js"', JSON.stringify(pathToFileURL(blogRequire.resolve('astro/runtime/server/index.js')).href))
       .replaceAll('../lib/product-config.generated.mjs', pathToFileURL(configFile).href);
+    // The container renders the intact compiled template; Node needs inert modules for CSS imports.
+    for (const index of css.keys()) {
+      module = module.replaceAll(
+        JSON.stringify(`${layout}.astro?astro&type=style&index=${index}&lang.css`),
+        JSON.stringify('data:text/javascript,'),
+      );
+    }
     const file = path.join(root, 'layout.mjs');
     await writeFile(file, module);
     const component = (await import(pathToFileURL(file).href)).default;

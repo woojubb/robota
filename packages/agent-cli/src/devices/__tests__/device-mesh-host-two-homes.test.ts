@@ -17,7 +17,6 @@ import { join } from 'node:path';
 
 import {
   DEVICE_CAPABILITIES,
-  createIdentityContext,
   certifyDevice,
   generateDeviceKeyAgreementKeyPair,
   generateDeviceSignKeyPair,

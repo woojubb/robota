@@ -1,5 +1,6 @@
-import { useProductIdentity } from '../product-identity.js';
 'use client';
+
+import { useProductIdentity } from '../product-identity.js';
 
 import React, { useState } from 'react';
 

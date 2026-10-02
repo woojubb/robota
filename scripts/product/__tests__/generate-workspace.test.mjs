@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
@@ -6,7 +6,7 @@ import path from 'node:path';
 import ts from 'typescript';
 import { parseDocument } from 'yaml';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildBunBinaries, bunTargetForHost } from '../../../packages/agent-cli/scripts/build-bun.mjs';
 import {
   embeddedProductIdentity,
@@ -16,7 +16,6 @@ import {
 } from '../../../packages/product-config/src/index.ts';
 
 import {
-  collectPackageMap,
   generateWorkspaceFromConfig,
   omitUnavailableContentLinks,
   rewriteContent,
@@ -26,6 +25,22 @@ import {
 } from '../generate-workspace.mjs';
 
 const tempRoots = [];
+const sourceSwap = vi.hoisted(() => ({ path: undefined, run: undefined }));
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal();
+  const thenSwap = (operation) => async (...args) => {
+    const result = await operation(...args);
+    if (sourceSwap.path !== undefined && args[0] === sourceSwap.path) {
+      const run = sourceSwap.run;
+      sourceSwap.path = undefined;
+      sourceSwap.run = undefined;
+      await run?.();
+    }
+    return result;
+  };
+  return { ...actual, lstat: thenSwap(actual.lstat), open: thenSwap(actual.open) };
+});
 
 describe('product strings in generated artifact syntax', () => {
   const name = 'O\'Reilly "Agent" \\ `${globalThis.INJECTED = true}` <tag>';
@@ -133,6 +148,8 @@ function resolveTestConfig({ scope, displayName }) {
 }
 
 afterEach(async () => {
+  sourceSwap.path = undefined;
+  sourceSwap.run = undefined;
   await Promise.all(tempRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
@@ -224,6 +241,39 @@ describe('generated workspace package remapping', () => {
 });
 
 describe('generated product workspace isolation', () => {
+  it('copies the file it checked when its source path becomes a private-file symlink', async () => {
+    const root = await temporaryRoot();
+    const source = path.join(root, 'source');
+    const file = path.join(source, 'packages/core/index.ts');
+    const privateFile = path.join(root, '.env.private');
+    await mkdir(path.dirname(file), { recursive: true });
+    await mkdir(path.join(source, 'packages/agent-cli/scripts'), { recursive: true });
+    await writeFile(path.join(source, 'package.json'), '{}');
+    await writeFile(path.join(source, 'packages/core/package.json'), '{"name":"@robota-sdk/core"}');
+    await writeFile(path.join(source, 'packages/agent-cli/package.json'), '{"name":"@robota-sdk/agent-cli","bin":{"agent":"./bin/agent.cjs"}}');
+    await writeFile(path.join(source, 'packages/agent-cli/tsdown.config.ts'), 'const define = {}; export default { define };');
+    await writeFile(path.join(source, 'packages/agent-cli/scripts/build-bun.mjs'), 'Bun.build({ define: {} });');
+    await writeFile(file, 'export const publicContent = true;\n');
+    await writeFile(privateFile, 'PRIVATE_FILE_SENTINEL\n');
+    sourceSwap.path = file;
+    sourceSwap.run = async () => {
+      await rm(file);
+      await symlink(privateFile, file);
+    };
+    const config = resolveTestConfig({ scope: '@alpha', displayName: 'Alpha' });
+    const stage = await generateWorkspaceFromConfig({
+      sourceRoot: source,
+      outDir: path.join(root, 'stage'),
+      config,
+      publicConfig: publicProductConfig(config),
+      embeddedIdentity: embeddedProductIdentity(config),
+    });
+    expect(sourceSwap.path).toBeUndefined();
+    expect(await readFile(path.join(stage, 'packages/core/index.ts'), 'utf8')).toBe(
+      'export const publicContent = true;\n',
+    );
+  });
+
   it('rejects standalone packaging without a generated product before qualifying native addons', async () => {
     await expect(buildBunBinaries('/unused', [bunTargetForHost()])).rejects.toThrow(
       'Generate a product workspace before building standalone binaries.',
@@ -378,12 +428,12 @@ describe('generated product workspace isolation', () => {
       'Alpha',
     );
     const stagedWebConfig = await readFile(path.join(stageA1, 'apps/agent-web/src/lib/product-config.generated.ts'), 'utf8');
-    expect(stagedWebConfig).toContain('isProductBuildConfig = true');
+    expect(stagedWebConfig).toContain('export const productPublicConfig = Object.freeze(');
     expect(stagedWebConfig).toContain('Alpha');
     expect(stagedWebConfig).not.toContain('/tmp/alpha');
     expect(stagedWebConfig).not.toContain('PRIVATE_SENTINEL');
     const stagedWebLoader = await readFile(path.join(stageA1, 'apps/agent-web/src/lib/product-config.ts'), 'utf8');
-    expect(stagedWebLoader).toContain('Generated web product configuration is missing');
+    expect(stagedWebLoader).toContain('return productPublicConfig as IPublicProductConfig;');
     expect(stagedWebLoader).not.toContain('loadProductConfig');
     expect(stagedWebLoader).not.toContain('@robota-sdk/');
     expect(await readFile(path.join(stageA1, 'packages/agent-cli/tsdown.config.ts'), 'utf8')).toContain(

@@ -16,10 +16,16 @@ for (const item of job.requests) {
   request.proof = sign(null, Buffer.from(canonical(request)), key).toString('base64url');
   if (item.corruptProof) request.proof = 'invalid-signature';
   try {
-    const response = await fetch('http://127.0.0.1:19090' + (item.path ?? '/apply'), {
+    const path = item.path ?? '/apply';
+    if (path !== '/apply' && path !== '/admin') throw new Error('unsupported-broker-route');
+    const endpoint =
+      path === '/admin' ? 'http://127.0.0.1:19090/admin' : 'http://127.0.0.1:19090/apply';
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: canonical(request),
+      // Signed synthetic jobs stay on the owner-pinned loopback broker.
+      redirect: 'error',
       signal: AbortSignal.timeout(5000),
     });
     const result = await response.json();

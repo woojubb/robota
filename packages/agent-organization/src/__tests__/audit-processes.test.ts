@@ -170,6 +170,22 @@ afterEach(async () => {
 });
 
 describe('separate local audit sink and checkpoint processes', () => {
+  it('keeps load read-only and refuses unsigned checkpoint updates on the CAS route', async () => {
+    const s = setup();
+    const anchor = await start({ ...s.anchorConfig, bootstrap: true });
+    const next = s.a.signed({ ...s.a.genesis.claims, sequence: 1, hash: 'a'.repeat(64) });
+    const change = { expected: s.a.genesis.claims, next };
+    const send = (route: string, body: unknown) =>
+      post(anchor.url + route, body, AbortSignal.timeout(2000));
+    expect(await send('/load', change)).toEqual(s.a.genesis);
+    await expect(
+      send('/cas', { ...change, next: { ...next, signature: 'invalid-signature' } }),
+    ).rejects.toThrow('Audit storage unavailable');
+    expect(await send('/load', {})).toEqual(s.a.genesis);
+    expect(await send('/cas', change)).toBe(true);
+    expect(await send('/load', {})).toEqual(next);
+  });
+
   it('gates real benign effects and retains verifiable secret-free metadata across process/disk reopen', async () => {
     const s = setup();
     let sink = await start({ ...s.sinkConfig, bootstrap: true });

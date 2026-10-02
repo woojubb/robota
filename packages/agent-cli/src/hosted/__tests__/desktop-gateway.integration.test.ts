@@ -334,6 +334,16 @@ it.each(['/desktop/', '/'])(
       ] as Record<string, string>[]) {
         expect((await pair(jwt, headers)).status).toBe(403);
       }
+      expect((await pair(await mint(true))).status).toBe(403);
+      for (const operator of ['invalid-signature', await mint()]) {
+        expect(
+          (
+            await pair(await mint(), {
+              'x-desktop-operator-authorization': `Bearer ${operator}`,
+            })
+          ).status,
+        ).toBe(403);
+      }
       const paired = await pair(jwt);
       expect(paired.status, paired.body).toBe(200);
       const access = JSON.parse(paired.body) as {
@@ -342,6 +352,20 @@ it.each(['/desktop/', '/'])(
         approvalToken: string | null;
       };
       expect(access.approvalToken).toBeNull();
+      expect(
+        (
+          await exchange(`${baseUrl}/approval`, {
+            headers: { authorization: `Bearer ${access.token}` },
+            body: JSON.stringify({
+              binding: binding.id,
+              generation: access.generation,
+              id: 'forged',
+              digest: '0'.repeat(64),
+              allow: true,
+            }),
+          })
+        ).status,
+      ).toBe(403);
       expect((await pair(jwt)).status).toBe(403);
       const open = async (credentials: typeof access) => {
         const ws = new WebSocket(
