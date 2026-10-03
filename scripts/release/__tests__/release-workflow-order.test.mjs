@@ -17,6 +17,53 @@ const native = readWorkflow('release-bun-binaries.yml');
 const codeql = readWorkflow('codeql.yml');
 const tagging = readFileSync(new URL('release-tag-on-version-bump.yml', root), 'utf8');
 
+it.each([
+  { os: 'Linux', maintainer: 'Example Product <maintainer@example.com>', author: { name: 'Example Product' } },
+  { os: 'Linux', maintainer: '', author: { name: 'Example Product', email: 'legacy@example.com' } },
+  { os: 'macOS', maintainer: 'Example Product <maintainer@example.com>', author: { name: 'Example Product' } },
+  { os: 'Windows', maintainer: 'Example Product <maintainer@example.com>', author: { name: 'Example Product' } },
+])('packages $os with the selected maintainer and preserves platform signing options', ({ os, maintainer, author }) => {
+  const step = desktop.jobs.desktop.steps.find((step) => step.name === 'Package the desktop app (bundles the runtime)');
+  expect(step.env.LINUX_PACKAGE_MAINTAINER).toBe('${{ vars.PRODUCT_LINUX_MAINTAINER }}');
+  const temp = mkdtempSync(join(tmpdir(), 'desktop-maintainer-'));
+  const fixture = join(temp, 'builder.cjs');
+  try {
+    writeFileSync(fixture, `
+      const { createRequire } = require('node:module');
+      const appRequire = createRequire(process.env.APP_MANIFEST);
+      const builderRequire = createRequire(appRequire.resolve('electron-builder'));
+      const FpmTarget = builderRequire('app-builder-lib/out/targets/FpmTarget.js').default;
+      const args = process.argv.slice(2);
+      const option = args.find(arg => arg.startsWith('--config.linux.maintainer='));
+      const target = {
+        options: option ? { maintainer: option.slice('--config.linux.maintainer='.length) } : {},
+        packager: {
+          info: { metadata: { author: JSON.parse(process.env.FIXTURE_AUTHOR) } },
+          appInfo: { linuxPackageName: 'example-product', computePackageUrl: async () => 'https://example.com' },
+        },
+      };
+      (async () => {
+        const metadata = process.env.RUNNER_OS === 'Linux'
+          ? await FpmTarget.prototype.computeFpmMetaInfoOptions.call(target) : {};
+        console.log(JSON.stringify({ args, maintainer: metadata.maintainer }));
+      })().catch(error => { console.error(error.message); process.exitCode = 1; });
+    `);
+    const result = spawnSync('bash', ['-c', 'pnpm() { "$FIXTURE_NODE" "$FIXTURE_BUILDER" "$@"; };\n' + step.run], {
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH, RUNNER_OS: os, LINUX_PACKAGE_MAINTAINER: maintainer,
+        FIXTURE_NODE: process.execPath, FIXTURE_BUILDER: fixture, FIXTURE_AUTHOR: JSON.stringify(author),
+        APP_MANIFEST: fileURLToPath(new URL('../../../apps/agent-app/package.json', import.meta.url)) },
+    });
+    expect(result.status, result.stderr).toBe(0);
+    const actual = JSON.parse(result.stdout);
+    const args = ['--filter', './apps/agent-app', 'dist:app'];
+    if (os === 'macOS') args.push('--config.forceCodeSigning=true');
+    if (os === 'Linux' && maintainer) args.push(`--config.linux.maintainer=${maintainer}`);
+    expect(actual.args).toEqual(args);
+    if (os === 'Linux') expect(actual.maintainer).toBe(maintainer || 'Example Product <legacy@example.com>');
+  } finally { rmSync(temp, { recursive: true, force: true }); }
+});
+
 function evaluate(expression, github, steps = {}) {
   const source = expression.replace(/^\s*\$\{\{/, '').replace(/\}\}\s*$/, '');
   // These workflow conditions use the JavaScript-compatible subset of GitHub expressions.
