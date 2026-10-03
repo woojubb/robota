@@ -215,12 +215,16 @@ jobs:
       - name: Package the desktop app (bundles the runtime)
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
         shell: bash
+        env:
+          LINUX_PACKAGE_MAINTAINER: ${{ vars.PRODUCT_LINUX_MAINTAINER }}
         run: |
+          args=()
           if [ "$RUNNER_OS" = macOS ]; then
-            pnpm --filter './apps/agent-app' dist:app --config.forceCodeSigning=true
-          else
-            pnpm --filter './apps/agent-app' dist:app
+            args+=(--config.forceCodeSigning=true)
+          elif [ "$RUNNER_OS" = Linux ] && [ -n "$LINUX_PACKAGE_MAINTAINER" ]; then
+            args+=("--config.linux.maintainer=$LINUX_PACKAGE_MAINTAINER")
           fi
+          pnpm --filter './apps/agent-app' dist:app "${args[@]}"
 
       - name: Sign, notarize and staple the macOS disk image
         if: runner.os == 'macOS'
