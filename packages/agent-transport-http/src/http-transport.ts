@@ -11,7 +11,7 @@ import { Hono } from 'hono';
 import { createAgentRoutes } from './routes.js';
 
 import type { IHttpTransportSession } from './http-session.js';
-import type { TStreamFailureListener } from './submit-stream.js';
+import type { TStreamFailureListener, TTurnAttribution } from './submit-stream.js';
 import type {
   ITransportAdapter,
   ITransportAdmissionConfig,
@@ -36,6 +36,8 @@ export interface IHttpTransportOptions {
    * host on this path could make. Same forwarding rule as `admission`, which sat beside it.
    */
   onStreamFailure?: TStreamFailureListener;
+  /** Who `/submit` turns are attributed to — forwarded to `createAgentRoutes`, like `admission`. */
+  attribution?: TTurnAttribution;
 }
 
 export interface IHttpTransport extends ITransportAdapter<IHttpTransportSession> {
@@ -71,6 +73,7 @@ export function createHttpTransport(options?: IHttpTransportOptions): IHttpTrans
         // resolve a second time.
         admission,
         onStreamFailure: options?.onStreamFailure,
+        attribution: options?.attribution,
       });
       // TRANS-002 (issue #2480): `basePath` was declared and advertised but never read, so routes
       // always mounted at root. It is honored here — or absent, in which case the routes ARE the app.

@@ -80,6 +80,11 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --yes                      Skip confirmation prompts (required for --reset in non-TTY)
   --serve                    Run the headless runtime over a loopback WebSocket
   --serve --open             Serve {{name}} over localhost and open it in a browser
+  --serve --http-port <port> Also serve the agent HTTP API (submit with SSE streaming, commands,
+                             abort, messages) on 127.0.0.1:<port>, for other apps and services.
+                             Requires PRODUCT_HTTP_TOKEN (at least 32 characters): the bearer
+                             every request presents. Reach it from elsewhere through your own
+                             reverse proxy or tunnel
   --restricted-workspace     With print mode, --goal, --serve, daemon start or session start:
                              start without the project's settings, hooks, plugins, skills and
                              MCP servers
@@ -94,7 +99,8 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
                              keeps the daemon running; exits 0 after detaching, 1 otherwise
   --http-token-file <path>   With mcp serve, bind authenticated loopback HTTP and write the
                              bearer to a new owner-only absolute-path file
-  --http-port <port>         With mcp serve HTTP, use this port (default: OS-assigned)
+  --http-port <port>         With mcp serve HTTP, use this port (default: OS-assigned); with
+                             --serve, see --serve --http-port
   --http-public-url <https>  With mcp serve, serve remote HTTP as an OAuth resource server at this
                              public URL (endpoint and metadata paths follow it; the proxy in front
                              must forward those paths and preserve Host). Requires --oauth-issuer,

@@ -366,6 +366,31 @@ describe('HTTP Transport Routes', () => {
     return res.text();
   }
 
+  it('POST /submit attributes the turn to the host-assigned driver and surface, never the client', async () => {
+    const session = createEmitterSession('complete', { ok: true });
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { open: true, openReason: 'this case is about attribution, not admission' },
+      attribution: { driverId: 'remote:http', surface: 'remote' },
+    });
+    const res = await app.request('/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: 'hi', driverId: 'owner', surface: 'cli' }),
+    });
+    await res.text();
+    expect(session.submit).toHaveBeenCalledWith('hi', undefined, undefined, {
+      driverId: 'remote:http',
+      surface: 'remote',
+    });
+  });
+
+  it('POST /submit leaves attribution to the session when the host assigns none', async () => {
+    const session = createEmitterSession('complete', { ok: true });
+    await requestSubmit(session);
+    expect(session.submit).toHaveBeenCalledWith('hi');
+  });
+
   it('POST /submit receives the complete event without a trailing thinking(false)', async () => {
     const session = createEmitterSession('complete', { ok: true });
     const body = await requestSubmit(session);
