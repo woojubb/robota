@@ -17,6 +17,11 @@ import { createAgentRoutes } from '@robota-sdk/agent-transport-http';
 import type { IHttpTransportSession } from '@robota-sdk/agent-transport-http';
 
 const LOOPBACK = '127.0.0.1';
+/**
+ * Who an HTTP turn is attributed to: assigned here, never taken from the request, so a client cannot
+ * record its turns as the local operator's or another surface's.
+ */
+const HTTP_TURN_ATTRIBUTION = { driverId: 'remote:http', surface: 'remote' } as const;
 
 export interface IServeHttpHostOptions {
   /** Loopback port; 0 picks one. */
@@ -39,6 +44,7 @@ export async function startServeHttpHost(options: IServeHttpHostOptions): Promis
   const routes = createAgentRoutes({
     sessionFactory: options.session,
     admission: { token: options.token },
+    attribution: HTTP_TURN_ATTRIBUTION,
     ...(options.onStreamFailure !== undefined ? { onStreamFailure: options.onStreamFailure } : {}),
   });
   const server = createServer(getRequestListener(routes.fetch));

@@ -197,6 +197,9 @@ describe('--serve --http-port', () => {
     const stream = await response.text();
     expect(stream, `${stream}\n${serveStderr}`).toContain('event: complete');
     expect(stream).toContain('SERVE_HTTP_OK');
+    // The turn's usage record names the HTTP surface the host assigned, not the session default.
+    expect(stream).toContain('"surface":"remote"');
+    expect(stream).not.toContain('"surface":"cli"');
     expect(providerFailure).toBeUndefined();
 
     const messages = (await (await api('/messages')).json()) as {
