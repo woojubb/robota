@@ -197,6 +197,10 @@ automatically, so use `restart: "no"` (the default) for batch tasks.
 
 ## Server usage
 
+**Requires a CLI release that contains `--serve --http-port`; 3.0.0-beta.87 does not.** Until
+that release, build the server image from a checkout that has it: run `pack-local.sh`, then pass
+`ROBOTA_SOURCE=local` to the compose command below (once released, set `ROBOTA_VERSION` instead).
+
 `robota --serve --http-port 8787` serves the agent HTTP API (see the agent-cli README, "Let other
 apps and services use the agent"). It binds loopback only, so the compose `server` profile pairs
 the runtime with a `robota-proxy` (Caddy) container that shares its network namespace and is the
@@ -206,7 +210,7 @@ only listener reachable from outside it:
 openssl rand -hex 32 > http-token          # the bearer clients present
 ROBOTA_REPO_URL=https://github.com/you/repo.git \
 OPENAI_API_KEY_FILE=./openai-key ROBOTA_HTTP_TOKEN_FILE=./http-token \
-  docker compose --profile server up -d
+ROBOTA_SOURCE=local docker compose --profile server up -d --build
 curl -N -H "Authorization: Bearer $(cat http-token)" -H 'content-type: application/json' \
   -d '{"prompt":"Summarize the README"}' http://127.0.0.1:8080/submit
 ```

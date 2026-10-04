@@ -55,7 +55,15 @@ services:
   #     docker compose --profile server up -d
   robota-server:
     profiles: [server]
-    image: robota:3.0.0-beta.87
+    # `--serve --http-port` needs a CLI release that contains it (after 3.0.0-beta.87). Until then
+    # build with ROBOTA_SOURCE=local from a checkout that has it (see README, "Pre-release
+    # verification build").
+    build:
+      context: .
+      args:
+        ROBOTA_VERSION: ${ROBOTA_VERSION:-3.0.0-beta.87}
+        ROBOTA_SOURCE: ${ROBOTA_SOURCE:-registry}
+    image: robota-server:${ROBOTA_VERSION:-3.0.0-beta.87}
     security_opt:
       - seccomp=./seccomp-bwrap.json
       - apparmor=${ROBOTA_APPARMOR_PROFILE:-robota-userns}
