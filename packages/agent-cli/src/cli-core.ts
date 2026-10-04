@@ -117,6 +117,7 @@ import {
   mcpServeProtocolArgs,
   validateMcpServeInvocation,
 } from './startup/mcp-serve-invocation.js';
+import { resolveServeHttpOptions } from './utils/serve-http-args.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
 import { providerHasOwnCredential } from './handoff/handoff-host-adapter.js';
 import {
@@ -260,6 +261,11 @@ async function runCliCore(
     args,
     productRuntime.config.identity.cliName,
   );
+  const serveHttp = resolveServeHttpOptions(args, productRuntime.environment);
+  // Held by the serve options from here on. Left in the environment, every tool subprocess this
+  // runtime starts would inherit the bearer that admits an HTTP client.
+  delete process.env['PRODUCT_HTTP_TOKEN'];
+  delete process.env[`${productRuntime.config.identity.envPrefix}HTTP_TOKEN`];
 
   if (args.help) {
     process.stdout.write(printHelp(productRuntime));
@@ -1005,6 +1011,7 @@ async function runCliCore(
       transportRegistry,
       bindTransports,
       ...(serveSessionDirectory !== undefined ? { sessionDirectory: serveSessionDirectory } : {}),
+      ...(serveHttp !== undefined ? { http: serveHttp } : {}),
       // GUI-007 + SEC-001: point the served monitor at the live WS port AND carry the resolved auth token in
       // the `ws-url` (`?token=`) — zero-config authentication for the CLI's own localhost-origin monitor.
       getMonitorWsUrl: () => {

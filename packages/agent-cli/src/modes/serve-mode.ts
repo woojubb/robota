@@ -44,6 +44,8 @@ import {
   startRuntimeHost,
 } from '@robota-sdk/agent-framework';
 import type { IServeSessionDirectory } from './serve-session-directory.js';
+import { startServeHttpHost, type IServeHttpHost } from './serve-http-host.js';
+import type { IServeHttpOptions } from '../utils/serve-http-args.js';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type { InteractiveSession, IOrgPolicy, SessionSlot } from '@robota-sdk/agent-framework';
@@ -187,6 +189,8 @@ export interface IServeModeOptions {
    * exiting the way a served runtime with a missing provider used to.
    */
   setupRequired?: boolean;
+  /** Also serve the agent HTTP API on this loopback port, admitted by this bearer. */
+  http?: IServeHttpOptions;
 }
 
 /**
@@ -464,6 +468,28 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       opts.bindTransports?.(slot);
     },
   });
+  // Started before anything waits on the host, so a port that cannot be served fails the start
+  // instead of leaving a runtime its HTTP clients cannot reach.
+  let httpEndpoint: IServeHttpHost | undefined;
+  if (opts.http !== undefined) {
+    try {
+      httpEndpoint = await startServeHttpHost({
+        port: opts.http.port,
+        token: opts.http.token,
+        session: () => host.session.current,
+        onStreamFailure: (error) => {
+          process.stderr.write(`HTTP API stream failed: ${error.message}\n`);
+        },
+      });
+    } catch (error) {
+      await host.shutdown('HTTP API could not be served').catch(() => undefined);
+      await pool?.shutdownAll('HTTP API could not be served');
+      throw new Error(
+        `HTTP API could not be served on 127.0.0.1:${opts.http.port}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    process.stderr.write(`HTTP API served at ${httpEndpoint.url}\n`);
+  }
   /** Every session this runtime keeps live, the primary first. */
   const liveSessions = (): InteractiveSession[] => {
     const primary = host.session.current;
@@ -502,6 +528,8 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       readinessAbort.abort();
       void Promise.resolve(monitorUi?.close())
         .catch(() => {})
+        .then(() => httpEndpoint?.stop())
+        .catch(() => undefined)
         .then(() => eventEndpoint?.stop())
         .catch(() => undefined)
         .then(() => externalEvents?.close())
