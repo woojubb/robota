@@ -2,7 +2,7 @@
 
 In this document, the development harness means the tools, guidance and workflow we use with coding agents to develop this repository. Its scope is our engineering environment and process. The harness inside the agent program delivered to consumers belongs to product design and is outside this document's scope, including when the product itself is used as a development tool.
 
-This document explains the development harness's direction and rationale. It is consulted when changing that workflow's design, guidance policy, orchestration or evaluation approach. [AGENTS.md](AGENTS.md) remains the instruction entrypoint and directs every development task to read [VISION.md](VISION.md). Its guiding question anchors direction and change assessment, including harness decisions: does this work help our agents carry their own development forward more capably and reliably? This reference grants no additional authority.
+This document explains the development harness's direction and rationale. It is consulted when changing that workflow's design, guidance policy, orchestration or evaluation approach. [AGENTS.md](AGENTS.md) remains the instruction entrypoint; [VISION.md](VISION.md)'s guiding question anchors harness decisions as well. This reference grants no additional authority.
 
 ## What improvement means
 
