@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Robota — a TypeScript agent monorepo. Read [VISION.md](VISION.md) at the start of every development task; use its guiding question when choosing direction or assessing changes.
-Architecture: [ARCHITECTURE.md](ARCHITECTURE.md). `*/docs/SPEC.md` holds only what the code cannot tell: Purpose,
+Architecture: [ARCHITECTURE.md](ARCHITECTURE.md). `**/docs/SPEC.md` holds only what the code cannot tell: Purpose,
 Contract (the intent of its guarantees), Invariants, Non-goals, Design decisions with reasons. Most changes leave it
 untouched. Never write what code or tests show (listings, inventories, orders, limits, steps), issue numbers, stages
 or dates; when the contract changes, rewrite the existing sentence instead of appending a paragraph.

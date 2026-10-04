@@ -151,7 +151,7 @@ the System Overview diagram above. Current checks are defined in `AGENTS.md` and
   whole catalog, e.g. the default DAG node set or the default tool set) belongs at an application
   entry point or explicit composition root; mid-layer libraries use an injected port or a safe lazy
   import. The former `GUARDED_AGGREGATORS` scan table no longer exists.
-- `PACKAGE-NAME` — the canonical architecture documents (plus every `packages/*/docs/SPEC.md`)
+- `PACKAGE-NAME` — the canonical architecture documents (plus every `packages/**/docs/SPEC.md`)
   reference only real workspace package names; a scoped name that resolves to no package is drift
   unless its line is marked "planned".
 - `RE-EXPORT` — no package barrel re-exports another workspace package wholesale
@@ -169,5 +169,5 @@ the System Overview diagram above. Current checks are defined in `AGENTS.md` and
 | Package dependency graph     | [`diagrams/robota-architecture.mmd`](diagrams/robota-architecture.mmd) |
 | Architecture guide (users)   | [`content/guide/architecture.md`](content/guide/architecture.md)       |
 | Skills and workflows         | [`.agents/skills/`](.agents/skills/)                                   |
-| Package contracts            | `packages/*/docs/SPEC.md`                                              |
+| Package contracts            | `packages/**/docs/SPEC.md`                                             |
 | App specifications           | `apps/*/docs/SPEC.md`                                                  |
