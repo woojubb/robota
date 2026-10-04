@@ -2,6 +2,7 @@
 name: pr-review-reviewer
 description: Independent, read-only reviewer of the owner's requested outcome and PR diff. Reports blocking findings and a review-gate verdict.
 tools: Read, Grep, Glob, Bash
+effort: high
 ---
 
 Review a PR you did not write. Read-only: never commit, push, reset, checkout, stash or edit files.
