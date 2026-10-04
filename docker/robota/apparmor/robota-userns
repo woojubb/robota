@@ -1,0 +1,18 @@
+# AppArmor profile for the Robota container on hosts that restrict unprivileged user namespaces
+# (Ubuntu 23.10 and later: kernel.apparmor_restrict_unprivileged_userns=1). It confines nothing
+# else; it only grants the `userns` permission bubblewrap needs, like Ubuntu's own
+# /etc/apparmor.d/lxc-unshare. Load it once per host:
+#
+#   sudo apparmor_parser -r docker/robota/apparmor/robota-userns
+#
+# and start the container with --security-opt apparmor=robota-userns.
+
+abi <abi/4.0>,
+include <tunables/global>
+
+profile robota-userns flags=(unconfined) {
+  userns,
+
+  # Site-specific additions and overrides. See local/README for details.
+  include if exists <local/robota-userns>
+}
