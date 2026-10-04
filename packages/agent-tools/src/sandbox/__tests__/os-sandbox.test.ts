@@ -246,6 +246,24 @@ describe('detectOsSandbox', () => {
       'seatbelt',
     );
   });
+
+  it('probes bubblewrap with the /proc mount every confined command needs', () => {
+    // Where /proc cannot be mounted (a container that masks it), a weaker probe would report the
+    // sandbox available and every confined command would then fail instead of refusing at start.
+    const calls: (readonly string[])[] = [];
+    detectOsSandbox({
+      platform: 'linux',
+      arch: 'x64',
+      probe: (_command, args) => {
+        calls.push(args);
+        return { ok: true };
+      },
+    });
+    expect(calls).toHaveLength(1);
+    const args = calls[0]!.join(' ');
+    expect(args).toContain('--proc /proc');
+    expect(args).toContain('--unshare-pid');
+  });
 });
 
 const bubblewrap = detectOsSandbox();

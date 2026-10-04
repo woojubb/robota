@@ -1,0 +1,53 @@
+# Reference deployment of the Robota agent image. See README.md for host requirements, the provider
+# setup run, trust and workspace guidance.
+#
+#   OPENAI_API_KEY_FILE=/path/to/key docker compose run --rm robota --configure-provider ...
+#   ROBOTA_REPO_URL=https://… ROBOTA_TASK='…' OPENAI_API_KEY_FILE=/path/to/key docker compose run --rm robota
+
+services:
+  # Batch: one container per task. It clones the repository, states trust for that clone, runs the
+  # task to completion and exits with the run's status.
+  robota:
+    build:
+      context: .
+      args:
+        ROBOTA_VERSION: 3.0.0-beta.87
+    image: robota:3.0.0-beta.87
+    security_opt:
+      # Lets bubblewrap create its namespaces and mounts; everything else stays at Docker's default.
+      - seccomp=./seccomp-bwrap.json
+      # Hosts that restrict unprivileged user namespaces need the `userns` permission
+      # (apparmor/robota-userns); a host without AppArmor sets ROBOTA_APPARMOR_PROFILE=unconfined.
+      - apparmor=${ROBOTA_APPARMOR_PROFILE:-robota-userns}
+      # Lets bubblewrap mount a fresh /proc for the commands it confines.
+      - systempaths=unconfined
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - robota-state:/home/node/.robota
+    secrets:
+      # Exported to the agent as OPENAI_API_KEY by the entrypoint; settings refer to it as
+      # `$ENV:OPENAI_API_KEY`. It never appears in the container's configuration.
+      - source: openai_api_key
+        target: OPENAI_API_KEY
+    environment:
+      ROBOTA_REPO_URL: ${ROBOTA_REPO_URL:-}
+      ROBOTA_TASK: ${ROBOTA_TASK:-}
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        : "$${ROBOTA_REPO_URL:?set ROBOTA_REPO_URL}" "$${ROBOTA_TASK:?set ROBOTA_TASK}"
+        git clone --depth 1 "$$ROBOTA_REPO_URL" /workspace/repo
+        cd /workspace/repo
+        robota trust --yes
+        exec robota -p "$$ROBOTA_TASK" --output-format json
+
+volumes:
+  robota-state:
+
+secrets:
+  openai_api_key:
+    file: ${OPENAI_API_KEY_FILE:?set OPENAI_API_KEY_FILE to a file holding the provider key}
