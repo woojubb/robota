@@ -8,6 +8,7 @@ services:
   # Batch: one container per task. It clones the repository, states trust for that clone, runs the
   # task to completion and exits with the run's status.
   robota:
+    profiles: [batch]
     build:
       context: .
       args:
@@ -45,9 +46,69 @@ services:
         robota trust --yes
         exec robota -p "$$ROBOTA_TASK" --output-format json
 
+  # Server: a long-running runtime that other apps and services reach over the agent HTTP API
+  # (`--serve --http-port`). The API binds loopback only, so `robota-proxy` shares this
+  # container's network namespace and is the only listener other containers can reach; put TLS
+  # there for anything beyond a private network.
+  #
+  #   ROBOTA_REPO_URL=https://… OPENAI_API_KEY_FILE=… ROBOTA_HTTP_TOKEN_FILE=… \
+  #     docker compose --profile server up -d
+  robota-server:
+    profiles: [server]
+    image: robota:3.0.0-beta.87
+    security_opt:
+      - seccomp=./seccomp-bwrap.json
+      - apparmor=${ROBOTA_APPARMOR_PROFILE:-robota-userns}
+      - systempaths=unconfined
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - robota-server-state:/home/node/.robota
+    secrets:
+      - source: openai_api_key
+        target: OPENAI_API_KEY
+      # Exported as PRODUCT_HTTP_TOKEN: the bearer every HTTP client presents (at least 32 characters).
+      - source: robota_http_token
+        target: PRODUCT_HTTP_TOKEN
+    environment:
+      ROBOTA_REPO_URL: ${ROBOTA_REPO_URL:-}
+    ports:
+      # Published here because the proxy uses this service's network namespace.
+      - '${ROBOTA_HTTP_PUBLISH:-127.0.0.1:8080}:8080'
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        : "$${ROBOTA_REPO_URL:?set ROBOTA_REPO_URL}"
+        [ -d /workspace/repo/.git ] || git clone --depth 1 "$$ROBOTA_REPO_URL" /workspace/repo
+        cd /workspace/repo
+        robota trust --yes
+        exec robota --serve --http-port 8787
+    restart: unless-stopped
+
+  robota-proxy:
+    profiles: [server]
+    image: caddy:2
+    network_mode: service:robota-server
+    command: ['caddy', 'reverse-proxy', '--from', ':8080', '--to', '127.0.0.1:8787']
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - robota-server
+    restart: unless-stopped
+
 volumes:
   robota-state:
+  robota-server-state:
 
 secrets:
   openai_api_key:
     file: ${OPENAI_API_KEY_FILE:?set OPENAI_API_KEY_FILE to a file holding the provider key}
+  robota_http_token:
+    file: ${ROBOTA_HTTP_TOKEN_FILE:-/dev/null}

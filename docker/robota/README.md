@@ -195,6 +195,32 @@ ROBOTA_REPO_URL=https://example.com/org/repo.git ROBOTA_TASK='Fix the failing te
 A container restart starts the task again from the beginning: an interrupted run is not resumed
 automatically, so use `restart: "no"` (the default) for batch tasks.
 
+## Server usage
+
+`robota --serve --http-port 8787` serves the agent HTTP API (see the agent-cli README, "Let other
+apps and services use the agent"). It binds loopback only, so the compose `server` profile pairs
+the runtime with a `robota-proxy` (Caddy) container that shares its network namespace and is the
+only listener reachable from outside it:
+
+```bash
+openssl rand -hex 32 > http-token          # the bearer clients present
+ROBOTA_REPO_URL=https://github.com/you/repo.git \
+OPENAI_API_KEY_FILE=./openai-key ROBOTA_HTTP_TOKEN_FILE=./http-token \
+  docker compose --profile server up -d
+curl -N -H "Authorization: Bearer $(cat http-token)" -H 'content-type: application/json' \
+  -d '{"prompt":"Summarize the README"}' http://127.0.0.1:8080/submit
+```
+
+- The token reaches the runtime as the Docker secret `PRODUCT_HTTP_TOKEN` and is removed from its
+  environment before any command runs.
+- Configure the provider once with the batch service's `--configure-provider` run against the
+  `robota-server-state` volume, or provide settings in that volume.
+- `ROBOTA_HTTP_PUBLISH` (default `127.0.0.1:8080`) controls where the proxy is published; terminate
+  TLS in the proxy before exposing it beyond a private network.
+- No one answers permission prompts over HTTP: a question no client answers is denied, so choose
+  the permission mode and rules the server runs under in its settings.
+- A container restart ends running turns; clients retry.
+
 ## Smoke test
 
 `smoke/smoke.sh <image> [apparmor-profile]` runs the image against `smoke/provider-fixture.mjs`, a
