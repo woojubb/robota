@@ -306,7 +306,9 @@ daemon; it is not published to npm. See [The GUI and the Desktop App](../../cont
 `__PRODUCT_CLI_NAME__ --serve --http-port <port>` also serves the agent over HTTP on `127.0.0.1:<port>`, so another
 application or service can use it without a Robota client library. Every request presents the
 bearer you choose in `PRODUCT_HTTP_TOKEN` (at least 32 characters); the runtime removes it from its
-environment, so the commands it runs never see it. Reach the API from elsewhere through your own
+environment, so the commands it runs do not inherit it. A command running as the same OS user can
+still read the server's launch environment unless the OS sandbox confines it (or the server runs
+as a separate user), so enable the sandbox on a server. Reach the API from elsewhere through your own
 reverse proxy or tunnel: it binds loopback only.
 
 ```bash

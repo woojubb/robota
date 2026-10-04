@@ -24,7 +24,7 @@ const LOOPBACK = '127.0.0.1';
 const HTTP_TURN_ATTRIBUTION = { driverId: 'remote:http', surface: 'remote' } as const;
 
 export interface IServeHttpHostOptions {
-  /** Loopback port; 0 picks one. */
+  /** Loopback port. */
   readonly port: number;
   /** The bearer every request presents. */
   readonly token: string;

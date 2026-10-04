@@ -483,7 +483,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       });
     } catch (error) {
       await host.shutdown('HTTP API could not be served').catch(() => undefined);
-      await pool?.shutdownAll('HTTP API could not be served');
+      await pool?.shutdownAll('HTTP API could not be served')?.catch(() => undefined);
       throw new Error(
         `HTTP API could not be served on 127.0.0.1:${opts.http.port}: ${error instanceof Error ? error.message : String(error)}`,
       );

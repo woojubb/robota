@@ -162,6 +162,7 @@ describe('the actual CLI passes its captured request to the hosted execution own
     [['mcp', 'serve', '-p', 'task'], 'Usage:'],
     [['mcp', 'serve', '-p'], 'cannot be combined'],
     [['mcp', 'serve', '--http-port=8443'], 'only valid for mcp serve HTTP mode'],
+    [['--serve', '--http-port=8443'], 'not served by a task worker'],
   ])(
     'refuses invalid MCP invocation %j before either backend or execution',
     async (argv, message) => {
