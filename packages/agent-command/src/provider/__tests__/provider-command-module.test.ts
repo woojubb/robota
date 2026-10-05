@@ -804,4 +804,51 @@ describe('createProviderCommandModule', () => {
       expect(result?.message).toBe('Provider profile "ghost" was not found.');
     });
   });
+
+  // #3459: a host that withholds its own credentials from `process.env` checks `$ENV:` credentials
+  // against the snapshot it took first, which it hands the command as `env`.
+  describe('credentials the host withheld from process.env', () => {
+    const settings: TProviderSettingsDocument = {
+      currentProvider: 'openai',
+      providers: {
+        openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+        anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+      },
+    };
+    const snapshot = { ANTHROPIC_API_KEY: 'snapshot-key' };
+
+    function withoutLiveKey<T>(run: () => Promise<T>): Promise<T> {
+      const live = process.env['ANTHROPIC_API_KEY'];
+      delete process.env['ANTHROPIC_API_KEY'];
+      return run().finally(() => {
+        if (live !== undefined) process.env['ANTHROPIC_API_KEY'] = live;
+      });
+    }
+
+    function executorWithSnapshot(adapter: IProviderCommandSettingsAdapter): SystemCommandExecutor {
+      const module = createProviderCommandModule({ providerDefinitions, settings: adapter, env: snapshot });
+      return new SystemCommandExecutor([...(module.systemCommands ?? [])]);
+    }
+
+    it('switches to a profile whose key is only in the snapshot', async () => {
+      const { adapter, readTarget } = createSettingsAdapter(settings);
+      const result = await withoutLiveKey(() =>
+        executorWithSnapshot(adapter).execute('provider', headlessContext, 'switch anthropic'),
+      );
+
+      expect(result?.success).toBe(true);
+      expect(readTarget().currentProvider).toBe('anthropic');
+    });
+
+    it('tests a profile whose key is only in the snapshot', async () => {
+      const { adapter } = createSettingsAdapter(settings);
+      const result = await withoutLiveKey(() =>
+        executorWithSnapshot(adapter).execute('provider', headlessContext, 'test anthropic'),
+      );
+
+      expect(result?.message).toBe(
+        'Provider "anthropic" test passed: Profile fields are valid; no endpoint probe configured.',
+      );
+    });
+  });
 });

@@ -74,6 +74,11 @@ export interface IDefaultCommandModulesOptions {
    * red when the producer dropped it.
    */
   orgPolicy?: IOrgPolicy;
+  /**
+   * Where `/provider` and `/model` check a `$ENV:` or default credential variable: the host's startup
+   * snapshot when it withholds its own credentials from `process.env`. Absent, `process.env` is read.
+   */
+  providerEnvironment?: Readonly<Record<string, string | undefined>>;
   /** Optional TUI-owned file capability; absent, `/keybindings` says it belongs to an interactive terminal. */
   keybindingsFilePort?: IKeybindingsFilePort;
   /**
@@ -152,6 +157,7 @@ export function createDefaultCommandModules({
   loopOptions,
   enabledCommandModules,
   disabledCommandModules,
+  providerEnvironment,
 }: IDefaultCommandModulesOptions): IDefaultCommandModulesResult {
   const modules: readonly ICommandModule[] = [
     createSkillsCommandModule({ contributionSources: contributionSources ?? [], skillRoots }),
@@ -204,6 +210,7 @@ export function createDefaultCommandModules({
       providerDefinitions,
       settings: providerSettingsAdapter,
       ...(orgPolicy === undefined ? {} : { orgPolicy }),
+      ...(providerEnvironment === undefined ? {} : { env: providerEnvironment }),
     }),
     // #3282 §2: shares the provider command's settings adapter and definitions — one settings write
     // owner, never a second copy that could drift from what `/provider switch` reads and writes.
@@ -211,6 +218,7 @@ export function createDefaultCommandModules({
       providerDefinitions,
       settings: providerSettingsAdapter,
       ...(orgPolicy === undefined ? {} : { orgPolicy }),
+      ...(providerEnvironment === undefined ? {} : { env: providerEnvironment }),
     }),
   ];
   const builtModuleNames = modules.map((module) => module.name);

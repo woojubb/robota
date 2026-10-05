@@ -237,4 +237,29 @@ describe('/model', () => {
     expect(result).toEqual({ message: 'Model selection cancelled.', success: true });
     expect(writeTargetSettings).not.toHaveBeenCalled();
   });
+
+  // #3459: the host withholds its own credentials from `process.env`; the profile's `$ENV:` key is
+  // checked against the snapshot it hands the command instead.
+  it('switches to a profile whose key is only in the host snapshot', async () => {
+    const writeTargetSettings = vi.fn();
+    const host = createTestCommandHost({ session: { getModelId: () => 'claude-sonnet-4-6' } });
+    const keyed = DEFINITIONS.map((definition) =>
+      definition.type === 'openai' ? { ...definition, requiresApiKey: true } : definition,
+    );
+    const options = {
+      ...buildOptions({ writeTargetSettings }),
+      providerDefinitions: keyed,
+      env: { OPENAI_API_KEY: 'snapshot-key' },
+    };
+    const live = process.env['OPENAI_API_KEY'];
+    delete process.env['OPENAI_API_KEY'];
+    try {
+      const result = await executeModelCommand(host, 'gpt-5.1', options);
+
+      expect(result.success).toBe(true);
+      expect(result.hostActions).toEqual([{ type: 'provider-hot-swap', profileName: 'my-openai' }]);
+    } finally {
+      if (live !== undefined) process.env['OPENAI_API_KEY'] = live;
+    }
+  });
 });

@@ -23,6 +23,7 @@ export async function testProviderProfileCommand(
   try {
     validateProviderProfile(profileName, profile, {
       providerDefinitions: options.providerDefinitions,
+      ...(options.env === undefined ? {} : { env: options.env }),
     });
   } catch (error) {
     return { message: error instanceof Error ? error.message : String(error), success: false };

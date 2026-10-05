@@ -58,7 +58,10 @@ export function buildProviderSwitch(
   // previous behavior wrote `currentProvider` unconditionally and let a downstream hot-swap failure
   // (e.g. "Unknown provider: anthropic. Currently supported: ", an empty list) stand uncorrected.
   try {
-    validateProviderProfile(profileName, profile, { providerDefinitions: options.providerDefinitions });
+    validateProviderProfile(profileName, profile, {
+      providerDefinitions: options.providerDefinitions,
+      ...(options.env === undefined ? {} : { env: options.env }),
+    });
   } catch (error) {
     return {
       message: `Failed to switch to "${profileName}": ${error instanceof Error ? error.message : String(error)}`,
@@ -146,6 +149,7 @@ function completeProviderEdit(
   const target = options.settings.readTargetSettings();
   const patch = buildProviderSetupPatch(input, {
     providerDefinitions: options.providerDefinitions,
+    ...(options.env === undefined ? {} : { env: options.env }),
   });
   const updatedProfile = patch.providers[profileName];
   if (!updatedProfile) {
