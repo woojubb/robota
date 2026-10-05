@@ -308,11 +308,20 @@ application or service can use it without a Robota client library. Every request
 bearer you choose in `PRODUCT_HTTP_TOKEN` (at least 32 characters); the runtime removes it from its
 environment, so the commands it runs do not inherit it. A command running as the same OS user can
 still read the server's launch environment unless the OS sandbox confines it (or the server runs
-as a separate user), so enable the sandbox on a server. Reach the API from elsewhere through your own
-reverse proxy or tunnel: it binds loopback only.
+as a separate user), so enable the sandbox on a server. With the bearer it binds loopback only.
+
+To reach it from elsewhere, either put your own reverse proxy or tunnel in front, or serve it as an
+OAuth resource server, the same way `robota mcp serve` does: give `--http-public-url`, `--oauth-issuer`,
+`--oauth-scopes` and `--oauth-allowed-subjects` (optionally `--http-host <ip>` and `--trusted-proxy`)
+and no `PRODUCT_HTTP_TOKEN`. Clients then present access tokens from that issuer whose audience is the
+public URL, which carry the scopes and name an allowed subject. The routes below are served under the
+public URL's path, and its RFC 9728 metadata at `/.well-known/oauth-protected-resource<path>`.
 
 ```bash
 PRODUCT_HTTP_TOKEN="$(openssl rand -hex 32)" robota --serve --http-port 8787
+robota --serve --http-port 8787 --http-host 0.0.0.0 \
+  --http-public-url https://agents.example.com/agent --oauth-issuer https://auth.example.com \
+  --oauth-scopes agent.run --oauth-allowed-subjects client-a
 ```
 
 | Request | Does |

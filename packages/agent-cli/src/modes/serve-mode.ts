@@ -52,9 +52,17 @@ import type { InteractiveSession, IOrgPolicy, SessionSlot } from '@robota-sdk/ag
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
-import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from '../startup/loop-options.js';
+import {
+  areSessionLoopsDisabled,
+  createLoopDefaultPromptResolver,
+} from '../startup/loop-options.js';
 import { realpathSync } from 'node:fs';
-import type { IAgentConfig, IAIProvider, IProviderDefinition, IToolWithEventService } from '@robota-sdk/agent-core';
+import type {
+  IAgentConfig,
+  IAIProvider,
+  IProviderDefinition,
+  IToolWithEventService,
+} from '@robota-sdk/agent-core';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type {
   EditCheckpointStore,
@@ -265,7 +273,11 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : opts.sessionStore,
     disableSessionLoops: areSessionLoopsDisabled(opts.productRuntime.environment),
-    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({ productRuntime: opts.productRuntime, projectAccess: opts.projectAccess, userHome: opts.productRuntime.userHome ?? opts.productRuntime.layout.userRoot }),
+    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({
+      productRuntime: opts.productRuntime,
+      projectAccess: opts.projectAccess,
+      userHome: opts.productRuntime.userHome ?? opts.productRuntime.layout.userRoot,
+    }),
     resumeSessionId: opts.resumeSessionId,
     forkSession: args.forkSession,
     sessionName: args.sessionName,
@@ -278,9 +290,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(opts.agentDefinitionRoots !== undefined
       ? { agentDefinitionRoots: opts.agentDefinitionRoots }
       : {}),
-    ...(opts.pluginDirectories !== undefined
-      ? { pluginDirectories: opts.pluginDirectories }
-      : {}),
+    ...(opts.pluginDirectories !== undefined ? { pluginDirectories: opts.pluginDirectories } : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
     ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
     ...(opts.toolExecutionPolicy !== undefined
@@ -357,16 +367,25 @@ export function poolActivity(
   return statuses.length > 0 ? 'idle' : undefined;
 }
 
-export function nextWaitingLoopAt(loops: readonly ISessionLoopState[], nowMs: number): string | undefined {
+export function nextWaitingLoopAt(
+  loops: readonly ISessionLoopState[],
+  nowMs: number,
+): string | undefined {
   let earliest: { at: string; millis: number } | undefined;
   for (const loop of loops) {
     if (loop.phase !== 'waiting' || loop.nextAllowedAt === undefined) continue;
     const millis = Date.parse(loop.nextAllowedAt);
     const expiry = Date.parse(loop.expiresAt);
-    if (!Number.isFinite(millis) || !Number.isFinite(expiry) ||
+    if (
+      !Number.isFinite(millis) ||
+      !Number.isFinite(expiry) ||
       new Date(millis).toISOString() !== loop.nextAllowedAt ||
-      expiry <= nowMs || millis >= expiry) continue;
-    if (earliest === undefined || millis < earliest.millis) earliest = { at: loop.nextAllowedAt, millis };
+      expiry <= nowMs ||
+      millis >= expiry
+    )
+      continue;
+    if (earliest === undefined || millis < earliest.millis)
+      earliest = { at: loop.nextAllowedAt, millis };
   }
   return earliest?.at;
 }
@@ -378,25 +397,30 @@ export function nextWaitingLoopAt(loops: readonly ISessionLoopState[], nowMs: nu
  * restart only after saving its change (a language, a provider profile, a settings reset), so the
  * next start applies it.
  */
-function daemonCommandProcess(productRuntime: ICliRuntimeContext): ICommandProcessAdapter { return {
-  requestExit: () => {
-    throw new Error(
-      'A command does not stop the workspace daemon, which serves every client attached to it. ' +
-        `Detach this client to leave. To stop the daemon, run ${productRuntime.config.identity.cliName} daemon stop; anything this ` +
-        `command changed applies when you next run ${productRuntime.config.identity.cliName} daemon start.`,
-    );
-  },
-  requestRestart: () => {
-    throw new Error(
-      'A command does not restart the workspace daemon, which serves every client attached to it. ' +
-        `The change is saved and applies once you restart the daemon: run ${productRuntime.config.identity.cliName} daemon stop, ` +
-        `then ${productRuntime.config.identity.cliName} daemon start.`,
-    );
-  },
-}; }
+function daemonCommandProcess(productRuntime: ICliRuntimeContext): ICommandProcessAdapter {
+  return {
+    requestExit: () => {
+      throw new Error(
+        'A command does not stop the workspace daemon, which serves every client attached to it. ' +
+          `Detach this client to leave. To stop the daemon, run ${productRuntime.config.identity.cliName} daemon stop; anything this ` +
+          `command changed applies when you next run ${productRuntime.config.identity.cliName} daemon start.`,
+      );
+    },
+    requestRestart: () => {
+      throw new Error(
+        'A command does not restart the workspace daemon, which serves every client attached to it. ' +
+          `The change is saved and applies once you restart the daemon: run ${productRuntime.config.identity.cliName} daemon stop, ` +
+          `then ${productRuntime.config.identity.cliName} daemon start.`,
+      );
+    },
+  };
+}
 
 /** The same refusal for a supervised session that is not a daemon, naming the commands that stop and start one. */
-function supervisedSessionCommandProcess(id: string, productRuntime: ICliRuntimeContext): ICommandProcessAdapter {
+function supervisedSessionCommandProcess(
+  id: string,
+  productRuntime: ICliRuntimeContext,
+): ICommandProcessAdapter {
   return {
     requestExit: () => {
       throw new Error(
@@ -433,282 +457,302 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   };
   if (args.supervisedSessionId !== undefined) process.stderr.on('error', onStderrError);
   try {
-  const sessionOptions = buildServeSessionOptions(opts);
+    const sessionOptions = buildServeSessionOptions(opts);
 
-  // Declared before the host starts: the directory is attached in `bindTransports`, ahead of the
-  // first connection, and asks this whether the runtime is stopping.
-  let settling = false;
-  let externalEvents: ITuiExternalEventGrants | undefined;
-  let pool: SessionPool<InteractiveSession> | undefined;
-  const sessionDirectory = opts.sessionDirectory;
-  const host = await startRuntimeHost({
-    session: sessionOptions,
-    transportRegistry: opts.transportRegistry,
-    bindTransports: (slot) => {
-      if (sessionDirectory !== undefined && sessionOptions.sessionStore !== undefined) {
-        // The host's session is the pool's primary: every client starts on it, and what belongs to
-        // the run — external-event grants, the supervised name — stays on it whichever session a
-        // client moves to.
-        const primary = slot.current;
-        const live = new SessionPool<InteractiveSession>({
-          primary,
-          build: (resumeSessionId) =>
-            buildRuntimeSession(buildPooledSessionOptions(sessionOptions, opts, resumeSessionId)),
-          maxLive: SESSION_POOL_MAX_LIVE,
+    // Declared before the host starts: the directory is attached in `bindTransports`, ahead of the
+    // first connection, and asks this whether the runtime is stopping.
+    let settling = false;
+    let externalEvents: ITuiExternalEventGrants | undefined;
+    let pool: SessionPool<InteractiveSession> | undefined;
+    const sessionDirectory = opts.sessionDirectory;
+    const host = await startRuntimeHost({
+      session: sessionOptions,
+      transportRegistry: opts.transportRegistry,
+      bindTransports: (slot) => {
+        if (sessionDirectory !== undefined && sessionOptions.sessionStore !== undefined) {
+          // The host's session is the pool's primary: every client starts on it, and what belongs to
+          // the run — external-event grants, the supervised name — stays on it whichever session a
+          // client moves to.
+          const primary = slot.current;
+          const live = new SessionPool<InteractiveSession>({
+            primary,
+            build: (resumeSessionId) =>
+              buildRuntimeSession(buildPooledSessionOptions(sessionOptions, opts, resumeSessionId)),
+            maxLive: SESSION_POOL_MAX_LIVE,
+          });
+          pool = live;
+          sessionDirectory.attach({
+            pool: live,
+            primary,
+            store: sessionOptions.sessionStore,
+            cwd: opts.cwd,
+            isStopping: () => settling,
+          });
+        }
+        opts.bindTransports?.(slot);
+      },
+    });
+    // Started before anything waits on the host, so a port that cannot be served fails the start
+    // instead of leaving a runtime its HTTP clients cannot reach.
+    let httpEndpoint: IServeHttpHost | undefined;
+    if (opts.http !== undefined) {
+      try {
+        httpEndpoint = await startServeHttpHost({
+          port: opts.http.port,
+          ...(opts.http.remote !== undefined
+            ? { remote: opts.http.remote }
+            : { token: opts.http.token }),
+          session: () => host.session.current,
+          onStreamFailure: (error) => {
+            process.stderr.write(`HTTP API stream failed: ${error.message}\n`);
+          },
+          onRefusal: (record) => {
+            process.stderr.write(
+              `HTTP API refused: ${record.refusal} (${record.remote}${record.throttled ? ', throttled' : ''})\n`,
+            );
+          },
         });
-        pool = live;
-        sessionDirectory.attach({
-          pool: live,
-          primary,
-          store: sessionOptions.sessionStore,
-          cwd: opts.cwd,
-          isStopping: () => settling,
-        });
+      } catch (error) {
+        await host.shutdown('HTTP API could not be served').catch(() => undefined);
+        await pool?.shutdownAll('HTTP API could not be served')?.catch(() => undefined);
+        throw new Error(
+          `HTTP API could not be served on ${opts.http.remote?.host ?? '127.0.0.1'}:${opts.http.port}: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
-      opts.bindTransports?.(slot);
-    },
-  });
-  // Started before anything waits on the host, so a port that cannot be served fails the start
-  // instead of leaving a runtime its HTTP clients cannot reach.
-  let httpEndpoint: IServeHttpHost | undefined;
-  if (opts.http !== undefined) {
-    try {
-      httpEndpoint = await startServeHttpHost({
-        port: opts.http.port,
-        token: opts.http.token,
-        session: () => host.session.current,
-        onStreamFailure: (error) => {
-          process.stderr.write(`HTTP API stream failed: ${error.message}\n`);
-        },
-      });
-    } catch (error) {
-      await host.shutdown('HTTP API could not be served').catch(() => undefined);
-      await pool?.shutdownAll('HTTP API could not be served')?.catch(() => undefined);
-      throw new Error(
-        `HTTP API could not be served on 127.0.0.1:${opts.http.port}: ${error instanceof Error ? error.message : String(error)}`,
+      process.stderr.write(
+        opts.http.remote !== undefined
+          ? `HTTP API listening on ${httpEndpoint.listening} for ${httpEndpoint.url}; authorization server: ${opts.http.remote.issuer}\n`
+          : `HTTP API served at ${httpEndpoint.url}\n`,
       );
     }
-    process.stderr.write(`HTTP API served at ${httpEndpoint.url}\n`);
-  }
-  /** Every session this runtime keeps live, the primary first. */
-  const liveSessions = (): InteractiveSession[] => {
-    const primary = host.session.current;
-    const others = (pool?.listLive() ?? [])
-      .map((entry) => entry.session)
-      .filter((session) => session !== primary);
-    return [primary, ...others];
-  };
-
-  // GUI-007: with `--serve --open`, the CLI serves its OWN monitor SPA over localhost HTTP (a localhost-origin
-  // surface) and opens it — gated on `--open` so the GUI sidecar's plain `--serve` path is unaffected. The WS
-  // URL is resolved AFTER the host started (the bound port is only known then).
-  let monitorUi: IMonitorUiServer | null = null;
-  if (args.open) {
-    const wsUrl = opts.getMonitorWsUrl?.();
-    const webRoot = resolveWebRoot();
-    if (wsUrl && webRoot) {
-      monitorUi = await startMonitorUiServer(webRoot, wsUrl, opts.productRuntime);
-      process.stdout.write(servedAtMessage(monitorUi.url, opts.productRuntime));
-      openInBrowser(monitorUi.url);
-    } else if (!webRoot) {
-      process.stderr.write(`${opts.productRuntime.config.identity.displayName} web assets not found (dist/web) — run a full CLI build.\n`);
-    }
-  }
-
-  // Stay alive until the supervisor (e.g. apps/agent-app on window close) signals — or a
-  // host-executed session-exit/-restart action fires (CMD-004 Phase 2) — then tear down cleanly.
-  let supervisedControl: ISupervisedControl | undefined;
-  let eventEndpoint: IExternalEventHttpHost | undefined;
-  let requestSettle: (reason: string) => void = () => undefined;
-  const readinessAbort = new AbortController();
-  const lifetime = new Promise<void>((resolve) => {
-    const settle = (reason: string): void => {
-      if (settling) return;
-      settling = true;
-      readinessAbort.abort();
-      void Promise.resolve(monitorUi?.close())
-        .catch(() => {})
-        .then(() => httpEndpoint?.stop())
-        .catch(() => undefined)
-        .then(() => eventEndpoint?.stop())
-        .catch(() => undefined)
-        .then(() => externalEvents?.close())
-        .then(() => host.shutdown(reason))
-        .catch(() => undefined)
-        // The host shuts its own session down; every other live session goes with it.
-        .then(() => pool?.shutdownAll(reason))
-        .catch(() => undefined)
-        .then(() => supervisedControl?.close())
-        .finally(() => resolve());
+    /** Every session this runtime keeps live, the primary first. */
+    const liveSessions = (): InteractiveSession[] => {
+      const primary = host.session.current;
+      const others = (pool?.listLive() ?? [])
+        .map((entry) => entry.session)
+        .filter((session) => session !== primary);
+      return [primary, ...others];
     };
-    requestSettle = settle;
-    settleFromSignal = settle;
-    // A nonzero runner result is a normal typed outcome, not an exception. The failure wait resolves
-    // immediately for the first such record and does not wait for an unrelated runner that remains
-    // alive. No runners/all-success/stop abandonment resolve `undefined` and leave serve mode alive.
-    void settleOnServeTransportFailure(
-      host,
-      {
-        setExitCode: (code) => {
-          process.exitCode = code;
-        },
-        writeError: (message) => {
-          process.stderr.write(message);
-        },
-      },
-      settle,
-    );
-    // CMD-004 Phase 2 (Stage B): late-bound serve-mode process adapter. A host-executed exit or
-    // restart terminates the SHARED host serving ALL attached surfaces — the deliberate
-    // local == remote decision (REMOTE-006): a remote driver is a full driver; a surface that only
-    // wants to detach disconnects. The teardown is deferred one flush window so the in-flight
-    // `command_result` reaches the requesting surface before the transports close. Restart ==
-    // graceful exit here (the supervisor — e.g. the GUI sidecar — owns relaunching). A supervised
-    // session, a daemon included, is the exception: nothing relaunches it, and it serves every
-    // client attached to it.
-    const COMMAND_TEARDOWN_FLUSH_MS = 500;
-    const scheduleSettle = (reason: string): void => {
-      const timer = setTimeout(() => settle(reason), COMMAND_TEARDOWN_FLUSH_MS);
-      timer.unref?.();
-    };
-    opts.commandHostAdapters.process =
-      args.daemon === true
-        ? daemonCommandProcess(opts.productRuntime)
-        : args.supervisedSessionId !== undefined
-          ? supervisedSessionCommandProcess(args.supervisedSessionId, opts.productRuntime)
-          : {
-              requestExit: (reason) => scheduleSettle(`command exit${reason ? ` (${reason})` : ''}`),
-              requestRestart: (_reason, message) => scheduleSettle(`command restart: ${message}`),
-            };
-  });
-  if (pendingSignal !== undefined) requestSettle(`received ${pendingSignal}`);
-  if (args.supervisedSessionId !== undefined && !settling) {
-    try {
-      // A daemon exists to hand its owner a WebSocket URL; one without an endpoint would only block
-      // every later start in its workspace, so it does not become ready.
-      if (args.daemon === true && opts.getMonitorWsUrl?.() === undefined) throw new DaemonNoEndpointError();
-      const supervisedCwd = realpathSync(opts.cwd);
-      let linkedPr: ISupervisedPr | undefined;
-      // Every grant the launcher handed over is open before readiness, or the start fails.
-      if (args.supervisedExternalEventGrants === true) {
-        const root = opts.supervisedRoot ?? resolveSupervisedDirectory(opts.productRuntime);
-        const grants = takeSupervisedGrantHandoff(root, args.supervisedSessionId);
-        // Refusals are recorded by the endpoint that answered them, settlements by the session.
-        const audit = createExternalEventAuditRing(
-          ensureSupervisedAuditDirectory(root),
-          args.supervisedSessionId,
+
+    // GUI-007: with `--serve --open`, the CLI serves its OWN monitor SPA over localhost HTTP (a localhost-origin
+    // surface) and opens it — gated on `--open` so the GUI sidecar's plain `--serve` path is unaffected. The WS
+    // URL is resolved AFTER the host started (the bound port is only known then).
+    let monitorUi: IMonitorUiServer | null = null;
+    if (args.open) {
+      const wsUrl = opts.getMonitorWsUrl?.();
+      const webRoot = resolveWebRoot();
+      if (wsUrl && webRoot) {
+        monitorUi = await startMonitorUiServer(webRoot, wsUrl, opts.productRuntime);
+        process.stdout.write(servedAtMessage(monitorUi.url, opts.productRuntime));
+        openInBrowser(monitorUi.url);
+      } else if (!webRoot) {
+        process.stderr.write(
+          `${opts.productRuntime.config.identity.displayName} web assets not found (dist/web) — run a full CLI build.\n`,
         );
-        const opened = createRebindableExternalEventGrants(grants, (record) => {
-          if ('settlement' in record) audit(record);
-        });
-        await opened.bind(host.session.current);
-        externalEvents = opened;
-        try {
-          const endpoint = createExternalEventHttpHost({
-            grants,
-            receive: (grantId, delivery) => opened.receive(grantId, delivery),
-            countRefusal: (grantId, refusal) => opened.countRefusal(grantId, refusal),
-            port: args.externalEventPort ?? 0,
-            ...(args.externalEventTrustedProxies !== undefined
-              ? { trustedProxies: args.externalEventTrustedProxies }
-              : {}),
-            audit,
-          });
-          await endpoint.start();
-          eventEndpoint = endpoint;
-        } catch {
-          throw new ExternalEventEndpointError();
-        }
       }
-      const grantHost = externalEvents;
-      if (grantHost !== undefined) {
-        opts.commandHostAdapters.externalEvents = {
-          list: () => grantHost.adapter.list(),
-          revoke: (grantId) => grantHost.adapter.revoke(grantId),
-        };
-      }
-      supervisedControl = await startSupervisedControl(
-        args.supervisedSessionId,
-        () => requestSettle('supervised session stopped'),
-        opts.supervisedRoot ?? resolveSupervisedDirectory(opts.productRuntime),
-        // Activity and the next loop cover every live session, so a session no client is on that
-        // still works keeps the runtime from reading idle.
-        () => settling ? undefined : poolActivity(liveSessions()),
-        () => settling ? undefined : supervisedCwd,
-        () => settling || sessionOptions.disableSessionLoops
-          ? undefined
-          : nextWaitingLoopAt(liveSessions().flatMap((session) => session.listSelfPacedLoops()), Date.now()),
-        () => settling ? undefined : host.session.current.getName(),
-        (name) => {
-          if (settling) throw new Error('Supervised runtime is stopping.');
-          host.session.current.setName(name);
-        },
+    }
+
+    // Stay alive until the supervisor (e.g. apps/agent-app on window close) signals — or a
+    // host-executed session-exit/-restart action fires (CMD-004 Phase 2) — then tear down cleanly.
+    let supervisedControl: ISupervisedControl | undefined;
+    let eventEndpoint: IExternalEventHttpHost | undefined;
+    let requestSettle: (reason: string) => void = () => undefined;
+    const readinessAbort = new AbortController();
+    const lifetime = new Promise<void>((resolve) => {
+      const settle = (reason: string): void => {
+        if (settling) return;
+        settling = true;
+        readinessAbort.abort();
+        void Promise.resolve(monitorUi?.close())
+          .catch(() => {})
+          .then(() => httpEndpoint?.stop())
+          .catch(() => undefined)
+          .then(() => eventEndpoint?.stop())
+          .catch(() => undefined)
+          .then(() => externalEvents?.close())
+          .then(() => host.shutdown(reason))
+          .catch(() => undefined)
+          // The host shuts its own session down; every other live session goes with it.
+          .then(() => pool?.shutdownAll(reason))
+          .catch(() => undefined)
+          .then(() => supervisedControl?.close())
+          .finally(() => resolve());
+      };
+      requestSettle = settle;
+      settleFromSignal = settle;
+      // A nonzero runner result is a normal typed outcome, not an exception. The failure wait resolves
+      // immediately for the first such record and does not wait for an unrelated runner that remains
+      // alive. No runners/all-success/stop abandonment resolve `undefined` and leave serve mode alive.
+      void settleOnServeTransportFailure(
+        host,
         {
-          get: () => settling ? undefined : linkedPr,
-          set: (value) => {
-            if (settling) throw new Error('Supervised runtime is stopping.');
-            linkedPr = value;
+          setExitCode: (code) => {
+            process.exitCode = code;
+          },
+          writeError: (message) => {
+            process.stderr.write(message);
           },
         },
-        grantHost === undefined
-          ? undefined
-          : {
-              list: () => grantHost.adapter.list(),
-              revoke: (grantId) => {
-                if (settling) throw new Error('Supervised runtime is stopping.');
-                return grantHost.adapter.revoke(grantId);
-              },
-            },
-        // A terminal on this host may attach over the guarded control socket. It never becomes an
-        // operator approver: this process has no terminal, so mesh admissions stay refused. Each
-        // attached terminal binds to the sessions as a WebSocket client does, so a switch it makes
-        // moves that terminal alone.
-        pool !== undefined && sessionDirectory !== undefined
-          ? { binder: sessionDirectory }
-          : { session: host.session },
-        // A daemon hands its owner the URL its transport is served on, token included, so a
-        // client in this workspace can connect to it instead of starting a runtime of its own.
+        settle,
+      );
+      // CMD-004 Phase 2 (Stage B): late-bound serve-mode process adapter. A host-executed exit or
+      // restart terminates the SHARED host serving ALL attached surfaces — the deliberate
+      // local == remote decision (REMOTE-006): a remote driver is a full driver; a surface that only
+      // wants to detach disconnects. The teardown is deferred one flush window so the in-flight
+      // `command_result` reaches the requesting surface before the transports close. Restart ==
+      // graceful exit here (the supervisor — e.g. the GUI sidecar — owns relaunching). A supervised
+      // session, a daemon included, is the exception: nothing relaunches it, and it serves every
+      // client attached to it.
+      const COMMAND_TEARDOWN_FLUSH_MS = 500;
+      const scheduleSettle = (reason: string): void => {
+        const timer = setTimeout(() => settle(reason), COMMAND_TEARDOWN_FLUSH_MS);
+        timer.unref?.();
+      };
+      opts.commandHostAdapters.process =
         args.daemon === true
-          ? {
-              url: () => settling ? undefined : opts.getMonitorWsUrl?.(),
-              restricted: opts.projectAccess?.status === 'restricted',
-            }
-          : undefined,
-      );
-      if (settling) throw new Error('Supervised runtime stopped before readiness.');
-      await acknowledgeSupervisedStartup(
-        args.supervisedSessionId,
-        readinessAbort.signal,
-        undefined,
-        grantHost?.adapter.list().map((grant) => grant.grantId),
-      );
-      if (settling) throw new Error('Supervised runtime stopped during readiness.');
-    } catch (error) {
-      if (process.connected && process.send) {
-        try {
-          const refusal = error instanceof ExternalEventGrantRefusedError
-            ? { code: 'grant-refused', grant: error.grantId }
-            : error instanceof ExternalEventEndpointError
-              ? { code: 'events-endpoint-failed' }
-              : error instanceof DaemonNoEndpointError
-                ? { code: 'daemon-no-endpoint' }
-                : error instanceof SupervisedControlPathTooLongError
-                  ? { code: 'control-path-too-long', directory: error.directory }
-                  : { code: 'startup-failed' };
-          process.send({ kind: 'error', id: args.supervisedSessionId, ...refusal }, () => {
-            // The parent may already have disconnected; failure reporting is best-effort only.
+          ? daemonCommandProcess(opts.productRuntime)
+          : args.supervisedSessionId !== undefined
+            ? supervisedSessionCommandProcess(args.supervisedSessionId, opts.productRuntime)
+            : {
+                requestExit: (reason) =>
+                  scheduleSettle(`command exit${reason ? ` (${reason})` : ''}`),
+                requestRestart: (_reason, message) => scheduleSettle(`command restart: ${message}`),
+              };
+    });
+    if (pendingSignal !== undefined) requestSettle(`received ${pendingSignal}`);
+    if (args.supervisedSessionId !== undefined && !settling) {
+      try {
+        // A daemon exists to hand its owner a WebSocket URL; one without an endpoint would only block
+        // every later start in its workspace, so it does not become ready.
+        if (args.daemon === true && opts.getMonitorWsUrl?.() === undefined)
+          throw new DaemonNoEndpointError();
+        const supervisedCwd = realpathSync(opts.cwd);
+        let linkedPr: ISupervisedPr | undefined;
+        // Every grant the launcher handed over is open before readiness, or the start fails.
+        if (args.supervisedExternalEventGrants === true) {
+          const root = opts.supervisedRoot ?? resolveSupervisedDirectory(opts.productRuntime);
+          const grants = takeSupervisedGrantHandoff(root, args.supervisedSessionId);
+          // Refusals are recorded by the endpoint that answered them, settlements by the session.
+          const audit = createExternalEventAuditRing(
+            ensureSupervisedAuditDirectory(root),
+            args.supervisedSessionId,
+          );
+          const opened = createRebindableExternalEventGrants(grants, (record) => {
+            if ('settlement' in record) audit(record);
           });
-        } catch {
-          // A closed readiness channel cannot prevent host/control cleanup below.
+          await opened.bind(host.session.current);
+          externalEvents = opened;
+          try {
+            const endpoint = createExternalEventHttpHost({
+              grants,
+              receive: (grantId, delivery) => opened.receive(grantId, delivery),
+              countRefusal: (grantId, refusal) => opened.countRefusal(grantId, refusal),
+              port: args.externalEventPort ?? 0,
+              ...(args.externalEventTrustedProxies !== undefined
+                ? { trustedProxies: args.externalEventTrustedProxies }
+                : {}),
+              audit,
+            });
+            await endpoint.start();
+            eventEndpoint = endpoint;
+          } catch {
+            throw new ExternalEventEndpointError();
+          }
         }
+        const grantHost = externalEvents;
+        if (grantHost !== undefined) {
+          opts.commandHostAdapters.externalEvents = {
+            list: () => grantHost.adapter.list(),
+            revoke: (grantId) => grantHost.adapter.revoke(grantId),
+          };
+        }
+        supervisedControl = await startSupervisedControl(
+          args.supervisedSessionId,
+          () => requestSettle('supervised session stopped'),
+          opts.supervisedRoot ?? resolveSupervisedDirectory(opts.productRuntime),
+          // Activity and the next loop cover every live session, so a session no client is on that
+          // still works keeps the runtime from reading idle.
+          () => (settling ? undefined : poolActivity(liveSessions())),
+          () => (settling ? undefined : supervisedCwd),
+          () =>
+            settling || sessionOptions.disableSessionLoops
+              ? undefined
+              : nextWaitingLoopAt(
+                  liveSessions().flatMap((session) => session.listSelfPacedLoops()),
+                  Date.now(),
+                ),
+          () => (settling ? undefined : host.session.current.getName()),
+          (name) => {
+            if (settling) throw new Error('Supervised runtime is stopping.');
+            host.session.current.setName(name);
+          },
+          {
+            get: () => (settling ? undefined : linkedPr),
+            set: (value) => {
+              if (settling) throw new Error('Supervised runtime is stopping.');
+              linkedPr = value;
+            },
+          },
+          grantHost === undefined
+            ? undefined
+            : {
+                list: () => grantHost.adapter.list(),
+                revoke: (grantId) => {
+                  if (settling) throw new Error('Supervised runtime is stopping.');
+                  return grantHost.adapter.revoke(grantId);
+                },
+              },
+          // A terminal on this host may attach over the guarded control socket. It never becomes an
+          // operator approver: this process has no terminal, so mesh admissions stay refused. Each
+          // attached terminal binds to the sessions as a WebSocket client does, so a switch it makes
+          // moves that terminal alone.
+          pool !== undefined && sessionDirectory !== undefined
+            ? { binder: sessionDirectory }
+            : { session: host.session },
+          // A daemon hands its owner the URL its transport is served on, token included, so a
+          // client in this workspace can connect to it instead of starting a runtime of its own.
+          args.daemon === true
+            ? {
+                url: () => (settling ? undefined : opts.getMonitorWsUrl?.()),
+                restricted: opts.projectAccess?.status === 'restricted',
+              }
+            : undefined,
+        );
+        if (settling) throw new Error('Supervised runtime stopped before readiness.');
+        await acknowledgeSupervisedStartup(
+          args.supervisedSessionId,
+          readinessAbort.signal,
+          undefined,
+          grantHost?.adapter.list().map((grant) => grant.grantId),
+        );
+        if (settling) throw new Error('Supervised runtime stopped during readiness.');
+      } catch (error) {
+        if (process.connected && process.send) {
+          try {
+            const refusal =
+              error instanceof ExternalEventGrantRefusedError
+                ? { code: 'grant-refused', grant: error.grantId }
+                : error instanceof ExternalEventEndpointError
+                  ? { code: 'events-endpoint-failed' }
+                  : error instanceof DaemonNoEndpointError
+                    ? { code: 'daemon-no-endpoint' }
+                    : error instanceof SupervisedControlPathTooLongError
+                      ? { code: 'control-path-too-long', directory: error.directory }
+                      : { code: 'startup-failed' };
+            process.send({ kind: 'error', id: args.supervisedSessionId, ...refusal }, () => {
+              // The parent may already have disconnected; failure reporting is best-effort only.
+            });
+          } catch {
+            // A closed readiness channel cannot prevent host/control cleanup below.
+          }
+        }
+        requestSettle('supervised session startup failed');
+        await supervisedControl?.close();
+        await lifetime;
+        throw error;
       }
-      requestSettle('supervised session startup failed');
-      await supervisedControl?.close();
-      await lifetime;
-      throw error;
     }
-  }
-  await lifetime;
+    await lifetime;
   } finally {
     process.off('SIGTERM', onSignal);
     process.off('SIGINT', onSignal);
@@ -746,11 +790,21 @@ export interface ISupervisedReadinessChannel {
 function processReadinessChannel(): ISupervisedReadinessChannel {
   if (!process.send) throw new Error('Supervised serve mode requires a parent readiness channel.');
   return {
-    send: (message, done) => { process.send?.(message, done); },
-    onMessage: (listener) => { process.on('message', listener); },
-    offMessage: (listener) => { process.off('message', listener); },
-    onDisconnect: (listener) => { process.on('disconnect', listener); },
-    offDisconnect: (listener) => { process.off('disconnect', listener); },
+    send: (message, done) => {
+      process.send?.(message, done);
+    },
+    onMessage: (listener) => {
+      process.on('message', listener);
+    },
+    offMessage: (listener) => {
+      process.off('message', listener);
+    },
+    onDisconnect: (listener) => {
+      process.on('disconnect', listener);
+    },
+    offDisconnect: (listener) => {
+      process.off('disconnect', listener);
+    },
   };
 }
 
@@ -779,19 +833,31 @@ export async function acknowledgeSupervisedStartup(
         finish(() => reject(new Error('Supervised runtime stopped during readiness.')));
         return;
       }
-      if (typeof message !== 'object' || message === null || !('kind' in message) ||
-        !('id' in message) || message.kind !== 'ack' || message.id !== id) {
+      if (
+        typeof message !== 'object' ||
+        message === null ||
+        !('kind' in message) ||
+        !('id' in message) ||
+        message.kind !== 'ack' ||
+        message.id !== id
+      ) {
         finish(() => reject(new Error('Supervised startup acknowledgement was invalid.')));
         return;
       }
       channel.send({ kind: 'acknowledged', id }, (error) => {
-        if (signal.aborted || error) finish(() => reject(new Error('Supervised startup acknowledgement could not be sent.')));
+        if (signal.aborted || error)
+          finish(() => reject(new Error('Supervised startup acknowledgement could not be sent.')));
         else finish(resolve);
       });
     };
-    const onAbort = (): void => finish(() => reject(new Error('Supervised runtime stopped during readiness.')));
-    const onDisconnect = (): void => finish(() => reject(new Error('Supervised launcher closed before acknowledgement.')));
-    const timer = setTimeout(() => finish(() => reject(new Error('Supervised launcher did not acknowledge startup.'))), 10_000);
+    const onAbort = (): void =>
+      finish(() => reject(new Error('Supervised runtime stopped during readiness.')));
+    const onDisconnect = (): void =>
+      finish(() => reject(new Error('Supervised launcher closed before acknowledgement.')));
+    const timer = setTimeout(
+      () => finish(() => reject(new Error('Supervised launcher did not acknowledge startup.'))),
+      10_000,
+    );
     channel.onMessage(onMessage);
     channel.onDisconnect(onDisconnect);
     signal.addEventListener('abort', onAbort, { once: true });

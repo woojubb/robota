@@ -356,10 +356,12 @@ diagnostic when the setting would otherwise apply.
 rendering no UI, until its owner requests shutdown; a request made during initialization remains
 binding on the acquired host. With `--http-port` it also serves the agent HTTP routes on loopback,
 so other applications and services can use the agent without a client library; they reach the
-runtime's current primary session and are admitted by a bearer the operator chooses in the
-environment, because a server's clients must outlive a restart that a per-launch token would not,
-and a public address is reached only through the operator's own proxy, because that bearer is only
-as safe as the machine boundary. This is the backend the desktop GUI spawns: TUI and GUI are sibling
+runtime's current primary session and are admitted on loopback by a bearer the operator chooses in
+the environment, because a server's clients must outlive a restart that a per-launch token would
+not. That bearer is only as safe as the machine boundary, so any other address is bound only as the
+same OAuth resource server `mcp serve` offers, whose shared gate alone admits; its turns keep the
+host-assigned remote attribution, because the subject allowlist already says who may reach the
+session. This is the backend the desktop GUI spawns: TUI and GUI are sibling
 presentations over the same runtime host, and the GUI never controls the CLI. The composition root
 assigns trusted WS driver identities (`app`, `browser`, `remote:ws`) so a turn's persisted usage
 surface reflects the launch path rather than a client-provided claim.

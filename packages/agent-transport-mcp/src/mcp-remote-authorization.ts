@@ -14,32 +14,28 @@ import {
   bearerCredential,
   createBearerResourceServer,
   describeProtectedResource,
-  refuseBearerToken,
+  refuseAccessToken,
   serveProtectedResourceMetadata,
 } from '@robota-sdk/agent-transport/node';
 
+import type { IAccessTokenVerifier } from '@robota-sdk/agent-interface-transport';
 import type {
-  IAccessTokenVerifier,
-  TAccessTokenRefusal,
-} from '@robota-sdk/agent-interface-transport';
-import type { TRemoteAddressClass } from '@robota-sdk/agent-transport/node';
+  IBearerRefusalRecord,
+  TBearerRefusal,
+  TRemoteAddressClass,
+} from '@robota-sdk/agent-transport/node';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 const LABEL = 'MCP HTTP';
 
 /** Why a remote request was refused: a verifier refusal, or no bearer token at all. */
-export type TMcpRemoteRefusal = TAccessTokenRefusal | 'missing-token';
+export type TMcpRemoteRefusal = TBearerRefusal;
 
 /** A coarse class of the refused peer's address; the address itself is never reported. */
 export type TMcpRemoteAddressClass = TRemoteAddressClass;
 
 /** One refused request, as the audit sink sees it. Carries no token text and no claim value. */
-export interface IMcpRemoteAuditRecord {
-  readonly refusal: TMcpRemoteRefusal;
-  readonly remote: TMcpRemoteAddressClass;
-  /** True when the refusal was answered 429 because the address exceeded its failure budget. */
-  readonly throttled: boolean;
-}
+export type IMcpRemoteAuditRecord = IBearerRefusalRecord;
 
 /** How the remote host decides who may reach the session. */
 export interface IMcpRemoteAuthorization {
@@ -89,20 +85,7 @@ export function createMcpRemoteGate(
   const endpointPath = server.url.pathname;
 
   function refuse(req: IncomingMessage, res: ServerResponse, refusal: TMcpRemoteRefusal): void {
-    if (refusal === 'keys-unavailable') {
-      // The issuer, not the peer, failed: not counted against the peer, and not a token verdict.
-      authorization.audit?.({ refusal, remote: server.remote(req), throttled: false });
-      res.writeHead(503).end();
-      return;
-    }
-    const failure = server.fail(req);
-    authorization.audit?.({ refusal, remote: failure.remote, throttled: failure.throttled });
-    refuseBearerToken(
-      res,
-      resource,
-      refusal === 'missing-token' || refusal === 'missing-scope' ? refusal : 'invalid-token',
-      failure,
-    );
+    refuseAccessToken(req, res, server, resource, refusal, authorization.audit);
   }
 
   return {
