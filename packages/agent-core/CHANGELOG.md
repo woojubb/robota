@@ -910,7 +910,7 @@
 
 - 6f308d1: fix(streaming): expose token usage on the streaming execution path (BEHAVIOR-005)
 
-  Token usage was silently dropped on streaming turns, so `readTokenUsageFromMessage` and **PRODUCT_DISPLAY_NAME**'s usage analytics returned empty/0 for every `run()`/`runStream()` (which always stream). OpenAI-compatible streaming requests now send `stream_options: { include_usage: true }`, the stream assembler and the `runStream` commit path attach the same top-level `usage` shape the non-streaming path already emits, and both `run()` and `runStream()` now expose usage. New opt-out `IOpenAIProviderOptions.includeStreamUsage` (default `true`) for OpenAI-compatible servers that reject `stream_options`.
+  Token usage was silently dropped on streaming turns, so `readTokenUsageFromMessage` and __PRODUCT_DISPLAY_NAME__'s usage analytics returned empty/0 for every `run()`/`runStream()` (which always stream). OpenAI-compatible streaming requests now send `stream_options: { include_usage: true }`, the stream assembler and the `runStream` commit path attach the same top-level `usage` shape the non-streaming path already emits, and both `run()` and `runStream()` now expose usage. New opt-out `IOpenAIProviderOptions.includeStreamUsage` (default `true`) for OpenAI-compatible servers that reject `stream_options`.
 
 ## 3.0.0-beta.77
 
@@ -931,7 +931,7 @@
 - DQ-AUDIT-002 — consolidate duplicated domain data onto single owners: one model-pricing SSOT in agent-core (`MODEL_PRICES`/`lookupModelPrice`/`calculateModelCost`/`estimateBlendedCostPer1000`) consumed by agent-command and agent-plugin (drops two embedded/stale price tables); the `len/4` token estimator replaced by core `CONTEXT_ESTIMATE_CHARS_PER_TOKEN`; TUI `TContextState` derived from core `IContextWindowState`; dead pass-through re-exports removed from agent-session.
 - DQ-AUDIT-006 — error/observability hygiene: replace raw `throw new Error()` on core-service and provider hot paths with typed `AgentRuntimeError` subclasses (`ConfigurationError`/`ValidationError`) so error-handling can branch on category/recoverable; surface fire-and-forget hook failures via `logger.warn` instead of silent `.catch(() => {})`; wire the error-handling plugin's `totalRetries`/`successfulRecoveries` stats to real counters.
 - DQ-AUDIT-007 — remove the silent `model || 'gpt-4o-mini'` default in the OpenAI streaming handler (a missing model now throws `ConfigurationError` instead of substituting a vendor default); document `IAIProvider`'s universal (`chat`) vs raw (`generateResponse`) dual surface as intentional in the agent-core SPEC.
-- 576af62: Fix `ConfigurationError: Agent must be fully initialized before changing model configuration` when running `/preset` (or any live model re-apply) on a fresh interactive session before the first message. The **PRODUCT_DISPLAY_NAME** agent initialized lazily on the first `run()`, but `setModel` requires full initialization. `Session.applyModelOptions` now awaits the new idempotent `__PRODUCT_DISPLAY_NAME__.ensureReady()` before `setModel`, and the preset live-switch path (`applyPresetToSession` → `executePresetCommand`) is async end-to-end. Adds a real cold-session regression test (no mocked **PRODUCT_DISPLAY_NAME**).
+- 576af62: Fix `ConfigurationError: Agent must be fully initialized before changing model configuration` when running `/preset` (or any live model re-apply) on a fresh interactive session before the first message. The __PRODUCT_DISPLAY_NAME__ agent initialized lazily on the first `run()`, but `setModel` requires full initialization. `Session.applyModelOptions` now awaits the new idempotent `__PRODUCT_DISPLAY_NAME__.ensureReady()` before `setModel`, and the preset live-switch path (`applyPresetToSession` → `executePresetCommand`) is async end-to-end. Adds a real cold-session regression test (no mocked __PRODUCT_DISPLAY_NAME__).
 
 ## 3.0.0-beta.75
 
@@ -1010,7 +1010,7 @@
 
 ### Patch Changes
 
-- Refresh package docs and **PRODUCT_DISPLAY_NAME**.io content for the beta 57 feature set.
+- Refresh package docs and __PRODUCT_DISPLAY_NAME__.io content for the beta 57 feature set.
 
 ## 3.0.0-beta.57
 
@@ -1075,8 +1075,8 @@
   - IHistoryEntry as universal history type across all 4 packages (core → sessions → sdk → cli)
   - Tool summary stored as event entry in history (category: 'event', type: 'tool-summary')
   - TuiStateManager pure TypeScript class for CLI rendering state
-  - MessageList renders IHistoryEntry[] with Tool:/System:/You:/**PRODUCT_DISPLAY_NAME**: labels
-  - Display order fixed: Tool → **PRODUCT_DISPLAY_NAME** (both streaming and abort)
+  - MessageList renders IHistoryEntry[] with Tool:/System:/You:/__PRODUCT_DISPLAY_NAME__: labels
+  - Display order fixed: Tool → __PRODUCT_DISPLAY_NAME__ (both streaming and abort)
   - Remove 25 tautological, duplicate, and hardcoded tests
 
 ## 2.0.9
@@ -1118,7 +1118,7 @@
   - **Smaller footprint**: Reduced JavaScript bundle sizes for web applications
   - **Universal API**: Same API works across all environments
 
-  This update completes the browser compatibility optimization phase, making **PRODUCT_DISPLAY_NAME** SDK production-ready for web applications with optimal performance characteristics.
+  This update completes the browser compatibility optimization phase, making __PRODUCT_DISPLAY_NAME__ SDK production-ready for web applications with optimal performance characteristics.
 
 ## 2.0.8
 
@@ -1135,7 +1135,7 @@
   - **All Providers**: `client` is now optional, automatically created from `apiKey`
 
   ### **Centralized Model Configuration**
-  - Model configuration is now exclusively handled through `defaultModel` in **PRODUCT_DISPLAY_NAME** constructor
+  - Model configuration is now exclusively handled through `defaultModel` in __PRODUCT_DISPLAY_NAME__ constructor
   - Providers are simplified to handle only connection-related settings
   - Runtime model switching via `setModel()` method is now the recommended approach
 
@@ -1169,7 +1169,7 @@
   ## 🔧 **Migration Guide**
   1. **Remove model settings from Provider constructors**
   2. **Use `apiKey` instead of `client` injection (recommended)**
-  3. **Ensure `defaultModel` is properly configured in **PRODUCT_DISPLAY_NAME** constructor**
+  3. **Ensure `defaultModel` is properly configured in __PRODUCT_DISPLAY_NAME__ constructor**
   4. **Update any hardcoded model references to use runtime switching**
 
   ## 🎯 **Benefits**
@@ -1203,7 +1203,7 @@
   - Update OpenAI stream handlers to work in browser environments
   - Maintain 100% backward compatibility with existing Node.js applications
 
-  This update enables **PRODUCT_DISPLAY_NAME** SDK to run seamlessly in both Node.js and browser environments without breaking changes.
+  This update enables __PRODUCT_DISPLAY_NAME__ SDK to run seamlessly in both Node.js and browser environments without breaking changes.
 
 ## 2.0.5
 
@@ -1235,7 +1235,7 @@
 
 ### Major Changes
 
-- a3a464c: # **PRODUCT_DISPLAY_NAME** SDK v2.0.0-rc.1 - Unified Architecture
+- a3a464c: # __PRODUCT_DISPLAY_NAME__ SDK v2.0.0-rc.1 - Unified Architecture
 
   ## 🚀 Major Changes
 

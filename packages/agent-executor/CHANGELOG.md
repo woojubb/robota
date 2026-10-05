@@ -238,7 +238,7 @@
 - 90e7a10: The default background observer warning code and exported `OBSERVER_FAILURE_WARNING_CODE` value
   change from `PRODUCT_BACKGROUND_OBSERVER_FAILURE` to `BACKGROUND_OBSERVER_FAILURE`. Hosts matching
   the old warning code should match the new neutral code or provide `observerFailureWarningCode` in
-  their background manager or session options. The **PRODUCT_DISPLAY_NAME** CLI supplies its existing code explicitly
+  their background manager or session options. The __PRODUCT_DISPLAY_NAME__ CLI supplies its existing code explicitly
   across print, goal, serve, MCP, and TUI sessions.
 
 ### Minor Changes
@@ -595,7 +595,7 @@
 
 ### Patch Changes
 
-- Refresh package docs and **PRODUCT_DISPLAY_NAME**.io content for the beta 57 feature set.
+- Refresh package docs and __PRODUCT_DISPLAY_NAME__.io content for the beta 57 feature set.
 - Updated dependencies
   - @robota-sdk/agent-core@3.0.0-beta.58
 

@@ -143,7 +143,7 @@
 
 - e13c30c: MCP servers now publish a neutral submission tool by default. Hosts that need the previous
   `PRODUCT_submit` tool must pass `submitTool: { name: 'PRODUCT_submit', description: '...' }` to
-  `createAgentMcpServer`, `createMcpTransport`, or `createMcpHttpHost`. The **PRODUCT_DISPLAY_NAME** CLI supplies its
+  `createAgentMcpServer`, `createMcpTransport`, or `createMcpHttpHost`. The __PRODUCT_DISPLAY_NAME__ CLI supplies its
   existing name and description for both stdio and HTTP carriers.
 - 5134b3b: **BREAKING — RUNTIME-003 P2: `submit` hands back the submission's identity, so an answer belongs to
   the caller who asked for it.**

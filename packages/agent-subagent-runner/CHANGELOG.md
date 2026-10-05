@@ -131,7 +131,7 @@
     under. `sandboxApprovalFor` is exported.
   - `agent-subagent-runner` (minor): `ISubagentWorkerComposition` takes an optional `createSandbox`. The
     worker builds that sandbox once and hands the same instance to `createTools` and to the session.
-  - `agent-cli` (patch): **PRODUCT_DISPLAY_NAME**'s worker composition builds the OS sandbox through `createSandbox`, so
+  - `agent-cli` (patch): __PRODUCT_DISPLAY_NAME__'s worker composition builds the OS sandbox through `createSandbox`, so
     a child-process subagent approves what its parent approves.
 
 - 122e82b: A child-process subagent confines and approves commands with its parent's sandbox settings as they
@@ -142,7 +142,7 @@
   - `agent-subagent-runner` (minor): the runner factory takes `parentSandboxSettings`, read at each
     spawn. The start payload carries it, the IPC guard checks it is a record, and the worker hands it to
     `createSandbox` as `parentSettings`.
-  - `agent-cli` (patch): **PRODUCT_DISPLAY_NAME** sends its live sandbox's settings, and a child builds its sandbox from
+  - `agent-cli` (patch): __PRODUCT_DISPLAY_NAME__ sends its live sandbox's settings, and a child builds its sandbox from
     them. It refuses settings it cannot read rather than falling back to the files.
 
 - 0368058: A running child-process subagent follows a `/sandbox` change made in its parent session. Before, it
@@ -157,7 +157,7 @@
     exits or fails to start. A composed sandbox may define `applyParentSettings`. The worker applies
     each change through it. On settings it cannot take, it aborts the run, lets a running command
     finish, and ends the run with that error.
-  - `agent-cli` (patch): **PRODUCT_DISPLAY_NAME** watches its live sandbox, and a child applies each change to the
+  - `agent-cli` (patch): __PRODUCT_DISPLAY_NAME__ watches its live sandbox, and a child applies each change to the
     instance its tools and approval read.
 
 ### Patch Changes
@@ -284,7 +284,7 @@
 
 - 0c07176: **BREAKING — ARCH-021: child-process subagents compose the PRODUCT's surface, not imported defaults.**
 
-  The child-process worker built its surface from `createDefaultProviderDefinitions()` and `createDefaultTools()` — a fixed six-vendor registry and the framework's default tool tier — while the composition root had already handed the runner the fully composed surface and the runner dropped it. So a product's custom providers and pack-contributed tools reached an **in-process** subagent and not a **child-process** one, and ARCH-006's landed invariant "every tool **PRODUCT_DISPLAY_NAME** runs comes from a pack" was **false in the child**: dropping a pack did not drop its tools.
+  The child-process worker built its surface from `createDefaultProviderDefinitions()` and `createDefaultTools()` — a fixed six-vendor registry and the framework's default tool tier — while the composition root had already handed the runner the fully composed surface and the runner dropped it. So a product's custom providers and pack-contributed tools reached an **in-process** subagent and not a **child-process** one, and ARCH-006's landed invariant "every tool __PRODUCT_DISPLAY_NAME__ runs comes from a pack" was **false in the child**: dropping a pack did not drop its tools.
 
   This is the second finding at that line. ARCH-010 — judged BLOCKER, a subagent `Read` returning `/etc/hostname` — patched one argument there and left the reconstruction standing.
 

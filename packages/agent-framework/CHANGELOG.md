@@ -355,7 +355,7 @@
     - Session notices keep only `session-error` and `protocol-error`.
     - The state gains `commandCatalog` and `sessionStatus`.
   - `agent-command` registers `/theme` and `/keybindings` even without a terminal. They then answer
-    that they belong to the **PRODUCT_DISPLAY_NAME** terminal, instead of being unknown.
+    that they belong to the __PRODUCT_DISPLAY_NAME__ terminal, instead of being unknown.
   - `agent-framework`:
     - `InteractiveSession.getStatusSnapshot()`.
     - The main-thread row previews the last chat message instead of the last record's type.
@@ -487,7 +487,7 @@
     stays inside the project (every platform but Linux), none is composed: a checkpoint could be
     neither saved nor restored there.
   - `agent-command` (patch): where a session has no checkpoints, `/rewind` says why: a restricted
-    workspace is told to run `__PRODUCT_CLI_NAME__ trust --yes` and restart **PRODUCT_DISPLAY_NAME**, and a host that cannot write
+    workspace is told to run `__PRODUCT_CLI_NAME__ trust --yes` and restart __PRODUCT_DISPLAY_NAME__, and a host that cannot write
     the project safely says so. `/rewind list` reports this as a failed command instead of throwing.
   - `agent-framework` (minor): a checkpoint operation on a session without a store throws
     `EditCheckpointsUnavailableError`, whose `reason` is `host-cannot-write-project`,
@@ -522,7 +522,7 @@
     under. `sandboxApprovalFor` is exported.
   - `agent-subagent-runner` (minor): `ISubagentWorkerComposition` takes an optional `createSandbox`. The
     worker builds that sandbox once and hands the same instance to `createTools` and to the session.
-  - `agent-cli` (patch): **PRODUCT_DISPLAY_NAME**'s worker composition builds the OS sandbox through `createSandbox`, so
+  - `agent-cli` (patch): __PRODUCT_DISPLAY_NAME__'s worker composition builds the OS sandbox through `createSandbox`, so
     a child-process subagent approves what its parent approves.
 
 ### Patch Changes
@@ -1286,8 +1286,8 @@
 
   To preserve the previous identifiers, pass `modelCommandToolPrefix: '__PRODUCT_MODEL_TOOL_PREFIX__'` and
   `promptFileReferenceTag: 'PRODUCT_file_references'` in session options, or pass those values to
-  the projection and prompt-format helpers. The **PRODUCT_DISPLAY_NAME** product profile supplies both values, so
-  the **PRODUCT_DISPLAY_NAME** CLI keeps its existing model tool names and prompt enclosure.
+  the projection and prompt-format helpers. The __PRODUCT_DISPLAY_NAME__ product profile supplies both values, so
+  the __PRODUCT_DISPLAY_NAME__ CLI keeps its existing model tool names and prompt enclosure.
 
 - 5134b3b: **BREAKING — RUNTIME-003 P2: `submit` hands back the submission's identity, so an answer belongs to
   the caller who asked for it.**
@@ -1406,10 +1406,10 @@
 - 4078a72: Model fallback chain. `--fallback-model a,b` (or the `fallbackModel` settings array; the flag wins) names up to three models a turn moves to when its model is overloaded, unavailable or failing on the server. An entry is a provider profile, `profile:model`, a bare model on the primary's provider, or `default`. The move happens only before any output has streamed, lasts for the current turn, and is shown as a system note; entries that cannot be built are passed over and entries outside the organization's `allowedProviders` are dropped with a notice. `FallbackProvider` in agent-framework implements it over the session's provider; `IChatOptions` gains `executionId`, `onModelFallback` and `preserveContextWindow`, `IAIProvider` gains optional `resolveModelRoute`, and the execution loop emits a `provider_fallback` event and attributes requests, call observations, committed replies, the response cache and usage to the model that answered. A turn that ran on more than one model records per-model `modelShares` on its usage observation, which personal usage reports split by model and provider. A `/provider` switch keeps the chain, read again for the new primary.
 - af2f2ad: `/cd <directory>` continues the conversation in another directory.
 
-  - **A move is a new session in the target directory.** In the TUI, **PRODUCT_DISPLAY_NAME** saves a copy of the
+  - **A move is a new session in the target directory.** In the TUI, __PRODUCT_DISPLAY_NAME__ saves a copy of the
     conversation where the target's session store will find it, ends the current run through its
     normal end-of-life flow, and starts again in the target directory resuming that copy. The target's
-    settings, trust decision, tools, skills and `AGENTS.md` apply, exactly as if **PRODUCT_DISPLAY_NAME** had been
+    settings, trust decision, tools, skills and `AGENTS.md` apply, exactly as if __PRODUCT_DISPLAY_NAME__ had been
     launched there. The process boundary makes the move atomic, so no tool call can straddle it.
   - **The system prompt is kept as recorded**, so a provider's prompt cache survives. One appended
     `<workspace-move>` message tells the model the new directory, and which project instructions now
@@ -1507,7 +1507,7 @@
 - 2711ec6: One broken skill or agent file no longer stops the session.
 
   Skill, command and agent definitions are shared with other hosts through `.claude`, and those hosts
-  define fields of their own. The frontmatter decoder now validates only the fields **PRODUCT_DISPLAY_NAME** owns and
+  define fields of their own. The frontmatter decoder now validates only the fields __PRODUCT_DISPLAY_NAME__ owns and
   ignores the rest (nested `metadata` entries included); a malformed value of an owned field is still
   refused. A refused file is skipped with a single warning and still claims its name, so a
   lower-priority definition cannot stand in for it. An empty `argument-hint` reads as no hint. When
@@ -1555,7 +1555,7 @@
     project/user definitions > injected > built-in. `AgentDefinitionLoader` now dedupes within that tier
     (first wins). Absent ⇒ unchanged behavior.
   - **`@robota-sdk/agent-transport` / `@robota-sdk/agent-transport-tui`** — forward the optional
-    `agentDefinitions` through the headless and TUI channels so every **PRODUCT_DISPLAY_NAME** surface carries the seam.
+    `agentDefinitions` through the headless and TUI channels so every __PRODUCT_DISPLAY_NAME__ surface carries the seam.
   - **`@robota-sdk/agent-cli`** — `__PRODUCT_CLI_NAME__`'s identity (branding, provider surface, presets,
     `packs: [codingPack]`, base command modules, injected transports/runners/subagent factory) is declared as
     data in a product profile and folded by `assembleProduct`. The coding command modules (`/shell`,
@@ -1673,7 +1673,7 @@
 - 90e7a10: The default background observer warning code and exported `OBSERVER_FAILURE_WARNING_CODE` value
   change from `PRODUCT_BACKGROUND_OBSERVER_FAILURE` to `BACKGROUND_OBSERVER_FAILURE`. Hosts matching
   the old warning code should match the new neutral code or provide `observerFailureWarningCode` in
-  their background manager or session options. The **PRODUCT_DISPLAY_NAME** CLI supplies its existing code explicitly
+  their background manager or session options. The __PRODUCT_DISPLAY_NAME__ CLI supplies its existing code explicitly
   across print, goal, serve, MCP, and TUI sessions.
 - fcb0da3: PAYLOAD-2153: make external-payload replay stable across Linux, macOS, and Windows.
 
@@ -1791,7 +1791,7 @@
       the host under the path guard, and only commands go through the sandbox.
   - **`describeExecutionContainment` / `routesFilesThroughSandbox`** name the containment (`host`,
     `sandbox-shared`, `sandbox-separate`) instead of inferring it from an absent value.
-  - **`__PRODUCT_CLI_NAME__ doctor` reports `execution.containment`.** **PRODUCT_DISPLAY_NAME** composes no sandbox today, so the
+  - **`__PRODUCT_CLI_NAME__ doctor` reports `execution.containment`.** __PRODUCT_DISPLAY_NAME__ composes no sandbox today, so the
     doctor says shell commands run unconfined on the host and the permission rules are the only
     boundary. The CLI composition and the doctor read the same value.
   - **The `Agent` and `BackgroundProcess` tools no longer fall back to `process.cwd()`** when they
@@ -2057,7 +2057,7 @@
 
   The default transport-registry wiring (pre-registering `WsTransport`) moves to the CLI composition root, removing the core→ws edge.
 
-- 576af62: Fix `ConfigurationError: Agent must be fully initialized before changing model configuration` when running `/preset` (or any live model re-apply) on a fresh interactive session before the first message. The **PRODUCT_DISPLAY_NAME** agent initialized lazily on the first `run()`, but `setModel` requires full initialization. `Session.applyModelOptions` now awaits the new idempotent `__PRODUCT_DISPLAY_NAME__.ensureReady()` before `setModel`, and the preset live-switch path (`applyPresetToSession` → `executePresetCommand`) is async end-to-end. Adds a real cold-session regression test (no mocked **PRODUCT_DISPLAY_NAME**).
+- 576af62: Fix `ConfigurationError: Agent must be fully initialized before changing model configuration` when running `/preset` (or any live model re-apply) on a fresh interactive session before the first message. The __PRODUCT_DISPLAY_NAME__ agent initialized lazily on the first `run()`, but `setModel` requires full initialization. `Session.applyModelOptions` now awaits the new idempotent `__PRODUCT_DISPLAY_NAME__.ensureReady()` before `setModel`, and the preset live-switch path (`applyPresetToSession` → `executePresetCommand`) is async end-to-end. Adds a real cold-session regression test (no mocked __PRODUCT_DISPLAY_NAME__).
 - Updated dependencies
 - Updated dependencies
 - Updated dependencies
@@ -2297,7 +2297,7 @@
 
 ### Patch Changes
 
-- Refresh package docs and **PRODUCT_DISPLAY_NAME**.io content for the beta 57 feature set.
+- Refresh package docs and __PRODUCT_DISPLAY_NAME__.io content for the beta 57 feature set.
 - Updated dependencies
   - @robota-sdk/agent-core@3.0.0-beta.58
   - @robota-sdk/agent-executor@3.0.0-beta.58
@@ -2487,8 +2487,8 @@
   - IHistoryEntry as universal history type across all 4 packages (core → sessions → sdk → cli)
   - Tool summary stored as event entry in history (category: 'event', type: 'tool-summary')
   - TuiStateManager pure TypeScript class for CLI rendering state
-  - MessageList renders IHistoryEntry[] with Tool:/System:/You:/**PRODUCT_DISPLAY_NAME**: labels
-  - Display order fixed: Tool → **PRODUCT_DISPLAY_NAME** (both streaming and abort)
+  - MessageList renders IHistoryEntry[] with Tool:/System:/You:/__PRODUCT_DISPLAY_NAME__: labels
+  - Display order fixed: Tool → __PRODUCT_DISPLAY_NAME__ (both streaming and abort)
   - Remove 25 tautological, duplicate, and hardcoded tests
 
 - Updated dependencies

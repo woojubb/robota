@@ -382,7 +382,7 @@
     - Session notices keep only `session-error` and `protocol-error`.
     - The state gains `commandCatalog` and `sessionStatus`.
   - `agent-command` registers `/theme` and `/keybindings` even without a terminal. They then answer
-    that they belong to the **PRODUCT_DISPLAY_NAME** terminal, instead of being unknown.
+    that they belong to the __PRODUCT_DISPLAY_NAME__ terminal, instead of being unknown.
   - `agent-framework`:
     - `InteractiveSession.getStatusSnapshot()`.
     - The main-thread row previews the last chat message instead of the last record's type.
@@ -649,7 +649,7 @@
     stays inside the project (every platform but Linux), none is composed: a checkpoint could be
     neither saved nor restored there.
   - `agent-command` (patch): where a session has no checkpoints, `/rewind` says why: a restricted
-    workspace is told to run `__PRODUCT_CLI_NAME__ trust --yes` and restart **PRODUCT_DISPLAY_NAME**, and a host that cannot write
+    workspace is told to run `__PRODUCT_CLI_NAME__ trust --yes` and restart __PRODUCT_DISPLAY_NAME__, and a host that cannot write
     the project safely says so. `/rewind list` reports this as a failed command instead of throwing.
   - `agent-framework` (minor): a checkpoint operation on a session without a store throws
     `EditCheckpointsUnavailableError`, whose `reason` is `host-cannot-write-project`,
@@ -689,7 +689,7 @@
     under. `sandboxApprovalFor` is exported.
   - `agent-subagent-runner` (minor): `ISubagentWorkerComposition` takes an optional `createSandbox`. The
     worker builds that sandbox once and hands the same instance to `createTools` and to the session.
-  - `agent-cli` (patch): **PRODUCT_DISPLAY_NAME**'s worker composition builds the OS sandbox through `createSandbox`, so
+  - `agent-cli` (patch): __PRODUCT_DISPLAY_NAME__'s worker composition builds the OS sandbox through `createSandbox`, so
     a child-process subagent approves what its parent approves.
 
 - f8a8a4d: The GUI surface's design now applies inside a `agent-ui` scope that each of its root components opens,
@@ -706,7 +706,7 @@
   - `agent-subagent-runner` (minor): the runner factory takes `parentSandboxSettings`, read at each
     spawn. The start payload carries it, the IPC guard checks it is a record, and the worker hands it to
     `createSandbox` as `parentSettings`.
-  - `agent-cli` (patch): **PRODUCT_DISPLAY_NAME** sends its live sandbox's settings, and a child builds its sandbox from
+  - `agent-cli` (patch): __PRODUCT_DISPLAY_NAME__ sends its live sandbox's settings, and a child builds its sandbox from
     them. It refuses settings it cannot read rather than falling back to the files.
 
 - 0368058: A running child-process subagent follows a `/sandbox` change made in its parent session. Before, it
@@ -721,7 +721,7 @@
     exits or fails to start. A composed sandbox may define `applyParentSettings`. The worker applies
     each change through it. On settings it cannot take, it aborts the run, lets a running command
     finish, and ends the run with that error.
-  - `agent-cli` (patch): **PRODUCT_DISPLAY_NAME** watches its live sandbox, and a child applies each change to the
+  - `agent-cli` (patch): __PRODUCT_DISPLAY_NAME__ watches its live sandbox, and a child applies each change to the
     instance its tools and approval read.
 
 - 5a0ee96: Workspace trust no longer drops on its own. A grant was keyed by the repository config file and the
@@ -804,7 +804,7 @@
 
 - 004fe7f: `/handoff` moves a session over a real connection.
 
-  - `/handoff <session-id>` pushes this conversation to another **PRODUCT_DISPLAY_NAME** session on this machine. The
+  - `/handoff <session-id>` pushes this conversation to another __PRODUCT_DISPLAY_NAME__ session on this machine. The
     same carrier also runs between two of the user's devices over their mesh connection; no command
     opens that connection yet.
   - A hand-off is push-only: only the operator of the session that holds it starts one. A session or
@@ -1327,10 +1327,10 @@
 
 - af2f2ad: `/cd <directory>` continues the conversation in another directory.
 
-  - **A move is a new session in the target directory.** In the TUI, **PRODUCT_DISPLAY_NAME** saves a copy of the
+  - **A move is a new session in the target directory.** In the TUI, __PRODUCT_DISPLAY_NAME__ saves a copy of the
     conversation where the target's session store will find it, ends the current run through its
     normal end-of-life flow, and starts again in the target directory resuming that copy. The target's
-    settings, trust decision, tools, skills and `AGENTS.md` apply, exactly as if **PRODUCT_DISPLAY_NAME** had been
+    settings, trust decision, tools, skills and `AGENTS.md` apply, exactly as if __PRODUCT_DISPLAY_NAME__ had been
     launched there. The process boundary makes the move atomic, so no tool call can straddle it.
   - **The system prompt is kept as recorded**, so a provider's prompt cache survives. One appended
     `<workspace-move>` message tells the model the new directory, and which project instructions now
@@ -1353,7 +1353,7 @@
       the host under the path guard, and only commands go through the sandbox.
   - **`describeExecutionContainment` / `routesFilesThroughSandbox`** name the containment (`host`,
     `sandbox-shared`, `sandbox-separate`) instead of inferring it from an absent value.
-  - **`__PRODUCT_CLI_NAME__ doctor` reports `execution.containment`.** **PRODUCT_DISPLAY_NAME** composes no sandbox today, so the
+  - **`__PRODUCT_CLI_NAME__ doctor` reports `execution.containment`.** __PRODUCT_DISPLAY_NAME__ composes no sandbox today, so the
     doctor says shell commands run unconfined on the host and the permission rules are the only
     boundary. The CLI composition and the doctor read the same value.
   - **The `Agent` and `BackgroundProcess` tools no longer fall back to `process.cwd()`** when they
@@ -1511,7 +1511,7 @@
     project/user definitions > injected > built-in. `AgentDefinitionLoader` now dedupes within that tier
     (first wins). Absent ⇒ unchanged behavior.
   - **`@robota-sdk/agent-transport` / `@robota-sdk/agent-transport-tui`** — forward the optional
-    `agentDefinitions` through the headless and TUI channels so every **PRODUCT_DISPLAY_NAME** surface carries the seam.
+    `agentDefinitions` through the headless and TUI channels so every __PRODUCT_DISPLAY_NAME__ surface carries the seam.
   - **`@robota-sdk/agent-cli`** — `__PRODUCT_CLI_NAME__`'s identity (branding, provider surface, presets,
     `packs: [codingPack]`, base command modules, injected transports/runners/subagent factory) is declared as
     data in a product profile and folded by `assembleProduct`. The coding command modules (`/shell`,
@@ -1558,7 +1558,7 @@
   End-user `__PRODUCT_CLI_NAME__` behavior is unchanged: the assembled command-module set, provider surface, tool set,
   subagent roster, preset resolution, and permission posture all match the pre-change assembly.
 
-- 0116a29: ARCH-006 completion — **PRODUCT_DISPLAY_NAME**'s capability packs now OWN its tool surface, and `pack-coding` is built by a
+- 0116a29: ARCH-006 completion — __PRODUCT_DISPLAY_NAME__'s capability packs now OWN its tool surface, and `pack-coding` is built by a
   context-bound factory.
 
   - **`@robota-sdk/pack-coding` (BREAKING)** — the module-level `codingPack` constant is **removed** and
@@ -1574,7 +1574,7 @@
   - **`@robota-sdk/agent-cli`** — `__PRODUCT_CLI_NAME__`'s packs are built from the shell's resolved `cwd`
     (`createProductCapabilityPacks({ cwd })`) before command setup, and the runtime seam passes
     `PRODUCT_PACKS_OWN_TOOL_SURFACE` (an empty `defaultTools`) so the framework's `createDefaultTools()` tier
-    is REPLACED. Every tool **PRODUCT_DISPLAY_NAME** runs now arrives from a capability pack: dropping a pack drops its tools,
+    is REPLACED. Every tool __PRODUCT_DISPLAY_NAME__ runs now arrives from a capability pack: dropping a pack drops its tools,
     exactly as it already dropped its command modules and subagents.
   - **`@robota-sdk/agent-transport` / `@robota-sdk/agent-transport-tui`** — forward the optional
     `additionalTools` and `defaultTools` through the headless and TUI channels, mirroring the existing
@@ -1650,7 +1650,7 @@
 - 2711ec6: One broken skill or agent file no longer stops the session.
 
   Skill, command and agent definitions are shared with other hosts through `.claude`, and those hosts
-  define fields of their own. The frontmatter decoder now validates only the fields **PRODUCT_DISPLAY_NAME** owns and
+  define fields of their own. The frontmatter decoder now validates only the fields __PRODUCT_DISPLAY_NAME__ owns and
   ignores the rest (nested `metadata` entries included); a malformed value of an owned field is still
   refused. A refused file is skipped with a single warning and still claims its name, so a
   lower-priority definition cannot stand in for it. An empty `argument-hint` reads as no hint. When
@@ -1708,7 +1708,7 @@ args, settingsPreset)`, which builds the per-call registry, resolves over it, an
 
 - 0c07176: **BREAKING — ARCH-021: child-process subagents compose the PRODUCT's surface, not imported defaults.**
 
-  The child-process worker built its surface from `createDefaultProviderDefinitions()` and `createDefaultTools()` — a fixed six-vendor registry and the framework's default tool tier — while the composition root had already handed the runner the fully composed surface and the runner dropped it. So a product's custom providers and pack-contributed tools reached an **in-process** subagent and not a **child-process** one, and ARCH-006's landed invariant "every tool **PRODUCT_DISPLAY_NAME** runs comes from a pack" was **false in the child**: dropping a pack did not drop its tools.
+  The child-process worker built its surface from `createDefaultProviderDefinitions()` and `createDefaultTools()` — a fixed six-vendor registry and the framework's default tool tier — while the composition root had already handed the runner the fully composed surface and the runner dropped it. So a product's custom providers and pack-contributed tools reached an **in-process** subagent and not a **child-process** one, and ARCH-006's landed invariant "every tool __PRODUCT_DISPLAY_NAME__ runs comes from a pack" was **false in the child**: dropping a pack did not drop its tools.
 
   This is the second finding at that line. ARCH-010 — judged BLOCKER, a subagent `Read` returning `/etc/hostname` — patched one argument there and left the reconstruction standing.
 
@@ -1832,9 +1832,9 @@ args, settingsPreset)`, which builds the per-call registry, resolves over it, an
   `PRODUCT_SCREEN_READER_PREPARK_MS` from the process environment. SDK hosts calling `renderApp`
   directly should pass raw timing choices and diagnostic labels through the new optional
   `screenReaderPacing` render option. Without it, the renderer uses its existing 900 ms startup
-  quiet period and 50 ms pre-write park when screen-reader mode is enabled. The **PRODUCT_DISPLAY_NAME** CLI still
+  quiet period and 50 ms pre-write park when screen-reader mode is enabled. The __PRODUCT_DISPLAY_NAME__ CLI still
   reads the same environment variables and preserves their validation, bounds, and warnings.
-- 724d5b6: The terminal renderer no longer reads `PRODUCT_IME_CURSOR` or `PRODUCT_TURN_MARKS` from the process environment. SDK hosts calling `renderApp` directly should pass cursor and turn-mark choices through the optional `terminalCapabilities` render option. Without a host choice, the renderer keeps its terminal and TTY defaults. The **PRODUCT_DISPLAY_NAME** CLI still reads both environment variables and preserves its exact `1` and `0` overrides.
+- 724d5b6: The terminal renderer no longer reads `PRODUCT_IME_CURSOR` or `PRODUCT_TURN_MARKS` from the process environment. SDK hosts calling `renderApp` directly should pass cursor and turn-mark choices through the optional `terminalCapabilities` render option. Without a host choice, the renderer keeps its terminal and TTY defaults. The __PRODUCT_DISPLAY_NAME__ CLI still reads both environment variables and preserves its exact `1` and `0` overrides.
 - c6c56a6: Move the concrete `GitWorktreeIsolationAdapter` (git CLI + filesystem I/O) out of the reusable
   `@robota-sdk/agent-executor` runtime-primitives package into the `@robota-sdk/agent-cli` composition
   root, restoring the executor's "creates no Git worktrees" boundary (ARL-02 / ARCH-FIX-024, INFRA-031).
@@ -1853,15 +1853,15 @@ args, settingsPreset)`, which builds the per-call registry, resolves over it, an
   - `agent-cli`: the default command set registers `/compact`, so end users regain the actionable hint.
   - `agent-interface-transport`: reworded the `'allow-project'` permission comment so it no longer hardcodes a storage path (the location is owned by the consuming layer), matching the `agent-session` twin.
 
-- 796ddb4: Use a neutral default MCP client name and let hosts supply their own protocol identity. **PRODUCT_DISPLAY_NAME** CLI startup now explicitly supplies its prior `__PRODUCT_DISPLAY_NAME__-agent-mcp` name, preserving its initialize handshake; embedders relying on that implicit name can set `clientInfo` explicitly.
+- 796ddb4: Use a neutral default MCP client name and let hosts supply their own protocol identity. __PRODUCT_DISPLAY_NAME__ CLI startup now explicitly supplies its prior `__PRODUCT_DISPLAY_NAME__-agent-mcp` name, preserving its initialize handshake; embedders relying on that implicit name can set `clientInfo` explicitly.
 - e13c30c: MCP servers now publish a neutral submission tool by default. Hosts that need the previous
   `PRODUCT_submit` tool must pass `submitTool: { name: 'PRODUCT_submit', description: '...' }` to
-  `createAgentMcpServer`, `createMcpTransport`, or `createMcpHttpHost`. The **PRODUCT_DISPLAY_NAME** CLI supplies its
+  `createAgentMcpServer`, `createMcpTransport`, or `createMcpHttpHost`. The __PRODUCT_DISPLAY_NAME__ CLI supplies its
   existing name and description for both stdio and HTTP carriers.
 - 90e7a10: The default background observer warning code and exported `OBSERVER_FAILURE_WARNING_CODE` value
   change from `PRODUCT_BACKGROUND_OBSERVER_FAILURE` to `BACKGROUND_OBSERVER_FAILURE`. Hosts matching
   the old warning code should match the new neutral code or provide `observerFailureWarningCode` in
-  their background manager or session options. The **PRODUCT_DISPLAY_NAME** CLI supplies its existing code explicitly
+  their background manager or session options. The __PRODUCT_DISPLAY_NAME__ CLI supplies its existing code explicitly
   across print, goal, serve, MCP, and TUI sessions.
 - 2db1b97: Remote-control pairing binds to the negotiated DTLS certificate.
 
@@ -2385,7 +2385,7 @@ args, settingsPreset)`, which builds the per-call registry, resolves over it, an
 
 ### Patch Changes
 
-- Refresh package docs and **PRODUCT_DISPLAY_NAME**.io content for the beta 57 feature set.
+- Refresh package docs and __PRODUCT_DISPLAY_NAME__.io content for the beta 57 feature set.
 - Updated dependencies
   - @robota-sdk/agent-command-agent@3.0.0-beta.58
   - @robota-sdk/agent-core@3.0.0-beta.58
@@ -2619,8 +2619,8 @@ args, settingsPreset)`, which builds the per-call registry, resolves over it, an
   - IHistoryEntry as universal history type across all 4 packages (core → sessions → sdk → cli)
   - Tool summary stored as event entry in history (category: 'event', type: 'tool-summary')
   - TuiStateManager pure TypeScript class for CLI rendering state
-  - MessageList renders IHistoryEntry[] with Tool:/System:/You:/**PRODUCT_DISPLAY_NAME**: labels
-  - Display order fixed: Tool → **PRODUCT_DISPLAY_NAME** (both streaming and abort)
+  - MessageList renders IHistoryEntry[] with Tool:/System:/You:/__PRODUCT_DISPLAY_NAME__: labels
+  - Display order fixed: Tool → __PRODUCT_DISPLAY_NAME__ (both streaming and abort)
   - Remove 25 tautological, duplicate, and hardcoded tests
 
 - Updated dependencies

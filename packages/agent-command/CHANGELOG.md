@@ -230,7 +230,7 @@
     - Session notices keep only `session-error` and `protocol-error`.
     - The state gains `commandCatalog` and `sessionStatus`.
   - `agent-command` registers `/theme` and `/keybindings` even without a terminal. They then answer
-    that they belong to the **PRODUCT_DISPLAY_NAME** terminal, instead of being unknown.
+    that they belong to the __PRODUCT_DISPLAY_NAME__ terminal, instead of being unknown.
   - `agent-framework`:
     - `InteractiveSession.getStatusSnapshot()`.
     - The main-thread row previews the last chat message instead of the last record's type.
@@ -300,7 +300,7 @@
     stays inside the project (every platform but Linux), none is composed: a checkpoint could be
     neither saved nor restored there.
   - `agent-command` (patch): where a session has no checkpoints, `/rewind` says why: a restricted
-    workspace is told to run `__PRODUCT_CLI_NAME__ trust --yes` and restart **PRODUCT_DISPLAY_NAME**, and a host that cannot write
+    workspace is told to run `__PRODUCT_CLI_NAME__ trust --yes` and restart __PRODUCT_DISPLAY_NAME__, and a host that cannot write
     the project safely says so. `/rewind list` reports this as a failed command instead of throwing.
   - `agent-framework` (minor): a checkpoint operation on a session without a store throws
     `EditCheckpointsUnavailableError`, whose `reason` is `host-cannot-write-project`,
@@ -381,7 +381,7 @@
 
 - 004fe7f: `/handoff` moves a session over a real connection.
 
-  - `/handoff <session-id>` pushes this conversation to another **PRODUCT_DISPLAY_NAME** session on this machine. The
+  - `/handoff <session-id>` pushes this conversation to another __PRODUCT_DISPLAY_NAME__ session on this machine. The
     same carrier also runs between two of the user's devices over their mesh connection; no command
     opens that connection yet.
   - A hand-off is push-only: only the operator of the session that holds it starts one. A session or
@@ -711,10 +711,10 @@
 
 - af2f2ad: `/cd <directory>` continues the conversation in another directory.
 
-  - **A move is a new session in the target directory.** In the TUI, **PRODUCT_DISPLAY_NAME** saves a copy of the
+  - **A move is a new session in the target directory.** In the TUI, __PRODUCT_DISPLAY_NAME__ saves a copy of the
     conversation where the target's session store will find it, ends the current run through its
     normal end-of-life flow, and starts again in the target directory resuming that copy. The target's
-    settings, trust decision, tools, skills and `AGENTS.md` apply, exactly as if **PRODUCT_DISPLAY_NAME** had been
+    settings, trust decision, tools, skills and `AGENTS.md` apply, exactly as if __PRODUCT_DISPLAY_NAME__ had been
     launched there. The process boundary makes the move atomic, so no tool call can straddle it.
   - **The system prompt is kept as recorded**, so a provider's prompt cache survives. One appended
     `<workspace-move>` message tells the model the new directory, and which project instructions now
@@ -1036,7 +1036,7 @@
 ### Patch Changes
 
 - DQ-AUDIT-002 — consolidate duplicated domain data onto single owners: one model-pricing SSOT in agent-core (`MODEL_PRICES`/`lookupModelPrice`/`calculateModelCost`/`estimateBlendedCostPer1000`) consumed by agent-command and agent-plugin (drops two embedded/stale price tables); the `len/4` token estimator replaced by core `CONTEXT_ESTIMATE_CHARS_PER_TOKEN`; TUI `TContextState` derived from core `IContextWindowState`; dead pass-through re-exports removed from agent-session.
-- 576af62: Fix `ConfigurationError: Agent must be fully initialized before changing model configuration` when running `/preset` (or any live model re-apply) on a fresh interactive session before the first message. The **PRODUCT_DISPLAY_NAME** agent initialized lazily on the first `run()`, but `setModel` requires full initialization. `Session.applyModelOptions` now awaits the new idempotent `__PRODUCT_DISPLAY_NAME__.ensureReady()` before `setModel`, and the preset live-switch path (`applyPresetToSession` → `executePresetCommand`) is async end-to-end. Adds a real cold-session regression test (no mocked **PRODUCT_DISPLAY_NAME**).
+- 576af62: Fix `ConfigurationError: Agent must be fully initialized before changing model configuration` when running `/preset` (or any live model re-apply) on a fresh interactive session before the first message. The __PRODUCT_DISPLAY_NAME__ agent initialized lazily on the first `run()`, but `setModel` requires full initialization. `Session.applyModelOptions` now awaits the new idempotent `__PRODUCT_DISPLAY_NAME__.ensureReady()` before `setModel`, and the preset live-switch path (`applyPresetToSession` → `executePresetCommand`) is async end-to-end. Adds a real cold-session regression test (no mocked __PRODUCT_DISPLAY_NAME__).
 - Updated dependencies
 - Updated dependencies [c0a6287]
 - Updated dependencies [9df3a88]

@@ -284,7 +284,7 @@
     stays inside the project (every platform but Linux), none is composed: a checkpoint could be
     neither saved nor restored there.
   - `agent-command` (patch): where a session has no checkpoints, `/rewind` says why: a restricted
-    workspace is told to run `__PRODUCT_CLI_NAME__ trust --yes` and restart **PRODUCT_DISPLAY_NAME**, and a host that cannot write
+    workspace is told to run `__PRODUCT_CLI_NAME__ trust --yes` and restart __PRODUCT_DISPLAY_NAME__, and a host that cannot write
     the project safely says so. `/rewind list` reports this as a failed command instead of throwing.
   - `agent-framework` (minor): a checkpoint operation on a session without a store throws
     `EditCheckpointsUnavailableError`, whose `reason` is `host-cannot-write-project`,
@@ -555,9 +555,9 @@
   `PRODUCT_SCREEN_READER_PREPARK_MS` from the process environment. SDK hosts calling `renderApp`
   directly should pass raw timing choices and diagnostic labels through the new optional
   `screenReaderPacing` render option. Without it, the renderer uses its existing 900 ms startup
-  quiet period and 50 ms pre-write park when screen-reader mode is enabled. The **PRODUCT_DISPLAY_NAME** CLI still
+  quiet period and 50 ms pre-write park when screen-reader mode is enabled. The __PRODUCT_DISPLAY_NAME__ CLI still
   reads the same environment variables and preserves their validation, bounds, and warnings.
-- 724d5b6: The terminal renderer no longer reads `PRODUCT_IME_CURSOR` or `PRODUCT_TURN_MARKS` from the process environment. SDK hosts calling `renderApp` directly should pass cursor and turn-mark choices through the optional `terminalCapabilities` render option. Without a host choice, the renderer keeps its terminal and TTY defaults. The **PRODUCT_DISPLAY_NAME** CLI still reads both environment variables and preserves its exact `1` and `0` overrides.
+- 724d5b6: The terminal renderer no longer reads `PRODUCT_IME_CURSOR` or `PRODUCT_TURN_MARKS` from the process environment. SDK hosts calling `renderApp` directly should pass cursor and turn-mark choices through the optional `terminalCapabilities` render option. Without a host choice, the renderer keeps its terminal and TTY defaults. The __PRODUCT_DISPLAY_NAME__ CLI still reads both environment variables and preserves its exact `1` and `0` overrides.
 
 ### Minor Changes
 
@@ -589,10 +589,10 @@
 
 - af2f2ad: `/cd <directory>` continues the conversation in another directory.
 
-  - **A move is a new session in the target directory.** In the TUI, **PRODUCT_DISPLAY_NAME** saves a copy of the
+  - **A move is a new session in the target directory.** In the TUI, __PRODUCT_DISPLAY_NAME__ saves a copy of the
     conversation where the target's session store will find it, ends the current run through its
     normal end-of-life flow, and starts again in the target directory resuming that copy. The target's
-    settings, trust decision, tools, skills and `AGENTS.md` apply, exactly as if **PRODUCT_DISPLAY_NAME** had been
+    settings, trust decision, tools, skills and `AGENTS.md` apply, exactly as if __PRODUCT_DISPLAY_NAME__ had been
     launched there. The process boundary makes the move atomic, so no tool call can straddle it.
   - **The system prompt is kept as recorded**, so a provider's prompt cache survives. One appended
     `<workspace-move>` message tells the model the new directory, and which project instructions now
@@ -622,7 +622,7 @@
     project/user definitions > injected > built-in. `AgentDefinitionLoader` now dedupes within that tier
     (first wins). Absent ⇒ unchanged behavior.
   - **`@robota-sdk/agent-transport` / `@robota-sdk/agent-transport-tui`** — forward the optional
-    `agentDefinitions` through the headless and TUI channels so every **PRODUCT_DISPLAY_NAME** surface carries the seam.
+    `agentDefinitions` through the headless and TUI channels so every __PRODUCT_DISPLAY_NAME__ surface carries the seam.
   - **`@robota-sdk/agent-cli`** — `__PRODUCT_CLI_NAME__`'s identity (branding, provider surface, presets,
     `packs: [codingPack]`, base command modules, injected transports/runners/subagent factory) is declared as
     data in a product profile and folded by `assembleProduct`. The coding command modules (`/shell`,
@@ -636,7 +636,7 @@
   autocomplete popup rather than mid-list, because they arrive from `pack-coding` and both surfaces render in
   module-insertion order. Same commands, same behavior, different position.
 
-- 0116a29: ARCH-006 completion — **PRODUCT_DISPLAY_NAME**'s capability packs now OWN its tool surface, and `pack-coding` is built by a
+- 0116a29: ARCH-006 completion — __PRODUCT_DISPLAY_NAME__'s capability packs now OWN its tool surface, and `pack-coding` is built by a
   context-bound factory.
 
   - **`@robota-sdk/pack-coding` (BREAKING)** — the module-level `codingPack` constant is **removed** and
@@ -652,7 +652,7 @@
   - **`@robota-sdk/agent-cli`** — `__PRODUCT_CLI_NAME__`'s packs are built from the shell's resolved `cwd`
     (`createProductCapabilityPacks({ cwd })`) before command setup, and the runtime seam passes
     `PRODUCT_PACKS_OWN_TOOL_SURFACE` (an empty `defaultTools`) so the framework's `createDefaultTools()` tier
-    is REPLACED. Every tool **PRODUCT_DISPLAY_NAME** runs now arrives from a capability pack: dropping a pack drops its tools,
+    is REPLACED. Every tool __PRODUCT_DISPLAY_NAME__ runs now arrives from a capability pack: dropping a pack drops its tools,
     exactly as it already dropped its command modules and subagents.
   - **`@robota-sdk/agent-transport` / `@robota-sdk/agent-transport-tui`** — forward the optional
     `additionalTools` and `defaultTools` through the headless and TUI channels, mirroring the existing
@@ -679,7 +679,7 @@
 - 90e7a10: The default background observer warning code and exported `OBSERVER_FAILURE_WARNING_CODE` value
   change from `PRODUCT_BACKGROUND_OBSERVER_FAILURE` to `BACKGROUND_OBSERVER_FAILURE`. Hosts matching
   the old warning code should match the new neutral code or provide `observerFailureWarningCode` in
-  their background manager or session options. The **PRODUCT_DISPLAY_NAME** CLI supplies its existing code explicitly
+  their background manager or session options. The __PRODUCT_DISPLAY_NAME__ CLI supplies its existing code explicitly
   across print, goal, serve, MCP, and TUI sessions.
 - 44393be: Add the `/remote-control` enable path (REMOTE-008 Stage B4-2b) — turn on P2P remote control locally, get
   a QR + link, and a paired device co-drives the SAME live session over pairing-gated WebRTC. The command
@@ -744,7 +744,7 @@
 - 2711ec6: One broken skill or agent file no longer stops the session.
 
   Skill, command and agent definitions are shared with other hosts through `.claude`, and those hosts
-  define fields of their own. The frontmatter decoder now validates only the fields **PRODUCT_DISPLAY_NAME** owns and
+  define fields of their own. The frontmatter decoder now validates only the fields __PRODUCT_DISPLAY_NAME__ owns and
   ignores the rest (nested `metadata` entries included); a malformed value of an owned field is still
   refused. A refused file is skipped with a single warning and still claims its name, so a
   lower-priority definition cannot stand in for it. An empty `argument-hint` reads as no hint. When

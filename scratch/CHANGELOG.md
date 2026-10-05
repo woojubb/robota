@@ -1,4 +1,4 @@
-# **PRODUCT_DISPLAY_NAME**-scratch
+# __PRODUCT_DISPLAY_NAME__-scratch
 
 ## 0.0.1-beta.11
 
