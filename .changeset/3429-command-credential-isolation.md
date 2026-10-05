@@ -12,8 +12,9 @@ Credentials the runtime holds for itself no longer reach the commands it runs.
 
 - `agent-cli` — once a workspace's settings are admitted, every variable a provider profile or
   definition names as its credential (`$ENV:` references, and defaults such as `OPENAI_API_KEY`)
-  leaves the process environment, so tools, hooks, background shells and a skill's `!` commands no
-  longer see it (a hosted worker's broker token included); the provider keeps authenticating from
+  leaves the process environment, so tools, hooks, background shells, a skill's `!` commands and
+  the environment an MCP header helper inherits no longer carry it (a variable an MCP definition
+  references explicitly still resolves) (a hosted worker's broker token included); the provider keeps authenticating from
   the startup snapshot. A user or managed settings layer can let
   commands see one with `"commandEnvAllow": ["NAME"]`; project settings cannot. With the OS sandbox
   on, confined commands can no longer read `settings.json`, `credentials/`, `mcp-credentials/` or

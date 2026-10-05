@@ -162,11 +162,13 @@ switches between `auto-allow`, `regular` and `off`, and the `sandbox` settings k
 A confined command cannot read the credential-bearing files under `<configured-user-state-dir>`
 (`settings.json`, `credentials/`, `mcp-credentials/`, `remote-host-identity.json`).
 
-Commands the agent runs (tools, hooks, background shells, a skill's `!` commands) do not see the
-variables your provider profiles use as credentials — `$ENV:` references and each provider's default
-key variable such as `OPENAI_API_KEY`; the runtime still authenticates with them. To let commands see
-one, list it in your user settings: `"commandEnvAllow": ["OPENAI_API_KEY"]` (project settings cannot
-do this). A `$ENV:` reference added during a session is withheld from the next start.
+Commands the agent runs (tools, hooks, background shells, a skill's `!` commands, MCP header
+helpers) do not inherit the variables your provider profiles use as credentials — `$ENV:` references
+and each provider's default key variable such as `OPENAI_API_KEY`; the runtime still authenticates
+with them. To let commands see one, list it in your user settings:
+`"commandEnvAllow": ["OPENAI_API_KEY"]` (project settings cannot do this). A variable you reference
+explicitly in an MCP server definition still resolves. A `$ENV:` reference added during a session is
+withheld from the next start.
 
 When something misbehaves, `robota --safe-mode` starts with instruction files, skills, plugins, hooks
 and MCP servers all off.

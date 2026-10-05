@@ -28,6 +28,7 @@ import {
   withoutExpansions,
 } from '@robota-sdk/agent-mcp';
 import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
+import { commandEnvironment } from '../product/command-environment.js';
 
 import { buildMcpClientTimeouts, createMcpClientComposition } from './mcp-client-composition.js';
 import { describeMcpContribution } from './mcp-contribution-descriptor.js';
@@ -250,8 +251,10 @@ export async function composeMcpClientForStartup(
       return runHeadersHelper({
         helper,
         cwd,
+        // The helper's inherited environment drops withheld credentials; `${VAR}` references in a
+        // definition still resolve against the snapshot (issue #3429).
         env: headersHelperEnvironment(
-          input.env,
+          commandEnvironment(input.env),
           request.source,
           request.serverId,
           workspaceHelper ? withoutExpansions(definition, 'url', url) : url,

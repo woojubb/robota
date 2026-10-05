@@ -54,8 +54,8 @@ import {
 } from './product/user-settings.js';
 import { readUserSettingsOrExit } from './startup/user-settings.js';
 import { runShellCommand } from './startup/shell-exec.js';
-import { commandEnvironment, withholdProviderCredentials } from './product/command-environment.js';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { commandEnvironment } from './product/command-environment.js';
+import { admitStartupTrustDecision } from './startup/admit-trust-decision.js';
 import {
   buildPresetSurfaceOptions,
   toSessionOptions,
@@ -378,13 +378,7 @@ async function runCliCore(
       optionArgv(process.argv).includes(RESTRICTED_WORKSPACE_FLAG) ||
       options.projectAccess !== undefined,
   });
-  startupOptions.projectAccess = projectAccess;
-  // Issue #3429: a trust granted just now admits project settings whose `$ENV:` credentials the
-  // first withholding could not see.
-  withholdProviderCredentials(
-    createInitialCliWorkspaceComposition(cwd, startupOptions).settingsSources,
-    options.providerDefinitions ?? createDefaultProviderDefinitions(),
-  );
+  admitStartupTrustDecision(startupOptions, projectAccess, cwd);
 
   // The shell's ONE preset resolution — see `resolveShellPreset` for why it is one. Resolved before
   // command setup so the preset's module-selection delta can reach `createDefaultCommandModules`.
@@ -443,8 +437,7 @@ async function runCliCore(
             .settingsSources,
           projectAccess,
           cwd,
-          // MCP servers and header helpers are commands too: they never get withheld credentials.
-          env: commandEnvironment(productRuntime.environment),
+          env: productRuntime.environment,
           mode: mcpStartupMode,
           ...(options.mcpStdioAuthorities === undefined
             ? {}
