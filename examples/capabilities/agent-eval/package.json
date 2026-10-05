@@ -1,6 +1,6 @@
 {
   "name": "robota-capability-agent-eval",
-  "version": "0.1.1-beta.1",
+  "version": "0.1.1-beta.2",
   "private": true,
   "description": "Robota capability demo — evals-as-code: define metrics over an agent's runs and gate CI on a metric breach",
   "type": "module",
@@ -12,8 +12,8 @@
     "test": "node --import tsx --test src/outcome-*.test.ts"
   },
   "dependencies": {
-    "@robota-sdk/agent-framework": "^3.0.0-beta.88",
-    "@robota-sdk/agent-provider-anthropic": "^3.0.0-beta.88",
+    "@robota-sdk/agent-framework": "^3.0.0-beta.89",
+    "@robota-sdk/agent-provider-anthropic": "^3.0.0-beta.89",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-mcp": "workspace:*",
     "@robota-sdk/agent-provider-replay": "workspace:*"

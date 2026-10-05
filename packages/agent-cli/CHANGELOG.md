@@ -1,5 +1,16 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.89
+### Minor Changes
+
+- 3427887: `--serve --http-port` can serve the agent HTTP API as an OAuth resource server: with `--http-public-url`, `--oauth-issuer`, `--oauth-scopes` and `--oauth-allowed-subjects` (plus optional `--http-host` and `--trusted-proxy`) it may bind a non-loopback address and admits access tokens through the same shared resource-server gate as `mcp serve`. Without them it stays loopback with the `PRODUCT_HTTP_TOKEN` bearer.
+  
+  The refusal answer shared by both resource-server carriers (503 for unavailable issuer keys, uncounted; counted challenge otherwise) is now `refuseAccessToken` in `@robota-sdk/agent-transport/node`.
+
+### Patch Changes
+
+- ca44ac6: HTTP clients can now receive and answer permission and ask prompts. `POST /submit` with `receivePrompts: true` streams `permission_request`, `ask_request` and `prompt_resolved`. `GET /prompts` lists the prompts still open, so a client that attaches later can see them, and `POST /prompts/:id` answers one; an id that is not open returns 404, and an answer the session did not take returns 409. Clients that omit `receivePrompts` see no change. `IHttpTransportSession` now also requires `resolvePermission` and `resolveAsk`, which `InteractiveSession` already implements. The `--serve --http-port` API gains these routes as well.
+
 ## 3.0.0-beta.88
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # @robota-sdk/dag-node-tool
 
+## 3.0.0-beta.73
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.0-beta.89
+  - @robota-sdk/agent-tools@3.0.0-beta.89
+
 ## 3.0.0-beta.72
 
 ### Patch Changes

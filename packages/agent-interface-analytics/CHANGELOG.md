@@ -1,5 +1,7 @@
 # @robota-sdk/agent-interface-analytics
 
+## 3.0.0-beta.89
+
 ## 3.0.0-beta.88
 
 ## 3.0.0-beta.87

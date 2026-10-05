@@ -1,5 +1,15 @@
 # @robota-sdk/agent-command-workflows
 
+## 3.0.0-beta.13
+### Patch Changes
+
+  - @robota-sdk/agent-framework@3.0.0-beta.89
+  - @robota-sdk/agent-core@3.0.0-beta.89
+  - @robota-sdk/agent-interface-command@3.0.0-beta.89
+  - @robota-sdk/dag-nodes-default@0.1.0-beta.10
+  - @robota-sdk/dag-framework@1.0.0-beta.13
+  - @robota-sdk/dag-node-instant-node@3.0.0-beta.73
+
 ## 3.0.0-beta.12
 
 ### Patch Changes
