@@ -249,13 +249,18 @@ export async function runPrintMode(
  * tail (a JSON result over the pipe buffer arrives cut). An empty write's callback runs after every
  * write queued before it; a stream with nothing queued exits at once.
  */
-async function exitAfterFlush(code: number): Promise<never> {
+export async function exitAfterFlush(
+  code: number,
+  streams: readonly NodeJS.WritableStream[] = [process.stdout, process.stderr],
+): Promise<never> {
   await Promise.all(
-    [process.stdout, process.stderr].map(
+    streams.map(
       (stream) =>
         new Promise<void>((resolve) => {
-          if (stream.writableLength === 0) resolve();
-          else stream.write('', () => resolve());
+          if ((stream as NodeJS.WriteStream).writableLength === 0) return resolve();
+          // A reader that closed early (EPIPE) must not turn the run's exit code into a crash.
+          stream.once('error', () => resolve());
+          stream.write('', () => resolve());
         }),
     ),
   );
