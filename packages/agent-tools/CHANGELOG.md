@@ -1,5 +1,17 @@
 # @robota-sdk/agent-tools
 
+## 3.0.0-beta.88
+
+### Patch Changes
+
+- d994f60: The bubblewrap availability probe now mounts `/proc` the way every confined command does. Where
+  `/proc` cannot be mounted — a container that masks it, such as Docker without
+  `--security-opt systempaths=unconfined` — the sandbox was reported available and each confined
+  command then failed with `Can't mount proc on /newroot/proc`, so `sandbox.failIfUnavailable` never
+  refused to start. Such a host is now reported unavailable with that reason.
+  - @robota-sdk/agent-core@3.0.0-beta.88
+  - @robota-sdk/agent-process@3.0.0-beta.88
+
 ## 3.0.0-beta.87
 
 ### Patch Changes

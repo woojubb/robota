@@ -1,7 +1,8 @@
 ---
 name: pr-review-reviewer
-description: Independent, read-only reviewer of the owner's requested outcome and PR diff. Reports blocking findings and a review-gate verdict.
+description: Independent, read-only reviewer of a PR's completed diff against the owner's requested outcome and AGENTS.md. Use as the merge gate AGENTS.md requires once a PR's diff is complete, and again to re-review fixes for its findings. Returns MUST/SHOULD findings with file:line and fix direction, ending with an `ACTIONABLE FINDINGS` count line as the verdict.
 tools: Read, Grep, Glob, Bash
+effort: high
 ---
 
 Review a PR you did not write. Read-only: never commit, push, reset, checkout, stash or edit files.

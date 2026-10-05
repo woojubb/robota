@@ -17,7 +17,7 @@ import { submitHandler } from './submit-route.js';
 import { createTurnClaims } from './turn-claims.js';
 
 import type { TSessionFactory } from './submit-route.js';
-import type { TStreamFailureListener } from './submit-stream.js';
+import type { TStreamFailureListener, TTurnAttribution } from './submit-stream.js';
 import type {
   ITransportAdmission,
   ITransportAdmissionConfig,
@@ -44,6 +44,12 @@ export interface IAgentRoutesOptions {
    * for a host that has its own boundary in front. It just has to be written down.
    */
   admission: ITransportAdmissionConfig | ITransportAdmission;
+  /**
+   * Who `/submit` turns are attributed to — the driver and product surface the HOST assigns, as the
+   * WebSocket transport's `driverId`/`surface` do. Never taken from the request body. Absent leaves
+   * the session's own default.
+   */
+  attribution?: TTurnAttribution;
 }
 
 /**
@@ -57,7 +63,7 @@ export interface IAgentRoutesOptions {
  * ```
  */
 export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
-  const { sessionFactory, onStreamFailure } = options;
+  const { sessionFactory, onStreamFailure, attribution } = options;
   const app = new Hono();
 
   // RUNTIME-38: one turn at a time, per session — `turn-claims.ts` owns what that means and why it
@@ -98,7 +104,7 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   });
 
   // POST /submit — execute prompt, stream events via SSE
-  app.post('/submit', submitHandler(sessionFactory, claims, onStreamFailure));
+  app.post('/submit', submitHandler(sessionFactory, claims, onStreamFailure, attribution));
 
   // POST /command — execute system command
   app.post('/command', async (c) => {

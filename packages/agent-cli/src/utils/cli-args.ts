@@ -54,7 +54,8 @@ export interface IParsedCliArgs {
   externalEventTrustedProxies?: string[];
   /** MCP-2533: selecting HTTP also requires an exclusive owner-only token file. */
   mcpHttpTokenFile?: string;
-  mcpHttpPort?: number;
+  /** The loopback HTTP port: `mcp serve` HTTP mode, or the agent HTTP API of `--serve`. */
+  httpPort?: number;
   /** `the product mcp serve` remote resource-server settings; a non-loopback bind requires them. */
   mcpHttpHost?: string;
   mcpHttpPublicUrl?: string;
@@ -362,7 +363,7 @@ function mapParsedValues(
       ? { externalEventTrustedProxies: values['external-event-trusted-proxy'] }
       : {}),
     mcpHttpTokenFile: values['http-token-file'],
-    mcpHttpPort: values['http-port'] === undefined ? undefined : Number(values['http-port']),
+    httpPort: values['http-port'] === undefined ? undefined : Number(values['http-port']),
     mcpHttpHost: values['http-host'],
     mcpHttpPublicUrl: values['http-public-url'],
     mcpOauthIssuer: values['oauth-issuer'],
@@ -436,8 +437,8 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     ...resolveReducedMotionArgs(values),
   };
   if (
-    args.mcpHttpPort !== undefined &&
-    (!Number.isInteger(args.mcpHttpPort) || args.mcpHttpPort < 1 || args.mcpHttpPort > 65535)
+    args.httpPort !== undefined &&
+    (!Number.isInteger(args.httpPort) || args.httpPort < 1 || args.httpPort > 65535)
   ) {
     throw new Error('--http-port must be an integer in 1..65535');
   }

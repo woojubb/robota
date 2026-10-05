@@ -27,10 +27,16 @@ export function resolveMcpHttpOptions(
     args.mcpOauthScopes !== undefined ||
     args.mcpOauthAllowedSubjects !== undefined ||
     (args.mcpTrustedProxies?.length ?? 0) > 0;
+  // `--serve` takes `--http-port` for its own agent HTTP API (see serve-http-args.ts); every other
+  // HTTP flag here stays mcp serve's.
+  const servePort = args.serve && !mcpServe;
+  if (args.httpPort !== undefined && !mcpServe && !servePort) {
+    throw new Error('--http-port is only valid with --serve or mcp serve HTTP mode');
+  }
   if (
-    (args.mcpHttpTokenFile !== undefined || args.mcpHttpPort !== undefined) &&
+    (args.mcpHttpTokenFile !== undefined || (args.httpPort !== undefined && !servePort)) &&
     (!mcpServe ||
-      (args.mcpHttpPort !== undefined && args.mcpHttpTokenFile === undefined && !remoteRequested))
+      (args.httpPort !== undefined && args.mcpHttpTokenFile === undefined && !remoteRequested))
   ) {
     throw new Error(
       '--http-token-file and --http-port are only valid for mcp serve HTTP mode',
@@ -51,7 +57,7 @@ export function resolveMcpHttpOptions(
     if (args.mcpHttpTokenFile === undefined) return undefined;
     return {
       tokenFile: args.mcpHttpTokenFile,
-      ...(args.mcpHttpPort !== undefined ? { port: args.mcpHttpPort } : {}),
+      ...(args.httpPort !== undefined ? { port: args.httpPort } : {}),
     };
   }
   if (args.mcpHttpTokenFile !== undefined) {
@@ -80,7 +86,7 @@ export function resolveMcpHttpOptions(
     throw new Error('--trusted-proxy must be a literal IP address');
   }
   return {
-    ...(args.mcpHttpPort !== undefined ? { port: args.mcpHttpPort } : {}),
+    ...(args.httpPort !== undefined ? { port: args.httpPort } : {}),
     remote: { host, publicUrl, issuer, scopes, allowedSubjects, trustedProxies },
   };
 }

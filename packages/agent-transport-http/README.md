@@ -92,11 +92,12 @@ Paths are relative to where the routes are mounted (`basePath`, or the prefix yo
 | ------------------------ | --------- | ----------------------------------------------------------------------------------------------------- |
 | `createHttpTransport`    | function  | `(options?: IHttpTransportOptions) => IHttpTransport`                                                 |
 | `createAgentRoutes`      | function  | `(options: IAgentRoutesOptions) => Hono`                                                              |
-| `IHttpTransportOptions`  | interface | `{ basePath?, admission?, onStreamFailure? }`                                                         |
+| `IHttpTransportOptions`  | interface | `{ basePath?, admission?, onStreamFailure?, attribution? }`                                           |
 | `IHttpTransport`         | interface | The transport; adds `getApp()` and `getAdmissionToken()` to the standard transport lifecycle          |
-| `IAgentRoutesOptions`    | interface | `{ sessionFactory, admission, onStreamFailure? }`                                                     |
+| `IAgentRoutesOptions`    | interface | `{ sessionFactory, admission, onStreamFailure?, attribution? }`                                       |
 | `TSessionFactory`        | type      | `(c: Context) => IHttpTransportSession \| Promise<IHttpTransportSession>`                             |
 | `IHttpTransportSession`  | interface | The session capabilities the routes use; a full interactive session satisfies it                      |
+| `TTurnAttribution`       | type      | Host-assigned `driverId`/`surface` for `/submit` turns; never read from the request                   |
 | `TStreamFailureListener` | type      | Receives the details of a stream that fails after headers were sent (the client sees a generic error) |
 
 ## Related

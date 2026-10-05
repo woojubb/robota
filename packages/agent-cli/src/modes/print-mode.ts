@@ -237,8 +237,32 @@ export async function runPrintMode(
   } catch (error) {
     process.stderr.write((error instanceof Error ? error.message : String(error)) + '\n');
     await beforeExit?.();
-    process.exit(1);
+    await exitAfterFlush(1);
   }
   await beforeExit?.();
-  process.exit(channel.getExitCode());
+  await exitAfterFlush(channel.getExitCode());
+}
+
+/**
+ * Exit once everything written to stdout and stderr has been handed to the OS. On macOS a piped
+ * stdout is asynchronous in Node, so `process.exit` right after the result is written drops its
+ * tail (a JSON result over the pipe buffer arrives cut). An empty write's callback runs after every
+ * write queued before it; a stream with nothing queued exits at once.
+ */
+export async function exitAfterFlush(
+  code: number,
+  streams: readonly NodeJS.WritableStream[] = [process.stdout, process.stderr],
+): Promise<never> {
+  await Promise.all(
+    streams.map(
+      (stream) =>
+        new Promise<void>((resolve) => {
+          if ((stream as NodeJS.WriteStream).writableLength === 0) return resolve();
+          // A reader that closed early (EPIPE) must not turn the run's exit code into a crash.
+          stream.once('error', () => resolve());
+          stream.write('', () => resolve());
+        }),
+    ),
+  );
+  process.exit(code);
 }

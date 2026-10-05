@@ -595,13 +595,13 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/agent-core
       '@robota-sdk/agent-framework':
-        specifier: ^3.0.0-beta.87
+        specifier: ^3.0.0-beta.88
         version: link:../../../packages/agent-framework
       '@robota-sdk/agent-mcp':
         specifier: workspace:*
         version: link:../../../packages/agent-mcp
       '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.0-beta.87
+        specifier: ^3.0.0-beta.88
         version: link:../../../packages/agent-provider-anthropic
       '@robota-sdk/agent-provider-replay':
         specifier: workspace:*
@@ -1028,6 +1028,9 @@ importers:
       '@google/genai':
         specifier: ^1.52.0
         version: 1.52.0(@modelcontextprotocol/sdk@1.29.0)
+      '@hono/node-server':
+        specifier: ^2.0.11
+        version: 2.0.11(hono@4.13.7)
       '@marcbachmann/cel-js':
         specifier: ^7.5.3
         version: 7.6.1
@@ -1073,6 +1076,9 @@ importers:
       fast-glob:
         specifier: ^3.3.3
         version: 3.3.3
+      hono:
+        specifier: '>=4.13.5 <5.0.0'
+        version: 4.13.7
       ink:
         specifier: ^7.1.1
         version: 7.1.1(@types/react@19.2.17)(react@19.2.8)
@@ -1216,6 +1222,9 @@ importers:
       '@robota-sdk/agent-transport':
         specifier: workspace:*
         version: link:../agent-transport
+      '@robota-sdk/agent-transport-http':
+        specifier: workspace:*
+        version: link:../agent-transport-http
       '@robota-sdk/agent-transport-mcp':
         specifier: workspace:*
         version: link:../agent-transport-mcp

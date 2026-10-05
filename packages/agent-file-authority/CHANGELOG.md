@@ -1,5 +1,7 @@
 # @robota-sdk/agent-file-authority
 
+## 3.0.0-beta.88
+
 ## 3.0.0-beta.87
 
 ### Patch Changes

@@ -29,6 +29,11 @@ export async function runHostedRuntime(
   }
   const command = subcommandWord(args);
   const { mcpServe } = validateMcpServeInvocation(args, cliName);
+  if (args.serve && args.httpPort !== undefined) {
+    throw hostedAdmissionError(
+      '--serve --http-port is not served by a task worker; only its WebSocket ingress is reachable',
+    );
+  }
   const invocation: IHostedRuntimeInvocation = Object.freeze({
     argv,
     mode:

@@ -113,7 +113,19 @@ export function detectOsSandbox(options: IDetectOsSandboxOptions = {}): IOsSandb
         ],
       };
     }
-    const check = probe('bwrap', ['--ro-bind', '/', '/', '--dev', '/dev', '--unshare-pid', 'true']);
+    // Mount /proc like every confined command does: where it cannot be mounted (a container that
+    // masks it) the sandbox must be reported unavailable, not fail on each command.
+    const check = probe('bwrap', [
+      '--ro-bind',
+      '/',
+      '/',
+      '--dev',
+      '/dev',
+      '--proc',
+      '/proc',
+      '--unshare-pid',
+      'true',
+    ]);
     if (check.ok) return { backend: 'bubblewrap', executable: 'bwrap', missing: [] };
     const reason = check.detail?.includes('ENOENT')
       ? 'bubblewrap (install the `bubblewrap` package)'

@@ -301,6 +301,30 @@ on `127.0.0.1` and opens it in your browser. The Electron desktop app in this re
 ([`apps/agent-app`](../../apps/agent-app/docs/README.md)) shows the same GUI over the workspace
 daemon; it is not published to npm. See [The GUI and the Desktop App](../../content/guide/gui.md).
 
+### Let other apps and services use the agent
+
+`__PRODUCT_CLI_NAME__ --serve --http-port <port>` also serves the agent over HTTP on `127.0.0.1:<port>`, so another
+application or service can use it without a Robota client library. Every request presents the
+bearer you choose in `PRODUCT_HTTP_TOKEN` (at least 32 characters); the runtime removes it from its
+environment, so the commands it runs do not inherit it. A command running as the same OS user can
+still read the server's launch environment unless the OS sandbox confines it (or the server runs
+as a separate user), so enable the sandbox on a server. Reach the API from elsewhere through your own
+reverse proxy or tunnel: it binds loopback only.
+
+```bash
+PRODUCT_HTTP_TOKEN="$(openssl rand -hex 32)" __PRODUCT_CLI_NAME__ --serve --http-port 8787
+```
+
+| Request | Does |
+| --- | --- |
+| `POST /submit` `{"prompt": "..."}` | Runs a turn and streams it as SSE (`text_delta`, `complete`, `error`); `409` while a turn is running |
+| `POST /command` `{"name": "help", "args": ""}` | Runs a slash command |
+| `POST /abort` · `POST /cancel-queue` | Aborts the running turn · drops the queued prompt |
+| `GET /messages` · `/context` · `/executing` · `/pending` | Reads the conversation and its state |
+
+No one can answer a permission prompt over HTTP, so a question no other client answers is denied;
+choose the permission mode and rules the server runs under.
+
 ### Reach other sessions and your other devices
 
 `/peers` lists the other live `__PRODUCT_CLI_NAME__` sessions on this machine, and `/peers send <session-id>

@@ -11,7 +11,7 @@ import { streamSSE } from 'hono/streaming';
 import { relayTurn } from './submit-stream.js';
 
 import type { IHttpTransportSession } from './http-session.js';
-import type { TStreamFailureListener } from './submit-stream.js';
+import type { TStreamFailureListener, TTurnAttribution } from './submit-stream.js';
 import type { ITurnClaims } from './turn-claims.js';
 import type { Context } from 'hono';
 
@@ -105,6 +105,7 @@ export function submitHandler(
   sessionFactory: TSessionFactory,
   claims: ITurnClaims,
   onStreamFailure?: TStreamFailureListener,
+  attribution?: TTurnAttribution,
 ) {
   return async (c: Context) => {
     const session = await sessionFactory(c);
@@ -165,7 +166,10 @@ export function submitHandler(
       // Hono returns the Response synchronously and only the sync path is real — but review is
       // right that a version returning a rejecting promise would sail past a bare `return`, and
       // the cost of closing that class is one keyword.
-      return await streamSSE(c, relayTurn(session, body.prompt, releaseOnce, onStreamFailure));
+      return await streamSSE(
+        c,
+        relayTurn(session, body.prompt, releaseOnce, onStreamFailure, attribution),
+      );
     } catch (error) {
       releaseOnce();
       throw error;

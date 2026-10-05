@@ -9,6 +9,7 @@
 
 import type { IHttpTransportSession } from './http-session.js';
 import type { SSEStreamingApi } from 'hono/streaming';
+import type { ISubmitOptions } from '@robota-sdk/agent-interface-session';
 
 /**
  * Where the DETAIL of a post-headers stream failure goes — injected, never imported.
@@ -24,6 +25,13 @@ import type { SSEStreamingApi } from 'hono/streaming';
  * detail at the boundary where it mounts the route.
  */
 export type TStreamFailureListener = (error: Error) => void;
+
+/**
+ * Who a submitted turn is attributed to, assigned by the HOST that composed the routes — never read
+ * from the request, because a client could otherwise claim to be the local operator or another
+ * surface in the usage record. Absent means the session's own default.
+ */
+export type TTurnAttribution = Pick<ISubmitOptions, 'driverId' | 'surface'>;
 
 /**
  * Wire every relay subscription and the abort path; answer with the promise that settles when the
@@ -154,6 +162,7 @@ export function relayTurn(
   prompt: string,
   release: () => void,
   onFailure?: TStreamFailureListener,
+  attribution?: TTurnAttribution,
 ): (stream: SSEStreamingApi) => Promise<void> {
   return async (stream) => {
     // NOTHING may escape this callback, and the reason is measured rather than stylistic. Hono's
@@ -169,7 +178,9 @@ export function relayTurn(
       const cleanup: Array<() => void> = [];
       try {
         const done = wireRelay(session, stream, cleanup, onFailure);
-        await session.submit(prompt);
+        await (attribution === undefined
+          ? session.submit(prompt)
+          : session.submit(prompt, undefined, undefined, { ...attribution }));
         await done;
       } finally {
         // RUNTIME-14: teardown ALWAYS runs — on completion, error, OR client disconnect — so the
