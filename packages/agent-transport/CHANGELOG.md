@@ -1,5 +1,22 @@
 # @robota-sdk/agent-transport
 
+## 3.0.0-beta.89
+### Minor Changes
+
+- 3427887: `--serve --http-port` can serve the agent HTTP API as an OAuth resource server: with `--http-public-url`, `--oauth-issuer`, `--oauth-scopes` and `--oauth-allowed-subjects` (plus optional `--http-host` and `--trusted-proxy`) it may bind a non-loopback address and admits access tokens through the same shared resource-server gate as `mcp serve`. Without them it stays loopback with the `PRODUCT_HTTP_TOKEN` bearer.
+  
+  The refusal answer shared by both resource-server carriers (503 for unavailable issuer keys, uncounted; counted challenge otherwise) is now `refuseAccessToken` in `@robota-sdk/agent-transport/node`.
+
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.0-beta.89
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.89
+  - @robota-sdk/agent-interface-command@3.0.0-beta.89
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.89
+  - @robota-sdk/agent-interface-session@3.0.0-beta.89
+  - @robota-sdk/agent-interface-session-mobility@3.0.0-beta.89
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.89
+
 ## 3.0.0-beta.88
 
 ### Patch Changes

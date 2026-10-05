@@ -252,6 +252,8 @@
     "3409-webfetch-domain-compatibility",
     "3421-serve-http-api",
     "3422-sandbox-probe-mounts-proc",
+    "3426-serve-http-oauth",
+    "3449-http-prompts",
     "active-plugin-withdrawal",
     "arch-005-s1-composition-layer",
     "arch-005-s2-cli-collapse",
