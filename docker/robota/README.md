@@ -163,7 +163,9 @@ and a volume.
 
 Each release publishes `ghcr.io/woojubb/robota:<version>` for `linux/amd64` and `linux/arm64`,
 installing exactly that `@robota-sdk/agent-cli` version, after the amd64 image passes the smoke test
-below. The image carries provenance and SBOM attestations. There is no `latest` tag; pin a version:
+below. Each image carries an SBOM and a signed SLSA build provenance attestation from the release
+workflow; check it with `gh attestation verify oci://ghcr.io/woojubb/robota:<version> --owner woojubb`.
+There is no `latest` tag; pin a version:
 
 ```sh
 docker pull ghcr.io/woojubb/robota:3.0.0-beta.88
@@ -175,7 +177,6 @@ To build it yourself instead: `docker build --build-arg ROBOTA_VERSION=3.0.0-bet
 ## Batch usage
 
 ```sh
-
 SECURITY="--cap-drop ALL --security-opt no-new-privileges:true \
   --security-opt seccomp=docker/robota/seccomp-bwrap.json \
   --security-opt apparmor=robota-userns --security-opt systempaths=unconfined"
@@ -210,7 +211,7 @@ automatically, so use `restart: "no"` (the default) for batch tasks.
 ## Server usage
 
 **Requires a CLI release that contains `--serve --http-port` (3.0.0-beta.88 or later).** Set
-`ROBOTA_VERSION` to that release for the compose command below.
+`ROBOTA_VERSION` to that release; compose pulls `ghcr.io/woojubb/robota:$ROBOTA_VERSION`.
 
 `robota --serve --http-port 8787` serves the agent HTTP API (see the agent-cli README, "Let other
 apps and services use the agent"). It binds loopback only, so the compose `server` profile pairs
@@ -221,7 +222,7 @@ only listener reachable from outside it:
 openssl rand -hex 32 > http-token          # the bearer clients present
 ROBOTA_REPO_URL=https://github.com/you/repo.git \
 OPENAI_API_KEY_FILE=./openai-key ROBOTA_HTTP_TOKEN_FILE=./http-token \
-ROBOTA_VERSION=3.0.0-beta.88 docker compose --profile server up -d --build
+ROBOTA_VERSION=3.0.0-beta.88 docker compose --profile server up -d
 curl -N -H "Authorization: Bearer $(cat http-token)" -H 'content-type: application/json' \
   -d '{"prompt":"Summarize the README"}' http://127.0.0.1:8080/submit
 ```
