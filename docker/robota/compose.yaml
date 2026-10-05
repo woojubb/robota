@@ -4,6 +4,12 @@
 #   OPENAI_API_KEY_FILE=/path/to/key docker compose run --rm robota --configure-provider ...
 #   ROBOTA_REPO_URL=https://… ROBOTA_TASK='…' OPENAI_API_KEY_FILE=/path/to/key docker compose run --rm robota
 
+# `image:` is the published release image (pulled by default; set ROBOTA_VERSION to pin another
+# release). `build:` is only for building it locally, or for a pre-release verification build with
+# ROBOTA_SOURCE=local (README, "Pre-release verification build"); run with --build for those, and
+# set ROBOTA_IMAGE=robota-local with ROBOTA_SOURCE=local so an unreleased build never takes the
+# published image's name (a later `up` would otherwise run it instead of pulling the release).
+
 services:
   # Batch: one container per task. It clones the repository, states trust for that clone, runs the
   # task to completion and exits with the run's status.
@@ -12,8 +18,9 @@ services:
     build:
       context: .
       args:
-        ROBOTA_VERSION: 3.0.0-beta.87
-    image: robota:3.0.0-beta.87
+        ROBOTA_VERSION: ${ROBOTA_VERSION:-3.0.0-beta.88}
+        ROBOTA_SOURCE: ${ROBOTA_SOURCE:-registry}
+    image: ${ROBOTA_IMAGE:-ghcr.io/woojubb/robota}:${ROBOTA_VERSION:-3.0.0-beta.88}
     security_opt:
       # Lets bubblewrap create its namespaces and mounts; everything else stays at Docker's default.
       - seccomp=./seccomp-bwrap.json
@@ -55,15 +62,12 @@ services:
   #     docker compose --profile server up -d
   robota-server:
     profiles: [server]
-    # `--serve --http-port` needs a CLI release that contains it (after 3.0.0-beta.87). Until then
-    # build with ROBOTA_SOURCE=local from a checkout that has it (see README, "Pre-release
-    # verification build").
     build:
       context: .
       args:
-        ROBOTA_VERSION: ${ROBOTA_VERSION:-3.0.0-beta.87}
+        ROBOTA_VERSION: ${ROBOTA_VERSION:-3.0.0-beta.88}
         ROBOTA_SOURCE: ${ROBOTA_SOURCE:-registry}
-    image: robota-server:${ROBOTA_VERSION:-3.0.0-beta.87}
+    image: ${ROBOTA_IMAGE:-ghcr.io/woojubb/robota}:${ROBOTA_VERSION:-3.0.0-beta.88}
     security_opt:
       - seccomp=./seccomp-bwrap.json
       - apparmor=${ROBOTA_APPARMOR_PROFILE:-robota-userns}

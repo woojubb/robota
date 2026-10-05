@@ -1,0 +1,190 @@
+name: Release — agent image
+
+# Publishes ghcr.io/<owner>/robota:<version> (linux/amd64, linux/arm64) from docker/robota at the release
+# tag, installing exactly the @robota-sdk/agent-cli release the tag names, so the image and the npm
+# package are 1:1. Only a tag with the configured release prefix whose agent-cli manifest carries that
+# version publishes; any other tag publishes nothing. The tag (pushed by release-tag-on-version-bump.yml)
+# arrives before the separate npm publish, so the first job waits for that version on npm. The amd64
+# image must pass docker/robota/smoke before anything is pushed. No floating `latest`: operators pin.
+
+on:
+  push:
+    tags:
+      - '**'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Released @robota-sdk/agent-cli version to (re)build from its release tag and push, e.g. 3.0.0-beta.88.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Resolve the release and wait for it on npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 260
+    env:
+      PRODUCT_BUILD_ENV: ${{ vars.PRODUCT_BUILD_ENV }}
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 8.15.4
+          run_install: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Generate selected product workspace
+        id: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          if [ -z "${PRODUCT_BUILD_ENV:-}" ]; then
+            echo "::error::Configure vars.PRODUCT_BUILD_ENV before publishing the image."
+            exit 1
+          fi
+          printf '%s' "$PRODUCT_BUILD_ENV" > "$RUNNER_TEMP/selected-product.env"
+          pnpm exec tsx scripts/product/generate-workspace.mjs --env "$RUNNER_TEMP/selected-product.env" --out "$RUNNER_TEMP/product-workspace" --github-output "$GITHUB_OUTPUT"
+      - name: Resolve the release tag and version
+        id: release
+        shell: bash
+        env:
+          TAG_PREFIX: ${{ steps.product.outputs.tag_prefix }}
+          EVENT: ${{ github.event_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TAG_PREFIX" ]; then
+            echo "::error::PROJECT_RELEASE_TAG_PREFIX must be configured."
+            exit 1
+          fi
+          if [ "$EVENT" = workflow_dispatch ]; then
+            version="$INPUT_VERSION"
+            tag="$TAG_PREFIX$version"
+          else
+            tag="$REF_NAME"
+            if [[ "$tag" != "$TAG_PREFIX"* ]]; then
+              echo "Tag '$tag' does not use the release prefix '$TAG_PREFIX'; nothing to publish."
+              exit 0
+            fi
+            version="${tag#"$TAG_PREFIX"}"
+          fi
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$version' is not a release version."
+            exit 1
+          fi
+          if ! manifest="$(git show "refs/tags/$tag:packages/agent-cli/package.json" 2>/dev/null)"; then
+            echo "::error::Release tag $tag does not exist or has no packages/agent-cli/package.json."
+            exit 1
+          fi
+          tagged="$(printf '%s' "$manifest" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).version")"
+          if [ "$tagged" != "$version" ]; then
+            echo "::error::$tag carries agent-cli $tagged, not $version."
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Wait until @robota-sdk/agent-cli@version is on npm
+        if: steps.release.outputs.version != ''
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          deadline=$(( $(date +%s) + 240 * 60 ))
+          until [ "$(npm view "@robota-sdk/agent-cli@$VERSION" version 2>/dev/null)" = "$VERSION" ]; do
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "::error::@robota-sdk/agent-cli@$VERSION did not appear on npm within 4 hours. Publish it, then re-run this workflow with workflow_dispatch version=$VERSION."
+              exit 1
+            fi
+            echo "@robota-sdk/agent-cli@$VERSION not on npm yet; checking again in 60s."
+            sleep 60
+          done
+          echo "@robota-sdk/agent-cli@$VERSION is on npm."
+
+  image:
+    name: Build, smoke-test and push the image
+    needs: resolve
+    if: needs.resolve.outputs.version != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    concurrency:
+      group: release-image-${{ needs.resolve.outputs.version }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ needs.resolve.outputs.version }}
+      IMAGE: ghcr.io/${{ github.repository_owner }}/robota
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - name: Build the amd64 image for the smoke test
+        uses: docker/build-push-action@v7
+        with:
+          context: docker/robota
+          platforms: linux/amd64
+          build-args: |
+            ROBOTA_SOURCE=registry
+            ROBOTA_VERSION=${{ env.VERSION }}
+          load: true
+          tags: robota:smoke
+          cache-to: type=gha,mode=max
+          cache-from: type=gha
+      - name: Choose the AppArmor profile
+        id: apparmor
+        run: |
+          # The runner is an ephemeral VM: load the repository's userns-only profile when AppArmor is active,
+          # as the README tells operators to; without AppArmor the profile option is `unconfined`.
+          if docker info --format '{{json .SecurityOptions}}' | grep -q apparmor; then
+            sudo apparmor_parser -r docker/robota/apparmor/robota-userns
+            echo "profile=robota-userns" >> "$GITHUB_OUTPUT"
+          else
+            echo "profile=unconfined" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Smoke test
+        run: docker/robota/smoke/smoke.sh robota:smoke "${{ steps.apparmor.outputs.profile }}"
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push amd64 and arm64
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: docker/robota
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            ROBOTA_SOURCE=registry
+            ROBOTA_VERSION=${{ env.VERSION }}
+          push: true
+          tags: ${{ env.IMAGE }}:${{ env.VERSION }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ env.VERSION }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha
+      - name: Attest signed build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true

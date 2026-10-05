@@ -106,7 +106,7 @@ out means you accept the container as the only boundary.
 Set up the provider once per state volume:
 
 ```sh
-docker run --rm $SECURITY -v robota-state:/home/node/.robota robota:3.0.0-beta.87 \
+docker run --rm $SECURITY -v robota-state:/home/node/.robota robota:3.0.0-beta.88 \
   --configure-provider main --type anthropic --model <model> --api-key-env ANTHROPIC_API_KEY --set-current
 ```
 
@@ -159,18 +159,31 @@ a repository from the host lets changes made in the container, such as to `.git/
 scripts, run later on the host with the host user's rights. `/workspace` is the working directory
 and a volume.
 
+## Getting the image
+
+Each release publishes `ghcr.io/woojubb/robota:<version>` for `linux/amd64` and `linux/arm64`,
+installing exactly that `@robota-sdk/agent-cli` version, after the amd64 image passes the smoke test
+below. Each image carries an SBOM and a signed SLSA build provenance attestation from the release
+workflow; check it with `gh attestation verify oci://ghcr.io/woojubb/robota:<version> --owner woojubb`.
+There is no `latest` tag; pin a version:
+
+```sh
+docker pull ghcr.io/woojubb/robota:3.0.0-beta.88
+docker tag ghcr.io/woojubb/robota:3.0.0-beta.88 robota:3.0.0-beta.88   # the name used below
+```
+
+To build it yourself instead: `docker build --build-arg ROBOTA_VERSION=3.0.0-beta.88 -t robota:3.0.0-beta.88 docker/robota`.
+
 ## Batch usage
 
 ```sh
-docker build -t robota:3.0.0-beta.87 docker/robota
-
 SECURITY="--cap-drop ALL --security-opt no-new-privileges:true \
   --security-opt seccomp=docker/robota/seccomp-bwrap.json \
   --security-opt apparmor=robota-userns --security-opt systempaths=unconfined"
 
 docker run --rm $SECURITY -v robota-state:/home/node/.robota \
   -v /srv/secrets/anthropic:/run/secrets/ANTHROPIC_API_KEY:ro \
-  robota:3.0.0-beta.87 sh -c '
+  robota:3.0.0-beta.88 sh -c '
     set -e
     git clone --depth 1 https://example.com/org/repo.git /workspace/repo
     cd /workspace/repo
@@ -178,7 +191,7 @@ docker run --rm $SECURITY -v robota-state:/home/node/.robota \
     robota -p "Fix the failing test" --output-format json'
 ```
 
-Arguments starting with `-` run `robota` directly (`docker run … robota:3.0.0-beta.87 -p "…"`);
+Arguments starting with `-` run `robota` directly (`docker run … robota:3.0.0-beta.88 -p "…"`);
 anything else runs as given. The container's exit status is the run's.
 
 With compose (`docker compose` resolves `./seccomp-bwrap.json` against this directory):
@@ -197,9 +210,8 @@ automatically, so use `restart: "no"` (the default) for batch tasks.
 
 ## Server usage
 
-**Requires a CLI release that contains `--serve --http-port`; 3.0.0-beta.87 does not.** Until
-that release, build the server image from a checkout that has it: run `pack-local.sh`, then pass
-`ROBOTA_SOURCE=local` to the compose command below (once released, set `ROBOTA_VERSION` instead).
+**Requires a CLI release that contains `--serve --http-port` (3.0.0-beta.88 or later).** Set
+`ROBOTA_VERSION` to that release; compose pulls `ghcr.io/woojubb/robota:$ROBOTA_VERSION`.
 
 `robota --serve --http-port 8787` serves the agent HTTP API (see the agent-cli README, "Let other
 apps and services use the agent"). It binds loopback only, so the compose `server` profile pairs
@@ -210,7 +222,7 @@ only listener reachable from outside it:
 openssl rand -hex 32 > http-token          # the bearer clients present
 ROBOTA_REPO_URL=https://github.com/you/repo.git \
 OPENAI_API_KEY_FILE=./openai-key ROBOTA_HTTP_TOKEN_FILE=./http-token \
-ROBOTA_SOURCE=local docker compose --profile server up -d --build
+ROBOTA_VERSION=3.0.0-beta.88 docker compose --profile server up -d
 curl -N -H "Authorization: Bearer $(cat http-token)" -H 'content-type: application/json' \
   -d '{"prompt":"Summarize the README"}' http://127.0.0.1:8080/submit
 ```
