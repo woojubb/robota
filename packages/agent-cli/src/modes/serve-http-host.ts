@@ -24,7 +24,7 @@ import {
   createAccessTokenVerifier,
   createBearerResourceServer,
   describeProtectedResource,
-  refuseBearerToken,
+  refuseAccessToken,
   serveProtectedResourceMetadata,
 } from '@robota-sdk/agent-transport/node';
 import { createAgentRoutes } from '@robota-sdk/agent-transport-http';
@@ -32,11 +32,8 @@ import { createAgentRoutes } from '@robota-sdk/agent-transport-http';
 import { ACCESS_TOKEN_ALGORITHMS } from './mcp-serve-mode.js';
 
 import type { IMcpServeRemoteOptions } from './mcp-serve-mode.js';
-import type {
-  ITransportAdmissionConfig,
-  TAccessTokenRefusal,
-} from '@robota-sdk/agent-interface-transport';
-import type { TRemoteAddressClass } from '@robota-sdk/agent-transport/node';
+import type { ITransportAdmissionConfig } from '@robota-sdk/agent-interface-transport';
+import type { IBearerRefusalRecord, TBearerRefusal } from '@robota-sdk/agent-transport/node';
 import type { IHttpTransportSession } from '@robota-sdk/agent-transport-http';
 
 const LOOPBACK = '127.0.0.1';
@@ -50,11 +47,7 @@ const LABEL = 'HTTP API';
 const HTTP_TURN_ATTRIBUTION = { driverId: 'remote:http', surface: 'remote' } as const;
 
 /** One refused request as the operator sees it: a closed-set reason and a coarse address class. */
-export interface IServeHttpRefusal {
-  readonly refusal: TAccessTokenRefusal | 'missing-token';
-  readonly remote: TRemoteAddressClass;
-  readonly throttled: boolean;
-}
+export type IServeHttpRefusal = IBearerRefusalRecord;
 
 export interface IServeHttpHostOptions {
   /** Port to bind. */
@@ -147,25 +140,8 @@ function remoteHandler(
   });
   const base = server.url.pathname.replace(/\/$/, '');
 
-  function refuse(
-    req: IncomingMessage,
-    res: ServerResponse,
-    refusal: TAccessTokenRefusal | 'missing-token',
-  ): void {
-    if (refusal === 'keys-unavailable') {
-      // The issuer, not the peer, failed: not counted against the peer, and not a token verdict.
-      options.onRefusal?.({ refusal, remote: server.remote(req), throttled: false });
-      res.writeHead(503).end();
-      return;
-    }
-    const failure = server.fail(req);
-    options.onRefusal?.({ refusal, remote: failure.remote, throttled: failure.throttled });
-    refuseBearerToken(
-      res,
-      resource,
-      refusal === 'missing-token' || refusal === 'missing-scope' ? refusal : 'invalid-token',
-      failure,
-    );
+  function refuse(req: IncomingMessage, res: ServerResponse, refusal: TBearerRefusal): void {
+    refuseAccessToken(req, res, server, resource, refusal, options.onRefusal);
   }
 
   async function admit(req: IncomingMessage, res: ServerResponse): Promise<void> {

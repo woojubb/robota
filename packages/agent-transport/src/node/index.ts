@@ -12,13 +12,16 @@ export {
   createBearerResourceServer,
   describeProtectedResource,
   parsePublicHttpsUrl,
+  refuseAccessToken,
   refuseBearerToken,
   serveProtectedResourceMetadata,
 } from './bearer-resource-gate.js';
 export type {
   IBearerFailure,
+  IBearerRefusalRecord,
   IBearerResourceServer,
   IProtectedResource,
+  TBearerRefusal,
   TRemoteAddressClass,
 } from './bearer-resource-gate.js';
 export {

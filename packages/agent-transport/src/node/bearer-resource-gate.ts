@@ -19,6 +19,7 @@
 
 import { BlockList, isIP } from 'node:net';
 
+import type { TAccessTokenRefusal } from '@robota-sdk/agent-interface-transport';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 const WELL_KNOWN_PREFIX = '/.well-known/oauth-protected-resource';
@@ -288,4 +289,43 @@ export function refuseBearerToken(
       refusal === 'missing-token' ? resource.challenges.missing : resource.challenges.invalid;
     res.writeHead(401, { 'WWW-Authenticate': challenge }).end();
   }
+}
+
+/** Why a request was refused: a verifier refusal, or no bearer token at all. */
+export type TBearerRefusal = TAccessTokenRefusal | 'missing-token';
+
+/** One refused request as an audit sink sees it. Carries no token text and no claim value. */
+export interface IBearerRefusalRecord {
+  readonly refusal: TBearerRefusal;
+  readonly remote: TRemoteAddressClass;
+  /** True when the refusal was answered 429 because the address exceeded its failure budget. */
+  readonly throttled: boolean;
+}
+
+/**
+ * Answer one refused request and report it. When the issuer's keys are unavailable the issuer, not
+ * the peer, failed: 503, not counted against the peer, and not a token verdict. Every other refusal
+ * is counted and answered with the matching challenge.
+ */
+export function refuseAccessToken(
+  req: IncomingMessage,
+  res: ServerResponse,
+  server: IBearerResourceServer,
+  resource: IProtectedResource,
+  refusal: TBearerRefusal,
+  audit?: (record: IBearerRefusalRecord) => void,
+): void {
+  if (refusal === 'keys-unavailable') {
+    audit?.({ refusal, remote: server.remote(req), throttled: false });
+    res.writeHead(503).end();
+    return;
+  }
+  const failure = server.fail(req);
+  audit?.({ refusal, remote: failure.remote, throttled: failure.throttled });
+  refuseBearerToken(
+    res,
+    resource,
+    refusal === 'missing-token' || refusal === 'missing-scope' ? refusal : 'invalid-token',
+    failure,
+  );
 }
