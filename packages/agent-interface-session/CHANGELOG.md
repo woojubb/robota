@@ -1,5 +1,14 @@
 # @robota-sdk/agent-interface-session
 
+## 3.0.0-beta.88
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.88
+- @robota-sdk/agent-interface-analytics@3.0.0-beta.88
+- @robota-sdk/agent-interface-command@3.0.0-beta.88
+- @robota-sdk/agent-interface-execution@3.0.0-beta.88
+
 ## 3.0.0-beta.87
 
 ### Patch Changes
@@ -101,7 +110,7 @@
     - Session notices keep only `session-error` and `protocol-error`.
     - The state gains `commandCatalog` and `sessionStatus`.
   - `agent-command` registers `/theme` and `/keybindings` even without a terminal. They then answer
-    that they belong to the __PRODUCT_DISPLAY_NAME__ terminal, instead of being unknown.
+    that they belong to the **PRODUCT_DISPLAY_NAME** terminal, instead of being unknown.
   - `agent-framework`:
     - `InteractiveSession.getStatusSnapshot()`.
     - The main-thread row previews the last chat message instead of the last record's type.

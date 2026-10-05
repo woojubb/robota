@@ -1,5 +1,15 @@
 # @robota-sdk/agent-product
 
+## 3.0.0-beta.88
+
+### Patch Changes
+
+- @robota-sdk/agent-framework@3.0.0-beta.88
+- @robota-sdk/agent-capability-pack@3.0.0-beta.88
+- @robota-sdk/agent-preset@3.0.0-beta.88
+- @robota-sdk/agent-core@3.0.0-beta.88
+- @robota-sdk/agent-interface-transport@3.0.0-beta.88
+
 ## 3.0.0-beta.87
 
 ### Patch Changes
@@ -173,9 +183,9 @@
     construction to `agent-framework`'s `buildRuntimeSession` seam (never re-implemented). Its neutrality is
     enforced by three mechanical guards (dependency-graph neutrality, purity/no-IO, no product-name
     conditionals), coupling the amended project-structure L129 carve-out to the guards.
-  - **`@robota-sdk/pack-coding`** (new) — __PRODUCT_DISPLAY_NAME__'s coding capability as one `ICapabilityPack` (the built-in
+  - **`@robota-sdk/pack-coding`** (new) — **PRODUCT_DISPLAY_NAME**'s coding capability as one `ICapabilityPack` (the built-in
     coding tools, the `/shell` + `/editor` command modules, and the coding subagents) — the additive-axis
-    proof and __PRODUCT_DISPLAY_NAME__'s first pack.
+    proof and **PRODUCT_DISPLAY_NAME**'s first pack.
   - **`@robota-sdk/agent-preset`** — adds `createPresetRegistry`, a per-call instance-scoped resolver that
     never mutates the module-level external-preset global (consumed by `assembleProduct`).
 
@@ -199,7 +209,7 @@
     project/user definitions > injected > built-in. `AgentDefinitionLoader` now dedupes within that tier
     (first wins). Absent ⇒ unchanged behavior.
   - **`@robota-sdk/agent-transport` / `@robota-sdk/agent-transport-tui`** — forward the optional
-    `agentDefinitions` through the headless and TUI channels so every __PRODUCT_DISPLAY_NAME__ surface carries the seam.
+    `agentDefinitions` through the headless and TUI channels so every **PRODUCT_DISPLAY_NAME** surface carries the seam.
   - **`@robota-sdk/agent-cli`** — `__PRODUCT_CLI_NAME__`'s identity (branding, provider surface, presets,
     `packs: [codingPack]`, base command modules, injected transports/runners/subagent factory) is declared as
     data in a product profile and folded by `assembleProduct`. The coding command modules (`/shell`,
@@ -284,7 +294,7 @@ args, settingsPreset)`, which builds the per-call registry, resolves over it, an
 - 90e7a10: The default background observer warning code and exported `OBSERVER_FAILURE_WARNING_CODE` value
   change from `PRODUCT_BACKGROUND_OBSERVER_FAILURE` to `BACKGROUND_OBSERVER_FAILURE`. Hosts matching
   the old warning code should match the new neutral code or provide `observerFailureWarningCode` in
-  their background manager or session options. The __PRODUCT_DISPLAY_NAME__ CLI supplies its existing code explicitly
+  their background manager or session options. The **PRODUCT_DISPLAY_NAME** CLI supplies its existing code explicitly
   across print, goal, serve, MCP, and TUI sessions.
 
 ### Patch Changes

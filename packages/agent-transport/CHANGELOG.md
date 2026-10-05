@@ -1,5 +1,17 @@
 # @robota-sdk/agent-transport
 
+## 3.0.0-beta.88
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.88
+- @robota-sdk/agent-interface-analytics@3.0.0-beta.88
+- @robota-sdk/agent-interface-command@3.0.0-beta.88
+- @robota-sdk/agent-interface-execution@3.0.0-beta.88
+- @robota-sdk/agent-interface-session@3.0.0-beta.88
+- @robota-sdk/agent-interface-session-mobility@3.0.0-beta.88
+- @robota-sdk/agent-interface-transport@3.0.0-beta.88
+
 ## 3.0.0-beta.87
 
 ### Patch Changes
@@ -124,7 +136,7 @@
     - Session notices keep only `session-error` and `protocol-error`.
     - The state gains `commandCatalog` and `sessionStatus`.
   - `agent-command` registers `/theme` and `/keybindings` even without a terminal. They then answer
-    that they belong to the __PRODUCT_DISPLAY_NAME__ terminal, instead of being unknown.
+    that they belong to the **PRODUCT_DISPLAY_NAME** terminal, instead of being unknown.
   - `agent-framework`:
     - `InteractiveSession.getStatusSnapshot()`.
     - The main-thread row previews the last chat message instead of the last record's type.
@@ -504,7 +516,7 @@
     project/user definitions > injected > built-in. `AgentDefinitionLoader` now dedupes within that tier
     (first wins). Absent ⇒ unchanged behavior.
   - **`@robota-sdk/agent-transport` / `@robota-sdk/agent-transport-tui`** — forward the optional
-    `agentDefinitions` through the headless and TUI channels so every __PRODUCT_DISPLAY_NAME__ surface carries the seam.
+    `agentDefinitions` through the headless and TUI channels so every **PRODUCT_DISPLAY_NAME** surface carries the seam.
   - **`@robota-sdk/agent-cli`** — `__PRODUCT_CLI_NAME__`'s identity (branding, provider surface, presets,
     `packs: [codingPack]`, base command modules, injected transports/runners/subagent factory) is declared as
     data in a product profile and folded by `assembleProduct`. The coding command modules (`/shell`,
@@ -518,7 +530,7 @@
   autocomplete popup rather than mid-list, because they arrive from `pack-coding` and both surfaces render in
   module-insertion order. Same commands, same behavior, different position.
 
-- 0116a29: ARCH-006 completion — __PRODUCT_DISPLAY_NAME__'s capability packs now OWN its tool surface, and `pack-coding` is built by a
+- 0116a29: ARCH-006 completion — **PRODUCT_DISPLAY_NAME**'s capability packs now OWN its tool surface, and `pack-coding` is built by a
   context-bound factory.
 
   - **`@robota-sdk/pack-coding` (BREAKING)** — the module-level `codingPack` constant is **removed** and
@@ -534,7 +546,7 @@
   - **`@robota-sdk/agent-cli`** — `__PRODUCT_CLI_NAME__`'s packs are built from the shell's resolved `cwd`
     (`createProductCapabilityPacks({ cwd })`) before command setup, and the runtime seam passes
     `PRODUCT_PACKS_OWN_TOOL_SURFACE` (an empty `defaultTools`) so the framework's `createDefaultTools()` tier
-    is REPLACED. Every tool __PRODUCT_DISPLAY_NAME__ runs now arrives from a capability pack: dropping a pack drops its tools,
+    is REPLACED. Every tool **PRODUCT_DISPLAY_NAME** runs now arrives from a capability pack: dropping a pack drops its tools,
     exactly as it already dropped its command modules and subagents.
   - **`@robota-sdk/agent-transport` / `@robota-sdk/agent-transport-tui`** — forward the optional
     `additionalTools` and `defaultTools` through the headless and TUI channels, mirroring the existing

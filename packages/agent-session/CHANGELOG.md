@@ -1,5 +1,14 @@
 # @robota-sdk/agent-session
 
+## 3.0.0-beta.88
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.88
+- @robota-sdk/agent-file-authority@3.0.0-beta.88
+- @robota-sdk/agent-interface-execution@3.0.0-beta.88
+- @robota-sdk/agent-interface-session@3.0.0-beta.88
+
 ## 3.0.0-beta.87
 
 ### Minor Changes
@@ -891,7 +900,7 @@
 
 - DQ-AUDIT-002 — consolidate duplicated domain data onto single owners: one model-pricing SSOT in agent-core (`MODEL_PRICES`/`lookupModelPrice`/`calculateModelCost`/`estimateBlendedCostPer1000`) consumed by agent-command and agent-plugin (drops two embedded/stale price tables); the `len/4` token estimator replaced by core `CONTEXT_ESTIMATE_CHARS_PER_TOKEN`; TUI `TContextState` derived from core `IContextWindowState`; dead pass-through re-exports removed from agent-session.
 - DQ-AUDIT-006 — error/observability hygiene: replace raw `throw new Error()` on core-service and provider hot paths with typed `AgentRuntimeError` subclasses (`ConfigurationError`/`ValidationError`) so error-handling can branch on category/recoverable; surface fire-and-forget hook failures via `logger.warn` instead of silent `.catch(() => {})`; wire the error-handling plugin's `totalRetries`/`successfulRecoveries` stats to real counters.
-- 576af62: Fix `ConfigurationError: Agent must be fully initialized before changing model configuration` when running `/preset` (or any live model re-apply) on a fresh interactive session before the first message. The __PRODUCT_DISPLAY_NAME__ agent initialized lazily on the first `run()`, but `setModel` requires full initialization. `Session.applyModelOptions` now awaits the new idempotent `__PRODUCT_DISPLAY_NAME__.ensureReady()` before `setModel`, and the preset live-switch path (`applyPresetToSession` → `executePresetCommand`) is async end-to-end. Adds a real cold-session regression test (no mocked __PRODUCT_DISPLAY_NAME__).
+- 576af62: Fix `ConfigurationError: Agent must be fully initialized before changing model configuration` when running `/preset` (or any live model re-apply) on a fresh interactive session before the first message. The **PRODUCT_DISPLAY_NAME** agent initialized lazily on the first `run()`, but `setModel` requires full initialization. `Session.applyModelOptions` now awaits the new idempotent `__PRODUCT_DISPLAY_NAME__.ensureReady()` before `setModel`, and the preset live-switch path (`applyPresetToSession` → `executePresetCommand`) is async end-to-end. Adds a real cold-session regression test (no mocked **PRODUCT_DISPLAY_NAME**).
 - Updated dependencies
 - Updated dependencies
 - Updated dependencies
@@ -1037,7 +1046,7 @@
 
 ### Patch Changes
 
-- Refresh package docs and __PRODUCT_DISPLAY_NAME__.io content for the beta 57 feature set.
+- Refresh package docs and **PRODUCT_DISPLAY_NAME**.io content for the beta 57 feature set.
 - Updated dependencies
   - @robota-sdk/agent-core@3.0.0-beta.58
 
@@ -1162,8 +1171,8 @@
   - IHistoryEntry as universal history type across all 4 packages (core → sessions → sdk → cli)
   - Tool summary stored as event entry in history (category: 'event', type: 'tool-summary')
   - TuiStateManager pure TypeScript class for CLI rendering state
-  - MessageList renders IHistoryEntry[] with Tool:/System:/You:/__PRODUCT_DISPLAY_NAME__: labels
-  - Display order fixed: Tool → __PRODUCT_DISPLAY_NAME__ (both streaming and abort)
+  - MessageList renders IHistoryEntry[] with Tool:/System:/You:/**PRODUCT_DISPLAY_NAME**: labels
+  - Display order fixed: Tool → **PRODUCT_DISPLAY_NAME** (both streaming and abort)
   - Remove 25 tautological, duplicate, and hardcoded tests
 
 - Updated dependencies
@@ -1208,7 +1217,7 @@
   - **Smaller footprint**: Reduced JavaScript bundle sizes for web applications
   - **Universal API**: Same API works across all environments
 
-  This update completes the browser compatibility optimization phase, making __PRODUCT_DISPLAY_NAME__ SDK production-ready for web applications with optimal performance characteristics.
+  This update completes the browser compatibility optimization phase, making **PRODUCT_DISPLAY_NAME** SDK production-ready for web applications with optimal performance characteristics.
 
 - Updated dependencies
   - @robota-sdk/agent-core@2.0.9
@@ -1228,7 +1237,7 @@
   - **All Providers**: `client` is now optional, automatically created from `apiKey`
 
   ### **Centralized Model Configuration**
-  - Model configuration is now exclusively handled through `defaultModel` in __PRODUCT_DISPLAY_NAME__ constructor
+  - Model configuration is now exclusively handled through `defaultModel` in **PRODUCT_DISPLAY_NAME** constructor
   - Providers are simplified to handle only connection-related settings
   - Runtime model switching via `setModel()` method is now the recommended approach
 
@@ -1262,7 +1271,7 @@
   ## 🔧 **Migration Guide**
   1. **Remove model settings from Provider constructors**
   2. **Use `apiKey` instead of `client` injection (recommended)**
-  3. **Ensure `defaultModel` is properly configured in __PRODUCT_DISPLAY_NAME__ constructor**
+  3. **Ensure `defaultModel` is properly configured in **PRODUCT_DISPLAY_NAME** constructor**
   4. **Update any hardcoded model references to use runtime switching**
 
   ## 🎯 **Benefits**
@@ -1302,7 +1311,7 @@
   - Update OpenAI stream handlers to work in browser environments
   - Maintain 100% backward compatibility with existing Node.js applications
 
-  This update enables __PRODUCT_DISPLAY_NAME__ SDK to run seamlessly in both Node.js and browser environments without breaking changes.
+  This update enables **PRODUCT_DISPLAY_NAME** SDK to run seamlessly in both Node.js and browser environments without breaking changes.
 
 - Updated dependencies
   - @robota-sdk/agent-core@2.0.6
@@ -1330,7 +1339,7 @@
 - **Production-Ready Architecture**: Complete refactoring from experimental to production-ready state
   - **Purpose Redefinition**: Focused on managing multiple independent AI agents in isolated workspaces
   - **Removed Message Editing**: Eliminated message editing/deletion functionality to focus on core purpose
-  - **Simplified Architecture**: ChatInstance now wraps __PRODUCT_DISPLAY_NAME__ agents with clean delegation
+  - **Simplified Architecture**: ChatInstance now wraps **PRODUCT_DISPLAY_NAME** agents with clean delegation
   - **SessionManager Implementation**: Complete multi-session management with workspace isolation
   - **Template Integration**: Integrated with agents package AgentFactory and AgentTemplates
   - **File Cleanup**: Removed duplicate implementations that existed in agents package
@@ -1369,7 +1378,7 @@
 
 ### Major Changes
 
-- a3a464c: # __PRODUCT_DISPLAY_NAME__ SDK v2.0.0-rc.1 - Unified Architecture
+- a3a464c: # **PRODUCT_DISPLAY_NAME** SDK v2.0.0-rc.1 - Unified Architecture
 
   ## 🚀 Major Changes
 
@@ -1463,7 +1472,7 @@
 ### Patch Changes
 
 - Major code quality improvements and architectural refactoring:
-  - **Facade Pattern Implementation**: Simplified __PRODUCT_DISPLAY_NAME__ class interface with manager-based architecture (ai, system, functions, analytics, tools, limits, conversation)
+  - **Facade Pattern Implementation**: Simplified **PRODUCT_DISPLAY_NAME** class interface with manager-based architecture (ai, system, functions, analytics, tools, limits, conversation)
   - **Deprecated Methods Removal**: Removed 20+ deprecated methods, replaced with clean option-based constructor
   - **File Modularization**: Split large files into focused modules (function.ts → 4 modules, conversation-history refactoring)
   - **State Management Enhancement**: Implemented state machine pattern for sessions with improved error handling

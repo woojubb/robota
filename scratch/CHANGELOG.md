@@ -1,4 +1,19 @@
-# __PRODUCT_DISPLAY_NAME__-scratch
+# **PRODUCT_DISPLAY_NAME**-scratch
+
+## 0.0.1-beta.11
+
+### Patch Changes
+
+- Updated dependencies [d994f60]
+  - @robota-sdk/agent-tools@3.0.0-beta.88
+  - @robota-sdk/agent-framework@3.0.0-beta.88
+  - @robota-sdk/agent-subagent-runner@3.0.0-beta.88
+  - @robota-sdk/agent-builtin-providers@3.0.0-beta.88
+  - @robota-sdk/agent-core@3.0.0-beta.88
+  - @robota-sdk/agent-executor@3.0.0-beta.88
+  - @robota-sdk/agent-mcp@3.0.0-beta.88
+  - @robota-sdk/agent-provider-openai@3.0.0-beta.88
+  - @robota-sdk/agent-session@3.0.0-beta.88
 
 ## 0.0.1-beta.10
 

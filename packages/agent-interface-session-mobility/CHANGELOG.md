@@ -1,5 +1,12 @@
 # @robota-sdk/agent-interface-session-mobility
 
+## 3.0.0-beta.88
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.88
+- @robota-sdk/agent-interface-session@3.0.0-beta.88
+
 ## 3.0.0-beta.87
 
 ### Patch Changes
@@ -118,7 +125,7 @@
 
 - 004fe7f: `/handoff` moves a session over a real connection.
 
-  - `/handoff <session-id>` pushes this conversation to another __PRODUCT_DISPLAY_NAME__ session on this machine. The
+  - `/handoff <session-id>` pushes this conversation to another **PRODUCT_DISPLAY_NAME** session on this machine. The
     same carrier also runs between two of the user's devices over their mesh connection; no command
     opens that connection yet.
   - A hand-off is push-only: only the operator of the session that holds it starts one. A session or

@@ -1,5 +1,11 @@
 # @robota-sdk/agent-mcp
 
+## 3.0.0-beta.88
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.88
+
 ## 3.0.0-beta.87
 
 ### Minor Changes
@@ -207,7 +213,7 @@
 
 ### Major Changes
 
-- 796ddb4: Use a neutral default MCP client name and let hosts supply their own protocol identity. __PRODUCT_DISPLAY_NAME__ CLI startup now explicitly supplies its prior `__PRODUCT_DISPLAY_NAME__-agent-mcp` name, preserving its initialize handshake; embedders relying on that implicit name can set `clientInfo` explicitly.
+- 796ddb4: Use a neutral default MCP client name and let hosts supply their own protocol identity. **PRODUCT_DISPLAY_NAME** CLI startup now explicitly supplies its prior `__PRODUCT_DISPLAY_NAME__-agent-mcp` name, preserving its initialize handshake; embedders relying on that implicit name can set `clientInfo` explicitly.
 
 ### Minor Changes
 

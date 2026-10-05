@@ -1,5 +1,11 @@
 # @robota-sdk/agent-interface-command
 
+## 3.0.0-beta.88
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.88
+
 ## 3.0.0-beta.87
 
 ### Patch Changes
@@ -114,7 +120,7 @@
     - Session notices keep only `session-error` and `protocol-error`.
     - The state gains `commandCatalog` and `sessionStatus`.
   - `agent-command` registers `/theme` and `/keybindings` even without a terminal. They then answer
-    that they belong to the __PRODUCT_DISPLAY_NAME__ terminal, instead of being unknown.
+    that they belong to the **PRODUCT_DISPLAY_NAME** terminal, instead of being unknown.
   - `agent-framework`:
     - `InteractiveSession.getStatusSnapshot()`.
     - The main-thread row previews the last chat message instead of the last record's type.
@@ -273,10 +279,10 @@
 
 - af2f2ad: `/cd <directory>` continues the conversation in another directory.
 
-  - **A move is a new session in the target directory.** In the TUI, __PRODUCT_DISPLAY_NAME__ saves a copy of the
+  - **A move is a new session in the target directory.** In the TUI, **PRODUCT_DISPLAY_NAME** saves a copy of the
     conversation where the target's session store will find it, ends the current run through its
     normal end-of-life flow, and starts again in the target directory resuming that copy. The target's
-    settings, trust decision, tools, skills and `AGENTS.md` apply, exactly as if __PRODUCT_DISPLAY_NAME__ had been
+    settings, trust decision, tools, skills and `AGENTS.md` apply, exactly as if **PRODUCT_DISPLAY_NAME** had been
     launched there. The process boundary makes the move atomic, so no tool call can straddle it.
   - **The system prompt is kept as recorded**, so a provider's prompt cache survives. One appended
     `<workspace-move>` message tells the model the new directory, and which project instructions now

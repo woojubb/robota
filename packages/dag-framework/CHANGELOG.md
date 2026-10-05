@@ -1,5 +1,12 @@
 # @robota-sdk/dag-framework
 
+## 1.0.0-beta.12
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.88
+- @robota-sdk/dag-worker@3.0.0-beta.69
+
 ## 1.0.0-beta.11
 
 ### Patch Changes
@@ -104,7 +111,7 @@
 
   Direct `createExecutionComposition` callers that wrap a `LifecycleTaskExecutorPort` must pass `lifecycleCreditAdmission: true` in the composition dependencies so the worker recognizes that the wrapped lifecycle reserves credits before execution.
 
-- cd848eb: Require host-selected storage and asset paths (or supplied ports) when composing the in-process DAG framework. The neutral factory no longer selects environment or __PRODUCT_DISPLAY_NAME__ home-directory storage defaults; existing hosts can preserve their layout by passing the former paths explicitly.
+- cd848eb: Require host-selected storage and asset paths (or supplied ports) when composing the in-process DAG framework. The neutral factory no longer selects environment or **PRODUCT_DISPLAY_NAME** home-directory storage defaults; existing hosts can preserve their layout by passing the former paths explicitly.
 
   Require a host-selected database path for both SQLite adapters. Callers that used the implicit `./__PRODUCT_DISPLAY_NAME__-dag.db` file can pass that path explicitly.
 
@@ -176,7 +183,7 @@
 
 - 792b726: Stop `text-replace` from ever running a regex on the host's main thread. `createDagFramework`'s default executor now isolates the default regex operation the same way the local Node provider already does, and the node itself no longer falls back to inline `RegExp` execution when no isolated operation is supplied — a pathological pattern can no longer freeze the host process, including its own cancel and status endpoints.
 - a58fc4b: Close the shared root credit authority when a participating DAG run's cancellation commits, so nested work cannot reserve new credits while active provider cleanup is still pending.
-- a0eac8f: Use a neutral catalog category for custom nodes that omit one instead of projecting a __PRODUCT_DISPLAY_NAME__ product category.
+- a0eac8f: Use a neutral catalog category for custom nodes that omit one instead of projecting a **PRODUCT_DISPLAY_NAME** product category.
 - 5a46402: Share root credit reservations across nested local DAG runs so concurrent children cannot each spend the same remaining limit.
 - 78dcc65: Bound memory used by default regex text replacement when a global pattern has many matches, while preserving JavaScript replacement and UTF-8 byte-limit behavior.
 - Updated dependencies [7b6234c]

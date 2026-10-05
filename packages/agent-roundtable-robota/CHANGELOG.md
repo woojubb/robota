@@ -1,5 +1,13 @@
 # @robota-sdk/agent-roundtable-robota
 
+## 3.0.0-beta.88
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.88
+- @robota-sdk/agent-roundtable@3.0.0-beta.88
+- @robota-sdk/agent-session@3.0.0-beta.88
+
 ## 3.0.0-beta.87
 
 ### Patch Changes
@@ -38,13 +46,13 @@
   `@robota-sdk/agent-roundtable` coordinates independently constructed agents and people in one shared
   conversation: it selects who speaks next, runs a turn or a parallel group of turns, and publishes
   their messages to a shared transcript in a stable order, while each participant keeps its own runtime
-  and private state. It runs no model and imports no provider — a participant can wrap a __PRODUCT_DISPLAY_NAME__
+  and private state. It runs no model and imports no provider — a participant can wrap a **PRODUCT_DISPLAY_NAME**
   session, another agent runtime, or plain code — and ships as a platform-neutral build with zero
   runtime dependencies, so it also runs in a browser.
 
-  `@robota-sdk/agent-roundtable-robota` is the __PRODUCT_DISPLAY_NAME__ adapter: `sessionParticipant` runs a permission-
+  `@robota-sdk/agent-roundtable-robota` is the **PRODUCT_DISPLAY_NAME** adapter: `sessionParticipant` runs a permission-
   gated `Session` (tools, hooks, approval waits) as a participant, `runtimeParticipant` runs a plain
-  `ConversationAgent` agent, and `runtimeSelector` asks a __PRODUCT_DISPLAY_NAME__ agent to pick the next speaker through one control
+  `ConversationAgent` agent, and `runtimeSelector` asks a **PRODUCT_DISPLAY_NAME** agent to pick the next speaker through one control
   tool call. Every provider call either wrapper makes is metered and reported through the conversation's
   own usage ledger.
 

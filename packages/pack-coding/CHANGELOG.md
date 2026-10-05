@@ -1,5 +1,16 @@
 # @robota-sdk/pack-coding
 
+## 3.0.0-beta.88
+
+### Patch Changes
+
+- Updated dependencies [d994f60]
+  - @robota-sdk/agent-tools@3.0.0-beta.88
+  - @robota-sdk/agent-framework@3.0.0-beta.88
+  - @robota-sdk/agent-tool-defaults@3.0.0-beta.88
+  - @robota-sdk/agent-capability-pack@3.0.0-beta.88
+  - @robota-sdk/agent-command@3.0.0-beta.88
+
 ## 3.0.0-beta.87
 
 ### Patch Changes
@@ -153,7 +164,7 @@
 
 ### Major Changes
 
-- 0116a29: ARCH-006 completion — __PRODUCT_DISPLAY_NAME__'s capability packs now OWN its tool surface, and `pack-coding` is built by a
+- 0116a29: ARCH-006 completion — **PRODUCT_DISPLAY_NAME**'s capability packs now OWN its tool surface, and `pack-coding` is built by a
   context-bound factory.
 
   - **`@robota-sdk/pack-coding` (BREAKING)** — the module-level `codingPack` constant is **removed** and
@@ -169,7 +180,7 @@
   - **`@robota-sdk/agent-cli`** — `__PRODUCT_CLI_NAME__`'s packs are built from the shell's resolved `cwd`
     (`createProductCapabilityPacks({ cwd })`) before command setup, and the runtime seam passes
     `PRODUCT_PACKS_OWN_TOOL_SURFACE` (an empty `defaultTools`) so the framework's `createDefaultTools()` tier
-    is REPLACED. Every tool __PRODUCT_DISPLAY_NAME__ runs now arrives from a capability pack: dropping a pack drops its tools,
+    is REPLACED. Every tool **PRODUCT_DISPLAY_NAME** runs now arrives from a capability pack: dropping a pack drops its tools,
     exactly as it already dropped its command modules and subagents.
   - **`@robota-sdk/agent-transport` / `@robota-sdk/agent-transport-tui`** — forward the optional
     `additionalTools` and `defaultTools` through the headless and TUI channels, mirroring the existing
@@ -193,9 +204,9 @@
     construction to `agent-framework`'s `buildRuntimeSession` seam (never re-implemented). Its neutrality is
     enforced by three mechanical guards (dependency-graph neutrality, purity/no-IO, no product-name
     conditionals), coupling the amended project-structure L129 carve-out to the guards.
-  - **`@robota-sdk/pack-coding`** (new) — __PRODUCT_DISPLAY_NAME__'s coding capability as one `ICapabilityPack` (the built-in
+  - **`@robota-sdk/pack-coding`** (new) — **PRODUCT_DISPLAY_NAME**'s coding capability as one `ICapabilityPack` (the built-in
     coding tools, the `/shell` + `/editor` command modules, and the coding subagents) — the additive-axis
-    proof and __PRODUCT_DISPLAY_NAME__'s first pack.
+    proof and **PRODUCT_DISPLAY_NAME**'s first pack.
   - **`@robota-sdk/agent-preset`** — adds `createPresetRegistry`, a per-call instance-scoped resolver that
     never mutates the module-level external-preset global (consumed by `assembleProduct`).
 

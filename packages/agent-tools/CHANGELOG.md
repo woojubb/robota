@@ -1,5 +1,17 @@
 # @robota-sdk/agent-tools
 
+## 3.0.0-beta.88
+
+### Patch Changes
+
+- d994f60: The bubblewrap availability probe now mounts `/proc` the way every confined command does. Where
+  `/proc` cannot be mounted — a container that masks it, such as Docker without
+  `--security-opt systempaths=unconfined` — the sandbox was reported available and each confined
+  command then failed with `Can't mount proc on /newroot/proc`, so `sandbox.failIfUnavailable` never
+  refused to start. Such a host is now reported unavailable with that reason.
+  - @robota-sdk/agent-core@3.0.0-beta.88
+  - @robota-sdk/agent-process@3.0.0-beta.88
+
 ## 3.0.0-beta.87
 
 ### Patch Changes
@@ -68,7 +80,7 @@
     exits or fails to start. A composed sandbox may define `applyParentSettings`. The worker applies
     each change through it. On settings it cannot take, it aborts the run, lets a running command
     finish, and ends the run with that error.
-  - `agent-cli` (patch): __PRODUCT_DISPLAY_NAME__ watches its live sandbox, and a child applies each change to the
+  - `agent-cli` (patch): **PRODUCT_DISPLAY_NAME** watches its live sandbox, and a child applies each change to the
     instance its tools and approval read.
 
 ### Patch Changes
@@ -210,7 +222,7 @@
       the host under the path guard, and only commands go through the sandbox.
   - **`describeExecutionContainment` / `routesFilesThroughSandbox`** name the containment (`host`,
     `sandbox-shared`, `sandbox-separate`) instead of inferring it from an absent value.
-  - **`__PRODUCT_CLI_NAME__ doctor` reports `execution.containment`.** __PRODUCT_DISPLAY_NAME__ composes no sandbox today, so the
+  - **`__PRODUCT_CLI_NAME__ doctor` reports `execution.containment`.** **PRODUCT_DISPLAY_NAME** composes no sandbox today, so the
     doctor says shell commands run unconfined on the host and the permission rules are the only
     boundary. The CLI composition and the doctor read the same value.
   - **The `Agent` and `BackgroundProcess` tools no longer fall back to `process.cwd()`** when they
