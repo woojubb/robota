@@ -137,6 +137,8 @@ describe('HTTP Transport Routes', () => {
       isExecuting,
       getPendingPrompt,
       getPendingCount,
+      resolvePermission,
+      resolveAsk,
     } = full;
     const port: IHttpTransportSession = {
       submit,
@@ -156,10 +158,13 @@ describe('HTTP Transport Routes', () => {
       isExecuting,
       getPendingPrompt,
       getPendingCount,
+      resolvePermission,
+      resolveAsk,
     };
     // #3282 §2 added `listModels` to `ISessionCommands` (15 + 1); #3288 §2 added
-    // `getMessagesDisplay` to `ISessionConversationRead` (16 + 1).
-    expect(Object.keys(port)).toHaveLength(17);
+    // `getMessagesDisplay` to `ISessionConversationRead` (16 + 1); #3445 added the two prompt
+    // answers of `ISessionPromptResolution` (17 + 2).
+    expect(Object.keys(port)).toHaveLength(19);
     const transport = createHttpTransport({
       admission: { open: true, openReason: 'least-authority HTTP port scenario' },
     });

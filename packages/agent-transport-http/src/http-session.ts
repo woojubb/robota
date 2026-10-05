@@ -4,6 +4,7 @@ import type {
   ISessionEvents,
   ISessionExecutionState,
   ISessionIdentity,
+  ISessionPromptResolution,
   ISessionTurnControl,
   ISessionTurnSubmission,
 } from '@robota-sdk/agent-interface-session';
@@ -15,9 +16,11 @@ export interface IHttpTransportSession
     ISessionEvents,
     ISessionTurnControl,
     ISessionIdentity,
+    ISessionPromptResolution,
     ISessionCommands,
     ISessionConversationRead,
-    ISessionExecutionState {
+    ISessionExecutionState,
+    ISessionPromptResolution {
   /**
    * Resolves once the session can name itself, and rejects if it failed to start. A session that
    * builds itself in the background (`InteractiveSession`) has no id before then, so `/submit` waits

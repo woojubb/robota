@@ -7,9 +7,10 @@ so the `hono` dependency is an isolated unit.
 
 ## Contract
 
-- Depends on `agent-interface-transport` for transport contracts and on `agent-transport/node` only
-  for the transport admission seam (`resolveAdmission`, `bearerCredential`, `credentialMatches`); that
-  admission decision is deliberately not re-made here.
+- Depends on `agent-interface-transport` for transport contracts, on `agent-transport/node` for the
+  transport admission seam (`resolveAdmission`, `bearerCredential`, `credentialMatches`), and on
+  `agent-transport` for the wire shape of a prompt answer; neither the admission decision nor what a
+  valid answer is gets re-made here.
 - Contract-pure otherwise: the one side concern of where a stream-failure detail goes is injected via
   `IAgentRoutesOptions.onStreamFailure`, never imported.
 - No other transport package may depend on this one.
@@ -30,6 +31,15 @@ so the `hono` dependency is an isolated unit.
   on its `whenInitialized()` first, so the first request to a fresh `InteractiveSession` is served.
   `/executing` is the one place an unnameable session still answers, from `isExecuting()` alone —
   reporting what a session is doing is not the same act as admitting a new turn to it.
+
+- Permission and ask prompts reach only a `/submit` stream whose client declared `receivePrompts`. The
+  session parks a prompt only while someone listens for it, so a client that cannot answer must not
+  listen; otherwise an unattended turn would wait on a prompt nobody settles instead of failing it
+  closed. For the same reason the routes never hold prompts with a listener of their own: what
+  `GET /prompts` lists is what that stream forwarded and is still open, keyed by session id like the
+  turn claim, and it is forgotten when the stream's claim is released.
+- `POST /prompts/:id` answers only an id that is open for the request's session, as the host's
+  `attribution.driverId`; an unknown id and an already-settled one are the same 404.
 
 ## Error taxonomy (design intent)
 

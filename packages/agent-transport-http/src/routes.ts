@@ -13,6 +13,8 @@ import {
 } from '@robota-sdk/agent-transport/node';
 import { Hono } from 'hono';
 
+import { createHttpOpenPrompts } from './open-prompts.js';
+import { answerPromptHandler, listPromptsHandler } from './prompt-routes.js';
 import { submitHandler } from './submit-route.js';
 import { createTurnClaims } from './turn-claims.js';
 
@@ -69,6 +71,7 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   // RUNTIME-38: one turn at a time, per session — `turn-claims.ts` owns what that means and why it
   // is keyed by the session's declared ID rather than by object identity.
   const claims = createTurnClaims();
+  const openPrompts = createHttpOpenPrompts();
 
   // SEC-008: resolved ONCE, at construction, so a transport that cannot mint a credential fails to
   // build rather than serving without one. Resolving per request would also mint a new token per
@@ -104,7 +107,19 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   });
 
   // POST /submit — execute prompt, stream events via SSE
-  app.post('/submit', submitHandler(sessionFactory, claims, onStreamFailure, attribution));
+  app.post(
+    '/submit',
+    submitHandler({ sessionFactory, claims, openPrompts, onStreamFailure, attribution }),
+  );
+
+  // GET /prompts — the open permission/ask prompts a prompt-receiving /submit stream forwarded
+  app.get('/prompts', listPromptsHandler({ sessionFactory, claims, openPrompts, attribution }));
+
+  // POST /prompts/:id — answer one of them
+  app.post(
+    '/prompts/:id',
+    answerPromptHandler({ sessionFactory, claims, openPrompts, attribution }),
+  );
 
   // POST /command — execute system command
   app.post('/command', async (c) => {
