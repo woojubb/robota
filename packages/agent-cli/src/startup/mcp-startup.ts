@@ -133,17 +133,8 @@ async function inspectRealWorkspaceTrust(
 }
 
 /**
- * Compose the product's live MCP client for one startup: source every layer's `mcpServers`,
- * resolve `mcp.autoBackgroundMs` / `mcp.callTimeoutMs` (MCP-004 S3) from the SAME layers, report
- * every problem, resolve the workspace-trust snapshot, and hand it all to
- * `createMcpClientComposition`.
- *
- * Zero resolved definitions is a normal outcome — the returned composition's adapter simply lists
- * nothing, and `connect()` opens no connections.
- */
-/**
  * The environment a headers helper starts with: the host snapshot without the credentials the runtime
- * withholds from its commands (issue #3429). A definition's `${VAR}` references resolve against the
+ * withholds from its commands. A definition's `${VAR}` references resolve against the
  * snapshot elsewhere and are unaffected.
  */
 export function mcpHeadersHelperEnvironment(
@@ -153,6 +144,15 @@ export function mcpHeadersHelperEnvironment(
   return headersHelperEnvironment(commandEnvironment(snapshot), ...rest);
 }
 
+/**
+ * Compose the product's live MCP client for one startup: source every layer's `mcpServers`,
+ * resolve `mcp.autoBackgroundMs` / `mcp.callTimeoutMs` (MCP-004 S3) from the SAME layers, report
+ * every problem, resolve the workspace-trust snapshot, and hand it all to
+ * `createMcpClientComposition`.
+ *
+ * Zero resolved definitions is a normal outcome — the returned composition's adapter simply lists
+ * nothing, and `connect()` opens no connections.
+ */
 export async function composeMcpClientForStartup(
   input: IComposeMcpClientForStartupInput,
 ): Promise<IMcpStartupComposition> {
