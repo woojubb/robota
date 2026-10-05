@@ -221,8 +221,9 @@ curl -N -H "Authorization: Bearer $(cat http-token)" -H 'content-type: applicati
   `robota-server-state` volume, or provide settings in that volume.
 - `ROBOTA_HTTP_PUBLISH` (default `127.0.0.1:8080`) controls where the proxy is published; terminate
   TLS in the proxy before exposing it beyond a private network.
-- No one answers permission prompts over HTTP: a question no client answers is denied, so choose
-  the permission mode and rules the server runs under in its settings.
+- A client that submits with `receivePrompts: true` answers its turn's permission and ask prompts
+  through `GET /prompts` and `POST /prompts/<id>`; without it, a question no client answers is
+  denied, so choose the permission mode and rules the server runs under in its settings.
 - A container restart ends running turns; clients retry.
 
 ## Smoke test

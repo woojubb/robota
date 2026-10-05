@@ -39,7 +39,8 @@ so the `hono` dependency is an isolated unit.
   `GET /prompts` lists is what that stream forwarded and is still open, keyed by session id like the
   turn claim, and it is forgotten when the stream's claim is released.
 - `POST /prompts/:id` answers only an id that is open for the request's session, as the host's
-  `attribution.driverId`; an unknown id and an already-settled one are the same 404.
+  `attribution.driverId`; an unknown id and an already-settled one are the same 404, and `200` means
+  the prompt settled — an answer the session did not take is `409`, never reported as accepted.
 
 ## Error taxonomy (design intent)
 

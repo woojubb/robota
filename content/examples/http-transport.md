@@ -89,7 +89,7 @@ curl -X POST http://localhost:3000/prompts/p1 \
 A permission takes `result`: `true`, `false`, `"allow-session"` or `"allow-project"`. An ask takes
 `response`: `{ "type": "answer", "values": [...], "text"?: "..." }` or `{ "type": "cancelled" }`.
 `GET /prompts` lists the prompts still open, for a client that connects after one was asked. An id
-that is not open gets `404`. Closing the stream aborts the turn and denies what it left open.
+that is not open gets `404`, and `200` means the prompt settled. Closing the stream aborts the turn and denies what it left open.
 
 ## Session per request
 

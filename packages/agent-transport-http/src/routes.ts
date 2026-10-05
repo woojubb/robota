@@ -47,9 +47,9 @@ export interface IAgentRoutesOptions {
    */
   admission: ITransportAdmissionConfig | ITransportAdmission;
   /**
-   * Who `/submit` turns are attributed to — the driver and product surface the HOST assigns, as the
-   * WebSocket transport's `driverId`/`surface` do. Never taken from the request body. Absent leaves
-   * the session's own default.
+   * Who `/submit` turns and prompt answers are attributed to — the driver and product surface the
+   * HOST assigns, as the WebSocket transport's `driverId`/`surface` do. Never taken from the request
+   * body. Absent leaves the session's own default.
    */
   attribution?: TTurnAttribution;
 }

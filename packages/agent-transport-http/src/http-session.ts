@@ -19,8 +19,7 @@ export interface IHttpTransportSession
     ISessionPromptResolution,
     ISessionCommands,
     ISessionConversationRead,
-    ISessionExecutionState,
-    ISessionPromptResolution {
+    ISessionExecutionState {
   /**
    * Resolves once the session can name itself, and rejects if it failed to start. A session that
    * builds itself in the background (`InteractiveSession`) has no id before then, so `/submit` waits

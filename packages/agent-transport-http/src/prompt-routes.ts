@@ -43,6 +43,10 @@ export function listPromptsHandler(deps: IPromptRouteDeps) {
  * Nothing awaits between the lookup and the resolve. The session settles synchronously and emits
  * `prompt_resolved`, which the stream forwards and the registry forgets, so a second answer for the
  * same id finds nothing open and is refused rather than reported as accepted.
+ *
+ * `200` means the prompt settled, not merely that the answer was handed over: the session ignores an
+ * answer it does not take (one in an outside party's name, say), and a prompt still open after the
+ * resolve is answered `409` so the client does not believe it decided something it did not.
  */
 export function answerPromptHandler(deps: IPromptRouteDeps) {
   const { sessionFactory, claims, openPrompts, attribution } = deps;
@@ -58,7 +62,7 @@ export function answerPromptHandler(deps: IPromptRouteDeps) {
 
     const key = claims.keyFor(session);
     const frame = key === undefined ? undefined : openPrompts.find(key, id);
-    if (frame === undefined) {
+    if (key === undefined || frame === undefined) {
       return c.json({ error: 'no open prompt with this id' }, 404);
     }
 
@@ -88,6 +92,9 @@ export function answerPromptHandler(deps: IPromptRouteDeps) {
         );
       }
       session.resolveAsk(id, decoded.message.response, attribution?.driverId);
+    }
+    if (openPrompts.find(key, id) !== undefined) {
+      return c.json({ error: 'the session did not accept this answer' }, 409);
     }
     return c.json({ ok: true });
   };

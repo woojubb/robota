@@ -35,7 +35,10 @@ function stubHandle(): ITurnHandle {
  * while someone listens for it and fails closed otherwise, settles the first answer for an id, and
  * emits `prompt_resolved` synchronously as it settles.
  */
-function createAskingSession(kind: 'permission' | 'ask') {
+function createAskingSession(
+  kind: 'permission' | 'ask',
+  options: { ignoreAnswers?: boolean; throwAfterAsk?: boolean } = {},
+) {
   const listeners = new Map<string, Set<(data: unknown) => void>>();
   const emit = (event: string, data: unknown): void => {
     for (const h of [...(listeners.get(event) ?? [])]) h(data);
@@ -64,10 +67,12 @@ function createAskingSession(kind: 'permission' | 'ask') {
       );
     });
   };
-  const resolvePermission = vi.fn((id: string, result: TPermissionResultValue) =>
-    settle(id, result),
-  );
-  const resolveAsk = vi.fn((id: string, response: TActionResponse) => settle(id, response));
+  const resolvePermission = vi.fn((id: string, result: TPermissionResultValue) => {
+    if (options.ignoreAnswers !== true) settle(id, result);
+  });
+  const resolveAsk = vi.fn((id: string, response: TActionResponse) => {
+    if (options.ignoreAnswers !== true) settle(id, response);
+  });
   const failAllClosed = (): void => {
     for (const id of [...parked.keys()]) {
       settle(id, kind === 'permission' ? false : { type: 'cancelled' });
@@ -77,6 +82,11 @@ function createAskingSession(kind: 'permission' | 'ask') {
     // Like the real session: an aborted turn settles every prompt it left parked.
     abort: failAllClosed,
     submit: (async () => {
+      if (options.throwAfterAsk === true) {
+        void ask();
+        await new Promise((r) => setTimeout(r, 5));
+        throw new Error('the turn failed while its prompt was open');
+      }
       const answer = await ask();
       emit('complete', { success: true, content: JSON.stringify(answer) });
       return stubHandle();
@@ -262,6 +272,28 @@ describe('HTTP prompt routes', () => {
     await vi.waitFor(async () => {
       expect(await (await routes.request('/prompts')).json()).toEqual({ prompts: [] });
     });
+    expect((await routes.request('/prompts/p1', json({ result: true }))).status).toBe(404);
+  });
+
+  it('answers 409 when the session did not take the answer', async () => {
+    const { session } = createAskingSession('permission', { ignoreAnswers: true });
+    const routes = routesFor(session);
+    const { reader, seen } = await openTurn(routes, true);
+    await readUntil(reader, seen, 'event: permission_request');
+
+    expect((await routes.request('/prompts/p1', json({ result: true }))).status).toBe(409);
+    await reader.cancel();
+  });
+
+  it('stops listing a prompt another surface still holds once this stream ended', async () => {
+    const { session } = createAskingSession('permission', { throwAfterAsk: true });
+    // Another surface listening keeps the prompt parked after this stream lets go of it.
+    session.on('permission_request', () => {});
+    const routes = routesFor(session);
+    const { reader, seen } = await openTurn(routes, true);
+
+    await readUntil(reader, seen, 'event: error');
+    expect(await (await routes.request('/prompts')).json()).toEqual({ prompts: [] });
     expect((await routes.request('/prompts/p1', json({ result: true }))).status).toBe(404);
   });
 });
