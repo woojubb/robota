@@ -1,0 +1,122 @@
+name: Release — agent image
+
+# Publishes ghcr.io/<owner>/robota:<version> (linux/amd64, linux/arm64) from docker/robota, installing
+# exactly the @robota-sdk/agent-cli release the tag names, so the image and the npm package are 1:1.
+# The release tag (pushed by release-tag-on-version-bump.yml) arrives before the separate npm publish,
+# so the first job waits for that version on npm. The amd64 image must pass docker/robota/smoke before
+# anything is pushed. No floating `latest`: operators pin a version.
+
+on:
+  push:
+    tags:
+      - '**'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Released @robota-sdk/agent-cli version to (re)build and push, e.g. 3.0.0-beta.88.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-image-${{ github.event.inputs.version || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  wait-for-npm:
+    name: Wait for the release on npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 245
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Resolve version
+        id: version
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then raw="$INPUT_VERSION"; else raw="$(printf '%s' "$TAG" | sed 's/^[^0-9]*//')"; fi
+          if ! printf '%s' "$raw" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::'$raw' (from '${INPUT_VERSION:-$TAG}') is not a release version."
+            exit 1
+          fi
+          echo "version=$raw" >> "$GITHUB_OUTPUT"
+      - name: Wait until @robota-sdk/agent-cli@version is on npm
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          deadline=$(( $(date +%s) + 240 * 60 ))
+          until [ "$(npm view "@robota-sdk/agent-cli@$VERSION" version 2>/dev/null)" = "$VERSION" ]; do
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "::error::@robota-sdk/agent-cli@$VERSION did not appear on npm within 4 hours. Publish it, then re-run this workflow with workflow_dispatch version=$VERSION."
+              exit 1
+            fi
+            echo "@robota-sdk/agent-cli@$VERSION not on npm yet; checking again in 60s."
+            sleep 60
+          done
+          echo "@robota-sdk/agent-cli@$VERSION is on npm."
+
+  image:
+    name: Build, smoke-test and push the image
+    needs: wait-for-npm
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    env:
+      VERSION: ${{ needs.wait-for-npm.outputs.version }}
+      IMAGE: ghcr.io/${{ github.repository_owner }}/robota
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - name: Build the amd64 image for the smoke test
+        uses: docker/build-push-action@v7
+        with:
+          context: docker/robota
+          platforms: linux/amd64
+          build-args: |
+            ROBOTA_SOURCE=registry
+            ROBOTA_VERSION=${{ env.VERSION }}
+          load: true
+          tags: robota:smoke
+          cache-to: type=gha,mode=max
+          cache-from: type=gha
+      - name: Choose the AppArmor profile
+        id: apparmor
+        run: |
+          # The runner is an ephemeral VM: load the repository's userns-only profile when AppArmor is active,
+          # as the README tells operators to; without AppArmor the profile option is `unconfined`.
+          if docker info --format '{{json .SecurityOptions}}' | grep -q apparmor; then
+            sudo apparmor_parser -r docker/robota/apparmor/robota-userns
+            echo "profile=robota-userns" >> "$GITHUB_OUTPUT"
+          else
+            echo "profile=unconfined" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Smoke test
+        run: docker/robota/smoke/smoke.sh robota:smoke "${{ steps.apparmor.outputs.profile }}"
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push amd64 and arm64
+        uses: docker/build-push-action@v7
+        with:
+          context: docker/robota
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            ROBOTA_SOURCE=registry
+            ROBOTA_VERSION=${{ env.VERSION }}
+          push: true
+          tags: ${{ env.IMAGE }}:${{ env.VERSION }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ env.VERSION }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha
