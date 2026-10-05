@@ -92,6 +92,8 @@ export interface ISubagentWorkerStartPayload {
   parentSandboxSettings?: TParentSandboxSettings;
   permissionMode?: TPermissionMode;
   logsDir?: string;
+  /** The owner opted the provider credential variable in for commands; the worker keeps it. */
+  keepProviderCredential?: true;
 }
 
 export interface ISubagentWorkerStartMessage {

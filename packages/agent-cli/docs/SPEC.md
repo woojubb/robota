@@ -181,15 +181,23 @@ It does not replay stored usage or invent lifecycle events, delivery failure nev
 result, and an unsupported telemetry setting, or a credential that would be silently unused, refuses
 startup instead of being ignored. Telemetry credentials are scoped to the destination they were
 configured for and are never sent elsewhere, printed, or written to console output, logs or resource
-attributes. Product telemetry settings are not inherited by child processes, except the explicit
-handover to a supervised runtime launched by a session command; this is a guarantee about
-inheritance, not about hiding them from the same OS user. Because they are removed from
-`process.env` at startup, an embedding host that calls `startCli` has its own `process.env` mutated;
-a later in-process `startCli` call that sets none of its own reuses the whole settings a previous
-call captured, and one that sets any of its own uses only those, in full — settings from different
-calls are never mixed key by key, so a destination and the credentials configured for it always come
-from the same call, and `PRODUCT_TELEMETRY_ENABLED=0` alone turns export off for every later call
-until one sets its own again. None of this is ever written back to `process.env`.
+attributes. Product telemetry settings, and every variable a provider profile or definition names as
+its credential, are not inherited by anything the runtime runs on the workspace's behalf, except the
+explicit handover to a supervised runtime or subagent worker that needs them; the runtime itself,
+including its provider commands, reads them from its startup snapshot, so anything started from that
+snapshot instead of `process.env` must pass through the same command-environment filter. A variable an
+MCP definition references explicitly is the user's deliberate choice and still resolves. Only a user or
+managed settings layer can let commands see a provider credential (`commandEnvAllow`), because a project
+layer comes with the repository. Withholding is a guarantee about inheritance: a command the OS sandbox
+confines also cannot read the user state the host keeps credentials in, and an unconfined one still
+runs as the same OS user. Because they are removed from `process.env` at startup, an embedding host
+that calls `startCli` has its own `process.env` mutated, and a later in-process call must pass its
+provider credentials in its own `environment` — they are not remembered. Telemetry settings are: a
+later call that sets none of its own reuses the whole settings a previous call captured, and one that
+sets any of its own uses only those, in full — settings from different calls are never mixed key by
+key, so a destination and the credentials configured for it always come from the same call, and
+`PRODUCT_TELEMETRY_ENABLED=0` alone turns export off for every later call until one sets its own
+again. None of this is ever written back to `process.env`.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.
@@ -356,10 +364,12 @@ diagnostic when the setting would otherwise apply.
 rendering no UI, until its owner requests shutdown; a request made during initialization remains
 binding on the acquired host. With `--http-port` it also serves the agent HTTP routes on loopback,
 so other applications and services can use the agent without a client library; they reach the
-runtime's current primary session and are admitted by a bearer the operator chooses in the
-environment, because a server's clients must outlive a restart that a per-launch token would not,
-and a public address is reached only through the operator's own proxy, because that bearer is only
-as safe as the machine boundary. This is the backend the desktop GUI spawns: TUI and GUI are sibling
+runtime's current primary session and are admitted on loopback by a bearer the operator chooses in
+the environment, because a server's clients must outlive a restart that a per-launch token would
+not. That bearer is only as safe as the machine boundary, so any other address is bound only as the
+same OAuth resource server `mcp serve` offers, whose shared gate alone admits; its turns keep the
+host-assigned remote attribution, because the subject allowlist already says who may reach the
+session. This is the backend the desktop GUI spawns: TUI and GUI are sibling
 presentations over the same runtime host, and the GUI never controls the CLI. The composition root
 assigns trusted WS driver identities (`app`, `browser`, `remote:ws`) so a turn's persisted usage
 surface reflects the launch path rather than a client-provided claim.

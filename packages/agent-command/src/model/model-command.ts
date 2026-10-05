@@ -199,6 +199,7 @@ function switchModelAcrossProfiles(
   try {
     validateProviderProfile(selection.profileName, updatedProfile, {
       providerDefinitions: options.providerDefinitions,
+      ...(options.env === undefined ? {} : { env: options.env }),
     });
   } catch (error) {
     return {

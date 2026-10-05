@@ -89,6 +89,6 @@ describe('mcp serve HTTP flags', () => {
   });
 
   it('refuses remote flags outside mcp serve', () => {
-    expect(() => resolve(REMOTE, false)).toThrow(/only valid for mcp serve/);
+    expect(() => resolve(REMOTE, false)).toThrow(/only valid with mcp serve or --serve --http-port/);
   });
 });

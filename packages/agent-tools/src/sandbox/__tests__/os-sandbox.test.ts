@@ -191,6 +191,20 @@ describe('OsSandboxClient', () => {
     expect(client.autoApproves('npm test')).toBe(false);
   });
 
+  it('always hides the host paths it was given, whatever the settings deny (issue #3429)', () => {
+    const client = testSandbox({
+      root: '/w',
+      availability: available,
+      settings: { enabled: true, denyRead: ['/elsewhere/user.secret'] },
+      hiddenPaths: ['/state/credentials', '/state/settings.json'],
+    });
+    const hidden = (): string[] => client.policy().denyRead.map((entry) => entry.path);
+    expect(hidden()).toEqual(['/state/credentials', '/state/settings.json', '/elsewhere/user.secret']);
+    client.configure({ denyRead: [] });
+    expect(hidden()).toEqual(['/state/credentials', '/state/settings.json']);
+    expect(client.status().settings.denyRead).toEqual([]);
+  });
+
   it('tells its watchers each change until they stop watching (issue #3256)', () => {
     const client = testSandbox({ root: '/w', availability: available });
     const seen: boolean[] = [];

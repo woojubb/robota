@@ -14,7 +14,7 @@ green on its head and every MUST/SHOULD from `pr-review-reviewer` is resolved.
    The bump PR contains the bump and nothing else. Merge it into `develop` through a normal PR.
 2. **Promote** `develop` → `main` with a PR whose head is `develop`. On merge,
    `release-tag-on-version-bump.yml` tags the new version; the binary and desktop release workflows run
-   from that tag.
+   from that tag, and `release-image.yml` waits for step 3's npm publish, then pushes the agent image.
 3. **Publish** by running the _Publish to npm_ workflow on `main` (`gh workflow run publish.yml --ref main`).
    It waits on the `npm-publish` environment, whose one required reviewer is the owner's account — the one the
    agent's `gh` runs as — so the agent approves it. Approve only the run just dispatched: its `headSha` is

@@ -37,8 +37,9 @@ refuses rather than silently allows if it somehow does.
 The foreground shell tool hands its child the call's `TRACEPARENT` only when the call's context
 carries one, in a fresh copy of the environment with the ambient `TRACESTATE` removed; the process's
 own environment is never modified, so no other child can pick the value up. Without it the child
-sees exactly the ambient environment. A sandboxed run receives nothing, since the value would leave
-the host.
+sees the host process's environment as the composition root left it; keeping the host's own
+credentials out of it is the composition root's job, so this package stays neutral about which
+variables those are. A sandboxed run receives nothing, since the value would leave the host.
 
 ### Path resolution
 
@@ -125,7 +126,9 @@ never happened.
   command that created one ends where they did not (a mount cannot protect a path that does not
   exist yet, so it is live on the host for that long; moving loses nothing the host wrote
   meanwhile), and never auto-approved while one is a symlink the
-  command could redirect. Everything else in the workspace is the command's to change, as it is the
+  command could redirect. Host paths the composition root names as hidden (its own credential
+  material) are unreadable whatever the settings say, since a settings change must not expose them.
+  Everything else in the workspace is the command's to change, as it is the
   file tools'; a nested repository or build script it writes is workspace content, and the sandbox
   does not make running host tools over it safe.
 - `IWorkspaceManifest` / its applicator declare fresh-session sandbox contents (inline/local files,

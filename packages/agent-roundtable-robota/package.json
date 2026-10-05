@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-roundtable-robota",
-  "version": "3.0.0-beta.88",
+  "version": "3.0.0-beta.90",
   "description": "Run Robota Session and Robota agents as agent-roundtable participants and selectors",
   "type": "module",
   "main": "dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-transport",
-  "version": "3.0.0-beta.88",
+  "version": "3.0.0-beta.90",
   "description": "Carrier-neutral wire protocol, session dispatch and delivery for Robota SDK transports",
   "type": "module",
   "main": "dist/node/index.js",

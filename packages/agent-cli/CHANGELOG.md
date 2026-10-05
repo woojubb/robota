@@ -1,5 +1,54 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.90
+### Minor Changes
+
+- 7116367: Credentials the runtime holds for itself no longer reach the commands it runs.
+  
+  - `agent-cli` — once a workspace's settings are admitted, every variable a provider profile or
+    definition names as its credential (`$ENV:` references, and defaults such as `OPENAI_API_KEY`)
+    leaves the process environment, so tools, hooks, background shells, a skill's `!` commands and
+    the environment an MCP header helper inherits no longer carry it, a hosted worker's broker token
+    included (a variable an MCP definition references explicitly still resolves); the provider keeps
+    authenticating from the startup snapshot. A user or managed settings layer can let
+    commands see one with `"commandEnvAllow": ["NAME"]`; project settings cannot. With the OS sandbox
+    on, confined commands can no longer read `settings.json`, `credentials/`, `mcp-credentials/` or
+    `remote-host-identity.json` under the user state directory. **Behavior change:** a command that
+    relied on inheriting a provider key now needs the opt-in, and a host embedding `startCli` finds
+    those variables gone from its own `process.env` afterwards — a later in-process call must pass them
+    in its `environment`.
+  - `agent-framework` — the settings schema gains `commandEnvAllow`; `checkSettingsDocument` and
+    `buildProviderProfilesSnapshot` take an optional environment map to resolve `$ENV:` references
+    against instead of the live process environment.
+  - `agent-command` — provider startup checks credentials against the host's environment snapshot.
+  - `agent-tools` — `OsSandboxClient` takes `hiddenPaths`, always hidden from confined commands and
+    not changeable by sandbox settings.
+  - `agent-subagent-runner` — a child-process subagent removes its provider credential variable from
+    its own environment once its provider is built, unless the start payload says the owner opted it in
+    (`keepProviderCredential`).
+  - `dag-node-instant-node` — prompt nodes accept an env resolver (`createPromptBackedNodeDefinition`'s
+    third argument, `rehydrateInstantNode`'s `resolveEnv`) for their `$ENV:` credential default.
+  - `agent-command-workflows` — `/workflows create` and `/workflows run` resolve prompt-node credentials
+    from the host's environment snapshot.
+
+### Patch Changes
+
+- 5bb675a: Provider commands check a profile's `$ENV:` or default credential against the host's environment snapshot, so `/provider switch`, `/provider test`, `/provider add`, `/provider edit` and a cross-profile `/model` keep working while the runtime withholds its own credentials from `process.env`.
+  
+  - `IProviderCommandModuleOptions` takes an optional `env`, and `createDefaultCommandModules` takes `providerEnvironment`. The CLI passes its startup snapshot.
+  - The git that isolated subagents run, and so the repository's hooks, now get the command environment instead of the full snapshot.
+
+## 3.0.0-beta.89
+### Minor Changes
+
+- 3427887: `--serve --http-port` can serve the agent HTTP API as an OAuth resource server: with `--http-public-url`, `--oauth-issuer`, `--oauth-scopes` and `--oauth-allowed-subjects` (plus optional `--http-host` and `--trusted-proxy`) it may bind a non-loopback address and admits access tokens through the same shared resource-server gate as `mcp serve`. Without them it stays loopback with the `PRODUCT_HTTP_TOKEN` bearer.
+  
+  The refusal answer shared by both resource-server carriers (503 for unavailable issuer keys, uncounted; counted challenge otherwise) is now `refuseAccessToken` in `@robota-sdk/agent-transport/node`.
+
+### Patch Changes
+
+- ca44ac6: HTTP clients can now receive and answer permission and ask prompts. `POST /submit` with `receivePrompts: true` streams `permission_request`, `ask_request` and `prompt_resolved`. `GET /prompts` lists the prompts still open, so a client that attaches later can see them, and `POST /prompts/:id` answers one; an id that is not open returns 404, and an answer the session did not take returns 409. Clients that omit `receivePrompts` see no change. `IHttpTransportSession` now also requires `resolvePermission` and `resolveAsk`, which `InteractiveSession` already implements. The `--serve --http-port` API gains these routes as well.
+
 ## 3.0.0-beta.88
 
 ### Minor Changes

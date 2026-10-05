@@ -152,6 +152,11 @@ export interface IOsSandboxClientOptions {
   readonly availability: IOsSandboxAvailability;
   readonly settings?: Partial<IOsSandboxSettings>;
   readonly homeDirectory?: string;
+  /**
+   * Paths a confined command can never read, whatever the settings say — the host's own credential
+   * material. Added to the settings' `denyRead`, never replaced by a settings change.
+   */
+  readonly hiddenPaths?: readonly string[];
 }
 
 export interface IOsSandboxStatus {
@@ -211,6 +216,7 @@ export class OsSandboxClient implements ISandboxClient {
   private readonly userQuarantineDirectory: string;
   private readonly availability: IOsSandboxAvailability;
   private readonly homeDirectory: string;
+  private readonly hiddenPaths: readonly string[];
   private current: IOsSandboxSettings;
   private inFlight = 0;
   private baseline: IProtectedEntryState[] = [];
@@ -233,6 +239,7 @@ export class OsSandboxClient implements ISandboxClient {
     this.root = realPathOrSelf(options.root);
     this.availability = options.availability;
     this.homeDirectory = options.homeDirectory ?? homedir();
+    this.hiddenPaths = Object.freeze([...(options.hiddenPaths ?? [])]);
     this.current = { ...DEFAULT_OS_SANDBOX_SETTINGS, ...options.settings };
   }
 
@@ -470,7 +477,7 @@ export class OsSandboxClient implements ISandboxClient {
       pathProtection: this.pathProtection,
       tempDirectories: temp,
       allowWrite: this.current.allowWrite.map(absolute),
-      denyRead: this.current.denyRead.map((path) => {
+      denyRead: [...new Set([...this.hiddenPaths, ...this.current.denyRead])].map((path) => {
         const resolved = absolute(path);
         return { path: resolved, directory: isDirectory(resolved) };
       }),

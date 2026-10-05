@@ -36,8 +36,9 @@ A request without the token gets `401`. The transport reaches `session.submit` a
 when something in front of it already decides who may connect. `getAdmissionToken()` returns `null`
 for an open transport.
 
-The HTTP routes do not carry permission prompts. In the session's `default` permission mode, a tool
-call that would ask is denied; give the session the `permissionMode` its callers need.
+A client that can answer permission and ask prompts sends `receivePrompts: true` with `/submit` (see
+[Answering prompts](#answering-prompts)). Without it, a tool call that would ask and that no other
+surface answers is denied, so a client that never answers relies on the session's `permissionMode`.
 
 ## Endpoints
 
@@ -51,6 +52,8 @@ call that would ask is denied; give the session the `permissionMode` its callers
 | GET    | /context      | Get context window state             |
 | GET    | /executing    | Check if executing                   |
 | GET    | /pending      | Get pending queued prompt            |
+| GET    | /prompts      | List open permission/ask prompts     |
+| POST   | /prompts/:id  | Answer an open prompt                |
 
 ## Submitting a prompt
 
@@ -64,6 +67,30 @@ curl -X POST http://localhost:3000/submit \
 
 The response is an SSE stream with these events: `text_delta`, `tool_start`, `tool_end`, `thinking`,
 `complete`, `interrupted`, `error`.
+
+## Answering prompts
+
+With `"receivePrompts": true` the stream also carries `permission_request` and `ask_request`, each
+with an `id`, and `prompt_resolved` once a prompt is settled. Answer while the stream stays open:
+
+```bash
+curl -N -X POST http://localhost:3000/submit \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "List the files here", "receivePrompts": true}'
+
+# From another request, using the id from the permission_request event:
+curl -X POST http://localhost:3000/prompts/p1 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"result": true}'
+```
+
+A permission takes `result`: `true`, `false`, `"allow-session"` or `"allow-project"`. An ask takes
+`response`: `{ "type": "answer", "values": [...], "text"?: "..." }` or `{ "type": "cancelled" }`.
+`GET /prompts` lists the prompts still open, for a client that connects after one was asked. An id
+that is not open gets `404`, and `200` means the prompt settled. Closing the stream aborts the turn
+and denies what it left open.
 
 ## Session per request
 

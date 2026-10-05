@@ -266,6 +266,9 @@ export function buildCommandSetup(
     editorTemporaryDirectoryPrefix: productRuntime.vocabulary.editorTemporaryDirectoryPrefix,
     providerDefinitions,
     providerSettingsAdapter,
+    // The provider commands check `$ENV:` credentials against the snapshot taken before the runtime
+    // withheld its own credentials from `process.env` — the live env no longer has them.
+    providerEnvironment: productRuntime.environment,
     contributionSources: workspaceComposition.contributionSources,
     skillRoots: workspaceComposition.skillRoots,
     ...(keybindingsFilePort === undefined ? {} : { keybindingsFilePort }),

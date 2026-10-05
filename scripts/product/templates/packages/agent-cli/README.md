@@ -308,22 +308,33 @@ application or service can use it without a Robota client library. Every request
 bearer you choose in `PRODUCT_HTTP_TOKEN` (at least 32 characters); the runtime removes it from its
 environment, so the commands it runs do not inherit it. A command running as the same OS user can
 still read the server's launch environment unless the OS sandbox confines it (or the server runs
-as a separate user), so enable the sandbox on a server. Reach the API from elsewhere through your own
-reverse proxy or tunnel: it binds loopback only.
+as a separate user), so enable the sandbox on a server. With the bearer it binds loopback only.
+
+To reach it from elsewhere, either put your own reverse proxy or tunnel in front, or serve it as an
+OAuth resource server, the same way `__PRODUCT_CLI_NAME__ mcp serve` does: give `--http-public-url`, `--oauth-issuer`,
+`--oauth-scopes` and `--oauth-allowed-subjects` (optionally `--http-host <ip>` and `--trusted-proxy`)
+and no `PRODUCT_HTTP_TOKEN`. Clients then present access tokens from that issuer whose audience is the
+public URL, which carry the scopes and name an allowed subject. The routes below are served under the
+public URL's path, and its RFC 9728 metadata at `/.well-known/oauth-protected-resource<path>`.
 
 ```bash
 PRODUCT_HTTP_TOKEN="$(openssl rand -hex 32)" __PRODUCT_CLI_NAME__ --serve --http-port 8787
+__PRODUCT_CLI_NAME__ --serve --http-port 8787 --http-host 0.0.0.0 \
+  --http-public-url https://agents.example.com/agent --oauth-issuer https://auth.example.com \
+  --oauth-scopes agent.run --oauth-allowed-subjects client-a
 ```
 
 | Request | Does |
 | --- | --- |
-| `POST /submit` `{"prompt": "..."}` | Runs a turn and streams it as SSE (`text_delta`, `complete`, `error`); `409` while a turn is running |
+| `POST /submit` `{"prompt": "...", "receivePrompts"?: true}` | Runs a turn and streams it as SSE (`text_delta`, `complete`, `error`; with `receivePrompts`, also `permission_request`, `ask_request`, `prompt_resolved`); `409` while a turn is running |
+| `GET /prompts` · `POST /prompts/<id>` `{"result": true}` | Lists the open permission/ask prompts · answers one (`{"response": ...}` for an ask) |
 | `POST /command` `{"name": "help", "args": ""}` | Runs a slash command |
 | `POST /abort` · `POST /cancel-queue` | Aborts the running turn · drops the queued prompt |
 | `GET /messages` · `/context` · `/executing` · `/pending` | Reads the conversation and its state |
 
-No one can answer a permission prompt over HTTP, so a question no other client answers is denied;
-choose the permission mode and rules the server runs under.
+A client that submits with `receivePrompts: true` answers the permission and ask prompts its turn
+raises; without it, a question no other client answers is denied, so choose the permission mode and
+rules the server runs under.
 
 ### Reach other sessions and your other devices
 

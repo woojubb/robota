@@ -1,5 +1,34 @@
 # @robota-sdk/agent-ui-terminal
 
+## 3.0.0-beta.90
+### Patch Changes
+
+- Updated dependencies [7116367]
+- Updated dependencies [5bb675a]
+  - @robota-sdk/agent-framework@3.0.0-beta.90
+  - @robota-sdk/agent-core@3.0.0-beta.90
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.90
+  - @robota-sdk/agent-interface-command@3.0.0-beta.90
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.90
+  - @robota-sdk/agent-interface-session@3.0.0-beta.90
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.90
+  - @robota-sdk/agent-interface-tui@3.0.0-beta.90
+  - @robota-sdk/agent-transport@3.0.0-beta.90
+
+## 3.0.0-beta.89
+### Patch Changes
+
+- Updated dependencies [3427887]
+  - @robota-sdk/agent-transport@3.0.0-beta.89
+  - @robota-sdk/agent-framework@3.0.0-beta.89
+  - @robota-sdk/agent-core@3.0.0-beta.89
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.89
+  - @robota-sdk/agent-interface-command@3.0.0-beta.89
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.89
+  - @robota-sdk/agent-interface-session@3.0.0-beta.89
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.89
+  - @robota-sdk/agent-interface-tui@3.0.0-beta.89
+
 ## 3.0.0-beta.88
 
 ### Patch Changes

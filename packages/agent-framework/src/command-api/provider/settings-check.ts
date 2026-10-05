@@ -6,6 +6,7 @@ import {
   hasUsableSecretReference,
   type IProviderCredentialRequirement,
   type IProviderDefinition,
+  type TEnvResolver,
   type TProviderCredentialField,
 } from '@robota-sdk/agent-core';
 
@@ -13,24 +14,32 @@ import type { TProviderSettingsDocument } from './provider-settings.js';
 
 export type TSettingsCheck = 'missing' | 'valid' | 'corrupt' | 'incomplete';
 
+/**
+ * `environment` is the map `$ENV:` references resolve against — the host's startup snapshot, since
+ * the live process environment may have dropped credentials it holds for itself.
+ */
 export function checkSettingsDocument(
   settings: TProviderSettingsDocument,
   providerDefinitions: readonly IProviderDefinition[] = [],
+  environment?: Readonly<Record<string, string | undefined>>,
 ): TSettingsCheck {
-  return hasUsableProviderConfig(settings, providerDefinitions) ? 'valid' : 'incomplete';
+  const resolve: TEnvResolver | undefined =
+    environment === undefined ? undefined : (name) => environment[name];
+  return hasUsableProviderConfig(settings, providerDefinitions, resolve) ? 'valid' : 'incomplete';
 }
 
 function hasUsableProviderConfig(
   settings: TProviderSettingsDocument,
   providerDefinitions: readonly IProviderDefinition[],
+  resolve: TEnvResolver | undefined,
 ): boolean {
   if (typeof settings.currentProvider === 'string') {
     const profile = settings.providers?.[settings.currentProvider];
-    return isUsableProviderProfile(profile?.type, profile, providerDefinitions);
+    return isUsableProviderProfile(profile?.type, profile, providerDefinitions, resolve);
   }
   if (
     settings.provider &&
-    isUsableProviderProfile(settings.provider.name, settings.provider, providerDefinitions)
+    isUsableProviderProfile(settings.provider.name, settings.provider, providerDefinitions, resolve)
   ) {
     return true;
   }
@@ -41,23 +50,25 @@ function isUsableProviderProfile(
   type: string | undefined,
   profile: { apiKey?: string } | undefined,
   providerDefinitions: readonly IProviderDefinition[],
+  resolve: TEnvResolver | undefined,
 ): boolean {
   if (!profile) return false;
-  if (!type) return hasUsableSecretReference(profile.apiKey);
+  if (!type) return hasUsableSecretReference(profile.apiKey, resolve);
   const definition = findProviderDefinition(providerDefinitions, type);
   if (definition === undefined) return false;
   const credentialRequirement = getProviderCredentialRequirement(definition);
   if (credentialRequirement === undefined) return true;
-  return hasUsableRequiredProviderCredential(profile, definition, credentialRequirement);
+  return hasUsableRequiredProviderCredential(profile, definition, credentialRequirement, resolve);
 }
 
 function hasUsableRequiredProviderCredential(
   profile: { apiKey?: string },
   definition: IProviderDefinition,
   requirement: IProviderCredentialRequirement,
+  resolve: TEnvResolver | undefined,
 ): boolean {
   return requirement.anyOf.some((field) =>
-    hasUsableSecretReference(resolveProviderCredentialValue(field, profile, definition)),
+    hasUsableSecretReference(resolveProviderCredentialValue(field, profile, definition), resolve),
   );
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-roundtable",
-  "version": "3.0.0-beta.88",
+  "version": "3.0.0-beta.90",
   "description": "Coordinate independent agents and people in sequential or parallel conversations",
   "type": "module",
   "main": "dist/index.js",

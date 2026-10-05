@@ -19,6 +19,7 @@ import {
   formatSupportedProviderTypes,
   normalizeProviderConfig,
   type IProviderDefinition,
+  type TEnvResolver,
 } from '@robota-sdk/agent-core';
 import { z } from 'zod';
 
@@ -55,6 +56,7 @@ function resolveProviderInstance(
   provider: string,
   model: string | undefined,
   providers: readonly IProviderDefinition[],
+  resolveEnv: TEnvResolver | undefined,
 ): { agent: ConversationAgent } | { error: IDagError } {
   const definition = findProviderDefinition(providers, provider);
   if (definition === undefined) {
@@ -77,6 +79,7 @@ function resolveProviderInstance(
     config = normalizeProviderConfig(
       { name: provider, ...(model !== undefined ? { model } : {}) },
       providers,
+      resolveEnv,
     );
   } catch (error) {
     return {
@@ -126,11 +129,21 @@ export class PromptBackedNodeDefinition
 
   private readonly spec: ICreatePromptNodeInput;
   private readonly providers: readonly IProviderDefinition[];
+  private readonly resolveEnv: TEnvResolver | undefined;
 
-  public constructor(spec: ICreatePromptNodeInput, providers: readonly IProviderDefinition[]) {
+  /**
+   * `resolveEnv` resolves the provider's `$ENV:` credential default; a host that keeps credentials
+   * out of its live environment passes its own snapshot here.
+   */
+  public constructor(
+    spec: ICreatePromptNodeInput,
+    providers: readonly IProviderDefinition[],
+    resolveEnv?: TEnvResolver,
+  ) {
     super();
     this.spec = spec;
     this.providers = providers;
+    this.resolveEnv = resolveEnv;
     this.nodeType = spec.nodeType;
     this.displayName = spec.displayName;
     this.inputs = spec.inputPorts.map((p, i) => ({
@@ -193,7 +206,7 @@ export class PromptBackedNodeDefinition
     const provider = this.spec.provider ?? 'anthropic';
     const model = config.model ?? this.spec.model;
 
-    const providerResult = resolveProviderInstance(provider, model, this.providers);
+    const providerResult = resolveProviderInstance(provider, model, this.providers, this.resolveEnv);
     if ('error' in providerResult) {
       return { ok: false, error: providerResult.error };
     }
@@ -231,8 +244,9 @@ export class PromptBackedNodeDefinition
 export function createPromptBackedNodeDefinition(
   spec: ICreatePromptNodeInput,
   providers: readonly IProviderDefinition[],
+  resolveEnv?: TEnvResolver,
 ): PromptBackedNodeDefinition {
-  return new PromptBackedNodeDefinition(spec, providers);
+  return new PromptBackedNodeDefinition(spec, providers, resolveEnv);
 }
 
 // ── Composite Instant Nodes (INSTANT-002) ──────────────────────────────────
@@ -569,6 +583,8 @@ export interface IRehydrateInstantNodeDeps {
   readonly compositeRunner?: ICompositeSubRunner;
   /** Provider definitions are supplied by the composition root for prompt nodes. */
   readonly providers?: readonly IProviderDefinition[];
+  /** Resolves a prompt node's `$ENV:` credential default (the host's snapshot). */
+  readonly resolveEnv?: TEnvResolver;
 }
 
 /**
@@ -613,5 +629,6 @@ export function rehydrateInstantNode(
       ...(record.model !== undefined ? { model: record.model } : {}),
     },
     providers,
+    deps.resolveEnv,
   );
 }

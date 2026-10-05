@@ -11,7 +11,7 @@
 
 FROM node:22-bookworm-slim
 
-ARG ROBOTA_VERSION=3.0.0-beta.87
+ARG ROBOTA_VERSION=3.0.0-beta.90
 ARG ROBOTA_SOURCE=registry
 
 RUN apt-get update \

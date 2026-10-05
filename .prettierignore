@@ -22,3 +22,7 @@ coverage/
 # 39 mechanisms, 49 accepted, before and after.
 
 # Preserve the historical RULE-2380 record from replacement ancestry byte-for-byte.
+
+# Package CHANGELOGs keep __PRODUCT_*__ placeholders the product generator replaces; prettier
+# would turn them into bold text.
+**/CHANGELOG.md

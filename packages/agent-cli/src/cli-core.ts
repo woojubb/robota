@@ -54,6 +54,8 @@ import {
 } from './product/user-settings.js';
 import { readUserSettingsOrExit } from './startup/user-settings.js';
 import { runShellCommand } from './startup/shell-exec.js';
+import { commandEnvironment } from './product/command-environment.js';
+import { admitStartupTrustDecision } from './startup/admit-trust-decision.js';
 import {
   buildPresetSurfaceOptions,
   toSessionOptions,
@@ -376,7 +378,7 @@ async function runCliCore(
       optionArgv(process.argv).includes(RESTRICTED_WORKSPACE_FLAG) ||
       options.projectAccess !== undefined,
   });
-  startupOptions.projectAccess = projectAccess;
+  admitStartupTrustDecision(startupOptions, projectAccess, cwd);
 
   // The shell's ONE preset resolution — see `resolveShellPreset` for why it is one. Resolved before
   // command setup so the preset's module-selection delta can reach `createDefaultCommandModules`.
@@ -523,6 +525,7 @@ async function runCliCore(
     // projection does — same provider definitions, same org-policy allowlist.
     providerDefinitions,
     orgPolicy,
+    environment: productRuntime.environment,
   });
   // REMOTE-008: the shell owns/injects transport wiring; `/remote-control` is its declarative trigger.
   const {
@@ -1132,7 +1135,7 @@ async function runCliCore(
     commandModules,
     commandHostAdapters,
     remoteCommandPolicy,
-    shellExec: (command, env) => runShellCommand(command, productRuntime.environment, env),
+    shellExec: (command, env) => runShellCommand(command, commandEnvironment(productRuntime.environment), env),
     startupUpdateNotice: resolveCliUpdateNotice(startupUpdateNoticePromise),
     transportRegistry,
     bindTransports: bindTuiTransports,

@@ -105,6 +105,7 @@ function completeProviderSetup(
   const target = options.settings.readTargetSettings();
   const patch = buildProviderSetupPatch(input, {
     providerDefinitions: options.providerDefinitions,
+    ...(options.env === undefined ? {} : { env: options.env }),
   });
   options.settings.writeTargetSettings(mergeProviderPatch(target, patch));
   // #3282 §3: the session's own live setup-mode state (never settings — an ordinary env-default

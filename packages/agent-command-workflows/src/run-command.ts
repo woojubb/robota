@@ -43,6 +43,7 @@ export async function executeWorkflowsRun(
   providerDefinitions: readonly IProviderDefinition[] = [],
   snapshotBudgetLimits?: ITaskSnapshotBudgetLimits,
   signal?: AbortSignal,
+  environment?: Readonly<Record<string, string | undefined>>,
 ): Promise<ICommandResult> {
   const parsedArgs = parseFileArg(argStr, 'run');
   if (!parsedArgs.ok) {
@@ -68,6 +69,7 @@ export async function executeWorkflowsRun(
     workspace,
     providerDefinitions,
     snapshotBudgetLimits,
+    environment,
   );
   const result = await provider.execute(dag, {}, signal === undefined ? undefined : { signal });
   if (!result.ok) {

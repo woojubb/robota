@@ -4,6 +4,7 @@ import type {
   ISessionEvents,
   ISessionExecutionState,
   ISessionIdentity,
+  ISessionPromptResolution,
   ISessionTurnControl,
   ISessionTurnSubmission,
 } from '@robota-sdk/agent-interface-session';
@@ -15,6 +16,7 @@ export interface IHttpTransportSession
     ISessionEvents,
     ISessionTurnControl,
     ISessionIdentity,
+    ISessionPromptResolution,
     ISessionCommands,
     ISessionConversationRead,
     ISessionExecutionState {

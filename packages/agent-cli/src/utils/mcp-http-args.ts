@@ -4,12 +4,13 @@
  * The loopback carrier admits by a bearer the process mints and writes to a private file; that
  * bearer is only as safe as the machine boundary, so it is never offered beyond loopback. A bind to
  * any other address is accepted only together with the remote resource-server settings, whose
- * access tokens are checked against an authorization server instead.
+ * access tokens are checked against an authorization server instead. `--serve --http-port` takes the
+ * same remote settings for its agent HTTP API, validated by the same function.
  */
 
 import { isIP } from 'node:net';
 
-import type { IMcpServeHttpOptions } from '../modes/mcp-serve-mode.js';
+import type { IMcpServeHttpOptions, IMcpServeRemoteOptions } from '../modes/mcp-serve-mode.js';
 import type { IParsedCliArgs } from './cli-args.js';
 
 const LOOPBACK = '127.0.0.1';
@@ -21,14 +22,9 @@ export function resolveMcpHttpOptions(
   args: IParsedCliArgs,
   mcpServe: boolean,
 ): IMcpServeHttpOptions | undefined {
-  const remoteRequested =
-    args.mcpHttpPublicUrl !== undefined ||
-    args.mcpOauthIssuer !== undefined ||
-    args.mcpOauthScopes !== undefined ||
-    args.mcpOauthAllowedSubjects !== undefined ||
-    (args.mcpTrustedProxies?.length ?? 0) > 0;
-  // `--serve` takes `--http-port` for its own agent HTTP API (see serve-http-args.ts); every other
-  // HTTP flag here stays mcp serve's.
+  const remoteRequested = remoteSettingsRequested(args);
+  // `--serve` takes `--http-port`, `--http-host` and the remote settings for its own agent HTTP API
+  // (see serve-http-args.ts); the token file stays mcp serve's.
   const servePort = args.serve && !mcpServe;
   if (args.httpPort !== undefined && !mcpServe && !servePort) {
     throw new Error('--http-port is only valid with --serve or mcp serve HTTP mode');
@@ -38,19 +34,20 @@ export function resolveMcpHttpOptions(
     (!mcpServe ||
       (args.httpPort !== undefined && args.mcpHttpTokenFile === undefined && !remoteRequested))
   ) {
+    throw new Error('--http-token-file and --http-port are only valid for mcp serve HTTP mode');
+  }
+  if (
+    (remoteRequested || args.mcpHttpHost !== undefined) &&
+    !mcpServe &&
+    !(servePort && args.httpPort !== undefined)
+  ) {
     throw new Error(
-      '--http-token-file and --http-port are only valid for mcp serve HTTP mode',
+      '--http-host, --http-public-url, --oauth-* and --trusted-proxy are only valid with mcp serve or --serve --http-port',
     );
   }
-  if ((remoteRequested || args.mcpHttpHost !== undefined) && !mcpServe) {
-    throw new Error(
-      '--http-host, --http-public-url, --oauth-* and --trusted-proxy are only valid for mcp serve',
-    );
-  }
+  if (servePort) return undefined;
   if (!remoteRequested) {
-    if (args.mcpHttpHost !== undefined && args.mcpHttpHost !== LOOPBACK) {
-      throw new Error(`mcp serve binds a non-loopback address only with ${REMOTE_FLAGS}`);
-    }
+    refuseNonLoopbackWithoutRemote(args, 'mcp serve');
     if (args.mcpHttpHost !== undefined && args.mcpHttpTokenFile === undefined) {
       throw new Error('--http-host requires --http-token-file or remote authorization');
     }
@@ -65,6 +62,28 @@ export function resolveMcpHttpOptions(
       '--http-token-file is loopback-only and cannot be combined with remote authorization',
     );
   }
+  return {
+    ...(args.httpPort !== undefined ? { port: args.httpPort } : {}),
+    remote: resolveRemoteSettings(args),
+  };
+}
+
+/** Whether any remote resource-server setting was given. */
+export function remoteSettingsRequested(args: IParsedCliArgs): boolean {
+  return (
+    args.mcpHttpPublicUrl !== undefined ||
+    args.mcpOauthIssuer !== undefined ||
+    args.mcpOauthScopes !== undefined ||
+    args.mcpOauthAllowedSubjects !== undefined ||
+    (args.mcpTrustedProxies?.length ?? 0) > 0
+  );
+}
+
+/**
+ * The resource-server settings, for whichever HTTP carrier asked. Throws unless they are complete,
+ * the URLs are `https` and every address is a literal IP.
+ */
+export function resolveRemoteSettings(args: IParsedCliArgs): IMcpServeRemoteOptions {
   const publicUrl = args.mcpHttpPublicUrl;
   const issuer = args.mcpOauthIssuer;
   const scopes = args.mcpOauthScopes;
@@ -85,8 +104,12 @@ export function resolveMcpHttpOptions(
   if (trustedProxies.some((proxy) => isIP(proxy) === 0)) {
     throw new Error('--trusted-proxy must be a literal IP address');
   }
-  return {
-    ...(args.httpPort !== undefined ? { port: args.httpPort } : {}),
-    remote: { host, publicUrl, issuer, scopes, allowedSubjects, trustedProxies },
-  };
+  return { host, publicUrl, issuer, scopes, allowedSubjects, trustedProxies };
+}
+
+/** A bind address other than loopback, refused unless the remote settings come with it. */
+export function refuseNonLoopbackWithoutRemote(args: IParsedCliArgs, carrier: string): void {
+  if (args.mcpHttpHost !== undefined && args.mcpHttpHost !== LOOPBACK) {
+    throw new Error(`${carrier} binds a non-loopback address only with ${REMOTE_FLAGS}`);
+  }
 }

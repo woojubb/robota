@@ -79,6 +79,7 @@ export interface IStartPayloadOptions {
   /** The parent's provider registry: its defaults and the environment each provider reads. */
   readonly providerDefinitions: readonly IProviderDefinition[];
   readonly logsDir?: string;
+  readonly keepProviderCredential?: true;
   /** The connection the runner already checked; projected here when absent. */
   readonly connection?: IProjectedConnection;
   /** The parent's sandbox settings as they stand now, read at this spawn. */
@@ -176,6 +177,7 @@ export function projectStartPayload(
       ? { parentSandboxSettings: options.parentSandboxSettings }
       : {}),
     ...(options.logsDir ? { logsDir: options.logsDir } : {}),
+    ...(options.keepProviderCredential ? { keepProviderCredential: true as const } : {}),
   };
   return projectSandbox(deps).then((sandbox) => ({ ...base, ...sandbox }));
 }
