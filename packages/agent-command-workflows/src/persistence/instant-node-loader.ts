@@ -88,6 +88,8 @@ export async function loadInstantNodes(
   project: IWorkflowProject,
   layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
   providers: readonly IProviderDefinition[] = [],
+  /** The host's environment snapshot a prompt node's `$ENV:` credential resolves against. */
+  environment?: Readonly<Record<string, string | undefined>>,
 ): Promise<IDagNodeDefinition[]> {
   const accepted = assertWorkflowProject(project);
   const dir = join(layout.root, 'nodes');
@@ -112,6 +114,7 @@ export async function loadInstantNodes(
       rehydrateInstantNode(record, {
         ...(record.kind === 'composite' ? { compositeRunner } : {}),
         providers,
+        ...(environment !== undefined ? { resolveEnv: (name: string) => environment[name] } : {}),
       }),
     );
   }

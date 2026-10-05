@@ -172,10 +172,19 @@ async function executeWorkflowsCommand(
               providerDefinitions,
               undefined,
               signal,
+              environment,
             ),
           );
         }
-        return executeWorkflowsRun(rest, requiredProject(), workspace, providerDefinitions);
+        return executeWorkflowsRun(
+          rest,
+          requiredProject(),
+          workspace,
+          providerDefinitions,
+          undefined,
+          undefined,
+          environment,
+        );
       case 'status':
         return detachedRuns.status(rest);
       case 'cancel':

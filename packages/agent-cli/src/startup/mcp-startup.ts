@@ -28,6 +28,7 @@ import {
   withoutExpansions,
 } from '@robota-sdk/agent-mcp';
 import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
+import { commandEnvironment } from '../product/command-environment.js';
 
 import { buildMcpClientTimeouts, createMcpClientComposition } from './mcp-client-composition.js';
 import { describeMcpContribution } from './mcp-contribution-descriptor.js';
@@ -129,6 +130,18 @@ async function inspectRealWorkspaceTrust(
   runtime: ICliRuntimeContext,
 ): Promise<IMcpWorkspaceTrustSnapshot> {
   return createNodeWorkspaceTrustStore(userPaths(runtime).workspaceTrust).inspect(identity);
+}
+
+/**
+ * The environment a headers helper starts with: the host snapshot without the credentials the runtime
+ * withholds from its commands. A definition's `${VAR}` references resolve against the
+ * snapshot elsewhere and are unaffected.
+ */
+export function mcpHeadersHelperEnvironment(
+  snapshot: Readonly<Record<string, string | undefined>>,
+  ...rest: Parameters<typeof headersHelperEnvironment> extends [unknown, ...infer R] ? R : never
+): Record<string, string> {
+  return headersHelperEnvironment(commandEnvironment(snapshot), ...rest);
 }
 
 /**
@@ -250,7 +263,7 @@ export async function composeMcpClientForStartup(
       return runHeadersHelper({
         helper,
         cwd,
-        env: headersHelperEnvironment(
+        env: mcpHeadersHelperEnvironment(
           input.env,
           request.source,
           request.serverId,

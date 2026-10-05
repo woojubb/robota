@@ -89,7 +89,7 @@ export async function ensureProviderConfig(
   const merged = readMergedProviderSettings(access.sources);
   const selectedSettings =
     ctx.provider !== undefined ? { ...merged, currentProvider: ctx.provider } : merged;
-  if (checkSettingsDocument(selectedSettings, providerDefinitions) === 'valid') {
+  if (checkSettingsDocument(selectedSettings, providerDefinitions, ctx.env ?? options.env) === 'valid') {
     return;
   }
   // Zero-config startup: a recognized provider env key with complete definition defaults
@@ -114,7 +114,7 @@ export async function ensureProviderConfig(
   const updated = readMergedProviderSettings(access.sources);
   const updatedSettings =
     ctx.provider !== undefined ? { ...updated, currentProvider: ctx.provider } : updated;
-  if (checkSettingsDocument(updatedSettings, providerDefinitions) !== 'valid') {
+  if (checkSettingsDocument(updatedSettings, providerDefinitions, ctx.env ?? options.env) !== 'valid') {
     throw new ProviderConfigError(options.formatError(providerDefinitions));
   }
 }

@@ -35,6 +35,11 @@ export interface ICliProductLayout {
   readonly projectWorktreesDirectory: string;
   readonly userQuarantineDirectory: string;
   readonly pathProtection: IPathProtectionPolicy;
+  /**
+   * User-state entries that hold credentials (a settings file may carry a literal key; the owner-only
+   * stores and the host identity hold secrets). A confined command never reads them.
+   */
+  readonly credentialPaths: readonly string[];
 }
 
 export interface ICliProductVocabulary extends ICommandProductVocabulary {
@@ -117,6 +122,7 @@ export function createCliRuntimeContext(config: IProductConfig, environment: TCo
       protectedPaths: [userRoot],
       writableWorktreeContainers: [projectWorktreesDirectory, '.claude/worktrees'],
     },
+    credentialPaths: ['settings.json', 'credentials', 'mcp-credentials', 'remote-host-identity.json'].map((entry) => join(userRoot, entry)),
   };
   return freeze({
     config,

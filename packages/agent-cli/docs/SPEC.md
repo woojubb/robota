@@ -181,10 +181,16 @@ It does not replay stored usage or invent lifecycle events, delivery failure nev
 result, and an unsupported telemetry setting, or a credential that would be silently unused, refuses
 startup instead of being ignored. Telemetry credentials are scoped to the destination they were
 configured for and are never sent elsewhere, printed, or written to console output, logs or resource
-attributes. Product telemetry settings are not inherited by child processes, except the explicit
-handover to a supervised runtime launched by a session command; this is a guarantee about
-inheritance, not about hiding them from the same OS user. Because they are removed from
-`process.env` at startup, an embedding host that calls `startCli` has its own `process.env` mutated;
+attributes. Product telemetry settings, and every variable a provider profile or definition names as
+its credential, are not inherited by the commands the runtime runs — tools, hooks, skill
+preprocessing, MCP header helpers — except the explicit handover to a supervised runtime or subagent
+worker that needs them; the runtime reads them from its startup snapshot, so anything started from that
+snapshot instead of `process.env` must pass through the same command-environment filter. A variable an
+MCP definition references explicitly is the user's deliberate choice and still resolves. Only a user or
+managed settings layer can let commands see a provider credential (`commandEnvAllow`), because a project
+layer comes with the repository, and the OS sandbox hides the user state the host keeps credentials in.
+This is a guarantee about inheritance, not about hiding them from the same OS user. Because they are
+removed from `process.env` at startup, an embedding host that calls `startCli` has its own `process.env` mutated;
 a later in-process `startCli` call that sets none of its own reuses the whole settings a previous
 call captured, and one that sets any of its own uses only those, in full — settings from different
 calls are never mixed key by key, so a destination and the credentials configured for it always come

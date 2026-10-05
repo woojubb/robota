@@ -78,7 +78,8 @@ describe('hosted stock CLI task-owned tools', () => {
           env: Record<string, string>;
         };
         expect(observation.cwd).toBe(worker);
-        expect(observation.env.OPENAI_API_KEY).toBe('synthetic-task-token');
+        // The broker token authenticates the worker's provider, never its commands (#3429).
+        expect(observation.env.OPENAI_API_KEY).toBeUndefined();
         expect(JSON.stringify(observation)).not.toContain('runtime-management-canary');
         expect(JSON.stringify(observation)).not.toContain('runtime-upstream-canary');
       }

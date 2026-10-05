@@ -16,6 +16,7 @@ import {
 import { openResumeSessionStore, resumeRequestedRecord } from './child-process-subagent-resume.js';
 import { restoreAgentDefinition, restoreParentContext } from './subagent-worker-start-dto.js';
 import { restoreProjectedSandbox } from './worker-composition.js';
+import { withholdProviderCredential } from './worker-credential.js';
 
 import type {
   ISubagentComposedSandbox,
@@ -124,6 +125,7 @@ async function runInitialPrompt(
       payload.request.model,
       composition.providerDefinitions,
     );
+    withholdProviderCredential(payload.providerProfile, payload.keepProviderCredential === true);
     const sessionLogger = payload.logsDir
       ? createSubagentLogger(payload.request.parentSessionId, payload.taskId, payload.logsDir)
       : undefined;

@@ -53,6 +53,8 @@ export interface ICreateSettingsReporterOptions {
   readonly providerDefinitions?: readonly IProviderDefinition[];
   /** #3282 §4b: the same allowlist `buildModelListSnapshot` filters by — never offer what it refuses. */
   readonly orgPolicy?: IOrgPolicy | null;
+  /** The startup environment snapshot `$ENV:` credential references are checked against. */
+  readonly environment?: Readonly<Record<string, string | undefined>>;
 }
 
 /** The sandbox mode the ON/OFF switch applies: confined, without a prompt for each command. */
@@ -162,7 +164,7 @@ async function buildSnapshot(
   options: ICreateSettingsReporterOptions,
   locality?: TCommandSurfaceLocality,
 ): Promise<ISettingsSnapshot> {
-  const { commandHostAdapters, settingsSources, settingsStores, providerDefinitions, orgPolicy } = options;
+  const { commandHostAdapters, settingsSources, settingsStores, providerDefinitions, orgPolicy, environment } = options;
   const status = session.getStatusSnapshot();
 
   // Reads the SAME `list` branch `/output-style`, `/preset`, `/mcp status` and `/plugin list`
@@ -224,6 +226,7 @@ async function buildSnapshot(
     providerSettings.currentProvider,
     providerDefinitions ?? [],
     orgPolicy?.allowedProviders,
+    environment,
   );
 
   return {

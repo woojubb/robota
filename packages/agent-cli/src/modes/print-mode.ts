@@ -29,6 +29,7 @@ import {
   createLoopDefaultPromptResolver,
 } from '../startup/loop-options.js';
 import { runShellCommand } from '../startup/shell-exec.js';
+import { commandEnvironment } from '../product/command-environment.js';
 
 /**
  * ARCH-006: the tool surface the kernel overlay resolved. `additionalTools` carries the capability packs'
@@ -133,7 +134,7 @@ export async function runPrintMode(
     cwd,
     ...(livePromptTrace ? { livePromptTrace } : {}),
     provider,
-    shellExec: (command, env) => runShellCommand(command, productRuntime.environment, env),
+    shellExec: (command, env) => runShellCommand(command, commandEnvironment(productRuntime.environment), env),
     ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),
     ...(promptFileReferenceTag !== undefined ? { promptFileReferenceTag } : {}),
     ...(modelCommandToolPrefix !== undefined ? { modelCommandToolPrefix } : {}),

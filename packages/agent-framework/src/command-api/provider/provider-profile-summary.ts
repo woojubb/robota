@@ -45,11 +45,13 @@ function credentialValue(
 function connectionState(
   profile: IProviderProfileSettings,
   definition: IProviderDefinition | undefined,
+  environment: Readonly<Record<string, string | undefined>> | undefined,
 ): string | undefined {
   const requirement = getProviderCredentialRequirement(definition);
   if (requirement === undefined) return undefined;
+  const resolve = environment === undefined ? undefined : (name: string) => environment[name];
   const hasCredential = requirement.anyOf.some((field) =>
-    hasUsableSecretReference(credentialValue(profile, definition, field)),
+    hasUsableSecretReference(credentialValue(profile, definition, field), resolve),
   );
   return hasCredential ? undefined : 'Key missing';
 }
@@ -66,6 +68,8 @@ export function buildProviderProfilesSnapshot(
   currentProfileName: string | undefined,
   providerDefinitions: readonly IProviderDefinition[],
   allowedProviders?: readonly string[],
+  /** The map `$ENV:` references resolve against (the host's startup snapshot). */
+  environment?: Readonly<Record<string, string | undefined>>,
 ): ISettingsProvidersSection {
   const all = providers ?? {};
   const profiles: ISettingsProviderProfile[] = [];
@@ -75,7 +79,7 @@ export function buildProviderProfilesSnapshot(
     if (profile === undefined) continue;
     const definition =
       typeof profile.type === 'string' ? findProviderDefinition(providerDefinitions, profile.type) : undefined;
-    const state = connectionState(profile, definition);
+    const state = connectionState(profile, definition, environment);
     profiles.push({
       name,
       providerLabel: providerLabel(definition, profile),

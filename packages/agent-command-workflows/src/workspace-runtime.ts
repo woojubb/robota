@@ -36,9 +36,10 @@ export async function createWorkspaceRuntime(
   layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
   providerDefinitions: readonly IProviderDefinition[] = [],
   snapshotBudgetLimits?: ITaskSnapshotBudgetLimits,
+  environment?: Readonly<Record<string, string | undefined>>,
 ): Promise<IWorkspaceRuntime> {
   const accepted = assertWorkflowProject(project);
-  const instantNodes = await loadInstantNodes(accepted, layout, providerDefinitions);
+  const instantNodes = await loadInstantNodes(accepted, layout, providerDefinitions, environment);
   const provider = new LocalDagRuntimeProvider({
     executionRoot: accepted.executionRoot,
     snapshotBudgetLimits,

@@ -90,6 +90,11 @@ export interface IChildProcessSubagentRunnerOptions {
   worktreeAdapter: ISubagentWorktreeAdapter;
   logsDir?: string;
   /**
+   * The owner lets commands see the provider credential variable, so the worker keeps it in its own
+   * environment. Absent ⇒ the worker removes it once its provider is built.
+   */
+  keepProviderCredential?: boolean;
+  /**
    * The parent's sandbox settings as they stand now, read at EACH spawn: a setting the user changed
    * this session (`/sandbox`) lives on the parent's live client, not in the files a child would read.
    * The child's `createSandbox` receives the value. Absent ⇒ the child reads its root's settings.
@@ -128,6 +133,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   private readonly expectedEnvironment?: NodeJS.ProcessEnv;
   private readonly inheritEnvironment: boolean;
   private readonly logsDir?: string;
+  private readonly keepProviderCredential: boolean;
   private readonly parentSandboxSettings?: () => TParentSandboxSettings | undefined;
   private readonly watchParentSandboxSettings?: IChildProcessSubagentRunnerOptions['watchParentSandboxSettings'];
 
@@ -147,6 +153,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       throw new Error('An explicit expected environment is required when child inheritance is disabled.');
     }
     this.logsDir = options.logsDir;
+    this.keepProviderCredential = options.keepProviderCredential === true;
     this.parentSandboxSettings = options.parentSandboxSettings;
     this.watchParentSandboxSettings = options.watchParentSandboxSettings;
   }
@@ -260,6 +267,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       connection,
       providerDefinitions: this.providerDefinitions,
       ...(this.logsDir !== undefined ? { logsDir: this.logsDir } : {}),
+      ...(this.keepProviderCredential ? { keepProviderCredential: true } : {}),
       ...(parentSandboxSettings !== undefined ? { parentSandboxSettings } : {}),
     });
   }

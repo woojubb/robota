@@ -186,6 +186,11 @@ export const SettingsSchema = z.object({
   provider: ProviderSchema.optional(),
   permissions: PermissionsSchema.optional(),
   env: EnvSchema,
+  /**
+   * Provider credential variables the commands the runtime runs may still see. Read by the host
+   * composition from user and managed layers only; a project layer cannot re-expose a credential.
+   */
+  commandEnvAllow: z.array(z.string()).optional(),
   hooks: HooksSchema,
   /**
    * Hook-group ids this layer turns off (issue #2320). Applies only to groups declared by LATER

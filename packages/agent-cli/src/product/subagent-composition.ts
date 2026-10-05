@@ -12,6 +12,7 @@ import { createGoalStatusTool, sandboxApprovalFor } from '@robota-sdk/agent-fram
 import { OsSandboxClient } from '@robota-sdk/agent-tools';
 import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
+import { isWithheldFromCommands } from './command-environment.js';
 import { createProductCapabilityPacks, packCommandModuleNames } from './product-profile.js';
 import { createCliWorkspaceComposition } from '../startup/workspace-project-composition.js';
 import { selectProductSubagentRunner } from './subagent-provider-reproduction.js';
@@ -284,6 +285,9 @@ function createProductChildProcessSubagentRunner(options: {
     providerConfig: options.providerConfig,
     providerDefinitions: options.providerDefinitions,
     logsDir: options.logsDir,
+    // The worker drops its credential after building its provider unless the owner let commands see it.
+    keepProviderCredential:
+      options.providerConfig.apiKeyEnv !== undefined && !isWithheldFromCommands(options.providerConfig.apiKeyEnv),
     inheritEnvironment: false,
     // The child gets only product bootstrap values and this provider's named connection inputs.
     env: productChildProviderEnvironment(options.productRuntime, options.providerConfig, options.providerDefinitions),

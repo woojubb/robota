@@ -15,6 +15,7 @@ import {
   createPromptBackedNodeDefinition,
   PromptBackedNodeDefinition,
   createCompositeInstantNodeDefinition,
+  rehydrateInstantNode,
 } from '../index.js';
 import type { ICreatePromptNodeInput } from '../index.js';
 import type { IDagDefinition, INodeExecutionContext, TPortPayload } from '@robota-sdk/dag-core';
@@ -173,6 +174,23 @@ describe('PromptBackedNodeDefinition.taskHandler.execute', () => {
     if (!result.ok) {
       expect(result.error.code).toBe('DAG_VALIDATION_INSTANT_NODE_API_KEY_REQUIRED');
     }
+  });
+
+  it('resolves the credential from the injected snapshot when the live environment withheld it', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', undefined);
+    const snapshot: Record<string, string> = { ANTHROPIC_API_KEY: 'snapshot-key' };
+    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC, TEST_PROVIDERS, (name) => snapshot[name]);
+    const result = await node.taskHandler.execute({ text: 'hello' }, MOCK_CONTEXT);
+    expect(result.ok).toBe(true);
+  });
+
+  it('rehydrates a prompt node that resolves its credential from the injected snapshot', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', undefined);
+    const snapshot: Record<string, string> = { ANTHROPIC_API_KEY: 'snapshot-key' };
+    const record = createTestNode().toPersisted();
+    const node = rehydrateInstantNode(record, { providers: TEST_PROVIDERS, resolveEnv: (name) => snapshot[name] });
+    const result = await node.taskHandler.execute({ text: 'hello' }, MOCK_CONTEXT);
+    expect(result.ok).toBe(true);
   });
 
   it('multi-port spec renders all variables into template', async () => {
