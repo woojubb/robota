@@ -25,7 +25,7 @@ describe('print mode exit', () => {
     const exit = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
     const out = stream(9000);
     const done = exitAfterFlush(3, [out as never]);
-    await Promise.resolve();
+    await new Promise((resolve) => setImmediate(resolve));
     expect(exit).not.toHaveBeenCalled();
     out.flush!();
     await done;
