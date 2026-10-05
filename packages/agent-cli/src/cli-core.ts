@@ -54,6 +54,7 @@ import {
 } from './product/user-settings.js';
 import { readUserSettingsOrExit } from './startup/user-settings.js';
 import { runShellCommand } from './startup/shell-exec.js';
+import { commandEnvironment } from './product/command-environment.js';
 import {
   buildPresetSurfaceOptions,
   toSessionOptions,
@@ -523,6 +524,7 @@ async function runCliCore(
     // projection does — same provider definitions, same org-policy allowlist.
     providerDefinitions,
     orgPolicy,
+    environment: productRuntime.environment,
   });
   // REMOTE-008: the shell owns/injects transport wiring; `/remote-control` is its declarative trigger.
   const {
@@ -1132,7 +1134,7 @@ async function runCliCore(
     commandModules,
     commandHostAdapters,
     remoteCommandPolicy,
-    shellExec: (command, env) => runShellCommand(command, productRuntime.environment, env),
+    shellExec: (command, env) => runShellCommand(command, commandEnvironment(productRuntime.environment), env),
     startupUpdateNotice: resolveCliUpdateNotice(startupUpdateNoticePromise),
     transportRegistry,
     bindTransports: bindTuiTransports,

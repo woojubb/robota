@@ -1,7 +1,7 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -39,6 +39,18 @@ function sandboxWith(settings: object | undefined, availability: IOsSandboxAvail
 }
 
 describe('test-product execution containment', () => {
+  it('hides the credential-bearing user-state entries from confined commands (issue #3429)', () => {
+    const runtime = createTestProductRuntime();
+    const sandbox = sandboxWith({ enabled: true }, linux);
+    const hidden = sandbox.client?.policy().denyRead.map((entry) => entry.path) ?? [];
+    // Paths are made real (macOS `/var` is `/private/var`), so compare the user-root-relative tail.
+    const state = basename(runtime.layout.userRoot);
+    for (const entry of ['settings.json', 'credentials', 'mcp-credentials', 'remote-host-identity.json']) {
+      expect(hidden.some((path) => path.endsWith(join(state, entry)))).toBe(true);
+    }
+    expect(hidden.some((path) => path.endsWith(state))).toBe(false);
+  });
+
   it('composes an idle client by default, and the doctor says commands run on the host', () => {
     const sandbox = sandboxWith(undefined, linux);
     expect(sandbox.client?.status().active).toBe(false);

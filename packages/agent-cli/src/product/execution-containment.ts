@@ -70,7 +70,7 @@ export function createProductSandbox(options: ICreateProductSandboxOptions): IPr
   const failIfUnavailable = configured?.failIfUnavailable === true;
   if (availability.backend === undefined) return { availability, settings, failIfUnavailable };
   return {
-    client: new OsSandboxClient({ root: options.cwd, availability, settings, projectStateDirectory: options.productRuntime.layout.projectDirectory, userQuarantineDirectory: options.productRuntime.layout.userQuarantineDirectory, pathProtection: options.productRuntime.layout.pathProtection }),
+    client: new OsSandboxClient({ root: options.cwd, availability, settings, projectStateDirectory: options.productRuntime.layout.projectDirectory, userQuarantineDirectory: options.productRuntime.layout.userQuarantineDirectory, pathProtection: options.productRuntime.layout.pathProtection, hiddenPaths: options.productRuntime.layout.credentialPaths }),
     availability,
     settings,
     failIfUnavailable,

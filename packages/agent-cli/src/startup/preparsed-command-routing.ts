@@ -1,6 +1,7 @@
 import { resolveCliRuntimeContext } from './product-bootstrap.js';
 import { restartProductEnvironment } from '../product/restart-environment.js';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { withholdProviderCredentials } from '../product/command-environment.js';
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import { createUserSessionStore } from '@robota-sdk/agent-framework';
 import { realpathSync } from 'node:fs';
@@ -425,6 +426,12 @@ export async function runPreparsedCliCommand(
     ...options,
     projectAccess,
   });
+  // Issue #3429: every route from here may run commands, and the provider reads its credential from
+  // the startup snapshot, so the live environment those commands inherit drops it now.
+  withholdProviderCredentials(
+    composition.settingsSources,
+    options.providerDefinitions ?? createDefaultProviderDefinitions(),
+  );
   if (
     argv[SUBCOMMAND_INDEX] === 'mcp' &&
     (argv[ACTION_INDEX] === 'login' || argv[ACTION_INDEX] === 'logout')

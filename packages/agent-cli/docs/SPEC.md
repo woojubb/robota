@@ -255,6 +255,14 @@ A key that has ever sat in a plain file backups and dotfile sync copy is never c
 store: it is replaced by a new key, the file is removed, and the operator is told once that trusted
 devices must pair again.
 
+Credentials the runtime holds for itself do not reach the commands it runs. A variable a provider
+profile or definition names as its credential leaves `process.env` (an embedding host's too) once the
+workspace's settings are admitted, and the provider reads it from the startup snapshot instead — at the process boundary rather
+than in each spawner, so a spawner added later cannot leak it. Only a user or managed settings layer
+can let commands see such a variable (`commandEnvAllow`), because a project layer comes with the
+repository. A confined command cannot read the user-state entries that hold credentials (the settings
+file, the credential stores, the host identity); the rest of the user state stays readable.
+
 A device that keeps the device-signing key reissues the roster and revocation list before they lapse
 while an interactive session runs. The lists expire quickly so that a withheld list cannot pass for a
 current one for long, which only holds if their issuer keeps renewing them without waiting for an
