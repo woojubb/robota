@@ -75,6 +75,11 @@ export function withholdProviderCredentials(
   return withheld;
 }
 
+/** Whether this process withholds `name` from the commands it runs. */
+export function isWithheldFromCommands(name: string): boolean {
+  return withheldFromCommands.has(name);
+}
+
 /** A command environment built from a snapshot: the snapshot without what was withheld. */
 export function commandEnvironment(
   snapshot: Readonly<Record<string, string | undefined>>,

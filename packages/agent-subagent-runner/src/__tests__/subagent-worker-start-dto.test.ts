@@ -328,6 +328,18 @@ describe('a fork job adds ONE key to the start payload (CLI-1994 TC-06, ARCH-044
     expect(Object.keys(fork.parentContext).sort()).toEqual(Object.keys(plain.parentContext).sort());
   });
 
+  it('tells the worker to keep its credential only when the owner opted it in (#3429)', async () => {
+    const plain = await projectStartPayload(job(undefined), DEPS, {
+      providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+    });
+    const kept = await projectStartPayload(job(undefined), DEPS, {
+      providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+      keepProviderCredential: true,
+    });
+    expect('keepProviderCredential' in plain).toBe(false);
+    expect(kept.keepProviderCredential).toBe(true);
+  });
+
   it('no message array and no copied-conversation or AGENTS.md/CLAUDE.md text crosses the wire', async () => {
     const fork = await projectStartPayload(job(FORK_SESSION_ID), DEPS, {
       providerDefinitions: TEST_PROVIDER_DEFINITIONS,

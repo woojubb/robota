@@ -4,6 +4,8 @@
 '@robota-sdk/agent-command': patch
 '@robota-sdk/agent-tools': minor
 '@robota-sdk/agent-subagent-runner': patch
+'@robota-sdk/dag-node-instant-node': minor
+'@robota-sdk/agent-command-workflows': patch
 ---
 
 Credentials the runtime holds for itself no longer reach the commands it runs.
@@ -24,4 +26,9 @@ Credentials the runtime holds for itself no longer reach the commands it runs.
 - `agent-tools` — `OsSandboxClient` takes `hiddenPaths`, always hidden from confined commands and
   not changeable by sandbox settings.
 - `agent-subagent-runner` — a child-process subagent removes its provider credential variable from
-  its own environment once its provider is built.
+  its own environment once its provider is built, unless the start payload says the owner opted it in
+  (`keepProviderCredential`).
+- `dag-node-instant-node` — prompt nodes accept an env resolver (`createPromptBackedNodeDefinition`'s
+  third argument, `rehydrateInstantNode`'s `resolveEnv`) for their `$ENV:` credential default.
+- `agent-command-workflows` — `/workflows create` and `/workflows run` resolve prompt-node credentials
+  from the host's environment snapshot.

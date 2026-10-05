@@ -181,10 +181,15 @@ It does not replay stored usage or invent lifecycle events, delivery failure nev
 result, and an unsupported telemetry setting, or a credential that would be silently unused, refuses
 startup instead of being ignored. Telemetry credentials are scoped to the destination they were
 configured for and are never sent elsewhere, printed, or written to console output, logs or resource
-attributes. Product telemetry settings are not inherited by child processes, except the explicit
-handover to a supervised runtime launched by a session command; this is a guarantee about
-inheritance, not about hiding them from the same OS user. Because they are removed from
-`process.env` at startup, an embedding host that calls `startCli` has its own `process.env` mutated;
+attributes. Product telemetry settings, and every variable a provider profile or definition names as
+its credential, are not inherited by the commands the runtime runs — tools, hooks, MCP servers and
+helpers, skill preprocessing — except the explicit handover to a supervised runtime or subagent worker
+that needs them; the runtime reads them from its startup snapshot, so anything started from that
+snapshot instead of `process.env` must pass through the same command-environment filter. Only a user or
+managed settings layer can let commands see a provider credential (`commandEnvAllow`), because a project
+layer comes with the repository, and the OS sandbox hides the user state the host keeps credentials in.
+This is a guarantee about inheritance, not about hiding them from the same OS user. Because they are
+removed from `process.env` at startup, an embedding host that calls `startCli` has its own `process.env` mutated;
 a later in-process `startCli` call that sets none of its own reuses the whole settings a previous
 call captured, and one that sets any of its own uses only those, in full — settings from different
 calls are never mixed key by key, so a destination and the credentials configured for it always come
@@ -254,14 +259,6 @@ refused.
 A key that has ever sat in a plain file backups and dotfile sync copy is never carried into the
 store: it is replaced by a new key, the file is removed, and the operator is told once that trusted
 devices must pair again.
-
-Credentials the runtime holds for itself do not reach the commands it runs. A variable a provider
-profile or definition names as its credential leaves `process.env` (an embedding host's too) once the
-workspace's settings are admitted, and the provider reads it from the startup snapshot instead — at the process boundary rather
-than in each spawner, so a spawner added later cannot leak it. Only a user or managed settings layer
-can let commands see such a variable (`commandEnvAllow`), because a project layer comes with the
-repository. A confined command cannot read the user-state entries that hold credentials (the settings
-file, the credential stores, the host identity); the rest of the user state stays readable.
 
 A device that keeps the device-signing key reissues the roster and revocation list before they lapse
 while an interactive session runs. The lists expire quickly so that a withheld list cannot pass for a

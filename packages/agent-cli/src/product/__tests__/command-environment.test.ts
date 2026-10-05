@@ -105,6 +105,16 @@ describe('provider credential variables', () => {
     });
   });
 
+  it('withholds a project credential once a later trust decision admits the project', async () => {
+    const user = userSource({});
+    const environment: NodeJS.ProcessEnv = { PROJECT_ONLY_KEY: 'p' };
+    withholdProviderCredentials([user], [], environment);
+    expect(environment).toEqual({ PROJECT_ONLY_KEY: 'p' });
+    const project = await projectSources({ providers: { p: { type: 'openai', apiKey: '$ENV:PROJECT_ONLY_KEY' } } });
+    withholdProviderCredentials([user, ...project], [], environment);
+    expect(environment).toEqual({});
+  });
+
   it('keeps a variable the owner opted in', () => {
     const sources = [userSource({ commandEnvAllow: ['OPENAI_API_KEY'] })];
     const environment: NodeJS.ProcessEnv = { OPENAI_API_KEY: 'o' };

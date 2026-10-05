@@ -125,7 +125,7 @@ async function runInitialPrompt(
       payload.request.model,
       composition.providerDefinitions,
     );
-    withholdProviderCredential(payload.providerProfile);
+    withholdProviderCredential(payload.providerProfile, payload.keepProviderCredential === true);
     const sessionLogger = payload.logsDir
       ? createSubagentLogger(payload.request.parentSessionId, payload.taskId, payload.logsDir)
       : undefined;

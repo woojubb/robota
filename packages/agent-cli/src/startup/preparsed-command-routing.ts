@@ -1,7 +1,7 @@
 import { resolveCliRuntimeContext } from './product-bootstrap.js';
 import { restartProductEnvironment } from '../product/restart-environment.js';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
-import { withholdProviderCredentials } from '../product/command-environment.js';
+import { commandEnvironment, withholdProviderCredentials } from '../product/command-environment.js';
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import { createUserSessionStore } from '@robota-sdk/agent-framework';
 import { realpathSync } from 'node:fs';
@@ -439,7 +439,7 @@ export async function runPreparsedCliCommand(
     const run = argv[ACTION_INDEX] === 'login' ? runMcpLoginCommand : runMcpLogoutCommand;
     process.exitCode = await run(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
       settingsSources: composition.settingsSources,
-      env: productRuntime.environment,
+      env: commandEnvironment(productRuntime.environment),
       productRuntime,
       stdout: (text) => process.stdout.write(text),
       stderr: (text) => process.stderr.write(text),

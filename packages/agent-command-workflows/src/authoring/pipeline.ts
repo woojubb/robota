@@ -63,6 +63,7 @@ function buildPromptNode(
   spec: IAuthoredPromptNode,
   fallbackProvider: string | undefined,
   providerDefinitions: readonly IProviderDefinition[],
+  environment: Readonly<Record<string, string | undefined>> | undefined,
 ): IDagNodeDefinition {
   const provider = typeof spec.provider === 'string' ? spec.provider : fallbackProvider;
   return createPromptBackedNodeDefinition(
@@ -76,6 +77,7 @@ function buildPromptNode(
       ...(spec.model ? { model: spec.model } : {}),
     },
     providerDefinitions,
+    environment === undefined ? undefined : (name) => environment[name],
   );
 }
 
@@ -185,7 +187,12 @@ export async function authorAndSaveWorkflow(
 
   // Node catalog = built-ins + any instant nodes already saved (so they can be reused).
   const providerDefinitions = deps.providerDefinitions ?? [];
-  const existingInstantNodes = await loadInstantNodes(acceptedProject, layout, providerDefinitions);
+  const existingInstantNodes = await loadInstantNodes(
+    acceptedProject,
+    layout,
+    providerDefinitions,
+    deps.environment,
+  );
   const baseNodeDefs: IDagNodeDefinition[] = [
     ...createDefaultNodeRegistrySync(),
     ...existingInstantNodes,
@@ -218,7 +225,7 @@ export async function authorAndSaveWorkflow(
   const existingTypes = new Set(baseNodeDefs.map((n) => n.nodeType));
   for (const nodeSpec of spec.newNodes ?? []) {
     if (existingTypes.has(nodeSpec.nodeType)) continue; // reuse existing; do not clobber
-    authoredNodes.push(buildPromptNode(nodeSpec, activeProvider, providerDefinitions));
+    authoredNodes.push(buildPromptNode(nodeSpec, activeProvider, providerDefinitions, deps.environment));
     existingTypes.add(nodeSpec.nodeType);
   }
 
