@@ -17,7 +17,7 @@ import type { Writable } from 'node:stream';
 
 const SHUTDOWN_TIMEOUT_MS = 5000;
 /** Every signature algorithm the verifier supports; each is still bound to its own key shape. */
-const ACCESS_TOKEN_ALGORITHMS: readonly TAccessTokenAlgorithm[] = ['RS256', 'ES256', 'EdDSA'];
+export const ACCESS_TOKEN_ALGORITHMS: readonly TAccessTokenAlgorithm[] = ['RS256', 'ES256', 'EdDSA'];
 function productSubmitTool(runtime: ICliRuntimeContext) { return { name: `${runtime.config.identity.cliName}_submit`, description: 'Submit a prompt to the agent and await its own turn' }; }
 
 async function shutdownSession(

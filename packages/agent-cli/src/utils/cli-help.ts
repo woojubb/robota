@@ -84,7 +84,8 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
                              abort, messages) on 127.0.0.1:<port>, for other apps and services.
                              Requires PRODUCT_HTTP_TOKEN (at least 32 characters): the bearer
                              every request presents. Reach it from elsewhere through your own
-                             reverse proxy or tunnel
+                             reverse proxy or tunnel, or bind it as an OAuth resource server
+                             with --http-public-url and the --oauth-* flags instead of the bearer
   --restricted-workspace     With print mode, --goal, --serve, daemon start or session start:
                              start without the project's settings, hooks, plugins, skills and
                              MCP servers
@@ -101,11 +102,11 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
                              bearer to a new owner-only absolute-path file
   --http-port <port>         With mcp serve HTTP, use this port (default: OS-assigned); with
                              --serve, see --serve --http-port
-  --http-public-url <https>  With mcp serve, serve remote HTTP as an OAuth resource server at this
+  --http-public-url <https>  With mcp serve or --serve --http-port, serve remote HTTP as an OAuth resource server at this
                              public URL (endpoint and metadata paths follow it; the proxy in front
                              must forward those paths and preserve Host). Requires --oauth-issuer,
                              --oauth-scopes and --oauth-allowed-subjects; never uses a token file
-  --http-host <ip>           With mcp serve, the address to bind. Anything but 127.0.0.1 requires
+  --http-host <ip>           With mcp serve or --serve --http-port, the address to bind. Anything but 127.0.0.1 requires
                              --http-public-url and the --oauth-* flags (default: 127.0.0.1)
   --oauth-issuer <https>     Authorization server whose access tokens are accepted
   --oauth-scopes <a,b>       Scopes every access token must carry
