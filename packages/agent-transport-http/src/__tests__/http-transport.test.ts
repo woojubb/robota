@@ -62,7 +62,7 @@ describe('createHttpTransport', () => {
     >();
     expectTypeOf<IHttpTransportSession>().not.toHaveProperty('listRuntimeTools');
     // #3282 §2 added `listModels` to `ISessionCommands` (15 + 1); #3288 §2 added `getMessagesDisplay`
-    // to `ISessionConversationRead` (16 + 1); #3445 added `ISessionPromptResolution` (17 + 2).
+    // to `ISessionConversationRead` (16 + 1); #3449 added `ISessionPromptResolution` (17 + 2).
     expect(Object.keys(createMockSession())).toHaveLength(19);
   });
 
