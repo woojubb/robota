@@ -840,6 +840,36 @@ describe('createProviderCommandModule', () => {
       expect(readTarget().currentProvider).toBe('anthropic');
     });
 
+    it('adds a profile whose default key is only in the snapshot', async () => {
+      const { adapter, readTarget } = createSettingsAdapter(settings);
+      const { context } = scriptedContext([
+        { type: 'answer', values: [], text: '' },
+        { type: 'answer', values: [], text: '' },
+      ]);
+      const module = createProviderCommandModule({ providerDefinitions, settings: adapter, env: snapshot });
+      const result = await withoutLiveKey(() =>
+        new SystemCommandExecutor([...(module.systemCommands ?? [])]).execute('provider', context, 'add anthropic'),
+      );
+
+      expect(result?.success).not.toBe(false);
+      expect(readTarget().providers?.['anthropic-2']).toMatchObject({ type: 'anthropic' });
+    });
+
+    it('edits a profile whose default key is only in the snapshot', async () => {
+      const { adapter, readTarget } = createSettingsAdapter(settings);
+      const { context } = scriptedContext([
+        { type: 'answer', values: [], text: '' },
+        { type: 'answer', values: [], text: 'claude-opus-4-5' },
+      ]);
+      const module = createProviderCommandModule({ providerDefinitions, settings: adapter, env: snapshot });
+      const result = await withoutLiveKey(() =>
+        new SystemCommandExecutor([...(module.systemCommands ?? [])]).execute('provider', context, 'edit anthropic'),
+      );
+
+      expect(result?.message).toBe('Provider anthropic updated.');
+      expect(readTarget().providers?.['anthropic']).toMatchObject({ model: 'claude-opus-4-5' });
+    });
+
     it('tests a profile whose key is only in the snapshot', async () => {
       const { adapter } = createSettingsAdapter(settings);
       const result = await withoutLiveKey(() =>
