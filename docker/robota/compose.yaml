@@ -18,9 +18,9 @@ services:
     build:
       context: .
       args:
-        ROBOTA_VERSION: ${ROBOTA_VERSION:-3.0.0-beta.88}
+        ROBOTA_VERSION: ${ROBOTA_VERSION:-3.0.0-beta.90}
         ROBOTA_SOURCE: ${ROBOTA_SOURCE:-registry}
-    image: ${ROBOTA_IMAGE:-ghcr.io/woojubb/robota}:${ROBOTA_VERSION:-3.0.0-beta.88}
+    image: ${ROBOTA_IMAGE:-ghcr.io/woojubb/robota}:${ROBOTA_VERSION:-3.0.0-beta.90}
     security_opt:
       # Lets bubblewrap create its namespaces and mounts; everything else stays at Docker's default.
       - seccomp=./seccomp-bwrap.json
@@ -65,9 +65,9 @@ services:
     build:
       context: .
       args:
-        ROBOTA_VERSION: ${ROBOTA_VERSION:-3.0.0-beta.88}
+        ROBOTA_VERSION: ${ROBOTA_VERSION:-3.0.0-beta.90}
         ROBOTA_SOURCE: ${ROBOTA_SOURCE:-registry}
-    image: ${ROBOTA_IMAGE:-ghcr.io/woojubb/robota}:${ROBOTA_VERSION:-3.0.0-beta.88}
+    image: ${ROBOTA_IMAGE:-ghcr.io/woojubb/robota}:${ROBOTA_VERSION:-3.0.0-beta.90}
     security_opt:
       - seccomp=./seccomp-bwrap.json
       - apparmor=${ROBOTA_APPARMOR_PROFILE:-robota-userns}

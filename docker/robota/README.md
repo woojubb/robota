@@ -106,7 +106,7 @@ out means you accept the container as the only boundary.
 Set up the provider once per state volume:
 
 ```sh
-docker run --rm $SECURITY -v robota-state:/home/node/.robota robota:3.0.0-beta.88 \
+docker run --rm $SECURITY -v robota-state:/home/node/.robota robota:3.0.0-beta.90 \
   --configure-provider main --type anthropic --model <model> --api-key-env ANTHROPIC_API_KEY --set-current
 ```
 
@@ -168,11 +168,11 @@ workflow; check it with `gh attestation verify oci://ghcr.io/woojubb/robota:<ver
 There is no `latest` tag; pin a version:
 
 ```sh
-docker pull ghcr.io/woojubb/robota:3.0.0-beta.88
-docker tag ghcr.io/woojubb/robota:3.0.0-beta.88 robota:3.0.0-beta.88   # the name used below
+docker pull ghcr.io/woojubb/robota:3.0.0-beta.90
+docker tag ghcr.io/woojubb/robota:3.0.0-beta.90 robota:3.0.0-beta.90   # the name used below
 ```
 
-To build it yourself instead: `docker build --build-arg ROBOTA_VERSION=3.0.0-beta.88 -t robota:3.0.0-beta.88 docker/robota`.
+To build it yourself instead: `docker build --build-arg ROBOTA_VERSION=3.0.0-beta.90 -t robota:3.0.0-beta.90 docker/robota`.
 
 ## Batch usage
 
@@ -183,7 +183,7 @@ SECURITY="--cap-drop ALL --security-opt no-new-privileges:true \
 
 docker run --rm $SECURITY -v robota-state:/home/node/.robota \
   -v /srv/secrets/anthropic:/run/secrets/ANTHROPIC_API_KEY:ro \
-  robota:3.0.0-beta.88 sh -c '
+  robota:3.0.0-beta.90 sh -c '
     set -e
     git clone --depth 1 https://example.com/org/repo.git /workspace/repo
     cd /workspace/repo
@@ -191,7 +191,7 @@ docker run --rm $SECURITY -v robota-state:/home/node/.robota \
     robota -p "Fix the failing test" --output-format json'
 ```
 
-Arguments starting with `-` run `robota` directly (`docker run … robota:3.0.0-beta.88 -p "…"`);
+Arguments starting with `-` run `robota` directly (`docker run … robota:3.0.0-beta.90 -p "…"`);
 anything else runs as given. The container's exit status is the run's.
 
 With compose (`docker compose` resolves `./seccomp-bwrap.json` against this directory):
@@ -222,7 +222,7 @@ only listener reachable from outside it:
 openssl rand -hex 32 > http-token          # the bearer clients present
 ROBOTA_REPO_URL=https://github.com/you/repo.git \
 OPENAI_API_KEY_FILE=./openai-key ROBOTA_HTTP_TOKEN_FILE=./http-token \
-ROBOTA_VERSION=3.0.0-beta.88 docker compose --profile server up -d
+ROBOTA_VERSION=3.0.0-beta.90 docker compose --profile server up -d
 curl -N -H "Authorization: Bearer $(cat http-token)" -H 'content-type: application/json' \
   -d '{"prompt":"Summarize the README"}' http://127.0.0.1:8080/submit
 ```
