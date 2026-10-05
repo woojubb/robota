@@ -72,16 +72,31 @@ check on `getSession().getSessionId()`, not on object identity.
 
 ## Routes
 
-| Method | Path            | Purpose                                                                                                                                                                                           |
-| ------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| POST   | `/submit`       | Body `{ "prompt": string }`. Runs a turn and streams `text_delta`, `tool_start`, `tool_end`, `thinking`, then `complete`, `interrupted` or `error` as SSE. `409` while a turn is already running. |
-| POST   | `/command`      | Body `{ "name": string, "args"?: string }`. Runs a session command on behalf of a remote caller.                                                                                                  |
-| POST   | `/abort`        | Aborts the running turn.                                                                                                                                                                          |
-| POST   | `/cancel-queue` | Drops the queued prompt.                                                                                                                                                                          |
-| GET    | `/messages`     | The conversation history.                                                                                                                                                                         |
-| GET    | `/context`      | The context-window state.                                                                                                                                                                         |
-| GET    | `/executing`    | `{ "executing": boolean }`, using the same rule `/submit` uses to answer `409`.                                                                                                                   |
-| GET    | `/pending`      | `{ "pending": … }`, the queued prompt, if any.                                                                                                                                                    |
+| Method | Path            | Purpose                                                                                                                                                                                                                                                                                                                                                 |
+| ------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/submit`       | Body `{ "prompt": string, "receivePrompts"?: boolean }`. Runs a turn and streams `text_delta`, `tool_start`, `tool_end`, `thinking`, then `complete`, `interrupted` or `error` as SSE. With `receivePrompts: true` the stream also carries `permission_request`, `ask_request` and `prompt_resolved`. `409` while a turn is already running.            |
+| POST   | `/command`      | Body `{ "name": string, "args"?: string }`. Runs a session command on behalf of a remote caller.                                                                                                                                                                                                                                                        |
+| POST   | `/abort`        | Aborts the running turn.                                                                                                                                                                                                                                                                                                                                |
+| POST   | `/cancel-queue` | Drops the queued prompt.                                                                                                                                                                                                                                                                                                                                |
+| GET    | `/messages`     | The conversation history.                                                                                                                                                                                                                                                                                                                               |
+| GET    | `/context`      | The context-window state.                                                                                                                                                                                                                                                                                                                               |
+| GET    | `/executing`    | `{ "executing": boolean }`, using the same rule `/submit` uses to answer `409`.                                                                                                                                                                                                                                                                         |
+| GET    | `/pending`      | `{ "pending": … }`, the queued prompt, if any.                                                                                                                                                                                                                                                                                                          |
+| GET    | `/prompts`      | `{ "prompts": [{ "type", "event" }] }`, the prompts a prompt-receiving `/submit` stream forwarded that are still open, oldest first.                                                                                                                                                                                                                    |
+| POST   | `/prompts/:id`  | Answers an open prompt: `{ "result": true \| false \| "allow-session" \| "allow-project" }` for a permission, `{ "response": { "type": "answer", "values": string[], "text"?: string } \| { "type": "cancelled" } }` for an ask. `404` when the id is not open, `400` for an answer of the wrong shape, `409` when the session did not take the answer. |
+
+### Permission and ask prompts
+
+A turn can stop to ask whether a tool may run (`permission_request`) or to ask the user a question
+(`ask_request`). Only a client that says it can answer receives them: send `receivePrompts: true` with
+`/submit`, and answer each prompt by its `event.id` through `POST /prompts/:id`. `prompt_resolved`
+follows when a prompt is settled, by this client or by another surface on the same session. A
+client that comes later reads the open prompts from `GET /prompts` and answers the same way.
+
+Without `receivePrompts`, nothing changes: a turn whose prompt no surface can answer is denied (or the
+question cancelled) at once rather than left waiting. Closing the stream aborts the turn, which settles
+its open prompts the same way. The answer is recorded as the host's `attribution.driverId`, never as
+anything the request claims.
 
 Paths are relative to where the routes are mounted (`basePath`, or the prefix you pass to
 `app.route`).
@@ -97,12 +112,12 @@ Paths are relative to where the routes are mounted (`basePath`, or the prefix yo
 | `IAgentRoutesOptions`    | interface | `{ sessionFactory, admission, onStreamFailure?, attribution? }`                                       |
 | `TSessionFactory`        | type      | `(c: Context) => IHttpTransportSession \| Promise<IHttpTransportSession>`                             |
 | `IHttpTransportSession`  | interface | The session capabilities the routes use; a full interactive session satisfies it                      |
-| `TTurnAttribution`       | type      | Host-assigned `driverId`/`surface` for `/submit` turns; never read from the request                   |
+| `TTurnAttribution`       | type      | Host-assigned `driverId`/`surface` for turns and prompt answers; never read from the request          |
 | `TStreamFailureListener` | type      | Receives the details of a stream that fails after headers were sent (the client sees a generic error) |
 
 ## Related
 
-- [`@robota-sdk/agent-transport`](../agent-transport/README.md) — the admission helpers these routes use.
+- [`@robota-sdk/agent-transport`](../agent-transport/README.md) — the admission helpers and the prompt-answer decoder these routes use.
 - [`@robota-sdk/agent-transport-ws`](../agent-transport-ws/README.md) — the WebSocket transport, which
   carries the full session protocol (this HTTP surface covers a subset).
 - [docs/SPEC.md](./docs/SPEC.md) — package contract and invariants.

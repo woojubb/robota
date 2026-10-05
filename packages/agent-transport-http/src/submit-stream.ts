@@ -8,8 +8,14 @@
  */
 
 import type { IHttpTransportSession } from './http-session.js';
+import type { THttpPromptFrame } from './open-prompts.js';
 import type { SSEStreamingApi } from 'hono/streaming';
-import type { ISubmitOptions } from '@robota-sdk/agent-interface-session';
+import type {
+  IAskRequestEvent,
+  IPermissionRequestEvent,
+  IPromptResolvedEvent,
+  ISubmitOptions,
+} from '@robota-sdk/agent-interface-session';
 
 /**
  * Where the DETAIL of a post-headers stream failure goes — injected, never imported.
@@ -34,6 +40,15 @@ export type TStreamFailureListener = (error: Error) => void;
 export type TTurnAttribution = Pick<ISubmitOptions, 'driverId' | 'surface'>;
 
 /**
+ * Where a prompt-receiving stream reports the prompts it forwarded, so a later request can list or
+ * answer them. Present only when the client asked to receive prompts.
+ */
+export interface IRelayPrompts {
+  record(frame: THttpPromptFrame): void;
+  forget(id: string): void;
+}
+
+/**
  * Wire every relay subscription and the abort path; answer with the promise that settles when the
  * turn is over (or refused one).
  *
@@ -48,6 +63,7 @@ function wireRelay(
   stream: SSEStreamingApi,
   cleanup: Array<() => void>,
   onFailure: TStreamFailureListener | undefined,
+  prompts: IRelayPrompts | undefined,
 ): Promise<void> {
   const subscribe = <T>(event: string, handler: (data: T) => void): void => {
     session.on(event as 'text_delta', handler as () => void);
@@ -71,6 +87,7 @@ function wireRelay(
   subscribe('tool_start', (state) => void write('tool_start', state));
   subscribe('tool_end', (state) => void write('tool_end', state));
   subscribe('thinking', (isThinking: boolean) => void write('thinking', { isThinking }));
+  if (prompts !== undefined) subscribePrompts(subscribe, write, prompts);
 
   // Flush the terminal event before resolving, so the resolve → cleanup → stream-close
   // continuation cannot race ahead of the write.
@@ -93,6 +110,33 @@ function wireRelay(
   stream.onAbort(() => onClientAbort(session, onFailure, settle));
 
   return done;
+}
+
+/**
+ * Forward the turn's permission and ask prompts, and their settlement, to a client that said it can
+ * answer them.
+ *
+ * Only such a client subscribes: the session parks a prompt only while someone listens for it, so a
+ * client that cannot answer must not listen, or the turn would wait on a prompt nobody settles
+ * instead of failing it closed at once.
+ */
+function subscribePrompts(
+  subscribe: <T>(event: string, handler: (data: T) => void) => void,
+  write: (event: string, data: unknown) => Promise<void>,
+  prompts: IRelayPrompts,
+): void {
+  subscribe('permission_request', (event: IPermissionRequestEvent) => {
+    prompts.record({ type: 'permission_request', event });
+    void write('permission_request', event);
+  });
+  subscribe('ask_request', (event: IAskRequestEvent) => {
+    prompts.record({ type: 'ask_request', event });
+    void write('ask_request', event);
+  });
+  subscribe('prompt_resolved', (event: IPromptResolvedEvent) => {
+    prompts.forget(event.id);
+    void write('prompt_resolved', event);
+  });
 }
 
 /**
@@ -163,6 +207,7 @@ export function relayTurn(
   release: () => void,
   onFailure?: TStreamFailureListener,
   attribution?: TTurnAttribution,
+  prompts?: IRelayPrompts,
 ): (stream: SSEStreamingApi) => Promise<void> {
   return async (stream) => {
     // NOTHING may escape this callback, and the reason is measured rather than stylistic. Hono's
@@ -177,7 +222,7 @@ export function relayTurn(
       // later request gets 409 forever.
       const cleanup: Array<() => void> = [];
       try {
-        const done = wireRelay(session, stream, cleanup, onFailure);
+        const done = wireRelay(session, stream, cleanup, onFailure, prompts);
         await (attribution === undefined
           ? session.submit(prompt)
           : session.submit(prompt, undefined, undefined, { ...attribution }));

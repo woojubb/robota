@@ -11,7 +11,8 @@ import { streamSSE } from 'hono/streaming';
 import { relayTurn } from './submit-stream.js';
 
 import type { IHttpTransportSession } from './http-session.js';
-import type { TStreamFailureListener, TTurnAttribution } from './submit-stream.js';
+import type { IHttpOpenPrompts } from './open-prompts.js';
+import type { IRelayPrompts, TStreamFailureListener, TTurnAttribution } from './submit-stream.js';
 import type { ITurnClaims } from './turn-claims.js';
 import type { Context } from 'hono';
 
@@ -101,18 +102,25 @@ function admitTurn(
   return { claim };
 }
 
-export function submitHandler(
-  sessionFactory: TSessionFactory,
-  claims: ITurnClaims,
-  onStreamFailure?: TStreamFailureListener,
-  attribution?: TTurnAttribution,
-) {
+export interface ISubmitRouteDeps {
+  readonly sessionFactory: TSessionFactory;
+  readonly claims: ITurnClaims;
+  readonly openPrompts: IHttpOpenPrompts;
+  readonly onStreamFailure?: TStreamFailureListener;
+  readonly attribution?: TTurnAttribution;
+}
+
+export function submitHandler(deps: ISubmitRouteDeps) {
+  const { sessionFactory, claims, openPrompts, onStreamFailure, attribution } = deps;
   return async (c: Context) => {
     const session = await sessionFactory(c);
-    const body = await c.req.json<{ prompt: string }>();
+    const body = await c.req.json<{ prompt: string; receivePrompts?: unknown }>();
 
     if (!body.prompt || typeof body.prompt !== 'string') {
       return c.json({ error: 'prompt is required' }, 400);
+    }
+    if (body.receivePrompts !== undefined && typeof body.receivePrompts !== 'boolean') {
+      return c.json({ error: 'receivePrompts must be a boolean' }, 400);
     }
 
     // A session still building itself cannot name itself yet, and the claim needs its name. The
@@ -142,9 +150,19 @@ export function submitHandler(
     const releaseOnce = (): void => {
       if (!released) {
         released = true;
+        // The stream that held this session's prompts is gone; what is still open is the session's
+        // to settle, and no longer this route's to list or answer.
+        openPrompts.clear(claim);
         claims.release(claim);
       }
     };
+    const prompts: IRelayPrompts | undefined =
+      body.receivePrompts === true
+        ? {
+            record: (frame) => openPrompts.record(claim, frame),
+            forget: (id) => openPrompts.forget(claim, id),
+          }
+        : undefined;
 
     // The claim is taken OUTSIDE the callback, so its release cannot live only in the callback's
     // `finally` — a claim whose release is not in the same protected region is a lock, not a claim,
@@ -168,7 +186,7 @@ export function submitHandler(
       // the cost of closing that class is one keyword.
       return await streamSSE(
         c,
-        relayTurn(session, body.prompt, releaseOnce, onStreamFailure, attribution),
+        relayTurn(session, body.prompt, releaseOnce, onStreamFailure, attribution, prompts),
       );
     } catch (error) {
       releaseOnce();

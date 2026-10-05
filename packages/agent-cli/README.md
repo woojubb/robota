@@ -326,13 +326,15 @@ robota --serve --http-port 8787 --http-host 0.0.0.0 \
 
 | Request | Does |
 | --- | --- |
-| `POST /submit` `{"prompt": "..."}` | Runs a turn and streams it as SSE (`text_delta`, `complete`, `error`); `409` while a turn is running |
+| `POST /submit` `{"prompt": "...", "receivePrompts"?: true}` | Runs a turn and streams it as SSE (`text_delta`, `complete`, `error`; with `receivePrompts`, also `permission_request`, `ask_request`, `prompt_resolved`); `409` while a turn is running |
+| `GET /prompts` · `POST /prompts/<id>` `{"result": true}` | Lists the open permission/ask prompts · answers one (`{"response": ...}` for an ask) |
 | `POST /command` `{"name": "help", "args": ""}` | Runs a slash command |
 | `POST /abort` · `POST /cancel-queue` | Aborts the running turn · drops the queued prompt |
 | `GET /messages` · `/context` · `/executing` · `/pending` | Reads the conversation and its state |
 
-No one can answer a permission prompt over HTTP, so a question no other client answers is denied;
-choose the permission mode and rules the server runs under.
+A client that submits with `receivePrompts: true` answers the permission and ask prompts its turn
+raises; without it, a question no other client answers is denied, so choose the permission mode and
+rules the server runs under.
 
 ### Reach other sessions and your other devices
 
