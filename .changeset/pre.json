@@ -253,6 +253,7 @@
     "3421-serve-http-api",
     "3422-sandbox-probe-mounts-proc",
     "3426-serve-http-oauth",
+    "3429-command-credential-isolation",
     "3449-http-prompts",
     "active-plugin-withdrawal",
     "arch-005-s1-composition-layer",

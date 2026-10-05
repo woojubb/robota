@@ -1,5 +1,11 @@
 # @robota-sdk/agent-preset
 
+## 3.0.0-beta.90
+### Patch Changes
+
+- Updated dependencies [7116367]
+  - @robota-sdk/agent-framework@3.0.0-beta.90
+
 ## 3.0.0-beta.89
 ### Patch Changes
 
