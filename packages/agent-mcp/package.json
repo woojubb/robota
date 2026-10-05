@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-mcp",
-  "version": "3.0.0-beta.89",
+  "version": "3.0.0-beta.90",
   "description": "MCP client for the Robota SDK: server definitions, activation, connections, tool catalog and OAuth sign-in",
   "type": "module",
   "main": "dist/node/index.js",
