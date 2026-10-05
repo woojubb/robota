@@ -13,13 +13,15 @@ Credentials the runtime holds for itself no longer reach the commands it runs.
 - `agent-cli` — once a workspace's settings are admitted, every variable a provider profile or
   definition names as its credential (`$ENV:` references, and defaults such as `OPENAI_API_KEY`)
   leaves the process environment, so tools, hooks, background shells, a skill's `!` commands and
-  the environment an MCP header helper inherits no longer carry it (a variable an MCP definition
-  references explicitly still resolves) (a hosted worker's broker token included); the provider keeps authenticating from
-  the startup snapshot. A user or managed settings layer can let
+  the environment an MCP header helper inherits no longer carry it, a hosted worker's broker token
+  included (a variable an MCP definition references explicitly still resolves); the provider keeps
+  authenticating from the startup snapshot. A user or managed settings layer can let
   commands see one with `"commandEnvAllow": ["NAME"]`; project settings cannot. With the OS sandbox
   on, confined commands can no longer read `settings.json`, `credentials/`, `mcp-credentials/` or
   `remote-host-identity.json` under the user state directory. **Behavior change:** a command that
-  relied on inheriting a provider key now needs the opt-in.
+  relied on inheriting a provider key now needs the opt-in, and a host embedding `startCli` finds
+  those variables gone from its own `process.env` afterwards — a later in-process call must pass them
+  in its `environment`.
 - `agent-framework` — the settings schema gains `commandEnvAllow`; `checkSettingsDocument` and
   `buildProviderProfilesSnapshot` take an optional environment map to resolve `$ENV:` references
   against instead of the live process environment.

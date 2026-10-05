@@ -12,7 +12,7 @@ import { createGoalStatusTool, sandboxApprovalFor } from '@robota-sdk/agent-fram
 import { OsSandboxClient } from '@robota-sdk/agent-tools';
 import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
-import { isWithheldFromCommands } from './command-environment.js';
+import { commandEnvironment, isWithheldFromCommands } from './command-environment.js';
 import { createProductCapabilityPacks, packCommandModuleNames } from './product-profile.js';
 import { createCliWorkspaceComposition } from '../startup/workspace-project-composition.js';
 import { selectProductSubagentRunner } from './subagent-provider-reproduction.js';
@@ -433,7 +433,22 @@ export function createProductSubagentRunnerFactory(options: {
         providerDefinitions: options.providerDefinitions,
         logsDir: options.productRuntime.config.storage.logRoot,
         workerEntry: resolveSelfForkWorkerEntry(),
-        worktreeAdapter: createGitWorktreeIsolationAdapter({ worktreeDir: options.productRuntime.layout.projectWorktreesDirectory, branchPrefix: options.productRuntime.config.identity.id, environment: options.productRuntime.environment }),
+        worktreeAdapter: createProductWorktreeAdapter(options.productRuntime),
       }),
+  });
+}
+
+/**
+ * The worktree adapter isolated subagents run in. Git runs the repository's hooks (`post-checkout`
+ * on `worktree add`), which are workspace content, so it gets the command environment: never the
+ * credentials the runtime withheld from the commands it runs.
+ */
+export function createProductWorktreeAdapter(
+  productRuntime: ICliRuntimeContext,
+): ReturnType<typeof createGitWorktreeIsolationAdapter> {
+  return createGitWorktreeIsolationAdapter({
+    worktreeDir: productRuntime.layout.projectWorktreesDirectory,
+    branchPrefix: productRuntime.config.identity.id,
+    environment: commandEnvironment(productRuntime.environment),
   });
 }

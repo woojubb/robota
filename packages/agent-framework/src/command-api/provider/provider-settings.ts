@@ -52,7 +52,7 @@ export interface IProviderSetupPatch {
 export interface IProviderSettingsBuildOptions {
   providerDefinitions?: readonly IProviderDefinition[];
   /** Environment map for configure-time checks (test seam, default: process.env). */
-  env?: Record<string, string | undefined>;
+  env?: Readonly<Record<string, string | undefined>>;
 }
 
 export function upsertProviderProfile(

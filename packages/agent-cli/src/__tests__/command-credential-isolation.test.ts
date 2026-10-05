@@ -32,6 +32,7 @@ async function runScenario(userSettings: Record<string, unknown>): Promise<{
   probe: string;
   skillProbe: string;
   authorizations: (string | undefined)[];
+  providerTest: string;
 }> {
   const root = mkdtempSync(path.join(tmpdir(), 'test-product-credential-isolation-'));
   const userHome = path.join(root, 'home');
@@ -126,7 +127,12 @@ async function runScenario(userSettings: Record<string, unknown>): Promise<{
     expect(JSON.parse(result.stdout.trim())).toMatchObject({ subtype: 'success', result: 'PROBE_DONE' });
     const skill = await run(['-p', '/probe', '--output-format', 'json']);
     expect(skill.code, `${skill.stdout}\n${skill.stderr}`).toBe(0);
+    // #3459: the provider commands check `$ENV:` credentials against the startup snapshot, not the
+    // live env the runtime just emptied — so validation passes and the probe itself runs.
+    const providerTest = await run(['-p', '/provider test openai', '--output-format', 'json']);
+    expect(providerTest.code, `${providerTest.stdout}\n${providerTest.stderr}`).toBe(0);
     return {
+      providerTest: (JSON.parse(providerTest.stdout.trim()) as { result: string }).result,
       probe: readFileSync(path.join(workspace, 'probe.txt'), 'utf8'),
       skillProbe: readFileSync(path.join(workspace, 'skill-probe.txt'), 'utf8'),
       authorizations: headers.map((entry) => entry.authorization),
@@ -145,6 +151,12 @@ describe.runIf(process.platform !== 'win32')('provider credentials and the comma
     for (const authorization of authorizations) expect(authorization).toBe(`Bearer ${KEY}`);
     expect(probe).toBe('absent|kept');
     expect(skillProbe).toBe('absent');
+  }, 150_000);
+
+  it('still lets the provider commands see the credential it withholds from commands', async () => {
+    const { providerTest } = await runScenario({});
+    expect(providerTest).toMatch(/^Provider "openai" test (passed|failed: (?!.*missing))/);
+    expect(providerTest).not.toContain('missing apiKey');
   }, 150_000);
 
   it('passes the credential to commands when user settings opt it in', async () => {
