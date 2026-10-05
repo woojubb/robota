@@ -5,9 +5,9 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
-import { commandEnvironment, withholdProviderCredentials } from '../../product/command-environment.js';
+import { withholdProviderCredentials } from '../../product/command-environment.js';
 import { createProductUserSettingsSources } from '../../product/user-settings.js';
-import { headersHelperEnvironment } from '../mcp-headers-helper-runner.js';
+import { mcpHeadersHelperEnvironment } from '../mcp-startup.js';
 import { resolveMcpDefinitions } from '../mcp-definition-sources.js';
 
 const roots: string[] = [];
@@ -42,7 +42,7 @@ describe('a user MCP definition referencing a provider credential', () => {
     expect(problems).toEqual([]);
     expect(JSON.stringify(entries.find((entry) => entry.name === 'vendor')?.definition)).toContain('Bearer sk-user');
 
-    const helperEnv = headersHelperEnvironment(commandEnvironment(snapshot), 'user', 'vendor', 'https://mcp.example/');
+    const helperEnv = mcpHeadersHelperEnvironment(snapshot, 'user', 'vendor', 'https://mcp.example/');
     expect(helperEnv.OPENAI_API_KEY).toBeUndefined();
     expect(helperEnv.PATH).toBe('/bin');
   });

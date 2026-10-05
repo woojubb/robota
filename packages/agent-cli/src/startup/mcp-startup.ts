@@ -141,6 +141,18 @@ async function inspectRealWorkspaceTrust(
  * Zero resolved definitions is a normal outcome — the returned composition's adapter simply lists
  * nothing, and `connect()` opens no connections.
  */
+/**
+ * The environment a headers helper starts with: the host snapshot without the credentials the runtime
+ * withholds from its commands (issue #3429). A definition's `${VAR}` references resolve against the
+ * snapshot elsewhere and are unaffected.
+ */
+export function mcpHeadersHelperEnvironment(
+  snapshot: Readonly<Record<string, string | undefined>>,
+  ...rest: Parameters<typeof headersHelperEnvironment> extends [unknown, ...infer R] ? R : never
+): Record<string, string> {
+  return headersHelperEnvironment(commandEnvironment(snapshot), ...rest);
+}
+
 export async function composeMcpClientForStartup(
   input: IComposeMcpClientForStartupInput,
 ): Promise<IMcpStartupComposition> {
@@ -251,10 +263,8 @@ export async function composeMcpClientForStartup(
       return runHeadersHelper({
         helper,
         cwd,
-        // The helper's inherited environment drops withheld credentials; `${VAR}` references in a
-        // definition still resolve against the snapshot (issue #3429).
-        env: headersHelperEnvironment(
-          commandEnvironment(input.env),
+        env: mcpHeadersHelperEnvironment(
+          input.env,
           request.source,
           request.serverId,
           workspaceHelper ? withoutExpansions(definition, 'url', url) : url,
