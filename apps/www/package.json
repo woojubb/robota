@@ -9,7 +9,7 @@
     "start": "next start --port 3010",
     "lint": "next lint",
     "typecheck": "tsgo --noEmit",
-    "deploy": "next build && wrangler pages deploy out --project-name __DEPLOY_PROJECT_NAME__ --branch main"
+    "deploy": "pnpm exec tsx ../../scripts/product/build-site.mjs www --deploy"
   },
   "dependencies": {
     "lucide-react": "^1.26.0",

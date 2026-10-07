@@ -24,3 +24,15 @@ pnpm build
 GitHub release and npm publication workflows accept the non-secret file contents as the `product_env` dispatch input, or use the repository variable `PRODUCT_BUILD_ENV`. They validate that selection before compiling in a generated workspace and pass the resolved contract to later steps. Keep credentials in the existing protected workflow secrets, outside these product inputs. Native releases and version tagging require `PROJECT_RELEASE_TAG_PREFIX`; npm publication also needs the repository URL and registry URL. `PROJECT_PACKAGE_ACCESS` selects the publication access policy. The selected access is reflected in generated package manifests and Changesets configuration. A tag-triggered release uses the configured repository variable; a successful native tag release starts desktop packaging with the same selection.
 
 Pull requests use isolated synthetic Cedar and Amber configurations for native and desktop validation. Those jobs do not sign or publish artifacts. Publication dry runs pack and verify packages without using release credentials.
+
+## Public site builds
+
+Cloudflare Pages must build a generated product workspace, rather than the neutral application source. Use the shared entrypoint with `www`, `docs`, or `blog`:
+
+```bash
+PRODUCT_CONFIG_FILE=/absolute/path/product.env pnpm exec tsx scripts/product/build-site.mjs www
+```
+
+Pages builds can instead supply the same non-secret file contents through `PRODUCT_BUILD_ENV`. Configure the build command as `pnpm exec tsx scripts/product/build-site.mjs <site>` and keep the output directory `apps/www/out`, `apps/docs/out`, or `apps/blog/dist`. Supply the public homepage, documentation, blog and repository URLs (the sites link to one another), and the selected site's `DEPLOY_PROJECT_NAME`, `DEPLOY_DOCS_PROJECT_NAME`, or `DEPLOY_BLOG_PROJECT_NAME`. The entrypoint validates the selection, generates an isolated workspace, installs with the frozen lockfile, runs the existing app build, and copies only verified static output to the Pages destination. Missing configuration, build failures, or unresolved public product placeholders stop the build. Temporary workspaces are removed on success and failure; raw source and existing local development commands remain unchanged. Keep credentials outside `PRODUCT_BUILD_ENV`.
+
+The source apps' `deploy` scripts use the same entrypoint with `--deploy`; they publish only after configuration and static-output verification succeed, using the selected Pages project and production branch. Supply the product selection and use an existing Wrangler login.

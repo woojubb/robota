@@ -1,2 +1,2 @@
-name = "__DEPLOY_WORKER_NAME__"
+name = "__DEPLOY_DOCS_PROJECT_NAME__"
 pages_build_output_dir = "out"

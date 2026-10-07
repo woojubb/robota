@@ -1,6 +1,6 @@
 # Docs App Docs Index
 
-`robota-docs` (internal) builds the documentation site at __PROJECT_DOCS_URL__: a Next.js static export
+`robota-docs` (internal) builds the documentation site at `__PROJECT_DOCS_URL__`: a Next.js static export
 with English and Korean locales and Pagefind full-text search. It renders Markdown from the monorepo at
 build time; it does not own any of that content.
 
@@ -41,6 +41,8 @@ pnpm --filter robota-docs build  # static export to out/, then the Pagefind inde
 pnpm --filter robota-docs test   # unit tests
 ```
 
+Production builds must select a product and use the [generated-site build entrypoint](../../../packages/product-config/README.md#public-site-builds). Direct neutral-source builds are for development.
+
 ## Deployment
 
 The Cloudflare Pages project `robota-docs` is connected to the GitHub repository: a push to `main`
@@ -50,9 +52,7 @@ production does (search and `_redirects` included) with
 `pnpm --filter robota-docs build && pnpm --filter robota-docs exec wrangler pages dev out --compatibility-date=2026-08-01` — opening
 `out/` straight from disk does not work, because pages load their assets from root paths.
 
-`pnpm --filter robota-docs run deploy` (build, then
-`wrangler pages deploy out --project-name robota-docs --branch main`) uploads a local build straight to
-production; it is a manual fallback that needs a Wrangler login.
+`PRODUCT_CONFIG_FILE=/absolute/path/product.env pnpm --filter robota-docs run deploy` generates and verifies the selected product site before uploading it to that profile's Pages project on `main`. It is a manual fallback that needs a Wrangler login.
 
 Every page lives under `/en/` or `/ko/`. `public/_redirects` sends locale-less section paths (old links,
 hand-typed URLs such as `/guide/cli/`) to the English page.

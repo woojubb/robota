@@ -7,14 +7,15 @@ import { productPublicConfig } from '@/lib/product-config.generated';
 export function Footer() {
   const t = useTranslations('common');
   const locale = useLocale();
+  const docsUrl = productPublicConfig.identity.docsUrl?.replace(/\/+$/u, '');
   const externalLinks = [
-    productPublicConfig.identity.docsUrl && {
+    docsUrl && {
       key: 'documentation',
-      href: `${productPublicConfig.identity.docsUrl}/${locale}/`,
+      href: `${docsUrl}/${locale}/`,
     },
-    productPublicConfig.identity.docsUrl && {
+    docsUrl && {
       key: 'gettingStarted',
-      href: `${productPublicConfig.identity.docsUrl}/${locale}/getting-started/`,
+      href: `${docsUrl}/${locale}/getting-started/`,
     },
     productPublicConfig.identity.repositoryUrl && {
       key: 'github',
@@ -27,7 +28,9 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
           <div className="col-span-2 md:col-span-1">
-            <p className="text-lg font-bold text-[var(--foreground)]">{productPublicConfig.identity.displayName}</p>
+            <p className="text-lg font-bold text-[var(--foreground)]">
+              {productPublicConfig.identity.displayName}
+            </p>
             <p className="mt-2 text-sm text-[var(--muted-foreground)]">{t('footer.tagline')}</p>
           </div>
 
@@ -105,14 +108,14 @@ export function Footer() {
               {[
                 ...(productPublicConfig.identity.repositoryUrl
                   ? [
-                {
-                  key: 'githubDiscussions',
-                  href: `${productPublicConfig.identity.repositoryUrl}/discussions`,
-                },
-                {
-                  key: 'issues',
-                  href: `${productPublicConfig.identity.repositoryUrl}/issues`,
-                },
+                      {
+                        key: 'githubDiscussions',
+                        href: `${productPublicConfig.identity.repositoryUrl}/discussions`,
+                      },
+                      {
+                        key: 'issues',
+                        href: `${productPublicConfig.identity.repositoryUrl}/issues`,
+                      },
                     ]
                   : []),
               ].map(({ key, href }) => (
