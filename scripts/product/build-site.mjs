@@ -18,11 +18,8 @@ function requirePublicSiteConfig(app, config) {
   const required = [
     ['PROJECT_REPOSITORY_URL', config.identity.repositoryUrl],
     ['PROJECT_DOCS_URL', config.identity.docsUrl],
-    app === 'www'
-      ? ['PROJECT_HOMEPAGE_URL', config.identity.websiteUrl]
-      : app === 'blog'
-        ? ['PROJECT_BLOG_URL', config.identity.blogUrl]
-        : ['PROJECT_DOCS_URL', config.identity.docsUrl],
+    ['PROJECT_HOMEPAGE_URL', config.identity.websiteUrl],
+    ['PROJECT_BLOG_URL', config.identity.blogUrl],
     app === 'www'
       ? ['DEPLOY_PROJECT_NAME', config.deploy.projectName]
       : app === 'docs'
@@ -38,7 +35,10 @@ async function verifyPublicOutput(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const file = path.join(directory, entry.name);
     if (entry.isDirectory()) await verifyPublicOutput(file);
-    else if (/\.(?:html|js|json|txt|xml|css|svg|md)$/iu.test(entry.name)) {
+    else if (
+      ['_redirects', '_headers'].includes(entry.name) ||
+      /\.(?:html|js|json|txt|xml|css|svg|md)$/iu.test(entry.name)
+    ) {
       const token = /__(?:PRODUCT|PROJECT|SERVICE|DEPLOY)_[A-Z0-9_]+__/u.exec(
         await readFile(file, 'utf8'),
       );

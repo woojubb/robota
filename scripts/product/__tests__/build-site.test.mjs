@@ -190,3 +190,53 @@ it.each([
     );
   },
 );
+
+it.each(
+  ['www', 'docs', 'blog'].flatMap((app) =>
+    ['PROJECT_HOMEPAGE_URL', 'PROJECT_DOCS_URL', 'PROJECT_BLOG_URL'].map((variable) => [
+      app,
+      variable,
+    ]),
+  ),
+)('rejects missing %s public URL %s before building cross-site links', async (app, variable) => {
+  const root = await fixture();
+  const values = siteEnvironment();
+  delete values[variable];
+  await expect(
+    buildSite({
+      app,
+      sourceRoot: root,
+      environment: {
+        PRODUCT_BUILD_ENV: Object.entries(values)
+          .map(([k, v]) => `${k}=${v}`)
+          .join('\n'),
+      },
+      run: async () => {
+        throw new Error('Build must not start');
+      },
+    }),
+  ).rejects.toThrow(variable);
+});
+
+it.each(['_redirects', '_headers'])(
+  'rejects unresolved placeholders in Pages control file %s',
+  async (file) => {
+    const root = await fixture();
+    await expect(
+      buildSite({
+        app: 'www',
+        sourceRoot: root,
+        environment: {
+          PRODUCT_BUILD_ENV: Object.entries(siteEnvironment())
+            .map(([k, v]) => `${k}=${v}`)
+            .join('\n'),
+        },
+        run: async (_command, args, cwd) => {
+          if (args[0] === 'install') return;
+          await mkdir(path.join(cwd, 'apps/www/out'), { recursive: true });
+          await writeFile(path.join(cwd, 'apps/www/out', file), '__PROJECT_DOCS_URL__');
+        },
+      }),
+    ).rejects.toThrow('Unresolved product placeholder');
+  },
+);
