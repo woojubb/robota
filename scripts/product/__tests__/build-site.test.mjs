@@ -252,3 +252,38 @@ it('fills adjacent underscore suffixes in actual published documentation', async
   expect(filled).not.toMatch(/__PRODUCT_[A-Z_]+__/u);
   expect(filled).toContain(`${config.identity.modelCommandToolPrefix}_submit`);
 });
+
+it('publishes only verified generated output to the selected Pages project', async () => {
+  const root = await fixture();
+  const calls = [];
+  await buildSite({
+    app: 'www',
+    deploy: true,
+    sourceRoot: root,
+    environment: {
+      PRODUCT_BUILD_ENV: Object.entries(siteEnvironment())
+        .map(([k, v]) => `${k}=${v}`)
+        .join('\n'),
+    },
+    run: async (_command, args, cwd) => {
+      calls.push(args);
+      if (args.at(-1) === 'build') {
+        await mkdir(path.join(cwd, 'apps/www/out'), { recursive: true });
+        await writeFile(path.join(cwd, 'apps/www/out/index.html'), 'cedar Agent');
+      }
+    },
+  });
+  expect(calls.at(-1)).toEqual([
+    '--dir',
+    'apps/www',
+    'exec',
+    'wrangler',
+    'pages',
+    'deploy',
+    'out',
+    '--project-name',
+    'cedar-www',
+    '--branch',
+    'main',
+  ]);
+});

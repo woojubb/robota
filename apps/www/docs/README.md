@@ -28,8 +28,7 @@ via `pnpm --filter robota-www build && pnpm --filter robota-www exec wrangler pa
 For a manual fallback, generate the product build before uploading it. This needs a Wrangler login:
 
 ```bash
-PRODUCT_CONFIG_FILE=/absolute/path/product.env pnpm exec tsx scripts/product/build-site.mjs www
-pnpm --filter robota-www exec wrangler pages deploy out --project-name <selected-project> --branch main
+PRODUCT_CONFIG_FILE=/absolute/path/product.env pnpm --filter robota-www run deploy
 ```
 
 ## Legacy documentation redirects

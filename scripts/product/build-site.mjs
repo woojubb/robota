@@ -61,6 +61,7 @@ function runCommand(command, args, cwd, environment) {
 /** Build a public site from an explicit product selection without altering neutral source. */
 export async function buildSite({
   app,
+  deploy = false,
   sourceRoot = ROOT,
   environment = { ...process.env },
   run = runCommand,
@@ -104,6 +105,32 @@ export async function buildSite({
     await mkdir(path.dirname(output), { recursive: true });
     await rm(output, { recursive: true, force: true });
     await cp(built, output, { recursive: true });
+    if (deploy) {
+      const project =
+        app === 'www'
+          ? config.deploy.projectName
+          : app === 'docs'
+            ? config.deploy.docsProjectName
+            : config.deploy.blogProjectName;
+      await run(
+        'pnpm',
+        [
+          '--dir',
+          `apps/${app}`,
+          'exec',
+          'wrangler',
+          'pages',
+          'deploy',
+          OUTPUTS[app],
+          '--project-name',
+          project,
+          '--branch',
+          'main',
+        ],
+        workspace,
+        childEnvironment,
+      );
+    }
     return output;
   } finally {
     await rm(temporary, { recursive: true, force: true });
@@ -111,7 +138,7 @@ export async function buildSite({
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  buildSite({ app: process.argv[2] })
+  buildSite({ app: process.argv[2], deploy: process.argv[3] === '--deploy' })
     .then((output) => {
       process.stdout.write(`Product site output: ${output}\n`);
     })
