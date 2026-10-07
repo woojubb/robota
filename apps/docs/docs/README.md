@@ -1,6 +1,6 @@
 # Docs App Docs Index
 
-`robota-docs` (internal) builds the documentation site at __PROJECT_DOCS_URL__: a Next.js static export
+`robota-docs` (internal) builds the documentation site at **PROJECT_DOCS_URL**: a Next.js static export
 with English and Korean locales and Pagefind full-text search. It renders Markdown from the monorepo at
 build time; it does not own any of that content.
 
@@ -40,6 +40,8 @@ pnpm --filter robota-docs dev    # dev server on port 3020 (search works only in
 pnpm --filter robota-docs build  # static export to out/, then the Pagefind index
 pnpm --filter robota-docs test   # unit tests
 ```
+
+Production builds must select a product and use the [generated-site build entrypoint](../../../packages/product-config/README.md#public-site-builds). Direct neutral-source builds are for development.
 
 ## Deployment
 
