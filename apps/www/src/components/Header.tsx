@@ -8,6 +8,7 @@ import { productPublicConfig } from '@/lib/product-config.generated';
 export function Header() {
   const t = useTranslations('common');
   const locale = useLocale();
+  const docsUrl = productPublicConfig.identity.docsUrl?.replace(/\/+$/u, '');
   const pathname = usePathname();
   const router = useRouter();
 
@@ -25,7 +26,9 @@ export function Header() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-14 items-center justify-between">
           <InternalLink href={`/${locale}`} className="flex items-center gap-2">
-            <span className="text-lg font-bold text-[var(--foreground)]">{productPublicConfig.identity.displayName}</span>
+            <span className="text-lg font-bold text-[var(--foreground)]">
+              {productPublicConfig.identity.displayName}
+            </span>
             <span className="rounded-full bg-[var(--accent-dim)] px-2 py-0.5 text-xs font-medium text-[var(--accent)]">
               beta
             </span>
@@ -60,22 +63,26 @@ export function Header() {
             >
               {t(`lang.${otherLocale}`)}
             </button>
-            {productPublicConfig.identity.docsUrl && <a
-              href={`${productPublicConfig.identity.docsUrl}/${locale}/`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-[44px] items-center rounded-md px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-            >
-              {t('nav.docs')} ↗
-            </a>}
-            {productPublicConfig.identity.repositoryUrl && <a
-              href={productPublicConfig.identity.repositoryUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-[44px] items-center rounded-md bg-[var(--primary)] px-3 text-sm font-medium text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
-            >
-              {t('nav.github')}
-            </a>}
+            {docsUrl && (
+              <a
+                href={`${docsUrl}/${locale}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-[44px] items-center rounded-md px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+              >
+                {t('nav.docs')} ↗
+              </a>
+            )}
+            {productPublicConfig.identity.repositoryUrl && (
+              <a
+                href={productPublicConfig.identity.repositoryUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-[44px] items-center rounded-md bg-[var(--primary)] px-3 text-sm font-medium text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
+              >
+                {t('nav.github')}
+              </a>
+            )}
           </div>
         </div>
       </div>

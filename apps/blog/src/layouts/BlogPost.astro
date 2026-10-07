@@ -10,7 +10,7 @@ const formattedDate = new Date(date).toLocaleDateString(dateLocale, {
 });
 const enUrl = lang === 'en' ? '' : translationUrl;
 const koUrl = lang === 'ko' ? '' : translationUrl;
-const blogUrl = productPublicConfig.identity.blogUrl;
+const blogUrl = productPublicConfig.identity.blogUrl?.replace(/\/+$/u, '');
 const currentUrl = blogUrl ? `${blogUrl}${Astro.url.pathname}` : undefined;
 const altLang = lang === 'en' ? 'ko' : 'en';
 const measurementId = productPublicConfig.services?.analyticsMeasurementId;

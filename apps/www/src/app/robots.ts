@@ -8,6 +8,8 @@ export default function robots(): MetadataRoute.Robots {
   const websiteUrl = productPublicConfig.identity.websiteUrl;
   return {
     rules: { userAgent: '*', allow: '/' },
-    ...(websiteUrl ? { sitemap: `${websiteUrl}/sitemap.xml`, host: websiteUrl } : {}),
+    ...(websiteUrl
+      ? { sitemap: `${websiteUrl.replace(/\/+$/u, '')}/sitemap.xml`, host: websiteUrl }
+      : {}),
   };
 }

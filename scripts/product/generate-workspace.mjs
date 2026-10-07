@@ -201,9 +201,13 @@ function replaceProductPlaceholders(text, publicConfig, productConfig, encode = 
     ['__DEPLOY_BLOG_PROJECT_NAME__', deploy.blogProjectName ?? ''],
     ['__DEPLOY_WORKER_NAME__', deploy.workerName ?? ''],
   ]);
-  return text.replace(/__(?:PROJECT|PRODUCT|DEPLOY)_[A-Z_]+?__/gu, (placeholder) =>
-    replacements.has(placeholder) ? encode(replacements.get(placeholder), placeholder) : placeholder,
-  );
+  return text.replace(/__(?:PROJECT|PRODUCT|DEPLOY)_[A-Z_]+?__/gu, (placeholder, offset) => {
+    if (!replacements.has(placeholder)) return placeholder;
+    const value = replacements.get(placeholder);
+    const joined = placeholder.endsWith('URL__') && text[offset + placeholder.length] === '/'
+      ? value.replace(/\/+$/u, '') : value;
+    return encode(joined, placeholder);
+  });
 }
 
 export function fillProductContent(filePath, text, publicConfig, productConfig) {
