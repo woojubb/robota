@@ -201,7 +201,7 @@ function replaceProductPlaceholders(text, publicConfig, productConfig, encode = 
     ['__DEPLOY_BLOG_PROJECT_NAME__', deploy.blogProjectName ?? ''],
     ['__DEPLOY_WORKER_NAME__', deploy.workerName ?? ''],
   ]);
-  return text.replace(/__(?:PROJECT|PRODUCT|DEPLOY)_[A-Z_]+__/gu, (placeholder) =>
+  return text.replace(/__(?:PROJECT|PRODUCT|DEPLOY)_[A-Z_]+?__/gu, (placeholder) =>
     replacements.has(placeholder) ? encode(replacements.get(placeholder), placeholder) : placeholder,
   );
 }

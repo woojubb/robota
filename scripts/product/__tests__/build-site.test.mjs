@@ -240,3 +240,15 @@ it.each(['_redirects', '_headers'])(
     ).rejects.toThrow('Unresolved product placeholder');
   },
 );
+
+it('fills adjacent underscore suffixes in actual published documentation', async () => {
+  const { loadProductConfig } = await import('../../../packages/product-config/src/node.ts');
+  const { publicProductConfig } = await import('../../../packages/product-config/src/index.ts');
+  const { fillProductContent } = await import('../generate-workspace.mjs');
+  const config = loadProductConfig({ environment: siteEnvironment() });
+  const file = 'content/examples/mcp-transport.md';
+  const source = await readFile(new URL(`../../../${file}`, import.meta.url), 'utf8');
+  const filled = fillProductContent(file, source, publicProductConfig(config), config);
+  expect(filled).not.toMatch(/__PRODUCT_[A-Z_]+__/u);
+  expect(filled).toContain(`${config.identity.modelCommandToolPrefix}_submit`);
+});

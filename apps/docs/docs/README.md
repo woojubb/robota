@@ -1,6 +1,6 @@
 # Docs App Docs Index
 
-`robota-docs` (internal) builds the documentation site at **PROJECT_DOCS_URL**: a Next.js static export
+`robota-docs` (internal) builds the documentation site at `__PROJECT_DOCS_URL__`: a Next.js static export
 with English and Korean locales and Pagefind full-text search. It renders Markdown from the monorepo at
 build time; it does not own any of that content.
 

@@ -1,7 +1,7 @@
 # apps/www — robota-www
 
-Public marketing website for the Robota project (**PROJECT_WEBSITE_URL**), in English and Korean, deployed to
-Cloudflare Pages. Documentation is not served here; it lives at **PROJECT_DOCS_URL** (`apps/docs`).
+Public marketing website for the Robota project (configured by `PROJECT_HOMEPAGE_URL`), in English and Korean, deployed to
+Cloudflare Pages. Documentation is not served here; it lives at `__PROJECT_DOCS_URL__` (`apps/docs`).
 
 ## Package
 
