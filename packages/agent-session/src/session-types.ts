@@ -124,6 +124,8 @@ export interface ISessionOptions {
   maxTurns?: number;
   /** Optional session store for persistence */
   sessionStore?: IInteractiveSessionStore;
+  /** The owning interactive session's strict pre-effect save, when it owns this record. */
+  checkpointHistory?: () => void;
   /** Override session ID (used when resuming a session to reuse the original ID) */
   sessionId?: string;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */

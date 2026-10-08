@@ -32,7 +32,9 @@ export interface IExecutionControllerCallbacks {
   getContextState: () => IContextWindowState;
   getExecutionWorkspaceSnapshot: () => IExecutionWorkspaceSnapshot;
   emit: <E extends string>(event: E, ...args: unknown[]) => void;
-  persistSession: () => void;
+  persistSession: (strict?: boolean) => void;
+  /** Strict only when this interactive session has an enabled record store. */
+  checkpointHistory: () => void;
   livePromptTrace?: ILivePromptTracePort;
   /**
    * SELFHOST-008 P2: optional post-turn auto-capture. When set (surface supplied `automaticMemory`), it is

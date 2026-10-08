@@ -87,6 +87,7 @@ export function buildCreateSessionOptions(
     onCompactEvent: options.onCompactEvent,
     ...(options.onUsageRecorded !== undefined ? { onUsageRecorded: options.onUsageRecorded } : {}),
     onToolExecution: options.onToolExecution,
+    checkpointHistory: options.checkpointHistory,
     sessionId,
     allowedTools: options.allowedTools,
     deniedTools: options.deniedTools,

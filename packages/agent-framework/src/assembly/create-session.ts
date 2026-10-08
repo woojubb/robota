@@ -263,6 +263,7 @@ export async function createSession(
     providerTimeout: options.config.provider.timeout ?? DEFAULT_PROVIDER_IDLE_TIMEOUT_MS,
     maxTurns: options.maxTurns,
     sessionStore: options.sessionStore,
+    checkpointHistory: options.checkpointHistory,
     sessionId,
     permissionHandler: options.permissionHandler,
     // Issue #3082: a sandbox that confines commands in place may let a confined one skip the prompt

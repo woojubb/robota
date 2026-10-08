@@ -19,6 +19,7 @@
 import {
   announcePeer,
   listPeers,
+  pruneDeadPeers,
   withdrawPeer,
   type IDiscoveredPeer,
   type IPeerEntry,
@@ -165,6 +166,7 @@ function scheduleBirthSecondCertification(
 export function announceLocalPeerPresence(options: IPresenceOptions): ILocalPeerPresence {
   const guardedDirectory = options.guardedDirectory ?? resolveGuardedDirectory(options.productRuntime);
   const registry: IRegistryOptions = { guardedDirectory, ...options.registry };
+  pruneDeadPeers(registry);
   const announcement = {
     sessionId: options.sessionId,
     ...(options.name !== undefined ? { name: options.name } : {}),
@@ -172,19 +174,23 @@ export function announceLocalPeerPresence(options: IPresenceOptions): ILocalPeer
 
   let withdrawn = false;
   let status: IPeerEntry['status'];
+  let latestAnnouncement: IPeerEntry;
   // Read off the announcing path: git may be slow, and announcing must not wait on it.
   let workspace: IWorkspaceClaim | undefined;
-  const republish = (requireStartTime = false): IPeerEntry =>
-    announcePeer(registry, {
+  const republish = (requireStartTime = false): IPeerEntry => {
+    latestAnnouncement = announcePeer(registry, {
       ...announcement,
       ...(workspace !== undefined ? { workspace } : {}),
       ...(status !== undefined ? { status } : {}),
       ...(requireStartTime ? { requireStartTime: true } : {}),
     });
+    return latestAnnouncement;
+  };
+  const initialAnnouncement = republish();
   const stopCertification = scheduleBirthSecondCertification(
     registry,
     republish,
-    republish(),
+    initialAnnouncement,
     () => withdrawn,
   );
 
@@ -224,7 +230,7 @@ export function announceLocalPeerPresence(options: IPresenceOptions): ILocalPeer
     withdrawn = true;
     stopCertification();
     clearInterval(heartbeat);
-    withdrawPeer(registry, options.sessionId);
+    withdrawPeer(registry, options.sessionId, latestAnnouncement);
   };
   const on = options.on ?? ((event, listener) => process.on(event, listener));
   on('exit', handler);

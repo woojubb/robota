@@ -199,6 +199,7 @@ export interface IAsyncInitDeps {
     toolResultData?: string;
     toolResultParts?: TUniversalMessagePart[];
   }) => void;
+  checkpointHistory: () => void;
   executeModelCommand: (command: string, args: string) => Promise<ICommandResult | null>;
   isModelCommandInvocable: (command: string) => boolean;
   commandDescriptors: readonly ICapabilityDescriptor[];
@@ -274,6 +275,7 @@ export async function initializeInteractiveSessionAsync(
     forkSession: options.forkSession,
     // CLI-1994: the store this session persists to is where `/fork` writes the copy a job resumes.
     ...(options.sessionStore !== undefined ? { resumeSessionStore: options.sessionStore } : {}),
+    ...(options.sessionStore !== undefined ? { checkpointHistory: deps.checkpointHistory } : {}),
     ...(options.sessionLogSink !== undefined ? { sessionLogSink: options.sessionLogSink } : {}),
     ...(options.transcriptPath !== undefined ? { transcriptPath: options.transcriptPath } : {}),
     onTextDelta: deps.onTextDelta,

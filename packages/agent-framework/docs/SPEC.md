@@ -227,7 +227,8 @@ These are behaviors a caller cannot infer from a type signature alone.
 - **Turn error surfacing is layered and never silently drops a partial answer.** Provider errors are
   classified by the provider, humanized once by this package, and rendered per-transport. A failed
   turn commits any partially streamed answer to history as an interrupted entry before stream state
-  clears. Errors from outside the turn boundary (background tasks, catalog refresh, uncaught promises)
+  clears; a resumed tool call without a committed result keeps its original identity and receives an
+  interrupted, unknown-outcome receipt rather than being dispatched again. Errors from outside the turn boundary (background tasks, catalog refresh, uncaught promises)
   surface through the same humanize path via `reportBackgroundError`, and the session stays usable.
 - **Self-paced loop intent is durable before admission.** Loop state transitions are strict
   session-record writes; a failed or uncertain write can never authorize another iteration, missed

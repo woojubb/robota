@@ -224,6 +224,7 @@ export class SessionExecutionController {
       event.type === 'start'
         ? advisorToolLineLabel(event.toolName, this.callbacks.getSession()?.getToolSchemas() ?? [])
         : undefined,
+      event.type === 'start' ? this.callbacks.checkpointHistory : undefined,
     );
   }
 

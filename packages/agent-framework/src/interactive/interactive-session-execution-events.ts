@@ -53,6 +53,7 @@ export function projectToolExecution(
     executionId?: string;
   },
   startLabel?: string,
+  beforeToolStart?: () => void,
 ): IToolState[] {
   const streamingState = { activeTools, history };
   const cwd = callbacks.getCwd();
@@ -71,6 +72,7 @@ export function projectToolExecution(
       cwd,
     );
     commitActiveTools(streamingState.activeTools);
+    beforeToolStart?.();
     callbacks.emit('tool_start', toolState);
   } else {
     // A refusal can finish before the body starts. Give its observed outcome a row without dispatch.
