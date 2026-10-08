@@ -65,12 +65,19 @@ childProcess.spawn = (...args) => {
 };
 syncBuiltinESMExports();`,
     );
+    const workerCliHost = join(worker, 'worker-cli-host.mts');
+    writeFileSync(
+      workerCliHost,
+      `import { startCliEntry } from ${JSON.stringify(pathToFileURL(join(root, 'packages/agent-cli/src/cli-entry.ts')).href)};
+void startCliEntry({ environment: process.env });
+`,
+    );
     const artifact = join(f.directory, 'worker-cli.mjs');
     writeFileSync(
       artifact,
       `
 import { spawn } from 'node:child_process';
-const child = spawn(process.execPath, ['--import', ${JSON.stringify(join(root, 'node_modules/tsx/dist/loader.mjs'))}, '--import', ${JSON.stringify(probe)}, '--conditions=source', ${JSON.stringify(join(root, 'packages/agent-cli/src/bin.ts'))}, ...process.argv.slice(2)], { stdio: 'inherit' });
+const child = spawn(process.execPath, ['--import', ${JSON.stringify(join(root, 'node_modules/tsx/dist/loader.mjs'))}, '--import', ${JSON.stringify(probe)}, '--conditions=source', ${JSON.stringify(workerCliHost)}, ...process.argv.slice(2)], { stdio: 'inherit' });
 child.once('error', error => { process.stderr.write(error.message); process.exitCode = 1; });
 child.once('exit', code => { process.exitCode = code ?? 1; });
 `,
@@ -180,7 +187,7 @@ Sandbox.kill = async () => {
   for (const child of children) { try { process.kill(-child.pid, 'SIGKILL'); } catch {} }
   return true;
 };
-startCli().catch(error => { process.stderr.write(error.message + '\\n'); process.exitCode = 1; });
+startCli({ environment: process.env }).catch(error => { process.stderr.write(error.message + '\\n'); process.exitCode = 1; });
 `,
     );
     // Fixture cleanup remains independent of the production provider deletion receipt.

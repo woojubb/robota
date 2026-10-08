@@ -5,9 +5,9 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { expect, it } from 'vitest';
-import { createTestBinaryEnvironment } from '../helpers/product-runtime.js';
+import { createBuiltInBinaryEnvironment } from '../helpers/product-runtime.js';
 
-it('reports the package version through both the launcher and the physical generated entry', () => {
+it('reports the package version through both the launcher and the physical built entry', () => {
   const packageRoot = new URL('../../../', import.meta.url);
   const manifest: { version: string } = JSON.parse(
     readFileSync(new URL('package.json', packageRoot), 'utf8'),
@@ -20,8 +20,8 @@ it('reports the package version through both the launcher and the physical gener
   try {
     for (const entry of entries) {
       expect(execFileSync(process.execPath, [entry, '--version'], {
-        encoding: 'utf8', env: createTestBinaryEnvironment(home),
-      }).trim()).toBe(`test-product ${manifest.version}`);
+        encoding: 'utf8', env: createBuiltInBinaryEnvironment(home),
+      }).trim()).toBe(`robota ${manifest.version}`);
     }
   } finally {
     rmSync(home, { recursive: true, force: true });

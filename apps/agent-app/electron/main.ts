@@ -45,6 +45,7 @@ import {
 } from './sidecar.js';
 import {
   desktopCliEnvironment,
+  desktopHostEnvironment,
   desktopDaemonEnvironment,
   desktopIdentityPath,
   desktopUserDataPath,
@@ -53,15 +54,16 @@ import {
 } from './product-config.js';
 
 const productIdentityFile = desktopIdentityPath(__dirname);
-const hostEnvironment = Object.freeze({ ...process.env });
-const remoteMode = hostEnvironment.PRODUCT_DESKTOP_REMOTE_CONNECTION_CONFIG !== undefined;
+const ambientEnvironment = Object.freeze({ ...process.env });
 let remoteRuntime: DesktopRemoteRuntime | undefined;
 const productSelection = loadDesktopProductConfigSelection({
-  environment: hostEnvironment,
+  environment: ambientEnvironment,
   identityFile: productIdentityFile,
   isPackaged: app.isPackaged,
 });
 const productConfig = productSelection.config;
+const hostEnvironment = desktopHostEnvironment(productConfig, ambientEnvironment);
+const remoteMode = hostEnvironment.PRODUCT_DESKTOP_REMOTE_CONNECTION_CONFIG !== undefined;
 let admittedProviderEnvironmentReferences: readonly string[] = [];
 const allowScriptedE2eVariables =
   !app.isPackaged &&
@@ -82,7 +84,7 @@ const productCli = (): string =>
     resourcesPath: process.resourcesPath,
     platform: process.platform,
     productIdentity,
-    env: process.env,
+    env: hostEnvironment,
   });
 
 type TCliRun =

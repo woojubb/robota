@@ -1,5 +1,4 @@
-import { createTestBinaryEnvironment } from '../helpers/product-runtime.js';
-import { createTestProductRuntime } from '../helpers/product-runtime.js';
+import { createBuiltInBinaryEnvironment, createBuiltInBinaryRuntime } from '../helpers/product-runtime.js';
 /**
  * SEC-022 (issue #2225): the provider-free route to a real `PreToolUse` denial, through the CLI.
  *
@@ -71,7 +70,7 @@ function providerSettings(withHook: boolean): string {
 }
 
 function writeSettings(homeDir: string, withHook: boolean): void {
-  const dir = join(homeDir, '.test-product');
+  const dir = join(homeDir, '.robota');
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'settings.json'), providerSettings(withHook), 'utf8');
 }
@@ -93,7 +92,7 @@ function runCli(homeDir: string, projectDir: string): Promise<IRunResult> {
       ],
       {
         cwd: projectDir,
-        env: createTestBinaryEnvironment(homeDir),
+        env: createBuiltInBinaryEnvironment(homeDir),
       },
     );
     let stdout = '';
@@ -129,7 +128,7 @@ function readSessionId(stdout: string): string {
 
 /** The `tool` message the run persisted — the surface that carries the denial. */
 function readToolMessageContent(homeDir: string, sessionId: string): string {
-  const file = join(homeDir, '.test-product', 'sessions', `${sessionId}.json`);
+  const file = join(homeDir, '.robota', 'sessions', `${sessionId}.json`);
   const envelope = JSON.parse(readFileSync(file, 'utf8')) as {
     record?: { messages?: readonly IRecordedMessage[] };
   };
@@ -188,10 +187,10 @@ describe('SEC-022: the provider-free route to a PreToolUse denial (issue #2225)'
 
   it('reports the tool call that ran through the binary fidelity of IAgentDriver (TC-05)', async () => {
     writeSettings(homeDir, false);
-    const driver = createBinaryAgentDriver({productRuntime: createTestProductRuntime('test-product', { HOME: homeDir }),
+    const driver = createBinaryAgentDriver({productRuntime: createBuiltInBinaryRuntime(homeDir),
       cwd: projectDir,
       sessionLog: FIXTURE,
-      env: createTestBinaryEnvironment(homeDir),
+      env: createBuiltInBinaryEnvironment(homeDir),
     });
     await driver.start();
     await driver.send('read the probe file');

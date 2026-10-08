@@ -1,3 +1,4 @@
+import { scopeProductEnvironment } from './environment.js';
 import {
   PRODUCT_CONFIG_DESCRIPTORS,
   ProductConfigError,
@@ -62,7 +63,8 @@ function embeddedValue(descriptor: IProductSetting, value: unknown): unknown {
 
 /** Pure, per-call configuration resolution. The caller supplies every source. */
 export function resolveProductConfig(options: IResolveProductConfigOptions): IProductConfig {
-  const layers = [options.environment, options.fileValues ?? {}, options.defaults ?? {}];
+  const environment = options.embeddedIdentity === undefined ? options.environment : scopeProductEnvironment(options.environment, options.embeddedIdentity);
+  const layers = [environment, options.fileValues ?? {}, options.defaults ?? {}];
   const prefixDescriptor = PRODUCT_CONFIG_DESCRIPTORS.identity.envPrefix;
   const embedded = options.embeddedIdentity as TConfigObject | undefined;
   const prefixLayers = embedded === undefined ? layers : layers.slice(0, 2);

@@ -335,13 +335,13 @@ robota --serve --http-port 8787 --http-host 0.0.0.0 \
   --oauth-scopes agent.run --oauth-allowed-subjects client-a
 ```
 
-| Request | Does |
-| --- | --- |
+| Request                                                     | Does                                                                                                                                                                                     |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `POST /submit` `{"prompt": "...", "receivePrompts"?: true}` | Runs a turn and streams it as SSE (`text_delta`, `complete`, `error`; with `receivePrompts`, also `permission_request`, `ask_request`, `prompt_resolved`); `409` while a turn is running |
-| `GET /prompts` · `POST /prompts/<id>` `{"result": true}` | Lists the open permission/ask prompts · answers one (`{"response": ...}` for an ask) |
-| `POST /command` `{"name": "help", "args": ""}` | Runs a slash command |
-| `POST /abort` · `POST /cancel-queue` | Aborts the running turn · drops the queued prompt |
-| `GET /messages` · `/context` · `/executing` · `/pending` | Reads the conversation and its state |
+| `GET /prompts` · `POST /prompts/<id>` `{"result": true}`    | Lists the open permission/ask prompts · answers one (`{"response": ...}` for an ask)                                                                                                     |
+| `POST /command` `{"name": "help", "args": ""}`              | Runs a slash command                                                                                                                                                                     |
+| `POST /abort` · `POST /cancel-queue`                        | Aborts the running turn · drops the queued prompt                                                                                                                                        |
+| `GET /messages` · `/context` · `/executing` · `/pending`    | Reads the conversation and its state                                                                                                                                                     |
 
 A client that submits with `receivePrompts: true` answers the permission and ask prompts its turn
 raises; without it, a question no other client answers is denied, so choose the permission mode and
@@ -395,13 +395,27 @@ Other files the CLI keeps under `<configured-user-state-dir>/`:
 
 ## Use it from code
 
-The package also exports `startCli`, the function the `robota` executable runs, and its options
-type `IStartCliOptions`. The package is ESM-only: load it with `import`, not `require()`.
+The package exports `startCliEntry`, the complete entry the executable runs, and its options
+type `IStartCliOptions`. It installs configured diagnostics, the interactive crash policy and
+startup error handling, then calls `startCli`. Use `startCli` directly when the host owns those
+process policies. The package is ESM-only: load it with `import`, not `require()`.
 
 A subagent runs in a child process that starts your entry script again with a worker flag; when
-`startCli()` sees that flag it runs the subagent instead of the CLI, and the returned promise never
-settles (the worker ends the process). So call `startCli()` from the script Node started, and put
+`startCliEntry()` or `startCli()` sees that flag it runs the subagent instead of the CLI, and the
+returned promise never settles (the worker ends the process). Call the entry from the script Node
+started, and put
 nothing before it that must not run once per subagent.
+
+The ordinary built-in entry keeps its own identity when another product's canonical variables are
+present. Installed entries accept canonical operational values only with a matching `PRODUCT_ID`;
+product-prefixed aliases and explicit host file selection remain available. The unembedded library's
+explicit `environment`, `productConfig`, or `productConfigFile` options are host construction inputs.
+Before execution, product variables in the process environment are replaced by the resolved
+invocation so spawned tools and workers inherit that product. Embedding hosts that run multiple
+invocations must keep and pass their own environment snapshots.
+
+A headless Restricted start reports its ignored configured project settings files on stderr.
+An untrusted refusal names the configured `<cli> trust --yes` command.
 
 ### Hosted task-worker execution
 

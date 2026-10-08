@@ -22,3 +22,8 @@ if (existsSync(source)) {
   mkdirSync(outputDirectory, { recursive: true });
   copyFileSync(source, destination);
 }
+
+const defaultsSource = join(workspaceRoot, '.product', 'runtime-defaults.json');
+const defaultsDestination = join(outputDirectory, 'product-runtime-defaults.json');
+rmSync(defaultsDestination, { force: true });
+if (existsSync(defaultsSource)) copyFileSync(defaultsSource, defaultsDestination);

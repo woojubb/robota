@@ -12,15 +12,15 @@ import { setGlobalLoggerSink } from '@robota-sdk/agent-core';
  * The global level defaults to `warn`, so this carries warnings and errors and stays out of the way
  * of normal output — the same 30 warn and 23 error sites that were unreachable a moment ago.
  */
-export function installCliDiagnostics(): void {
+export function installCliDiagnostics(cliName: string): void {
   setGlobalLoggerSink({
     debug: () => {},
     info: () => {},
     log: () => {},
     group: () => {},
     groupEnd: () => {},
-    warn: (...args) => writeDiagnostic(args),
-    error: (...args) => writeDiagnostic(args),
+    warn: (...args) => writeDiagnostic(cliName, args),
+    error: (...args) => writeDiagnostic(cliName, args),
   });
 }
 
@@ -28,9 +28,9 @@ export function installCliDiagnostics(): void {
  * `console.error`, not a raw stderr write: while the TUI is mounted, Ink intercepts the console and
  * prints the line above its frame. A raw write lands inside the live frame and corrupts the prompt.
  */
-function writeDiagnostic(args: unknown[]): void {
+function writeDiagnostic(cliName: string, args: unknown[]): void {
   // eslint-disable-next-line no-console -- the console is the channel Ink knows how to render around
-  console.error(`[robota] ${formatDiagnostic(args)}`);
+  console.error(`[${cliName}] ${formatDiagnostic(args)}`);
 }
 
 function formatDiagnostic(args: unknown[]): string {

@@ -26,3 +26,6 @@ export {
   resolveProductConfig,
 } from './resolve.js';
 export type { IResolveProductConfigOptions } from './resolve.js';
+
+export { scopeProductEnvironment } from './environment.js';
+export { embeddedProductRuntimeDefaults, parseProductRuntimeDefaults } from './runtime-defaults.js';

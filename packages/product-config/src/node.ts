@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { dirname, isAbsolute, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 
 import {
@@ -7,6 +7,8 @@ import {
   ProductConfigError,
   productConfigEntries,
 } from './contract.js';
+import { parseProductRuntimeDefaults } from './runtime-defaults.js';
+import { scopeProductEnvironment } from './environment.js';
 import { resolveProductConfig } from './resolve.js';
 
 import type { IProductConfig, TConfigEnvironment } from './contract.js';
@@ -60,7 +62,10 @@ export function loadProductConfig(options: ILoadProductConfigOptions): IProductC
 
 /** Return the resolved descriptor and its selected file layer from one explicit read. */
 export function loadProductConfigSelection(options: ILoadProductConfigOptions): ILoadedProductConfigSelection {
-  const environmentPath = options.environment[PRODUCT_CONFIG_FILE_VARIABLE];
+  const environment = options.embeddedIdentity === undefined
+      ? options.environment
+      : scopeProductEnvironment(options.environment, options.embeddedIdentity);
+  const environmentPath = environment[PRODUCT_CONFIG_FILE_VARIABLE];
   if (options.filePath !== undefined && environmentPath !== undefined && environmentPath !== options.filePath) {
     throw new ProductConfigError(PRODUCT_CONFIG_FILE_VARIABLE, 'conflicts with explicitly selected file');
   }
@@ -77,7 +82,7 @@ export function loadProductConfigSelection(options: ILoadProductConfigOptions): 
       throw new ProductConfigError(PRODUCT_CONFIG_FILE_VARIABLE, 'selected environment file could not be loaded');
     }
   }
-  const config = resolveProductConfig({ ...options, fileValues });
+  const config = resolveProductConfig({ ...options, environment, fileValues });
   const normalized: Record<string, string> = {};
   for (const { section, field, descriptor } of productConfigEntries()) {
     const value = (config[section] as Readonly<Record<string, unknown>>)[field];
@@ -95,4 +100,15 @@ export function loadProductConfigSelection(options: ILoadProductConfigOptions): 
     config: resolveProductConfig({ environment: normalized, embeddedIdentity: options.embeddedIdentity }),
     fileValues,
   });
+}
+
+/** Only declared artifact roots expand against home; runtime paths keep selected-file semantics. */
+export function expandProductRuntimeDefaults(input: unknown, home: string): TConfigEnvironment {
+  if (!isAbsolute(home))
+    throw new ProductConfigError('PRODUCT_RUNTIME_DEFAULTS', 'invocation home must be absolute');
+  const values = { ...parseProductRuntimeDefaults(input) };
+  for (const key of ['PRODUCT_USER_STATE_DIR', 'PRODUCT_CACHE_DIR', 'PRODUCT_LOG_DIR']) {
+    if (values[key] !== undefined) values[key] = join(home, values[key]!);
+  }
+  return Object.freeze(values);
 }

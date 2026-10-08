@@ -1,5 +1,4 @@
-import { createTestBinaryEnvironment } from '../helpers/product-runtime.js';
-import { createTestProductRuntime } from '../helpers/product-runtime.js';
+import { createBuiltInBinaryEnvironment, createBuiltInBinaryRuntime } from '../helpers/product-runtime.js';
 /**
  * INFRA-020 TC-04: cross-fidelity proof that `IAgentDriver` is a real contract.
  *
@@ -39,7 +38,7 @@ async function runScenario(driver: IAgentDriver): Promise<string | undefined> {
 }
 
 function writeProviderSettings(homeDir: string): void {
-  const dir = join(homeDir, '.test-product');
+  const dir = join(homeDir, '.robota');
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, 'settings.json'),
@@ -77,10 +76,10 @@ describe('IAgentDriver cross-fidelity (INFRA-020 TC-04)', () => {
     const programmaticReply = await runScenario(programmatic);
 
     // Built-binary implementer (deterministic via --session-log).
-    const binary = createBinaryAgentDriver({productRuntime: createTestProductRuntime(),
+    const binary = createBinaryAgentDriver({productRuntime: createBuiltInBinaryRuntime(homeDir),
       cwd: binCwd,
       sessionLog: FIXTURE,
-      env: createTestBinaryEnvironment(homeDir),
+      env: createBuiltInBinaryEnvironment(homeDir),
     });
     const binaryReply = await runScenario(binary);
 

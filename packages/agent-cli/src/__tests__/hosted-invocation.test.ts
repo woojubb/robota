@@ -50,7 +50,7 @@ let child;
 let closed;
 const cleanup = [];
 const workerScript = 'let input="";process.stdin.setEncoding("utf8");process.stdin.on("data",data=>input+=data);process.stdin.on("end",()=>process.stdout.write(input));';
-const run = startCli({ hostedRuntimeExecutorFactory: async (admission, signal, invocation) => {
+const run = startCli({ environment: process.env, hostedRuntimeExecutorFactory: async (admission, signal, invocation) => {
   writeFileSync(${JSON.stringify(join(directory, 'factory-called'))}, 'called');
   if (invocation === undefined || !Object.isFrozen(invocation) || !Object.isFrozen(invocation.argv)) throw new Error('missing immutable hosted invocation');
   try { invocation.argv.push('mutated'); throw new Error('invocation was mutable'); } catch (error) { if (!(error instanceof TypeError)) throw error; }

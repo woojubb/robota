@@ -1,4 +1,4 @@
-import { createTestBinaryEnvironment } from '../helpers/product-runtime.js';
+import { createBuiltInBinaryEnvironment } from '../helpers/product-runtime.js';
 /**
  * DIST-006 — black-box e2e proving the BUILT binary can start a subagent worker.
  *
@@ -54,7 +54,7 @@ function handshakeWithWorker(): Promise<IWorkerHandshake> {
     const home = mkdtempSync(join(tmpdir(), 'agent-worker-home-'));
     const child = spawn(process.execPath, [BUILT_BUNDLE, WORKER_MODE_FLAG], {
       stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
-      env: createTestBinaryEnvironment(home),
+      env: createBuiltInBinaryEnvironment(home),
     });
     let stderr = '';
     child.stderr?.setEncoding('utf8');
@@ -105,7 +105,7 @@ describe('DIST-006 — the built binary is its own subagent worker', () => {
         const home = mkdtempSync(join(tmpdir(), 'agent-worker-home-'));
         const child = spawn(process.execPath, [BUILT_BUNDLE, WORKER_MODE_FLAG], {
           stdio: ['ignore', 'ignore', 'pipe'],
-          env: createTestBinaryEnvironment(home),
+          env: createBuiltInBinaryEnvironment(home),
         });
         let stderr = '';
         child.stderr?.setEncoding('utf8');

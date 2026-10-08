@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { resolveProductConfig } from '@robota-sdk/product-config';
 import { createCliRuntimeContext } from '../../product/runtime-context.js';
+import { robotaEnvironment } from '../../../../../products/robota.mjs';
 
 import type { TConfigEnvironment } from '@robota-sdk/product-config';
 import type { ICliRuntimeContext } from '../../product/runtime-context.js';
@@ -60,6 +61,23 @@ export function createTestBinaryEnvironment(home: string, overrides: TConfigEnvi
     Object.entries({ ...inherited, ...createTestProductRuntime('test-product', { HOME: home }).environment, ...overrides })
       .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
   );
+}
+
+/** Built-in binary identity with disposable state; only compiled artifact tests use this. */
+export function createBuiltInBinaryEnvironment(home: string, overrides: TConfigEnvironment = {}): Record<string, string> {
+  const inherited: Record<string, string | undefined> = {};
+  for (const key of ['PATH', 'SystemRoot', 'SYSTEMROOT', 'TMPDIR', 'TMP', 'TEMP', 'LANG', 'LC_ALL']) {
+    if (process.env[key] !== undefined) inherited[key] = process.env[key];
+  }
+  return Object.fromEntries(
+    Object.entries({ ...inherited, ...robotaEnvironment({}, home), HOME: home, ...overrides })
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+  );
+}
+
+export function createBuiltInBinaryRuntime(home: string): ICliRuntimeContext {
+  const environment = createBuiltInBinaryEnvironment(home);
+  return createCliRuntimeContext(resolveProductConfig({ environment }), environment);
 }
 
 const rememberedCredentials = new Map<string, string>();
