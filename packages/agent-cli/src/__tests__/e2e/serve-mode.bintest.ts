@@ -1,4 +1,4 @@
-import { createTestBinaryEnvironment } from '../helpers/product-runtime.js';
+import { createBuiltInBinaryEnvironment } from '../helpers/product-runtime.js';
 /**
  * RUNTIME-001 — black-box e2e for the real `the product --serve` headless runtime host.
  *
@@ -78,7 +78,7 @@ function findFreePort(): Promise<number> {
 
 /** Write a bootable provider profile; `--session-log` swaps in the replay provider so the key is never used. */
 function writeProviderSettings(homeDir: string): void {
-  const dir = join(homeDir, '.test-product');
+  const dir = join(homeDir, '.robota');
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, 'settings.json'),
@@ -148,7 +148,7 @@ async function waitForServer(port: number, budgetMs: number): Promise<void> {
   }
 }
 
-describe('test-product --serve black-box runtime host (RUNTIME-001)', () => {
+describe('built-in --serve black-box runtime host (RUNTIME-001)', () => {
   let binCwd: string;
   let homeDir: string;
   let child: ChildProcess;
@@ -167,7 +167,7 @@ describe('test-product --serve black-box runtime host (RUNTIME-001)', () => {
       [PRODUCT_BIN, '--serve', '--session-log', FIXTURE, '--no-session-persistence'],
       {
         cwd: binCwd,
-        env: createTestBinaryEnvironment(homeDir, { PRODUCT_WS_TOKEN: token, PRODUCT_WS_PORT: String(port) }),
+        env: createBuiltInBinaryEnvironment(homeDir, { PRODUCT_WS_TOKEN: token, PRODUCT_WS_PORT: String(port) }),
         stdio: 'ignore',
       },
     );

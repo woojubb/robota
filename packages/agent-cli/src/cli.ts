@@ -1,3 +1,4 @@
+import { installProductProcessEnvironment } from './product/process-environment.js';
 import {
   renderApp,
   renderSupervisedSessionView,
@@ -21,6 +22,7 @@ export type { IStartCliOptions };
 /** Full CLI entry: supplies its terminal presentation to the shared serve/bootstrap path. */
 export async function startCli(initialOptions: IStartCliOptions = {}): Promise<void> {
   const productRuntime = resolveCliRuntimeContext(initialOptions);
+  installProductProcessEnvironment(productRuntime);
   const options = { ...initialOptions, productRuntime };
   // A subagent runs as this process's own entry script started again with the worker flag. An
   // embedder's entry calls this function rather than going through `bin.ts`, so the worker

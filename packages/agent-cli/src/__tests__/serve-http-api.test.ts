@@ -38,7 +38,7 @@ function baseEnvironment(): Record<string, string> {
       (key) => (process.env[key] === undefined ? [] : [[key, process.env[key]!]]),
     ),
   );
-  return { ...environment, HOME: userHome };
+  return { ...environment, HOME: userHome, PRODUCT_ID: 'robota' };
 }
 
 function listen(server: Server): Promise<number> {

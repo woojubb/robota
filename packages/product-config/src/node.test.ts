@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { embeddedProductIdentity, resolveProductConfig } from './index.js';
 import { productEnvironment } from './__tests__/product-environment.js';
 import { loadProductConfig, loadProductConfigSelection, parseProductEnvironmentFile } from './node.js';
 
@@ -64,6 +65,22 @@ describe('explicit Node product loader', () => {
     } catch (error) {
       expect(String(error)).not.toContain(sentinel);
     }
+  });
+
+  it('does not read a foreign ambient config selector for an installed product', () => {
+    const defaults = productEnvironment('cedar');
+    const readFile = vi.fn(() => 'unread');
+    const embeddedIdentity = embeddedProductIdentity(
+      resolveProductConfig({ environment: defaults }),
+    );
+    const config = loadProductConfig({
+      environment: { PRODUCT_ID: 'amber', PRODUCT_CONFIG_FILE: '/tmp/foreign.env' },
+      defaults,
+      embeddedIdentity,
+      readFile,
+    });
+    expect(config.identity.id).toBe('cedar');
+    expect(readFile).not.toHaveBeenCalled();
   });
 
   it('parses quoting and comments without variable expansion', () => {

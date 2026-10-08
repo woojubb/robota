@@ -128,6 +128,10 @@ function resolveTestConfig({ scope, displayName }) {
       PROJECT_HOMEPAGE_URL: `https://${displayName.toLowerCase()}.example.test`,
       PROJECT_DOCS_URL: `https://docs.${displayName.toLowerCase()}.example.test`,
       PROJECT_BLOG_URL: `https://blog.${displayName.toLowerCase()}.example.test`,
+      PRODUCT_DEFAULT_USER_STATE_DIR: `.${displayName.toLowerCase()}`,
+      PRODUCT_DEFAULT_CACHE_DIR: `.${displayName.toLowerCase()}/cache`,
+      PRODUCT_DEFAULT_LOG_DIR: `.${displayName.toLowerCase()}/logs`,
+      PRODUCT_DEFAULT_PROJECT_STATE_DIR: `.${displayName.toLowerCase()}`,
       PRODUCT_USER_STATE_DIR: `/tmp/${displayName.toLowerCase()}`,
       PRODUCT_PROJECT_STATE_DIR: `.${displayName.toLowerCase()}`,
       PRODUCT_CACHE_DIR: `/tmp/${displayName.toLowerCase()}-cache`,
@@ -387,6 +391,12 @@ describe('generated product workspace isolation', () => {
       beta: './bin/agent.cjs',
     });
     expect(JSON.parse(await readFile(path.join(stageA1, '.product/identity.json'), 'utf8')).identity.displayName).toBe('Alpha');
+    const runtimeDefaults = await readFile(path.join(stageA1, '.product/runtime-defaults.json'), 'utf8');
+    expect(JSON.parse(runtimeDefaults).PRODUCT_USER_STATE_DIR).toBe('.alpha');
+    expect(runtimeDefaults).not.toContain('/tmp/alpha');
+    for (const file of ['packages/agent-cli/tsdown.config.ts', 'packages/agent-cli/scripts/build-bun.mjs']) {
+      expect(await readFile(path.join(stageA1, file), 'utf8')).toContain('__PRODUCT_CONFIG_DEFAULTS__');
+    }
     const publicProjection = JSON.parse(await readFile(path.join(stageA1, '.product/public-config.json'), 'utf8'));
     expect(publicProjection).not.toHaveProperty('secrets');
     expect(publicProjection).not.toHaveProperty('credentials');

@@ -54,6 +54,7 @@ import { runWorkspaceTrustCommand } from './workspace-trust-command.js';
 import { optionArgv } from '../utils/option-argv.js';
 import {
   formatHeadlessWorkspaceTrustError,
+  formatHeadlessRestrictedNotice,
   requiresHeadlessWorkspaceTrust,
 } from './workspace-trust-admission.js';
 import {
@@ -368,7 +369,7 @@ export async function runPreparsedCliCommand(
         if (choice === 'trust' && canAskToTrust(access))
           access = await grantWorkspaceTrust(targetCwd, productRuntime);
         if (requiresHeadlessWorkspaceTrust(access) && !(restricted && canAskToTrust(access))) {
-          throw new Error(formatHeadlessWorkspaceTrustError(access, targetCwd));
+          throw new Error(formatHeadlessWorkspaceTrustError(access, targetCwd, productRuntime.config.identity.cliName));
         }
         // The child validates the very same settings when it starts; asking here first avoids
         // spawning one that will only exit unexplained. The view itself still shows only its
@@ -402,7 +403,7 @@ export async function runPreparsedCliCommand(
         const access = await resolveInitialCliWorkspaceProjectAccess(workspace, workspace === realpathSync(cwd) ? options : { productRuntime });
         // A person chose to run this folder Restricted (a front end asked them).
         if (requiresHeadlessWorkspaceTrust(access) && !(restricted && canAskToTrust(access))) {
-          throw new Error(formatHeadlessWorkspaceTrustError(access, workspace));
+          throw new Error(formatHeadlessWorkspaceTrustError(access, workspace, productRuntime.config.identity.cliName));
         }
         validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
           telemetryServiceName: productRuntime.config.identity.telemetryServiceName,
@@ -413,6 +414,7 @@ export async function runPreparsedCliCommand(
           productRuntime,
           projectAccess: restricted ? createRestrictedWorkspaceProjectAccess('untrusted', workspace) : access,
         }).settingsSources);
+        return { restricted: restricted || access.status === 'restricted' };
       },
       trusted: async (workspace) =>
         (await resolveInitialCliWorkspaceProjectAccess(workspace, workspace === realpathSync(cwd) ? options : { productRuntime })).status === 'trusted',
@@ -507,7 +509,7 @@ export async function runPreparsedCliCommand(
       !(start.restricted && canAskToTrust(composition.projectAccess))
     ) {
       process.stderr.write(
-        `${formatHeadlessWorkspaceTrustError(composition.projectAccess, cwd)}\n`,
+        `${formatHeadlessWorkspaceTrustError(composition.projectAccess, cwd, productRuntime.config.identity.cliName)}\n`,
       );
       process.exitCode = 1;
       return true;
@@ -520,6 +522,9 @@ export async function runPreparsedCliCommand(
           serviceVersion: readVersion(),
         surface: 'serve',
       });
+      if (start.restricted || composition.projectAccess.status === 'restricted') {
+        process.stderr.write(`${formatHeadlessRestrictedNotice(productRuntime.layout.projectSettingsPaths)}\n`);
+      }
       if (start.restricted) {
         admittedSettings.set(cwd, createInitialCliWorkspaceComposition(cwd, {
           productRuntime,

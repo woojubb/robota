@@ -3,9 +3,10 @@ import { join } from 'node:path';
 /** Robota's public host composition; explicit product selection remains authoritative. */
 export function robotaEnvironment(environment, home, acceptsProfile) {
   if (
-    environment.PRODUCT_ENV_PREFIX !== undefined ||
+    (environment.PRODUCT_ENV_PREFIX !== undefined &&
+      environment.PRODUCT_ENV_PREFIX !== 'ROBOTA_') ||
     environment.PRODUCT_CONFIG_FILE !== undefined ||
-    environment.PRODUCT_ID !== undefined
+    (environment.PRODUCT_ID !== undefined && environment.PRODUCT_ID !== 'robota')
   )
     return environment;
   const root =

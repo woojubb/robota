@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import ts from 'typescript';
 import { parseDocument, stringify, visit as visitYaml } from 'yaml';
-import { embeddedProductIdentity, productConfigEntries, publicProductConfig } from '../../packages/product-config/src/index.ts';
+import { embeddedProductIdentity, embeddedProductRuntimeDefaults, productConfigEntries, publicProductConfig } from '../../packages/product-config/src/index.ts';
 
 const ROOT = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
 const PRODUCT_SCOPE = '@robota-sdk';
@@ -435,7 +435,7 @@ export function rewriteContent(filePath, content, packageMap, scope = '@example'
   return replacePackageNamesInText(content, packageMap, scope);
 }
 
-export function injectCliBundleIdentity(source, identity, filePath = 'packages/agent-cli/tsdown.config.ts') {
+export function injectCliBundleIdentity(source, identity, filePath = 'packages/agent-cli/tsdown.config.ts', runtimeDefaults = {}) {
   const sourceFile = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   let initializer;
   const visit = (node) => {
@@ -466,11 +466,11 @@ export function injectCliBundleIdentity(source, identity, filePath = 'packages/a
   }
   const openBrace = source.indexOf('{', initializer.getStart(sourceFile));
   if (openBrace < 0) throw new Error(`${filePath} has an unreadable ` + '`define` object.');
-  const property = `\n  __PRODUCT_CONFIG_IDENTITY__: JSON.stringify(${JSON.stringify(identity)}),`;
+  const property = `\n  __PRODUCT_CONFIG_DEFAULTS__: JSON.stringify(${JSON.stringify(runtimeDefaults)}),\n  __PRODUCT_CONFIG_IDENTITY__: JSON.stringify(${JSON.stringify(identity)}),`;
   return `${source.slice(0, openBrace + 1)}${property}${source.slice(openBrace + 1)}`;
 }
 
-export function injectBunBundleIdentity(source, identity, filePath = 'packages/agent-cli/scripts/build-bun.mjs') {
+export function injectBunBundleIdentity(source, identity, filePath = 'packages/agent-cli/scripts/build-bun.mjs', runtimeDefaults = {}) {
   const sourceFile = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
   let initializer;
   const visit = (node) => {
@@ -498,7 +498,7 @@ export function injectBunBundleIdentity(source, identity, filePath = 'packages/a
   }
   const openBrace = source.indexOf('{', initializer.getStart(sourceFile));
   if (openBrace < 0) throw new Error(`${filePath} has an unreadable ` + '`define` object.');
-  const property = `\n      __PRODUCT_CONFIG_IDENTITY__: JSON.stringify(${JSON.stringify(identity)}),`;
+  const property = `\n      __PRODUCT_CONFIG_DEFAULTS__: JSON.stringify(${JSON.stringify(runtimeDefaults)}),\n      __PRODUCT_CONFIG_IDENTITY__: JSON.stringify(${JSON.stringify(identity)}),`;
   return `${source.slice(0, openBrace + 1)}${property}${source.slice(openBrace + 1)}`;
 }
 
@@ -716,12 +716,14 @@ export async function generateWorkspaceFromConfig({
 
     const productDirectory = path.join(temporaryOutput, '.product');
     await mkdir(productDirectory, { recursive: true });
+    const runtimeDefaults = embeddedProductRuntimeDefaults(config);
+    await writeFile(path.join(productDirectory, 'runtime-defaults.json'), `${JSON.stringify(runtimeDefaults, null, 2)}\n`, { mode: 0o644 });
     const cliConfigPath = path.join(temporaryOutput, 'packages/agent-cli/tsdown.config.ts');
     const cliConfig = await readFile(cliConfigPath, 'utf8');
-    await writeFile(cliConfigPath, injectCliBundleIdentity(cliConfig, embeddedIdentity), { mode: 0o644 });
+    await writeFile(cliConfigPath, injectCliBundleIdentity(cliConfig, embeddedIdentity, undefined, runtimeDefaults), { mode: 0o644 });
     const bunConfigPath = path.join(temporaryOutput, 'packages/agent-cli/scripts/build-bun.mjs');
     const bunConfig = await readFile(bunConfigPath, 'utf8');
-    await writeFile(bunConfigPath, injectBunBundleIdentity(bunConfig, embeddedIdentity), { mode: 0o644 });
+    await writeFile(bunConfigPath, injectBunBundleIdentity(bunConfig, embeddedIdentity, undefined, runtimeDefaults), { mode: 0o644 });
     await writeFile(path.join(temporaryOutput, '.env.default'), defaultEnvironment, { mode: 0o644 });
     await writeFile(
       path.join(productDirectory, 'identity.json'),

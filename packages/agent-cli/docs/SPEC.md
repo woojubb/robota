@@ -51,7 +51,7 @@ and resume bridge. Stop or device revocation withdraws the affected activation a
 late identity, enrollment and reconnect work cannot revive its authority or publish a stale pairing link. The host
 identity key devices pin is kept in the host credential store, never in a plain file; a malformed
 stored key fails closed rather than being replaced.
-The CLI selects every user- and project-scoped path and identity a session needs — storage root,
+The complete public CLI entry and shipped executable share diagnostic, crash and worker-dispatch policy. Each invocation owns the product environment inherited by its child processes. The CLI selects every user- and project-scoped path and identity a session needs — storage root,
 presets, agent-definition roots, project settings layers, project-state layout, context-discovery
 permissions, plugin/skill/command roots, task-context directory, organization policy, keybindings,
 and display name — and passes them explicitly to the neutral SDK and framework packages, preserving

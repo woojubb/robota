@@ -21,6 +21,7 @@ import {
 } from '../../startup/product-bootstrap.js';
 import { readUserSettingsOrExit } from '../../startup/user-settings.js';
 import { createProductUserSettingsSources } from '../user-settings.js';
+import { installProductProcessEnvironment } from '../process-environment.js';
 import { productPluginDirectories } from '../plugin-paths.js';
 import { childProductEnvironment } from '../child-environment.js';
 import { restartProductEnvironment } from '../restart-environment.js';
@@ -117,7 +118,9 @@ describe('per-invocation CLI product isolation', () => {
     const root = join(userHome, 'selected-state');
     const logs = join(userHome, 'selected-logs');
     const runtime = resolveCliRuntimeContext({
-      environment: { HOME: userHome, ROBOTA_USER_STATE_DIR: root, PRODUCT_LOG_DIR: logs },
+      environment: { HOME: userHome,
+        PRODUCT_ID: 'robota',
+        ROBOTA_USER_STATE_DIR: root, PRODUCT_LOG_DIR: logs },
     });
     expect(runtime.layout.userRoot).toBe(root);
     expect(runtime.environment.PRODUCT_CACHE_DIR).toBe(join(root, 'cache'));
@@ -129,15 +132,12 @@ describe('per-invocation CLI product isolation', () => {
       { PRODUCT_CLI_NAME: 'other' },
       { ROBOTA_MASTER_KEY_DERIVATION_PATH: '[7240,1]' },
     ]) {
-      expect(() => resolveCliRuntimeContext({ environment: { HOME: userHome, ...environment } })).toThrow();
+      expect(() => resolveCliRuntimeContext({ environment: { HOME: userHome, PRODUCT_ID: 'robota', ...environment } })).toThrow();
     }
-    for (const selector of [
-      { PRODUCT_ID: 'robota' },
-      { PRODUCT_ENV_PREFIX: 'ROBOTA_' },
-      { PRODUCT_CONFIG_FILE: '' },
-    ]) {
-      expect(() => resolveCliRuntimeContext({ environment: { HOME: userHome, ...selector } })).toThrow('PRODUCT_USER_STATE_DIR');
-    }
+    expect(
+      resolveCliRuntimeContext({ environment: { HOME: userHome, PRODUCT_ID: 'robota' } }).layout
+        .userRoot,
+    ).toBe(join(userHome, '.robota'));
   });
 
   it('keeps explicit files and injected config authoritative for embedded Robota', () => {
@@ -150,25 +150,36 @@ describe('per-invocation CLI product isolation', () => {
       PRODUCT_USER_STATE_DIR: './selected-state',
       PRODUCT_CACHE_DIR: './selected-cache',
       PRODUCT_LOG_DIR: './selected-logs',
-    }).map(([key, value]) => `${key}=${value}`).join('\n'));
+    }).map(([key, value]) => `${key}=${value}`)
+        .join('\n'),
+    );
     for (const options of [
       { productConfigFile: filePath, environment: { HOME: home() } },
-      { environment: { HOME: home(), PRODUCT_CONFIG_FILE: filePath } },
+      { environment: { HOME: home(), PRODUCT_ID: 'robota', PRODUCT_CONFIG_FILE: filePath } },
     ]) {
-      expect(resolveCliRuntimeContext(options).layout.userRoot).toBe(join(directory, 'selected-state'));
+      expect(resolveCliRuntimeContext(options).layout.userRoot).toBe(
+        join(directory, 'selected-state'),
+      );
     }
-    expect(resolveCliRuntimeContext({ productConfig: config, environment: { HOME: home() } }).layout.userRoot)
-      .toBe(join(directory, '.robota'));
+    expect(
+      resolveCliRuntimeContext({ productConfig: config, environment: { HOME: home() } }).layout
+        .userRoot,
+    ).toBe(join(directory, '.robota'));
     writeFileSync(filePath, 'PRODUCT_LOG_DIR=\n');
-    expect(() => resolveCliRuntimeContext({ productConfigFile: filePath, environment: { HOME: home() } }))
-      .toThrow('PRODUCT_USER_STATE_DIR');
+    expect(() =>
+      resolveCliRuntimeContext({ productConfigFile: filePath, environment: { HOME: home() } }),
+    ).toThrow('PRODUCT_USER_STATE_DIR');
   });
 
   it.each(['cedar', 'amber'])('requires explicit host settings for embedded %s', (label) => {
     const runtime = createTestProductRuntime(label, { HOME: home() });
     vi.stubGlobal('__PRODUCT_CONFIG_IDENTITY__', embeddedProductIdentity(runtime.config));
-    expect(() => resolveCliRuntimeContext({ environment: { HOME: home() } })).toThrow('PRODUCT_USER_STATE_DIR');
-    expect(resolveCliRuntimeContext({ environment: runtime.environment }).config).toEqual(runtime.config);
+    expect(() => resolveCliRuntimeContext({ environment: { HOME: home() } })).toThrow(
+      'PRODUCT_USER_STATE_DIR',
+    );
+    expect(resolveCliRuntimeContext({ environment: runtime.environment }).config).toEqual(
+      runtime.config,
+    );
   });
 
   it('does not apply Robota defaults to a same-ID artifact with another embedded profile', () => {
@@ -183,8 +194,144 @@ describe('per-invocation CLI product isolation', () => {
     };
     const config = resolveProductConfig({ environment });
     vi.stubGlobal('__PRODUCT_CONFIG_IDENTITY__', embeddedProductIdentity(config));
-    expect(() => resolveCliRuntimeContext({ environment: { HOME: home() } })).toThrow('PRODUCT_USER_STATE_DIR');
+    expect(() => resolveCliRuntimeContext({ environment: { HOME: home() } })).toThrow(
+      'PRODUCT_USER_STATE_DIR',
+    );
     expect(resolveCliRuntimeContext({ environment }).config).toEqual(config);
+  });
+
+  it.each(['cedar', 'amber'])(
+    'starts an embedded %s product under declared defaults despite foreign canonical inputs',
+    (label) => {
+      const userHome = home();
+      const built = createTestProductRuntime(label, { HOME: home() });
+      vi.stubGlobal('__PRODUCT_CONFIG_IDENTITY__', embeddedProductIdentity(built.config));
+      vi.stubGlobal('__PRODUCT_CONFIG_DEFAULTS__', {
+        PRODUCT_USER_STATE_DIR: `.${label}`,
+        PRODUCT_CACHE_DIR: `.${label}/cache`,
+        PRODUCT_LOG_DIR: `.${label}/logs`,
+        PRODUCT_PROJECT_STATE_DIR: `.${label}`,
+        PRODUCT_SHARED_USER_SETTINGS: '[]',
+        PRODUCT_SHARED_PROJECT_SETTINGS: '[]',
+      });
+      const runtime = resolveCliRuntimeContext({
+        environment: {
+          HOME: userHome,
+          ...createTestProductEnvironment('foreign'),
+          PRODUCT_CONFIG_FILE: '/absent/foreign.env',
+          PRODUCT_WS_TOKEN: 'foreign-token',
+          PRODUCT_HOSTED_RUNTIME_CONFIG: '/absent/hosted.json',
+          PRODUCT_SHELL: '/absent/shell',
+          PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'https://foreign.example',
+          PRODUCT_TELEMETRY_OTLP_HEADERS: 'foreign-header',
+          [`${label.toUpperCase()}_MEMORY`]: '1',
+        },
+      });
+      expect(runtime.layout.userRoot).toBe(join(userHome, `.${label}`));
+      expect(runtime.config.identity.id).toBe(label);
+      expect(runtime.environment.PRODUCT_MEMORY).toBe('1');
+      for (const key of [
+        'PRODUCT_CONFIG_FILE',
+        'PRODUCT_WS_TOKEN',
+        'PRODUCT_HOSTED_RUNTIME_CONFIG',
+        'PRODUCT_SHELL',
+        'PRODUCT_TELEMETRY_OTLP_ENDPOINT',
+        'PRODUCT_TELEMETRY_OTLP_HEADERS',
+      ]) {
+        expect(runtime.environment[key]).toBeUndefined();
+      }
+      expect(runtime.layout.projectSettingsPaths).toHaveLength(2);
+      expect(createProductUserSettingsSources(runtime)).toHaveLength(1);
+      const explicit = resolveCliRuntimeContext({
+        environment: {
+          HOME: userHome,
+          PRODUCT_ID: label,
+          PRODUCT_USER_STATE_DIR: join(userHome, 'override'),
+        },
+      });
+      expect(explicit.layout.userRoot).toBe(join(userHome, 'override'));
+    },
+  );
+
+  it('does not adopt a foreign product from the built-in binary ambient environment', () => {
+    const previous: Record<string, string | undefined> = {};
+    const environment = {
+      ...createTestProductEnvironment('amber'),
+      HOME: home(),
+      PRODUCT_CONFIG_FILE: '/absent/foreign.env',
+    };
+    for (const [key, value] of Object.entries(environment)) {
+      previous[key] = process.env[key];
+      process.env[key] = value;
+    }
+    try {
+      const runtime = resolveCliRuntimeContext({});
+      expect(runtime.config.identity.id).toBe('robota');
+      expect(runtime.layout.userRoot).toBe(join(environment.HOME, '.robota'));
+      expect(runtime.environment.PRODUCT_CONFIG_FILE).toBeUndefined();
+    } finally {
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  });
+
+  it('replaces canonical spawn inputs with the resolved invocation and preserves OS variables', () => {
+    const runtime = createTestProductRuntime('cedar', { PRODUCT_WS_TOKEN: 'cedar-token' });
+    const target: NodeJS.ProcessEnv = {
+      ...createTestProductEnvironment('amber'),
+      PRODUCT_CONFIG_FILE: '/tmp/foreign.env',
+      PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'https://foreign.example',
+      PRODUCT_WS_TOKEN: 'amber-token',
+      PROJECT_EXTRA: 'foreign',
+      SERVICE_EXTRA: 'foreign',
+      SECURITY_EXTRA: 'foreign',
+      DEPLOY_EXTRA: 'foreign',
+      PATH: '/system/bin',
+      CEDAR_SHELL: '/absent/stale-shell',
+    };
+    installProductProcessEnvironment(runtime, target);
+    expect(target.PRODUCT_ID).toBe('cedar');
+    expect(target.PRODUCT_WS_TOKEN).toBe('cedar-token');
+    expect(target.PATH).toBe('/system/bin');
+    for (const key of [
+      'PRODUCT_CONFIG_FILE',
+      'PRODUCT_TELEMETRY_OTLP_ENDPOINT',
+      'PROJECT_EXTRA',
+      'SERVICE_EXTRA',
+      'SECURITY_EXTRA',
+      'DEPLOY_EXTRA',
+      'CEDAR_SHELL',
+    ])
+      expect((target as Record<string, unknown>)[key]).toBeUndefined();
+  });
+
+  it('lets a product choose shared settings sources without changing its owned settings', () => {
+    const userHome = home();
+    const isolated = createTestProductRuntime('cedar', {
+      HOME: userHome,
+      PRODUCT_SHARED_USER_SETTINGS: '[]',
+      PRODUCT_SHARED_PROJECT_SETTINGS: '[]',
+    });
+    expect(createProductUserSettingsSources(isolated)).toHaveLength(1);
+    expect(isolated.layout.projectSettingsPaths.map((entry) => entry.relativePath)).toEqual([
+      '.cedar/settings.json',
+      '.cedar/settings.local.json',
+    ]);
+    const selected = createTestProductRuntime('amber', {
+      HOME: userHome,
+      PRODUCT_SHARED_USER_SETTINGS: '[".shared/settings.json"]',
+      PRODUCT_SHARED_PROJECT_SETTINGS:
+        '[{"scope":"project-local","relativePath":".shared/local.json"}]',
+    });
+    expect(
+      createProductUserSettingsSources(selected).map((source) => source.displayName),
+    ).toContain(join(userHome, '.shared/settings.json'));
+    expect(selected.layout.projectSettingsPaths).toContainEqual({
+      scope: 'project-local',
+      relativePath: '.shared/local.json',
+    });
   });
 
   it('keeps A/B/A and concurrent settings, plugin and contribution roots independent under one home', async () => {

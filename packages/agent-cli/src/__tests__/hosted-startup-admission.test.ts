@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createTestBinaryEnvironment } from './helpers/product-runtime.js';
 import { hostedFixture } from '../hosted/__tests__/hosted-fixture.js';
+import { robotaEnvironment } from '../../../../products/robota.mjs';
 
 const root = fileURLToPath(new URL('../../../..', import.meta.url));
 const scratch = realpathSync(mkdtempSync(join(tmpdir(), 'hosted-admission-')));
@@ -18,7 +19,13 @@ const embeddedEntry = join(scratch, 'embedded-cli.mjs');
 writeFileSync(
   embeddedEntry,
   `import { startCli } from ${JSON.stringify(pathToFileURL(join(root, 'packages/agent-cli/src/cli.ts')).href)};
-startCli().catch((error) => { process.stderr.write(error.message + '\\n'); process.exitCode = 1; });\n`,
+startCli({ environment: process.env }).catch((error) => { process.stderr.write(error.message + '\\n'); process.exitCode = 1; });\n`,
+);
+const completeEntry = join(scratch, 'complete-cli.mjs');
+writeFileSync(
+  completeEntry,
+  `import { startCliEntry } from ${JSON.stringify(pathToFileURL(join(root, 'packages/agent-cli/src/cli-entry.ts')).href)};
+void startCliEntry({ environment: process.env });\n`,
 );
 
 const fixtures: Awaited<ReturnType<typeof hostedFixture>>[] = [];
@@ -30,26 +37,27 @@ afterAll(async () => {
 function run(
   args: readonly string[],
   environment: Record<string, string>,
-  entry: 'binary' | 'headless' | 'embedded' = 'binary',
+  entry: 'complete' | 'headless' | 'embedded' = 'complete',
 ): Promise<{ status: number | null; stderr: string; stdout: string }> {
   return new Promise((resolve, reject) => {
-    const executable = entry !== 'binary' ? process.execPath : join(root, 'scripts/dev/agent');
-    const argv =
-      entry !== 'binary'
-        ? [
-            '--import',
-            join(root, 'node_modules/tsx/dist/loader.mjs'),
-            '--conditions=source',
-            entry === 'headless'
-              ? join(root, 'packages/agent-cli/src/headless-bin.ts')
-              : embeddedEntry,
-            ...args,
-            '--safe-mode',
-          ]
-        : [...args, '--safe-mode'];
-    const child = spawn(executable, argv, {
+    const argv = [
+      '--import',
+      join(root, 'node_modules/tsx/dist/loader.mjs'),
+      '--conditions=source',
+      entry === 'headless'
+        ? join(root, 'packages/agent-cli/src/headless-bin.ts')
+        : entry === 'complete' ? completeEntry : embeddedEntry,
+      ...args,
+      '--safe-mode',
+    ];
+    const child = spawn(process.execPath, argv, {
       cwd: workspace,
-      env: createTestBinaryEnvironment(taskHome, environment),
+      env: createTestBinaryEnvironment(
+        taskHome,
+        entry === 'headless'
+          ? { ...robotaEnvironment({}, taskHome), ...environment }
+          : environment,
+      ),
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     let stderr = '';
@@ -148,7 +156,7 @@ describe('the actual CLI admits hosted execution before composing a session', ()
     expect(result.stderr).toContain('host execution is refused');
   }, 60_000);
 
-  it.each(['binary', 'headless', 'embedded'] as const)(
+  it.each(['complete', 'headless', 'embedded'] as const)(
     'refuses the private local subagent route before composing host tools (%s)',
     async (entry) => {
       const value = await hostedFixture();

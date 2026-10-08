@@ -65,6 +65,23 @@ function harness(rows: readonly ISupervisedSessionRow[], overrides: Partial<IDae
 }
 
 describe('test-product daemon', () => {
+  it.each(['new', 'reused'])('reports ignored settings for a successful %s Restricted daemon start', async (mode) => {
+    const h = harness(mode === 'new' ? [] : [daemonRow(LIVE, { restricted: true })]);
+    expect(await runDaemonCommand(['start', '--restricted-workspace', '--json'], h.options)).toBe(0);
+    expect(h.err()).toContain('Restricted workspace mode');
+    expect(h.err()).toContain('.test-product/settings.json');
+    expect(h.err()).toContain('.claude/settings.local.json');
+    expect(h.err().trim().split('\n')).toHaveLength(1);
+  });
+
+  it('reports admitted Restricted access for a plain new start without changing its launch choice', async () => {
+    const h = harness([], { admit: async () => ({ restricted: true }) });
+    expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(0);
+    expect(h.err()).toContain('Restricted workspace mode');
+    expect(h.err().trim().split('\n')).toHaveLength(1);
+    expect(h.launch).toHaveBeenCalledWith(workspace, expect.not.objectContaining({ restricted: true }));
+  });
+
   it('reuses the live daemon of this workspace without admitting or launching', async () => {
     const h = harness([daemonRow(OTHER), daemonRow(LIVE)]);
     expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(0);
@@ -92,6 +109,7 @@ describe('test-product daemon', () => {
   it('launches a daemon after admission, with a fresh token in the environment and no fixed port', async () => {
     const h = harness([]);
     expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(0);
+    expect(h.err()).toBe('');
     expect(h.admit).toHaveBeenCalledWith(workspace, { restricted: false });
     expect(h.launch).toHaveBeenCalledTimes(1);
     const [cwd, launchOptions] = h.launch.mock.calls[0] as unknown as [string, { env: NodeJS.ProcessEnv; daemon: boolean }];

@@ -96,6 +96,46 @@ const url = (schemes: readonly string[]): TParser<string> => (value) => {
   }
   return parsed.href;
 };
+const homeRelativePath = (value: string): string => {
+  const result = text(value).replace(/\\/gu, '/');
+  if (
+    /^(?:\/|[A-Za-z]:|~|\$)/u.test(result) ||
+    result.split('/').some((part) => !part || part === '.' || part === '..')
+  ) {
+    throw new Error('expected a relative path without traversal');
+  }
+  return result;
+};
+const userSettingsFiles = (value: string): readonly string[] => {
+  const parsed: unknown = JSON.parse(value);
+  if (!Array.isArray(parsed) || !parsed.every((entry) => typeof entry === 'string'))
+    throw new Error('expected relative file paths');
+  return Object.freeze(parsed.map((entry: string) => homeRelativePath(entry)));
+};
+const projectSettingsFiles = (
+  value: string,
+): readonly { readonly scope: 'project' | 'project-local'; readonly relativePath: string }[] => {
+  const parsed: unknown = JSON.parse(value);
+  if (!Array.isArray(parsed)) throw new Error('expected project settings paths');
+  return Object.freeze(
+    parsed.map((entry: unknown) => {
+      if (
+        typeof entry !== 'object' ||
+        entry === null ||
+        !('scope' in entry) ||
+        !('relativePath' in entry) ||
+        (entry.scope !== 'project' && entry.scope !== 'project-local') ||
+        typeof entry.relativePath !== 'string' ||
+        Object.keys(entry).some((key) => key !== 'scope' && key !== 'relativePath')
+      )
+        throw new Error('expected project settings paths');
+      return Object.freeze({
+        scope: entry.scope,
+        relativePath: homeRelativePath(entry.relativePath),
+      });
+    }),
+  );
+};
 const webUrl = url(['https:', 'http:']);
 const signalingUrl = url(['https:', 'http:', 'wss:', 'ws:']);
 const derivationPath = (value: string): readonly number[] => {
@@ -139,6 +179,56 @@ export const PRODUCT_CONFIG_DESCRIPTORS = Object.freeze({
     modelCommandToolPrefix: setting('PRODUCT_MODEL_TOOL_PREFIX', 'Prefix for model-visible command and result-retrieval tools.', 'namespace', namespace, hostIdentity),
     promptFileReferenceTag: setting('PRODUCT_PROMPT_TAG', 'Model-visible workspace file-reference enclosure tag.', 'namespace', namespace, hostIdentity),
     editorTemporaryDirectoryPrefix: setting('PRODUCT_EDITOR_TEMP_PREFIX', 'Temporary editor directory prefix selected by the host.', 'namespace', namespace, hostIdentity),
+  }),
+  build: Object.freeze({
+    defaultUserRoot: optional(
+      'PRODUCT_DEFAULT_USER_STATE_DIR',
+      'Non-secret artifact default relative to the invocation home.',
+      'home-relative path',
+      homeRelativePath,
+      { ...hostOperation, consumers: ['build'] },
+    ),
+    defaultCacheRoot: optional(
+      'PRODUCT_DEFAULT_CACHE_DIR',
+      'Non-secret cache default relative to the invocation home.',
+      'home-relative path',
+      homeRelativePath,
+      { ...hostOperation, consumers: ['build'] },
+    ),
+    defaultLogRoot: optional(
+      'PRODUCT_DEFAULT_LOG_DIR',
+      'Non-secret log default relative to the invocation home.',
+      'home-relative path',
+      homeRelativePath,
+      { ...hostOperation, consumers: ['build'] },
+    ),
+    defaultProjectDirectory: optional(
+      'PRODUCT_DEFAULT_PROJECT_STATE_DIR',
+      'Artifact default for trusted project state.',
+      'relative directory',
+      projectDirectory,
+      { ...hostOperation, consumers: ['build'] },
+    ),
+  }),
+  settings: Object.freeze({
+    sharedUserFiles: setting(
+      'PRODUCT_SHARED_USER_SETTINGS',
+      'Shared home-relative user settings files; [] disables shared user settings.',
+      'JSON relative file array',
+      userSettingsFiles,
+      { ...hostOperation, defaultValue: '[".claude/settings.json"]' },
+    ),
+    sharedProjectFiles: setting(
+      'PRODUCT_SHARED_PROJECT_SETTINGS',
+      'Shared workspace-relative settings sources; [] disables shared project settings.',
+      'JSON scoped relative file array',
+      projectSettingsFiles,
+      {
+        ...hostOperation,
+        defaultValue:
+          '[{"scope":"project","relativePath":".claude/settings.json"},{"scope":"project-local","relativePath":".claude/settings.local.json"}]',
+      },
+    ),
   }),
   storage: Object.freeze({
     userRoot: setting('PRODUCT_USER_STATE_DIR', 'Selected user state root; relative input is resolved against the selected file directory.', 'path', path, { ...hostOperation, path: true }),

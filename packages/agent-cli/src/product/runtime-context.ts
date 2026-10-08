@@ -102,10 +102,13 @@ export function createCliRuntimeContext(config: IProductConfig, environment: TCo
     projectSettingsPaths: [
       { scope: 'project', relativePath: join(directory, 'settings.json') },
       { scope: 'project-local', relativePath: join(directory, 'settings.local.json') },
-      { scope: 'project', relativePath: join('.claude', 'settings.json') },
-      { scope: 'project-local', relativePath: join('.claude', 'settings.local.json') },
+      ...(config.settings.sharedProjectFiles ?? []),
     ],
-    agentDefinitionRoots: [join(directory, 'agents'), join('.agents', 'agents'), join('.claude', 'agents')],
+    agentDefinitionRoots: [
+      join(directory, 'agents'),
+      join('.agents', 'agents'),
+      join('.claude', 'agents'),
+    ],
     skillRoots: [
       { root: join(directory, 'skills'), kind: 'skills' },
       { root: join('.claude', 'skills'), kind: 'skills' },
@@ -114,7 +117,10 @@ export function createCliRuntimeContext(config: IProductConfig, environment: TCo
     ],
     pluginRelativeDirectory: join(directory, 'plugins'),
     taskContext: { enabled: true, dir: join(directory, 'tasks') },
-    baselinePermissionAllow: [directory, '.agents', '.claude'].flatMap((root) => [`Read(${root}/**)`, `Glob(${root}/**)`]),
+    baselinePermissionAllow: [directory, '.agents', '.claude'].flatMap((root) => [
+      `Read(${root}/**)`,
+      `Glob(${root}/**)`,
+    ]),
     projectWorktreesDirectory,
     userQuarantineDirectory: join(userRoot, 'sandbox-quarantine'),
     pathProtection: {
@@ -122,12 +128,19 @@ export function createCliRuntimeContext(config: IProductConfig, environment: TCo
       protectedPaths: [userRoot],
       writableWorktreeContainers: [projectWorktreesDirectory, '.claude/worktrees'],
     },
-    credentialPaths: ['settings.json', 'credentials', 'mcp-credentials', 'remote-host-identity.json'].map((entry) => join(userRoot, entry)),
+    credentialPaths: [
+      'settings.json',
+      'credentials',
+      'mcp-credentials',
+      'remote-host-identity.json',
+    ].map((entry) => join(userRoot, entry)),
   };
   return freeze({
     config,
     environment: { ...environment },
-    ...((environment.HOME ?? environment.USERPROFILE) !== undefined ? { userHome: environment.HOME ?? environment.USERPROFILE } : {}),
+    ...((environment.HOME ?? environment.USERPROFILE) !== undefined
+      ? { userHome: environment.HOME ?? environment.USERPROFILE }
+      : {}),
     layout,
     cryptoContext: createIdentityContext(config.crypto.namespace),
     vocabulary: {

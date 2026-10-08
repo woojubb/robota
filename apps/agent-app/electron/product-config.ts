@@ -1,9 +1,17 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 
-import { loadProductConfigSelection } from '@robota-sdk/product-config/node';
-import { embeddedProductIdentity, productConfigEntries, resolveProductConfig } from '@robota-sdk/product-config';
+import {
+  expandProductRuntimeDefaults,
+  loadProductConfigSelection,
+} from '@robota-sdk/product-config/node';
+import {
+  embeddedProductIdentity,
+  productConfigEntries,
+  resolveProductConfig,
+  scopeProductEnvironment,
+} from '@robota-sdk/product-config';
 import { robotaEnvironment } from './robota.js';
 
 import type { IEmbeddedProductIdentity, IProductConfig, TConfigEnvironment } from '@robota-sdk/product-config';
@@ -36,7 +44,17 @@ export function loadDesktopProductConfigSelection(options: {
       throw new Error('Packaged desktop product identity is invalid.');
     }
   }
-  const environment = Object.freeze({ ...options.environment });
+  const environment =
+    embeddedIdentity === undefined
+      ? Object.freeze({ ...options.environment })
+      : scopeProductEnvironment(options.environment, embeddedIdentity);
+  const runtimeDefaultsFile = join(dirname(options.identityFile), 'product-runtime-defaults.json');
+  const artifactDefaults = exists(runtimeDefaultsFile)
+    ? expandProductRuntimeDefaults(
+        JSON.parse(readFile(runtimeDefaultsFile)),
+        environment.HOME ?? environment.USERPROFILE ?? homedir(),
+      )
+    : undefined;
   const defaults = embeddedIdentity === undefined ? undefined : robotaEnvironment(
     environment,
     environment.HOME ?? environment.USERPROFILE ?? homedir(),
@@ -46,7 +64,8 @@ export function loadDesktopProductConfigSelection(options: {
   );
   return loadProductConfigSelection({
     environment,
-    ...(defaults !== undefined ? { defaults } : {}),
+    ...(defaults !== undefined || artifactDefaults !== undefined
+      ? { defaults: { ...defaults, ...artifactDefaults } } : {}),
     ...(embeddedIdentity !== undefined ? { embeddedIdentity } : {}),
     ...(options.readFile !== undefined ? { readFile: options.readFile } : {}),
   });
@@ -67,6 +86,24 @@ const scriptedE2eVariables = Object.freeze([
   'PRODUCT_E2E_TRUST_FILE', 'PRODUCT_E2E_SETUP_REQUIRED', 'PRODUCT_E2E_WORKSPACE_CWD',
 ]);
 
+/** Scope all technical host inputs before desktop mode selection or child projection. */
+export function desktopHostEnvironment(
+  config: IProductConfig,
+  explicitEnvironment: TConfigEnvironment,
+): TConfigEnvironment {
+  const scoped = scopeProductEnvironment(explicitEnvironment, embeddedProductIdentity(config));
+  const normalized: Record<string, string | undefined> = { ...scoped };
+  for (const [key, value] of Object.entries(scoped)) {
+    if (!key.startsWith(config.identity.envPrefix) || value === undefined) continue;
+    const canonical = `PRODUCT_${key.slice(config.identity.envPrefix.length)}`;
+    if (canonical === 'PRODUCT_ENV_PREFIX' || canonical === 'PRODUCT_CONFIG_FILE') continue;
+    if (scoped[canonical] !== undefined && scoped[canonical] !== value)
+      throw new Error(`${canonical}: conflicting canonical and product alias values`);
+    normalized[canonical] = value;
+  }
+  return Object.freeze(normalized);
+}
+
 /** Curated environment for trust and daemon CLI children, from selected config plus required OS inputs. */
 export function desktopCliEnvironment(
   config: IProductConfig,
@@ -76,19 +113,20 @@ export function desktopCliEnvironment(
     readonly allowScriptedE2eVariables?: boolean;
   } = {},
 ): Record<string, string> {
+  const explicit = desktopHostEnvironment(config, explicitEnvironment);
   // The selected file path is forwarded so each CLI invocation reloads its current contents. Do not
   // copy file values into the child: that would turn a prior app snapshot into an override on reconnect.
   const definedExplicit = Object.fromEntries(
-    Object.entries(explicitEnvironment).filter((entry): entry is [string, string] => entry[1] !== undefined),
+    Object.entries(explicit).filter((entry): entry is [string, string] => entry[1] !== undefined),
   );
   const environment: Record<string, string> = {};
   for (const key of childOperatingSystemVariables) {
-    const value = explicitEnvironment[key];
+    const value = explicit[key];
     if (value !== undefined) environment[key] = value;
   }
   if (options.allowScriptedE2eVariables === true) {
     for (const key of scriptedE2eVariables) {
-      const value = explicitEnvironment[key];
+      const value = explicit[key];
       if (value !== undefined) environment[key] = value;
     }
   }
@@ -102,7 +140,7 @@ export function desktopCliEnvironment(
     const value = (config[section] as Readonly<Record<string, unknown>>)[field];
     if (value !== undefined) environment[descriptor.variable] = Array.isArray(value) ? JSON.stringify(value) : String(value);
   }
-  const configFile = explicitEnvironment.PRODUCT_CONFIG_FILE;
+  const configFile = explicit.PRODUCT_CONFIG_FILE;
   if (configFile !== undefined) environment.PRODUCT_CONFIG_FILE = configFile;
   return environment;
 }
