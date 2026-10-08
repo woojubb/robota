@@ -69,7 +69,7 @@ console.log(`  provider types in built-in defaults: ${allTypes.join(', ')}`);
 
 check('default definitions is an array', Array.isArray(defs));
 check('deepseek entry present in default definitions', !!deepseekDef);
-check('deepseek is last in the default list', allTypes[allTypes.length - 1] === 'deepseek');
+check('deepseek keeps its original position in the default list', allTypes[5] === 'deepseek');
 check('deepseek displayName === "DeepSeek"', deepseekDef?.displayName === 'DeepSeek');
 
 // ── Summary ───────────────────────────────────────────────────────────────────

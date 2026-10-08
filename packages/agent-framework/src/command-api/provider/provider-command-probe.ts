@@ -2,6 +2,7 @@ import {
   findProviderDefinition,
   isEnvReference,
   resolveEnvReference,
+  normalizeProviderConfig,
 } from '@robota-sdk/agent-core';
 
 import { validateProviderProfile, type IProviderProfileSettings } from './provider-settings.js';
@@ -47,7 +48,34 @@ export async function testProviderProfileCommand(
     profile.apiKey === undefined
       ? undefined
       : resolveEnvReference(profile.apiKey, (name) => (options.env ?? process.env)[name]);
-  const result = await probe({ ...profile, ...(apiKey === undefined ? {} : { apiKey }) });
+  let resolvedProfile = { ...profile, ...(apiKey === undefined ? {} : { apiKey }) };
+  if (profile.apiKeyRef !== undefined) {
+    if (options.resolveCredential === undefined)
+      return {
+        message: `Provider "${profileName}" requires host credential resolution. Run /provider reconnect ${profileName}.`,
+        success: false,
+      };
+    try {
+      const resolved = await options.resolveCredential(
+        normalizeProviderConfig(
+          {
+            name: profile.type!,
+            model: profile.model,
+            apiKeyRef: profile.apiKeyRef,
+            baseURL: profile.baseURL,
+          },
+          options.providerDefinitions,
+        ),
+      );
+      resolvedProfile = { ...profile, apiKey: resolved.apiKey };
+    } catch {
+      return {
+        message: `Provider "${profileName}" credential could not be read. Run /provider reconnect ${profileName}.`,
+        success: false,
+      };
+    }
+  }
+  const result = await probe(resolvedProfile);
   return {
     message: result.ok
       ? `Provider "${profileName}" test passed: ${result.message}`

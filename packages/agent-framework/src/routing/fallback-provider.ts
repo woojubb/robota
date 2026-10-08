@@ -31,6 +31,8 @@ export interface IFallbackModelTarget {
   ref: IModelRef;
   /** Build the provider for this entry. A throw means it cannot be reached, and the chain moves on. */
   create: () => IAIProvider;
+  /** Optional host resolution for credentials held outside settings. */
+  createAsync?: () => Promise<IAIProvider>;
 }
 
 export interface IFallbackProviderOptions {
@@ -67,7 +69,7 @@ type TBuilt = { provider: IAIProvider } | { error: unknown };
 export class FallbackProvider implements IAIProvider {
   readonly name: string;
   readonly version: string;
-  private readonly built = new Map<number, TBuilt>();
+  private readonly built = new Map<number, Promise<TBuilt>>();
   /** Chain position each recent run moved to; a run not listed is on the primary. */
   private readonly runPositions = new Map<string, number>();
   private readonly contextWindowOf: (model: string) => number | undefined;
@@ -158,7 +160,7 @@ export class FallbackProvider implements IAIProvider {
     let failed: { ref: IModelRef; error: unknown; reason: TProviderFailureReason } | undefined;
     const run = async (ref: IModelRef): Promise<TUniversalMessage> => {
       const position = positionOf.get(ref)!;
-      const provider = this.providerAt(position);
+      const provider = await this.providerAt(position);
       if (failed !== undefined) {
         const notice = { from: failed.ref, to: ref, reason: failed.reason };
         options.onModelFallback?.(notice);
@@ -204,14 +206,16 @@ export class FallbackProvider implements IAIProvider {
 
   async dispose(): Promise<void> {
     await this.primary.dispose?.();
-    for (const built of this.built.values()) {
+    for (const pending of this.built.values()) {
+      const built = await pending;
       if ('provider' in built) await built.provider.dispose?.();
     }
   }
 
   async close(): Promise<void> {
     await this.primary.close?.();
-    for (const built of this.built.values()) {
+    for (const pending of this.built.values()) {
+      const built = await pending;
       if ('provider' in built) await built.provider.close?.();
     }
   }
@@ -258,21 +262,27 @@ export class FallbackProvider implements IAIProvider {
     return candidateWindow >= requestedWindow;
   }
 
-  private providerAt(position: number): IAIProvider {
+  private async providerAt(position: number): Promise<IAIProvider> {
     if (position === 0) return this.primary;
     const target = this.fallbacks[position - 1]!;
     let built = this.built.get(position);
     if (built === undefined) {
-      try {
-        built = { provider: target.create() };
-      } catch (error) {
-        built = { error };
-        this.options.onUnreachable?.(target, error);
-      }
+      built = (async (): Promise<TBuilt> => {
+        try {
+          return {
+            provider:
+              target.createAsync === undefined ? target.create() : await target.createAsync(),
+          };
+        } catch (error) {
+          this.options.onUnreachable?.(target, error);
+          return { error };
+        }
+      })();
       this.built.set(position, built);
     }
-    if ('error' in built) throw new UnreachableFallbackError(target, built.error);
-    return built.provider;
+    const result = await built;
+    if ('error' in result) throw new UnreachableFallbackError(target, result.error);
+    return result.provider;
   }
 
   private remember(executionId: string | undefined, position: number): void {

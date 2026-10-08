@@ -18,6 +18,7 @@ import type {
   IAIProvider,
   IProviderDefinition,
   IProviderDefinitionConfig,
+  TProviderCredentialResolver,
 } from '@robota-sdk/agent-core';
 import type { IOrgPolicy, TSettingsSource } from '@robota-sdk/agent-framework';
 
@@ -34,6 +35,7 @@ export interface IApplyModelFallbackChainInput {
   providerOverride?: string;
   providerDefinitions: readonly IProviderDefinition[];
   environment?: Readonly<Record<string, string | undefined>>;
+  resolveProviderCredential?: TProviderCredentialResolver;
   orgPolicy?: IOrgPolicy;
   /** Where a dropped entry is announced. */
   notice: (message: string) => void;
@@ -58,6 +60,9 @@ export function applyModelFallbackChain(input: IApplyModelFallbackChainInput): I
     settings,
     primary: { ...(profile !== undefined && { profile }), config: input.primaryConfig },
     providerDefinitions: input.providerDefinitions,
+    ...(input.resolveProviderCredential !== undefined && {
+      resolveCredential: input.resolveProviderCredential,
+    }),
     ...(input.environment !== undefined && { environment: input.environment }),
     ...(input.orgPolicy?.allowedProviders !== undefined && {
       allowedProviders: input.orgPolicy.allowedProviders,

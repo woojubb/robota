@@ -111,6 +111,9 @@ export type {
 export { parseModelEffort, resolveModelEffort } from '../effort/index.js';
 export type {
   IProviderCommandModuleOptions,
+  IProviderConnectionHost,
+  IProviderConnectionRequest,
+  TProviderConnectionStage,
   IProviderCommandSettingsAdapter,
 } from './provider/provider-command-types.js';
 export type {

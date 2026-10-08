@@ -339,12 +339,13 @@ describe('ARCH-005 S2 — the assembled test-product runtime matches the pre-cha
     expect(assembleProductFixture().unknownModuleNames).toEqual([]);
   });
 
-  it('offers the same provider surface', () => {
+  it('retains the baseline provider surface and appends OpenRouter', () => {
+    const expected = [...BASELINE_PROVIDER_DEFINITION_TYPES, 'openrouter'];
     expect(assembleProductFixture().product.providerDefinitions.map((d) => d.type)).toEqual(
-      BASELINE_PROVIDER_DEFINITION_TYPES,
+      expected,
     );
     expect(createDefaultProviderDefinitions().map((d) => d.type)).toEqual(
-      BASELINE_PROVIDER_DEFINITION_TYPES,
+      expected,
     );
   });
 

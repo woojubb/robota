@@ -1,6 +1,12 @@
 import type { IAIProvider } from './provider';
 import type { TUniversalValue } from './types';
 
+/** A serializable name of a host-held credential, never the credential itself. */
+export type TProviderCredentialReference = { readonly service: string; readonly account: string };
+export type TProviderCredentialResolver = (
+  config: IProviderDefinitionConfig,
+) => Promise<IProviderDefinitionConfig>;
+
 export interface IProviderDefinitionConfig {
   name: string;
   model: string;
@@ -17,6 +23,8 @@ export interface IProviderDefinitionConfig {
    * Distinct from `sourceEnvVar`, which is set only for a synthesized `'env-default'` config.
    */
   apiKeyEnv?: string;
+  /** Retained after host resolution so serialization can omit the resolved secret. */
+  apiKeyRef?: TProviderCredentialReference;
   baseURL?: string;
   timeout?: number;
   options?: Record<string, TUniversalValue>;
@@ -46,6 +54,7 @@ export interface IProviderProfileConfig {
   type?: string;
   model?: string;
   apiKey?: string;
+  apiKeyRef?: TProviderCredentialReference;
   baseURL?: string;
   timeout?: number;
   options?: Record<string, TUniversalValue>;
@@ -139,6 +148,8 @@ export interface IProviderDefinition {
   description?: string;
   /** Billing/hosting category shown as a badge in provider selection UI. */
   category?: TProviderCategory;
+  /** Available credential acquisition methods; concrete authorization belongs to the host. */
+  connectionMethods?: readonly ('api-key' | 'browser')[];
   defaults?: IProviderProfileDefaults;
   /**
    * Optional enforced model allowlist (ARCH-PROVIDER-003). Distinct from {@link modelCatalog}: the catalog

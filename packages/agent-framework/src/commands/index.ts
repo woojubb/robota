@@ -119,6 +119,9 @@ export { SystemCommandExecutor } from './system-command-executor.js';
 export { selectCommandModules, findUnknownModuleNames } from './command-module-selection.js';
 export type {
   IProviderCommandModuleOptions,
+  IProviderConnectionHost,
+  IProviderConnectionRequest,
+  TProviderConnectionStage,
   IProviderCommandSettingsAdapter,
 } from '../command-api/provider/provider-command-types.js';
 export type {

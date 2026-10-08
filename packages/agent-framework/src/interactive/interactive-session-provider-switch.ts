@@ -8,7 +8,34 @@ import {
 } from '../advisor/provider-destination.js';
 import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
 
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import { createProviderFromConfig } from '@robota-sdk/agent-core';
+import type { IProviderDefinition, TProviderCredentialResolver } from '@robota-sdk/agent-core';
+
+/** Resolve host-held credentials without putting their values into settings sources. */
+export async function resolveUserSettingsProviderSwitchAsync(
+  profileName: string,
+  providerDefinitions: readonly IProviderDefinition[],
+  sources: readonly INodeHostSettingsSource[],
+  environment?: Readonly<Record<string, string | undefined>>,
+  resolveCredential?: TProviderCredentialResolver,
+): Promise<ReturnType<typeof resolveUserSettingsProviderSwitch>> {
+  if (resolveCredential === undefined)
+    return resolveUserSettingsProviderSwitch(
+      profileName,
+      providerDefinitions,
+      sources,
+      environment,
+    );
+  const unresolved = readProviderSettings(sources, {
+    providerOverride: profileName,
+    providerDefinitions,
+    env: environment,
+  });
+  const settings = await resolveCredential(unresolved);
+  const provider = createProviderFromConfig(settings, providerDefinitions);
+  rememberProviderDestination(provider, describeProviderDestination(settings, providerDefinitions));
+  return { settings, provider };
+}
 
 /** ARCH-043 residual: lazy switching is deliberately limited to explicit user-owned settings. */
 export function resolveUserSettingsProviderSwitch(

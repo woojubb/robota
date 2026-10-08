@@ -1,5 +1,5 @@
 import { resolveCliRuntimeContext } from './product-bootstrap.js';
-import { promptInput } from '../cli-input.js';
+import { createStartupProviderInteraction, promptInput } from '../cli-input.js';
 import { ProviderConfigError } from '@robota-sdk/agent-framework';
 
 import { runInitCommand } from '../init/init-command.js';
@@ -7,12 +7,14 @@ import {
   ensureConfig,
   handleProviderConfigurationArgs,
   runInteractiveProviderSetup,
+  type IProviderStartupSettingsAccess,
 } from './provider-startup.js';
 
 import type { IStartCliOptions } from './command-setup.js';
 import type { ICliWorkspaceComposition } from './workspace-project-composition.js';
 import { subcommandWord, type IParsedCliArgs } from '../utils/cli-args.js';
 import type { IProviderDefinition, ITerminalOutput } from '@robota-sdk/agent-core';
+import type { IOrgPolicy, IProviderConnectionHost } from '@robota-sdk/agent-framework';
 
 const PRINT_MODE_PROVIDER_CONFIG_EXIT_CODE = 3;
 
@@ -23,6 +25,8 @@ export interface IProjectSetupRoutingOptions {
   terminal: ITerminalOutput;
   providerDefinitions: readonly IProviderDefinition[];
   workspace: ICliWorkspaceComposition;
+  providerConnectionHost?: IProviderConnectionHost;
+  orgPolicy?: IOrgPolicy;
 }
 
 /**
@@ -47,6 +51,9 @@ export async function routeProjectSetup(
     env: runtime.environment,
     settingsSources: workspace.settingsSources,
     settingsStores: workspace.settingsStores,
+    connectionHost: options.providerConnectionHost,
+    interaction: createStartupProviderInteraction(),
+    orgPolicy: options.orgPolicy,
   };
   if (subcommandWord(args) === 'init') {
     await runProjectInit(options, settingsAccess);
@@ -63,7 +70,9 @@ export async function routeProjectSetup(
     );
     return { handled: true };
   }
-  if (handleProviderConfigurationArgs(cwd, args, terminal, providerDefinitions, settingsAccess)) {
+  if (
+    await handleProviderConfigurationArgs(cwd, args, terminal, providerDefinitions, settingsAccess)
+  ) {
     return { handled: true };
   }
   try {
@@ -97,7 +106,7 @@ export async function routeProjectSetup(
 
 async function runProjectInit(
   options: IProjectSetupRoutingOptions,
-  settingsAccess: Pick<ICliWorkspaceComposition, 'settingsSources' | 'settingsStores'> & {readonly cliName: string; readonly env: Readonly<Record<string, string | undefined>>},
+  settingsAccess: IProviderStartupSettingsAccess,
 ): Promise<void> {
   const { cwd, args, startOptions, terminal, providerDefinitions, workspace } = options;
   try {

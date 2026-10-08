@@ -108,6 +108,8 @@ export { getProviderCapabilities } from './provider';
 
 export type {
   IProviderDefinitionConfig,
+  TProviderCredentialReference,
+  TProviderCredentialResolver,
   IProviderCredentialRequirement,
   IProviderDefinition,
   IProviderModelCatalog,

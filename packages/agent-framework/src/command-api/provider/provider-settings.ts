@@ -16,6 +16,7 @@ import type {
   IProviderProfileConfig,
   TProviderCredentialField,
   TUniversalValue,
+  TProviderCredentialReference,
 } from '@robota-sdk/agent-core';
 
 export interface IProviderProfileSettings extends IProviderProfileConfig {
@@ -27,6 +28,7 @@ export interface ILegacyProviderSettings {
   name?: string;
   model?: string;
   apiKey?: string;
+  apiKeyRef?: TProviderCredentialReference;
   baseURL?: string;
   timeout?: number;
   options?: Record<string, TUniversalValue>;
@@ -44,6 +46,7 @@ export interface IProviderSetupInput {
   model?: string;
   apiKey?: string;
   apiKeyEnv?: string;
+  apiKeyRef?: TProviderCredentialReference;
   baseURL?: string;
   timeout?: number;
   setCurrent?: boolean;
@@ -126,6 +129,15 @@ export function validateProviderProfile(
   profile: IProviderProfileSettings,
   options: IProviderSettingsBuildOptions = {},
 ): void {
+  if (profile.apiKeyRef !== undefined && profile.apiKey !== undefined) {
+    throw new Error(`Provider profile "${profileName}" has conflicting credential origins`);
+  }
+  if (
+    profile.apiKeyRef !== undefined &&
+    (!profile.apiKeyRef.service?.trim() || !profile.apiKeyRef.account?.trim())
+  ) {
+    throw new Error(`Provider profile "${profileName}" has an invalid host credential reference`);
+  }
   if (!profile.type) {
     throw new Error(`Provider profile "${profileName}" is missing type`);
   }
@@ -156,6 +168,7 @@ export function validateProviderProfile(
   }
   const credentialRequirement = getProviderCredentialRequirement(definition);
   if (
+    profile.apiKeyRef === undefined &&
     credentialRequirement !== undefined &&
     !hasUsableRequiredProviderCredential(
       profile,
@@ -188,6 +201,12 @@ export function buildProviderProfile(
   input: IProviderSetupInput,
   options: IProviderSettingsBuildOptions = {},
 ): IProviderProfileSettings {
+  if (
+    input.apiKeyRef !== undefined &&
+    (input.apiKey !== undefined || input.apiKeyEnv !== undefined)
+  ) {
+    throw new Error('Provider setup has conflicting credential origins');
+  }
   const defaults = getProviderDefaults(input.type, options.providerDefinitions ?? []);
   if (input.apiKey !== undefined && input.apiKeyEnv === undefined) {
     // eslint-disable-next-line no-console -- security warning surfaced to CLI user at setup time; no logger injected in this pure-function context
@@ -209,13 +228,16 @@ export function buildProviderProfile(
   const apiKey =
     input.apiKeyEnv !== undefined
       ? formatEnvReference(input.apiKeyEnv)
-      : (input.apiKey ?? defaults.apiKey);
+      : input.apiKeyRef === undefined
+        ? (input.apiKey ?? defaults.apiKey)
+        : undefined;
   const baseURL = input.baseURL ?? defaults.baseURL;
 
   return {
     type: input.type,
     model: input.model ?? defaults.model,
     ...(isNonEmptyString(apiKey) && { apiKey }),
+    ...(input.apiKeyRef !== undefined && { apiKeyRef: input.apiKeyRef }),
     ...(baseURL !== undefined && { baseURL }),
     ...(input.timeout !== undefined && { timeout: input.timeout }),
   };

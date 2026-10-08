@@ -10,21 +10,32 @@
  * (with `model` absent) and offer fixing it via Edit.
  */
 
-import { findProviderDefinition, getProviderCredentialRequirement, hasUsableSecretReference } from '@robota-sdk/agent-core';
+import {
+  findProviderDefinition,
+  getProviderCredentialRequirement,
+  hasUsableSecretReference,
+} from '@robota-sdk/agent-core';
 
 import type { IProviderProfileSettings } from './provider-settings.js';
 import type { IProviderDefinition, TProviderCredentialField } from '@robota-sdk/agent-core';
-import type { ISettingsProviderProfile, ISettingsProvidersSection } from '@robota-sdk/agent-interface-session';
+import type {
+  ISettingsProviderProfile,
+  ISettingsProvidersSection,
+} from '@robota-sdk/agent-interface-session';
 
 /** The provider's plain display name — never its internal `type` id, unless nothing else is known. */
-function providerLabel(definition: IProviderDefinition | undefined, profile: IProviderProfileSettings): string {
+function providerLabel(
+  definition: IProviderDefinition | undefined,
+  profile: IProviderProfileSettings,
+): string {
   return definition?.displayName ?? profile.type ?? 'Unknown provider';
 }
 
 /** The catalog's display name for a configured model id, falling back to the raw id. */
 function modelLabel(modelId: string, definition: IProviderDefinition | undefined): string {
   const catalog = definition?.modelCatalog;
-  const entries = catalog !== undefined && catalog.status !== 'unavailable' ? (catalog.entries ?? []) : [];
+  const entries =
+    catalog !== undefined && catalog.status !== 'unavailable' ? (catalog.entries ?? []) : [];
   return entries.find((entry) => entry.id === modelId)?.displayName ?? modelId;
 }
 
@@ -47,6 +58,8 @@ function connectionState(
   definition: IProviderDefinition | undefined,
   environment: Readonly<Record<string, string | undefined>> | undefined,
 ): string | undefined {
+  // A stored reference is resolved by the host, not diagnosed as an absent manually entered key.
+  if (profile.apiKeyRef !== undefined) return undefined;
   const requirement = getProviderCredentialRequirement(definition);
   if (requirement === undefined) return undefined;
   const resolve = environment === undefined ? undefined : (name: string) => environment[name];
@@ -78,7 +91,9 @@ export function buildProviderProfilesSnapshot(
     const profile = all[name];
     if (profile === undefined) continue;
     const definition =
-      typeof profile.type === 'string' ? findProviderDefinition(providerDefinitions, profile.type) : undefined;
+      typeof profile.type === 'string'
+        ? findProviderDefinition(providerDefinitions, profile.type)
+        : undefined;
     const state = connectionState(profile, definition, environment);
     profiles.push({
       name,

@@ -70,6 +70,10 @@ export interface IAdvisorControllerOptions {
   /** The advisor configured when the session starts; absent means no Advisor tool this session. */
   readonly spec?: IAdvisorSpec;
   readonly resolveTarget: TAdvisorTargetResolver;
+  /** Optional host credential resolution; ordinary synchronous SDK callers remain unchanged. */
+  readonly resolveTargetAsync?: (spec: IAdvisorSpec) => Promise<IAdvisorTarget>;
+  /** Validate an asynchronously resolved target's settings without constructing its provider. */
+  readonly validateTarget?: (spec: IAdvisorSpec) => void;
   readonly consent: IAdvisorConsentStore;
   /** The organization's provider allowlist (profile names). */
   readonly allowedProfiles?: readonly string[];
@@ -255,7 +259,8 @@ export class AdvisorController {
       };
     }
     try {
-      this.targetFor(parsed);
+      if (this.options.resolveTargetAsync === undefined) this.targetFor(parsed);
+      else this.options.validateTarget?.(parsed);
     } catch (error) {
       return { success: false, message: error instanceof Error ? error.message : String(error) };
     }
@@ -329,7 +334,7 @@ export class AdvisorController {
     });
     let target: IAdvisorTarget;
     try {
-      target = this.targetFor(spec);
+      target = await this.targetForAsync(spec);
     } catch (error) {
       return unused(
         declined(
@@ -399,8 +404,21 @@ export class AdvisorController {
     return target;
   }
 
+  private async targetForAsync(spec: IAdvisorSpec): Promise<IAdvisorTarget> {
+    if (this.options.resolveTargetAsync === undefined) return this.targetFor(spec);
+    const key = formatAdvisorSpec(spec);
+    if (this.cachedTarget?.key === key) return this.cachedTarget.target;
+    const target = await this.options.resolveTargetAsync(spec);
+    this.cachedTarget = { key, target };
+    return target;
+  }
+
   private resolveQuietly(): IAdvisorTarget | undefined {
     if (this.spec === undefined) return undefined;
+    if (this.options.resolveTargetAsync !== undefined)
+      return this.cachedTarget?.key === formatAdvisorSpec(this.spec)
+        ? this.cachedTarget.target
+        : undefined;
     try {
       return this.targetFor(this.spec);
     } catch {

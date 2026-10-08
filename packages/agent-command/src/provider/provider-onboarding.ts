@@ -1,7 +1,7 @@
 import type { TPromptInput } from './provider-setup-flow.js';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
-export type TOnboardingPath = 'has-key' | 'free-key' | 'local';
+export type TOnboardingPath = 'has-key' | 'free-key' | 'local' | 'connect';
 
 export interface IOnboardingResult {
   path: TOnboardingPath;
@@ -44,9 +44,18 @@ const LOCAL_MODEL_GUIDE = `
 export async function runOnboardingBranch(
   promptInput: TPromptInput,
   terminal: ITerminalOutput,
+  offerOpenRouter = false,
 ): Promise<IOnboardingResult> {
-  const raw = await promptInput(ONBOARDING_PROMPT);
+  const prompt = offerOpenRouter
+    ? ONBOARDING_PROMPT.replace(
+        '  Choose [1-3]',
+        '    4. Connect with OpenRouter (Browser or API key)\n\n  Choose [1-4]',
+      )
+    : ONBOARDING_PROMPT;
+  const raw = await promptInput(prompt);
   const choice = raw.trim() || '1';
+
+  if (offerOpenRouter && choice === '4') return { path: 'connect', preselectedType: 'openrouter' };
 
   if (choice === '2') {
     terminal.writeLine(GEMINI_GUIDE);

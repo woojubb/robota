@@ -227,7 +227,8 @@ const ENV_REFERENCE_PREFIX = '$ENV:';
 function projectCredential(
   provider: IProviderDefinitionConfig,
   defaultApiKey: string | undefined,
-): Pick<ISerializableProviderProfile, 'apiKey' | 'apiKeyEnv'> {
+): Pick<ISerializableProviderProfile, 'apiKey' | 'apiKeyEnv' | 'apiKeyRef'> {
+  if (provider.apiKeyRef !== undefined) return { apiKeyRef: provider.apiKeyRef };
   if (provider.apiKeyEnv !== undefined) return { apiKeyEnv: provider.apiKeyEnv };
   if (provider.apiKey !== undefined) return { apiKey: provider.apiKey };
   if (defaultApiKey === undefined) return {};

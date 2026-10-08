@@ -258,6 +258,9 @@ export async function initializeInteractiveSessionAsync(
       ? { userSettingsSources: options.userSettingsSources }
       : {}),
     ...(options.environment !== undefined ? { environment: options.environment } : {}),
+    ...(options.resolveProviderCredential !== undefined
+      ? { resolveProviderCredential: options.resolveProviderCredential }
+      : {}),
     config,
     hookSources,
     contributionSources: options.contributionSources,

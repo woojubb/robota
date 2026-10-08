@@ -162,8 +162,10 @@ that default for the edited fixed loop.
 `allowedProviders` is rejected before any settings write; a completed provider setup whose API key is
 a plaintext value (not an `$ENV:` reference) is rejected when `requireApiKeyFromEnv` is set, before
 the setup patch is built; and a configured `adminContact` is appended to every violation message.
-`orgPolicy` is accepted at the `provider` command module level only — it is not a
-`createDefaultCommandModules` option. Provider startup reads and writes only settings sources and
+Service connections delegate credential acquisition and resolution to the host; profile settings
+hold only its opaque reference, and cancellation or failure before completed setup preserves the
+previous profile. Ordinary editing preserves the credential; replacement requires an explicit
+user connection action. Provider startup reads and writes only settings sources and
 stores supplied by its host; it cannot select a user home or product settings path when those inputs
 are absent.
 
