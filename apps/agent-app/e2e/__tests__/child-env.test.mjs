@@ -1,7 +1,27 @@
 import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { embeddedProductIdentity, resolveProductConfig } from '../../../../packages/product-config/src/index.ts';
+import { productEnvironment as syntheticEnvironment } from '../../../../packages/product-config/src/__tests__/product-environment.ts';
 
 import { buildBundledRuntimeChildEnv } from '../child-env.mjs';
 import { buildProductTestEnvironment } from '../product-fixture.mjs';
+import { buildRemoteDesktopProductFixture } from '../remote-runtime-e2e.mjs';
+
+it('uses the embedded app identity for remote desktop fixture startup', () => {
+  const root = mkdtempSync(join(tmpdir(), 'remote-product-fixture-'));
+  try {
+    const identity = embeddedProductIdentity(resolveProductConfig({ environment: syntheticEnvironment('cedar') }));
+    writeFileSync(join(root, 'product-identity.json'), JSON.stringify(identity));
+    const selected = buildRemoteDesktopProductFixture(root, join(root, 'state'));
+    expect(selected.environment.PRODUCT_ID).toBe('cedar');
+    expect(selected.environment.PRODUCT_CLI_NAME).toBe('cedar');
+    expect(selected.environment.PRODUCT_APP_ID).toBe('org.example.cedar');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 /**
  * GUI-003 / #3356 — the bundled-runtime e2e failed on Windows only: the packaged runtime's

@@ -21,6 +21,7 @@ export interface IGuardableChannel {
 
 let liveChannel: IGuardableChannel | null = null;
 let guardsInstalled = false;
+let guardDiagnosticName = 'robota';
 
 /** bin.ts consults this so its own uncaughtException fallback keeps fail-fast semantics
  * whenever the TUI guards are NOT active (headless/print mode). */
@@ -74,14 +75,15 @@ function routeProcessError(error: Error, source: string): void {
     // allow-fallback: this guard IS the last-resort boundary — if rendering into the session itself fails, stderr below is the only remaining surface (ERR-001 G1)
     /* fall through to stderr */
   }
-  process.stderr.write(`\n[robota] ${source}: ${error.message}\n`);
+  process.stderr.write(`\n[${guardDiagnosticName}] ${source}: ${error.message}\n`);
 }
 
 /**
  * Install the interactive-mode guards. Idempotent. Never masks errors silently — every
  * routed error is visible in the transcript (styled block) and the session log.
  */
-export function installTuiProcessGuards(): void {
+export function installTuiProcessGuards(cliName = 'robota'): void {
+  guardDiagnosticName = cliName;
   if (guardsInstalled) return;
   guardsInstalled = true;
 

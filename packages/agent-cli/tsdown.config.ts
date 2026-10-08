@@ -1,8 +1,15 @@
 import { defineConfig } from 'tsdown';
+import { existsSync, readFileSync } from 'node:fs';
 
 import manifest from './package.json' with { type: 'json' };
 
-const define = { __AGENT_VERSION__: JSON.stringify(manifest.version) };
+const metadataPath = new URL('../../.product/artifact-metadata.json', import.meta.url);
+const metadata = existsSync(metadataPath) ? JSON.parse(readFileSync(metadataPath, 'utf8')) as { sourceVersion: string; buildMetadata: string | null } : undefined;
+const define = {
+  __AGENT_VERSION__: JSON.stringify(manifest.version),
+  __AGENT_SOURCE_VERSION__: JSON.stringify(metadata?.sourceVersion ?? manifest.version),
+  __AGENT_BUILD_METADATA__: JSON.stringify(metadata?.buildMetadata ?? null),
+};
 
 export default defineConfig([
   {

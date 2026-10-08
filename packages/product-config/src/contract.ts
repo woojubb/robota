@@ -181,6 +181,13 @@ export const PRODUCT_CONFIG_DESCRIPTORS = Object.freeze({
     editorTemporaryDirectoryPrefix: setting('PRODUCT_EDITOR_TEMP_PREFIX', 'Temporary editor directory prefix selected by the host.', 'namespace', namespace, hostIdentity),
   }),
   build: Object.freeze({
+    cliPackageBin: optional(
+      'PRODUCT_CLI_PACKAGE_BIN',
+      'Generated CLI package executable name, or none when a host launcher owns the product command.',
+      'executable name or none',
+      (value: string): string => value === 'none' ? value : command(value),
+      { ...hostOperation, consumers: ['build'] },
+    ),
     defaultUserRoot: optional(
       'PRODUCT_DEFAULT_USER_STATE_DIR',
       'Non-secret artifact default relative to the invocation home.',
@@ -255,6 +262,17 @@ export const PRODUCT_CONFIG_DESCRIPTORS = Object.freeze({
   }),
   release: Object.freeze({
     artifactPrefix: optional('PRODUCT_ARTIFACT_PREFIX', 'Generated installation and release filename prefix.', 'namespace', namespace, { ...hostIdentity, consumers: ['build', 'release'] }),
+    productVersion: optional('PRODUCT_VERSION', 'Version embedded in generated CLI and desktop artifacts.', 'semantic version', (value: string): string => {
+      const match = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/u.exec(value);
+      const identifiers = (part: string | undefined): string[] => part === undefined ? [] : part.split('.');
+      const prerelease = identifiers(match?.[4]);
+      const build = identifiers(match?.[5]);
+      if (!match || [...prerelease, ...build].some((part) => !/^[0-9A-Za-z-]+$/u.test(part)) ||
+        prerelease.some((part) => /^[0-9]+$/u.test(part) && part.length > 1 && part.startsWith('0')))
+        throw new Error('expected a semantic version');
+      return value;
+    }, releaseOperation),
+    buildMetadata: optional('PRODUCT_BUILD_METADATA', 'Non-secret build provenance label embedded in artifact diagnostics.', 'namespace', namespace, releaseOperation),
     version: optional('PROJECT_RELEASE_VERSION', 'Optional pinned installation version or full release tag.', 'version or tag', text, releaseOperation),
     tagPrefix: optional('PROJECT_RELEASE_TAG_PREFIX', 'Release tag prefix used in tags and workflow patterns.', 'letters, numbers, dots, underscores or hyphens', namespace, releaseOperation),
     channel: optional('PROJECT_RELEASE_CHANNEL', 'Release and update channel.', 'namespace', namespace, releaseOperation),

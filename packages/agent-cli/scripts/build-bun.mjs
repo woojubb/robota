@@ -53,14 +53,27 @@ export function bunTargetForHost(platform = process.platform, arch = process.arc
 
 const ARTIFACT_PREFIX = '__PRODUCT_ARTIFACT_PREFIX__';
 
-async function compileTarget(entry, outputRoot, version, key, kind) {
-  const name = `${kind === 'headless' ? `${ARTIFACT_PREFIX}-headless` : ARTIFACT_PREFIX}-${key}${key.startsWith('windows') ? '.exe' : ''}`;
+export function nativeBuildSelection(packageRoot, kind, options = {}) {
+  const defaultEntry = join(packageRoot, 'dist', 'node', kind === 'headless' ? 'headless.js' : 'bin.js');
+  const entry = options.entry ? resolve(options.entry) : defaultEntry;
+  if (!existsSync(entry)) throw new Error(`${entry} is missing; build the selected entry first.`);
+  const artifactName = options.artifactName ?? (ARTIFACT_PREFIX.startsWith('__') ? 'robota' : ARTIFACT_PREFIX);
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(artifactName)) throw new Error('Artifact name must be an executable basename.');
+  return { entry, artifactName };
+}
+
+async function compileTarget(entry, outputRoot, version, key, kind, artifactName, metadata) {
+  const name = `${kind === 'headless' ? `${artifactName}-headless` : artifactName}-${key}${key.startsWith('windows') ? '.exe' : ''}`;
   const outfile = join(outputRoot, name);
   const result = await Bun.build({
     entrypoints: [entry],
     target: 'bun',
     compile: { target: TARGETS[key], outfile },
-    define: { __AGENT_VERSION__: JSON.stringify(version) },
+    define: {
+      __AGENT_VERSION__: JSON.stringify(version),
+      __AGENT_SOURCE_VERSION__: JSON.stringify(metadata?.sourceVersion ?? version),
+      __AGENT_BUILD_METADATA__: JSON.stringify(metadata?.buildMetadata ?? null),
+    },
     plugins: [
       ...(kind === 'full' ? [stubReactDevtools] : []),
       createKoffiBunPlugin(
@@ -78,7 +91,7 @@ async function compileTarget(entry, outputRoot, version, key, kind) {
 /** Output directory for each binary kind, next to the package's dist/. */
 export const BUN_OUTPUT = { full: 'dist-bun', headless: 'dist-bun-headless' };
 
-export async function buildBunBinaries(packageRoot, keys, kind = 'full') {
+export async function buildBunBinaries(packageRoot, keys, kind = 'full', options = {}) {
   if (kind !== 'full' && kind !== 'headless') throw new Error(`Unknown Bun artifact kind: ${kind}`);
   if (
     !keys.length ||
@@ -90,31 +103,43 @@ export async function buildBunBinaries(packageRoot, keys, kind = 'full') {
   if (keys.length !== 1 || keys[0] !== bunTargetForHost()) {
     throw new Error(`Bun packaging requires the matching native host ${bunTargetForHost()}.`);
   }
-  if (ARTIFACT_PREFIX.startsWith('__')) {
-    throw new Error('Generate a product workspace before building standalone binaries.');
-  }
   await import('./qualify-koffi-gc.mjs');
   const manifest = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8'));
-  const entry = join(packageRoot, 'dist', 'node', kind === 'headless' ? 'headless.js' : 'bin.js');
-  if (!existsSync(entry)) throw new Error(`${entry} is missing; run the package build first.`);
+  const metadataPath = join(packageRoot, '..', '..', '.product', 'artifact-metadata.json');
+  const metadata = existsSync(metadataPath) ? JSON.parse(readFileSync(metadataPath, 'utf8')) : undefined;
+  const { entry, artifactName } = nativeBuildSelection(packageRoot, kind, options);
   const outputRoot = join(packageRoot, BUN_OUTPUT[kind]);
   rmSync(outputRoot, { recursive: true, force: true });
   mkdirSync(outputRoot, { recursive: true });
   const binaries = [];
   for (const key of keys)
-    binaries.push(await compileTarget(entry, outputRoot, manifest.version, key, kind));
+    binaries.push(await compileTarget(entry, outputRoot, manifest.version, key, kind, artifactName, metadata));
   return binaries;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const kind = process.argv[2] === 'headless' ? 'headless' : 'full';
-  const argument = process.argv[kind === 'headless' ? 3 : 2];
-  const keys = argument === 'all' ? Object.keys(TARGETS) : [argument ?? bunTargetForHost()];
   try {
+    const argv = process.argv.slice(2);
+    const kind = argv[0] === 'headless' ? 'headless' : 'full';
+    if (kind === 'headless') argv.shift();
+    const options = {};
+    let argument;
+    for (let index = 0; index < argv.length; index += 1) {
+      const token = argv[index];
+      if (token === '--entry' || token === '--artifact-name') {
+        const key = token === '--entry' ? 'entry' : 'artifactName';
+        const value = argv[++index];
+        if (!value || value.startsWith('--')) throw new Error(`${token} requires a value.`);
+        options[key] = value;
+      } else if (!token.startsWith('--') && argument === undefined) argument = token;
+      else throw new Error(`Unexpected Bun build argument: ${token}`);
+    }
+    const keys = argument === 'all' ? Object.keys(TARGETS) : [argument ?? bunTargetForHost()];
     const binaries = await buildBunBinaries(
       join(dirname(fileURLToPath(import.meta.url)), '..'),
       keys,
       kind,
+      options,
     );
     process.stdout.write(`Bun binaries: ${binaries.join(', ')}\n`);
   } catch (error) {

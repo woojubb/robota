@@ -12,6 +12,25 @@ import {
 import { productEnvironment } from './__tests__/product-environment.js';
 
 describe('explicit product configuration', () => {
+  it('validates build-only package command and artifact version independently of identity', () => {
+    const defaults = productEnvironment();
+    const selected = resolveProductConfig({ environment: {
+      ...defaults,
+      PRODUCT_CLI_PACKAGE_BIN: 'none',
+      PRODUCT_VERSION: '4.2.1-beta.3',
+      PRODUCT_BUILD_METADATA: 'fixture-build',
+    } });
+    expect(selected.build.cliPackageBin).toBe('none');
+    expect(selected.release.productVersion).toBe('4.2.1-beta.3');
+    expect(selected.release.buildMetadata).toBe('fixture-build');
+    expect(embeddedProductIdentity(selected)).toEqual(embeddedProductIdentity(resolveProductConfig({ environment: defaults })));
+    expect(() => resolveProductConfig({ environment: { ...defaults, PRODUCT_VERSION: 'invalid' } })).toThrow('PRODUCT_VERSION');
+    for (const invalid of ['01.2.3', '1.2.3-.', '1.2.3-beta..1', '1.2.3-01', '1.2.3+build..1']) {
+      expect(() => resolveProductConfig({ environment: { ...defaults, PRODUCT_VERSION: invalid } })).toThrow('PRODUCT_VERSION');
+    }
+    expect(resolveProductConfig({ environment: { ...defaults, PRODUCT_VERSION: '1.2.3-beta.1+build.01' } }).release.productVersion).toBe('1.2.3-beta.1+build.01');
+    expect(() => resolveProductConfig({ environment: { ...defaults, PRODUCT_CLI_PACKAGE_BIN: '../other' } })).toThrow('PRODUCT_CLI_PACKAGE_BIN');
+  });
   it('keeps A/B/A and concurrent calls independent without mutating input', async () => {
     const a = productEnvironment();
     const b = productEnvironment('maple');
