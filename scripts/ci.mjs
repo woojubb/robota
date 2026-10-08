@@ -258,7 +258,15 @@ async function main() {
     run('deps:check');
     if (plan.docs) run('--filter', './apps/docs', 'build');
   } else if (kind === 'tests') {
-    run('-r', ...filters(plan.checks), '--workspace-concurrency=1', '--if-present', 'run', 'test');
+    run(
+      '-r',
+      ...filters(plan.checks),
+      '--no-sort',
+      '--workspace-concurrency=2',
+      '--if-present',
+      'run',
+      'test',
+    );
     run('test:scripts');
   } else throw new Error(`Unknown CI job: ${kind}`);
 }
