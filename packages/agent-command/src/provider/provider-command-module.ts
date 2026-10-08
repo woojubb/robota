@@ -15,6 +15,11 @@ function buildProviderSubcommands(): ICommand[] {
     { name: 'list', description: 'List provider profiles', source: 'provider' },
     { name: 'switch', description: 'Hot-swap to another provider profile', source: 'provider' },
     { name: 'add', description: 'Configure a provider profile', source: 'provider' },
+    {
+      name: 'edit',
+      description: 'Edit a profile, including optional server credentials',
+      source: 'provider',
+    },
     { name: 'test', description: 'Test provider profile', source: 'provider' },
   ];
 }
@@ -23,11 +28,13 @@ export function createProviderCommandEntry(): ICommand {
   return {
     name: 'provider',
     displayName: 'Provider Setup',
-    description: 'Manage provider profiles',
+    description:
+      'Show, configure or switch provider profiles. Suggest editing a profile when its URL, model or credentials need correction; returns profile details or the result of the change.',
     source: 'provider',
     // User-only: provider profiles hold account credentials; a credential action.
     modelInvocable: false,
-    argumentHint: 'current | list | switch <profile> | add [type] | test [profile]',
+    argumentHint:
+      'current | list | switch <profile> | add [type] | edit <profile> | test [profile]',
     subcommands: buildProviderSubcommands(),
     example: '/provider switch production',
   };

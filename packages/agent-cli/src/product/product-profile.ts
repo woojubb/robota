@@ -98,7 +98,7 @@ export function createSelectedProductProfile(input: IProductProfileInput): IProd
     observerFailureWarningCode: `${input.productRuntime.config.identity.envPrefix}BACKGROUND_OBSERVER_FAILURE`,
     providerErrorGuidance: {
       authentication:
-        `Run /provider to reconfigure, or check ${input.productRuntime.layout.userPaths.settings}.`,
+        `Run /provider edit <profile> to add or correct its API key. Use /provider to find the profile, or check ${input.productRuntime.layout.userPaths.settings}.`,
       forbidden: 'Run `/provider` to switch accounts.',
       rateLimit: 'Consider switching to a different model with `/provider`.',
       network: `Verify your provider URL in ${input.productRuntime.layout.userPaths.settings}.`,

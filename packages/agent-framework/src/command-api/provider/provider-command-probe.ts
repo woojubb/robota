@@ -1,4 +1,8 @@
-import { findProviderDefinition } from '@robota-sdk/agent-core';
+import {
+  findProviderDefinition,
+  isEnvReference,
+  resolveEnvReference,
+} from '@robota-sdk/agent-core';
 
 import { validateProviderProfile, type IProviderProfileSettings } from './provider-settings.js';
 
@@ -26,17 +30,28 @@ export async function testProviderProfileCommand(
       ...(options.env === undefined ? {} : { env: options.env }),
     });
   } catch (error) {
-    return { message: error instanceof Error ? error.message : String(error), success: false };
+    const referenceHint =
+      profile.apiKey !== undefined && isEnvReference(profile.apiKey)
+        ? ` Check ${profile.apiKey} in the host environment.`
+        : '';
+    return {
+      message: `${error instanceof Error ? error.message : String(error)}.${referenceHint} Run /provider edit ${profileName} to correct the profile.`,
+      success: false,
+    };
   }
   const definition = profile.type
     ? findProviderDefinition(options.providerDefinitions, profile.type)
     : undefined;
   const probe = definition?.probeProfile ?? probeProviderProfile;
-  const result = await probe(profile);
+  const apiKey =
+    profile.apiKey === undefined
+      ? undefined
+      : resolveEnvReference(profile.apiKey, (name) => (options.env ?? process.env)[name]);
+  const result = await probe({ ...profile, ...(apiKey === undefined ? {} : { apiKey }) });
   return {
     message: result.ok
       ? `Provider "${profileName}" test passed: ${result.message}`
-      : `Provider "${profileName}" test failed: ${result.message}; manual configuration can continue.`,
+      : `Provider "${profileName}" test failed: ${result.message}; manual configuration can continue. Run /provider edit ${profileName} to check the URL, model and API key.`,
     success: true,
     data: { providerTest: { profile: profileName } },
   };

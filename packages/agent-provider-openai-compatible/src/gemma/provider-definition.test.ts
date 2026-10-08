@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import OpenAI from 'openai';
 import { createGemmaProviderDefinition, GemmaProvider } from './index';
 
 vi.mock('openai', () => {
@@ -39,5 +40,57 @@ describe('createGemmaProviderDefinition', () => {
     });
 
     expect(provider).toBeInstanceOf(GemmaProvider);
+  });
+
+  it('keeps the SDK placeholder out of local setup and saved profile defaults', () => {
+    const definition = createGemmaProviderDefinition();
+
+    expect(definition.requiresApiKey).toBe(false);
+    expect(definition.defaults?.apiKey).toBeUndefined();
+    expect(definition.setupSteps?.find((step) => step.key === 'apiKey')).toMatchObject({
+      masked: true,
+      editOnly: true,
+    });
+    expect(
+      definition.setupSteps?.find((step) => step.key === 'apiKey')?.defaultValue,
+    ).toBeUndefined();
+  });
+
+  it('creates a keyless local provider using an internal SDK placeholder', () => {
+    const provider = createGemmaProviderDefinition().createProvider({
+      name: 'gemma',
+      model: 'fixture-model',
+      baseURL: 'http://localhost:1234/v1',
+    });
+
+    expect(provider).toBeInstanceOf(GemmaProvider);
+    expect(OpenAI).toHaveBeenLastCalledWith({
+      apiKey: 'lm-studio',
+      baseURL: 'http://localhost:1234/v1',
+    });
+  });
+
+  it('preserves a supplied local-server token instead of replacing it with the placeholder', () => {
+    createGemmaProviderDefinition().createProvider({
+      name: 'gemma',
+      model: 'fixture-model',
+      apiKey: 'synthetic-server-token',
+      baseURL: 'http://localhost:1234/v1',
+    });
+
+    expect(OpenAI).toHaveBeenLastCalledWith({
+      apiKey: 'synthetic-server-token',
+      baseURL: 'http://localhost:1234/v1',
+    });
+  });
+
+  it('rejects a missing explicitly configured environment credential', () => {
+    expect(() =>
+      createGemmaProviderDefinition().createProvider({
+        name: 'gemma',
+        model: 'fixture-model',
+        apiKeyEnv: 'SYNTHETIC_LOCAL_SERVER_TOKEN',
+      }),
+    ).toThrow('Environment variable SYNTHETIC_LOCAL_SERVER_TOKEN is not set');
   });
 });
