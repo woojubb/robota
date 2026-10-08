@@ -3,7 +3,7 @@
  */
 import { z } from 'zod';
 
-import type { THooksConfig } from '@robota-sdk/agent-core';
+import type { THooksConfig, TProviderCredentialReference } from '@robota-sdk/agent-core';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 const UniversalValueSchema: z.ZodType<TUniversalValue> = z.lazy(() =>
@@ -19,10 +19,15 @@ const UniversalValueSchema: z.ZodType<TUniversalValue> = z.lazy(() =>
   ]),
 );
 
+const CredentialReferenceSchema = z
+  .object({ service: z.string().min(1), account: z.string().min(1) })
+  .strict();
+
 const ProviderSchema = z.object({
   name: z.string().optional(),
   model: z.string().optional(),
   apiKey: z.string().optional(),
+  apiKeyRef: CredentialReferenceSchema.optional(),
   baseURL: z.string().optional(),
   timeout: z.number().optional(),
   options: z.record(UniversalValueSchema).optional(),
@@ -32,6 +37,7 @@ const ProviderProfileSchema = z.object({
   type: z.string().optional(),
   model: z.string().optional(),
   apiKey: z.string().optional(),
+  apiKeyRef: CredentialReferenceSchema.optional(),
   baseURL: z.string().optional(),
   timeout: z.number().optional(),
   options: z.record(UniversalValueSchema).optional(),
@@ -260,6 +266,7 @@ export interface IResolvedConfig {
      * the reference and leave the resolved secret behind.
      */
     apiKeyEnv?: string;
+    apiKeyRef?: TProviderCredentialReference;
     baseURL?: string;
     timeout?: number;
     options?: Record<string, TUniversalValue>;

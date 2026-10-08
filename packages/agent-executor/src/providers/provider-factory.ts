@@ -33,6 +33,9 @@ export function resolveProfileApiKey(
   profile: ISerializableProviderProfile,
   resolve: TEnvResolver = processEnvResolver,
 ): string | undefined {
+  if (profile.apiKeyRef !== undefined) {
+    throw new Error(`Provider ${profile.type} requires resolution by its credential-owning host`);
+  }
   if (profile.apiKey !== undefined) {
     return resolveEnvReference(profile.apiKey, resolve);
   }

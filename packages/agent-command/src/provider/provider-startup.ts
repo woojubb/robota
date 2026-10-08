@@ -9,6 +9,12 @@ import {
 } from '@robota-sdk/agent-framework';
 
 import { runOnboardingBranch } from './provider-onboarding.js';
+import { createProviderSetupFlow } from './provider-setup-flow.js';
+import {
+  hasProviderConnectionMethods,
+  runProviderConnectionSetup,
+} from './provider-connection-setup.js';
+import { createProviderPromptInteraction } from './provider-prompt-interaction.js';
 import {
   formatProviderSetupSelectionPrompt,
   resolveProviderSetupSelection,
@@ -16,12 +22,15 @@ import {
   type TPromptInput,
 } from './provider-setup-flow.js';
 
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { IProviderDefinition, IUserInteraction } from '@robota-sdk/agent-core';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 import type {
   ISettingsDocumentStore,
   TSettingsScope,
   TSettingsSource,
+  IProviderConnectionHost,
+  IOrgPolicy,
+  TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
 
 export interface IProviderStartupContext {
@@ -31,6 +40,9 @@ export interface IProviderStartupContext {
   settingsStores: readonly ISettingsDocumentStore[];
   /** Selected host snapshot for configure-time credential reference checks. */
   env?: Record<string, string | undefined>;
+  connectionHost?: IProviderConnectionHost;
+  orgPolicy?: IOrgPolicy;
+  interaction?: IUserInteraction;
 }
 
 export interface IEnsureProviderConfigOptions {
@@ -47,7 +59,11 @@ export async function runProviderStartupSetup(
   terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[],
 ): Promise<void> {
-  const onboarding = await runOnboardingBranch(promptInput, terminal);
+  const onboarding = await runOnboardingBranch(
+    promptInput,
+    terminal,
+    providerDefinitions.some((definition) => definition.type === 'openrouter'),
+  );
   const access = resolveSettingsAccess(ctx);
   const existingProfileNames = Object.keys(
     readMergedProviderSettings(access.sources).providers ?? {},
@@ -64,10 +80,45 @@ export async function runProviderStartupSetup(
     type = resolveProviderSetupSelection(providerChoice, providerDefinitions);
   }
 
-  const input = await runProviderSetupPromptFlow(type, promptInput, providerDefinitions, {
-    existingProfileNames,
-  });
-  applyProviderConfiguration(settingsStore, input, { providerDefinitions, env: ctx.env });
+  const setupOptions = {
+    providerDefinitions,
+    env: ctx.env,
+    connectionHost: ctx.connectionHost,
+    orgPolicy: ctx.orgPolicy,
+    settings: {
+      readMergedSettings: () => readMergedProviderSettings(access.sources),
+      readTargetSettings: () => settingsStore.read() as TProviderSettingsDocument,
+      writeTargetSettings: (settings: TProviderSettingsDocument) => settingsStore.write(settings),
+    },
+  };
+  if (hasProviderConnectionMethods(type, setupOptions)) {
+    const definitions =
+      ctx.interaction === undefined
+        ? providerDefinitions.map((definition) => ({
+            ...definition,
+            connectionMethods: definition.connectionMethods?.filter(
+              (method) => method !== 'browser',
+            ),
+          }))
+        : providerDefinitions;
+    if (ctx.interaction === undefined)
+      terminal.writeLine(
+        'Browser connection is unavailable here. API key setup remains available.',
+      );
+    const result = await runProviderConnectionSetup(
+      ctx.interaction ?? createProviderPromptInteraction(promptInput),
+      createProviderSetupFlow(type, definitions, { existingProfileNames }),
+      { ...setupOptions, providerDefinitions: definitions },
+      false,
+    );
+    if (!result.success) throw new ProviderConfigError(result.message);
+    if (result.hostActions === undefined) return;
+  } else {
+    const input = await runProviderSetupPromptFlow(type, promptInput, providerDefinitions, {
+      existingProfileNames,
+    });
+    applyProviderConfiguration(settingsStore, input, { providerDefinitions, env: ctx.env });
+  }
   const language = await promptInput('  Response language (ko/en/ja/zh, default: en): ');
   if (language) {
     const settings = settingsStore.read();
@@ -89,7 +140,9 @@ export async function ensureProviderConfig(
   const merged = readMergedProviderSettings(access.sources);
   const selectedSettings =
     ctx.provider !== undefined ? { ...merged, currentProvider: ctx.provider } : merged;
-  if (checkSettingsDocument(selectedSettings, providerDefinitions, ctx.env ?? options.env) === 'valid') {
+  if (
+    checkSettingsDocument(selectedSettings, providerDefinitions, ctx.env ?? options.env) === 'valid'
+  ) {
     return;
   }
   // Zero-config startup: a recognized provider env key with complete definition defaults
@@ -114,7 +167,9 @@ export async function ensureProviderConfig(
   const updated = readMergedProviderSettings(access.sources);
   const updatedSettings =
     ctx.provider !== undefined ? { ...updated, currentProvider: ctx.provider } : updated;
-  if (checkSettingsDocument(updatedSettings, providerDefinitions, ctx.env ?? options.env) !== 'valid') {
+  if (
+    checkSettingsDocument(updatedSettings, providerDefinitions, ctx.env ?? options.env) !== 'valid'
+  ) {
     throw new ProviderConfigError(options.formatError(providerDefinitions));
   }
 }

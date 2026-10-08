@@ -39,6 +39,7 @@ import type { ITuiInteractionChannelOptions } from './TuiInteractionChannel.js';
 import type { ITuiClientCommands } from './wire-tui-client-commands.js';
 import type {
   IAIProvider,
+  TProviderCredentialResolver,
   IToolWithEventService,
   IProviderDefinition,
 } from '@robota-sdk/agent-core';
@@ -102,6 +103,7 @@ export interface IRenderOptions {
   skillRoots?: readonly ISkillRootDescriptor[];
   userSettingsSources?: readonly INodeHostSettingsSource[];
   environment?: Readonly<Record<string, string | undefined>>;
+  resolveProviderCredential?: TProviderCredentialResolver;
   /**
    * CLI-083 (issue #2287) — the org policy, forwarded to the session so `blockedCommands` is
    * enforced on the direct CLI path as well as under `--serve`.
@@ -308,6 +310,9 @@ export function toChannelOptions(
       ? { userSettingsSources: options.userSettingsSources }
       : {}),
     ...(options.environment !== undefined ? { environment: options.environment } : {}),
+    ...(options.resolveProviderCredential !== undefined
+      ? { resolveProviderCredential: options.resolveProviderCredential }
+      : {}),
     ...(options.orgPolicy !== undefined ? { orgPolicy: options.orgPolicy } : {}),
     ...(options.externalEventVerifierFactory !== undefined
       ? { externalEventVerifierFactory: options.externalEventVerifierFactory }

@@ -11,7 +11,11 @@ import {
   buildProviderDuplicate,
   buildProviderProfileDelete,
 } from './provider-command-profile-lifecycle.js';
-import { buildProviderEdit, buildProviderSwitch } from './provider-command-profile-operations.js';
+import {
+  buildProviderEdit,
+  buildProviderReconnect,
+  buildProviderSwitch,
+} from './provider-command-profile-operations.js';
 import { askProviderProfileSelection } from './provider-command-profile.js';
 import { createSetupFlow, runProviderAddSetup } from './provider-command-setup.js';
 import { formatProviderSetupChoiceLabel } from './provider-setup-flow.js';
@@ -72,8 +76,15 @@ export async function executeProviderCommand(
     if (!profileArg) return { message: 'Usage: provider edit <profile>', success: false };
     return buildProviderEdit(ui, profileArg, options);
   }
+  if (subcommand === 'reconnect') {
+    if (!ui)
+      return { message: 'Provider reconnect requires an interactive session.', success: false };
+    if (!profileArg) return { message: 'Usage: /provider reconnect <profile>', success: false };
+    return buildProviderReconnect(ui, profileArg, options);
+  }
   if (subcommand === 'duplicate') {
-    if (!ui) return { message: 'Provider duplicate requires an interactive session.', success: false };
+    if (!ui)
+      return { message: 'Provider duplicate requires an interactive session.', success: false };
     if (!profileArg) return { message: 'Usage: provider duplicate <profile>', success: false };
     return buildProviderDuplicate(ui, profileArg, options);
   }
@@ -87,12 +98,19 @@ export async function executeProviderCommand(
     if (!profileArg) return { message: 'Usage: provider delete <profile>', success: false };
     const preConfirmed = argTokens.includes('--confirmed');
     if (!preConfirmed && ui) {
-      const response = await ui.ask(confirmAction('provider-delete', `Delete profile "${profileArg}"?`));
+      const response = await ui.ask(
+        confirmAction('provider-delete', `Delete profile "${profileArg}"?`),
+      );
       if (!isConfirmed(response)) {
         return { message: 'Provider delete cancelled.', success: true };
       }
     }
-    return buildProviderProfileDelete(settings.providers, settings.currentProvider, profileArg, options);
+    return buildProviderProfileDelete(
+      settings.providers,
+      settings.currentProvider,
+      profileArg,
+      options,
+    );
   }
   if (subcommand === 'add') {
     return buildProviderSetup(ui, profileArg, options, isSetupRequired);
@@ -100,7 +118,7 @@ export async function executeProviderCommand(
 
   return {
     message:
-      'Usage: provider [current|list|switch <profile>|edit <profile>|duplicate <profile>|delete <profile>|add <type>|test [profile]]',
+      'Usage: provider [current|list|switch <profile>|edit <profile>|reconnect <profile>|duplicate <profile>|delete <profile>|add <type>|test [profile]]',
     success: false,
   };
 }

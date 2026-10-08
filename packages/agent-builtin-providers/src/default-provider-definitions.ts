@@ -9,6 +9,8 @@ import {
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
+import { createOpenRouterProviderDefinition } from './openrouter-definition.js';
+
 export function createDefaultProviderDefinitions(): readonly IProviderDefinition[] {
   return [
     createAnthropicProviderDefinition(),
@@ -17,5 +19,6 @@ export function createDefaultProviderDefinitions(): readonly IProviderDefinition
     createGemmaProviderDefinition(),
     createQwenProviderDefinition(),
     createDeepSeekProviderDefinition(),
+    createOpenRouterProviderDefinition(),
   ];
 }

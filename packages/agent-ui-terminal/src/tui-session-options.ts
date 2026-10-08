@@ -53,6 +53,9 @@ export function buildTuiSessionOptions(
       ? { userSettingsSources: opts.userSettingsSources }
       : {}),
     ...(opts.environment !== undefined ? { environment: opts.environment } : {}),
+    ...(opts.resolveProviderCredential !== undefined
+      ? { resolveProviderCredential: opts.resolveProviderCredential }
+      : {}),
     ...(opts.editCheckpointStore !== undefined
       ? { editCheckpointStore: opts.editCheckpointStore }
       : {}),

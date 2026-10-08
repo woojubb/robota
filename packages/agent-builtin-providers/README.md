@@ -20,7 +20,11 @@ The provider packages (`@robota-sdk/agent-provider-anthropic`, `-openai`, `-gemi
 Look up a chat provider definition by type and build the provider from it:
 
 ```typescript
-import { ConversationAgent, findProviderDefinition, resolveEnvReference } from '@robota-sdk/agent-core';
+import {
+  ConversationAgent,
+  findProviderDefinition,
+  resolveEnvReference,
+} from '@robota-sdk/agent-core';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 
 const definition = findProviderDefinition(createDefaultProviderDefinitions(), 'anthropic');
@@ -54,12 +58,17 @@ console.log(await agent.run('Hello!'));
 | `gemma`                   | `@robota-sdk/agent-provider-openai-compatible` | `lm-studio` (placeholder for a local server at `http://localhost:1234/v1`) |
 | `qwen`                    | `@robota-sdk/agent-provider-openai-compatible` | `$ENV:DASHSCOPE_API_KEY`                                                   |
 | `deepseek`                | `@robota-sdk/agent-provider-openai-compatible` | `$ENV:DEEPSEEK_API_KEY`                                                    |
+| `openrouter`              | `@robota-sdk/agent-provider-openai`            | `$ENV:OPENROUTER_API_KEY`                                                  |
 
 A definition describes a provider for setup and configuration: its `type` and `aliases`, display
 name, `defaults` (model, API-key reference, base URL), model catalog and setup steps. Its
 `createProvider(config)` builds the provider and uses the `apiKey` it is given as-is, so resolve a
 `$ENV:` reference first. `findProviderDefinition(definitions, type)` from `@robota-sdk/agent-core`
 matches a type or an alias.
+
+OpenRouter exposes browser and API-key connection methods to the host. Both build the same
+Chat Completions client at `https://openrouter.ai/api/v1`; browser authorization and credential
+storage belong to the CLI/App host, rather than this definition package.
 
 The ByteDance video provider is not in this list: it is a media provider (see below).
 

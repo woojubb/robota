@@ -1,4 +1,7 @@
-import { createTestProductEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import {
+  createTestProductEnvironment,
+  createTestProductRuntime,
+} from '../../__tests__/helpers/product-runtime.js';
 import { describe, it, expect, afterEach } from 'vitest';
 import { rmSync, readFileSync, mkdirSync, writeFileSync, mkdtempSync, realpathSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -203,7 +206,8 @@ async function projectSettingsAccess(project: string, home: string) {
     relativePath: join('.test-product', 'settings.local.json'),
     purpose: 'provider startup test',
   });
-  const composition = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: home }),
+  const composition = createCliWorkspaceComposition({
+    productRuntime: createTestProductRuntime('test-product', { HOME: home }),
     cwd: project,
     userHome: home,
     projectAccess,
@@ -489,7 +493,7 @@ describe('provider startup', () => {
         },
       });
 
-      const handled = handleProviderConfigurationArgs(
+      const handled = await handleProviderConfigurationArgs(
         project,
         { ...baseArgs(), provider: 'qwen', setCurrent: true },
         NOOP_TERMINAL,
@@ -524,16 +528,21 @@ describe('provider startup', () => {
     const project = join(TMP_BASE, 'project-selected-provider-key');
     const access = await projectSettingsAccess(project, home);
     const filePath = join(TMP_BASE, 'selected-provider.env');
-    writeFileSync(filePath, Object.entries({
-      ...createTestProductEnvironment('test-product'),
-      SELECTED_PROVIDER_KEY: 'synthetic-selected-key',
-    }).map(([key, value]) => `${key}=${value}`).join('\n'));
+    writeFileSync(
+      filePath,
+      Object.entries({
+        ...createTestProductEnvironment('test-product'),
+        SELECTED_PROVIDER_KEY: 'synthetic-selected-key',
+      })
+        .map(([key, value]) => `${key}=${value}`)
+        .join('\n'),
+    );
     const runtime = resolveCliRuntimeContext({
       environment: { HOME: home, PRODUCT_CONFIG_FILE: filePath },
     });
     delete process.env.SELECTED_PROVIDER_KEY;
 
-    const handled = handleProviderConfigurationArgs(
+    const handled = await handleProviderConfigurationArgs(
       project,
       {
         ...baseArgs(),

@@ -23,7 +23,11 @@ export function createUserInteractionPort(
   if (!handler) return undefined;
   const cancelled: TActionResponse = { type: 'cancelled' };
   return {
-    ask: (request) =>
-      getInvocationSource() === 'model' ? Promise.resolve(cancelled) : handler(request),
+    ask: (request, options) =>
+      getInvocationSource() === 'model'
+        ? Promise.resolve(cancelled)
+        : options === undefined
+          ? handler(request)
+          : handler(request, options),
   };
 }

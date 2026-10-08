@@ -37,6 +37,8 @@ export type {
   TProviderNativeRawPayloadKind,
   IAIProvider,
   IProviderDefinitionConfig,
+  TProviderCredentialReference,
+  TProviderCredentialResolver,
   IProviderCredentialRequirement,
   IProviderDefinition,
   IProviderModelCatalog,

@@ -1,4 +1,8 @@
-import type { IAgentConfig, IProviderDefinition, IToolResultAdmissionOptions } from '@robota-sdk/agent-core';
+import type {
+  IAgentConfig,
+  IProviderDefinition,
+  IToolResultAdmissionOptions,
+} from '@robota-sdk/agent-core';
 import type {
   IMCPActivationApprovalStore,
   IMCPHttpTransportDeps,
@@ -15,6 +19,7 @@ import type { IOutputStyleSource } from '@robota-sdk/agent-preset';
 import type { IProductConfig, TConfigEnvironment } from '@robota-sdk/product-config';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { THostedRuntimeExecutorFactory } from '../hosted/hosted-runtime-types.js';
+import type { IOpenRouterConnectionHost } from './openrouter-connection-host.js';
 
 /**
  * Leaf type module: holds {@link IStartCliOptions} so it can be imported by both
@@ -34,6 +39,8 @@ export interface IStartCliOptions {
   productRuntime?: ICliRuntimeContext;
   commandModules?: readonly ICommandModule[];
   providerDefinitions?: readonly IProviderDefinition[];
+  /** Host-owned credential connection port; never supplied by settings or a remote client. */
+  providerConnectionHost?: IOpenRouterConnectionHost;
   /** Initial trusted-or-restricted workspace decision. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
   /** `--safe-mode`: every customization off — see `SAFE_MODE_FLAG`. */

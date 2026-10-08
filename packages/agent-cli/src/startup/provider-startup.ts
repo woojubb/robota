@@ -12,6 +12,8 @@ import type {
   ISettingsDocumentStore,
   TSettingsScope,
   TSettingsSource,
+  IProviderConnectionHost,
+  IOrgPolicy,
 } from '@robota-sdk/agent-framework';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import { type IProviderSetupInput } from '@robota-sdk/agent-framework';
@@ -20,7 +22,7 @@ import {
   runProviderStartupSetup,
   type TPromptInput,
 } from '@robota-sdk/agent-command';
-import type { ITerminalOutput } from '@robota-sdk/agent-core';
+import type { ITerminalOutput, IUserInteraction } from '@robota-sdk/agent-core';
 import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
@@ -43,13 +45,23 @@ export interface IProviderStartupSettingsAccess {
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly settingsSources: readonly TSettingsSource[];
   readonly settingsStores: readonly ISettingsDocumentStore[];
+  readonly connectionHost?: IProviderConnectionHost;
+  readonly interaction?: IUserInteraction;
+  readonly orgPolicy?: IOrgPolicy;
 }
 
 function resolveStartupSettingsAccess(
   access: IProviderStartupSettingsAccess,
-): Required<IProviderStartupSettingsAccess> {
-  if (access.settingsSources === undefined || access.settingsStores === undefined || access.env === undefined) throw new Error('Provider startup requires host-configured settings sources, stores and environment.');
-  return { cliName: access.cliName, env: access.env, settingsSources: access.settingsSources, settingsStores: access.settingsStores };
+): IProviderStartupSettingsAccess {
+  if (
+    access.settingsSources === undefined ||
+    access.settingsStores === undefined ||
+    access.env === undefined
+  )
+    throw new Error(
+      'Provider startup requires host-configured settings sources, stores and environment.',
+    );
+  return access;
 }
 
 function selectStartupSettingsStore(
@@ -72,22 +84,55 @@ function validateSettingsScope(scope: string | undefined): TSettingsScope | unde
   throw new Error(`Invalid --settings-scope "${scope}". Valid: user | project-local`);
 }
 
-export function handleProviderConfigurationArgs(
+export async function handleProviderConfigurationArgs(
   _cwd: string,
   args: IParsedCliArgs,
   terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
   settingsAccess: IProviderStartupSettingsAccess,
-): boolean {
+): Promise<boolean> {
   const scope = validateSettingsScope(args.settingsScope);
   const access = resolveStartupSettingsAccess(settingsAccess);
   const settingsStore = selectStartupSettingsStore(access.settingsStores, scope);
   const settingsSources = access.settingsSources;
   if (args.configureProvider) {
-    applyProviderConfiguration(settingsStore, buildSetupInputFromArgs(args), {
-      providerDefinitions,
-      env: access.env,
-    });
+    const input = buildSetupInputFromArgs(args);
+    const persist = (setup: IProviderSetupInput): void => {
+      applyProviderConfiguration(settingsStore, setup, { providerDefinitions, env: access.env });
+    };
+    if (
+      input.type === 'openrouter' &&
+      input.apiKey !== undefined &&
+      !input.apiKey.startsWith('$ENV:')
+    ) {
+      if (access.orgPolicy?.requireApiKeyFromEnv === true) {
+        throw new Error(
+          'Your organization requires environment variable API key references. Use --api-key-env <ENV_NAME>.',
+        );
+      }
+      if (input.baseURL !== undefined && input.baseURL !== 'https://openrouter.ai/api/v1') {
+        throw new Error('Stored OpenRouter credentials require https://openrouter.ai/api/v1.');
+      }
+      if (access.connectionHost === undefined)
+        throw new Error('OpenRouter API key setup requires the local host credential port.');
+      const initial = readMergedProviderSettings(settingsSources);
+      const previous = JSON.stringify(initial.providers?.[input.profile]);
+      await access.connectionHost.connect(
+        { type: input.type, profile: input.profile, method: 'api-key', apiKey: input.apiKey },
+        (reference, signal) => {
+          const current = readMergedProviderSettings(settingsSources);
+          if (
+            JSON.stringify(current.providers?.[input.profile]) !== previous ||
+            current.currentProvider !== initial.currentProvider
+          ) {
+            throw new Error('Provider connection changed while setup was pending.');
+          }
+          const { apiKey: _secret, ...rest } = input;
+          signal.throwIfAborted();
+          persist({ ...rest, apiKeyRef: reference });
+        },
+      );
+    } else persist(input);
     terminal.writeLine(`Provider profile saved to ${settingsStore.displayName}`);
     return !args.printMode && args.positional.length === 0;
   }
@@ -119,6 +164,9 @@ export async function ensureConfig(
       settingsSources: access.settingsSources,
       settingsStores: access.settingsStores,
       env: access.env,
+      connectionHost: access.connectionHost,
+      interaction: access.interaction,
+      orgPolicy: access.orgPolicy,
     },
     promptInput,
     terminal,
@@ -150,6 +198,9 @@ export async function runInteractiveProviderSetup(
       settingsSources: access.settingsSources,
       settingsStores: access.settingsStores,
       env: access.env,
+      connectionHost: access.connectionHost,
+      interaction: access.interaction,
+      orgPolicy: access.orgPolicy,
     },
     promptInput,
     terminal,

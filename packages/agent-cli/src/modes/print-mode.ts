@@ -1,6 +1,10 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
-import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  IToolWithEventService,
+  TProviderCredentialResolver,
+} from '@robota-sdk/agent-core';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type {
   EditCheckpointStore,
@@ -97,6 +101,7 @@ export async function runPrintMode(
   livePromptTrace?: ILivePromptTracePort,
   /** A print run checkpoints its edits like any session, so resuming it can rewind them. */
   editCheckpointStore?: EditCheckpointStore,
+  resolveProviderCredential?: TProviderCredentialResolver,
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -134,7 +139,8 @@ export async function runPrintMode(
     cwd,
     ...(livePromptTrace ? { livePromptTrace } : {}),
     provider,
-    shellExec: (command, env) => runShellCommand(command, commandEnvironment(productRuntime.environment), env),
+    shellExec: (command, env) =>
+      runShellCommand(command, commandEnvironment(productRuntime.environment), env),
     ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),
     ...(promptFileReferenceTag !== undefined ? { promptFileReferenceTag } : {}),
     ...(modelCommandToolPrefix !== undefined ? { modelCommandToolPrefix } : {}),
@@ -142,6 +148,7 @@ export async function runPrintMode(
     ...(observerFailureWarningCode !== undefined ? { observerFailureWarningCode } : {}),
     ...(commandHookShell !== undefined ? { commandHookShell } : {}),
     ...(orgPolicy !== undefined ? { orgPolicy } : {}),
+    ...(resolveProviderCredential === undefined ? {} : { resolveProviderCredential }),
     ...(projectAccess !== undefined ? { projectAccess } : {}),
     ...(projectSettingsPaths !== undefined ? { projectSettingsPaths } : {}),
     ...(userSettingsSources !== undefined ? { userSettingsSources } : {}),

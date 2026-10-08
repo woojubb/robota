@@ -5,7 +5,11 @@ import { createInProcessSubagentRunner } from '@robota-sdk/agent-framework';
 import { TRANSPORT_ENVIRONMENT } from '@robota-sdk/agent-executor';
 
 import { createProductCapabilityPacks } from '../product-profile.js';
-import { createProductSubagentComposition, createProductSubagentRunnerFactory, productChildProviderEnvironment } from '../subagent-composition.js';
+import {
+  createProductSubagentComposition,
+  createProductSubagentRunnerFactory,
+  productChildProviderEnvironment,
+} from '../subagent-composition.js';
 import {
   nonReproducibleProviderComposition,
   selectProductSubagentRunner,
@@ -53,10 +57,16 @@ describe('ARCH-109 — the provider dimension of "can the child reproduce this?"
     // `Unknown provider`". The product's worker entry pinned it to the default set, so the seam was
     // present and unused. Asserting identity, not a name match: a name match passes for the default
     // set too, and so would not fail on the defect this names.
-    const composition = createProductSubagentComposition(createTestProductRuntime(), (context) => createProductCapabilityPacks(context, createTestProductRuntime()), CALLER_DEFINITIONS);
+    const composition = createProductSubagentComposition(
+      createTestProductRuntime(),
+      (context) => createProductCapabilityPacks(context, createTestProductRuntime()),
+      CALLER_DEFINITIONS,
+    );
 
     expect(composition.providerDefinitions).toBe(CALLER_DEFINITIONS);
-    expect(createProductSubagentComposition(createTestProductRuntime()).providerDefinitions).not.toBe(CALLER_DEFINITIONS);
+    expect(
+      createProductSubagentComposition(createTestProductRuntime()).providerDefinitions,
+    ).not.toBe(CALLER_DEFINITIONS);
   });
 });
 
@@ -137,8 +147,15 @@ describe('ARCH-109 — a composition a child cannot rebuild keeps its subagents 
   it('keeps a literal credential in-process without constructing a child runner', () => {
     let built = 0;
     const runner = selectProductSubagentRunner({
-      reproduction: { callerSuppliedDefinitions: false, replayProvider: false, literalCredential: true },
-      buildChildProcess: () => { built += 1; throw new Error('child runner must not be constructed'); },
+      reproduction: {
+        callerSuppliedDefinitions: false,
+        replayProvider: false,
+        literalCredential: true,
+      },
+      buildChildProcess: () => {
+        built += 1;
+        throw new Error('child runner must not be constructed');
+      },
       notice: () => {},
     });
     expect(runner).toBe(createInProcessSubagentRunner);
@@ -153,22 +170,35 @@ describe('ARCH-109 — a composition a child cannot rebuild keeps its subagents 
     const base = {
       productRuntime: runtime,
       packContext: { cwd: '/tmp/synthetic-workspace' },
-      providerDefinitions: [{ type: 'openai', createProvider: () => ({}) } as unknown as IProviderDefinition],
+      providerDefinitions: [
+        { type: 'openai', createProvider: () => ({}) } as unknown as IProviderDefinition,
+      ],
       reproduction: { callerSuppliedDefinitions: false, replayProvider: false },
       notice: () => {},
     };
-    expect(createProductSubagentRunnerFactory({
-      ...base,
-      providerConfig: { name: 'openai', model: 'fixture-model', apiKey: 'synthetic-literal-key' },
-    })).toBe(createInProcessSubagentRunner);
-    expect(createProductSubagentRunnerFactory({
-      ...base,
-      providerConfig: { name: 'openai', model: 'fixture-model', apiKey: 'synthetic-ref-key', apiKeyEnv: 'SYNTHETIC_REF_KEY' },
-    })).toBe(createInProcessSubagentRunner);
+    expect(
+      createProductSubagentRunnerFactory({
+        ...base,
+        providerConfig: { name: 'openai', model: 'fixture-model', apiKey: 'synthetic-literal-key' },
+      }),
+    ).toBe(createInProcessSubagentRunner);
+    expect(
+      createProductSubagentRunnerFactory({
+        ...base,
+        providerConfig: {
+          name: 'openai',
+          model: 'fixture-model',
+          apiKey: 'synthetic-ref-key',
+          apiKeyEnv: 'SYNTHETIC_REF_KEY',
+        },
+      }),
+    ).toBe(createInProcessSubagentRunner);
   });
 
   it('retains the child-process runner for a referenced selected-file key with matching destination environment', () => {
-    const transport = Object.fromEntries(TRANSPORT_ENVIRONMENT.map((name) => [name, process.env[name]]));
+    const transport = Object.fromEntries(
+      TRANSPORT_ENVIRONMENT.map((name) => [name, process.env[name]]),
+    );
     const runtime = createTestProductRuntime('cedar', {
       ...transport,
       HOME: '/tmp/synthetic-home',
@@ -177,32 +207,75 @@ describe('ARCH-109 — a composition a child cannot rebuild keeps its subagents 
     const runner = createProductSubagentRunnerFactory({
       productRuntime: runtime,
       packContext: { cwd: '/tmp/synthetic-workspace' },
-      providerConfig: { name: 'openai', model: 'fixture-model', apiKey: 'synthetic-file-key', apiKeyEnv: 'SYNTHETIC_REF_KEY' },
-      providerDefinitions: [{ type: 'openai', createProvider: () => ({}) } as unknown as IProviderDefinition],
+      providerConfig: {
+        name: 'openai',
+        model: 'fixture-model',
+        apiKey: 'synthetic-file-key',
+        apiKeyEnv: 'SYNTHETIC_REF_KEY',
+      },
+      providerDefinitions: [
+        { type: 'openai', createProvider: () => ({}) } as unknown as IProviderDefinition,
+      ],
       reproduction: { callerSuppliedDefinitions: false, replayProvider: false },
       notice: () => {},
     });
     expect(runner).not.toBe(createInProcessSubagentRunner);
   });
 
-  it('projects only named provider inputs across A/B/A child environments', () => {
-    const definitions = [{
-      type: 'openai',
-      destinationEnvironment: ['SYNTHETIC_PROVIDER_ENDPOINT'],
-      createProvider: () => ({}),
-    }] as unknown as readonly IProviderDefinition[];
-    const provider = { name: 'openai', model: 'fixture-model', apiKeyEnv: 'SYNTHETIC_REF_KEY' };
-    const makeRuntime = (label: string, key: string) => createTestProductRuntime(label, {
-      HOME: '/tmp/synthetic-home',
-      SYNTHETIC_REF_KEY: key,
-      SYNTHETIC_PROVIDER_ENDPOINT: `https://${label}.invalid`,
-      HTTPS_PROXY: `https://${label}-proxy.invalid`,
-      SYNTHETIC_UNRELATED_PARENT_SECRET: 'must-not-cross',
+  it('keeps host-stored provider origins in process even before the raw key has been resolved', () => {
+    const transport = Object.fromEntries(
+      TRANSPORT_ENVIRONMENT.map((name) => [name, process.env[name]]),
+    );
+    const runner = createProductSubagentRunnerFactory({
+      productRuntime: createTestProductRuntime('cedar', {
+        ...transport,
+        HOME: '/tmp/synthetic-home',
+      }),
+      packContext: { cwd: '/tmp/synthetic-workspace' },
+      providerConfig: {
+        name: 'openrouter',
+        model: 'fixture-model',
+        apiKeyRef: { service: 'robota.provider.openrouter', account: 'fixture-only' },
+      },
+      providerDefinitions: [
+        { type: 'openrouter', createProvider: () => ({}) } as unknown as IProviderDefinition,
+      ],
+      reproduction: { callerSuppliedDefinitions: false, replayProvider: false },
+      notice: () => {},
     });
+    expect(runner).toBe(createInProcessSubagentRunner);
+  });
+
+  it('projects only named provider inputs across A/B/A child environments', () => {
+    const definitions = [
+      {
+        type: 'openai',
+        destinationEnvironment: ['SYNTHETIC_PROVIDER_ENDPOINT'],
+        createProvider: () => ({}),
+      },
+    ] as unknown as readonly IProviderDefinition[];
+    const provider = { name: 'openai', model: 'fixture-model', apiKeyEnv: 'SYNTHETIC_REF_KEY' };
+    const makeRuntime = (label: string, key: string) =>
+      createTestProductRuntime(label, {
+        HOME: '/tmp/synthetic-home',
+        SYNTHETIC_REF_KEY: key,
+        SYNTHETIC_PROVIDER_ENDPOINT: `https://${label}.invalid`,
+        HTTPS_PROXY: `https://${label}-proxy.invalid`,
+        SYNTHETIC_UNRELATED_PARENT_SECRET: 'must-not-cross',
+      });
     const a = makeRuntime('cedar', 'synthetic-a-key');
     const b = makeRuntime('maple', 'synthetic-b-key');
-    const projected = [a, b, a].map((runtime) => productChildProviderEnvironment(runtime, provider, definitions));
-    expect(projected.map((env) => [env.PRODUCT_ID, env.SYNTHETIC_REF_KEY, env.SYNTHETIC_PROVIDER_ENDPOINT, env.HTTPS_PROXY])).toEqual([
+    const projected = [a, b, a].map((runtime) =>
+      productChildProviderEnvironment(runtime, provider, definitions),
+    );
+    expect(
+      projected.map((env) => [
+        env.PRODUCT_ID,
+        env.SYNTHETIC_REF_KEY,
+        env.SYNTHETIC_PROVIDER_ENDPOINT,
+        env.HTTPS_PROXY,
+      ]),
+    ).toEqual([
       ['cedar', 'synthetic-a-key', 'https://cedar.invalid', 'https://cedar-proxy.invalid'],
       ['maple', 'synthetic-b-key', 'https://maple.invalid', 'https://maple-proxy.invalid'],
       ['cedar', 'synthetic-a-key', 'https://cedar.invalid', 'https://cedar-proxy.invalid'],

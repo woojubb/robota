@@ -45,13 +45,14 @@ import { createUserLocalCommandModule } from '../user-local/index.js';
 import type { IDevicesCommandPort } from '../devices/index.js';
 import type { IDoctorDisplayVocabulary, IDoctorInputs } from '../doctor/index.js';
 import type { IKeybindingsFilePort } from '../keybindings/index.js';
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { IProviderDefinition, TProviderCredentialResolver } from '@robota-sdk/agent-core';
 import type {
   IOrgPolicy,
   IContributionSource,
   ISkillRootDescriptor,
   ICommandModule,
   IProviderCommandSettingsAdapter,
+  IProviderConnectionHost,
   IUnknownCommandModuleName,
 } from '@robota-sdk/agent-framework';
 import type { IThemeCataloguePort } from '@robota-sdk/agent-interface-command';
@@ -79,6 +80,10 @@ export interface IDefaultCommandModulesOptions {
    * snapshot when it withholds its own credentials from `process.env`. Absent, `process.env` is read.
    */
   providerEnvironment?: Readonly<Record<string, string | undefined>>;
+  /** Host-owned connection acquisition and transactional credential persistence. */
+  providerConnectionHost?: IProviderConnectionHost;
+  /** Host-owned resolution of an opaque saved credential reference. */
+  providerCredentialResolver?: TProviderCredentialResolver;
   /** Optional TUI-owned file capability; absent, `/keybindings` says it belongs to an interactive terminal. */
   keybindingsFilePort?: IKeybindingsFilePort;
   /**
@@ -158,6 +163,8 @@ export function createDefaultCommandModules({
   enabledCommandModules,
   disabledCommandModules,
   providerEnvironment,
+  providerConnectionHost,
+  providerCredentialResolver,
 }: IDefaultCommandModulesOptions): IDefaultCommandModulesResult {
   const modules: readonly ICommandModule[] = [
     createSkillsCommandModule({ contributionSources: contributionSources ?? [], skillRoots }),
@@ -211,6 +218,10 @@ export function createDefaultCommandModules({
       settings: providerSettingsAdapter,
       ...(orgPolicy === undefined ? {} : { orgPolicy }),
       ...(providerEnvironment === undefined ? {} : { env: providerEnvironment }),
+      ...(providerConnectionHost === undefined ? {} : { connectionHost: providerConnectionHost }),
+      ...(providerCredentialResolver === undefined
+        ? {}
+        : { resolveCredential: providerCredentialResolver }),
     }),
     // #3282 §2: shares the provider command's settings adapter and definitions — one settings write
     // owner, never a second copy that could drift from what `/provider switch` reads and writes.
@@ -219,6 +230,9 @@ export function createDefaultCommandModules({
       settings: providerSettingsAdapter,
       ...(orgPolicy === undefined ? {} : { orgPolicy }),
       ...(providerEnvironment === undefined ? {} : { env: providerEnvironment }),
+      ...(providerCredentialResolver === undefined
+        ? {}
+        : { resolveCredential: providerCredentialResolver }),
     }),
   ];
   const builtModuleNames = modules.map((module) => module.name);

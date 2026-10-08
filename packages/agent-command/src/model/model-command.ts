@@ -5,8 +5,8 @@ import {
   resolveModelListSelection,
   setCurrentProvider,
   upsertProviderProfile,
-  validateProviderProfile,
 } from '@robota-sdk/agent-framework';
+import { validateProviderConnection } from '../provider/provider-connection-validation.js';
 
 import type { IUserInteraction } from '@robota-sdk/agent-core';
 import type {
@@ -45,7 +45,9 @@ function buildSnapshot(
   allowFiltered: boolean,
 ): IModelListSnapshot {
   const currentProfile =
-    settings.currentProvider !== undefined ? settings.providers?.[settings.currentProvider] : undefined;
+    settings.currentProvider !== undefined
+      ? settings.providers?.[settings.currentProvider]
+      : undefined;
   return buildModelListSnapshot(
     settings.providers,
     settings.currentProvider,
@@ -95,7 +97,10 @@ async function pickModel(
   options: IProviderCommandModuleOptions,
 ): Promise<ICommandResult> {
   if (snapshot.groups.length === 0) {
-    return { message: 'No provider profiles configured. Run /provider add to add one.', success: true };
+    return {
+      message: 'No provider profiles configured. Run /provider add to add one.',
+      success: true,
+    };
   }
   if (!ui) {
     return { message: formatModelListText(snapshot), success: true };
@@ -106,7 +111,9 @@ async function pickModel(
       label: formatModelOptionLabel(snapshot, group.profileName, group.providerLabel, model),
     })),
   );
-  const response = await ui.ask(selectAction('model', 'Select model', modelOptions, { maxVisible: 8 }));
+  const response = await ui.ask(
+    selectAction('model', 'Select model', modelOptions, { maxVisible: 8 }),
+  );
   if (response.type !== 'answer' || response.values[0] === undefined) {
     return { message: 'Model selection cancelled.', success: true };
   }
@@ -119,7 +126,9 @@ function formatModelListText(snapshot: IModelListSnapshot): string {
     lines.push(`${group.providerLabel} (${group.profileName})`);
     for (const model of group.models) {
       const marker =
-        model.id === snapshot.currentModel && group.profileName === snapshot.currentProfile ? '*' : '-';
+        model.id === snapshot.currentModel && group.profileName === snapshot.currentProfile
+          ? '*'
+          : '-';
       lines.push(`  ${marker} ${model.label}`);
     }
   }
@@ -132,8 +141,11 @@ function formatModelOptionLabel(
   providerLabel: string,
   model: { id: string; label: string },
 ): string {
-  const marker = model.id === snapshot.currentModel && profileName === snapshot.currentProfile ? '* ' : '';
-  const sharedLabelCount = snapshot.groups.filter((group) => group.providerLabel === providerLabel).length;
+  const marker =
+    model.id === snapshot.currentModel && profileName === snapshot.currentProfile ? '* ' : '';
+  const sharedLabelCount = snapshot.groups.filter(
+    (group) => group.providerLabel === providerLabel,
+  ).length;
   const disambiguator = sharedLabelCount > 1 ? ` (${profileName})` : '';
   return `${marker}${providerLabel}: ${model.label}${disambiguator}`;
 }
@@ -161,9 +173,13 @@ async function switchModelWithinCurrentProfile(
   const target = options.settings.readTargetSettings();
   // Based on MERGED (not target-only) so a profile that lives in a lower-priority settings layer
   // keeps its other fields (type, apiKey, baseURL) — only `model` changes at the target layer.
-  const currentProfile = settings.providers?.[currentProfileName] ?? target.providers?.[currentProfileName] ?? {};
+  const currentProfile =
+    settings.providers?.[currentProfileName] ?? target.providers?.[currentProfileName] ?? {};
   options.settings.writeTargetSettings(
-    upsertProviderProfile(target, currentProfileName, { ...currentProfile, model: selection.model.id }),
+    upsertProviderProfile(target, currentProfileName, {
+      ...currentProfile,
+      model: selection.model.id,
+    }),
   );
   return { message: `Model: ${selection.model.label}`, success: true };
 }
@@ -174,11 +190,11 @@ async function switchModelWithinCurrentProfile(
  * settings write, then hot-swap through the existing `provider-hot-swap` host action — which re-reads
  * settings at execution time, so it picks up the model this write just persisted.
  */
-function switchModelAcrossProfiles(
+async function switchModelAcrossProfiles(
   selection: IModelListSelection,
   settings: TProviderSettingsDocument,
   options: IProviderCommandModuleOptions,
-): ICommandResult {
+): Promise<ICommandResult> {
   const { orgPolicy } = options;
   // Checked BEFORE anything is read or written — exactly buildProviderSwitch's order — so a switch
   // org policy refuses changes nothing on disk, the same guarantee /provider switch already gives.
@@ -193,14 +209,14 @@ function switchModelAcrossProfiles(
   }
   const profile = settings.providers?.[selection.profileName];
   if (profile === undefined) {
-    return { message: `Provider profile "${selection.profileName}" was not found.`, success: false };
+    return {
+      message: `Provider profile "${selection.profileName}" was not found.`,
+      success: false,
+    };
   }
   const updatedProfile: IProviderProfileSettings = { ...profile, model: selection.model.id };
   try {
-    validateProviderProfile(selection.profileName, updatedProfile, {
-      providerDefinitions: options.providerDefinitions,
-      ...(options.env === undefined ? {} : { env: options.env }),
-    });
+    await validateProviderConnection(selection.profileName, updatedProfile, options);
   } catch (error) {
     return {
       message: `Could not switch to "${selection.model.label}": ${error instanceof Error ? error.message : String(error)}`,
@@ -209,6 +225,15 @@ function switchModelAcrossProfiles(
   }
   const target = options.settings.readTargetSettings();
   const merged = options.settings.readMergedSettings();
+  if (
+    merged.currentProvider !== settings.currentProvider ||
+    JSON.stringify(merged.providers?.[selection.profileName]) !== JSON.stringify(profile)
+  ) {
+    return {
+      success: false,
+      message: 'Provider settings changed while switching. Run /model again.',
+    };
+  }
   const withModel = upsertProviderProfile(target, selection.profileName, updatedProfile);
   const next =
     target.providers?.[selection.profileName] !== undefined ||

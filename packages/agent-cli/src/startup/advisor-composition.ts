@@ -16,11 +16,13 @@ import {
   resolveStartupAdvisorSpec,
   writeSettings,
 } from '@robota-sdk/agent-framework';
+import { createProviderFromConfig } from '@robota-sdk/agent-core';
 
 import type {
   IAIProvider,
   IToolWithEventService,
   IProviderDefinition,
+  TProviderCredentialResolver,
 } from '@robota-sdk/agent-core';
 import type {
   IAdvisorConsentStore,
@@ -75,6 +77,7 @@ export interface ICliAdvisorInput {
   readonly settingsSources: readonly TSettingsSource[];
   readonly providerDefinitions: readonly IProviderDefinition[];
   readonly userSettingsPath: string;
+  readonly resolveProviderCredential?: TProviderCredentialResolver;
   /**
    * The main provider the session starts with and the settings it was built from, so the advisor
    * can tell whether it would send the conversation anywhere new.
@@ -123,6 +126,31 @@ export function composeCliAdvisor(input: ICliAdvisorInput): ICliAdvisor {
   const controller = new AdvisorController({
     ...(spec !== undefined ? { spec } : {}),
     resolveTarget: targetResolver(input.settingsSources, input.providerDefinitions, input.env),
+    ...(input.resolveProviderCredential === undefined
+      ? {}
+      : {
+          validateTarget: (target: IAdvisorSpec) => {
+            readProviderSettings(input.settingsSources, {
+              providerOverride: target.profile,
+              providerDefinitions: input.providerDefinitions,
+              env: input.env,
+            });
+          },
+          resolveTargetAsync: async (target: IAdvisorSpec) => {
+            const settings = readProviderSettings(input.settingsSources, {
+              providerOverride: target.profile,
+              providerDefinitions: input.providerDefinitions,
+              env: input.env,
+            });
+            const model = target.model ?? settings.model;
+            const resolved = await input.resolveProviderCredential!({ ...settings, model });
+            return {
+              provider: createProviderFromConfig(resolved, input.providerDefinitions),
+              model,
+              destination: describeProviderDestination(settings, input.providerDefinitions),
+            };
+          },
+        }),
     consent: createSettingsAdvisorConsentStore(input.userSettingsPath),
     ...(allowedProfiles !== undefined ? { allowedProfiles } : {}),
     killSwitch: isAdvisorKillSwitchOn(input.env),

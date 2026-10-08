@@ -1,4 +1,4 @@
-import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type { TUniversalMessagePart, TProviderCredentialResolver } from '@robota-sdk/agent-core';
 /**
  * The INTERNAL async-init option shape.
  *
@@ -65,6 +65,7 @@ export interface IInitOptions {
   taskContext?: IResolvedConfig['taskContext'];
   userSettingsSources?: readonly INodeHostSettingsSource[];
   environment?: Readonly<Record<string, string | undefined>>;
+  resolveProviderCredential?: TProviderCredentialResolver;
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
   /** The plugin skills the session loaded when it was built. */

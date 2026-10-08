@@ -3,15 +3,21 @@ import { describe, expect, it } from 'vitest';
 import { createDefaultProviderDefinitions } from './default-provider-definitions.js';
 
 /**
- * ARCH-PROVIDER-002 Stage A golden characterization: the provider split must preserve the exact set
- * (and order) of default provider definitions the removed `agent-provider` monolith aggregated, and
- * each must still expose a `createProvider` factory. bytedance is a media/video provider and is
- * intentionally NOT in the LLM default set.
+ * Keep the original provider order when adding a service, and retain each provider's factory.
+ * ByteDance is a media/video provider and remains outside the chat provider set.
  */
 describe('createDefaultProviderDefinitions (ARCH-PROVIDER-002 golden)', () => {
-  it('aggregates the 6 LLM provider definitions in the original order', () => {
+  it('appends OpenRouter while preserving the original chat provider order', () => {
     const types = createDefaultProviderDefinitions().map((d) => d.type);
-    expect(types).toEqual(['anthropic', 'openai', 'gemini', 'gemma', 'qwen', 'deepseek']);
+    expect(types).toEqual([
+      'anthropic',
+      'openai',
+      'gemini',
+      'gemma',
+      'qwen',
+      'deepseek',
+      'openrouter',
+    ]);
   });
 
   it('every definition exposes a createProvider factory', () => {

@@ -71,5 +71,6 @@ export type TActionResponse =
  * contract.
  */
 export interface IUserInteraction {
-  ask(request: IActionRequest): Promise<TActionResponse>;
+  /** Caller cancellation withdraws the prompt and resolves cancelled without emitting its signal. */
+  ask(request: IActionRequest, options?: { signal?: AbortSignal }): Promise<TActionResponse>;
 }

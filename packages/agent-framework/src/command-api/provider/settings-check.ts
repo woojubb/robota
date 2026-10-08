@@ -8,6 +8,7 @@ import {
   type IProviderDefinition,
   type TEnvResolver,
   type TProviderCredentialField,
+  type TProviderCredentialReference,
 } from '@robota-sdk/agent-core';
 
 import type { TProviderSettingsDocument } from './provider-settings.js';
@@ -48,7 +49,7 @@ function hasUsableProviderConfig(
 
 function isUsableProviderProfile(
   type: string | undefined,
-  profile: { apiKey?: string } | undefined,
+  profile: { apiKey?: string; apiKeyRef?: TProviderCredentialReference } | undefined,
   providerDefinitions: readonly IProviderDefinition[],
   resolve: TEnvResolver | undefined,
 ): boolean {
@@ -56,6 +57,12 @@ function isUsableProviderProfile(
   if (!type) return hasUsableSecretReference(profile.apiKey, resolve);
   const definition = findProviderDefinition(providerDefinitions, type);
   if (definition === undefined) return false;
+  if (profile.apiKeyRef !== undefined)
+    return (
+      profile.apiKey === undefined &&
+      !!profile.apiKeyRef.service?.trim() &&
+      !!profile.apiKeyRef.account?.trim()
+    );
   const credentialRequirement = getProviderCredentialRequirement(definition);
   if (credentialRequirement === undefined) return true;
   return hasUsableRequiredProviderCredential(profile, definition, credentialRequirement, resolve);

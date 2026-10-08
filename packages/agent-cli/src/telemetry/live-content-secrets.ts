@@ -23,6 +23,8 @@ export interface ILiveContentSecretSources {
   readonly env: Readonly<Record<string, string | undefined>>;
   /** Credentials resolved at startup outside the settings layers (for example `--provider`). */
   readonly startupCredentials?: readonly (string | undefined)[];
+  /** Host-only values acquired or resolved after startup, read on every export. */
+  readonly resolvedCredentialSecrets?: () => readonly string[];
 }
 
 function resolvedKey(
@@ -43,15 +45,20 @@ function resolvedKey(
 
 export function createLiveContentSecretsGetter(sources: ILiveContentSecretSources): () => string[] {
   return () => {
-    const layers = inspectSettingsLayers(sources.settingsSources).layers.map((layer) => layer.settings);
+    const layers = inspectSettingsLayers(sources.settingsSources).layers.map(
+      (layer) => layer.settings,
+    );
     const secrets = new Set(collectSettingsSecrets(layers, sources.env));
     const add = (value: string | undefined): void => {
       if (typeof value === 'string' && value.length > 0) secrets.add(value);
     };
     add(resolvedKey(sources, undefined));
-    const profiles = Object.keys(readMergedProviderSettings(sources.settingsSources).providers ?? {});
+    const profiles = Object.keys(
+      readMergedProviderSettings(sources.settingsSources).providers ?? {},
+    );
     for (const profile of profiles) add(resolvedKey(sources, profile));
     for (const credential of sources.startupCredentials ?? []) add(credential);
+    for (const credential of sources.resolvedCredentialSecrets?.() ?? []) add(credential);
     return [...secrets];
   };
 }
@@ -61,10 +68,12 @@ export function createLiveContentSecretsGetter(sources: ILiveContentSecretSource
  * root the session resolved, and the user's home. Built for every run; used only when a content
  * gate is on.
  */
-export function createCliLiveContentRedaction(inputs: ILiveContentSecretSources & {
-  readonly cwd: string;
-  readonly projectAccess: TWorkspaceProjectAccess;
-}): ILiveContentRedactionContext {
+export function createCliLiveContentRedaction(
+  inputs: ILiveContentSecretSources & {
+    readonly cwd: string;
+    readonly projectAccess: TWorkspaceProjectAccess;
+  },
+): ILiveContentRedactionContext {
   let projectRoot: string | undefined;
   try {
     projectRoot = resolvePromptHistoryProject(inputs.projectAccess, inputs.cwd);

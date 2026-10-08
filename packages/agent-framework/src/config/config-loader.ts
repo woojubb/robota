@@ -61,7 +61,10 @@ function throwReadPhaseError(layer: IReadSettingsLayer): void {
  * Resolve a string value that may use the `$ENV:VAR_NAME` prefix to
  * substitute an environment variable.
  */
-function resolveEnvRef(value: string, environment: Readonly<Record<string, string | undefined>>): string {
+function resolveEnvRef(
+  value: string,
+  environment: Readonly<Record<string, string | undefined>>,
+): string {
   const ENV_PREFIX = '$ENV:';
   if (value.startsWith(ENV_PREFIX)) {
     const varName = value.slice(ENV_PREFIX.length);
@@ -73,7 +76,10 @@ function resolveEnvRef(value: string, environment: Readonly<Record<string, strin
 /**
  * Apply env-ref resolution to all string fields in a settings object.
  */
-function resolveEnvRefs(settings: TSettings, environment: Readonly<Record<string, string | undefined>>): TEnvResolvedSettings {
+function resolveEnvRefs(
+  settings: TSettings,
+  environment: Readonly<Record<string, string | undefined>>,
+): TEnvResolvedSettings {
   const provider =
     settings.provider?.apiKey !== undefined
       ? resolveProviderCredentialEnvRefs(settings.provider, environment)
@@ -148,7 +154,9 @@ function resolveActiveProviderProfile(merged: TEnvResolvedSettings): IResolvedCo
   return {
     name: profile.type,
     model: profile.model ?? DEFAULTS.provider.model,
-    apiKey: profile.apiKey ?? DEFAULTS.provider.apiKey,
+    apiKey:
+      profile.apiKeyRef === undefined ? (profile.apiKey ?? DEFAULTS.provider.apiKey) : undefined,
+    ...(profile.apiKeyRef !== undefined && { apiKeyRef: profile.apiKeyRef }),
     // SEC-009: this projection is field-by-field, so the credential's ORIGIN has to be copied
     // deliberately. Resolving `$ENV:` and recording the variable name upstream achieved nothing
     // while this line was missing — the resolved config the subagent runner serializes had only

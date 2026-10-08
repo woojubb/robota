@@ -8,6 +8,7 @@ import { realpathSync } from 'node:fs';
 import { isIP } from 'node:net';
 
 import { runEvalCommand } from '../eval/eval-command.js';
+import { createCliOpenRouterConnectionHost } from './openrouter-connection-host.js';
 import { PrintTerminal } from '../print-terminal.js';
 import { isDoctorCommandName, runDoctorRoute } from './doctor-route.js';
 import { readVersion } from './version.js';
@@ -148,7 +149,11 @@ function parseEventEndpoint(start: {
  * `session events list|revoke` — the owner's view of a background session's external-event grants,
  * and the way to withdraw one. Bound to the live registration like every other control action.
  */
-async function runSessionEventsCommand(args: readonly string[], root: string, productRuntime: ICliRuntimeContext): Promise<number> {
+async function runSessionEventsCommand(
+  args: readonly string[],
+  root: string,
+  productRuntime: ICliRuntimeContext,
+): Promise<number> {
   const [action, id, argument, extra] = args;
   const list =
     action === 'list' &&
@@ -157,7 +162,9 @@ async function runSessionEventsCommand(args: readonly string[], root: string, pr
   const revoke =
     action === 'revoke' && id !== undefined && argument !== undefined && extra === undefined;
   if (!list && !revoke) {
-    process.stderr.write(EVENTS_USAGE.replaceAll('{{cli}}', productRuntime.config.identity.cliName));
+    process.stderr.write(
+      EVENTS_USAGE.replaceAll('{{cli}}', productRuntime.config.identity.cliName),
+    );
     return 1;
   }
   try {
@@ -199,8 +206,11 @@ export async function runPreparsedCliCommand(
   const supervisedRoot = resolveSupervisedDirectory(productRuntime);
   const admittedSettings = new Map<string, readonly TSettingsSource[]>();
   const supervisedEnv = (workspace: string = cwd): NodeJS.ProcessEnv => {
-    const sources = admittedSettings.get(workspace) ?? (workspace === cwd ? composition.settingsSources : undefined);
-    if (sources === undefined) throw new Error('Supervised workspace settings have not been admitted.');
+    const sources =
+      admittedSettings.get(workspace) ??
+      (workspace === cwd ? composition.settingsSources : undefined);
+    if (sources === undefined)
+      throw new Error('Supervised workspace settings have not been admitted.');
     return {
       ...restartProductEnvironment(
         productRuntime,
@@ -262,7 +272,9 @@ export async function runPreparsedCliCommand(
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'stop') {
     if (argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 1) {
-      process.stderr.write(`Usage: ${productRuntime.config.identity.cliName} session stop <supervised-id>\n`);
+      process.stderr.write(
+        `Usage: ${productRuntime.config.identity.cliName} session stop <supervised-id>\n`,
+      );
       process.exitCode = 1;
       return true;
     }
@@ -278,7 +290,11 @@ export async function runPreparsedCliCommand(
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'events') {
-    process.exitCode = await runSessionEventsCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), supervisedRoot, productRuntime);
+    process.exitCode = await runSessionEventsCommand(
+      argv.slice(SUBCOMMAND_ARGUMENT_INDEX),
+      supervisedRoot,
+      productRuntime,
+    );
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'rename') {
@@ -286,7 +302,9 @@ export async function runPreparsedCliCommand(
       argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 2 ||
       !isSupervisedSessionName(argv[SUBCOMMAND_ARGUMENT_INDEX + 1])
     ) {
-      process.stderr.write(`Usage: ${productRuntime.config.identity.cliName} session rename <supervised-id> <name>\n`);
+      process.stderr.write(
+        `Usage: ${productRuntime.config.identity.cliName} session rename <supervised-id> <name>\n`,
+      );
       process.exitCode = 1;
       return true;
     }
@@ -308,7 +326,9 @@ export async function runPreparsedCliCommand(
       argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 2 ||
       !parseSupervisedPr(argv[SUBCOMMAND_ARGUMENT_INDEX + 1])
     ) {
-      process.stderr.write(`Usage: ${productRuntime.config.identity.cliName} session link-pr <supervised-id> <https-pr-url>\n`);
+      process.stderr.write(
+        `Usage: ${productRuntime.config.identity.cliName} session link-pr <supervised-id> <https-pr-url>\n`,
+      );
       process.exitCode = 1;
       return true;
     }
@@ -327,7 +347,9 @@ export async function runPreparsedCliCommand(
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'unlink-pr') {
     if (argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 1) {
-      process.stderr.write(`Usage: ${productRuntime.config.identity.cliName} session unlink-pr <supervised-id>\n`);
+      process.stderr.write(
+        `Usage: ${productRuntime.config.identity.cliName} session unlink-pr <supervised-id>\n`,
+      );
       process.exitCode = 1;
       return true;
     }
@@ -360,7 +382,11 @@ export async function runPreparsedCliCommand(
       render: renderSessionView,
       ...(renderAttached === undefined ? {} : { renderAttached }),
       startTrustQuestion: async (targetCwd) =>
-        trustQuestionFor(await resolveInitialCliWorkspaceProjectAccess(targetCwd, { productRuntime }), targetCwd, productRuntime),
+        trustQuestionFor(
+          await resolveInitialCliWorkspaceProjectAccess(targetCwd, { productRuntime }),
+          targetCwd,
+          productRuntime,
+        ),
       start: async (targetCwd, choice) => {
         let access = await resolveInitialCliWorkspaceProjectAccess(targetCwd, { productRuntime });
         // A person in the view answered for a folder not trusted yet: trust it, or run it Restricted.
@@ -369,7 +395,13 @@ export async function runPreparsedCliCommand(
         if (choice === 'trust' && canAskToTrust(access))
           access = await grantWorkspaceTrust(targetCwd, productRuntime);
         if (requiresHeadlessWorkspaceTrust(access) && !(restricted && canAskToTrust(access))) {
-          throw new Error(formatHeadlessWorkspaceTrustError(access, targetCwd, productRuntime.config.identity.cliName));
+          throw new Error(
+            formatHeadlessWorkspaceTrustError(
+              access,
+              targetCwd,
+              productRuntime.config.identity.cliName,
+            ),
+          );
         }
         // The child validates the very same settings when it starts; asking here first avoids
         // spawning one that will only exit unexplained. The view itself still shows only its
@@ -380,10 +412,15 @@ export async function runPreparsedCliCommand(
           serviceVersion: readVersion(),
           surface: 'serve',
         });
-        admittedSettings.set(targetCwd, createInitialCliWorkspaceComposition(targetCwd, {
-          productRuntime,
-          projectAccess: restricted ? createRestrictedWorkspaceProjectAccess('untrusted', targetCwd) : access,
-        }).settingsSources);
+        admittedSettings.set(
+          targetCwd,
+          createInitialCliWorkspaceComposition(targetCwd, {
+            productRuntime,
+            projectAccess: restricted
+              ? createRestrictedWorkspaceProjectAccess('untrusted', targetCwd)
+              : access,
+          }).settingsSources,
+        );
         return launchSupervisedSession(targetCwd, {
           productRuntime,
           env: supervisedEnv(targetCwd),
@@ -400,24 +437,43 @@ export async function runPreparsedCliCommand(
       env: supervisedEnv,
       // The same admission as `session start`, asked before anything is spawned.
       admit: async (workspace, { restricted }) => {
-        const access = await resolveInitialCliWorkspaceProjectAccess(workspace, workspace === realpathSync(cwd) ? options : { productRuntime });
+        const access = await resolveInitialCliWorkspaceProjectAccess(
+          workspace,
+          workspace === realpathSync(cwd) ? options : { productRuntime },
+        );
         // A person chose to run this folder Restricted (a front end asked them).
         if (requiresHeadlessWorkspaceTrust(access) && !(restricted && canAskToTrust(access))) {
-          throw new Error(formatHeadlessWorkspaceTrustError(access, workspace, productRuntime.config.identity.cliName));
+          throw new Error(
+            formatHeadlessWorkspaceTrustError(
+              access,
+              workspace,
+              productRuntime.config.identity.cliName,
+            ),
+          );
         }
         validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
           telemetryServiceName: productRuntime.config.identity.telemetryServiceName,
           serviceVersion: readVersion(),
           surface: 'serve',
         });
-        admittedSettings.set(workspace, createInitialCliWorkspaceComposition(workspace, {
-          productRuntime,
-          projectAccess: restricted ? createRestrictedWorkspaceProjectAccess('untrusted', workspace) : access,
-        }).settingsSources);
+        admittedSettings.set(
+          workspace,
+          createInitialCliWorkspaceComposition(workspace, {
+            productRuntime,
+            projectAccess: restricted
+              ? createRestrictedWorkspaceProjectAccess('untrusted', workspace)
+              : access,
+          }).settingsSources,
+        );
         return { restricted: restricted || access.status === 'restricted' };
       },
       trusted: async (workspace) =>
-        (await resolveInitialCliWorkspaceProjectAccess(workspace, workspace === realpathSync(cwd) ? options : { productRuntime })).status === 'trusted',
+        (
+          await resolveInitialCliWorkspaceProjectAccess(
+            workspace,
+            workspace === realpathSync(cwd) ? options : { productRuntime },
+          )
+        ).status === 'trusted',
       stdout: (text) => process.stdout.write(text),
       stderr: (text) => process.stderr.write(text),
     });
@@ -450,7 +506,11 @@ export async function runPreparsedCliCommand(
   }
   if (argv[SUBCOMMAND_INDEX] === 'trust') {
     process.exitCode = await runWorkspaceTrustCommand(
-      argv.slice(ACTION_INDEX), cwd, productRuntime, undefined, options.providerDefinitions,
+      argv.slice(ACTION_INDEX),
+      cwd,
+      productRuntime,
+      undefined,
+      options.providerDefinitions,
     );
     return true;
   }
@@ -484,7 +544,9 @@ export async function runPreparsedCliCommand(
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'start') {
     const start = parseStartArgs(argv.slice(SUBCOMMAND_ARGUMENT_INDEX));
     if (start === undefined) {
-      process.stderr.write(START_USAGE.replaceAll('{{cli}}', productRuntime.config.identity.cliName));
+      process.stderr.write(
+        START_USAGE.replaceAll('{{cli}}', productRuntime.config.identity.cliName),
+      );
       process.exitCode = 1;
       return true;
     }
@@ -519,17 +581,22 @@ export async function runPreparsedCliCommand(
       // message instead of only the child's generic "exited before it was ready".
       validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
         telemetryServiceName: productRuntime.config.identity.telemetryServiceName,
-          serviceVersion: readVersion(),
+        serviceVersion: readVersion(),
         surface: 'serve',
       });
       if (start.restricted || composition.projectAccess.status === 'restricted') {
-        process.stderr.write(`${formatHeadlessRestrictedNotice(productRuntime.layout.projectSettingsPaths)}\n`);
+        process.stderr.write(
+          `${formatHeadlessRestrictedNotice(productRuntime.layout.projectSettingsPaths)}\n`,
+        );
       }
       if (start.restricted) {
-        admittedSettings.set(cwd, createInitialCliWorkspaceComposition(cwd, {
-          productRuntime,
-          projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
-        }).settingsSources);
+        admittedSettings.set(
+          cwd,
+          createInitialCliWorkspaceComposition(cwd, {
+            productRuntime,
+            projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
+          }).settingsSources,
+        );
       }
       const id = await launchSupervisedSession(cwd, {
         productRuntime,
@@ -552,6 +619,9 @@ export async function runPreparsedCliCommand(
     settingsSources: composition.settingsSources,
     projectAccess: composition.projectAccess,
     environment: productRuntime.environment,
+    resolveProviderCredential: (
+      options.providerConnectionHost ?? createCliOpenRouterConnectionHost(productRuntime)
+    ).resolveCredential,
   });
   return true;
 }

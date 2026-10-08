@@ -9,7 +9,7 @@
  */
 
 import type { TEnvResolvedSettings } from './config-types.js';
-import type { THooksConfig } from '@robota-sdk/agent-core';
+import type { THooksConfig, TProviderCredentialReference } from '@robota-sdk/agent-core';
 
 /**
  * How a later layer combines with an earlier one for a given top-level key (OBSERVABILITY-1991).
@@ -283,19 +283,41 @@ function mostRestrictiveTrustLevel(
 }
 
 /** Endpoint ownership and credential ownership are coupled at every settings merge boundary. */
-function mergeProviderValues<T extends { apiKey?: string; apiKeyEnv?: string; baseURL?: string }>(
-  base: T | undefined,
-  override: T | undefined,
-): T | undefined {
+function mergeProviderValues<
+  T extends {
+    apiKey?: string;
+    apiKeyEnv?: string;
+    apiKeyRef?: TProviderCredentialReference;
+    baseURL?: string;
+  },
+>(base: T | undefined, override: T | undefined): T | undefined {
   if (base === undefined && override === undefined) return undefined;
+  if (
+    override?.apiKeyRef !== undefined &&
+    (override.apiKey !== undefined || override.apiKeyEnv !== undefined)
+  ) {
+    throw new Error('Provider settings have conflicting credential origins');
+  }
   const result = { ...base, ...override } as T;
+  if (override?.apiKeyRef !== undefined) {
+    delete result.apiKey;
+    delete result.apiKeyEnv;
+  } else if (override?.apiKey !== undefined || override?.apiKeyEnv !== undefined) {
+    delete result.apiKeyRef;
+  }
   const endpointChanged = override?.baseURL !== undefined && override.baseURL !== base?.baseURL;
   if (endpointChanged) {
-    if (override?.apiKey !== undefined) delete result.apiKeyEnv;
+    if (override?.apiKeyRef !== undefined) {
+      delete result.apiKey;
+      delete result.apiKeyEnv;
+    } else if (override?.apiKey !== undefined) delete result.apiKeyEnv;
     else if (override?.apiKeyEnv !== undefined) delete result.apiKey;
     else {
       delete result.apiKey;
       delete result.apiKeyEnv;
+      delete result.apiKeyRef;
+      // A destination override cannot silently select a definition's other environment account.
+      if (base?.apiKeyRef !== undefined) result.apiKey = '';
     }
   }
   return result;

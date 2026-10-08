@@ -7,9 +7,11 @@ import {
 } from './provider-command-profile-lifecycle.js';
 import {
   buildProviderEdit,
+  buildProviderReconnect,
   buildProviderSwitch,
   formatProviderChoiceLabel,
 } from './provider-command-profile-operations.js';
+import { hasProviderConnectionMethods } from './provider-connection-setup.js';
 
 import type { IUserInteraction } from '@robota-sdk/agent-core';
 import type {
@@ -23,6 +25,7 @@ const ACTION_EDIT = 'edit';
 const ACTION_TEST = 'test';
 const ACTION_DUPLICATE = 'duplicate';
 const ACTION_DELETE = 'delete';
+const ACTION_RECONNECT = 'reconnect';
 
 /**
  * Ask the user to pick a provider profile, then drive its action menu (CMD-004 inline ask). Replaces
@@ -68,6 +71,9 @@ async function askProviderProfileAction(
     selectAction('provider-profile-action', `Provider profile: ${profileName}`, [
       { value: ACTION_SWITCH, label: 'Switch' },
       { value: ACTION_EDIT, label: 'Edit' },
+      ...(hasProviderConnectionMethods(settings.providers[profileName]?.type ?? '', options)
+        ? [{ value: ACTION_RECONNECT, label: 'Reconnect' }]
+        : []),
       { value: ACTION_TEST, label: 'Test' },
       { value: ACTION_DUPLICATE, label: 'Duplicate' },
       { value: ACTION_DELETE, label: 'Delete' },
@@ -91,6 +97,8 @@ async function executeProviderProfileAction(
       return buildProviderSwitch(settings.providers, profileName, options);
     case ACTION_EDIT:
       return buildProviderEdit(ui, profileName, options);
+    case ACTION_RECONNECT:
+      return buildProviderReconnect(ui, profileName, options);
     case ACTION_TEST:
       return testProviderProfileCommand(
         settings.currentProvider,
