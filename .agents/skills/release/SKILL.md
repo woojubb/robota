@@ -7,6 +7,11 @@ description: Bump versions, promote develop to main, and publish the selected pr
 
 When the owner asks for a release, the agent carries out every step below, merging each PR itself once CI is
 green on its head and every MUST/SHOULD from `pr-review-reviewer` is resolved.
+For each bump or promotion PR, fetch `origin/develop` and refresh the PR head SHA before selecting, waiting on,
+or retrying CI. Use only required checks for that current SHA. A cancelled run on an older head is superseded,
+not a failure to retry; wait for the new head's run instead. Retry an actionable failure only after confirming
+that the run still matches the PR head and `origin/develop` where the promotion head is `develop`. Recheck the
+head before merging.
 
 1. **Verify and bump** on a branch from fresh `origin/develop`: personally run the actual source CLI with disposable HOME/product state, submit a normal prompt and a slash command, and require successful session initialization and completed responses.
    Record the exact commit, invocations, provider mode and results in the issue/PR; help/version output alone does not establish a working session. Before publication, repeat this check on the generated/installed CLI artifact intended for release.

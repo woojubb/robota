@@ -696,6 +696,104 @@ it('runs the production build and clean test consumer with executable outputs, r
   expect(missing.stdout).not.toContain('root checked');
 });
 
+it('runs every selected workspace with at most two overlapping tests after restoring the build artifact', () => {
+  const { cwd } = fixture();
+  const transfer = mkdtempSync(path.join(os.tmpdir(), 'ci-test-schedule-'));
+  roots.push(transfer);
+  const checks = ['packages/core', 'packages/framework', 'apps/consumer'];
+  write(
+    cwd,
+    'workspace-test.mjs',
+    `import { appendFileSync, existsSync } from 'node:fs';
+     import { setTimeout } from 'node:timers/promises';
+     const name = process.argv[2];
+     if (!existsSync(new URL('./packages/core/dist/ready', import.meta.url))) throw new Error('Build artifact unavailable');
+     const log = (event) => appendFileSync(process.env.CI_TEST_LOG, JSON.stringify({ name, event }) + '\\n');
+     log('start');
+     await setTimeout(750);
+     log('end');
+     if (name === process.env.CI_FAIL_WORKSPACE) process.exitCode = 7;
+    `,
+  );
+  for (const dir of checks) {
+    const file = `${dir}/package.json`;
+    const manifest = JSON.parse(readFileSync(path.join(cwd, file), 'utf8'));
+    manifest.scripts.test = `node ../../workspace-test.mjs ${dir}`;
+    write(cwd, file, JSON.stringify(manifest));
+  }
+  write(
+    cwd,
+    'package.json',
+    JSON.stringify({
+      private: true,
+      packageManager: 'pnpm@8.15.4',
+      scripts: { 'test:scripts': 'node workspace-test.mjs root' },
+    }),
+  );
+  commit(cwd);
+  const plan = { build: ['packages/core'], checks, docs: false, release: false };
+  write(cwd, 'packages/core/dist/ready', 'built');
+  write(
+    cwd,
+    '.ci-build.json',
+    JSON.stringify({
+      sha: exec(cwd, 'git', ['rev-parse', 'HEAD']),
+      build: plan.build,
+      product: 'cedar',
+    }),
+  );
+  exec(cwd, 'tar', [
+    '-czf',
+    path.join(transfer, 'workspace-build.tgz'),
+    '.ci-build.json',
+    'packages/core/dist',
+  ]);
+  rmSync(path.join(cwd, 'packages/core/dist'), { recursive: true });
+  const script = fileURLToPath(new URL('../ci.mjs', import.meta.url));
+  const logFile = path.join(transfer, 'tests.jsonl');
+  const run = (failure) => {
+    rmSync(logFile, { force: true });
+    const result = spawnSync(process.execPath, [script, 'tests'], {
+      cwd,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        RUNNER_TEMP: transfer,
+        CI_PLAN: JSON.stringify(plan),
+        CI_TEST_LOG: logFile,
+        CI_FAIL_WORKSPACE: failure ?? '',
+      },
+    });
+    const events = readFileSync(logFile, 'utf8').trim().split('\n').map(JSON.parse);
+    return { result, events };
+  };
+  const success = run();
+  expect(success.result.status, success.result.stderr).toBe(0);
+  expect(
+    success.events
+      .filter(({ event }) => event === 'start')
+      .map(({ name }) => name)
+      .sort(),
+  ).toEqual([...checks, 'root'].sort());
+  let active = 0;
+  let peak = 0;
+  for (const { name, event } of success.events) {
+    if (name === 'root') {
+      expect(active).toBe(0);
+      continue;
+    }
+    active += event === 'start' ? 1 : -1;
+    peak = Math.max(peak, active);
+    expect(active).toBeGreaterThanOrEqual(0);
+  }
+  expect(active).toBe(0);
+  expect(peak).toBe(2);
+  const failure = run('packages/framework');
+  expect(failure.result.status).not.toBe(0);
+  expect(failure.events.some(({ name }) => name === 'packages/framework')).toBe(true);
+  expect(failure.events.some(({ name }) => name === 'root')).toBe(false);
+});
+
 function nativeMatrix(event) {
   const workflow = parse(readFileSync('.github/workflows/release-bun-binaries.yml', 'utf8'));
   const value = (source) =>
