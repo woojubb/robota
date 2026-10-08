@@ -1,6 +1,6 @@
 {
   "name": "robota-web",
-  "version": "0.1.1-beta.10",
+  "version": "0.1.1-beta.11",
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "private": true,
   "description": "Next.js host for the Robota browser remote client (/remote)",
