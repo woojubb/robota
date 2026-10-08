@@ -112,6 +112,8 @@ export interface IProviderSetupStepDefinition {
   defaultValue?: string;
   required?: boolean;
   masked?: boolean;
+  /** Omitted from ordinary setup; exposed when the user explicitly edits a profile. */
+  editOnly?: boolean;
 }
 
 export type TProviderCategory = 'cloud-paid' | 'cloud-free' | 'local-free';

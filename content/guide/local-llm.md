@@ -9,7 +9,8 @@ Robota works with any local inference server that speaks the OpenAI-compatible A
 covers **Ollama**, **LM Studio** and the **llama.cpp** server. In Robota these all use the same
 provider type, `gemma`, shown in setup as **Ollama / LM Studio / llama.cpp**.
 
-> **No API key required.** Local models run entirely on your machine. Your code, prompts and
+> **No API key required by default.** If you enable server authentication, enter its token using
+> profile editing as described below. Local models run entirely on your machine. Your code, prompts and
 > conversation history stay on your device.
 
 ---
@@ -23,27 +24,46 @@ provider type, `gemma`, shown in setup as **Ollama / LM Studio / llama.cpp**.
    __PRODUCT_CLI_NAME__ --configure
    ```
 
-   Choose **Ollama / LM Studio / llama.cpp (gemma)**, then answer the three prompts. Press Enter to
+   Choose **Ollama / LM Studio / llama.cpp (gemma)**, then answer the two prompts. Press Enter to
    accept a default:
 
    | Prompt   | Default                         | What to enter                                  |
    | -------- | ------------------------------- | ---------------------------------------------- |
    | Base URL | `http://localhost:1234/v1`      | Your server's URL, including `/v1`             |
    | Model    | `supergemma4-26b-uncensored-v2` | The model name exactly as your server lists it |
-   | API key  | `lm-studio`                     | Any value; local servers do not check it       |
 
 On a first run with no provider configured, `__PRODUCT_CLI_NAME__` offers the same setup: answer "No — use a local
-model", and after a short LM Studio guide it asks these three prompts.
+model", and after a short LM Studio guide it asks these two prompts. App setup asks for the same
+endpoint and model, without a key prompt.
 
 To configure without prompts (for example in a setup script):
 
 ```bash
 __PRODUCT_CLI_NAME__ --configure-provider local --type gemma \
-  --base-url http://localhost:11434/v1 --model llama3.2 --api-key ollama --set-current
+  --base-url http://localhost:11434/v1 --model llama3.2 --set-current
 ```
 
 The profile is saved in `<user-state>/settings.json`, so you configure it once. Run `__PRODUCT_CLI_NAME__ --configure`
 again, or use `/provider` inside a session, to change the provider, URL or model.
+
+### Servers with authentication enabled
+
+Use `/provider edit <profile>` inside a terminal session, or **Settings → Providers → Edit** in the
+App, to enter the optional server API key. Leaving a previously configured masked key blank keeps
+it unchanged; leaving a keyless profile's field blank keeps it keyless.
+
+For a terminal setup script, set an environment variable containing your server token and reference
+it without putting the token on the command line:
+
+```bash
+__PRODUCT_CLI_NAME__ --configure-provider local --type gemma \
+  --base-url http://localhost:1234/v1 --model your-installed-model \
+  --api-key-env LOCAL_MODEL_API_KEY --set-current
+```
+
+Both methods retain your endpoint and use the supplied token for requests and connection tests.
+Robota supplies the client library's placeholder internally only when no server credential is
+configured. This local setup does not perform Ollama cloud sign-in.
 
 ---
 
@@ -73,7 +93,6 @@ Run `__PRODUCT_CLI_NAME__ --configure`, choose **Ollama / LM Studio / llama.cpp 
 
 - **Base URL**: `http://localhost:11434/v1`
 - **Model**: the model name exactly as `ollama list` shows it (e.g. `llama3.2`)
-- **API key**: any value (e.g. `ollama`)
 
 ### Models for coding
 
@@ -107,7 +126,6 @@ Run `__PRODUCT_CLI_NAME__ --configure`, choose **Ollama / LM Studio / llama.cpp 
 
 - **Base URL**: `http://localhost:1234/v1` (the default)
 - **Model**: the model name exactly as LM Studio shows it for the loaded model
-- **API key**: `lm-studio` (the default)
 
 ---
 
@@ -120,7 +138,7 @@ If you build and run `llama.cpp` yourself:
 ```
 
 Then run `__PRODUCT_CLI_NAME__ --configure`, choose **Ollama / LM Studio / llama.cpp (gemma)**, and enter
-`http://localhost:8080/v1` as the base URL and any value as the API key.
+`http://localhost:8080/v1` as the base URL, then enter your installed model name.
 
 ---
 
@@ -143,6 +161,13 @@ See [Providers](./providers.md#gemma--openai-compatible) for its options.
 ---
 
 ## Troubleshooting
+
+### Authentication rejected (HTTP 401 or 403)
+
+If your server requires authentication, run `/provider edit <profile>` or use the App's provider
+**Edit** action to enter or correct its optional API key. If the profile uses `$ENV:LOCAL_MODEL_API_KEY`,
+ensure that variable is set in the environment running Robota. A local-compatible endpoint can
+require authentication; Robota does not assume every such server ignores keys.
 
 ### "Connection refused" or "Network error"
 

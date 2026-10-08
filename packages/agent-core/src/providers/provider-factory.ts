@@ -46,9 +46,15 @@ export function normalizeProviderConfig(
     throw new Error(`Provider ${settings.name} requires model`);
   }
   const apiKeyReference = settings.apiKey ?? defaults.apiKey;
-  const apiKeyEnv = apiKeyReference !== undefined && isEnvReference(apiKeyReference)
-    ? apiKeyReference.slice(ENV_REFERENCE_PREFIX.length).trim()
-    : undefined;
+  const apiKeyEnv =
+    apiKeyReference !== undefined && isEnvReference(apiKeyReference)
+      ? apiKeyReference.slice(ENV_REFERENCE_PREFIX.length).trim()
+      : undefined;
+  if (apiKeyEnv === '') {
+    throw new Error(
+      `Provider ${settings.name} has an invalid API key environment reference; use $ENV:VARIABLE_NAME`,
+    );
+  }
   const options = settings.options ?? defaults.options;
   return {
     name: settings.name,

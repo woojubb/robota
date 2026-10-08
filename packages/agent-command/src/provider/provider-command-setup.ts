@@ -46,7 +46,8 @@ function toProviderSetupStepRequest(
   return textAction(`provider-setup-${step.key}`, step.title, {
     description,
     placeholder,
-    allowEmpty: step.defaultValue !== undefined,
+    allowEmpty:
+      step.defaultValue !== undefined || (step.editOnly === true && step.required !== true),
     masked: step.masked,
   });
 }
