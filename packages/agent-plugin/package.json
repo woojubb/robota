@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-plugin",
-  "version": "3.0.0-beta.91",
+  "version": "3.0.0-beta.92",
   "description": "Lifecycle plugins for the Robota SDK: history, logging, usage, limits, performance, errors, analytics and webhooks",
   "type": "module",
   "main": "dist/node/index.js",

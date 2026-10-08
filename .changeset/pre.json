@@ -342,6 +342,7 @@
     "issue-40-required-eval-outcomes",
     "issue-40-skipped-tool-outcomes",
     "issue-8-worker-hook-boundary",
+    "local-provider-keyless-setup",
     "mcp-portable-dialect",
     "mcp-protocol-selection",
     "mcp-skill-content-consent",

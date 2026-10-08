@@ -595,13 +595,13 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/agent-core
       '@robota-sdk/agent-framework':
-        specifier: ^3.0.0-beta.91
+        specifier: ^3.0.0-beta.92
         version: link:../../../packages/agent-framework
       '@robota-sdk/agent-mcp':
         specifier: workspace:*
         version: link:../../../packages/agent-mcp
       '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.0-beta.91
+        specifier: ^3.0.0-beta.92
         version: link:../../../packages/agent-provider-anthropic
       '@robota-sdk/agent-provider-replay':
         specifier: workspace:*
