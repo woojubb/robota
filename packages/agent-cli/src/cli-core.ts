@@ -1083,7 +1083,7 @@ async function runCliCore(
     throw new Error('Interactive presentation unavailable in headless runtime');
   warnIfTerminalAppOnMacOS(terminal, productRuntime.environment);
   // ERR-001 G1: interactive mode only — the process must survive transient failures.
-  presentation.installTuiProcessGuards();
+  presentation.installTuiProcessGuards(productRuntime.config.identity.cliName);
   // CMD-004 Phase 2 (Stage B): late-bound TUI-mode process adapter (host-executed exit/restart).
   commandHostAdapters.process = createTuiProcessAdapter();
   // Issue #3081: `/cd` starts the product again in the target directory, resuming this conversation.

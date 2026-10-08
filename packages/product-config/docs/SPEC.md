@@ -8,7 +8,7 @@ Defines product configuration as explicit data so hosts and build tools can sele
 
 Each resolution uses only caller-supplied sources and returns its own immutable configuration. Explicit empty input is a choice and cannot fall back to another source. Installed artifact identity is authoritative: operational settings may be overridden, while conflicting selected-file or product-alias identity is refused. Ambient canonical inputs belong only to an environment stamped with the running product identity; unrelated products cannot redirect artifact configuration. Declared non-secret artifact defaults are subordinate to runtime sources and resolve against the invocation home rather than the build host.
 
-Public and host projections are defined by the same contract as validation and guidance. Private references stay with the adapter that needs them and are never embedded as artifact identity or runtime defaults. Shared settings compatibility is a product choice without conferring project authority. Cryptographic domain labels are public protocol data; they do not contain key material.
+Public and host projections are defined by the same contract as validation and guidance. Private references stay with the adapter that needs them and are never embedded as artifact identity or runtime defaults. Artifact version and provenance are build metadata separate from immutable identity. Shared settings compatibility is a product choice without conferring project authority. Cryptographic domain labels are public protocol data; they do not contain key material.
 
 ## Invariants
 

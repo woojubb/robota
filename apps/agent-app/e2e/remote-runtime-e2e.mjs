@@ -4,9 +4,15 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { buildProductTestEnvironment } from './product-fixture.mjs';
+import { buildProductTestEnvironment, readDesktopTestIdentity } from './product-fixture.mjs';
 
 const appRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+
+export function buildRemoteDesktopProductFixture(moduleDirectory, stateRoot) {
+  const identity = readDesktopTestIdentity(moduleDirectory);
+  if (!identity) throw new Error('Desktop app under test has no embedded product identity.');
+  return buildProductTestEnvironment(stateRoot, identity);
+}
 
 /** Run the real window/main/preload against the stock-worker TLS fixture supplied by the CLI test. */
 export async function exerciseDesktopRemote({
@@ -48,7 +54,7 @@ export async function exerciseDesktopRemote({
       .filter((key) => process.env[key])
       .map((key) => [key, process.env[key]]),
   );
-  const product = buildProductTestEnvironment(join(directory, 'native-product'));
+  const product = buildRemoteDesktopProductFixture(join(appRoot, 'dist', 'electron'), join(directory, 'native-product'));
   const application = await electron.launch({
     executablePath: process.env.PRODUCT_DESKTOP_NATIVE_E2E_EXECUTABLE,
     args: ['--no-sandbox', '--disable-gpu', join(appRoot, 'dist/electron/main.js')],
