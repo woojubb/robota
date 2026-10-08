@@ -69,7 +69,8 @@ configured executable or product on their own.
 
 Local peer-activity publishing exposes only fixed, content-free activity states for the current
 interactive session into a guarded, same-user rendezvous, kept separate from process-liveness checks
-(stale or unverified observations read as `unknown`) and never carrying conversation content or
+(stale or unverified observations read as `unknown`; proven dead announcements are pruned on startup)
+and never carrying conversation content or
 stored-session identity. The workspace claim published beside it is checked by each reader, which
 reads git at the claimed path itself and relates nothing whose contents do not match; it does not
 establish that the peer works at that path, because the same OS user is the trust boundary and the

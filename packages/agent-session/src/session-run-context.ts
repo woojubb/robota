@@ -38,6 +38,8 @@ export interface IRunContext {
     executionJournal?: IExecutionJournal,
   ) => Promise<void>;
   persistSession: () => void;
+  /** Synchronous durable checkpoint before a newly recorded turn can cause an external effect. */
+  checkpointHistory?: () => void;
   getSessionStore: () => boolean;
   clearSessionStartStdout: () => void;
   maxTurns?: number;

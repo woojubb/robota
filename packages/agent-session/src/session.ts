@@ -110,6 +110,7 @@ export class Session extends SessionBase {
   protected messageCount = 0;
   private readonly terminal: ITerminalOutput;
   private readonly sessionStore?: IInteractiveSessionStore;
+  private readonly checkpointHistoryCallback?: () => void;
   private readonly hooks?: Record<string, unknown>;
   private readonly hookTypeExecutors?: IHookTypeExecutor[];
   private readonly onTextDeltaCallback?: (delta: string) => void;
@@ -141,6 +142,7 @@ export class Session extends SessionBase {
 
     this.terminal = options.terminal;
     this.sessionStore = options.sessionStore;
+    this.checkpointHistoryCallback = options.checkpointHistory;
     this.systemMessage = systemMessage;
     this.toolSchemas = tools.map((tool) => tool.schema);
     this.wrapAddedTools = options.wrapAddedTools;
@@ -459,9 +461,9 @@ export class Session extends SessionBase {
     this.sessionLogger?.log(this.sessionId, event, data);
   }
 
-  private persistSessionInternal(): void {
+  private persistSessionInternal(strict = false): void {
     if (!this.sessionStore) return;
-    persistSession({
+    const outcome = persistSession({
       sessionId: this.sessionId,
       cwd: this.cwd,
       systemPrompt: this.systemMessage,
@@ -470,6 +472,9 @@ export class Session extends SessionBase {
       agent: this.agent,
       getFullHistory: () => this.getFullHistory(),
     });
+    if (strict && outcome.status !== 'valid') {
+      throw new Error(`Session history could not be durably checkpointed: ${outcome.status}`);
+    }
   }
 
   /**
@@ -580,6 +585,8 @@ export class Session extends SessionBase {
       compact: (signal, hookTraceEnv, executionJournal) =>
         this.compactWith(undefined, 'auto', signal, hookTraceEnv, executionJournal),
       persistSession: () => this.persistSessionInternal(),
+      checkpointHistory: this.checkpointHistoryCallback ??
+        (this.sessionStore ? () => this.persistSessionInternal(true) : undefined),
       getSessionStore: () => !!this.sessionStore,
       clearSessionStartStdout: () => void (this.sessionStartStdout = ''),
       permissionMode: this.permissionMode,

@@ -116,7 +116,8 @@ never happened.
   before a tool body chooses the host or the sandbox — and the execution root is the file tools'
   containment boundary but only the shell's default directory, never a boundary for commands. A
   shared client that confines a host process in place only rewrites the invocation, so the shell
-  tool keeps its own timeouts, cancellation, output limits and process-group kill.
+  tool keeps its own timeouts, cancellation, output limits and process-group kill; foreground host
+  shell groups also terminate after their owner dies, including when the owner cannot handle a signal.
 - The OS sandbox promises only what the OS enforces. Its network boundary is on or off, and off
   closes Unix sockets too, because a per-domain allowlist needs a proxy the OS does not enforce and
   a host daemon's socket is a way out; the model cannot ask to leave it. What it guards is outside

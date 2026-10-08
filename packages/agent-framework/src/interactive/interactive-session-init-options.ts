@@ -78,6 +78,8 @@ export interface IInitOptions {
   forkSession?: boolean;
   /** CLI-1994: the record store a spawned fork job restores its `resumeSessionId` from. */
   resumeSessionStore?: IInteractiveSessionStore;
+  /** The interactive record owner's strict save before provider or tool effects. */
+  checkpointHistory?: () => void;
   /** Explicit session-log sink; absence disables diagnostic project logging. */
   sessionLogSink?: ISessionLogSink;
   /** Trusted host-only path projection for hook compatibility. */

@@ -100,6 +100,8 @@ export interface ICreateSessionOptions {
   maxTurns?: number;
   /** Optional session store for persistence */
   sessionStore?: IInteractiveSessionStore;
+  /** Strict checkpoint supplied by the owner of an interactive session record. */
+  checkpointHistory?: () => void;
   /**
    * CLI-1994: the interactive-session record store a subagent RESUMES a `resumeSessionId` from — the
    * store `/fork` wrote the copy to. Read-only at the runner; distinct from `sessionStore`, which is

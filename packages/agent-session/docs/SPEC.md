@@ -44,7 +44,8 @@ persistence paths that consume it (the store, the artifact envelope, the replay 
   prior record" on a write path (a consumer that reads a damaged file to preserve fields it does
   not own must not silently overwrite it with a fresh record).
 - Persistence is atomic (same-directory temp file + rename), so a crash mid-write cannot corrupt
-  the previous record.
+  the previous record; an accepted user message and an assistant tool-call intent are checkpointed
+  synchronously before that turn can dispatch an effect, and a failed checkpoint refuses dispatch.
 - `IHistoryEntry.timestamp` is `Date`-typed at compile time but round-trips through JSON as an
   ISO string; consumers of a loaded record must not assume a live `Date` instance.
 - Memory-event and used-reference fields are audit/debug data, not baseline user-local
