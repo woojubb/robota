@@ -56,7 +56,7 @@ describe('CLI workspace trust admission', () => {
       const access = await resolveInitialCliWorkspaceProjectAccess(cwd, { productRuntime: createTestProductRuntime() });
       expect(access).toMatchObject({ status: 'restricted', trustState: 'untrusted' });
       expect(requiresHeadlessWorkspaceTrust(access)).toBe(true);
-      expect(formatHeadlessWorkspaceTrustError(access, cwd)).toContain(
+      expect(formatHeadlessWorkspaceTrustError(access, cwd, 'test-product')).toContain(
         'Project settings, hooks, plugins, skills, and provider overrides were not loaded.',
       );
 
@@ -64,6 +64,7 @@ describe('CLI workspace trust admission', () => {
 
       expect(process.exitCode).toBe(1);
       expect(stderr.mock.calls.flat().join('')).toContain('Workspace trust is required');
+      expect(stderr.mock.calls.flat().join('')).toContain('test-product trust --yes');
     } finally {
       process.chdir(previousCwd);
       process.env.HOME = previousHome;

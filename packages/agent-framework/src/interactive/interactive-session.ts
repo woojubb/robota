@@ -480,7 +480,10 @@ export class InteractiveSession
           event as TInteractiveEventName,
           ...(args as Parameters<IInteractiveSessionEvents[TInteractiveEventName]>),
         ),
-      persistSession: () => this.persistCurrentSession(),
+      persistSession: (strict) => this.persistCurrentSession(strict),
+      checkpointHistory: () => {
+        if (this.sessionStore) this.persistCurrentSession(true);
+      },
       ...(options.livePromptTrace ? { livePromptTrace: options.livePromptTrace } : {}),
       onWakeTurnFinalizing: (wakeTaskId, result, outcome, toolExecutions) =>
         this.finalizeSelfPacedIteration(wakeTaskId, result, outcome, toolExecutions),
@@ -662,6 +665,7 @@ export class InteractiveSession
         for (const entry of entries) this.histTracker.append(entry);
       },
       onToolExecution: (event) => this.execCtrl.handleToolExecution(event),
+      checkpointHistory: () => this.persistCurrentSession(true),
       executeModelCommand: (command, args) => this.executeModelCommand(command, args),
       isModelCommandInvocable: (command) =>
         this.skillRouter.commandExecutor.isModelInvocable(command),

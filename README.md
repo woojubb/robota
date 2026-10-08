@@ -304,6 +304,17 @@ pnpm test
 Development needs Node.js 22 (22.14 or a later 22.x release) and pnpm 8.15.4. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the
 workflow, the checks a pull request must pass, and the commit format.
 
+To package the built-in desktop app locally on Linux, install Bun and run these commands from a clean checkout:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm build
+bun packages/agent-cli/scripts/build-bun.mjs linux-x64
+pnpm --filter @robota-sdk/agent-app dist:app --linux AppImage
+```
+
+The AppImage is written to `apps/agent-app/release/`. A generated product uses the same build commands in its generated workspace. The Bun build also accepts `--entry <compiled-host-entry>` and `--artifact-name <basename>`; set `PRODUCT_DESKTOP_BINARY=<compiled-binary-path>` when running `dist:app` to bundle that binary in the desktop app.
+
 ## License
 
 Robota is dual-licensed under the [GNU AGPL-3.0](LICENSE) or a [commercial license](COMMERCIAL.md). See [LICENSING.md](LICENSING.md).

@@ -12,7 +12,9 @@ export function createProductUserSettingsSources(runtime: ICliRuntimeContext): r
   return [
     createNodeHostSettingsSource('user', productUserSettingsPath(runtime)),
     ...(runtime.userHome !== undefined
-      ? [createNodeHostSettingsSource('user', join(runtime.userHome, '.claude', 'settings.json'))]
+      ? (runtime.config.settings.sharedUserFiles ?? []).map((relativePath) =>
+          createNodeHostSettingsSource('user', join(runtime.userHome!, relativePath)),
+        )
       : []),
   ];
 }

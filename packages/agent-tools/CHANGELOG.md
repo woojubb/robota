@@ -1,5 +1,19 @@
 # @robota-sdk/agent-tools
 
+## 3.0.0-beta.92
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.92
+  - @robota-sdk/agent-process@3.0.0-beta.92
+
+## 3.0.0-beta.91
+### Patch Changes
+
+- bad976f: Persist turn and tool intent before effects, restore interrupted calls with unknown outcomes, reap owned foreground shell groups after owner death, and prune proven dead peer announcements.
+  - @robota-sdk/agent-core@3.0.0-beta.91
+  - @robota-sdk/agent-process@3.0.0-beta.91
+
 ## 3.0.0-beta.90
 ### Minor Changes
 

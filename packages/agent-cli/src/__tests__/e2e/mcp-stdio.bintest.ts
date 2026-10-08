@@ -1,4 +1,4 @@
-import { createTestBinaryEnvironment } from '../helpers/product-runtime.js';
+import { createBuiltInBinaryEnvironment, createTestBinaryEnvironment } from '../helpers/product-runtime.js';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync, spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -122,7 +122,7 @@ async function startExternalMcpProbe(): Promise<{
   };
 }
 
-describe('test-product mcp serve built binary', () => {
+describe('MCP serve through a synthetic host and the built-in binary', () => {
   it('serves and consumes MCP tools through one admitted product session', async () => {
     const server = await startExternalMcpProbe();
     const cwd = mkdtempSync(join(tmpdir(), 'test-product-mcp-bidirectional-cwd-'));
@@ -217,9 +217,9 @@ describe('test-product mcp serve built binary', () => {
   it('serves canonical tools, executes an allowed tool, denies a blocked tool and exits on stdin close', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'test-product-mcp-cwd-'));
     const home = mkdtempSync(join(tmpdir(), 'test-product-mcp-home-'));
-    mkdirSync(join(home, '.test-product'));
+    mkdirSync(join(home, '.robota'));
     writeFileSync(
-      join(home, '.test-product', 'settings.json'),
+      join(home, '.robota', 'settings.json'),
       JSON.stringify({
         currentProvider: 'anthropic',
         providers: {
@@ -238,7 +238,7 @@ describe('test-product mcp serve built binary', () => {
       FIXTURE,
       '--no-session-persistence',
     ];
-    const env = createTestBinaryEnvironment(home);
+    const env = createBuiltInBinaryEnvironment(home);
     // Control: without the deny, the same server lists `Shell`, so its absence below is the deny's doing.
     const control = new Client({ name: 'binary-test-control', version: '1' });
     await control.connect(
@@ -267,7 +267,7 @@ describe('test-product mcp serve built binary', () => {
       await client.connect(transport);
       const names = (await client.listTools()).tools.map((tool) => tool.name);
       expect(names).toContain('Read');
-      expect(names).toContain('test-product_submit');
+      expect(names).toContain('robota_submit');
       // A tool denied outright by name is withheld from the catalog rather than listed and then refused.
       expect(names).not.toContain('Shell');
       // `Bash` is an alias of the same shell tool, so denying `Shell` withholds it too.
@@ -293,7 +293,7 @@ describe('test-product mcp serve built binary', () => {
     const home = mkdtempSync(join(tmpdir(), 'test-product-mcp-invalid-home-'));
     const child = spawn(process.execPath, [PRODUCT_BIN, 'mcp', 'serve', '--serve'], {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: createTestBinaryEnvironment(home),
+      env: createBuiltInBinaryEnvironment(home),
     });
     let stdout = '';
     let stderr = '';
@@ -312,7 +312,7 @@ describe('test-product mcp serve built binary', () => {
     execFileSync('git', ['init', '-q', cwd]);
     const child = spawn(process.execPath, [PRODUCT_BIN, 'mcp', 'serve'], {
       cwd,
-      env: createTestBinaryEnvironment(home),
+      env: createBuiltInBinaryEnvironment(home),
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     let stdout = '';
@@ -334,9 +334,9 @@ describe('test-product mcp serve built binary', () => {
   it('exits cleanly on SIGTERM after the carrier is ready', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'test-product-mcp-signal-cwd-'));
     const home = mkdtempSync(join(tmpdir(), 'test-product-mcp-signal-home-'));
-    mkdirSync(join(home, '.test-product'));
+    mkdirSync(join(home, '.robota'));
     writeFileSync(
-      join(home, '.test-product', 'settings.json'),
+      join(home, '.robota', 'settings.json'),
       JSON.stringify({
         currentProvider: 'anthropic',
         providers: {
@@ -349,7 +349,7 @@ describe('test-product mcp serve built binary', () => {
       [PRODUCT_BIN, 'mcp', 'serve', '--session-log', FIXTURE, '--no-session-persistence'],
       {
         cwd,
-        env: createTestBinaryEnvironment(home),
+        env: createBuiltInBinaryEnvironment(home),
         stdio: ['pipe', 'pipe', 'pipe'],
       },
     );

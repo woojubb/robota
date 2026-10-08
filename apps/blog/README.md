@@ -31,20 +31,19 @@ usable preview, so check a change locally: `pnpm --filter robota-blog build`, th
 | Setting                | Value                             |
 | ---------------------- | --------------------------------- |
 | Framework preset       | Astro                             |
-| Build command          | `pnpm --filter robota-blog build` |
+| Build command          | `pnpm exec tsx scripts/product/build-site.mjs blog` |
 | Build output directory | `apps/blog/dist`                  |
 | Root directory         | `/`                               |
 
-Environment variable: `NODE_VERSION` = `22` (the package requires Node `>=22.12.0`).
+Environment variables: `NODE_VERSION` = `22` (the package requires Node `>=22.12.0`) and non-secret `PRODUCT_BUILD_ENV` file contents. See the [product configuration guide](../../packages/product-config/README.md#public-site-builds).
 
 ### Manual deploy (fallback)
 
 ```sh
-pnpm --filter robota-blog run deploy
-# astro build && wrangler pages deploy dist --project-name __DEPLOY_BLOG_PROJECT_NAME__ --branch main
+PRODUCT_CONFIG_FILE=/absolute/path/product.env pnpm --filter robota-blog run deploy
 ```
 
-This uploads a local build straight to production and needs a Wrangler login with access to the
+This generates and verifies the selected product site before uploading it to production and needs a Wrangler login with access to the
 project. Use it only when the Git integration cannot be used.
 
 ## Adding a New Post

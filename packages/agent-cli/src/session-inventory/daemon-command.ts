@@ -1,3 +1,4 @@
+import { formatHeadlessRestrictedNotice } from '../startup/workspace-trust-admission.js';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { randomBytes } from 'node:crypto';
 import { realpathSync } from 'node:fs';
@@ -27,9 +28,10 @@ export interface IDaemonCommandOptions {
   readonly env: (workspace: string) => NodeJS.ProcessEnv;
   /**
    * Throws, with the message to show, when a daemon may not start in this workspace. `restricted` is
-   * a person's choice to start it without the project's own configuration.
+   * a person's choice to start it without the project's own configuration. The result may report
+   * Restricted access selected by workspace admission even when that choice was not explicit.
    */
-  readonly admit: (workspace: string, start: { readonly restricted: boolean }) => Promise<void>;
+  readonly admit: (workspace: string, start: { readonly restricted: boolean }) => Promise<void | { readonly restricted: boolean }>;
   /** Whether the workspace is trusted now, so a daemon started in it would load the project's configuration. */
   readonly trusted: (workspace: string) => Promise<boolean>;
   readonly stdout: (text: string) => void;
@@ -107,8 +109,9 @@ async function launchDaemon(
   options: IDaemonCommandOptions,
   workspace: string,
   restricted: boolean,
-): Promise<{ readonly id: string; readonly url: string }> {
-  await options.admit(workspace, { restricted });
+): Promise<{ readonly id: string; readonly url: string; readonly restricted: boolean }> {
+  const admission = await options.admit(workspace, { restricted });
+  const effectiveRestricted = restricted || (typeof admission === 'object' && admission !== null && admission.restricted);
   // The token reaches the child only through its environment, never its command line. With a
   // token the transport also accepts the desktop app's `file://` origin. The port is left to
   // the transport's default so a busy one is retried.
@@ -122,7 +125,11 @@ async function launchDaemon(
     ...(restricted ? { restricted: true } : {}),
   });
   try {
-    return { id, url: await (options.connect ?? connectSupervisedDaemon)(id, (options.root ?? resolveSupervisedDirectory(options.productRuntime))) };
+    return {
+      id,
+      url: await (options.connect ?? connectSupervisedDaemon)(id, (options.root ?? resolveSupervisedDirectory(options.productRuntime))),
+      restricted: effectiveRestricted,
+    };
   } catch (error) {
     try {
       const rows = await (options.list ?? listSupervisedSessions)((options.root ?? resolveSupervisedDirectory(options.productRuntime)), undefined, {
@@ -187,6 +194,7 @@ export async function runDaemonCommand(
       return 0;
     }
     let started = false;
+    let restrictedRuntime = parsed.restricted;
     let id: string;
     let url: string;
     // A Restricted start was a person's choice and never gets a daemon with the project's
@@ -208,6 +216,7 @@ export async function runDaemonCommand(
     if (running !== undefined) {
       await refuseMismatch(running);
       id = running.id;
+      restrictedRuntime = running.restricted === true;
       url = await connectRunning(options, running);
     } else {
       // Starts in one workspace take turns; the one that waited finds the winner's daemon and reuses it.
@@ -217,15 +226,17 @@ export async function runDaemonCommand(
         if (winner !== undefined) {
           await refuseMismatch(winner);
           id = winner.id;
+          restrictedRuntime = winner.restricted === true;
           url = await connectRunning(options, winner);
         } else {
-          ({ id, url } = await launchDaemon(options, workspace, parsed.restricted));
+          ({ id, url, restricted: restrictedRuntime } = await launchDaemon(options, workspace, parsed.restricted));
           started = true;
         }
       } finally {
         release();
       }
     }
+    if (restrictedRuntime) options.stderr(`${formatHeadlessRestrictedNotice(options.productRuntime.layout.projectSettingsPaths)}\n`);
     options.stdout(parsed.json
       ? `${JSON.stringify({ id, url })}\n`
       : `Daemon ${id} ${started ? 'started' : 'running'} in ${workspace}.\n`);

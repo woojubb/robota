@@ -79,8 +79,8 @@ function SetupPanel({
           Connect a model provider to start.
         </h2>
         <p className="text-[15px] leading-relaxed text-muted-foreground">
-          This app needs a provider profile — a type, a key and a model — before it can reply. Set one
-          up now; you can add more or change it later the same way.
+          Choose a provider and model to start. Enter a key if your provider requires one. You can
+          add more providers or change them later the same way.
         </p>
         <button
           type="button"

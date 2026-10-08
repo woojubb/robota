@@ -1,4 +1,5 @@
 import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
@@ -7,7 +8,7 @@ import ts from 'typescript';
 import { parseDocument } from 'yaml';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildBunBinaries, bunTargetForHost } from '../../../packages/agent-cli/scripts/build-bun.mjs';
+import { nativeBuildSelection } from '../../../packages/agent-cli/scripts/build-bun.mjs';
 import {
   embeddedProductIdentity,
   generateDefaultEnvironment,
@@ -40,6 +41,103 @@ vi.mock('node:fs/promises', async (importOriginal) => {
     return result;
   };
   return { ...actual, lstat: thenSwap(actual.lstat), open: thenSwap(actual.open) };
+});
+
+async function tinyCommittedSource(root) {
+  const source = path.join(root, 'source');
+  await mkdir(path.join(source, 'packages/agent-cli/scripts'), { recursive: true });
+  await mkdir(path.join(source, 'packages/core'), { recursive: true });
+  await mkdir(path.join(source, 'apps/agent-app'), { recursive: true });
+  await writeFile(path.join(source, 'packages/core/package.json'), '{"name":"@robota-sdk/core"}\n');
+  await writeFile(path.join(source, 'packages/agent-cli/package.json'), '{"name":"@robota-sdk/agent-cli","version":"1.2.3","bin":{"robota":"./bin/agent.cjs"}}\n');
+  await writeFile(path.join(source, 'apps/agent-app/package.json'), '{"name":"@robota-sdk/agent-app","version":"1.0.0","description":"Robota","author":"Robota"}\n');
+  await writeFile(path.join(source, 'packages/agent-cli/tsdown.config.ts'), 'const define = {}; export default { define };\n');
+  await writeFile(path.join(source, 'packages/agent-cli/scripts/build-bun.mjs'), 'Bun.build({ define: {} });\n');
+  await writeFile(path.join(source, '.npmrc'), 'workspace-concurrency=2\n');
+  execFileSync('git', ['init', '-q', source]);
+  execFileSync('git', ['-C', source, 'add', '.']);
+  execFileSync('git', ['-C', source, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'fixture']);
+  return source;
+}
+
+it('generates only a clean committed tree with non-secret npmrc, version, bin and provenance', async () => {
+  const root = await temporaryRoot();
+  const source = await tinyCommittedSource(root);
+  const base = resolveTestConfig({ scope: '@cedar', displayName: 'Cedar' });
+  const config = {
+    ...base,
+    build: { ...base.build, cliPackageBin: 'none' },
+    release: { ...base.release, productVersion: '9.8.7', buildMetadata: 'fixture-1' },
+  };
+  const out = path.join(root, 'out');
+  await generateWorkspaceFromConfig({ sourceRoot: source, outDir: out, config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config), sourceMode: 'clean-tree' });
+  const provenance = JSON.parse(await readFile(path.join(out, '.product/source.json'), 'utf8'));
+  expect(provenance).toMatchObject({ mode: 'clean-tree', commit: expect.stringMatching(/^[a-f0-9]{40}$/u), tree: expect.stringMatching(/^[a-f0-9]{40}$/u) });
+  expect(await readFile(path.join(out, '.npmrc'), 'utf8')).toBe('workspace-concurrency=2\n');
+  expect(JSON.parse(await readFile(path.join(out, 'packages/agent-cli/package.json'), 'utf8'))).toMatchObject({ version: '9.8.7' });
+  expect(JSON.parse(await readFile(path.join(out, 'packages/agent-cli/package.json'), 'utf8'))).not.toHaveProperty('bin');
+  expect(JSON.parse(await readFile(path.join(out, 'apps/agent-app/package.json'), 'utf8'))).toMatchObject({ version: '9.8.7', author: 'Cedar', description: 'Cedar desktop app' });
+  expect(JSON.parse(await readFile(path.join(out, '.product/artifact-metadata.json'), 'utf8'))).toEqual({ version: '9.8.7', sourceVersion: '1.2.3', buildMetadata: 'fixture-1', artifactName: 'cedar' });
+  const manifest = JSON.parse(await readFile(path.join(out, '.product/generated-files.json'), 'utf8'));
+  expect(manifest).toContainEqual({ path: '.npmrc', sha256: expect.stringMatching(/^[a-f0-9]{64}$/u) });
+  sourceSwap.path = path.join(source, '.npmrc');
+  sourceSwap.run = () => writeFile(path.join(source, 'changed-during-copy.txt'), 'changed');
+  await expect(generateWorkspaceFromConfig({ sourceRoot: source, outDir: path.join(root, 'raced'), config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config), sourceMode: 'clean-tree' })).rejects.toThrow('clean checkout');
+  expect(sourceSwap.path).toBeUndefined();
+  await rm(path.join(source, 'changed-during-copy.txt'));
+  await writeFile(path.join(source, 'untracked.txt'), 'outside commit');
+  await expect(generateWorkspaceFromConfig({ sourceRoot: source, outDir: path.join(root, 'dirty'), config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config), sourceMode: 'clean-tree' })).rejects.toThrow('clean checkout');
+});
+
+it('refuses credential-like npmrc settings and unrelated outer repositories', async () => {
+  const root = await temporaryRoot();
+  const source = await tinyCommittedSource(root);
+  const config = resolveTestConfig({ scope: '@amber', displayName: 'Amber' });
+  await writeFile(path.join(source, '.npmrc'), '//registry.example.test/:_authToken=secret\n');
+  await expect(generateWorkspaceFromConfig({ sourceRoot: source, outDir: path.join(root, 'unsafe'), config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config) })).rejects.toThrow('non-secret allowlist');
+  const nested = path.join(source, 'nested');
+  await mkdir(nested);
+  await expect(generateWorkspaceFromConfig({ sourceRoot: nested, outDir: path.join(root, 'nested-out'), config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config), sourceMode: 'clean-tree' })).rejects.toThrow('repository root');
+});
+
+it('ignores package manifests and templates outside the committed inventory', async () => {
+  const root = await temporaryRoot();
+  const source = await tinyCommittedSource(root);
+  await mkdir(path.join(source, 'packages/ghost'), { recursive: true });
+  await mkdir(path.join(source, 'scripts/product/templates/packages/core'), { recursive: true });
+  await writeFile(path.join(source, '.git/info/exclude'), 'packages/ghost/\nscripts/product/templates/\n');
+  await writeFile(path.join(source, 'packages/ghost/package.json'), '{"name":"@robota-sdk/ghost"}\n');
+  await writeFile(path.join(source, 'scripts/product/templates/packages/core/package.json'), '{"name":"@robota-sdk/wrong-template"}\n');
+  const config = resolveTestConfig({ scope: '@cedar', displayName: 'Cedar' });
+  const out = path.join(root, 'out');
+  await generateWorkspaceFromConfig({ sourceRoot: source, outDir: out, config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config), sourceMode: 'clean-tree' });
+  expect(JSON.parse(await readFile(path.join(out, '.product/package-map.json'), 'utf8'))).not.toHaveProperty('@robota-sdk/ghost');
+  expect(JSON.parse(await readFile(path.join(out, 'packages/core/package.json'), 'utf8')).name).toBe('@cedar/core');
+});
+
+it('preserves whitespace at the beginning of a committed filename', async () => {
+  const root = await temporaryRoot();
+  const source = await tinyCommittedSource(root);
+  await writeFile(path.join(source, ' leading-note.txt'), 'leading space survives\n');
+  execFileSync('git', ['-C', source, 'add', '.']);
+  execFileSync('git', ['-C', source, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'whitespace path']);
+  const config = resolveTestConfig({ scope: '@cedar', displayName: 'Cedar' });
+  const out = path.join(root, 'out');
+  await generateWorkspaceFromConfig({ sourceRoot: source, outDir: out, config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config), sourceMode: 'clean-tree' });
+  expect(await readFile(path.join(out, ' leading-note.txt'), 'utf8')).toBe('leading space survives\n');
+});
+
+it('does not follow a committed package manifest symlink to an ignored source', async () => {
+  const root = await temporaryRoot();
+  const source = await tinyCommittedSource(root);
+  await mkdir(path.join(source, 'packages/linked'), { recursive: true });
+  await writeFile(path.join(source, '.git/info/exclude'), 'ignored-manifest.json\n');
+  await writeFile(path.join(source, 'ignored-manifest.json'), '{"name":"@robota-sdk/ignored"}\n');
+  await symlink('../../ignored-manifest.json', path.join(source, 'packages/linked/package.json'));
+  execFileSync('git', ['-C', source, 'add', 'packages/linked/package.json']);
+  execFileSync('git', ['-C', source, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'manifest link']);
+  const config = resolveTestConfig({ scope: '@cedar', displayName: 'Cedar' });
+  await expect(generateWorkspaceFromConfig({ sourceRoot: source, outDir: path.join(root, 'out'), config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config), sourceMode: 'clean-tree' })).rejects.toThrow();
 });
 
 describe('product strings in generated artifact syntax', () => {
@@ -128,6 +226,10 @@ function resolveTestConfig({ scope, displayName }) {
       PROJECT_HOMEPAGE_URL: `https://${displayName.toLowerCase()}.example.test`,
       PROJECT_DOCS_URL: `https://docs.${displayName.toLowerCase()}.example.test`,
       PROJECT_BLOG_URL: `https://blog.${displayName.toLowerCase()}.example.test`,
+      PRODUCT_DEFAULT_USER_STATE_DIR: `.${displayName.toLowerCase()}`,
+      PRODUCT_DEFAULT_CACHE_DIR: `.${displayName.toLowerCase()}/cache`,
+      PRODUCT_DEFAULT_LOG_DIR: `.${displayName.toLowerCase()}/logs`,
+      PRODUCT_DEFAULT_PROJECT_STATE_DIR: `.${displayName.toLowerCase()}`,
       PRODUCT_USER_STATE_DIR: `/tmp/${displayName.toLowerCase()}`,
       PRODUCT_PROJECT_STATE_DIR: `.${displayName.toLowerCase()}`,
       PRODUCT_CACHE_DIR: `/tmp/${displayName.toLowerCase()}-cache`,
@@ -274,10 +376,14 @@ describe('generated product workspace isolation', () => {
     );
   });
 
-  it('rejects standalone packaging without a generated product before qualifying native addons', async () => {
-    await expect(buildBunBinaries('/unused', [bunTargetForHost()])).rejects.toThrow(
-      'Generate a product workspace before building standalone binaries.',
-    );
+  it('selects a host entry and artifact name without requiring a generated product', async () => {
+    const root = await temporaryRoot();
+    const entry = path.join(root, 'host-entry.js');
+    await writeFile(entry, 'export default 1;');
+    expect(nativeBuildSelection(root, 'full', { entry, artifactName: 'cedar-native' })).toEqual({
+      entry, artifactName: 'cedar-native',
+    });
+    expect(() => nativeBuildSelection(root, 'full', { entry, artifactName: '../escape' })).toThrow('Artifact name');
   });
 
   it('builds independent A/B/A stages, omits private env files, and leaves source bytes unchanged', async () => {
@@ -387,6 +493,12 @@ describe('generated product workspace isolation', () => {
       beta: './bin/agent.cjs',
     });
     expect(JSON.parse(await readFile(path.join(stageA1, '.product/identity.json'), 'utf8')).identity.displayName).toBe('Alpha');
+    const runtimeDefaults = await readFile(path.join(stageA1, '.product/runtime-defaults.json'), 'utf8');
+    expect(JSON.parse(runtimeDefaults).PRODUCT_USER_STATE_DIR).toBe('.alpha');
+    expect(runtimeDefaults).not.toContain('/tmp/alpha');
+    for (const file of ['packages/agent-cli/tsdown.config.ts', 'packages/agent-cli/scripts/build-bun.mjs']) {
+      expect(await readFile(path.join(stageA1, file), 'utf8')).toContain('__PRODUCT_CONFIG_DEFAULTS__');
+    }
     const publicProjection = JSON.parse(await readFile(path.join(stageA1, '.product/public-config.json'), 'utf8'));
     expect(publicProjection).not.toHaveProperty('secrets');
     expect(publicProjection).not.toHaveProperty('credentials');

@@ -5,6 +5,7 @@
  * check instead of an exit. Shared by the pre-parse route and by `/doctor`.
  */
 import { resolveCliRuntimeContext } from './product-bootstrap.js';
+import { readBuildMetadata, readSourceVersion } from './version.js';
 import { join } from 'node:path';
 
 import { pluginScopeDirs } from '../plugins/default-plugin-command-source-loader.js';
@@ -54,7 +55,14 @@ export function checkNodeVersion(nodeVersion: string = process.versions.node): I
 }
 
 function checkCliVersion(version: string, runtime: ICliRuntimeContext): IDoctorCheck {
-  return { id: 'host.cli', label: `${runtime.config.identity.cliName} version`, status: 'ok', cause: version };
+  const sourceVersion = readSourceVersion();
+  const buildMetadata = readBuildMetadata();
+  return {
+    id: 'host.cli', label: `${runtime.config.identity.cliName} version`, status: 'ok', cause: version,
+    ...(sourceVersion !== version || buildMetadata ? {
+      detail: [`Source CLI version: ${sourceVersion}`, ...(buildMetadata ? [`Build: ${buildMetadata}`] : [])],
+    } : {}),
+  };
 }
 
 function checkTerminal(

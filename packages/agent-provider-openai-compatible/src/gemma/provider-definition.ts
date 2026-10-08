@@ -1,7 +1,7 @@
 import { GemmaProvider } from './provider';
-import { probeOpenAICompatibleProfile } from '../shared/openai-compatible/index.js';
+import { probeGemmaProfile } from './endpoint-probe';
 
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { IProviderDefinition, IProviderDefinitionConfig } from '@robota-sdk/agent-core';
 
 export const DEFAULT_GEMMA_PROVIDER_MODEL = 'supergemma4-26b-uncensored-v2';
 export const DEFAULT_GEMMA_PROVIDER_API_KEY = 'lm-studio';
@@ -39,11 +39,11 @@ export function createGemmaProviderDefinition(): IProviderDefinition {
   return {
     type: 'gemma',
     displayName: 'Ollama / LM Studio / llama.cpp',
-    description: 'Local models via LM Studio or Ollama. No API key needed.',
+    description:
+      'Local models via LM Studio or Ollama. API key optional for authenticated servers.',
     category: 'local-free',
     defaults: {
       model: DEFAULT_GEMMA_PROVIDER_MODEL,
-      apiKey: DEFAULT_GEMMA_PROVIDER_API_KEY,
       baseURL: DEFAULT_GEMMA_PROVIDER_BASE_URL,
     },
     modelCatalog: GEMMA_MODEL_CATALOG,
@@ -61,19 +61,19 @@ export function createGemmaProviderDefinition(): IProviderDefinition {
       },
       {
         key: 'apiKey',
-        title: 'Gemma OpenAI-compatible API key',
-        defaultValue: DEFAULT_GEMMA_PROVIDER_API_KEY,
+        title: 'Optional local-server API key',
         masked: true,
+        editOnly: true,
       },
     ],
-    requiresApiKey: true,
-    probeProfile: probeOpenAICompatibleProfile,
+    requiresApiKey: false,
+    probeProfile: probeGemmaProfile,
     // Built on the OpenAI SDK: its base URL variable is read only when none is configured, and a
     // default is (the parent applies it), but it still sends the organization and project these name.
     destinationEnvironment: ['OPENAI_BASE_URL', 'OPENAI_ORG_ID', 'OPENAI_PROJECT_ID'],
     createProvider: (config) =>
       new GemmaProvider({
-        apiKey: requireApiKey(config.apiKey),
+        apiKey: resolveSdkApiKey(config),
         ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
         ...(config.timeout !== undefined && { timeout: config.timeout }),
         defaultModel: config.model,
@@ -81,9 +81,12 @@ export function createGemmaProviderDefinition(): IProviderDefinition {
   };
 }
 
-function requireApiKey(apiKey: string | undefined): string {
-  if (!apiKey) {
-    throw new Error('Provider gemma requires apiKey');
+function resolveSdkApiKey(config: IProviderDefinitionConfig): string {
+  if (config.apiKeyEnv !== undefined && !config.apiKey) {
+    throw new Error(
+      `Environment variable ${config.apiKeyEnv} is not set — set it before using this provider`,
+    );
   }
-  return apiKey;
+  // The SDK requires a key even when the server does not; this is never a saved credential default.
+  return config.apiKey ?? DEFAULT_GEMMA_PROVIDER_API_KEY;
 }

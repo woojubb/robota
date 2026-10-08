@@ -184,16 +184,28 @@ describe('Session execution continuation', () => {
         entry === 'run' ? fresh.session.run('original input') : fresh.session.resume(saved);
       const canceled = expect(running).rejects.toMatchObject({ name: 'AbortError' });
       await entered;
+      const checkpointCount = save.mock.calls.length;
       const closing = fresh.session.shutdown();
-      await Promise.resolve();
-      expect(save).not.toHaveBeenCalled();
-      release();
+      try {
+        // A fresh run saves its new turn and call intent. Resume reuses the journal's existing
+        // intent and needs no new checkpoint. Neither may publish a tool receipt while blocked.
+        if (entry === 'run') expect(checkpointCount).toBeGreaterThan(0);
+        expect(save.mock.calls.every(([record]) =>
+          !record.messages.some((message: { role: string }) => message.role === 'tool'))).toBe(true);
+        await Promise.resolve();
+        expect(save).toHaveBeenCalledTimes(checkpointCount);
+      } finally {
+        release();
+      }
       await canceled;
       await closing;
-      expect(save).toHaveBeenCalledOnce();
-      expect(
-        save.mock.calls[0][0].messages.some((message: { role: string }) => message.role === 'tool'),
-      ).toBe(true);
+      const settledSaves = save.mock.calls.slice(checkpointCount);
+      expect(settledSaves.length).toBeGreaterThan(0);
+      expect(settledSaves.every(([record]) => record.messages.some((message: { role: string }) =>
+        message.role === 'tool'))).toBe(true);
+      expect(save.mock.calls.at(-1)![0].messages).toEqual(fresh.session.getHistory());
+      expect(fresh.effect).toHaveBeenCalledOnce();
+      expect(fresh.requests).toHaveLength(entry === 'run' ? 1 : 0);
     },
   );
 });

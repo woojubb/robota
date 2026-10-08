@@ -12,6 +12,25 @@ import {
 import { productEnvironment } from './__tests__/product-environment.js';
 
 describe('explicit product configuration', () => {
+  it('validates build-only package command and artifact version independently of identity', () => {
+    const defaults = productEnvironment();
+    const selected = resolveProductConfig({ environment: {
+      ...defaults,
+      PRODUCT_CLI_PACKAGE_BIN: 'none',
+      PRODUCT_VERSION: '4.2.1-beta.3',
+      PRODUCT_BUILD_METADATA: 'fixture-build',
+    } });
+    expect(selected.build.cliPackageBin).toBe('none');
+    expect(selected.release.productVersion).toBe('4.2.1-beta.3');
+    expect(selected.release.buildMetadata).toBe('fixture-build');
+    expect(embeddedProductIdentity(selected)).toEqual(embeddedProductIdentity(resolveProductConfig({ environment: defaults })));
+    expect(() => resolveProductConfig({ environment: { ...defaults, PRODUCT_VERSION: 'invalid' } })).toThrow('PRODUCT_VERSION');
+    for (const invalid of ['01.2.3', '1.2.3-.', '1.2.3-beta..1', '1.2.3-01', '1.2.3+build..1']) {
+      expect(() => resolveProductConfig({ environment: { ...defaults, PRODUCT_VERSION: invalid } })).toThrow('PRODUCT_VERSION');
+    }
+    expect(resolveProductConfig({ environment: { ...defaults, PRODUCT_VERSION: '1.2.3-beta.1+build.01' } }).release.productVersion).toBe('1.2.3-beta.1+build.01');
+    expect(() => resolveProductConfig({ environment: { ...defaults, PRODUCT_CLI_PACKAGE_BIN: '../other' } })).toThrow('PRODUCT_CLI_PACKAGE_BIN');
+  });
   it('keeps A/B/A and concurrent calls independent without mutating input', async () => {
     const a = productEnvironment();
     const b = productEnvironment('maple');
@@ -89,16 +108,36 @@ describe('explicit product configuration', () => {
     }
   });
 
+  it('ignores every foreign canonical family while preserving this product aliases', () => {
+    const defaults = productEnvironment('cedar');
+    const embeddedIdentity = embeddedProductIdentity(
+      resolveProductConfig({ environment: defaults }),
+    );
+    const foreign = productEnvironment('amber');
+    const resolved = resolveProductConfig({
+      environment: {
+        ...foreign,
+        CEDAR_USER_STATE_DIR: '/tmp/cedar/alias',
+        SERVICE_SIGNALING_URL: 'https://foreign.example',
+      },
+      defaults,
+      embeddedIdentity,
+    });
+    expect(resolved.storage.userRoot).toBe('/tmp/cedar/alias');
+    expect(resolved.identity.id).toBe('cedar');
+    expect(resolved.services.signalingUrl).toBeUndefined();
+  });
+
   it('uses embedded artifact identity and refuses changed identity but permits operational overrides', () => {
     const built = resolveProductConfig({ environment: productEnvironment() });
     const embeddedIdentity = embeddedProductIdentity(built);
     const environment = { ...productEnvironment(), PRODUCT_USER_STATE_DIR: '/tmp/relocated' };
     const installed = resolveProductConfig({ environment, embeddedIdentity });
     expect(installed.storage.userRoot).toBe('/tmp/relocated');
-    expect(() => resolveProductConfig({ environment: { ...environment, PRODUCT_ID: 'maple' }, embeddedIdentity })).toThrow('PRODUCT_ID');
+    expect(() => resolveProductConfig({ environment: {}, fileValues: { ...environment, PRODUCT_ID: 'amber' }, embeddedIdentity })).toThrow('PRODUCT_ID');
     expect(() => resolveProductConfig({ environment: { ...environment, SECURITY_MASTER_KEY_DERIVATION_PATH: '[124,0]' }, embeddedIdentity })).toThrow('SECURITY_MASTER_KEY_DERIVATION_PATH');
     expect(resolveProductConfig({ environment: {
-      PRODUCT_USER_STATE_DIR: '/tmp/user', PRODUCT_PROJECT_STATE_DIR: '.state', PRODUCT_CACHE_DIR: '/tmp/cache', PRODUCT_LOG_DIR: '/tmp/logs',
+      PRODUCT_ID: 'cedar', PRODUCT_USER_STATE_DIR: '/tmp/user', PRODUCT_PROJECT_STATE_DIR: '.state', PRODUCT_CACHE_DIR: '/tmp/cache', PRODUCT_LOG_DIR: '/tmp/logs',
     }, embeddedIdentity }).identity.id).toBe('cedar');
   });
 

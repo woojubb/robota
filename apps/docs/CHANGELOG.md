@@ -1,5 +1,10 @@
 # __PRODUCT_DISPLAY_NAME__-docs
 
+## 1.0.26-beta.0
+### Patch Changes
+
+- Site builds and deployment use the selected product configuration for destinations, links, and generated content.
+
 ## 1.0.25
 
 ### Patch Changes

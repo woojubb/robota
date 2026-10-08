@@ -28,6 +28,7 @@ export interface IProviderSetupFlowState {
 }
 
 export interface IProviderSetupFlowOptions {
+  includeEditOnlySteps?: boolean;
   existingProfileNames?: readonly string[];
   initialValues?: Partial<Record<TProviderSetupField, string>>;
   profileName?: string;
@@ -58,7 +59,9 @@ export function createProviderSetupFlow(
   return {
     type,
     steps: applyProviderSetupInitialValues(
-      getProviderSetupSteps(definition),
+      getProviderSetupSteps(definition).filter(
+        (step) => step.editOnly !== true || options.includeEditOnlySteps === true,
+      ),
       options.initialValues,
     ),
     setupHelpLinks: definition.setupHelpLinks ?? [],

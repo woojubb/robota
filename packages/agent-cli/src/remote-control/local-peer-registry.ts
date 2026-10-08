@@ -31,7 +31,8 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { linkSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { readWindowsProcessStartTime } from '../session-inventory/windows-security.js';
@@ -198,9 +199,32 @@ export function announcePeer(
   return entry;
 }
 
-/** Withdraw this session's entry. Absent is success — the goal is that it is not there. */
-export function withdrawPeer(options: IRegistryOptions, sessionId: string): void {
-  rmSync(join(options.guardedDirectory, `${sessionId}${ENTRY_SUFFIX}`), { force: true });
+/** Withdraw only files still owned by this announcement, including a claim retained during a
+ * concurrent prune. A later owner of the same session ID must remain published. */
+export function withdrawPeer(options: IRegistryOptions, sessionId: string, owner: IPeerEntry): void {
+  const canonical = `${sessionId}${ENTRY_SUFFIX}`;
+  for (const file of readdirSync(options.guardedDirectory)) {
+    if (file !== canonical && !((file.startsWith('.prune-') || file.startsWith('.withdraw-')) && file.endsWith(ENTRY_SUFFIX))) continue;
+    const path = join(options.guardedDirectory, file);
+    const claim = join(options.guardedDirectory, `.withdraw-${randomUUID()}${ENTRY_SUFFIX}`);
+    try {
+      const before = statSync(path);
+      const raw = readFileSync(path, 'utf8');
+      const entry = JSON.parse(raw) as IPeerEntry;
+      if (entry.sessionId !== sessionId || entry.pid !== owner.pid || entry.startedAt !== owner.startedAt) continue;
+      renameSync(path, claim);
+      const after = statSync(claim);
+      const claimedRaw = readFileSync(claim, 'utf8');
+      if (before.dev === after.dev && before.ino === after.ino && raw === claimedRaw) {
+        rmSync(claim);
+      } else {
+        try { linkSync(claim, path); rmSync(claim); }
+        catch { /* A replacement owns the canonical path; retain the claim for discovery. */ }
+      }
+    } catch {
+      // Missing, unreadable or concurrently replaced registrations are not ours to remove.
+    }
+  }
 }
 
 function judgeLiveness(
@@ -256,7 +280,18 @@ export function listPeers(options: IRegistryOptions): readonly IDiscoveredPeer[]
         : 'unknown';
     out.push({ entry, liveness, status });
   }
-  return out.sort((a, b) => a.entry.sessionId.localeCompare(b.entry.sessionId));
+  // A concurrent prune can temporarily move an announcement to a claim path. Both paths remain
+  // readable; prefer the newest reachable announcement for each session id.
+  const bySession = new Map<string, IDiscoveredPeer>();
+  const rank = (peer: IDiscoveredPeer): number => peer.liveness === 'alive' ? 2 : peer.liveness === 'unknown' ? 1 : 0;
+  for (const peer of out) {
+    const previous = bySession.get(peer.entry.sessionId);
+    if (!previous || rank(peer) > rank(previous) ||
+      (rank(peer) === rank(previous) && peer.entry.announcedAt > previous.entry.announcedAt)) {
+      bySession.set(peer.entry.sessionId, peer);
+    }
+  }
+  return [...bySession.values()].sort((a, b) => a.entry.sessionId.localeCompare(b.entry.sessionId));
 }
 
 /**
@@ -270,4 +305,45 @@ export function listReachablePeers(options: IRegistryOptions): readonly IPeerEnt
   return listPeers(options)
     .filter((p) => p.liveness === 'alive')
     .map((p) => p.entry);
+}
+
+/** Atomically move a dead candidate out of its published path, then inspect the claimed inode.
+ * A concurrent reannouncement remains at the original path; if the moved file was the replacement,
+ * link it back only when that path is empty, otherwise retain the claim as a discoverable entry. */
+export function pruneDeadPeers(options: IRegistryOptions): number {
+  const readStartTime = options.readStartTime ?? readProcessStartTime;
+  const probe = options.probePid ?? probePid;
+  let removed = 0;
+  for (const file of readdirSync(options.guardedDirectory)) {
+    if (!file.endsWith(ENTRY_SUFFIX)) continue;
+    const path = join(options.guardedDirectory, file);
+    const claim = join(options.guardedDirectory, `.prune-${randomUUID()}${ENTRY_SUFFIX}`);
+    try {
+      const originalStat = statSync(path);
+      const original = readFileSync(path, 'utf8');
+      const entry = JSON.parse(original) as IPeerEntry;
+      if (typeof entry?.sessionId !== 'string' || typeof entry?.pid !== 'number') continue;
+      if (judgeLiveness(entry, readStartTime, probe) !== 'dead') continue;
+      renameSync(path, claim);
+      const claimedStat = statSync(claim);
+      const claimedRaw = readFileSync(claim, 'utf8');
+      const sameFile = claimedStat.dev === originalStat.dev && claimedStat.ino === originalStat.ino;
+      if (!sameFile || claimedRaw !== original ||
+          judgeLiveness(entry, readStartTime, probe) !== 'dead') {
+        try {
+          linkSync(claim, path);
+          rmSync(claim);
+        } catch {
+          // A newer announcement occupies the canonical path. Keep this claim discoverable.
+        }
+        continue;
+      }
+      rmSync(claim);
+      removed++;
+    } catch {
+      // A concurrent withdrawal/replacement or unreadable file supplies no safe deletion verdict.
+      // A claimed file is still discoverable and can be reconciled on a later startup.
+    }
+  }
+  return removed;
 }

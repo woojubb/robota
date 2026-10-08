@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-app",
-  "version": "3.0.0-beta.87",
+  "version": "3.0.0-beta.88",
   "private": true,
   "description": "agent-app — the Electron shell of the robota desktop app: starts or reuses the workspace's `robota` daemon, hands its loopback address to the page, and loads the GUI web app @robota-sdk/agent-gui-web.",
   "author": "Robota",
@@ -11,7 +11,7 @@
     "build": "pnpm build:renderer && pnpm build:electron",
     "start": "electron dist/electron/main.js",
     "bundle:runtime": "node scripts/bundle-runtime.mjs",
-    "dist:app": "pnpm build && pnpm bundle:runtime && electron-builder --publish never",
+    "dist:app": "pnpm build && pnpm bundle:runtime && node scripts/prepare-desktop-build.mjs && electron-builder --config dist/electron/electron-builder.yml --publish never",
     "typecheck": "tsgo -p electron/tsconfig.json --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

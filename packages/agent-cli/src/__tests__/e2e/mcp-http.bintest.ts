@@ -1,4 +1,4 @@
-import { createTestBinaryEnvironment } from '../helpers/product-runtime.js';
+import { createBuiltInBinaryEnvironment } from '../helpers/product-runtime.js';
 import { spawn, spawnSync } from 'node:child_process';
 import { request as httpRequest } from 'node:http';
 import {
@@ -23,14 +23,14 @@ import { describe, expect, it, vi } from 'vitest';
 const PRODUCT_BIN = fileURLToPath(new URL('../../../bin/agent.cjs', import.meta.url));
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'cross-fidelity.jsonl');
 
-describe('test-product mcp serve loopback HTTP binary', () => {
+describe('built-in mcp serve loopback HTTP binary', () => {
   it('issues a private token, serves a real client, and cleans up on SIGTERM', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'test-product-mcp-http-cwd-'));
     const home = mkdtempSync(join(tmpdir(), 'test-product-mcp-http-home-'));
     const tokenFile = join(home, 'mcp-token');
-    mkdirSync(join(home, '.test-product'));
+    mkdirSync(join(home, '.robota'));
     writeFileSync(
-      join(home, '.test-product', 'settings.json'),
+      join(home, '.robota', 'settings.json'),
       JSON.stringify({
         currentProvider: 'anthropic',
         providers: {
@@ -55,7 +55,7 @@ describe('test-product mcp serve loopback HTTP binary', () => {
       ],
       {
         cwd,
-        env: createTestBinaryEnvironment(home),
+        env: createBuiltInBinaryEnvironment(home),
         stdio: ['pipe', 'pipe', 'pipe'],
       },
     );
@@ -94,8 +94,8 @@ describe('test-product mcp serve loopback HTTP binary', () => {
         }),
       );
       const tools = (await client.listTools()).tools;
-      expect(tools.map((tool) => tool.name)).toContain('test-product_submit');
-      expect(tools.find((tool) => tool.name === 'test-product_submit')?.description).toBe(
+      expect(tools.map((tool) => tool.name)).toContain('robota_submit');
+      expect(tools.find((tool) => tool.name === 'robota_submit')?.description).toBe(
         'Submit a prompt to the agent and await its own turn',
       );
       const result = await client.callTool({
@@ -125,9 +125,9 @@ describe('test-product mcp serve loopback HTTP binary', () => {
 function prepareHome(prefix: string): { cwd: string; home: string } {
   const cwd = mkdtempSync(join(tmpdir(), `${prefix}-cwd-`));
   const home = mkdtempSync(join(tmpdir(), `${prefix}-home-`));
-  mkdirSync(join(home, '.test-product'));
+  mkdirSync(join(home, '.robota'));
   writeFileSync(
-    join(home, '.test-product', 'settings.json'),
+    join(home, '.robota', 'settings.json'),
     JSON.stringify({
       currentProvider: 'anthropic',
       providers: {
@@ -172,7 +172,7 @@ function get(
   });
 }
 
-describe('test-product mcp serve remote authorization binary', () => {
+describe('built-in mcp serve remote authorization binary', () => {
   it('refuses a non-loopback bind with the loopback token file', () => {
     const { cwd, home } = prepareHome('test-product-mcp-refuse');
     const tokenFile = join(home, 'mcp-token');
@@ -180,7 +180,7 @@ describe('test-product mcp serve remote authorization binary', () => {
       const result = spawnSync(
         process.execPath,
         [PRODUCT_BIN, 'mcp', 'serve', '--http-host', '0.0.0.0', '--http-token-file', tokenFile],
-        { cwd, env: createTestBinaryEnvironment(home), encoding: 'utf8' },
+        { cwd, env: createBuiltInBinaryEnvironment(home), encoding: 'utf8' },
       );
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain('non-loopback address only with --http-public-url');
@@ -215,7 +215,7 @@ describe('test-product mcp serve remote authorization binary', () => {
       ],
       {
         cwd,
-        env: createTestBinaryEnvironment(home),
+        env: createBuiltInBinaryEnvironment(home),
         stdio: ['pipe', 'pipe', 'pipe'],
       },
     );

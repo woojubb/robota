@@ -75,9 +75,7 @@ function writeProjectSettings(projectDir: string): void {
           name: 'fake',
           model: 'fake-model',
         },
-        // MCP-004 S3: these print-mode assertions expect an empty stderr; the default
-        // `mcp.autoBackgroundMs` (120000, i.e. positive) would otherwise add one "ignored in print
-        // mode" diagnostic line, which is unrelated to what this suite exercises.
+        // Avoid the unrelated print-mode MCP handoff diagnostic in these update-check tests.
         mcp: { autoBackgroundMs: 0 },
       },
       null,
@@ -128,7 +126,7 @@ describe('CLI update check command', () => {
     );
 
     expect(stdout.mock.calls.join('')).toContain('done');
-    expect(stderr.mock.calls.join('')).toBe('');
+    expect(stderr.mock.calls.join('')).toContain('Restricted workspace mode: project settings are ignored');
     expect(
       lastChatMessages.some(
         (message) =>
@@ -220,7 +218,7 @@ describe('CLI update check command', () => {
       expect(stdoutText).toContain('Available commands:');
       expect(stdoutText).toContain('agent');
       expect(stdoutText).not.toContain('test-product Agent update available');
-      expect(stderr.mock.calls.join('')).toBe('');
+      expect(stderr.mock.calls.join('')).toContain('Restricted workspace mode: project settings are ignored');
       expect(existsSync(join(home, '.test-product', 'cache', 'update-check.json'))).toBe(false);
     },
   );

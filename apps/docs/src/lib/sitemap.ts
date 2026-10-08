@@ -13,11 +13,12 @@ export function buildSitemapEntries(
   siteUrl: string | undefined = SITE_URL,
 ): ISitemapEntry[] {
   if (!siteUrl) return [];
+  const baseUrl = siteUrl.replace(/\/+$/u, '');
   const entries: ISitemapEntry[] = [];
   for (const locale of SITE_LOCALES) {
     for (const slug of slugs) {
       const route = slug.length === 0 ? '' : `${slug.join('/')}/`;
-      entries.push({ url: `${siteUrl}/${locale}/${route}` });
+      entries.push({ url: `${baseUrl}/${locale}/${route}` });
     }
   }
   return entries;

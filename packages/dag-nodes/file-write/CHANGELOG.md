@@ -1,5 +1,16 @@
 # @robota-sdk/dag-node-file-write
 
+## 3.0.0-beta.73
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.92
+
+## 3.0.0-beta.72
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.0-beta.91
+
 ## 3.0.0-beta.71
 ### Patch Changes
 

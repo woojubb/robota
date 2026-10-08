@@ -1,10 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { hostedWorkerCliFixture } from './hosted-worker-cli.js';
-
-const root = fileURLToPath(new URL('../../../../..', import.meta.url));
 
 /** Operator-owned pinned template composition; the runtime keeps its installed executor. */
 export function pinHostedWorkerCli(
@@ -18,7 +15,7 @@ export function pinHostedWorkerCli(
     entrypoint: { path: string; digest: string };
   };
   const artifact = readFileSync(config.entrypoint.path, 'utf8').replace(
-    JSON.stringify(join(root, 'packages/agent-cli/src/bin.ts')),
+    JSON.stringify(join(fixture.worker, 'worker-cli-host.mts')),
     JSON.stringify(entry),
   );
   writeFileSync(config.entrypoint.path, artifact);

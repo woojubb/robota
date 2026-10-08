@@ -51,7 +51,7 @@ and resume bridge. Stop or device revocation withdraws the affected activation a
 late identity, enrollment and reconnect work cannot revive its authority or publish a stale pairing link. The host
 identity key devices pin is kept in the host credential store, never in a plain file; a malformed
 stored key fails closed rather than being replaced.
-The CLI selects every user- and project-scoped path and identity a session needs — storage root,
+The complete public CLI entry and shipped executable share diagnostic, crash and worker-dispatch policy. Each invocation owns the product environment inherited by its child processes. The CLI selects every user- and project-scoped path and identity a session needs — storage root,
 presets, agent-definition roots, project settings layers, project-state layout, context-discovery
 permissions, plugin/skill/command roots, task-context directory, organization policy, keybindings,
 and display name — and passes them explicitly to the neutral SDK and framework packages, preserving
@@ -69,7 +69,8 @@ configured executable or product on their own.
 
 Local peer-activity publishing exposes only fixed, content-free activity states for the current
 interactive session into a guarded, same-user rendezvous, kept separate from process-liveness checks
-(stale or unverified observations read as `unknown`) and never carrying conversation content or
+(stale or unverified observations read as `unknown`; proven dead announcements are pruned on startup)
+and never carrying conversation content or
 stored-session identity. The workspace claim published beside it is checked by each reader, which
 reads git at the claimed path itself and relates nothing whose contents do not match; it does not
 establish that the peer works at that path, because the same OS user is the trust boundary and the

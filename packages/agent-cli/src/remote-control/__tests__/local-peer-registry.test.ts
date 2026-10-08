@@ -16,6 +16,7 @@ import {
   announcePeer,
   listPeers,
   listReachablePeers,
+  pruneDeadPeers,
   readDarwinStartTime,
   readProcessStartTime,
   withdrawPeer,
@@ -82,16 +83,92 @@ describe('#1863 — announcing and withdrawing', () => {
   it('withdrawing removes it, and withdrawing again is not an error', () => {
     const guardedDirectory = scratch();
     const opts = { guardedDirectory, readStartTime: starts({ 100: 'T1' }) };
-    announcePeer(opts, { sessionId: 'session_a', pid: 100 });
+    const owner = announcePeer(opts, { sessionId: 'session_a', pid: 100 });
 
-    withdrawPeer(opts, 'session_a');
-    withdrawPeer(opts, 'session_a');
+    withdrawPeer(opts, 'session_a', owner);
+    withdrawPeer(opts, 'session_a', owner);
 
     expect(listPeers(opts)).toEqual([]);
   });
 });
 
 describe('#1863 — telling a live session from a crashed one', () => {
+  it('prunes proven dead entries while preserving unknown and live announcements', () => {
+    const guardedDirectory = scratch();
+    const announced = { guardedDirectory, readStartTime: starts({ 100: 'T1', 200: 'T2', 300: 'T3' }) };
+    announcePeer(announced, { sessionId: 'dead', pid: 100 });
+    announcePeer(announced, { sessionId: 'unknown', pid: 200 });
+    announcePeer(announced, { sessionId: 'live', pid: 300 });
+    const readStartTime = starts({ 300: 'T3' });
+    expect(pruneDeadPeers({ guardedDirectory, readStartTime, probePid: (pid) => pid === 100 ? 'absent' : 'unknown' })).toBe(1);
+    expect(readdirSync(guardedDirectory).sort()).toEqual(['live.peer.json', 'unknown.peer.json']);
+  });
+
+  it('preserves a replacement published after the dead read but before the atomic claim', () => {
+    const guardedDirectory = scratch();
+    announcePeer({ guardedDirectory, readStartTime: starts({ 100: 'old' }) }, { sessionId: 'same', pid: 100 });
+    const readStartTime = () => {
+      announcePeer({ guardedDirectory, readStartTime: starts({ 200: 'new' }) }, { sessionId: 'same', pid: 200 });
+      return undefined;
+    };
+    expect(pruneDeadPeers({ guardedDirectory, readStartTime, probePid: () => 'absent' })).toBe(0);
+    expect(JSON.parse(readFileSync(join(guardedDirectory, 'same.peer.json'), 'utf8')).pid).toBe(200);
+    expect(listPeers({ guardedDirectory, readStartTime: starts({ 200: 'new' }) })[0]?.liveness).toBe('alive');
+  });
+
+  it('preserves an entry republished after the atomic claim', () => {
+    const guardedDirectory = scratch();
+    announcePeer({ guardedDirectory, readStartTime: starts({ 100: 'old' }) }, { sessionId: 'same', pid: 100 });
+    let checks = 0;
+    const readStartTime = () => {
+      checks++;
+      if (checks === 2) announcePeer({ guardedDirectory, readStartTime: starts({ 200: 'new' }) }, { sessionId: 'same', pid: 200 });
+      return undefined;
+    };
+    expect(pruneDeadPeers({ guardedDirectory, readStartTime, probePid: () => 'absent' })).toBe(1);
+    expect(JSON.parse(readFileSync(join(guardedDirectory, 'same.peer.json'), 'utf8')).pid).toBe(200);
+  });
+
+  it('restores a claimed entry when the final process inspection becomes unknown', () => {
+    const guardedDirectory = scratch();
+    announcePeer({ guardedDirectory, readStartTime: starts({ 100: 'old' }) }, { sessionId: 'same', pid: 100 });
+    let checks = 0;
+    const readStartTime = () => ++checks === 1 ? 'recycled' : undefined;
+    expect(pruneDeadPeers({ guardedDirectory, readStartTime, probePid: () => 'unknown' })).toBe(0);
+    expect(readdirSync(guardedDirectory)).toEqual(['same.peer.json']);
+  });
+
+  it('withdraws its retained claim without removing a replacement or unknown owner', () => {
+    const guardedDirectory = scratch();
+    const owned = announcePeer({ guardedDirectory, readStartTime: starts({ [process.pid]: 'current' }) },
+      { sessionId: 'same', pid: process.pid });
+    const canonical = join(guardedDirectory, 'same.peer.json');
+    writeFileSync(join(guardedDirectory, '.prune-owned.peer.json'), readFileSync(canonical));
+    const replacement = announcePeer({ guardedDirectory, readStartTime: starts({ 200: 'replacement' }) },
+      { sessionId: 'same', pid: 200 });
+    writeFileSync(join(guardedDirectory, '.prune-unknown.peer.json'),
+      JSON.stringify({ ...owned, pid: 300, startedAt: '' }));
+
+    withdrawPeer({ guardedDirectory }, 'same', owned);
+
+    expect(readdirSync(guardedDirectory).sort()).toEqual(['.prune-unknown.peer.json', 'same.peer.json']);
+    expect(JSON.parse(readFileSync(canonical, 'utf8')).pid).toBe(replacement.pid);
+    expect(listReachablePeers({ guardedDirectory, readStartTime: starts({ 200: 'replacement' }) })
+      .map((peer) => peer.pid)).toEqual([200]);
+  });
+
+  it('does not leave a reachable claimed copy after its owner withdraws', () => {
+    const guardedDirectory = scratch();
+    const owned = announcePeer({ guardedDirectory, readStartTime: starts({ [process.pid]: 'current' }) },
+      { sessionId: 'same', pid: process.pid });
+    const canonical = join(guardedDirectory, 'same.peer.json');
+    writeFileSync(join(guardedDirectory, '.prune-owned.peer.json'), readFileSync(canonical));
+
+    withdrawPeer({ guardedDirectory }, 'same', owned);
+
+    expect(listReachablePeers({ guardedDirectory, readStartTime: starts({ [process.pid]: 'current' }) })).toEqual([]);
+    expect(readdirSync(guardedDirectory)).toEqual([]);
+  });
   it.skipIf(process.platform !== 'darwin' && process.platform !== 'linux')(
     'recognizes this running process with the platform default start-time reader',
     async () => {

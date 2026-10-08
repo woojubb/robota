@@ -1,5 +1,13 @@
 # @robota-sdk/agent-app
 
+## 3.0.0-beta.88
+### Patch Changes
+
+- dfde075: Generated products can select a CLI package binary, version and build label, native host entry and artifact name, and desktop identity. Artifact metadata records the source version and provenance. Clean-tree generation copies only the committed source tree, while the built-in desktop remains packageable without generation.
+- Updated dependencies [dfde075]
+- Updated dependencies [cf4fff8]
+  - @robota-sdk/product-config@3.0.0-beta.88
+
 ## 3.0.0-beta.87
 
 ### Patch Changes

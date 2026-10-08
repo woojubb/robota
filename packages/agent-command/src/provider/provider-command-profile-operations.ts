@@ -99,6 +99,7 @@ export async function buildProviderEdit(
   let flow;
   try {
     flow = createProviderSetupFlow(profile.type, options.providerDefinitions, {
+      includeEditOnlySteps: true,
       profileName,
       setCurrent: false,
       initialValues: getProviderProfileSetupValues(profile),

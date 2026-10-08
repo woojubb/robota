@@ -96,6 +96,46 @@ const url = (schemes: readonly string[]): TParser<string> => (value) => {
   }
   return parsed.href;
 };
+const homeRelativePath = (value: string): string => {
+  const result = text(value).replace(/\\/gu, '/');
+  if (
+    /^(?:\/|[A-Za-z]:|~|\$)/u.test(result) ||
+    result.split('/').some((part) => !part || part === '.' || part === '..')
+  ) {
+    throw new Error('expected a relative path without traversal');
+  }
+  return result;
+};
+const userSettingsFiles = (value: string): readonly string[] => {
+  const parsed: unknown = JSON.parse(value);
+  if (!Array.isArray(parsed) || !parsed.every((entry) => typeof entry === 'string'))
+    throw new Error('expected relative file paths');
+  return Object.freeze(parsed.map((entry: string) => homeRelativePath(entry)));
+};
+const projectSettingsFiles = (
+  value: string,
+): readonly { readonly scope: 'project' | 'project-local'; readonly relativePath: string }[] => {
+  const parsed: unknown = JSON.parse(value);
+  if (!Array.isArray(parsed)) throw new Error('expected project settings paths');
+  return Object.freeze(
+    parsed.map((entry: unknown) => {
+      if (
+        typeof entry !== 'object' ||
+        entry === null ||
+        !('scope' in entry) ||
+        !('relativePath' in entry) ||
+        (entry.scope !== 'project' && entry.scope !== 'project-local') ||
+        typeof entry.relativePath !== 'string' ||
+        Object.keys(entry).some((key) => key !== 'scope' && key !== 'relativePath')
+      )
+        throw new Error('expected project settings paths');
+      return Object.freeze({
+        scope: entry.scope,
+        relativePath: homeRelativePath(entry.relativePath),
+      });
+    }),
+  );
+};
 const webUrl = url(['https:', 'http:']);
 const signalingUrl = url(['https:', 'http:', 'wss:', 'ws:']);
 const derivationPath = (value: string): readonly number[] => {
@@ -140,6 +180,63 @@ export const PRODUCT_CONFIG_DESCRIPTORS = Object.freeze({
     promptFileReferenceTag: setting('PRODUCT_PROMPT_TAG', 'Model-visible workspace file-reference enclosure tag.', 'namespace', namespace, hostIdentity),
     editorTemporaryDirectoryPrefix: setting('PRODUCT_EDITOR_TEMP_PREFIX', 'Temporary editor directory prefix selected by the host.', 'namespace', namespace, hostIdentity),
   }),
+  build: Object.freeze({
+    cliPackageBin: optional(
+      'PRODUCT_CLI_PACKAGE_BIN',
+      'Generated CLI package executable name, or none when a host launcher owns the product command.',
+      'executable name or none',
+      (value: string): string => value === 'none' ? value : command(value),
+      { ...hostOperation, consumers: ['build'] },
+    ),
+    defaultUserRoot: optional(
+      'PRODUCT_DEFAULT_USER_STATE_DIR',
+      'Non-secret artifact default relative to the invocation home.',
+      'home-relative path',
+      homeRelativePath,
+      { ...hostOperation, consumers: ['build'] },
+    ),
+    defaultCacheRoot: optional(
+      'PRODUCT_DEFAULT_CACHE_DIR',
+      'Non-secret cache default relative to the invocation home.',
+      'home-relative path',
+      homeRelativePath,
+      { ...hostOperation, consumers: ['build'] },
+    ),
+    defaultLogRoot: optional(
+      'PRODUCT_DEFAULT_LOG_DIR',
+      'Non-secret log default relative to the invocation home.',
+      'home-relative path',
+      homeRelativePath,
+      { ...hostOperation, consumers: ['build'] },
+    ),
+    defaultProjectDirectory: optional(
+      'PRODUCT_DEFAULT_PROJECT_STATE_DIR',
+      'Artifact default for trusted project state.',
+      'relative directory',
+      projectDirectory,
+      { ...hostOperation, consumers: ['build'] },
+    ),
+  }),
+  settings: Object.freeze({
+    sharedUserFiles: setting(
+      'PRODUCT_SHARED_USER_SETTINGS',
+      'Shared home-relative user settings files; [] disables shared user settings.',
+      'JSON relative file array',
+      userSettingsFiles,
+      { ...hostOperation, defaultValue: '[".claude/settings.json"]' },
+    ),
+    sharedProjectFiles: setting(
+      'PRODUCT_SHARED_PROJECT_SETTINGS',
+      'Shared workspace-relative settings sources; [] disables shared project settings.',
+      'JSON scoped relative file array',
+      projectSettingsFiles,
+      {
+        ...hostOperation,
+        defaultValue:
+          '[{"scope":"project","relativePath":".claude/settings.json"},{"scope":"project-local","relativePath":".claude/settings.local.json"}]',
+      },
+    ),
+  }),
   storage: Object.freeze({
     userRoot: setting('PRODUCT_USER_STATE_DIR', 'Selected user state root; relative input is resolved against the selected file directory.', 'path', path, { ...hostOperation, path: true }),
     projectDirectory: setting('PRODUCT_PROJECT_STATE_DIR', 'Product state directory relative to the trusted workspace.', 'relative directory', projectDirectory, hostOperation),
@@ -165,6 +262,17 @@ export const PRODUCT_CONFIG_DESCRIPTORS = Object.freeze({
   }),
   release: Object.freeze({
     artifactPrefix: optional('PRODUCT_ARTIFACT_PREFIX', 'Generated installation and release filename prefix.', 'namespace', namespace, { ...hostIdentity, consumers: ['build', 'release'] }),
+    productVersion: optional('PRODUCT_VERSION', 'Version embedded in generated CLI and desktop artifacts.', 'semantic version', (value: string): string => {
+      const match = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/u.exec(value);
+      const identifiers = (part: string | undefined): string[] => part === undefined ? [] : part.split('.');
+      const prerelease = identifiers(match?.[4]);
+      const build = identifiers(match?.[5]);
+      if (!match || [...prerelease, ...build].some((part) => !/^[0-9A-Za-z-]+$/u.test(part)) ||
+        prerelease.some((part) => /^[0-9]+$/u.test(part) && part.length > 1 && part.startsWith('0')))
+        throw new Error('expected a semantic version');
+      return value;
+    }, releaseOperation),
+    buildMetadata: optional('PRODUCT_BUILD_METADATA', 'Non-secret build provenance label embedded in artifact diagnostics.', 'namespace', namespace, releaseOperation),
     version: optional('PROJECT_RELEASE_VERSION', 'Optional pinned installation version or full release tag.', 'version or tag', text, releaseOperation),
     tagPrefix: optional('PROJECT_RELEASE_TAG_PREFIX', 'Release tag prefix used in tags and workflow patterns.', 'letters, numbers, dots, underscores or hyphens', namespace, releaseOperation),
     channel: optional('PROJECT_RELEASE_CHANNEL', 'Release and update channel.', 'namespace', namespace, releaseOperation),

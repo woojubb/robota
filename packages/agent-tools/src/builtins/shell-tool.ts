@@ -55,6 +55,17 @@ import '../tool-permission-profiles.js';
 const DEFAULT_TIMEOUT_MS = 120_000; // 2 minutes
 /** ARCH-056: most bytes retained per stream while the child runs (head); the rest is dropped. */
 const MAX_CAPTURED_OUTPUT_BYTES = 2_000_000;
+// The wrapper is the detached group's leader, so its group ID cannot be reused while it watches
+// the owner pipe. EOF proves owner death without a PID lookup. Its background watcher signals that
+// same owned group, then escalates; the leader stays alive until the group has been reaped.
+const ownerWatchdog = (ownerFd: number): string =>
+  "owner_gone=0; trap 'owner_gone=1' TERM; " +
+  '(trap "" TERM; while IFS= read -r line; do :; done; ' +
+  `kill -TERM "-$$" 2>/dev/null; sleep 2; kill -KILL "-$$" 2>/dev/null) <&${ownerFd} >/dev/null 2>&1 & watcher=$!; ` +
+  '(trap - TERM; exec "$@" </dev/null) & command=$!; ' +
+  'wait "$command"; status=$?; ' +
+  'if [ "$owner_gone" -eq 0 ]; then kill -KILL "$watcher" 2>/dev/null; ' +
+  'else wait "$watcher"; fi; exit "$status"';
 
 const ShellSchema = z.object({
   command: z.string().describe('The shell command to execute'),
@@ -177,8 +188,14 @@ async function runShell(
     let settled = false;
 
     let child: ReturnType<typeof spawn>;
+    const ownerFd = 3 + (invocation.inputDescriptors?.length ?? 0);
     try {
-      child = spawn(invocation.command, [...invocation.args], {
+      child = spawn(
+        SPAWN_DETACHED ? '/bin/sh' : invocation.command,
+        SPAWN_DETACHED
+          ? ['-c', ownerWatchdog(ownerFd), 'shell-owner-watchdog', invocation.command, ...invocation.args]
+          : [...invocation.args],
+        {
         cwd: invocation.cwd,
         // A fresh copy carrying this call's trace when the host enabled it; `process.env` itself is
         // never modified, so no other child can inherit the value.
@@ -190,9 +207,11 @@ async function runShell(
           'pipe',
           'pipe',
           ...(invocation.inputDescriptors ?? []).map(() => 'pipe' as const),
+          ...(SPAWN_DETACHED ? ['pipe' as const] : []),
         ],
         detached: SPAWN_DETACHED,
-      });
+        },
+      );
     } catch (error) {
       const note = release();
       const message = error instanceof Error ? error.message : String(error);
@@ -205,6 +224,8 @@ async function runShell(
       );
       return;
     }
+    const ownerPipe = SPAWN_DETACHED ? child.stdio[ownerFd] as NodeJS.WritableStream : undefined;
+    ownerPipe?.on('error', () => undefined);
     (invocation.inputDescriptors ?? []).forEach((data, index) => {
       const stream = child.stdio[index + 3] as NodeJS.WritableStream | null;
       // The wrapper may exit before reading it (bwrap refusing a mount); its exit status and stderr
@@ -213,8 +234,8 @@ async function runShell(
       stream?.end(Buffer.from(data));
     });
 
-    // RUNTIME-31: the command inherits an open stdin pipe it can block reading on; close it
-    // so commands that read stdin (e.g. `cat`) terminate instead of hanging until timeout.
+    // The extra POSIX descriptor stays open until completion; EOF after owner death wakes its
+    // watcher. The actual command receives /dev/null, so stdin readers still terminate promptly.
     child.stdin?.end();
 
     child.stdout?.on('data', (chunk: Buffer) => {
@@ -270,6 +291,8 @@ async function runShell(
     });
 
     child.on('close', (code: number | null) => {
+      child.stdin?.end();
+      ownerPipe?.end();
       // Always, even after a timeout or an abort already settled: the sandbox undoes what it must.
       const note = release();
       if (timedOut) {

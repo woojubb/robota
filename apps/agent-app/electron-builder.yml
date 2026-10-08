@@ -34,6 +34,7 @@ extraResources:
   - from: resources-bin
     to: .
 linux:
+  description: '__PRODUCT_DISPLAY_NAME__ desktop app'
   target:
     - AppImage
     - deb

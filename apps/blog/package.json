@@ -2,7 +2,7 @@
   "name": "robota-blog",
   "private": true,
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.0.2-beta.0",
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "engines": {
     "node": ">=22.12.0"
@@ -13,7 +13,7 @@
     "preview": "astro preview",
     "astro": "astro",
     "typecheck": "astro sync && tsgo -p tsconfig.json --noEmit",
-    "deploy": "astro build && wrangler pages deploy dist --project-name __DEPLOY_BLOG_PROJECT_NAME__ --branch main"
+    "deploy": "pnpm exec tsx ../../scripts/product/build-site.mjs blog --deploy"
   },
   "dependencies": {
     "@astrojs/rss": "^4.0.18",

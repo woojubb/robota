@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
 import { appendFile, lstat, mkdir, mkdtemp, open, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -8,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import ts from 'typescript';
 import { parseDocument, stringify, visit as visitYaml } from 'yaml';
-import { embeddedProductIdentity, productConfigEntries, publicProductConfig } from '../../packages/product-config/src/index.ts';
+import { embeddedProductIdentity, embeddedProductRuntimeDefaults, productConfigEntries, publicProductConfig } from '../../packages/product-config/src/index.ts';
 
 const ROOT = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
 const PRODUCT_SCOPE = '@robota-sdk';
@@ -201,9 +202,13 @@ function replaceProductPlaceholders(text, publicConfig, productConfig, encode = 
     ['__DEPLOY_BLOG_PROJECT_NAME__', deploy.blogProjectName ?? ''],
     ['__DEPLOY_WORKER_NAME__', deploy.workerName ?? ''],
   ]);
-  return text.replace(/__(?:PROJECT|PRODUCT|DEPLOY)_[A-Z_]+__/gu, (placeholder) =>
-    replacements.has(placeholder) ? encode(replacements.get(placeholder), placeholder) : placeholder,
-  );
+  return text.replace(/__(?:PROJECT|PRODUCT|DEPLOY)_[A-Z_]+?__/gu, (placeholder, offset) => {
+    if (!replacements.has(placeholder)) return placeholder;
+    const value = replacements.get(placeholder);
+    const joined = placeholder.endsWith('URL__') && text[offset + placeholder.length] === '/'
+      ? value.replace(/\/+$/u, '') : value;
+    return encode(joined, placeholder);
+  });
 }
 
 export function fillProductContent(filePath, text, publicConfig, productConfig) {
@@ -388,7 +393,7 @@ async function injectProductPackageMetadata(outputDirectory, publicConfig, relea
   }
 }
 
-async function injectConfiguredCliBin(outputDirectory, cliName) {
+async function injectConfiguredCliBin(outputDirectory, cliName, selectedBin) {
   const manifestPath = path.join(outputDirectory, 'packages/agent-cli/package.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
   if (!manifest.bin || typeof manifest.bin !== 'object' || Array.isArray(manifest.bin)) {
@@ -400,7 +405,8 @@ async function injectConfiguredCliBin(outputDirectory, cliName) {
   }
   delete manifest.bin.agent;
   delete manifest.bin.robota;
-  manifest.bin[cliName] = neutralTarget;
+  if (selectedBin === 'none') delete manifest.bin;
+  else manifest.bin[selectedBin ?? cliName] = neutralTarget;
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o644 });
 }
 
@@ -431,7 +437,7 @@ export function rewriteContent(filePath, content, packageMap, scope = '@example'
   return replacePackageNamesInText(content, packageMap, scope);
 }
 
-export function injectCliBundleIdentity(source, identity, filePath = 'packages/agent-cli/tsdown.config.ts') {
+export function injectCliBundleIdentity(source, identity, filePath = 'packages/agent-cli/tsdown.config.ts', runtimeDefaults = {}) {
   const sourceFile = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   let initializer;
   const visit = (node) => {
@@ -462,11 +468,11 @@ export function injectCliBundleIdentity(source, identity, filePath = 'packages/a
   }
   const openBrace = source.indexOf('{', initializer.getStart(sourceFile));
   if (openBrace < 0) throw new Error(`${filePath} has an unreadable ` + '`define` object.');
-  const property = `\n  __PRODUCT_CONFIG_IDENTITY__: JSON.stringify(${JSON.stringify(identity)}),`;
+  const property = `\n  __PRODUCT_CONFIG_DEFAULTS__: JSON.stringify(${JSON.stringify(runtimeDefaults)}),\n  __PRODUCT_CONFIG_IDENTITY__: JSON.stringify(${JSON.stringify(identity)}),`;
   return `${source.slice(0, openBrace + 1)}${property}${source.slice(openBrace + 1)}`;
 }
 
-export function injectBunBundleIdentity(source, identity, filePath = 'packages/agent-cli/scripts/build-bun.mjs') {
+export function injectBunBundleIdentity(source, identity, filePath = 'packages/agent-cli/scripts/build-bun.mjs', runtimeDefaults = {}) {
   const sourceFile = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
   let initializer;
   const visit = (node) => {
@@ -494,7 +500,7 @@ export function injectBunBundleIdentity(source, identity, filePath = 'packages/a
   }
   const openBrace = source.indexOf('{', initializer.getStart(sourceFile));
   if (openBrace < 0) throw new Error(`${filePath} has an unreadable ` + '`define` object.');
-  const property = `\n      __PRODUCT_CONFIG_IDENTITY__: JSON.stringify(${JSON.stringify(identity)}),`;
+  const property = `\n      __PRODUCT_CONFIG_DEFAULTS__: JSON.stringify(${JSON.stringify(runtimeDefaults)}),\n      __PRODUCT_CONFIG_IDENTITY__: JSON.stringify(${JSON.stringify(identity)}),`;
   return `${source.slice(0, openBrace + 1)}${property}${source.slice(openBrace + 1)}`;
 }
 
@@ -516,6 +522,8 @@ async function walk(root, relativePath = '') {
 }
 
 function getTrackedSourceFiles(sourceRoot) {
+  const topLevel = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: sourceRoot, encoding: 'utf8' });
+  if (topLevel.status !== 0 || path.resolve(topLevel.stdout.trim()) !== path.resolve(sourceRoot)) return null;
   const result = spawnSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
     cwd: sourceRoot,
     encoding: 'utf8',
@@ -528,7 +536,68 @@ function getTrackedSourceFiles(sourceRoot) {
 }
 
 function isPrivateEnvironmentFile(fileName) {
-  return fileName.startsWith('.env') || fileName === '.npmrc' || fileName.endsWith('.pem') || fileName.endsWith('.p12');
+  return fileName.startsWith('.env') || fileName.endsWith('.pem') || fileName.endsWith('.p12');
+}
+
+function gitResult(sourceRoot, args) {
+  const result = spawnSync('git', args, { cwd: sourceRoot, encoding: 'utf8' });
+  if (result.status !== 0) throw new Error(`Committed-tree mode requires Git ${args[0]} to succeed.`);
+  return result.stdout.trim();
+}
+
+function gitNulPaths(sourceRoot, args) {
+  const result = spawnSync('git', args, { cwd: sourceRoot });
+  if (result.status !== 0) throw new Error(`Committed-tree mode requires Git ${args[0]} to succeed.`);
+  const output = result.stdout;
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  const paths = [];
+  let start = 0;
+  for (let index = 0; index < output.length; index += 1) {
+    if (output[index] !== 0) continue;
+    paths.push(decoder.decode(output.subarray(start, index)));
+    start = index + 1;
+  }
+  if (start !== output.length) throw new Error('Committed-tree mode requires a NUL-terminated Git path list.');
+  return paths;
+}
+
+function committedSource(sourceRoot) {
+  if (path.resolve(gitResult(sourceRoot, ['rev-parse', '--show-toplevel'])) !== path.resolve(sourceRoot))
+    throw new Error('Committed-tree mode requires the source to be the Git repository root.');
+  if (gitResult(sourceRoot, ['status', '--porcelain', '--untracked-files=all']))
+    throw new Error('Committed-tree mode requires a clean checkout.');
+  const commit = gitResult(sourceRoot, ['rev-parse', 'HEAD']);
+  const tree = gitResult(sourceRoot, ['rev-parse', 'HEAD^{tree}']);
+  const files = gitNulPaths(sourceRoot, ['ls-tree', '-r', '--name-only', '-z', 'HEAD']).filter((relative) =>
+    !isPrivateEnvironmentFile(path.basename(relative)) && !isGeneratedSecretPath(relative) &&
+    !relative.split('/').some((part) => IGNORED_DIRECTORIES.has(part)),
+  );
+  return { commit, tree, files };
+}
+
+function workingSourceProvenance(sourceRoot) {
+  const top = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: sourceRoot, encoding: 'utf8' });
+  if (top.status !== 0 || path.resolve(top.stdout.trim()) !== path.resolve(sourceRoot))
+    return { commit: null, tree: null, dirty: null };
+  return {
+    commit: gitResult(sourceRoot, ['rev-parse', 'HEAD']),
+    tree: gitResult(sourceRoot, ['rev-parse', 'HEAD^{tree}']),
+    dirty: Boolean(gitResult(sourceRoot, ['status', '--porcelain', '--untracked-files=all'])),
+  };
+}
+
+function validateNpmrc(content, relativeFile) {
+  const allowed = new Set(['workspace-concurrency', 'link-workspace-packages', 'prefer-workspace-packages', 'shared-workspace-lockfile', 'auto-install-peers', 'strict-peer-dependencies', 'public-hoist-pattern', 'node-linker', 'resolution-mode', 'save-exact', 'engine-strict']);
+  const settings = [];
+  for (const line of content.split(/\r?\n/u)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith(';')) continue;
+    const match = /^([a-z][a-z-]*)\s*=\s*([^#;]+)$/u.exec(trimmed);
+    if (!match || !allowed.has(match[1]) || /\$|\{|\}|auth|token|password|secret|registry|\/\//iu.test(match[2]))
+      throw new Error(`${relativeFile}: .npmrc contains a setting outside the non-secret allowlist.`);
+    settings.push(`${match[1]}=${match[2].trim()}`);
+  }
+  return `${settings.join('\n')}\n`;
 }
 
 function isGeneratedSecretPath(relativePath) {
@@ -537,9 +606,28 @@ function isGeneratedSecretPath(relativePath) {
   );
 }
 
-async function readPackageManifests(sourceRoot) {
+async function readRegularSourceFile(sourceRoot, relativeFile) {
+  const handle = await open(path.join(sourceRoot, relativeFile), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  try {
+    if (!(await handle.stat()).isFile()) throw new Error(`Committed-tree source is not a regular file: ${relativeFile}`);
+    return await handle.readFile();
+  } finally {
+    await handle.close();
+  }
+}
+
+async function readPackageManifests(sourceRoot, sourceFiles) {
   const roots = ['packages', 'apps', 'examples', 'scratch'];
   const manifests = [];
+  if (sourceFiles !== undefined) {
+    for (const relativeFile of sourceFiles) {
+      if (path.posix.basename(relativeFile) !== 'package.json' ||
+        !roots.some((root) => relativeFile.startsWith(`${root}/`))) continue;
+      const manifest = JSON.parse((await readRegularSourceFile(sourceRoot, relativeFile)).toString('utf8'));
+      if (typeof manifest.name === 'string') manifests.push(manifest.name);
+    }
+    return manifests;
+  }
   for (const root of roots) {
     const absoluteRoot = path.join(sourceRoot, root);
     try {
@@ -562,9 +650,9 @@ async function readPackageManifests(sourceRoot) {
   return manifests;
 }
 
-export async function collectPackageMap(sourceRoot, packageScope) {
+export async function collectPackageMap(sourceRoot, packageScope, sourceFiles) {
   assertPackageScope(packageScope);
-  const packageNames = await readPackageManifests(sourceRoot);
+  const packageNames = await readPackageManifests(sourceRoot, sourceFiles);
   const mapping = new Map();
   for (const packageName of new Set(packageNames)) {
     if (!packageName.startsWith(`${PRODUCT_SCOPE}/`)) continue;
@@ -603,6 +691,7 @@ async function copyFiles(sourceRoot, outputDirectory, files, packageMap, scope) 
       sourceStat = await handle.stat();
       if (!sourceStat.isFile()) continue;
       content = await handle.readFile();
+      if (path.basename(relativeFile) === '.npmrc') content = Buffer.from(validateNpmrc(content.toString('utf8'), relativeFile));
     } finally {
       await handle.close();
     }
@@ -653,6 +742,7 @@ export async function generateWorkspaceFromConfig({
   defaultEnvironment = '',
   publicConfig,
   embeddedIdentity,
+  sourceMode = 'working',
 }) {
   if (!outDir) throw new Error('Pass --out <directory> for generated product workspace output.');
   assertPublicConfig(config, publicConfig, embeddedIdentity);
@@ -667,8 +757,12 @@ export async function generateWorkspaceFromConfig({
   await mkdir(path.dirname(output), { recursive: true });
   const temporaryOutput = await mkdtemp(path.join(path.dirname(output), '.product-workspace-'));
   try {
-    const packageMap = await collectPackageMap(source, config.identity.packageScope);
-    const files = getTrackedSourceFiles(source) ?? (await walk(source));
+    if (sourceMode !== 'working' && sourceMode !== 'clean-tree') throw new Error(`Unknown source mode: ${sourceMode}`);
+    const committed = sourceMode === 'clean-tree' ? committedSource(source) : undefined;
+    const provenance = committed ? { commit: committed.commit, tree: committed.tree, dirty: false } : workingSourceProvenance(source);
+    const files = committed?.files ?? getTrackedSourceFiles(source) ?? (await walk(source));
+    const packageMap = await collectPackageMap(source, config.identity.packageScope, committed?.files);
+    const committedFiles = committed === undefined ? undefined : new Set(committed.files);
     await copyFiles(source, temporaryOutput, files, packageMap, config.identity.packageScope);
 
     // URLs and display placeholders are evaluated only in the stage. The checked-in source stays
@@ -680,11 +774,17 @@ export async function generateWorkspaceFromConfig({
       try {
         const current = await readFile(stageFile, 'utf8');
         let authored = current;
-        const template = path.join(source, 'scripts/product/templates', relativeFile);
-        try {
-          authored = rewriteContent(relativeFile, await readFile(template, 'utf8'), packageMap, config.identity.packageScope);
-        } catch (error) {
-          if (error?.code !== 'ENOENT') throw error;
+        const templateRelative = path.posix.join('scripts/product/templates', relativeFile.replaceAll(path.sep, '/'));
+        if (committedFiles === undefined || committedFiles.has(templateRelative)) {
+          const template = path.join(source, templateRelative);
+          try {
+            const templateText = committedFiles === undefined
+              ? await readFile(template, 'utf8')
+              : (await readRegularSourceFile(source, templateRelative)).toString('utf8');
+            authored = rewriteContent(relativeFile, templateText, packageMap, config.identity.packageScope);
+          } catch (error) {
+            if (error?.code !== 'ENOENT') throw error;
+          }
         }
         let filled = fillProductContent(relativeFile, authored, publicConfig, config);
         filled = omitUnavailableContentLinks(relativeFile, filled, publicConfig);
@@ -695,7 +795,7 @@ export async function generateWorkspaceFromConfig({
     }
 
     await injectProductPackageMetadata(temporaryOutput, publicConfig, config.release);
-    await injectConfiguredCliBin(temporaryOutput, config.identity.cliName);
+    await injectConfiguredCliBin(temporaryOutput, config.identity.cliName, config.build?.cliPackageBin);
     await injectPublicSiteConfig(temporaryOutput, publicConfig, config.identity.packageScope);
 
     for (const relativeFile of ['apps/docs/public/CNAME']) {
@@ -712,12 +812,36 @@ export async function generateWorkspaceFromConfig({
 
     const productDirectory = path.join(temporaryOutput, '.product');
     await mkdir(productDirectory, { recursive: true });
+    const sourceManifest = JSON.parse(await readFile(path.join(temporaryOutput, 'packages/agent-cli/package.json'), 'utf8'));
+    const sourceVersion = sourceManifest.version ?? '0.0.0';
+    const productVersion = config.release.productVersion ?? sourceVersion;
+    const artifactMetadata = {
+      version: productVersion,
+      sourceVersion,
+      buildMetadata: config.release.buildMetadata ?? null,
+      artifactName: config.release.artifactPrefix ?? config.identity.cliName,
+    };
+    await writeFile(path.join(productDirectory, 'artifact-metadata.json'), `${JSON.stringify(artifactMetadata, null, 2)}\n`, { mode: 0o644 });
+    const cliManifestPath = path.join(temporaryOutput, 'packages/agent-cli/package.json');
+    const cliManifest = JSON.parse(await readFile(cliManifestPath, 'utf8'));
+    cliManifest.version = productVersion;
+    await writeFile(cliManifestPath, `${JSON.stringify(cliManifest, null, 2)}\n`, { mode: 0o644 });
+    const appManifestPath = path.join(temporaryOutput, 'apps/agent-app/package.json');
+    try {
+      const appManifest = JSON.parse(await readFile(appManifestPath, 'utf8'));
+      appManifest.version = productVersion;
+      appManifest.description = `${config.identity.displayName} desktop app`;
+      appManifest.author = config.identity.displayName;
+      await writeFile(appManifestPath, `${JSON.stringify(appManifest, null, 2)}\n`, { mode: 0o644 });
+    } catch (error) { if (error?.code !== 'ENOENT') throw error; }
+    const runtimeDefaults = embeddedProductRuntimeDefaults(config);
+    await writeFile(path.join(productDirectory, 'runtime-defaults.json'), `${JSON.stringify(runtimeDefaults, null, 2)}\n`, { mode: 0o644 });
     const cliConfigPath = path.join(temporaryOutput, 'packages/agent-cli/tsdown.config.ts');
     const cliConfig = await readFile(cliConfigPath, 'utf8');
-    await writeFile(cliConfigPath, injectCliBundleIdentity(cliConfig, embeddedIdentity), { mode: 0o644 });
+    await writeFile(cliConfigPath, injectCliBundleIdentity(cliConfig, embeddedIdentity, undefined, runtimeDefaults), { mode: 0o644 });
     const bunConfigPath = path.join(temporaryOutput, 'packages/agent-cli/scripts/build-bun.mjs');
     const bunConfig = await readFile(bunConfigPath, 'utf8');
-    await writeFile(bunConfigPath, injectBunBundleIdentity(bunConfig, embeddedIdentity), { mode: 0o644 });
+    await writeFile(bunConfigPath, injectBunBundleIdentity(bunConfig, embeddedIdentity, undefined, runtimeDefaults), { mode: 0o644 });
     await writeFile(path.join(temporaryOutput, '.env.default'), defaultEnvironment, { mode: 0o644 });
     await writeFile(
       path.join(productDirectory, 'identity.json'),
@@ -734,6 +858,7 @@ export async function generateWorkspaceFromConfig({
       `${JSON.stringify(Object.fromEntries(packageMap), null, 2)}\n`,
       { mode: 0o644 },
     );
+    await writeFile(path.join(productDirectory, 'source.json'), `${JSON.stringify({ mode: sourceMode, ...provenance }, null, 2)}\n`, { mode: 0o644 });
     if (!publicConfig?.identity?.docsUrl) {
       await rm(path.join(temporaryOutput, 'apps/www/public/_redirects'), { force: true });
       const robotsPath = path.join(temporaryOutput, 'apps/docs/public/robots.txt');
@@ -752,6 +877,25 @@ export async function generateWorkspaceFromConfig({
         // Optional schema asset.
       }
     }
+    const generatedFiles = [];
+    const scan = async (directory, prefix = '') => {
+      for (const entry of await readdir(directory, { withFileTypes: true })) {
+        const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) await scan(path.join(directory, entry.name), relative);
+        else if (entry.isFile() && relative !== '.product/generated-files.json') {
+          const content = await readFile(path.join(directory, entry.name));
+          generatedFiles.push({ path: relative, sha256: createHash('sha256').update(content).digest('hex') });
+        }
+      }
+    };
+    await scan(temporaryOutput);
+    generatedFiles.sort((a, b) => a.path.localeCompare(b.path));
+    await writeFile(path.join(productDirectory, 'generated-files.json'), `${JSON.stringify(generatedFiles, null, 2)}\n`, { mode: 0o644 });
+    if (committed) {
+      const afterCopy = committedSource(source);
+      if (afterCopy.commit !== committed.commit || afterCopy.tree !== committed.tree)
+        throw new Error('Committed-tree mode requires the same source commit and tree throughout generation.');
+    }
     await rename(temporaryOutput, output);
     return output;
   } catch (error) {
@@ -768,6 +912,8 @@ function parseCliArguments(argv) {
       const value = argv[++index];
       if (!value || value.startsWith('--')) throw new Error(`${arg} requires a path.`);
       options[arg.slice(2)] = value;
+    } else if (arg === '--clean-tree') {
+      options.sourceMode = 'clean-tree';
     } else if (arg === '--help' || arg === '-h') {
       options.help = true;
     } else {
@@ -802,7 +948,7 @@ export function workflowProductOutputs(config) {
   ].join('\n') + '\n';
 }
 
-export async function generateWorkspaceFromEnvironmentFile({ filePath, outDir, environment, environmentOutput, stepOutput }) {
+export async function generateWorkspaceFromEnvironmentFile({ filePath, outDir, environment, environmentOutput, stepOutput, sourceMode }) {
   // The package is TypeScript so it can share the exact schema and environment parser with runtime.
   // `tsx` is used by the command above and registers the loader for this dynamic import.
   const { loadProductConfig } = await import('../../packages/product-config/src/node.ts');
@@ -816,6 +962,7 @@ export async function generateWorkspaceFromEnvironmentFile({ filePath, outDir, e
     defaultEnvironment: generateDefaultEnvironment(),
     publicConfig: publicProductConfig(config),
     embeddedIdentity: embeddedProductIdentity(config),
+    sourceMode,
   });
   if (environmentOutput) await appendFile(
     path.resolve(environmentOutput), workflowProductEnvironment(config, filePath, output), { mode: 0o600 },
@@ -827,7 +974,7 @@ export async function generateWorkspaceFromEnvironmentFile({ filePath, outDir, e
 async function main() {
   const options = parseCliArguments(process.argv.slice(2));
   if (options.help) {
-    process.stdout.write('Usage: pnpm exec tsx scripts/product/generate-workspace.mjs --env <file> --out <directory> [--github-env <file>] [--github-output <file>]\n');
+    process.stdout.write('Usage: pnpm exec tsx scripts/product/generate-workspace.mjs --env <file> --out <directory> [--clean-tree] [--github-env <file>] [--github-output <file>]\n');
     return;
   }
   if (!options.env || !options.out) throw new Error('Usage: generator requires --env <file> and --out <directory>.');
@@ -837,6 +984,7 @@ async function main() {
     environment: { ...process.env },
     environmentOutput: options['github-env'],
     stepOutput: options['github-output'],
+    sourceMode: options.sourceMode,
   });
   process.stdout.write(`${output}\n`);
 }

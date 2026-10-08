@@ -39,4 +39,5 @@ that package's build output.
 ## Design decisions
 
 - Packaging embeds the configured platform CLI because the window delegates workspace trust and daemon
-  ownership to the CLI; a serve-only host cannot fulfill that contract.
+  ownership to the CLI; a serve-only host cannot fulfill that contract. The desktop shell and bundled
+  runtime report one artifact version, while the runtime retains its source version for diagnosis.

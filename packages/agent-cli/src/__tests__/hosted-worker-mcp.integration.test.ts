@@ -101,7 +101,7 @@ const authorities = ${
                 })
               : '{}'
           };
-startCli({mcpApprovalStore:store,mcpStdioAuthorities:authorities}).catch(error=>{process.stderr.write(error.message);process.exitCode=1});
+startCli({environment:process.env,mcpApprovalStore:store,mcpStdioAuthorities:authorities}).catch(error=>{process.stderr.write(error.message);process.exitCode=1});
 `,
         );
         const allowed = approved && authority;
@@ -241,7 +241,7 @@ import { MCPDefinitionRegistry, InMemoryMCPActivationApprovalStore } from ${modu
 const store = new InMemoryMCPActivationApprovalStore();
 const registry = new MCPDefinitionRegistry([{name:'local',source:'user',origin:${JSON.stringify(settingsPath)},status:'resolved',definition:${JSON.stringify(definition)},shadowed:[]}]);
 for (const request of registry.list()) store.put({...request,approvalAuthority:'user',decision:'approved',decidedAt:new Date(0).toISOString()});
-startCli({mcpApprovalStore:store, mcpHttpTransportDeps:${allow ? "{policy:{allowedHosts:['127.0.0.1']}}" : '{}'}}).catch(error=>{process.stderr.write(error.message);process.exitCode=1});
+startCli({environment:process.env,mcpApprovalStore:store, mcpHttpTransportDeps:${allow ? "{policy:{allowedHosts:['127.0.0.1']}}" : '{}'}}).catch(error=>{process.stderr.write(error.message);process.exitCode=1});
 `,
         );
         const broker = scriptedHostedBroker(fixture.f, (_body, index) =>

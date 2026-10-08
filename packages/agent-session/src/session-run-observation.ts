@@ -84,6 +84,16 @@ export function createRunObservers(
   let calledModel: Record<string, unknown> = {};
   return {
     onExecutionEvent: (event, data) => {
+      // Core has already appended this exact message, and tool dispatch has not started yet.
+      // Refuse to proceed if its intent cannot be saved; a later snapshot cannot recover an
+      // external effect whose call was never durably recorded.
+      if (event === 'history_mutation' && data['mutation'] === 'append_message') {
+        const message = data['message'] as Record<string, unknown> | undefined;
+        if (message?.['role'] === 'user' ||
+            (message?.['role'] === 'assistant' && Array.isArray(message['toolCalls']) && message['toolCalls'].length > 0)) {
+          ctx.checkpointHistory?.();
+        }
+      }
       // This new local observability signal is persisted by the interactive history owner;
       // it is not a replay-substrate session-log event.
       if (event !== PROVIDER_CALL_EVENTS.COMPLETED) ctx.log(event, data as TSessionLogData);

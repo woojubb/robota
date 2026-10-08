@@ -3,7 +3,12 @@ import {
   formatSupportedProviderTypes,
   getProviderCredentialRequirement,
 } from '@robota-sdk/agent-core';
-import { formatEnvReference, hasUsableSecretReference } from '@robota-sdk/agent-core';
+import {
+  formatEnvReference,
+  hasUsableSecretReference,
+  isEnvReference,
+  resolveEnvReference,
+} from '@robota-sdk/agent-core';
 
 import type {
   IProviderDefinition,
@@ -136,10 +141,28 @@ export function validateProviderProfile(
   if (!profile.model) {
     throw new Error(`Provider profile "${profileName}" is missing model`);
   }
+  if (
+    definition?.requiresApiKey === false &&
+    profile.apiKey !== undefined &&
+    isEnvReference(profile.apiKey) &&
+    !resolveEnvReference(
+      profile.apiKey,
+      options.env === undefined ? undefined : (name) => options.env?.[name],
+    )
+  ) {
+    throw new Error(
+      `Provider profile "${profileName}" is missing apiKey: its configured environment reference is unset or invalid`,
+    );
+  }
   const credentialRequirement = getProviderCredentialRequirement(definition);
   if (
     credentialRequirement !== undefined &&
-    !hasUsableRequiredProviderCredential(profile, definition?.defaults, credentialRequirement, options.env)
+    !hasUsableRequiredProviderCredential(
+      profile,
+      definition?.defaults,
+      credentialRequirement,
+      options.env,
+    )
   ) {
     throw new Error(
       `Provider profile "${profileName}" is missing ${formatCredentialRequirement(credentialRequirement)}`,

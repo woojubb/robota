@@ -5,7 +5,7 @@ import { productPublicConfig } from '@/lib/product-config.generated';
 // SEO-001. Static export: emitted as /sitemap.xml at build time.
 export const dynamic = 'force-static';
 
-const BASE = productPublicConfig.identity.websiteUrl;
+const BASE = productPublicConfig.identity.websiteUrl?.replace(/\/+$/u, '');
 const ROUTES = ['', '/beta', '/enterprise', '/roadmap', '/compare', '/showcase'];
 
 export default function sitemap(): MetadataRoute.Sitemap {
