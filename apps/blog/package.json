@@ -2,7 +2,7 @@
   "name": "robota-blog",
   "private": true,
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.0.2-beta.0",
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "engines": {
     "node": ">=22.12.0"
