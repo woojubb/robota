@@ -1,5 +1,13 @@
 # @robota-sdk/agent-transport-webrtc-web
 
+## 3.0.0-beta.93
+### Patch Changes
+
+- Updated dependencies [c402d98]
+  - @robota-sdk/agent-ui-web@3.0.0-beta.93
+  - @robota-sdk/agent-transport@3.0.0-beta.93
+  - @robota-sdk/agent-remote-pairing@3.0.0-beta.93
+
 ## 3.0.0-beta.92
 ### Patch Changes
 

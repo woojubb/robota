@@ -1,5 +1,19 @@
 # @robota-sdk/agent-ui-web
 
+## 3.0.0-beta.93
+### Minor Changes
+
+- c402d98: Expose a separate product-bound CLI entry and desktop/native host helpers for npm-only consumer applications. Publish the product configuration and browser client contracts needed by those applications.
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.93
+  - @robota-sdk/agent-interface-command@3.0.0-beta.93
+  - @robota-sdk/agent-interface-session@3.0.0-beta.93
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.93
+  - @robota-sdk/agent-transport@3.0.0-beta.93
+
 ## 3.0.0-beta.92
 ### Patch Changes
 

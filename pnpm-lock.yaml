@@ -595,13 +595,13 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/agent-core
       '@robota-sdk/agent-framework':
-        specifier: ^3.0.0-beta.92
+        specifier: ^3.0.0-beta.93
         version: link:../../../packages/agent-framework
       '@robota-sdk/agent-mcp':
         specifier: workspace:*
         version: link:../../../packages/agent-mcp
       '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.0-beta.92
+        specifier: ^3.0.0-beta.93
         version: link:../../../packages/agent-provider-anthropic
       '@robota-sdk/agent-provider-replay':
         specifier: workspace:*
@@ -10627,7 +10627,7 @@ packages:
       '@vitest/spy': 3.2.6
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 8.0.16(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+      vite: 8.0.16(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.23.1)(yaml@2.9.0)
     dev: true
 
   /@vitest/pretty-format@3.2.6:
@@ -21968,7 +21968,7 @@ packages:
       '@types/node': 22.19.21
       lightningcss: 1.32.0
       picomatch: 4.0.5
-      postcss: 8.5.26
+      postcss: 8.5.28
       rolldown: 1.0.3
       tinyglobby: 0.2.17
       tsx: 4.23.1

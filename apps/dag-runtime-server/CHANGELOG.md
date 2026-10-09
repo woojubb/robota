@@ -1,5 +1,10 @@
 # @robota-sdk/dag-runtime-server
 
+## 3.0.0-beta.17
+### Patch Changes
+
+  - @robota-sdk/dag-framework@1.0.0-beta.17
+
 ## 3.0.0-beta.16
 ### Patch Changes
 

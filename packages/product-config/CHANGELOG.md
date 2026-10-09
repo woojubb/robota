@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.93
+### Minor Changes
+
+- c402d98: Expose a separate product-bound CLI entry and desktop/native host helpers for npm-only consumer applications. Publish the product configuration and browser client contracts needed by those applications.
+
 ## 3.0.0-beta.88
 ### Patch Changes
 

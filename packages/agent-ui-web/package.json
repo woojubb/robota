@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-ui-web",
-  "version": "3.0.0-beta.92",
+  "version": "3.0.0-beta.93",
   "description": "Browser-safe React session presentation, wire reducer, WebSocket client and runtime-host contract for consumer-owned agent renderers.",
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "type": "module",
