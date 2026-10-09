@@ -24,7 +24,7 @@ import { initializeInteractiveSessionAsync } from './interactive-session-init.js
 import { persistSession } from './interactive-session-persistence.js';
 import { createPromptHistoryRecorder } from './interactive-session-prompt-history.js';
 import { createProjectPermissionPersistence } from './project-permission-persistence.js';
-import { resolveUserSettingsProviderSwitch } from './interactive-session-provider-switch.js';
+import { resolveUserSettingsProviderSwitchAsync } from './interactive-session-provider-switch.js';
 import { readMergedProviderSettings } from '../command-api/provider/provider-factory.js';
 import { buildModelListSnapshot } from '../command-api/provider/provider-model-catalog.js';
 import { FallbackProvider } from '../routing/fallback-provider.js';
@@ -246,6 +246,7 @@ export class InteractiveSession
   private rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null = null;
   private providerDefinitions: readonly IProviderDefinition[] = [];
   private readonly providerEnvironment?: Readonly<Record<string, string | undefined>>;
+  private readonly resolveProviderCredential?: IInteractiveSessionStandardOptions['resolveProviderCredential'];
   private activeOutputStyleId = 'default';
   private orgPolicy: IOrgPolicy | null = null;
   /** #3282 §3 — see the option doc comment on `IInteractiveSessionStandardOptions.setupRequired`. */
@@ -292,6 +293,8 @@ export class InteractiveSession
   constructor(options: TInteractiveSessionOptions) {
     super();
     this.providerEnvironment = 'environment' in options ? options.environment : undefined;
+    this.resolveProviderCredential =
+      'resolveProviderCredential' in options ? options.resolveProviderCredential : undefined;
     this.commandProductVocabulary =
       options.commandProductVocabulary === undefined
         ? undefined
@@ -353,7 +356,7 @@ export class InteractiveSession
       getCwd: () => this.getCwd(),
       backstopMs: PROMPT_BACKSTOP_MS,
     });
-    this.askHandler = (request) => this.promptRegistry.requestAsk(request);
+    this.askHandler = (request, options) => this.promptRegistry.requestAsk(request, options);
 
     this.resumeSessionId = options.resumeSessionId;
     this.startedAsFork = options.forkSession ?? false;
@@ -2101,11 +2104,12 @@ export class InteractiveSession
 
   private async switchProvider(profileName: string): Promise<void> {
     const session = this.getSessionOrThrow();
-    const { settings, provider } = resolveUserSettingsProviderSwitch(
+    const { settings, provider } = await resolveUserSettingsProviderSwitchAsync(
       profileName,
       this.providerDefinitions,
       this.userSettingsSources,
       this.providerEnvironment,
+      this.resolveProviderCredential,
     );
     // #3282 §3: a real provider resolved — whether this switch came from `/provider switch` (already
     // configured, a no-op here) or from the setup flow's own hot-swap onto the first profile ever
@@ -2124,6 +2128,9 @@ export class InteractiveSession
       settings: readMergedProviderSettings(this.userSettingsSources),
       primary: { profile: profileName, config: settings },
       providerDefinitions: this.providerDefinitions,
+      ...(this.resolveProviderCredential !== undefined && {
+        resolveCredential: this.resolveProviderCredential,
+      }),
       ...(this.providerEnvironment !== undefined && { environment: this.providerEnvironment }),
       ...(this.orgPolicy?.allowedProviders !== undefined && {
         allowedProviders: this.orgPolicy.allowedProviders,

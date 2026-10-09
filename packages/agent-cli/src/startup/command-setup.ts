@@ -32,10 +32,7 @@ import type {
   IKeybindingsFilePort,
   IThemeCataloguePort,
 } from '@robota-sdk/agent-command';
-import {
-  createOutputStyleRegistry,
-  loadOutputStylesFromSources,
-} from '@robota-sdk/agent-preset';
+import { createOutputStyleRegistry, loadOutputStylesFromSources } from '@robota-sdk/agent-preset';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import {
   createWorkspaceWorkflowProject,
@@ -60,6 +57,10 @@ import {
   type ICliWorkspaceComposition,
 } from './workspace-project-composition.js';
 import type { IStartCliOptions } from './cli-options-types.js';
+import {
+  createCliOpenRouterConnectionHost,
+  type IOpenRouterConnectionHost,
+} from './openrouter-connection-host.js';
 
 export type { IStartCliOptions } from './cli-options-types.js';
 
@@ -95,6 +96,7 @@ function loadWorkflowsCommandModule(
 }
 
 export interface ICliSetup {
+  providerConnectionHost: IOpenRouterConnectionHost;
   commandHostAdapters: ICommandHostAdapters;
   outputStyleRegistry: IOutputStyleRegistry;
   outputStyleLoadErrors: readonly { file: string; error: string }[];
@@ -249,6 +251,8 @@ export function buildCommandSetup(
   // sites have been unreachable since. Nothing failed, because the parameter is optional and its
   // consumers read absence as "no policy configured".
   const orgPolicy = loadOrgPolicy(userPaths(productRuntime).orgPolicy);
+  const providerConnectionHost =
+    options.providerConnectionHost ?? createCliOpenRouterConnectionHost(productRuntime, orgPolicy);
   // OBSERVABILITY-1991: `/doctor` runs the same runner as `the product doctor`, over the inputs this host
   // composed; the shell supplies them, the command package owns the behaviour.
   const doctorInputs = buildDoctorInputs({
@@ -266,6 +270,8 @@ export function buildCommandSetup(
     editorTemporaryDirectoryPrefix: productRuntime.vocabulary.editorTemporaryDirectoryPrefix,
     providerDefinitions,
     providerSettingsAdapter,
+    providerConnectionHost,
+    providerCredentialResolver: providerConnectionHost.resolveCredential,
     // The provider commands check `$ENV:` credentials against the snapshot taken before the runtime
     // withheld its own credentials from `process.env` — the live env no longer has them.
     providerEnvironment: productRuntime.environment,
@@ -302,6 +308,7 @@ export function buildCommandSetup(
     ? getStartupCliUpdateNotice({ productRuntime, currentVersion: version })
     : undefined;
   return {
+    providerConnectionHost,
     commandHostAdapters,
     outputStyleRegistry,
     outputStyleLoadErrors: outputStyleLoad.errors,

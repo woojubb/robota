@@ -2,15 +2,17 @@
 
 The **GUI presentation layer** for an agent session — the graphical analog of `@robota-sdk/agent-ui-terminal`.
 It reconstructs conversation state from the transport-neutral `TServerMessage` stream and renders it as React
-components, and it ships the desktop **session shell** (title/status bar, conversation column, background
-activity rail, composer, permission modal). It is an internal workspace package (`private: true`), consumed
-by the GUI web app (`@robota-sdk/agent-gui-web`, which the desktop app loads and the configured CLI serves with `--serve`)
-and by the browser-remote surface (`@robota-sdk/agent-transport-webrtc-web`).
+components. Its public `/client` entry supplies the browser-safe reducer, WebSocket client, session shell
+and runtime-host contract for a consumer-owned renderer. The same components serve the repository's GUI
+web app and browser-remote surface.
 
 ## What it owns
 
 - `useSessionClient(makeClient)` — the transport-neutral session reducer (generic over the status type).
 - `useWsSession(url)` + `createWsSessionClient` — the localhost WebSocket binding.
+- `resolveClientRuntimeHost(environment)` — a browser endpoint resolver or a narrow desktop bridge
+  adapter. The desktop bridge owns trust, endpoint validation and runtime lifecycle; a renderer asks
+  `trustQuestion` before `getEndpoint` and calls `signalReady` after connection.
 - Prompt state: `applyPromptEvent`, `permissionResponse`, `askResponse`.
 - UI-intent state: `guiScreenForUiIntent` (the GUI screen a command's UI intent opens, if any) and
   `describeUiIntentForGui` (the explicit "not available on this surface" line otherwise).
@@ -49,3 +51,12 @@ A different transport supplies its own `makeClient` (a `TMakeSessionClient<TStat
 connection states, instantiates `useSessionClient<ItsStatus>` — see `useRtcSession` in `@robota-sdk/agent-transport-webrtc-web`.
 
 See [SPEC.md](./SPEC.md) for the full contract.
+
+The source repository's Cedar renderer fixture shows a consumer-owned toolbar calling a custom
+command, desktop trust admission, session restoration and reconnect. Its local-pack
+build is prerelease evidence; a clean registry-installed build is required after publication.
+
+The package tarball includes source styles, declarations and its AGPL license. React is a peer dependency;
+the consumer supplies React, React DOM, Tailwind v4 and a bundler. Third-party runtime dependencies are
+declared in `package.json`; a distributable renderer must include their notices and licenses in its own
+artifact. The package does not include the private GUI web app or Electron shell.

@@ -90,6 +90,35 @@ function target(provider: IAIProvider, model: string): IFallbackModelTarget {
 }
 
 describe('FallbackProvider', () => {
+  it('closes and disposes a fallback built after asynchronous host credential resolution', async () => {
+    const primary = new ScriptedProvider('primary', fail(overloaded()));
+    let closed = 0;
+    let disposed = 0;
+    const fallback = Object.assign(new ScriptedProvider('stored'), {
+      close: async () => {
+        closed++;
+      },
+      dispose: async () => {
+        disposed++;
+      },
+    });
+    const provider = new FallbackProvider(primary, [
+      {
+        ref: { provider: 'stored', model: 'stored-model' },
+        create: () => {
+          throw new Error('Host resolution is required');
+        },
+        createAsync: async () => fallback,
+      },
+    ]);
+    await expect(provider.chat(MESSAGES, { model: 'primary-model' })).resolves.toMatchObject({
+      content: 'stored',
+    });
+    await provider.close();
+    await provider.dispose();
+    expect(closed).toBe(1);
+    expect(disposed).toBe(1);
+  });
   it.each([
     ['an overload (529)', overloaded],
     ['a 503', unavailable],

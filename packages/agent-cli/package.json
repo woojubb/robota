@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-cli",
-  "version": "3.0.0-beta.92",
+  "version": "3.0.0-beta.93",
   "description": "robota — a coding-capable terminal agent built from the same foundation as the Robota SDK",
   "type": "module",
   "bin": {
@@ -24,6 +24,26 @@
         }
       }
     },
+    "./host": {
+      "source": "./src/product-host.ts",
+      "import": {
+        "types": "./dist/node/host.d.ts",
+        "default": "./dist/node/host.js"
+      }
+    },
+    "./desktop-host": {
+      "source": "./src/desktop-host.ts",
+      "import": {
+        "types": "./dist/node/desktop-host.d.ts",
+        "default": "./dist/node/desktop-host.js"
+      }
+    },
+    "./native-build": {
+      "import": {
+        "types": "./scripts/native-build.d.mts",
+        "default": "./scripts/native-build.mjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "engines": {
@@ -32,6 +52,10 @@
   "files": [
     "dist",
     "bin",
+    "scripts/native-build.mjs",
+    "scripts/native-build.d.mts",
+    "scripts/koffi-bun-plugin.mjs",
+    "scripts/qualify-koffi-gc.mjs",
     "CHANGELOG.md"
   ],
   "scripts": {
@@ -124,7 +148,7 @@
     "@robota-sdk/agent-interface-session-mobility": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-mcp": "workspace:*",
-    "@robota-sdk/agent-organization": "workspace:*",
+    "@robota-sdk/agent-organization-host": "workspace:*",
     "@robota-sdk/agent-preset": "workspace:*",
     "@robota-sdk/agent-product": "workspace:*",
     "@robota-sdk/agent-provider-anthropic": "workspace:*",

@@ -65,6 +65,8 @@ export interface ISerializableProviderProfile {
   model: string;
   apiKey?: string;
   apiKeyEnv?: string;
+  /** Host-held origin; a worker must never substitute another credential for it. */
+  apiKeyRef?: { readonly service: string; readonly account: string };
   baseURL?: string;
   timeout?: number;
   options?: Record<string, TUniversalValue>;
@@ -201,10 +203,7 @@ export type IBackgroundTaskUsage = ITokenUsage;
  * cutoff is not the same fact as a person's own denial, so it is never counted as one.
  */
 export type TBackgroundTaskPermissionDenialReason =
-  | 'denied-by-person'
-  | 'no-approver'
-  | 'approver-error'
-  | 'cancelled';
+  'denied-by-person' | 'no-approver' | 'approver-error' | 'cancelled';
 
 /**
  * How many of a task's tool calls were refused, and why. Additive: a caller only reads this when at

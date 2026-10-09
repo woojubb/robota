@@ -37,6 +37,7 @@ import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';
 import { applyModelFallbackChain } from './startup/model-fallback-startup.js';
 import { createSetupPlaceholderProvider } from './startup/setup-placeholder-provider.js';
 import { readCliProviderSettings } from './startup/provider-startup.js';
+import { createCliOpenRouterConnectionHost } from './startup/openrouter-connection-host.js';
 import { checkForCliUpdate, formatCliUpdateCheckMessage } from './update-check/update-check.js';
 import { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
 import { parseCliArgs, printHelp, subcommandWord, type IParsedCliArgs } from './utils/cli-args.js';
@@ -55,7 +56,7 @@ import {
 } from './product/user-settings.js';
 import { readUserSettingsOrExit } from './startup/user-settings.js';
 import { runShellCommand } from './startup/shell-exec.js';
-import { commandEnvironment } from './product/command-environment.js';
+import { commandEnvironment, withholdEnvironmentVariables } from './product/command-environment.js';
 import { admitStartupTrustDecision } from './startup/admit-trust-decision.js';
 import {
   buildPresetSurfaceOptions,
@@ -90,7 +91,7 @@ import { reloadPluginCommandSource } from './plugins/default-plugin-command-sour
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { runSessionAnalyze } from './session-analyzer/session-analyze-command.js';
 import { runEvalCommand } from './eval/eval-command.js';
-import { readVersion } from './startup/version.js';
+import { runtimeVersion } from './startup/version.js';
 import { runResetConfig } from './startup/reset-config.js';
 import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first-run.js';
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
@@ -185,10 +186,20 @@ export async function startCliCore(
   // The configured service name is product identity, not an exporter setting.
   delete telemetryInput['PRODUCT_TELEMETRY_SERVICE_NAME'];
   const telemetryEnvironment = takeProductTelemetryEnvironment(telemetryInput);
-  for (const key of Object.keys(process.env)) {
-    if (key === 'PRODUCT_TELEMETRY_SERVICE_NAME' || key === `${productRuntime.config.identity.envPrefix}TELEMETRY_SERVICE_NAME`) continue;
-    if (key.startsWith('PRODUCT_TELEMETRY_') || key.startsWith(`${productRuntime.config.identity.envPrefix}TELEMETRY_`)) delete process.env[key];
-  }
+  const telemetryKeys = [
+    ...new Set([...Object.keys(productRuntime.environment), ...Object.keys(process.env)]),
+  ].filter((key) => {
+    if (
+      key === 'PRODUCT_TELEMETRY_SERVICE_NAME' ||
+      key === `${productRuntime.config.identity.envPrefix}TELEMETRY_SERVICE_NAME`
+    )
+      return false;
+    return (
+      key.startsWith('PRODUCT_TELEMETRY_') ||
+      key.startsWith(`${productRuntime.config.identity.envPrefix}TELEMETRY_`)
+    );
+  });
+  withholdEnvironmentVariables(telemetryKeys);
   // Telemetry settings may hold collector credentials: they leave process.env before anything else
   // runs, so no child process inherits them. Only the supervised session launch hands them over.
 
@@ -261,7 +272,7 @@ async function runCliCore(
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
-  const version = readVersion();
+  const version = runtimeVersion(productRuntime);
   const { mcpServe, http: mcpHttp } = validateMcpServeInvocation(
     args,
     productRuntime.config.identity.cliName,
@@ -269,8 +280,10 @@ async function runCliCore(
   const serveHttp = resolveServeHttpOptions(args, productRuntime.environment);
   // Held by the serve options from here on. Left in the environment, every tool subprocess this
   // runtime starts would inherit the bearer that admits an HTTP client.
-  delete process.env['PRODUCT_HTTP_TOKEN'];
-  delete process.env[`${productRuntime.config.identity.envPrefix}HTTP_TOKEN`];
+  withholdEnvironmentVariables([
+    'PRODUCT_HTTP_TOKEN',
+    `${productRuntime.config.identity.envPrefix}HTTP_TOKEN`,
+  ]);
 
   if (args.help) {
     process.stdout.write(printHelp(productRuntime));
@@ -284,7 +297,10 @@ async function runCliCore(
 
   if (args.checkUpdate) {
     const result = await checkForCliUpdate({
-      productRuntime, currentVersion: version, force: true });
+      productRuntime,
+      currentVersion: version,
+      force: true,
+    });
     const message = formatCliUpdateCheckMessage(result);
     if (result.status === 'error') {
       process.stderr.write(`${message}\n`);
@@ -333,7 +349,9 @@ async function runCliCore(
       }
       projectAccess = answer.access;
     } else {
-      process.stderr.write(`${formatHeadlessWorkspaceTrustError(projectAccess, cwd, productRuntime.config.identity.cliName)}\n`);
+      process.stderr.write(
+        `${formatHeadlessWorkspaceTrustError(projectAccess, cwd, productRuntime.config.identity.cliName)}\n`,
+      );
       process.exitCode = 1;
       return;
     }
@@ -385,6 +403,9 @@ async function runCliCore(
       settingsSources: composition.settingsSources,
       projectAccess: composition.projectAccess,
       environment: productRuntime.environment,
+      resolveProviderCredential: (
+        options.providerConnectionHost ?? createCliOpenRouterConnectionHost(productRuntime)
+      ).resolveCredential,
     });
     return;
   }
@@ -392,7 +413,12 @@ async function runCliCore(
   if (subcommandWord(args) === 'session' && args.positional[1] === 'analyze') {
     // Normally unreachable — the pre-parse interceptor above handles `session analyze`.
     // Kept as a defensive fallthrough for non-argv invocations.
-    await runSessionAnalyze(process.argv.slice(4), cwd, undefined, createUserSessionStore(productRuntime.layout.userPaths.sessions));
+    await runSessionAnalyze(
+      process.argv.slice(4),
+      cwd,
+      undefined,
+      createUserSessionStore(productRuntime.layout.userPaths.sessions),
+    );
     return;
   }
 
@@ -494,7 +520,9 @@ async function runCliCore(
   if (mcp !== undefined) startupOptions.mcpActivationAdapter = mcp.activationAdapter;
   // The device mesh: opened only by an interactive session whose user settings turn it on.
   const deviceMesh = createDeviceMeshHost({
-    productRuntime, report: (message) => terminal.writeError(message) });
+    productRuntime,
+    report: (message) => terminal.writeError(message),
+  });
   const {
     commandHostAdapters,
     outputStyleRegistry,
@@ -507,6 +535,7 @@ async function runCliCore(
     remoteCommandPolicy,
     workspaceComposition,
     orgPolicy,
+    providerConnectionHost,
   } = buildCommandSetupOrExit(
     cwd,
     args,
@@ -573,7 +602,8 @@ async function runCliCore(
     bindTransports,
     usageReporters,
   } = createCliUsageTransportRegistry(
-    productRuntime,    workspaceComposition.sessionStore,
+    productRuntime,
+    workspaceComposition.sessionStore,
     workspaceComposition.projectAccess.status === 'trusted',
     args.open,
     serveSessionDirectory,
@@ -665,8 +695,11 @@ async function runCliCore(
     terminal,
     providerDefinitions,
     workspace: workspaceComposition,
+    providerConnectionHost,
+    orgPolicy,
   });
   if (projectSetup.handled) {
+    providerConnectionHost.shutdown();
     return;
   }
   // #3282 §3: no usable provider, but this is `--serve` (a daemon's child is too) — continue with a
@@ -676,7 +709,14 @@ async function runCliCore(
 
   const providerSettings = setupRequired
     ? { name: 'setup-placeholder', model: 'setup-required' }
-    : readCliProviderSettings(productRuntime, workspaceComposition.settingsSources, providerDefinitions, args.provider);
+    : await providerConnectionHost.resolveCredential(
+        readCliProviderSettings(
+          productRuntime,
+          workspaceComposition.settingsSources,
+          providerDefinitions,
+          args.provider,
+        ),
+      );
   const modelId = resolvedPreset.model ?? providerSettings.model;
   let effortResolution;
   try {
@@ -761,6 +801,7 @@ async function runCliCore(
           ...(args.provider !== undefined && { providerOverride: args.provider }),
           providerDefinitions,
           environment: productRuntime.environment,
+          resolveProviderCredential: providerConnectionHost.resolveCredential,
           ...(orgPolicy !== undefined && { orgPolicy }),
           announceMoves: args.printMode,
           notice: (message) =>
@@ -820,6 +861,7 @@ async function runCliCore(
     ],
     providerDefinitions,
     userSettingsPath: productUserSettingsPath(productRuntime),
+    resolveProviderCredential: providerConnectionHost.resolveCredential,
     mainProvider: { provider, config: providerSettings },
   });
   commandHostAdapters.advisor = advisor.controller;
@@ -847,7 +889,13 @@ async function runCliCore(
       outputStyle,
       effortResolution,
     ),
-    mcp === undefined ? undefined : mcpStartupModelNotice(mcpStartupMode, mcp.unavailableServers, productRuntime.vocabulary.cliName),
+    mcp === undefined
+      ? undefined
+      : mcpStartupModelNotice(
+          mcpStartupMode,
+          mcp.unavailableServers,
+          productRuntime.vocabulary.cliName,
+        ),
   );
 
   const sessionStore = workspaceComposition.sessionStore;
@@ -890,7 +938,10 @@ async function runCliCore(
   );
   const livePromptTracePort = createConfiguredNodeOtlpLiveTelemetryPort(
     telemetryEnvironment,
-    () => process.stderr.write(`${productRuntime.config.identity.displayName} telemetry export failed.\n`),
+    () =>
+      process.stderr.write(
+        `${productRuntime.config.identity.displayName} telemetry export failed.\n`,
+      ),
     undefined,
     {
       serviceVersion: version,
@@ -909,13 +960,15 @@ async function runCliCore(
       providerDefinitions,
       env: productRuntime.environment,
       startupCredentials: [providerSettings.apiKey],
+      resolvedCredentialSecrets: providerConnectionHost.getResolvedSecrets,
     }),
   );
 
   // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.
   if (args.printMode || args.goal) {
     const printRun = runPrintMode(
-      productRuntime,      cwd,
+      productRuntime,
+      cwd,
       args,
       provider,
       sessionStore,
@@ -949,10 +1002,12 @@ async function runCliCore(
       shellExecutable,
       livePromptTracePort,
       workspaceComposition.createEditCheckpointStore?.(),
+      providerConnectionHost.resolveCredential,
     );
     try {
       await printRun;
     } finally {
+      providerConnectionHost.shutdown();
       await livePromptTracePort?.shutdown();
       if (mcp !== undefined) await mcp.shutdown();
     }
@@ -968,6 +1023,7 @@ async function runCliCore(
       args,
       provider,
       providerDefinitions,
+      resolveProviderCredential: providerConnectionHost.resolveCredential,
       providerErrorGuidance,
       promptFileReferenceTag,
       modelCommandToolPrefix,
@@ -1005,6 +1061,7 @@ async function runCliCore(
     try {
       await runMcpServeMode(productRuntime, sessionOptions, version, mcpProtocolStdout, mcpHttp);
     } finally {
+      providerConnectionHost.shutdown();
       await livePromptTracePort?.shutdown();
       if (mcp !== undefined) await mcp.shutdown();
     }
@@ -1023,6 +1080,7 @@ async function runCliCore(
       args,
       provider,
       providerDefinitions,
+      resolveProviderCredential: providerConnectionHost.resolveCredential,
       providerErrorGuidance,
       promptFileReferenceTag,
       modelCommandToolPrefix,
@@ -1073,6 +1131,7 @@ async function runCliCore(
     try {
       await serveRun;
     } finally {
+      providerConnectionHost.shutdown();
       await livePromptTracePort?.shutdown();
       if (mcp !== undefined) await mcp.shutdown();
     }
@@ -1101,7 +1160,9 @@ async function runCliCore(
   }
   // A device holding the signing key keeps its roster and revocation list from lapsing while it runs.
   startDeviceListReissue({
-    productRuntime, onReissued: () => void deviceMesh.identityChanged() });
+    productRuntime,
+    onReissued: () => void deviceMesh.identityChanged(),
+  });
   // What a linked device asks that needs the operator is asked on this terminal, never in a prompt.
   void deviceMesh.start({
     ...(remoteControlController.operatorApprover !== undefined
@@ -1118,6 +1179,7 @@ async function runCliCore(
     commandHookShell: shellExecutable,
     promptFileReferenceTag,
     providerDefinitions,
+    resolveProviderCredential: providerConnectionHost.resolveCredential,
     ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
     ...tuiInitialInputProps(
       initialInput,
@@ -1174,7 +1236,8 @@ async function runCliCore(
     commandModules,
     commandHostAdapters,
     remoteCommandPolicy,
-    shellExec: (command, env) => runShellCommand(command, commandEnvironment(productRuntime.environment), env),
+    shellExec: (command, env) =>
+      runShellCommand(command, commandEnvironment(productRuntime.environment), env),
     startupUpdateNotice: resolveCliUpdateNotice(startupUpdateNoticePromise),
     transportRegistry,
     bindTransports: bindTuiTransports,
@@ -1215,6 +1278,7 @@ async function runCliCore(
   try {
     await tuiRun;
   } finally {
+    providerConnectionHost.shutdown();
     deviceMesh.close();
     await tuiEventEndpoint?.stop();
     externalEvents?.close();

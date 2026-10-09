@@ -81,6 +81,7 @@ export interface ITuiInteractionChannelOptions {
   skillRoots?: ICreateSessionOptions['skillRoots'];
   userSettingsSources?: readonly INodeHostSettingsSource[];
   environment?: Readonly<Record<string, string | undefined>>;
+  resolveProviderCredential?: import('@robota-sdk/agent-core').TProviderCredentialResolver;
   /**
    * Explicit authority- and permission-backed edit checkpoint capability for this channel's one
    * session. Never shared with another channel's session: a store holds one turn in progress.

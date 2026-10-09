@@ -1,7 +1,7 @@
 /**
  * #3282 §4 part b-3 — plain-words schedule presentation: never an ISO string or a cron expression.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   describeScheduleInstruction,
@@ -42,6 +42,39 @@ describe('formatPlainLocalTime', () => {
     d.setHours(hour, 0, 0, 0);
     return d.toISOString();
   }
+
+  it.each([
+    [0, 21, 'Today 9:00 PM'],
+    [1, 9, 'Tomorrow 9:00 AM'],
+    [3, 9, 'Mon 9:00 AM'],
+    [45, 9, 'Jun 15 9:00 AM'],
+  ] as const)(
+    'keeps English copy and local hours with a Korean default locale: %s days',
+    (days, hour, expected) => {
+      const nativeClock = Date.prototype.toLocaleTimeString;
+      const nativeDate = Date.prototype.toLocaleDateString;
+      const clock = vi.spyOn(Date.prototype, 'toLocaleTimeString').mockImplementation(function (
+        this: Date,
+        locales,
+        options,
+      ) {
+        return nativeClock.call(this, locales ?? 'ko-KR', options);
+      });
+      const date = vi.spyOn(Date.prototype, 'toLocaleDateString').mockImplementation(function (
+        this: Date,
+        locales,
+        options,
+      ) {
+        return nativeDate.call(this, locales ?? 'ko-KR', options);
+      });
+      try {
+        expect(formatPlainLocalTime(localDaysFrom(now, days, hour), now)).toBe(expected);
+      } finally {
+        clock.mockRestore();
+        date.mockRestore();
+      }
+    },
+  );
 
   it('the same local day is "Today <time>"', () => {
     expect(formatPlainLocalTime(localDaysFrom(now, 0, 21), now)).toMatch(/^Today \d/);

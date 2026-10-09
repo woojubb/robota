@@ -1,4 +1,4 @@
-import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { cleanupTestProductRuntimes, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import {
   mkdtempSync,
   mkdirSync,
@@ -36,7 +36,16 @@ function rawGet(
   });
 }
 
-import { servedAtMessage, startMonitorUiServer, type IMonitorUiServer } from '../serve-monitor-ui.js';
+import { resolveProductWebRoot, servedAtMessage, startMonitorUiServer, type IMonitorUiServer } from '../serve-monitor-ui.js';
+
+afterAll(cleanupTestProductRuntimes);
+
+it('requires separate-product assets rather than serving the installed CLI monitor', () => {
+  const runtime = createTestProductRuntime('cedar');
+  expect(resolveProductWebRoot({ ...runtime, artifact: { version: '1.2.3' } })).toBeNull();
+  expect(resolveProductWebRoot({ ...runtime, artifact: { version: '1.2.3', webRoot: '/consumer/web' } }))
+    .toBe('/consumer/web');
+});
 
 /**
  * GUI-007 — the CLI-served web monitor static host. Verifies: index.html gets the live `ws-url` injected, a

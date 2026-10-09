@@ -22,13 +22,20 @@ npm install -g @robota-sdk/agent-cli  # install the `__PRODUCT_CLI_NAME__` comma
 
 ### Connect a provider
 
-On the first start in an interactive terminal, `__PRODUCT_CLI_NAME__` asks whether you have an API key, want a
-free Gemini key, or want to use a local model (it walks you through LM Studio; Ollama and llama.cpp
+On the first start in an interactive terminal, `__PRODUCT_CLI_NAME__` offers an OpenRouter browser
+connection, an API key, a free Gemini key, or a local model (it walks you through LM Studio; Ollama and llama.cpp
 are set up as in [Local LLMs](./local-llm.md)), then asks for the
 provider's settings and a response language, and saves a provider profile to
 `<user-state>/settings.json`. If `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `DASHSCOPE_API_KEY` or
-`DEEPSEEK_API_KEY` is set and no profile exists, it starts with that provider's default model and
+`DEEPSEEK_API_KEY` or `OPENROUTER_API_KEY` is set and no profile exists, it starts with that provider's default model and
 skips setup.
+
+For OpenRouter, choose **Browser** to approve access and let Robota issue, receive and save the API key
+automatically. **API key** remains available immediately, including in SSH sessions and containers.
+The App uses the same two methods. Browser setup requires a callback to Robota on the same host;
+see [OpenRouter setup](./providers.md#connect-openrouter-in-the-cli-or-app). Use
+`/provider reconnect <profile>` to replace a connection; `/provider edit <profile>` keeps its saved
+credential while changing settings such as the model.
 
 To set up a provider without the prompts (for example in a script):
 
@@ -38,10 +45,12 @@ __PRODUCT_CLI_NAME__ --configure-provider work --type anthropic --model claude-s
   --api-key-env ANTHROPIC_API_KEY --set-current
 __PRODUCT_CLI_NAME__ --configure-provider local --type gemma --base-url http://localhost:1234/v1 \
   --model <model> --api-key lm-studio --set-current
+__PRODUCT_CLI_NAME__ --configure-provider router --type openrouter --model anthropic/claude-sonnet-4.6 \
+  --api-key-env OPENROUTER_API_KEY --set-current
 ```
 
 `--type` is one of `anthropic`, `openai`, `gemini` (alias `google`), `gemma` (any OpenAI-compatible
-local server), `qwen` or `deepseek`. `--api-key-env` stores a reference to an environment variable
+local server), `qwen`, `deepseek` or `openrouter`. `--api-key-env` stores a reference to an environment variable
 instead of the key itself. `--settings-scope user|project-local` chooses which settings file receives
 the profile. See [Local LLM Setup](./local-llm.md) for local servers and
 [Providers](./providers.md) for what each provider supports.

@@ -11,6 +11,7 @@ import type {
   IProviderDefinitionConfig,
   IProviderCredentialRequirement,
   TProviderCredentialField,
+  TProviderCredentialReference,
 } from '../interfaces/provider-definition.js';
 import type { IAIProvider } from '../interfaces/provider.js';
 import type { TUniversalValue } from '../interfaces/types.js';
@@ -33,6 +34,7 @@ export function normalizeProviderConfig(
     name: string;
     model?: string;
     apiKey?: string;
+    apiKeyRef?: TProviderCredentialReference;
     baseURL?: string;
     timeout?: number;
     options?: Record<string, TUniversalValue>;
@@ -45,7 +47,17 @@ export function normalizeProviderConfig(
   if (!model) {
     throw new Error(`Provider ${settings.name} requires model`);
   }
-  const apiKeyReference = settings.apiKey ?? defaults.apiKey;
+  if (settings.apiKeyRef !== undefined && settings.apiKey !== undefined) {
+    throw new Error(`Provider ${settings.name} has conflicting credential origins`);
+  }
+  if (
+    settings.apiKeyRef !== undefined &&
+    (!settings.apiKeyRef.service?.trim() || !settings.apiKeyRef.account?.trim())
+  ) {
+    throw new Error(`Provider ${settings.name} has an invalid host credential reference`);
+  }
+  const apiKeyReference =
+    settings.apiKeyRef === undefined ? (settings.apiKey ?? defaults.apiKey) : undefined;
   const apiKeyEnv =
     apiKeyReference !== undefined && isEnvReference(apiKeyReference)
       ? apiKeyReference.slice(ENV_REFERENCE_PREFIX.length).trim()
@@ -62,6 +74,7 @@ export function normalizeProviderConfig(
     apiKey:
       apiKeyReference !== undefined ? resolveEnvReference(apiKeyReference, resolve) : undefined,
     ...(apiKeyEnv ? { apiKeyEnv } : {}),
+    ...(settings.apiKeyRef !== undefined ? { apiKeyRef: settings.apiKeyRef } : {}),
     baseURL: settings.baseURL ?? defaults.baseURL,
     timeout: settings.timeout,
     ...(options !== undefined && { options }),
@@ -77,6 +90,11 @@ export function createProviderFromConfig(
   settings: IProviderDefinitionConfig,
   providerDefinitions: readonly IProviderDefinition[],
 ): IAIProvider {
+  if (settings.apiKeyRef !== undefined && !settings.apiKey) {
+    throw new Error(
+      `Provider ${settings.name} requires host credential resolution before construction`,
+    );
+  }
   const definition = findProviderDefinition(providerDefinitions, settings.name);
   if (definition === undefined) {
     throw new Error(

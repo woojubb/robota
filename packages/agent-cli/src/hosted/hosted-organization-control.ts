@@ -1,5 +1,5 @@
-import { OrganizationBroker, OrganizationRefused, organizationAuditEvent, organizationOperationDigest } from '@robota-sdk/agent-organization';
-import type { OrganizationAudit, OrganizationLedger, IOrganizationAction, IOrganizationCall, IOrganizationGrant, IOrganizationReceipt, IOrganizationRequest, TOrganizationJson } from '@robota-sdk/agent-organization';
+import { OrganizationBroker, OrganizationRefused, organizationAuditEvent, organizationOperationDigest } from '@robota-sdk/agent-organization-host';
+import type { OrganizationAudit, OrganizationLedger, IOrganizationAction, IOrganizationCall, IOrganizationGrant, IOrganizationReceipt, IOrganizationRequest, TOrganizationJson } from '@robota-sdk/agent-organization-host';
 import type { IHostedIdentity } from './hosted-runtime-types.js';
 
 export interface IHostedOrganizationWorker {

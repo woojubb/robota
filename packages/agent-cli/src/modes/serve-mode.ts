@@ -10,7 +10,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 import {
   openInBrowser,
-  resolveWebRoot,
+  resolveProductWebRoot,
   servedAtMessage,
   startMonitorUiServer,
   type IMonitorUiServer,
@@ -62,6 +62,7 @@ import type {
   IAIProvider,
   IProviderDefinition,
   IToolWithEventService,
+  TProviderCredentialResolver,
 } from '@robota-sdk/agent-core';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type {
@@ -110,6 +111,7 @@ export interface IServeModeOptions {
    * in `packages/agent-ui-terminal/src/tui-channel-options.ts`); a served session never had it.
    */
   providerDefinitions?: readonly IProviderDefinition[];
+  resolveProviderCredential?: TProviderCredentialResolver;
   providerErrorGuidance?: IProviderErrorGuidance;
   promptFileReferenceTag?: string;
   modelCommandToolPrefix?: string;
@@ -222,6 +224,9 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     // #3282: the session reads these when `/provider switch` hot-swaps. Absent, the switch throws
     // "Unknown provider: <name>. Currently supported: " with an EMPTY list — measured, not inferred.
     ...(opts.providerDefinitions ? { providerDefinitions: opts.providerDefinitions } : {}),
+    ...(opts.resolveProviderCredential === undefined
+      ? {}
+      : { resolveProviderCredential: opts.resolveProviderCredential }),
     ...(opts.providerErrorGuidance !== undefined
       ? { providerErrorGuidance: opts.providerErrorGuidance }
       : {}),
@@ -540,7 +545,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     let monitorUi: IMonitorUiServer | null = null;
     if (args.open) {
       const wsUrl = opts.getMonitorWsUrl?.();
-      const webRoot = resolveWebRoot();
+      const webRoot = resolveProductWebRoot(opts.productRuntime);
       if (wsUrl && webRoot) {
         monitorUi = await startMonitorUiServer(webRoot, wsUrl, opts.productRuntime);
         process.stdout.write(servedAtMessage(monitorUi.url, opts.productRuntime));

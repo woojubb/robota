@@ -3,11 +3,12 @@ on:
   pull_request:
     branches: [develop, main]
   push:
-    branches: [develop, main]
+    branches: [main]
   workflow_dispatch:
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Keep retries out of the ref group so an old retry cannot replace a newer pending run.
+  group: ${{ github.run_attempt == '1' && format('ci-{0}', github.ref) || format('ci-retry-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.run_attempt == '1' }}
 permissions:
   contents: read
 jobs:

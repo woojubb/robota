@@ -2,8 +2,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { open, realpath, stat, rename, unlink } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
-import { OrganizationRefused, organizationOperationDigest, organizationAuditEvent } from '@robota-sdk/agent-organization';
-import type { IOrganizationRequest } from '@robota-sdk/agent-organization';
+import { OrganizationRefused, organizationOperationDigest, organizationAuditEvent } from '@robota-sdk/agent-organization-host';
+import type { IOrganizationRequest } from '@robota-sdk/agent-organization-host';
 
 /** Private owner content storage for model wire bytes; the bounded authority journal keeps only digests. */
 export class HostedOrganizationPayloads {

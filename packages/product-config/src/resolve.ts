@@ -167,3 +167,16 @@ export function hostProductConfig(config: IProductConfig): IHostProductConfig {
 export function embeddedProductIdentity(config: IProductConfig): IEmbeddedProductIdentity {
   return project(config, (descriptor) => descriptor.phase === 'identity' && descriptor.exposure !== 'private') as IEmbeddedProductIdentity;
 }
+
+/** Parse a consumer-owned entry's build identity before it can start a session or child process. */
+export function parseEmbeddedProductIdentity(input: unknown): IEmbeddedProductIdentity {
+  if (typeof input !== 'object' || input === null || Array.isArray(input))
+    throw new ProductConfigError('PRODUCT_IDENTITY', 'invalid embedded identity');
+  const source = input as TConfigObject;
+  const parsed: TMutableConfigObject = {};
+  for (const { section, field, descriptor } of productConfigEntries()) {
+    if (descriptor.phase !== 'identity' || descriptor.exposure === 'private') continue;
+    (parsed[section] ??= {})[field] = embeddedValue(descriptor, source[section]?.[field]);
+  }
+  return immutable(parsed) as IEmbeddedProductIdentity;
+}

@@ -20,6 +20,12 @@ function buildProviderSubcommands(): ICommand[] {
       description: 'Edit a profile, including optional server credentials',
       source: 'provider',
     },
+    {
+      name: 'reconnect',
+      description: 'Replace a named service connection through browser approval or API key entry',
+      source: 'provider',
+      modelInvocable: false,
+    },
     { name: 'test', description: 'Test provider profile', source: 'provider' },
   ];
 }
@@ -29,12 +35,12 @@ export function createProviderCommandEntry(): ICommand {
     name: 'provider',
     displayName: 'Provider Setup',
     description:
-      'Show, configure or switch provider profiles. Suggest editing a profile when its URL, model or credentials need correction; returns profile details or the result of the change.',
+      'Show, configure or switch provider profiles. Suggest /provider reconnect <profile> when a saved service connection needs new credentials, or /provider edit <profile> for its model or server settings; returns profile details or the result of the change.',
     source: 'provider',
     // User-only: provider profiles hold account credentials; a credential action.
     modelInvocable: false,
     argumentHint:
-      'current | list | switch <profile> | add [type] | edit <profile> | test [profile]',
+      'current | list | switch <profile> | add [type] | edit <profile> | reconnect <profile> | test [profile]',
     subcommands: buildProviderSubcommands(),
     example: '/provider switch production',
   };

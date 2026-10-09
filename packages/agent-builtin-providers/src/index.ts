@@ -1,4 +1,5 @@
 export { createDefaultProviderDefinitions } from './default-provider-definitions.js';
+export { createOpenRouterProviderDefinition } from './openrouter-definition.js';
 export {
   createDefaultMediaProviderDefinitions,
   createGeminiImageProviderDefinition,

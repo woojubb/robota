@@ -154,7 +154,8 @@ export type TProductPackFactory = (context: IProductPackContext) => readonly TPr
  */
 export function createProductSubagentComposition(
   productRuntime: ICliRuntimeContext,
-  createPacks: TProductPackFactory = (context) => createProductCapabilityPacks(context, productRuntime),
+  createPacks: TProductPackFactory = (context) =>
+    createProductCapabilityPacks(context, productRuntime),
   providerDefinitions: readonly IProviderDefinition[] = productProviderDefinitions(),
 ): ISubagentWorkerComposition {
   const shellExecutable = resolveProductShellExecutable(productRuntime.environment);
@@ -183,14 +184,13 @@ export function createProductSubagentComposition(
       // The worker hands back the sandbox `createSandbox` built (the product registers no snapshot type), so
       // the tools run under the instance the session's approval consults.
       const sandboxClient =
-        (context.sandboxClient as ISandboxClient | undefined) ?? productSandboxAt(context.cwd, productRuntime);
+        (context.sandboxClient as ISandboxClient | undefined) ??
+        productSandboxAt(context.cwd, productRuntime);
       const tools = packTools(
         {
           cwd: context.cwd,
           shellExecutable,
-          ...(sandboxClient !== undefined
-            ? { sandboxClient, sandboxType: OS_SANDBOX_TYPE }
-            : {}),
+          ...(sandboxClient !== undefined ? { sandboxClient, sandboxType: OS_SANDBOX_TYPE } : {}),
         },
         createPacks,
       );
@@ -237,7 +237,11 @@ export function createProductSubagentComposition(
 }
 
 /** the product's OS sandbox for one execution root, from the given settings or else that root's files. */
-function productSandboxAt(cwd: string, productRuntime: ICliRuntimeContext, settings?: IOsSandboxSettings): OsSandboxClient | undefined {
+function productSandboxAt(
+  cwd: string,
+  productRuntime: ICliRuntimeContext,
+  settings?: IOsSandboxSettings,
+): OsSandboxClient | undefined {
   return createProductSandbox({
     cwd,
     productRuntime,
@@ -287,10 +291,15 @@ function createProductChildProcessSubagentRunner(options: {
     logsDir: options.logsDir,
     // The worker drops its credential after building its provider unless the owner let commands see it.
     keepProviderCredential:
-      options.providerConfig.apiKeyEnv !== undefined && !isWithheldFromCommands(options.providerConfig.apiKeyEnv),
+      options.providerConfig.apiKeyEnv !== undefined &&
+      !isWithheldFromCommands(options.providerConfig.apiKeyEnv),
     inheritEnvironment: false,
     // The child gets only product bootstrap values and this provider's named connection inputs.
-    env: productChildProviderEnvironment(options.productRuntime, options.providerConfig, options.providerDefinitions),
+    env: productChildProviderEnvironment(
+      options.productRuntime,
+      options.providerConfig,
+      options.providerDefinitions,
+    ),
     expectedEnvironment: { ...options.productRuntime.environment },
     worktreeAdapter: options.worktreeAdapter,
   });
@@ -409,7 +418,10 @@ export function createProductSubagentRunnerFactory(options: {
   readonly notice: (message: string) => void;
 }): TSubagentRunnerFactory {
   const credentialReference = options.providerConfig.apiKeyEnv;
-  const definition = findProviderDefinition(options.providerDefinitions, options.providerConfig.name);
+  const definition = findProviderDefinition(
+    options.providerDefinitions,
+    options.providerConfig.name,
+  );
   const connectionNames = new Set([
     ...TRANSPORT_ENVIRONMENT,
     ...(definition?.destinationEnvironment ?? []),
@@ -421,7 +433,9 @@ export function createProductSubagentRunnerFactory(options: {
   return selectProductSubagentRunner({
     reproduction: {
       ...options.reproduction,
-      literalCredential: options.providerConfig.apiKey !== undefined && credentialReference === undefined,
+      literalCredential:
+        options.providerConfig.apiKeyRef !== undefined ||
+        (options.providerConfig.apiKey !== undefined && credentialReference === undefined),
       connectionEnvironmentDiffers,
     },
     notice: options.notice,

@@ -11,7 +11,7 @@ import { connect as tlsConnect } from 'node:tls';
 import { fileURLToPath } from 'node:url';
 import { WebSocket } from 'ws';
 import { expect, it } from 'vitest';
-import { OrganizationAudit, OrganizationFileLedgerAnchor } from '@robota-sdk/agent-organization';
+import { OrganizationAudit, OrganizationFileLedgerAnchor } from '@robota-sdk/agent-organization-host';
 import { hostedWorkerCliFixture } from '../../__tests__/helpers/hosted-worker-cli.js';
 import { scriptedHostedBroker } from '../../__tests__/helpers/hosted-scripted-broker.js';
 import {

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-tools",
-  "version": "3.0.0-beta.92",
+  "version": "3.0.0-beta.93",
   "description": "Zod-validated function tools, built-in tool factories and sandbox ports for the Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",

@@ -22,20 +22,47 @@ endpoint speaking that surface works via `baseURL` — AI gateways (Vercel AI Ga
 OpenRouter), Azure, vLLM, Ollama, LM Studio. Model slugs pass through verbatim, so routing
 `anthropic/claude-*` or `meta-llama/*` through an OpenAI-protocol gateway is a one-line config.
 
-| Provider                  | Import path                                    | API surface it speaks                                                           | Auth method                       |
-| ------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------- |
-| OpenAI                    | `@robota-sdk/agent-provider-openai`            | OpenAI API — official or ANY compatible endpoint (gateways, Azure, vLLM, local) | `OPENAI_API_KEY` (or gateway key) |
-| Anthropic                 | `@robota-sdk/agent-provider-anthropic`         | Anthropic Messages API                                                          | `ANTHROPIC_API_KEY`               |
-| Gemini                    | `@robota-sdk/agent-provider-gemini`            | Google GenAI API                                                                | `GEMINI_API_KEY`                  |
-| DeepSeek                  | `@robota-sdk/agent-provider-openai-compatible` | OpenAI-compatible (DeepSeek endpoint default)                                   | `DEEPSEEK_API_KEY`                |
-| Qwen (Alibaba)            | `@robota-sdk/agent-provider-openai-compatible` | OpenAI-compatible (DashScope endpoint default)                                  | `DASHSCOPE_API_KEY`               |
-| Gemma / OpenAI-compatible | `@robota-sdk/agent-provider-openai-compatible` | OpenAI-compatible (bring your own endpoint)                                     | none for local servers            |
+| Provider                  | Import path                                                | API surface it speaks                                                           | Auth method                                          |
+| ------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| OpenAI                    | `@robota-sdk/agent-provider-openai`                        | OpenAI API — official or ANY compatible endpoint (gateways, Azure, vLLM, local) | `OPENAI_API_KEY` (or gateway key)                    |
+| OpenRouter                | Built-in service using `@robota-sdk/agent-provider-openai` | OpenAI-compatible Chat Completions                                              | Browser connection, API key, or `OPENROUTER_API_KEY` |
+| Anthropic                 | `@robota-sdk/agent-provider-anthropic`                     | Anthropic Messages API                                                          | `ANTHROPIC_API_KEY`                                  |
+| Gemini                    | `@robota-sdk/agent-provider-gemini`                        | Google GenAI API                                                                | `GEMINI_API_KEY`                                     |
+| DeepSeek                  | `@robota-sdk/agent-provider-openai-compatible`             | OpenAI-compatible (DeepSeek endpoint default)                                   | `DEEPSEEK_API_KEY`                                   |
+| Qwen (Alibaba)            | `@robota-sdk/agent-provider-openai-compatible`             | OpenAI-compatible (DashScope endpoint default)                                  | `DASHSCOPE_API_KEY`                                  |
+| Gemma / OpenAI-compatible | `@robota-sdk/agent-provider-openai-compatible`             | OpenAI-compatible (bring your own endpoint)                                     | none for local servers                               |
 
 > **AI gateways (Vercel AI Gateway, LiteLLM, OpenRouter):** Use the `OpenAIProvider` with the
 > gateway's `baseURL` and a gateway model slug — see [Through an AI gateway](#through-an-ai-gateway).
 >
 > **Local models (Ollama, LM Studio, llama.cpp):** Use the `GemmaProvider` with a custom
 > `baseURL`. See [Local LLM Setup](./local-llm.md) for a step-by-step guide.
+
+---
+
+## Connect OpenRouter in the CLI or App
+
+Choose **OpenRouter** during setup, or run `/provider add openrouter` in a session. Select **Browser**
+to approve the connection on OpenRouter. Robota receives a local callback, exchanges the authorization
+code for an API key, and saves the connection automatically. Choose the model after connecting; the
+default is `anthropic/claude-sonnet-4.6`.
+
+**API key** is available in the same setup. Use it in a pure terminal, SSH session or container where
+the browser cannot reach Robota's local callback. You can also configure an environment reference:
+
+```bash
+__PRODUCT_CLI_NAME__ --configure-provider router --type openrouter \
+  --model anthropic/claude-sonnet-4.6 --api-key-env OPENROUTER_API_KEY --set-current
+```
+
+Browser-issued and newly entered keys stay in the host credential store; settings retain a reference.
+Environment references remain supported. Both methods use the same OpenRouter service and inference
+endpoint, and existing OpenAI-compatible gateway profiles continue to work.
+
+The browser callback requires Robota and the browser on the same host. Cancellation or failure lets
+you retry or choose API key. Connecting does not verify model access or account credits and does not
+send a paid inference request. OpenRouter's [API key page](https://openrouter.ai/keys) lets you manage
+keys issued during an interrupted setup.
 
 ---
 

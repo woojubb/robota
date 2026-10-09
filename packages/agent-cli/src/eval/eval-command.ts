@@ -3,7 +3,7 @@
  *
  * Thin CLI wiring around the neutral `@robota-sdk/agent-framework` eval runner (`runEval`): it loads the
  * consumer's eval definition module, builds the default `runFn` from the CLI-resolved provider
- * (`createProviderFromSettings` → `createAgentRuntime` → `createSessionRunFn`), runs every case, prints a
+ * (settings and host credential resolution → `createAgentRuntime` → `createSessionRunFn`), runs every case, prints a
  * compact report, and returns an EXIT CODE — `0` when the aggregate meets the threshold, `1` otherwise (the
  * CI gate). All scoring/aggregation lives in the framework; agent-cli stays a thin shell.
  *
@@ -17,13 +17,15 @@ import { pathToFileURL } from 'node:url';
 
 import {
   createAgentRuntime,
-  createProviderFromSettings,
+  readProviderSettings,
   createSessionRunFn,
   defineEval,
   formatEvalReport,
   runEval,
 } from '@robota-sdk/agent-framework';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { createProviderFromConfig } from '@robota-sdk/agent-core';
+import type { IProviderDefinition, TProviderCredentialResolver } from '@robota-sdk/agent-core';
 
 import type {
   IEvalDefinition,
@@ -46,6 +48,8 @@ export interface IRunEvalDeps {
   environment?: Readonly<Record<string, string | undefined>>;
   /** Initial project decision forwarded to the eval agent runtime. */
   projectAccess?: TWorkspaceProjectAccess;
+  resolveProviderCredential?: TProviderCredentialResolver;
+  providerDefinitions?: readonly IProviderDefinition[];
 }
 
 interface IEvalCommandArgs {
@@ -98,16 +102,22 @@ async function loadEvalDefinition(absPath: string): Promise<IEvalDefinition> {
 }
 
 /** Build the default `runFn` from the CLI-resolved provider (a live agent run per case). */
-function buildDefaultRunFn(cwd: string, deps: IRunEvalDeps): TEvalRunFn {
-  const settingsSources = deps.settingsSources ?? (() => { throw new Error('Eval startup requires explicit host settings sources.'); })();
-  const provider = createProviderFromSettings(
-    settingsSources,
-    undefined,
-    {
-      providerDefinitions: createDefaultProviderDefinitions(),
-      ...(deps.environment !== undefined ? { env: deps.environment } : {}),
-    },
-  );
+async function buildDefaultRunFn(cwd: string, deps: IRunEvalDeps): Promise<TEvalRunFn> {
+  const settingsSources =
+    deps.settingsSources ??
+    (() => {
+      throw new Error('Eval startup requires explicit host settings sources.');
+    })();
+  const definitions = deps.providerDefinitions ?? createDefaultProviderDefinitions();
+  const config = readProviderSettings(settingsSources, {
+    providerDefinitions: definitions,
+    ...(deps.environment !== undefined ? { env: deps.environment } : {}),
+  });
+  const resolved =
+    deps.resolveProviderCredential === undefined
+      ? config
+      : await deps.resolveProviderCredential(config);
+  const provider = createProviderFromConfig(resolved, definitions);
   const runtime = createAgentRuntime({
     cwd,
     provider,
@@ -153,7 +163,7 @@ export async function runEvalCommand(
   try {
     // Build the runFn inside the try so a provider-config error (no provider configured — a common CI case)
     // honors this function's number-return contract instead of rejecting.
-    const runFn = deps.runFn ?? buildDefaultRunFn(cwd, deps);
+    const runFn = deps.runFn ?? (await buildDefaultRunFn(cwd, deps));
     report = await runEval(definition, runFn);
   } catch (error) {
     // allow-fallback: a failed agent run / unconfigured provider is a terminal gate failure (exit 1), on stderr

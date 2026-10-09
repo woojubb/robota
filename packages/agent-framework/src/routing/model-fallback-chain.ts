@@ -20,6 +20,7 @@ import type {
   IModelFallbackNotice,
   IProviderDefinition,
   IProviderDefinitionConfig,
+  TProviderCredentialResolver,
 } from '@robota-sdk/agent-core';
 
 /** A request moves along at most this many models after the primary. */
@@ -44,6 +45,7 @@ export interface IResolveModelFallbackChainInput {
   providerDefinitions: readonly IProviderDefinition[];
   /** Host-selected environment for lazy profile credential resolution. */
   environment?: Readonly<Record<string, string | undefined>>;
+  resolveCredential?: TProviderCredentialResolver;
   /** The organization's provider allowlist, by profile name. */
   allowedProviders?: readonly string[];
 }
@@ -163,6 +165,25 @@ function buildTarget(
   const { settings, primary, providerDefinitions } = input;
   return {
     ref: { provider: entry.providerType, model: entry.model },
+    ...(input.resolveCredential !== undefined
+      ? {
+          createAsync: async () => {
+            const config =
+              entry.profile !== undefined && entry.profile !== primary.profile
+                ? resolveActiveProvider(
+                    settings,
+                    entry.profile,
+                    providerDefinitions,
+                    input.environment,
+                  )
+                : primary.config;
+            if (config === undefined)
+              throw new Error(`Provider profile "${entry.profile}" has no configuration`);
+            const resolved = await input.resolveCredential!({ ...config, model: entry.model });
+            return createProviderFromConfig(resolved, providerDefinitions);
+          },
+        }
+      : {}),
     create: () => {
       const config =
         entry.profile !== undefined && entry.profile !== primary.profile

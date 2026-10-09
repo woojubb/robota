@@ -18,6 +18,23 @@ import { respond, type WireRequest } from './helpers/provider-wire-fixture.js';
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const launcher = path.join(repoRoot, 'scripts', 'dev', 'agent');
 const KEY = 'fixture-credential-value-3429';
+const runtimeValues = {
+  PRODUCT_HTTP_TOKEN: 'fixture-http-token-3452-0123456789abcdef',
+  ROBOTA_HTTP_TOKEN: 'fixture-http-alias-3452-0123456789abcdef',
+  PRODUCT_WS_TOKEN: 'fixture-ws-token-3452-0123456789abcdef',
+  ROBOTA_WS_TOKEN: 'fixture-ws-alias-3452-0123456789abcdef',
+  PRODUCT_TELEMETRY_ENABLED: '0',
+  ROBOTA_TELEMETRY_ENABLED: '0',
+  PRODUCT_TELEMETRY_OTLP_HEADERS: 'Authorization=Bearer%20fixture-collector',
+  ROBOTA_TELEMETRY_OTLP_HEADERS: 'Authorization=Bearer%20fixture-alias',
+  PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'https://collector.invalid',
+  ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'https://alias.invalid',
+};
+
+function runtimeProbeCommand(file: string): string {
+  const keys = JSON.stringify(Object.keys(runtimeValues));
+  return `node -e 'console.log(JSON.stringify({withheld:${keys}.every(key=>process.env[key]===undefined),identity:process.env.PRODUCT_TELEMETRY_SERVICE_NAME,unrelated:process.env.UNRELATED_VARIABLE}))' > ${file}`;
+}
 
 function baseEnvironment(userHome: string): Record<string, string> {
   const environment = Object.fromEntries(
@@ -25,7 +42,13 @@ function baseEnvironment(userHome: string): Record<string, string> {
       (key) => (process.env[key] === undefined ? [] : [[key, process.env[key]!]]),
     ),
   );
-  return { ...environment, HOME: userHome, OPENAI_API_KEY: KEY, UNRELATED_VARIABLE: 'kept' };
+  return {
+    ...environment,
+    ...runtimeValues,
+    HOME: userHome,
+    OPENAI_API_KEY: KEY,
+    UNRELATED_VARIABLE: 'kept',
+  };
 }
 
 async function runScenario(userSettings: Record<string, unknown>): Promise<{
@@ -33,6 +56,8 @@ async function runScenario(userSettings: Record<string, unknown>): Promise<{
   skillProbe: string;
   authorizations: (string | undefined)[];
   providerTest: string;
+  runtimeProbe: object;
+  bashRuntimeProbe: object;
 }> {
   const root = mkdtempSync(path.join(tmpdir(), 'test-product-credential-isolation-'));
   const userHome = path.join(root, 'home');
@@ -56,7 +81,8 @@ async function runScenario(userSettings: Record<string, unknown>): Promise<{
               name: 'Bash',
               args: {
                 command:
-                  'printf "%s|%s" "${OPENAI_API_KEY:-absent}" "${UNRELATED_VARIABLE:-absent}" > probe.txt',
+                  'printf "%s|%s" "${OPENAI_API_KEY:-absent}" "${UNRELATED_VARIABLE:-absent}" > probe.txt; ' +
+                  runtimeProbeCommand('bash-runtime-probe.json'),
               },
             }
           : undefined;
@@ -68,7 +94,11 @@ async function runScenario(userSettings: Record<string, unknown>): Promise<{
   });
   const run = (args: string[]) =>
     new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
-      const child = spawn(launcher, args, { cwd: workspace, env: environment, stdio: ['ignore', 'pipe', 'pipe'] });
+      const child = spawn(launcher, args, {
+        cwd: workspace,
+        env: environment,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
       let stdout = '';
       let stderr = '';
       const timer = setTimeout(() => child.kill('SIGKILL'), 60_000);
@@ -86,7 +116,9 @@ async function runScenario(userSettings: Record<string, unknown>): Promise<{
   try {
     mkdirSync(workspace, { recursive: true });
     mkdirSync(state, { recursive: true });
-    expect(spawnSync('git', ['init', '--quiet'], { cwd: workspace, env: environment }).status).toBe(0);
+    expect(spawnSync('git', ['init', '--quiet'], { cwd: workspace, env: environment }).status).toBe(
+      0,
+    );
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const address = server.address();
     if (!address || typeof address === 'string') throw new Error('Missing provider fixture port');
@@ -110,7 +142,8 @@ async function runScenario(userSettings: Record<string, unknown>): Promise<{
     mkdirSync(path.join(state, 'skills', 'probe'), { recursive: true });
     writeFileSync(
       path.join(state, 'skills', 'probe', 'SKILL.md'),
-      '---\nname: probe\ndescription: probe\n---\n!`printf "%s" "${OPENAI_API_KEY:-absent}" > skill-probe.txt`\n',
+      '---\nname: probe\ndescription: Inspect command environment isolation with synthetic credentials.\n---\n!`printf "%s" "${OPENAI_API_KEY:-absent}" > skill-probe.txt`\n' +
+        `!\`${runtimeProbeCommand('runtime-probe.json')}\`\n`,
     );
     const trust = await run(['trust', '--yes']);
     expect(trust.code, trust.stderr).toBe(0);
@@ -124,9 +157,16 @@ async function runScenario(userSettings: Record<string, unknown>): Promise<{
     ]);
     expect(result.code, `${result.stdout}\n${result.stderr}`).toBe(0);
     expect(serverFailure).toBeUndefined();
-    expect(JSON.parse(result.stdout.trim())).toMatchObject({ subtype: 'success', result: 'PROBE_DONE' });
+    expect(JSON.parse(result.stdout.trim())).toMatchObject({
+      subtype: 'success',
+      result: 'PROBE_DONE',
+    });
     const skill = await run(['-p', '/probe', '--output-format', 'json']);
     expect(skill.code, `${skill.stdout}\n${skill.stderr}`).toBe(0);
+    expect(JSON.parse(skill.stdout.trim())).toMatchObject({
+      subtype: 'success',
+      result: 'PROBE_DONE',
+    });
     // #3459: the provider commands check `$ENV:` credentials against the startup snapshot, not the
     // live env the runtime just emptied — so validation passes and the probe itself runs.
     const providerTest = await run(['-p', '/provider test openai', '--output-format', 'json']);
@@ -136,6 +176,12 @@ async function runScenario(userSettings: Record<string, unknown>): Promise<{
       probe: readFileSync(path.join(workspace, 'probe.txt'), 'utf8'),
       skillProbe: readFileSync(path.join(workspace, 'skill-probe.txt'), 'utf8'),
       authorizations: headers.map((entry) => entry.authorization),
+      runtimeProbe: JSON.parse(
+        readFileSync(path.join(workspace, 'runtime-probe.json'), 'utf8'),
+      ) as object,
+      bashRuntimeProbe: JSON.parse(
+        readFileSync(path.join(workspace, 'bash-runtime-probe.json'), 'utf8'),
+      ) as object,
     };
   } finally {
     server.closeAllConnections();
@@ -144,24 +190,35 @@ async function runScenario(userSettings: Record<string, unknown>): Promise<{
   }
 }
 
-describe.runIf(process.platform !== 'win32')('provider credentials and the commands the runtime runs', () => {
-  it('authenticates with the referenced credential but withholds it from a Bash command', async () => {
-    const { probe, skillProbe, authorizations } = await runScenario({});
-    expect(authorizations.length).toBeGreaterThanOrEqual(2);
-    for (const authorization of authorizations) expect(authorization).toBe(`Bearer ${KEY}`);
-    expect(probe).toBe('absent|kept');
-    expect(skillProbe).toBe('absent');
-  }, 150_000);
+describe.runIf(process.platform !== 'win32')(
+  'provider credentials and the commands the runtime runs',
+  () => {
+    it('authenticates with the referenced credential but withholds it from a Bash command', async () => {
+      const { probe, skillProbe, authorizations, runtimeProbe, bashRuntimeProbe } =
+        await runScenario({});
+      expect(authorizations.length).toBeGreaterThanOrEqual(2);
+      for (const authorization of authorizations) expect(authorization).toBe(`Bearer ${KEY}`);
+      expect(probe).toBe('absent|kept');
+      expect(skillProbe).toBe('absent');
+      expect(bashRuntimeProbe).toEqual({ withheld: true, identity: 'robota', unrelated: 'kept' });
+      expect(runtimeProbe).toEqual({ withheld: true, identity: 'robota', unrelated: 'kept' });
+    }, 150_000);
 
-  it('still lets the provider commands see the credential it withholds from commands', async () => {
-    const { providerTest } = await runScenario({});
-    expect(providerTest).toMatch(/^Provider "openai" test (passed|failed: (?!.*missing))/);
-    expect(providerTest).not.toContain('missing apiKey');
-  }, 150_000);
+    it('still lets the provider commands see the credential it withholds from commands', async () => {
+      const { providerTest } = await runScenario({});
+      expect(providerTest).toMatch(/^Provider "openai" test (passed|failed: (?!.*missing))/);
+      expect(providerTest).not.toContain('missing apiKey');
+    }, 150_000);
 
-  it('passes the credential to commands when user settings opt it in', async () => {
-    const { probe, skillProbe } = await runScenario({ commandEnvAllow: ['OPENAI_API_KEY'] });
-    expect(probe).toBe(`${KEY}|kept`);
-    expect(skillProbe).toBe(KEY);
-  }, 150_000);
-});
+    it('passes the credential to commands when user settings opt it in', async () => {
+      const { probe, skillProbe } = await runScenario({ commandEnvAllow: ['OPENAI_API_KEY'] });
+      expect(probe).toBe(`${KEY}|kept`);
+      expect(skillProbe).toBe(KEY);
+    }, 150_000);
+
+    it('keeps runtime-owned values withheld even when provider credential opt-ins name them', async () => {
+      const { runtimeProbe } = await runScenario({ commandEnvAllow: Object.keys(runtimeValues) });
+      expect(runtimeProbe).toEqual({ withheld: true, identity: 'robota', unrelated: 'kept' });
+    }, 150_000);
+  },
+);

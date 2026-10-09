@@ -5,6 +5,7 @@ import {
   embeddedProductIdentity,
   generateDefaultEnvironment,
   hostProductConfig,
+  parseEmbeddedProductIdentity,
   parsePublicProductConfig,
   publicProductConfig,
   resolveProductConfig,
@@ -184,5 +185,14 @@ describe('explicit product configuration', () => {
     expect(() => parsePublicProductConfig({ ...expected, storage: { ...expected.storage, userRoot: '/private/host/path' } })).toThrow('PRODUCT_PUBLIC_CONFIG');
     expect(() => parsePublicProductConfig({ ...expected, identity: { ...expected.identity, cliName: '' } })).toThrow('PRODUCT_CLI_NAME');
     expect(() => parsePublicProductConfig({ ...expected, identity: { ...expected.identity, websiteUrl: 'https://user:private@example.test' } })).toThrow('PROJECT_HOMEPAGE_URL');
+  });
+
+  it('validates a build identity snapshot before a separate consumer entry uses it', () => {
+    const identity = embeddedProductIdentity(resolveProductConfig({ environment: productEnvironment() }));
+    const parsed = parseEmbeddedProductIdentity(structuredClone(identity));
+    expect(parsed).toEqual(identity);
+    expect(Object.isFrozen(parsed.identity)).toBe(true);
+    expect(() => parseEmbeddedProductIdentity({ ...identity, identity: { ...identity.identity, id: 'bad/path' } }))
+      .toThrow('PRODUCT_ID');
   });
 });

@@ -1,0 +1,4 @@
+@import 'tailwindcss';
+@import '@robota-sdk/agent-ui-web/styles/theme.css';
+@source '../../node_modules/@robota-sdk/agent-ui-web/src';
+@source './';

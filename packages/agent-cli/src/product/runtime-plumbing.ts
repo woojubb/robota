@@ -30,6 +30,7 @@ import type {
 import { PACKS_OWN_TOOL_SURFACE } from './product-profile.js';
 import type { ICliRuntimeContext } from './runtime-context.js';
 import { productUserSettingsPath } from './user-settings.js';
+import { withholdEnvironmentVariables } from './command-environment.js';
 
 import type { IAssembledProduct } from '@robota-sdk/agent-product';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
@@ -95,8 +96,10 @@ export function createDefaultTransportRegistry(
   const wsToken = productRuntime.environment['PRODUCT_WS_TOKEN'];
   // The transport holds the token from here on. Left in the environment, every tool subprocess
   // this runtime starts would inherit the credential that admits a WebSocket client.
-  delete process.env['PRODUCT_WS_TOKEN'];
-  delete process.env[`${productRuntime.config.identity.envPrefix}WS_TOKEN`];
+  withholdEnvironmentVariables([
+    'PRODUCT_WS_TOKEN',
+    `${productRuntime.config.identity.envPrefix}WS_TOKEN`,
+  ]);
   const wsPortRaw = productRuntime.environment['PRODUCT_WS_PORT'];
   const wsPort = wsPortRaw ? Number.parseInt(wsPortRaw, 10) : undefined;
   const usageReporter = reportCurrentSessionUsage;
@@ -269,7 +272,9 @@ export interface IProductRuntimeOptions {
  * by external Mode-A consumers, never by the reference product. Now the shell resolves its own session
  * inputs, the kernel lays the product-owned materials on top, and every surface binds to that ONE result.
  */
-export function buildProductRuntimeOptions(input: IProductRuntimeSeamInput): IProductRuntimeOptions {
+export function buildProductRuntimeOptions(
+  input: IProductRuntimeSeamInput,
+): IProductRuntimeOptions {
   const projectAccess =
     input.projectAccess ??
     createRestrictedWorkspaceProjectAccess('identity-unavailable', input.cwd);

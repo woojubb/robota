@@ -1,6 +1,6 @@
 # Product configuration
 
-The pure entry exports `PRODUCT_CONFIG_DESCRIPTORS`, `resolveProductConfig`, `generateDefaultEnvironment`, `publicProductConfig`, `parsePublicProductConfig`, `hostProductConfig`, and `embeddedProductIdentity`. Every call takes an explicit environment snapshot; it never consults ambient environment variables or previously resolved products.
+The pure entry exports `PRODUCT_CONFIG_DESCRIPTORS`, `resolveProductConfig`, `generateDefaultEnvironment`, `publicProductConfig`, `parsePublicProductConfig`, `hostProductConfig`, `embeddedProductIdentity`, and `parseEmbeddedProductIdentity`. Every call takes an explicit environment snapshot; it never consults ambient environment variables or previously resolved products. The identity parser validates and freezes a consumer-owned entry's non-secret artifact identity before CLI launch.
 
 `resolveProductConfig({ environment, fileValues?, defaults?, embeddedIdentity? })` applies environment, selected-file values, then defaults. Empty input clears optional values and rejects required values. When artifact identity is supplied, selected-file and product-alias identity inputs must agree with it; operational settings remain configurable. Ambient canonical `PRODUCT_*`, `PROJECT_*`, `SERVICE_*`, `SECURITY_*` and `DEPLOY_*` inputs (including `PRODUCT_CONFIG_FILE` and technical inputs outside the descriptors) apply only when `PRODUCT_ID` matches the artifact. Otherwise use the product-prefixed aliases or an explicit host file selection.
 

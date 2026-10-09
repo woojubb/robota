@@ -62,11 +62,14 @@ export { compareSemverVersions, isNewerSemverVersion };
 export async function checkForCliUpdate(
   options: ICheckForCliUpdateOptions,
 ): Promise<TCliUpdateCheckResult> {
-  if (options.disabled === true || (options.registryUrl === undefined && options.productRuntime.config.release.npmRegistryUrl === undefined)) {
+  const artifactUpdate = options.productRuntime.artifact?.update;
+  const configuredUpdate = artifactUpdate && typeof artifactUpdate === 'object' ? artifactUpdate : undefined;
+  if (options.disabled === true || artifactUpdate === false ||
+    (options.registryUrl === undefined && configuredUpdate === undefined && options.productRuntime.config.release.npmRegistryUrl === undefined)) {
     return { status: 'skipped', reason: 'disabled' };
   }
 
-  const packageName = options.packageName ?? `${options.productRuntime.config.identity.packageScope}/agent-cli`;
+  const packageName = options.packageName ?? configuredUpdate?.packageName ?? `${options.productRuntime.config.identity.packageScope}/agent-cli`;
   const cachePath = options.cachePath ?? getUserUpdateCheckCachePath(options.productRuntime);
   const now = options.now ?? new Date();
   const ttlMs = options.ttlMs ?? CLI_UPDATE_CACHE_TTL_MS;
@@ -91,10 +94,14 @@ async function fetchLatestVersionOrError(
   cachePath: string,
   now: Date,
 ): Promise<string | TCliUpdateCheckResult> {
+  const configuredUpdate = options.productRuntime.artifact?.update;
+  const registryUrl = options.registryUrl ??
+    (configuredUpdate && typeof configuredUpdate === 'object' ? configuredUpdate.registryUrl : undefined) ??
+    options.productRuntime.config.release.npmRegistryUrl;
   const result = await attemptFetchLatestVersion({
     fetchImpl: options.fetchImpl ?? fetch,
     packageName,
-    registryUrl: options.registryUrl ?? options.productRuntime.config.release.npmRegistryUrl ?? (() => { throw new Error('Update registry URL is required.'); })(),
+    registryUrl: registryUrl ?? (() => { throw new Error('Update registry URL is required.'); })(),
     timeoutMs: options.timeoutMs ?? CLI_UPDATE_TIMEOUT_MS,
   });
   if (result.ok) {

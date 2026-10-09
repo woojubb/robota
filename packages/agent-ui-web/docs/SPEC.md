@@ -95,6 +95,9 @@ does not own session lifecycle, conversation history, or agent runtime state.
   consumer owns the Tailwind entry point that compiles them. Its design applies only inside the
   `agent-ui` scope that each of its root components opens, so a host with tokens of its own under the
   same names can embed the surface without either overriding the other.
+- Its public browser entry exposes a narrow runtime-host contract: a native host owns trust and
+  endpoint authority, while a renderer can ask for trust before connecting, observe lifecycle
+  changes, and offer reconnect without importing the native implementation.
 
 ## Non-goals / boundaries
 

@@ -39,6 +39,7 @@ import type { TGuardrail } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
   IProviderDefinition,
+  TProviderCredentialResolver,
   IToolWithEventService,
 } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
@@ -97,6 +98,8 @@ export interface IInteractiveSessionStandardOptions {
   userSettingsSources?: readonly INodeHostSettingsSource[];
   /** Per-session host environment for resolving $ENV credential references. */
   environment?: Readonly<Record<string, string | undefined>>;
+  /** Host-only asynchronous resolution; serialized settings retain credential references. */
+  resolveProviderCredential?: TProviderCredentialResolver;
   /** Host-composed filesystem sources for skill activation; absence disables skill file reads. */
   contributionSources?: readonly IContributionSource[];
   /** Ordered host-owned roots scanned against the provided contribution sources. */

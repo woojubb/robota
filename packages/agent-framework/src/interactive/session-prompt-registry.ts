@@ -177,19 +177,26 @@ export class SessionPromptRegistry {
   }
 
   /** Request an answer to an ask. Resolves `cancelled` when no surface can answer (fail-closed). */
-  requestAsk(request: IActionRequest): Promise<TActionResponse> {
+  requestAsk(
+    request: IActionRequest,
+    options?: { signal?: AbortSignal },
+  ): Promise<TActionResponse> {
     const id = this.mintId('a');
-    if (this.deps.countListeners('ask_request') === 0) {
+    if (this.deps.countListeners('ask_request') === 0 || options?.signal?.aborted === true) {
       return Promise.resolve(failClosedValue('ask') as TActionResponse);
     }
     const requesterDriverId = this.deps.getActiveDriverId?.() ?? undefined;
     return new Promise<TActionResponse>((resolve) => {
+      const signal = options?.signal;
+      const onAbort = (): void => this.settle(id, failClosedValue('ask'));
       this.park(
         id,
         'ask',
         request.title,
         resolve as (v: TPermissionResultValue | TActionResponse) => void,
+        signal === undefined ? undefined : () => signal.removeEventListener('abort', onAbort),
       );
+      signal?.addEventListener('abort', onAbort, { once: true });
       this.emitOrFailClosed(id, 'ask', () =>
         this.deps.emitAskRequest({
           id,

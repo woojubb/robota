@@ -10,7 +10,11 @@ import type {
 import type { IProviderSetupInput } from '@robota-sdk/agent-framework';
 
 export type TProviderSetupType = string;
-export type TPromptInput = (label: string, masked?: boolean) => Promise<string>;
+export type TPromptInput = (
+  label: string,
+  masked?: boolean,
+  options?: { signal?: AbortSignal },
+) => Promise<string>;
 
 export interface IProviderSetupPromptStep extends IProviderSetupStepDefinition {
   key: TProviderSetupField;

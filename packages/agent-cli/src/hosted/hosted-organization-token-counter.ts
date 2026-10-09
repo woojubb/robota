@@ -1,4 +1,4 @@
-import { OrganizationRefused } from '@robota-sdk/agent-organization';
+import { OrganizationRefused } from '@robota-sdk/agent-organization-host';
 import type { IHostedOrganizationModelOptions } from './hosted-organization-model.js';
 
 /** Fixed owner counter transport. The owner encoder must preserve the provider's full input-token contract. */

@@ -1,5 +1,17 @@
 # @robota-sdk/agent-builtin-providers
 
+## 3.0.0-beta.93
+### Patch Changes
+
+- Release the integrated provider credential isolation and consumer runtime and interaction composition updates.
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.93
+  - @robota-sdk/agent-provider-anthropic@3.0.0-beta.93
+  - @robota-sdk/agent-provider-bytedance@3.0.0-beta.93
+  - @robota-sdk/agent-provider-gemini@3.0.0-beta.93
+  - @robota-sdk/agent-provider-openai@3.0.0-beta.93
+  - @robota-sdk/agent-provider-openai-compatible@3.0.0-beta.93
+
 ## 3.0.0-beta.92
 ### Patch Changes
 

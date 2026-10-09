@@ -21,6 +21,7 @@
       "@robota-sdk/agent-interface-transport",
       "@robota-sdk/agent-interface-tui",
       "@robota-sdk/agent-mcp",
+      "@robota-sdk/agent-organization",
       "@robota-sdk/agent-plugin",
       "@robota-sdk/agent-preset",
       "@robota-sdk/agent-process",
@@ -44,7 +45,9 @@
       "@robota-sdk/agent-ui-terminal",
       "@robota-sdk/agent-transport-webrtc",
       "@robota-sdk/agent-transport-ws",
-      "@robota-sdk/pack-coding"
+      "@robota-sdk/pack-coding",
+      "@robota-sdk/product-config",
+      "@robota-sdk/agent-ui-web"
     ]
   ],
   "linked": [],

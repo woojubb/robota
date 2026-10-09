@@ -35,6 +35,8 @@ export default defineConfig([
   {
     entry: {
       index: 'src/index.ts',
+      host: 'src/product-host.ts',
+      'desktop-host': 'src/desktop-host.ts',
     },
     define,
     // ESM only: the bundle loads ink, whose yoga-layout entry has a top-level await, so a CommonJS

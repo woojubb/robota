@@ -22,7 +22,7 @@ import {
   resolveTuiRenderFields,
 } from './tui-presentation.js';
 import { readUserSettingsOrExit } from './user-settings.js';
-import { readVersion } from './version.js';
+import { runtimeVersion } from './version.js';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
@@ -90,7 +90,7 @@ export function createAttachedAppRender(
     return presentation.renderAttachedApp({
       cwd,
       productDisplayName: context.productRuntime.vocabulary.displayName,
-      version: readVersion(),
+      version: runtimeVersion(context.productRuntime),
       cliAdapter: createProductTuiCliAdapter(presentation.createDefaultTuiCliAdapter, {
         productRuntime: context.productRuntime,
         providerDefinitions: context.providerDefinitions ?? createDefaultProviderDefinitions(),

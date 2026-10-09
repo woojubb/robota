@@ -4,11 +4,15 @@ import {
   isApiKeyPlaintext,
   setCurrentProvider,
   upsertProviderProfile,
-  validateProviderProfile,
 } from '@robota-sdk/agent-framework';
 
 import { runProviderSetupAsk } from './provider-command-setup.js';
 import { createProviderSetupFlow } from './provider-setup-flow.js';
+import {
+  hasProviderConnectionMethods,
+  runProviderConnectionSetup,
+} from './provider-connection-setup.js';
+import { validateProviderConnection } from './provider-connection-validation.js';
 
 import type { IUserInteraction } from '@robota-sdk/agent-core';
 import type {
@@ -27,11 +31,11 @@ export function formatProviderChoiceLabel(
   return `${marker}${name}: ${profile.type ?? 'unknown'} ${profile.model ?? '(no model)'}`;
 }
 
-export function buildProviderSwitch(
+export async function buildProviderSwitch(
   providers: Record<string, IProviderProfileSettings> | undefined,
   profileName: string | undefined,
   options: IProviderCommandModuleOptions,
-): ICommandResult {
+): Promise<ICommandResult> {
   if (!profileName) {
     return { message: 'Usage: /provider switch <profile>', success: false };
   }
@@ -48,7 +52,8 @@ export function buildProviderSwitch(
       success: false,
     };
   }
-  if (options.settings.readMergedSettings().currentProvider === profileName) {
+  const initial = options.settings.readMergedSettings();
+  if (initial.currentProvider === profileName) {
     return { message: `Already using provider "${profileName}".`, success: true };
   }
   const profile = providers[profileName];
@@ -58,10 +63,7 @@ export function buildProviderSwitch(
   // previous behavior wrote `currentProvider` unconditionally and let a downstream hot-swap failure
   // (e.g. "Unknown provider: anthropic. Currently supported: ", an empty list) stand uncorrected.
   try {
-    validateProviderProfile(profileName, profile, {
-      providerDefinitions: options.providerDefinitions,
-      ...(options.env === undefined ? {} : { env: options.env }),
-    });
+    await validateProviderConnection(profileName, profile, options);
   } catch (error) {
     return {
       message: `Failed to switch to "${profileName}": ${error instanceof Error ? error.message : String(error)}`,
@@ -70,6 +72,15 @@ export function buildProviderSwitch(
   }
   const target = options.settings.readTargetSettings();
   const merged = options.settings.readMergedSettings();
+  if (
+    merged.currentProvider !== initial.currentProvider ||
+    JSON.stringify(merged.providers?.[profileName]) !== JSON.stringify(profile)
+  ) {
+    return {
+      success: false,
+      message: 'Provider settings changed while switching. Run /provider switch again.',
+    };
+  }
   const next =
     target.providers?.[profileName] !== undefined || merged.providers?.[profileName] !== undefined
       ? { ...target, currentProvider: profileName }
@@ -104,6 +115,9 @@ export async function buildProviderEdit(
       setCurrent: false,
       initialValues: getProviderProfileSetupValues(profile),
     });
+    if (hasProviderConnectionMethods(profile.type, options)) {
+      flow = { ...flow, steps: flow.steps.filter((step) => step.key !== 'apiKey') };
+    }
   } catch (error) {
     return { message: error instanceof Error ? error.message : String(error), success: false };
   }
@@ -113,6 +127,29 @@ export async function buildProviderEdit(
     (input) => completeProviderEdit(input, profileName, options),
     'Provider edit cancelled.',
   );
+}
+
+/** Explicitly replace this profile's connection; ordinary editing preserves its credential. */
+export async function buildProviderReconnect(
+  ui: IUserInteraction,
+  profileName: string,
+  options: IProviderCommandModuleOptions,
+): Promise<ICommandResult> {
+  const profile = options.settings.readMergedSettings().providers?.[profileName];
+  if (!profile?.type)
+    return { success: false, message: `Provider profile "${profileName}" was not found.` };
+  if (!hasProviderConnectionMethods(profile.type, options)) {
+    return {
+      success: false,
+      message: `Use /provider edit ${profileName} to update this provider's credentials.`,
+    };
+  }
+  const flow = createProviderSetupFlow(profile.type, options.providerDefinitions, {
+    profileName,
+    setCurrent: false,
+    initialValues: { ...(profile.model === undefined ? {} : { model: profile.model }) },
+  });
+  return runProviderConnectionSetup(ui, flow, options, false, true);
 }
 
 function getProviderProfileSetupValues(profile: IProviderProfileSettings): {
@@ -148,10 +185,21 @@ function completeProviderEdit(
     };
   }
   const target = options.settings.readTargetSettings();
-  const patch = buildProviderSetupPatch(input, {
-    providerDefinitions: options.providerDefinitions,
-    ...(options.env === undefined ? {} : { env: options.env }),
-  });
+  const patch = buildProviderSetupPatch(
+    {
+      ...input,
+      ...(input.apiKey === undefined && currentProfile.apiKeyRef !== undefined
+        ? { apiKeyRef: currentProfile.apiKeyRef }
+        : {}),
+      ...(input.apiKey === undefined && currentProfile.apiKey !== undefined
+        ? { apiKey: currentProfile.apiKey }
+        : {}),
+    },
+    {
+      providerDefinitions: options.providerDefinitions,
+      ...(options.env === undefined ? {} : { env: options.env }),
+    },
+  );
   const updatedProfile = patch.providers[profileName];
   if (!updatedProfile) {
     return { message: `Provider profile "${profileName}" was not updated.`, success: false };
