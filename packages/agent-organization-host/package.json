@@ -1,8 +1,8 @@
 {
-  "name": "@robota-sdk/agent-organization",
+  "name": "@robota-sdk/agent-organization-host",
   "version": "3.0.0-beta.86",
-  "private": false,
-  "description": "Canonical JSON and generic organization budget contracts",
+  "private": true,
+  "description": "Private operator-owned organization broker with workload verification and durable hierarchical budgets",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -21,7 +21,7 @@
     "./package.json": "./package.json"
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.13.0"
   },
   "files": [
     "dist",
@@ -39,7 +39,9 @@
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@robota-sdk/agent-organization": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^20.19.43",
     "rimraf": "^5.0.10",
@@ -48,9 +50,6 @@
     "vitest": "^3.2.6"
   },
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
-  "publishConfig": {
-    "access": "public"
-  },
   "volta": {
     "extends": "../../package.json"
   }

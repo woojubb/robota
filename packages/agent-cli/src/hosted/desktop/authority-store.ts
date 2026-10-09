@@ -19,7 +19,7 @@ import { isAbsolute, join } from 'node:path';
 import type {
   IOrganizationLedgerAnchor,
   IOrganizationLedgerHead,
-} from '@robota-sdk/agent-organization';
+} from '@robota-sdk/agent-organization-host';
 import { DesktopRefused } from './authorization.js';
 
 interface IConnection {

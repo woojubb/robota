@@ -1,5 +1,5 @@
-import { OrganizationNoEffect, OrganizationRefused } from '@robota-sdk/agent-organization';
-import type { IOrganizationAction, IOrganizationUnits } from '@robota-sdk/agent-organization';
+import { OrganizationNoEffect, OrganizationRefused } from '@robota-sdk/agent-organization-host';
+import type { IOrganizationAction, IOrganizationUnits } from '@robota-sdk/agent-organization-host';
 import type { HostedOrganizationPayloads } from './hosted-organization-payloads.js';
 
 export interface IHostedOrganizationModelOptions {

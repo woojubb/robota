@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { expect, it } from 'vitest';
-import { OrganizationAudit, OrganizationFileLedgerAnchor } from '@robota-sdk/agent-organization';
+import { OrganizationAudit, OrganizationFileLedgerAnchor } from '@robota-sdk/agent-organization-host';
 import {
   organizationOwnerAuditFixture,
   organizationOwnerFixture,

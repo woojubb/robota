@@ -1,4 +1,9 @@
 import { createPublicKey, verify, type KeyObject } from 'node:crypto';
+import {
+  OrganizationSchemaError,
+  organizationBudget,
+  organizationUnits,
+} from '@robota-sdk/agent-organization';
 import { organizationCanonical, organizationSigningBytes } from './canonical.js';
 import { OrganizationRefused } from './types.js';
 import type {
@@ -48,12 +53,12 @@ export function integer(value: unknown, minimum = 0): number {
 }
 
 export function units(value: unknown): IOrganizationUnits {
-  const data = record(value, ['tokens', 'timeMs', 'costMicros']);
-  return Object.freeze({
-    tokens: integer(data.tokens),
-    timeMs: integer(data.timeMs),
-    costMicros: integer(data.costMicros),
-  });
+  try {
+    return organizationUnits(value);
+  } catch (error) {
+    if (error instanceof OrganizationSchemaError) throw new OrganizationRefused('invalid-schema');
+    throw error;
+  }
 }
 
 export function receipt(value: unknown): IOrganizationReceipt {
@@ -67,13 +72,12 @@ export function receipt(value: unknown): IOrganizationReceipt {
 }
 
 export function budget(value: unknown): IOrganizationBudget {
-  const data = record(value, ['tokens', 'timeMs', 'costMicros', 'concurrency']);
-  return Object.freeze({
-    tokens: integer(data.tokens),
-    timeMs: integer(data.timeMs),
-    costMicros: integer(data.costMicros),
-    concurrency: integer(data.concurrency, 1),
-  });
+  try {
+    return organizationBudget(value);
+  } catch (error) {
+    if (error instanceof OrganizationSchemaError) throw new OrganizationRefused('invalid-schema');
+    throw error;
+  }
 }
 
 export function publicKey(value: unknown): KeyObject {

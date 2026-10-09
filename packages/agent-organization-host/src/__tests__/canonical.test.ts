@@ -1,6 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
+import { organizationCanonical as publicCanonical, OrganizationSchemaError } from '@robota-sdk/agent-organization';
 import { organizationCanonical, organizationSigningBytes } from '../index.js';
+import { OrganizationRefused } from '../index.js';
 
 describe('organization signing bytes', () => {
   it.each([
@@ -34,6 +36,7 @@ describe('organization signing bytes', () => {
     });
     expect(python.status).toBe(0);
     expect(organizationCanonical(value)).toBe(python.stdout.trimEnd());
+    expect(publicCanonical(value)).toBe(python.stdout.trimEnd());
     expect(organizationSigningBytes('request', value)).not.toEqual(
       organizationSigningBytes('approval', value),
     );
@@ -61,6 +64,7 @@ describe('organization signing bytes', () => {
     },
   ])('rejects unsupported or ambiguous values (%#)', (value) => {
     expect(() => organizationCanonical(value)).toThrow('invalid-schema');
+    expect(() => publicCanonical(value)).toThrow(OrganizationSchemaError);
   });
 
   it('rejects cycles, custom prototypes, symbols, non-enumerable keys and oversized payloads', () => {
@@ -74,6 +78,11 @@ describe('organization signing bytes', () => {
       'x'.repeat(65_536),
     ]) {
       expect(() => organizationCanonical(value)).toThrow('invalid-schema');
+      expect(() => publicCanonical(value)).toThrow(OrganizationSchemaError);
     }
+  });
+
+  it('retains the host refusal class for canonical schema failures', () => {
+    expect(() => organizationCanonical(0.5)).toThrow(OrganizationRefused);
   });
 });

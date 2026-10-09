@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
-import { OrganizationAudit, OrganizationFileLedgerAnchor } from '@robota-sdk/agent-organization';
+import { OrganizationAudit, OrganizationFileLedgerAnchor } from '@robota-sdk/agent-organization-host';
 import { organizationOwnerFixture, organizationOwnerAuditFixture, signed } from './organization-owner-fixture.js';
 import { HostedOrganizationControl } from '../hosted-organization-control.js';
 import type { IHostedOrganizationWorker } from '../hosted-organization-control.js';
