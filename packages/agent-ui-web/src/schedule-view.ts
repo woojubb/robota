@@ -5,14 +5,17 @@
  * at 9:00"); anything else falls back to "Repeats".
  */
 
-import type { IBackgroundTaskState, TBackgroundTaskStatus } from '@robota-sdk/agent-interface-execution';
+import type {
+  IBackgroundTaskState,
+  TBackgroundTaskStatus,
+} from '@robota-sdk/agent-interface-execution';
 
 type TScheduleTask = IBackgroundTaskState<'scheduled'>;
 
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function formatClock(date: Date): string {
-  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
 
 function isSameLocalDay(a: Date, b: Date): boolean {
@@ -37,7 +40,7 @@ export function formatPlainLocalTime(iso: string, now: Date = new Date()): strin
   if (when.getTime() > now.getTime() && when.getTime() <= sixDaysOut.getTime()) {
     return `${WEEKDAY_NAMES[when.getDay()]} ${clock}`;
   }
-  const date = when.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const date = when.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   return `${date} ${clock}`;
 }
 
