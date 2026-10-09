@@ -139,11 +139,84 @@ else
 fi
 
 echo "🚀 Publishing..."
-PUBLISH_ARGS=(publish --no-git-tag)
+# Changesets rejects an explicit latest tag while it can see prerelease state.
+PRE_STATE="$ROOT_DIR/.changeset/pre.json"
+PRE_STATE_LOCK="$ROOT_DIR/.changeset/.publish-prestate-lock"
+PRE_STATE_PRESENT="false"
+if [ -e "$PRE_STATE" ] || [ -L "$PRE_STATE" ]; then
+  if [ ! -f "$PRE_STATE" ] || [ -L "$PRE_STATE" ]; then
+    echo "❌ Changesets prerelease state must be a regular file." >&2
+    exit 1
+  fi
+  PRE_STATE_PRESENT="true"
+fi
+if ! mkdir "$PRE_STATE_LOCK"; then
+  echo "❌ Another publication owns the Changesets prerelease state; inspect $PRE_STATE_LOCK before retrying." >&2
+  exit 1
+fi
+
+restore_pre_state() {
+  trap - EXIT HUP INT TERM
+  if [ "$PRE_STATE_PRESENT" = "true" ]; then
+    if [ -f "$PRE_STATE_LOCK/pre.json" ]; then
+      if [ -e "$PRE_STATE" ] || [ -L "$PRE_STATE" ]; then
+        echo "❌ Changesets prerelease state reappeared during publication; original preserved in $PRE_STATE_LOCK." >&2
+        return 1
+      fi
+      if ! mv "$PRE_STATE_LOCK/pre.json" "$PRE_STATE"; then
+        echo "❌ Could not restore Changesets prerelease state from $PRE_STATE_LOCK." >&2
+        return 1
+      fi
+    elif [ ! -f "$PRE_STATE" ]; then
+      echo "❌ Changesets prerelease state is missing; inspect $PRE_STATE_LOCK." >&2
+      return 1
+    fi
+  elif [ -e "$PRE_STATE" ] || [ -L "$PRE_STATE" ]; then
+    echo "❌ Changesets prerelease state appeared during publication; inspect $PRE_STATE_LOCK." >&2
+    return 1
+  fi
+  if ! rmdir "$PRE_STATE_LOCK"; then
+    echo "❌ Could not remove the Changesets publication lock at $PRE_STATE_LOCK." >&2
+    return 1
+  fi
+}
+
+PUBLISH_PID=""
+finish_signal() {
+  local status="$1"
+  trap '' HUP INT TERM
+  if [ -n "$PUBLISH_PID" ]; then
+    wait "$PUBLISH_PID" || true
+  else
+    local child
+    for child in $(jobs -pr); do
+      wait "$child" || true
+    done
+  fi
+  exit "$status"
+}
+
+trap 'status=$?; restore_pre_state || exit 1; exit "$status"' EXIT
+trap 'finish_signal 129' HUP
+trap 'finish_signal 130' INT
+trap 'finish_signal 143' TERM
+if [ "$PRE_STATE_PRESENT" = "true" ]; then
+  mv "$PRE_STATE" "$PRE_STATE_LOCK/pre.json"
+fi
+
+PUBLISH_ARGS=(publish --no-git-tag --tag latest)
 if [ -n "$OTP" ]; then
   PUBLISH_ARGS+=(--otp="$OTP")
 fi
-pnpm changeset "${PUBLISH_ARGS[@]}"
+pnpm changeset "${PUBLISH_ARGS[@]}" <&0 &
+PUBLISH_PID=$!
+PUBLISH_STATUS=0
+wait "$PUBLISH_PID" || PUBLISH_STATUS=$?
+PUBLISH_PID=""
+if [ "$PUBLISH_STATUS" -ne 0 ]; then
+  exit "$PUBLISH_STATUS"
+fi
+restore_pre_state
 
 # The registry's replicas take minutes to agree after a publish, so a stale `latest` right after
 # `changeset publish` is not a failure yet: ask again, uncached, for up to 15 minutes.
