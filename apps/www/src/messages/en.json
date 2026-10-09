@@ -90,6 +90,20 @@
     "description": "A multi-provider AI coding CLI that lets you bring your own key for any provider, run fully offline with a local model, and embed the same engine into your own app. Source-available and self-hostable, with both an open-source (AGPL-3.0) and a commercial license.",
     "featureComparison": "Feature Comparison",
     "featureColumnHeader": "Feature",
+    "productColumnHeader": "__PRODUCT_DISPLAY_NAME__",
+    "claimSources": {
+      "scope": "This comparison covers the __PRODUCT_DISPLAY_NAME__ CLI and assembled SDK. The bare ConversationAgent class does not itself provide a terminal UI, background daemon or durable session store. The dated sources below cover the affected Cline claims; other entries have not been re-audited.",
+      "checkedOn": "Affected Cline claims checked: 9 Oct 2026",
+      "sdkLabel": "Cline SDK",
+      "persistenceLabel": "ClineCore",
+      "taskLabel": "Cline task management",
+      "backgroundLabel": "Cline CLI"
+    },
+    "clineNotes": {
+      "sdk": "Cline provides an embeddable SDK through @cline/sdk.",
+      "persistence": "ClineCore persists sessions and history; Cline Agent leaves persistence and lifecycle to the host, while file checkpoints are a separate mechanism.",
+      "background": "Cline CLI supports background tasks, Zen, and schedules; these workflows do not imply the same orchestration guarantees as the __PRODUCT_DISPLAY_NAME__ CLI."
+    },
     "notes": {
       "subscription": "subscription",
       "proprietary": "proprietary",
@@ -106,7 +120,7 @@
       "TypeScript-first, strict types",
       "Terminal CLI",
       "Session persistence & resume",
-      "Background agents",
+      "Background execution",
       "Self-hostable"
     ],
     "differentiators": {
@@ -118,7 +132,7 @@
         },
         {
           "title": "2. Embeddable SDK",
-          "body": "Ship the same agent runtime to your users via @robota-sdk/agent-framework. Few AI coding assistants ship their runtime as an embeddable library — most (Claude Code, Cursor, Cline) are delivered only as end-user products."
+          "body": "Ship the same agent runtime to your users via @robota-sdk/agent-framework. The SDK complements the __PRODUCT_DISPLAY_NAME__ CLI with an embeddable option for product teams."
         },
         {
           "title": "3. Open & Self-Hostable",
@@ -147,7 +161,7 @@
         },
         {
           "label": "Choose Cline",
-          "body": "if you want a VSCode sidebar agent and don't need embedding or SDK usage."
+          "body": "if you want a VS Code sidebar agent with Cline's SDK and CLI workflows."
         }
       ]
     },
@@ -176,7 +190,10 @@
         "rows": [
           ["Prompts and responses", "Sent only to the AI provider you configure"],
           ["API keys", "Stored in your local environment variables or secrets manager"],
-          ["Session history", "Written to your local filesystem under your configured user state directory"],
+          [
+            "Session history",
+            "Written to your local filesystem under your configured user state directory"
+          ],
           ["Tool outputs (files, shell)", "Stay on your machine"]
         ]
       },
@@ -260,22 +277,46 @@
       "statusDone": "Done",
       "statusPlanned": "Planned",
       "items": [
-        { "feature": "Context warning banner (70% / 90%)", "status": "done", "release": "beta.67" },
-        { "feature": "/compact result summary", "status": "done", "release": "beta.67" },
+        {
+          "feature": "Context warning banner (70% / 90%)",
+          "status": "done",
+          "release": "beta.67"
+        },
+        {
+          "feature": "/compact result summary",
+          "status": "done",
+          "release": "beta.67"
+        },
         {
           "feature": "3-level permission memory (session / project)",
           "status": "done",
           "release": "beta.67"
         },
-        { "feature": "__PRODUCT_CLI_NAME__ init project setup command", "status": "done", "release": "beta.67" },
+        {
+          "feature": "__PRODUCT_CLI_NAME__ init project setup command",
+          "status": "done",
+          "release": "beta.67"
+        },
         {
           "feature": "Plugin development guide + directory",
           "status": "done",
           "release": "beta.67"
         },
-        { "feature": "Changelog page", "status": "done", "release": "beta.67" },
-        { "feature": "? key keyboard shortcut overlay", "status": "done", "release": "beta.67" },
-        { "feature": "--dry-run flag (plan-only preview)", "status": "done", "release": "beta.67" }
+        {
+          "feature": "Changelog page",
+          "status": "done",
+          "release": "beta.67"
+        },
+        {
+          "feature": "? key keyboard shortcut overlay",
+          "status": "done",
+          "release": "beta.67"
+        },
+        {
+          "feature": "--dry-run flag (plan-only preview)",
+          "status": "done",
+          "release": "beta.67"
+        }
       ]
     },
     "next": {
