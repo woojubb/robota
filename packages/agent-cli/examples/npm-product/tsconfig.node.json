@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist/node",
+    "noEmit": false
+  },
+  "include": ["src/shared/**/*.ts", "src/node/**/*.ts", "src/native/**/*.ts", "src/verify.ts"]
+}

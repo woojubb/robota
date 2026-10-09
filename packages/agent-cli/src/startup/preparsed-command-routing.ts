@@ -11,7 +11,7 @@ import { runEvalCommand } from '../eval/eval-command.js';
 import { createCliOpenRouterConnectionHost } from './openrouter-connection-host.js';
 import { PrintTerminal } from '../print-terminal.js';
 import { isDoctorCommandName, runDoctorRoute } from './doctor-route.js';
-import { readVersion } from './version.js';
+import { runtimeVersion } from './version.js';
 import { runSessionAnalyze } from '../session-analyzer/session-analyze-command.js';
 import { runSessionListCommand } from '../session-inventory/session-list-command.js';
 import { launchSupervisedSession } from '../session-inventory/supervised-session-launch.js';
@@ -234,7 +234,7 @@ export async function runPreparsedCliCommand(
   if (isDoctorCommandName(argv[SUBCOMMAND_INDEX])) {
     process.exitCode = await runDoctorRoute(
       {
-        version: readVersion(),
+        version: runtimeVersion(productRuntime),
         terminal: new PrintTerminal(),
         cwd,
         options,
@@ -409,7 +409,7 @@ export async function runPreparsedCliCommand(
         // (thrown here, not swallowed there) actually surfaces.
         validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
           telemetryServiceName: productRuntime.config.identity.telemetryServiceName,
-          serviceVersion: readVersion(),
+          serviceVersion: runtimeVersion(productRuntime),
           surface: 'serve',
         });
         admittedSettings.set(
@@ -453,7 +453,7 @@ export async function runPreparsedCliCommand(
         }
         validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
           telemetryServiceName: productRuntime.config.identity.telemetryServiceName,
-          serviceVersion: readVersion(),
+          serviceVersion: runtimeVersion(productRuntime),
           surface: 'serve',
         });
         admittedSettings.set(
@@ -581,7 +581,7 @@ export async function runPreparsedCliCommand(
       // message instead of only the child's generic "exited before it was ready".
       validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
         telemetryServiceName: productRuntime.config.identity.telemetryServiceName,
-        serviceVersion: readVersion(),
+        serviceVersion: runtimeVersion(productRuntime),
         surface: 'serve',
       });
       if (start.restricted || composition.projectAccess.status === 'restricted') {

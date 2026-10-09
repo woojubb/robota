@@ -24,6 +24,26 @@
         }
       }
     },
+    "./host": {
+      "source": "./src/product-host.ts",
+      "import": {
+        "types": "./dist/node/host.d.ts",
+        "default": "./dist/node/host.js"
+      }
+    },
+    "./desktop-host": {
+      "source": "./src/desktop-host.ts",
+      "import": {
+        "types": "./dist/node/desktop-host.d.ts",
+        "default": "./dist/node/desktop-host.js"
+      }
+    },
+    "./native-build": {
+      "import": {
+        "types": "./scripts/native-build.d.mts",
+        "default": "./scripts/native-build.mjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "engines": {
@@ -32,6 +52,10 @@
   "files": [
     "dist",
     "bin",
+    "scripts/native-build.mjs",
+    "scripts/native-build.d.mts",
+    "scripts/koffi-bun-plugin.mjs",
+    "scripts/qualify-koffi-gc.mjs",
     "CHANGELOG.md"
   ],
   "scripts": {

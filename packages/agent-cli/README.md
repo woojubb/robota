@@ -29,6 +29,50 @@ npx @robota-sdk/agent-cli              # or run it once without installing
 On macOS, Korean and other CJK input methods can crash inside Terminal.app; use a terminal such as
 [iTerm2](https://iterm2.com/) instead.
 
+## Build a separate product from npm packages
+
+An application can depend on the published `@robota-sdk/agent-cli` and
+`@robota-sdk/product-config` packages, and own its entry, identity, assets and packaging. The
+`/host` entry binds one executable to a build-fixed, non-secret identity. It is separate from the
+installed `robota` binary; direct `startCli`/`startCliEntry` calls to that binary still enforce its
+embedded identity. Supply a literal identity produced by `embeddedProductIdentity` from an explicit
+build config. The host validates and snapshots it before any session starts.
+
+```ts
+import { createProductCliHost } from '@robota-sdk/agent-cli/host';
+import { productIdentity } from './product-identity.js';
+import { productVersion } from './product-version.js';
+
+const host = createProductCliHost({
+  identity: productIdentity,
+  version: productVersion,
+  update: false,
+  // webRoot: absolute path to this product's built browser assets, when --serve --open is used
+});
+await host.run();
+```
+
+The same entry must run for ordinary invocations, daemon starts and self-forked workers. The host
+derives separate state, cache and log roots from its identity unless `runtimeDefaults` supplies
+validated home-relative paths. Operational settings remain selected at invocation time. Update
+checks are disabled unless the artifact explicitly supplies its own npm package and registry.
+Omitted `sourceVersion` uses the consumer artifact version; omitted build metadata is null.
+
+`@robota-sdk/agent-cli/desktop-host` provides trust admission, a curated CLI child environment,
+daemon start/reconnect, strict loopback endpoint parsing and a matching CSP. The consumer's Electron
+main process owns the window, native trust prompt, child-process execution and CSP installation;
+its preload owns IPC, and its renderer uses `@robota-sdk/agent-ui-web/client`. The desktop helper
+returns an endpoint only after the CLI has answered the trust and daemon commands. The consumer
+packages its own renderer files and the same product-bound CLI entry as the sidecar.
+
+`@robota-sdk/agent-cli/native-build` exports `buildProductNativeBinary` for host-matching Bun
+1.4.2 builds from an absolute consumer entry. It qualifies Koffi's installed native addon before
+compiling and requires an absolute consumer-maintained third-party notices file, which it copies
+beside the binary. Native addon builds require a matching macOS, Linux or Windows host; a compiled
+binary re-enters its embedded entry for workers and the daemon. The caller owns signing and desktop
+packaging. The browser asset root, when provided, must be an absolute directory packaged by the
+consumer; a consumer host without one does not serve the SDK's built-in monitor assets.
+
 ## First run
 
 Run `robota` inside a Git repository. It first asks whether to trust the folder: only a trusted

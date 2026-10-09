@@ -91,7 +91,7 @@ import { reloadPluginCommandSource } from './plugins/default-plugin-command-sour
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { runSessionAnalyze } from './session-analyzer/session-analyze-command.js';
 import { runEvalCommand } from './eval/eval-command.js';
-import { readVersion } from './startup/version.js';
+import { runtimeVersion } from './startup/version.js';
 import { runResetConfig } from './startup/reset-config.js';
 import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first-run.js';
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
@@ -270,7 +270,7 @@ async function runCliCore(
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
-  const version = readVersion();
+  const version = runtimeVersion(productRuntime);
   const { mcpServe, http: mcpHttp } = validateMcpServeInvocation(
     args,
     productRuntime.config.identity.cliName,

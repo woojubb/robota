@@ -12,6 +12,7 @@ import type {
 } from '@robota-sdk/agent-framework';
 import type { IProductConfig, TConfigEnvironment } from '@robota-sdk/product-config';
 import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
+import type { IProductCliRuntimeArtifact } from './artifact.js';
 
 export interface ICliProductLayout {
   readonly userRoot: string;
@@ -57,6 +58,7 @@ export interface ICliRuntimeContext {
   readonly layout: ICliProductLayout;
   readonly vocabulary: ICliProductVocabulary;
   readonly cryptoContext: IIdentityContext;
+  readonly artifact?: IProductCliRuntimeArtifact;
 }
 
 function freeze<T>(value: T): T {
@@ -68,7 +70,11 @@ function freeze<T>(value: T): T {
 }
 
 /** Pure product layout derivation; callers perform no discovery by a former product's name. */
-export function createCliRuntimeContext(config: IProductConfig, environment: TConfigEnvironment = {}): ICliRuntimeContext {
+export function createCliRuntimeContext(
+  config: IProductConfig,
+  environment: TConfigEnvironment = {},
+  artifact?: IProductCliRuntimeArtifact,
+): ICliRuntimeContext {
   for (const root of [config.storage.userRoot, config.storage.cacheRoot, config.storage.logRoot]) {
     if (!isAbsolute(root)) throw new Error('CLI product state, cache and log roots must be resolved absolute paths.');
   }
@@ -143,6 +149,7 @@ export function createCliRuntimeContext(config: IProductConfig, environment: TCo
       : {}),
     layout,
     cryptoContext: createIdentityContext(config.crypto.namespace),
+    ...(artifact === undefined ? {} : { artifact }),
     vocabulary: {
       displayName: config.identity.displayName,
       cliName: config.identity.cliName,

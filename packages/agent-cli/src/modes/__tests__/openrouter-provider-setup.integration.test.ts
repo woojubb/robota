@@ -44,7 +44,7 @@ const BROWSER_KEY = 'synthetic-app-browser-issued-key';
 const MANUAL_KEY = 'synthetic-app-manually-entered-key';
 const AUTHORIZATION_CODE = 'synthetic-app-authorization-code';
 const OLD_KEY = 'synthetic-app-existing-key';
-const OLD_REFERENCE = { service: 'robota.provider.openrouter', account: 'existing-app-connection' };
+const OLD_REFERENCE = { service: 'synthetic.app.provider.openrouter', account: 'existing-app-connection' };
 const storeKey = (reference: ICredentialKey): string => JSON.stringify(reference);
 
 function visit(url: URL): Promise<number> {
@@ -424,7 +424,7 @@ describe('OpenRouter connection through the App session protocol', () => {
             type: 'openrouter',
             model: MODEL,
             baseURL: ENDPOINT,
-            apiKeyRef: { service: 'robota.provider.openrouter' },
+            apiKeyRef: { service: 'synthetic.app.provider.openrouter' },
           },
         },
       });

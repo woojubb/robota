@@ -1,9 +1,13 @@
-import { describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 
 import { createOpenRouterConnectionHost } from '../openrouter-connection-host.js';
 import type { IOpenRouterConnectionHostOptions } from '../openrouter-connection-host.js';
 
 import type { ICredentialKey, ICredentialStore } from '@robota-sdk/agent-core';
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 
 const TOKEN = 'synthetic-openrouter-credential';
 const OLD = { service: 'robota.provider.openrouter', account: 'existing-shared-connection' };
@@ -14,6 +18,8 @@ const config = (ref: ICredentialKey) => ({
   apiKeyRef: ref,
 });
 const key = (ref: ICredentialKey) => JSON.stringify(ref);
+const consumerHome = mkdtempSync(join(tmpdir(), 'openrouter-consumer-'));
+afterAll(() => rmSync(consumerHome, { recursive: true, force: true }));
 
 function fixture() {
   const secrets = new Map<string, string>([[key(OLD), 'synthetic-old-credential']]);
@@ -37,7 +43,8 @@ function fixture() {
   );
   const options = {
     root: '/unused-fixture-root',
-    serviceNamespace: 'fixture.product',
+    serviceNamespace: 'robota',
+    keyLabel: 'Robota',
     store,
     fetch: fetchKey,
     acquireKey,
@@ -53,6 +60,44 @@ function fixture() {
 }
 
 describe('OpenRouter host-owned provider credentials', () => {
+  it('isolates two sealed consumer services and OAuth labels in one dummy key store', async () => {
+    const entries = new Map<string, string>();
+    const store: ICredentialStore = {
+      get: vi.fn(async (ref) => entries.get(key(ref))),
+      set: vi.fn(async (ref, secret) => { entries.set(key(ref), secret); }),
+      delete: vi.fn(async (ref) => { entries.delete(key(ref)); }),
+    };
+    const acquireKey = vi.fn(async () => TOKEN);
+    const network = vi.fn<typeof fetch>(async () =>
+      new Response(JSON.stringify({ data: { label: 'fixture', usage: 0 } })));
+    const cedar = createTestProductRuntime('cedar', { HOME: consumerHome });
+    const amber = createTestProductRuntime('amber', { HOME: consumerHome });
+    const hostFor = (runtime: typeof cedar) => createOpenRouterConnectionHost({
+      root: runtime.layout.userRoot,
+      serviceNamespace: runtime.config.credentials.serviceNamespace,
+      keyLabel: runtime.config.identity.displayName,
+      store,
+      acquireKey,
+      fetch: network,
+    });
+    const cedarHost = hostFor(cedar);
+    const amberHost = hostFor(amber);
+    const connect = (host: typeof cedarHost) => host.connect(
+      { type: 'openrouter', profile: 'router', method: 'browser' }, () => {},
+    );
+    const cedarRef = await connect(cedarHost);
+    const amberRef = await connect(amberHost);
+    expect(cedarRef.service).toBe(`${cedar.config.credentials.serviceNamespace}.provider.openrouter`);
+    expect(amberRef.service).toBe(`${amber.config.credentials.serviceNamespace}.provider.openrouter`);
+    expect(cedarRef.service).not.toBe(amberRef.service);
+    expect(acquireKey).toHaveBeenNthCalledWith(1, expect.objectContaining({ keyLabel: cedar.config.identity.displayName }));
+    expect(acquireKey).toHaveBeenNthCalledWith(2, expect.objectContaining({ keyLabel: amber.config.identity.displayName }));
+    expect(await cedarHost.resolveCredential(config(cedarRef))).toMatchObject({ apiKey: TOKEN });
+    const readsBefore = vi.mocked(store.get).mock.calls.length;
+    await expect(amberHost.resolveCredential(config(cedarRef))).rejects.toThrow('selected service');
+    await expect(cedarHost.resolveCredential(config(OLD))).rejects.toThrow('selected service');
+    expect(store.get).toHaveBeenCalledTimes(readsBefore);
+  });
   it.each(['api-key', 'browser'] as const)(
     'stores %s credentials and resolves the saved connection after restart',
     async (method) => {
@@ -76,6 +121,8 @@ describe('OpenRouter host-owned provider credentials', () => {
       expect(f.secrets.get(key(ref))).toBe(TOKEN);
       expect(f.fetchKey).toHaveBeenCalledOnce();
       expect(f.acquireKey).toHaveBeenCalledTimes(method === 'browser' ? 1 : 0);
+      if (method === 'browser')
+        expect(f.acquireKey).toHaveBeenCalledWith(expect.objectContaining({ keyLabel: 'Robota' }));
       const original = config(ref);
       const restarted = createOpenRouterConnectionHost(f.options);
       expect(await restarted.resolveCredential(original)).toEqual({ ...original, apiKey: TOKEN });

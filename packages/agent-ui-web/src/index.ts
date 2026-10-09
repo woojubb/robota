@@ -24,6 +24,15 @@ export { rememberSessionForRestore } from './hooks/use-session-directory.js';
 // ── WS session client (loopback / localhost) ────────────────
 export { createWsSessionClient } from './client/ws-session-client.js';
 export type { IWsSessionClientCallbacks, TConnectionStatus } from './client/ws-session-client.js';
+export { resolveClientRuntimeHost } from './client/runtime-host.js';
+export type {
+  IClientRuntimeBridge,
+  IClientRuntimeEnvironment,
+  IClientRuntimeHost,
+  IClientTrustQuestion,
+  TClientRuntimeState,
+  TClientTrustChoice,
+} from './client/runtime-host.js';
 
 // ── Prompt (permission/ask) state ───────────────────────────
 export { applyPromptEvent, permissionResponse, askResponse } from './hooks/prompt-state.js';

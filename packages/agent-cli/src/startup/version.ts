@@ -1,5 +1,6 @@
 import { readPackageVersion } from '@robota-sdk/agent-framework';
 import { readFileSync } from 'node:fs';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 /**
  * Build-time version constant injected by the Node and Bun compilers from the CLI manifest.
@@ -39,3 +40,15 @@ export const readBuildMetadata = (): string | null =>
   typeof __AGENT_BUILD_METADATA__ !== 'undefined'
     ? __AGENT_BUILD_METADATA__ ?? null
     : sourceArtifactMetadata()?.buildMetadata ?? null;
+
+/** The entry's artifact metadata wins over the SDK package's own build constants. */
+export const runtimeVersion = (runtime: ICliRuntimeContext): string =>
+  runtime.artifact?.version ?? readVersion();
+
+export const runtimeSourceVersion = (runtime: ICliRuntimeContext): string =>
+  runtime.artifact === undefined
+    ? readSourceVersion()
+    : runtime.artifact.sourceVersion ?? runtime.artifact.version;
+
+export const runtimeBuildMetadata = (runtime: ICliRuntimeContext): string | null =>
+  runtime.artifact === undefined ? readBuildMetadata() : runtime.artifact.buildMetadata ?? null;

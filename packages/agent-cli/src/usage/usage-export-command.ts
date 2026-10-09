@@ -8,7 +8,7 @@ import {
 
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 import { userPaths } from '../product/user-paths.js';
-import { readVersion } from '../startup/version.js';
+import { readVersion, runtimeVersion } from '../startup/version.js';
 import { enumerateUsageSnapshot } from './usage-command.js';
 
 interface IUsageExportDependencies {
@@ -254,7 +254,7 @@ export async function runUsageExportCommand(
     serviceName: runtime.config.identity.telemetryServiceName,
     userSessionStore: createUserSessionStore(userPaths(runtime).sessions),
     ...(projectSessionStore ? { projectSessionStore } : {}),
-    version: readVersion(),
+    version: runtimeVersion(runtime),
   });
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
