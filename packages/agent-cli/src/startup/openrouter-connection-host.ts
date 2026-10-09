@@ -18,13 +18,13 @@ import type {
 } from '@robota-sdk/agent-framework';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
-const SERVICE = 'robota.provider.openrouter';
 const ENDPOINT = 'https://openrouter.ai/api/v1';
 const CONNECTION_TIMEOUT_MS = 5 * 60_000;
 
 export interface IOpenRouterConnectionHostOptions {
   readonly root: string;
   readonly serviceNamespace: string;
+  readonly keyLabel?: string;
   readonly notify?: (message: string) => void;
   readonly store?: ICredentialStore;
   readonly fetch?: typeof fetch;
@@ -48,6 +48,7 @@ export function createCliOpenRouterConnectionHost(
   return createOpenRouterConnectionHost({
     root: userLocalStorageRoot(runtime),
     serviceNamespace: runtime.config.credentials.serviceNamespace,
+    keyLabel: runtime.config.identity.displayName,
     notify: (message) => process.stderr.write(`${message}\n`),
     requireApiKeyFromEnv: orgPolicy?.requireApiKeyFromEnv,
   });
@@ -57,6 +58,10 @@ export function createCliOpenRouterConnectionHost(
 export function createOpenRouterConnectionHost(
   options: IOpenRouterConnectionHostOptions,
 ): IOpenRouterConnectionHost {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(options.serviceNamespace))
+    throw new Error('OpenRouter credential service namespace is invalid.');
+  const service = `${options.serviceNamespace}.provider.openrouter`;
+  const keyLabel = options.keyLabel ?? options.serviceNamespace;
   const store =
     options.store ??
     createHostCredentialStore({
@@ -113,6 +118,7 @@ export function createOpenRouterConnectionHost(
             ? await (options.acquireKey ?? acquireOpenRouterKey)({
                 openBrowser: options.openBrowser ?? openInBrowser,
                 fetch: network,
+                keyLabel,
                 signal: controller.signal,
                 onProgress: (next) =>
                   progress(next === 'waiting-for-browser' ? 'awaiting-approval' : 'exchanging'),
@@ -150,7 +156,7 @@ export function createOpenRouterConnectionHost(
         controller.signal.throwIfAborted();
         progress('saving');
         // Each attempt owns a new secret, so a failed replacement cannot delete an old or duplicated one.
-        staged = { service: SERVICE, account: `connection-${randomUUID()}` };
+        staged = { service, account: `connection-${randomUUID()}` };
         await store.set(staged, secret);
         controller.signal.throwIfAborted();
         await persist(staged, controller.signal);
@@ -195,7 +201,7 @@ export function createOpenRouterConnectionHost(
       if (
         config.name !== 'openrouter' ||
         config.baseURL !== ENDPOINT ||
-        ref.service !== SERVICE ||
+        ref.service !== service ||
         typeof ref.account !== 'string' ||
         ref.account.length === 0
       ) {

@@ -20,6 +20,7 @@ export type {
 } from './contract.js';
 export {
   embeddedProductIdentity,
+  parseEmbeddedProductIdentity,
   hostProductConfig,
   parsePublicProductConfig,
   publicProductConfig,

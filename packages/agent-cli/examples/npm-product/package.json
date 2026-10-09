@@ -1,0 +1,35 @@
+{
+  "name": "npm-product-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build:node": "tsc -p tsconfig.node.json",
+    "build:desktop": "tsc -p tsconfig.desktop.json",
+    "build:renderer:cedar": "vite build --mode cedar",
+    "build:renderer:amber": "vite build --mode amber",
+    "build:renderer": "npm run build:renderer:cedar && npm run build:renderer:amber",
+    "build": "npm run typecheck && npm run build:node && npm run build:desktop && npm run build:renderer && node scripts/write-notices.mjs",
+    "verify:source": "node dist/node/verify.js",
+    "build:native:cedar": "bun scripts/build-native.mjs cedar",
+    "build:native:amber": "bun scripts/build-native.mjs amber",
+    "build:desktop:cedar": "node scripts/package-desktop.mjs cedar",
+    "build:desktop:amber": "node scripts/package-desktop.mjs amber"
+  },
+  "dependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
+    "vite": "^6.0.7"
+  }
+}

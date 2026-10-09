@@ -1,6 +1,8 @@
 // @robota-sdk/agent-cli — Terminal TUI product
 export { startCli } from './cli.js';
 export { startCliEntry } from './cli-entry.js';
+export { createProductCliHost } from './product-host.js';
+export type { IProductCliHost, IProductCliArtifact } from './product-host.js';
 export { HostedRuntimeController } from './hosted/hosted-runtime-controller.js';
 export type {
   IHostedRuntimeControllerOptions,

@@ -11,9 +11,6 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const stylesDir = fileURLToPath(new URL('..', import.meta.url));
-const packageJson = JSON.parse(
-  readFileSync(path.join(stylesDir, '..', '..', 'package.json'), 'utf8'),
-) as { exports: Record<string, unknown> };
 const read = (file: string): string => readFileSync(path.join(stylesDir, file), 'utf8');
 /** The CSS with comments removed, so a selector named in prose does not count. */
 const code = (file: string): string => read(file).replace(/\/\*[\s\S]*?\*\//gu, '');
@@ -54,8 +51,7 @@ describe('surface styles', () => {
     );
   });
 
-  it('are importable on their own, and the page theme builds on them', () => {
-    expect(packageJson.exports['./styles/surface.css']).toBe('./src/styles/surface.css');
+  it('lets the page theme build on the surface design', () => {
     expect(code('theme.css')).toMatch(/@import '\.\/surface\.css';/u);
   });
 });

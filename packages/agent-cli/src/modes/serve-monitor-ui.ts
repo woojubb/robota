@@ -58,6 +58,11 @@ export function resolveWebRoot(): string | null {
   return existsSync(join(candidate, 'index.html')) ? candidate : null;
 }
 
+/** A separate product serves only assets explicitly packaged by its own entry. */
+export function resolveProductWebRoot(runtime: ICliRuntimeContext): string | null {
+  return runtime.artifact === undefined ? resolveWebRoot() : runtime.artifact.webRoot ?? null;
+}
+
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
 /** Whether the request `Host` header is a loopback name (port stripped) — closes DNS-rebinding. A missing

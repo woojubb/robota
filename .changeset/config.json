@@ -45,7 +45,9 @@
       "@robota-sdk/agent-ui-terminal",
       "@robota-sdk/agent-transport-webrtc",
       "@robota-sdk/agent-transport-ws",
-      "@robota-sdk/pack-coding"
+      "@robota-sdk/pack-coding",
+      "@robota-sdk/product-config",
+      "@robota-sdk/agent-ui-web"
     ]
   ],
   "linked": [],

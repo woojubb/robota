@@ -1,9 +1,8 @@
 {
   "name": "@robota-sdk/agent-ui-web",
   "version": "3.0.0-beta.92",
-  "description": "GUI presentation layer for a robota session — React components + a wire-protocol session reducer + a desktop shell, rendered over the transport-neutral TServerMessage stream. The GUI analog of agent-ui-terminal; consumed by the GUI web app (packages/agent-gui-web — loaded by the desktop app and served by the CLI), and the browser remote surface (agent-transport-webrtc-web + apps/agent-web /remote).",
+  "description": "Browser-safe React session presentation, wire reducer, WebSocket client and runtime-host contract for consumer-owned agent renderers.",
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
-  "private": true,
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -28,12 +27,31 @@
       },
       "default": "./dist/browser/index.js"
     },
-    "./styles/theme.css": "./src/styles/theme.css",
-    "./styles/surface.css": "./src/styles/surface.css"
+    "./styles/theme.css": {
+      "types": "./src/styles/theme.css.d.mts",
+      "browser": "./src/styles/theme.css",
+      "import": "./src/styles/theme.css"
+    },
+    "./styles/surface.css": {
+      "types": "./src/styles/surface.css.d.mts",
+      "browser": "./src/styles/surface.css",
+      "import": "./src/styles/surface.css"
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "!src/**/__tests__/**",
+    "!src/testing/**",
+    "README.md",
+    "docs/README.md",
+    "docs/SPEC.md",
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "rimraf dist && tsdown",
@@ -42,7 +60,8 @@
     "typecheck": "tsgo --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
     "@robota-sdk/agent-interface-command": "workspace:*",

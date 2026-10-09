@@ -10,7 +10,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 import {
   openInBrowser,
-  resolveWebRoot,
+  resolveProductWebRoot,
   servedAtMessage,
   startMonitorUiServer,
   type IMonitorUiServer,
@@ -545,7 +545,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     let monitorUi: IMonitorUiServer | null = null;
     if (args.open) {
       const wsUrl = opts.getMonitorWsUrl?.();
-      const webRoot = resolveWebRoot();
+      const webRoot = resolveProductWebRoot(opts.productRuntime);
       if (wsUrl && webRoot) {
         monitorUi = await startMonitorUiServer(webRoot, wsUrl, opts.productRuntime);
         process.stdout.write(servedAtMessage(monitorUi.url, opts.productRuntime));
