@@ -1,3 +1,7 @@
+---
+description: __PRODUCT_DISPLAY_NAME__ CLI와 SDK의 설치, 프로바이더 설정, 첫 에이전트 및 세션 사용을 단계별로 안내합니다.
+---
+
 # 시작하기
 
 Robota provides composable TypeScript libraries and agent interfaces on the same foundation.

@@ -11,9 +11,12 @@ import {
   getAllSlugs,
   getPageContent,
   extractTitle,
+  resolvePageLanguage,
   MONOREPO_ROOT,
   PACKAGES_DIR,
 } from '@/lib/content';
+import { productPublicConfig } from '@/lib/product-config.generated';
+import { buildDocsPageUrl } from '@/lib/sitemap';
 import { buildPackageIndex } from '@/lib/packages-index';
 import { buildSidebar } from '@/lib/sidebar';
 import { extractToc } from '@/lib/toc';
@@ -37,6 +40,37 @@ const components = {
 
 function isPackagesIndex(slug: string[]): boolean {
   return slug.length === 1 && slug[0] === 'packages';
+}
+
+function pageMetadata(
+  title: string,
+  description: string,
+  slug: string[],
+  locale: string,
+): Metadata {
+  const { contentLanguage, availableLocales } = resolvePageLanguage(slug, locale);
+  const docsUrl = productPublicConfig.identity.docsUrl;
+  const canonical = docsUrl ? buildDocsPageUrl(docsUrl, contentLanguage, slug) : undefined;
+  const languages =
+    docsUrl && availableLocales.includes('ko')
+      ? {
+          en: buildDocsPageUrl(docsUrl, 'en', slug),
+          ko: buildDocsPageUrl(docsUrl, 'ko', slug),
+        }
+      : undefined;
+
+  return {
+    title: { absolute: title },
+    description,
+    ...(canonical ? { alternates: { canonical, ...(languages ? { languages } : {}) } } : {}),
+    openGraph: {
+      type: 'website',
+      siteName: `${productPublicConfig.identity.displayName} Documentation`,
+      title,
+      description,
+      ...(canonical ? { url: canonical } : {}),
+    },
+  };
 }
 
 interface PageParams {
@@ -63,8 +97,22 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug, locale } = await params;
   const resolvedSlug = slug ?? [];
+  if (resolvedSlug.length === 0) {
+    const tHome = await getTranslations({ locale, namespace: 'home' });
+    return pageMetadata(
+      `${tHome('title')} ${tHome('titleHighlight')}`,
+      tHome('description'),
+      resolvedSlug,
+      locale,
+    );
+  }
   if (isPackagesIndex(resolvedSlug)) {
-    return { title: 'Packages', description: 'Every __PRODUCT_DISPLAY_NAME__ SDK package and its documentation.' };
+    return pageMetadata(
+      'Packages',
+      `Every ${productPublicConfig.identity.displayName} SDK package and its documentation.`,
+      resolvedSlug,
+      locale,
+    );
   }
   const page = await getPageContent(resolvedSlug, locale);
   if (!page) return { title: 'Not Found' };
@@ -74,7 +122,7 @@ export async function generateMetadata({
     (page.frontmatter.description as string | undefined) ??
     page.source.replace(/^#.*$/m, '').trim().slice(0, 160).replace(/\s+/g, ' ');
 
-  return { title, description };
+  return pageMetadata(title, description, resolvedSlug, locale);
 }
 
 const QUICK_LINK_DESCS: Record<string, string> = {
@@ -215,6 +263,11 @@ export default async function DocsPage({ params }: { params: Promise<PageParams>
   const { slug, locale } = await params;
   setRequestLocale(locale);
   const resolvedSlug = slug ?? [];
+  const { contentLanguage, availableLocales } = resolvePageLanguage(resolvedSlug, locale);
+  const layoutLanguageProps = {
+    contentLanguage,
+    hasKoreanTranslation: availableLocales.includes('ko'),
+  };
 
   const [tHome, tNav] = await Promise.all([getTranslations('home'), getTranslations('nav')]);
 
@@ -222,7 +275,7 @@ export default async function DocsPage({ params }: { params: Promise<PageParams>
 
   if (resolvedSlug.length === 0) {
     return (
-      <DocsLayout sidebar={sidebar} toc={[]}>
+      <DocsLayout sidebar={sidebar} toc={[]} {...layoutLanguageProps}>
         <HomePage
           badge={tHome('badge')}
           title={tHome('title')}
@@ -246,7 +299,7 @@ export default async function DocsPage({ params }: { params: Promise<PageParams>
 
   if (isPackagesIndex(resolvedSlug)) {
     return (
-      <DocsLayout sidebar={sidebar} toc={[]}>
+      <DocsLayout sidebar={sidebar} toc={[]} {...layoutLanguageProps}>
         <PackagesIndex locale={locale} entries={buildPackageIndex(PACKAGES_DIR)} />
       </DocsLayout>
     );
@@ -258,7 +311,7 @@ export default async function DocsPage({ params }: { params: Promise<PageParams>
   const toc = extractToc(page.source);
 
   return (
-    <DocsLayout sidebar={sidebar} toc={toc}>
+    <DocsLayout sidebar={sidebar} toc={toc} {...layoutLanguageProps}>
       <MDXRemote
         source={page.source}
         components={components}
