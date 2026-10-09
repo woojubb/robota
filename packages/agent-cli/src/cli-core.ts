@@ -56,7 +56,7 @@ import {
 } from './product/user-settings.js';
 import { readUserSettingsOrExit } from './startup/user-settings.js';
 import { runShellCommand } from './startup/shell-exec.js';
-import { commandEnvironment } from './product/command-environment.js';
+import { commandEnvironment, withholdEnvironmentVariables } from './product/command-environment.js';
 import { admitStartupTrustDecision } from './startup/admit-trust-decision.js';
 import {
   buildPresetSurfaceOptions,
@@ -186,18 +186,20 @@ export async function startCliCore(
   // The configured service name is product identity, not an exporter setting.
   delete telemetryInput['PRODUCT_TELEMETRY_SERVICE_NAME'];
   const telemetryEnvironment = takeProductTelemetryEnvironment(telemetryInput);
-  for (const key of Object.keys(process.env)) {
+  const telemetryKeys = [
+    ...new Set([...Object.keys(productRuntime.environment), ...Object.keys(process.env)]),
+  ].filter((key) => {
     if (
       key === 'PRODUCT_TELEMETRY_SERVICE_NAME' ||
       key === `${productRuntime.config.identity.envPrefix}TELEMETRY_SERVICE_NAME`
     )
-      continue;
-    if (
+      return false;
+    return (
       key.startsWith('PRODUCT_TELEMETRY_') ||
       key.startsWith(`${productRuntime.config.identity.envPrefix}TELEMETRY_`)
-    )
-      delete process.env[key];
-  }
+    );
+  });
+  withholdEnvironmentVariables(telemetryKeys);
   // Telemetry settings may hold collector credentials: they leave process.env before anything else
   // runs, so no child process inherits them. Only the supervised session launch hands them over.
 
@@ -278,8 +280,10 @@ async function runCliCore(
   const serveHttp = resolveServeHttpOptions(args, productRuntime.environment);
   // Held by the serve options from here on. Left in the environment, every tool subprocess this
   // runtime starts would inherit the bearer that admits an HTTP client.
-  delete process.env['PRODUCT_HTTP_TOKEN'];
-  delete process.env[`${productRuntime.config.identity.envPrefix}HTTP_TOKEN`];
+  withholdEnvironmentVariables([
+    'PRODUCT_HTTP_TOKEN',
+    `${productRuntime.config.identity.envPrefix}HTTP_TOKEN`,
+  ]);
 
   if (args.help) {
     process.stdout.write(printHelp(productRuntime));

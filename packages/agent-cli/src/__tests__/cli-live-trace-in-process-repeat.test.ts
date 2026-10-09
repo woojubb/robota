@@ -5,14 +5,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { startCli } from '../cli.js';
+import { commandEnvironment } from '../product/command-environment.js';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
 const originalArgv = process.argv;
 const originalHome = process.env.HOME;
 const originalFakeKey = process.env['PRODUCT_LIVE_TRACE_TEST_KEY'];
 const telemetryKeys = [
-  'PRODUCT_TELEMETRY_ENABLED', 'PRODUCT_TELEMETRY_TRACES',
-  'PRODUCT_TELEMETRY_OTLP_PROTOCOL', 'PRODUCT_TELEMETRY_OTLP_ENDPOINT',
+  'PRODUCT_TELEMETRY_ENABLED',
+  'PRODUCT_TELEMETRY_TRACES',
+  'PRODUCT_TELEMETRY_OTLP_PROTOCOL',
+  'PRODUCT_TELEMETRY_OTLP_ENDPOINT',
 ] as const;
 const originalTelemetry = Object.fromEntries(telemetryKeys.map((key) => [key, process.env[key]]));
 
@@ -21,12 +24,20 @@ const providerDefinition: IProviderDefinition = {
   defaults: { model: 'test-model', apiKey: '$ENV:PRODUCT_LIVE_TRACE_TEST_KEY' },
   requiresApiKey: true,
   createProvider: (): IAIProvider => ({
-    name: 'livetrace-repeat-test', version: 'test',
+    name: 'livetrace-repeat-test',
+    version: 'test',
     async chat() {
-      return { id: 'assistant-1', role: 'assistant', content: 'private response',
-        state: 'complete', timestamp: new Date() };
+      return {
+        id: 'assistant-1',
+        role: 'assistant',
+        content: 'private response',
+        state: 'complete',
+        timestamp: new Date(),
+      };
     },
-    async generateResponse() { return { content: 'unused' }; },
+    async generateResponse() {
+      return { content: 'unused' };
+    },
     supportsTools: () => true,
     validateConfig: () => true,
   }),
@@ -78,16 +89,36 @@ describe('CLI live trace across a second in-process startCli', () => {
       process.env['PRODUCT_TELEMETRY_OTLP_ENDPOINT'] = endpoint;
 
       const runtime = createTestTelemetryRuntime(home);
-      await expect(startCli({ productRuntime: runtime, providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      await expect(
+        startCli({ productRuntime: runtime, providerDefinitions: [providerDefinition] }),
+      ).rejects.toThrow('process.exit:0');
       expect(requests.map((request) => request.path)).toEqual(['/v1/traces']);
-      expect(Object.keys(process.env).filter((key) => key.startsWith('PRODUCT_TELEMETRY_') && key !== 'PRODUCT_TELEMETRY_SERVICE_NAME')).toEqual([]);
+      expect(commandEnvironment(runtime.environment)).not.toHaveProperty(
+        'PRODUCT_TELEMETRY_OTLP_ENDPOINT',
+      );
+      expect(
+        Object.keys(process.env).filter(
+          (key) => key.startsWith('PRODUCT_TELEMETRY_') && key !== 'PRODUCT_TELEMETRY_SERVICE_NAME',
+        ),
+      ).toEqual([]);
 
       // The second start uses the caller-held snapshot; there is no module-global telemetry state.
-      await expect(startCli({ productRuntime: runtime, providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      await expect(
+        startCli({ productRuntime: runtime, providerDefinitions: [providerDefinition] }),
+      ).rejects.toThrow('process.exit:0');
       expect(requests.map((request) => request.path)).toEqual(['/v1/traces', '/v1/traces']);
-      expect(Object.keys(process.env).filter((key) => key.startsWith('PRODUCT_TELEMETRY_') && key !== 'PRODUCT_TELEMETRY_SERVICE_NAME')).toEqual([]);
+      expect(commandEnvironment(runtime.environment)).not.toHaveProperty(
+        'PRODUCT_TELEMETRY_OTLP_ENDPOINT',
+      );
+      expect(
+        Object.keys(process.env).filter(
+          (key) => key.startsWith('PRODUCT_TELEMETRY_') && key !== 'PRODUCT_TELEMETRY_SERVICE_NAME',
+        ),
+      ).toEqual([]);
     } finally {
-      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
       rmSync(home, { recursive: true, force: true });
     }
   });
