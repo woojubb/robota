@@ -15,6 +15,10 @@ build time; it does not own any of that content.
   `docs/README.md`, summarized by that file's first paragraph after the title and marked _internal_ when
   its `package.json` is `private`.
 - `sitemap.xml` listing every page in both locales.
+- `llms.txt`, derived from the repository's curated index with absolute links and every English
+  `content/` page; `llms-full.txt` includes those pages' complete Markdown in sidebar order.
+  Both are omitted when the product has no documentation URL. Repository links use its default
+  branch through `HEAD`; the small index is the primary entry because fetch tools can truncate the full file.
 - The home page (`/{en,ko}/`) comes from the `home` keys in `src/messages/{en,ko}.json`, not from
   `content/README.md`.
 
