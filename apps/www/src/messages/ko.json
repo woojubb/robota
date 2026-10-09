@@ -90,6 +90,20 @@
     "description": "어떤 프로바이더든 본인의 키를 사용하고, 로컬 모델로 완전히 오프라인에서 실행하며, 동일한 엔진을 자신의 앱에 임베드할 수 있는 멀티 프로바이더 AI 코딩 CLI입니다. 전체 소스가 공개되어 자체 호스팅이 가능하며, 오픈소스(AGPL-3.0)와 상업용 라이선스를 모두 제공합니다.",
     "featureComparison": "기능 비교",
     "featureColumnHeader": "기능",
+    "productColumnHeader": "__PRODUCT_DISPLAY_NAME__",
+    "claimSources": {
+      "scope": "이 비교는 __PRODUCT_DISPLAY_NAME__ CLI와 조립된 SDK를 기준으로 합니다. ConversationAgent 클래스 단독으로 터미널 UI, 백그라운드 데몬, 영구 세션 저장소를 제공하는 것은 아닙니다. 아래 확인일과 출처는 수정된 Cline 항목에 해당하며, 다른 항목은 다시 검수하지 않았습니다.",
+      "checkedOn": "Cline 관련 비교 항목 확인일: 2026년 10월 9일",
+      "sdkLabel": "Cline SDK",
+      "persistenceLabel": "ClineCore",
+      "taskLabel": "Cline 작업 관리",
+      "backgroundLabel": "Cline CLI"
+    },
+    "clineNotes": {
+      "sdk": "Cline은 @cline/sdk를 통해 임베드 가능한 SDK를 제공합니다.",
+      "persistence": "ClineCore는 세션과 대화 기록을 저장합니다. Cline Agent에서는 호스트가 지속성과 수명 주기를 관리하며, 파일 체크포인트는 별도의 메커니즘입니다.",
+      "background": "Cline CLI는 백그라운드 작업, Zen, 예약 실행을 지원합니다. 이러한 워크플로가 __PRODUCT_DISPLAY_NAME__ CLI와 동일한 오케스트레이션 보장을 뜻하지는 않습니다."
+    },
     "notes": {
       "subscription": "구독",
       "proprietary": "독점",
@@ -106,7 +120,7 @@
       "TypeScript 우선, 엄격한 타입",
       "터미널 CLI",
       "세션 지속성 및 재개",
-      "백그라운드 에이전트",
+      "백그라운드 실행",
       "자체 호스팅 가능"
     ],
     "differentiators": {
@@ -118,7 +132,7 @@
         },
         {
           "title": "2. 임베드 가능한 SDK",
-          "body": "@robota-sdk/agent-framework를 통해 동일한 에이전트 런타임을 사용자에게 제공하세요. 런타임을 임베드 가능한 라이브러리로 제공하는 AI 코딩 어시스턴트는 드뭅니다 — 대부분(Claude Code, Cursor, Cline)은 최종 사용자 제품으로만 제공됩니다."
+          "body": "@robota-sdk/agent-framework를 통해 동일한 에이전트 런타임을 사용자에게 제공하세요. 이 SDK는 제품 팀이 임베드 가능한 옵션을 사용할 수 있도록 __PRODUCT_DISPLAY_NAME__ CLI를 보완합니다."
         },
         {
           "title": "3. 공개 소스 · 자체 호스팅",
@@ -147,7 +161,7 @@
         },
         {
           "label": "Cline을 선택하세요",
-          "body": "VSCode 사이드바 에이전트를 원하고 임베드나 SDK 사용이 필요 없다면."
+          "body": "VS Code 사이드바 에이전트와 Cline의 SDK 및 CLI 워크플로를 원한다면."
         }
       ]
     },
@@ -260,17 +274,41 @@
       "statusDone": "완료",
       "statusPlanned": "예정",
       "items": [
-        { "feature": "컨텍스트 경고 배너 (70% / 90%)", "status": "done", "release": "beta.67" },
-        { "feature": "/compact 결과 요약", "status": "done", "release": "beta.67" },
+        {
+          "feature": "컨텍스트 경고 배너 (70% / 90%)",
+          "status": "done",
+          "release": "beta.67"
+        },
+        {
+          "feature": "/compact 결과 요약",
+          "status": "done",
+          "release": "beta.67"
+        },
         {
           "feature": "3단계 권한 메모리 (세션 / 프로젝트)",
           "status": "done",
           "release": "beta.67"
         },
-        { "feature": "__PRODUCT_CLI_NAME__ init 프로젝트 설정 명령어", "status": "done", "release": "beta.67" },
-        { "feature": "플러그인 개발 가이드 + 디렉터리", "status": "done", "release": "beta.67" },
-        { "feature": "변경 로그 페이지", "status": "done", "release": "beta.67" },
-        { "feature": "? 키 키보드 단축키 오버레이", "status": "done", "release": "beta.67" },
+        {
+          "feature": "__PRODUCT_CLI_NAME__ init 프로젝트 설정 명령어",
+          "status": "done",
+          "release": "beta.67"
+        },
+        {
+          "feature": "플러그인 개발 가이드 + 디렉터리",
+          "status": "done",
+          "release": "beta.67"
+        },
+        {
+          "feature": "변경 로그 페이지",
+          "status": "done",
+          "release": "beta.67"
+        },
+        {
+          "feature": "? 키 키보드 단축키 오버레이",
+          "status": "done",
+          "release": "beta.67"
+        },
         {
           "feature": "--dry-run 플래그 (계획 전용 미리보기)",
           "status": "done",

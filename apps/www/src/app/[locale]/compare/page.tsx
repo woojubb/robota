@@ -3,7 +3,19 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = { title: 'Compare' };
 
-const FEATURE_ROW_DATA = [
+type FeatureRowData = {
+  agentRuntime: boolean;
+  claudeCode: boolean;
+  cursor: boolean;
+  aider: boolean;
+  cline: boolean;
+  claudeCodeNote?: string;
+  cursorNote?: string;
+  aiderNote?: string;
+  clineNote?: 'sdk' | 'persistence' | 'background';
+};
+
+const FEATURE_ROW_DATA: FeatureRowData[] = [
   { agentRuntime: true, claudeCode: false, cursor: false, aider: true, cline: true },
   {
     agentRuntime: true,
@@ -14,7 +26,14 @@ const FEATURE_ROW_DATA = [
     cursorNote: 'subscription',
   },
   { agentRuntime: true, claudeCode: false, cursor: false, aider: true, cline: true },
-  { agentRuntime: true, claudeCode: false, cursor: false, aider: false, cline: false },
+  {
+    agentRuntime: true,
+    claudeCode: false,
+    cursor: false,
+    aider: false,
+    cline: true,
+    clineNote: 'sdk',
+  },
   {
     agentRuntime: true,
     claudeCode: false,
@@ -25,7 +44,14 @@ const FEATURE_ROW_DATA = [
     cursorNote: 'proprietary',
     aiderNote: 'Apache 2',
   },
-  { agentRuntime: true, claudeCode: true, cursor: true, aider: false, cline: true, aiderNote: 'Python' },
+  {
+    agentRuntime: true,
+    claudeCode: true,
+    cursor: true,
+    aider: false,
+    cline: true,
+    aiderNote: 'Python',
+  },
   {
     agentRuntime: true,
     claudeCode: true,
@@ -34,13 +60,32 @@ const FEATURE_ROW_DATA = [
     cline: true,
     cursorNote: 'IDE only',
   },
-  { agentRuntime: true, claudeCode: true, cursor: true, aider: false, cline: false },
-  { agentRuntime: true, claudeCode: true, cursor: false, aider: false, cline: false },
+  {
+    agentRuntime: true,
+    claudeCode: true,
+    cursor: true,
+    aider: false,
+    cline: true,
+    clineNote: 'persistence',
+  },
+  {
+    agentRuntime: true,
+    claudeCode: true,
+    cursor: false,
+    aider: false,
+    cline: true,
+    clineNote: 'background',
+  },
   { agentRuntime: true, claudeCode: false, cursor: false, aider: true, cline: true },
 ];
 
-function Check() {
-  return <span className="text-green-400 font-bold">✓</span>;
+function Check({ note }: { note?: string }) {
+  return (
+    <span className="inline-flex flex-col items-center gap-1">
+      <span className="text-green-400 font-bold">✓</span>
+      {note && <span className="text-xs text-[var(--muted-foreground)]">{note}</span>}
+    </span>
+  );
 }
 
 function Cross({ note }: { note?: string }) {
@@ -57,6 +102,11 @@ export default async function ComparePage({ params }: { params: Promise<{ locale
   const t = await getTranslations('compare');
   const features = t.raw('features') as string[];
   const notes = t.raw('notes') as Record<string, string>;
+  const clineNotes = t.raw('clineNotes') as Record<'sdk' | 'persistence' | 'background', string>;
+  const claimSources = t.raw('claimSources') as Record<
+    'scope' | 'checkedOn' | 'sdkLabel' | 'persistenceLabel' | 'taskLabel' | 'backgroundLabel',
+    string
+  >;
   const noteLabel = (note?: string) => (note ? (notes[note] ?? note) : undefined);
   const differentiatorItems = t.raw('differentiators.items') as Array<{
     title: string;
@@ -93,7 +143,7 @@ export default async function ComparePage({ params }: { params: Promise<{ locale
                   {t('featureColumnHeader')}
                 </th>
                 <th className="px-4 py-3 text-center font-semibold text-[var(--primary)]">
-                  ConversationAgent
+                  {t('productColumnHeader')}
                 </th>
                 <th className="px-4 py-3 text-center font-semibold text-[var(--muted-foreground)]">
                   Claude Code
@@ -116,7 +166,9 @@ export default async function ComparePage({ params }: { params: Promise<{ locale
                   className={`border-b border-[var(--border)] ${i % 2 === 0 ? 'bg-[var(--background)]' : 'bg-[var(--card)]/50'}`}
                 >
                   <td className="px-4 py-3 text-[var(--foreground)]">{row.feature}</td>
-                  <td className="px-4 py-3 text-center">{row.agentRuntime ? <Check /> : <Cross />}</td>
+                  <td className="px-4 py-3 text-center">
+                    {row.agentRuntime ? <Check /> : <Cross />}
+                  </td>
                   <td className="px-4 py-3 text-center">
                     {row.claudeCode ? <Check /> : <Cross note={noteLabel(row.claudeCodeNote)} />}
                   </td>
@@ -126,11 +178,63 @@ export default async function ComparePage({ params }: { params: Promise<{ locale
                   <td className="px-4 py-3 text-center">
                     {row.aider ? <Check /> : <Cross note={noteLabel(row.aiderNote)} />}
                   </td>
-                  <td className="px-4 py-3 text-center">{row.cline ? <Check /> : <Cross />}</td>
+                  <td className="px-4 py-3 text-center">
+                    {row.cline ? (
+                      <Check note={row.clineNote && clineNotes[row.clineNote]} />
+                    ) : (
+                      <Cross />
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="mt-4 space-y-2 text-sm text-[var(--muted-foreground)]">
+          <p>{claimSources.scope}</p>
+          <p>{claimSources.checkedOn}</p>
+          <ul className="flex flex-wrap gap-x-4 gap-y-1">
+            <li>
+              <a
+                href="https://cline.bot/sdk"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--primary)] hover:underline"
+              >
+                {claimSources.sdkLabel}
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://docs.cline.bot/sdk/clinecore"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--primary)] hover:underline"
+              >
+                {claimSources.persistenceLabel}
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://docs.cline.bot/core-workflows/task-management"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--primary)] hover:underline"
+              >
+                {claimSources.taskLabel}
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://cline.bot/cli"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--primary)] hover:underline"
+              >
+                {claimSources.backgroundLabel}
+              </a>
+            </li>
+          </ul>
         </div>
       </section>
 
