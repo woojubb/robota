@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { IBM_Plex_Mono, IBM_Plex_Sans, JetBrains_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
 import { ThemeProvider } from 'next-themes';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
@@ -9,23 +9,73 @@ import '../globals.css';
 const productName = productPublicConfig.identity.displayName;
 const docsUrl = productPublicConfig.identity.docsUrl;
 
-const ibmPlexMono = IBM_Plex_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+const ibmPlexMono = localFont({
+  src: [
+    {
+      path: '../../fonts/ibm-plex-mono/ibm-plex-mono-latin-400-normal.woff2',
+      weight: '400',
+      style: 'normal',
+    },
+    {
+      path: '../../fonts/ibm-plex-mono/ibm-plex-mono-latin-500-normal.woff2',
+      weight: '500',
+      style: 'normal',
+    },
+    {
+      path: '../../fonts/ibm-plex-mono/ibm-plex-mono-latin-600-normal.woff2',
+      weight: '600',
+      style: 'normal',
+    },
+    {
+      path: '../../fonts/ibm-plex-mono/ibm-plex-mono-latin-700-normal.woff2',
+      weight: '700',
+      style: 'normal',
+    },
+  ],
   variable: '--font-mono-display',
   display: 'swap',
 });
 
-const ibmPlexSans = IBM_Plex_Sans({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
+const ibmPlexSans = localFont({
+  src: [
+    {
+      path: '../../fonts/ibm-plex-sans/ibm-plex-sans-latin-300-normal.woff2',
+      weight: '300',
+      style: 'normal',
+    },
+    {
+      path: '../../fonts/ibm-plex-sans/ibm-plex-sans-latin-400-normal.woff2',
+      weight: '400',
+      style: 'normal',
+    },
+    {
+      path: '../../fonts/ibm-plex-sans/ibm-plex-sans-latin-500-normal.woff2',
+      weight: '500',
+      style: 'normal',
+    },
+    {
+      path: '../../fonts/ibm-plex-sans/ibm-plex-sans-latin-600-normal.woff2',
+      weight: '600',
+      style: 'normal',
+    },
+  ],
   variable: '--font-sans',
   display: 'swap',
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
+const jetbrainsMono = localFont({
+  src: [
+    {
+      path: '../../fonts/jetbrains-mono/jetbrains-mono-latin-400-normal.woff2',
+      weight: '400',
+      style: 'normal',
+    },
+    {
+      path: '../../fonts/jetbrains-mono/jetbrains-mono-latin-500-normal.woff2',
+      weight: '500',
+      style: 'normal',
+    },
+  ],
   variable: '--font-code',
   display: 'swap',
 });
@@ -35,8 +85,7 @@ export const metadata: Metadata = {
     default: `${productName} Documentation`,
     template: `%s | ${productName} Documentation`,
   },
-  description:
-    `Documentation for ${productName} — open-source AI agent SDK and CLI with multi-provider support.`,
+  description: `Documentation for ${productName} — open-source AI agent SDK and CLI with multi-provider support.`,
   ...(docsUrl ? { metadataBase: new URL(docsUrl) } : {}),
   openGraph: {
     type: 'website',
