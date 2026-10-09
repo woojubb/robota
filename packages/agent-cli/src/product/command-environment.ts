@@ -42,17 +42,35 @@ export function providerCredentialVariables(
  * Names the owner opted in. Only host layers (user, managed) count: a project's settings come with
  * the repository, and a cloned repository must not be able to hand the owner's key to its commands.
  */
-export function commandEnvironmentAllowList(settingsSources: readonly TSettingsSource[]): ReadonlySet<string> {
+export function commandEnvironmentAllowList(
+  settingsSources: readonly TSettingsSource[],
+): ReadonlySet<string> {
   const hostSources = settingsSources.filter((source) => source.kind === 'host');
   const allowed = new Set<string>();
   for (const layer of inspectSettingsLayers(hostSources).layers) {
-    for (const name of layer.settings?.commandEnvAllow ?? []) if (ENV_NAME.test(name)) allowed.add(name);
+    for (const name of layer.settings?.commandEnvAllow ?? [])
+      if (ENV_NAME.test(name)) allowed.add(name);
   }
   return allowed;
 }
 
 /** Names this process withheld from its commands; process-wide, like the environment it edits. */
 const withheldFromCommands = new Set<string>();
+
+/** Removes runtime-owned values from live inheritance and records them for snapshot commands. */
+export function withholdEnvironmentVariables(
+  names: readonly string[],
+  environment: NodeJS.ProcessEnv = process.env,
+): readonly string[] {
+  const withheld: string[] = [];
+  for (const name of names) {
+    withheldFromCommands.add(name);
+    if (!(name in environment)) continue;
+    delete environment[name];
+    withheld.push(name);
+  }
+  return withheld;
+}
 
 /**
  * Removes provider credential variables from `environment` (the live process env by default) and
@@ -64,15 +82,12 @@ export function withholdProviderCredentials(
   environment: NodeJS.ProcessEnv = process.env,
 ): readonly string[] {
   const allowed = commandEnvironmentAllowList(settingsSources);
-  const withheld: string[] = [];
-  for (const name of providerCredentialVariables(settingsSources, providerDefinitions)) {
-    if (allowed.has(name)) continue;
-    withheldFromCommands.add(name);
-    if (!(name in environment)) continue;
-    delete environment[name];
-    withheld.push(name);
-  }
-  return withheld;
+  return withholdEnvironmentVariables(
+    providerCredentialVariables(settingsSources, providerDefinitions).filter(
+      (name) => !allowed.has(name),
+    ),
+    environment,
+  );
 }
 
 /** Whether this process withholds `name` from the commands it runs. */

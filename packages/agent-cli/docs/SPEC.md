@@ -182,7 +182,7 @@ It does not replay stored usage or invent lifecycle events, delivery failure nev
 result, and an unsupported telemetry setting, or a credential that would be silently unused, refuses
 startup instead of being ignored. Telemetry credentials are scoped to the destination they were
 configured for and are never sent elsewhere, printed, or written to console output, logs or resource
-attributes. Product telemetry settings, and every variable a provider profile or definition names as
+attributes. Product telemetry exporter settings, transport admission credentials, and every variable a provider profile or definition names as
 its credential, are not inherited by anything the runtime runs on the workspace's behalf, except the
 explicit handover to a supervised runtime or subagent worker that needs them; the runtime itself,
 including its provider commands, reads them from its startup snapshot, so anything started from that
