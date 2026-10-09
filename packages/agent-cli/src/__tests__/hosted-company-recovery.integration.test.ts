@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { Sandbox } from 'e2b/dist/index.mjs';
 import { expect, it, vi } from 'vitest';
-import { OrganizationAudit, OrganizationFileLedgerAnchor } from '@robota-sdk/agent-organization';
+import { OrganizationAudit, OrganizationFileLedgerAnchor } from '@robota-sdk/agent-organization-host';
 import { hostedWorkerCliFixture } from './helpers/hosted-worker-cli.js';
 import { organizationOwnerAuditFixture, organizationOwnerFixture, signed } from '../hosted/__tests__/organization-owner-fixture.js';
 import { provisionE2BTaskWorker } from '../hosted/e2b-worker-provisioning.js';

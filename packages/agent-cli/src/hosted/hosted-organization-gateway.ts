@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { OrganizationRefused, organizationSigningBytes } from '@robota-sdk/agent-organization';
-import type { OrganizationLedger, IOrganizationRequest, IOrganizationEnvelope } from '@robota-sdk/agent-organization';
+import { OrganizationRefused, organizationSigningBytes } from '@robota-sdk/agent-organization-host';
+import type { OrganizationLedger, IOrganizationRequest, IOrganizationEnvelope } from '@robota-sdk/agent-organization-host';
 import { hostedAdmissionBytes, verifyHostedAdmissionProof } from './hosted-runtime-admission.js';
 import type { IHostedAdmissionProof, IHostedRuntimeConfig, IHostedRuntimeUsage, THostedBackendRole } from './hosted-runtime-types.js';
 import type { HostedOrganizationControl } from './hosted-organization-control.js';

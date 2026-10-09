@@ -5,12 +5,12 @@ import { join } from 'node:path';
 import {
   OrganizationLedger, OrganizationAuditAppendConflict, organizationSigningBytes,
   organizationAuditGenesis, organizationAuditHash, organizationAuditSigningBytes,
-} from '@robota-sdk/agent-organization';
+} from '@robota-sdk/agent-organization-host';
 import type {
   IOrganizationGrant, IOrganizationRequest, IOrganizationLedgerAnchor, IOrganizationAuditHead,
   IOrganizationAuditEntry, IOrganizationEnvelope, IOrganizationAuditSink, IOrganizationAuditAnchor,
   TOrganizationSigningDomain,
-} from '@robota-sdk/agent-organization';
+} from '@robota-sdk/agent-organization-host';
 
 function keys() {
   const pair = generateKeyPairSync('ed25519');

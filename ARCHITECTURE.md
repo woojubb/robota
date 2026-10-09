@@ -51,7 +51,8 @@ SDK packages (@robota-sdk/*)
                         analytics,transport,tui}
   Foundation            agent-core
   Leaves                agent-process · agent-file-authority · agent-remote-pairing ·
-                        agent-organization (operator-owned Node broker and durable authority) ·
+                        agent-organization (public canonical JSON and budget contracts) ·
+                        agent-organization-host (private Node broker and durable authority) ·
                         agent-roundtable (no @robota-sdk dependency)
 
 DAG / workflow subsystem (private; depends on the SDK packages, never the reverse)
