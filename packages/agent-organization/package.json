@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-organization",
-  "version": "3.0.0-beta.86",
+  "version": "3.0.0-beta.93",
   "private": false,
   "description": "Canonical JSON and generic organization budget contracts",
   "type": "module",

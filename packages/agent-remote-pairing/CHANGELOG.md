@@ -1,5 +1,7 @@
 # @robota-sdk/agent-remote-pairing
 
+## 3.0.0-beta.93
+
 ## 3.0.0-beta.92
 
 ## 3.0.0-beta.91

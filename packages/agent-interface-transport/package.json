@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-interface-transport",
-  "version": "3.0.0-beta.92",
+  "version": "3.0.0-beta.93",
   "description": "Transport contract interfaces for the Robota SDK — transport adapters, admission, access tokens and external events",
   "type": "module",
   "main": "dist/node/index.js",

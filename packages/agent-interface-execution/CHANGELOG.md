@@ -1,5 +1,12 @@
 # @robota-sdk/agent-interface-execution
 
+## 3.0.0-beta.93
+### Patch Changes
+
+- Release the integrated provider credential isolation and consumer runtime and interaction composition updates.
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.93
+
 ## 3.0.0-beta.92
 ### Patch Changes
 
