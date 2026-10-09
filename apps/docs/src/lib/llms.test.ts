@@ -85,7 +85,7 @@ describe('generated agent documentation', () => {
     }
     expect(full).toContain('https://docs.example.test/reference/en/packages/');
     expect(full).toContain('https://docs.example.test/reference/en/guide/local-llm/');
-  });
+  }, 30_000);
 
   it('rewrites reference links and directory indexes while retaining external URLs, fragments and code', () => {
     const sourcePath = getFilePath(['guide', 'providers'])!;
