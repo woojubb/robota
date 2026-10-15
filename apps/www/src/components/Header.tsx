@@ -1,91 +1,84 @@
 'use client';
 
-import { InternalLink } from './ui';
-import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { productPublicConfig } from '@/lib/product-config.generated';
+import { getMarketingLocaleUrl, marketingPath, type MarketingLocale } from '@/lib/marketing';
 
 export function Header() {
   const t = useTranslations('common');
-  const locale = useLocale();
-  const docsUrl = productPublicConfig.identity.docsUrl?.replace(/\/+$/u, '');
+  const requestedLocale = useLocale();
+  const locale: MarketingLocale = requestedLocale === 'ko' ? 'ko' : 'en';
   const pathname = usePathname();
-  const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const mobileNav = useRef<HTMLElement>(null);
+  const docsUrl = productPublicConfig.identity.docsUrl?.replace(/\/+$/u, '');
+  const repoUrl = productPublicConfig.identity.repositoryUrl?.replace(/\/+$/u, '');
+  const otherLocale: MarketingLocale = locale === 'en' ? 'ko' : 'en';
+  const otherLocaleHref = getMarketingLocaleUrl(pathname, otherLocale);
 
-  function switchLocale(next: string) {
-    // Replace leading /{locale} with /{next}
-    const segments = pathname.split('/');
-    segments[1] = next;
-    router.push(segments.join('/') || '/');
-  }
+  useEffect(() => {
+    if (!menuOpen) return;
+    mobileNav.current?.querySelector<HTMLAnchorElement>('a')?.focus();
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        menuButton.current?.focus();
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [menuOpen]);
 
-  const otherLocale = locale === 'en' ? 'ko' : 'en';
+  const links = [
+    ...(docsUrl ? [
+      { href: `${docsUrl}/en/guide/sdk/`, label: t('nav.sdk') },
+      { href: `${docsUrl}/${locale}/getting-started/`, label: t('nav.cli') },
+    ] : []),
+    { href: marketingPath(locale, 'compare'), label: t('nav.whyProduct') },
+    { href: marketingPath(locale, 'showcase'), label: t('nav.showcase') },
+    { href: marketingPath(locale, 'roadmap'), label: t('nav.roadmap') },
+  ];
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--background)]/90 backdrop-blur-sm">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-14 items-center justify-between">
-          <InternalLink href={`/${locale}`} className="flex items-center gap-2">
-            <span className="text-lg font-bold text-[var(--foreground)]">
-              {productPublicConfig.identity.displayName}
-            </span>
-            <span className="rounded-full bg-[var(--accent-dim)] px-2 py-0.5 text-xs font-medium text-[var(--accent)]">
-              beta
-            </span>
-          </InternalLink>
+    <header className="site-header">
+      <div className="site-header-inner">
+        <a href={marketingPath(locale)} className="site-brand" aria-label={`${productPublicConfig.identity.displayName} — ${locale === 'ko' ? '홈' : 'home'}`}>
+          <span className="site-brand-mark" aria-hidden="true"><span /><span /><span /></span>
+          <span>{productPublicConfig.identity.displayName}</span>
+          <span className="site-beta">beta</span>
+        </a>
 
-          <nav className="hidden items-center gap-1 md:flex">
-            <InternalLink
-              href={`/${locale}/compare`}
-              className="inline-flex min-h-[44px] items-center rounded-md px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-            >
-              {t('nav.whyProduct')}
-            </InternalLink>
-            <InternalLink
-              href={`/${locale}/showcase`}
-              className="inline-flex min-h-[44px] items-center rounded-md px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-            >
-              {t('nav.showcase')}
-            </InternalLink>
-            <InternalLink
-              href={`/${locale}/roadmap`}
-              className="inline-flex min-h-[44px] items-center rounded-md px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-            >
-              {t('nav.roadmap')}
-            </InternalLink>
-          </nav>
+        <nav className="site-desktop-nav" aria-label={locale === 'ko' ? '기본 메뉴' : 'Main navigation'}>
+          {links.map((link) => <a href={link.href} key={link.href}>{link.label}</a>)}
+        </nav>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => switchLocale(otherLocale)}
-              className="inline-flex min-h-[44px] items-center rounded-md border border-[var(--border)] px-2.5 text-xs font-semibold text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-              aria-label={`Switch to ${otherLocale}`}
-            >
-              {t(`lang.${otherLocale}`)}
-            </button>
-            {docsUrl && (
-              <a
-                href={`${docsUrl}/${locale}/`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-h-[44px] items-center rounded-md px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-              >
-                {t('nav.docs')} ↗
-              </a>
-            )}
-            {productPublicConfig.identity.repositoryUrl && (
-              <a
-                href={productPublicConfig.identity.repositoryUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-h-[44px] items-center rounded-md bg-[var(--primary)] px-3 text-sm font-medium text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
-              >
-                {t('nav.github')}
-              </a>
-            )}
-          </div>
+        <div className="site-header-actions">
+          <a className="site-language" href={otherLocaleHref} hrefLang={otherLocale} lang={otherLocale} aria-label={locale === 'ko' ? 'Switch to English' : '한국어로 전환'}>{t(`lang.${otherLocale}`)}</a>
+          {repoUrl && <a className="site-repo-link" href={repoUrl}>{t('nav.github')} <span aria-hidden="true">↗</span></a>}
+          <button
+            ref={menuButton}
+            className="site-menu-toggle"
+            type="button"
+            aria-controls="site-mobile-navigation"
+            aria-expanded={menuOpen}
+            aria-label={locale === 'ko' ? (menuOpen ? '메뉴 닫기' : '메뉴 열기') : (menuOpen ? 'Close menu' : 'Open menu')}
+            onClick={() => setMenuOpen((value) => !value)}
+          ><span aria-hidden="true">{menuOpen ? '×' : '☰'}</span></button>
         </div>
       </div>
+      <nav
+        ref={mobileNav}
+        className="site-mobile-nav"
+        id="site-mobile-navigation"
+        aria-label={locale === 'ko' ? '모바일 메뉴' : 'Mobile navigation'}
+        hidden={!menuOpen}
+      >
+        {links.map((link) => <a href={link.href} key={link.href} onClick={() => setMenuOpen(false)}>{link.label}<span aria-hidden="true">↗</span></a>)}
+        {repoUrl && <a href={repoUrl} onClick={() => setMenuOpen(false)}>{t('nav.github')}<span aria-hidden="true">↗</span></a>}
+      </nav>
     </header>
   );
 }
