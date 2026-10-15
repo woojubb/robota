@@ -48,41 +48,6 @@
   "compare": {
     "title": "Why __PRODUCT_DISPLAY_NAME__?",
     "description": "__PRODUCT_DISPLAY_NAME__ combines a TypeScript agent SDK and coding CLI. Choose a supported provider or connect a compatible local model server; setup and third-party charges depend on the provider. Public source is available under AGPL-3.0 or a commercial license.",
-    "featureComparison": "Feature Comparison",
-    "featureColumnHeader": "Feature",
-    "productColumnHeader": "__PRODUCT_DISPLAY_NAME__",
-    "claimSources": {
-      "scope": "This table compares the __PRODUCT_DISPLAY_NAME__ CLI and assembled SDK, not the bare ConversationAgent class. Features can depend on configuration, provider or host. The dated sources below cover the affected Cline claims only; other competitor entries have not been re-audited.",
-      "checkedOn": "Affected Cline claims checked: 9 Oct 2026",
-      "sdkLabel": "Cline SDK",
-      "persistenceLabel": "ClineCore",
-      "taskLabel": "Cline task management",
-      "backgroundLabel": "Cline CLI"
-    },
-    "clineNotes": {
-      "sdk": "Cline provides an embeddable SDK through @cline/sdk.",
-      "persistence": "ClineCore persists sessions and history; Cline Agent leaves persistence and lifecycle to the host, while file checkpoints are a separate mechanism.",
-      "background": "Cline CLI supports background tasks, Zen, and schedules; these workflows do not imply the same orchestration guarantees as the __PRODUCT_DISPLAY_NAME__ CLI."
-    },
-    "notes": {
-      "subscription": "subscription",
-      "proprietary": "proprietary",
-      "IDE only": "IDE only",
-      "Apache 2": "Apache 2",
-      "Python": "Python"
-    },
-    "features": [
-      "Multiple provider options",
-      "Provider credentials or local inference",
-      "Local model support (Ollama/LM Studio)",
-      "Embeddable SDK",
-      "Source-available",
-      "TypeScript implementation",
-      "Terminal CLI",
-      "Session persistence & resume",
-      "Background execution",
-      "Self-hostable"
-    ],
     "differentiators": {
       "title": "How __PRODUCT_DISPLAY_NAME__ Fits",
       "items": [
@@ -101,27 +66,6 @@
         {
           "title": "4. Connect a local model",
           "body": "Run an Ollama or LM Studio model server and configure a matching endpoint and model. Local inference still depends on your enabled tools and network configuration."
-        }
-      ]
-    },
-    "whenElse": {
-      "title": "Other Workflows to Consider",
-      "items": [
-        {
-          "label": "Claude Code",
-          "body": "is a Claude-focused coding assistant; check its current integration and provider options for your workflow."
-        },
-        {
-          "label": "Cursor",
-          "body": "is an IDE-centered choice when in-editor interactions are the priority."
-        },
-        {
-          "label": "Aider",
-          "body": "is a Python-based terminal tool for code editing workflows."
-        },
-        {
-          "label": "Cline",
-          "body": "offers VS Code, CLI and SDK workflows; the scoped source notes above explain the checked entries."
         }
       ]
     },

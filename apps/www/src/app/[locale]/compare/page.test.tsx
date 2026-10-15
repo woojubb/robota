@@ -37,8 +37,8 @@ import * as CompareRoute from './page';
 
 const ComparePage = CompareRoute.default;
 const metadataDescriptions = {
-  en: 'Compare Example Product’s TypeScript agent SDK and coding CLI with other developer tools. Read the scope and source dates behind the feature table.',
-  ko: 'Example Product의 TypeScript 에이전트 SDK와 코딩 CLI를 다른 개발 도구와 비교하고, 기능 표의 범위와 출처 확인일을 살펴보세요.',
+  en: 'Explore Example Product’s TypeScript agent SDK, coding CLI, provider options, local models and licensing.',
+  ko: 'Example Product의 TypeScript 에이전트 SDK와 코딩 CLI, 프로바이더 선택지, 로컬 모델 및 라이선스를 살펴보세요.',
 };
 
 const routeExports = CompareRoute as unknown as {
@@ -59,19 +59,10 @@ afterEach(() => {
   productIdentity.websiteUrl = 'https://www.example.test';
 });
 
-function clineCell(html: string, feature: string): string {
-  const rows = html.match(/<tr\b[\s\S]*?<\/tr>/g) ?? [];
-  const row = rows.find((value) => value.includes(feature.replaceAll('&', '&amp;')));
-  expect(row, `missing feature row: ${feature}`).toBeDefined();
-  const cells = row!.match(/<td\b[\s\S]*?<\/td>/g) ?? [];
-  expect(cells).toHaveLength(6);
-  return cells[5];
-}
-
 for (const locale of ['en', 'ko'] as const) {
-  describe(`comparison rendered in ${locale}`, () => {
+  describe(`product overview rendered in ${locale}`, () => {
     const messages = locale === 'en' ? en.compare : ko.compare;
-    const selected = (text: string) => text.replaceAll('__PRODUCT_DISPLAY_NAME__', productIdentity.displayName);
+    const selected = (value: string) => value.replaceAll('__PRODUCT_DISPLAY_NAME__', productIdentity.displayName);
 
     it('emits localized route metadata with reciprocal locale URLs', async () => {
       const metadata = await resolveRouteMetadata(locale);
@@ -102,48 +93,35 @@ for (const locale of ['en', 'ko'] as const) {
       });
     });
 
-    it('names the product and explains CLI/SDK versus the bare class', async () => {
+    it('keeps the product capabilities, proof links and getting-started CTA', async () => {
       const html = renderToStaticMarkup(await ComparePage({ params: Promise.resolve({ locale }) }));
-      const headers = html.match(/<th\b[\s\S]*?<\/th>/g) ?? [];
-      expect(headers[1]).toContain('__PRODUCT_DISPLAY_NAME__');
-      expect(headers[1]).not.toContain('ConversationAgent');
-      expect(html).toContain('ConversationAgent');
-      expect(html).toContain('CLI');
-      expect(html).toContain('SDK');
+
+      expect(html).toContain(messages.title);
+      expect(html).toContain(messages.description);
+      expect(html).toContain(messages.differentiators.title);
+      expect(html.match(/<h3\b/g)).toHaveLength(4);
+      for (const item of messages.differentiators.items) {
+        expect(html).toContain(item.title);
+        expect(html).toContain(item.body);
+      }
+      for (const href of [
+        '__PROJECT_DOCS_URL__/en/guide/providers/',
+        '__PROJECT_DOCS_URL__/en/guide/local-llm/',
+        '__PROJECT_REPOSITORY_URL__/blob/main/LICENSING.md',
+        `__PROJECT_DOCS_URL__/${locale}/getting-started/`,
+      ]) {
+        expect(html).toContain(`href="${href}"`);
+      }
+      expect(html).toContain(messages.tryButton);
     });
 
-    it('shows qualified Cline SDK, session and background support with official sources', async () => {
+    it('omits the competitor matrix, alternatives and source notes', async () => {
       const html = renderToStaticMarkup(await ComparePage({ params: Promise.resolve({ locale }) }));
-      for (const index of [3, 7, 8]) {
-        const cell = clineCell(html, messages.features[index]);
-        expect(cell).toContain('✓');
-        expect(cell).not.toContain('✗');
-        expect(
-          cell
-            .replace(/<[^>]*>/g, '')
-            .replace('✓', '')
-            .trim(),
-        ).not.toBe('');
-      }
-      expect(html).toContain('@cline/sdk');
-      expect(html).toContain('ClineCore');
-      expect(html).toContain('Agent');
-      expect(html).toContain('Zen');
-      for (const url of [
-        'https://cline.bot/sdk',
-        'https://docs.cline.bot/sdk/clinecore',
-        'https://docs.cline.bot/core-workflows/task-management',
-        'https://cline.bot/cli',
-      ])
-        expect(html).toContain(`href="${url}"`);
-      expect(html).toContain(messages.claimSources.checkedOn);
-      expect(html).toContain(messages.claimSources.taskLabel);
-      expect(html).toContain(messages.claimSources.scope);
-      expect(clineCell(html, messages.features[6])).toContain('✓');
-      expect(html).not.toContain('delivered only as end-user products');
-      expect(html).not.toContain('최종 사용자 제품으로만');
-      expect(html).not.toContain('don&#x27;t need embedding or SDK usage');
-      expect(html).not.toContain('임베드나 SDK 사용이 필요 없다면');
+
+      expect(html).not.toMatch(/<table\b|<thead\b|<th\b/);
+      expect(html).not.toMatch(/Claude Code|Cursor|Aider|Cline|ClineCore|@cline\/sdk/);
+      expect(html).not.toContain('cline.bot');
+      expect(html).not.toContain('docs.cline.bot');
     });
   });
 }
