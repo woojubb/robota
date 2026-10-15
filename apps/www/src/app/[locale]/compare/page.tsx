@@ -1,6 +1,6 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { Metadata } from 'next';
-import { productPublicConfig } from '../../../lib/product-config.generated';
+import { getMarketingMetadata } from '@/lib/marketing';
 
 export async function generateMetadata({
   params,
@@ -8,42 +8,7 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: 'compare' });
-  const title = t('title');
-  const description = t('description');
-  const { displayName, websiteUrl } = productPublicConfig.identity;
-
-  const openGraph: NonNullable<Metadata['openGraph']> = {
-    type: 'website',
-    ...(displayName ? { siteName: displayName } : {}),
-    title,
-    description,
-  };
-  const twitter: NonNullable<Metadata['twitter']> = {
-    card: 'summary_large_image',
-    title,
-    description,
-  };
-
-  if (!websiteUrl) return { title, description, openGraph, twitter };
-
-  const canonical = (pageLocale: string) =>
-    new URL(`/${pageLocale}/compare`, websiteUrl).toString();
-  const canonicalUrl = canonical(locale);
-
-  return {
-    title,
-    description,
-    alternates: {
-      canonical: canonicalUrl,
-      languages: {
-        en: canonical('en'),
-        ko: canonical('ko'),
-      },
-    },
-    openGraph: { ...openGraph, url: canonicalUrl },
-    twitter,
-  };
+  return getMarketingMetadata(locale === 'ko' ? 'ko' : 'en', 'compare');
 }
 
 type FeatureRowData = {
@@ -296,6 +261,17 @@ export default async function ComparePage({ params }: { params: Promise<{ locale
               <p className="mt-2 text-sm text-[var(--muted-foreground)]">{item.body}</p>
             </div>
           ))}
+        </div>
+        <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          <a href="__PROJECT_DOCS_URL__/en/guide/providers/" target="_blank" rel="noopener noreferrer" className="text-[var(--primary)] hover:underline">
+            {t('proofLinks.providers')}
+          </a>
+          <a href="__PROJECT_DOCS_URL__/en/guide/local-llm/" target="_blank" rel="noopener noreferrer" className="text-[var(--primary)] hover:underline">
+            {t('proofLinks.local')}
+          </a>
+          <a href="__PROJECT_REPOSITORY_URL__/blob/main/LICENSING.md" target="_blank" rel="noopener noreferrer" className="text-[var(--primary)] hover:underline">
+            {t('proofLinks.license')}
+          </a>
         </div>
       </section>
 

@@ -36,6 +36,11 @@ vi.mock('next-intl/server', async () => {
 import * as CompareRoute from './page';
 
 const ComparePage = CompareRoute.default;
+const metadataDescriptions = {
+  en: 'Compare Example Product’s TypeScript agent SDK and coding CLI with other developer tools. Read the scope and source dates behind the feature table.',
+  ko: 'Example Product의 TypeScript 에이전트 SDK와 코딩 CLI를 다른 개발 도구와 비교하고, 기능 표의 범위와 출처 확인일을 살펴보세요.',
+};
+
 const routeExports = CompareRoute as unknown as {
   metadata?: Metadata;
   generateMetadata?: (args: {
@@ -66,14 +71,15 @@ function clineCell(html: string, feature: string): string {
 for (const locale of ['en', 'ko'] as const) {
   describe(`comparison rendered in ${locale}`, () => {
     const messages = locale === 'en' ? en.compare : ko.compare;
+    const selected = (text: string) => text.replaceAll('__PRODUCT_DISPLAY_NAME__', productIdentity.displayName);
 
     it('emits localized route metadata with reciprocal locale URLs', async () => {
       const metadata = await resolveRouteMetadata(locale);
       const canonical = `https://www.example.test/${locale}/compare`;
 
       expect(metadata).toMatchObject({
-        title: messages.title,
-        description: messages.description,
+        title: selected(messages.title),
+        description: metadataDescriptions[locale],
         alternates: {
           canonical,
           languages: {
@@ -84,14 +90,14 @@ for (const locale of ['en', 'ko'] as const) {
         openGraph: {
           type: 'website',
           siteName: 'Example Product',
-          title: messages.title,
-          description: messages.description,
+          title: selected(messages.title),
+          description: metadataDescriptions[locale],
           url: canonical,
         },
         twitter: {
           card: 'summary_large_image',
-          title: messages.title,
-          description: messages.description,
+          title: selected(messages.title),
+          description: metadataDescriptions[locale],
         },
       });
     });
@@ -147,8 +153,8 @@ it('omits public URL signals when the product identity has no website URL', asyn
 
   const metadata = await resolveRouteMetadata('en');
 
-  expect(metadata.title).toBe(en.compare.title);
-  expect(metadata.description).toBe(en.compare.description);
+  expect(metadata.title).toBe(en.compare.title.replaceAll('__PRODUCT_DISPLAY_NAME__', productIdentity.displayName));
+  expect(metadata.description).toBe(metadataDescriptions.en);
   expect(metadata.alternates).toBeUndefined();
   expect(metadata.openGraph).not.toHaveProperty('url');
 });

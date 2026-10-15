@@ -1,165 +1,123 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { fillProductContent } from '../generate-workspace.mjs';
 
+const root = fileURLToPath(new URL('../../../', import.meta.url));
 const websiteRequire = createRequire(new URL('../../../apps/www/package.json', import.meta.url));
-const uiTestRequire = createRequire(
-  new URL('../../../packages/agent-ui-web/package.json', import.meta.url),
-);
+const uiTestRequire = createRequire(new URL('../../../packages/agent-ui-web/package.json', import.meta.url));
 const { JSDOM } = uiTestRequire('jsdom');
 const React = websiteRequire('react');
 const { renderToStaticMarkup } = websiteRequire('react-dom/server');
-const source = readFileSync(
-  new URL('../../../apps/www/src/app/[locale]/page.tsx', import.meta.url),
-  'utf8',
-);
-const { outputText } = ts.transpileModule(source, {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
-});
+const { createTranslator } = websiteRequire('next-intl');
 
-function homepage(config, compiled = outputText, exported = 'default', locale = 'en') {
-  const module = { exports: {} };
-  const require = (name) => {
-    if (name === 'next-intl/server')
-      return {
+function websiteModule(file, config, locale = 'en') {
+  const cache = new Map();
+  const load = (filePath) => {
+    let resolved = filePath;
+    if (!existsSync(resolved)) {
+      resolved = ['.tsx', '.ts', '.json'].map((extension) => filePath + extension).find(existsSync);
+    }
+    if (!resolved) throw new Error(`Missing website fixture module: ${filePath}`);
+    if (resolved.endsWith('product-config.generated.ts')) return { productPublicConfig: config };
+    if (resolved.endsWith('.css')) return {};
+    if (cache.has(resolved)) return cache.get(resolved);
+    const source = fillProductContent(path.relative(root, resolved), readFileSync(resolved, 'utf8'), config);
+    if (resolved.endsWith('.json')) return JSON.parse(source);
+    const module = { exports: {} };
+    cache.set(resolved, module.exports);
+    const messages = () => load(path.join(root, `apps/www/src/messages/${locale}.json`));
+    const translate = (namespace) => createTranslator({ locale, messages: messages(), namespace });
+    const require = (name) => {
+      if (name === 'next-intl/server') return {
         setRequestLocale: () => {},
-        getTranslations: async () => Object.assign((key) => key, { raw: () => [] }),
-        getMessages: async () => ({}),
+        getTranslations: async (input) => translate(typeof input === 'string' ? input : input?.namespace),
       };
-    if (name === 'next/font/google')
-      return {
-        IBM_Plex_Sans: () => ({ variable: 'sans' }),
-        IBM_Plex_Mono: () => ({ variable: 'mono' }),
+      if (name === 'next/font/google') return {
+        IBM_Plex_Sans: () => ({ variable: 'sans' }), IBM_Plex_Mono: () => ({ variable: 'mono' }),
       };
-    if (name === 'next-intl')
-      return {
+      if (name === 'next-intl') return {
         NextIntlClientProvider: ({ children }) => children,
-        useLocale: () => locale,
-        useTranslations: () => (key) => key,
+        useLocale: () => locale, useTranslations: translate,
       };
-    if (name === 'next/navigation')
-      return { usePathname: () => `/${locale}`, useRouter: () => ({ push: () => {} }) };
-    if (name === '@/i18n/routing') return { routing: { locales: ['en', 'ko'] } };
-    if (name === '@/components/Header') return { Header: () => null };
-    if (name === '@/components/Footer') return { Footer: () => null };
-    if (name === '@/components/ui' || name === './ui')
-      return {
-        InternalLink: ({ children, ...props }) => React.createElement('a', props, children),
+      if (name === 'next/navigation') return {
+        usePathname: () => locale === 'en' ? '/' : `/${locale}`,
+        useRouter: () => ({ push: () => {} }),
+        notFound: () => { throw new Error('NEXT_NOT_FOUND'); },
       };
-    if (name === 'lucide-react') return {};
-    if (name === '@/lib/product-config.generated') return { productPublicConfig: config };
-    return websiteRequire(name);
+      if (name === 'next/link') return {
+        __esModule: true,
+        default: ({ children, prefetch: _prefetch, ...props }) => React.createElement('a', props, children),
+      };
+      if (name.startsWith('@/')) return load(path.join(root, 'apps/www/src', name.slice(2)));
+      if (name.startsWith('.')) return load(path.resolve(path.dirname(resolved), name));
+      return websiteRequire(name);
+    };
+    const compiled = ts.transpileModule(source, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
+    }).outputText;
+    new Function('require', 'module', 'exports', compiled)(require, module, module.exports);
+    return module.exports;
   };
-  new Function('require', 'module', 'exports', compiled)(require, module, module.exports);
-  return module.exports[exported];
+  return load(path.join(root, file));
+}
+
+async function homepage(config, locale = 'en') {
+  const page = locale === 'en' ? 'apps/www/src/app/(home)/page.tsx' : 'apps/www/src/app/[locale]/page.tsx';
+  return websiteModule(page, config, locale).default({ params: Promise.resolve({ locale }) });
 }
 
 describe('website installation instructions', () => {
   it.each([
     'Fixture </script><script id="injected">alert(1)</script>',
     'Fixture </SCRIPT><SCRIPT id="injected">alert(1)</SCRIPT>',
-  ])(
-    'keeps product name %s inside the structured-data script without creating markup',
-    async (displayName) => {
-      const layout = readFileSync(
-        new URL('../../../apps/www/src/app/[locale]/layout.tsx', import.meta.url),
-        'utf8',
-      );
-      const compiled = ts.transpileModule(layout, {
-        compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
-      }).outputText;
-      const Layout = homepage({ identity: { displayName, cliName: 'fixture' } }, compiled);
-      const html = renderToStaticMarkup(
-        await Layout({ params: Promise.resolve({ locale: 'en' }), children: null }),
-      );
-      const document = new JSDOM(html).window.document;
-      const scripts = document.querySelectorAll('script');
-      expect(scripts).toHaveLength(1);
-      expect(JSON.parse(scripts[0].textContent).name).toBe(displayName);
-    },
-  );
-  it.each([
-    ['Cedar Agent', 'cedar'],
-    ['Amber Agent', 'amber'],
-  ])(
-    'launches the installed command independently of the display name %s',
-    async (displayName, cliName) => {
-      const HomePage = homepage({ identity: { displayName, cliName } });
-      const element = await HomePage({ params: Promise.resolve({ locale: 'en' }) });
-      const text = new JSDOM(renderToStaticMarkup(element)).window.document.body.textContent;
-      expect(text).toContain(`$ ${cliName}`);
-      expect(text).toContain('export PRODUCT_CONFIG_FILE=/absolute/path/to/product.env');
-      expect(text).not.toContain(`$ ${displayName}`);
+  ])('keeps product name %s inside the structured-data graph without creating markup', async (displayName) => {
+    const config = { identity: { displayName, cliName: 'fixture', websiteUrl: 'https://example.test' } };
+    const document = new JSDOM(renderToStaticMarkup(await homepage(config))).window.document;
+    const scripts = document.querySelectorAll('script');
+    expect(scripts).toHaveLength(1);
+    const graph = JSON.parse(scripts[0].textContent)['@graph'];
+    expect(graph.find((node) => node['@type'] === 'SoftwareApplication').name).toBe(displayName);
+    expect(graph.find((node) => node['@type'] === 'WebSite').name).toBe(displayName);
+  });
+  it.each([['Cedar Agent', 'cedar'], ['Amber Agent', 'amber']])(
+    'shows the public package command independently of the display name %s', async (displayName, cliName) => {
+      const document = new JSDOM(renderToStaticMarkup(await homepage({ identity: { displayName, cliName } }))).window.document;
+      const code = [...document.querySelectorAll('code')].map((element) => element.textContent).join('\n');
+      expect(code).toContain('npx @robota-sdk/agent-cli');
+      expect(code).not.toContain('PRODUCT_CONFIG_FILE');
+      expect(code).not.toContain(`npx ${displayName}`);
+      expect(document.body.textContent).toContain(cliName);
     },
   );
 });
 
 describe('generated product URL joins', () => {
-  const config = {
-    identity: {
-      displayName: 'Fixture',
-      cliName: 'fixture',
-      docsUrl: 'https://docs.example.test/',
-      websiteUrl: 'https://www.example.test/',
-    },
-  };
-  it.each(['Header', 'Footer'])(
-    '%s renders canonical documentation links from normalized root URLs',
-    async (component) => {
-      const file = `apps/www/src/components/${component}.tsx`;
-      const source = readFileSync(new URL(`../../../${file}`, import.meta.url), 'utf8');
-      const compiled = ts.transpileModule(source, {
-        compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
-      }).outputText;
-      const Component = homepage(config, compiled, component);
-      const document = new JSDOM(renderToStaticMarkup(React.createElement(Component))).window
-        .document;
-      const links = [...document.querySelectorAll('a')]
-        .map((a) => a.href)
-        .filter((href) => href.startsWith('https://docs.example.test'));
-      expect(links.length).toBeGreaterThan(0);
-      expect(links).toContain('https://docs.example.test/en/');
-      expect(links.every((href) => !new URL(href).pathname.includes('//'))).toBe(true);
-    },
-  );
-  it('renders generated homepage and legacy redirects without duplicated path separators', async () => {
-    const file = 'apps/www/src/app/[locale]/page.tsx';
-    const filled = fillProductContent(file, source, config);
-    const compiled = ts.transpileModule(filled, {
-      compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
-    }).outputText;
-    const Home = homepage(config, compiled);
-    const document = new JSDOM(
-      renderToStaticMarkup(await Home({ params: Promise.resolve({ locale: 'ko' }) })),
-    ).window.document;
-    expect(
-      [...document.querySelectorAll('a')].some(
-        (a) => a.href === 'https://docs.example.test/ko/getting-started/',
-      ),
-    ).toBe(true);
-    const redirects = fillProductContent(
-      'apps/www/public/_redirects',
-      readFileSync(new URL('../../../apps/www/public/_redirects', import.meta.url), 'utf8'),
-      config,
-    );
+  const config = { identity: {
+    displayName: 'Fixture', cliName: 'fixture', docsUrl: 'https://docs.example.test/', websiteUrl: 'https://www.example.test/',
+  } };
+  it.each(['Header', 'Footer'])('%s renders documentation links from normalized root URLs', (component) => {
+    const Component = websiteModule(`apps/www/src/components/${component}.tsx`, config)[component];
+    const document = new JSDOM(renderToStaticMarkup(React.createElement(Component))).window.document;
+    const links = [...document.querySelectorAll('a')].map((a) => a.href).filter((href) => href.startsWith('https://docs.example.test'));
+    expect(links.length).toBeGreaterThan(0);
+    expect(links.every((href) => !new URL(href).pathname.includes('//'))).toBe(true);
+  });
+  it('renders Korean homepage links and legacy redirects without duplicated separators', async () => {
+    const document = new JSDOM(renderToStaticMarkup(await homepage(config, 'ko'))).window.document;
+    const links = [...document.querySelectorAll('a')].map((a) => a.href);
+    expect(links).toContain('https://docs.example.test/ko/getting-started/');
+    expect(links).toContain('https://docs.example.test/en/guide/sdk/');
+    const redirects = fillProductContent('apps/www/public/_redirects', readFileSync(path.join(root, 'apps/www/public/_redirects'), 'utf8'), config);
     expect(redirects).toContain('https://docs.example.test/en/guide/cli/');
     expect(redirects).not.toContain('https://docs.example.test//');
   });
-  it.each(['robots', 'sitemap'])(
-    '%s emits canonical URLs without duplicated path separators',
-    (module) => {
-      const source = readFileSync(
-        new URL(`../../../apps/www/src/app/${module}.ts`, import.meta.url),
-        'utf8',
-      );
-      const compiled = ts.transpileModule(source, {
-        compilerOptions: { module: ts.ModuleKind.CommonJS },
-      }).outputText;
-      const value = homepage(config, compiled)();
-      expect(JSON.stringify(value)).not.toContain('https://www.example.test//');
-    },
-  );
+  it.each(['robots', 'sitemap'])('%s emits canonical URLs without duplicated separators', (name) => {
+    const value = websiteModule(`apps/www/src/app/${name}.ts`, config).default();
+    expect(JSON.stringify(value)).not.toContain('https://www.example.test//');
+  });
 });

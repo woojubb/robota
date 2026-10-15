@@ -5,10 +5,12 @@
       "showcase": "Showcase",
       "roadmap": "Roadmap",
       "docs": "Docs",
-      "github": "GitHub"
+      "github": "GitHub",
+      "sdk": "SDK guide",
+      "cli": "CLI guide"
     },
     "footer": {
-      "tagline": "An adaptable foundation for AI agents. AGPL-3.0, with a commercial license available.",
+      "tagline": "TypeScript agent SDK and coding CLI built from shared public components. Public beta; AGPL-3.0 or commercial license.",
       "product": "Product",
       "developers": "Developers",
       "company": "Company",
@@ -22,7 +24,9 @@
         "npm": "npm",
         "enterprise": "Enterprise",
         "githubDiscussions": "GitHub Discussions",
-        "issues": "Issues"
+        "issues": "Issues",
+        "sdkGuide": "SDK guide",
+        "cliGuide": "CLI guide"
       },
       "copyright": "© 2026 __PRODUCT_DISPLAY_NAME__"
     },
@@ -31,68 +35,24 @@
       "ko": "KO"
     }
   },
-  "home": {
-    "hero": {
-      "badge": "Public Beta",
-      "title": "Our agents develop",
-      "titleHighlight": "and advance our agents.",
-      "description": "We are building toward agents that carry their own development forward on a dependable, adaptable foundation. Today, use the CLI or embed the SDK with",
-      "descriptionSuffix": "as your provider.",
-      "getStarted": "Get Started",
-      "github": "GitHub",
-      "compareTo": "Compare Tools",
-      "installSnippet": "$ npx @robota-sdk/agent-cli"
-    },
-    "featuresTitle": "Built for real TypeScript codebases.",
-    "features": [
-      {
-        "title": "Bring Your Own Key — No Subscription",
-        "description": "Use your own API key and pay only for the tokens you use. No monthly plans, no per-seat pricing."
-      },
-      {
-        "title": "Any Provider, One Config",
-        "description": "Switch between Anthropic, OpenAI, DeepSeek, Gemini, or a local Ollama model by changing one line in your config."
-      },
-      {
-        "title": "Embeddable SDK",
-        "description": "Import @robota-sdk/agent-framework and embed the same agent runtime that powers the CLI."
-      },
-      {
-        "title": "Self-Hostable & Auditable",
-        "description": "Run on-premises with local LLMs — prompts and data stay in your own infrastructure. The full source is public and auditable (AGPL-3.0, with a commercial license for closed-source use)."
-      },
-      {
-        "title": "TypeScript-First",
-        "description": "Strict types end-to-end — no any, no implicit casts, no unexpected runtime behavior. Built for real TypeScript codebases."
-      }
-    ],
-    "cta": {
-      "title": "Get started in minutes",
-      "description": "No account. No subscription. Just a terminal and an API key.",
-      "commentInstall": "# Install globally",
-      "commentProductConfig": "# Select your product environment file (see the setup guide)",
-      "commentApiKey": "# Set your API key",
-      "commentLaunch": "# Launch",
-      "readGuide": "Read the full Getting Started guide →"
-    }
-  },
   "beta": {
-    "badge": "Now in beta",
-    "title": "Join the __PRODUCT_DISPLAY_NAME__ Beta",
-    "description": "__PRODUCT_DISPLAY_NAME__ is in active beta. Try the CLI and SDK today, and send feedback that informs what we build next.",
-    "comingSoonTitle": "Beta signups open soon",
-    "comingSoonBody": "We're putting the finishing touches on beta onboarding. In the meantime, install the CLI from the docs or share feedback on GitHub.",
-    "ctaDocs": "Read the Getting Started guide →",
-    "ctaGithub": "Join the discussion on GitHub ↗"
+    "badge": "Public beta",
+    "title": "Try the __PRODUCT_DISPLAY_NAME__ public beta",
+    "description": "Build an agent with the TypeScript SDK or use the coding CLI built from the same public components. Both are available as beta packages.",
+    "comingSoonTitle": "Choose a starting path",
+    "comingSoonBody": "The CLI needs Node.js 22.12 or later and a provider key or running local model. SDK setup depends on the provider and host you choose. Beta APIs may change before a stable release.",
+    "ctaDocs": "Set up the CLI →",
+    "ctaGithub": "Share feedback on GitHub ↗",
+    "ctaSdkDocs": "Build with the SDK →"
   },
   "compare": {
     "title": "Why __PRODUCT_DISPLAY_NAME__?",
-    "description": "A multi-provider AI coding CLI that lets you bring your own key for any provider, run fully offline with a local model, and embed the same engine into your own app. Source-available and self-hostable, with both an open-source (AGPL-3.0) and a commercial license.",
+    "description": "__PRODUCT_DISPLAY_NAME__ combines a TypeScript agent SDK and coding CLI. Choose a supported provider or connect a compatible local model server; setup and third-party charges depend on the provider. Public source is available under AGPL-3.0 or a commercial license.",
     "featureComparison": "Feature Comparison",
     "featureColumnHeader": "Feature",
     "productColumnHeader": "__PRODUCT_DISPLAY_NAME__",
     "claimSources": {
-      "scope": "This comparison covers the __PRODUCT_DISPLAY_NAME__ CLI and assembled SDK. The bare ConversationAgent class does not itself provide a terminal UI, background daemon or durable session store. The dated sources below cover the affected Cline claims; other entries have not been re-audited.",
+      "scope": "This table compares the __PRODUCT_DISPLAY_NAME__ CLI and assembled SDK, not the bare ConversationAgent class. Features can depend on configuration, provider or host. The dated sources below cover the affected Cline claims only; other competitor entries have not been re-audited.",
       "checkedOn": "Affected Cline claims checked: 9 Oct 2026",
       "sdkLabel": "Cline SDK",
       "persistenceLabel": "ClineCore",
@@ -112,125 +72,139 @@
       "Python": "Python"
     },
     "features": [
-      "Multi-provider (one config)",
-      "BYOK — no subscription required",
+      "Multiple provider options",
+      "Provider credentials or local inference",
       "Local model support (Ollama/LM Studio)",
       "Embeddable SDK",
       "Source-available",
-      "TypeScript-first, strict types",
+      "TypeScript implementation",
       "Terminal CLI",
       "Session persistence & resume",
       "Background execution",
       "Self-hostable"
     ],
     "differentiators": {
-      "title": "What Makes __PRODUCT_DISPLAY_NAME__ Different",
+      "title": "How __PRODUCT_DISPLAY_NAME__ Fits",
       "items": [
         {
-          "title": "1. Any Provider — One Config",
-          "body": "Switch between Anthropic, OpenAI, DeepSeek, Gemini, or Ollama by changing one line in your user settings file. No code changes, no new subscriptions."
+          "title": "1. Choose a supported provider",
+          "body": "Use supported adapters for Anthropic, OpenAI, DeepSeek and Gemini, or connect an OpenAI-compatible endpoint. Credentials, models and charges vary by provider."
         },
         {
-          "title": "2. Embeddable SDK",
-          "body": "Ship the same agent runtime to your users via @robota-sdk/agent-framework. The SDK complements the __PRODUCT_DISPLAY_NAME__ CLI with an embeddable option for product teams."
+          "title": "2. Build with the SDK",
+          "body": "Use @robota-sdk/agent-framework to assemble sessions for your own host. You supply a provider and decide how permissions, storage and lifecycle work."
         },
         {
-          "title": "3. Open & Self-Hostable",
-          "body": "Every line is publicly auditable — fork it, modify it, and self-host with no vendor lock-in. Open-source use is AGPL-3.0; a commercial license is available for proprietary or SaaS use."
+          "title": "3. Inspect and license the source",
+          "body": "The public source can be reviewed and modified under AGPL-3.0. A commercial license is available when a proprietary application cannot meet AGPL obligations."
         },
         {
-          "title": "4. Local Model First-Class",
-          "body": "Point any Ollama or LM Studio model as your provider. When you use a local model, your code and prompts stay on your machine."
+          "title": "4. Connect a local model",
+          "body": "Run an Ollama or LM Studio model server and configure a matching endpoint and model. Local inference still depends on your enabled tools and network configuration."
         }
       ]
     },
     "whenElse": {
-      "title": "When to Choose Something Else",
+      "title": "Other Workflows to Consider",
       "items": [
         {
-          "label": "Choose Claude Code",
-          "body": "if you want the tightest Claude integration and are happy with Anthropic-only."
+          "label": "Claude Code",
+          "body": "is a Claude-focused coding assistant; check its current integration and provider options for your workflow."
         },
         {
-          "label": "Choose Cursor",
-          "body": "if you want an IDE-first experience with inline diff editing and tab completion."
+          "label": "Cursor",
+          "body": "is an IDE-centered choice when in-editor interactions are the priority."
         },
         {
-          "label": "Choose Aider",
-          "body": "if you prefer a Python ecosystem and work primarily with git-based batch commits."
+          "label": "Aider",
+          "body": "is a Python-based terminal tool for code editing workflows."
         },
         {
-          "label": "Choose Cline",
-          "body": "if you want a VS Code sidebar agent with Cline's SDK and CLI workflows."
+          "label": "Cline",
+          "body": "offers VS Code, CLI and SDK workflows; the scoped source notes above explain the checked entries."
         }
       ]
     },
-    "tryButton": "Get started →"
+    "tryButton": "Explore SDK and CLI setup →",
+    "proofLinks": {
+      "providers": "Provider setup ↗",
+      "local": "Local model setup ↗",
+      "license": "Licensing terms ↗"
+    }
   },
   "enterprise": {
-    "title": "Enterprise",
-    "description": "__PRODUCT_DISPLAY_NAME__ is used by engineering teams that need a controllable, self-hostable AI coding assistant. This page covers security practices, deployment options, and how to get in touch.",
+    "title": "Commercial licensing and deployment",
+    "description": "For engineering teams evaluating __PRODUCT_DISPLAY_NAME__: review licensing, deployment options and the data flows to verify before use.",
     "contact": {
-      "title": "Contact Us",
-      "description": "To discuss team licensing, on-premises deployment, priority support, or custom integrations, open a GitHub Discussion or email us directly.",
-      "responseTime": "We aim to respond to enterprise inquiries within",
-      "responseTimeHighlight": "2 business days",
-      "responseTimeSuffix": ".",
-      "githubDiscussions": "GitHub Discussions (enterprise tag) ↗",
-      "email": ""
+      "title": "Commercial licensing",
+      "description": "__PRODUCT_DISPLAY_NAME__ is available under AGPL-3.0 or a commercial license for uses that cannot meet AGPL obligations. Open a GitHub Discussion to ask about licensing; do not include credentials or sensitive security details.",
+      "githubDiscussions": "Discuss licensing on GitHub ↗",
+      "licensingTerms": "Read licensing terms ↗"
     },
     "security": {
-      "title": "Security Policy",
+      "title": "Deployment and data flow",
       "dataHandling": {
         "title": "Data Handling",
-        "description": "__PRODUCT_DISPLAY_NAME__ operates as a local CLI or self-hosted server.",
-        "highlight": "No conversation data is stored or transmitted to __PRODUCT_DISPLAY_NAME__ servers",
-        "descriptionSuffix": "— the SDK calls the AI provider of your choice directly from your machine or infrastructure.",
-        "tableHeaders": ["Data type", "Where it goes"],
+        "description": "The CLI runs on your machine and the SDK runs inside your host application.",
+        "highlight": "Data flow depends on the provider and tools you configure",
+        "descriptionSuffix": "— review those connections before deployment.",
+        "tableHeaders": [
+          "Data",
+          "What to verify"
+        ],
         "rows": [
-          ["Prompts and responses", "Sent only to the AI provider you configure"],
-          ["API keys", "Stored in your local environment variables or secrets manager"],
+          [
+            "Prompts and supplied context",
+            "Sent to your configured model endpoint; a hosted endpoint receives the data you send."
+          ],
+          [
+            "Provider credentials",
+            "Supplied by your environment or host configuration; verify storage and access rules."
+          ],
           [
             "Session history",
-            "Written to your local filesystem under your configured user state directory"
+            "The CLI uses configured local state. SDK persistence is optional and owned by the host."
           ],
-          ["Tool outputs (files, shell)", "Stay on your machine"]
+          [
+            "Tool results and integrations",
+            "A tool result can become model context; web or MCP tools may contact other services."
+          ]
         ]
       },
       "onPremises": {
         "title": "On-Premises Deployment",
-        "description": "__PRODUCT_DISPLAY_NAME__ can run in air-gapped environments with local LLMs (install packages from an internal mirror):",
+        "description": "You can connect to a local OpenAI-compatible model server. Restricted-network use also requires local packages/models and review of any enabled network tools:",
         "items": [
           {
             "name": "Ollama",
-            "body": "run models locally with zero external network calls"
+            "body": "run a downloaded model on your network"
           },
           {
             "name": "LM Studio",
-            "body": "OpenAI-compatible local server"
+            "body": "run a local OpenAI-compatible server"
           },
           {
-            "name": "Any OpenAI-compatible endpoint",
-            "body": "point baseURL to your internal gateway"
+            "name": "Compatible gateway",
+            "body": "point baseURL to a server you operate"
           }
         ]
       },
       "highlights": [
         {
-          "title": "Auditable source code",
-          "body": "The full source is public on GitHub for security review (__PROJECT_REPOSITORY_URL__)"
+          "title": "Public source",
+          "body": "Inspect the repository and dependency choices before deployment."
         },
         {
-          "title": "No telemetry",
-          "body": "No analytics, no phone-home in the SDK or CLI"
+          "title": "Configurable model endpoint",
+          "body": "Choose a hosted provider or a local compatible server."
         },
         {
-          "title": "Append-only session logs",
-          "body": "You control retention and deletion of all local session files"
+          "title": "Host-owned SDK state",
+          "body": "The SDK host decides whether and where to persist sessions."
         },
         {
-          "title": "Stays inside your compliance boundary",
-          "body": "__PRODUCT_DISPLAY_NAME__ stores no data of its own, so your existing controls and your provider's certifications (e.g. SOC 2, ISO 27001) remain the system of record"
+          "title": "Explicit tool permissions",
+          "body": "Review permission modes and enabled integrations for the deployment."
         }
       ]
     },
@@ -238,42 +212,39 @@
       "title": "FAQ",
       "items": [
         {
-          "q": "Does __PRODUCT_DISPLAY_NAME__ store my code in the cloud?",
-          "a": "No. All file reads and writes happen on your local machine. The only data that leaves your machine is the prompt you send to your configured AI provider."
+          "q": "Where do prompts and code go?",
+          "a": "Model requests go to the endpoint you configure. A hosted provider receives the prompts and context sent to it; a local model can keep inference on your own server. Enabled web, MCP or other tools can make separate network requests."
         },
         {
-          "q": "Can we use __PRODUCT_DISPLAY_NAME__ behind a corporate proxy?",
-          "a": "Yes. Set the standard HTTPS_PROXY environment variable and the SDK's HTTP client will route through it."
+          "q": "Can we use a corporate proxy?",
+          "a": "The model endpoint and each enabled integration must fit your network policy. Verify proxy behavior in your chosen configuration before rollout."
         },
         {
-          "q": "Can __PRODUCT_DISPLAY_NAME__ be installed in a restricted network with no internet access?",
-          "a": "Yes — use a local LLM (Ollama, LM Studio) and install npm packages from an internal registry mirror."
+          "q": "Can this run in a restricted network?",
+          "a": "A local model server and internally available npm packages can support a restricted setup. Disable or configure network-capable tools according to your policy."
         },
         {
           "q": "Is there a commercial license option?",
-          "a": "Yes. __PRODUCT_DISPLAY_NAME__ is dual-licensed: free under the AGPL-3.0, with a commercial license available for proprietary or closed-source use that cannot meet the AGPL-3.0 obligations. Enterprise support contracts (SLA, dedicated channels, custom integrations) are also available — contact us for details."
+          "a": "Yes. The public source is available under AGPL-3.0, with a commercial license option for proprietary or closed-source use that cannot meet AGPL obligations. Review the licensing terms before choosing a path."
         }
       ]
-    },
-    "vulnerabilityDisclosure": {
-      "title": "Vulnerability Disclosure",
-      "description": "To report a security vulnerability, email",
-      "descriptionSuffix": "with a description and reproduction steps. We follow responsible disclosure and prioritize fixes by",
-      "patchDays": "severity",
-      "patchDaysSuffix": ", shipping a patch as quickly as is practical."
     }
   },
   "roadmap": {
     "title": "Roadmap",
-    "description": "__PRODUCT_DISPLAY_NAME__ SDK is currently in",
-    "descriptionHighlight": "public beta (v3.0.0-beta)",
-    "descriptionSuffix": ". This page is updated regularly.",
-    "lastUpdated": "Reviewed regularly ·",
+    "description": "__PRODUCT_DISPLAY_NAME__ SDK and CLI are in",
+    "descriptionHighlight": "public beta",
+    "descriptionSuffix": ". Shipped examples, plans and explorations are separated below.",
+    "lastUpdated": "For current development, see",
     "githubIssues": "GitHub Issues ↗",
     "now": {
-      "title": "Now — Beta Polish",
-      "subtitle": "Active development",
-      "tableHeaders": ["Feature", "Status", "Release"],
+      "title": "Shipped in an earlier beta",
+      "subtitle": "Examples recorded for beta.67; this is a historical release snapshot, not a list of current work.",
+      "tableHeaders": [
+        "Feature",
+        "Status",
+        "Release"
+      ],
       "statusDone": "Done",
       "statusPlanned": "Planned",
       "items": [
@@ -321,9 +292,9 @@
     },
     "next": {
       "title": "Next",
-      "subtitle": "Planned for upcoming releases",
+      "subtitle": "Planned work; availability and timing may change.",
       "items": [
-        "v1.0.0 release candidate — declared when all P0 bugs are resolved and core user journeys verified end-to-end",
+        "Release readiness — address critical bugs and verify core SDK and CLI journeys before considering a stable release",
         "Official GitHub Action — run __PRODUCT_DISPLAY_NAME__ as a CI bot in any workflow",
         "Official plugins starter pack — community plugin templates: logging, Slack alerts, cost tracking, Linear integration, Datadog metrics",
         "SDK embedding examples — Next.js, Express, and CLI script reference implementations"
@@ -331,7 +302,7 @@
     },
     "later": {
       "title": "Later — Exploration",
-      "subtitle": "Ideas under consideration. No commitment on timing.",
+      "subtitle": "Exploratory ideas, with no commitment on availability or timing.",
       "items": [
         "Hosted experience — managed sessions and team sharing",
         "Session share links (share a conversation URL)",
@@ -342,31 +313,31 @@
     },
     "vote": {
       "title": "Vote and Suggest",
-      "description": "The most-upvoted issues influence priority in planning.",
+      "description": "Use GitHub Discussions to suggest work and the issue tracker to follow current decisions.",
       "githubDiscussions": "GitHub Discussions ↗",
       "openIssues": "Open Issues ↗"
     }
   },
   "showcase": {
-    "title": "Build with __PRODUCT_DISPLAY_NAME__",
-    "description": "Real projects built with the __PRODUCT_DISPLAY_NAME__ SDK — terminal coding assistants and tools built on the agent runtime.",
-    "featuredTitle": "Featured Project",
+    "title": "A first-party __PRODUCT_DISPLAY_NAME__ example",
+    "description": "The __PRODUCT_DISPLAY_NAME__ CLI is built by the project team from public SDK packages. Inspect its source to see one assembled agent interface; community examples can be submitted separately.",
+    "featuredTitle": "Reference implementation",
     "communityTitle": "Community Projects",
     "communityEmpty": "No community projects listed yet. Be the first to submit yours.",
     "submitTitle": "Submit Your Project",
-    "submitDescription": "To add your project to this page, open a PR adding an entry to the Community Projects section of",
+    "submitDescription": "Have a working project built with @robota-sdk/*? Open a pull request to propose it for this page via",
     "submitRequirements": [
       "Must use at least one @robota-sdk/* package",
       "Public source code or live demo required",
       "Must be working as of the PR date"
     ],
     "submitButton": "Open a Pull Request ↗",
-    "sourceLink": "Source ↗",
+    "sourceLink": "Inspect CLI source ↗",
     "liveLink": "Live demo ↗",
     "projects": [
       {
         "name": "__PRODUCT_DISPLAY_NAME__ CLI",
-        "description": "The reference implementation. A full AI coding assistant built entirely on top of @robota-sdk/agent-framework and the TUI transport.",
+        "description": "Built by the project team from @robota-sdk/agent-framework and terminal UI packages. This reference shows how the public components can be assembled into a coding CLI; it is not a customer case study.",
         "highlights": [
           "Multi-provider switching",
           "Session persistence",

@@ -1,7 +1,15 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { Metadata } from 'next';
+import { getMarketingMetadata } from '@/lib/marketing';
 
-export const metadata: Metadata = { title: 'Showcase' };
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return getMarketingMetadata(locale === 'ko' ? 'ko' : 'en', 'showcase');
+}
 
 export default async function ShowcasePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
@@ -35,6 +43,14 @@ export default async function ShowcasePage({ params }: { params: Promise<{ local
             >
               <h3 className="text-lg font-semibold text-[var(--foreground)]">{project.name}</h3>
               <p className="mt-2 text-sm text-[var(--muted-foreground)]">{project.description}</p>
+              <a
+                href="__PROJECT_REPOSITORY_URL__/tree/main/packages/agent-cli"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-block text-sm font-medium text-[var(--primary)] hover:underline"
+              >
+                {t('sourceLink')}
+              </a>
               <div className="mt-3 flex flex-wrap gap-2">
                 {project.highlights.map((h) => (
                   <span

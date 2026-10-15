@@ -1,7 +1,15 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { Metadata } from 'next';
+import { getMarketingMetadata } from '@/lib/marketing';
 
-export const metadata: Metadata = { title: 'Enterprise' };
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return getMarketingMetadata(locale === 'ko' ? 'ko' : 'en', 'enterprise');
+}
 
 export default async function EnterprisePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
@@ -32,11 +40,6 @@ export default async function EnterprisePage({ params }: { params: Promise<{ loc
       <section className="mb-12 rounded-xl border border-[var(--primary)]/30 bg-[var(--accent-dim)] p-6">
         <h2 className="text-xl font-bold text-[var(--foreground)] mb-2">{t('contact.title')}</h2>
         <p className="text-sm text-[var(--muted-foreground)] mb-4">{t('contact.description')}</p>
-        <p className="text-sm text-[var(--muted-foreground)] mb-5">
-          {t('contact.responseTime')}{' '}
-          <strong className="text-[var(--foreground)]">{t('contact.responseTimeHighlight')}</strong>
-          {t('contact.responseTimeSuffix')}
-        </p>
         <div className="flex flex-wrap gap-3">
           <a
             href="__PROJECT_REPOSITORY_URL__/discussions"
@@ -47,10 +50,12 @@ export default async function EnterprisePage({ params }: { params: Promise<{ loc
             {t('contact.githubDiscussions')}
           </a>
           <a
-            href="__PROJECT_REPOSITORY_URL__/discussions"
-            className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
+            href="__PROJECT_REPOSITORY_URL__/blob/main/LICENSING.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--card)] transition-colors"
           >
-            {t('contact.email')}
+            {t('contact.licensingTerms')}
           </a>
         </div>
       </section>
@@ -113,7 +118,7 @@ export default async function EnterprisePage({ params }: { params: Promise<{ loc
           <p>
             <span className="text-purple-400">import</span> {'{ OpenAIProvider }'}{' '}
             <span className="text-purple-400">from</span>{' '}
-            <span className="text-green-400">&apos;@robota-sdk/openai&apos;</span>;
+            <span className="text-green-400">&apos;@robota-sdk/agent-provider-openai&apos;</span>;
           </p>
           <p className="mt-2">
             <span className="text-purple-400">const</span> provider ={' '}
@@ -129,7 +134,7 @@ export default async function EnterprisePage({ params }: { params: Promise<{ loc
             <span className="text-green-400">&apos;http://your-internal-gateway/v1&apos;</span>,
           </p>
           <p className="ml-4">
-            model: <span className="text-green-400">&apos;your-model-name&apos;</span>,
+            defaultModel: <span className="text-green-400">&apos;your-loaded-model-id&apos;</span>,
           </p>
           <p>{'}'});</p>
         </div>
@@ -163,23 +168,6 @@ export default async function EnterprisePage({ params }: { params: Promise<{ loc
         </div>
       </section>
 
-      {/* Vulnerability disclosure */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="text-lg font-bold text-[var(--foreground)] mb-2">
-          {t('vulnerabilityDisclosure.title')}
-        </h2>
-        <p className="text-sm text-[var(--muted-foreground)]">
-          {t('vulnerabilityDisclosure.description')}{' '}
-          <a href="__PROJECT_REPOSITORY_URL__/discussions" className="text-[var(--primary)] hover:underline">
-            project discussions
-          </a>{' '}
-          {t('vulnerabilityDisclosure.descriptionSuffix')}{' '}
-          <strong className="text-[var(--foreground)]">
-            {t('vulnerabilityDisclosure.patchDays')}
-          </strong>{' '}
-          {t('vulnerabilityDisclosure.patchDaysSuffix')}
-        </p>
-      </section>
     </div>
   );
 }
