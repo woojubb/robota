@@ -31,7 +31,7 @@ function marketingCopy(locale: MarketingLocale, page: MarketingPage) {
       beta: { title: 'Public Beta', description: `Try the public ${name} SDK and coding CLI, review setup requirements, and share feedback on GitHub.` },
       enterprise: { title: 'Commercial Licensing and Deployment', description: `Review ${name}’s AGPL and commercial licensing, local deployment options, and the data flows to verify for your environment.` },
       roadmap: { title: 'Roadmap', description: `See shipped beta work, planned releases, and exploratory ideas for the ${name} SDK and CLI.` },
-      compare: { title: `Why ${name}?`, description: `Compare ${name}’s TypeScript agent SDK and coding CLI with other developer tools. Read the scope and source dates behind the feature table.` },
+      compare: { title: `Why ${name}?`, description: `Explore ${name}’s TypeScript agent SDK, coding CLI, provider options, local models and licensing.` },
       showcase: { title: `${name} CLI Reference Implementation`, description: `Inspect the first-party ${name} CLI built with public SDK packages, and learn how to submit a working community project.` },
     },
     ko: {
@@ -39,7 +39,7 @@ function marketingCopy(locale: MarketingLocale, page: MarketingPage) {
       beta: { title: '공개 베타', description: `${name} SDK와 코딩 CLI를 사용해 보고, 준비 사항을 확인한 뒤 GitHub에 의견을 남기세요.` },
       enterprise: { title: '상업용 라이선스와 배포', description: `${name}의 AGPL 및 상업용 라이선스, 로컬 배포 옵션과 환경별 데이터 흐름을 확인하세요.` },
       roadmap: { title: '로드맵', description: `${name} SDK와 CLI의 완료된 베타 작업, 향후 계획, 탐색 중인 아이디어를 구분해 살펴보세요.` },
-      compare: { title: `왜 ${name}인가?`, description: `${name}의 TypeScript 에이전트 SDK와 코딩 CLI를 다른 개발 도구와 비교하고, 기능 표의 범위와 출처 확인일을 살펴보세요.` },
+      compare: { title: `왜 ${name}인가?`, description: `${name}의 TypeScript 에이전트 SDK와 코딩 CLI, 프로바이더 선택지, 로컬 모델 및 라이선스를 살펴보세요.` },
       showcase: { title: `${name} CLI 참조 구현`, description: `공개 SDK 패키지로 만든 ${name} 팀의 CLI 참조 구현을 살펴보고, 작동하는 커뮤니티 프로젝트의 제출 방법을 확인하세요.` },
     },
   };
