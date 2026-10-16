@@ -1,181 +1,20 @@
-import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { InternalLink } from '@/components/ui';
-import { KeyRound, Repeat, Package, ShieldCheck, Zap } from 'lucide-react';
-import { productPublicConfig } from '@/lib/product-config.generated';
+import { notFound } from 'next/navigation';
+import { setRequestLocale } from 'next-intl/server';
+import { HomePageContent } from '../../components/HomePageContent';
+import { MarketingHomeSchema } from '../../components/MarketingDocument';
+import { getMarketingMetadata } from '../../lib/marketing';
 
-const FEATURE_ICONS = [KeyRound, Repeat, Package, ShieldCheck, Zap];
+type PageProps = { params: Promise<{ locale: string }> };
 
-const PROVIDERS = [
-  { name: 'Anthropic', color: 'text-orange-400' },
-  { name: 'OpenAI', color: 'text-green-400' },
-  { name: 'DeepSeek', color: 'text-blue-400' },
-  { name: 'Gemini', color: 'text-yellow-400' },
-  { name: 'Ollama', color: 'text-purple-400' },
-];
-
-export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
+export async function generateMetadata({ params }: PageProps) {
   const { locale } = await params;
+  if (locale !== 'en' && locale !== 'ko') notFound();
+  return getMarketingMetadata(locale, 'home');
+}
+
+export default async function HomePage({ params }: PageProps) {
+  const { locale } = await params;
+  if (locale !== 'en' && locale !== 'ko') notFound();
   setRequestLocale(locale);
-  const t = await getTranslations('home');
-
-  const features = t.raw('features') as Array<{ title: string; description: string }>;
-
-  return (
-    <>
-      {/* Hero */}
-      <section className="relative overflow-hidden py-20 sm:py-28">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,color-mix(in_srgb,var(--accent)_18%,transparent),transparent)]"
-        />
-        <div className="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--card)] px-3 py-1 text-xs text-[var(--muted-foreground)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
-            {t('hero.badge')}
-          </div>
-
-          <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-[var(--foreground)] sm:text-5xl lg:text-6xl">
-            {t('hero.title')}
-            <br />
-            <span className="text-[var(--primary)]">{t('hero.titleHighlight')}</span>
-          </h1>
-
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-[var(--muted-foreground)]">
-            {t('hero.description')}{' '}
-            {PROVIDERS.map((p, i) => (
-              <span key={p.name}>
-                <span className={p.color}>{p.name}</span>
-                {i < PROVIDERS.length - 1 ? ', ' : ''}
-              </span>
-            ))}{' '}
-            {t('hero.descriptionSuffix')}
-          </p>
-
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <a
-              href={`__PROJECT_DOCS_URL__/${locale}/getting-started/`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-lg bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
-            >
-              {t('hero.getStarted')}
-            </a>
-            <a
-              href="__PROJECT_REPOSITORY_URL__"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-5 py-3 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
-            >
-              {t('hero.github')} ↗
-            </a>
-            <InternalLink
-              href={`/${locale}/compare`}
-              className="rounded-lg border border-[var(--border)] bg-transparent px-5 py-3 text-sm font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-            >
-              {t('hero.compareTo')}
-            </InternalLink>
-          </div>
-
-          {/* Install snippet */}
-          <div className="mt-10 inline-block rounded-lg border border-[var(--border)] bg-[var(--card)] px-5 py-3 font-mono text-sm text-[var(--muted-foreground)]">
-            <span className="text-[var(--primary)]">$</span>{' '}
-            <span className="text-[var(--foreground)]">npx @robota-sdk/agent-cli</span>
-          </div>
-        </div>
-      </section>
-
-      {/* Features grid */}
-      <section className="py-16 sm:py-20">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
-            {t('featuresTitle')}
-          </h2>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map((f, i) => {
-              const Icon = FEATURE_ICONS[i] ?? KeyRound;
-              // First feature is the emphasized anchor (spans two columns on
-              // wide screens) so the section reads as a composition, not a
-              // symmetric six-tile AI grid (WEB-013).
-              const emphasized = i === 0;
-              return (
-                <div
-                  key={f.title}
-                  className={`rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 ${
-                    emphasized ? 'lg:col-span-2 lg:p-7' : ''
-                  }`}
-                >
-                  <Icon
-                    className={`text-[var(--primary)] ${emphasized ? 'h-8 w-8' : 'h-6 w-6'}`}
-                    strokeWidth={1.75}
-                  />
-                  <h3
-                    className={`mt-3 font-semibold text-[var(--foreground)] ${
-                      emphasized ? 'text-xl' : 'text-base'
-                    }`}
-                  >
-                    {f.title}
-                  </h3>
-                  <p
-                    className={`mt-1.5 text-[var(--muted-foreground)] ${
-                      emphasized ? 'text-base max-w-xl' : 'text-sm'
-                    }`}
-                  >
-                    {f.description}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-16 sm:py-24">
-        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
-            {t('cta.title')}
-          </h2>
-          <p className="mt-4 text-[var(--muted-foreground)]">{t('cta.description')}</p>
-          <div className="mt-6 rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 text-left font-mono text-sm">
-            <p>
-              <span className="text-[var(--muted-foreground)]">{t('cta.commentInstall')}</span>
-            </p>
-            <p className="mt-1">
-              <span className="text-[var(--primary)]">$</span>{' '}
-              <span className="text-[var(--foreground)]">npm install -g @robota-sdk/agent-cli</span>
-            </p>
-            <p className="mt-3">
-              <span className="text-[var(--muted-foreground)]">{t('cta.commentProductConfig')}</span>
-            </p>
-            <p className="mt-1">
-              <span className="text-[var(--primary)]">$</span>{' '}
-              <span className="text-[var(--foreground)]">export PRODUCT_CONFIG_FILE=/absolute/path/to/product.env</span>
-            </p>
-            <p className="mt-3">
-              <span className="text-[var(--muted-foreground)]">{t('cta.commentApiKey')}</span>
-            </p>
-            <p className="mt-1">
-              <span className="text-[var(--primary)]">$</span>{' '}
-              <span className="text-[var(--foreground)]">export ANTHROPIC_API_KEY=sk-ant-...</span>
-            </p>
-            <p className="mt-3">
-              <span className="text-[var(--muted-foreground)]">{t('cta.commentLaunch')}</span>
-            </p>
-            <p className="mt-1">
-              <span className="text-[var(--primary)]">$</span>{' '}
-              <span className="text-[var(--foreground)]">{productPublicConfig.identity.cliName}</span>
-            </p>
-          </div>
-          <a
-            href={`__PROJECT_DOCS_URL__/${locale}/getting-started/`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-6 inline-block rounded-lg bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
-          >
-            {t('cta.readGuide')}
-          </a>
-        </div>
-      </section>
-    </>
-  );
+  return <><MarketingHomeSchema locale={locale} /><HomePageContent locale={locale} /></>;
 }

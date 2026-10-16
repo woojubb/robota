@@ -1,3 +1,7 @@
+# Canonical English homepage aliases; localized child routes keep their URLs.
+/en / 301
+/en/ / 301
+
 # Legacy documentation URLs. The docs moved from __PROJECT_WEBSITE_HOST__ to docs.__PROJECT_WEBSITE_HOST__; old links (README
 # links, bookmarks, search results) still point here. Explicit .html rules come first because
 # _redirects cannot strip an extension from a splat.

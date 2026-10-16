@@ -10,10 +10,18 @@ import type { TocEntry } from '@/lib/toc';
 interface DocsLayoutProps {
   sidebar: SidebarItem[];
   toc: TocEntry[];
+  contentLanguage: 'en' | 'ko';
+  hasKoreanTranslation: boolean;
   children: React.ReactNode;
 }
 
-export function DocsLayout({ sidebar, toc, children }: DocsLayoutProps) {
+export function DocsLayout({
+  sidebar,
+  toc,
+  contentLanguage,
+  hasKoreanTranslation,
+  children,
+}: DocsLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
@@ -26,7 +34,7 @@ export function DocsLayout({ sidebar, toc, children }: DocsLayoutProps) {
         Skip to content
       </a>
 
-      <Header />
+      <Header hasKoreanTranslation={hasKoreanTranslation} />
 
       <div className="relative flex flex-1">
         {/* Mobile hamburger — only visible on small screens */}
@@ -63,6 +71,7 @@ export function DocsLayout({ sidebar, toc, children }: DocsLayoutProps) {
           {/* Article content */}
           <article
             id="docs-content"
+            lang={contentLanguage}
             tabIndex={-1}
             className="prose min-w-0 max-w-[var(--content-max-width)] flex-1 outline-none"
           >

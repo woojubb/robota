@@ -134,6 +134,23 @@ export function getFilePath(slug: string[], locale: string = 'en'): string | nul
   return null;
 }
 
+export interface PageLanguage {
+  contentLanguage: 'en' | 'ko';
+  availableLocales: readonly ('en' | 'ko')[];
+}
+
+/** The home renders localized messages; other pages use the Markdown file selected by getFilePath. */
+export function resolvePageLanguage(slug: string[], locale: string): PageLanguage {
+  const koreanFile = slug.length === 0 ? null : getFilePath(slug, 'ko');
+  const hasKoreanContent =
+    slug.length === 0 || (koreanFile !== null && koreanFile !== getFilePath(slug, 'en'));
+
+  return {
+    contentLanguage: locale === 'ko' && hasKoreanContent ? 'ko' : 'en',
+    availableLocales: hasKoreanContent ? ['en', 'ko'] : ['en'],
+  };
+}
+
 export interface PageContent {
   source: string;
   frontmatter: Record<string, string>;

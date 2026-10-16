@@ -1,74 +1,24 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { Metadata } from 'next';
+import { getMarketingMetadata } from '@/lib/marketing';
 
-export const metadata: Metadata = { title: 'Compare' };
-
-const FEATURE_ROW_DATA = [
-  { agentRuntime: true, claudeCode: false, cursor: false, aider: true, cline: true },
-  {
-    agentRuntime: true,
-    claudeCode: true,
-    cursor: false,
-    aider: true,
-    cline: true,
-    cursorNote: 'subscription',
-  },
-  { agentRuntime: true, claudeCode: false, cursor: false, aider: true, cline: true },
-  { agentRuntime: true, claudeCode: false, cursor: false, aider: false, cline: false },
-  {
-    agentRuntime: true,
-    claudeCode: false,
-    cursor: false,
-    aider: true,
-    cline: true,
-    claudeCodeNote: 'proprietary',
-    cursorNote: 'proprietary',
-    aiderNote: 'Apache 2',
-  },
-  { agentRuntime: true, claudeCode: true, cursor: true, aider: false, cline: true, aiderNote: 'Python' },
-  {
-    agentRuntime: true,
-    claudeCode: true,
-    cursor: false,
-    aider: true,
-    cline: true,
-    cursorNote: 'IDE only',
-  },
-  { agentRuntime: true, claudeCode: true, cursor: true, aider: false, cline: false },
-  { agentRuntime: true, claudeCode: true, cursor: false, aider: false, cline: false },
-  { agentRuntime: true, claudeCode: false, cursor: false, aider: true, cline: true },
-];
-
-function Check() {
-  return <span className="text-green-400 font-bold">✓</span>;
-}
-
-function Cross({ note }: { note?: string }) {
-  return (
-    <span className="text-[var(--muted-foreground)]">
-      {note ? <span className="text-xs">{note}</span> : '✗'}
-    </span>
-  );
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return getMarketingMetadata(locale === 'ko' ? 'ko' : 'en', 'compare');
 }
 
 export default async function ComparePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations('compare');
-  const features = t.raw('features') as string[];
-  const notes = t.raw('notes') as Record<string, string>;
-  const noteLabel = (note?: string) => (note ? (notes[note] ?? note) : undefined);
   const differentiatorItems = t.raw('differentiators.items') as Array<{
     title: string;
     body: string;
   }>;
-  const whenElseItems = t.raw('whenElse.items') as Array<{ label: string; body: string }>;
-
-  const featureRows = features.map((feature, i) => ({
-    feature,
-    ...FEATURE_ROW_DATA[i],
-  }));
-
   return (
     <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
       <div className="text-center mb-12">
@@ -79,60 +29,6 @@ export default async function ComparePage({ params }: { params: Promise<{ locale
           {t('description')}
         </p>
       </div>
-
-      {/* Feature comparison table */}
-      <section className="mb-14">
-        <h2 className="text-xl font-bold text-[var(--foreground)] mb-4">
-          {t('featureComparison')}
-        </h2>
-        <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--border)] bg-[var(--card)]">
-                <th className="px-4 py-3 text-left font-semibold text-[var(--muted-foreground)]">
-                  {t('featureColumnHeader')}
-                </th>
-                <th className="px-4 py-3 text-center font-semibold text-[var(--primary)]">
-                  ConversationAgent
-                </th>
-                <th className="px-4 py-3 text-center font-semibold text-[var(--muted-foreground)]">
-                  Claude Code
-                </th>
-                <th className="px-4 py-3 text-center font-semibold text-[var(--muted-foreground)]">
-                  Cursor
-                </th>
-                <th className="px-4 py-3 text-center font-semibold text-[var(--muted-foreground)]">
-                  Aider
-                </th>
-                <th className="px-4 py-3 text-center font-semibold text-[var(--muted-foreground)]">
-                  Cline
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {featureRows.map((row, i) => (
-                <tr
-                  key={row.feature}
-                  className={`border-b border-[var(--border)] ${i % 2 === 0 ? 'bg-[var(--background)]' : 'bg-[var(--card)]/50'}`}
-                >
-                  <td className="px-4 py-3 text-[var(--foreground)]">{row.feature}</td>
-                  <td className="px-4 py-3 text-center">{row.agentRuntime ? <Check /> : <Cross />}</td>
-                  <td className="px-4 py-3 text-center">
-                    {row.claudeCode ? <Check /> : <Cross note={noteLabel(row.claudeCodeNote)} />}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {row.cursor ? <Check /> : <Cross note={noteLabel(row.cursorNote)} />}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {row.aider ? <Check /> : <Cross note={noteLabel(row.aiderNote)} />}
-                  </td>
-                  <td className="px-4 py-3 text-center">{row.cline ? <Check /> : <Cross />}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
 
       {/* Key differentiators */}
       <section className="mb-14">
@@ -150,18 +46,17 @@ export default async function ComparePage({ params }: { params: Promise<{ locale
             </div>
           ))}
         </div>
-      </section>
-
-      {/* When to choose something else */}
-      <section className="mb-14 rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="text-xl font-bold text-[var(--foreground)] mb-4">{t('whenElse.title')}</h2>
-        <ul className="space-y-3 text-sm text-[var(--muted-foreground)]">
-          {whenElseItems.map((item) => (
-            <li key={item.label}>
-              <strong className="text-[var(--foreground)]">{item.label}</strong> {item.body}
-            </li>
-          ))}
-        </ul>
+        <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          <a href="__PROJECT_DOCS_URL__/en/guide/providers/" target="_blank" rel="noopener noreferrer" className="text-[var(--primary)] hover:underline">
+            {t('proofLinks.providers')}
+          </a>
+          <a href="__PROJECT_DOCS_URL__/en/guide/local-llm/" target="_blank" rel="noopener noreferrer" className="text-[var(--primary)] hover:underline">
+            {t('proofLinks.local')}
+          </a>
+          <a href="__PROJECT_REPOSITORY_URL__/blob/main/LICENSING.md" target="_blank" rel="noopener noreferrer" className="text-[var(--primary)] hover:underline">
+            {t('proofLinks.license')}
+          </a>
+        </div>
       </section>
 
       <div className="text-center">

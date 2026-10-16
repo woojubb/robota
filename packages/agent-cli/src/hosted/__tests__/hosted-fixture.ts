@@ -1,7 +1,7 @@
 import { generateKeyPairSync, sign } from 'node:crypto';
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -16,7 +16,8 @@ import type {
 } from '../hosted-runtime-types.js';
 
 export async function hostedFixture() {
-  const directory = mkdtempSync(join(tmpdir(), 'hosted-proof-'));
+  // Workers report symlink-resolved working directories (macOS tmpdir is under /private/var).
+  const directory = realpathSync(mkdtempSync(join(tmpdir(), 'hosted-proof-')));
   const keys = generateKeyPairSync('ed25519');
   let transform = (proof: Omit<IHostedAdmissionProof, 'signature'>): unknown => proof;
   let replay: ((proof: IHostedAdmissionProof) => unknown) | undefined;

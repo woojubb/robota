@@ -1,7 +1,15 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { Metadata } from 'next';
+import { getMarketingMetadata } from '@/lib/marketing';
 
-export const metadata: Metadata = { title: 'Roadmap' };
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return getMarketingMetadata(locale === 'ko' ? 'ko' : 'en', 'roadmap');
+}
 
 export default async function RoadmapPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;

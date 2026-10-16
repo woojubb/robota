@@ -3,10 +3,11 @@
 import { InternalLink } from './ui';
 import { useLocale, useTranslations } from 'next-intl';
 import { productPublicConfig } from '@/lib/product-config.generated';
+import { marketingPath, type MarketingLocale } from '@/lib/marketing';
 
 export function Footer() {
   const t = useTranslations('common');
-  const locale = useLocale();
+  const locale: MarketingLocale = useLocale() === 'ko' ? 'ko' : 'en';
   const docsUrl = productPublicConfig.identity.docsUrl?.replace(/\/+$/u, '');
   const externalLinks = [
     docsUrl && {
@@ -14,7 +15,11 @@ export function Footer() {
       href: `${docsUrl}/${locale}/`,
     },
     docsUrl && {
-      key: 'gettingStarted',
+      key: 'sdkGuide',
+      href: `${docsUrl}/en/guide/sdk/`,
+    },
+    docsUrl && {
+      key: 'cliGuide',
       href: `${docsUrl}/${locale}/getting-started/`,
     },
     productPublicConfig.identity.repositoryUrl && {
@@ -26,7 +31,7 @@ export function Footer() {
   return (
     <footer className="border-t border-[var(--border)] bg-[var(--background)]">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+        <div className="site-footer-grid grid grid-cols-2 gap-8 md:grid-cols-4">
           <div className="col-span-2 md:col-span-1">
             <p className="text-lg font-bold text-[var(--foreground)]">
               {productPublicConfig.identity.displayName}
@@ -41,7 +46,7 @@ export function Footer() {
             <ul className="mt-3 space-y-2">
               <li>
                 <InternalLink
-                  href={`/${locale}/compare`}
+                  href={marketingPath(locale, 'compare')}
                   className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   {t('footer.links.whyProduct')}
@@ -49,7 +54,7 @@ export function Footer() {
               </li>
               <li>
                 <InternalLink
-                  href={`/${locale}/showcase`}
+                  href={marketingPath(locale, 'showcase')}
                   className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   {t('footer.links.showcase')}
@@ -57,7 +62,7 @@ export function Footer() {
               </li>
               <li>
                 <InternalLink
-                  href={`/${locale}/roadmap`}
+                  href={marketingPath(locale, 'roadmap')}
                   className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   {t('footer.links.roadmap')}
@@ -99,7 +104,7 @@ export function Footer() {
             <ul className="mt-3 space-y-2">
               <li>
                 <InternalLink
-                  href={`/${locale}/enterprise`}
+                  href={marketingPath(locale, 'enterprise')}
                   className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   {t('footer.links.enterprise')}

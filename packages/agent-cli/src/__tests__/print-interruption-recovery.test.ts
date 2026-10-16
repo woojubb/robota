@@ -69,7 +69,8 @@ describe.runIf(process.platform === 'linux' || process.platform === 'darwin')('p
         catch (error) { expect((error as NodeJS.ErrnoException).code).toBe('ESRCH'); }
       }, { timeout: 6_000, interval: 100 });
 
-      const sessions = join(workspace, '.robota', 'sessions');
+      // Only Linux can prove a project write stays under the trusted root; elsewhere sessions go to the user store.
+      const sessions = process.platform === 'linux' ? join(workspace, '.robota', 'sessions') : join(state, 'sessions');
       const file = readdirSync(sessions).find((name) => name.endsWith('.json'));
       expect(file).toBeDefined();
       const envelope = JSON.parse(readFileSync(join(sessions, file!), 'utf8')) as { record: {
