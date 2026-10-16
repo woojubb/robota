@@ -2,7 +2,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { constants } from 'node:fs';
+import { constants, realpathSync } from 'node:fs';
 import { appendFile, lstat, mkdir, mkdtemp, open, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -521,9 +521,14 @@ async function walk(root, relativePath = '') {
   return files;
 }
 
+// Git reports its top level symlink-resolved, so a source reached through a symlink still names the root.
+function isSameDirectory(left, right) {
+  return realpathSync(left) === realpathSync(right);
+}
+
 function getTrackedSourceFiles(sourceRoot) {
   const topLevel = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: sourceRoot, encoding: 'utf8' });
-  if (topLevel.status !== 0 || path.resolve(topLevel.stdout.trim()) !== path.resolve(sourceRoot)) return null;
+  if (topLevel.status !== 0 || !isSameDirectory(topLevel.stdout.trim(), sourceRoot)) return null;
   const result = spawnSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
     cwd: sourceRoot,
     encoding: 'utf8',
@@ -562,7 +567,7 @@ function gitNulPaths(sourceRoot, args) {
 }
 
 function committedSource(sourceRoot) {
-  if (path.resolve(gitResult(sourceRoot, ['rev-parse', '--show-toplevel'])) !== path.resolve(sourceRoot))
+  if (!isSameDirectory(gitResult(sourceRoot, ['rev-parse', '--show-toplevel']), sourceRoot))
     throw new Error('Committed-tree mode requires the source to be the Git repository root.');
   if (gitResult(sourceRoot, ['status', '--porcelain', '--untracked-files=all']))
     throw new Error('Committed-tree mode requires a clean checkout.');
@@ -577,7 +582,7 @@ function committedSource(sourceRoot) {
 
 function workingSourceProvenance(sourceRoot) {
   const top = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: sourceRoot, encoding: 'utf8' });
-  if (top.status !== 0 || path.resolve(top.stdout.trim()) !== path.resolve(sourceRoot))
+  if (top.status !== 0 || !isSameDirectory(top.stdout.trim(), sourceRoot))
     return { commit: null, tree: null, dirty: null };
   return {
     commit: gitResult(sourceRoot, ['rev-parse', 'HEAD']),

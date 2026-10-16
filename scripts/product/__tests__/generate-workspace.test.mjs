@@ -100,6 +100,20 @@ it('refuses credential-like npmrc settings and unrelated outer repositories', as
   await expect(generateWorkspaceFromConfig({ sourceRoot: nested, outDir: path.join(root, 'nested-out'), config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config), sourceMode: 'clean-tree' })).rejects.toThrow('repository root');
 });
 
+it('accepts a repository root reached through a symlink in both source modes', async () => {
+  const root = await temporaryRoot();
+  const source = await tinyCommittedSource(root);
+  const linked = path.join(root, 'linked-source');
+  await symlink(source, linked);
+  const config = resolveTestConfig({ scope: '@cedar', displayName: 'Cedar' });
+  for (const sourceMode of ['clean-tree', 'working']) {
+    const out = path.join(root, `out-${sourceMode}`);
+    await generateWorkspaceFromConfig({ sourceRoot: linked, outDir: out, config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config), sourceMode });
+    expect(JSON.parse(await readFile(path.join(out, '.product/source.json'), 'utf8'))).toMatchObject({ mode: sourceMode, commit: expect.stringMatching(/^[a-f0-9]{40}$/u) });
+    expect(await readdir(out)).not.toContain('.git');
+  }
+});
+
 it('ignores package manifests and templates outside the committed inventory', async () => {
   const root = await temporaryRoot();
   const source = await tinyCommittedSource(root);
