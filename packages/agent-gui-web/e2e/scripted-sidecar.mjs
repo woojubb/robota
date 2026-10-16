@@ -31,11 +31,11 @@
  */
 
 import { spawn } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { connect, createServer } from 'node:net';
-import { basename } from 'node:path';
+import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { AuthenticationError } from '@robota-sdk/agent-core';
@@ -143,11 +143,18 @@ async function daemonStart(restricted) {
   process.exit(0);
 }
 
-/** `trust status --json` / `trust --yes`, when the test gives the folder's trust a file to live in. */
+/**
+ * `trust status --json` / `trust --yes`, when the test gives the folder's trust a file to live in:
+ * `$PRODUCT_E2E_TRUST_FILE` for one shared file, or `$PRODUCT_E2E_TRUST_DIR` for one file per folder (the
+ * folder the CLI is run in), as the real CLI's grants are.
+ */
 function trust(command) {
-  const trustFile = process.env.PRODUCT_E2E_TRUST_FILE;
+  const trustDir = process.env.PRODUCT_E2E_TRUST_DIR;
+  const trustFile = trustDir
+    ? join(trustDir, createHash('sha256').update(process.cwd()).digest('hex'))
+    : process.env.PRODUCT_E2E_TRUST_FILE;
   if (!trustFile) {
-    process.stderr.write(line('scripted-sidecar: PRODUCT_E2E_TRUST_FILE required for trust'));
+    process.stderr.write(line('scripted-sidecar: PRODUCT_E2E_TRUST_FILE or PRODUCT_E2E_TRUST_DIR required for trust'));
     process.exit(1);
   }
   if (command === 'trust --yes') {
@@ -155,6 +162,9 @@ function trust(command) {
     process.stdout.write(line('Workspace trust: trusted'));
     process.exit(0);
   }
+  // A slow trust read, so a test can act while the app is waiting on it.
+  const delayMs = Number(process.env.PRODUCT_E2E_TRUST_STATUS_DELAY_MS ?? 0);
+  if (delayMs > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs);
   const trusted = existsSync(trustFile) && readFileSync(trustFile, 'utf8') === 'trusted';
   const workspace = process.cwd();
   process.stdout.write(

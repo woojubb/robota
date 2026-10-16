@@ -225,7 +225,30 @@ async function readTrustQuestion(): Promise<ITrustQuestion | undefined> {
 
 /** Asked and not answered yet: no daemon starts until the person answers (issue #3268). */
 let pendingTrust: ITrustQuestion | undefined;
-let answering = false;
+
+/**
+ * #3354: everything that depends on the open folder — the first start, a folder switch, a reconnect and
+ * a trust answer — runs one at a time. Otherwise a grant clicked while a switch is under way would land
+ * on a folder whose question nobody saw, or a reconnect's trust read for the previous folder would leave
+ * its question or provider references behind on the new one.
+ */
+let folderWork: Promise<unknown> = Promise.resolve();
+function inFolderOrder<T>(work: () => Promise<T>): Promise<T> {
+  const next = folderWork.then(work, work);
+  folderWork = next.catch(() => undefined);
+  return next;
+}
+
+/** The app's window, if one is open. On macOS the app and its menu outlive the last window. */
+function liveWindow(): BrowserWindow | undefined {
+  return BrowserWindow.getAllWindows().find((win) => !win.isDestroyed());
+}
+
+/** Rebuild the menu (Open Recent changes) for the open window, if any. */
+function refreshMenu(): void {
+  const win = liveWindow();
+  if (win) Menu.setApplicationMenu(buildMenu(win));
+}
 
 /**
  * Started once the app is ready, and again when the page asks to reconnect after the daemon stopped. The
@@ -271,33 +294,38 @@ function openSettingsMenuItem(win: BrowserWindow): MenuItemConstructorOptions {
   };
 }
 
+/** Run a menu action that opens a folder, reporting a failure rather than leaving it unhandled. */
+function openFolderFromMenu(choose: () => Promise<string | undefined>): void {
+  void choose()
+    .then((folder) => (folder === undefined ? undefined : openFolder(folder)))
+    .catch((error) => console.error('[agent-app] could not open the folder:', error));
+}
+
 /** File → Open Folder… (id `open-folder` so the e2e can click it through the main process). */
-function openFolderMenuItem(win: BrowserWindow): MenuItemConstructorOptions {
+function openFolderMenuItem(): MenuItemConstructorOptions {
   return {
     id: 'open-folder',
     label: 'Open Folder…',
     accelerator: 'CmdOrCtrl+O',
-    click: () => {
-      void pickFolder(win).then((folder) => (folder === undefined ? undefined : openFolder(win, folder)));
-    },
+    click: () => openFolderFromMenu(() => pickFolder(liveWindow())),
   };
 }
 
 /** File → Open Recent: the folders opened before, most recent first, and a way to forget them. */
-function openRecentMenuItem(win: BrowserWindow): MenuItemConstructorOptions {
+function openRecentMenuItem(): MenuItemConstructorOptions {
   const recent = readRecentFolders();
   return {
     id: 'open-recent',
     label: 'Open Recent',
     submenu: [
-      ...recent.map((folder) => ({ label: folder, click: () => void openFolder(win, folder) })),
+      ...recent.map((folder) => ({ label: folder, click: () => openFolderFromMenu(async () => folder) })),
       ...(recent.length > 0 ? [{ type: 'separator' } as const] : []),
       {
         label: 'Clear Recently Opened',
         enabled: recent.length > 0,
         click: () => {
-          writeFileSync(recentFoldersFile, '[]', { mode: 0o600 });
-          Menu.setApplicationMenu(buildMenu(win));
+          writeRecentFolders([]);
+          refreshMenu();
         },
       },
     ],
@@ -305,8 +333,8 @@ function openRecentMenuItem(win: BrowserWindow): MenuItemConstructorOptions {
 }
 
 /** The File menu's folder items; a remote task has no local folder to open. */
-function folderMenuItems(win: BrowserWindow): MenuItemConstructorOptions[] {
-  return remoteMode ? [] : [openFolderMenuItem(win), openRecentMenuItem(win)];
+function folderMenuItems(): MenuItemConstructorOptions[] {
+  return remoteMode ? [] : [openFolderMenuItem(), openRecentMenuItem()];
 }
 
 /**
@@ -359,13 +387,13 @@ function buildMenu(win: BrowserWindow): Menu {
           } satisfies MenuItemConstructorOptions,
           ...(remoteMode
             ? []
-            : [{ label: 'File', submenu: folderMenuItems(win) } satisfies MenuItemConstructorOptions]),
+            : [{ label: 'File', submenu: folderMenuItems() } satisfies MenuItemConstructorOptions]),
         ]
       : [
           {
             label: '&File',
             submenu: [
-              ...folderMenuItems(win),
+              ...folderMenuItems(),
               ...(remoteMode ? [] : [{ type: 'separator' } as const]),
               { role: 'quit' },
             ],
@@ -389,38 +417,57 @@ async function pickFolder(win?: BrowserWindow): Promise<string | undefined> {
   return result.canceled ? undefined : result.filePaths[0];
 }
 
-/** Make `folder` the open one: remembered first in Open Recent, and named in the window title. */
-function useFolder(win: BrowserWindow | undefined, folder: string): void {
-  workspaceFolder = folder;
+function writeRecentFolders(folders: readonly string[]): void {
   try {
-    writeFileSync(recentFoldersFile, JSON.stringify(rememberRecentFolder(readRecentFolders(), folder)), {
-      mode: 0o600,
-    });
+    writeFileSync(recentFoldersFile, JSON.stringify(folders), { mode: 0o600 });
   } catch (error) {
     // allow-fallback: an unwritable recent list must not stop the folder from opening
-    console.error('[agent-app] could not remember the recent folder:', error);
-  }
-  if (win && !win.isDestroyed()) {
-    win.setTitle(windowTitle(app.name, folder));
-    Menu.setApplicationMenu(buildMenu(win));
+    console.error('[agent-app] could not save the recent folders:', error);
   }
 }
 
+/** Make `folder` the open one: remembered first in Open Recent, and named in the window title. */
+function useFolder(folder: string): void {
+  workspaceFolder = folder;
+  writeRecentFolders(rememberRecentFolder(readRecentFolders(), folder));
+  const win = liveWindow();
+  win?.setTitle(windowTitle(app.name, folder));
+  refreshMenu();
+}
+
 /**
- * Switch this window to another folder (#3354). The first folder's daemon keeps running — daemons are per
- * folder — and this window attaches to the chosen folder's daemon, starting it when none is live. A
- * Restricted choice belonged to the previous folder, so the new one is asked about afresh.
+ * Switch to another folder (#3354). The first folder's daemon keeps running — daemons are per folder —
+ * and the window attaches to the chosen folder's daemon, starting it when none is live. Every answer
+ * about the previous folder (its trust question, a Restricted choice, its admitted provider references)
+ * is dropped first, so the new folder is asked about afresh. With no window open (macOS), a new window
+ * opens on the chosen folder.
  */
-async function openFolder(win: BrowserWindow, folder: string): Promise<void> {
-  if (remoteMode || answering || folder === workspaceFolder) return;
-  // A start still running belongs to the previous folder; let it settle before asking for this one.
-  await daemon.current()?.catch(() => undefined);
-  useFolder(win, folder);
-  restricted = false;
-  admittedProviderEnvironmentReferences = [];
-  pendingTrust = await readTrustQuestion();
-  if (pendingTrust === undefined) await daemon.start();
-  if (!win.isDestroyed()) win.webContents.reload();
+async function openFolder(folder: string): Promise<void> {
+  if (remoteMode) return;
+  const openWindow = await inFolderOrder(async () => {
+    if (folder === workspaceFolder) return false;
+    if (!isDirectory(folder)) {
+      writeRecentFolders(readRecentFolders().filter((recent) => recent !== folder));
+      refreshMenu();
+      const message = { type: 'warning' as const, message: 'That folder no longer exists.', detail: folder };
+      const win = liveWindow();
+      await (win ? dialog.showMessageBox(win, message) : dialog.showMessageBox(message));
+      return false;
+    }
+    pendingTrust = undefined;
+    restricted = false;
+    admittedProviderEnvironmentReferences = [];
+    // A start still running belongs to the previous folder; let it settle before asking for this one.
+    await daemon.current()?.catch(() => undefined);
+    useFolder(folder);
+    const win = liveWindow();
+    if (!win) return true;
+    pendingTrust = await readTrustQuestion();
+    if (pendingTrust === undefined) await daemon.start();
+    if (!win.isDestroyed()) win.webContents.reload();
+    return false;
+  });
+  if (openWindow) await createWindow();
 }
 
 async function createWindow(): Promise<void> {
@@ -437,14 +484,16 @@ async function createWindow(): Promise<void> {
       app.quit();
       return;
     }
-    useFolder(undefined, initial);
+    useFolder(initial);
   }
 
   // In a folder not trusted yet the daemon would be refused; the person in front is asked first.
-  const started = readTrustQuestion().then((question) => {
-    pendingTrust = question;
-    return question === undefined ? daemon.start() : undefined;
-  });
+  const started = inFolderOrder(() =>
+    readTrustQuestion().then((question) => {
+      pendingTrust = question;
+      return question === undefined ? daemon.start() : undefined;
+    }),
+  );
 
   const win = new BrowserWindow({
     width: 1100,
@@ -494,17 +543,19 @@ ipcMain.handle('agent-gui:endpoint', async (event): Promise<string | null> => {
  * again — it starts a daemon or reuses a live one — then reload the page, so the CSP and the endpoint it
  * asks for are the new daemon's. A start that fails reloads too, into the fatal screen with the reason.
  */
-ipcMain.handle('agent-gui:restart', async (event): Promise<void> => {
-  // Nothing starts before the trust question is answered.
-  if (pendingTrust !== undefined) return;
-  if (restricted) {
-    admittedProviderEnvironmentReferences = [];
-  } else {
-    pendingTrust = await readTrustQuestion();
-  }
-  if (pendingTrust === undefined) await daemon.start();
-  if (!event.sender.isDestroyed()) event.sender.reload();
-});
+ipcMain.handle('agent-gui:restart', (event): Promise<void> =>
+  inFolderOrder(async () => {
+    // Nothing starts before the trust question is answered.
+    if (pendingTrust !== undefined) return;
+    if (restricted) {
+      admittedProviderEnvironmentReferences = [];
+    } else {
+      pendingTrust = await readTrustQuestion();
+    }
+    if (pendingTrust === undefined) await daemon.start();
+    if (!event.sender.isDestroyed()) event.sender.reload();
+  }),
+);
 
 /** The question the page shows before anything starts, or `null` when there is none. */
 ipcMain.handle('agent-gui:trust-question', (): ITrustQuestion | null => pendingTrust ?? null);
@@ -557,13 +608,16 @@ ipcMain.handle(
 ipcMain.handle(
   'agent-gui:trust-answer',
   async (event, choice: unknown): Promise<{ error?: string }> => {
-    if (pendingTrust === undefined || answering || !isTrustChoice(choice)) return {};
+    // The answer is about the question on screen when it was given; it applies to nothing else.
+    const asked = pendingTrust;
+    if (asked === undefined || !isTrustChoice(choice)) return {};
     if (choice === 'quit') {
       app.quit();
       return {};
     }
-    answering = true;
-    try {
+    return inFolderOrder(async () => {
+      // A folder switch, or an earlier answer, since then has replaced that question: this one is stale.
+      if (pendingTrust !== asked) return {};
       if (choice === 'trust') {
         const granted = await runCli(productCli(), ['trust', '--yes'], cliEnv());
         if (!granted.spawned) return { error: granted.detail };
@@ -586,9 +640,7 @@ ipcMain.handle(
       await daemon.start();
       if (!event.sender.isDestroyed()) event.sender.reload();
       return {};
-    } finally {
-      answering = false;
-    }
+    });
   },
 );
 
