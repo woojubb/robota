@@ -11,7 +11,7 @@ import {
   loadDesktopRemoteConfig,
   REMOTE_RUNTIME_FAILURE,
 } from './remote-runtime.js';
-import { mkdirSync, statSync } from 'node:fs';
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -31,14 +31,18 @@ import {
   buildContentSecurityPolicy,
   buildDaemonStartSpawn,
   buildPickedFiles,
+  chooseInitialWorkspace,
   createDaemonAttachment,
   describeDaemonStartFailure,
   isTrustChoice,
   parseDaemonStartOutput,
+  parseRecentFolders,
   parseTrustStatusOutput,
   parseTrustedProviderEnvironmentReferences,
+  rememberRecentFolder,
   resolveOpenPathTarget,
   resolveSidecarCommand,
+  windowTitle,
   type IPickedFile,
   type ITrustQuestion,
   type TDaemonStart,
@@ -77,6 +81,32 @@ const desktopUserData = desktopUserDataPath(productConfig);
 mkdirSync(desktopUserData, { recursive: true, mode: 0o700 });
 app.setPath('userData', desktopUserData);
 
+/**
+ * #3354: the folder this window works on. Every CLI run — trust status, the grant, the daemon start —
+ * happens in it, so the daemon serves the folder the person chose, not wherever the app was launched.
+ * Unset only until the first window picks one.
+ */
+let workspaceFolder: string | undefined;
+const recentFoldersFile = join(desktopUserData, 'recent-folders.json');
+
+function readRecentFolders(): string[] {
+  try {
+    return parseRecentFolders(readFileSync(recentFoldersFile, 'utf8'));
+  } catch {
+    // allow-fallback: no list yet (or an unreadable one) means no recent folders
+    return [];
+  }
+}
+
+function isDirectory(path: string): boolean {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    // allow-fallback: a recent folder that was removed or unmounted is skipped, not an error
+    return false;
+  }
+}
+
 // GUI-003: packaged → the configured bundled runtime; dev/e2e → explicit fixture override / configured PATH CLI.
 const productCli = (): string =>
   resolveSidecarCommand({
@@ -96,7 +126,7 @@ type TCliRun =
     }
   | { readonly spawned: false; readonly detail: string };
 
-/** Run the CLI in this process's cwd and env, and read what it said. */
+/** Run the CLI in the open workspace folder with `env`, and read what it said. */
 function runCli(
   command: string,
   args: readonly string[],
@@ -105,7 +135,11 @@ function runCli(
   return new Promise((resolve) => {
     let stdout = '';
     let stderr = '';
-    const child = spawn(command, [...args], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(command, [...args], {
+      env,
+      ...(workspaceFolder === undefined ? {} : { cwd: workspaceFolder }),
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
     child.stdout.on('data', (chunk: Buffer) => {
       stdout = appendOutputTail(stdout, chunk.toString('utf8'));
     });
@@ -237,6 +271,44 @@ function openSettingsMenuItem(win: BrowserWindow): MenuItemConstructorOptions {
   };
 }
 
+/** File → Open Folder… (id `open-folder` so the e2e can click it through the main process). */
+function openFolderMenuItem(win: BrowserWindow): MenuItemConstructorOptions {
+  return {
+    id: 'open-folder',
+    label: 'Open Folder…',
+    accelerator: 'CmdOrCtrl+O',
+    click: () => {
+      void pickFolder(win).then((folder) => (folder === undefined ? undefined : openFolder(win, folder)));
+    },
+  };
+}
+
+/** File → Open Recent: the folders opened before, most recent first, and a way to forget them. */
+function openRecentMenuItem(win: BrowserWindow): MenuItemConstructorOptions {
+  const recent = readRecentFolders();
+  return {
+    id: 'open-recent',
+    label: 'Open Recent',
+    submenu: [
+      ...recent.map((folder) => ({ label: folder, click: () => void openFolder(win, folder) })),
+      ...(recent.length > 0 ? [{ type: 'separator' } as const] : []),
+      {
+        label: 'Clear Recently Opened',
+        enabled: recent.length > 0,
+        click: () => {
+          writeFileSync(recentFoldersFile, '[]', { mode: 0o600 });
+          Menu.setApplicationMenu(buildMenu(win));
+        },
+      },
+    ],
+  };
+}
+
+/** The File menu's folder items; a remote task has no local folder to open. */
+function folderMenuItems(win: BrowserWindow): MenuItemConstructorOptions[] {
+  return remoteMode ? [] : [openFolderMenuItem(win), openRecentMenuItem(win)];
+}
+
 /**
  * A complete standard application menu — setting one at all REPLACES Electron's own default, so this
  * covers every role a person expects (Edit's cut/copy/paste keeps the composer's normal shortcuts
@@ -285,8 +357,20 @@ function buildMenu(win: BrowserWindow): Menu {
               { role: 'quit' },
             ],
           } satisfies MenuItemConstructorOptions,
+          ...(remoteMode
+            ? []
+            : [{ label: 'File', submenu: folderMenuItems(win) } satisfies MenuItemConstructorOptions]),
         ]
-      : [{ label: '&File', submenu: [{ role: 'quit' }] } satisfies MenuItemConstructorOptions]),
+      : [
+          {
+            label: '&File',
+            submenu: [
+              ...folderMenuItems(win),
+              ...(remoteMode ? [] : [{ type: 'separator' } as const]),
+              { role: 'quit' },
+            ],
+          } satisfies MenuItemConstructorOptions,
+        ]),
     { label: isMac ? 'Edit' : '&Edit', submenu: editSubmenu },
     { label: isMac ? 'View' : '&View', submenu: viewSubmenu },
     { role: 'windowMenu' },
@@ -294,7 +378,68 @@ function buildMenu(win: BrowserWindow): Menu {
   return Menu.buildFromTemplate(template);
 }
 
+/** Ask for a folder with the native dialog, modal to `win` when there is one. Cancel answers `undefined`. */
+async function pickFolder(win?: BrowserWindow): Promise<string | undefined> {
+  const options = {
+    title: 'Open Folder',
+    buttonLabel: 'Open',
+    properties: ['openDirectory', 'createDirectory'] as Array<'openDirectory' | 'createDirectory'>,
+  };
+  const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+  return result.canceled ? undefined : result.filePaths[0];
+}
+
+/** Make `folder` the open one: remembered first in Open Recent, and named in the window title. */
+function useFolder(win: BrowserWindow | undefined, folder: string): void {
+  workspaceFolder = folder;
+  try {
+    writeFileSync(recentFoldersFile, JSON.stringify(rememberRecentFolder(readRecentFolders(), folder)), {
+      mode: 0o600,
+    });
+  } catch (error) {
+    // allow-fallback: an unwritable recent list must not stop the folder from opening
+    console.error('[agent-app] could not remember the recent folder:', error);
+  }
+  if (win && !win.isDestroyed()) {
+    win.setTitle(windowTitle(app.name, folder));
+    Menu.setApplicationMenu(buildMenu(win));
+  }
+}
+
+/**
+ * Switch this window to another folder (#3354). The first folder's daemon keeps running — daemons are per
+ * folder — and this window attaches to the chosen folder's daemon, starting it when none is live. A
+ * Restricted choice belonged to the previous folder, so the new one is asked about afresh.
+ */
+async function openFolder(win: BrowserWindow, folder: string): Promise<void> {
+  if (remoteMode || answering || folder === workspaceFolder) return;
+  // A start still running belongs to the previous folder; let it settle before asking for this one.
+  await daemon.current()?.catch(() => undefined);
+  useFolder(win, folder);
+  restricted = false;
+  admittedProviderEnvironmentReferences = [];
+  pendingTrust = await readTrustQuestion();
+  if (pendingTrust === undefined) await daemon.start();
+  if (!win.isDestroyed()) win.webContents.reload();
+}
+
 async function createWindow(): Promise<void> {
+  if (!remoteMode && workspaceFolder === undefined) {
+    const initial =
+      chooseInitialWorkspace({
+        isPackaged: app.isPackaged,
+        launchCwd: process.cwd(),
+        recentFolders: readRecentFolders(),
+        isDirectory,
+      }) ?? (await pickFolder());
+    // Nothing to work on: the person closed the folder dialog, so there is nothing to show either.
+    if (initial === undefined) {
+      app.quit();
+      return;
+    }
+    useFolder(undefined, initial);
+  }
+
   // In a folder not trusted yet the daemon would be refused; the person in front is asked first.
   const started = readTrustQuestion().then((question) => {
     pendingTrust = question;
@@ -314,6 +459,9 @@ async function createWindow(): Promise<void> {
   });
   lockNavigation(win);
   Menu.setApplicationMenu(buildMenu(win));
+  // The title names the open folder; the page's own <title> must not replace it.
+  win.on('page-title-updated', (event) => event.preventDefault());
+  win.setTitle(windowTitle(app.name, remoteMode ? undefined : workspaceFolder));
   win.once('ready-to-show', () => win.show());
 
   // The CSP is fixed when the page loads, so the page loads once the daemon's port is known. A failed
@@ -393,7 +541,8 @@ ipcMain.handle(
   async (_event, path: unknown): Promise<{ error?: string }> => {
     if (remoteMode) return { error: 'Remote task paths cannot open files on this computer.' };
     if (typeof path !== 'string') return { error: 'path must be a string' };
-    const target = resolveOpenPathTarget(process.cwd(), path);
+    if (workspaceFolder === undefined) return { error: 'No folder is open.' };
+    const target = resolveOpenPathTarget(workspaceFolder, path);
     if (target === undefined) return { error: 'That path is outside the workspace.' };
     const error = await shell.openPath(target);
     return error ? { error } : {};
@@ -470,6 +619,15 @@ app.on('before-quit', (event) => {
 // Closing the window leaves the daemon running: it is the workspace's, and the next launch reattaches.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+// #3354: on macOS the app outlives its last window; clicking the Dock icon opens a new one on the same
+// folder, which reattaches to that folder's live daemon.
+app.on('activate', () => {
+  if (!app.isReady() || BrowserWindow.getAllWindows().length > 0) return;
+  createWindow().catch((error) => {
+    console.error('[agent-app] failed to reopen the main window:', error);
+  });
 });
 
 // Never open external URLs inside the app.

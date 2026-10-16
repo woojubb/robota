@@ -15,8 +15,9 @@
  * and deletes a stored session (#3289 §1), and its status snapshot carries a workspace folder.
  *
  * Run as `daemon start --json` (how the desktop app attaches) it plays the CLI's daemon starter instead: it
- * reuses the daemon recorded in `$PRODUCT_E2E_DAEMON_STATE` while that process lives, or starts itself
- * detached as a new one, and prints the `{id,url}` line. `PRODUCT_E2E_DAEMON_FAIL=1` makes it refuse the way
+ * reuses the daemon recorded in `$PRODUCT_E2E_DAEMON_STATE` while that process lives and serves the folder
+ * it was run in (recorded as `workspace`), or starts itself detached as a new one, and prints the `{id,url}`
+ * line. `PRODUCT_E2E_DAEMON_FAIL=1` makes it refuse the way
  * an untrusted workspace does, as does the file `$PRODUCT_E2E_DAEMON_FAIL_FILE` once it exists (so a start
  * the app asks for later can fail while the first succeeded). With `$PRODUCT_E2E_TRUST_FILE` set it also
  * plays `trust status --json` (askable until the file says `trusted`) and `trust --yes` (writes it), and a
@@ -99,7 +100,9 @@ async function daemonStart(restricted) {
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
   }
-  if (recorded && Number.isInteger(recorded.pid) && isAlive(recorded.pid)) {
+  // Daemons are per folder, as the real CLI's are: a live daemon is reused only for the folder it serves.
+  const workspace = process.cwd();
+  if (recorded && recorded.workspace === workspace && Number.isInteger(recorded.pid) && isAlive(recorded.pid)) {
     process.stdout.write(line(JSON.stringify({ id: recorded.id, url: recorded.url })));
     process.exit(0);
   }
@@ -125,6 +128,7 @@ async function daemonStart(restricted) {
     pid: child.pid,
     id: 'scripted-daemon',
     url,
+    workspace,
     restricted,
     providerEnvironment: {
       customProviderKey: process.env.CUSTOM_PROVIDER_KEY,

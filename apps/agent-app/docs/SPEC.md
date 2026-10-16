@@ -20,8 +20,10 @@ that package's build output.
 - The renderer is hardened: context isolation, no Node integration, sandboxed, loads only local
   content, a CSP restricted to `self` plus the loopback WebSocket origin, and navigation/new-window
   lockdown — so the nonce-holding renderer cannot carry the session to an external origin.
-- The daemon belongs to the workspace, not the window: closing the window leaves it running, and the
-  next launch reattaches to the same daemon and its conversation. In a folder not trusted yet the window
+- The daemon belongs to the folder the person opened, not to the window or to the folder the app
+  process happened to start in: every CLI run happens in that folder, closing the window or switching
+  folders leaves its daemon running, and reopening the folder reattaches to the same daemon and its
+  conversation. In a folder not trusted yet the window
   asks the person before any daemon starts (trust it, start Restricted, or quit), because the daemon has
   no one to ask and would be refused; whether to ask is the CLI's answer, never the shell's guess. When
   the daemon cannot be started, the window still opens and shows the CLI's reason (which names the fix)

@@ -9,15 +9,20 @@ import {
   buildContentSecurityPolicy,
   buildDaemonStartSpawn,
   buildPickedFiles,
+  chooseInitialWorkspace,
   createDaemonAttachment,
   describeDaemonStartFailure,
   isTrustChoice,
   OUTPUT_TAIL_LIMIT,
   parseDaemonStartOutput,
+  parseRecentFolders,
   parseTrustStatusOutput,
   parseTrustedProviderEnvironmentReferences,
+  RECENT_FOLDER_LIMIT,
+  rememberRecentFolder,
   resolveOpenPathTarget,
   resolveSidecarCommand,
+  windowTitle,
   type TDaemonStart,
 } from '../sidecar.js';
 
@@ -342,5 +347,53 @@ describe('buildContentSecurityPolicy (#3189)', () => {
 
   it('lets the page reach nothing when there is no daemon', () => {
     expect(buildContentSecurityPolicy(undefined)).toContain("connect-src 'none';");
+  });
+});
+
+describe('#3354: which folder the app works on', () => {
+  const folders = new Set(['/work/alpha', '/work/beta']);
+  const isDirectory = (path: string) => folders.has(path);
+
+  it('keeps a dev or e2e run on the folder it was started from', () => {
+    expect(
+      chooseInitialWorkspace({ isPackaged: false, launchCwd: '/repo', recentFolders: ['/work/alpha'], isDirectory }),
+    ).toBe('/repo');
+  });
+
+  it('never opens a packaged app on its launch folder, such as / from Finder or the Dock', () => {
+    expect(chooseInitialWorkspace({ isPackaged: true, launchCwd: '/', recentFolders: [], isDirectory: () => true })).toBeUndefined();
+  });
+
+  it('reopens the most recent folder that still exists in a packaged app', () => {
+    expect(
+      chooseInitialWorkspace({
+        isPackaged: true,
+        launchCwd: '/',
+        recentFolders: ['/work/removed', 'relative/path', '/work/beta', '/work/alpha'],
+        isDirectory,
+      }),
+    ).toBe('/work/beta');
+  });
+
+  it('moves an opened folder to the front of the recent list once, within the limit', () => {
+    expect(rememberRecentFolder(['/a', '/b', '/c'], '/b')).toEqual(['/b', '/a', '/c']);
+    const full = Array.from({ length: RECENT_FOLDER_LIMIT }, (_, index) => `/f${index}`);
+    const next = rememberRecentFolder(full, '/new');
+    expect(next).toHaveLength(RECENT_FOLDER_LIMIT);
+    expect(next[0]).toBe('/new');
+    expect(next).not.toContain(`/f${RECENT_FOLDER_LIMIT - 1}`);
+  });
+
+  it('reads a damaged or foreign recent list as empty and keeps only absolute paths', () => {
+    expect(parseRecentFolders(undefined)).toEqual([]);
+    expect(parseRecentFolders('not json')).toEqual([]);
+    expect(parseRecentFolders('{"folders":[]}')).toEqual([]);
+    expect(parseRecentFolders('["/a", 3, "rel", "/b"]')).toEqual(['/a', '/b']);
+  });
+
+  it('names the open folder in the window title', () => {
+    expect(windowTitle('Robota', '/work/alpha')).toBe('alpha — Robota');
+    expect(windowTitle('Robota', '/')).toBe('/ — Robota');
+    expect(windowTitle('Robota', undefined)).toBe('Robota');
   });
 });

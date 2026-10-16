@@ -15,9 +15,9 @@
  * Run: `pnpm --filter @robota-sdk/agent-app test:e2e` (wraps this in `xvfb-run`; on macOS run it with node).
  */
 
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import electronPath from 'electron';
@@ -79,9 +79,10 @@ const isAlive = (pid) => {
   }
 };
 
-const launch = async (extraEnv = {}) => {
+const launch = async (extraEnv = {}, { cwd } = {}) => {
   const application = await electron.launch({
     executablePath: electronPath,
+    ...(cwd === undefined ? {} : { cwd }),
     args: ['--no-sandbox', '--disable-gpu', mainJs],
     // The shell runs the deterministic CLI fixture; state and trust are isolated to this test.
     env: {
@@ -305,6 +306,60 @@ try {
   } finally {
     await closeApplication(attach);
     rmSync(attachDir, { recursive: true, force: true });
+  }
+
+  // #3354: the app works on the folder the person chose, not the one its process was started in. The
+  // shell starts in an unrelated folder; File → Open Folder… (the native dialog stubbed in the main
+  // process) switches to the project, whose own daemon the window then attaches to, while the first
+  // folder's daemon keeps running.
+  stopRecordedDaemon();
+  const launchedIn = realpathSync(mkdtempSync(join(tmpdir(), 'agent-app-e2e-launched-')));
+  const chosenProject = realpathSync(mkdtempSync(join(tmpdir(), 'agent-app-e2e-project-')));
+  const folders = await launch({}, { cwd: launchedIn });
+  let launchedPid;
+  try {
+    const page = await folders.firstWindow();
+    await connected(page);
+    launchedPid = readDaemonPid();
+    check('#3354: a dev launch serves the folder it started in', readDaemon()?.workspace === launchedIn);
+    await folders.evaluate(({ dialog: electronDialog }, folder) => {
+      electronDialog.showOpenDialog = async () => ({ canceled: false, filePaths: [folder] });
+    }, chosenProject);
+    await folders.evaluate(({ Menu }) => Menu.getApplicationMenu()?.getMenuItemById('open-folder')?.click());
+    await page.waitForEvent('load', { timeout: 20_000 });
+    await connected(page);
+    check('#3354: Open Folder… starts the chosen folder\'s daemon and attaches to it', readDaemon()?.workspace === chosenProject);
+    check('#3354: the first folder\'s daemon keeps running after the switch', launchedPid !== readDaemonPid() && isAlive(launchedPid));
+    const title = await folders.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.getTitle());
+    check('#3354: the window title names the chosen folder', title?.startsWith(`${basename(chosenProject)} — `) === true);
+    const recent = await folders.evaluate(({ Menu }) =>
+      Menu.getApplicationMenu()?.getMenuItemById('open-recent')?.submenu?.items.map((item) => item.label),
+    );
+    check('#3354: Open Recent lists the chosen folder first', recent?.[0] === chosenProject);
+
+    if (process.platform === 'darwin') {
+      // The app outlives its last window on macOS; the Dock's `activate` opens a new one on the same folder.
+      await folders.evaluate(({ BrowserWindow }) => new Promise((resolve) => {
+        const win = BrowserWindow.getAllWindows()[0];
+        if (!win) return resolve(undefined);
+        win.once('closed', () => resolve(undefined));
+        win.close();
+      }));
+      const windowsLeft = await folders.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
+      check('#3354: closing the last window keeps the app running on macOS', windowsLeft === 0);
+      const reopened = folders.waitForEvent('window', { timeout: 20_000 });
+      await folders.evaluate(({ app }) => app.emit('activate'));
+      const second = await reopened;
+      await connected(second);
+      check('#3354: clicking the Dock icon reopens a window attached to the open folder', readDaemon()?.workspace === chosenProject);
+    }
+  } catch (err) {
+    check(`open-folder check threw: ${err?.message ?? err}`, false);
+  } finally {
+    await closeApplication(folders);
+    if (isAlive(launchedPid)) process.kill(launchedPid, 'SIGTERM');
+    rmSync(launchedIn, { recursive: true, force: true });
+    rmSync(chosenProject, { recursive: true, force: true });
   }
 
   const refused = await launch({ PRODUCT_E2E_DAEMON_FAIL: '1' });
