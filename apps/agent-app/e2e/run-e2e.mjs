@@ -15,9 +15,10 @@
  * Run: `pnpm --filter @robota-sdk/agent-app test:e2e` (wraps this in `xvfb-run`; on macOS run it with node).
  */
 
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import electronPath from 'electron';
@@ -79,9 +80,10 @@ const isAlive = (pid) => {
   }
 };
 
-const launch = async (extraEnv = {}) => {
+const launch = async (extraEnv = {}, { cwd } = {}) => {
   const application = await electron.launch({
     executablePath: electronPath,
+    ...(cwd === undefined ? {} : { cwd }),
     args: ['--no-sandbox', '--disable-gpu', mainJs],
     // The shell runs the deterministic CLI fixture; state and trust are isolated to this test.
     env: {
@@ -305,6 +307,140 @@ try {
   } finally {
     await closeApplication(attach);
     rmSync(attachDir, { recursive: true, force: true });
+  }
+
+  // #3354: the app works on the folder the person chose, not the one its process was started in. The
+  // shell starts in an unrelated folder; File → Open Folder… (the native dialog stubbed in the main
+  // process) switches to the project, whose own daemon the window then attaches to, while the first
+  // folder's daemon keeps running.
+  stopRecordedDaemon();
+  const launchedIn = realpathSync(mkdtempSync(join(tmpdir(), 'agent-app-e2e-launched-')));
+  const chosenProject = realpathSync(mkdtempSync(join(tmpdir(), 'agent-app-e2e-project-')));
+  const folders = await launch({}, { cwd: launchedIn });
+  let launchedPid;
+  try {
+    const page = await folders.firstWindow();
+    await connected(page);
+    launchedPid = readDaemonPid();
+    check('#3354: a dev launch serves the folder it started in', readDaemon()?.workspace === launchedIn);
+    await folders.evaluate(({ dialog: electronDialog }, folder) => {
+      electronDialog.showOpenDialog = async () => ({ canceled: false, filePaths: [folder] });
+    }, chosenProject);
+    await folders.evaluate(({ Menu }) => Menu.getApplicationMenu()?.getMenuItemById('open-folder')?.click());
+    await page.waitForEvent('load', { timeout: 20_000 });
+    await connected(page);
+    check('#3354: Open Folder… starts the chosen folder\'s daemon and attaches to it', readDaemon()?.workspace === chosenProject);
+    check('#3354: the first folder\'s daemon keeps running after the switch', launchedPid !== readDaemonPid() && isAlive(launchedPid));
+    const title = await folders.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.getTitle());
+    check('#3354: the window title names the chosen folder', title?.startsWith(`${basename(chosenProject)} — `) === true);
+    const recent = await folders.evaluate(({ Menu }) =>
+      Menu.getApplicationMenu()?.getMenuItemById('open-recent')?.submenu?.items.map((item) => item.label),
+    );
+    check('#3354: Open Recent lists the chosen folder first', recent?.[0] === chosenProject);
+
+    if (process.platform === 'darwin') {
+      // The app outlives its last window on macOS; the Dock's `activate` opens a new one on the same folder.
+      await folders.evaluate(({ BrowserWindow }) => new Promise((resolve) => {
+        const win = BrowserWindow.getAllWindows()[0];
+        if (!win) return resolve(undefined);
+        win.once('closed', () => resolve(undefined));
+        win.close();
+      }));
+      const windowsLeft = await folders.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
+      check('#3354: closing the last window keeps the app running on macOS', windowsLeft === 0);
+      const reopened = folders.waitForEvent('window', { timeout: 20_000 });
+      await folders.evaluate(({ app }) => app.emit('activate'));
+      const second = await reopened;
+      await connected(second);
+      check('#3354: clicking the Dock icon reopens a window attached to the open folder', readDaemon()?.workspace === chosenProject);
+    }
+  } catch (err) {
+    check(`open-folder check threw: ${err?.message ?? err}`, false);
+  } finally {
+    await closeApplication(folders);
+    if (isAlive(launchedPid)) process.kill(launchedPid, 'SIGTERM');
+    rmSync(launchedIn, { recursive: true, force: true });
+    rmSync(chosenProject, { recursive: true, force: true });
+  }
+
+  // #3354: switching folders drops every answer about the previous folder. Trust lives per folder here,
+  // as the real CLI's grants do: A is untrusted (answered Restricted), B was trusted beforehand, and C
+  // and D are untrusted. A trust click given while a switch is under way applies to no folder.
+  stopRecordedDaemon();
+  const trustDir = mkdtempSync(join(tmpdir(), 'agent-app-e2e-trust-'));
+  const trustFor = (folder) => join(trustDir, createHash('sha256').update(folder).digest('hex'));
+  const [folderA, folderB, folderC, folderD] = ['a', 'b', 'c', 'd'].map((name) =>
+    realpathSync(mkdtempSync(join(tmpdir(), `agent-app-e2e-folder-${name}-`))),
+  );
+  writeFileSync(trustFor(folderB), 'trusted');
+  const startedPids = [];
+  const switching = await launch(
+    {
+      PRODUCT_E2E_TRUST_DIR: trustDir,
+      CUSTOM_PROVIDER_KEY: 'synthetic-provider-reference',
+      PROVIDER_DESTINATION_URL: 'https://provider.example.test/api',
+      HTTPS_PROXY: 'https://proxy.example.test:8443',
+      // Every trust read takes a moment, so the test can click while a folder switch waits on one.
+      PRODUCT_E2E_TRUST_STATUS_DELAY_MS: '1500',
+    },
+    { cwd: folderA },
+  );
+  const chooseFolder = async (folder) => {
+    await switching.evaluate(({ dialog: electronDialog }, picked) => {
+      electronDialog.showOpenDialog = async () => ({ canceled: false, filePaths: [picked] });
+    }, folder);
+    await switching.evaluate(({ Menu }) => Menu.getApplicationMenu()?.getMenuItemById('open-folder')?.click());
+  };
+  try {
+    const page = await switching.firstWindow();
+    const question = page.getByRole('dialog', { name: 'Do you trust this folder?' });
+    await question.waitFor({ timeout: 20_000 });
+    await question.getByRole('button', { name: 'Start Restricted' }).click();
+    await connected(page);
+    startedPids.push(readDaemonPid());
+    check('#3354: folder A starts Restricted as answered', readDaemon()?.workspace === folderA && readDaemon()?.restricted === true);
+
+    let loaded = page.waitForEvent('load', { timeout: 20_000 });
+    await chooseFolder(folderB);
+    await loaded;
+    await connected(page);
+    startedPids.push(readDaemonPid());
+    check(
+      '#3354: a trusted folder opened after a Restricted one starts unrestricted, with its own provider references',
+      readDaemon()?.workspace === folderB &&
+        readDaemon()?.restricted === false &&
+        readDaemon()?.providerEnvironment?.customProviderKey === 'synthetic-provider-reference',
+    );
+
+    loaded = page.waitForEvent('load', { timeout: 20_000 });
+    await chooseFolder(folderC);
+    await loaded;
+    await question.waitFor({ timeout: 20_000 });
+    check(
+      '#3354: an untrusted folder opened after a trusted one is asked about, by name, before anything starts',
+      (await question.textContent())?.includes(folderC) === true && readDaemon()?.workspace === folderB,
+    );
+
+    // Switch to D, then click Trust on C's question while the switch waits on D's trust read: the
+    // answer was about C, which is being left, so it applies to neither C nor D (whose question was
+    // not shown yet).
+    loaded = page.waitForEvent('load', { timeout: 20_000 });
+    await chooseFolder(folderD);
+    await question.getByRole('button', { name: 'Trust folder' }).click();
+    await loaded;
+    await question.waitFor({ timeout: 20_000 });
+    await page.waitForFunction((folder) => document.body.textContent?.includes(folder), folderD, { timeout: 20_000 });
+    check(
+      '#3354: a trust answer given during a folder switch is not applied to either folder',
+      !existsSync(trustFor(folderC)) && !existsSync(trustFor(folderD)) && readDaemon()?.workspace === folderB,
+    );
+  } catch (err) {
+    check(`folder-switch trust check threw: ${err?.message ?? err}`, false);
+  } finally {
+    await closeApplication(switching);
+    for (const pid of startedPids) if (isAlive(pid)) process.kill(pid, 'SIGTERM');
+    rmSync(statePath, { force: true });
+    for (const folder of [trustDir, folderA, folderB, folderC, folderD]) rmSync(folder, { recursive: true, force: true });
   }
 
   const refused = await launch({ PRODUCT_E2E_DAEMON_FAIL: '1' });

@@ -115,6 +115,51 @@ export function resolveOpenPathTarget(cwd: string, path: string): string | undef
   return outside ? undefined : absolute;
 }
 
+/** How many folders File → Open Recent remembers. */
+export const RECENT_FOLDER_LIMIT = 10;
+
+/**
+ * The folder the app opens on launch, before anyone picks one (#3354). A dev or e2e run keeps the folder
+ * it was started from, which `pnpm app:dev` sets to the project. A packaged app never uses its own
+ * process cwd: started from Finder, the Dock, the Start menu or a launcher, that is `/` or the home
+ * directory, not a project. It reopens the most recent folder that still exists, or none — and then the
+ * person is asked.
+ */
+export function chooseInitialWorkspace(options: {
+  readonly isPackaged: boolean;
+  readonly launchCwd: string;
+  readonly recentFolders: readonly string[];
+  readonly isDirectory: (path: string) => boolean;
+}): string | undefined {
+  if (!options.isPackaged) return options.launchCwd;
+  return options.recentFolders.find((folder) => isAbsolute(folder) && options.isDirectory(folder));
+}
+
+/** The recent-folders list after opening `folder`: it moves to the front, once, within the limit. */
+export function rememberRecentFolder(recentFolders: readonly string[], folder: string): string[] {
+  return [folder, ...recentFolders.filter((existing) => existing !== folder)].slice(0, RECENT_FOLDER_LIMIT);
+}
+
+/** Read the stored recent-folders list; anything that is not a list of absolute paths reads as empty. */
+export function parseRecentFolders(text: string | undefined): string[] {
+  if (text === undefined) return [];
+  try {
+    const value: unknown = JSON.parse(text);
+    if (!Array.isArray(value)) return [];
+    return value
+      .filter((entry): entry is string => typeof entry === 'string' && isAbsolute(entry))
+      .slice(0, RECENT_FOLDER_LIMIT);
+  } catch {
+    // allow-fallback: a damaged recent list is a convenience lost, not a reason to refuse to start
+    return [];
+  }
+}
+
+/** The window title names the open folder, so a person switching folders can see which one this is. */
+export function windowTitle(appName: string, folder: string | undefined): string {
+  return folder === undefined ? appName : `${basename(folder) || folder} — ${appName}`;
+}
+
 /** What the window asks before a daemon starts in a folder not trusted yet (issue #3268). */
 export interface ITrustQuestion {
   /** The workspace a grant would cover. */

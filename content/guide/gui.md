@@ -18,7 +18,7 @@ terminal UI.
 | Way in                  | What runs                                                                     | What you need                                                          |
 | ----------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | `__PRODUCT_CLI_NAME__ --serve --open` | A runtime of its own, for as long as the command runs                         | The `__PRODUCT_CLI_NAME__` CLI ([Getting Started](../getting-started/README.md))     |
-| The desktop app         | The folder's workspace daemon, which keeps running after you close the window | The app (see below for its current state); it bundles its own `__PRODUCT_CLI_NAME__` |
+| The desktop app         | The folder's workspace daemon, which keeps running after you close the window | The app; it bundles its own `__PRODUCT_CLI_NAME__`                                     |
 
 Both show the same page.
 
@@ -63,17 +63,17 @@ first launch:
 - **Windows** SmartScreen warns. Choose **More info**, then **Run anyway**.
 - **Linux**: make the AppImage executable (`chmod +x __PRODUCT_ARTIFACT_PREFIX__-desktop-*.AppImage`) before running it.
 
-The app starts the workspace daemon for its folder, or connects to the one already running. Closing
-the window leaves the daemon running and the next launch reconnects to it; if the daemon stops while
-the window is open, the window offers **Reconnect**. With the CLI installed, `__PRODUCT_CLI_NAME__ daemon stop` in
-the folder stops it. See [the workspace daemon](./sessions-and-daemon.md#walkthrough-the-workspace-daemon).
+The app works on the folder you open. On its first launch it asks which folder to open; after that
+it reopens the most recent folder that still exists. **File → Open Folder…** (`Cmd+O` / `Ctrl+O`)
+switches to another folder and **File → Open Recent** lists the folders opened before. The window
+title names the open folder.
 
-> **Which folder the app works on.** The app has no Open Folder command yet
-> ([#3354](__PROJECT_REPOSITORY_URL__/issues/3354)). It works on the folder its own process
-> was started in, and an app started from Finder, the Dock, the Start menu or a desktop launcher does
-> not start in your project — on macOS it starts in `/`. That folder is not a Git repository, so the
-> daemon starts there Restricted without asking. Until this is fixed, use `__PRODUCT_CLI_NAME__ --serve --open` in
-> your project folder.
+The app starts the workspace daemon for its folder, or connects to the one already running. Switching
+folders attaches to the other folder's daemon and leaves the first one running. Closing the window
+leaves the daemon running and the next launch reconnects to it; on macOS the app stays in the Dock, and
+clicking its icon opens a new window on the same folder. If the daemon stops while the window is open,
+the window offers **Reconnect**. With the CLI installed, `__PRODUCT_CLI_NAME__ daemon stop` in the folder stops it.
+See [the workspace daemon](./sessions-and-daemon.md#walkthrough-the-workspace-daemon).
 
 ## The first run
 
@@ -241,7 +241,6 @@ A `__PRODUCT_CLI_NAME__ --serve --open` runtime is separate from the daemon, so 
 | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Workspace trust is required before headless startup (state: …)`                                    | Plain `--serve`, or `--serve --open` with no terminal to ask on, in an untrusted folder. Run `__PRODUCT_CLI_NAME__ trust --yes`, or add `--restricted-workspace`.  |
 | `Robota web assets not found (dist/web) — run a full CLI build.`                                    | A source checkout without the GUI build. Run `pnpm build` at the repository root.                                                                    |
-| The desktop app shows `/` or another folder you did not expect, and project settings are not loaded | The app was not started in your project ([#3354](__PROJECT_REPOSITORY_URL__/issues/3354)). Use `__PRODUCT_CLI_NAME__ --serve --open` in the project folder. |
 | **The agent process stopped:** …                                                                    | Follow the message, then choose **Try again**.                                                                                                       |
 
 ## Related

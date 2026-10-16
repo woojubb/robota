@@ -83,7 +83,8 @@ const childOperatingSystemVariables = Object.freeze([
 ]);
 const scriptedE2eVariables = Object.freeze([
   'PRODUCT_E2E_DAEMON_STATE', 'PRODUCT_E2E_DAEMON_FAIL', 'PRODUCT_E2E_DAEMON_FAIL_FILE',
-  'PRODUCT_E2E_TRUST_FILE', 'PRODUCT_E2E_SETUP_REQUIRED', 'PRODUCT_E2E_WORKSPACE_CWD',
+  'PRODUCT_E2E_TRUST_FILE', 'PRODUCT_E2E_TRUST_DIR', 'PRODUCT_E2E_TRUST_STATUS_DELAY_MS',
+  'PRODUCT_E2E_SETUP_REQUIRED', 'PRODUCT_E2E_WORKSPACE_CWD',
 ]);
 
 /** Scope all technical host inputs before desktop mode selection or child projection. */
