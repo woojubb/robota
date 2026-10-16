@@ -282,7 +282,14 @@ async function runWebFetch(
       const origin = new URL(response.finalUrl).origin;
       let probe = llmsTxtCache?.get(origin);
       if (llmsTxtCache && probe === undefined) {
-        probe = probeLlmsTxt(origin, egress, userAgent, signal);
+        const started: Promise<string | undefined> = probeLlmsTxt(origin, egress, userAgent, signal).then((indexUrl) => {
+          // A cancelled run says nothing about the site, so it must not be remembered as a miss.
+          if (indexUrl === undefined && signal?.aborted && llmsTxtCache.get(origin) === started) {
+            llmsTxtCache.delete(origin);
+          }
+          return indexUrl;
+        });
+        probe = started;
         llmsTxtCache.set(origin, probe);
       }
       text = htmlToText(text);
@@ -303,10 +310,12 @@ async function runWebFetch(
   }
 }
 
-const DEFAULT_WEB_FETCH_DESCRIPTION =
+const WEB_FETCH_DESCRIPTION_BASE =
   'Fetch a URL and return its content as text. HTML pages are converted to plain text. ' +
-  'Documentation sites may publish a curated index at /llms.txt (full text at /llms-full.txt); ' +
-  "when a fetched page's site has one, the result points to it.";
+  'Documentation sites may publish a curated index at /llms.txt (full text at /llms-full.txt)';
+const DEFAULT_WEB_FETCH_DESCRIPTION = `${WEB_FETCH_DESCRIPTION_BASE}; when a fetched page's site has one, the result points to it.`;
+/** Without the probe the runtime adds no pointer, so the description must not promise one. */
+const UNPROBED_WEB_FETCH_DESCRIPTION = `${WEB_FETCH_DESCRIPTION_BASE}.`;
 
 /**
  * Create a WebFetchTool instance — register with agent tools registry.
@@ -316,7 +325,7 @@ export function createWebFetchTool(options: IWebFetchToolOptions = {}): Function
   const llmsTxtCache: TLlmsTxtCache | undefined = options.llmsTxtProbe === false ? undefined : new Map();
   return createZodFunctionTool(
     'WebFetch',
-    options.description ?? DEFAULT_WEB_FETCH_DESCRIPTION,
+    options.description ?? (llmsTxtCache ? DEFAULT_WEB_FETCH_DESCRIPTION : UNPROBED_WEB_FETCH_DESCRIPTION),
     WebFetchSchema,
     async (params, context) => runWebFetch(params, egress, options.userAgent, llmsTxtCache, context?.signal),
   );
