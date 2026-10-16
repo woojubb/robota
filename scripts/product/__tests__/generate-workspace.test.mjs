@@ -100,6 +100,26 @@ it('refuses credential-like npmrc settings and unrelated outer repositories', as
   await expect(generateWorkspaceFromConfig({ sourceRoot: nested, outDir: path.join(root, 'nested-out'), config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config), sourceMode: 'clean-tree' })).rejects.toThrow('repository root');
 });
 
+it('accepts a repository root reached through a symlink in both source modes', async () => {
+  const root = await temporaryRoot();
+  const source = await tinyCommittedSource(root);
+  await writeFile(path.join(source, '.gitignore'), 'ignored-local.txt\n');
+  execFileSync('git', ['-C', source, 'add', '.gitignore']);
+  execFileSync('git', ['-C', source, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'ignore local file']);
+  // Only the Git inventory leaves this out; a plain directory walk would copy it.
+  await writeFile(path.join(source, 'ignored-local.txt'), 'ignored by Git\n');
+  const linked = path.join(root, 'linked-source');
+  await symlink(source, linked);
+  const config = resolveTestConfig({ scope: '@cedar', displayName: 'Cedar' });
+  for (const sourceMode of ['clean-tree', 'working']) {
+    const out = path.join(root, `out-${sourceMode}`);
+    await generateWorkspaceFromConfig({ sourceRoot: linked, outDir: out, config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config), sourceMode });
+    expect(JSON.parse(await readFile(path.join(out, '.product/source.json'), 'utf8'))).toMatchObject({ mode: sourceMode, commit: expect.stringMatching(/^[a-f0-9]{40}$/u) });
+    expect(await readdir(out)).not.toContain('.git');
+    expect(await readdir(out)).not.toContain('ignored-local.txt');
+  }
+});
+
 it('ignores package manifests and templates outside the committed inventory', async () => {
   const root = await temporaryRoot();
   const source = await tinyCommittedSource(root);

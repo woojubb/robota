@@ -201,7 +201,9 @@ startCli({ environment: process.env }).catch(error => { process.stderr.write(err
         try {
           process.kill(-pid, 'SIGKILL');
         } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
+          const code = (error as NodeJS.ErrnoException).code;
+          // macOS refuses with EPERM, not ESRCH, when the group holds only unreaped zombies.
+          if (code !== 'ESRCH' && !(code === 'EPERM' && process.platform === 'darwin')) throw error;
         }
       }
     };

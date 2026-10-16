@@ -112,7 +112,7 @@ export function createE2BHostedRuntimeExecutorFactory(
         const directory = posix.join(userRoot, 'sessions');
         const path = posix.join(directory, `${record.id}.json`);
         const prepare = await owned.client.run(
-          `test ! -e ${quote(path)} && test ! -L ${quote(path)} && test ! -L ${quote(directory)} && mkdir -p -- ${quote(directory)} && chmod 700 -- ${quote(directory)}`,
+          `test ! -e ${quote(path)} && test ! -L ${quote(path)} && test ! -L ${quote(directory)} && mkdir -p -- ${quote(directory)} && chmod -- 700 ${quote(directory)}`,
           { workingDirectory: config.workspaceRoot, timeoutMs: admission.config.probeTimeoutMs },
         );
         if (prepare.exitCode !== 0)
@@ -121,7 +121,7 @@ export function createE2BHostedRuntimeExecutorFactory(
         await owned.client.writeFile(path, content);
         if (await owned.client.readFile(path) !== content)
           throw hostedAdmissionError('conversation restore readback differs');
-        const protect = await owned.client.run(`chmod 600 -- ${quote(path)}`,
+        const protect = await owned.client.run(`chmod -- 600 ${quote(path)}`,
           { workingDirectory: config.workspaceRoot, timeoutMs: admission.config.probeTimeoutMs });
         if (protect.exitCode !== 0)
           throw hostedAdmissionError('conversation restore private permissions are unavailable');
