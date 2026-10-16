@@ -36,7 +36,9 @@ describe('homepage feature coverage', () => {
         for (const item of group.items) {
           expect(features).toContain(escapeHtml(t.features[item.id].title));
           expect(features).toContain(escapeHtml(t.features[item.id].body));
-          expect(features).toContain(`href="https://docs.example.test/en/${item.guide}/"`);
+          expect(features).toContain('guide' in item
+            ? `href="https://docs.example.test/en/${item.guide}/"`
+            : `href="https://github.com/example/product/blob/main/${item.source}"`);
           for (const tag of item.tags) expect(features).toContain(`<code>${escapeHtml(tag)}</code>`);
         }
       }
@@ -56,9 +58,13 @@ describe('homepage feature coverage', () => {
       const cli = sectionById(renderToStaticMarkup(<HomePageContent locale={locale} />), 'cli');
 
       for (const flow of t.cliFlows) expect(cli).toContain(escapeHtml(flow.title));
-      for (const command of ['example-cli -p', 'example-cli --goal', 'example-cli daemon start', 'example-cli --serve --open', 'example-cli mcp serve', '/handoff', '/remote-control enable', 'example-cli doctor', 'example-cli eval']) {
-        expect(cli).toContain(escapeHtml(command));
+      for (const command of ['cat task.md | example-cli -p', 'example-cli --goal "make the failing tests pass"', 'example-cli daemon start', 'example-cli --serve --open', 'PRODUCT_HTTP_TOKEN="$(openssl rand -hex 32)" example-cli --serve --http-port 8787', 'example-cli mcp serve', '/handoff <session-id>', '/remote-control enable', 'example-cli doctor', 'example-cli eval <definition.mjs>']) {
+        expect(cli).toContain(`<code>${escapeHtml(command)}</code>`);
       }
+      // Alternative commands are examples, not a script: no copy button joins them into one paste.
+      expect(cli).not.toContain('<button');
+      expect(cli).toContain(escapeHtml(t.sessionLabel));
+      expect(cli).toContain(escapeHtml(t.shellLabel));
     });
 
     it(`tabulates all permission modes in ${locale}`, () => {

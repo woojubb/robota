@@ -31,14 +31,17 @@ const permissionRules = `{
   }
 }`;
 
-function cliFlowCommands(cli: string): readonly string[] {
+type CliFlow = { context: 'shell' | 'session'; commands: readonly string[] };
+
+/** Alternative commands per workflow; each line is a separate example, not a script to paste. */
+function cliFlowCommands(cli: string): readonly CliFlow[] {
   return [
-    `${cli}\n${cli} --permission-mode acceptEdits\n${cli} --screen-reader`,
-    `${cli} -p "List the TypeScript files in src/"\n${cli} -p "Summarize this repository" --output-format json\ncat task.md | ${cli} -p\n${cli} --goal "make the failing tests pass"`,
-    `${cli} -c\n${cli} -r <id-or-name>\n${cli} session start --background --name nightly\n${cli} daemon start\n${cli} --attach`,
-    `${cli} --serve --open\n${cli} --serve --http-port 8787\n${cli} mcp serve`,
-    '/peers\n/peers send <session-id> <message>\n/handoff <session-id>\n/devices init\n/remote-control enable',
-    `${cli} doctor\n${cli} usage --period 30d\n${cli} --check-update\n${cli} eval <definition.mjs>`,
+    { context: 'shell', commands: [cli, `${cli} --permission-mode acceptEdits`, `${cli} --screen-reader`] },
+    { context: 'shell', commands: [`${cli} -p "List the TypeScript files in src/"`, `${cli} -p "Summarize this repository" --output-format json`, `cat task.md | ${cli} -p`, `${cli} --goal "make the failing tests pass"`] },
+    { context: 'shell', commands: [`${cli} -c`, `${cli} -r <id-or-name>`, `${cli} session start --background --name nightly`, `${cli} daemon start`, `${cli} --attach`] },
+    { context: 'shell', commands: [`${cli} --serve --open`, `PRODUCT_HTTP_TOKEN="$(openssl rand -hex 32)" ${cli} --serve --http-port 8787`, `${cli} mcp serve`] },
+    { context: 'session', commands: ['/peers', '/peers send <session-id> <message>', '/handoff <session-id>', '/devices init', '/remote-control enable'] },
+    { context: 'shell', commands: [`${cli} doctor`, `${cli} usage --period 30d`, `${cli} --check-update`, `${cli} eval <definition.mjs>`] },
   ];
 }
 
@@ -145,12 +148,12 @@ export function HomePageContent({ locale }: { locale: MarketingLocale }) {
             <div className="home-feature-group-heading"><h3>{t.featureGroups[group.group].title}</h3><p>{t.featureGroups[group.group].body}</p></div>
             <div className="home-capability-grid">
               {group.items.map((item) => {
-                const href = guideUrl(item.guide);
+                const href = 'guide' in item ? guideUrl(item.guide) : repoUrl && `${repoUrl}/blob/main/${item.source}`;
                 return <article className="home-capability" key={item.id}>
                   <h4>{t.features[item.id].title}</h4>
                   <p>{t.features[item.id].body}</p>
                   <ul className="home-tags">{item.tags.map((tag) => <li key={tag}><code>{tag}</code></li>)}</ul>
-                  {href && <a className="home-text-link" href={href}>{t.guideLink} <Arrow /></a>}
+                  {href && <a className="home-text-link" href={href}>{'guide' in item ? t.guideLink : t.sourceLink} <Arrow /></a>}
                 </article>;
               })}
             </div>
@@ -166,7 +169,10 @@ export function HomePageContent({ locale }: { locale: MarketingLocale }) {
               <span className="home-card-index">0{index + 1}</span>
               <h3>{flow.title}</h3>
               <p>{flow.body}</p>
-              <CodeBlock code={cliFlows[index] ?? ''} label={flow.title} {...codeLabels} />
+              <div className="home-command-list">
+                <p>{cliFlows[index]?.context === 'session' ? t.sessionLabel : t.shellLabel}</p>
+                <ul>{cliFlows[index]?.commands.map((command) => <li key={command}><code>{command}</code></li>)}</ul>
+              </div>
             </article>)}
           </div>
           {docsUrl && <a className="home-text-link" href={guideUrl('guide/cli')}>{t.cliGuideLink} <Arrow /></a>}

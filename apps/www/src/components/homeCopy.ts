@@ -38,12 +38,15 @@ export type HomeCopy = {
   featuresTitle: string;
   featuresLead: string;
   guideLink: string;
+  sourceLink: string;
   featureGroups: Record<FeatureGroupId, Titled>;
   features: Record<FeatureId, Titled>;
   cliEyebrow: string;
   cliTitle: string;
   cliLead: string;
   cliFlows: readonly Titled[];
+  shellLabel: string;
+  sessionLabel: string;
   cliGuideLink: string;
   safetyEyebrow: string;
   safetyTitle: string;
@@ -137,6 +140,7 @@ export const homeCopy: Record<MarketingLocale, HomeCopy> = {
     featuresTitle: 'What ships today.',
     featuresLead: 'Every capability below is part of the public SDK packages or the coding CLI built from them. Each card names the package, class, flag, or command to look for and links to the guide that owns the details.',
     guideLink: 'Guide',
+    sourceLink: 'Package README',
     featureGroups: {
       models: { title: 'Models and providers', body: 'Choose the model per task, and keep a turn going when one fails.' },
       safety: { title: 'Tools and safety', body: 'Typed tools, with every call checked before it runs.' },
@@ -149,7 +153,7 @@ export const homeCopy: Record<MarketingLocale, HomeCopy> = {
       providers: { title: 'Multi-provider adapters', body: 'Provider packages for Anthropic, OpenAI, Google Gemini, DeepSeek, Qwen and Gemma, plus any OpenAI-compatible endpoint (gateways, Azure, vLLM, local servers) through baseURL.' },
       fallback: { title: 'Fallback, effort and advisor', body: 'FallbackProvider moves a turn to another model when the primary is overloaded or failing. The CLI adds per-run model effort and an advisor model the agent can consult.' },
       local: { title: 'Local models', body: 'Point a provider profile at an Ollama, LM Studio or other OpenAI-compatible server on your own machine or network. You run the model; enabled tools decide what else leaves it.' },
-      media: { title: 'Image and video generation', body: 'The Gemini provider includes image generation, and the ByteDance (ModelArk) provider generates video, behind the same provider contract.' },
+      media: { title: 'Image and video generation', body: 'The Gemini provider includes image generation, and a separate ByteDance (ModelArk) provider generates video. The video provider is not a chat model for an agent.' },
       tools: { title: 'Validated tools', body: 'createZodFunctionTool checks model arguments against a zod schema before your function runs. Built-in coding tools cover files, search, shell, web fetch and web search.' },
       permissions: { title: 'Permission modes and rules', body: 'Every tool call passes deny, ask and allow rules, then one of five permission modes. A few destructive actions are never approved automatically in any mode.' },
       hooks: { title: 'Lifecycle hooks', body: 'Run commands on tool, prompt and session events. PreToolUse can block a call; other hooks log, audit, or add context to the next prompt.' },
@@ -174,7 +178,10 @@ export const homeCopy: Record<MarketingLocale, HomeCopy> = {
       ci: { title: 'CI and GitHub Actions', body: 'Run print mode in a workflow step to review a pull request or answer a task, and gate a pipeline on an evals-as-code score.' },
       core: { title: 'Conversation engine', body: 'ConversationAgent runs and streams turns with history, tool calling, structured output and plugins. It is the minimal set: core plus one provider.' },
       framework: { title: 'Framework assembly', body: 'createQuery runs one-shot queries with built-in tools and permissions; InteractiveSession drives a full conversation; createAgentRuntime assembles a host runtime.' },
+      embedding: { title: 'Servers, bots and serverless', body: 'Put the framework behind an SSE or WebSocket server with a full event stream per session, resume a saved session per bot channel, or run a stateless runtime that persists nothing.' },
+      channels: { title: 'One agent, many channels', body: 'TransportRegistry runs one agent definition behind several transports, with their enabled state kept in a settings file; there is no separate gateway process.' },
       product: { title: 'Product composition', body: 'assembleProduct builds a product from a declarative profile. Capability packs, slash-command modules, presets and output styles are the parts the coding CLI uses.' },
+      productHost: { title: 'Ship your own CLI product', body: 'Depend on the published CLI package and own the entry, identity, assets and packaging: a product-bound CLI host, desktop-host helpers for an Electron app, and native binary builds.' },
       analytics: { title: 'Diagnostics, usage and evals', body: 'Check settings, provider, trust and plugins in one report; summarize local token use and cost without sending content; export content-free metrics; run evals as code.' },
     },
     cliEyebrow: 'The coding CLI',
@@ -188,6 +195,8 @@ export const homeCopy: Record<MarketingLocale, HomeCopy> = {
       { title: 'Reach your other sessions', body: 'Inside a session: message peers, hand off a conversation, link devices, pair a browser.' },
       { title: 'Check setup and usage', body: 'Diagnose configuration, summarize local usage, check for updates, and run evals.' },
     ],
+    shellLabel: 'In a shell',
+    sessionLabel: 'Inside a session',
     cliGuideLink: 'Read the CLI reference',
     safetyEyebrow: 'Permissions and safety',
     safetyTitle: 'Decide what the agent may do.',
@@ -345,6 +354,7 @@ export const homeCopy: Record<MarketingLocale, HomeCopy> = {
     featuresTitle: '지금 쓸 수 있는 기능.',
     featuresLead: '아래 기능은 모두 공개 SDK 패키지나 그 패키지로 만든 코딩 CLI에 들어 있습니다. 카드마다 찾아볼 패키지, 클래스, 플래그, 명령 이름을 적고, 자세한 내용을 다루는 가이드로 연결했습니다.',
     guideLink: '가이드(영문)',
+    sourceLink: '패키지 README(영문)',
     featureGroups: {
       models: { title: '모델과 프로바이더', body: '작업마다 모델을 고르고, 한 모델이 실패해도 턴을 이어갑니다.' },
       safety: { title: '도구와 안전장치', body: '타입이 있는 도구를 쓰고, 모든 호출을 실행 전에 검사합니다.' },
@@ -357,7 +367,7 @@ export const homeCopy: Record<MarketingLocale, HomeCopy> = {
       providers: { title: '여러 프로바이더 어댑터', body: 'Anthropic, OpenAI, Google Gemini, DeepSeek, Qwen, Gemma용 프로바이더 패키지가 있고, baseURL로 OpenAI 호환 엔드포인트(게이트웨이, Azure, vLLM, 로컬 서버)에도 연결할 수 있습니다.' },
       fallback: { title: '폴백, effort, 어드바이저', body: 'FallbackProvider는 기본 모델이 과부하이거나 실패하면 턴을 다른 모델로 넘깁니다. CLI에서는 실행마다 모델 effort를 정하고, 에이전트가 참고할 어드바이저 모델을 둘 수 있습니다.' },
       local: { title: '로컬 모델', body: '프로바이더 프로필을 내 컴퓨터나 내부망의 Ollama, LM Studio 등 OpenAI 호환 서버로 지정하세요. 모델은 직접 실행하며, 그 밖에 무엇이 외부로 나가는지는 켜 둔 도구가 정합니다.' },
-      media: { title: '이미지와 영상 생성', body: 'Gemini 프로바이더는 이미지 생성을, ByteDance(ModelArk) 프로바이더는 영상 생성을 같은 프로바이더 계약으로 제공합니다.' },
+      media: { title: '이미지와 영상 생성', body: 'Gemini 프로바이더는 이미지 생성을, 별도의 ByteDance(ModelArk) 프로바이더는 영상을 생성합니다. 영상 프로바이더는 에이전트의 대화 모델로 쓰이지 않습니다.' },
       tools: { title: '검증되는 도구', body: 'createZodFunctionTool은 함수를 실행하기 전에 모델이 넘긴 인자를 zod 스키마로 검사합니다. 기본 코딩 도구로 파일, 검색, 셸, 웹 가져오기, 웹 검색을 다룹니다.' },
       permissions: { title: '권한 모드와 규칙', body: '모든 도구 호출은 deny, ask, allow 규칙을 거친 뒤 다섯 가지 권한 모드 중 하나로 판정됩니다. 일부 파괴적인 동작은 어떤 모드에서도 자동 승인되지 않습니다.' },
       hooks: { title: '라이프사이클 훅', body: '도구, 프롬프트, 세션 이벤트에 명령을 실행합니다. PreToolUse는 호출을 막을 수 있고, 나머지 훅은 기록, 감사, 다음 프롬프트에 문맥 추가에 씁니다.' },
@@ -375,14 +385,17 @@ export const homeCopy: Record<MarketingLocale, HomeCopy> = {
       plugins: { title: '플러그인과 마켓플레이스', body: '스킬, 훅, 테마, MCP 서버를 묶은 플러그인을 설치하세요. SDK 라이프사이클 플러그인은 기록, 로깅, 사용량, 한도, 오류, 분석, 웹훅을 다룹니다.' },
       events: { title: '외부 이벤트', body: '검증된 외부 서비스가 실행 중인 터미널 세션에 텍스트 이벤트를 보내도록 허가하고, 세션 안에서 허가 목록을 보거나 취소합니다.' },
       terminal: { title: '터미널 UI', body: '명령 메뉴, 프롬프트 기록 검색, 키 재지정, @path 파일 첨부, 화면 낭독기용 일반 텍스트 모드를 갖춘 대화형 터미널 앱입니다.' },
-      print: { title: '출력 모드와 목표 실행', body: '스크립트나 파이프에서 프롬프트 하나를 실행해 텍스트, JSON, 스트리밍 JSON으로 받고, 스키마에 맞춘 출력을 요청하거나, 여러 턴에 걸쳐 목표를 향해 작업합니다.' },
+      print: { title: '프린트 모드와 목표 실행', body: '스크립트나 파이프에서 프롬프트 하나를 실행해 텍스트, JSON, 스트리밍 JSON으로 받고, 스키마에 맞춘 출력을 요청하거나, 여러 턴에 걸쳐 목표를 향해 작업합니다.' },
       gui: { title: '브라우저 GUI와 데스크톱 앱', body: '현재 작업 공간의 GUI를 루프백 주소로 띄워 브라우저에서 엽니다. 저장소의 데스크톱 앱은 작업 공간 데몬 위에서 같은 GUI를 보여줍니다.' },
       http: { title: 'HTTP 제공과 전송 계층', body: '다른 서비스가 턴을 제출하고 결과를 server-sent events로 받게 합니다. bearer 토큰이나 OAuth 리소스 서버로 보호합니다. WebSocket, HTTP, MCP, WebRTC 전송이 하나의 와이어 프로토콜을 공유합니다.' },
       devices: { title: '기기와 원격 제어', body: '실행 중인 다른 세션에 메시지를 보내고, 대화를 다른 세션이나 기기로 넘기고, 내 기기들을 연결하고, 페어링한 브라우저에서 P2P WebRTC로 세션을 함께 조작합니다.' },
-      ci: { title: 'CI와 GitHub Actions', body: '워크플로 단계에서 출력 모드를 실행해 PR을 리뷰하거나 작업에 답하고, evals-as-code 점수로 파이프라인을 막을 수 있습니다.' },
+      ci: { title: 'CI와 GitHub Actions', body: '워크플로 단계에서 프린트 모드를 실행해 PR을 리뷰하거나 작업에 답하고, evals-as-code 점수로 파이프라인을 막을 수 있습니다.' },
       core: { title: '대화 엔진', body: 'ConversationAgent는 기록, 도구 호출, 구조화된 출력, 플러그인과 함께 턴을 실행하고 스트리밍합니다. 최소 구성은 core와 프로바이더 하나입니다.' },
       framework: { title: '프레임워크 조립', body: 'createQuery는 기본 도구와 권한을 갖춘 단일 질문을 실행하고, InteractiveSession은 전체 대화를 다루고, createAgentRuntime은 호스트 런타임을 조립합니다.' },
+      embedding: { title: '서버, 봇, 서버리스', body: '세션마다 전체 이벤트 스트림을 주는 SSE·WebSocket 서버 뒤에 프레임워크를 두거나, 봇 채널마다 저장한 세션을 재개하거나, 아무것도 저장하지 않는 상태 없는 런타임으로 실행합니다.' },
+      channels: { title: '하나의 에이전트, 여러 채널', body: 'TransportRegistry는 하나의 에이전트 정의를 여러 전송 계층 뒤에서 실행하고, 각 전송의 활성화 상태를 설정 파일에 둡니다. 별도의 게이트웨이 프로세스는 없습니다.' },
       product: { title: '제품 조립', body: 'assembleProduct는 선언형 프로필로 제품을 만듭니다. 능력 팩, 슬래시 명령 모듈, 프리셋, 출력 스타일은 코딩 CLI가 쓰는 부품 그대로입니다.' },
+      productHost: { title: '나만의 CLI 제품 배포', body: '공개된 CLI 패키지에 의존하면서 진입점, 정체성, 자산, 패키징은 직접 소유합니다. 제품에 묶인 CLI 호스트, Electron 앱용 desktop-host 도우미, 네이티브 실행 파일 빌드를 제공합니다.' },
       analytics: { title: '진단, 사용량, 평가', body: '설정, 프로바이더, 신뢰, 플러그인을 한 보고서로 점검하고, 내용을 보내지 않고 로컬 토큰 사용량과 비용을 요약하고, 내용 없는 지표를 내보내고, 평가를 코드로 실행합니다.' },
     },
     cliEyebrow: '코딩 CLI',
@@ -390,12 +403,14 @@ export const homeCopy: Record<MarketingLocale, HomeCopy> = {
     cliLead: 'CLI는 공통 기반 위에 만든 공식 인터페이스입니다. 같은 런타임이 터미널 UI, 스크립트, 백그라운드 세션, 브라우저 GUI, 다른 서비스를 모두 처리합니다.',
     cliFlows: [
       { title: '대화하며 작업하기', body: '세션을 시작하고, 권한 모드를 고르거나 화면 낭독기 모드로 바꿉니다.' },
-      { title: '프롬프트 하나를 스크립트로', body: '출력 모드는 스크립트가 확인할 수 있는 종료 코드를 남깁니다. 목표 실행은 여러 턴 동안 작업을 이어갑니다.' },
+      { title: '프롬프트 하나를 스크립트로', body: '프린트 모드는 스크립트가 확인할 수 있는 종료 코드를 남깁니다. 목표 실행은 여러 턴 동안 작업을 이어갑니다.' },
       { title: '세션 유지하기', body: '이전 작업을 재개하고, 감독 세션을 백그라운드로 돌리고, 데몬 하나를 함께 씁니다.' },
       { title: '다른 화면과 서비스에 제공하기', body: '브라우저 GUI를 열거나, bearer 토큰으로 HTTP 클라이언트를 받거나, MCP 서버로 동작합니다.' },
       { title: '다른 세션과 기기에 닿기', body: '세션 안에서 다른 세션에 메시지를 보내고, 대화를 넘기고, 기기를 연결하고, 브라우저를 페어링합니다.' },
       { title: '설정과 사용량 점검하기', body: '설정을 진단하고, 로컬 사용량을 요약하고, 업데이트를 확인하고, 평가를 실행합니다.' },
     ],
+    shellLabel: '셸에서',
+    sessionLabel: '세션 안에서',
     cliGuideLink: 'CLI 레퍼런스(영문)',
     safetyEyebrow: '권한과 안전',
     safetyTitle: '에이전트가 할 수 있는 일을 정하세요.',

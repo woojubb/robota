@@ -176,6 +176,11 @@ main { overflow-wrap: anywhere; }
 .home-flow { display: flex; flex-direction: column; min-width: 0; padding: 1.25rem; border: 1px solid var(--border); border-radius: .65rem; background: var(--card); }
 .home-flow h3 { margin-top: .6rem; font-size: 1.15rem; font-weight: 700; line-height: 1.3; }
 .home-flow > p { margin: .5rem 0 1rem; color: var(--muted-foreground); font-size: .88rem; line-height: 1.6; }
+.home-command-list { overflow: hidden; border: 1px solid var(--border); border-radius: .55rem; background: #091310; }
+.home-command-list > p { padding: .6rem 1rem; border-bottom: 1px solid var(--border); color: var(--muted-foreground); font-size: .76rem; font-weight: 600; }
+.home-command-list ul { display: grid; gap: .45rem; margin: 0; padding: .9rem 1rem; list-style: none; }
+.home-command-list li { min-width: 0; }
+.home-command-list code { color: #d9f2e6; font-family: var(--font-ibm-plex-mono), ui-monospace, monospace; font-size: .79rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .home-flow .home-code { margin-bottom: .75rem; }
 .home-flow .home-code:last-of-type { margin-bottom: 0; }
 .home-flow .home-text-link { margin-top: .5rem; }

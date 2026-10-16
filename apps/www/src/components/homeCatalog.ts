@@ -8,7 +8,7 @@ export const featureCatalog = [
     group: 'models',
     items: [
       { id: 'providers', guide: 'guide/providers', tags: ['Anthropic', 'OpenAI', 'Gemini', 'DeepSeek', 'Qwen', 'Gemma', 'baseURL'] },
-      { id: 'fallback', guide: 'guide/providers', tags: ['FallbackProvider', '--fallback-model', '--advisor', '--effort'] },
+      { id: 'fallback', guide: 'guide/cli', tags: ['FallbackProvider', '--fallback-model', '--advisor', '--effort'] },
       { id: 'local', guide: 'guide/local-llm', tags: ['Ollama', 'LM Studio', 'vLLM'] },
       { id: 'media', guide: 'guide/providers', tags: ['agent-provider-gemini', 'agent-provider-bytedance'] },
     ],
@@ -60,7 +60,10 @@ export const featureCatalog = [
     items: [
       { id: 'core', guide: 'guide/building-agents', tags: ['ConversationAgent', 'run', 'runStream', 'structured output'] },
       { id: 'framework', guide: 'guide/sdk', tags: ['createQuery', 'InteractiveSession', 'createAgentRuntime'] },
+      { id: 'embedding', guide: 'guide/embedding', tags: ['createAgentRuntime', 'sessionStore', 'resumeSessionId', 'createStatelessRuntime'] },
+      { id: 'channels', guide: 'guide/deployment', tags: ['TransportRegistry', 'agent-transport-*'] },
       { id: 'product', guide: 'guide/architecture', tags: ['assembleProduct', 'ICapabilityPack', 'createCodingPack', 'presets'] },
+      { id: 'productHost', source: 'packages/agent-cli/README.md#build-a-separate-product-from-npm-packages', tags: ['agent-cli/host', 'createProductCliHost', 'agent-cli/desktop-host', 'buildProductNativeBinary'] },
       { id: 'analytics', guide: 'guide/cli', tags: ['doctor', 'usage', 'usage export', 'session analyze', 'eval'] },
     ],
   },
