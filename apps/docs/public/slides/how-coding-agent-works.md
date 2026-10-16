@@ -1,6 +1,6 @@
-# 코딩 에이전트 CLI는 어떻게 만들까
+# How to Build a Coding Agent CLI
 
-직접 만들어본 코딩 에이전트 CLI · by woojubb
+A coding agent CLI I built myself · by woojubb
 
 ---
 
@@ -8,7 +8,7 @@
 
 ## AGENT_RUNTIME
 
-> 코딩 에이전트 CLI는 어떻게 만들까 — 직접 만들어본 코딩 에이전트 CLI
+> How to build a coding agent CLI — a coding agent CLI I built myself
 
 ```
   ____   ___  ____   ___ _____  _
@@ -24,390 +24,390 @@
 
 <!-- Slide 2 -->
 
-## "나도 만들 수 있을까?"
+## "Could I build one too?"
 
-> AI 에이전트 라이브러리를 만들어 배포했다. 이걸로 Claude Code 같은 CLI를 만들 수 있을까?
+> I built and published an AI agent library. Could I use it to build a CLI like Claude Code?
 
-10개월 전, AI 에이전트를 쉽게 개발할 수 있는 Robota SDK를 만들어 npm에 공개했다. 멀티 AI 프로바이더, 도구, 플러그인, Team 에이전트까지 갖췄다.
+Ten months ago, I built the Robota SDK, which makes it easy to develop AI agents, and published it on npm. It had multiple AI providers, tools, plugins, and even Team agents.
 
-Cursor로 바이브 코딩하면서 만들었고, 월 $1,000을 쓰기도 했다. 공개 후 한동안 업데이트를 하지 않았다.
+I built it by vibe coding with Cursor, and at one point I was spending $1,000 a month. After releasing it, I didn't update it for a while.
 
-최근 Claude Code를 매일 쓰면서 AGENTS.md라는 개념을 알게 됐고, 내 SDK 위에 코딩 에이전트 CLI를 만들 수 있겠다는 생각이 들었다.
+Recently, while using Claude Code every day, I learned about the concept of AGENTS.md, and it occurred to me that I could build a coding agent CLI on top of my own SDK.
 
-### Robota SDK 구성
+### Robota SDK structure
 
-| 계층            | 패키지                             | 역할                           |
-| --------------- | ---------------------------------- | ------------------------------ |
-| 핵심 라이브러리 | `agent-core, sessions, tools, sdk` | 실행 루프, 대화 관리, 플러그인 |
-| AI 프로바이더   | `anthropic / openai / google`      | Claude, GPT-4, Gemini          |
-| 플러그인 (9개)  | `agent-plugin-*`                   | 로깅, 분석, 에러, 성능 등      |
-| 기타            | `team, remote, mcp`                | 멀티 에이전트, 원격, MCP       |
+| Layer          | Packages                           | Role                                             |
+| -------------- | ---------------------------------- | ------------------------------------------------ |
+| Core libraries | `agent-core, sessions, tools, sdk` | Execution loop, conversation management, plugins |
+| AI providers   | `anthropic / openai / google`      | Claude, GPT-4, Gemini                            |
+| Plugins (9)    | `agent-plugin-*`                   | Logging, analytics, errors, performance, etc.    |
+| Others         | `team, remote, mcp`                | Multi-agent, remote, MCP                         |
 
 ---
 
 <!-- Slide 3 -->
 
-## AGENTS.md란 무엇인가
+## What is AGENTS.md?
 
-> 대화가 시작되면 시스템 프롬프트로 주입하는 지시문이다
+> It's an instruction document injected as the system prompt when a conversation starts
 
-Claude Code를 쓰면서 AGENTS.md 파일 하나가 에이전트의 행동을 완전히 바꾸는 걸 봤다. 열어보니 그냥 텍스트 파일이었다.
+While using Claude Code, I saw a single AGENTS.md file completely change an agent's behavior. When I opened it, it was just a text file.
 
-AGENTS.md, CLAUDE.md 같은 파일은 프로젝트 루트에서 탐색한 뒤 시스템 프롬프트에 주입한다. LLM은 이 내용을 프로젝트 규칙으로 인식하고 따른다.
+Files like AGENTS.md and CLAUDE.md are discovered from the project root and injected into the system prompt. The LLM treats their contents as project rules and follows them.
 
-### 동작 방식
+### How it works
 
-- 대화가 시작되면 AGENTS.md 내용을 시스템 프롬프트로 넣는다
-- 문서 안에 다른 .md 파일 링크가 있으면 기억해 두었다가, 필요할 때 해당 파일을 읽는다
-- LLM은 이 규칙을 따르면서 도구를 호출하고, 결과를 받아서 다시 판단한다
+- When a conversation starts, the contents of AGENTS.md are put into the system prompt
+- If the document links to other .md files, the agent remembers them and reads those files when needed
+- The LLM follows these rules while calling tools, takes the results, and decides again
 
-코딩 에이전트 핵심은 결국 이 세 가지다: `시스템 프롬프트` + `도구` + `실행 루프`.
+The core of a coding agent comes down to these three things: `system prompt` + `tools` + `execution loop`.
 
 ---
 
 <!-- Slide 4 -->
 
-## 에이전트가 읽는 프로젝트 구조
+## The project structure an agent reads
 
-> 프로젝트 폴더에 넣으면 에이전트가 자동으로 인식한다
+> Put these in your project folder and the agent picks them up automatically
 
-코딩 에이전트는 프로젝트 루트의 특정 폴더를 탐색해서 스킬, 훅, 설정을 자동으로 로딩한다.
+A coding agent scans specific folders in the project root and automatically loads skills, hooks, and settings.
 
-| 경로                    | 내용                                           |
-| ----------------------- | ---------------------------------------------- |
-| `.agents/skills/`       | 프로젝트 전용 스킬 — 슬래시 명령으로 실행 가능 |
-| `.agents/rules/`        | 프로젝트 규칙 — AGENTS.md에서 참조             |
-| `.agents/tasks/`        | 백로그, 진행 중 작업 추적                      |
-| `.claude/settings.json` | 훅 설정, 퍼미션 allow/deny 목록                |
-| `.claude/commands/`     | Claude Code 커스텀 명령                        |
+| Path                    | Contents                                             |
+| ----------------------- | ---------------------------------------------------- |
+| `.agents/skills/`       | Project-specific skills — runnable as slash commands |
+| `.agents/rules/`        | Project rules — referenced from AGENTS.md            |
+| `.agents/tasks/`        | Backlog and tracking of work in progress             |
+| `.claude/settings.json` | Hook settings, permission allow/deny lists           |
+| `.claude/commands/`     | Claude Code custom commands                          |
 
 ---
 
 <!-- Slide 5 -->
 
-## 코딩 에이전트 기본 도구
+## The basic tools of a coding agent
 
-> 에이전트의 손발 — 이 6개로 코드를 읽고, 쓰고, 실행한다
+> The agent's hands and feet — with these 6, it reads, writes, and runs code
 
-처음에는 도구가 수십 개 필요할 줄 알았는데, 실제로는 6개로 거의 모든 코딩 작업을 처리했다.
+I thought I would need dozens of tools at first, but in practice 6 handled almost every coding task.
 
-| 도구    | 역할           | 예시                      |
-| ------- | -------------- | ------------------------- |
-| `Bash`  | 셸 명령 실행   | pnpm test, git status, ls |
-| `Read`  | 파일 읽기      | 소스 코드, 설정 파일 확인 |
-| `Write` | 파일 생성      | 새 파일 작성              |
-| `Edit`  | 파일 부분 수정 | 함수 하나만 고치기        |
-| `Glob`  | 파일 검색      | \*_/_.ts 패턴 매칭        |
-| `Grep`  | 내용 검색      | 코드에서 함수 이름 찾기   |
+| Tool    | Role                | Example                          |
+| ------- | ------------------- | -------------------------------- |
+| `Bash`  | Run shell commands  | pnpm test, git status, ls        |
+| `Read`  | Read files          | Check source code, config files  |
+| `Write` | Create files        | Write a new file                 |
+| `Edit`  | Edit part of a file | Fix just one function            |
+| `Glob`  | Search for files    | \*_/_.ts pattern matching        |
+| `Grep`  | Search contents     | Find a function name in the code |
 
-LLM이 이 도구를 자유롭게 조합해서 호출한다. 파일을 읽고, 수정하고, 테스트를 돌리고, 결과를 확인한다. 개발자가 터미널에서 하는 일 그대로다.
+The LLM freely combines and calls these tools. It reads files, edits them, runs tests, and checks the results. It's exactly what a developer does in a terminal.
 
 ---
 
 <!-- Slide 6 -->
 
-## 실행 루프 구조
+## The execution loop
 
-> LLM 호출 → 도구 실행 → 결과 재주입을 반복한다
+> Call the LLM → run tools → feed the results back, and repeat
 
-LLM을 한 번 호출하면 답이 나오는 줄 알았다. 실제로는 도구를 호출하고, 결과를 돌려주고, 다시 판단하는 루프를 계속 돈다.
+I thought a single LLM call would produce the answer. In reality, it keeps running a loop: call a tool, hand back the result, and decide again.
 
-| 단계 | 동작                                            |
-| ---- | ----------------------------------------------- |
-| 1    | LLM에 메시지를 보낸다                           |
-| 2    | 응답에 도구 호출이 포함되면 도구를 실행한다     |
-| 3    | 실행 결과를 대화에 추가하고 LLM을 다시 호출한다 |
-| 4    | 도구 호출이 없으면 최종 응답을 출력한다         |
+| Step | Action                                                    |
+| ---- | --------------------------------------------------------- |
+| 1    | Send a message to the LLM                                 |
+| 2    | If the response includes a tool call, run the tool        |
+| 3    | Add the result to the conversation and call the LLM again |
+| 4    | If there is no tool call, output the final response       |
 
-각 라운드에서 LLM 응답은 토큰 단위로 실시간 출력(스트리밍)한다. 사용자는 AI가 생각하는 과정을 실시간으로 본다.
+In each round, the LLM response is output in real time, token by token (streaming). The user watches the AI think as it happens.
 
 ---
 
 <!-- Slide 7 -->
 
-## 도구 실행 권한
+## Tool execution permissions
 
-> 어떤 도구를 허용하고 어떤 도구를 차단할지 결정하는 구조
+> A structure that decides which tools to allow and which to block
 
-에이전트가 파일을 수정하고 셸 명령을 실행한다. 모든 도구 호출에 대해 실행 전에 권한을 평가한다.
+The agent edits files and runs shell commands. Permissions are evaluated before every tool call is executed.
 
-### 3단계 평가
+### Three-stage evaluation
 
-- deny 목록 — 명시적으로 차단한 패턴 (예: rm -rf /)
-- allow 목록 — 미리 허용한 패턴 (예: pnpm test:\*)
-- 모드 정책 — 나머지는 현재 모드에 따라 결정
+- deny list — patterns that are explicitly blocked (e.g. rm -rf /)
+- allow list — patterns that are pre-approved (e.g. pnpm test:\*)
+- mode policy — everything else is decided by the current mode
 
-### 4단계 모드
+### Four modes
 
-| 모드              | 동작                                |
-| ----------------- | ----------------------------------- |
-| plan              | 읽기만 허용, 수정 전부 차단         |
-| default           | 위험한 도구는 사용자에게 확인       |
-| acceptEdits       | 파일 수정 자동 허용, 셸 명령만 확인 |
-| bypassPermissions | 전부 자동 허용 (위험)               |
+| Mode              | Behavior                                                    |
+| ----------------- | ----------------------------------------------------------- |
+| plan              | Reads only; all edits are blocked                           |
+| default           | Asks the user to confirm risky tools                        |
+| acceptEdits       | File edits auto-approved; only shell commands are confirmed |
+| bypassPermissions | Everything auto-approved (dangerous)                        |
 
 ---
 
 <!-- Slide 8 -->
 
-## 훅(Hook)
+## Hooks
 
-> 도구 실행, 세션 시작/종료, 사용자 입력 등 주요 시점에 끼어든다
+> They step in at key moments such as tool execution, session start/end, and user input
 
-코딩 에이전트 동작 흐름 곳곳에 커스텀 로직을 끼워 넣는다. 도구 실행 전후뿐 아니라, 세션 시작/종료, 사용자 입력 직후에도 훅이 동작한다.
+Custom logic gets inserted at various points in the coding agent's flow. Hooks run not only before and after tool execution, but also at session start/end and right after user input.
 
-| 훅 이벤트          | 시점           | 활용 예시                   |
-| ------------------ | -------------- | --------------------------- |
-| `PreToolUse`       | 도구 실행 전   | 브랜치 보호, 위험 명령 차단 |
-| `PostToolUse`      | 도구 실행 후   | 자동 포매팅, 린트 실행      |
-| `SessionStart`     | 세션 시작      | 컨텍스트 로딩, 상태 체크    |
-| `Stop`             | 세션 종료      | 로그 저장, 정리 작업        |
-| `UserPromptSubmit` | 사용자 입력 후 | 입력 전처리, 검증           |
+| Hook event         | When                  | Example use                                    |
+| ------------------ | --------------------- | ---------------------------------------------- |
+| `PreToolUse`       | Before tool execution | Branch protection, blocking dangerous commands |
+| `PostToolUse`      | After tool execution  | Auto-formatting, running lint                  |
+| `SessionStart`     | Session start         | Loading context, status checks                 |
+| `Stop`             | Session end           | Saving logs, cleanup tasks                     |
+| `UserPromptSubmit` | After user input      | Input preprocessing, validation                |
 
-훅은 셸 커맨드, HTTP 호출, 프롬프트, 에이전트 실행 등 여러 방식으로 구현한다.
+Hooks can be implemented in several ways: shell commands, HTTP calls, prompts, and agent runs.
 
 ---
 
 <!-- Slide 9 -->
 
-## 체크포인트와 되돌리기
+## Checkpoints and rewind
 
-> 파일 수정을 자동으로 추적하고, 언제든 이전 상태로 되돌린다
+> File edits are tracked automatically, and you can roll back to an earlier state at any time
 
-매 프롬프트마다 파일 상태를 자동으로 스냅샷한다. Write, Edit 도구로 수정한 파일만 추적하고, Bash 명령(rm, mv 등)으로 변경한 파일은 추적하지 않는다.
+The file state is snapshotted automatically on every prompt. Only files modified through the Write and Edit tools are tracked; files changed by Bash commands (rm, mv, etc.) are not.
 
-### 되돌리기 옵션
+### Rewind options
 
-| 옵션             | 동작                                            |
-| ---------------- | ----------------------------------------------- |
-| 코드 + 대화 복원 | 파일과 대화 모두 해당 시점으로 되돌린다         |
-| 대화만 복원      | 대화를 되돌리되 현재 파일은 유지한다            |
-| 코드만 복원      | 파일을 되돌리되 대화는 유지한다                 |
-| 여기서부터 요약  | 선택 시점 이후 대화를 압축한다 (파일 변경 없음) |
+| Option                      | Behavior                                                               |
+| --------------------------- | ---------------------------------------------------------------------- |
+| Restore code + conversation | Rewinds both files and conversation to that point                      |
+| Restore conversation only   | Rewinds the conversation but keeps the current files                   |
+| Restore code only           | Rewinds the files but keeps the conversation                           |
+| Summarize from here         | Compresses the conversation after the selected point (no file changes) |
 
-체크포인트는 세션 단위의 빠른 복구용이다. Git을 대체하지 않는다.
+Checkpoints are for quick, session-level recovery. They don't replace Git.
 
 ---
 
 <!-- Slide 10 -->
 
-## 스킬(Skill)
+## Skills
 
-> 폴더에 스킬 파일을 넣으면 슬래시 명령으로 실행한다
+> Put a skill file in a folder and run it as a slash command
 
-### 스킬 파일 구조
+### Skill file structure
 
 ```yaml
 ---
 name: commit
-description: 변경 사항을 커밋
+description: Commit the changes
 context: fork
 ---
-스킬 프롬프트 내용...
+Skill prompt content...
 ```
 
-- `name` — 슬래시 명령 이름 (/commit)
-- `description` — 메뉴에 표시할 설명
-- `context: fork` — 별도 세션에서 실행 (서브에이전트)
+- `name` — the slash command name (/commit)
+- `description` — the description shown in the menu
+- `context: fork` — runs in a separate session (a subagent)
 
-스킬은 프로젝트마다 다르게 구성한다. 코드 리뷰, 커밋, 테스트, 문서 생성 등 반복 작업을 스킬로 만들어두면 슬래시 명령 한 번으로 실행한다.
+Skills are set up differently for each project. If you turn repetitive tasks such as code review, commits, tests, and doc generation into skills, you can run them with a single slash command.
 
 ---
 
 <!-- Slide 11 -->
 
-## 컨텍스트 관리 문제
+## The context management problem
 
-> 대화가 길어지면 AI가 앞의 내용을 잊는다
+> When a conversation gets long, the AI forgets the earlier parts
 
-도구를 10번 호출하는 프롬프트 하나가 컨텍스트의 절반을 채우는 걸 보고 나서야, 이게 진짜 문제라는 걸 알았다.
+It was only after I saw a single prompt that calls tools 10 times fill half the context that I realized this is the real problem.
 
-AI 모델은 한 번에 처리하는 컨텍스트 크기에 한계를 가진다. Sonnet 4.5는 200K 토큰, Opus 4.6은 1M 토큰. 많아 보이지만, 코딩 에이전트는 컨텍스트에 엄청난 양의 정보를 담는다.
+An AI model has a limit on how much context it can process at once. Sonnet 4.5 has 200K tokens and Opus 4.6 has 1M tokens. That sounds like a lot, but a coding agent packs an enormous amount of information into its context.
 
-### 왜 문제인가
+### Why it's a problem
 
-- 대화 내용뿐 아니라 도구 실행 내역, 파일 내용, 명령 결과가 전부 컨텍스트에 쌓인다
-- 도구가 파일을 읽을 때마다 그 내용이 대화에 추가된다
-- 한 번의 프롬프트에 도구가 10번 돌면, 10개의 결과가 전부 컨텍스트를 차지한다
-- 모델이 허용하는 컨텍스트 크기를 넘으면 API가 에러를 낸다
+- Not just the conversation, but tool execution records, file contents, and command results all pile up in the context
+- Every time a tool reads a file, its contents get added to the conversation
+- If tools run 10 times in a single prompt, all 10 results take up context
+- If you exceed the context size the model allows, the API returns an error
 
-### 코딩 에이전트가 해결해야 하는 과제
+### What a coding agent has to solve
 
-- 컨텍스트가 얼마나 찼는지 추적
-- 한계에 가까워지면 이전 대화를 요약해서 압축
-- 시스템 프롬프트(AGENTS.md)는 압축하지 않고 보존
-- 도구 출력이 너무 크면 잘라내기
+- Track how full the context is
+- Summarize and compress earlier conversation as it nears the limit
+- Preserve the system prompt (AGENTS.md) without compressing it
+- Truncate tool output when it is too large
 
 ---
 
 <!-- Slide 12 -->
 
-## 이 구조로 직접 CLI를 만들어 봤다
+## I built a CLI with this structure
 
-> 기존 에이전트에 실행 루프, 도구, 퍼미션을 조립했다
+> I assembled an execution loop, tools, and permissions onto an existing agent
 
-여기까지 파악하고 나니 내 SDK로 만들 수 있겠다는 확신이 들었다. AGENTS.md와 실행 루프만 조립했더니 정말 Claude Code처럼 동작했다. 핵심은 기본 도구 6개(`Bash, Read, Write, Edit, Glob, Grep`)였다. 그리고 이 구조는 Anthropic API에 종속하지 않는다 — OpenAI API를 써도 동일하게 돌아갈 구조다.
+After figuring all this out, I was confident I could build it with my SDK. Once I had put together just AGENTS.md and the execution loop, it really did behave like Claude Code. The key was the 6 basic tools (`Bash, Read, Write, Edit, Glob, Grep`). And this structure isn't tied to the Anthropic API — it would run the same way with the OpenAI API.
 
-기존 Robota SDK 위에 계층을 나눠서 쌓았다:
+I stacked layers on top of the existing Robota SDK:
 
-- `agent-cli` — 터미널 UI (Ink/React)
-- `agent-sdk` — InteractiveSession, 커맨드, 스킬, 플러그인
-- `agent-sessions` — Session, 퍼미션, 훅, 컨텍스트
-- `agent-core` — Robota 라이브러리, 프로바이더, 도구, 실행 루프
+- `agent-cli` — terminal UI (Ink/React)
+- `agent-sdk` — InteractiveSession, commands, skills, plugins
+- `agent-sessions` — Session, permissions, hooks, context
+- `agent-core` — the Robota library, providers, tools, execution loop
 
 ---
 
 <!-- Slide 13 -->
 
-## 구현한 기능 목록
+## The features I implemented
 
-> 결국 다 만들어야 한다
+> In the end, you have to build all of it
 
-Claude Code를 쓰는 사람이 넘어오려면 익숙한 기능을 다 갖춰야 한다. 하나하나 구현하는 건 따분하지만, 빠지면 쓰기 불편하다.
+For people who use Claude Code to switch over, you need all the familiar features. Implementing them one by one is tedious, but it's inconvenient to use without them.
 
-### 터미널 UI
+### Terminal UI
 
-- React 기반 TUI (Ink)
-- 스트리밍 마크다운 렌더링 + 디바운스
-- 도구 실행 실시간 표시 + Edit Diff
-- CJK(한국어) 입력 지원
+- React-based TUI (Ink)
+- Streaming markdown rendering + debounce
+- Real-time display of tool execution + Edit Diff
+- CJK (Korean) input support
 
-### 세션과 입력
+### Sessions and input
 
-- 세션 이어가기 / 분기 / 이름 지정
-- 슬래시 커맨드 + Tab 자동완성
-- 멀티라인 붙여넣기
-- 실행 중단(ESC, Ctrl+C) + 프롬프트 큐
+- Resume / branch / name sessions
+- Slash commands + Tab autocomplete
+- Multiline paste
+- Interrupting execution (ESC, Ctrl+C) + prompt queue
 
-### 시스템
+### System
 
-- 퍼미션 4단계 모드, 훅 시스템
-- 서브에이전트 실행
-- 비대화형 모드 (Headless Transport)
-- 모델 선택, 언어 설정, 첫 실행 설정
-
----
-
-<!-- Slide 14: 만들면서 부딪힌 문제 (1) — 순서 변경: 기능 바로 뒤 -->
-
-## 만들면서 부딪힌 문제 (1)
-
-> 터미널에서 한국어를 쓰는 건 쉽지 않았다
-
-### CJK 입력
-
-- 문제 — 터미널 raw mode에서 한국어 IME가 정상 작동하지 않았다. 글자 탈락, 잘못된 위치에 입력
-- 원인 — React `useState`가 비동기로 배칭하는데, IME는 동기로 키스트로크를 보낸다
-- 해결 — ink-text-input을 버리고 `CjkTextInput`을 직접 작성. `useRef`로 즉시 반영, useState는 렌더링 트리거로만
-
-### Mac Terminal.app 크래시 (SIGSEGV)
-
-- 문제 — Terminal.app에서 한국어를 입력하면 터미널 앱 자체가 크래시
-- 원인 — Ink의 `setCursorPosition()`이 커서를 잘못된 위치로 이동시키면 IME가 세그멘테이션 폴트를 일으킨다
-- 해결 — setCursorPosition 호출을 제거
+- Four permission modes, hook system
+- Subagent execution
+- Non-interactive mode (Headless Transport)
+- Model selection, language setting, first-run setup
 
 ---
 
-<!-- Slide 15: 만들면서 부딪힌 문제 (2) — 순서 변경: 문제 연속 -->
+<!-- Slide 14: Problems I hit while building (1) — order changed: right after the features -->
 
-## 만들면서 부딪힌 문제 (2)
+## Problems I hit while building (1)
 
-> 데이터 구조를 바로잡으니 나머지가 풀렸다
+> Using Korean in a terminal was not easy
 
-### 컨텍스트 오버플로우
+### CJK input
 
-- 문제 — 도구 결과가 실시간으로 쌓이면서 컨텍스트가 급격히 커지고, LLM이 오류로 중단
-- 해결 — 임계값 초과 시 "컨텍스트 문제로 누락됨" 메시지를 삽입. LLM이 이를 보고 자연스럽게 복구
+- Problem — In terminal raw mode, the Korean IME didn't work properly. Characters dropped out or were entered at the wrong position
+- Cause — React's `useState` batches asynchronously, but the IME sends keystrokes synchronously
+- Fix — I dropped ink-text-input and wrote `CjkTextInput` myself. It applies changes immediately with `useRef`, and uses useState only as a render trigger
 
-### 히스토리 확장
+### Mac Terminal.app crash (SIGSEGV)
 
-기존 에이전트는 API 호출에 필요한 채팅 내용만 대화 목록에 담았다. 하지만 CLI에서 세션을 관리하려면 대화뿐 아니라 도구 실행, 스킬 호출, 이벤트 등 다양한 정보를 함께 기록해야 했다.
-
-agent-core에 `IHistoryEntry` 타입을 신설하고, 모든 정보를 하나의 타임라인에 담았다:
-
-- **append-only, read-only** — 수정/삭제 없음. 데이터가 없으면 fallback이 아니라 버그
-- **투명한 저장** — resume 시 가공 없이 그대로 불러옴. 변환이 필요하면 저장 로직을 고친다
-
-이 구조 덕분에 세션 이어가기, 히스토리 표시, 이벤트 추적이 모두 단순해졌다.
+- Problem — Typing Korean in Terminal.app crashed the terminal app itself
+- Cause — When Ink's `setCursorPosition()` moves the cursor to a wrong position, the IME triggers a segmentation fault
+- Fix — I removed the setCursorPosition call
 
 ---
 
-<!-- Slide 16: 컨텍스트 압축 — 순서 변경: 문제 바로 뒤에 해결 -->
+<!-- Slide 15: Problems I hit while building (2) — order changed: problems kept together -->
 
-## 컨텍스트 압축 — 내가 구현한 방법
+## Problems I hit while building (2)
 
-> 5가지 방법으로 컨텍스트를 관리한다
+> Once I fixed the data structure, the rest fell into place
 
-| 전략                 | 설명                                                 |
-| -------------------- | ---------------------------------------------------- |
-| 사전 감지            | 매 라운드 전 토큰 추정 (chars/2). 83.5% 초과 시 경고 |
-| 자동 압축            | /compact 또는 자동. AI가 이전 메시지를 요약          |
-| 시스템 프롬프트 보존 | AGENTS.md 등은 압축하지 않고 유지                    |
-| 도구 출력 캡         | 30K 문자 초과 시 자동 절삭                           |
-| 도구 결과 스킵       | 80% 초과 시 나머지 건너뜀 + LLM에 누락 알림          |
+### Context overflow
 
-**핵심:** 압축 한 번에 토큰 40~60% 절약. 단, 세부 맥락을 잃는다.
+- Problem — Tool results piled up in real time, the context grew rapidly, and the LLM stopped with an error
+- Fix — When a threshold is exceeded, insert an "omitted due to context issues" message. The LLM sees it and recovers naturally
+
+### Extending the history
+
+Existing agents kept only the chat content needed for API calls in the conversation list. But to manage sessions in a CLI, I had to record not just the conversation but also a variety of other information, such as tool executions, skill invocations, and events.
+
+I introduced an `IHistoryEntry` type in agent-core and put all of that information into a single timeline:
+
+- **append-only, read-only** — no edits or deletes. If data is missing, that's a bug, not something to handle with a fallback
+- **Transparent storage** — on resume, entries are loaded as they are, with no processing. If a conversion is needed, fix the storage logic
+
+Thanks to this structure, resuming sessions, displaying history, and tracking events all became simpler.
 
 ---
 
-<!-- Slide 17: 플러그인 — 순서 변경: 기본 완성 후 확장 -->
+<!-- Slide 16: Context compression — order changed: the solution right after the problem -->
 
-## Claude Code와 호환하는 플러그인 기능
+## Context compression — how I implemented it
 
-> 생태계와 호환하지 않으면 혼자만 쓰는 도구로 끝난다
+> Five ways to manage the context
 
-### 플러그인 명령어
+| Strategy                | Description                                                        |
+| ----------------------- | ------------------------------------------------------------------ |
+| Early detection         | Estimate tokens (chars/2) before every round. Warn when over 83.5% |
+| Auto compression        | /compact or automatic. The AI summarizes earlier messages          |
+| System prompt preserved | AGENTS.md etc. are kept without being compressed                   |
+| Tool output cap         | Automatically truncated beyond 30K characters                      |
+| Tool result skipping    | Over 80%, the rest are skipped + the LLM is told what was omitted  |
+
+**Key point:** a single compression saves 40–60% of tokens. But you lose detailed context.
+
+---
+
+<!-- Slide 17: Plugins — order changed: extend after the basics are done -->
+
+## Plugin support compatible with Claude Code
+
+> If you aren't compatible with the ecosystem, you end up with a tool only you use
+
+### Plugin commands
 
 ```
-/plugin marketplace add owner/repo    ← 마켓플레이스 등록
-/plugin install name@marketplace      ← 플러그인 설치
+/plugin marketplace add owner/repo    ← Register a marketplace
+/plugin install name@marketplace      ← Install a plugin
 ```
 
-마켓플레이스를 등록하고, 거기서 플러그인을 설치/제거할 수 있다. Claude Code와 동일한 경로 구조를 지원한다.
+You can register a marketplace and install/remove plugins from it. It supports the same path structure as Claude Code.
 
-### 서브에이전트
+### Subagents
 
-서브에이전트도 구현했다. Claude Code의 스킬 파일 중 프론트매터에 `context: fork`가 있으면 메인 대화와 분리한 별도 세션에서 실행한다.
-
----
-
-<!-- Slide 18: 합쳐진 현황 (기존 18+19 통합) -->
-
-## 그래서, 지금 쓸 수 있나?
-
-> 실제로 코딩 작업에 사용해 봤고, 일상 개발 작업을 할 수 있는 수준이다
-
-쓸 수 있다. 이제 Robota를 Robota CLI로 개발할 수 있다.
-
-- Claude Code와 동일한 도구 세트 (Bash, Read, Write, Edit, Glob, Grep)
-- 스킬/플러그인 생태계 호환
-- 퍼미션 시스템과 훅 시스템 구현
-- 컨텍스트 압축으로 긴 세션 유지
-- 세션을 이어가며 며칠에 걸친 작업 가능
-- 서브에이전트로 병렬 작업 위임
-- 스트리밍 마크다운 렌더링
-- CJK(한국어) 입력 지원
-- agent-sdk를 분리했기 때문에 다른 프로젝트에서 SDK만 불러와서 동일한 코딩 어시스턴트를 구성한다
-
-단, 조건이 있다.
-
-- 아직 Claude Code가 더 안정적이다
-- API 종량제라 구독 대비 비용이 더 들 수 있다
-- API 키가 필요해서 개발자가 아니면 진입 장벽이 높다
-
-대신 내가 만든 라이브러리 위에서 돌아가므로 프로바이더 교체, 커스터마이징, 확장이 자유롭다.
+I implemented subagents too. If a Claude Code skill file has `context: fork` in its frontmatter, it runs in a separate session, split off from the main conversation.
 
 ---
 
-<!-- Slide 19: 마무리 (기존 20+21+22 통합) -->
+<!-- Slide 18: Combined status (merges the former 18+19) -->
 
-## 마무리
+## So, can you use it now?
 
-9일 동안 385커밋, 53번의 npm 릴리즈. 만드는 과정에서 에이전트 작동 원리를 훨씬 정확하게 이해했다.
+> I've actually used it for coding work, and it's at a level where it can handle everyday development tasks
 
-이제 이 기반 위에서 만들고 싶은 것이 계속 떠오른다. 앞으로 하나씩 만들어보겠습니다.
+Yes, you can. Now I can develop Robota with the Robota CLI.
 
-궁금한 점이나 피드백이 있다면 GitHub에 남겨주세요.
+- The same tool set as Claude Code (Bash, Read, Write, Edit, Glob, Grep)
+- Compatible with the skill/plugin ecosystem
+- Permission system and hook system implemented
+- Long sessions sustained through context compression
+- Work spanning several days by resuming sessions
+- Parallel work delegated to subagents
+- Streaming markdown rendering
+- CJK (Korean) input support
+- Because agent-sdk is separate, other projects can import just the SDK and set up the same coding assistant
+
+But there are conditions.
+
+- Claude Code is still more stable
+- It's pay-as-you-go API pricing, so it can cost more than a subscription
+- It needs an API key, so the barrier to entry is high for non-developers
+
+In exchange, since it runs on a library I built, swapping providers, customizing, and extending are all free.
+
+---
+
+<!-- Slide 19: Closing (merges the former 20+21+22) -->
+
+## Closing
+
+385 commits and 53 npm releases in 9 days. Through building it, I understood how agents work far more accurately.
+
+Now I keep thinking of things I want to build on top of this foundation. I'll build them one by one from here.
+
+If you have questions or feedback, please leave them on GitHub.
 
 ```
 # __PROJECT_WEBSITE_URL__

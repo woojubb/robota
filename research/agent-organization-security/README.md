@@ -1,31 +1,33 @@
-# 조직형 에이전트 보안 실행 환경 연구
+# Research on a Secure Execution Environment for Organizational Agents
 
-상태: 조사와 검증 진행 중. 이 문서는 제품 기본값이나 공급자 선택을 확정하지 않는다.
-기준 소스는 `2d49741f5aa715edde98d8e5fd2678356226e482`이며 main 승격 커밋과 코드 트리가 같다.
+Status: investigation and verification in progress. This document does not settle product defaults or provider choices.
+The baseline source is `2d49741f5aa715edde98d8e5fd2678356226e482`, whose code tree is identical to the main promotion commit.
 
-## 판정 원칙과 산출물
+## Judgment principles and deliverables
 
-런타임 VM의 격리와 모델이 생성한 작업의 격리는 별개다. 회사의 모델 키, 세션,
-제어 토큰이 있는 VM에서 임의 명령을 실행하면서 호스트 VM 밖으로만 나가지 못하게 하는
-것은 회사 권한을 보호하는 경계가 아니다. 작업별 별도 실행 환경과 외부 정책·자격 증명
-중개가 함께 필요하다. 공급자의 설명, 소스에서 확인한 동작, 실제 관측, 제안, 미검증 항목을
-각각 구분한다. 공급자의 보안 인증은 애플리케이션 승인 정책의 증거로 쓰지 않는다.
+Isolating the runtime VM and isolating the work the model generates are separate matters. Running
+arbitrary commands in a VM that holds the company's model keys, sessions, and control tokens, while
+only preventing them from leaving the host VM, is not a boundary that protects company authority.
+Per-task separate execution environments and external policy and credential mediation are needed
+together. Provider descriptions, behavior confirmed in source, actual observations, proposals, and
+unverified items are each kept distinct. A provider's security certification is not used as evidence
+of an application's approval policy.
 
-- [현재 코드와 실측 경계](current-boundaries.md)
-- [위협 모델·소유권·조직 공통 계약](organization-contract.md)
-- [병렬 조직 정책·장애 실측](parallel-results.md)
-- [플랫폼 평가와 출처](platforms.md)
-- [클라우드 실험안](cloud-experiments.md)
-- [현재 Linux 실측 데이터](evidence/current-boundaries-linux.json)
-- [재현 프로그램](poc/current-boundaries.mts)
-- [완료 기준별 증거와 남은 작업](completion-audit.md)
+- [Current code and measured boundaries](current-boundaries.md)
+- [Threat model, ownership, and common organizational contract](organization-contract.md)
+- [Parallel organizational policy and failure measurements](parallel-results.md)
+- [Platform evaluation and sources](platforms.md)
+- [Cloud experiment plan](cloud-experiments.md)
+- [Current Linux measurement data](evidence/current-boundaries-linux.json)
+- [Reproduction program](poc/current-boundaries.mts)
+- [Evidence per completion criterion and remaining work](completion-audit.md)
 
-## 재현
+## Reproduction
 
-저장소의 pnpm 의존성을 설치한 Linux에서 Node 22, Python 3와 작동하는 bubblewrap이 필요하다.
-새 터미널에 회사 키나 실제 클라우드 토큰을 주입하지 않고 실행한다. 임시 HOME과 제품 상태를
-사용하며, 아래 프로그램은 무작위 합성 canary만 생성하고 finally에서 실험 파일과 서버를 정리한다.
-실행 결과에는 canary 값, 환경 변수 목록, 실제 자격 증명이 저장되지 않는다.
+This requires Linux with the repository's pnpm dependencies installed, Node 22, Python 3, and a working bubblewrap.
+Run it in a new terminal without injecting company keys or real cloud tokens. It uses a temporary HOME and product state,
+and the program below generates only random synthetic canaries and cleans up the experiment files and servers in a finally block.
+The run result does not store canary values, environment variable lists, or real credentials.
 
 ```sh
 TASK_RESEARCH_HOME=$(mktemp -d)
@@ -37,10 +39,10 @@ cat "$TASK_RESEARCH_HOME/current-boundaries.json"
 rm -rf "$TASK_RESEARCH_HOME"
 ```
 
-프로그램은 현재 동작을 확인하는 연구 실험이다. 안전하다는 전체 판정이나 모델 프롬프트
-공격 성공의 증거가 아니다. CI gate, 새 harness 규칙, production sandbox 구현으로 등록하지 않는다.
-외부 서비스 실행, 실제 지연·비용, 장시간 병렬 업무 및 사고 복구는 별도 증거가 필요하다.
+The program is a research experiment that checks current behavior. It is neither an overall verdict that
+the system is safe nor evidence that a model prompt attack succeeded. It is not registered as a CI gate, a new harness rule, or a production sandbox implementation.
+External service execution, real latency and cost, long-running parallel work, and incident recovery need separate evidence.
 
-실제 CLI/daemon KVM 실험의 image, seed, QEMU 인자, artifact deploy와 provider 구성은
-[VM 재현 recipe](poc/vm-recipe.md)에 기록한다. 검증 manifest는 실제 QMP와 실행 프로세스
-인자를 대조하며, 이미 준비된 guest에 접속하는 smoke 프로그램과 별개다.
+The image, seed, QEMU arguments, artifact deploy, and provider configuration of the real CLI/daemon KVM experiments
+are recorded in the [VM reproduction recipe](poc/vm-recipe.md). The verification manifest cross-checks the actual QMP and running process
+arguments, and is separate from the smoke program that connects to an already prepared guest.

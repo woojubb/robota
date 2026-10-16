@@ -118,7 +118,7 @@ the System Overview diagram above. Current checks are defined in `AGENTS.md` and
 - `PLUGIN-LAYER` — an `agent-plugin-*` package may depend, among `@robota-sdk/*` packages, only on the
   allowed set (today: `agent-core`): plugins register with the foundation and never reach into the
   framework above it.
-- `FAMILY-SIBLINGS` — the package name hierarchy is the dependency detector (패키지 이름 계층 참조 규칙):
+- `FAMILY-SIBLINGS` — the package name hierarchy is the dependency detector:
   an `agent-<family>-<child>` package (family = the second dash segment) may depend on its parent
   `agent-<family>` and on lower families, never on a sibling `agent-<family>-<other>` at any depth
   (`agent-transport-webrtc-web` is a sibling of `agent-transport-ws`); the bare parent never depends
