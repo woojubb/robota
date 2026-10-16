@@ -4,6 +4,88 @@
 batch jobs. This guide shows the pattern for each context. It assumes you know the basics of
 `InteractiveSession` and `createQuery()` from [Using the SDK](./sdk.md).
 
+## First run without a model
+
+This check confirms that the published packages install and that a `createQuery` call completes in
+your environment, before you configure a real provider. It needs Node.js 22.12 or later and no API key,
+model or account. A small server in the same script stands in for a local OpenAI-compatible model
+server and returns a fixed reply, so this checks the embedding mechanics, not model inference.
+
+```bash
+mkdir robota-first-task && cd robota-first-task
+npm init -y && npm pkg set type=module
+npm install @robota-sdk/agent-framework@3.0.0-beta.93 @robota-sdk/agent-provider-openai-compatible@3.0.0-beta.93
+```
+
+Save this as `first-task.mjs`:
+
+```javascript
+import { createServer } from 'node:http';
+import { createQuery } from '@robota-sdk/agent-framework';
+import { GemmaProvider } from '@robota-sdk/agent-provider-openai-compatible';
+
+const REPLY = 'Hello from the fixture model.';
+
+// A stand-in for a local OpenAI-compatible server: every chat request gets the same reply.
+const server = createServer((req, res) => {
+  let body = '';
+  req.on('data', (chunk) => (body += chunk));
+  req.on('end', () => {
+    console.error(`fixture: ${req.method} ${req.url}`);
+    const base = { id: 'fixture', created: 0, model: 'fixture-model' };
+    if (!JSON.parse(body).stream) {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        ...base,
+        object: 'chat.completion',
+        choices: [{ index: 0, message: { role: 'assistant', content: REPLY }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      }));
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    for (const [delta, finish_reason] of [[{ role: 'assistant', content: REPLY }, null], [{}, 'stop']]) {
+      const chunk = { ...base, object: 'chat.completion.chunk', choices: [{ index: 0, delta, finish_reason }] };
+      res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+    }
+    res.end('data: [DONE]\n\n');
+  });
+});
+await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+
+const query = createQuery({
+  provider: new GemmaProvider({
+    apiKey: 'fixture', // the fixture checks no key; use your server's token if it needs one
+    baseURL: `http://127.0.0.1:${server.address().port}/v1`,
+  }),
+  model: 'fixture-model',
+});
+
+try {
+  console.log(await query('Say hello.'));
+} finally {
+  await query.shutdown();
+  server.close();
+}
+```
+
+```bash
+node first-task.mjs
+```
+
+Expected output: the fixture logs its one request to stderr, the reply goes to stdout, and the
+process exits on its own once the query is shut down and the server is closed:
+
+```text
+fixture: POST /v1/chat/completions
+Hello from the fixture model.
+```
+
+npm 11 may report that the `koffi` dependency's install script was not run; this example does not
+need it. To talk to a real model, replace the fixture with your server's `baseURL`, model id and, if
+it requires one, its token — see [Local LLM Setup](./local-llm.md#using-a-local-model-from-code) — or
+use a hosted provider as in the next sections.
+
 ## API selection
 
 | Use case                          | API                                                        | Notes                                        |
