@@ -114,9 +114,9 @@ budget, approval, CAS, duplicate external effects, and real crash and revocation
 broker. This prototype is not presented as a security feature of the production CLI.
 
 Five observations were confirmed on real MCP stdio: initialize/catalog/submit, protocol-only stdout, and
-normal signal termination. [MCP result](evidence/vm-mcp-linux.json). On the real VM, filesystem
-separation, pause/resume, and offline disk restore were also observed, including non-resumption of
-descendants and four terminations. [VM lifecycle](evidence/vm-lifecycle-linux.json). The first
+normal signal termination. [MCP result](evidence/vm-mcp-linux.json). Four observations were also
+made on the real VM: filesystem separation, pause/resume, non-resumption of descendants after an
+offline disk restore, and termination. [VM lifecycle](evidence/vm-lifecycle-linux.json). The first
 shutdown wait that exceeded 20 seconds is kept as a failure result, and a normal shutdown was
 confirmed in a 60-second bounded retry. The subsequent [extended experiment](evidence/parallel-recovery-linux.json)
 linked identity revocation in the local reference topology, VM/tunnel/child termination, disk restore,

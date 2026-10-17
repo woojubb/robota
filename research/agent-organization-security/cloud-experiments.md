@@ -46,15 +46,15 @@ Unsupported capabilities are recorded as skip-with-reason and are not counted as
 4. Verify default-deny egress with DNS, raw IP, redirects, proxy bypass, and existing connections.
 5. Verify exact request approval for synthetic payment/deploy operations, approval replay, argument tamper, and use by another actor,
    and trigger concurrent duplicate/retry/crash-after-effect/unknown response.
-6. Cause shared-state CAS, lease fencing, and merge conflicts. After budget, task count, process/time/memory limits and
-   an emergency stop, confirm that all descendants, connections, and broker admission are rejected.
+6. Cause shared-state CAS, lease fencing, and merge conflicts. Confirm the budget, task-count and process/time/memory
+   limits, and that after an emergency stop all descendants, connections, and broker admission are rejected.
 7. Confirm that revoked identity/approval/budget do not come back in checkpoint -> revoke -> restore.
    Reject a host fallback or an empty-worker success on a corrupted/missing snapshot and a provider outage.
 8. Confirm that secret canaries are absent from the audit, and that event tamper/deletion/reordering are detected by the independent anchor.
 9. Measure the latency, resource usage, and cost of each start/stop/resume/delete, and prove cleanup with a resource list.
 
-Each record preserves expected/observed/result and the retry count. Failed experiments are not
-deleted so that only successful re-runs remain. The mock HTTP provider is used to exercise the actual
+Each record preserves expected/observed/result and the retry count. Failed experiments are kept;
+they are never deleted to leave only successful re-runs. The mock HTTP provider is used to exercise the actual
 CLI/tool path and does not prove the safety of an adversarial model itself. Every completion
 criterion is checked separately in completion-audit, and if there are services that could not be run
 or real cost measurement remains, the whole research is not marked complete.

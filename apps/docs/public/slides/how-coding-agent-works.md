@@ -321,7 +321,7 @@ For people who use Claude Code to switch over, you need all the familiar feature
 
 ### Extending the history
 
-Existing agents kept only the chat content needed for API calls in the conversation list. But to manage sessions in a CLI, I had to record not just the conversation but also a variety of other information, such as tool executions, skill invocations, and events.
+My existing agent kept only the chat content needed for API calls in the conversation list. But to manage sessions in a CLI, I had to record not just the conversation but also a variety of other information, such as tool executions, skill invocations, and events.
 
 I introduced an `IHistoryEntry` type in agent-core and put all of that information into a single timeline:
 
@@ -395,7 +395,7 @@ But there are conditions.
 - It's pay-as-you-go API pricing, so it can cost more than a subscription
 - It needs an API key, so the barrier to entry is high for non-developers
 
-In exchange, since it runs on a library I built, swapping providers, customizing, and extending are all free.
+In exchange, since it runs on a library I built, I am free to swap providers, customize and extend it.
 
 ---
 

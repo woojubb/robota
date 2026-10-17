@@ -68,8 +68,8 @@ epoch, and policy is evaluated again. Because a checkpoint may contain malicious
 contaminated repo, it is restored into a new worker after checking digest and provenance, and startup
 hooks are also verified as trusted inputs.
 
-Messages between agents have an authenticated sender and schema, size, and sequence limits, but their
-content is still untrusted. A message saying "the owner approved" is not converted into an approval. A
+Even if messages between agents have an authenticated sender and schema, size, and sequence limits,
+their content is untrusted. A message saying "the owner approved" is not converted into an approval. A
 high-impact API receives the operation digest and idempotency key through a separate trusted approval
 channel. If an external API does not provide idempotency and the response is lost, the outcome stays
 unknown and reconciliation is requested from an administrator. "Exactly once" is not claimed on the
