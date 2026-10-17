@@ -97,6 +97,7 @@ Each carrier is its own package, so an application installs only the protocol de
 | WebSocket | [`@robota-sdk/agent-transport-ws`](../agent-transport-ws/README.md)         | Serves a session on a loopback WebSocket server (token-authenticated by default)  |
 | HTTP      | [`@robota-sdk/agent-transport-http`](../agent-transport-http/README.md)     | Hono routes for submitting prompts and reading session state over HTTP + SSE      |
 | MCP       | [`@robota-sdk/agent-transport-mcp`](../agent-transport-mcp/README.md)       | Exposes a session as an MCP server over stdio or Streamable HTTP                  |
+| ACP       | [`@robota-sdk/agent-transport-acp`](../agent-transport-acp/README.md)       | Runs a session as an Agent Client Protocol agent over stdio, for editors          |
 | WebRTC    | [`@robota-sdk/agent-transport-webrtc`](../agent-transport-webrtc/README.md) | Carries a session peer-to-peer over a pairing-gated data channel (Node host side) |
 
 The headless (non-interactive text / JSON / stream-JSON) transport and `TransportRegistry`, which

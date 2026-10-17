@@ -44,6 +44,9 @@ transport implementations.
   hand-rolled crypto, and key discovery goes through the shared egress boundary rather than a
   private fetch, so one policy governs every outbound request.
 - Owns no socket, HTTP listener, WebRTC, terminal, framework-host, registry, or settings lifecycle.
+  The one process-stream helper it does own, the stdio carrier bridge, only attaches and detaches: it
+  gives a protocol SDK a bridge to read instead of the process input, so stopping a carrier can never
+  destroy the input, and reports either end closing. What a close means stays with each carrier.
 - Session mobility owns handoff authority, offer refusal, and inventory classification; this package
   frames, seals, verifies, and assembles the payload that crosses a carrier.
 - Does not forward another workspace package.
