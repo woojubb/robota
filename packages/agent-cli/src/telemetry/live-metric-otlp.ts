@@ -205,7 +205,8 @@ export function projectLivePromptMetrics(
   // GenAI points carry the request model by convention, so that never depends on the `model` opt-in.
   // The Robota-only `agent.provider.id` / `agent.model.id` labels follow the same opt-ins as the `agent.*`
   // counters, so a provider split survives the counters `gen_ai` mode drops. The GenAI metrics get a scope
-  // of their own that names the GenAI schema, as the spans do, so a backend can tell which convention they follow.
+  // of their own that names the GenAI schema, as the spans do, so a backend can tell which convention they follow;
+  // a batch that yields none (every child omitted and a root without a valid duration) sends no empty scope.
   const genAiMetrics = naming.semconv === 'agent' ? [] : aggregateMetricSamples(
     projectLivePromptMetricSamples(batch, {
       mode: naming.semconv, ...(naming.agentName ? { agentName: naming.agentName } : {}),
@@ -218,7 +219,7 @@ export function projectLivePromptMetrics(
     }),
     scopeMetrics: [
       { scope, metrics },
-      ...(naming.semconv === 'agent' ? [] : [{ scope: { ...scope, schemaUrl: GEN_AI_SCHEMA_URL }, metrics: genAiMetrics }]),
+      ...(genAiMetrics.length > 0 ? [{ scope: { ...scope, schemaUrl: GEN_AI_SCHEMA_URL }, metrics: genAiMetrics }] : []),
     ],
   };
 }

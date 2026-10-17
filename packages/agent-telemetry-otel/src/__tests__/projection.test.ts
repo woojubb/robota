@@ -216,6 +216,17 @@ describe('projectLivePromptTrace', () => {
     expect(projection.children[0]?.attributes['agent.provider.id']).toBe(providerId);
   });
 
+  it.each(['constructor', 'hasOwnProperty'])('does not mistake the inherited property %s for a known provider', (providerId) => {
+    const base = batch();
+    for (const mode of ['gen_ai', 'gen_ai/dup'] as const) {
+      const projection = projectLivePromptTrace(batch({
+        children: [{ kind: 'provider', trace: { ...(base.children[0] as { trace: object }).trace, providerId } as never }],
+      }), { mode });
+      expect(projection.children[0]?.attributes).not.toHaveProperty('gen_ai.provider.name');
+      expect(projection.children[0]?.attributes['agent.provider.id']).toBe(providerId);
+    }
+  });
+
   it('omits token counts unless usage is complete, and drops IDs outside the opaque-ID shape', () => {
     const base = batch();
     const projection = projectLivePromptTrace(batch({

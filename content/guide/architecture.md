@@ -105,7 +105,7 @@ transport accept a session without depending on `agent-framework`.
 | `agent-plugin`                          | Eight ready-made plugins (logging, usage, limits, webhooks, and more)                 |
 | `agent-process`, `agent-file-authority` | Small helpers: process-tree termination, bounded root-relative file reads             |
 | `agent-session-analytics`               | Session-log timing and usage analysis, reports and OTLP export                        |
-| `agent-telemetry-otel`                  | OpenTelemetry spans for agent runs and trace batches, GenAI or `agent.*` names        |
+| `agent-telemetry-otel`                  | OpenTelemetry spans and metrics for agent runs and traces, GenAI or `agent.*` names   |
 | `agent-remote-pairing`                  | Pairing and channel binding for peer-to-peer connections (no Robota dependencies)     |
 
 Each provider package is a leaf over `agent-core` (the OpenAI package also reuses

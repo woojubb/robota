@@ -100,13 +100,9 @@ describe('projectLivePromptMetricSamples', () => {
   });
 
   it('pins the recommended bucket boundaries', () => {
-    expect(GEN_AI_DURATION_BUCKETS_S).toHaveLength(14);
-    expect(GEN_AI_DURATION_BUCKETS_S[0]).toBe(0.01);
-    expect(GEN_AI_DURATION_BUCKETS_S.at(-1)).toBe(81.92);
-    expect(GEN_AI_AGENT_DURATION_BUCKETS_S).toHaveLength(13);
-    expect(GEN_AI_AGENT_DURATION_BUCKETS_S.at(-1)).toBe(409.6);
-    expect(GEN_AI_TOKEN_BUCKETS).toHaveLength(14);
-    expect(GEN_AI_TOKEN_BUCKETS.at(-1)).toBe(67_108_864);
+    expect(GEN_AI_DURATION_BUCKETS_S).toEqual([0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64, 1.28, 2.56, 5.12, 10.24, 20.48, 40.96, 81.92]);
+    expect(GEN_AI_AGENT_DURATION_BUCKETS_S).toEqual([0.1, 0.2, 0.4, 0.8, 1.6, 3.2, 6.4, 12.8, 25.6, 51.2, 102.4, 204.8, 409.6]);
+    expect(GEN_AI_TOKEN_BUCKETS).toEqual([1, 4, 16, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864]);
     expect(GEN_AI_CALL_COUNT_BUCKETS).toEqual([1, 2, 4, 8, 16, 32, 64, 128]);
   });
 

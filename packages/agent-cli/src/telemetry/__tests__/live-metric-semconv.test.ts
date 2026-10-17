@@ -11,6 +11,8 @@ import { describe, expect, it } from 'vitest';
 import { createNodeLiveConsolePort } from '../live-console.js';
 import { createNodeOtlpLiveMetricPort, projectLivePromptMetrics } from '../live-metric-otlp.js';
 import type { ILiveMetricNaming, TLiveMetricAttribute } from '../live-metric-otlp.js';
+import type { ILiveTelemetryHostResource } from '../live-resource.js';
+import { createConfiguredNodeOtlpLiveTelemetryPort } from '../live-trace-otlp.js';
 import { completeBatch, FIXED_RESOURCE, FIXED_WINDOW, richBatch } from './semconv-fixture-shared.js';
 
 const fixture = JSON.parse(readFileSync(new URL('./__fixtures__/agent-mode-metric-export.json', import.meta.url), 'utf8')) as
@@ -52,6 +54,18 @@ describe('live metric semantic-convention modes', () => {
     expect(scopes()).toEqual([[undefined, false]]);
     expect(scopes(GEN_AI)).toEqual([[undefined, false], [GEN_AI_SCHEMA_URL, true]]);
     expect(scopes(DUP)).toEqual([[undefined, false], [GEN_AI_SCHEMA_URL, true]]);
+  });
+
+  it('sends no empty GenAI scope when a batch yields no GenAI metric', () => {
+    // Every provider and tool child omitted: only the root's own duration is left to measure.
+    const omitted: ILivePromptTraceBatch = { ...completeBatch(), children: [], omittedChildren: { provider: 1, tool: 1, permission: 0 } };
+    const scopes = (batch: ILivePromptTraceBatch) => project(batch, new Set(), GEN_AI).scopeMetrics
+      .map(({ scope, metrics }) => [scope.schemaUrl, metrics.map((metric) => metric.descriptor.name).filter((name) => name.startsWith('gen_ai.'))]);
+    expect(scopes(omitted)).toEqual([[undefined, []], [GEN_AI_SCHEMA_URL, ['gen_ai.invoke_agent.duration']]]);
+    // A root that ends before it starts has no duration either: nothing GenAI remains, so no scope carries the schema.
+    const noDuration: ILivePromptTraceBatch = { ...omitted, root: { ...omitted.root, endedAt: '2026-10-16T23:59:59.000Z' } };
+    expect(scopes(noDuration)).toEqual([[undefined, []]]);
+    expect(project(noDuration, new Set(), GEN_AI).scopeMetrics[0]!.metrics.length).toBeGreaterThan(0);
   });
 
   it('exports byte-identical metrics in the default agent mode', () => {
@@ -334,5 +348,68 @@ describe('live metric semantic-convention modes', () => {
     for (const name of ['gen_ai.client.inference.duration', 'gen_ai.invoke_agent.tool_calls']) {
       expect(bodies[1]!.includes(name)).toBe(true);
     }
+  });
+
+  describe('through the configured telemetry port', () => {
+    const HOST: ILiveTelemetryHostResource = { telemetryServiceName: 'robota', serviceVersion: '3.0.0', surface: 'print' };
+
+    /** The metric request the env-configured port sends a local collector for one complete batch. */
+    async function exportedMetrics(settings: Record<string, string>): Promise<string> {
+      const bodies: Buffer[] = [];
+      const server = createServer(async (request, response) => {
+        const chunks: Buffer[] = [];
+        for await (const chunk of request) chunks.push(Buffer.from(chunk));
+        bodies.push(Buffer.concat(chunks));
+        response.writeHead(200, { 'content-type': 'application/x-protobuf' });
+        response.end();
+      });
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+      try {
+        const address = server.address();
+        if (!address || typeof address === 'string') throw new Error('Expected TCP listener');
+        const port = createConfiguredNodeOtlpLiveTelemetryPort({
+          PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_METRICS: 'otlp', PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+          PRODUCT_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`, ...settings,
+        }, undefined, undefined, HOST)!;
+        port.enqueue(completeBatch());
+        await port.shutdown();
+      } finally {
+        await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      }
+      expect(bodies).toHaveLength(1);
+      return bodies[0]!.toString('utf8');
+    }
+
+    /** The metrics the env-configured console port prints for one complete batch. */
+    async function printedMetrics(settings: Record<string, string>): Promise<Array<{ name: string; points: Array<{ attributes: Record<string, unknown> }> }>> {
+      const lines: string[] = [];
+      const port = createConfiguredNodeOtlpLiveTelemetryPort({
+        PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_METRICS: 'console', ...settings,
+      }, undefined, (line) => { lines.push(line); }, HOST)!;
+      port.enqueue(completeBatch());
+      await port.shutdown();
+      return (JSON.parse(lines.pop()!) as { metrics: Array<{ name: string; points: Array<{ attributes: Record<string, unknown> }> }> }).metrics;
+    }
+
+    it('sends the GenAI metrics, naming the agent, only when PRODUCT_TELEMETRY_SEMCONV asks for them', async () => {
+      const genAi = await exportedMetrics({ PRODUCT_TELEMETRY_SEMCONV: 'gen_ai' });
+      expect(genAi).toContain('gen_ai.client.inference.duration');
+      expect(genAi).toContain('gen_ai.agent.name');
+      expect(genAi).not.toContain('agent.provider.input_tokens');
+      const agent = await exportedMetrics({});
+      expect(agent).not.toContain('gen_ai.');
+      expect(agent).toContain('agent.provider.input_tokens');
+    });
+
+    it('prints the GenAI metrics, naming the agent, only when PRODUCT_TELEMETRY_SEMCONV asks for them', async () => {
+      const genAi = await printedMetrics({ PRODUCT_TELEMETRY_SEMCONV: 'gen_ai' });
+      const names = genAi.map((metric) => metric.name);
+      expect(names).toContain('gen_ai.client.inference.duration');
+      expect(names).not.toContain('agent.provider.input_tokens');
+      expect(genAi.find((metric) => metric.name === 'gen_ai.invoke_agent.duration')!.points[0]!.attributes['gen_ai.agent.name']).toBe('robota');
+      const agent = (await printedMetrics({})).map((metric) => metric.name);
+      expect(agent.filter((name) => name.startsWith('gen_ai.'))).toEqual([]);
+      expect(agent).toContain('agent.provider.input_tokens');
+    });
   });
 });

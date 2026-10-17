@@ -9,7 +9,7 @@ import { projectLiveTimingTotals } from './live-timing.js';
 import { projectLivePromptTrace } from '@robota-sdk/agent-telemetry-otel';
 import type { TOtelProjectionMode } from '@robota-sdk/agent-telemetry-otel';
 
-/** Span naming for console traces; `agent` keeps the diagnostic record unchanged. */
+/** The names console traces and metrics carry; `agent` keeps the diagnostic record unchanged. */
 export interface ILiveConsoleTraceNaming {
   readonly semconv: TOtelProjectionMode;
   readonly agentName?: string;
