@@ -122,6 +122,30 @@ describe('projectLivePromptTrace', () => {
     });
   });
 
+  it('keeps the CLI attribute order and no error.type in agent mode', () => {
+    const projection = projectLivePromptTrace(batch(), { mode: 'agent' });
+    expect(Object.keys(projection.children[0]?.attributes ?? {})).toEqual([
+      'agent.outcome', 'agent.provider.round', 'agent.provider.disposition', 'agent.provider.id', 'agent.model.id',
+      'agent.usage.provenance', 'agent.usage.input_tokens', 'agent.usage.output_tokens', 'agent.usage.total_tokens',
+      'agent.provider.request_id',
+    ]);
+    expect(Object.keys(projection.root.attributes).slice(0, 3)).toEqual([
+      'agent.session.id', 'agent.turn.id', 'agent.outcome',
+    ]);
+    expect(projection.root.attributes).not.toHaveProperty('error.type');
+  });
+
+  it('puts every child in the root trace, as children of the root', () => {
+    const base = batch();
+    const projection = projectLivePromptTrace(batch({
+      children: [{
+        kind: 'tool',
+        trace: { ...(base.children[2] as { trace: object }).trace, traceId: 'f'.repeat(32), parentSpanId: '4'.repeat(16) } as never,
+      }],
+    }), { mode: 'agent' });
+    expect(projection.children[0]).toMatchObject({ traceId: TRACE, parentSpanId: ROOT });
+  });
+
   it('uses GenAI span names, kinds and attributes in gen_ai mode, keeping Robota-only facts as agent.*', () => {
     const projection = projectLivePromptTrace(batch(), { mode: 'gen_ai', agentName: 'robota' });
     expect(projection.schemaUrl).toBe(GEN_AI_SCHEMA_URL);
@@ -131,12 +155,13 @@ describe('projectLivePromptTrace', () => {
       'gen_ai.agent.name': 'robota',
       'gen_ai.conversation.id': 'session-1',
       ...ROOT_SHARED,
+      'error.type': '_OTHER',
     });
     const [provider, tool] = projection.children;
     expect(provider).toMatchObject({ name: 'chat claude-sonnet-4-5', kind: 'client', parentSpanId: ROOT });
     expect(provider?.attributes).toEqual({ ...PROVIDER_GEN_AI, ...PROVIDER_SHARED });
     expect(tool).toMatchObject({ name: 'execute_tool Read', kind: 'internal', status: 'error' });
-    expect(tool?.attributes).toEqual({ ...TOOL_GEN_AI, 'agent.outcome': 'failure' });
+    expect(tool?.attributes).toEqual({ ...TOOL_GEN_AI, 'agent.outcome': 'failure', 'error.type': '_OTHER' });
   });
 
   it('emits both attribute sets under GenAI names in gen_ai/dup mode', () => {
@@ -149,11 +174,14 @@ describe('projectLivePromptTrace', () => {
       'gen_ai.conversation.id': 'session-1',
       'agent.session.id': 'session-1',
       ...ROOT_SHARED,
+      'error.type': '_OTHER',
     });
     const [provider, tool] = projection.children;
     expect(provider?.kind).toBe('client');
     expect(provider?.attributes).toEqual({ ...PROVIDER_GEN_AI, ...PROVIDER_SHARED, ...PROVIDER_AGENT });
-    expect(tool?.attributes).toEqual({ ...TOOL_GEN_AI, 'agent.outcome': 'failure', 'agent.tool.call_id': 'toolu_01' });
+    expect(tool?.attributes).toEqual({
+      ...TOOL_GEN_AI, 'agent.outcome': 'failure', 'agent.tool.call_id': 'toolu_01', 'error.type': '_OTHER',
+    });
   });
 
   it('falls back to bare operation names when the agent, model or tool name is unknown', () => {

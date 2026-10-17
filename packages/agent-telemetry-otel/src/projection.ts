@@ -73,6 +73,14 @@ const status = (outcome: string): 'unset' | 'error' => outcome === 'failure' ? '
 const spanName = (operation: string, subject: string | undefined): string =>
   subject ? `${operation} ${subject}` : operation;
 
+/**
+ * GenAI conventions require `error.type` on a failed operation. The batch records that a span failed
+ * but not why, so the projection uses the conventions' fallback value instead of naming a cause.
+ */
+function withErrorType(attributes: TOtelAttributes, outcome: string, mode: TOtelProjectionMode): TOtelAttributes {
+  return mode !== 'agent' && outcome === 'failure' ? { ...attributes, 'error.type': '_OTHER' } : attributes;
+}
+
 type TSpannedChild = Exclude<ILivePromptTraceBatch['children'][number], { readonly kind: 'permission' }>;
 
 /** A permission decision is content-free but has no duration of its own — it never gets a span. */
@@ -102,22 +110,24 @@ function rootAttributes(batch: ILivePromptTraceBatch, options: IOtelProjectionOp
 function providerAttributes(trace: IProviderCallTraceEntry, mode: TOtelProjectionMode): TOtelAttributes {
   const complete = trace.usageProvenance === 'complete';
   const requestId = opaqueId(trace.providerRequestId);
-  const shared = {
+  const agentOnly = mode !== 'gen_ai';
+  // The CLI's attribute order, with the facts GenAI names differently present only outside `gen_ai`.
+  const robota = {
     'agent.outcome': trace.outcome,
     'agent.provider.round': trace.round,
     ...(trace.disposition ? { 'agent.provider.disposition': trace.disposition } : {}),
     ...(trace.providerId ? { 'agent.provider.id': trace.providerId } : {}),
+    ...(agentOnly && trace.modelId ? { 'agent.model.id': trace.modelId } : {}),
     ...(trace.usageProvenance ? { 'agent.usage.provenance': trace.usageProvenance } : {}),
-    // GenAI conventions define input and output tokens but no total.
-    ...(complete ? { 'agent.usage.total_tokens': trace.totalTokens ?? 0 } : {}),
-    ...(requestId ? { 'agent.provider.request_id': requestId } : {}),
-  };
-  const agent = {
-    ...(trace.modelId ? { 'agent.model.id': trace.modelId } : {}),
     ...(complete ? {
-      'agent.usage.input_tokens': trace.promptTokens ?? 0,
-      'agent.usage.output_tokens': trace.completionTokens ?? 0,
+      ...(agentOnly ? {
+        'agent.usage.input_tokens': trace.promptTokens ?? 0,
+        'agent.usage.output_tokens': trace.completionTokens ?? 0,
+      } : {}),
+      // GenAI conventions define input and output tokens but no total.
+      'agent.usage.total_tokens': trace.totalTokens ?? 0,
     } : {}),
+    ...(requestId ? { 'agent.provider.request_id': requestId } : {}),
   };
   const providerName = trace.providerId ? GEN_AI_PROVIDER_NAMES[trace.providerId] : undefined;
   const genAi = {
@@ -129,8 +139,7 @@ function providerAttributes(trace: IProviderCallTraceEntry, mode: TOtelProjectio
       'gen_ai.usage.output_tokens': trace.completionTokens ?? 0,
     } : {}),
   };
-  if (mode === 'agent') return { ...shared, ...agent };
-  return mode === 'gen_ai' ? { ...genAi, ...shared } : { ...genAi, ...shared, ...agent };
+  return mode === 'agent' ? robota : { ...genAi, ...robota };
 }
 
 function toolAttributes(trace: IToolBodyTraceEntry, mode: TOtelProjectionMode): TOtelAttributes {
@@ -148,11 +157,11 @@ function toolAttributes(trace: IToolBodyTraceEntry, mode: TOtelProjectionMode): 
 }
 
 function childSpan(
-  child: TSpannedChild, parentSpanId: string, mode: TOtelProjectionMode,
+  child: TSpannedChild, traceId: string, parentSpanId: string, mode: TOtelProjectionMode,
 ): IOtelSpanProjection {
   const { trace } = child;
   const common = {
-    traceId: trace.traceId,
+    traceId,
     spanId: trace.spanId,
     parentSpanId,
     startedAt: trace.startedAt,
@@ -164,14 +173,14 @@ function childSpan(
       ...common,
       name: mode === 'agent' ? 'agent.provider_call' : spanName('chat', child.trace.modelId),
       kind: mode === 'agent' ? 'internal' : 'client',
-      attributes: providerAttributes(child.trace, mode),
+      attributes: withErrorType(providerAttributes(child.trace, mode), trace.outcome, mode),
     };
   }
   return {
     ...common,
     name: mode === 'agent' ? 'agent.tool_body' : spanName('execute_tool', label(child.trace.toolName)),
     kind: 'internal',
-    attributes: toolAttributes(child.trace, mode),
+    attributes: withErrorType(toolAttributes(child.trace, mode), trace.outcome, mode),
   };
 }
 
@@ -192,8 +201,10 @@ export function projectLivePromptTrace(
     startedAt: batch.root.startedAt,
     endedAt: batch.root.endedAt,
     status: status(batch.root.outcome),
-    attributes: rootAttributes(batch, options),
+    attributes: withErrorType(rootAttributes(batch, options), batch.root.outcome, mode),
   };
-  const children = batch.children.filter(hasSpan).map((child) => childSpan(child, root.spanId, mode));
+  // Every child belongs to the root's trace, whatever trace ID an unchecked batch gave it.
+  const children = batch.children.filter(hasSpan)
+    .map((child) => childSpan(child, root.traceId, root.spanId, mode));
   return { ...(mode === 'agent' ? {} : { schemaUrl: GEN_AI_SCHEMA_URL }), root, children };
 }
