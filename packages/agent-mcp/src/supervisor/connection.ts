@@ -162,8 +162,12 @@ function extractErrorMessage(error: unknown): string {
   return String(error);
 }
 
-/** HTTP status, whether reported as `.status` (the SDK's `SdkHttpError` getter included) or `.statusCode`. */
+/** HTTP status, whether reported as `.status` (the SDK's `SdkHttpError` getter included), `.statusCode` or a session failure's details. */
 function extractHttpStatus(error: unknown): number | undefined {
+  if (error instanceof MCPSessionError) {
+    const detail = error.details?.status;
+    return typeof detail === 'number' ? detail : undefined;
+  }
   const status = readUnknownProperty(error, 'status');
   if (typeof status === 'number') {
     return status;

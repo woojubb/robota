@@ -130,6 +130,19 @@ function originOf(url: string, base?: string): string {
   }
 }
 
+/** An HTTP answer outside 2xx: what the carrier saw when the SDK's probe verdict cannot say. */
+export interface IMCPHttpAnswer {
+  readonly status: number;
+  readonly contentType: string | undefined;
+}
+
+const lastHttpAnswers = new WeakMap<Transport, IMCPHttpAnswer>();
+
+/** The last non-2xx answer the carrier received, for a session reading a probe verdict the SDK left unexplained. */
+export function lastHttpAnswerOf(transport: Transport): IMCPHttpAnswer | undefined {
+  return lastHttpAnswers.get(transport);
+}
+
 export class MCPTransportRedirectRefusedError extends Error {
   constructor(
     readonly status: number,
@@ -404,6 +417,12 @@ export function constructStreamableHttpTransport(
         response.headers.get('location') ?? undefined,
         admittedUrl,
       );
+    }
+    if (!response.ok) {
+      lastHttpAnswers.set(transport, {
+        status: response.status,
+        contentType: response.headers.get('content-type') ?? undefined,
+      });
     }
     const resourceRead =
       typeof init?.body === 'string' && JSON.parse(init.body).method === 'resources/read';

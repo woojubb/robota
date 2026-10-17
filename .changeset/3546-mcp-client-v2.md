@@ -27,9 +27,11 @@ Two behaviors change on the pinned 2026-07-28 era, both following the official c
   `invalid-tool-result` rather than reported as `input_required`; either way the carrier closes and
   nothing is replayed.
 
-Against a real 2026-07-28 host the pinned path now also sends the request headers the revision
-requires (`Mcp-Method`, `Mcp-Name`), which the hand-written framing did not; a headers helper may no
-longer set either, as it already could not set the other headers the transport owns. On the legacy
+Against a real 2026-07-28 host the pinned path now also sends the body-derived request headers the
+revision requires (`Mcp-Method`, `Mcp-Name`), which the hand-written framing did not; a headers helper
+may no longer set either, as it already could not set the other headers the transport owns. A pinned
+server that answers the discovery probe with a non-protocol HTTP error (a 404 page) is reported as a
+failed startup carrying that status, not as a server lacking the revision. On the legacy
 era the client no longer rejects `structuredContent` that violates the tool's declared `outputSchema`:
 that check lived in the 1.x client's `listTools` cache, which per-page discovery does not fill, and
 the catalog converts the result as before.

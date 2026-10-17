@@ -10,12 +10,19 @@ import { toNodeHandler } from '@modelcontextprotocol/node';
 import { createMcpHandler, Server } from '@modelcontextprotocol/server';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { openMcpSession } from '../client/session.js';
-import { admitHttpEndpoint, constructStreamableHttpTransport } from '../client/transport.js';
+import { MCPAuthenticationError } from '../client/authentication.js';
+import { MCPSessionError, openMcpSession } from '../client/session.js';
+import {
+  MCPTransportRedirectRefusedError,
+  admitHttpEndpoint,
+  constructStreamableHttpTransport,
+} from '../client/transport.js';
 import { classifyMcpFailure } from '../supervisor/connection.js';
 
 import type { IMCPSession } from '../client/session.js';
+import type { IMCPHttpEndpoint } from '../client/transport.js';
 import type { Tool } from '@modelcontextprotocol/server';
+import type { ServerResponse } from 'node:http';
 
 const tool = {
   name: 'echo',
@@ -70,8 +77,34 @@ async function startHost(): Promise<string> {
   return `http://127.0.0.1:${address.port}`;
 }
 
-async function open(url: string, protocolVersion?: string): Promise<IMCPSession> {
-  const admitted = await admitHttpEndpoint({ url }, { policy: { allowedHosts: ['127.0.0.1'] } });
+/** A host outside the v2 handler that answers every request the same way; records the methods it saw. */
+async function startRawHost(
+  answer: (message: { id: number; method: string }, response: ServerResponse) => void,
+): Promise<string> {
+  listener = createServer((request, response) => {
+    void (async () => {
+      let text = '';
+      for await (const chunk of request) text += chunk;
+      const message = JSON.parse(text) as { id: number; method: string };
+      wire.push({ method: message.method });
+      answer(message, response);
+    })();
+  });
+  await new Promise<void>((resolve) => listener!.listen(0, '127.0.0.1', resolve));
+  const address = listener!.address();
+  if (!address || typeof address === 'string') throw new Error('Missing listener');
+  return `http://127.0.0.1:${address.port}`;
+}
+
+async function open(
+  url: string,
+  protocolVersion?: string,
+  endpoint: Omit<IMCPHttpEndpoint, 'url'> = {},
+): Promise<IMCPSession> {
+  const admitted = await admitHttpEndpoint(
+    { url, ...endpoint },
+    { policy: { allowedHosts: ['127.0.0.1'] } },
+  );
   if (!admitted.ok) throw new Error(admitted.reason);
   session = await openMcpSession({
     serverId: 'dual-era',
@@ -137,29 +170,75 @@ describe('one client for both protocol eras', () => {
   });
 
   it('never falls back to the legacy handshake when the server only speaks the legacy era', async () => {
-    listener = createServer((request, response) => {
-      void (async () => {
-        let text = '';
-        for await (const chunk of request) text += chunk;
-        const message = JSON.parse(text) as { id: number; method: string };
-        wire.push({ method: message.method });
-        response.setHeader('content-type', 'application/json');
-        response.end(
-          JSON.stringify({
-            jsonrpc: '2.0',
-            id: message.id,
-            error: { code: -32601, message: 'Method not found' },
-          }),
-        );
-      })();
+    const url = await startRawHost((message, response) => {
+      response.setHeader('content-type', 'application/json');
+      response.end(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: message.id,
+          error: { code: -32601, message: 'Method not found' },
+        }),
+      );
     });
-    await new Promise<void>((resolve) => listener!.listen(0, '127.0.0.1', resolve));
-    const address = listener.address();
-    if (!address || typeof address === 'string') throw new Error('Missing listener');
-    await expect(open(`http://127.0.0.1:${address.port}`, '2026-07-28')).rejects.toMatchObject({
+    await expect(open(url, '2026-07-28')).rejects.toMatchObject({
       kind: 'unsupported-protocol-version',
     });
     expect(wire.map((request) => request.method)).toEqual(['server/discover']);
+  });
+
+  it('still reads a legacy server refusing the probe over HTTP 400 as not offering the revision', async () => {
+    const url = await startRawHost((message, response) => {
+      response.writeHead(400, { 'content-type': 'application/json' }).end(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: message.id,
+          error: { code: -32000, message: 'Bad Request: Server not initialized' },
+        }),
+      );
+    });
+    await expect(open(url, '2026-07-28')).rejects.toMatchObject({
+      kind: 'unsupported-protocol-version',
+    });
+  });
+
+  it('reports a non-protocol HTTP error from the pinned probe by its status, not as a missing revision', async () => {
+    const url = await startRawHost((_message, response) => {
+      response.writeHead(404, { 'content-type': 'text/html' }).end('<html>Not Found</html>');
+    });
+    const error = await open(url, '2026-07-28').catch((failure: unknown) => failure);
+    expect(error).toBeInstanceOf(MCPSessionError);
+    expect(error).toMatchObject({ kind: 'initialize-failed', details: { status: 404 } });
+    expect(classifyMcpFailure(error)).toBe('not-found');
+  });
+
+  it("surfaces the carrier's refused credential from the pinned probe, not a retried negotiation failure", async () => {
+    const url = await startRawHost((_message, response) => {
+      response.writeHead(401, { 'www-authenticate': 'Bearer realm="mcp"' }).end();
+    });
+    const authentication = {
+      serverId: 'dual-era',
+      securityIdentity: 'sid-dual-era',
+      authenticator: {
+        authorize: async () => ({ authorization: 'Bearer refused' }),
+        onRejected: async () => 'fail' as const,
+      },
+    };
+    const error = await open(url, '2026-07-28', { authentication }).catch(
+      (failure: unknown) => failure,
+    );
+    expect(error).toBeInstanceOf(MCPAuthenticationError);
+    expect(classifyMcpFailure(error)).toBe('auth');
+    // The refusal is final: nothing is sent again, neither by the carrier nor by the negotiation.
+    expect(wire.map((request) => request.method)).toEqual(['server/discover']);
+  });
+
+  it("keeps a redirect during the pinned probe as the carrier's own refusal", async () => {
+    const url = await startRawHost((_message, response) => {
+      response.writeHead(302, { location: 'http://127.0.0.1:1/elsewhere' }).end();
+    });
+    const error = await open(url, '2026-07-28').catch((failure: unknown) => failure);
+    expect(error).toBeInstanceOf(MCPTransportRedirectRefusedError);
+    expect(classifyMcpFailure(error)).toBe('config');
   });
 
   it('keeps an unreachable pinned server transient rather than reading it as an unsupported revision', async () => {

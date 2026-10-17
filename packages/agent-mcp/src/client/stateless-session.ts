@@ -27,6 +27,7 @@ import {
 } from './session-protocol.js';
 import { MCPStdioError } from './stdio-transport.js';
 import { callTraceRegistryOf, runInCallTraceScope } from './trace-propagation.js';
+import { lastHttpAnswerOf } from './transport.js';
 
 import type { Client, Result, Transport } from '@modelcontextprotocol/client';
 import type { IMCPSkillRequestOptions } from '../skills/types.js';
@@ -39,6 +40,13 @@ async function closeCarrier(client: Client, transport: Transport): Promise<void>
   if (!attached) await transport.close();
 }
 
+/** The SDK wraps what the carrier threw during its probe; the carrier's own refusal keeps its class. */
+function probeCause(error: unknown): unknown {
+  if (!(error instanceof SdkError) || error.code !== SdkErrorCode.EraNegotiationFailed) return error;
+  const cause = (error.data as { readonly cause?: unknown } | undefined)?.cause;
+  return cause instanceof Error ? cause : error;
+}
+
 /** The server answered, but not with the explicitly selected revision; transport failures keep their own class. */
 function isUnofferedRevision(error: unknown): boolean {
   if (error instanceof UnsupportedProtocolVersionError) return true;
@@ -47,6 +55,31 @@ function isUnofferedRevision(error: unknown): boolean {
     !(error instanceof SdkHttpError) &&
     error.code === SdkErrorCode.EraNegotiationFailed &&
     error.data === undefined
+  );
+}
+
+const JSON_CONTENT_TYPE = /^application\/json\b/i;
+
+/**
+ * The SDK reads every answer it cannot parse as the protocol as a legacy server. A JSON answer is
+ * the server speaking (a legacy peer refusing the probe); a non-JSON HTTP error is the address
+ * failing, named by its status so the caller classifies it as on the legacy path.
+ */
+function unofferedRevision(error: unknown, transport: Transport): MCPSessionError {
+  const answer = lastHttpAnswerOf(transport);
+  if (
+    !(error instanceof UnsupportedProtocolVersionError) &&
+    answer !== undefined &&
+    !(answer.contentType !== undefined && JSON_CONTENT_TYPE.test(answer.contentType))
+  )
+    return new MCPSessionError(
+      'initialize-failed',
+      `Stateless MCP discovery was answered with HTTP ${answer.status}`,
+      { status: answer.status },
+    );
+  return new MCPSessionError(
+    'unsupported-protocol-version',
+    'Server does not support the explicitly selected stateless MCP version',
   );
 }
 
@@ -101,14 +134,10 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
         'unsupported-protocol-version',
         'Server does not support the explicitly selected stateless MCP version',
       );
-  } catch (error) {
+  } catch (caught) {
     await close();
-    const failure = isUnofferedRevision(error)
-      ? new MCPSessionError(
-          'unsupported-protocol-version',
-          'Server does not support the explicitly selected stateless MCP version',
-        )
-      : error;
+    const error = probeCause(caught);
+    const failure = isUnofferedRevision(error) ? unofferedRevision(error, transport) : error;
     // The SDK reports an aborted request as a timeout too; an abort the caller asked for is not one.
     const timedOut =
       (isRequestTimeout(failure) && options.signal?.aborted !== true) ||
