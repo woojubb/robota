@@ -53,7 +53,7 @@ This initial SDK surface supports declared tools, prompts and resources discover
 tool calls. A host that opens the session with `elicitation: true` lets a server's form-mode
 elicitation during a tool call reach a person as ask prompts through that call's `ask` port, titled
 with the configured server id; the answer continues the same call, and the prompt is withdrawn when
-the call ends. Otherwise `compatibilityDiagnostics` names the unavailable MRTR client input, as it
+the call ends (when the last in-flight call to that server ends, if there are several). Otherwise `compatibilityDiagnostics` names the unavailable MRTR client input, as it
 does subscription watches and unselected optional extensions. Unsupported result types close the
 carrier and require operation inspection; so does an embedded request this surface does not answer
 (sampling, roots, more rounds than the client allows), while an embedded elicitation the client

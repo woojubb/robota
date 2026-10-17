@@ -34,6 +34,12 @@ const confirmTool = {
   description: 'Asks before acting',
   inputSchema: { type: 'object', properties: {} },
 } as Tool;
+/** A sibling that never elicits and takes a while, so another call can be in flight beside it. */
+const waitTool = {
+  name: 'wait',
+  description: 'Waits a little',
+  inputSchema: { type: 'object', properties: { ms: { type: 'number' } } },
+} as Tool;
 
 const requestedSchema: ElicitRequestFormParams['requestedSchema'] = {
   type: 'object',
@@ -154,9 +160,14 @@ async function startLegacyHost(
       );
       server.setRequestHandler(ListToolsRequestSchema, async () => {
         await elicitDuringList?.(server);
-        return { tools: [confirmTool] };
+        return { tools: [confirmTool, waitTool] };
       });
-      server.setRequestHandler(CallToolRequestSchema, async () => {
+      server.setRequestHandler(CallToolRequestSchema, async (request) => {
+        if (request.params.name === 'wait') {
+          const ms = Number((request.params.arguments as { ms?: number } | undefined)?.ms ?? 0);
+          await new Promise((resolve) => setTimeout(resolve, ms));
+          return { content: [{ type: 'text', text: 'waited' }] };
+        }
         try {
           const answer = await server.elicitInput({ message: MESSAGE, requestedSchema });
           legacyAnswers.push(answer);
@@ -417,6 +428,46 @@ describe.each(ERAS)('elicitation bridge on the %s era', (era) => {
 });
 
 describe('a prompt lives only as long as its call', () => {
+  it('survives a sibling call finishing first, and the answer still reaches the server', async () => {
+    const client = await open(await startLegacyHost(), 'legacy', true);
+    const { ask, seen, abortedBeforeFallback } = waitingAsk(1_500);
+    const answers: TActionResponse[] = [answer('respond'), answer('yes'), typed('later'), answer('r')];
+    let prompted: (() => void) | undefined;
+    const firstSeen = new Promise<void>((resolve) => {
+      prompted = resolve;
+    });
+    const scripted = scriptedAsk(answers);
+    let stateWhenSiblingEnded: boolean | undefined | 'unset' = 'unset';
+    // The waiting port shows the first prompt and holds it until the sibling has finished; what the
+    // prompt's signal says at that moment is the evidence. The scripted answers then take over.
+    const gated = async (request: IActionRequest, options?: { signal?: AbortSignal }) => {
+      if (seen.length === 0) {
+        const held = ask(request, options);
+        prompted?.();
+        await siblingDone;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        stateWhenSiblingEnded = abortedBeforeFallback();
+        if (stateWhenSiblingEnded !== undefined) return held;
+        return scripted.ask(request);
+      }
+      return scripted.ask(request);
+    };
+    const sibling = client.callTool('wait', { ms: 300 });
+    const siblingDone = sibling.then(() => undefined);
+    const eliciting = client.callTool('confirm', {}, { ask: gated });
+    await firstSeen;
+    await sibling;
+    const result = await eliciting;
+    // Neither withdrawn nor timed out while the sibling ended; it is withdrawn only with its own call.
+    expect(stateWhenSiblingEnded).toBeUndefined();
+    expect(abortedBeforeFallback()).toBe(true);
+    expect(echoed(result)['answer']).toEqual({
+      action: 'accept',
+      content: { confirm: true, note: 'later', color: 'r' },
+    });
+    expect(scripted.exhausted()).toBe(false);
+  });
+
   it("withdraws the prompt when the legacy call's own timeout cancels the call", async () => {
     const client = await open(await startLegacyHost(), 'legacy', true);
     const { ask, seen, abortedBeforeFallback } = waitingAsk(1_500);

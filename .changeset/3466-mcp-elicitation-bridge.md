@@ -15,7 +15,8 @@ server's message as one bounded line, with Respond and Decline, then one questio
 (choices, multi-select, yes/no, or free text validated against the field and re-asked once). The
 answer continues the same call; the re-sent `tools/call` that carries it is the protocol's
 continuation, not a replay, and a prompt is withdrawn when its call ends (an abort, or the call's
-own timeout). A request outside an in-flight call, or during a call that has no ask port, is
+own timeout) — when the last in-flight call to that server ends, if there are several, since a
+request names none of them. A request outside an in-flight call, or during a call that has no ask port, is
 declined; a dismissal, a failing port or a second rejected answer cancels; a field named like a
 credential is shown unmasked with a warning. URL mode is not offered. Without the opt-in nothing
 changes: no capability is declared and an `input_required` result still closes the carrier. An

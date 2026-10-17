@@ -150,7 +150,9 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
   ask port, titled with the identity the operator configured for the server and never masked, with
   the server's own words kept to one bounded line beneath that title, and the answer continues that
   same call (the re-sent `tools/call` that carries it is the protocol's continuation, not a replay)
-  for as long as that call lives — a prompt is withdrawn with the call it was raised in. A request
+  for as long as that call lives — a prompt is withdrawn when its call ends or, while other calls
+  to that server are in flight and the request named none of them, when the last of them ends. A
+  request
   outside an in-flight call is declined, and no other request for client input is ever answered: an
   embedded request of a kind this surface does not answer closes the carrier, while one the client
   refuses on its face (URL mode, a malformed form) fails the call, and a legacy server's request for
@@ -187,7 +189,10 @@ answer. The prompt names the server by the identity the operator configured, nev
 declares for itself, since a declared name is a claim; the warning on a credential-shaped field is
 a guess from its name, so attribution, not the warning, is what the person relies on. An
 elicitation is attributed to the oldest in-flight call of its session, since neither era names the
-call it belongs to and every in-flight call speaks to the same server through the same port.
+call it belongs to and every in-flight call speaks to the same server through the same port; for
+the same reason a prompt is withdrawn only when the last such call ends, because a sibling ending
+earlier proves nothing about whose prompt it is, and a live prompt cancelled by mistake costs more
+than one that waits.
 
 ## Design decision: definition precedence, with plugins last
 

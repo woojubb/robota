@@ -34,15 +34,15 @@ export interface IMCPElicitationCall {
   readonly signal?: AbortSignal;
 }
 
-/** An in-flight call the handler may answer through, with the signal that fires when it leaves. */
-export interface IMCPAnswerableCall extends IMCPElicitationCall {
+/** An in-flight call the handler may answer through, and the signal that withdraws its prompts. */
+export interface IMCPAnswerableCall {
   readonly ask: TMCPAskPort;
-  /** Aborted when the call ends, however it ends, so no prompt outlives the call it was raised in. */
+  /**
+   * Aborted once no in-flight call with a port remains, so no prompt outlives the calls it could
+   * belong to. A sibling ending earlier proves nothing about whose prompt it is, so it never
+   * withdraws one.
+   */
   readonly withdrawn: AbortSignal;
-}
-
-interface IInFlightCall extends IMCPElicitationCall {
-  readonly controller: AbortController;
 }
 
 /**
@@ -52,28 +52,33 @@ interface IInFlightCall extends IMCPElicitationCall {
  * told so at once rather than left waiting.
  */
 export class MCPElicitationCalls {
-  private readonly calls = new Set<IInFlightCall>();
+  private readonly calls = new Set<IMCPElicitationCall>();
+  /** Alive while at least one in-flight call has a port; aborted when the last of them leaves. */
+  private open: AbortController | undefined;
 
-  /** Registers a call for as long as it runs; the returned function withdraws it and its prompts. */
+  /** Registers a call for as long as it runs; the returned function withdraws it. */
   enter(call: IMCPElicitationCall): () => void {
-    const entry: IInFlightCall = { ...call, controller: new AbortController() };
+    const entry: IMCPElicitationCall = { ...call };
     this.calls.add(entry);
     return () => {
       this.calls.delete(entry);
-      entry.controller.abort();
+      if (this.firstWithPort() === undefined) {
+        this.open?.abort();
+        this.open = undefined;
+      }
     };
   }
 
   /** The oldest in-flight call that has an ask port, if any. */
   answerable(): IMCPAnswerableCall | undefined {
-    for (const call of this.calls) {
-      if (call.ask !== undefined)
-        return {
-          ask: call.ask,
-          ...(call.signal === undefined ? {} : { signal: call.signal }),
-          withdrawn: call.controller.signal,
-        };
-    }
+    const ask = this.firstWithPort();
+    if (ask === undefined) return undefined;
+    this.open ??= new AbortController();
+    return { ask, withdrawn: this.open.signal };
+  }
+
+  private firstWithPort(): TMCPAskPort | undefined {
+    for (const call of this.calls) if (call.ask !== undefined) return call.ask;
     return undefined;
   }
 }
@@ -93,7 +98,9 @@ export function createElicitationHandler(input: {
     if (params.mode === 'url') return { action: 'decline' };
     const call = input.calls.answerable();
     if (call === undefined) return { action: 'decline' };
-    const signals = [signal, call.signal, call.withdrawn].filter(
+    // The SDK's own signal already follows the originating call's abort on the pinned era and the
+    // server's cancellation on the legacy era; `withdrawn` covers the calls ending any other way.
+    const signals = [signal, call.withdrawn].filter(
       (candidate): candidate is AbortSignal => candidate !== undefined,
     );
     return bridgeElicitation({
@@ -399,7 +406,8 @@ function arrayQuestion(
   const options = arrayOptions(field);
   const order = new Map(options.map((option, index) => [option.value, index]));
   const maxSelect = Math.max(1, Math.min(field.maxItems ?? options.length, options.length));
-  const minItems = Math.min(Math.max(field.minItems ?? (required ? 1 : 0), required ? 1 : 0), maxSelect);
+  // A required field the server lets be empty (`minItems: 0`) accepts an empty list.
+  const minItems = Math.min(field.minItems ?? (required ? 1 : 0), maxSelect);
   const defaults = (field.default ?? [])
     .filter((value) => order.has(value))
     .slice(0, maxSelect);
@@ -438,6 +446,7 @@ function arrayQuestion(
       if (values.length !== response.values.length)
         return { kind: 'invalid', reason: 'not one of the offered choices' };
       if (values.length === 0 && !required) return { kind: 'skip' };
+      if (values.length === 0 && minItems === 0) return { kind: 'value', value: [] };
       if (values.length < minItems)
         return {
           kind: 'invalid',

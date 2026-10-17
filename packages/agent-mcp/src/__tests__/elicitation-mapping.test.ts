@@ -184,6 +184,16 @@ describe('bridgeElicitation', () => {
     expect(seen[1]?.default).toEqual({ values: ['a', 'b'] });
   });
 
+  it('accepts an empty answer for a required array the server lets be empty', async () => {
+    const params = form(
+      { tags: { type: 'array', minItems: 0, items: { type: 'string', enum: ['a', 'b'] } } },
+      ['tags'],
+    );
+    const { result, seen } = await bridge(params, [respond, picks([])]);
+    expect(result).toEqual({ action: 'accept', content: { tags: [] } });
+    expect(seen[1]).toMatchObject({ minSelect: 0 });
+  });
+
   it('turns an array of enum into a multi-select bounded by minItems and maxItems', async () => {
     const params = form(
       {
@@ -326,6 +336,34 @@ describe('createElicitationHandler', () => {
       ),
     ).toEqual({ action: 'decline' });
     expect(await handler(form({}), idle.signal)).toEqual({ action: 'decline' });
+  });
+
+  it('keeps a prompt open while another call to the server is in flight, and withdraws it with the last', async () => {
+    const calls = new MCPElicitationCalls();
+    const handler = createElicitationHandler({ serverId: () => 'srv', calls });
+    let aborted = false;
+    const ask = (_request: IActionRequest, options?: { signal?: AbortSignal }) =>
+      new Promise<TActionResponse>((resolve) => {
+        options?.signal?.addEventListener('abort', () => {
+          aborted = true;
+          resolve({ type: 'cancelled' });
+        });
+      });
+    const leaveOldest = calls.enter({ ask });
+    const leaveYounger = calls.enter({ ask });
+    let settled = false;
+    const pending = handler(form({}), idle.signal).then((result) => {
+      settled = true;
+      return result;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    // The request named no call; the oldest ending proves nothing about whose prompt this is.
+    leaveOldest();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect([settled, aborted]).toEqual([false, false]);
+    leaveYounger();
+    expect(await pending).toEqual({ action: 'cancel' });
+    expect(aborted).toBe(true);
   });
 
   it('withdraws a pending prompt when the call it was attributed to leaves', async () => {
