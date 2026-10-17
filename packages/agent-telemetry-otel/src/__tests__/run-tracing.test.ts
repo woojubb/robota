@@ -152,6 +152,50 @@ describe('createOtelTracing', () => {
     expect(chats.map((span) => span.spanContext().spanId)).not.toEqual(sent.map(spanOf));
   });
 
+  it('credits a nested agent\'s tool body to the nested run, not the traced parent run', async () => {
+    const exporter = new InMemorySpanExporter();
+    const provider = new TracerProvider({ spanProcessors: [new SimpleSpanProcessor({ exporter })] });
+    const tracer = provider.getTracer('test');
+    const tracing = createOtelTracing({ tracer, mode: 'gen_ai' });
+    const leaf = new LookupTool();
+    const config = (name: string, tools: AbstractTool[], script: ReturnType<typeof createScriptedProvider>) => ({
+      name, aiProviders: [script.provider], defaultModel: { provider: 'scripted-test-provider', model: 'm' },
+      tools, plugins: [tracing.plugin], logging: { level: 'silent', enabled: false },
+    });
+    class DelegateTool extends LookupTool {
+      override get schema(): IToolSchema {
+        return { name: 'delegate', description: 'delegate', parameters: { type: 'object' as const, properties: {} } };
+      }
+      override async execute(parameters: TToolParameters, context: IToolExecutionContext): Promise<IToolResult> {
+        // An agent built inside a tool keeps the caller's owner path, as IAgentConfig documents.
+        const child = new ConversationAgent({
+          ...config('child', [leaf], createScriptedProvider([{ toolCalls: [{ name: 'lookup', args: {} }] }, { text: 'ok' }])),
+          executionContext: { ownerPath: context.ownerPath ?? [] },
+        } as IAgentConfig);
+        await child.run('child');
+        await child.destroy();
+        return super.execute(parameters, context);
+      }
+    }
+    const parent = new ConversationAgent(config('parent', [new DelegateTool()],
+      createScriptedProvider([{ toolCalls: [{ name: 'delegate', args: {} }] }, { text: 'done' }])) as IAgentConfig);
+    const root = tracer.startSpan('root');
+    const run = tracing.startRun(root.spanContext());
+    await parent.run('go', { ...(run.traceContext ? { traceContext: run.traceContext } : {}), onExecutionEvent: run.onExecutionEvent });
+    run.end();
+    root.end();
+    await parent.destroy();
+    expect(leaf.contexts).toHaveLength(1);
+    expect(byName(exporter.getFinishedSpans(), 'execute_tool').map((span) => span.name)).toEqual(['execute_tool delegate']);
+    await provider.shutdown();
+  });
+
+  it('traces nothing and propagates nothing under a parent the host did not sample', () => {
+    const tracing = createOtelTracing({ tracer: trace.getTracer('noop'), mode: 'gen_ai' });
+    const run = tracing.startRun({ traceId: 'a'.repeat(32), spanId: 'b'.repeat(16), traceFlags: 0 });
+    expect(run.traceContext).toBeUndefined();
+  });
+
   it('traces nothing and propagates nothing under an invalid parent', async () => {
     const tracing = createOtelTracing({ tracer: trace.getTracer('noop'), mode: 'gen_ai' });
     const invalid: SpanContext = { traceId: '0'.repeat(32), spanId: '0'.repeat(16), traceFlags: 0 };

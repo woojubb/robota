@@ -1,4 +1,4 @@
-import { ROOT_CONTEXT, SpanKind, SpanStatusCode, isSpanContextValid, trace } from '@opentelemetry/api';
+import { ROOT_CONTEXT, SpanKind, SpanStatusCode, TraceFlags, isSpanContextValid, trace } from '@opentelemetry/api';
 import {
   AbstractPlugin,
   PROVIDER_CALL_EVENTS,
@@ -42,7 +42,7 @@ export interface IOtelRunPropagation {
 
 /** What one `run()` takes, plus `end()` once it has returned. */
 export interface IOtelRunTracing {
-  /** Absent when the parent span is not a valid, recording context: the run then traces nothing. */
+  /** Absent when the parent span is invalid or not sampled: the run then traces and propagates nothing. */
   readonly traceContext?: IRunTraceContext;
   readonly onExecutionEvent: TExecutionEventCallback;
   /** Stop attributing tool bodies to this run. */
@@ -133,8 +133,16 @@ function record(tracer: Tracer, ids: IStructuralIdGenerator | undefined, parent:
   started.end(new Date(span.endedAt));
 }
 
+/**
+ * The run a tool body belongs to: the innermost execution on its owner path. An agent created inside
+ * another agent's tool keeps that ancestor's path in front of its own segments.
+ */
 function executionIdOf(context: IToolExecutionContext | undefined): string | undefined {
-  return context?.ownerPath?.find((segment) => segment.type === 'execution')?.id;
+  const path = context?.ownerPath ?? [];
+  for (let index = path.length - 1; index >= 0; index--) {
+    if (path[index]?.type === 'execution') return path[index]?.id;
+  }
+  return undefined;
 }
 
 /** Tracing must never change a run: a failure to record drops the span, never the operation. */
@@ -209,7 +217,11 @@ export function createOtelTracing(options: IOtelTracingOptions): IOtelTracing {
   return {
     plugin,
     startRun(parent, propagation = {}) {
-      if (!isSpanContextValid(parent)) return { onExecutionEvent: () => undefined, end: () => undefined };
+      // Robota always sends a sampled `traceparent`; under a parent the host dropped, recipients would
+      // record spans for a trace that does not exist, so nothing is propagated or recorded.
+      if (!isSpanContextValid(parent) || (parent.traceFlags & TraceFlags.SAMPLED) === 0) {
+        return { onExecutionEvent: () => undefined, end: () => undefined };
+      }
       const run: IRun = { parent, executionIds: new Set() };
       return {
         traceContext: {

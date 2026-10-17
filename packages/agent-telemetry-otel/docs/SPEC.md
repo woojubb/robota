@@ -16,7 +16,8 @@ OpenTelemetry SDK.
   `traceparent`, and every child's parent is the prompt root, so a recipient's spans join the trace.
   A host whose `TracerProvider` does not use the structural ID generator keeps the trace and parent
   but not the child span IDs, because the OpenTelemetry API cannot choose a span's ID.
-- The run observer records a span only for a run the host started tracing, and a failure to record
+- The run observer records a span only for a run the host started tracing under a sampled span —
+  never for an agent run nested inside it — and a failure to record
   never changes the run: the span is lost, never the provider call or tool result.
 - `agent` mode is the naming the CLI's OTLP export has always used; a host switching to this package
   in that mode changes nothing a collector sees.
