@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 
+import { KOREAN_MEMORY_CUES } from './memory-locale-cues.js';
+
 import type { IMemoryCandidate, IMemoryExtractionInput } from './automatic-memory-types.js';
 import type { TMemoryType } from './project-memory-store.js';
 
@@ -27,8 +29,7 @@ export interface IMemoryExtractorPolicy {
   preferenceTerms: RegExp;
 }
 
-const HIGH_CONFIDENCE = 0.9;
-const MEDIUM_CONFIDENCE = 0.75;
+const CONFIDENCE = { high: 0.9, medium: 0.75 } as const;
 
 /**
  * The DOCUMENTED default policy: bilingual (English/Korean) memory cues plus a
@@ -37,13 +38,20 @@ const MEDIUM_CONFIDENCE = 0.75;
  */
 export const DEFAULT_MEMORY_EXTRACTOR_POLICY: IMemoryExtractorPolicy = {
   triggers: [
-    { pattern: /\bremember\s+(?:that\s+|to\s+)?(.+)/i, confidence: HIGH_CONFIDENCE },
-    { pattern: /기억해(?:줘|두세요|둬)?[:\s]+(.+)/, confidence: HIGH_CONFIDENCE },
-    { pattern: /앞으로\s+(.+)/, confidence: MEDIUM_CONFIDENCE },
-    { pattern: /항상\s+(.+)/, confidence: MEDIUM_CONFIDENCE },
+    { pattern: /\bremember\s+(?:that\s+|to\s+)?(.+)/i, confidence: CONFIDENCE.high },
+    ...KOREAN_MEMORY_CUES.triggers.map((trigger) => ({
+      pattern: new RegExp(trigger.pattern),
+      confidence: CONFIDENCE[trigger.confidence],
+    })),
   ],
-  projectTerms: /\b(repo|repository|project|build|test|package|workspace|monorepo)\b|프로젝트/iu,
-  preferenceTerms: /\b(always|prefer|preference|use|avoid)\b|앞으로|항상|선호/iu,
+  projectTerms: new RegExp(
+    [String.raw`\b(repo|repository|project|build|test|package|workspace|monorepo)\b`, ...KOREAN_MEMORY_CUES.projectTerms].join('|'),
+    'iu',
+  ),
+  preferenceTerms: new RegExp(
+    [String.raw`\b(always|prefer|preference|use|avoid)\b`, ...KOREAN_MEMORY_CUES.preferenceTerms].join('|'),
+    'iu',
+  ),
 };
 
 const MAX_CANDIDATE_TEXT_LENGTH = 240;

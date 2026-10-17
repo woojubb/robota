@@ -3,6 +3,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createAgentMcpServer } from '../mcp-server.js';
+import koreanText from './__fixtures__/korean-text.json';
 import type { IMcpTransportSession } from '../mcp-session.js';
 import type { IMcpSubmitToolIdentity } from '../mcp-tool-surface.js';
 
@@ -162,7 +163,7 @@ describe('canonical MCP runtime tools', () => {
     ).rejects.toThrow(/reserved/i);
   });
 
-  it.each(['', 'bad name', 'bad,name', '이름', 'x'.repeat(129)])(
+  it.each(['', 'bad name', 'bad,name', koreanText.nameWord, 'x'.repeat(129)])(
     'rejects an incompatible host-selected submission name %j',
     async (name) => {
       await expect(

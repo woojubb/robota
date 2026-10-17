@@ -33,6 +33,14 @@
     "lang": {
       "en": "EN",
       "ko": "KO"
+    },
+    "a11y": {
+      "home": "홈",
+      "mainNavigation": "기본 메뉴",
+      "openMenu": "메뉴 열기",
+      "closeMenu": "메뉴 닫기",
+      "mobileNavigation": "모바일 메뉴",
+      "switchToThisLanguage": "한국어로 전환"
     }
   },
   "beta": {

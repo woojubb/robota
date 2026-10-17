@@ -33,6 +33,14 @@
     "lang": {
       "en": "EN",
       "ko": "KO"
+    },
+    "a11y": {
+      "home": "home",
+      "mainNavigation": "Main navigation",
+      "openMenu": "Open menu",
+      "closeMenu": "Close menu",
+      "mobileNavigation": "Mobile navigation",
+      "switchToThisLanguage": "Switch to English"
     }
   },
   "beta": {

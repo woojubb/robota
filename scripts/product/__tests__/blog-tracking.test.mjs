@@ -39,7 +39,9 @@ async function renderLayout(layout, measurementId, identity = {}) {
         '"astro/runtime/server/index.js"',
         JSON.stringify(pathToFileURL(blogRequire.resolve('astro/runtime/server/index.js')).href),
       )
-      .replaceAll('../lib/product-config.generated.mjs', pathToFileURL(configFile).href);
+      .replaceAll('../lib/product-config.generated.mjs', pathToFileURL(configFile).href)
+      // The layouts read their UI strings from the blog's real locale catalogs.
+      .replaceAll('../i18n/ui', new URL('../../../apps/blog/src/i18n/ui.ts', import.meta.url).href);
     // The container renders the intact compiled template; Node needs inert modules for CSS imports.
     for (const index of css.keys()) {
       module = module.replaceAll(

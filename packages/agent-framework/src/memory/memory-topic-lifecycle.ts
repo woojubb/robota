@@ -32,7 +32,7 @@ export class MemoryTopicLifecycle {
         !value ||
         typeof value !== 'object' ||
         typeof value.topic !== 'string' ||
-        !/^[a-z0-9가-힣_-]{1,80}$/.test(value.topic) ||
+        !/^[a-z0-9\uAC00-\uD7A3_-]{1,80}$/.test(value.topic) ||
         seen.has(value.topic) ||
         (value.entry !== undefined && typeof value.entry !== 'string')
       ) {

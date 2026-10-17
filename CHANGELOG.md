@@ -977,7 +977,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **harness**: exclude non-repo paths from lesson metrics + stop home-path leak
 - **ci**: include nested packages/dag-nodes/*/dist in the build artifact
 - **build**: build types for nested packages/dag-nodes/* members
-- **hooks**: use literal 하지 마|하지마 ("don't") in lesson nudge (portability, /code-review)
+- **hooks**: use the Korean literal for "don't", with and without a space, in lesson nudge (portability, /code-review)
 - **agent-core,agent-framework**: resolve CORE-008/009 + TEST-006 review follow-ups
 - **agent-playground**: single-source the system prompt at top-level (complete SSOT)
 - **agent-core**: single-source the system prompt + finish TEST-004 functional retrofits
@@ -2183,12 +2183,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - capitalize Blog in site title (__PRODUCT_DISPLAY_NAME__ Blog)
 - rewrite AGENTS.md section intro for clarity
 - improve first section subtitle in blog post
-- fix spacing in blog post (무리없이 → 무리 없이)
+- fix word spacing in a Korean blog post
 - polish blog post — fix grammar, spacing, awkward phrasing
 - polish closing paragraph in blog post
 - fix SIGSEGV explanation — blank line fix, not setCursorPosition removal
-- clarify 되다 rule — only applies when 하다 form exists
-- fix "호환하는" → "호환되는", add 되다 exception rule
+- clarify the Korean passive-verb rule — only applies when the active form exists
+- fix a Korean verb form ("compatible"), add a passive-verb exception rule
 - add backlog for docs Cloudflare Pages migration
 - fix Korean writing style violations in blog post
 - add Korean writing style rules to naming-style

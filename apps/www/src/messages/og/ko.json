@@ -1,0 +1,9 @@
+{
+  "badge": "공개 베타",
+  "heading": "TypeScript 에이전트를 만드세요.",
+  "subheading": "SDK와 코딩 CLI를 살펴보세요.",
+  "sdk": "에이전트 SDK로 구축",
+  "cli": "코딩 CLI 사용해 보기",
+  "footer": "프로바이더 요금은 설정에 따라 다릅니다",
+  "license": "AGPL-3.0 · 상업용 라이선스"
+}

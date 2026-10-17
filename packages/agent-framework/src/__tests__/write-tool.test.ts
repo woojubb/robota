@@ -11,6 +11,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import type { TToolParameters } from '@robota-sdk/agent-core';
 import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
+import koreanText from './__fixtures__/korean-text.json';
 
 /**
  * ARCH-010 — the context-free `writeTool` singleton is gone and the containment root is a required
@@ -84,7 +85,7 @@ describe('WriteTool', () => {
 
   it('writes unicode content correctly', async () => {
     const filePath = join(tmpDir, 'unicode.txt');
-    const content = '안녕하세요 🎉 émoji';
+    const content = koreanText.writeUnicodeContent;
     const result = await run({ filePath, content });
     expect(result.success).toBe(true);
 
@@ -96,7 +97,7 @@ describe('WriteTool', () => {
 
   it('reports correct byte count for multibyte content', async () => {
     const filePath = join(tmpDir, 'multibyte.txt');
-    const content = '한글테스트'; // 5 chars, 15 bytes in UTF-8
+    const content = koreanText.writeMultibyteContent; // 5 chars, 15 bytes in UTF-8
     const result = await run({ filePath, content });
     expect(result.success).toBe(true);
     expect(result.output).toContain('15 bytes');

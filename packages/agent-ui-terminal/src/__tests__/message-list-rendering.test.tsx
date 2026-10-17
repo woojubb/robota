@@ -15,6 +15,7 @@ import { describe, it, expect } from 'vitest';
 import MessageList from '../MessageList.js';
 import { STATUS_SYMBOL, statusGlyphColor } from '../status-glyph.js';
 import { DARK_THEME } from '../theme/built-in-themes.js';
+import korean from './__fixtures__/korean-text.json';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import {
   createUserMessage,
@@ -154,7 +155,7 @@ describe('MessageList rendering', () => {
   });
 
   it('assistant message preserves CJK and emoji content', () => {
-    const content = '긴 한국어 응답과 emoji 🎉 를 표시합니다';
+    const content = korean.longResponseDisplay;
     const history: IHistoryEntry[] = [messageToHistoryEntry(createAssistantMessage(content))];
     const { lastFrame } = render(<MessageList history={history} />);
 

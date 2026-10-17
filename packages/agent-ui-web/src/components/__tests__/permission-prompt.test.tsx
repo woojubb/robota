@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PermissionPrompt, PROMPT_ARM_DELAY_MS } from '../PermissionPrompt.js';
+import korean from './__fixtures__/korean-text.json';
 
 import type { TPendingPrompt } from '../../hooks/prompt-state.js';
 
@@ -442,7 +443,7 @@ describe("the ask prompt's free-text field", () => {
     render(<Surface prompts={[ask]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />);
 
     const field = screen.getByRole('textbox', { name: 'answer' }) as HTMLInputElement;
-    fireEvent.change(field, { target: { value: '한글' } });
+    fireEvent.change(field, { target: { value: korean.hangulWord } });
     // The IME's own Enter, confirming the composed text — not the person submitting the answer.
     fireEvent.keyDown(field, { key: 'Enter', isComposing: true });
     expect(onAnswerAsk).not.toHaveBeenCalled();
@@ -452,7 +453,7 @@ describe("the ask prompt's free-text field", () => {
     expect(onAnswerAsk).toHaveBeenCalledWith('a8', {
       type: 'answer',
       values: [],
-      text: '한글',
+      text: korean.hangulWord,
     });
   });
 

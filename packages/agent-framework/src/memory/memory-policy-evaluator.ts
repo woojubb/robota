@@ -1,3 +1,5 @@
+import { KOREAN_MEMORY_CUES } from './memory-locale-cues.js';
+
 import type {
   IAutomaticMemoryConfig,
   IMemoryCandidate,
@@ -10,7 +12,7 @@ const SENSITIVE_PATTERNS: readonly RegExp[] = [
   /(?<![a-z])(api[_-]?key|secret|token|password|private key)(?![a-z])/i,
   /\b\d{3}-\d{2}-\d{4}\b/,
   /\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b/,
-  /주민등록|비밀번호|시크릿|토큰/u,
+  new RegExp(KOREAN_MEMORY_CUES.sensitiveTerms.join('|'), 'u'),
   // Secret-shaped values that carry no keyword: well-known credential prefixes, key blocks and JWTs.
   /\b(?:sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{22,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|xox[abprs]-[A-Za-z0-9-]{10,}|glpat-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9]{36}|[rs]k_live_[A-Za-z0-9]{16,})/,
   /-----BEGIN [A-Z ]*PRIVATE KEY-----/,

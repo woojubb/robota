@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GemmaReasoningProjector, projectGemmaReasoningText } from './index';
+import koreanText from './__fixtures__/korean-text.json';
 
 describe('Gemma reasoning projection', () => {
   it('removes complete thought channel blocks from full text', () => {
@@ -32,13 +33,13 @@ describe('Gemma reasoning projection', () => {
 
   it('removes captured local channel markers split across background streamed deltas', () => {
     const projector = new GemmaReasoningProjector();
-    const deltas = ['<|channel>', 's', '\n', '<channel|>', '으로'];
+    const deltas = ['<|channel>', 's', '\n', '<channel|>', koreanText.trailingKoreanParticle];
 
     const visibleText =
       deltas.map((delta) => projector.project(delta)).join('') + projector.flush();
 
-    expect(visibleText).toBe('으로');
-    expect(projector.rawText).toBe('<|channel>s\n<channel|>으로');
+    expect(visibleText).toBe(koreanText.trailingKoreanParticle);
+    expect(projector.rawText).toBe(`<|channel>s\n<channel|>${koreanText.trailingKoreanParticle}`);
     expect(projector.removedReasoning).toBe(true);
   });
 

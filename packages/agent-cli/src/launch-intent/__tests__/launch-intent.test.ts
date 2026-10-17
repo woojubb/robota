@@ -8,6 +8,7 @@ import {
   LAUNCH_INTENT_MAX_URL,
   launchIntentUsage,
 } from '../launch-intent.js';
+import koreanText from '../../hosted/__tests__/__fixtures__/korean-text.json';
 const LAUNCH_INTENT_USAGE = launchIntentUsage('test-product', 'test-product');
 
 
@@ -135,7 +136,7 @@ describe('TC-02: precedence and the round trip', () => {
       'a b c',
       'line one\nline two',
       'a&b=c#d%e',
-      '한글 프롬프트 🙂',
+      koreanText.hangulPromptWithSmileEmoji,
       'trailing space ',
     ]) {
       const url = encodeLaunchIntent({ version: '1', prompt, cwd: '/abs', repo: undefined }, 'test-product');

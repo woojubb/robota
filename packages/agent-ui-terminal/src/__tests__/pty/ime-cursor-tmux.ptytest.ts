@@ -27,6 +27,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import korean from '../__fixtures__/korean-text.json';
 
 import { fixtureProductEnvironment } from './isolated-home.js';
 
@@ -38,7 +39,7 @@ const GIT_BIN =
     .map((directory) => join(directory, 'git'))
     .find((candidate) => existsSync(candidate)) ?? '/usr/bin/git';
 const COLS = 80;
-const COMPOSITION = '안녕';
+const COMPOSITION = korean.greetingFirstTwoSyllables;
 const COMPOSITION_WIDTH = 4;
 
 function resolveTmux(): string | undefined {

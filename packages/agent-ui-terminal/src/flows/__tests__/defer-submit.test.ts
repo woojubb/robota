@@ -5,6 +5,7 @@ import {
   createDeferSubmitState,
   scheduleDeferredSubmit,
 } from '../defer-submit.js';
+import korean from '../../__tests__/__fixtures__/korean-text.json';
 
 /**
  * CLI-061 — the deferred-submit orchestration. The load-bearing property: at fire time the submit reads
@@ -30,16 +31,16 @@ describe('scheduleDeferredSubmit (CLI-061)', () => {
     const sched = manualScheduler();
 
     // Value at Enter/schedule time is the pre-trailing-char string...
-    let live = '안녕하세';
+    let live: string = korean.greetingWithoutLastSyllable;
     scheduleDeferredSubmit(state, () => live, submit, 50, sched.schedule);
     expect(submit).not.toHaveBeenCalled(); // deferred, not immediate
 
     // ...the trailing syllable lands during the window...
-    live = '안녕하세요';
+    live = korean.greeting;
     sched.fire();
 
     expect(submit).toHaveBeenCalledTimes(1);
-    expect(submit).toHaveBeenCalledWith('안녕하세요'); // FULL value — fails on the pre-fix immediate submit
+    expect(submit).toHaveBeenCalledWith(korean.greeting); // FULL value — fails on the pre-fix immediate submit
   });
 
   it('ignores a second submit while one is in flight (no double-submit)', () => {

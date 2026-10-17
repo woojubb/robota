@@ -26,7 +26,7 @@ const languagePicker: ITuiPickerInteraction = {
   onMissingArgs: 'picker',
   getItems: () => [
     { label: 'English', value: 'en' },
-    { label: 'Korean', value: 'ko', description: '한국어' },
+    { label: 'Korean', value: 'ko', description: 'ko-KR' },
   ],
 };
 

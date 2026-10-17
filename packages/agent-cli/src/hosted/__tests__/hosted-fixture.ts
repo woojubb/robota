@@ -4,6 +4,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import koreanText from './__fixtures__/korean-text.json';
 
 import { hostedAdmissionBytes } from '../hosted-runtime-admission.js';
 import { hostedWorkerAccessBytes } from '../hosted-worker-execution-config.js';
@@ -78,7 +79,7 @@ export async function hostedFixture() {
   const config: IHostedRuntimeConfig = {
     version: 3,
     identity: {
-      tenant: 'tenant-한글',
+      tenant: `tenant-${koreanText.hangulWord}`,
       task: 'task-🚀',
       rootTask: 'root-task',
       actor: 'actor-1',

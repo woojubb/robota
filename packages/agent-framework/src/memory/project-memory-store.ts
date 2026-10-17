@@ -76,7 +76,7 @@ export function sanitizeTopic(topic: string): string {
   const collapsed = topic
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9가-힣_-]+/g, '-');
+    .replace(/[^a-z0-9\uAC00-\uD7A3_-]+/g, '-');
   // `trimEdgeChars` rather than `/^-+|-+$/g`: `-` survives the collapse above (it is inside the kept class), so
   // a long dash run reaches the trailing half of that alternation, which is quadratic (SEC-003).
   const normalized = trimEdgeChars(collapsed, '-').slice(0, MAX_TOPIC_LENGTH);
@@ -93,7 +93,7 @@ export class MemoryTopicCuratedError extends Error {
 }
 
 function mutationTopic(topic: string): string {
-  if (!/[a-z0-9가-힣]/i.test(topic)) throw new Error('A nonempty memory topic is required.');
+  if (!/[a-z0-9\uAC00-\uD7A3]/i.test(topic)) throw new Error('A nonempty memory topic is required.');
   return sanitizeTopic(topic);
 }
 

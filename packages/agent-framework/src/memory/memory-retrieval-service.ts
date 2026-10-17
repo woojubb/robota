@@ -8,7 +8,7 @@ const TOPIC_NAME_SCORE = 4;
 function tokenize(input: string): string[] {
   return input
     .toLowerCase()
-    .split(/[^a-z0-9가-힣_-]+/u)
+    .split(/[^a-z0-9\uAC00-\uD7A3_-]+/u)
     .filter((token) => token.length >= TOKEN_MIN_LENGTH);
 }
 

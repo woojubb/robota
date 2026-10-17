@@ -33,13 +33,12 @@ vi.mock('next-intl/server', async () => {
   };
 });
 
+import expectedDescriptions from './__fixtures__/metadata-descriptions.json';
 import * as CompareRoute from './page';
 
 const ComparePage = CompareRoute.default;
-const metadataDescriptions = {
-  en: 'Explore Example Product’s TypeScript agent SDK, coding CLI, provider options, local models and licensing.',
-  ko: 'Example Product의 TypeScript 에이전트 SDK와 코딩 CLI, 프로바이더 선택지, 로컬 모델 및 라이선스를 살펴보세요.',
-};
+// The expected descriptions are written out in a data file, not derived from the catalog under test.
+const metadataDescriptions: Record<'en' | 'ko', string> = expectedDescriptions;
 
 const routeExports = CompareRoute as unknown as {
   metadata?: Metadata;

@@ -1,5 +1,6 @@
 ---
 import { productPublicConfig } from '../lib/product-config.generated.mjs';
+import { ui } from '../i18n/ui';
 const { title = '__PRODUCT_DISPLAY_NAME__ Blog', description = '', lang = 'en', translationUrl = '' } = Astro.props;
 const productName = productPublicConfig.identity.displayName;
 const measurementId = productPublicConfig.services?.analyticsMeasurementId;
@@ -45,7 +46,7 @@ const koUrl = lang === 'ko' ? '' : translationUrl;
         <span class="sep" aria-hidden="true">/</span>
         <span data-theme-opt="dark" class="theme-opt" role="button" tabindex="0" aria-label="Dark theme">☾</span>
       </span>
-      <a href={lang === 'en' ? '/' : '/ko/'}>{lang === 'en' ? 'blog' : '블로그'}</a>
+      <a href={lang === 'en' ? '/' : '/ko/'}>{ui[lang === 'ko' ? 'ko' : 'en']['nav.blog']}</a>
     </nav>
   </header>
   <script is:inline>

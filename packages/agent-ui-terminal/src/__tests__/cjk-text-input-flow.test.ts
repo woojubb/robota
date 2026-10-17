@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import korean from './__fixtures__/korean-text.json';
 import {
   applyCjkTextInput,
   applyCjkTextPaste,
@@ -53,10 +54,10 @@ describe('cjk text input flow', () => {
   it('Given Ink usePaste single-line text When applied Then text is inserted at cursor', () => {
     const state = { ...createCjkTextInputFlowState('ab'), cursor: 1 };
 
-    const result = applyCjkTextPaste(state, '한글', { canPaste: true });
+    const result = applyCjkTextPaste(state, korean.hangulWord, { canPaste: true });
 
-    expect(result.state).toMatchObject({ value: 'a한글b', cursor: 3 });
-    expect(result.effect).toEqual({ type: 'change', value: 'a한글b' });
+    expect(result.state).toMatchObject({ value: `a${korean.hangulWord}b`, cursor: 3 });
+    expect(result.effect).toEqual({ type: 'change', value: `a${korean.hangulWord}b` });
   });
 
   it('Given Ink usePaste multiline text When applied Then normalized paste effect is emitted', () => {

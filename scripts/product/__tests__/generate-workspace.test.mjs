@@ -178,14 +178,13 @@ describe('product strings in generated artifact syntax', () => {
     }
   });
   it('preserves data instead of injecting code into the real blog strings and templates', async () => {
-    const source = await readFile(new URL('../../../apps/blog/src/i18n/ui.ts', import.meta.url), 'utf8');
-    const filled = fillProductContent('apps/blog/src/i18n/ui.ts', source, publicConfig, config);
-    const ast = ts.createSourceFile('ui.ts', filled, ts.ScriptTarget.Latest, true);
-    expect(ast.parseDiagnostics).toEqual([]);
-    const module = { exports: {} };
-    const compiled = ts.transpileModule(filled, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
-    new Function('module', 'exports', compiled)(module, module.exports);
-    expect(module.exports.ui.en['site.title']).toBe(`${name} Blog`);
+    // The blog's UI strings are locale data; filling the product name must leave each catalog valid JSON.
+    for (const locale of ['en', 'ko']) {
+      const file = `apps/blog/src/i18n/locales/${locale}.json`;
+      const source = await readFile(new URL(`../../../${file}`, import.meta.url), 'utf8');
+      const filled = fillProductContent(file, source, publicConfig, config);
+      expect(JSON.parse(filled)['site.title']).toBe(`${name} Blog`);
+    }
     const template = fillProductContent('template.ts', 'export default `__PRODUCT_DISPLAY_NAME__ ${1}`;', publicConfig, config);
     const result = { exports: {} };
     new Function('module', 'exports', ts.transpileModule(template, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(result, result.exports);
