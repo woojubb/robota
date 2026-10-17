@@ -1,4 +1,8 @@
-/** One `session/prompt` that runs a model turn: stream its events to the editor and settle with a stop reason. */
+/**
+ * One `session/prompt` that runs a turn: stream the session's events to the editor, ask it about
+ * permissions, and settle with a stop reason. A typed message and a `/command` that runs a model
+ * turn (a skill) both go through here, so the editor sees the same thing from either.
+ */
 
 import { RequestError } from '@agentclientprotocol/sdk';
 import { isTurnNotRunError } from '@robota-sdk/agent-interface-session';
@@ -41,7 +45,24 @@ function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
 }
 
-export async function runModelTurn(turn: IAcpTurnContext, text: string): Promise<PromptResponse> {
+/** What a turn's work left behind: whether it was cut short, and the text to show if nothing streamed. */
+interface IWorkOutcome {
+  readonly interrupted: boolean;
+  readonly reply: string;
+}
+
+interface IStreamedWork {
+  run(): Promise<IWorkOutcome>;
+  /** A failure that was not a cancellation, as the editor's answer: it reports the cause and throws a fixed error. */
+  fail(error: unknown): never;
+  /** Whether `error` is the work saying it was cancelled. */
+  isCancellation?(error: unknown): boolean;
+}
+
+async function runStreamedTurn(
+  turn: IAcpTurnContext,
+  work: IStreamedWork,
+): Promise<PromptResponse> {
   const { session, sessionId, client, updates } = turn;
   const tools = createToolCallTracker({
     updates,
@@ -87,25 +108,61 @@ export async function runModelTurn(turn: IAcpTurnContext, text: string): Promise
   });
 
   try {
-    const handle = await session.submit(text, undefined, undefined, {
-      signal: turn.signal,
-      driverId: turn.driverId,
-      ...(turn.surface !== undefined ? { surface: turn.surface } : {}),
-    });
-    const result = await handle.completed;
-    if (turn.wasCancelled() || result.interrupted === true) return CANCELLED;
-    // A provider that does not stream sends no deltas; the whole reply arrives with the result.
-    if (!streamed && result.response !== '') updates.text(result.response);
+    const outcome = await work.run();
+    if (turn.wasCancelled() || turn.signal.aborted || outcome.interrupted) return CANCELLED;
+    // Nothing streamed (a provider without deltas, or a command that is not a turn): the text arrives whole.
+    if (!streamed && outcome.reply !== '') updates.text(outcome.reply);
     return END_TURN;
   } catch (error) {
-    if (turn.wasCancelled() || turn.signal.aborted) return CANCELLED;
-    if (isTurnNotRunError(error) && error.reason === 'cancelled') return CANCELLED;
-    turn.report(asError(error), 'turn');
-    // The provider's own text can carry request details; the editor gets a fixed message.
-    throw new RequestError(-32603, isTurnNotRunError(error) ? 'Turn was not run' : 'Turn failed');
+    if (turn.wasCancelled() || turn.signal.aborted || work.isCancellation?.(error) === true) {
+      return CANCELLED;
+    }
+    return work.fail(error);
   } finally {
     unsubscribe();
     tools.finish();
     await updates.drained();
   }
+}
+
+/** A typed message: submit it to the session and take the turn's result. */
+export function runModelTurn(turn: IAcpTurnContext, text: string): Promise<PromptResponse> {
+  return runStreamedTurn(turn, {
+    async run() {
+      const handle = await turn.session.submit(text, undefined, undefined, {
+        signal: turn.signal,
+        driverId: turn.driverId,
+        ...(turn.surface !== undefined ? { surface: turn.surface } : {}),
+      });
+      const result = await handle.completed;
+      return { interrupted: result.interrupted === true, reply: result.response };
+    },
+    isCancellation: (error) => isTurnNotRunError(error) && error.reason === 'cancelled',
+    fail(error) {
+      turn.report(asError(error), 'turn');
+      // The provider's own text can carry request details; the editor gets a fixed message.
+      throw new RequestError(-32603, isTurnNotRunError(error) ? 'Turn was not run' : 'Turn failed');
+    },
+  });
+}
+
+/**
+ * A `/command` prompt: the host runs it and its output is the reply. A command that runs a model
+ * turn (a skill) streams that turn and asks about permissions while it runs; its output then
+ * repeats the streamed reply, so it is shown only when nothing streamed (`/help`, a message).
+ */
+export function runCommandTurn(
+  turn: IAcpTurnContext,
+  text: string,
+  executeCommand: (text: string, signal: AbortSignal) => Promise<string>,
+): Promise<PromptResponse> {
+  return runStreamedTurn(turn, {
+    async run() {
+      return { interrupted: false, reply: await executeCommand(text, turn.signal) };
+    },
+    fail(error) {
+      turn.report(asError(error), 'command');
+      throw new RequestError(-32603, 'Command failed');
+    },
+  });
 }

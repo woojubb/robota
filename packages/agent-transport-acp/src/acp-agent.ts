@@ -7,9 +7,10 @@ import { agent, PROTOCOL_VERSION, RequestError } from '@agentclientprotocol/sdk'
 import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
 
 import { promptText } from './acp-prompt-text.js';
-import { runModelTurn } from './acp-turn.js';
+import { runCommandTurn, runModelTurn } from './acp-turn.js';
 import { createUpdateStream } from './acp-updates.js';
 
+import type { IAcpTurnContext } from './acp-turn.js';
 import type { IAcpTransportOptions, IAcpTransportSession } from './acp-types.js';
 import type { AgentApp, PromptResponse } from '@agentclientprotocol/sdk';
 
@@ -19,8 +20,9 @@ import type { AgentApp, PromptResponse } from '@agentclientprotocol/sdk';
  * does not have.
  */
 const WORKSPACE_NOT_ADMITTED = -32001;
-const INTERNAL_ERROR = -32603;
 const COMMANDS_UNAVAILABLE = 'Slash commands are not available in this host.';
+
+const commandsUnavailable = (): Promise<string> => Promise.resolve(COMMANDS_UNAVAILABLE);
 
 export interface IAcpAgent {
   readonly app: AgentApp;
@@ -36,10 +38,6 @@ function sameDirectory(requested: string, served: string): boolean {
     // allow-fallback: a path that cannot be resolved is not the served directory, and the caller refuses it.
     return false;
   }
-}
-
-function asError(error: unknown): Error {
-  return error instanceof Error ? error : new Error(String(error));
 }
 
 export function createAcpAgent(
@@ -111,28 +109,23 @@ export function createAcpAgent(
           session.abort();
         },
       };
-      const turnSignal = AbortSignal.any([signal, controller.signal]);
-      const updates = createUpdateStream(client, params.sessionId, report);
+      const turn: IAcpTurnContext = {
+        session,
+        sessionId: params.sessionId,
+        client,
+        updates: createUpdateStream(client, params.sessionId, report),
+        signal: AbortSignal.any([signal, controller.signal]),
+        driverId,
+        surface: options.surface ?? 'unknown',
+        cwd: options.cwd,
+        nextToolCallId: () => `tool-${(toolCalls += 1)}`,
+        wasCancelled: () => cancelled,
+        report,
+      };
       try {
-        if (text.typed.trimStart().startsWith('/')) {
-          return await runCommandPrompt(options, updates, text.typed, turnSignal, report);
-        }
-        return await runModelTurn(
-          {
-            session,
-            sessionId: params.sessionId,
-            client,
-            updates,
-            signal: turnSignal,
-            driverId,
-            surface: options.surface ?? 'unknown',
-            cwd: options.cwd,
-            nextToolCallId: () => `tool-${(toolCalls += 1)}`,
-            wasCancelled: () => cancelled,
-            report,
-          },
-          text.full,
-        );
+        return text.typed.trimStart().startsWith('/')
+          ? await runCommandTurn(turn, text.typed, options.executeCommand ?? commandsUnavailable)
+          : await runModelTurn(turn, text.full);
       } finally {
         active = undefined;
       }
@@ -142,28 +135,4 @@ export function createAcpAgent(
     });
 
   return { app, cancelActive: () => active?.cancel() };
-}
-
-/** A `/command` prompt: the host runs it and its output is the reply. */
-async function runCommandPrompt(
-  options: IAcpTransportOptions,
-  updates: ReturnType<typeof createUpdateStream>,
-  text: string,
-  signal: AbortSignal,
-  report: (error: Error, context: string) => void,
-): Promise<PromptResponse> {
-  let output = COMMANDS_UNAVAILABLE;
-  if (options.executeCommand !== undefined) {
-    try {
-      output = await options.executeCommand(text, signal);
-    } catch (error) {
-      if (signal.aborted) return { stopReason: 'cancelled' };
-      report(asError(error), 'command');
-      throw new RequestError(INTERNAL_ERROR, 'Command failed');
-    }
-  }
-  if (signal.aborted) return { stopReason: 'cancelled' };
-  if (output !== '') updates.text(output);
-  await updates.drained();
-  return { stopReason: 'end_turn' };
 }

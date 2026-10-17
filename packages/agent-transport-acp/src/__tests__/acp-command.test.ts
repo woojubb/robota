@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createFakeSession, openSession, startTransport, textPrompt } from './acp-test-harness.js';
 
+import type { IFakeSession } from './acp-test-harness.js';
+
 const open: { stop(): Promise<void> }[] = [];
 afterEach(async () => {
   while (open.length) await open.pop()!.stop();
@@ -91,5 +93,86 @@ describe('slash-command prompts', () => {
     await expect(pending).resolves.toEqual({ stopReason: 'cancelled' });
     expect(seen.aborted).toBe(true);
     expect(fake.abort).toHaveBeenCalled();
+  });
+});
+
+describe('a command that runs a model turn', () => {
+  const shell = { toolName: 'Shell', firstArg: 'ls', isRunning: true, executionId: 'call-1' };
+
+  /** A skill command: asks the editor, runs a tool and streams its reply, then returns that reply as its output. */
+  function skillCommand(getFake: () => IFakeSession, reply = 'Reviewed.') {
+    return async () => {
+      const fake = getFake();
+      const answered = new Promise<void>((resolve) =>
+        fake.resolvePermission.mockImplementation(() => resolve()),
+      );
+      fake.emit('permission_request', {
+        id: 'perm-1',
+        toolName: 'Shell',
+        toolArgs: { command: 'ls' },
+      });
+      await answered;
+      fake.emit('tool_start', shell);
+      fake.emit('tool_end', { ...shell, isRunning: false, result: 'success' });
+      fake.emit('text_delta', reply);
+      return reply;
+    };
+  }
+
+  it('asks the editor and streams its rows and text like a normal turn, without repeating the reply', async () => {
+    let fake!: IFakeSession;
+    const started = await start(skillCommand(() => fake));
+    fake = started.fake;
+    started.editor.answerPermission(() => ({
+      outcome: { outcome: 'selected', optionId: 'allow-once' },
+    }));
+
+    await expect(started.prompt('/review')).resolves.toEqual({ stopReason: 'end_turn' });
+
+    expect(started.editor.permissionRequests).toHaveLength(1);
+    expect(started.editor.permissionRequests[0]!.toolCall).toMatchObject({
+      toolCallId: 'permission-perm-1',
+      title: 'Shell: ls',
+    });
+    expect(fake.resolvePermission).toHaveBeenCalledWith('perm-1', true, 'owner');
+    expect(started.editor.updates).toEqual([
+      expect.objectContaining({
+        sessionUpdate: 'tool_call_update',
+        toolCallId: 'permission-perm-1',
+        status: 'in_progress',
+      }),
+      { sessionUpdate: 'tool_call_update', toolCallId: 'permission-perm-1', status: 'completed' },
+      { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'Reviewed.' } },
+    ]);
+    expect(fake.submit).not.toHaveBeenCalled();
+  });
+
+  it('shows the output of a command whose turn did not stream', async () => {
+    let fake!: IFakeSession;
+    const started = await start(async () => {
+      fake.emit('tool_start', shell);
+      fake.emit('tool_end', { ...shell, isRunning: false, result: 'success' });
+      return 'Whole reply';
+    });
+    fake = started.fake;
+    await started.prompt('/review');
+    expect(started.editor.updates.at(-1)).toEqual({
+      sessionUpdate: 'agent_message_chunk',
+      content: { type: 'text', text: 'Whole reply' },
+    });
+  });
+
+  it('listens only while the command runs', async () => {
+    let fake!: IFakeSession;
+    let during = -1;
+    const started = await start(async () => {
+      during = fake.listenerCount('permission_request');
+      throw new Error('boom');
+    });
+    fake = started.fake;
+    await started.prompt('/review').catch(() => undefined);
+    expect(during).toBe(1);
+    expect(fake.listenerCount('permission_request')).toBe(0);
+    expect(fake.listenerCount('text_delta')).toBe(0);
   });
 });
