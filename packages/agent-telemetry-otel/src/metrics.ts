@@ -1,7 +1,7 @@
 import type { ILivePromptTraceBatch, IProviderCallTraceEntry } from '@robota-sdk/agent-interface-analytics';
 
 import { genAiProviderName, label } from './projection.js';
-import type { TOtelAttributes } from './projection.js';
+import type { TOtelAttributes, TOtelProjectionMode } from './projection.js';
 
 /**
  * Bucket boundaries the GenAI conventions recommend, as pinned at semantic-conventions-genai
@@ -28,6 +28,8 @@ export interface IOtelMetricSample {
 }
 
 export interface IOtelMetricSampleOptions {
+  /** The GenAI attribute set in use, as for spans: `gen_ai/dup` also keeps `agent.model.id`, `gen_ai` does not. */
+  readonly mode: Exclude<TOtelProjectionMode, 'agent'>;
   /** Host-chosen agent name carried on the agent, tool and root metrics. */
   readonly agentName?: string;
 }
@@ -42,13 +44,19 @@ const seconds = (startedAt: string, endedAt: string): number | undefined => {
 const tokenCount = (value: unknown): number | undefined =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
 
-function providerCallSamples(trace: IProviderCallTraceEntry): IOtelMetricSample[] {
+function providerCallSamples(trace: IProviderCallTraceEntry, mode: IOtelMetricSampleOptions['mode']): IOtelMetricSample[] {
   const providerName = genAiProviderName(trace.providerId);
+  const providerId = label(trace.providerId);
   const model = label(trace.modelId);
+  // Same rule as the provider span: a fact the conventions do not define keeps its `agent.*` name, so an
+  // operator's provider split survives (a provider outside the known map has no `gen_ai.provider.name`);
+  // the model has a convention name, so `agent.model.id` is repeated only while both sets are emitted.
   const base: TOtelAttributes = {
     'gen_ai.operation.name': 'chat',
     ...(providerName ? { 'gen_ai.provider.name': providerName } : {}),
     ...(model ? { 'gen_ai.request.model': model } : {}),
+    ...(providerId ? { 'agent.provider.id': providerId } : {}),
+    ...(mode === 'gen_ai/dup' && model ? { 'agent.model.id': model } : {}),
   };
   const attributes: TOtelAttributes = trace.outcome === 'failure' ? { ...base, ...ERROR_TYPE } : base;
   // Without a complete count the conventions ask for 0, not for a missing sample; providers do not
@@ -96,7 +104,7 @@ export function projectLivePromptMetricSamples(
   for (const child of batch.children) {
     if (child.kind !== 'provider' || child.trace.disposition !== 'invoked') continue;
     invokedCalls += 1;
-    if (providerComplete) samples.push(...providerCallSamples(child.trace));
+    if (providerComplete) samples.push(...providerCallSamples(child.trace, options.mode));
   }
   for (const child of batch.children) {
     if (child.kind !== 'tool') continue;

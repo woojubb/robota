@@ -211,11 +211,62 @@ describe('live metric semantic-convention modes', () => {
       for (const attributes of [new Set<TLiveMetricAttribute>(), new Set<TLiveMetricAttribute>(['provider', 'model'])]) {
         const chat = points(GEN_AI, attributes).filter((point) => point.name === 'gen_ai.client.inference.duration');
         expect(chat.map((point) => point.attributes['gen_ai.request.model'])).toEqual(['claude-sonnet-4-5', undefined]);
-        for (const point of points(GEN_AI, attributes)) {
-          expect(point.attributes).not.toHaveProperty('agent.provider.id');
-          expect(point.attributes).not.toHaveProperty('agent.model.id');
-        }
       }
+    });
+
+    it('labels GenAI points with the Robota provider and model ids only under their own opt-ins', () => {
+      const labelled = (naming: ILiveMetricNaming, attributes: ReadonlySet<TLiveMetricAttribute>, key: string) =>
+        points(naming, attributes).filter((point) => key in point.attributes).length;
+      for (const naming of [GEN_AI, DUP]) {
+        expect(labelled(naming, new Set(), 'agent.provider.id')).toBe(0);
+        expect(labelled(naming, new Set(), 'agent.model.id')).toBe(0);
+        expect(labelled(naming, new Set(['model']), 'agent.provider.id')).toBe(0);
+        expect(labelled(naming, new Set(['provider']), 'agent.model.id')).toBe(0);
+      }
+      // Only the five inference metrics are provider-derived: the tool and agent metrics never carry them.
+      const providerIds = (attributes: ReadonlySet<TLiveMetricAttribute>) => points(GEN_AI, attributes)
+        .filter((point) => 'agent.provider.id' in point.attributes);
+      expect(providerIds(new Set(['provider'])).map((point) => point.name)).toEqual([
+        'gen_ai.client.inference.duration', 'gen_ai.client.inference.duration',
+        'gen_ai.client.inference.usage.input_tokens', 'gen_ai.client.inference.usage.input_tokens',
+        'gen_ai.client.inference.usage.output_tokens', 'gen_ai.client.inference.usage.output_tokens',
+        'gen_ai.client.inference.operation.input_tokens', 'gen_ai.client.inference.operation.input_tokens',
+        'gen_ai.client.inference.operation.output_tokens', 'gen_ai.client.inference.operation.output_tokens',
+      ]);
+    });
+
+    it('keeps a provider split of the GenAI token totals when the agent token counters are dropped', () => {
+      // Two gateways the GenAI conventions have no name for, answering for the same model: without the
+      // opt-in their totals share one point, with it each gateway keeps its own, as agent.provider.input_tokens did.
+      const call = (providerId: string, promptTokens: number, completionTokens: number): ILivePromptTraceBatch['children'][number] => {
+        const [provider] = completeBatch().children;
+        if (provider?.kind !== 'provider') throw new Error('Expected a provider child');
+        return { kind: 'provider', trace: {
+          ...provider.trace, providerId, modelId: 'gateway-model', usageProvenance: 'complete',
+          promptTokens, completionTokens, totalTokens: promptTokens + completionTokens,
+        } };
+      };
+      const batch: ILivePromptTraceBatch = { ...completeBatch(), children: [
+        call('my-gateway', 100, 10), call('other-gateway', 20, 2), call('my-gateway', 5, 1),
+      ] };
+      const inputTokens = (attributes: ReadonlySet<TLiveMetricAttribute>) => {
+        const counter = metricsOf(batch, GEN_AI, attributes).find((metric) => metric.descriptor.name === 'gen_ai.client.inference.usage.input_tokens')!;
+        return counter.dataPoints.map((point) => [point.attributes['agent.provider.id'], point.value]);
+      };
+      expect(namesOf(batch, GEN_AI)).not.toContain('agent.provider.input_tokens');
+      expect(inputTokens(new Set(['provider']))).toEqual([['my-gateway', 105], ['other-gateway', 20]]);
+      expect(inputTokens(new Set())).toEqual([[undefined, 125]]);
+    });
+
+    it('labels GenAI points with the model id under gen_ai/dup and the model opt-in only', () => {
+      const models = (naming: ILiveMetricNaming) => points(naming, new Set(['model']))
+        .filter((point) => point.name.startsWith('gen_ai.client.inference.'))
+        .map((point) => point.attributes['agent.model.id']);
+      expect(new Set(models(DUP))).toEqual(new Set(['claude-sonnet-4-5', undefined]));
+      expect(models(DUP).filter((model) => model !== undefined)).toHaveLength(5);
+      // `gen_ai` names the request model `gen_ai.request.model` and never repeats it as agent.model.id.
+      expect(models(GEN_AI).every((model) => model === undefined)).toBe(true);
+      expect(points(GEN_AI, new Set(['model'])).some((point) => point.attributes['gen_ai.request.model'] === 'claude-sonnet-4-5')).toBe(true);
     });
 
     it('leaves the agent metrics their own opt-in model label under gen_ai/dup', () => {

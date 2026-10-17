@@ -501,7 +501,9 @@ the origin list, since a child process is not an origin.
 metric/trace join needs the same key on both sides, the provider id is whatever the host configured
 rather than a well-known system, and which model actually answered a request cannot be verified
 against which model the request named. Under the GenAI naming opt-in, the `gen_ai.*` metrics carry the
-requested model as those conventions require, while the `agent.*` metrics keep this opt-in.
+requested model as those conventions require whatever this opt-in says, and the same opt-in keys label
+their inference points too (the model only under `gen_ai/dup`, since `gen_ai` already names it), so an
+operator's provider split survives the `agent.*` token counters that `gen_ai` drops.
 
 ### Deep links (`__PRODUCT_CLI_NAME__ open`)
 

@@ -8,7 +8,7 @@ import { calculateModelCost } from '@robota-sdk/agent-core';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
 import { GEN_AI_SCHEMA_URL, projectLivePromptMetricSamples } from '@robota-sdk/agent-telemetry-otel';
-import type { TOtelProjectionMode } from '@robota-sdk/agent-telemetry-otel';
+import type { IOtelMetricSample, TOtelProjectionMode } from '@robota-sdk/agent-telemetry-otel';
 import { aggregateMetricSamples } from './live-metric-genai.js';
 import { createLiveTelemetryResource } from './live-resource.js';
 import type { ILiveTelemetryResource } from './live-resource.js';
@@ -56,6 +56,19 @@ interface IProviderMetricGroup {
   unpricedCalls: number;
   pricedCalls: number;
   estimatedCost: number;
+}
+
+/**
+ * The Robota-only ids a GenAI inference sample carries follow the same opt-ins as the `agent.*`
+ * counters: an id nobody opted into is dropped before aggregation, so grouping follows what survives.
+ */
+function withOptInIds(sample: IOtelMetricSample, metricAttributes: ReadonlySet<TLiveMetricAttribute>): IOtelMetricSample {
+  const { 'agent.provider.id': providerId, 'agent.model.id': modelId, ...rest } = sample.attributes;
+  return { ...sample, attributes: {
+    ...rest,
+    ...(providerId !== undefined && metricAttributes.has('provider') ? { 'agent.provider.id': providerId } : {}),
+    ...(modelId !== undefined && metricAttributes.has('model') ? { 'agent.model.id': modelId } : {}),
+  } };
 }
 
 /** Delta sums describe this one prompt only; no resumed history is replayed or counted twice. */
@@ -189,11 +202,14 @@ export function projectLivePromptMetrics(
     });
   }
   const scope = { name: 'agent.live-prompt-metrics', version: '1' };
-  // The GenAI conventions require the request model, so unlike the `agent.*` counters these never
-  // depend on the `model` opt-in; only the session stamp applies. They get a scope of their own that
-  // names the GenAI schema, as the spans do, so a backend can tell which convention they follow.
+  // GenAI points carry the request model by convention, so that never depends on the `model` opt-in.
+  // The Robota-only `agent.provider.id` / `agent.model.id` labels follow the same opt-ins as the `agent.*`
+  // counters, so a provider split survives the counters `gen_ai` mode drops. The GenAI metrics get a scope
+  // of their own that names the GenAI schema, as the spans do, so a backend can tell which convention they follow.
   const genAiMetrics = naming.semconv === 'agent' ? [] : aggregateMetricSamples(
-    projectLivePromptMetricSamples(batch, naming.agentName ? { agentName: naming.agentName } : {}),
+    projectLivePromptMetricSamples(batch, {
+      mode: naming.semconv, ...(naming.agentName ? { agentName: naming.agentName } : {}),
+    }).map((sample) => withOptInIds(sample, metricAttributes)),
     sessionAttributes, startTime, endTime,
   );
   return {

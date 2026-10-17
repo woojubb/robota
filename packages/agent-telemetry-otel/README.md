@@ -95,14 +95,15 @@ whose GenAI name is certain; `agent.provider.id` always names the Robota provide
 ```typescript
 import { projectLivePromptMetricSamples } from '@robota-sdk/agent-telemetry-otel';
 
-const samples = projectLivePromptMetricSamples(batch, { agentName: 'my-agent' });
+const samples = projectLivePromptMetricSamples(batch, { mode: 'gen_ai', agentName: 'my-agent' });
 // [{ name: 'gen_ai.client.inference.duration', instrument: 'histogram', unit: 's',
 //    value: 1.2, boundaries: [0.01, ...], attributes: { 'gen_ai.operation.name': 'chat', ... } }, ...]
 ```
 
 Each sample is one measurement: a `counter` increment, or a `histogram` value with the explicit
 `boundaries` the GenAI conventions recommend. Record each on an instrument of that name, unit and
-boundaries; the attributes are the measurement's labels.
+boundaries; the attributes are the measurement's labels. `mode` is `gen_ai` or `gen_ai/dup`, as for
+spans (there is no `agent` form of these metrics).
 
 | Metric                                                              | Instrument, unit       | Per                   |
 | ------------------------------------------------------------------- | ---------------------- | --------------------- |
@@ -118,7 +119,10 @@ decisions. A call whose usage was not fully received records `0` tokens under th
 as the conventions specify. Samples that need every provider (or tool) child are left out when the
 batch omitted any, so a bounded batch never yields a total that looks complete. `gen_ai.request.model`
 and `gen_ai.tool.name` appear only when label-safe, and `gen_ai.provider.name` only for providers whose
-GenAI name is certain. The bucket constants (`GEN_AI_DURATION_BUCKETS_S` and the others) are exported.
+GenAI name is certain. As on the provider span, the inference samples also keep the label-safe
+`agent.provider.id` (the conventions do not define it, so a provider outside the known map can still be
+told apart) and, in `gen_ai/dup` only, `agent.model.id`. The bucket constants (`GEN_AI_DURATION_BUCKETS_S`
+and the others) are exported.
 
 ## Documents
 
