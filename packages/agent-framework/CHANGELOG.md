@@ -1,5 +1,39 @@
 # @robota-sdk/agent-framework
 
+## 3.0.0-beta.94
+### Minor Changes
+
+- e706b43: Live telemetry can name its spans with the OpenTelemetry GenAI semantic conventions. Set
+  `PRODUCT_TELEMETRY_SEMCONV` to `gen_ai` to export `invoke_agent`, `chat {model}` (client) and
+  `execute_tool {tool}` spans with `gen_ai.*` attributes, keeping Robota-only facts as `agent.*`; or to
+  `gen_ai/dup` to emit both attribute sets while dashboards move. The default, `agent`, exports exactly
+  the spans it did before. An unknown value, or the setting while neither traces nor metrics are exported,
+  refuses startup. Console traces under a GenAI mode print the same projected spans.
+  
+  The live prompt trace now carries each tool body's name (the session's tool-body observation includes it
+  and the framework's live projection passes a label-safe name through); it reaches spans only under a
+  GenAI mode and is never written to session history.
+
+### Patch Changes
+
+- e079992: The Korean memory cues and sensitive-term words of the default automatic-memory policy now load from a locale data file (`src/memory/locales/ko.json`) instead of being written into the source. Matching behavior is unchanged.
+- Updated dependencies [8fdd44c]
+- Updated dependencies [e706b43]
+- Updated dependencies [fef3a50]
+  - @robota-sdk/agent-tools@3.0.0-beta.94
+  - @robota-sdk/agent-session@3.0.0-beta.94
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.94
+  - @robota-sdk/agent-tool-defaults@3.0.0-beta.94
+  - @robota-sdk/agent-interface-session@3.0.0-beta.94
+  - @robota-sdk/agent-interface-session-mobility@3.0.0-beta.94
+  - @robota-sdk/agent-core@3.0.0-beta.94
+  - @robota-sdk/agent-executor@3.0.0-beta.94
+  - @robota-sdk/agent-file-authority@3.0.0-beta.94
+  - @robota-sdk/agent-interface-command@3.0.0-beta.94
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.94
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.94
+  - @robota-sdk/agent-roundtable@3.0.0-beta.94
+
 ## 3.0.0-beta.93
 ### Patch Changes
 
