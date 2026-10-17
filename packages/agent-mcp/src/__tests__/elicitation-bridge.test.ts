@@ -452,7 +452,9 @@ describe('a prompt lives only as long as its call', () => {
       }
       return scripted.ask(request);
     };
-    const sibling = client.callTool('wait', { ms: 300 });
+    // The sibling carries the same port, as every call of a tool batch does in the product; it
+    // never elicits, so the port is never used for it.
+    const sibling = client.callTool('wait', { ms: 300 }, { ask: gated });
     const siblingDone = sibling.then(() => undefined);
     const eliciting = client.callTool('confirm', {}, { ask: gated });
     await firstSeen;

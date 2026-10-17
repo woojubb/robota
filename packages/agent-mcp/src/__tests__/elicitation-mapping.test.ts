@@ -192,6 +192,14 @@ describe('bridgeElicitation', () => {
     const { result, seen } = await bridge(params, [respond, picks([])]);
     expect(result).toEqual({ action: 'accept', content: { tags: [] } });
     expect(seen[1]).toMatchObject({ minSelect: 0 });
+    // The same rule when at most one item is allowed: a "none" choice answers with an empty list.
+    const single = form(
+      { tag: { type: 'array', minItems: 0, maxItems: 1, items: { type: 'string', enum: ['a', 'b'] } } },
+      ['tag'],
+    );
+    const chosen = await bridge(single, [respond, (request) => pick(request.options!.at(-1)!.value)]);
+    expect(chosen.result).toEqual({ action: 'accept', content: { tag: [] } });
+    expect(chosen.seen[1]?.options?.map((option) => option.label)).toEqual(['a', 'b', 'Leave unanswered']);
   });
 
   it('turns an array of enum into a multi-select bounded by minItems and maxItems', async () => {

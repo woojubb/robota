@@ -414,7 +414,8 @@ function arrayQuestion(
   const inOrder = (values: readonly string[]): string[] =>
     [...values].sort((left, right) => (order.get(left) ?? 0) - (order.get(right) ?? 0));
   if (maxSelect === 1) {
-    const skip = required ? undefined : addSkipOption(options);
+    // "None" is offered when the field is optional, or required but allowed to be empty.
+    const none = !required || minItems === 0 ? addSkipOption(options) : undefined;
     return {
       request: {
         title,
@@ -427,7 +428,8 @@ function arrayQuestion(
       parse: (response) => {
         const value = response.values[0];
         if (value !== undefined && order.has(value)) return { kind: 'value', value: [value] };
-        if (skip !== undefined && value === skip) return { kind: 'skip' };
+        if (none !== undefined && value === none)
+          return required ? { kind: 'value', value: [] } : { kind: 'skip' };
         return { kind: 'invalid', reason: 'not one of the offered choices' };
       },
     };
