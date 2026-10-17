@@ -63,6 +63,9 @@ anything else in the process can print to it, and send logs to stderr.
 | permission request from the session | `session/request_permission` with allow once, allow for this session, allow for this project (only if the session can persist it) and reject. Cancelled, failed or unrecognised answers deny.                                                                       |
 | question from the session           | Not forwarded; the session answers it as cancelled.                                                                                                                                                                                                                 |
 
+An editor's own `mcpServers` and extra workspace roots are refused, so configure MCP servers in the agent's
+own settings and do not attach context servers to this agent in an editor that offers it (Zed does).
+
 ## Related
 
 - [`@robota-sdk/agent-transport`](../agent-transport/README.md) — shared session bridge and the stdio carrier helper.

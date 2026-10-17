@@ -595,8 +595,9 @@ See [Model Context Protocol (MCP)](./mcp.md).
 agent, so an editor that can launch an ACP agent (Zed, JetBrains, and other ACP clients) can use it
 for the folder it opened. Configure the editor to run `__PRODUCT_CLI_NAME__ acp` with the project folder as
 its working directory. The editor sends prompts, shows streamed replies and tool calls, asks you to
-approve a tool call through its own dialog, and can cancel a turn; a prompt that starts with `/` runs
-that command and shows its output.
+approve a tool call through its own dialog (which shows the whole command or the edit's diff, as the
+terminal does), and can cancel a turn; a prompt that starts with `/` runs that command, and a skill
+command streams its reply and asks for approval like a typed prompt.
 
 The editor answers prompts and widens nothing. Permissions, the sandbox and workspace trust work as
 in the terminal: in a folder that is not trusted yet the editor's new-session request is refused with
