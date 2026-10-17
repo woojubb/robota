@@ -84,6 +84,7 @@ there instead of refusing, and the desktop app asks in its window before it star
 | `__PRODUCT_CLI_NAME__ --attach`                   | Full terminal UI on this folder's running daemon                        |
 | `__PRODUCT_CLI_NAME__ session start --background` | A supervised session that outlives the terminal                         |
 | `__PRODUCT_CLI_NAME__ mcp serve`                  | Serve one session to an MCP client                                      |
+| `__PRODUCT_CLI_NAME__ acp`                        | Run as an agent for an editor over the Agent Client Protocol            |
 
 ### Print mode
 
@@ -588,6 +589,23 @@ revokes the grants.
 
 See [Model Context Protocol (MCP)](./mcp.md).
 
+## Editors (Agent Client Protocol)
+
+`__PRODUCT_CLI_NAME__ acp` runs `__PRODUCT_CLI_NAME__` as an [Agent Client Protocol](https://agentclientprotocol.com/)
+agent, so an editor that can launch an ACP agent (Zed, JetBrains, and other ACP clients) can use it
+for the folder it opened. Configure the editor to run `__PRODUCT_CLI_NAME__ acp` with the project folder as
+its working directory. The editor sends prompts, shows streamed replies and tool calls, asks you to
+approve a tool call through its own dialog, and can cancel a turn; a prompt that starts with `/` runs
+that command and shows its output.
+
+The editor answers prompts and widens nothing. Permissions, the sandbox and workspace trust work as
+in the terminal: in a folder that is not trusted yet the editor's new-session request is refused with
+the instruction to run `__PRODUCT_CLI_NAME__ trust --yes`, then start the agent again. The session is
+rooted in the folder the agent was started in; a different folder, MCP servers or extra roots sent by
+the editor are refused, so configure MCP servers in the settings files. An ACP agent serves one
+session per connection, and reading or writing files and running terminals are not delegated to the
+editor. Questions the agent would ask you are answered as cancelled, because ACP has no equivalent.
+
 ## Devices and remote control
 
 `/remote-control enable` pairs a phone or another browser to co-drive the running session over
@@ -677,6 +695,7 @@ another session or device. All four are user-only. See [Devices, Peers and Remot
 | `__PRODUCT_CLI_NAME__ mcp serve [options]`                                                                       | Serve one session as an MCP server                                                                                                             |
 | `__PRODUCT_CLI_NAME__ mcp login <name> [--client-secret] [--no-browser]`                                         | Sign in to an OAuth MCP server                                                                                                                 |
 | `__PRODUCT_CLI_NAME__ mcp logout <name>`                                                                         | Sign out and revoke its tokens                                                                                                                 |
+| `__PRODUCT_CLI_NAME__ acp`                                                                                       | Run as an Agent Client Protocol agent for an editor, over stdio                                                                                |
 | `__PRODUCT_CLI_NAME__ eval <definition> [--threshold <0..1>]`                                                    | Run an eval definition; exit 1 below the threshold                                                                                             |
 | `__PRODUCT_CLI_NAME__ user-local storage list \| memory ...`                                                     | The `/user-local` command outside a session                                                                                                    |
 

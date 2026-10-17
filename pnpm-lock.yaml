@@ -1037,6 +1037,9 @@ importers:
 
   packages/agent-cli:
     dependencies:
+      '@agentclientprotocol/sdk':
+        specifier: 1.9.0
+        version: 1.9.0(zod@3.25.76)
       '@anthropic-ai/sdk':
         specifier: ^0.114.0
         version: 0.114.0(zod@3.25.76)
@@ -1240,6 +1243,9 @@ importers:
       '@robota-sdk/agent-transport':
         specifier: workspace:*
         version: link:../agent-transport
+      '@robota-sdk/agent-transport-acp':
+        specifier: workspace:*
+        version: link:../agent-transport-acp
       '@robota-sdk/agent-transport-http':
         specifier: workspace:*
         version: link:../agent-transport-http

@@ -69,7 +69,7 @@ export interface IHostedRuntimeExecutor {
 
 /** Requested execution data; CLI flags grant no worker or company authority. */
 export interface IHostedRuntimeInvocation {
-  readonly mode: 'headless' | 'serve' | 'mcp' | 'interactive' | 'command';
+  readonly mode: 'headless' | 'serve' | 'mcp' | 'acp' | 'interactive' | 'command';
   /** Validated, immutable CLI arguments; no host environment or state is projected. */
   readonly argv: readonly string[];
   readonly resume: boolean;

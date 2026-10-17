@@ -152,6 +152,7 @@ describe('startsNewTuiSession', () => {
     ['--serve', { serve: true }],
     ['init', { positional: ['init'] }],
     ['mcp serve', { positional: ['mcp', 'serve'] }],
+    ['acp', { positional: ['acp'] }],
     ['--configure', { configure: true }],
     ['--configure-provider', { configureProvider: 'anthropic' }],
     ['--set-current', { setCurrent: true }],

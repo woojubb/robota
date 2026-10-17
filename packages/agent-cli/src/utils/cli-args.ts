@@ -471,7 +471,7 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
       args.version ||
       args.checkUpdate ||
       args.help ||
-      ['mcp', 'eval', 'session', 'user-local'].includes(subcommandWord(args) ?? '')
+      ['mcp', 'acp', 'eval', 'session', 'user-local'].includes(subcommandWord(args) ?? '')
     ) {
       throw new Error(
         '--external-event-grant is available only in the interactive TUI; ' +

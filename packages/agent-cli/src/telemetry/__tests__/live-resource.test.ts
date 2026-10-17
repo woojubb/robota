@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
 import { describe, expect, it, vi } from 'vitest';
 import { createConfiguredNodeOtlpLiveTelemetryPort } from '../live-trace-otlp.js';
-import { resolveLiveTelemetrySurface } from '../live-resource.js';
+import { createLiveTelemetryResource, resolveLiveTelemetrySurface } from '../live-resource.js';
 
 const batch: ILivePromptTraceBatch = {
   schemaVersion: 1, sessionId: 'session-1', turnId: 'turn-1',
@@ -24,6 +24,15 @@ describe('Node live telemetry resource identity', () => {
     expect(resolveLiveTelemetrySurface({ printMode: false, goal: '', serve: true }, false)).toBe('serve');
     expect(resolveLiveTelemetrySurface({ printMode: false, goal: '', serve: false }, false)).toBe('interactive');
     expect(resolveLiveTelemetrySurface({ printMode: true, goal: '', serve: true }, false)).toBe('print');
+  });
+
+  it('labels an ACP agent run with its own surface, below print mode', () => {
+    const run = { printMode: false, goal: undefined, serve: false };
+    expect(resolveLiveTelemetrySurface(run, false, true)).toBe('acp');
+    expect(resolveLiveTelemetrySurface({ ...run, printMode: true }, false, true)).toBe('print');
+    expect(createLiveTelemetryResource({
+      telemetryServiceName: 'test-service', serviceVersion: '3.0.0-test', surface: 'acp',
+    }).attributes['agent.surface']).toBe('acp');
   });
 
   it('uses one explicit, bounded host identity across all three OTLP signals', async () => {

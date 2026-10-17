@@ -1,5 +1,6 @@
 import { parseCliArgs, subcommandWord } from '../utils/cli-args.js';
 import { isSubcommandName } from '../utils/cli-help.js';
+import { validateAcpInvocation } from '../startup/acp-invocation.js';
 import { validateMcpServeInvocation } from '../startup/mcp-serve-invocation.js';
 import { hostedAdmissionError } from './hosted-runtime-config.js';
 import { HostedRuntimeController } from './hosted-runtime-controller.js';
@@ -29,6 +30,7 @@ export async function runHostedRuntime(
   }
   const command = subcommandWord(args);
   const { mcpServe } = validateMcpServeInvocation(args, cliName);
+  const { acp } = validateAcpInvocation(args, cliName);
   if (args.serve && args.httpPort !== undefined) {
     throw hostedAdmissionError(
       '--serve --http-port is not served by a task worker; only its WebSocket ingress is reachable',
@@ -48,11 +50,13 @@ export async function runHostedRuntime(
           ? 'headless'
           : mcpServe
             ? 'mcp'
-            : args.serve
-              ? 'serve'
-              : command !== undefined && isSubcommandName(command)
-                ? 'command'
-                : 'interactive',
+            : acp
+              ? 'acp'
+              : args.serve
+                ? 'serve'
+                : command !== undefined && isSubcommandName(command)
+                  ? 'command'
+                  : 'interactive',
     resume: args.continueMode || args.resumeId !== undefined || args.forkSession,
   });
   const factory =
