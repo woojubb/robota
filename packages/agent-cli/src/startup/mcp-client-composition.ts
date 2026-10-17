@@ -67,6 +67,7 @@ import type {
   IMCPToolCallResult,
   IMCPTransportAdapter,
   TMCPDefinitionSource,
+  IMCPToolCallOptions,
 } from '@robota-sdk/agent-mcp';
 import type {
   ICommandMCPActivationAdapter,
@@ -299,7 +300,7 @@ export interface IMcpServerConnection {
   callTool(
     name: string,
     args: TToolParameters,
-    options?: { readonly signal?: AbortSignal },
+    options?: Pick<IMCPToolCallOptions, 'signal' | 'outboundTraceContext' | 'ask'>,
   ): Promise<IMCPToolCallResult>;
   shutdown(): Promise<void>;
   /** Open again after a failure that waits for the user — here, a sign-in. */

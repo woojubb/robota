@@ -52,13 +52,15 @@ is empty with `serverInfoProvided: false`; no external revision is invented.
 This initial SDK surface supports declared tools, prompts and resources discovery plus completed
 tool calls. A host that opens the session with `elicitation: true` lets a server's form-mode
 elicitation during a tool call reach a person as ask prompts through that call's `ask` port, titled
-with the server's identity; the answer continues the same call. Otherwise `compatibilityDiagnostics`
-names the unavailable MRTR client input, as it does subscription watches and unselected optional
-extensions. Unsupported result types, and any other request for client input, close the carrier and
-require operation inspection; they never become successful tool observations or cause automatic
-replay. A deadline or abort also closes uncertain execution. Hosts must refresh lists explicitly;
-this does not implement automatic TTL-based catalog refresh. Reading a generic resource cannot
-activate a skill.
+with the configured server id; the answer continues the same call, and the prompt is withdrawn when
+the call ends. Otherwise `compatibilityDiagnostics` names the unavailable MRTR client input, as it
+does subscription watches and unselected optional extensions. Unsupported result types close the
+carrier and require operation inspection; so does an embedded request this surface does not answer
+(sampling, roots, more rounds than the client allows), while an embedded elicitation the client
+refuses on its face (URL mode, a malformed form) fails the call with the carrier open; none ever
+becomes a successful tool observation or causes automatic replay. A deadline or abort also closes
+uncertain execution. Hosts must refresh lists explicitly; this does not implement automatic
+TTL-based catalog refresh. Reading a generic resource cannot activate a skill.
 
 ### Opt-in Skills wire view
 

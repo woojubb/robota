@@ -88,6 +88,9 @@ function unofferedRevision(error: unknown, transport: Transport): MCPSessionErro
  * A result this surface cannot act on: a completion discriminator other than `complete`, or an
  * `input_required` round it cannot finish — an embedded request of a kind nobody here answers
  * (sampling, roots) or more rounds than the SDK allows. The server asked for input it will not get.
+ * (A malformed embedded request is the SDK's `INVALID_RESULT`, which the caller's `invalid` mapping
+ * already closes on; an embedded elicitation the client refuses on its face, such as URL mode, is a
+ * protocol error that fails the call and leaves the carrier open.)
  */
 function unsupportedResult(error: unknown): MCPStatelessProtocolError | undefined {
   if (!(error instanceof SdkError)) return undefined;
@@ -119,12 +122,11 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
   if (options.skills === true) enableSkillReceiveBudget(transport);
   const sensitive = 'sensitiveDiagnostics' in transport && transport.sensitiveDiagnostics === true;
   const calls = new MCPElicitationCalls();
-  let serverName = options.serverId;
   const client = createMcpClient(
     options.clientInfo ?? DEFAULT_CLIENT_INFO,
     STATELESS_PROTOCOL_VERSION,
     options.elicitation === true
-      ? createElicitationHandler({ serverName: () => serverName, calls })
+      ? createElicitationHandler({ serverId: () => options.serverId, calls })
       : undefined,
   );
   let closePromise: Promise<void> | undefined;
@@ -196,7 +198,6 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
       catalogGeneration: randomUUID(),
       ...(serverInfo === undefined ? { serverInfoProvided: false as const } : {}),
     };
-    serverName = identity.serverName;
     const instructions = client.getInstructions();
     const callTraces = callTraceRegistryOf(transport);
     /**

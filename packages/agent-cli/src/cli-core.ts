@@ -505,6 +505,9 @@ async function runCliCore(
   const theme = tuiSources?.theme;
   const mcpStartupMode: TMcpStartupMode =
     args.printMode || args.goal ? 'print' : args.serve || mcpServe || acp ? 'serve' : 'interactive';
+  // Robota as an MCP server and the ACP editor agent run the serve runtime without a surface that
+  // answers asks; a server's elicitation there could only be declined.
+  const mcpAskSurface = !(args.printMode || args.goal || mcpServe || acp);
   const mcp =
     options.mcpActivationAdapter === undefined && !safeMode
       ? await composeMcpClientForStartup({
@@ -515,6 +518,7 @@ async function runCliCore(
           cwd,
           env: productRuntime.environment,
           mode: mcpStartupMode,
+          askSurface: mcpAskSurface,
           ...(options.mcpStdioAuthorities === undefined
             ? {}
             : { stdioAuthorities: options.mcpStdioAuthorities }),

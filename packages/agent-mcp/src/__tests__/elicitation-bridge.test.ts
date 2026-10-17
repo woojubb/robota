@@ -131,6 +131,8 @@ async function startModernHost(): Promise<string> {
  * The legacy host: one 1.x server per `Mcp-Session-Id`, so a server→client request can reach the
  * client over the call's stream and the client's answer can find its way back.
  */
+const legacyAnswers: unknown[] = [];
+
 async function startLegacyHost(
   elicitDuringList?: (server: LegacyServer) => Promise<void>,
 ): Promise<string> {
@@ -157,8 +159,10 @@ async function startLegacyHost(
       server.setRequestHandler(CallToolRequestSchema, async () => {
         try {
           const answer = await server.elicitInput({ message: MESSAGE, requestedSchema });
+          legacyAnswers.push(answer);
           return { content: [{ type: 'text', text: JSON.stringify({ answer }) }] };
         } catch (error) {
+          legacyAnswers.push(`failed:${(error as Error).message}`);
           return {
             content: [{ type: 'text', text: `elicit-failed:${(error as Error).message}` }],
             isError: true,
@@ -190,19 +194,60 @@ async function open(url: string, era: TEra, elicitation: boolean): Promise<IMCPS
   return session;
 }
 
-/** An ask port answering from a script; records every request it was shown. */
+/**
+ * An ask port answering from a script; records every request it was shown. Running out of answers
+ * throws, which the bridge turns into a cancel — so every test that expects a cancel also asserts
+ * the port was not exhausted, or the contract would hold for the wrong reason.
+ */
 function scriptedAsk(
   script: readonly (TActionResponse | ((request: IActionRequest) => TActionResponse))[],
 ) {
   const seen: IActionRequest[] = [];
   const queue = [...script];
+  let exhausted = false;
   const ask = async (request: IActionRequest): Promise<TActionResponse> => {
     seen.push(request);
     const next = queue.shift();
-    if (next === undefined) throw new Error(`No scripted answer for ask "${request.title}"`);
+    if (next === undefined) {
+      exhausted = true;
+      throw new Error(`No scripted answer for ask "${request.title}"`);
+    }
     return typeof next === 'function' ? next(request) : next;
   };
-  return { ask, seen };
+  return { ask, seen, exhausted: () => exhausted };
+}
+
+/** An ask port that answers only when withdrawn: cancelled on its signal, or after a fallback. */
+function waitingAsk(fallbackMs: number) {
+  const seen: IActionRequest[] = [];
+  let abortedBeforeFallback: boolean | undefined;
+  const ask = (
+    request: IActionRequest,
+    options?: { signal?: AbortSignal },
+  ): Promise<TActionResponse> => {
+    seen.push(request);
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        abortedBeforeFallback ??= false;
+        resolve({ type: 'cancelled' });
+      }, fallbackMs);
+      options?.signal?.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(timer);
+          abortedBeforeFallback ??= true;
+          resolve({ type: 'cancelled' });
+        },
+        { once: true },
+      );
+    });
+  };
+  return { ask, seen, abortedBeforeFallback: () => abortedBeforeFallback };
+}
+
+async function eventually(check: () => boolean, ms = 2_000): Promise<void> {
+  const until = Date.now() + ms;
+  while (!check() && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 20));
 }
 
 const answer = (value: string): TActionResponse => ({ type: 'answer', values: [value] });
@@ -232,12 +277,13 @@ afterEach(async () => {
   await new Promise<void>((resolve) => (listener ? listener.close(() => resolve()) : resolve()));
   listener = undefined;
   wire.length = 0;
+  legacyAnswers.length = 0;
 });
 
 describe.each(ERAS)('elicitation bridge on the %s era', (era) => {
   it('turns a form elicitation during tools/call into asks and completes the call with the answers', async () => {
     const client = await open(await startHost(era), era, true);
-    const { ask, seen } = scriptedAsk([
+    const { ask, seen, exhausted } = scriptedAsk([
       answer('respond'),
       answer('yes'),
       typed('ship it'),
@@ -251,22 +297,29 @@ describe.each(ERAS)('elicitation bridge on the %s era', (era) => {
       content: { confirm: true, note: 'ship it', color: 'g' },
     });
     expect(result.isError).toBe(false);
-    // Every prompt is titled with the server's identity; the server's text is the description.
-    expect(seen[0]?.title).toContain('eliciting-host');
+    expect(exhausted()).toBe(false);
+    expect(seen).toHaveLength(4);
+    // Every prompt is titled with the identity the operator configured, never the name the server
+    // declares for itself; the server's text is the description.
+    expect(seen[0]?.title).toBe('MCP server "eliciting" asks for input');
     expect(seen[0]?.description).toBe(MESSAGE);
     expect(seen[0]?.options?.map((option) => option.label)).toEqual(['Respond', 'Decline']);
-    expect(seen[1]?.title).toContain('Confirm deploy');
+    expect(seen[1]?.title).toBe('MCP server "eliciting" asks: Confirm deploy');
     expect(seen[1]?.options?.map((option) => option.value)).toEqual(['yes', 'no']);
     expect(seen[2]).toMatchObject({ allowFreeText: true, allowEmpty: true });
     expect(seen[2]?.masked).not.toBe(true);
-    expect(seen[3]?.options?.map((option) => option.label)).toEqual(
-      expect.arrayContaining(['Red', 'Green']),
-    );
-    for (const request of seen) expect(request.title).toContain('eliciting-host');
+    expect(seen[3]?.options?.map((option) => option.label)).toEqual([
+      'Red',
+      'Green',
+      'Leave unanswered',
+    ]);
+    for (const request of seen) {
+      expect(request.title).toContain('"eliciting"');
+      expect(request.title).not.toContain('eliciting-host');
+    }
     const declared = declaredClientCapabilities();
     expect(declared.length).toBeGreaterThan(0);
-    for (const capabilities of declared)
-      expect(capabilities).toMatchObject({ elicitation: { form: {} } });
+    for (const capabilities of declared) expect(capabilities).toEqual({ elicitation: { form: {} } });
     if (era === PINNED) {
       // The protocol's own continuation of the call: the second leg carries the answers and the
       // server's state; nothing else was sent twice.
@@ -283,30 +336,43 @@ describe.each(ERAS)('elicitation bridge on the %s era', (era) => {
 
   it('delivers a decline as a decline and a dismissal as a cancel', async () => {
     const client = await open(await startHost(era), era, true);
-    const declined = await client.callTool(
-      'confirm',
-      {},
-      { ask: scriptedAsk([answer('decline')]).ask },
-    );
+    const declining = scriptedAsk([answer('decline')]);
+    const declined = await client.callTool('confirm', {}, { ask: declining.ask });
     expect(echoed(declined)['answer']).toEqual({ action: 'decline' });
-    const cancelled = await client.callTool(
-      'confirm',
-      {},
-      { ask: scriptedAsk([{ type: 'cancelled' }]).ask },
-    );
+    expect([declining.seen.length, declining.exhausted()]).toEqual([1, false]);
+    const dismissing = scriptedAsk([{ type: 'cancelled' }]);
+    const cancelled = await client.callTool('confirm', {}, { ask: dismissing.ask });
     expect(echoed(cancelled)['answer']).toEqual({ action: 'cancel' });
+    expect([dismissing.seen.length, dismissing.exhausted()]).toEqual([1, false]);
     // Dismissing a field after Respond is a cancel too, never a partial accept.
-    const midway = await client.callTool(
-      'confirm',
-      {},
-      { ask: scriptedAsk([answer('respond'), { type: 'cancelled' }]).ask },
-    );
-    expect(echoed(midway)['answer']).toEqual({ action: 'cancel' });
+    const midway = scriptedAsk([answer('respond'), { type: 'cancelled' }]);
+    const partial = await client.callTool('confirm', {}, { ask: midway.ask });
+    expect(echoed(partial)['answer']).toEqual({ action: 'cancel' });
+    expect([midway.seen.length, midway.exhausted()]).toEqual([2, false]);
+  });
+
+  it('withdraws the prompt and cancels when the call is aborted while a person is being asked', async () => {
+    const client = await open(await startHost(era), era, true);
+    const controller = new AbortController();
+    const { ask, seen, abortedBeforeFallback } = waitingAsk(5_000);
+    const call = client.callTool('confirm', {}, { ask, signal: controller.signal });
+    await eventually(() => seen.length === 1);
+    controller.abort();
+    await expect(call).rejects.toThrow();
+    expect(abortedBeforeFallback()).toBe(true);
+    // Nothing is sent twice: one leg on the wire, and no accept reaches the server.
+    expect(wire.filter((request) => request.method === 'tools/call')).toHaveLength(1);
+    if (era === 'legacy') {
+      await eventually(() => legacyAnswers.length === 1);
+      expect(legacyAnswers).toEqual([{ action: 'cancel' }]);
+    } else {
+      await expect(client.callTool('confirm', {})).rejects.toThrow(/closed/);
+    }
   });
 
   it('re-asks once when an answer violates the field and sends the corrected value', async () => {
     const client = await open(await startHost(era), era, true);
-    const { ask, seen } = scriptedAsk([
+    const { ask, seen, exhausted } = scriptedAsk([
       answer('respond'),
       answer('no'),
       typed('far too long for ten'),
@@ -319,6 +385,7 @@ describe.each(ERAS)('elicitation bridge on the %s era', (era) => {
       content: { confirm: false, note: 'short', color: 'r' },
     });
     expect(seen).toHaveLength(5);
+    expect(exhausted()).toBe(false);
     expect(seen[3]?.description).toMatch(/at most 10/i);
   });
 
@@ -339,11 +406,25 @@ describe.each(ERAS)('elicitation bridge on the %s era', (era) => {
     // Both SDK servers refuse to elicit from a client that declared nothing; the call fails and
     // nothing is asked. (A server that answers `input_required` regardless still closes the
     // carrier: `stateless-session.test.ts`.)
-    if (era === PINNED) expect(outcome).toBeInstanceOf(Error);
-    else {
+    if (era === PINNED) {
+      expect(outcome).toBeInstanceOf(Error);
+      expect((outcome as Error).message).toMatch(/required capability/);
+    } else {
       expect((outcome as IMCPToolCallResult).isError).toBe(true);
       expect((outcome as IMCPToolCallResult).content[0]?.['text']).toMatch(/elicit-failed/);
     }
+  });
+});
+
+describe('a prompt lives only as long as its call', () => {
+  it("withdraws the prompt when the legacy call's own timeout cancels the call", async () => {
+    const client = await open(await startLegacyHost(), 'legacy', true);
+    const { ask, seen, abortedBeforeFallback } = waitingAsk(1_500);
+    await expect(client.callTool('confirm', {}, { ask, timeoutMs: 300 })).rejects.toThrow();
+    expect(seen).toHaveLength(1);
+    expect(abortedBeforeFallback()).toBe(true);
+    await eventually(() => legacyAnswers.length === 1);
+    expect(legacyAnswers).toEqual([{ action: 'cancel' }]);
   });
 });
 

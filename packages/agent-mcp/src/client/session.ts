@@ -209,12 +209,11 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
       'Unsupported explicitly selected MCP protocol version',
     );
   const calls = new MCPElicitationCalls();
-  let serverName = options.serverId;
   const client = createMcpClient(
     options.clientInfo ?? DEFAULT_CLIENT_INFO,
     undefined,
     options.elicitation === true
-      ? createElicitationHandler({ serverName: () => serverName, calls })
+      ? createElicitationHandler({ serverId: () => options.serverId, calls })
       : undefined,
   );
 
@@ -229,7 +228,6 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
     serverVersion: serverVersion.version,
     protocolVersion: negotiatedVersion,
   };
-  serverName = identity.serverName;
   const instructions = client.getInstructions();
   const declaredCapabilities = buildDeclaredCapabilities(client.getServerCapabilities());
 

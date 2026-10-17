@@ -179,10 +179,14 @@ describe('MCP servers the user must act on, as the model learns of them', () => 
     expect(mcpUserActionSurfaceFor('serve')).toBe('terminal');
   });
 
-  it('lets servers ask the person for input only where a prompt channel can answer', () => {
+  it('lets servers ask the person for input only where a surface answers asks', () => {
     expect(mcpElicitationFor('interactive')).toBe(true);
     expect(mcpElicitationFor('serve')).toBe(true);
     expect(mcpElicitationFor('print')).toBe(false);
+    // `mcp serve` and the ACP editor agent run the serve runtime with no such surface.
+    expect(mcpElicitationFor('serve', false)).toBe(false);
+    expect(mcpElicitationFor('interactive', true)).toBe(true);
+    expect(mcpElicitationFor('print', true)).toBe(false);
   });
 
   it('gives the startup notice only where the user can type the command it suggests', () => {

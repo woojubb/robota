@@ -30,7 +30,9 @@ if (mode === 'stall') {
               ? 'x'.repeat(9 * 1024 * 1024)
               : mode === 'client-info'
                 ? JSON.stringify(server.getClientVersion())
-                : 'pong',
+                : mode === 'client-capabilities'
+                  ? JSON.stringify(server.getClientCapabilities())
+                  : 'pong',
         },
       ],
     };

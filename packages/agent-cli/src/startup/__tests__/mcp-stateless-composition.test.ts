@@ -112,7 +112,7 @@ it('declares form-mode elicitation on every pinned request once the host can ans
   expect(tools).toHaveLength(1);
   expect(methods).toEqual(['server/discover', 'tools/list']);
   for (const entry of metadata) {
-    expect(entry).toMatchObject({ 'io.modelcontextprotocol/clientCapabilities': { elicitation: { form: {} } } });
+    expect((entry as Record<string, unknown>)['io.modelcontextprotocol/clientCapabilities']).toEqual({ elicitation: { form: {} } });
   }
   expect(diagnostics.join(' ')).not.toMatch(/input_required/);
 });
