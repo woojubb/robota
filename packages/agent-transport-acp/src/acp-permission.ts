@@ -62,15 +62,26 @@ function permissionRawInput(event: IPermissionRequestEvent): unknown {
   return { ...event.toolArgs, cwd: event.cwd };
 }
 
+const HUNK_HEADER = /^@@ /;
+
 /**
  * The file as it is before and after, rebuilt from the session's diff lines: context lines belong
  * to both sides. A diff with nothing on the old side is a new file, which ACP spells as no old text.
+ * The session caps each side and says so in a hunk line placed after the lines it kept; that line
+ * stays with its side so a cut-off file is not presented as whole. A hunk header carries no text.
  */
 function diffTexts(lines: readonly IDiffLine[]): { oldText?: string; newText: string } {
   const before: string[] = [];
   const after: string[] = [];
+  let previous: IDiffLine['type'] = 'context';
   for (const line of lines) {
-    if (line.type === 'hunk') continue;
+    if (line.type === 'hunk') {
+      if (HUNK_HEADER.test(line.text)) continue;
+      if (previous !== 'add') before.push(line.text);
+      if (previous !== 'remove') after.push(line.text);
+      continue;
+    }
+    previous = line.type;
     if (line.type !== 'add') before.push(line.text);
     if (line.type !== 'remove') after.push(line.text);
   }

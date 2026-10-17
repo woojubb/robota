@@ -234,6 +234,47 @@ describe('permission requests', () => {
     ]);
   });
 
+  it('keeps the truncation marker of a capped diff side with that side', async () => {
+    const { editor } = await askPermission(() => select('reject'), {
+      request: {
+        toolName: 'Edit',
+        toolArgs: { file_path: '/workspace/src/big.ts', old_string: 'old', new_string: 'new' },
+        diffFile: 'src/big.ts',
+        diffLines: [
+          { type: 'hunk', text: '@@ -1,2 +1,2 @@', lineNumber: 1 },
+          { type: 'remove', text: 'old 1', lineNumber: 1 },
+          { type: 'hunk', text: '… 499 more removed lines truncated', lineNumber: 2 },
+          { type: 'add', text: 'new 1', lineNumber: 1 },
+          { type: 'hunk', text: '… 499 more added lines truncated', lineNumber: 2 },
+        ],
+      },
+    });
+    const [block] = editor.permissionRequests[0]!.toolCall.content!;
+    expect(block).toEqual({
+      type: 'diff',
+      path: '/workspace/src/big.ts',
+      oldText: 'old 1\n… 499 more removed lines truncated',
+      newText: 'new 1\n… 499 more added lines truncated',
+    });
+    const { editor: write } = await askPermission(() => select('reject'), {
+      request: {
+        toolName: 'Write',
+        toolArgs: { file_path: '/workspace/big.txt', content: 'one' },
+        diffFile: 'big.txt',
+        diffLines: [
+          { type: 'hunk', text: '@@ -0,0 +1,501 @@', lineNumber: 1 },
+          { type: 'add', text: 'one', lineNumber: 1 },
+          { type: 'hunk', text: '… 500 more lines truncated', lineNumber: 2 },
+        ],
+      },
+    });
+    expect(write.permissionRequests[0]!.toolCall.content![0]).toEqual({
+      type: 'diff',
+      path: '/workspace/big.txt',
+      newText: 'one\n… 500 more lines truncated',
+    });
+  });
+
   it('sends no diff or location for a request that has none', async () => {
     const { editor } = await askPermission(() => select('reject'));
     const { toolCall } = editor.permissionRequests[0]!;
