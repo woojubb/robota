@@ -1228,6 +1228,9 @@ importers:
       '@robota-sdk/agent-subagent-runner':
         specifier: workspace:*
         version: link:../agent-subagent-runner
+      '@robota-sdk/agent-telemetry-otel':
+        specifier: workspace:*
+        version: link:../agent-telemetry-otel
       '@robota-sdk/agent-tool-defaults':
         specifier: workspace:*
         version: link:../agent-tool-defaults

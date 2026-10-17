@@ -295,6 +295,7 @@ export function wrapToolWithPermission(
               startedAt: new Date(startedAtMs).toISOString(),
               endedAt: new Date(Math.max(Date.now(), startedAtMs)).toISOString(),
               outcome,
+              toolName,
               ...(typeof context.toolBodyId === 'string' ? { toolBodyId: context.toolBodyId } : {}),
             });
         } catch (error) {
