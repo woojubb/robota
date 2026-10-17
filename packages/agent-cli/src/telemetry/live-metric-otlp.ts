@@ -7,6 +7,9 @@ import type { MetricData, ResourceMetrics } from '@opentelemetry/sdk-metrics';
 import { calculateModelCost } from '@robota-sdk/agent-core';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
+import { GEN_AI_SCHEMA_URL, projectLivePromptMetricSamples } from '@robota-sdk/agent-telemetry-otel';
+import type { IOtelMetricSample, TOtelProjectionMode } from '@robota-sdk/agent-telemetry-otel';
+import { aggregateMetricSamples } from './live-metric-genai.js';
 import { createLiveTelemetryResource } from './live-resource.js';
 import type { ILiveTelemetryResource } from './live-resource.js';
 import { otlpProtobufRequestHeaders } from './live-otlp-headers.js';
@@ -33,6 +36,17 @@ interface IMetricWindow {
  */
 export type TLiveMetricAttribute = 'session' | 'provider' | 'model';
 
+/**
+ * Metric naming, parsed once at the config boundary from `PRODUCT_TELEMETRY_SEMCONV`. `agent` (the
+ * default) is the export every collector has always seen; a GenAI mode adds the `gen_ai.*` metrics,
+ * and `gen_ai` drops only the two `agent.*` token counters those metrics replace exactly.
+ */
+export interface ILiveMetricNaming {
+  readonly semconv: TOtelProjectionMode;
+  /** The product's own name on the agent, tool and root GenAI metrics. */
+  readonly agentName?: string;
+}
+
 interface IProviderMetricGroup {
   readonly attributes: Record<string, string>;
   calls: number;
@@ -44,11 +58,25 @@ interface IProviderMetricGroup {
   estimatedCost: number;
 }
 
+/**
+ * The Robota-only ids a GenAI inference sample carries follow the same opt-ins as the `agent.*`
+ * counters: an id nobody opted into is dropped before aggregation, so grouping follows what survives.
+ */
+function withOptInIds(sample: IOtelMetricSample, metricAttributes: ReadonlySet<TLiveMetricAttribute>): IOtelMetricSample {
+  const { 'agent.provider.id': providerId, 'agent.model.id': modelId, ...rest } = sample.attributes;
+  return { ...sample, attributes: {
+    ...rest,
+    ...(providerId !== undefined && metricAttributes.has('provider') ? { 'agent.provider.id': providerId } : {}),
+    ...(modelId !== undefined && metricAttributes.has('model') ? { 'agent.model.id': modelId } : {}),
+  } };
+}
+
 /** Delta sums describe this one prompt only; no resumed history is replayed or counted twice. */
 export function projectLivePromptMetrics(
   batch: ILivePromptTraceBatch,
   window: IMetricWindow,
   metricAttributes: ReadonlySet<TLiveMetricAttribute> = new Set(),
+  naming: ILiveMetricNaming = { semconv: 'agent' },
 ): ResourceMetrics {
   const { startTime, endTime } = window;
   const metrics: MetricData[] = [];
@@ -153,8 +181,11 @@ export function projectLivePromptMetrics(
       });
     };
     addGroupedSum('agent.provider.calls', '1', ValueType.INT, (group) => group.calls);
-    addGroupedSum('agent.provider.input_tokens', '{token}', ValueType.INT, (group) => group.inputTokens);
-    addGroupedSum('agent.provider.output_tokens', '{token}', ValueType.INT, (group) => group.outputTokens);
+    // `gen_ai.client.inference.usage.*` carries exactly these totals under the GenAI names.
+    if (naming.semconv !== 'gen_ai') {
+      addGroupedSum('agent.provider.input_tokens', '{token}', ValueType.INT, (group) => group.inputTokens);
+      addGroupedSum('agent.provider.output_tokens', '{token}', ValueType.INT, (group) => group.outputTokens);
+    }
     addGroupedSum('agent.provider.usage_unavailable_calls', '1', ValueType.INT, (group) => group.missingUsage);
     addGroupedSum('agent.provider.cost_unpriced_calls', '1', ValueType.INT, (group) => group.unpricedCalls);
     const pricedGroups = orderedGroups.filter((group) => group.pricedCalls > 0 && group.estimatedCost >= 0);
@@ -170,20 +201,35 @@ export function projectLivePromptMetrics(
       })),
     });
   }
+  const scope = { name: 'agent.live-prompt-metrics', version: '1' };
+  // GenAI points carry the request model by convention, so that never depends on the `model` opt-in.
+  // The Robota-only `agent.provider.id` / `agent.model.id` labels follow the same opt-ins as the `agent.*`
+  // counters, so a provider split survives the counters `gen_ai` mode drops. The GenAI metrics get a scope
+  // of their own that names the GenAI schema, as the spans do, so a backend can tell which convention they follow;
+  // a batch that yields none (every child omitted and a root without a valid duration) sends no empty scope.
+  const genAiMetrics = naming.semconv === 'agent' ? [] : aggregateMetricSamples(
+    projectLivePromptMetricSamples(batch, {
+      mode: naming.semconv, ...(naming.agentName ? { agentName: naming.agentName } : {}),
+    }).map((sample) => withOptInIds(sample, metricAttributes)),
+    sessionAttributes, startTime, endTime,
+  );
   return {
     resource: resourceFromAttributes(window.resource?.attributes ?? {
       'service.instance.id': window.instanceId,
     }),
-    scopeMetrics: [{ scope: { name: 'agent.live-prompt-metrics', version: '1' }, metrics }],
+    scopeMetrics: [
+      { scope, metrics },
+      ...(genAiMetrics.length > 0 ? [{ scope: { ...scope, schemaUrl: GEN_AI_SCHEMA_URL }, metrics: genAiMetrics }] : []),
+    ],
   };
 }
 
 async function sendMetrics(
   batch: ILivePromptTraceBatch, endpoint: string, window: IMetricWindow, headers: Headers | undefined,
-  metricAttributes: ReadonlySet<TLiveMetricAttribute>,
+  metricAttributes: ReadonlySet<TLiveMetricAttribute>, naming: ILiveMetricNaming,
 ): Promise<void> {
-  const projected = projectLivePromptMetrics(batch, window, metricAttributes);
-  if (projected.scopeMetrics[0]?.metrics.length === 0) return;
+  const projected = projectLivePromptMetrics(batch, window, metricAttributes, naming);
+  if (projected.scopeMetrics.every((scopeMetrics) => scopeMetrics.metrics.length === 0)) return;
   const body = ProtobufMetricsSerializer.serializeRequest(projected);
   if (!body || body.byteLength > 1_048_576) throw new Error('Invalid OTLP metric payload.');
   const response = await fetch(endpoint, {
@@ -223,6 +269,8 @@ export function createNodeOtlpLiveMetricPort(
   headers?: Headers,
   /** Parsed once at the config boundary from `PRODUCT_TELEMETRY_METRIC_ATTRIBUTES`; empty by default. */
   metricAttributes: ReadonlySet<TLiveMetricAttribute> = new Set(),
+  /** Parsed once at the config boundary from `PRODUCT_TELEMETRY_SEMCONV`; `agent` by default. */
+  naming: ILiveMetricNaming = { semconv: 'agent' },
 ): ILivePromptTracePort & { shutdown(): Promise<void> } {
   const pending: ILivePromptTraceBatch[] = [];
   let worker: Promise<void> | undefined;
@@ -241,7 +289,7 @@ export function createNodeOtlpLiveMetricPort(
         previousEndMs = endMs;
         await sendMetrics(pending.shift()!, endpoint, {
           instanceId, resource, startTime: hrTime(startMs), endTime: hrTime(endMs),
-        }, headers, metricAttributes);
+        }, headers, metricAttributes, naming);
       }
       catch {
         pending.length = 0;

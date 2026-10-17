@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-telemetry-otel",
   "version": "3.0.0-beta.93",
-  "description": "OpenTelemetry tracing for Robota agents: content-free span projection of live prompt traces and a run observer, with agent.* or GenAI semantic-convention names",
+  "description": "OpenTelemetry tracing and metrics for Robota agents: content-free span projection of live prompt traces, a run observer and GenAI metric samples, with agent.* or GenAI semantic-convention names",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",

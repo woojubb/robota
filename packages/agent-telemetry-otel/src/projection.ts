@@ -67,8 +67,12 @@ const GEN_AI_PROVIDER_NAMES: Readonly<Record<string, string>> = {
 
 const opaqueId = (value: unknown): string | undefined =>
   typeof value === 'string' && OPAQUE_ID.test(value) ? value : undefined;
-const label = (value: unknown): string | undefined =>
+/** A model or tool name only in the label shape the framework allows; anything else is dropped. */
+export const label = (value: unknown): string | undefined =>
   typeof value === 'string' && LABEL.test(value) ? value : undefined;
+/** Own keys only: an inherited property such as `constructor` is not a provider. */
+export const genAiProviderName = (providerId: string | undefined): string | undefined =>
+  providerId !== undefined && Object.hasOwn(GEN_AI_PROVIDER_NAMES, providerId) ? GEN_AI_PROVIDER_NAMES[providerId] : undefined;
 const status = (outcome: string): 'unset' | 'error' => outcome === 'failure' ? 'error' : 'unset';
 const spanName = (operation: string, subject: string | undefined): string =>
   subject ? `${operation} ${subject}` : operation;
@@ -130,7 +134,7 @@ function providerAttributes(trace: IProviderCallTraceEntry, mode: TOtelProjectio
     } : {}),
     ...(requestId ? { 'agent.provider.request_id': requestId } : {}),
   };
-  const providerName = trace.providerId ? GEN_AI_PROVIDER_NAMES[trace.providerId] : undefined;
+  const providerName = genAiProviderName(trace.providerId);
   const genAi = {
     'gen_ai.operation.name': 'chat',
     ...(providerName ? { 'gen_ai.provider.name': providerName } : {}),

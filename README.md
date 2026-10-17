@@ -211,7 +211,7 @@ The [packages index](https://docs.robota.io/en/packages/) on the docs site cover
 | [`@robota-sdk/agent-mcp`](https://www.npmjs.com/package/@robota-sdk/agent-mcp)                             | MCP client: server definitions, activation, connections, tool catalog, OAuth sign-in                  |
 | [`@robota-sdk/agent-plugin`](https://www.npmjs.com/package/@robota-sdk/agent-plugin)                       | Lifecycle plugins: history, logging, usage, limits, performance, errors, analytics, webhooks          |
 | [`@robota-sdk/agent-session-analytics`](https://www.npmjs.com/package/@robota-sdk/agent-session-analytics) | Session-log timing and usage analysis and reports                                                     |
-| [`@robota-sdk/agent-telemetry-otel`](https://www.npmjs.com/package/@robota-sdk/agent-telemetry-otel)       | OpenTelemetry spans for agent runs and live prompt traces, GenAI or `agent.*` names                   |
+| [`@robota-sdk/agent-telemetry-otel`](https://www.npmjs.com/package/@robota-sdk/agent-telemetry-otel)       | OpenTelemetry spans and GenAI metrics for agent runs and live prompt traces, GenAI or `agent.*` names |
 | [`@robota-sdk/agent-process`](https://www.npmjs.com/package/@robota-sdk/agent-process)                     | Child-process tree termination (`killProcessTree`)                                                    |
 | [`@robota-sdk/agent-file-authority`](https://www.npmjs.com/package/@robota-sdk/agent-file-authority)       | Bounded, root-relative file reads for Node.js                                                         |
 

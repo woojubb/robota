@@ -38,9 +38,22 @@ export function richBatch(): ILivePromptTraceBatch {
   };
 }
 
+/** `richBatch` with no omitted provider child, so provider-derived totals are provable and exported. */
+export function completeBatch(): ILivePromptTraceBatch {
+  return { ...richBatch(), omittedChildren: { provider: 0, tool: 0, permission: 2 } };
+}
+
 export const FIXED_RESOURCE = {
   instanceId: '11111111-2222-4333-8444-555555555555',
   attributes: { 'service.name': 'robota', 'service.instance.id': '11111111-2222-4333-8444-555555555555', 'service.version': '3.0.0', 'agent.surface': 'print' },
+};
+
+/** A fixed one-second metric window, so a projected metric export is reproducible byte for byte. */
+export const FIXED_WINDOW = {
+  instanceId: FIXED_RESOURCE.instanceId,
+  resource: FIXED_RESOURCE,
+  startTime: [1760659200, 0] as [number, number],
+  endTime: [1760659201, 0] as [number, number],
 };
 
 /** The exact OTLP request body the trace port sends for `batch`. */

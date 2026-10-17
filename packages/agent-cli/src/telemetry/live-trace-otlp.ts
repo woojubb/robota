@@ -89,17 +89,18 @@ const SEMCONV_SETTING = 'PRODUCT_TELEMETRY_SEMCONV';
 const SEMCONV_MODES: ReadonlySet<TOtelProjectionMode> = new Set(['agent', 'gen_ai/dup', 'gen_ai']);
 
 /**
- * Which names live spans carry: Robota's `agent.*` (the default), or the OpenTelemetry GenAI
- * conventions — still in development, so they are an explicit opt-in. Like the propagation settings it
- * exists only while traces are exported, and an error names the setting, never the value.
+ * Which names live spans and metrics carry: Robota's `agent.*` (the default), or the OpenTelemetry
+ * GenAI conventions — still in development, so they are an explicit opt-in. Like the propagation
+ * settings it exists only while traces or metrics are exported, and an error names the setting, never
+ * the value.
  */
 export function resolveSemconvSetting(env: Readonly<Record<string, string | undefined>>): TOtelProjectionMode {
   const raw = env[SEMCONV_SETTING];
   if (raw === undefined) return 'agent';
   if (!(SEMCONV_MODES as ReadonlySet<string>).has(raw)) throw new Error(`${SEMCONV_SETTING} has an unsupported value.`);
-  const traces = env['PRODUCT_TELEMETRY_TRACES'];
-  if (traces !== 'otlp' && traces !== 'console') {
-    throw new Error(`${SEMCONV_SETTING} is set but traces are not exported over otlp or console.`);
+  const exported = (signal: string | undefined): boolean => signal === 'otlp' || signal === 'console';
+  if (!exported(env['PRODUCT_TELEMETRY_TRACES']) && !exported(env['PRODUCT_TELEMETRY_METRICS'])) {
+    throw new Error(`${SEMCONV_SETTING} is set but neither traces nor metrics are exported over otlp or console.`);
   }
   return raw as TOtelProjectionMode;
 }
@@ -532,7 +533,10 @@ export function createConfiguredNodeOtlpLiveTelemetryPort(
     endpoint: traces.endpoint, headers: traces.headers, resource, semconv, ...(agentName ? { agentName } : {}),
     ...(onFailure ? { onFailure } : {}),
   }));
-  if (metrics) ports.push(createNodeOtlpLiveMetricPort(metrics.endpoint, onFailure, resource, metrics.headers, metricAttributes));
+  if (metrics) ports.push(createNodeOtlpLiveMetricPort(
+    metrics.endpoint, onFailure, resource, metrics.headers, metricAttributes,
+    { semconv, ...(agentName ? { agentName } : {}) },
+  ));
   if (logs) ports.push(createNodeOtlpLiveLogPort(logs.endpoint, onFailure, resource, logs.headers));
   if (env['PRODUCT_TELEMETRY_ENABLED'] === '1') {
     for (const signal of ['traces', 'metrics', 'logs'] as const) {

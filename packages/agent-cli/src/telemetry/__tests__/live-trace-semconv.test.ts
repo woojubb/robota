@@ -99,10 +99,22 @@ describe('live trace semantic-convention modes', () => {
     }
   });
 
-  it('refuses the setting when traces are not exported, rather than leaving it unused', () => {
-    const metricsOnly = { ...traces, PRODUCT_TELEMETRY_TRACES: 'off', PRODUCT_TELEMETRY_METRICS: 'otlp', PRODUCT_TELEMETRY_SEMCONV: 'gen_ai' };
-    expect(() => validateNodeOtlpLiveTelemetrySettings(metricsOnly)).toThrow(/PRODUCT_TELEMETRY_SEMCONV is set but traces are not exported/u);
-    expect(() => createConfiguredNodeOtlpLiveTelemetryPort(metricsOnly)).toThrow(/PRODUCT_TELEMETRY_SEMCONV/u);
+  it('applies to metrics too, and is refused only when neither traces nor metrics are exported', async () => {
+    const message = /^PRODUCT_TELEMETRY_SEMCONV is set but neither traces nor metrics are exported over otlp or console\.$/u;
+    for (const metrics of ['otlp', 'console']) {
+      const metricsOnly = { ...traces, PRODUCT_TELEMETRY_TRACES: 'off', PRODUCT_TELEMETRY_METRICS: metrics, PRODUCT_TELEMETRY_SEMCONV: 'gen_ai' };
+      expect(() => validateNodeOtlpLiveTelemetrySettings(metricsOnly)).not.toThrow();
+      const port = createConfiguredNodeOtlpLiveTelemetryPort(metricsOnly, undefined, () => undefined);
+      expect(port).toBeDefined();
+      await port!.shutdown();
+    }
+    for (const logs of ['otlp', 'console']) {
+      const logsOnly = { ...traces, PRODUCT_TELEMETRY_TRACES: 'off', PRODUCT_TELEMETRY_LOGS: logs, PRODUCT_TELEMETRY_SEMCONV: 'gen_ai' };
+      expect(() => validateNodeOtlpLiveTelemetrySettings(logsOnly)).toThrow(message);
+      expect(() => createConfiguredNodeOtlpLiveTelemetryPort(logsOnly)).toThrow(message);
+    }
+    const nothing = { ...traces, PRODUCT_TELEMETRY_TRACES: 'off', PRODUCT_TELEMETRY_SEMCONV: 'gen_ai/dup' };
+    expect(() => validateNodeOtlpLiveTelemetrySettings(nothing)).toThrow(message);
     expect(createConfiguredNodeOtlpLiveTelemetryPort({ PRODUCT_TELEMETRY_SEMCONV: 'nonsense' })).toBeUndefined();
   });
 });
