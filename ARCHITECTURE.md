@@ -45,6 +45,7 @@ SDK packages (@robota-sdk/*)
                         selectors) ·
                         agent-provider-replay (private: replays recorded provider responses in tests)
   Building blocks       agent-tools · agent-plugin · agent-mcp · agent-session-analytics ·
+                        agent-telemetry-otel ·
                         agent-provider-{anthropic,openai,openai-compatible,gemini,bytedance} ·
                         agent-builtin-providers
   Contracts (type-only) agent-interface-{session,session-mobility,command,execution,

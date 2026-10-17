@@ -115,6 +115,8 @@ export interface IProviderCallTraceEntry {
 export interface IToolBodyTraceEntry {
   /** Opaque ID of the actual permitted call in live projection; not written to history. */
   toolCallId?: string;
+  /** Name of the tool that ran, in live projection only; not written to history. */
+  toolName?: string;
   traceId: string;
   parentSpanId: string;
   spanId: string;
