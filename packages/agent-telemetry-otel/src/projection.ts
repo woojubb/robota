@@ -81,7 +81,8 @@ function withErrorType(attributes: TOtelAttributes, outcome: string, mode: TOtel
   return mode !== 'agent' && outcome === 'failure' ? { ...attributes, 'error.type': '_OTHER' } : attributes;
 }
 
-type TSpannedChild = Exclude<ILivePromptTraceBatch['children'][number], { readonly kind: 'permission' }>;
+/** A provider-call or tool-body child of a trace: the children that get a span. */
+export type TSpannedChild = Exclude<ILivePromptTraceBatch['children'][number], { readonly kind: 'permission' }>;
 
 /** A permission decision is content-free but has no duration of its own — it never gets a span. */
 function hasSpan(child: ILivePromptTraceBatch['children'][number]): child is TSpannedChild {
@@ -156,7 +157,8 @@ function toolAttributes(trace: IToolBodyTraceEntry, mode: TOtelProjectionMode): 
   return mode === 'gen_ai' ? { ...genAi, ...shared } : { ...genAi, ...shared, ...agent };
 }
 
-function childSpan(
+/** One child's span under `parentSpanId` in trace `traceId`; shared by the batch projection and the run observer. */
+export function projectTraceChild(
   child: TSpannedChild, traceId: string, parentSpanId: string, mode: TOtelProjectionMode,
 ): IOtelSpanProjection {
   const { trace } = child;
@@ -205,6 +207,6 @@ export function projectLivePromptTrace(
   };
   // Every child belongs to the root's trace, whatever trace ID an unchecked batch gave it.
   const children = batch.children.filter(hasSpan)
-    .map((child) => childSpan(child, root.traceId, root.spanId, mode));
+    .map((child) => projectTraceChild(child, root.traceId, root.spanId, mode));
   return { ...(mode === 'agent' ? {} : { schemaUrl: GEN_AI_SCHEMA_URL }), root, children };
 }
