@@ -1,15 +1,17 @@
 # @robota-sdk/agent-telemetry-otel
 
-OpenTelemetry tracing for Robota agents, in two forms:
+OpenTelemetry tracing and GenAI metrics for Robota agents, in three forms:
 
 - **`createOtelTracing`** records an agent run's provider calls and tool bodies as spans on your own
   tracer, under your span, with the span IDs Robota sent to providers and subprocesses in `traceparent`.
 - **`projectLivePromptTrace`** maps one `ILivePromptTraceBatch` (from
   `@robota-sdk/agent-interface-analytics`) onto span shapes as plain data, for a host that writes
   spans itself.
+- **`projectLivePromptMetricSamples`** maps the same batch onto the OpenTelemetry GenAI metrics as plain
+  samples, for a host that records or exports metrics itself.
 
-Both are content-free: no prompt, completion, tool argument or tool result becomes a span attribute.
-Neither exports anything; your OpenTelemetry SDK and exporter do.
+All are content-free: no prompt, completion, tool argument or tool result becomes a span or metric
+attribute. None exports anything; your OpenTelemetry SDK and exporter do.
 
 ## Installation
 
@@ -87,6 +89,36 @@ outcome) and `attributes`. Permission decisions in the batch get no span.
 In the GenAI modes the provider-call span is `client` and `schemaUrl` is `GEN_AI_SCHEMA_URL`, the
 GenAI semantic-convention version the names follow. `gen_ai.provider.name` is set only for providers
 whose GenAI name is certain; `agent.provider.id` always names the Robota provider.
+
+## Metrics
+
+```typescript
+import { projectLivePromptMetricSamples } from '@robota-sdk/agent-telemetry-otel';
+
+const samples = projectLivePromptMetricSamples(batch, { agentName: 'my-agent' });
+// [{ name: 'gen_ai.client.inference.duration', instrument: 'histogram', unit: 's',
+//    value: 1.2, boundaries: [0.01, ...], attributes: { 'gen_ai.operation.name': 'chat', ... } }, ...]
+```
+
+Each sample is one measurement: a `counter` increment, or a `histogram` value with the explicit
+`boundaries` the GenAI conventions recommend. Record each on an instrument of that name, unit and
+boundaries; the attributes are the measurement's labels.
+
+| Metric                                                              | Instrument, unit       | Per                   |
+| ------------------------------------------------------------------- | ---------------------- | --------------------- |
+| `gen_ai.client.inference.duration`                                  | histogram, `s`         | invoked provider call |
+| `gen_ai.client.inference.operation.input_tokens` / `.output_tokens` | histogram, `{token}`   | invoked provider call |
+| `gen_ai.client.inference.usage.input_tokens` / `.output_tokens`     | counter, `{token}`     | invoked provider call |
+| `gen_ai.execute_tool.duration`                                      | histogram, `s`         | tool body             |
+| `gen_ai.invoke_agent.duration`                                      | histogram, `s`         | prompt                |
+| `gen_ai.invoke_agent.inference_calls` / `.tool_calls`               | histogram, call counts | prompt                |
+
+Cache hits and refused calls are not inferences and produce nothing, and neither do permission
+decisions. A call whose usage was not fully received records `0` tokens under the `unknown` modality,
+as the conventions specify. Samples that need every provider (or tool) child are left out when the
+batch omitted any, so a bounded batch never yields a total that looks complete. `gen_ai.request.model`
+and `gen_ai.tool.name` appear only when label-safe, and `gen_ai.provider.name` only for providers whose
+GenAI name is certain. The bucket constants (`GEN_AI_DURATION_BUCKETS_S` and the others) are exported.
 
 ## Documents
 

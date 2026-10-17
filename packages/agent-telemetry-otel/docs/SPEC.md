@@ -2,16 +2,16 @@
 
 ## Purpose
 
-Owns how Robota's provider calls and tool bodies become OpenTelemetry spans: their names, kinds and
-attributes, and — for a host tracing a run directly — recording them on the host's tracer under the
-span IDs Robota propagated. Every host that exports Robota traces, the CLI, an app or an SDK user's
-own tracer, names the same facts the same way. Exporting and delivering spans belong to the host's
-OpenTelemetry SDK.
+Owns how Robota's provider calls, tool bodies and prompts become OpenTelemetry spans and GenAI metric
+samples: their names, kinds, units and attributes, and — for a host tracing a run directly — recording
+spans on the host's tracer under the span IDs Robota propagated. Every host that exports Robota
+telemetry, the CLI, an app or an SDK user's own tracer, names the same facts the same way.
+Aggregating, exporting and delivering spans and metrics belong to the host's OpenTelemetry SDK.
 
 ## Contract
 
 - The projection carries only what the batch carries. A trace batch is content-free, and so is its
-  projection: no prompt, completion, tool argument or tool result can appear in a span.
+  projection: no prompt, completion, tool argument or tool result can appear in a span or metric.
 - Span identity is Robota's identity. Every span keeps the trace and span ID Robota minted and sent in
   `traceparent`, and every child's parent is the prompt root, so a recipient's spans join the trace.
   A host whose `TracerProvider` does not use the structural ID generator keeps the trace and parent
@@ -24,20 +24,24 @@ OpenTelemetry SDK.
 - In the GenAI modes a fact the GenAI conventions define uses the convention's name, and a fact they
   do not define keeps its `agent.*` name rather than being dropped or renamed into the `gen_ai`
   namespace.
-- A name that cannot be determined is left out rather than guessed: the span name falls back to the
-  bare operation, and an unknown provider gets no `gen_ai.provider.name`.
+- Nothing is guessed: a name that cannot be determined is left out — the span name falls back to the
+  bare operation, and an unknown provider gets no `gen_ai.provider.name` on a span or a metric — and a
+  metric the batch cannot prove is not produced. Provider-derived samples need every provider child
+  present and tool-derived ones every tool child, because a bounded child list cannot support a total;
+  usage that was not received counts as 0, as the conventions specify, never as a missing sample.
 
 ## Invariants
 
 - No ambient state: nothing reads an environment variable, a global tracer or configuration; the
-  projection also reads no clock, and two calls with the same batch and options return equal results.
+  projections also read no clock, and two calls with the same batch and options return equal results.
 - Opaque IDs (tool call, provider request) and tool names outside the shape the framework's trace
   boundary allows are dropped, even when a host passes a batch that bypassed that boundary.
 
 ## Non-goals
 
-- Batching or exporting spans, choosing endpoints or headers, and creating the host's root span.
-- Metrics and logs.
+- Batching, aggregating or exporting spans and metrics, choosing endpoints or headers, and creating
+  the host's root span.
+- Logs, and any metric outside the GenAI conventions.
 - Content capture (`gen_ai.input.messages` and similar opt-in attributes).
 
 ## Design decisions
@@ -55,6 +59,11 @@ OpenTelemetry SDK.
 - **`gen_ai/dup` exists for migration.** The GenAI conventions are still in development; emitting
   both attribute sets under GenAI span names lets a backend move its queries before the `agent.*`
   attributes are dropped, the same staged opt-in the conventions themselves recommend.
+- **Samples, not a recorder.** Metrics are plain samples rather than calls on a `Meter`: a host that
+  exports one delta per prompt has no long-lived meter provider to record on, and the definitions
+  (names, units, buckets, attributes) stay in one place beside the span projection, so both share the
+  provider-name map. The definitions follow one fixed revision of the still-developing conventions,
+  which the source names, so a host sees changes only when this package changes.
 - **Gemini maps to `gcp.gen_ai`.** A Gemini client can point at either the Gemini API or Vertex AI,
   and the trace does not say which, so the projection uses the conventions' name for any Google
   generative AI endpoint instead of claiming one.

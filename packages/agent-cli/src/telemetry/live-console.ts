@@ -52,7 +52,7 @@ function projectConsoleRecord(
       instanceId: resource.instanceId, resource,
       startTime: [Math.floor((end - 1) / 1000), ((end - 1) % 1000) * 1_000_000],
       endTime: [Math.floor(end / 1000), (end % 1000) * 1_000_000],
-    }, metricAttributes);
+    }, metricAttributes, naming);
     return { signal, resource: resource.attributes, metrics: metricBatch.scopeMetrics.flatMap((scope) => scope.metrics.map((metric) => ({
       name: metric.descriptor.name, unit: metric.descriptor.unit,
       points: metric.dataPoints.map((point) => ({ value: point.value, attributes: point.attributes })),
