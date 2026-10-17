@@ -41,6 +41,7 @@
       "@robota-sdk/agent-tool-defaults",
       "@robota-sdk/agent-tools",
       "@robota-sdk/agent-transport",
+      "@robota-sdk/agent-transport-acp",
       "@robota-sdk/agent-transport-http",
       "@robota-sdk/agent-transport-mcp",
       "@robota-sdk/agent-ui-terminal",

@@ -39,7 +39,7 @@ SDK packages (@robota-sdk/*)
   Assembly              agent-framework: InteractiveSession, createQuery, createAgentRuntime,
                         runtime host (buildRuntimeSession / startRuntimeHost behind robota --serve)
   Transports            agent-transport (wire protocol, delivery), and the carriers built on it:
-                        agent-transport-ws · -http · -mcp · -webrtc
+                        agent-transport-ws · -http · -mcp · -acp · -webrtc
   Runtime               agent-session · agent-executor · agent-tool-defaults ·
                         agent-roundtable-robota (runs a session or agent as a roundtable participant and
                         selectors) ·

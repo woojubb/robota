@@ -166,6 +166,8 @@ Commands:
                                   Sign in to a remote MCP server that declares oauth
                                   (--no-browser: print the URL, paste the redirect back)
   {{cli}} mcp logout <name>         Sign out of an OAuth MCP server and revoke its tokens
+  {{cli}} acp                       Run {{name}} as an Agent Client Protocol agent over stdio, for
+                                  an editor to launch (Zed, JetBrains and other ACP clients)
   {{cli}} eval <definition> [--threshold <0..1>]
                                   Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 

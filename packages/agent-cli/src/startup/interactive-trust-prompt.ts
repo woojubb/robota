@@ -42,6 +42,7 @@ export function startsNewTuiSession(
   const setup =
     subcommandWord(args) === 'init' ||
     subcommandWord(args) === 'mcp' ||
+    subcommandWord(args) === 'acp' ||
     args.configure ||
     args.configureProvider !== undefined ||
     args.setCurrent;

@@ -240,6 +240,7 @@ The [packages index](__PROJECT_DOCS_URL__/en/packages/) on the docs site covers 
 | [`@robota-sdk/agent-transport-ws`](https://www.npmjs.com/package/@robota-sdk/agent-transport-ws)         | WebSocket carrier                                                                    |
 | [`@robota-sdk/agent-transport-http`](https://www.npmjs.com/package/@robota-sdk/agent-transport-http)     | HTTP carrier (Hono)                                                                  |
 | [`@robota-sdk/agent-transport-mcp`](https://www.npmjs.com/package/@robota-sdk/agent-transport-mcp)       | Serve a session as an MCP server: stdio, loopback HTTP, OAuth-authorized remote HTTP |
+| [`@robota-sdk/agent-transport-acp`](https://www.npmjs.com/package/@robota-sdk/agent-transport-acp)       | Serve a session to an editor as an Agent Client Protocol agent over stdio            |
 | [`@robota-sdk/agent-transport-webrtc`](https://www.npmjs.com/package/@robota-sdk/agent-transport-webrtc) | Peer-to-peer WebRTC transport for remote control and the device mesh                 |
 | [`@robota-sdk/agent-remote-pairing`](https://www.npmjs.com/package/@robota-sdk/agent-remote-pairing)     | Pairing and DTLS-fingerprint channel binding for peer-to-peer connections            |
 | [`@robota-sdk/agent-ui-terminal`](https://www.npmjs.com/package/@robota-sdk/agent-ui-terminal)           | Terminal UI (React + Ink)                                                            |

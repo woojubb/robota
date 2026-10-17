@@ -436,7 +436,8 @@ directory the host chooses (`new MarketplaceClient({ pluginsDir, exec })`; marke
 ## Transports
 
 A transport exposes a session over a protocol. `agent-transport-http` (Hono), `agent-transport-ws`
-(WebSocket) and `agent-transport-mcp` (MCP server over stdio or Streamable HTTP) are separate
+(WebSocket), `agent-transport-mcp` (MCP server over stdio or Streamable HTTP) and
+`agent-transport-acp` (Agent Client Protocol agent over stdio, for editors) are separate
 packages; each implements `ITransportAdapter` from `agent-interface-transport` and translates
 protocol messages into session calls and session events back into messages. `agent-framework` itself
 provides the non-interactive runner (`createHeadlessRunner`, with `text`, `json` or `stream-json`

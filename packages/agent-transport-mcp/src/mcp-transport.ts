@@ -5,15 +5,15 @@
  * The adapter owns carrier readiness and teardown; the product shell owns process policy.
  */
 
-import { PassThrough } from 'node:stream';
-
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { attachStdioCarrier } from '@robota-sdk/agent-transport/node';
 
 import { createAgentMcpServer } from './mcp-server.js';
 
 import type { IMcpTransportSession } from './mcp-session.js';
 import type { IMcpSubmitToolIdentity } from './mcp-tool-surface.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import type { IStdioCarrier } from '@robota-sdk/agent-transport/node';
 import type {
   ITransportAdapter,
   ITransportLifecycleError,
@@ -45,7 +45,7 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
   let server: Server | null = null;
   let starting: Promise<void> | null = null;
   let stopping: Promise<void> | null = null;
-  let inputBridge: PassThrough | null = null;
+  let carrier: IStdioCarrier | null = null;
   let cancelStart: ((error: Error) => void) | null = null;
   const stdin = options.stdin ?? process.stdin;
   const stdout = options.stdout ?? process.stdout;
@@ -73,16 +73,9 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
     rejectClose?.(error);
     cancelStart?.(error);
   };
-  const removeInputListeners = (): void => {
-    stdin.off('end', onInputClose);
-    stdin.off('close', onInputClose);
-    stdout.off('close', onOutputClose);
-    stdout.off('error', onOutputError);
-    if (inputBridge) {
-      stdin.unpipe(inputBridge);
-      inputBridge.destroy();
-      inputBridge = null;
-    }
+  const releaseCarrier = (): void => {
+    carrier?.release();
+    carrier = null;
   };
   const lifecycleError = (code: ITransportLifecycleError['code']): ITransportLifecycleError =>
     Object.assign(new Error(`MCP transport ${code}.`), {
@@ -106,15 +99,14 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
       const cancelled = new Promise<never>((_resolve, reject) => {
         cancelStart = reject;
       });
-      const bridge = new PassThrough();
-      inputBridge = bridge;
-      stdin.once('end', onInputClose);
-      stdin.once('close', onInputClose);
-      stdout.once('close', onOutputClose);
-      stdout.on('error', onOutputError);
       // Preserve early frames with backpressure while the canonical tool catalog is validated.
-      // Piping also exposes EOF before the SDK begins reading.
-      stdin.pipe(bridge);
+      // The bridge also exposes EOF before the SDK begins reading.
+      const attached = attachStdioCarrier(stdin, stdout, {
+        onInputClose,
+        onOutputClose,
+        onOutputError,
+      });
+      carrier = attached;
       starting = (async () => {
         let candidate: Server | null = null;
         const timeout = setTimeout(
@@ -131,14 +123,14 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
             }),
             cancelled,
           ]);
-          const nextCarrier = new StdioServerTransport(bridge, stdout);
+          const nextCarrier = new StdioServerTransport(attached.bridge, stdout);
           nextCarrier.onclose = () => resolveClose?.();
           nextCarrier.onerror = (error) => rejectClose?.(error);
           await candidate.connect(nextCarrier);
           server = candidate;
           candidate = null;
         } catch (error) {
-          removeInputListeners();
+          releaseCarrier();
           // allow-fallback: the startup error is already being thrown; a failed best-effort close must not replace it.
           if (candidate) await candidate.close().catch(() => undefined);
           throw error;
@@ -162,7 +154,7 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
           if (starting) await starting.catch(() => undefined);
           if (server) await server.close();
         } finally {
-          removeInputListeners();
+          releaseCarrier();
           server = null;
           session = null;
           resolveClose?.();
