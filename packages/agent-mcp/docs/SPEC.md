@@ -144,9 +144,21 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
 - **Protocol selection is explicit and never grants authority**: the default retains legacy
   negotiation, while the explicit revision pins the same client to the stateless era — never
   falling back to a handshake — and sends self-contained requests through the same admitted
-  carrier. Unsupported results cannot become completed observations or trigger a mutation replay,
-  and no client input is offered to a server that asks for one (the carrier closes instead);
-  connection-local catalog identity prevents private disclosures carrying into a later carrier.
+  carrier. Unsupported results cannot become completed observations or trigger a mutation replay.
+  The only client input offered is form-mode elicitation, and only on a session whose host can put
+  a question to a person: a request that arrives during a tool call is asked through that call's
+  ask port, titled with the identity the operator configured for the server and never masked, with
+  the server's own words kept to one bounded line beneath that title, and the answer continues that
+  same call (the re-sent `tools/call` that carries it is the protocol's continuation, not a replay)
+  for as long as that call lives — a prompt is withdrawn when its call ends or, while other calls
+  to that server are in flight and the request named none of them, when the last of them ends. A
+  request
+  outside an in-flight call is declined, and no other request for client input is ever answered: an
+  embedded request of a kind this surface does not answer closes the carrier, while one the client
+  refuses on its face (URL mode, a malformed form) fails the call, and a legacy server's request for
+  anything but form elicitation is refused by method and leaves the call to the server; none is
+  replayed. Connection-local catalog identity prevents private disclosures carrying into a later
+  carrier.
   Host-selected skill disclosures remain bound to their server and current verified manifest;
   receiving metadata or supporting files cannot authorize instructions or tool permissions.
 
@@ -160,6 +172,27 @@ invalid freshness hint on the discovery probe is read as its safest value, as th
 reads it, because the probe precedes every cached entry and refusing it would turn away servers
 every other client accepts; a page or read that carries one is still refused, because that hint
 governs a cache entry.
+
+## Design decision: elicitation is an adapter onto the host's ask port
+
+A server's elicitation becomes the host's existing ask prompt rather than a prompt type of its own,
+so there is one prompt mechanism, one registry and one set of renderers to trust; the form's own
+model was rejected as the internal one because the host's prompts need masked secret entry and a
+free-text "other", which a form may not express. The host decides per session whether to declare
+the capability, because it is negotiated when the carrier opens while the ask port arrives with
+each call; a session that declared it but whose call has no port declines at once, so a server is
+never left waiting on a prompt nobody can answer. Decline is offered as a choice of the first
+question rather than as a new answer kind in the foundation's ask contract, because only this
+adapter needs it and a new kind would oblige every wire decoder and renderer to grow a control for
+it; a second answer the field rejects cancels, because a value the schema refuses is worse than no
+answer. The prompt names the server by the identity the operator configured, never by the name it
+declares for itself, since a declared name is a claim; the warning on a credential-shaped field is
+a guess from its name, so attribution, not the warning, is what the person relies on. An
+elicitation is attributed to the oldest in-flight call of its session, since neither era names the
+call it belongs to and every in-flight call speaks to the same server through the same port; for
+the same reason a prompt is withdrawn only when the last such call ends, because a sibling ending
+earlier proves nothing about whose prompt it is, and a live prompt cancelled by mistake costs more
+than one that waits.
 
 ## Design decision: definition precedence, with plugins last
 

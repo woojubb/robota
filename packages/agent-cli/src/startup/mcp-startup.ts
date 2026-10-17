@@ -95,6 +95,13 @@ export interface IComposeMcpClientForStartupInput {
   readonly inspectTrust?: (cwd: string) => Promise<IMcpWorkspaceTrustSnapshot>;
   /** MCP-004 S3: which runtime this composition serves — gates `toolCallHandoff` (§ Modes). */
   readonly mode: TMcpStartupMode;
+  /**
+   * Whether a surface that answers `ask_request` attaches to this host's sessions: the TUI, or
+   * the serve host's WebSocket and HTTP drivers (desktop app, web GUI). `mcp serve` and the ACP
+   * editor agent share the `serve` runtime but attach none, so they say `false`. Omitted means
+   * the mode decides (`print` has none; the others have one).
+   */
+  readonly askSurface?: boolean;
 }
 
 /**
@@ -310,6 +317,7 @@ export async function composeMcpClientForStartup(
     ...(input.resultAdmissionLimits ? { resultAdmissionLimits: input.resultAdmissionLimits } : {}),
     reportDiagnostic: input.reportDiagnostic,
     userActionSurface: mcpUserActionSurfaceFor(input.mode),
+    elicitation: mcpElicitationFor(input.mode, input.askSurface),
     cliName: input.productRuntime.vocabulary.cliName,
   });
 
@@ -371,4 +379,14 @@ export function mcpStartupModelNotice(
  */
 export function mcpUserActionSurfaceFor(mode: TMcpStartupMode): TMCPUserActionSurface {
   return mode === 'interactive' ? 'session' : 'terminal';
+}
+
+/**
+ * Whether MCP servers may ask the person for input mid-call: only where a surface that answers
+ * asks attaches — the TUI, or the serve host with the desktop app or web GUI driving it. A print
+ * run has none, and so do `mcp serve` and the ACP editor agent although they share the `serve`
+ * runtime; there no capability is declared and a server that asks anyway is refused as before.
+ */
+export function mcpElicitationFor(mode: TMcpStartupMode, askSurface?: boolean): boolean {
+  return mode !== 'print' && askSurface !== false;
 }

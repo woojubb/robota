@@ -11,6 +11,7 @@ import { MCPSkillError } from '../skills/manifest.js';
 import { createSkillsSession, hasSkillsCapability } from '../skills/session.js';
 import { enableSkillReceiveBudget } from './receive-budget.js';
 import { discoverAll } from './discovery.js';
+import { createElicitationHandler, MCPElicitationCalls } from './elicitation.js';
 import {
   MCPStatelessProtocolError,
   OBJECT_RESULT_SCHEMA,
@@ -83,14 +84,32 @@ function unofferedRevision(error: unknown, transport: Transport): MCPSessionErro
   );
 }
 
-/** A completion discriminator other than `complete`: the result is not one this surface can act on. */
+/**
+ * A result this surface cannot act on: a completion discriminator other than `complete`, or an
+ * `input_required` round it cannot finish — an embedded request of a kind nobody here answers
+ * (sampling, roots) or more rounds than the SDK allows. The server asked for input it will not get.
+ * (A malformed embedded request is the SDK's `INVALID_RESULT`, which the caller's `invalid` mapping
+ * already closes on; an embedded elicitation the client refuses on its face, such as URL mode, is a
+ * protocol error that fails the call and leaves the carrier open.)
+ */
 function unsupportedResult(error: unknown): MCPStatelessProtocolError | undefined {
-  if (!(error instanceof SdkError) || error.code !== SdkErrorCode.UnsupportedResultType)
-    return undefined;
-  const resultType = (error.data as { readonly resultType?: unknown } | undefined)?.resultType;
-  return new MCPStatelessProtocolError(
-    resultType === 'input_required' ? 'input_required' : 'unknown-result',
-  );
+  if (!(error instanceof SdkError)) return undefined;
+  const data = error.data as { readonly resultType?: unknown; readonly method?: unknown } | undefined;
+  switch (error.code) {
+    case SdkErrorCode.UnsupportedResultType:
+      return new MCPStatelessProtocolError(
+        data?.resultType === 'input_required' ? 'input_required' : 'unknown-result',
+      );
+    case SdkErrorCode.CapabilityNotSupported:
+      // Only the embedded-request refusal names its method; the SDK's other uses carry no data.
+      return typeof data?.method === 'string'
+        ? new MCPStatelessProtocolError('input_required')
+        : undefined;
+    case SdkErrorCode.InputRequiredRoundsExceeded:
+      return new MCPStatelessProtocolError('input_required');
+    default:
+      return undefined;
+  }
 }
 
 function isInvalidResult(error: unknown): boolean {
@@ -102,9 +121,13 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
   const transport = options.transport;
   if (options.skills === true) enableSkillReceiveBudget(transport);
   const sensitive = 'sensitiveDiagnostics' in transport && transport.sensitiveDiagnostics === true;
+  const calls = new MCPElicitationCalls();
   const client = createMcpClient(
     options.clientInfo ?? DEFAULT_CLIENT_INFO,
     STATELESS_PROTOCOL_VERSION,
+    options.elicitation === true
+      ? createElicitationHandler({ serverId: () => options.serverId, calls })
+      : undefined,
   );
   let closePromise: Promise<void> | undefined;
   const close = (): Promise<void> => (closePromise ??= closeCarrier(client, transport));
@@ -257,11 +280,15 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
               },
             ]
           : []),
-        {
-          capability: 'input_required',
-          reason:
-            'No MRTR client input capability is offered; unsupported results close the carrier without replay.',
-        },
+        ...(options.elicitation === true
+          ? []
+          : [
+              {
+                capability: 'input_required',
+                reason:
+                  'No MRTR client input capability is offered; unsupported results close the carrier without replay.',
+              },
+            ]),
         {
           capability: 'subscriptions',
           reason:
@@ -320,6 +347,7 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
                 : {}),
             }
           : undefined;
+        const leave = calls.enter({ ask: callOptions?.ask, signal: callOptions?.signal });
         try {
           return scope ? await runInCallTraceScope(scope, call) : await call();
         } catch (error) {
@@ -330,6 +358,7 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
           if (sensitive && !(error instanceof MCPStdioError)) throw new MCPStdioError('send');
           throw error;
         } finally {
+          leave();
           if (scope) callTraces?.release(scope);
         }
       },

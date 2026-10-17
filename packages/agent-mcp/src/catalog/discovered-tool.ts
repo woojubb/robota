@@ -35,6 +35,7 @@ import type {
   IToolWithEventService,
   IUniversalObjectValue,
   IToolResultAdmissionOptions,
+  IUserInteraction,
   TToolParameters,
   TUniversalMessagePart,
 } from '@robota-sdk/agent-core';
@@ -88,6 +89,8 @@ export interface IMCPToolInvoker {
     options?: {
       readonly signal?: AbortSignal;
       readonly outboundTraceContext?: IOutboundTraceContext;
+      /** The call's ask port, so a server's elicitation during it can reach a person. */
+      readonly ask?: IUserInteraction['ask'];
     },
   ): Promise<IMCPToolCallResult>;
 }
@@ -217,6 +220,7 @@ class DiscoveredMCPTool implements IToolWithEventService {
         ...(context?.outboundTraceContext
           ? { outboundTraceContext: context.outboundTraceContext }
           : {}),
+        ...(context?.ask ? { ask: context.ask } : {}),
       });
     } catch (error) {
       // SDK and remote errors can contain response bodies or request metadata. Neither is safe to

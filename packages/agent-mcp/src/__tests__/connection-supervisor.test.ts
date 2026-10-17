@@ -73,6 +73,22 @@ describe('MCPConnectionSupervisor — open / reuse / close / listChanged (TC-09)
     expect(seen.map((s) => s.kind)).toEqual(['connecting', 'connected', 'closed']);
   });
 
+  it('hands the call\'s ask port to the session unchanged, and nothing when the call has none', async () => {
+    const identity = fixtureIdentity();
+    const session = new FakeMcpSession({ identity });
+    const supervisor = new MCPConnectionSupervisor({
+      serverId: identity.serverId,
+      openSession: async () => session,
+      timeouts: fixtureTimeouts(),
+    });
+    const ask = async () => ({ type: 'cancelled' as const });
+
+    await supervisor.callTool('ping', {}, { ask });
+    await supervisor.callTool('ping', {});
+
+    expect(session.callToolCalls.map((call) => call.ask)).toEqual([ask, undefined]);
+  });
+
   it('closes the live session on shutdown()', async () => {
     const identity = fixtureIdentity();
     const session = new FakeMcpSession({ identity });

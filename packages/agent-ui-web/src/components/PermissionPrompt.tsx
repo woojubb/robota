@@ -1,6 +1,6 @@
 'use client';
 
-import { MessageCircleQuestion, ShieldAlert } from 'lucide-react';
+import { MessageCircleQuestion, ShieldAlert, Square, SquareCheck } from 'lucide-react';
 import React, {
   forwardRef,
   useEffect,
@@ -32,6 +32,12 @@ import type { TDriverId } from '@robota-sdk/agent-interface-session';
  * lives only in `FreeTextField`, keyed by `prompt.id`: a cancelled or answered prompt's text can
  * never reach the next prompt's render, masked or not, because the field is a fresh component
  * instance rather than a value carried over in this component's own state (#3280 §3 follow-up).
+ *
+ * An ask whose `maxSelect` is above 1 is a multi-select: each option is a toggle (a click or 1–9 ticks
+ * it, nothing answers yet), and Submit — or Enter at the prompt, once the selection is allowed —
+ * answers with the ticked values in option order. Unlike the free-text field, the ticks live in this
+ * component, because the dock's keys act on them; they are tagged with `prompt.id`, so a prompt never
+ * reads the ticks of another.
  */
 interface IPermissionPromptProps {
   prompts: readonly TPendingPrompt[];
@@ -77,6 +83,42 @@ function isDestructiveAskOption(requestId: string | undefined, value: string): b
   return requestId === 'provider-profile-action' && value === 'delete';
 }
 
+type TAskRequest = Extract<TPendingPrompt, { kind: 'ask' }>['request'];
+type TAskOption = NonNullable<TAskRequest['options']>[number];
+
+/** What a multi-select ask (`maxSelect` above 1) lets the person tick; see `readMultiSelect`. */
+interface IMultiSelect {
+  min: number;
+  max: number;
+  /** The options that can be ticked, in the order the answer lists them. */
+  options: readonly TAskOption[];
+  /** The ticks a prompt starts with. */
+  defaults: ReadonlySet<string>;
+}
+
+/**
+ * The multi-select shape of an ask, or undefined for every other ask (which answers on click). The
+ * rules mirror the terminal checklist (`MultiSelectList` in agent-ui-terminal): `minSelect` (default 1)
+ * gates the submit, and `maxSelect` caps the ticks — a toggle beyond the cap is ignored, never swapped
+ * for the oldest tick. `default.values` pre-select; a default that names no option is dropped, and
+ * more defaults than the cap keep the first ones in option order, so the answer never breaks the cap.
+ */
+function readMultiSelect(request: TAskRequest): IMultiSelect | undefined {
+  const max = request.maxSelect ?? 1;
+  if (max <= 1) return undefined;
+  const options = (request.options ?? []).filter(
+    (opt) => !isDestructiveAskOption(request.id, opt.value),
+  );
+  const wanted = new Set(request.default?.values ?? []);
+  const defaults = options.filter((opt) => wanted.has(opt.value)).slice(0, max);
+  return {
+    min: request.minSelect ?? 1,
+    max,
+    options,
+    defaults: new Set(defaults.map((opt) => opt.value)),
+  };
+}
+
 export function PermissionPrompt({
   prompts,
   onAnswerPermission,
@@ -106,6 +148,11 @@ export function PermissionPrompt({
   // Set at the moment of an answer if focus was inside the prompt then; consumed once the prompt list
   // empties (see below) or cleared once a next prompt shows it was not needed after all.
   const pendingFocusReturnRef = useRef(false);
+  // A multi-select ask's ticks, tagged with the prompt they belong to: another prompt (a different
+  // `prompt.id`) reads its own defaults instead, so there is no stale selection to reset.
+  const [selection, setSelection] = useState<
+    { promptId: string; values: ReadonlySet<string> } | undefined
+  >(undefined);
   useEffect(() => {
     if (promptId === undefined || armDelayMs <= 0) return undefined;
     const timer = setTimeout(() => setArmedId(promptId), armDelayMs);
@@ -200,6 +247,23 @@ export function PermissionPrompt({
     fieldHandleRef.current?.clear();
     onAnswerAsk(id, response);
   };
+  const multi = prompt.kind === 'ask' ? readMultiSelect(prompt.request) : undefined;
+  const ticks = selection?.promptId === prompt.id ? selection.values : multi?.defaults;
+  const selectedValues =
+    multi && ticks ? multi.options.map((opt) => opt.value).filter((value) => ticks.has(value)) : [];
+  const canSubmit = multi !== undefined && selectedValues.length >= multi.min;
+  const toggleOption = (value: string): void => {
+    if (!multi) return;
+    setSelection((current) => {
+      const next = new Set(current?.promptId === prompt.id ? current.values : multi.defaults);
+      if (next.has(value)) next.delete(value);
+      else if (next.size < multi.max) next.add(value);
+      return { promptId: prompt.id, values: next };
+    });
+  };
+  const submitSelection = (): void => {
+    if (canSubmit) answerAsk(prompt.id, { type: 'answer', values: selectedValues });
+  };
   /** A click anywhere in the prompt that isn't on a button or the field itself focuses the field. */
   const onContainerClick = (event: React.MouseEvent<HTMLDivElement>): void => {
     if (!hasFreeText) return;
@@ -222,6 +286,15 @@ export function PermissionPrompt({
     }
     // A key that reaches a prompt still arming (it kept focus from the one before) is dropped.
     if (!armed) return;
+    if (multi && event.key === 'Enter') {
+      // Only from the prompt itself: on a focused button (a toggle, Submit, Cancel) Enter is that
+      // button's own click, and its keydown reaches this handler as well.
+      if (event.target === event.currentTarget) {
+        event.preventDefault();
+        submitSelection();
+      }
+      return;
+    }
     const index = Number(event.key) - 1;
     if (!Number.isInteger(index) || index < 0) return;
     if (prompt.kind === 'permission') {
@@ -235,7 +308,10 @@ export function PermissionPrompt({
       (opt) => !isDestructiveAskOption(prompt.request.id, opt.value),
     );
     const option = digitOptions[index];
-    if (option) answerAsk(prompt.id, { type: 'answer', values: [option.value] });
+    if (!option) return;
+    // A multi-select's digit ticks the option; it answers only when the ask has a single answer.
+    if (multi) toggleOption(option.value);
+    else answerAsk(prompt.id, { type: 'answer', values: [option.value] });
   };
   // #3288: an Edit/Write request carries the same server-built diff `tool_end` would show.
   const hasDiff = prompt.kind === 'permission' && (prompt.diffLines?.length ?? 0) > 0;
@@ -258,9 +334,11 @@ export function PermissionPrompt({
   const askArmedHint =
     hasFreeText && fieldFocused
       ? 'Enter to submit · Esc to cancel'
-      : askOptions.length > 0
-        ? '1–9 choose · Esc cancel'
-        : 'Esc cancels';
+      : multi && askOptions.length > 0
+        ? '1–9 toggle · Enter submit · Esc cancel'
+        : askOptions.length > 0
+          ? '1–9 choose · Esc cancel'
+          : 'Esc cancels';
   return (
     <div
       className={
@@ -397,11 +475,24 @@ export function PermissionPrompt({
                       <button
                         type="button"
                         aria-keyshortcuts={dock && index < 9 ? String(index + 1) : undefined}
-                        className={index === 0 ? PRIMARY_BUTTON : SECONDARY_BUTTON}
+                        aria-pressed={multi ? selectedValues.includes(opt.value) : undefined}
+                        className={
+                          (multi ? selectedValues.includes(opt.value) : index === 0)
+                            ? PRIMARY_BUTTON
+                            : SECONDARY_BUTTON
+                        }
                         onClick={onButton(() =>
-                          answerAsk(prompt.id, { type: 'answer', values: [opt.value] }),
+                          multi
+                            ? toggleOption(opt.value)
+                            : answerAsk(prompt.id, { type: 'answer', values: [opt.value] }),
                         )}
                       >
+                        {multi &&
+                          (selectedValues.includes(opt.value) ? (
+                            <SquareCheck size={15} strokeWidth={2} />
+                          ) : (
+                            <Square size={15} strokeWidth={2} />
+                          ))}
                         <span>{opt.label}</span>
                         {dock && index < 9 && <Kbd>{index + 1}</Kbd>}
                       </button>
@@ -454,6 +545,16 @@ export function PermissionPrompt({
                 </div>
               )}
               <div className="flex flex-wrap items-center gap-2">
+                {multi && (
+                  <button
+                    type="button"
+                    className={`${PRIMARY_BUTTON} disabled:opacity-60`}
+                    disabled={!canSubmit}
+                    onClick={onButton(submitSelection)}
+                  >
+                    {canSubmit ? 'Submit' : `Submit (min ${multi.min})`}
+                  </button>
+                )}
                 <button
                   type="button"
                   className={GHOST_BUTTON}

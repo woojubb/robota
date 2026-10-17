@@ -29,6 +29,7 @@ async function openModern(
     method: string,
     result: Record<string, unknown>,
   ) => Record<string, unknown> | Promise<Record<string, unknown>> = (_method, result) => result,
+  elicitation = false,
 ) {
   listener = createServer(async (request, response) => {
     let body = '';
@@ -121,6 +122,7 @@ async function openModern(
     transport: constructStreamableHttpTransport(admitted.admitted),
     timeouts: { startupMs: 1000, perCallMs: 1000 },
     clientInfo: { name: 'fixture-client', version: '7' },
+    ...(elicitation ? { elicitation: true } : {}),
   };
   session = await openMcpSession(options);
   return session;
@@ -232,6 +234,114 @@ describe('explicit stateless MCP session', () => {
     await expect(client.callTool('echo', { value: 'input' })).rejects.toThrow(/closed/);
     // No automatic round: the SDK's input_required loop is off, so nothing follows the one call.
     expect(requests.map((request) => request.method)).toEqual(['server/discover', 'tools/call']);
+  });
+
+  it('closes the carrier without a retry when the server embeds a request the elicitation bridge cannot answer', async () => {
+    const client = await openModern(
+      (method, result) =>
+        method === 'tools/call'
+          ? {
+              ...result,
+              resultType: 'input_required',
+              inputRequests: {
+                model: {
+                  method: 'sampling/createMessage',
+                  params: {
+                    messages: [{ role: 'user', content: { type: 'text', text: 'hi' } }],
+                    maxTokens: 1,
+                  },
+                },
+              },
+              requestState: 'opaque-state',
+            }
+          : result,
+      true,
+    );
+    const asked: unknown[] = [];
+    const ask = async () => {
+      asked.push(true);
+      return { type: 'cancelled' as const };
+    };
+    await expect(client.callTool('echo', { value: 'input' }, { ask })).rejects.toThrow(
+      /input_required/,
+    );
+    await expect(client.callTool('echo', { value: 'input' }, { ask })).rejects.toThrow(/closed/);
+    expect(asked).toEqual([]);
+    // The elicitation capability was declared, and still nothing was sent twice.
+    const meta = requests.at(-1)?.params._meta as Record<string, unknown>;
+    expect(meta['io.modelcontextprotocol/clientCapabilities']).toEqual({
+      elicitation: { form: {} },
+    });
+    expect(requests.map((request) => request.method)).toEqual(['server/discover', 'tools/call']);
+  });
+
+  it('closes the carrier once a server keeps asking past the round cap, and never sends more', async () => {
+    const client = await openModern(
+      (method, result) =>
+        method === 'tools/call'
+          ? {
+              ...result,
+              resultType: 'input_required',
+              inputRequests: {
+                again: {
+                  method: 'elicitation/create',
+                  params: { message: 'Again?', requestedSchema: { type: 'object', properties: {} } },
+                },
+              },
+              requestState: 'round',
+            }
+          : result,
+      true,
+    );
+    let asked = 0;
+    const ask = async () => {
+      asked += 1;
+      return { type: 'answer' as const, values: ['respond'] };
+    };
+    await expect(client.callTool('echo', { value: 'input' }, { ask })).rejects.toThrow(
+      /input_required/,
+    );
+    await expect(client.callTool('echo', { value: 'input' }, { ask })).rejects.toThrow(/closed/);
+    const legs = requests.filter((request) => request.method === 'tools/call');
+    // The SDK's cap: one originating leg plus ten rounds, each answered by a person once.
+    expect(legs).toHaveLength(11);
+    expect(asked).toBe(10);
+    expect(legs.slice(1).every((leg) => leg.params['requestState'] === 'round')).toBe(true);
+  });
+
+  it('fails the call, asks nothing and sends nothing more when the server embeds a URL-mode elicitation', async () => {
+    let calls = 0;
+    const client = await openModern(
+      (method, result) =>
+        method === 'tools/call' && ++calls === 1
+          ? {
+              ...result,
+              resultType: 'input_required',
+              inputRequests: {
+                link: {
+                  method: 'elicitation/create',
+                  params: { mode: 'url', message: 'Sign in', url: 'https://example.com/sign-in', elicitationId: 'e1' },
+                },
+              },
+            }
+          : result,
+      true,
+    );
+    const asked: unknown[] = [];
+    const ask = async () => {
+      asked.push(true);
+      return { type: 'cancelled' as const };
+    };
+    // The client refuses the mode it never declared before anything is asked; the server learns it
+    // from the failed call. The carrier stays open: a later call still completes.
+    await expect(client.callTool('echo', { value: 'input' }, { ask })).rejects.toThrow(
+      /URL-mode/,
+    );
+    expect(asked).toEqual([]);
+    expect(requests.filter((request) => request.method === 'tools/call')).toHaveLength(1);
+    expect(await client.callTool('echo', { value: 'input' }, { ask })).toMatchObject({
+      isError: false,
+    });
   });
 
   it('names an unknown completion discriminator and closes the carrier without replay', async () => {
