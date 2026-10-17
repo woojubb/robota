@@ -30,6 +30,7 @@ graph TD
     PROV[agent-provider-anthropic / -openai / -openai-compatible /<br/>-gemini / -bytedance]
     BIP[agent-builtin-providers]
     SA[agent-session-analytics]
+    OTEL[agent-telemetry-otel<br/>OTel span projection]
   end
 
   subgraph Runtime["Runtime"]
@@ -94,6 +95,7 @@ graph TD
   PROC --> TOOLS
   PROV --> BIP
   IFA & IFS --> SA
+  IFA --> OTEL
 
   %% Runtime
   CORE --> SESS & EXEC

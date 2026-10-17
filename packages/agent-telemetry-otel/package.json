@@ -1,0 +1,69 @@
+{
+  "name": "@robota-sdk/agent-telemetry-otel",
+  "version": "3.0.0-beta.93",
+  "description": "Content-free projection of Robota live prompt traces onto OpenTelemetry span shapes, with agent.* or GenAI semantic-convention names",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "node": {
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
+      },
+      "default": {
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "files": [
+    "dist",
+    "src",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "rimraf dist && tsdown",
+    "build:js": "pnpm run build",
+    "build:types": "pnpm run build",
+    "typecheck": "tsgo --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "dependencies": {
+    "@robota-sdk/agent-interface-analytics": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.21",
+    "rimraf": "^5.0.10",
+    "tsdown": "^0.22.14",
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.6"
+  },
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "publishConfig": {
+    "access": "public"
+  },
+  "volta": {
+    "extends": "../../package.json"
+  }
+}

@@ -211,6 +211,7 @@ The [packages index](__PROJECT_DOCS_URL__/en/packages/) on the docs site covers 
 | [`@robota-sdk/agent-mcp`](https://www.npmjs.com/package/@robota-sdk/agent-mcp)                             | MCP client: server definitions, activation, connections, tool catalog, OAuth sign-in                  |
 | [`@robota-sdk/agent-plugin`](https://www.npmjs.com/package/@robota-sdk/agent-plugin)                       | Lifecycle plugins: history, logging, usage, limits, performance, errors, analytics, webhooks          |
 | [`@robota-sdk/agent-session-analytics`](https://www.npmjs.com/package/@robota-sdk/agent-session-analytics) | Session-log timing and usage analysis and reports                                                     |
+| [`@robota-sdk/agent-telemetry-otel`](https://www.npmjs.com/package/@robota-sdk/agent-telemetry-otel)       | Live prompt traces as content-free OpenTelemetry spans, with GenAI or `agent.*` names                 |
 | [`@robota-sdk/agent-process`](https://www.npmjs.com/package/@robota-sdk/agent-process)                     | Child-process tree termination (`killProcessTree`)                                                    |
 | [`@robota-sdk/agent-file-authority`](https://www.npmjs.com/package/@robota-sdk/agent-file-authority)       | Bounded, root-relative file reads for Node.js                                                         |
 
