@@ -16,5 +16,5 @@ export default defineConfig({
   dts: true,
   outExtensions,
   clean: true,
-  deps: { neverBundle: [/^@robota-sdk\/.*/] },
+  deps: { neverBundle: [/^@robota-sdk\/.*/, /^@opentelemetry\//] },
 });

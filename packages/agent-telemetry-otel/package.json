@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-telemetry-otel",
   "version": "3.0.0-beta.93",
-  "description": "Content-free projection of Robota live prompt traces onto OpenTelemetry span shapes, with agent.* or GenAI semantic-convention names",
+  "description": "OpenTelemetry tracing for Robota agents: content-free span projection of live prompt traces and a run observer, with agent.* or GenAI semantic-convention names",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -50,9 +50,12 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-interface-analytics": "workspace:*"
   },
   "devDependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/sdk-trace": "^2.11.0",
     "@types/node": "^22.19.21",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14",
@@ -65,5 +68,8 @@
   },
   "volta": {
     "extends": "../../package.json"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": "^1.9.0"
   }
 }
