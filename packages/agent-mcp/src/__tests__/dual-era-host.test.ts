@@ -39,17 +39,26 @@ let listener: ReturnType<typeof createServer> | undefined;
 let session: IMCPSession | undefined;
 const wire: IWireRequest[] = [];
 
-async function startHost(): Promise<string> {
+type TCallHandler = (request: {
+  readonly params: { readonly name: string; readonly arguments?: Record<string, unknown> };
+}) => Promise<{
+  content: { type: 'text'; text: string }[];
+  structuredContent?: Record<string, unknown>;
+}>;
+
+const echoCall: TCallHandler = async (request) => ({
+  content: [{ type: 'text', text: `echo:${String(request.params.arguments?.['value'])}` }],
+});
+
+async function startHost(tools: Tool[] = [tool], call: TCallHandler = echoCall): Promise<string> {
   const handler = createMcpHandler(
     () => {
       const server = new Server(
         { name: 'dual-era-host', version: '1.2.3' },
         { capabilities: { tools: {} } },
       );
-      server.setRequestHandler('tools/list', async () => ({ tools: [tool] }));
-      server.setRequestHandler('tools/call', async (request) => ({
-        content: [{ type: 'text', text: `echo:${String(request.params.arguments?.['value'])}` }],
-      }));
+      server.setRequestHandler('tools/list', async () => ({ tools }));
+      server.setRequestHandler('tools/call', call);
       return server;
     },
     { maxSubscriptions: 0 },
@@ -143,6 +152,35 @@ describe('one client for both protocol eras', () => {
     expect(methods).toContain('notifications/initialized');
     expect(methods).not.toContain('server/discover');
     expect(wire.some((request) => request.protocolVersionHeader === '2026-07-28')).toBe(false);
+  });
+
+  it("refuses structured content that violates the tool's declared output schema on the legacy era", async () => {
+    const typed = {
+      name: 'typed',
+      description: 'Typed output',
+      inputSchema: { type: 'object' },
+      outputSchema: { type: 'object', properties: { n: { type: 'number' } }, required: ['n'] },
+    } as Tool;
+    const url = await startHost([tool, typed], async (request) =>
+      request.params.name === 'typed'
+        ? {
+            content: [{ type: 'text', text: 'typed' }],
+            structuredContent: { n: request.params.arguments?.['n'] },
+          }
+        : echoCall(request),
+    );
+    const client = await open(url);
+    await client.discover({ maxPages: 2, perRequestTimeoutMs: 3_000 });
+    expect(await client.callTool('typed', { n: 1 })).toMatchObject({
+      structuredContent: { n: 1 },
+      isError: false,
+    });
+    const error = await client.callTool('typed', { n: 'not-a-number' }).catch(
+      (failure: unknown) => failure,
+    );
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toMatch(/output schema/);
+    expect(classifyMcpFailure(error)).toBe('config');
   });
 
   it('connects with the explicit 2026-07-28 revision and completes tools/call', async () => {

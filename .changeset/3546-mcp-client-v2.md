@@ -31,11 +31,14 @@ Against a real 2026-07-28 host the pinned path now also sends the body-derived r
 revision requires (`Mcp-Method`, `Mcp-Name`), which the hand-written framing did not; a headers helper
 may no longer set either, as it already could not set the other headers the transport owns. A pinned
 server that answers the discovery probe with a non-protocol HTTP error (a 404 page) is reported as a
-failed startup carrying that status, not as a server lacking the revision. On the legacy
-era the client no longer rejects `structuredContent` that violates the tool's declared `outputSchema`:
-that check lived in the 1.x client's `listTools` cache, which per-page discovery does not fill, and
-the catalog converts the result as before.
+failed startup carrying that status, not as a server lacking the revision. On the legacy era
+`structuredContent` is still checked against the tool's declared `outputSchema`: the schema the latest
+discovery saw travels with each call, since the SDK's own source for it is the aggregating `listTools`
+cache that per-page discovery never fills.
 
 `@robota-sdk/agent-cli` adds `@modelcontextprotocol/client` and `@modelcontextprotocol/core` to its
-external `dependencies` (it keeps the 1.x SDK, which `@robota-sdk/agent-transport-mcp`'s server still
-uses) and updates its import-boundary test to the new package names.
+external `dependencies`, and with them `@modelcontextprotocol/server` and `@modelcontextprotocol/node`,
+which its bundled MCP serve path already imported but the bundle inlined: with `core` external, the
+server must resolve the one `core` it pins. It keeps the 1.x SDK, which
+`@robota-sdk/agent-transport-mcp`'s stdio server still uses, and its import-boundary test now names
+every `@modelcontextprotocol` package.

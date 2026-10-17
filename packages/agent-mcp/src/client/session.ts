@@ -30,8 +30,8 @@ import { callTraceRegistryOf, runInCallTraceScope } from './trace-propagation.js
 import { MCPDiscoveryError } from '../catalog/types.js';
 
 import type { IMCPDiscovery, IMCPServerIdentity } from '../catalog/types.js';
-import type { TToolParameters } from '@robota-sdk/agent-core';
-import type { Client, Implementation, Transport } from '@modelcontextprotocol/client';
+import type { IUniversalObjectValue, TToolParameters } from '@robota-sdk/agent-core';
+import type { Client, Implementation, Tool, Transport } from '@modelcontextprotocol/client';
 import type {
   IMCPDiscoverOptions,
   IMCPOpenSessionOptions,
@@ -226,6 +226,12 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
   const callTraces = callTraceRegistryOf(options.transport);
   const listeners = new Set<TMCPListChangedListener>();
   registerListChangedHandlers(client, listeners);
+  /**
+   * The output schemas the latest discovery declared. The SDK validates `structuredContent` against
+   * the schema it is handed; its own source is the aggregating `listTools` cache, which per-page
+   * discovery never fills, so the declared schema travels with each call instead.
+   */
+  let outputSchemas: ReadonlyMap<string, IUniversalObjectValue> = new Map();
 
   let closePromise: Promise<void> | undefined;
   const closeSession = (): Promise<void> => {
@@ -249,13 +255,19 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
     declaredCapabilities,
     async discover(discoverOptions: IMCPDiscoverOptions): Promise<IMCPDiscovery> {
       try {
-        return await discoverAll(
+        const discovery = await discoverAll(
           client,
           declaredCapabilities,
           identity,
           instructions,
           discoverOptions,
         );
+        outputSchemas = new Map(
+          discovery.tools.items.flatMap((tool) =>
+            tool.outputSchema === undefined ? [] : [[tool.name, tool.outputSchema] as const],
+          ),
+        );
+        return discovery;
       } catch (error) {
         if (sensitiveTransport(options.transport)) {
           if (
@@ -276,10 +288,23 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
       args: TToolParameters,
       callOptions?: IMCPToolCallOptions,
     ): Promise<IMCPToolCallResult> {
+      const outputSchema = outputSchemas.get(name);
       const call = () =>
         client.callTool(
           { name, arguments: args },
-          { timeout: callOptions?.timeoutMs, signal: callOptions?.signal },
+          {
+            timeout: callOptions?.timeoutMs,
+            signal: callOptions?.signal,
+            ...(outputSchema === undefined
+              ? {}
+              : {
+                  toolDefinition: {
+                    name,
+                    inputSchema: { type: 'object' },
+                    outputSchema: outputSchema as unknown as NonNullable<Tool['outputSchema']>,
+                  },
+                }),
+          },
         );
       const outboundTraceContext = callOptions?.outboundTraceContext;
       const traceScope =
