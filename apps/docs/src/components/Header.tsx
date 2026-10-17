@@ -6,6 +6,11 @@ import { useLocale } from 'next-intl';
 import { ThemeToggle } from './ThemeToggle';
 import { SearchButton } from './SearchButton';
 import { productPublicConfig } from '@/lib/product-config.generated';
+import enMessages from '@/messages/en.json';
+import koMessages from '@/messages/ko.json';
+
+/** Each language's name in that language, from its message catalog. */
+const languageNames = { en: enMessages.languageName, ko: koMessages.languageName } as const;
 
 const NAV_LINKS: { labelKey: string; href: string; external?: boolean }[] = [
   { labelKey: 'Getting Started', href: 'getting-started' },
@@ -103,9 +108,7 @@ export function Header({ hasKoreanTranslation }: { hasKoreanTranslation: boolean
         {(otherLocale === 'en' || hasKoreanTranslation) && (
           <button
             onClick={() => switchLocale(otherLocale)}
-            aria-label={
-              otherLocale === 'ko' ? 'Switch language to 한국어' : 'Switch language to English'
-            }
+            aria-label={`Switch language to ${languageNames[otherLocale]}`}
             className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded border border-[var(--border-strong)] bg-transparent [font-family:var(--font-code)] text-[0.65rem] font-semibold tracking-[0.04em] text-muted-foreground transition-colors hover:text-[var(--foreground-hi)]"
           >
             {otherLocale.toUpperCase()}

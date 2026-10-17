@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createBoundedOutput } from './bounded-output';
+import koreanText from './__fixtures__/korean-text.json';
 
 describe('createBoundedOutput (ARCH-056)', () => {
   it('head retention keeps the first maxBytes and reports what was dropped', () => {
@@ -35,10 +36,10 @@ describe('createBoundedOutput (ARCH-056)', () => {
 
   it('is unchanged and unmarked when under budget, and decodes multi-byte text once', () => {
     const output = createBoundedOutput({ maxBytes: 100 });
-    const bytes = new TextEncoder().encode('한글 텍스트');
+    const bytes = new TextEncoder().encode(koreanText.hangulWordsWithSpace);
     output.append(bytes.subarray(0, 4)); // split inside a 3-byte character
     output.append(bytes.subarray(4));
     expect(output.truncated).toBe(false);
-    expect(output.toString()).toBe('한글 텍스트');
+    expect(output.toString()).toBe(koreanText.hangulWordsWithSpace);
   });
 });

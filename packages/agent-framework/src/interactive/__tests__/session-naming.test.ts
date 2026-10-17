@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { generateSessionName } from '../session-naming.js';
+import koreanText from '../../__tests__/__fixtures__/korean-text.json';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 function makeProvider(responseContent: string): IAIProvider {
@@ -63,21 +64,21 @@ describe('generateSessionName', () => {
   });
 
   it('preserves non-Latin (Korean) titles instead of destroying them', async () => {
-    const provider = makeProvider('한국어 세션 제목');
-    const name = await generateSessionName(provider, '한국어로 된 첫 메시지입니다');
-    expect(name).toBe('한국어-세션-제목');
+    const provider = makeProvider(koreanText.sessionNameKoreanModelTitle);
+    const name = await generateSessionName(provider, koreanText.sessionNameKoreanFirstMessage);
+    expect(name).toBe(koreanText.sessionNameKoreanModelTitleSlug);
   });
 
   it('falls back to a sanitized Korean first message when the model returns nothing usable', async () => {
     const provider = makeProvider('');
-    const name = await generateSessionName(provider, '로그인 버그 수정');
-    expect(name).toBe('로그인-버그-수정');
+    const name = await generateSessionName(provider, koreanText.loginBugFixMessage);
+    expect(name).toBe(koreanText.loginBugFixMessageSlug);
   });
 
   it('strips punctuation but keeps letters and digits of any script', async () => {
-    const provider = makeProvider('버그 수정: DB 연결!');
+    const provider = makeProvider(koreanText.bugFixTitleWithPunctuation);
     const name = await generateSessionName(provider, 'fix db');
-    expect(name).toBe('버그-수정-db-연결');
+    expect(name).toBe(koreanText.bugFixTitleWithPunctuationSlug);
   });
 
   it('honors an injected naming system prompt', async () => {

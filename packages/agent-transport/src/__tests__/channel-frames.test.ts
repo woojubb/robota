@@ -6,6 +6,7 @@ import {
   encodeBinaryFrame,
   encodeChannelEventFrame,
 } from '../channel-frames.js';
+import koreanText from './__fixtures__/korean-text.json';
 
 import type { IBinaryFrame, IChannelEventFrame } from '@robota-sdk/agent-interface-transport';
 
@@ -110,14 +111,14 @@ describe('channel frame codec (TRANS-001)', () => {
   it('supports multi-byte UTF-8 channel names', () => {
     const encoded = encodeBinaryFrame({
       kind: 'binary',
-      channel: '음성-채널',
+      channel: koreanText.voiceChannelName,
       seq: 1,
       payload: bytes(1, 2, 3),
     });
     const decoded = decodeChannelFrame(encoded);
     expect(decoded.ok).toBe(true);
     if (!decoded.ok) return;
-    expect(decoded.frame.channel).toBe('음성-채널');
+    expect(decoded.frame.channel).toBe(koreanText.voiceChannelName);
   });
 
   it('rejects a channel name that does not fit the 255-byte header field', () => {

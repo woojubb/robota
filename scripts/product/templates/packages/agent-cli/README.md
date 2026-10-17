@@ -1,4 +1,4 @@
-**Language:** [English](README.md) | [한국어](docs/README-KO.md)
+**Language:** [English](README.md) | [Korean](docs/README-KO.md)
 
 # @robota-sdk/agent-cli
 

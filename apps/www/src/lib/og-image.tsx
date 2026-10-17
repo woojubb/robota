@@ -2,33 +2,18 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
 import React from 'react';
+import enOg from '@/messages/og/en.json';
+import koOg from '@/messages/og/ko.json';
 import { productPublicConfig } from './product-config.generated';
 
 type OgLocale = 'en' | 'ko';
 
+/** The social image's text per locale; the brand comes from the selected product. */
+const ogCopy: Record<OgLocale, typeof enOg> = { en: enOg, ko: koOg };
+
 export function getOgCopy(locale: OgLocale) {
   const brand = productPublicConfig.identity.displayName || 'Agent SDK + CLI';
-  return locale === 'ko'
-    ? {
-        brand,
-        badge: '공개 베타',
-        heading: 'TypeScript 에이전트를 만드세요.',
-        subheading: 'SDK와 코딩 CLI를 살펴보세요.',
-        sdk: '에이전트 SDK로 구축',
-        cli: '코딩 CLI 사용해 보기',
-        footer: '프로바이더 요금은 설정에 따라 다릅니다',
-        license: 'AGPL-3.0 · 상업용 라이선스',
-      }
-    : {
-        brand,
-        badge: 'PUBLIC BETA',
-        heading: 'Build TypeScript agents.',
-        subheading: 'Explore the SDK and coding CLI.',
-        sdk: 'Build with the agent SDK',
-        cli: 'Try the coding CLI',
-        footer: 'Provider charges depend on your setup',
-        license: 'AGPL-3.0 · COMMERCIAL OPTION',
-      };
+  return { brand, ...ogCopy[locale] };
 }
 
 const colors = {

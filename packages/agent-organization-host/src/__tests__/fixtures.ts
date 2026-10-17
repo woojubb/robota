@@ -2,6 +2,7 @@ import { generateKeyPairSync, randomUUID, sign, type KeyObject } from 'node:cryp
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import koreanText from './__fixtures__/korean-text.json';
 import {
   OrganizationLedger,
   OrganizationBroker,
@@ -124,7 +125,7 @@ export function fixture(
           resource: 'asset',
           operation: 'read',
           environment: 'test',
-          parameters: { message: '회사 😀\n\u0000', amount: 1 },
+          parameters: { message: `${koreanText.companyWordWithSmileEmoji}\n\u0000`, amount: 1 },
         },
         ...overrides,
       };

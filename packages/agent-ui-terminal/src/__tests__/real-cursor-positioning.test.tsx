@@ -23,6 +23,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { interpretVtStream } from './helpers/vt-cursor-interpreter.js';
 import CjkTextInput from '../CjkTextInput.js';
 import { TerminalCapabilitiesProvider } from '../terminal-capabilities-context.js';
+import korean from './__fixtures__/korean-text.json';
 
 const COLS = 60;
 const ROWS = 24;
@@ -143,7 +144,7 @@ describe('CLI-062 — real cursor positioning (interactive ink render)', () => {
     const { stdout, stdin, unmount } = renderScenario();
     await settle();
 
-    stdin.send('안녕');
+    stdin.send(korean.greetingFirstTwoSyllables);
     await settle();
 
     const afterTwo = interpretVtStream(stdout.stream(), ROWS, COLS);
@@ -153,10 +154,10 @@ describe('CLI-062 — real cursor positioning (interactive ink render)', () => {
     for (const event of showsAfterTwo) {
       expect(event.row).toBe(INPUT_ROW);
     }
-    // Composition column: '> ' (2 cols) + 안녕 (2 wide chars = 4 cols).
+    // Composition column: '> ' (2 cols) + two syllables (2 wide chars = 4 cols).
     expect(showsAfterTwo.at(-1)).toMatchObject({ row: INPUT_ROW, col: 6 });
 
-    stdin.send('하'); // one more wide char → +2 columns
+    stdin.send(korean.greetingThirdSyllable); // one more wide char → +2 columns
     await settle();
 
     const afterThree = interpretVtStream(stdout.stream(), ROWS, COLS);
@@ -189,7 +190,7 @@ describe('CLI-062 — real cursor positioning (interactive ink render)', () => {
     for (const bannerLines of [1, 4]) {
       const { stdout, stdin, unmount } = renderScenario(true, bannerLines);
       await settle();
-      stdin.send('안녕');
+      stdin.send(korean.greetingFirstTwoSyllables);
       await settle();
 
       const vt = interpretVtStream(stdout.stream(), ROWS, COLS);
@@ -234,7 +235,7 @@ describe('CLI-062 — real cursor positioning (interactive ink render)', () => {
       },
     );
     await settle();
-    stdin.send('안');
+    stdin.send(korean.greetingFirstSyllable);
     await settle();
     expect(interpretVtStream(stdout.stream(), ROWS, COLS).showEvents.length).toBeGreaterThan(0);
 

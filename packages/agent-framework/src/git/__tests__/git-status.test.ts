@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { executeGitStatus, formatGitStatus, parseStatusPorcelainV2 } from '../git-status.js';
 
 import { exited, fakeGitPort } from './fake-git-port.js';
+import koreanText from '../../__tests__/__fixtures__/korean-text.json';
 
 const H = '0000000000000000000000000000000000000000';
 const rec = (parts: string[]): string => `${parts.join(' ')}\0`;
@@ -16,7 +17,7 @@ const FIXTURE =
   'old.txt\0' +
   rec(['1', '.M', 'N...', '100644', '100644', '100644', H, H, 'sp ace.txt']) +
   rec(['1', 'A.', 'N...', '000000', '100644', '100644', H, H, 'quo"te.txt']) +
-  rec(['1', 'A.', 'N...', '000000', '100644', '100644', H, H, '한글 파일.txt']) +
+  rec(['1', 'A.', 'N...', '000000', '100644', '100644', H, H, koreanText.gitHangulFileName]) +
   rec(['?', 'untracked.txt']);
 
 describe('parseStatusPorcelainV2', () => {
@@ -29,7 +30,7 @@ describe('parseStatusPorcelainV2', () => {
       'a.txt',
       'new.txt (from old.txt)',
       'quo"te.txt',
-      '한글 파일.txt',
+      koreanText.gitHangulFileName,
     ]);
     expect(summary.unstaged).toEqual(['a.txt', 'sp ace.txt']);
     expect(summary.untracked).toEqual(['untracked.txt']);
@@ -70,7 +71,7 @@ describe('formatGitStatus', () => {
     expect(formatGitStatus(parseStatusPorcelainV2(FIXTURE))).toBe(
       [
         'On branch main',
-        'staged (4): a.txt, new.txt (from old.txt), quo"te.txt, 한글 파일.txt',
+        `staged (4): a.txt, new.txt (from old.txt), quo"te.txt, ${koreanText.gitHangulFileName}`,
         'unstaged (2): a.txt, sp ace.txt',
         'untracked (1): untracked.txt',
       ].join('\n'),

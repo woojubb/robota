@@ -137,9 +137,9 @@ describe('server rendered homepage content', () => {
     const html = renderToStaticMarkup(<HomePageContent locale="ko" />);
     const hero = html.split('</section>')[0];
 
-    expect(html).toContain('에이전트를 사용하고, 같은 기반으로 직접 만드세요.');
-    expect(hero).toContain('SDK 가이드(영문)');
-    expect(hero).toContain('에이전트가 자신의 시스템을 더 안정적으로 발전시킬 수 있는 기반을 만들어갑니다.');
+    expect(html).toContain(homeCopy.ko.title);
+    expect(hero).toContain(homeCopy.ko.sdkAction);
+    expect(hero).toContain(homeCopy.ko.heroVision);
   });
 
   for (const locale of ['en', 'ko'] as const) {
@@ -149,7 +149,7 @@ describe('server rendered homepage content', () => {
 
       expect(cliAside).toBeDefined();
       expect(cliAside).toContain('Reply with one sentence.');
-      expect(cliAside).toContain(locale === 'ko' ? '선택한 모델의 텍스트 응답' : 'a text reply from the selected model');
+      expect(cliAside).toContain(escapeHtml(homeCopy[locale].cliExpectedReply));
     });
   }
 });

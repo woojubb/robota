@@ -4,6 +4,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import koreanText from './__fixtures__/korean-text.json';
 
 import { hostedAdmissionBytes } from '../hosted-runtime-admission.js';
 import { hostedWorkerAccessBytes } from '../hosted-worker-execution-config.js';
@@ -36,7 +37,10 @@ export async function hostedFixture() {
       await modelHandler(request, response);
       return;
     }
-    if (admissionHandler !== undefined) { admissionHandler(request, response); return; }
+    if (admissionHandler !== undefined) {
+      admissionHandler(request, response);
+      return;
+    }
     requests++;
     const role = request.url === '/worker' ? 'worker' : 'broker';
     if (unavailable === role) {
@@ -78,7 +82,7 @@ export async function hostedFixture() {
   const config: IHostedRuntimeConfig = {
     version: 3,
     identity: {
-      tenant: 'tenant-한글',
+      tenant: `tenant-${koreanText.hangulWord}`,
       task: 'task-🚀',
       rootTask: 'root-task',
       actor: 'actor-1',
@@ -105,9 +109,14 @@ export async function hostedFixture() {
       ...access,
       signature: sign(null, hostedWorkerAccessBytes(access), keys.privateKey).toString('base64url'),
     }),
-    signAdmissionBytes: (bytes: Uint8Array): string => sign(null, bytes, keys.privateKey).toString('base64url'),
-    setAdmissionHandler: (next: typeof admissionHandler) => { admissionHandler = next; },
-    setUsage: (next: IHostedRuntimeUsage) => { usage = { ...next }; },
+    signAdmissionBytes: (bytes: Uint8Array): string =>
+      sign(null, bytes, keys.privateKey).toString('base64url'),
+    setAdmissionHandler: (next: typeof admissionHandler) => {
+      admissionHandler = next;
+    },
+    setUsage: (next: IHostedRuntimeUsage) => {
+      usage = { ...next };
+    },
     usage: () => ({ ...usage }),
     setModelHandler: (next: typeof modelHandler) => {
       modelHandler = next;

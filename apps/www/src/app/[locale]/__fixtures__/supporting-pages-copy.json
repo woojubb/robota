@@ -1,0 +1,42 @@
+{
+  "forbidden": {
+    "signupPromise": [
+      "signups open soon",
+      "베타 신청 곧 공개"
+    ],
+    "adoptionAndSupportClaims": [
+      "used by engineering teams",
+      "엔지니어링 팀에서 사용됩니다",
+      "2 business days",
+      "영업일 기준 2일"
+    ],
+    "emailDiscussions": [
+      "email project discussions",
+      "이메일을 보내"
+    ],
+    "brandedTeam": [
+      "Robota team",
+      "Robota 팀"
+    ],
+    "ongoingReviewClaims": [
+      "Reviewed regularly",
+      "정기적으로 검토됩니다",
+      "Active development",
+      "현재 개발 중"
+    ]
+  },
+  "required": {
+    "projectTeam": {
+      "en": "project team",
+      "ko": "프로젝트 팀"
+    },
+    "releaseReadiness": {
+      "en": "Release readiness",
+      "ko": "릴리스 준비"
+    },
+    "earlierBeta": {
+      "en": "earlier beta",
+      "ko": "이전 베타"
+    }
+  }
+}

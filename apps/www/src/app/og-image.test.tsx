@@ -5,6 +5,7 @@ vi.mock('@/lib/product-config.generated', () => ({
 }));
 
 import { getOgCopy } from '@/lib/og-image';
+import koOg from '@/messages/og/ko.json';
 import { GET as englishImage, dynamic as englishMode } from './og-en.png/route';
 import { GET as koreanImage, dynamic as koreanMode } from './og-ko.png/route';
 
@@ -12,9 +13,9 @@ describe('localized exported social images', () => {
   it('uses the selected product identity in both locales', () => {
     expect(getOgCopy('en').brand).toBe('Selected Product');
     expect(getOgCopy('ko').brand).toBe('Selected Product');
-    expect(getOgCopy('ko').heading).toContain('에이전트');
+    expect(getOgCopy('ko').heading).toBe(koOg.heading);
     expect(getOgCopy('en').footer).toContain('Provider charges');
-    expect(getOgCopy('ko').license).toContain('상업용 라이선스');
+    expect(getOgCopy('ko').license).toBe(koOg.license);
   });
 
   it.each([

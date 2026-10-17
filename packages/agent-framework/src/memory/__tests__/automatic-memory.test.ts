@@ -17,6 +17,7 @@ import { MemoryRetrievalService } from '../memory-retrieval-service.js';
 import { ProjectMemoryStore } from '../project-memory-store.js';
 import { createWorkspaceMemoryStore } from '../file-system-memory-store.js';
 import { createTrustedProjectStateFixture } from '../../testing/trusted-project-state-fixture.js';
+import koreanText from '../../__tests__/__fixtures__/korean-text.json';
 
 import type { IMemoryCandidate } from '../automatic-memory-types.js';
 
@@ -289,7 +290,7 @@ describe('NEUT-007 injectable extractor policy', () => {
 
     const koreanDefault = extractor.extract({
       ...baseInput,
-      userMessage: '기억해: 이 프로젝트는 pnpm을 사용한다',
+      userMessage: koreanText.rememberProjectUsesPnpm,
     });
     expect(koreanDefault).toHaveLength(0);
   });

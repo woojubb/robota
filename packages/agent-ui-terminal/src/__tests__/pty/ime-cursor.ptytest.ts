@@ -23,6 +23,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import korean from '../__fixtures__/korean-text.json';
 
 import { spawnTui, writeTuiProviderSettings } from './pty-driver.js';
 import {
@@ -39,8 +40,8 @@ import type { ICursorShowEvent } from '../helpers/vt-cursor-interpreter.js';
 
 const COLS = 80;
 const PROMPT_PLACEHOLDER = /Type a message or \/help/;
-const COMPOSITION = '안녕';
-/** `안녕` occupies 4 display columns; the prompt adds `> `. */
+const COMPOSITION = korean.greetingFirstTwoSyllables;
+/** The composition occupies 4 display columns; the prompt adds `> `. */
 const COMPOSITION_WIDTH = 4;
 /** Let ink's throttled (≤30fps) frame writes flush after the last keystroke. */
 const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 400));
@@ -48,7 +49,7 @@ const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 400));
 interface IProbeResult {
   /** Cursor shows emitted after boot — the composition window the OS IME would act on. */
   compositionShows: ICursorShowEvent[];
-  /** Screen row holding `> 안녕`, or -1 when the composition never rendered. */
+  /** Screen row holding `> ` followed by the composition, or -1 when the composition never rendered. */
   inputRow: number;
   /** Column of the `> ` prompt on the input row, or -1. */
   promptCol: number;

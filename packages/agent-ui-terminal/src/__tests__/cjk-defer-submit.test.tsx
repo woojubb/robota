@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import CjkTextInput from '../CjkTextInput.js';
 import { IME_SUBMIT_DEFER_MS } from '../flows/defer-submit.js';
+import korean from './__fixtures__/korean-text.json';
 
 /**
  * CLI-061 — integration proof that the CjkTextInput defer-submit includes a trailing IME character whose stdin
@@ -29,23 +30,23 @@ function Harness({ onSubmit }: { onSubmit: (value: string) => void }): React.Rea
 }
 
 describe('CLI-061 — CjkTextInput defer-submit (integration)', () => {
-  it('includes a trailing syllable that arrives after Enter (안녕하세 + Enter + 요 → 안녕하세요)', async () => {
+  it('includes a trailing syllable that arrives after Enter (greeting without its last syllable + Enter + last syllable → full greeting)', async () => {
     const onSubmit = vi.fn();
     const { stdin } = render(<Harness onSubmit={onSubmit} />);
     await tick();
 
-    stdin.write('안녕하세'); // composed so far
+    stdin.write(korean.greetingWithoutLastSyllable); // composed so far
     await tick();
     stdin.write('\r'); // Enter — schedules the deferred submit, does NOT submit synchronously
     await tick();
     expect(onSubmit).not.toHaveBeenCalled(); // deferred, not immediate
 
-    stdin.write('요'); // the final syllable's stdin event lands after Enter; the pipeline is still live
+    stdin.write(korean.greetingLastSyllable); // the final syllable's stdin event lands after Enter; the pipeline is still live
     await tick();
 
     await waitDefer(); // the defer window elapses → the deferred submit fires, re-reading the LATEST value
     expect(onSubmit).toHaveBeenCalledTimes(1);
-    expect(onSubmit).toHaveBeenCalledWith('안녕하세요');
+    expect(onSubmit).toHaveBeenCalledWith(korean.greeting);
   }, 10_000);
 
   it('a second Enter within the window does not double-submit', async () => {

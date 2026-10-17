@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { hashToolSchema } from './project-tool-schema';
 import { sha256Hex } from './sha256';
+import koreanText from '../utils/__fixtures__/korean-text.json';
 
 describe('browser-safe SHA-256', () => {
   it('matches the known abc vector', () => {
@@ -15,7 +16,7 @@ describe('browser-safe SHA-256', () => {
   const inputs = [
     '',
     'abc',
-    '안녕하세요 🌍',
+    koreanText.greetingWithGlobeEmoji,
     ...[55, 56, 63, 64, 65, 119, 120, 128, 1024].map((length) => 'a'.repeat(length)),
   ];
   it.each(inputs.map((input) => ({ input, byteLength: new TextEncoder().encode(input).length })))(

@@ -4,6 +4,7 @@ import {
   createBackgroundTaskLogPage,
   createLimitedOutputCapture,
 } from '../log-pages.js';
+import koreanText from './__fixtures__/korean-text.json';
 
 describe('background task log helpers', () => {
   it('captures output until the byte limit and appends a truncation marker once', () => {
@@ -19,9 +20,9 @@ describe('background task log helpers', () => {
   it('does not split a multibyte character while applying a byte limit', () => {
     const capture = createLimitedOutputCapture({ limitBytes: 4 });
 
-    capture.appendOutput('가a');
+    capture.appendOutput(koreanText.hangulSyllableThenLatinA);
 
-    expect(capture.getOutput()).toBe('가a');
+    expect(capture.getOutput()).toBe(koreanText.hangulSyllableThenLatinA);
   });
 
   it('prefixes non-empty stdout and stderr lines', () => {

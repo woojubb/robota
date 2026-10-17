@@ -6,6 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import korean from './__fixtures__/korean-text.json';
 import {
   filterPrintable,
   insertAtCursor,
@@ -31,7 +32,7 @@ describe('filterPrintable', () => {
   });
 
   it('passes through Korean characters', () => {
-    expect(filterPrintable('안녕하세요')).toBe('안녕하세요');
+    expect(filterPrintable(korean.greeting)).toBe(korean.greeting);
   });
 
   it('passes through emoji', () => {
@@ -99,8 +100,12 @@ describe('insertAtCursor', () => {
   });
 
   it('handles Korean character insertion', () => {
-    const result = insertAtCursor('안세요', 1, '녕하');
-    expect(result.value).toBe('안녕하세요');
+    const result = insertAtCursor(
+      korean.greetingWithoutMiddle,
+      1,
+      korean.greetingMiddleTwoSyllables,
+    );
+    expect(result.value).toBe(korean.greeting);
     expect(result.cursor).toBe(3);
   });
 
@@ -126,24 +131,24 @@ describe('displayOffset', () => {
   });
 
   it('cursor before CJK char is at end of previous content', () => {
-    // "abcd한" width 5: cursor before "한" is at col 4 on line 0
-    // gap happens when "한" renders, not at cursor position
-    expect(displayOffset([...'abcd한'], 4, 5)).toBe(4);
-    // cursor after "한": 4(gap included) + 2 = 7 → but via offset: gap is at render
-    expect(displayOffset([...'abcd한'], 5, 5)).toBe(7);
+    // "abcd" + one wide syllable, width 5: cursor before the syllable is at col 4 on line 0
+    // gap happens when the syllable renders, not at cursor position
+    expect(displayOffset([...`abcd${korean.hanSyllable}`], 4, 5)).toBe(4);
+    // cursor after the syllable: 4(gap included) + 2 = 7 → but via offset: gap is at render
+    expect(displayOffset([...`abcd${korean.hanSyllable}`], 5, 5)).toBe(7);
   });
 
   it('handles pure CJK', () => {
-    // "한글" width 5: "한"=2, "글"=2 → total 4, fits on one line
-    expect(displayOffset([...'한글'], 2, 5)).toBe(4);
+    // two wide syllables, width 5: 2 + 2 → total 4, fits on one line
+    expect(displayOffset([...korean.hangulWord], 2, 5)).toBe(4);
   });
 
   it('handles CJK wrapping', () => {
-    // "한글테" width 5: cursor before "테" is after "글" (offset 4)
-    // "테" doesn't fit at col 4, but cursor is BEFORE the wrap
-    expect(displayOffset([...'한글테'], 2, 5)).toBe(4);
-    // cursor after "테": gap(1) + 2 = offset 7
-    expect(displayOffset([...'한글테'], 3, 5)).toBe(7);
+    // three wide syllables, width 5: cursor before the third is after the second (offset 4)
+    // the third syllable doesn't fit at col 4, but cursor is BEFORE the wrap
+    expect(displayOffset([...korean.hangulWordPlusTe], 2, 5)).toBe(4);
+    // cursor after the third syllable: gap(1) + 2 = offset 7
+    expect(displayOffset([...korean.hangulWordPlusTe], 3, 5)).toBe(7);
   });
 });
 
@@ -171,7 +176,7 @@ describe('charIndexAtDisplayOffset', () => {
   });
 
   it('round-trips with displayOffset for CJK', () => {
-    const text = '한글테스트';
+    const text = korean.hangulWordPlusTest;
     const chars = [...text];
     const width = 5;
     for (let i = 0; i <= chars.length; i++) {

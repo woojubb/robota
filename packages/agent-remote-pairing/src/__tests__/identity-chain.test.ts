@@ -35,6 +35,7 @@ import {
   verifySessionDescriptor,
   type IVerifyDeviceChainInput,
 } from '../identity/verify-chain.js';
+import koreanText from './__fixtures__/korean-text.json';
 
 const NOW = 1_800_000_000_000;
 const PHRASE =
@@ -70,7 +71,7 @@ async function buildWorld(master: IMasterKey, alg: 'Ed25519' | 'ES256'): Promise
     signPublicKey: deviceSign.publicKey,
     kaPublicKey: deviceKa.publicKey,
     kaEpoch: 3,
-    name: 'Laptop — 서재',
+    name: koreanText.deviceNameLaptopStudy,
     capabilities: ['message', 'presence', 'handoff'],
     issuedAt: NOW,
   });
@@ -671,7 +672,7 @@ describe('tampering any signed field is refused', () => {
         kaAlg: () => 'X448',
         kaKey: () => otherWorld.deviceCert.kaKey,
         kaEpoch: NUMBER_MUTATION,
-        name: () => 'Laptop — 서재 2',
+        name: () => koreanText.deviceNameLaptopStudyRenamed,
         capabilities: () => ['drive', 'handoff', 'message', 'presence'],
         issuedAt: NUMBER_MUTATION,
         expiresAt: NUMBER_MUTATION,

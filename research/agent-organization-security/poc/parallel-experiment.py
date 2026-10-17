@@ -201,7 +201,7 @@ with tempfile.TemporaryDirectory(prefix='issue-2-control-', dir=directory) as te
         nonce = uuid.uuid4().hex
         results = job('actor-a', [{'operation': op, 'approval': approval, 'nonce': nonce}] * 2)
         record('signed-request-replay', 'first receipt 200, replay nonce 409', [r['status'] for r in results], [r['status'] for r in results] == [200, 409])
-        state = {'key': 'state', 'action': 'state', 'resource': 'synthetic-asset', 'task': 'task-shared', 'revision': 0, 'fence': 1, 'value': '한글·emoji😀·control\n' + secret_canary}
+        state = {'key': 'state', 'action': 'state', 'resource': 'synthetic-asset', 'task': 'task-shared', 'revision': 0, 'fence': 1, 'value': '\uD55C\uAE00·emoji😀·control\n' + secret_canary}
         with ThreadPoolExecutor(2) as pool:
             results = list(pool.map(lambda actor: job(actor, [{'operation': state}])[0], ports))
         record('parallel-shared-state-cas', 'one revision accepted, one stale writer rejected', sorted(r['status'] for r in results), sorted(r['status'] for r in results) == [200, 409])

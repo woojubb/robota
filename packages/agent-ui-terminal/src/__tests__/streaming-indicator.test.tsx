@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { render } from 'ink-testing-library';
 import StreamingIndicator from '../StreamingIndicator.js';
 import { ScreenReaderProvider } from '../screen-reader-context.js';
+import korean from './__fixtures__/korean-text.json';
 
 describe('StreamingIndicator', () => {
   it('renders empty when no tools and no text', () => {
@@ -52,7 +53,7 @@ describe('StreamingIndicator', () => {
   });
 
   it('preserves CJK and emoji text in streaming output', () => {
-    const text = '긴 한국어 응답과 emoji 🎉 를 스트리밍합니다';
+    const text = korean.longResponseStreaming;
     const { lastFrame } = render(<StreamingIndicator text={text} activeTools={[]} />);
 
     expect(lastFrame()).toContain(text);

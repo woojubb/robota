@@ -8,8 +8,11 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
 
 ## Workflow
 
-- Write repository documentation, code comments, commit messages, and GitHub issues, PRs, reviews and comments
-  in English. Use the user's language only for direct conversation; it does not determine artifact language.
+- The repository is global: write everything in it (code, comments, tests, scripts, documentation, commit
+  messages) and GitHub issues, PRs, reviews and comments in English. Korean appears only in localization data
+  (message catalogs, locale data, localized documents, test data under `__fixtures__/`), as listed in
+  `scripts/harness/check-repository-language.mjs`; `pnpm lint` fails otherwise. Use the user's language only
+  for direct conversation; it does not determine artifact language.
 - Start from a GitHub issue and freshly fetched `origin/develop`; one issue per PR. Before coding, record and review a proportionate plan in the issue/PR covering the full requested problem/outcome/scope, current evidence, acceptance, design/rationale, foreseeable risks, verification, sequence/owners, compatibility/delivery, and assumptions/review/entry decisions.
   Small changes may be concise; explain non-applicable dimensions. An authorized **UNRESOLVED — PROVISIONAL CHOICE** may proceed with the selected choice, rationale, affected scope, risk/reversibility, owner and revisit evidence/trigger; only concrete missing authority, prerequisites or contract conflicts block dependent steps. Consult [HARNESS.md](HARNESS.md) for harness changes.
 - Before filing an issue, search the open ones. A finding inside an open issue's scope is added there; related
