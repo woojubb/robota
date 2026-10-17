@@ -192,6 +192,27 @@ it('invalidates the old manifest when a refresh returns an invalid replacement',
   expect(methods.filter((method) => method === 'resources/read')).toHaveLength(0);
 });
 
+it('refuses skills results that omit resultType instead of treating them as complete', async () => {
+  let omitted: string | undefined;
+  const client = await fixture(true, (method, result) => {
+    if (method !== omitted) return result;
+    const { resultType: _resultType, ...rest } = result;
+    return rest;
+  });
+  omitted = 'skills/get';
+  await expect(client.skills!.get(uri)).rejects.toMatchObject({ reason: 'invalid-manifest' });
+  omitted = undefined;
+  const skill = await client.skills!.get(uri);
+  omitted = 'resources/read';
+  await expect(client.skills!.read(skill, uri)).rejects.toMatchObject({
+    reason: 'invalid-resource',
+  });
+  await expect(client.skills!.read(skill, uri)).rejects.toMatchObject({
+    reason: 'changed-manifest',
+  });
+  expect(methods.filter((method) => method === 'resources/read')).toHaveLength(1);
+});
+
 it('keeps metadata responses under the ordinary receive limit even when Skills is enabled', async () => {
   const client = await fixture(true, (method, result) =>
     method === 'skills/get' ? { ...result, unrelated: 'x'.repeat(9 * 1024 * 1024) } : result,

@@ -103,7 +103,7 @@ export {
   type IMCPActivationSummary,
 } from './mcp-activation-controller.js';
 
-// MCP-002/MCP-2522: the official-SDK client behind one admit-then-construct transport seam.
+// MCP-002/MCP-2522: one official-SDK client for both protocol eras behind one admit-then-construct transport seam.
 export {
   admitHttpEndpoint,
   constructStreamableHttpTransport,

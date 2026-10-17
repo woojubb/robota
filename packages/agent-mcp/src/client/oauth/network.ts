@@ -12,7 +12,7 @@ import { fetchWithEgressPolicy, postWithEgressPolicy } from '@robota-sdk/agent-c
 
 import { MCPOAuthError } from './errors.js';
 
-import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
+import type { FetchLike } from '@modelcontextprotocol/client';
 import type { IEgressPolicy, TEgressFetchResult, TEgressLookup } from '@robota-sdk/agent-core/node';
 
 /** Where OAuth requests may go, and the seams tests use instead of the network. */

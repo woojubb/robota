@@ -11,7 +11,7 @@
  * are refusals surfaced in the catalog, not adapters.
  */
 
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { rejectDestination } from '@robota-sdk/agent-core/node';
 
 import { MCPAuthenticationError, type IMCPBoundAuthenticator } from './authentication.js';
@@ -32,11 +32,7 @@ import {
   toolsCallRequestId,
 } from './trace-propagation.js';
 
-import type {
-  Transport,
-  TransportSendOptions,
-} from '@modelcontextprotocol/sdk/shared/transport.js';
-import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
+import type { JSONRPCMessage, Transport, TransportSendOptions } from '@modelcontextprotocol/client';
 import type { IEgressPolicy, TEgressLookup } from '@robota-sdk/agent-core/node';
 
 export type TMCPTransportKind = 'streamable-http' | 'stdio';

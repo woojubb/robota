@@ -10,7 +10,7 @@
  * them (TC-09, TC-10, TC-13 … TC-17, TC-22).
  */
 
-import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
+import { SdkHttpError, UnauthorizedError } from '@modelcontextprotocol/client';
 
 import { catalogIdentityOf, sameCatalogIdentity } from '../catalog/types.js';
 import { MCPAuthenticationError } from '../client/authentication.js';
@@ -162,8 +162,9 @@ function extractErrorMessage(error: unknown): string {
   return String(error);
 }
 
-/** HTTP status, whether reported as `.status`, `.statusCode`, or the SDK's `StreamableHTTPError.code`. */
+/** HTTP status, whether reported as `.status` (the SDK's `SdkHttpError` included) or `.statusCode`. */
 function extractHttpStatus(error: unknown): number | undefined {
+  if (error instanceof SdkHttpError) return error.status;
   const status = readUnknownProperty(error, 'status');
   if (typeof status === 'number') {
     return status;

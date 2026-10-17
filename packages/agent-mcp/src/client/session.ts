@@ -10,20 +10,14 @@
  * completed against them (TC-01, TC-19 per-request timeout, TC-17 close).
  */
 
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import {
-  ErrorCode,
-  McpError,
-  PromptListChangedNotificationSchema,
-  ResourceListChangedNotificationSchema,
-  ToolListChangedNotificationSchema,
-} from '@modelcontextprotocol/sdk/types.js';
-
 import { openStatelessSession } from './stateless-session.js';
 import {
   buildDeclaredCapabilities,
+  createMcpClient,
   DEFAULT_CLIENT_INFO,
+  isRequestTimeout,
   MCPSessionError,
+  STATELESS_PROTOCOL_VERSION,
   toToolCallResult,
 } from './session-protocol.js';
 export { MCPSessionError } from './session-protocol.js';
@@ -37,8 +31,7 @@ import { MCPDiscoveryError } from '../catalog/types.js';
 
 import type { IMCPDiscovery, IMCPServerIdentity } from '../catalog/types.js';
 import type { TToolParameters } from '@robota-sdk/agent-core';
-import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
-import type { Implementation } from '@modelcontextprotocol/sdk/types.js';
+import type { Client, Implementation, Transport } from '@modelcontextprotocol/client';
 import type {
   IMCPDiscoverOptions,
   IMCPOpenSessionOptions,
@@ -65,12 +58,6 @@ export const SUPPORTED_MCP_PROTOCOL_VERSIONS: ReadonlySet<string> = new Set([
   '2025-11-25',
 ]);
 
-/** Feature-detects the negotiated protocol version the SDK stamped onto the transport at connect(). */
-function readNegotiatedProtocolVersion(transport: Transport): string | undefined {
-  const candidate = transport as Transport & { readonly protocolVersion?: unknown };
-  return typeof candidate.protocolVersion === 'string' ? candidate.protocolVersion : undefined;
-}
-
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -87,13 +74,10 @@ function startupBudget(options: IMCPOpenSessionOptions): number {
   return options.timeouts.startupMs;
 }
 
-function isRequestTimeout(error: unknown): boolean {
-  return error instanceof McpError && error.code === ErrorCode.RequestTimeout;
-}
-
-function isStartupTimeout(error: unknown): boolean {
+/** The SDK reports an aborted request as a timeout too; an abort the caller asked for is not one. */
+function isStartupTimeout(error: unknown, signal: AbortSignal | undefined): boolean {
   return (
-    isRequestTimeout(error) ||
+    (isRequestTimeout(error) && signal?.aborted !== true) ||
     (error instanceof MCPSessionError && error.kind === 'startup-timeout')
   );
 }
@@ -134,11 +118,10 @@ async function connectClient(client: Client, options: IMCPOpenSessionOptions): P
         throw new MCPStdioError('cleanup');
       }
       if (error instanceof MCPStdioError && error.reason === 'authority') throw error;
+      const timedOut = isStartupTimeout(error, options.signal);
       throw new MCPSessionError(
-        isStartupTimeout(error) ? 'startup-timeout' : 'initialize-failed',
-        isStartupTimeout(error)
-          ? 'Stdio session startup timed out'
-          : 'Stdio session startup failed',
+        timedOut ? 'startup-timeout' : 'initialize-failed',
+        timedOut ? 'Stdio session startup timed out' : 'Stdio session startup failed',
       );
     }
     await client.close();
@@ -146,7 +129,7 @@ async function connectClient(client: Client, options: IMCPOpenSessionOptions): P
     // what the server will refuse again.
     if (error instanceof MCPAuthenticationError) throw error;
     if (error instanceof MCPTransportEgressRefusedError) throw error;
-    if (isRequestTimeout(error)) {
+    if (isStartupTimeout(error, options.signal)) {
       throw new MCPSessionError(
         'startup-timeout',
         `MCP session startup exceeded ${options.timeouts.startupMs}ms`,
@@ -164,7 +147,7 @@ async function connectClient(client: Client, options: IMCPOpenSessionOptions): P
 
 /** Verifies the negotiated protocol version is supported; closes and throws otherwise. */
 async function requireNegotiatedVersion(client: Client, transport: Transport): Promise<string> {
-  const negotiatedVersion = readNegotiatedProtocolVersion(transport);
+  const negotiatedVersion = client.getNegotiatedProtocolVersion();
   if (negotiatedVersion === undefined || !SUPPORTED_MCP_PROTOCOL_VERSIONS.has(negotiatedVersion)) {
     await client.close();
     throw new MCPSessionError(
@@ -195,13 +178,13 @@ function registerListChangedHandlers(
   client: Client,
   listeners: ReadonlySet<TMCPListChangedListener>,
 ): void {
-  client.setNotificationHandler(ToolListChangedNotificationSchema, () => {
+  client.setNotificationHandler('notifications/tools/list_changed', () => {
     listeners.forEach((listener) => listener('tools'));
   });
-  client.setNotificationHandler(PromptListChangedNotificationSchema, () => {
+  client.setNotificationHandler('notifications/prompts/list_changed', () => {
     listeners.forEach((listener) => listener('prompts'));
   });
-  client.setNotificationHandler(ResourceListChangedNotificationSchema, () => {
+  client.setNotificationHandler('notifications/resources/list_changed', () => {
     listeners.forEach((listener) => listener('resources'));
   });
 }
@@ -209,21 +192,22 @@ function registerListChangedHandlers(
 /**
  * Connect the SDK `Client`, run `initialize` + `notifications/initialized` within `startupMs`, verify
  * the negotiated protocol version is supported (else close and throw `unsupported-protocol-version`),
- * and return the session. Implemented in this file against the interfaces above.
+ * and return the session. The explicitly selected modern revision is served by the same client,
+ * pinned (`./stateless-session.ts`). Implemented in this file against the interfaces above.
  */
 export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<IMCPSession> {
-  if (options.skills && options.protocolVersion !== '2026-07-28')
+  if (options.skills && options.protocolVersion !== STATELESS_PROTOCOL_VERSION)
     throw new MCPSessionError(
       'unsupported-protocol-version',
       'Skills require explicit stateless protocol selection',
     );
-  if (options.protocolVersion === '2026-07-28') return openStatelessSession(options);
+  if (options.protocolVersion === STATELESS_PROTOCOL_VERSION) return openStatelessSession(options);
   if (options.protocolVersion !== undefined)
     throw new MCPSessionError(
       'unsupported-protocol-version',
       'Unsupported explicitly selected MCP protocol version',
     );
-  const client = new Client(options.clientInfo ?? DEFAULT_CLIENT_INFO, { capabilities: {} });
+  const client = createMcpClient(options.clientInfo ?? DEFAULT_CLIENT_INFO);
 
   await connectClient(client, options);
 
@@ -293,10 +277,10 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
       callOptions?: IMCPToolCallOptions,
     ): Promise<IMCPToolCallResult> {
       const call = () =>
-        client.callTool({ name, arguments: args }, undefined, {
-          timeout: callOptions?.timeoutMs,
-          signal: callOptions?.signal,
-        });
+        client.callTool(
+          { name, arguments: args },
+          { timeout: callOptions?.timeoutMs, signal: callOptions?.signal },
+        );
       const outboundTraceContext = callOptions?.outboundTraceContext;
       const traceScope =
         callTraces !== undefined

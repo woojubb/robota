@@ -3,7 +3,7 @@
  * distinctly, and only the transient class is retried; the other three are refused on first response
  * rather than retried blindly (MCP-003).
  */
-import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
+import { SdkErrorCode, SdkHttpError, UnauthorizedError } from '@modelcontextprotocol/client';
 import { describe, expect, it } from 'vitest';
 import { MCPStdioError } from '../client/stdio-transport.js';
 import { MCPTransportEgressRefusedError } from '../client/pinned-http-fetch.js';
@@ -21,6 +21,16 @@ describe('classifyMcpFailure — pure classification (TC-13)', () => {
     expect(
       classifyMcpFailure(Object.assign(new Error('Internal Server Error'), { status: 503 })),
     ).toBe('transient');
+  });
+
+  it('reads the HTTP status an SdkHttpError carries, not its message', () => {
+    const http = (status: number) =>
+      new SdkHttpError(SdkErrorCode.ClientHttpNotImplemented, 'Error POSTing to endpoint', {
+        status,
+      });
+    expect(classifyMcpFailure(http(403))).toBe('auth');
+    expect(classifyMcpFailure(http(404))).toBe('not-found');
+    expect(classifyMcpFailure(http(503))).toBe('transient');
   });
 
   it('classifies an UnauthorizedError / 401 / 403 shape as auth', () => {

@@ -1,113 +1,80 @@
 import { randomUUID } from 'node:crypto';
-import { Protocol } from '@modelcontextprotocol/sdk/shared/protocol.js';
 import {
-  ErrorCode,
-  ListPromptsResultSchema,
-  ListResourcesResultSchema,
-  McpError,
-  ResultSchema,
-  ServerCapabilitiesSchema,
-} from '@modelcontextprotocol/sdk/types.js';
+  SERVER_INFO_META_KEY,
+  SdkError,
+  SdkErrorCode,
+  SdkHttpError,
+  UnsupportedProtocolVersionError,
+} from '@modelcontextprotocol/client';
 
+import { MCPSkillError } from '../skills/manifest.js';
 import { createSkillsSession, hasSkillsCapability } from '../skills/session.js';
 import { enableSkillReceiveBudget } from './receive-budget.js';
 import { discoverAll } from './discovery.js';
 import {
   MCPStatelessProtocolError,
+  OBJECT_RESULT_SCHEMA,
   statelessCacheHint,
-  StatelessToolResultSchema,
-  StatelessToolsListSchema,
 } from './stateless-result.js';
 import {
   buildDeclaredCapabilities,
+  createMcpClient,
   DEFAULT_CLIENT_INFO,
+  isRequestTimeout,
   MCPSessionError,
+  STATELESS_PROTOCOL_VERSION,
   toToolCallResult,
 } from './session-protocol.js';
 import { MCPStdioError } from './stdio-transport.js';
 import { callTraceRegistryOf, runInCallTraceScope } from './trace-propagation.js';
 
-import type { Request, Notification, Result } from '@modelcontextprotocol/sdk/types.js';
-import type { RequestOptions } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import type { Client, Result, Transport } from '@modelcontextprotocol/client';
+import type { IMCPSkillRequestOptions } from '../skills/types.js';
 import type { IMCPOpenSessionOptions, IMCPSession } from './session-types.js';
 
-/** Framing only: v1 SDK Client.initialize is incompatible with the pinned stateless protocol. */
-class StatelessFraming extends Protocol<Request, Notification, Result> {
-  constructor(private readonly skillsEnabled: boolean) {
-    super();
-    this.removeRequestHandler('ping');
-  }
-  protected override assertCapabilityForMethod(method: string): void {
-    if (this.skillsEnabled && ['skills/list', 'skills/get', 'resources/read'].includes(method))
-      return;
-    if (
-      !['server/discover', 'tools/list', 'prompts/list', 'resources/list', 'tools/call'].includes(
-        method,
-      )
-    )
-      throw new Error('Unsupported stateless MCP method');
-  }
-  protected override assertNotificationCapability(method: string): void {
-    if (method !== 'notifications/cancelled')
-      throw new Error('Unsupported stateless MCP notification');
-  }
-  protected override assertRequestHandlerCapability(method: string): void {
-    // The SDK installs this legacy handler during super(); it is removed immediately above.
-    if (method !== 'ping') throw new Error('Server-initiated requests are unavailable');
-  }
-  protected override assertTaskCapability(): void {
-    throw new Error('Tasks extension is unavailable');
-  }
-  protected override assertTaskHandlerCapability(): void {
-    throw new Error('Tasks extension is unavailable');
-  }
+/** The SDK attaches the carrier only once its connect-time exchange begins; one it never reached is closed here. */
+async function closeCarrier(client: Client, transport: Transport): Promise<void> {
+  const attached = client.transport !== undefined;
+  await client.close();
+  if (!attached) await transport.close();
 }
 
-function requireComplete(result: Result): void {
-  // The base specification requires treating an absent resultType as complete for old peers.
-  if (result.resultType !== undefined && result.resultType !== 'complete')
-    throw new MCPStatelessProtocolError(
-      result.resultType === 'input_required' ? 'input_required' : 'unknown-result',
-    );
+/** The server answered, but not with the explicitly selected revision; transport failures keep their own class. */
+function isUnofferedRevision(error: unknown): boolean {
+  if (error instanceof UnsupportedProtocolVersionError) return true;
+  return (
+    error instanceof SdkError &&
+    !(error instanceof SdkHttpError) &&
+    error.code === SdkErrorCode.EraNegotiationFailed &&
+    error.data === undefined
+  );
+}
+
+/** A completion discriminator other than `complete`: the result is not one this surface can act on. */
+function unsupportedResult(error: unknown): MCPStatelessProtocolError | undefined {
+  if (!(error instanceof SdkError) || error.code !== SdkErrorCode.UnsupportedResultType)
+    return undefined;
+  const resultType = (error.data as { readonly resultType?: unknown } | undefined)?.resultType;
+  return new MCPStatelessProtocolError(
+    resultType === 'input_required' ? 'input_required' : 'unknown-result',
+  );
+}
+
+function isInvalidResult(error: unknown): boolean {
+  return error instanceof SdkError && error.code === SdkErrorCode.InvalidResult;
 }
 
 /** The caller already admitted the carrier; no new authority or automatic legacy fallback occurs. */
 export async function openStatelessSession(options: IMCPOpenSessionOptions): Promise<IMCPSession> {
-  const framing = new StatelessFraming(options.skills === true);
   const transport = options.transport;
   if (options.skills === true) enableSkillReceiveBudget(transport);
   const sensitive = 'sensitiveDiagnostics' in transport && transport.sensitiveDiagnostics === true;
-  const clientInfo = { ...(options.clientInfo ?? DEFAULT_CLIENT_INFO) };
-  transport.setProtocolVersion?.('2026-07-28');
+  const client = createMcpClient(
+    options.clientInfo ?? DEFAULT_CLIENT_INFO,
+    STATELESS_PROTOCOL_VERSION,
+  );
   let closePromise: Promise<void> | undefined;
-  const close = (): Promise<void> => (closePromise ??= framing.close());
-  const request = async (
-    method: string,
-    params: Record<string, unknown>,
-    requestOptions?: RequestOptions,
-    cacheable = false,
-  ): Promise<Result> => {
-    if (closePromise) throw new Error('Stateless MCP carrier is closed');
-    const result = await framing.request(
-      {
-        method,
-        params: {
-          ...params,
-          _meta: {
-            'io.modelcontextprotocol/protocolVersion': '2026-07-28',
-            'io.modelcontextprotocol/clientCapabilities': {},
-            'io.modelcontextprotocol/clientInfo': clientInfo,
-          },
-        },
-      },
-      ResultSchema,
-      requestOptions,
-    );
-    requireComplete(result);
-    if (cacheable) statelessCacheHint(result);
-    return result;
-  };
-  let discovery: Result;
+  const close = (): Promise<void> => (closePromise ??= closeCarrier(client, transport));
   let startupTimer: ReturnType<typeof setTimeout> | undefined;
   let abortStartup: (() => void) | undefined;
   try {
@@ -125,85 +92,86 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
         reject(new MCPSessionError('initialize-failed', 'Stateless MCP startup cancelled'));
       options.signal?.addEventListener('abort', abortStartup, { once: true });
     });
-    discovery = await Promise.race([
-      framing
-        .connect(transport)
-        .then(() =>
-          request('server/discover', {}, { timeout: budget, signal: options.signal }, true),
-        ),
+    await Promise.race([
+      client.connect(transport, { timeout: budget, signal: options.signal }),
       deadline,
     ]);
-    if (
-      !Array.isArray(discovery.supportedVersions) ||
-      !discovery.supportedVersions.every((value) => typeof value === 'string') ||
-      !discovery.supportedVersions.includes('2026-07-28')
-    )
+    if (client.getNegotiatedProtocolVersion() !== STATELESS_PROTOCOL_VERSION)
       throw new MCPSessionError(
         'unsupported-protocol-version',
         'Server does not support the explicitly selected stateless MCP version',
       );
   } catch (error) {
     await close();
+    const failure = isUnofferedRevision(error)
+      ? new MCPSessionError(
+          'unsupported-protocol-version',
+          'Server does not support the explicitly selected stateless MCP version',
+        )
+      : error;
+    // The SDK reports an aborted request as a timeout too; an abort the caller asked for is not one.
+    const timedOut =
+      (isRequestTimeout(failure) && options.signal?.aborted !== true) ||
+      (failure instanceof MCPSessionError && failure.kind === 'startup-timeout');
     if (sensitive) {
-      if (error instanceof MCPStdioError && error.reason === 'authority') throw error;
-      if (error instanceof MCPSessionError && error.kind === 'unsupported-protocol-version')
-        throw error;
+      if (failure instanceof MCPStdioError && failure.reason === 'authority') throw failure;
+      if (failure instanceof MCPSessionError && failure.kind === 'unsupported-protocol-version')
+        throw failure;
       throw new MCPSessionError(
-        (error instanceof McpError && error.code === ErrorCode.RequestTimeout) ||
-          (error instanceof MCPSessionError && error.kind === 'startup-timeout')
-          ? 'startup-timeout'
-          : 'initialize-failed',
+        timedOut ? 'startup-timeout' : 'initialize-failed',
         'Stdio stateless MCP startup failed',
       );
     }
-    throw error;
+    if (timedOut && !(failure instanceof MCPSessionError))
+      throw new MCPSessionError('startup-timeout', 'Stateless MCP startup timed out');
+    throw failure;
   } finally {
     if (startupTimer !== undefined) clearTimeout(startupTimer);
     if (abortStartup) options.signal?.removeEventListener('abort', abortStartup);
   }
   try {
-    const meta = discovery._meta;
-    const serverInfo = meta?.['io.modelcontextprotocol/serverInfo'];
-    if (
-      serverInfo !== undefined &&
-      (typeof serverInfo !== 'object' ||
-        serverInfo === null ||
-        !('name' in serverInfo) ||
-        !('version' in serverInfo) ||
-        typeof serverInfo.name !== 'string' ||
-        typeof serverInfo.version !== 'string')
-    )
+    const discovery = client.getDiscoverResult();
+    if (discovery === undefined) throw new Error('Stateless MCP discovery was not retained');
+    const serverInfo = client.getServerVersion();
+    // The SDK reads an identity it cannot validate as an absent one; a present malformed identity stays a refusal.
+    if (discovery._meta?.[SERVER_INFO_META_KEY] !== undefined && serverInfo === undefined)
       throw new Error('Stateless MCP discovery has no valid server metadata');
-    const capabilities = ServerCapabilitiesSchema.parse(discovery.capabilities);
+    const capabilities = client.getServerCapabilities() ?? {};
     const declaredCapabilities = buildDeclaredCapabilities(capabilities);
     const identity = {
       serverId: options.serverId,
-      serverName: serverInfo === undefined ? options.serverId : (serverInfo.name as string),
-      serverVersion: serverInfo === undefined ? '' : (serverInfo.version as string),
-      protocolVersion: '2026-07-28',
+      serverName: serverInfo === undefined ? options.serverId : serverInfo.name,
+      serverVersion: serverInfo === undefined ? '' : serverInfo.version,
+      protocolVersion: STATELESS_PROTOCOL_VERSION,
       catalogGeneration: randomUUID(),
       ...(serverInfo === undefined ? { serverInfoProvided: false as const } : {}),
     };
-    const instructions =
-      typeof discovery.instructions === 'string' ? discovery.instructions : undefined;
+    const instructions = client.getInstructions();
     const callTraces = callTraceRegistryOf(transport);
-    const invoke = async (
-      method: string,
-      params: Record<string, unknown>,
-      callOptions?: RequestOptions,
-      cacheable = false,
-    ) => {
+    /**
+     * Every request after discovery passes here. A result the surface cannot act on, a deadline or an
+     * abort leaves effects uncertain: the carrier closes, and nothing is ever replayed on a new one.
+     */
+    const invoke = async <TResult>(
+      call: () => Promise<TResult>,
+      signal: AbortSignal | undefined,
+      invalid?: () => Error,
+    ): Promise<TResult> => {
       try {
-        return await request(method, params, callOptions, cacheable);
+        if (closePromise) throw new Error('Stateless MCP carrier is closed');
+        return await call();
       } catch (error) {
-        if (error instanceof MCPStatelessProtocolError) {
+        const unsupported = unsupportedResult(error);
+        if (unsupported !== undefined) {
           await close();
-          throw error;
+          throw unsupported;
         }
-        if (
-          callOptions?.signal?.aborted ||
-          (error instanceof McpError && error.code === ErrorCode.RequestTimeout)
-        ) {
+        if (invalid !== undefined && isInvalidResult(error)) {
+          const refusal = invalid();
+          if (refusal instanceof MCPStatelessProtocolError) await close();
+          throw refusal;
+        }
+        if (signal?.aborted || isRequestTimeout(error)) {
           // Stop a carrier with uncertain in-flight effects; do not reconnect or replay the call.
           await close();
           if (sensitive) throw new MCPStdioError('cancelled');
@@ -212,16 +180,38 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
         throw error;
       }
     };
+    const skillRequest = (
+      method: string,
+      params: Record<string, unknown>,
+      skillOptions?: IMCPSkillRequestOptions,
+    ): Promise<Result> => {
+      const requestOptions = {
+        signal: skillOptions?.signal,
+        timeout: skillOptions?.timeoutMs ?? options.timeouts.perCallMs,
+      };
+      return invoke(
+        async () => {
+          // A verified file is never served from the SDK's response cache.
+          const result =
+            method === 'resources/read'
+              ? await client.readResource(
+                  { uri: String(params['uri']) },
+                  { ...requestOptions, cacheMode: 'bypass' },
+                )
+              : await client.request({ method, params }, OBJECT_RESULT_SCHEMA, requestOptions);
+          // The SDK resolves only complete results and has consumed the discriminator.
+          return { ...result, resultType: 'complete' };
+        },
+        skillOptions?.signal,
+        () =>
+          new MCPSkillError(method === 'resources/read' ? 'invalid-resource' : 'invalid-manifest'),
+      );
+    };
     const skills =
       options.skills &&
       declaredCapabilities.resources &&
       hasSkillsCapability(capabilities.extensions)
-        ? createSkillsSession(identity, (method, params, opts) =>
-            invoke(method, params, {
-              signal: opts?.signal,
-              timeout: opts?.timeoutMs ?? options.timeouts.perCallMs,
-            }),
-          )
+        ? createSkillsSession(identity, skillRequest)
         : undefined;
     return {
       ...(skills === undefined ? {} : { skills }),
@@ -260,18 +250,8 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
         try {
           return await discoverAll(
             {
-              listTools: async (params, opts) =>
-                StatelessToolsListSchema.parse(
-                  await invoke('tools/list', params ?? {}, opts, true),
-                ),
-              listPrompts: async (params, opts) =>
-                ListPromptsResultSchema.parse(
-                  await invoke('prompts/list', params ?? {}, opts, true),
-                ),
-              listResources: async (params, opts) =>
-                ListResourcesResultSchema.parse(
-                  await invoke('resources/list', params ?? {}, opts, true),
-                ),
+              request: (request, requestOptions) =>
+                invoke(() => client.request(request, requestOptions), requestOptions.signal),
             },
             declaredCapabilities,
             identity,
@@ -286,20 +266,23 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
       async callTool(name, args, callOptions) {
         if (!declaredCapabilities.tools)
           throw new Error('Stateless MCP server did not declare tools');
-        const call = async () => {
-          const parsed = StatelessToolResultSchema.safeParse(
+        const call = async () =>
+          toToolCallResult(
             await invoke(
-              'tools/call',
-              { name, arguments: args },
-              {
-                signal: callOptions?.signal,
-                timeout: callOptions?.timeoutMs ?? options.timeouts.perCallMs,
-              },
+              // `request`, not `callTool`: the latter re-lists and replays the call on a header
+              // mismatch, and this surface sends each effectful request exactly once.
+              () =>
+                client.request(
+                  { method: 'tools/call', params: { name, arguments: args } },
+                  {
+                    signal: callOptions?.signal,
+                    timeout: callOptions?.timeoutMs ?? options.timeouts.perCallMs,
+                  },
+                ),
+              callOptions?.signal,
+              () => new MCPStatelessProtocolError('invalid-tool-result'),
             ),
           );
-          if (!parsed.success) throw new MCPStatelessProtocolError('invalid-tool-result');
-          return toToolCallResult(parsed.data);
-        };
         const scope = callTraces
           ? {
               requestAbortController: new AbortController(),

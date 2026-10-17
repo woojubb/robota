@@ -1,4 +1,4 @@
-import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
+import type { Transport } from '@modelcontextprotocol/client';
 
 export const DEFAULT_MCP_RECEIVE_BYTES = 8 * 1024 * 1024;
 /** Covers 16 MiB raw bytes even with six-byte JSON escaping, plus framing; selected only by the host. */
