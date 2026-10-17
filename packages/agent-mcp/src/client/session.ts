@@ -25,6 +25,7 @@ export { MCPSessionError } from './session-protocol.js';
 import { MCPAuthenticationError } from './authentication.js';
 import { MCPTransportEgressRefusedError } from './pinned-http-fetch.js';
 import { discoverAll } from './discovery.js';
+import { createElicitationHandler, MCPElicitationCalls } from './elicitation.js';
 import { MCPStdioError } from './stdio-transport.js';
 import { callTraceRegistryOf, runInCallTraceScope } from './trace-propagation.js';
 import { MCPDiscoveryError } from '../catalog/types.js';
@@ -207,7 +208,15 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
       'unsupported-protocol-version',
       'Unsupported explicitly selected MCP protocol version',
     );
-  const client = createMcpClient(options.clientInfo ?? DEFAULT_CLIENT_INFO);
+  const calls = new MCPElicitationCalls();
+  let serverName = options.serverId;
+  const client = createMcpClient(
+    options.clientInfo ?? DEFAULT_CLIENT_INFO,
+    undefined,
+    options.elicitation === true
+      ? createElicitationHandler({ serverName: () => serverName, calls })
+      : undefined,
+  );
 
   await connectClient(client, options);
 
@@ -220,6 +229,7 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
     serverVersion: serverVersion.version,
     protocolVersion: negotiatedVersion,
   };
+  serverName = identity.serverName;
   const instructions = client.getInstructions();
   const declaredCapabilities = buildDeclaredCapabilities(client.getServerCapabilities());
 
@@ -314,6 +324,7 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
               ...(outboundTraceContext ? { outbound: outboundTraceContext } : {}),
             }
           : undefined;
+      const leave = calls.enter({ ask: callOptions?.ask, signal: callOptions?.signal });
       try {
         const raw = traceScope ? await runInCallTraceScope(traceScope, call) : await call();
         return toToolCallResult(raw);
@@ -328,6 +339,7 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
         }
         throw error;
       } finally {
+        leave();
         if (traceScope) callTraces?.release(traceScope);
       }
     },

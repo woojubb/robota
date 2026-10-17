@@ -50,11 +50,15 @@ If optional server information is absent, the configured server ID labels the so
 is empty with `serverInfoProvided: false`; no external revision is invented.
 
 This initial SDK surface supports declared tools, prompts and resources discovery plus completed
-tool calls. `compatibilityDiagnostics` identifies unavailable MRTR client input, subscription watches
-and unselected optional extensions. Unsupported result types close the carrier and require operation inspection;
-they never become successful tool observations or cause automatic replay. A deadline or abort also
-closes uncertain execution. Hosts must refresh lists explicitly; this does not implement automatic
-TTL-based catalog refresh. Reading a generic resource cannot activate a skill.
+tool calls. A host that opens the session with `elicitation: true` lets a server's form-mode
+elicitation during a tool call reach a person as ask prompts through that call's `ask` port, titled
+with the server's identity; the answer continues the same call. Otherwise `compatibilityDiagnostics`
+names the unavailable MRTR client input, as it does subscription watches and unselected optional
+extensions. Unsupported result types, and any other request for client input, close the carrier and
+require operation inspection; they never become successful tool observations or cause automatic
+replay. A deadline or abort also closes uncertain execution. Hosts must refresh lists explicitly;
+this does not implement automatic TTL-based catalog refresh. Reading a generic resource cannot
+activate a skill.
 
 ### Opt-in Skills wire view
 

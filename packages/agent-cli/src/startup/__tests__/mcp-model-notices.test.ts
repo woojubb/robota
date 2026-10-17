@@ -13,7 +13,11 @@ import { mcpUserActionNotice } from '@robota-sdk/agent-command';
 import { describe, expect, it } from 'vitest';
 
 import { createMcpClientComposition } from '../mcp-client-composition.js';
-import { mcpStartupModelNotice, mcpUserActionSurfaceFor } from '../mcp-startup.js';
+import {
+  mcpElicitationFor,
+  mcpStartupModelNotice,
+  mcpUserActionSurfaceFor,
+} from '../mcp-startup.js';
 import { withAppendedSystemPrompt } from '../preset-surface-options.js';
 
 import type {
@@ -173,6 +177,12 @@ describe('MCP servers the user must act on, as the model learns of them', () => 
     expect(mcpUserActionSurfaceFor('interactive')).toBe('session');
     expect(mcpUserActionSurfaceFor('print')).toBe('terminal');
     expect(mcpUserActionSurfaceFor('serve')).toBe('terminal');
+  });
+
+  it('lets servers ask the person for input only where a prompt channel can answer', () => {
+    expect(mcpElicitationFor('interactive')).toBe(true);
+    expect(mcpElicitationFor('serve')).toBe(true);
+    expect(mcpElicitationFor('print')).toBe(false);
   });
 
   it('gives the startup notice only where the user can type the command it suggests', () => {

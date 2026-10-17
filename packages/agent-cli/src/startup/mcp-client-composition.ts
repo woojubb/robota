@@ -211,6 +211,12 @@ export interface IMcpClientCompositionDeps {
   /** OAuth, host-owned; a definition's `oauth` only asks for it. */
   readonly oauth?: IMcpOAuthHost;
   readonly clientInfo?: { readonly name: string; readonly version: string };
+  /**
+   * Whether this surface can put a server's form-mode elicitation to a person: every session then
+   * declares the capability and answers through the calling tool body's ask port. A surface with
+   * no prompt channel leaves it off, so a server is never told it may ask.
+   */
+  readonly elicitation?: boolean;
   /** Created only for the first overflow and owned through this composition's shutdown. */
   readonly createResultSpillStore?: () => IToolResultSpillStore & {
     read(reference: string): Promise<string>;
@@ -479,6 +485,7 @@ function buildSupervisorOptions<TInput, TAdmitted>(
           ? {}
           : { protocolVersion: definition.protocolVersion }),
         ...(definition.skills === true ? { skills: true } : {}),
+        ...(deps.elicitation === true ? { elicitation: true } : {}),
         transport: transportAdapter.construct(admittedEndpoint),
         timeouts: { startupMs: timeouts.startupMs, perCallMs: timeouts.perCallMs },
         ...(deps.clientInfo === undefined ? {} : { clientInfo: deps.clientInfo }),

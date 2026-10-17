@@ -32,7 +32,11 @@ import type {
   TMCPCapabilityDomain,
 } from '../catalog/types.js';
 import type { IMCPSession, IMCPToolCallResult } from '../client/session.js';
-import type { IOutboundTraceContext, TToolParameters } from '@robota-sdk/agent-core';
+import type {
+  IOutboundTraceContext,
+  IUserInteraction,
+  TToolParameters,
+} from '@robota-sdk/agent-core';
 
 /** Default page bound for a `discover`/`refresh` call that does not override `options.discovery`. */
 const DEFAULT_DISCOVERY_MAX_PAGES = 50;
@@ -459,6 +463,7 @@ export class MCPConnectionSupervisor {
     options?: {
       readonly signal?: AbortSignal;
       readonly outboundTraceContext?: IOutboundTraceContext;
+      readonly ask?: IUserInteraction['ask'];
     },
   ): Promise<IMCPToolCallResult> {
     return this.withDefaultBudget(options?.signal, async (effectiveSignal) => {
@@ -473,6 +478,7 @@ export class MCPConnectionSupervisor {
           ...(options?.outboundTraceContext
             ? { outboundTraceContext: options.outboundTraceContext }
             : {}),
+          ...(options?.ask ? { ask: options.ask } : {}),
         });
       } catch (error) {
         this.retireSelfClosedStdioSession(session, error);

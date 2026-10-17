@@ -4,6 +4,7 @@ import type { Transport } from '@modelcontextprotocol/client';
 import type {
   IOutboundTraceContext,
   IUniversalObjectValue,
+  IUserInteraction,
   TUniversalValue,
   TToolParameters,
 } from '@robota-sdk/agent-core';
@@ -36,6 +37,11 @@ export interface IMCPToolCallOptions {
    * `tools/call` request and its cancellation, only over HTTP, and only to an exactly listed origin.
    */
   readonly outboundTraceContext?: IOutboundTraceContext;
+  /**
+   * The calling tool body's ask port. A form-mode elicitation the server raises during this call is
+   * put to a person through it; absent, such a request is declined on the server's behalf.
+   */
+  readonly ask?: IUserInteraction['ask'];
 }
 
 export interface IMCPToolCallResult {
@@ -79,6 +85,11 @@ export interface IMCPOpenSessionOptions {
   readonly protocolVersion?: string;
   /** Host opt-in to advertised Skills metadata and verified file reads; grants no activation. */
   readonly skills?: boolean;
+  /**
+   * Host opt-in to form-mode elicitation: declares the capability and answers a server's request
+   * during a tool call through that call's ask port. Off, no client input is offered at all.
+   */
+  readonly elicitation?: boolean;
   /** An already-ADMITTED transport (`./transport.ts`); this function never admits anything. */
   readonly transport: Transport;
   readonly clientInfo?: { readonly name: string; readonly version: string };

@@ -310,6 +310,7 @@ export async function composeMcpClientForStartup(
     ...(input.resultAdmissionLimits ? { resultAdmissionLimits: input.resultAdmissionLimits } : {}),
     reportDiagnostic: input.reportDiagnostic,
     userActionSurface: mcpUserActionSurfaceFor(input.mode),
+    elicitation: mcpElicitationFor(input.mode),
     cliName: input.productRuntime.vocabulary.cliName,
   });
 
@@ -371,4 +372,13 @@ export function mcpStartupModelNotice(
  */
 export function mcpUserActionSurfaceFor(mode: TMcpStartupMode): TMCPUserActionSurface {
   return mode === 'interactive' ? 'session' : 'terminal';
+}
+
+/**
+ * Whether MCP servers may ask the person for input mid-call: the TUI and the serve host (desktop
+ * app, web GUI, editors) carry a prompt channel that can answer; a print run has none, so no
+ * capability is declared there and a server that asks anyway is refused as before.
+ */
+export function mcpElicitationFor(mode: TMcpStartupMode): boolean {
+  return mode !== 'print';
 }

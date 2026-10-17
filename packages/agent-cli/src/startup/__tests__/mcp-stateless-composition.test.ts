@@ -94,6 +94,29 @@ it('connects the selected stateless peer through product composition with bounde
   expect(diagnostics.join(' ')).toMatch(/input_required.*unavailable/);
 });
 
+it('declares form-mode elicitation on every pinned request once the host can answer, and stops reporting it unavailable', async () => {
+  const entries = await fixture();
+  const store = new InMemoryMCPActivationApprovalStore();
+  for (const request of new MCPDefinitionRegistry(entries).list()) store.put({ ...request, approvalAuthority: 'user', decision: 'approved', decidedAt: new Date(0).toISOString() });
+  const diagnostics: string[] = [];
+  composition = createMcpClientComposition({
+    resolvedEntries: entries,
+    approvalStore: store,
+    transport: { policy: { allowedHosts: ['127.0.0.1'] } },
+    timeouts: { startupMs: 1000, perCallMs: 1000, globalDefaultMs: 1000, toolCallMs: 1000, idleMs: 10000 },
+    authenticatorFor: () => ({ authorize: async () => ({ Authorization: 'Bearer renewed-fixture' }), onRejected: async () => 'fail' }),
+    elicitation: true,
+    reportDiagnostic: (message) => diagnostics.push(message),
+  });
+  const tools = await composition.connect();
+  expect(tools).toHaveLength(1);
+  expect(methods).toEqual(['server/discover', 'tools/list']);
+  for (const entry of metadata) {
+    expect(entry).toMatchObject({ 'io.modelcontextprotocol/clientCapabilities': { elicitation: { form: {} } } });
+  }
+  expect(diagnostics.join(' ')).not.toMatch(/input_required/);
+});
+
 it('does not let protocol selection grant activation approval or dispatch a request', async () => {
   const entries = await fixture();
   composition = createMcpClientComposition({ resolvedEntries: entries, transport: { policy: { allowedHosts: ['127.0.0.1'] } }, reportDiagnostic: () => undefined });

@@ -67,7 +67,8 @@ does not own session lifecycle, conversation history, or agent runtime state.
   host has said one; the desktop window follows the page title.
 - A pending permission or ask prompt is visible whatever view is open, because a gated turn waits
   on it. It never takes focus from a field the person is typing in, and its keys answer it only once
-  it has that focus; a click answers at once.
+  it has that focus; a click answers at once, except on a multi-select ask, whose options toggle
+  until it is submitted.
 - Nothing typed is lost to a lost connection: while the transport is not `connected`, the composer
   keeps its draft and refuses to submit it, and a banner above the conversation — never a full-screen
   replacement — says so: retrying while attempts continue, and once they give up, either the
