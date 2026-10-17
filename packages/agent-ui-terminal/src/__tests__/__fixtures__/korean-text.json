@@ -1,0 +1,17 @@
+{
+  "greeting": "안녕하세요",
+  "greetingWithoutLastSyllable": "안녕하세",
+  "greetingWithoutMiddle": "안세요",
+  "greetingFirstTwoSyllables": "안녕",
+  "greetingFirstThreeSyllables": "안녕하",
+  "greetingMiddleTwoSyllables": "녕하",
+  "greetingFirstSyllable": "안",
+  "greetingThirdSyllable": "하",
+  "greetingLastSyllable": "요",
+  "hangulWord": "한글",
+  "hangulWordPlusTe": "한글테",
+  "hangulWordPlusTest": "한글테스트",
+  "hanSyllable": "한",
+  "longResponseStreaming": "긴 한국어 응답과 emoji 🎉 를 스트리밍합니다",
+  "longResponseDisplay": "긴 한국어 응답과 emoji 🎉 를 표시합니다"
+}

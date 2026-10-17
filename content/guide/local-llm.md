@@ -1,6 +1,6 @@
 ---
 title: Local LLM Setup — Ollama, LM Studio and llama.cpp
-description: Run Robota with local models. No API key, no internet connection, no usage cost.
+description: Run Robota with a model server you operate — Ollama, LM Studio or the llama.cpp server.
 ---
 
 # Local LLM Setup
@@ -9,9 +9,11 @@ Robota works with any local inference server that speaks the OpenAI-compatible A
 covers **Ollama**, **LM Studio** and the **llama.cpp** server. In Robota these all use the same
 provider type, `gemma`, shown in setup as **Ollama / LM Studio / llama.cpp**.
 
-> **No API key required by default.** If you enable server authentication, enter its token using
-> profile editing as described below. Local models run entirely on your machine. Your code, prompts and
-> conversation history stay on your device.
+> **An API key only if your server requires one.** These servers accept requests without a key by
+> default; if you enable server authentication, enter its token as described below. Inference runs on
+> the server you point Robota at, so prompts and code go no further than that server for model calls.
+> Enabled tools can still reach the network on their own: `WebFetch`, `WebSearch` and any
+> [MCP servers](./mcp.md) you connect send their requests wherever they are directed.
 
 ---
 
@@ -87,7 +89,7 @@ curl http://localhost:11434/v1/models
 
 Ollama listens on `http://localhost:11434`.
 
-### Configure ConversationAgent
+### Configure the CLI
 
 Run `__PRODUCT_CLI_NAME__ --configure`, choose **Ollama / LM Studio / llama.cpp (gemma)**, and enter:
 
@@ -118,9 +120,9 @@ built-in local API server.
 2. Search for and download a model (for example a Gemma, Llama or Qwen Coder model).
 3. Start the local server from the **Developer** tab.
 
-The server runs on `http://localhost:1234` by default, which is also ConversationAgent's default base URL.
+The server runs on `http://localhost:1234` by default, which is also the `gemma` provider's default base URL.
 
-### Configure Robota
+### Configure the CLI
 
 Run `__PRODUCT_CLI_NAME__ --configure`, choose **Ollama / LM Studio / llama.cpp (gemma)**, and enter:
 
@@ -150,7 +152,7 @@ The same provider is available to your own code as `GemmaProvider`:
 import { GemmaProvider } from '@robota-sdk/agent-provider-openai-compatible';
 
 const provider = new GemmaProvider({
-  apiKey: 'ollama', // not checked by local servers
+  apiKey: 'ollama', // placeholder; use your server's token if it requires one
   baseURL: 'http://localhost:11434/v1',
   defaultModel: 'llama3.2',
 });
@@ -201,7 +203,8 @@ says it supports tool or function calling (for example `qwen2.5-coder` or `llama
   models. Use `/compact` when the context fills up.
 - **Quality varies with size.** Small models handle straightforward tasks; use larger ones for
   complex refactoring.
-- **Offline.** Once the model is downloaded, no internet connection is needed.
+- **Offline.** Once the model is downloaded, model calls need no internet connection; tools such as
+  `WebFetch` and `WebSearch` still do.
 
 ---
 

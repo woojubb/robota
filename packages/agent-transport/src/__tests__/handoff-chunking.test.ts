@@ -7,6 +7,7 @@ import {
   type IHandoffChunk,
 } from '../handoff-chunking.js';
 import { sealHandoffRecord, verifyHandoffPayload } from '../node/handoff-manifest.js';
+import koreanText from './__fixtures__/korean-text.json';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
@@ -22,7 +23,7 @@ describe('HANDOFF-001 — a payload larger than one frame travels in pieces', ()
   it('every chunk fits the byte budget', () => {
     // The channel's limit is in bytes, so the budget has to be honoured in bytes. A payload of
     // multi-byte characters is where a character-based cut overflows the frame.
-    const payload = '한글'.repeat(500);
+    const payload = koreanText.hangulWord.repeat(500);
 
     const chunks = chunkHandoffPayload(ID, payload, 64);
 
@@ -203,7 +204,7 @@ describe('HANDOFF-001 TC-06 — a mangled chunk is caught where it arrives', () 
       cwd: '/home/alice/project',
       createdAt: '2026-08-17T00:00:00.000Z',
       updatedAt: '2026-08-17T01:00:00.000Z',
-      messages: [{ role: 'user', content: '안녕하세요 😀' }],
+      messages: [{ role: 'user', content: koreanText.greetingWithSmileEmoji }],
     } as unknown as IInteractiveSessionRecord;
     const { serialized, integrity } = sealHandoffRecord(record);
 
@@ -221,7 +222,9 @@ describe('without Node’s Buffer, as in the browser build', () => {
 
   it('chunks and reassembles a multi-byte payload', () => {
     vi.stubGlobal('Buffer', undefined);
-    const serialized = JSON.stringify({ text: '핸드오프 ✓ '.repeat(200) });
+    const serialized = JSON.stringify({
+      text: koreanText.handoffLabelWithCheckmarkAndTrailingSpace.repeat(200),
+    });
     const assembler = new HandoffChunkAssembler('h-browser');
     let result: ReturnType<HandoffChunkAssembler['accept']> | undefined;
 

@@ -94,7 +94,7 @@ export const packageGroups = [
   },
   {
     id: 'assembly',
-    packages: ['agent-framework', 'agent-session', 'agent-executor', 'agent-subagent-runner', 'agent-tool-defaults', 'agent-builtin-providers', 'agent-mcp', 'agent-plugin', 'agent-session-analytics', 'agent-process', 'agent-file-authority'],
+    packages: ['agent-framework', 'agent-session', 'agent-executor', 'agent-subagent-runner', 'agent-tool-defaults', 'agent-builtin-providers', 'agent-mcp', 'agent-plugin', 'agent-session-analytics', 'agent-telemetry-otel', 'agent-process', 'agent-file-authority'],
   },
   { id: 'multiAgent', packages: ['agent-roundtable', 'agent-roundtable-robota'] },
   { id: 'composition', packages: ['agent-product', 'agent-capability-pack', 'pack-coding', 'agent-command', 'agent-preset'] },

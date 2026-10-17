@@ -15,9 +15,9 @@ args = parser.parse_args()
 spec = importlib.util.spec_from_file_location('research_broker', Path(__file__).with_name('organization-broker.py'))
 broker = importlib.util.module_from_spec(spec); spec.loader.exec_module(broker)
 key = Ed25519PrivateKey.generate()
-vectors = [{'z': '한글', 'a': 'emoji😀'}, {'value': '\x00\n\r\t"\\'}, {'10': 1, '2': 2, 'a': {'z': True, 'a': None}},
+vectors = [{'z': '\uD55C\uAE00', 'a': 'emoji😀'}, {'value': '\x00\n\r\t"\\'}, {'10': 1, '2': 2, 'a': {'z': True, 'a': None}},
            {'integer': 9007199254740991, 'negative': -5}, {'value': '\u2028\u2029'}, {'array': ['text', 1, False, None]}]
-invalid = [{'value': 1.5}, {'value': 9007199254740992}, {'한글': 'invalid schema key'}, {'value': '\ud800'}]
+invalid = [{'value': 1.5}, {'value': 9007199254740992}, {'\uD55C\uAE00': 'invalid schema key'}, {'value': '\ud800'}]
 script = '''import {canonical} from './research/agent-organization-security/poc/canonical-json.mjs';
 import {readFileSync} from 'node:fs'; import {sign,createPrivateKey} from 'node:crypto';
 const input=JSON.parse(readFileSync(0,'utf8')); const key=createPrivateKey(input.key);

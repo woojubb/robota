@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import en from '../../../messages/en.json';
 import ko from '../../../messages/ko.json';
+import koreanPage from './__fixtures__/korean-page.json';
 
 const request = vi.hoisted(() => ({ locale: 'en', pathname: '/en/' }));
 
@@ -101,8 +102,9 @@ describe('documentation route language signals from rendered sources', () => {
 
   it('marks the translated Korean guide as Korean and links both real versions', async () => {
     const { metadata, html } = await route('ko', ['getting-started']);
-    expect(logicalTitle(metadata)).toBe('시작하기');
-    expect(String(metadata.description)).toMatch(/[가-힣]/u);
+    expect(logicalTitle(metadata)).toBe(koreanPage.gettingStartedTitle);
+    // Hangul syllables: the description is the Korean translation's own.
+    expect(String(metadata.description)).toMatch(/[\uAC00-\uD7A3]/u);
     expectSignals(metadata, `${root}/ko/getting-started/`, {
       en: `${root}/en/getting-started/`,
       ko: `${root}/ko/getting-started/`,
@@ -153,7 +155,7 @@ describe('documentation route language signals from rendered sources', () => {
       });
       expect(html).toMatch(new RegExp(`<article\\b[^>]*lang="${locale}"`, 'u'));
       expect(html).toContain(messages.description);
-      expect(html).toMatch(/aria-label="Switch language to (?:English|한국어)"/u);
+      expect(html).toMatch(new RegExp(`aria-label="Switch language to (?:${en.languageName}|${ko.languageName})"`, 'u'));
     },
   );
 });

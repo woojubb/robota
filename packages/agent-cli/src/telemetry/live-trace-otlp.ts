@@ -5,7 +5,8 @@ import { resourceFromAttributes } from '@opentelemetry/resources';
 import { BatchSpanProcessor, TracerProvider } from '@opentelemetry/sdk-trace';
 import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
-import { liveTimingAttributes } from './live-timing.js';
+import { projectLivePromptTrace } from '@robota-sdk/agent-telemetry-otel';
+import type { IOtelSpanProjection, TOtelProjectionMode } from '@robota-sdk/agent-telemetry-otel';
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
 import type { TSubprocessTraceClass } from '@robota-sdk/agent-core';
 import { createNodeOtlpLiveMetricPort } from './live-metric-otlp.js';
@@ -16,7 +17,7 @@ import { createNodeOtlpLiveContentPort } from './live-content-otlp.js';
 import type { INodeOtlpLiveContentPort } from './live-content-otlp.js';
 import type { ILiveContentRedactionContext } from './live-content-redaction.js';
 import { LIVE_CONTENT_SETTINGS, resolveLiveContentPolicy } from './live-content-settings.js';
-import { createLiveTelemetryResource, safeLiveProviderRequestId, safeLiveToolCallId } from './live-resource.js';
+import { createLiveTelemetryResource } from './live-resource.js';
 import {
   buildOtlpRequestHeaders, mergeOtlpHeaderMaps, otlpProtobufRequestHeaders, parseOtlpHeaderSetting,
 } from './live-otlp-headers.js';
@@ -37,6 +38,10 @@ export interface INodeOtlpLiveTraceOptions {
   headers?: Headers;
   onFailure?: (code: TLiveTelemetryFailureCode) => void;
   resource?: ILiveTelemetryResource;
+  /** Span naming; `agent` (the default) is the export every collector has always seen. */
+  semconv?: TOtelProjectionMode;
+  /** The `invoke_agent` span's agent name in the GenAI modes: the product's own name. */
+  agentName?: string;
 }
 
 type TOtlpSignal = 'traces' | 'metrics' | 'logs';
@@ -49,7 +54,7 @@ const SUPPORTED_SETTINGS = new Set([
   'ENABLED', 'TRACES', 'METRICS', 'LOGS', 'OTLP_PROTOCOL', 'OTLP_ENDPOINT',
   'OTLP_TRACES_ENDPOINT', 'OTLP_METRICS_ENDPOINT', 'OTLP_LOGS_ENDPOINT',
   'OTLP_HEADERS', 'OTLP_TRACES_HEADERS', 'OTLP_METRICS_HEADERS', 'OTLP_LOGS_HEADERS',
-  'METRIC_ATTRIBUTES', 'PROPAGATE_TO', 'PROPAGATE_TO_SUBPROCESSES',
+  'METRIC_ATTRIBUTES', 'PROPAGATE_TO', 'PROPAGATE_TO_SUBPROCESSES', 'SEMCONV',
 ].map((suffix) => `PRODUCT_TELEMETRY_${suffix}`).concat(LIVE_CONTENT_SETTINGS));
 
 const METRIC_ATTRIBUTES_SETTING = 'PRODUCT_TELEMETRY_METRIC_ATTRIBUTES';
@@ -78,6 +83,26 @@ function resolveMetricAttributesSetting(
     result.add(token as TLiveMetricAttribute);
   });
   return result;
+}
+
+const SEMCONV_SETTING = 'PRODUCT_TELEMETRY_SEMCONV';
+const SEMCONV_MODES: ReadonlySet<TOtelProjectionMode> = new Set(['agent', 'gen_ai/dup', 'gen_ai']);
+
+/**
+ * Which names live spans and metrics carry: Robota's `agent.*` (the default), or the OpenTelemetry
+ * GenAI conventions — still in development, so they are an explicit opt-in. Like the propagation
+ * settings it exists only while traces or metrics are exported, and an error names the setting, never
+ * the value.
+ */
+export function resolveSemconvSetting(env: Readonly<Record<string, string | undefined>>): TOtelProjectionMode {
+  const raw = env[SEMCONV_SETTING];
+  if (raw === undefined) return 'agent';
+  if (!(SEMCONV_MODES as ReadonlySet<string>).has(raw)) throw new Error(`${SEMCONV_SETTING} has an unsupported value.`);
+  const exported = (signal: string | undefined): boolean => signal === 'otlp' || signal === 'console';
+  if (!exported(env['PRODUCT_TELEMETRY_TRACES']) && !exported(env['PRODUCT_TELEMETRY_METRICS'])) {
+    throw new Error(`${SEMCONV_SETTING} is set but neither traces nor metrics are exported over otlp or console.`);
+  }
+  return raw as TOtelProjectionMode;
 }
 
 const PROPAGATE_TO_SETTING = 'PRODUCT_TELEMETRY_PROPAGATE_TO';
@@ -319,16 +344,14 @@ function reportFailure(options: INodeOtlpLiveTraceOptions, code: 'delivery-faile
   }
 }
 
-type TSpannedChild = Exclude<ILivePromptTraceBatch['children'][number], { readonly kind: 'permission' }>;
-
-/** A permission decision is content-free but has no duration of its own — it never gets a span. */
-function hasSpan(child: ILivePromptTraceBatch['children'][number]): child is TSpannedChild {
-  return child.kind !== 'permission';
-}
+const OTLP_SPAN_KIND = { internal: SpanKind.INTERNAL, client: SpanKind.CLIENT } as const;
 
 async function sendBatch(
   batch: ILivePromptTraceBatch, endpoint: string, resource: ILiveTelemetryResource, headers: Headers | undefined,
+  semconv: TOtelProjectionMode, agentName: string | undefined,
 ): Promise<void> {
+  // Names, kinds and attributes come from the shared projection, so the SDK and the CLI never diverge.
+  const projection = projectLivePromptTrace(batch, { mode: semconv, ...(agentName ? { agentName } : {}) });
   const exporter: SpanExporter = {
     export(spans: ReadableSpan[], callback) {
       void (async () => {
@@ -367,7 +390,7 @@ async function sendBatch(
     },
     async shutdown() { /* no ambient SDK exporter or background network state */ },
   };
-  const ids = [batch.root.spanId, ...batch.children.filter(hasSpan).map((child) => child.trace.spanId)];
+  const ids = [projection.root.spanId, ...projection.children.map((child) => child.spanId)];
   const provider = new TracerProvider({
     resource: resourceFromAttributes(resource.attributes),
     idGenerator: {
@@ -387,51 +410,22 @@ async function sendBatch(
     })],
   });
   try {
-    const tracer = provider.getTracer('agent.live-prompt-trace', '1');
-    const root = tracer.startSpan('agent.prompt_execution', {
-      kind: SpanKind.INTERNAL,
-      startTime: new Date(batch.root.startedAt),
-      attributes: {
-        'agent.session.id': batch.sessionId,
-        'agent.turn.id': batch.turnId,
-        'agent.outcome': batch.root.outcome,
-        'agent.omitted.provider_count': batch.omittedChildren.provider,
-        'agent.omitted.tool_count': batch.omittedChildren.tool,
-        'agent.omitted.permission_count': batch.omittedChildren.permission,
-        ...liveTimingAttributes(batch.timingTotals),
-      },
-    }, ROOT_CONTEXT);
+    const tracer = provider.getTracer('agent.live-prompt-trace', '1',
+      projection.schemaUrl ? { schemaUrl: projection.schemaUrl } : undefined);
+    const start = (span: IOtelSpanProjection, parentContext: typeof ROOT_CONTEXT) => tracer.startSpan(span.name, {
+      kind: OTLP_SPAN_KIND[span.kind],
+      startTime: new Date(span.startedAt),
+      attributes: span.attributes,
+    }, parentContext);
+    const root = start(projection.root, ROOT_CONTEXT);
     const parent = trace.setSpan(ROOT_CONTEXT, root);
-    for (const child of batch.children.filter(hasSpan)) {
-      const toolCallId = child.kind === 'tool' ? safeLiveToolCallId(child.trace.toolCallId) : undefined;
-      const providerRequestId = child.kind === 'provider'
-        ? safeLiveProviderRequestId(child.trace.providerRequestId) : undefined;
-      const span = tracer.startSpan(child.kind === 'provider' ? 'agent.provider_call' : 'agent.tool_body', {
-        kind: SpanKind.INTERNAL,
-        startTime: new Date(child.trace.startedAt),
-        attributes: child.kind === 'provider' ? {
-          'agent.outcome': child.trace.outcome,
-          'agent.provider.round': child.trace.round,
-          ...(child.trace.disposition ? { 'agent.provider.disposition': child.trace.disposition } : {}),
-          ...(child.trace.providerId ? { 'agent.provider.id': child.trace.providerId } : {}),
-          ...(child.trace.modelId ? { 'agent.model.id': child.trace.modelId } : {}),
-          ...(child.trace.usageProvenance ? { 'agent.usage.provenance': child.trace.usageProvenance } : {}),
-          ...(child.trace.usageProvenance === 'complete' ? {
-            'agent.usage.input_tokens': child.trace.promptTokens ?? 0,
-            'agent.usage.output_tokens': child.trace.completionTokens ?? 0,
-            'agent.usage.total_tokens': child.trace.totalTokens ?? 0,
-          } : {}),
-          ...(providerRequestId ? { 'agent.provider.request_id': providerRequestId } : {}),
-        } : {
-          'agent.outcome': child.trace.outcome,
-          ...(toolCallId ? { 'agent.tool.call_id': toolCallId } : {}),
-        },
-      }, parent);
-      if (child.trace.outcome === 'failure') span.setStatus({ code: SpanStatusCode.ERROR });
-      span.end(new Date(child.trace.endedAt));
+    for (const child of projection.children) {
+      const span = start(child, parent);
+      if (child.status === 'error') span.setStatus({ code: SpanStatusCode.ERROR });
+      span.end(new Date(child.endedAt));
     }
-    if (batch.root.outcome === 'failure') root.setStatus({ code: SpanStatusCode.ERROR });
-    root.end(new Date(batch.root.endedAt));
+    if (projection.root.status === 'error') root.setStatus({ code: SpanStatusCode.ERROR });
+    root.end(new Date(projection.root.endedAt));
     await provider.forceFlush({ timeoutMillis: 5000 });
   } finally {
     await provider.shutdown();
@@ -448,7 +442,7 @@ export function createNodeOtlpLiveTracePort(options: INodeOtlpLiveTraceOptions):
     while (pending.length > 0) {
       const batch = pending.shift()!;
       try {
-        await sendBatch(batch, options.endpoint, resource, options.headers);
+        await sendBatch(batch, options.endpoint, resource, options.headers, options.semconv ?? 'agent', options.agentName);
       } catch {
         // A failing destination must not make process exit retry every queued turn serially.
         pending.length = 0;
@@ -500,6 +494,7 @@ export function validateNodeOtlpLiveTelemetrySettings(
   if (env['PRODUCT_TELEMETRY_ENABLED'] === '1') {
     resolveMetricAttributesSetting(env);
     resolvePropagation(env);
+    resolveSemconvSetting(env);
   }
 }
 
@@ -527,20 +522,27 @@ export function createConfiguredNodeOtlpLiveTelemetryPort(
   const metricAttributes = env['PRODUCT_TELEMETRY_ENABLED'] === '1'
     ? resolveMetricAttributesSetting(env) : new Set<TLiveMetricAttribute>();
   const propagation = env['PRODUCT_TELEMETRY_ENABLED'] === '1' ? resolvePropagation(env) : undefined;
+  const semconv = env['PRODUCT_TELEMETRY_ENABLED'] === '1' ? resolveSemconvSetting(env) : 'agent';
+  const agentName = hostResource?.telemetryServiceName;
   const hasConsole = env['PRODUCT_TELEMETRY_ENABLED'] === '1' &&
     ['traces', 'metrics', 'logs'].some((signal) => env[`PRODUCT_TELEMETRY_${signal.toUpperCase()}`] === 'console');
   if (!traces && !metrics && !logs && !hasConsole) return undefined;
   const resource = createLiveTelemetryResource(hostResource);
   const ports: INodeOtlpLiveTracePort[] = [];
   if (traces) ports.push(createNodeOtlpLiveTracePort({
-    endpoint: traces.endpoint, headers: traces.headers, resource, ...(onFailure ? { onFailure } : {}),
+    endpoint: traces.endpoint, headers: traces.headers, resource, semconv, ...(agentName ? { agentName } : {}),
+    ...(onFailure ? { onFailure } : {}),
   }));
-  if (metrics) ports.push(createNodeOtlpLiveMetricPort(metrics.endpoint, onFailure, resource, metrics.headers, metricAttributes));
+  if (metrics) ports.push(createNodeOtlpLiveMetricPort(
+    metrics.endpoint, onFailure, resource, metrics.headers, metricAttributes,
+    { semconv, ...(agentName ? { agentName } : {}) },
+  ));
   if (logs) ports.push(createNodeOtlpLiveLogPort(logs.endpoint, onFailure, resource, logs.headers));
   if (env['PRODUCT_TELEMETRY_ENABLED'] === '1') {
     for (const signal of ['traces', 'metrics', 'logs'] as const) {
       if (env[`PRODUCT_TELEMETRY_${signal.toUpperCase()}`] === 'console') {
-        ports.push(createNodeLiveConsolePort(signal, writeConsole, onFailure, resource, metricAttributes));
+        ports.push(createNodeLiveConsolePort(signal, writeConsole, onFailure, resource, metricAttributes,
+          { semconv, ...(agentName ? { agentName } : {}) }));
       }
     }
   }

@@ -119,7 +119,8 @@ round trip — a local round trip must be lossless.
 - A provided idle-timeout value is enforced per provider call and its timer refreshes on
   streaming text deltas.
 - Provider-round and permitted-tool-body completions are forwarded to the session's event bus as
-  content-free observations (time, round, outcome only), scoped to the active run; the public
+  content-free observations (time, round, outcome, and a tool body's tool name — a label, never its
+  arguments or output), scoped to the active run; the public
   `run()` call shape is unchanged and an observer failure can never replace the tool result.
 - An omitted turn/round cap means the session run has no core round cap and is instead bounded by
   abort, context-window checks, provider idle timeout, and runtime-level controls.

@@ -1,0 +1,12 @@
+{
+  "ko": {
+    "triggers": [
+      { "pattern": "기억해(?:줘|두세요|둬)?[:\\s]+(.+)", "confidence": "high" },
+      { "pattern": "앞으로\\s+(.+)", "confidence": "medium" },
+      { "pattern": "항상\\s+(.+)", "confidence": "medium" }
+    ],
+    "projectTerms": ["프로젝트"],
+    "preferenceTerms": ["앞으로", "항상", "선호"],
+    "sensitiveTerms": ["주민등록", "비밀번호", "시크릿", "토큰"]
+  }
+}

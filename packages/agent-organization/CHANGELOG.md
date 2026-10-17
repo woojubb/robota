@@ -1,5 +1,7 @@
 # @robota-sdk/agent-organization
 
+## 3.0.0-beta.94
+
 ## 3.0.0-beta.93
 ### Minor Changes
 

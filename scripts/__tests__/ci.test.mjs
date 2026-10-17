@@ -413,7 +413,10 @@ it('executes root scripts without selecting every workspace or requiring an arch
     JSON.stringify({
       private: true,
       packageManager: 'pnpm@8.15.4',
-      scripts: { 'test:scripts': 'node -e "console.log(\'root checked\')"' },
+      scripts: {
+        'lint:language': 'node -e "console.log(\'language checked\')"',
+        'test:scripts': 'node -e "console.log(\'root checked\')"',
+      },
     }),
   );
   write(
@@ -435,6 +438,7 @@ it('executes root scripts without selecting every workspace or requiring an arch
     },
   });
   expect(result.status, result.stderr).toBe(0);
+  expect(result.stdout).toContain('language checked');
   expect(result.stdout).toContain('root checked');
   expect(result.stdout).not.toContain('Scope:');
 });

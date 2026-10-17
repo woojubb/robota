@@ -1,0 +1,26 @@
+{
+  "home": {
+    "title": "{name} — TypeScript AI Agent SDK and Coding CLI",
+    "description": "Build AI agents with {name}’s TypeScript SDK, or use the coding CLI built from the same public components. Public beta."
+  },
+  "beta": {
+    "title": "Public Beta",
+    "description": "Try the public {name} SDK and coding CLI, review setup requirements, and share feedback on GitHub."
+  },
+  "enterprise": {
+    "title": "Commercial Licensing and Deployment",
+    "description": "Review {name}’s AGPL and commercial licensing, local deployment options, and the data flows to verify for your environment."
+  },
+  "roadmap": {
+    "title": "Roadmap",
+    "description": "See shipped beta work, planned releases, and exploratory ideas for the {name} SDK and CLI."
+  },
+  "compare": {
+    "title": "Why {name}?",
+    "description": "Explore {name}’s TypeScript agent SDK, coding CLI, provider options, local models and licensing."
+  },
+  "showcase": {
+    "title": "{name} CLI Reference Implementation",
+    "description": "Inspect the first-party {name} CLI built with public SDK packages, and learn how to submit a working community project."
+  }
+}

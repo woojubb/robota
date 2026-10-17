@@ -209,6 +209,8 @@ async function main() {
   const run = (...args) => command(pnpm, args, cwd);
   assertDeveloperDocs(plan);
   if (kind === 'tests' && plan.developerDocs === true) {
+    // Static checks are skipped for developer documents, but the language rule covers them too.
+    run('lint:language');
     run('test:scripts');
     return;
   }

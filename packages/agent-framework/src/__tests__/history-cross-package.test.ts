@@ -13,6 +13,7 @@ import {
 import { describe, it, expect, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive/interactive-session.js';
+import koreanText from './__fixtures__/korean-text.json';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 
@@ -157,7 +158,13 @@ describe('IHistoryEntry cross-package integration', () => {
     ];
 
     const originalMessages = [
-      { id: 'u1', role: 'user', content: '파일 읽어줘', state: 'complete', timestamp: new Date() },
+      {
+        id: 'u1',
+        role: 'user',
+        content: koreanText.readFileShortRequest,
+        state: 'complete',
+        timestamp: new Date(),
+      },
       {
         id: 'a1',
         role: 'assistant',
@@ -177,7 +184,7 @@ describe('IHistoryEntry cross-package integration', () => {
       {
         id: 'a2',
         role: 'assistant',
-        content: '파일을 읽었습니다.',
+        content: koreanText.readFileShortReply,
         state: 'complete',
         timestamp: new Date(),
       },

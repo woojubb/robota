@@ -124,7 +124,7 @@ set `PRODUCT_VERSION` to its tag, e.g. `curl -fsSL … | PRODUCT_VERSION=v<versi
 unsigned — macOS and Windows may warn.
 
 
-> **Beta**: Robota is currently `3.0.0-beta`. APIs may change before 1.0. See
+> **Beta**: Robota is currently `3.0.0-beta`. APIs may change before the stable 3.0.0 release. See
 > [CHANGELOG.md](./CHANGELOG.md) for upgrade notes.
 
 > **macOS users**: Korean/CJK IME input may crash macOS Terminal.app. Use
@@ -184,7 +184,7 @@ agent-core                             ← Foundation: ConversationAgent engine,
 ## Packages
 
 Every package below is published on npm under `@robota-sdk/`, and all of them share one version.
-The [packages index](https://docs.robota.io//en/packages/) on the docs site covers each one.
+The [packages index](https://docs.robota.io/en/packages/) on the docs site covers each one.
 
 **Start here (embedding):**
 
@@ -211,6 +211,7 @@ The [packages index](https://docs.robota.io//en/packages/) on the docs site cove
 | [`@robota-sdk/agent-mcp`](https://www.npmjs.com/package/@robota-sdk/agent-mcp)                             | MCP client: server definitions, activation, connections, tool catalog, OAuth sign-in                  |
 | [`@robota-sdk/agent-plugin`](https://www.npmjs.com/package/@robota-sdk/agent-plugin)                       | Lifecycle plugins: history, logging, usage, limits, performance, errors, analytics, webhooks          |
 | [`@robota-sdk/agent-session-analytics`](https://www.npmjs.com/package/@robota-sdk/agent-session-analytics) | Session-log timing and usage analysis and reports                                                     |
+| [`@robota-sdk/agent-telemetry-otel`](https://www.npmjs.com/package/@robota-sdk/agent-telemetry-otel)       | OpenTelemetry spans and GenAI metrics for agent runs and live prompt traces, GenAI or `agent.*` names |
 | [`@robota-sdk/agent-process`](https://www.npmjs.com/package/@robota-sdk/agent-process)                     | Child-process tree termination (`killProcessTree`)                                                    |
 | [`@robota-sdk/agent-file-authority`](https://www.npmjs.com/package/@robota-sdk/agent-file-authority)       | Bounded, root-relative file reads for Node.js                                                         |
 
@@ -263,21 +264,21 @@ The [packages index](https://docs.robota.io//en/packages/) on the docs site cove
 
 ## Documentation
 
-Full documentation lives at **[docs.robota.io](https://docs.robota.io//en/)**.
+Full documentation lives at **[docs.robota.io](https://docs.robota.io/en/)**.
 
-- [Getting Started](https://docs.robota.io//en/getting-started/) and the [Quick Start](https://docs.robota.io//en/quickstart/)
-- [Building Agents](https://docs.robota.io//en/guide/building-agents/)
-- [SDK Usage](https://docs.robota.io//en/guide/sdk/)
-- [Providers](https://docs.robota.io//en/guide/providers/)
-- [Permissions and Hooks](https://docs.robota.io//en/guide/permissions-and-hooks/)
-- [Sessions and Daemon](https://docs.robota.io//en/guide/sessions-and-daemon/)
-- [The GUI and the Desktop App](https://docs.robota.io//en/guide/gui/)
-- [Devices and Remote Control](https://docs.robota.io//en/guide/devices-and-remote/)
-- [MCP](https://docs.robota.io//en/guide/mcp/)
-- [CLI Reference](https://docs.robota.io//en/guide/cli/)
-- [Examples](https://docs.robota.io//en/examples/)
-- [Packages](https://docs.robota.io//en/packages/)
-- [Development](https://docs.robota.io//en/development/)
+- [Getting Started](https://docs.robota.io/en/getting-started/) and the [Quick Start](https://docs.robota.io/en/quickstart/)
+- [Building Agents](https://docs.robota.io/en/guide/building-agents/)
+- [SDK Usage](https://docs.robota.io/en/guide/sdk/)
+- [Providers](https://docs.robota.io/en/guide/providers/)
+- [Permissions and Hooks](https://docs.robota.io/en/guide/permissions-and-hooks/)
+- [Sessions and Daemon](https://docs.robota.io/en/guide/sessions-and-daemon/)
+- [The GUI and the Desktop App](https://docs.robota.io/en/guide/gui/)
+- [Devices and Remote Control](https://docs.robota.io/en/guide/devices-and-remote/)
+- [MCP](https://docs.robota.io/en/guide/mcp/)
+- [CLI Reference](https://docs.robota.io/en/guide/cli/)
+- [Examples](https://docs.robota.io/en/examples/)
+- [Packages](https://docs.robota.io/en/packages/)
+- [Development](https://docs.robota.io/en/development/)
 
 ## Repository Scope
 

@@ -9,6 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import korean from '../../__tests__/__fixtures__/korean-text.json';
 
 import { computeCursorCell, shouldPositionRealCursor } from '../real-cursor-flow.js';
 
@@ -23,8 +24,15 @@ describe('computeCursorCell', () => {
     expect(computeCursorCell({ ...origin, value: 'hello', cursor: 0 })).toEqual({ x: 3, y: 2 });
   });
 
-  it('CJK wide chars count 2 columns each (안녕 → 4 columns)', () => {
-    expect(computeCursorCell({ ...origin, value: '안녕', cursor: 2, availableWidth: 20 })).toEqual({
+  it('CJK wide chars count 2 columns each (two syllables → 4 columns)', () => {
+    expect(
+      computeCursorCell({
+        ...origin,
+        value: korean.greetingFirstTwoSyllables,
+        cursor: 2,
+        availableWidth: 20,
+      }),
+    ).toEqual({
       x: 7,
       y: 2,
     });
@@ -32,12 +40,14 @@ describe('computeCursorCell', () => {
 
   it('mid-string cursor inside a CJK value', () => {
     expect(
-      computeCursorCell({ ...origin, value: '안녕하세요', cursor: 2, availableWidth: 20 }),
+      computeCursorCell({ ...origin, value: korean.greeting, cursor: 2, availableWidth: 20 }),
     ).toEqual({ x: 7, y: 2 });
   });
 
   it('no wrap width: CJK offset is the plain display-width sum', () => {
-    expect(computeCursorCell({ ...origin, value: '안녕하', cursor: 3 })).toEqual({ x: 9, y: 2 });
+    expect(
+      computeCursorCell({ ...origin, value: korean.greetingFirstThreeSyllables, cursor: 3 }),
+    ).toEqual({ x: 9, y: 2 });
   });
 
   it('wraps to the next row when the offset passes the width', () => {
@@ -56,7 +66,12 @@ describe('computeCursorCell', () => {
     // 9 ASCII cols + a wide char that cannot fit in the last column: displayOffset skips the
     // dead column (9 → 10) then adds the wide char (→ 12) — cursor lands at row+1, col 2.
     expect(
-      computeCursorCell({ ...origin, value: 'aaaaaaaaa안', cursor: 10, availableWidth: 10 }),
+      computeCursorCell({
+        ...origin,
+        value: `aaaaaaaaa${korean.greetingFirstSyllable}`,
+        cursor: 10,
+        availableWidth: 10,
+      }),
     ).toEqual({ x: 5, y: 3 });
   });
 

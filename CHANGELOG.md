@@ -977,7 +977,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **harness**: exclude non-repo paths from lesson metrics + stop home-path leak
 - **ci**: include nested packages/dag-nodes/*/dist in the build artifact
 - **build**: build types for nested packages/dag-nodes/* members
-- **hooks**: use literal 하지 마|하지마 in lesson nudge (portability, /code-review)
+- **hooks**: use the Korean literal for "don't", with and without a space, in lesson nudge (portability, /code-review)
 - **agent-core,agent-framework**: resolve CORE-008/009 + TEST-006 review follow-ups
 - **agent-playground**: single-source the system prompt at top-level (complete SSOT)
 - **agent-core**: single-source the system prompt + finish TEST-004 functional retrofits
@@ -1438,7 +1438,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **team**: resolve lint errors in task-assignment tool-factory
 - resolve example execution issues and test failures
 - resolve unused variable and unify plugin hook interface
-- 빌드 오류 수정 및 도구 실행 결과 처리 문제 체크리스트 추가
+- Fix build errors and add a checklist for tool-result handling problems
 - remove circular dependencies and fix build issues
 - agents execution service and team package migration
 - resolve all linting errors and improve code quality
@@ -1576,7 +1576,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **backlog**: INFRA-025 upgraded to approved full-refactor scope (high/now)
 - **governance**: architecture-audit follow-up — INFRA-024/025 backlogs + preset rule consumers
 - **backlog**: LESSON-010 — lessons metrics detector quality (4/5 signals are noise)
-- **design**: link bug-report 제안3 to CORE-017 follow-up backlog
+- **design**: link bug-report proposal 3 to CORE-017 follow-up backlog
 - **governance**: prior-approval rule for novel practices + CORE-017 backlog
 - **infra**: scratch/ workspace for live-verification scripts + placement guard (INFRA-023)
 - onboard content/ corpus to the doc-examples typecheck gate (DOCS-019)
@@ -1805,7 +1805,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **backlog**: add AUDIT-001 — backlog impl architecture cleanup (8 items)
 - **evals**: update auto-lessons and weekly-digest
 - **cli,tools**: CLI-041 — add tests for path-guard, web-fetch errors, diagnose command
-- **backlog**: CLI-035~048, PM-031~037 — 완성도 검증 v2 백로그
+- **backlog**: CLI-035~048, PM-031~037 — completeness verification v2 backlog
 - **backlog**: mark CLI-027~031, CLI-033, PM-023~025 as done
 - update evals lessons — auto-lessons and weekly digest
 - mark SITE-006 and SITE-007 as done
@@ -1871,11 +1871,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **arch-map**: implement ARCH-MAP-001~005 — full architecture map refresh
 - **backlog**: add ARCH-MAP-001~005 from architecture map audit
 - **architecture-map**: add Mermaid diagrams to 3 text-only files
-- docs+refactor: CLIR 10건 구현 + DOC-001/TUI-001/PROV-001 백로그 완료 (#481)
+- docs+refactor: implement 10 CLIR items and complete the DOC-001/TUI-001/PROV-001 backlog (#481)
 - mark all 10 CLIR backlog items as done and move to completed/
 - update lockfile after moving agent-executor to devDependencies
 - **agent-cli+framework**: implement all 10 CLIR code review improvements
-- **backlog**: agent-cli 아키텍처 코드리뷰 백로그 10건 등록 (CLIR-C01~L02)
+- **backlog**: register 10 agent-cli architecture code-review backlog items (CLIR-C01~L02)
 - **release**: finalize 3.0.0-beta.66 release-run record
 - release 3.0.0-beta.66
 - **backlog**: archive CLI-001 and CLI-002 — completed
@@ -1891,8 +1891,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - finalize release-run 3.0.0-beta.64
 - add prepublishOnly hook to consolidated packages
 - update lockfile for 3.0.0-beta.64 version bump
-- **backlog**: CMD-003 — args 기반 dialog 트리거 모델로 재설계
-- **backlog**: CMD-003 — TUI command interaction pattern 선언 + 게이트
+- **backlog**: CMD-003 — redesign as an args-based dialog trigger model
+- **backlog**: CMD-003 — declare the TUI command interaction pattern and gate it
 - archive CMD-001 and CMD-002 — completed
 - **backlog**: mark 30 completed items as status: done
 - **backlog**: add CMD-001 and CMD-002 — command permission flag and display name
@@ -2183,12 +2183,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - capitalize Blog in site title (__PRODUCT_DISPLAY_NAME__ Blog)
 - rewrite AGENTS.md section intro for clarity
 - improve first section subtitle in blog post
-- fix spacing in blog post (무리없이 → 무리 없이)
+- fix word spacing in a Korean blog post
 - polish blog post — fix grammar, spacing, awkward phrasing
 - polish closing paragraph in blog post
 - fix SIGSEGV explanation — blank line fix, not setCursorPosition removal
-- clarify 되다 rule — only applies when 하다 form exists
-- fix "호환하는" → "호환되는", add 되다 exception rule
+- clarify the Korean passive-verb rule — only applies when the active form exists
+- fix a Korean verb form ("compatible"), add a passive-verb exception rule
 - add backlog for docs Cloudflare Pages migration
 - fix Korean writing style violations in blog post
 - add Korean writing style rules to naming-style
@@ -2843,7 +2843,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consolidate Enhanced EventService project documentation
 - Complete Enhanced EventService design documentation
 - Fix React rendering errors: prevent objects from being rendered directly
-- EventService 아키텍처 설계 및 구현 계획 정리
+- Write up the EventService architecture design and implementation plan
 - Fix assignTask tool calls display in team mode blocks
 - Fix team mode block collection by using TeamContainer's teamAgent history
 - 🎯 Fix hierarchy block duplication issue - FINAL SOLUTION

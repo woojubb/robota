@@ -5,6 +5,7 @@ import { connect } from 'node:net';
 import { describe, expect, it, vi } from 'vitest';
 
 import { acquireOpenRouterKey, OpenRouterOAuthError } from '../openrouter-oauth.js';
+import koreanText from '../../hosted/__tests__/__fixtures__/korean-text.json';
 
 function callback(authorization: URL, code = 'synthetic-authorization-code'): URL {
   const url = new URL(authorization.searchParams.get('callback_url') ?? '');
@@ -111,7 +112,7 @@ describe('OpenRouter browser key acquisition', () => {
     const wrongState = callback(authorization);
     wrongState.searchParams.set('state', 'wrong-state');
     expect((await visit(wrongState)).status).toBe(400);
-    wrongState.searchParams.set('state', '한'.repeat(43));
+    wrongState.searchParams.set('state', koreanText.hangulSyllableHan.repeat(43));
     expect((await visit(wrongState)).status).toBe(400);
     const duplicates = callback(authorization);
     duplicates.searchParams.append('code', 'another-code');

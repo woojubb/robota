@@ -539,9 +539,12 @@ export class SessionExecutionController {
             if (toolCallId !== undefined && typeof toolCallId !== 'string') {
               liveTrace?.omit({ provider: 0, tool: 1 });
             } else {
+              // Like the call ID, the tool name is live-only: the persisted entry above never has it.
+              const toolName = observation.toolName;
               const accepted = liveTrace?.addTool({
                 ...entry.data,
                 ...(toolCallId !== undefined ? { toolCallId } : {}),
+                ...(typeof toolName === 'string' ? { toolName } : {}),
               });
               // A tool item joins the span only when the exported trace kept it; else the root.
               if (accepted && typeof toolCallId === 'string' && !toolSpanIds.has(toolCallId)) {

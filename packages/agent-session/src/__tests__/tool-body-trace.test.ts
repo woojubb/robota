@@ -69,7 +69,9 @@ describe('content-free actual tool body observations', () => {
         new Date(data['endedAt'] as string).getTime(),
       );
       expect(data['outcome']).toBe('success');
-      expect(JSON.stringify(data)).not.toMatch(/private|output|SameTool/);
+      // The tool's name is a label for live spans; its arguments and output never appear.
+      expect(data['toolName']).toBe('SameTool');
+      expect(JSON.stringify(data)).not.toMatch(/private|output/);
     }
   });
 

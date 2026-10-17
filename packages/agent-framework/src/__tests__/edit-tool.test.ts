@@ -11,6 +11,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import type { TToolParameters } from '@robota-sdk/agent-core';
 import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
+import koreanText from './__fixtures__/korean-text.json';
 
 /**
  * ARCH-010 — the context-free `editTool` singleton is gone and the containment root is a required
@@ -218,17 +219,21 @@ describe('EditTool', () => {
 
   it('handles Korean characters', async () => {
     const filePath = join(tmpDir, 'korean.txt');
-    await writeFile(filePath, '안녕하세요 세계\n', 'utf8');
+    await writeFile(
+      filePath,
+      `${koreanText.editGreetingWord} ${koreanText.editWorldWord}\n`,
+      'utf8',
+    );
 
     const result = await run({
       filePath,
-      oldString: '안녕하세요',
-      newString: '반갑습니다',
+      oldString: koreanText.editGreetingWord,
+      newString: koreanText.editGreetingReplacement,
     });
     expect(result.success).toBe(true);
 
     const content = await readFile(filePath, 'utf8');
-    expect(content).toBe('반갑습니다 세계\n');
+    expect(content).toBe(`${koreanText.editGreetingReplacement} ${koreanText.editWorldWord}\n`);
   });
 
   it('handles emoji characters', async () => {

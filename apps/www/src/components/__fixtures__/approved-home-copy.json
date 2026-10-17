@@ -1,0 +1,9 @@
+{
+  "koTitle": "에이전트를 사용하고, 같은 기반으로 직접 만드세요.",
+  "koSdkAction": "SDK 가이드(영문)",
+  "koHeroVision": "에이전트가 자신의 시스템을 더 안정적으로 발전시킬 수 있는 기반을 만들어갑니다.",
+  "cliExpectedReply": {
+    "en": "a text reply from the selected model",
+    "ko": "선택한 모델의 텍스트 응답"
+  }
+}

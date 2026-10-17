@@ -11,7 +11,7 @@ import {
   loadDesktopRemoteConfig,
   REMOTE_RUNTIME_FAILURE,
 } from './remote-runtime.js';
-import { mkdirSync, statSync } from 'node:fs';
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -31,14 +31,18 @@ import {
   buildContentSecurityPolicy,
   buildDaemonStartSpawn,
   buildPickedFiles,
+  chooseInitialWorkspace,
   createDaemonAttachment,
   describeDaemonStartFailure,
   isTrustChoice,
   parseDaemonStartOutput,
+  parseRecentFolders,
   parseTrustStatusOutput,
   parseTrustedProviderEnvironmentReferences,
+  rememberRecentFolder,
   resolveOpenPathTarget,
   resolveSidecarCommand,
+  windowTitle,
   type IPickedFile,
   type ITrustQuestion,
   type TDaemonStart,
@@ -77,6 +81,32 @@ const desktopUserData = desktopUserDataPath(productConfig);
 mkdirSync(desktopUserData, { recursive: true, mode: 0o700 });
 app.setPath('userData', desktopUserData);
 
+/**
+ * #3354: the folder this window works on. Every CLI run — trust status, the grant, the daemon start —
+ * happens in it, so the daemon serves the folder the person chose, not wherever the app was launched.
+ * Unset only until the first window picks one.
+ */
+let workspaceFolder: string | undefined;
+const recentFoldersFile = join(desktopUserData, 'recent-folders.json');
+
+function readRecentFolders(): string[] {
+  try {
+    return parseRecentFolders(readFileSync(recentFoldersFile, 'utf8'));
+  } catch {
+    // allow-fallback: no list yet (or an unreadable one) means no recent folders
+    return [];
+  }
+}
+
+function isDirectory(path: string): boolean {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    // allow-fallback: a recent folder that was removed or unmounted is skipped, not an error
+    return false;
+  }
+}
+
 // GUI-003: packaged → the configured bundled runtime; dev/e2e → explicit fixture override / configured PATH CLI.
 const productCli = (): string =>
   resolveSidecarCommand({
@@ -96,7 +126,7 @@ type TCliRun =
     }
   | { readonly spawned: false; readonly detail: string };
 
-/** Run the CLI in this process's cwd and env, and read what it said. */
+/** Run the CLI in the open workspace folder with `env`, and read what it said. */
 function runCli(
   command: string,
   args: readonly string[],
@@ -105,7 +135,11 @@ function runCli(
   return new Promise((resolve) => {
     let stdout = '';
     let stderr = '';
-    const child = spawn(command, [...args], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(command, [...args], {
+      env,
+      ...(workspaceFolder === undefined ? {} : { cwd: workspaceFolder }),
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
     child.stdout.on('data', (chunk: Buffer) => {
       stdout = appendOutputTail(stdout, chunk.toString('utf8'));
     });
@@ -191,7 +225,30 @@ async function readTrustQuestion(): Promise<ITrustQuestion | undefined> {
 
 /** Asked and not answered yet: no daemon starts until the person answers (issue #3268). */
 let pendingTrust: ITrustQuestion | undefined;
-let answering = false;
+
+/**
+ * #3354: everything that depends on the open folder — the first start, a folder switch, a reconnect and
+ * a trust answer — runs one at a time. Otherwise a grant clicked while a switch is under way would land
+ * on a folder whose question nobody saw, or a reconnect's trust read for the previous folder would leave
+ * its question or provider references behind on the new one.
+ */
+let folderWork: Promise<unknown> = Promise.resolve();
+function inFolderOrder<T>(work: () => Promise<T>): Promise<T> {
+  const next = folderWork.then(work, work);
+  folderWork = next.catch(() => undefined);
+  return next;
+}
+
+/** The app's window, if one is open. On macOS the app and its menu outlive the last window. */
+function liveWindow(): BrowserWindow | undefined {
+  return BrowserWindow.getAllWindows().find((win) => !win.isDestroyed());
+}
+
+/** Rebuild the menu (Open Recent changes) for the open window, if any. */
+function refreshMenu(): void {
+  const win = liveWindow();
+  if (win) Menu.setApplicationMenu(buildMenu(win));
+}
 
 /**
  * Started once the app is ready, and again when the page asks to reconnect after the daemon stopped. The
@@ -235,6 +292,49 @@ function openSettingsMenuItem(win: BrowserWindow): MenuItemConstructorOptions {
       if (!win.webContents.isDestroyed()) win.webContents.send('agent-gui:open-settings');
     },
   };
+}
+
+/** Run a menu action that opens a folder, reporting a failure rather than leaving it unhandled. */
+function openFolderFromMenu(choose: () => Promise<string | undefined>): void {
+  void choose()
+    .then((folder) => (folder === undefined ? undefined : openFolder(folder)))
+    .catch((error) => console.error('[agent-app] could not open the folder:', error));
+}
+
+/** File → Open Folder… (id `open-folder` so the e2e can click it through the main process). */
+function openFolderMenuItem(): MenuItemConstructorOptions {
+  return {
+    id: 'open-folder',
+    label: 'Open Folder…',
+    accelerator: 'CmdOrCtrl+O',
+    click: () => openFolderFromMenu(() => pickFolder(liveWindow())),
+  };
+}
+
+/** File → Open Recent: the folders opened before, most recent first, and a way to forget them. */
+function openRecentMenuItem(): MenuItemConstructorOptions {
+  const recent = readRecentFolders();
+  return {
+    id: 'open-recent',
+    label: 'Open Recent',
+    submenu: [
+      ...recent.map((folder) => ({ label: folder, click: () => openFolderFromMenu(async () => folder) })),
+      ...(recent.length > 0 ? [{ type: 'separator' } as const] : []),
+      {
+        label: 'Clear Recently Opened',
+        enabled: recent.length > 0,
+        click: () => {
+          writeRecentFolders([]);
+          refreshMenu();
+        },
+      },
+    ],
+  };
+}
+
+/** The File menu's folder items; a remote task has no local folder to open. */
+function folderMenuItems(): MenuItemConstructorOptions[] {
+  return remoteMode ? [] : [openFolderMenuItem(), openRecentMenuItem()];
 }
 
 /**
@@ -285,8 +385,20 @@ function buildMenu(win: BrowserWindow): Menu {
               { role: 'quit' },
             ],
           } satisfies MenuItemConstructorOptions,
+          ...(remoteMode
+            ? []
+            : [{ label: 'File', submenu: folderMenuItems() } satisfies MenuItemConstructorOptions]),
         ]
-      : [{ label: '&File', submenu: [{ role: 'quit' }] } satisfies MenuItemConstructorOptions]),
+      : [
+          {
+            label: '&File',
+            submenu: [
+              ...folderMenuItems(),
+              ...(remoteMode ? [] : [{ type: 'separator' } as const]),
+              { role: 'quit' },
+            ],
+          } satisfies MenuItemConstructorOptions,
+        ]),
     { label: isMac ? 'Edit' : '&Edit', submenu: editSubmenu },
     { label: isMac ? 'View' : '&View', submenu: viewSubmenu },
     { role: 'windowMenu' },
@@ -294,12 +406,94 @@ function buildMenu(win: BrowserWindow): Menu {
   return Menu.buildFromTemplate(template);
 }
 
-async function createWindow(): Promise<void> {
-  // In a folder not trusted yet the daemon would be refused; the person in front is asked first.
-  const started = readTrustQuestion().then((question) => {
-    pendingTrust = question;
-    return question === undefined ? daemon.start() : undefined;
+/** Ask for a folder with the native dialog, modal to `win` when there is one. Cancel answers `undefined`. */
+async function pickFolder(win?: BrowserWindow): Promise<string | undefined> {
+  const options = {
+    title: 'Open Folder',
+    buttonLabel: 'Open',
+    properties: ['openDirectory', 'createDirectory'] as Array<'openDirectory' | 'createDirectory'>,
+  };
+  const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+  return result.canceled ? undefined : result.filePaths[0];
+}
+
+function writeRecentFolders(folders: readonly string[]): void {
+  try {
+    writeFileSync(recentFoldersFile, JSON.stringify(folders), { mode: 0o600 });
+  } catch (error) {
+    // allow-fallback: an unwritable recent list must not stop the folder from opening
+    console.error('[agent-app] could not save the recent folders:', error);
+  }
+}
+
+/** Make `folder` the open one: remembered first in Open Recent, and named in the window title. */
+function useFolder(folder: string): void {
+  workspaceFolder = folder;
+  writeRecentFolders(rememberRecentFolder(readRecentFolders(), folder));
+  const win = liveWindow();
+  win?.setTitle(windowTitle(app.name, folder));
+  refreshMenu();
+}
+
+/**
+ * Switch to another folder (#3354). The first folder's daemon keeps running — daemons are per folder —
+ * and the window attaches to the chosen folder's daemon, starting it when none is live. Every answer
+ * about the previous folder (its trust question, a Restricted choice, its admitted provider references)
+ * is dropped first, so the new folder is asked about afresh. With no window open (macOS), a new window
+ * opens on the chosen folder.
+ */
+async function openFolder(folder: string): Promise<void> {
+  if (remoteMode) return;
+  const openWindow = await inFolderOrder(async () => {
+    if (folder === workspaceFolder) return false;
+    if (!isDirectory(folder)) {
+      writeRecentFolders(readRecentFolders().filter((recent) => recent !== folder));
+      refreshMenu();
+      const message = { type: 'warning' as const, message: 'That folder no longer exists.', detail: folder };
+      const win = liveWindow();
+      await (win ? dialog.showMessageBox(win, message) : dialog.showMessageBox(message));
+      return false;
+    }
+    pendingTrust = undefined;
+    restricted = false;
+    admittedProviderEnvironmentReferences = [];
+    // A start still running belongs to the previous folder; let it settle before asking for this one.
+    await daemon.current()?.catch(() => undefined);
+    useFolder(folder);
+    const win = liveWindow();
+    if (!win) return true;
+    pendingTrust = await readTrustQuestion();
+    if (pendingTrust === undefined) await daemon.start();
+    if (!win.isDestroyed()) win.webContents.reload();
+    return false;
   });
+  if (openWindow) await createWindow();
+}
+
+async function createWindow(): Promise<void> {
+  if (!remoteMode && workspaceFolder === undefined) {
+    const initial =
+      chooseInitialWorkspace({
+        isPackaged: app.isPackaged,
+        launchCwd: process.cwd(),
+        recentFolders: readRecentFolders(),
+        isDirectory,
+      }) ?? (await pickFolder());
+    // Nothing to work on: the person closed the folder dialog, so there is nothing to show either.
+    if (initial === undefined) {
+      app.quit();
+      return;
+    }
+    useFolder(initial);
+  }
+
+  // In a folder not trusted yet the daemon would be refused; the person in front is asked first.
+  const started = inFolderOrder(() =>
+    readTrustQuestion().then((question) => {
+      pendingTrust = question;
+      return question === undefined ? daemon.start() : undefined;
+    }),
+  );
 
   const win = new BrowserWindow({
     width: 1100,
@@ -314,6 +508,9 @@ async function createWindow(): Promise<void> {
   });
   lockNavigation(win);
   Menu.setApplicationMenu(buildMenu(win));
+  // The title names the open folder; the page's own <title> must not replace it.
+  win.on('page-title-updated', (event) => event.preventDefault());
+  win.setTitle(windowTitle(app.name, remoteMode ? undefined : workspaceFolder));
   win.once('ready-to-show', () => win.show());
 
   // The CSP is fixed when the page loads, so the page loads once the daemon's port is known. A failed
@@ -346,17 +543,19 @@ ipcMain.handle('agent-gui:endpoint', async (event): Promise<string | null> => {
  * again — it starts a daemon or reuses a live one — then reload the page, so the CSP and the endpoint it
  * asks for are the new daemon's. A start that fails reloads too, into the fatal screen with the reason.
  */
-ipcMain.handle('agent-gui:restart', async (event): Promise<void> => {
-  // Nothing starts before the trust question is answered.
-  if (pendingTrust !== undefined) return;
-  if (restricted) {
-    admittedProviderEnvironmentReferences = [];
-  } else {
-    pendingTrust = await readTrustQuestion();
-  }
-  if (pendingTrust === undefined) await daemon.start();
-  if (!event.sender.isDestroyed()) event.sender.reload();
-});
+ipcMain.handle('agent-gui:restart', (event): Promise<void> =>
+  inFolderOrder(async () => {
+    // Nothing starts before the trust question is answered.
+    if (pendingTrust !== undefined) return;
+    if (restricted) {
+      admittedProviderEnvironmentReferences = [];
+    } else {
+      pendingTrust = await readTrustQuestion();
+    }
+    if (pendingTrust === undefined) await daemon.start();
+    if (!event.sender.isDestroyed()) event.sender.reload();
+  }),
+);
 
 /** The question the page shows before anything starts, or `null` when there is none. */
 ipcMain.handle('agent-gui:trust-question', (): ITrustQuestion | null => pendingTrust ?? null);
@@ -393,7 +592,8 @@ ipcMain.handle(
   async (_event, path: unknown): Promise<{ error?: string }> => {
     if (remoteMode) return { error: 'Remote task paths cannot open files on this computer.' };
     if (typeof path !== 'string') return { error: 'path must be a string' };
-    const target = resolveOpenPathTarget(process.cwd(), path);
+    if (workspaceFolder === undefined) return { error: 'No folder is open.' };
+    const target = resolveOpenPathTarget(workspaceFolder, path);
     if (target === undefined) return { error: 'That path is outside the workspace.' };
     const error = await shell.openPath(target);
     return error ? { error } : {};
@@ -408,13 +608,16 @@ ipcMain.handle(
 ipcMain.handle(
   'agent-gui:trust-answer',
   async (event, choice: unknown): Promise<{ error?: string }> => {
-    if (pendingTrust === undefined || answering || !isTrustChoice(choice)) return {};
+    // The answer is about the question on screen when it was given; it applies to nothing else.
+    const asked = pendingTrust;
+    if (asked === undefined || !isTrustChoice(choice)) return {};
     if (choice === 'quit') {
       app.quit();
       return {};
     }
-    answering = true;
-    try {
+    return inFolderOrder(async () => {
+      // A folder switch, or an earlier answer, since then has replaced that question: this one is stale.
+      if (pendingTrust !== asked) return {};
       if (choice === 'trust') {
         const granted = await runCli(productCli(), ['trust', '--yes'], cliEnv());
         if (!granted.spawned) return { error: granted.detail };
@@ -437,9 +640,7 @@ ipcMain.handle(
       await daemon.start();
       if (!event.sender.isDestroyed()) event.sender.reload();
       return {};
-    } finally {
-      answering = false;
-    }
+    });
   },
 );
 
@@ -470,6 +671,15 @@ app.on('before-quit', (event) => {
 // Closing the window leaves the daemon running: it is the workspace's, and the next launch reattaches.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+// #3354: on macOS the app outlives its last window; clicking the Dock icon opens a new one on the same
+// folder, which reattaches to that folder's live daemon.
+app.on('activate', () => {
+  if (!app.isReady() || BrowserWindow.getAllWindows().length > 0) return;
+  createWindow().catch((error) => {
+    console.error('[agent-app] failed to reopen the main window:', error);
+  });
 });
 
 // Never open external URLs inside the app.

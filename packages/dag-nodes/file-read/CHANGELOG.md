@@ -1,5 +1,10 @@
 # @robota-sdk/dag-node-file-read
 
+## 3.0.0-beta.75
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.0-beta.94
+
 ## 3.0.0-beta.74
 ### Patch Changes
 

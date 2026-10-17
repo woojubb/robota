@@ -1,0 +1,9 @@
+{
+  "badge": "PUBLIC BETA",
+  "heading": "Build TypeScript agents.",
+  "subheading": "Explore the SDK and coding CLI.",
+  "sdk": "Build with the agent SDK",
+  "cli": "Try the coding CLI",
+  "footer": "Provider charges depend on your setup",
+  "license": "AGPL-3.0 · COMMERCIAL OPTION"
+}

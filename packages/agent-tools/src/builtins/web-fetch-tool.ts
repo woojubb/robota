@@ -4,6 +4,10 @@
  * HTML is stripped to plain text for readability. Fetches through the shared egress boundary
  * (`fetchWithEgressPolicy`, #2026): loopback / private / link-local / metadata destinations are
  * refused, redirects are re-validated, and the response is capped while streaming.
+ *
+ * After an HTML page, the tool checks once per origin whether the site publishes an llms.txt index
+ * (https://llmstxt.org/) and, if so, appends a pointer to it. The index itself is never inlined: the
+ * model decides whether the curated map is worth a fetch.
  */
 
 import { fetchWithEgressPolicy } from '@robota-sdk/agent-core/node';
@@ -21,6 +25,9 @@ import '../tool-permission-profiles.js';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_RESPONSE_BYTES = 5_000_000; // 5 MB max download
+/** The probe must never noticeably delay the page it accompanies, nor download a large index. */
+const LLMS_TXT_PROBE_TIMEOUT_MS = 2_000;
+const LLMS_TXT_PROBE_MAX_BYTES = 512_000;
 
 const WebFetchSchema = z.object({
   url: z.string().describe('The URL to fetch'),
@@ -39,7 +46,12 @@ export interface IWebFetchToolOptions extends IBuiltinToolDescriptionOptions {
   egress?: IWebFetchEgressOptions;
   /** Host-selected HTTP identity; omitted for SDK consumers that do not identify a product. */
   userAgent?: string;
+  /** Check an HTML page's origin for an llms.txt index and point to it. Default `true`. */
+  llmsTxtProbe?: boolean;
 }
+
+/** Per-tool-instance cache of llms.txt probes, keyed by origin. A miss is cached like a hit. */
+type TLlmsTxtCache = Map<string, Promise<string | undefined>>;
 
 /**
  * Remove every `<tag>…</tag>` element — the linear equivalent of `replace(/<tag[\s\S]*?<\/tag>/gi, '')`.
@@ -153,10 +165,60 @@ export function classifyFetchError(err: unknown): string {
   return `Network error: ${err.message} Check that the URL is correct and the server is reachable.`;
 }
 
+/**
+ * An llms.txt index counts only as a 2xx plain-text or Markdown body whose first non-blank line is an
+ * H1, as the format requires. That rejects the common soft 404: the site's HTML shell served with 200.
+ */
+function isLlmsTxtIndex(contentType: string, body: Uint8Array): boolean {
+  if (!/text\/(plain|markdown)/i.test(contentType)) return false;
+  const firstLine = new TextDecoder()
+    .decode(body)
+    .split(/\r?\n/)
+    .find((line) => line.trim() !== '');
+  return firstLine?.startsWith('# ') ?? false;
+}
+
+/**
+ * Resolve to the origin's llms.txt URL when it publishes a valid index, else `undefined`. Never
+ * rejects: a probe that is refused, times out or fails is simply a miss. Only the host-selected
+ * User-Agent is sent; headers the caller supplied for the page are not forwarded to the probe.
+ */
+async function probeLlmsTxt(
+  origin: string,
+  egress: IWebFetchEgressOptions,
+  userAgent: string | undefined,
+  signal?: AbortSignal,
+): Promise<string | undefined> {
+  const indexUrl = `${origin}/llms.txt`;
+  try {
+    const response = await fetchWithEgressPolicy(
+      indexUrl,
+      {
+        headers: userAgent === undefined ? {} : { 'User-Agent': userAgent },
+        signal,
+        timeoutMs: LLMS_TXT_PROBE_TIMEOUT_MS,
+        maxResponseBytes: LLMS_TXT_PROBE_MAX_BYTES,
+      },
+      egress.policy,
+      egress.deps,
+    );
+    if (!response.ok || response.status < 200 || response.status >= 300) return undefined;
+    return isLlmsTxtIndex(response.headers.get('content-type') ?? '', response.body) ? indexUrl : undefined;
+  } catch {
+    // allow-fallback: the probe is advisory; its failure must leave the main fetch result unchanged
+    return undefined;
+  }
+}
+
+function llmsTxtPointer(indexUrl: string): string {
+  return `\n\nThis site publishes an LLM index at ${indexUrl} (llms.txt); fetch it for a curated map of the docs.`;
+}
+
 async function runWebFetch(
   args: TWebFetchArgs,
   egress: IWebFetchEgressOptions,
   userAgent: string | undefined,
+  llmsTxtCache: TLlmsTxtCache | undefined,
   signal?: AbortSignal,
 ): Promise<string> {
   const { url, headers } = args;
@@ -216,7 +278,23 @@ async function runWebFetch(
 
     // Strip HTML if content-type indicates HTML
     if (contentType.includes('html')) {
+      // The probe runs while the page is converted, so it adds little to the fetch's latency.
+      const origin = new URL(response.finalUrl).origin;
+      let probe = llmsTxtCache?.get(origin);
+      if (llmsTxtCache && probe === undefined) {
+        const started: Promise<string | undefined> = probeLlmsTxt(origin, egress, userAgent, signal).then((indexUrl) => {
+          // A cancelled run says nothing about the site, so it must not be remembered as a miss.
+          if (indexUrl === undefined && signal?.aborted && llmsTxtCache.get(origin) === started) {
+            llmsTxtCache.delete(origin);
+          }
+          return indexUrl;
+        });
+        probe = started;
+        llmsTxtCache.set(origin, probe);
+      }
       text = htmlToText(text);
+      const indexUrl = await probe;
+      if (indexUrl !== undefined) text += llmsTxtPointer(indexUrl);
     }
 
     const result: IToolInvocationResult = { success: true, output: text };
@@ -232,19 +310,24 @@ async function runWebFetch(
   }
 }
 
-const DEFAULT_WEB_FETCH_DESCRIPTION =
-  'Fetch a URL and return its content as text. HTML pages are converted to plain text.';
+const WEB_FETCH_DESCRIPTION_BASE =
+  'Fetch a URL and return its content as text. HTML pages are converted to plain text. ' +
+  'Documentation sites may publish a curated index at /llms.txt (full text at /llms-full.txt)';
+const DEFAULT_WEB_FETCH_DESCRIPTION = `${WEB_FETCH_DESCRIPTION_BASE}; when a fetched page's site has one, the result points to it.`;
+/** Without the probe the runtime adds no pointer, so the description must not promise one. */
+const UNPROBED_WEB_FETCH_DESCRIPTION = `${WEB_FETCH_DESCRIPTION_BASE}.`;
 
 /**
  * Create a WebFetchTool instance — register with agent tools registry.
  */
 export function createWebFetchTool(options: IWebFetchToolOptions = {}): FunctionTool {
   const egress = options.egress ?? {};
+  const llmsTxtCache: TLlmsTxtCache | undefined = options.llmsTxtProbe === false ? undefined : new Map();
   return createZodFunctionTool(
     'WebFetch',
-    options.description ?? DEFAULT_WEB_FETCH_DESCRIPTION,
+    options.description ?? (llmsTxtCache ? DEFAULT_WEB_FETCH_DESCRIPTION : UNPROBED_WEB_FETCH_DESCRIPTION),
     WebFetchSchema,
-    async (params, context) => runWebFetch(params, egress, options.userAgent, context?.signal),
+    async (params, context) => runWebFetch(params, egress, options.userAgent, llmsTxtCache, context?.signal),
   );
 }
 

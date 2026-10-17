@@ -16,6 +16,7 @@ import React from 'react';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import CjkTextInput from '../CjkTextInput.js';
+import korean from './__fixtures__/korean-text.json';
 
 const noop = (): void => {};
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 30));
@@ -43,9 +44,9 @@ describe('CLI-062 — fallback rendering is byte-identical to pre-change output'
   });
 
   it('CJK value with drawn end-of-line cursor', async () => {
-    const { lastFrame, unmount } = render(<CjkTextInput value="안녕하세요" onChange={noop} />);
+    const { lastFrame, unmount } = render(<CjkTextInput value={korean.greeting} onChange={noop} />);
     await tick();
-    expect(lastFrame()).toBe('안녕하세요\u001b[7m \u001b[27m');
+    expect(lastFrame()).toBe(`${korean.greeting}\u001b[7m \u001b[27m`);
     unmount();
   });
 
@@ -69,10 +70,20 @@ describe('CLI-062 — fallback rendering is byte-identical to pre-change output'
 
   it('long value wraps identically (the <Box ref> wrapper must not change layout)', async () => {
     const { lastFrame, unmount } = render(
-      <CjkTextInput value={'a'.repeat(150) + '안녕'} onChange={noop} availableWidth={58} />,
+      <CjkTextInput
+        value={'a'.repeat(150) + korean.greetingFirstTwoSyllables}
+        onChange={noop}
+        availableWidth={58}
+      />,
     );
     await tick();
-    expect(lastFrame()).toBe('a'.repeat(100) + '\n' + 'a'.repeat(50) + '안녕\u001b[7m \u001b[27m');
+    expect(lastFrame()).toBe(
+      'a'.repeat(100) +
+        '\n' +
+        'a'.repeat(50) +
+        korean.greetingFirstTwoSyllables +
+        '\u001b[7m \u001b[27m',
+    );
     unmount();
   });
 });

@@ -32,7 +32,7 @@ with tempfile.TemporaryDirectory(prefix='issue-2-denial-') as directory:
             except OSError:
                 time.sleep(.1)
         records = []
-        for name, value in [('fraction', 1.5), ('overflow', 9007199254740992), ('unicode-key', {'한글': 'invalid-schema'})]:
+        for name, value in [('fraction', 1.5), ('overflow', 9007199254740992), ('unicode-key', {'\uD55C\uAE00': 'invalid-schema'})]:
             request = Request('http://127.0.0.1:19091/apply', data=json.dumps({'operation': {'value': value}}).encode(),
                               headers={'Content-Type': 'application/json'})
             try:

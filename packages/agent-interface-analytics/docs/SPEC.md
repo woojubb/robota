@@ -31,8 +31,9 @@ also carry only attested usage evidence for a table-derived cost estimate. No en
 response, tool, user, or session content.
 
 A bounded live prompt-trace projection exposes only this execution evidence, plus correlation IDs
-that are validated or opaque: a tool-call ID that joins tool children to live-only
-permission-decision children, and a provider-returned request ID on an invoked provider-call child;
+that are validated or opaque — a tool-call ID that joins tool children to live-only
+permission-decision children, and a provider-returned request ID on an invoked provider-call child —
+and a tool-body child's tool name, a label rather than tool content that is never persisted;
 valid duration aggregates survive omitted detail without claiming wall-time additivity or making
 invalid observations into measured work, and queue evidence describes selection for admission rather
 than effects.

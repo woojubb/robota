@@ -10,6 +10,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
+import koreanText from '../../__tests__/__fixtures__/korean-text.json';
 
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { IToolState, IExecutionResult } from '../types.js';
@@ -686,7 +687,7 @@ describe('InteractiveSession', () => {
   // ── BEHAVIOR-001: Session resume correctness tests ──────────────────────────
 
   describe('session resume — BEHAVIOR-001 correctness', () => {
-    // TC-01: tool_use+tool_result 쌍이 구조체로 복구됨 (JSON.stringify 문자열이 아님)
+    // TC-01: tool_use+tool_result pairs are restored as structures (not as JSON.stringify strings)
     it('TC-01: restores tool_use+tool_result pairs as structured objects, not stringified', () => {
       const mockSession = createMockSession({ sessionId: 'tool-session' });
       const toolCalls = [
@@ -706,7 +707,7 @@ describe('InteractiveSession', () => {
             {
               id: 'u1',
               role: 'user',
-              content: '파일을 읽어줘',
+              content: koreanText.readFileRequest,
               state: 'complete',
               timestamp: new Date(),
             },
@@ -729,7 +730,7 @@ describe('InteractiveSession', () => {
             {
               id: 'a2',
               role: 'assistant',
-              content: 'foo.ts를 읽었습니다.',
+              content: koreanText.readFooTsReply,
               state: 'complete',
               timestamp: new Date(),
             },
@@ -769,7 +770,7 @@ describe('InteractiveSession', () => {
       expect(toolMsg.content).toBe('file content');
     });
 
-    // TC-02: resume 후 messages 배열 길이가 저장된 messages와 동일
+    // TC-02: after resume, the messages array length equals the stored messages
     it('TC-02: restores exact number of messages from session record', () => {
       const mockSession = createMockSession({ sessionId: 's2' });
       const messages = [
@@ -799,7 +800,7 @@ describe('InteractiveSession', () => {
       expect(mockSession.injectRawMessage).toHaveBeenCalledTimes(messages.length);
     });
 
-    // TC-04: history turn count가 저장된 history와 일치
+    // TC-04: the history turn count matches the stored history
     it('TC-04: restores history entries with correct count', () => {
       const mockSession = createMockSession();
       const historyEntries = [
@@ -855,7 +856,7 @@ describe('InteractiveSession', () => {
       expect(restoredHistory[2]?.category).toBe('event');
     });
 
-    // TC-05: sessionName이 있으면 getName()이 저장된 이름 반환
+    // TC-05: when sessionName exists, getName() returns the stored name
     it('TC-05: restores sessionName so getName() returns the saved name', () => {
       const mockSession = createMockSession({ sessionId: 'named-session' });
       const mockStore = createMockSessionStore({
@@ -880,7 +881,7 @@ describe('InteractiveSession', () => {
       expect(session.getName()).toBe('My Important Session');
     });
 
-    // TC-06: multi-turn tool 호출(3회 이상) 포함 세션 resume 시 pairing 유지
+    // TC-06: pairing is preserved when resuming a session with multi-turn tool calls (3 or more)
     it('TC-06: restores multi-turn tool calls preserving tool_use+tool_result pairing order', () => {
       const mockSession = createMockSession({ sessionId: 'multi-tool-session' });
       const tc1 = [
@@ -901,7 +902,7 @@ describe('InteractiveSession', () => {
         {
           id: 'm1',
           role: 'user',
-          content: '여러 파일 작업해줘',
+          content: koreanText.multiFileTaskRequest,
           state: 'complete',
           timestamp: new Date(),
         },
@@ -956,7 +957,7 @@ describe('InteractiveSession', () => {
         {
           id: 'm8',
           role: 'assistant',
-          content: '작업이 완료되었습니다.',
+          content: koreanText.taskCompletedReply,
           state: 'complete',
           timestamp: new Date(),
         },

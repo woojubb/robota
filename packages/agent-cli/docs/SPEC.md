@@ -165,7 +165,10 @@ live telemetry path needs an explicit enable switch, individually selected signa
 explicit protocol with a validated destination (OTLP or a local console sink). It uses host-owned
 resource and trace identity, never ambient OpenTelemetry identity, trace context or credentials, and
 sends a trace's identifiers to a provider only at origins the operator listed exactly, and to a
-child process only of a class the operator listed, while traces are exported — the collector's origin and credentials are never implied by that. Its spans, metrics
+child process only of a class the operator listed, while traces are exported — the collector's origin and credentials are never implied by that. Its spans
+and metrics carry Robota's `agent.*` names unless the operator opts in (`PRODUCT_TELEMETRY_SEMCONV`) to the
+still-developing OpenTelemetry GenAI conventions, the only case in which a tool's name — a label, never its arguments or output — appears on
+a span or metric. Its spans, metrics
 and console output are always content-free, correlated by validated IDs; duration totals remain
 measured interval sums when detail is bounded, with invalid evidence explicit and queue selection
 distinct from execution. The only content it can
@@ -494,10 +497,14 @@ the origin list, since a child process is not an origin.
 ### Opt-in metric attributes
 
 `PRODUCT_TELEMETRY_METRIC_ATTRIBUTES` keys its labels `agent.session.id`, `agent.provider.id` and
-`agent.model.id` — matching the live trace spans — rather than `session.id` or `gen_ai.*`: a
+`agent.model.id` — matching the live trace spans' default naming — rather than `session.id` or `gen_ai.*`: a
 metric/trace join needs the same key on both sides, the provider id is whatever the host configured
 rather than a well-known system, and which model actually answered a request cannot be verified
-against which model the request named.
+against which model the request named. Under the GenAI naming opt-in, the `gen_ai.*` metrics carry the
+requested model as those conventions require whatever this opt-in says, the `session` key stamps their
+points like any other, and the provider and model keys label their inference points too (the model only
+under `gen_ai/dup`, since `gen_ai` already names it), so an operator's provider split survives the
+`agent.*` token counters that `gen_ai` drops.
 
 ### Deep links (`__PRODUCT_CLI_NAME__ open`)
 

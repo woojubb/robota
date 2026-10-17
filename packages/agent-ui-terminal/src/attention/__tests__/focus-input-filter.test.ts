@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 
 import { describe, expect, it, vi } from 'vitest';
+import korean from '../../__tests__/__fixtures__/korean-text.json';
 
 import { filterFocusSequences, FocusReportingStdin } from '../focus-input-filter.js';
 import { createFocusReportingWriter } from '../../terminal-focus-reporting.js';
@@ -33,8 +34,8 @@ describe('focus input filter (SCREEN-1992 TC-06)', () => {
     expect(filterFocusSequences(Buffer.from('A'), true).forwarded.toString()).toBe('A');
     const paste = '\x1b[200~pasted \x1b[I text\x1b[201~';
     expect(filterFocusSequences(Buffer.from(paste), false).forwarded.toString()).toBe(paste);
-    const utf8 = Buffer.from('한글\x1b[O😀');
-    expect(filterFocusSequences(utf8, true).forwarded.toString()).toBe('한글😀');
+    const utf8 = Buffer.from(`${korean.hangulWord}\x1b[O😀`);
+    expect(filterFocusSequences(utf8, true).forwarded.toString()).toBe(`${korean.hangulWord}😀`);
   });
 
   it('proxies stdin: reports focus and keystrokes, forwards isTTY/setRawMode/ref/unref', async () => {

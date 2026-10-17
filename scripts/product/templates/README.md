@@ -124,7 +124,7 @@ set `PRODUCT_VERSION` to its tag, e.g. `curl -fsSL … | PRODUCT_VERSION=v<versi
 unsigned — macOS and Windows may warn.
 
 
-> **Beta**: Robota is currently `3.0.0-beta`. APIs may change before 1.0. See
+> **Beta**: Robota is currently `3.0.0-beta`. APIs may change before the stable 3.0.0 release. See
 > [CHANGELOG.md](./CHANGELOG.md) for upgrade notes.
 
 > **macOS users**: Korean/CJK IME input may crash macOS Terminal.app. Use
@@ -211,6 +211,7 @@ The [packages index](__PROJECT_DOCS_URL__/en/packages/) on the docs site covers 
 | [`@robota-sdk/agent-mcp`](https://www.npmjs.com/package/@robota-sdk/agent-mcp)                             | MCP client: server definitions, activation, connections, tool catalog, OAuth sign-in                  |
 | [`@robota-sdk/agent-plugin`](https://www.npmjs.com/package/@robota-sdk/agent-plugin)                       | Lifecycle plugins: history, logging, usage, limits, performance, errors, analytics, webhooks          |
 | [`@robota-sdk/agent-session-analytics`](https://www.npmjs.com/package/@robota-sdk/agent-session-analytics) | Session-log timing and usage analysis and reports                                                     |
+| [`@robota-sdk/agent-telemetry-otel`](https://www.npmjs.com/package/@robota-sdk/agent-telemetry-otel)       | OpenTelemetry spans and GenAI metrics for agent runs and live prompt traces, GenAI or `agent.*` names |
 | [`@robota-sdk/agent-process`](https://www.npmjs.com/package/@robota-sdk/agent-process)                     | Child-process tree termination (`killProcessTree`)                                                    |
 | [`@robota-sdk/agent-file-authority`](https://www.npmjs.com/package/@robota-sdk/agent-file-authority)       | Bounded, root-relative file reads for Node.js                                                         |
 

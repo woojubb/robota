@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import enMetadata from '@/messages/metadata/en.json';
+import koMetadata from '@/messages/metadata/ko.json';
 import { productPublicConfig } from './product-config.generated';
 
 export type MarketingLocale = 'en' | 'ko';
@@ -20,30 +22,16 @@ export function getMarketingLocaleUrl(pathname: string, locale: MarketingLocale)
   return `${childPath ? `/${locale}${childPath}` : marketingPath(locale)}${suffix}`;
 }
 
+/** Page titles and descriptions per locale; `{name}` stands for the product's display name. */
+const metadataCopy: Record<MarketingLocale, Record<MarketingPage, { title: string; description: string }>> = {
+  en: enMetadata,
+  ko: koMetadata,
+};
+
 function marketingCopy(locale: MarketingLocale, page: MarketingPage) {
   const name = productPublicConfig.identity.displayName;
-  const copy = {
-    en: {
-      home: {
-        title: `${name} — TypeScript AI Agent SDK and Coding CLI`,
-        description: `Build AI agents with ${name}’s TypeScript SDK, or use the coding CLI built from the same public components. Public beta.`,
-      },
-      beta: { title: 'Public Beta', description: `Try the public ${name} SDK and coding CLI, review setup requirements, and share feedback on GitHub.` },
-      enterprise: { title: 'Commercial Licensing and Deployment', description: `Review ${name}’s AGPL and commercial licensing, local deployment options, and the data flows to verify for your environment.` },
-      roadmap: { title: 'Roadmap', description: `See shipped beta work, planned releases, and exploratory ideas for the ${name} SDK and CLI.` },
-      compare: { title: `Why ${name}?`, description: `Explore ${name}’s TypeScript agent SDK, coding CLI, provider options, local models and licensing.` },
-      showcase: { title: `${name} CLI Reference Implementation`, description: `Inspect the first-party ${name} CLI built with public SDK packages, and learn how to submit a working community project.` },
-    },
-    ko: {
-      home: { title: `${name} — TypeScript AI 에이전트 SDK와 코딩 CLI`, description: `${name}의 TypeScript SDK로 AI 에이전트를 만들거나, 같은 공개 구성 요소로 만든 코딩 CLI를 사용하세요. 공개 베타입니다.` },
-      beta: { title: '공개 베타', description: `${name} SDK와 코딩 CLI를 사용해 보고, 준비 사항을 확인한 뒤 GitHub에 의견을 남기세요.` },
-      enterprise: { title: '상업용 라이선스와 배포', description: `${name}의 AGPL 및 상업용 라이선스, 로컬 배포 옵션과 환경별 데이터 흐름을 확인하세요.` },
-      roadmap: { title: '로드맵', description: `${name} SDK와 CLI의 완료된 베타 작업, 향후 계획, 탐색 중인 아이디어를 구분해 살펴보세요.` },
-      compare: { title: `왜 ${name}인가?`, description: `${name}의 TypeScript 에이전트 SDK와 코딩 CLI, 프로바이더 선택지, 로컬 모델 및 라이선스를 살펴보세요.` },
-      showcase: { title: `${name} CLI 참조 구현`, description: `공개 SDK 패키지로 만든 ${name} 팀의 CLI 참조 구현을 살펴보고, 작동하는 커뮤니티 프로젝트의 제출 방법을 확인하세요.` },
-    },
-  };
-  return copy[locale][page];
+  const { title, description } = metadataCopy[locale][page];
+  return { title: title.replaceAll('{name}', name), description: description.replaceAll('{name}', name) };
 }
 
 export function getMarketingMetadata(locale: MarketingLocale, page: MarketingPage): Metadata {

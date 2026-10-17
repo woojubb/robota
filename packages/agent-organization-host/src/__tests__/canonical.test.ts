@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { organizationCanonical as publicCanonical, OrganizationSchemaError } from '@robota-sdk/agent-organization';
 import { organizationCanonical, organizationSigningBytes } from '../index.js';
 import { OrganizationRefused } from '../index.js';
+import koreanText from './__fixtures__/korean-text.json';
 
 describe('organization signing bytes', () => {
   it.each([
@@ -17,8 +18,8 @@ describe('organization signing bytes', () => {
 
   it('matches independent Python UTF-16 ordering and JSON escaping for Korean, emoji and controls', () => {
     const value = {
-      '😀': '회사\n\u0000\b\t',
-      '\uE000': ['이름', 9007199254740991],
+      '😀': `${koreanText.companyWord}\n\u0000\b\t`,
+      '\uE000': [koreanText.nameWord, 9007199254740991],
       a: true,
       '𝄞': null,
     };

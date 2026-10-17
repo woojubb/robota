@@ -6,6 +6,14 @@ import { projectLivePromptLogs } from './live-log-otlp.js';
 import { createLiveTelemetryResource, safeLiveProviderRequestId, safeLiveToolCallId } from './live-resource.js';
 import type { ILiveTelemetryResource } from './live-resource.js';
 import { projectLiveTimingTotals } from './live-timing.js';
+import { projectLivePromptTrace } from '@robota-sdk/agent-telemetry-otel';
+import type { TOtelProjectionMode } from '@robota-sdk/agent-telemetry-otel';
+
+/** The names console traces and metrics carry; `agent` keeps the diagnostic record unchanged. */
+export interface ILiveConsoleTraceNaming {
+  readonly semconv: TOtelProjectionMode;
+  readonly agentName?: string;
+}
 
 type TSignal = 'traces' | 'metrics' | 'logs';
 type TSpannedChild = Exclude<ILivePromptTraceBatch['children'][number], { readonly kind: 'permission' }>;
@@ -36,7 +44,7 @@ async function writeWithDeadline(write: (line: string) => void | Promise<void>, 
 /** Console is a diagnostic projection of the same content-free facts, never a batch dump. */
 function projectConsoleRecord(
   batch: ILivePromptTraceBatch, signal: TSignal, resource: ILiveTelemetryResource,
-  metricAttributes: ReadonlySet<TLiveMetricAttribute>,
+  metricAttributes: ReadonlySet<TLiveMetricAttribute>, naming: ILiveConsoleTraceNaming,
 ): object {
   if (signal === 'metrics') {
     const end = Date.now();
@@ -44,7 +52,7 @@ function projectConsoleRecord(
       instanceId: resource.instanceId, resource,
       startTime: [Math.floor((end - 1) / 1000), ((end - 1) % 1000) * 1_000_000],
       endTime: [Math.floor(end / 1000), (end % 1000) * 1_000_000],
-    }, metricAttributes);
+    }, metricAttributes, naming);
     return { signal, resource: resource.attributes, metrics: metricBatch.scopeMetrics.flatMap((scope) => scope.metrics.map((metric) => ({
       name: metric.descriptor.name, unit: metric.descriptor.unit,
       points: metric.dataPoints.map((point) => ({ value: point.value, attributes: point.attributes })),
@@ -56,6 +64,16 @@ function projectConsoleRecord(
       traceId: log.spanContext?.traceId, spanId: log.spanContext?.spanId,
       time: log.hrTime, attributes: log.attributes,
     })) };
+  }
+  if (naming.semconv !== 'agent') {
+    // Under a GenAI opt-in the console shows exactly the spans OTLP would carry.
+    const projection = projectLivePromptTrace(batch, {
+      mode: naming.semconv, ...(naming.agentName ? { agentName: naming.agentName } : {}),
+    });
+    return {
+      signal, resource: resource.attributes, traceId: batch.root.traceId, schemaUrl: projection.schemaUrl,
+      spans: [projection.root, ...projection.children].map(({ traceId: _traceId, ...span }) => span),
+    };
   }
   const timingTotals = projectLiveTimingTotals(batch.timingTotals);
   return {
@@ -98,6 +116,8 @@ export function createNodeLiveConsolePort(
   resource: ILiveTelemetryResource = createLiveTelemetryResource(),
   /** Parsed once at the config boundary from `PRODUCT_TELEMETRY_METRIC_ATTRIBUTES`; empty by default. */
   metricAttributes: ReadonlySet<TLiveMetricAttribute> = new Set(),
+  /** Parsed once at the config boundary from `PRODUCT_TELEMETRY_SEMCONV`; `agent` by default. */
+  naming: ILiveConsoleTraceNaming = { semconv: 'agent' },
 ): ILivePromptTracePort & { shutdown(): Promise<void> } {
   const pending: ILivePromptTraceBatch[] = [];
   let worker: Promise<void> | undefined;
@@ -110,7 +130,7 @@ export function createNodeLiveConsolePort(
     while (pending.length > 0) {
       const batch = pending.shift()!;
       let line: string;
-      try { line = `${JSON.stringify(projectConsoleRecord(batch, signal, resource, metricAttributes))}\n`; }
+      try { line = `${JSON.stringify(projectConsoleRecord(batch, signal, resource, metricAttributes, naming))}\n`; }
       catch { reportFailure('projection-failed'); continue; }
       try { await writeWithDeadline(write, line); }
       catch {

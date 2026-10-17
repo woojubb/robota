@@ -27,20 +27,3 @@ export function projectLiveTimingTotals(value: unknown): IProjectedTimingTotals 
   if (!provider && !tool && !queue) return undefined;
   return { ...(provider ? { provider } : {}), ...(tool ? { tool } : {}), ...(queue ? { queue } : {}) };
 }
-
-export function liveTimingAttributes(value: unknown): Record<string, number> {
-  const totals = projectLiveTimingTotals(value);
-  const attributes: Record<string, number> = {};
-  for (const kind of ['provider', 'tool', 'queue'] as const) {
-    const total = totals?.[kind];
-    if (!total) continue;
-    attributes[`agent.timing.${kind}.duration_ms`] = total.durationMs;
-    attributes[`agent.timing.${kind}.samples`] = total.samples;
-    attributes[`agent.timing.${kind}.invalid`] = total.invalid;
-  }
-  if (totals?.queue) {
-    attributes['agent.timing.queue.admission_started'] = totals.queue.admissionStarted;
-    attributes['agent.timing.queue.not_dispatched'] = totals.queue.notDispatched;
-  }
-  return attributes;
-}

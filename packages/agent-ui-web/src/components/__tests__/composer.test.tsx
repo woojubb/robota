@@ -5,6 +5,7 @@ import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Composer } from '../Composer.js';
+import korean from './__fixtures__/korean-text.json';
 
 import type { TCommandCatalog, TSessionStatus } from '../../hooks/session-client-types.js';
 
@@ -393,22 +394,22 @@ describe('Composer — an IME composition Enter never sends', () => {
     const onSubmit = vi.fn();
     render(<Composer {...baseProps()} onSubmit={onSubmit} />);
     const input = screen.getByLabelText('message') as HTMLTextAreaElement;
-    fireEvent.change(input, { target: { value: '한글' } });
+    fireEvent.change(input, { target: { value: korean.hangulWord } });
     fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
 
     expect(onSubmit).not.toHaveBeenCalled();
-    expect(input.value).toBe('한글');
+    expect(input.value).toBe(korean.hangulWord);
   });
 
   it('a plain Enter right after (composition already finished) sends normally', () => {
     const onSubmit = vi.fn();
     render(<Composer {...baseProps()} onSubmit={onSubmit} />);
     const input = screen.getByLabelText('message') as HTMLTextAreaElement;
-    fireEvent.change(input, { target: { value: '한글' } });
+    fireEvent.change(input, { target: { value: korean.hangulWord } });
     fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    expect(onSubmit).toHaveBeenCalledWith('한글');
+    expect(onSubmit).toHaveBeenCalledWith(korean.hangulWord);
     expect(input.value).toBe('');
   });
 
