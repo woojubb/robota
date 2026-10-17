@@ -51,8 +51,13 @@ describe('live trace semantic-convention modes', () => {
   });
 
   it('never puts content on a span in any mode', async () => {
+    // A host that bypassed the framework boundary: content-shaped tool name, IDs and model label.
+    const base = richBatch();
+    const leaky = { ...base, children: base.children.map((child) => child.kind === 'tool'
+      ? { ...child, trace: { ...child.trace, toolName: 'private tool output', toolCallId: 'private argument' } }
+      : child.kind === 'provider' ? { ...child, trace: { ...child.trace, providerRequestId: 'private prompt text' } } : child) };
     for (const semconv of ['agent', 'gen_ai/dup', 'gen_ai'] as const) {
-      const body = await exportedBody(richBatch(), { semconv });
+      const body = await exportedBody(leaky, { semconv });
       expect(body.toString('utf8')).not.toMatch(CONTENT);
     }
   });
