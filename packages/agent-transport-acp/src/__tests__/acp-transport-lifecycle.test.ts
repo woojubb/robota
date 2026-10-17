@@ -94,6 +94,19 @@ describe('createAcpTransport lifecycle', () => {
     await expect(transport.start()).rejects.toMatchObject({ code: 'not-attached' });
   });
 
+  it('can retry start after a failed start without an intervening stop', async () => {
+    const output = new PassThrough();
+    const transport = createAcpTransport(
+      createTransportOptions(undefined as unknown as PassThrough, output),
+    );
+    transport.attach(createFakeSession().session);
+    // An input that cannot be read fails the start; that start serves nothing.
+    await expect(transport.start()).rejects.toThrow(TypeError);
+    await expect(transport.start()).rejects.toThrow(TypeError);
+    expect(output.listenerCount('error')).toBe(0);
+    await transport.stop();
+  });
+
   it('settles waitForClose when the editor closes its input', async () => {
     const { input, transport } = streams();
     transport.attach(createFakeSession().session);

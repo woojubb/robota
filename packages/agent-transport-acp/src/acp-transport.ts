@@ -51,6 +51,17 @@ export function createAcpTransport(options: IAcpTransportOptions): IAcpTransport
     // allow-fallback: waitForClose retains the rejection for the process owner; this observer only prevents an early unhandled-rejection warning.
     void closePromise.catch(() => undefined);
   };
+  const release = (): void => {
+    try {
+      cancelActive?.();
+      connection?.close();
+    } finally {
+      carrier?.release();
+      carrier = null;
+      connection = null;
+      cancelActive = null;
+    }
+  };
   const lifecycleError = (code: ITransportLifecycleError['code']): ITransportLifecycleError =>
     Object.assign(new Error(`ACP transport ${code}.`), {
       name: 'TransportLifecycleError' as const,
@@ -70,36 +81,38 @@ export function createAcpTransport(options: IAcpTransportOptions): IAcpTransport
       if (!session) throw lifecycleError('not-attached');
       if (running || stopping) throw lifecycleError('already-started');
       running = true;
-      const acpAgent = createAcpAgent(session, options);
-      cancelActive = acpAgent.cancelActive;
-      // The SDK destroys what it reads when its connection closes; it reads the bridge, never the
-      // process input, and a closed or failed end ends the transport instead of leaving it idle.
-      const attached = attachStdioCarrier(options.input, options.output, {
-        onInputClose: () => resolveClose?.(),
-        onOutputClose: () => resolveClose?.(),
-        onOutputError: (error) => rejectClose?.(error),
-      });
-      carrier = attached;
-      const opened = acpAgent.app.connect(
-        ndJsonStream(
-          outputSink(options.output),
-          Readable.toWeb(attached.bridge) as ReadableStream<Uint8Array>,
-        ),
-      );
-      connection = opened;
-      void opened.closed.then(() => resolveClose?.());
+      try {
+        const acpAgent = createAcpAgent(session, options);
+        cancelActive = acpAgent.cancelActive;
+        // The SDK destroys what it reads when its connection closes; it reads the bridge, never the
+        // process input, and a closed or failed end ends the transport instead of leaving it idle.
+        const attached = attachStdioCarrier(options.input, options.output, {
+          onInputClose: () => resolveClose?.(),
+          onOutputClose: () => resolveClose?.(),
+          onOutputError: (error) => rejectClose?.(error),
+        });
+        carrier = attached;
+        const opened = acpAgent.app.connect(
+          ndJsonStream(
+            outputSink(options.output),
+            Readable.toWeb(attached.bridge) as ReadableStream<Uint8Array>,
+          ),
+        );
+        connection = opened;
+        void opened.closed.then(() => resolveClose?.());
+      } catch (error) {
+        // A start that failed serves nothing, so a retry must not be told it is already running.
+        release();
+        running = false;
+        throw error;
+      }
     },
     stop() {
       if (stopping) return stopping;
       stopping = (async () => {
         try {
-          cancelActive?.();
-          connection?.close();
+          release();
         } finally {
-          carrier?.release();
-          carrier = null;
-          connection = null;
-          cancelActive = null;
           session = null;
           running = false;
           resolveClose?.();
