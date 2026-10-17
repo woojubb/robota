@@ -236,6 +236,8 @@ describe('parsing helper output', () => {
     'Accept',
     'Mcp-Session-Id',
     'MCP-Protocol-Version',
+    'Mcp-Method',
+    'Mcp-Name',
     'traceparent',
   ])('refuses the transport-owned header %s', (name) => {
     expect(failureOf(JSON.stringify({ [name]: 'secret' }))).toBe('header-forbidden');

@@ -22,10 +22,17 @@ Two behaviors change on the pinned 2026-07-28 era, both following the official c
   negotiation serves.
 - An invalid freshness hint on `server/discover` (`ttlMs` negative or fractional, `cacheScope` unknown)
   is read as the safest value (`ttlMs` 0, `cacheScope` private) instead of rejecting the server. List
-  pages and call results with an invalid hint are still refused.
+  pages and resource reads with an invalid hint are still refused.
+- An `input_required` result that carries neither `inputRequests` nor `requestState` is refused as
+  `invalid-tool-result` rather than reported as `input_required`; either way the carrier closes and
+  nothing is replayed.
 
 Against a real 2026-07-28 host the pinned path now also sends the request headers the revision
-requires (`Mcp-Method`, `Mcp-Name`), which the hand-written framing did not.
+requires (`Mcp-Method`, `Mcp-Name`), which the hand-written framing did not; a headers helper may no
+longer set either, as it already could not set the other headers the transport owns. On the legacy
+era the client no longer rejects `structuredContent` that violates the tool's declared `outputSchema`:
+that check lived in the 1.x client's `listTools` cache, which per-page discovery does not fill, and
+the catalog converts the result as before.
 
 `@robota-sdk/agent-cli` adds `@modelcontextprotocol/client` and `@modelcontextprotocol/core` to its
 external `dependencies` (it keeps the 1.x SDK, which `@robota-sdk/agent-transport-mcp`'s server still

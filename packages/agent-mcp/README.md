@@ -41,10 +41,10 @@ One `@modelcontextprotocol/client` serves both eras. This path pins it to `2026-
 does not offer that revision is refused by name and never retried over the legacy handshake, while
 omitting the version negotiates the legacy era. A result without its `resultType` is refused rather than
 assumed complete. An invalid freshness hint on `server/discover` is read as the safest one (`ttlMs` 0,
-`cacheScope` private) instead of rejecting the server; a list page or call result with one is refused.
+`cacheScope` private) instead of rejecting the server; a list page or resource read with one is refused.
 
-Discovery validates and exposes each page's `ttlMs`, `cacheScope` and host receive time, plus the
-server discovery hint. These values are freshness hints, not integrity or authority. Retained catalog
+Discovery validates and exposes each page's `ttlMs`, `cacheScope` and host receive time, and exposes
+the server discovery hint as the client read it. These values are freshness hints, not integrity or authority. Retained catalog
 identity includes a fresh carrier generation, preventing private data reuse across reconnects.
 If optional server information is absent, the configured server ID labels the source and the version
 is empty with `serverInfoProvided: false`; no external revision is invented.

@@ -13,7 +13,7 @@ supervisor). Discovered tools enter the runtime through the existing generic too
 (`IToolWithEventService`); no MCP-only runtime path exists.
 
 The hand-written JSON-RPC path that preceded the SDK client was removed rather than wrapped, and
-the explicit 2026-07-28 revision is the same SDK client pinned to that era, not a second stack:
+the explicitly selected revision is the same SDK client pinned to its era, not a second stack:
 two client stacks cannot both be authoritative, so each guarantee below is stated, and held, once.
 
 ## Non-goals / Boundaries
@@ -155,7 +155,11 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
 Both eras run on one SDK client because every guarantee here lives in the carrier and the session
 around it, not in the wire framing — a second framing could only drift from them. On the pinned
 era a result that does not say it is complete is refused rather than assumed complete: the
-assumption served peers that predate the discriminator, and legacy negotiation serves those.
+assumption served peers that predate the discriminator, and legacy negotiation serves those. An
+invalid freshness hint on the discovery probe is read as its safest value, as the official client
+reads it, because the probe precedes every cached entry and refusing it would turn away servers
+every other client accepts; a page or read that carries one is still refused, because that hint
+governs a cache entry.
 
 ## Design decision: definition precedence, with plugins last
 
