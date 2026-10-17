@@ -72,6 +72,9 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
   The editor keeps earlier calls and identifies them by id, so ids must not repeat across turns; the
   counter lives as long as the connection. A permission request for a call that has not started
   carries an id derived from the request, because the permission event names no call.
+- **A permission request shows what the terminal shows.** The person answers in the editor's dialog
+  alone, so the request carries the arguments whole, an edit's diff and the file it touches, and a
+  title that is never shortened; approving a summary would approve what was not seen.
 - **Slash commands arrive as prompt text.** A prompt whose text starts with `/` goes to the host's
   command port and its output is one message; the editor's own command list is not advertised.
 - **No thought stream.** The session's thinking event carries no text, so there is nothing to send.

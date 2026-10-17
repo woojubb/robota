@@ -3,7 +3,7 @@
 import { RequestError } from '@agentclientprotocol/sdk';
 import { isTurnNotRunError } from '@robota-sdk/agent-interface-session';
 
-import { permissionDecision, permissionOptions, permissionTitle } from './acp-permission.js';
+import { permissionDecision, permissionOptions, permissionToolCall } from './acp-permission.js';
 import { subscribeAcpEvents } from './acp-session-events.js';
 import { acpToolEndStatus, acpToolKind, acpToolStartTitle } from './acp-tool-mapping.js';
 
@@ -26,6 +26,8 @@ export interface IAcpTurnContext {
   readonly signal: AbortSignal;
   readonly driverId: TDriverId;
   readonly surface: ISubmitOptions['surface'];
+  /** The served directory; paths the session reports relative to it are made absolute for the editor. */
+  readonly cwd: string;
   /** Ids for tool calls the session gives no id; unique for the life of the session. */
   readonly nextToolCallId: () => string;
   /** Whether the editor sent `session/cancel` for this prompt. */
@@ -96,12 +98,7 @@ export async function runModelTurn(turn: IAcpTurnContext, text: string): Promise
       try {
         const response = await client.request('session/request_permission', {
           sessionId,
-          toolCall: {
-            toolCallId: pending?.id ?? `permission-${event.id}`,
-            title: permissionTitle(event),
-            kind: acpToolKind(event.toolName),
-            status: 'pending',
-          },
+          toolCall: permissionToolCall(event, pending?.id ?? `permission-${event.id}`, turn.cwd),
           options,
         });
         decision = permissionDecision(response.outcome, options);

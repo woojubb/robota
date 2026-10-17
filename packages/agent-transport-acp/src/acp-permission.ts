@@ -1,10 +1,17 @@
 /** How a session permission prompt becomes an ACP permission request and its answer becomes a decision. */
 
-import { acpToolTitle } from './acp-tool-mapping.js';
+import { resolve } from 'node:path';
 
-import type { PermissionOption, RequestPermissionOutcome } from '@agentclientprotocol/sdk';
+import { acpFullToolTitle, acpToolKind } from './acp-tool-mapping.js';
+
+import type {
+  PermissionOption,
+  RequestPermissionOutcome,
+  ToolCallUpdate,
+} from '@agentclientprotocol/sdk';
 import type { TToolArgs } from '@robota-sdk/agent-core';
 import type {
+  IDiffLine,
   IPermissionRequestEvent,
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-session';
@@ -45,8 +52,56 @@ function summaryArg(args: TToolArgs): string | undefined {
 }
 
 export function permissionTitle(event: IPermissionRequestEvent): string {
-  const title = acpToolTitle(event.toolName, event.diffFile ?? summaryArg(event.toolArgs));
+  const title = acpFullToolTitle(event.toolName, event.diffFile ?? summaryArg(event.toolArgs));
   return event.requester ? `${event.requester.label}: ${title}` : title;
+}
+
+/** What the call was asked with, including a shell call's working directory when the session resolved one. */
+function permissionRawInput(event: IPermissionRequestEvent): unknown {
+  if (event.cwd === undefined || 'cwd' in event.toolArgs) return event.toolArgs;
+  return { ...event.toolArgs, cwd: event.cwd };
+}
+
+/**
+ * The file as it is before and after, rebuilt from the session's diff lines: context lines belong
+ * to both sides. A diff with nothing on the old side is a new file, which ACP spells as no old text.
+ */
+function diffTexts(lines: readonly IDiffLine[]): { oldText?: string; newText: string } {
+  const before: string[] = [];
+  const after: string[] = [];
+  for (const line of lines) {
+    if (line.type === 'hunk') continue;
+    if (line.type !== 'add') before.push(line.text);
+    if (line.type !== 'remove') after.push(line.text);
+  }
+  return {
+    ...(before.length > 0 ? { oldText: before.join('\n') } : {}),
+    newText: after.join('\n'),
+  };
+}
+
+/**
+ * The tool call a permission request describes. The editor gets what the terminal shows: the
+ * arguments whole, and for an edit the diff and the file it concerns. `cwd` roots a path the
+ * session reported relative to the workspace, because ACP paths are absolute.
+ */
+export function permissionToolCall(
+  event: IPermissionRequestEvent,
+  toolCallId: string,
+  cwd: string,
+): ToolCallUpdate {
+  const path = event.diffFile === undefined ? undefined : resolve(cwd, event.diffFile);
+  return {
+    toolCallId,
+    title: permissionTitle(event),
+    kind: acpToolKind(event.toolName),
+    status: 'pending',
+    rawInput: permissionRawInput(event),
+    ...(path !== undefined && event.diffLines !== undefined
+      ? { content: [{ type: 'diff' as const, path, ...diffTexts(event.diffLines) }] }
+      : {}),
+    ...(path !== undefined ? { locations: [{ path }] } : {}),
+  };
 }
 
 /**

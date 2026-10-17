@@ -126,6 +126,7 @@ export function createAcpAgent(
             signal: turnSignal,
             driverId,
             surface: options.surface ?? 'unknown',
+            cwd: options.cwd,
             nextToolCallId: () => `tool-${(toolCalls += 1)}`,
             wasCancelled: () => cancelled,
             report,

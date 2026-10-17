@@ -97,6 +97,7 @@ describe('permission requests', () => {
           title: 'Shell: rm -rf build',
           kind: 'execute',
           status: 'pending',
+          rawInput: { command: 'rm -rf build' },
         },
         options: [
           { optionId: 'allow-once', name: 'Allow once', kind: 'allow_once' },
@@ -141,5 +142,103 @@ describe('permission requests', () => {
       title: 'reviewer: Edit: src/a.ts',
       kind: 'edit',
     });
+  });
+
+  it('shows the editor a long command whole, in the title and in the raw input', async () => {
+    const command = `echo start && ${'sleep 1 && '.repeat(30)}rm -rf build`;
+    expect(command.length).toBeGreaterThan(120);
+    const { editor } = await askPermission(
+      () => select('reject'),
+      { toolArgs: { command, description: 'clean' } },
+      { startTool: false },
+    );
+    const { toolCall } = editor.permissionRequests[0]!;
+    expect(toolCall.title).toBe(`Shell: ${command}`);
+    expect(toolCall.rawInput).toEqual({ command, description: 'clean' });
+  });
+
+  it('keeps the line structure of a multi-line command in the title', async () => {
+    const command = 'echo ok\nrm -rf build';
+    const { editor } = await askPermission(
+      () => select('reject'),
+      { toolArgs: { command } },
+      { startTool: false },
+    );
+    expect(editor.permissionRequests[0]!.toolCall.title).toBe(`Shell: ${command}`);
+  });
+
+  it("adds a shell request's working directory to the raw input", async () => {
+    const { editor } = await askPermission(
+      () => select('reject'),
+      { toolArgs: { command: 'ls', workingDirectory: '../other' }, cwd: '/other' },
+      { startTool: false },
+    );
+    expect(editor.permissionRequests[0]!.toolCall.rawInput).toEqual({
+      command: 'ls',
+      workingDirectory: '../other',
+      cwd: '/other',
+    });
+  });
+
+  it('sends an edit as a diff of the file, with its location', async () => {
+    const toolArgs = { file_path: '/workspace/src/a.ts', old_string: 'b = 2', new_string: 'b = 3' };
+    const { editor } = await askPermission(
+      () => select('reject'),
+      {
+        toolName: 'Edit',
+        toolArgs,
+        diffFile: 'src/a.ts',
+        diffLines: [
+          { type: 'hunk', text: '@@ -1,3 +1,3 @@', lineNumber: 1 },
+          { type: 'context', text: 'const a = 1;', lineNumber: 1 },
+          { type: 'remove', text: 'const b = 2;', lineNumber: 2 },
+          { type: 'add', text: 'const b = 3;', lineNumber: 2 },
+          { type: 'context', text: 'export { a, b };', lineNumber: 3 },
+        ],
+      },
+      { startTool: false },
+    );
+    expect(editor.permissionRequests[0]!.toolCall).toMatchObject({
+      kind: 'edit',
+      rawInput: toolArgs,
+      content: [
+        {
+          type: 'diff',
+          path: '/workspace/src/a.ts',
+          oldText: 'const a = 1;\nconst b = 2;\nexport { a, b };',
+          newText: 'const a = 1;\nconst b = 3;\nexport { a, b };',
+        },
+      ],
+      locations: [{ path: '/workspace/src/a.ts' }],
+    });
+  });
+
+  it('sends a new file as a diff with no old text, and keeps an absolute path as it is', async () => {
+    const { editor } = await askPermission(
+      () => select('reject'),
+      {
+        toolName: 'Write',
+        toolArgs: { file_path: '/elsewhere/new.txt', content: 'one\ntwo' },
+        diffFile: '/elsewhere/new.txt',
+        diffLines: [
+          { type: 'hunk', text: '@@ -0,0 +1,2 @@', lineNumber: 1 },
+          { type: 'add', text: 'one', lineNumber: 1 },
+          { type: 'add', text: 'two', lineNumber: 2 },
+        ],
+      },
+      { startTool: false },
+    );
+    const [block] = editor.permissionRequests[0]!.toolCall.content!;
+    expect(block).toEqual({ type: 'diff', path: '/elsewhere/new.txt', newText: 'one\ntwo' });
+    expect(editor.permissionRequests[0]!.toolCall.locations).toEqual([
+      { path: '/elsewhere/new.txt' },
+    ]);
+  });
+
+  it('sends no diff or location for a request that has none', async () => {
+    const { editor } = await askPermission(() => select('reject'), {}, { startTool: false });
+    const { toolCall } = editor.permissionRequests[0]!;
+    expect(toolCall).not.toHaveProperty('content');
+    expect(toolCall).not.toHaveProperty('locations');
   });
 });

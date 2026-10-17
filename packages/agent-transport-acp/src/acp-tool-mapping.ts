@@ -29,6 +29,15 @@ export function acpToolTitle(toolName: string, detail: string | undefined): stri
   return `${toolName}: ${shown}`;
 }
 
+/**
+ * The tool's name plus its argument as given. A person deciding whether a call may run sees all of
+ * what it would do, so nothing is shortened and line breaks stay.
+ */
+export function acpFullToolTitle(toolName: string, detail: string | undefined): string {
+  const text = detail?.trim();
+  return text ? `${toolName}: ${text}` : toolName;
+}
+
 export function acpToolStartTitle(tool: IToolState): string {
   return acpToolTitle(tool.toolName, tool.displayPath ?? tool.firstArg);
 }
