@@ -1,19 +1,19 @@
 {
   "compilerOptions": {
-    // TypeScript 기본 설정
+    // Base TypeScript settings
     "target": "ES2022",
     "module": "ESNext",
     "lib": ["ESNext", "DOM"],
     "moduleResolution": "bundler",
-    // 엄격한 타입 검사
+    // Strict type checking
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
-    // 모듈 관련 설정
+    // Module settings
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "verbatimModuleSyntax": true,
-    // 기타 설정
+    // Other settings
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "useDefineForClassFields": true,
