@@ -4,10 +4,10 @@ The Model Context Protocol client for the Robota SDK. It lets an agent use tools
 servers while keeping three concerns separate: **definitions** (decoding configuration, precedence
 between sources, disable overlays, redacted projections, and the identity an approval is tied to),
 **activation** (a deny-by-default admission port and a replaceable approval and audit store), and the
-**client, catalog and supervision** (the official `@modelcontextprotocol/sdk` client behind an
-admit-then-construct transport seam, the canonical tool/prompt/resource catalog, and the connection
-lifecycle supervisor). It also provides OAuth sign-in and header-helper authentication for servers that
-require them.
+**client, catalog and supervision** (the official `@modelcontextprotocol/client`, one client for both
+protocol eras, behind an admit-then-construct transport seam, the canonical tool/prompt/resource
+catalog, and the connection lifecycle supervisor). It also provides OAuth sign-in and header-helper
+authentication for servers that require them.
 
 Transports are Streamable HTTP and host-authorized stdio. Discovered tools reach the agent through the
 ordinary tool slot. Serving an agent session as an MCP server is a different package,

@@ -1092,7 +1092,7 @@ describe('stdio client host authority (MCP-2522)', () => {
 // the protocol SDK directly. Mirrors `agent-mcp`'s own `definition-no-side-effects.test.ts`.
 
 const CLI_SRC = path.resolve(import.meta.dirname, '..', '..');
-const FORBIDDEN_SDK_IMPORT = /^@modelcontextprotocol\/sdk/;
+const FORBIDDEN_SDK_IMPORT = /^@modelcontextprotocol\/(client|core|node|sdk|server)/;
 
 function tsSourceFiles(dir: string): string[] {
   const out: string[] = [];
@@ -1121,7 +1121,7 @@ describe('agent-cli imports no MCP protocol SDK directly (TC-21)', () => {
     expect(tsSourceFiles(CLI_SRC).length).toBeGreaterThan(0);
   });
 
-  it('no file outside __tests__ imports @modelcontextprotocol/sdk', () => {
+  it('no file outside __tests__ imports the @modelcontextprotocol protocol packages', () => {
     const offenders: string[] = [];
     for (const file of tsSourceFiles(CLI_SRC)) {
       for (const specifier of importSpecifiersOf(file)) {
@@ -1137,6 +1137,10 @@ describe('agent-cli imports no MCP protocol SDK directly (TC-21)', () => {
     expect(FORBIDDEN_SDK_IMPORT.test('@modelcontextprotocol/sdk/client/streamableHttp.js')).toBe(
       true,
     );
+    expect(FORBIDDEN_SDK_IMPORT.test('@modelcontextprotocol/client')).toBe(true);
+    expect(FORBIDDEN_SDK_IMPORT.test('@modelcontextprotocol/core')).toBe(true);
+    expect(FORBIDDEN_SDK_IMPORT.test('@modelcontextprotocol/server')).toBe(true);
+    expect(FORBIDDEN_SDK_IMPORT.test('@modelcontextprotocol/node')).toBe(true);
     expect(FORBIDDEN_SDK_IMPORT.test('@robota-sdk/agent-mcp')).toBe(false);
   });
 });

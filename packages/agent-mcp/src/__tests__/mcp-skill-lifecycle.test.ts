@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { expect, it } from 'vitest';
 import { createSkillsSession } from '../skills/session.js';
-import type { Result } from '@modelcontextprotocol/sdk/types.js';
+import type { Result } from '@modelcontextprotocol/client';
 
 const identity = {
   serverId: 'a',
@@ -104,13 +104,25 @@ it('refuses an in-flight read if its manifest changes before the bytes arrive', 
   await expect(read).rejects.toMatchObject({ reason: 'changed-manifest' });
 });
 
-it('preserves the base protocol absent-resultType compatibility for verified reads', async () => {
-  const skills = createSkillsSession(identity, async (method) => ({
+it('refuses a result without the completion discriminator instead of treating it as complete', async () => {
+  const stripped = async (method: string): Promise<Result> => ({
     ttlMs: 0,
     cacheScope: 'private',
     ...(method === 'resources/read' ? { contents: [{ uri, text: content }] } : { skill: entry }),
-  }));
-  expect((await skills.read(await skills.get(uri), uri)).text).toBe(content);
+  });
+  await expect(createSkillsSession(identity, stripped).get(uri)).rejects.toMatchObject({
+    reason: 'invalid-manifest',
+  });
+  await expect(createSkillsSession(identity, stripped).list({ maxPages: 1 })).rejects.toMatchObject(
+    { reason: 'invalid-manifest' },
+  );
+  const readOnlyStripped = createSkillsSession(identity, async (method) =>
+    method === 'resources/read' ? stripped(method) : result({ skill: entry }),
+  );
+  const skill = await readOnlyStripped.get(uri);
+  await expect(readOnlyStripped.read(skill, uri)).rejects.toMatchObject({
+    reason: 'invalid-resource',
+  });
 });
 
 it('does not let an earlier listing overwrite a newer explicit refresh', async () => {

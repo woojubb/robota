@@ -1,4 +1,4 @@
-import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
+import { ProtocolError, ProtocolErrorCode } from '@modelcontextprotocol/client';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { mockTools, startMockMcpServer } from './mock-mcp-server.js';
@@ -7,8 +7,8 @@ import { openMcpSession } from '../client/session.js';
 import { admitHttpEndpoint, constructStreamableHttpTransport } from '../client/transport.js';
 
 import type { IMockMcpServer } from './mock-mcp-server.js';
+import type { IMCPDiscoveryClient } from '../client/discovery.js';
 import type { IMCPSession } from '../client/session.js';
-import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { IEgressPolicy } from '@robota-sdk/agent-core/node';
 
 const LOOPBACK_POLICY: IEgressPolicy = { allowedHosts: ['127.0.0.1'] };
@@ -69,10 +69,10 @@ describe('MCP discovery pagination (TC-02)', () => {
     // The real mock server only ever hands back cursors it will itself accept, so an invalid
     // cursor can never arise from a well-behaved client through the full HTTP round trip. This
     // exercises `discoverAll` directly against a minimal stand-in for the SDK `Client` whose
-    // second `listTools` page rejects exactly as the SDK surfaces a JSON-RPC -32602 response.
+    // second `tools/list` page rejects exactly as the SDK surfaces a JSON-RPC -32602 response.
     let call = 0;
     const stubClient = {
-      listTools: async () => {
+      request: async () => {
         call += 1;
         if (call === 1) {
           return {
@@ -80,9 +80,9 @@ describe('MCP discovery pagination (TC-02)', () => {
             nextCursor: 'page-2',
           };
         }
-        throw new McpError(ErrorCode.InvalidParams, 'Invalid cursor');
+        throw new ProtocolError(ProtocolErrorCode.InvalidParams, 'Invalid cursor');
       },
-    } as unknown as Client;
+    } as unknown as IMCPDiscoveryClient;
 
     const declaredCapabilities = {
       tools: { listChanged: false },

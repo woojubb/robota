@@ -57,9 +57,13 @@
     "@robota-sdk/agent-core": "workspace:*"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0"
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/core": "^2.0.0"
   },
   "devDependencies": {
+    "@modelcontextprotocol/node": "^2.0.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "@robota-sdk/agent-core": "workspace:*",
     "@types/node": "^20.10.0",
     "rimraf": "^5.0.10",

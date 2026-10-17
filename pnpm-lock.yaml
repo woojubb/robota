@@ -1049,9 +1049,21 @@ importers:
       '@marcbachmann/cel-js':
         specifier: ^7.5.3
         version: 7.6.1
+      '@modelcontextprotocol/client':
+        specifier: ^2.0.0
+        version: 2.0.0
+      '@modelcontextprotocol/core':
+        specifier: ^2.0.0
+        version: 2.0.0
+      '@modelcontextprotocol/node':
+        specifier: ^2.0.0
+        version: 2.0.0(@modelcontextprotocol/server@2.0.0)(hono@4.13.7)
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@3.25.76)
+      '@modelcontextprotocol/server':
+        specifier: ^2.0.0
+        version: 2.0.0
       '@opentelemetry/api':
         specifier: ^1.9.1
         version: 1.9.1
@@ -1744,10 +1756,22 @@ importers:
 
   packages/agent-mcp:
     dependencies:
+      '@modelcontextprotocol/client':
+        specifier: ^2.0.0
+        version: 2.0.0
+      '@modelcontextprotocol/core':
+        specifier: ^2.0.0
+        version: 2.0.0
+    devDependencies:
+      '@modelcontextprotocol/node':
+        specifier: ^2.0.0
+        version: 2.0.0(@modelcontextprotocol/server@2.0.0)(hono@4.13.7)
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@3.25.76)
-    devDependencies:
+      '@modelcontextprotocol/server':
+        specifier: ^2.0.0
+        version: 2.0.0
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
@@ -7239,7 +7263,6 @@ packages:
       jose: 6.2.3
       pkce-challenge: 5.0.1
       zod: 4.4.3
-    dev: true
 
   /@modelcontextprotocol/core@2.0.0:
     resolution: {integrity: sha512-pJCEwGG7Lfr/+PQp9ZTwKXNeO5wzbfKL7H3MYpCorM4oFBoQrdjnBgEoqG+RjhsvS1FKrDbKux+M1HhlnGWqcA==}
@@ -7260,7 +7283,6 @@ packages:
       '@hono/node-server': 1.19.14(hono@4.13.7)
       '@modelcontextprotocol/server': 2.0.0
       hono: 4.13.7
-    dev: false
 
   /@modelcontextprotocol/sdk@1.29.0(zod@3.25.76):
     resolution: {integrity: sha512-zo37mZA9hJWpULgkRpowewez1y6ML5GsXJPY8FI0tBBCd77HEvza4jDqRKOXgHNn867PVGCyTdzqpz0izu5ZjQ==}
@@ -7298,7 +7320,6 @@ packages:
     dependencies:
       '@modelcontextprotocol/core': 2.0.0
       zod: 4.4.3
-    dev: false
 
   /@napi-rs/keyring-darwin-arm64@2.1.0:
     resolution: {integrity: sha512-j6ATTOhmPW+N5EKwi8Yzn6P4Bz/uqnxzyYvqOL73/dgzDSYG5pS5eprqpVmOLse68WUTf79ZMqz97HnfvirJ9g==}
