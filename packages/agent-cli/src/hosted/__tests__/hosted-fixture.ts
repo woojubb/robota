@@ -37,10 +37,7 @@ export async function hostedFixture() {
       await modelHandler(request, response);
       return;
     }
-    if (admissionHandler !== undefined) {
-      admissionHandler(request, response);
-      return;
-    }
+    if (admissionHandler !== undefined) { admissionHandler(request, response); return; }
     requests++;
     const role = request.url === '/worker' ? 'worker' : 'broker';
     if (unavailable === role) {
@@ -109,14 +106,9 @@ export async function hostedFixture() {
       ...access,
       signature: sign(null, hostedWorkerAccessBytes(access), keys.privateKey).toString('base64url'),
     }),
-    signAdmissionBytes: (bytes: Uint8Array): string =>
-      sign(null, bytes, keys.privateKey).toString('base64url'),
-    setAdmissionHandler: (next: typeof admissionHandler) => {
-      admissionHandler = next;
-    },
-    setUsage: (next: IHostedRuntimeUsage) => {
-      usage = { ...next };
-    },
+    signAdmissionBytes: (bytes: Uint8Array): string => sign(null, bytes, keys.privateKey).toString('base64url'),
+    setAdmissionHandler: (next: typeof admissionHandler) => { admissionHandler = next; },
+    setUsage: (next: IHostedRuntimeUsage) => { usage = { ...next }; },
     usage: () => ({ ...usage }),
     setModelHandler: (next: typeof modelHandler) => {
       modelHandler = next;

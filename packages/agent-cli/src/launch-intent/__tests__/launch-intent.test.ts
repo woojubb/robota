@@ -11,6 +11,7 @@ import {
 import koreanText from '../../hosted/__tests__/__fixtures__/korean-text.json';
 const LAUNCH_INTENT_USAGE = launchIntentUsage('test-product', 'test-product');
 
+
 /* eslint-disable no-control-regex -- asserting the control class IS the point */
 /** Nothing in this class may survive into a message the terminal prints. */
 const FORBIDDEN_IN_OUTPUT =
@@ -56,12 +57,8 @@ describe('parseLaunchIntent accepts the three spellings of the one verb', () => 
 describe('parseLaunchIntent refuses the whole url, naming the first rule broken', () => {
   it('refuses a wrong scheme, verb, fragment or missing target', () => {
     expect(refusalFor('https://open?v=1&prompt=hi')).toContain('scheme');
-    expect(refusalFor('test-product://openx?v=1&prompt=hi&cwd=/a')).toContain(
-      'test-product://open',
-    );
-    expect(refusalFor('test-product://open/extra?v=1&prompt=hi&cwd=/a')).toContain(
-      'test-product://open',
-    );
+    expect(refusalFor('test-product://openx?v=1&prompt=hi&cwd=/a')).toContain('test-product://open');
+    expect(refusalFor('test-product://open/extra?v=1&prompt=hi&cwd=/a')).toContain('test-product://open');
     expect(refusalFor('test-product://open?v=1&prompt=hi&cwd=/a#frag')).toContain('fragment');
     expect(refusalFor('test-product://open?v=1&prompt=hi')).toContain('names no target');
     expect(refusalFor('not a url at all')).toContain('not a URL');
@@ -79,9 +76,7 @@ describe('parseLaunchIntent refuses the whole url, naming the first rule broken'
   });
 
   it('refuses a duplicate key rather than taking the last one', () => {
-    expect(refusalFor('test-product://open?v=1&prompt=a&prompt=b&cwd=/a')).toContain(
-      'more than once',
-    );
+    expect(refusalFor('test-product://open?v=1&prompt=a&prompt=b&cwd=/a')).toContain('more than once');
   });
 
   it('refuses an oversize url and an oversize prompt, counting code points', () => {
@@ -110,25 +105,19 @@ describe('parseLaunchIntent refuses the whole url, naming the first rule broken'
   });
 
   it('refuses a prompt that is a command, because one Enter would run it locally', () => {
-    expect(
-      refusalFor('test-product://open?v=1&cwd=/a&prompt=%2Fmode%20bypassPermissions'),
-    ).toContain('not a command');
-    expect(refusalFor('test-product://open?v=1&cwd=/a&prompt=%20%20%2Fexit')).toContain(
+    expect(refusalFor('test-product://open?v=1&cwd=/a&prompt=%2Fmode%20bypassPermissions')).toContain(
       'not a command',
     );
+    expect(refusalFor('test-product://open?v=1&cwd=/a&prompt=%20%20%2Fexit')).toContain('not a command');
   });
 
   it('refuses a relative, UNC, dot-dot or control-bearing cwd, and a malformed slug', () => {
     expect(refusalFor('test-product://open?v=1&prompt=hi&cwd=relative/path')).toContain('absolute');
-    expect(refusalFor('test-product://open?v=1&prompt=hi&cwd=%5C%5Cserver%5Cshare')).toContain(
-      'UNC',
-    );
+    expect(refusalFor('test-product://open?v=1&prompt=hi&cwd=%5C%5Cserver%5Cshare')).toContain('UNC');
     expect(refusalFor('test-product://open?v=1&prompt=hi&cwd=/a/../b')).toContain('`..`');
     expect(refusalFor('test-product://open?v=1&prompt=hi&cwd=/a%00b')).toContain('control');
     expect(refusalFor('test-product://open?v=1&prompt=hi&repo=owner')).toContain('owner/name');
-    expect(refusalFor('test-product://open?v=1&prompt=hi&repo=owner/name/extra')).toContain(
-      'owner/name',
-    );
+    expect(refusalFor('test-product://open?v=1&prompt=hi&repo=owner/name/extra')).toContain('owner/name');
   });
 });
 
@@ -150,10 +139,7 @@ describe('TC-02: precedence and the round trip', () => {
       koreanText.hangulPromptWithSmileEmoji,
       'trailing space ',
     ]) {
-      const url = encodeLaunchIntent(
-        { version: '1', prompt, cwd: '/abs', repo: undefined },
-        'test-product',
-      );
+      const url = encodeLaunchIntent({ version: '1', prompt, cwd: '/abs', repo: undefined }, 'test-product');
       const parsed = ok(url);
       if (parsed.ok) expect(parsed.intent.prompt).toBe(prompt);
     }
@@ -172,9 +158,7 @@ describe('TC-02: precedence and the round trip', () => {
       `right\u202Eoverride`,
     ];
     const reasons = [
-      ...payloads.map((value) =>
-        refusalFor(`test-product://open?v=1&${encodeURIComponent(value)}=x`),
-      ),
+      ...payloads.map((value) => refusalFor(`test-product://open?v=1&${encodeURIComponent(value)}=x`)),
       ...payloads.map((value) =>
         refusalFor(`test-product://open?v=${encodeURIComponent(value)}&prompt=hi`),
       ),

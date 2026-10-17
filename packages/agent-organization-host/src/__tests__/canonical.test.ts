@@ -1,9 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import {
-  organizationCanonical as publicCanonical,
-  OrganizationSchemaError,
-} from '@robota-sdk/agent-organization';
+import { organizationCanonical as publicCanonical, OrganizationSchemaError } from '@robota-sdk/agent-organization';
 import { organizationCanonical, organizationSigningBytes } from '../index.js';
 import { OrganizationRefused } from '../index.js';
 import koreanText from './__fixtures__/korean-text.json';

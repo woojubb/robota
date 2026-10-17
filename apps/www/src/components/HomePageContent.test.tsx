@@ -12,6 +12,8 @@ vi.mock('@/lib/product-config.generated', () => ({
   },
 }));
 
+// The approved copy is pinned here as data, not read back from the catalog under test.
+import approved from './__fixtures__/approved-home-copy.json';
 import { HomePageContent } from './HomePageContent';
 import { architectureLayers, featureCatalog, packageGroups, permissionModes } from './homeCatalog';
 import { homeCopy } from './homeCopy';
@@ -137,9 +139,9 @@ describe('server rendered homepage content', () => {
     const html = renderToStaticMarkup(<HomePageContent locale="ko" />);
     const hero = html.split('</section>')[0];
 
-    expect(html).toContain(homeCopy.ko.title);
-    expect(hero).toContain(homeCopy.ko.sdkAction);
-    expect(hero).toContain(homeCopy.ko.heroVision);
+    expect(html).toContain(approved.koTitle);
+    expect(hero).toContain(approved.koSdkAction);
+    expect(hero).toContain(approved.koHeroVision);
   });
 
   for (const locale of ['en', 'ko'] as const) {
@@ -149,7 +151,7 @@ describe('server rendered homepage content', () => {
 
       expect(cliAside).toBeDefined();
       expect(cliAside).toContain('Reply with one sentence.');
-      expect(cliAside).toContain(escapeHtml(homeCopy[locale].cliExpectedReply));
+      expect(cliAside).toContain(approved.cliExpectedReply[locale]);
     });
   }
 });
