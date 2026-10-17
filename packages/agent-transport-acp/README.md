@@ -54,14 +54,14 @@ anything else in the process can print to it, and send logs to stderr.
 
 ## What the editor sees
 
-| Editor action                       | Behavior                                                                                                                                                                                                    |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `initialize`                        | Always answers protocol version 1; text and embedded-context prompts, no image or audio, no `session/load`.                                                                                                 |
-| `session/new`                       | Returns the attached session's id. Refused if `cwd` is not the served directory, if `mcpServers` or `additionalDirectories` are not empty, or if the workspace is not admitted; one session per connection. |
-| `session/prompt`                    | Streams `agent_message_chunk` and `tool_call` / `tool_call_update` updates, then answers `end_turn`, or `cancelled` after a cancel. A prompt starting with `/` runs as a command.                           |
-| `session/cancel`                    | Aborts the running turn; the pending prompt answers `cancelled`.                                                                                                                                            |
-| permission request from the session | `session/request_permission` with allow once, allow for this session, allow for this project (only if the session can persist it) and reject. Cancelled, failed or unrecognised answers deny.               |
-| question from the session           | Not forwarded; the session answers it as cancelled.                                                                                                                                                         |
+| Editor action                       | Behavior                                                                                                                                                                                                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `initialize`                        | Always answers protocol version 1; text and embedded-context prompts, no image or audio, no `session/load`.                                                                                                                                                         |
+| `session/new`                       | Returns the attached session's id. Refused if `cwd` is not the served directory, if `mcpServers` or `additionalDirectories` are not empty, or if the workspace is not admitted (error `-32001`, `data.reason` `workspace-not-trusted`); one session per connection. |
+| `session/prompt`                    | Streams `agent_message_chunk` and `tool_call` / `tool_call_update` updates, then answers `end_turn`, or `cancelled` after a cancel. A prompt starting with `/` runs as a command.                                                                                   |
+| `session/cancel`                    | Aborts the running turn; the pending prompt answers `cancelled`.                                                                                                                                                                                                    |
+| permission request from the session | `session/request_permission` with allow once, allow for this session, allow for this project (only if the session can persist it) and reject. Cancelled, failed or unrecognised answers deny.                                                                       |
+| question from the session           | Not forwarded; the session answers it as cancelled.                                                                                                                                                                                                                 |
 
 ## Related
 

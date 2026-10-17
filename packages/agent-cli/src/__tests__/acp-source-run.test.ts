@@ -94,7 +94,7 @@ describe('acp from source', () => {
       const refusal = await run.agent
         .request('session/new', { cwd: repo, mcpServers: [] })
         .catch((error: unknown) => error);
-      expect(refusal).toMatchObject({ code: -32000 });
+      expect(refusal).toMatchObject({ code: -32001, data: { reason: 'workspace-not-trusted' } });
       expect((refusal as Error).message).toContain('robota trust --yes');
       expect(run.child.exitCode).toBeNull();
     } finally {

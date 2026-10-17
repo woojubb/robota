@@ -60,7 +60,8 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
   agent's own settings.
 - **Trust is answered inside `session/new`.** The headless trust gate exits before any protocol
   traffic, which an editor shows as a crash with no explanation; answering with an error that names
-  the command to run tells the user what to do.
+  the command to run tells the user what to do. The error's code is server-defined, never ACP's
+  authentication-required one, which an editor turns into a sign-in state this agent does not have.
 - **Initialize always answers version 1.** The protocol has the agent answer with the version it
   supports and the client disconnect if it cannot use it, so an unknown requested version is not an
   error here.

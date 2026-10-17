@@ -87,7 +87,8 @@ describe('session/new', () => {
     const refusal = await agent
       .request('session/new', { cwd: WORKSPACE, mcpServers: [] })
       .catch((error: unknown) => error);
-    expect(refusal).toMatchObject({ code: -32000 });
+    // -32000 is ACP's authentication-required code, which an editor turns into a sign-in prompt.
+    expect(refusal).toMatchObject({ code: -32001, data: { reason: 'workspace-not-trusted' } });
     expect((refusal as Error).message).toContain('Grant access with: robota trust --yes');
     admitted = true;
     await expect(agent.request('session/new', { cwd: WORKSPACE, mcpServers: [] })).resolves.toEqual(

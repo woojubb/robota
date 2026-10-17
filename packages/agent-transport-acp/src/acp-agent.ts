@@ -13,8 +13,12 @@ import { createUpdateStream } from './acp-updates.js';
 import type { IAcpTransportOptions, IAcpTransportSession } from './acp-types.js';
 import type { AgentApp, PromptResponse } from '@agentclientprotocol/sdk';
 
-/** JSON-RPC server-error code for a workspace the host has not admitted. */
-const WORKSPACE_NOT_ADMITTED = -32000;
+/**
+ * JSON-RPC server-error code for a workspace the host has not admitted. Not -32000: ACP assigns
+ * that to "authentication required", which an editor answers with a sign-in state this agent
+ * does not have.
+ */
+const WORKSPACE_NOT_ADMITTED = -32001;
 const INTERNAL_ERROR = -32603;
 const COMMANDS_UNAVAILABLE = 'Slash commands are not available in this host.';
 
@@ -79,7 +83,11 @@ export function createAcpAgent(
         );
       }
       const admission = options.admitWorkspace();
-      if (!admission.admitted) throw new RequestError(WORKSPACE_NOT_ADMITTED, admission.message);
+      if (!admission.admitted) {
+        throw new RequestError(WORKSPACE_NOT_ADMITTED, admission.message, {
+          reason: 'workspace-not-trusted',
+        });
+      }
       boundSessionId = session.getStatusSnapshot().sessionId;
       return { sessionId: boundSessionId };
     })
