@@ -289,6 +289,40 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(JSON.stringify(session.getFullHistory())).not.toContain('req_live_only_1');
   });
 
+  it('carries a tool body\'s name onto the live tool child only, dropping an unsafe one, never persisted', async () => {
+    const mockSession = createMockSession({ runResult: 'private response' });
+    mockSession.getSessionId.mockReturnValue('session.1');
+    let listener: ((event: string, data: Record<string, unknown>) => void) | undefined;
+    mockSession.getEventService.mockReturnValue({
+      subscribe: vi.fn((callback: typeof listener) => { listener = callback; }),
+      unsubscribe: vi.fn(),
+    });
+    const at = new Date().toISOString();
+    mockSession.run.mockImplementation(async () => {
+      listener?.('tool.tool_body_completed', {
+        toolBodyId: globalThis.crypto.randomUUID(), toolName: 'mcp__docs__LiveOnlyTool',
+        startedAt: at, endedAt: at, outcome: 'success', executionId: 'call-1',
+      });
+      listener?.('tool.tool_body_completed', {
+        toolBodyId: globalThis.crypto.randomUUID(), toolName: 'private name\nwith content',
+        startedAt: at, endedAt: at, outcome: 'success', executionId: 'call-2',
+      });
+      return 'private response';
+    });
+    const enqueue = vi.fn();
+    const session = new InteractiveSession({
+      session: mockSession as never, cwd: '/tmp', livePromptTrace: { enqueue },
+    });
+
+    await session.submit('private prompt');
+
+    const batch = enqueue.mock.calls[0]![0] as { children: Array<{ trace: Record<string, unknown> }> };
+    expect(batch.children.map((child) => child.trace['toolName'])).toEqual(['mcp__docs__LiveOnlyTool', undefined]);
+    expect(batch.children[1]?.trace).toMatchObject({ toolCallId: 'call-2' });
+    expect(JSON.stringify(session.getFullHistory())).not.toContain('LiveOnlyTool');
+    expect(JSON.stringify(batch)).not.toContain('private name');
+  });
+
   it('correlates a permission decision to its tool body by call ID, ahead of the tool child', async () => {
     const mockSession = createMockSession({ runResult: 'private response' });
     mockSession.getSessionId.mockReturnValue('session.1');

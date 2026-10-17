@@ -140,8 +140,11 @@ function projectTool(trace: IToolBodyTraceEntry): IToolBodyTraceEntry | undefine
     !SPAN_ID.test(trace.spanId) || !validInterval(trace.startedAt, trace.endedAt) ||
     (trace.toolCallId !== undefined && (typeof trace.toolCallId !== 'string' || !ID.test(trace.toolCallId))) ||
     (trace.outcome !== 'success' && trace.outcome !== 'failure' && trace.outcome !== 'interrupted')) return undefined;
+  // An unsafe tool name is dropped like an unsafe provider or model label; it never drops the child.
+  const toolName = safeLabel(trace.toolName);
   return {
     ...(trace.toolCallId !== undefined ? { toolCallId: trace.toolCallId } : {}),
+    ...(toolName !== undefined ? { toolName } : {}),
     traceId: trace.traceId,
     parentSpanId: trace.parentSpanId,
     spanId: trace.spanId,
