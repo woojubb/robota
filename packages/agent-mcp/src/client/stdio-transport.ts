@@ -1,8 +1,8 @@
 /** Bounded stdio framing around the public SDK Client transport contract. */
 import { spawn } from 'node:child_process';
 
-import { DEFAULT_INHERITED_ENV_VARS } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { deserializeMessage, serializeMessage } from '@modelcontextprotocol/sdk/shared/stdio.js';
+import { deserializeMessage, serializeMessage } from '@modelcontextprotocol/client';
+import { DEFAULT_INHERITED_ENV_VARS } from '@modelcontextprotocol/client/stdio';
 import {
   DEFAULT_MCP_RECEIVE_BYTES,
   SKILL_RESOURCE_RECEIVE_BYTES,
@@ -10,8 +10,7 @@ import {
 } from './receive-budget.js';
 
 import type { IMCPStdioSnapshot } from './stdio-types.js';
-import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
-import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
+import type { JSONRPCMessage, Transport } from '@modelcontextprotocol/client';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 
 const MAX_STDERR_COUNT = 65_536;
@@ -53,7 +52,6 @@ export class MCPStdioTransport implements Transport {
   onclose?: () => void;
   onerror?: (error: Error) => void;
   onmessage?: Transport['onmessage'];
-  protocolVersion?: string;
   readonly sensitiveDiagnostics = true;
   private child?: ChildProcessWithoutNullStreams;
   private closePromise?: Promise<void>;
@@ -89,10 +87,6 @@ export class MCPStdioTransport implements Transport {
 
   get stdioStartupMs(): number {
     return this.snapshot.startupMs;
-  }
-
-  setProtocolVersion(version: string): void {
-    this.protocolVersion = version;
   }
 
   private notifyClose(): void {

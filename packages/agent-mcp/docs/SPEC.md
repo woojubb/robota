@@ -7,18 +7,20 @@ deliberately separate: **definitions** (what an MCP server IS — decoding, prec
 overlays, redacted projections, identity/fingerprints; pure, nothing here connects or spawns),
 **activation** (whether a definition may be used — admission, exact identity matching, a
 replaceable approval/audit store), and **client, catalog and supervision** (the official
-`@modelcontextprotocol/sdk` client behind an admit-then-construct transport seam, the canonical
-tools/prompts/resources catalog, and the connection/catalog lifecycle supervisor). Discovered
-tools enter the runtime through the existing generic tool slot (`IToolWithEventService`); no
-MCP-only runtime path exists.
+`@modelcontextprotocol/client` — one client for both protocol eras — behind an admit-then-construct
+transport seam, the canonical tools/prompts/resources catalog, and the connection/catalog lifecycle
+supervisor). Discovered tools enter the runtime through the existing generic tool slot
+(`IToolWithEventService`); no MCP-only runtime path exists.
 
-The hand-written JSON-RPC path that preceded the SDK client was removed rather than wrapped: it
-had no discovery, and two client stacks cannot both be authoritative.
+The hand-written JSON-RPC path that preceded the SDK client was removed rather than wrapped, and
+the explicitly selected revision is the same SDK client pinned to its era, not a second stack:
+two client stacks cannot both be authoritative, so each guarantee below is stated, and held, once.
 
 ## Non-goals / Boundaries
 
 - Allowed dependencies: `@robota-sdk/agent-core` (sole workspace peer; shared egress policy comes
-  from its `./node` subpath) and `@modelcontextprotocol/sdk`. Must not import `agent-framework`,
+  from its `./node` subpath) and the MCP client packages (`@modelcontextprotocol/client`, with
+  `@modelcontextprotocol/core` for its schemas). Must not import `agent-framework`,
   `agent-session`, `agent-cli`, or any other `agent-*` package.
 - Does not own a tool registry, factory, or product client identity — the consumer (composition
   root or CLI) selects its protocol identity and wires tools at construction time.
@@ -36,7 +38,7 @@ had no discovery, and two client stacks cannot both be authoritative.
   connects only to that exchange's validated address set while retaining the admitted URL and its
   normal Host/TLS identity, and refuses redirects rather than handing credentials to another
   endpoint. Each response owns its connection until body completion, cancellation or failure,
-  with request cancellation preserving unrelated calls and its cancellation notification;
+  with request cancellation preserving unrelated calls and delivering its own cancellation;
   closing the transport withdraws its requests and waits for cleanup. Explicit trusted fetch
   injection owns its own socket policy and lifetime rather than inheriting the default's pinning
   guarantee. This is an application HTTP boundary, not physical worker egress containment.
@@ -140,11 +142,24 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
   the catalog's source attribution so an observation can be traced to its contributing definition
   and declared version without treating that declaration as authority or verification of bytes.
 - **Protocol selection is explicit and never grants authority**: the default retains legacy
-  negotiation, while a stateless peer receives self-contained requests through the same admitted
-  carrier. Unsupported results cannot become completed observations or trigger a mutation replay;
+  negotiation, while the explicit revision pins the same client to the stateless era — never
+  falling back to a handshake — and sends self-contained requests through the same admitted
+  carrier. Unsupported results cannot become completed observations or trigger a mutation replay,
+  and no client input is offered to a server that asks for one (the carrier closes instead);
   connection-local catalog identity prevents private disclosures carrying into a later carrier.
   Host-selected skill disclosures remain bound to their server and current verified manifest;
   receiving metadata or supporting files cannot authorize instructions or tool permissions.
+
+## Design decision: one client, strict about completion on the pinned era
+
+Both eras run on one SDK client because every guarantee here lives in the carrier and the session
+around it, not in the wire framing — a second framing could only drift from them. On the pinned
+era a result that does not say it is complete is refused rather than assumed complete: the
+assumption served peers that predate the discriminator, and legacy negotiation serves those. An
+invalid freshness hint on the discovery probe is read as its safest value, as the official client
+reads it, because the probe precedes every cached entry and refusing it would turn away servers
+every other client accepts; a page or read that carries one is still refused, because that hint
+governs a cache entry.
 
 ## Design decision: definition precedence, with plugins last
 

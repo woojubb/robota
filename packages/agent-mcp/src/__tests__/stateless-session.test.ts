@@ -197,22 +197,83 @@ describe('explicit stateless MCP session', () => {
     expect(sameCatalogIdentity(first, later)).toBe(false);
   });
 
-  it('rejects malformed freshness metadata rather than treating discovery as an unlimited cache entry', async () => {
-    await expect(openModern((_method, result) => ({ ...result, ttlMs: -1 }))).rejects.toThrow(
-      /metadata/i,
-    );
-    expect(requests.map((request) => request.method)).toEqual(['server/discover']);
-  });
+  it.each([
+    [{ ttlMs: -1, cacheScope: 'public' }, { ttlMs: 0, cacheScope: 'public' }],
+    [{ ttlMs: 1.5, cacheScope: 'public' }, { ttlMs: 0, cacheScope: 'public' }],
+    [{ ttlMs: 60_000, cacheScope: 'everyone' }, { ttlMs: 60_000, cacheScope: 'private' }],
+    [{ ttlMs: -1, cacheScope: 'everyone' }, { ttlMs: 0, cacheScope: 'private' }],
+  ])(
+    'coerces invalid discovery freshness %j field by field to the safest value, not a refusal',
+    async (hint, expected) => {
+      const client = await openModern((method, result) =>
+        method === 'server/discover' ? { ...result, ...hint } : result,
+      );
+      expect(client.discoveryCacheHint).toMatchObject(expected);
+      expect(requests.map((request) => request.method)).toEqual(['server/discover']);
+    },
+  );
 
   it('does not turn input_required into a completed tool result or retry the effect', async () => {
     const client = await openModern((method, result) =>
-      method === 'tools/call' ? { ...result, resultType: 'input_required' } : result,
+      method === 'tools/call'
+        ? {
+            ...result,
+            resultType: 'input_required',
+            inputRequests: {
+              ask: { method: 'elicitation/create', params: { message: 'Which one?' } },
+            },
+            requestState: 'opaque-state',
+          }
+        : result,
     );
     await expect(client.callTool('echo', { value: 'input' })).rejects.toThrow(
       /unsupported.*input_required/i,
     );
     await expect(client.callTool('echo', { value: 'input' })).rejects.toThrow(/closed/);
+    // No automatic round: the SDK's input_required loop is off, so nothing follows the one call.
+    expect(requests.map((request) => request.method)).toEqual(['server/discover', 'tools/call']);
+  });
+
+  it('names an unknown completion discriminator and closes the carrier without replay', async () => {
+    const client = await openModern((method, result) =>
+      method === 'tools/call' ? { ...result, resultType: 'future_kind' } : result,
+    );
+    await expect(client.callTool('echo', {})).rejects.toThrow(/unknown-result/);
+    await expect(client.callTool('echo', {})).rejects.toThrow(/closed/);
     expect(requests.filter((request) => request.method === 'tools/call')).toHaveLength(1);
+  });
+
+  it('refuses an input_required result that carries neither input requests nor state', async () => {
+    const client = await openModern((method, result) =>
+      method === 'tools/call' ? { ...result, resultType: 'input_required' } : result,
+    );
+    await expect(client.callTool('echo', {})).rejects.toThrow(/invalid-tool-result/);
+    await expect(client.callTool('echo', {})).rejects.toThrow(/closed/);
+    expect(requests.filter((request) => request.method === 'tools/call')).toHaveLength(1);
+  });
+
+  it('refuses a result without resultType on the pinned era instead of treating it as complete', async () => {
+    const client = await openModern((method, result) => {
+      if (method !== 'tools/call') return result;
+      const { resultType: _resultType, ...rest } = result;
+      return rest;
+    });
+    const error = await client.callTool('echo', {}).catch((error) => error);
+    expect(error.message).toMatch(/invalid-tool-result/);
+    expect(classifyMcpFailure(error)).toBe('config');
+    await expect(client.callTool('echo', {})).rejects.toThrow(/closed/);
+    expect(requests.filter((request) => request.method === 'tools/call')).toHaveLength(1);
+  });
+
+  it('refuses a list page without resultType rather than returning a partial catalog', async () => {
+    const client = await openModern((method, result) => {
+      if (method !== 'tools/list') return result;
+      const { resultType: _resultType, ...rest } = result;
+      return rest;
+    });
+    await expect(client.discover({ maxPages: 2, perRequestTimeoutMs: 1000 })).rejects.toMatchObject(
+      { failure: { kind: 'protocol', domain: 'tools' } },
+    );
   });
 
   it('rejects malformed tool results with a permanent, value-free error', async () => {
@@ -265,14 +326,17 @@ describe('explicit stateless MCP session', () => {
     await expect(client.callTool('echo', {})).rejects.toThrow(/closed/);
   });
 
-  it('rejects invalid page metadata rather than returning a partial catalog', async () => {
-    const client = await openModern((method, result) =>
-      method === 'tools/list' ? { ...result, cacheScope: 'unknown' } : result,
-    );
-    await expect(client.discover({ maxPages: 2, perRequestTimeoutMs: 1000 })).rejects.toMatchObject(
-      { failure: { kind: 'protocol', domain: 'tools' } },
-    );
-  });
+  it.each([{ cacheScope: 'unknown' }, { ttlMs: -1 }, { ttlMs: 0.5 }])(
+    'rejects invalid page metadata %j rather than returning a partial catalog',
+    async (hint) => {
+      const client = await openModern((method, result) =>
+        method === 'tools/list' ? { ...result, ...hint } : result,
+      );
+      await expect(
+        client.discover({ maxPages: 2, perRequestTimeoutMs: 1000 }),
+      ).rejects.toMatchObject({ failure: { kind: 'protocol', domain: 'tools' } });
+    },
+  );
 
   it('bounds startup even when an admitted transport never finishes starting', async () => {
     let closed = false;
