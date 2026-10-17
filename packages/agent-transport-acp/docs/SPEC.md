@@ -70,8 +70,11 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
   provider without deltas) is sent once from the result.
 - **Tool calls are keyed by the session's execution id when it has one, otherwise by a counter.**
   The editor keeps earlier calls and identifies them by id, so ids must not repeat across turns; the
-  counter lives as long as the connection. A permission request for a call that has not started
-  carries an id derived from the request, because the permission event names no call.
+  counter lives as long as the connection. The session asks permission before it reports a call and
+  the permission event names none, so the request carries an id derived from the request and that
+  row becomes the call's row: the next call of the same tool reported after the editor answered
+  takes it, or its refusal closes it. The match is by tool name in the order asked because nothing
+  else links them. A row nothing claimed by the end of the turn is closed rather than left pending.
 - **A permission request shows what the terminal shows.** The person answers in the editor's dialog
   alone, so the request carries the arguments whole, an edit's diff and the file it touches, and a
   title that is never shortened; approving a summary would approve what was not seen.

@@ -3,9 +3,9 @@
 import { RequestError } from '@agentclientprotocol/sdk';
 import { isTurnNotRunError } from '@robota-sdk/agent-interface-session';
 
-import { permissionDecision, permissionOptions, permissionToolCall } from './acp-permission.js';
+import { permissionDecision, permissionOptions } from './acp-permission.js';
 import { subscribeAcpEvents } from './acp-session-events.js';
-import { acpToolEndStatus, acpToolKind, acpToolStartTitle } from './acp-tool-mapping.js';
+import { createToolCallTracker } from './acp-tool-calls.js';
 
 import type { IAcpTransportSession } from './acp-types.js';
 import type { IAcpUpdateStream } from './acp-updates.js';
@@ -13,7 +13,6 @@ import type { AgentContext, PromptResponse } from '@agentclientprotocol/sdk';
 import type {
   IPermissionRequestEvent,
   ISubmitOptions,
-  IToolState,
   TDriverId,
 } from '@robota-sdk/agent-interface-session';
 
@@ -35,12 +34,6 @@ export interface IAcpTurnContext {
   readonly report: (error: Error, context: string) => void;
 }
 
-interface IOpenCall {
-  readonly id: string;
-  readonly toolName: string;
-  readonly executionId: string | undefined;
-}
-
 const CANCELLED: PromptResponse = { stopReason: 'cancelled' };
 const END_TURN: PromptResponse = { stopReason: 'end_turn' };
 
@@ -50,55 +43,22 @@ function asError(error: unknown): Error {
 
 export async function runModelTurn(turn: IAcpTurnContext, text: string): Promise<PromptResponse> {
   const { session, sessionId, client, updates } = turn;
-  const open: IOpenCall[] = [];
+  const tools = createToolCallTracker({
+    updates,
+    nextToolCallId: turn.nextToolCallId,
+    cwd: turn.cwd,
+  });
   let streamed = false;
-
-  const onToolStart = (tool: IToolState): void => {
-    // An internal signal tool is not a call the person made or should see.
-    if (tool.internal) return;
-    const id = tool.executionId ?? turn.nextToolCallId();
-    open.push({ id, toolName: tool.toolName, executionId: tool.executionId });
-    updates.send({
-      sessionUpdate: 'tool_call',
-      toolCallId: id,
-      title: acpToolStartTitle(tool),
-      kind: acpToolKind(tool.toolName),
-      status: 'in_progress',
-    });
-  };
-
-  const onToolEnd = (tool: IToolState): void => {
-    if (tool.internal) return;
-    const index = open.findIndex((call) =>
-      tool.executionId !== undefined
-        ? call.executionId === tool.executionId
-        : call.executionId === undefined && call.toolName === tool.toolName,
-    );
-    const status = acpToolEndStatus(tool);
-    if (index >= 0) {
-      const [call] = open.splice(index, 1);
-      updates.send({ sessionUpdate: 'tool_call_update', toolCallId: call!.id, status });
-      return;
-    }
-    // A refused call can end with no start; give the editor the call, finished, rather than an update for nothing.
-    updates.send({
-      sessionUpdate: 'tool_call',
-      toolCallId: tool.executionId ?? turn.nextToolCallId(),
-      title: acpToolStartTitle(tool),
-      kind: acpToolKind(tool.toolName),
-      status,
-    });
-  };
 
   const onPermissionRequest = (event: IPermissionRequestEvent): void => {
     const options = permissionOptions(event.canPersistProjectPermission === true);
-    const pending = [...open].reverse().find((call) => call.toolName === event.toolName);
+    const toolCall = tools.requested(event);
     void (async () => {
       let decision: ReturnType<typeof permissionDecision> = false;
       try {
         const response = await client.request('session/request_permission', {
           sessionId,
-          toolCall: permissionToolCall(event, pending?.id ?? `permission-${event.id}`, turn.cwd),
+          toolCall,
           options,
         });
         decision = permissionDecision(response.outcome, options);
@@ -106,6 +66,7 @@ export async function runModelTurn(turn: IAcpTurnContext, text: string): Promise
         // A closed connection or a refused request means nobody approved: deny.
         turn.report(asError(error), 'session/request_permission');
       }
+      tools.answered(event, decision !== false);
       try {
         session.resolvePermission(event.id, decision, turn.driverId);
       } catch (error) {
@@ -120,8 +81,8 @@ export async function runModelTurn(turn: IAcpTurnContext, text: string): Promise
       streamed = true;
       updates.text(delta);
     },
-    tool_start: onToolStart,
-    tool_end: onToolEnd,
+    tool_start: tools.start,
+    tool_end: tools.end,
     permission_request: onPermissionRequest,
   });
 
@@ -144,6 +105,7 @@ export async function runModelTurn(turn: IAcpTurnContext, text: string): Promise
     throw new RequestError(-32603, isTurnNotRunError(error) ? 'Turn was not run' : 'Turn failed');
   } finally {
     unsubscribe();
+    tools.finish();
     await updates.drained();
   }
 }
