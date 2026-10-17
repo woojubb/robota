@@ -52,6 +52,10 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
 - **One session per connection.** The host builds one session, with its trust, working directory
   and permissions. Serving a second `session/new` would alias that session under another id or need
   a session factory whose per-session working directory is not established, so it is refused.
+- **`session/new` waits for the session to start.** The host builds the session in the background
+  and it cannot name itself until it is ready, while an editor sends `session/new` straight after
+  `initialize`; answering early would fail the first launch at random. A session that failed to
+  start is answered with a fixed message and the cause stays local.
 - **`cwd` must equal the served directory.** The session is rooted when it is built; accepting
   another directory would claim a root the tools do not have. Symlinked spellings of the same
   directory are accepted.

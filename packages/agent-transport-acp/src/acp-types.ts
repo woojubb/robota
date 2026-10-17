@@ -22,7 +22,14 @@ export interface IAcpTransportSession
     ISessionTurnControl,
     ISessionEvents,
     ISessionPromptResolution,
-    ISessionStatusRead {}
+    ISessionStatusRead {
+  /**
+   * Resolves once the session can name itself, and rejects if it failed to start. A session that
+   * builds itself in the background (`InteractiveSession`) has no id before then, so `session/new`
+   * waits on this. A session that is ready at construction can omit it.
+   */
+  whenInitialized?(): Promise<void>;
+}
 
 /** The host's answer to whether the workspace may serve an editor; a refusal carries what to tell the user. */
 export type TAcpWorkspaceAdmission =

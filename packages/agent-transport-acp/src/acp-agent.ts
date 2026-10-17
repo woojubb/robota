@@ -20,6 +20,7 @@ import type { AgentApp, PromptResponse } from '@agentclientprotocol/sdk';
  * does not have.
  */
 const WORKSPACE_NOT_ADMITTED = -32001;
+const INTERNAL_ERROR = -32603;
 const COMMANDS_UNAVAILABLE = 'Slash commands are not available in this host.';
 
 const commandsUnavailable = (): Promise<string> => Promise.resolve(COMMANDS_UNAVAILABLE);
@@ -47,6 +48,8 @@ export function createAcpAgent(
   const driverId = options.driverId ?? OWNER_DRIVER_ID;
   const report = (error: Error, context: string): void => options.onDeliveryError?.(error, context);
   let boundSessionId: string | undefined;
+  /** A `session/new` is waiting for the session to start; a second one must not also claim it. */
+  let binding = false;
   let active: { cancel(): void } | undefined;
   let toolCalls = 0;
 
@@ -60,8 +63,8 @@ export function createAcpAgent(
       },
       agentInfo: { name: options.agentInfo.name, version: options.agentInfo.version },
     }))
-    .onRequest('session/new', ({ params }) => {
-      if (boundSessionId !== undefined) {
+    .onRequest('session/new', async ({ params }) => {
+      if (boundSessionId !== undefined || binding) {
         throw RequestError.invalidParams(undefined, 'one session per connection');
       }
       if (!isAbsolute(params.cwd) || !sameDirectory(params.cwd, options.cwd)) {
@@ -86,7 +89,18 @@ export function createAcpAgent(
           reason: 'workspace-not-trusted',
         });
       }
-      boundSessionId = session.getStatusSnapshot().sessionId;
+      binding = true;
+      try {
+        // A session that builds itself in the background cannot name itself until it is ready.
+        await session.whenInitialized?.();
+        boundSessionId = session.getStatusSnapshot().sessionId;
+      } catch (error) {
+        report(error instanceof Error ? error : new Error(String(error)), 'session/new');
+        // The cause can name host paths or settings; the editor only needs to know it failed.
+        throw new RequestError(INTERNAL_ERROR, 'The session could not be started');
+      } finally {
+        binding = false;
+      }
       return { sessionId: boundSessionId };
     })
     .onRequest('session/prompt', async ({ params, signal, client }): Promise<PromptResponse> => {

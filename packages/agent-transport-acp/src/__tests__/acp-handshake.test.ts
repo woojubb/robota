@@ -44,6 +44,22 @@ describe('initialize', () => {
   });
 });
 
+/** Like `InteractiveSession`: it has no id until its background initialization finishes, and says when through `whenInitialized`. */
+function startingSession(initialization: Promise<void>) {
+  const fake = createFakeSession();
+  const snapshot = fake.session.getStatusSnapshot.bind(fake.session);
+  let ready = false;
+  void initialization.then(
+    () => (ready = true),
+    () => undefined,
+  );
+  fake.session.getStatusSnapshot = () => {
+    if (!ready) throw new Error('InteractiveSession not initialized.');
+    return snapshot();
+  };
+  return Object.assign(fake.session, { whenInitialized: () => initialization });
+}
+
 describe('session/new', () => {
   it('returns the attached session id', async () => {
     const { agent } = await start();
@@ -118,5 +134,58 @@ describe('session/new', () => {
       agent.request('session/prompt', { sessionId: 'other', prompt: textPrompt('hi') }),
     ).rejects.toMatchObject({ code: -32602 });
     expect(fake.submit).not.toHaveBeenCalled();
+  });
+});
+
+describe('session/new for a session that is still starting', () => {
+  async function startWith(session: ReturnType<typeof startingSession>) {
+    const fixture = await startTransport(session);
+    open.push(fixture);
+    const agent = fixture.editor.connection.agent;
+    await agent.request('initialize', { protocolVersion: 1 });
+    return { agent, fixture };
+  }
+
+  it('answers once the session can name itself, not before', async () => {
+    let finish!: () => void;
+    const { agent } = await startWith(
+      startingSession(new Promise<void>((resolve) => (finish = resolve))),
+    );
+    let settled = false;
+    const created = agent
+      .request('session/new', { cwd: WORKSPACE, mcpServers: [] })
+      .finally(() => (settled = true));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(settled).toBe(false);
+    finish();
+    await expect(created).resolves.toEqual({ sessionId: SESSION_ID });
+  });
+
+  it('refuses a second session/new while the first is waiting, and serves the first', async () => {
+    let finish!: () => void;
+    const { agent } = await startWith(
+      startingSession(new Promise<void>((resolve) => (finish = resolve))),
+    );
+    const first = agent.request('session/new', { cwd: WORKSPACE, mcpServers: [] });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await expect(
+      agent.request('session/new', { cwd: WORKSPACE, mcpServers: [] }),
+    ).rejects.toMatchObject({ code: -32602 });
+    finish();
+    await expect(first).resolves.toEqual({ sessionId: SESSION_ID });
+  });
+
+  it('replies with a fixed error and keeps the cause local when the session failed to start', async () => {
+    const { agent, fixture } = await startWith(
+      startingSession(Promise.reject(new Error('no provider at /home/me/.robota'))),
+    );
+    const failure = await agent
+      .request('session/new', { cwd: WORKSPACE, mcpServers: [] })
+      .catch((error: unknown) => error);
+    expect(failure).toMatchObject({ code: -32603, message: 'The session could not be started' });
+    expect(JSON.stringify(failure)).not.toContain('.robota');
+    expect(fixture.deliveryErrors).toHaveLength(1);
+    expect(fixture.deliveryErrors[0]).toMatchObject({ context: 'session/new' });
+    expect(fixture.deliveryErrors[0]!.error.message).toContain('no provider');
   });
 });
