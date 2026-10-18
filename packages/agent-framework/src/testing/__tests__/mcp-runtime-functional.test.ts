@@ -1,6 +1,5 @@
 import { rmSync } from 'node:fs';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
 import { FunctionTool } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { Session } from '@robota-sdk/agent-session';
@@ -185,7 +184,7 @@ describe('in-memory MCP with real session execution', () => {
     });
     const client = await connect(harness.session);
     const controller = new AbortController();
-    const call = client.callTool({ name: 'Blocking' }, undefined, { signal: controller.signal });
+    const call = client.callTool({ name: 'Blocking' }, { signal: controller.signal });
     const observed = call.then(
       () => 'unexpected-success',
       () => 'cancelled',

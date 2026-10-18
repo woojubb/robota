@@ -49,13 +49,12 @@ describe('operator-composed hosted worker MCP stdio', () => {
           server,
           `
 import { writeFileSync } from 'node:fs';
-import { Server } from ${moduleUrl('packages/agent-mcp/node_modules/@modelcontextprotocol/sdk/dist/esm/server/index.js')};
-import { StdioServerTransport } from ${moduleUrl('packages/agent-mcp/node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js')};
-import { CallToolRequestSchema, ListToolsRequestSchema } from ${moduleUrl('packages/agent-mcp/node_modules/@modelcontextprotocol/sdk/dist/esm/types.js')};
+import { Server } from ${moduleUrl('packages/agent-mcp/node_modules/@modelcontextprotocol/server/dist/index.mjs')};
+import { StdioServerTransport } from ${moduleUrl('packages/agent-mcp/node_modules/@modelcontextprotocol/server/dist/stdio.mjs')};
 writeFileSync(${JSON.stringify(marker)}, JSON.stringify({cwd:process.cwd(),env:process.env}));
 const server = new Server({name:'worker-fixture',version:'1.0.0'}, {capabilities:{tools:{}}});
-server.setRequestHandler(ListToolsRequestSchema, async () => ({tools:[{name:'ping',description:'Return the worker fixture canary',inputSchema:{type:'object',properties:{}}}]}));
-server.setRequestHandler(CallToolRequestSchema, async () => ({content:[{type:'text',text:'MCP_WORKER_PONG'}]}));
+server.setRequestHandler('tools/list', async () => ({tools:[{name:'ping',description:'Return the worker fixture canary',inputSchema:{type:'object',properties:{}}}]}));
+server.setRequestHandler('tools/call', async () => ({content:[{type:'text',text:'MCP_WORKER_PONG'}]}));
 await server.connect(new StdioServerTransport());
 `,
         );

@@ -12,8 +12,7 @@
  * session's events and the MCP response, and a unit that skipped that seam would not see it.
  */
 
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
 import { isTurnNotRunError } from '@robota-sdk/agent-interface-session';
 import { describe, expect, it, vi } from 'vitest';
 

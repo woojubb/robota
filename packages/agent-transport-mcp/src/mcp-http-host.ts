@@ -7,7 +7,7 @@ import { createServer } from 'node:http';
 import { isIP } from 'node:net';
 
 import { toNodeHandler } from '@modelcontextprotocol/node';
-import { createMcpHandler, Server } from '@modelcontextprotocol/server';
+import { createMcpHandler } from '@modelcontextprotocol/server';
 import {
   bearerCredential,
   credentialMatches,
@@ -15,12 +15,12 @@ import {
 } from '@robota-sdk/agent-transport/node';
 
 import { createMcpRemoteGate } from './mcp-remote-authorization.js';
-import { invokeMcpTool, readCatalog, resolveSubmitTool } from './mcp-tool-surface.js';
+import { buildAgentMcpServer } from './mcp-server.js';
+import { readCatalog, resolveSubmitTool } from './mcp-tool-surface.js';
 
 import type { IMcpRemoteAuthorization } from './mcp-remote-authorization.js';
 import type { IMcpTransportSession } from './mcp-session.js';
 import type { IMcpSubmitToolIdentity } from './mcp-tool-surface.js';
-import type { Tool as ModernTool } from '@modelcontextprotocol/server';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
@@ -116,35 +116,9 @@ function createHostCore(
       startCalled = true;
       await readCatalog(options.session, submitTool.name);
       if (stoppingRequested) throw new Error('MCP HTTP host stopped during startup');
-      handler = createMcpHandler(
-        () => {
-          const server = new Server(
-            { name: options.name, version: options.version },
-            { capabilities: { tools: {} } },
-          );
-          server.setRequestHandler('tools/list', async () => ({
-            // The v1 catalog validator returns a wider schema type than SDK v2's JSON-only Tool.
-            // Normalize at this SDK boundary while keeping one canonical runtime catalog owner.
-            tools: JSON.parse(
-              JSON.stringify([
-                ...(await readCatalog(options.session, submitTool.name)),
-                submitTool,
-              ]),
-            ) as ModernTool[],
-          }));
-          server.setRequestHandler('tools/call', async (request, ctx) =>
-            invokeMcpTool(
-              options.session,
-              request.params.name,
-              request.params.arguments ?? {},
-              ctx.mcpReq.signal,
-              submitTool.name,
-            ),
-          );
-          return server;
-        },
-        { maxSubscriptions: 0 },
-      );
+      handler = createMcpHandler(() => buildAgentMcpServer(options, submitTool), {
+        maxSubscriptions: 0,
+      });
       const nodeHandler = toNodeHandler(handler);
       const serve = (req: IncomingMessage, res: ServerResponse): void => {
         if (active >= MAX_ACTIVE_REQUESTS) {

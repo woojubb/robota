@@ -5,14 +5,14 @@
  * The adapter owns carrier readiness and teardown; the product shell owns process policy.
  */
 
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { attachStdioCarrier } from '@robota-sdk/agent-transport/node';
 
 import { createAgentMcpServer } from './mcp-server.js';
 
 import type { IMcpTransportSession } from './mcp-session.js';
 import type { IMcpSubmitToolIdentity } from './mcp-tool-surface.js';
-import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import type { Server } from '@modelcontextprotocol/server';
 import type { IStdioCarrier } from '@robota-sdk/agent-transport/node';
 import type {
   ITransportAdapter,

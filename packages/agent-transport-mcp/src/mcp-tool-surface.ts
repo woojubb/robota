@@ -1,9 +1,9 @@
 /** One canonical tool catalog and invocation path shared by stdio and HTTP MCP carriers. */
-import { ToolSchema } from '@modelcontextprotocol/sdk/types.js';
+import { specTypeSchemas } from '@modelcontextprotocol/server';
 import { isTurnNotRunError } from '@robota-sdk/agent-interface-session';
 
 import type { IMcpTransportSession } from './mcp-session.js';
-import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolResult, Tool } from '@modelcontextprotocol/server';
 
 export interface IMcpSubmitToolIdentity {
   readonly name: string;
@@ -15,13 +15,29 @@ const DEFAULT_SUBMIT_TOOL: IMcpSubmitToolIdentity = {
   description: 'Submit a prompt to the agent and await its turn',
 };
 
+/** The SDK's own validator for the wire shape of a tool: a catalog entry it rejects never ships. */
+function parseTool(candidate: unknown): Tool {
+  const outcome = specTypeSchemas.Tool['~standard'].validate(candidate);
+  if (outcome.issues !== undefined) {
+    const reasons = outcome.issues.map((issue) => {
+      const path = issue.path
+        ?.map((segment) => (typeof segment === 'object' ? segment.key : segment))
+        .map(String)
+        .join('.');
+      return path ? `${path}: ${issue.message}` : issue.message;
+    });
+    throw new Error(`Invalid MCP tool: ${reasons.join('; ')}`);
+  }
+  return outcome.value;
+}
+
 export function resolveSubmitTool(identity: IMcpSubmitToolIdentity = DEFAULT_SUBMIT_TOOL): Tool {
   if (typeof identity.name !== 'string' || !/^[A-Za-z0-9._-]{1,128}$/.test(identity.name)) {
     throw new Error(
       'MCP submit tool name must contain 1–128 ASCII letters, digits, dots, hyphens, or underscores',
     );
   }
-  return ToolSchema.parse({
+  return parseTool({
     name: identity.name,
     description: identity.description,
     inputSchema: {
@@ -43,7 +59,7 @@ export async function readCatalog(
       throw new Error(`Duplicate or reserved MCP tool name: ${schema.name}`);
     }
     names.add(schema.name);
-    return ToolSchema.parse({
+    return parseTool({
       name: schema.name,
       description: schema.description,
       inputSchema: schema.parameters,

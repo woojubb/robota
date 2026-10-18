@@ -57,7 +57,7 @@ carrier yourself:
 
 ```typescript
 import { createAgentMcpServer } from '@robota-sdk/agent-transport-mcp';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import type { IMcpTransportSession } from '@robota-sdk/agent-transport-mcp';
 
 declare const session: IMcpTransportSession; // for example an InteractiveSession

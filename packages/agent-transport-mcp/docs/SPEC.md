@@ -5,7 +5,8 @@
 Model Context Protocol (MCP) server transport for the Robota SDK — stdio, authenticated loopback
 Streamable HTTP, and OAuth-authorized remote Streamable HTTP, all served from the same exact runtime
 session port. Split out of the consolidated `agent-transport` package so MCP SDK dependencies remain
-isolated.
+isolated, and every carrier is served from one generation of the official MCP server package, so a
+protocol change is carried once.
 
 ## Transport Admission
 
