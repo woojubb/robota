@@ -8,8 +8,8 @@
 
 `ISessionCommands.executeCommand` takes an optional trailing `{ signal }`. For a skill command it
 reaches the turn the skill submits or the fork it runs, and the work before them: a cancel stops the
-skill's activation (a shell expression already running finishes, nothing after it runs), refuses a
-turn not yet started and interrupts one that is, and stops a fork. A command cancelled this way
+skill's activation before or after its shell expressions (once they start, all of them run to the
+end), refuses a turn not yet started and interrupts one that is, and stops a fork. A command cancelled this way
 rejects with the signal's reason whichever step the cancel reached, and a cancelled fork is not
 recorded as an error. Before, a cancel that landed before the skill submitted its turn found nothing
 for `abort()` to stop, and the turn then ran; a fork skill run as a command ignored the cancel. A
