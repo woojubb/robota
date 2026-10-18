@@ -61,6 +61,21 @@ export interface IToolState {
   commandName?: string;
   /** #3288: true for an internal signal tool (e.g. the goal-status tool) — surfaces should not show it as a call. */
   internal?: boolean;
+  /**
+   * A finished model call's result has a view its source declared (an MCP app) that a surface able
+   * to host one may read with `readToolAppView(executionId)`. A reference only: the document never
+   * rides the event to every surface. Carried by the live `tool_end` alone — not by a replay or the
+   * persisted history — so a surface without a frame, and every surface after a reload, shows the
+   * text result.
+   */
+  appView?: IToolAppViewRef;
+}
+
+/** Names the view a finished call has; the document itself is read on demand. */
+export interface IToolAppViewRef {
+  readonly sourceId: string;
+  /** The `ui://` resource the source declared for the call. */
+  readonly resourceUri: string;
 }
 
 /**

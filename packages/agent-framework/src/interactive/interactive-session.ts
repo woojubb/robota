@@ -126,6 +126,7 @@ import type {
   IProviderDefinition,
   IUserInteraction,
   TActionResponse,
+  IToolAppView,
   IToolSchema,
   IToolExecutionResult,
   TToolArgs,
@@ -139,6 +140,7 @@ import type {
 } from '@robota-sdk/agent-interface-execution';
 import type {
   IGoalState,
+  IRuntimeToolInvokeOptions,
   ITurnHandle,
   IPlanArtifact,
   ISubmitOptions,
@@ -864,10 +866,14 @@ export class InteractiveSession
     return this.runtimeTools.listRuntimeTools();
   }
 
+  readToolAppView(executionId: string): IToolAppView | undefined {
+    return this.execCtrl.appViews.get(executionId);
+  }
+
   invokeRuntimeTool(
     name: string,
     parameters: TToolParameters,
-    options?: { signal?: AbortSignal },
+    options?: IRuntimeToolInvokeOptions,
   ): Promise<IToolExecutionResult> {
     return this.runtimeTools.invokeRuntimeTool(name, parameters, options);
   }
@@ -1590,6 +1596,7 @@ export class InteractiveSession
       // REMOTE-007 D3: drain before dropping listeners so any prompt still parked at shutdown settles
       // fail-closed (the awaiting checkPermission/tool unblocks) rather than hanging on a cleared emitter.
       this.promptRegistry.drain();
+      this.execCtrl.appViews.clear();
       this.listeners.clear();
       if (moduleShutdownErrors.length > 0) {
         throw new AggregateError(moduleShutdownErrors, 'Command module shutdown failed');
@@ -1816,6 +1823,7 @@ export class InteractiveSession
   clearConversationHistory(): void {
     this.getSessionOrThrow().clearHistory();
     this.histTracker.clearHistory();
+    this.execCtrl.appViews.clear();
     this.persistCurrentSession();
     this.emit('context_update', this.getContextState());
     this.emit('history_cleared'); // CMD-004 Stage E: broadcast — every surface refreshes its transcript

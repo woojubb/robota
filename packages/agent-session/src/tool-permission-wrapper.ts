@@ -331,6 +331,8 @@ export function wrapToolWithPermission(
             : JSON.stringify(truncatedResult.data),
         toolResultParts: truncatedResult.parts,
         executionId: context?.executionId,
+        // Display data for a surface only: it never joins `toolResultData`, which is what is logged.
+        ...(truncatedResult.view ? { view: truncatedResult.view } : {}),
       });
 
       const dataSize =

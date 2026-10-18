@@ -1,4 +1,4 @@
-import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 /** InteractiveSession execution lifecycle, queue, streaming, and tool state. */
 
 import { randomBytes } from 'node:crypto';
@@ -33,6 +33,7 @@ import {
 import { PendingInputQueue } from './interactive-session-pending-queue.js';
 import { capturePostTurnMemory } from './interactive-session-post-turn-memory.js';
 import { executePromptTurn, promptTurnAttribution } from './interactive-session-prompt.js';
+import { ToolAppViewStore } from './interactive-session-app-views.js';
 import { STREAMING_FLUSH_INTERVAL_MS } from './interactive-session-streaming.js';
 import {
   attributeTurnModels,
@@ -72,7 +73,7 @@ import type {
   TDriverId,
   TTurnSource,
 } from '@robota-sdk/agent-interface-session';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
+import type { ICompactEvent, IToolAppViewRef } from '@robota-sdk/agent-interface-session';
 
 export type { TTurnSource };
 
@@ -104,6 +105,8 @@ export class SessionExecutionController {
   streamingText = '';
   flushTimer: ReturnType<typeof setTimeout> | null = null;
   activeTools: IToolState[] = [];
+  /** The views of this session's finished model calls, read by a surface on demand. */
+  readonly appViews = new ToolAppViewStore();
   /** REMOTE-014 E5: co-drive input queue (same-driver coalesces to the tail, cross-driver appends). */
   readonly pending = new PendingInputQueue({
     refuse: (turnId, reason) => this.turns.refuse(turnId, reason),
@@ -197,7 +200,7 @@ export class SessionExecutionController {
   handleCompactEvent(event: ICompactEvent): void {
     projectCompactEvent(this.histTracker, this.callbacks, event);
   }
-  handleToolExecution(event: {
+  handleToolExecution(rawEvent: {
     type: 'start' | 'end';
     toolName: string;
     toolArgs?: TToolArgs;
@@ -206,7 +209,10 @@ export class SessionExecutionController {
     toolResultData?: string;
     toolResultParts?: TUniversalMessagePart[];
     executionId?: string;
+    view?: IToolAppView;
   }): void {
+    const { view, ...event } = rawEvent;
+    const appView = this.keepAppView(event, view);
     if (event.type === 'end') {
       this.completedToolExecutions.push({
         name: event.toolName,
@@ -220,12 +226,27 @@ export class SessionExecutionController {
       this.histTracker.getHistory(),
       this.callbacks,
       (activeTools) => void (this.activeTools = activeTools),
-      event,
+      appView ? { ...event, appView } : event,
       event.type === 'start'
         ? advisorToolLineLabel(event.toolName, this.callbacks.getSession()?.getToolSchemas() ?? [])
         : undefined,
       event.type === 'start' ? this.callbacks.checkpointHistory : undefined,
     );
+  }
+
+  /**
+   * Keeps the view of a finished model call for a surface to read on demand and returns the
+   * reference the live `tool_end` carries instead of the document. A direct call has no view: its
+   * result goes back to whoever made it (an app view calling its server, `mcp serve`).
+   */
+  private keepAppView(
+    event: { type: 'start' | 'end'; executionId?: string },
+    view: IToolAppView | undefined,
+  ): IToolAppViewRef | undefined {
+    if (view === undefined || event.type !== 'end' || typeof event.executionId !== 'string') return;
+    if (this.executionClaim.activeKind === 'runtime-tool') return;
+    this.appViews.put(event.executionId, view);
+    return { sourceId: view.sourceId, resourceUri: view.resourceUri };
   }
 
   /** Opt-in content of one of the running turn's own calls; never throws into the tool wrapper. */

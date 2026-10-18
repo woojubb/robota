@@ -185,6 +185,8 @@ export class SessionSlot<
     this.currentSession.listRuntimeTools(...args);
   invokeRuntimeTool: IInteractiveSession['invokeRuntimeTool'] = (...args) =>
     this.currentSession.invokeRuntimeTool(...args);
+  readToolAppView: IInteractiveSession['readToolAppView'] = (...args) =>
+    this.currentSession.readToolAppView(...args);
   resolvePermission: IInteractiveSession['resolvePermission'] = (...args) =>
     this.currentSession.resolvePermission(...args);
   resolveAsk: IInteractiveSession['resolveAsk'] = (...args) =>

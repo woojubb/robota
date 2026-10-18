@@ -37,6 +37,7 @@ import type {
   TSessionExecutionResult,
 } from './session-recoverable.js';
 import { SessionRuntimeTools, linkCancellation } from './session-runtime-tools.js';
+import type { IRuntimeToolInvokeOptions } from '@robota-sdk/agent-interface-session';
 
 import type { CompactionOrchestrator } from './compaction-orchestrator.js';
 import type { ContextWindowTracker } from './context-window-tracker.js';
@@ -443,10 +444,10 @@ export class Session extends SessionBase {
   async invokeRuntimeTool(
     name: string,
     parameters: TToolParameters,
-    options?: { signal?: AbortSignal },
+    options?: IRuntimeToolInvokeOptions,
   ): Promise<IToolExecutionResult> {
     if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
-    return this.runtimeTools.invoke(name, parameters, options?.signal);
+    return this.runtimeTools.invoke(name, parameters, options);
   }
 
   /**

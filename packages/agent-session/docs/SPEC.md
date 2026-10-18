@@ -165,8 +165,8 @@ A session runs one turn at a time:
 - Direct runtime-tool invocation claims the same exclusive turn slot as `run()`: overlapping
   direct calls or turns are refused rather than queued, cancellation keeps the claim until the
   underlying execution settles, and shutdown drains any direct execution before destroying the
-  agent. A direct call cannot open an interactive permission prompt — a decision that would
-  require interaction fails closed rather than blocking.
+  agent. A direct call opens an interactive permission prompt only when its caller asks for one;
+  otherwise a decision that would require interaction fails closed rather than blocking.
 - Concurrency _across transports_ (e.g. correlating requests from multiple external callers) is
   explicitly out of scope for this contract; it is owned by a different object one layer up.
 

@@ -96,7 +96,7 @@ export { normalizeProviderConfig, createProviderFromConfig } from './providers/p
 
 // Message types
 export type { IToolCall, IUserMessage, ISystemMessage, IToolMessage } from './interfaces/agent';
-export type { TToolParameters, IToolResult, IToolExecutionContext } from './interfaces/tool';
+export type { TToolParameters, IToolResult, IToolAppView, IToolExecutionContext } from './interfaces/tool';
 export type { IToolExecutionResult } from './interfaces/tool';
 export type {
   TUniversalMessage,

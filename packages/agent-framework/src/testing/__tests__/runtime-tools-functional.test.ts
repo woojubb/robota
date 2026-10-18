@@ -2,7 +2,11 @@ import { rmSync } from 'node:fs';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
-import type { IToolExecutionContext, IToolWithEventService } from '@robota-sdk/agent-core';
+import type {
+  IToolAppView,
+  IToolExecutionContext,
+  IToolWithEventService,
+} from '@robota-sdk/agent-core';
 
 // A private home made by mkdtemp before any module that reads `homedir()` loads.
 const isolatedHome = await vi.hoisted(async () => {
@@ -169,5 +173,102 @@ describe('canonical runtime tools through real InteractiveSession', () => {
     expect(harness.session.getPendingCount()).toBe(0);
     // An abort after this owned turn has settled cannot interrupt a later caller.
     abort.abort();
+  }, 20_000);
+});
+
+function viewTool(view: IToolAppView): IToolWithEventService {
+  const schema = {
+    name: 'ViewTool',
+    description: 'Returns a result with a source view',
+    parameters: { type: 'object' as const, properties: {} },
+  };
+  return {
+    schema,
+    getName: () => schema.name,
+    getDescription: () => schema.description,
+    validate: () => true,
+    validateParameters: () => ({ isValid: true, errors: [] }),
+    setEventService: () => {},
+    execute: async () => ({ success: true, data: 'listed', view }),
+  };
+}
+
+describe('a source view and the driver of a direct call through real InteractiveSession', () => {
+  const view: IToolAppView = {
+    sourceId: 'files',
+    resourceUri: 'ui://files/list',
+    mimeType: 'text/html;profile=mcp-app',
+    html: '<main id="private-view-html">rows</main>',
+    callableTools: { list_files: 'ViewTool' },
+  };
+
+  it("names the view of the model's call only, reads it on demand, and keeps it out of context and history", async () => {
+    harness = scriptedSession({
+      turns: [{ toolCalls: [{ name: 'ViewTool', args: {} }] }, { text: 'done' }],
+      additionalTools: [viewTool(view)],
+    });
+    await harness.submit('list files');
+    const modelCall = harness.emittedEvents('tool_end').map(([state]) => state);
+    expect(modelCall).toHaveLength(1);
+    expect(modelCall[0]).toMatchObject({
+      toolName: 'ViewTool',
+      appView: { sourceId: 'files', resourceUri: 'ui://files/list' },
+    });
+    expect(JSON.stringify(modelCall[0])).not.toContain('private-view-html');
+    const executionId = modelCall[0]!.executionId!;
+    expect(harness.session.readToolAppView(executionId)).toEqual(view);
+
+    const direct = await harness.session.invokeRuntimeTool('ViewTool', {});
+    expect(direct).toMatchObject({ success: true });
+    const ended = harness.emittedEvents('tool_end').map(([state]) => state);
+    expect(ended).toHaveLength(2);
+    expect(ended[1]).toMatchObject({ toolName: 'ViewTool', result: 'success' });
+    expect(ended[1]).not.toHaveProperty('appView');
+    expect(harness.session.readToolAppView(ended[1]!.executionId!)).toBeUndefined();
+
+    expect(JSON.stringify(harness.requests)).not.toContain('private-view-html');
+    expect(JSON.stringify(harness.history())).not.toContain('private-view-html');
+    const recorded = JSON.stringify(harness.session.getFullHistory());
+    expect(recorded).not.toContain('private-view-html');
+    expect(recorded).not.toContain('ui://files/list');
+
+    harness.session.clearConversationHistory();
+    expect(harness.session.readToolAppView(executionId)).toBeUndefined();
+  }, 20_000);
+
+  it('forgets the views of a session that shut down', async () => {
+    harness = scriptedSession({
+      turns: [{ toolCalls: [{ name: 'ViewTool', args: {} }] }, { text: 'done' }],
+      additionalTools: [viewTool(view)],
+    });
+    await harness.submit('list files');
+    const executionId = harness.emittedEvents('tool_end')[0]![0].executionId!;
+    expect(harness.session.readToolAppView(executionId)).toEqual(view);
+    await harness.session.shutdown();
+    expect(harness.session.readToolAppView(executionId)).toBeUndefined();
+  }, 20_000);
+
+  it('puts an interactive direct call to the person and names the driver it acts for', async () => {
+    harness = scriptedSession({ turns: [{ text: 'unused' }], permissionMode: 'default' });
+    const session = harness.session;
+    const requests: Array<{ requesterDriverId?: string; activeDriver: string | null }> = [];
+    session.on('permission_request', (request) => {
+      requests.push({
+        ...(request.requesterDriverId ? { requesterDriverId: request.requesterDriverId } : {}),
+        activeDriver: session.getActiveDriverId(),
+      });
+      session.resolvePermission(request.id, false);
+    });
+
+    const refused = await session.invokeRuntimeTool(
+      'Bash',
+      { command: 'printf shown > shown.txt' },
+      { permissionInteraction: 'interactive', driverId: 'drv-1' },
+    );
+
+    expect(refused.success).toBe(false);
+    expect(requests).toEqual([{ requesterDriverId: 'drv-1', activeDriver: 'drv-1' }]);
+    expect(harness.exists('shown.txt')).toBe(false);
+    expect(session.getActiveDriverId()).toBeNull();
   }, 20_000);
 });

@@ -1,4 +1,10 @@
 import type {
+  IToolAppView,
+  IToolExecutionResult,
+  TToolParameters,
+  TUniversalMessagePart,
+} from '@robota-sdk/agent-core';
+import type {
   IPersonalUsageReport,
   IPersonalUsageRequest,
   IUsageBySourceReport,
@@ -157,6 +163,13 @@ export type TClientMessage =
   // The Project panel's "Memory" section — project memory as readable text. Answered by
   // `project_memory`.
   | { type: 'project-memory'; requestId: string }
+  // A driving surface invokes one runtime tool for a hosted app view, through the session's
+  // permission gate; a prompt it raises is attributed to that surface's driver. Answered by
+  // `app_tool_result`, or by `protocol_error` echoing `requestId` when the call is refused.
+  | { type: 'call-app-tool'; requestId: string; name: string; arguments: TToolParameters }
+  // A driving surface reads the view a finished model call named in its `tool_end` (`appView`).
+  // Answered by `app_view`, or by `protocol_error` echoing `requestId`.
+  | { type: 'read-app-view'; requestId: string; executionId: string }
   | { type: 'get-background-tasks'; filter?: IBackgroundTaskListFilter }
   | { type: 'get-background-task'; taskId: string }
   | { type: 'get-background-job-groups' }
@@ -338,6 +351,18 @@ export type TServerMessage =
   | { type: 'project_status'; requestId: string; result: TProjectStatusRead }
   | { type: 'project_diff'; requestId: string; result: TProjectDiffRead }
   | { type: 'project_memory'; requestId: string; result: TProjectMemoryRead }
+  // The outcome of a `call-app-tool`, correlated by `requestId`: the tool's own result, as the
+  // session returned it.
+  | {
+      type: 'app_tool_result';
+      requestId: string;
+      success: boolean;
+      data?: IToolExecutionResult['result'];
+      parts?: TUniversalMessagePart[];
+      error?: string;
+    }
+  // The answer to a `read-app-view`: the whole document, to the surface that asked and no other.
+  | { type: 'app_view'; requestId: string; view: IToolAppView }
   | { type: 'background_task_event'; event: TBackgroundTaskEvent }
   | { type: 'background_job_group_event'; event: TBackgroundJobGroupEvent }
   | { type: 'plan_event'; event: IPlanApprovalEvent }

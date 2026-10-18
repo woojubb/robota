@@ -151,6 +151,8 @@ export function createTestInteractiveSession(
       toolName: name,
       error: `Unknown tool: ${name}`,
     }),
+    // No call of a double declared a view, so there is nothing to read.
+    readToolAppView: () => undefined,
     on: () => {},
     off: () => {},
     resolvePermission: () => {},
