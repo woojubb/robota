@@ -57,7 +57,8 @@ export interface IAcpTransportOptions {
   /**
    * Runs a `/command` prompt and returns the text to show. Supplied by the host because command
    * execution belongs to the framework layer this package may not import; without it a `/command`
-   * prompt is answered with a notice that commands are unavailable.
+   * prompt is answered with a notice that commands are unavailable. `signal` aborts when the editor
+   * cancels the prompt or the connection closes; pass it on so what the command starts stops with it.
    */
   readonly executeCommand?: (text: string, signal: AbortSignal) => Promise<string>;
   /**

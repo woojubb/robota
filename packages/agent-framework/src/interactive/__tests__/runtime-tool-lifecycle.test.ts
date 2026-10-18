@@ -63,6 +63,64 @@ describe('runtime tools and scoped submission cancellation', () => {
     expect(execCtrl.executing).toBe(false);
   });
 
+  it('attributes a direct call to the driver it acts for, only while it runs', async () => {
+    const execCtrl = controller();
+    const seen: Array<string | null> = [];
+    const session: ISessionRuntimeTools = {
+      listRuntimeTools: vi.fn(async () => []),
+      invokeRuntimeTool: vi.fn(async () => {
+        seen.push(execCtrl.activeDriverId);
+        return { success: true, toolName: 'tool', result: 'ok' };
+      }),
+    };
+    const tools = new InteractiveSessionRuntimeTools({
+      controller: () => execCtrl,
+      ensureInitialized: () => Promise.resolve(),
+      session: () => session,
+    });
+    const options = { driverId: 'drv-1', permissionInteraction: 'interactive' as const };
+
+    await tools.invokeRuntimeTool('tool', {}, options);
+    expect(seen).toEqual(['drv-1']);
+    expect(session.invokeRuntimeTool).toHaveBeenCalledExactlyOnceWith('tool', {}, options);
+    expect(execCtrl.activeDriverId).toBeNull();
+
+    await tools.invokeRuntimeTool('tool', {});
+    expect(seen).toEqual(['drv-1', null]);
+  });
+
+  it('clears the attributed driver when the direct call fails', async () => {
+    const execCtrl = controller();
+    const session: ISessionRuntimeTools = {
+      listRuntimeTools: vi.fn(async () => []),
+      invokeRuntimeTool: vi.fn(async () => {
+        throw new Error('tool exploded');
+      }),
+    };
+    const tools = new InteractiveSessionRuntimeTools({
+      controller: () => execCtrl,
+      ensureInitialized: () => Promise.resolve(),
+      session: () => session,
+    });
+    await expect(tools.invokeRuntimeTool('tool', {}, { driverId: 'drv-1' })).rejects.toThrow(
+      'tool exploded',
+    );
+    expect(execCtrl.activeDriverId).toBeNull();
+    expect(execCtrl.executing).toBe(false);
+  });
+
+  it('leaves the active turn driver alone when a direct call is refused', async () => {
+    const execCtrl = controller();
+    const claim = execCtrl.executionClaim.acquire('prompt');
+    execCtrl.activeDriverId = 'turn-driver';
+    const { tools } = runtime(execCtrl);
+    await expect(
+      tools.invokeRuntimeTool('tool', {}, { driverId: 'intruder' }),
+    ).rejects.toThrow(/already running/i);
+    expect(execCtrl.activeDriverId).toBe('turn-driver');
+    execCtrl.executionClaim.complete(claim, () => {});
+  });
+
   it('shutdown during initialization refuses execution and drains the admitted call', async () => {
     const init = deferred<void>();
     const { tools, session, execCtrl } = runtime(controller(), init.promise);

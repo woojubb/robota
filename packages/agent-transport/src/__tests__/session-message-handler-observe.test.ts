@@ -35,6 +35,8 @@ function createSession(): IInteractiveSession & {
     cancelBackgroundTask: vi.fn(),
     closeBackgroundTask: vi.fn(),
     sendBackgroundTask: vi.fn(),
+    invokeRuntimeTool: vi.fn(),
+    readToolAppView: vi.fn(),
     getMessages: vi.fn().mockReturnValue([{ role: 'user', content: 'hi' }]),
     isExecuting: vi.fn().mockReturnValue(true),
     on: ((event: string, handler: TListener) => {
@@ -80,6 +82,8 @@ const MUTATING: readonly TClientMessage[] = [
   { type: 'ask-response', id: 'a1', response: { type: 'answer', values: ['React'] } } as TClientMessage,
   { type: 'get-personal-usage-report', requestId: 'r1', period: '7d', timezone: 'UTC' },
   { type: 'get-stored-session-usage-report', requestId: 'r2', sessionId: 'other' },
+  { type: 'call-app-tool', requestId: 'r3', name: 'Write', arguments: {} },
+  { type: 'read-app-view', requestId: 'r4', executionId: 'call-1' },
 ];
 
 describe('observe role', () => {
@@ -102,6 +106,8 @@ describe('observe role', () => {
     expect(session.sendBackgroundTask).not.toHaveBeenCalled();
     expect(session.resolvePermission).not.toHaveBeenCalled();
     expect(session.resolveAsk).not.toHaveBeenCalled();
+    expect(session.invokeRuntimeTool).not.toHaveBeenCalled();
+    expect(session.readToolAppView).not.toHaveBeenCalled();
   });
 
   it('keeps the read queries for this session', () => {

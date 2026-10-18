@@ -62,6 +62,10 @@ export const SERVER_MESSAGE_HANDLING = {
   project_status: 'reducer-state',
   project_diff: 'reducer-state',
   project_memory: 'reducer-state',
+  // The app-view host (the next step) consumes both: the document a finished call named, and the
+  // outcome of a tool call it made for that view.
+  app_view: 'intentionally-not-rendered',
+  app_tool_result: 'intentionally-not-rendered',
   background_task_event: 'intentionally-not-rendered',
   background_job_group_event: 'intentionally-not-rendered',
   plan_event: 'intentionally-not-rendered',

@@ -126,6 +126,7 @@ import type {
   IProviderDefinition,
   IUserInteraction,
   TActionResponse,
+  IToolAppView,
   IToolSchema,
   IToolExecutionResult,
   TToolArgs,
@@ -139,6 +140,7 @@ import type {
 } from '@robota-sdk/agent-interface-execution';
 import type {
   IGoalState,
+  IRuntimeToolInvokeOptions,
   ITurnHandle,
   IPlanArtifact,
   ISubmitOptions,
@@ -436,7 +438,7 @@ export class InteractiveSession
       (result) => this.execCtrl.applyForkSkillResult(result),
       (event, appendHistory) => this.histTracker.recordSkillActivationEvent(event, appendHistory),
       (content, forkOptions) => runSkillInFork(content, forkOptions, this.getSessionOrThrow()),
-      (skill, args, displayInput, qualifiedName, invocation) =>
+      (skill, args, displayInput, qualifiedName, invocation, signal) =>
         this.execCtrl.executeForkSkillCommand(
           skill,
           args,
@@ -444,16 +446,18 @@ export class InteractiveSession
           qualifiedName,
           invocation,
           (entry) => this.resumeQueuedTurn(entry),
+          signal,
         ),
       (execute) =>
         this.execCtrl.executeForegroundCommand(execute, (entry) => this.resumeQueuedTurn(entry)),
       shellExec,
       remoteCommandPolicy,
       this.pluginSkills,
-      async (preparePrompt, displayInput, rawInput, originDriverId) => {
+      async (preparePrompt, displayInput, rawInput, originDriverId, signal) => {
         await this.submitNewTurn(displayInput ?? rawInput ?? '', displayInput, rawInput, {
           preparePrompt,
           ...(originDriverId !== undefined ? { driverId: originDriverId } : {}),
+          ...(signal !== undefined ? { signal } : {}),
         });
       },
     );
@@ -864,10 +868,14 @@ export class InteractiveSession
     return this.runtimeTools.listRuntimeTools();
   }
 
+  readToolAppView(executionId: string): IToolAppView | undefined {
+    return this.execCtrl.appViews.get(executionId);
+  }
+
   invokeRuntimeTool(
     name: string,
     parameters: TToolParameters,
-    options?: { signal?: AbortSignal },
+    options?: IRuntimeToolInvokeOptions,
   ): Promise<IToolExecutionResult> {
     return this.runtimeTools.invokeRuntimeTool(name, parameters, options);
   }
@@ -1590,6 +1598,7 @@ export class InteractiveSession
       // REMOTE-007 D3: drain before dropping listeners so any prompt still parked at shutdown settles
       // fail-closed (the awaiting checkPermission/tool unblocks) rather than hanging on a cleared emitter.
       this.promptRegistry.drain();
+      this.execCtrl.appViews.clear();
       this.listeners.clear();
       if (moduleShutdownErrors.length > 0) {
         throw new AggregateError(moduleShutdownErrors, 'Command module shutdown failed');
@@ -1816,6 +1825,7 @@ export class InteractiveSession
   clearConversationHistory(): void {
     this.getSessionOrThrow().clearHistory();
     this.histTracker.clearHistory();
+    this.execCtrl.appViews.clear();
     this.persistCurrentSession();
     this.emit('context_update', this.getContextState());
     this.emit('history_cleared'); // CMD-004 Stage E: broadcast — every surface refreshes its transcript
@@ -2152,6 +2162,7 @@ export class InteractiveSession
     source: TCommandInvocationSource = 'user',
     originDriverId?: TDriverId,
     locality?: TCommandSurfaceLocality,
+    options?: { readonly signal?: AbortSignal },
   ): Promise<ICommandResult | null> {
     if (this.orgPolicy?.blockedCommands?.includes(name)) {
       return {
@@ -2190,8 +2201,8 @@ export class InteractiveSession
     // turn running, keeps the unchanged path.
     const bypassMidTurnGate = name === 'loop' && isLoopStopVerb(args) && this.execCtrl.executing;
     const result = bypassMidTurnGate
-      ? await this.skillRouter.executeCommand(name, args, source, originDriverId, locality)
-      : await super.executeCommand(name, args, source, originDriverId, locality);
+      ? await this.skillRouter.executeCommand(name, args, source, originDriverId, locality, options)
+      : await super.executeCommand(name, args, source, originDriverId, locality, options);
     if (result === null) return null;
     if (result.data?.['pluginRegistryReloaded'] === true && source !== 'model') {
       this.pluginSkills = this.loadPluginSkills();

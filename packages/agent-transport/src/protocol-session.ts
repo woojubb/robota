@@ -11,8 +11,10 @@ import type {
   ISessionExecutionWorkspace,
   ISessionProjectRead,
   ISessionPromptResolution,
+  ISessionRuntimeTools,
   ISessionSelfPacedLoopControl,
   ISessionStatusRead,
+  ISessionToolAppViews,
   ISessionTurnControl,
   ISessionTurnSubmission,
 } from '@robota-sdk/agent-interface-session';
@@ -37,7 +39,11 @@ export interface IProtocolSession
     // #3282 §4: the agent switcher's read (`listAgentDefinitions`/`getDefaultAgentType`) — the
     // group's write members (`spawnAgentJob` and friends) stay unused by any wire handler; they run
     // only through `executeCommand`, same as every other command-only write.
-    ISessionAgentJobs {}
+    ISessionAgentJobs,
+    // A driving surface that hosts an app view runs one runtime tool for it (`call-app-tool`) and
+    // reads a finished call's view (`read-app-view`).
+    ISessionRuntimeTools,
+    ISessionToolAppViews {}
 
 /**
  * #3282 §4c: a protocol session that ALSO answers the Project panel's reads. `Partial` (not a fourth
