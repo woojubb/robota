@@ -12,6 +12,7 @@
 import { loadProductConfig } from '@robota-sdk/product-config/node';
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { createServer as createHttpServer } from 'node:http';
 import { createServer } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,6 +49,21 @@ async function scenario(label, run) {
   }
 }
 
+/**
+ * #3558: a server that records every request it gets. The scripted app view tries to reach it with a
+ * fetch, an image and a nested frame; the sandbox must stop all three before they leave the browser,
+ * so nothing here is ever recorded (`canaryHits` stays empty). It allows any origin, so a request that
+ * did go out would succeed and show up — the control for that is made below.
+ */
+const canaryHits = [];
+const canary = createHttpServer((request, response) => {
+  canaryHits.push(request.url);
+  response.writeHead(200, { 'content-type': 'text/plain', 'access-control-allow-origin': '*' });
+  response.end('canary');
+});
+await new Promise((resolve) => canary.listen(0, '127.0.0.1', resolve));
+const canaryUrl = `http://127.0.0.1:${canary.address().port}`;
+
 const port = await freePort();
 const token = randomBytes(32).toString('hex');
 const sidecar = spawn(process.execPath, [join(packageRoot, 'e2e', 'scripted-sidecar.mjs')], {
@@ -60,6 +76,7 @@ const sidecar = spawn(process.execPath, [join(packageRoot, 'e2e', 'scripted-side
     PRODUCT_WS_TOKEN: token,
     PRODUCT_WS_PORT: String(port),
     PRODUCT_E2E_SETUP_REQUIRED: '1',
+    PRODUCT_E2E_CANARY_URL: canaryUrl,
   },
   stdio: ['ignore', 'ignore', 'pipe'],
 });
@@ -83,6 +100,12 @@ page.on('websocket', (socket) => {
     const type = /"type":"([a-z_]+)"/.exec(String(payload))?.[1];
     if (type) receivedFrameTypes.push(type);
   });
+});
+// What the browser reported about content policies (every frame of the page): the app-view scenario
+// reads it back, and `E2E_DEBUG_CSP=1` prints it.
+const policyMessages = [];
+page.on('console', (message) => {
+  if (/Content Security Policy|Refused to/u.test(message.text())) policyMessages.push(message.text());
 });
 const send = async (text) => {
   await page.getByLabel('message').fill(text);
@@ -497,6 +520,184 @@ try {
     await page.getByText(/Test Files\s+1 passed/).waitFor();
     await page.getByText(/exit 0/).waitFor();
   });
+
+  // #3558 — an MCP app view: the finished call's app runs in a frame inside a frame, and the real
+  // browser (not jsdom) is what proves what its sandbox lets it do.
+  const appBase = new URL(server.resolvedUrls.local[0]);
+  const appFrame = page.getByTestId('app-view-frame');
+  const appView = page.frameLocator('[data-testid="app-view-frame"]').frameLocator('iframe');
+  const permissionPrompt = page.locator('[role="dialog"][aria-label="pending question"]');
+
+  await scenario(
+    '#3558: the built page admits its own origin as a frame, and the sandbox page ships with a policy of its own',
+    async () => {
+      // Vite writes the injected policy with HTML entities in the attribute; the browser reads it decoded.
+      const policyOf = (documentText) =>
+        [...documentText.matchAll(/<meta\b[^>]*http-equiv="Content-Security-Policy"[^>]*>/gu)].map(
+          (meta) => /content="([^"]*)"/u.exec(meta[0])?.[1]?.replaceAll('&#39;', "'"),
+        );
+      const index = await (await fetch(appBase)).text();
+      const [pagePolicy, ...otherPagePolicies] = policyOf(index);
+      if (otherPagePolicies.length !== 0 || !pagePolicy?.includes("frame-src 'self'")) {
+        throw new Error(`the page policy lacks frame-src 'self': ${pagePolicy}`);
+      }
+      if (!pagePolicy.includes("script-src 'self'")) {
+        throw new Error(`the page policy lost script-src 'self': ${pagePolicy}`);
+      }
+      const sandboxPage = await (await fetch(new URL('app-sandbox.html', appBase))).text();
+      const sandboxPolicies = policyOf(sandboxPage);
+      if (sandboxPolicies.length !== 1) {
+        throw new Error(`the sandbox page has ${sandboxPolicies.length} policies, expected its own alone`);
+      }
+      if (
+        sandboxPolicies[0] !==
+        "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; media-src data:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+      ) {
+        throw new Error(`the sandbox page policy is not its own: ${sandboxPolicies[0]}`);
+      }
+    },
+  );
+
+  await scenario(
+    '#3558: the sandbox page refuses to run on its own, and when its host forgot the sandbox attribute',
+    async () => {
+      const lone = await browser.newPage();
+      try {
+        await lone.goto(new URL('app-sandbox.html', appBase).href);
+        await lone.getByText('This page only runs inside an app frame.').waitFor();
+        // A host page on the same origin that frames it without `sandbox`: its document is readable.
+        await lone.route('**/e2e-unsandboxed.html', (route) =>
+          route.fulfill({
+            contentType: 'text/html',
+            body: '<!doctype html><iframe id="f" src="/app-sandbox.html"></iframe>',
+          }),
+        );
+        await lone.goto(new URL('e2e-unsandboxed.html', appBase).href);
+        await lone.frameLocator('#f').getByText('This page must run in a sandboxed frame.').waitFor();
+      } finally {
+        await lone.close();
+      }
+    },
+  );
+
+  await scenario('#3558: the canary sees a direct request (the control for the sandbox checks)', async () => {
+    await (await fetch(`${canaryUrl}/control`)).text();
+    if (!canaryHits.includes('/control')) throw new Error('the canary did not record a request');
+    canaryHits.length = 0;
+  });
+
+  await scenario('#3558: a tool call without an app view shows no frame', async () => {
+    // Earlier scenarios ran tool calls (Read, Edit, Shell) that carry none.
+    if ((await appFrame.count()) !== 0) throw new Error('a frame showed for a call with no app view');
+    if ((await page.getByText(/returned an app view/u).count()) !== 0) {
+      throw new Error('a plain line about an app view showed for a call with none');
+    }
+  });
+
+  await scenario(
+    '#3558: a finished call’s app view shows in a sandboxed frame under the group line, with no network',
+    async () => {
+      await send('show app view');
+      await page.getByText('Opened the app view.').waitFor();
+      const group = page.getByRole('button', { name: /2 tool calls/u }).last();
+      await group.waitFor();
+      await appFrame.waitFor();
+      if ((await appFrame.count()) !== 1) throw new Error('expected exactly one app frame');
+      if ((await group.getAttribute('aria-expanded')) !== 'false') {
+        throw new Error('the group was open: the app should show without opening it');
+      }
+      await page.getByText('App from e2e-apps', { exact: true }).waitFor();
+
+      // Exactly what the host granted the frame.
+      if ((await appFrame.getAttribute('sandbox')) !== 'allow-scripts') {
+        throw new Error(`sandbox attribute is ${await appFrame.getAttribute('sandbox')}`);
+      }
+      if ((await appFrame.getAttribute('allow')) !== null) throw new Error('the frame has an allow attribute');
+      if ((await appFrame.getAttribute('referrerpolicy')) !== 'no-referrer') {
+        throw new Error('the frame leaks a referrer');
+      }
+
+      // The turn has finished and the view now lives in the group; wait for it to receive its result.
+      await appView.locator('body[data-ready="true"]').waitFor({ timeout: 20_000 });
+      await appView.locator('#title').getByText('E2E app view').waitFor();
+      await appView.locator('#input').getByText('"path":"src"').waitFor();
+      const result = await appView.locator('#result').textContent();
+      if (!result?.includes('Opened the e2e app.') || !result.includes('"rows":3')) {
+        throw new Error(`the view got ${result}`);
+      }
+
+      // What the view could not do from inside.
+      await appView.locator('#probe-top').getByText('top: blocked').waitFor();
+      await appView.locator('#probe-parent').getByText('parent: blocked').waitFor();
+      await appView.locator('#probe-fetch').getByText('fetch: blocked').waitFor();
+      await appView.locator('#probe-image').getByText('image: blocked').waitFor();
+      await appView.locator('#probe-open-link').getByText('open-link: refused -32601').waitFor();
+      const violations = (await appView.locator('#violations').textContent()) ?? '';
+      for (const directive of ['connect-src', 'img-src', 'frame-src']) {
+        if (!violations.includes(directive)) {
+          throw new Error(`the view's sandbox did not report ${directive}: ${violations}`);
+        }
+      }
+      // Give a stray request time to arrive, then check none did.
+      await page.waitForTimeout(300);
+      if (canaryHits.length !== 0) {
+        throw new Error(`the view reached the network: ${canaryHits.join(', ')}`);
+      }
+
+      // The frame follows the height the view asked for (its content, within bounds).
+      const wanted = await appView.locator('body').evaluate((body) =>
+        Math.ceil(body.getBoundingClientRect().height),
+      );
+      const shown = (await appFrame.boundingBox())?.height ?? 0;
+      if (Math.abs(shown - Math.min(640, Math.max(48, wanted))) > 3) {
+        throw new Error(`the frame is ${shown}px tall; the view asked for ${wanted}px`);
+      }
+
+      // Opening the group repeats nothing.
+      await group.click();
+      await page.getByRole('button', { name: /^mcp__e2e_apps__echo browse/u }).waitFor();
+      if ((await appFrame.count()) !== 1) throw new Error('opening the group duplicated the frame');
+      await group.click();
+
+      // The browser reported no refusal of the frames this page itself opens.
+      const refusedOwnFrame = policyMessages.filter(
+        (message) => /Refused to frame/u.test(message) && /app-sandbox\.html|about:srcdoc/u.test(message),
+      );
+      if (refusedOwnFrame.length !== 0) throw new Error(refusedOwnFrame.join('\n'));
+    },
+  );
+
+  await scenario(
+    '#3558: a tool call from the view raises the GUI permission prompt; Deny shows the denial, Allow the result',
+    async () => {
+      await appView.getByRole('button', { name: 'Call echo' }).click();
+      await permissionPrompt.waitFor();
+      await permissionPrompt.getByText('mcp__e2e_apps__echo').waitFor();
+      await permissionPrompt.getByRole('button', { name: 'Deny', exact: true }).click();
+      await appView
+        .locator('#call-result')
+        .getByText('call: error Permission denied for mcp__e2e_apps__echo')
+        .waitFor();
+      await permissionPrompt.waitFor({ state: 'detached' });
+
+      await appView.getByRole('button', { name: 'Call echo' }).click();
+      await permissionPrompt.waitFor();
+      await permissionPrompt.getByRole('button', { name: 'Allow', exact: true }).click();
+      await appView.locator('#call-result').getByText('call: ok echo: hi').waitFor();
+      await permissionPrompt.waitFor({ state: 'detached' });
+      if (canaryHits.length !== 0) throw new Error(`the view reached the network: ${canaryHits.join(', ')}`);
+    },
+  );
+
+  await scenario(
+    '#3558: after a reload the turn is replayed as text, with no frame',
+    async () => {
+      await page.reload();
+      await page.locator('.agent-gui-status[data-status="connected"]').waitFor({ timeout: 20_000 });
+      await page.getByText('Opened the app view.').waitFor();
+      if ((await appFrame.count()) !== 0) throw new Error('a replayed turn showed a frame');
+    },
+  );
 
   await scenario(
     '#3289 §2: wheel-scrolling up mid-stream stops auto-scroll, and "Jump to latest" returns to it',
@@ -966,8 +1167,12 @@ try {
   });
 } finally {
   if (process.env.CAPTURE_OUT) await page.screenshot({ path: join(process.env.CAPTURE_OUT, 'web-e2e.png') });
+  if (process.env.E2E_DEBUG_CSP) {
+    process.stdout.write(line(`policy messages:\n${policyMessages.join('\n')}`));
+  }
   await browser.close();
   await server.close();
+  await new Promise((resolve) => canary.close(resolve));
   sidecar.kill('SIGTERM');
 }
 

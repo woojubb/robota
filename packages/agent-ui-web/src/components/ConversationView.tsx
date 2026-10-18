@@ -21,6 +21,7 @@ import {
 
 import { useCopyFeedback } from '../clipboard.js';
 import { driverAttributionText, isSameSurface } from '../driver-labels.js';
+import { AppView } from './AppView.js';
 import { DiffLines } from './DiffLines.js';
 
 import type {
@@ -584,6 +585,15 @@ function ToolGroup({ tools }: { tools: readonly IActiveTool[] }): React.ReactEle
           className={`flex-shrink-0 text-subtle transition-transform ${open ? 'rotate-90' : ''}`}
         />
       </button>
+      {/* A call's app is the point of the call, so it shows without opening the group — and only
+          here: the rows below never repeat it. */}
+      {visible
+        .filter((tool) => tool.appView !== undefined)
+        .map((tool) => (
+          <div key={tool.id} className="pl-[25px]">
+            <AppView tool={tool} />
+          </div>
+        ))}
       {open && (
         <div className="mt-0.5 flex flex-col pl-[25px]">
           {visible.map((tool) => (
@@ -746,7 +756,14 @@ export function ConversationView({
               {activeTools
                 .filter((tool) => !tool.internal)
                 .map((tool) => (
-                  <ToolCard key={tool.id} tool={tool} />
+                  <React.Fragment key={tool.id}>
+                    <ToolCard tool={tool} />
+                    {tool.appView !== undefined && tool.status !== 'running' && (
+                      <div className="pl-[25px]">
+                        <AppView tool={tool} />
+                      </div>
+                    )}
+                  </React.Fragment>
                 ))}
             </div>
           )}

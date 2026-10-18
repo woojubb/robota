@@ -1,8 +1,10 @@
+import type { TAppToolArguments, TAppToolOutcome, TAppView } from '../app-view/types.js';
 import type { TConnectionStatus, TClientMessage } from '../client/ws-session-client.js';
 import type { TPendingPrompt } from './prompt-state.js';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
 import type {
   IDiffLine,
+  IToolAppViewRef,
   IToolState,
   ISettingsSnapshot,
   TDriverId,
@@ -15,6 +17,8 @@ import type {
   IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-execution';
 import type { IWireAgentDefinitionSummary, TServerMessage } from '@robota-sdk/agent-transport';
+
+export type { TAppToolArguments, TAppToolOutcome, TAppView } from '../app-view/types.js';
 
 export type TPersonalUsageReport = Extract<
   TServerMessage,
@@ -125,6 +129,11 @@ export interface IActiveTool {
   commandName?: string;
   /** #3288: true for an internal signal tool (e.g. goal-status) — never rendered as a call. */
   internal?: boolean;
+  /**
+   * The finished call has a view its source declared; the document is read on demand by
+   * `readAppView(executionId)` and shown only in an isolated frame. Reference only.
+   */
+  appView?: IToolAppViewRef;
 }
 
 /**
@@ -326,4 +335,16 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
    * session notice) — no separate error state here.
    */
   deleteSchedule: (taskId: string) => void;
+  /**
+   * The app-view host's two requests, both by the view's key (`appViewKey(tool)`, opaque): the
+   * document a finished call's `appView` names, and one runtime tool run for that view (through the
+   * session's permission gate). Each settles with the reply that echoes its request, and rejects
+   * when the session refuses it or the connection drops.
+   */
+  readAppView: (viewKey: string) => Promise<TAppView>;
+  callAppTool: (
+    viewKey: string,
+    name: string,
+    args: TAppToolArguments,
+  ) => Promise<TAppToolOutcome>;
 }

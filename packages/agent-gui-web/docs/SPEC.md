@@ -18,7 +18,9 @@ importable library.
 - **Presentation only.** All session, command and permission logic lives in the sidecar; the app is a
   thin client over the WS transport and holds no domain logic of its own.
 - **Loopback only.** The built page's content-security policy lets it reach a loopback WebSocket and
-  nothing else; the sidecar address carries the launch token.
+  nothing else, and open one frame: its own app sandbox page, whose separate policy gives an MCP app's
+  document no network, no nested frames and no way back to the page; the sidecar address carries the
+  launch token.
 - Consumers take the complete built output through a copied-artifact build edge, never through an
   import.
 

@@ -34,8 +34,11 @@ does not own session lifecycle, conversation history, or agent runtime state.
   Session and protocol failures are also toasts, beside the conversation rather than in it.
 - A tool call's diff or output is server-computed and shown on demand, preserving its observation
   types, call identity and success or denial/failure through live delivery and replay. Resource references remain inert because
-  displaying a contributor's URI grants no read authority; unsupported media is explained rather than
-  silently discarded. Output is never recomputed here or buried behind a truncated path or argument; an internal signal tool never renders as a call,
+  displaying a contributor's URI grants no read authority; the one exception is a view the call's own
+  server declared for a model call, read on demand and shown only in an isolated frame whose document
+  cannot reach the page, the network or any tool beyond that server's, each call still passing the
+  session's permission gate. A surface without such a frame shows one plain line and its text result.
+  Unsupported media is explained rather than silently discarded. Output is never recomputed here or buried behind a truncated path or argument; an internal signal tool never renders as a call,
   and a projected `/command` tool shows the command it ran, not the provider-facing tool name.
 - A UI-intent opens its GUI screen when there is one — the session picker is the session sidebar
   (unless the host cannot list sessions), settings and the plugin manager both open the Settings

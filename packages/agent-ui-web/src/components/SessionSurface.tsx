@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { AppViewHostContext } from '../app-view/host-context.js';
+import { useProductIdentity } from '../product-identity.js';
 import { AgentActivityPanel } from './AgentActivityPanel.js';
 import { AgentSwitcherSheet } from './AgentSwitcherSheet.js';
 import { ProductMark, ProductWordmark } from './Brand.js';
@@ -31,6 +33,9 @@ import type { IWsSessionState } from '../hooks/useSessionClient.js';
 
 /** The column every part of the conversation shares, so messages, prompt and composer line up. */
 const COLUMN = 'mx-auto w-full max-w-[760px] px-6';
+
+/** The version this surface reports to an app view as its host (`hostInfo`) — of the host, not the product. */
+const APP_VIEW_HOST_VERSION = '1.0.0';
 
 /**
  * Designed empty state shown before the first turn. Renders in the same slot as `ConversationView`
@@ -107,6 +112,7 @@ export function SessionSurface({
   pickFiles,
   getPathForFile,
   onOpenMemoryInEditor,
+  appViewSandboxUrl,
 }: {
   state: IWsSessionState;
   surface?: string;
@@ -127,8 +133,25 @@ export function SessionSurface({
    * itself is hidden (only shown "if the host supports it").
    */
   onOpenMemoryInEditor?: (path: string) => void;
+  /**
+   * The static sandbox page an MCP app view runs in, served from this page's own origin. Absent
+   * (the default), a tool's app view is a plain line and its text result stays the answer — only a
+   * host whose content policy admits a same-origin frame, and which ships that page, passes it.
+   */
+  appViewSandboxUrl?: string;
 }): React.ReactElement {
   const [view, setView] = useState<TSessionView>('chat');
+  const { identity } = useProductIdentity();
+  const appViewHost = useMemo(
+    () => ({
+      ...(appViewSandboxUrl !== undefined ? { sandboxUrl: appViewSandboxUrl } : {}),
+      readAppView: state.readAppView,
+      callAppTool: state.callAppTool,
+      hostInfo: { name: identity.displayName, version: APP_VIEW_HOST_VERSION },
+      platform: surface === 'app' ? ('desktop' as const) : ('web' as const),
+    }),
+    [appViewSandboxUrl, state.readAppView, state.callAppTool, identity.displayName, surface],
+  );
   const composerRef = useRef<IComposerHandle>(null);
   const tasks = state.executionWorkspace?.entries ?? [];
   // The main thread alone is this conversation; the rail earns its width only for work beside it.
@@ -307,13 +330,15 @@ export function SessionSurface({
                 ) : isEmpty ? (
                   <EmptyState />
                 ) : (
-                  <ConversationView
-                    messages={state.messages}
-                    activeTools={state.activeTools}
-                    streamingText={state.streamingText}
-                    isThinking={state.isThinking}
-                    ownDriverId={state.ownDriverId}
-                  />
+                  <AppViewHostContext.Provider value={appViewHost}>
+                    <ConversationView
+                      messages={state.messages}
+                      activeTools={state.activeTools}
+                      streamingText={state.streamingText}
+                      isThinking={state.isThinking}
+                      ownDriverId={state.ownDriverId}
+                    />
+                  </AppViewHostContext.Provider>
                 )}
               </div>
               <div
