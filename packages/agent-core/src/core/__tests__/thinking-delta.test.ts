@@ -1,8 +1,9 @@
 /**
- * Reasoning text a provider streams reaches `IRunOptions.onThinkingDelta` and nothing else.
+ * Reasoning text a provider streams reaches `IRunOptions.onThinkingDelta`.
  *
- * It is not the reply: it never joins the returned text, the conversation history, the text-delta
- * stream or the replay events. Every case runs against both entry points (they are two entries into
+ * It is not the reply: it never joins the returned text, the conversation history or the text-delta
+ * stream, and the core adds no replay record of its own for it (a provider's own native payload
+ * capture is the provider's). Every case runs against both entry points (they are two entries into
  * one turn), and a turn whose provider sends no reasoning text must not call the callback at all.
  */
 
@@ -83,7 +84,7 @@ describe.each(ENTRY_POINTS)('onThinkingDelta — %s()', (entry) => {
     expect(JSON.stringify(agent.getHistory())).not.toContain('weighing the options');
   });
 
-  it('keeps reasoning text out of the replay events', async () => {
+  it('adds no replay record of its own for reasoning text', async () => {
     const { agent } = buildAgent([{ thinking: 'private chain of thought', text: 'done' }]);
     const events: string[] = [];
 
@@ -147,6 +148,7 @@ describe.each(ENTRY_POINTS)('onThinkingDelta — %s()', (entry) => {
     const reply = await drive(agent, entry, 'hello');
 
     expect(reply).toBe('ok');
-    expect(scripted.chatOptions[0]?.onThinkingDelta).toBeUndefined();
+    expect(scripted.chatOptions).toHaveLength(1);
+    expect(JSON.stringify(agent.getHistory())).not.toContain('unobserved');
   });
 });

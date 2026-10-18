@@ -87,15 +87,12 @@ export async function callProviderWithIdleTimeout(
           },
         }
       : {}),
-    // A model that is only thinking is still working: its reasoning text keeps the call alive.
-    ...(originalOnThinkingDelta !== undefined
-      ? {
-          onThinkingDelta: (delta: string): void => {
-            resetIdleTimer();
-            originalOnThinkingDelta(delta);
-          },
-        }
-      : {}),
+    // A model that is only thinking is still working: its reasoning text keeps the call alive
+    // whether or not anyone listens to it, as reply text does.
+    onThinkingDelta: (delta: string): void => {
+      resetIdleTimer();
+      originalOnThinkingDelta?.(delta);
+    },
   };
 
   resetIdleTimer();

@@ -262,15 +262,15 @@ These are behaviors a caller cannot infer from a type signature alone.
   given a roster of exactly what was withheld — a session with nothing deferred is prompt-identical to
   one without the feature at all.
 - **A model fallback chain moves a request only where another model could serve it, and only
-  before anything was shown.** It is a decorator in front of the session's one provider rather than
+  before any reply text was shown.** It is a decorator in front of the session's one provider rather than
   a loop in the round logic, because the core cannot build providers and many readers take "the"
   provider and model; it receives the provider-neutral messages the shared conversion step already
   produced and delegates them unchanged, so conversation, tool calls, tool results and tool schemas
   carry across vendors while the primary's prompt cache, vendor-only reasoning and hosted tools do
   not. It moves on only for a failure the core classifies as switchable, and never once reply text
-  has streamed, since text the user saw cannot be withdrawn; tool calls arrive whole with the reply.
-  Reasoning text a provider streamed before failing does not hold it back: it is not the answer, so
-  the next model's reasoning simply follows it. An entry that cannot be built is passed over rather than
+  has streamed, since text the user saw cannot be withdrawn; tool calls arrive whole with the reply,
+  and reasoning already shown does not hold it back, because it is not the answer and the next
+  model's reasoning simply follows it. An entry that cannot be built is passed over rather than
   ending the turn. A run stays on the model that accepted it and the next run starts on the primary,
   and compaction moves only to a model whose context window is known to be at least the primary's,
   since its input was sized to the primary and an unknown window on either side proves nothing. The

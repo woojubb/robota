@@ -108,3 +108,32 @@ it('still times out a provider that goes silent after its last reasoning delta',
     vi.useRealTimers();
   }
 });
+
+it('counts reasoning as activity even when the caller does not listen to it', async () => {
+  vi.useFakeTimers();
+  try {
+    const reply: TUniversalMessage = {
+      id: 'r',
+      role: 'assistant',
+      content: 'done',
+      state: 'complete',
+      timestamp: new Date(),
+    };
+    const work = callProviderWithIdleTimeout(
+      async (_messages, options) => {
+        for (let i = 0; i < 6; i += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 60));
+          options.onThinkingDelta?.(`thought ${i}`);
+        }
+        return reply;
+      },
+      [],
+      {},
+      100,
+    );
+    await vi.advanceTimersByTimeAsync(400);
+    await expect(work).resolves.toBe(reply);
+  } finally {
+    vi.useRealTimers();
+  }
+});
