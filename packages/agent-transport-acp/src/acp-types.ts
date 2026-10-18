@@ -31,7 +31,7 @@ export interface IAcpTransportSession
   /**
    * Resolves once the session can name itself, and rejects if it failed to start. A session that
    * builds itself in the background (`InteractiveSession`) has no id before then, so `session/new`
-   * waits on this. A session that is ready at construction can omit it.
+   * and `session/load` wait on this. A session that is ready at construction can omit it.
    */
   whenInitialized?(): Promise<void>;
 }
@@ -50,9 +50,9 @@ export interface IAcpTransportOptions {
   readonly output: Writable;
   /** Sent to the editor in the `initialize` reply. */
   readonly agentInfo: { readonly name: string; readonly version: string };
-  /** The directory the attached session is rooted at; `session/new` must name this directory. */
+  /** The directory the attached session is rooted at; `session/new` and `session/load` must name it. */
   readonly cwd: string;
-  /** The host's trust check, asked when the editor creates the session. */
+  /** The host's trust check, asked when the editor creates or loads the session. */
   readonly admitWorkspace: () => TAcpWorkspaceAdmission;
   /**
    * Runs a `/command` prompt and returns the text to show. Supplied by the host because command
@@ -61,9 +61,11 @@ export interface IAcpTransportOptions {
    */
   readonly executeCommand?: (text: string, signal: AbortSignal) => Promise<string>;
   /**
-   * Makes the stored session `sessionId` the attached one: afterwards the attached session answers
-   * for it. Supplied by the host because building a session from storage is not this package's;
-   * without it the agent does not offer `session/load`.
+   * Makes the stored session `sessionId` current, so that the object this transport was attached to
+   * answers for it from then on (the host attaches a forwarder, such as a session slot, whose current
+   * session the port replaces). It must admit only a session rooted in the served directory, and may
+   * refuse with a message for the editor. Supplied by the host because building a session from
+   * storage is not this package's; without it the agent does not offer `session/load`.
    */
   readonly loadSession?: (sessionId: string) => Promise<TAcpSessionLoad>;
   /** Attribution recorded on turns and prompt answers submitted through this transport. Default `'owner'`. */

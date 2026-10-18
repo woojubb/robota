@@ -605,8 +605,9 @@ the instruction to run `__PRODUCT_CLI_NAME__ trust --yes`, then start the agent 
 rooted in the folder the agent was started in; a different folder, MCP servers or extra roots sent by
 the editor are refused, so configure MCP servers in the settings files. An ACP agent serves one
 session per connection. The editor can reopen an earlier conversation of the same folder, which it
-then shows again, unless the agent runs with `--no-session-persistence`, and it can offer the agent's
-slash commands and skills in its command list. Reading or writing files and running terminals are
+then shows again, unless the agent runs with `--no-session-persistence`; a conversation that is still
+pursuing a goal or running a loop opens only in the terminal, where you can stop it. The editor can
+also offer the agent's slash commands and skills in its command list. Reading or writing files and running terminals are
 not delegated to the editor. Questions the agent would ask you are answered as cancelled, because ACP
 has no equivalent.
 

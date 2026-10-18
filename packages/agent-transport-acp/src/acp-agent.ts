@@ -180,7 +180,13 @@ export function createAcpAgent(
         boundSessionId = await sessionId('session/load');
         // The editor sees the conversation it reopened before the load answers.
         const updates = createUpdateStream(client, boundSessionId, report);
-        replayHistory(session.getMessagesDisplay(), updates, nextToolCallId);
+        try {
+          replayHistory(session.getMessagesDisplay(), updates, nextToolCallId);
+        } catch (error) {
+          report(asError(error), 'session/load');
+          // The session is loaded; only its history could not be shown, and the cause stays local.
+          throw new RequestError(INTERNAL_ERROR, 'The session history could not be shown');
+        }
         await updates.drained();
       } finally {
         binding = false;
@@ -222,15 +228,15 @@ export function createAcpAgent(
         wasCancelled: () => cancelled,
         report,
       };
-      const isCommand = text.typed.trimStart().startsWith('/');
       try {
-        return isCommand
+        return text.typed.trimStart().startsWith('/')
           ? await runCommandTurn(turn, text.typed, options.executeCommand ?? commandsUnavailable)
           : await runModelTurn(turn, text.full);
       } finally {
         active = undefined;
-        // A command can change the catalog (a plugin reload, a preset): the editor gets the new list.
-        if (isCommand) advertiseCommands(client, params.sessionId);
+        // A command or a model turn can change the catalog (a plugin reload, a preset): the editor
+        // gets the new list, and an unchanged one is not sent again.
+        advertiseCommands(client, params.sessionId);
       }
     })
     .onNotification('session/cancel', ({ params }) => {

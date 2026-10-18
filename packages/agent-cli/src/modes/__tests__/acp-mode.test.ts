@@ -42,26 +42,36 @@ import { runAcpMode } from '../acp-mode.js';
 import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 
 /** A built session as the slot sees it: it names itself once initialized and can be shut down. */
-function fakeSession(sessionId: string) {
+function fakeSession(sessionId: string, busy = false) {
   return {
     shutdown: vi.fn().mockResolvedValue(undefined),
     on: vi.fn(),
     off: vi.fn(),
-    executeCommand: mock.executeCommand,
+    executeCommand: vi.fn(mock.executeCommand),
     whenInitialized: vi.fn().mockResolvedValue(undefined),
     getStatusSnapshot: () => ({ sessionId }),
     getSession: () => ({ getSessionId: () => sessionId }),
+    isExecuting: () => busy,
+    getPendingPrompt: () => null,
+    getPendingCount: () => 0,
+    listBackgroundTasks: () => [],
   };
 }
 
-/** A project session store holding `ids`, saved from this workspace. */
-function storeWith(...ids: string[]) {
+/** A project session store holding these records (`cwd` defaults to the served folder). */
+function storeWith(...records: { id: string; cwd?: string; goal?: unknown; sessionLoops?: unknown[] }[]) {
   return {
     list: () =>
-      ids.map((id) => ({
+      records.map((record) => ({
+        id: record.id,
         outcome: {
           status: 'valid',
-          record: { id, cwd: '/workspace', updatedAt: '2026-10-18T00:00:00.000Z', messages: [] },
+          record: {
+            cwd: '/workspace',
+            updatedAt: '2026-10-18T00:00:00.000Z',
+            messages: [],
+            ...record,
+          },
         },
       })),
   };
@@ -73,6 +83,7 @@ function setup(sessionOptions: Partial<TInteractiveSessionOptions> = {}) {
   mock.built = [];
   mock.attach.mockClear();
   mock.shutdown.mockClear();
+  mock.stop.mockClear();
   mock.stop.mockResolvedValue(undefined);
   mock.shutdown.mockResolvedValue(undefined);
   const input = new PassThrough();
@@ -178,43 +189,136 @@ describe('ACP mode', () => {
     expect(mock.options).not.toHaveProperty('loadSession');
   });
 
-  it('loads only a session this workspace can resume, and makes it the served one', async () => {
+  /** Serve until `close()`; the load runs while the transport is up, as an editor's does. */
+  async function serving(sessionOptions: Partial<TInteractiveSessionOptions>) {
+    let close!: () => void;
     mock.start.mockResolvedValue(undefined);
-    mock.waitForClose.mockResolvedValue(undefined);
-    const { run } = setup({ sessionStore: storeWith('stored-1') as never, sessionName: 'launch' });
+    mock.waitForClose.mockReturnValue(new Promise<void>((resolve) => (close = resolve)));
+    const { run } = setup(sessionOptions);
+    const running = run();
+    await vi.waitFor(() => expect(mock.options).toHaveProperty('loadSession'));
+    const slot = mock.attach.mock.calls[0]![0] as {
+      current: unknown;
+      executeCommand: (...args: unknown[]) => unknown;
+    };
+    return {
+      load: mock.options!['loadSession'] as TLoad,
+      slot,
+      stop: async () => {
+        close();
+        await running;
+      },
+    };
+  }
+
+  it('loads only a session of this folder, replaces the served one, and shuts each down once', async () => {
+    const served = await serving({
+      sessionStore: storeWith({ id: 'stored-1' }, { id: 'elsewhere-1', cwd: '/elsewhere' }) as never,
+      sessionName: 'launch',
+    });
     const loaded = fakeSession('stored-1');
-    await run();
-    const load = mock.options!['loadSession'] as TLoad;
     mock.next = [loaded];
 
-    await expect(load('unknown')).resolves.toEqual({
+    await expect(served.load('unknown')).resolves.toEqual({
       loaded: false,
       message: 'No session unknown in this workspace.',
     });
+    await expect(served.load('elsewhere-1')).resolves.toMatchObject({ loaded: false });
     expect(mock.built).toHaveLength(1);
 
-    await expect(load('stored-1')).resolves.toEqual({ loaded: true });
+    await expect(served.load('stored-1')).resolves.toEqual({ loaded: true });
+    // Exactly the stored session: the launch's name does not carry over.
     expect(mock.built[1]).toMatchObject({ resumeSessionId: 'stored-1', sessionName: undefined });
-    const slot = mock.attach.mock.calls[0]![0] as { current: unknown };
-    expect(slot.current).toBe(loaded);
-    // The session it replaced is shut down; loading the served one again builds nothing.
-    expect(mock.shutdown).toHaveBeenCalled();
-    await expect(load('stored-1')).resolves.toEqual({ loaded: true });
+    expect(served.slot.current).toBe(loaded);
+    expect(mock.shutdown).toHaveBeenCalledOnce();
+    // Commands now reach the loaded session.
+    await served.slot.executeCommand('help', '');
+    expect(loaded.executeCommand).toHaveBeenCalled();
+    // Loading the served one again builds nothing.
+    await expect(served.load('stored-1')).resolves.toEqual({ loaded: true });
     expect(mock.built).toHaveLength(2);
+
+    await served.stop();
+    expect(loaded.shutdown).toHaveBeenCalledOnce();
+    expect(mock.shutdown).toHaveBeenCalledOnce();
+  });
+
+  it('waits for the served session to start before deciding', async () => {
+    let started!: () => void;
+    const served = await serving({ sessionStore: storeWith({ id: 'stored-1' }) as never });
+    const initial = mock.session as ReturnType<typeof fakeSession>;
+    initial.whenInitialized.mockReturnValue(new Promise<void>((resolve) => (started = resolve)));
+    let ready = false;
+    initial.getStatusSnapshot = () => {
+      if (!ready) throw new Error('InteractiveSession not initialized.');
+      return { sessionId: 'started-1' };
+    };
+    mock.next = [fakeSession('stored-1')];
+    const loading = served.load('stored-1');
+    ready = true;
+    started();
+    await expect(loading).resolves.toEqual({ loaded: true });
+    await served.stop();
+  });
+
+  it('refuses while the served session has work in progress, and keeps it', async () => {
+    const served = await serving({ sessionStore: storeWith({ id: 'stored-1' }) as never });
+    Object.assign(mock.session!, fakeSession('started-1', true), { shutdown: mock.shutdown });
+    await expect(served.load('stored-1')).resolves.toMatchObject({
+      loaded: false,
+      message: expect.stringContaining('work in progress'),
+    });
+    expect(mock.built).toHaveLength(1);
+    expect(mock.shutdown).not.toHaveBeenCalled();
+    await served.stop();
+  });
+
+  it('refuses a stored session that would run a goal or loop on its own', async () => {
+    const served = await serving({
+      sessionStore: storeWith(
+        { id: 'goal-1', goal: { status: 'active' } },
+        {
+          id: 'loop-1',
+          sessionLoops: [{ phase: 'waiting', expiresAt: '2999-01-01T00:00:00.000Z' }],
+        },
+        { id: 'done-1', goal: { status: 'satisfied' }, sessionLoops: [{ phase: 'stopped', expiresAt: '2999-01-01T00:00:00.000Z' }] },
+      ) as never,
+    });
+    mock.next = [fakeSession('done-1')];
+    await expect(served.load('goal-1')).resolves.toMatchObject({ loaded: false });
+    await expect(served.load('loop-1')).resolves.toMatchObject({ loaded: false });
+    await expect(served.load('done-1')).resolves.toEqual({ loaded: true });
+    await served.stop();
   });
 
   it('keeps the served session when the stored one fails to start', async () => {
-    mock.start.mockResolvedValue(undefined);
-    mock.waitForClose.mockResolvedValue(undefined);
-    const { run } = setup({ sessionStore: storeWith('stored-1') as never });
+    const served = await serving({ sessionStore: storeWith({ id: 'stored-1' }) as never });
     const broken = fakeSession('stored-1');
     broken.whenInitialized.mockRejectedValue(new Error('record unreadable'));
-    await run();
     mock.next = [broken];
-    await expect((mock.options!['loadSession'] as TLoad)('stored-1')).rejects.toThrow(
-      'record unreadable',
-    );
-    expect((mock.attach.mock.calls[0]![0] as { current: unknown }).current).toBe(mock.session);
-    expect(broken.shutdown).toHaveBeenCalled();
+    await expect(served.load('stored-1')).rejects.toThrow('record unreadable');
+    expect(served.slot.current).toBe(mock.session);
+    expect(broken.shutdown).toHaveBeenCalledOnce();
+    await served.stop();
+    expect(mock.shutdown).toHaveBeenCalledOnce();
+  });
+
+  it('shuts a session that finishes loading after the editor left, and the served one', async () => {
+    const served = await serving({ sessionStore: storeWith({ id: 'stored-1' }) as never });
+    let started!: () => void;
+    const late = fakeSession('stored-1');
+    late.whenInitialized.mockReturnValue(new Promise<void>((resolve) => (started = resolve)));
+    mock.next = [late];
+    const loading = served.load('stored-1');
+    await vi.waitFor(() => expect(mock.built).toHaveLength(2));
+    // The editor leaves while the stored session is still starting.
+    const stopping = served.stop();
+    await vi.waitFor(() => expect(mock.stop).toHaveBeenCalled());
+    started();
+    await expect(loading).resolves.toMatchObject({ loaded: false });
+    await stopping;
+    expect(late.shutdown).toHaveBeenCalledOnce();
+    expect(mock.shutdown).toHaveBeenCalledOnce();
+    expect(served.slot.current).toBe(mock.session);
   });
 });

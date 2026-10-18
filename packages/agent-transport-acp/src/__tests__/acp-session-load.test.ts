@@ -68,6 +68,38 @@ describe('available commands', () => {
     ]);
   });
 
+  it('sends the list only after the reply that gives the editor the session id', async () => {
+    const fake = createFakeSession();
+    fake.session.listCommands = () => [command('help')];
+    const { editor } = await start(fake);
+    await editor.connection.agent.request('initialize', { protocolVersion: 1 });
+    let listsWhenAnswered = -1;
+    await editor.connection.agent
+      .request('session/new', { cwd: WORKSPACE, mcpServers: [] })
+      .then(() => (listsWhenAnswered = editor.commandLists.length));
+    expect(listsWhenAnswered).toBe(0);
+    await vi.waitFor(() => expect(editor.commandLists).toHaveLength(1));
+  });
+
+  it('keeps serving when the command catalog cannot be read, and reports why', async () => {
+    const fake = createFakeSession();
+    fake.session.listSkills = () => {
+      throw new Error('skill roots unreadable');
+    };
+    const fixture = await start(fake, { executeCommand: async () => 'ran' });
+    const sessionId = await openSession(fixture.editor);
+    await expect(
+      fixture.editor.connection.agent.request('session/prompt', {
+        sessionId,
+        prompt: textPrompt('/x'),
+      }),
+    ).resolves.toEqual({ stopReason: 'end_turn' });
+    await vi.waitFor(() =>
+      expect(fixture.deliveryErrors.map((e) => e.context)).toContain('available_commands_update'),
+    );
+    expect(fixture.editor.commandLists).toEqual([]);
+  });
+
   it('sends the list again after a command only when the command changed it', async () => {
     const fake = createFakeSession();
     let skills = [skill('review')];
@@ -245,6 +277,91 @@ describe('session/load', () => {
     finish();
     await running;
     expect(loadSession).not.toHaveBeenCalled();
+  });
+
+  it('replaces the session a connection already serves, and serves only the loaded id afterwards', async () => {
+    const fake = createFakeSession(async () => endedTurn(executionResult('next')));
+    fake.session.listCommands = () => [command('help')];
+    const loadSession = loadable(fake);
+    const { editor } = await start(fake, { loadSession });
+    const first = await openSession(editor);
+    await vi.waitFor(() => expect(editor.commandLists).toHaveLength(1));
+    await editor.connection.agent.request('session/load', {
+      sessionId: 'stored-1',
+      cwd: WORKSPACE,
+      mcpServers: [],
+    });
+    // The loaded session gets its own list, even though the commands are the same.
+    await vi.waitFor(() => expect(editor.commandLists).toHaveLength(2));
+    await expect(
+      editor.connection.agent.request('session/prompt', {
+        sessionId: first,
+        prompt: textPrompt('old'),
+      }),
+    ).rejects.toMatchObject({ code: -32602 });
+    await expect(
+      editor.connection.agent.request('session/prompt', {
+        sessionId: 'stored-1',
+        prompt: textPrompt('new'),
+      }),
+    ).resolves.toEqual({ stopReason: 'end_turn' });
+  });
+
+  it('refuses a prompt while a load is still settling', async () => {
+    const fake = createFakeSession();
+    let finish!: () => void;
+    const held = new Promise<void>((resolve) => (finish = resolve));
+    const loadSession = vi.fn(async () => {
+      await held;
+      return { loaded: true as const };
+    });
+    const { editor } = await start(fake, { loadSession });
+    const sessionId = await openSession(editor);
+    const loading = editor.connection.agent.request('session/load', {
+      sessionId,
+      cwd: WORKSPACE,
+      mcpServers: [],
+    });
+    await settle();
+    await expect(
+      editor.connection.agent.request('session/prompt', { sessionId, prompt: textPrompt('now') }),
+    ).rejects.toMatchObject({ code: -32602 });
+    finish();
+    await loading;
+  });
+
+  it('gives a replayed call a fresh row when its id already named an earlier one', async () => {
+    const fake = createFakeSession();
+    const repeated: IHistoryDisplaySegment[] = [
+      { type: 'tool', tool: { toolName: 'Read', firstArg: 'a', isRunning: false, result: 'success', executionId: 'call_0' } },
+      { type: 'tool', tool: { toolName: 'Read', firstArg: 'b', isRunning: false, result: 'success', executionId: 'call_0' } },
+    ];
+    fake.session.getMessagesDisplay = () => repeated;
+    const { editor } = await start(fake, { loadSession: async () => ({ loaded: true }) });
+    await editor.connection.agent.request('initialize', { protocolVersion: 1 });
+    await editor.connection.agent.request('session/load', {
+      sessionId: 'robota-session-1',
+      cwd: WORKSPACE,
+      mcpServers: [],
+    });
+    expect(editor.updates.map((u) => (u as { toolCallId: string }).toolCallId)).toEqual([
+      'call_0',
+      'tool-1',
+    ]);
+  });
+
+  it('answers a fixed error when the loaded history cannot be read, and keeps the cause local', async () => {
+    const fake = createFakeSession();
+    fake.session.getMessagesDisplay = () => {
+      throw new Error('/home/me/.robota/sessions/x.json: bad record');
+    };
+    const fixture = await start(fake, { loadSession: async () => ({ loaded: true }) });
+    await fixture.editor.connection.agent.request('initialize', { protocolVersion: 1 });
+    const failure = await fixture.editor.connection.agent
+      .request('session/load', { sessionId: 'robota-session-1', cwd: WORKSPACE, mcpServers: [] })
+      .catch((error: unknown) => error);
+    expect(failure).toMatchObject({ code: -32603, message: 'The session history could not be shown' });
+    expect(fixture.deliveryErrors.map((e) => e.context)).toContain('session/load');
   });
 
   it('answers a fixed error when the host fails to load, and keeps the cause local', async () => {

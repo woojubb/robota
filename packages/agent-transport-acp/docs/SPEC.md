@@ -35,8 +35,9 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
 
 ## Invariants
 
-- **The editor widens nothing.** `session/new` must name the served directory and carry no MCP
-  servers or extra roots; the host's trust check runs before the session id is returned. A
+- **The editor widens nothing.** `session/new` and `session/load` must name the served directory and
+  carry no MCP servers or extra roots, and the host's trust check runs before either answers; a load
+  reaches only a session the host's port admits, which must be rooted in the served directory. A
   permission answer grants only an option that request listed, and anything cancelled, failed or
   unrecognised denies.
 - **Questions fail closed.** ACP v1 has no free-form question, so the transport never listens for
@@ -53,10 +54,12 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
 - **One session per connection.** The host builds one session, with its trust, working directory
   and permissions. Serving a second `session/new` would alias that session under another id or need
   a session factory whose per-session working directory is not established, so it is refused. A
-  `session/load` replaces the connection's session with a stored one of the same directory instead
-  of adding one, is checked exactly like `session/new`, and is refused while a prompt runs, since it
-  would take the session from under that turn. It is offered only when the host can load, and the
-  editor sees the conversation it reopened before the load answers.
+  `session/load` replaces the connection's session instead of adding one: the host's port makes the
+  stored session current in what the transport was attached to, and the transport keeps serving
+  that object. A load is checked exactly like `session/new` and refused while a prompt runs, since it
+  would take the session from under that turn; the host may refuse more (work still in progress, a
+  session that would run on its own). It is offered only when the host can load, and the editor sees
+  the conversation it reopened before the load answers.
 - **The command list follows the session.** The editor learns the commands it may offer once it
   holds the session id, so the list goes out after the reply that gives it; a command can change the
   catalog (a plugin reload, a preset), so the list is sent again after a command when it changed.

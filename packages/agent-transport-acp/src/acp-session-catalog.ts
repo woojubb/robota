@@ -36,14 +36,16 @@ export function availableCommands(
 
 /**
  * A loaded session's history as the editor would have seen it live: what the person typed, what the
- * agent answered, and each finished tool call with how it ended. Ids are the calls' own where the
- * session kept them, so a later update cannot reach a replayed row by accident.
+ * agent answered, and each finished tool call with how it ended. A call keeps its own id unless that
+ * id already named a row of this replay (a provider can reuse ids across turns), because the editor
+ * would merge the two rows into one.
  */
 export function replayHistory(
   segments: readonly IHistoryDisplaySegment[],
   updates: IAcpUpdateStream,
   nextToolCallId: () => string,
 ): void {
+  const used = new Set<string>();
   for (const segment of segments) {
     if (segment.type === 'text') {
       if (segment.content === '') continue;
@@ -55,9 +57,14 @@ export function replayHistory(
     }
     const { tool } = segment;
     if (tool.internal) continue;
+    const toolCallId =
+      tool.executionId !== undefined && !used.has(tool.executionId)
+        ? tool.executionId
+        : nextToolCallId();
+    used.add(toolCallId);
     updates.send({
       sessionUpdate: 'tool_call',
-      toolCallId: tool.executionId ?? nextToolCallId(),
+      toolCallId,
       title: acpToolStartTitle(tool),
       kind: acpToolKind(tool.toolName),
       status: acpToolEndStatus(tool),
