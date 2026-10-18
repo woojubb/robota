@@ -18,6 +18,7 @@ import type { ITurnHandle } from './turn-contracts.js';
 import type {
   IContextWindowState,
   IHistoryEntry,
+  IToolAppView,
   IToolSchema,
   IToolExecutionResult,
   TToolParameters,
@@ -126,6 +127,15 @@ export interface IRuntimeToolInvokeOptions {
   permissionInteraction?: 'interactive' | 'deny';
   /** The driver the call acts for; a prompt it raises names this driver as its requester. */
   driverId?: TDriverId;
+}
+
+/** Reads the view a finished model call's source declared, for a surface that hosts one. */
+export interface ISessionToolAppViews {
+  /**
+   * The view of the call `executionId` named in a `tool_end` reference, or undefined once the
+   * session no longer holds it (evicted, cleared, or the call had none).
+   */
+  readToolAppView(executionId: string): IToolAppView | undefined;
 }
 
 /** Direct execution uses the same permission-wrapped runtime as model tool calls. */
@@ -274,6 +284,7 @@ export interface ISessionCapabilityMap {
   commands: ISessionCommands;
   statusRead: ISessionStatusRead;
   runtimeTools: ISessionRuntimeTools;
+  toolAppViews: ISessionToolAppViews;
   events: ISessionEvents;
   promptResolution: ISessionPromptResolution;
   backgroundTasks: ISessionBackgroundTasks;
@@ -302,6 +313,7 @@ export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
   commands: Object.freeze(['executeCommand', 'listCommands', 'listSkills', 'listModels'] as const),
   statusRead: Object.freeze(['getStatusSnapshot'] as const),
   runtimeTools: Object.freeze(['listRuntimeTools', 'invokeRuntimeTool'] as const),
+  toolAppViews: Object.freeze(['readToolAppView'] as const),
   events: Object.freeze(['on', 'off'] as const),
   promptResolution: Object.freeze(['resolvePermission', 'resolveAsk'] as const),
   backgroundTasks: Object.freeze([

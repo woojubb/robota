@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ToolResultAdmissionError, admitToolResult } from './tool-result-admission.js';
 import type { TUniversalMessagePart } from '../interfaces/messages.js';
+import type { IToolAppView } from '../interfaces/tool.js';
 
 describe('generic tool-result admission', () => {
   it('keeps a result within the configured limit without writing a spill', async () => {
@@ -115,6 +116,65 @@ describe('generic tool-result admission', () => {
     expect(admitted).toMatchObject({ success: false, error: `Tool failure details: ${reference}` });
     expect(JSON.stringify(admitted)).not.toContain('private-error');
     expect(JSON.stringify(admitted)).not.toContain('credential');
+  });
+
+  describe('app view on a result', () => {
+    const view: IToolAppView = {
+      sourceId: 'files',
+      resourceUri: 'ui://files/list',
+      mimeType: 'text/html;profile=mcp-app',
+      html: `<main>${'x'.repeat(5_000)}</main>`,
+      structuredContent: { rows: 3 },
+      callableTools: { list_files: 'mcp__files__list_files' },
+    };
+    const reference = 'tool-result:abcdefghijklmnopqrstuv';
+    const policy = { warningChars: 100, hardChars: 120, repositoryMaxChars: 200 };
+
+    it('never counts the view toward the size that decides a spill', async () => {
+      const write = vi.fn();
+      const onWarning = vi.fn();
+      const admitted = await admitToolResult(
+        'example',
+        { success: true, data: 'small', view },
+        { ...policy, spillStore: { write }, onWarning },
+      );
+      expect(write).not.toHaveBeenCalled();
+      expect(onWarning).not.toHaveBeenCalled();
+      expect(admitted.view).toBe(view);
+      expect(admitted.data).toBe('small');
+    });
+
+    it('keeps the display-only view when a successful result is replaced by its reference', async () => {
+      const admitted = await admitToolResult(
+        'example',
+        { success: true, data: 'x'.repeat(130), view },
+        { ...policy, spillStore: { write: async () => ({ reference }) } },
+      );
+      expect(admitted).toMatchObject({ success: true, data: reference });
+      expect(admitted.view).toBe(view);
+    });
+
+    it('keeps the display-only view when a failed result is replaced by its reference', async () => {
+      const admitted = await admitToolResult(
+        'example',
+        { success: false, error: 'e'.repeat(130), view },
+        { ...policy, spillStore: { write: async () => ({ reference }) } },
+      );
+      expect(admitted).toMatchObject({
+        success: false,
+        error: `Tool failure details: ${reference}`,
+      });
+      expect(admitted.view).toBe(view);
+    });
+
+    it('adds no view key to a spilled result when the call declared none', async () => {
+      const admitted = await admitToolResult(
+        'example',
+        { success: true, data: 'x'.repeat(130) },
+        { ...policy, spillStore: { write: async () => ({ reference }) } },
+      );
+      expect('view' in admitted).toBe(false);
+    });
   });
 });
 

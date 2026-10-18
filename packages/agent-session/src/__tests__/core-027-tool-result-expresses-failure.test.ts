@@ -134,6 +134,42 @@ describe('CORE-027: a crashed tool is not a success', () => {
     });
   });
 
+  it('carries the source view on the end event but never in the result data', async () => {
+    const onToolExecution = vi.fn();
+    const enforcer = makeEnforcer({ onToolExecution });
+    const view = {
+      sourceId: 'files',
+      resourceUri: 'ui://files/list',
+      mimeType: 'text/html;profile=mcp-app',
+      html: '<main id="private-html">rows</main>',
+      callableTools: { list_files: 'mcp__files__list_files' },
+    };
+    const [wrapped] = enforcer.wrapTools([
+      makeTool('Viewed', async () => ({ success: true, data: 'ok', view })),
+    ]);
+    const result = await wrapped.execute({}, { toolName: 'Viewed', parameters: {}, executionId: 'call-v' });
+    const ended = onToolExecution.mock.calls
+      .map(([event]) => event)
+      .find((event) => event.type === 'end');
+    expect(ended.view).toEqual(view);
+    expect(ended.toolResultData).toBe('ok');
+    expect(JSON.stringify(ended.toolResultData)).not.toContain('private-html');
+    expect(result.view).toEqual(view);
+  });
+
+  it('adds no view to the end event of a call that declared none', async () => {
+    const onToolExecution = vi.fn();
+    const enforcer = makeEnforcer({ onToolExecution });
+    const [wrapped] = enforcer.wrapTools([
+      makeTool('Plain', async () => ({ success: true, data: 'ok' })),
+    ]);
+    await wrapped.execute({}, { toolName: 'Plain', parameters: {}, executionId: 'call-p' });
+    const ended = onToolExecution.mock.calls
+      .map(([event]) => event)
+      .find((event) => event.type === 'end');
+    expect('view' in ended).toBe(false);
+  });
+
   it('does not report a thrown tool as `success: true`', async () => {
     const enforcer = makeEnforcer();
     const [wrapped] = enforcer.wrapTools([

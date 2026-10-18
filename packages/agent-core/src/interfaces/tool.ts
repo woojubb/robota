@@ -61,6 +61,8 @@ export interface IToolAppView {
   readonly structuredContent?: TUniversalValue;
   /** Source tool name → runtime tool name, for the tools of that source the view may call. */
   readonly callableTools: Readonly<Record<string, string>>;
+  /** The call's arguments as the source received them, for the view. */
+  readonly toolInput?: TToolParameters;
 }
 
 /**

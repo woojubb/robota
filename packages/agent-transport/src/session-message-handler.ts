@@ -9,6 +9,12 @@
  */
 
 import {
+  handleAppToolMessage,
+  handleAppViewMessage,
+  isAppToolMessage,
+  isAppViewMessage,
+} from './app-tool-messages.js';
+import {
   handleBackgroundControlMessage,
   handleBackgroundQueryMessage,
 } from './background-messages.js';
@@ -228,6 +234,14 @@ export function handleClientMessage(
   }
   if (isProjectReadMessage(msg)) {
     handleProjectReadMessage(session, deliver, msg);
+    return;
+  }
+  if (isAppToolMessage(msg)) {
+    handleAppToolMessage(session, deliver, msg, driverId);
+    return;
+  }
+  if (isAppViewMessage(msg)) {
+    handleAppViewMessage(session, deliver, msg);
     return;
   }
   if (isBackgroundQueryMessage(msg)) {

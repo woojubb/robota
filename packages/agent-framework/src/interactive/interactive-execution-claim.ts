@@ -16,6 +16,11 @@ export class InteractiveExecutionClaimOwner {
     return this.activeClaim !== undefined;
   }
 
+  /** What the held claim is for; undefined while nothing is running. */
+  get activeKind(): TExecutionClaimKind | undefined {
+    return this.activeClaim?.kind;
+  }
+
   beginSubmission(): void {
     if (this.activeClaim?.kind === 'runtime-tool') {
       throw new Error('A runtime tool is already running. Wait for it to finish.');
