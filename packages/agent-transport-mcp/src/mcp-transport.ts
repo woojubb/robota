@@ -21,6 +21,8 @@ import type {
 import type { Readable, Writable } from 'node:stream';
 
 const STARTUP_TIMEOUT_MS = 15000;
+/** One stdio frame above this bound is a carrier failure, not a served request. */
+const STDIO_MAX_FRAME_BYTES = 10 * 1024 * 1024;
 
 export interface IMcpTransportOptions {
   /** Name for the MCP server. */
@@ -123,7 +125,9 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
             }),
             cancelled,
           ]);
-          const nextCarrier = new StdioServerTransport(attached.bridge, stdout);
+          const nextCarrier = new StdioServerTransport(attached.bridge, stdout, {
+            maxBufferSize: STDIO_MAX_FRAME_BYTES,
+          });
           nextCarrier.onclose = () => resolveClose?.();
           nextCarrier.onerror = (error) => rejectClose?.(error);
           await candidate.connect(nextCarrier);

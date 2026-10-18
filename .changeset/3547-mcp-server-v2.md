@@ -1,5 +1,5 @@
 ---
-'@robota-sdk/agent-transport-mcp': patch
+'@robota-sdk/agent-transport-mcp': minor
 '@robota-sdk/agent-cli': patch
 ---
 
@@ -13,6 +13,11 @@ error results, negotiated through the legacy `initialize` handshake as before. `
 returns the v2 `Server` type; a consumer wiring its own carrier imports `StdioServerTransport` from
 `@modelcontextprotocol/server/stdio`. The stdio connection is stateful, so the server can send
 server-to-client requests such as `elicitInput` to a client that declares the capability (tested).
+Two carrier details follow the v2 stdio transport: a single frame over 10 MiB now fails the stdio
+carrier instead of being buffered without bound (the HTTP carriers already cap a body at 1 MiB), and
+a line that is not JSON is skipped instead of failing the carrier. A malformed `tools/call` request
+or result is answered with the SDK's invalid-params error, and an invalid catalog entry is reported
+as `Invalid MCP tool: <path>: <reason>` instead of the 1.x validator's own text.
 
 `@robota-sdk/agent-cli` drops `@modelcontextprotocol/sdk` from its external `dependencies`; nothing
 in its bundle imports it any more. The 1.x SDK remains only as a test dependency of

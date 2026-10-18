@@ -176,6 +176,27 @@ describe('canonical MCP runtime tools', () => {
     },
   );
 
+  it('publishes the catalog as the JSON a peer receives, dropping what serialization drops', async () => {
+    const client = await connect(
+      sessions({
+        listRuntimeTools: vi.fn().mockResolvedValue([
+          {
+            ...schema,
+            parameters: {
+              type: 'object',
+              properties: { args: { type: 'string', enum: undefined, format: () => 'x' } },
+              required: undefined,
+            },
+          },
+        ]),
+      }),
+    );
+    expect((await client.listTools()).tools[0]?.inputSchema).toEqual({
+      type: 'object',
+      properties: { args: { type: 'string' } },
+    });
+  });
+
   it('rejects duplicate names and non-object schemas before accepting a carrier', async () => {
     for (const catalog of [[schema, schema], [{ ...schema, parameters: { type: 'string' } }]]) {
       await expect(

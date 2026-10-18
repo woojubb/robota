@@ -197,6 +197,17 @@ describe('createMcpTransport', () => {
     await transport.stop();
   });
 
+  it('fails the carrier on one frame above the bound instead of serving it', async () => {
+    const stdin = new PassThrough();
+    const stdout = new PassThrough();
+    const transport = createMcpTransport({ name: 'test', version: '1.0.0', stdin, stdout });
+    transport.attach(createMockSession());
+    await transport.start();
+    stdin.write('x'.repeat(10 * 1024 * 1024 + 1));
+    await expect(transport.waitForClose()).rejects.toThrow(/exceeded maximum size/);
+    await transport.stop();
+  });
+
   it('cancels catalog validation when stdin closes before the carrier is ready', async () => {
     const stdin = new PassThrough();
     const stdout = new PassThrough();

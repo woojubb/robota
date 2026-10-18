@@ -15,9 +15,15 @@ const DEFAULT_SUBMIT_TOOL: IMcpSubmitToolIdentity = {
   description: 'Submit a prompt to the agent and await its turn',
 };
 
-/** The SDK's own validator for the wire shape of a tool: a catalog entry it rejects never ships. */
+/**
+ * The SDK's own validator for the wire shape of a tool: a catalog entry it rejects never ships. The
+ * candidate is validated as the JSON a peer receives, so a schema member that serialization drops
+ * (an `undefined` value, a function) never fails the catalog — the carriers always sent it that way.
+ */
 function parseTool(candidate: unknown): Tool {
-  const outcome = specTypeSchemas.Tool['~standard'].validate(candidate);
+  const outcome = specTypeSchemas.Tool['~standard'].validate(
+    JSON.parse(JSON.stringify(candidate)) as unknown,
+  );
   if (outcome.issues !== undefined) {
     const reasons = outcome.issues.map((issue) => {
       const path = issue.path
