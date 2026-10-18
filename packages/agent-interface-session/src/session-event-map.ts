@@ -133,8 +133,9 @@ export interface IPermissionRequestEvent {
   cwd?: string;
   /**
    * The id of the tool call this request concerns: the same `executionId` the call's `tool_start`
-   * and `tool_end` carry, so a surface can hold one row from the request to the call's end. Absent
-   * when the asker has no call in this session (a background agent's forwarded request).
+   * and `tool_end` carry, so a surface can hold one row from the request to the call's end. Present
+   * whenever this session reports that call (its own, or an in-process background agent's); absent
+   * when it does not (a child-process agent's forwarded request).
    */
   executionId?: string;
 }

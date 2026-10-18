@@ -27,22 +27,17 @@ export interface IAcpToolCallDeps {
 }
 
 interface IOpenCall {
-  readonly id: string;
   readonly toolName: string;
   readonly executionId: string | undefined;
+  readonly id: string;
 }
 
 /** A permission request's row, held until the call it names starts or is refused. */
 interface IAwaitedCall {
-  readonly id: string;
   readonly rawInput: unknown;
-}
-
-/** Whether a request is about a call this session will report, and says which one. */
-function namesOwnCall(
-  event: IPermissionRequestEvent,
-): event is IPermissionRequestEvent & { executionId: string } {
-  return event.requester === undefined && event.executionId !== undefined;
+  /** A background agent's call can run after this prompt, so its row closes with the answer. */
+  readonly background: boolean;
+  allowed?: boolean;
 }
 
 export function createToolCallTracker(deps: IAcpToolCallDeps): IAcpToolCallTracker {
@@ -54,6 +49,8 @@ export function createToolCallTracker(deps: IAcpToolCallDeps): IAcpToolCallTrack
    * events carry, so the request's row is keyed by it and those events address the same row.
    */
   const awaited = new Map<string, IAwaitedCall>();
+  /** Rows of requests that name no call, by request id: nothing else will close them. */
+  const unnamed = new Map<string, string>();
   let finished = false;
 
   const take = (executionId: string | undefined): IAwaitedCall | undefined => {
@@ -62,6 +59,12 @@ export function createToolCallTracker(deps: IAcpToolCallDeps): IAcpToolCallTrack
     awaited.delete(executionId);
     return call;
   };
+  const close = (toolCallId: string, allowed: boolean): void =>
+    updates.send({
+      sessionUpdate: 'tool_call_update',
+      toolCallId,
+      status: allowed ? 'completed' : 'failed',
+    });
 
   return {
     start(tool) {
@@ -96,9 +99,8 @@ export function createToolCallTracker(deps: IAcpToolCallDeps): IAcpToolCallTrack
         return;
       }
       // A refused call ends with no start; when its permission was asked, that row is the call.
-      const asked = take(tool.executionId);
-      if (asked !== undefined) {
-        updates.send({ sessionUpdate: 'tool_call_update', toolCallId: asked.id, status });
+      if (take(tool.executionId) !== undefined) {
+        updates.send({ sessionUpdate: 'tool_call_update', toolCallId: tool.executionId!, status });
         return;
       }
       // Otherwise give the editor the call, finished, rather than an update for nothing.
@@ -112,28 +114,43 @@ export function createToolCallTracker(deps: IAcpToolCallDeps): IAcpToolCallTrack
     },
 
     requested(event) {
-      if (!namesOwnCall(event)) return permissionToolCall(event, `permission-${event.id}`, deps.cwd);
-      const call = permissionToolCall(event, event.executionId, deps.cwd);
-      awaited.set(event.executionId, { id: call.toolCallId, rawInput: call.rawInput });
+      const { executionId } = event;
+      if (executionId === undefined) {
+        const call = permissionToolCall(event, `permission-${event.id}`, deps.cwd);
+        unnamed.set(event.id, call.toolCallId);
+        return call;
+      }
+      const call = permissionToolCall(event, executionId, deps.cwd);
+      // A call that is already running (asked again before its effect) keeps the row it has.
+      if (!open.some((running) => running.executionId === executionId)) {
+        awaited.set(executionId, {
+          rawInput: call.rawInput,
+          background: event.requester !== undefined,
+        });
+      }
       return call;
     },
 
     answered(event, allowed) {
-      // The call's own events say what the answer led to; a row that is not a call's closes now.
-      if (namesOwnCall(event) || finished) return;
-      updates.send({
-        sessionUpdate: 'tool_call_update',
-        toolCallId: `permission-${event.id}`,
-        status: allowed ? 'completed' : 'failed',
-      });
+      if (event.executionId !== undefined) {
+        // The call's own events say what the answer led to; the answer is kept for a call that
+        // may run after this turn.
+        const asked = awaited.get(event.executionId);
+        if (asked !== undefined) asked.allowed = allowed;
+        return;
+      }
+      const row = unnamed.get(event.id);
+      if (row === undefined || finished) return;
+      unnamed.delete(event.id);
+      close(row, allowed);
     },
 
     finish() {
       finished = true;
-      for (const call of awaited.values()) {
-        updates.send({ sessionUpdate: 'tool_call_update', toolCallId: call.id, status: 'failed' });
-      }
+      for (const [id, call] of awaited) close(id, call.background && call.allowed === true);
+      for (const row of unnamed.values()) close(row, false);
       awaited.clear();
+      unnamed.clear();
     },
   };
 }

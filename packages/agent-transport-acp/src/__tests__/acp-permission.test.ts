@@ -5,6 +5,7 @@ import {
   endedTurn,
   executionResult,
   openSession,
+  settle,
   startTransport,
   textPrompt,
 } from './acp-test-harness.js';
@@ -35,7 +36,7 @@ interface IAsk {
   /** Emitted before the permission request, as when an earlier call is still running. */
   before?: (fake: IFakeSession) => void;
   /** Emitted once the session has been answered, in the order a real session emits them. */
-  after?: (fake: IFakeSession) => void;
+  after?: (fake: IFakeSession) => void | Promise<void>;
   request?: Partial<IPermissionRequestEvent>;
   turn?: ReturnType<typeof endedTurn>;
 }
@@ -58,7 +59,7 @@ async function askPermission(
       ...request,
     });
     await wasAnswered;
-    after?.(fake);
+    await after?.(fake);
     return turn;
   });
   fake.resolvePermission.mockImplementation(() => answered());
@@ -286,6 +287,18 @@ describe('permission requests', () => {
 
 describe('the call a permission request asks about', () => {
   const row = (update: object) => expect.objectContaining(update);
+  const inProgress = (toolCallId: string) =>
+    row({ sessionUpdate: 'tool_call_update', toolCallId, status: 'in_progress' });
+  const closed = (toolCallId: string, status: 'completed' | 'failed') => ({
+    sessionUpdate: 'tool_call_update',
+    toolCallId,
+    status,
+  });
+  /** A refusal as the session reports it: a start for the refused call, then its end. */
+  const refuse = (fake: IFakeSession, executionId = 'call-9') => {
+    fake.emit('tool_start', { ...shell, executionId });
+    fake.emit('tool_end', shellEnded('denied', executionId));
+  };
 
   it('is one row that moves from pending to in progress to completed', async () => {
     const { editor } = await askPermission(() => select('allow-once'), {
@@ -304,17 +317,22 @@ describe('the call a permission request asks about', () => {
         kind: 'execute',
         rawInput: { command: 'rm -rf build' },
       },
-      { sessionUpdate: 'tool_call_update', toolCallId: 'call-9', status: 'completed' },
+      closed('call-9', 'completed'),
     ]);
   });
 
-  it('is closed as failed when the session refuses the call and never starts it', async () => {
+  it('is one row that ends failed when the session refuses the call', async () => {
+    const { editor } = await askPermission(() => select('reject'), {
+      after: (fake) => refuse(fake),
+    });
+    expect(editor.updates).toEqual([inProgress('call-9'), closed('call-9', 'failed')]);
+  });
+
+  it('is closed as failed when a refusal is reported without a start', async () => {
     const { editor } = await askPermission(() => select('reject'), {
       after: (fake) => fake.emit('tool_end', shellEnded('denied')),
     });
-    expect(editor.updates).toEqual([
-      { sessionUpdate: 'tool_call_update', toolCallId: 'call-9', status: 'failed' },
-    ]);
+    expect(editor.updates).toEqual([closed('call-9', 'failed')]);
   });
 
   it('is closed once when the session denies the call on its own while the dialog is still open', async () => {
@@ -329,7 +347,7 @@ describe('the call a permission request asks about', () => {
         before: (fake) => {
           // The session's backstop denies the call before the editor answers.
           setTimeout(() => {
-            fake.emit('tool_end', shellEnded('denied'));
+            refuse(fake);
             open();
           }, 5);
         },
@@ -337,9 +355,7 @@ describe('the call a permission request asks about', () => {
     );
     // The late answer reaches the session, which has nothing left to decide; the editor got one row.
     expect(fake.resolvePermission).toHaveBeenCalledWith('perm-1', true, 'owner');
-    expect(editor.updates).toEqual([
-      { sessionUpdate: 'tool_call_update', toolCallId: 'call-9', status: 'failed' },
-    ]);
+    expect(editor.updates).toEqual([inProgress('call-9'), closed('call-9', 'failed')]);
   });
 
   it('follows its own call when two same-named requests are answered out of order', async () => {
@@ -361,10 +377,10 @@ describe('the call a permission request asks about', () => {
         executionId: 'call-b',
       });
       await Promise.all([first, second]);
-      // The allowed call runs; the refused one ends without starting.
+      // The allowed call runs; the refused one is reported as a start and its refusal.
       fake.emit('tool_start', { ...shell, firstArg: 'rm -rf dist', executionId: 'call-b' });
       fake.emit('tool_end', shellEnded('success', 'call-b'));
-      fake.emit('tool_end', shellEnded('denied', 'call-a'));
+      refuse(fake, 'call-a');
       return endedTurn();
     });
     fake.resolvePermission.mockImplementation((id) => answers.get(id)?.());
@@ -391,10 +407,36 @@ describe('the call a permission request asks about', () => {
       ['perm-1', false],
     ]);
     expect(fixture.editor.updates).toEqual([
-      row({ sessionUpdate: 'tool_call_update', toolCallId: 'call-b', status: 'in_progress' }),
-      { sessionUpdate: 'tool_call_update', toolCallId: 'call-b', status: 'completed' },
-      { sessionUpdate: 'tool_call_update', toolCallId: 'call-a', status: 'failed' },
+      inProgress('call-b'),
+      closed('call-b', 'completed'),
+      inProgress('call-a'),
+      closed('call-a', 'failed'),
     ]);
+  });
+
+  it('keeps one row when a running call is asked about again, and does not fail it at turn end', async () => {
+    let second!: () => void;
+    const secondAnswered = new Promise<void>((resolve) => (second = resolve));
+    const { editor } = await askPermission(() => select('allow-once'), {
+      after: async (fake) => {
+        fake.emit('tool_start', shell);
+        // The call's effect is admitted with other arguments, so the session asks again for it.
+        fake.resolvePermission.mockImplementation(() => second());
+        fake.emit('permission_request', {
+          id: 'perm-2',
+          toolName: 'Shell',
+          toolArgs: { command: 'rm -rf build/' },
+          executionId: 'call-9',
+        });
+        await secondAnswered;
+        fake.emit('tool_end', shellEnded('success'));
+      },
+    });
+    expect(editor.permissionRequests.map((r) => r.toolCall.toolCallId)).toEqual([
+      'call-9',
+      'call-9',
+    ]);
+    expect(editor.updates).toEqual([inProgress('call-9'), closed('call-9', 'completed')]);
   });
 
   it('is not taken by an unasked same-named call that starts while the dialog is open', async () => {
@@ -433,9 +475,7 @@ describe('the call a permission request asks about', () => {
   it('is closed as failed when the turn ends without the call ever starting', async () => {
     const { editor, response } = await askPermission(() => select('allow-once'));
     expect(response).toEqual({ stopReason: 'end_turn' });
-    expect(editor.updates).toEqual([
-      { sessionUpdate: 'tool_call_update', toolCallId: 'call-9', status: 'failed' },
-    ]);
+    expect(editor.updates).toEqual([closed('call-9', 'failed')]);
   });
 
   it('is closed as failed when the turn was cancelled after the answer', async () => {
@@ -443,9 +483,7 @@ describe('the call a permission request asks about', () => {
       turn: endedTurn(executionResult('', true)),
     });
     expect(response).toEqual({ stopReason: 'cancelled' });
-    expect(editor.updates).toEqual([
-      { sessionUpdate: 'tool_call_update', toolCallId: 'call-9', status: 'failed' },
-    ]);
+    expect(editor.updates).toEqual([closed('call-9', 'failed')]);
   });
 
   it('is closed with the answer when the request names no call, and a later call of the tool gets its own row', async () => {
@@ -458,34 +496,88 @@ describe('the call a permission request asks about', () => {
     });
     expect(editor.permissionRequests[0]!.toolCall.toolCallId).toBe('permission-perm-1');
     expect(editor.updates).toEqual([
-      { sessionUpdate: 'tool_call_update', toolCallId: 'permission-perm-1', status: 'completed' },
+      closed('permission-perm-1', 'completed'),
       row({ sessionUpdate: 'tool_call', toolCallId: 'call-9', status: 'in_progress' }),
-      { sessionUpdate: 'tool_call_update', toolCallId: 'call-9', status: 'completed' },
+      closed('call-9', 'completed'),
     ]);
   });
 
-  it('is closed with the answer when a background agent asked, so it cannot be taken by a later call', async () => {
+  it('is closed as failed at turn end when the request names no call and the editor never answered', async () => {
+    let answer!: () => void;
+    const late = new Promise<void>((resolve) => (answer = resolve));
+    const fake: IFakeSession = createFakeSession(async () => {
+      fake.emit('permission_request', {
+        id: 'perm-1',
+        toolName: 'Shell',
+        toolArgs: { command: 'rm -rf build' },
+      });
+      return endedTurn();
+    });
+    const fixture = await startTransport(fake.session);
+    open.push(fixture);
+    fixture.editor.answerPermission(async () => {
+      await late;
+      return select('allow-once');
+    });
+    const sessionId = await openSession(fixture.editor);
+    await fixture.editor.connection.agent.request('session/prompt', {
+      sessionId,
+      prompt: textPrompt('clean up'),
+    });
+    expect(fixture.editor.updates).toEqual([closed('permission-perm-1', 'failed')]);
+    answer();
+    await settle();
+    expect(fixture.editor.updates).toHaveLength(1);
+  });
+
+  describe('when a background agent asked', () => {
     const requester = { kind: 'background-agent' as const, label: 'reviewer', taskId: 'task-1' };
-    const { editor } = await askPermission(() => select('allow-once'), {
-      request: { requester },
-      after: (fake) => {
-        fake.emit('tool_start', { ...shell, executionId: 'mine' });
-        fake.emit('tool_end', shellEnded('success', 'mine'));
-      },
-    });
-    expect(editor.updates).toEqual([
-      { sessionUpdate: 'tool_call_update', toolCallId: 'permission-perm-1', status: 'completed' },
-      row({ sessionUpdate: 'tool_call', toolCallId: 'mine', status: 'in_progress' }),
-      { sessionUpdate: 'tool_call_update', toolCallId: 'mine', status: 'completed' },
-    ]);
-  });
 
-  it('is closed as failed with the answer when a background agent asked and the editor refused', async () => {
-    const { editor } = await askPermission(() => select('reject'), {
-      request: { requester: { kind: 'background-agent', label: 'reviewer', taskId: 'task-1' } },
+    it('is the call’s one row when the session reports that call', async () => {
+      const { editor } = await askPermission(() => select('allow-once'), {
+        request: { requester, executionId: 'agent-call-1' },
+        after: (fake) => {
+          fake.emit('tool_start', { ...shell, executionId: 'agent-call-1' });
+          fake.emit('tool_end', shellEnded('success', 'agent-call-1'));
+        },
+      });
+      expect(editor.permissionRequests[0]!.toolCall).toMatchObject({
+        toolCallId: 'agent-call-1',
+        title: 'reviewer: Shell: rm -rf build',
+      });
+      expect(editor.updates).toEqual([
+        inProgress('agent-call-1'),
+        closed('agent-call-1', 'completed'),
+      ]);
     });
-    expect(editor.updates).toEqual([
-      { sessionUpdate: 'tool_call_update', toolCallId: 'permission-perm-1', status: 'failed' },
-    ]);
+
+    it('closes with the answer at turn end when its call has not run yet', async () => {
+      const { editor } = await askPermission(() => select('allow-once'), {
+        request: { requester, executionId: 'agent-call-1' },
+      });
+      expect(editor.updates).toEqual([closed('agent-call-1', 'completed')]);
+    });
+
+    it('closes with the answer when the request names no call, so a later call cannot take it', async () => {
+      const { editor } = await askPermission(() => select('allow-once'), {
+        request: { requester, executionId: undefined },
+        after: (fake) => {
+          fake.emit('tool_start', { ...shell, executionId: 'mine' });
+          fake.emit('tool_end', shellEnded('success', 'mine'));
+        },
+      });
+      expect(editor.updates).toEqual([
+        closed('permission-perm-1', 'completed'),
+        row({ sessionUpdate: 'tool_call', toolCallId: 'mine', status: 'in_progress' }),
+        closed('mine', 'completed'),
+      ]);
+    });
+
+    it('closes as failed with the answer when the editor refused', async () => {
+      const { editor } = await askPermission(() => select('reject'), {
+        request: { requester, executionId: undefined },
+      });
+      expect(editor.updates).toEqual([closed('permission-perm-1', 'failed')]);
+    });
   });
 });

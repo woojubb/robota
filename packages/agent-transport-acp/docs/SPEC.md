@@ -78,9 +78,10 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
   and the request names the call by that same execution id, so the request's row is the call's row:
   its start and its end, or its refusal, address the row the editor already holds, and a denial the
   session decides on its own while the editor's dialog is still open closes that one row. A request
-  that names no call (a background agent's, or a session that does not say) gets a row of its own
-  that closes with the answer, since nothing could match it without guessing. A row whose call never
-  came by the end of the turn is closed rather than left pending.
+  that names no call gets a row of its own that closes with the answer, since nothing could match it
+  without guessing. A row whose call never came by the end of the turn is closed rather than left
+  pending: as failed for this session's own call, which the ended turn will not run, and with the
+  answer for a background agent's, which may still run after the prompt the editor is watching.
 - **A permission request shows what the terminal shows.** The person answers in the editor's dialog
   alone, so the request carries the arguments whole, an edit's diff and the file it touches, and a
   title that is never shortened; approving a summary would approve what was not seen.

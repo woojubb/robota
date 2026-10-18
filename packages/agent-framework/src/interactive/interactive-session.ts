@@ -650,9 +650,10 @@ export class InteractiveSession
       pendingRestoreMessages: this.pendingRestoreMessages,
       restoredSystemPrompt: this.restoredSystemPrompt,
       // Issue #3288 §1: `context` is optional here so this stays assignable to the narrower
-      // `TInteractivePermissionHandler` this deps field is typed as (2 args) — the caller that
-      // actually supplies a `requester`/`signal` (the child-process subagent runner) holds this same
-      // function through the session-layer's own, wider `TPermissionHandler` and calls it with three.
+      // `TInteractivePermissionHandler` this deps field is typed as (2 args). The callers that supply
+      // one — the session's approval path (the call's `executionId`) and the subagent runners (a
+      // `requester`, a `signal`) — hold this same function through the session layer's wider
+      // `TPermissionHandler` and call it with three.
       permissionHandler: (toolName: string, toolArgs: TToolArgs, context?: IPermissionAskContext) =>
         this.promptRegistry.requestPermission(
           toolName,
