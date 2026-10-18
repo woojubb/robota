@@ -63,6 +63,23 @@ describe('runtime tools and scoped submission cancellation', () => {
     expect(execCtrl.executing).toBe(false);
   });
 
+  it('drives the session as the given driver while the direct call runs, and as nobody after', async () => {
+    // #3470: a prompt raised by a direct call is stamped with the ACTIVE driver id, so the surface
+    // that made the call must be the active driver for exactly as long as the call runs.
+    const execCtrl = controller();
+    const { tools, session } = runtime(execCtrl);
+    const seen: Array<string | null> = [];
+    vi.mocked(session.invokeRuntimeTool).mockImplementation(async () => {
+      seen.push(execCtrl.activeDriverId);
+      return { success: true, toolName: 'tool', result: 'ok' };
+    });
+    await tools.invokeRuntimeTool('tool', {}, { driverId: 'mcp:1' });
+    expect(seen).toEqual(['mcp:1']);
+    expect(execCtrl.activeDriverId).toBeNull();
+    await tools.invokeRuntimeTool('tool', {});
+    expect(seen).toEqual(['mcp:1', null]);
+  });
+
   it('shutdown during initialization refuses execution and drains the admitted call', async () => {
     const init = deferred<void>();
     const { tools, session, execCtrl } = runtime(controller(), init.promise);

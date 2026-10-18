@@ -866,7 +866,7 @@ export class InteractiveSession
   invokeRuntimeTool(
     name: string,
     parameters: TToolParameters,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; driverId?: TDriverId },
   ): Promise<IToolExecutionResult> {
     return this.runtimeTools.invokeRuntimeTool(name, parameters, options);
   }

@@ -1,6 +1,6 @@
 import type { SessionExecutionController } from './interactive-session-execution-controller.js';
 import type { IToolExecutionResult, IToolSchema, TToolParameters } from '@robota-sdk/agent-core';
-import type { ISessionRuntimeTools } from '@robota-sdk/agent-interface-session';
+import type { ISessionRuntimeTools, TDriverId } from '@robota-sdk/agent-interface-session';
 
 interface IRuntimeToolsDeps {
   readonly controller: () => SessionExecutionController;
@@ -24,13 +24,16 @@ export class InteractiveSessionRuntimeTools implements ISessionRuntimeTools {
   async invokeRuntimeTool(
     name: string,
     parameters: TToolParameters,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; driverId?: TDriverId },
   ): Promise<IToolExecutionResult> {
     this.assertOpen();
     options?.signal?.throwIfAborted();
     const controller = this.deps.controller();
     if (controller.pendingCount() > 0) throw new Error('A submission is already queued.');
     const claim = controller.executionClaim.acquire('runtime-tool');
+    // The caller drives the session while its direct call runs, as a turn's driver does: a prompt
+    // the call raises is stamped with this id, so the surface that made the call can tell it is its own.
+    controller.activeDriverId = options?.driverId ?? null;
     const execution = (async () => {
       await this.deps.ensureInitialized();
       this.assertOpen();
@@ -42,6 +45,7 @@ export class InteractiveSessionRuntimeTools implements ISessionRuntimeTools {
       return await execution;
     } finally {
       this.inFlight = undefined;
+      controller.activeDriverId = null;
       controller.executionClaim.complete(claim, () => {});
     }
   }

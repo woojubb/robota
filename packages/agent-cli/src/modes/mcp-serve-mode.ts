@@ -91,6 +91,7 @@ export async function runMcpServeMode(
   version: string,
   stdout: Writable,
   http: IMcpServeHttpOptions = {},
+  askClient = false,
 ): Promise<void> {
   if (http.remote !== undefined) {
     if (http.tokenFile !== undefined) {
@@ -114,6 +115,7 @@ export async function runMcpServeMode(
         host: remote.host,
         port: http.port,
         submitTool: productSubmitTool(productRuntime),
+        ...(askClient ? { askClient: true } : {}),
         authorization: {
           publicUrl: remote.publicUrl,
           issuer: remote.issuer,
@@ -153,6 +155,7 @@ export async function runMcpServeMode(
       session,
       port: http.port,
       submitTool: productSubmitTool(productRuntime),
+      ...(askClient ? { askClient: true } : {}),
     });
     let createdFile: { dev: number; ino: number } | undefined;
     await serveHttpCarrier(
@@ -190,6 +193,7 @@ export async function runMcpServeMode(
     version,
     stdout,
     submitTool: productSubmitTool(productRuntime),
+    ...(askClient ? { askClient: true } : {}),
   });
   transport.attach(session);
   let onStop: (() => void) | undefined;

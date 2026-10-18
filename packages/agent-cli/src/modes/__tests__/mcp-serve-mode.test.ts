@@ -15,6 +15,8 @@ const mock = vi.hoisted(() => ({
   httpStop: vi.fn(),
   httpWaitForClose: vi.fn(),
   remoteOptions: vi.fn(),
+  stdioOptions: vi.fn(),
+  loopbackOptions: vi.fn(),
 }));
 
 vi.mock('@robota-sdk/agent-framework', async (importOriginal) => ({
@@ -23,17 +25,19 @@ vi.mock('@robota-sdk/agent-framework', async (importOriginal) => ({
 }));
 vi.mock('@robota-sdk/agent-transport-mcp', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@robota-sdk/agent-transport-mcp')>()),
-  createMcpTransport: () => ({
-    attach: mock.attach,
-    start: mock.start,
-    stop: mock.stop,
-    waitForClose: mock.waitForClose,
-  }),
-  createMcpHttpHost: () => ({
-    start: mock.httpStart,
-    stop: mock.httpStop,
-    waitForClose: mock.httpWaitForClose,
-  }),
+  createMcpTransport: (options: unknown) => {
+    mock.stdioOptions(options);
+    return {
+      attach: mock.attach,
+      start: mock.start,
+      stop: mock.stop,
+      waitForClose: mock.waitForClose,
+    };
+  },
+  createMcpHttpHost: (options: unknown) => {
+    mock.loopbackOptions(options);
+    return { start: mock.httpStart, stop: mock.httpStop, waitForClose: mock.httpWaitForClose };
+  },
   createMcpRemoteHttpHost: (options: unknown) => {
     mock.remoteOptions(options);
     return { start: mock.httpStart, stop: mock.httpStop, waitForClose: mock.httpWaitForClose };

@@ -118,10 +118,15 @@ export interface ISessionWorkspaceLocation {
 /** Direct execution uses the same permission-wrapped runtime as model tool calls. */
 export interface ISessionRuntimeTools {
   listRuntimeTools(): Promise<IToolSchema[]>;
+  /**
+   * `driverId` names the server-assigned driver making the call, as `ISubmitOptions.driverId`
+   * names a turn's: a prompt the call raises is attributed to it, so the surface that made the call
+   * can tell the prompt is its own and answer it.
+   */
   invokeRuntimeTool(
     name: string,
     parameters: TToolParameters,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; driverId?: TDriverId },
   ): Promise<IToolExecutionResult>;
 }
 

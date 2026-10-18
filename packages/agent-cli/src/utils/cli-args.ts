@@ -63,6 +63,8 @@ export interface IParsedCliArgs {
   mcpOauthScopes?: string[];
   mcpOauthAllowedSubjects?: string[];
   mcpTrustedProxies?: string[];
+  /** With `mcp serve`, put permission and ask prompts to the calling client through MCP elicitation. */
+  mcpAskClient: boolean;
   /** GUI-007: with `--serve --open`, also serve the CLI's web monitor SPA over localhost and open it. */
   open: boolean;
   continueMode: boolean;
@@ -213,6 +215,7 @@ const PARSE_ARGS_CONFIG = {
     'oauth-scopes': { type: 'string' },
     'oauth-allowed-subjects': { type: 'string' },
     'trusted-proxy': { type: 'string', multiple: true },
+    'ask-client': { type: 'boolean', default: false },
     // Retired: parsed only so it is refused with a reason instead of as an unknown flag.
     'external-event-allow': { type: 'string', multiple: true },
     open: { type: 'boolean', default: false },
@@ -370,6 +373,7 @@ function mapParsedValues(
     mcpOauthScopes: parseToolList(values['oauth-scopes']),
     mcpOauthAllowedSubjects: parseToolList(values['oauth-allowed-subjects']),
     mcpTrustedProxies: values['trusted-proxy'],
+    mcpAskClient: values['ask-client'] ?? false,
     open: values['open'] ?? false,
     continueMode: values['continue'] ?? false,
     resumeId: values['resume'],

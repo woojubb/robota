@@ -6,13 +6,16 @@ import type { IMcpServeHttpOptions } from '../modes/mcp-serve-mode.js';
 export function validateMcpServeInvocation(
   args: IParsedCliArgs,
   cliName: string,
-): { mcpServe: boolean; http: IMcpServeHttpOptions | undefined } {
+): { mcpServe: boolean; http: IMcpServeHttpOptions | undefined; askClient: boolean } {
   const subcommand = subcommandWord(args);
   const mcpServe = subcommand === 'mcp' && args.positional[1] === 'serve';
   if (subcommand === 'mcp' && (!mcpServe || args.positional.length !== 2)) {
     throw new Error(`Usage: ${cliName} mcp serve [options]`);
   }
   const http = resolveMcpHttpOptions(args, mcpServe);
+  if (args.mcpAskClient && !mcpServe) {
+    throw new Error('--ask-client is only valid with mcp serve');
+  }
   if (
     mcpServe &&
     (args.serve ||
@@ -27,7 +30,7 @@ export function validateMcpServeInvocation(
       `${cliName} mcp serve cannot be combined with another process mode or setup command`,
     );
   }
-  return { mcpServe, http };
+  return { mcpServe, http, askClient: args.mcpAskClient };
 }
 
 /**

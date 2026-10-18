@@ -113,6 +113,9 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --oauth-allowed-subjects <a,b>
                              Token subjects admitted to the one shared session
   --trusted-proxy <ip>       Believe X-Forwarded-For from this proxy address (repeatable)
+  --ask-client               With mcp serve, ask the calling MCP client to answer permission and ask
+                             prompts through MCP elicitation (allow once or deny; off: such prompts
+                             are tool errors)
   --check-update             Check for CLI updates
   --disable-update-check     Skip the startup update check
   --version                  Show version number
