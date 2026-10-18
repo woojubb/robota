@@ -251,4 +251,55 @@ describe('direct session runtime tools', () => {
       await Promise.all([denied.session.shutdown(), allowed.session.shutdown()]);
     }
   });
+
+  it('asks the permission handler only for a caller that answers its own prompts', async () => {
+    // #3470: an MCP caller that can answer passes `interactive`; every other direct call still
+    // denies without asking, which the case above pins.
+    const execute = vi.fn(async () => 'written');
+    const allowing = fixture(execute);
+    const refusing = fixture(execute);
+    refusing.handler.mockResolvedValue(false);
+    try {
+      expect(
+        await allowing.session.invokeRuntimeTool('Write', {}, { permissionInteraction: 'interactive' }),
+      ).toMatchObject({ success: true });
+      expect(allowing.handler).toHaveBeenCalledOnce();
+      expect(
+        await refusing.session.invokeRuntimeTool('Write', {}, { permissionInteraction: 'interactive' }),
+      ).toMatchObject({ success: false });
+      expect(refusing.handler).toHaveBeenCalledOnce();
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect(
+        await allowing.session.invokeRuntimeTool('Write', {}, { permissionInteraction: 'deny' }),
+      ).toMatchObject({ success: false });
+      expect(allowing.handler).toHaveBeenCalledOnce();
+    } finally {
+      await Promise.all([allowing.session.shutdown(), refusing.session.shutdown()]);
+    }
+  });
+
+  it('hands the session’s ask port only to a call whose caller answers its own prompts', async () => {
+    const ask = vi.fn(async () => ({ type: 'answer' as const, values: ['yes'] }));
+    const seen: boolean[] = [];
+    const { session } = fixture(
+      async (context) => {
+        seen.push(context?.ask !== undefined);
+        // Asked without a signal, as a tool may: the call's own cancellation still reaches it.
+        await context?.ask?.({ id: 'q', title: 'Proceed?' });
+        return 'asked';
+      },
+      { permissions: { allow: ['Write'], deny: [] }, ask },
+    );
+    try {
+      await session.invokeRuntimeTool('Write', {});
+      await session.invokeRuntimeTool('Write', {}, { permissionInteraction: 'interactive' });
+      expect(seen).toEqual([false, true]);
+      expect(ask).toHaveBeenCalledExactlyOnceWith(
+        { id: 'q', title: 'Proceed?' },
+        { signal: expect.any(AbortSignal) },
+      );
+    } finally {
+      await session.shutdown();
+    }
+  });
 });

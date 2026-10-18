@@ -112,7 +112,10 @@ export class SessionExecutionController {
     refuse: (turnId, reason) => this.turns.refuse(turnId, reason),
     releaseWake: (wakeTaskId) => this.wakeTaskIds.delete(wakeTaskId),
   });
-  /** REMOTE-014 E5: the driver id of the ACTIVE turn (null when idle) — read at event-emit time for attribution. */
+  /**
+   * REMOTE-014 E5: the driver id of the ACTIVE turn or direct runtime-tool call (null when idle) —
+   * read at event-emit time for attribution, and by a surface routing a prompt to its own caller.
+   */
   activeDriverId: TDriverId | null = null;
   /** The ACTIVE peer turn's reply route (undefined outside one) — what `peer_reply` answers. */
   activePeerTurn: IPeerTurnContext | undefined = undefined;

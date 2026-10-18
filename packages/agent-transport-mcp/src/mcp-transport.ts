@@ -34,6 +34,12 @@ export interface IMcpTransportOptions {
   stdout?: Writable;
   /** Host-owned identity for the submission extension. */
   submitTool?: IMcpSubmitToolIdentity;
+  /**
+   * Put the permission and ask prompts a call raises to the client, through MCP elicitation, when
+   * the client declared form-mode elicitation; allow-once and deny only. Off by default: such
+   * prompts are tool errors.
+   */
+  askClient?: boolean;
 }
 
 export interface IMcpTransport extends ITransportAdapter<IMcpTransportSession> {
@@ -122,6 +128,7 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
               version: options.version,
               session: attachedSession,
               ...(options.submitTool !== undefined ? { submitTool: options.submitTool } : {}),
+              ...(options.askClient !== undefined ? { askClient: options.askClient } : {}),
             }),
             cancelled,
           ]);

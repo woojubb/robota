@@ -112,6 +112,10 @@ export type {
   IPeerMessageVerdict,
 } from './peer-message-ledger.js';
 
+// The argument a person recognises a tool call by, shared by every transport that asks a person
+// about a permission in its own wire form, so they name the same call the same way.
+export { permissionSummaryArgument } from './permission-summary.js';
+
 // The handoff integrity helpers (`sealHandoffRecord`, `verifyHandoffPayload`) are NOT
 // here: it hashes with `node:crypto`. Chunking is, because it never hashes anything.
 export {

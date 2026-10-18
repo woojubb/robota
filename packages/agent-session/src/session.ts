@@ -203,7 +203,12 @@ export class Session extends SessionBase {
       systemMessage,
       this.eventService,
     );
-    this.runtimeTools = new SessionRuntimeTools(this.agent, this.turnClaim, this.sessionId);
+    this.runtimeTools = new SessionRuntimeTools(
+      this.agent,
+      this.turnClaim,
+      this.sessionId,
+      options.ask,
+    );
     fireSessionStartHook(
       this.sessionId,
       this.cwd,

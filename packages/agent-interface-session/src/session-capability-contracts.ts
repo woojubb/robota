@@ -121,8 +121,9 @@ export interface IRuntimeToolInvokeOptions {
   signal?: AbortSignal;
   /**
    * Whether a permission decision this call needs may be put to a person. `deny` (the default) fails
-   * such a decision closed, which is right for a caller nobody is watching; `interactive` asks
-   * through the session's prompt events, for a surface that can show the prompt and answer it.
+   * such a decision closed, and a question the call's tools put finds no one to ask, which is right
+   * for a caller nobody is watching; `interactive` asks through the session's prompt events, and
+   * hands the tools the session's ask port, for a surface that can show the prompt and answer it.
    */
   permissionInteraction?: 'interactive' | 'deny';
   /** The driver the call acts for; a prompt it raises names this driver as its requester. */

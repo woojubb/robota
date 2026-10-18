@@ -281,7 +281,7 @@ async function runCliCore(
     process.exit(1);
   }
   const version = runtimeVersion(productRuntime);
-  const { mcpServe, http: mcpHttp } = validateMcpServeInvocation(
+  const { mcpServe, http: mcpHttp, askClient: mcpAskClient } = validateMcpServeInvocation(
     args,
     productRuntime.config.identity.cliName,
   );
@@ -1092,7 +1092,14 @@ async function runCliCore(
             }),
         });
       } else {
-        await runMcpServeMode(productRuntime, sessionOptions, version, protocolStdout, mcpHttp);
+        await runMcpServeMode(
+          productRuntime,
+          sessionOptions,
+          version,
+          protocolStdout,
+          mcpHttp,
+          mcpAskClient,
+        );
       }
     } finally {
       providerConnectionHost.shutdown();

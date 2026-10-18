@@ -299,7 +299,7 @@ Most errors this package raises extend one base error class carrying a machine-r
 
 ## Canonical Direct Runtime Tool Invocation
 
-An agent's registered tool catalog (including currently-deferred tools) can be invoked directly through the same execution path a model-driven tool call uses — the same validation, permission-wrapped execution, and event emission — without fabricating a model turn or requiring the model to have discovered a deferred tool first. Direct invocation does not bypass configured tool allowlists or permission enforcement, and it does not inject an interactive "ask the user" handler the way a live model-driven session might.
+An agent's registered tool catalog (including currently-deferred tools) can be invoked directly through the same execution path a model-driven tool call uses — the same validation, permission-wrapped execution, and event emission — without fabricating a model turn or requiring the model to have discovered a deferred tool first. Direct invocation does not bypass configured tool allowlists or permission enforcement, and core injects no interactive "ask the user" handler for it: only a caller that answers its own prompts supplies one, together with an interactive permission interaction, because a direct caller is not assumed to have a person behind it.
 
 ## Extraction Trigger
 
