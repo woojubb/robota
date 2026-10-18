@@ -59,7 +59,15 @@ function fakeSession(sessionId: string, busy = false) {
 }
 
 /** A project session store holding these records (`cwd` defaults to the served folder). */
-function storeWith(...records: { id: string; cwd?: string; goal?: unknown; sessionLoops?: unknown[] }[]) {
+function storeWith(
+  ...records: {
+    id: string;
+    cwd?: string;
+    goal?: unknown;
+    sessionLoops?: unknown[];
+    backgroundTasks?: unknown[];
+  }[]
+) {
   return {
     list: () =>
       records.map((record) => ({
@@ -289,6 +297,90 @@ describe('ACP mode', () => {
     await expect(served.load('goal-1')).resolves.toMatchObject({ loaded: false });
     await expect(served.load('loop-1')).resolves.toMatchObject({ loaded: false });
     await expect(served.load('done-1')).resolves.toEqual({ loaded: true });
+    await served.stop();
+  });
+
+  /** A stored scheduled background task as `/loop 10m ...` or `/schedule` leaves it. */
+  function scheduledTask(
+    overrides: { status?: string; metadata?: Record<string, unknown> } = {},
+  ): Record<string, unknown> {
+    return {
+      id: 'task-1',
+      kind: 'scheduled',
+      label: 'check the build',
+      status: 'sleeping',
+      mode: 'background',
+      parentSessionId: 'parent-1',
+      depth: 0,
+      cwd: '/workspace',
+      startedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      unread: false,
+      nextFireAt: '2999-01-01T00:00:00.000Z',
+      schedule: { cronExpression: '*/10 * * * *', agentInstruction: 'check the build' },
+      ...overrides,
+    };
+  }
+  const liveLoop = { sessionLoop: true, sessionLoopExpiresAt: '2999-01-01T00:00:00.000Z' };
+
+  it('refuses a stored session whose fixed-interval loop or schedule would wake on its own', async () => {
+    const served = await serving({
+      sessionStore: storeWith(
+        { id: 'interval-loop', backgroundTasks: [scheduledTask({ metadata: liveLoop })] },
+        { id: 'scheduled-wake', backgroundTasks: [scheduledTask()] },
+      ) as never,
+    });
+    mock.next = [fakeSession('interval-loop'), fakeSession('scheduled-wake')];
+    await expect(served.load('interval-loop')).resolves.toMatchObject({
+      loaded: false,
+      message: expect.stringContaining('would run on its own'),
+    });
+    await expect(served.load('scheduled-wake')).resolves.toMatchObject({ loaded: false });
+    expect(mock.built).toHaveLength(1);
+    expect(mock.shutdown).not.toHaveBeenCalled();
+    await served.stop();
+  });
+
+  it('loads a stored session whose scheduled work restore would not fire', async () => {
+    const served = await serving({
+      sessionStore: storeWith(
+        {
+          id: 'expired-loop',
+          backgroundTasks: [
+            scheduledTask({
+              metadata: { sessionLoop: true, sessionLoopExpiresAt: '2000-01-01T00:00:00.000Z' },
+            }),
+          ],
+        },
+        { id: 'finished-wake', backgroundTasks: [scheduledTask({ status: 'completed' })] },
+        { id: 'cancelled-loop', backgroundTasks: [scheduledTask({ status: 'cancelled', metadata: liveLoop })] },
+        { id: 'paused-wake', backgroundTasks: [scheduledTask({ status: 'paused' })] },
+      ) as never,
+    });
+    mock.next = [
+      fakeSession('expired-loop'),
+      fakeSession('finished-wake'),
+      fakeSession('cancelled-loop'),
+      fakeSession('paused-wake'),
+    ];
+    for (const id of ['expired-loop', 'finished-wake', 'cancelled-loop', 'paused-wake']) {
+      await expect(served.load(id)).resolves.toEqual({ loaded: true });
+    }
+    await served.stop();
+  });
+
+  it('loads a stored session whose loop the host disabled, as restore would not re-arm it', async () => {
+    const served = await serving({
+      disableSessionLoops: true,
+      sessionStore: storeWith(
+        { id: 'interval-loop', backgroundTasks: [scheduledTask({ metadata: liveLoop })] },
+        { id: 'scheduled-wake', backgroundTasks: [scheduledTask()] },
+      ) as never,
+    });
+    mock.next = [fakeSession('interval-loop'), fakeSession('scheduled-wake')];
+    await expect(served.load('interval-loop')).resolves.toEqual({ loaded: true });
+    // Disabling loops does not stop a plain `/schedule` wake.
+    await expect(served.load('scheduled-wake')).resolves.toMatchObject({ loaded: false });
     await served.stop();
   });
 

@@ -19,5 +19,5 @@ a full interactive session has.
 `robota acp` supplies the load: the editor may load a stored session of the folder it serves that
 this version can read, and the agent replaces its session with it and shuts the old one down. A load
 is refused while the current session has work in progress, and for a stored session with an active
-goal or a live loop, which would otherwise run unseen by the editor. With `--no-session-persistence`
-nothing is stored, so loading is not offered.
+goal, a live loop or a schedule that restore would re-arm to fire, which would otherwise run unseen
+by the editor. With `--no-session-persistence` nothing is stored, so loading is not offered.

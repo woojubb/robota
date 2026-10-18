@@ -2,6 +2,7 @@ import {
   buildRuntimeSession,
   isSessionBusy,
   listUnreadableSessionsForWorkspace,
+  restoredScheduleDisposition,
   SessionSlot,
 } from '@robota-sdk/agent-framework';
 import { createAcpTransport } from '@robota-sdk/agent-transport-acp';
@@ -42,15 +43,26 @@ class AcpSessionSlot extends SessionSlot<InteractiveSession> {
 }
 
 /**
- * Work a stored session would start on its own once loaded: a goal it is pursuing, or a loop that
- * has not stopped or expired. An editor sees only the turns it prompts, so that work would run
- * unseen and every permission it asked for would be denied.
+ * Work a stored session would start on its own once loaded: a goal it is pursuing, a self-paced
+ * loop that has not stopped or expired, or a scheduled task (a fixed-interval loop, a `/schedule`
+ * wake) that restore re-arms to fire, by the framework's own re-arm rule. An editor sees only the
+ * turns it prompts, so that work would run unseen and every permission it asked for would be denied.
  */
-function runsOnItsOwn(record: IInteractiveSessionRecord, nowMs: number): boolean {
+function runsOnItsOwn(
+  record: IInteractiveSessionRecord,
+  nowMs: number,
+  sessionLoopsDisabled: boolean,
+): boolean {
   if (record.goal?.status === 'active') return true;
-  return (record.sessionLoops ?? []).some(
+  const hasLiveLoop = (record.sessionLoops ?? []).some(
     (loop) =>
       loop.phase !== 'stopped' && loop.phase !== 'expired' && Date.parse(loop.expiresAt) > nowMs,
+  );
+  return (
+    hasLiveLoop ||
+    (record.backgroundTasks ?? []).some(
+      (task) => restoredScheduleDisposition(task, nowMs, sessionLoopsDisabled) === 'rearm',
+    )
   );
 }
 
@@ -90,9 +102,9 @@ function createSessionLoader(
       .flatMap((entry) => (entry.outcome.status === 'valid' ? [entry.outcome.record] : []))
       .find((candidate) => candidate.id === sessionId && candidate.cwd === options.cwd);
     if (record === undefined) return refuse(`No session ${sessionId} in this workspace.`);
-    if (runsOnItsOwn(record, Date.now())) {
+    if (runsOnItsOwn(record, Date.now(), options.sessionOptions.disableSessionLoops ?? false)) {
       return refuse(
-        `Session ${sessionId} has a goal or loop that would run on its own; ` +
+        `Session ${sessionId} has a goal, loop or schedule that would run on its own; ` +
           'resume it in the terminal to stop that first.',
       );
     }

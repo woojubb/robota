@@ -404,11 +404,12 @@ the session and answered as a protocol error naming the trust command, because a
 protocol traffic reads as a crashed agent. When sessions are stored, the editor may load a stored
 session of the same folder in place of the one the process started, which is then shut down; a load
 is refused while that session still has work in progress, and for a stored session that would run a
-goal or loop on its own, since the editor sees only the turns it prompts. A Restricted start a person chose is admitted as it is elsewhere. From entry until
-shutdown, all product notices use stderr while stdout is reserved for ACP frames. SIGINT, SIGTERM,
-stdin close, startup failure and carrier failure enter one idempotent cleanup path. An editor's
-`/command` prompt runs as a transport-origin command on this machine, so the remote command policy
-applies to it as it does to a WebSocket client. No WebSocket or TUI transport starts in this mode.
+goal, loop or schedule on its own, since the editor sees only the turns it prompts. A Restricted
+start a person chose is admitted as it is elsewhere. From entry until shutdown, all product notices
+use stderr while stdout is reserved for ACP frames. SIGINT, SIGTERM, stdin close, startup failure
+and carrier failure enter one idempotent cleanup path. An editor's `/command` prompt runs as a
+transport-origin command on this machine, so the remote command policy applies to it as it does to a
+WebSocket client. No WebSocket or TUI transport starts in this mode.
 
 ### `__PRODUCT_CLI_NAME__ mcp serve`
 

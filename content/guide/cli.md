@@ -606,10 +606,10 @@ rooted in the folder the agent was started in; a different folder, MCP servers o
 the editor are refused, so configure MCP servers in the settings files. An ACP agent serves one
 session per connection. The editor can reopen an earlier conversation of the same folder, which it
 then shows again, unless the agent runs with `--no-session-persistence`; a conversation that is still
-pursuing a goal or running a loop opens only in the terminal, where you can stop it. The editor can
-also offer the agent's slash commands and skills in its command list. Reading or writing files and running terminals are
-not delegated to the editor. Questions the agent would ask you are answered as cancelled, because ACP
-has no equivalent.
+pursuing a goal, running a loop or holding a schedule that will fire opens only in the terminal, where
+you can stop it. The editor can also offer the agent's slash commands and skills in its command list.
+Reading or writing files and running terminals are not delegated to the editor. Questions the agent
+would ask you are answered as cancelled, because ACP has no equivalent.
 
 ## Devices and remote control
 
