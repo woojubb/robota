@@ -170,7 +170,8 @@ export interface IChatOptions extends IProviderSpecificOptions {
   onTextDelta?: TTextDeltaCallback;
   /** Callback for reasoning text a provider streams while it thinks. This text is never part of the
    *  reply: it is not in the returned message, and `onTextDelta` never receives it. A provider that
-   *  sends no reasoning text never calls it. */
+   *  sends no reasoning text never calls it. Where the model reasons in separate pieces, each later
+   *  piece starts on a new paragraph (`\n\n`), so the deltas read as paragraphs when concatenated. */
   onThinkingDelta?: TThinkingDeltaCallback;
   /** Callback for provider-owned native SDK request/response/stream payload capture. */
   onProviderNativeRawPayload?: TProviderNativeRawPayloadCallback;

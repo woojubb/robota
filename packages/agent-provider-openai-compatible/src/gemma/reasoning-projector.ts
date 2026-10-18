@@ -1,6 +1,7 @@
 const START_MARKER = '<|channel>';
 const END_MARKER = '<channel|>';
 const THOUGHT_LABEL = 'thought';
+const CHANNEL_SEPARATOR = '\n\n';
 
 export interface IGemmaReasoningProjection {
   rawText: string;
@@ -72,7 +73,7 @@ export class GemmaReasoningProjector {
   private projectVisibleText(options: IProjectionOptions): string {
     const result = projectText(this.buffer, options);
     this.hasRemovedReasoning = this.hasRemovedReasoning || result.removedReasoning;
-    this.reasoningText = result.reasoningParts.join('');
+    this.reasoningText = joinReasoningChannels(result.reasoningParts);
 
     const nextVisibleText = result.visibleParts.join('');
     const delta = nextVisibleText.slice(this.emittedVisibleText.length);
@@ -156,6 +157,15 @@ function consumeChannelBlock(rawText: string, afterStart: number, markerEnd: num
   }
 
   return cursor;
+}
+
+/**
+ * The reasoning of the reply's channels as one text. A reply's channels are separate thoughts (visible
+ * text or a tool call sits between them), so each starts on a new paragraph. A channel with no
+ * reasoning yet adds nothing, including its break, so the text only ever grows at its end.
+ */
+function joinReasoningChannels(channels: readonly string[]): string {
+  return channels.filter((channel) => channel.trim().length > 0).join(CHANNEL_SEPARATOR);
 }
 
 /**

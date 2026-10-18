@@ -70,12 +70,38 @@ describe('Gemma reasoning projection', () => {
     expect(projector.takeReasoning()).toBe('');
   });
 
-  it('hands out the reasoning of every channel in the reply, in order', () => {
+  it('hands out the reasoning of every channel in the reply, in order, one paragraph per channel', () => {
     const projector = new GemmaReasoningProjector();
 
     projector.project('<|channel>thought\none<channel|>A<|channel>thought\ntwo<channel|>B');
 
-    expect(projector.takeReasoning()).toBe('onetwo');
+    expect(projector.takeReasoning()).toBe('one\n\ntwo');
+  });
+
+  it('adds the paragraph break only once the later channel has reasoning to follow it', () => {
+    const projector = new GemmaReasoningProjector();
+    const taken: string[] = [];
+
+    for (const chunk of [
+      '<|channel>thought\none<channel|>A<|channel>thought\n',
+      'tw',
+      'o<channel|>B',
+    ]) {
+      projector.project(chunk);
+      taken.push(projector.takeReasoning());
+    }
+
+    expect(taken).toEqual(['one', '\n\ntw', 'o']);
+  });
+
+  it('puts no break before the first channel that has reasoning, or around one that has none', () => {
+    const projector = new GemmaReasoningProjector();
+
+    projector.project(
+      '<|channel>thought\n<channel|>A<|channel>thought\nreal<channel|>B<|channel>thought\n<channel|>C',
+    );
+
+    expect(projector.takeReasoning()).toBe('real');
   });
 
   it('never reports a channel label or an empty channel as reasoning', () => {

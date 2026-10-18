@@ -172,11 +172,23 @@ export interface IOpenAIResponsesTextDeltaEvent {
 }
 
 /**
- * Text of a reasoning summary. The API streams it only when the request asked for a summary
+ * A reasoning item's summary is streamed in parts, each announced by this event before its text.
+ * `item_id` and `summary_index` name the part; a stream that omits them cannot be told apart.
+ */
+export interface IOpenAIResponsesReasoningSummaryPartAddedEvent {
+  type: 'response.reasoning_summary_part.added';
+  item_id?: string;
+  summary_index?: number;
+}
+
+/**
+ * Text of a reasoning summary part. The API streams it only when the request asked for a summary
  * (`reasoning.summary`); it is never part of the reply text.
  */
 export interface IOpenAIResponsesReasoningSummaryTextDeltaEvent {
   type: 'response.reasoning_summary_text.delta';
+  item_id?: string;
+  summary_index?: number;
   delta: string;
 }
 
@@ -199,6 +211,7 @@ export interface IOpenAIResponsesErrorEvent {
 
 export type TOpenAIResponsesStreamEvent =
   | IOpenAIResponsesTextDeltaEvent
+  | IOpenAIResponsesReasoningSummaryPartAddedEvent
   | IOpenAIResponsesReasoningSummaryTextDeltaEvent
   | IOpenAIResponsesCompletedEvent
   | IOpenAIResponsesOutputItemDoneEvent

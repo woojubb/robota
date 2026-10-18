@@ -39,10 +39,12 @@ pass their reply text up but not their reasoning.
 Two providers already receive reasoning text and now report it. `@robota-sdk/agent-provider-openai`
 passes `response.reasoning_summary_text.delta` events of a streamed Responses call to
 `onThinkingDelta`; the API sends them only when the provider profile asks for a reasoning summary, and
-no request option changed. `@robota-sdk/agent-provider-openai-compatible` reports the text of Gemma's
-thought channel, which the provider already removed from the reply, as it streams across chunk
-boundaries; the reply text is unchanged. No other provider reports reasoning, and Anthropic thinking is
-not enabled. A model fallback chain still moves to the next model when only reasoning had streamed.
+no request option changed; a summary streamed in several parts, and the summary of a later reasoning
+item, each start on a new paragraph (`\n\n`) so the parts do not run together.
+`@robota-sdk/agent-provider-openai-compatible` reports the text of Gemma's thought channel, which the
+provider already removed from the reply, as it streams across chunk boundaries, with each later
+channel of one reply on a new paragraph; the reply text is unchanged. No other provider reports
+reasoning, and Anthropic thinking is not enabled. A model fallback chain still moves to the next model when only reasoning had streamed.
 
 The scripted test provider (`@robota-sdk/agent-core/testing`) accepts an optional `thinking` string on
 a turn and delivers it through `onThinkingDelta` before the turn's text; the scripted session harness

@@ -135,4 +135,85 @@ describe('OpenAI Responses reasoning summary stream', () => {
 
     expect(message.content).toBe('The answer.');
   });
+
+  describe('separating one thought from the next', () => {
+    const part = (itemId: string, summaryIndex: number): TOpenAIResponsesStreamEvent => ({
+      type: 'response.reasoning_summary_part.added',
+      item_id: itemId,
+      summary_index: summaryIndex,
+    });
+    const delta = (
+      itemId: string,
+      summaryIndex: number,
+      text: string,
+    ): TOpenAIResponsesStreamEvent => ({
+      type: 'response.reasoning_summary_text.delta',
+      item_id: itemId,
+      summary_index: summaryIndex,
+      delta: text,
+    });
+
+    async function thoughtsOf(events: TOpenAIResponsesStreamEvent[]): Promise<string[]> {
+      const thoughts: string[] = [];
+      await assembleOpenAIResponsesStream({
+        stream: eventsFrom([...events, completed]),
+        onThinkingDelta: (text) => thoughts.push(text),
+      });
+      return thoughts;
+    }
+
+    it('starts a later summary part of the same reasoning item on a new paragraph', async () => {
+      const thoughts = await thoughtsOf([
+        part('rs_1', 0),
+        delta('rs_1', 0, 'Weighing '),
+        delta('rs_1', 0, 'the options.'),
+        part('rs_1', 1),
+        delta('rs_1', 1, 'Picking one.'),
+      ]);
+
+      expect(thoughts.join('')).toBe('Weighing the options.\n\nPicking one.');
+      expect(thoughts).toEqual(['Weighing ', 'the options.', '\n\nPicking one.']);
+    });
+
+    it('starts the summary of a later reasoning item on a new paragraph', async () => {
+      const thoughts = await thoughtsOf([
+        part('rs_1', 0),
+        delta('rs_1', 0, 'Before the tool.'),
+        part('rs_2', 0),
+        delta('rs_2', 0, 'After the tool.'),
+      ]);
+
+      expect(thoughts.join('')).toBe('Before the tool.\n\nAfter the tool.');
+    });
+
+    it('tells parts apart by the index each delta carries when no part event was streamed', async () => {
+      const thoughts = await thoughtsOf([
+        delta('rs_1', 0, 'One.'),
+        delta('rs_1', 0, ' Still one.'),
+        delta('rs_1', 1, 'Two.'),
+      ]);
+
+      expect(thoughts.join('')).toBe('One. Still one.\n\nTwo.');
+    });
+
+    it('does not put a break before the first thought or around a part that carried no text', async () => {
+      const thoughts = await thoughtsOf([
+        part('rs_1', 0),
+        part('rs_1', 1),
+        delta('rs_1', 1, 'Only this.'),
+        part('rs_1', 2),
+      ]);
+
+      expect(thoughts).toEqual(['Only this.']);
+    });
+
+    it('does not separate a stream whose deltas name no part', async () => {
+      const thoughts = await thoughtsOf([
+        { type: 'response.reasoning_summary_text.delta', delta: 'a' },
+        { type: 'response.reasoning_summary_text.delta', delta: 'b' },
+      ]);
+
+      expect(thoughts).toEqual(['a', 'b']);
+    });
+  });
 });
