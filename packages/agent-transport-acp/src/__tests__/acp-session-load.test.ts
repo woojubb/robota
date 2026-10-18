@@ -12,12 +12,11 @@ import {
 } from './acp-test-harness.js';
 
 import type { IFakeSession } from './acp-test-harness.js';
-import type { IAcpTransportOptions } from '../acp-types.js';
-import type {
-  ICommandListEntry,
-  ICommandSkillListEntry,
-  IHistoryDisplaySegment,
-} from '@robota-sdk/agent-interface-session';
+import type { IAcpTransportOptions, IAcpTransportSession } from '../acp-types.js';
+import type { IHistoryDisplaySegment } from '@robota-sdk/agent-interface-session';
+
+type ICommandListEntry = ReturnType<IAcpTransportSession['listCommands']>[number];
+type ICommandSkillListEntry = ReturnType<IAcpTransportSession['listSkills']>[number];
 
 const open: { stop(): Promise<void> }[] = [];
 afterEach(async () => {
