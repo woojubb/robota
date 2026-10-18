@@ -130,6 +130,7 @@ export abstract class InteractiveSessionBase {
     source: TCommandInvocationSource = 'user',
     originDriverId?: TDriverId,
     locality?: TCommandSurfaceLocality,
+    options?: { readonly signal?: AbortSignal },
   ): Promise<ICommandResult | null> {
     await this.ensureInitialized();
     if (this.execCtrl.executing && !this.skillRouter.canRunDuringTurn(name, args, source))
@@ -137,7 +138,7 @@ export abstract class InteractiveSessionBase {
         success: false,
         message: 'Another prompt or command is already running. Wait for it to finish.',
       };
-    return this.skillRouter.executeCommand(name, args, source, originDriverId, locality);
+    return this.skillRouter.executeCommand(name, args, source, originDriverId, locality, options);
   }
   async executeModelCommand(name: string, args: string): Promise<ICommandResult | null> {
     await this.ensureInitialized();

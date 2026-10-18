@@ -16,7 +16,7 @@ class SkillSession extends InteractiveSession {
   install(skill: ICommand) {
     this.skillRouter.replacePluginSkills([skill]);
   }
-  runSkill(skill: ICommand) {
+  runSkill(skill: ICommand, signal?: AbortSignal) {
     return this.skillRouter.executeUserResolvedSkillCommand(
       skill,
       'task',
@@ -24,6 +24,7 @@ class SkillSession extends InteractiveSession {
       '/remote task',
       'user-slash',
       'guest',
+      signal,
     );
   }
 }
@@ -91,6 +92,19 @@ it('cancelling the queued skill does not acquire instructions', async () => {
   await f.started.promise;
   await f.session.runSkill(f.skill);
   f.session.cancelQueue();
+  f.finish.resolve('first');
+  await first;
+  expect(f.acquire).not.toHaveBeenCalled();
+  expect(f.run).toHaveBeenCalledOnce();
+});
+
+it("cancelling the command's own signal drops only its queued skill, before acquiring instructions", async () => {
+  const f = fixture();
+  const first = f.session.submit('hold');
+  await f.started.promise;
+  const controller = new AbortController();
+  await f.session.runSkill(f.skill, controller.signal);
+  controller.abort();
   f.finish.resolve('first');
   await first;
   expect(f.acquire).not.toHaveBeenCalled();
