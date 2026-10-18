@@ -1082,6 +1082,9 @@ async function runCliCore(
           cwd,
           input: process.stdin,
           output: protocolStdout,
+          ...(workspaceComposition.createEditCheckpointStore !== undefined
+            ? { createEditCheckpointStore: workspaceComposition.createEditCheckpointStore }
+            : {}),
           admitWorkspace: () =>
             admitAcpWorkspace({
               access: workspaceComposition.projectAccess,

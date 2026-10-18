@@ -13,11 +13,17 @@ const mock = vi.hoisted(() => ({
   executeCommand: vi.fn(),
   options: undefined as undefined | Record<string, unknown>,
   session: undefined as undefined | Record<string, unknown>,
+  /** What each `buildRuntimeSession` call returns after the first; the first returns `session`. */
+  next: [] as Record<string, unknown>[],
+  built: [] as Record<string, unknown>[],
 }));
 
 vi.mock('@robota-sdk/agent-framework', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@robota-sdk/agent-framework')>()),
-  buildRuntimeSession: () => mock.session,
+  buildRuntimeSession: (options: Record<string, unknown>) => {
+    mock.built.push(options);
+    return mock.built.length === 1 ? mock.session : mock.next.shift();
+  },
 }));
 vi.mock('@robota-sdk/agent-transport-acp', () => ({
   createAcpTransport: (options: Record<string, unknown>) => {
@@ -35,13 +41,38 @@ import { runAcpMode } from '../acp-mode.js';
 
 import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 
-function setup() {
-  mock.session = {
-    shutdown: mock.shutdown,
+/** A built session as the slot sees it: it names itself once initialized and can be shut down. */
+function fakeSession(sessionId: string) {
+  return {
+    shutdown: vi.fn().mockResolvedValue(undefined),
     on: vi.fn(),
     off: vi.fn(),
     executeCommand: mock.executeCommand,
+    whenInitialized: vi.fn().mockResolvedValue(undefined),
+    getStatusSnapshot: () => ({ sessionId }),
+    getSession: () => ({ getSessionId: () => sessionId }),
   };
+}
+
+/** A project session store holding `ids`, saved from this workspace. */
+function storeWith(...ids: string[]) {
+  return {
+    list: () =>
+      ids.map((id) => ({
+        outcome: {
+          status: 'valid',
+          record: { id, cwd: '/workspace', updatedAt: '2026-10-18T00:00:00.000Z', messages: [] },
+        },
+      })),
+  };
+}
+
+function setup(sessionOptions: Partial<TInteractiveSessionOptions> = {}) {
+  mock.session = { ...fakeSession('started-1'), shutdown: mock.shutdown };
+  mock.next = [];
+  mock.built = [];
+  mock.attach.mockClear();
+  mock.shutdown.mockClear();
   mock.stop.mockResolvedValue(undefined);
   mock.shutdown.mockResolvedValue(undefined);
   const input = new PassThrough();
@@ -50,7 +81,7 @@ function setup() {
   const run = () =>
     runAcpMode({
       productRuntime: createTestProductRuntime(),
-      sessionOptions: {} as TInteractiveSessionOptions,
+      sessionOptions: sessionOptions as TInteractiveSessionOptions,
       version: '9.9.9',
       cwd: '/workspace',
       input,
@@ -60,6 +91,8 @@ function setup() {
   return { input, output, admitWorkspace, run };
 }
 
+type TLoad = (sessionId: string) => Promise<{ loaded: boolean; message?: string }>;
+
 describe('ACP mode', () => {
   it('serves one session on the given streams and tears down when the editor goes away', async () => {
     mock.start.mockResolvedValue(undefined);
@@ -68,7 +101,8 @@ describe('ACP mode', () => {
 
     await expect(run()).resolves.toBeUndefined();
 
-    expect(mock.attach).toHaveBeenCalledWith(mock.session);
+    // The transport serves a slot whose session is the one this process started.
+    expect((mock.attach.mock.calls[0]![0] as { current: unknown }).current).toBe(mock.session);
     expect(mock.start).toHaveBeenCalledOnce();
     expect(mock.stop).toHaveBeenCalledOnce();
     expect(mock.shutdown).toHaveBeenCalledOnce();
@@ -134,5 +168,53 @@ describe('ACP mode', () => {
     mock.shutdown.mockClear();
     await expect(run()).rejects.toThrow('stop failed');
     expect(mock.shutdown).toHaveBeenCalledOnce();
+  });
+
+  it('offers no session loading when nothing is saved', async () => {
+    mock.start.mockResolvedValue(undefined);
+    mock.waitForClose.mockResolvedValue(undefined);
+    const { run } = setup();
+    await run();
+    expect(mock.options).not.toHaveProperty('loadSession');
+  });
+
+  it('loads only a session this workspace can resume, and makes it the served one', async () => {
+    mock.start.mockResolvedValue(undefined);
+    mock.waitForClose.mockResolvedValue(undefined);
+    const { run } = setup({ sessionStore: storeWith('stored-1') as never, sessionName: 'launch' });
+    const loaded = fakeSession('stored-1');
+    await run();
+    const load = mock.options!['loadSession'] as TLoad;
+    mock.next = [loaded];
+
+    await expect(load('unknown')).resolves.toEqual({
+      loaded: false,
+      message: 'No session unknown in this workspace.',
+    });
+    expect(mock.built).toHaveLength(1);
+
+    await expect(load('stored-1')).resolves.toEqual({ loaded: true });
+    expect(mock.built[1]).toMatchObject({ resumeSessionId: 'stored-1', sessionName: undefined });
+    const slot = mock.attach.mock.calls[0]![0] as { current: unknown };
+    expect(slot.current).toBe(loaded);
+    // The session it replaced is shut down; loading the served one again builds nothing.
+    expect(mock.shutdown).toHaveBeenCalled();
+    await expect(load('stored-1')).resolves.toEqual({ loaded: true });
+    expect(mock.built).toHaveLength(2);
+  });
+
+  it('keeps the served session when the stored one fails to start', async () => {
+    mock.start.mockResolvedValue(undefined);
+    mock.waitForClose.mockResolvedValue(undefined);
+    const { run } = setup({ sessionStore: storeWith('stored-1') as never });
+    const broken = fakeSession('stored-1');
+    broken.whenInitialized.mockRejectedValue(new Error('record unreadable'));
+    await run();
+    mock.next = [broken];
+    await expect((mock.options!['loadSession'] as TLoad)('stored-1')).rejects.toThrow(
+      'record unreadable',
+    );
+    expect((mock.attach.mock.calls[0]![0] as { current: unknown }).current).toBe(mock.session);
+    expect(broken.shutdown).toHaveBeenCalled();
   });
 });
