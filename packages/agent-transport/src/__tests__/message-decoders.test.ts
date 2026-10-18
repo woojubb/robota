@@ -68,10 +68,11 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
   'call-app-tool': {
     type: 'call-app-tool',
     requestId: 'app-tool-1',
+    viewId: 'view-1',
     name: 'mcp__files__list_files',
     arguments: { path: 'src' },
   },
-  'read-app-view': { type: 'read-app-view', requestId: 'app-view-1', executionId: 'call-1' },
+  'read-app-view': { type: 'read-app-view', requestId: 'app-view-1', viewId: 'view-1' },
   'get-background-tasks': {
     type: 'get-background-tasks',
     filter: { kind: 'agent', includeClosed: true },
@@ -318,27 +319,41 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
 
 const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
   ['null', null],
-  ['call-app-tool without requestId', { type: 'call-app-tool', name: 'n', arguments: {} }],
+  [
+    'call-app-tool without requestId',
+    { type: 'call-app-tool', viewId: 'v', name: 'n', arguments: {} },
+  ],
   [
     'call-app-tool with an empty requestId',
-    { type: 'call-app-tool', requestId: '', name: 'n', arguments: {} },
+    { type: 'call-app-tool', requestId: '', viewId: 'v', name: 'n', arguments: {} },
+  ],
+  [
+    'call-app-tool without a viewId',
+    { type: 'call-app-tool', requestId: 'r', name: 'n', arguments: {} },
+  ],
+  [
+    'call-app-tool with an empty viewId',
+    { type: 'call-app-tool', requestId: 'r', viewId: '', name: 'n', arguments: {} },
   ],
   [
     'call-app-tool without a name',
-    { type: 'call-app-tool', requestId: 'r', arguments: {} },
+    { type: 'call-app-tool', requestId: 'r', viewId: 'v', arguments: {} },
   ],
   [
     'call-app-tool with a string argument bag',
-    { type: 'call-app-tool', requestId: 'r', name: 'n', arguments: 'x' },
+    { type: 'call-app-tool', requestId: 'r', viewId: 'v', name: 'n', arguments: 'x' },
   ],
   [
     'call-app-tool with an array argument bag',
-    { type: 'call-app-tool', requestId: 'r', name: 'n', arguments: [] },
+    { type: 'call-app-tool', requestId: 'r', viewId: 'v', name: 'n', arguments: [] },
   ],
-  ['call-app-tool without arguments', { type: 'call-app-tool', requestId: 'r', name: 'n' }],
-  ['read-app-view without requestId', { type: 'read-app-view', executionId: 'call-1' }],
-  ['read-app-view without executionId', { type: 'read-app-view', requestId: 'r' }],
-  ['read-app-view with a numeric executionId', { type: 'read-app-view', requestId: 'r', executionId: 1 }],
+  [
+    'call-app-tool without arguments',
+    { type: 'call-app-tool', requestId: 'r', viewId: 'v', name: 'n' },
+  ],
+  ['read-app-view without requestId', { type: 'read-app-view', viewId: 'v' }],
+  ['read-app-view without viewId', { type: 'read-app-view', requestId: 'r' }],
+  ['read-app-view with a numeric viewId', { type: 'read-app-view', requestId: 'r', viewId: 1 }],
   ['an array', [{ type: 'abort' }]],
   ['a string', 'abort'],
   ['no type', { prompt: 'x' }],
@@ -717,7 +732,13 @@ describe('the app tool and app view frames', () => {
 
   it('keeps an app tool call with no arguments as an empty bag, not as a missing one', () => {
     expect(
-      decodeClientMessage({ type: 'call-app-tool', requestId: 'r', name: 'n', arguments: {} }).ok,
+      decodeClientMessage({
+        type: 'call-app-tool',
+        requestId: 'r',
+        viewId: 'v',
+        name: 'n',
+        arguments: {},
+      }).ok,
     ).toBe(true);
   });
 });

@@ -224,6 +224,30 @@ describe('direct session runtime tools', () => {
     }
   });
 
+  it('labels the call\'s tool events with the id its caller names, and mints one otherwise', async () => {
+    const onToolExecution = vi.fn();
+    const { session } = fixture(async () => 'ran', {
+      permissions: { allow: ['Write'], deny: [] },
+      onToolExecution,
+    });
+    const executionIds = (): Array<string | undefined> =>
+      onToolExecution.mock.calls.map(([event]) => event.executionId);
+    try {
+      await session.invokeRuntimeTool('Write', {}, { executionId: 'direct-call-1' });
+      expect(executionIds()).toEqual(['direct-call-1', 'direct-call-1']);
+
+      onToolExecution.mockClear();
+      await session.invokeRuntimeTool('Write', {});
+      const minted = executionIds();
+      expect(minted).toHaveLength(2);
+      expect(minted[0]).toEqual(expect.any(String));
+      expect(minted[0]).not.toBe('direct-call-1');
+      expect(minted[1]).toBe(minted[0]);
+    } finally {
+      await session.shutdown();
+    }
+  });
+
   it('refuses interactive approval but invokes explicit allows through truncation and audit without a model call', async () => {
     const execute = vi.fn(async () => 'x'.repeat(40000));
     const denied = fixture(execute);

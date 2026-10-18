@@ -16,15 +16,13 @@ export class InteractiveExecutionClaimOwner {
     return this.activeClaim !== undefined;
   }
 
-  /** What the held claim is for; undefined while nothing is running. */
-  get activeKind(): TExecutionClaimKind | undefined {
-    return this.activeClaim?.kind;
-  }
-
+  /**
+   * Reserve admission for a submission before initialization yields. A submission that arrives while
+   * a direct runtime-tool call holds the claim is admitted like one that arrives during a turn: it
+   * queues behind the call and starts when the call completes. A call parked on a permission prompt
+   * can last a long time, and refusing input for that long would also lose agent wakeups.
+   */
   beginSubmission(): void {
-    if (this.activeClaim?.kind === 'runtime-tool') {
-      throw new Error('A runtime tool is already running. Wait for it to finish.');
-    }
     this.pendingSubmissions += 1;
   }
 

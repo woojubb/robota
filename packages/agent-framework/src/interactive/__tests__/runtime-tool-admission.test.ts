@@ -3,11 +3,14 @@ import { InteractiveExecutionClaimOwner } from '../interactive-execution-claim.j
 import { PendingInputQueue } from '../interactive-session-pending-queue.js';
 
 describe('canonical runtime tool admission', () => {
-  it('holds the same foreground claim and refuses submissions while a direct call drains', () => {
+  it('holds the same foreground claim: another direct call is refused, a submission is admitted', () => {
     const owner = new InteractiveExecutionClaimOwner([]);
     const call = owner.acquire('runtime-tool');
-    expect(() => owner.beginSubmission()).toThrow(/runtime tool/i);
+    // A submission arriving during the call queues behind it, as one arriving during a turn does.
+    owner.beginSubmission();
+    owner.endSubmission();
     expect(() => owner.acquire('runtime-tool')).toThrow(/already running/i);
+    expect(() => owner.acquire('prompt')).toThrow(/already running/i);
     owner.complete(call, vi.fn());
     owner.beginSubmission();
     owner.endSubmission();

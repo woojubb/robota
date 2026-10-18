@@ -1,4 +1,8 @@
-import type { TPermissionHandler, TPermissionResult } from './permission-types.js';
+import type {
+  IPermissionAskContext,
+  TPermissionHandler,
+  TPermissionResult,
+} from './permission-types.js';
 import type { ITerminalOutput, TToolArgs } from '@robota-sdk/agent-core';
 
 /**
@@ -112,14 +116,20 @@ export async function decideApproval(request: IApprovalRequest): Promise<IApprov
   if (request.signal?.aborted === true) return denied;
   // Which prompt to run is this module's business too: the enforcer supplies the approvers it has
   // and does not decide between them.
-  // A call with no id asks exactly as before (two arguments), so a handler that counts them sees no change.
+  // The handler is given the same signal the wait observes, so it can withdraw the prompt itself:
+  // racing the abort ends this wait, but only the handler can take the question off a screen. A call
+  // with neither a signal nor an id asks exactly as before (two arguments), so a handler that counts
+  // them sees no change.
+  const context: IPermissionAskContext = {
+    ...(request.signal ? { signal: request.signal } : {}),
+    ...(request.executionId !== undefined ? { executionId: request.executionId } : {}),
+  };
+  const hasContext = request.signal !== undefined || request.executionId !== undefined;
   const prompt = request.handler
     ? (): Promise<TPermissionResult> =>
-        request.executionId === undefined
-          ? request.handler!(request.toolName, request.toolArgs)
-          : request.handler!(request.toolName, request.toolArgs, {
-              executionId: request.executionId,
-            })
+        hasContext
+          ? request.handler!(request.toolName, request.toolArgs, context)
+          : request.handler!(request.toolName, request.toolArgs)
     : request.injectedPrompt && request.terminal
       ? (): Promise<TPermissionResult> =>
           request.injectedPrompt!(request.terminal!, request.toolName, request.toolArgs)

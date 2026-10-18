@@ -1,4 +1,9 @@
-import type { SessionExecutionController } from './interactive-session-execution-controller.js';
+import { randomUUID } from 'node:crypto';
+
+import type {
+  IQueuedInput,
+  SessionExecutionController,
+} from './interactive-session-execution-controller.js';
 import type { IToolExecutionResult, IToolSchema, TToolParameters } from '@robota-sdk/agent-core';
 import type {
   IRuntimeToolInvokeOptions,
@@ -9,6 +14,8 @@ interface IRuntimeToolsDeps {
   readonly controller: () => SessionExecutionController;
   readonly ensureInitialized: () => Promise<void>;
   readonly session: () => ISessionRuntimeTools;
+  /** Starts a queued turn; a submission that arrived during the call runs when the call ends. */
+  readonly resumeQueuedTurn: (entry: IQueuedInput) => Promise<void>;
 }
 
 /** Admits direct calls through the same foreground owner as prompt turns. */
@@ -37,11 +44,15 @@ export class InteractiveSessionRuntimeTools implements ISessionRuntimeTools {
     // The claim is exclusive, so no turn is active meanwhile: the driver this call acts for is the
     // one the permission prompt and the tool events it raises are attributed to.
     controller.activeDriverId = options?.driverId ?? null;
+    // This call's events are recognised by their id, not by the claim: a model's call can end while
+    // this one holds the claim, and only this call's own events are a direct call's.
+    const executionId = options?.executionId ?? randomUUID();
+    controller.directCallIds.add(executionId);
     const execution = (async () => {
       await this.deps.ensureInitialized();
       this.assertOpen();
       options?.signal?.throwIfAborted();
-      return this.deps.session().invokeRuntimeTool(name, parameters, options);
+      return this.deps.session().invokeRuntimeTool(name, parameters, { ...options, executionId });
     })();
     this.inFlight = execution;
     try {
@@ -49,7 +60,8 @@ export class InteractiveSessionRuntimeTools implements ISessionRuntimeTools {
     } finally {
       this.inFlight = undefined;
       controller.activeDriverId = null;
-      controller.executionClaim.complete(claim, () => {});
+      controller.directCallIds.delete(executionId);
+      controller.completeRuntimeTool(claim, this.deps.resumeQueuedTurn);
     }
   }
 

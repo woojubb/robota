@@ -23,44 +23,153 @@ function controller() {
     } as never,
   );
 }
-function runtime(execCtrl = controller(), init = Promise.resolve()) {
+function runtime(
+  execCtrl = controller(),
+  init = Promise.resolve(),
+  invoke: ISessionRuntimeTools['invokeRuntimeTool'] = async () => ({
+    success: true,
+    toolName: 'tool',
+    result: 'ok',
+  }),
+) {
   const session: ISessionRuntimeTools = {
     listRuntimeTools: vi.fn(async () => []),
-    invokeRuntimeTool: vi.fn(async () => ({ success: true, toolName: 'tool', result: 'ok' })),
+    invokeRuntimeTool: vi.fn(invoke),
   };
+  const resumeQueuedTurn = vi.fn(async (_entry: IQueuedInput) => {});
   const tools = new InteractiveSessionRuntimeTools({
     controller: () => execCtrl,
     ensureInitialized: () => init,
     session: () => session,
+    resumeQueuedTurn,
   });
-  return { tools, session, execCtrl };
+  return { tools, session, execCtrl, resumeQueuedTurn };
+}
+function submissionDeps(execCtrl: SessionExecutionController, init = Promise.resolve()) {
+  return {
+    execCtrl,
+    ensureInitialized: () => init,
+    executeAcceptedTurn: vi.fn(),
+    emitDropped: vi.fn(),
+    isWakeStopped: () => false,
+  };
 }
 
 describe('runtime tools and scoped submission cancellation', () => {
-  it('claims before initialization and refuses concurrent direct calls and submissions', async () => {
+  it('claims before initialization and refuses a concurrent direct call', async () => {
     const init = deferred<void>();
     const { tools, session, execCtrl } = runtime(controller(), init.promise);
     const first = tools.invokeRuntimeTool('tool', {});
     await expect(tools.invokeRuntimeTool('tool', {})).rejects.toThrow(/already running/i);
-    await expect(
-      submitNewTurn(
-        'blocked',
-        undefined,
-        undefined,
-        {},
-        {
-          execCtrl,
-          ensureInitialized: () => init.promise,
-          executeAcceptedTurn: vi.fn(),
-          emitDropped: vi.fn(),
-          isWakeStopped: () => false,
-        },
-      ),
-    ).rejects.toThrow(/runtime tool/i);
     init.resolve();
     await expect(first).resolves.toMatchObject({ success: true });
-    expect(session.invokeRuntimeTool).toHaveBeenCalledExactlyOnceWith('tool', {}, undefined);
+    expect(session.invokeRuntimeTool).toHaveBeenCalledExactlyOnceWith('tool', {}, {
+      executionId: expect.any(String),
+    });
     expect(execCtrl.executing).toBe(false);
+  });
+
+  it('queues a submission that arrives during a direct call and starts it when the call ends', async () => {
+    const hold = deferred<void>();
+    const { tools, execCtrl, resumeQueuedTurn } = runtime(controller(), Promise.resolve(), async () => {
+      await hold.promise;
+      return { success: true, toolName: 'tool', result: 'ok' };
+    });
+    const call = tools.invokeRuntimeTool('tool', {});
+    await Promise.resolve();
+    const deps = submissionDeps(execCtrl);
+
+    // A call parked on a permission prompt can last a long time; input must not be refused for it.
+    const handle = await submitNewTurn('later', undefined, undefined, {}, deps);
+
+    expect(execCtrl.pendingCount()).toBe(1);
+    expect(deps.executeAcceptedTurn).not.toHaveBeenCalled();
+    expect(resumeQueuedTurn).not.toHaveBeenCalled();
+    hold.resolve();
+    await call;
+    expect(resumeQueuedTurn).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ input: 'later', turnId: handle.turnId }),
+    );
+    expect(execCtrl.pendingCount()).toBe(0);
+  });
+
+  it('keeps an agent wakeup that arrives during a direct call instead of dropping it', async () => {
+    const hold = deferred<void>();
+    const { tools, execCtrl, resumeQueuedTurn } = runtime(controller(), Promise.resolve(), async () => {
+      await hold.promise;
+      return { success: true, toolName: 'tool', result: 'ok' };
+    });
+    const call = tools.invokeRuntimeTool('tool', {});
+    await Promise.resolve();
+
+    await submitNewTurn(
+      'wake',
+      undefined,
+      undefined,
+      { turnSource: 'agent-wakeup', wakeTaskId: 'task-1' },
+      submissionDeps(execCtrl),
+    );
+    hold.resolve();
+    await call;
+
+    expect(resumeQueuedTurn).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        input: 'wake',
+        options: expect.objectContaining({ wakeTaskId: 'task-1', turnSource: 'agent-wakeup' }),
+      }),
+    );
+  });
+
+  it('still refuses a direct call while input is queued behind another', async () => {
+    const hold = deferred<void>();
+    const { tools, execCtrl } = runtime(controller(), Promise.resolve(), async () => {
+      await hold.promise;
+      return { success: true, toolName: 'tool', result: 'ok' };
+    });
+    const call = tools.invokeRuntimeTool('tool', {});
+    await Promise.resolve();
+    await submitNewTurn('later', undefined, undefined, {}, submissionDeps(execCtrl));
+
+    // Fail fast for the direct caller: the claim is held and input is already waiting for it.
+    await expect(tools.invokeRuntimeTool('tool', {})).rejects.toThrow(/queued/i);
+    hold.resolve();
+    await call;
+    // The queued input started in the call's place, so the next direct call finds the queue drained.
+    expect(execCtrl.pendingCount()).toBe(0);
+  });
+
+  it('recognises its own call by the id it started with, and only while it runs', async () => {
+    const execCtrl = controller();
+    const during: string[][] = [];
+    const received: Array<string | undefined> = [];
+    const { tools } = runtime(execCtrl, Promise.resolve(), async (_name, _parameters, options) => {
+      during.push([...execCtrl.directCallIds]);
+      received.push(options?.executionId);
+      return { success: true, toolName: 'tool', result: 'ok' };
+    });
+
+    await tools.invokeRuntimeTool('tool', {});
+    await tools.invokeRuntimeTool('tool', {}, { executionId: 'named-by-caller' });
+
+    expect(during[0]).toEqual([received[0]]);
+    expect(received[0]).toEqual(expect.any(String));
+    expect(during[1]).toEqual(['named-by-caller']);
+    expect(received[1]).toBe('named-by-caller');
+    expect(execCtrl.directCallIds.size).toBe(0);
+  });
+
+  it('forgets the id of a direct call that failed, and registers none for a refused one', async () => {
+    const execCtrl = controller();
+    const { tools } = runtime(execCtrl, Promise.resolve(), async () => {
+      throw new Error('tool exploded');
+    });
+    await expect(tools.invokeRuntimeTool('tool', {})).rejects.toThrow('tool exploded');
+    expect(execCtrl.directCallIds.size).toBe(0);
+
+    const claim = execCtrl.executionClaim.acquire('prompt');
+    await expect(tools.invokeRuntimeTool('tool', {})).rejects.toThrow(/already running/i);
+    expect(execCtrl.directCallIds.size).toBe(0);
+    execCtrl.executionClaim.complete(claim, () => {});
   });
 
   it('attributes a direct call to the driver it acts for, only while it runs', async () => {
@@ -77,12 +186,16 @@ describe('runtime tools and scoped submission cancellation', () => {
       controller: () => execCtrl,
       ensureInitialized: () => Promise.resolve(),
       session: () => session,
+      resumeQueuedTurn: vi.fn(async () => {}),
     });
     const options = { driverId: 'drv-1', permissionInteraction: 'interactive' as const };
 
     await tools.invokeRuntimeTool('tool', {}, options);
     expect(seen).toEqual(['drv-1']);
-    expect(session.invokeRuntimeTool).toHaveBeenCalledExactlyOnceWith('tool', {}, options);
+    expect(session.invokeRuntimeTool).toHaveBeenCalledExactlyOnceWith('tool', {}, {
+      ...options,
+      executionId: expect.any(String),
+    });
     expect(execCtrl.activeDriverId).toBeNull();
 
     await tools.invokeRuntimeTool('tool', {});
@@ -101,6 +214,7 @@ describe('runtime tools and scoped submission cancellation', () => {
       controller: () => execCtrl,
       ensureInitialized: () => Promise.resolve(),
       session: () => session,
+      resumeQueuedTurn: vi.fn(async () => {}),
     });
     await expect(tools.invokeRuntimeTool('tool', {}, { driverId: 'drv-1' })).rejects.toThrow(
       'tool exploded',

@@ -63,7 +63,7 @@ export interface IToolState {
   internal?: boolean;
   /**
    * A finished model call's result has a view its source declared (an MCP app) that a surface able
-   * to host one may read with `readToolAppView(executionId)`. A reference only: the document never
+   * to host one may read with `readToolAppView(viewId)`. A reference only: the document never
    * rides the event to every surface. Carried by the live `tool_end` alone — not by a replay or the
    * persisted history — so a surface without a frame, and every surface after a reload, shows the
    * text result.
@@ -73,6 +73,8 @@ export interface IToolState {
 
 /** Names the view a finished call has; the document itself is read on demand. */
 export interface IToolAppViewRef {
+  /** Names the kept view; minted by the session, so it is unique even when tool-call ids repeat. */
+  readonly viewId: string;
   readonly sourceId: string;
   /** The `ui://` resource the source declared for the call. */
   readonly resourceUri: string;
@@ -92,10 +94,14 @@ export type IHistoryDisplaySegment =
   | { type: 'text'; role: 'user' | 'assistant'; content: string }
   | { type: 'tool'; tool: IToolState };
 
-/** Permission handler delegate — clients provide their own UI. */
+/**
+ * Permission handler delegate — clients provide their own UI. `options.signal` is the caller's own
+ * cancellation: aborting it withdraws the prompt, which settles denied.
+ */
 export type TInteractivePermissionHandler = (
   toolName: string,
   toolArgs: TToolArgs,
+  options?: { signal?: AbortSignal },
 ) => Promise<TPermissionResultValue>;
 
 /**

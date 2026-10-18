@@ -68,6 +68,8 @@ export interface ISessionResumeBridgeOptions {
   readonly storedSessionUsageReporter?: IUsageQueryReporters['storedSessionUsageReporter'];
   /** #3282 §4 part b-2: this bridge is the reconnectable WebRTC path, so it is always `'remote'`. */
   readonly commandSurfaceLocality?: TCommandSurfaceLocality;
+  /** See {@link ISessionMessageHandlerOptions.maxFrameBytes}: the channel's limit, not the inbound one. */
+  readonly maxFrameBytes?: number;
 }
 
 export class SessionResumeBridge {
@@ -77,6 +79,13 @@ export class SessionResumeBridge {
   private readonly reporters: IUsageQueryReporters;
   private readonly surface?: TUsageSurface;
   private readonly commandSurfaceLocality?: TCommandSurfaceLocality;
+  private readonly maxFrameBytes?: number;
+  /**
+   * Ends with the bridge, not with a channel: a channel drop keeps the session reconnectable, so work
+   * started for a hosted app view (a call waiting on its prompt) survives it and is cancelled only when
+   * the host gives up on the session.
+   */
+  private readonly lifetime = new AbortController();
   private readonly unsubscribe: () => void;
   private onDeliveryError?: IAttachOptions['onDeliveryError'];
   /**
@@ -110,6 +119,7 @@ export class SessionResumeBridge {
     this.driverId = options.driverId;
     this.surface = options.surface;
     this.commandSurfaceLocality = options.commandSurfaceLocality;
+    this.maxFrameBytes = options.maxFrameBytes;
     this.reporters = {
       personalUsageReporter: options.personalUsageReporter,
       usageReporter: options.usageReporter,
@@ -186,6 +196,10 @@ export class SessionResumeBridge {
       undefined,
       undefined,
       this.commandSurfaceLocality,
+      {
+        signal: this.lifetime.signal,
+        ...(this.maxFrameBytes !== undefined ? { maxFrameBytes: this.maxFrameBytes } : {}),
+      },
     );
   }
 
@@ -193,6 +207,7 @@ export class SessionResumeBridge {
   public dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.lifetime.abort();
     // Through `detach`, not a field assignment: the boundary's closure is what holds the channel, so
     // clearing anything else released nothing and left teardown documented but not performed.
     this.detach();

@@ -166,9 +166,10 @@ A session runs one turn at a time:
   direct calls or turns are refused rather than queued, cancellation keeps the claim until the
   underlying execution settles, and shutdown drains any direct execution before destroying the
   agent. A direct call opens an interactive permission prompt, or puts a question through the
-  session's ask port, only when its caller asks for that because it answers its own prompts;
-  otherwise a decision that would require interaction fails closed rather than blocking, and a
-  question finds no one to ask, because a remote caller is not assumed to have a person behind it.
+  session's ask port, only when its caller asks for that because it answers its own prompts, and
+  cancelling the call withdraws a prompt it opened; otherwise a decision that would require
+  interaction fails closed rather than blocking, and a question finds no one to ask, because a
+  remote caller is not assumed to have a person behind it.
 - Concurrency _across transports_ (e.g. correlating requests from multiple external callers) is
   explicitly out of scope for this contract; it is owned by a different object one layer up.
 

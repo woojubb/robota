@@ -1,4 +1,4 @@
-import { createSessionMessageHandler } from '@robota-sdk/agent-transport';
+import { HISTORY_PAGE_MAX_BYTES, createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import { resolveAdmission } from '@robota-sdk/agent-transport/node';
 import {
   extractDtlsFingerprint,
@@ -320,6 +320,8 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
       surface: 'remote',
       // #3282 §4 part b-2: WebRTC proves no locality; installing a plugin refuses it.
       commandSurfaceLocality: 'remote',
+      // A data channel carries a fraction of the inbound limit (see the pairing-gate branch).
+      maxFrameBytes: HISTORY_PAGE_MAX_BYTES,
     });
     this.cleanupHandler = cleanup;
     channel.onMessage((frame) => {
