@@ -198,6 +198,7 @@ async function executeLoadedSkill(
     const prompt = content ?? `Use the "${skill.name}" skill: ${args || skill.description}`;
 
     const options: IForkExecutionOptions = {};
+    if (callbacks.signal) options.signal = callbacks.signal;
     if (skill.agent) options.agent = skill.agent;
     if (skill.allowedTools) options.allowedTools = skill.allowedTools;
     if (skill.effort) options.effort = skill.effort;

@@ -436,7 +436,7 @@ export class InteractiveSession
       (result) => this.execCtrl.applyForkSkillResult(result),
       (event, appendHistory) => this.histTracker.recordSkillActivationEvent(event, appendHistory),
       (content, forkOptions) => runSkillInFork(content, forkOptions, this.getSessionOrThrow()),
-      (skill, args, displayInput, qualifiedName, invocation) =>
+      (skill, args, displayInput, qualifiedName, invocation, signal) =>
         this.execCtrl.executeForkSkillCommand(
           skill,
           args,
@@ -444,16 +444,18 @@ export class InteractiveSession
           qualifiedName,
           invocation,
           (entry) => this.resumeQueuedTurn(entry),
+          signal,
         ),
       (execute) =>
         this.execCtrl.executeForegroundCommand(execute, (entry) => this.resumeQueuedTurn(entry)),
       shellExec,
       remoteCommandPolicy,
       this.pluginSkills,
-      async (preparePrompt, displayInput, rawInput, originDriverId) => {
+      async (preparePrompt, displayInput, rawInput, originDriverId, signal) => {
         await this.submitNewTurn(displayInput ?? rawInput ?? '', displayInput, rawInput, {
           preparePrompt,
           ...(originDriverId !== undefined ? { driverId: originDriverId } : {}),
+          ...(signal !== undefined ? { signal } : {}),
         });
       },
     );
@@ -2151,6 +2153,7 @@ export class InteractiveSession
     source: TCommandInvocationSource = 'user',
     originDriverId?: TDriverId,
     locality?: TCommandSurfaceLocality,
+    options?: { readonly signal?: AbortSignal },
   ): Promise<ICommandResult | null> {
     if (this.orgPolicy?.blockedCommands?.includes(name)) {
       return {
@@ -2189,8 +2192,8 @@ export class InteractiveSession
     // turn running, keeps the unchanged path.
     const bypassMidTurnGate = name === 'loop' && isLoopStopVerb(args) && this.execCtrl.executing;
     const result = bypassMidTurnGate
-      ? await this.skillRouter.executeCommand(name, args, source, originDriverId, locality)
-      : await super.executeCommand(name, args, source, originDriverId, locality);
+      ? await this.skillRouter.executeCommand(name, args, source, originDriverId, locality, options)
+      : await super.executeCommand(name, args, source, originDriverId, locality, options);
     if (result === null) return null;
     if (result.data?.['pluginRegistryReloaded'] === true && source !== 'model') {
       this.pluginSkills = this.loadPluginSkills();

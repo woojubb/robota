@@ -100,6 +100,11 @@ consumer would write a dead branch for.
 An aborted turn may resolve with a partial result marked interrupted. That partial response is
 for local history, not a completed answer to an external sender.
 
+A command that starts a turn (a skill) takes its caller's cancellation the way a submission does,
+and it reaches the work the command does before submitting as well as the submission itself. Until
+that turn exists a session-wide abort has nothing to stop, so without the caller's signal a cancel
+landing while the skill is prepared would let its turn start anyway.
+
 A consumer narrows a rejection with the exported predicate rather than `instanceof`, because the
 error is declared here as a shape but constructed in a package this one does not depend on. The
 distinction that predicate draws matters at a transport boundary: a "turn did not run" rejection is

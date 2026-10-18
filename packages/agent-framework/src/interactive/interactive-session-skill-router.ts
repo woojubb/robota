@@ -133,6 +133,8 @@ export class SessionSkillRouter {
     readonly source: TCommandInvocationSource;
     readonly originDriverId: TDriverId | undefined;
     readonly locality: TCommandSurfaceLocality | undefined;
+    /** The caller's cancellation: it reaches the turn a skill starts and the work before it. */
+    readonly signal?: AbortSignal;
   }>();
   constructor(
     commandModules: readonly ICommandModule[],
@@ -158,6 +160,7 @@ export class SessionSkillRouter {
       displayInput: string | undefined,
       qualifiedName: string | undefined,
       invocation: ISkillActivationEvent['invocation'],
+      signal: AbortSignal | undefined,
     ) => Promise<ISkillExecutionResult>,
     /** Called for blocking commands — wraps execution with thinking/executing lifecycle */
     private readonly onBlockingCommand: (
@@ -174,6 +177,7 @@ export class SessionSkillRouter {
       displayInput: string | undefined,
       rawInput: string | undefined,
       originDriverId: TDriverId | undefined,
+      signal: AbortSignal | undefined,
     ) => Promise<void>,
   ) {
     this.allCommandModules = commandModules;
@@ -233,6 +237,11 @@ export class SessionSkillRouter {
 
   getCommandOriginDriverId(): TDriverId | undefined {
     return this.commandScope.getStore()?.originDriverId;
+  }
+
+  /** The running command's cancellation, if its caller gave one. */
+  getCommandSignal(): AbortSignal | undefined {
+    return this.commandScope.getStore()?.signal;
   }
 
   getCommandHostAdapters(): ICommandHostAdapters {
@@ -298,6 +307,7 @@ export class SessionSkillRouter {
     source: TCommandInvocationSource = 'user',
     originDriverId?: TDriverId,
     locality?: TCommandSurfaceLocality,
+    options?: { readonly signal?: AbortSignal },
   ): Promise<ICommandResult | null> {
     const normalizedName = normalizeNameToken(name);
     const command = this.commandExecutor.getCommand(normalizedName);
@@ -314,9 +324,17 @@ export class SessionSkillRouter {
         commandArgs.length > 0 ? `${skill.name} ${commandArgs}` : skill.name,
         originDriverId,
         locality,
+        options?.signal,
       );
     }
-    return this.executeCommandWithSource(source, command, commandArgs, originDriverId, locality);
+    return this.executeCommandWithSource(
+      source,
+      command,
+      commandArgs,
+      originDriverId,
+      locality,
+      options?.signal,
+    );
   }
 
   async executeCommandWithSource(
@@ -325,8 +343,10 @@ export class SessionSkillRouter {
     args: string,
     originDriverId?: TDriverId,
     locality?: TCommandSurfaceLocality,
+    signal?: AbortSignal,
   ): Promise<ICommandResult> {
-    return this.commandScope.run({ source, originDriverId, locality }, async () => {
+    const scope = { source, originDriverId, locality, ...(signal !== undefined ? { signal } : {}) };
+    return this.commandScope.run(scope, async () => {
       // REMOTE-006: local == remote — a transport-origin command runs exactly as a locally-typed one (pairing is
       // the trust boundary; the universal permission system governs anything dangerous). This is **allow-by-
       // default**: with no injected policy it always allows; an OPTIONAL `remoteCommandPolicy` may restrict for a
@@ -359,8 +379,10 @@ export class SessionSkillRouter {
     args: string,
     request: ICommandSkillActivationRequest,
   ): Promise<ICommandResult | null> {
-    // Read before the first await: the turn this skill submits belongs to the command that ran it.
+    // Read before the first await: the turn this skill submits belongs to the command that ran it,
+    // and cancelling that command cancels it.
     const originDriverId = this.getCommandOriginDriverId();
+    const signal = this.getCommandSignal();
     const skill = this.findSkillCommand(name);
     if (!skill) return null;
 
@@ -388,6 +410,7 @@ export class SessionSkillRouter {
       request.rawInput,
       'user-slash',
       originDriverId,
+      signal,
     );
     // CMD-004 Stage E: `data.sessionExecution` — the requester-local "session turn started" hint.
     return {
@@ -405,6 +428,8 @@ export class SessionSkillRouter {
     invocation: ISkillActivationEvent['invocation'],
     /** Who ran the command; its submitted turn is theirs. Absent means the owner. */
     originDriverId?: TDriverId,
+    /** Cancels the skill's preparation and the turn it starts; absent, only `abort()` does. */
+    signal?: AbortSignal,
   ): Promise<ISkillExecutionResult> {
     if (skill.userInvocable === false) {
       throw new Error(`Skill is not user-invocable: ${skill.name}`);
@@ -412,7 +437,7 @@ export class SessionSkillRouter {
     const qualifiedName = getQualifiedSkillName(rawInput);
 
     if (skill.context === 'fork') {
-      return this.onForkSkill(skill, args, displayInput, qualifiedName, invocation);
+      return this.onForkSkill(skill, args, displayInput, qualifiedName, invocation, signal);
     }
 
     if (skill.skillContentLoader) {
@@ -433,20 +458,31 @@ export class SessionSkillRouter {
         displayInput,
         rawInput,
         originDriverId,
+        signal,
       );
       return { mode: 'inject' };
     }
 
-    const result = await this.executeSkillWithActivation(skill, args, invocation, qualifiedName);
+    const result = await this.executeSkillWithActivation(
+      skill,
+      args,
+      invocation,
+      qualifiedName,
+      signal,
+    );
     if (result.mode === 'inject') {
       // The turn belongs to whoever issued the command: a remote co-driver's skill is its turn, attributed
-      // exactly as its direct prompts are, never the owner's.
+      // exactly as its direct prompts are, never the owner's. Its cancellation is the command's.
       if (result.prompt) {
+        const options = {
+          ...(originDriverId !== undefined ? { driverId: originDriverId } : {}),
+          ...(signal !== undefined ? { signal } : {}),
+        };
         await this.onSubmit(
           result.prompt,
           displayInput,
           rawInput,
-          originDriverId !== undefined ? { driverId: originDriverId } : undefined,
+          Object.keys(options).length > 0 ? options : undefined,
         );
       }
       return result;
@@ -460,18 +496,24 @@ export class SessionSkillRouter {
     args: string,
     invocation: ISkillActivationEvent['invocation'],
     qualifiedName?: string,
+    /** The caller's cancellation, joined with the owning turn's when there is one. */
+    signal?: AbortSignal,
   ): Promise<ISkillExecutionResult> {
     const window = this.skillWindow;
     const fork = this.forkResourceWindow.getStore();
     const owner = fork ?? window;
     if (fork?.closed) throw new Error('Skill activation fork has ended.');
+    const effectiveSignal =
+      owner?.signal !== undefined && signal !== undefined
+        ? AbortSignal.any([owner.signal, signal])
+        : (owner?.signal ?? signal);
     this.emitSkillActivation(skill, invocation, 'started', qualifiedName);
     try {
       const result = await executeSkill(
         skill,
         args,
         {
-          ...(owner?.signal ? { signal: owner.signal } : {}),
+          ...(effectiveSignal ? { signal: effectiveSignal } : {}),
           retainActivation: (activation) => {
             if (!owner || owner.closed || (!fork && this.skillWindow !== window))
               throw new Error('Lazy skill injection requires its owning turn.');

@@ -84,9 +84,11 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
   title that is never shortened; approving a summary would approve what was not seen.
 - **Slash commands arrive as prompt text.** A prompt whose text starts with `/` goes to the host's
   command port; the editor's own command list is not advertised. A command that runs a model turn
-  (a skill) streams and asks about permissions exactly like a typed message, because the person
-  must be able to answer what it asks. Its output is shown as one message only when nothing
-  streamed, since otherwise it repeats the reply.
+  (a skill) streams, asks about permissions and is cancelled exactly like a typed message, because
+  the person must be able to answer what it asks and stop what it does; the prompt's signal goes
+  with the command, so a cancel that lands while the skill is still being prepared stops its turn
+  from starting. Its output is shown as one message only when nothing streamed, since otherwise it
+  repeats the reply.
 - **No thought stream.** The session's thinking event carries no text, so there is nothing to send.
 - **Turn failures reply with a fixed message.** Provider errors can contain request details; the
   cause goes to the host callback instead.

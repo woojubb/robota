@@ -7,7 +7,13 @@ import type { IExecutionResult } from '@robota-sdk/agent-interface-session';
 
 type TListener = (result: IExecutionResult) => void;
 
-function session(execute: (name: string, args: string) => Promise<ICommandResult | null>) {
+function session(
+  execute: (
+    name: string,
+    args: string,
+    ...rest: unknown[]
+  ) => Promise<ICommandResult | null>,
+) {
   const listeners = new Set<TListener>();
   return {
     executeCommand: vi.fn(execute),
@@ -24,7 +30,16 @@ describe('runAcpSlashCommand', () => {
   it('runs the command as a transport-origin one on this machine and returns its message', async () => {
     const s = session(async () => ({ success: true, message: 'Commands: /help' }));
     await expect(runAcpSlashCommand(s, '/help', signal)).resolves.toBe('Commands: /help');
-    expect(s.executeCommand).toHaveBeenCalledWith('help', '', 'remote', 'owner', 'local');
+    expect(s.executeCommand).toHaveBeenCalledWith('help', '', 'remote', 'owner', 'local', {
+      signal,
+    });
+  });
+
+  it("hands the prompt's signal to the command, so cancelling the prompt reaches the turn it starts", async () => {
+    const controller = new AbortController();
+    const s = session(async () => ({ success: true, message: '', data: { sessionExecution: true } }));
+    await runAcpSlashCommand(s, '/review', controller.signal);
+    expect(s.executeCommand.mock.calls[0]![5]).toEqual({ signal: controller.signal });
   });
 
   it('splits the name from its arguments and tolerates leading whitespace', async () => {
@@ -36,6 +51,7 @@ describe('runAcpSlashCommand', () => {
       'remote',
       'owner',
       'local',
+      { signal },
     );
   });
 

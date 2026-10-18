@@ -86,3 +86,16 @@ it('refuses a fork before it starts if consent changes while instructions are pr
   expect(runInFork).not.toHaveBeenCalled();
   expect(f.activation.close).toHaveBeenCalledOnce();
 });
+
+it("hands a fork skill's run the caller's signal, so cancelling the caller stops the fork", async () => {
+  const signal = new AbortController().signal;
+  const runInFork = vi.fn(async () => 'forked');
+  const skill = {
+    name: 'fork-demo',
+    description: 'Run in a fork',
+    context: 'fork',
+    skillContent: 'Do the forked work',
+  } as ICommand;
+  await executeSkill(skill, '', { signal, runInFork });
+  expect(runInFork).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ signal }));
+});

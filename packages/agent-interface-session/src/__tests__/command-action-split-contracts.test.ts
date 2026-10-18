@@ -93,6 +93,13 @@ describe('CMD-004 Phase 2 split command contract (TC-01)', () => {
     expect(twoArg).toBe(true);
   });
 
+  it('executeCommand accepts an optional cancel signal after the locality (untouched callers compile)', () => {
+    type TExec = IInteractiveSession['executeCommand'];
+    expectTypeOf<Parameters<TExec>[5]>().toEqualTypeOf<
+      { readonly signal?: AbortSignal } | undefined
+    >();
+  });
+
   it('host actions and UI intents are runtime-serializable literals (no function-valued fields)', () => {
     const action: TCommandHostAction = { type: 'session-rename', name: 'renamed' };
     const intent: TCommandUiIntent = { type: 'show-settings' };

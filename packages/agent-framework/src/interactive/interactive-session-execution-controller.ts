@@ -754,6 +754,8 @@ export class SessionExecutionController {
     qualifiedName: string | undefined,
     invocation: ISkillActivationEvent['invocation'],
     resumeQueuedTurn: TResumeQueuedTurnFn,
+    /** The command's own cancellation, so cancelling it stops the fork it runs. */
+    signal?: AbortSignal,
   ): Promise<ISkillExecutionResult> {
     if (this.executing) {
       throw new Error('Cannot execute fork skill while another prompt is running.');
@@ -773,6 +775,7 @@ export class SessionExecutionController {
         args,
         invocation,
         qualifiedName,
+        signal,
       );
       await this.applyForkSkillResult(result.result ?? '(empty response)');
       return result;
