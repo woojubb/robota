@@ -115,13 +115,26 @@ export interface ISessionWorkspaceLocation {
   getCwd(): string;
 }
 
+/** How one direct runtime-tool call is admitted and attributed. */
+export interface IRuntimeToolInvokeOptions {
+  signal?: AbortSignal;
+  /**
+   * Whether a permission decision this call needs may be put to a person. `deny` (the default) fails
+   * such a decision closed, which is right for a caller nobody is watching; `interactive` asks
+   * through the session's prompt events, for a surface that can show the prompt and answer it.
+   */
+  permissionInteraction?: 'interactive' | 'deny';
+  /** The driver the call acts for; a prompt it raises names this driver as its requester. */
+  driverId?: TDriverId;
+}
+
 /** Direct execution uses the same permission-wrapped runtime as model tool calls. */
 export interface ISessionRuntimeTools {
   listRuntimeTools(): Promise<IToolSchema[]>;
   invokeRuntimeTool(
     name: string,
     parameters: TToolParameters,
-    options?: { signal?: AbortSignal },
+    options?: IRuntimeToolInvokeOptions,
   ): Promise<IToolExecutionResult>;
 }
 

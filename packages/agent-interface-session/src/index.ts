@@ -62,6 +62,7 @@ export type {
   IModelListGroup,
   IModelListSnapshot,
   ISessionRuntimeTools,
+  IRuntimeToolInvokeOptions,
   ISessionConversationRead,
   ISessionDriverAttribution,
   ISessionEvents,

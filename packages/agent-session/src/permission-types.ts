@@ -1,4 +1,4 @@
-import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
 /**
  * Permission types — interfaces and type aliases for permission enforcement.
@@ -114,6 +114,8 @@ export interface IPermissionEnforcerOptions {
     toolResultData?: string;
     toolResultParts?: TUniversalMessagePart[];
     executionId?: string;
+    /** The source's view of the result, for a surface that can host one; never model context. */
+    view?: IToolAppView;
   }) => void;
   /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
   hookTypeExecutors?: IHookTypeExecutor[];

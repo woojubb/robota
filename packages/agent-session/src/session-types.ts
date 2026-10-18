@@ -1,4 +1,4 @@
-import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
 /**
  * Session types — interfaces and type aliases for Session construction.
@@ -156,6 +156,8 @@ export interface ISessionOptions {
     toolResultData?: string;
     toolResultParts?: TUniversalMessagePart[];
     executionId?: string;
+    /** The source's view of the result, for a surface that can host one; never model context. */
+    view?: IToolAppView;
   }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;

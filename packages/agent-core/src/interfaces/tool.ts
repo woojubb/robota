@@ -40,7 +40,28 @@ export type TToolContextExtensionValue =
   | TContextData
   | TToolParameters
   | TToolMetadata
-  | TUniversalMessagePart[];
+  | TUniversalMessagePart[]
+  | IToolAppView;
+
+/**
+ * A view the tool's source declared for one call's result: an HTML document a surface may show only
+ * inside an isolated frame, beside the text result. Display data for a surface, never model
+ * context: nothing here enters a tool message, result admission or persisted history.
+ */
+export interface IToolAppView {
+  /** The contributing source (an MCP server id); the view may reach only that source's tools. */
+  readonly sourceId: string;
+  /** The `ui://` resource the tool declared. */
+  readonly resourceUri: string;
+  /** The content type the source served; `text/html;profile=mcp-app` is the one admitted today. */
+  readonly mimeType: string;
+  /** The document itself, read from the source and bounded by the reader. */
+  readonly html: string;
+  /** The result's structured content as the source returned it, for the view only. */
+  readonly structuredContent?: TUniversalValue;
+  /** Source tool name → runtime tool name, for the tools of that source the view may call. */
+  readonly callableTools: Readonly<Record<string, string>>;
+}
 
 /**
  * Tool metadata structure - specific type definition
@@ -67,6 +88,8 @@ export interface IToolResult {
   parts?: TUniversalMessagePart[];
   error?: string;
   metadata?: TToolMetadata;
+  /** The source's view of this result, for a surface that can host one; never model context. */
+  view?: IToolAppView;
   [key: string]: TToolContextExtensionValue | undefined;
 }
 

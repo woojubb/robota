@@ -1,4 +1,4 @@
-import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 /**
  * Session event-map contracts — the permission/ask/prompt vocabulary, the goal and plan-artifact
  * persisted shapes, and {@link IInteractiveSessionEvents} itself.
@@ -61,6 +61,13 @@ export interface IToolState {
   commandName?: string;
   /** #3288: true for an internal signal tool (e.g. the goal-status tool) — surfaces should not show it as a call. */
   internal?: boolean;
+  /**
+   * The source's view of a finished call's result (an MCP app), for a surface that can host one in
+   * an isolated frame. Carried by the live `tool_end` only: it is not part of a replay or of the
+   * persisted history, so a surface without a frame, and every surface after a reload, shows the
+   * text result alone.
+   */
+  view?: IToolAppView;
 }
 
 /**
