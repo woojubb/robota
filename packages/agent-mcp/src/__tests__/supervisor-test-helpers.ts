@@ -16,6 +16,8 @@ import type {
 } from '../catalog/types.js';
 import type {
   IMCPDiscoverOptions,
+  IMCPReadResourceOptions,
+  IMCPReadResourceResult,
   IMCPSession,
   IMCPToolCallOptions,
   IMCPToolCallResult,
@@ -76,6 +78,7 @@ export interface IFakeSessionConfig {
     args: TToolParameters,
     options?: IMCPToolCallOptions,
   ): Promise<IMCPToolCallResult>;
+  readResource?(uri: string, options?: IMCPReadResourceOptions): Promise<IMCPReadResourceResult>;
   close?(): Promise<void>;
 }
 
@@ -92,6 +95,7 @@ export class FakeMcpSession implements IMCPSession {
     timeoutMs?: number;
     ask?: IMCPToolCallOptions['ask'];
   }[] = [];
+  readonly readResourceCalls: { uri: string; timeoutMs?: number }[] = [];
   closeCalls = 0;
 
   private readonly listeners = new Set<TMCPListChangedListener>();
@@ -126,6 +130,17 @@ export class FakeMcpSession implements IMCPSession {
       return this.config.callTool(name, args, options);
     }
     return { content: [], isError: false };
+  }
+
+  async readResource(
+    uri: string,
+    options?: IMCPReadResourceOptions,
+  ): Promise<IMCPReadResourceResult> {
+    this.readResourceCalls.push({ uri, timeoutMs: options?.timeoutMs });
+    if (this.config.readResource) {
+      return this.config.readResource(uri, options);
+    }
+    return { contents: [] };
   }
 
   onListChanged(listener: TMCPListChangedListener): () => void {

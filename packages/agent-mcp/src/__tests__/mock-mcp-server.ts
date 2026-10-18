@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import {
   handleInitialize,
   handleListRequest,
+  handleReadResource,
   handleToolsCall,
 } from './mock-mcp-server-handlers.js';
 
@@ -31,6 +32,8 @@ export interface IMockCapabilities {
   prompts?: IMockCapabilityDomain;
   resources?: IMockCapabilityDomain;
   experimental?: Record<string, object>;
+  /** Declared protocol extensions, keyed by extension id (e.g. the MCP Apps UI extension). */
+  extensions?: Record<string, object>;
 }
 
 export interface IMockTool {
@@ -39,6 +42,9 @@ export interface IMockTool {
   inputSchema: Record<string, unknown>;
   _meta?: Record<string, unknown>;
 }
+
+/** One content item of a `resources/read` result, exactly as the mock should send it. */
+export type IMockResourceContent = Record<string, unknown>;
 
 export interface IMockPromptArgument {
   name: string;
@@ -93,6 +99,8 @@ export interface IMockMcpServerOptions {
   prompts?: IMockPrompt[];
   /** Resources exposed via resources/list. */
   resources?: IMockResource[];
+  /** `resources/read` answers by uri; an unknown uri is answered with an invalid-params error. */
+  resourceContents?: Record<string, IMockResourceContent[]>;
   /** Page size for tools/list, prompts/list, resources/list. Defaults to everything in one page. */
   pageSize?: number;
   /** When true, every list response carries a fresh nextCursor forever (for a page-bound test). */
@@ -169,6 +177,7 @@ function buildCapabilities(
     result[domain] = value;
   });
   if (capabilities.experimental) result['experimental'] = capabilities.experimental;
+  if (capabilities.extensions) result['extensions'] = capabilities.extensions;
   return result;
 }
 
@@ -280,6 +289,11 @@ async function dispatchRequest(
 
   if (rpcMethod === 'tools/call') {
     handleToolsCall(body, id, options, state, res);
+    return;
+  }
+
+  if (rpcMethod === 'resources/read' && isDomainDeclared('resources')) {
+    handleReadResource(body, id, options, res);
     return;
   }
 

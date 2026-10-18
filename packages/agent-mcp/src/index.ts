@@ -211,6 +211,8 @@ export {
   openMcpSession,
   type IMCPDiscoverOptions,
   type IMCPOpenSessionOptions,
+  type IMCPReadResourceOptions,
+  type IMCPReadResourceResult,
   type IMCPSession,
   type IMCPSessionTimeouts,
   type IMCPToolCallOptions,
@@ -259,7 +261,11 @@ export {
   createDiscoveredTool,
   type ICreateDiscoveredToolOptions,
   type IMCPToolInvoker,
+  type TMCPAppViewOmission,
 } from './catalog/discovered-tool.js';
+// MCP Apps: the names a tool's view may call back, and the reasons a declared view is left out.
+export { appCallableToolNames } from './catalog/app-view.js';
+export type { IMCPToolUiReference, TMCPToolUiProblem } from './catalog/ui-metadata.js';
 
 // MCP-002 (absorbing MCP-003): connection and catalog lifecycle. `TMCPConnectionState` is the ONE
 // connection-state union under `src/**`.

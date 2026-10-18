@@ -7,6 +7,7 @@ import {
   UnsupportedProtocolVersionError,
 } from '@modelcontextprotocol/client';
 
+import { hasAppsCapability } from '../catalog/app-view.js';
 import { MCPSkillError } from '../skills/manifest.js';
 import { createSkillsSession, hasSkillsCapability } from '../skills/session.js';
 import { enableSkillReceiveBudget } from './receive-budget.js';
@@ -24,6 +25,7 @@ import {
   isRequestTimeout,
   MCPSessionError,
   STATELESS_PROTOCOL_VERSION,
+  toReadResourceResult,
   toToolCallResult,
 } from './session-protocol.js';
 import { MCPStdioError } from './stdio-transport.js';
@@ -128,6 +130,7 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
     options.elicitation === true
       ? createElicitationHandler({ serverId: () => options.serverId, calls })
       : undefined,
+    options.apps === true,
   );
   let closePromise: Promise<void> | undefined;
   const close = (): Promise<void> => (closePromise ??= closeCarrier(client, transport));
@@ -265,8 +268,18 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
       hasSkillsCapability(capabilities.extensions)
         ? createSkillsSession(identity, skillRequest)
         : undefined;
+    // Both sides declared the extension, and the view can be read: an undeclared capability is never called.
+    const apps =
+      options.apps === true &&
+      hasAppsCapability(capabilities.extensions) &&
+      declaredCapabilities.resources !== undefined;
+    const offeredExtensions = [
+      ...(skills === undefined ? [] : ['Skills metadata and verified file reads']),
+      ...(options.apps === true ? ['the UI extension for tool views'] : []),
+    ];
     return {
       ...(skills === undefined ? {} : { skills }),
+      ...(apps ? { apps } : {}),
       identity,
       instructions,
       declaredCapabilities,
@@ -297,9 +310,9 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
         {
           capability: 'extensions',
           reason:
-            skills === undefined
+            offeredExtensions.length === 0
               ? 'No optional extension is offered or activated by this surface.'
-              : 'Only host-selected Skills metadata and verified file reads are available; activation stays host-owned.',
+              : `Only host-selected ${offeredExtensions.join(' and ')} are available; activation stays host-owned.`,
         },
       ],
       discover: async (discoverOptions) => {
@@ -313,6 +326,7 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
             identity,
             instructions,
             discoverOptions,
+            apps,
           );
         } catch (error) {
           if (sensitive) throw new MCPStdioError('send');
@@ -361,6 +375,25 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
           leave();
           if (scope) callTraces?.release(scope);
         }
+      },
+      async readResource(uri, readOptions) {
+        if (!declaredCapabilities.resources)
+          throw new Error('Stateless MCP server did not declare resources');
+        return toReadResourceResult(
+          await invoke(
+            // A view is never served from the SDK's response cache.
+            () =>
+              client.readResource(
+                { uri },
+                {
+                  signal: readOptions?.signal,
+                  timeout: readOptions?.timeoutMs ?? options.timeouts.perCallMs,
+                  cacheMode: 'bypass',
+                },
+              ),
+            readOptions?.signal,
+          ),
+        );
       },
       // No subscription capability is offered by this initial surface; unsolicited events cannot refresh it.
       onListChanged: () => () => undefined,

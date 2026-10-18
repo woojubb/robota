@@ -50,11 +50,26 @@ export interface IMCPToolCallResult {
   readonly isError: boolean;
 }
 
+export interface IMCPReadResourceOptions {
+  readonly signal?: AbortSignal;
+  readonly timeoutMs?: number;
+}
+
+/** The contents of one `resources/read`, as the server sent them; the reader validates what it needs. */
+export interface IMCPReadResourceResult {
+  readonly contents: readonly IUniversalObjectValue[];
+}
+
 /** Fired by the SDK when a server announces `notifications/<domain>/list_changed`. */
 export type TMCPListChangedListener = (domain: TMCPCapabilityDomain) => void;
 
 export interface IMCPSession {
   readonly skills?: IMCPSkillsSession;
+  /**
+   * True only when MCP Apps was negotiated: the host opted in, the server declared the UI extension
+   * and it declared resources. Tool UI metadata is kept in discovery only then.
+   */
+  readonly apps?: boolean;
   readonly identity: IMCPServerIdentity;
   readonly discoveryCacheHint?: IMCPResponseCacheHint;
   readonly compatibilityDiagnostics?: readonly {
@@ -73,6 +88,11 @@ export interface IMCPSession {
     args: TToolParameters,
     options?: IMCPToolCallOptions,
   ): Promise<IMCPToolCallResult>;
+  /**
+   * One bounded `resources/read`. Refused when the server did not declare resources, like any
+   * other undeclared capability; the caller validates the contents it asked for.
+   */
+  readResource(uri: string, options?: IMCPReadResourceOptions): Promise<IMCPReadResourceResult>;
   /** Subscribe to `list_changed`; returns an unsubscribe. */
   onListChanged(listener: TMCPListChangedListener): () => void;
   /** Closes the SDK client and its transport. Idempotent. */
@@ -90,6 +110,11 @@ export interface IMCPOpenSessionOptions {
    * during a tool call through that call's ask port. Off, no client input is offered at all.
    */
   readonly elicitation?: boolean;
+  /**
+   * Host opt-in to MCP Apps: declares the UI extension so a server may attach tool views; set only
+   * where a surface can show them in an isolated frame.
+   */
+  readonly apps?: boolean;
   /** An already-ADMITTED transport (`./transport.ts`); this function never admits anything. */
   readonly transport: Transport;
   readonly clientInfo?: { readonly name: string; readonly version: string };

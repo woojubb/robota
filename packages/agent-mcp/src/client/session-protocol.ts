@@ -1,10 +1,11 @@
 import { Client, SdkError, SdkErrorCode } from '@modelcontextprotocol/client';
 import { TypeUtils } from '@robota-sdk/agent-core';
+import { MCP_APP_MIME_TYPE, MCP_APPS_EXTENSION } from '../catalog/app-view.js';
 import { toUniversalObject } from '../catalog/universal-value.js';
 import type { ServerCapabilities } from '@modelcontextprotocol/client';
 import type { TMCPCapabilityDomain } from '../catalog/types.js';
 import type { TMCPElicitationHandler } from './elicitation.js';
-import type { IMCPToolCallResult } from './session-types.js';
+import type { IMCPReadResourceResult, IMCPToolCallResult } from './session-types.js';
 
 export class MCPSessionError extends Error {
   constructor(
@@ -28,17 +29,24 @@ export const STATELESS_PROTOCOL_VERSION = '2026-07-28';
  * this package's own stdio carrier. With an elicitation handler the client declares form-mode
  * elicitation only, and the SDK fulfils an `input_required` round through that same handler and
  * continues the call; without one no client input is offered and `input_required` surfaces as a
- * typed refusal the session turns into a carrier close (no automatic round, no replay).
+ * typed refusal the session turns into a carrier close (no automatic round, no replay). The UI
+ * extension is declared only for a host that opted in; otherwise no `extensions` key is sent at all.
  */
 export function createMcpClient(
   clientInfo: { readonly name: string; readonly version: string },
   pinnedVersion?: string,
   elicitation?: TMCPElicitationHandler,
+  apps?: boolean,
 ): Client {
   const client = new Client(
     { name: clientInfo.name, version: clientInfo.version },
     {
-      capabilities: elicitation === undefined ? {} : { elicitation: { form: {} } },
+      capabilities: {
+        ...(elicitation === undefined ? {} : { elicitation: { form: {} } }),
+        ...(apps === true
+          ? { extensions: { [MCP_APPS_EXTENSION]: { mimeTypes: [MCP_APP_MIME_TYPE] } } }
+          : {}),
+      },
       inputRequired: { autoFulfill: elicitation !== undefined },
       ...(pinnedVersion === undefined
         ? {}
@@ -70,6 +78,19 @@ export function toToolCallResult(raw: unknown): IMCPToolCallResult {
   const structuredContent = structuredContentValue;
   const isError = typeof converted['isError'] === 'boolean' ? converted['isError'] : false;
   return { content, structuredContent, isError };
+}
+
+/**
+ * The `contents` array crosses the foreign boundary here, once. An item that is not an object stays
+ * an (empty) item rather than vanishing, so the reader's "exactly one document" check still counts it.
+ */
+export function toReadResourceResult(raw: unknown): IMCPReadResourceResult {
+  const contents = toUniversalObject(raw)['contents'];
+  return {
+    contents: Array.isArray(contents)
+      ? contents.map((item) => (TypeUtils.isObject(item) ? item : {}))
+      : [],
+  };
 }
 
 export function buildDeclaredCapabilities(
