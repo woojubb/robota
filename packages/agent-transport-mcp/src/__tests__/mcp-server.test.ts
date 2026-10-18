@@ -1,5 +1,4 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createAgentMcpServer } from '../mcp-server.js';
@@ -177,6 +176,27 @@ describe('canonical MCP runtime tools', () => {
     },
   );
 
+  it('publishes the catalog as the JSON a peer receives, dropping what serialization drops', async () => {
+    const client = await connect(
+      sessions({
+        listRuntimeTools: vi.fn().mockResolvedValue([
+          {
+            ...schema,
+            parameters: {
+              type: 'object',
+              properties: { args: { type: 'string', enum: undefined, format: () => 'x' } },
+              required: undefined,
+            },
+          },
+        ]),
+      }),
+    );
+    expect((await client.listTools()).tools[0]?.inputSchema).toEqual({
+      type: 'object',
+      properties: { args: { type: 'string' } },
+    });
+  });
+
   it('rejects duplicate names and non-object schemas before accepting a carrier', async () => {
     for (const catalog of [[schema, schema], [{ ...schema, parameters: { type: 'string' } }]]) {
       await expect(
@@ -193,8 +213,12 @@ describe('canonical MCP runtime tools', () => {
 
   it('does not advertise or serve prompts and resources', async () => {
     const client = await connect();
-    await expect(client.listPrompts()).rejects.toThrow();
-    await expect(client.listResources()).rejects.toThrow();
+    // The v2 client answers `listPrompts` / `listResources` locally with an empty list when the
+    // capability is absent, so the server is asked directly to prove it does not serve them.
+    expect(client.getServerCapabilities()).not.toHaveProperty('prompts');
+    expect(client.getServerCapabilities()).not.toHaveProperty('resources');
+    await expect(client.request({ method: 'prompts/list' })).rejects.toThrow();
+    await expect(client.request({ method: 'resources/list' })).rejects.toThrow();
   });
 
   it('forwards submission cancellation without using global turn control', async () => {
@@ -247,7 +271,7 @@ describe('canonical MCP runtime tools', () => {
     });
     const client = await connect(session);
     const cancellation = new AbortController();
-    const call = client.callTool({ name: schema.name }, undefined, { signal: cancellation.signal });
+    const call = client.callTool({ name: schema.name }, { signal: cancellation.signal });
     const rejected = expect(call).rejects.toThrow();
     await ready;
     cancellation.abort();

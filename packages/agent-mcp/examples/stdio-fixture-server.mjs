@@ -1,6 +1,5 @@
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { Server } from '@modelcontextprotocol/server';
+import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 
 const mode = process.argv[2] ?? 'normal';
 if (mode === 'early-exit') process.exit(7);
@@ -12,10 +11,10 @@ if (mode === 'stall') {
     { name: 'stdio-fixture', version: '1.0.0' },
     { capabilities: { tools: {} } },
   );
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+  server.setRequestHandler('tools/list', async () => ({
     tools: [{ name: 'ping', inputSchema: { type: 'object', properties: {} } }],
   }));
-  server.setRequestHandler(CallToolRequestSchema, async () => {
+  server.setRequestHandler('tools/call', async () => {
     if (mode === 'hang-call') {
       process.on('SIGTERM', () => {});
       setInterval(() => {}, 1000);

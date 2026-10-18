@@ -5,7 +5,8 @@
 Model Context Protocol (MCP) server transport for the Robota SDK — stdio, authenticated loopback
 Streamable HTTP, and OAuth-authorized remote Streamable HTTP, all served from the same exact runtime
 session port. Split out of the consolidated `agent-transport` package so MCP SDK dependencies remain
-isolated.
+isolated. Every carrier is served from one generation of the official MCP server package, so a
+protocol change is carried once.
 
 ## Transport Admission
 
@@ -40,7 +41,8 @@ approval prompts.
 - `createMcpTransport` is a frozen `service` lifecycle: `start()` validates the canonical catalog,
   connects the carrier, and resolves only when it can serve requests; a pending start is cancellable
   and bounded to 15 seconds. Start-before-attach and a repeated active start reject; repeated stop is
-  safe; restart requires a new attach.
+  safe; restart requires a new attach. The stdio carrier bounds one frame: a frame above the bound
+  is a carrier failure, not a served request.
 - Both HTTP hosts validate the canonical catalog and their bind before listening. They follow the
   SDK's stateless request/response model — no `Mcp-Session-Id` table, GET stream, expiry sweep, or
   resumption process — so a remote peer has no session identifier to guess or enumerate. One

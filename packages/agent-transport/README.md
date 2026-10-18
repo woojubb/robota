@@ -111,7 +111,7 @@ starts and stops a set of transports together, live in `@robota-sdk/agent-framew
   `-transport` (contract packages)
 - `jose` (access-token signature verification under `./node`)
 
-The protocol libraries (`ws`, `hono`, `@modelcontextprotocol/sdk`, `node-datachannel`) are
+The protocol libraries (`ws`, `hono`, `@modelcontextprotocol/server`, `node-datachannel`) are
 dependencies of the individual transport packages, not of this one.
 
 ## Documentation
