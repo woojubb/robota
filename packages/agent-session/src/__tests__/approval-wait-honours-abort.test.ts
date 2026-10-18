@@ -273,6 +273,7 @@ describe('the human-approval prompt names the call it is about', () => {
     const handler = vi.fn<TPermissionHandler>().mockResolvedValue(true);
     const enforcer = makeEnforcer({ permissionHandler: handler });
     await enforcer.checkPermission('Bash', ARGS);
-    expect(handler).toHaveBeenCalledWith('Bash', ARGS, undefined);
+    expect(handler).toHaveBeenCalledWith('Bash', ARGS);
+    expect(handler.mock.calls[0]).toHaveLength(2);
   });
 });

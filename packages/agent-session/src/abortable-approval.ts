@@ -112,13 +112,14 @@ export async function decideApproval(request: IApprovalRequest): Promise<IApprov
   if (request.signal?.aborted === true) return denied;
   // Which prompt to run is this module's business too: the enforcer supplies the approvers it has
   // and does not decide between them.
+  // A call with no id asks exactly as before (two arguments), so a handler that counts them sees no change.
   const prompt = request.handler
     ? (): Promise<TPermissionResult> =>
-        request.handler!(
-          request.toolName,
-          request.toolArgs,
-          request.executionId !== undefined ? { executionId: request.executionId } : undefined,
-        )
+        request.executionId === undefined
+          ? request.handler!(request.toolName, request.toolArgs)
+          : request.handler!(request.toolName, request.toolArgs, {
+              executionId: request.executionId,
+            })
     : request.injectedPrompt && request.terminal
       ? (): Promise<TPermissionResult> =>
           request.injectedPrompt!(request.terminal!, request.toolName, request.toolArgs)
