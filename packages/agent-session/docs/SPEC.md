@@ -117,7 +117,7 @@ round trip — a local round trip must be lossless.
   layer control whether a resumed session continues under the same persisted file or starts a
   new one.
 - A provided idle-timeout value is enforced per provider call and its timer refreshes on
-  streaming text deltas.
+  streamed reply and reasoning text, since a model that is only reasoning is still working.
 - Provider-round and permitted-tool-body completions are forwarded to the session's event bus as
   content-free observations (time, round, outcome, and a tool body's tool name — a label, never its
   arguments or output), scoped to the active run; the public
@@ -165,8 +165,11 @@ A session runs one turn at a time:
 - Direct runtime-tool invocation claims the same exclusive turn slot as `run()`: overlapping
   direct calls or turns are refused rather than queued, cancellation keeps the claim until the
   underlying execution settles, and shutdown drains any direct execution before destroying the
-  agent. A direct call opens an interactive permission prompt only when its caller asks for one;
-  otherwise a decision that would require interaction fails closed rather than blocking.
+  agent. A direct call opens an interactive permission prompt, or puts a question through the
+  session's ask port, only when its caller asks for that because it answers its own prompts, and
+  cancelling the call withdraws a prompt it opened; otherwise a decision that would require
+  interaction fails closed rather than blocking, and a question finds no one to ask, because a
+  remote caller is not assumed to have a person behind it.
 - Concurrency _across transports_ (e.g. correlating requests from multiple external callers) is
   explicitly out of scope for this contract; it is owned by a different object one layer up.
 

@@ -104,6 +104,7 @@ are exported from `@robota-sdk/agent-interface-session` (`IContextWindowState` f
 | `tool_start`         | `IToolState`              | A tool call started (`toolName`, `firstArg`, …)                                   |
 | `tool_end`           | `IToolState`              | A tool call ended; `result` is `'success'`, `'error'` or `'denied'`               |
 | `thinking`           | `boolean`                 | `true` while the session is waiting on the model, `false` when it stops           |
+| `thinking_delta`     | `string`                  | A chunk of reasoning text, from a provider that streams it; never part of the reply |
 | `context_update`     | `IContextWindowState`     | Token usage changed                                                               |
 | `compact`            | `ICompactEvent`           | The conversation was compacted (`trigger`, `before`, `after`)                     |
 | `complete`           | `IExecutionResult`        | A turn finished normally                                                          |

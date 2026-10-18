@@ -226,6 +226,7 @@ export class InteractiveSession
     controller: () => this.execCtrl,
     ensureInitialized: () => this.ensureInitialized(),
     session: () => this.getSessionOrThrow(),
+    resumeQueuedTurn: (entry) => this.resumeQueuedTurn(entry),
   });
   private shutdownPromise: Promise<void> | null = null;
   private externalEventIngress?: ExternalEventIngress;
@@ -667,6 +668,7 @@ export class InteractiveSession
         ),
       askHandler: this.askHandler,
       onTextDelta: (delta) => this.execCtrl.handleTextDelta(delta),
+      onThinkingDelta: (delta) => this.emit('thinking_delta', delta),
       onContextUpdate: (state) => this.emit('context_update', state),
       onCompactEvent: (event) => this.execCtrl.handleCompactEvent(event),
       onUsageRecorded: (entries) => {
@@ -868,8 +870,8 @@ export class InteractiveSession
     return this.runtimeTools.listRuntimeTools();
   }
 
-  readToolAppView(executionId: string): IToolAppView | undefined {
-    return this.execCtrl.appViews.get(executionId);
+  readToolAppView(viewId: string): IToolAppView | undefined {
+    return this.execCtrl.appViews.get(viewId);
   }
 
   invokeRuntimeTool(

@@ -115,6 +115,7 @@ export class Session extends SessionBase {
   private readonly hooks?: Record<string, unknown>;
   private readonly hookTypeExecutors?: IHookTypeExecutor[];
   private readonly onTextDeltaCallback?: (delta: string) => void;
+  private readonly onThinkingDeltaCallback?: (delta: string) => void;
   private readonly onContextUpdateCallback?: (state: IContextWindowState) => void;
   private readonly onToolExecutionCallback?: ISessionOptions['onToolExecution'];
   private readonly onCompactCallback?: (summary: string) => void;
@@ -151,6 +152,7 @@ export class Session extends SessionBase {
     this.hooks = options.hooks;
     this.hookTypeExecutors = options.hookTypeExecutors;
     this.onTextDeltaCallback = options.onTextDelta;
+    this.onThinkingDeltaCallback = options.onThinkingDelta;
     this.onContextUpdateCallback = options.onContextUpdate;
     this.onToolExecutionCallback = options.onToolExecution;
     this.onCompactCallback = options.onCompact;
@@ -203,7 +205,12 @@ export class Session extends SessionBase {
       systemMessage,
       this.eventService,
     );
-    this.runtimeTools = new SessionRuntimeTools(this.agent, this.turnClaim, this.sessionId);
+    this.runtimeTools = new SessionRuntimeTools(
+      this.agent,
+      this.turnClaim,
+      this.sessionId,
+      options.ask,
+    );
     fireSessionStartHook(
       this.sessionId,
       this.cwd,
@@ -594,6 +601,7 @@ export class Session extends SessionBase {
       transcriptPath: this.transcriptPath,
       maxTurns: this.maxTurns,
       onTextDelta: this.onTextDeltaCallback,
+      onThinkingDelta: this.onThinkingDeltaCallback,
       onContextUpdate: this.onContextUpdateCallback,
       onToolExecution: this.onToolExecutionCallback,
       emitProviderCallCompleted: (observation) =>

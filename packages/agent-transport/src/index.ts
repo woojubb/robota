@@ -54,6 +54,9 @@ export type {
 export { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from './session-events.js';
 // The one list of messages an observer may send: the host refuses the rest, a client sends no others.
 export { isObserverMessageType } from './observer-messages.js';
+// The most history one frame carries, sized for the tightest channel; a carrier whose channel is
+// small (a WebRTC data channel) bounds an app view's frame by the same number.
+export { HISTORY_PAGE_MAX_BYTES } from './session-query-messages.js';
 export type { TProtocolSessionEventClassification } from './session-events.js';
 export type { IProtocolSession } from './protocol-session.js';
 export type {
@@ -111,6 +114,10 @@ export type {
   IPeerMessageRejection,
   IPeerMessageVerdict,
 } from './peer-message-ledger.js';
+
+// The argument a person recognises a tool call by, shared by every transport that asks a person
+// about a permission in its own wire form, so they name the same call the same way.
+export { permissionSummaryArgument } from './permission-summary.js';
 
 // The handoff integrity helpers (`sealHandoffRecord`, `verifyHandoffPayload`) are NOT
 // here: it hashes with `node:crypto`. Chunking is, because it never hashes anything.

@@ -1,7 +1,21 @@
 import type {
+  ISessionDriverAttribution,
+  ISessionEvents,
+  ISessionPromptResolution,
   ISessionRuntimeTools,
   ISessionTurnSubmission,
 } from '@robota-sdk/agent-interface-session';
 
-/** The exact session capabilities consumed by the MCP transport. */
-export interface IMcpTransportSession extends ISessionTurnSubmission, ISessionRuntimeTools {}
+/**
+ * The exact session capabilities consumed by the MCP transport: turn submission and runtime tools
+ * for the calls it serves, and the prompt events, prompt resolution and active-driver attribution
+ * through which a caller's own permission and ask prompts are put to the caller when the operator
+ * enabled that.
+ */
+export interface IMcpTransportSession
+  extends
+    ISessionTurnSubmission,
+    ISessionRuntimeTools,
+    ISessionEvents,
+    ISessionPromptResolution,
+    ISessionDriverAttribution {}

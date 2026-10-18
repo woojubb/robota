@@ -11,6 +11,7 @@
  */
 
 import {
+  HISTORY_PAGE_MAX_BYTES,
   createSessionMessageHandler,
   type ISessionMessageHandlerOptions,
   type SessionResumeBridge,
@@ -76,6 +77,9 @@ export function attachSession(
   const { onMessage, cleanup } = create({
     session: options.session,
     deliver: createChannelDelivery(options.channel, onDeliveryError),
+    // A data channel carries a fraction of the inbound limit; a frame over it makes `send` throw and
+    // closes the channel, so an app view or tool result larger than a history page is refused.
+    maxFrameBytes: HISTORY_PAGE_MAX_BYTES,
     ...(options.personalUsageReporter
       ? { personalUsageReporter: options.personalUsageReporter }
       : {}),

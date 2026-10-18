@@ -164,12 +164,22 @@ export type TClientMessage =
   // `project_memory`.
   | { type: 'project-memory'; requestId: string }
   // A driving surface invokes one runtime tool for a hosted app view, through the session's
-  // permission gate; a prompt it raises is attributed to that surface's driver. Answered by
-  // `app_tool_result`, or by `protocol_error` echoing `requestId` when the call is refused.
-  | { type: 'call-app-tool'; requestId: string; name: string; arguments: TToolParameters }
+  // permission gate; a prompt it raises is attributed to that surface's driver. `viewId` names the
+  // view (from a `tool_end`'s `appView`) and limits the call to the tools that view's own source
+  // declared. Answered by `app_tool_result`; a call that decoded but is refused (the view is gone,
+  // the tool is not the view's, the invocation is refused) is answered by `protocol_error` echoing
+  // `requestId`. A frame that does not decode, or one an observer sends, carries no `requestId`.
+  | {
+      type: 'call-app-tool';
+      requestId: string;
+      viewId: string;
+      name: string;
+      arguments: TToolParameters;
+    }
   // A driving surface reads the view a finished model call named in its `tool_end` (`appView`).
-  // Answered by `app_view`, or by `protocol_error` echoing `requestId`.
-  | { type: 'read-app-view'; requestId: string; executionId: string }
+  // Answered by `app_view`; a read that decoded but cannot be served (gone, or too large to send)
+  // is answered by `protocol_error` echoing `requestId`.
+  | { type: 'read-app-view'; requestId: string; viewId: string }
   | { type: 'get-background-tasks'; filter?: IBackgroundTaskListFilter }
   | { type: 'get-background-task'; taskId: string }
   | { type: 'get-background-job-groups' }

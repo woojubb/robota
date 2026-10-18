@@ -13,6 +13,7 @@ export const TUI_SESSION_EVENT_CLASSIFICATION = {
   tool_start: 'channel',
   tool_end: 'channel',
   thinking: 'channel',
+  thinking_delta: 'non-surface',
   complete: 'channel',
   error: 'channel',
   context_update: 'channel',

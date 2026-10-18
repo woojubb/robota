@@ -10,6 +10,7 @@ import type {
   IHookTypeExecutor,
   ISubprocessTraceEnv,
   TTextDeltaCallback,
+  TThinkingDeltaCallback,
   TModelEffortSelection,
 } from '@robota-sdk/agent-core';
 
@@ -44,6 +45,7 @@ export interface IRunContext {
   clearSessionStartStdout: () => void;
   maxTurns?: number;
   onTextDelta?: TTextDeltaCallback;
+  onThinkingDelta?: TThinkingDeltaCallback;
   onContextUpdate?: (state: IContextWindowState) => void;
   onToolExecution?: ISessionOptions['onToolExecution'];
   emitProviderCallCompleted?: (observation: IProviderCallTraceObservation) => void;

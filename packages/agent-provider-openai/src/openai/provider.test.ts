@@ -432,6 +432,37 @@ describe('OpenAIProvider', () => {
       );
     });
 
+    it('streams Responses reasoning summary deltas to onThinkingDelta apart from the reply', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test' });
+      const client = (
+        provider as unknown as {
+          client: { responses: { create: ReturnType<typeof vi.fn> } };
+        }
+      ).client;
+      async function* streamResponses() {
+        yield { type: 'response.reasoning_summary_text.delta', delta: 'Considering' };
+        yield { type: 'response.reasoning_summary_text.delta', delta: ' it.' };
+        yield { type: 'response.output_text.delta', delta: 'Done' };
+        yield {
+          type: 'response.completed',
+          response: { id: 'resp-think', output_text: 'Done', output: [], status: 'completed' },
+        };
+      }
+      client.responses.create.mockResolvedValue(streamResponses());
+      const thoughts: string[] = [];
+      const deltas: string[] = [];
+
+      const result = await provider.chat([createUserMessage('Hello')], {
+        model: 'gpt-4o',
+        onTextDelta: (delta) => deltas.push(delta),
+        onThinkingDelta: (delta) => thoughts.push(delta),
+      });
+
+      expect(thoughts).toEqual(['Considering', ' it.']);
+      expect(deltas).toEqual(['Done']);
+      expect(result.content).toBe('Done');
+    });
+
     it('carries the server-returned request ID onto the assembled streaming Responses message when withResponse is available', async () => {
       const provider = new OpenAIProvider({ apiKey: 'sk-test' });
       const client = (

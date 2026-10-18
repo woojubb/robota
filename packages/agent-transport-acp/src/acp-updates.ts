@@ -6,6 +6,8 @@ export interface IAcpUpdateStream {
   send(update: SessionUpdate): void;
   /** Queue message text for the editor. */
   text(text: string): void;
+  /** Queue reasoning text for the editor, shown apart from the reply. */
+  thought(text: string): void;
   /** Settles once everything queued has been written or abandoned. Never rejects. */
   drained(): Promise<void>;
 }
@@ -36,6 +38,8 @@ export function createUpdateStream(
   return {
     send,
     text: (text) => send({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text } }),
+    thought: (text) =>
+      send({ sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text } }),
     drained: () => tail,
   };
 }

@@ -202,6 +202,28 @@ describe('FallbackProvider', () => {
     expect(next.calls).toHaveLength(0);
   });
 
+  it('still moves when only reasoning had streamed, and the next model reasons after it', async () => {
+    const primary = new ScriptedProvider('anthropic', async (options) => {
+      options.onThinkingDelta?.('primary thought');
+      throw overloaded();
+    });
+    const next = new ScriptedProvider('openai', async (options) => {
+      options.onThinkingDelta?.('next thought');
+      return reply('from next');
+    });
+    const provider = new FallbackProvider(primary, [target(next, 'gpt-next')]);
+    const thoughts: string[] = [];
+
+    await expect(
+      provider.chat(MESSAGES, {
+        model: 'claude-primary',
+        onTextDelta: () => {},
+        onThinkingDelta: (delta) => thoughts.push(delta),
+      }),
+    ).resolves.toMatchObject({ content: 'from next' });
+    expect(thoughts).toEqual(['primary thought', 'next thought']);
+  });
+
   it('falls through an entry that cannot be built to the next one', async () => {
     const primary = new ScriptedProvider('anthropic', fail(overloaded()));
     const last = new ScriptedProvider('gemini', answer('from last'));

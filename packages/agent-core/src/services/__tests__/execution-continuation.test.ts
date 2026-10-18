@@ -175,6 +175,17 @@ describe('no-input execution continuation', () => {
     });
   });
 
+  it('hands the reasoning text of the resumed round to the resume observer', async () => {
+    const saved = await interrupted();
+    const fresh = fixture([{ thinking: 'picking up where I stopped', text: 'resumed answer' }]);
+    const thoughts: string[] = [];
+
+    await fresh.agent.resume({ ...saved, onThinkingDelta: (delta) => thoughts.push(delta) });
+
+    expect(thoughts).toEqual(['picking up where I stopped']);
+    expect(JSON.stringify(fresh.agent.getHistory())).not.toContain('picking up where I stopped');
+  });
+
   it('preserves an exhausted round cap and makes only the ordinary terminal summary', async () => {
     const saved = await interrupted({ maxExecutionRounds: 1 });
     const fresh = fixture([{ text: 'summary' }]);

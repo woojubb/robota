@@ -17,8 +17,12 @@ import type {
   IToolCall,
   ITokenUsageWithCacheRead,
   TTextDeltaCallback,
+  TThinkingDeltaCallback,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
+
+/** Between two summary parts of a reasoning stream: a blank line, so each part reads as a paragraph. */
+const THOUGHT_PART_SEPARATOR = '\n\n';
 
 /** Message usage; `totalTokens` is absent when the response omitted `total_tokens`. */
 type TResponsesMessageUsage = Omit<ITokenUsageWithCacheRead, 'totalTokens'> &
@@ -27,6 +31,7 @@ type TResponsesMessageUsage = Omit<ITokenUsageWithCacheRead, 'totalTokens'> &
 interface IOpenAIResponsesStreamAssemblyOptions {
   stream: AsyncIterable<TOpenAIResponsesStreamEvent>;
   onTextDelta?: TTextDeltaCallback;
+  onThinkingDelta?: TThinkingDeltaCallback;
   signal?: AbortSignal;
 }
 
@@ -36,11 +41,24 @@ interface IOpenAIResponsesReasoningMetadata {
   hasEncryptedReasoning: boolean;
 }
 
+/**
+ * Where the streamed reasoning summary stands. A summary arrives in parts and a reply can hold
+ * several reasoning items; each part is its own thought, so the next one starts on a new paragraph.
+ */
+interface IOpenAIResponsesThoughtStreamState {
+  /** The part the stream last named, by a part event or by a delta. */
+  currentPart?: string;
+  /** The part whose text was last handed to the caller; absent until any text was. */
+  sentPart?: string;
+  sentText: boolean;
+}
+
 interface IOpenAIResponsesStreamState {
   textParts: string[];
   toolCalls: IToolCall[];
   completedResponse?: IOpenAIResponsesResponse;
   reasoning: IOpenAIResponsesReasoningMetadata;
+  thought: IOpenAIResponsesThoughtStreamState;
 }
 
 export function parseOpenAIResponsesResponse(
@@ -64,10 +82,11 @@ export async function assembleOpenAIResponsesStream(
     textParts: [],
     toolCalls: [],
     reasoning: createEmptyReasoningMetadata(),
+    thought: { sentText: false },
   };
 
   for await (const event of streamWithAbort(options.stream, options.signal)) {
-    applyStreamEvent(state, event, options.onTextDelta);
+    applyStreamEvent(state, event, options);
   }
 
   if (state.completedResponse !== undefined) {
@@ -84,11 +103,24 @@ export async function assembleOpenAIResponsesStream(
 function applyStreamEvent(
   state: IOpenAIResponsesStreamState,
   event: TOpenAIResponsesStreamEvent,
-  onTextDelta: TTextDeltaCallback | undefined,
+  callbacks: Pick<IOpenAIResponsesStreamAssemblyOptions, 'onTextDelta' | 'onThinkingDelta'>,
 ): void {
   if (event.type === 'response.output_text.delta') {
     state.textParts.push(event.delta);
-    onTextDelta?.(event.delta);
+    callbacks.onTextDelta?.(event.delta);
+    return;
+  }
+
+  // A reasoning summary is shown as it streams and is not part of the reply, so it never joins
+  // `textParts`.
+  if (event.type === 'response.reasoning_summary_part.added') {
+    noteSummaryPart(state.thought, event);
+    return;
+  }
+
+  if (event.type === 'response.reasoning_summary_text.delta') {
+    noteSummaryPart(state.thought, event);
+    callbacks.onThinkingDelta?.(thoughtDelta(state.thought, event.delta));
     return;
   }
 
@@ -110,6 +142,32 @@ function applyStreamEvent(
   ) {
     throw new Error(`OpenAI Responses API failed: ${extractErrorMessage(event)}`);
   }
+}
+
+function noteSummaryPart(
+  thought: IOpenAIResponsesThoughtStreamState,
+  event: { item_id?: string; summary_index?: number },
+): void {
+  // A stream that names no part leaves the last one standing, so its text is never split.
+  if (event.item_id === undefined && event.summary_index === undefined) {
+    return;
+  }
+  thought.currentPart = `${event.item_id ?? ''}#${event.summary_index ?? 0}`;
+}
+
+/**
+ * The text to hand the caller for a summary delta: the first text of a part that follows earlier
+ * text is led by a paragraph break, so concatenated deltas read as separate thoughts. A part that
+ * carries no text adds no break, and an empty delta changes nothing.
+ */
+function thoughtDelta(thought: IOpenAIResponsesThoughtStreamState, delta: string): string {
+  if (delta.length === 0) {
+    return delta;
+  }
+  const startsNewPart = thought.sentText && thought.currentPart !== thought.sentPart;
+  thought.sentText = true;
+  thought.sentPart = thought.currentPart;
+  return startsNewPart ? `${THOUGHT_PART_SEPARATOR}${delta}` : delta;
 }
 
 function applyOutputItem(

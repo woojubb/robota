@@ -155,6 +155,23 @@ describe('permission requests', () => {
     });
   });
 
+  it('names the file a built-in file tool takes as filePath in the title', async () => {
+    const { editor } = await askPermission(() => select('reject'), {
+      request: { toolName: 'Read', toolArgs: { filePath: '/w/a.txt' } },
+    });
+    expect(editor.permissionRequests[0]!.toolCall).toMatchObject({
+      title: 'Read: /w/a.txt',
+      kind: 'read',
+    });
+  });
+
+  it('names a call by its command before its file, as the other transports do', async () => {
+    const { editor } = await askPermission(() => select('reject'), {
+      request: { toolArgs: { command: 'cat a.txt', filePath: '/w/a.txt' } },
+    });
+    expect(editor.permissionRequests[0]!.toolCall.title).toBe('Shell: cat a.txt');
+  });
+
   it('shows the editor a long command whole, in the title and in the raw input', async () => {
     const command = `echo start && ${'sleep 1 && '.repeat(30)}rm -rf build`;
     expect(command.length).toBeGreaterThan(120);

@@ -1,4 +1,4 @@
-import { Client, ReadBuffer, serializeMessage } from '@modelcontextprotocol/client';
+import { Client } from '@modelcontextprotocol/client';
 import { Server } from '@modelcontextprotocol/server';
 import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-transport/testing';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
@@ -6,11 +6,10 @@ import { PassThrough } from 'node:stream';
 
 import { describe, it, expect, expectTypeOf } from 'vitest';
 import { createMcpTransport } from '../mcp-transport.js';
+import { createPeerTransport } from './stdio-peer.js';
 import type { IMcpTransportSession } from '../mcp-session.js';
 import type { IMcpTransport } from '../mcp-transport.js';
-import type { Transport } from '@modelcontextprotocol/client';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
-import type { Readable, Writable } from 'node:stream';
 
 function createMockSession(): IMcpTransportSession {
   const full = createTestInteractiveSession();
@@ -18,33 +17,12 @@ function createMockSession(): IMcpTransportSession {
     submit: full.submit,
     listRuntimeTools: full.listRuntimeTools,
     invokeRuntimeTool: full.invokeRuntimeTool,
+    on: full.on,
+    off: full.off,
+    resolvePermission: full.resolvePermission,
+    resolveAsk: full.resolveAsk,
+    getActiveDriverId: full.getActiveDriverId,
   };
-}
-
-/** The peer's side of the carrier: a v2 client transport over the same two in-process streams. */
-function createPeerTransport(serverOutput: Readable, serverInput: Writable): Transport {
-  const buffer = new ReadBuffer();
-  const transport: Transport = {
-    async start() {
-      serverOutput.on('data', (chunk: Buffer) => {
-        buffer.append(chunk);
-        for (;;) {
-          const message = buffer.readMessage();
-          if (message === null) return;
-          transport.onmessage?.(message);
-        }
-      });
-      serverOutput.once('end', () => transport.onclose?.());
-    },
-    async send(message) {
-      serverInput.write(serializeMessage(message));
-    },
-    async close() {
-      serverInput.end();
-      transport.onclose?.();
-    },
-  };
-  return transport;
 }
 
 describe('createMcpTransport', () => {
@@ -55,7 +33,7 @@ describe('createMcpTransport', () => {
       (session: IMcpTransportSession) => void
     >();
     expectTypeOf<IMcpTransportSession>().not.toHaveProperty('executeCommand');
-    expect(Object.keys(createMockSession())).toHaveLength(3);
+    expect(Object.keys(createMockSession())).toHaveLength(8);
   });
 
   it('returns an adapter with name "mcp"', () => {
@@ -136,7 +114,10 @@ describe('createMcpTransport', () => {
         {
           name: 'fixture_echo',
           description: 'Echo',
-          parameters: { type: 'object' as const, properties: { text: { type: 'string' as const } } },
+          parameters: {
+            type: 'object' as const,
+            properties: { text: { type: 'string' as const } },
+          },
         },
       ],
       invokeRuntimeTool: async (name, parameters) => ({ success: true, name, parameters }),
@@ -164,7 +145,11 @@ describe('createMcpTransport', () => {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({ success: true, name: 'fixture_echo', parameters: { text: 'hi' } }),
+            text: JSON.stringify({
+              success: true,
+              name: 'fixture_echo',
+              parameters: { text: 'hi' },
+            }),
           },
         ],
         isError: false,

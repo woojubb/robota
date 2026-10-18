@@ -14,6 +14,7 @@ import {
   mintTransportToken,
 } from '@robota-sdk/agent-transport/node';
 
+import { McpPendingCalls } from './mcp-pending-calls.js';
 import { createMcpRemoteGate } from './mcp-remote-authorization.js';
 import { buildAgentMcpServer } from './mcp-server.js';
 import { readCatalog, resolveSubmitTool } from './mcp-tool-surface.js';
@@ -42,6 +43,13 @@ export interface IMcpHttpHostOptions {
   host?: string;
   /** Host-owned identity for the submission extension. */
   submitTool?: IMcpSubmitToolIdentity;
+  /**
+   * Put the permission and ask prompts a call raises to the client that made it, through MCP
+   * elicitation; allow-once and deny only. A stateless host can ask only a client on the
+   * 2026-07-28 era, through input-required rounds; a legacy-era client keeps the tool error. Off
+   * by default.
+   */
+  askClient?: boolean;
 }
 
 export interface IMcpHttpHost {
@@ -62,6 +70,8 @@ export interface IMcpRemoteHttpHostOptions {
   authorization: IMcpRemoteAuthorization;
   /** Host-owned identity for the submission extension. */
   submitTool?: IMcpSubmitToolIdentity;
+  /** As on the loopback host; here the question reaches whoever holds an admitted token. */
+  askClient?: boolean;
 }
 
 export interface IMcpRemoteHttpHost {
@@ -96,6 +106,7 @@ function createHostCore(
   gate: TRequestGate,
 ): IHostCore {
   const submitTool = resolveSubmitTool(options.submitTool);
+  const pending = new McpPendingCalls();
   let listener: ReturnType<typeof createServer> | undefined;
   let handler: ReturnType<typeof createMcpHandler> | undefined;
   let stopPromise: Promise<void> | undefined;
@@ -116,9 +127,15 @@ function createHostCore(
       startCalled = true;
       await readCatalog(options.session, submitTool.name);
       if (stoppingRequested) throw new Error('MCP HTTP host stopped during startup');
-      handler = createMcpHandler(() => buildAgentMcpServer(options, submitTool), {
-        maxSubscriptions: 0,
-      });
+      handler = createMcpHandler(
+        (ctx) =>
+          buildAgentMcpServer(
+            options,
+            submitTool,
+            ctx.era === 'modern' ? { kind: 'rounds', pending } : { kind: 'none' },
+          ),
+        { maxSubscriptions: 0 },
+      );
       const nodeHandler = toNodeHandler(handler);
       const serve = (req: IncomingMessage, res: ServerResponse): void => {
         if (active >= MAX_ACTIVE_REQUESTS) {
@@ -215,6 +232,7 @@ function createHostCore(
       stopPromise = (async () => {
         const currentHandler = handler;
         const currentListener = listener;
+        pending.abortAll();
         if (!currentListener) {
           await currentHandler?.close();
           resolveClose?.();

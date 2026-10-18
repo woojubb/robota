@@ -42,6 +42,10 @@ function chunk(text: string) {
   return { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text } };
 }
 
+function thought(text: string) {
+  return { sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text } };
+}
+
 describe('session/prompt streaming', () => {
   it('streams message chunks and tool calls, then ends the turn', async () => {
     const fake: IFakeSession = createFakeSession(async () => {
@@ -175,6 +179,73 @@ describe('session/prompt streaming', () => {
     expect((first as { title: string }).title.endsWith('…')).toBe(true);
   });
 
+  it('streams reasoning text as thought chunks, in order with the message chunks', async () => {
+    const fake: IFakeSession = createFakeSession(async () => {
+      fake.emit('thinking_delta', 'Let me ');
+      fake.emit('thinking_delta', 'check.');
+      fake.emit('text_delta', 'Found');
+      fake.emit('tool_start', tool());
+      fake.emit('thinking_delta', 'Now the answer.');
+      fake.emit('text_delta', ' it');
+      return endedTurn(executionResult('Found it'));
+    });
+    const { prompt, editor } = await start(fake);
+
+    await expect(prompt('look')).resolves.toEqual({ stopReason: 'end_turn' });
+
+    expect(editor.updates).toEqual([
+      thought('Let me '),
+      thought('check.'),
+      chunk('Found'),
+      {
+        sessionUpdate: 'tool_call',
+        toolCallId: 'call-1',
+        title: 'Read: src/a.ts',
+        kind: 'read',
+        status: 'in_progress',
+      },
+      thought('Now the answer.'),
+      chunk(' it'),
+    ]);
+  });
+
+  it('sends nothing for an empty reasoning delta', async () => {
+    const fake: IFakeSession = createFakeSession(async () => {
+      fake.emit('thinking_delta', '');
+      return endedTurn();
+    });
+    const { prompt, editor } = await start(fake);
+
+    await prompt('hi');
+
+    expect(editor.updates).toEqual([]);
+  });
+
+  it('still shows the result once for a turn that streamed only reasoning', async () => {
+    const fake: IFakeSession = createFakeSession(async () => {
+      fake.emit('thinking_delta', 'Thinking it over.');
+      return endedTurn(executionResult('The result'));
+    });
+    const { prompt, editor } = await start(fake);
+
+    await prompt('hi');
+
+    expect(editor.updates).toEqual([thought('Thinking it over.'), chunk('The result')]);
+  });
+
+  it('does not repeat a streamed reply when reasoning came with it', async () => {
+    const fake: IFakeSession = createFakeSession(async () => {
+      fake.emit('thinking_delta', 'Hmm.');
+      fake.emit('text_delta', 'Streamed');
+      return endedTurn(executionResult('Streamed'));
+    });
+    const { prompt, editor } = await start(fake);
+
+    await prompt('hi');
+
+    expect(editor.updates).toEqual([thought('Hmm.'), chunk('Streamed')]);
+  });
+
   it('sends the whole reply once when the provider streamed nothing', async () => {
     const fake = createFakeSession(async () => endedTurn(executionResult('Whole reply')));
     const { prompt, editor } = await start(fake);
@@ -204,6 +275,7 @@ describe('session/prompt streaming', () => {
     const fake: IFakeSession = createFakeSession(async () => {
       during = {
         text_delta: fake.listenerCount('text_delta'),
+        thinking_delta: fake.listenerCount('thinking_delta'),
         permission_request: fake.listenerCount('permission_request'),
         ask_request: fake.listenerCount('ask_request'),
       };
@@ -212,8 +284,14 @@ describe('session/prompt streaming', () => {
     });
     const { prompt, editor } = await start(fake);
     await prompt('hi');
-    expect(during).toEqual({ text_delta: 1, permission_request: 1, ask_request: 0 });
+    expect(during).toEqual({
+      text_delta: 1,
+      thinking_delta: 1,
+      permission_request: 1,
+      ask_request: 0,
+    });
     expect(fake.listenerCount('text_delta')).toBe(0);
+    expect(fake.listenerCount('thinking_delta')).toBe(0);
     expect(fake.listenerCount('permission_request')).toBe(0);
     expect(fake.everSubscribed.has('ask_request')).toBe(false);
     expect(fake.everSubscribed.has('thinking')).toBe(false);

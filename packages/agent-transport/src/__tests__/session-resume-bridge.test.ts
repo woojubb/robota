@@ -404,3 +404,69 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
     });
   });
 });
+
+describe('app view messages through the resume bridge', () => {
+  const view = {
+    sourceId: 'files',
+    resourceUri: 'ui://files/list',
+    mimeType: 'text/html;profile=mcp-app',
+    html: '<main>rows</main>',
+    callableTools: { list_files: 'mcp__files__list_files' },
+  };
+  const call = {
+    type: 'call-app-tool',
+    requestId: 'c1',
+    viewId: 'view-1',
+    name: 'mcp__files__list_files',
+    arguments: {},
+  };
+
+  it('cancels a call waiting on its prompt when the host gives up on the bridge, not when a channel drops', async () => {
+    let signal: AbortSignal | undefined;
+    const base = fakeSession().session;
+    const session = Object.assign(base, {
+      readToolAppView: vi.fn().mockReturnValue(view),
+      invokeRuntimeTool: vi.fn(
+        (_name: string, _arguments: unknown, options?: { signal?: AbortSignal }) => {
+          signal = options?.signal;
+          return new Promise(() => undefined);
+        },
+      ),
+    });
+    const bridge = new SessionResumeBridge({ session });
+    bridge.attach(sink(), TEST_ATTACH_OPTIONS);
+
+    bridge.onClientMessage(JSON.stringify(call));
+    await vi.waitFor(() => expect(signal).toBeDefined());
+
+    // A channel drop leaves the session reconnectable: the call keeps waiting for its prompt.
+    bridge.detach();
+    expect(signal?.aborted).toBe(false);
+
+    bridge.dispose();
+    expect(signal?.aborted).toBe(true);
+  });
+
+  it('holds an app view to the channel limit before the frame reaches the buffer', () => {
+    const base = fakeSession().session;
+    const session = Object.assign(base, {
+      readToolAppView: vi.fn().mockReturnValue({ ...view, html: 'x'.repeat(5_000) }),
+    });
+    const bridge = new SessionResumeBridge({ session, maxFrameBytes: 2_000 });
+    const output = sink();
+    bridge.attach(output, TEST_ATTACH_OPTIONS);
+
+    bridge.onClientMessage(JSON.stringify({ type: 'read-app-view', requestId: 'v1', viewId: 'view-1' }));
+
+    expect(frames(output).map((frame) => frame.type)).toEqual(['protocol_error']);
+    // Nothing large was retained for a later `resume` either.
+    const replay = sink();
+    bridge.detach();
+    bridge.attach(replay, TEST_ATTACH_OPTIONS);
+    bridge.onClientMessage(JSON.stringify({ type: 'resume', lastSeq: 0 }));
+    expect(frames(replay).map((frame) => frame.type)).toEqual(['protocol_error']);
+    expect(replay.calls.join('').length).toBeLessThan(2_000);
+    bridge.dispose();
+  });
+});
+

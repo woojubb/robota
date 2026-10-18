@@ -134,7 +134,10 @@ export interface IToolExecutionContext {
    * interrupted/failed result. Completing silently after an abort is a contract violation.
    */
   signal?: AbortSignal;
-  /** Direct remote calls deny decisions that would require human interaction. */
+  /**
+   * `'deny'` refuses any permission decision that would need a person. A direct call runs with it
+   * unless its caller answers its own prompts.
+   */
   permissionInteraction?: 'interactive' | 'deny';
   executionId?: string; // Tool execution ID (typically tool call ID)
   userId?: string;

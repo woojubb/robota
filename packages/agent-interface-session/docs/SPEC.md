@@ -119,7 +119,8 @@ A session exposes a canonical runtime-tool capability (list + invoke, with schem
 execution) as its own surface. The session owns permission, hooks, execution/audit events, result
 admission, cancellation and shutdown for it. A caller chooses whether a permission decision the call
 needs may be put to a person — by default it fails closed, which is right for a caller nobody is
-watching — and may name the driver a prompt is attributed to. Transports may neither synthesize a
+watching — and may name the driver a prompt is attributed to; cancelling the call withdraws a prompt
+it opened. Transports may neither synthesize a
 parallel command catalog nor execute commands directly.
 
 A finished model call's tool event names the view its source declared by reference, and a driving

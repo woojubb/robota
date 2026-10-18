@@ -145,6 +145,7 @@ async function chatWithOpenAIResponsesStreamingAssembly(
         },
       ),
       onTextDelta: input.chatOptions?.onTextDelta,
+      onThinkingDelta: input.chatOptions?.onThinkingDelta,
       signal: input.chatOptions?.signal,
     });
     return withProviderRequestId(assembled, providerRequestId);

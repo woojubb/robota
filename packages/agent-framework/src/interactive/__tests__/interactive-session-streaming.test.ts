@@ -93,7 +93,7 @@ it('keeps admitted mixed parts on the matching live call and summary', () => {
   });
 });
 
-const appView = { sourceId: 'files', resourceUri: 'ui://files/list' };
+const appView = { viewId: 'view-1', sourceId: 'files', resourceUri: 'ui://files/list' };
 
 describe('a tool call names its source view by reference', () => {
   it('carries the reference on the finished call but never into the recorded history', () => {

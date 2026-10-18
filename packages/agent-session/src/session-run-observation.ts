@@ -66,7 +66,7 @@ function fireModelCallHook(
 export function createRunObservers(
   ctx: IRunContext,
   traceContext?: IRunOptions['traceContext'],
-): Pick<IRunOptions, 'onTextDelta' | 'onExecutionEvent'> {
+): Pick<IRunOptions, 'onTextDelta' | 'onThinkingDelta' | 'onExecutionEvent'> {
   const hookTraceEnv = traceContext
     ? traceEnvFor('hooks', traceContext, traceContext.parentSpanId)
     : undefined;
@@ -204,5 +204,7 @@ export function createRunObservers(
       }
     },
     ...(onTextDelta && { onTextDelta }),
+    // Reasoning text is not the reply, so it is not in the session log's text-delta record.
+    ...(ctx.onThinkingDelta && { onThinkingDelta: ctx.onThinkingDelta }),
   };
 }
