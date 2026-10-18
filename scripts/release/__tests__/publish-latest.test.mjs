@@ -1,13 +1,17 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import {
   chmodSync,
+  closeSync,
+  constants,
   copyFileSync,
   existsSync,
   mkdtempSync,
   mkdirSync,
+  openSync,
   readFileSync,
   rmSync,
   writeFileSync,
+  writeSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -18,6 +22,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const changesetsCli = path.join(root, 'node_modules/@changesets/cli/bin.js');
 const fixtures = [];
 const version = '3.0.0-beta.93';
+const publishCall = ['changeset', 'publish', '--no-git-tag', '--tag', 'latest'];
+// The first code is accepted for exactly one publish, as a code that expires mid-batch; the second always.
+const otpCodes = { expiring: '111111', fresh: '222222' };
 
 afterAll(() => {
   for (const fixture of fixtures) rmSync(fixture, { recursive: true, force: true });
@@ -99,14 +106,17 @@ function makeFixture({ prerelease = true, failure = '', trusted = false } = {}) 
 const fs = require('node:fs');
 const args = process.argv.slice(2);
 const version = '${version}';
+const published = (name) => (fs.existsSync(process.env.PUBLISH_RECORD)
+  ? fs.readFileSync(process.env.PUBLISH_RECORD, 'utf8').trim().split('\\n').filter(Boolean).map(JSON.parse) : [])
+  .some(({ cwd, args: publishArgs, accepted }) => accepted && cwd.endsWith('/' + name.split('/').at(-1)) && publishArgs[publishArgs.indexOf('--tag') + 1] === 'latest');
 if (args[0] === 'whoami') { process.stdout.write('fixture-user\\n'); process.exit(0); }
 if (args[0] === 'info') {
-  if (args[1].startsWith('@robota-sdk/cedar-new')) process.exit(1);
-  if (args[1] === '@robota-sdk/amber-existing') {
-    process.stdout.write(JSON.stringify({ name: args[1], version: '3.0.0-beta.92', versions: ['3.0.0-beta.92'], 'dist-tags': { beta: '3.0.0-beta.92' } }) + '\\n');
-    process.exit(0);
-  }
-  process.exit(1);
+  const name = args[1].replace(/(.)@.*$/, '$1');
+  const versions = name === '@robota-sdk/amber-existing' ? ['3.0.0-beta.92'] : [];
+  if (published(name)) versions.push(version);
+  if (versions.length === 0) process.exit(1);
+  process.stdout.write(JSON.stringify({ name, version: versions[0], versions, 'dist-tags': { beta: '3.0.0-beta.92' } }) + '\\n');
+  process.exit(0);
 }
 if (args[0] === 'view') {
   if (args[2] === 'name') {
@@ -114,11 +124,7 @@ if (args[0] === 'view') {
     process.stdout.write(args[1] + '\\n'); process.exit(0);
   }
   if (args[2] === 'dist-tags.latest') {
-    const records = fs.existsSync(process.env.PUBLISH_RECORD)
-      ? fs.readFileSync(process.env.PUBLISH_RECORD, 'utf8').trim().split('\\n').filter(Boolean).map(JSON.parse) : [];
-    if (records.some(({ cwd, args: publishArgs }) => cwd.endsWith('/' + args[1].split('/').at(-1)) && publishArgs[publishArgs.indexOf('--tag') + 1] === 'latest')) {
-      process.stdout.write(version + '\\n');
-    }
+    if (published(args[1])) process.stdout.write(version + '\\n');
     process.exit(0);
   }
 }
@@ -138,14 +144,23 @@ if (args[0] === '-r' && args.includes('list')) {
   process.exit(0);
 }
 if (args[0] === 'changeset') {
-  fs.writeFileSync(process.env.CHANGESET_ARGS_RECORD, JSON.stringify(args) + '\\n');
+  fs.appendFileSync(process.env.CHANGESET_ARGS_RECORD, JSON.stringify(args) + '\\n');
   const result = spawnSync(process.execPath, [process.env.CHANGESETS_CLI, ...args.slice(1)], {
     stdio: 'inherit', env: { ...process.env, PUBLISH_WRAPPER_PID: String(process.ppid) },
   });
   process.exit(result.status ?? 1);
 }
 if (args[0] === 'publish') {
-  fs.appendFileSync(process.env.PUBLISH_RECORD, JSON.stringify({ cwd: process.cwd(), args }) + '\\n');
+  const otp = args.includes('--otp') ? args[args.indexOf('--otp') + 1] : undefined;
+  let accepted = process.env.FIXTURE_FAILURE !== 'publish';
+  if (process.env.FIXTURE_FAILURE === 'otp') {
+    accepted = otp === process.env.OTP_FRESH;
+    if (otp === process.env.OTP_EXPIRING) {
+      try { fs.writeFileSync(process.env.OTP_EXPIRING_CLAIM, otp, { flag: 'wx' }); accepted = true; }
+      catch (error) { if (error.code !== 'EEXIST') throw error; }
+    }
+  }
+  fs.appendFileSync(process.env.PUBLISH_RECORD, JSON.stringify({ cwd: process.cwd(), args, otp, accepted }) + '\\n');
   if (process.env.FIXTURE_FAILURE === 'signal') {
     try {
       fs.writeFileSync(process.env.SIGNAL_SENT, 'sent', { flag: 'wx' });
@@ -164,6 +179,10 @@ if (args[0] === 'publish') {
     }, 500);
   } else if (process.env.FIXTURE_FAILURE === 'publish') {
     process.stderr.write(JSON.stringify({ error: { code: 'EFAIL', summary: 'synthetic publish failure' } }) + '\\n');
+    process.exit(1);
+  } else if (!accepted) {
+    // What pnpm 8 shows for npm's rejection: plain text, no --json error object for changesets to act on.
+    process.stderr.write('npm error code EOTP\\nnpm error This operation requires a one-time password from your authenticator.\\nnpm error You can provide a one-time password by passing --otp=<code> to the command you ran.\\n');
     process.exit(1);
   } else {
     process.stdout.write('{}\\n'); process.exit(0);
@@ -192,54 +211,127 @@ if (args[0] !== 'publish') {
     changesetArgsRecord: path.join(directory, 'changeset-args.json'),
     childDone: path.join(directory, 'child-done.txt'),
     signalSent: path.join(directory, 'signal-sent.txt'),
+    otpClaim: path.join(directory, 'otp-expiring-claim.txt'),
     failure,
     trusted,
     before: prerelease ? readFileSync(preFile) : undefined,
   };
 }
 
-function run(fixture) {
-  const result = spawnSync(
+function environment(fixture) {
+  return {
+    PATH: [
+      path.join(fixture.directory, 'bin'),
+      path.dirname(process.execPath),
+      '/usr/bin',
+      '/bin',
+    ].join(':'),
+    TMPDIR: fixture.directory,
+    PRODUCT_PACKAGE_SCOPE: '@robota-sdk',
+    PROJECT_REPOSITORY_URL: 'https://github.com/robota/fixture',
+    PROJECT_NPM_REGISTRY_URL: 'https://registry.npmjs.org/',
+    PROJECT_PACKAGE_ACCESS: 'public',
+    CHANGESETS_CLI: changesetsCli,
+    CHANGESET_ARGS_RECORD: fixture.changesetArgsRecord,
+    PUBLISH_RECORD: fixture.record,
+    CHILD_DONE: fixture.childDone,
+    SIGNAL_SENT: fixture.signalSent,
+    PRE_STATE_FILE: fixture.preFile,
+    PRE_STATE_LOCK: fixture.lock,
+    FIXTURE_FAILURE: fixture.failure,
+    OTP_EXPIRING: otpCodes.expiring,
+    OTP_FRESH: otpCodes.fresh,
+    OTP_EXPIRING_CLAIM: fixture.otpClaim,
+  };
+}
+
+function command(fixture) {
+  return [
     'bash',
-    [
-      path.join(fixture.directory, 'scripts/publish/publish-packages.sh'),
-      '--skip-build',
-      ...(fixture.trusted ? ['--trusted'] : []),
-    ],
-    {
-      cwd: fixture.directory,
-      encoding: 'utf8',
-      timeout: 30_000,
-      env: {
-        PATH: [
-          path.join(fixture.directory, 'bin'),
-          path.dirname(process.execPath),
-          '/usr/bin',
-          '/bin',
-        ].join(':'),
-        TMPDIR: fixture.directory,
-        PRODUCT_PACKAGE_SCOPE: '@robota-sdk',
-        PROJECT_REPOSITORY_URL: 'https://github.com/robota/fixture',
-        PROJECT_NPM_REGISTRY_URL: 'https://registry.npmjs.org/',
-        PROJECT_PACKAGE_ACCESS: 'public',
-        CHANGESETS_CLI: changesetsCli,
-        CHANGESET_ARGS_RECORD: fixture.changesetArgsRecord,
-        PUBLISH_RECORD: fixture.record,
-        CHILD_DONE: fixture.childDone,
-        SIGNAL_SENT: fixture.signalSent,
-        PRE_STATE_FILE: fixture.preFile,
-        PRE_STATE_LOCK: fixture.lock,
-        FIXTURE_FAILURE: fixture.failure,
-      },
-    },
-  );
-  const records = existsSync(fixture.record)
-    ? readFileSync(fixture.record, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse)
+    path.join(fixture.directory, 'scripts/publish/publish-packages.sh'),
+    '--skip-build',
+    ...(fixture.trusted ? ['--trusted'] : []),
+  ];
+}
+
+function readLines(file) {
+  return existsSync(file)
+    ? readFileSync(file, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse)
     : [];
+}
+
+function outcome(fixture) {
+  const records = readLines(fixture.record);
   const tags = Object.fromEntries(
     records.map(({ cwd, args }) => [path.basename(cwd), args[args.indexOf('--tag') + 1]]),
   );
-  return { ...result, records, tags };
+  return { records, tags, changesetCalls: readLines(fixture.changesetArgsRecord) };
+}
+
+function run(fixture) {
+  const [file, ...args] = command(fixture);
+  const result = spawnSync(file, args, {
+    cwd: fixture.directory,
+    encoding: 'utf8',
+    timeout: 30_000,
+    env: environment(fixture),
+  });
+  return { ...result, output: result.stdout + result.stderr, ...outcome(fixture) };
+}
+
+// Runs the script with a terminal on stdin through script(1) and types the codes, as the owner would.
+// The codes wait in a named pipe that `cat` feeds to script(1) through a plain pipe (macOS script(1)
+// rejects a socket on stdin, which is what Node's piped stdio and macOS FIFOs are). The pipe's writer
+// closes once the script has started: macOS script(1) hands the child EOF ahead of buffered input when
+// its stdin is already closed at startup, while util-linux script(1) waits for that EOF before exiting.
+function runOnTerminal(fixture, codes) {
+  const inner = command(fixture);
+  const args =
+    process.platform === 'darwin'
+      ? ['-q', '-e', '/dev/null', ...inner]
+      : ['-q', '-e', '-c', inner.map((part) => `'${part}'`).join(' '), '/dev/null'];
+  const keyboard = path.join(fixture.directory, 'keyboard.fifo');
+  const mkfifo = spawnSync('mkfifo', [keyboard], { encoding: 'utf8' });
+  if (mkfifo.status !== 0) throw new Error(mkfifo.stderr);
+  const typed = openSync(keyboard, constants.O_RDWR);
+  writeSync(typed, codes.map((code) => `${code}\n`).join(''));
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      'bash',
+      ['-c', 'exec script "$@" < <(cat "$KEYBOARD" 2>/dev/null)', 'script', ...args],
+      {
+        cwd: fixture.directory,
+        env: { ...environment(fixture), KEYBOARD: keyboard },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
+    let typing = true;
+    const stopTyping = () => {
+      if (!typing) return;
+      typing = false;
+      closeSync(typed);
+    };
+    const chunks = [];
+    child.stdout.on('data', (chunk) => {
+      chunks.push(chunk);
+      stopTyping();
+    });
+    child.stderr.on('data', (chunk) => chunks.push(chunk));
+    const timer = setTimeout(() => child.kill('SIGKILL'), 30_000);
+    child.on('error', (error) => {
+      stopTyping();
+      reject(error);
+    });
+    child.on('exit', stopTyping);
+    child.on('close', (status) => {
+      clearTimeout(timer);
+      resolve({
+        status,
+        output: Buffer.concat(chunks).toString('utf8').replace(/\r/g, ''),
+        ...outcome(fixture),
+      });
+    });
+  });
 }
 
 function expectRestored(fixture) {
@@ -253,13 +345,7 @@ it('publishes both new and prerelease-only packages under latest with the pinned
   const result = run(fixture);
   expect(result.tags).toEqual({ 'amber-existing': 'latest', 'cedar-new': 'latest' });
   expect(result.status).toBe(0);
-  expect(JSON.parse(readFileSync(fixture.changesetArgsRecord, 'utf8'))).toEqual([
-    'changeset',
-    'publish',
-    '--no-git-tag',
-    '--tag',
-    'latest',
-  ]);
+  expect(result.changesetCalls).toEqual([publishCall]);
   expect(result.stdout).toContain('Published 3.0.0-beta.93');
   expectRestored(fixture);
 });
@@ -310,5 +396,50 @@ it('keeps trusted publication from attempting a never-published package', () => 
   expect(result.stdout).toContain('Never published');
   expect(result.records).toEqual([]);
   expect(existsSync(fixture.changesetArgsRecord)).toBe(false);
+  expectRestored(fixture);
+});
+
+it('asks for the one-time password right before publishing and retries the rest with a fresh code', async () => {
+  const fixture = makeFixture({ failure: 'otp' });
+  const result = await runOnTerminal(fixture, [otpCodes.expiring, otpCodes.fresh]);
+  expect(result.status).toBe(0);
+  expect(result.output.indexOf('Packing and verifying tarballs')).toBeLessThan(
+    result.output.indexOf('🔑 npm one-time password'),
+  );
+  expect(result.changesetCalls).toEqual([
+    [...publishCall, `--otp=${otpCodes.expiring}`],
+    [...publishCall, `--otp=${otpCodes.fresh}`],
+  ]);
+  expect(result.output).toContain('npm rejected the one-time password');
+  const accepted = result.records.filter((record) => record.accepted);
+  expect(accepted.map(({ cwd }) => path.basename(cwd)).sort()).toEqual([
+    'amber-existing',
+    'cedar-new',
+  ]);
+  expect(result.records.filter((record) => !record.accepted).map(({ otp }) => otp)).toEqual([
+    otpCodes.expiring,
+  ]);
+  expect(result.records.filter(({ otp }) => otp === otpCodes.fresh)).toHaveLength(1);
+  expect(result.output).toContain('Published 3.0.0-beta.93');
+  expectRestored(fixture);
+});
+
+it('stops asking after four rejected one-time passwords', async () => {
+  const fixture = makeFixture({ failure: 'otp' });
+  const result = await runOnTerminal(fixture, ['000000', '000000', '000000', '000000']);
+  expect(result.status).toBe(1);
+  expect(result.changesetCalls).toEqual(Array(4).fill([...publishCall, '--otp=000000']));
+  expect(result.records.filter((record) => record.accepted)).toEqual([]);
+  expect(result.output.match(/🔑 npm one-time password/g)).toHaveLength(4);
+  expectRestored(fixture);
+});
+
+it('never asks for a one-time password without a terminal and fails as npm reports', () => {
+  const fixture = makeFixture({ failure: 'otp' });
+  const result = run(fixture);
+  expect(result.status).toBe(1);
+  expect(result.output).not.toContain('🔑');
+  expect(result.changesetCalls).toEqual([publishCall]);
+  expect(result.records.filter((record) => record.accepted)).toEqual([]);
   expectRestored(fixture);
 });
