@@ -7,7 +7,7 @@ import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
-import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import type { IEditorFileAccess, ISandboxClient } from '@robota-sdk/agent-tools';
 
 /**
  * The session context agent's coding tools are bound to.
@@ -42,6 +42,11 @@ export interface ICodingPackOptions {
    * are withheld). With a `shared` filesystem, file tools stay on the host under the path guard.
    */
   sandboxClient?: ISandboxClient;
+  /**
+   * An editor that has the workspace open, asked at each call: the host file tools read and write
+   * through what it offers. Absent, or answering `undefined`, means the disk.
+   */
+  editorFiles?: () => IEditorFileAccess | undefined;
 }
 
 /**
@@ -78,6 +83,7 @@ export function createCodingPack(options: ICodingPackOptions): ICapabilityPack {
     httpUserAgent: options.httpUserAgent,
     ...(options.shellExecutable !== undefined ? { shellExecutable: options.shellExecutable } : {}),
     ...(options.sandboxClient ? { sandboxClient: options.sandboxClient } : {}),
+    ...(options.editorFiles ? { editorFiles: options.editorFiles } : {}),
   };
 
   return {

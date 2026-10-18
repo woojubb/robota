@@ -34,7 +34,12 @@ import {
 } from '@robota-sdk/agent-tools';
 
 import type { FunctionTool } from '@robota-sdk/agent-core';
-import type { ISandboxClient, IRetrievalAdapter, IComputerDriver } from '@robota-sdk/agent-tools';
+import type {
+  IComputerDriver,
+  IEditorFileAccess,
+  IRetrievalAdapter,
+  ISandboxClient,
+} from '@robota-sdk/agent-tools';
 
 /**
  * Create the default set of CLI tools.
@@ -54,6 +59,12 @@ export interface ICreateDefaultToolsOptions {
    * the only way a containment root stays a contract rather than a convention.
    */
   cwd: string;
+  /**
+   * An editor that has the workspace open, asked at each call. The host file tools read and write
+   * through what it offers and the searches say they read the disk; commands never use it, and a
+   * sandbox with its own filesystem keeps every file tool, since its files are not the editor's.
+   */
+  editorFiles?: () => IEditorFileAccess | undefined;
   /** SELFHOST-003: when present, adds the adapter-gated `CodebaseRetrieval` tool (absent otherwise). */
   retrievalAdapter?: IRetrievalAdapter;
   /**
@@ -80,18 +91,21 @@ export function createDefaultTools(options: ICreateDefaultToolsOptions): Functio
   // sandbox. On a SHARED filesystem (commands confined over the host's) file tools stay on the host
   // under the path guard, and only commands run through the sandbox.
   const separate = routesFilesThroughSandbox(options.sandboxClient);
+  // An editor holds the host's files, so it reaches only the tools that work on them; commands keep
+  // the agent's own sandbox.
+  const { editorFiles: _hostFilesOnly, ...commandOptions } = options;
   const { sandboxClient: _commandsOnly, ...hostFileOptions } = options;
-  const fileOptions = separate ? options : hostFileOptions;
+  const fileOptions = separate ? commandOptions : hostFileOptions;
   return [
-    createShellTool(options),
-    createBashTool(options),
+    createShellTool(commandOptions),
+    createBashTool(commandOptions),
     createReadTool(fileOptions),
     createWriteTool(fileOptions),
     createEditTool(fileOptions),
     // SEC-007: built per call, NOT the module-level singletons. A singleton is context-free by
     // construction, so registering one meant `Glob`/`Grep` could enumerate outside the session's
     // working directory while `Read`/`Write`/`Edit` were contained.
-    ...(separate ? [] : [createGlobTool(options), createGrepTool(options)]),
+    ...(separate ? [] : [createGlobTool(hostFileOptions), createGrepTool(hostFileOptions)]),
     // MUST 4: also built per call, for the same reason — `webFetchTool`/`webSearchTool` are
     // module-level singletons in `agent-tools`, so two concurrently open sessions built from this
     // set (e.g. two `sessionParticipant`s) shared them and tripped `resource-reused` even though
