@@ -40,6 +40,7 @@ export function createAcpTransport(options: IAcpTransportOptions): IAcpTransport
   let carrier: IStdioCarrier | null = null;
   let connection: AgentConnection | null = null;
   let cancelActive: (() => void) | null = null;
+  let withdrawEditorFiles: (() => void) | null = null;
   let resolveClose: (() => void) | null = null;
   let rejectClose: ((error: Error) => void) | null = null;
   let closePromise: Promise<void> = Promise.resolve();
@@ -53,6 +54,8 @@ export function createAcpTransport(options: IAcpTransportOptions): IAcpTransport
   };
   const release = (): void => {
     try {
+      // The host's tools go back to the disk before the connection that carried their access closes.
+      withdrawEditorFiles?.();
       cancelActive?.();
       connection?.close();
     } finally {
@@ -60,6 +63,7 @@ export function createAcpTransport(options: IAcpTransportOptions): IAcpTransport
       carrier = null;
       connection = null;
       cancelActive = null;
+      withdrawEditorFiles = null;
     }
   };
   const lifecycleError = (code: ITransportLifecycleError['code']): ITransportLifecycleError =>
@@ -84,6 +88,7 @@ export function createAcpTransport(options: IAcpTransportOptions): IAcpTransport
       try {
         const acpAgent = createAcpAgent(session, options);
         cancelActive = acpAgent.cancelActive;
+        withdrawEditorFiles = acpAgent.withdrawEditorFiles;
         // The SDK destroys what it reads when its connection closes; it reads the bridge, never the
         // process input, and a closed or failed end ends the transport instead of leaving it idle.
         const attached = attachStdioCarrier(options.input, options.output, {

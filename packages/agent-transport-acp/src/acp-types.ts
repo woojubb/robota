@@ -31,6 +31,15 @@ export interface IAcpTransportSession
   whenInitialized?(): Promise<void>;
 }
 
+/**
+ * The editor's file system, as the editor offered it (`clientCapabilities.fs`): a method it did not
+ * offer is absent. Paths are absolute. A failure rejects with the editor's reason.
+ */
+export interface IAcpEditorFileAccess {
+  readTextFile?(path: string, signal?: AbortSignal): Promise<string>;
+  writeTextFile?(path: string, content: string, signal?: AbortSignal): Promise<void>;
+}
+
 /** The host's answer to whether the workspace may serve an editor; a refusal carries what to tell the user. */
 export type TAcpWorkspaceAdmission =
   { readonly admitted: true } | { readonly admitted: false; readonly message: string };
@@ -52,6 +61,13 @@ export interface IAcpTransportOptions {
    * cancels the prompt or the connection closes; pass it on so what the command starts stops with it.
    */
   readonly executeCommand?: (text: string, signal: AbortSignal) => Promise<string>;
+  /**
+   * Receives the editor's file system once the session is bound, when the editor offers reads or
+   * writes, and `undefined` when the transport stops. The host decides which of its tools use it;
+   * they must apply their own path and permission checks first, because the editor checks nothing
+   * for the agent. Never called for an editor that offers no file system.
+   */
+  readonly onEditorFileAccess?: (access: IAcpEditorFileAccess | undefined) => void;
   /** Attribution recorded on turns and prompt answers submitted through this transport. Default `'owner'`. */
   readonly driverId?: TDriverId;
   /** Usage surface recorded on turns. Default `'unknown'` (no editor value exists). */

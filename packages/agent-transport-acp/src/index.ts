@@ -1,5 +1,6 @@
 export { createAcpTransport } from './acp-transport.js';
 export type {
+  IAcpEditorFileAccess,
   IAcpTransport,
   IAcpTransportOptions,
   IAcpTransportSession,

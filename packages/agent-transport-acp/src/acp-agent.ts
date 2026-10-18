@@ -6,13 +6,19 @@ import { isAbsolute, resolve } from 'node:path';
 import { agent, PROTOCOL_VERSION, RequestError } from '@agentclientprotocol/sdk';
 import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
 
+import { editorFileAccess } from './acp-editor-files.js';
 import { promptText } from './acp-prompt-text.js';
 import { runCommandTurn, runModelTurn } from './acp-turn.js';
 import { createUpdateStream } from './acp-updates.js';
 
 import type { IAcpTurnContext } from './acp-turn.js';
 import type { IAcpTransportOptions, IAcpTransportSession } from './acp-types.js';
-import type { AgentApp, PromptResponse } from '@agentclientprotocol/sdk';
+import type {
+  AgentApp,
+  AgentContext,
+  ClientCapabilities,
+  PromptResponse,
+} from '@agentclientprotocol/sdk';
 
 /**
  * JSON-RPC server-error code for a workspace the host has not admitted. Not -32000: ACP assigns
@@ -29,6 +35,8 @@ export interface IAcpAgent {
   readonly app: AgentApp;
   /** Cancel the running prompt, if there is one. */
   cancelActive(): void;
+  /** Tell the host the editor's file system is gone, if it was handed one. */
+  withdrawEditorFiles(): void;
 }
 
 function sameDirectory(requested: string, served: string): boolean {
@@ -52,18 +60,31 @@ export function createAcpAgent(
   let binding = false;
   let active: { cancel(): void } | undefined;
   let toolCalls = 0;
+  /** The file system the editor offered in `initialize`. */
+  let editorFs: ClientCapabilities['fs'];
+  let editorFilesOffered = false;
+  /** Hand the host the editor's file system for the bound session, if the editor offered one. */
+  const offerEditorFiles = (client: AgentContext): void => {
+    const access = editorFileAccess(editorFs, client, () => boundSessionId);
+    if (access === undefined) return;
+    editorFilesOffered = true;
+    options.onEditorFileAccess?.(access);
+  };
 
   const app = agent({ name: options.agentInfo.name })
-    .onRequest('initialize', () => ({
-      // Always the version this agent speaks: the client disconnects if it cannot use it.
-      protocolVersion: PROTOCOL_VERSION,
-      agentCapabilities: {
-        loadSession: false,
-        promptCapabilities: { image: false, audio: false, embeddedContext: true },
-      },
-      agentInfo: { name: options.agentInfo.name, version: options.agentInfo.version },
-    }))
-    .onRequest('session/new', async ({ params }) => {
+    .onRequest('initialize', ({ params }) => {
+      editorFs = params.clientCapabilities?.fs;
+      return {
+        // Always the version this agent speaks: the client disconnects if it cannot use it.
+        protocolVersion: PROTOCOL_VERSION,
+        agentCapabilities: {
+          loadSession: false,
+          promptCapabilities: { image: false, audio: false, embeddedContext: true },
+        },
+        agentInfo: { name: options.agentInfo.name, version: options.agentInfo.version },
+      };
+    })
+    .onRequest('session/new', async ({ params, client }) => {
       if (boundSessionId !== undefined || binding) {
         throw RequestError.invalidParams(undefined, 'one session per connection');
       }
@@ -101,6 +122,7 @@ export function createAcpAgent(
       } finally {
         binding = false;
       }
+      offerEditorFiles(client);
       return { sessionId: boundSessionId };
     })
     .onRequest('session/prompt', async ({ params, signal, client }): Promise<PromptResponse> => {
@@ -148,5 +170,13 @@ export function createAcpAgent(
       if (params.sessionId === boundSessionId) active?.cancel();
     });
 
-  return { app, cancelActive: () => active?.cancel() };
+  return {
+    app,
+    cancelActive: () => active?.cancel(),
+    withdrawEditorFiles: () => {
+      if (!editorFilesOffered) return;
+      editorFilesOffered = false;
+      options.onEditorFileAccess?.(undefined);
+    },
+  };
 }
