@@ -156,6 +156,12 @@ export interface ISessionCommands {
     originDriverId?: TDriverId,
     /** #3282 §4 part b-2: whether this invocation is provably on this machine. Absent → `'local'`. */
     locality?: TCommandSurfaceLocality,
+    /**
+     * `signal` cancels what a skill command starts — the turn it submits or the fork it runs — and
+     * the work it does before that; a command cancelled this way rejects with the signal's reason.
+     * A command that starts neither ignores it.
+     */
+    options?: { readonly signal?: AbortSignal },
   ): Promise<ICommandResult | null>;
   listCommands(): ICommandListEntry[];
   /** The skills a client can offer beside the commands (`/<skill>` activates one). */

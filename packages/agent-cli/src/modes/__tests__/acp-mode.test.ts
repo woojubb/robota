@@ -92,10 +92,11 @@ describe('ACP mode', () => {
       t: string,
       s: AbortSignal,
     ) => Promise<string>;
-    await expect(executeCommand('/help', new AbortController().signal)).resolves.toBe(
-      'Commands: /help',
-    );
-    expect(mock.executeCommand).toHaveBeenCalledWith('help', '', 'remote', 'owner', 'local');
+    const signal = new AbortController().signal;
+    await expect(executeCommand('/help', signal)).resolves.toBe('Commands: /help');
+    expect(mock.executeCommand).toHaveBeenCalledWith('help', '', 'remote', 'owner', 'local', {
+      signal,
+    });
   });
 
   it('reports errors the editor does not receive on stderr, never stdout', async () => {

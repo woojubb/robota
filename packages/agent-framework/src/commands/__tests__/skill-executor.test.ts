@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import {
   executeSkill,
@@ -311,4 +311,17 @@ describe('Skill execution features', () => {
       );
     });
   });
+});
+
+it("hands a fork skill's run the caller's signal, so cancelling the caller stops the fork", async () => {
+  const signal = new AbortController().signal;
+  const runInFork = vi.fn(async () => 'forked');
+  const skill = {
+    name: 'fork-demo',
+    description: 'Run in a fork',
+    context: 'fork',
+    skillContent: 'Do the forked work',
+  } as ICommand;
+  await executeSkill(skill, '', { signal, runInFork });
+  expect(runInFork).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ signal }));
 });

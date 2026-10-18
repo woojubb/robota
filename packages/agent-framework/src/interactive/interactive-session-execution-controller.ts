@@ -775,10 +775,14 @@ export class SessionExecutionController {
     qualifiedName: string | undefined,
     invocation: ISkillActivationEvent['invocation'],
     resumeQueuedTurn: TResumeQueuedTurnFn,
+    /** The command's own cancellation, so cancelling it stops the fork it runs. */
+    signal?: AbortSignal,
   ): Promise<ISkillExecutionResult> {
     if (this.executing) {
       throw new Error('Cannot execute fork skill while another prompt is running.');
     }
+    // A command cancelled before its fork starts leaves no trace in the conversation.
+    signal?.throwIfAborted();
     const executionClaim = this.executionClaim.acquire('fork-skill');
 
     try {
@@ -794,10 +798,13 @@ export class SessionExecutionController {
         args,
         invocation,
         qualifiedName,
+        signal,
       );
       await this.applyForkSkillResult(result.result ?? '(empty response)');
       return result;
     } catch (err) {
+      // The caller cancelled: that is the command's outcome, not a failure to report as an error.
+      if (signal?.aborted === true) throw signal.reason;
       // allow-fallback: fork-skill errors must not crash the main execution thread
       const error = err instanceof Error ? err : new Error(String(err));
       this.histTracker.append(
