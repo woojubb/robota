@@ -3,8 +3,9 @@
 # publish-packages.sh — publish every public package in the selected scope at the release version.
 #
 # Usage:
-#   pnpm publish:beta                     # build, check, publish (prompts for OTP)
-#   pnpm publish:beta --otp=123456        # non-interactive
+#   pnpm publish:beta                     # build, check, publish; asks for the npm one-time password right
+#                                         # before publishing and again when npm rejects an expired code
+#   pnpm publish:beta --otp=123456        # non-interactive: the code is used once, nothing is asked
 #   pnpm publish:beta --skip-build        # dist is already current (e.g. from CI)
 #   pnpm publish:beta --dry-run           # build, check, pack and verify; publish nothing
 #   publish-packages.sh --trusted         # from .github/workflows/publish.yml: npm trusted publishing
@@ -204,15 +205,46 @@ if [ "$PRE_STATE_PRESENT" = "true" ]; then
   mv "$PRE_STATE" "$PRE_STATE_LOCK/pre.json"
 fi
 
-PUBLISH_ARGS=(publish --no-git-tag --tag latest)
-if [ -n "$OTP" ]; then
-  PUBLISH_ARGS+=(--otp="$OTP")
+# npm requires a one-time password for every publish. `changeset publish` can only notice that from npm's
+# `--json` error object, which pnpm's failure output does not carry, so an interactive publish asks for the
+# code here, right before the publishes run, and asks again when npm rejects an expired one; versions that
+# already reached the registry are skipped on the retry. An explicit --otp is used once and never asked for.
+PROMPT_OTP="false"
+if [ "$TRUSTED" != "true" ] && [ -z "$OTP" ] && [ -t 0 ]; then
+  PROMPT_OTP="true"
 fi
-pnpm changeset "${PUBLISH_ARGS[@]}" <&0 &
-PUBLISH_PID=$!
+OTP_ATTEMPTS=4
+PUBLISH_OUTPUT=$(mktemp "${TMPDIR:-/tmp}/package-publish.XXXXXX")
+PUBLISH_ATTEMPT=1
 PUBLISH_STATUS=0
-wait "$PUBLISH_PID" || PUBLISH_STATUS=$?
-PUBLISH_PID=""
+while :; do
+  if [ "$PROMPT_OTP" = "true" ]; then
+    OTP=""
+    while [ -z "$OTP" ]; do
+      IFS= read -r -s -p "🔑 npm one-time password (attempt $PUBLISH_ATTEMPT of $OTP_ATTEMPTS): " OTP
+      printf '\n' >&2
+    done
+  fi
+  PUBLISH_ARGS=(publish --no-git-tag --tag latest)
+  if [ -n "$OTP" ]; then
+    PUBLISH_ARGS+=(--otp="$OTP")
+  fi
+  # The background pipeline keeps pnpm a direct child of this script for the signal traps; `wait` on it
+  # returns the pipeline's status under pipefail.
+  : > "$PUBLISH_OUTPUT"
+  pnpm changeset "${PUBLISH_ARGS[@]}" <&0 2>&1 | tee "$PUBLISH_OUTPUT" &
+  PUBLISH_PID=$!
+  PUBLISH_STATUS=0
+  wait "$PUBLISH_PID" || PUBLISH_STATUS=$?
+  PUBLISH_PID=""
+  if [ "$PUBLISH_STATUS" -eq 0 ] || [ "$PROMPT_OTP" != "true" ] || [ "$PUBLISH_ATTEMPT" -ge "$OTP_ATTEMPTS" ] \
+    || ! grep -q EOTP "$PUBLISH_OUTPUT"; then
+    break
+  fi
+  echo "⚠️  npm rejected the one-time password (expired or mistyped); published versions stay, the rest retry with a fresh code."
+  PUBLISH_ATTEMPT=$((PUBLISH_ATTEMPT + 1))
+done
+rm -f "$PUBLISH_OUTPUT"
 if [ "$PUBLISH_STATUS" -ne 0 ]; then
   exit "$PUBLISH_STATUS"
 fi
