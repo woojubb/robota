@@ -1,0 +1,170 @@
+<!doctype html>
+<!--
+  The MCP app view the scripted sidecar serves for the "show app view" turn (#3558). Handwritten JSON-RPC
+  2.0 over postMessage: no SDK, so the host is exercised by nothing but the protocol. It writes what it
+  received and what it was refused into plain elements the e2e reads back, and probes the limits of its
+  sandbox: the top window, the network, a nested frame, and a link out of the app. The sidecar replaces
+  the CANARY placeholder with the address of a server that records every request it gets.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        margin: 0;
+        padding: 8px;
+        font: 13px system-ui, sans-serif;
+      }
+      button {
+        font: inherit;
+      }
+      pre {
+        margin: 4px 0;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h2 id="title">E2E app view</h2>
+    <button id="call" type="button">Call echo</button>
+    <pre id="probe-top"></pre>
+    <pre id="probe-parent"></pre>
+    <pre id="probe-fetch"></pre>
+    <pre id="probe-image"></pre>
+    <pre id="probe-frame"></pre>
+    <pre id="probe-open-link"></pre>
+    <pre id="violations"></pre>
+    <pre id="input"></pre>
+    <pre id="result"></pre>
+    <pre id="call-result"></pre>
+    <script>
+      (function () {
+        var CANARY = __CANARY_URL__;
+        var nextId = 1;
+        var pending = {};
+        function say(id, text) {
+          document.getElementById(id).textContent = text;
+        }
+        function notify(method, params) {
+          window.parent.postMessage({ jsonrpc: '2.0', method: method, params: params }, '*');
+        }
+        function request(method, params) {
+          var id = nextId++;
+          return new Promise(function (resolve, reject) {
+            pending[id] = { resolve: resolve, reject: reject };
+            window.parent.postMessage(
+              { jsonrpc: '2.0', id: id, method: method, params: params },
+              '*',
+            );
+          });
+        }
+        window.addEventListener('message', function (event) {
+          if (event.source !== window.parent) return;
+          var data = event.data;
+          if (!data || data.jsonrpc !== '2.0') return;
+          if (data.id !== undefined && data.method === undefined && pending[data.id]) {
+            var settle = pending[data.id];
+            delete pending[data.id];
+            if (data.error) settle.reject(data.error);
+            else settle.resolve(data.result);
+            return;
+          }
+          if (data.method === 'ui/notifications/tool-input') {
+            say('input', 'input: ' + JSON.stringify(data.params));
+          }
+          if (data.method === 'ui/notifications/tool-result') {
+            say('result', 'result: ' + JSON.stringify(data.params));
+            document.body.setAttribute('data-ready', 'true');
+          }
+          if (data.method === 'ui/resource-teardown' && data.id !== undefined) {
+            window.parent.postMessage({ jsonrpc: '2.0', id: data.id, result: {} }, '*');
+          }
+        });
+
+        var violations = [];
+        document.addEventListener('securitypolicyviolation', function (event) {
+          violations.push(event.violatedDirective);
+          say('violations', 'violations: ' + violations.join(','));
+        });
+
+        try {
+          void window.top.document;
+          say('probe-top', 'top: readable');
+        } catch (error) {
+          say('probe-top', 'top: blocked');
+        }
+        try {
+          void window.parent.document;
+          say('probe-parent', 'parent: readable');
+        } catch (error) {
+          say('probe-parent', 'parent: blocked');
+        }
+
+        if (CANARY) {
+          fetch(CANARY + '/fetch', { mode: 'no-cors' }).then(
+            function () {
+              say('probe-fetch', 'fetch: allowed');
+            },
+            function () {
+              say('probe-fetch', 'fetch: blocked');
+            },
+          );
+          var image = new Image();
+          image.onload = function () {
+            say('probe-image', 'image: allowed');
+          };
+          image.onerror = function () {
+            say('probe-image', 'image: blocked');
+          };
+          image.src = CANARY + '/image.png';
+          var nested = document.createElement('iframe');
+          nested.src = CANARY + '/frame';
+          document.body.appendChild(nested);
+          say('probe-frame', 'frame: requested');
+        }
+
+        request('ui/open-link', { url: 'https://example.invalid/out' }).then(
+          function () {
+            say('probe-open-link', 'open-link: allowed');
+          },
+          function (error) {
+            say('probe-open-link', 'open-link: refused ' + error.code);
+          },
+        );
+
+        document.getElementById('call').addEventListener('click', function () {
+          say('call-result', 'call: running');
+          request('tools/call', { name: 'echo', arguments: { text: 'hi' } }).then(
+            function (result) {
+              var text = (result.content || [])
+                .map(function (block) {
+                  return block.text;
+                })
+                .join('|');
+              say('call-result', 'call: ' + (result.isError ? 'error ' : 'ok ') + text);
+            },
+            function (error) {
+              say('call-result', 'call: failed ' + error.code + ' ' + error.message);
+            },
+          );
+        });
+
+        request('ui/initialize', {
+          protocolVersion: '2026-01-26',
+          appInfo: { name: 'e2e-view', version: '1.0.0' },
+          appCapabilities: {},
+        }).then(function () {
+          notify('ui/notifications/initialized', {});
+          // Report the size now and whenever the content changes, as an app built with the SDK does.
+          new ResizeObserver(function () {
+            var box = document.body.getBoundingClientRect();
+            notify('ui/notifications/size-changed', {
+              width: Math.ceil(box.width),
+              height: Math.ceil(box.height),
+            });
+          }).observe(document.body);
+        });
+      })();
+    </script>
+  </body>
+</html>

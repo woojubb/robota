@@ -21,7 +21,8 @@ import { defaultClientConditions, defineConfig } from 'vite';
  *
  * The built page carries a strict CSP: it may reach only a loopback WebSocket (its sidecar). The dev
  * server goes without it, because Vite injects an inline HMR preamble the policy would block. The
- * desktop app additionally pins the exact port through a response header.
+ * desktop app additionally pins the exact port through a response header. The policy is injected into
+ * the HTML entries Vite builds only: `public/app-sandbox.html` is copied verbatim and keeps its own.
  */
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
@@ -29,6 +30,9 @@ const CONTENT_SECURITY_POLICY = [
   "img-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
   "script-src 'self'",
+  // The one frame this page opens is its own `app-sandbox.html`, which holds an MCP app's document
+  // under a policy of its own (see `public/app-sandbox.html`).
+  "frame-src 'self'",
 ].join('; ');
 
 function selectedPublicProductConfig() {

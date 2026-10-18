@@ -23,6 +23,7 @@ import {
 import { createWsSessionClient } from '../client/ws-session-client.js';
 import { SERVER_MESSAGE_HANDLING } from './server-message-handling.js';
 import { useAgentSwitcherState } from './use-agent-switcher-state.js';
+import { useAppViewRequests } from './use-app-view-requests.js';
 import { useExecutionDetailState } from './use-execution-detail.js';
 import { useModelListState } from './use-model-list.js';
 import { usePersonalUsageState } from './use-personal-usage.js';
@@ -153,7 +154,7 @@ function toolEndFields(
   state: IToolState,
 ): Pick<
   IActiveTool,
-  'status' | 'result' | 'diffLines' | 'diffFile' | 'toolResultData' | 'toolResultParts'
+  'status' | 'result' | 'diffLines' | 'diffFile' | 'toolResultData' | 'toolResultParts' | 'appView'
 > {
   return {
     // A tool that finished with an error result renders failed (ToolCard/ToolGroup key off
@@ -168,6 +169,7 @@ function toolEndFields(
     ...(state.diffFile ? { diffFile: state.diffFile } : {}),
     ...(state.toolResultData !== undefined ? { toolResultData: state.toolResultData } : {}),
     ...(state.toolResultParts ? { toolResultParts: state.toolResultParts } : {}),
+    ...(state.appView ? { appView: state.appView } : {}),
   };
 }
 
@@ -268,6 +270,8 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   makeClient: TMakeSessionClient<TStatus>,
 ): IWsSessionState<TStatus> {
   const [status, setStatus] = useState<TStatus>('disconnected' as TStatus);
+  // The app-view requests read this to refuse at once when no connection exists to answer them.
+  const statusRef = useRef<TStatus>('disconnected' as TStatus);
   const [messages, setMessages] = useState<TConversationEntry[]>([]);
   const [activeTools, setActiveTools] = useState<IActiveTool[]>([]);
   const [streamingText, setStreamingText] = useState('');
@@ -433,6 +437,9 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     useExecutionDetailState(send);
   const { handleModelListMessage, ...modelListState } = useModelListState(send);
   const { handleProjectMessage, ...projectPanelState } = useProjectPanelState(send);
+  const isConnected = useCallback((): boolean => statusRef.current === 'connected', []);
+  const { handleAppViewMessage, rejectPendingAppRequests, readAppView, callAppTool } =
+    useAppViewRequests(send, isConnected);
   const {
     handleSessionsMessage,
     canListSessions,
@@ -466,6 +473,8 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       if (handleExecutionDetailMessage(msg)) return;
       if (handleModelListMessage(msg)) return;
       if (handleProjectMessage(msg)) return;
+      // A reply to a request an app view's host made (the view's document, or a tool it called).
+      if (handleAppViewMessage(msg)) return;
       if (handleSessionsMessage(msg)) return;
       if (handleSettingsMessage(msg)) return;
       if (handleAgentDefinitionsMessage(msg)) return;
@@ -868,6 +877,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       closeExecutionDetail,
       finishTurn,
       handleAgentDefinitionsMessage,
+      handleAppViewMessage,
       handleExecutionDetailMessage,
       handleModelListMessage,
       handleProjectMessage,
@@ -905,7 +915,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
 
   useEffect(() => {
     const onStatusChange = (next: TStatus): void => {
+      statusRef.current = next;
       setStatus(next);
+      // A reply lost with the connection never arrives; the views waiting on one learn that now.
+      if (next !== 'connected') rejectPendingAppRequests();
       // Every client learns what it can offer and what is in effect as soon as it is attached.
       if (next === 'connected') {
         // A reply lost with the old connection never arrives; stop waiting for it.
@@ -933,8 +946,16 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     return () => {
       client.disconnect();
       clientRef.current = null;
+      rejectPendingAppRequests();
     };
-  }, [makeClient, handleMessage, requestSessions, requestSchedules, armRestore]);
+  }, [
+    makeClient,
+    handleMessage,
+    requestSessions,
+    requestSchedules,
+    armRestore,
+    rejectPendingAppRequests,
+  ]);
 
   return {
     status,
@@ -966,6 +987,8 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     openAgentSwitcher,
     ...agentSwitcherState,
     ...schedulesState,
+    readAppView,
+    callAppTool,
     helpOpen,
     openHelp,
     closeHelp,

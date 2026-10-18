@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!--
+      The policy of every app this page holds. The app runs in a frame this page creates from `srcdoc`,
+      and such a document inherits its parent's policy, so this one tag decides what an app can do:
+      run its own inline script and style, show data: images, media and fonts, and nothing else. No
+      network, no nested frames, no plugins, no forms, no base URL. It is written in this file, not
+      taken from the host or from anything an app declares, and nothing below loosens it.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; media-src data:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="color-scheme" content="light dark" />
+    <title>App sandbox</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: transparent;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        font: 13px/1.4 system-ui, sans-serif;
+      }
+      p {
+        margin: 8px;
+      }
+      iframe {
+        flex: 1 1 auto;
+        width: 100%;
+        border: 0;
+        background: transparent;
+        color-scheme: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      (function () {
+        'use strict';
+
+        var PROXY_READY = 'ui/notifications/sandbox-proxy-ready';
+        var RESOURCE_READY = 'ui/notifications/sandbox-resource-ready';
+        // Messages with this prefix are between the host and this page; they are never relayed.
+        var SANDBOX_PREFIX = 'ui/notifications/sandbox-';
+
+        function refuse(text) {
+          var line = document.createElement('p');
+          line.textContent = text;
+          document.body.appendChild(line);
+        }
+
+        // Whether a window's document can be read from here: true only when it shares this page's
+        // origin, which a correctly sandboxed frame never does.
+        function readable(other) {
+          try {
+            return Boolean(other.document);
+          } catch (error) {
+            return false;
+          }
+        }
+
+        // This page holds untrusted documents. It runs only framed by a host that gave the frame the
+        // `sandbox` attribute (an opaque origin), so the host's own document is out of reach.
+        if (window.self === window.top) {
+          refuse('This page only runs inside an app frame.');
+          return;
+        }
+        if (readable(window.top) || readable(window.parent)) {
+          refuse('This page must run in a sandboxed frame.');
+          return;
+        }
+
+        var host = window.parent;
+        var inner = null;
+
+        function methodOf(data) {
+          return data !== null && typeof data === 'object' && typeof data.method === 'string'
+            ? data.method
+            : '';
+        }
+
+        // One inner frame, once. It is sandboxed for scripts only: no same origin, no popups, no
+        // forms, no top navigation, and no `allow` attribute. Nothing the host says changes that.
+        function showDocument(html) {
+          if (inner !== null || typeof html !== 'string') return;
+          inner = document.createElement('iframe');
+          inner.setAttribute('sandbox', 'allow-scripts');
+          inner.setAttribute('title', 'App');
+          inner.srcdoc = html;
+          document.body.appendChild(inner);
+        }
+
+        // Who sent a message is decided by `event.source`, which no other window can forge. Both
+        // peers have an opaque origin, so there is no origin to compare and the target is '*'.
+        window.addEventListener('message', function (event) {
+          var data = event.data;
+          var method = methodOf(data);
+          if (event.source === host) {
+            if (method === RESOURCE_READY) {
+              showDocument(data.params && data.params.html);
+              return;
+            }
+            if (method.indexOf(SANDBOX_PREFIX) === 0) return;
+            if (inner !== null && inner.contentWindow) inner.contentWindow.postMessage(data, '*');
+            return;
+          }
+          if (inner !== null && event.source !== null && event.source === inner.contentWindow) {
+            if (method.indexOf(SANDBOX_PREFIX) === 0) return;
+            host.postMessage(data, '*');
+          }
+        });
+
+        host.postMessage({ jsonrpc: '2.0', method: PROXY_READY, params: {} }, '*');
+      })();
+    </script>
+  </body>
+</html>

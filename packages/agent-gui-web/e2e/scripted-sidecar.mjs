@@ -23,6 +23,12 @@
  * plays `trust status --json` (askable until the file says `trusted`) and `trust --yes` (writes it), and a
  * `daemon start --json --restricted-workspace` records that choice in the daemon state.
  *
+ * A prompt containing "show app view" (#3558) finishes a turn whose tool call carries an MCP app view
+ * reference: the session answers `readToolAppView` with a small handwritten view (raw JSON-RPC over
+ * `postMessage`, no SDK) and `invokeRuntimeTool` with a permission request it waits on, exactly as the
+ * real session gates a tool the view calls. `PRODUCT_E2E_CANARY_URL` names a server the view tries to
+ * reach in the ways its sandbox must forbid, so the e2e can prove none of them arrived.
+ *
  * With `PRODUCT_E2E_SETUP_REQUIRED=1` (issue #3282 §3) the session starts as a served runtime with no
  * provider configured would: `getStatusSnapshot()` reports `setupRequired: true` and `submit()` refuses,
  * until `/provider add` (the GUI setup panel's one button) runs, asks one question the same way the
@@ -295,6 +301,26 @@ const SCRIPTED_MODELS = [
   { id: 'scripted-model-2', label: 'Scripted Model 2' },
 ];
 
+/**
+ * #3558: the call whose result has an app view, the tool that view may call, and the view itself
+ * (`app-view-fixture.html`, handwritten JSON-RPC with no SDK). `PRODUCT_E2E_CANARY_URL` is the server
+ * the view tries to reach in the ways its sandbox must forbid.
+ */
+const APP_VIEW_EXECUTION_ID = 'exec-app-view-1';
+const APP_VIEW_SOURCE_ID = 'e2e-apps';
+const APP_VIEW_RESOURCE_URI = 'ui://e2e-apps/echo';
+const APP_VIEW_RUNTIME_TOOL = 'mcp__e2e_apps__echo';
+
+function appViewHtml() {
+  const template = readFileSync(
+    join(fileURLToPath(new URL('.', import.meta.url)), 'app-view-fixture.html'),
+    'utf8',
+  );
+  return template.replace('__CANARY_URL__', () =>
+    JSON.stringify(process.env.PRODUCT_E2E_CANARY_URL ?? ''),
+  );
+}
+
 /** A scripted IInteractiveSession: EventEmitter for on/off/emit, deterministic submit + permission. */
 // #3282 §4 part b-3: the agent switcher's roster — name, one-line description, plain-words location.
 const scriptedAgentDefinitions = [
@@ -304,6 +330,9 @@ const scriptedAgentDefinitions = [
 
 class ScriptedSession extends EventEmitter {
   #pendingPermission = null;
+  // #3558: the permission request a tool run for an app view is waiting on.
+  #pendingAppPermission = null;
+  #appPermissionCount = 0;
   #pendingAsk = null;
   #mode = 'default';
   // #3282 §2 (part 2): the model the status row's model control switches between.
@@ -407,6 +436,52 @@ class ScriptedSession extends EventEmitter {
   getContextState() {
     return { usedPercentage: 0, usedTokens: 0, maxTokens: 200000 };
   }
+  /** #3558: the view the "show app view" turn left, read on demand by the call's execution id. */
+  readToolAppView(executionId) {
+    if (executionId !== APP_VIEW_EXECUTION_ID) return undefined;
+    return {
+      sourceId: APP_VIEW_SOURCE_ID,
+      resourceUri: APP_VIEW_RESOURCE_URI,
+      mimeType: 'text/html;profile=mcp-app',
+      html: appViewHtml(),
+      structuredContent: { rows: 3 },
+      callableTools: { echo: APP_VIEW_RUNTIME_TOOL },
+      toolInput: { path: 'src' },
+    };
+  }
+  listRuntimeTools() {
+    return Promise.resolve([]);
+  }
+  /**
+   * #3558: a tool run for an app view goes through the same permission gate a model call does: the
+   * request is put to the surfaces that can answer, and the call waits for the answer.
+   */
+  async invokeRuntimeTool(name, parameters, options = {}) {
+    if (name !== APP_VIEW_RUNTIME_TOOL) {
+      return { success: false, toolName: name, error: `Unknown tool: ${name}` };
+    }
+    if (options.permissionInteraction !== 'interactive') {
+      return { success: false, toolName: name, error: 'Permission could not be asked.' };
+    }
+    this.#appPermissionCount += 1;
+    const id = `perm-app-${this.#appPermissionCount}`;
+    const allowed = await new Promise((resolve) => {
+      this.#pendingAppPermission = { id, resolve };
+      this.emit('permission_request', {
+        id,
+        toolName: name,
+        toolArgs: parameters,
+        ...(options.driverId ? { requesterDriverId: options.driverId } : {}),
+      });
+    });
+    if (!allowed) return { success: false, toolName: name, error: `Permission denied for ${name}` };
+    return {
+      success: true,
+      toolName: name,
+      result: { echoed: parameters.text },
+      parts: [{ type: 'text', text: `echo: ${parameters.text}` }],
+    };
+  }
   // #3280 §2: the QUEUED-MESSAGE the host has taken but not yet run (a submit behind a running turn)
   // — unrelated to a pending PERMISSION prompt (`#pendingPermission`, above). This fixture never queues
   // a second submit behind a running one, so there is never a next prompt to report.
@@ -447,6 +522,41 @@ class ScriptedSession extends EventEmitter {
       await tick();
       this.emit('thinking', false);
       this.#complete('Started background work.');
+      return;
+    }
+    if (lower.includes('show app view')) {
+      // #3558: a plain call, then a call whose result has an app view — the finished turn's group
+      // holds both, and only the second carries a frame. The live `tool_end` alone names the view.
+      await tick();
+      this.emit('tool_start', { toolName: 'Read', firstArg: 'src/a.ts', isRunning: true });
+      await tick();
+      const readEnd = { toolName: 'Read', firstArg: 'src/a.ts', isRunning: false };
+      this.emit('tool_end', readEnd);
+      this.#recordToolEnd(readEnd);
+      this.emit('tool_start', {
+        toolName: APP_VIEW_RUNTIME_TOOL,
+        firstArg: 'browse',
+        isRunning: true,
+        executionId: APP_VIEW_EXECUTION_ID,
+      });
+      await tick();
+      const appEnd = {
+        toolName: APP_VIEW_RUNTIME_TOOL,
+        firstArg: 'browse',
+        isRunning: false,
+        result: 'success',
+        executionId: APP_VIEW_EXECUTION_ID,
+        toolResultData: 'Opened the e2e app.',
+      };
+      this.emit('tool_end', {
+        ...appEnd,
+        appView: { sourceId: APP_VIEW_SOURCE_ID, resourceUri: APP_VIEW_RESOURCE_URI },
+      });
+      // A replay never carries the reference: the record keeps the text result alone.
+      this.#recordToolEnd(appEnd);
+      this.emit('text_delta', 'Opened the app view.');
+      await tick();
+      this.#complete('Opened the app view.');
       return;
     }
     if (lower.includes('stay busy')) {
@@ -644,6 +754,13 @@ class ScriptedSession extends EventEmitter {
   }
 
   resolvePermission(id, result) {
+    if (this.#pendingAppPermission?.id === id) {
+      const { resolve } = this.#pendingAppPermission;
+      this.#pendingAppPermission = null;
+      this.emit('prompt_resolved', { id });
+      resolve(Boolean(result));
+      return;
+    }
     if (id !== this.#pendingPermission) return;
     this.#pendingPermission = null;
     this.emit('prompt_resolved', { id });
